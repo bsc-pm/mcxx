@@ -98,7 +98,8 @@ namespace TL
             {
                 handle_dependences(directive, 
                         input_dependences, output_dependences, 
-                        task_construct);
+                        task_construct, 
+                        captureaddress_references);
             }
         }
 
@@ -168,6 +169,7 @@ namespace TL
             {
                 if (captureprivate_references.contains(it->symbol))
                 {
+                    std::cerr << "--> " << it->symbol.get_name() << " !!!" << std::endl;
                     it->kind = ParameterInfo::BY_VALUE;
                 }
             }
@@ -219,11 +221,14 @@ namespace TL
             // For each capture address entity just pass a reference to it
             int num_reference_args = 0;
 
+            bool this_has_been_passed = false;
+
             // This might be needed for nonstatic member functions
             if (is_nonstatic_member_function(function_definition))
             {
                 task_argument_list.append_with_separator("this", ",");
                 num_reference_args++;
+                this_has_been_passed = true;
             }
 
 
@@ -244,23 +249,6 @@ namespace TL
                     continue;
 
                 std::string argument_name = it->argument_name;
-
-                if (input_dependences_symbols.contains(it->symbol))
-                {
-                    // '&x' will be changed into 'nth_x' (which is already a
-                    // pointer so no & actually is required)
-                    argument_name = "nth_" + it->symbol.get_name();
-                }
-                else if (output_dependences_symbols.contains(it->symbol))
-                {
-                    // '&x' will be changed into 'nth_x_outdep + 1' (which is
-                    // already a pointer so no & actually is required) +1 is
-                    // required because of the layout used by the runtime,
-                    // where the storage is located immediately after the
-                    // structure representing the dependency itself
-                    argument_name = "nth_" + it->symbol.get_name() + "_outdep + 1";
-                }
-
                 task_argument_list.append_with_separator(argument_name, ",");
                 num_reference_args++;
             }
@@ -290,21 +278,6 @@ namespace TL
                     ;
 
                 std::string argument_name = it->argument_name;
-                if (input_dependences_symbols.contains(it->symbol))
-                {
-                    // '&x' will be changed into 'nth_x' (which is already a
-                    // pointer so no & actually is required)
-                    argument_name = "nth_" + it->symbol.get_name();
-                }
-                else if (output_dependences_symbols.contains(it->symbol))
-                {
-                    // '&x' will be changed into 'nth_x_outdep + 1' (which is
-                    // already a pointer so no & actually is required) +1 is
-                    // required because of the layout used by the runtime,
-                    // where the storage is located immediately after the
-                    // structure representing the dependency itself
-                    argument_name = "nth_" + it->symbol.get_name() + "_outdep + 1";
-                }
 
                 // First an address with the size must be passed
                 task_argument_list.append_with_separator(vector_ref.get_source(), ",");
@@ -320,7 +293,8 @@ namespace TL
                     if (type.is_class())
                     {
                         copy_construction_part
-                            << "new (nth_arg_addr[" << (num_value_args + 1) << "])" 
+                            // FIXME - This is wrong counted
+                            << "new (nth_arg_addr[" << (num_value_args + num_reference_args + 1) << "])" 
                             << type.get_declaration(task_construct.get_scope(), "")
                             << "(" << sym.get_qualified_name(task_construct.get_scope()) << ");"
                             ;
@@ -344,7 +318,7 @@ namespace TL
                 task_arguments << ", " << task_argument_list;
             }
 
-            // 'switch' clause support
+            // 'untied' clause support
             Source task_type;
             if (directive.custom_clause("untied").is_defined())
             {
@@ -515,8 +489,17 @@ namespace TL
             // input dependences 
             // Task dependence information from task_preorder
 
-            Source inputs_prologue, inputs_epilogue, inputs_immediate_p, inputs_immediate_e;
+            Source dependences_common;
+            Source inputs_prologue, inputs_epilogue, inputs_immediate;
             Source outputs_prologue, outputs_epilogue, outputs_immediate;
+            
+            if (!input_dependences.empty()
+                    || !output_dependences.empty())
+            {
+                dependences_common
+                    << "nth_desc * nth_self_dep = nth_self();"
+                    ;
+            }
 
             if (!input_dependences.empty())
             {
@@ -528,46 +511,46 @@ namespace TL
                 {
                     Symbol &sym = *it;
                     Type pointer_type = sym.get_type().get_pointer_to();
-                    Source find_dep;
 
-                    find_dep
-                        << comment("Lookup a previous output dependency, so we can link input of '" + sym.get_name() + "'")
-                        << "nth_outdep_t *nth_" << sym.get_name() << "_outdepi = nth_find_output_dep((void *)&" << sym.get_name() << ");"
-                        << pointer_type.get_declaration(task_construct.get_scope(), "nth_" + sym.get_name()) << ";"
-                        ;
-                    inputs_prologue
-                        << find_dep
-                        << comment("Should this output dependency exist, we will use it, otherwise ignore it")
-                        << "if (nth_" << sym.get_name() << "_outdepi)"
-                        << "  nth_" << sym.get_name() 
-                        <<          " = (" << pointer_type.get_declaration(task_construct.get_scope(),"") << ")"
-                        <<                "(nth_" << sym.get_name() << "_outdepi + 1);"
-                        << "else "
-                        << "  nth_" << sym.get_name() << " = &" << sym.get_qualified_name(task_construct.get_scope()) << ";"
-                        ;
+                    // FIXME - This is a kludge !!!
+                    bool found = false;
+                    int referred_num_ref = 1;
+                    if (this_has_been_passed)
+                        referred_num_ref++;
+
+                    for (ObjectList<ParameterInfo>::iterator it2 = parameter_info_list.begin();
+                            it2 != parameter_info_list.end();
+                            it2++)
+                    {
+                        // Only those that are passed by pointer to a shared (non-local) value
+                        if (it2->kind != ParameterInfo::BY_POINTER)
+                            continue;
+
+                        if (it2->symbol != sym)
+                        {
+                            found = true;
+                            break;
+                        }
+                        referred_num_ref++;
+                    }
+
+                    if (!found)
+                    {
+                        internal_error("Not found proper symbol %s", sym.get_name().c_str());
+                    }
 
                     inputs_epilogue
                         << comment("Register input dependency of symbol '" + sym.get_name() + "'")
-                        << "if (nth_" << sym.get_name() << "_outdepi) "
-                        << "    nth_add_input_dep(nth->task_ctx,nth_" << sym.get_name() << "_outdepi,0);"
+                        << "nth_add_input_to_task(nth_self_dep->task_ctx, nth->task_ctx, "
+                        // NULL means let Nanos allocate it
+                        <<                    "(void*)0,"
+                        <<                    "&" << sym.get_name() << ", "
+                        // FIXME - size does not take into account arrays properly
+                        <<                    "sizeof(" << sym.get_name() << "),"
+                        // FIXME - adj is always 0, it does not take into account array-sections
+                        <<                    "0,"
+                        <<                    "nth_arg_addr[" << referred_num_ref << "]);"
                         ;
-
-                    /* combination of previous ones */
-                    // FIXME - I didn't know what this was at time of commit
-#if 0
-                    inputs_immediate
-                        << find_dep
-                        << "if (nth_" << sym.get_name() << "_outdep) "
-                        << "{"
-                        << "   nth_" << sym.get_name() 
-                        <<          " = (" << pointer_type.get_declaration(task_construct.get_scope(),"") << ")"
-                        <<                "(nth_" << sym.get_name() << "_outdep + 1);"
-                        << "   nth_add_input_dep(&nth_ctx,nth_" << sym.get_name() << "_outdep);"
-                        << "}" 
-                        << "else "
-                        << "  nth_" << sym.get_name() << " = &" << sym.get_qualified_name(task_construct.get_scope()) << ";"
-                        ;
-#endif
                 }
             }
 
@@ -582,13 +565,45 @@ namespace TL
                 {
                     Symbol &sym = *it;
 
-                    outputs_prologue << "nth_outdep_t *nth_" << sym.get_name() << "_outdep = "
-                        << "nth_create_output_dep((void *)&" << sym.get_name() << ",sizeof(" << sym.get_name() << "));";
+                    // FIXME - This is a kludge !!!
+                    bool found = false;
+                    int referred_num_ref = 1;
+                    if (this_has_been_passed)
+                        referred_num_ref++;
+
+                    for (ObjectList<ParameterInfo>::iterator it2 = parameter_info_list.begin();
+                            it2 != parameter_info_list.end();
+                            it2++)
+                    {
+                        // Only those that are passed by pointer to a shared (non-local) value
+                        if (it2->kind != ParameterInfo::BY_POINTER)
+                            continue;
+
+                        if (it2->symbol != sym)
+                        {
+                            found = true;
+                            break;
+                        }
+                        referred_num_ref++;
+                    }
+
+                    if (!found)
+                    {
+                        internal_error("Not found proper symbol %s", sym.get_name().c_str());
+                    }
+
                     outputs_epilogue 
                         << comment("Register output dependency of symbol '" + sym.get_name() + "'")
-                        << "nth_add_output_dep(nth->task_ctx,nth_" << sym.get_name() << "_outdep);" ;
-                    outputs_immediate
-                        << "nth_shadow_output_dep(&" << sym.get_name() << ");";
+                        << "nth_add_output_to_task(nth_self_dep->task_ctx, nth->task_ctx, "
+                        // NULL means let Nanos allocate it
+                        <<                    "(void*)0,"
+                        <<                    "&" << sym.get_name() << ", "
+                        // FIXME - size does not take into account arrays properly
+                        <<                    "sizeof(" << sym.get_name() << "),"
+                        // FIXME - adj is always 0, it does not take into account array-sections
+                        <<                    "0,"
+                        <<                    "nth_arg_addr[" << referred_num_ref << "]);"
+                        ;
                 }
             }
 
@@ -610,14 +625,16 @@ namespace TL
                 <<          "nth_desc_t* nth_succ = (nth_desc_t*)0;"
                 <<          "int nth_nargs_ref = " << num_reference_args << ";"
                 <<          "int nth_nargs_val = " << num_value_args << ";"
-                <<          "void* nth_arg_addr[" << num_value_args << " + 1];"
+                <<          "void* nth_arg_addr[" << (num_value_args + num_reference_args) << " + 1];"
                 <<          "void** nth_arg_addr_ptr = &nth_arg_addr[1];"
+                <<          dependences_common
                 <<          inputs_prologue
                 <<          outputs_prologue
                 <<          size_vector
-                <<          "nth = nth_create_task((void*)(" << outlined_function_reference << "), "
-                <<                 "&nth_type, &nth_ndeps, &nth_vp, &nth_succ, &nth_arg_addr_ptr, "
-                <<                 "&nth_nargs_ref, &nth_nargs_val" << task_arguments << ");"
+                <<          "nth = nth_create_task_ci((void*)(" << outlined_function_reference << "), "
+                <<                 "&nth_type, &nth_ndeps, &nth_vp, &nth_succ, NTH_CI_ALL,"
+                <<                 "&nth_arg_addr_ptr, &nth_nargs_ref, &nth_nargs_val"  
+                <<                 task_arguments << ");"
                 <<          outputs_epilogue
                 <<          inputs_epilogue
                 <<          copy_construction_part
@@ -630,7 +647,7 @@ namespace TL
                 <<      "{"
                 <<          comment("Run the task inline")
                 <<          fallback_capture_values
-                <<		    inputs_immediate_p
+                <<		    inputs_immediate
                 <<		    outputs_immediate
                 <<          increment_task_level
                 // FIXME - I didn't know what this was at time of commit
@@ -827,6 +844,11 @@ namespace TL
             OpenMP::Clause private_clause = directive.private_clause();
             ObjectList<IdExpression> local_references_in_clause = private_clause.id_expressions();
 
+            OpenMP::CustomClause input_clause = directive.custom_clause("input");
+            ObjectList<Expression> input_references_in_clause = input_clause.get_expression_list();
+            OpenMP::CustomClause output_clause = directive.custom_clause("output");
+            ObjectList<Expression> output_references_in_clause = output_clause.get_expression_list();
+
             // Default calculus
             OpenMP::DefaultClause default_clause = directive.default_clause();
             enum 
@@ -899,9 +921,13 @@ namespace TL
                     // 'captureaddress_references_in_clause',
                     // 'captureaddress_references' might contain less of
                     // them if they are globally accessible
+                    Expression expr(it->get_ast(), it->get_scope_link());
                     if (captureaddress_references_in_clause.contains(*it, functor(&IdExpression::get_symbol)) 
                             || captureprivate_references_in_clause.contains(*it, functor(&IdExpression::get_symbol))
-                            || local_references_in_clause.contains(*it, functor(&IdExpression::get_symbol)))
+                            || local_references_in_clause.contains(*it, functor(&IdExpression::get_symbol))
+                            || input_references_in_clause.contains(expr, functor(dependence_expr_to_sym))
+                            || output_references_in_clause.contains(expr, functor(dependence_expr_to_sym))
+                            )
                         continue;
 
                     Symbol global_sym = function_scope.get_symbol_from_id_expr(it->get_ast());
@@ -1074,7 +1100,8 @@ namespace TL
         void OpenMPTransform::handle_dependences(OpenMP::Directive directive,
                 ObjectList<Expression> &input_dependences,
                 ObjectList<Expression> &output_dependences,
-                OpenMP::Construct &task_construct)
+                OpenMP::Construct &task_construct,
+                ObjectList<Symbol>& captureaddress_references)
         {
             // input(x) clause support
             // input variables must be shared or firstprivate
@@ -1123,18 +1150,8 @@ namespace TL
                         continue;
                     }
 
-                    OpenMP::DataAttribute data_attr 
-                        = task_construct.get_data_attribute(sym);
-
-                    if (((data_attr & OpenMP::DA_SHARED) != OpenMP::DA_SHARED)
-                            && ((data_attr & OpenMP::DA_FIRSTPRIVATE) != OpenMP::DA_FIRSTPRIVATE))
-                    {
-                        std::cerr << expr.get_ast().get_locus() << 
-                            ": warning: data reference '" << expr.prettyprint() << "' does not refer to a shared or firstprivate entity. Ignoring"
-                            << std::endl;
-                        continue;
-                    }
-
+                    // Insert the symbol as a capture address (shared entity)
+                    captureaddress_references.insert(sym);
                     input_dependences.append(expr);
                 }
             }
@@ -1144,7 +1161,7 @@ namespace TL
             OpenMP::CustomClause output = directive.custom_clause("output");
             if (output.is_defined()) 
             {
-                ObjectList<Expression> dep_list = input.get_expression_list();
+                ObjectList<Expression> dep_list = output.get_expression_list();
 
                 if (dep_list.empty()) 
                 {
@@ -1186,17 +1203,8 @@ namespace TL
                         continue;
                     }
 
-                    OpenMP::DataAttribute data_attr 
-                        = task_construct.get_data_attribute(sym);
-
-                    if ((data_attr & OpenMP::DA_SHARED) != OpenMP::DA_SHARED)
-                    {
-                        std::cerr << expr.get_ast().get_locus() << 
-                            ": warning: data reference '" << expr.prettyprint() << "' does not refer to a shared. Ignoring"
-                            << std::endl;
-                        continue;
-                    }
-
+                    // Insert the symbol as a capture address (shared entity)
+                    captureaddress_references.insert(sym);
                     output_dependences.append(expr);
                 }
             }

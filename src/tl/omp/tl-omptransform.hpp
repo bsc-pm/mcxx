@@ -409,7 +409,8 @@ namespace TL
                 void handle_dependences(OpenMP::Directive directive,
                         ObjectList<Expression> &input_dependences,
                         ObjectList<Expression> &output_dependences,
-                        OpenMP::Construct &task_construct);
+                        OpenMP::Construct &task_construct,
+                        ObjectList<Symbol>& captureaddress_references);
 
                 Source debug_parameter_info(
                         ObjectList<ParameterInfo> parameter_info_list);
