@@ -46,6 +46,33 @@ namespace TL
             return invalid;
         }
 
+        static Source get_representant_dependence_expr(Expression expr)
+        {
+            Symbol sym = dependence_expr_to_sym(expr);
+            if (expr.is_id_expression())
+            {
+                Type t = sym.get_type();
+                // I don't like this because naming an array means naming its first element address
+                // but naming an address in a dependence does not have any sense either
+                // so we will understand that the array name is the array as a whole
+                if (t.is_array())
+                {
+                    return "&(" + expr.prettyprint() + "[0])";
+                }
+                else
+                {
+                    return "&" + expr.prettyprint();
+                }
+            }
+            else if (expr.is_array_section())
+            {
+                Expression array_section_lower = expr.array_section_lower();
+                // Expression array_section_upper = expr.array_section_upper();
+
+                return "&(" + expr.array_section_item().prettyprint() + "[" + array_section_lower.prettyprint() + "])";
+            }
+        }
+
         void OpenMPTransform::task_preorder(OpenMP::CustomConstruct task_construct)
         {
             // Get the directive of the task construct
@@ -296,7 +323,7 @@ namespace TL
                     {
                         copy_construction_part
                             // FIXME - This is wrong counted
-                            << "new (nth_arg_addr[" << (num_value_args + num_reference_args + 1) << "])" 
+                            << "new (nth_arg_addr[" << (it->parameter_position + 1) << "])" 
                             << type.get_declaration(task_construct.get_scope(), "")
                             << "(" << sym.get_qualified_name(task_construct.get_scope()) << ");"
                             ;
@@ -546,7 +573,7 @@ namespace TL
                         <<                    "sizeof(" << sym.get_name() << "),"
                         // FIXME - adj is always 0, it does not take into account array-sections
                         <<                    "0,"
-                        <<                    "nth_arg_addr[" << referred_num_ref << "]);"
+                        <<                    "nth_arg_addr[" << (referred_num_ref + 1) << "]);"
                         ;
 
                     inputs_immediate
@@ -608,7 +635,7 @@ namespace TL
                         <<                    "sizeof(" << sym.get_name() << "),"
                         // FIXME - adj is always 0, it does not take into account array-sections
                         <<                    "0,"
-                        <<                    "nth_arg_addr[" << referred_num_ref << "]);"
+                        <<                    "nth_arg_addr[" << (referred_num_ref + 1) << "]);"
                         ;
 
                     outputs_immediate
