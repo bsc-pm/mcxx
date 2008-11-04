@@ -20,6 +20,7 @@
 #define TL_SOURCE_BITS_HPP
 
 
+#include "tl-symbol.hpp"
 #include "tl-source.hpp"
 
 
@@ -28,7 +29,8 @@ namespace TL
 	class SourceBits
 	{
 		public:
-			static Type handle_superscalar_declarator(AST_t ref_tree, ScopeLink scope_link, std::string const &declarator_string, Symbol &original_symbol);
+			static Region handle_superscalar_declarator(AST_t ref_tree, ScopeLink scope_link, std::string const &declarator_string, Region::Direction direction, Symbol &original_symbol);
+			static ObjectList<Expression> get_array_subscript_list(Type type, ScopeLink scope_link);
 	};
 	
 }

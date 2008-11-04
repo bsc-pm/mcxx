@@ -18,10 +18,13 @@
 
 
 #include <iostream>
+#include <map>
 #include <sstream>
 
 #include "tl-langconstruct.hpp"
 
+#include "tl-augmented-symbol.hpp"
+#include "tl-region.hpp"
 #include "tl-source-bits.hpp"
 #include "tl-task-analysis.hpp"
 #include "tl-type-utils.hpp"
@@ -62,28 +65,55 @@ namespace TL
 	{
 		if (construct.is_function_definition())
 		{
-			process_task_definition(construct);
+			FunctionDefinition task_definition(construct.get_declaration(), construct.get_scope_link());
+			AST_t context_ast = task_definition.get_function_body().get_ast();
+			DeclaredEntity declared_entity = task_definition.get_declared_entity();
+			
+			process_task(construct, context_ast, declared_entity);
 		}
 		else
 		{
-			process_task_declaration(construct);
+			Declaration general_declaration(construct.get_declaration(), construct.get_scope_link());
+			ObjectList<DeclaredEntity> declared_entities = general_declaration.get_declared_entities();
+			
+			if (declared_entities.size() != 1)
+			{
+				std::cerr << construct.get_declaration().get_locus() << " Error: only one declaration per task construct is allowed." << std::endl;
+				TaskAnalysis::fail();
+				return;
+			}
+			
+			DeclaredEntity task_declaration = declared_entities[0];
+			
+			AST_t context_ast;
+			ObjectList<ParameterDeclaration> parameter_declarations = task_declaration.get_parameter_declarations();
+			if (!parameter_declarations.empty())
+			{
+				context_ast = parameter_declarations[0].get_ast();
+			}
+			else
+			{
+				context_ast = task_declaration.get_ast();
+			}
+			
+			process_task(construct, context_ast, task_declaration);
 		}
 	}
 	
 	
-	std::string TL::TaskAnalysis::direction_to_name(ParameterDirection direction)
+	std::string TL::TaskAnalysis::direction_to_name(Region::Direction direction)
 	{
 		std::string direction_name;
 		
 		switch (direction)
 		{
-			case INPUT_DIR:
+			case Region::INPUT_DIR:
 				direction_name = std::string("input");
 				break;
-			case OUTPUT_DIR:
+			case Region::OUTPUT_DIR:
 				direction_name = std::string("output");
 				break;
-			case INOUT_DIR:
+			case Region::INOUT_DIR:
 				direction_name = std::string("inout");
 				break;
 			default:
@@ -95,381 +125,86 @@ namespace TL
 	}
 	
 	
-	void TL::TaskAnalysis::handle_definition_parameter(PragmaCustomConstruct &construct, FunctionDefinition &task_definition, FunctionInfo &function_info, std::string const &parameter_specification, ParameterDirection direction)
+	Region TL::TaskAnalysis::handle_parameter(AST_t construct_ast, AST_t context_ast, ScopeLink scope_link, std::string const &parameter_specification, std::string const &line_annotation, Region::Direction direction, AugmentedSymbol &parameter_symbol)
 	{
 		std::string const direction_name = direction_to_name(direction);
 		
-		Symbol parameter_symbol = Symbol::invalid();
-		std::string parameter_name;
+		parameter_symbol = AugmentedSymbol::invalid();
+		std::string parameter_name = parameter_specification;
+		
+		// Separate the ".." so that we can parse it properly
+		std::string separated_parameter_specification;
+		size_t index=0;
+		while (index != parameter_specification.size())
+		{
+			size_t dotdot_pos = parameter_specification.find("..", index);
+			if (dotdot_pos == std::string::npos)
+			{
+				separated_parameter_specification.append(parameter_specification.substr(index));
+				break;
+			}
+			else
+			{
+				separated_parameter_specification.append(parameter_specification.substr(index, dotdot_pos - index));
+				separated_parameter_specification.append(" .. ");
+				index = dotdot_pos + 2;
+			}
+		}
 		
 		try
 		{
-			Type parameter_type = SourceBits::handle_superscalar_declarator(task_definition.get_function_body().get_ast(), construct.get_scope_link(), parameter_specification, parameter_symbol);
+			Region region = SourceBits::handle_superscalar_declarator(context_ast, scope_link, line_annotation + separated_parameter_specification, direction, parameter_symbol);
+			
 			if (!parameter_symbol.is_parameter())
 			{
 				std::cerr << __FILE__ << ":" << __LINE__ << ": Internal compiler error" << std::endl;
 				throw FatalException();
 			}
-			unsigned int parameter_index = parameter_symbol.get_parameter_position();
-			parameter_name = parameter_symbol.get_name(); // FIXME: C++ get_qualified_name()?
 			
-			ParameterInfo &parameter_info = function_info._parameters[parameter_index];
-			
-			parameter_info._symbol = parameter_symbol;
-			parameter_info._augmented_definition_type = parameter_type;
-			parameter_info._augmented_definition_locus = construct.get_ast().get_locus();
-			parameter_info._directionality_definition_count++;
-			
-			if (parameter_info._directionality_definition_count != function_info._task_definition_count)
-			{
-				std::cerr << parameter_info._augmented_definition_locus << " Error: parameter '" << parameter_name <<"' declared in " << direction_name << "' clause appears more than once in the directionality clauses." << std::endl;
-				function_info._has_errors = true;
-				TaskAnalysis::fail();
-			}
-			
-			if (parameter_type.is_pointer() && parameter_type.points_to().is_void() && direction != INPUT_DIR)
-			{
-				std::cerr << parameter_info._augmented_definition_locus << " Error: parameter '" << parameter_name <<"' declared in " << direction_name << "' clause is an opaque pointer and can only appear in the input clause." << std::endl;
-				function_info._has_errors = true;
-				TaskAnalysis::fail();
-			}
-			
-			if (!parameter_type.is_non_derived_type() && !parameter_type.is_array() && !parameter_type.is_pointer())
-			{
-				std::cerr << parameter_info._augmented_definition_locus << " Error: parameter '" << parameter_name <<"' declared in " << direction_name << "' clause is a derived type and cannot be passed by value." << std::endl;
-				function_info._has_errors = true;
-				TaskAnalysis::fail();
-			}
-			
-			if (parameter_info._augmented_declaration_type.is_valid())
-			{
-				if (!TypeUtils::parameter_types_match(parameter_type, parameter_info._augmented_declaration_type, construct.get_scope_link()))
-				{
-					std::cerr << parameter_info._augmented_definition_locus << " Error: parameter '" << parameter_name <<"' declared in " << direction_name << "' clause as '" << parameter_type.get_simple_declaration(task_definition.get_scope(), parameter_name) << "' conflicts with previous declaration." << std::endl;
-					std::cerr << parameter_info._augmented_declaration_locus << " previously declared as '"
-						<< parameter_info._augmented_declaration_type.get_simple_declaration(function_info._declaration_scope, parameter_name)
-						<< "'." << std::endl;
-					function_info._has_errors = true;
-					TaskAnalysis::fail();
-				}
-				if (parameter_info._direction != direction)
-				{
-					std::cerr << parameter_info._augmented_definition_locus << " Error: Inconsistent directionality for parameter '" << parameter_name <<"', declared as " << direction_name << std::endl;
-					std::cerr << parameter_info._augmented_declaration_locus << " previously declared as " << direction_to_name(parameter_info._direction) << "." << std::endl;
-					function_info._has_errors = true;
-					TaskAnalysis::fail();
-				}
-			}
-			parameter_info._direction = direction;
+			return region;
 		}
 		catch (SyntaxErrorException ex)
 		{
-			std::cerr << construct.get_ast().get_locus() << " Error: Syntax error while parsing the " << direction_name << " clause." << std::endl;
-			function_info._has_errors = true;
+			std::cerr << construct_ast.get_locus() << " Error: Syntax error while parsing '" << parameter_specification << "' in the " << direction_name << " clause." << std::endl;
 			TaskAnalysis::fail();
 		}
 		catch (UnknownParameterException ex)
 		{
-			std::cerr << construct.get_ast().get_locus() << " Error: Unknown parameter '" << parameter_name << "' in " << direction_name << " clause." << std::endl;
-			function_info._has_errors = true;
+			std::cerr << construct_ast.get_locus() << " Error: Unknown parameter '" << parameter_name << "' in " << direction_name << " clause." << std::endl;
 			TaskAnalysis::fail();
 		}
 		catch (AmbiguousParameterException ex)
 		{
-			std::cerr << construct.get_ast().get_locus() << " Error: Ambiguous parameter '" << parameter_name << "' in " << direction_name << " clause." << std::endl;
-			function_info._has_errors = true;
+			std::cerr << construct_ast.get_locus() << " Error: Ambiguous parameter '" << parameter_name << "' in " << direction_name << " clause." << std::endl;
 			TaskAnalysis::fail();
 		}
 		catch (InvalidTypeException ex)
 		{
-			std::cerr << construct.get_ast().get_locus() << " Error: Invalid type for parameter '" << parameter_name << "' in " << direction_name << " clause." << std::endl;
-			function_info._has_errors = true;
+			std::cerr << construct_ast.get_locus() << " Error: Invalid type for parameter '" << parameter_symbol.get_qualified_name() << "' in " << direction_name << " clause." << std::endl;
 			TaskAnalysis::fail();
 		}
 		catch (InvalidDimensionSpecifiersException ex)
 		{
-			std::cerr << construct.get_ast().get_locus() << " Error: Invalid dimension specifiers for parameter '" << parameter_name << "' in " << direction_name << " clause. Please check that they are only present in the task directive or in the function definition." << std::endl;
-			function_info._has_errors = true;
+			std::cerr << construct_ast.get_locus() << " Error: Invalid dimension specifiers for parameter '" << parameter_specification << "' in " << direction_name << " clause. Please check that they are present either in the task directive or in the function definition." << std::endl;
 			TaskAnalysis::fail();
 		}
+		catch (InvalidRegionException ex)
+		{
+			std::cerr << construct_ast.get_locus() << " Error: Invalid region specification for parameter '" << parameter_specification << "' in " << direction_name << " clause." << std::endl;
+			TaskAnalysis::fail();
+		}
+		catch (MismatchedNumberOfRangeSpecifiers ex)
+		{
+			std::cerr << construct_ast.get_locus() << " Error: Number of range specifiers for parameter '" << parameter_specification << "' in " << direction_name << " clause different from number of dimensions." << std::endl;
+			TaskAnalysis::fail();
+		}
+		
+		return Region();
 	}
 	
 	
-	void TL::TaskAnalysis::handle_declaration_parameter(PragmaCustomConstruct &construct, DeclaredEntity &task_declaration, FunctionInfo &function_info, std::string const &parameter_specification, ParameterDirection direction)
+	void TL::TaskAnalysis::process_task(PragmaCustomConstruct construct, AST_t context_ast, DeclaredEntity declared_entity)
 	{
-		std::string const direction_name = direction_to_name(direction);
-		
-		Symbol parameter_symbol = Symbol::invalid();
-		std::string parameter_name;
-		
-		try {
-			ObjectList<ParameterDeclaration> parameter_declarations = task_declaration.get_parameter_declarations();
-			if (parameter_declarations.empty()) {
-				std::cerr << construct.get_ast().get_locus() << " Error: Specified an " << direction_name << " parameter in a task without parameters." << std::endl;
-				function_info._has_errors = true;
-				TaskAnalysis::fail();
-			}
-			
-			AST_t reference_ast = parameter_declarations[0].get_ast();
-			Type parameter_type = SourceBits::handle_superscalar_declarator(reference_ast, construct.get_scope_link(), parameter_specification, parameter_symbol);
-			if (!parameter_symbol.is_parameter())
-			{
-				std::cerr << __FILE__ << ":" << __LINE__ << ": Internal compiler error" << std::endl;
-				throw FatalException();
-			}
-			parameter_name = parameter_symbol.get_name(); // FIXME: C++ get_qualified_name()?
-			unsigned int parameter_index = parameter_symbol.get_parameter_position();
-			
-			ParameterInfo &parameter_info = function_info._parameters[parameter_index];
-			parameter_info._symbol = parameter_symbol;
-			parameter_info._augmented_declaration_type = parameter_type;
-			parameter_info._augmented_declaration_locus = construct.get_ast().get_locus();
-			parameter_info._directionality_declaration_count++;
-			
-			if (parameter_info._directionality_declaration_count != function_info._task_declaration_count)
-			{
-				std::cerr << parameter_info._augmented_declaration_locus << " Error: parameter '" << parameter_name <<"' declared in " << direction_name << "' clause appears more than once in the directionality clauses." << std::endl;
-				function_info._has_errors = true;
-				TaskAnalysis::fail();
-			}
-			
-			if (parameter_type.is_pointer() && parameter_type.points_to().is_void() && direction != INPUT_DIR)
-			{
-				std::cerr << parameter_info._augmented_declaration_locus << " Error: parameter '" << parameter_name << "' declared in " << direction_name << "' clause is an opaque pointer and can only appear in the input clause." << std::endl;
-				function_info._has_errors = true;
-				TaskAnalysis::fail();
-			}
-			
-			if (!parameter_type.is_non_derived_type() && !parameter_type.is_array() && !parameter_type.is_pointer())
-			{
-				std::cerr << parameter_info._augmented_definition_locus << " Error: parameter '" << parameter_name <<"' declared in " << direction_name << "' clause is a derived type and cannot be passed by value." << std::endl;
-				function_info._has_errors = true;
-				TaskAnalysis::fail();
-			}
-			
-			if (parameter_info._augmented_definition_type.is_valid())
-			{
-				if (!TypeUtils::parameter_types_match(parameter_type, parameter_info._augmented_definition_type, construct.get_scope_link()))
-				{
-					std::cerr << parameter_info._augmented_declaration_locus << " Error: parameter '" << parameter_name <<"' declared in " << direction_name << "' clause as '" << parameter_type.get_simple_declaration(task_declaration.get_scope(), parameter_name) << "' conflicts with previous declaration" << std::endl;
-					std::cerr << parameter_info._augmented_definition_locus << " previously declared as '"
-						<< parameter_info._augmented_definition_type.get_simple_declaration(function_info._definition_scope, parameter_name)
-						<< "'." << std::endl;
-					function_info._has_errors = true;
-					TaskAnalysis::fail();
-				}
-				if (parameter_info._direction != direction)
-				{
-					std::cerr << parameter_info._augmented_declaration_locus << " Error: Inconsistent directionality for parameter '" << parameter_name <<"', declared as " << direction_name << std::endl;
-					std::cerr << parameter_info._augmented_definition_locus << " previously declared as " << direction_to_name(parameter_info._direction) << "." << std::endl;
-					function_info._has_errors = true;
-					TaskAnalysis::fail();
-				}
-			}
-			else if (parameter_info._direction != UNKNOWN_DIR)
-			{
-				std::cerr << parameter_info._augmented_declaration_locus << " Error: Inconsistent directionality for parameter '" << parameter_name <<"', declared as " << direction_name << std::endl;
-				std::cerr << parameter_info._augmented_definition_locus << " previously declared as " << direction_to_name(parameter_info._direction) << "." << std::endl;
-				function_info._has_errors = true;
-				TaskAnalysis::fail();
-			}
-			
-			parameter_info._direction = direction;
-		}
-		catch (SyntaxErrorException ex)
-		{
-			std::cerr << construct.get_ast().get_locus() << " Error: Syntax error while parsing the " << direction_name << " clause." << std::endl;
-			function_info._has_errors = true;
-			TaskAnalysis::fail();
-		}
-		catch (UnknownParameterException ex)
-		{
-			std::cerr << construct.get_ast().get_locus() << " Error: Unknown parameter '" << parameter_name << "' in " << direction_name << " clause." << std::endl;
-			function_info._has_errors = true;
-			TaskAnalysis::fail();
-		}
-		catch (AmbiguousParameterException ex)
-		{
-			std::cerr << construct.get_ast().get_locus() << " Error: Ambiguous parameter '" << parameter_name << "' in " << direction_name << " clause." << std::endl;
-			function_info._has_errors = true;
-			TaskAnalysis::fail();
-		}
-		catch (InvalidTypeException ex)
-		{
-			std::cerr << construct.get_ast().get_locus() << " Error: Invalid type for parameter '" << parameter_name << "' in " << direction_name << " clause." << std::endl;
-			function_info._has_errors = true;
-			TaskAnalysis::fail();
-		}
-		catch (InvalidDimensionSpecifiersException ex)
-		{
-			std::cerr << construct.get_ast().get_locus() << " Error: Invalid dimension specifiers for parameter '" << parameter_name << "' in " << direction_name << " clause. Please check that they are only present in the task directive or in the function definition." << std::endl;
-			function_info._has_errors = true;
-			TaskAnalysis::fail();
-		}
-	}
-	
-	
-	void TL::TaskAnalysis::process_task_definition(PragmaCustomConstruct construct)
-	{
-		FunctionDefinition task_definition(construct.get_declaration(), construct.get_scope_link());
-		
-		std::string function_name = task_definition.get_function_name().mangle_id_expression();
-		if (!_function_map.contains(function_name))
-		{
-			std::cerr << __FILE__ << ":" << __LINE__ << ": Internal compiler error" << std::endl;
-			throw FatalException();
-		}
-		
-		FunctionInfo &function_info = _function_map[function_name];
-		
-		if (function_info._task_definition_count)
-		{
-			std::cerr << task_definition.get_ast().get_locus() << " Error: redefinition of task '" << function_name << "'." << std::endl;
-			std::cerr << function_info._task_definition_locus << " previously defined here." << std::endl;
-			function_info._has_errors = true;
-			TaskAnalysis::fail();
-			return;
-		}
-		
-		if (function_info._has_ellipsis)
-		{
-			std::cerr << task_definition.get_ast().get_locus() << " Error: task '" << function_name << "' has a variable number of parameters." << std::endl;
-			function_info._has_errors = true;
-			TaskAnalysis::fail();
-			return;
-		}
-		
-		bool has_high_priority = construct.get_clause("highpriority").is_defined();
-		
-		if (has_high_priority && !construct.get_clause("highpriority").get_arguments().empty())
-		{
-			std::cerr << task_definition.get_ast().get_locus() << " Error: the 'highpriority' clause does not accept any parameter." << std::endl;
-			function_info._has_errors = true;
-			TaskAnalysis::fail();
-		}
-		
-		bool is_blocking = construct.get_clause("blocking").is_defined();
-		
-		if (is_blocking && !construct.get_clause("blocking").get_arguments().empty())
-		{
-			std::cerr << task_definition.get_ast().get_locus() << " Error: the 'blocking' clause does not accept any parameter." << std::endl;
-			function_info._has_errors = true;
-			TaskAnalysis::fail();
-		}
-		
-		if (has_high_priority && is_blocking)
-		{
-			std::cerr << task_definition.get_ast().get_locus() << " Warning: ignoring 'highpriority' clause in blocking task." << std::endl;
-		}
-		
-		if (function_info._task_declaration_count != 0)
-		{
-			if (function_info._has_high_priority != has_high_priority)
-			{
-				std::cerr << task_definition.get_ast().get_locus() << " Error: definition of task '" << function_name << "' has different priority that previous declaration." << std::endl;
-				std::cerr << function_info._task_declaration_locus << " previously declared here." << std::endl;
-				function_info._has_errors = true;
-				TaskAnalysis::fail();
-				return;
-			}
-			if (function_info._is_blocking != is_blocking)
-			{
-				std::cerr << task_definition.get_ast().get_locus() << " Error: definition of task '" << function_name << "' has different blocking behaviour that previous declaration." << std::endl;
-				std::cerr << function_info._task_declaration_locus << " previously declared here." << std::endl;
-				function_info._has_errors = true;
-				TaskAnalysis::fail();
-				return;
-			}
-		}
-		
-		function_info._is_task = true;
-		function_info._has_high_priority = has_high_priority;
-		function_info._is_blocking = is_blocking;
-		function_info._task_definition_count++;
-		function_info._task_definition_locus = task_definition.get_ast().get_locus();
-		
-		//
-		// Check parameters
-		//
-		
-		std::string construct_line;
-		std::ostringstream oss;
-		oss << "# " << construct.get_ast().get_line() << " \"" << construct.get_ast().get_file() << "\"" << std::endl;
-		construct_line = oss.str();
-		
-		// Check that all parameters in the input clause exist.
-		// Check and compute parameter types
-		// Complete ParameterInfo data
-		// Check that parameters match their corresponding ones in a previous task declaration
-		ObjectList<std::string> input_parameters = construct.get_clause("input").get_arguments();
-		for (ObjectList<std::string>::iterator it = input_parameters.begin(); it != input_parameters.end(); it++)
-		{
-			std::string const &parameter_specification = construct_line + *it;
-			handle_definition_parameter(construct, task_definition, function_info, parameter_specification, INPUT_DIR);
-		}
-		
-		// Check that all parameters in the output clause exist.
-		// Check and compute parameter types
-		// Complete ParameterInfo data
-		// Check that parameters match their corresponding ones in a previous task declaration
-		ObjectList<std::string> output_parameters = construct.get_clause("output").get_arguments();
-		for (ObjectList<std::string>::iterator it = output_parameters.begin(); it != output_parameters.end(); it++)
-		{
-			std::string const &parameter_specification = construct_line + *it;
-			handle_definition_parameter(construct, task_definition, function_info, parameter_specification, OUTPUT_DIR);
-		}
-		
-		// Check that all parameters in the inout clause exist.
-		// Check and compute parameter types
-		// Complete ParameterInfo data
-		// Check that parameters match their corresponding ones in a previous task declaration
-		ObjectList<std::string> inout_parameters = construct.get_clause("inout").get_arguments();
-		for (ObjectList<std::string>::iterator it = inout_parameters.begin(); it != inout_parameters.end(); it++)
-		{
-			std::string const &parameter_specification = construct_line + *it;
-			handle_definition_parameter(construct, task_definition, function_info, parameter_specification, INOUT_DIR);
-		}
-		
-		
-		// Check that all parameters have appeared in a clause
-		// Check that output and inout parameters are either a pointer or an array
-		unsigned int parameter_index = 0;
-		for (ObjectList<ParameterInfo>::iterator it = function_info._parameters.begin(); it != function_info._parameters.end(); it++)
-		{
-			ParameterInfo &parameter_info = *it;
-			if (parameter_info._direction == UNKNOWN_DIR)
-			{
-				std::cerr << construct.get_ast().get_locus() << " Error: parameter number " << parameter_index+1 << " in task '" << function_name << "' is not present in any direction clause." << std::endl;
-				function_info._has_errors = true;
-				TaskAnalysis::fail();
-			}
-			else if (parameter_info._direction == OUTPUT_DIR || parameter_info._direction == INOUT_DIR)
-			{
-				if (!parameter_info._definition_type.is_pointer() && !parameter_info._definition_type.is_array())
-				{
-					std::cerr << construct.get_ast().get_locus() << " Error: " << direction_to_name(parameter_info._direction) << " parameter number" << parameter_index+1 << " in task '" << function_name << "' must be either an array or a scalar passed through a pointer." << std::endl;
-					function_info._has_errors = true;
-					TaskAnalysis::fail();
-				}
-			}
-			parameter_index++;
-		}
-	}
-	
-	
-	void TL::TaskAnalysis::process_task_declaration(PragmaCustomConstruct construct)
-	{
-		Declaration general_declaration(construct.get_declaration(), construct.get_scope_link());
-		ObjectList<DeclaredEntity> declared_entities = general_declaration.get_declared_entities();
-		
-		if (declared_entities.size() != 1)
-		{
-			std::cerr << construct.get_declaration().get_locus() << " Error: only one declaration per task construct is allowed." << std::endl;
-			TaskAnalysis::fail();
-			return;
-		}
-		
-		DeclaredEntity declared_entity = *(declared_entities.begin());
 		if (!declared_entity.is_functional_declaration())
 		{
 			std::cerr << declared_entity.get_ast().get_locus() << " Error: the task construct can only be applied to functions." << std::endl;
@@ -477,43 +212,37 @@ namespace TL
 			return;
 		}
 		
-		std::string function_name = declared_entity.get_declared_entity().mangle_id_expression();
-		
 		if (declared_entity.functional_declaration_lacks_prototype())
 		{
-			std::cerr << declared_entity.get_ast().get_locus() << " Error: task '" << function_name << "' declared without parameters. If there is none, please specify void." << std::endl;
+			std::cerr << declared_entity.get_ast().get_locus() << " Error: task '" << declared_entity.get_declared_symbol().get_qualified_name() << "' declared without parameters. If there is none, please specify void." << std::endl;
 			TaskAnalysis::fail();
 			return;
 		}
 		
-		if (!_function_map.contains(function_name))
-		{
-			std::cerr << __FILE__ << ":" << __LINE__ << ": Internal compiler error" << std::endl;
-			throw FatalException();
-		}
 		
-		FunctionInfo &function_info = _function_map[function_name];
+		AST_t construct_ast = construct.get_ast();
+		AugmentedSymbol symbol = declared_entity.get_declared_symbol();
+		std::string function_name = symbol.get_qualified_name();
 		
-		if (function_info._task_declaration_count != 0)
-		{
-			std::cerr << declared_entity.get_ast().get_locus() << " Warning: redeclaration of task '" << function_name << "'." << std::endl;
-			std::cerr << function_info._task_declaration_locus << " previously declared here." << std::endl;
-		}
 		
-		if (function_info._has_ellipsis)
+		// Check for var args
+		bool has_ellipsis;
+		ObjectList<ParameterDeclaration> parameters = declared_entity.get_parameter_declarations(/*OUT*/ has_ellipsis);
+		
+		if (has_ellipsis)
 		{
-			std::cerr << declared_entity.get_ast().get_locus() << " Error: task '" << function_name << "' has a variable number of parameters." << std::endl;
-			function_info._has_errors = true;
+			std::cerr << context_ast.get_locus() << " Error: task '" << function_name << "' has a variable number of parameters." << std::endl;
 			TaskAnalysis::fail();
 			return;
 		}
 		
+		
+		// High priority
 		bool has_high_priority = construct.get_clause("highpriority").is_defined();
 		
 		if (has_high_priority && !construct.get_clause("highpriority").get_arguments().empty())
 		{
-			std::cerr << declared_entity.get_ast().get_locus() << " Error: the 'highpriority' clause does not accept any parameter." << std::endl;
-			function_info._has_errors = true;
+			std::cerr << context_ast.get_locus() << " Error: the 'highpriority' clause does not accept any parameter." << std::endl;
 			TaskAnalysis::fail();
 		}
 		
@@ -521,107 +250,189 @@ namespace TL
 		
 		if (is_blocking && !construct.get_clause("blocking").get_arguments().empty())
 		{
-			std::cerr << declared_entity.get_ast().get_locus() << " Error: the 'blocking' clause does not accept any parameter." << std::endl;
-			function_info._has_errors = true;
+			std::cerr << context_ast.get_locus() << " Error: the 'blocking' clause does not accept any parameter." << std::endl;
 			TaskAnalysis::fail();
 		}
 		
 		if (has_high_priority && is_blocking)
 		{
-			std::cerr << declared_entity.get_ast().get_locus() << " Warning: ignoring 'highpriority' clause in blocking task." << std::endl;
+			std::cerr << context_ast.get_locus() << " Warning: ignoring 'highpriority' clause in blocking task." << std::endl;
 		}
 		
-		if (function_info._task_definition_count != 0) {
-			if (function_info._has_high_priority != has_high_priority) {
-				std::cerr << declared_entity.get_ast().get_locus() << " Error: declaration of task '" << function_name << "' has different priority that previous definition." << std::endl;
-				std::cerr << function_info._task_definition_locus << " previously defined here." << std::endl;
-				function_info._has_errors = true;
-				TaskAnalysis::fail();
-				return;
-			}
-			if (function_info._is_blocking != is_blocking)
-			{
-				std::cerr << declared_entity.get_ast().get_locus() << " Error: definition of task '" << function_name << "' has different blocking behaviour that previous declaration." << std::endl;
-				std::cerr << function_info._task_definition_locus << " previously defined here." << std::endl;
-				function_info._has_errors = true;
-				TaskAnalysis::fail();
-				return;
-			}
-		}
+		std::map<Symbol, RegionList> parameter_region_lists;
 		
-		function_info._is_task = true;
-		function_info._has_high_priority = has_high_priority;
-		function_info._is_blocking = is_blocking;
-		function_info._task_declaration_count++;
-		function_info._task_declaration_locus = declared_entity.get_ast().get_locus();
-		
-		
-		//
-		// Check parameters
-		//
-		
-		std::string construct_line;
+		std::string line_annotation;
 		std::ostringstream oss;
 		oss << "# " << construct.get_ast().get_line() << " \"" << construct.get_ast().get_file() << "\"" << std::endl;
-		construct_line = oss.str();
+		line_annotation = oss.str();
 		
-		// Check that all parameters in the input clause exist.
-		// Check and compute parameter types
-		// Complete ParameterInfo data
-		// Check that parameters match their corresponding ones in a previous task definition
+		// Build all input regions
 		ObjectList<std::string> input_parameters = construct.get_clause("input").get_arguments();
 		for (ObjectList<std::string>::iterator it = input_parameters.begin(); it != input_parameters.end(); it++)
 		{
-			std::string const &parameter_specification = construct_line + *it;
-			handle_declaration_parameter(construct, declared_entity, function_info, parameter_specification, INPUT_DIR);
+			std::string const &parameter_specification = *it;
+			AugmentedSymbol parameter_symbol = AugmentedSymbol::invalid();
+			Region region = handle_parameter(construct_ast, context_ast, construct.get_scope_link(), parameter_specification, line_annotation, Region::INPUT_DIR, parameter_symbol);
+			bool correct = parameter_region_lists[parameter_symbol].add(region);
+			if (!correct)
+			{
+				std::cerr << context_ast.get_locus() << " Error: parameter region '" << parameter_specification << "' is duplicated." << std::endl;
+				TaskAnalysis::fail();
+			}
 		}
 		
-		// Check that all parameters in the output clause exist.
-		// Check and compute parameter types
-		// Complete ParameterInfo data
-		// Check that parameters match their corresponding ones in a previous task definition
+		// Build all output regions
 		ObjectList<std::string> output_parameters = construct.get_clause("output").get_arguments();
 		for (ObjectList<std::string>::iterator it = output_parameters.begin(); it != output_parameters.end(); it++)
 		{
-			std::string const &parameter_specification = construct_line + *it;
-			handle_declaration_parameter(construct, declared_entity, function_info, parameter_specification, OUTPUT_DIR);
+			std::string const &parameter_specification = *it;
+			AugmentedSymbol parameter_symbol = AugmentedSymbol::invalid();
+			Region region = handle_parameter(construct_ast, context_ast, construct.get_scope_link(), parameter_specification, line_annotation, Region::OUTPUT_DIR, parameter_symbol);
+			bool correct = parameter_region_lists[parameter_symbol].add(region);
+			if (!correct)
+			{
+				std::cerr << context_ast.get_locus() << " Error: parameter region '" << parameter_specification << "' is duplicated." << std::endl;
+				TaskAnalysis::fail();
+			}
 		}
 		
-		// Check that all parameters in the inout clause exist.
-		// Check and compute parameter types
-		// Complete ParameterInfo data
-		// Check that parameters match their corresponding ones in a previous task definition
+		// Build all inout regions
 		ObjectList<std::string> inout_parameters = construct.get_clause("inout").get_arguments();
 		for (ObjectList<std::string>::iterator it = inout_parameters.begin(); it != inout_parameters.end(); it++)
 		{
-			std::string const &parameter_specification = construct_line + *it;
-			handle_declaration_parameter(construct, declared_entity, function_info, parameter_specification, INOUT_DIR);
+			std::string const &parameter_specification = *it;
+			AugmentedSymbol parameter_symbol = AugmentedSymbol::invalid();
+			Region region = handle_parameter(construct_ast, context_ast, construct.get_scope_link(), parameter_specification, line_annotation, Region::INOUT_DIR, parameter_symbol);
+			bool correct = parameter_region_lists[parameter_symbol].add(region);
+			if (!correct)
+			{
+				std::cerr << context_ast.get_locus() << " Error: parameter region '" << parameter_specification << "' is duplicated." << std::endl;
+				TaskAnalysis::fail();
+			}
 		}
 		
 		
 		// Check that all parameters have appeared in a clause
-		// Check that output and inout parameters are either a pointer or an array
-		unsigned int parameter_index = 0;
-		for (ObjectList<ParameterInfo>::iterator it = function_info._parameters.begin(); it != function_info._parameters.end(); it++)
+		for (ObjectList<ParameterDeclaration>::iterator it = parameters.begin(); it != parameters.end(); it++)
 		{
-			ParameterInfo &parameter_info = *it;
-			if (parameter_info._direction == UNKNOWN_DIR)
+			ParameterDeclaration &parameter_declaration = *it;
+			if (!parameter_declaration.is_named())
 			{
-				std::cerr << construct.get_ast().get_locus() << " Error: parameter number " << parameter_index+1 << " in task '" << function_name << "' is not present in any direction clause." << std::endl;
-				function_info._has_errors = true;
+				std::cerr << parameter_declaration.get_ast().get_locus() << " Error: task parameters must be named." << std::endl;
+				TaskAnalysis::fail();
+				return;
+			}
+			Symbol parameter_symbol = parameter_declaration.get_name().get_symbol();
+			if (parameter_region_lists.find(parameter_symbol) == parameter_region_lists.end())
+			{
+				std::cerr << parameter_declaration.get_ast().get_locus() << " Error: parameter '" << parameter_symbol.get_qualified_name() << "' does not appear in any directionality clause." << std::endl;
 				TaskAnalysis::fail();
 			}
-			else if (parameter_info._direction == OUTPUT_DIR || parameter_info._direction == INOUT_DIR)
+		}
+		
+		if (TaskAnalysis::_status == PHASE_STATUS_ERROR)
+		{
+			return;
+		}
+		
+		// Check that output and inout parameters are either a pointer or an array
+		for (std::map<Symbol, RegionList>::iterator it = parameter_region_lists.begin(); it != parameter_region_lists.end(); it++)
+		{
+			Symbol const &parameter_symbol = it->first;
+			if (!parameter_symbol.get_type().is_pointer() && !parameter_symbol.get_type().is_array())
 			{
-				if (!parameter_info._declaration_type.is_pointer() && !parameter_info._declaration_type.is_array())
+				RegionList const &region_list = it->second;
+				for (RegionList::const_iterator it2 = region_list.begin(); it2 != region_list.end(); it2++)
 				{
-					std::cerr << construct.get_ast().get_locus() << " Error: " << direction_to_name(parameter_info._direction) << " parameter number " << parameter_index+1 << " in task '" << function_name << "' must be either an array or a scalar passed through a pointer." << std::endl;
-					function_info._has_errors = true;
+					Region const &region = *it2;
+					if (region.get_direction() == Region::OUTPUT_DIR)
+					{
+						std::cerr << parameter_symbol.get_point_of_declaration().get_locus() << " Error: parameter '" << parameter_symbol.get_qualified_name() << "' has output directionality but is neither a pointer nor an array." << std::endl;
+						TaskAnalysis::fail();
+					}
+					else if (region.get_direction() == Region::INOUT_DIR)
+					{
+						std::cerr << parameter_symbol.get_point_of_declaration().get_locus() << " Error: parameter '" << parameter_symbol.get_qualified_name() << "' has output directionality but is neither a pointer nor an array." << std::endl;
+						TaskAnalysis::fail();
+					}
+				}
+			}
+		}
+		
+		
+		if (symbol.is_task())
+		{
+			// Check that everything still matches
+			if (symbol.has_high_priority() != has_high_priority)
+			{
+				std::cerr << construct.get_ast().get_locus() << " Error: priority does not match with previous definition or declaration." << std::endl;
+				TaskAnalysis::fail();
+			}
+			if (symbol.is_blocking() != is_blocking)
+			{
+				std::cerr << construct.get_ast().get_locus() << " Error: blocking property does not match with previous definition or declaration." << std::endl;
+				TaskAnalysis::fail();
+			}
+			
+			RefPtr<ParameterRegionList> previous_parameter_region_lists = symbol.get_parameter_region_list();
+			for (std::map<Symbol, RegionList>::iterator it = parameter_region_lists.begin(); it != parameter_region_lists.end(); it++)
+			{
+				// For each parameter, get the current region list
+				Symbol const &parameter_symbol = it->first;
+				RegionList const &region_list = it->second;
+				
+				if (!parameter_symbol.is_parameter())
+				{
+					std::cerr << __FILE__ << ":" << __LINE__ << ": Internal compiler error" << std::endl;
+					throw FatalException();
+				}
+				
+				// Get its previous region list
+				int index = parameter_symbol.get_parameter_position();
+				RegionList const &previous_parameter_region_list = (*previous_parameter_region_lists.get_pointer())[index];
+				
+				// And check that they are equivalent
+				if (region_list != previous_parameter_region_list)
+				{
+					std::cerr << parameter_symbol.get_point_of_declaration().get_locus() << " Error: parameter '" << parameter_symbol.get_qualified_name() << "' was previously declared with different shape, directionality, or regions." << std::endl;
 					TaskAnalysis::fail();
 				}
 			}
-			parameter_index++;
 		}
+		else
+		{
+			// Mark it as a task
+			symbol.set_as_task(true);
+			
+			// Set high priority
+			symbol.set_high_priority(has_high_priority);
+			
+			// Set blocking
+			symbol.set_blocking(is_blocking);
+			
+			// Set parameter region list
+			RefPtr<ParameterRegionList> parameter_region_list_ref(new ParameterRegionList());
+			parameter_region_list_ref->initialize();
+			parameter_region_list_ref->reserve(parameter_region_lists.size());
+			
+			for (std::map<Symbol, RegionList>::iterator it = parameter_region_lists.begin(); it != parameter_region_lists.end(); it++)
+			{
+				Symbol const &parameter_symbol = it->first;
+				RegionList const &region_list = it->second;
+				
+				if (!parameter_symbol.is_parameter())
+				{
+					std::cerr << __FILE__ << ":" << __LINE__ << ": Internal compiler error" << std::endl;
+					throw FatalException();
+				}
+				
+				int index = parameter_symbol.get_parameter_position();
+				(*parameter_region_list_ref.get_pointer())[index] = region_list;
+			}
+			
+			symbol.set_parameter_region_list(parameter_region_list_ref);
+		}
+		
 		
 	}
 	
@@ -643,17 +454,9 @@ namespace TL
 	void TL::TaskAnalysis::process_target_on_definition(PragmaCustomConstruct construct)
 	{
 		FunctionDefinition function_definition(construct.get_declaration(), construct.get_scope_link());
+		AugmentedSymbol symbol = function_definition.get_function_name().get_symbol();
 		
-		std::string function_name = function_definition.get_function_name().mangle_id_expression();
-		if (!_function_map.contains(function_name))
-		{
-			std::cerr << __FILE__ << ":" << __LINE__ << ": Internal compiler error" << std::endl;
-			throw FatalException();
-		}
-		
-		FunctionInfo &function_info = _function_map[function_name];
-		
-		function_info._has_coherced_sides = true;
+		symbol.set_coherced_sides(true);
 		
 		// FIXME: These names are too Cell specific
 		PragmaCustomClause target_spu = construct.get_clause("spu");
@@ -662,26 +465,23 @@ namespace TL
 		if (target_spu.is_defined() && !target_spu.get_arguments().empty())
 		{
 			std::cerr << construct.get_ast().get_locus() << " Error: the 'spu' clause does not accept any parameter." << std::endl;
-			function_info._has_errors = true;
 			TaskAnalysis::fail();
 		}
 		if (target_ppu.is_defined() && !target_ppu.get_arguments().empty())
 		{
 			std::cerr << construct.get_ast().get_locus () << " Error: the 'ppu' clause does not accept any parameter." << std::endl;
-			function_info._has_errors = true;
 			TaskAnalysis::fail();
 		}
 		
 		if (!target_ppu.is_defined() && !target_spu.is_defined())
 		{
 			std::cerr << construct.get_ast().get_locus () << " Error: 'target' construct without any architecture." << std::endl;
-			function_info._has_errors = true;
 			TaskAnalysis::fail();
 			return;
 		}
 		
-		function_info._is_on_task_side = target_spu.is_defined();
-		function_info._is_on_non_task_side = target_ppu.is_defined();
+		symbol.set_as_task_side(target_spu.is_defined());
+		symbol.set_as_non_task_side(target_ppu.is_defined());
 	}
 	
 	
@@ -698,25 +498,16 @@ namespace TL
 		}
 		
 		DeclaredEntity declared_entity = *(declared_entities.begin());
-		Symbol function_symbol = declared_entity.get_declared_symbol();
+		AugmentedSymbol symbol = declared_entity.get_declared_symbol();
 		
-		if (!function_symbol.is_function())
+		if (!symbol.is_function())
 		{
 			std::cerr << declared_entity.get_ast().get_locus() << " Error: the target construct can only be applied to functions."  << std::endl;
 			TaskAnalysis::fail();
 			return;
 		}
 		
-		std::string function_name = function_symbol.get_name();
-		if (!_function_map.contains(function_name))
-		{
-			std::cerr << __FILE__ << ":" << __LINE__ << ": Internal compiler error" << std::endl;
-			throw FatalException();
-		}
-		
-		FunctionInfo &function_info = _function_map[function_name];
-		
-		function_info._has_coherced_sides = true;
+		symbol.set_coherced_sides(true);
 		
 		// FIXME: These names are too Cell specific
 		PragmaCustomClause target_spu = construct.get_clause("spu");
@@ -725,26 +516,23 @@ namespace TL
 		if (target_spu.is_defined() && !target_spu.get_arguments().empty())
 		{
 			std::cerr << construct.get_ast().get_locus() << " Error: the 'spu' clause does not accept any parameter." << std::endl;
-			function_info._has_errors = true;
 			TaskAnalysis::fail();
 		}
 		if (target_ppu.is_defined() && !target_ppu.get_arguments().empty())
 		{
 			std::cerr << construct.get_ast().get_locus () << " Error: the 'ppu' clause does not accept any parameter." << std::endl;
-			function_info._has_errors = true;
 			TaskAnalysis::fail();
 		}
 		
 		if (!target_ppu.is_defined() && !target_spu.is_defined())
 		{
 			std::cerr << construct.get_ast().get_locus () << " Error: 'target' construct without any architecture." << std::endl;
-			function_info._has_errors = true;
 			TaskAnalysis::fail();
 			return;
 		}
 		
-		function_info._is_on_task_side = target_spu.is_defined();
-		function_info._is_on_non_task_side = target_ppu.is_defined();
+		symbol.set_as_task_side(target_spu.is_defined());
+		symbol.set_as_non_task_side(target_ppu.is_defined());
 	}
 
 

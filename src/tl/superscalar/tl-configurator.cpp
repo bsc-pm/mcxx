@@ -17,7 +17,9 @@
 */
 
 #include "tl-builtin.hpp"
+#include "tl-symbol.hpp"
 
+#include "cxx-ss-attrnames.h"
 #include "tl-configurator.hpp"
 
 void TL::Configurator::pre_run(DTO &dto)

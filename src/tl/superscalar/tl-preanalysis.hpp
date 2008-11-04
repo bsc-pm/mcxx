@@ -20,13 +20,14 @@
 #define TL_PREANALYSIS_HPP
 
 
+#include <map>
+
 #include "tl-compilerphase.hpp"
-#include "tl-objectlist.hpp"
-#include "tl-predicateutils.hpp"
 #include "tl-scopelink.hpp"
 #include "tl-traverse.hpp"
 
-#include "tl-function-data.hpp"
+#include "tl-augmented-symbol.hpp"
+#include "tl-function-table.hpp"
 
 
 namespace TL
@@ -34,29 +35,16 @@ namespace TL
 	class PreAnalysis : public CompilerPhase
 	{
 		private:
+			typedef std::map<std::string, AugmentedSymbol> function_table_t;
+			
 			class FunctionDefinitionHandler : public TraverseFunctor
 			{
 				private:
-					FunctionMap _function_map;
+					FunctionTable &_function_table;
 					
 				public:
-					FunctionDefinitionHandler(FunctionMap function_map)
-						: _function_map(function_map)
-					{
-					}
-					
-					virtual void preorder(Context ctx, AST_t node);
-					virtual void postorder(Context ctx, AST_t node);
-			};
-			
-			class FunctionDeclarationHandler : public TraverseFunctor
-			{
-				private:
-					FunctionMap _function_map;
-					
-				public:
-					FunctionDeclarationHandler(FunctionMap function_map)
-						: _function_map(function_map)
+					FunctionDefinitionHandler(FunctionTable &function_table)
+						: _function_table(function_table)
 					{
 					}
 					
@@ -67,12 +55,12 @@ namespace TL
 			class FunctionCallHandler : public TraverseFunctor
 			{
 				private:
-					FunctionInfo &_function_info;
-					FunctionMap _function_map;
+					AugmentedSymbol _caller_function;
+					FunctionTable &_function_table;
 					
 				public:
-					FunctionCallHandler(FunctionInfo &function_info, FunctionMap function_map)
-						: _function_info(function_info), _function_map(function_map)
+					FunctionCallHandler(AugmentedSymbol caller_function, FunctionTable &function_table)
+						: _caller_function(caller_function), _function_table(function_table)
 					{
 					}
 					

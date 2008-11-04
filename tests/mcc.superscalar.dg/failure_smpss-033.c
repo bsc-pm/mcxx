@@ -1,4 +1,4 @@
 #pragma css target
-void f() {}
+void f(void) {}
 
 

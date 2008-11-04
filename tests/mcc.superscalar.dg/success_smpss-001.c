@@ -1,4 +1,4 @@
 #pragma css task
-void f() {}
+void f(void) {}
 
 

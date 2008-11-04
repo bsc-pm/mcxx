@@ -28,7 +28,6 @@
 #include "tl-type.hpp"
 
 #include "tl-ast-predicates.hpp"
-#include "tl-function-data.hpp"
 
 
 namespace TL
@@ -60,12 +59,8 @@ namespace TL
 			
 			class TaskCallHandler : public TraverseFunctor
 			{
-				private:
-					FunctionMap _function_map;
-					
 				public:
-					TaskCallHandler(FunctionMap function_map)
-						: _function_map(function_map)
+					TaskCallHandler()
 					{
 					}
 					
@@ -76,7 +71,6 @@ namespace TL
 			class FunctionDefinitionHandler : public TraverseFunctor
 			{
 				private:
-					FunctionMap _function_map;
 					ObjectList<AST_t> &_kill_list;
 					
 					bool _generate_task_side;
@@ -96,11 +90,11 @@ namespace TL
 					void handle_function_body(AST_t node, ScopeLink scope_link);
 					
 				public:
-					FunctionDefinitionHandler(FunctionMap function_map, ObjectList<AST_t> &kill_list, ScopeLink scope_link, bool generate_task_side, bool generate_non_task_side, bool align_memory)
-						: _function_map(function_map), _kill_list(kill_list),
+					FunctionDefinitionHandler(ObjectList<AST_t> &kill_list, ScopeLink scope_link, bool generate_task_side, bool generate_non_task_side, bool align_memory)
+						: _kill_list(kill_list),
 						_generate_task_side(generate_task_side), _generate_non_task_side(generate_non_task_side),
 						_body_traverser(),
-						_function_call_predicate(), _task_call_handler(function_map),
+						_function_call_predicate(), _task_call_handler(),
 						_malloc_call_predicate("malloc", scope_link), _malloc_handler(),
 						_calloc_call_predicate("calloc", scope_link), _calloc_handler(),
 						_do_traverse(generate_non_task_side)
@@ -120,38 +114,16 @@ namespace TL
 					virtual void postorder(Context ctx, AST_t node);
 			};
 			
-			class TaskDeclarationHandler
-			{
-				private:
-					FunctionMap _function_map;
-					Context _ctx;
-					AST_t _declaration_node;
-					
-					bool _generate_task_side;
-					bool _generate_non_task_side;
-					
-				public:
-					TaskDeclarationHandler(FunctionMap function_map, Context ctx, AST_t declaration_node, bool generate_task_side, bool generate_non_task_side)
-						: _function_map(function_map), _ctx(ctx), _declaration_node(declaration_node),
-						_generate_task_side(generate_task_side), _generate_non_task_side(generate_non_task_side)
-					{
-					}
-					
-					void preorder(Context ctx, AST_t node, FunctionInfo &function_info);
-					void postorder(Context ctx, AST_t node, FunctionInfo &function_info);
-			};
-			
 			class DeclarationHandler : public TraverseFunctor
 			{
 				private:
-					FunctionMap _function_map;
 					ObjectList<AST_t> &_kill_list;
 					bool _generate_task_side;
 					bool _generate_non_task_side;
 					
 				public:
-					DeclarationHandler(FunctionMap function_map, ObjectList<AST_t> &kill_list, bool generate_task_side, bool generate_non_task_side)
-						: _function_map(function_map), _kill_list(kill_list),
+					DeclarationHandler(ObjectList<AST_t> &kill_list, bool generate_task_side, bool generate_non_task_side)
+						: _kill_list(kill_list),
 						_generate_task_side(generate_task_side), _generate_non_task_side(generate_non_task_side)
 					{
 					}
@@ -164,7 +136,7 @@ namespace TL
 			static PhaseStatus _status;
 			
 			
-			void generate_task_id_declarations(FunctionMap function_map, AST_t translation_unit, ScopeLink scope_link);
+			void generate_task_ids_and_adapters(AST_t translation_unit, ScopeLink scope_link, bool generate_task_side, bool generate_non_task_side);
 			
 			
 		public:

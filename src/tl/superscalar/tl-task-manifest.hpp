@@ -26,8 +26,6 @@
 #include "tl-scopelink.hpp"
 #include "tl-traverse.hpp"
 
-#include "tl-function-data.hpp"
-
 
 namespace TL
 {

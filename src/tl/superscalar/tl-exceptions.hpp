@@ -51,7 +51,31 @@ namespace TL
 	{
 	};
 	
+	class InvalidRegionException
+	{
+	};
+	
 	class FatalException
+	{
+	};
+	
+	class MissingArrayDimensions
+	{
+	};
+	
+	class MismatchedNumberOfRangeSpecifiers
+	{
+	};
+	
+	class InvalidOperatorException
+	{
+	};
+	
+	class InvalidDatatypeForOperator
+	{
+	};
+	
+	class UnsupportedTypeException
 	{
 	};
 	

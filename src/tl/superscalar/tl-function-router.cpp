@@ -16,8 +16,10 @@
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
+#include <set>
 
-#include <string>
+#include "tl-augmented-symbol.hpp"
+#include "tl-function-table.hpp"
 
 #include "tl-function-router.hpp"
 
@@ -25,211 +27,122 @@
 namespace TL
 {
 
-	void TL::FunctionRouter::propagate_side_cohercion(RefPtr<FunctionMap> function_map, bool is_on_task_side, bool is_on_non_task_side, std::string const &task_side_function_name)
+	void TL::FunctionRouter::propagate_side_cohercion(AugmentedSymbol &caller, AugmentedSymbol &callee)
 	{
-		FunctionInfo &function_info = (*function_map.get_pointer())[task_side_function_name];
-		
-		if (function_info._has_coherced_sides)
+		if (callee.has_coherced_sides())
 		{
 			// End of recursion
 			return;
 		}
 		else
 		{
-			function_info._is_on_task_side |= is_on_task_side;
-			function_info._is_on_non_task_side |= is_on_non_task_side;
-			for (std::set<std::string>::iterator it = function_info._called_functions.begin(); it != function_info._called_functions.end(); it++)
+			callee.set_as_task_side( callee.is_on_task_side() | caller.is_on_task_side() );
+			callee.set_as_non_task_side( callee.is_on_non_task_side() | caller.is_on_non_task_side() );
+			
+			for (
+				AugmentedSymbol::call_iterator it = callee.begin_callee_functions();
+				it != callee.end_callee_functions();
+				it++)
 			{
-				std::string const &called_function = *it;
-				if (called_function != task_side_function_name)
-					propagate_side_cohercion(function_map, is_on_task_side, is_on_non_task_side, called_function);
+				AugmentedSymbol callee2 = *it;
+				propagate_side_cohercion(callee, callee2);
 			}
 		}
 	}
 	
 	
-	void TL::FunctionRouter::propagate_side_cohercion_backwards(RefPtr<FunctionMap> function_map, bool is_on_task_side, bool is_on_non_task_side, std::string const &task_side_function_name)
+	void TL::FunctionRouter::mark_task_side_recursively(AugmentedSymbol &symbol)
 	{
-		FunctionInfo &function_info = (*function_map.get_pointer())[task_side_function_name];
-		
-		if (function_info._has_coherced_sides || function_info._is_task)
+		symbol.set_as_task_side(true);
+		for (
+			AugmentedSymbol::call_iterator it = symbol.begin_callee_functions();
+			it != symbol.end_callee_functions();
+			it++)
 		{
-			// End of recursion
-			return;
-		}
-		else
-		{
-			function_info._is_on_task_side |= is_on_task_side;
-			function_info._is_on_non_task_side |= is_on_non_task_side;
-			if (is_on_task_side && !is_on_non_task_side) {
-				function_info._calls_to_taskside_coherced_function = true;
-			}
-			for (std::set<std::string>::iterator it = function_info._caller_functions.begin(); it != function_info._caller_functions.end(); it++)
+			AugmentedSymbol callee = *it;
+			if (!callee.is_task() && !callee.is_on_task_side() && !callee.has_coherced_sides())
 			{
-				std::string const &caller_function = *it;
-				propagate_side_cohercion_backwards(function_map, is_on_task_side, is_on_non_task_side, caller_function);
+				mark_task_side_recursively(callee);
 			}
 		}
 	}
 	
 	
-	void TL::FunctionRouter::mark_task_side_recursively(RefPtr<FunctionMap> function_map, std::string const &task_side_function_name, bool is_task)
+	void TL::FunctionRouter::mark_non_task_side_recursively(AugmentedSymbol &symbol)
 	{
-		FunctionInfo &function_info = (*function_map.get_pointer())[task_side_function_name];
-		
-		if (!is_task && (function_info._is_task || function_info._is_on_task_side || function_info._has_coherced_sides))
+		symbol.set_as_non_task_side(true);
+		for (
+			AugmentedSymbol::call_iterator it = symbol.begin_callee_functions();
+			it != symbol.end_callee_functions();
+			it++)
 		{
-			// End of recursion
-			return;
-		}
-		else
-		{
-			function_info._is_on_task_side = true;
-			for (std::set<std::string>::iterator it = function_info._called_functions.begin(); it != function_info._called_functions.end(); it++)
+			AugmentedSymbol callee = *it;
+			if (!callee.is_task() && !callee.is_on_non_task_side() && !callee.has_coherced_sides())
 			{
-				std::string const &called_function = *it;
-				mark_task_side_recursively(function_map, called_function);
+				mark_non_task_side_recursively(callee);
 			}
 		}
 	}
 	
-	
-	void TL::FunctionRouter::mark_non_task_side_recursively(RefPtr<FunctionMap> function_map, std::string const &non_task_side_function_name)
-	{
-		FunctionInfo &function_info = (*function_map.get_pointer())[non_task_side_function_name];
-		
-		if (function_info._is_task || function_info._is_on_non_task_side /* || function_info._has_coherced_sides */)
-		{
-			// End of recursion
-			return;
-		}
-		else
-		{
-			function_info._is_on_non_task_side = true;
-			for (std::set<std::string>::iterator it = function_info._called_functions.begin(); it != function_info._called_functions.end(); it++)
-			{
-				std::string const &called_function = *it;
-				mark_non_task_side_recursively(function_map, called_function);
-			}
-		}
-	}
-	
-	
-	ObjectList<std::string> TL::FunctionRouter::get_coherced_side_function_names(RefPtr<FunctionMap> function_map) const
-	{
-		ObjectList<std::string> result;
-		
-		for (FunctionMap::iterator it = function_map->begin(); it != function_map->end(); it++)
-		{
-			FunctionInfo &function_info = it->second;
-			if (function_info._has_coherced_sides)
-			{
-				result.push_back(function_info._name);
-			}
-		}
-		
-		return result;
-	}
-	
-	
-	ObjectList<std::string> TL::FunctionRouter::get_task_names(RefPtr<FunctionMap> function_map) const
-	{
-		ObjectList<std::string> result;
-		
-		for (FunctionMap::iterator it = function_map->begin(); it != function_map->end(); it++)
-		{
-			FunctionInfo &function_info = it->second;
-			if (function_info._is_task)
-			{
-				result.push_back(function_info._name);
-			}
-		}
-		
-		return result;
-	}
-	
-	
-	ObjectList<std::string> TL::FunctionRouter::get_non_called_functions(RefPtr<FunctionMap> function_map) const
-	{
-		ObjectList<std::string> result;
-		
-		for (FunctionMap::iterator it = function_map->begin(); it != function_map->end(); it++)
-		{
-			FunctionInfo &function_info = it->second;
-			if (function_info._caller_functions.empty())
-			{
-				result.push_back(function_info._name);
-			}
-		}
-		
-		return result;
-	}
-	
-    void TL::FunctionRouter::pre_run(DTO& dto)
-    {
-    }
 	
 	void TL::FunctionRouter::run(DTO &dto)
 	{
-		RefPtr<FunctionMap> function_map = RefPtr<FunctionMap>::cast_dynamic(dto["superscalar_function_table"]);
+		AST_t translation_unit( dto["translation_unit"] );
+		ScopeLink scope_link( dto["scope_link"] );
+		
+		FunctionTable function_table(translation_unit, scope_link);
 		
 		// Propagate task and non-task user specifiers from functions to their called functions
-		ObjectList<std::string> coherced_side_function_names = get_coherced_side_function_names(function_map);
-		for (ObjectList<std::string>::iterator it = coherced_side_function_names.begin(); it != coherced_side_function_names.end(); it++)
+		for (FunctionTable::iterator it = function_table.begin(); it != function_table.end(); it++)
 		{
-			std::string const &function_name = *it;
-			FunctionInfo &function_info = (*function_map.get_pointer())[function_name];
-			// Forward pass
-			for (std::set<std::string>::iterator it2 = function_info._called_functions.begin(); it2 != function_info._called_functions.end(); it2++)
+			AugmentedSymbol symbol = it->second;
+			if (symbol.has_coherced_sides())
 			{
-				std::string const &called_function_name = *it2;
-				propagate_side_cohercion(function_map, function_info._is_on_task_side, function_info._is_on_non_task_side, called_function_name);
-			}
-#if 0
-			// Backwards pass
-			for (std::set<std::string>::iterator it2 = function_info._caller_functions.begin(); it2 != function_info._caller_functions.end(); it2++)
-			{
-				std::string const &caller_function_name = *it2;
-				propagate_side_cohercion_backwards(function_map, function_info._is_on_task_side, function_info._is_on_non_task_side, caller_function_name);
-			}
-#endif
-		}
-		
-		// Mark task side
-		ObjectList<std::string> task_names = get_task_names(function_map);
-		for (ObjectList<std::string>::iterator it = task_names.begin(); it != task_names.end(); it++)
-		{
-			std::string const &task_name = *it;
-			mark_task_side_recursively(function_map, task_name, true);
-		}
-		
-		// Mark non task side from non called functions unless it is a static function like spu_re.
-		// In that case we do not mark it since it is not used and we do not know which side it should be in.
-		ObjectList<std::string> non_called_functions = get_non_called_functions(function_map);
-		for (ObjectList<std::string>::iterator it = non_called_functions.begin(); it != non_called_functions.end(); it++)
-		{
-			std::string const &function_name = *it;
-			FunctionInfo &function_info = (*function_map.get_pointer())[function_name];
-			
-			if (function_info._definition_count != 0 && !function_info._has_coherced_sides && !function_info._calls_to_taskside_coherced_function)
-			{
-				Symbol symbol = function_info._definition_scope.get_symbol_from_name(function_name);
-				if (!symbol.is_static())
+				// Forward
+				for (AugmentedSymbol::call_iterator it2 = symbol.begin_callee_functions();
+					it2 != symbol.end_callee_functions();
+					it2++)
 				{
-					mark_non_task_side_recursively(function_map, function_name);
+					AugmentedSymbol callee = *it2;
+					propagate_side_cohercion(symbol, callee);
 				}
 			}
 		}
 		
-		// Mark the rest as non task side
-		for (FunctionMap::iterator it = function_map->begin(); it != function_map->end(); it++)
+		// Mark task side
+		for (FunctionTable::iterator it = function_table.begin(); it != function_table.end(); it++)
 		{
-			FunctionInfo &function_info = it->second;
-			if (!function_info._is_on_task_side && !function_info._is_on_non_task_side && !function_info._has_coherced_sides)
+			AugmentedSymbol symbol = it->second;
+			if (symbol.is_task())
 			{
-				function_info._is_on_non_task_side = true;
+				mark_task_side_recursively(symbol);
 			}
 		}
+		
+		// Mark non task side from non called functions unless it is a static function like spu_re.
+		// In that case we do not mark it since it is not used and we do not know which side it should be in.
+		for (FunctionTable::iterator it = function_table.begin(); it != function_table.end(); it++)
+		{
+			AugmentedSymbol symbol = it->second;
+			if (symbol.begin_caller_functions() == symbol.end_caller_functions()
+				&& !symbol.has_coherced_sides()
+				&& !symbol.calls_to_taskside_coherced_function()
+				&& !symbol.is_static())
+			{
+				mark_non_task_side_recursively(symbol);
+			}
+		}
+		
+		// Mark the rest as non task side
+		for (FunctionTable::iterator it = function_table.begin(); it != function_table.end(); it++)
+		{
+			AugmentedSymbol symbol = it->second;
+			if (!symbol.is_on_task_side() && !symbol.is_on_non_task_side() && !symbol.has_coherced_sides())
+			{
+				symbol.set_as_non_task_side(true);
+			}
+		}
+		
 	}
 
 }

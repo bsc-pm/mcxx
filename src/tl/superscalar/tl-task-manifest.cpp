@@ -20,10 +20,10 @@
 
 #include "tl-langconstruct.hpp"
 
-#include "tl-ast-predicates.hpp"
-#include "tl-exceptions.hpp"
+#include "tl-augmented-symbol.hpp"
+#include "tl-task-table.hpp"
+
 #include "tl-task-manifest.hpp"
-#include "tl-type-utils.hpp"
 
 
 namespace TL
@@ -34,14 +34,16 @@ namespace TL
 
 	void TaskManifest::run(DTO &dto)
 	{
-		FunctionMap function_map = dto["superscalar_function_table"];
+		AST_t translation_unit = dto["translation_unit"];
+		ScopeLink scope_link = dto["scope_link"];
 		
-		if (_manifest_filename == std::string(""))
+		std::ofstream manifest;
+		
+		// Check whether to actually create it or not
+		if (_manifest_filename == "")
 		{
 			return;
 		}
-		
-		std::ofstream manifest;
 		
 		manifest.open(_manifest_filename.c_str());
 		if (!manifest.is_open())
@@ -51,13 +53,12 @@ namespace TL
 			return;
 		}
 		
-		for (FunctionMap::iterator it = function_map.begin(); it != function_map.end(); it++)
+		TaskTable task_table(translation_unit, scope_link);
+		
+		for (TaskTable::iterator it = task_table.begin(); it != task_table.end(); it++)
 		{
-			FunctionInfo &function_info = it->second;
-			if (function_info._is_task)
-			{
-				manifest << function_info._name << std::endl;
-			}
+			AugmentedSymbol symbol = *it;
+			manifest << symbol.get_qualified_name() << std::endl;
 		}
 		
 		if (manifest.fail())

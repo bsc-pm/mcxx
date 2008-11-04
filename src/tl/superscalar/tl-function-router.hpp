@@ -23,9 +23,8 @@
 #include <string>
 
 #include "tl-compilerphase.hpp"
-#include "tl-objectlist.hpp"
 
-#include "tl-function-data.hpp"
+#include "tl-augmented-symbol.hpp"
 
 
 namespace TL
@@ -33,17 +32,11 @@ namespace TL
 	class FunctionRouter : public CompilerPhase
 	{
 		private:
-			void propagate_side_cohercion(RefPtr<FunctionMap> function_map, bool is_on_task_side, bool is_on_non_task_side, std::string const &task_side_function_name);
-			void propagate_side_cohercion_backwards(RefPtr<FunctionMap> function_map, bool is_on_task_side, bool is_on_non_task_side, std::string const &task_side_function_name);
-			void mark_task_side_recursively(RefPtr<FunctionMap> function_map, std::string const &task_side_function_name, bool is_task = false);
-			void mark_non_task_side_recursively(RefPtr<FunctionMap> function_map, std::string const &non_task_side_function_name);
-			
-			ObjectList<std::string> get_coherced_side_function_names(RefPtr<FunctionMap> function_map) const;
-			ObjectList<std::string> get_task_names(RefPtr<FunctionMap> function_map) const;
-			ObjectList<std::string> get_non_called_functions(RefPtr<FunctionMap> function_map) const;
+			void propagate_side_cohercion(AugmentedSymbol &caller, AugmentedSymbol &callee);
+			void mark_task_side_recursively(AugmentedSymbol &symbol);
+			void mark_non_task_side_recursively(AugmentedSymbol &symbol);
 			
 		public:
-			virtual void pre_run(DTO &dto);
 			virtual void run(DTO &dto);
 	};
 	

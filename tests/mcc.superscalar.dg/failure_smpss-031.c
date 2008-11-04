@@ -1,4 +1,4 @@
 #pragma css task highpriority(whatever)
-void f() {}
+void f(void) {}
 
 

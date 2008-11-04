@@ -17,14 +17,8 @@
 #	The GNU General Public License is contained in the file COPYING.
 
 
-lib_LTLIBRARIES = \
-	libtlsuperscalar-configurator.la \
-	libtlsuperscalar-preanalysis.la \
-	libtlsuperscalar-task-analysis.la \
-	libtlsuperscalar-function-router.la \
-	libtlsuperscalar-transform-directives.la \
-	libtlsuperscalar-code-conversion.la	\
-	libtlsuperscalar-task-manifest.la
+# Ugly, but necessary since normal YACC rules have been broken
+BISON = @BISON@
 
 
 AM_CXXFLAGS = -Wall \
@@ -37,18 +31,58 @@ AM_CXXFLAGS = -Wall \
 	-I $(top_builddir)/src/driver \
 	-I $(top_builddir)/lib
 
+AM_CFLAGS = -Wall \
+	-I $(top_srcdir)/src/tl \
+	-I $(top_srcdir)/src/frontend \
+	-I $(top_srcdir)/src/driver \
+	-I $(top_srcdir)/lib \
+	-I $(top_builddir)/src/tl \
+	-I $(top_builddir)/src/frontend \
+	-I $(top_builddir)/src/driver \
+	-I $(top_builddir)/lib
+
+
+lib_LTLIBRARIES = \
+	libtlsuperscalar-configurator.la \
+	libtlsuperscalar-preanalysis.la \
+	libtlsuperscalar-task-analysis.la \
+	libtlsuperscalar-function-router.la \
+	libtlsuperscalar-transform-directives.la \
+	libtlsuperscalar-code-conversion.la	\
+	libtlsuperscalar-task-manifest.la
+
+
+if BISON_BUILDING
+CLEANFILES = \
+	calculator-parser.c
+endif
+
+
+calculator-parser.c calculator-parser.output : calculator-parser.y
+if BISON_BUILDING
+	$(BISON) --output=calculator-parser.c $<
+else
+	@echo "*** ERROR: file" $< "was modified but no suitable bison-rofi was found during configure ***" && /bin/false
+endif
+
 
 libtlsuperscalar_configurator_la_SOURCES = \
 	tl-configurator.cpp
 
 libtlsuperscalar_preanalysis_la_SOURCES = \
+	tl-function-table.cpp \
 	tl-preanalysis.cpp
 
 libtlsuperscalar_task_analysis_la_SOURCES = \
+	calculator-parser.c \
+	tl-calculator.cpp \
 	tl-source-bits.cpp \
+	tl-parameter-expression.cpp \
+	tl-region.cpp \
 	tl-task-analysis.cpp
 
 libtlsuperscalar_function_router_la_SOURCES = \
+	tl-function-table.cpp \
 	tl-function-router.cpp
 
 libtlsuperscalar_transform_directives_la_SOURCES = 
@@ -64,6 +98,10 @@ if USE_TL_SUPERSCALAR_V3
 libtlsuperscalar_transform_directives_la_SOURCES += \
 	tl-transform-directives-v3.cpp
 endif
+if USE_TL_SUPERSCALAR_V4
+libtlsuperscalar_transform_directives_la_SOURCES += \
+	tl-transform-directives-v3.cpp
+endif
 
 libtlsuperscalar_code_conversion_la_SOURCES = 
 if USE_TL_SUPERSCALAR_V1
@@ -76,18 +114,32 @@ libtlsuperscalar_code_conversion_la_SOURCES += \
 endif
 if USE_TL_SUPERSCALAR_V3
 libtlsuperscalar_code_conversion_la_SOURCES += \
+	tl-parameter-expression.cpp \
 	tl-code-conversion-v3.cpp
+endif
+if USE_TL_SUPERSCALAR_V4
+libtlsuperscalar_code_conversion_la_SOURCES += \
+	tl-parameter-expression.cpp \
+	tl-code-conversion-v4.cpp
 endif
 
 libtlsuperscalar_task_manifest_la_SOURCES = \
+	tl-task-table.cpp \
 	tl-task-manifest.cpp
 
 
 noinst_HEADERS = \
+	cxx-ss-attrnames.h \
+	\
 	tl-ast-predicates.hpp \
+	tl-augmented-symbol.hpp \
 	tl-exceptions.hpp \
-	tl-function-data.hpp \
+	tl-parameter-expression.hpp \
+	tl-parameter-region-list.hpp \
+	tl-region.hpp \
+	tl-region-list.hpp \
 	tl-source-bits.hpp \
+	tl-task-table.hpp \
 	tl-type-utils.hpp \
 	\
 	tl-configurator.hpp \

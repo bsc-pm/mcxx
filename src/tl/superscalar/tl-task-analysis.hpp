@@ -22,9 +22,9 @@
 
 #include "tl-pragmasupport.hpp"
 #include "tl-predicateutils.hpp"
+#include "tl-region.hpp"
 
 #include "tl-exceptions.hpp"
-#include "tl-function-data.hpp"
 
 
 namespace TL
@@ -33,16 +33,25 @@ namespace TL
 	class TaskAnalysis : public PragmaCustomCompilerPhase
 	{
 		private:
-			FunctionMap _function_map;
+			static PhaseStatus _status;
+			
+			static void fail()
+			{
+				_status = PHASE_STATUS_ERROR;
+			}
 			
 			static IdExpression get_base_id_expression(Expression expression);
 			static ObjectList<Expression> get_array_access_indices(Expression expression);
-			static std::string direction_to_name(ParameterDirection direction);
+			static std::string direction_to_name(Region::Direction direction);
 			
-			void handle_definition_parameter(PragmaCustomConstruct &construct, FunctionDefinition &task_definition, FunctionInfo &function_info, std::string const &parameter_specification, ParameterDirection direction);
-			void handle_declaration_parameter(PragmaCustomConstruct &construct, DeclaredEntity &task_declaration, FunctionInfo &function_info, std::string const &parameter_specification, ParameterDirection direction);
+			Region handle_parameter(AST_t construct_ast, AST_t context_ast, ScopeLink scope_link, std::string const &parameter_specification, std::string const &line_annotation, Region::Direction direction, AugmentedSymbol &parameter_symbol);
 			
-			static PhaseStatus _status;
+			void process_task(PragmaCustomConstruct construct);
+			void process_task(PragmaCustomConstruct construct, AST_t context_ast, DeclaredEntity declared_entity);
+			
+			void process_target(PragmaCustomConstruct construct);
+			void process_target_on_definition(PragmaCustomConstruct construct);
+			void process_target_on_declaration(PragmaCustomConstruct construct);
 			
 		public:
 			TaskAnalysis() : PragmaCustomCompilerPhase("css")
@@ -59,7 +68,6 @@ namespace TL
 				
 				try
 				{
-					_function_map = data_flow["superscalar_function_table"];
 					PragmaCustomCompilerPhase::run(data_flow);
 				}
 				catch (FatalException ex)
@@ -69,20 +77,6 @@ namespace TL
 				
 				set_phase_status(_status);
 			}
-			
-			static void fail()
-			{
-				_status = PHASE_STATUS_ERROR;
-			}
-			
-			void process_task(PragmaCustomConstruct construct);
-			void process_target(PragmaCustomConstruct construct);
-			
-			void process_task_definition(PragmaCustomConstruct construct);
-			void process_task_declaration(PragmaCustomConstruct construct);
-			
-			void process_target_on_definition(PragmaCustomConstruct construct);
-			void process_target_on_declaration(PragmaCustomConstruct construct);
 			
 	};
 

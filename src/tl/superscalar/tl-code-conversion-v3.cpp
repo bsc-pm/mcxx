@@ -18,7 +18,9 @@
 
 #include <sstream>
 
+#include "tl-augmented-symbol.hpp"
 #include "tl-code-conversion-v3.hpp"
+#include "tl-parameter-expression.hpp"
 #include "tl-type-utils.hpp"
 
 
@@ -34,6 +36,7 @@ namespace TL
 	
 	void CodeConversion::TaskCallHandler::postorder(Context ctx, AST_t node)
 	{
+		ScopeLink scope_link = ctx.scope_link;
 		Expression function_call(node, ctx.scope_link);
 		
 		if (!function_call.is_function_call())
@@ -49,26 +52,29 @@ namespace TL
 			return;
 		}
 		
-		std::string function_name = function_called_expresion.get_id_expression().mangle_id_expression();
-		if (_function_map.find(function_name) == _function_map.end())
+		AugmentedSymbol symbol = function_called_expresion.get_id_expression().get_symbol();
+		if (!symbol.is_task())
 		{
-			// Already emmited elsewhere
-			// std::cerr << node.get_locus() << " Warning: call to function '" << function_name << "' without a prototype." << endl;
 			return;
 		}
 		
-		FunctionInfo const &function_info = _function_map[function_name];
-		if (!function_info._is_task)
-		{
-			return;
-		}
+		Type type = symbol.get_type();
+		ObjectList<Type> parameter_types = type.parameters();
+		RefPtr<ParameterRegionList> parameter_region_list = symbol.get_parameter_region_list();
+		std::string function_name = symbol.get_qualified_name();
 		
 		ObjectList<Expression> arguments = function_call.get_argument_list();
-		if (arguments.size() != function_info._parameters.size())
+		if (arguments.size() != parameter_types.size())
 		{
 			std::cerr << function_call.get_ast().get_locus() << " Error: Call to function '" << function_name << "' with incorrect number of parameters." << std::endl;
 			CodeConversion::fail();
 			return;
+		}
+		
+		if (parameter_region_list->size() != parameter_types.size())
+		{
+			std::cerr << __FILE__ << ":" << __LINE__ << ": " << "Internal compiler error" << std::endl;
+			throw FatalException();
 		}
 		
 		// Get and check its corresponding statement expression
@@ -117,49 +123,8 @@ namespace TL
 				<< function_info._parameters.size() << ", "
 				<< "parameters__cssgenerated" << ");";
 		
-		
-		// Fill in the argumet mapper
-		ReplaceIdExpression argument_mapper;
-		ObjectList<ParameterInfo>::const_iterator it = function_info._parameters.begin();
-		ObjectList<Expression>::iterator it2 = arguments.begin();
-		while (it != function_info._parameters.end())
+		for (unsigned int index = 0; index < arguments.size(); index++)
 		{
-			ParameterInfo const &parameter_info = *it;
-			Expression &argument = *it2;
-			Type parameter_type(NULL);
-			
-			if (parameter_info._augmented_definition_type.is_valid())
-			{
-				parameter_type = parameter_info._augmented_definition_type;
-			}
-			else if (parameter_info._augmented_declaration_type.is_valid())
-			{
-				parameter_type = parameter_info._augmented_declaration_type;
-			}
-			else
-			{
-				std::cerr << __FILE__ << ":" << __LINE__ << ": Internal compiler error" << std::endl;
-				throw FatalException();
-			}
-			
-			if (!parameter_type.is_array() && !parameter_type.is_pointer() && parameter_type.is_non_derived_type())
-			{
-				// A scalar
-				argument_mapper.add_replacement(parameter_info._symbol, argument.get_ast());
-			}
-			it++;
-			it2++;
-		}
-		
-		
-		unsigned int parameter_index = 0;
-		it = function_info._parameters.begin();
-		it2 = arguments.begin();
-		while (it != function_info._parameters.end())
-		{
-			ParameterInfo const &parameter_info = *it;
-			Expression &argument = *it2;
-			
 			Source direction_source;
 			Source size_source;
 			Source address_source;
@@ -171,64 +136,82 @@ namespace TL
 					<< ", " << address_source
 				<< "}, ";
 			
-			switch (parameter_info._direction)
+			Expression argument = arguments[index];
+			RegionList region_list = (*parameter_region_list.get_pointer())[index];
+			if (region_list.size() != 1)
 			{
-				case INPUT_DIR:
+				std::cerr << function_call.get_ast().get_locus() << " Error: In call to task '" << function_name << "'. Sorry, this compiler version does not support ranges. Please check that you are compiling for an architecture that supports ranges." << std::endl;
+				CodeConversion::fail();
+				return;
+			}
+			
+			Region &region = region_list[0];
+			if (!region.is_full())
+			{
+				std::cerr << function_call.get_ast().get_locus() << " Error: In call to task '" << function_name << "'. Sorry, this compiler version does not support ranges. Please check that you are compiling for an architecture that supports ranges." << std::endl;
+				CodeConversion::fail();
+				return;
+			}
+			
+			switch (region.get_direction())
+			{
+				case Region::INPUT_DIR:
 					direction_source << "CSS_IN_DIR";
 					break;
-				case OUTPUT_DIR:
+				case Region::OUTPUT_DIR:
 					direction_source << "CSS_OUT_DIR";
 					break;
-				case INOUT_DIR:
+				case Region::INOUT_DIR:
 					direction_source << "CSS_INOUT_DIR";
 					break;
-				case UNKNOWN_DIR:
+				case Region::UNKNOWN_DIR:
 					std::cerr << __FILE__ << ":" << __LINE__ << "Internal compiler error." << std::cerr;
-					return;
+					throw FatalException();
 			}
-			
-			Type parameter_type(NULL);
-			
-			if (parameter_info._augmented_definition_type.is_valid())
-			{
-				parameter_type = parameter_info._augmented_definition_type;
-			}
-			else if (parameter_info._augmented_declaration_type.is_valid())
-			{
-				parameter_type = parameter_info._augmented_declaration_type;
-			}
-			else
-			{
-				std::cerr << __FILE__ << ":" << __LINE__ << ": Internal compiler error" << std::endl;
-				throw FatalException();
-			}
-			
 			
 			bool is_lvalue;
 			Type argument_type = argument.get_type(is_lvalue);
+			Type parameter_type = parameter_types[index];
 			
-			if (parameter_type.is_array())
+			if (region.get_dimension_count() != 0)
 			{
-				// Size
-				ObjectList<Expression> dimensions = TypeUtils::get_array_dimensions(parameter_type, ctx.scope_link);
-				for (ObjectList<Expression>::const_iterator dimension_it = dimensions.begin(); dimension_it != dimensions.end(); dimension_it++)
+				// An array
+				
+				// Calulate the parametrized size
+				Source parametrized_size_source;
+				for (Region::iterator it = region.begin(); it != region.end(); it++)
 				{
-					Expression const &dimension = *dimension_it;
-					size_source 
-						<< "(" << argument_mapper.replace(dimension).prettyprint() << ") *";
+					Region::DimensionSpecifier *dimension = *it;
+					parametrized_size_source 
+						<< "(" << dimension->get_dimension_length().prettyprint() << ") * ";
 				}
-				size_source
+				parametrized_size_source
 					<< "sizeof("
-						<< TypeUtils::get_array_element_type(parameter_type, ctx.scope_link)
-							.get_declaration(ctx.scope_link.get_scope(argument.get_ast()), std::string(""))
+						<< (
+								parameter_type.is_pointer()
+								? parameter_type.points_to()
+								: TypeUtils::get_array_element_type(parameter_type, scope_link)
+							).get_declaration(ctx.scope_link.get_scope(argument.get_ast()), std::string(""))
 					<< ")";
-				address_source << argument.prettyprint();
+				AST_t parametrized_size_ast = parametrized_size_source.parse_expression(
+					(*region.begin())->get_dimension_length().get_ast(),
+					scope_link
+				);
+				Expression parametrized_size(parametrized_size_ast, scope_link);
+				
+				// Replace the parameters in the parametrized size
+				ParameterExpression::substitute(parametrized_size, arguments, scope_link);
+				
+				size_source
+					<< parametrized_size.prettyprint();
+				address_source
+					<< argument.prettyprint();
 			}
 			else if (parameter_type.is_pointer())
 			{
 				if (!argument_type.is_pointer() && !argument_type.is_array())
 				{
-					std::cerr << argument.get_ast().get_locus() << " Error: expression '" << argument.prettyprint() << "' passed as parameter number " << parameter_index+1 << " in call to task '" << function_info._name << "' must be a pointer or an array." << std::endl;
+					std::cerr << argument.get_ast().get_locus() << " Error: expression '" << argument.prettyprint() << "' passed as parameter number " << index+1 << " in call to task '" << function_name << "' must be a pointer or an array." << std::endl;
 					CodeConversion::fail();
 					return;
 				}
@@ -237,23 +220,48 @@ namespace TL
 				if (base_type.is_void())
 				{
 					// An opaque parameter, we should pass a pointer to it, since it is treated as a scalar
-					if (parameter_info._direction == INPUT_DIR)
+					if (region.get_direction() == Region::INPUT_DIR)
 					{
 						direction_source = Source("CSS_IN_SCALAR_DIR");
 					}
 					size_source
 						<< "sizeof(void *)";
 					std::ostringstream temporary_name;
-					temporary_name << "parameter_" << parameter_index << "__cssgenerated";
+					temporary_name << "parameter_" << index << "__cssgenerated";
 					constant_redirection_source
 						<< "void *" << temporary_name.str() << " = " << argument.prettyprint() << ";";
 					address_source << "&" << temporary_name.str();
 				}
-				else
+				else if (argument.is_literal())
 				{
+					if (region.get_direction() == Region::INPUT_DIR)
+					{
+						direction_source = Source("CSS_IN_SCALAR_DIR");
+					}
+					else
+					{
+						std::cerr << argument.get_ast().get_locus() << " Error: expression '" << argument.prettyprint() << "' passed as parameter number " << index+1 << " in call to task '" << function_name << "' is a literal passed as either output or inout." << std::endl;
+						CodeConversion::fail();
+						return;
+					}
+					// A "string" or an L"string"
+					if (!base_type.is_char() && !base_type.is_wchar_t())
+					{
+						std::cerr << __FILE__ << ":" << __LINE__ << ": Internal compiler error" << std::endl;
+						throw FatalException();
+					}
 					size_source
 						<< "sizeof("
-							<< base_type.get_declaration(ctx.scope_link.get_scope(argument.get_ast()), std::string(""))
+							<< base_type.get_declaration(scope_link.get_scope(argument.get_ast()), std::string(""))
+						<< ")";
+					address_source << argument.prettyprint();
+				}
+				else
+				{
+					// A struct
+					size_source
+						<< "sizeof("
+							<< base_type.get_declaration(scope_link.get_scope(argument.get_ast()), std::string(""))
 						<< ")";
 					address_source << argument.prettyprint();
 				}
@@ -261,7 +269,7 @@ namespace TL
 			else if (parameter_type.is_non_derived_type())
 			{
 				// A scalar
-				if (parameter_info._direction != INPUT_DIR) {
+				if (region.get_direction() != Region::INPUT_DIR) {
 					std::cerr << "Internal compiler error at " << __FILE__ << ":" << __LINE__ << std::endl;
 					throw FatalException();
 				}
@@ -269,12 +277,12 @@ namespace TL
 				// Must not be a pointer but we have to pass its address anyway
 				if (argument_type.is_pointer() || argument_type.is_array())
 				{
-					std::cerr << argument.get_ast().get_locus() << " Error: expression '" << argument.prettyprint() << "' passed as parameter number " << parameter_index+1 << " in call to task '" << function_info._name << "' cannot be a pointer or an array." << std::endl;
+					std::cerr << argument.get_ast().get_locus() << " Error: expression '" << argument.prettyprint() << "' passed as parameter number " << index+1 << " in call to task '" << function_name << "' can neither be a pointer nor an array." << std::endl;
 					CodeConversion::fail();
 					return;
 				}
 				
-				if (parameter_info._direction == INPUT_DIR)
+				if (region.get_direction() == Region::INPUT_DIR)
 				{
 					direction_source = Source("CSS_IN_SCALAR_DIR");
 				}
@@ -291,7 +299,7 @@ namespace TL
 				else
 				{
 					std::ostringstream temporary_name;
-					temporary_name << "parameter_" << parameter_index << "__cssgenerated";
+					temporary_name << "parameter_" << index << "__cssgenerated";
 					constant_redirection_source
 						<< parameter_type.get_declaration_with_initializer(
 							ctx.scope_link.get_scope(argument.get_ast()),
@@ -309,10 +317,6 @@ namespace TL
 				std::cerr << "Internal compiler error at " << __FILE__ << ":" << __LINE__ << std::endl;
 				throw FatalException();
 			}
-			
-			parameter_index++;
-			it++;
-			it2++;
 		}
 		
 		AST_t tree = source.parse_statement(node, ctx.scope_link);
@@ -338,21 +342,20 @@ namespace TL
 	void CodeConversion::FunctionDefinitionHandler::postorder(Context ctx, AST_t node)
 	{
 		FunctionDefinition function_definition(node, ctx.scope_link);
+		AugmentedSymbol symbol = function_definition.get_function_name().get_symbol();
 		
-		std::string function_name = function_definition.get_function_name().mangle_id_expression();
+		std::string function_name = symbol.get_name();
 		
 		if (function_name.find("__cssgenerated") != std::string::npos) {
 			// An adapter or similar generated code
 			return;
 		}
 		
-		FunctionInfo &function_info = _function_map[function_name];
-		
 		// Handle non task function definitions
-		if (!function_info._is_task)
+		if (!symbol.is_task())
 		{
-			if ( (function_info._is_on_task_side && _generate_task_side) ||
-				(function_info._is_on_non_task_side && _generate_non_task_side) )
+			if ( ((bool)symbol.is_on_task_side() && _generate_task_side) ||
+				((bool)symbol.is_on_non_task_side() && _generate_non_task_side) )
 			{
 				// Generate the function definition
 				handle_function_body(node, ctx.scope_link);
@@ -373,139 +376,6 @@ namespace TL
 			return;
 		}
 		
-		Source source;
-		Source adapter_parameters;
-		
-		source
-			<< "void __attribute__((weak)) " << function_name << "_adapter__cssgenerated" << "(void **parameter_data)"
-			<< "{"
-				<< function_name << "(" << adapter_parameters << ");"
-			<< "}";
-		
-		int parameter_index = 0;
-		for (ObjectList<ParameterInfo>::iterator it = function_info._parameters.begin(); it != function_info._parameters.end(); it++)
-		{
-			ParameterInfo &parameter_info = *it;
-			
-			Type parameter_type(NULL);
-			if (parameter_info._augmented_definition_type.is_valid())
-			{
-				parameter_type = parameter_info._augmented_definition_type;
-			}
-			else if (parameter_info._augmented_declaration_type.is_valid())
-			{
-				parameter_type = parameter_info._augmented_declaration_type;
-			}
-			else
-			{
-				std::cerr << __FILE__ << ":" << __LINE__ << ": Internal compiler error" << std::endl;
-				throw FatalException();
-			}
-			
-			if (it != function_info._parameters.begin())
-			{
-				adapter_parameters
-					<< ",";
-			}
-			if ((parameter_type.is_pointer() && !parameter_type.points_to().is_void()) || parameter_type.is_array())
-			{
-				adapter_parameters
-					<< "parameter_data[" << parameter_index << "]";
-			}
-			else
-			{
-				adapter_parameters
-					<< "*("
-						<< "(" << parameter_type.get_pointer_to().get_declaration(/* FIXME: probably wrong */ ctx.scope_link.get_scope(node), std::string("")) << ")"
-						<< "parameter_data[" << parameter_index << "]"
-					<< ")";
-			}
-			
-			parameter_index++;
-		}
-		
-		AST_t tree = source.parse_global(node, ctx.scope_link);
-		node.append_to_translation_unit(tree);
-	}
-	
-	
-	void CodeConversion::TaskDeclarationHandler::preorder(Context ctx, AST_t node, FunctionInfo &function_info)
-	{
-	}
-	
-	
-	void CodeConversion::TaskDeclarationHandler::postorder(Context ctx, AST_t node, FunctionInfo &function_info)
-	{
-		if (function_info._definition_count != 0)
-		{
-			// Emmit adaptors only once per translation unit (preferably for the task definition)
-			return;
-		}
-		
-		function_info._task_declarations_processed++;
-		if (function_info._task_declarations_processed != function_info._task_declaration_count)
-		{
-			// Skip adaptor generation until the last declaration
-			return;
-		}
-		
-		if (_generate_task_side)
-		{
-			// Generate the task adapter but only once
-			Source source;
-			Source adapter_parameters;
-			
-			source
-				<< "void __attribute__((weak)) " << function_info._name << "_adapter__cssgenerated" << "(void **parameter_data)"
-				<< "{"
-					<< function_info._name << "(" << adapter_parameters << ");"
-				<< "}";
-			
-			int parameter_index = 0;
-			for (ObjectList<ParameterInfo>::iterator it = function_info._parameters.begin(); it != function_info._parameters.end(); it++)
-			{
-				ParameterInfo &parameter_info = *it;
-				
-				Type parameter_type(NULL);
-				if (parameter_info._augmented_definition_type.is_valid())
-				{
-					parameter_type = parameter_info._augmented_definition_type;
-				}
-				else if (parameter_info._augmented_declaration_type.is_valid())
-				{
-					parameter_type = parameter_info._augmented_declaration_type;
-				}
-				else
-				{
-					std::cerr << __FILE__ << ":" << __LINE__ << ": Internal compiler error" << std::endl;
-					throw FatalException();
-				}
-				
-				if (it != function_info._parameters.begin())
-				{
-					adapter_parameters
-						<< ",";
-				}
-				if ((parameter_type.is_pointer() && !parameter_type.points_to().is_void()) || parameter_type.is_array())
-				{
-					adapter_parameters
-						<< "parameter_data[" << parameter_index << "]";
-				}
-				else
-				{
-					adapter_parameters
-						<< "*("
-							<< "(" << parameter_type.get_pointer_to().get_declaration(/* FIXME: probably wrong */ ctx.scope_link.get_scope(node), std::string("")) << ")"
-							<< "parameter_data[" << parameter_index << "]"
-						<< ")";
-				}
-				
-				parameter_index++;
-			}
-			
-			AST_t tree = source.parse_global(_declaration_node, _ctx.scope_link);
-			_declaration_node.append_to_translation_unit(tree);
-		} // _generate_task_side
 	}
 	
 	
@@ -525,8 +395,6 @@ namespace TL
 		
 		if (total_entities > 0)
 		{
-			TaskDeclarationHandler task_declaration_handler(_function_map, ctx, node, _generate_task_side, _generate_non_task_side);
-			
 			DeclaredEntity &first_entity = *(declared_entities.begin());
 			Symbol symbol = first_entity.get_declared_symbol();
 			Type declaration_type = symbol.get_type();
@@ -535,17 +403,14 @@ namespace TL
 			for (ObjectList<DeclaredEntity>::iterator it = declared_entities.begin(); it != declared_entities.end(); it++)
 			{
 				DeclaredEntity &entity = *it;
-				Symbol symbol = entity.get_declared_symbol();
+				AugmentedSymbol symbol = entity.get_declared_symbol();
 				
 				if (symbol.is_function())
 				{
-					// std::string function_name = entity.get_declared_entity().mangle_id_expression();
-					std::string function_name = symbol.get_name();
-					FunctionInfo &function_info = _function_map[function_name];
+					std::string function_name = symbol.get_qualified_name();
 					
-					if (function_info._is_task)
+					if (symbol.is_task())
 					{
-						task_declaration_handler.postorder(ctx, node, function_info);
 						if (!_generate_task_side)
 						{
 							entity.get_ast().remove_in_list();
@@ -554,8 +419,8 @@ namespace TL
 					}
 					else
 					{
-						if ( (function_info._is_on_task_side && _generate_task_side) ||
-							(function_info._is_on_non_task_side && _generate_non_task_side) )
+						if ( ((bool)symbol.is_on_task_side() && _generate_task_side) ||
+							((bool)symbol.is_on_non_task_side() && _generate_non_task_side) )
 						{
 							// Generate the declaration
 						}
@@ -662,21 +527,92 @@ namespace TL
 	}
 	
 	
-	void CodeConversion::generate_task_id_declarations(FunctionMap function_map, AST_t translation_unit, ScopeLink scope_link)
+	void CodeConversion::generate_task_ids_and_adapters(AST_t translation_unit, ScopeLink scope_link, bool generate_task_side, bool generate_non_task_side)
 	{
-		for (FunctionMap::iterator it = function_map.begin(); it != function_map.end(); it++)
+		std::set<AugmentedSymbol> task_table;
+		
+		ObjectList<AST_t> function_definitions = translation_unit.depth_subtrees(FunctionDefinition::predicate);
+		for (ObjectList<AST_t>::iterator it = function_definitions.begin(); it != function_definitions.end(); it++)
 		{
-			FunctionInfo &function_info = it->second;
+			FunctionDefinition function_definition(*it, scope_link);
+			AugmentedSymbol symbol = function_definition.get_function_name().get_symbol();
+			if (symbol.is_task())
+			{
+				task_table.insert(symbol);
+			}
+		}
+		
+		ObjectList<AST_t> declared_entities = translation_unit.depth_subtrees(DeclaredEntity::predicate);
+		for (ObjectList<AST_t>::iterator it = declared_entities.begin(); it != declared_entities.end(); it++)
+		{
+			DeclaredEntity declared_entity(*it, scope_link);
+			AugmentedSymbol symbol = declared_entity.get_declared_symbol();
+			if (symbol.is_task())
+			{
+				task_table.insert(symbol);
+			}
+		}
+		
+		for (std::set<AugmentedSymbol>::iterator it = task_table.begin(); it != task_table.end(); it++)
+		{
+			AugmentedSymbol symbol = *it;
 			
-			if (function_info._is_task)
+			// Create the task id
+			if (generate_non_task_side)
 			{
 				Source id_declaration_source;
 				id_declaration_source
-					<< "extern int const " << function_info._name << "_task_id__cssgenerated" << ";";
+					<< "extern int const " << symbol.get_qualified_name() << "_task_id__cssgenerated" << ";";
 				AST_t id_declaration_ast = id_declaration_source.parse_declaration(translation_unit, scope_link);
 				translation_unit.prepend_to_translation_unit(id_declaration_ast);
 			}
+			
+			// Generate the task adapter
+			if (generate_task_side)
+			{
+				Source source;
+				Source adapter_parameters;
+				
+				source
+					<< "void __attribute__((weak)) " << symbol.get_qualified_name() << "_adapter__cssgenerated" << "(void **parameter_data)"
+					<< "{"
+						<< symbol.get_qualified_name() << "(" << adapter_parameters << ");"
+					<< "}";
+				
+				Type task_type = symbol.get_type();
+				ObjectList<Type> parameter_types = task_type.parameters();
+				RefPtr<ParameterRegionList> parameter_region_list = symbol.get_parameter_region_list();
+				for (unsigned int index = 0; index < parameter_region_list->size(); index++)
+				{
+					Type parameter_type = parameter_types[index];
+					
+					if (index != 0)
+					{
+						adapter_parameters
+							<< ",";
+					}
+					if ((parameter_type.is_pointer() && !parameter_type.points_to().is_void()) || parameter_type.is_array())
+					{
+						adapter_parameters
+							<< "parameter_data[" << index << "]";
+					}
+					else
+					{
+						adapter_parameters
+							<< "*("
+								<< "(" << parameter_type.get_pointer_to().get_declaration(scope_link.get_scope(symbol.get_point_of_declaration()), "") << ")"
+								<< "parameter_data[" << index << "]"
+							<< ")";
+					}
+				}
+				
+				AST_t tree = source.parse_global(symbol.get_point_of_declaration(), scope_link);
+				symbol.get_point_of_declaration().append_to_translation_unit(tree);
+			} // _generate_task_side
+			
 		}
+		
+		
 	}
 	
     void CodeConversion::pre_run(DTO &dto)
@@ -689,8 +625,6 @@ namespace TL
 		
 		try
 		{
-			FunctionMap function_map = dto["superscalar_function_table"];
-			
 			Bool generate_task_side = dto["superscalar_generate_task_side"];
 			Bool generate_non_task_side = dto["superscalar_generate_non_task_side"];
 			Bool align_memory = dto["superscalar_align_memory"];
@@ -703,47 +637,20 @@ namespace TL
 			
 			if (generate_non_task_side)
 			{
-				generate_task_id_declarations(function_map, translation_unit, scope_link);
+				generate_task_ids_and_adapters(translation_unit, scope_link, generate_task_side, generate_non_task_side);
 			}
-			
-#if 0
-			if (align_memory)
-			{
-				if (function_map.find("memalign") == function_map.end())
-				{
-					Source memalign_declaration_source;
-					// Since we do not know (because we are too lazy) if size_t is defined, we use unsigned long instead
-					memalign_declaration_source << "void *memalign(unsigned long, unsigned long);";
-					AST_t memalign_declaration_ast = memalign_declaration_source.parse_declaration(translation_unit, scope_link);
-					translation_unit.prepend_to_translation_unit(memalign_declaration_ast);
-					
-					// Add a fake "meminfo" function to the function map so that it does not get deleted
-					FunctionInfo memalign_funtion_info = function_map["malloc"];
-					memalign_funtion_info._name = std::string("memalign");
-					function_map["memalign"] = memalign_funtion_info;
-				}
-				else
-				{
-					FunctionInfo &memalign_funtion_info = memalign_funtion_info;
-					FunctionInfo const &malloc_function_info = function_map["malloc"];
-					memalign_funtion_info._is_on_task_side |= malloc_function_info._is_on_task_side;
-					memalign_funtion_info._is_on_non_task_side |= malloc_function_info._is_on_non_task_side;
-				}
-			}
-#endif
-			
 			
 			DepthTraverse depth_traverse;
 			
 			// WARNING: order is important since function definitions appear to be also declarations
 			PredicateAST<LANG_IS_FUNCTION_DEFINITION> function_definition_predicate;
 			TraverseASTPredicate function_definition_traverser(function_definition_predicate, AST_t::NON_RECURSIVE);
-			FunctionDefinitionHandler function_definition_handler(function_map, kill_list, scope_link, generate_task_side, generate_non_task_side, align_memory);
+			FunctionDefinitionHandler function_definition_handler(kill_list, scope_link, generate_task_side, generate_non_task_side, align_memory);
 			depth_traverse.add_functor(function_definition_traverser, function_definition_handler);
 			
 			PredicateAST<LANG_IS_DECLARATION> declaration_predicate;
 			TraverseASTPredicate declaration_traverser(declaration_predicate, AST_t::NON_RECURSIVE);
-			DeclarationHandler declaration_handler(function_map, kill_list, generate_task_side, generate_non_task_side);
+			DeclarationHandler declaration_handler(kill_list, generate_task_side, generate_non_task_side);
 			depth_traverse.add_functor(declaration_traverser, declaration_handler);
 			
 			depth_traverse.traverse(translation_unit, scope_link);

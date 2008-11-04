@@ -1386,6 +1386,8 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
  /*!endif*/
 "..."       { parse_token_text(); return ELLIPSIS; }
 
+".."        { parse_token_text(); return TWO_DOTS; }
+
 [\n]        { scanning_now.line_number++; }
 [ \t\v\f]   {  }
 <*>.           { 
