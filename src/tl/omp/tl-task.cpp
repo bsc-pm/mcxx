@@ -483,7 +483,7 @@ namespace TL
                     || !output_dependences.empty())
             {
                 dependences_common
-                    << "nth_desc * nth_self_dep = nth_self();"
+                    << "struct nth_task_ctx_t * nth_self_task_ctx = nth_self()->task_ctx;"
                     ;
             }
 
@@ -522,7 +522,7 @@ namespace TL
 
                     inputs_epilogue
                         << comment("Register input dependency of symbol '" + sym.get_name() + "'")
-                        << "nth_add_input_to_task(nth_self_dep->task_ctx, nth->task_ctx, "
+                        << "nth_add_input_to_task(nth_self_task_ctx, nth->task_ctx, "
                         // NULL means let Nanos allocate it
                         <<                    "(void*)0,"
                         <<                    get_representative_dependence_expr(expr) << ", "
@@ -534,7 +534,7 @@ namespace TL
                     inputs_immediate
                         << comment("Satisfy input dependence of symbol '" + sym.get_name() + "'")
                         << "nth_indep_t nth_" << sym.get_name() << "_indep;"
-                        << "nth_satisfy_input_dep(nth_self_dep->task_ctx, &nth_ctx, "
+                        << "nth_satisfy_input_dep(nth_self_task_ctx, &nth_ctx, "
                         <<         "&nth_" << sym.get_name() << "_indep, "
                         <<         get_representative_dependence_expr(expr) << ", "
                         <<         get_size_dependence_expr(expr) << ", "
@@ -579,7 +579,7 @@ namespace TL
 
                     outputs_epilogue 
                         << comment("Register output dependency of symbol '" + sym.get_name() + "'")
-                        << "nth_add_output_to_task(nth_self_dep->task_ctx, nth->task_ctx, "
+                        << "nth_add_output_to_task(nth_self_task_ctx, nth->task_ctx, "
                         // NULL means let Nanos allocate it
                         <<                    "(void*)0,"
                         <<                    get_representative_dependence_expr(expr) << ", "
@@ -590,7 +590,7 @@ namespace TL
 
                     outputs_immediate
                         << comment("Notify we have an output dependency of symbol '" + sym.get_name() + "'")
-                        << "nth_shadow_output_dep(nth_self_dep->task_ctx, "
+                        << "nth_shadow_output_dep(nth_self_task_ctx, "
                         <<        get_representative_dependence_expr(expr)
                         << ");"
                         ;
