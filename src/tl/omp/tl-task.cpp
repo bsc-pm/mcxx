@@ -520,11 +520,19 @@ namespace TL
                         internal_error("Not found proper symbol %s", sym.get_name().c_str());
                     }
 
+		    inputs_prologue
+			<< comment("Find an output to connect input '" + sym.get_name() + "'")
+			<< "nth_outdep_t *connect_" << sym.get_name() << "_dep = nth_find_output_dep_in_scope(nth_self_task_ctx,"
+			<< get_representative_dependence_expr(expr)
+			<< ");"
+			;
+
                     inputs_epilogue
                         << comment("Register input dependency of symbol '" + sym.get_name() + "'")
                         << "nth_add_input_to_task(nth_self_task_ctx, nth->task_ctx, "
                         // NULL means let Nanos allocate it
                         <<                    "(void*)0,"
+			<< 		      "connect_" << sym.get_name() << "_dep,"
                         <<                    get_representative_dependence_expr(expr) << ", "
                         <<                    get_size_dependence_expr(expr) << ", "
                         <<                    get_align_dependence_expr(expr) << ", "
@@ -536,6 +544,7 @@ namespace TL
                         << "nth_indep_t nth_" << sym.get_name() << "_indep;"
                         << "nth_satisfy_input_dep(nth_self_task_ctx, &nth_ctx, "
                         <<         "&nth_" << sym.get_name() << "_indep, "
+			<<	   "connect_" << sym.get_name() << "_dep,"
                         <<         get_representative_dependence_expr(expr) << ", "
                         <<         get_size_dependence_expr(expr) << ", "
                         <<         get_align_dependence_expr(expr) 
@@ -638,9 +647,10 @@ namespace TL
                 <<          comment("Run the task inline")
                 <<          fallback_capture_values
                 <<          dependences_common
+                <<          inputs_prologue
                 <<          increment_task_level
-                <<		    inputs_immediate
                 <<		    outputs_immediate
+                <<		    inputs_immediate
                 <<          "(" << outlined_function_reference << ")" << "(" << fallback_arguments << ");"
                 <<          decrement_task_level
                 <<          "break;"
