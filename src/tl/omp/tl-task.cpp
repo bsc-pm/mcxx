@@ -169,7 +169,6 @@ namespace TL
             {
                 if (captureprivate_references.contains(it->symbol))
                 {
-                    std::cerr << "--> " << it->symbol.get_name() << " !!!" << std::endl;
                     it->kind = ParameterInfo::BY_VALUE;
                 }
             }
@@ -544,12 +543,27 @@ namespace TL
                         << "nth_add_input_to_task(nth_self_dep->task_ctx, nth->task_ctx, "
                         // NULL means let Nanos allocate it
                         <<                    "(void*)0,"
+                        // FIXME - this must be the representative
                         <<                    "&" << sym.get_name() << ", "
                         // FIXME - size does not take into account arrays properly
                         <<                    "sizeof(" << sym.get_name() << "),"
                         // FIXME - adj is always 0, it does not take into account array-sections
                         <<                    "0,"
                         <<                    "nth_arg_addr[" << referred_num_ref << "]);"
+                        ;
+
+                    inputs_immediate
+                        << comment("Satisfy input dependence of symbol '" + sym.get_name() + "'")
+                        << "nth_indep_t nth_" << sym.get_name() << "_indep;"
+                        << "nth_satisfy_input_dep(nth_self_dep->task_ctx, &nth_ctx, "
+                        <<         "&nth_" << sym.get_name() << "_indep, "
+                        // FIXME - this must be the representative
+                        <<         "&" << sym.get_name() << ", "
+                        // FIXME - size does not take into account arrays properly
+                        <<         "sizeof(" << sym.get_name() << "),"
+                        // FIXME - adj is always 0, it does not take into account array-sections
+                        <<         "0"
+                        << ");"
                         ;
                 }
             }
@@ -597,12 +611,21 @@ namespace TL
                         << "nth_add_output_to_task(nth_self_dep->task_ctx, nth->task_ctx, "
                         // NULL means let Nanos allocate it
                         <<                    "(void*)0,"
+                        // FIXME - this must be the representative
                         <<                    "&" << sym.get_name() << ", "
                         // FIXME - size does not take into account arrays properly
                         <<                    "sizeof(" << sym.get_name() << "),"
                         // FIXME - adj is always 0, it does not take into account array-sections
                         <<                    "0,"
                         <<                    "nth_arg_addr[" << referred_num_ref << "]);"
+                        ;
+
+                    outputs_immediate
+                        << comment("Notify we have an output dependency of symbol '" + sym.get_name() + "'")
+                        << "nth_shadow_output_dep(nth_self_dep->task_ctx, "
+                        // FIXME - this must be the representative
+                        <<                    "&" << sym.get_name()
+                        << ");"
                         ;
                 }
             }
@@ -647,12 +670,10 @@ namespace TL
                 <<      "{"
                 <<          comment("Run the task inline")
                 <<          fallback_capture_values
+                <<          dependences_common
+                <<          increment_task_level
                 <<		    inputs_immediate
                 <<		    outputs_immediate
-                <<          increment_task_level
-                // FIXME - I didn't know what this was at time of commit
-                // <<          inputs_immediate
-                <<          outputs_immediate
                 <<          "(" << outlined_function_reference << ")" << "(" << fallback_arguments << ");"
                 <<          decrement_task_level
                 <<          "break;"
