@@ -25,53 +25,11 @@ namespace TL
 {
     namespace Nanos4
     {
-
-        static Symbol dependence_expr_to_sym(Expression expr)
-        {
-            Symbol invalid(NULL);
-            if (expr.is_id_expression())
-            {
-                return expr.get_id_expression().get_symbol();
-            }
-            else if (expr.is_array_section())
-            {
-                Expression sectioned_entity = expr.array_section_item();
-
-                if (!sectioned_entity.is_id_expression())
-                {
-                    return invalid;
-                }
-                return sectioned_entity.get_id_expression().get_symbol();
-            }
-            return invalid;
-        }
-
-        static Source get_representant_dependence_expr(Expression expr)
-        {
-            Symbol sym = dependence_expr_to_sym(expr);
-            if (expr.is_id_expression())
-            {
-                Type t = sym.get_type();
-                // I don't like this because naming an array means naming its first element address
-                // but naming an address in a dependence does not have any sense either
-                // so we will understand that the array name is the array as a whole
-                if (t.is_array())
-                {
-                    return "&(" + expr.prettyprint() + "[0])";
-                }
-                else
-                {
-                    return "&" + expr.prettyprint();
-                }
-            }
-            else if (expr.is_array_section())
-            {
-                Expression array_section_lower = expr.array_section_lower();
-                // Expression array_section_upper = expr.array_section_upper();
-
-                return "&(" + expr.array_section_item().prettyprint() + "[" + array_section_lower.prettyprint() + "])";
-            }
-        }
+        // Defined at the end of the file
+        static Symbol dependence_expr_to_sym(Expression expr);
+        static std::string get_representative_dependence_expr(Expression expr);
+        static std::string get_size_dependence_expr(Expression expr);
+        static std::string get_align_dependence_expr(Expression expr);
 
         void OpenMPTransform::task_preorder(OpenMP::CustomConstruct task_construct)
         {
@@ -322,7 +280,6 @@ namespace TL
                     if (type.is_class())
                     {
                         copy_construction_part
-                            // FIXME - This is wrong counted
                             << "new (nth_arg_addr[" << (it->parameter_position + 1) << "])" 
                             << type.get_declaration(task_construct.get_scope(), "")
                             << "(" << sym.get_qualified_name(task_construct.get_scope()) << ");"
@@ -538,7 +495,8 @@ namespace TL
 
                 for ( it = it_begin; it != it_end; it++ ) 
                 {
-                    Symbol sym = dependence_expr_to_sym(*it);
+                    Expression &expr = *it;
+                    Symbol sym = dependence_expr_to_sym(expr);
                     Type pointer_type = sym.get_type().get_pointer_to();
 
                     // Find the position of the related symbol in the arguments
@@ -567,12 +525,9 @@ namespace TL
                         << "nth_add_input_to_task(nth_self_dep->task_ctx, nth->task_ctx, "
                         // NULL means let Nanos allocate it
                         <<                    "(void*)0,"
-                        // FIXME - this must be the representative
-                        <<                    "&" << sym.get_name() << ", "
-                        // FIXME - size does not take into account arrays properly
-                        <<                    "sizeof(" << sym.get_name() << "),"
-                        // FIXME - adj is always 0, it does not take into account array-sections
-                        <<                    "0,"
+                        <<                    get_representative_dependence_expr(expr) << ", "
+                        <<                    get_size_dependence_expr(expr) << ", "
+                        <<                    get_align_dependence_expr(expr) << ", "
                         <<                    "nth_arg_addr[" << (referred_num_ref + 1) << "]);"
                         ;
 
@@ -581,12 +536,9 @@ namespace TL
                         << "nth_indep_t nth_" << sym.get_name() << "_indep;"
                         << "nth_satisfy_input_dep(nth_self_dep->task_ctx, &nth_ctx, "
                         <<         "&nth_" << sym.get_name() << "_indep, "
-                        // FIXME - this must be the representative
-                        <<         "&" << sym.get_name() << ", "
-                        // FIXME - size does not take into account arrays properly
-                        <<         "sizeof(" << sym.get_name() << "),"
-                        // FIXME - adj is always 0, it does not take into account array-sections
-                        <<         "0"
+                        <<         get_representative_dependence_expr(expr) << ", "
+                        <<         get_size_dependence_expr(expr) << ", "
+                        <<         get_align_dependence_expr(expr) 
                         << ");"
                         ;
                 }
@@ -601,7 +553,8 @@ namespace TL
 
                 for ( it = it_begin; it != it_end; it++ ) 
                 {
-                    Symbol sym = dependence_expr_to_sym(*it);
+                    Expression &expr = *it;
+                    Symbol sym = dependence_expr_to_sym(expr);
 
                     // Find the position of the related symbol in the arguments
                     bool found = false;
@@ -629,20 +582,16 @@ namespace TL
                         << "nth_add_output_to_task(nth_self_dep->task_ctx, nth->task_ctx, "
                         // NULL means let Nanos allocate it
                         <<                    "(void*)0,"
-                        // FIXME - this must be the representative
-                        <<                    "&" << sym.get_name() << ", "
-                        // FIXME - size does not take into account arrays properly
-                        <<                    "sizeof(" << sym.get_name() << "),"
-                        // FIXME - adj is always 0, it does not take into account array-sections
-                        <<                    "0,"
+                        <<                    get_representative_dependence_expr(expr) << ", "
+                        <<                    get_size_dependence_expr(expr) << ", "
+                        <<                    get_align_dependence_expr(expr) << ", "
                         <<                    "nth_arg_addr[" << (referred_num_ref + 1) << "]);"
                         ;
 
                     outputs_immediate
                         << comment("Notify we have an output dependency of symbol '" + sym.get_name() + "'")
                         << "nth_shadow_output_dep(nth_self_dep->task_ctx, "
-                        // FIXME - this must be the representative
-                        <<                    "&" << sym.get_name()
+                        <<        get_representative_dependence_expr(expr)
                         << ");"
                         ;
                 }
@@ -1242,6 +1191,115 @@ namespace TL
                     output_dependences.append(expr);
                 }
             }
+        }
+
+        static Symbol dependence_expr_to_sym(Expression expr)
+        {
+            Symbol invalid(NULL);
+            if (expr.is_id_expression())
+            {
+                return expr.get_id_expression().get_symbol();
+            }
+            else if (expr.is_array_section())
+            {
+                Expression sectioned_entity = expr.array_section_item();
+
+                if (!sectioned_entity.is_id_expression())
+                {
+                    return invalid;
+                }
+                return sectioned_entity.get_id_expression().get_symbol();
+            }
+            return invalid;
+        }
+
+        static std::string get_representative_dependence_expr(Expression expr)
+        {
+            Symbol sym = dependence_expr_to_sym(expr);
+            if (expr.is_id_expression())
+            {
+                Type t = sym.get_type();
+                // I don't like this because naming an array means naming its first element address
+                // but naming an address in a dependence does not have any sense either
+                // so we will understand that the array name is the array as a whole
+                if (t.is_array())
+                {
+                    return "&(" + expr.prettyprint() + "[0])";
+                }
+                else
+                {
+                    return "&" + expr.prettyprint();
+                }
+            }
+            else if (expr.is_array_section())
+            {
+                Expression array_section_lower = expr.array_section_lower();
+                // Expression array_section_upper = expr.array_section_upper();
+                Expression array_section_item = expr.array_section_item();
+
+                return "&(" + array_section_item.prettyprint() + "[" + array_section_lower.prettyprint() + "])";
+            }
+
+            return "<<invalid-expression(representative)>>";
+        }
+
+        static std::string get_size_dependence_expr(Expression expr)
+        {
+            Symbol sym = dependence_expr_to_sym(expr);
+            if (expr.is_id_expression())
+            {
+                Type t = sym.get_type();
+                // I don't like this because naming an array means naming its first element address
+                // but naming an address in a dependence does not have any sense either
+                // so we will understand that the array name is the array as a whole
+                if (t.is_array())
+                {
+                    return "((" 
+                        + t.array_dimension().prettyprint() 
+                        + ") * sizeof( * " 
+                        + expr.prettyprint() + "))";
+                }
+                else
+                {
+                    return "sizeof(" + expr.prettyprint() + ")";
+                }
+            }
+            else if (expr.is_array_section())
+            {
+                Expression array_section_lower = expr.array_section_lower();
+                Expression array_section_upper = expr.array_section_upper();
+                Expression array_section_item = expr.array_section_item();
+
+                return "(((" 
+                    + array_section_upper.prettyprint() 
+                    + ")-(" 
+                    + array_section_lower.prettyprint() 
+                    + ") + 1) * sizeof ( *" + array_section_item.prettyprint() + "))";
+            }
+
+            return "<<invalid-expression(size)>>";
+        }
+
+        static std::string get_align_dependence_expr(Expression expr)
+        {
+            Symbol sym = dependence_expr_to_sym(expr);
+            if (expr.is_id_expression())
+            {
+                return "0";
+            }
+            else if (expr.is_array_section())
+            {
+                Expression array_section_lower = expr.array_section_lower();
+                // Expression array_section_upper = expr.array_section_upper();
+                Expression array_section_item = expr.array_section_item();
+
+                return "(int)(&(" + array_section_item.prettyprint() + "[" + array_section_lower.prettyprint() + "])"
+                    + "-"
+                    + "&(" + array_section_item.prettyprint() + "[0])"
+                    + ")";
+            }
+
+            return "<<invalid-expression(align)>>";
         }
     }
 }
