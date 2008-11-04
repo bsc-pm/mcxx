@@ -220,14 +220,11 @@ namespace TL
             // For each capture address entity just pass a reference to it
             int num_reference_args = 0;
 
-            bool this_has_been_passed = false;
-
             // This might be needed for nonstatic member functions
             if (is_nonstatic_member_function(function_definition))
             {
                 task_argument_list.append_with_separator("this", ",");
                 num_reference_args++;
-                this_has_been_passed = true;
             }
 
 
@@ -236,9 +233,6 @@ namespace TL
             ObjectList<Expression> & output_dependences =
                 task_construct.get_data<ObjectList<Expression> >("output_dependences");
 
-            ObjectList<Symbol> input_dependences_symbols = input_dependences.map(functor(dependence_expr_to_sym));
-            ObjectList<Symbol> output_dependences_symbols = output_dependences.map(functor(dependence_expr_to_sym));
-
             for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
                     it != parameter_info_list.end();
                     it++)
@@ -246,6 +240,10 @@ namespace TL
                 // Only those that are passed by pointer to a shared (non-local) value
                 if (it->kind != ParameterInfo::BY_POINTER)
                     continue;
+
+                // The parameter number is the total order in the array
+                // of argument pointers
+                it->parameter_position = num_reference_args;
 
                 std::string argument_name = it->argument_name;
                 task_argument_list.append_with_separator(argument_name, ",");
@@ -266,6 +264,11 @@ namespace TL
                 // Only those that are passed by pointer to a local value
                 if (it->kind != ParameterInfo::BY_VALUE)
                     continue;
+
+                // The parameter number is the total order in the array
+                // of argument pointers. Value parameters are always after
+                // the reference ones
+                it->parameter_position = num_reference_args + num_value_args;
 
                 // Add the size in the vector
                 size_vector << ", sizeof(" << it->symbol.get_qualified_name(task_construct.get_scope()) << ")"
@@ -502,35 +505,29 @@ namespace TL
 
             if (!input_dependences.empty())
             {
-                ObjectList<Symbol>::iterator it_begin = input_dependences_symbols.begin();
-                ObjectList<Symbol>::iterator it_end = input_dependences_symbols.end();
-                ObjectList<Symbol>::iterator it;
+                ObjectList<Expression>::iterator it_begin = input_dependences.begin();
+                ObjectList<Expression>::iterator it_end = input_dependences.end();
+                ObjectList<Expression>::iterator it;
 
                 for ( it = it_begin; it != it_end; it++ ) 
                 {
-                    Symbol &sym = *it;
+                    Symbol sym = dependence_expr_to_sym(*it);
                     Type pointer_type = sym.get_type().get_pointer_to();
 
-                    // FIXME - This is a kludge !!!
+                    // Find the position of the related symbol in the arguments
                     bool found = false;
-                    int referred_num_ref = 1;
-                    if (this_has_been_passed)
-                        referred_num_ref++;
+                    int referred_num_ref = -1;
 
                     for (ObjectList<ParameterInfo>::iterator it2 = parameter_info_list.begin();
                             it2 != parameter_info_list.end();
                             it2++)
                     {
-                        // Only those that are passed by pointer to a shared (non-local) value
-                        if (it2->kind != ParameterInfo::BY_POINTER)
-                            continue;
-
                         if (it2->symbol == sym)
                         {
                             found = true;
+                            referred_num_ref = it2->parameter_position;
                             break;
                         }
-                        referred_num_ref++;
                     }
 
                     if (!found)
@@ -571,34 +568,28 @@ namespace TL
             // output dependences 
             if (!output_dependences.empty())
             {
-                ObjectList<Symbol>::iterator it_begin = output_dependences_symbols.begin();
-                ObjectList<Symbol>::iterator it_end = output_dependences_symbols.end();
-                ObjectList<Symbol>::iterator it;
+                ObjectList<Expression>::iterator it_begin = output_dependences.begin();
+                ObjectList<Expression>::iterator it_end = output_dependences.end();
+                ObjectList<Expression>::iterator it;
 
                 for ( it = it_begin; it != it_end; it++ ) 
                 {
-                    Symbol &sym = *it;
+                    Symbol sym = dependence_expr_to_sym(*it);
 
-                    // FIXME - This is a kludge !!!
+                    // Find the position of the related symbol in the arguments
                     bool found = false;
-                    int referred_num_ref = 1;
-                    if (this_has_been_passed)
-                        referred_num_ref++;
+                    int referred_num_ref = -1;
 
                     for (ObjectList<ParameterInfo>::iterator it2 = parameter_info_list.begin();
                             it2 != parameter_info_list.end();
                             it2++)
                     {
-                        // Only those that are passed by pointer to a shared (non-local) value
-                        if (it2->kind != ParameterInfo::BY_POINTER)
-                            continue;
-
                         if (it2->symbol == sym)
                         {
                             found = true;
+                            referred_num_ref = it2->parameter_position;
                             break;
                         }
-                        referred_num_ref++;
                     }
 
                     if (!found)

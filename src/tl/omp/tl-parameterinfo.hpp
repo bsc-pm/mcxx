@@ -44,6 +44,8 @@ namespace TL
             Type type;
             parameter_kind_t kind;
 
+            int parameter_position;
+
             ParameterInfo(const std::string& _parameter_name, 
                     const std::string& _argument_name, 
                     Symbol _symbol, 
