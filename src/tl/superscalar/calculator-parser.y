@@ -338,9 +338,9 @@ decimal_floating_constant :
 
 hexadecimal_floating_constant :
 	hexadecimal_prefix hexadecimal_fractional_constant binary_exponent_part floating_suffix_opt
-		{ $$.type_class = $4.type_class; $$.value.floating_value = $2.value.floating_value * exp2l($3); }
+		{ $$.type_class = $4.type_class; $$.value.floating_value = $2.value.floating_value * powl(2.0, $3); }
 	| hexadecimal_prefix hexadecimal_digit_sequence binary_exponent_part floating_suffix_opt
-		{ $$.type_class = $4.type_class; $$.value.floating_value = $2.value * exp2l($3); }
+		{ $$.type_class = $4.type_class; $$.value.floating_value = $2.value * powl(2.0, $3); }
 ;
 
 fractional_constant :

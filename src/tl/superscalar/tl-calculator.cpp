@@ -230,7 +230,7 @@ namespace TL {
 				bool operator==(Number const *other) const
 				{
 					CalculatorInternals::Floating f = (CalculatorInternals::Floating) *other;
-					long double difference = fabsl(_value - f._value);
+					long double difference = (_value > f._value ? _value - f._value : f._value - _value);
 					long double mean = (_value + f._value) / 2.L;
 					
 					long double const tolerance = 0.000000001L;
