@@ -1303,9 +1303,9 @@ namespace TL
                 // Expression array_section_upper = expr.array_section_upper();
                 Expression array_section_item = expr.array_section_item();
 
-                return "((unsigned int)(&(" + array_section_item.prettyprint() + "[" + array_section_lower.prettyprint() + "]))"
+                return "((intptr_t)(&(" + array_section_item.prettyprint() + "[" + array_section_lower.prettyprint() + "]))"
                     + "-"
-                    + "(unsigned int)(&(" + array_section_item.prettyprint() + "[0]))"
+                    + "(intptr_t)(&(" + array_section_item.prettyprint() + "[0]))"
                     + ")";
             }
 
