@@ -406,11 +406,15 @@ namespace TL
 
                 Symbol warn_no_data_sharing(Symbol sym);
 
+                // Dependences support
                 void handle_dependences(OpenMP::Directive directive,
                         ObjectList<Expression> &input_dependences,
                         ObjectList<Expression> &output_dependences,
                         OpenMP::Construct &task_construct,
                         ObjectList<Symbol>& captureaddress_references);
+
+                static Symbol handle_dep_expr(Expression expr);
+                static Symbol handle_scalar_dep_expr(Expression expr);
 
                 Source debug_parameter_info(
                         ObjectList<ParameterInfo> parameter_info_list);

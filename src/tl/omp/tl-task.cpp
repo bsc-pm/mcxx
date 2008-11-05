@@ -26,7 +26,6 @@ namespace TL
     namespace Nanos4
     {
         // Defined at the end of the file
-        static Symbol dependence_expr_to_sym(Expression expr);
         static std::string get_representative_dependence_expr(Expression expr);
         static std::string get_size_dependence_expr(Expression expr);
         static std::string get_align_dependence_expr(Expression expr);
@@ -496,7 +495,7 @@ namespace TL
                 for ( it = it_begin; it != it_end; it++ ) 
                 {
                     Expression &expr = *it;
-                    Symbol sym = dependence_expr_to_sym(expr);
+                    Symbol sym = handle_dep_expr(expr);
                     Type pointer_type = sym.get_type().get_pointer_to();
 
                     // Find the position of the related symbol in the arguments
@@ -520,19 +519,19 @@ namespace TL
                         internal_error("Not found proper symbol %s", sym.get_name().c_str());
                     }
 
-		    inputs_prologue
-			<< comment("Find an output to connect input '" + sym.get_name() + "'")
-			<< "nth_outdep_t *connect_" << sym.get_name() << "_dep = nth_find_output_dep_in_scope(nth_self_task_ctx,"
-			<< get_representative_dependence_expr(expr)
-			<< ");"
-			;
+                    inputs_prologue
+                        << comment("Find an output to connect input '" + sym.get_name() + "'")
+                        << "nth_outdep_t *connect_" << sym.get_name() << "_dep = nth_find_output_dep_in_scope(nth_self_task_ctx,"
+                        << get_representative_dependence_expr(expr)
+                        << ");"
+                        ;
 
                     inputs_epilogue
                         << comment("Register input dependency of symbol '" + sym.get_name() + "'")
                         << "nth_add_input_to_task(nth_self_task_ctx, nth->task_ctx, "
                         // NULL means let Nanos allocate it
                         <<                    "(void*)0,"
-			<< 		      "connect_" << sym.get_name() << "_dep,"
+                        <<                    "connect_" << sym.get_name() << "_dep,"
                         <<                    get_representative_dependence_expr(expr) << ", "
                         <<                    get_size_dependence_expr(expr) << ", "
                         <<                    get_align_dependence_expr(expr) << ", "
@@ -544,7 +543,7 @@ namespace TL
                         << "nth_indep_t nth_" << sym.get_name() << "_indep;"
                         << "nth_satisfy_input_dep(nth_self_task_ctx, &nth_ctx, "
                         <<         "&nth_" << sym.get_name() << "_indep, "
-			<<	   "connect_" << sym.get_name() << "_dep,"
+                        <<         "connect_" << sym.get_name() << "_dep,"
                         <<         get_representative_dependence_expr(expr) << ", "
                         <<         get_size_dependence_expr(expr) << ", "
                         <<         get_align_dependence_expr(expr) 
@@ -563,7 +562,7 @@ namespace TL
                 for ( it = it_begin; it != it_end; it++ ) 
                 {
                     Expression &expr = *it;
-                    Symbol sym = dependence_expr_to_sym(expr);
+                    Symbol sym = handle_dep_expr(expr);
 
                     // Find the position of the related symbol in the arguments
                     bool found = false;
@@ -649,8 +648,8 @@ namespace TL
                 <<          dependences_common
                 <<          inputs_prologue
                 <<          increment_task_level
-                <<		    outputs_immediate
-                <<		    inputs_immediate
+                <<          outputs_immediate
+                <<          inputs_immediate
                 <<          "(" << outlined_function_reference << ")" << "(" << fallback_arguments << ");"
                 <<          decrement_task_level
                 <<          "break;"
@@ -918,8 +917,8 @@ namespace TL
                     if (captureaddress_references_in_clause.contains(*it, functor(&IdExpression::get_symbol)) 
                             || captureprivate_references_in_clause.contains(*it, functor(&IdExpression::get_symbol))
                             || local_references_in_clause.contains(*it, functor(&IdExpression::get_symbol))
-                            || input_references_in_clause.contains(expr, functor(dependence_expr_to_sym))
-                            || output_references_in_clause.contains(expr, functor(dependence_expr_to_sym))
+                            || input_references_in_clause.contains(expr, functor(handle_dep_expr))
+                            || output_references_in_clause.contains(expr, functor(handle_dep_expr))
                             )
                         continue;
 
@@ -1090,6 +1089,65 @@ namespace TL
             }
         }
 
+        /* 
+           Subset of expressions accepted as dependence expressions
+
+           dep_expr -> scalar_dep_expr
+                    -> scalar_dep_expr '[' expr : expr ']'
+
+           scalar_dep_expr -> identifier
+                           -> scalar_dep_expr '[' expr ']'
+                           -> scalar_dep_expr '.' identifier
+                           -> scalar_dep_expr '->' identifier
+         */
+
+        Symbol OpenMPTransform::handle_dep_expr(Expression expr)
+        {
+            // scalar_dep_expr '[' expr : expr ']'
+            if (expr.is_array_section())
+            {
+                Expression item = expr.array_section_item();
+                return handle_scalar_dep_expr(item);
+            }
+            // scalar_dep_expr
+            else
+            {
+                return handle_scalar_dep_expr(expr);
+            }
+        }
+
+        Symbol OpenMPTransform::handle_scalar_dep_expr(Expression expr)
+        {
+            // identifier
+            if (expr.is_id_expression())
+            {
+                IdExpression id_expr = expr.get_id_expression();
+                Symbol sym = id_expr.get_symbol();
+
+                return sym;
+            }
+            // scalar_dep_expr '[' expr ']'
+            else if (expr.is_array_subscript())
+            {
+                Expression subscripted = expr.get_subscripted_expression();
+                return handle_scalar_dep_expr(subscripted);
+            }
+            // scalar_dep_expr '.' identifier 
+            // scalar_dep_expr '-> identifier 
+            else if (expr.is_member_access()
+                    || expr.is_pointer_member_access())
+            {
+                Expression accessed = expr.get_accessed_entity();
+                return handle_scalar_dep_expr(accessed);
+            }
+            else
+            {
+                std::cerr << expr.get_ast().get_locus() << ": warning: ignoring invalid dependence expression specification '" 
+                    << expr.prettyprint() << "'" << std::endl;
+                return Symbol(0);
+            }
+        }
+
         void OpenMPTransform::handle_dependences(OpenMP::Directive directive,
                 ObjectList<Expression> &input_dependences,
                 ObjectList<Expression> &output_dependences,
@@ -1114,34 +1172,10 @@ namespace TL
                         it++)
                 {
                     Expression &expr = *it;
-                    Symbol sym(NULL);
-                    if (expr.is_id_expression())
-                    {
-                        IdExpression id_expr = expr.get_id_expression();
-                        sym = id_expr.get_symbol();
-                    }
-                    else if (expr.is_array_section())
-                    {
-                        Expression sectioned_entity = expr.array_section_item();
+                    Symbol sym = handle_dep_expr(expr);
 
-                        if (!sectioned_entity.is_id_expression())
-                        {
-                            std::cerr << expr.get_ast().get_locus() << ": warning: invalid array-section expression "
-                                << "'" << expr.prettyprint() << "'"
-                                << "specification in input clause. Ignoring" << std::endl;
-                            continue;
-                        }
-
-                        IdExpression id_expr = sectioned_entity.get_id_expression();
-                        sym = id_expr.get_symbol();
-                    }
-                    else
-                    {
-                        std::cerr << expr.get_ast().get_locus() << ": warning: invalid expression "
-                            << "'" << expr.prettyprint() << "'"
-                            << "specification in input clause. Ignoring" << std::endl;
+                    if (!sym.is_valid())
                         continue;
-                    }
 
                     // Insert the symbol as a capture address (shared entity)
                     task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
@@ -1168,34 +1202,10 @@ namespace TL
                         it++)
                 {
                     Expression &expr = *it;
-                    Symbol sym(NULL);
-                    if (expr.is_id_expression())
-                    {
-                        IdExpression id_expr = expr.get_id_expression();
-                        sym = id_expr.get_symbol();
-                    }
-                    else if (expr.is_array_section())
-                    {
-                        Expression sectioned_entity = expr.array_section_item();
+                    Symbol sym = handle_dep_expr(expr);
 
-                        if (!sectioned_entity.is_id_expression())
-                        {
-                            std::cerr << expr.get_ast().get_locus() << ": warning: invalid array-section expression "
-                                << "'" << expr.prettyprint() << "'"
-                                << "specification in output clause. Ignoring" << std::endl;
-                            continue;
-                        }
-
-                        IdExpression id_expr = sectioned_entity.get_id_expression();
-                        sym = id_expr.get_symbol();
-                    }
-                    else
-                    {
-                        std::cerr << expr.get_ast().get_locus() << ": warning: invalid expression "
-                            << "'" << expr.prettyprint() << "'"
-                            << "specification in output clause. Ignoring" << std::endl;
+                    if (!sym.is_valid())
                         continue;
-                    }
 
                     // Insert the symbol as a capture address (shared entity)
                     task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
@@ -1222,34 +1232,10 @@ namespace TL
                         it++)
                 {
                     Expression &expr = *it;
-                    Symbol sym(NULL);
-                    if (expr.is_id_expression())
-                    {
-                        IdExpression id_expr = expr.get_id_expression();
-                        sym = id_expr.get_symbol();
-                    }
-                    else if (expr.is_array_section())
-                    {
-                        Expression sectioned_entity = expr.array_section_item();
+                    Symbol sym = handle_dep_expr(expr);
 
-                        if (!sectioned_entity.is_id_expression())
-                        {
-                            std::cerr << expr.get_ast().get_locus() << ": warning: invalid array-section expression "
-                                << "'" << expr.prettyprint() << "'"
-                                << "specification in inout clause. Ignoring" << std::endl;
-                            continue;
-                        }
-
-                        IdExpression id_expr = sectioned_entity.get_id_expression();
-                        sym = id_expr.get_symbol();
-                    }
-                    else
-                    {
-                        std::cerr << expr.get_ast().get_locus() << ": warning: invalid expression "
-                            << "'" << expr.prettyprint() << "'"
-                            << "specification in inout clause. Ignoring" << std::endl;
+                    if (!sym.is_valid())
                         continue;
-                    }
 
                     // Insert the symbol as a capture address (shared entity)
                     task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
@@ -1260,45 +1246,9 @@ namespace TL
             }
         }
 
-        static Symbol dependence_expr_to_sym(Expression expr)
-        {
-            Symbol invalid(NULL);
-            if (expr.is_id_expression())
-            {
-                return expr.get_id_expression().get_symbol();
-            }
-            else if (expr.is_array_section())
-            {
-                Expression sectioned_entity = expr.array_section_item();
-
-                if (!sectioned_entity.is_id_expression())
-                {
-                    return invalid;
-                }
-                return sectioned_entity.get_id_expression().get_symbol();
-            }
-            return invalid;
-        }
-
         static std::string get_representative_dependence_expr(Expression expr)
         {
-            Symbol sym = dependence_expr_to_sym(expr);
-            if (expr.is_id_expression())
-            {
-                Type t = sym.get_type();
-                // I don't like this because naming an array means naming its first element address
-                // but naming an address in a dependence does not have any sense either
-                // so we will understand that the array name is the array as a whole
-                if (t.is_array())
-                {
-                    return "&(" + expr.prettyprint() + "[0])";
-                }
-                else
-                {
-                    return "&" + expr.prettyprint();
-                }
-            }
-            else if (expr.is_array_section())
+            if (expr.is_array_section())
             {
                 Expression array_section_lower = expr.array_section_lower();
                 // Expression array_section_upper = expr.array_section_upper();
@@ -1306,19 +1256,41 @@ namespace TL
 
                 return "&(" + array_section_item.prettyprint() + "[" + array_section_lower.prettyprint() + "])";
             }
+            else 
+            {
+                Type t = expr.get_type();
+                // Naming an array type here means the whole array
+                if (t.is_array())
+                {
+                    return "&(" + expr.prettyprint() + "[0])";
+                }
+                else
+                {
+                    return "&(" + expr.prettyprint() + ")";
+                }
+            }
 
             return "<<invalid-expression(representative)>>";
         }
 
         static std::string get_size_dependence_expr(Expression expr)
         {
-            Symbol sym = dependence_expr_to_sym(expr);
-            if (expr.is_id_expression())
+            if (expr.is_array_section())
             {
-                Type t = sym.get_type();
-                // I don't like this because naming an array means naming its first element address
-                // but naming an address in a dependence does not have any sense either
-                // so we will understand that the array name is the array as a whole
+                Expression array_section_lower = expr.array_section_lower();
+                Expression array_section_upper = expr.array_section_upper();
+                Expression array_section_item = expr.array_section_item();
+
+                return "(((" 
+                    + array_section_upper.prettyprint() 
+                    + ")-(" 
+                    + array_section_lower.prettyprint() 
+                    + ") + 1) * sizeof ( *" + array_section_item.prettyprint() + "))";
+            }
+            else
+            {
+                Type t = expr.get_type();
+                // Naming an array type here means the whole array
                 if (t.is_array())
                 {
                     return "((" 
@@ -1331,30 +1303,13 @@ namespace TL
                     return "sizeof(" + expr.prettyprint() + ")";
                 }
             }
-            else if (expr.is_array_section())
-            {
-                Expression array_section_lower = expr.array_section_lower();
-                Expression array_section_upper = expr.array_section_upper();
-                Expression array_section_item = expr.array_section_item();
-
-                return "(((" 
-                    + array_section_upper.prettyprint() 
-                    + ")-(" 
-                    + array_section_lower.prettyprint() 
-                    + ") + 1) * sizeof ( *" + array_section_item.prettyprint() + "))";
-            }
 
             return "<<invalid-expression(size)>>";
         }
 
         static std::string get_align_dependence_expr(Expression expr)
         {
-            Symbol sym = dependence_expr_to_sym(expr);
-            if (expr.is_id_expression())
-            {
-                return "0";
-            }
-            else if (expr.is_array_section())
+            if (expr.is_array_section())
             {
                 Expression array_section_lower = expr.array_section_lower();
                 // Expression array_section_upper = expr.array_section_upper();
@@ -1364,6 +1319,10 @@ namespace TL
                     + "-"
                     + "(intptr_t)(&(" + array_section_item.prettyprint() + "[0]))"
                     + ")";
+            }
+            else 
+            {
+                return "0";
             }
 
             return "<<invalid-expression(align)>>";
