@@ -1159,7 +1159,7 @@ namespace TL
 
                 if (dep_list.empty()) 
                 {
-                    std::cerr << input.get_ast().get_locus() <<
+                    std::cerr << output.get_ast().get_locus() <<
                         ": warning: empty output clause" << std::endl;
                 }
 
@@ -1209,11 +1209,11 @@ namespace TL
             OpenMP::CustomClause inout = directive.custom_clause("inout");
             if (inout.is_defined()) 
             {
-                ObjectList<Expression> dep_list = output.get_expression_list();
+                ObjectList<Expression> dep_list = inout.get_expression_list();
 
                 if (dep_list.empty()) 
                 {
-                    std::cerr << input.get_ast().get_locus() <<
+                    std::cerr << inout.get_ast().get_locus() <<
                         ": warning: empty inout clause" << std::endl;
                 }
 
