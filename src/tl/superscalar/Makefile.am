@@ -41,7 +41,6 @@ AM_CFLAGS = -Wall \
 	-I $(top_builddir)/src/driver \
 	-I $(top_builddir)/lib
 
-
 lib_LTLIBRARIES = \
 	libtlsuperscalar-configurator.la \
 	libtlsuperscalar-preanalysis.la \
@@ -153,6 +152,6 @@ noinst_HEADERS = \
 	tl-code-conversion-v3.hpp \
 	tl-task-manifest.hpp
 
-AM_LDFLAGS = -avoid-version
+AM_LDFLAGS = -avoid-version -lm
 #-module -avoid-version
 
