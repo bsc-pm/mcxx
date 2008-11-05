@@ -1144,6 +1144,7 @@ namespace TL
                     }
 
                     // Insert the symbol as a capture address (shared entity)
+                    task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
                     captureaddress_references.insert(sym);
                     input_dependences.append(expr);
                 }
@@ -1197,7 +1198,63 @@ namespace TL
                     }
 
                     // Insert the symbol as a capture address (shared entity)
+                    task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
                     captureaddress_references.insert(sym);
+                    output_dependences.append(expr);
+                }
+            }
+
+            // inout(x) clause support
+            // inout variables must be shared
+            OpenMP::CustomClause inout = directive.custom_clause("inout");
+            if (inout.is_defined()) 
+            {
+                ObjectList<Expression> dep_list = output.get_expression_list();
+
+                if (dep_list.empty()) 
+                {
+                    std::cerr << input.get_ast().get_locus() <<
+                        ": warning: empty inout clause" << std::endl;
+                }
+
+                for (ObjectList<Expression>::iterator it = dep_list.begin();
+                        it != dep_list.end();
+                        it++)
+                {
+                    Expression &expr = *it;
+                    Symbol sym(NULL);
+                    if (expr.is_id_expression())
+                    {
+                        IdExpression id_expr = expr.get_id_expression();
+                        sym = id_expr.get_symbol();
+                    }
+                    else if (expr.is_array_section())
+                    {
+                        Expression sectioned_entity = expr.array_section_item();
+
+                        if (!sectioned_entity.is_id_expression())
+                        {
+                            std::cerr << expr.get_ast().get_locus() << ": warning: invalid array-section expression "
+                                << "'" << expr.prettyprint() << "'"
+                                << "specification in inout clause. Ignoring" << std::endl;
+                            continue;
+                        }
+
+                        IdExpression id_expr = sectioned_entity.get_id_expression();
+                        sym = id_expr.get_symbol();
+                    }
+                    else
+                    {
+                        std::cerr << expr.get_ast().get_locus() << ": warning: invalid expression "
+                            << "'" << expr.prettyprint() << "'"
+                            << "specification in inout clause. Ignoring" << std::endl;
+                        continue;
+                    }
+
+                    // Insert the symbol as a capture address (shared entity)
+                    task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
+                    captureaddress_references.insert(sym);
+                    input_dependences.append(expr);
                     output_dependences.append(expr);
                 }
             }
