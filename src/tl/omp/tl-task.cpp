@@ -83,7 +83,8 @@ namespace TL
                 handle_dependences(directive, 
                         input_dependences, output_dependences, 
                         task_construct, 
-                        captureaddress_references);
+                        captureaddress_references,
+                        captureprivate_references);
             }
         }
 
@@ -1140,6 +1141,8 @@ namespace TL
             else if (expr.is_member_access()
                     || expr.is_pointer_member_access())
             {
+                // FIXME - This is wrong! 
+                // We want the field as a Symbol but this is not currently possible
                 Expression accessed = expr.get_accessed_entity();
                 return handle_scalar_dep_expr(accessed);
             }
@@ -1155,7 +1158,8 @@ namespace TL
                 ObjectList<Expression> &input_dependences,
                 ObjectList<Expression> &output_dependences,
                 OpenMP::Construct &task_construct,
-                ObjectList<Symbol>& captureaddress_references)
+                ObjectList<Symbol>& captureaddress_references,
+                ObjectList<Symbol>& captureprivate_references)
         {
             // input(x) clause support
             // input variables must be shared or firstprivate
@@ -1179,10 +1183,26 @@ namespace TL
 
                     if (!sym.is_valid())
                         continue;
+                    
+                    Type type = sym.get_type();
 
-                    // Insert the symbol as a capture address (shared entity)
-                    task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
-                    captureaddress_references.insert(sym);
+                    if (type.is_pointer()
+                            && expr.is_array_section())
+                    {
+                        // If we are passing an array section built after a pointer
+                        // the pointer itself must be capturevalued.
+                        task_construct.add_data_attribute(sym, OpenMP::DA_FIRSTPRIVATE);
+                        captureprivate_references.insert(sym);
+                    }
+                    else
+                    {
+                        // Otherwise, capture its address (even if it is an
+                        // array since they are already properly handled)
+                        task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
+                        captureaddress_references.insert(sym);
+                    }
+
+                    // Add this as an input dependence
                     input_dependences.append(expr);
                 }
             }
@@ -1210,9 +1230,25 @@ namespace TL
                     if (!sym.is_valid())
                         continue;
 
-                    // Insert the symbol as a capture address (shared entity)
-                    task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
-                    captureaddress_references.insert(sym);
+                    Type type = sym.get_type();
+
+                    if (type.is_pointer()
+                            && expr.is_array_section())
+                    {
+                        // If we are passing an array section built after a pointer
+                        // the pointer itself must be capturevalued.
+                        task_construct.add_data_attribute(sym, OpenMP::DA_FIRSTPRIVATE);
+                        captureprivate_references.insert(sym);
+                    }
+                    else
+                    {
+                        // Otherwise, capture its address (even if it is an
+                        // array since they are already properly handled)
+                        task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
+                        captureaddress_references.insert(sym);
+                    }
+
+                    // Add this as an output dependence
                     output_dependences.append(expr);
                 }
             }
@@ -1240,9 +1276,25 @@ namespace TL
                     if (!sym.is_valid())
                         continue;
 
-                    // Insert the symbol as a capture address (shared entity)
-                    task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
-                    captureaddress_references.insert(sym);
+                    Type type = sym.get_type();
+
+                    if (type.is_pointer()
+                            && expr.is_array_section())
+                    {
+                        // If we are passing an array section built after a pointer
+                        // the pointer itself must be capturevalued.
+                        task_construct.add_data_attribute(sym, OpenMP::DA_FIRSTPRIVATE);
+                        captureprivate_references.insert(sym);
+                    }
+                    else
+                    {
+                        // Otherwise, capture its address (even if it is an
+                        // array since they are already properly handled)
+                        task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
+                        captureaddress_references.insert(sym);
+                    }
+
+                    // Insert the input and output dependence
                     input_dependences.append(expr);
                     output_dependences.append(expr);
                 }

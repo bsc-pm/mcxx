@@ -411,7 +411,8 @@ namespace TL
                         ObjectList<Expression> &input_dependences,
                         ObjectList<Expression> &output_dependences,
                         OpenMP::Construct &task_construct,
-                        ObjectList<Symbol>& captureaddress_references);
+                        ObjectList<Symbol>& captureaddress_references,
+                        ObjectList<Symbol>& captureprivate_references);
 
                 static Symbol handle_dep_expr(Expression expr);
                 static Symbol handle_scalar_dep_expr(Expression expr);
