@@ -492,6 +492,7 @@ namespace TL
                 ObjectList<Expression>::iterator it_end = input_dependences.end();
                 ObjectList<Expression>::iterator it;
 
+                int num_dep = 0;
                 for ( it = it_begin; it != it_end; it++ ) 
                 {
                     Expression &expr = *it;
@@ -520,18 +521,18 @@ namespace TL
                     }
 
                     inputs_prologue
-                        << comment("Find an output to connect input '" + sym.get_name() + "'")
-                        << "nth_outdep_t *connect_" << sym.get_name() << "_dep = nth_find_output_dep_in_scope(nth_self_task_ctx,"
+                        << comment("Find an output to connect input '" + expr.prettyprint() + "'")
+                        << "nth_outdep_t *connect_" << sym.get_name() << "_dep_" << num_dep << " = nth_find_output_dep_in_scope(nth_self_task_ctx,"
                         << get_representative_dependence_expr(expr)
                         << ");"
                         ;
 
                     inputs_epilogue
-                        << comment("Register input dependency of symbol '" + sym.get_name() + "'")
+                        << comment("Register input dependence '" + expr.prettyprint() + "'")
                         << "nth_add_input_to_task(nth_self_task_ctx, nth->task_ctx, "
                         // NULL means let Nanos allocate it
                         <<                    "(void*)0,"
-                        <<                    "connect_" << sym.get_name() << "_dep,"
+                        <<                    "connect_" << sym.get_name() << "_dep_" << num_dep << ", "
                         <<                    get_representative_dependence_expr(expr) << ", "
                         <<                    get_size_dependence_expr(expr) << ", "
                         <<                    get_align_dependence_expr(expr) << ", "
@@ -539,16 +540,18 @@ namespace TL
                         ;
 
                     inputs_immediate
-                        << comment("Satisfy input dependence of symbol '" + sym.get_name() + "'")
-                        << "nth_indep_t nth_" << sym.get_name() << "_indep;"
+                        << comment("Satisfy input dependence '" + expr.prettyprint() + "'")
+                        << "nth_indep_t nth_" << sym.get_name() << "_indep_" << num_dep << ";"
                         << "nth_satisfy_input_dep(nth_self_task_ctx, &nth_ctx, "
-                        <<         "&nth_" << sym.get_name() << "_indep, "
-                        <<         "connect_" << sym.get_name() << "_dep,"
+                        <<         "&nth_" << sym.get_name() << "_indep_" << num_dep << ", "
+                        <<         "connect_" << sym.get_name() << "_dep_" << num_dep << ", "
                         <<         get_representative_dependence_expr(expr) << ", "
                         <<         get_size_dependence_expr(expr) << ", "
                         <<         get_align_dependence_expr(expr) 
                         << ");"
                         ;
+
+                    num_dep++;
                 }
             }
 
@@ -586,7 +589,7 @@ namespace TL
                     }
 
                     outputs_epilogue 
-                        << comment("Register output dependency of symbol '" + sym.get_name() + "'")
+                        << comment("Register output dependence of symbol '" + expr.prettyprint() + "'")
                         << "nth_add_output_to_task(nth_self_task_ctx, nth->task_ctx, "
                         // NULL means let Nanos allocate it
                         <<                    "(void*)0,"
@@ -597,7 +600,7 @@ namespace TL
                         ;
 
                     outputs_immediate
-                        << comment("Notify we have an output dependency of symbol '" + sym.get_name() + "'")
+                        << comment("Notify we have an output dependence of symbol '" + expr.prettyprint() + "'")
                         << "nth_shadow_output_dep(nth_self_task_ctx, "
                         <<        get_representative_dependence_expr(expr)
                         << ");"
