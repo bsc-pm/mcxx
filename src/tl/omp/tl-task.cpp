@@ -1187,7 +1187,8 @@ namespace TL
                     Type type = sym.get_type();
 
                     if (type.is_pointer()
-                            && expr.is_array_section())
+                            && (expr.is_array_section()
+                                || expr.is_array_subscript()))
                     {
                         // If we are passing an array section built after a pointer
                         // the pointer itself must be capturevalued.
@@ -1233,7 +1234,8 @@ namespace TL
                     Type type = sym.get_type();
 
                     if (type.is_pointer()
-                            && expr.is_array_section())
+                            && (expr.is_array_section()
+                                || expr.is_array_subscript()))
                     {
                         // If we are passing an array section built after a pointer
                         // the pointer itself must be capturevalued.
@@ -1279,7 +1281,8 @@ namespace TL
                     Type type = sym.get_type();
 
                     if (type.is_pointer()
-                            && expr.is_array_section())
+                            && (expr.is_array_section()
+                                || expr.is_array_subscript()))
                     {
                         // If we are passing an array section built after a pointer
                         // the pointer itself must be capturevalued.
@@ -1366,13 +1369,24 @@ namespace TL
         {
             if (expr.is_array_section())
             {
+                Symbol sym = OpenMPTransform::handle_dep_expr(expr);
                 Expression array_section_lower = expr.array_section_lower();
                 // Expression array_section_upper = expr.array_section_upper();
                 Expression array_section_item = expr.array_section_item();
 
+                std::string base_address = "";
+                if (sym.get_type().is_array())
+                {
+                    base_address = "(" + sym.get_name() + ")";
+                }
+                else
+                {
+                    base_address = "(&" + sym.get_name() + ")";
+                }
+
                 return "((intptr_t)(&(" + array_section_item.prettyprint() + "[" + array_section_lower.prettyprint() + "]))"
                     + "-"
-                    + "(intptr_t)(&(" + array_section_item.prettyprint() + "[0]))"
+                    + "(intptr_t)" + base_address
                     + ")";
             }
             else 
