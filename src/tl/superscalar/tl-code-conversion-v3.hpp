@@ -25,6 +25,7 @@
 #include "tl-compilerphase.hpp"
 #include "tl-langconstruct.hpp"
 #include "tl-traverse.hpp"
+#include "tl-task-table.hpp"
 #include "tl-type.hpp"
 
 #include "tl-ast-predicates.hpp"
@@ -136,7 +137,8 @@ namespace TL
 			static PhaseStatus _status;
 			
 			
-			void generate_task_ids_and_adapters(AST_t translation_unit, ScopeLink scope_link, bool generate_task_side, bool generate_non_task_side);
+			void generate_task_ids(TaskTable &task_table, AST_t translation_unit, ScopeLink scope_link);
+			void generate_task_adapters(TaskTable &task_table, AST_t translation_unit, ScopeLink scope_link);
 			
 			
 		public:

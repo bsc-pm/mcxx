@@ -114,11 +114,13 @@ endif
 if USE_TL_SUPERSCALAR_V3
 libtlsuperscalar_code_conversion_la_SOURCES += \
 	tl-parameter-expression.cpp \
+	tl-task-table.cpp \
 	tl-code-conversion-v3.cpp
 endif
 if USE_TL_SUPERSCALAR_V4
 libtlsuperscalar_code_conversion_la_SOURCES += \
 	tl-parameter-expression.cpp \
+	tl-task-table.cpp \
 	tl-code-conversion-v4.cpp
 endif
 

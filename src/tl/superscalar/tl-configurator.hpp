@@ -30,6 +30,8 @@ namespace TL
 		private:
 			std::string _generate_task_side;
 			std::string _generate_non_task_side;
+			std::string _generate_task_ids;
+			std::string _generate_task_adapters;
 			std::string _align_memory;
 			
 		public:
@@ -46,6 +48,16 @@ namespace TL
 					"generate-non-task-side",
 					"Specifies that the code corresponding to the non task side must be generated.",
 					_generate_non_task_side,
+					"yes");
+				register_parameter(
+					"generate-task-ids",
+					"Specifies that task ids must be generated.",
+					_generate_task_ids,
+					"yes");
+				register_parameter(
+					"generate-task-adapters",
+					"Specifies that task adapters must be generated.",
+					_generate_task_adapters,
 					"yes");
 				register_parameter(
 					"align-memory",

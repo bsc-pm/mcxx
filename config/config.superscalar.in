@@ -1,6 +1,6 @@
 [cellss-ppu-cc]
 language = C
-options = --variable=generate-non-task-side:yes --variable=generate-task-side:no --variable=align-memory:yes
+options = --variable=generate-non-task-side:yes --variable=generate-task-side:no --variable=generate-task-ids:yes --variable=generate-task-adapters:no --variable=align-memory:yes
 preprocessor_name = ppu-c99
 preprocessor_options = -E
 {gcc} preprocessor_options =  -m32 -I@prefix@/include -include CellSS.h
@@ -24,7 +24,7 @@ pragma_prefix = css
 
 [cellss-spu-cc]
 language = C
-options = --variable=generate-non-task-side:no --variable=generate-task-side:yes --variable=align-memory:yes
+options = --variable=generate-non-task-side:no --variable=generate-task-side:yes --variable=generate-task-ids:no --variable=generate-task-adapters:yes --variable=align-memory:yes
 preprocessor_name = spu-c99
 preprocessor_options = -E -I@prefix@/include
 {gcc} preprocessor_options = -include CellSS.h
@@ -46,7 +46,7 @@ pragma_prefix = css
 
 [smpss-cc]
 language = C
-options = --variable=generate-non-task-side:yes --variable=generate-task-side:yes --variable=align-memory:yes
+options = --variable=generate-non-task-side:yes --variable=generate-task-side:yes --variable=generate-task-ids:yes --variable=generate-task-adapters:yes --variable=align-memory:yes
 preprocessor_name = c99
 preprocessor_options = -E -I@prefix@/include 
 {gcc} preprocessor_options = -include CellSS.h 

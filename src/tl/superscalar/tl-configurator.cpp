@@ -22,9 +22,11 @@
 #include "cxx-ss-attrnames.h"
 #include "tl-configurator.hpp"
 
+
 void TL::Configurator::pre_run(DTO &dto)
 {
 }
+
 
 void TL::Configurator::run(DTO &dto)
 {
@@ -54,6 +56,36 @@ void TL::Configurator::run(DTO &dto)
 	else
 	{
 		std::cerr << "Error: Invalid value '" << _generate_non_task_side << "' for the 'generate-non-task-side' option." << std::endl;
+		set_phase_status(PHASE_STATUS_ERROR);
+		return;
+	}
+	
+	if (_generate_task_ids == std::string("yes"))
+	{
+		dto.set_object("superscalar_generate_task_ids", RefPtr<Bool>(new Bool(true)));
+	}
+	else if (_generate_task_ids == std::string("no"))
+	{
+		dto.set_object("superscalar_generate_task_ids", RefPtr<Bool>(new Bool(false)));
+	}
+	else
+	{
+		std::cerr << "Error: Invalid value '" << _generate_task_ids << "' for the 'generate-task-ids' option." << std::endl;
+		set_phase_status(PHASE_STATUS_ERROR);
+		return;
+	}
+	
+	if (_generate_task_adapters == std::string("yes"))
+	{
+		dto.set_object("superscalar_generate_task_adapters", RefPtr<Bool>(new Bool(true)));
+	}
+	else if (_generate_task_adapters == std::string("no"))
+	{
+		dto.set_object("superscalar_generate_task_adapters", RefPtr<Bool>(new Bool(false)));
+	}
+	else
+	{
+		std::cerr << "Error: Invalid value '" << _generate_task_adapters << "' for the 'generate-task-adapters' option." << std::endl;
 		set_phase_status(PHASE_STATUS_ERROR);
 		return;
 	}

@@ -454,6 +454,10 @@ namespace TL
 				{
 					std::string function_name = symbol.get_qualified_name();
 					
+					if (function_name.find("__cssgenerated") != std::string::npos) {
+						// An adapter or similar generated code
+					}
+					
 					if (symbol.is_task())
 					{
 						if (!_generate_task_side)
@@ -572,92 +576,66 @@ namespace TL
 	}
 	
 	
-	void CodeConversion::generate_task_ids_and_adapters(AST_t translation_unit, ScopeLink scope_link, bool generate_task_side, bool generate_non_task_side)
+	void CodeConversion::generate_task_ids(TaskTable &task_table, AST_t translation_unit, ScopeLink scope_link)
 	{
-		std::set<AugmentedSymbol> task_table;
-		
-		ObjectList<AST_t> function_definitions = translation_unit.depth_subtrees(FunctionDefinition::predicate);
-		for (ObjectList<AST_t>::iterator it = function_definitions.begin(); it != function_definitions.end(); it++)
-		{
-			FunctionDefinition function_definition(*it, scope_link);
-			AugmentedSymbol symbol = function_definition.get_function_name().get_symbol();
-			if (symbol.is_task())
-			{
-				task_table.insert(symbol);
-			}
-		}
-		
-		ObjectList<AST_t> declared_entities = translation_unit.depth_subtrees(DeclaredEntity::predicate);
-		for (ObjectList<AST_t>::iterator it = declared_entities.begin(); it != declared_entities.end(); it++)
-		{
-			DeclaredEntity declared_entity(*it, scope_link);
-			AugmentedSymbol symbol = declared_entity.get_declared_symbol();
-			if (symbol.is_task())
-			{
-				task_table.insert(symbol);
-			}
-		}
-		
-		for (std::set<AugmentedSymbol>::iterator it = task_table.begin(); it != task_table.end(); it++)
+		for (TaskTable::iterator it = task_table.begin(); it != task_table.end(); it++)
 		{
 			AugmentedSymbol symbol = *it;
 			
-			// Create the task id
-			if (generate_non_task_side)
+			Source id_declaration_source;
+			id_declaration_source
+				<< "extern int const " << symbol.get_qualified_name() << "_task_id__cssgenerated" << ";";
+			AST_t id_declaration_ast = id_declaration_source.parse_declaration(translation_unit, scope_link);
+			translation_unit.prepend_to_translation_unit(id_declaration_ast);
+		}
+	}
+	
+	
+	void CodeConversion::generate_task_adapters(TaskTable &task_table, AST_t translation_unit, ScopeLink scope_link)
+	{
+		for (TaskTable::iterator it = task_table.begin(); it != task_table.end(); it++)
+		{
+			AugmentedSymbol symbol = *it;
+			
+			Source source;
+			Source adapter_parameters;
+			
+			source
+				<< "void __attribute__((weak)) " << symbol.get_qualified_name() << "_adapter__cssgenerated" << "(void **parameter_data)"
+				<< "{"
+					<< symbol.get_qualified_name() << "(" << adapter_parameters << ");"
+				<< "}";
+			
+			Type task_type = symbol.get_type();
+			ObjectList<Type> parameter_types = task_type.parameters();
+			RefPtr<ParameterRegionList> parameter_region_list = symbol.get_parameter_region_list();
+			for (unsigned int index = 0; index < parameter_region_list->size(); index++)
 			{
-				Source id_declaration_source;
-				id_declaration_source
-					<< "extern int const " << symbol.get_qualified_name() << "_task_id__cssgenerated" << ";";
-				AST_t id_declaration_ast = id_declaration_source.parse_declaration(translation_unit, scope_link);
-				translation_unit.prepend_to_translation_unit(id_declaration_ast);
+				Type parameter_type = parameter_types[index];
+				
+				if (index != 0)
+				{
+					adapter_parameters
+						<< ",";
+				}
+				if ((parameter_type.is_pointer() && !parameter_type.points_to().is_void()) || parameter_type.is_array())
+				{
+					adapter_parameters
+						<< "parameter_data[" << index << "]";
+				}
+				else
+				{
+					adapter_parameters
+						<< "*("
+							<< "(" << parameter_type.get_pointer_to().get_declaration(scope_link.get_scope(symbol.get_point_of_declaration()), "") << ")"
+							<< "parameter_data[" << index << "]"
+						<< ")";
+				}
 			}
 			
-			// Generate the task adapter
-			if (generate_task_side)
-			{
-				Source source;
-				Source adapter_parameters;
-				
-				source
-					<< "void __attribute__((weak)) " << symbol.get_qualified_name() << "_adapter__cssgenerated" << "(void **parameter_data)"
-					<< "{"
-						<< symbol.get_qualified_name() << "(" << adapter_parameters << ");"
-					<< "}";
-				
-				Type task_type = symbol.get_type();
-				ObjectList<Type> parameter_types = task_type.parameters();
-				RefPtr<ParameterRegionList> parameter_region_list = symbol.get_parameter_region_list();
-				for (unsigned int index = 0; index < parameter_region_list->size(); index++)
-				{
-					Type parameter_type = parameter_types[index];
-					
-					if (index != 0)
-					{
-						adapter_parameters
-							<< ",";
-					}
-					if ((parameter_type.is_pointer() && !parameter_type.points_to().is_void()) || parameter_type.is_array())
-					{
-						adapter_parameters
-							<< "parameter_data[" << index << "]";
-					}
-					else
-					{
-						adapter_parameters
-							<< "*("
-								<< "(" << parameter_type.get_pointer_to().get_declaration(scope_link.get_scope(symbol.get_point_of_declaration()), "") << ")"
-								<< "parameter_data[" << index << "]"
-							<< ")";
-					}
-				}
-				
-				AST_t tree = source.parse_global(symbol.get_point_of_declaration(), scope_link);
-				symbol.get_point_of_declaration().append_to_translation_unit(tree);
-			} // _generate_task_side
-			
+			AST_t tree = source.parse_global(symbol.get_point_of_declaration(), scope_link);
+			symbol.get_point_of_declaration().append_to_translation_unit(tree);
 		}
-		
-		
 	}
 	
 	
@@ -669,6 +647,8 @@ namespace TL
 		{
 			Bool generate_task_side = dto["superscalar_generate_task_side"];
 			Bool generate_non_task_side = dto["superscalar_generate_non_task_side"];
+			Bool generate_adapters = dto["superscalar_generate_task_adapters"];
+			Bool generate_ids = dto["superscalar_generate_task_ids"];
 			Bool align_memory = dto["superscalar_align_memory"];
 			
 			AST_t translation_unit = dto["translation_unit"];
@@ -676,10 +656,15 @@ namespace TL
 			
 			ObjectList<AST_t> kill_list;
 			
-			
-			if (generate_non_task_side)
+			TaskTable task_table(translation_unit, scope_link);
+			if (generate_adapters)
 			{
-				generate_task_ids_and_adapters(translation_unit, scope_link, generate_task_side, generate_non_task_side);
+				generate_task_adapters(task_table, translation_unit, scope_link);
+			}
+			
+			if (generate_ids)
+			{
+				generate_task_ids(task_table, translation_unit, scope_link);
 			}
 			
 			DepthTraverse depth_traverse;
