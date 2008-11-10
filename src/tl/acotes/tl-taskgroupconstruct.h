@@ -42,7 +42,7 @@ namespace TL { namespace Acotes {
     {
     // -- LangConstruct support
     public:
-        TaskgroupConstruct(TL::LangConstruct langConstruct);
+        TaskgroupConstruct(TL::LangConstruct langConstruct, DTO& dto);
     private:
         TL::LangConstruct getBody();
         TL::LangConstruct getConstruct() { return *this; }
@@ -53,6 +53,8 @@ namespace TL { namespace Acotes {
         void onPost();
     private:
         void onPreBypass(Taskgroup* taskgroup);
+
+        DTO *_dto;
     };
     
 } /* end namespace Acotes */ } /* end namespace TL */

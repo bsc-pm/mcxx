@@ -41,8 +41,9 @@ namespace TL { namespace Acotes {
      * * LangConstruct support
      * ****************************************************************/
     
-    TaskgroupConstruct::TaskgroupConstruct(TL::LangConstruct langConstruct)
+    TaskgroupConstruct::TaskgroupConstruct(TL::LangConstruct langConstruct, DTO &dto)
     : TL::PragmaCustomConstruct(langConstruct.get_ast(), langConstruct.get_scope_link())
+     , _dto(&dto) 
     {
     }
 
@@ -61,7 +62,7 @@ namespace TL { namespace Acotes {
         TL::LangConstruct* body= new TL::LangConstruct(getBody());
 
         // Create the taskgroup and push
-        Taskgroup* taskgroup= Taskgroup::create(construct, body);
+        Taskgroup* taskgroup= Taskgroup::create(construct, body, *_dto);
         AcotesStack::taskgroupPush(taskgroup);
         
         // Push the implicit task

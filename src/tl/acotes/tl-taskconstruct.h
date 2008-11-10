@@ -42,10 +42,12 @@ namespace TL { namespace Acotes {
     {
     // -- LangConstruct support
     public:
-        TaskConstruct(TL::LangConstruct langConstruct);
+        TaskConstruct(TL::LangConstruct langConstruct, DTO& dto);
     private:
         TL::LangConstruct getBody();
         TL::LangConstruct getConstruct();
+
+        DTO &_dto;
 
     // -- CompilerPhase events
     public:

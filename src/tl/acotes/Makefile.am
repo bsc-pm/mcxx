@@ -1,8 +1,8 @@
 #   $Id$
 
-lib_LTLIBRARIES = libtlacotes.la
+lib_LTLIBRARIES = libtlacotes.la libtlacotes-output.la
 
-libtlacotes_la_CFLAGS = -Wall \
+COMMON_CFLAGS= -Wall \
     -I $(top_srcdir)/src/tl \
     -I $(top_srcdir)/src/frontend \
     -I $(top_srcdir)/src/driver \
@@ -12,15 +12,8 @@ libtlacotes_la_CFLAGS = -Wall \
     -I $(top_builddir)/src/driver \
     -I $(top_builddir)/lib
 
-libtlacotes_la_CXXFLAGS = -Wall \
-    -I $(top_srcdir)/src/tl \
-    -I $(top_srcdir)/src/frontend \
-    -I $(top_srcdir)/src/driver \
-    -I $(top_srcdir)/lib \
-    -I $(top_builddir)/src/tl \
-    -I $(top_builddir)/src/frontend \
-    -I $(top_builddir)/src/driver \
-    -I $(top_builddir)/lib
+libtlacotes_la_CFLAGS = $(COMMON_CFLAGS)
+libtlacotes_la_CXXFLAGS = $(COMMON_CFLAGS)
 
 libtlacotes_la_SOURCES = \
     ac-finalizer.cc \
@@ -113,3 +106,12 @@ libtlacotes_la_SOURCES = \
     tl-variableclause.h \
     tl-variabletransform.cc \
     tl-variabletransform.h
+
+libtlacotes_output_la_CFLAGS = $(COMMON_CFLAGS)
+libtlacotes_output_la_CXXFLAGS = $(COMMON_CFLAGS)
+
+libtlacotes_output_la_SOURCES = \
+    acotes-output.cpp \
+    acotes-output.hpp \
+    acotes-outputtasks.cpp \
+    acotes-outputtasks.hpp 

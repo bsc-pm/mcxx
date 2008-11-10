@@ -47,7 +47,7 @@ namespace TL { namespace Acotes {
     /**
      * Creates a complete instance of the taskgrpoup and register it.
      */
-    Taskgroup* Taskgroup::create(TL::LangConstruct* construct, TL::LangConstruct* body) {
+    Taskgroup* Taskgroup::create(TL::LangConstruct* construct, TL::LangConstruct* body, DTO& dto) {
         
         // generate uniq taksgroup name
         std::stringstream ssname;
@@ -58,7 +58,7 @@ namespace TL { namespace Acotes {
         instanceVector.push_back(taskgroup);
         
         // create implicitTask relationship
-        taskgroup->createImplicitTask(construct, body);
+        taskgroup->createImplicitTask(construct, body, dto);
         
         return taskgroup;
     }
@@ -90,13 +90,13 @@ namespace TL { namespace Acotes {
     /**
      * Create the taskgroup implicit task.
      */
-    void Taskgroup::createImplicitTask(TL::LangConstruct* construct, TL::LangConstruct* body)
+    void Taskgroup::createImplicitTask(TL::LangConstruct* construct, TL::LangConstruct* body, DTO& dto)
     {
         assert(body);
         assert(construct);
         assert(!implicitTask);
         
-        Task* implicitTask= Task::create(this, NULL, construct, body);
+        Task* implicitTask= Task::create(this, NULL, construct, body, dto);
         this->implicitTask= implicitTask;
     }
     

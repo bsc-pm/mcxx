@@ -41,7 +41,7 @@ namespace TL { namespace Acotes {
 
     std::vector<Task*> Task::instanceVector;
      
-    Task* Task::create(Taskgroup* taskgroup, Task* parent, TL::LangConstruct* construct, TL::LangConstruct* body) {
+    Task* Task::create(Taskgroup* taskgroup, Task* parent, TL::LangConstruct* construct, TL::LangConstruct* body, DTO &dto) {
         
         std::stringstream ssname;
         ssname << "task" << instanceVector.size();
@@ -60,6 +60,8 @@ namespace TL { namespace Acotes {
         // create taskgroup task relationship
         task->setTaskgroup(taskgroup);
         
+        // set DTO
+        task->setDTO(dto);
 
         return task;
     }
@@ -70,6 +72,7 @@ namespace TL { namespace Acotes {
     , taskgroup(NULL)
     , parent(NULL) 
     , team(0)
+    , _dto(0)
     {    
     }
     

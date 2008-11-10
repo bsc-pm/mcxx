@@ -128,6 +128,7 @@ namespace TL { namespace Acotes {
     void 
     AcotesCompilerPhase::pre_run(DTO& data_flow)
     {
+        _dto = &data_flow;
     }
     
     /**
@@ -186,25 +187,25 @@ namespace TL { namespace Acotes {
     
     void AcotesCompilerPhase::onPreTaskConstruct(PragmaCustomConstruct construct)
     {
-        TaskConstruct task(construct);
+        TaskConstruct task(construct, *_dto);
         task.onPre();
     }
 
     void AcotesCompilerPhase::onPostTaskConstruct(PragmaCustomConstruct construct)
     {
-        TaskConstruct task(construct);
+        TaskConstruct task(construct, *_dto);
         task.onPost();
     }
     
     void AcotesCompilerPhase::onPreTaskgroupConstruct(PragmaCustomConstruct construct)
     {
-        TaskgroupConstruct taskgroup(construct);
+        TaskgroupConstruct taskgroup(construct, *_dto);
         taskgroup.onPre();
     }
 
     void AcotesCompilerPhase::onPostTaskgroupConstruct(PragmaCustomConstruct construct)
     {
-        TaskgroupConstruct taskgroup(construct);
+        TaskgroupConstruct taskgroup(construct, *_dto);
         taskgroup.onPost();
     }
     

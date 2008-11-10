@@ -41,6 +41,8 @@
 #include "tl-userporttransform.h"
 #include "tl-variabletransform.h"
 
+#include "acotes-outputtasks.hpp"
+
 namespace TL { namespace Acotes {
     
     
@@ -105,8 +107,26 @@ namespace TL { namespace Acotes {
     
         // Add outline task
         Source outlineSource= generateOutline(task);
+
+        // FIXME - There is 'driver' mechanism, how to deal with it ?
         AST_t outlineTree= outlineSource.parse_global(taskAST, taskScopeLink);
-        taskAST.prepend_sibling_function(outlineTree);
+        // taskAST.prepend_sibling_function(outlineTree);
+
+        /* Set up a new outline for further compilation */
+        DTO& dto = task->getDTO();
+        RefPtr<Object> obj = dto["outline_info"];
+        RefPtr<OutputTasks> output_tasks = RefPtr<OutputTasks>::cast_dynamic(obj);
+
+        OutputTask output_task;
+
+        output_task.code = outlineTree;
+        output_task.scope_link = taskScopeLink;
+
+        CompiledFile current_compiled_file = CompilationProcess::get_current_file();
+        std::string current_filename = current_compiled_file.get_filename();
+        output_task.filename = "spu_default_" + current_filename;
+
+        output_tasks->add_task(output_task);
     }
     
     void TaskTransform::transformReplacePeek(Task* task) {

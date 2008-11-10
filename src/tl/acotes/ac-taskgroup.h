@@ -33,6 +33,7 @@
 #include <string>
 #include <vector>
 
+#include "tl-dto.hpp"
 #include "tl-langconstruct.hpp"
 
 namespace TL { namespace Acotes {
@@ -46,7 +47,7 @@ namespace TL { namespace Acotes {
     class Taskgroup {
     // -- Tribal behaviour
     public:
-        static Taskgroup* create(TL::LangConstruct* construct, TL::LangConstruct* body);
+        static Taskgroup* create(TL::LangConstruct* construct, TL::LangConstruct* body, DTO& dto);
         static const std::vector<Taskgroup*> &getInstanceVector() { return instanceVector; }
     private:
         Taskgroup(const std::string& name);
@@ -62,7 +63,7 @@ namespace TL { namespace Acotes {
         void addTask(Task* task);
         const std::vector<Task*>& getTaskVector() const { return taskVector; }
     private:
-        void createImplicitTask(TL::LangConstruct* construct, TL::LangConstruct* body);
+        void createImplicitTask(TL::LangConstruct* construct, TL::LangConstruct* body, DTO& dto);
         Task* implicitTask;
         std::vector<Task*> taskVector;
 

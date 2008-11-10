@@ -46,8 +46,9 @@ namespace TL { namespace Acotes {
      * * LangConstruct support
      * ****************************************************************/
     
-    TaskConstruct::TaskConstruct(TL::LangConstruct langConstruct)
-    : TL::PragmaCustomConstruct(langConstruct.get_ast(), langConstruct.get_scope_link())
+    TaskConstruct::TaskConstruct(TL::LangConstruct langConstruct, DTO& dto)
+    : TL::PragmaCustomConstruct(langConstruct.get_ast(), langConstruct.get_scope_link()),
+    _dto(dto)
     {
     }
 
@@ -73,7 +74,7 @@ namespace TL { namespace Acotes {
         Task* parentTask= AcotesStack::taskTop();
         
         // create and register current task
-        Task* task= Task::create(taskgroup, parentTask, construct, body);
+        Task* task= Task::create(taskgroup, parentTask, construct, body, _dto);
         AcotesStack::taskPush(task);
         
         onPreTeam(task);

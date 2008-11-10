@@ -47,6 +47,7 @@ namespace TL { namespace Acotes {
        	virtual void run(DTO& data_flow);
     private:
         PragmaCustomDispatcher pragmaDispatcher;
+        DTO *_dto;
         
     // -- CompilerPhase events        
     private:
