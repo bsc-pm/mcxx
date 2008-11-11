@@ -44,7 +44,7 @@ namespace TL
 
 				LangConstruct lang_construct(it2->code, it2->scope_link);
 				// Code of every task
-				output_code_src << it2->code.prettyprint_external();
+				output_code_src << it2->code.prettyprint_external() << "\n";
 
 				// Gather all symbols for the declaration closure
 				ObjectList<IdExpression> id_expresions =

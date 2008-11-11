@@ -139,6 +139,10 @@ namespace TL { namespace Acotes {
     {        
         std::cout << "AcotesCompilerPhase run"<< std::endl;
 
+        // Create the output
+        _output_tasks = RefPtr<OutputTasks>(new OutputTasks());
+        data_flow.set_object("outline_info", _output_tasks);
+
         AcotesInlineCompilerPhase inlinePhase;
         inlinePhase.run(data_flow);
 

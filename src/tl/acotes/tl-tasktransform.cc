@@ -114,8 +114,7 @@ namespace TL { namespace Acotes {
 
         /* Set up a new outline for further compilation */
         DTO& dto = task->getDTO();
-        RefPtr<Object> obj = dto["outline_info"];
-        RefPtr<OutputTasks> output_tasks = RefPtr<OutputTasks>::cast_dynamic(obj);
+        RefPtr<OutputTasks> output_tasks = RefPtr<OutputTasks>::cast_dynamic(dto["outline_info"]);
 
         OutputTask output_task;
 

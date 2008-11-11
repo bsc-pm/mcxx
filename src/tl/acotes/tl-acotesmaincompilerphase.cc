@@ -54,10 +54,6 @@ namespace TL { namespace Acotes {
     void 
     AcotesMainCompilerPhase::run(DTO& data_flow)
     {
-        // Create the output
-        _output_tasks = RefPtr<OutputTasks>(new OutputTasks());
-        data_flow.set_object("outline_info", _output_tasks);
-
         // get the translation_unit tree
         AST_t translation_unit = data_flow["translation_unit"];
         // get the scope_link

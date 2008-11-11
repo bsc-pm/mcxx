@@ -14,6 +14,7 @@ COMMON_CFLAGS= -Wall \
 
 libtlacotes_la_CFLAGS = $(COMMON_CFLAGS)
 libtlacotes_la_CXXFLAGS = $(COMMON_CFLAGS)
+libtlacotes_la_LIBADD = libtlacotes-output.la
 
 libtlacotes_la_SOURCES = \
     ac-finalizer.cc \

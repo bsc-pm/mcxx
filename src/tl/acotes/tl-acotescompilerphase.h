@@ -31,7 +31,7 @@
 #define	_TL_ACOTESCOMPILERPHASE_H
 
 #include <tl-pragmasupport.hpp>
-
+#include "acotes-outputtasks.hpp"
 
 namespace TL { namespace Acotes {
     
@@ -72,6 +72,8 @@ namespace TL { namespace Acotes {
     private:
         virtual void preorder(Context ctx, AST_t node);
         virtual void postorder(Context ctx, AST_t node);
+
+        RefPtr<OutputTasks> _output_tasks;
     };
     
 } /* end namespace Acotes */ } /* end namespace TL */
