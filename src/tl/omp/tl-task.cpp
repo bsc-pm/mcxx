@@ -348,16 +348,55 @@ namespace TL
                 Symbol sym = it->symbol;
                 Type type = sym.get_type();
 
+                if (type.is_reference())
+                {
+                    type = type.references_to();
+                }
+
                 if (!type.is_array())
                 {
-                    fallback_capture_values
-                        << type.get_declaration_with_initializer(
-                                task_construct.get_scope(),
-                                "cval_" + it->symbol.get_name(),
-                                it->symbol.get_qualified_name(task_construct.get_scope())) 
-                        << ";"
-                        ;
-                    fallback_arguments.append_with_separator("&cval_" + it->symbol.get_name(), ",");
+                    C_LANGUAGE()
+                    {
+                        fallback_capture_values
+                            << type.get_declaration_with_initializer(
+                                    task_construct.get_scope(),
+                                    "cval_" + it->symbol.get_name(),
+                                    it->symbol.get_qualified_name(task_construct.get_scope())) 
+                            << ";"
+                            ;
+                        fallback_arguments.append_with_separator("&cval_" + it->symbol.get_name(), ",");
+                    }
+                    CXX_LANGUAGE()
+                    {
+                        if (type.is_class())
+                        {
+                            std::string type_name = type.get_declaration(
+                                    task_construct.get_scope(),
+                                    "");
+
+                            type = type.get_reference_to();
+
+                            fallback_capture_values
+                                << type.get_declaration_with_initializer(
+                                        task_construct.get_scope(),
+                                        "cval_" + it->symbol.get_name(),
+                                        "*(new " + type_name + "(" + it->symbol.get_qualified_name(task_construct.get_scope()) + "))") 
+                                << ";"
+                                ;
+                            fallback_arguments.append_with_separator("&cval_" + it->symbol.get_name(), ",");
+                        }
+                        else
+                        {
+                            fallback_capture_values
+                                << type.get_declaration_with_initializer(
+                                        task_construct.get_scope(),
+                                        "cval_" + it->symbol.get_name(),
+                                        it->symbol.get_qualified_name(task_construct.get_scope())) 
+                                << ";"
+                                ;
+                            fallback_arguments.append_with_separator("&cval_" + it->symbol.get_name(), ",");
+                        }
+                    }
                 }
                 else
                 {
