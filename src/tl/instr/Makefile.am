@@ -27,3 +27,5 @@ libtlinstr_la_SOURCES = \
 						tl-instrumentcalls.cpp \
 						tl-instrumentation.hpp \
 						tl-instrumentation.cpp
+
+libtlinstr_la_LDFLAGS = -avoid-version

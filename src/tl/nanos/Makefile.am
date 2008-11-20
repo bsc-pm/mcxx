@@ -22,6 +22,8 @@ libtlnanos_la_CXXFLAGS = -Wall \
 
 END=
 
+libtlnanos_la_LDFLAGS = -avoid-version
+
 libtlnanos_la_SOURCES = \
 	tl-nanos.hpp \
 	tl-nanos.cpp \

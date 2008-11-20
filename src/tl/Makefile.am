@@ -80,6 +80,7 @@ libtl_la_SOURCES = \
 	tl-static-callgraph.cpp \
 	$(END)
 
+libtl_la_LDFLAGS = -avoid-version
 libtl_la_LIBADD = \
 	$(top_builddir)/src/frontend/libmcxx.la \
 	$(END)

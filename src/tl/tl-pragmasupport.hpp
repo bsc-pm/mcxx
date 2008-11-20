@@ -64,7 +64,7 @@ namespace TL
             std::string get_clause_name() { return _clause_name; }
     };
 
-    class PragmaCustomConstruct : public LangConstruct
+    class PragmaCustomConstruct : public LangConstruct, public LinkData
     {
         public:
             PragmaCustomConstruct(AST_t ref, ScopeLink scope_link)

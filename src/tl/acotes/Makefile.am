@@ -14,6 +14,7 @@ COMMON_CFLAGS= -Wall \
 
 libtlacotes_la_CFLAGS = $(COMMON_CFLAGS)
 libtlacotes_la_CXXFLAGS = $(COMMON_CFLAGS)
+libtlacotes_la_LDFLAGS = -avoid-version
 libtlacotes_la_LIBADD = libtlacotes-output.la
 
 libtlacotes_la_SOURCES = \
@@ -110,6 +111,8 @@ libtlacotes_la_SOURCES = \
 
 libtlacotes_output_la_CFLAGS = $(COMMON_CFLAGS)
 libtlacotes_output_la_CXXFLAGS = $(COMMON_CFLAGS)
+
+libtlacotes_output_la_LDFLAGS = -avoid-version
 
 libtlacotes_output_la_SOURCES = \
     acotes-output.cpp \

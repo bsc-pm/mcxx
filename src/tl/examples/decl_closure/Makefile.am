@@ -23,3 +23,5 @@ libtldecl_closure_la_CXXFLAGS = -Wall \
 libtldecl_closure_la_SOURCES = \
 						tl-decl_closure.hpp \
 						tl-decl_closure.cpp
+
+libtldecl_closure_la_LDFLAGS = -avoid-version

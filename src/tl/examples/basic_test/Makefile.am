@@ -15,3 +15,5 @@ libtlbasic_test_la_CXXFLAGS = $(COMMON_CFLAGS)
 libtlbasic_test_la_SOURCES = \
 						tl-basic_test.hpp \
 						tl-basic_test.cpp
+
+libtlbasic_test_la_LDFLAGS = -avoid-version

@@ -61,6 +61,7 @@ namespace TL
 
             //! Creates a ScopeLink after a reference to Object
             ScopeLink(RefPtr<Object> obj)
+                : _scope_link(NULL)
             {
                 RefPtr<ScopeLink> sl = RefPtr<ScopeLink>::cast_dynamic(obj);
                 if (sl.get_pointer() != NULL)

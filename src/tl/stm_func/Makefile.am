@@ -25,3 +25,5 @@ libtlstmfunc_la_SOURCES = \
     stm_function_transform.cpp \
 	tl-functionfilter.cpp \
 	tl-functionfilter.hpp
+
+libtlstmfunc_la_LDFLAGS = -avoid-version

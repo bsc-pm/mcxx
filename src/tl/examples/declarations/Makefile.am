@@ -3,6 +3,8 @@ lib_LTLIBRARIES = libtltraversedecls.la
 libtltraversedecls_la_SOURCES = \
 	tl-traversedecls.cpp
 
+libtltraversedecls_la_LDFLAGS = -avoid-version
+
 libtltraversedecls_la_CFLAGS = -Wall \
     -i $(top_srcdir)/src/tl \
     -i $(top_srcdir)/src/frontend \

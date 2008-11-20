@@ -23,3 +23,5 @@ libtlmypragma_la_CXXFLAGS = -Wall \
 libtlmypragma_la_SOURCES = \
 						tl-mypragma.hpp \
 						tl-mypragma.cpp
+
+libtlmypragma_la_LDFLAGS = -avoid-version
