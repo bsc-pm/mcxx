@@ -690,21 +690,21 @@ void prettyprint(FILE* f, AST a)
     prettyprint_level(f, a, 0);
 }
 
-char* prettyprint_in_buffer(AST a)
+static char* prettyprint_in_buffer_common(AST a, void (*pretty_func)(FILE*, AST))
 {
 #ifdef HAVE_OPEN_MEMSTREAM
     char *result = NULL;
     size_t size = 0;
 
     FILE* temporal_stream = open_memstream(&result, &size);
-    prettyprint(temporal_stream, a);
+    pretty_func(temporal_stream, a);
     fclose(temporal_stream);
 
     return result;
 #else
     FILE* temporal_file = tmpfile();
 
-    prettyprint(temporal_file, a);
+    pretty_func(temporal_file, a);
 
     int bytes_file = ftell(temporal_file) + 20;
     rewind(temporal_file);
@@ -726,29 +726,19 @@ char* prettyprint_in_buffer(AST a)
 #endif
 }
 
+char* prettyprint_in_buffer(AST a)
+{
+    return prettyprint_in_buffer_common(a, prettyprint);
+}
+
+static void list_handler_adapter(FILE* f, AST a)
+{
+    list_handler(f, a, 0);
+}
+
 char* list_handler_in_buffer(AST a)
 {
-    FILE* temporal_file = tmpfile();
-
-    list_handler(temporal_file, a, 0);
-
-    int bytes_file = ftell(temporal_file) + 20;
-    rewind(temporal_file);
-
-    char* result = calloc(bytes_file, sizeof(char));
-    fread(result, bytes_file, sizeof(char), temporal_file);
-
-    int c = strlen(result) - 1;
-
-    while (result[c] == '\n')
-    {
-        result[c] = '\0';
-        c--;
-    }
-
-    fclose(temporal_file);
-
-    return result;
+    return prettyprint_in_buffer_common(a, list_handler_adapter);
 }
 
 static int character_level_vfprintf(FILE* stream, const char* format, va_list args)
