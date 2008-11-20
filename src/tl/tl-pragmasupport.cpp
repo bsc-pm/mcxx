@@ -73,18 +73,26 @@ namespace TL
 
     void PragmaCustomDispatcher::preorder(Context ctx, AST_t node)
     {
-        dispatch_pragma_construct(_pre_map, ctx, node);
+        // Create it here
+        PragmaCustomConstruct* pragma_custom_construct = new PragmaCustomConstruct(node, ctx.scope_link);
+        _construct_stack.push(pragma_custom_construct);
+
+        dispatch_pragma_construct(_pre_map, *pragma_custom_construct);
     }
 
     void PragmaCustomDispatcher::postorder(Context ctx, AST_t node)
     {
-        dispatch_pragma_construct(_post_map, ctx, node);
+        PragmaCustomConstruct* pragma_custom_construct = _construct_stack.top(); 
+        _construct_stack.pop();
+
+        dispatch_pragma_construct(_post_map, *pragma_custom_construct);
+
+        // Destroy it here
+        delete pragma_custom_construct;
     }
 
-    void PragmaCustomDispatcher::dispatch_pragma_construct(CustomFunctorMap& search_map, Context ctx, AST_t node)
+    void PragmaCustomDispatcher::dispatch_pragma_construct(CustomFunctorMap& search_map, PragmaCustomConstruct& pragma_custom_construct)
     {
-        PragmaCustomConstruct pragma_custom_construct(node, ctx.scope_link);
-
         // If this is a handled pragma in this class
         if (pragma_custom_construct.get_pragma() == _pragma_handled)
         {

@@ -22,6 +22,7 @@
 #define TL_PRAGMASUPPORT_HPP
 
 #include <string>
+#include <stack>
 #include "tl-compilerphase.hpp"
 #include "tl-langconstruct.hpp"
 #include "tl-handler.hpp"
@@ -105,7 +106,9 @@ namespace TL
             CustomFunctorMap& _pre_map;
             CustomFunctorMap& _post_map;
 
-            void dispatch_pragma_construct(CustomFunctorMap& search_map, Context ctx, AST_t node);
+            std::stack<PragmaCustomConstruct*> _construct_stack;
+
+            void dispatch_pragma_construct(CustomFunctorMap& search_map, PragmaCustomConstruct& pragma_custom_construct);
         public:
             PragmaCustomDispatcher(const std::string& pragma_handled, 
                     CustomFunctorMap& pre_map,
