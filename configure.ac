@@ -1,5 +1,5 @@
 dnl Package definition: name, version, mail
-AC_INIT([mcxx],[1.2.2],[rferrer@ac.upc.edu])
+AC_INIT([mcxx],[1.2.3],[rferrer@ac.upc.edu])
 
 dnl Where are we ?
 AC_CANONICAL_BUILD
@@ -716,15 +716,18 @@ AM_CONDITIONAL(GPERF_BUILDING, test x$gperf_good = xyes)
 
 dnl --------------------- End of Regeneration files ---------------------
 
-dnl Additional checks
+dnl C portability and compliance tests
 AC_HEADER_STDC
 AC_CHECK_HEADERS(stdint.h)
 AC_CHECK_HEADERS(string.h)
 
-dnl Hum
-AC_FUNC_ALLOCA
-
+dnl Check for compliant const
 AC_C_CONST
+
+dnl Check for 'open_memstream' used to generate strings after FILE*
+dnl in the prettyprinter
+AC_CHECK_FUNC([open_memstream],
+        AC_DEFINE([HAVE_OPEN_MEMSTREAM], 1, [Define to 1 if open_memstream is available]))
 
 dnl Versioning things
 build_version=""

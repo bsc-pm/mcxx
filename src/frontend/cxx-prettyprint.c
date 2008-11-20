@@ -18,13 +18,21 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
+#ifdef HAVE_CONFIG_H
+  #include "config.h"
+#endif
+#ifdef HAVE_OPEN_MEMSTREAM
+  // Needed, otherwise open_memstream is not declared
+  #define _GNU_SOURCE
+#endif
+#include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 #include "cxx-driver.h"
 #include "cxx-utils.h"
 #include "cxx-prettyprint.h"
+
 
 typedef void (*prettyprint_handler_t)(FILE* f, AST a, int level);
 
@@ -684,6 +692,16 @@ void prettyprint(FILE* f, AST a)
 
 char* prettyprint_in_buffer(AST a)
 {
+#ifdef HAVE_OPEN_MEMSTREAM
+    char *result = NULL;
+    size_t size = 0;
+
+    FILE* temporal_stream = open_memstream(&result, &size);
+    prettyprint(temporal_stream, a);
+    fclose(temporal_stream);
+
+    return result;
+#else
     FILE* temporal_file = tmpfile();
 
     prettyprint(temporal_file, a);
@@ -705,6 +723,7 @@ char* prettyprint_in_buffer(AST a)
     fclose(temporal_file);
 
     return result;
+#endif
 }
 
 char* list_handler_in_buffer(AST a)
