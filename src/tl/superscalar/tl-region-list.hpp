@@ -100,6 +100,7 @@ namespace TL {
 					initialize();
 				}
 				
+#if 0
 				for (ObjectList<Region>::iterator it = _list->begin(); it != _list->end(); it++)
 				{
 					if (*it == region)
@@ -107,6 +108,7 @@ namespace TL {
 						return false;
 					}
 				}
+#endif
 				
 				(*_list).push_back(region);
 				
@@ -126,6 +128,7 @@ namespace TL {
 					return false;
 				}
 				
+#if 0
 				for (unsigned int i=0; i < _list->size(); i++)
 				{
 					bool do_match = false;
@@ -138,6 +141,7 @@ namespace TL {
 						return false;
 					}
 				}
+#endif
 				
 				return true;
 			}
