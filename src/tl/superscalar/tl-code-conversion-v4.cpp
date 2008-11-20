@@ -91,6 +91,7 @@ namespace TL
 		
 		Source source;
 		Source parameter_initializers_source;
+		Source dimensions_source;
 		Source constant_redirection_source;
 		Source parameter_region_source;
 		Source add_task_code;
@@ -98,6 +99,7 @@ namespace TL
 		source
 			<< "{"
 				<< constant_redirection_source
+				<< dimensions_source
 				<< parameter_region_source
 				<< "css_parameter_t const parameters__cssgenerated[] = {" << parameter_initializers_source << "};"
 				<< add_task_code
@@ -112,64 +114,132 @@ namespace TL
 		
 		for (unsigned int index = 0; index < arguments.size(); index++)
 		{
-			Source direction_source;
-			Source dimension_count_source;
-			Source size_source;
 			Source address_source;
-			Source dimensions_source;
+			Source region_count_source;
 			
-			parameter_initializers_source
-				<< "{"
-					<< direction_source
-					<< ", " << dimension_count_source
-					<< ", " << size_source
-					<< ", " << address_source
-					<< ", " << dimensions_source
-				<< "}, ";
+			// Get the name of the parameter or build an artificial one based on its index
+			std::string parameter_name;
+			{
+				Declaration function_declaration(symbol.get_point_of_declaration(), scope_link);
+				ObjectList<DeclaredEntity> function_declaration_entities = function_declaration.get_declared_entities();
+				bool found = false;
+				for (ObjectList<DeclaredEntity>::iterator it = function_declaration_entities.begin(); it != function_declaration_entities.end(); it++)
+				{
+					DeclaredEntity function_declaration = *it;
+					if (function_declaration.get_declared_symbol() != symbol)
+					{
+						continue;
+					}
+					found = true;
+					
+					if (!function_declaration.is_functional_declaration())
+					{
+						std::cerr << __FILE__ << ":" << __LINE__ << "Internal compiler error." << std::endl;
+						throw FatalException();
+					}
+					
+					ObjectList<ParameterDeclaration> function_declaration_parameters = function_declaration.get_parameter_declarations();
+					if (function_declaration_parameters.size() != arguments.size())
+					{
+						std::cerr << __FILE__ << ":" << __LINE__ << "Internal compiler error." << std::endl;
+						throw FatalException();
+					}
+					
+					ParameterDeclaration parameter_declaration = function_declaration_parameters[index];
+					if (parameter_declaration.is_named())
+					{
+						parameter_name = parameter_declaration.get_name().get_symbol().get_name();
+					}
+					else
+					{
+						std::ostringstream oss;
+						oss << "__unnamed_" << index << "_unnamed__";
+						parameter_name = oss.str();
+					}
+				}
+				if (!found)
+				{
+					std::cerr << __FILE__ << ":" << __LINE__ << "Internal compiler error." << std::endl;
+					throw FatalException();
+				}
+			}
+			
 			
 			Expression argument = arguments[index];
 			RegionList region_list = (*parameter_region_list.get_pointer())[index];
-			if (region_list.size() != 1)
-			{
-				std::cerr << function_call.get_ast().get_locus() << " Error: In call to task '" << function_name << "'. Sorry, this compiler version does not support more than one range per parameter." << std::endl;
-				CodeConversion::fail();
-				return;
-			}
 			
-			Region &region = region_list[0];
-			switch (region.get_direction())
-			{
-				case Region::INPUT_DIR:
-					direction_source << "CSS_IN_DIR";
-					break;
-				case Region::OUTPUT_DIR:
-					direction_source << "CSS_OUT_DIR";
-					break;
-				case Region::INOUT_DIR:
-					direction_source << "CSS_INOUT_DIR";
-					break;
-				case Region::UNKNOWN_DIR:
-					std::cerr << __FILE__ << ":" << __LINE__ << "Internal compiler error." << std::cerr;
-					throw FatalException();
-			}
+			
+			parameter_initializers_source
+				<< "{"
+					<< address_source
+					<< ", " << region_list.size()
+					<< ", " << parameter_name << "_parameter_regions__cssgenerated"
+				<< "}, ";
+			
+			parameter_region_source
+				<< "css_parameter_region_t const " << parameter_name << "_parameter_regions__cssgenerated[] = {";
 			
 			bool is_lvalue;
 			Type argument_type = argument.get_type(is_lvalue);
 			Type parameter_type = parameter_types[index];
 			
-			dimension_count_source << region.get_dimension_count();
-			
-			if (region.get_dimension_count() != 0)
+			// For earch region of the parameter
+			for (int region_index = 0; region_index < region_list.size(); region_index++)
 			{
-				//
-				// An array
-				//
+				Region &region = region_list[region_index];
+				Source direction_source;
+				Source dimension_count_source;
+				
+				if (region_index != 0)
+				{
+					parameter_region_source
+						<< ", ";
+				}
 				
 				parameter_region_source
-					<< "css_parameter_dimension_t parameter_" << index << "_dimension__cssgenerated[" << region.get_dimension_count() << "] = {";
+					<< "{"
+						<< direction_source
+						<< ", " << dimension_count_source
+						<< ", " << parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated"
+					<< "}";
 				
-				// The first dimension is base 1 (in terms of bytes)
+				switch (region.get_direction())
 				{
+					case Region::INPUT_DIR:
+						direction_source << "CSS_IN_DIR";
+						break;
+					case Region::OUTPUT_DIR:
+						direction_source << "CSS_OUT_DIR";
+						break;
+					case Region::INOUT_DIR:
+						direction_source << "CSS_INOUT_DIR";
+						break;
+					case Region::UNKNOWN_DIR:
+						std::cerr << __FILE__ << ":" << __LINE__ << "Internal compiler error." << std::endl;
+						throw FatalException();
+				}
+				
+				// At least one dimension (even for scalars)
+				if (region.get_dimension_count() > 0)
+				{
+					dimension_count_source
+						<< region.get_dimension_count();
+				}
+				else
+				{
+					dimension_count_source
+						<< "1";
+				}
+				
+				dimensions_source
+					<< "css_parameter_dimension_t const " << parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[]" << " = {";
+				
+				if (region.get_dimension_count() != 0)
+				{
+					//
+					// An array
+					//
+					
 					Source dimension_base;
 					dimension_base
 						<< "sizeof("
@@ -180,188 +250,173 @@ namespace TL
 								).get_declaration(ctx.scope_link.get_scope(argument.get_ast()), std::string(""))
 						<< ")";
 					
-					Expression parametrized_dimension_length = region[0].get_dimension_length();
-					Expression parametrized_dimension_start = region[0].get_dimension_start();
-					Expression parametrized_accessed_length = region[0].get_accessed_length();
 					
-					ParameterExpression::substitute(parametrized_dimension_length, arguments, scope_link);
-					ParameterExpression::substitute(parametrized_dimension_start, arguments, scope_link);
-					ParameterExpression::substitute(parametrized_accessed_length, arguments, scope_link);
-					
-					parameter_region_source
-						<< "{"
-							// Size
-							<< dimension_base << " * " << "(" << parametrized_dimension_length.prettyprint() << ")"
-							// Lower bound
-							<< ", " << dimension_base << " * " << "(" << parametrized_dimension_start.prettyprint() << ")"
-							// Upper bound
-							<< ", " << dimension_base << " * " << "(" << parametrized_accessed_length.prettyprint() << ")"
-						<< "}";
-				}
-				
-				// The rest of the dimensions are automatically based on the previous one
-				for (unsigned int dimension_index = 1; dimension_index < region.get_dimension_count(); dimension_index++)
-				{
-					Expression parametrized_dimension_length = region[dimension_index].get_dimension_length();
-					Expression parametrized_dimension_start = region[dimension_index].get_dimension_start();
-					Expression parametrized_accessed_length = region[dimension_index].get_accessed_length();
-					
-					ParameterExpression::substitute(parametrized_dimension_length, arguments, scope_link);
-					ParameterExpression::substitute(parametrized_dimension_start, arguments, scope_link);
-					ParameterExpression::substitute(parametrized_accessed_length, arguments, scope_link);
-					
-					parameter_region_source
-						<< ", {"
-							// Size
-							<< parametrized_dimension_length.prettyprint()
-							// Lower bound
-							<< ", " << parametrized_dimension_start.prettyprint()
-							// Upper bound
-							<< ", " << parametrized_accessed_length.prettyprint()
-						<< "}";
-				}
-				
-				parameter_region_source
-					<< "};";
-				
-				size_source
-					<< "0";
-				address_source
-					<< argument.prettyprint();
-				dimensions_source
-					<< "parameter_" << index << "_dimension__cssgenerated";
-				
-			}
-			else if (parameter_type.is_pointer())
-			{
-				//
-				// A pointer
-				//
-				
-				if (!argument_type.is_pointer() && !argument_type.is_array())
-				{
-					std::cerr << argument.get_ast().get_locus() << " Error: expression '" << argument.prettyprint() << "' passed as parameter number " << index+1 << " in call to task '" << function_name << "' must be a pointer or an array." << std::endl;
-					CodeConversion::fail();
-					return;
-				}
-				
-				Type base_type = parameter_type.points_to();
-				if (base_type.is_void())
-				{
-					// An opaque parameter, we should pass a pointer to it, since it is treated as a scalar
-					if (region.get_direction() == Region::INPUT_DIR)
+					// The first dimension is base 1 (in terms of bytes)
+					// The rest of the dimensions are automatically based on the previous one
+					for (unsigned int dimension_index = 0; dimension_index < region.get_dimension_count(); dimension_index++)
 					{
-						direction_source = Source("CSS_IN_SCALAR_DIR");
+						Expression parametrized_dimension_length = region[dimension_index].get_dimension_length();
+						Expression parametrized_dimension_start = region[dimension_index].get_dimension_start();
+						Expression parametrized_accessed_length = region[dimension_index].get_accessed_length();
+						
+						ParameterExpression::substitute(parametrized_dimension_length, arguments, scope_link);
+						ParameterExpression::substitute(parametrized_dimension_start, arguments, scope_link);
+						ParameterExpression::substitute(parametrized_accessed_length, arguments, scope_link);
+						
+						dimensions_source
+							<< (dimension_index == 0 ? "" : ", ") << "{"
+								// Size
+								<< dimension_base.get_source() << " * (" << parametrized_dimension_length.prettyprint() << ")"
+								// Lower bound
+								<< ", " << dimension_base.get_source() << " * (" << parametrized_dimension_start.prettyprint() << ")"
+								// Upper bound
+								<< ", " << dimension_base.get_source() << " * (" << parametrized_accessed_length.prettyprint() << ")"
+							<< "}";
+						dimension_base = Source("1");
 					}
-					size_source
-						<< "sizeof(void *)";
 					
-					std::ostringstream temporary_name;
-					temporary_name << "parameter_" << index << "__cssgenerated";
-					
-					constant_redirection_source
-						<< "void *" << temporary_name.str() << " = " << argument.prettyprint() << ";";
-					address_source
-						<< "&" << temporary_name.str();
-					dimensions_source
-						<< "(void *)0"; // NULL
+					address_source = Source(argument.prettyprint());
 				}
-				else if (argument.is_literal())
+				else if (parameter_type.is_pointer())
 				{
-					if (region.get_direction() == Region::INPUT_DIR)
+					//
+					// A pointer
+					//
+					
+					if (!argument_type.is_pointer() && !argument_type.is_array())
 					{
-						direction_source = Source("CSS_IN_SCALAR_DIR");
-					}
-					else
-					{
-						std::cerr << argument.get_ast().get_locus() << " Error: expression '" << argument.prettyprint() << "' passed as parameter number " << index+1 << " in call to task '" << function_name << "' is a literal passed as either output or inout." << std::endl;
+						std::cerr << argument.get_ast().get_locus() << " Error: expression '" << argument.prettyprint() << "' passed as parameter number " << index+1 << " in call to task '" << function_name << "' must be a pointer or an array." << std::endl;
 						CodeConversion::fail();
 						return;
 					}
-					// A "string" or an L"string"
-					if (!base_type.is_char() && !base_type.is_wchar_t())
+					
+					Type base_type = parameter_type.points_to();
+					if (base_type.is_void())
 					{
-						std::cerr << __FILE__ << ":" << __LINE__ << ": Internal compiler error" << std::endl;
+						// An opaque parameter, we should pass a pointer to it, since it is treated as a scalar
+						if (region.get_direction() == Region::INPUT_DIR)
+						{
+							direction_source = Source("CSS_IN_SCALAR_DIR");
+						}
+						dimensions_source
+							<< "{"
+								<< "sizeof(void *)"
+								<< ", 0"
+								<< ", sizeof(void *)"
+							<< "}";
+						
+						std::string temporary_name = std::string("opaque_parameter_") + parameter_name + std::string("__cssgenerated");
+						
+						constant_redirection_source
+							<< "void *" << temporary_name << " = " << argument.prettyprint() << ";";
+						address_source = Source(std::string("&") + temporary_name);
+					}
+					else if (argument.is_literal())
+					{
+						if (region.get_direction() == Region::INPUT_DIR)
+						{
+							direction_source = Source("CSS_IN_SCALAR_DIR");
+						}
+						else
+						{
+							std::cerr << argument.get_ast().get_locus() << " Error: expression '" << argument.prettyprint() << "' passed as parameter number " << index+1 << " in call to task '" << function_name << "' is a literal passed as either output or inout." << std::endl;
+							CodeConversion::fail();
+							return;
+						}
+						// A "string" or an L"string"
+						if (!base_type.is_char() && !base_type.is_wchar_t())
+						{
+							std::cerr << __FILE__ << ":" << __LINE__ << ": Internal compiler error" << std::endl;
+							throw FatalException();
+						}
+						dimensions_source
+							<< "{"
+								<< "sizeof("
+									<< base_type.get_declaration(scope_link.get_scope(argument.get_ast()), std::string(""))
+								<< ")"
+								<< ", 0"
+								<< ", sizeof("
+									<< base_type.get_declaration(scope_link.get_scope(argument.get_ast()), std::string(""))
+								<< ")"
+							<< "}";
+						address_source = Source(argument.prettyprint());
+					}
+					else
+					{
+						// A struct
+						dimensions_source
+							<< "{"
+								<< "sizeof("
+									<< base_type.get_declaration(scope_link.get_scope(argument.get_ast()), std::string(""))
+								<< ")"
+								<< ", 0"
+								<< ", sizeof("
+									<< base_type.get_declaration(scope_link.get_scope(argument.get_ast()), std::string(""))
+								<< ")"
+							<< "}";
+						address_source = Source(argument.prettyprint());
+					}
+				}
+				else if (parameter_type.is_non_derived_type())
+				{
+					// A scalar
+					if (region.get_direction() != Region::INPUT_DIR) {
+						std::cerr << "Internal compiler error at " << __FILE__ << ":" << __LINE__ << std::endl;
 						throw FatalException();
 					}
-					size_source
-						<< "sizeof("
-							<< base_type.get_declaration(scope_link.get_scope(argument.get_ast()), std::string(""))
-						<< ")";
-					address_source
-						<< argument.prettyprint();
+					
+					// Must not be a pointer but we have to pass its address anyway
+					if (argument_type.is_pointer() || argument_type.is_array())
+					{
+						std::cerr << argument.get_ast().get_locus() << " Error: expression '" << argument.prettyprint() << "' passed as parameter number " << index+1 << " in call to task '" << function_name << "' can neither be a pointer nor an array." << std::endl;
+						CodeConversion::fail();
+						return;
+					}
+					
+					if (region.get_direction() == Region::INPUT_DIR)
+					{
+						direction_source = Source("CSS_IN_SCALAR_DIR");
+					}
 					dimensions_source
-						<< "(void *)0"; // NULL
+						<< "{"
+							<< "sizeof("
+								<< parameter_type.get_declaration(scope_link.get_scope(argument.get_ast()), std::string(""))
+							<< ")"
+							<< ", 0"
+							<< ", sizeof("
+								<< parameter_type.get_declaration(scope_link.get_scope(argument.get_ast()), std::string(""))
+							<< ")"
+						<< "}";
+					
+					if (is_lvalue && argument_type.is_same_type(parameter_type))
+					{
+						address_source = Source(std::string("&(") + argument.prettyprint() + std::string(")"));
+					}
+					else
+					{
+						std::string temporary_name = std::string("parameter_") + parameter_name + std::string("__cssgenerated");
+						constant_redirection_source
+							<< parameter_type.get_declaration_with_initializer(
+								ctx.scope_link.get_scope(argument.get_ast()),
+								temporary_name,
+								argument.prettyprint()
+							)
+							<< ";";
+						address_source = Source(std::string("&") + temporary_name);
+					}
 				}
 				else
 				{
-					// A struct
-					size_source
-						<< "sizeof("
-							<< base_type.get_declaration(scope_link.get_scope(argument.get_ast()), std::string(""))
-						<< ")";
-					address_source
-						<< argument.prettyprint();
-					dimensions_source
-						<< "(void *)0"; // NULL
-					
-				}
-			}
-			else if (parameter_type.is_non_derived_type())
-			{
-				// A scalar
-				if (region.get_direction() != Region::INPUT_DIR) {
+					// A derived type passed by value
 					std::cerr << "Internal compiler error at " << __FILE__ << ":" << __LINE__ << std::endl;
 					throw FatalException();
 				}
 				
-				// Must not be a pointer but we have to pass its address anyway
-				if (argument_type.is_pointer() || argument_type.is_array())
-				{
-					std::cerr << argument.get_ast().get_locus() << " Error: expression '" << argument.prettyprint() << "' passed as parameter number " << index+1 << " in call to task '" << function_name << "' can neither be a pointer nor an array." << std::endl;
-					CodeConversion::fail();
-					return;
-				}
-				
-				if (region.get_direction() == Region::INPUT_DIR)
-				{
-					direction_source = Source("CSS_IN_SCALAR_DIR");
-				}
-				size_source
-					<< "sizeof("
-						<< parameter_type.get_declaration(ctx.scope_link.get_scope(argument.get_ast()), std::string(""))
-					<< ")";
-				
-				if (is_lvalue && argument_type.is_same_type(parameter_type))
-				{
-					address_source
-						<< "&(" << argument.prettyprint() << ")";
-				}
-				else
-				{
-					std::ostringstream temporary_name;
-					temporary_name << "parameter_" << index << "__cssgenerated";
-					constant_redirection_source
-						<< parameter_type.get_declaration_with_initializer(
-							ctx.scope_link.get_scope(argument.get_ast()),
-							temporary_name.str(),
-							argument.prettyprint()
-						)
-						<< ";";
-					address_source
-						<< "&" << temporary_name.str();
-				}
-				
 				dimensions_source
-					<< "(void *)0"; // NULL
-				
+					<< "};";
 			}
-			else
-			{
-				// A derived type passed by value
-				std::cerr << "Internal compiler error at " << __FILE__ << ":" << __LINE__ << std::endl;
-				throw FatalException();
-			}
+			parameter_region_source
+				<< "};";
 		}
 		
 		AST_t tree = source.parse_statement(node, ctx.scope_link);

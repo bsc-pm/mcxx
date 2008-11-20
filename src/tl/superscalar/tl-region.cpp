@@ -27,7 +27,7 @@
 #include "tl-scopelink.hpp"
 
 #include "tl-exceptions.hpp"
-// #include "tl-parameter-expression.hpp"
+#include "tl-parameter-expression.hpp"
 #include "tl-region.hpp"
 
 
