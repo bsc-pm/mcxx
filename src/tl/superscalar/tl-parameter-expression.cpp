@@ -245,8 +245,57 @@ namespace TL {
 				throw FatalException();
 				break;
 		}
-		
-		return false;
+	}
+	
+	
+	Expression ParameterExpression::get_identity_for_operator(Expression::OperationKind op, AST_t ref_ast, ScopeLink scope_link)
+	{
+		switch (op)
+		{
+			case Expression::LOGICAL_OR:
+				{
+					Source source;
+					source << "1";
+					return Expression(source.parse_expression(ref_ast, scope_link), scope_link);
+				}
+			case Expression::BITWISE_OR:
+			case Expression::BITWISE_XOR:
+				{
+					Source source;
+					source << "~0";
+					return Expression(source.parse_expression(ref_ast, scope_link), scope_link);
+				}
+			case Expression::ADDITION:
+			case Expression::SUBSTRACTION:
+			case Expression::SHIFT_LEFT:
+			case Expression::SHIFT_RIGHT:
+			case Expression::MULTIPLICATION:
+			case Expression::DIVISION:
+			case Expression::LOGICAL_AND:
+			case Expression::BITWISE_AND:
+			case Expression::DERREFERENCE:
+			case Expression::REFERENCE:
+			case Expression::PLUS:
+			case Expression::MINUS:
+			case Expression::MODULUS:
+			case Expression::LOGICAL_NOT:
+			case Expression::BITWISE_NOT:
+			case Expression::LOWER_THAN:
+			case Expression::GREATER_THAN:
+			case Expression::LOWER_EQUAL_THAN:
+			case Expression::GREATER_EQUAL_THAN:
+			case Expression::COMPARISON:
+			case Expression::DIFFERENT:
+			case Expression::PREINCREMENT:
+			case Expression::POSTINCREMENT:
+			case Expression::PREDECREMENT:
+			case Expression::POSTDECREMENT:
+			case Expression::CONDITIONAL:
+			default:
+				std::cerr << __FILE__ << ":" << __LINE__ << ": Internal compiler error" << std::endl;
+				throw FatalException();
+				break;
+		}
 	}
 	
 	
@@ -473,10 +522,8 @@ std::string recursion_prefix;
 std::cout << recursion_prefix << "Propagating '" << operator_to_string(op) << "' over '" << expr.prettyprint() << "'" << std::endl;
 recursion_prefix.append("\t");
 		
-		AST_t ref_ast = expr1.get_ast();
-		ScopeLink scope_link = expr1.get_scope_link();
-		
-		Expression result;
+		AST_t ref_ast = expr.get_ast();
+		ScopeLink scope_link = expr.get_scope_link();
 		
 		if (op == Expression::SUBSTRACTION)
 		{
@@ -508,7 +555,11 @@ recursion_prefix.append("\t");
 					<< "(" << expr2.prettyprint() << ")"
 				;
 				
-				result = Expression(source.parse_expression(ref_ast, scope_link), scope_link);
+				Expression result(source.parse_expression(ref_ast, scope_link), scope_link);
+recursion_prefix.erase(recursion_prefix.begin());
+std::cout << recursion_prefix << "Result is '" << result.prettyprint() << "'" << std::endl;
+				
+				return result;
 			}
 			else if (expr.is_conditional())
 			{
@@ -531,24 +582,31 @@ recursion_prefix.append("\t");
 					<< ")"
 				;
 				
-				result = Expression(source.parse_expression(ref_ast, scope_link), scope_link);
+				Expression result(source.parse_expression(ref_ast, scope_link), scope_link);
+recursion_prefix.erase(recursion_prefix.begin());
+std::cout << recursion_prefix << "Result is '" << result.prettyprint() << "'" << std::endl;
+				
+				return result;
 			}
 			else
 			{
-				result = propagate_unary_operator(Expression::MINUS, expr);
+				Expression result = propagate_unary_operator(Expression::MINUS, expr);
+recursion_prefix.erase(recursion_prefix.begin());
+std::cout << recursion_prefix << "Result is '" << result.prettyprint() << "'" << std::endl;
+				
+				return result;
 			}
 			new_op = Expression::ADDITION;
 		}
 		else
 		{
 			new_op = op;
-			result = expr;
-		}
-		
+			Expression result = expr;
 recursion_prefix.erase(recursion_prefix.begin());
 std::cout << recursion_prefix << "Result is '" << result.prettyprint() << "'" << std::endl;
-		
-		return result;
+				
+				return result;
+		}
 	}
 	
 	
@@ -557,10 +615,8 @@ std::cout << recursion_prefix << "Result is '" << result.prettyprint() << "'" <<
 std::cout << recursion_prefix << "Propagating '" << operator_to_string(op) << "' over '" << expr.prettyprint() << "'" << std::endl;
 recursion_prefix.append("\t");
 		
-		AST_t ref_ast = expr1.get_ast();
-		ScopeLink scope_link = expr1.get_scope_link();
-		
-		Expression result;
+		AST_t ref_ast = expr.get_ast();
+		ScopeLink scope_link = expr.get_scope_link();
 		
 		if (expr.is_conditional())
 		{
@@ -583,7 +639,11 @@ recursion_prefix.append("\t");
 				<< ")"
 			;
 			
-			result = Expression(source.parse_expression(ref_ast, scope_link), scope_link);
+			Expression result(source.parse_expression(ref_ast, scope_link), scope_link);
+recursion_prefix.erase(recursion_prefix.begin());
+std::cout << recursion_prefix << "Result is '" << result.prettyprint() << "'" << std::endl;
+			
+			return result;
 		}
 		else if (op == Expression::DERREFERENCE)
 		{
@@ -592,7 +652,11 @@ recursion_prefix.append("\t");
 				Expression::OperationKind op0 = expr.get_operation_kind();
 				if (op0 == Expression::REFERENCE)
 				{
-					result = expr.get_unary_operand();
+					Expression result = expr.get_unary_operand();
+recursion_prefix.erase(recursion_prefix.begin());
+std::cout << recursion_prefix << "Result is '" << result.prettyprint() << "'" << std::endl;
+					
+					return result;
 				}
 			}
 		}
@@ -603,13 +667,21 @@ recursion_prefix.append("\t");
 				Expression::OperationKind op0 = expr.get_operation_kind();
 				if (op0 == Expression::DERREFERENCE)
 				{
-					result = expr.get_unary_operand();
+					Expression result = expr.get_unary_operand();
+recursion_prefix.erase(recursion_prefix.begin());
+std::cout << recursion_prefix << "Result is '" << result.prettyprint() << "'" << std::endl;
+					
+					return result;
 				}
 			}
 		}
 		else if (op == Expression::PLUS)
 		{
-			result = expr;
+			Expression result = expr;
+recursion_prefix.erase(recursion_prefix.begin());
+std::cout << recursion_prefix << "Result is '" << result.prettyprint() << "'" << std::endl;
+			
+			return result;
 		}
 		else if (op == Expression::MINUS)
 		{
@@ -735,13 +807,17 @@ recursion_prefix.append("\t");
 			} // For each term
 			
 			Source source;
-			source << "(" << simplify(term[0]).prettyprint() << ")";
+			source << "(" << simplify(term_list[0]).prettyprint() << ")";
 			for (unsigned int i = 1; i < term_list.size(); i++)
 			{
 				Expression &term = term_list[i];
-				source << " + " << "(" << simplify(term[i]).prettyprint() << ")";
+				source << " + " << "(" << simplify(term).prettyprint() << ")";
 			}
-			result = Expression(source.parse_expression(ref_ast, scope_link), scope_link);
+			Expression result = Expression(source.parse_expression(ref_ast, scope_link), scope_link);
+recursion_prefix.erase(recursion_prefix.begin());
+std::cout << recursion_prefix << "Result is '" << result.prettyprint() << "'" << std::endl;
+			
+			return result;
 		}
 		else if (op == Expression::LOGICAL_NOT)
 		{
@@ -750,7 +826,11 @@ recursion_prefix.append("\t");
 				Expression::OperationKind op0 = expr.get_operation_kind();
 				if (op0 == Expression::LOGICAL_NOT)
 				{
-					result = expr.get_unary_operand();
+					Expression result = expr.get_unary_operand();
+recursion_prefix.erase(recursion_prefix.begin());
+std::cout << recursion_prefix << "Result is '" << result.prettyprint() << "'" << std::endl;
+					
+					return result;
 				}
 			}
 			else if (expr.is_binary_operation())
@@ -767,7 +847,11 @@ recursion_prefix.append("\t");
 						<< "&&"
 						<< "(" << propagate_unary_operator(Expression::LOGICAL_NOT, expr2).prettyprint() << ")"
 					;
-					result = Expression(source.parse_expression(ref_ast, scope_link), scope_link);
+					Expression result = Expression(source.parse_expression(ref_ast, scope_link), scope_link);
+recursion_prefix.erase(recursion_prefix.begin());
+std::cout << recursion_prefix << "Result is '" << result.prettyprint() << "'" << std::endl;
+					
+					return result;
 				}
 				else if (op0 == Expression::LOGICAL_AND)
 				{
@@ -777,7 +861,11 @@ recursion_prefix.append("\t");
 						<< "||"
 						<< "(" << propagate_unary_operator(Expression::LOGICAL_NOT, expr2).prettyprint() << ")"
 					;
-					result = Expression(source.parse_expression(ref_ast, scope_link), scope_link);
+					Expression result = Expression(source.parse_expression(ref_ast, scope_link), scope_link);
+recursion_prefix.erase(recursion_prefix.begin());
+std::cout << recursion_prefix << "Result is '" << result.prettyprint() << "'" << std::endl;
+					
+					return result;
 				}
 				else
 				{
@@ -785,7 +873,11 @@ recursion_prefix.append("\t");
 					source
 						<< "!(" << expr.prettyprint() << ")"
 					;
-					result = Expression(source.parse_expression(ref_ast, scope_link), scope_link);
+					Expression result = Expression(source.parse_expression(ref_ast, scope_link), scope_link);
+recursion_prefix.erase(recursion_prefix.begin());
+std::cout << recursion_prefix << "Result is '" << result.prettyprint() << "'" << std::endl;
+					
+					return result;
 				}
 			}
 			else
@@ -794,7 +886,11 @@ recursion_prefix.append("\t");
 				source
 					<< "!(" << expr.prettyprint() << ")"
 				;
-				result = Expression(source.parse_expression(ref_ast, scope_link), scope_link);
+				Expression result = Expression(source.parse_expression(ref_ast, scope_link), scope_link);
+recursion_prefix.erase(recursion_prefix.begin());
+std::cout << recursion_prefix << "Result is '" << result.prettyprint() << "'" << std::endl;
+				
+				return result;
 			}
 		}
 		else if (op == Expression::BITWISE_NOT)
@@ -806,7 +902,11 @@ recursion_prefix.append("\t");
 				Expression::OperationKind op0 = expr.get_operation_kind();
 				if (op0 == Expression::BITWISE_NOT)
 				{
-					result = expr.get_unary_operand();
+					Expression result = expr.get_unary_operand();
+recursion_prefix.erase(recursion_prefix.begin());
+std::cout << recursion_prefix << "Result is '" << result.prettyprint() << "'" << std::endl;
+					
+					return result;
 				}
 			}
 			else if (expr.is_binary_operation())
@@ -815,7 +915,7 @@ recursion_prefix.append("\t");
 				Expression expr1 = expr.get_first_operand();
 				Expression expr2 = expr.get_second_operand();
 				
-				if (op0 == Expression::BITWISEL_OR)
+				if (op0 == Expression::BITWISE_OR)
 				{
 					Source source;
 					source
@@ -823,7 +923,11 @@ recursion_prefix.append("\t");
 						<< "&"
 						<< "(" << propagate_unary_operator(Expression::BITWISE_NOT, expr2).prettyprint() << ")"
 					;
-					result = Expression(source.parse_expression(ref_ast, scope_link), scope_link);
+					Expression result = Expression(source.parse_expression(ref_ast, scope_link), scope_link);
+recursion_prefix.erase(recursion_prefix.begin());
+std::cout << recursion_prefix << "Result is '" << result.prettyprint() << "'" << std::endl;
+					
+					return result;
 				}
 				else if (op0 == Expression::BITWISE_AND)
 				{
@@ -833,7 +937,11 @@ recursion_prefix.append("\t");
 						<< "|"
 						<< "(" << propagate_unary_operator(Expression::BITWISE_NOT, expr2).prettyprint() << ")"
 					;
-					result = Expression(source.parse_expression(ref_ast, scope_link), scope_link);
+					Expression result = Expression(source.parse_expression(ref_ast, scope_link), scope_link);
+recursion_prefix.erase(recursion_prefix.begin());
+std::cout << recursion_prefix << "Result is '" << result.prettyprint() << "'" << std::endl;
+					
+					return result;
 				}
 				else
 				{
@@ -841,7 +949,11 @@ recursion_prefix.append("\t");
 					source
 						<< "~(" << expr.prettyprint() << ")"
 					;
-					result = Expression(source.parse_expression(ref_ast, scope_link), scope_link);
+					Expression result = Expression(source.parse_expression(ref_ast, scope_link), scope_link);
+recursion_prefix.erase(recursion_prefix.begin());
+std::cout << recursion_prefix << "Result is '" << result.prettyprint() << "'" << std::endl;
+					
+					return result;
 				}
 			}
 			else
@@ -850,7 +962,11 @@ recursion_prefix.append("\t");
 				source
 					<< "~(" << expr.prettyprint() << ")"
 				;
-				result = Expression(source.parse_expression(ref_ast, scope_link), scope_link);
+				Expression result = Expression(source.parse_expression(ref_ast, scope_link), scope_link);
+recursion_prefix.erase(recursion_prefix.begin());
+std::cout << recursion_prefix << "Result is '" << result.prettyprint() << "'" << std::endl;
+				
+				return result;
 			}
 		}
 		else
@@ -858,11 +974,8 @@ recursion_prefix.append("\t");
 			std::cerr << __FILE__ << ":" << __LINE__ << ": Internal compiler error" << std::endl;
 			throw FatalException();
 		}
-		
-recursion_prefix.erase(recursion_prefix.begin());
-std::cout << recursion_prefix << "Result is '" << result.prettyprint() << "'" << std::endl;
-		
-		return result;
+		std::cerr << __FILE__ << ":" << __LINE__ << ": Internal compiler error" << std::endl;
+		throw FatalException();
 	}
 	
 	
@@ -1051,7 +1164,7 @@ std::cout << recursion_prefix << "Result is '" << expr.prettyprint() << "'" << s
 				ObjectList<Expression> terms;
 				ObjectList<bool> remove_term;
 				
-				terms = build_term_list(expr, op);
+				build_term_list(expr, op, terms);
 				for (unsigned int i=0; i < terms.size(); i++)
 				{
 					remove_term.push_back(false);
@@ -1064,7 +1177,7 @@ std::cout << recursion_prefix << "Result is '" << expr.prettyprint() << "'" << s
 					// Remove neuters if possible
 					if (operator_has_neuter(op))
 					{
-						if (match(expr_i, get_neuter_for_operator(op)))
+						if (match(expr_i, get_neuter_for_operator(op, ref_ast, scope_link)))
 						{
 							remove_term[i] = true;
 							continue; // Go to next i iteration
@@ -1136,7 +1249,7 @@ std::cout << recursion_prefix << "Result is '" << expr.prettyprint() << "'" << s
 						std::cerr << __FILE__ << ":" << __LINE__ << ": Internal compiler error" << std::endl;
 						throw FatalException();
 					}
-					expr = get_neuter_for_operator(op);
+					expr = get_neuter_for_operator(op, ref_ast, scope_link);
 recursion_prefix.erase(recursion_prefix.begin());
 std::cout << recursion_prefix << "Result is '" << expr.prettyprint() << "'" << std::endl;
 					return expr;
@@ -1148,7 +1261,7 @@ std::cout << recursion_prefix << "Result is '" << expr.prettyprint() << "'" << s
 		} // Binary operation
 		else if (expr.is_unary_operation())
 		{
-			Expression::OperationKind op = expr.get_unary_operation();
+			Expression::OperationKind op = expr.get_operation_kind();
 			Expression expr1 = expr.get_unary_operand();
 			
 			expr = propagate_unary_operator(op, expr1);

@@ -47,6 +47,8 @@ namespace TL {
 			static Expression propagate_unary_operator(Expression::OperationKind op, Expression expr);
 			
 			static std::string operator_to_string(Expression::OperationKind op);
+			static Expression get_neuter_for_operator(Expression::OperationKind op, AST_t ref_ast, ScopeLink scope_link);
+			static Expression get_identity_for_operator(Expression::OperationKind op, AST_t ref_ast, ScopeLink scope_link);
 #endif
 			
 		public:
