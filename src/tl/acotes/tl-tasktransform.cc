@@ -126,6 +126,10 @@ namespace TL { namespace Acotes {
         output_task.filename = "spu_default_" + current_filename;
 
         output_tasks->add_task(output_task);
+/* xavim 
+	Source os2 = 
+	OutputTask ot2;
+	o*/
     }
     
     void TaskTransform::transformReplacePeek(Task* task) {
@@ -256,7 +260,21 @@ namespace TL { namespace Acotes {
                 <<   "trace_instance_end();"
                 << "}"
                 ;
-        
+/* xavim */
+        ss      << "void _SPUEAR_"
+                <<         task->getName() << "_outline(task_t * __task)"
+		<< "{"
+                <<     task->getName() << "_outline(* __task);"
+                << "}"
+                << "void (* __worker_"
+                << task->getName() << "_outline)(task_t *) "
+                <<    "__attribute__((section(\".spu.worker_functions.p.c\"),"
+                        "aligned(4)))  = _SPUEAR_"
+                <<       task->getName() 
+                << "_outline;"
+                ;
+/* mivax */
+
         return ss.str();
     }
     
@@ -611,7 +629,7 @@ namespace TL { namespace Acotes {
         if (task->isImplicitTask()) {
             ss  <<   ", (void*)0";
         } else {
-            ss  <<   ", " << task->getName() << "_outline";
+            ss  <<   ", spe_prog_" << task->getName() << "_outline";
         }
         ss      <<   ", " << task->getTeam()
                 <<   ");"
