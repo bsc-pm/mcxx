@@ -693,15 +693,13 @@ void prettyprint(FILE* f, AST a)
 
 static char* prettyprint_in_buffer_common(AST a, void (*pretty_func)(FILE*, AST))
 {
-#ifdef HAVE_OPEN_MEMSTREAM
     char *result = NULL;
+#ifdef HAVE_OPEN_MEMSTREAM
     size_t size = 0;
 
     FILE* temporal_stream = open_memstream(&result, &size);
     pretty_func(temporal_stream, a);
     fclose(temporal_stream);
-
-    return result;
 #else
     FILE* temporal_file = tmpfile();
 
@@ -710,9 +708,10 @@ static char* prettyprint_in_buffer_common(AST a, void (*pretty_func)(FILE*, AST)
     int bytes_file = ftell(temporal_file) + 20;
     rewind(temporal_file);
 
-    char* result = calloc(bytes_file, sizeof(char));
+    result = calloc(bytes_file, sizeof(char));
     fread(result, bytes_file, sizeof(char), temporal_file);
-
+    fclose(temporal_file);
+#endif
     int c = strlen(result) - 1;
 
     while (result[c] == '\n')
@@ -721,10 +720,7 @@ static char* prettyprint_in_buffer_common(AST a, void (*pretty_func)(FILE*, AST)
         c--;
     }
 
-    fclose(temporal_file);
-
     return result;
-#endif
 }
 
 char* prettyprint_in_buffer(AST a)
