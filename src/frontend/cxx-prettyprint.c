@@ -239,6 +239,7 @@ HANDLER_PROTOTYPE(gcc_using_directive_handler);
 HANDLER_PROTOTYPE(gcc_namespace_definition_handler);
 HANDLER_PROTOTYPE(gcc_functional_declarator_handler);
 HANDLER_PROTOTYPE(gcc_offsetof_member_designator_handler);
+HANDLER_PROTOTYPE(gcc_parenthesized_expression_handler);
 
 HANDLER_PROTOTYPE(gxx_type_traits);
 
@@ -610,7 +611,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_GCC_TYPEOF, gcc_typeof_handler, NULL),
     NODE_HANDLER(AST_GCC_TYPEOF_EXPR, gcc_typeof_expr_handler, NULL),
     NODE_HANDLER(AST_GCC_RESTRICT_SPEC, simple_text_handler, NULL),
-    NODE_HANDLER(AST_GCC_PARENTHESIZED_EXPRESSION, parenthesized_son_handler, NULL),
+    NODE_HANDLER(AST_GCC_PARENTHESIZED_EXPRESSION, gcc_parenthesized_expression_handler, NULL),
     NODE_HANDLER(AST_GCC_REAL_PART, prefix_with_parameter_then_son_handler, "__real__ "),
     NODE_HANDLER(AST_GCC_IMAG_PART, prefix_with_parameter_then_son_handler, "__imag__ "),
     NODE_HANDLER(AST_GCC_ALIGNOF, prefix_with_token_text_then_son_handler, NULL),
@@ -3070,6 +3071,19 @@ static void gcc_offsetof_member_designator_handler(FILE *f, AST a, int level)
     {
         prettyprint_level(f, ASTSon1(a), level);
     }
+}
+
+static void gcc_parenthesized_expression_handler(FILE* f, AST a, int level)
+{
+    // This one is printed specially, otherwise it looks specially messed
+    token_fprintf(f, a, "({\n");
+    AST compound_statement = ASTSon0(a);
+    if (ASTSon0(compound_statement) != NULL)
+    {
+        prettyprint_level(f, ASTSon0(compound_statement), level + 1);
+    }
+    indent_at_level(f, a, level);
+    token_fprintf(f, a, "})");
 }
 
 // OpenMP 2.5
