@@ -7887,7 +7887,22 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
                     if (!is_dependent_type(declared_type, decl_context)
                             && !is_dependent_expr_type(initializer_expr_type)
                             && !type_can_be_implicitly_converted_to(initializer_expr_type, declared_type, decl_context, 
-                                &ambiguous_conversion, &conversor))
+                                &ambiguous_conversion, &conversor)
+                            // A cv char[x] can be initialized with a string literal, we do not check the size
+                            && !(is_array_type(declared_type)
+                                && is_char_type(array_type_get_element_type(declared_type))
+                                && is_array_type(no_ref(initializer_expr_type))
+                                && is_char_type(array_type_get_element_type(no_ref(initializer_expr_type)))
+                                && is_literal_string_type(no_ref(initializer_expr_type))
+                                )
+                            // A wchar_t[x] can be initialized with a wide string literal, we do not check the size
+                            && !(is_array_type(declared_type)
+                                && is_wchar_t_type(array_type_get_element_type(declared_type))
+                                && is_array_type(no_ref(initializer_expr_type))
+                                && is_wchar_t_type(array_type_get_element_type(no_ref(initializer_expr_type)))
+                                && is_literal_string_type(no_ref(initializer_expr_type))
+                                )
+                       )
                     {
                         fprintf(stderr, "%s: warning: initializer expression '%s' has type '%s' not convertible to '%s'\n",
                                 ast_location(expression),

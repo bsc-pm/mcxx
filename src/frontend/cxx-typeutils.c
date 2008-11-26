@@ -646,10 +646,18 @@ type_t* get_wchar_t_type(void)
 
     if (_type == NULL)
     {
-        _type = get_simple_type();
-        _type->type->kind = STK_BUILTIN_TYPE;
-        _type->type->builtin_type = BT_WCHAR;
-        _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_wchar_t;
+        CXX_LANGUAGE()
+        {
+            _type = get_simple_type();
+            _type->type->kind = STK_BUILTIN_TYPE;
+            _type->type->builtin_type = BT_WCHAR;
+            _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_wchar_t;
+        }
+        // In C there is no wchar_t type, use 'int'
+        C_LANGUAGE()
+        {
+            _type = get_signed_int_type();
+        }
     }
 
     return _type;
@@ -3483,6 +3491,13 @@ char is_char_type(type_t* t)
 char is_wchar_t_type(type_t* t)
 {
     t = advance_over_typedefs(t);
+    C_LANGUAGE()
+    {
+        // In C, there is no wchar_t, at the moment use a plain 'int'
+        return is_signed_int_type(t);
+    }
+
+    // C++
     return (t != NULL
             && t->kind == TK_DIRECT
             && t->type->kind == STK_BUILTIN_TYPE
