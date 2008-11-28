@@ -318,7 +318,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
     if (is_pointer_to_member_type(no_ref(dest)))
     {
         scope_entry_t* class_symbol = pointer_to_member_type_get_class(no_ref(dest));
-        if (class_type_is_incomplete_independent(class_symbol->type_information))
+        if (class_type_is_incomplete_independent(get_actual_class_type(class_symbol->type_information)))
         {
             instantiate_template_class(class_symbol, decl_context, filename, line);
         }
@@ -433,9 +433,8 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
 
                 type_t* named_specialization_type = template_type_get_specialized_type(template_type,
                         template_arguments,
-                        /* no template parameters */ NULL,
-                        decl_context,
-                        line, filename);
+                        template_parameters,
+                        decl_context, line, filename);
 
                 // Now update the symbol
                 conv_funct = named_type_get_symbol(named_specialization_type);
@@ -593,9 +592,8 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
 
                 type_t* named_specialization_type = template_type_get_specialized_type(template_type,
                         template_arguments,
-                        /* no template parameters */ NULL,
-                        decl_context,
-                        line, filename);
+                        template_parameters,
+                        decl_context, line, filename); 
 
                 // Now update the symbol
                 constructor = named_type_get_symbol(named_specialization_type);
@@ -2104,7 +2102,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                     template_argument_list_t* argument_list = build_template_argument_list_from_deduction_set(
                             deduced_arguments);
                     type_t* named_specialization_type = template_type_get_specialized_type(current_fun->type_information,
-                            argument_list, /* no template parameters */ NULL,
+                            argument_list, template_parameters,
                             decl_context, line, filename);
 
                     scope_entry_t* named_symbol = named_type_get_symbol(named_specialization_type);

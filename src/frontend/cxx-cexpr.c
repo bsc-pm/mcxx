@@ -31,6 +31,7 @@
 #include "cxx-typeutils.h"
 #include "cxx-exprtype.h"
 #include "cxx-overload.h"
+#include "cxx-instantiation.h"
 
 /*
  * This file implements an evaluator of constant expressions in C++
@@ -264,6 +265,13 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
 
                             if (solved_function != NULL)
                             {
+                                if (function_type_is_incomplete_independent(solved_function->type_information))
+                                {
+                                    instantiate_template_function(solved_function, decl_context,
+                                            ASTFileName(symbol),
+                                            ASTLine(symbol));
+                                }
+
                                 value.value.unsigned_long = (unsigned long)(solved_function);
                             }
                         }
@@ -1014,6 +1022,13 @@ static literal_value_t evaluate_symbol(AST symbol, decl_context_t decl_context)
 
             if (solved_function != NULL)
             {
+                if (function_type_is_incomplete_independent(solved_function->type_information))
+                {
+                    instantiate_template_function(solved_function, decl_context,
+                            ASTFileName(symbol),
+                            ASTLine(symbol));
+                }
+
                 literal_value_t value;
                 value.kind = LVK_UNSIGNED_LONG;
                 value.value.unsigned_long = (unsigned long)(solved_function);

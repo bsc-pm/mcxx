@@ -1288,6 +1288,8 @@ type_t* template_type_get_specialized_type(type_t* t,
 {
     ERROR_CONDITION(!is_template_type(t), "This is not a template type", 0);
 
+    char has_dependent_temp_args = has_dependent_template_arguments(template_argument_list, decl_context);
+
     // Search an existing specialization
     int i;
     for (i = 0; i < template_type_get_num_specializations(t); i++)
@@ -1359,7 +1361,7 @@ type_t* template_type_get_specialized_type(type_t* t,
     // State the class type nature
     if (primary_symbol->kind == SK_CLASS)
     {
-        if (has_dependent_template_arguments(template_argument_list, decl_context)
+        if (has_dependent_temp_args
                 || primary_symbol->entity_specs.is_template_parameter)
         {
             class_type_set_incomplete_dependent(specialized_type);

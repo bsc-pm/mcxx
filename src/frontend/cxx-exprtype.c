@@ -178,7 +178,7 @@ scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
         // Now get a specialized template type for this
         // function (this will sign it in if it does not exist)
         type_t* named_specialization_type = template_type_get_specialized_type(entry->type_information,
-                argument_list, /* no template parameters */ template_parameters,
+                argument_list, template_parameters,
                 decl_context, line, filename);
 
         scope_entry_t* specialized_symbol = named_type_get_symbol(named_specialization_type);
@@ -1139,11 +1139,6 @@ char check_for_expression(AST expression, decl_context_t decl_context)
         case AST_POINTER_PSEUDO_DESTRUCTOR_CALL :
             {
                 result = check_for_pseudo_destructor_call(expression, decl_context);
-                if (result)
-                {
-                    ast_set_expression_type(expression, get_pseudo_destructor_call_type());
-                    ast_set_expression_is_lvalue(expression, 0);
-                }
                 break;
             }
         case AST_GCC_POSTFIX_EXPRESSION :
@@ -3238,6 +3233,12 @@ static type_t* compute_bin_nonoperator_assig_only_arithmetic_type(AST expr, AST 
                     return NULL;
                 }
 
+                if (function_type_is_incomplete_independent(solved_function->type_information))
+                {
+                    instantiate_template_function(solved_function, decl_context,
+                            ASTFileName(rhs), ASTLine(rhs));
+                }
+
                 // Update the types everywhere
                 if (!solved_function->entity_specs.is_member
                         || solved_function->entity_specs.is_static)
@@ -3326,6 +3327,12 @@ static type_t* compute_bin_operator_assig_only_arithmetic_type(AST expr, AST lhs
                 if (solved_function == NULL)
                 {
                     return NULL;
+                }
+                
+                if (function_type_is_incomplete_independent(solved_function->type_information))
+                {
+                    instantiate_template_function(solved_function, decl_context,
+                            ASTFileName(rhs), ASTLine(rhs));
                 }
 
                 // Update the types everywhere
@@ -6477,14 +6484,12 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         }
 
         // Instantiate if needed the overloaded call
-#if 0
         if (function_type_is_incomplete_independent(overloaded_call->type_information))
         {
             instantiate_template_function(overloaded_call, decl_context,
                     ASTFileName(whole_function_call),
                     ASTLine(whole_function_call));
         }
-#endif
         return 1;
     }
     else
@@ -8816,6 +8821,12 @@ static char check_for_pseudo_destructor_call(AST expression, decl_context_t decl
 
     type_t* considered_type = ASTExprType(postfix_expression);
 
+    if (is_dependent_expr_type(no_ref(considered_type)))
+    {
+        ast_set_expression_type(expression, get_dependent_expr_type());
+        return 1;
+    }
+
     if (is_arrow)
     {
         if (!is_pointer_type(no_ref(ASTExprType(postfix_expression))))
@@ -8826,8 +8837,7 @@ static char check_for_pseudo_destructor_call(AST expression, decl_context_t decl
         considered_type = pointer_type_get_pointee_type(no_ref(ASTExprType(postfix_expression)));
     }
 
-    if (!is_dependent_expr_type(no_ref(considered_type))
-            && !is_scalar_type(no_ref(considered_type)))
+    if (!is_scalar_type(no_ref(considered_type)))
     {
         return 0;
     }

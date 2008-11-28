@@ -137,6 +137,8 @@ static void build_scope_member_template_simple_declaration(decl_context_t decl_c
 static void build_scope_using_directive(AST a, decl_context_t decl_context);
 static void build_scope_using_declaration(AST a, decl_context_t decl_context);
 
+static scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl_context);
+
 static void build_scope_explicit_instantiation(AST a, decl_context_t decl_context);
 
 static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* declarator_type, 
@@ -146,7 +148,6 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
 static scope_entry_t* register_function(AST declarator_id, type_t* declarator_type, 
         gather_decl_spec_t* gather_info, decl_context_t decl_context);
 
-static void build_scope_template_function_definition(AST a, decl_context_t template_context);
 static void build_scope_template_simple_declaration(AST a, decl_context_t template_context);
 
 static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context);
@@ -1371,8 +1372,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
 
     CXX_LANGUAGE()
     {
-        result_list = query_nested_name(decl_context, global_scope, nested_name_specifier, 
-                class_symbol);
+        result_list = query_nested_name(decl_context, 
+                global_scope, nested_name_specifier, class_symbol);
     }
 
     C_LANGUAGE()
@@ -5402,7 +5403,7 @@ static void build_scope_explicit_template_specialization(AST a, decl_context_t d
     }
 }
 
-static void build_scope_template_function_definition(AST a, decl_context_t decl_context)
+void build_scope_template_function_definition(AST a, decl_context_t decl_context)
 {
     /* scope_entry_t* entry = */ build_scope_function_definition(a, decl_context);
 }
@@ -6059,7 +6060,7 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry UNUSED_P
 /*
  * This function builds symbol table information for a function definition
  */
-scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl_context)
+static scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl_context)
 {
     DEBUG_CODE()
     {
@@ -6205,6 +6206,10 @@ scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl_contex
     // This is used later for instantiation if this type is dependent
     if (is_template_specialized_type(entry->type_information))
     {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "BUILDSCOPE: Keeping tree of function '%s' || %s\n", entry->symbol_name, print_declarator(entry->type_information));
+        }
         function_type_set_function_definition_tree(entry->type_information, a);
     }
 

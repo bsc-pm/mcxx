@@ -325,9 +325,33 @@ void instantiate_template_function(scope_entry_t* entry,
         internal_error("Symbol '%s' is not a template function eligible for instantiation", entry->symbol_name);
     }
 
+    type_t* template_type = template_specialized_type_get_related_template_type(template_specialized_type);
+    scope_entry_t* template_symbol = template_type_get_related_symbol(template_type);
+
+    // The primary specialization is a named type, even if the named type is a function!
+    type_t* primary_specialization_type = template_type_get_primary_type(template_symbol->type_information);
+    scope_entry_t* primary_specialization_function = named_type_get_symbol(primary_specialization_type);
+    type_t* primary_specialization_function_type = primary_specialization_function->type_information;
+
+    // If the primary specialization is not defined, no instantiation may happen
+    if (!primary_specialization_function->defined)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "INSTANTIATION: Not instantiating since primary template has not been defined\n");
+        }
+        return;
+    }
+
     // Do nothing
     if (entry->defined)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "INSTANTIATION: Instantiation already performed\n");
+        }
         return;
+    }
 
     // Do it now to avoid infinite recursion when two template functions call each other
     entry->defined = 1;
@@ -409,7 +433,12 @@ void instantiate_template_function(scope_entry_t* entry,
         }
     }
 
-    AST orig_function_definition = function_type_get_function_definition_tree(entry->type_information);
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "INSTANTIATION: Getting tree of function '%s' || %s\n", entry->symbol_name, print_declarator(primary_specialization_function_type));
+    }
+
+    AST orig_function_definition = function_type_get_function_definition_tree(primary_specialization_function_type);
 
     ERROR_CONDITION(orig_function_definition == NULL,
             "Invalid function definition tree!", 0);
@@ -417,7 +446,10 @@ void instantiate_template_function(scope_entry_t* entry,
     // Remove dependent types
     AST dupl_function_definition = ast_copy_for_instantiation(orig_function_definition);
 
-    build_scope_function_definition(dupl_function_definition,
+    template_parameters_context.decl_flags |= DF_TEMPLATE;
+    template_parameters_context.decl_flags |= DF_EXPLICIT_SPECIALIZATION;
+
+    build_scope_template_function_definition(dupl_function_definition,
             template_parameters_context);
 
     DEBUG_CODE()

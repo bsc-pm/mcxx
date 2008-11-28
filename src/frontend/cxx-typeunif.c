@@ -1090,7 +1090,7 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
                 // Now get a specialized template type for this
                 // function (this will sign it in if it does not exist)
                 type_t* named_specialization_type = template_type_get_specialized_type(entry->type_information,
-                        argument_list, /* no template parameters */ template_parameters,
+                        argument_list, template_parameters,
                         decl_context, line, filename);
 
                 // Update entry and its function type

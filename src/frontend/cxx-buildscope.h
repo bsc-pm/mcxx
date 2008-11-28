@@ -76,7 +76,7 @@ void build_scope_member_specification_with_scope_link(
         access_specifier_t current_access,
         struct type_tag* simple_type_info);
 
-scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl_context);
+void build_scope_template_function_definition(AST a, decl_context_t decl_context);
 
 void finish_class_type(struct type_tag* class_type, struct type_tag* type_info, decl_context_t decl_context,
         const char *filename, int line);

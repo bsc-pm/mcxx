@@ -2170,6 +2170,7 @@ type_t* update_type(template_argument_list_t* given_template_args,
 
             type_t* template_type = 
                 template_specialized_type_get_related_template_type(entry->type_information);
+            template_parameter_list_t* template_parameters = template_type_get_template_parameters(template_type);
             scope_entry_t* template_related_symbol =
                 template_type_get_related_symbol(template_type);
 
@@ -2227,7 +2228,7 @@ type_t* update_type(template_argument_list_t* given_template_args,
             type_t* updated_specialized = 
                 template_type_get_specialized_type(template_type, 
                         updated_template_arguments, 
-                        /* no template parameters */ NULL,
+                        template_parameters,
                         template_arguments_context,
                         line, filename);
             DEBUG_CODE()
@@ -2797,6 +2798,14 @@ template_argument_list_t *get_template_arguments_of_template_id(
                             update_unresolved_overloaded_type(ASTExprType(current_arg->expression),
                                     solved_function->type_information,
                                     current_arg->expression);
+
+                            if (function_type_is_incomplete_independent(solved_function->type_information))
+                            {
+                                instantiate_template_function(solved_function,
+                                        template_arguments_context,
+                                        ASTFileName(template_id),
+                                        ASTLine(template_id));
+                            }
                         }
                     }
 
@@ -2925,10 +2934,12 @@ static scope_entry_list_t* query_template_id(AST template_id,
             return NULL;
         }
 
-        // Now ask for a specialization with these parameters to the template type
+        template_parameter_list_t* template_parameters =
+            template_type_get_template_parameters(generic_type);
+
         specialized_type = template_type_get_specialized_type(generic_type, 
                 template_arguments, 
-                /* no template parameters */ NULL,
+                template_parameters,
                 template_arguments_context, 
                 ASTLine(template_id), ASTFileName(template_id));
 
