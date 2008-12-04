@@ -385,6 +385,9 @@ namespace TL
             // This is a pointer so this class can be copied
             std::map<std::string, data_info> *_data_list;
             int *_num_copies;
+
+            void release_code();
+
         public:
 
             //! Creates a new LinkData object.
@@ -392,24 +395,14 @@ namespace TL
              * Will set the number of copies counter to 1 and
              * create the map of data.
              */
-            LinkData()
-            {
-                _data_list = new std::map<std::string, data_info>;
-                _num_copies = new int(1);
-            }
+            LinkData();
 
             //! Copy constructor
             /*!
              * It does not duplicate the data, but increases a shared number of
              * copies counter.
              */
-            LinkData(const LinkData& l)
-            {
-                _data_list = l._data_list;
-                _num_copies = l._num_copies;
-
-                (*_num_copies)++;
-            }
+            LinkData(const LinkData& l);
 
             //! Destructor adaptor of any given type
             /*!
@@ -453,28 +446,14 @@ namespace TL
                 return *result;
             }
 
+        LinkData& operator=(const LinkData&);
+
         //! Destroy object
         /*!
          * This destructor decreases the number of copies counter.
          * If it reaches zero, all data information is properly freed.
          */
-        ~LinkData()
-        {
-            (*_num_copies)--;
-            if (*_num_copies == 0)
-            {
-                for (std::map<std::string, data_info>::iterator it = _data_list->begin();
-                        it != _data_list->end();
-                        it ++)
-                {
-                    data_info d = it->second;
-                    d.destructor(d.data);
-                }
-
-                delete _num_copies;
-                delete _data_list;
-            }
-        }
+        ~LinkData();
     };
 }
 

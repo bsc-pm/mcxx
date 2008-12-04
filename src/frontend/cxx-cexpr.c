@@ -125,6 +125,13 @@ binary_operation_t binary_ops[] =
     BINARY_STRICT(AST_DIV_OP, division),
 };
 
+char is_constant_expression(AST a, decl_context_t decl_context)
+{
+    literal_value_t literal = evaluate_constant_expression(a, decl_context);
+    return (literal.kind != LVK_DEPENDENT_EXPR 
+            && literal.kind != LVK_INVALID);
+}
+
 literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
 {
     switch (ASTType(a))
@@ -284,6 +291,7 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
         case AST_POINTER_CLASS_MEMBER_ACCESS :
         case AST_CLASS_TEMPLATE_MEMBER_ACCESS :
         case AST_POINTER_CLASS_TEMPLATE_MEMBER_ACCESS :
+        case AST_ARRAY_SUBSCRIPT :
         case AST_FUNCTION_CALL :
             {
                 literal_value_t dependent_entity;

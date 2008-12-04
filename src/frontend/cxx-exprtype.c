@@ -7847,22 +7847,22 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
                         if (ASTType(initializer_clause) != AST_DESIGNATED_INITIALIZER)
                         {
                             if (is_class_type(declared_type))
-									 {
-										 type_t* actual_class_type = get_actual_class_type(declared_type);
+                            {
+                                type_t* actual_class_type = get_actual_class_type(declared_type);
 
-										 if (initializer_num >= class_type_get_num_nonstatic_data_members(actual_class_type))
-										 {
-											 fprintf(stderr, "%s: warning: too many initializers for aggregated data type\n",
-													 ast_location(initializer_clause));
+                                if (initializer_num >= class_type_get_num_nonstatic_data_members(actual_class_type))
+                                {
+                                    fprintf(stderr, "%s: warning: too many initializers for aggregated data type\n",
+                                            ast_location(initializer_clause));
 
-											 type_in_context = get_signed_int_type();
-										 }
-										 else
-										 {
-											 scope_entry_t* data_member = class_type_get_nonstatic_data_member_num(actual_class_type, initializer_num);
-											 type_in_context = data_member->type_information;
-										 }
-									 }
+                                    type_in_context = get_signed_int_type();
+                                }
+                                else
+                                {
+                                    scope_entry_t* data_member = class_type_get_nonstatic_data_member_num(actual_class_type, initializer_num);
+                                    type_in_context = data_member->type_information;
+                                }
+                            }
                             else if (is_array_type(declared_type))
                             {
                                 type_in_context = array_type_get_element_type(declared_type);
@@ -7885,24 +7885,25 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
 
                 if (result)
                 {
+                    type_t* declared_type_no_cv = get_unqualified_type(declared_type);
                     type_t* initializer_expr_type = ASTExprType(expression);
                     // Now we have to check whether this can be converted to the declared entity
                     char ambiguous_conversion = 0;
                     scope_entry_t* conversor = NULL;
-                    if (!is_dependent_type(declared_type, decl_context)
+                    if (!is_dependent_type(declared_type_no_cv, decl_context)
                             && !is_dependent_expr_type(initializer_expr_type)
-                            && !type_can_be_implicitly_converted_to(initializer_expr_type, declared_type, decl_context, 
+                            && !type_can_be_implicitly_converted_to(initializer_expr_type, declared_type_no_cv, decl_context, 
                                 &ambiguous_conversion, &conversor)
                             // A cv char[x] can be initialized with a string literal, we do not check the size
-                            && !(is_array_type(declared_type)
-                                && is_char_type(array_type_get_element_type(declared_type))
+                            && !(is_array_type(declared_type_no_cv)
+                                && is_char_type(array_type_get_element_type(declared_type_no_cv))
                                 && is_array_type(no_ref(initializer_expr_type))
                                 && is_char_type(array_type_get_element_type(no_ref(initializer_expr_type)))
                                 && is_literal_string_type(no_ref(initializer_expr_type))
                                 )
                             // A wchar_t[x] can be initialized with a wide string literal, we do not check the size
-                            && !(is_array_type(declared_type)
-                                && is_wchar_t_type(array_type_get_element_type(declared_type))
+                            && !(is_array_type(declared_type_no_cv)
+                                && is_wchar_t_type(array_type_get_element_type(declared_type_no_cv))
                                 && is_array_type(no_ref(initializer_expr_type))
                                 && is_wchar_t_type(array_type_get_element_type(no_ref(initializer_expr_type)))
                                 && is_literal_string_type(no_ref(initializer_expr_type))

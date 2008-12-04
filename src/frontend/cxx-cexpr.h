@@ -83,6 +83,8 @@ char literal_value_is_negative(literal_value_t e);
 
 unsigned int literal_value_to_uint(literal_value_t v);
 
+char is_constant_expression(AST a, decl_context_t decl_context);
+
 MCXX_END_DECLS
 
 #endif // CXX_CEXPR_H

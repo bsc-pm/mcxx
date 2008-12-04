@@ -1827,8 +1827,7 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
     }
 
 #if 0
-    // FIX THIS - We need "is_constant_expression" in cxx-cexpr.c
-    if (!is_dependent_expression(expression, decl_context))
+    if (is_constant_expression(expression, decl_context))
     {
         literal_value_t literal_val 
             = evaluate_constant_expression(expression, decl_context);
