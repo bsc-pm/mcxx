@@ -240,17 +240,13 @@ void temporal_files_cleanup(void)
 
     while (iter != NULL)
     {
-        // If no keep, remove file
-        if (!CURRENT_CONFIGURATION(keep_files))
+        if (iter->info != NULL)
         {
-            if (iter->info != NULL)
+            if (CURRENT_CONFIGURATION(verbose))
             {
-                if (CURRENT_CONFIGURATION(verbose))
-                {
-                    fprintf(stderr, "Removing temporal filename '%s'\n", iter->info->name);
-                }
-                remove(iter->info->name);
+                fprintf(stderr, "Removing temporal filename '%s'\n", iter->info->name);
             }
+            remove(iter->info->name);
         }
 
         iter = iter->next;
