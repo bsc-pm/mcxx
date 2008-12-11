@@ -1,4 +1,4 @@
-lib_LTLIBRARIES = libtlomp.la libtlomp_serialize.la
+lib_LTLIBRARIES = libtlomp.la libtlomp_serialize.la libtlomp_taskaggregation.la
 
 tl_omp_flags = -Wall \
     -I $(top_srcdir)/src/tl \
@@ -68,4 +68,14 @@ libtlomp_serialize_la_SOURCES = \
    tl-ompserialize.hpp \
    tl-ompserialize.cpp \
    tl-taskserialize.hpp \
+   $(END)
+
+libtlomp_taskaggregation_la_CFLAGS = $(tl_omp_flags)
+libtlomp_taskaggregation_la_CXXFLAGS = $(tl_omp_flags)
+
+libtlomp_taskaggregation_la_LDFLAGS = -avoid-version
+
+libtlomp_taskaggregation_la_SOURCES = \
+   tl-taskaggregation.hpp \
+   tl-taskaggregation.cpp \
    $(END)
