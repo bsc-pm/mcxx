@@ -947,8 +947,9 @@ namespace TL
                         {
                             Symbol class_name = type.get_symbol();
 
+                            // FIXME - We need the scope to properly write the qualified name
                             destructor_calls
-                                << "(*" << it->parameter_name << ").~" << class_name.get_name() << "();";
+                                << "(*" << it->parameter_name << ")." << class_name.get_qualified_name() << "::~" << class_name.get_name() << "();";
                         }
                     }
                 }
