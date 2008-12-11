@@ -71,60 +71,6 @@ namespace TL
 
        void DataSharing::set(Symbol sym, DataAttribute data_attr)
        {
-#if 0
-           std::string attr_name = "";
-           switch (data_attr)
-           {
-               case DA_SHARED : 
-                   { 
-                       attr_name= "DA_SHARED"; 
-                       break; 
-                   }
-               case DA_PRIVATE : 
-                   { 
-                       attr_name= "DA_PRIVATE"; 
-                       break; 
-                   }
-               case DA_FIRSTPRIVATE : 
-                   { 
-                       attr_name= "DA_FIRSTPRIVATE"; 
-                       break; 
-                   }
-               case DA_LASTPRIVATE : 
-                   { 
-                       attr_name= "DA_LASTPRIVATE"; 
-                       break; 
-                   }
-               case DA_FIRSTLASTPRIVATE : 
-                   { 
-                       attr_name= "DA_FIRSTLASTPRIVATE"; 
-                       break; 
-                   }
-               case DA_REDUCTION : 
-                   { 
-                       attr_name= "DA_REDUCTION"; 
-                       break; 
-                   }
-               case DA_THREADPRIVATE : 
-                   { 
-                       attr_name= "DA_THREADPRIVATE"; 
-                       break; 
-                   }
-               case DA_COPYIN : 
-                   { 
-                       attr_name= "DA_COPYIN"; 
-                       break; 
-                   }
-               case DA_COPYPRIVATE : 
-                   { 
-                       attr_name= "DA_COPYPRIVATE"; 
-                       break; 
-                   }
-               default:
-                   attr_name = "DA_UNDEFINED";
-           }
-           std::cerr << "Setting attribute " << attr_name << " to symbol '" << sym.get_name() << "' in " << this << std::endl;
-#endif
            (_map->operator[](sym)) = data_attr;
        }
 
@@ -299,7 +245,7 @@ namespace TL
                    if (_custom_functor_post.find(directive_name) == _custom_functor_post.end())
                    {
                        std::cerr << node.get_locus() 
-                           << ": warning: custom OpenMP construct '" << directive_name << "'";
+                           << ": warning: custom OpenMP construct '" << directive_name << "' does not have any handler" << std::endl;
                    }
                }
            }
@@ -314,7 +260,7 @@ namespace TL
                        it++)
                {
                    std::cerr << it->second 
-                       << ": warning: clause '" << it->first << "' unused in OpenMP directive";
+                       << ": warning: clause '" << it->first << "' unused in OpenMP directive" << std::endl;
                }
 
                construct_stack.pop();
