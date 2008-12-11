@@ -69,10 +69,7 @@ namespace TL
             AST_t parsed_tree = aggregated_code.parse_statement(custom_construct.get_ast(),
                     custom_construct.get_scope_link());
 
-            std::cerr << "--- Transformed code " << std::endl
-                << parsed_tree.prettyprint()
-                << "--- End of transformed code" 
-                << std::endl;
+            custom_construct.get_ast().replace(parsed_tree);
         }
     }
 
