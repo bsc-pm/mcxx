@@ -46,14 +46,29 @@ namespace TL
         OpenMP::Directive directive = custom_construct.directive();
         OpenMP::ScheduleClause schedule = directive.schedule_clause();
 
-        if (!schedule.is_dynamic())
+        AST_t &chunk = custom_construct.get_data<AST_t>("chunk");
+        if (schedule.is_defined())
+        {
+            if (!schedule.is_dynamic())
+            {
+                std::cerr << custom_construct.get_ast().get_locus() 
+                    << ": warning: '#pragma omp while' has an invalid schedule kind, only 'dynamic' is allowed. Assuming 'dynamic'" << std::endl;
+            }
+
+            chunk = schedule.get_chunk();
+        }
+        else
         {
             std::cerr << custom_construct.get_ast().get_locus() 
-                << ": warning: '#pragma omp while' has an invalid schedule kind, only 'dynamic' is allowed. Assuming 'dynamic'" << std::endl;
-        }
+                << ": warning: '#pragma omp while' does not have any 'schedule(dynamic, N)'. Assuming N=32" << std::endl;
+            Source src;
 
-        AST_t &chunk = custom_construct.get_data<AST_t>("chunk");
-        chunk = schedule.get_chunk();
+            // Stupid value
+            src << "32";
+
+            // We need a tree
+            chunk = src.parse_expression(custom_construct.get_ast(), custom_construct.get_scope_link());
+        }
     }
 
     void TaskAggregationPhase::while_postorder(OpenMP::CustomConstruct custom_construct)
