@@ -24,7 +24,7 @@ namespace TL
                     ObjectList<Statement> &sequentiation_code);
             void check_task_aggregated_body(
                     Statement st,
-                    ObjectList<Statement> st, 
+                    ObjectList<Statement> body_list,
                     bool &is_valid,
                     ObjectList<Statement> &list_of_tasks,
                     ObjectList<Statement> &sequentiation_code);
