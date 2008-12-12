@@ -323,6 +323,7 @@ namespace TL
             << "}"
             ;
 
+        ObjectList<OpenMP::Directive> directive_list;
         for (ObjectList<Statement>::iterator it = list_of_tasks.begin();
                 it != list_of_tasks.end();
                 it++)
@@ -332,7 +333,7 @@ namespace TL
                     /* Construct */ NULL, /* DataScoping*/ NULL );
 
 			OpenMP::Directive directive = current_task.directive();
-            other_data_sharings << " " << directive.get_clause_tree().prettyprint();
+            directive_list.append(directive);
 
             Statement task_body = current_task.body();
 
@@ -349,6 +350,8 @@ namespace TL
                 << it->prettyprint()
                 ;
         }
+
+        other_data_sharings = aggregate_data_sharing_clauses(directive_list);
 
         return result;
     }
@@ -430,8 +433,7 @@ namespace TL
                 ;
         }
 
-        Source src = aggregate_data_sharing_clauses(directive_list);
-        other_data_sharings << src;
+        other_data_sharings = aggregate_data_sharing_clauses(directive_list);
 
         for (ObjectList<Statement>::iterator it = sequentiation_code.begin();
                 it != sequentiation_code.end();
