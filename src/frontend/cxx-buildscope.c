@@ -8115,6 +8115,8 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
         ASTAttrSetValueType(a, attr_name, tl_type_t, tl_bool(1));
     }
 
+    ASTAttrSetValueType(a, OMP_CLAUSE_LIST, tl_type_t, tl_ast(ASTSon0(a)));
+
     // Semantic fix of expressions in clauses
     if (ASTSon0(a) != NULL)
     {

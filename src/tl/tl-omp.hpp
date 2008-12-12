@@ -263,6 +263,13 @@ namespace TL
                  * This is used to give warnings of unhandled custom clauses
                  */
                 ObjectList<std::string> get_all_custom_clauses();
+
+                //! Returns the clause part of the directive
+                /*!
+                  * This is a list and may be empty if no clauses were given
+                  * for the directive
+                  */
+                AST_t get_clause_tree();
         };
 
 

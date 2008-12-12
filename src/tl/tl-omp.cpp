@@ -560,6 +560,11 @@ namespace TL
            return result;
        }
 
+       AST_t Directive::get_clause_tree()
+       {
+           return _ref.get_attribute(OMP_CLAUSE_LIST);
+       }
+
        bool ScheduleClause::is_defined()
        {
            PredicateAST<OMP_IS_SCHEDULE_CLAUSE> predicate_custom_clause;
@@ -1011,6 +1016,7 @@ namespace TL
 
            return result;
        }
+
    }
 
 }

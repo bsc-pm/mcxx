@@ -3,7 +3,6 @@ LANG_ACCESSED_MEMBER lang.accessed_member
 LANG_ARRAY_SECTION_ITEM lang.array_section_item
 LANG_ARRAY_SECTION_LOWER lang.array_section_lower
 LANG_ARRAY_SECTION_UPPER lang.array_section_upper
-LANG_IMPLICIT_CALL lang.implicit_call
 LANG_CALLED_EXPRESSION lang.called_expression
 LANG_CASE_EXPRESSION lang.case_expression
 LANG_CASE_STATEMENT_BODY lang.case_statement_body
@@ -41,6 +40,7 @@ LANG_GOTO_STATEMENT_LABEL lang.goto_statement_label
 LANG_IF_STATEMENT_CONDITION lang.if_statement_condition
 LANG_IF_STATEMENT_ELSE_BODY lang.if_statement_else_body
 LANG_IF_STATEMENT_THEN_BODY lang.if_statement_then_body
+LANG_IMPLICIT_CALL lang.implicit_call
 LANG_INITIALIZER lang.initializer
 LANG_IS_ACCESSED_MEMBER lang.is_accessed_member
 LANG_IS_ADD_ASSIGNMENT lang.is_add_assignment
@@ -55,7 +55,6 @@ LANG_IS_BITWISE_OR_OP lang.is_bitwise_or_op
 LANG_IS_BITWISE_XOR_OP lang.is_bitwise_xor_op
 LANG_IS_BOOLEAN_LITERAL lang.is_boolean_literal
 LANG_IS_BREAK_STATEMENT lang.is_break_statement
-LANG_IS_IMPLICIT_CALL lang.is_implicit_call
 LANG_IS_CASE_STATEMENT lang.is_case_statement
 LANG_IS_CAST lang.is_cast
 LANG_IS_CHARACTER_LITERAL lang.is_character_literal
@@ -96,6 +95,7 @@ LANG_IS_GREATER_OR_EQUAL_THAN_OP lang.is_greater_or_equal_than_op
 LANG_IS_GREATER_THAN_OP lang.is_greater_than_op
 LANG_IS_ID_EXPRESSION lang.is_id_expression
 LANG_IS_IF_STATEMENT lang.is_if_statement
+LANG_IS_IMPLICIT_CALL lang.is_implicit_call
 LANG_IS_INTEGER_LITERAL lang.is_integer_literal
 LANG_IS_LABELED_STATEMENT lang.is_labeled_statement
 LANG_IS_LITERAL lang.is_literal
@@ -173,6 +173,7 @@ LANG_UNARY_OPERAND lang.unary_operand
 LANG_UNQUALIFIED_ID lang.unqualified_id
 LANG_WHILE_STATEMENT_BODY lang.while_statement_body
 LANG_WHILE_STATEMENT_CONDITION lang.while_statement_condition
+OMP_CLAUSE_LIST omp.clause_list
 OMP_CONSTRUCT_BODY omp.construct_body
 OMP_CONSTRUCT_DECLARATION omp.construct_declaration
 OMP_CONSTRUCT_DIRECTIVE omp.construct_directive

@@ -311,6 +311,9 @@ namespace TL
                     // Not needed here
                     /* Construct */ NULL, /* DataScoping*/ NULL );
 
+			OpenMP::Directive directive = current_task.directive();
+            other_data_sharings << " " << directive.get_clause_tree().prettyprint();
+
             Statement task_body = current_task.body();
 
             task_bodies
@@ -395,6 +398,9 @@ namespace TL
             OpenMP::CustomConstruct current_task(it->get_ast(), it->get_scope_link(),
                     // Not needed here
                     /* Construct */ NULL, /* DataScoping*/ NULL );
+
+			OpenMP::Directive directive = current_task.directive();
+            other_data_sharings << directive.get_clause_tree().prettyprint() << " ";
 
             Statement task_body = current_task.body();
 
