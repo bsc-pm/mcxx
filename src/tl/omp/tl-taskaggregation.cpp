@@ -31,6 +31,11 @@ namespace TL
 
         check_construction(st, valid_while, list_of_tasks, sequentiation_code);
 
+        if (valid_while)
+        {
+            check_aggregated_data_sharing_clauses(st, list_of_tasks, valid_while);
+        }
+
         if (!valid_while)
         {
             std::cerr << custom_construct.get_ast().get_locus() 
@@ -406,6 +411,7 @@ namespace TL
             << "}"
             ;
 
+        ObjectList<OpenMP::Directive> directive_list;
         for (ObjectList<Statement>::iterator it = list_of_tasks.begin();
                 it != list_of_tasks.end();
                 it++)
@@ -415,7 +421,7 @@ namespace TL
                     /* Construct */ NULL, /* DataScoping*/ NULL );
 
 			OpenMP::Directive directive = current_task.directive();
-            other_data_sharings << directive.get_clause_tree().prettyprint() << " ";
+            directive_list.append(directive);
 
             Statement task_body = current_task.body();
 
@@ -423,6 +429,9 @@ namespace TL
                 << task_body.prettyprint()
                 ;
         }
+
+        Source src = aggregate_data_sharing_clauses(directive_list);
+        other_data_sharings << src;
 
         for (ObjectList<Statement>::iterator it = sequentiation_code.begin();
                 it != sequentiation_code.end();
@@ -435,4 +444,185 @@ namespace TL
 
         return result;
     }
+
+    Source TaskAggregationPhase::aggregate_data_sharing_clauses(
+            ObjectList<OpenMP::Directive> directive_list)
+    {
+        ObjectList<IdExpression> private_list;
+        ObjectList<IdExpression> firstprivate_list;
+        ObjectList<IdExpression> shared_list;
+
+        for (ObjectList<OpenMP::Directive>::iterator it = directive_list.begin();
+                it != directive_list.end();
+                it++)
+        {
+            OpenMP::Directive &directive(*it);
+
+            {
+                // Firstprivate
+                OpenMP::Clause firstprivate_clause = directive.firstprivate_clause();
+                ObjectList<IdExpression> id_expression_list = firstprivate_clause.id_expressions();
+                firstprivate_list.insert(id_expression_list, functor(&IdExpression::get_symbol));
+            }
+            {
+                // Private
+                OpenMP::Clause private_clause = directive.private_clause();
+                ObjectList<IdExpression> id_expression_list = private_clause.id_expressions();
+                private_list.insert(id_expression_list, functor(&IdExpression::get_symbol));
+            }
+            {
+                // Shared
+                OpenMP::Clause shared_clause = directive.shared_clause();
+                ObjectList<IdExpression> id_expression_list = shared_clause.id_expressions();
+                shared_list.insert(id_expression_list, functor(&IdExpression::get_symbol));
+            }
+        }
+
+        Source result;
+
+        result
+            << " "
+            ;
+
+        if (!firstprivate_list.empty())
+        {
+            Source list;
+            result << "firstprivate("
+                << list
+                << ")";
+
+            for (ObjectList<IdExpression>::iterator it = firstprivate_list.begin();
+                    it != firstprivate_list.end();
+                    it++)
+            {
+                list.append_with_separator(it->prettyprint(), ",");
+            }
+        }
+
+        if (!private_list.empty())
+        {
+            Source list;
+            result << "private("
+                << list
+                << ")";
+
+            for (ObjectList<IdExpression>::iterator it = private_list.begin();
+                    it != private_list.end();
+                    it++)
+            {
+                list.append_with_separator(it->prettyprint(), ",");
+            }
+        }
+
+        if (!private_list.empty())
+        {
+            Source list;
+            result << "shared("
+                << list
+                << ")";
+
+            for (ObjectList<IdExpression>::iterator it = shared_list.begin();
+                    it != shared_list.end();
+                    it++)
+            {
+                list.append_with_separator(it->prettyprint(), ",");
+            }
+        }
+
+        return result;
+    }
+
+    void TaskAggregationPhase::check_aggregated_data_sharing_clauses(
+            Statement st,
+            ObjectList<Statement> &task_list, 
+            bool &is_valid)
+    {
+        // assert(is_valid)
+        ObjectList<IdExpression> private_list;
+        ObjectList<IdExpression> firstprivate_list;
+        ObjectList<IdExpression> shared_list;
+
+        for (ObjectList<Statement>::iterator it_task = task_list.begin();
+                it_task != task_list.end();
+                it_task++)
+        {
+            OpenMP::CustomConstruct current_task(it_task->get_ast(), it_task->get_scope_link(),
+                    // Not needed here
+                    /* Construct */ NULL, /* DataScoping*/ NULL );
+
+            ObjectList<IdExpression> private_list;
+            ObjectList<IdExpression> firstprivate_list;
+            ObjectList<IdExpression> shared_list;
+
+            OpenMP::Directive directive = current_task.directive();
+
+            {
+                // Firstprivate
+                OpenMP::Clause firstprivate_clause = directive.firstprivate_clause();
+                ObjectList<IdExpression> id_expression_list = firstprivate_clause.id_expressions();
+                firstprivate_list.insert(id_expression_list, functor(&IdExpression::get_symbol));
+            }
+            {
+                // Private
+                OpenMP::Clause private_clause = directive.private_clause();
+                ObjectList<IdExpression> id_expression_list = private_clause.id_expressions();
+                private_list.insert(id_expression_list, functor(&IdExpression::get_symbol));
+            }
+            {
+                // Shared
+                OpenMP::Clause shared_clause = directive.shared_clause();
+                ObjectList<IdExpression> id_expression_list = shared_clause.id_expressions();
+                shared_list.insert(id_expression_list, functor(&IdExpression::get_symbol));
+            }
+        }
+
+        // Check problems
+        for (ObjectList<IdExpression>::iterator it = firstprivate_list.begin();
+                it != firstprivate_list.end() && is_valid;
+                it++)
+        {
+            IdExpression& id_expression(*it);
+
+            if (private_list.contains(id_expression, functor(&IdExpression::get_symbol))
+                    || shared_list.contains(id_expression, functor(&IdExpression::get_symbol)))
+            {
+                is_valid = false;
+                return;
+            }
+        }
+
+        for (ObjectList<IdExpression>::iterator it = private_list.begin();
+                it != private_list.end() && is_valid;
+                it++)
+        {
+            IdExpression& id_expression(*it);
+
+            if (firstprivate_list.contains(id_expression, functor(&IdExpression::get_symbol))
+                    || shared_list.contains(id_expression, functor(&IdExpression::get_symbol)))
+            {
+                is_valid = false;
+                return;
+            }
+        }
+
+        for (ObjectList<IdExpression>::iterator it = shared_list.begin();
+                it != shared_list.end() && is_valid;
+                it++)
+        {
+            IdExpression& id_expression(*it);
+
+            if (firstprivate_list.contains(id_expression, functor(&IdExpression::get_symbol))
+                    || private_list.contains(id_expression, functor(&IdExpression::get_symbol)))
+            {
+                is_valid = false;
+            }
+        }
+
+        if (!is_valid)
+        {
+            std::cerr << st.get_ast().get_locus() 
+                << ": warning: two or more tasks in '#pragma omp while' define different data sharing attributes for the same entity" << std::endl;
+        }
+    }
+
 }

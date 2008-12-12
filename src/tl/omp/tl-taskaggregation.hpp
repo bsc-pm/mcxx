@@ -38,6 +38,14 @@ namespace TL
                     ObjectList<Statement> &list_of_tasks,
                     ObjectList<Statement> &sequentiation_code,
                     AST_t chunk);
+
+            void check_aggregated_data_sharing_clauses(
+                    Statement st,
+                    ObjectList<Statement> &task_list, 
+                    bool &is_valid);
+
+            Source aggregate_data_sharing_clauses(
+                    ObjectList<OpenMP::Directive> directive_list);
     };
 }
 
