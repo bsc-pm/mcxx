@@ -134,17 +134,7 @@ namespace TL
             WhileStatement while_statement(st.get_ast(), st.get_scope_link());
             Statement while_body = while_statement.get_body();
 
-            if (!while_body.is_compound_statement())
-            {
-                std::cerr << st.get_ast().get_locus()
-                    << ": warning: '#pragma omp while' requires a while-statement followed by a compound statement" << std::endl;
-                is_valid = false;
-                return;
-            }
-
-            ObjectList<Statement> while_body_list = while_body.get_inner_statements();
-
-            check_task_aggregated_body(st, while_body_list, is_valid, list_of_tasks, sequentiation_code);
+            check_task_aggregated_body(st, while_body, is_valid, list_of_tasks, sequentiation_code, /* is_for */ false);
 
             if (!is_valid)
                 return;
@@ -173,17 +163,7 @@ namespace TL
 
             Statement for_body = for_statement.get_loop_body();
 
-            if (!for_body.is_compound_statement())
-            {
-                std::cerr << st.get_ast().get_locus()
-                    << ": warning: '#pragma omp while' requires a while-statement followed by a compound statement" << std::endl;
-                is_valid = false;
-                return;
-            }
-
-            ObjectList<Statement> for_body_list = for_body.get_inner_statements();
-
-            check_task_aggregated_body(st, for_body_list, is_valid, list_of_tasks, sequentiation_code);
+            check_task_aggregated_body(st, for_body, is_valid, list_of_tasks, sequentiation_code, /* is_for */ true);
 
             if (!is_valid)
                 return;
@@ -192,17 +172,29 @@ namespace TL
 
     void TaskAggregationPhase::check_task_aggregated_body(
             Statement st,
-            ObjectList<Statement> body_list,
+            Statement body,
             bool &is_valid,
             ObjectList<Statement> &list_of_tasks,
-            ObjectList<Statement> &sequentiation_code)
+            ObjectList<Statement> &sequentiation_code,
+            bool is_for)
     {
         OpenMP::CustomConstructPredicate task_predicate("task");
+
+        ObjectList<Statement> body_list;
+        if (body.is_compound_statement())
+        {
+            body_list = body.get_inner_statements();
+        }
+        else
+        {
+            // Add myself in the list
+            body_list.append(body);
+        }
 
         if (body_list.empty())
         {
             std::cerr << st.get_ast().get_locus()
-                << ": warning: '#pragma omp while' requires a sequence of tasks not interleaved with other statements" << std::endl;
+                << ": warning: '#pragma omp while' requires a non empty compound-statement" << std::endl;
             is_valid = false;
             return;
         }
@@ -237,12 +229,34 @@ namespace TL
             }
         }
 
-        if (list_of_tasks.empty())
+        if (!is_for)
         {
-            std::cerr << st.get_ast().get_locus()
-                << ": warning: '#pragma omp while' requires a nonempty sequence of tasks" << std::endl;
-            is_valid = false;
-            return;
+            if (list_of_tasks.empty())
+            {
+                std::cerr << st.get_ast().get_locus()
+                    << ": warning: '#pragma omp while' requires a nonempty sequence of tasks" << std::endl;
+                is_valid = false;
+                return;
+            }
+        }
+        else
+        {
+            if (list_of_tasks.empty())
+            {
+                // Let's assume that the whole loop body is parallel
+                // It must be a task ...
+                Source src;
+                src 
+                    // Be nice to the user
+                    << "#line " << st.get_ast().get_line() << " \"" << st.get_ast().get_file() << "\"\n"
+                    << "#pragma omp task\n"
+                    << body.prettyprint()
+                    ;
+
+                AST_t task = src.parse_statement(st.get_ast(), st.get_scope_link());
+				Statement st(task, st.get_scope_link());
+                list_of_tasks.append(st);
+            }
         }
     }
 

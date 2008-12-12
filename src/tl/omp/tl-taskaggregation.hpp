@@ -24,10 +24,11 @@ namespace TL
                     ObjectList<Statement> &sequentiation_code);
             void check_task_aggregated_body(
                     Statement st,
-                    ObjectList<Statement> body_list,
+                    Statement body,
                     bool &is_valid,
                     ObjectList<Statement> &list_of_tasks,
-                    ObjectList<Statement> &sequentiation_code);
+                    ObjectList<Statement> &sequentiation_code,
+					bool is_for);
 
             Source get_aggregated_code(OpenMP::CustomConstruct);
             Source get_aggregated_code_while(Statement st, 
