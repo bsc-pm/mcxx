@@ -87,10 +87,10 @@ namespace TL
             ScopeLink _scope_link;
 
             //! Recursively add a type depending on a symbol
-            void add_type_rec(Type t, Symbol depending_symbol, std::set<Symbol> symbols_seen);
+            bool add_type_rec(Type t, Symbol depending_symbol, std::set<Symbol> symbols_seen);
 
             //! Recursively add a symbol depending on another
-            void add_dependent_symbol(Symbol sym, Symbol depending_symbol, std::set<Symbol> symbols_seen);
+            bool add_dependent_symbol(Symbol sym, Symbol depending_symbol, std::set<Symbol> symbols_seen);
 
             //! Declares an entity
             void declare_entity(Source &source_result,

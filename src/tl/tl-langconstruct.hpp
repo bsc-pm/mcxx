@@ -521,6 +521,9 @@ namespace TL
             /*! Returns the top enclosing expression */
             Expression get_top_enclosing_expression();
 
+            /*! States whether the expression is constant or not */
+            bool is_constant();
+
             /*! Returns the original tree which was used to wrap this expression */
             AST_t original_tree()
             {

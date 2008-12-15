@@ -22,6 +22,7 @@
 #include "tl-predicateutils.hpp"
 #include "tl-source.hpp"
 #include "cxx-utils.h"
+#include "cxx-cexpr.h"
 #include "cxx-attrnames.h"
 #include "cxx-exprtype.h"
 
@@ -863,6 +864,15 @@ namespace TL
         }
 
         return result;
+    }
+
+    bool Expression::is_constant()
+    {
+        AST a = this->get_ast().get_internal_ast();
+
+        Scope sc = this->get_scope();
+
+        return ::is_constant_expression(a, sc.get_decl_context());
     }
 
     // Do not use this one, instead use get_declared_symbol

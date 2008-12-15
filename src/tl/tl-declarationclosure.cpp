@@ -31,30 +31,24 @@ namespace TL
         add_type_rec(s.get_type(), invalid, std::set<Symbol>());
     }
 
-    void DeclarationClosure::add_dependent_symbol(Symbol sym, Symbol depending_symbol, std::set<Symbol> symbols_seen)
+    bool DeclarationClosure::add_dependent_symbol(Symbol sym, Symbol depending_symbol, std::set<Symbol> symbols_seen)
     {
         // Avoid infinite recursion because of cycles
         if (symbols_seen.find(sym) != symbols_seen.end())
         {
-            return;
+            return false;
         }
         else
         {
             symbols_seen.insert(sym);
         }
 
-        add_type_rec(sym.get_type(), depending_symbol, symbols_seen);
+        if(!add_type_rec(sym.get_type(), depending_symbol, symbols_seen))
+            return false;
 
         if (sym.is_parameter())
         {
-            return;
-        }
-
-        _dependencies.add_symbol(sym);
-
-        if (depending_symbol.is_valid())
-        {
-            _dependencies.add_symbol_depending_on(depending_symbol, sym);
+            return false;
         }
 
         if (sym.has_initialization())
@@ -68,36 +62,44 @@ namespace TL
             {
                 if (depending_symbol.is_valid())
                 {
-                    add_dependent_symbol(it->get_symbol(), depending_symbol, symbols_seen);
+                    if (!add_dependent_symbol(it->get_symbol(), depending_symbol, symbols_seen))
+                        return false;
                 }
                 else
                 {
-                    add_dependent_symbol(it->get_symbol(), sym, symbols_seen);
+                    if (!add_dependent_symbol(it->get_symbol(), sym, symbols_seen))
+                        return false;
                 }
             }
         }
+
+        _dependencies.add_symbol(sym);
+
+        if (depending_symbol.is_valid())
+        {
+            _dependencies.add_symbol_depending_on(depending_symbol, sym);
+        }
+
+        return true;
     }
 
-    void DeclarationClosure::add_type_rec(Type t, Symbol depending_symbol, std::set<Symbol> symbols_seen)
+    bool DeclarationClosure::add_type_rec(Type t, Symbol depending_symbol, std::set<Symbol> symbols_seen)
     {
         if (t.is_named())
         {
             // Typedefs, class-names and enum-names will get here
             Symbol named_type = t.get_symbol();
 
-            if (depending_symbol.is_valid())
-            {
-                _dependencies.add_symbol_depending_on(depending_symbol, named_type);
-            }
             // Avoid infinite recursion because of cycles
             if (symbols_seen.find(named_type) != symbols_seen.end())
             {
-                return;
+                return false;
             }
             else
             {
                 symbols_seen.insert(named_type);
             }
+
 
             if (!t.is_typedef())
             {
@@ -123,61 +125,85 @@ namespace TL
             }
             else
             {
-                add_type_rec(t.aliased_type(), named_type, symbols_seen);
+                if (!add_type_rec(t.aliased_type(), named_type, symbols_seen))
+                    return false;
+
                 // Add as a dependency since this typedef will be actually used
                 _dependencies.add_symbol(named_type);
             }
+
+            if (depending_symbol.is_valid())
+            {
+                _dependencies.add_symbol_depending_on(depending_symbol, named_type);
+            }
+            return true;
         }
         else if (t.is_pointer())
         {
             // The type is not actually required!
-            add_type_rec(t.points_to(), depending_symbol, symbols_seen);
+            if (!add_type_rec(t.points_to(), depending_symbol, symbols_seen))
+                return false;
         }
         else if (t.is_reference())
         {
-            add_type_rec(t.references_to(), depending_symbol, symbols_seen);
+            if (!add_type_rec(t.references_to(), depending_symbol, symbols_seen))
+                return false;
         }
         else if (t.is_pointer_to_member())
         {
             // These types are not actually required
-            add_type_rec(t.points_to(), depending_symbol, symbols_seen);
-            add_type_rec(t.pointed_class(), depending_symbol, symbols_seen);
+            if (!add_type_rec(t.points_to(), depending_symbol, symbols_seen))
+                return false;
+            if (!add_type_rec(t.pointed_class(), depending_symbol, symbols_seen))
+                return false;
         }
         else if (t.is_array())
         {
-            add_type_rec(t.array_element(), depending_symbol, symbols_seen);
+            if (!add_type_rec(t.array_element(), depending_symbol, symbols_seen))
+                return false;
 
             // Get the symbols of the expression
             if (t.explicit_array_dimension())
             {
                 Expression expr(t.array_dimension(), _scope_link);
 
-                ObjectList<IdExpression> symbols = expr.non_local_symbol_occurrences();
-                for (ObjectList<IdExpression>::iterator it = symbols.begin();
-                        it != symbols.end();
-                        it++)
+                if (expr.is_constant())
                 {
-                    add_dependent_symbol(it->get_symbol(), depending_symbol, symbols_seen);
+                    ObjectList<IdExpression> symbols = expr.non_local_symbol_occurrences();
+                    for (ObjectList<IdExpression>::iterator it = symbols.begin();
+                            it != symbols.end();
+                            it++)
+                    {
+                        if (!add_dependent_symbol(it->get_symbol(), depending_symbol, symbols_seen))
+                            return false;
+                    }
+                }
+                else
+                {
+                    return false;
                 }
             }
-
         }
         else if (t.is_function())
         {
-            add_type_rec(t.returns(), depending_symbol, symbols_seen);
+            if (!add_type_rec(t.returns(), depending_symbol, symbols_seen))
+                return false;
 
             ObjectList<Type> params = t.parameters();
             for (ObjectList<Type>::iterator it = params.begin();
                     it != params.end();
                     it++)
             {
-                add_type_rec(*it, depending_symbol, symbols_seen);
+                if (!add_type_rec(*it, depending_symbol, symbols_seen))
+                    return false;
             }
         }
         else
         {
             // Do nothing
         }
+
+        return true;
     }
 
     void DeclarationClosure::add(Type t)
