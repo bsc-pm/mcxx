@@ -875,6 +875,20 @@ namespace TL
         return ::is_constant_expression(a, sc.get_decl_context());
     }
 
+    int Expression::evaluate_constant_int_expression(bool &valid)
+    {
+        AST a = this->get_ast().get_internal_ast();
+        Scope sc = this->get_scope();
+
+        literal_value_t v = evaluate_constant_expression(a, sc.get_decl_context());
+
+        char c_valid = 0;
+        int i = literal_value_to_int(v, &c_valid);
+
+        valid = c_valid;
+        return i;
+    }
+
     // Do not use this one, instead use get_declared_symbol
     // since this one will not work for type-names
     IdExpression DeclaredEntity::get_declared_entity()

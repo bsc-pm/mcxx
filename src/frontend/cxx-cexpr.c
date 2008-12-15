@@ -2420,10 +2420,30 @@ static literal_value_t convert_to_signed_char(literal_value_t e1)
     return result;
 }
 
-unsigned int literal_value_to_uint(literal_value_t v)
+unsigned int literal_value_to_uint(literal_value_t v, char *valid)
 {
-    literal_value_t v1 = convert_to_unsigned_long(v);
-    return v1.value.unsigned_int;
+    (*valid) =  (v.kind != LVK_INVALID
+            && v.kind != LVK_DEPENDENT_EXPR);
+
+    if (*valid)
+    {
+        literal_value_t v1 = convert_to_unsigned_int(v);
+		return v1.value.unsigned_int;
+    }
+	return 0;
+}
+
+int literal_value_to_int(literal_value_t v, char* valid)
+{
+    (*valid) =  (v.kind != LVK_INVALID
+            && v.kind != LVK_DEPENDENT_EXPR);
+
+    if (*valid)
+    {
+        literal_value_t v1 = convert_to_signed_int(v);
+		return v1.value.signed_int;
+    }
+	return 0;
 }
 
 static literal_value_t literal_value_gcc_builtin_types_compatible(AST expression,

@@ -81,7 +81,8 @@ void gather_float_literal_suffix(const char* text, char* is_float, char* is_long
 char literal_value_is_zero(literal_value_t e);
 char literal_value_is_negative(literal_value_t e);
 
-unsigned int literal_value_to_uint(literal_value_t v);
+unsigned int literal_value_to_uint(literal_value_t v, char *valid);
+int literal_value_to_int(literal_value_t v, char *valid);
 
 char is_constant_expression(AST a, decl_context_t decl_context);
 

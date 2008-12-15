@@ -56,12 +56,21 @@ static void gather_one_gcc_attribute(const char* attribute_name,
         AST argument = advance_expression_nest(ASTSon1(expression_list));
         if (ASTType(argument) == AST_DECIMAL_LITERAL)
         {
+            char valid_literal = 0;
             literal_value_t literal_value = 
                 evaluate_constant_expression(argument, decl_context);
-            unsigned int vector_size = literal_value_to_uint(literal_value);
+            unsigned int vector_size = literal_value_to_uint(literal_value, &valid_literal);
 
-            gather_info->vector_size = vector_size;
-            gather_info->is_vector = 1;
+            if (valid_literal)
+            {
+                gather_info->vector_size = vector_size;
+                gather_info->is_vector = 1;
+            }
+            else
+            {
+                fprintf(stderr, "%s: warning: ignoring attribute 'vector_size' since the literal is not valid\n",
+                        ast_location(expression_list));
+            }
         }
         else
         {

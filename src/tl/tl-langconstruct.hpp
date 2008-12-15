@@ -524,6 +524,18 @@ namespace TL
             /*! States whether the expression is constant or not */
             bool is_constant();
 
+			// Evaluates a constant expression as an int 
+			/*!
+			  This function is a helper function to evaluate an expression
+			  as a const int expression.
+			  \param valid States whether the constant evaluation succeeded
+			  
+			  If valid is true, then the result of the function is the
+			  int value of this constant expression. Do not rely on the result
+			  of the function if valid is false (thus, check always \a valid)
+			  */
+			int evaluate_constant_int_expression(bool &valid);
+
             /*! Returns the original tree which was used to wrap this expression */
             AST_t original_tree()
             {

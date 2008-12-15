@@ -29,7 +29,46 @@ namespace TL
 
         Statement st = custom_construct.body();
 
-        check_construction(st, valid_while, list_of_tasks, sequentiation_code);
+		int &nesting_value = custom_construct.get_data<int>("nest");
+		nesting_value = 1;
+
+        OpenMP::Directive directive = custom_construct.directive();
+        // nest clause
+        {
+            OpenMP::CustomClause nest_clause = directive.custom_clause("nest");
+
+            ObjectList<Expression> expression_list;
+            if (nest_clause.is_defined())
+            {
+                expression_list = nest_clause.get_expression_list();
+                if (expression_list.size() != 1)
+                {
+                    std::cerr << directive.get_ast().get_locus() 
+                        << ": warning: 'nest' clause requires one constant-expression argument" 
+                        << std::endl;
+                }
+            }
+
+            if (!expression_list.empty())
+            {
+                Expression &expr = expression_list[0];
+
+				bool valid_expr = false;
+				int nest = expr.evaluate_constant_int_expression(valid_expr);
+				if (valid_expr)
+				{
+					nesting_value = nest;
+				}
+				else
+				{
+					std::cerr << directive.get_ast().get_locus()
+						<< ": warning: 'nest' clause requires a constant-expression" 
+						<< std::endl;
+				}
+            }
+        }
+
+        check_construction(st, valid_while, list_of_tasks, sequentiation_code, nesting_value);
 
         if (valid_while)
         {
@@ -47,8 +86,7 @@ namespace TL
             _num_aggregations++;
         }
 
-        // Get schedule clause
-        OpenMP::Directive directive = custom_construct.directive();
+		// Schedule clause
         OpenMP::ScheduleClause schedule = directive.schedule_clause();
 
         AST_t &chunk = custom_construct.get_data<AST_t>("chunk");
@@ -96,7 +134,8 @@ namespace TL
     void TaskAggregationPhase::check_construction(Statement st, 
             bool &is_valid,
             ObjectList<Statement> &list_of_tasks,
-            ObjectList<Statement> &sequentiation_code)
+            ObjectList<Statement> &sequentiation_code,
+			int nesting_value)
     {
         is_valid = true;
 

@@ -21,7 +21,8 @@ namespace TL
             void check_construction(Statement st,
                     bool &is_valid,
                     ObjectList<Statement> &list_of_tasks,
-                    ObjectList<Statement> &sequentiation_code);
+                    ObjectList<Statement> &sequentiation_code,
+                    int nesting_level);
             void check_task_aggregated_body(
                     Statement st,
                     Statement body,
