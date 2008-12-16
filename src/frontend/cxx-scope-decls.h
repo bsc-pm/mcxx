@@ -359,6 +359,7 @@ typedef struct entity_specifiers_tag
 
     // Bitfields
     char is_bitfield;
+    char is_unnamed_bitfield;
     struct AST_tag* bitfield_expr;
     decl_context_t bitfield_expr_context;
 

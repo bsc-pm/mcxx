@@ -7077,7 +7077,7 @@ _size_t type_get_size(type_t* t)
         // computed
         (CURRENT_CONFIGURATION(type_environment)->compute_sizeof)(t);
 
-        ERROR_CONDITION(t->valid_size != 0, 
+        ERROR_CONDITION(t->valid_size == 0, 
                 "Valid size has not been properly computed!", 0);
     }
 
@@ -7093,7 +7093,7 @@ _size_t type_get_alignment(type_t* t)
         // computed
         (CURRENT_CONFIGURATION(type_environment)->compute_sizeof)(t);
 
-        ERROR_CONDITION(t->valid_size != 0, 
+        ERROR_CONDITION(t->valid_size == 0, 
                 "Valid size has not been properly computed!", 0);
     }
 
@@ -7102,7 +7102,7 @@ _size_t type_get_alignment(type_t* t)
 
 void type_set_size(type_t* t, _size_t size)
 {
-    ERROR_CONDITION(t != NULL, 
+    ERROR_CONDITION(t == NULL, 
             "Invalid type", 0);
 
     t->size = size;
@@ -7110,7 +7110,7 @@ void type_set_size(type_t* t, _size_t size)
 
 void type_set_alignment(type_t* t, _size_t alignment) 
 {
-    ERROR_CONDITION(t != NULL, 
+    ERROR_CONDITION(t == NULL, 
             "Invalid type", 0);
 
     t->alignment = alignment;
@@ -7118,7 +7118,7 @@ void type_set_alignment(type_t* t, _size_t alignment)
 
 void type_set_valid_size(type_t* t, char valid)
 {
-    ERROR_CONDITION(t != NULL,
+    ERROR_CONDITION(t == NULL,
             "Invalid type", 0);
 
     t->valid_size = valid;
