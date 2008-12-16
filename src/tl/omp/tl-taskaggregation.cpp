@@ -58,6 +58,14 @@ namespace TL
 				if (valid_expr)
 				{
 					nesting_value = nest;
+
+					// Let's avoid misunderstandings
+					if (nesting_value != 1)
+					{
+						std::cerr << directive.get_ast().get_locus() 
+							<< ": warning: 'nest' with a value higher than 1 is not supported yet" 
+							<< std::endl;
+					}
 				}
 				else
 				{
@@ -151,34 +159,33 @@ namespace TL
         }
 
         if (WhileStatement::predicate(statement_ast))
-        {
-            // The code must follow this layout
-            //
-            // #pragma omp while scheduling(dynamic, N)
-            // while (E1)
-            // {
-            //    #pragma omp task
-            //    {
-            //      Task1;
-            //    }
-            //    [#pragma omp task
-            //    {
-            //      Task1;
-            //    }
-            //    ...
-            //    ]
-            //    CODE; // Causing some side-effect to the evaluation of E1 only (we won't check this :)
-            // }
-            //
-            WhileStatement while_statement(st.get_ast(), st.get_scope_link());
-            Statement while_body = while_statement.get_body();
+		{
+			// The code must follow this layout
+			//
+			// #pragma omp while scheduling(dynamic, N)
+			// while (E1)
+			// {
+			//    #pragma omp task
+			//    {
+			//      Task1;
+			//    }
+			//    [#pragma omp task
+			//    {
+			//      Task2;
+			//    }
+			//    ...
+			//    ]
+			//    CODE; // Causing some side-effect to the evaluation of E1 only (we won't check this :)
+			// }
+			//
+			WhileStatement while_statement(st.get_ast(), st.get_scope_link());
+			Statement while_body = while_statement.get_body();
 
-            check_task_aggregated_body(st, while_body, is_valid, list_of_tasks, sequentiation_code, /* is_for */ false);
+			check_task_aggregated_body(st, while_body, is_valid, list_of_tasks, sequentiation_code, /* is_for */ false);
 
-            if (!is_valid)
-                return;
-
-        }
+			if (!is_valid)
+				return;
+		}
         else // if (ForStatement::predicate(statement_ast))
         {
             // The code must follow this layout
