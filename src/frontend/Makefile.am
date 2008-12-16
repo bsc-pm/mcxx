@@ -38,6 +38,9 @@ libmcxx_la_SOURCES = \
   cxx-typeutils.c \
   cxx-typeutils.h \
   cxx-type-decls.h \
+  cxx-typeenviron-decls.h \
+  cxx-typeenviron.h \
+  cxx-typeenviron.c \
   cxx-typeunif.c \
   cxx-typeunif.h \
   cxx-typeunif-decls.h \

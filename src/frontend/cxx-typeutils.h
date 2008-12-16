@@ -40,12 +40,9 @@ char standard_conversion_between_types(standard_conversion_t *result,
 
 typedef scope_entry_t* (*computed_function_type_t)(scope_entry_t* symbol, type_t** arguments, int num_arguments);
 
-// Type environment 
-// - This is yet very EXPERIMENTAL. Ignore it for now -
-typedef struct type_environment_tag type_environment_t;
-// An hypothetical type environment for Linux IA32
-extern type_environment_t* type_environment_linux_ia32;
-// End of the type environment related stuff
+// Get environmental information for the type
+_size_t type_get_size(type_t*);
+_size_t type_get_alignment(type_t*);
 
 /* Type constructors: Builtins */
 struct type_tag* get_char_type(void);
@@ -483,6 +480,10 @@ char syntactic_comparison_of_nested_names(
 const char* print_declarator(struct type_tag* printed_declarator);
 long long unsigned int type_system_used_memory(void);
 
+/* Only for type environment routines */
+void type_set_size(type_t*, _size_t size);
+void type_set_alignment(type_t*, _size_t alignment);
+void type_set_valid_size(type_t* t, char valid);
 
 MCXX_END_DECLS
 

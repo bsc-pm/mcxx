@@ -26,6 +26,7 @@
 #include "cxx-ast-decls.h"
 #include "cxx-buildscope-decls.h"
 #include "cxx-gccsupport-decls.h"
+#include "cxx-typeenviron-decls.h"
 
 // Extensible schema
 #include "extstruct.h"
@@ -360,6 +361,9 @@ typedef struct entity_specifiers_tag
     char is_bitfield;
     struct AST_tag* bitfield_expr;
     decl_context_t bitfield_expr_context;
+
+    // Only for fields, the offsetof value
+    _size_t field_offset;
 
     // Is a surrogate fake symbol
     char is_surrogate_function;

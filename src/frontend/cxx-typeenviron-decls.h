@@ -1,0 +1,102 @@
+#ifndef CXX_TYPEENVIRON_DECLS_H
+#define CXX_TYPEENVIRON_DECLS_H
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#include "cxx-type-decls.h"
+
+#ifdef HAVE_UNISTD_H
+#include <stdint.h>
+typedef uint64_t _size_t;
+typedef uint64_t _ssize_t;
+#else
+  // Rely on unsigned long long
+  typedef unsigned long long _size_t;
+  typedef signed long long _ssize_t;
+#endif
+
+/*
+ * Typing environment
+ */
+struct type_environment_tag
+{
+    // bool
+    _size_t sizeof_bool;
+    _size_t alignof_bool;
+
+    // wchar_t
+    _size_t sizeof_wchar_t;
+    _size_t alignof_wchar_t;
+
+    // short
+    _size_t sizeof_unsigned_short;
+    _size_t alignof_unsigned_short;
+
+    _size_t sizeof_signed_short;
+    _size_t alignof_signed_short;
+
+    // int
+    _size_t sizeof_signed_int;
+    _size_t alignof_signed_int;
+
+    _size_t sizeof_unsigned_int;
+    _size_t alignof_unsigned_int;
+    
+    // long
+    _size_t sizeof_signed_long;
+    _size_t alignof_signed_long;
+
+    _size_t sizeof_unsigned_long;
+    _size_t alignof_unsigned_long;
+    
+    // long long
+    _size_t sizeof_signed_long_long;
+    _size_t alignof_signed_long_long;
+
+    _size_t sizeof_unsigned_long_long;
+    _size_t alignof_unsigned_long_long;
+    
+    // float
+    _size_t sizeof_float;
+    _size_t alignof_float;
+    
+    // double
+    _size_t sizeof_double;
+    _size_t alignof_double;
+
+    // long double
+    _size_t sizeof_long_double;
+    _size_t alignof_long_double;
+
+    // pointer
+    _size_t sizeof_pointer;
+    _size_t alignof_pointer;
+
+    _size_t sizeof_pointer_to_data_member;
+    _size_t alignof_pointer_to_data_member;
+    // this one exists because a pointer to function
+    // does not have to be compatible with a regular
+    // pointer to data
+    _size_t sizeof_function_pointer;
+    _size_t alignof_function_pointer;
+
+    _size_t sizeof_pointer_to_member_function;
+    _size_t alignof_pointer_to_member_function;
+
+    // function that computes the size of a class type
+    // this typically will follow some underlying ABI
+    void (*compute_sizeof)(type_t*);
+
+    // The type that matches the one of sizeof
+    type_t* (*type_of_sizeof)();
+
+    // The exact 'char' type (depending on the environment it is 'signed' or
+    // 'unsigned')
+    type_t* (*char_type)();
+};
+
+typedef struct type_environment_tag type_environment_t;
+
+#endif // CXX_TYPEENVIRON_DECLS_H

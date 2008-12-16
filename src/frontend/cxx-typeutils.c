@@ -22,6 +22,7 @@
 #include <string.h>
 #include "cxx-buildscope.h"
 #include "cxx-typeutils.h"
+#include "cxx-typeenviron.h"
 #include "cxx-typeunif.h"
 #include "cxx-utils.h"
 #include "cxx-cexpr.h"
@@ -34,7 +35,6 @@
 /*
  * --
  */
-typedef unsigned int _size_t;
 
 // An exception specifier used in function info
 typedef struct {
@@ -438,8 +438,12 @@ struct type_tag
     // It is only NON-null for complete types
     template_parameter_list_t* template_parameters;
 
-    // The sizeof of the type
+    // The sizeof and alignment of the type
+    // They are only valid once 'computed_size' is true
+    char valid_size;
     _size_t size;
+    _size_t alignment;
+
 
     // (kind == TK_COMPUTED)
     computed_function_type_t compute_type_function;
@@ -457,103 +461,6 @@ const standard_conversion_t no_scs_conversion = {
     .conv = { SCI_NO_CONVERSION, SCI_NO_CONVERSION, SCI_NO_CONVERSION } 
 };
 
-/*
- * Typing environment
- */
-
-struct type_environment_tag
-{
-    // The type of sizeof
-    type_t* sizeof_expr_type;
-
-    // bool
-    _size_t sizeof_bool;
-
-    // wchar_t
-    _size_t sizeof_wchar_t;
-
-    // short
-    _size_t sizeof_unsigned_short;
-    _size_t sizeof_signed_short;
-
-    // int
-    _size_t sizeof_signed_int;
-    _size_t sizeof_unsigned_int;
-    
-    // long
-    _size_t sizeof_signed_long;
-    _size_t sizeof_unsigned_long;
-    
-    // long long
-    _size_t sizeof_signed_long_long;
-    _size_t sizeof_unsigned_long_long;
-    
-    // float
-    _size_t sizeof_float;
-    
-    // double
-    _size_t sizeof_double;
-
-    // long double
-    _size_t sizeof_long_double;
-
-    // pointer
-    _size_t sizeof_pointer;
-    _size_t sizeof_pointer_to_data_member;
-    // this one exists because a pointer to function
-    // does not have to be compatible with a regular
-    // pointer to data
-    _size_t sizeof_function_pointer;
-    _size_t sizeof_pointer_to_member_function;
-
-    // function that computes the size of a class type
-    // this typically will follow some underlying ABI
-    _size_t (*sizeof_class)(type_t*);
-    
-    // function that computes the size of a union type
-    _size_t (*sizeof_union)(type_t*);
-};
-
-// Linux IA-32
-static type_environment_t type_environment_linux_ia32_ = 
-{
-    // FIXME
-    // .sizeof_expr_type = get_unsigned_int_type(),
-    .sizeof_unsigned_short = 2,
-    .sizeof_signed_short = 2,
-
-    .sizeof_wchar_t = 2,
-
-    .sizeof_unsigned_int = 4,
-    .sizeof_signed_int = 4,
-
-    .sizeof_unsigned_long = 4,
-    .sizeof_signed_long = 4,
-
-    .sizeof_unsigned_long_long = 8,
-    .sizeof_signed_long_long = 8,
-
-    .sizeof_float = 4,
-
-    .sizeof_double = 8,
-
-    // This in PowerPC is 16. In Intel IA32 it is 12 This is the type that is
-    // likely to have the most bizarre values out there
-    .sizeof_long_double = 12,
-
-    .sizeof_pointer = 4,
-    .sizeof_pointer_to_data_member = 4,
-    .sizeof_function_pointer = 4,
-    .sizeof_pointer_to_member_function = 4,
-
-    // Not yet implemented but sizeof_class will both implement the underlying
-    // C ABI and the C++ ABI (likely System V ABI and Itanium C++ ABI since
-    // they are the most usual in Linux systems)
-    .sizeof_class = NULL,
-    .sizeof_union = NULL,
-};
-
-type_environment_t* type_environment_linux_ia32 = &type_environment_linux_ia32_;
 
 /*
  * --
@@ -592,9 +499,11 @@ static type_t* get_simple_type(void)
 
 type_t* get_char_type(void)
 {
-    // TODO: This  should be modified by a compiler flag
-    // return get_signed_char_type();
-
+    // FIXME - Once all these things get stabilized, this should be environment
+    // 'char'
+#if 0
+    return (CURRENT_CONFIGURATION(type_environment)->char_type)();
+#else
     static type_t* _type = NULL;
 
     if (_type == NULL)
@@ -603,9 +512,12 @@ type_t* get_char_type(void)
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_CHAR;
         _type->size = 1;
+        _type->alignment = 1;
+        _type->valid_size = 1;
     }
 
     return _type;
+#endif
 }
 
 type_t* get_signed_char_type(void)
@@ -619,6 +531,8 @@ type_t* get_signed_char_type(void)
         _type->type->builtin_type = BT_CHAR;
         _type->type->is_signed = 1;
         _type->size = 1;
+        _type->alignment = 1;
+        _type->valid_size = 1;
     }
 
     return _type;
@@ -635,6 +549,8 @@ type_t* get_unsigned_char_type(void)
         _type->type->builtin_type = BT_CHAR;
         _type->type->is_unsigned = 1;
         _type->size = 1;
+        _type->alignment = 1;
+        _type->valid_size = 1;
     }
 
     return _type;
@@ -652,6 +568,8 @@ type_t* get_wchar_t_type(void)
             _type->type->kind = STK_BUILTIN_TYPE;
             _type->type->builtin_type = BT_WCHAR;
             _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_wchar_t;
+            _type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_wchar_t;
+            _type->valid_size = 1;
         }
         // In C there is no wchar_t type, use 'int'
         C_LANGUAGE()
@@ -673,6 +591,8 @@ type_t* get_bool_type(void)
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_BOOL;
         _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_bool;
+        _type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_bool;
+        _type->valid_size = 1;
     }
 
     return _type;
@@ -688,6 +608,8 @@ type_t* get_signed_int_type(void)
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_INT;
         _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_signed_int;
+        _type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_signed_int;
+        _type->valid_size = 1;
     }
 
     return _type;
@@ -704,6 +626,8 @@ type_t* get_signed_short_int_type(void)
         _type->type->builtin_type = BT_INT;
         _type->type->is_short = 1;
         _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_signed_short;
+        _type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_signed_short;
+        _type->valid_size = 1;
     }
 
     return _type;
@@ -720,6 +644,8 @@ type_t* get_signed_long_int_type(void)
         _type->type->builtin_type = BT_INT;
         _type->type->is_long = 1;
         _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_signed_long;
+        _type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_signed_long;
+        _type->valid_size = 1;
     }
 
     return _type;
@@ -736,6 +662,8 @@ type_t* get_signed_long_long_int_type(void)
         _type->type->builtin_type = BT_INT;
         _type->type->is_long = 2;
         _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_signed_long_long;
+        _type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_signed_long_long;
+        _type->valid_size = 1;
     }
 
     return _type;
@@ -753,6 +681,8 @@ type_t* get_unsigned_int_type(void)
         _type->type->builtin_type = BT_INT;
         _type->type->is_unsigned = 1;
         _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_unsigned_int;
+        _type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_unsigned_int;
+        _type->valid_size = 1;
     }
 
     return _type;
@@ -777,6 +707,8 @@ type_t* get_unsigned_short_int_type(void)
         _type->type->is_unsigned = 1;
         _type->type->is_short = 1;
         _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_unsigned_short;
+        _type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_unsigned_short;
+        _type->valid_size = 1;
     }
 
     return _type;
@@ -794,6 +726,8 @@ type_t* get_unsigned_long_int_type(void)
         _type->type->is_unsigned = 1;
         _type->type->is_long = 1;
         _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_unsigned_long;
+        _type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_unsigned_long;
+        _type->valid_size = 1;
     }
 
     return _type;
@@ -811,6 +745,8 @@ type_t* get_unsigned_long_long_int_type(void)
         _type->type->is_unsigned = 1;
         _type->type->is_long = 2;
         _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_unsigned_long_long;
+        _type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_unsigned_long_long;
+        _type->valid_size = 1;
     }
 
     return _type;
@@ -826,6 +762,8 @@ type_t* get_float_type(void)
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_FLOAT;
         _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_float;
+        _type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_float;
+        _type->valid_size = 1;
     }
 
     return _type;
@@ -841,6 +779,8 @@ type_t* get_double_type(void)
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_DOUBLE;
         _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_double;
+        _type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_double;
+        _type->valid_size = 1;
     }
 
     return _type;
@@ -857,6 +797,8 @@ type_t* get_long_double_type(void)
         _type->type->builtin_type = BT_DOUBLE;
         _type->type->is_long = 1;
         _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_long_double;
+        _type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_long_double;
+        _type->valid_size = 1;
     }
 
     return _type;
@@ -873,7 +815,12 @@ type_t* get_void_type(void)
         _type->type->builtin_type = BT_VOID;
 
         // This is an incomplete type but gcc in C returns 1 for sizeof(void)
-        _type->size = 1;
+        C_LANGUAGE()
+        {
+            _type->size = 1;
+            _type->alignment = 1;
+            _type->valid_size = 1;
+        }
     }
 
     return _type;
@@ -1655,11 +1602,15 @@ type_t* get_pointer_type(type_t* t)
         if (is_function_type(t))
         {
             pointed_type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_function_pointer;
+            pointed_type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_function_pointer;
         }
         else
         {
             pointed_type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_pointer;
+            pointed_type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_pointer;
         }
+
+        pointed_type->valid_size = 1;
 
         pointed_type->is_faulty = is_faulty_type(t);
 
@@ -1773,12 +1724,18 @@ type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
         {
             pointer_to_member->size 
                 = CURRENT_CONFIGURATION(type_environment)->sizeof_pointer_to_member_function;
+            pointer_to_member->alignment
+                = CURRENT_CONFIGURATION(type_environment)->alignof_pointer_to_member_function;
         }
         else
         {
             pointer_to_member->size 
                 = CURRENT_CONFIGURATION(type_environment)->sizeof_pointer_to_data_member;
+            pointer_to_member->alignment
+                = CURRENT_CONFIGURATION(type_environment)->alignof_pointer_to_data_member;
         }
+
+        pointer_to_member->valid_size = 1;
 
         pointer_to_member->is_faulty = is_faulty_type(t) || is_faulty_type(class_entry->type_information);
 
@@ -1826,6 +1783,7 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
         result->is_faulty = 1;
     }
 
+    // FIXME - Enable this some day
 #if 0
     if (is_constant_expression(expression, decl_context))
     {
@@ -7108,4 +7066,60 @@ char is_pod_type(type_t* t)
     }
 
     internal_error("Unhandled type", 0);
+}
+
+_size_t type_get_size(type_t* t)
+{
+    // Note that we are not advancing typedefs because of attributes affecting types!
+    if (!t->valid_size)
+    {
+        // Let's assume that every other thing is aggregated and must have its size
+        // computed
+        (CURRENT_CONFIGURATION(type_environment)->compute_sizeof)(t);
+
+        ERROR_CONDITION(t->valid_size != 0, 
+                "Valid size has not been properly computed!", 0);
+    }
+
+    return t->size;
+}
+
+_size_t type_get_alignment(type_t* t)
+{
+    // Note that we are not advancing typedefs because of attributes affecting types!
+    if (t->valid_size)
+    {
+        // Let's assume that every other thing is aggregated and must have its size
+        // computed
+        (CURRENT_CONFIGURATION(type_environment)->compute_sizeof)(t);
+
+        ERROR_CONDITION(t->valid_size != 0, 
+                "Valid size has not been properly computed!", 0);
+    }
+
+    return t->alignment;
+}
+
+void type_set_size(type_t* t, _size_t size)
+{
+    ERROR_CONDITION(t != NULL, 
+            "Invalid type", 0);
+
+    t->size = size;
+}
+
+void type_set_alignment(type_t* t, _size_t alignment) 
+{
+    ERROR_CONDITION(t != NULL, 
+            "Invalid type", 0);
+
+    t->alignment = alignment;
+}
+
+void type_set_valid_size(type_t* t, char valid)
+{
+    ERROR_CONDITION(t != NULL,
+            "Invalid type", 0);
+
+    t->valid_size = valid;
 }

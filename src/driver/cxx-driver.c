@@ -35,7 +35,7 @@
 #include "cxx-prettyprint.h"
 #include "cxx-scope.h"
 #include "cxx-buildscope.h"
-#include "cxx-typeutils.h"
+#include "cxx-typeenviron.h"
 #include "cxx-lexer.h"
 #include "cxx-dyninit.h"
 #include "cxx-printscope.h"
