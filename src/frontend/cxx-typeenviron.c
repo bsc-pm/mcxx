@@ -21,16 +21,19 @@ void system_v_array_sizeof(type_t* t)
     if (is_constant_expression(expr, decl_context))
     {
         literal_value_t l = evaluate_constant_expression(expr, decl_context);
-        int size = literal_value_to_uint(l);
+        char valid = 0;
 
-        type_set_size(t, size * element_size);
-        type_set_alignment(t, element_align);
-        type_set_valid_size(t, 1);
+        int size = literal_value_to_uint(l, &valid);
+
+        if (valid)
+        {
+            type_set_size(t, size * element_size);
+            type_set_alignment(t, element_align);
+            type_set_valid_size(t, 1);
+            return;
+        }
     }
-    else
-    {
-        internal_error("Cannot compute the size of the array type '%s'!", print_declarator(t));
-    }
+    internal_error("Cannot compute the size of the array type '%s'!", print_declarator(t));
 }
 
 void system_v_union_sizeof(type_t* t UNUSED_PARAMETER)
