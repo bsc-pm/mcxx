@@ -63,7 +63,6 @@ static void system_v_struct_sizeof(type_t* t)
     _size_t whole_align = 1;
 
     // This is information required by bitfields
-    _size_t current_storage_size = 0;
     _size_t current_bit_within_storage = 0;
 
     char previous_was_bitfield = 0;
@@ -99,44 +98,66 @@ static void system_v_struct_sizeof(type_t* t)
                 }
             }
 
-            if (!previous_was_bitfield)
+            if (bitsize == 0)
             {
-                current_storage_size = field_size;
-                current_bit_within_storage = 0;
+                // FIXME - Frontend should check that unnamed bitfields are the only
+                // ones that can have 0 width
+                if (!previous_was_bitfield)
+                {
+                    // If the previous was not a bitfield then we have
+                    // to adjust the current bit within storage just after
+                    // the previous field
+                    current_bit_within_storage = (offset % field_align) * 8;
+                }
             }
-
-            // In System V bytes are 8 bits :)
-            ERROR_CONDITION(bitsize > (field_size * 8),
-                    "This bitsize (%d) is higher than the related field type (%d)", 
-                    bitsize, (field_size * 8));
-
-            // Not enough remaining bits in this storage unit, just advance as usual.
-            if ((current_storage_size * 8 - current_bit_within_storage) <
-                    bitsize)
+            else
             {
-                // Example (assume shorts are 16 bit wide)
-                // struct A 
-                // {
-                //    short a:1;
-                //    short b:14;
-                //    short c:3; // This one does not fit in the 'short a:1' related storage unit,
-                // };
-                // We have filled a whole storage size, so move on in the offset
-                offset += current_storage_size;
-                // Now update the current_storage_size
-                current_storage_size = field_size;
-                current_bit_within_storage = 0;
-            }
+                if (!previous_was_bitfield)
+                {
+                    // If the previous was not a bitfield then we have
+                    // to adjust the current bit within storage just after
+                    // the previous field
+                    current_bit_within_storage = (offset % field_align) * 8;
+                }
 
-            // Now move within the current storage
-            current_bit_within_storage += bitsize;
+                // In System V bytes are 8 bits :)
+                ERROR_CONDITION(bitsize > (field_size * 8),
+                        "This bitsize (%d) is greater than the related field type (%d)", 
+                        bitsize, (field_size * 8));
 
-            if (!field->entity_specs.is_unnamed_bitfield)
-            {
-                // Named bitfields DO contribute to the align of the whole struct
-                // Update the whole align, this is needed for the tail padding
-                if (whole_align < field_align)
-                    whole_align = field_align;
+                // Not enough remaining bits in this storage unit, just advance as usual.
+                if ((field_size * 8 - current_bit_within_storage) <
+                        bitsize)
+                {
+                    // Example (assume shorts are 16 bit wide)
+                    // struct A 
+                    // {
+                    //    char c;
+                    //    short :9;
+                    // };
+                    //
+                    // We would start laying out the bitfield :9 just after
+                    // 'c', but this would mean starting at bit 8 of the
+                    // current storage and 8 + 9 does not fit in
+                    // field_size * 8. No overlapping applies in
+                    // System V, so advance to the next storage unit suitable
+                    // for the bitfield type ('short' in this example)
+
+                    next_offset_with_align(&offset, field_align);
+
+                    current_bit_within_storage = 0;
+                }
+
+                // Now move within the current storage
+                current_bit_within_storage += bitsize;
+
+                if (!field->entity_specs.is_unnamed_bitfield)
+                {
+                    // Named bitfields DO contribute to the align of the whole struct
+                    // Update the whole align, this is needed for the tail padding
+                    if (whole_align < field_align)
+                        whole_align = field_align;
+                }
             }
 
             // This is a bitfield
