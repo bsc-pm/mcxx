@@ -59,10 +59,13 @@ static void system_v_union_sizeof(type_t* t UNUSED_PARAMETER)
 
 static void system_v_struct_sizeof(type_t* t)
 {
+    // offset is used only for non-bitfields and when bitfields
+    // cause an effective advance of the offset, otherwise bitfields only
+    // use current_bit_within_storage
     _size_t offset = 0;
     _size_t whole_align = 1;
 
-    // This is information required by bitfields
+    // bitfields do not use offset except as needed
     _size_t current_bit_within_storage = 0;
 
     char previous_was_bitfield = 0;
@@ -109,6 +112,9 @@ static void system_v_struct_sizeof(type_t* t)
                     // the previous field
                     current_bit_within_storage = (offset % field_align) * 8;
                 }
+
+                // Just fill all the remaining bits
+                current_bit_within_storage += (field_size * 8 - current_bit_within_storage);
             }
             else
             {
@@ -189,6 +195,12 @@ static void system_v_struct_sizeof(type_t* t)
             // This is not a bitfield
             previous_was_bitfield = 0;
         }
+    }
+
+    // Round the offset to upper byte if the last field was a bitfield
+    if (previous_was_bitfield)
+    {
+        offset += round_to_upper_byte(current_bit_within_storage);
     }
      
     // Compute tail padding, just ensure that the next laid out entity
