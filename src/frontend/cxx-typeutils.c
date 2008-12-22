@@ -1957,6 +1957,186 @@ char class_type_is_complete_independent(type_t* t)
     return t->type->template_nature == TPN_COMPLETE_INDEPENDENT;
 }
 
+char class_type_is_empty(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "Invalid class type", 0);
+
+    type_t* class_type = get_actual_class_type(t);
+
+    int num_of_non_empty_nonstatics_data_members = 0;
+
+    int i;
+    for (i = 0; i < class_type_get_num_nonstatic_data_members(class_type); i++)
+    {
+        scope_entry_t* entry = class_type_get_nonstatic_data_member_num(class_type, i);
+
+        if (!entry->entity_specs.is_bitfield
+                || !literal_value_is_zero(evaluate_constant_expression(entry->entity_specs.bitfield_expr, 
+                        entry->entity_specs.bitfield_expr_context)))
+        {
+            num_of_non_empty_nonstatics_data_members++;
+        }
+    }
+
+    char has_virtual_bases = 0;
+
+    char has_nonempty_bases = 0;
+
+    for (i = 0; i < class_type_get_num_bases(class_type); i++)
+    {
+        char is_virtual = 0;
+        scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
+
+        has_virtual_bases |= is_virtual;
+
+        has_nonempty_bases |= !class_type_is_empty(base_class->type_information);
+    }
+
+    return (num_of_non_empty_nonstatics_data_members == 0
+            && !has_virtual_bases
+            && !has_nonempty_bases);
+}
+
+char class_type_is_dynamic(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type!", 0);
+
+    type_t* class_type = get_actual_class_type(t);
+
+    scope_entry_list_t* virtual_functions = class_type_get_all_virtual_functions(class_type);
+
+    // If we have virtual functions we are dynamic
+    if (virtual_functions != NULL)
+        return 1;
+
+    int i;
+    for (i = 0; i < class_type_get_num_bases(class_type); i++)
+    {
+        char is_virtual = 0;
+        scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
+
+        // If the base is virtual or is dynamic, we are dynamic
+        if (is_virtual
+                || class_type_is_dynamic(base_class->type_information))
+            return 1;
+    }
+
+    return 0;
+}
+
+#define MAX_CLASS_TYPES (256)
+
+static char has_non_virtual_empty_base_class_not_zero_offset_rec(type_t* class_type,
+        type_t* list[MAX_CLASS_TYPES], int num_elems)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "Invalid unnamed class type", 0);
+
+    int i;
+    for (i = 0; i < class_type_get_num_bases(class_type); i++)
+    {
+        char is_virtual = 0;
+        scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
+
+        // If not morally virtual and mepty
+        if (!is_virtual
+                && class_type_is_empty(base_class->type_information))
+        {
+            ERROR_CONDITION(num_elems == MAX_CLASS_TYPES,
+                    "Too deep hierarchy > %d\n", MAX_CLASS_TYPES);
+
+            int j;
+            for (j = 0; j < num_elems; j++)
+            {
+                if (equivalent_types(base_class->type_information, list[j]))
+                {
+                    return 1;
+                }
+            }
+            list[num_elems] = base_class->type_information;
+
+            if (has_non_virtual_empty_base_class_not_zero_offset_rec(
+                    get_actual_class_type(base_class->type_information),
+                    list, num_elems + 1))
+                return 1;
+        }
+    }
+
+    return 0;
+}
+
+static char has_non_virtual_empty_base_class_not_zero_offset(type_t* class_type)
+{
+    ERROR_CONDITION(!is_class_type(class_type),
+            "This is not a class type", 0);
+
+    type_t* list[MAX_CLASS_TYPES] = { 0 };
+
+    return has_non_virtual_empty_base_class_not_zero_offset_rec(
+            get_actual_class_type(class_type), 
+            list, /* num_elems */ 0);
+}
+
+#undef MAX_CLASS_TYPES
+
+char class_type_is_nearly_empty(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type!", 0);
+
+    // A nearly empty class must be dynamic
+    if (!class_type_is_dynamic(t))
+        return 0;
+
+    type_t* class_type = get_actual_class_type(t);
+
+    int i;
+    for (i = 0; i < class_type_get_num_nonstatic_data_members(class_type); i++)
+    {
+        scope_entry_t* entry = class_type_get_nonstatic_data_member_num(class_type, i);
+
+        if (!entry->entity_specs.is_bitfield
+                || !literal_value_is_zero(evaluate_constant_expression(entry->entity_specs.bitfield_expr, 
+                        entry->entity_specs.bitfield_expr_context)))
+        {
+            // If we are not empty, we are not nearly empty either
+            return 0;
+        }
+    }
+
+    // This is implemented likewise it is in GCC
+    char seen_non_virtual_nearly_empty = 0;
+
+    for (i = 0; i < class_type_get_num_bases(class_type); i++)
+    {
+        char is_virtual = 0;
+        scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
+
+        if (!class_type_is_empty(base_class->type_information))
+            return 0;
+
+        if (!is_virtual)
+        {
+            if (class_type_is_nearly_empty(base_class->type_information))
+            {
+                if (!seen_non_virtual_nearly_empty)
+                    // At most one direct non-virtual nearly empty base class is
+                    // allowed in a nearly empty class
+                    seen_non_virtual_nearly_empty = 1;
+                else
+                    // More than one direct non-virtual nearly empty base class makes
+                    // this class not a nearly empty class
+                    return 0;
+            }
+        }
+    }
+
+    // Now we have to check that no empty base gets laid out at a nonzero
+    // offset.  This only can happen if a base class type that is empty appears
+    // twice in the hierarchy and it is not morally virtual
+    if (has_non_virtual_empty_base_class_not_zero_offset(class_type))
+        return 0;
+
+    return 1;
+}
 
 char class_type_get_is_dependent(type_t* t)
 {

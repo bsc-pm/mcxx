@@ -417,6 +417,10 @@ char pointer_to_class_type_is_base(struct type_tag* possible_pclass_base,
 char pointer_to_class_type_is_derived(struct type_tag* possible_pclass_derived,
         struct type_tag* possible_pclass_base);
 
+char class_type_is_empty(type_t* t);
+char class_type_is_nearly_empty(type_t* t);
+char class_type_is_dynamic(type_t* t);
+
 struct type_tag* advance_over_typedefs(struct type_tag* t);
 struct type_tag* advance_over_typedefs_with_cv_qualif(struct type_tag* t1, cv_qualifier_t* cv_qualif);
 

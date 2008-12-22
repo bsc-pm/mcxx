@@ -24,6 +24,8 @@ static int round_to_upper_byte(_size_t bit_offset)
 /*
    Generic environment definitions
    System V mainly
+
+   C
  */
 
 static void system_v_array_sizeof(type_t* t)
@@ -242,6 +244,11 @@ static void system_v_generic_sizeof(type_t* t)
         system_v_struct_sizeof(t);
     }
 }
+
+/* 
+   Itanium ABI for C++ (the one followed by most vendors of C++)
+ */
+
 
 /*
    Specific architecture environment definitions and routines

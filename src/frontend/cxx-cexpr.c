@@ -2892,43 +2892,7 @@ static char eval_type_trait__is_empty(type_t* first_type,
         return 0;
 
     if (is_class_type(first_type))
-    {
-        type_t* class_type = get_actual_class_type(first_type);
-
-        int num_of_non_empty_nonstatics_data_members = 0;
-
-        int i;
-        for (i = 0; i < class_type_get_num_nonstatic_data_members(class_type); i++)
-        {
-            scope_entry_t* entry = class_type_get_nonstatic_data_member_num(class_type, i);
-
-            if (!entry->entity_specs.is_bitfield
-                    || !literal_value_is_zero(evaluate_constant_expression(entry->entity_specs.bitfield_expr, 
-                            entry->entity_specs.bitfield_expr_context)))
-            {
-                num_of_non_empty_nonstatics_data_members++;
-            }
-        }
-
-        char has_virtual_bases = 0;
-
-        char has_nonempty_bases = 0;
-
-        for (i = 0; i < class_type_get_num_bases(class_type); i++)
-        {
-            char is_virtual = 0;
-            scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
-
-            has_virtual_bases |= is_virtual;
-
-            has_nonempty_bases |= !eval_type_trait__is_empty(base_class->type_information, NULL, decl_context);
-        }
-
-        if (num_of_non_empty_nonstatics_data_members == 0
-                && !has_virtual_bases
-                && !has_nonempty_bases)
-            return 1;
-    }
+        return class_type_is_empty(first_type);
 
     return 0;
 }
