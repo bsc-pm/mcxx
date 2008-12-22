@@ -199,6 +199,7 @@ namespace TL
                     parallel_for_body,
                     outlined_function_name,
                     parameter_info_list,
+                    construct,
                     /* team_parameter */ true);
 
             Source private_declarations = get_privatized_declarations(

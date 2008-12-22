@@ -661,7 +661,8 @@ namespace TL
                 function_definition,
                 parallel_body, // The body of the outline
                 outlined_function_name,
-                parameter_info_list);
+                parameter_info_list,
+                construct);
 
         // Replace references using set "replace_references" over construct body
         Statement modified_parallel_body_stmt = replace_references.replace(construct_body);

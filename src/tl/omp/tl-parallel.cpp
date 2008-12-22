@@ -216,6 +216,7 @@ namespace TL
                     parallel_body, // The body of the outline
                     outlined_function_name,
                     parameter_info_list,
+                    construct,
                     /* team_parameter */ true);
 
             // Replace references using set "replace_references" over construct body

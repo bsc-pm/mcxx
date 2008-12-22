@@ -29,6 +29,7 @@ namespace TL
                 Source& specific_body,
                 Source outlined_function_name,
                 ObjectList<ParameterInfo> parameter_info_list,
+                OpenMP::Construct &construct,
                 bool team_parameter
                 )
         {
@@ -47,7 +48,8 @@ namespace TL
             instrumentation_outline(instrumentation_code_before, 
                     instrumentation_code_after, 
                     function_definition, 
-                    outlined_function_name);
+                    outlined_function_name,
+                    construct);
 
             Source result;
             result
@@ -723,13 +725,14 @@ namespace TL
         void OpenMPTransform::instrumentation_outline(Source& instrumentation_code_before,
                 Source& instrumentation_code_after,
                 FunctionDefinition function_definition,
-                Source outlined_function_name)
+                Source outlined_function_name,
+                OpenMP::Construct &construct)
         {
             if (instrumentation_requested())
             {
                 std::string file_name = "\"" + function_definition.get_ast().get_file() + "\"";
 
-                int file_line = function_definition.get_ast().get_line();
+                int file_line = construct.get_ast().get_line();
 
                 instrumentation_code_before
                     << "nth_instrumentation_ctx ctx;"

@@ -226,6 +226,7 @@ namespace TL
                         Source& specific_body,
                         Source outlined_function_name,
                         ObjectList<ParameterInfo> parameter_info_list,
+                        OpenMP::Construct &construct,
                         bool team_parameter = false
                         );
 
@@ -400,7 +401,8 @@ namespace TL
                 void instrumentation_outline(Source& instrumentation_code_before,
                         Source& instrumentation_code_after,
                         FunctionDefinition function_definition,
-                        Source outlined_function_name);
+                        Source outlined_function_name,
+                        OpenMP::Construct &construct);
 
                 Symbol warn_unreferenced_data(Symbol sym);
 
