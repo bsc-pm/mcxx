@@ -207,7 +207,7 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 	{
 		if (CURRENT_CONFIGURATION(disable_openmp))
 		{
-			fprintf(stderr, "Ignoring OpenMP directive at %s:%d\n",
+			fprintf(stderr, "%s:%d: warning: ignoring OpenMP directive\n",
 					scanning_now.current_filename,
 					scanning_now.line_number);
 			matched = 1;
@@ -245,10 +245,10 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 
 		if (!found)
 		{
-			fprintf(stderr, "Warning, unknown '#pragma %s' at %s:%d\n", 
-					yytext,
+			fprintf(stderr, "%s:%d: warning: unknown '#pragma %s'\n", 
 					scanning_now.current_filename,
-					scanning_now.line_number);
+					scanning_now.line_number,
+					yytext);
 			BEGIN(unknown_pragma);
 			// Ignore this prefix as an unknown pragma
 			yymore();
@@ -540,7 +540,7 @@ threadprivate {
     {
         // Well, we found the newline but parentheses were not 
         // properly nested
-        fprintf(stderr, "Warning, unended custom clause at '%s:%d'. Skipping.\n",
+        fprintf(stderr, "%s:%d: warning: unended custom clause. Skipping.\n",
                 scanning_now.current_filename,
                 scanning_now.line_number);
     }
@@ -1253,7 +1253,7 @@ runtime {
         i++;
     }
 
-    internal_error("%s:%d: Unhandled g++ specific token '%s'", 
+    internal_error("%s:%d: error: unhandled g++ specific token '%s'", 
             scanning_now.filename,
             scanning_now.line_number,
             yytext);
@@ -1394,13 +1394,15 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
     /* ignore bad characters */ 
     if (isgraph(*yytext))
     {
-        fprintf(stderr, "Unknown character '%c' (%#x) at %s:%d. Ignoring it.\n", *yytext, *yytext,
-				scanning_now.current_filename, scanning_now.line_number);
+        fprintf(stderr, "%s:%d: warning: unknown character '%c' (%#x). Ignoring it.\n", 
+				scanning_now.current_filename, scanning_now.line_number,
+                *yytext, *yytext);
     }
     else
     {
-        fprintf(stderr, "Unknown character %#x at %s:%d. Ignoring it.\n", *yytext,
-				scanning_now.current_filename, scanning_now.line_number);
+        fprintf(stderr, "%s:%d: warning: unknown character %#x. Ignoring it.\n", 
+				scanning_now.current_filename, scanning_now.line_number,
+                *yytext);
     }
 }
 
