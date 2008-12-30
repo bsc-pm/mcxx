@@ -117,6 +117,9 @@ struct base_class_info_tag
 
     // A virtual base
     char is_virtual;
+
+    // Used when laying classes out
+    _size_t base_offset;
 } base_class_info_t;
 
 // Information of a class
@@ -172,6 +175,10 @@ struct class_information_tag {
     // Base (parent classes) info
     int num_bases;
     base_class_info_t** base_classes_list;
+
+    // Info for laying out 
+    _size_t non_virtual_size;
+    _size_t non_virtual_align;
 } class_info_t;
 
 // Template arguments are the things that go between '<' and '>' in a
@@ -443,7 +450,8 @@ struct type_tag
     char valid_size;
     _size_t size;
     _size_t alignment;
-
+    // This is here only for C++
+    _size_t data_size;
 
     // (kind == TK_COMPUTED)
     computed_function_type_t compute_type_function;
@@ -7173,7 +7181,7 @@ char is_faulty_type(type_t* t)
             || t->is_faulty);
 }
 
-char is_pod_type(type_t* t)
+static char is_pod_type_aux(type_t* t, char allow_wide_bitfields)
 {
     if (is_integral_type(t)
             || is_enumerated_type(t)
@@ -7183,12 +7191,15 @@ char is_pod_type(type_t* t)
     if (is_pointer_type(t))
         return 1;
 
+    if (is_pointer_to_member_type(t))
+        return 1;
+
     if (is_lvalue_reference_type(t)
             || is_rvalue_reference_type(t))
         return 0;
 
     if (is_array_type(t))
-        return is_pod_type(array_type_get_element_type(t));
+        return is_pod_type_aux(array_type_get_element_type(t), allow_wide_bitfields);
 
     if (is_class_type(t))
     {
@@ -7199,7 +7210,30 @@ char is_pod_type(type_t* t)
         {
             scope_entry_t* data_member = class_type_get_nonstatic_data_member_num(class_type, i);
 
-            if (!is_pod_type(data_member->type_information))
+            if (data_member->entity_specs.is_bitfield)
+            {
+                if (!allow_wide_bitfields)
+                {
+                    // Check whether this bitfield is wider than its type in bits
+                    literal_value_t literal =
+                        evaluate_constant_expression(data_member->entity_specs.bitfield_expr,
+                                data_member->entity_specs.bitfield_expr_context);
+
+                    char valid = 0;
+                    _size_t bits_of_base_type = type_get_size(data_member->type_information) * 8;
+                    _size_t bits_of_bitfield = literal_value_to_uint(literal, &valid);
+
+                    if (!valid)
+                    {
+                        internal_error("Cannot computed POD-ness of a type because of invalid bitfield!", 0);
+                    }
+
+                    if (bits_of_bitfield > bits_of_base_type)
+                        return 0;
+                }
+            }
+
+            if (!is_pod_type_aux(data_member->type_information, allow_wide_bitfields))
                 return 0;
         }
 
@@ -7248,8 +7282,21 @@ char is_pod_type(type_t* t)
     internal_error("Unhandled type", 0);
 }
 
+char is_pod_type(type_t* t)
+{
+    return is_pod_type_aux(t, /* allow wide bitfields */ 1);
+}
+
+char is_pod_type_layout(type_t* t)
+{
+    return is_pod_type_aux(t, /* allow wide bitfields */ 0);
+}
+
 _size_t type_get_size(type_t* t)
 {
+    ERROR_CONDITION(CURRENT_CONFIGURATION(type_environment) == NULL,
+            "Invalid type environment!", 0);
+
     // Note that we are not advancing typedefs because of attributes affecting types!
     if (!t->valid_size)
     {
@@ -7302,4 +7349,72 @@ void type_set_valid_size(type_t* t, char valid)
             "Invalid type", 0);
 
     t->valid_size = valid;
+}
+
+_size_t type_get_data_size(type_t* t)
+{
+    C_LANGUAGE()
+    {
+        internal_error("This function is only for C++", 0);
+    }
+
+    return t->data_size;
+}
+
+void type_set_data_size(type_t* t, _size_t data_size)
+{
+    C_LANGUAGE()
+    {
+        internal_error("This function is only for C++", 0);
+    }
+
+    t->data_size = data_size;
+}
+
+_size_t class_type_get_non_virtual_size(type_t* t)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(t),
+            "Invalid class type", 0);
+    C_LANGUAGE()
+    {
+        internal_error("This function is only for C++", 0);
+    }
+
+    return t->type->class_info->non_virtual_size;
+}
+
+void class_type_set_non_virtual_size(type_t* t, _size_t non_virtual_size)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(t),
+            "Invalid class type", 0);
+    C_LANGUAGE()
+    {
+        internal_error("This function is only for C++", 0);
+    }
+
+    t->type->class_info->non_virtual_size = non_virtual_size;
+}
+
+_size_t class_type_get_non_virtual_align(type_t* t)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(t),
+            "Invalid class type", 0);
+    C_LANGUAGE()
+    {
+        internal_error("This function is only for C++", 0);
+    }
+
+    return t->type->class_info->non_virtual_align;
+}
+
+void class_type_set_non_virtual_align(type_t* t, _size_t non_virtual_align)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(t),
+            "Invalid class type", 0);
+    C_LANGUAGE()
+    {
+        internal_error("This function is only for C++", 0);
+    }
+
+    t->type->class_info->non_virtual_align = non_virtual_align;
 }

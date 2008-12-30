@@ -165,6 +165,7 @@ char is_builtin_type(struct type_tag* t);
 char is_fundamental_type(struct type_tag* t);
 
 char is_pod_type(type_t* t);
+char is_pod_type_layout(type_t* t);
 
 // States whether a type is faulty
 char is_faulty_type(type_t*);
@@ -484,10 +485,20 @@ char syntactic_comparison_of_nested_names(
 const char* print_declarator(struct type_tag* printed_declarator);
 long long unsigned int type_system_used_memory(void);
 
-/* Only for type environment routines */
-void type_set_size(type_t*, _size_t size);
-void type_set_alignment(type_t*, _size_t alignment);
+/* Only for type environment routines in cxx-typeenviron.c. 
+   Do not use them anywhere else */
+void type_set_size(type_t* t, _size_t size);
+void type_set_alignment(type_t* t, _size_t alignment);
 void type_set_valid_size(type_t* t, char valid);
+
+_size_t type_get_data_size(type_t* t);
+void type_set_data_size(type_t* t, _size_t data_size);
+
+_size_t class_type_get_non_virtual_size(type_t* t);
+void class_type_set_non_virtual_size(type_t* t, _size_t non_virtual_size);
+
+_size_t class_type_get_non_virtual_align(type_t* t);
+void class_type_set_non_virtual_align(type_t* t, _size_t non_virtual_align);
 
 MCXX_END_DECLS
 
