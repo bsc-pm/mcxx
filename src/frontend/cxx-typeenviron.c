@@ -5,6 +5,13 @@
 #include "cxx-cexpr.h"
 #include "cxx-utils.h"
 
+#ifdef MAX
+  #warning MAX already defined here! Overriding
+#endif
+
+#undef MAX
+#define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
+
 static long long unsigned int _bytes_due_to_type_environment = 0;
 
 long long unsigned int type_environment_used_memory(void)
@@ -449,6 +456,378 @@ static scope_entry_t* cxx_abi_class_type_get_primary_base_class(type_t* t, char 
     return first_ne_virtual_base;
 }
 
+typedef
+struct offset_info_tag
+{
+    _size_t offset;
+    scope_entry_list_t* subobjects;
+    struct offset_info_tag* next;
+} offset_info_t;
+
+typedef
+struct layout_info_tag
+{
+    _size_t dsize;
+    _size_t size;
+    _size_t align;
+    _size_t nvalign;
+    _size_t nvsize;
+    offset_info_t* offsets;
+
+    char previous_was_bitfield;
+    _size_t bit_within_bitfield;
+
+    char previous_was_base;
+    scope_entry_t* previous_base;
+} layout_info_t;
+
+static void cxx_abi_register_entity_offset(layout_info_t* layout_info,
+        scope_entry_t* entry,
+        _size_t offset)
+{
+    offset_info_t* previous_offset = NULL;
+    offset_info_t* current_offset = layout_info->offsets;
+
+    while (current_offset != NULL)
+    {
+        if (current_offset->offset == offset)
+        {
+            scope_entry_list_t* new_entry_list
+                = counted_calloc(1, sizeof(*new_entry_list), &_bytes_due_to_type_environment);
+
+            new_entry_list->entry = entry;
+            new_entry_list->next = current_offset->subobjects;
+            current_offset->subobjects = new_entry_list;
+
+            // Do nothing else
+            return;
+        }
+        else if (current_offset->offset > offset)
+        {
+            // This offset does not exist!, we have to add it
+            break;
+        }
+
+        previous_offset = current_offset;
+    }
+
+    // Cases: previous_offset == NULL means we are at the beginning
+    // current_offset == NULL means we are the largest offset
+
+    offset_info_t* new_offset_info = counted_calloc(1, 
+            sizeof(*new_offset_info), &_bytes_due_to_type_environment);
+    new_offset_info->offset = offset;
+
+    scope_entry_list_t* new_entry_list
+        = counted_calloc(1, sizeof(*new_entry_list), &_bytes_due_to_type_environment);
+    new_entry_list->entry = entry;
+    new_offset_info->subobjects = new_entry_list;
+
+    new_offset_info->next = current_offset;
+
+    if (previous_offset == NULL)
+    {
+        layout_info->offsets = new_offset_info;
+    }
+    else
+    {
+        previous_offset->next = new_offset_info;
+    }
+}
+
+static void cxx_abi_register_subobject_offset(layout_info_t* layout_info,
+        scope_entry_t* member,
+        _size_t chosen_offset)
+{
+    cxx_abi_register_entity_offset(layout_info, member, chosen_offset);
+
+    if (is_class_type(member->type_information))
+    {
+        type_t* class_type = get_actual_class_type(member->type_information);
+
+        int num_bases = class_type_get_num_bases(class_type);
+        int i;
+
+        for (i = 0; i < num_bases; i++)
+        {
+            char is_virtual;
+            scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
+
+            if (!is_virtual)
+            {
+                _size_t base_offset = class_type_get_offset_base_num(class_type, i);
+
+                // Recurse
+                cxx_abi_register_subobject_offset(layout_info, 
+                        base_class,
+                        chosen_offset + base_offset);
+            }
+        }
+
+        // Nonstatic data members
+        int num_nonstatic_data_members 
+            = class_type_get_num_nonstatic_data_members(class_type);
+
+        for (i = 0; i < num_nonstatic_data_members; i++)
+        {
+            scope_entry_t* nonstatic_data_member 
+                = class_type_get_nonstatic_data_member_num(class_type, i);
+
+            _size_t field_offset = nonstatic_data_member->entity_specs.field_offset;
+
+            // Recurse
+            cxx_abi_register_subobject_offset(layout_info,
+                    nonstatic_data_member,
+                    chosen_offset + field_offset);
+        }
+    }
+}
+
+static char cxx_abi_conflicting_member(layout_info_t* layout_info,
+        scope_entry_t* member,
+        _size_t candidate_offset)
+{
+    offset_info_t* current_offset = layout_info->offsets;
+
+    while (current_offset != NULL)
+    {
+        /*
+           Things to consider: Conflicts arise because of empty bases. They
+           cannot arise because of anything else. Nonempty bases, like data
+           members (even if they are empty classes) have nonempty space
+           allocated for them. In fact conflicts only happen when laying bases
+           or when all bases have ben laid out and we start with data members.
+
+           It will never happen that we are checking whether there is a
+           conflict for a nonempty subobject (i.e.: a data member or nonempty
+           base class) and offsets bigger than the candidate are found. Should
+           this happen it would mean we are allocating something on potentially
+           the same allocation of another thing!
+           */
+        if (current_offset->offset == candidate_offset)
+        {
+            // Check all elements linked to this offset (there can be more than
+            // one if these are empty bases)
+            scope_entry_list_t* current_subobject = current_offset->subobjects;
+            while (current_subobject != NULL)
+            {
+                scope_entry_t* subobject_entry = current_subobject->entry;
+
+                if (equivalent_types(subobject_entry->type_information,
+                            member->type_information))
+                {
+                    return 1;
+                }
+
+                current_subobject = current_subobject->next;
+            }
+        }
+        current_offset = current_offset->next;
+    }
+
+    return 0;
+}
+
+static void cxx_abi_lay_bitfield(type_t* t UNUSED_PARAMETER, 
+        scope_entry_t* member, 
+        layout_info_t* layout_info)
+{
+    unsigned int bitsize = 0;
+    {
+        literal_value_t literal = evaluate_constant_expression(
+                member->entity_specs.bitfield_expr,
+                member->entity_specs.bitfield_expr_context);
+
+        char valid = 0;
+        bitsize = literal_value_to_uint(literal, &valid);
+        if (!valid)
+        {
+            internal_error("Invalid bitfield expression", 0);
+        }
+    }
+
+    _size_t size_of_member = type_get_size(member->type_information);
+    _size_t current_bit_within_storage = 0;
+
+    if (size_of_member * 8 >= bitsize)
+    {
+        _size_t offset = layout_info->dsize;
+        _size_t member_align = type_get_alignment(member->type_information);
+
+        if (layout_info->previous_was_base)
+        {
+            // Allocate like the underlying ABI says constrained that a bitfield
+            // is never placed in the tail padding of a base class of C
+            next_offset_with_align(&offset, 
+                   type_get_alignment(layout_info->previous_base->type_information));
+        }
+
+        if (layout_info->previous_was_bitfield)
+        {
+            // Next available bits in this offset
+            // if dsize(C) > 0 and dsize(C) - 1 is partially filled by a
+            // bitfield and that bitfield is also a data member declared in C, 
+            // next available bits are the unfilled bits in dsize(C) - 1,
+            if (offset > 0)
+            {
+                offset = offset - 1;
+            }
+
+            current_bit_within_storage = layout_info->bit_within_bitfield;
+        }
+        else
+        {
+            // otherwise next offset are those bits available in dsize(C)
+            current_bit_within_storage = (offset % member_align) * 8;
+        }
+
+        if (bitsize == 0)
+        {
+            // Just fill all the remaining bits
+            current_bit_within_storage += (size_of_member * 8 - current_bit_within_storage);
+        }
+        else
+        {
+            if ((size_of_member * 8 - current_bit_within_storage) <
+                    bitsize)
+            {
+                // No overlapping in SysV
+                next_offset_with_align(&offset, member_align);
+                current_bit_within_storage = 0;
+            }
+
+            current_bit_within_storage += bitsize;
+        }
+
+        layout_info->align = MAX(layout_info->align, member_align);
+    }
+    else
+    {
+        // GCC gives a warning for these cases
+    }
+
+    // Note that the dsize has one byte more and we substract it if we determine
+    // that the previous member was a bitfield as well
+    layout_info->dsize += round_to_upper_byte(current_bit_within_storage);
+    layout_info->previous_was_bitfield = 1;
+    layout_info->bit_within_bitfield = current_bit_within_storage;
+}
+
+static void cxx_abi_lay_member_out(type_t* t, 
+        scope_entry_t* member, 
+        layout_info_t* layout_info,
+        char is_base_class)
+{
+    if (member->entity_specs.is_bitfield)
+    {
+        cxx_abi_lay_bitfield(t, member, layout_info);
+    }
+    else if (is_base_class
+            && class_type_is_empty(member->type_information))
+    {
+        // Start attempting to put this class at offset zero
+        _size_t offset = 0;
+        /*
+           Surprisingly, even an empty class can have a sizeof different than 1
+
+           Example
+
+           struct A { };
+           struct B : A { };
+           struct C : A { };
+           struct D : B, C { };
+
+           D is empty but its sizeof(D) is 2 since there are two A's that must be allocated
+           in different offsets:
+
+                 D          <-- 0
+                 D::B       <-- 0
+                 D::B::A    <-- 0
+                 D::C       <-- 1
+                 D::C::A    <-- 1 (this causes the conflict)
+         */
+
+        _size_t size_of_base = type_get_size(member->type_information);
+        _size_t non_virtual_align = class_type_get_non_virtual_align(member->type_information);
+
+        if (cxx_abi_conflicting_member(layout_info, member, offset))
+        {
+            // If unsuccessful due to a component type conflict, proceed
+            // with attempts at dsize(C)
+            offset = layout_info->dsize;
+
+            // Increment by nvalign(D)
+            while (cxx_abi_conflicting_member(layout_info, member, offset))
+            {
+                offset += non_virtual_align;
+            }
+        }
+
+        // Once offset(D) has been chosen, update sizeof(C) to max(sizeof(C), offset(D) + sizeof(D))
+        layout_info->size = MAX(layout_info->size, offset + size_of_base);
+    }
+    else // Plain data member or non empty base class
+    {
+        // Start at offset dsize(C) incremented for alignment to nvalign(D)
+        // or align(D) for data members
+        _size_t offset = layout_info->dsize;
+        // Compute this this to ensure that this member has its sizeof already computed
+        _size_t sizeof_member = type_get_size(member->type_information);
+        if (is_base_class)
+        {
+            next_offset_with_align(&offset, 
+                    class_type_get_non_virtual_align(member->type_information));
+        }
+        else
+        {
+            next_offset_with_align(&offset, 
+                    type_get_alignment(member->type_information));
+        }
+
+        while (cxx_abi_conflicting_member(layout_info, member, offset))
+        {
+            if (is_base_class)
+            {
+                offset += class_type_get_non_virtual_align(member->type_information);
+            }
+            else
+            {
+                offset += type_get_alignment(member->type_information);
+            }
+        }
+
+        // Add offsets for this member
+        cxx_abi_register_subobject_offset(layout_info, member, offset);
+
+        if (is_base_class)
+        {
+            // If D is a base class update sizeof(C) to max (sizeof(C), offset(D) + nvsize(D))
+            _size_t non_virtual_size = class_type_get_non_virtual_size(member->type_information);
+            _size_t non_virtual_align = class_type_get_non_virtual_align(member->type_information);
+            layout_info->size = MAX(layout_info->size, offset + non_virtual_size);
+
+            // Update dsize(C) to offset(D) + nvsize(D) and align(C) to max(align(C), nvalign(D))
+            layout_info->dsize = offset + non_virtual_size;
+            layout_info->align = MAX(layout_info->align, non_virtual_align);
+        }
+        else
+        {
+            // Otherwise, if D is a data member, update sizeof(C) to max(sizeof(C), offset(D) + sizeof(D))
+            layout_info->size = MAX(layout_info->size, offset + sizeof_member);
+
+            _size_t alignment = type_get_alignment(member->type_information);
+
+            // Update dsize(C) to offset(D) + sizeof(D), align(C) to max(align(C), align(D))
+            layout_info->dsize = offset + sizeof_member;
+            layout_info->align = MAX(layout_info->align, alignment);
+        }
+    }
+
+    // This is needed for bitfields
+    layout_info->previous_was_base = is_base_class;
+    layout_info->previous_base = is_base_class ? member : NULL;
+}
+
 static void cxx_abi_class_sizeof(type_t* t)
 {
     if (is_pod_type_layout(t))
@@ -460,9 +839,12 @@ static void cxx_abi_class_sizeof(type_t* t)
     type_t* class_type = get_actual_class_type(t);
 
     // Initialization: sizeof to 0, align to 1, dsize to 0
-    type_set_size(t, 0);
-    type_set_alignment(t, 1);
-    type_set_data_size(t, 0);
+    layout_info_t layout_info;
+    memset(&layout_info, 0, sizeof(layout_info));
+
+    layout_info.size = 0;
+    layout_info.align = 1;
+    layout_info.dsize = 0;
 
     if (class_type_is_dynamic(class_type))
     {
@@ -476,17 +858,20 @@ static void cxx_abi_class_sizeof(type_t* t)
             // c) If C has no primary base class, allocate the virtual table pointer
             // for C at offset zero and set sizeof(C), align(C) and dsize(C) to the
             // appropriate values for a pointer
-
-            type_set_size(t, CURRENT_CONFIGURATION(type_environment)->sizeof_pointer);
-            type_set_alignment(t, CURRENT_CONFIGURATION(type_environment)->alignof_pointer);
-            type_set_data_size(t, CURRENT_CONFIGURATION(type_environment)->sizeof_pointer);
+            layout_info.size = CURRENT_CONFIGURATION(type_environment)->sizeof_pointer;
+            layout_info.align = CURRENT_CONFIGURATION(type_environment)->alignof_pointer;
+            layout_info.dsize = CURRENT_CONFIGURATION(type_environment)->sizeof_pointer;
         }
 
-        // For each data component D (first the primary base of C, if any, then
-        // the non-primary non-virtual direct base classes in declaration
-        // orderd, then the non-static data members and unnamed bitfields in
-        // declaration order
     }
+    // For each data component D (first the primary base of C, if any, then
+    // the non-primary non-virtual direct base classes in declaration
+    // orderd, then the non-static data members and unnamed bitfields in
+    // declaration order
+
+    // After all such components have been allocated set nvalign(C) = align(C)
+    layout_info.nvalign = layout_info.align;
+    layout_info.nvsize = layout_info.size;
 }
 
 static void cxx_abi_generic_sizeof(type_t* t)

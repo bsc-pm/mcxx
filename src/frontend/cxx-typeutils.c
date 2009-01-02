@@ -2556,6 +2556,24 @@ scope_entry_t* class_type_get_base_num(type_t* class_type, int num, char *is_vir
     return class_info->base_classes_list[num]->class_symbol;
 }
 
+_size_t class_type_get_offset_base_num(type_t* class_type, int num)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+
+    class_info_t* class_info = class_type->type->class_info;
+
+    return class_info->base_classes_list[num]->base_offset;
+}
+
+void class_type_set_offset_base_num(type_t* class_type, int num, _size_t base_offset)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+
+    class_info_t* class_info = class_type->type->class_info;
+
+    class_info->base_classes_list[num]->base_offset = base_offset;
+}
+
 int class_type_get_num_constructors(type_t* class_type)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);

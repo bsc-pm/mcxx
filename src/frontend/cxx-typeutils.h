@@ -500,6 +500,9 @@ void class_type_set_non_virtual_size(type_t* t, _size_t non_virtual_size);
 _size_t class_type_get_non_virtual_align(type_t* t);
 void class_type_set_non_virtual_align(type_t* t, _size_t non_virtual_align);
 
+_size_t class_type_get_offset_base_num(type_t* class_type, int num);
+void class_type_set_offset_base_num(type_t* class_type, int num, _size_t base_offset);
+
 MCXX_END_DECLS
 
 #endif // CXX_TYPEUTILS_H
