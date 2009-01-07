@@ -110,6 +110,8 @@ compilation_process_t compilation_process;
 "                           invokes remaining steps. A previous\n" \
 "                           invocation with --keep is required.\n" \
 "                           This flag also implies --keep.\n" \
+"  --compute-sizeof         Enable sizeof computation.\n" \
+"                           This is an EXPERIMENTAL feature\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -168,6 +170,7 @@ struct command_line_long_options command_line_long_options[] =
     {"pp-stdout", CLP_NO_ARGUMENT, OPTION_PREPROCESSOR_USES_STDOUT},
     {"disable-gxx-traits", CLP_NO_ARGUMENT, OPTION_DISABLE_GXX_TRAITS},
     {"pass-through", CLP_NO_ARGUMENT, OPTION_PASS_THROUGH}, 
+    {"compute-sizeof", CLP_NO_ARGUMENT, OPTION_COMPUTE_SIZEOF},
     // sentinel
     {NULL, 0, 0}
 };
@@ -650,6 +653,11 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
                         CURRENT_CONFIGURATION(pass_through) = 1;
                         // Otherwise we will wipe files that might be being modified
                         CURRENT_CONFIGURATION(keep_files) = 1;
+                        break;
+                    }
+                case OPTION_COMPUTE_SIZEOF:
+                    {
+                        CURRENT_CONFIGURATION(compute_sizeof) = 1;
                         break;
                     }
                 case 'h' :
@@ -1445,6 +1453,15 @@ static void commit_configuration(void)
             {
                 config_directive->funct(configuration, configuration_line->value);
             }
+        }
+    }
+
+    DEBUG_CODE()
+    {
+        if (CURRENT_CONFIGURATION(compute_sizeof))
+        {
+            fprintf(stderr, "DRIVER: Using type environment '%s' for type size calculation\n",
+                    CURRENT_CONFIGURATION(type_environment)->environ_name);
         }
     }
 }

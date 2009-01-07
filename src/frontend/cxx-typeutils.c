@@ -7318,11 +7318,34 @@ _size_t type_get_size(type_t* t)
     // Note that we are not advancing typedefs because of attributes affecting types!
     if (!t->valid_size)
     {
-        // Let's assume that every other thing is aggregated and must have its size
-        // computed
-        (CURRENT_CONFIGURATION(type_environment)->compute_sizeof)(t);
+        if (is_typedef_type(t))
+        {
+            type_t* alias_type = get_aliased_type(t);
+            // Ensure the aliased type has its size computed
+            // and copy it to the typedef
+            type_set_size(t, type_get_size(alias_type));
+            type_set_alignment(t, type_get_alignment(alias_type));
 
-        ERROR_CONDITION(t->valid_size == 0, 
+            CXX_LANGUAGE()
+            {
+                type_set_data_size(t, type_get_data_size(alias_type));
+                class_type_set_non_virtual_size(t, 
+                        class_type_get_non_virtual_size(alias_type));
+                class_type_set_non_virtual_align(t, 
+                        class_type_get_non_virtual_align(alias_type));
+            }
+
+            // State it valid
+            type_set_valid_size(t, 1);
+        }
+        else
+        {
+            // Let's assume that every other thing is aggregated and must have its size
+            // computed
+            (CURRENT_CONFIGURATION(type_environment)->compute_sizeof)(t);
+        }
+
+        ERROR_CONDITION(!t->valid_size, 
                 "Valid size has not been properly computed!", 0);
     }
 
@@ -7332,13 +7355,11 @@ _size_t type_get_size(type_t* t)
 _size_t type_get_alignment(type_t* t)
 {
     // Note that we are not advancing typedefs because of attributes affecting types!
-    if (t->valid_size)
+    if (!t->valid_size)
     {
-        // Let's assume that every other thing is aggregated and must have its size
-        // computed
-        (CURRENT_CONFIGURATION(type_environment)->compute_sizeof)(t);
+        type_get_size(t);
 
-        ERROR_CONDITION(t->valid_size == 0, 
+        ERROR_CONDITION(!t->valid_size, 
                 "Valid size has not been properly computed!", 0);
     }
 
@@ -7376,6 +7397,14 @@ _size_t type_get_data_size(type_t* t)
         internal_error("This function is only for C++", 0);
     }
 
+    if (!t->valid_size)
+    {
+        type_get_size(t);
+
+        ERROR_CONDITION(!t->valid_size, 
+                "Valid size has not been properly computed!", 0);
+    }
+
     return t->data_size;
 }
 
@@ -7391,48 +7420,75 @@ void type_set_data_size(type_t* t, _size_t data_size)
 
 _size_t class_type_get_non_virtual_size(type_t* t)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(t),
-            "Invalid class type", 0);
     C_LANGUAGE()
     {
         internal_error("This function is only for C++", 0);
     }
 
-    return t->type->class_info->non_virtual_size;
+    if (!t->valid_size)
+    {
+        type_get_size(t);
+
+        ERROR_CONDITION(!t->valid_size, 
+                "Valid size has not been properly computed!", 0);
+    }
+
+    if (is_class_type(t))
+    {
+        type_t* class_type = get_actual_class_type(t);
+        return class_type->type->class_info->non_virtual_size;
+    }
+    return type_get_size(t);
 }
 
 void class_type_set_non_virtual_size(type_t* t, _size_t non_virtual_size)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(t),
-            "Invalid class type", 0);
     C_LANGUAGE()
     {
         internal_error("This function is only for C++", 0);
     }
 
-    t->type->class_info->non_virtual_size = non_virtual_size;
+    if (is_class_type(t))
+    {
+        type_t* class_type = get_actual_class_type(t);
+        class_type->type->class_info->non_virtual_size = non_virtual_size;
+    }
 }
 
 _size_t class_type_get_non_virtual_align(type_t* t)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(t),
-            "Invalid class type", 0);
     C_LANGUAGE()
     {
         internal_error("This function is only for C++", 0);
     }
 
-    return t->type->class_info->non_virtual_align;
+    if (!t->valid_size)
+    {
+        type_get_size(t);
+
+        ERROR_CONDITION(!t->valid_size, 
+                "Valid size has not been properly computed!", 0);
+    }
+
+    if (is_class_type(t))
+    {
+        type_t* class_type = get_actual_class_type(t);
+        return class_type->type->class_info->non_virtual_align;
+    }
+
+    return type_get_alignment(t);
 }
 
 void class_type_set_non_virtual_align(type_t* t, _size_t non_virtual_align)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(t),
-            "Invalid class type", 0);
     C_LANGUAGE()
     {
         internal_error("This function is only for C++", 0);
     }
 
-    t->type->class_info->non_virtual_align = non_virtual_align;
+    if (is_class_type(t))
+    {
+        type_t* class_type = get_actual_class_type(t);
+        class_type->type->class_info->non_virtual_align = non_virtual_align;
+    }
 }

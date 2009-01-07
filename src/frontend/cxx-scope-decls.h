@@ -363,7 +363,7 @@ typedef struct entity_specifiers_tag
     struct AST_tag* bitfield_expr;
     decl_context_t bitfield_expr_context;
 
-    // Only for fields, the offsetof value
+    // Only for fields that are not bitfields, their offsetof value
     _size_t field_offset;
 
     // Is a surrogate fake symbol

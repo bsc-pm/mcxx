@@ -33,6 +33,7 @@
 #include "cxx-instantiation.h"
 #include "cxx-buildscope.h"
 #include "cxx-cexpr.h"
+#include "cxx-typeenviron.h"
 #include <ctype.h>
 #include <string.h>
 
@@ -8778,6 +8779,20 @@ static char check_for_sizeof_expr(AST expr, decl_context_t decl_context)
     AST sizeof_expression = ASTSon0(expr);
     if (check_for_expression(sizeof_expression, decl_context))
     {
+        type_t* t = ASTExprType(sizeof_expression);
+
+        if (CURRENT_CONFIGURATION(compute_sizeof))
+        {
+            _size_t type_size = type_get_size(t);
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: %s: '%s' yields a value of %llu\n",
+                        ast_location(expr),
+                        prettyprint_in_buffer(expr),
+                        type_size);
+            }
+        }
+
         ast_set_expression_type(expr, get_size_t_type());
         ast_set_expression_is_lvalue(expr, 0);
         return 1;
@@ -8791,6 +8806,33 @@ static char check_for_sizeof_typeid(AST expr, decl_context_t decl_context)
     AST type_id = ASTSon0(expr);
     if (check_for_type_id_tree(type_id, decl_context))
     {
+        if (CURRENT_CONFIGURATION(compute_sizeof))
+        {
+            AST type_specifier = ASTSon0(type_id);
+            AST abstract_declarator = ASTSon1(type_id);
+
+            gather_decl_spec_t gather_info;
+            memset(&gather_info, 0, sizeof(gather_info));
+
+            type_t* simple_type_info = NULL;
+            build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
+                    decl_context);
+
+            type_t* declarator_type = simple_type_info;
+            compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
+                    &declarator_type, decl_context);
+
+            _size_t type_size = type_get_size(declarator_type);
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: %s: '%s' yields a value of %llu\n",
+                        ast_location(expr),
+                        prettyprint_in_buffer(expr),
+                        type_size);
+            }
+        }
+
         ast_set_expression_type(expr, get_size_t_type());
         ast_set_expression_is_lvalue(expr, 0);
         return 1;

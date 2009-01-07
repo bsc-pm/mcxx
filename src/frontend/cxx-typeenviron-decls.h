@@ -22,6 +22,8 @@ typedef uint64_t _ssize_t;
  */
 struct type_environment_tag
 {
+    const char* environ_name;
+
     // bool
     _size_t sizeof_bool;
     _size_t alignof_bool;
@@ -90,11 +92,11 @@ struct type_environment_tag
     void (*compute_sizeof)(type_t*);
 
     // The type that matches the one of sizeof
-    type_t* (*type_of_sizeof)();
+    type_t* (*type_of_sizeof)(void);
 
     // The exact 'char' type (depending on the environment it is 'signed' or
     // 'unsigned')
-    type_t* (*char_type)();
+    type_t* (*char_type)(void);
 };
 
 typedef struct type_environment_tag type_environment_t;
