@@ -1969,6 +1969,10 @@ char class_type_is_empty(type_t* t)
 {
     ERROR_CONDITION(!is_class_type(t), "Invalid class type", 0);
 
+    // If the class is dynamic it cannot empty
+    if (class_type_is_dynamic(t))
+        return 0;
+
     type_t* class_type = get_actual_class_type(t);
 
     int num_of_non_empty_nonstatics_data_members = 0;
@@ -2017,13 +2021,32 @@ char class_type_is_dynamic(type_t* t)
     if (virtual_functions != NULL)
         return 1;
 
+    // If our destructor is dynamic, we are dynamic
+    scope_entry_t* destructor = class_type_get_destructor(class_type);
+
+    if (destructor != NULL
+            && destructor->entity_specs.is_virtual)
+        return 1;
+
+    // If any of our conversion functions is virtual, we are dynamic
+    int num_conversions = class_type_get_num_conversions(class_type);
     int i;
-    for (i = 0; i < class_type_get_num_bases(class_type); i++)
+
+    for (i = 0; i < num_conversions; i++)
+    {
+        scope_entry_t* conversion_function = class_type_get_conversion_num(class_type, i);
+
+        if (conversion_function->entity_specs.is_virtual)
+            return 1;
+    }
+
+    // If any of our bases is dynamic or a virtual base, we are dynamic
+    int num_bases = class_type_get_num_bases(class_type);
+    for (i = 0; i < num_bases; i++)
     {
         char is_virtual = 0;
         scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
 
-        // If the base is virtual or is dynamic, we are dynamic
         if (is_virtual
                 || class_type_is_dynamic(base_class->type_information))
             return 1;

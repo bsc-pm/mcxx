@@ -197,10 +197,8 @@ static void system_v_field_layout(scope_entry_t* field,
     }
 }
 
-static void system_v_union_sizeof(type_t* t)
+static void system_v_union_sizeof(type_t* class_type)
 {
-    type_t *class_type = get_actual_class_type(t);
-
     // offset is used only for non-bitfields and when bitfields
     // cause an effective advance of the offset, otherwise bitfields only
     // use current_bit_within_storage
@@ -248,14 +246,13 @@ static void system_v_union_sizeof(type_t* t)
         whole_align = CURRENT_CONFIGURATION(type_environment)->alignof_signed_int;
     }
 
-    type_set_size(t, offset);
-    type_set_alignment(t, whole_align);
-    type_set_valid_size(t, 1);
+    type_set_size(class_type, offset);
+    type_set_alignment(class_type, whole_align);
+    type_set_valid_size(class_type, 1);
 }
 
-static void system_v_struct_sizeof(type_t* t)
+static void system_v_struct_sizeof(type_t* class_type)
 {
-    type_t *class_type = get_actual_class_type(t);
     // offset is used only for non-bitfields and when bitfields
     // cause an effective advance of the offset, otherwise bitfields only
     // use current_bit_within_storage
@@ -302,9 +299,9 @@ static void system_v_struct_sizeof(type_t* t)
         }
     }
 
-    type_set_size(t, offset);
-    type_set_alignment(t, whole_align);
-    type_set_valid_size(t, 1);
+    type_set_size(class_type, offset);
+    type_set_alignment(class_type, whole_align);
+    type_set_valid_size(class_type, 1);
 }
 
 static void system_v_generic_sizeof(type_t* t)
@@ -315,11 +312,21 @@ static void system_v_generic_sizeof(type_t* t)
     {
         system_v_array_sizeof(t);
     }
+    else if (is_named_class_type(t))
+    {
+        type_t* class_type = get_actual_class_type(t);
+        system_v_generic_sizeof(class_type);
+
+        type_set_size(t, type_get_size(class_type));
+        type_set_alignment(t, type_get_alignment(class_type));
+        type_set_valid_size(t, 1);
+    }
+    // It must be unnamed
     else if (is_union_type(t))
     {
         system_v_union_sizeof(t);
     }
-    else if (is_class_type(t))
+    else if (is_unnamed_class_type(t))
     {
         system_v_struct_sizeof(t);
     }
@@ -470,8 +477,6 @@ static void class_type_get_indirect_virtual_primary_bases(
 static scope_entry_t* cxx_abi_class_type_get_primary_base_class(type_t* t, char *is_virtual)
 {
     type_t* class_type = get_actual_class_type(t);
-    ERROR_CONDITION(!is_named_class_type(t),
-            "Invalid class type", 0);
 
     int num_bases = 0;
     base_info_preorder_t base_info[MAX_BASES];
@@ -595,6 +600,7 @@ static void cxx_abi_register_entity_offset(layout_info_t* layout_info,
         }
 
         previous_offset = current_offset;
+        current_offset = current_offset->next;
     }
 
     // Cases: previous_offset == NULL means we are at the beginning
@@ -620,6 +626,38 @@ static void cxx_abi_register_entity_offset(layout_info_t* layout_info,
         previous_offset->next = new_offset_info;
     }
 }
+
+#if 0
+static void cxx_abi_print_layout(layout_info_t* layout_info)
+{
+    fprintf(stderr, "--- Layout of class ---\n");
+
+    offset_info_t* current_offset = layout_info->offsets;
+    while (current_offset != NULL)
+    {
+        scope_entry_list_t* subobjects = current_offset->subobjects;
+
+
+        while (subobjects != NULL)
+        {
+            scope_entry_t* entry = subobjects->entry;
+
+            char is_dependent = 0;
+            int max_qualif_level = 0;
+            fprintf(stderr, "@%04llu:", current_offset->offset);
+
+            fprintf(stderr, " %s\n", get_fully_qualified_symbol_name(entry, 
+                        entry->decl_context, &is_dependent, &max_qualif_level));
+
+            subobjects = subobjects->next;
+        }
+
+        current_offset = current_offset->next;
+    }
+
+    fprintf(stderr, "--- End of layout ---\n");
+}
+#endif
 
 static void cxx_abi_register_subobject_offset(layout_info_t* layout_info,
         scope_entry_t* member,
@@ -861,7 +899,9 @@ static void cxx_abi_lay_bitfield(type_t* t UNUSED_PARAMETER,
 static void cxx_abi_lay_member_out(type_t* t, 
         scope_entry_t* member, 
         layout_info_t* layout_info,
-        char is_base_class)
+        char is_base_class,
+        // If num_base_class < 0 then do not set its offset
+        int num_base_class)
 {
     if (member->entity_specs.is_bitfield)
     {
@@ -910,6 +950,12 @@ static void cxx_abi_lay_member_out(type_t* t,
                 }
             }
 
+            if (num_base_class >= 0)
+            {
+                class_type_set_offset_base_num(t, num_base_class, offset);
+                cxx_abi_register_subobject_offset(layout_info, member, offset);
+            }
+
             // Once offset(D) has been chosen, update sizeof(C) to max(sizeof(C), offset(D) + sizeof(D))
             layout_info->size = MAX(layout_info->size, offset + size_of_base);
         }
@@ -943,9 +989,6 @@ static void cxx_abi_lay_member_out(type_t* t,
                 }
             }
 
-            // Add offsets for this member
-            cxx_abi_register_subobject_offset(layout_info, member, offset);
-
             if (is_base_class)
             {
                 // If D is a base class update sizeof(C) to max (sizeof(C), offset(D) + nvsize(D))
@@ -953,12 +996,21 @@ static void cxx_abi_lay_member_out(type_t* t,
                 _size_t non_virtual_align = class_type_get_non_virtual_align(member->type_information);
                 layout_info->size = MAX(layout_info->size, offset + non_virtual_size);
 
+                if (num_base_class >= 0)
+                {
+                    class_type_set_offset_base_num(t, num_base_class, offset);
+                    cxx_abi_register_subobject_offset(layout_info, member, offset);
+                }
+
                 // Update dsize(C) to offset(D) + nvsize(D) and align(C) to max(align(C), nvalign(D))
                 layout_info->dsize = offset + non_virtual_size;
                 layout_info->align = MAX(layout_info->align, non_virtual_align);
             }
             else
             {
+                member->entity_specs.field_offset = offset;
+                cxx_abi_register_subobject_offset(layout_info, member, offset);
+
                 // Otherwise, if D is a data member, update sizeof(C) to max(sizeof(C), offset(D) + sizeof(D))
                 layout_info->size = MAX(layout_info->size, offset + sizeof_member);
 
@@ -979,23 +1031,8 @@ static void cxx_abi_lay_member_out(type_t* t,
     layout_info->previous_base = is_base_class ? member : NULL;
 }
 
-static void cxx_abi_class_sizeof(type_t* t)
+static void cxx_abi_class_sizeof(type_t* class_type)
 {
-    if (is_pod_type_layout(t))
-    {
-        system_v_struct_sizeof(t);
-
-        // dsize
-        type_set_data_size(t, type_get_size(t));
-        // nvsize
-        class_type_set_non_virtual_size(t, type_get_size(t));
-        // nvalign
-        class_type_set_non_virtual_align(t, type_get_alignment(t));
-        return;
-    }
-
-    type_t* class_type = get_actual_class_type(t);
-
     // Initialization: sizeof to 0, align to 1, dsize to 0
     layout_info_t layout_info;
     memset(&layout_info, 0, sizeof(layout_info));
@@ -1027,12 +1064,17 @@ static void cxx_abi_class_sizeof(type_t* t)
             layout_info.align = CURRENT_CONFIGURATION(type_environment)->alignof_pointer;
             layout_info.dsize = CURRENT_CONFIGURATION(type_environment)->sizeof_pointer;
 
-            // First primary base class (if any)
-            cxx_abi_lay_member_out(t,
-                    primary_base_class,
-                    &layout_info, /* is_base_class */ 1);
         }
-
+        else
+        {
+            // First primary base class (if any)
+            cxx_abi_lay_member_out(class_type,
+                    primary_base_class,
+                    &layout_info, 
+                    /* is_base_class */ 1,
+                    // No need to set the offset since it is 0
+                    /* num_base_class */ -1);
+        }
     }
 
     // Non primary non virtual direct bases
@@ -1045,11 +1087,16 @@ static void cxx_abi_class_sizeof(type_t* t)
             char is_virtual;
             scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
 
-            if (!is_virtual)
+            if (!is_virtual
+                    && primary_base_class != base_class)
             {
-                cxx_abi_lay_member_out(t,
+                cxx_abi_lay_member_out(class_type,
                         base_class,
-                        &layout_info, /* is_base_class */ 1);
+                        &layout_info, 
+                        /* is_base_class */ 1,
+                        /* num_base_class */ i);
+
+                // class_type_set_offset_base_num(class_type, i, 
             }
         }
     }
@@ -1066,9 +1113,11 @@ static void cxx_abi_class_sizeof(type_t* t)
             scope_entry_t* nonstatic_data_member 
                 = class_type_get_nonstatic_data_member_num(class_type, i);
 
-            cxx_abi_lay_member_out(t,
+            cxx_abi_lay_member_out(class_type,
                     nonstatic_data_member,
-                    &layout_info, /* is_base_class */ 0);
+                    &layout_info, 
+                    /* is_base_class */ 0,
+                    /* num_base_class */ -1);
         }
     }
 
@@ -1083,7 +1132,7 @@ static void cxx_abi_class_sizeof(type_t* t)
 
         class_type_preorder_all_bases_rec(class_type, base_info, &num_bases);
 
-        // Get all the indirect primary bases since we won't allocate these here
+        // Get all the indirect primary bases since we won'class_type allocate these here
         int num_primaries = 0;
         base_info_preorder_t indirect_primary_bases[MAX_BASES];
 
@@ -1108,38 +1157,47 @@ static void cxx_abi_class_sizeof(type_t* t)
                 // It is not an indirect primary base, allocate it
                 if (!found)
                 {
-                    cxx_abi_lay_member_out(t, base_info[i].entry,
-                            &layout_info, /* is_base_class */ 1);
+                    cxx_abi_lay_member_out(class_type, base_info[i].entry,
+                            &layout_info, 
+                            /* is_base_class */ 1,
+                            // Do not set the offset of this class since it might not be a direct one
+                            /* num_base_class */ -1);
                 }
             }
         }
     }
 
     // dsize
-    type_set_data_size(t, layout_info.size);
+    type_set_data_size(class_type, layout_info.size);
 
     // Finalization, round sizeof(C) up to a non zero multiple of align(C)
     next_offset_with_align(&layout_info.size, layout_info.align);
 
+    if (layout_info.size == 0)
+        layout_info.size = 1;
+
     // If it is POD, but not for the purpose of layout
     // set nvsize(C) = sizeof(C)
-    if (is_pod_type(t))
+    if (is_pod_type(class_type)
+            && !is_pod_type_layout(class_type))
     {
         layout_info.nvsize = layout_info.size;
     }
 
     // sizeof
-    type_set_size(t, layout_info.size);
+    type_set_size(class_type, layout_info.size);
     // align
-    type_set_alignment(t, layout_info.align);
+    type_set_alignment(class_type, layout_info.align);
 
     // nvsize
-    class_type_set_non_virtual_size(t, layout_info.nvsize);
+    class_type_set_non_virtual_size(class_type, layout_info.nvsize);
     // nvalign
-    class_type_set_non_virtual_align(t, layout_info.nvalign);
+    class_type_set_non_virtual_align(class_type, layout_info.nvalign);
 
     // Valid size
-    type_set_valid_size(t, 1);
+    type_set_valid_size(class_type, 1);
+
+    // cxx_abi_print_layout(&layout_info);
 }
 
 
@@ -1153,21 +1211,6 @@ static void cxx_abi_generic_sizeof(type_t* t)
 
         // This is like a POD
         type_set_data_size(t, type_get_size(t));
-    }
-    else if (is_union_type(t))
-    {
-        cxx_abi_union_sizeof(t);
-
-        // This should be a POD all the time
-        type_set_data_size(t, type_get_size(t));
-        // nvsize
-        class_type_set_non_virtual_size(t, type_get_size(t));
-        // nvalign
-        class_type_set_non_virtual_align(t, type_get_alignment(t));
-    }
-    else if (is_class_type(t))
-    {
-        cxx_abi_class_sizeof(t);
     }
     else if (is_lvalue_reference_type(t)
             || is_rvalue_reference_type(t))
@@ -1183,6 +1226,36 @@ static void cxx_abi_generic_sizeof(type_t* t)
         type_set_data_size(t, type_get_size(referenced_type));
         // Valid size
         type_set_valid_size(t, 1);
+    }
+    else if (is_named_class_type(t))
+    {
+        type_t* class_type = get_actual_class_type(t);
+
+        // Use the underlying class type
+        cxx_abi_generic_sizeof(class_type);
+
+        // And propagate
+        type_set_size(t, type_get_size(class_type));
+        type_set_data_size(t, type_get_data_size(class_type));
+        type_set_alignment(t, type_get_alignment(class_type));
+
+        type_set_valid_size(t, 1);
+    }
+    // Unnamed from now
+    else if (is_union_type(t))
+    {
+        cxx_abi_union_sizeof(t);
+
+        // This should be a POD all the time
+        type_set_data_size(t, type_get_size(t));
+        // nvsize
+        class_type_set_non_virtual_size(t, type_get_size(t));
+        // nvalign
+        class_type_set_non_virtual_align(t, type_get_alignment(t));
+    }
+    else if (is_class_type(t))
+    {
+        cxx_abi_class_sizeof(t);
     }
     else
     {

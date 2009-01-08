@@ -8784,13 +8784,10 @@ static char check_for_sizeof_expr(AST expr, decl_context_t decl_context)
         if (CURRENT_CONFIGURATION(compute_sizeof))
         {
             _size_t type_size = type_get_size(t);
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "EXPRTYPE: %s: '%s' yields a value of %llu\n",
-                        ast_location(expr),
-                        prettyprint_in_buffer(expr),
-                        type_size);
-            }
+            fprintf(stderr, "EXPRTYPE: %s: '%s' yields a value of %llu\n",
+                    ast_location(expr),
+                    prettyprint_in_buffer(expr),
+                    type_size);
         }
 
         ast_set_expression_type(expr, get_size_t_type());
@@ -8824,13 +8821,10 @@ static char check_for_sizeof_typeid(AST expr, decl_context_t decl_context)
 
             _size_t type_size = type_get_size(declarator_type);
 
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "EXPRTYPE: %s: '%s' yields a value of %llu\n",
-                        ast_location(expr),
-                        prettyprint_in_buffer(expr),
-                        type_size);
-            }
+            fprintf(stderr, "EXPRTYPE: %s: '%s' yields a value of %llu\n",
+                    ast_location(expr),
+                    prettyprint_in_buffer(expr),
+                    type_size);
         }
 
         ast_set_expression_type(expr, get_size_t_type());
