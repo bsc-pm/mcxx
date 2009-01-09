@@ -627,6 +627,7 @@ static void cxx_abi_register_entity_offset(layout_info_t* layout_info,
     }
 }
 
+#if 0
 static void cxx_abi_print_layout(layout_info_t* layout_info)
 {
     fprintf(stderr, "--- Layout of class ---\n");
@@ -656,6 +657,7 @@ static void cxx_abi_print_layout(layout_info_t* layout_info)
 
     fprintf(stderr, "--- End of layout ---\n");
 }
+#endif
 
 static void cxx_abi_register_subobject_offset(layout_info_t* layout_info,
         scope_entry_t* member,
@@ -715,8 +717,8 @@ static char cxx_abi_conflicting_member(layout_info_t* layout_info,
 {
     offset_info_t* current_offset = layout_info->offsets;
 
-    fprintf(stderr, "Checking if offset %llu is valid for '%s'\n",
-            candidate_offset, member->symbol_name);
+    // fprintf(stderr, "Checking if offset %llu is valid for '%s'\n",
+    //         candidate_offset, member->symbol_name);
 
     while (current_offset != NULL)
     {
@@ -745,9 +747,9 @@ static char cxx_abi_conflicting_member(layout_info_t* layout_info,
                 if (equivalent_types(subobject_entry->type_information,
                             member->type_information))
                 {
-                    fprintf(stderr, "Conflict detected at offset %llu with '%s'!\n",
-                            current_offset->offset,
-                            subobject_entry->symbol_name);
+                    // fprintf(stderr, "Conflict detected at offset %llu with '%s'!\n",
+                    //         current_offset->offset,
+                    //         subobject_entry->symbol_name);
                     return 1;
                 }
 
@@ -989,12 +991,12 @@ static void cxx_abi_lay_member_out(type_t* t,
             // Once offset(D) has been chosen, update sizeof(C) to max(sizeof(C), offset(D) + sizeof(D))
             layout_info->size = MAX(layout_info->size, offset + size_of_base);
 
-            fprintf(stderr, "Laying out base class '%s' at offset %llu\n",
-                    get_fully_qualified_symbol_name(member, 
-                        member->decl_context,
-                        &is_dependent,
-                        &max_qualif_level),
-                    offset);
+            // fprintf(stderr, "Laying out base class '%s' at offset %llu\n",
+            //         get_fully_qualified_symbol_name(member, 
+            //             member->decl_context,
+            //             &is_dependent,
+            //             &max_qualif_level),
+            //         offset);
         }
         else // Plain data member or non empty base class
         {
@@ -1043,12 +1045,12 @@ static void cxx_abi_lay_member_out(type_t* t,
                 layout_info->dsize = offset + non_virtual_size;
                 layout_info->align = MAX(layout_info->align, non_virtual_align);
 
-                fprintf(stderr, "Laying out base class '%s' at offset %llu\n",
-                        get_fully_qualified_symbol_name(member, 
-                            member->decl_context,
-                            &is_dependent,
-                            &max_qualif_level),
-                        offset);
+                // fprintf(stderr, "Laying out base class '%s' at offset %llu\n",
+                //         get_fully_qualified_symbol_name(member, 
+                //             member->decl_context,
+                //             &is_dependent,
+                //             &max_qualif_level),
+                //         offset);
             }
             else
             {
@@ -1064,12 +1066,12 @@ static void cxx_abi_lay_member_out(type_t* t,
                 layout_info->dsize = offset + sizeof_member;
                 layout_info->align = MAX(layout_info->align, alignment);
 
-                fprintf(stderr, "Laying out member '%s' at offset %llu\n",
-                        get_fully_qualified_symbol_name(member, 
-                            member->decl_context,
-                            &is_dependent,
-                            &max_qualif_level),
-                        offset);
+                // fprintf(stderr, "Laying out member '%s' at offset %llu\n",
+                //         get_fully_qualified_symbol_name(member, 
+                //             member->decl_context,
+                //             &is_dependent,
+                //             &max_qualif_level),
+                //         offset);
             }
         }
 
@@ -1109,7 +1111,7 @@ static void cxx_abi_class_sizeof(type_t* class_type)
 
         if (primary_base_class == NULL)
         {
-            fprintf(stderr, "No primary base class\n");
+            // fprintf(stderr, "No primary base class\n");
             // c) If C has no primary base class, allocate the virtual table pointer
             // for C at offset zero and set sizeof(C), align(C) and dsize(C) to the
             // appropriate values for a pointer
@@ -1121,16 +1123,16 @@ static void cxx_abi_class_sizeof(type_t* class_type)
         else
         {
             // First primary base class (if any)
-            fprintf(stderr, "Laying out primary base class '%s'\n",
-                    primary_base_class->symbol_name);
+            // fprintf(stderr, "Laying out primary base class '%s'\n",
+            //         primary_base_class->symbol_name);
             cxx_abi_lay_member_out(class_type,
                     primary_base_class,
                     &layout_info, 
                     /* is_base_class */ 1,
                     // No need to set the offset since it is 0
                     /* num_base_class */ 0);
-            fprintf(stderr, "Finished laying out primary base class '%s'\n",
-                    primary_base_class->symbol_name);
+            // fprintf(stderr, "Finished laying out primary base class '%s'\n",
+            //         primary_base_class->symbol_name);
         }
     }
 
@@ -1219,13 +1221,13 @@ static void cxx_abi_class_sizeof(type_t* class_type)
                 // It is not an indirect primary base, allocate it
                 if (!found)
                 {
-                    fprintf(stderr, "Laying out virtual base '%s'\n", base_info[i].entry->symbol_name);
+                    // fprintf(stderr, "Laying out virtual base '%s'\n", base_info[i].entry->symbol_name);
                     cxx_abi_lay_member_out(class_type, base_info[i].entry,
                             &layout_info, 
                             /* is_base_class */ 1,
                             // Do not set the offset of this class since it might not be a direct one
                             /* num_base_class */ -1);
-                    fprintf(stderr, "Finished laying out virtual base '%s'\n", base_info[i].entry->symbol_name);
+                    // fprintf(stderr, "Finished laying out virtual base '%s'\n", base_info[i].entry->symbol_name);
                 }
             }
         }
@@ -1261,7 +1263,7 @@ static void cxx_abi_class_sizeof(type_t* class_type)
     // Valid size
     type_set_valid_size(class_type, 1);
 
-    cxx_abi_print_layout(&layout_info);
+    // cxx_abi_print_layout(&layout_info);
 }
 
 
