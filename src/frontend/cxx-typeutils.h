@@ -500,8 +500,16 @@ void class_type_set_non_virtual_size(type_t* t, _size_t non_virtual_size);
 _size_t class_type_get_non_virtual_align(type_t* t);
 void class_type_set_non_virtual_align(type_t* t, _size_t non_virtual_align);
 
-_size_t class_type_get_offset_base_num(type_t* class_type, int num);
-void class_type_set_offset_base_num(type_t* class_type, int num, _size_t base_offset);
+_size_t class_type_get_offset_direct_base(type_t* class_type, scope_entry_t* direct_base);
+void class_type_set_offset_direct_base(type_t* class_type, scope_entry_t* direct_base, _size_t base_offset);
+
+_size_t class_type_get_offset_virtual_base(type_t* class_type, scope_entry_t* virtual_base);
+void class_type_set_offset_virtual_base(type_t* class_type, scope_entry_t* virtual_base, _size_t offset);
+
+int class_type_get_num_virtual_bases_with_offset(type_t* t);
+void class_type_get_virtual_base_with_offset_num(type_t* t, int num, 
+        scope_entry_t** symbol, 
+        _size_t* offset);
 
 MCXX_END_DECLS
 

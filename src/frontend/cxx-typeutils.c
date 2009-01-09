@@ -122,6 +122,13 @@ struct base_class_info_tag
     _size_t base_offset;
 } base_class_info_t;
 
+typedef
+struct virtual_base_class_info_tag
+{
+    struct scope_entry_tag* virtual_base;
+    _size_t virtual_base_offset;
+} virtual_base_class_info_t;
+
 // Information of a class
 typedef 
 struct class_information_tag {
@@ -175,6 +182,10 @@ struct class_information_tag {
     // Base (parent classes) info
     int num_bases;
     base_class_info_t** base_classes_list;
+
+    // Virtual base info (used only when laying types)
+    int num_virtual_bases;
+    virtual_base_class_info_t** virtual_base_classes_list;
 
     // Info for laying out 
     _size_t non_virtual_size;
@@ -2068,7 +2079,7 @@ static char has_non_virtual_empty_base_class_not_zero_offset_rec(type_t* class_t
         char is_virtual = 0;
         scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
 
-        // If not morally virtual and mepty
+        // If not morally virtual and empty
         if (!is_virtual
                 && class_type_is_empty(base_class->type_information))
         {
@@ -2578,22 +2589,43 @@ scope_entry_t* class_type_get_base_num(type_t* class_type, int num, char *is_vir
     return class_info->base_classes_list[num]->class_symbol;
 }
 
-_size_t class_type_get_offset_base_num(type_t* class_type, int num)
+_size_t class_type_get_offset_direct_base(type_t* class_type, scope_entry_t* direct_base)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
 
     class_info_t* class_info = class_type->type->class_info;
 
-    return class_info->base_classes_list[num]->base_offset;
+    int num_bases = class_info->num_bases;
+    int i;
+    for (i = 0; i < num_bases; i++)
+    {
+        if (class_info->base_classes_list[i]->class_symbol == direct_base)
+        {
+            return class_info->base_classes_list[i]->base_offset;
+        }
+    }
+
+    internal_error("Unreachable code", 0);
 }
 
-void class_type_set_offset_base_num(type_t* class_type, int num, _size_t base_offset)
+void class_type_set_offset_direct_base(type_t* class_type, scope_entry_t* direct_base, _size_t base_offset)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
 
     class_info_t* class_info = class_type->type->class_info;
 
-    class_info->base_classes_list[num]->base_offset = base_offset;
+    int num_bases = class_info->num_bases;
+    int i;
+    for (i = 0; i < num_bases; i++)
+    {
+        if (class_info->base_classes_list[i]->class_symbol == direct_base)
+        {
+            class_info->base_classes_list[i]->base_offset = base_offset;
+            return;
+        }
+    }
+
+    internal_error("Unreachable code", 0);
 }
 
 int class_type_get_num_constructors(type_t* class_type)
@@ -7513,4 +7545,100 @@ void class_type_set_non_virtual_align(type_t* t, _size_t non_virtual_align)
         type_t* class_type = get_actual_class_type(t);
         class_type->type->class_info->non_virtual_align = non_virtual_align;
     }
+}
+
+_size_t class_type_get_offset_virtual_base(type_t* t, scope_entry_t* virtual_base)
+{
+    C_LANGUAGE()
+    {
+        internal_error("This function is only for C++", 0);
+    }
+
+    ERROR_CONDITION(!is_class_type(t),
+            "This is not an class type!", 0);
+
+    type_t* class_type = get_actual_class_type(t);
+
+    int num_virtual_bases = class_type->type->class_info->num_virtual_bases;
+    int i;
+    
+    for (i = 0; i < num_virtual_bases; i++)
+    {
+        if (class_type->type->class_info->virtual_base_classes_list[i]->virtual_base == virtual_base)
+        {
+            return class_type->type->class_info->virtual_base_classes_list[i]->virtual_base_offset;
+        }
+    }
+
+    internal_error("Unreachable code", 0);
+}
+
+void class_type_set_offset_virtual_base(type_t* t, scope_entry_t* virtual_base, _size_t offset)
+{
+    C_LANGUAGE()
+    {
+        internal_error("This function is only for C++", 0);
+    }
+
+    ERROR_CONDITION(!is_class_type(t),
+            "This is not an class type!", 0);
+
+    type_t* class_type = get_actual_class_type(t);
+
+    int num_virtual_bases = class_type->type->class_info->num_virtual_bases;
+    int i;
+    
+    for (i = 0; i < num_virtual_bases; i++)
+    {
+        if (class_type->type->class_info->virtual_base_classes_list[i]->virtual_base == virtual_base)
+        {
+            class_type->type->class_info->virtual_base_classes_list[i]->virtual_base_offset = offset;
+            return;
+        }
+    }
+
+    // Add the virtual base
+    virtual_base_class_info_t* virtual_base_info = counted_calloc(
+            1, sizeof(*virtual_base_info),
+            &_bytes_due_to_type_system);
+
+    virtual_base_info->virtual_base = virtual_base;
+    virtual_base_info->virtual_base_offset = offset;
+
+    P_LIST_ADD(class_type->type->class_info->virtual_base_classes_list, 
+            class_type->type->class_info->num_virtual_bases,
+            virtual_base_info);
+}
+
+int class_type_get_num_virtual_bases_with_offset(type_t* t)
+{
+    C_LANGUAGE()
+    {
+        internal_error("This function is only for C++", 0);
+    }
+
+    ERROR_CONDITION(!is_class_type(t),
+            "This is not an class type!", 0);
+
+    type_t* class_type = get_actual_class_type(t);
+
+    return class_type->type->class_info->num_virtual_bases;
+}
+
+void class_type_get_virtual_base_with_offset_num(type_t* t, int num, 
+        scope_entry_t** symbol, 
+        _size_t* offset)
+{
+    C_LANGUAGE()
+    {
+        internal_error("This function is only for C++", 0);
+    }
+
+    ERROR_CONDITION(!is_class_type(t),
+            "This is not an class type!", 0);
+
+    type_t* class_type = get_actual_class_type(t);
+
+    *symbol = class_type->type->class_info->virtual_base_classes_list[num]->virtual_base;
+    *offset = class_type->type->class_info->virtual_base_classes_list[num]->virtual_base_offset;
 }
