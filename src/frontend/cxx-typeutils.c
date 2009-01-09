@@ -2141,9 +2141,6 @@ char class_type_is_nearly_empty(type_t* t)
         char is_virtual = 0;
         scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
 
-        if (!class_type_is_empty(base_class->type_information))
-            return 0;
-
         if (!is_virtual)
         {
             if (class_type_is_nearly_empty(base_class->type_information))
@@ -2157,6 +2154,8 @@ char class_type_is_nearly_empty(type_t* t)
                     // this class not a nearly empty class
                     return 0;
             }
+            else if (!class_type_is_empty(base_class->type_information))
+                return 0;
         }
     }
 
