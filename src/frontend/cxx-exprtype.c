@@ -8784,7 +8784,7 @@ static char check_for_sizeof_expr(AST expr, decl_context_t decl_context)
         if (CURRENT_CONFIGURATION(compute_sizeof))
         {
             _size_t type_size = type_get_size(t);
-            fprintf(stderr, "EXPRTYPE: %s: '%s' yields a value of %llu\n",
+            fprintf(stderr, "EXPRTYPE: %s: '%s' yields a value of %zu\n",
                     ast_location(expr),
                     prettyprint_in_buffer(expr),
                     type_size);
@@ -8821,7 +8821,7 @@ static char check_for_sizeof_typeid(AST expr, decl_context_t decl_context)
 
             _size_t type_size = type_get_size(declarator_type);
 
-            fprintf(stderr, "EXPRTYPE: %s: '%s' yields a value of %llu\n",
+            fprintf(stderr, "EXPRTYPE: %s: '%s' yields a value of %zu\n",
                     ast_location(expr),
                     prettyprint_in_buffer(expr),
                     type_size);
