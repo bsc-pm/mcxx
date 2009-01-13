@@ -643,7 +643,7 @@ static void cxx_abi_print_layout(layout_info_t* layout_info)
 
             char is_dependent = 0;
             int max_qualif_level = 0;
-            fprintf(stderr, "@%04llu:", current_offset->offset);
+            fprintf(stderr, "@%04zu:", current_offset->offset);
 
             fprintf(stderr, " %s\n", get_fully_qualified_symbol_name(entry, 
                         entry->decl_context, &is_dependent, &max_qualif_level));
@@ -716,7 +716,7 @@ static char cxx_abi_conflicting_member(layout_info_t* layout_info,
 {
     offset_info_t* current_offset = layout_info->offsets;
 
-    fprintf(stderr, "Checking if offset %llu is valid for '%s'\n",
+    fprintf(stderr, "Checking if offset %zu is valid for '%s'\n",
             candidate_offset, member->symbol_name);
 
     while (current_offset != NULL)
@@ -733,7 +733,7 @@ static char cxx_abi_conflicting_member(layout_info_t* layout_info,
                 if (equivalent_types(subobject_entry->type_information,
                             member->type_information))
                 {
-                    fprintf(stderr, "Conflict detected at offset %llu with '%s'!\n",
+                    fprintf(stderr, "Conflict detected at offset %zu with '%s'!\n",
                             current_offset->offset,
                             subobject_entry->symbol_name);
                     return 1;
@@ -996,7 +996,7 @@ static void cxx_abi_lay_member_out(type_t* t,
             // Once offset(D) has been chosen, update sizeof(C) to max(sizeof(C), offset(D) + sizeof(D))
             layout_info->size = MAX(layout_info->size, offset + size_of_base);
 
-            fprintf(stderr, "Laying out base class '%s' at offset %llu\n",
+            fprintf(stderr, "Laying out base class '%s' at offset %zu\n",
                     get_fully_qualified_symbol_name(member, 
                         member->decl_context,
                         &is_dependent,
@@ -1054,7 +1054,7 @@ static void cxx_abi_lay_member_out(type_t* t,
                 layout_info->dsize = offset + non_virtual_size;
                 layout_info->align = MAX(layout_info->align, non_virtual_align);
 
-                fprintf(stderr, "Laying out base class '%s' at offset %llu\n",
+                fprintf(stderr, "Laying out base class '%s' at offset %zu\n",
                         get_fully_qualified_symbol_name(member, 
                             member->decl_context,
                             &is_dependent,
@@ -1075,7 +1075,7 @@ static void cxx_abi_lay_member_out(type_t* t,
                 layout_info->dsize = offset + sizeof_member;
                 layout_info->align = MAX(layout_info->align, alignment);
 
-                fprintf(stderr, "Laying out member '%s' at offset %llu\n",
+                fprintf(stderr, "Laying out member '%s' at offset %zu\n",
                         get_fully_qualified_symbol_name(member, 
                             member->decl_context,
                             &is_dependent,
@@ -1279,10 +1279,10 @@ static void cxx_abi_class_sizeof(type_t* class_type)
 
     cxx_abi_print_layout(&layout_info);
 
-    fprintf(stderr, "sizeof == %llu\n", type_get_size(class_type));
-    fprintf(stderr, "dsize == %llu\n", type_get_data_size(class_type));
-    fprintf(stderr, "nvsizeof == %llu\n", class_type_get_non_virtual_size(class_type));
-    fprintf(stderr, "nvalign == %llu\n", class_type_get_non_virtual_align(class_type));
+    fprintf(stderr, "sizeof == %zu\n", type_get_size(class_type));
+    fprintf(stderr, "dsize == %zu\n", type_get_data_size(class_type));
+    fprintf(stderr, "nvsizeof == %zu\n", class_type_get_non_virtual_size(class_type));
+    fprintf(stderr, "nvalign == %zu\n", class_type_get_non_virtual_align(class_type));
 }
 
 

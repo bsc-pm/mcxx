@@ -7,15 +7,8 @@
 
 #include "cxx-type-decls.h"
 
-#ifdef HAVE_UNISTD_H
-#include <stdint.h>
-typedef uint64_t _size_t;
-typedef uint64_t _ssize_t;
-#else
-  // Rely on unsigned long long
-  typedef unsigned long long _size_t;
-  typedef signed long long _ssize_t;
-#endif
+#include <stdlib.h>
+typedef size_t _size_t;
 
 /*
  * Typing environment
