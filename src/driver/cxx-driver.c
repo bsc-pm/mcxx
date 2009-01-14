@@ -106,6 +106,11 @@ compilation_process_t compilation_process;
 "                           cannot be checked compilation fails.\n" \
 "  --disable-gxx-traits     Disables g++ 4.3 type traits. Required\n" \
 "                           if you use g++ 4.2 or previous.\n" \
+"  --env=<env-name>         Sets <env-name> as the specific\n" \
+"                           environment. Use --list-env to show\n" \
+"                           currently supported environments\n" \
+"  --list-env               Lists currently supported environments\n" \
+"                           and does nothing else.\n" \
 "  --pass-through           Disables preprocessing and parsing but\n" \
 "                           invokes remaining steps. A previous\n" \
 "                           invocation with --keep is required.\n" \
@@ -171,6 +176,8 @@ struct command_line_long_options command_line_long_options[] =
     {"disable-gxx-traits", CLP_NO_ARGUMENT, OPTION_DISABLE_GXX_TRAITS},
     {"pass-through", CLP_NO_ARGUMENT, OPTION_PASS_THROUGH}, 
     {"compute-sizeof", CLP_NO_ARGUMENT, OPTION_COMPUTE_SIZEOF},
+    {"env", CLP_REQUIRED_ARGUMENT, OPTION_SET_ENVIRONMENT},
+    {"list-env", CLP_NO_ARGUMENT, OPTION_LIST_ENVIRONMENTS},
     // sentinel
     {NULL, 0, 0}
 };
@@ -219,6 +226,8 @@ static void print_memory_report(void);
 
 static int parse_special_parameters(int *should_advance, int argc, const char* argv[]);
 static int parse_parameter_flag(int *should_advance, const char *special_parameter);
+
+static void list_environments(void);
 
 static char show_help_message = 0;
 
@@ -658,6 +667,11 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
                 case OPTION_COMPUTE_SIZEOF:
                     {
                         CURRENT_CONFIGURATION(compute_sizeof) = 1;
+                        break;
+                    }
+                case OPTION_LIST_ENVIRONMENTS:
+                    {
+                        list_environments();
                         break;
                     }
                 case 'h' :
@@ -2437,3 +2451,24 @@ static void print_memory_report(void)
     fprintf(stderr, "\n");
 }
 
+static void list_environments(void)
+{
+    fprintf(stdout, "Supported environments:\n\n");
+
+    type_environment_t** type_env = type_environment_list;
+
+    for (type_env = type_environment_list;
+            (*type_env) != NULL;
+            type_env++)
+    {
+        fprintf(stdout, "  %-20s (%s)\n",
+                (*type_env)->environ_id,
+                (*type_env)->environ_name);
+    }
+
+    fprintf(stdout, "\n");
+    fprintf(stdout, "Command line parameter --env=<env-id> can be used to choose a particular architecture.\n");
+    fprintf(stdout, "If not specified, default environment is '<undefined>' (<undefined>)\n");
+
+    exit(EXIT_SUCCESS);
+}
