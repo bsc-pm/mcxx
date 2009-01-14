@@ -15,6 +15,9 @@ typedef size_t _size_t;
  */
 struct type_environment_tag
 {
+    // This is a short name (without blanks) used to identify it in the config file
+    const char* environ_id;
+    // A more descriptive name
     const char* environ_name;
 
     // bool

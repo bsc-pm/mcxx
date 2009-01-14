@@ -1367,11 +1367,18 @@ void generic_system_v_sizeof(type_t* t)
 
 /*
    Specific architecture environment definitions and routines
+
+    1. Define a struct of type 'struct type_environment_t' for every
+    architecture. And fill all the fields.
+    2. Add the pointer to the list of environments at the end of the file
  */
+// ***************
 // Linux IA-32
+// ***************
 // Nothing is aligned more than 4 here
 static type_environment_t type_environment_linux_ia32_ = 
 {
+    .environ_id = "linux-i386",
     .environ_name = "Linux IA32",
 
     // '_Bool' in C99
@@ -1440,3 +1447,386 @@ static type_environment_t type_environment_linux_ia32_ =
 };
 
 type_environment_t* type_environment_linux_ia32 = &type_environment_linux_ia32_;
+
+// ***************
+// Linux IA64
+// ***************
+static type_environment_t type_environment_linux_ia64_ = 
+{
+    .environ_id = "linux-ia64",
+    .environ_name = "Linux Itanium",
+
+    // '_Bool' in C99
+    // 'bool' in C++
+    .sizeof_bool = 1,
+    .alignof_bool = 1,
+
+    // ?? Check this one with itanium abi
+    .sizeof_wchar_t = 2,
+    .alignof_wchar_t = 2,
+
+    .sizeof_unsigned_short = 2,
+    .alignof_unsigned_short = 2,
+
+    .sizeof_signed_short = 2,
+    .alignof_signed_short = 2,
+
+    .sizeof_unsigned_int = 4,
+    .alignof_unsigned_int = 4,
+
+    .sizeof_signed_int = 4,
+    .alignof_signed_int = 4,
+
+    .sizeof_unsigned_long = 8,
+    .alignof_unsigned_long = 8,
+
+    .sizeof_signed_long = 8,
+    .alignof_signed_long = 8,
+
+    .sizeof_unsigned_long_long = 8,
+    .alignof_unsigned_long_long = 8,
+
+    .sizeof_signed_long_long = 8,
+    .alignof_signed_long_long = 8, 
+
+    .sizeof_float = 4,
+    .alignof_float = 4,
+
+    .sizeof_double = 8,
+    .alignof_double = 4,
+
+    .sizeof_long_double = 16,
+    .alignof_long_double = 16,
+
+    .sizeof_pointer = 8,
+    .alignof_pointer = 8,
+
+    // One 'ptrdiff_t'
+    .sizeof_pointer_to_data_member = 8,
+    .alignof_pointer_to_data_member = 8,
+
+    .sizeof_function_pointer = 8,
+    .alignof_function_pointer = 8,
+
+    // Two 'ptrdiff_t'
+    .sizeof_pointer_to_member_function = 16,
+    .alignof_pointer_to_member_function = 8,
+
+    // Valid both for C and C++
+    .compute_sizeof = generic_system_v_sizeof,
+
+    // In IA64 a size_t is an unsigned long 
+    .type_of_sizeof = get_unsigned_long_int_type,
+
+    // In IA64 'char' == 'signed char'
+    .char_type = get_signed_char_type
+};
+
+// ****************
+// Linux PowerPC 32
+// ****************
+static type_environment_t type_environment_linux_ppc32_ = 
+{
+    .environ_id = "linux-ppc32",
+    .environ_name = "Linux PowerPC 32",
+
+    // '_Bool' in C99
+    // 'bool' in C++
+    .sizeof_bool = 1,
+    .alignof_bool = 1,
+
+    // ?? Check this one with itanium abi
+    .sizeof_wchar_t = 2,
+    .alignof_wchar_t = 2,
+
+    .sizeof_unsigned_short = 2,
+    .alignof_unsigned_short = 2,
+
+    .sizeof_signed_short = 2,
+    .alignof_signed_short = 2,
+
+    .sizeof_unsigned_int = 4,
+    .alignof_unsigned_int = 4,
+
+    .sizeof_signed_int = 4,
+    .alignof_signed_int = 4,
+
+    .sizeof_unsigned_long = 4,
+    .alignof_unsigned_long = 4,
+
+    .sizeof_signed_long = 4,
+    .alignof_signed_long = 4,
+
+    .sizeof_unsigned_long_long = 8,
+    .alignof_unsigned_long_long = 8,
+
+    .sizeof_signed_long_long = 8,
+    .alignof_signed_long_long = 8, 
+
+    .sizeof_float = 4,
+    .alignof_float = 4,
+
+    .sizeof_double = 8,
+    .alignof_double = 8,
+
+    .sizeof_long_double = 16,
+    .alignof_long_double = 16,
+
+    .sizeof_pointer = 4,
+    .alignof_pointer = 4,
+
+    // One 'ptrdiff_t'
+    .sizeof_pointer_to_data_member = 4,
+    .alignof_pointer_to_data_member = 4,
+
+    .sizeof_function_pointer = 4,
+    .alignof_function_pointer = 4,
+
+    // Two 'ptrdiff_t'
+    .sizeof_pointer_to_member_function = 8,
+    .alignof_pointer_to_member_function = 4,
+
+    // Valid both for C and C++
+    .compute_sizeof = generic_system_v_sizeof,
+
+    .type_of_sizeof = get_unsigned_int_type,
+
+    // In PPC32 'char' == 'unsigned char'
+    .char_type = get_unsigned_char_type
+};
+
+// ****************
+// Linux PowerPC 64
+// ****************
+static type_environment_t type_environment_linux_ppc64_ = 
+{
+    .environ_id = "linux-ppc64",
+    .environ_name = "Linux PowerPC 64",
+
+    // '_Bool' in C99
+    // 'bool' in C++
+    .sizeof_bool = 1,
+    .alignof_bool = 1,
+
+    // ?? Check this one with itanium abi
+    .sizeof_wchar_t = 2,
+    .alignof_wchar_t = 2,
+
+    .sizeof_unsigned_short = 2,
+    .alignof_unsigned_short = 2,
+
+    .sizeof_signed_short = 2,
+    .alignof_signed_short = 2,
+
+    .sizeof_unsigned_int = 4,
+    .alignof_unsigned_int = 4,
+
+    .sizeof_signed_int = 4,
+    .alignof_signed_int = 4,
+
+    .sizeof_unsigned_long = 8,
+    .alignof_unsigned_long = 8,
+
+    .sizeof_signed_long = 8,
+    .alignof_signed_long = 8,
+
+    .sizeof_unsigned_long_long = 8,
+    .alignof_unsigned_long_long = 8,
+
+    .sizeof_signed_long_long = 8,
+    .alignof_signed_long_long = 8, 
+
+    .sizeof_float = 4,
+    .alignof_float = 4,
+
+    .sizeof_double = 8,
+    .alignof_double = 4,
+
+    .sizeof_long_double = 16,
+    .alignof_long_double = 16,
+
+    .sizeof_pointer = 8,
+    .alignof_pointer = 8,
+
+    // One 'ptrdiff_t'
+    .sizeof_pointer_to_data_member = 8,
+    .alignof_pointer_to_data_member = 8,
+
+    .sizeof_function_pointer = 8,
+    .alignof_function_pointer = 8,
+
+    // Two 'ptrdiff_t'
+    .sizeof_pointer_to_member_function = 16,
+    .alignof_pointer_to_member_function = 8,
+
+    // Valid both for C and C++
+    .compute_sizeof = generic_system_v_sizeof,
+
+    // In PPC64 a size_t is an unsigned long 
+    .type_of_sizeof = get_unsigned_long_int_type,
+
+    // In PPC64 'char' == 'unsigned char'
+    .char_type = get_unsigned_char_type
+};
+
+// ****************
+// Linux AMD 64
+// ****************
+static type_environment_t type_environment_linux_amd64_ = 
+{
+    .environ_id = "linux-x86_64",
+    .environ_name = "Linux AMD64/EMT64",
+
+    // '_Bool' in C99
+    // 'bool' in C++
+    .sizeof_bool = 1,
+    .alignof_bool = 1,
+
+    // ?? Check this one with itanium abi
+    .sizeof_wchar_t = 2,
+    .alignof_wchar_t = 2,
+
+    .sizeof_unsigned_short = 2,
+    .alignof_unsigned_short = 2,
+
+    .sizeof_signed_short = 2,
+    .alignof_signed_short = 2,
+
+    .sizeof_unsigned_int = 4,
+    .alignof_unsigned_int = 4,
+
+    .sizeof_signed_int = 4,
+    .alignof_signed_int = 4,
+
+    .sizeof_unsigned_long = 8,
+    .alignof_unsigned_long = 8,
+
+    .sizeof_signed_long = 8,
+    .alignof_signed_long = 8,
+
+    .sizeof_unsigned_long_long = 8,
+    .alignof_unsigned_long_long = 8,
+
+    .sizeof_signed_long_long = 8,
+    .alignof_signed_long_long = 8, 
+
+    .sizeof_float = 4,
+    .alignof_float = 4,
+
+    .sizeof_double = 8,
+    .alignof_double = 4,
+
+    .sizeof_long_double = 16,
+    .alignof_long_double = 16,
+
+    .sizeof_pointer = 8,
+    .alignof_pointer = 8,
+
+    // One 'ptrdiff_t'
+    .sizeof_pointer_to_data_member = 8,
+    .alignof_pointer_to_data_member = 8,
+
+    .sizeof_function_pointer = 8,
+    .alignof_function_pointer = 8,
+
+    // Two 'ptrdiff_t'
+    .sizeof_pointer_to_member_function = 16,
+    .alignof_pointer_to_member_function = 8,
+
+    // Valid both for C and C++
+    .compute_sizeof = generic_system_v_sizeof,
+
+    // In PPC64 a size_t is an unsigned long 
+    .type_of_sizeof = get_unsigned_long_int_type,
+
+    // In PPC64 'char' == 'unsigned char'
+    .char_type = get_unsigned_char_type
+};
+
+// ****************
+// Linux SPU
+// ****************
+static type_environment_t type_environment_linux_spu_ = 
+{
+    .environ_id = "linux-spu",
+    .environ_name = "Linux SPU",
+
+    // '_Bool' in C99
+    // 'bool' in C++
+    .sizeof_bool = 1,
+    .alignof_bool = 1,
+
+    // ?? Check this one with itanium abi
+    .sizeof_wchar_t = 2,
+    .alignof_wchar_t = 2,
+
+    .sizeof_unsigned_short = 2,
+    .alignof_unsigned_short = 2,
+
+    .sizeof_signed_short = 2,
+    .alignof_signed_short = 2,
+
+    .sizeof_unsigned_int = 4,
+    .alignof_unsigned_int = 4,
+
+    .sizeof_signed_int = 4,
+    .alignof_signed_int = 4,
+
+    .sizeof_unsigned_long = 4,
+    .alignof_unsigned_long = 4,
+
+    .sizeof_signed_long = 4,
+    .alignof_signed_long = 4,
+
+    .sizeof_unsigned_long_long = 8,
+    .alignof_unsigned_long_long = 8,
+
+    .sizeof_signed_long_long = 8,
+    .alignof_signed_long_long = 8, 
+
+    .sizeof_float = 4,
+    .alignof_float = 4,
+
+    .sizeof_double = 8,
+    .alignof_double = 8,
+
+    .sizeof_long_double = 16,
+    .alignof_long_double = 16,
+
+    .sizeof_pointer = 4,
+    .alignof_pointer = 4,
+
+    // One 'ptrdiff_t'
+    .sizeof_pointer_to_data_member = 4,
+    .alignof_pointer_to_data_member = 4,
+
+    .sizeof_function_pointer = 4,
+    .alignof_function_pointer = 4,
+
+    // Two 'ptrdiff_t'
+    .sizeof_pointer_to_member_function = 8,
+    .alignof_pointer_to_member_function = 4,
+
+    // Valid both for C and C++
+    .compute_sizeof = generic_system_v_sizeof,
+
+    .type_of_sizeof = get_unsigned_int_type,
+
+    // In PPC32 'char' == 'unsigned char'
+    .char_type = get_unsigned_char_type
+};
+
+/*
+   NULL ended list of type environments
+
+   Add your environments here. The driver will enumerate them using this array
+ */
+type_environment_t* type_environment_list[] = {
+    &type_environment_linux_ia32_,
+    &type_environment_linux_ia64_,
+    &type_environment_linux_ppc32_,
+    &type_environment_linux_ppc64_,
+    &type_environment_linux_amd64_,
+    &type_environment_linux_spu_,
+    NULL, /* last */
+};
