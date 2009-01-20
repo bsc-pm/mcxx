@@ -882,6 +882,10 @@ type_t* get_gcc_builtin_va_list_type(void)
         result = get_simple_type();
 
         result->type->kind = STK_VA_LIST;
+
+        result->size = CURRENT_CONFIGURATION(type_environment)->sizeof_builtin_va_list;
+        result->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_builtin_va_list;
+        result->valid_size = 1;
     }
 
     return result;
@@ -7491,23 +7495,6 @@ _size_t type_get_size(type_t* t)
                         class_type_get_non_virtual_size(alias_type));
                 class_type_set_non_virtual_align(t, 
                         class_type_get_non_virtual_align(alias_type));
-            }
-
-            // State it valid
-            type_set_valid_size(t, 1);
-        }
-        else if (is_gcc_builtin_va_list(t))
-        {
-            WARNING_MESSAGE("The size of __builtin_va_list has been requested, defaulting it to '1' since it is unknown!\n", 0);
-
-            type_set_size(t, 1);
-            type_set_alignment(t, 1);
-
-            CXX_LANGUAGE()
-            {
-                type_set_data_size(t, 1);
-                class_type_set_non_virtual_size(t, 1);
-                class_type_set_non_virtual_align(t, 1);
             }
 
             // State it valid

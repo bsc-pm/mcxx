@@ -1456,8 +1456,13 @@ static type_environment_t type_environment_linux_ia32_ =
     .type_of_sizeof = get_unsigned_int_type,
 
     // In IA32 'char' == 'signed char'
-    .char_type = get_signed_char_type
+    .char_type = get_signed_char_type,
+
+    // __builtin_va_list
+    .sizeof_builtin_va_list = 4,
+    .alignof_builtin_va_list = 4,
 };
+
 
 type_environment_t* type_environment_linux_ia32 = &type_environment_linux_ia32_;
 
@@ -1532,7 +1537,11 @@ static type_environment_t type_environment_linux_ia64_ =
     .type_of_sizeof = get_unsigned_long_int_type,
 
     // In IA64 'char' == 'signed char'
-    .char_type = get_signed_char_type
+    .char_type = get_signed_char_type,
+
+    // __builtin_va_list
+    .sizeof_builtin_va_list = 8,
+    .alignof_builtin_va_list = 8,
 };
 
 // ****************
@@ -1605,7 +1614,11 @@ static type_environment_t type_environment_linux_ppc32_ =
     .type_of_sizeof = get_unsigned_int_type,
 
     // In PPC32 'char' == 'unsigned char'
-    .char_type = get_unsigned_char_type
+    .char_type = get_unsigned_char_type,
+
+    // __builtin_va_list
+    .sizeof_builtin_va_list = 12,
+    .alignof_builtin_va_list = 4,
 };
 
 // ****************
@@ -1679,7 +1692,11 @@ static type_environment_t type_environment_linux_ppc64_ =
     .type_of_sizeof = get_unsigned_long_int_type,
 
     // In PPC64 'char' == 'unsigned char'
-    .char_type = get_unsigned_char_type
+    .char_type = get_unsigned_char_type,
+
+    // __builtin_va_list
+    .sizeof_builtin_va_list = 8,
+    .alignof_builtin_va_list = 8,
 };
 
 // ****************
@@ -1753,7 +1770,11 @@ static type_environment_t type_environment_linux_amd64_ =
     .type_of_sizeof = get_unsigned_long_int_type,
 
     // In PPC64 'char' == 'unsigned char'
-    .char_type = get_unsigned_char_type
+    .char_type = get_unsigned_char_type,
+
+    // __builtin_va_list
+    .sizeof_builtin_va_list = 24,
+    .alignof_builtin_va_list = 8,
 };
 
 // ****************

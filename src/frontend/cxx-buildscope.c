@@ -3397,6 +3397,16 @@ static void build_scope_declarator_with_parameter_context(AST a,
     }
     else if (gather_info->is_overriden_type)
     {
+        if (!is_integral_type(*declarator_type)
+                && !is_floating_type(*declarator_type))
+        {
+            fprintf(stderr, "%s: warning: 'mode' attribute is only valid for integral or floating types\n",
+                    ast_location(a));
+        }
+        else
+        {
+            *declarator_type = gather_info->mode_type;
+        }
     }
 
     if (a != NULL)

@@ -93,6 +93,10 @@ struct type_environment_tag
     // The exact 'char' type (depending on the environment it is 'signed' or
     // 'unsigned')
     type_t* (*char_type)(void);
+
+    // Special type for GCC
+    _size_t sizeof_builtin_va_list;
+    _size_t alignof_builtin_va_list;
 };
 
 typedef struct type_environment_tag type_environment_t;
