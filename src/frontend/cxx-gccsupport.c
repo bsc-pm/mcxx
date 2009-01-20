@@ -95,9 +95,6 @@ static char fix_gather_type_to_match_mode(gather_decl_spec_t* gather_info,
     {
         gather_info->is_overriden_type = 1;
         gather_info->mode_type = match_type;
-        fprintf(stderr, "-> type '%s' is of '%zu' bytes\n",
-                print_declarator(match_type),
-                bytes);
     }
 
     return match_found;
@@ -219,9 +216,6 @@ static void gather_one_gcc_attribute(const char* attribute_name,
                     };
 
                     char found = 0;
-
-                    fprintf(stderr, "Requested mode '%s'\n",
-                            size_mode);
 
                     if (strcmp(size_mode, "__pointer__") == 0
                         || strcmp(size_mode, "pointer") == 0)

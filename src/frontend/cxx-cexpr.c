@@ -3082,13 +3082,11 @@ static literal_value_t evaluate_gxx_type_traits(AST expression, decl_context_t d
 
 static literal_value_t evaluate_sizeof(AST sizeof_tree, decl_context_t decl_context)
 {
-    _size_t type_size = 0;
+    type_t* t = NULL;
     if (ASTType(sizeof_tree) == AST_SIZEOF)
     {
         AST sizeof_expression = ASTSon0(sizeof_tree);
-        type_t* t = ASTExprType(sizeof_expression);
-
-        type_size = type_get_size(t);
+        t = ASTExprType(sizeof_expression);
     }
     else if (ASTType(sizeof_tree) == AST_SIZEOF_TYPEID)
     {
@@ -3107,8 +3105,20 @@ static literal_value_t evaluate_sizeof(AST sizeof_tree, decl_context_t decl_cont
         compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
                 &declarator_type, decl_context);
 
-        type_size = type_get_size(declarator_type);
+        t = declarator_type;
     }
+
+    if (is_dependent_type(t))
+    {
+        literal_value_t dependent_entity;
+        memset(&dependent_entity, 0, sizeof(dependent_entity));
+        dependent_entity.kind = LVK_DEPENDENT_EXPR;
+
+        return dependent_entity;
+    }
+
+    _size_t type_size = 0;
+    type_size = type_get_size(t);
 
     DEBUG_SIZEOF_CODE()
     {

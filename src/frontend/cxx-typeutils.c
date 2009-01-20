@@ -952,12 +952,11 @@ type_t* get_new_enum_type(decl_context_t decl_context)
     // This is incomplete by default
     type_info->type->is_incomplete = 1;
 
-    C_LANGUAGE()
-    {
-        type_info->size = CURRENT_CONFIGURATION(type_environment)->sizeof_signed_int;
-        type_info->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_signed_int;
-        type_info->valid_size = 1;
-    }
+    // FIXME - This might be unsigned int or smaller if '-fshort-enums' is
+    // enabled (it might be the default as determined by the ABI)
+    type_info->size = CURRENT_CONFIGURATION(type_environment)->sizeof_signed_int;
+    type_info->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_signed_int;
+    type_info->valid_size = 1;
     // In C++ this must be computed
 
     return type_info;

@@ -202,7 +202,7 @@ static void system_v_union_sizeof(type_t* class_type)
     // offset is used only for non-bitfields and when bitfields
     // cause an effective advance of the offset, otherwise bitfields only
     // use current_bit_within_storage
-    _size_t offset = 0;
+    _size_t offset, max_offset = 0;
     _size_t whole_align = 1;
 
     // bitfields do not use offset except as needed
@@ -226,6 +226,8 @@ static void system_v_union_sizeof(type_t* class_type)
                 &whole_align,
                 &current_bit_within_storage,
                 &previous_was_bitfield);
+
+        max_offset = MAX(max_offset, offset);
     }
 
     // Round the offset to upper byte if the last field was a bitfield
@@ -236,17 +238,17 @@ static void system_v_union_sizeof(type_t* class_type)
      
     // Compute tail padding, just ensure that the next laid out entity
     // will satisfy the alignment 
-    next_offset_with_align(&offset, whole_align);
+    next_offset_with_align(&max_offset, whole_align);
 
     // If it remains 0, it means that the struct was empty
     // Make it like an int
-    if (offset == 0)
+    if (max_offset == 0)
     {
-        offset = CURRENT_CONFIGURATION(type_environment)->sizeof_signed_int;
+        max_offset = CURRENT_CONFIGURATION(type_environment)->sizeof_signed_int;
         whole_align = CURRENT_CONFIGURATION(type_environment)->alignof_signed_int;
     }
 
-    type_set_size(class_type, offset);
+    type_set_size(class_type, max_offset);
     type_set_alignment(class_type, whole_align);
     type_set_valid_size(class_type, 1);
 }

@@ -8781,7 +8781,8 @@ static char check_for_sizeof_expr(AST expr, decl_context_t decl_context)
     {
         type_t* t = ASTExprType(sizeof_expression);
 
-        if (CURRENT_CONFIGURATION(compute_sizeof))
+        if (CURRENT_CONFIGURATION(compute_sizeof)
+                && !is_dependent_expr_type(t))
         {
             _size_t type_size = type_get_size(t);
             DEBUG_SIZEOF_CODE()
@@ -8822,14 +8823,17 @@ static char check_for_sizeof_typeid(AST expr, decl_context_t decl_context)
             compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
                     &declarator_type, decl_context);
 
-            _size_t type_size = type_get_size(declarator_type);
-
-            DEBUG_SIZEOF_CODE()
+            if (!is_dependent_type(declarator_type))
             {
-                fprintf(stderr, "EXPRTYPE: %s: '%s' yields a value of %zu\n",
-                        ast_location(expr),
-                        prettyprint_in_buffer(expr),
-                        type_size);
+                _size_t type_size = type_get_size(declarator_type);
+
+                DEBUG_SIZEOF_CODE()
+                {
+                    fprintf(stderr, "EXPRTYPE: %s: '%s' yields a value of %zu\n",
+                            ast_location(expr),
+                            prettyprint_in_buffer(expr),
+                            type_size);
+                }
             }
         }
 
