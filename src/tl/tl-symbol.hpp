@@ -231,6 +231,11 @@ namespace TL
             
             //! Returns the associated argument of a gcc attribute
             AST_t get_argument_of_gcc_attribute(const std::string &str) const;
+
+            // States whether the symbol is defined 
+            /*! This function might not make sense for all kind of symbols
+             */
+            bool is_defined() const;
     };
     
     //! @}

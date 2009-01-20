@@ -32,6 +32,7 @@
 #include "cxx-exprtype.h"
 #include "cxx-overload.h"
 #include "cxx-instantiation.h"
+#include "cxx-typeenviron.h"
 
 /*
  * This file implements an evaluator of constant expressions in C++
@@ -60,6 +61,8 @@ static literal_value_t convert_to_unsigned_char(literal_value_t e1);
 
 static literal_value_t literal_value_gcc_builtin_types_compatible(AST expression, 
         decl_context_t decl_context);
+
+static literal_value_t evaluate_sizeof(AST expression, decl_context_t decl_context);
 
 static literal_value_t evaluate_gxx_type_traits(AST expression, decl_context_t decl_context);
 
@@ -198,8 +201,15 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
         case AST_SIZEOF :
         case AST_SIZEOF_TYPEID :
             {
-                WARNING_MESSAGE("Found a sizeof expression in '%s' while evaluating a constant expression. Assuming one.\n", 
-                    ast_location(a));
+                if (CURRENT_CONFIGURATION(compute_sizeof))
+                {
+                    return evaluate_sizeof(a, decl_context);
+                }
+                else
+                {
+                    WARNING_MESSAGE("Found a sizeof expression in '%s' while evaluating a constant expression. Assuming one.\n", 
+                            ast_location(a));
+                }
                 return literal_value_one();
             }
         case AST_EXPLICIT_TYPE_CONVERSION :
@@ -233,7 +243,7 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
 
                     DEBUG_CODE()
                     {
-                        fprintf(stderr, "Symbolic address of symbol '%s' solved to '%lu'\n", prettyprint_in_buffer(symbol), 
+                        fprintf(stderr, "CEXPR: Symbolic address of symbol '%s' solved to '%lu'\n", prettyprint_in_buffer(symbol), 
                                 (unsigned long)result->entry);
                     }
 
@@ -383,13 +393,13 @@ static literal_value_t binary_operation(node_t op, AST lhs, AST rhs,
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "(1) val_lhs.kind=%d || val_rhs.kind=%d\n", val_lhs.kind, val_rhs.kind);
+        fprintf(stderr, "CEXPR: (1) val_lhs.kind=%d || val_rhs.kind=%d\n", val_lhs.kind, val_rhs.kind);
     }
     promote_values(val_lhs, val_rhs, &val_lhs, &val_rhs);
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "(2) val_lhs.kind=%d || val_rhs.kind=%d\n", val_lhs.kind, val_rhs.kind);
+        fprintf(stderr, "CEXPR: (2) val_lhs.kind=%d || val_rhs.kind=%d\n", val_lhs.kind, val_rhs.kind);
     }
 
     ERROR_CONDITION((val_lhs.kind != val_rhs.kind), "Both types should be the same (%d != %d)", val_lhs.kind, val_rhs.kind);
@@ -936,7 +946,7 @@ static literal_value_t evaluate_symbol(AST symbol, decl_context_t decl_context)
 {
     DEBUG_CODE()
     {
-        fprintf(stderr, "Trying to evaluate symbol '%s'\n", prettyprint_in_buffer(symbol));
+        fprintf(stderr, "CEXPR: Trying to evaluate symbol '%s'\n", prettyprint_in_buffer(symbol));
     }
 
     scope_entry_list_t* result = 
@@ -964,7 +974,7 @@ static literal_value_t evaluate_symbol(AST symbol, decl_context_t decl_context)
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "Invalid symbol '");
+            fprintf(stderr, "CEXPR: Invalid symbol '");
             prettyprint(stderr, symbol);
             fprintf(stderr, "'\n");
         }
@@ -991,7 +1001,7 @@ static literal_value_t evaluate_symbol(AST symbol, decl_context_t decl_context)
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "Symbol '%s' has associated value '%s'\n", prettyprint_in_buffer(symbol),
+                fprintf(stderr, "CEXPR: Symbol '%s' has associated value '%s'\n", prettyprint_in_buffer(symbol),
                         prettyprint_in_buffer(result->entry->expression_value));
             }
         }
@@ -1204,7 +1214,7 @@ char equal_literal_values(literal_value_t v1,
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "Comparing constant values of '%s' and '%s'\n", 
+        fprintf(stderr, "CEXPR: Comparing constant values of '%s' and '%s'\n", 
                 prettyprint_in_buffer(tree_from_literal_value(v1)),
                 prettyprint_in_buffer(tree_from_literal_value(v2)));
     }
@@ -3048,14 +3058,14 @@ static literal_value_t evaluate_gxx_type_traits(AST expression, decl_context_t d
 
         first_type = compute_type_of_typeid(ASTSon0(expression), decl_context);
 
-        if (is_dependent_type(first_type, decl_context))
+        if (is_dependent_type(first_type))
             return dependent_entity;
 
         if (ASTSon1(expression) != NULL)
         {
             second_type = compute_type_of_typeid(ASTSon1(expression), decl_context);
 
-            if (is_dependent_type(second_type, decl_context))
+            if (is_dependent_type(second_type))
                 return dependent_entity;
         }
 
@@ -3070,4 +3080,66 @@ static literal_value_t evaluate_gxx_type_traits(AST expression, decl_context_t d
     }
 }
 
+static literal_value_t evaluate_sizeof(AST sizeof_tree, decl_context_t decl_context)
+{
+    _size_t type_size = 0;
+    if (ASTType(sizeof_tree) == AST_SIZEOF)
+    {
+        AST sizeof_expression = ASTSon0(sizeof_tree);
+        type_t* t = ASTExprType(sizeof_expression);
 
+        type_size = type_get_size(t);
+    }
+    else if (ASTType(sizeof_tree) == AST_SIZEOF_TYPEID)
+    {
+        AST type_id = ASTSon0(sizeof_tree);
+        AST type_specifier = ASTSon0(type_id);
+        AST abstract_declarator = ASTSon1(type_id);
+
+        gather_decl_spec_t gather_info;
+        memset(&gather_info, 0, sizeof(gather_info));
+
+        type_t* simple_type_info = NULL;
+        build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
+                decl_context);
+
+        type_t* declarator_type = simple_type_info;
+        compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
+                &declarator_type, decl_context);
+
+        type_size = type_get_size(declarator_type);
+    }
+
+    DEBUG_SIZEOF_CODE()
+    {
+        fprintf(stderr, "CEXPR: %s: '%s' yields a value of %zu\n",
+                ast_location(sizeof_tree),
+                prettyprint_in_buffer(sizeof_tree),
+                type_size);
+    }
+
+    // This is a bit kludgy
+    type_t* size_t_type = get_size_t_type();
+    
+    literal_value_t result;
+
+    if (equivalent_types(size_t_type, get_unsigned_int_type()))
+    {
+        result.kind = LVK_UNSIGNED_INT;
+        // This might wipe some bits
+        result.value.unsigned_int = type_size;
+    }
+    else if (equivalent_types(size_t_type, get_unsigned_long_int_type()))
+    {
+        result.kind = LVK_UNSIGNED_LONG;
+        result.value.unsigned_long = type_size;
+    }
+    else
+    {
+        internal_error("size_t does not seem a sensible type! "
+                "Either 'unsigned int' or 'unsigned long' is expected but '%s' was defined as 'size_t'\n",
+                print_declarator(size_t_type));
+    }
+
+    return result;
+}

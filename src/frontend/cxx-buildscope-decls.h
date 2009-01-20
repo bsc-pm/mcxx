@@ -54,6 +54,10 @@ struct gather_decl_spec_tag {
     char is_virtual;
     char is_explicit;
     char is_complex;
+    char is_overriden_type;
+
+    // FIXME
+    struct type_tag* mode_type;
 
     // exception-specifiers
     char any_exception; // Set to 1 if no exception specifier was seen
@@ -62,7 +66,6 @@ struct gather_decl_spec_tag {
 
     // Vector info
     unsigned int vector_size;
-    struct type_tag* vector_mode_type;
     char is_vector;
     int num_parameters;
     struct default_argument_info_tag **default_argument_info;

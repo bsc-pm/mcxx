@@ -298,6 +298,9 @@ namespace TL
              */
             bool is_dependent() const;
 
+            //! States whether the current type is incomplete
+            bool is_incomplete() const;
+
             //! States whether the type is a reference type
             bool is_reference() const;
             //! Returns the referenced type

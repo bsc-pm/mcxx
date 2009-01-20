@@ -621,7 +621,7 @@ char check_for_expression(AST expression, decl_context_t decl_context)
 
                     if (is_pointer_to_class_type(entry->type_information))
                     {
-                        if (!is_dependent_type(entry->type_information, decl_context))
+                        if (!is_dependent_type(entry->type_information))
                         {
                             ast_set_expression_type(expression, get_lvalue_reference_type(entry->type_information));
                             ast_set_expression_is_lvalue(expression, 1);
@@ -4227,7 +4227,7 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, decl_cont
             }
             else if (entry->kind == SK_VARIABLE)
             {
-                if (!is_dependent_type(entry->type_information, decl_context))
+                if (!is_dependent_type(entry->type_information))
                 {
                     ast_set_expression_type(expr, lvalue_ref(entry->type_information));
                     ast_set_expression_is_lvalue(expr, 1);
@@ -4368,7 +4368,7 @@ char compute_qualified_id_type(AST expr, decl_context_t decl_context, decl_conte
 
             if (entry->kind == SK_VARIABLE)
             {
-                if (!is_dependent_type(entry->type_information, decl_context))
+                if (!is_dependent_type(entry->type_information))
                 {
                     ast_set_expression_type(expr, lvalue_ref(entry->type_information));
                     ast_set_expression_is_lvalue(expr, 1);
@@ -4534,7 +4534,7 @@ static char check_for_conversion_function_id_expression(AST expression, decl_con
     ERROR_CONDITION(conversion_type == NULL,
             "Conversion type was not computed", 0);
 
-    if (is_dependent_type(conversion_type, decl_context))
+    if (is_dependent_type(conversion_type))
     {
         ast_set_expression_type(expression, get_dependent_expr_type());
         return 1;
@@ -5154,7 +5154,7 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
     }
 
     // Solve 'operator new' being invoked
-    if (!is_dependent_type(declarator_type, decl_context))
+    if (!is_dependent_type(declarator_type))
     {
         scope_entry_t* conversors[MAX_ARGUMENTS];
         memset(conversors, 0, sizeof(conversors));
@@ -5320,7 +5320,7 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
     }
 
     // Solve constructor being invoked
-    if (!is_dependent_type(declarator_type, decl_context)
+    if (!is_dependent_type(declarator_type)
             && is_pointer_to_class_type(declarator_type))
     {
         type_t* class_type = pointer_type_get_pointee_type(declarator_type);
@@ -5653,7 +5653,7 @@ static char check_for_explicit_type_conversion_common(type_t* type_info,
         }
     }
 
-    if (is_dependent_type(type_info, decl_context)
+    if (is_dependent_type(type_info)
             || has_dependent_arguments)
     {
         ast_set_expression_type(expr, get_dependent_expr_type());
@@ -5834,7 +5834,7 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
                     && (entry->kind != SK_VARIABLE
                         || (!is_class_type(type)
                             && !is_pointer_to_function_type(type)
-                            && !is_dependent_type(type, decl_context)))
+                            && !is_dependent_type(type)))
                     && (entry->kind != SK_TEMPLATE
                         || !is_function_type(
                             named_type_get_symbol(template_type_get_primary_type(type))
@@ -5855,7 +5855,7 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
                         || (entry->kind == SK_VARIABLE
                             && (is_class_type(type)
                                 || is_pointer_to_function_type(type)
-                                || is_dependent_type(type, decl_context))))
+                                || is_dependent_type(type))))
                 {
                     still_requires_koenig = 0;
                 }
@@ -5935,7 +5935,7 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
                     && (entry->kind != SK_VARIABLE
                         || (!is_class_type(type)
                             && !is_pointer_to_function_type(type)
-                            && !is_dependent_type(type, decl_context)))
+                            && !is_dependent_type(type)))
                     && (entry->kind != SK_TEMPLATE
                         || !is_function_type(
                             named_type_get_symbol(template_type_get_primary_type(type))
@@ -6228,7 +6228,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             }
             type_t* class_type = ASTExprType(ASTSon0(called_expression));
 
-            if (is_dependent_type(class_type, decl_context))
+            if (is_dependent_type(class_type))
             {
                 // Nothing else to do this is a dependent call
                 ast_set_expression_type(called_expression, get_dependent_expr_type());
@@ -6257,7 +6257,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
 
             class_type = pointer_type_get_pointee_type(no_ref(class_type));
 
-            if (is_dependent_type(class_type, decl_context))
+            if (is_dependent_type(class_type))
             {
                 // Nothing else to do this is a dependent call
                 ast_set_expression_type(called_expression, get_dependent_expr_type());
@@ -6285,7 +6285,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             {
                 scope_entry_t* this_symbol = this_symbol_list->entry;
 
-                if (is_dependent_type(this_symbol->type_information, decl_context))
+                if (is_dependent_type(this_symbol->type_information))
                 {
                     ast_set_expression_type(called_expression, get_dependent_expr_type());
                     return 1;
@@ -6813,7 +6813,7 @@ static char check_for_cast_expr(AST expr, AST type_id, AST casted_expression, de
             return 0;
         }
 
-        if (is_dependent_type(declarator_type, decl_context))
+        if (is_dependent_type(declarator_type))
         {
             ast_set_expression_type(expr, get_dependent_expr_type());
         }
@@ -6995,7 +6995,7 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
                 &conversion_type);
 
         // If the computed type is dependent then all the expression is dependent
-        if (is_dependent_type(conversion_type, decl_context))
+        if (is_dependent_type(conversion_type))
         {
             ast_set_expression_type(member_access, get_dependent_expr_type());
             return 1;
@@ -7192,7 +7192,7 @@ static type_t* check_template_function(scope_entry_list_t* entry_list,
         named_type_get_symbol(template_type_get_primary_type(entry_list->entry->type_information));
 
     if (primary_symbol->entity_specs.is_member
-            && is_dependent_type(primary_symbol->entity_specs.class_type, decl_context))
+            && is_dependent_type(primary_symbol->entity_specs.class_type))
     {
         *dependent_template_arguments = 1;
         return NULL;
@@ -7202,7 +7202,7 @@ static type_t* check_template_function(scope_entry_list_t* entry_list,
     template_argument_list_t* template_arguments = get_template_arguments_from_syntax(
             ASTSon1(template_id), decl_context, nesting_level);
 
-    if (has_dependent_template_arguments(template_arguments, decl_context))
+    if (has_dependent_template_arguments(template_arguments))
     {
         *dependent_template_arguments = 1;
         return NULL;
@@ -7829,7 +7829,7 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
                 {
                     if (!is_array_type(declared_type)
                             && !is_class_type(declared_type)
-                            && !is_dependent_type(declared_type, decl_context))
+                            && !is_dependent_type(declared_type))
                     {
                         fprintf(stderr, "%s: warning: initialization using braces but the declared type is not an array or struct/class\n",
                                 ast_location(initializer));
@@ -7891,7 +7891,7 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
                     // Now we have to check whether this can be converted to the declared entity
                     char ambiguous_conversion = 0;
                     scope_entry_t* conversor = NULL;
-                    if (!is_dependent_type(declared_type_no_cv, decl_context)
+                    if (!is_dependent_type(declared_type_no_cv)
                             && !is_dependent_expr_type(initializer_expr_type)
                             && !type_can_be_implicitly_converted_to(initializer_expr_type, declared_type_no_cv, decl_context, 
                                 &ambiguous_conversion, &conversor)
@@ -8196,7 +8196,7 @@ static char check_for_parenthesized_initializer(AST initializer_list, decl_conte
         ERROR_CONDITION(initializer_num >= 256, "Too many arguments\n", 0);
 
         if (!is_class 
-                && !is_dependent_type(declared_type, decl_context) 
+                && !is_dependent_type(declared_type) 
                 && (initializer_num > 0))
         {
             fprintf(stderr, "%s: warning: too many initializers in parenthesized initializer of non class type\n",
@@ -8230,7 +8230,7 @@ static char check_for_parenthesized_initializer(AST initializer_list, decl_conte
         // This is 'int a(10);' to be considered like 'int a = 10;'
         char ambiguous_conversion = 0;
         scope_entry_t* conversor = NULL;
-        if (!is_dependent_type(declared_type, decl_context)
+        if (!is_dependent_type(declared_type)
                 && !is_dependent_expr_type(argument_types[0])
                 && !type_can_be_implicitly_converted_to(argument_types[0], declared_type, decl_context, 
                     &ambiguous_conversion, &conversor))
@@ -8249,7 +8249,7 @@ static char check_for_parenthesized_initializer(AST initializer_list, decl_conte
             ASTAttrSetValueType(single_initializer_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversor));
         }
     }
-    else if (is_class && !is_dependent_type(declared_type, decl_context))
+    else if (is_class && !is_dependent_type(declared_type))
     {
         scope_entry_t* conversors[MAX_ARGUMENTS];
         memset(conversors, 0, sizeof(conversors));
@@ -8412,7 +8412,7 @@ static void accessible_types_through_conversion(type_t* t, type_t ***result, int
 {
     ERROR_CONDITION(is_unresolved_overloaded_type(t), 
             "Do not invoke this function on unresolved overloaded types", 0);
-    ERROR_CONDITION(is_dependent_type(t, decl_context), "Do not invoke this function on dependent types", 0);
+    ERROR_CONDITION(is_dependent_type(t), "Do not invoke this function on dependent types", 0);
 
     (*num_types) = 0;
 
@@ -8784,10 +8784,13 @@ static char check_for_sizeof_expr(AST expr, decl_context_t decl_context)
         if (CURRENT_CONFIGURATION(compute_sizeof))
         {
             _size_t type_size = type_get_size(t);
-            fprintf(stderr, "EXPRTYPE: %s: '%s' yields a value of %zu\n",
-                    ast_location(expr),
-                    prettyprint_in_buffer(expr),
-                    type_size);
+            DEBUG_SIZEOF_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: %s: '%s' yields a value of %zu\n",
+                        ast_location(expr),
+                        prettyprint_in_buffer(expr),
+                        type_size);
+            }
         }
 
         ast_set_expression_type(expr, get_size_t_type());
@@ -8821,10 +8824,13 @@ static char check_for_sizeof_typeid(AST expr, decl_context_t decl_context)
 
             _size_t type_size = type_get_size(declarator_type);
 
-            fprintf(stderr, "EXPRTYPE: %s: '%s' yields a value of %zu\n",
-                    ast_location(expr),
-                    prettyprint_in_buffer(expr),
-                    type_size);
+            DEBUG_SIZEOF_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: %s: '%s' yields a value of %zu\n",
+                        ast_location(expr),
+                        prettyprint_in_buffer(expr),
+                        type_size);
+            }
         }
 
         ast_set_expression_type(expr, get_size_t_type());

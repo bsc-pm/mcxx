@@ -37,6 +37,69 @@
  * Very specific bits of gcc support should be in this file
  */
 
+static char fix_gather_type_to_match_mode(gather_decl_spec_t* gather_info, 
+        char floating,
+        _size_t bytes)
+{
+    type_t* signed_integral_types[] =
+    {
+        get_signed_char_type(),
+        get_signed_short_int_type(),
+        get_signed_int_type(),
+        get_signed_long_int_type(),
+        get_signed_long_long_int_type(),
+        NULL,
+    };
+
+    type_t* unsigned_integral_types[] =
+    {
+        get_unsigned_char_type(),
+        get_unsigned_short_int_type(),
+        get_unsigned_int_type(),
+        get_unsigned_long_int_type(),
+        get_unsigned_long_long_int_type(),
+        NULL,
+    };
+
+    type_t* float_types[] =
+    {
+        get_float_type(),
+        get_double_type(),
+        get_long_double_type(),
+        NULL,
+    };
+
+    type_t** types = signed_integral_types;
+
+    if (floating)
+        types = float_types;
+    else if (gather_info->is_unsigned)
+        types = unsigned_integral_types;
+
+    char match_found = 0;
+    type_t* match_type = NULL;
+
+    int i = 0;
+    while (types[i] != NULL
+            && !match_found)
+    {
+        if (type_get_size(types[i]) == bytes)
+        {
+            match_found = 1;
+            match_type = types[i];
+        }
+        i++;
+    }
+
+    if (match_found)
+    {
+        gather_info->is_overriden_type = 1;
+        gather_info->mode_type = match_type;
+    }
+
+    return match_found;
+}
+
 static void gather_one_gcc_attribute(const char* attribute_name,
         AST expression_list,
         gather_decl_spec_t* gather_info,
@@ -99,7 +162,8 @@ static void gather_one_gcc_attribute(const char* attribute_name,
             }
         }
     }
-    else if (strcmp(attribute_name, "mode") == 0)
+    else if (strcmp(attribute_name, "mode") == 0
+            || strcmp(attribute_name, "__mode__") == 0)
     {
         if (ASTSon0(expression_list) != NULL)
         {
@@ -112,16 +176,97 @@ static void gather_one_gcc_attribute(const char* attribute_name,
         char ignored = 0;
         if (ASTType(argument) == AST_SYMBOL)
         {
-            const char *vector_mode = ASTText(argument);
+            const char *size_mode = ASTText(argument);
 
-            if (vector_mode[0] != 'V')
+            // FIXME - Can a vector mode start with two underscores ?
+            if (size_mode[0] != 'V')
             {
-                ignored = 1;
+                // Do nothing if we don't do sizeof
+                if (CURRENT_CONFIGURATION(compute_sizeof))
+                {
+                    /*
+                       QI - An integer that is as wide as the smallest addressable unit, usually 8 bits.
+                       HI - An integer, twice as wide as a QI mode integer, usually 16 bits.
+                       SI - An integer, four times as wide as a QI mode integer, usually 32 bits.
+                       DI - An integer, eight times as wide as a QI mode integer, usually 64 bits.
+                       SF - A floating point value, as wide as a SI mode integer, usually 32 bits.
+                       DF - A floating point value, as wide as a DI mode integer, usually 64 bits. 
+                     */
+                    struct 
+                    {
+                        const char* mode_name;
+                        char floating;
+                        _size_t bytes;
+                    } mode_list[] =
+                    {
+                        // Integral types
+                        { "QI",     0, 1 }, 
+                        { "__QI__", 0, 1 }, 
+                        { "HI",     0, 2 },
+                        { "__HI__", 0, 2 },
+                        { "SI",     0, 4 },
+                        { "__SI__", 0, 4 },
+                        { "DI",     0, 8 },
+                        { "__DI__", 0, 8 },
+                        // Floating types
+                        { "SF",     1, 4 },
+                        { "__SF__", 1, 4 },
+                        { "DF",     1, 8 },
+                        { "__DF__", 1, 8 },
+                    };
+
+                    char found = 0;
+
+                    if (strcmp(size_mode, "__pointer__") == 0
+                        || strcmp(size_mode, "pointer") == 0)
+                    {
+                        fix_gather_type_to_match_mode(gather_info,
+                                /* floating */ 0, CURRENT_CONFIGURATION(type_environment)->sizeof_pointer);
+                        found = 1;
+                    }
+                    else if (strcmp(size_mode, "__word__") == 0
+                            || strcmp(size_mode, "word") == 0)
+                    {
+                        // what is word mode??? At the moment use the size of a long
+                        // since it matches what gcc does
+                        fix_gather_type_to_match_mode(gather_info,
+                                /* floating */ 0, CURRENT_CONFIGURATION(type_environment)->sizeof_signed_long);
+                        found = 1;
+                    }
+                    else if (strcmp(size_mode, "__byte__") == 0
+                        || strcmp(size_mode, "byte") == 0)
+                    {
+                        fix_gather_type_to_match_mode(gather_info,
+                                /* floating */ 0, /* 1 byte */ 1);
+                        found = 1;
+                    }
+
+                    // Find in the table above if not found yet
+                    int i;
+                    int max_mode = STATIC_ARRAY_LENGTH(mode_list);
+                    for (i = 0; i < max_mode && !found; i++)
+                    {
+                        if (strcmp(size_mode, mode_list[i].mode_name) == 0)
+                        {
+                            found = 1;
+                            fix_gather_type_to_match_mode(gather_info, 
+                                    mode_list[i].floating, mode_list[i].bytes);
+                        }
+                    }
+
+                    if (!found)
+                    {
+                        ignored = 1;
+                    }
+                }
             }
             else
             {
+                fprintf(stderr, "%s: warning: attribute 'mode' is deprecated better use 'vector_size'\n", 
+                        ast_location(expression_list));
+
                 char number_of_elements_str[256];
-                strncpy(number_of_elements_str, &(vector_mode[1]), 255);
+                strncpy(number_of_elements_str, &(size_mode[1]), 255);
                 number_of_elements_str[255] = '\0';
                 char *p = number_of_elements_str;
 
@@ -179,19 +324,19 @@ static void gather_one_gcc_attribute(const char* attribute_name,
                             {
                                 if (size == 'Q')
                                 {
-                                    gather_info->vector_mode_type = get_signed_char_type();
+                                    gather_info->mode_type = get_signed_char_type();
                                 }
                                 else if (size == 'H')
                                 {
-                                    gather_info->vector_mode_type = get_signed_short_int_type();
+                                    gather_info->mode_type = get_signed_short_int_type();
                                 }
                                 else if (size == 'S')
                                 {
-                                    gather_info->vector_mode_type = get_signed_int_type();
+                                    gather_info->mode_type = get_signed_int_type();
                                 }
                                 else if (size == 'D')
                                 {
-                                    gather_info->vector_mode_type = get_signed_long_long_int_type();
+                                    gather_info->mode_type = get_signed_long_long_int_type();
                                 }
                                 else
                                 {
@@ -202,11 +347,11 @@ static void gather_one_gcc_attribute(const char* attribute_name,
                             {
                                 if (size == 'S')
                                 {
-                                    gather_info->vector_mode_type = get_float_type();
+                                    gather_info->mode_type = get_float_type();
                                 }
                                 else if (size == 'D')
                                 {
-                                    gather_info->vector_mode_type = get_double_type();
+                                    gather_info->mode_type = get_double_type();
                                 }
                                 else
                                 {
@@ -221,7 +366,7 @@ static void gather_one_gcc_attribute(const char* attribute_name,
                             if (!ignored)
                             {
                                 gather_info->vector_size = num_elements
-                                    * get_sizeof_type(gather_info->vector_mode_type);
+                                    * get_sizeof_type(gather_info->mode_type);
                                 gather_info->is_vector = 1;
                             }
                         }
@@ -238,11 +383,6 @@ static void gather_one_gcc_attribute(const char* attribute_name,
         if (ignored)
         {
             fprintf(stderr, "%s: warning: ignoring attribute 'mode'\n",
-                    ast_location(expression_list));
-        }
-        else
-        {
-            fprintf(stderr, "%s: warning: attribute 'mode' is deprecated better use 'vector_size'\n", 
                     ast_location(expression_list));
         }
     }

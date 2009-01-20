@@ -334,4 +334,9 @@ namespace TL
 
         return AST_t(NULL);
     }
+
+    bool Symbol::is_defined() const
+    {
+        return _symbol->defined;
+    }
 }

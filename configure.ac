@@ -537,6 +537,35 @@ fi
 
 dnl ------------------------------------
 
+dnl ---------------------- TL tests ----------------------------
+is_enabled_tl_tests="no"
+
+AC_ARG_ENABLE([tl-tests],
+  AS_HELP_STRING([--enable-tl-tests], [Build and install TL self testing phases]),
+  [
+    if test x$enableval = xyes -o x$enableval = x;
+    then
+        is_enabled_tl_tests="yes"
+    else if test x$enableval = xno;
+         then
+            is_enabled_tl_tests="no"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+      is_enabled_tl_tests="no"
+  ]
+)
+
+if test x$is_enabled_tl_tests = xyes;
+then
+   TLEXTENSIONS="${TLEXTENSIONS} testing"
+fi
+
+dnl ------------------------------------
+
 dnl --------------------- Regeneration files ---------------------
 
 enable_regeneration=yes
@@ -770,6 +799,8 @@ AC_CONFIG_FILES([Makefile
            src/tl/instr_pthreads/Makefile 
            src/tl/acotes/Makefile
            src/tl/stm_func/Makefile
+           src/tl/testing/Makefile
+           src/tl/testing/sizeof/Makefile
            src/tl/examples/Makefile
            src/tl/examples/basic_test/Makefile
            src/tl/examples/mypragma/Makefile

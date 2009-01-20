@@ -805,7 +805,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
                     CXX_LANGUAGE()
                     {
                         if (is_named_class_type(declarator_type)
-                                && !is_dependent_type(declarator_type, decl_context)
+                                && !is_dependent_type(declarator_type)
                                 && !named_type_get_symbol(declarator_type)->entity_specs.after_typedef)
                         {
                             check_zero_args_constructor(declarator_type, decl_context, declarator);
@@ -1927,8 +1927,10 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
 
             enum_type_add_enumerator(enum_type, enumeration_item);
         }
-
     }
+
+    // Set it complete
+    enum_type_set_complete(enum_type);
 }
 
 void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t decl_context)
@@ -2015,7 +2017,7 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
 
         if (result->kind != SK_TEMPLATE_TYPE_PARAMETER
                 && result->kind != SK_TEMPLATE_TEMPLATE_PARAMETER
-                && !is_dependent_type(result->type_information, decl_context)
+                && !is_dependent_type(result->type_information)
                 && (result->kind == SK_CLASS
                     || result->kind == SK_TYPEDEF))
         {
@@ -2046,7 +2048,7 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
         }
         else if (result->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
                 || result->kind == SK_TEMPLATE_TYPE_PARAMETER
-                || is_dependent_type(result->type_information, decl_context))
+                || is_dependent_type(result->type_information))
         {
             DEBUG_CODE()
             {
@@ -2134,7 +2136,7 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
     // At the moment only copy constructors and operator assignment functions are defined
     //
     // Only for non-dependent classes
-    if (!is_dependent_type(class_type, decl_context))
+    if (!is_dependent_type(class_type))
     {
         DEBUG_CODE()
         {
@@ -3209,7 +3211,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     // Set the template nature of the class
     if (is_template_specialized_type(class_type))
     {
-        if (is_dependent_type(class_type, decl_context))
+        if (is_dependent_type(class_type))
         {
             class_type_set_complete_dependent(class_type);
         }
@@ -3226,7 +3228,12 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         if (define_class)
         {
             finish_class_type(class_type, *type_info, decl_context, ASTFileName(a), ASTLine(a));
+            class_type_set_complete(class_type);
         }
+    }
+    C_LANGUAGE()
+    {
+        class_type_set_complete(class_type);
     }
     
     // DO NOT run this before setting the nature of the class or we will try
@@ -3370,9 +3377,9 @@ static void build_scope_declarator_with_parameter_context(AST a,
     // Now we can update the base type because of attributes if needed
     if (gather_info->is_vector)
     {
-        if (gather_info->vector_mode_type != NULL)
+        if (gather_info->mode_type != NULL)
         {
-            *declarator_type = get_vector_type(gather_info->vector_mode_type, 
+            *declarator_type = get_vector_type(gather_info->mode_type, 
                     gather_info->vector_size);
         }
         else
@@ -3387,6 +3394,9 @@ static void build_scope_declarator_with_parameter_context(AST a,
                         gather_info->vector_size), 
                     cv_qualif);
         }
+    }
+    else if (gather_info->is_overriden_type)
+    {
     }
 
     if (a != NULL)
@@ -3475,9 +3485,7 @@ static void build_scope_declarator_with_parameter_context(AST a,
 
                 if (conversion_function_id != NULL)
                 {
-                    // Make that conversion functions only receive one parameter
-                    // type (standard says that their type is only return type, but
-                    // this would make overloading code awkward)
+                    // Conversion functions do not haver parameters and just return their conversion
                     type_t* conversion_function_type;
                     get_conversion_function_name(decl_context, conversion_function_id, &conversion_function_type);
                     *declarator_type = get_new_function_type(conversion_function_type, 

@@ -346,7 +346,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                 // t1 is a template-id
                 && is_template_specialized_type(get_actual_class_type(t1))
                 && is_named_class_type(t2)
-                && !is_dependent_type(t2, decl_context))
+                && !is_dependent_type(t2))
         {
             DEBUG_CODE()
             {

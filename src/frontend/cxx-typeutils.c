@@ -274,6 +274,10 @@ struct simple_type_tag {
     // __Complex float
     char is_complex;
 
+    // States whether this type is incomplete, by default all classes and enum
+    // type are incomplete and they must be 
+    char is_incomplete;
+
     // This type exists after another symbol, for
     // instance
     //
@@ -941,6 +945,17 @@ type_t* get_new_enum_type(decl_context_t decl_context)
     type_info->type->kind = STK_ENUM;
     type_info->type->type_decl_context = decl_context;
 
+    // This is incomplete by default
+    type_info->type->is_incomplete = 1;
+
+    C_LANGUAGE()
+    {
+        type_info->size = CURRENT_CONFIGURATION(type_environment)->sizeof_signed_int;
+        type_info->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_signed_int;
+        type_info->valid_size = 1;
+    }
+    // In C++ this must be computed
+
     return type_info;
 }
 
@@ -952,6 +967,9 @@ type_t* get_new_class_type(decl_context_t decl_context, enum class_kind_t class_
     type_info->type->class_info->class_kind = class_kind;
     type_info->type->kind = STK_CLASS;
     type_info->type->type_decl_context = decl_context;
+
+    // This is incomplete by default
+    type_info->type->is_incomplete = 1;
 
     return type_info;
 }
@@ -1212,8 +1230,7 @@ static char same_template_argument_list(
     return 1;
 }
 
-char has_dependent_template_arguments(template_argument_list_t* template_arguments,
-        decl_context_t decl_context)
+char has_dependent_template_arguments(template_argument_list_t* template_arguments)
 {
     int i;
     for (i = 0; i < template_arguments->num_arguments; i++)
@@ -1222,7 +1239,7 @@ char has_dependent_template_arguments(template_argument_list_t* template_argumen
 
         if (curr_argument->kind == TAK_TYPE)
         {
-            if (is_dependent_type(curr_argument->type, decl_context))
+            if (is_dependent_type(curr_argument->type))
             {
                 return 1;
             }
@@ -1254,7 +1271,7 @@ type_t* template_type_get_specialized_type(type_t* t,
 {
     ERROR_CONDITION(!is_template_type(t), "This is not a template type", 0);
 
-    char has_dependent_temp_args = has_dependent_template_arguments(template_argument_list, decl_context);
+    char has_dependent_temp_args = has_dependent_template_arguments(template_argument_list);
 
     // Search an existing specialization
     int i;
@@ -1802,15 +1819,24 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
         result->is_faulty = 1;
     }
 
-    // FIXME - Enable this some day
-#if 0
-    if (is_constant_expression(expression, decl_context))
+    if (CURRENT_CONFIGURATION(compute_sizeof))
     {
-        literal_value_t literal_val 
-            = evaluate_constant_expression(expression, decl_context);
-        result->size = element_type->size * literal_value_to_uint(literal_val);
+        if (expression != NULL
+                && is_constant_expression(expression, decl_context))
+        {
+            char valid = 0;
+            literal_value_t literal_val 
+                = evaluate_constant_expression(expression, decl_context);
+            _size_t size_of_type = literal_value_to_uint(literal_val, &valid);
+
+            // This check is redundant since is_constant_expression and
+            // literal_value_to_uint do the same check
+            if (valid)
+            {
+                result->size = element_type->size * size_of_type;
+            }
+        }
     }
-#endif
 
     return result;
 }
@@ -1879,6 +1905,13 @@ type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int n
         result->function->parameter_list[i] = new_parameter;
     }
 
+    // Technically this is not valid, but we will allow it in C
+    C_LANGUAGE()
+    {
+        result->size = 1;
+        result->alignment = 1;
+        result->valid_size = 1;
+    }
 
     return result;
 }
@@ -2333,8 +2366,23 @@ void class_type_get_instantiation_trees(type_t* t, AST *body, AST *base_clause)
     *base_clause = t->type->template_class_base_clause;
 }
 
+// FIXME - This function should be public and be called 'is_unnamed_enum_type'
+static char is_enum_type(struct type_tag* t)
+{
+    return (t != NULL
+            && t->kind == TK_DIRECT
+            && t->type->kind == STK_ENUM);
+}
+
+void enum_type_set_complete(struct type_tag* enum_type)
+{
+    ERROR_CONDITION(!is_enum_type(enum_type), "This is not an enum type", 0);
+    enum_type->type->is_incomplete = 0;
+}
+
 void enum_type_add_enumerator(type_t* t, scope_entry_t* enumeration_item)
 {
+    ERROR_CONDITION(!is_enum_type(t), "This is not an enum type", 0);
     simple_type_t* enum_type = t->type;
     P_LIST_ADD(enum_type->enum_info->enumeration_list, 
             enum_type->enum_info->num_enumeration,
@@ -2492,6 +2540,12 @@ char function_type_is_complete_independent(type_t* t)
 {
     ERROR_CONDITION(!is_function_type(t), "This is not a function type", 0);
     return t->function->template_nature == TPN_COMPLETE_INDEPENDENT;
+}
+
+void class_type_set_complete(struct type_tag* class_type)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+    class_type->type->is_incomplete = 0;
 }
 
 void class_type_add_base_class(type_t* class_type, scope_entry_t* base_class, char is_virtual)
@@ -4273,7 +4327,7 @@ static char template_id_is_dependent(AST expression, AST template_id, decl_conte
                         // Fix this
                         build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
                                 decl_context);
-                        if (is_dependent_type(simple_type_info, decl_context))
+                        if (is_dependent_type(simple_type_info))
                         {
                             ast_set_expression_type(expression, get_dependent_expr_type());
                             return 1;
@@ -4307,7 +4361,7 @@ static char is_dependent_type_id(AST type_id, decl_context_t decl_context)
     compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
             &declarator_type, decl_context);
 
-    return (is_dependent_type(simple_type_info, decl_context));
+    return (is_dependent_type(simple_type_info));
 }
 
 char is_dependent_expression(AST expression, decl_context_t decl_context)
@@ -4499,7 +4553,7 @@ char is_dependent_expression(AST expression, decl_context_t decl_context)
 
                     if (entry->type_information != NULL)
                     {
-                        result |= is_dependent_type(entry->type_information, decl_context);
+                        result |= is_dependent_type(entry->type_information);
                     }
 
                     entry->dependency_info = (result ? DI_DEPENDENT : DI_NOT_DEPENDENT);
@@ -4561,7 +4615,7 @@ char is_dependent_expression(AST expression, decl_context_t decl_context)
                 build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &simple_type_info, 
                         decl_context);
 
-                if (is_dependent_type(simple_type_info, decl_context))
+                if (is_dependent_type(simple_type_info))
                 {
                     ast_set_expression_type(expression, get_dependent_expr_type());
                     return 1;
@@ -4620,7 +4674,7 @@ char is_dependent_expression(AST expression, decl_context_t decl_context)
                 compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
                         &declarator_type, decl_context);
 
-                return is_dependent_type(simple_type_info, decl_context);
+                return is_dependent_type(simple_type_info);
             }
         case AST_DERREFERENCE :
         case AST_REFERENCE :
@@ -4656,7 +4710,7 @@ char is_dependent_expression(AST expression, decl_context_t decl_context)
                 compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
                         &declarator_type, decl_context);
 
-                if (is_dependent_type(simple_type_info, decl_context))
+                if (is_dependent_type(simple_type_info))
                 {
                     ast_set_expression_type(expression, get_dependent_expr_type());
                     return 1;
@@ -4710,7 +4764,7 @@ char is_dependent_expression(AST expression, decl_context_t decl_context)
     }
 }
 
-char is_dependent_simple_type(type_t* type_info, decl_context_t decl_context)
+static char is_dependent_simple_type(type_t* type_info)
 {
     if (type_info == NULL)
         return 0;
@@ -4723,7 +4777,7 @@ char is_dependent_simple_type(type_t* type_info, decl_context_t decl_context)
     }
     else if (is_typedef_type(type_info))
     {
-        return is_dependent_type(typedef_type_get_aliased_type(type_info), decl_context);
+        return is_dependent_type(typedef_type_get_aliased_type(type_info));
     }
     else if (is_named_type(type_info))
     {
@@ -4745,14 +4799,14 @@ char is_dependent_simple_type(type_t* type_info, decl_context_t decl_context)
             else
             {
                 ERROR_CONDITION(symbol->type_information == NULL, "This cannot be null", 0);
-                result = is_dependent_type(symbol->type_information, decl_context);
+                result = is_dependent_type(symbol->type_information);
             }
 
             // If the symbol type is member, we have to check the class
             // where it belongs
             if (!result && symbol->entity_specs.is_member)
             {
-                result |= is_dependent_type(symbol->entity_specs.class_type, decl_context);
+                result |= is_dependent_type(symbol->entity_specs.class_type);
             }
 
             symbol->dependency_info = (result ? DI_DEPENDENT : DI_NOT_DEPENDENT);
@@ -4804,7 +4858,7 @@ char is_dependent_simple_type(type_t* type_info, decl_context_t decl_context)
     }
 }
 
-char is_dependent_type(type_t* type, decl_context_t decl_context)
+char is_dependent_type(type_t* type)
 {
     ERROR_CONDITION(type == NULL, "This cannot be null", 0);
 
@@ -4812,11 +4866,11 @@ char is_dependent_type(type_t* type, decl_context_t decl_context)
 
     if (is_non_derived_type(type))
     {
-        return is_dependent_simple_type(type, decl_context);
+        return is_dependent_simple_type(type);
     }
     else if (is_array_type(type))
     {
-        return is_dependent_type(array_type_get_element_type(type), decl_context)
+        return is_dependent_type(array_type_get_element_type(type))
             || ((array_type_get_array_size_expr(type) != NULL)
                     && is_dependent_expression(array_type_get_array_size_expr(type),
                         array_type_get_array_size_expr_context(type)));
@@ -4841,7 +4895,7 @@ char is_dependent_type(type_t* type, decl_context_t decl_context)
         type_t* return_type = function_type_get_return_type(type);
 
         if (return_type != NULL
-                && is_dependent_type(return_type, decl_context))
+                && is_dependent_type(return_type))
         {
             return 1;
         }
@@ -4855,7 +4909,7 @@ char is_dependent_type(type_t* type, decl_context_t decl_context)
         {
             type_t* parameter_type = function_type_get_parameter_type_num(type, i);
 
-            if (is_dependent_type(parameter_type, decl_context))
+            if (is_dependent_type(parameter_type))
             {
                 return 1;
             }
@@ -4865,25 +4919,25 @@ char is_dependent_type(type_t* type, decl_context_t decl_context)
     }
     else if (is_vector_type(type))
     {
-        return is_dependent_type(vector_type_get_element_type(type), decl_context);
+        return is_dependent_type(vector_type_get_element_type(type));
     }
     else if (is_pointer_type(type))
     {
-        return is_dependent_type(pointer_type_get_pointee_type(type), decl_context);
+        return is_dependent_type(pointer_type_get_pointee_type(type));
     }
     else if (is_lvalue_reference_type(type) 
             || is_rvalue_reference_type(type))
     {
-        return is_dependent_type(reference_type_get_referenced_type(type), decl_context);
+        return is_dependent_type(reference_type_get_referenced_type(type));
     }
     else if (is_pointer_to_member_type(type))
     {
-        return is_dependent_type(pointer_type_get_pointee_type(type), decl_context)
-            || is_dependent_type(pointer_to_member_type_get_class_type(type), decl_context);
+        return is_dependent_type(pointer_type_get_pointee_type(type))
+            || is_dependent_type(pointer_to_member_type_get_class_type(type));
     }
     else if (is_vector_type(type))
     {
-        return is_dependent_type(vector_type_get_element_type(type), decl_context);
+        return is_dependent_type(vector_type_get_element_type(type));
     }
     // else if (is_unresolved_overloaded_type(type))
     // {
@@ -7013,6 +7067,31 @@ char is_scalar_type(type_t* t)
             && !is_function_type(t));
 }
 
+
+char is_incomplete_type(type_t* t)
+{
+    t = advance_over_typedefs(t);
+
+    CXX_LANGUAGE()
+    {
+        if (is_void_type(t))
+            return 1;
+    }
+
+    if (is_named_type(t))
+    {
+        return is_incomplete_type(named_type_get_symbol(t)->type_information);
+    }
+    else if (is_enum_type(t)
+            || is_unnamed_class_type(t))
+    {
+        return t->type->is_incomplete;
+    }
+
+    // Everything else must be complete, otherwise it should not have been constructed as a type :)
+    return 0;
+}
+
 scope_entry_list_t* class_type_get_all_bases(type_t *t)
 {
     ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
@@ -7369,6 +7448,12 @@ _size_t type_get_size(type_t* t)
     ERROR_CONDITION(CURRENT_CONFIGURATION(type_environment) == NULL,
             "Invalid type environment!", 0);
 
+    CXX_LANGUAGE()
+    {
+        ERROR_CONDITION(is_dependent_type(t), "Dependent type '%s' has got its size requested!\n",
+                print_declarator(t));
+    }
+
     // Note that we are not advancing typedefs because of attributes affecting types!
     if (!t->valid_size)
     {
@@ -7387,6 +7472,42 @@ _size_t type_get_size(type_t* t)
                         class_type_get_non_virtual_size(alias_type));
                 class_type_set_non_virtual_align(t, 
                         class_type_get_non_virtual_align(alias_type));
+            }
+
+            // State it valid
+            type_set_valid_size(t, 1);
+        }
+        else if (is_named_type(t))
+        {
+            type_t* alias_type = named_type_get_symbol(t)->type_information;
+
+            type_set_size(t, type_get_size(alias_type));
+            type_set_alignment(t, type_get_alignment(alias_type));
+
+            CXX_LANGUAGE()
+            {
+                type_set_data_size(t, type_get_data_size(alias_type));
+                class_type_set_non_virtual_size(t, 
+                        class_type_get_non_virtual_size(alias_type));
+                class_type_set_non_virtual_align(t, 
+                        class_type_get_non_virtual_align(alias_type));
+            }
+
+            // State it valid
+            type_set_valid_size(t, 1);
+        }
+        else if (is_gcc_builtin_va_list(t))
+        {
+            WARNING_MESSAGE("The size of __builtin_va_list has been requested, defaulting it to '1' since it is unknown!\n", 0);
+
+            type_set_size(t, 1);
+            type_set_alignment(t, 1);
+
+            CXX_LANGUAGE()
+            {
+                type_set_data_size(t, 1);
+                class_type_set_non_virtual_size(t, 1);
+                class_type_set_non_virtual_align(t, 1);
             }
 
             // State it valid

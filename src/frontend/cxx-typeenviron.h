@@ -3,6 +3,8 @@
 
 #include "cxx-typeenviron-decls.h"
 
+#define DEBUG_SIZEOF_CODE() if (CURRENT_CONFIGURATION(debug_options.debug_sizeof))
+
 // Environments are to be defined in cxx-typeenviron.c
 // and declared here
 

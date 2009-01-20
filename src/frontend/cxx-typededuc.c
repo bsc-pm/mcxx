@@ -854,7 +854,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                     original_parameter_type,
                     decl_context, filename, line);
 
-            if (!is_dependent_type(original_parameter_type, decl_context))
+            if (!is_dependent_type(original_parameter_type))
             {
                 // Skip this one since explicit parameter types left this one
                 // completely defined
@@ -936,7 +936,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
             // Here we would see that 'unsigned int' (argument type) is not exactly 'int' (parameter type)
             // and fail. So if the parameter type (original_parameter) is not dependent, allow this case
 
-            if (!is_dependent_type(original_parameter, decl_context))
+            if (!is_dependent_type(original_parameter))
             {
                 DEBUG_CODE()
                 {

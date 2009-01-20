@@ -569,4 +569,9 @@ namespace TL
             return *this;
         }
     }
+
+    bool Type::is_incomplete() const
+    {
+        return is_incomplete_type(_type_info);
+    }
 }

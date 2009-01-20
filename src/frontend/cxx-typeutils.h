@@ -134,6 +134,7 @@ char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2);
 
 /* Modifiers used when the type is still being built */
 
+void class_type_set_complete(struct type_tag* class_type);
 void class_type_add_base_class(struct type_tag* class_type, struct scope_entry_tag* base_class, char is_virtual);
 void class_type_set_inner_context(struct type_tag* class_type, decl_context_t decl_context);
 void class_type_add_constructor(struct type_tag* class_type, struct scope_entry_tag* entry);
@@ -155,6 +156,7 @@ void class_type_set_default_constructor(struct type_tag* t, struct scope_entry_t
 void class_type_add_member_function(struct type_tag* t, struct scope_entry_tag* entry);
 
 void enum_type_add_enumerator(struct type_tag* t, struct scope_entry_tag* entry);
+void enum_type_set_complete(struct type_tag* t);
 
 struct type_tag* unnamed_class_enum_type_set_name(struct type_tag* t, struct scope_entry_tag* entry);
 
@@ -241,7 +243,7 @@ char is_bool_type(struct type_tag* t1);
 
 char is_non_derived_type(struct type_tag* t);
 
-char is_dependent_type(struct type_tag* type, decl_context_t decl_context);
+char is_dependent_type(struct type_tag* type);
 
 char is_dependent_typename_type(struct type_tag* t);
 
@@ -261,6 +263,8 @@ char is_literal_string_type(struct type_tag* t);
 char is_template_type(struct type_tag* t);
 
 char is_scalar_type(type_t* t);
+
+char is_incomplete_type(type_t* t);
 
 // A type returned by template_type_get_primary_type or template_type_get_specialized_type
 char is_template_specialized_type(struct type_tag* t);
@@ -474,8 +478,7 @@ const char* get_named_type_name(struct scope_entry_tag* entry);
 struct type_tag* get_ellipsis_type(void);
 char is_ellipsis_type(struct type_tag* t);
 
-char has_dependent_template_arguments(template_argument_list_t* template_arguments,
-        decl_context_t decl_context);
+char has_dependent_template_arguments(template_argument_list_t* template_arguments);
 
 char syntactic_comparison_of_nested_names(
         struct AST_tag* nested_name_1, struct AST_tag* nested_name_2, decl_context_t decl_context_1,

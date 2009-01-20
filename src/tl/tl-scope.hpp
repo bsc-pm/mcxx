@@ -129,6 +129,14 @@ namespace TL
             //! Builds a fake temporal scope not related to any real code
             Scope temporal_scope() const;
 
+            //! Returns all symbols signed in in this scope
+            /*! 
+              \param include_hidden If true, hidden symbols (most of 
+              the time internal to the compiler and not visible in the code) 
+              will be considered as well
+             */
+            ObjectList<Symbol> get_all_symbols(bool include_hidden);
+
             //! States that this is a scope
             virtual bool is_scope() const
             {

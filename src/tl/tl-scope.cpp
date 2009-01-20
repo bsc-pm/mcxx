@@ -19,7 +19,9 @@
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 #include "tl-scope.hpp"
+#include "cxx-scope.h"
 #include "cxx-printscope.h"
+#include "hash_iterator.h"
 
 namespace TL
 {
@@ -127,4 +129,38 @@ namespace TL
         return !(this->operator==(sc));
     }
 
+    ObjectList<Symbol> Scope::get_all_symbols(bool include_hidden)
+    {
+        ObjectList<Symbol> result;
+
+        // This should be a bit more encapsulated in cxx-scope.c
+        Iterator *it;
+
+        it = (Iterator*) hash_iterator_create(_decl_context.current_scope->hash);
+        for ( iterator_first(it); 
+                !iterator_finished(it); 
+                iterator_next(it))
+        {
+            scope_entry_list_t* entry_list = (scope_entry_list_t*) iterator_item(it);
+            scope_entry_list_t* it = entry_list;
+
+            while (it != NULL)
+            {
+                scope_entry_t* entry = it->entry;
+
+                // Well, do_not_print is what we use to hide symbols :)
+                if (!entry->do_not_print
+                        || include_hidden)
+                {
+                    Symbol sym(entry);
+                    result.append(sym);
+                }
+
+                it = it->next;
+            }
+
+        }
+
+        return result;
+    }
 }
