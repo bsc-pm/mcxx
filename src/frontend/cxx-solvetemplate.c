@@ -329,14 +329,17 @@ type_t* determine_most_specialized_template_function(int num_feasible_templates,
                     filename, line,
                     is_conversion))
         {
-            fprintf(stderr, "SOLVETEMPLATE: Found that '%s' at '%s:%d' is "
-                    "not the most specialized. It is as good as '%s' at '%s:%d'\n",
-                    named_type_get_symbol(most_specialized)->symbol_name,
-                    named_type_get_symbol(most_specialized)->file,
-                    named_type_get_symbol(most_specialized)->line,
-                    named_type_get_symbol(feasible_templates[i])->symbol_name,
-                    named_type_get_symbol(feasible_templates[i])->file,
-                    named_type_get_symbol(feasible_templates[i])->line);
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SOLVETEMPLATE: Found that '%s' at '%s:%d' is "
+                        "not the most specialized. It is as good as '%s' at '%s:%d'\n",
+                        named_type_get_symbol(most_specialized)->symbol_name,
+                        named_type_get_symbol(most_specialized)->file,
+                        named_type_get_symbol(most_specialized)->line,
+                        named_type_get_symbol(feasible_templates[i])->symbol_name,
+                        named_type_get_symbol(feasible_templates[i])->file,
+                        named_type_get_symbol(feasible_templates[i])->line);
+            }
             return NULL;
         }
     }

@@ -2322,6 +2322,9 @@ type_t* update_type(template_argument_list_t* given_template_args,
         if (return_type != NULL)
         {
             return_type = update_type(given_template_args, return_type, template_arguments_context, filename, line);
+            // Something went wrong here for the return type
+            if (return_type == NULL)
+                return NULL;
         }
 
 #define MAX_PARAMETERS (256)

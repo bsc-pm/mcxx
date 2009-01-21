@@ -691,10 +691,13 @@ char deduce_arguments_of_conversion(
             ok = 1;
         }
         else if (is_pointer_type((*argument_types))
-                && is_pointer_type(updated_type)
-                && !pointer_types_can_be_converted((*argument_types), updated_type))
+                && is_pointer_type(updated_type))
         {
-            ok = 1;
+            standard_conversion_t standard_conversion;
+            if (standard_conversion_between_types(&standard_conversion, (*argument_types), updated_type))
+            {
+                ok = 1;
+            }
         }
 
         if (!ok)
@@ -796,6 +799,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                 // function) and 'g' is an unresolved type we will convert it
                 // into a pointer type
                 //
+
                 current_argument_type = get_pointer_type(current_argument_type);
             }
             // otherwise, if A is a cv-qualified type, top-level cv qualification for A is ignored for type deduction
@@ -867,12 +871,20 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                     original_parameter_type, 
                     decl_context, filename, line);
 
-
-        if (is_unresolved_overloaded_type(argument_types[i]))
+        if (is_unresolved_overloaded_type(argument_types[i])
+                || (is_pointer_type(argument_types[i])
+                    && is_unresolved_overloaded_type(
+                        pointer_type_get_pointee_type(argument_types[i])))
+           )
         {
+            type_t* unresolved_type = argument_types[i];
+
+            if (is_pointer_type(argument_types[i]))
+                unresolved_type = pointer_type_get_pointee_type(argument_types[i]);
+
             scope_entry_t* solved_function = address_of_overloaded_function(
-                    unresolved_overloaded_type_get_overload_set(argument_types[i]),
-                    unresolved_overloaded_type_get_explicit_template_arguments(argument_types[i]),
+                    unresolved_overloaded_type_get_overload_set(unresolved_type),
+                    unresolved_overloaded_type_get_explicit_template_arguments(unresolved_type),
                     updated_type,
                     decl_context,
                     /* filename = */ NULL, /* line = */ 0);
@@ -994,17 +1006,20 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
              *
              */
             else if (is_pointer_type(argument_types[i])
-                    && is_pointer_type(updated_type)
-                    && !pointer_types_can_be_converted(argument_types[i], updated_type))
+                    && is_pointer_type(updated_type))
             {
-                DEBUG_CODE()
+                standard_conversion_t standard_conversion;
+                if (standard_conversion_between_types(&standard_conversion, argument_types[i], updated_type))
                 {
-                    fprintf(stderr, "TYPEDEDUC: But argument type '%s' is a convertible pointer "
-                            "to deduced parameter type '%s'\n",
-                            print_declarator(argument_types[i]),
-                            print_declarator(updated_type));
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "TYPEDEDUC: But argument type '%s' is a convertible pointer "
+                                "to deduced parameter type '%s'\n",
+                                print_declarator(argument_types[i]),
+                                print_declarator(updated_type));
+                    }
+                    ok = 1;
                 }
-                ok = 1;
             }
             /* 
              * This case is wrongly handled by all the compilers out, so we will too
@@ -1074,8 +1089,33 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
 
             if (!ok)
             {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEDEDUC: Types cannot be adjusted at all\n");
+                }
                 return 0;
             }
+        }
+    }
+
+    // Check that the return type makes sense, otherwise the whole deduction is wrong
+    type_t* function_return_type = function_type_get_return_type(specialized_type);
+
+    if (function_return_type != NULL)
+    {
+        // Now update it, if it returns NULL, everything was wrong :)
+        function_return_type = update_type(deduced_template_argument_list,
+                function_return_type,
+                decl_context,
+                filename, line);
+
+        if (function_return_type == NULL)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEDEDUC: Deduction led to a wrong return type\n");
+            }
+            return 0;
         }
     }
 

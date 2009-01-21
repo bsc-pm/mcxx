@@ -311,7 +311,8 @@ void instantiate_template_function(scope_entry_t* entry,
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "INSTANTIATION: Instantiating function '%s' at '%s:%d\n",
+        fprintf(stderr, "INSTANTIATION: Instantiating function '%s' with type '%s' at '%s:%d\n",
+                entry->symbol_name,
                 print_declarator(entry->type_information),
                 entry->file,
                 entry->line);

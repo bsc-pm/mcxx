@@ -1311,11 +1311,6 @@ type_t* template_type_get_specialized_type(type_t* t,
         }
     }
 
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "TYPEUTILS: No existing specialization matches, creating a fresh one\n");
-    }
-
     type_t* specialized_type = NULL;
     scope_entry_t* primary_symbol = named_type_get_symbol(t->type->primary_specialization);
 
@@ -1387,6 +1382,13 @@ type_t* template_type_get_specialized_type(type_t* t,
 
     P_LIST_ADD(t->type->specialized_types, t->type->num_specialized_types, 
             get_user_defined_type(specialized_symbol));
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "TYPEUTILS: No existing specialization matches for '%s', creating a fresh one of type '%s'\n",
+                primary_symbol->symbol_name,
+                print_declarator(specialized_symbol->type_information));
+    }
 
     return get_user_defined_type(specialized_symbol);
 }
