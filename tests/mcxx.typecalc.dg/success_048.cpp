@@ -18,7 +18,8 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-typedef unsigned int size_t;
+// Portable in GCC
+typedef __typeof__(sizeof(0)) size_t;
 
 void* operator new(size_t t);
 
