@@ -2143,6 +2143,35 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
             fprintf(stderr, "BUILDSCOPE: Finishing class\n");
         }
 
+        // Force instantiation of required types since we need them full when laying out
+        {
+            int i;
+            for (i = 0; (i < class_type_get_num_nonstatic_data_members(class_type)); i++)
+            {
+                scope_entry_t *data_member = class_type_get_nonstatic_data_member_num(class_type, i);
+
+                type_t* current_type = data_member->type_information;
+
+                if (is_lvalue_reference_type(current_type)
+                        || is_rvalue_reference_type(current_type))
+                {
+                    current_type = reference_type_get_referenced_type(current_type);
+                }
+                if (is_array_type(current_type))
+                {
+                    current_type = array_type_get_element_type(current_type);
+                }
+
+                if (is_named_class_type(current_type)
+                        && class_type_is_incomplete_independent(get_actual_class_type(current_type)))
+                {
+                    scope_entry_t* named_type_sym = named_type_get_symbol(current_type);
+
+                    instantiate_template_class(named_type_sym, decl_context, filename, line);
+                }
+            }
+        }
+
         // Implicit default constructor
         if (class_type_get_num_constructors(class_type) == 0
                 && is_named_class_type(type_info))
@@ -2234,13 +2263,6 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
 
                     type_t* member_actual_class_type = get_actual_class_type(member_class_type);
 
-                    if (class_type_is_incomplete_independent(member_actual_class_type))
-                    {
-                        // If this class is incomplete independent we have to complete it
-                        scope_entry_t* entry = named_type_get_symbol(member_class_type);
-                        instantiate_template_class(entry, decl_context, filename, line);
-                    }
-
                     scope_entry_t* default_constructor 
                         = class_type_get_default_constructor(
                                 get_actual_class_type(member_actual_class_type));
@@ -2296,13 +2318,6 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
                     }
 
                     type_t* member_actual_class_type = get_actual_class_type(member_class_type);
-
-                    if (class_type_is_incomplete_independent(member_actual_class_type))
-                    {
-                        // If this class is incomplete independent we have to complete it
-                        scope_entry_t* entry = named_type_get_symbol(member_class_type);
-                        instantiate_template_class(entry, decl_context, filename, line);
-                    }
 
                     if (is_named_class_type(member_actual_class_type))
                     {
@@ -2414,13 +2429,6 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
 
                     type_t* member_actual_class_type = get_actual_class_type(member_class_type);
 
-                    if (class_type_is_incomplete_independent(member_actual_class_type))
-                    {
-                        // If this class is incomplete independent we have to complete it
-                        scope_entry_t* entry = named_type_get_symbol(member_class_type);
-                        instantiate_template_class(entry, decl_context, filename, line);
-                    }
-
                     int j;
                     for (j = 0; (j < class_type_get_num_copy_constructors(member_actual_class_type))
                             && !has_nonstatic_data_member_with_no_trivial_copy_constructor;
@@ -2478,13 +2486,6 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
                     }
 
                     type_t* member_actual_class_type = get_actual_class_type(member_class_type);
-
-                    if (class_type_is_incomplete_independent(member_actual_class_type))
-                    {
-                        // If this class is incomplete independent we have to complete it
-                        scope_entry_t* entry = named_type_get_symbol(member_class_type);
-                        instantiate_template_class(entry, decl_context, filename, line);
-                    }
 
                     const_parameter = const_parameter &&
                         class_has_const_copy_assignment_operator(member_actual_class_type);
@@ -2585,13 +2586,6 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
 
                     type_t* member_actual_class_type = get_actual_class_type(member_class_type);
 
-                    if (class_type_is_incomplete_independent(member_actual_class_type))
-                    {
-                        // If this class is incomplete independent we have to complete it
-                        scope_entry_t* entry = named_type_get_symbol(member_class_type);
-                        instantiate_template_class(entry, decl_context, filename, line);
-                    }
-
                     int j;
                     for (j = 0; j < class_type_get_num_copy_assignment_operators(member_actual_class_type)
                             && !has_nonstatic_data_member_with_no_trivial_copy_assignment; 
@@ -2680,13 +2674,6 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
                     }
 
                     type_t* member_actual_class_type = get_actual_class_type(member_class_type);
-
-                    if (class_type_is_incomplete_independent(member_actual_class_type))
-                    {
-                        // If this class is incomplete independent we have to complete it
-                        scope_entry_t* entry = named_type_get_symbol(member_class_type);
-                        instantiate_template_class(entry, decl_context, filename, line);
-                    }
 
                     scope_entry_t* destructor
                         = class_type_get_destructor(
@@ -3239,7 +3226,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     // DO NOT run this before setting the nature of the class or we will try
     // to instantiate independent complete classes within member functions!
     leave_class_specifier();
-
     
     // Function definitions are built their scope delayed, once after all
     // the class scope has been seen. This is because inline function
