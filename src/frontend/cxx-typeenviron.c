@@ -836,7 +836,8 @@ static void cxx_abi_lay_bitfield(type_t* t UNUSED_PARAMETER,
     }
 
     _size_t size_of_member = type_get_size(member->type_information);
-    _size_t current_bit_within_storage = 0;
+    _size_t initial_bit = 0;
+    _size_t filled_bits = 0;
 
     // At least one byte is always used
     _size_t used_bytes = 0;
@@ -869,30 +870,30 @@ static void cxx_abi_lay_bitfield(type_t* t UNUSED_PARAMETER,
                 offset = offset - 1;
             }
 
-            current_bit_within_storage = layout_info->bit_within_bitfield;
+            initial_bit = layout_info->bit_within_bitfield;
         }
         else
         {
             // otherwise bits available start at the offset
-            current_bit_within_storage = (offset % member_align) * 8;
+            initial_bit = (offset % member_align) * 8;
         }
 
         if (bitsize == 0)
         {
             // Just fill all the remaining bits
-            current_bit_within_storage = size_of_member * 8;
+            filled_bits = size_of_member * 8 - initial_bit;
         }
         else
         {
-            if ((size_of_member * 8 - current_bit_within_storage) <
+            if ((size_of_member * 8 - initial_bit) <
                     bitsize)
             {
                 // No overlapping in SysV
                 next_offset_with_align(&offset, member_align);
-                current_bit_within_storage = 0;
+                initial_bit = 0;
             }
 
-            current_bit_within_storage += bitsize;
+            filled_bits = bitsize;
         }
 
         // Update align if not unnamed
@@ -910,21 +911,26 @@ static void cxx_abi_lay_bitfield(type_t* t UNUSED_PARAMETER,
         // Advance the required amount of bytes
         used_bytes += bitsize / 8;
         // And we save the bit in the last (partially) filled byte
-        current_bit_within_storage = bitsize % 8;
+        initial_bit = 0;
+        filled_bits = bitsize % 8;
 
         // Update align if not unnamed
         if (!member->entity_specs.is_unnamed_bitfield)
             layout_info->align = MAX(layout_info->align, integral_type_align);
     }
 
-    // It may be zero only for bitfields bigger than their base type
-    used_bytes += round_to_upper_byte(current_bit_within_storage);
+    // Note that filled_bits can be zero only for bitfields like
+    //
+    //    T c : (sizeof(T) * k)
+    //
+    // where k > 1
+    used_bytes += round_to_upper_byte(filled_bits);
 
     layout_info->dsize = offset + used_bytes;
     layout_info->size = MAX(layout_info->size, layout_info->dsize);
 
     layout_info->previous_was_bitfield = 1;
-    layout_info->bit_within_bitfield = current_bit_within_storage;
+    layout_info->bit_within_bitfield = initial_bit + filled_bits;
 }
 
 static void cxx_abi_lay_member_out(type_t* t, 
