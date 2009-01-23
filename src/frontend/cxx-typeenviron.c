@@ -84,6 +84,8 @@ static void system_v_field_layout(scope_entry_t* field,
 
     if (field->entity_specs.is_bitfield)
     {
+        _size_t initial_bit = 0;
+        _size_t filled_bits = 0;
         // Named bitfields
 
         // Bitfields are very special, otherwise all this stuff would be
@@ -102,38 +104,42 @@ static void system_v_field_layout(scope_entry_t* field,
             }
         }
 
+        if (!(*previous_was_bitfield))
+        {
+            // If the previous was not a bitfield then we have
+            // to adjust the current bit within storage just after
+            // the previous field
+            initial_bit = ((*offset) % field_align) * 8;
+        }
+        else
+        {
+            // Fix the offset since we are one byte ahed
+            if ((*offset) > 0)
+            {
+               (*offset) = (*offset) - 1; 
+            }
+
+            // Use the previous bit
+            initial_bit = (*current_bit_within_storage);
+        }
+
         if (bitsize == 0)
         {
             // FIXME - Frontend should check that unnamed bitfields are the only
             // ones that can have 0 width
-            if (!(*previous_was_bitfield))
-            {
-                // If the previous was not a bitfield then we have
-                // to adjust the current bit within storage just after
-                // the previous field
-                (*current_bit_within_storage) = ((*offset) % field_align) * 8;
-            }
 
             // Just fill all the remaining bits
-            (*current_bit_within_storage) = field_size * 8;
+            filled_bits = field_size * 8 - initial_bit;
         }
         else
         {
-            if (!(*previous_was_bitfield))
-            {
-                // If the previous was not a bitfield then we have
-                // to adjust the current bit within storage just after
-                // the previous field
-                (*current_bit_within_storage) = ((*offset) % field_align) * 8;
-            }
-
             // In System V bytes are 8 bits :)
             ERROR_CONDITION(bitsize > (field_size * 8),
                     "This bitsize (%d) is greater than the related field type (%d)", 
                     bitsize, (field_size * 8));
 
             // Not enough remaining bits in this storage unit, just advance as usual.
-            if ((field_size * 8 - (*current_bit_within_storage)) <
+            if ((field_size * 8 - initial_bit) <
                     bitsize)
             {
                 // Example (assume shorts are 16 bit wide)
@@ -150,13 +156,14 @@ static void system_v_field_layout(scope_entry_t* field,
                 // System V, so advance to the next storage unit suitable
                 // for the bitfield type ('short' in this example)
 
+                // Update the offset here
                 next_offset_with_align(&(*offset), field_align);
 
-                (*current_bit_within_storage) = 0;
+                initial_bit = 0;
             }
 
             // Now move within the current storage
-            (*current_bit_within_storage) += bitsize;
+            filled_bits = bitsize;
 
             if (!field->entity_specs.is_unnamed_bitfield)
             {
@@ -167,18 +174,17 @@ static void system_v_field_layout(scope_entry_t* field,
             }
         }
 
+        // Now update current bit
+        (*current_bit_within_storage) = initial_bit + filled_bits;
+
+        // Advance always the offset (we will go backwards for consecutive bitfields)
+        (*offset) += round_to_upper_byte(filled_bits);
+
         // This is a bitfield
         (*previous_was_bitfield) = 1;
     }
     else
     {
-        if ((*previous_was_bitfield))
-        {
-            // Offset is in bytes, but for bitfields we have bits, and we have 
-            // to round to the next byte
-            (*offset) += round_to_upper_byte((*current_bit_within_storage));
-        }
-
         // Update the whole align, this is needed for the tail padding
         if ((*whole_align) < field_align)
             (*whole_align) = field_align;
@@ -231,12 +237,6 @@ static void system_v_union_sizeof(type_t* class_type)
         max_offset = MAX(max_offset, offset);
     }
 
-    // Round the offset to upper byte if the last field was a bitfield
-    if (previous_was_bitfield)
-    {
-        offset += round_to_upper_byte(current_bit_within_storage);
-    }
-     
     // Compute tail padding, just ensure that the next laid out entity
     // will satisfy the alignment 
     next_offset_with_align(&max_offset, whole_align);
@@ -280,12 +280,6 @@ static void system_v_struct_sizeof(type_t* class_type)
                 &previous_was_bitfield);
     }
 
-    // Round the offset to upper byte if the last field was a bitfield
-    if (previous_was_bitfield)
-    {
-        offset += round_to_upper_byte(current_bit_within_storage);
-    }
-     
     // Compute tail padding, just ensure that the next laid out entity
     // would satisfy the alignment 
     next_offset_with_align(&offset, whole_align);
