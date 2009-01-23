@@ -745,6 +745,69 @@ AM_CONDITIONAL(GPERF_BUILDING, test x$gperf_good = xyes)
 
 dnl --------------------- End of Regeneration files ---------------------
 
+dnl --------------------- Type environments -----------------------------
+
+default_type_environ=""
+AC_MSG_CHECKING([default typing environment])
+
+AC_ARG_WITH([type-environment],
+        AS_HELP_STRING([--with-type-environment=type_environment], 
+            [Overrides type environment detection. Valid values are linux-i386, linux-ppc32, linux-ppc64, linux-x86_64, linux-ia64 and linux-spu]),
+        [
+           if test x"$withval" != x;
+           then
+              default_type_environ="$withval"
+           fi
+        ])
+
+dnl Redundancy ahead
+if test x"$default_type_environ" = x;
+then
+    case "$host" in
+       i[3456]86-*-linux*)
+           default_type_environ="linux-i386"
+           ;;
+       powerpc-*-linux*)
+           default_type_environ="linux-ppc32"
+           ;;
+       powerpc64-*-linux*)
+           default_type_environ="linux-ppc64"
+           ;;
+       x86_64-*-linux*)
+           default_type_environ="linux-x86_64"
+           ;;
+       ia64-*-linux*)
+           default_type_environ="linux-ia64"
+           ;;
+       spu)
+           default_type_environ="linux-spu"
+           ;;
+    esac
+fi
+
+case "$default_type_environ" in \
+  linux-i386   | \
+  linux-ppc32  | \
+  linux-ppc64  | \
+  linux-x86_64 | \
+  linux-ia64   | \
+  linux-spu)
+       AC_MSG_RESULT([$default_type_environ])
+      ;;
+   "")
+    AC_MSG_WARN([Uknown environment, default set to linux-i386. Use --with-type-environment to override automatic detection])
+    default_type_environ="linux-i386"
+    ;;
+   "*")
+    AC_MSG_WARN([Invalid environment, default set to linux-i386. Use --help to see which type environments are valid])
+    default_type_environ="linux-i386"
+     ;;
+esac
+
+AC_DEFINE_UNQUOTED([DEFAULT_TYPE_ENVIRONMENT], ["$default_type_environ"], [Default type environment])
+
+dnl --------------------- End of type environments ----------------------
+
 dnl C portability and compliance tests
 AC_HEADER_STDC
 AC_CHECK_HEADERS(stdint.h)
@@ -829,6 +892,8 @@ AC_OUTPUT
 echo ""
 echo "Mercurium configuration summary"
 echo "==============================="
+echo ""
+echo " * Default type environment : " $default_type_environ
 echo ""
 echo " * TL Examples will be built :" $is_enabled_tl_examples
 echo ""

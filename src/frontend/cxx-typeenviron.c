@@ -1868,3 +1868,6 @@ type_environment_t* type_environment_list[] = {
     &type_environment_linux_spu_,
     NULL, /* last */
 };
+
+
+type_environment_t* default_environment = NULL;

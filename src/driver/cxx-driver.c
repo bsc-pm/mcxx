@@ -46,7 +46,6 @@
 #include "cxx-compilerphases.hpp"
 #include "mcfg.h"
 
-
 // Compilation options
 compilation_process_t compilation_process;
 
@@ -227,6 +226,7 @@ static void print_memory_report(void);
 static int parse_special_parameters(int *should_advance, int argc, const char* argv[]);
 static int parse_parameter_flag(int *should_advance, const char *special_parameter);
 
+static type_environment_t* get_environment(const char* env_id);
 static void list_environments(void);
 
 static char show_help_message = 0;
@@ -667,6 +667,15 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
                 case OPTION_COMPUTE_SIZEOF:
                     {
                         CURRENT_CONFIGURATION(compute_sizeof) = 1;
+                        break;
+                    }
+                case OPTION_SET_ENVIRONMENT:
+                    {
+                        type_environment_t * chosen_env = get_environment(parameter_info.argument);
+                        if (chosen_env != NULL)
+                        {
+                            CURRENT_CONFIGURATION(type_environment) = chosen_env;
+                        }
                         break;
                     }
                 case OPTION_LIST_ENVIRONMENTS:
@@ -1190,9 +1199,17 @@ static void initialize_default_values(void)
     memset(&minimal_default_configuration, 0, sizeof(minimal_default_configuration));
     compilation_process.current_compilation_configuration = &minimal_default_configuration;
 
-    // Experimental - type environment
-    CURRENT_CONFIGURATION(type_environment) = type_environment_linux_ia32;
-    // Type environment
+    if (default_environment == NULL)
+    {
+        default_environment = get_environment(DEFAULT_TYPE_ENVIRONMENT);
+
+        if (default_environment == NULL)
+        {
+            internal_error("Invalid default environment", 0);
+        }
+    }
+
+    CURRENT_CONFIGURATION(type_environment) = default_environment;
 
     CURRENT_CONFIGURATION(source_language) = SOURCE_LANGUAGE_CXX;
 
@@ -1230,7 +1247,7 @@ static int section_callback(const char* sname)
 
     // Typing environment - Highly experimental - Ignore it for now
     // Set to an hypothetic Linux IA32 type environment
-    new_compilation_configuration->type_environment = type_environment_linux_ia32;
+    new_compilation_configuration->type_environment = default_environment;
     // End of typing environment 
 
     // Set now as the current compilation configuration (kludgy)
@@ -2451,6 +2468,25 @@ static void print_memory_report(void)
     fprintf(stderr, "\n");
 }
 
+static type_environment_t* get_environment(const char* env_id)
+{
+    type_environment_t** type_env = type_environment_list;
+
+    for (type_env = type_environment_list;
+            (*type_env) != NULL;
+            type_env++)
+    {
+        if (strcmp(env_id, (*type_env)->environ_id) == 0)
+        {
+            return (*type_env);
+        }
+    }
+
+    fprintf(stderr, "Unknown environments '%s'. "
+            "Use '--list-env' to get a list of supported environments\n", env_id);
+    return NULL;
+}
+
 static void list_environments(void)
 {
     fprintf(stdout, "Supported environments:\n\n");
@@ -2468,7 +2504,9 @@ static void list_environments(void)
 
     fprintf(stdout, "\n");
     fprintf(stdout, "Command line parameter --env=<env-id> can be used to choose a particular architecture.\n");
-    fprintf(stdout, "If not specified, default environment is '<undefined>' (<undefined>)\n");
+    fprintf(stdout, "If not specified, default environment is '%s' (%s)\n",
+            default_environment->environ_id,
+            default_environment->environ_name);
 
     exit(EXIT_SUCCESS);
 }
