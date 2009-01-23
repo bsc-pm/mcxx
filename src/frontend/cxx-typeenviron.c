@@ -30,7 +30,7 @@ static void next_offset_with_align(_size_t* current_offset, _size_t required_ali
 
 static int round_to_upper_byte(_size_t bit_offset)
 {
-    while (bit_offset % 8 == 0)
+    while (bit_offset % 8 != 0)
         bit_offset++;
 
     return bit_offset / 8;
@@ -52,7 +52,8 @@ static void system_v_array_sizeof(type_t* t)
     _size_t element_size = type_get_size(element_type);
     _size_t element_align = type_get_alignment(element_type);
 
-    if (is_constant_expression(expr, decl_context))
+    if (expr != NULL
+            && is_constant_expression(expr, decl_context))
     {
         literal_value_t l = evaluate_constant_expression(expr, decl_context);
         char valid = 0;
@@ -341,7 +342,8 @@ static void cxx_abi_array_sizeof(type_t* t)
     _size_t element_size = type_get_size(element_type);
     _size_t element_align = type_get_alignment(element_type);
 
-    if (is_constant_expression(expr, decl_context))
+    if (expr != NULL
+            && is_constant_expression(expr, decl_context))
     {
         literal_value_t l = evaluate_constant_expression(expr, decl_context);
         char valid = 0;

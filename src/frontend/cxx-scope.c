@@ -2594,6 +2594,7 @@ template_argument_list_t* get_template_arguments_from_syntax(
                     t_argument->expression_context = template_arguments_context;
 
                     type_t* expr_type = ASTExprType(t_argument->expression);
+
                     if (!is_dependent_expression(t_argument->expression, 
                                 t_argument->expression_context)
                             && (expr_type == NULL 

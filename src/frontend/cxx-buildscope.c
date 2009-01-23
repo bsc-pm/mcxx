@@ -788,8 +788,23 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
                     }
 
                     // This will yield a warning if needed but do not make it an error
-                    check_for_initialization(initializer, entry->decl_context, 
+                    char init_check = check_for_initialization(initializer, entry->decl_context, 
                             get_unqualified_type(declarator_type));
+
+                    // Update unbounded arrays, bounded by their initialization
+                    if (init_check)
+                    {
+                        type_t* initializer_type = ast_get_expression_type(initializer);
+
+                        if (is_array_type(declarator_type)
+                                && array_type_get_array_size_expr(declarator_type) == NULL
+                                && is_array_type(initializer_type)
+                                && array_type_get_array_size_expr(initializer_type) != NULL)
+                        {
+                            // FIXME, are we losing qualification info?
+                            entry->type_information = initializer_type;
+                        }
+                    }
 
                     entry->expression_value = initializer;
 

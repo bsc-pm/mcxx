@@ -3086,6 +3086,12 @@ static literal_value_t evaluate_sizeof(AST sizeof_tree, decl_context_t decl_cont
     if (ASTType(sizeof_tree) == AST_SIZEOF)
     {
         AST sizeof_expression = ASTSon0(sizeof_tree);
+
+        // Ensure we have something already computed here, it might happen
+        // because of 'sizeof' nature that the argument of the sizeof does not
+        // have any type but sizeof itself always has 'size_t' type
+        check_for_expression(sizeof_expression, decl_context);
+
         t = ASTExprType(sizeof_expression);
     }
     else if (ASTType(sizeof_tree) == AST_SIZEOF_TYPEID)

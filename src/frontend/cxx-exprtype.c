@@ -7876,6 +7876,32 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
 
                         initializer_num++;
                     }
+
+                    if (is_class_type(declared_type))
+                    {
+                        ast_set_expression_type(initializer, declared_type);
+                    }
+                    else if (is_array_type(declared_type))
+                    {
+                        char c[64];
+                        snprintf(c, 63, "%d", initializer_num);
+                        c[63] = '\0';
+                        AST length = 
+                            ASTMake1(AST_EXPRESSION,
+                                    ASTLeaf(AST_DECIMAL_LITERAL, 
+                                        ast_get_filename(initializer),
+                                        ast_get_line(initializer),
+                                        c),
+                                    ast_get_filename(initializer),
+                                    ast_get_line(initializer),
+                                    NULL);
+
+                        type_t *list_array = get_array_type(
+                                array_type_get_element_type(declared_type),
+                                length, decl_context);
+
+                        ast_set_expression_type(initializer, list_array);
+                    }
                 }
                 return 1;
             }
@@ -7927,6 +7953,8 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
 
                     ASTAttrSetValueType(initializer, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(initializer, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(expression));
+
+                    ast_set_expression_type(initializer, initializer_expr_type);
                 }
 
                 return result;
@@ -7942,13 +7970,23 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
 
                 type_t* designated_type = get_designated_type(designation, decl_context, declared_type);
 
-                return check_for_initializer_clause(initializer_clause, decl_context, designated_type);
+                char result = check_for_initializer_clause(initializer_clause, decl_context, designated_type);
+                if (result)
+                {
+                    ast_set_expression_type(initializer, ast_get_expression_type(initializer_clause));
+                }
+                return result;
                 break;
             }
         case AST_GCC_INITIALIZER_CLAUSE :
             {
                 AST initializer_clause = ASTSon1(initializer);
-                return check_for_initializer_clause(initializer_clause, decl_context, declared_type);
+                char result = check_for_initializer_clause(initializer_clause, decl_context, declared_type);
+                if (result)
+                {
+                    ast_set_expression_type(initializer, ast_get_expression_type(initializer_clause));
+                }
+                return result;
                 break;
             }
         default :
@@ -8309,7 +8347,7 @@ char check_for_initialization(AST initializer, decl_context_t decl_context, type
 
                 if (result)
                 {
-                    ast_set_expression_type(initializer, declared_type);
+                    ast_set_expression_type(initializer, ast_get_expression_type(expression));
                     ast_set_expression_is_lvalue(initializer, 0);
                 }
                 break;
@@ -8321,7 +8359,7 @@ char check_for_initialization(AST initializer, decl_context_t decl_context, type
 
                 if (result)
                 {
-                    ast_set_expression_type(initializer, declared_type);
+                    ast_set_expression_type(initializer, ast_get_expression_type(initializer_clause));
                     ast_set_expression_is_lvalue(initializer, 0);
                 }
 
@@ -8340,7 +8378,7 @@ char check_for_initialization(AST initializer, decl_context_t decl_context, type
 
                 if (result)
                 {
-                    ast_set_expression_type(initializer, declared_type);
+                    ast_set_expression_type(initializer, ast_get_expression_type(parenthesized_initializer));
                     ast_set_expression_is_lvalue(initializer, 0);
                 }
                 break;
@@ -8363,7 +8401,7 @@ char check_for_initialization(AST initializer, decl_context_t decl_context, type
         }
         else
         {
-            fprintf(stderr, "EXPRTYPE: Initializer '%s' does not any computed type\n",
+            fprintf(stderr, "EXPRTYPE: Initializer '%s' does not have any computed type\n",
                     prettyprint_in_buffer(initializer));
         }
     }
