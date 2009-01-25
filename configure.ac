@@ -763,8 +763,9 @@ AC_ARG_WITH([type-environment],
 dnl Redundancy ahead
 if test x"$default_type_environ" = x;
 then
+dnl We try to figure a sensible default environment based on the configure environment
     case "$host" in
-       i[3456]86-*-linux*)
+       i?86-*-linux*)
            default_type_environ="linux-i386"
            ;;
        powerpc-*-linux*)
