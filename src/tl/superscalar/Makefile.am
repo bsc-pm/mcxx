@@ -56,6 +56,7 @@ CLEANFILES = \
 	calculator-parser.c
 endif
 
+EXTRA_DIST = calculator-parser.y
 
 calculator-parser.c calculator-parser.output : calculator-parser.y
 if BISON_BUILDING
@@ -131,6 +132,7 @@ libtlsuperscalar_task_manifest_la_SOURCES = \
 
 noinst_HEADERS = \
 	cxx-ss-attrnames.h \
+	calculator-parser-types.h\
 	\
 	tl-ast-predicates.hpp \
 	tl-augmented-symbol.hpp \
@@ -143,6 +145,8 @@ noinst_HEADERS = \
 	tl-task-table.hpp \
 	tl-type-utils.hpp \
 	\
+	tl-function-table.hpp \
+	tl-calculator.hpp \
 	tl-configurator.hpp \
 	tl-preanalysis.hpp \
 	tl-task-analysis.hpp \
@@ -152,6 +156,8 @@ noinst_HEADERS = \
 	tl-code-conversion.hpp \
 	tl-code-conversion-v2.hpp \
 	tl-code-conversion-v3.hpp \
+	tl-parameter-region-list.hpp \
+	tl-parameter-expression.hpp \
 	tl-task-manifest.hpp
 
 AM_LDFLAGS = -avoid-version -lm
