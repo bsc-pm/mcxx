@@ -92,7 +92,10 @@ template_argument_list_t* unresolved_overloaded_type_get_explicit_template_argum
 
 struct type_tag* get_dependent_expr_type(void);
 
+// This is a plain '0'
 struct type_tag* get_zero_type(void);
+// This is for g++'s '__null'
+struct type_tag* get_null_type(void);
 
 struct type_tag* get_pseudo_destructor_call_type(void);
 

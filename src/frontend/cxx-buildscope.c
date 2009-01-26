@@ -270,7 +270,7 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
 
             null_keyword = new_symbol(decl_context, decl_context.global_scope, "__null");
             null_keyword->kind = SK_VARIABLE;
-            null_keyword->type_information = get_zero_type();
+            null_keyword->type_information = get_null_type();
             null_keyword->expression_value = ASTLeaf(AST_OCTAL_LITERAL, NULL, 0, "0");
             null_keyword->defined = 1;
             null_keyword->do_not_print = 1;
@@ -940,7 +940,7 @@ void build_scope_decl_specifier_seq(AST a, gather_decl_spec_t* gather_info,
         // Second signed/usigned
         if (gather_info->is_unsigned)
         {
-            if (*type_info == get_signed_char_type())
+            if (*type_info == get_char_type())
             {
                 *type_info = get_unsigned_char_type();
             }
@@ -964,7 +964,7 @@ void build_scope_decl_specifier_seq(AST a, gather_decl_spec_t* gather_info,
         else if (gather_info->is_signed)
         {
             // Only for characters
-            if (*type_info == get_unsigned_char_type())
+            if (*type_info == get_char_type())
             {
                 *type_info = get_signed_char_type();
             }

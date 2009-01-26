@@ -67,6 +67,7 @@ void register_new_directive(const char* prefix, const char* directive, char is_c
 
 // Internal between cxx-driver.c and cxx-configfile.c, do not use elsewhere
 void add_to_parameter_list(const char*** existing_options, const char **parameters, int num_parameters);
+type_environment_t* get_environment(const char* env_id);
 
 MCXX_END_DECLS
 

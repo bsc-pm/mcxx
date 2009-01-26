@@ -232,3 +232,13 @@ int config_add_preprocessor_prefix(struct compilation_configuration_tag* config,
 
     return 0;
 }
+
+int config_set_environment(struct compilation_configuration_tag* config, const char* value)
+{
+    type_environment_t* chosen_env = get_environment(value);
+
+    if (chosen_env != NULL)
+    {
+        config->type_environment = chosen_env;
+    }
+}

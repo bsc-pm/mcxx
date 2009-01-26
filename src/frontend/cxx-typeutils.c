@@ -522,11 +522,7 @@ static type_t* get_simple_type(void)
 
 type_t* get_char_type(void)
 {
-    // FIXME - Once all these things get stabilized, this should be environment
-    // 'char'
-#if 0
-    return (CURRENT_CONFIGURATION(type_environment)->char_type)();
-#else
+    // This special char is not signed nor unsigned
     static type_t* _type = NULL;
 
     if (_type == NULL)
@@ -540,7 +536,6 @@ type_t* get_char_type(void)
     }
 
     return _type;
-#endif
 }
 
 type_t* get_signed_char_type(void)
@@ -713,9 +708,14 @@ type_t* get_unsigned_int_type(void)
 
 type_t* get_size_t_type(void)
 {
-    // FIXME Make this configurable, at the moment this is valid only in ILP32
-    // and ILP64 (IL32P64 and I32LP64 systems will break)
-    return get_unsigned_int_type();
+    if (!CURRENT_CONFIGURATION(disable_sizeof))
+    {
+        return (CURRENT_CONFIGURATION(type_environment)->type_of_sizeof)();
+    }
+    else
+    {
+        return get_unsigned_int_type();
+    }
 }
 
 type_t* get_unsigned_short_int_type(void)
@@ -1824,7 +1824,7 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
         result->is_faulty = 1;
     }
 
-    if (CURRENT_CONFIGURATION(compute_sizeof))
+    if (!CURRENT_CONFIGURATION(disable_sizeof))
     {
         if (expression != NULL
                 && is_constant_expression(expression, decl_context))
@@ -2907,7 +2907,6 @@ char equivalent_types(type_t* t1, type_t* t2)
     t1 = advance_over_typedefs_with_cv_qualif(t1, &cv_qualifier_t1);
     t2 = advance_over_typedefs_with_cv_qualif(t2, &cv_qualifier_t2);
 
-    // FIXME
     if (t1->kind != t2->kind)
     {
         return 0;
@@ -5759,6 +5758,11 @@ static const char* get_builtin_type_name(type_t* type_info)
         result = strappend(result, "unsigned ");
     }
 
+    if (simple_type_info->is_signed)
+    {
+        result = strappend(result, "signed ");
+    }
+
     if (simple_type_info->is_complex)
     {
         result = strappend(result, "_Complex ");
@@ -6882,15 +6886,60 @@ type_t* get_zero_type(void)
         _zero_type = get_simple_type();
         _zero_type->type->kind = STK_BUILTIN_TYPE;
         _zero_type->type->builtin_type = BT_INT;
+        _zero_type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_signed_int;
+        _zero_type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_signed_int;
+        _zero_type->valid_size = 1;
     }
 
     return _zero_type;
 }
 
+static type_t* _null_type = NULL;
+
+// special type for '__null' and forthcoming 'nullptr_t'
+type_t* get_null_type(void)
+{
+    if (_null_type == NULL)
+    {
+        _null_type = get_simple_type();
+        _null_type->type->kind = STK_BUILTIN_TYPE;
+        _null_type->type->builtin_type = BT_INT;
+
+        _null_type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_pointer;
+        _null_type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_pointer;
+        _null_type->valid_size = 1;
+
+        // Fix the underlying integer type
+        // The two first are highly unlikely out of the embedded world
+        // FIXME - Should we use also unsigned?
+        if (_null_type->size == 1)
+        {
+            _null_type->type->builtin_type = BT_CHAR;
+        }
+        else if (_null_type->size == CURRENT_CONFIGURATION(type_environment)->sizeof_signed_short)
+        {
+            // Set 'short'
+            _null_type->type->is_short = 1;
+        }
+        else if (_null_type->size == CURRENT_CONFIGURATION(type_environment)->sizeof_signed_int)
+        {
+            // Do nothing
+        }
+        else if (_null_type->size == CURRENT_CONFIGURATION(type_environment)->sizeof_signed_long)
+        {
+            // Set 'long'
+            _null_type->type->is_long = 1;
+        }
+    }
+
+    return _null_type;
+}
+
 char is_zero_type(type_t* t)
 {
     return ((_zero_type != NULL)
-            && (t == _zero_type));
+            && ((t == _zero_type) 
+                || (t == _null_type)));
 }
 
 static int _literal_string_set_num_elements = 0;

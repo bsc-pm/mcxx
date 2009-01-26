@@ -201,7 +201,7 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
         case AST_SIZEOF :
         case AST_SIZEOF_TYPEID :
             {
-                if (CURRENT_CONFIGURATION(compute_sizeof))
+                if (!CURRENT_CONFIGURATION(disable_sizeof))
                 {
                     return evaluate_sizeof(a, decl_context);
                 }
@@ -697,21 +697,65 @@ static void promote_values(literal_value_t v1, literal_value_t v2,
     // If one of the operands is 'signed long long' and the other one a
     // 'unsigned long', convert to 'signed long long' (if a 'signed long long'
     // cannot hold all 'unsigned long' values we should use an 'unsigned long
-    // long' instead, as it happens in 64-bit)
-    // FIXME: make a flag for such things
+    // long' instead)
     else if (((out_v1->kind == LVK_SIGNED_LONG_LONG) && (out_v2->kind == LVK_UNSIGNED_LONG))
             || ((out_v1->kind == LVK_UNSIGNED_LONG) && (out_v2->kind == LVK_SIGNED_LONG_LONG)))
     {
-        if (out_v1->kind == LVK_SIGNED_LONG_LONG
-                && out_v2->kind == LVK_UNSIGNED_LONG)
+        if (!CURRENT_CONFIGURATION(disable_sizeof))
         {
-            out_v2->kind = LVK_SIGNED_LONG_LONG;
-            out_v2->value.signed_long_long = (signed long long) out_v2->value.unsigned_long;
+            // If sizeof(signed long long) == sizeof(unsigned long), a sizeof(signed long long)
+            // won't be able to hold all the values of an 'unsigned long', so use 
+            // 'unsigned long long'
+            if (CURRENT_CONFIGURATION(type_environment)->sizeof_signed_long_long
+                    == CURRENT_CONFIGURATION(type_environment)->sizeof_unsigned_long)
+            {
+                if (out_v1->kind == LVK_SIGNED_LONG_LONG
+                        && out_v2->kind == LVK_UNSIGNED_LONG)
+                {
+                    out_v1->kind = LVK_UNSIGNED_LONG_LONG;
+                    out_v1->value.unsigned_long_long = (unsigned long long) out_v1->value.signed_long_long;
+
+                    out_v2->kind = LVK_UNSIGNED_LONG_LONG;
+                    out_v2->value.unsigned_long_long = (unsigned long long) out_v2->value.unsigned_long;
+                }
+                else
+                {
+                    out_v1->kind = LVK_UNSIGNED_LONG_LONG;
+                    out_v1->value.unsigned_long_long = (unsigned long long) out_v1->value.unsigned_long;
+
+                    out_v2->kind = LVK_UNSIGNED_LONG_LONG;
+                    out_v2->value.unsigned_long_long = (unsigned long long) out_v2->value.signed_long_long;
+                }
+            }
+            else
+            {
+                if (out_v1->kind == LVK_SIGNED_LONG_LONG
+                        && out_v2->kind == LVK_UNSIGNED_LONG)
+                {
+                    out_v2->kind = LVK_SIGNED_LONG_LONG;
+                    out_v2->value.signed_long_long = (signed long long) out_v2->value.unsigned_long;
+                }
+                else
+                {
+                    out_v1->kind = LVK_SIGNED_LONG_LONG;
+                    out_v1->value.signed_long_long = (signed long long) out_v1->value.unsigned_long;
+                }
+            }
         }
         else
         {
-            out_v1->kind = LVK_SIGNED_LONG_LONG;
-            out_v1->value.signed_long_long = (signed long long) out_v1->value.unsigned_long;
+            // This code is wrong due to lack of environment information
+            if (out_v1->kind == LVK_SIGNED_LONG_LONG
+                    && out_v2->kind == LVK_UNSIGNED_LONG)
+            {
+                out_v2->kind = LVK_SIGNED_LONG_LONG;
+                out_v2->value.signed_long_long = (signed long long) out_v2->value.unsigned_long;
+            }
+            else
+            {
+                out_v1->kind = LVK_SIGNED_LONG_LONG;
+                out_v1->value.signed_long_long = (signed long long) out_v1->value.unsigned_long;
+            }
         }
     }
     // if either 'signed long long' convert to 'signed long long'
@@ -779,22 +823,65 @@ static void promote_values(literal_value_t v1, literal_value_t v2,
     }
     // If one operand is "signed long" and the other "unsigned int" convert to
     // "signed long" the "unsigned int" if a "signed long" can represent every
-    // value of a "signed long", otherwise convert the "signed long" to a
+    // value of a "unsigned int", otherwise convert the "signed long" to a
     // "unsigned long"
-    // FIXME: make a flag for such things
     else if (((out_v1->kind == LVK_SIGNED_LONG) && (out_v2->kind == LVK_UNSIGNED_INT))
             || ((out_v2->kind == LVK_SIGNED_LONG) && out_v1->kind == (LVK_UNSIGNED_INT)))
     {
-        if (out_v1->kind == LVK_SIGNED_LONG 
-                && out_v2->kind == LVK_UNSIGNED_INT)
+        if (!CURRENT_CONFIGURATION(disable_sizeof))
         {
-            out_v2->kind = LVK_SIGNED_LONG;
-            out_v2->value.signed_long = (signed long) out_v2->value.unsigned_int;
+            // If sizeof(signed long) == sizeof(unsigned int), 'signed long' won't be able
+            // to hold all values of the 'unsigned int', make the result an 'unsigned long'
+            if (CURRENT_CONFIGURATION(type_environment)->sizeof_signed_long
+                    == CURRENT_CONFIGURATION(type_environment)->sizeof_unsigned_int)
+            {
+                if (out_v1->kind == LVK_SIGNED_LONG 
+                        && out_v2->kind == LVK_UNSIGNED_INT)
+                {
+                    out_v1->kind = LVK_UNSIGNED_LONG;
+                    out_v1->value.unsigned_long = (unsigned long) out_v1->value.signed_long;
+
+                    out_v2->kind = LVK_UNSIGNED_LONG;
+                    out_v2->value.unsigned_long = (unsigned long) out_v2->value.unsigned_int;
+                }
+                else
+                {
+                    out_v1->kind = LVK_UNSIGNED_LONG;
+                    out_v1->value.unsigned_long = (unsigned long) out_v1->value.unsigned_int;
+
+                    out_v2->kind = LVK_UNSIGNED_LONG;
+                    out_v2->value.unsigned_long = (unsigned long) out_v2->value.signed_long;
+                }
+            }
+            else
+            {
+                if (out_v1->kind == LVK_SIGNED_LONG 
+                        && out_v2->kind == LVK_UNSIGNED_INT)
+                {
+                    out_v2->kind = LVK_SIGNED_LONG;
+                    out_v2->value.signed_long = (signed long) out_v2->value.unsigned_int;
+                }
+                else
+                {
+                    out_v1->kind = LVK_SIGNED_LONG;
+                    out_v1->value.signed_long = (signed long) out_v1->value.unsigned_int;
+                }
+            }
         }
         else
         {
-            out_v1->kind = LVK_SIGNED_LONG;
-            out_v1->value.signed_long = (signed long) out_v1->value.unsigned_int;
+            // This code is wrong due to lack of environment information
+            if (out_v1->kind == LVK_SIGNED_LONG 
+                    && out_v2->kind == LVK_UNSIGNED_INT)
+            {
+                out_v2->kind = LVK_SIGNED_LONG;
+                out_v2->value.signed_long = (signed long) out_v2->value.unsigned_int;
+            }
+            else
+            {
+                out_v1->kind = LVK_SIGNED_LONG;
+                out_v1->value.signed_long = (signed long) out_v1->value.unsigned_int;
+            }
         }
     }
     // either one operand is 'signed long int' convert all to 'signed long'

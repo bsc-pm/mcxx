@@ -114,8 +114,10 @@ compilation_process_t compilation_process;
 "                           invokes remaining steps. A previous\n" \
 "                           invocation with --keep is required.\n" \
 "                           This flag also implies --keep.\n" \
-"  --compute-sizeof         Enable sizeof computation.\n" \
-"                           This is an EXPERIMENTAL feature\n" \
+"  --disable-sizeof         Disable sizeof computation. Use it\n" \
+"                           only if the compiler has problems when\n" \
+"                           computing size of types. Please report\n" \
+"                           a bug, you should not need this option.\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -174,7 +176,7 @@ struct command_line_long_options command_line_long_options[] =
     {"pp-stdout", CLP_NO_ARGUMENT, OPTION_PREPROCESSOR_USES_STDOUT},
     {"disable-gxx-traits", CLP_NO_ARGUMENT, OPTION_DISABLE_GXX_TRAITS},
     {"pass-through", CLP_NO_ARGUMENT, OPTION_PASS_THROUGH}, 
-    {"compute-sizeof", CLP_NO_ARGUMENT, OPTION_COMPUTE_SIZEOF},
+    {"disable-sizeof", CLP_NO_ARGUMENT, OPTION_DISABLE_SIZEOF},
     {"env", CLP_REQUIRED_ARGUMENT, OPTION_SET_ENVIRONMENT},
     {"list-env", CLP_NO_ARGUMENT, OPTION_LIST_ENVIRONMENTS},
     // sentinel
@@ -226,7 +228,6 @@ static void print_memory_report(void);
 static int parse_special_parameters(int *should_advance, int argc, const char* argv[]);
 static int parse_parameter_flag(int *should_advance, const char *special_parameter);
 
-static type_environment_t* get_environment(const char* env_id);
 static void list_environments(void);
 
 static char show_help_message = 0;
@@ -664,9 +665,10 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
                         CURRENT_CONFIGURATION(keep_files) = 1;
                         break;
                     }
-                case OPTION_COMPUTE_SIZEOF:
+                case OPTION_DISABLE_SIZEOF:
                     {
-                        CURRENT_CONFIGURATION(compute_sizeof) = 1;
+                        CURRENT_CONFIGURATION(disable_sizeof) = 1;
+                        fprintf(stderr, "Option '--disable-sizeof' should be used only to work around problems. Please, report a bug.\n");
                         break;
                     }
                 case OPTION_SET_ENVIRONMENT:
@@ -1489,7 +1491,7 @@ static void commit_configuration(void)
 
     DEBUG_CODE()
     {
-        if (CURRENT_CONFIGURATION(compute_sizeof))
+        if (!CURRENT_CONFIGURATION(disable_sizeof))
         {
             fprintf(stderr, "DRIVER: Using type environment '%s' for type size calculation\n",
                     CURRENT_CONFIGURATION(type_environment)->environ_name);
@@ -2468,7 +2470,7 @@ static void print_memory_report(void)
     fprintf(stderr, "\n");
 }
 
-static type_environment_t* get_environment(const char* env_id)
+type_environment_t* get_environment(const char* env_id)
 {
     type_environment_t** type_env = type_environment_list;
 

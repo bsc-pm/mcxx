@@ -41,6 +41,17 @@ static char fix_gather_type_to_match_mode(gather_decl_spec_t* gather_info,
         char floating,
         _size_t bytes)
 {
+    type_t* signed_0_integral_types[] =
+    {
+        // char is always making things hard
+        get_char_type(),
+        get_signed_short_int_type(),
+        get_signed_int_type(),
+        get_signed_long_int_type(),
+        get_signed_long_long_int_type(),
+        NULL,
+    };
+
     type_t* signed_integral_types[] =
     {
         get_signed_char_type(),
@@ -69,12 +80,14 @@ static char fix_gather_type_to_match_mode(gather_decl_spec_t* gather_info,
         NULL,
     };
 
-    type_t** types = signed_integral_types;
+    type_t** types = signed_0_integral_types;
 
     if (floating)
         types = float_types;
     else if (gather_info->is_unsigned)
         types = unsigned_integral_types;
+    else if (gather_info->is_signed)
+        types = signed_integral_types;
 
     char match_found = 0;
     type_t* match_type = NULL;
@@ -182,7 +195,7 @@ static void gather_one_gcc_attribute(const char* attribute_name,
             if (size_mode[0] != 'V')
             {
                 // Do nothing if we don't do sizeof
-                if (CURRENT_CONFIGURATION(compute_sizeof))
+                if (!CURRENT_CONFIGURATION(disable_sizeof))
                 {
                     /*
                        QI - An integer that is as wide as the smallest addressable unit, usually 8 bits.

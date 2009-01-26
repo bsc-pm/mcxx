@@ -48,7 +48,7 @@ typedef enum
     OPTION_PREPROCESSOR_USES_STDOUT,
     OPTION_DISABLE_GXX_TRAITS,
     OPTION_PASS_THROUGH,
-    OPTION_COMPUTE_SIZEOF,
+    OPTION_DISABLE_SIZEOF,
     OPTION_SET_ENVIRONMENT,
     OPTION_LIST_ENVIRONMENTS,
 } COMMAND_LINE_OPTIONS;
@@ -270,8 +270,8 @@ typedef struct compilation_configuration_tag
     // Disable g++ 4.3 type traits
     char disable_gxx_type_traits;
 
-    // Experimental: Compute 'sizeof'
-    char compute_sizeof;
+    // Disable 'sizeof' computation
+    char disable_sizeof;
 
     // Mimic all the process but preprocess and parsing
     char pass_through;
