@@ -59,7 +59,7 @@ namespace TL
 		}
 		
 		Type type = symbol.get_type();
-		ObjectList<Type> parameter_types = type.parameters();
+		ObjectList<Type> parameter_types = type.nonadjusted_parameters();
 		RefPtr<ParameterRegionList> parameter_region_list = symbol.get_parameter_region_list();
 		std::string function_name = symbol.get_qualified_name();
 		
