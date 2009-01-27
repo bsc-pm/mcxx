@@ -1043,7 +1043,11 @@ static literal_value_t evaluate_symbol(AST symbol, decl_context_t decl_context)
             prettyprint_in_buffer(symbol), ast_location(symbol));
 
     if (result->entry->kind == SK_DEPENDENT_ENTITY
-            || result->entry->kind == SK_TEMPLATE_PARAMETER)
+            || result->entry->kind == SK_TEMPLATE_PARAMETER
+            || (result->entry->kind == SK_VARIABLE
+                // Parameters may have an initializer in C++ but they are not
+                // constant
+                && result->entry->entity_specs.is_parameter))
     {
         literal_value_t dependent_entity;
         memset(&dependent_entity, 0, sizeof(dependent_entity));
@@ -3201,7 +3205,9 @@ static literal_value_t evaluate_sizeof(AST sizeof_tree, decl_context_t decl_cont
         t = declarator_type;
     }
 
-    if (is_dependent_type(t))
+    // Runtime sized types yield dependent expressions
+    if (is_dependent_type(t)
+            || type_is_runtime_sized(t))
     {
         literal_value_t dependent_entity;
         memset(&dependent_entity, 0, sizeof(dependent_entity));

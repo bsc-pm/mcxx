@@ -8820,7 +8820,8 @@ static char check_for_sizeof_expr(AST expr, decl_context_t decl_context)
         type_t* t = ASTExprType(sizeof_expression);
 
         if (!CURRENT_CONFIGURATION(disable_sizeof)
-                && !is_dependent_expr_type(t))
+                && !is_dependent_expr_type(t)
+                && !type_is_runtime_sized(t))
         {
             _size_t type_size = type_get_size(t);
             DEBUG_SIZEOF_CODE()
@@ -8861,10 +8862,10 @@ static char check_for_sizeof_typeid(AST expr, decl_context_t decl_context)
             compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
                     &declarator_type, decl_context);
 
-            if (!is_dependent_type(declarator_type))
+            if (!is_dependent_type(declarator_type)
+                    && !type_is_runtime_sized(declarator_type))
             {
                 _size_t type_size = type_get_size(declarator_type);
-
                 DEBUG_SIZEOF_CODE()
                 {
                     fprintf(stderr, "EXPRTYPE: %s: '%s' yields a value of %zu\n",

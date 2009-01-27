@@ -41,6 +41,7 @@ char standard_conversion_between_types(standard_conversion_t *result,
 typedef scope_entry_t* (*computed_function_type_t)(scope_entry_t* symbol, type_t** arguments, int num_arguments);
 
 // Get environmental information for the type
+char type_is_runtime_sized(type_t* t);
 _size_t type_get_size(type_t*);
 _size_t type_get_alignment(type_t*);
 

@@ -7497,6 +7497,42 @@ char is_pod_type_layout(type_t* t)
     return is_pod_type_aux(t, /* allow wide bitfields */ 0);
 }
 
+char type_is_runtime_sized(type_t* t)
+{
+    // This function is only valid in C but we could relax it a bit for C++
+    CXX_LANGUAGE()
+    {
+        // No type is runtime sized in C++ actually, at least no VLAs since it
+        // would break all template stuff
+        return 0;
+    }
+
+    if (is_array_type(t))
+    {
+        AST array_size_expr = array_type_get_array_size_expr(t);
+        decl_context_t array_size_expr_ctx = array_type_get_array_size_expr_context(t);
+
+        if (array_size_expr != NULL 
+                && !is_constant_expression(array_size_expr, array_size_expr_ctx))
+            return 1;
+
+        return type_is_runtime_sized(array_type_get_element_type(t));
+    }
+    else if (is_class_type(t))
+    {
+        int i;
+        for (i = 0; i < class_type_get_num_nonstatic_data_members(t); i++)
+        {
+            scope_entry_t* member = class_type_get_nonstatic_data_member_num(t, i);
+
+            if (type_is_runtime_sized(member->type_information))
+                    return 1;
+        }
+    }
+
+    return 0;
+}
+
 _size_t type_get_size(type_t* t)
 {
     ERROR_CONDITION(CURRENT_CONFIGURATION(type_environment) == NULL,
