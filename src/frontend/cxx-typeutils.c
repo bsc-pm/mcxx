@@ -7520,10 +7520,11 @@ char type_is_runtime_sized(type_t* t)
     }
     else if (is_class_type(t))
     {
+        type_t* class_type = get_actual_class_type(t);
         int i;
-        for (i = 0; i < class_type_get_num_nonstatic_data_members(t); i++)
+        for (i = 0; i < class_type_get_num_nonstatic_data_members(class_type); i++)
         {
-            scope_entry_t* member = class_type_get_nonstatic_data_member_num(t, i);
+            scope_entry_t* member = class_type_get_nonstatic_data_member_num(class_type, i);
 
             if (type_is_runtime_sized(member->type_information))
                     return 1;
