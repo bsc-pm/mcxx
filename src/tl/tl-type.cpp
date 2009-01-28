@@ -81,11 +81,11 @@ namespace TL
         return result_type;
     }
 
-    Type Type::get_array_to(AST_t array_expr, Scope)
+    Type Type::get_array_to(AST_t array_expr, Scope sc)
     {
         type_t* result_type = this->_type_info;
 
-        decl_context_t decl_context;
+        decl_context_t decl_context = sc.get_decl_context();
         type_t* array_to = get_array_type(result_type, array_expr._ast, decl_context);
 
         return Type(array_to);
