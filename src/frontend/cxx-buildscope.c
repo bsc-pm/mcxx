@@ -1932,6 +1932,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                             prettyprint_in_buffer(enumeration_expr));
                 }
 
+                // Do not clear extended data, it will be valid as well for this tree
                 AST duplicate_expr = ast_copy(enumeration_expr);
 
                 AST fake_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, duplicate_expr, 
@@ -3519,7 +3520,7 @@ static void convert_tree_from_nested_name_to_qualified_id(AST tree,
         AST* nested_name_spec, 
         AST* unqualified_id)
 {
-    *nested_name_spec = ast_copy(tree);
+    *nested_name_spec = ast_copy_clearing_extended_data(tree);
 
     AST iter = *nested_name_spec;
     while (ASTSon1(iter) != NULL)
@@ -7039,7 +7040,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                 || ASTType(too_much_qualified_declarator_name) == AST_QUALIFIED_TEMPLATE)
                             {
                                 // Let's fix the tree for the user message
-                                AST fixed_declarator = ast_copy(declarator);
+                                AST fixed_declarator = ast_copy_clearing_extended_data(declarator);
                                 AST fixed_declarator_name = get_declarator_name(fixed_declarator, decl_context);
 
                                 // AST fixed_unqualified_id = ASTSon2(fixed_declarator_name);
@@ -7444,6 +7445,7 @@ decl_context_t replace_template_parameters_with_template_arguments(
         {
             // This is no more a SK_TEMPLATE_PARAMETER
             new_entry->kind = SK_VARIABLE;
+            // Do not clear extended data
             AST expression = ast_copy(
                     template_arguments->argument_list[entry->entity_specs.template_parameter_position]->expression);
             AST constant_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, expression, 

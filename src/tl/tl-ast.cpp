@@ -220,20 +220,17 @@ namespace TL
 
     AST_t AST_t::duplicate() const
     {
+        // Do not clear extended data
         AST_t result(ast_copy(this->_ast));
         return result;
     }
 
     std::pair<AST_t, ScopeLink> AST_t::duplicate_with_scope(ScopeLink scope_link) const
     {
-        scope_link_t* new_sl = scope_link_new(
-                scope_link_get_global_decl_context(scope_link._scope_link));
+        AST duplicated_tree = ast_copy_with_scope_link(this->_ast, scope_link._scope_link);
 
-        AST duplicated_tree = ast_copy_with_scope_link(this->_ast, scope_link._scope_link, new_sl);
-
-        ScopeLink sl(new_sl);
         AST_t ast(duplicated_tree);
-        std::pair<AST_t, ScopeLink> result(ast, sl);
+        std::pair<AST_t, ScopeLink> result(ast, scope_link);
 
         return result;
     }

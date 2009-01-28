@@ -4603,7 +4603,7 @@ char is_dependent_expression(AST expression, decl_context_t decl_context)
             }
         case AST_EXPLICIT_TYPE_CONVERSION :
             {
-                AST type_specifier = ast_copy(ASTSon0(expression));
+                AST type_specifier = ast_copy_clearing_extended_data(ASTSon0(expression));
 
                 // Create a full-fledged type_specifier_seq
                 AST type_specifier_seq = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, 

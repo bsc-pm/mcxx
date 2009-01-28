@@ -2607,6 +2607,7 @@ template_argument_list_t* get_template_arguments_from_syntax(
                     }
                     else
                     {
+                        // Do not clear extended data
                         t_argument->expression = ast_copy(t_argument->expression);
                     }
                     break;

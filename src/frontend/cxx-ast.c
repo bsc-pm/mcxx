@@ -247,6 +247,7 @@ char ast_check(const_AST node)
     return check;
 }
 
+
 AST ast_copy(const_AST a)
 {
     if (a == NULL)
@@ -254,14 +255,11 @@ AST ast_copy(const_AST a)
 
     AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_copies);
 
-    // extensible_struct_t orig_extended_data = result->extended_data;
-
-    // Copy everything by value
+    // Copy everything by value, extended data is the one of the original tree
     *result = *a;
 
-    result->extended_data = counted_calloc(1, sizeof(*(result->extended_data)), &_bytes_due_to_copies);
-
-    extensible_struct_init(result->extended_data, &ast_extensible_schema);
+    // result->extended_data = counted_calloc(1, sizeof(*(result->extended_data)), &_bytes_due_to_copies);
+    // extensible_struct_init(result->extended_data, &ast_extensible_schema);
 
     int i;
     for (i = 0; i < MAX_AST_CHILDREN; i++)
@@ -291,6 +289,29 @@ AST ast_copy(const_AST a)
     return result;
 }
 
+void ast_clear_extended_data(AST a)
+{
+    if (a != NULL)
+    {
+        a->extended_data = counted_calloc(1, sizeof(*(a->extended_data)), &_bytes_due_to_copies);
+        extensible_struct_init(a->extended_data, &ast_extensible_schema);
+
+        int i;
+        for (i = 0; i < MAX_AST_CHILDREN; i++)
+        {
+            ast_clear_extended_data(ast_get_child(a, i));
+        }
+    }
+}
+
+AST ast_copy_clearing_extended_data(const_AST a)
+{
+    AST result = ast_copy(a);
+    ast_clear_extended_data(result);
+
+    return result;
+}
+
 AST ast_copy_for_instantiation(const_AST a)
 {
     if (a == NULL)
@@ -309,6 +330,7 @@ AST ast_copy_for_instantiation(const_AST a)
         result->expr_is_lvalue = 0;
     }
 
+    // Clear extended data since we will want to recheck this code
     result->extended_data = counted_calloc(1, sizeof(*(result->extended_data)), &_bytes_due_to_instantiation);
     extensible_struct_init(result->extended_data, &ast_extensible_schema);
 
@@ -678,20 +700,18 @@ extensible_struct_t* ast_get_extensible_struct(const_AST a)
  *
  * This function assumes that no ambiguities are found
  */
-static AST ast_copy_with_scope_link_rec(AST a, scope_link_t* orig, scope_link_t* new_sl)
+static AST ast_copy_with_scope_link_rec(AST a, scope_link_t* sl)
 {
     if (a == NULL)
         return NULL;
 
     AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_copies);
 
-    // extensible_struct_t orig_extended_data = result->extended_data;
-
     // Update the scope_link
     decl_context_t decl_context;
-    if (scope_link_direct_get_scope(orig, a, &decl_context))
+    if (scope_link_direct_get_scope(sl, a, &decl_context))
     {
-        scope_link_set(new_sl, result, decl_context);
+        scope_link_set(sl, result, decl_context);
     }
 
     // Copy everything by value
@@ -700,7 +720,7 @@ static AST ast_copy_with_scope_link_rec(AST a, scope_link_t* orig, scope_link_t*
     int i;
     for (i = 0; i < ASTNumChildren(result); i++)
     {
-        ast_set_child(result, i, ast_copy_with_scope_link_rec(ASTChild(a, i), orig, new_sl));
+        ast_set_child(result, i, ast_copy_with_scope_link_rec(ASTChild(a, i), sl));
     }
 
     if (ASTText(a) != NULL)
@@ -713,13 +733,13 @@ static AST ast_copy_with_scope_link_rec(AST a, scope_link_t* orig, scope_link_t*
 }
 
 
-AST ast_copy_with_scope_link(AST a, scope_link_t* orig, scope_link_t* new_sl)
+AST ast_copy_with_scope_link(AST a, scope_link_t* sl)
 {
     // This scope must be always available
-    AST result = ast_copy_with_scope_link_rec(a, orig, new_sl);
+    AST result = ast_copy_with_scope_link_rec(a, sl);
 
-    decl_context_t decl_context = scope_link_get_decl_context(orig, a);
-    scope_link_set(new_sl, result, decl_context);
+    decl_context_t decl_context = scope_link_get_decl_context(sl, a);
+    scope_link_set(sl, result, decl_context);
 
     return result;
 }

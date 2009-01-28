@@ -123,11 +123,17 @@ extensible_struct_t* ast_get_extensible_struct(const_AST a);
 // States if this portion of the tree is properly linked
 char ast_check(const_AST a);
 
-// Gives a copy of all the tree
+// Gives a copy of all the tree but extended data is the same as original trees
 AST ast_copy(const_AST a);
+
+// Gives a copy of all the tree but extended data is the same as original trees
+AST ast_copy_clearing_extended_data(const_AST a);
 
 // Gives a copy of all the tree but removing dependent types
 AST ast_copy_for_instantiation(const_AST a);
+
+// Allows clearing extended data if needed
+void ast_clear_extended_data(AST a);
 
 // This makes a bitwise copy. You must know what you
 // are doing here! *dest = *src
@@ -172,7 +178,7 @@ AST ast_get_ambiguity(const_AST a, int num);
 void ast_replace_with_ambiguity(AST a, int num);
 
 // ScopeLink function
-AST ast_copy_with_scope_link(AST a, scope_link_t* orig, scope_link_t* new_sl);
+AST ast_copy_with_scope_link(AST a, scope_link_t* sl);
 
 /*
  * Macros
