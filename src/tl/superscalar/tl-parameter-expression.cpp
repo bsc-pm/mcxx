@@ -1675,9 +1675,13 @@ std::cout << recursion_prefix << "Result is false" << std::endl;
 	
 	
 #endif
-	void ParameterExpression::substitute(/* INOUT */ Expression expression, ObjectList<Expression> parameters, ScopeLink scope_link)
+	void ParameterExpression::substitute(/* INOUT */ Expression &expression, ObjectList<Expression> parameters, ScopeLink scope_link)
 	{
-		ObjectList<AST_t> id_expressions = expression.get_ast().depth_subtrees(IdExpression::predicate);
+		Source source;
+		source << expression.prettyprint();
+		AST_t new_ast = source.parse_expression(expression.get_ast(), scope_link);
+		
+		ObjectList<AST_t> id_expressions = new_ast.depth_subtrees(IdExpression::predicate);
 		for (ObjectList<AST_t>::iterator it = id_expressions.begin(); it != id_expressions.end(); it++)
 		{
 			AST_t &ast = *it;
@@ -1689,6 +1693,8 @@ std::cout << recursion_prefix << "Result is false" << std::endl;
 				ast.replace(parameters[symbol.get_parameter_position()].get_ast().duplicate());
 			}
 		}
+		
+		expression = Expression(new_ast, scope_link);
 	}
 	
 	

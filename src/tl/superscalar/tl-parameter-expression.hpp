@@ -55,7 +55,7 @@ namespace TL {
 #if 0
 			static bool match(Expression expr1, Expression expr2);
 #endif
-			static void substitute(/* INOUT */ Expression expression, ObjectList<Expression> parameters, ScopeLink scope_link);
+			static void substitute(/* INOUT */ Expression &expression, ObjectList<Expression> parameters, ScopeLink scope_link);
 	};
 }
 
