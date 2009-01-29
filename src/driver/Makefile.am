@@ -2,7 +2,6 @@
 # work)
 mcxxexec_PROGRAMS = mcxx
 
-
 if ENABLE_PKGLIB_INSTALL
 mcxxexecdir = $(pkglibdir)
 else
@@ -12,6 +11,8 @@ endif
 EXTRA_DIST =
 CLEANFILES = 
 BUILT_SOURCES =
+
+END=
 
 mcxx_CFLAGS=-fexceptions \
 			-I$(top_srcdir)/lib \
@@ -33,17 +34,10 @@ mcxx_SOURCES = \
   cxx-debugflags.c \
   cxx-driver.c \
   cxx-driver-decls.h \
-  cxx-driver.h
-
-# mcxx_LDFLAGS = \
-#    -L. \
-#    -L$(top_builddir)/lib \
-#    -L$(top_builddir)/src/frontend \
-#    -L$(top_builddir)/src/tl \
-#    -L$(top_builddir)/src/mcxx_tl \
-#    -Wl,-E
-
-END=
+  cxx-driver.h \
+  cxx-driver-utils.c \
+  cxx-driver-utils.h \
+  $(END)
 
 mcxx_LDADD = \
    $(top_builddir)/lib/libmcxx-utils.la \

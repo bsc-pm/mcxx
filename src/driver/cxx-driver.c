@@ -27,9 +27,11 @@
 #include <string.h>
 #include <libgen.h>
 #include <malloc.h>
+#include <errno.h>
 
 #include "cxx-utils.h"
 #include "cxx-driver.h"
+#include "cxx-driver-utils.h"
 #include "cxx-ast.h"
 #include "cxx-graphviz.h"
 #include "cxx-prettyprint.h"
@@ -298,10 +300,6 @@ static volatile char in_cleanup_routine = 0;
 static void cleanup_routine(void)
 {
     in_cleanup_routine = 1;
-    signal(SIGSEGV, SIG_DFL);
-    signal(SIGQUIT, SIG_DFL);
-    signal(SIGINT,  SIG_DFL);
-    signal(SIGTERM, SIG_DFL);
     temporal_files_cleanup();
     in_cleanup_routine = 0;
 }
@@ -2046,23 +2044,22 @@ static void link_objects(void)
     }
 }
 
+
 static void terminating_signal_handler(int sig)
 {
     signal(sig, SIG_DFL);
 
     fprintf(stderr, "Signal handler called (signal=%d). Exiting.\n", sig);
-    // Do cleanup that will not be done
-    // because of SIGSEGV
 
-    // If this routine SIGSEGVs exact behaviour
-    // depends on the libc blocking this handler
-    // or disabling it
+    if (CURRENT_CONFIGURATION(debug_options).run_gdb)
+        run_gdb();
+
     if (!in_cleanup_routine)
         cleanup_routine();
 
-    // Reraise the signal
     raise(sig);
 }
+
 
 static char check_tree(AST a)
 {

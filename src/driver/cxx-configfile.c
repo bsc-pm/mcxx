@@ -20,8 +20,9 @@
 */
 #include "uniquestr.h"
 #include "cxx-configfile.h"
-#include "cxx-utils.h"
 #include "cxx-driver.h"
+#include "cxx-utils.h"
+#include "cxx-driver-utils.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -241,4 +242,6 @@ int config_set_environment(struct compilation_configuration_tag* config, const c
     {
         config->type_environment = chosen_env;
     }
+
+    return 0;
 }
