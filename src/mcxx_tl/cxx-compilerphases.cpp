@@ -20,7 +20,9 @@
 */
 #include <cstdio>
 #include <vector>
-#include <dlfcn.h>
+#ifndef _WIN32
+  #include <dlfcn.h>
+#endif
 #include "cxx-driver.h"
 #include "cxx-utils.h"
 #include "cxx-compilerphases.hpp"
@@ -298,7 +300,8 @@ namespace TL
 
 extern "C"
 {
-    void load_compiler_phases_cxx(void)
+#ifndef _WIN32
+    static void load_compiler_phases_cxx_unix(void)
     {
         int num = CURRENT_CONFIGURATION(num_compiler_phases);
 
@@ -368,6 +371,21 @@ extern "C"
 
             TL::CompilerPhaseRunner::add_compiler_phase(new_phase);
         }
+    }
+#else
+    static void load_compiler_phases_cxx_win32(void)
+    {
+        std::cerr << __PRETTY_FUNCTION__ << " is not implemented yet!" << std::endl;
+    }
+#endif
+
+    void load_compiler_phases_cxx(void)
+    {
+#ifdef _WIN32
+        load_compiler_phases_cxx_win32();
+#else
+        load_compiler_phases_cxx_unix();
+#endif
     }
 
     void start_compiler_phase_execution(translation_unit_t* translation_unit)

@@ -4,6 +4,7 @@
 #include <utility>
 #include <set>
 
+#include "tl-common.hpp"
 #include "tl-ast.hpp"
 #include "tl-refptr.hpp"
 #include "tl-symbol.hpp"
@@ -13,7 +14,7 @@ namespace TL
 {
     //! A class that represents a dependency relationship between
     // two symbols
-    struct DependencyItem : public std::pair<Symbol, Symbol>
+    struct LIBTL_CLASS DependencyItem : public std::pair<Symbol, Symbol>
     {
         public:
             //! Creates a new dependency item
@@ -28,7 +29,7 @@ namespace TL
     };
 
     //! A class holding a set of dependencies between symbols
-    class DeclarationDependency
+    class LIBTL_CLASS DeclarationDependency
     {
         private:
             // Dependency graph
@@ -78,7 +79,7 @@ namespace TL
      * where there is some sort of cyclic dependence between types like
      * classes and their forward declarations.
      */
-    class DeclarationClosure
+    class LIBTL_CLASS DeclarationClosure
     {
         private:
             //! Dependencies

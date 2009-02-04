@@ -26,6 +26,16 @@
 #include <ctype.h>
 #include <string.h>
 
+#ifdef _WIN32
+  #ifdef LIBMCFG_DLL_EXPORT
+    #define LIBMCFG_EXTERN extern __declspec(dllexport)
+  #else
+    #define LIBMCFG_EXTERN extern __declspec(dllimport)
+  #endif
+#else
+  #define LIBMCFG_EXTERN extern
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -42,7 +52,7 @@ enum param_process_result_tag
     PPR_PARSE_ERROR = -3
 } param_process_t;
 
-int param_process(const char *filename,
+LIBMCFG_EXTERN int param_process(const char *filename,
         int (*sfunc)(const char *),
         int (*pfunc)(const char * option, const char * value, int num_flags, const char** flags));
 

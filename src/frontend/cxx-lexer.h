@@ -22,6 +22,8 @@
 #define CXX_LEXER_H
 
 #include <stdio.h>
+#include "libmcxx-common.h"
+#include "cxx-driver-decls.h"
 #include "cxx-macros.h"
 
 MCXX_BEGIN_DECLS
@@ -46,13 +48,23 @@ struct scan_file_descriptor
     struct yy_buffer_state* scanning_buffer;
 };
 
-extern struct scan_file_descriptor scanning_now;
+LIBMCXX_EXTERN struct scan_file_descriptor scanning_now;
 
-int mcxx_open_file_for_scanning(const char* scanned_filename, const char* input_filename);
-int mc99_open_file_for_scanning(const char* scanned_filename, const char* input_filename);
+LIBMCXX_EXTERN int mcxx_open_file_for_scanning(const char* scanned_filename, const char* input_filename);
+LIBMCXX_EXTERN int mc99_open_file_for_scanning(const char* scanned_filename, const char* input_filename);
 
-int mcxx_prepare_string_for_scanning(const char* str);
-int mc99_prepare_string_for_scanning(const char* str);
+LIBMCXX_EXTERN int mcxx_prepare_string_for_scanning(const char* str);
+LIBMCXX_EXTERN int mc99_prepare_string_for_scanning(const char* str);
+
+LIBMCXX_EXTERN void register_new_directive(const char* prefix, const char* directive, char is_construct);
+
+LIBMCXX_EXTERN pragma_directive_kind_t lookup_pragma_directive(const char* prefix, const char* directive);
+
+LIBMCXX_EXTERN int mc99_flex_debug;
+LIBMCXX_EXTERN int mcxx_flex_debug;
+
+LIBMCXX_EXTERN int mcxxdebug;
+LIBMCXX_EXTERN int mc99debug;
 
 MCXX_END_DECLS
 

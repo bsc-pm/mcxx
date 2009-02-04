@@ -1,4 +1,4 @@
-TPP=$(top_builddir)/lib/tpp
+TPP=$(top_builddir)/lib/tpp$(EXEEXT)
 CLEANFILES=
 
 CONFIG_MCXX_IN = config.mcxx.in

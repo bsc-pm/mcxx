@@ -57,7 +57,13 @@ libtlomp_la_SOURCES = \
    tl-transaction-expression.cpp \
    $(END)
 
-libtlomp_la_LDFLAGS = -avoid-version
+if WINDOWS_BUILD
+no_undefined=-no-undefined
+else
+no_undefined=
+endif
+
+libtlomp_la_LDFLAGS = -avoid-version $(no_undefined)
 
 libtlomp_serialize_la_CFLAGS = $(tl_omp_flags)
 libtlomp_serialize_la_CXXFLAGS = $(tl_omp_flags)

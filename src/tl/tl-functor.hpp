@@ -21,6 +21,7 @@
 #ifndef TL_FUNCTOR_HPP
 #define TL_FUNCTOR_HPP
 
+#include "tl-common.hpp"
 #include <iostream>
 
 namespace TL

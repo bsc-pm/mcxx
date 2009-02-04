@@ -71,7 +71,7 @@ struct AST_tag
 };
 
 // Define the extensible schema of AST's
-extensible_schema_t ast_extensible_schema;
+extensible_schema_t ast_extensible_schema = EMPTY_EXTENSIBLE_SCHEMA;
 
 static long long unsigned int _bytes_due_to_astmake = 0;
 static long long unsigned int _bytes_due_to_ambiguities = 0;

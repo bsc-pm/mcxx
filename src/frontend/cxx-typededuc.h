@@ -21,9 +21,10 @@
 #ifndef CXX_TYPEDEDUC_H
 #define CXX_TYPEDEDUC_H
 
+#include "libmcxx-common.h"
 #include "cxx-typeunif.h"
 
-char deduce_template_arguments_common(
+LIBMCXX_EXTERN char deduce_template_arguments_common(
         template_parameter_list_t* template_parameters,
         struct type_tag** arguments, int num_arguments,
         struct type_tag** parameters,
@@ -32,7 +33,7 @@ char deduce_template_arguments_common(
         const char *filename, int line,
         template_argument_list_t* explicit_template_arguments);
 
-char deduce_arguments_from_call_to_specific_template_function(struct type_tag** call_argument_types,
+LIBMCXX_EXTERN char deduce_arguments_from_call_to_specific_template_function(struct type_tag** call_argument_types,
         int num_arguments, struct type_tag* specialized_named_type, 
         template_parameter_list_t* template_parameters, 
         decl_context_t decl_context,
@@ -40,7 +41,7 @@ char deduce_arguments_from_call_to_specific_template_function(struct type_tag** 
         const char* filename, int line,
         template_argument_list_t* explicit_template_arguments);
 
-char deduce_arguments_of_conversion(
+LIBMCXX_EXTERN char deduce_arguments_of_conversion(
         struct type_tag* destination_type,
         struct type_tag* specialized_named_type,
         template_parameter_list_t* template_parameters,
@@ -48,9 +49,9 @@ char deduce_arguments_of_conversion(
         deduction_set_t **deduction_result,
         const char *filename, int line);
 
-template_argument_list_t* build_template_argument_list_from_deduction_set(
+LIBMCXX_EXTERN template_argument_list_t* build_template_argument_list_from_deduction_set(
         deduction_set_t* deduction_set);
 
-unsigned long long int typededuc_used_memory(void);
+LIBMCXX_EXTERN unsigned long long int typededuc_used_memory(void);
 
 #endif // CXX_TYPEDEDUC_H

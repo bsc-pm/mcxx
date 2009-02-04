@@ -21,8 +21,9 @@
 #ifndef CXX_GCCBUILTINS_H
 #define CXX_GCCBUILTINS_H
 
+#include "libmcxx-common.h"
 #include "cxx-buildscope-decls.h"
 
-void gcc_sign_in_builtins(decl_context_t global_context);
+LIBMCXX_EXTERN void gcc_sign_in_builtins(decl_context_t global_context);
 
 #endif // CXX_GCCBUILTINS_H

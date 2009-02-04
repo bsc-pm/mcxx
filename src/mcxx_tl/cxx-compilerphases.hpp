@@ -26,10 +26,20 @@ extern "C"
 {
 #endif
 
-void load_compiler_phases_cxx(void);
-void start_compiler_phase_pre_execution(translation_unit_t* translation_unit);
-void start_compiler_phase_execution(translation_unit_t* translation_unit);
-void phases_help(void);
+#ifdef _WIN32
+   #ifdef LIBMCXXTL_DLL_EXPORT
+       #define LIBMCXXTL_EXTERN extern __declspec(dllexport)
+   #else
+       #define LIBMCXXTL_EXTERN extern __declspec(dllimport)
+   #endif
+#else
+   #define LIBMCXXTL_EXTERN extern
+#endif
+
+LIBMCXXTL_EXTERN void load_compiler_phases_cxx(void);
+LIBMCXXTL_EXTERN void start_compiler_phase_pre_execution(translation_unit_t* translation_unit);
+LIBMCXXTL_EXTERN void start_compiler_phase_execution(translation_unit_t* translation_unit);
+LIBMCXXTL_EXTERN void phases_help(void);
 
 #ifdef __cplusplus
 }

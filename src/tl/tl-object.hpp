@@ -21,6 +21,7 @@
 #ifndef TL_OBJECT_HPP
 #define TL_OBJECT_HPP
 
+#include "tl-common.hpp"
 #include <iostream>
 #include <string>
 #include <typeinfo>
@@ -30,7 +31,7 @@
 
 namespace TL
 {
-    class Schema
+    class LIBTL_CLASS Schema
     {
         private:
             extensible_schema_t *_schema;
@@ -54,7 +55,7 @@ namespace TL
      * It is also used for data passed along the compiler pipeline structure using
      * a TL::DTO object.
      */
-    class Object 
+    class LIBTL_CLASS Object 
     { 
         private:
             /*! Internal reference counter when a RefPtr<Object> is used.
@@ -185,7 +186,7 @@ namespace TL
     };
 
     //! Class used when a non existant attribute is requested
-    class Undefined : public Object
+    class LIBTL_CLASS Undefined : public Object
     {
         protected:
             virtual tl_type_t* get_extended_attribute(const std::string&) const
@@ -197,13 +198,13 @@ namespace TL
     };
 
     //! Function used by TL::Objects that have an extensible struct
-    tl_type_t* default_get_extended_attribute(
+    LIBTL_EXTERN tl_type_t* default_get_extended_attribute(
             extensible_schema_t* extensible_schema, 
             extensible_struct_t* extensible_struct, 
             const std::string& name);
     
     //! Function used by TL::Objects that have an extensible struct
-    bool default_set_extended_attribute(
+    LIBTL_EXTERN bool default_set_extended_attribute(
             extensible_schema_t* extensible_schema, 
             extensible_struct_t* extensible_struct, 
             const std::string &str, const tl_type_t &data);

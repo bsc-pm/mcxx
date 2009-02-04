@@ -32,13 +32,13 @@ namespace TL
     const AlwaysFalse<AST_t> LangConstruct::predicate;
 
     // Static predicates for LangConstructs
-    const PredicateAST<LANG_IS_ID_EXPRESSION> IdExpression::predicate;
-    const PredicateAST<LANG_IS_FUNCTION_DEFINITION> FunctionDefinition::predicate;
-    const PredicateAST<LANG_IS_EXPRESSION_COMPONENT> Expression::predicate;
-    const PredicateAST<LANG_IS_PARAMETER_DECLARATION> ParameterDeclaration::predicate;
-    const PredicateAST<LANG_IS_DECLARED_NAME> DeclaredEntity::predicate;
-    const PredicateAST<LANG_IS_DECLARATION> Declaration::predicate;
-    const PredicateAST<LANG_IS_GCC_ATTRIBUTE> GCCAttributeSpecifier::predicate;
+    const PredicateAttr IdExpression::predicate(LANG_IS_ID_EXPRESSION);
+    const PredicateAttr FunctionDefinition::predicate(LANG_IS_FUNCTION_DEFINITION);
+    const PredicateAttr Expression::predicate(LANG_IS_EXPRESSION_COMPONENT);
+    const PredicateAttr ParameterDeclaration::predicate(LANG_IS_PARAMETER_DECLARATION);
+    const PredicateAttr DeclaredEntity::predicate(LANG_IS_DECLARED_NAME);
+    const PredicateAttr Declaration::predicate(LANG_IS_DECLARATION);
+    const PredicateAttr GCCAttributeSpecifier::predicate(LANG_IS_GCC_ATTRIBUTE);
 
     std::string LangConstruct::prettyprint()
     {
@@ -47,8 +47,8 @@ namespace TL
 
     ObjectList<IdExpression> LangConstruct::all_symbol_occurrences(SymbolsWanted symbol_filter)
     {
-        PredicateAST<LANG_IS_ID_EXPRESSION> id_expr_pred;
-        PredicateAST<LANG_IS_ACCESSED_MEMBER> member_access;
+        PredicateAttr id_expr_pred(LANG_IS_ID_EXPRESSION);
+        PredicateAttr member_access(LANG_IS_ACCESSED_MEMBER);
         ObjectList<AST_t> id_expressions = _ref.depth_subtrees()
             .filter(id_expr_pred)
             .filter(negate(member_access));
@@ -91,8 +91,8 @@ namespace TL
 
     ObjectList<IdExpression> LangConstruct::non_local_symbol_occurrences(SymbolsWanted symbol_filter)
     {
-        PredicateAST<LANG_IS_ID_EXPRESSION> id_expr_pred;
-        PredicateAST<LANG_IS_ACCESSED_MEMBER> member_access;
+        PredicateAttr id_expr_pred(LANG_IS_ID_EXPRESSION);
+        PredicateAttr member_access(LANG_IS_ACCESSED_MEMBER);
         ObjectList<AST_t> id_expressions = _ref.depth_subtrees()
             .filter(id_expr_pred)
             .filter(negate(member_access));
@@ -177,7 +177,7 @@ namespace TL
     {
         TL::AST_t start = _ref.get_attribute(LANG_TEMPLATE_HEADER);
 
-        PredicateAST<LANG_IS_TEMPLATE_HEADER> template_header_pred;
+        PredicateAttr template_header_pred(LANG_IS_TEMPLATE_HEADER);
 
         ObjectList<AST_t> result = start.depth_subtrees(template_header_pred);
         return result;
@@ -204,7 +204,7 @@ namespace TL
     {
         TL::AST_t start = _ref.get_attribute(LANG_TEMPLATE_HEADER);
 
-        PredicateAST<LANG_IS_TEMPLATE_HEADER> template_header_pred;
+        PredicateAttr template_header_pred(LANG_IS_TEMPLATE_HEADER);
 
         ObjectList<AST_t> result = start.depth_subtrees(template_header_pred);
         return result;
@@ -977,7 +977,7 @@ namespace TL
 
     ObjectList<DeclaredEntity> Declaration::get_declared_entities()
     {
-        PredicateAST<LANG_IS_DECLARED_NAME> lang_declared_name_pred;
+        PredicateAttr lang_declared_name_pred(LANG_IS_DECLARED_NAME);
 
         AST_t declarators_tree = this->_ref.get_attribute(LANG_DECLARATION_DECLARATORS);
 
@@ -1009,8 +1009,13 @@ namespace TL
     class TraverseParameters : public Functor<ASTTraversalResult, AST_t>
     {
         private:
-            PredicateAST<LANG_IS_PARAMETER_DECLARATION> _pred;
+            PredicateAttr _pred;
         public:
+            TraverseParameters()
+                : _pred(LANG_IS_PARAMETER_DECLARATION)
+            {
+            }
+
             ASTTraversalResult operator()(AST_t& a) const
             {
                 bool match = _pred(a);

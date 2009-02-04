@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include "cxx-macros.h"
 #include "cxx-lexer.h"
 #include "cxx-ast.h"
 #include "cxx-utils.h"
@@ -41,9 +42,15 @@
 // Sometimes we need lots of memory
 #define YYMAXDEPTH (10000000)
 
+MCXX_BEGIN_DECLS
+
+LIBMCXX_EXTERN int mcxxparse(AST* parsed_tree);
+
 void yyerror(AST* parsed_tree, const char* c);
 
 extern int yylex(void);
+
+MCXX_END_DECLS
 
 %}
 

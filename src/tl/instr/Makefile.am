@@ -20,6 +20,12 @@ libtlinstr_la_CXXFLAGS = -Wall \
     -I $(top_builddir)/src/driver \
     -I $(top_builddir)/lib
 
+if WINDOWS_BUILD
+no_undefined=-no-undefined
+else
+no_undefined=
+endif
+
 libtlinstr_la_SOURCES = \
 						tl-instrumentfilter.hpp \
 						tl-instrumentfilter.cpp \
@@ -28,4 +34,4 @@ libtlinstr_la_SOURCES = \
 						tl-instrumentation.hpp \
 						tl-instrumentation.cpp
 
-libtlinstr_la_LDFLAGS = -avoid-version
+libtlinstr_la_LDFLAGS = -avoid-version $(no_undefined)

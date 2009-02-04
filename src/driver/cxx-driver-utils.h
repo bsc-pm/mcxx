@@ -28,8 +28,6 @@ int execute_program_flags(const char* program_name, const char** arguments,
         const char *stdout_f, const char *stderr_f);
 
 // char** routines
-const char** comma_separate_values(const char* value, int* num_elems);
-const char** blank_separate_values(const char* value, int *num_elems);
 int count_null_ended_array(void** v);
 
 typedef struct

@@ -44,12 +44,13 @@
 #include "cxx-exprtype.h"
 #include "cxx-typededuc.h"
 #include "cxx-overload.h"
+#include "cxx-lexer.h"
+#include "cxx-parser.h"
+#include "c99-parser.h"
 // It does not include any C++ code in the header
 #include "cxx-compilerphases.hpp"
 #include "mcfg.h"
 
-// Compilation options
-compilation_process_t compilation_process;
 
 /* ------------------------------------------------------------------ */
 #define HELP_STRING \
@@ -208,7 +209,9 @@ static void semantic_analysis(translation_unit_t* translation_unit, const char* 
 static const char* prettyprint_translation_unit(translation_unit_t* translation_unit, const char* parsed_filename);
 static void native_compilation(translation_unit_t* translation_unit, const char* prettyprinted_filename);
 
+#ifndef _WIN32
 static void terminating_signal_handler(int sig);
+#endif
 static char check_tree(AST a);
 static char check_for_ambiguities(AST a, AST* ambiguous_node);
 
@@ -308,10 +311,13 @@ static void driver_initialization(int argc, const char* argv[])
 {
     // Basic initialization prior to argument parsing and configuration loading
     atexit(cleanup_routine);
+#ifdef _WIN32
+#else
     signal(SIGSEGV, terminating_signal_handler);
     signal(SIGQUIT, terminating_signal_handler);
     signal(SIGINT,  terminating_signal_handler);
     signal(SIGTERM, terminating_signal_handler);
+#endif
 
     memset(&compilation_process, 0, sizeof(compilation_process));
     compilation_process.argc = argc;
@@ -2045,21 +2051,26 @@ static void link_objects(void)
 }
 
 
+#ifndef _WIN32
 static void terminating_signal_handler(int sig)
 {
     signal(sig, SIG_DFL);
 
     fprintf(stderr, "Signal handler called (signal=%d). Exiting.\n", sig);
 
+#ifndef _WIN32
     if (CURRENT_CONFIGURATION(debug_options).run_gdb)
         run_gdb();
+#else
+    fprintf(stderr, "gdb support missing!\n");
+#endif
 
     if (!in_cleanup_routine)
         cleanup_routine();
 
     raise(sig);
 }
-
+#endif
 
 static char check_tree(AST a)
 {
@@ -2109,8 +2120,6 @@ static char check_for_ambiguities(AST a, AST* ambiguous_node)
 }
 
 
-extern void load_compiler_phases_cxx(void);
-
 static void load_compiler_phases(void)
 {
     timing_t loading_phases;
@@ -2128,126 +2137,14 @@ static void load_compiler_phases(void)
     }
 }
 
-
-void add_new_file_to_compilation_process(const char* file_path, const char* output_file, 
-        compilation_configuration_t* configuration)
-{
-    translation_unit_t* translation_unit = (translation_unit_t*)calloc(1, sizeof(*translation_unit));
-    // Initialize with the translation unit root tree
-    translation_unit->input_filename = uniquestr(file_path);
-
-    compilation_file_process_t *new_compiled_file = (compilation_file_process_t*) calloc(1, sizeof(*new_compiled_file));
-
-    configuration->verbose = CURRENT_CONFIGURATION(verbose);
-    configuration->do_not_link = CURRENT_CONFIGURATION(do_not_link);
-    configuration->do_not_compile = CURRENT_CONFIGURATION(do_not_compile);
-    configuration->do_not_prettyprint = CURRENT_CONFIGURATION(do_not_prettyprint);
-
-    new_compiled_file->translation_unit = translation_unit;
-    new_compiled_file->compilation_configuration = configuration;
-
-    if ((configuration->do_not_link
-            || configuration->do_not_compile)
-            && output_file != NULL)
-    {
-        translation_unit->output_filename = uniquestr(output_file);
-    }
-
-    P_LIST_ADD(compilation_process.translation_units, 
-            compilation_process.num_translation_units, 
-            new_compiled_file);
-}
-
 // Useful for debugging sessions
 void _enable_debug(void)
 {
     CURRENT_CONFIGURATION(debug_options.enable_debug_code) = 1;
 }
 
-static void register_new_directive_inner(pragma_directive_set_t* pragma_directive_set,
-        const char* directive, pragma_directive_kind_t kind)
-{
-    int num_directives = pragma_directive_set->num_directives;
-    P_LIST_ADD(pragma_directive_set->directive_names,
-            num_directives,
-            uniquestr(directive));
-    P_LIST_ADD(pragma_directive_set->directive_kinds,
-            pragma_directive_set->num_directives,
-            kind);
-}
 
-void register_new_directive(const char* prefix, const char* directive, char is_construct)
-{
-    pragma_directive_kind_t kind = (is_construct ? PDK_CONSTRUCT : PDK_DIRECTIVE);
-
-    if (strcmp(prefix, "omp") == 0)
-    {
-        // OpenMP is handled special
-        register_new_directive_inner(&CURRENT_CONFIGURATION(pragma_omp_info), directive, kind);
-        return;
-    }
-
-    int i;
-    for (i = 0; i < CURRENT_CONFIGURATION(num_pragma_custom_prefix); i++)
-    {
-        if (strcmp(CURRENT_CONFIGURATION(pragma_custom_prefix)[i], prefix) == 0)
-        {
-            pragma_directive_set_t* pragma_directive_set = CURRENT_CONFIGURATION(pragma_custom_prefix_info)[i];
-
-            int j;
-            for (j = 0; j < pragma_directive_set->num_directives; j++)
-            {
-                if (strcmp(pragma_directive_set->directive_names[j], directive) == 0)
-                {
-                    fprintf(stderr, "Warning, directive or construct "
-                            "'%s' already registered for pragma '%s'"
-                            ", ignoring additional registrations\n",
-                            directive, prefix);
-                    return;
-                }
-            }
-
-            register_new_directive_inner(pragma_directive_set, directive, kind);
-        }
-    }
-}
-
-static pragma_directive_kind_t lookup_pragma_directive_inner(pragma_directive_set_t* pragma_directive_set, 
-        const char *directive)
-{
-    int j;
-    for (j = 0; j < pragma_directive_set->num_directives; j++)
-    {
-        if (strcmp(pragma_directive_set->directive_names[j], directive) == 0)
-        {
-            return pragma_directive_set->directive_kinds[j];
-        }
-    }
-
-    return PDK_NONE;
-}
-
-pragma_directive_kind_t lookup_pragma_directive(const char* prefix, const char* directive)
-{
-    if (strcmp(prefix, "omp") == 0)
-    {
-        // OpenMP is handled special
-        return lookup_pragma_directive_inner(&CURRENT_CONFIGURATION(pragma_omp_info), directive);
-    }
-
-    int i;
-    for (i = 0; i < CURRENT_CONFIGURATION(num_pragma_custom_prefix); i++)
-    {
-        if (strcmp(CURRENT_CONFIGURATION(pragma_custom_prefix)[i], prefix) == 0)
-        {
-            pragma_directive_set_t* pragma_directive_set = CURRENT_CONFIGURATION(pragma_custom_prefix_info)[i];
-            return lookup_pragma_directive_inner(pragma_directive_set, directive);
-        }
-    }
-
-    return PDK_NONE;
-}
-
+#ifndef _WIN32
 static char* power_suffixes[9] = 
 {
     "",
@@ -2308,9 +2205,11 @@ static void compute_tree_breakdown(AST a, int breakdown[MAX_AST_CHILDREN + 1], i
     if (num_real <= (MAX_AST_CHILDREN + 1))
         breakdown_real[num_real]++;
 }
+#endif
 
 static void print_memory_report(void)
 {
+#ifndef _WIN32
     char c[256];
 
     struct mallinfo mallinfo_report = mallinfo();
@@ -2465,6 +2364,9 @@ static void print_memory_report(void)
     }
 
     fprintf(stderr, "\n");
+#else
+    fprintf(stderr, "Memory statistics are not implemented in Windows\n");
+#endif
 }
 
 type_environment_t* get_environment(const char* env_id)

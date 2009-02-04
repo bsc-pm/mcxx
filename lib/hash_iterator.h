@@ -22,6 +22,7 @@
 #ifndef HASH_ITERATOR_H
 #define HASH_ITERATOR_H
 
+#include "libutils-common.h"
 #include "hash.h"
 #include "iterator.h"
 
@@ -38,8 +39,8 @@ typedef struct
 }
 HashIterator;
 
-void hash_iterator_init (HashIterator * i, Hash * h);
-HashIterator *hash_iterator_create (Hash * h);
+LIBUTILS_EXTERN void hash_iterator_init (HashIterator * i, Hash * h);
+LIBUTILS_EXTERN HashIterator *hash_iterator_create (Hash * h);
 
 #ifdef __cplusplus
 }

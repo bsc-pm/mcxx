@@ -21,6 +21,7 @@
 #ifndef TL_COMPILER_PHASE_HPP
 #define TL_COMPILER_PHASE_HPP
 
+#include "tl-common.hpp"
 #include <string>
 #include <vector>
 #include "tl-object.hpp"
@@ -30,7 +31,7 @@
 namespace TL
 {
     //! Represents an external compiler phase parameter
-    struct CompilerPhaseParameter
+    struct LIBTL_CLASS CompilerPhaseParameter
     {
         private:
             //! Stores the name of the parameter
@@ -88,7 +89,7 @@ namespace TL
     };
 
     //! Base class for any compiler phase
-    class CompilerPhase : public Object
+    class LIBTL_CLASS CompilerPhase : public Object
     {
         public:
             //! Resulting status value of the phase
@@ -179,7 +180,7 @@ namespace TL
      * "true" mean true. This function is currently case sensitive (but it
      * might stop being in the future).
      */
-    void parse_boolean_option(
+    LIBTL_EXTERN void parse_boolean_option(
             const std::string &option_name,
             const std::string &str_value, 
             bool &bool_value, 
@@ -197,7 +198,7 @@ namespace TL
 #define EXPORT_PHASE(ClassName) \
 extern "C"  \
 { \
-    extern TL::CompilerPhase* give_compiler_phase_object(void) \
+    LIBTL_ALWAYS_EXPORT TL::CompilerPhase* give_compiler_phase_object(void) \
     { \
         return new ClassName(); \
     } \

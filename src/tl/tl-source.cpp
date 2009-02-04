@@ -27,6 +27,8 @@
 #include <cstring>
 #include "cxx-printscope.h"
 #include "cxx-utils.h"
+#include "cxx-parser.h"
+#include "c99-parser.h"
 
 namespace TL
 {

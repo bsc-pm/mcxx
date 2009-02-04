@@ -21,6 +21,7 @@
 #ifndef CXX_TLTYPES_H
 #define CXX_TLTYPES_H
 
+#include "libmcxx-common.h"
 #include "cxx-macros.h"
 #include "cxx-ast.h"
 #include "cxx-scope-decls.h"
@@ -70,13 +71,13 @@ struct tl_type_tag
     tl_type_data_t data;
 } tl_type_t;
 
-tl_type_t tl_bool(char c);
-tl_type_t tl_integer(int i);
-tl_type_t tl_ast(AST a);
-tl_type_t tl_string(const char* str);
-tl_type_t tl_symbol(struct scope_entry_tag* entry);
-tl_type_t tl_type(struct type_tag* t);
-tl_type_t tl_object(void *data);
+LIBMCXX_EXTERN tl_type_t tl_bool(char c);
+LIBMCXX_EXTERN tl_type_t tl_integer(int i);
+LIBMCXX_EXTERN tl_type_t tl_ast(AST a);
+LIBMCXX_EXTERN tl_type_t tl_string(const char* str);
+LIBMCXX_EXTERN tl_type_t tl_symbol(struct scope_entry_tag* entry);
+LIBMCXX_EXTERN tl_type_t tl_type(struct type_tag* t);
+LIBMCXX_EXTERN tl_type_t tl_object(void *data);
 
 MCXX_END_DECLS
 

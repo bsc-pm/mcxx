@@ -22,7 +22,13 @@ libtlnanos_la_CXXFLAGS = -Wall \
 
 END=
 
-libtlnanos_la_LDFLAGS = -avoid-version
+if WINDOWS_BUILD
+no_undefined=-no-undefined
+else
+no_undefined=
+endif
+
+libtlnanos_la_LDFLAGS = -avoid-version $(no_undefined)
 
 libtlnanos_la_SOURCES = \
 	tl-nanos.hpp \

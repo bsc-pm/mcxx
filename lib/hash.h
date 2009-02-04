@@ -21,6 +21,7 @@
 #ifndef HASH_H
 #define HASH_H
 
+#include "libutils-common.h"
 #include "mem_ctl.h"
 #include "s_types.h"
 
@@ -64,32 +65,32 @@ struct _hash
   delete_func *df_items;
 };
 
-void hash_init (Hash * h, int size, HASH_FUNC * hash_func,
+LIBUTILS_EXTERN void hash_init (Hash * h, int size, HASH_FUNC * hash_func,
         KEYCMP_FUNC * keycmp_func);
-void hash_set (Hash * h, int op, void *value);
+LIBUTILS_EXTERN void hash_set (Hash * h, int op, void *value);
 #define hash_set_bool(h,op,val) hash_set(h,op,(void *)val)
-Hash *hash_create (int size, HASH_FUNC * hash_func,
+LIBUTILS_EXTERN Hash *hash_create (int size, HASH_FUNC * hash_func,
            KEYCMP_FUNC * keycmp_func);
-void hash_dump (Hash * h);
-void hash_destroy (Hash * h);
-void hash_put (Hash * h, const void *key, void *item);
-HashNode *hash_getnode (Hash * h, int i, const void *key);
-void *hash_get (Hash * h, const void *key);
-void *hash_delete (Hash * h, const void *key);
+LIBUTILS_EXTERN void hash_dump (Hash * h);
+LIBUTILS_EXTERN void hash_destroy (Hash * h);
+LIBUTILS_EXTERN void hash_put (Hash * h, const void *key, void *item);
+LIBUTILS_EXTERN HashNode *hash_getnode (Hash * h, int i, const void *key);
+LIBUTILS_EXTERN void *hash_get (Hash * h, const void *key);
+LIBUTILS_EXTERN void *hash_delete (Hash * h, const void *key);
 
 /* useful hash functions */
 
-int hash_string (const char *name, int size);
-int hash_caseless_string (const char *name, int size);
-int prime_hash(const char* key, int hash_size);
-int pointer_hash(const void* key, int size);
+LIBUTILS_EXTERN int hash_string (const char *name, int size);
+LIBUTILS_EXTERN int hash_caseless_string (const char *name, int size);
+LIBUTILS_EXTERN int prime_hash(const char* key, int hash_size);
+LIBUTILS_EXTERN int pointer_hash(const void* key, int size);
 
 // Useful things for string hashes
 #define HASH_SIZE (23)
 
-int integer_comp(void *, void*);
+LIBUTILS_EXTERN int integer_comp(void *, void*);
 
-unsigned long long hash_used_memory(void);
+LIBUTILS_EXTERN unsigned long long hash_used_memory(void);
 
 #ifdef __cplusplus
 }

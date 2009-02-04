@@ -21,6 +21,7 @@
 #ifndef LIST_ITERATOR_H
 #define LIST_ITERATOR_H
 
+#include "libutils-common.h"
 #include "s_types.h"
 #include "list.h"
 #include "iterator.h"
@@ -38,11 +39,11 @@ struct _list_iterator
     List *list;
 };
 
-void list_iterator_init(ListIterator * i, List * l);
-ListIterator *list_iterator_create(List * l);
+LIBUTILS_EXTERN void list_iterator_init(ListIterator * i, List * l);
+LIBUTILS_EXTERN ListIterator *list_iterator_create(List * l);
 
-void list_riterator_init(ListIterator * i, List * l);
-ListIterator *list_riterator_create(List * l);
+LIBUTILS_EXTERN void list_riterator_init(ListIterator * i, List * l);
+LIBUTILS_EXTERN ListIterator *list_riterator_create(List * l);
 
 #ifdef __cplusplus
 }

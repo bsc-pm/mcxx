@@ -21,6 +21,7 @@
 #ifndef CXX_CEXPR_H
 #define CXX_CEXPR_H
 
+#include "libmcxx-common.h"
 #include "cxx-ast-decls.h"
 #include "cxx-scope-decls.h"
 #include "cxx-buildscope-decls.h"
@@ -65,26 +66,26 @@ typedef struct
     } value;
 } literal_value_t;
 
-literal_value_t evaluate_constant_expression(AST a, 
+LIBMCXX_EXTERN literal_value_t evaluate_constant_expression(AST a, 
         decl_context_t decl_context);
-literal_value_t literal_value_false(void);
-literal_value_t literal_value_true(void);
-literal_value_t literal_value_zero(void);
-literal_value_t literal_value_one(void);
-literal_value_t literal_value_minus_one(void);
-literal_value_t increment_literal_value(literal_value_t e);
-AST tree_from_literal_value(literal_value_t e);
-char equal_literal_values(literal_value_t v1, literal_value_t v2);
-void gather_integer_literal_suffix(const char* text, char* is_long, char* is_unsigned);
-void gather_float_literal_suffix(const char* text, char* is_float, char* is_long_double);
+LIBMCXX_EXTERN literal_value_t literal_value_false(void);
+LIBMCXX_EXTERN literal_value_t literal_value_true(void);
+LIBMCXX_EXTERN literal_value_t literal_value_zero(void);
+LIBMCXX_EXTERN literal_value_t literal_value_one(void);
+LIBMCXX_EXTERN literal_value_t literal_value_minus_one(void);
+LIBMCXX_EXTERN literal_value_t increment_literal_value(literal_value_t e);
+LIBMCXX_EXTERN AST tree_from_literal_value(literal_value_t e);
+LIBMCXX_EXTERN char equal_literal_values(literal_value_t v1, literal_value_t v2);
+LIBMCXX_EXTERN void gather_integer_literal_suffix(const char* text, char* is_long, char* is_unsigned);
+LIBMCXX_EXTERN void gather_float_literal_suffix(const char* text, char* is_float, char* is_long_double);
 
-char literal_value_is_zero(literal_value_t e);
-char literal_value_is_negative(literal_value_t e);
+LIBMCXX_EXTERN char literal_value_is_zero(literal_value_t e);
+LIBMCXX_EXTERN char literal_value_is_negative(literal_value_t e);
 
-unsigned int literal_value_to_uint(literal_value_t v, char *valid);
-int literal_value_to_int(literal_value_t v, char *valid);
+LIBMCXX_EXTERN unsigned int literal_value_to_uint(literal_value_t v, char *valid);
+LIBMCXX_EXTERN int literal_value_to_int(literal_value_t v, char *valid);
 
-char is_constant_expression(AST a, decl_context_t decl_context);
+LIBMCXX_EXTERN char is_constant_expression(AST a, decl_context_t decl_context);
 
 MCXX_END_DECLS
 

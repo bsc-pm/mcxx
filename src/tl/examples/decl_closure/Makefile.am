@@ -24,4 +24,10 @@ libtldecl_closure_la_SOURCES = \
 						tl-decl_closure.hpp \
 						tl-decl_closure.cpp
 
-libtldecl_closure_la_LDFLAGS = -avoid-version
+if WINDOWS_BUILD
+no_undefined=-no-undefined
+else
+no_undefined=
+endif
+
+libtldecl_closure_la_LDFLAGS = -avoid-version $(no_undefined)

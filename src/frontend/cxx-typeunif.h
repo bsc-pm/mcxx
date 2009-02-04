@@ -21,6 +21,7 @@
 #ifndef CXX_TYPEUNIF_H
 #define CXX_TYPEUNIF_H
 
+#include "libmcxx-common.h"
 #include "cxx-macros.h"
 
 #include "cxx-ast-decls.h"
@@ -31,21 +32,20 @@
 
 MCXX_BEGIN_DECLS
 
-
-void unificate_two_types(struct type_tag* t1, struct type_tag* t2, deduction_set_t** unif_set, decl_context_t decl_context, 
+LIBMCXX_EXTERN void unificate_two_types(struct type_tag* t1, struct type_tag* t2, deduction_set_t** unif_set, decl_context_t decl_context, 
         const char* filename, int line);
-void unificate_two_expressions(deduction_set_t **unif_set, 
+LIBMCXX_EXTERN void unificate_two_expressions(deduction_set_t **unif_set, 
         struct AST_tag* left_tree, decl_context_t left_decl_context, 
         struct AST_tag* right_tree, decl_context_t right_decl_context);
-char equivalent_dependent_expressions(struct AST_tag* left_tree, decl_context_t left_decl_context, struct AST_tag*
+LIBMCXX_EXTERN char equivalent_dependent_expressions(struct AST_tag* left_tree, decl_context_t left_decl_context, struct AST_tag*
         right_tree, decl_context_t right_decl_context, deduction_set_t** unif_set);
-char same_functional_expression(struct AST_tag* left_tree, decl_context_t left_decl_context, struct AST_tag* right_tree, 
+LIBMCXX_EXTERN char same_functional_expression(struct AST_tag* left_tree, decl_context_t left_decl_context, struct AST_tag* right_tree, 
         decl_context_t right_decl_context);
 
-deduction_t* get_unification_item_template_parameter(deduction_set_t** deduction_set, 
+LIBMCXX_EXTERN deduction_t* get_unification_item_template_parameter(deduction_set_t** deduction_set, 
         struct scope_entry_tag* s1);
 
-long long int typeunif_used_memory(void);
+LIBMCXX_EXTERN long long int typeunif_used_memory(void);
 
 MCXX_END_DECLS
 

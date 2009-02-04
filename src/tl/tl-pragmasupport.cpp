@@ -25,7 +25,7 @@ namespace TL
     static ObjectList<Expression> parse_as_expressions(ObjectList<AST_t> clause_list, AST_t ref_tree, ScopeLink scope_link)
     {
         ObjectList<Expression> result;
-        PredicateAST<LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT> clause_argument_pred;
+        PredicateAttr clause_argument_pred(LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT);
 
         for (ObjectList<AST_t>::iterator it = clause_list.begin();
                 it != clause_list.end();
@@ -155,7 +155,7 @@ namespace TL
         ObjectList<std::string> result;
         AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);
 
-        ObjectList<AST_t> clause_list = pragma_line.depth_subtrees(PredicateAST<LANG_IS_PRAGMA_CUSTOM_CLAUSE>());
+        ObjectList<AST_t> clause_list = pragma_line.depth_subtrees(PredicateAttr(LANG_IS_PRAGMA_CUSTOM_CLAUSE));
 
         for (ObjectList<AST_t>::iterator it = clause_list.begin();
                 it != clause_list.end();
@@ -214,7 +214,7 @@ namespace TL
         AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);
         AST_t parameter = pragma_line.get_attribute(LANG_PRAGMA_CUSTOM_LINE_PARAMETER);
 
-        PredicateAST<LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT> clause_argument_pred;
+        PredicateAttr clause_argument_pred(LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT);
 
         ObjectList<AST_t> argument_list = parameter.depth_subtrees(clause_argument_pred, AST_t::NON_RECURSIVE);
 
@@ -250,8 +250,8 @@ namespace TL
         // Instantiate a DepthTraverse
         DepthTraverse depth_traverse;
 
-        PredicateAST<LANG_IS_PRAGMA_CUSTOM_DIRECTIVE> pragma_custom_directive_pred;
-        PredicateAST<LANG_IS_PRAGMA_CUSTOM_CONSTRUCT> pragma_custom_construct_pred;
+        PredicateAttr pragma_custom_directive_pred(LANG_IS_PRAGMA_CUSTOM_DIRECTIVE);
+        PredicateAttr pragma_custom_construct_pred(LANG_IS_PRAGMA_CUSTOM_CONSTRUCT);
 
         depth_traverse.add_predicate(pragma_custom_directive_pred, _pragma_dispatcher);
         depth_traverse.add_predicate(pragma_custom_construct_pred, _pragma_dispatcher);
@@ -312,7 +312,7 @@ namespace TL
     {
         ObjectList<std::string> result;
 
-        PredicateAST<LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT> clause_arg_pred;
+        PredicateAttr clause_arg_pred(LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT);
 
         ObjectList<AST_t> clause_list = filter_pragma_clause();
         for (ObjectList<AST_t>::iterator it = clause_list.begin();
@@ -335,7 +335,7 @@ namespace TL
     {
         ObjectList<AST_t> result;
 
-        PredicateAST<LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT> clause_arg_pred;
+        PredicateAttr clause_arg_pred(LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT);
 
         ObjectList<AST_t> clause_list = filter_pragma_clause();
         for (ObjectList<AST_t>::iterator it = clause_list.begin();
@@ -357,7 +357,7 @@ namespace TL
 
     ObjectList<IdExpression> PragmaCustomClause::id_expressions(IdExpressionCriteria criteria)
     {
-        PredicateAST<LANG_IS_ID_EXPRESSION> id_expr_pred;
+        PredicateAttr id_expr_pred(LANG_IS_ID_EXPRESSION);
 
         ObjectList<Expression> expressions = get_expression_list();
 
@@ -414,7 +414,7 @@ namespace TL
             AST_t ast,
             ScopeLink scope_link)
     {
-        PredicateAST<LANG_IS_PRAGMA_CUSTOM_DIRECTIVE> pred;
+        PredicateAttr pred(LANG_IS_PRAGMA_CUSTOM_DIRECTIVE);
 
         if (pred(ast))
         {

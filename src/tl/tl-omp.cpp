@@ -290,88 +290,88 @@ namespace TL
            DepthTraverse depth_traverse;
 
            // Functor for #pragma omp parallel
-           PredicateAST<OMP_IS_PARALLEL_CONSTRUCT> parallel_construct;
+           PredicateAttr parallel_construct(OMP_IS_PARALLEL_CONSTRUCT);
            ParallelFunctor parallel_functor(on_parallel_pre, on_parallel_post, global_data_sharing);
            // Register the #pragma omp parallel 
            // filter with its functor
            depth_traverse.add_predicate(parallel_construct, parallel_functor);
 
            // Functor for #pragma omp parallel for
-           PredicateAST<OMP_IS_PARALLEL_FOR_CONSTRUCT> parallel_for_construct;
+           PredicateAttr parallel_for_construct(OMP_IS_PARALLEL_FOR_CONSTRUCT);
            ParallelForFunctor parallel_for_functor(on_parallel_for_pre, on_parallel_for_post, global_data_sharing);
            // Register the #pragma omp parallel for
            // filter with its functor 
            depth_traverse.add_predicate(parallel_for_construct, parallel_for_functor);
 
            // Functor for #pragma omp for
-           PredicateAST<OMP_IS_FOR_CONSTRUCT> for_construct;
+           PredicateAttr for_construct(OMP_IS_FOR_CONSTRUCT);
            ForFunctor for_functor(on_for_pre, on_for_post, global_data_sharing);
            // Register the #pragma omp parallel for
            // filter with its functor 
            depth_traverse.add_predicate(for_construct, for_functor);
 
            // #pragma omp parallel sections
-           PredicateAST<OMP_IS_PARALLEL_SECTIONS_CONSTRUCT> parallel_sections_construct;
+           PredicateAttr parallel_sections_construct(OMP_IS_PARALLEL_SECTIONS_CONSTRUCT);
            ParallelSectionsFunctor parallel_sections_functor(on_parallel_sections_pre, 
                    on_parallel_sections_post, global_data_sharing);
            depth_traverse.add_predicate(parallel_sections_construct, parallel_sections_functor);
            
            // pragma omp sections
-           PredicateAST<OMP_IS_SECTIONS_CONSTRUCT> sections_construct;
+           PredicateAttr sections_construct(OMP_IS_SECTIONS_CONSTRUCT);
            SectionsFunctor sections_functor(on_sections_pre, on_sections_post, global_data_sharing);
            depth_traverse.add_predicate(sections_construct, sections_functor);
 
            // #pragma omp section
-           PredicateAST<OMP_IS_SECTION_CONSTRUCT> section_construct;
+           PredicateAttr section_construct(OMP_IS_SECTION_CONSTRUCT);
            SectionFunctor section_functor(on_section_pre, on_section_post, global_data_sharing);
            depth_traverse.add_predicate(section_construct, section_functor);
 
            // #pragma omp barrier
-           PredicateAST<OMP_IS_BARRIER_DIRECTIVE> barrier_directive;
+           PredicateAttr barrier_directive(OMP_IS_BARRIER_DIRECTIVE);
            BarrierFunctor barrier_functor(on_barrier_pre, on_barrier_post, global_data_sharing);
            depth_traverse.add_predicate(barrier_directive, barrier_functor);
 
            // #pragma omp atomic
-           PredicateAST<OMP_IS_ATOMIC_CONSTRUCT> atomic_construct;
+           PredicateAttr atomic_construct(OMP_IS_ATOMIC_CONSTRUCT);
            AtomicFunctor atomic_functor(on_atomic_pre, on_atomic_post, global_data_sharing);
            depth_traverse.add_predicate(atomic_construct, atomic_functor);
 
            // #pragma omp critical
-           PredicateAST<OMP_IS_CRITICAL_CONSTRUCT> critical_construct;
+           PredicateAttr critical_construct(OMP_IS_CRITICAL_CONSTRUCT);
            CriticalFunctor critical_functor(on_critical_pre, on_critical_post, global_data_sharing);
            depth_traverse.add_predicate(critical_construct, critical_functor);
 
            // #pragma omp single
-           PredicateAST<OMP_IS_SINGLE_CONSTRUCT> single_construct;
+           PredicateAttr single_construct(OMP_IS_SINGLE_CONSTRUCT);
            SingleFunctor single_functor(on_single_pre, on_single_post, global_data_sharing);
            depth_traverse.add_predicate(single_construct, single_functor);
 
            // #pragma omp flush
-           PredicateAST<OMP_IS_FLUSH_DIRECTIVE> flush_directive;
+           PredicateAttr flush_directive(OMP_IS_FLUSH_DIRECTIVE);
            FlushFunctor flush_functor(on_flush_pre, on_flush_post, global_data_sharing);
            depth_traverse.add_predicate(flush_directive, flush_functor);
 
            // #pragma omp threadprivate
-           PredicateAST<OMP_IS_THREADPRIVATE_DIRECTIVE> threadprivate_directive;
+           PredicateAttr threadprivate_directive(OMP_IS_THREADPRIVATE_DIRECTIVE);
            ThreadPrivateFunctor threadprivate_functor(on_threadprivate_pre, on_threadprivate_post, global_data_sharing);
            depth_traverse.add_predicate(threadprivate_directive, threadprivate_functor);
 
            // #pragma omp ordered
-           PredicateAST<OMP_IS_ORDERED_CONTRUCT> ordered_construct;
+           PredicateAttr ordered_construct(OMP_IS_ORDERED_CONTRUCT);
            OrderedFunctor ordered_functor(on_ordered_pre, on_ordered_post, global_data_sharing);
            depth_traverse.add_predicate(ordered_construct, ordered_functor);
 
            // #pragma omp master
-           PredicateAST<OMP_IS_MASTER_CONSTRUCT> master_construct;
+           PredicateAttr master_construct(OMP_IS_MASTER_CONSTRUCT);
            MasterFunctor master_functor(on_master_pre, on_master_post, global_data_sharing);
            depth_traverse.add_predicate(master_construct, master_functor);
 
            // #pragma omp constructs|directives
            // (custom constructions)
-           PredicateAST<OMP_IS_CUSTOM_CONSTRUCT> custom_construct;
+           PredicateAttr custom_construct(OMP_IS_CUSTOM_CONSTRUCT);
            CustomConstructFunctor custom_construct_functor(on_custom_construct_pre, on_custom_construct_post, global_data_sharing);
            depth_traverse.add_predicate(custom_construct, custom_construct_functor);
-           PredicateAST<OMP_IS_CUSTOM_DIRECTIVE> custom_directive;
+           PredicateAttr custom_directive(OMP_IS_CUSTOM_DIRECTIVE);
            depth_traverse.add_predicate(custom_directive, custom_construct_functor);
 
            // Let the user register its slots
@@ -539,7 +539,7 @@ namespace TL
 
        ObjectList<std::string> Directive::get_all_custom_clauses()
        {
-           PredicateAST<OMP_IS_CUSTOM_CLAUSE> predicate_custom_clause;
+           PredicateAttr predicate_custom_clause(OMP_IS_CUSTOM_CLAUSE);
            ObjectList<AST_t> clauses_list = _ref.depth_subtrees(predicate_custom_clause);
            ObjectList<std::string> result;
 
@@ -567,7 +567,7 @@ namespace TL
 
        bool ScheduleClause::is_defined()
        {
-           PredicateAST<OMP_IS_SCHEDULE_CLAUSE> predicate_custom_clause;
+           PredicateAttr predicate_custom_clause(OMP_IS_SCHEDULE_CLAUSE);
            ObjectList<AST_t> clauses_list = _ref.depth_subtrees(predicate_custom_clause);
 
            return !(clauses_list.empty());
@@ -575,7 +575,7 @@ namespace TL
 
        int ScheduleClause::internal_code()
        {
-           PredicateAST<OMP_IS_SCHEDULE_CLAUSE> predicate_custom_clause;
+           PredicateAttr predicate_custom_clause(OMP_IS_SCHEDULE_CLAUSE);
            ObjectList<AST_t> clauses_list = _ref.depth_subtrees(predicate_custom_clause);
 
            AST_t first = *(clauses_list.begin());
@@ -587,7 +587,7 @@ namespace TL
 
        bool ScheduleClause::is_dynamic()
        {
-           PredicateAST<OMP_IS_SCHEDULE_CLAUSE> predicate_custom_clause;
+           PredicateAttr predicate_custom_clause(OMP_IS_SCHEDULE_CLAUSE);
            ObjectList<AST_t> clauses_list = _ref.depth_subtrees(predicate_custom_clause);
 
            AST_t first = *(clauses_list.begin());
@@ -599,7 +599,7 @@ namespace TL
 
        bool ScheduleClause::is_static()
        {
-           PredicateAST<OMP_IS_SCHEDULE_CLAUSE> predicate_custom_clause;
+           PredicateAttr predicate_custom_clause(OMP_IS_SCHEDULE_CLAUSE);
            ObjectList<AST_t> clauses_list = _ref.depth_subtrees(predicate_custom_clause);
 
            AST_t first = *(clauses_list.begin());
@@ -611,7 +611,7 @@ namespace TL
 
        bool ScheduleClause::is_guided()
        {
-           PredicateAST<OMP_IS_SCHEDULE_CLAUSE> predicate_custom_clause;
+           PredicateAttr predicate_custom_clause(OMP_IS_SCHEDULE_CLAUSE);
            ObjectList<AST_t> clauses_list = _ref.depth_subtrees(predicate_custom_clause);
 
            AST_t first = *(clauses_list.begin());
@@ -623,7 +623,7 @@ namespace TL
 
        bool ScheduleClause::is_runtime()
        {
-           PredicateAST<OMP_IS_SCHEDULE_CLAUSE> predicate_custom_clause;
+           PredicateAttr predicate_custom_clause(OMP_IS_SCHEDULE_CLAUSE);
            ObjectList<AST_t> clauses_list = _ref.depth_subtrees(predicate_custom_clause);
 
            AST_t first = *(clauses_list.begin());
@@ -635,7 +635,7 @@ namespace TL
 
        bool ScheduleClause::is_default()
        {
-           PredicateAST<OMP_IS_SCHEDULE_CLAUSE> predicate_custom_clause;
+           PredicateAttr predicate_custom_clause(OMP_IS_SCHEDULE_CLAUSE);
            ObjectList<AST_t> clauses_list = _ref.depth_subtrees(predicate_custom_clause);
 
            AST_t first = *(clauses_list.begin());
@@ -647,7 +647,7 @@ namespace TL
 
        AST_t ScheduleClause::get_chunk()
        {
-           PredicateAST<OMP_IS_SCHEDULE_CLAUSE> predicate_custom_clause;
+           PredicateAttr predicate_custom_clause(OMP_IS_SCHEDULE_CLAUSE);
            ObjectList<AST_t> clauses_list = _ref.depth_subtrees(predicate_custom_clause);
 
            AST_t first = *(clauses_list.begin());
@@ -658,7 +658,7 @@ namespace TL
 
        bool ScheduleClause::is_custom_schedule()
        {
-           PredicateAST<OMP_IS_SCHEDULE_CLAUSE> predicate_custom_clause;
+           PredicateAttr predicate_custom_clause(OMP_IS_SCHEDULE_CLAUSE);
            ObjectList<AST_t> clauses_list = _ref.depth_subtrees(predicate_custom_clause);
 
            AST_t first = *(clauses_list.begin());
@@ -673,7 +673,7 @@ namespace TL
            if (is_custom_schedule())
            {
 
-               PredicateAST<OMP_IS_SCHEDULE_CLAUSE> predicate_custom_clause;
+               PredicateAttr predicate_custom_clause(OMP_IS_SCHEDULE_CLAUSE);
                ObjectList<AST_t> clauses_list = _ref.depth_subtrees(predicate_custom_clause);
 
                AST_t first = *(clauses_list.begin());
@@ -740,7 +740,7 @@ namespace TL
        // Time to start to think to fuse Clause and CustomClause in an inheritance tree
        ObjectList<Expression> Clause::get_expression_list()
        {
-           PredicateAST<LANG_IS_EXPRESSION_NEST> expression_nest;
+           PredicateAttr expression_nest(LANG_IS_EXPRESSION_NEST);
            ObjectList<Expression> result;
 
            PredicateAttr predicate_clause(_clause_filter_name);
@@ -766,7 +766,7 @@ namespace TL
 
        ObjectList<Expression> CustomClause::get_expression_list()
        {
-           PredicateAST<LANG_IS_EXPRESSION_NEST> expression_nest;
+           PredicateAttr expression_nest(LANG_IS_EXPRESSION_NEST);
            ObjectList<Expression> result;
 
            ObjectList<AST_t> custom_clauses = filter_custom_clause();
@@ -790,7 +790,7 @@ namespace TL
 
        ObjectList<IdExpression> CustomClause::id_expressions(IdExpressionCriteria criteria)
        {
-           PredicateAST<LANG_IS_ID_EXPRESSION> id_expr_pred;
+           PredicateAttr id_expr_pred(LANG_IS_ID_EXPRESSION);
 
            ObjectList<AST_t> clauses = filter_custom_clause();
 
@@ -898,7 +898,7 @@ namespace TL
 
        ObjectList<IdExpression> Clause::id_expressions(IdExpressionCriteria criteria)
        {
-           PredicateAST<LANG_IS_ID_EXPRESSION> id_expr_pred;
+           PredicateAttr id_expr_pred(LANG_IS_ID_EXPRESSION);
 
            PredicateAttr predicate_clause(_clause_filter_name);
            ObjectList<AST_t> clauses = _ref.depth_subtrees().filter(predicate_clause);
@@ -948,7 +948,7 @@ namespace TL
 
        ObjectList<ReductionSymbol> ReductionClause::id_expressions(IdExpressionCriteria criteria)
        {
-           PredicateAST<LANG_IS_ID_EXPRESSION> id_expr_pred;
+           PredicateAttr id_expr_pred(LANG_IS_ID_EXPRESSION);
 
            ObjectList<ReductionSymbol> result;
            GetSymbolFromAST get_symbol_from_ast(this->_scope_link);

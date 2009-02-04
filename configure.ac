@@ -29,8 +29,8 @@ define([AC_LIBTOOL_LANG_F77_CONFIG], [:])dnl
 
 dnl Check libtool
 AC_DISABLE_STATIC
+AC_LIBTOOL_WIN32_DLL
 AC_PROG_LIBTOOL
-
 
 dnl Check cc
 AC_PROG_CC
@@ -808,6 +808,26 @@ esac
 AC_DEFINE_UNQUOTED([DEFAULT_TYPE_ENVIRONMENT], ["$default_type_environ"], [Default type environment])
 
 dnl --------------------- End of type environments ----------------------
+
+dnl --------------------- Test for Win32 -------------------------
+
+AC_MSG_CHECKING([if environment is Win32])
+
+windows_build=""
+case "$host" in
+  i?86-pc-cygwin | i586-mingw32msvc)
+    windows_build="yes"
+    AC_MSG_RESULT([yes])
+    AC_MSG_WARN([Win32 port is still experimental])
+    ;;
+  *)
+    AC_MSG_RESULT([no])
+  ;;
+esac
+
+AM_CONDITIONAL(WINDOWS_BUILD, test x$windows_build = xyes)
+
+dnl ---------------------- End of test for Win32
 
 dnl C portability and compliance tests
 AC_HEADER_STDC

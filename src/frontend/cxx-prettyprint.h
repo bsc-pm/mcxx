@@ -22,17 +22,18 @@
 #define CXX_PRETTYPRINT_H
 
 #include <stdio.h>
+#include "libmcxx-common.h"
 #include "cxx-macros.h"
 #include "cxx-ast-decls.h"
 
 MCXX_BEGIN_DECLS
 
-void prettyprint_set_main_filename(char* filename);
-void prettyprint(FILE* f, AST a);
-char* prettyprint_in_buffer(AST a);
-char* list_handler_in_buffer(AST a);
-void prettyprint_set_not_internal_output(void);
-void prettyprint_set_internal_output(void);
+LIBMCXX_EXTERN void prettyprint_set_main_filename(char* filename);
+LIBMCXX_EXTERN void prettyprint(FILE* f, AST a);
+LIBMCXX_EXTERN char* prettyprint_in_buffer(AST a);
+LIBMCXX_EXTERN char* list_handler_in_buffer(AST a);
+LIBMCXX_EXTERN void prettyprint_set_not_internal_output(void);
+LIBMCXX_EXTERN void prettyprint_set_internal_output(void);
 
 MCXX_END_DECLS
 

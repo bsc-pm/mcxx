@@ -21,12 +21,13 @@
 #ifndef TL_MULTIFILE_CPP
 #define TL_MULTIFILE_CPP
 
+#include "tl-common.hpp"
 #include "tl-objectlist.hpp"
 
 namespace TL
 {
     //! Represents an include line in C/C++
-    class IncludeLine
+    class LIBTL_CLASS IncludeLine
     {
         private:
             std::string _file;
@@ -60,7 +61,7 @@ namespace TL
      * Currently it is used only to get the include lines as defined in
      * the input source file.
      */
-    class CurrentFile
+    class LIBTL_CLASS CurrentFile
     {
         public:
             //! Returns the top level include lines

@@ -21,6 +21,7 @@
 #ifndef TL_HANDLER_HPP
 #define TL_HANDLER_HPP
 
+#include "tl-common.hpp"
 #include <vector>
 
 #include "tl-functor.hpp"

@@ -22,6 +22,8 @@
 #include "cxx-buildscope.h"
 #include "cxx-scope.h"
 #include "cxx-utils.h"
+#include "cxx-parser.h"
+#include "c99-parser.h"
 
 #include "tl-augmented-symbol.hpp"
 #include "tl-exceptions.hpp"

@@ -16,4 +16,10 @@ libtlbasic_test_la_SOURCES = \
 						tl-basic_test.hpp \
 						tl-basic_test.cpp
 
-libtlbasic_test_la_LDFLAGS = -avoid-version
+if WINDOWS_BUILD
+no_undefined=-no-undefined
+else
+no_undefined=
+endif
+
+libtlbasic_test_la_LDFLAGS = -avoid-version $(no_undefined)

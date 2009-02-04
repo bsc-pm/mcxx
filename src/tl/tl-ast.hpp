@@ -21,6 +21,7 @@
 #ifndef TL_AST_HPP
 #define TL_AST_HPP
 
+#include "tl-common.hpp"
 #include <typeinfo>
 #include <iostream>
 #include <string>
@@ -48,7 +49,7 @@ namespace TL
     class AST_t;
 
     //! Class that wraps an AST node of type AST_NODE_LIST
-    class ASTIterator
+    class LIBTL_CLASS ASTIterator
     {
         private:
             //! The wrapped list AST
@@ -98,7 +99,7 @@ namespace TL
     //! Class used for traversals along the tree
     /*! This class contains the value of the match
      * of a given tree */
-    struct ASTTraversalMatching
+    struct LIBTL_CLASS ASTTraversalMatching
     {
         enum TraversalMatching
         {
@@ -116,7 +117,7 @@ namespace TL
     //! Class used for traversals along the tree
     /*! This class contains the value of the recursivity
      * behaviour of a givene tree */
-    struct ASTTraversalRecursion
+    struct LIBTL_CLASS ASTTraversalRecursion
     {
         enum TraversalRecursion
         {
@@ -136,7 +137,7 @@ namespace TL
      * functor. It contains both a matching result and a recursivity
      * behaviour values.
      */
-    struct ASTTraversalResult
+    struct LIBTL_CLASS ASTTraversalResult
     {
         private:
             ASTTraversalMatching _match;
@@ -164,7 +165,7 @@ namespace TL
      * \param match The matching value. A true value means NODE_DOES_MATCH. A false value means NODE_DOES_NOT_MATCH
      * \param recurse The recursivity behaviour. A true value means DO_RECURSE. A false value means DO_NOT_RECURSE
      */
-    ASTTraversalResult ast_traversal_result_helper(bool match, bool recurse);
+    LIBTL_EXTERN ASTTraversalResult ast_traversal_result_helper(bool match, bool recurse);
 
     //! Functor used when traversing trees
     /*! This functor specifies a AST_t as a parameter and a ASTTraversalResult as result.
@@ -172,7 +173,7 @@ namespace TL
     typedef Functor<ASTTraversalResult, AST_t> TraverseASTFunctor;
 
     //! Class that wraps AST trees in the compiler
-    class AST_t : public Object
+    class LIBTL_CLASS AST_t : public Object
     {
         public:
             /*! \deprecated Do not use. Instead use TraverseASTFunctor */
@@ -515,7 +516,7 @@ namespace TL
     //! @{
 
     //! Wrap class for deprecated Predicate<AST_t> traversals 
-    class TraverseASTPredicate : public TraverseASTFunctor
+    class LIBTL_CLASS TraverseASTPredicate : public TraverseASTFunctor
     {
         private:
             //! The predicate
@@ -558,6 +559,7 @@ namespace TL
     //! @{
     
     //! Convenience template class for predicates after a given AST attribute
+#ifndef _WIN32
     template<const char* _ATTR>
     class PredicateAST : public Predicate<AST_t>
     {
@@ -568,20 +570,21 @@ namespace TL
                 return attr;
             }
 
-            PredicateAST()
+            DEPRECATED PredicateAST()
                 : Predicate<AST_t>()
             {
             }
 
             virtual ~PredicateAST() { }
     };
+#endif
 
     //! Convenience class for matching nodes after an attribute.
     /*!
      * This class is similar to PredicateAST but here the
      * requested attribute can be defined in runtime
      */
-    class PredicateAttr : public Predicate<AST_t>
+    class LIBTL_CLASS PredicateAttr : public Predicate<AST_t>
     {
         private:
             std::string _attr_name;
@@ -598,7 +601,7 @@ namespace TL
     };
 
     //! Convenience class for matching nodes that have a given computed type
-    class PredicateType : public Predicate<AST_t>
+    class LIBTL_CLASS PredicateType : public Predicate<AST_t>
     {
         private:
             node_t _type;

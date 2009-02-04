@@ -21,6 +21,7 @@
 #ifndef TL_PREDICATEUTILS_HPP
 #define TL_PREDICATEUTILS_HPP
 
+#include "tl-common.hpp"
 #include "tl-builtin.hpp"
 #include "tl-predicate.hpp"
 #include "tl-objectlist.hpp"

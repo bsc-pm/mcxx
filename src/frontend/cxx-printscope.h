@@ -21,6 +21,7 @@
 #ifndef CXX_PRINTSCOPE_H
 #define CXX_PRINTSCOPE_H
 
+#include "libmcxx-common.h"
 #include "cxx-macros.h"
 
 #include "cxx-scope-decls.h"
@@ -28,7 +29,7 @@
 
 MCXX_BEGIN_DECLS
 
-void print_scope(decl_context_t decl_context);
+LIBMCXX_EXTERN void print_scope(decl_context_t decl_context);
 
 MCXX_END_DECLS
 

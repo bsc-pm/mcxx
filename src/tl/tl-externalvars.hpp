@@ -21,6 +21,8 @@
 #ifndef TL_EXTERNALVARS_HPP
 #define TL_EXTERNALVARS_HPP
 
+#include "tl-common.hpp"
+
 #ifndef FROM_TL_EXTERNALVARS_CPP
 #warning "This is a deprecated interface and should not be used anymore"
 #endif
@@ -32,7 +34,7 @@ namespace TL
      * \deprecated This class is deprecated, instead use the interface of compiler parameter phases
      * as defined in TL::CompilerPhase
      */
-    class ExternalVars
+    class LIBTL_CLASS ExternalVars
     {
         public:
             // Gets the value of a variable passed in the command line

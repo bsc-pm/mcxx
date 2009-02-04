@@ -1,6 +1,7 @@
 #ifndef TL_STATEMENT_HPP
 #define TL_STATEMENT_HPP
 
+#include "tl-common.hpp"
 #include "tl-langconstruct.hpp"
 
 namespace TL
@@ -14,7 +15,7 @@ namespace TL
      * if, while and for statements. They can be either declarations or plain
      * expressions. This class wraps this fact.
      */
-    class Condition : public LangConstruct
+    class LIBTL_CLASS Condition : public LangConstruct
     {
         public:
             Condition(AST_t ref, ScopeLink sl)
@@ -36,7 +37,7 @@ namespace TL
     };
 
     //! LangConstruct that wraps a statement in the code
-    class Statement : public LangConstruct
+    class LIBTL_CLASS Statement : public LangConstruct
     {
         private:
         public:
@@ -89,7 +90,7 @@ namespace TL
              */
             bool is_last();
 
-            const static PredicateAST<LANG_IS_STATEMENT> predicate;
+            const static PredicateAttr predicate;
 
 			//! Prepends a Statement
 			void prepend(Statement st);
@@ -198,7 +199,7 @@ namespace TL
              */
             Expression get_iterating_expression();
 
-            const static PredicateAST<LANG_IS_FOR_STATEMENT> predicate;
+            const static PredicateAttr predicate;
     };
 
 
@@ -217,7 +218,7 @@ namespace TL
             //! Returns the body of the while statement
             Statement get_body();
 
-            const static PredicateAST<LANG_IS_WHILE_STATEMENT> predicate;
+            const static PredicateAttr predicate;
     };
 
     //! This class wraps an is statement
@@ -241,7 +242,7 @@ namespace TL
             //! Returns the body of "else"
             Statement get_else_body();
 
-            const static PredicateAST<LANG_IS_IF_STATEMENT> predicate;
+            const static PredicateAttr predicate;
     };
 
     //! This class wraps a do-statement
@@ -259,7 +260,7 @@ namespace TL
             //! Returns the iterating expression
             Expression get_expression();
 
-            const static PredicateAST<LANG_IS_DO_STATEMENT> predicate;
+            const static PredicateAttr predicate;
     };
 
     //! This class wraps a case-statement
@@ -293,7 +294,7 @@ namespace TL
             //! Returns a list of case statements
             ObjectList<CaseStatement> get_cases();
 
-            const static PredicateAST<LANG_IS_SWITCH_STATEMENT> predicate;
+            const static PredicateAttr predicate;
     };
 
     //! @}

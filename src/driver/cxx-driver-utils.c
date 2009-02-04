@@ -1,7 +1,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include <sys/wait.h>
+#ifndef _WIN32
+  #include <sys/wait.h>
+#endif
 
 #include "cxx-driver.h"
 #include "cxx-driver-utils.h"
@@ -37,7 +39,8 @@ void temporal_files_cleanup(void)
     temporal_file_list = NULL;
 }
 
-temporal_file_t new_temporal_file(void)
+#ifndef _WIN32
+static temporal_file_t new_temporal_file_unix(void)
 {
     char template[256];
     snprintf(template, 255, "/tmp/%s_XXXXXX", compilation_process.exec_basename);
@@ -69,6 +72,23 @@ temporal_file_t new_temporal_file(void)
 
     return result;
 }
+#else
+static temporal_file_t new_temporal_file_win32(void)
+{
+    fprintf(stderr, "%s not yet implemented!\n", __PRETTY_FUNCTION__);
+    temporal_file_t result = calloc(sizeof(*result), 1);
+    return result;
+}
+#endif
+
+temporal_file_t new_temporal_file()
+{
+#ifndef _WIN32
+    return new_temporal_file_unix();
+#else
+    return new_temporal_file_win32();
+#endif
+}
 
 const char* get_extension_filename(const char* filename)
 {
@@ -80,7 +100,8 @@ int execute_program(const char* program_name, const char** arguments)
     return execute_program_flags(program_name, arguments, /* stdout_f */ NULL, /* stderr_f */ NULL);
 }
 
-int execute_program_flags(const char* program_name, const char** arguments, const char* stdout_f, const char* stderr_f)
+#ifndef _WIN32
+static int execute_program_flags_unix(const char* program_name, const char** arguments, const char* stdout_f, const char* stderr_f)
 {
     int num = count_null_ended_array((void**)arguments);
 
@@ -187,6 +208,22 @@ int execute_program_flags(const char* program_name, const char** arguments, cons
         }
     }
 }
+#else
+static int execute_program_flags_win32(const char* program_name, const char** arguments, const char* stdout_f, const char* stderr_f)
+{
+    fprintf(stderr, "%s not implemented yet!", __PRETTY_FUNCTION__);
+    return 0;
+}
+#endif
+
+int execute_program_flags(const char* program_name, const char** arguments, const char* stdout_f, const char* stderr_f)
+{
+#ifndef _WIN32
+    return execute_program_flags_unix(program_name, arguments, stdout_f, stderr_f);
+#else
+    return execute_program_flags_win32(program_name, arguments, stdout_f, stderr_f);
+#endif
+}
 
 int count_null_ended_array(void** v)
 {
@@ -229,6 +266,7 @@ double timing_elapsed(const timing_t* t)
 }
 
 // Inspired on the GNOME's bug-buddy code
+#ifndef _WIN32
 void run_gdb(void)
 {
     pid_t son = fork();
@@ -292,3 +330,4 @@ void run_gdb(void)
         wait(&wait_result);
     }
 }
+#endif

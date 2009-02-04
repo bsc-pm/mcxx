@@ -21,6 +21,7 @@
 #ifndef TL_TRAVERSE_HPP
 #define TL_TRAVERSE_HPP
 
+#include "tl-common.hpp"
 #include <vector>
 #include "tl-context.hpp"
 #include "tl-scopelink.hpp"
@@ -33,7 +34,7 @@ namespace TL
     //! @{
 
     //! This class is the 'functor' used when traversing a tree
-    class TraverseFunctor
+    class LIBTL_CLASS TraverseFunctor
     {
         private:
         public:
@@ -46,7 +47,7 @@ namespace TL
     };
 
     //! Base class for traversals
-    class Traverse { };
+    class LIBTL_CLASS Traverse { };
 
     //! Class that implements a depth-first traverse along the tree
     /*!
@@ -68,7 +69,7 @@ namespace TL
      * postorder when coming back from leaves and going towards root.
      *
      */
-    class DepthTraverse : public Traverse
+    class LIBTL_CLASS DepthTraverse : public Traverse
     {
         private:
             typedef std::pair<TraverseASTFunctor*, TraverseFunctor*> CondAction;

@@ -21,6 +21,7 @@
 #ifndef TL_PREDICATE_HPP
 #define TL_PREDICATE_HPP
 
+#include "tl-common.hpp"
 #include "tl-functor.hpp"
 
 namespace TL

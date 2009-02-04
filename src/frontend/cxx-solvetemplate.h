@@ -21,6 +21,7 @@
 #ifndef CXX_SOLVETEMPLATE_H
 #define CXX_SOLVETEMPLATE_H
 
+#include "libmcxx-common.h"
 #include "cxx-macros.h"
 
 #include "cxx-typeunif.h"
@@ -29,14 +30,14 @@
 
 MCXX_BEGIN_DECLS
 
-struct type_tag* solve_class_template(decl_context_t decl_context,
+LIBMCXX_EXTERN struct type_tag* solve_class_template(decl_context_t decl_context,
         struct type_tag* template_type,
         struct type_tag* specialized_type,
         deduction_set_t** deduction_set,
         const char *filename,
         int line);
 
-struct scope_entry_tag* solve_template_function(struct scope_entry_list_tag* template_set,
+LIBMCXX_EXTERN struct scope_entry_tag* solve_template_function(struct scope_entry_list_tag* template_set,
         template_argument_list_t* explicit_template_arguments,
         struct type_tag* function_type, decl_context_t decl_context,
         const char *filename, int line);

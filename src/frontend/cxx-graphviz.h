@@ -21,13 +21,14 @@
 #ifndef CXX_GRAPHVIZ_H
 #define CXX_GRAPHVIZ_H
 
+#include "libmcxx-common.h"
 #include "cxx-macros.h"
 #include "cxx-ast-decls.h"
 
 MCXX_BEGIN_DECLS
 
 // Debug
-void ast_dump_graphviz(AST a, FILE* f);
+LIBMCXX_EXTERN void ast_dump_graphviz(AST a, FILE* f);
 
 MCXX_END_DECLS
 

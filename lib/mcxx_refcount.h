@@ -21,6 +21,7 @@
 #ifndef MCXX_REFCOUNT_H
 #define MCXX_REFCOUNT_H
 
+#include "libutils-common.h"
 #include <stdlib.h>
 
 typedef
@@ -46,13 +47,13 @@ struct _mcxx_base_refcount_tag
     MCXX_REFCOUNT_OBJECT;
 } *_p_mcxx_base_refcount_t, _mcxx_base_refcount_t;
 
-void *_mcxx_calloc(size_t nmemb, size_t size);
+LIBUTILS_EXTERN void *_mcxx_calloc(size_t nmemb, size_t size);
 
-void _mcxx_increment(void *p);
-void _mcxx_decrement(void *p);
+LIBUTILS_EXTERN void _mcxx_increment(void *p);
+LIBUTILS_EXTERN void _mcxx_decrement(void *p);
 
-void _mcxx_collectcycles(void);
-_mcxx_children_fun *_mcxx_children(void *p);
+LIBUTILS_EXTERN void _mcxx_collectcycles(void);
+LIBUTILS_EXTERN _mcxx_children_fun *_mcxx_children(void *p);
 
 #define MCXX_NEW(_type) (_type*)(_mcxx_calloc(1, sizeof(_type)))
 

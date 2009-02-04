@@ -21,6 +21,7 @@
 #ifndef TL_LANGCONSTRUCT_HPP
 #define TL_LANGCONSTRUCT_HPP
 
+#include "tl-common.hpp"
 #include "tl-ast.hpp"
 #include "tl-symbol.hpp"
 #include "tl-scopelink.hpp"
@@ -47,7 +48,7 @@ namespace TL
      * This is the base class for all classes wrapping distinguished
      * language constructs.
      */
-    class LangConstruct
+    class LIBTL_CLASS LangConstruct
     {
         protected:
             //! Wrapped tree
@@ -152,7 +153,7 @@ namespace TL
      * actually wraps a reference (or occurence) to an identifier.  Here
      * identifier can be either a type or variable
      */
-    class IdExpression : public LangConstruct
+    class LIBTL_CLASS IdExpression : public LangConstruct
     {
         private:
         public:
@@ -262,7 +263,7 @@ namespace TL
             Declaration get_declaration();
 
             //! Predicate for an IdExpression
-            static const PredicateAST<LANG_IS_ID_EXPRESSION> predicate;
+            static const PredicateAttr predicate;
 
             //! Returns a full fledged Expression after this IdExpression
             Expression get_expression();
@@ -270,7 +271,7 @@ namespace TL
 
     class DeclaredEntity;
     //! This function wraps a whole function definition
-    class FunctionDefinition : public LangConstruct
+    class LIBTL_CLASS FunctionDefinition : public LangConstruct
     {
         private:
         public:
@@ -306,14 +307,14 @@ namespace TL
             //! Returns the point of declaration
             AST_t get_point_of_declaration();
 
-            static const PredicateAST<LANG_IS_FUNCTION_DEFINITION> predicate;
+            static const PredicateAttr predicate;
     };
 
     //! This LangConstruct wraps an expression in the language
     /*!
      * This wrapper ignores all parentheses and nested constructions.
      */
-    class Expression : public LangConstruct
+    class LIBTL_CLASS Expression : public LangConstruct
     {
         private:
             AST_t _orig;
@@ -513,7 +514,7 @@ namespace TL
             //! Returns the upper bound of the array section
             Expression array_section_upper();
 
-            static const PredicateAST<LANG_IS_EXPRESSION_COMPONENT> predicate;
+            static const PredicateAttr predicate;
 
             /*! Returns the enclosing expression that is meaningful */
             Expression get_enclosing_expression();
@@ -547,7 +548,7 @@ namespace TL
     };
 
     //! This LangConstruct wraps a parameter declaration in a function declarator
-    class ParameterDeclaration : public LangConstruct
+    class LIBTL_CLASS ParameterDeclaration : public LangConstruct
     {
         private:
             Type _type;
@@ -568,14 +569,14 @@ namespace TL
                 return _type;
             }
 
-            static const PredicateAST<LANG_IS_PARAMETER_DECLARATION> predicate;
+            static const PredicateAttr predicate;
     };
 
     //! This LangConstruct wraps a declaration of an entity
     /*!
      * This is roughly equivalent to the declarator part of any declaration in C/C++
      */
-    class DeclaredEntity : public LangConstruct
+    class LIBTL_CLASS DeclaredEntity : public LangConstruct
     {
         public :
             DeclaredEntity(AST_t ast, ScopeLink scope_link)
@@ -615,7 +616,7 @@ namespace TL
             // a prototype
             bool functional_declaration_lacks_prototype();
 
-            static const PredicateAST<LANG_IS_DECLARED_NAME> predicate;
+            static const PredicateAttr predicate;
     };
 
     //! This class wraps a type specifier in a declaration
@@ -643,7 +644,7 @@ namespace TL
 
     //! This class wraps a declaration-specifier sequence
     //in a declaration
-    class DeclarationSpec : public LangConstruct
+    class LIBTL_CLASS DeclarationSpec : public LangConstruct
     {
         public:
             DeclarationSpec(AST_t ast, ScopeLink scope_link)
@@ -673,7 +674,7 @@ namespace TL
      * of checking the tree (even if for most properties this would be equivalent).
      *
      */
-    class Declaration : public LangConstruct
+    class LIBTL_CLASS Declaration : public LangConstruct
     {
         public:
             Declaration(AST_t ast, ScopeLink scope_link)
@@ -698,7 +699,7 @@ namespace TL
              */
             AST_t get_point_of_declaration();
 
-            static const PredicateAST<LANG_IS_DECLARATION> predicate;
+            static const PredicateAttr predicate;
     };
 
     //! This class wraps a particular attribute in a GCCAttributeSpecifier
@@ -741,7 +742,7 @@ namespace TL
      *
      * Will have two GCCAttribute, one for 'a' and one for 'b'
      */
-    class GCCAttributeSpecifier : public LangConstruct
+    class LIBTL_CLASS GCCAttributeSpecifier : public LangConstruct
     {
         private:
         public:
@@ -754,7 +755,7 @@ namespace TL
             //attribute-specifier
             ObjectList<GCCAttribute> get_gcc_attribute_list();
 
-            static const PredicateAST<LANG_IS_GCC_ATTRIBUTE> predicate;
+            static const PredicateAttr predicate;
     };
     
     //! @}
@@ -769,7 +770,7 @@ namespace TL
      * by just registering that Symbol 'a' has to be replaced with expression '(*p_a)' and Symbol
      * 'b' with expression 'p_b[0]'
      */
-    class ReplaceIdExpression
+    class LIBTL_CLASS ReplaceIdExpression
     {
         protected:
             std::map<Symbol, AST_t> _repl_map;
@@ -868,7 +869,7 @@ namespace TL
     
     //! Convenience Functor that applied to an AST_t returns
     // its related symbol.
-    class GetSymbolFromAST : public Functor<Symbol, AST_t>
+    class LIBTL_CLASS GetSymbolFromAST : public Functor<Symbol, AST_t>
     {
         private:
             ScopeLink scope_link;

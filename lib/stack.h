@@ -21,6 +21,7 @@
 #ifndef STACK_H
 #define STACK_H
 
+#include "libutils-common.h"
 #include "list.h"
 
 #ifdef __cplusplus

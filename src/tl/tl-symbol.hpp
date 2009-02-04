@@ -21,6 +21,7 @@
 #ifndef TL_SYMBOL_HPP
 #define TL_SYMBOL_HPP
 
+#include "tl-common.hpp"
 #include <string>
 #include <vector>
 #include <sstream>
@@ -38,7 +39,7 @@ namespace TL
     //! @{
     
     //! This class wraps a symbolic entity in the compiler
-    class Symbol : public Object
+    class LIBTL_CLASS Symbol : public Object
     {
         public:
             scope_entry_t* _symbol;

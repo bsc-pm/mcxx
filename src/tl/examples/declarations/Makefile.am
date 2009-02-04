@@ -3,7 +3,13 @@ lib_LTLIBRARIES = libtltraversedecls.la
 libtltraversedecls_la_SOURCES = \
 	tl-traversedecls.cpp
 
-libtltraversedecls_la_LDFLAGS = -avoid-version
+if WINDOWS_BUILD
+no_undefined=-no-undefined
+else
+no_undefined=
+endif
+
+libtltraversedecls_la_LDFLAGS = -avoid-version $(no_undefined)
 
 libtltraversedecls_la_CFLAGS = -Wall \
     -i $(top_srcdir)/src/tl \

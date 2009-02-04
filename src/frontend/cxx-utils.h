@@ -31,7 +31,7 @@
 
 MCXX_BEGIN_DECLS
 
-void running_error(const char* message, ...) NORETURN;
+LIBMCXX_EXTERN void running_error(const char* message, ...) NORETURN;
 
 #define internal_error(message, ...) \
 { \
@@ -41,7 +41,7 @@ void running_error(const char* message, ...) NORETURN;
     exit(EXIT_FAILURE); \
 }
 
-void debug_message(const char* message, const char* kind, const char* source_file, int line, const char* function_name, ...);
+LIBMCXX_EXTERN void debug_message(const char* message, const char* kind, const char* source_file, int line, const char* function_name, ...);
 
 #define WARNING_MESSAGE(message, ...) \
 { \
@@ -74,55 +74,10 @@ void debug_message(const char* message, const char* kind, const char* source_fil
 }
 
 
-const char* strappend(const char* orig, const char* appended);
-const char* strprepend(const char* orig, const char* prepended);
+LIBMCXX_EXTERN const char* strappend(const char* orig, const char* appended);
+LIBMCXX_EXTERN const char* strprepend(const char* orig, const char* prepended);
 
-extern unsigned long long int _bytes_dynamic_lists;
 
-unsigned long long dynamic_lists_used_memory(void);
-
-// Routine to ease adding pointers to a pointer list
-//   list is a T**
-//   size is an int
-//   elem is a T*
-#define P_LIST_ADD(list, size, elem)  \
-do { \
-    (size)++; \
-    (list) = realloc((list), sizeof(*(list))*(size)); \
-    _bytes_dynamic_lists += sizeof(*(list)); \
-    (list)[((size)-1)] = (elem); \
-} while(0)
-
-// This is a bit inefficient. Should not be used for large lists
-#define P_LIST_ADD_ONCE(list, size, elem) \
-do { \
-    int _i; \
-    char _found = 0; \
-    for (_i = 0; (_i < (size)) && !_found; _i++) \
-    { \
-         _found = ((list)[_i] == (elem)); \
-    } \
-    if (!_found) \
-    { \
-        P_LIST_ADD((list), (size), (elem)); \
-    } \
-} while (0)
-
-// This is a bit inefficient. Should not be used for large lists
-// Like P_LIST_ADD_ONCE_FUN but using fun as an equality function
-#define P_LIST_ADD_ONCE_FUN(list, size, elem, fun) \
-do { \
-    int _i; \
-    char _found = 0; \
-    for (_i = 0; (_i < (size)) && !_found; _i++) \
-    { \
-         _found = (fun)((list)[_i], (elem)); \
-    } \
-    if (!_found) \
-    { \
-        P_LIST_ADD((list), (size), (elem)); \
-    } \
-} while (0)
 
 #define DEBUG_CODE() if (CURRENT_CONFIGURATION(debug_options.enable_debug_code))
 #define NOT_DEBUG_CODE() if (!CURRENT_CONFIGURATION(debug_options.enable_debug_code))
@@ -136,18 +91,21 @@ do { \
 #define STATIC_ARRAY_LENGTH(_v) (sizeof(_v)/sizeof(_v[0]))
 
 // Gives a unique name for the identifier
-const char* get_unique_name(void);
+LIBMCXX_EXTERN const char* get_unique_name(void);
 
 // States whether the string is blank
-char is_blank_string(const char* c);
+LIBMCXX_EXTERN char is_blank_string(const char* c);
 
 // Special calloc that counts
-void *counted_calloc(size_t nmemb, size_t size, unsigned long long *counter);
+LIBMCXX_EXTERN void *counted_calloc(size_t nmemb, size_t size, unsigned long long *counter);
+
+// Separate values
+LIBMCXX_EXTERN const char** blank_separate_values(const char* value, int *num_elems);
+LIBMCXX_EXTERN const char** comma_separate_values(const char* value, int *num_elems);
 
 // Convenience routines
-const char* give_dirname(const char* c);
-const char* give_basename(const char* c);
-
+LIBMCXX_EXTERN const char* give_dirname(const char* c);
+LIBMCXX_EXTERN const char* give_basename(const char* c);
 
 MCXX_END_DECLS
 

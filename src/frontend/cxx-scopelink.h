@@ -21,6 +21,7 @@
 #ifndef CXX_SCOPELINK_H
 #define CXX_SCOPELINK_H
 
+#include "libmcxx-common.h"
 #include "cxx-macros.h"
 #include "cxx-scopelink-decls.h"
 #include "cxx-buildscope-decls.h"
@@ -29,20 +30,20 @@
 
 MCXX_BEGIN_DECLS
 
-scope_link_t* scope_link_new(decl_context_t global_decl_context);
+LIBMCXX_EXTERN scope_link_t* scope_link_new(decl_context_t global_decl_context);
 
-void scope_link_set(scope_link_t* sl, AST a, decl_context_t decl_context);
+LIBMCXX_EXTERN void scope_link_set(scope_link_t* sl, AST a, decl_context_t decl_context);
 
-void scope_link_unset(scope_link_t* sl, AST a);
+LIBMCXX_EXTERN void scope_link_unset(scope_link_t* sl, AST a);
 
-decl_context_t scope_link_get_global_decl_context(scope_link_t* sl);
+LIBMCXX_EXTERN decl_context_t scope_link_get_global_decl_context(scope_link_t* sl);
 
-decl_context_t scope_link_get_decl_context(scope_link_t* sl, AST a);
+LIBMCXX_EXTERN decl_context_t scope_link_get_decl_context(scope_link_t* sl, AST a);
 
-char scope_link_direct_get_scope(scope_link_t* sl, AST a, 
+LIBMCXX_EXTERN char scope_link_direct_get_scope(scope_link_t* sl, AST a, 
         decl_context_t *decl_result);
 
-unsigned long long scopelink_used_memory(void);
+LIBMCXX_EXTERN unsigned long long scopelink_used_memory(void);
 
 MCXX_END_DECLS
 

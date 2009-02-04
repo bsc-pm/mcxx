@@ -21,6 +21,7 @@
 #ifndef TL_DTO_HPP
 #define TL_DTO_HPP
 
+#include "tl-common.hpp"
 #include <string>
 #include <map>
 #include "tl-object.hpp"
@@ -34,7 +35,7 @@ namespace TL
      * This class implements in some way the pattern Data Transfer Object, hence the name,
      * to pass data in a generic way among objects.
      */
-    class DTO 
+    class LIBTL_CLASS DTO 
     {
         private:
             typedef std::map<std::string, RefPtr<Object> > DTO_inner;

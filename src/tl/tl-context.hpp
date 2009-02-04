@@ -21,6 +21,7 @@
 #ifndef TL_CONTEXT_HPP
 #define TL_CONTEXT_HPP
 
+#include "tl-common.hpp"
 #include "tl-scopelink.hpp"
 #include <string>
 
@@ -31,7 +32,7 @@ namespace TL
      * Currently it only stores the scope link available when the traversal
      * started.
      */
-    struct Context
+    struct LIBTL_CLASS Context
     {
         public:
             ScopeLink scope_link;

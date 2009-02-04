@@ -21,6 +21,7 @@
 #ifndef TL_SCOPE_HPP
 #define TL_SCOPE_HPP
 
+#include "tl-common.hpp"
 #include <string>
 #include <cstring>
 #include <vector>
@@ -44,7 +45,7 @@ namespace TL
      * This class used to hold a scope_t* but now it holds a decl_context_t.
      * This allows greater flexibility.
      */
-    class Scope : public Object
+    class LIBTL_CLASS Scope : public Object
     {
         private:
             bool _valid;

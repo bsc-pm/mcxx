@@ -21,6 +21,7 @@
 #ifndef TL_PRAGMASUPPORT_HPP
 #define TL_PRAGMASUPPORT_HPP
 
+#include "tl-common.hpp"
 #include <string>
 #include <stack>
 #include "tl-compilerphase.hpp"
@@ -32,7 +33,7 @@
 
 namespace TL
 {
-    class PragmaCustomClause : public LangConstruct
+    class LIBTL_CLASS PragmaCustomClause : public LangConstruct
     {
         private:
             std::string _clause_name;
@@ -65,7 +66,7 @@ namespace TL
             std::string get_clause_name() { return _clause_name; }
     };
 
-    class PragmaCustomConstruct : public LangConstruct, public LinkData
+    class LIBTL_CLASS PragmaCustomConstruct : public LangConstruct, public LinkData
     {
         public:
             PragmaCustomConstruct(AST_t ref, ScopeLink scope_link)
@@ -92,14 +93,14 @@ namespace TL
             PragmaCustomClause get_clause(const std::string& name);
     };
 
-    bool is_pragma_custom_directive(const std::string& pragma_preffix, 
+    LIBTL_EXTERN bool is_pragma_custom_directive(const std::string& pragma_preffix, 
             const std::string& pragma_directive, 
             AST_t ast,
             ScopeLink scope_link);
 
     typedef std::map<std::string, Signal1<PragmaCustomConstruct> > CustomFunctorMap;
 
-    class PragmaCustomDispatcher : public TraverseFunctor
+    class LIBTL_CLASS PragmaCustomDispatcher : public TraverseFunctor
     {
         private:
             std::string _pragma_handled;
@@ -125,7 +126,7 @@ namespace TL
      * will have to call register_directive and register_construct
      * accordingly to register specific constructs and directives.
      */
-    class PragmaCustomCompilerPhase : public CompilerPhase
+    class LIBTL_CLASS PragmaCustomCompilerPhase : public CompilerPhase
     {
         private:
             std::string _pragma_handled;

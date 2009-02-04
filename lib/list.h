@@ -21,6 +21,7 @@
 #ifndef LIST_H
 #define LIST_H
 
+#include "libutils-common.h"
 #include "mem_ctl.h"
 #include "s_types.h"
 #include <stdlib.h>
@@ -59,26 +60,26 @@ struct _list
 #define node_data(node) (node->data)
 #define LIST(l) ((List *)(l))
 
-void list_init(List * l);
-List *list_create(void);
-void list_set(List * l, int op, void *value);
-void list_dump(List * l);
-void list_destroy(List * l);
-void node_destroy(List * l, ListNode * node);
-ListNode *list_first(List * l);
-ListNode *list_last(List * l);
-int list_num_items(List * l);
-void list_append(List * l, void *item);
-void list_prepend(List * l, void *item);
-void list_insert_pre(List * l, ListNode * node_post, void *item);
-void node_lock(ListNode * node);
-void node_unlock(List * l, ListNode * node);
-ListNode *node_create(void *Item);
-ListNode *node_next(List * l, ListNode * node, bool_type unlock);
-ListNode *node_prev(List * l, ListNode * node, bool_type unlock);
-void list_delete(List * l, ListNode * node);
-void list_delete_item(List * l, void *item);
-void *list_get(List * l, int pos);
+LIBUTILS_EXTERN void list_init(List * l);
+LIBUTILS_EXTERN List *list_create(void);
+LIBUTILS_EXTERN void list_set(List * l, int op, void *value);
+LIBUTILS_EXTERN void list_dump(List * l);
+LIBUTILS_EXTERN void list_destroy(List * l);
+LIBUTILS_EXTERN void node_destroy(List * l, ListNode * node);
+LIBUTILS_EXTERN ListNode *list_first(List * l);
+LIBUTILS_EXTERN ListNode *list_last(List * l);
+LIBUTILS_EXTERN int list_num_items(List * l);
+LIBUTILS_EXTERN void list_append(List * l, void *item);
+LIBUTILS_EXTERN void list_prepend(List * l, void *item);
+LIBUTILS_EXTERN void list_insert_pre(List * l, ListNode * node_post, void *item);
+LIBUTILS_EXTERN void node_lock(ListNode * node);
+LIBUTILS_EXTERN void node_unlock(List * l, ListNode * node);
+LIBUTILS_EXTERN ListNode *node_create(void *Item);
+LIBUTILS_EXTERN ListNode *node_next(List * l, ListNode * node, bool_type unlock);
+LIBUTILS_EXTERN ListNode *node_prev(List * l, ListNode * node, bool_type unlock);
+LIBUTILS_EXTERN void list_delete(List * l, ListNode * node);
+LIBUTILS_EXTERN void list_delete_item(List * l, void *item);
+LIBUTILS_EXTERN void *list_get(List * l, int pos);
 
 #ifdef __cplusplus
 }

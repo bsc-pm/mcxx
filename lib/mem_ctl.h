@@ -21,6 +21,7 @@
 #ifndef MEM_CTL_H
 #define MEM_CTL_H
 
+#include "libutils-common.h"
 #include <stdlib.h>
 
 #define NEW(type)               (type *) malloc(sizeof(type))
@@ -31,7 +32,7 @@
 extern "C" {
 #endif
 
-void noop_free(void* v);
+LIBUTILS_EXTERN void noop_free(void* v);
 
 #ifdef __cplusplus
 }

@@ -21,6 +21,7 @@
 #ifndef TL_SOURCE_T_HPP
 #define TL_SOURCE_T_HPP
 
+#include "tl-common.hpp"
 #include <string>
 #include "tl-object.hpp"
 #include "tl-ast.hpp"
@@ -37,7 +38,7 @@ namespace TL
     class Source;
 
     //! Auxiliar class used by Source
-    class SourceChunk
+    class LIBTL_CLASS SourceChunk
     {
         private:
             int _refcount;

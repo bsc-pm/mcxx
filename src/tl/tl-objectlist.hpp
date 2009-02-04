@@ -21,6 +21,7 @@
 #ifndef TL_OBJECTLIST_HPP
 #define TL_OBJECTLIST_HPP
 
+#include "tl-common.hpp"
 #include <vector>
 #include <utility>
 #include <algorithm>
@@ -481,7 +482,7 @@ class ObjectList : public std::vector<T>
  * \return A single std::string value with all the strings in \a string_list concatenated and interspersed with
  * \a separator
  */
-std::string concat_strings(const ObjectList<std::string>& string_list, const std::string& separator = std::string(""));
+LIBTL_EXTERN std::string concat_strings(const ObjectList<std::string>& string_list, const std::string& separator = std::string(""));
 
 }
 

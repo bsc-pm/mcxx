@@ -2,12 +2,12 @@
 
 namespace TL
 {
-    const PredicateAST<LANG_IS_STATEMENT> Statement::predicate;
-    const PredicateAST<LANG_IS_FOR_STATEMENT> ForStatement::predicate;
-    const PredicateAST<LANG_IS_WHILE_STATEMENT> WhileStatement::predicate;
-    const PredicateAST<LANG_IS_IF_STATEMENT> IfStatement::predicate;
-    const PredicateAST<LANG_IS_DO_STATEMENT> DoWhileStatement::predicate;
-    const PredicateAST<LANG_IS_SWITCH_STATEMENT> SwitchStatement::predicate;
+    const PredicateAttr Statement::predicate(LANG_IS_STATEMENT);
+    const PredicateAttr ForStatement::predicate(LANG_IS_FOR_STATEMENT);
+    const PredicateAttr WhileStatement::predicate(LANG_IS_WHILE_STATEMENT);
+    const PredicateAttr IfStatement::predicate(LANG_IS_IF_STATEMENT);
+    const PredicateAttr DoWhileStatement::predicate(LANG_IS_DO_STATEMENT);
+    const PredicateAttr SwitchStatement::predicate(LANG_IS_SWITCH_STATEMENT);
 
     bool Condition::is_expression()
     {
@@ -361,7 +361,7 @@ namespace TL
 
             AST_t parent = list.get_parent_of_list();
 
-            return PredicateAST<LANG_IS_COMPOUND_STATEMENT>()(parent);
+            return (PredicateAttr(LANG_IS_COMPOUND_STATEMENT))(parent);
         }
 
         return false;
@@ -499,7 +499,8 @@ namespace TL
     {
         TL::AST_t case_statement_body = _ref.get_attribute(LANG_CASE_STATEMENT_BODY);
 
-        ObjectList<AST_t> case_tree_list = case_statement_body.depth_subtrees(PredicateAST<LANG_IS_CASE_STATEMENT>(), 
+        ObjectList<AST_t> case_tree_list = case_statement_body.depth_subtrees(
+                PredicateAttr(LANG_IS_CASE_STATEMENT), 
                 // We do not want inner case statements coming from nested switch statements
                 AST_t::NON_RECURSIVE);
 

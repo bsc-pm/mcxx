@@ -21,6 +21,7 @@
 #ifndef TL_BUILTIN_HPP
 #define TL_BUILTIN_HPP
 
+#include "tl-common.hpp"
 #include <typeinfo>
 #include <iostream>
 #include <string>
@@ -35,7 +36,7 @@ namespace TL
      * This class allows to get integer types from extended structures and pass
      * them into TL::DTO objects
      */
-    class Integer : public Object
+    class LIBTL_CLASS Integer : public Object
     {
         private:
             int _i;
@@ -173,7 +174,7 @@ namespace TL
      * This class allows to get bool types from extended structures and pass
      * them into TL::DTO objects
      */
-    class Bool : public Object
+    class LIBTL_CLASS Bool : public Object
     {
         private:
             bool _b;
@@ -256,7 +257,7 @@ namespace TL
      * This class allows to get std::string types from extended structures and pass
      * them into TL::DTO objects
      */
-    class String : public Object, public std::string
+    class LIBTL_CLASS String : public Object, public std::string
     {
         private:
             bool all_blanks() const
@@ -371,7 +372,7 @@ namespace TL
      * counter. In destruction this number is decreased, when it reaches zero
      * the whole structure will be deleted.
      */
-    class LinkData
+    class LIBTL_CLASS LinkData
     {
         private:
             //! Data info structure

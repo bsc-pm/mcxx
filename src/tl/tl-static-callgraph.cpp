@@ -15,7 +15,7 @@ namespace TL
     {
         // Explicit calls
         ObjectList<AST_t> explicit_function_calls =
-            a.depth_subtrees(PredicateAST<LANG_IS_FUNCTION_CALL>());
+            a.depth_subtrees(PredicateAttr(LANG_IS_FUNCTION_CALL));
 
         for (ObjectList<AST_t>::iterator it = explicit_function_calls.begin();
                 it != explicit_function_calls.end();
@@ -39,7 +39,7 @@ namespace TL
 
         // Implicit calls (only in C++)
         ObjectList<AST_t> implicit_function_calls = 
-            a.depth_subtrees(PredicateAST<LANG_IS_IMPLICIT_CALL>());
+            a.depth_subtrees(PredicateAttr(LANG_IS_IMPLICIT_CALL));
 
         for (ObjectList<AST_t>::iterator it = implicit_function_calls.begin();
                 it != implicit_function_calls.end();

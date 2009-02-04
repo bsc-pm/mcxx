@@ -1,6 +1,7 @@
 #ifndef TL_STATIC_CFG_HPP
 #define TL_STATIC_CFG_HPP
 
+#include "tl-common.hpp"
 #include "tl-object.hpp"
 #include "tl-objectlist.hpp"
 #include "tl-ast.hpp"
@@ -13,7 +14,7 @@
 
 namespace TL
 {
-    class StaticCallGraph : Object
+    class LIBTL_CLASS StaticCallGraph : Object
     {
         private:
             ObjectList<Symbol> _explicitly_called;

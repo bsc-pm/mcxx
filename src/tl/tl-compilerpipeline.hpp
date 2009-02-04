@@ -21,6 +21,7 @@
 #ifndef TL_COMPILERPIPELINE_HPP
 #define TL_COMPILERPIPELINE_HPP
 
+#include "tl-common.hpp"
 #include "tl-object.hpp"
 #include "tl-objectlist.hpp"
 
@@ -33,7 +34,7 @@ namespace TL
      * This class allows to retrieve the available configurations of the compiler. 
      * It also is useful to get the name of the current configuration.
      */
-    class CompilationConfiguration
+    class LIBTL_CLASS CompilationConfiguration
     {
         public:
             //! List of available configurations
@@ -48,7 +49,7 @@ namespace TL
      * This class is useful when dealing with multifile
      * or when some information about the current compiled file is required
      */
-    class CompiledFile
+    class LIBTL_CLASS CompiledFile
     {
         private:
             //! The file name of the current compiled file
@@ -81,7 +82,7 @@ namespace TL
      * will add the file for further compilation. This is useful in
      * multifile
      */
-    class CompilationProcess
+    class LIBTL_CLASS CompilationProcess
     {
         private:
             static std::map<std::string, CompiledFile> _file_map;

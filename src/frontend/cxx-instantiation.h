@@ -21,14 +21,15 @@
 #ifndef CXX_INSTANTIATION_H
 #define CXX_INSTANTIATION_H
 
+#include "libmcxx-common.h"
 #include "cxx-macros.h"
 #include "cxx-scope-decls.h"
 
 MCXX_BEGIN_DECLS
 
-void instantiate_template_class(struct scope_entry_tag* entry, decl_context_t decl_context, 
+LIBMCXX_EXTERN void instantiate_template_class(struct scope_entry_tag* entry, decl_context_t decl_context, 
         const char *filename, int line);
-void instantiate_template_function(scope_entry_t* entry, 
+LIBMCXX_EXTERN void instantiate_template_function(scope_entry_t* entry, 
         decl_context_t decl_context, const char* filename, int line);
 
 MCXX_END_DECLS

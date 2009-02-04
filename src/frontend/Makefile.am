@@ -1,10 +1,33 @@
-lib_LTLIBRARIES = libmcxx.la
+lib_LTLIBRARIES = libmcxx-process.la libmcxx.la
 
 END=
 
 EXTRA_DIST =
 CLEANFILES =
 BUILT_SOURCES = 
+
+if WINDOWS_BUILD
+no_undefined=-no-undefined
+else
+no_undefined=
+endif
+
+# Overall process library containing global data
+libmcxx_process_la_CFLAGS=-DLIBPROCESS_DLL_EXPORT \
+                          -I$(top_srcdir)/lib \
+                          -I$(top_srcdir)/src/driver \
+                          -I$(top_srcdir)/src/frontend \
+                          -I$(top_srcdir)/src/mcxx_tl \
+                          -I$(top_builddir)/lib \
+                          -I$(top_builddir)/src/driver \
+                          -I$(top_builddir)/src/frontend \
+                          -I$(top_builddir)/src/mcxx_tl \
+                          $(END)
+libmcxx_process_la_LDFLAGS=-avoid-version $(no_undefined)
+libmcxx_process_la_LIBADD=$(top_builddir)/lib/libmcxx-utils.la
+libmcxx_process_la_SOURCES = \
+                             cxx-process.c \
+                             $(END)
 
 # Mercurium C/C++ compiler runtime library
 libmcxx_la_SOURCES = \
@@ -78,19 +101,34 @@ libmcxx_la_SOURCES = \
   cxx-typeorder.c \
   cxx-overload.c \
   cxx-overload.h \
+  libmcxx-common.h \
   $(END)
 
 libmcxx_la_LIBADD = \
 					$(top_builddir)/lib/libmcxx-utils.la \
+					$(top_builddir)/lib/libmcxx-extstruct.la \
+                    libmcxx-process.la \
 					$(END)
 
-libmcxx_la_CFLAGS = -Wall \
+if WINDOWS_BUILD
+dll_exports=-Wl,$(srcdir)/dll-exports.def
+else
+dll_exports=
+endif
+
+# This is for Win32
+EXTRA_DIST += dll-exports.def
+
+libmcxx_la_LDFLAGS = $(dll_exports) -avoid-version $(no_undefined)
+
+libmcxx_la_CFLAGS = -DLIBMCXX_DLL_EXPORT \
+                    -Wall \
 					-Wshadow \
 					-Wextra \
-				  -I$(top_srcdir)/lib \
-				  -I$(top_srcdir)/src/driver \
-                   -fexceptions \
-				  -DPKGDATADIR=\"$(pkgdatadir)\"
+				    -I$(top_srcdir)/lib \
+				    -I$(top_srcdir)/src/driver \
+                    -fexceptions \
+				    -DPKGDATADIR=\"$(pkgdatadir)\"
 
 EXTRA_DIST += cxx-lexer.l
 
@@ -150,6 +188,7 @@ CLEANFILES += cxx-asttype.h
 cxx-asttype.h : cxx-asttype.def
 	echo "#ifndef CXX_ASTTYPE_H" > cxx-asttype.h
 	echo "#define CXX_ASTTYPE_H" >> cxx-asttype.h
+	echo "#include \"libmcxx-common.h\"" >> cxx-asttype.h
 	echo "#include \"cxx-macros.h\"" >> cxx-asttype.h
 	echo "MCXX_BEGIN_DECLS" >> cxx-asttype.h
 	echo "/* This file has been generated. Every time you change $< it will be regenerated */" >> cxx-asttype.h
@@ -158,7 +197,7 @@ cxx-asttype.h : cxx-asttype.def
 	sed -e "/^[[:blank:]]*\(#.*\)\?$$/d" -e "s/$$/,/" < cxx-asttype.def >> cxx-asttype.h
 	echo "AST_LAST_NODE" >> cxx-asttype.h
 	echo "};" >> cxx-asttype.h
-	echo "extern char* ast_node_names[];" >> cxx-asttype.h
+	echo "LIBMCXX_EXTERN char* ast_node_names[];" >> cxx-asttype.h
 	echo "typedef enum node_type node_t;" >> cxx-asttype.h
 	echo "MCXX_END_DECLS" >> cxx-asttype.h
 	echo "#endif // CXX_ASTTYPE_H" >> cxx-asttype.h
@@ -182,10 +221,11 @@ cxx-attrnames.h : $(srcdir)/cxx-attrnames.def
 	echo "/* This file has been generated. Every time you change $< it will be regenerated */" > cxx-attrnames.h
 	echo "#ifndef CXX_ATTRNAMES_H" > cxx-attrnames.h
 	echo "#define CXX_ATTRNAMES_H" >> cxx-attrnames.h
+	echo "#include \"libmcxx-common.h\"" >> cxx-attrnames.h
 	echo "#include \"cxx-macros.h\"" >> cxx-attrnames.h
 	echo "MCXX_BEGIN_DECLS" >> cxx-attrnames.h
-	sed -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/extern char \1[];/" < $< >> cxx-attrnames.h
-	echo "void register_ast_extended_attributes(void);" >> cxx-attrnames.h
+	sed -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/LIBMCXX_EXTERN char \1[];/" < $< >> cxx-attrnames.h
+	echo "LIBMCXX_EXTERN void register_ast_extended_attributes(void);" >> cxx-attrnames.h
 	echo "MCXX_END_DECLS" >> cxx-attrnames.h
 	echo "#endif // CXX_ATTRNAMES_H" >> cxx-attrnames.h
 

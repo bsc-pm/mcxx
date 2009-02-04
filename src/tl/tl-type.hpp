@@ -21,6 +21,7 @@
 #ifndef TL_TYPE_HPP
 #define TL_TYPE_HPP
 
+#include "tl-common.hpp"
 #include <string>
 #include "tl-object.hpp"
 #include "tl-symbol.hpp"
@@ -37,7 +38,7 @@ namespace TL
     //! @{
     
     //! This class wraps a type in the compiler type system
-    class Type : public Object
+    class LIBTL_CLASS Type : public Object
     {
         private:
             type_t* _type_info;

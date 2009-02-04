@@ -21,27 +21,28 @@
 #ifndef CXX_OVERLOAD_H
 #define CXX_OVERLOAD_H
 
+#include "libmcxx-common.h"
 #include "cxx-type-decls.h"
 #include "cxx-scope-decls.h"
 #include "cxx-buildscope-decls.h"
 
-struct scope_entry_tag* solve_overload(struct scope_entry_list_tag* candidate_functions, 
+LIBMCXX_EXTERN struct scope_entry_tag* solve_overload(struct scope_entry_list_tag* candidate_functions, 
         struct type_tag **argument_types, int num_arguments,
         decl_context_t decl_context,
         const char* filename, int line,
         scope_entry_t** conversor_per_argument);
 
-char type_can_be_implicitly_converted_to(struct type_tag* orig, struct type_tag* dest, decl_context_t decl_context, 
+LIBMCXX_EXTERN char type_can_be_implicitly_converted_to(struct type_tag* orig, struct type_tag* dest, decl_context_t decl_context, 
         char *ambiguous_conversion, scope_entry_t** conversor);
 
-struct scope_entry_tag* address_of_overloaded_function(struct scope_entry_list_tag* overload_set, 
+LIBMCXX_EXTERN struct scope_entry_tag* address_of_overloaded_function(struct scope_entry_list_tag* overload_set, 
         template_argument_list_t* explicit_template_arguments,
         struct type_tag* target_type,
         decl_context_t decl_context,
         const char *filename,
         int line);
 
-scope_entry_t* solve_constructor(type_t* class_type, 
+LIBMCXX_EXTERN scope_entry_t* solve_constructor(type_t* class_type, 
         type_t** arguments, 
         int num_arguments,
         char is_explicit, 
@@ -49,6 +50,6 @@ scope_entry_t* solve_constructor(type_t* class_type,
         const char* filename, int line,
         scope_entry_t** conversors);
 
-unsigned long long overload_used_memory(void);
+LIBMCXX_EXTERN unsigned long long overload_used_memory(void);
 
 #endif // CXX_OVERLOAD_H

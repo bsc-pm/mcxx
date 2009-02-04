@@ -13,7 +13,14 @@ tl_omp_flags = -Wall \
 
 lib_LTLIBRARIES = libtlsizeof-check.la
 
+if WINDOWS_BUILD
+no_undefined=-no-undefined
+else
+no_undefined=
+endif
+
 libtlsizeof_check_la_CXXFLAGS = $(tl_omp_flags)
+libtlsizeof_check_la_LDFLAGS = -avoid-version $(no_undefined)
 
 END=
 

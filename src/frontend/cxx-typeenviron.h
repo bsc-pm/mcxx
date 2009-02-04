@@ -6,6 +6,7 @@
   #include "config.h"
 #endif
 
+#include "libmcxx-common.h"
 #include "cxx-typeenviron-decls.h"
 
 #define DEBUG_SIZEOF_CODE() if (CURRENT_CONFIGURATION(debug_options.debug_sizeof))
@@ -14,9 +15,8 @@
 // and declared here
 
 // A NULL ended list of those above
-extern type_environment_t* type_environment_list[];
-
-extern type_environment_t* default_environment;
+LIBMCXX_EXTERN type_environment_t* type_environment_list[];
+LIBMCXX_EXTERN type_environment_t* default_environment;
 
 // Fallback for faulty configuration
 #ifndef DEFAULT_TYPE_ENVIRONMENT

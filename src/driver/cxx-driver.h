@@ -21,6 +21,7 @@
 #ifndef CXX_DRIVER_H
 #define CXX_DRIVER_H
 
+#include "cxx-process.h"
 #include "cxx-ast.h"
 #include "cxx-scope.h"
 #include "cxx-scopelink.h"
@@ -29,11 +30,6 @@
 #include "cxx-parameters.h"
 
 MCXX_BEGIN_DECLS
-
-extern compilation_process_t compilation_process;
-
-extern int mcxx_flex_debug;
-extern int mc99_flex_debug;
 
 extern int yyparse(AST* parsed_tree);
 
@@ -47,23 +43,10 @@ configoptions_lookup (register const char *str,
 
 int parse_arguments(int argc, const char* argv[], char from_command_line);
 
-extern int mcxxdebug;
-extern int mcxxparse(AST* a);
-
-extern int mc99debug;
-extern int mc99parse(AST* a);
-
 struct debug_flags_list_t** list_of_debug_flags(void);
 
 struct debug_flags_list_t *
 debugflags_lookup (register const char *str, register unsigned int len);
-
-void add_new_file_to_compilation_process(const char* file_path, const char* output_file, 
-        compilation_configuration_t* configuration);
-
-pragma_directive_kind_t lookup_pragma_directive(const char* prefix, const char* directive);
-
-void register_new_directive(const char* prefix, const char* directive, char is_construct);
 
 // Internal between cxx-driver.c and cxx-configfile.c, do not use elsewhere
 void add_to_parameter_list(const char*** existing_options, const char **parameters, int num_parameters);

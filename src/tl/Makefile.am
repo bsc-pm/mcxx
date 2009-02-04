@@ -8,21 +8,17 @@ lib_LTLIBRARIES = libtl.la
 
 BUILT_SOURCES = $(top_builddir)/src/frontend/cxx-asttype.h
 
-libtl_la_CXXFLAGS = -Wall \
+COMMON_CFLAGS= -DLIBTL_DLL_EXPORT -Wall \
     -I $(top_srcdir)/src/frontend \
     -I $(top_srcdir)/src/driver \
     -I $(top_srcdir)/lib \
     -I $(top_builddir)/src/frontend \
     -I $(top_builddir)/src/driver \
-    -I $(top_builddir)/lib
+    -I $(top_builddir)/lib \
+    $(END)
 
-libtl_la_CFLAGS = -Wall \
-    -I $(top_srcdir)/src/frontend \
-    -I $(top_srcdir)/src/driver \
-    -I $(top_srcdir)/lib \
-    -I $(top_builddir)/src/frontend \
-    -I $(top_builddir)/src/driver \
-    -I $(top_builddir)/lib
+libtl_la_CFLAGS = $(COMMON_CFLAGS)
+libtl_la_CXXFLAGS = $(COMMON_CFLAGS)
 
 libtl_la_SOURCES = \
     tl-object.hpp \
@@ -78,9 +74,19 @@ libtl_la_SOURCES = \
 	tl-declarationclosure.cpp \
 	tl-static-callgraph.hpp \
 	tl-static-callgraph.cpp \
+    tl-common.hpp \
 	$(END)
 
-libtl_la_LDFLAGS = -avoid-version
+if WINDOWS_BUILD
+no_undefined=-no-undefined
+else
+no_undefined=
+endif
+
+libtl_la_LDFLAGS = -avoid-version $(no_undefined)
 libtl_la_LIBADD = \
+	$(top_builddir)/lib/libmcxx-extstruct.la \
+	$(top_builddir)/lib/libmcxx-utils.la \
+	$(top_builddir)/src/frontend/libmcxx-process.la \
 	$(top_builddir)/src/frontend/libmcxx.la \
 	$(END)

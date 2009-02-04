@@ -20,7 +20,13 @@ libtlinstr_pthreads_la_CXXFLAGS = -Wall \
     -I $(top_builddir)/src/driver \
     -I $(top_builddir)/lib
 
-libtlinstr_pthreads_la_LDFLAGS = -avoid-version
+if WINDOWS_BUILD
+no_undefined=-no-undefined
+else
+no_undefined=
+endif
+
+libtlinstr_pthreads_la_LDFLAGS = -avoid-version $(no_undefined)
 
 libtlinstr_pthreads_la_SOURCES = \
 						tl-instrumentfilter.hpp \

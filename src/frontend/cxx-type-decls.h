@@ -21,6 +21,7 @@
 #ifndef CXX_TYPE_DECLS_H
 #define CXX_TYPE_DECLS_H
 
+#include "libmcxx-common.h"
 #include "cxx-macros.h"
 
 MCXX_BEGIN_DECLS
@@ -81,7 +82,7 @@ struct standard_conversion_tag
     standard_conversion_item_t conv[3];
 } standard_conversion_t;
 
-extern const standard_conversion_t no_scs_conversion;
+LIBMCXX_EXTERN const standard_conversion_t no_scs_conversion;
 
 MCXX_END_DECLS
 

@@ -43,10 +43,10 @@ mcxx_LDADD = \
    $(top_builddir)/lib/libmcxx-utils.la \
    $(top_builddir)/lib/libmcxx-extstruct.la \
    $(top_builddir)/lib/libmcxx-mcfg.la \
+   $(top_builddir)/src/frontend/libmcxx-process.la \
    $(top_builddir)/src/frontend/libmcxx.la \
    $(top_builddir)/src/tl/libtl.la \
    $(top_builddir)/src/mcxx_tl/libmcxxtl.la \
-   -ldl \
    $(END)
 
 EXTRA_DIST += cxx-configoptions.gperf

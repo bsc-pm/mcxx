@@ -21,6 +21,7 @@
 #ifndef ITERATOR_H
 #define ITERATOR_H
 
+#include "libutils-common.h"
 #include "s_types.h"
 
 #ifdef __cplusplus
@@ -45,9 +46,7 @@ struct _iterator_ops
     void (*remove) (Iterator *);
     void (*end) (Iterator *);
     void (*free) (Iterator *);
-#if 1                           /* JAIRO */
     int (*items) (Iterator *);
-#endif
 };
 
 struct _iterator
@@ -55,18 +54,15 @@ struct _iterator
     IteratorOps *ops;
 };
 
-void iterator_init(Iterator * i, IteratorOps * ops);
-void iterator_end(Iterator * i);
-void iterator_destroy(Iterator * i);
-void iterator_first(Iterator * i);
-bool_type iterator_finished(Iterator * i);
-void iterator_next(Iterator * i);
-void *iterator_item(Iterator * i);
-void iterator_remove(Iterator * i);
-
-#if 1                           /* JAIRO */
-int iterator_items(Iterator * i);
-#endif
+LIBUTILS_EXTERN void iterator_init(Iterator * i, IteratorOps * ops);
+LIBUTILS_EXTERN void iterator_end(Iterator * i);
+LIBUTILS_EXTERN void iterator_destroy(Iterator * i);
+LIBUTILS_EXTERN void iterator_first(Iterator * i);
+LIBUTILS_EXTERN bool_type iterator_finished(Iterator * i);
+LIBUTILS_EXTERN void iterator_next(Iterator * i);
+LIBUTILS_EXTERN void *iterator_item(Iterator * i);
+LIBUTILS_EXTERN void iterator_remove(Iterator * i);
+LIBUTILS_EXTERN int iterator_items(Iterator * i);
 
 #ifdef __cplusplus
 }

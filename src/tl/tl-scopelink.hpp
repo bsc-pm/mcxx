@@ -21,6 +21,7 @@
 #ifndef TL_SCOPELINK_HPP
 #define TL_SCOPELINK_HPP
 
+#include "tl-common.hpp"
 #include <typeinfo>
 #include "cxx-scopelink.h"
 #include "tl-object.hpp"
@@ -33,7 +34,7 @@ namespace TL
     //! @{
 
     //! This function wraps the internal compiler scope link
-    class ScopeLink : public Object
+    class LIBTL_CLASS ScopeLink : public Object
     {
         private:
             scope_link_t* _scope_link;

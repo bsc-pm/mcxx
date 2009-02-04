@@ -16,7 +16,15 @@ tpp.o : tpp.c
 
 lib_LTLIBRARIES = libmcxx-utils.la libmcxx-mcfg.la libmcxx-extstruct.la
 
-libmcxx_utils_la_CFLAGS = -Wall 
+if WINDOWS_BUILD
+no_undefined=-no-undefined
+else
+no_undefined=
+endif
+
+END=
+
+libmcxx_utils_la_CFLAGS = -Wall -DLIBUTILS_DLL_EXPORT
 libmcxx_utils_la_SOURCES = \
                           iterator.c \
                           iterator.h \
@@ -35,17 +43,24 @@ libmcxx_utils_la_SOURCES = \
 						  mcxx_refcount.c \
 						  mcxx_refcount.h \
 						  uniquestr.h \
-						  char_trie.c
+						  char_trie.c \
+                          libutils-common.h \
+                          $(END)
+
+libmcxx_utils_la_LDFLAGS= -avoid-version $(no_undefined)
 
 
-libmcxx_mcfg_la_CFLAGS = -Wall 
+libmcxx_mcfg_la_CFLAGS = -Wall -DLIBMCFG_DLL_EXPORT
 libmcxx_mcfg_la_SOURCES = \
                           mcfg.h \
                           mcfg.c
+libmcxx_mcfg_la_LDFLAGS= -avoid-version $(no_undefined)
 
-libmcxx_extstruct_la_CFLAGS = -Wall 
+libmcxx_extstruct_la_CFLAGS = -Wall -DLIBEXTSTRUCT_DLL_EXPORT
 libmcxx_extstruct_la_SOURCES = \
                               extstruct.h \
                               extstruct.c 
+libmcxx_extstruct_la_LDFLAGS=-avoid-version $(no_undefined)
+libmcxx_extstruct_la_LIBADD=libmcxx-utils.la
 
 dist-hook: tpp$(EXEEXT)

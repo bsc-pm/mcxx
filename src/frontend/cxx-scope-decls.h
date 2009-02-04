@@ -22,6 +22,7 @@
 #define CXX_SCOPE_DECLS_H
 
 #include "hash.h"
+#include "libmcxx-common.h"
 #include "cxx-macros.h"
 #include "cxx-ast-decls.h"
 #include "cxx-buildscope-decls.h"
@@ -271,7 +272,7 @@ struct default_argument_info_tag
     decl_context_t context;
 } default_argument_info_t;
 
-extern extensible_schema_t scope_entry_extensible_schema;
+LIBMCXX_EXTERN extensible_schema_t scope_entry_extensible_schema;
 
 typedef struct entity_specifiers_tag
 {

@@ -26,4 +26,10 @@ libtlstmfunc_la_SOURCES = \
 	tl-functionfilter.cpp \
 	tl-functionfilter.hpp
 
-libtlstmfunc_la_LDFLAGS = -avoid-version
+if WINDOWS_BUILD
+no_undefined=-no-undefined
+else
+no_undefined=
+endif
+
+libtlstmfunc_la_LDFLAGS = -avoid-version $(no_undefined)

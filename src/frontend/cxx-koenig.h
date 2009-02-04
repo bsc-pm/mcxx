@@ -21,13 +21,14 @@
 #ifndef CXX_KOENIG_H
 #define CXX_KOENIG_H
 
+#include "libmcxx-common.h"
 #include "cxx-scope.h"
 #include "cxx-type-decls.h"
 #include "cxx-buildscope-decls.h"
 
 MCXX_BEGIN_DECLS
 
-struct scope_entry_list_tag* koenig_lookup(
+LIBMCXX_EXTERN struct scope_entry_list_tag* koenig_lookup(
         int num_arguments,
         struct type_tag** argument_type_list,
         decl_context_t normal_decl_context,

@@ -21,6 +21,7 @@
 #ifndef TL_OMP_HPP
 #define TL_OMP_HPP
 
+#include "tl-common.hpp"
 #include "cxx-utils.h"
 
 #include "tl-compilerphase.hpp"
@@ -75,7 +76,7 @@ namespace TL
 #undef BITMAP
 
         //! This class represents data sharing environment in a OpenMP construct
-        class DataSharing
+        class LIBTL_CLASS DataSharing
         {
             private:
                 int *_num_refs;
@@ -113,7 +114,7 @@ namespace TL
         class Directive;
 
         //! Base class for all OpenMP constructs 
-        class Construct : public LangConstruct, public LinkData
+        class LIBTL_CLASS Construct : public LangConstruct, public LinkData
         {
             protected:
                 //! The enclosing construct
@@ -197,7 +198,7 @@ namespace TL
         /*!
          * This class wraps the pragma line of a given OpenMP construct
          */
-        class Directive : public LangConstruct
+        class LIBTL_CLASS Directive : public LangConstruct
         {
             private:
             public:
@@ -274,7 +275,7 @@ namespace TL
 
 
         //! This class wraps a clause in an OpenMP directive
-        class Clause : public LangConstruct
+        class LIBTL_CLASS Clause : public LangConstruct
         {
             private:
                 const char* _clause_filter_name;
@@ -295,7 +296,7 @@ namespace TL
         };
 
         //! This class wraps 'default' class in an OpenMP directive
-        class DefaultClause : public LangConstruct
+        class LIBTL_CLASS DefaultClause : public LangConstruct
         {
             public:
                 DefaultClause(AST_t ref, ScopeLink scope_link)
@@ -327,7 +328,7 @@ namespace TL
         };
 
         //! Auxiliar class used in reduction clauses
-        class ReductionSymbol
+        class LIBTL_CLASS ReductionSymbol
         {
             private:
                 Symbol _symbol;
@@ -369,7 +370,7 @@ namespace TL
         };
 
         //! This class wraps 'schedule' clause
-        class ScheduleClause : public LangConstruct
+        class LIBTL_CLASS ScheduleClause : public LangConstruct
         {
             public:
                 //! \deprecated Do not use it
@@ -399,7 +400,7 @@ namespace TL
         };
 
         //! This class wraps 'reduction' clause
-        class ReductionClause : public LangConstruct
+        class LIBTL_CLASS ReductionClause : public LangConstruct
         {
             public:
                 ReductionClause(AST_t ref, ScopeLink scope_link)
@@ -412,7 +413,7 @@ namespace TL
         };
 
         //! Wraps a custom clause, for which no class might exist
-        class CustomClause : public LangConstruct
+        class LIBTL_CLASS CustomClause : public LangConstruct
         {
             private:
                 ObjectList<std::string> _clause_names;
@@ -434,7 +435,7 @@ namespace TL
         };
 
         //! Base class for constructs that inherit data sharing attribute
-        class DataEnvironmentConstruct : public Construct
+        class LIBTL_CLASS DataEnvironmentConstruct : public Construct
         {
             public:
                 DataEnvironmentConstruct(AST_t ref, 
@@ -449,7 +450,7 @@ namespace TL
         };
 
 #define DEFINE_CONSTRUCT_CLASS(_name, _derives_from) \
-        class _name : public _derives_from  \
+        class LIBTL_CLASS _name : public _derives_from  \
         { \
             public: \
                 _name(AST_t ref,  \
@@ -502,7 +503,7 @@ namespace TL
 
         typedef std::stack<ConstructInfo> construct_stack_t;
         //! Stack of constructs built when traversing OpenMP constructs
-        extern construct_stack_t construct_stack;
+        LIBTL_EXTERN construct_stack_t construct_stack;
 
         //! Generic functor for OpenMP constructs
         template<class T>
@@ -585,7 +586,7 @@ namespace TL
         typedef std::map<std::string, Signal1<CustomConstruct> > CustomFunctorMap;
 
         //! Predicate for custom predicates
-        class CustomConstructPredicate : Predicate<AST_t>
+        class LIBTL_CLASS CustomConstructPredicate : Predicate<AST_t>
         {
             private:
                 std::string _construct_name;
@@ -621,7 +622,7 @@ namespace TL
         };
 
         //! Functor for custom constructs
-        class CustomConstructFunctor : public TraverseFunctor
+        class LIBTL_CLASS CustomConstructFunctor : public TraverseFunctor
         {
             private:
                 CustomFunctorMap& _custom_functor_pre;
@@ -648,7 +649,7 @@ namespace TL
          * This class is currently used for the Nanos 4 runtime but it might be
          * used to target other runtimes
          */
-        class OpenMPPhase : public CompilerPhase
+        class LIBTL_CLASS OpenMPPhase : public CompilerPhase
         {
             private:
                 typedef OpenMPConstructFunctor<ParallelConstruct> ParallelFunctor;

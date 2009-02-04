@@ -12,9 +12,15 @@ COMMON_CFLAGS= -Wall \
     -I $(top_builddir)/src/driver \
     -I $(top_builddir)/lib
 
+if WINDOWS_BUILD
+no_undefined=-no-undefined
+else
+no_undefined=
+endif
+
 libtlacotes_la_CFLAGS = $(COMMON_CFLAGS)
 libtlacotes_la_CXXFLAGS = $(COMMON_CFLAGS)
-libtlacotes_la_LDFLAGS = -avoid-version
+libtlacotes_la_LDFLAGS = -avoid-version $(no_undefined)
 libtlacotes_la_LIBADD = libtlacotes-output.la
 
 libtlacotes_la_SOURCES = \

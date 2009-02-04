@@ -24,6 +24,16 @@
 #include <stdlib.h>
 #include "hash.h"
 
+#ifdef _WIN32
+  #ifdef LIBEXTSTRUCT_DLL_EXPORT
+    #define LIBEXTSTRUCT_EXTERN extern __declspec(dllexport)
+  #else
+    #define LIBEXTSTRUCT_EXTERN extern __declspec(dllimport)
+  #endif
+#else
+  #define LIBEXTSTRUCT_EXTERN extern
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -51,6 +61,8 @@ struct extensible_schema_tag
     int num_fields;
 };
 
+#define EMPTY_EXTENSIBLE_SCHEMA {.hash = 0, .num_fields = 0}
+
 typedef struct extensible_schema_tag extensible_schema_t;
 
 struct extensible_data_item_tag
@@ -76,22 +88,22 @@ struct extensible_struct_tag
 typedef struct extensible_struct_tag extensible_struct_t;
 
 // Schema operations
-void extensible_schema_init(extensible_schema_t* schema);
-int extensible_schema_add_field(extensible_schema_t* schema, 
+LIBEXTSTRUCT_EXTERN void extensible_schema_init(extensible_schema_t* schema);
+LIBEXTSTRUCT_EXTERN int extensible_schema_add_field(extensible_schema_t* schema, 
         const char* field_name, 
         size_t field_size);
-int extensible_schema_add_field_if_needed(extensible_schema_t* schema,
+LIBEXTSTRUCT_EXTERN int extensible_schema_add_field_if_needed(extensible_schema_t* schema,
         const char *field_name,
         size_t field_size);
-char extensible_schema_extended_field_exists(extensible_schema_t *schema,
+LIBEXTSTRUCT_EXTERN char extensible_schema_extended_field_exists(extensible_schema_t *schema,
         const char *field_name);
 
 // Extensible struct operations
-void extensible_struct_init(extensible_struct_t* extensible_struct, extensible_schema_t* schema);
-void* extensible_struct_get_field_pointer(extensible_schema_t* schema,
+LIBEXTSTRUCT_EXTERN void extensible_struct_init(extensible_struct_t* extensible_struct, extensible_schema_t* schema);
+LIBEXTSTRUCT_EXTERN void* extensible_struct_get_field_pointer(extensible_schema_t* schema,
         extensible_struct_t* extensible_struct,
         const char* field_name);
-void *extensible_struct_get_field_pointer_lazy(extensible_schema_t* schema,
+LIBEXTSTRUCT_EXTERN void *extensible_struct_get_field_pointer_lazy(extensible_schema_t* schema,
         extensible_struct_t* extensible_struct,
         const char* field_name,
         char* is_found);
