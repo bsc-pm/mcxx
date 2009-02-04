@@ -3,6 +3,8 @@
 #include <errno.h>
 #ifndef _WIN32
   #include <sys/wait.h>
+#else
+  #include <windows.h>
 #endif
 
 #include "cxx-driver.h"
@@ -75,8 +77,28 @@ static temporal_file_t new_temporal_file_unix(void)
 #else
 static temporal_file_t new_temporal_file_win32(void)
 {
-    fprintf(stderr, "%s not yet implemented!\n", __PRETTY_FUNCTION__);
+    char *template = NULL;
+
+    template = _tempnam(NULL, compilation_process.exec_basename);
+    if (template == NULL)
+        return NULL;
+
+    // Save the info of the new file
     temporal_file_t result = calloc(sizeof(*result), 1);
+    result->name = uniquestr(template);
+    // Get a FILE* descriptor
+    result->file = fopen(result->name, "w+");
+    if (result->file == NULL)
+    {
+        running_error("error: cannot create temporary file (%s)", strerror(errno));
+    }
+
+    // Link to the temporal_file_list
+    temporal_file_list_t new_file_element = calloc(sizeof(*new_file_element), 1);
+    new_file_element->info = result;
+    new_file_element->next = temporal_file_list;
+    temporal_file_list = new_file_element;
+
     return result;
 }
 #endif
@@ -209,10 +231,151 @@ static int execute_program_flags_unix(const char* program_name, const char** arg
     }
 }
 #else
+
+static char* quote_string(const char *c)
+{
+    const char *p;
+    int num_quotes = 0;
+    for (p = c; *p != '\0'; p++)
+    {
+        if (*p == '"')
+            num_quotes++;
+    }
+
+    if (num_quotes == 0)
+        return strdup(c);
+
+    char* result = calloc(sizeof(char), num_quotes + strlen(c) + 1);
+
+    char *q = result;
+    for (p = c; *p != '\0'; p++)
+    {
+        if (*p == '"')
+        {
+            *q = '\\'; q++;
+            *q = '"'; q++;
+        }
+        else
+        {
+            *q = *p; q++;
+        }
+    }
+
+    *q = '\0';
+
+    return result;
+}
+
 static int execute_program_flags_win32(const char* program_name, const char** arguments, const char* stdout_f, const char* stderr_f)
 {
-    fprintf(stderr, "%s not implemented yet!", __PRETTY_FUNCTION__);
-    return 0;
+    int num = count_null_ended_array((void**)arguments);
+
+    const char* quoted_args_list[num + 1];
+    quoted_args_list[0] = quote_string(program_name);
+    int i;
+    int length = 1 + strlen(quoted_args_list[0]);
+    for (i = 0; i < num; i++)
+    {
+        quoted_args_list[i + 1] = quote_string(arguments[i]);
+        length += 1 + 2 + strlen(quoted_args_list[i + 1]);
+    }
+
+    char quoted_args_str[length];
+
+    quoted_args_str[0] = '\0';
+
+    strcat(quoted_args_str, quoted_args_list[0]);
+    for (i = 0; i < num; i++)
+    {
+        strcat(quoted_args_str, " "); 
+        strcat(quoted_args_str, "\"");
+        strcat(quoted_args_str, quoted_args_list[i + 1]);
+        strcat(quoted_args_str, "\"");
+    }
+
+    if (CURRENT_CONFIGURATION(verbose))
+    {
+        fprintf(stderr, "%s", quoted_args_str);
+
+        if (stdout_f != NULL)
+        {
+            fprintf(stderr, "1> %s ", stdout_f);
+        }
+        if (stderr_f != NULL)
+        {
+            fprintf(stderr, "2> %s ", stderr_f);
+        }
+
+        fprintf(stderr, "\n");
+    }
+
+    STARTUPINFO si;
+    PROCESS_INFORMATION pi;
+
+    ZeroMemory( &si, sizeof(si) );
+    si.cb = sizeof (si);
+    si.dwFlags = STARTF_USESTDHANDLES;
+    si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+    si.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+    si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+    
+    // Redirect output files as needed
+    if (stdout_f != NULL)
+    {
+        FILE *new_stdout = fopen(stdout_f, "w");
+        if (new_stdout == NULL)
+        {
+            running_error("error: could not redirect standard output to '%s' (%s)",
+                    stdout_f,
+                    strerror(errno));
+        }
+
+        int fd = _fileno(new_stdout);
+        si.hStdOutput = (HANDLE) _get_osfhandle(fd);
+    }
+    if (stderr_f != NULL)
+    {
+        FILE *new_stderr = fopen(stderr_f, "w");
+        if (new_stderr == NULL)
+        {
+            running_error("error: could not redirect standard error to '%s' (%s)",
+                    stderr_f,
+                    strerror(errno));
+        }
+
+        int fd = _fileno(new_stderr);
+        si.hStdError = (HANDLE) _get_osfhandle(fd);
+    }
+
+    ZeroMemory( &pi, sizeof(pi) );
+
+    // Start the child process. 
+    if(!CreateProcess( 
+        NULL,   // Module name 
+        quoted_args_str, // Command line
+        NULL,           // Process handle not inheritable
+        NULL,           // Thread handle not inheritable
+        TRUE,          // Set handle inheritance to FALSE
+        0,              // No creation flags
+        NULL,           // Use parent's environment block
+        NULL,           // Use parent's starting directory 
+        &si,            // Pointer to STARTUPINFO structure
+        &pi )           // Pointer to PROCESS_INFORMATION structure
+    ) 
+    {
+        running_error( "CreateProcess failed (%d).\n", GetLastError() );
+    }
+
+    // Wait until child process exits.
+    if (WaitForSingleObject( pi.hProcess, INFINITE ))
+    {
+        running_error("WaitForSingleObject failed\n", 0);
+    }
+
+    DWORD result = 0;
+    GetExitCodeProcess(pi.hProcess, &result);
+
+    return result;
 }
 #endif
 

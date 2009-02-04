@@ -815,7 +815,7 @@ AC_MSG_CHECKING([if environment is Win32])
 
 windows_build=""
 case "$host" in
-  i?86-pc-cygwin | i586-mingw32msvc)
+  i?86-pc-cygwin | i?86-pc-mingw32*)
     windows_build="yes"
     AC_MSG_RESULT([yes])
     AC_MSG_WARN([Win32 port is still experimental])
