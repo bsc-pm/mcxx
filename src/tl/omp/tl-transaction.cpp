@@ -36,7 +36,7 @@ namespace TL
             /*
              * Warn for initializers as they are not currently stmized
              */
-            PredicateAST<LANG_IS_DECLARATION> is_declaration_pred_;
+            PredicateAttr is_declaration_pred_(LANG_IS_DECLARATION) ;
             IgnorePreserveFunctor is_declaration_pred(is_declaration_pred_);
 
             Statement transaction_statement = transaction_construct.body();
@@ -70,7 +70,7 @@ namespace TL
                 STMExpressionReplacement &expression_replacement,
                 ScopeLink scope_link)
         {
-            PredicateAST<LANG_IS_DECLARATION> is_declaration_pred_;
+            PredicateAttr is_declaration_pred_(LANG_IS_DECLARATION) ;
             IgnorePreserveFunctor is_declaration_pred(is_declaration_pred_);
 
             ObjectList<AST_t> found_declarations = transaction_tree.depth_subtrees(is_declaration_pred);
@@ -118,7 +118,7 @@ namespace TL
                 ScopeLink scope_link)
         {
             // For every expression, replace it properly with read and write
-            PredicateAST<LANG_IS_EXPRESSION_NEST> expression_pred_;
+            PredicateAttr expression_pred_(LANG_IS_EXPRESSION_NEST) ;
 
             IgnorePreserveFunctor expression_pred(expression_pred_);
             ObjectList<AST_t> expressions = transaction_tree.depth_subtrees(expression_pred);
@@ -137,7 +137,7 @@ namespace TL
         {
             // We have to invalidate every parameter of the function
             // just before the return
-            PredicateAST<LANG_IS_RETURN_STATEMENT> return_pred_;
+            PredicateAttr return_pred_(LANG_IS_RETURN_STATEMENT) ;
 
             IgnorePreserveFunctor return_pred(return_pred_);
             ObjectList<AST_t> returns = transaction_tree.depth_subtrees(return_pred);
@@ -182,7 +182,7 @@ namespace TL
                 }
 
                 ObjectList<AST_t> return_expression_list = return_statement.get_ast().depth_subtrees(
-                        PredicateAST<LANG_IS_EXPRESSION_NEST>(), 
+                        PredicateAttr (LANG_IS_EXPRESSION_NEST) , 
                         AST_t::NON_RECURSIVE);
                 if (!return_expression_list.empty()
                         && !return_type.is_void())

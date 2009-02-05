@@ -143,7 +143,7 @@ namespace TL
             // Main code
             {
                 // For every expression, replace it properly with read and write
-                PredicateAST<LANG_IS_EXPRESSION_NEST> expression_pred;
+                PredicateAttr expression_pred(LANG_IS_EXPRESSION_NEST) ;
 
                 // Duplicate with new contextual info
                 Source src = adf_construct.body().prettyprint();

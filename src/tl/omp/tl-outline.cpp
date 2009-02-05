@@ -850,7 +850,7 @@ namespace TL
                     outlined_function_name_decl << "<";
                     AST_t last_template_header = *(template_headers.rbegin());
 
-                    PredicateAST<LANG_IS_TEMPLATE_PARAMETER> template_parameter_pred;
+                    PredicateAttr template_parameter_pred(LANG_IS_TEMPLATE_PARAMETER) ;
                     ObjectList<AST_t> template_parameters = last_template_header.depth_subtrees(template_parameter_pred);
 
                     for (ObjectList<AST_t>::iterator it = template_parameters.begin();

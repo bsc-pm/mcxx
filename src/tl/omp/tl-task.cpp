@@ -456,7 +456,7 @@ namespace TL
                 depth_traverse.add_predicate(any_openmp_construct_pred, remove_openmp_traverse_functor);
 
                 // And fix function calls
-                PredicateAST<LANG_IS_FUNCTION_CALL> function_call_pred;
+                PredicateAttr function_call_pred(LANG_IS_FUNCTION_CALL) ;
                 FixFunctionCalls fix_function_calls(serialized_functions_info->serialized_functions);
                 depth_traverse.add_predicate(function_call_pred, fix_function_calls);
 

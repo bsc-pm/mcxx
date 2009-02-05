@@ -80,7 +80,7 @@ namespace TL
 
                         // Now find all function calls 
                         // FIXME - We should factorize this
-                        ObjectList<AST_t> function_calls = stmt.get_ast().depth_subtrees(PredicateAST<LANG_IS_FUNCTION_CALL>());
+                        ObjectList<AST_t> function_calls = stmt.get_ast().depth_subtrees(PredicateAttr (LANG_IS_FUNCTION_CALL) );
                         for (ObjectList<AST_t>::iterator funct_call_tree = function_calls.begin();
                                 funct_call_tree != function_calls.end();
                                 funct_call_tree++)
@@ -131,7 +131,7 @@ namespace TL
 
                         // Now find all function calls 
                         // FIXME - We should factorize this
-                        ObjectList<AST_t> function_calls = stmt.get_ast().depth_subtrees(PredicateAST<LANG_IS_FUNCTION_CALL>());
+                        ObjectList<AST_t> function_calls = stmt.get_ast().depth_subtrees(PredicateAttr (LANG_IS_FUNCTION_CALL) );
                         for (ObjectList<AST_t>::iterator funct_call_tree = function_calls.begin();
                                 funct_call_tree != function_calls.end();
                                 funct_call_tree++)
@@ -292,7 +292,7 @@ namespace TL
                         depth_traverse.add_predicate(any_openmp_construct_pred, remove_openmp_traverse_functor);
 
                         // Now fix function calls
-                        PredicateAST<LANG_IS_FUNCTION_CALL> function_call_pred;
+                        PredicateAttr function_call_pred(LANG_IS_FUNCTION_CALL) ;
                         FixFunctionCalls fix_function_calls(function_syms_to_serialize);
                         depth_traverse.add_predicate(function_call_pred, fix_function_calls);
 
