@@ -64,7 +64,7 @@ namespace TL { namespace Acotes {
         // Instantiate a DepthTraverse
         DepthTraverse depth_traverse;
 
-        PredicateAST<LANG_IS_FUNCTION_DEFINITION> functionCallPred;
+        PredicateAttr functionCallPred(LANG_IS_FUNCTION_DEFINITION) ;
 
         depth_traverse.add_predicate(functionCallPred, *this);
 

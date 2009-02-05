@@ -85,7 +85,7 @@ namespace TL { namespace Acotes {
         TL::LangConstruct* construct= peek->getTask()->getConstruct();
         TL::Scope scope= construct->get_scope();
         TL::ScopeLink scopeLink= construct->get_scope_link();
-        PredicateAST<LANG_IS_ARRAY_SUBSCRIPT> is_array_subscript;
+        PredicateAttr is_array_subscript(LANG_IS_ARRAY_SUBSCRIPT) ;
         ObjectList<AST_t> asts = construct->get_ast().depth_subtrees()
             .filter(is_array_subscript);
 

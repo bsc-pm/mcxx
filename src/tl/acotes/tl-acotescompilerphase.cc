@@ -156,10 +156,10 @@ namespace TL { namespace Acotes {
         // Instantiate a DepthTraverse
         DepthTraverse depth_traverse;
 
-        PredicateAST<LANG_IS_PRAGMA_CUSTOM_DIRECTIVE> pragmaCustomDirectivePred;
-        PredicateAST<LANG_IS_PRAGMA_CUSTOM_CONSTRUCT> pragmaCustomConstructPred;
-        PredicateAST<LANG_IS_FOR_STATEMENT> forStatementPred;
-//        PredicateAST<LANG_IS_FUNCTION_CALL> function_call_pred;
+        PredicateAttr pragmaCustomDirectivePred(LANG_IS_PRAGMA_CUSTOM_DIRECTIVE) ;
+        PredicateAttr pragmaCustomConstructPred(LANG_IS_PRAGMA_CUSTOM_CONSTRUCT) ;
+        PredicateAttr forStatementPred(LANG_IS_FOR_STATEMENT) ;
+//        PredicateAttr function_call_pred(LANG_IS_FUNCTION_CALL) ;
 
         depth_traverse.add_predicate(pragmaCustomDirectivePred, pragmaDispatcher);
         depth_traverse.add_predicate(pragmaCustomConstructPred, pragmaDispatcher);
@@ -297,7 +297,7 @@ namespace TL { namespace Acotes {
     void 
     AcotesCompilerPhase::preorder(Context ctx, AST_t node)
     {
-        PredicateAST<LANG_IS_FOR_STATEMENT> forStatementPred;
+        PredicateAttr forStatementPred(LANG_IS_FOR_STATEMENT) ;
         
         if (forStatementPred(node)) {
             ForStatement forStatement(node, ctx.scope_link);
@@ -329,7 +329,7 @@ namespace TL { namespace Acotes {
     void 
     AcotesCompilerPhase::postorder(Context ctx, AST_t node)
     {
-        PredicateAST<LANG_IS_FOR_STATEMENT> forStatementPred;
+        PredicateAttr forStatementPred(LANG_IS_FOR_STATEMENT) ;
         
         if (forStatementPred(node)) {
             ForStatement forStatement(node, ctx.scope_link);

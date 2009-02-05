@@ -51,10 +51,10 @@ namespace TL { namespace Acotes {
         // Instantiate a DepthTraverse
         DepthTraverse depthTraverse;
 
-        PredicateAST<LANG_IS_PRAGMA_CUSTOM_DIRECTIVE> isPragmaCustomDirective;
-        PredicateAST<LANG_IS_PRAGMA_CUSTOM_CONSTRUCT> isPragmaCustomConstruct;
-        PredicateAST<LANG_IS_ID_EXPRESSION> isIdExpression;
-        PredicateAST<LANG_IS_DECLARED_NAME> isDeclaredEntity;
+        PredicateAttr isPragmaCustomDirective(LANG_IS_PRAGMA_CUSTOM_DIRECTIVE) ;
+        PredicateAttr isPragmaCustomConstruct(LANG_IS_PRAGMA_CUSTOM_CONSTRUCT) ;
+        PredicateAttr isIdExpression(LANG_IS_ID_EXPRESSION) ;
+        PredicateAttr isDeclaredEntity(LANG_IS_DECLARED_NAME) ;
 
         depthTraverse.add_predicate(isPragmaCustomDirective, *this);
         depthTraverse.add_predicate(isPragmaCustomConstruct, *this);
@@ -101,11 +101,11 @@ namespace TL { namespace Acotes {
     {
         ScopeLink scopeLink= ctx.scope_link;
         
-        PredicateAST<LANG_IS_PRAGMA_CUSTOM_DIRECTIVE> isPragmaCustomDirective;
-        PredicateAST<LANG_IS_PRAGMA_CUSTOM_CONSTRUCT> isPragmaCustomConstruct;
-        PredicateAST<LANG_IS_ID_EXPRESSION> isIdExpression;
-        PredicateAST<LANG_IS_ACCESSED_MEMBER> isAccessedMember;
-        PredicateAST<LANG_IS_DECLARED_NAME> isDeclaredEntity;
+        PredicateAttr isPragmaCustomDirective(LANG_IS_PRAGMA_CUSTOM_DIRECTIVE) ;
+        PredicateAttr isPragmaCustomConstruct(LANG_IS_PRAGMA_CUSTOM_CONSTRUCT) ;
+        PredicateAttr isIdExpression(LANG_IS_ID_EXPRESSION) ;
+        PredicateAttr isAccessedMember(LANG_IS_ACCESSED_MEMBER) ;
+        PredicateAttr isDeclaredEntity(LANG_IS_DECLARED_NAME) ;
         
         /*std::cerr << "--- DEBUG postorder" 
                 <<  " isPCD:" << isPragmaCustomDirective(node)
