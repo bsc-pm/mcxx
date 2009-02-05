@@ -257,7 +257,7 @@ namespace TL
         Source new_function_body, begin_mintaka_src, end_mintaka_src;
 
         // Replace all returns
-        PredicateAST<LANG_IS_RETURN_STATEMENT> return_statement_pred;
+        PredicateAttr return_statement_pred(LANG_IS_RETURN_STATEMENT) ;
         ObjectList<AST_t> return_statements = function_body.get_ast().depth_subtrees(return_statement_pred);
         for (ObjectList<AST_t>::iterator it = return_statements.begin();
                 it != return_statements.end();
@@ -390,7 +390,7 @@ namespace TL
     }
 
     InstrumentCalls::MainPredicate::MainPredicate(ScopeLink& sl)
-        : _sl(sl)
+        : _sl(sl), is_function_def(LANG_IS_FUNCTION_DEFINITION)
     {
     }
 
@@ -417,7 +417,7 @@ namespace TL
     }
 
     InstrumentCalls::PthreadFunctionPred::PthreadFunctionPred(ScopeLink& sl, InstrumentFilterFile& pthread_functions)
-        : _sl(sl), _pthread_functions(pthread_functions)
+        : _sl(sl), _pthread_functions(pthread_functions), is_function_def(LANG_IS_FUNCTION_DEFINITION)
     {
     }
 
@@ -454,7 +454,7 @@ namespace TL
         // Traversal of LANG_IS_FUNCTION_CALLs
         DepthTraverse depth_traverse;
 
-        PredicateAST<LANG_IS_FUNCTION_CALL> function_call_pred;
+        PredicateAttr function_call_pred(LANG_IS_FUNCTION_CALL) ;
         InstrumentCallsFunctor instrumentation_functor(_instrument_filter);
 
         MainWrapper mainwrapper_functor(scope_link);

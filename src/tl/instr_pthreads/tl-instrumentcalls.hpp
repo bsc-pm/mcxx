@@ -67,7 +67,7 @@ namespace TL
             {
                 private:
                     ScopeLink _sl;
-                    PredicateAST<LANG_IS_FUNCTION_DEFINITION> is_function_def;
+                    PredicateAttr is_function_def;
                 public:
                     MainPredicate(ScopeLink& sl);
 
@@ -79,8 +79,8 @@ namespace TL
             {
                     private:
                         ScopeLink _sl;
-                        PredicateAST<LANG_IS_FUNCTION_DEFINITION> is_function_def;
                         InstrumentFilterFile& _pthread_functions;
+                        PredicateAttr is_function_def;
                     public:
                         PthreadFunctionPred(ScopeLink& sl, InstrumentFilterFile& pthread_functions);
 
