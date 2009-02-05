@@ -237,7 +237,7 @@ namespace TL
         // Traversal of LANG_IS_FUNCTION_CALLs
         DepthTraverse depth_traverse;
 
-        PredicateAST<LANG_IS_FUNCTION_CALL> function_call_pred;
+        PredicateAttr function_call_pred(LANG_IS_FUNCTION_CALL) ;
         InstrumentCallsFunctor instrumentation_functor(_instrument_filter);
 
         depth_traverse.add_predicate(function_call_pred, instrumentation_functor);
