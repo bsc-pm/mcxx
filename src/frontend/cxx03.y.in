@@ -79,24 +79,24 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %token<token_atrib> AND_ASSIGN "&="
 %token<token_atrib> ASM "__asm__"
 %token<token_atrib> AUTO "auto"
-%token<token_atrib> BOOL "bool"
+%token<token_atrib> TOKEN_BOOL "bool"
 %token<token_atrib> BOOLEAN_LITERAL "boolean-literal"
 %token<token_atrib> BREAK "break" 
 %token<token_atrib> CASE "case"
 %token<token_atrib> CATCH "catch"
-%token<token_atrib> CHAR "char"
+%token<token_atrib> TOKEN_CHAR "char"
 %token<token_atrib> CHARACTER_LITERAL "character-literal"
 %token<token_atrib> CLASS "class"
-%token<token_atrib> CONST "const"
+%token<token_atrib> TOKEN_CONST "const"
 %token<token_atrib> CONST_CAST "const_cast"
 %token<token_atrib> CONTINUE "continue"
 %token<token_atrib> DECIMAL_LITERAL "decimal-literal"
 %token<token_atrib> DEFAULT "default"
-%token<token_atrib> DELETE "delete"
+%token<token_atrib> TOKEN_DELETE "delete"
 %token<token_atrib> DIV_ASSIGN "/="
 %token<token_atrib> DO "do"
 %token<token_atrib> TWO_COLONS "::"
-%token<token_atrib> DOUBLE "double"
+%token<token_atrib> TOKEN_DOUBLE "double"
 %token<token_atrib> DYNAMIC_CAST "dynamic_cast"
 %token<token_atrib> ELSE "else"
 %token<token_atrib> ENUM "enum"
@@ -105,7 +105,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %token<token_atrib> EXPLICIT "explicit"
 %token<token_atrib> EXPORT "export"
 %token<token_atrib> EXTERN "extern"
-%token<token_atrib> FLOAT "float"
+%token<token_atrib> TOKEN_FLOAT "float"
 %token<token_atrib> FLOATING_LITERAL "floating-literal"
 %token<token_atrib> HEXADECIMAL_FLOAT "hexadecimal-floating-literal"
 %token<token_atrib> FOR "for"
@@ -115,11 +115,11 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %token<token_atrib> IDENTIFIER "identifier"
 %token<token_atrib> IF "if"
 %token<token_atrib> INLINE "inline"
-%token<token_atrib> INT "int"
+%token<token_atrib> TOKEN_INT "int"
 %token<token_atrib> LEFT "<<"
 %token<token_atrib> LEFT_ASSIGN "<<="
 %token<token_atrib> LESS_OR_EQUAL "<="
-%token<token_atrib> LONG "long"
+%token<token_atrib> TOKEN_LONG "long"
 %token<token_atrib> MINUSMINUS "--"
 %token<token_atrib> MOD_ASSIGN "%="
 %token<token_atrib> MUL_ASSIGN "*="
@@ -140,8 +140,8 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %token<token_atrib> REGISTER "register"
 %token<token_atrib> REINTERPRET_CAST "reinterpret_cast"
 %token<token_atrib> RETURN "return"
-%token<token_atrib> SHORT "short"
-%token<token_atrib> SIGNED "signed"
+%token<token_atrib> TOKEN_SHORT "short"
+%token<token_atrib> TOKEN_SIGNED "signed"
 %token<token_atrib> SIZEOF "sizeof"
 %token<token_atrib> STATIC "static"
 %token<token_atrib> STATIC_CAST "static_cast"
@@ -150,7 +150,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %token<token_atrib> SUB_ASSIGN "-="
 %token<token_atrib> SWITCH "switch"
 %token<token_atrib> TEMPLATE "template"
-%token<token_atrib> THIS "this"
+%token<token_atrib> TOKEN_THIS "this"
 %token<token_atrib> THROW "throw"
 %token<token_atrib> ELLIPSIS "..."
 %token<token_atrib> TRY "try"
@@ -158,12 +158,12 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %token<token_atrib> TYPEID "typeid"
 %token<token_atrib> TYPENAME "typename"
 %token<token_atrib> UNION "union"
-%token<token_atrib> UNSIGNED "unsigned"
+%token<token_atrib> TOKEN_UNSIGNED "unsigned"
 %token<token_atrib> USING "using"
 %token<token_atrib> VIRTUAL "virtual"
-%token<token_atrib> VOID "void"
-%token<token_atrib> VOLATILE "volatile"
-%token<token_atrib> WCHAR_T "wchar_t"
+%token<token_atrib> TOKEN_VOID "void"
+%token<token_atrib> TOKEN_VOLATILE "volatile"
+%token<token_atrib> TOKEN_WCHAR_T "wchar_t"
 %token<token_atrib> WHILE "while"
 %token<token_atrib> XOR_ASSIGN "^="
 
@@ -717,7 +717,7 @@ attribute_value : IDENTIFIER
 
 	$$ = ASTMake3(AST_GCC_ATTRIBUTE_EXPR, identif, NULL, NULL, $1.token_file, $1.token_line, NULL);
 }
-| CONST
+| TOKEN_CONST
 {
 	AST identif = ASTLeaf(AST_SYMBOL, $1.token_file, $1.token_line, $1.token_text);
 
@@ -810,7 +810,7 @@ volatile_optional : /* empty */
 {
 	$$ = NULL;
 }
-| VOLATILE
+| TOKEN_VOLATILE
 {
 	$$ = ASTLeaf(AST_VOLATILE_SPEC, $1.token_file, $1.token_line, $1.token_text);
 }
@@ -1098,19 +1098,19 @@ nontype_specifier_without_attribute : storage_class_specifier
 	$$ = $1;
 }
 // Repeat them
-| SIGNED
+| TOKEN_SIGNED
 {
 	$$ = ASTLeaf(AST_SIGNED_TYPE, $1.token_file, $1.token_line, $1.token_text);
 }
-| UNSIGNED
+| TOKEN_UNSIGNED
 {
 	$$ = ASTLeaf(AST_UNSIGNED_TYPE, $1.token_file, $1.token_line, $1.token_text);
 }
-| LONG
+| TOKEN_LONG
 {
 	$$ = ASTLeaf(AST_LONG_TYPE, $1.token_file, $1.token_line, $1.token_text);
 }
-| SHORT
+| TOKEN_SHORT
 {
 	$$ = ASTLeaf(AST_SHORT_TYPE, $1.token_file, $1.token_line, $1.token_text);
 }
@@ -1273,47 +1273,47 @@ type_name : IDENTIFIER
 }
 ;
 
-builtin_types : CHAR
+builtin_types : TOKEN_CHAR
 {
 	$$ = ASTLeaf(AST_CHAR_TYPE, $1.token_file, $1.token_line, $1.token_text);
 }
-| WCHAR_T
+| TOKEN_WCHAR_T
 {
 	$$ = ASTLeaf(AST_WCHAR_TYPE, $1.token_file, $1.token_line, $1.token_text);
 }
-| BOOL
+| TOKEN_BOOL
 {
 	$$ = ASTLeaf(AST_BOOL_TYPE, $1.token_file, $1.token_line, $1.token_text);
 }
-| SHORT
+| TOKEN_SHORT
 {
 	$$ = ASTLeaf(AST_SHORT_TYPE, $1.token_file, $1.token_line, $1.token_text);
 }
-| INT
+| TOKEN_INT
 {
 	$$ = ASTLeaf(AST_INT_TYPE, $1.token_file, $1.token_line, $1.token_text);
 }
-| LONG
+| TOKEN_LONG
 {
 	$$ = ASTLeaf(AST_LONG_TYPE, $1.token_file, $1.token_line, $1.token_text);
 }
-| SIGNED
+| TOKEN_SIGNED
 {
 	$$ = ASTLeaf(AST_SIGNED_TYPE, $1.token_file, $1.token_line, $1.token_text);
 }
-| UNSIGNED
+| TOKEN_UNSIGNED
 {
 	$$ = ASTLeaf(AST_UNSIGNED_TYPE, $1.token_file, $1.token_line, $1.token_text);
 }
-| FLOAT
+| TOKEN_FLOAT
 {
 	$$ = ASTLeaf(AST_FLOAT_TYPE, $1.token_file, $1.token_line, $1.token_text);
 }
-| DOUBLE
+| TOKEN_DOUBLE
 {
 	$$ = ASTLeaf(AST_DOUBLE_TYPE, $1.token_file, $1.token_line, $1.token_text);
 }
-| VOID
+| TOKEN_VOID
 {
 	$$ = ASTLeaf(AST_VOID_TYPE, $1.token_file, $1.token_line, $1.token_text);
 }
@@ -1769,11 +1769,11 @@ cv_qualifier_seq : cv_qualifier
 }
 ;
 
-cv_qualifier : CONST
+cv_qualifier : TOKEN_CONST
 {
 	$$ = ASTLeaf(AST_CONST_SPEC, $1.token_file, $1.token_line, $1.token_text);
 }
-| VOLATILE
+| TOKEN_VOLATILE
 {
 	$$ = ASTLeaf(AST_VOLATILE_SPEC, $1.token_file, $1.token_line, $1.token_text);
 }
@@ -3121,7 +3121,7 @@ primary_expression : literal
 {
 	$$ = $1;
 }
-| THIS
+| TOKEN_THIS
 {
 	$$ = ASTLeaf(AST_THIS_VARIABLE, $1.token_file, $1.token_line, NULL);
 }
@@ -3799,21 +3799,21 @@ new_initializer : '(' ')'
 }
 ;
 
-delete_expression : DELETE cast_expression 
+delete_expression : TOKEN_DELETE cast_expression 
 {
 	$$ = ASTMake2(AST_DELETE_EXPR, NULL, $2, $1.token_file, $1.token_line, NULL);
 }
-| DELETE '[' ']' cast_expression
+| TOKEN_DELETE '[' ']' cast_expression
 {
 	$$ = ASTMake2(AST_DELETE_ARRAY_EXPR, NULL, $4, $1.token_file, $1.token_line, NULL);
 }
-| TWO_COLONS DELETE cast_expression 
+| TWO_COLONS TOKEN_DELETE cast_expression 
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_file, $1.token_line, NULL);
 
 	$$ = ASTMake2(AST_DELETE_EXPR, global_op, $3, $1.token_file, $1.token_line, NULL);
 }
-| TWO_COLONS DELETE '[' ']' cast_expression
+| TWO_COLONS TOKEN_DELETE '[' ']' cast_expression
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_file, $1.token_line, NULL);
 
@@ -4131,7 +4131,7 @@ operator : TOKEN_NEW
 {
 	$$ = ASTLeaf(AST_NEW_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
-| DELETE
+| TOKEN_DELETE
 {
 	$$ = ASTLeaf(AST_DELETE_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
@@ -4139,7 +4139,7 @@ operator : TOKEN_NEW
 {
 	$$ = ASTLeaf(AST_NEW_ARRAY_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
-| DELETE '[' ']'
+| TOKEN_DELETE '[' ']'
 {
 	$$ = ASTLeaf(AST_DELETE_ARRAY_OPERATOR, $1.token_file, $1.token_line, NULL);
 }

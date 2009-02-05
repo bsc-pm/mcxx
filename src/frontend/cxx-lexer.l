@@ -1079,24 +1079,24 @@ runtime {
 
 
  /* A.2.11 */
-"char"          { parse_token_text(); return CHAR; }
+"char"          { parse_token_text(); return TOKEN_CHAR; }
  /*!if CPLUSPLUS*/
-"wchar_t"       { parse_token_text(); return WCHAR_T; }
-"bool"          { parse_token_text(); return BOOL; }
+"wchar_t"       { parse_token_text(); return TOKEN_WCHAR_T; }
+"bool"          { parse_token_text(); return TOKEN_BOOL; }
  /*!endif*/
  /*!if C99*/
-"_Bool"          { parse_token_text(); return BOOL; }
+"_Bool"          { parse_token_text(); return TOKEN_BOOL; }
  /*!endif*/
-"short"         { parse_token_text(); return SHORT; }
-"int"           { parse_token_text(); return INT; }
-"long"          { parse_token_text(); return LONG; }
-"signed"        { parse_token_text(); return SIGNED; }
-"__signed"        { parse_token_text(); return SIGNED; }
-"__signed__"        { parse_token_text(); return SIGNED; }
-"unsigned"      { parse_token_text(); return UNSIGNED; }
-"float"         { parse_token_text(); return FLOAT; }
-"double"        { parse_token_text(); return DOUBLE; }
-"void"          { parse_token_text(); return VOID; }
+"short"         { parse_token_text(); return TOKEN_SHORT; }
+"int"           { parse_token_text(); return TOKEN_INT; }
+"long"          { parse_token_text(); return TOKEN_LONG; }
+"signed"        { parse_token_text(); return TOKEN_SIGNED; }
+"__signed"        { parse_token_text(); return TOKEN_SIGNED; }
+"__signed__"        { parse_token_text(); return TOKEN_SIGNED; }
+"unsigned"      { parse_token_text(); return TOKEN_UNSIGNED; }
+"float"         { parse_token_text(); return TOKEN_FLOAT; }
+"double"        { parse_token_text(); return TOKEN_DOUBLE; }
+"void"          { parse_token_text(); return TOKEN_VOID; }
 
 "typedef"       { parse_token_text(); return TYPEDEF; }
 "enum"          { parse_token_text(); return ENUM; } 
@@ -1106,8 +1106,8 @@ runtime {
 "static"        { parse_token_text(); return STATIC; } 
 "extern"        { parse_token_text(); return EXTERN; } 
 "inline"        { parse_token_text(); return INLINE; } 
-"const"         { parse_token_text(); return CONST; } 
-"volatile"      { parse_token_text(); return VOLATILE; } 
+"const"         { parse_token_text(); return TOKEN_CONST; } 
+"volatile"      { parse_token_text(); return TOKEN_VOLATILE; } 
 "union"         { parse_token_text(); return UNION; } 
 "asm"           { parse_token_text(); return ASM; } 
 
@@ -1120,7 +1120,7 @@ runtime {
 "throw"         { parse_token_text(); return THROW; } 
 "operator"      { parse_token_text(); return OPERATOR; } 
 "new"           { parse_token_text(); return TOKEN_NEW; } 
-"delete"        { parse_token_text(); return DELETE; }
+"delete"        { parse_token_text(); return TOKEN_DELETE; }
 "typename"      { parse_token_text(); return TYPENAME; } 
 "export"        { parse_token_text(); return EXPORT; } 
 "class"         { parse_token_text(); return CLASS; }
@@ -1130,7 +1130,7 @@ runtime {
 "virtual"       { parse_token_text(); return VIRTUAL; } 
 "using"         { parse_token_text(); return USING; } 
 "namespace"     { parse_token_text(); return NAMESPACE; } 
-"this"          { parse_token_text(); return THIS; }
+"this"          { parse_token_text(); return TOKEN_THIS; }
 "dynamic_cast"      { parse_token_text(); return DYNAMIC_CAST; }
 "static_cast"       { parse_token_text(); return STATIC_CAST; }
 "reinterpret_cast"      { parse_token_text(); return REINTERPRET_CAST; }
@@ -1206,15 +1206,15 @@ runtime {
 "restrict" { parse_token_text(); return RESTRICT; /* This should be only for C99 but we will be lax here */ }
 "__restrict" { parse_token_text(); return RESTRICT; }
 "__restrict__" { parse_token_text(); return RESTRICT; }
-"__const" { parse_token_text(); return CONST; }
-"__const__" { parse_token_text(); return CONST; }
+"__const" { parse_token_text(); return TOKEN_CONST; }
+"__const__" { parse_token_text(); return TOKEN_CONST; }
 "__attribute" { parse_token_text(); return ATTRIBUTE; }
 "__attribute__" { parse_token_text(); return ATTRIBUTE; }
 "__thread" { parse_token_text(); return THREAD; } 
 "__inline"        { parse_token_text(); return INLINE; } 
 "__inline__"        { parse_token_text(); return INLINE; } 
-"__volatile"        { parse_token_text(); return VOLATILE; } 
-"__volatile__"        { parse_token_text(); return VOLATILE; } 
+"__volatile"        { parse_token_text(); return TOKEN_VOLATILE; } 
+"__volatile__"        { parse_token_text(); return TOKEN_VOLATILE; } 
 "__asm" { parse_token_text(); return ASM; }
 "__asm__" { parse_token_text(); return ASM; }
  /*!if CPLUSPLUS*/

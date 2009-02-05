@@ -51,6 +51,7 @@ typedef enum
     OPTION_DISABLE_SIZEOF,
     OPTION_SET_ENVIRONMENT,
     OPTION_LIST_ENVIRONMENTS,
+    OPTION_PRINT_CONFIG_FILE,
 } COMMAND_LINE_OPTIONS;
 
 // Kind of source 
@@ -174,6 +175,7 @@ typedef struct compilation_process_tag
     int argc;
     const char** argv;
     const char* exec_basename;
+    const char* home_directory;
 
     // The set of configurations as defined by the user in the configuration file
     int num_configurations;

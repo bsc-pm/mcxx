@@ -22,12 +22,17 @@
  #include <config.h>
 #endif
 
+#ifdef _WIN32
+  #include <windows.h>
+#endif
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <libgen.h>
 #include <malloc.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include "cxx-utils.h"
 #include "cxx-driver.h"
@@ -97,9 +102,11 @@
 "  --Wl,<options>           Pass comma-separated <options> on to\n" \
 "                           the linker\n" \
 "  --no-openmp              Disables OpenMP 2.5 support\n" \
-"  --config-file=<file>     Uses <file> as config file, otherwise\n" \
-"                           '" PKGDATADIR "/config.mcxx'\n" \
-"                           will be used\n" \
+"  --config-file=<file>     Uses <file> as config file.\n" \
+"                           Use --print-config-file to get the path\n" \
+"                           of the default config file.\n" \
+"  --print-config-file      Prints the path of the default config\n" \
+"                           file and finishes.\n" \
 "  --profile=<name>         Selects profile compilation to be <name>\n" \
 "  --variable=<name:value>  Defines variable 'name' with value\n" \
 "                           'value' to be used in the compiler\n" \
@@ -182,6 +189,7 @@ struct command_line_long_options command_line_long_options[] =
     {"disable-sizeof", CLP_NO_ARGUMENT, OPTION_DISABLE_SIZEOF},
     {"env", CLP_REQUIRED_ARGUMENT, OPTION_SET_ENVIRONMENT},
     {"list-env", CLP_NO_ARGUMENT, OPTION_LIST_ENVIRONMENTS},
+    {"print-config-file", CLP_NO_ARGUMENT, OPTION_PRINT_CONFIG_FILE},
     // sentinel
     {NULL, 0, 0}
 };
@@ -208,6 +216,8 @@ static void initialize_semantic_analysis(translation_unit_t* translation_unit, c
 static void semantic_analysis(translation_unit_t* translation_unit, const char* parsed_filename);
 static const char* prettyprint_translation_unit(translation_unit_t* translation_unit, const char* parsed_filename);
 static void native_compilation(translation_unit_t* translation_unit, const char* prettyprinted_filename);
+
+static const char* find_home(void);
 
 #ifndef _WIN32
 static void terminating_signal_handler(int sig);
@@ -323,6 +333,9 @@ static void driver_initialization(int argc, const char* argv[])
     compilation_process.argc = argc;
     compilation_process.argv = (const char**)argv;
     compilation_process.exec_basename = give_basename(argv[0]);
+
+    // Find my own directory
+    compilation_process.home_directory = find_home();
 }
 
 static void help_message(void)
@@ -693,6 +706,11 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
                     {
                         show_help_message = 1;
                         return 1;
+                    }
+                case OPTION_PRINT_CONFIG_FILE:
+                    {
+                        printf("Default config file: %s/../share/mcxx/config.mcxx\n", compilation_process.home_directory);
+                        exit(EXIT_SUCCESS);
                     }
                 default:
                     {
@@ -1198,7 +1216,8 @@ static void initialize_default_values(void)
 {
     int dummy = 0;
     // Initialize here all default values
-    compilation_process.config_file = PKGDATADIR "/config.mcxx";
+    // compilation_process.config_file = PKGDATADIR "/config.mcxx";
+    compilation_process.config_file = strappend(compilation_process.home_directory, "/../share/mcxx/config.mcxx");
     compilation_process.num_translation_units = 0;
 
     // The minimal default configuration
@@ -2412,4 +2431,83 @@ static void list_environments(void)
             default_environment->environ_name);
 
     exit(EXIT_SUCCESS);
+}
+
+#ifndef _WIN32
+// This function is Linux only!
+static char* getexename(char* buf, size_t size)
+{
+	char linkname[64]; /* /proc/<pid>/exe */
+	pid_t pid;
+	int ret;
+	
+	/* Get our PID and build the name of the link in /proc */
+	pid = getpid();
+	
+	if (snprintf(linkname, sizeof(linkname), "/proc/%i/exe", pid) < 0)
+		{
+		/* This should only happen on large word systems. I'm not sure
+		   what the proper response is here.
+		   Since it really is an assert-like condition, aborting the
+		   program seems to be in order. */
+		abort();
+		}
+
+	
+	/* Now read the symbolic link */
+	ret = readlink(linkname, buf, size);
+	
+	/* In case of an error, leave the handling up to the caller */
+	if (ret == -1)
+		return NULL;
+	
+	/* Report insufficient buffer size */
+	if (ret >= size)
+		{
+		errno = ERANGE;
+		return NULL;
+		}
+	
+	/* Ensure proper NUL termination */
+	buf[ret] = 0;
+	
+	return buf;
+}
+
+static const char* find_home_linux(void)
+{
+    char c[1024];
+    if (getexename(c, sizeof(c)) == NULL)
+    {
+        internal_error("Error when running getexename = %s\n", strerror(errno));
+    }
+
+    return uniquestr(dirname(c));
+}
+
+#else
+static const char* find_home_win32(void)
+{
+    char c[1024];
+    GetModuleFileName(0, c, sizeof(c));
+
+    char drive[_MAX_DRIVE];
+    char dir[_MAX_DIR];
+    char fname[_MAX_FNAME];
+    char ext[_MAX_EXT];
+
+    _splitpath(c, drive, dir, fname, ext);
+
+    const char* result = strappend(drive, dir);
+    return result;
+}
+#endif
+
+static const char* find_home(void)
+{
+#ifndef _WIN32
+    return find_home_linux();
+#else
+    return find_home_win32();
+#endif
 }
