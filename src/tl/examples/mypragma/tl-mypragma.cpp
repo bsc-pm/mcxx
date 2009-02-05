@@ -42,7 +42,7 @@ namespace TL
             {
                 Statement stmt = pragma_custom_construct.get_statement();
 
-                PredicateAST<LANG_IS_FUNCTION_CALL> is_function_call;
+                PredicateAttr is_function_call(LANG_IS_FUNCTION_CALL);
 
                 ObjectList<AST_t> stmt_list = stmt.get_ast().depth_subtrees(is_function_call);
 

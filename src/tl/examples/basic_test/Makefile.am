@@ -22,4 +22,7 @@ else
 no_undefined=
 endif
 
+libtlbasic_test_la_LIBADD = $(top_builddir)/src/tl/libtl.la \
+                            $(top_builddir)/src/frontend/libmcxx.la
+
 libtlbasic_test_la_LDFLAGS = -avoid-version $(no_undefined)

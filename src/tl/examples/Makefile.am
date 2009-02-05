@@ -1,1 +1,1 @@
-SUBDIRS = mypragma declarations decl_closure basic_test
+SUBDIRS = basic_test mypragma declarations decl_closure

@@ -70,7 +70,7 @@ namespace TL
     };
 
     //! A chunk of literal text
-    class SourceText : public SourceChunk
+    class LIBTL_CLASS SourceText : public SourceChunk
     {
         private:
             std::string _source;
@@ -93,7 +93,7 @@ namespace TL
     };
 
     //! A chunk that references another Source
-    class SourceRef : public SourceChunk
+    class LIBTL_CLASS SourceRef : public SourceChunk
     {
         private:
             RefPtr<Source> _src;
@@ -116,7 +116,7 @@ namespace TL
     typedef RefPtr<ObjectList<SourceChunkRef> > chunk_list_ref_t;
 
     //! A class used to generate in, a convenient way, code in the compiler
-    class Source : public Object
+    class LIBTL_CLASS Source : public Object
     {
         public:
             //! Flags that modify the behaviour of parsing
@@ -330,13 +330,13 @@ namespace TL
      * When these are prettyprinted onto the output file
      * they are converted into normal C or C++ comments
      */
-    std::string comment(const std::string& str);
+    LIBTL_EXTERN std::string comment(const std::string& str);
     //! Creates an inner preprocessor line
     /*!
      * When these are prettyprinted onto the output file
      * they are converted into normal C or C++ preprocessor lines
      */
-    std::string preprocessor_line(const std::string& str);
+    LIBTL_EXTERN std::string preprocessor_line(const std::string& str);
 
     //! Creates a placeholder for the given AST_t
     /*!
@@ -345,7 +345,7 @@ namespace TL
      * be replaced. If it is not replaced it will default to an empty
      * statement.
      */
-    std::string statement_placeholder(AST_t& placeholder);
+    LIBTL_EXTERN std::string statement_placeholder(AST_t& placeholder);
 
     //! Convenience function to convert a list into a string
     /*!
@@ -374,7 +374,7 @@ namespace TL
         return result;
     }
 
-    std::string to_string(const ObjectList<std::string>& t, const std::string& separator = "");
+    LIBTL_EXTERN std::string to_string(const ObjectList<std::string>& t, const std::string& separator = "");
 }
 
 #endif // TL_SOURCE_T_HPP

@@ -31,3 +31,5 @@ no_undefined=
 endif
 
 libtlmypragma_la_LDFLAGS = -avoid-version $(no_undefined)
+libtlmypragma_la_LIBADD= $(top_builddir)/src/tl/libtl.la \
+                         $(top_builddir)/src/frontend/libmcxx.la

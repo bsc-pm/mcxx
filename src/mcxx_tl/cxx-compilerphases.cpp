@@ -22,6 +22,8 @@
 #include <vector>
 #ifndef _WIN32
   #include <dlfcn.h>
+#else
+  #include <windows.h>
 #endif
 #include "cxx-driver.h"
 #include "cxx-utils.h"
@@ -298,6 +300,25 @@ namespace TL
 }
 
 
+static const char* add_dso_extension(const char* c)
+{
+#ifndef _WIN32
+    const char* dso_ext = ".so";
+#else
+    const char* dso_ext = ".dll";
+#endif
+
+    char* e = NULL;
+    if ((e = strrchr(c, '.')) == NULL)
+    {
+        return strappend(c, dso_ext);
+    }
+    else
+    {
+        return c;
+    }
+}
+
 extern "C"
 {
 #ifndef _WIN32
@@ -309,6 +330,7 @@ extern "C"
         for (i = 0; i < num; i++)
         {
             const char* library_name = CURRENT_CONFIGURATION(compiler_phases[i]);
+            library_name = add_dso_extension(library_name);
 
             DEBUG_CODE()
             {
@@ -375,7 +397,105 @@ extern "C"
 #else
     static void load_compiler_phases_cxx_win32(void)
     {
-        std::cerr << __PRETTY_FUNCTION__ << " is not implemented yet!" << std::endl;
+        int num = CURRENT_CONFIGURATION(num_compiler_phases);
+
+        int i;
+        for (i = 0; i < num; i++)
+        {
+            const char* library_name = CURRENT_CONFIGURATION(compiler_phases[i]);
+            library_name = add_dso_extension(library_name);
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "Loading compiler phase '%s'\n", library_name);
+            }
+
+            // RTLD_GLOBAL is needed for RTTI among libraries
+            HMODULE handle = LoadLibrary(library_name);
+
+            if (handle == NULL)
+            {
+                char* lpMsgBuf;
+                DWORD dw = GetLastError();
+
+                FormatMessage(
+                        FORMAT_MESSAGE_ALLOCATE_BUFFER | 
+                        FORMAT_MESSAGE_FROM_SYSTEM |
+                        FORMAT_MESSAGE_IGNORE_INSERTS,
+                        NULL,
+                        dw,
+                        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                        (LPTSTR) &lpMsgBuf,
+                        0, NULL );
+
+                fprintf(stderr, "Cannot open '%s'.\nReason: '%s'\n", library_name, 
+                        lpMsgBuf);
+
+                LocalFree(lpMsgBuf);
+
+                fprintf(stderr, "Skipping '%s'\n", library_name);
+                continue;
+            }
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "'%s' properly loaded\n", library_name);
+            }
+
+            // Now get the function
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "Getting the factory function 'give_compiler_phase_object'\n");
+            }
+            FARPROC WINAPI factory_function_sym = GetProcAddress(handle, "give_compiler_phase_object");
+
+            if (factory_function_sym == NULL)
+            {
+                char* lpMsgBuf;
+                DWORD dw = GetLastError();
+                FormatMessage(
+                        FORMAT_MESSAGE_ALLOCATE_BUFFER | 
+                        FORMAT_MESSAGE_FROM_SYSTEM |
+                        FORMAT_MESSAGE_IGNORE_INSERTS,
+                        NULL,
+                        dw,
+                        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                        (LPTSTR) &lpMsgBuf,
+                        0, NULL );
+
+                fprintf(stderr, "Cannot get the factory function 'give_compiler_phase_object'\n");
+                fprintf(stderr, "%s\n", lpMsgBuf);
+                fprintf(stderr, "Skipping\n");
+                LocalFree(lpMsgBuf);
+                return;
+            }
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "Factory function obtained\n");
+            }
+
+            typedef TL::CompilerPhase*(*factory_function_t)(void);
+            factory_function_t factory_function = (factory_function_t) factory_function_sym;
+
+            TL::CompilerPhase* new_phase = (factory_function)();
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "Adding '%s' phase object to the compiler pipeline\n", library_name);
+            }
+
+            // If the phase did not set its own phase name, use the DSO name
+            if (new_phase->get_phase_name() == "")
+            {
+                new_phase->set_phase_name(library_name);
+            }
+            // Likewise for the phase description
+            if (new_phase->get_phase_description() == "")
+            {
+                new_phase->set_phase_description("No description available");
+            }
+
+            TL::CompilerPhaseRunner::add_compiler_phase(new_phase);
+        }
     }
 #endif
 

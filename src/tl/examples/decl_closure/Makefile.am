@@ -24,6 +24,10 @@ libtldecl_closure_la_SOURCES = \
 						tl-decl_closure.hpp \
 						tl-decl_closure.cpp
 
+libtldecl_closure_la_LIBADD = \
+                        $(top_builddir)/src/tl/libtl.la \
+                        $(top_builddir)/src/frontend/libmcxx.la
+
 if WINDOWS_BUILD
 no_undefined=-no-undefined
 else

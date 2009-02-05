@@ -99,7 +99,7 @@ namespace TL
     };
     
     //! This LangConstruct wraps a for-statement in the code
-    class ForStatement : public Statement
+    class LIBTL_CLASS ForStatement : public Statement
     {
         private:
             //! Gathers the induction variable
@@ -204,7 +204,7 @@ namespace TL
 
 
     //! This class wraps a while statement
-    class WhileStatement : public Statement
+    class LIBTL_CLASS WhileStatement : public Statement
     {
         public:
             WhileStatement(AST_t ref, ScopeLink sl)
@@ -222,7 +222,7 @@ namespace TL
     };
 
     //! This class wraps an is statement
-    class IfStatement : public Statement
+    class LIBTL_CLASS IfStatement : public Statement
     {
         public:
             IfStatement(AST_t ref, ScopeLink sl)
@@ -246,7 +246,7 @@ namespace TL
     };
 
     //! This class wraps a do-statement
-    class DoWhileStatement : public Statement
+    class LIBTL_CLASS DoWhileStatement : public Statement
     {
         public:
             DoWhileStatement(AST_t ref, ScopeLink sl)
@@ -264,7 +264,7 @@ namespace TL
     };
 
     //! This class wraps a case-statement
-    class CaseStatement : public Statement
+    class LIBTL_CLASS CaseStatement : public Statement
     {
         public:
             CaseStatement(AST_t ast, ScopeLink sl)
@@ -280,7 +280,7 @@ namespace TL
     };
 
     //! This class wraps a switch-statement
-    class SwitchStatement : public Statement
+    class LIBTL_CLASS SwitchStatement : public Statement
     {
         public:
             SwitchStatement(AST_t ref, ScopeLink sl)
