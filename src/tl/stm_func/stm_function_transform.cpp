@@ -149,7 +149,7 @@ namespace TL
                 AST_t root_node = dto["translation_unit"];
                 ScopeLink scope_link = dto["scope_link"];
                 
-                PredicateAST<LANG_IS_FUNCTION_DEFINITION> function_def_pred;
+                PredicateAttr function_def_pred(LANG_IS_FUNCTION_DEFINITION) ;
                 DepthTraverse depth_traverse;
 
                 STMFunctionDefFunctor function_def_functor(filter_file_name_str, 
