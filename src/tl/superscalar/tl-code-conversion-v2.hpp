@@ -84,7 +84,7 @@ namespace TL
 					
 					DepthTraverse _body_traverser;
 					
-					PredicateAST<LANG_IS_FUNCTION_CALL> _function_call_predicate;
+					PredicateAttr _function_call_predicate(LANG_IS_FUNCTION_CALL) ;
 					TaskCallHandler _task_call_handler;
 					CallToNamedFunctionPredicate _malloc_call_predicate;
 					MallocHandler _malloc_handler;

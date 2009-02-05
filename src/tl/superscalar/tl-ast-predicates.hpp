@@ -25,7 +25,7 @@
 
 namespace TL
 {
-	class CallToNamedFunctionPredicate : public PredicateAST<LANG_IS_FUNCTION_CALL>
+	class CallToNamedFunctionPredicate : public PredicateAttr
 	{
 		private:
 			std::string _function_name;
@@ -33,13 +33,13 @@ namespace TL
 			
 		public:
 			CallToNamedFunctionPredicate(std::string const &function_name, ScopeLink scope_link)
-				: _function_name(function_name), _scope_link(scope_link)
+				: PredicateAttr(LANG_IS_FUNCTION_CALL), _function_name(function_name), _scope_link(scope_link)
 			{
 			}
 			
 			virtual bool operator()(AST_t& ast) const
 			{
-				if (!PredicateAST<LANG_IS_FUNCTION_CALL>::operator()(ast))
+				if (!this->operator()(ast))
 				{
 					return false;
 				}
@@ -66,20 +66,20 @@ namespace TL
 	};
 	
 	
-	class FunctionDeclarationPredicate : public PredicateAST<LANG_IS_DECLARED_NAME>
+	class FunctionDeclarationPredicate : public PredicateAttr
 	{
 		private:
 			ScopeLink _scope_link;
 			
 		public:
 			FunctionDeclarationPredicate(ScopeLink scope_link)
-				: _scope_link(scope_link)
+				: PredicateAttr(LANG_IS_FUNCTION_CALL), _scope_link(scope_link)
 			{
 			}
 			
 			virtual bool operator()(AST_t& ast) const
 			{
-				if (!PredicateAST<LANG_IS_DECLARED_NAME>::operator()(ast))
+				if (!this->operator()(ast))
 				{
 					return false;
 				}

@@ -80,7 +80,7 @@ namespace TL
 		// Get and check its corresponding statement expression
 		Expression top_expression = function_call.get_top_enclosing_expression();
 		AST_t statement_expression_ast = top_expression.original_tree();
-		PredicateAST<LANG_IS_EXPRESSION_STATEMENT> expression_statement_predicate;
+		PredicateAttr expression_statement_predicate(LANG_IS_EXPRESSION_STATEMENT) ;
 		if (!expression_statement_predicate(statement_expression_ast))
 		{
 			std::cerr << function_call.get_ast().get_locus() << " Error: Call to task '" << function_name << "' cannot return a value." << std::endl;
@@ -628,12 +628,12 @@ namespace TL
 			DepthTraverse depth_traverse;
 			
 			// WARNING: order is important since function definitions appear to be also declarations
-			PredicateAST<LANG_IS_FUNCTION_DEFINITION> function_definition_predicate;
+			PredicateAttr function_definition_predicate(LANG_IS_FUNCTION_DEFINITION) ;
 			TraverseASTPredicate function_definition_traverser(function_definition_predicate, AST_t::NON_RECURSIVE);
 			FunctionDefinitionHandler function_definition_handler(kill_list, scope_link, generate_task_side, generate_non_task_side, align_memory);
 			depth_traverse.add_functor(function_definition_traverser, function_definition_handler);
 			
-			PredicateAST<LANG_IS_DECLARATION> declaration_predicate;
+			PredicateAttr declaration_predicate(LANG_IS_DECLARATION) ;
 			TraverseASTPredicate declaration_traverser(declaration_predicate, AST_t::NON_RECURSIVE);
 			DeclarationHandler declaration_handler(kill_list, generate_task_side, generate_non_task_side);
 			depth_traverse.add_functor(declaration_traverser, declaration_handler);
