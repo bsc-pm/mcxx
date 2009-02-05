@@ -8,7 +8,7 @@
 // Temporal handling routines
 typedef struct 
 {
-    FILE* file;
+    // FILE* file;
     const char* name;
 }* temporal_file_t;
 

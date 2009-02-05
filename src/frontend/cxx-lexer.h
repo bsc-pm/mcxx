@@ -66,6 +66,8 @@ LIBMCXX_EXTERN int mcxx_flex_debug;
 LIBMCXX_EXTERN int mcxxdebug;
 LIBMCXX_EXTERN int mc99debug;
 
+LIBMCXX_EXTERN void close_scanned_file(void); 
+
 MCXX_END_DECLS
 
 #endif // CXX_LEXER_H

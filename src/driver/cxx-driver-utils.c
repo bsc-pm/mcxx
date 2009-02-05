@@ -32,7 +32,10 @@ void temporal_files_cleanup(void)
             {
                 fprintf(stderr, "Removing temporal filename '%s'\n", iter->info->name);
             }
-            remove(iter->info->name);
+            if (remove(iter->info->name) != 0)
+            {
+                fprintf(stderr, "Error while removing temporal filename: '%s'\n", strerror(errno));
+            }
         }
 
         iter = iter->next;
@@ -60,11 +63,11 @@ static temporal_file_t new_temporal_file_unix(void)
     temporal_file_t result = calloc(sizeof(*result), 1);
     result->name = uniquestr(template);
     // Get a FILE* descriptor
-    result->file = fdopen(file_descriptor, "w+");
-    if (result->file == NULL)
-    {
-        running_error("error: cannot create temporary file (%s)", strerror(errno));
-    }
+    // result->file = fdopen(file_descriptor, "w+");
+    // if (result->file == NULL)
+    // {
+    //     running_error("error: cannot create temporary file (%s)", strerror(errno));
+    // }
 
     // Link to the temporal_file_list
     temporal_file_list_t new_file_element = calloc(sizeof(*new_file_element), 1);
@@ -85,13 +88,13 @@ static temporal_file_t new_temporal_file_win32(void)
 
     // Save the info of the new file
     temporal_file_t result = calloc(sizeof(*result), 1);
-    result->name = uniquestr(template);
-    // Get a FILE* descriptor
-    result->file = fopen(result->name, "w+");
-    if (result->file == NULL)
-    {
-        running_error("error: cannot create temporary file (%s)", strerror(errno));
-    }
+    result->name = strappend(uniquestr(template), ".tmp");
+    // // Get a FILE* descriptor
+    // result->file = fopen(result->name, "w+");
+    // if (result->file == NULL)
+    // {
+    //     running_error("error: cannot create temporary file (%s)", strerror(errno));
+    // }
 
     // Link to the temporal_file_list
     temporal_file_list_t new_file_element = calloc(sizeof(*new_file_element), 1);
@@ -284,7 +287,9 @@ static int execute_program_flags_win32(const char* program_name, const char** ar
 
     quoted_args_str[0] = '\0';
 
+    strcat(quoted_args_str, "\"");
     strcat(quoted_args_str, quoted_args_list[0]);
+    strcat(quoted_args_str, "\"");
     for (i = 0; i < num; i++)
     {
         strcat(quoted_args_str, " "); 

@@ -1604,6 +1604,8 @@ static void compile_every_translation_unit(void)
 
                 parse_translation_unit(translation_unit, parsed_filename);
 
+                close_scanned_file();
+
                 compiler_phases_pre_execution(translation_unit, parsed_filename);
 
                 semantic_analysis(translation_unit, parsed_filename);

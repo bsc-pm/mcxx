@@ -1497,7 +1497,16 @@ int OPEN_FILE_FOR_SCANNING(const char* scanned_filename, const char* input_filen
 	return 0;
 }
 
+
 /*!if C99*/
+void close_scanned_file(void)
+{
+    if (scanning_now.file_descriptor != NULL)
+    {
+        fclose(scanning_now.file_descriptor);
+    }
+}
+
 static pragma_directive_kind_t lookup_pragma_directive_inner(pragma_directive_set_t* pragma_directive_set, 
         const char *directive)
 {
