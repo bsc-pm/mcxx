@@ -1,0 +1,17 @@
+tl_cflags=-I $(top_srcdir)/src/tl \
+    -I $(top_srcdir)/src/frontend \
+    -I $(top_srcdir)/src/driver \
+    -I $(top_srcdir)/lib \
+    -I $(top_builddir)/src/tl \
+    -I $(top_builddir)/src/frontend \
+    -I $(top_builddir)/src/driver \
+    -I $(top_builddir)/lib
+
+tl_cxxflags=$(tl_cflags)
+
+tl_libadd=$(top_builddir)/src/tl/libtl.la \
+        $(top_builddir)/src/frontend/libmcxx.la
+
+no_undefined=@WIN32_NO_UNDEFINED@
+
+tl_ldflags=-avoid-version $(no_undefined)

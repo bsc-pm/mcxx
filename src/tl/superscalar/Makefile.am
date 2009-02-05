@@ -20,26 +20,11 @@
 # Ugly, but necessary since normal YACC rules have been broken
 BISON = @BISON@
 
+include ../Makefile.phases
 
-AM_CXXFLAGS = -Wall \
-	-I $(top_srcdir)/src/tl \
-	-I $(top_srcdir)/src/frontend \
-	-I $(top_srcdir)/src/driver \
-	-I $(top_srcdir)/lib \
-	-I $(top_builddir)/src/tl \
-	-I $(top_builddir)/src/frontend \
-	-I $(top_builddir)/src/driver \
-	-I $(top_builddir)/lib
+AM_CXXFLAGS = -Wall $(tl_cxxflags)
 
-AM_CFLAGS = -Wall \
-	-I $(top_srcdir)/src/tl \
-	-I $(top_srcdir)/src/frontend \
-	-I $(top_srcdir)/src/driver \
-	-I $(top_srcdir)/lib \
-	-I $(top_builddir)/src/tl \
-	-I $(top_builddir)/src/frontend \
-	-I $(top_builddir)/src/driver \
-	-I $(top_builddir)/lib
+AM_CFLAGS = -Wall $(tl_cxxflags)
 
 lib_LTLIBRARIES = \
 	libtlsuperscalar-configurator.la \
@@ -160,6 +145,6 @@ noinst_HEADERS = \
 	tl-parameter-expression.hpp \
 	tl-task-manifest.hpp
 
-AM_LDFLAGS = -avoid-version -lm
+AM_LDFLAGS = $(tl_ldflags) -lm
 #-module -avoid-version
 

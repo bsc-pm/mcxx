@@ -1,34 +1,15 @@
+include ../Makefile.phases
+
 lib_LTLIBRARIES = libtlnanos.la
 
-libtlnanos_la_CFLAGS = -Wall \
-    -I $(top_srcdir)/src/tl \
-    -I $(top_srcdir)/src/frontend \
-    -I $(top_srcdir)/src/driver \
-    -I $(top_srcdir)/lib \
-    -I $(top_builddir)/src/tl \
-    -I $(top_builddir)/src/frontend \
-    -I $(top_builddir)/src/driver \
-    -I $(top_builddir)/lib
+libtlnanos_la_CFLAGS = -Wall $(tl_cflags)
 
-libtlnanos_la_CXXFLAGS = -Wall \
-    -I $(top_srcdir)/src/tl \
-    -I $(top_srcdir)/src/frontend \
-    -I $(top_srcdir)/src/driver \
-    -I $(top_srcdir)/lib \
-    -I $(top_builddir)/src/tl \
-    -I $(top_builddir)/src/frontend \
-    -I $(top_builddir)/src/driver \
-    -I $(top_builddir)/lib
+libtlnanos_la_CXXFLAGS = -Wall $(tl_cflags)
 
 END=
 
-if WINDOWS_BUILD
-no_undefined=-no-undefined
-else
-no_undefined=
-endif
-
-libtlnanos_la_LDFLAGS = -avoid-version $(no_undefined)
+libtlnanos_la_LDFLAGS = $(tl_ldflags)
+libtlnanos_la_LIBADD = $(tl_libadd)
 
 libtlnanos_la_SOURCES = \
 	tl-nanos.hpp \

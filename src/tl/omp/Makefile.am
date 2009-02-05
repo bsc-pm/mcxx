@@ -1,16 +1,8 @@
+include ../Makefile.phases
+
 lib_LTLIBRARIES = libtlomp.la libtlomp_serialize.la libtlomp_taskaggregation.la
 
-tl_omp_flags = -Wall \
-    -I $(top_srcdir)/src/tl \
-    -I $(top_srcdir)/src/tl/nanos \
-    -I $(top_srcdir)/src/frontend \
-    -I $(top_srcdir)/src/driver \
-    -I $(top_srcdir)/lib \
-    -I $(top_builddir)/src/tl \
-    -I $(top_builddir)/src/tl/nanos \
-    -I $(top_builddir)/src/frontend \
-    -I $(top_builddir)/src/driver \
-    -I $(top_builddir)/lib
+tl_omp_flags = -Wall $(tl_cflags) -I $(srcdir)/../nanos
 
 libtlomp_la_CFLAGS = $(tl_omp_flags)
 libtlomp_la_CXXFLAGS = $(tl_omp_flags)
@@ -57,18 +49,14 @@ libtlomp_la_SOURCES = \
    tl-transaction-expression.cpp \
    $(END)
 
-if WINDOWS_BUILD
-no_undefined=-no-undefined
-else
-no_undefined=
-endif
-
-libtlomp_la_LDFLAGS = -avoid-version $(no_undefined)
+libtlomp_la_LDFLAGS = $(tl_ldflags)
+libtlomp_la_LIBADD = $(tl_libadd)
 
 libtlomp_serialize_la_CFLAGS = $(tl_omp_flags)
 libtlomp_serialize_la_CXXFLAGS = $(tl_omp_flags)
 
-libtlomp_serialize_la_LDFLAGS = -avoid-version
+libtlomp_serialize_la_LDFLAGS = $(tl_ldflags)
+libtlomp_serialize_la_LIBADD = $(tl_libadd)
 
 libtlomp_serialize_la_SOURCES = \
    tl-ompserialize.hpp \
@@ -79,7 +67,8 @@ libtlomp_serialize_la_SOURCES = \
 libtlomp_taskaggregation_la_CFLAGS = $(tl_omp_flags)
 libtlomp_taskaggregation_la_CXXFLAGS = $(tl_omp_flags)
 
-libtlomp_taskaggregation_la_LDFLAGS = -avoid-version
+libtlomp_taskaggregation_la_LDFLAGS = $(tl_ldflags)
+libtlomp_taskaggregation_la_LIBADD = $(tl_libadd)
 
 libtlomp_taskaggregation_la_SOURCES = \
    tl-taskaggregation.hpp \

@@ -1,27 +1,15 @@
 #   $Id$
 
+include ../Makefile.phases
+
 lib_LTLIBRARIES = libtlacotes.la libtlacotes-output.la
 
-COMMON_CFLAGS= -Wall \
-    -I $(top_srcdir)/src/tl \
-    -I $(top_srcdir)/src/frontend \
-    -I $(top_srcdir)/src/driver \
-    -I $(top_srcdir)/lib \
-    -I $(top_builddir)/src/tl \
-    -I $(top_builddir)/src/frontend \
-    -I $(top_builddir)/src/driver \
-    -I $(top_builddir)/lib
-
-if WINDOWS_BUILD
-no_undefined=-no-undefined
-else
-no_undefined=
-endif
+COMMON_CFLAGS= -Wall $(tl_cflags)
 
 libtlacotes_la_CFLAGS = $(COMMON_CFLAGS)
 libtlacotes_la_CXXFLAGS = $(COMMON_CFLAGS)
-libtlacotes_la_LDFLAGS = -avoid-version $(no_undefined)
-libtlacotes_la_LIBADD = libtlacotes-output.la
+libtlacotes_la_LDFLAGS = $(tl_ldflags)
+libtlacotes_la_LIBADD = $(tl_libadd) libtlacotes-output.la
 
 libtlacotes_la_SOURCES = \
     ac-finalizer.cc \
@@ -118,7 +106,8 @@ libtlacotes_la_SOURCES = \
 libtlacotes_output_la_CFLAGS = $(COMMON_CFLAGS)
 libtlacotes_output_la_CXXFLAGS = $(COMMON_CFLAGS)
 
-libtlacotes_output_la_LDFLAGS = -avoid-version
+libtlacotes_output_la_LDFLAGS = $(tl_ldflags)
+libtlacotes_output_la_LIBADD = $(tl_libadd)
 
 libtlacotes_output_la_SOURCES = \
     acotes-output.cpp \

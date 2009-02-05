@@ -813,18 +813,21 @@ dnl --------------------- Test for Win32 -------------------------
 
 AC_MSG_CHECKING([if environment is Win32])
 
+WIN32_NO_UNDEFINED=""
 windows_build=""
 case "$host" in
   i?86-pc-cygwin | i?86-pc-mingw32*)
     windows_build="yes"
     AC_MSG_RESULT([yes])
     AC_MSG_WARN([Win32 port is still experimental])
+    WIN32_NO_UNDEFINED="-no-undefined"
     ;;
   *)
     AC_MSG_RESULT([no])
   ;;
 esac
 
+AC_SUBST([WIN32_NO_UNDEFINED])
 AM_CONDITIONAL(WINDOWS_BUILD, test x$windows_build = xyes)
 
 dnl ---------------------- End of test for Win32
