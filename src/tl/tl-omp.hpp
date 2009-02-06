@@ -482,6 +482,9 @@ namespace TL
         DEFINE_CONSTRUCT_CLASS(ParallelSectionsConstruct, DataEnvironmentConstruct);
         DEFINE_CONSTRUCT_CLASS(SectionsConstruct, DataEnvironmentConstruct);
 
+        DEFINE_CONSTRUCT_CLASS(TaskConstruct, DataEnvironmentConstruct);
+        DEFINE_CONSTRUCT_CLASS(TaskWaitDirective, Construct);
+
         DEFINE_CONSTRUCT_CLASS(ThreadPrivateDirective, Construct);
 
         DEFINE_CONSTRUCT_CLASS(SectionConstruct, Construct);
@@ -658,7 +661,8 @@ namespace TL
                 typedef OpenMPConstructFunctor<BarrierDirective> BarrierFunctor;
                 typedef OpenMPConstructFunctor<CriticalConstruct> CriticalFunctor;
                 typedef OpenMPConstructFunctor<AtomicConstruct> AtomicFunctor;
-                typedef OpenMPConstructFunctor<ParallelSingleConstruct> ParallelSingleFunctor;
+                typedef OpenMPConstructFunctor<TaskConstruct> TaskConstructFunctor;
+                typedef OpenMPConstructFunctor<TaskWaitDirective> TaskWaitFunctor;
                 typedef OpenMPConstructFunctor<SingleConstruct> SingleFunctor;
                 typedef OpenMPConstructFunctor<FlushDirective> FlushFunctor;
                 typedef OpenMPConstructFunctor<ParallelSectionsConstruct> ParallelSectionsFunctor;
@@ -700,8 +704,11 @@ namespace TL
                 Signal1<ParallelSectionsConstruct> on_parallel_sections_pre;
                 Signal1<ParallelSectionsConstruct> on_parallel_sections_post;
 
-                Signal1<ParallelSingleConstruct> on_parallel_single_pre;
-                Signal1<ParallelSingleConstruct> on_parallel_single_post;
+                Signal1<TaskConstruct> on_task_construct_pre;
+                Signal1<TaskConstruct> on_task_construct_post;
+
+                Signal1<TaskWaitDirective> on_taskwait_pre;
+                Signal1<TaskWaitDirective> on_taskwait_post;
 
                 Signal1<SectionsConstruct> on_sections_pre;
                 Signal1<SectionsConstruct> on_sections_post;

@@ -315,6 +315,18 @@ namespace TL
            ParallelSectionsFunctor parallel_sections_functor(on_parallel_sections_pre, 
                    on_parallel_sections_post, global_data_sharing);
            depth_traverse.add_predicate(parallel_sections_construct, parallel_sections_functor);
+
+           // #pragma omp task
+           PredicateAttr task_construct(OMP_IS_TASK_CONSTRUCT);
+           TaskConstructFunctor task_construct_functor(on_task_construct_pre,
+                   on_task_construct_post, global_data_sharing);
+           depth_traverse.add_predicate(task_construct, task_construct_functor);
+
+           // #pragma omp taskwait
+           PredicateAttr taskwait_directive(OMP_IS_TASKWAIT_DIRECTIVE);
+           TaskWaitFunctor taskwait_directive_functor(on_taskwait_pre,
+                   on_taskwait_post, global_data_sharing);
+           depth_traverse.add_predicate(taskwait_directive, taskwait_directive_functor);
            
            // pragma omp sections
            PredicateAttr sections_construct(OMP_IS_SECTIONS_CONSTRUCT);

@@ -150,10 +150,10 @@ namespace TL
 
                 void threadprivate_postorder(OpenMP::ThreadPrivateDirective threadprivate_directive);
 
-                void task_preorder(OpenMP::CustomConstruct task_construct);
-                void task_postorder(OpenMP::CustomConstruct task_construct);
+                void task_preorder(OpenMP::TaskConstruct task_construct);
+                void task_postorder(OpenMP::TaskConstruct task_construct);
 
-                void taskwait_postorder(OpenMP::CustomConstruct taskwait_construct);
+                void taskwait_postorder(OpenMP::TaskWaitDirective taskwait_construct);
 
                 void taskyield_postorder(OpenMP::CustomConstruct taskyield_construct);
 

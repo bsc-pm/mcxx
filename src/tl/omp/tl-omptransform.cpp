@@ -132,13 +132,11 @@ namespace TL
             on_threadprivate_post.connect(functor(&OpenMPTransform::threadprivate_postorder, *this));
 
             // OMP 3.0 tasks
-            register_construct("task");
-            on_custom_construct_pre["task"].connect(functor(&OpenMPTransform::task_preorder, *this));
-            on_custom_construct_post["task"].connect(functor(&OpenMPTransform::task_postorder, *this));
+            on_task_construct_pre.connect(functor(&OpenMPTransform::task_preorder, *this));
+            on_task_construct_post.connect(functor(&OpenMPTransform::task_postorder, *this));
 
-            // #pragma omp taskwait
-            register_directive("taskwait");
-            on_custom_construct_post["taskwait"].connect(functor(&OpenMPTransform::taskwait_postorder, *this));
+            // // #pragma omp taskwait
+            on_taskwait_post.connect(functor(&OpenMPTransform::taskwait_postorder, *this));
 
             // #pragma omp taskgroup
             register_directive("taskgroup");

@@ -30,7 +30,7 @@ namespace TL
         static std::string get_size_dependence_expr(Expression expr);
         static std::string get_align_dependence_expr(Expression expr);
 
-        void OpenMPTransform::task_preorder(OpenMP::CustomConstruct task_construct)
+        void OpenMPTransform::task_preorder(OpenMP::TaskConstruct task_construct)
         {
             // Get the directive of the task construct
             OpenMP::Directive directive = task_construct.directive();
@@ -88,7 +88,7 @@ namespace TL
             }
         }
 
-        void OpenMPTransform::task_postorder(OpenMP::CustomConstruct task_construct)
+        void OpenMPTransform::task_postorder(OpenMP::TaskConstruct task_construct)
         {
             // Another parallel
             num_parallels++;

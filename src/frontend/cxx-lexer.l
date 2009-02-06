@@ -299,6 +299,16 @@ section {
 	return OMP_SECTION;
 }
 
+task {
+    BEGIN(openmp_clause);
+    return OMP_TASK;
+}
+
+taskwait {
+    BEGIN(openmp_clause);
+    return OMP_TASKWAIT;
+}
+
 parallel[ ]+for {
 	BEGIN(openmp_clause);
 	return OMP_PARALLEL_FOR;

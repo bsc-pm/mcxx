@@ -39,6 +39,8 @@
 %token<token_atrib> OMP_CUSTOM_CLAUSE "<custom-clause> (OpenMP)"
 %token<token_atrib> OMP_CUSTOM_DIRECTIVE "<custom-directive> (OpenMP)"
 %token<token_atrib> OMP_CUSTOM_CONSTRUCT "<custom-construct> (OpenMP)"
+%token<token_atrib> OMP_TASK "task (OpenMP)"
+%token<token_atrib> OMP_TASKWAIT "taskwait (OpenMP)"
 
 // OpenMP 2.5 semantic values
 %type<ast> openmp_construct
@@ -73,6 +75,15 @@
 %type<ast> sections_clause_opt_seq
 %type<ast> sections_clause_seq
 %type<ast> sections_clause
+
+%type<ast> task_construct
+%type<ast> task_directive
+%type<ast> task_clause_seq_opt
+%type<ast> task_clause_seq
+%type<ast> task_clause
+%type<ast> unique_task_clause
+
+%type<ast> taskwait_directive
 
 %type<ast> section_scope
 %type<ast> section_sequence
@@ -168,6 +179,10 @@ openmp_construct : parallel_construct
 {
 	$$ = $1;
 }
+| task_construct
+{
+    $$ = $1;
+}
 | for_construct
 {
 	$$ = $1;
@@ -203,6 +218,10 @@ openmp_construct : parallel_construct
 | ordered_construct
 {
 	$$ = $1;
+}
+| taskwait_directive
+{
+    $$ = $1;
 }
 // There is a bug in the specification of OpenMP 2.5, a threadprivate directive
 // really CAN appear here even if in the grammar spec does not
@@ -365,6 +384,60 @@ unique_parallel_clause : OMP_IF '(' expression ')'
 | OMP_NUM_THREADS '(' expression ')'
 {
 	$$ = ASTMake1(AST_OMP_NUM_THREADS_CLAUSE, $3, $1.token_file, $1.token_line, NULL);
+}
+;
+
+task_construct : task_directive structured_block
+{
+	$$ = ASTMake2(AST_OMP_TASK_CONSTRUCT, $1, $2, ASTFileName($1), ASTLine($1), NULL);
+};
+
+task_directive : OMP_PRAGMA OMP_TASK task_clause_seq_opt OMP_NEWLINE
+{
+	$$ = ASTMake1(AST_OMP_TASK_DIRECTIVE, $3, $1.token_file, $1.token_line, NULL);
+};
+
+task_clause_seq_opt : /* empty */
+{
+	$$ = NULL;
+}
+| task_clause_seq
+{
+	$$ = $1;
+}
+;
+
+task_clause_seq : task_clause
+{
+	$$ = ASTListLeaf($1);
+}
+| task_clause_seq task_clause
+{
+	$$ = ASTList($1, $2);
+}
+| task_clause_seq ',' task_clause
+{
+	$$ = ASTList($1, $3);
+}
+;
+
+task_clause : unique_task_clause
+{
+	$$ = $1;
+}
+| data_clause
+{
+	$$ = $1;
+}
+| omp_custom_clause
+{
+	$$ = $1;
+}
+;
+
+unique_task_clause : OMP_IF '(' expression ')' 
+{
+	$$ = ASTMake1(AST_OMP_IF_CLAUSE, $3, $1.token_file, $1.token_line, NULL);
 }
 ;
 
@@ -788,6 +861,12 @@ ordered_construct : ordered_directive structured_block
 ordered_directive : OMP_PRAGMA OMP_ORDERED OMP_NEWLINE
 {
 	$$ = ASTLeaf(AST_OMP_ORDERED_DIRECTIVE, $1.token_file, $1.token_line, NULL);
+}
+;
+
+taskwait_directive : OMP_PRAGMA OMP_TASKWAIT OMP_NEWLINE
+{
+    $$ = ASTLeaf(AST_OMP_TASKWAIT_DIRECTIVE, $1.token_file, $1.token_line, NULL);
 }
 ;
 

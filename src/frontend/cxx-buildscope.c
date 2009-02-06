@@ -8512,6 +8512,14 @@ static void build_scope_omp_flush_directive(AST a,
     ASTAttrSetValueType(a, OMP_IS_FLUSH_DIRECTIVE, tl_type_t, tl_bool(1));
 }
 
+static void build_scope_omp_taskwait_directive(AST a, 
+        decl_context_t decl_context UNUSED_PARAMETER, 
+        char* attr_name UNUSED_PARAMETER)
+{
+    ASTAttrSetValueType(a, OMP_IS_OMP_DIRECTIVE, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, OMP_IS_TASKWAIT_DIRECTIVE, tl_type_t, tl_bool(1));
+}
+
 static void build_scope_omp_sections_construct(AST a, 
         decl_context_t decl_context, 
         char* attr_name)
@@ -8758,6 +8766,8 @@ static stmt_scope_handler_map_t stmt_scope_handlers[] =
     STMT_HANDLER(AST_CUSTOM_CONSTRUCT_STATEMENT, build_scope_custom_construct_statement, NULL),
     // OpenMP 2.5 constructs
     STMT_HANDLER(AST_OMP_PARALLEL_CONSTRUCT, build_scope_omp_construct, OMP_IS_PARALLEL_CONSTRUCT),
+    STMT_HANDLER(AST_OMP_TASK_CONSTRUCT, build_scope_omp_construct, OMP_IS_TASK_CONSTRUCT),
+    STMT_HANDLER(AST_OMP_TASKWAIT_DIRECTIVE, build_scope_omp_taskwait_directive, OMP_IS_TASKWAIT_DIRECTIVE),
     STMT_HANDLER(AST_OMP_FOR_CONSTRUCT, build_scope_omp_construct, OMP_IS_FOR_CONSTRUCT),
     STMT_HANDLER(AST_OMP_PARALLEL_FOR_CONSTRUCT, build_scope_omp_construct, OMP_IS_PARALLEL_FOR_CONSTRUCT),
     STMT_HANDLER(AST_OMP_SECTIONS_CONSTRUCT, build_scope_omp_sections_construct, OMP_IS_SECTIONS_CONSTRUCT),
@@ -8771,7 +8781,7 @@ static stmt_scope_handler_map_t stmt_scope_handlers[] =
     STMT_HANDLER(AST_OMP_BARRIER_DIRECTIVE, build_scope_barrier_directive, OMP_IS_BARRIER_DIRECTIVE),
     STMT_HANDLER(AST_OMP_THREADPRIVATE_DIRECTIVE, build_scope_omp_threadprivate, NULL),
     STMT_HANDLER(AST_OMP_CUSTOM_CONSTRUCT, build_scope_omp_custom_construct_statement, OMP_IS_CUSTOM_CONSTRUCT),
-    STMT_HANDLER(AST_OMP_CUSTOM_DIRECTIVE, build_scope_omp_custom_directive_top_level, NULL)
+    STMT_HANDLER(AST_OMP_CUSTOM_DIRECTIVE, build_scope_omp_custom_directive_top_level, NULL),
 };
 
 void build_scope_member_specification_with_scope_link(
