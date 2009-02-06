@@ -56,7 +56,6 @@
 #include "cxx-compilerphases.hpp"
 #include "mcfg.h"
 
-
 /* ------------------------------------------------------------------ */
 #define HELP_STRING \
 "Options: \n" \
@@ -709,7 +708,7 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
                     }
                 case OPTION_PRINT_CONFIG_FILE:
                     {
-                        printf("Default config file: %s/../share/mcxx/config.mcxx\n", compilation_process.home_directory);
+                        printf("Default config file: %s%s\n", compilation_process.home_directory, CONFIG_RELATIVE_PATH);
                         exit(EXIT_SUCCESS);
                     }
                 default:
@@ -1216,8 +1215,7 @@ static void initialize_default_values(void)
 {
     int dummy = 0;
     // Initialize here all default values
-    // compilation_process.config_file = PKGDATADIR "/config.mcxx";
-    compilation_process.config_file = strappend(compilation_process.home_directory, "/../share/mcxx/config.mcxx");
+    compilation_process.config_file = strappend(compilation_process.home_directory, CONFIG_RELATIVE_PATH);
     compilation_process.num_translation_units = 0;
 
     // The minimal default configuration

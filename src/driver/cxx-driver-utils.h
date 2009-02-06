@@ -5,6 +5,14 @@
 #include <sys/time.h>
 #include <time.h>
 
+#ifdef _WIN32
+  #define DIR_SEPARATOR "\\"
+#else
+  #define DIR_SEPARATOR "/"
+#endif
+
+#define CONFIG_RELATIVE_PATH DIR_SEPARATOR".."DIR_SEPARATOR"share"DIR_SEPARATOR"mcxx"DIR_SEPARATOR"config.mcxx"
+
 // Temporal handling routines
 typedef struct 
 {
