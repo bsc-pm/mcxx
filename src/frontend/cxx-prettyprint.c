@@ -546,6 +546,9 @@ prettyprint_entry_t handlers_list[] =
     // OpenMP 2.5
     NODE_HANDLER(AST_OMP_PARALLEL_CONSTRUCT, omp_generic_construct_handler, NULL),
     NODE_HANDLER(AST_OMP_PARALLEL_DIRECTIVE, omp_generic_directive_handler, "parallel"),
+    NODE_HANDLER(AST_OMP_TASK_CONSTRUCT, omp_generic_construct_handler, NULL),
+    NODE_HANDLER(AST_OMP_TASK_DIRECTIVE, omp_generic_directive_handler, "task"),
+    NODE_HANDLER(AST_OMP_TASKWAIT_DIRECTIVE, omp_generic_directive_handler, "taskwait"),
     NODE_HANDLER(AST_OMP_FOR_CONSTRUCT, omp_generic_construct_handler, NULL),
     NODE_HANDLER(AST_OMP_FOR_DIRECTIVE, omp_generic_directive_handler, "for"),
     NODE_HANDLER(AST_OMP_PARALLEL_SINGLE_CONSTRUCT, omp_generic_construct_handler, NULL),
