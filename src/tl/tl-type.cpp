@@ -574,4 +574,9 @@ namespace TL
     {
         return is_incomplete_type(_type_info);
     }
+
+    unsigned int Type::get_size() 
+    {
+        return (unsigned int)type_get_size(_type_info);
+    }
 }

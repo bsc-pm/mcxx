@@ -366,6 +366,10 @@ namespace TL
             {
                 return _type_info;
             }
+
+            //! Returns what sizeof would yield for this type
+            /*! Note that the result of this function depends on the current type environment */
+            unsigned int get_size();
     };
     
     //! @}
