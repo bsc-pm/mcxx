@@ -61,7 +61,6 @@ TLEXTENSIONS=""
 ADDITIONAL_TESTSUITES=""
 
 COMPILER_NAMES="plaincxx plaincc"
-ENABLED_PROFILES="PLAIN"
 
 dnl --------------------- Support for OpenMP ---------------------
 
@@ -127,7 +126,6 @@ then
    NANOS_LIBS="${nanos4_lib}"
 
    TLEXTENSIONS="${TLEXTENSIONS} nanos omp"
-   ENABLED_PROFILES="${ENABLED_PROFILES} NANOS"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
 
@@ -250,7 +248,6 @@ AC_ARG_ENABLE([tl-acotes],
 
 if test x$is_enabled_tl_acotes = xyes;
 then
-   ENABLED_PROFILES="${ENABLED_PROFILES} ACOTES"
    COMPILER_NAMES="${COMPILER_NAMES} acotescc"
 
    TLEXTENSIONS="${TLEXTENSIONS} acotes"
@@ -365,7 +362,6 @@ then
 
    TLEXTENSIONS="${TLEXTENSIONS} stm_func"
 
-   ENABLED_PROFILES="${ENABLED_PROFILES} NEBELUNG"
    COMPILER_NAMES="${COMPILER_NAMES} stmcxx"
 
    ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcxx.stm"
@@ -458,7 +454,6 @@ then
    )
  
    TLEXTENSIONS="${TLEXTENSIONS} superscalar"
-   ENABLED_PROFILES="${ENABLED_PROFILES} SUPERSCALAR"
    ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.superscalar"
 fi
      
@@ -895,6 +890,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/examples/decl_closure/Makefile
            src/tl/superscalar/Makefile
            config/Makefile
+           config/config.mcxx
            config/config.plain
            config/config.nanos_omp
            config/config.acotes

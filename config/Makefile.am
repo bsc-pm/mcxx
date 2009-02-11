@@ -22,9 +22,6 @@ dist_pkgdata_DATA = \
 		config.mcxx \
 		$(END)
 
-DEFINES=$(addprefix -D,@ENABLED_PROFILES@)
-
-CLEANFILES+=config.mcxx
-
-config.mcxx : $(TPP) $(CONFIG_FILES)
-	$(TPP) -o $@ -I $(srcdir) $(DEFINES) $(srcdir)/config.mcxx.in
+configdir = $(pkgdatadir)/config.d
+dist_config_DATA = \
+        $(CONFIG_FILES)

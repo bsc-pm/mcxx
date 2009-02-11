@@ -34,6 +34,10 @@
 #include <errno.h>
 #include <unistd.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <dirent.h>
+
 #include "cxx-utils.h"
 #include "cxx-driver.h"
 #include "cxx-driver-utils.h"
@@ -102,10 +106,15 @@
 "                           the linker\n" \
 "  --no-openmp              Disables OpenMP 2.5 support\n" \
 "  --config-file=<file>     Uses <file> as config file.\n" \
-"                           Use --print-config-file to get the path\n" \
-"                           of the default config file.\n" \
-"  --print-config-file      Prints the path of the default config\n" \
-"                           file and finishes.\n" \
+"                           Use --print-config-file to get the\n" \
+"                           default path\n" \
+"  --print-config-file      Prints the path of the default\n" \
+"                           configuration file and finishes.\n" \
+"  --config-dir=<dir>       Sets <dir> as the configuration directory\n" \
+"                           Use --print-config-dir to get the\n" \
+"                           default path\n" \
+"  --print-config-dir       Prints the path of the default\n" \
+"                           configuration directory and finishes.\n" \
 "  --profile=<name>         Selects profile compilation to be <name>\n" \
 "  --variable=<name:value>  Defines variable 'name' with value\n" \
 "                           'value' to be used in the compiler\n" \
@@ -189,6 +198,7 @@ struct command_line_long_options command_line_long_options[] =
     {"env", CLP_REQUIRED_ARGUMENT, OPTION_SET_ENVIRONMENT},
     {"list-env", CLP_NO_ARGUMENT, OPTION_LIST_ENVIRONMENTS},
     {"print-config-file", CLP_NO_ARGUMENT, OPTION_PRINT_CONFIG_FILE},
+    {"print-config-dir", CLP_NO_ARGUMENT, OPTION_PRINT_CONFIG_DIR},
     // sentinel
     {NULL, 0, 0}
 };
@@ -710,6 +720,13 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
                     {
                         printf("Default config file: %s%s\n", compilation_process.home_directory, CONFIG_RELATIVE_PATH);
                         exit(EXIT_SUCCESS);
+                        break;
+                    }
+                case OPTION_PRINT_CONFIG_DIR:
+                    {
+                        printf("Default config directory: %s%s\n", compilation_process.home_directory, DIR_CONFIG_RELATIVE_PATH);
+                        exit(EXIT_SUCCESS);
+                        break;
                     }
                 default:
                     {
@@ -1216,6 +1233,7 @@ static void initialize_default_values(void)
     int dummy = 0;
     // Initialize here all default values
     compilation_process.config_file = strappend(compilation_process.home_directory, CONFIG_RELATIVE_PATH);
+    compilation_process.config_dir = strappend(compilation_process.home_directory, DIR_CONFIG_RELATIVE_PATH);
     compilation_process.num_translation_units = 0;
 
     // The minimal default configuration
@@ -1372,9 +1390,48 @@ static int parameter_callback(const char* parameter, const char* value, int num_
     return 0;
 }
 
+static void load_configuration_file(const char *filename)
+{
+    // Will invoke section_callback and parameter_callback for every section
+    // and parameter
+    int result = param_process(filename, section_callback, parameter_callback);
+
+    switch (result)
+    {
+        case PPR_OPEN_FILE_ERROR :
+            {
+                fprintf(stderr, "Configuration file '%s' could not be opened. Skipping\n",
+                        filename);
+                // This has already been done in initialize_default_values
+                break;
+            }
+        case PPR_PARSE_ERROR :
+            {
+                fprintf(stderr, "Configuration file '%s' is ill-formed. Check its syntax. Skipping\n",
+                        filename);
+                break;
+            }
+        case PPR_MALLOC_ERROR :
+            {
+                internal_error("Could not allocate memory for configuration file parsing", 0);
+                break;
+            }
+        case PPR_SUCCESS :
+            {
+                // Everything went well for this file
+                break;
+            }
+       default :
+            {
+                internal_error("Function param_process returned an invalid value %d", result);
+            }
+    }
+}
+
 static void load_configuration(void)
 {
     // Solve here the egg and chicken problem of the option --config-file
+    // FIXME - save config directory properly
     int i;
     for (i = 1; i < compilation_process.argc; i++)
     {
@@ -1394,37 +1451,49 @@ static void load_configuration(void)
         }
     }
 
-    // Will invoke section_callback and parameter_callback for every section
-    // and parameter
-    int result = param_process(compilation_process.config_file, section_callback, parameter_callback);
+    load_configuration_file(compilation_process.config_file);
 
-    switch (result)
+    // Now load all files in the config_dir
+    DIR* config_dir = opendir(compilation_process.config_dir);
+    if (config_dir == NULL)
     {
-        case PPR_OPEN_FILE_ERROR :
+        if (errno != ENOENT)
+        {
+            // Only give an error if it does exist
+            fprintf(stderr, "Could not open configuration directory (%s)\n", 
+                    strerror(errno));
+        }
+    }
+    else
+    {
+        struct dirent *dir_entry;
+
+        dir_entry = readdir(config_dir);
+        while (dir_entry != NULL)
+        {
+            struct stat buf;
+            memset(&buf, 0, sizeof(buf));
+
+            if ((strcmp(dir_entry->d_name, ".") != 0)
+                    && (strcmp(dir_entry->d_name, "..") != 0))
             {
-                fprintf(stderr, "Setting to C++ built-in configuration\n");
-                // This has already been done in initialize_default_values
-                break;
+                const char * full_path =
+                    strappend(
+                            strappend(
+                                compilation_process.config_dir, DIR_SEPARATOR),
+                            dir_entry->d_name);
+
+                stat(full_path, &buf);
+                if (S_ISREG(buf.st_mode))
+                {
+                    load_configuration_file(full_path);
+                }
             }
-        case PPR_PARSE_ERROR :
-            {
-                fprintf(stderr, "Config file is ill-formed. Check its syntax\n");
-                break;
-            }
-        case PPR_MALLOC_ERROR :
-            {
-                internal_error("Could not allocate memory for configuration file parsing", 0);
-                break;
-            }
-        case PPR_SUCCESS :
-            {
-                // Everything went well
-                break;
-            }
-       default :
-            {
-                internal_error("Function param_process returned an invalid value %d", result);
-            }
+
+            dir_entry = readdir(config_dir);
+        }
+
+        closedir(config_dir);
     }
     
     // Now set the configuration as stated by the basename

@@ -43,6 +43,7 @@ typedef enum
     OPTION_NO_OPENMP,
     OPTION_EXTERNAL_VAR,
     OPTION_CONFIG_FILE,
+    OPTION_CONFIG_DIR,
     OPTION_PROFILE,
     OPTION_TYPECHECK,
     OPTION_PREPROCESSOR_USES_STDOUT,
@@ -52,6 +53,7 @@ typedef enum
     OPTION_SET_ENVIRONMENT,
     OPTION_LIST_ENVIRONMENTS,
     OPTION_PRINT_CONFIG_FILE,
+    OPTION_PRINT_CONFIG_DIR,
 } COMMAND_LINE_OPTIONS;
 
 // Kind of source 
@@ -166,6 +168,9 @@ typedef struct compilation_process_tag
 
     // Config file
     const char *config_file;
+
+    // Config dir
+    const char *config_dir;
     
     // List of translation units
     struct compilation_file_process_tag** translation_units;

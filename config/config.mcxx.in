@@ -1,15 +1,3 @@
-/*!if PLAIN*/
-/*!include config.plain*/
-/*!endif*/
-/*!if NANOS*/
-/*!include config.nanos_omp*/
-/*!endif*/
-/*!if ACOTES*/
-/*!include config.acotes*/
-/*!endif*/
-/*!if NEBELUNG*/
-/*!include config.stm_nebelung*/
-/*!endif*/
-/*!if SUPERSCALAR*/
-/*!include config.superscalar*/
-/*!endif*/
+# Global configuration file, its usage is deprecated.
+# Better add a file in config.d directory, you can use
+# config.plain as an example
