@@ -100,6 +100,8 @@ namespace TL { namespace Acotes {
      */
     void TaskTransform::transformAddOutline(Task* task) {
         assert(task);
+
+        static int _num_task = 0;
         
         TL::LangConstruct* taskConstruct= task->getConstruct();
         AST_t taskAST= taskConstruct->get_ast();
@@ -121,15 +123,15 @@ namespace TL { namespace Acotes {
         output_task.code = outlineTree;
         output_task.scope_link = taskScopeLink;
 
+        std::stringstream ss;
+        ss << _num_task;
+        _num_task++;
+
         CompiledFile current_compiled_file = CompilationProcess::get_current_file();
         std::string current_filename = current_compiled_file.get_filename();
-        output_task.filename = "spu_default_" + current_filename;
+        output_task.filename = "spu_default_" + current_filename + "_" + ss.str();
 
         output_tasks->add_task(output_task);
-/* xavim 
-	Source os2 = 
-	OutputTask ot2;
-	o*/
     }
     
     void TaskTransform::transformReplacePeek(Task* task) {
