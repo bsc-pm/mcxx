@@ -39,7 +39,7 @@ namespace TL
 			
 			virtual bool operator()(AST_t& ast) const
 			{
-				if (!this->operator()(ast))
+				if (!PredicateAttr::operator()(ast))
 				{
 					return false;
 				}
@@ -73,13 +73,13 @@ namespace TL
 			
 		public:
 			FunctionDeclarationPredicate(ScopeLink scope_link)
-				: PredicateAttr(LANG_IS_FUNCTION_CALL), _scope_link(scope_link)
+				: PredicateAttr(LANG_IS_DECLARED_NAME), _scope_link(scope_link)
 			{
 			}
 			
 			virtual bool operator()(AST_t& ast) const
 			{
-				if (!this->operator()(ast))
+				if (!PredicateAttr::operator()(ast))
 				{
 					return false;
 				}
