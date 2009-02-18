@@ -130,6 +130,7 @@ typedef struct debug_options_tag
     char debug_parser;
     char print_ast;
     char print_memory_report;
+    char print_memory_report_in_bytes;
     char debug_sizeof;
     char run_gdb;
 } debug_options_t;

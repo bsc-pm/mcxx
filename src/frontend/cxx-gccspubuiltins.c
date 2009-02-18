@@ -160,6 +160,7 @@ static type_t* build_function_type_2(type_t* ret, type_t* arg1)
 {
     type_t* result = NULL;
     parameter_info_t _param_info[1]; 
+    memset(_param_info, 0, sizeof(_param_info));
     _param_info[0].is_ellipsis = 0; 
     _param_info[0].type_info = arg1;
     _param_info[0].type_info = adjust_type_for_parameter_type(_param_info[0].type_info); 
@@ -172,6 +173,7 @@ static type_t* build_function_type_3(type_t* ret, type_t* arg1, type_t* arg2)
 {
     type_t* result = NULL;
     parameter_info_t _param_info[2]; 
+    memset(_param_info, 0, sizeof(_param_info));
     _param_info[0].is_ellipsis = 0; 
     _param_info[0].type_info = arg1;
     _param_info[0].type_info = adjust_type_for_parameter_type(_param_info[0].type_info); 
@@ -186,6 +188,7 @@ static type_t* build_function_type_4(type_t* ret, type_t* arg1, type_t* arg2, ty
 {
     type_t* result = NULL;
     parameter_info_t _param_info[3]; 
+    memset(_param_info, 0, sizeof(_param_info));
     _param_info[0].is_ellipsis = 0; 
     _param_info[0].type_info = arg1;
     _param_info[0].type_info = adjust_type_for_parameter_type(_param_info[0].type_info); 

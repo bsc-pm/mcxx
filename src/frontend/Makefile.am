@@ -58,6 +58,7 @@ libmcxx_la_SOURCES = \
   cxx-buildscope-decls.h \
   cxx-buildscope.c \
   cxx-buildscope.h \
+  cxx-type-trie.c \
   cxx-typeutils.c \
   cxx-typeutils.h \
   cxx-type-decls.h \

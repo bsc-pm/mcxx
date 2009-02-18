@@ -36,6 +36,7 @@
 MCXX_BEGIN_DECLS
 
 #define MAX_AST_CHILDREN (4)
+#define MAX_AST_AMBIGUITIES (15)
 
 // The extensible schema of AST's
 LIBMCXX_EXTERN extensible_schema_t ast_extensible_schema;
@@ -51,7 +52,7 @@ LIBMCXX_EXTERN AST ast_get_parent(const_AST a);
 LIBMCXX_EXTERN void ast_set_parent(AST a, AST parent);
 
 // Returns the line of the node
-LIBMCXX_EXTERN int ast_get_line(const_AST a);
+LIBMCXX_EXTERN unsigned int ast_get_line(const_AST a);
 
 // Returns the related bit of text of the node
 LIBMCXX_EXTERN const char* ast_get_text(const_AST a);
@@ -74,7 +75,7 @@ LIBMCXX_EXTERN AST ast_make(node_t type, int num_children,
         AST son2, 
         AST son3, 
         const char* file,
-        int line, 
+        unsigned int line, 
         const char *text);
 
 // Returns the number of children as defined
@@ -107,8 +108,6 @@ LIBMCXX_EXTERN AST ast_list_concat(AST before, AST after);
 LIBMCXX_EXTERN struct type_tag* ast_get_expression_type(const_AST a);
 // Sets the value of the type expression
 LIBMCXX_EXTERN void ast_set_expression_type(AST a, struct type_tag*);
-// Do not use this one, it is here to implement ASTExprType below
-LIBMCXX_EXTERN struct type_tag** ast_expression_type_ref(AST a);
 
 // States if the expression is a Lvalue, only meaningful
 // if ast_expression_type returned something non NULL
@@ -116,10 +115,10 @@ LIBMCXX_EXTERN char ast_get_expression_is_lvalue(const_AST a);
 // Sets the lvalueness of an expression
 LIBMCXX_EXTERN void ast_set_expression_is_lvalue(AST a, char c);
 // Do not use this one, it is here to implement ASTExprLvalue below
-LIBMCXX_EXTERN char *ast_expression_is_lvalue_ref(AST a);
+// LIBMCXX_EXTERN char *ast_expression_is_lvalue_ref(AST a);
 
 // Returns the extensible struct of this AST
-LIBMCXX_EXTERN extensible_struct_t* ast_get_extensible_struct(const_AST a);
+LIBMCXX_EXTERN extensible_struct_t* ast_get_extensible_struct(AST a);
 
 // States if this portion of the tree is properly linked
 LIBMCXX_EXTERN char ast_check(const_AST a);
@@ -166,9 +165,6 @@ LIBMCXX_EXTERN int ast_get_num_ambiguities(const_AST a);
 // Memory used by trees
 LIBMCXX_EXTERN long long unsigned int ast_astmake_used_memory(void);
 LIBMCXX_EXTERN long long unsigned int ast_instantiation_used_memory(void);
-LIBMCXX_EXTERN long long unsigned int ast_copies_used_memory(void);
-LIBMCXX_EXTERN long long unsigned int ast_ambiguities_used_memory(void);
-LIBMCXX_EXTERN long long unsigned int ast_bytes_freed(void);
 LIBMCXX_EXTERN int ast_node_size(void);
 
 // Returns the ambiguity 'num'

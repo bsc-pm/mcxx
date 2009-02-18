@@ -492,7 +492,7 @@ namespace TL
             void replace_text(const std::string& str);
 
             //! Gets the line of this tree
-            int get_line() const;
+            unsigned int get_line() const;
             //! Gets the file of this tree
             std::string get_file() const;
             //! Gets a string of the form "file:line" with the file and line of this tree

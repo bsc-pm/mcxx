@@ -36,6 +36,7 @@ struct debug_flags_list_t;
 "debug_parser", DEBUG_OPTION_REF(debug_parser), "Enables parser debug"
 "print_ast", DEBUG_OPTION_REF(print_ast), "Prints ast in graphviz format"
 "memory_report", DEBUG_OPTION_REF(print_memory_report), "Prints a memory report at the end"
+"memory_report_in_bytes", DEBUG_OPTION_REF(print_memory_report_in_bytes), "The memory report is written in bytes"
 "debug_sizeof", DEBUG_OPTION_REF(debug_sizeof), "Enables special debug messages for sizeof"
 "run_gdb", DEBUG_OPTION_REF(run_gdb), "Outputs a backtrace using 'gdb' debugger when a signal handler is called"
 %%

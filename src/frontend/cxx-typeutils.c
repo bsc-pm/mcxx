@@ -24,6 +24,7 @@
 #include "cxx-typeutils.h"
 #include "cxx-typeenviron.h"
 #include "cxx-typeunif.h"
+#include "cxx-type-trie.h"
 #include "cxx-utils.h"
 #include "cxx-cexpr.h"
 #include "cxx-exprtype.h"
@@ -116,7 +117,7 @@ struct base_class_info_tag
     access_specifier_t access_specifier;
 
     // A virtual base
-    char is_virtual;
+    unsigned char is_virtual:1;
 
     // Used when laying classes out
     _size_t base_offset;
@@ -133,13 +134,13 @@ struct virtual_base_class_info_tag
 typedef 
 struct class_information_tag {
     // Kind of class {struct, class}
-    enum class_kind_t class_kind;
+    enum class_kind_t class_kind:4;
 
     // A dependent class
-    char is_dependent;
-    
+    unsigned char is_dependent:1;
     // Currently unused
-    char is_local_class;
+    unsigned char is_local_class:1;
+
     struct scope_entry_tag* enclosing_function;
 
     // The inner decl context created by this class
@@ -255,28 +256,33 @@ enum template_nature_tag
 typedef 
 struct simple_type_tag {
     // Kind
-    simple_type_kind_t kind;
+    simple_type_kind_t kind:4;
 
     // if Kind == STK_BUILTIN_TYPE here we have
     // the exact builtin type
-    builtin_type_t builtin_type;
+    builtin_type_t builtin_type:4;
 
     // This can be 0, 1 (long) or 2 (long long)
-    char is_long; 
+    unsigned char is_long:2; 
     // short
-    char is_short;
+    unsigned char is_short:1;
     // unsigned
-    char is_unsigned;
+    unsigned char is_unsigned:1;
     // signed
-    char is_signed;
+    unsigned char is_signed:1;
 
     // GCC extension
     // __Complex float
-    char is_complex;
+    unsigned char is_complex:1;
 
     // States whether this type is incomplete, by default all classes and enum
     // type are incomplete and they must be 
-    char is_incomplete;
+    unsigned char is_incomplete:1;
+
+    // For typeof and template dependent types
+    // (kind == STK_TYPEOF)
+    // (kind == STK_TEMPLATE_DEPENDENT_TYPE)
+    unsigned char typeof_is_expr:1;
 
     // This type exists after another symbol, for
     // instance
@@ -301,7 +307,6 @@ struct simple_type_tag {
     // For classes (kind == STK_CLASS)
     // this includes struct/class/union
     class_info_t* class_info;
-
     
     // Used when instantiating a template class
     // (kind == STK_CLASS)
@@ -320,7 +325,6 @@ struct simple_type_tag {
     // (kind == STK_TEMPLATE_DEPENDENT_TYPE)
     AST typeof_expr;
     decl_context_t typeof_decl_context;
-    char typeof_is_expr;
 
     // For instantiation purposes
     // 
@@ -359,10 +363,6 @@ struct function_tag
     int num_parameters;
     parameter_info_t** parameter_list;
 
-    // States if this function has been declared or defined without prototype.
-    // This is only meaningful in C but not in C++ where all functions do have
-    // prototype
-    int lacks_prototype;
 
     // Contains the function definition tree (if the function has been defined)
     AST definition_tree;
@@ -371,7 +371,12 @@ struct function_tag
     template_nature_t template_nature;
 
     // Is dependent
-    char is_dependent;
+    unsigned char is_dependent:1;
+
+    // States if this function has been declared or defined without prototype.
+    // This is only meaningful in C but not in C++ where all functions do have
+    // prototype
+    unsigned char lacks_prototype:1;
 } function_info_t;
 
 // Pointers, references and pointers to members
@@ -399,7 +404,7 @@ struct array_tag
     struct type_tag* element_type;
 
     // Is literal string type ?
-    char is_literal_string;
+    unsigned char is_literal_string:1;
 } array_info_t;
 
 // Vector type
@@ -414,7 +419,12 @@ typedef struct vector_tag
 struct type_tag
 {
     // Kind of the type
-    enum type_kind kind;
+    enum type_kind kind:4;
+
+    // See below for more detailed descriptions
+    unsigned char is_template_specialized_type:1;
+    unsigned char valid_size:1;
+    unsigned char is_faulty:1;
 
     // Pointer
     // (kind == TK_POINTER)
@@ -452,7 +462,7 @@ struct type_tag
     // For parameter types, if not null it means some adjustement was done
     struct type_tag* original_type;
     // For template specialized parameters
-    char is_template_specialized_type;
+    // --> char is_template_specialized_type;
     template_argument_list_t* template_arguments;
     struct type_tag* related_template_type;
     // It is not obvious why do we need this, but it is for
@@ -462,7 +472,7 @@ struct type_tag
 
     // The sizeof and alignment of the type
     // They are only valid once 'computed_size' is true
-    char valid_size;
+    // --> char valid_size;
     _size_t size;
     _size_t alignment;
     // This is here only for C++
@@ -474,7 +484,7 @@ struct type_tag
     // This one states if the type has been created with
     // invalid information. Currently only arrays
     // can cause this kind of problems
-    char is_faulty;
+    // --> char is_faulty;
 };
 
 
@@ -484,6 +494,71 @@ const standard_conversion_t no_scs_conversion = {
     .conv = { SCI_NO_CONVERSION, SCI_NO_CONVERSION, SCI_NO_CONVERSION } 
 };
 
+
+static unsigned int _function_type_counter = 0;
+static unsigned int _class_type_counter = 0;
+static unsigned int _array_type_counter = 0;
+static unsigned int _pointer_type_counter = 0;
+static unsigned int _pointer_to_member_type_counter = 0;
+static unsigned int _reference_type_counter = 0;
+static unsigned int _template_type_counter = 0;
+static unsigned int _qualified_type_counter = 0;
+static unsigned int _vector_type_counter = 0;
+static unsigned int _enum_type_counter = 0;
+
+unsigned int get_function_type_counter(void)
+{
+    return _function_type_counter;
+}
+
+unsigned int get_class_type_counter(void)
+{
+    return _class_type_counter;
+}
+
+unsigned int get_array_type_counter(void)
+{
+    return _array_type_counter;
+}
+
+unsigned int get_pointer_type_counter(void)
+{
+    return _pointer_type_counter;
+}
+
+unsigned int get_pointer_to_member_type_counter(void)
+{
+    return _pointer_to_member_type_counter;
+}
+
+unsigned int get_reference_type_counter(void)
+{
+    return _reference_type_counter;
+}
+
+unsigned int get_template_type_counter(void)
+{
+    return _template_type_counter;
+}
+
+unsigned int get_qualified_type_counter(void)
+{
+    return _qualified_type_counter;
+}
+
+unsigned int get_vector_type_counter(void)
+{
+    return _vector_type_counter;
+
+}unsigned int get_enum_type_counter(void)
+{
+    return _enum_type_counter;
+}
+
+size_t get_type_t_size(void)
+{
+    return sizeof(type_t);
+}
 
 /*
  * --
@@ -943,6 +1018,8 @@ void dependent_typename_get_components(type_t* t, scope_entry_t** dependent_entr
 
 type_t* get_new_enum_type(decl_context_t decl_context)
 {
+    _enum_type_counter++;
+
     type_t* type_info = get_simple_type();
 
     type_info->type->enum_info = (enum_info_t*) counted_calloc(1, sizeof(*type_info->type->enum_info), &_bytes_due_to_type_system);
@@ -964,6 +1041,8 @@ type_t* get_new_enum_type(decl_context_t decl_context)
 
 type_t* get_new_class_type(decl_context_t decl_context, enum class_kind_t class_kind)
 {
+    _class_type_counter++;
+
     type_t* type_info = get_simple_type();
 
     type_info->type->class_info = counted_calloc(1, sizeof(*type_info->type->class_info), &_bytes_due_to_type_system);
@@ -1047,9 +1126,13 @@ static template_argument_list_t* compute_arguments_primary(template_parameter_li
     return result;
 }
 
+static type_t* _get_duplicated_function_type(type_t* function_type);
+
 type_t* get_new_template_type(template_parameter_list_t* template_parameter_list, type_t* primary_type,
         const char* template_name, decl_context_t decl_context, int line, const char* filename)
 {
+    _template_type_counter++;
+
     type_t* type_info = get_simple_type();
     type_info->type->kind = STK_TEMPLATE_TYPE;
     type_info->type->template_parameter_list = template_parameter_list;
@@ -1065,6 +1148,8 @@ type_t* get_new_template_type(template_parameter_list_t* template_parameter_list
     else if (is_function_type(primary_type))
     {
         primary_symbol->kind = SK_FUNCTION;
+        // Duplicate the primary type
+        primary_type = _get_duplicated_function_type(primary_type);
     }
     else
     {
@@ -1266,6 +1351,7 @@ char has_dependent_template_arguments(template_argument_list_t* template_argumen
     return 0;
 }
 
+
 type_t* template_type_get_specialized_type(type_t* t, 
         template_argument_list_t* template_argument_list,
         template_parameter_list_t *template_parameters, 
@@ -1323,9 +1409,11 @@ type_t* template_type_get_specialized_type(type_t* t,
     }
     else if (primary_symbol->kind == SK_FUNCTION)
     {
-        // This will give us an updated function type
-        specialized_type = update_type(template_argument_list, 
+        type_t* updated_function_type = update_type(template_argument_list, 
                 primary_symbol->type_information, decl_context, filename, line);
+
+        // This will give us a new function type
+        specialized_type = _get_duplicated_function_type(updated_function_type);
     }
     else
     {
@@ -1588,6 +1676,7 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
 
     if (qualified_type == NULL)
     {
+        _qualified_type_counter++;
         qualified_type = counted_calloc(1, sizeof(*qualified_type), &_bytes_due_to_type_system);
         *qualified_type = *original;
         qualified_type->cv_qualifier = cv_qualification;
@@ -1634,6 +1723,7 @@ type_t* get_pointer_type(type_t* t)
 
     if (pointed_type == NULL)
     {
+        _pointer_type_counter++;
         pointed_type = counted_calloc(1, sizeof(*pointed_type), &_bytes_due_to_type_system);
         pointed_type->kind = TK_POINTER;
         pointed_type->unqualified_type = pointed_type;
@@ -1699,6 +1789,7 @@ static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
 
     if (referenced_type == NULL)
     {
+        _reference_type_counter++;
         referenced_type = counted_calloc(1, sizeof(*referenced_type), &_bytes_due_to_type_system);
         if (!is_rvalue_ref)
         {
@@ -1754,6 +1845,7 @@ type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
 
     if (pointer_to_member == NULL)
     {
+        _pointer_to_member_type_counter++;
         pointer_to_member = counted_calloc(1, sizeof(*pointer_to_member), &_bytes_due_to_type_system);
         pointer_to_member->kind = TK_POINTER_TO_MEMBER;
         pointer_to_member->unqualified_type = pointer_to_member;
@@ -1786,6 +1878,68 @@ type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
     return pointer_to_member;
 }
 
+typedef struct array_sized_hash
+{
+    _size_t size;
+    Hash *element_hash;
+} array_sized_hash_t;
+
+static array_sized_hash_t *_array_sized_hash = NULL;
+static int _array_sized_hash_size = 0;
+
+static Hash* _init_array_sized_hash(array_sized_hash_t *array_sized_hash_elem, _size_t size)
+{
+    array_sized_hash_elem->size = size;
+    array_sized_hash_elem->element_hash = hash_create(HASH_SIZE, HASHFUNC(pointer_hash), KEYCMPFUNC(integer_comp));
+
+    return array_sized_hash_elem->element_hash;
+}
+
+/*
+   void *bsearch(const void *key, const void *base,
+   size_t nmemb, size_t size,
+   int (*compar)(const void *, const void *));
+ */
+
+int array_hash_compar(const void* v1, const void* v2)
+{
+    const array_sized_hash_t* a1 = (const array_sized_hash_t*)v1;
+    const array_sized_hash_t* a2 = (const array_sized_hash_t*)v2;
+
+    if (a1->size < a2->size)
+        return -1;
+    else if (a2->size < a1->size)
+        return 1;
+    else
+        return 0;
+}
+
+static Hash* get_array_sized_hash(_size_t size)
+{
+    array_sized_hash_t key = { .size = size };
+
+    array_sized_hash_t* sized_hash = bsearch(&key, 
+            _array_sized_hash, _array_sized_hash_size, 
+            sizeof(array_sized_hash_t), array_hash_compar);
+
+    if (sized_hash == NULL)
+    {
+        _array_sized_hash_size++;
+        _array_sized_hash = realloc(_array_sized_hash, _array_sized_hash_size * sizeof(array_sized_hash_t));
+
+        Hash* result = _init_array_sized_hash(&_array_sized_hash[_array_sized_hash_size - 1], size);
+
+        // So we can use bsearch again
+        qsort(_array_sized_hash, _array_sized_hash_size, sizeof(array_sized_hash_t), array_hash_compar);
+
+        return result;
+    }
+    else
+    {
+        return sized_hash->element_hash;
+    }
+}
+
 type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl_context)
 {
     // This type is not efficiently managed since sometimes we cannot state
@@ -1810,35 +1964,94 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
     //
     //
     // Fold if possible the expression
-    type_t* result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
-    result->kind = TK_ARRAY;
-    result->unqualified_type = result;
-    result->array = counted_calloc(1, sizeof(*(result->array)), &_bytes_due_to_type_system);
-    result->array->element_type = element_type;
-    result->array->array_expr = expression;
-    result->array->array_expr_decl_context = decl_context;
 
-    if (expression != NULL
-            && !check_for_expression(expression, decl_context))
+    type_t* result = NULL;
+
+    if (expression == NULL)
     {
-        result->is_faulty = 1;
+        // Use the same strategy we use for pointers
+        static Hash *_undefined_array_types = NULL;
+
+        if (_undefined_array_types == NULL)
+        {
+            _undefined_array_types = hash_create(HASH_SIZE, HASHFUNC(pointer_hash), KEYCMPFUNC(integer_comp));
+        }
+
+        type_t* undefined_array_type = hash_get(_undefined_array_types, element_type);
+        if (undefined_array_type == NULL)
+        {
+            _array_type_counter++;
+            result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
+            result->kind = TK_ARRAY;
+            result->unqualified_type = result;
+            result->array = counted_calloc(1, sizeof(*(result->array)), &_bytes_due_to_type_system);
+            result->array->element_type = element_type;
+            result->array->array_expr = NULL;
+            result->array->array_expr_decl_context = decl_context;
+
+            hash_put(_undefined_array_types, element_type, result);
+        }
+        else
+        {
+            result = undefined_array_type;
+        }
     }
-
-    if (!CURRENT_CONFIGURATION(disable_sizeof))
+    else
     {
-        if (expression != NULL
+        if (!CURRENT_CONFIGURATION(disable_sizeof)
                 && is_constant_expression(expression, decl_context))
         {
             char valid = 0;
             literal_value_t literal_val 
                 = evaluate_constant_expression(expression, decl_context);
-            _size_t size_of_type = literal_value_to_uint(literal_val, &valid);
+            _size_t num_elements = literal_value_to_uint(literal_val, &valid);
 
-            // This check is redundant since is_constant_expression and
-            // literal_value_to_uint do the same check
-            if (valid)
+            if (!valid)
+                internal_error("Failed when evaluating constant expression of array!", 0);
+
+            Hash* array_sized_hash = get_array_sized_hash(num_elements);
+
+            type_t* array_type = hash_get(array_sized_hash, element_type);
+
+            if (array_type == NULL)
             {
-                result->size = element_type->size * size_of_type;
+                _array_type_counter++;
+                result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
+                result->kind = TK_ARRAY;
+                result->unqualified_type = result;
+                result->array = counted_calloc(1, sizeof(*(result->array)), &_bytes_due_to_type_system);
+                result->array->element_type = element_type;
+                result->array->array_expr = expression;
+                result->array->array_expr_decl_context = decl_context;
+
+                if (expression != NULL
+                        && !check_for_expression(expression, decl_context))
+                {
+                    result->is_faulty = 1;
+                }
+
+                hash_put(array_sized_hash, element_type, result);
+            }
+            else
+            {
+                result = array_type;
+            }
+        }
+        else
+        {
+            _array_type_counter++;
+            result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
+            result->kind = TK_ARRAY;
+            result->unqualified_type = result;
+            result->array = counted_calloc(1, sizeof(*(result->array)), &_bytes_due_to_type_system);
+            result->array->element_type = element_type;
+            result->array->array_expr = expression;
+            result->array->array_expr_decl_context = decl_context;
+
+            if (expression != NULL
+                    && !check_for_expression(expression, decl_context))
+            {
+                result->is_faulty = 1;
             }
         }
     }
@@ -1848,6 +2061,7 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
 
 type_t* get_vector_type(type_t* element_type, unsigned int vector_size)
 {
+    _vector_type_counter++;
     // This type is not efficiently managed
     type_t* result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
     
@@ -1884,8 +2098,10 @@ type_t* vector_type_get_element_type(type_t* t)
     return t->vector->element_type;
 }
 
-type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int num_parameters)
+static type_t* _get_new_function_type(type_t* t, parameter_info_t* parameter_info, int num_parameters)
 {
+    _function_type_counter++;
+
     type_t* result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
 
     result->kind = TK_FUNCTION;
@@ -1919,6 +2135,97 @@ type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int n
     }
 
     return result;
+}
+
+static type_t* _get_duplicated_function_type(type_t* function_type)
+{
+    ERROR_CONDITION(!is_function_type(function_type), "This is not a function type!", 0);
+
+    function_type = advance_over_typedefs(function_type);
+
+    int num_parameters = function_type->function->num_parameters;
+    parameter_info_t parameter_list[num_parameters];
+    
+    int i;
+    for (i = 0; i < num_parameters; i++)
+    {
+        parameter_list[i] = *(function_type->function->parameter_list[i]);
+    }
+
+    type_t* result = _get_new_function_type(
+            function_type->function->return_type,
+            parameter_list,
+            num_parameters);
+
+    // Preserve the cv qualifier
+    result = get_cv_qualified_type(result, get_cv_qualifier(function_type));
+
+    return result;
+}
+
+type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int num_parameters)
+{
+    static type_trie_t *_no_type_functions = NULL;
+    static type_trie_t *_functions = NULL;
+
+    type_trie_t* used_trie = NULL;
+
+    if (t == NULL)
+    {
+        if (_no_type_functions == NULL)
+        {
+            _no_type_functions = allocate_type_trie();
+        }
+
+        used_trie = _no_type_functions;
+    }
+    else
+    {
+        if (_functions == NULL)
+        {
+            _functions = allocate_type_trie();
+        }
+
+        used_trie = _functions;
+    }
+
+    const type_t* type_seq[num_parameters + 1];
+    //  Don't worry, this 'void' is just for the trie
+    type_seq[0] = (t != NULL ? t : get_void_type());
+
+    int i;
+    for (i = 0; i < num_parameters; i++)
+    {
+        if (!parameter_info[i].is_ellipsis)
+        {
+            if (parameter_info[i].nonadjusted_type_info != NULL)
+            {
+                type_seq[i + 1] = parameter_info[i].nonadjusted_type_info;
+            }
+            else
+            {
+                type_seq[i + 1] = parameter_info[i].type_info;
+            }
+        }
+        else
+        {
+            // This type is just for the trie 
+            type_seq[i + 1] = get_ellipsis_type();
+        }
+    }
+
+    // Cast to drop 'const'
+    type_t* function_type = (type_t*)lookup_type_trie(used_trie, 
+            type_seq, num_parameters + 1);
+
+    if (function_type == NULL)
+    {
+        type_t* new_funct_type = _get_new_function_type(t, parameter_info, num_parameters);
+        insert_type_trie(used_trie, type_seq, num_parameters + 1, new_funct_type);
+        function_type = new_funct_type;
+    }
+    
+    return function_type;
 }
 
 type_t* get_nonproto_function_type(type_t* t, int num_parameters)
@@ -2401,6 +2708,8 @@ type_t* unnamed_class_enum_type_set_name(type_t* t, scope_entry_t* entry)
                 && (t->type->kind == STK_CLASS
                     || t->type->kind == STK_ENUM)), 
             "This should be an unnamed enum or class\n", 0);
+
+    _enum_type_counter++;
 
     type_t* new_type = counted_calloc(1, sizeof(*new_type), &_bytes_due_to_type_system);
 

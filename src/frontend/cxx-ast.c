@@ -36,48 +36,88 @@
 // Definition of the type
 struct AST_tag
 {
-    // Node type
-    node_t node_type; 
+    // Node type (1024 different node types)
+    node_t node_type:10; 
 
-    // Number of children
-    int num_children; 
+    // Only meaningful if expr_type != NULL
+    unsigned char expr_is_lvalue:1;
+
+    unsigned int num_ambig:4;
+    // This is a bitmap for the sons
+    unsigned int bitmap_sons:MAX_AST_CHILDREN;
 
     // Parent node
     struct AST_tag* parent; 
 
-    // The children of this tree (except for AST_AMBIGUITY)
-    struct AST_tag* children[MAX_AST_CHILDREN];
-
     // Node locus
-    int line; 
+    unsigned int line; 
     const char* filename;
 
     // Textual information linked to the node
     // normally the symbol or the literal
     const char* text; 
 
-    // When type == AST_AMBIGUITY, all intepretations are here
-    int num_ambig;
-    struct AST_tag** ambig;
+    union
+    {
+        // The children of this tree (except for AST_AMBIGUITY)
+        struct AST_tag** children;
+        // When type == AST_AMBIGUITY, all intepretations are here
+        struct AST_tag** ambig;
+    };
+
+    // Extensible information (created lazily)
+    extensible_struct_t* extended_data;
 
     // For nodes holding some kind of expression
     // this should be the related type
     struct type_tag* expr_type;
-    // Only meaningful if expr_type != NULL
-    char expr_is_lvalue;
-
-    // Extensible information
-    extensible_struct_t* extended_data;
 };
 
 // Define the extensible schema of AST's
 extensible_schema_t ast_extensible_schema = EMPTY_EXTENSIBLE_SCHEMA;
 
+static int count_bitmap(unsigned int bitmap)
+{
+    int i;
+    int s = 0;
+    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    {
+        s += bitmap & 1;
+        bitmap = bitmap >> 1;
+    }
+
+    return s;
+}
+
+static int bitmap_to_index(unsigned int bitmap, int num)
+{
+    ERROR_CONDITION(((1 << num) & bitmap) == 0,
+            "Invalid bitmap!", 0);
+
+    int i;
+    int s = 0;
+    for (i = 0; i < num; i++)
+    {
+        s += bitmap & 1;
+        bitmap = bitmap >> 1;
+    }
+
+    return s;
+}
+
+
+static int ast_son_num_to_son_index(const_AST a, int num_son)
+{
+    return bitmap_to_index(a->bitmap_sons, num_son);
+}
+
+static char ast_has_son(const_AST a, int son)
+{
+    return (((1 << son) & a->bitmap_sons) != 0);
+}
+
 static long long unsigned int _bytes_due_to_astmake = 0;
-static long long unsigned int _bytes_due_to_ambiguities = 0;
-static long long unsigned int _bytes_due_to_copies = 0;
 static long long unsigned int _bytes_due_to_instantiation = 0;
-static long long unsigned int _bytes_ast_freed = 0;
 
 long long unsigned int ast_astmake_used_memory(void)
 {
@@ -89,44 +129,18 @@ long long unsigned int ast_instantiation_used_memory(void)
     return _bytes_due_to_instantiation;
 }
 
-long long unsigned int ast_copies_used_memory(void)
-{
-    return _bytes_due_to_copies;
-}
-
-long long unsigned int ast_ambiguities_used_memory(void)
-{
-    return _bytes_due_to_ambiguities;
-}
-
-long long unsigned int ast_bytes_freed(void)
-{
-    return _bytes_ast_freed;
-}
-
-AST ast_make(node_t type, int num_children, 
+AST ast_make(node_t type, int num_children UNUSED_PARAMETER, 
         AST child0, AST child1, AST child2, AST child3, 
-        const char* file, int line, const char *text)
+        const char* file, unsigned int line, const char *text)
 {
-    long long unsigned int* account = &_bytes_due_to_astmake;
-
-    if (type == AST_AMBIGUITY)
-        account = &_bytes_due_to_ambiguities;
-
-    AST result = counted_calloc(1, sizeof(*result), account);
+    AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_astmake);
 
     result->parent = NULL;
 
     result->node_type = type;
-    result->num_children = num_children;
 
     result->line = line;
     result->filename = file;
-
-    result->extended_data = counted_calloc(1, sizeof(*(result->extended_data)), account);
-
-    extensible_struct_init(result->extended_data, &ast_extensible_schema);
-
 
 #define ADD_SON(n) \
     ast_set_child(result, n, child##n);
@@ -156,7 +170,7 @@ AST ast_get_parent(const_AST a)
     return a->parent;
 }
 
-int ast_get_line(const_AST a)
+unsigned int ast_get_line(const_AST a)
 {
     return a->line;
 }
@@ -173,7 +187,14 @@ void ast_set_text(AST a, const char* str)
 
 AST ast_get_child(const_AST a, int num_child)
 {
-    return a->children[num_child];
+    if (ast_has_son(a, num_child))
+    {
+        return a->children[ast_son_num_to_son_index(a, num_child)];
+    }
+    else
+    {
+        return NULL;
+    }
 }
 
 void ast_set_parent(AST a, AST parent)
@@ -181,28 +202,100 @@ void ast_set_parent(AST a, AST parent)
     a->parent = parent;
 }
 
-void ast_set_child(AST a, int num_child, AST new_children)
+// This function works both for shrinking or widening
+static void ast_reallocate_children(AST a, int num_child, AST new_child)
 {
-    a->children[num_child] = new_children;
-    if (new_children != NULL)
+    // Reallocate childrens
+    // Save the old children array
+    AST* old_children = a->children;
+    // And the old children bitmap
+    unsigned int old_bitmap = a->bitmap_sons;
+
+    // Enable or disable this new son depending on it being null
+    if (new_child != NULL)
     {
-        new_children->parent = a;
+        a->bitmap_sons = (a->bitmap_sons | (1 << num_child));
     }
+    else
+    {
+        a->bitmap_sons = (a->bitmap_sons & (~(1 << num_child)));
+    }
+
+    a->children = counted_calloc(sizeof(*a->children), 
+            (count_bitmap(a->bitmap_sons)), 
+            &_bytes_due_to_astmake);
+
+    // Now for every old son, update the new children
+    int i;
+    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    {
+        // Note that when shrinking the node ast_has_son
+        // will always return false for num_child.
+        if (ast_has_son(a, i))
+        {
+            if (i == num_child)
+            {
+                // The new son
+                a->children[ast_son_num_to_son_index(a, i)] = new_child;
+            }
+            else
+            {
+                // Old sons that are updated their position
+                a->children[ast_son_num_to_son_index(a, i)] = 
+                    old_children[bitmap_to_index(old_bitmap, i)];
+            }
+        }
+    }
+
+    // Now free the old children (if any)
+    if (old_children != NULL)
+        free(old_children);
+
+    // Count this free
+    _bytes_due_to_astmake -= (count_bitmap(old_bitmap) * sizeof(AST));
 }
 
-AST *ast_child_ref(AST a, int num_child)
+void ast_set_child(AST a, int num_child, AST new_child)
 {
-    return &(a->children[num_child]);
-}
+    if (new_child == NULL)
+    {
+        if (ast_has_son(a, num_child))
+        {
+            // Shrink the node if we have it
+            ast_reallocate_children(a, num_child, new_child);
+        }
+    }
+    else
+    {
+        if (ast_has_son(a, num_child))
+        {
+            a->children[ast_son_num_to_son_index(a, num_child)] = new_child;
+        }
+        else
+        {
+            // This will widen the node
+            ast_reallocate_children(a, num_child, new_child);
+        }
 
-AST *ast_parent_ref(AST a)
-{
-    return &(a->parent);
+        new_child->parent = a;
+    }
 }
 
 int ast_num_children(const_AST a)
 {
-    return a->num_children;
+    // We return the maximum
+    int max = 0;
+    int i;
+    unsigned int bitmap = a->bitmap_sons;
+    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    {
+        if ((1 << i) & bitmap)
+        {
+            max = i + 1;
+        }
+    }
+
+    return max;
 }
 
 /**
@@ -247,19 +340,21 @@ char ast_check(const_AST node)
     return check;
 }
 
+static void ast_copy_one_node(AST dest, AST orig)
+{
+    *dest = *orig;
+    dest->bitmap_sons = 0;
+    dest->children = 0;
+}
 
 AST ast_copy(const_AST a)
 {
     if (a == NULL)
         return NULL;
 
-    AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_copies);
+    AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_astmake);
 
-    // Copy everything by value, extended data is the one of the original tree
-    *result = *a;
-
-    // result->extended_data = counted_calloc(1, sizeof(*(result->extended_data)), &_bytes_due_to_copies);
-    // extensible_struct_init(result->extended_data, &ast_extensible_schema);
+    ast_copy_one_node(result, (AST)a);
 
     int i;
     for (i = 0; i < MAX_AST_CHILDREN; i++)
@@ -272,7 +367,7 @@ AST ast_copy(const_AST a)
             (a->num_ambig > 0))
     {
         result->num_ambig = a->num_ambig;
-        result->ambig = counted_calloc(a->num_ambig, sizeof(*(result->ambig)), &_bytes_due_to_copies);
+        result->ambig = counted_calloc(a->num_ambig, sizeof(*(result->ambig)), &_bytes_due_to_astmake);
         for (i = 0; i < a->num_ambig; i++)
         {
             result->ambig[i] = ast_copy(a->ambig[i]);
@@ -293,9 +388,7 @@ void ast_clear_extended_data(AST a)
 {
     if (a != NULL)
     {
-        a->extended_data = counted_calloc(1, sizeof(*(a->extended_data)), &_bytes_due_to_copies);
-        extensible_struct_init(a->extended_data, &ast_extensible_schema);
-
+        a->extended_data = NULL;
         int i;
         for (i = 0; i < MAX_AST_CHILDREN; i++)
         {
@@ -319,8 +412,10 @@ AST ast_copy_for_instantiation(const_AST a)
 
     AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_instantiation);
 
-    // Copy everything by value
-    *result = *a;
+    ast_copy_one_node(result, (AST)a);
+
+    // Children are special and will be properly copied by ast_set_child
+    result->children = NULL;
 
     // Remove dependent type information
     if (result->expr_type != NULL
@@ -331,8 +426,7 @@ AST ast_copy_for_instantiation(const_AST a)
     }
 
     // Clear extended data since we will want to recheck this code
-    result->extended_data = counted_calloc(1, sizeof(*(result->extended_data)), &_bytes_due_to_instantiation);
-    extensible_struct_init(result->extended_data, &ast_extensible_schema);
+    result->extended_data = NULL;
 
     int i;
     for (i = 0; i < MAX_AST_CHILDREN; i++)
@@ -479,11 +573,11 @@ const char* ast_location(const_AST a)
 
     if (a->filename == NULL)
     {
-        snprintf(result, 255, "<unknown file>:%d", a->line);
+        snprintf(result, 255, "<unknown file>:%u", a->line);
     }
     else
     {
-        snprintf(result, 255, "%s:%d", a->filename, a->line);
+        snprintf(result, 255, "%s:%u", a->filename, a->line);
     }
 
     result[255] = '\0';
@@ -500,6 +594,12 @@ AST ast_make_ambiguous(AST son0, AST son1)
         {
             int original_son0 = son0->num_ambig;
 
+            if ((son0->num_ambig + son1->num_ambig) > MAX_AST_AMBIGUITIES)
+            {
+                internal_error("Too many ambiguities for the tree (%d, max=%d)\n",
+                        son0->num_ambig + son1->num_ambig, MAX_AST_AMBIGUITIES);
+            }
+
             son0->num_ambig += son1->num_ambig;
             son0->ambig = (AST*) realloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
 
@@ -513,6 +613,12 @@ AST ast_make_ambiguous(AST son0, AST son1)
         }
         else
         {
+            if (son0->num_ambig == MAX_AST_AMBIGUITIES)
+            {
+                internal_error("Too many ambiguities for the tree (%d, max=%d)\n",
+                        son0->num_ambig, MAX_AST_AMBIGUITIES);
+            }
+
             son0->num_ambig++;
             son0->ambig = (AST*) realloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
             son0->ambig[son0->num_ambig-1] = ast_copy(son1);
@@ -522,6 +628,12 @@ AST ast_make_ambiguous(AST son0, AST son1)
     }
     else if (ASTType(son1) == AST_AMBIGUITY)
     {
+        if (son1->num_ambig == MAX_AST_AMBIGUITIES)
+        {
+            internal_error("Too many ambiguities for the tree (%d, max=%d)\n",
+                    son1->num_ambig, MAX_AST_AMBIGUITIES);
+        }
+
         son1->num_ambig++;
         son1->ambig = (AST*) realloc(son1->ambig, sizeof(*(son1->ambig)) * son1->num_ambig);
         son1->ambig[son1->num_ambig-1] = ast_copy(son0);
@@ -533,7 +645,7 @@ AST ast_make_ambiguous(AST son0, AST son1)
         AST result = ASTLeaf(AST_AMBIGUITY, NULL, 0, NULL);
 
         result->num_ambig = 2;
-        result->ambig = counted_calloc(sizeof(*(result->ambig)), result->num_ambig, &_bytes_due_to_ambiguities);
+        result->ambig = counted_calloc(sizeof(*(result->ambig)), result->num_ambig, &_bytes_due_to_astmake);
         result->ambig[0] = ast_copy(son0);
         result->ambig[1] = ast_copy(son1);
         result->line = son0->line;
@@ -551,6 +663,11 @@ int ast_get_num_ambiguities(const_AST a)
 AST ast_get_ambiguity(const_AST a, int num)
 {
     return a->ambig[num];
+}
+
+static void ast_set_ambiguity(AST a, int num, AST child)
+{
+    a->ambig[num] = child;
 }
 
 void ast_replace(AST dest, const_AST src)
@@ -580,10 +697,12 @@ static void ast_free(AST a)
         }
 
         // This will uncover dangling references
+        free(a->children);
+        _bytes_due_to_astmake -= sizeof(*(a->children)) * count_bitmap(a->bitmap_sons);
         memset(a, 0, sizeof(*a));
         free(a);
 
-        _bytes_ast_freed += sizeof(*a);
+        _bytes_due_to_astmake -= sizeof(*a);
     }
 }
 
@@ -613,27 +732,28 @@ void ast_replace_with_ambiguity(AST a, int n)
                 ast_get_ambiguity(a, n));
     }
 
-    if (!ASTCheck(ast_get_ambiguity(a, n)))
-    {
-        internal_error("*** INCONSISTENT TREE DETECTED IN AMBIGUITY TREE %d *** %p\n", n, ast_get_ambiguity(a, n));
-    }
-
     int i;
     for (i = 0; i < ast_get_num_ambiguities(a); i++)
     {
         if (i != n)
         {
             ast_free(ast_get_ambiguity(a, i));
+            ast_set_ambiguity(a, i, NULL);
         }
     }
     
+    if (!ASTCheck(a))
+    {
+        internal_error("*** INCONSISTENT TREE DETECTED IN ABOUT TO BE DISAMBIGUATED TREE %p ***\n", a);
+    }
+
     // This will work, trust me :)
     ast_replace(a, ast_get_ambiguity(a, n));
 
     // Correctly relink to the parent
     ast_set_parent(a, parent);
 
-    for (i = 0; i < ASTNumChildren(a); i++)
+    for (i = 0; i < MAX_AST_CHILDREN; i++)
     {
         if (ASTChild(a, i) != NULL)
         {
@@ -647,16 +767,6 @@ void ast_replace_with_ambiguity(AST a, int n)
     {
         internal_error("*** INCONSISTENT TREE DETECTED IN DISAMBIGUATED TREE %p ***\n", a);
     }
-}
-
-type_t** ast_expression_type_ref(AST a)
-{
-    return &(a->expr_type);
-}
-
-char *ast_expression_is_lvalue_ref(AST a)
-{
-    return &(a->expr_is_lvalue);
 }
 
 const char *ast_get_filename(const_AST a)
@@ -690,8 +800,13 @@ void ast_set_expression_type(AST a, struct type_tag* type)
     a->expr_type = type;
 }
 
-extensible_struct_t* ast_get_extensible_struct(const_AST a)
+extensible_struct_t* ast_get_extensible_struct(AST a)
 {
+    if (a->extended_data == NULL)
+    {
+        a->extended_data = counted_calloc(1, sizeof(*(a->extended_data)), &_bytes_due_to_astmake);
+        extensible_struct_init(a->extended_data, &ast_extensible_schema);
+    }
     return a->extended_data;
 }
 
@@ -705,7 +820,9 @@ static AST ast_copy_with_scope_link_rec(AST a, scope_link_t* sl)
     if (a == NULL)
         return NULL;
 
-    AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_copies);
+    AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_astmake);
+
+    ast_copy_one_node(result, a);
 
     // Update the scope_link
     decl_context_t decl_context;
@@ -714,11 +831,8 @@ static AST ast_copy_with_scope_link_rec(AST a, scope_link_t* sl)
         scope_link_set(sl, result, decl_context);
     }
 
-    // Copy everything by value
-    *result = *a;
-
     int i;
-    for (i = 0; i < ASTNumChildren(result); i++)
+    for (i = 0; i < MAX_AST_CHILDREN; i++)
     {
         ast_set_child(result, i, ast_copy_with_scope_link_rec(ASTChild(a, i), sl));
     }

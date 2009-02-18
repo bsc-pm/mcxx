@@ -151,11 +151,11 @@ char is_less_or_equal_specialized_template_class(type_t* c1, type_t* c2, decl_co
 
     parameter_info_t c1_parameters[1] =
     {
-        { .is_ellipsis = 0, .type_info = c1 }
+        { .is_ellipsis = 0, .type_info = c1, .nonadjusted_type_info = NULL }
     };
     parameter_info_t c2_parameters[1] =
     {
-        { .is_ellipsis = 0, .type_info = c2 }
+        { .is_ellipsis = 0, .type_info = c2, .nonadjusted_type_info = NULL }
     };
 
     type_t* faked_type_1 = get_new_function_type(get_void_type(), 

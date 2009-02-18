@@ -2329,6 +2329,7 @@ type_t* update_type(template_argument_list_t* given_template_args,
 
 #define MAX_PARAMETERS (256)
         parameter_info_t parameter_types[MAX_PARAMETERS];
+        memset(parameter_types, 0, sizeof(parameter_types));
         int num_parameters = 0;
         int last = function_type_get_num_parameters(orig_type);
 

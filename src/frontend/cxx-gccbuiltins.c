@@ -1,5 +1,6 @@
 #include "cxx-utils.h"
 #include "cxx-typeutils.h"
+#include <string.h>
 
 /* Copyright(C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
@@ -217,6 +218,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
        if(result == NULL) \
        { \
           parameter_info_t _param_info[1]; \
+          memset(_param_info, 0, sizeof(_param_info)); \
           _param_info[0].is_ellipsis = 0; \
           _param_info[0].type_info =(__mcxx_builtin_type__##PARAM_TYPE1)(); \
           _param_info[0].type_info = adjust_type_for_parameter_type(_param_info[0].type_info); \
@@ -232,6 +234,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
        if(result == NULL) \
        { \
          parameter_info_t _param_info[2]; \
+         memset(_param_info, 0, sizeof(_param_info)); \
          _param_info[0].is_ellipsis = 0; \
          _param_info[0].type_info =(__mcxx_builtin_type__##PARAM_TYPE1)(); \
          _param_info[0].type_info = adjust_type_for_parameter_type(_param_info[0].type_info); \
@@ -250,6 +253,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
        if(result == NULL) \
        { \
          parameter_info_t _param_info[3]; \
+         memset(_param_info, 0, sizeof(_param_info)); \
          _param_info[0].is_ellipsis = 0; \
          _param_info[0].type_info =(__mcxx_builtin_type__##PARAM_TYPE1)(); \
          _param_info[0].type_info = adjust_type_for_parameter_type(_param_info[0].type_info); \
@@ -271,6 +275,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
        if(result == NULL) \
        { \
           parameter_info_t _param_info[4]; \
+          memset(_param_info, 0, sizeof(_param_info)); \
           _param_info[0].is_ellipsis = 0; \
           _param_info[0].type_info =(__mcxx_builtin_type__##PARAM_TYPE1)(); \
           _param_info[0].type_info = adjust_type_for_parameter_type(_param_info[0].type_info); \
@@ -295,6 +300,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
        if(result == NULL) \
        { \
           parameter_info_t _param_info[5]; \
+          memset(_param_info, 0, sizeof(_param_info)); \
           _param_info[0].is_ellipsis = 0; \
           _param_info[0].type_info =(__mcxx_builtin_type__##PARAM_TYPE1)(); \
           _param_info[0].type_info = adjust_type_for_parameter_type(_param_info[0].type_info); \
@@ -322,6 +328,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
        if(result == NULL) \
        { \
            parameter_info_t _param_info[6]; \
+           memset(_param_info, 0, sizeof(_param_info)); \
            _param_info[0].is_ellipsis = 0; \
            _param_info[0].type_info =(__mcxx_builtin_type__##PARAM_TYPE1)(); \
            _param_info[0].type_info = adjust_type_for_parameter_type(_param_info[0].type_info); \
@@ -352,6 +359,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
        if(result == NULL) \
        { \
            parameter_info_t _param_info[6]; \
+           memset(_param_info, 0, sizeof(_param_info)); \
            _param_info[0].is_ellipsis = 0; \
            _param_info[0].type_info =(__mcxx_builtin_type__##PARAM_TYPE1)(); \
            _param_info[0].type_info = adjust_type_for_parameter_type(_param_info[0].type_info); \
@@ -385,6 +393,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
        if(result == NULL) \
        { \
            parameter_info_t _param_info[1]; \
+           memset(_param_info, 0, sizeof(_param_info)); \
            _param_info[0].is_ellipsis = 1; \
            _param_info[0].type_info = get_ellipsis_type(); \
           result =  get_new_function_type((__mcxx_builtin_type__##RESULT_TYPE)(), _param_info, 1); \
@@ -399,6 +408,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
        if(result == NULL) \
        { \
            parameter_info_t _param_info[2]; \
+           memset(_param_info, 0, sizeof(_param_info)); \
            _param_info[0].is_ellipsis = 0; \
            _param_info[0].type_info =(__mcxx_builtin_type__##PARAM_TYPE1)(); \
            _param_info[0].type_info = adjust_type_for_parameter_type(_param_info[0].type_info); \
@@ -416,6 +426,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
        if(result == NULL) \
        { \
            parameter_info_t _param_info[3]; \
+           memset(_param_info, 0, sizeof(_param_info)); \
            _param_info[0].is_ellipsis = 0; \
            _param_info[0].type_info =(__mcxx_builtin_type__##PARAM_TYPE1)(); \
            _param_info[0].type_info = adjust_type_for_parameter_type(_param_info[0].type_info); \
@@ -436,6 +447,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
        if(result == NULL) \
        { \
            parameter_info_t _param_info[4]; \
+           memset(_param_info, 0, sizeof(_param_info)); \
            _param_info[0].is_ellipsis = 0; \
            _param_info[0].type_info =(__mcxx_builtin_type__##PARAM_TYPE1)(); \
            _param_info[0].type_info = adjust_type_for_parameter_type(_param_info[0].type_info); \
@@ -459,6 +471,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
        if(result == NULL) \
        { \
            parameter_info_t _param_info[5]; \
+           memset(_param_info, 0, sizeof(_param_info)); \
            _param_info[0].is_ellipsis = 0; \
            _param_info[0].type_info =(__mcxx_builtin_type__##PARAM_TYPE1)(); \
            _param_info[0].type_info = adjust_type_for_parameter_type(_param_info[0].type_info); \
@@ -485,6 +498,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
        if(result == NULL) \
        { \
            parameter_info_t _param_info[6]; \
+           memset(_param_info, 0, sizeof(_param_info)); \
            _param_info[0].is_ellipsis = 0; \
            _param_info[0].type_info =(__mcxx_builtin_type__##PARAM_TYPE1)(); \
            _param_info[0].type_info = adjust_type_for_parameter_type(_param_info[0].type_info); \
@@ -514,6 +528,7 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
        if(result == NULL) \
        { \
            parameter_info_t _param_info[7]; \
+           memset(_param_info, 0, sizeof(_param_info)); \
            _param_info[0].is_ellipsis = 0; \
            _param_info[0].type_info =(__mcxx_builtin_type__##PARAM_TYPE1)(); \
            _param_info[0].type_info = adjust_type_for_parameter_type(_param_info[0].type_info); \
@@ -545,7 +560,8 @@ static type_t* adjust_type_for_parameter_type(type_t* orig)
        static type_t* result = NULL; \
        if(result == NULL) \
        { \
-           parameter_info_t _param_info[7]; \
+           parameter_info_t _param_info[8]; \
+           memset(_param_info, 0, sizeof(_param_info)); \
            _param_info[0].is_ellipsis = 0; \
            _param_info[0].type_info =(__mcxx_builtin_type__##PARAM_TYPE1)(); \
            _param_info[0].type_info = adjust_type_for_parameter_type(_param_info[0].type_info); \

@@ -26,7 +26,15 @@ namespace TL
     namespace Nanos4
     {
         OpenMPTransform::OpenMPTransform()
-            : parallel_nesting(0), transaction_nesting(0), stm_log_file_opened(false)
+            : num_parallels(0),
+            parallel_nesting(0),
+            transaction_nesting(0),
+            stm_log_file_opened(false),
+            enable_mintaka_instr(false), 
+            enable_nth_create(true), 
+            disable_restrict_pointers(false),
+            use_memcpy_always(true),
+            stm_global_lock_enabled(false)
         {
             // Set phase info
             set_phase_name("Nanos 4 OpenMP implementation");

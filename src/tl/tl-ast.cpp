@@ -823,7 +823,7 @@ namespace TL
         ast_set_text(this->_ast, str.c_str());
     }
 
-    int AST_t::get_line() const
+    unsigned int AST_t::get_line() const
     {
         if (this->_ast == NULL)
         {

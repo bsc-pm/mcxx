@@ -2248,22 +2248,29 @@ static char* power_suffixes[9] =
 
 static void print_human(char *dest, unsigned long long num_bytes_)
 {
-    double num_bytes = num_bytes_;
-    int i = 0;
-
-    while ((num_bytes > 1024) && (i <= 8))
-    {
-        i++;
-        num_bytes /= 1024;
-    }
-
-    if (i == 0)
+    if (CURRENT_CONFIGURATION(debug_options.print_memory_report_in_bytes))
     {
         sprintf(dest, "%llu", num_bytes_);
     }
     else
     {
-        sprintf(dest, "%.2f%s", num_bytes, power_suffixes[i]);
+        double num_bytes = num_bytes_;
+        int i = 0;
+
+        while ((num_bytes > 1024) && (i <= 8))
+        {
+            i++;
+            num_bytes /= 1024;
+        }
+
+        if (i == 0)
+        {
+            sprintf(dest, "%llu", num_bytes_);
+        }
+        else
+        {
+            sprintf(dest, "%.2f%s", num_bytes, power_suffixes[i]);
+        }
     }
 }
 
@@ -2342,27 +2349,30 @@ static void print_memory_report(void)
     print_human(c, ast_astmake_used_memory());
     fprintf(stderr, " - Memory used to create AST nodes: %s\n", c);
 
-    accounted_memory += ast_ambiguities_used_memory();
-    print_human(c, ast_ambiguities_used_memory());
-    fprintf(stderr, " - Memory used to create AST ambiguous nodes: %s\n", c);
-
-    accounted_memory += ast_copies_used_memory();
-    print_human(c, ast_copies_used_memory());
-    fprintf(stderr, " - Memory used to copy AST nodes: %s\n", c);
-
     accounted_memory += ast_instantiation_used_memory();
     print_human(c, ast_instantiation_used_memory());
     fprintf(stderr, " - Memory used to copy AST nodes when instantiating: %s\n", c);
-
-    print_human(c, ast_bytes_freed());
-    accounted_memory -= ast_bytes_freed();
-    fprintf(stderr, " - Memory freed of unused AST nodes: %s\n", c);
 
     // -- AST
 
     accounted_memory += type_system_used_memory();
     print_human(c, type_system_used_memory());
     fprintf(stderr, " - Memory usage due to type system: %s\n", c);
+
+    {
+        fprintf(stderr, " - Type system breakdown:\n");
+        fprintf(stderr, "    - Size of type node (bytes): %zu\n", get_type_t_size());
+        fprintf(stderr, "    - Number of enum types: %d\n", get_enum_type_counter());
+        fprintf(stderr, "    - Number of class types: %d\n", get_class_type_counter());
+        fprintf(stderr, "    - Number of function types: %d\n", get_function_type_counter());
+        fprintf(stderr, "    - Number of array types: %d\n", get_array_type_counter());
+        fprintf(stderr, "    - Number of pointer types: %d\n", get_pointer_type_counter());
+        fprintf(stderr, "    - Number of pointer to member types: %d\n", get_pointer_to_member_type_counter());
+        fprintf(stderr, "    - Number of reference types: %d\n", get_reference_type_counter());
+        fprintf(stderr, "    - Number of template types: %d\n", get_template_type_counter());
+        fprintf(stderr, "    - Number of qualified variants: %d\n", get_qualified_type_counter());
+        fprintf(stderr, "    - Number of vector types: %d\n", get_vector_type_counter());
+    }
     
     accounted_memory += char_trie_used_memory();
     print_human(c, char_trie_used_memory());

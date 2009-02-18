@@ -277,98 +277,65 @@ LIBMCXX_EXTERN extensible_schema_t scope_entry_extensible_schema;
 typedef struct entity_specifiers_tag
 {
     // States if this a static variable
-    char is_static;
+    char is_static:1;
 
     // Register variable
-    char is_register;
+    char is_register:1;
 
     // States if it is an extern declaration (explicitly given)
-    char is_extern;
+    char is_extern:1;
 
     // States if it is a mutable entity of a class
-    char is_mutable;
+    char is_mutable:1;
 
     // States is a exported template (unused at all)
-    char is_export;
+    char is_export:1;
 
     // Inlined function
-    char is_inline;
+    char is_inline:1;
 
     // Virtual function
-    char is_virtual;
+    char is_virtual:1;
 
     // Pure function
-    char is_pure;
+    char is_pure:1;
 
     // Visibility attributes
-    char is_public;
-    char is_private;
-    char is_protected;
+    char is_public:1;
+    char is_private:1;
+    char is_protected:1;
 
     // Builtin symbol
-    char is_builtin;
+    char is_builtin:1;
 
     // Is a conversion function
-    char is_conversion;
+    char is_conversion:1;
 
     // Is trivial special member
     // Qualifies several special members trivializing it
-    char is_trivial;
+    char is_trivial:1;
 
     // Is a constructor
-    char is_constructor;
-    char is_default_constructor;
+    char is_constructor:1;
+    char is_default_constructor:1;
     // Is a conversor one
-    char is_conversor_constructor;
+    char is_conversor_constructor:1;
 
     // Is an explicit constructor
-    char is_explicit;
-    
-    // States if the symbol is a template parameter name and its nesting and
-    // position
-    char is_template_parameter;
-    int template_parameter_nesting;
-    int template_parameter_position;
-
-    // States if the variable is parameter of a function (kind == SK_VARIABLE)
-    // and its position
-    char is_parameter;
-    int parameter_position;
-    
-    // Is a member entity (function or data)
-    char is_member;
-    // and its class 
-    struct type_tag* class_type;
-
-    // States if this is the injected class name of every class
-    char is_injected_class_name;
-    // and its real symbol class
-    struct scope_entry_tag* injected_class_referred_symbol;
-    
-    // Linkage specifier ("C" or "C++")
-    // Unused field
-    const char* linkage_spec;
-    
-    // Exception specifier for functions
-    char any_exception; // States that any exception can be thrown
-    int num_exceptions;
-    struct type_tag** exceptions;
-
-    // Default arguments for functions
-    int num_parameters;
-    default_argument_info_t **default_argument_info;
-
-    // Bitfields
-    char is_bitfield;
-    char is_unnamed_bitfield;
-    struct AST_tag* bitfield_expr;
-    decl_context_t bitfield_expr_context;
-
-    // Only for fields that are not bitfields, their offsetof value
-    _size_t field_offset;
+    char is_explicit:1;
 
     // Is a surrogate fake symbol
-    char is_surrogate_function;
+    char is_surrogate_function:1;
+
+    // Some bits have been moved here, they are repeated in comments below next
+    // to their protecting fields
+    char is_template_parameter:1;
+    char is_parameter:1;
+    char is_member:1;
+    char is_bitfield:1;
+    char is_unnamed_bitfield:1;
+    char any_exception:1;
+    char is_injected_class_name:1;
 
     // This symbol has been created because of a typedef
     // of an unnamed struct/class/enum/union type
@@ -385,7 +352,52 @@ typedef struct entity_specifiers_tag
     //
     // And sometimes we need to distinguish whether is
     // 'struct A { }' or 'typedef struct { } A';
-    char after_typedef;
+    char after_typedef:1;
+
+    // -- End of bits, move all bits before this point
+    
+    // States if the symbol is a template parameter name and its nesting and
+    // position
+    // --> char is_template_parameter:1;
+    int template_parameter_nesting;
+    int template_parameter_position;
+
+    // States if the variable is parameter of a function (kind == SK_VARIABLE)
+    // and its position
+    // --> char is_parameter:1;
+    int parameter_position;
+    
+    // Is a member entity (function or data)
+    // --> char is_member:1;
+    // and its class 
+    struct type_tag* class_type;
+
+    // States if this is the injected class name of every class
+    // --> char is_injected_class_name:1;
+    // and its real symbol class
+    struct scope_entry_tag* injected_class_referred_symbol;
+    
+    // Linkage specifier ("C" or "C++")
+    // Unused field
+    const char* linkage_spec;
+    
+    // Exception specifier for functions
+    // --> char any_exception:1; // States that any exception can be thrown
+    int num_exceptions;
+    struct type_tag** exceptions;
+
+    // Default arguments for functions
+    int num_parameters;
+    default_argument_info_t **default_argument_info;
+
+    // Bitfields
+    // char is_bitfield:1;
+    // char is_unnamed_bitfield:1;
+    struct AST_tag* bitfield_expr;
+    decl_context_t bitfield_expr_context;
+
+    // Only for fields that are not bitfields, their offsetof value
+    _size_t field_offset;
 
     // GCC attributes synthesized for this symbol coming from the syntax
     int num_gcc_attributes;

@@ -664,6 +664,7 @@ namespace TL
             {
                 result << " template ";
             }
+
             result
                 << "nth__" << function_name.get_unqualified_part() << "_" << num_parallels;
 
