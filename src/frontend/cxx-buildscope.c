@@ -5098,11 +5098,14 @@ static scope_entry_t* find_function_declaration(AST declarator_id, type_t* decla
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "Checking function declaration of '%s' at %s against the declaration at '%s:%d'\n",
+            fprintf(stderr, "Checking function declaration of '%s' at '%s' (%s) against the declaration at '%s:%d' (%s)\n",
                     prettyprint_in_buffer(declarator_id), 
                     ast_location(declarator_id),
+                    print_declarator(function_type_being_declared),
                     considered_symbol->file, 
-                    considered_symbol->line);
+                    considered_symbol->line,
+                    print_declarator(considered_symbol->type_information)
+                   );
         }
 
         type_t* considered_type = advance_over_typedefs(considered_symbol->type_information);
