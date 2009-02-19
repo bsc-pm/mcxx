@@ -5,7 +5,7 @@
 @c %**end of header
 
 @copying
-mcxx Internals Manual. Version 1.0
+mcxx TL Programming Manual. Version 1.0
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright
@@ -30,7 +30,7 @@ Copyright @copyright{} 2008 Roger Ferrer Ib@'a@~nez.
 
 @ifnottex
 @node Top
-@top mcxx Internals Documentation Reference
+@top mcxx TL Programming Manual
 @insertcopying
 @end ifnottex
 
