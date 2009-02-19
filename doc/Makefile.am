@@ -1,4 +1,4 @@
-info_TEXINFOS=mcxx-internals.texi
+info_TEXINFOS=mcxx-internals.texi mcxx-tl.texi
 
 doxygen : doxygen_tl
 	@echo "-- Running doxygen"

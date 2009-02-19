@@ -1,0 +1,1054 @@
+\input texinfo
+@c %**start of header
+@setfilename mcxx-internals.info
+@settitle mcxx Internals Manual
+@c %**end of header
+
+@copying
+mcxx Internals Manual. Version 1.0
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+Copyright @copyright{} 2008 Roger Ferrer Ib@'a@~nez.
+@end copying
+
+@titlepage
+@title mcxx TL Programming Manual
+@c The following two commands start the copyright page
+@subtitle Mercurium C/C++ TL Programming Manual
+@subtitle Last modified: $Date: 2008-02-28 14:42:21 +0100 (dj, 28 feb 2008) $
+@author Roger Ferrer Ib@'a@~nez
+@page
+@vskip 0pt plus 1filll
+@insertcopying
+@end titlepage
+
+@c Output the table of contents 
+@contents
+
+@ifnottex
+@node Top
+@top mcxx Internals Documentation Reference
+@insertcopying
+@end ifnottex
+
+@menu
+* Introduction to TL::
+* Examples of TL::
+@end menu
+
+@node Introduction to TL
+@chapter Introduction to TL
+@cindex introduction TL
+
+@menu
+* History::
+* Compiler phases::
+* Wrapper classes::
+* Creating source::
+* Dealing with common language constructs::
+* Functors and signals::
+* Traversing trees::
+* Reference counted objects::
+@end menu
+
+@node History
+@section History
+@cindex history
+
+Previous incarnations of Mercurium compilers used a template language to drive
+the transformations. This template language was usually called @code{TPL}.
+Although this kind of template-driven language, a sort of interpreted language
+interspersed with chunks of code, allowed quick tests for some constructions it
+always fell short in expressivity. So we decided to push for a more generic and
+common approach: compiler phases written in C++.
+
+Although this name is completely unofficial, TL stands for Transformation Library.
+
+@node Compiler phases
+@section Compiler phases
+@cindex compiler phases
+
+Compiler phases are run after the compiler has successfully parsed the input
+code (together with the creation of its related symbolic information and the
+needed types). Compiler phases are written in C++ and are dynamically loaded
+libraries, loaded by the compiler as stated by the configuration. They are
+run in the same order as they appear in the compiler configuration.
+
+Every compiler phase receives a @acronym{DTO, Data Transfer Object} with the basic
+information to work: the translation unit abstract syntax tree (@pxref{Abstract Syntax Tree})
+and a suitable scope link (@pxref{Scope link}).
+
+Phases can add information to this DTO, so subsequent phases can use
+information synthesized by previous ones. This makes this part behave more like
+a compiler phase pipeline.
+
+A phase that wants to implement a transformation has to modify the given
+abstract syntax tree. To achieve this it can use several approaches but the
+main approach used in mcxx is creating source code on the fly. This new source
+can then later be parsed and used as any other tree coming from the original
+source. The newly generated trees are commonly used to replace existing ones but
+can also be used as an intermediate step for other transforms.
+
+@node Wrapper classes
+@section Wrapper classes
+@cindex wrapper classes
+
+Instead of working with the internal compiler structures (detailed in
+@ref{Abstract Syntax Tree}, @ref{Type system}, @ref{Symbols}, @ref{Scopes and
+contexts} and @ref{Extensible structures and schemas}) TL provides several C++
+classes wrapping all these structures. Their goal is to be a nicer interface
+and also to provide an extra freedom degree, allowing to change the internals
+of the compiler without disturbing too much the already written compiler
+phases. 
+
+Following table summarizes relationship between classes and the wrapped
+entity.
+
+@multitable @columnfractions .20 .20 
+@headitem Compiler entity @tab Wrap class 
+@item @code{AST} @tab @code{TL::AST_t} 
+@item @code{type_t*} @tab @code{TL::Type} 
+@item @code{scope_entry_t*} @tab @code{TL::Symbol} 
+@item @code{decl_context_t} @tab @code{TL::Scope} 
+@item @code{scope_link_t*} @tab @code{TL::ScopeLink} 
+@end multitable
+
+Class @code{TL::Object} is a base class for all these types and provides
+virtual methods to implement access to the extensible structure
+(@pxref{Extensible structures and schemas}.  Currently, only @code{TL::AST_t}
+provides such facility since at the moment is the only compiler structure using
+it@footnote{Though the idea is that all the others do use it}.
+
+@node Creating source
+@section Creating source
+@cindex creating source
+
+@menu
+* Parsing the created source::
+@end menu
+
+When performing transformations, the main technique involves class
+@code{TL::Source}. This class, that can be viewed as a powerful
+string, is used to create source code on the fly. 
+
+An interesting feature of this class is the fact that it allows either
+a top-down or bottom-up approach when creating code. A top-down approach
+allows first to lay out the code and then fill it. For instance.
+
+@example
+Source src;
+Source initialization_src, execution_src;
+
+src
+  << initialization_src
+  << execution_src
+  ;
+
+initialization_src
+  << "int a;"
+  ;
+
+execution_src
+  << "a = 3;"
+  ;
+@end example
+
+When @code{src} is parsed it will use the contents of @code{initialization_src}
+and @code{execution_src} at the moment of parsing.
+@code{TL::Source::operator<<} is used to append either another
+@code{TL::Source}, a @code{std::string} (or something convertible into it) or a
+@code{int} that will be represented in base-10.
+
+@node Parsing the created source
+@subsection Parsing the created source
+@cindex parsing the created source
+
+A @code{TL::AST_t} can be obtained by parsing a @code{TL::Source}. Parsing is 
+a somewhat fragile operation and it requires context. While some structures
+are less ``context-demanding" than others, parsed code should be, at the maximum
+extent possible, always valid@footnote{
+Sometimes this is not possible (for instance, because we are referencing a
+variable that does not already exist in the original context, it will be
+actually declared later). When parsing fails because of this, parsing a fake
+code defining a new context with the needed information can be used
+as a workaround.}.
+
+Two things are always required when parsing a code. A reference tree
+(@code{TL::AST_t}) and a valid scope link (@code{TL::ScopeLink}). The reference
+tree plus the scope link is used to retrieve the valid context where the new
+tree will be parsed. Notice that code that declares entities, will create new
+symbols in the parsing context, and so will do code that create new contexts.
+
+Scope link can always be obtained from the DTO (there is, actually, only one
+scope link in the compiler). Reference tree is a tree with the same context as
+the parsed code, normally it is the tree being replaced or a surrounding tree,
+otherwise.
+
+@node Dealing with common language constructs
+@section Dealing with common language constructs
+@cindex dealing common language constructs
+
+In order to deal with common language constructs in C and C++, TL provides additional
+wrapping classes. They all derive from @code{TL::LangConstruct}. Every @code{TL::LangConstruct}
+is built using a tree and a scope link. Following table summarizes these classes:
+
+@table @code
+@item TL::Declaration 
+A declaration of an entity in C or C++. A declaration is always defined by one
+@code{TL::DeclarationSpec} and zero or more @code{TL::DeclarationEntity}.
+@item TL::DeclarationEntity
+A declared entity in a declaration.
+@item TL::DeclarationSpec 
+Wraps the declaraton specifiers of a given declaration. It allows to get the 
+@code{TL::TypeSpec} involved in the declaration.
+@item TL::Expression
+Represents any expression in C/C++. This class allows navigating easily through the expression
+and getting its related type (provided it has been properly computed).
+@item TL::FunctionDefinition
+This class wraps an entire function definition. This is commonly used to get the name of the
+enclosing function definition.
+@item TL::IdExpression
+This class wraps an occurrence of a reference to a symbol.
+@item TL::ParameterDeclaration
+A special kind of declaration just for parameters obtained using @code{TL::DeclarationEntity}
+that represent function declarations.
+@item TL::Statement
+A generic statement. Allows to know whether the statement is a compound statement and getting
+its inner statements.
+@item TL::ForStatement
+A specialized @code{TL::Statement} to deal with for-loops.
+@item TL::TypeSpec
+In @code{TL::DeclarationSpec}, the tree that represents the basic type of the
+declaration.
+@end table
+
+@node Functors and signals
+@section Functors and signals
+@cindex functors signals
+
+@menu
+* Predicates over AST::
+@end menu
+
+In several places the compiler defines a callback-strategy. To safely implement
+callbacks in C++, TL provides a subset of callback facilities, namely
+@code{TL::Functor} and @code{TL::Signal1}. 
+
+@code{TL::Signal1} is the entity firing a callback. To it several functors can
+be connected and their code will be run when signaled. A @code{TL::Functor}
+wraps a function receiving one parameter (or one plus the implicit object, for
+member functions). This allows an homogeneous approach when dealing with this
+callback style. 
+
+A functor can be explicitly created, by defining a new class inheriting from
+@code{Functor<Ret, Type>} where @code{Ret} is the return type and @code{Type}
+is the parameter type. Most of the time @code{Ret} is left @code{void}. An
+important exception to this are @code{TL::Predicate<T>} that are exactly
+@code{Functor<bool, T>} and are normally used to test properties, in particular
+when traversing trees. 
+
+Another way to get a functor is using the auxiliar function @code{TL::functor}
+that can be applied to many kinds of functor-like objects and returns a
+suitable @code{TL::Functor} for it.
+
+Any class inheriting from @code{TL::Functor<Ret, Type>} will have to implement
+@code{Ret TL::Functor<Ret, Type>::operator()(Type& t) const}. This function
+should not have effects on the parameter @code{Type& t} because it is valid to
+call the functor with a @code{const Type&} (and the overriden method will be
+called).
+
+@node Predicates over AST
+@subsection Predicates over AST
+@cindex predicates ast
+
+The most usual use for predicates are @code{TL::PredicateAST<ATTR-NAME>}.
+Parameter @code{ATTR-NAME} is an attribute of the AST stating a boolean
+property of it. For instance @code{TL::PredicateAST<LANG_IS_FOR_STATEMENT>}
+returns @code{true} for trees representing a for-statement. 
+
+The list of attributes related to trees is defined in file
+@file{cxx-attrnames.def}. Most of the attributes there are self documenting and
+are linked to the tree by the semantic phase in @file{cxx-buildscope.c} and
+@file{cxx-exprtype.c}.
+
+@node Traversing trees
+@section Traversing trees
+@cindex Traversing trees
+
+Traversals in the tree, to find items to potentially be transformed, are implemented
+using @code{TL::DepthTraverse} (a subclass of @code{TL::Traverse}, although no other
+derived class of it exists). 
+
+A @code{TL::TraverseFunctor} is a class defining two methods @code{preorder}
+and @code{postorder} that will be run in preorder and postorder moment when
+performing the traversal of a node that matches the related functor. 
+
+Matching of a tree is defined by @code{TL::TraverseASTFunctor}. This functor
+receives a @code{AST_t} and returns a @code{ASTTraversalResult}. This value
+states whether the current node matches (if it does, then its @code{postorder}
+and @code{preorder} functions of the related functor, see below, will be
+called) and if the traverse must recurse for it (sometimes we are not
+interested in matching anything but the outermost matching entity of a nested
+tree).
+
+A @code{TL::TraverseASTFunctor} is related to a @code{TL::TraverseFunctor} by means
+of method @code{TL::DepthTraverse::add_functor}.
+
+Once all functors we are interested in are added in the @code{TL::DepthTraverse} object,
+we can fire the traversal using @code{TL::DepthTraverse::traverse}.
+
+@node Reference counted objects
+@section Reference counted objects
+@cindex reference counted objects
+
+In several contexts the compiler needs shared objects with hard to predict
+lifetimes. This makes unsuitable the use of pointers, so reference counted
+pointers are used.
+
+The class implementing a reference counted pointer is @code{RefPtr<Class>}, where
+@code{Class} is a class with two member functions @code{obj_reference} and
+@code{obj_unreference} that are called everytime somebody keeps a new reference
+to this object and everytime somebody discards one of this references, respectively.
+Most of the time the implementation of a class designed to be reference counted will
+be as simple as
+
+@example
+void obj_reference()
+@{
+  this->_refcount++;
+@}
+
+void obj_unreference()
+@{
+  this->_refcount--;
+
+  if (this->_refcount == 0)
+  @{
+    delete this;
+  @}
+@}
+@end example
+
+Note that with the previous schema, cycles will not be properly freed. If you ever have
+cycles you will need a fairly more sophisticated approach not covered here.
+
+@node Examples of TL
+@chapter Examples of TL
+@cindex examples TL
+
+@menu
+* Hello world::
+* Static call graph::
+* Loop lowering::
+@end menu
+
+This chapter is devoted to introduce you several examples when using TL, trying to cover
+the most popular transformations and uses of the compiler.
+
+This chapter does not give any detail on specific issues like how to compile
+and build the phases, this is later addressed in @ref{Installation of mcxx}.
+
+@node Hello world
+@section Hello world
+@cindex hello world
+
+@menu
+* Phase information::
+* Phase parameters::
+@end menu
+
+In order to get familiar with the shape of a new compiler phase we will write
+one phase that just writes @code{Hello world} when loaded and when run.
+Following code is to be written in a file called @file{tl-helloworld.cpp}.
+
+@example
+#include "tl-compilerphase.hpp"
+#include <iostream>
+
+namespace TL
+@{
+    class HelloWorld : public CompilerPhase
+    @{
+        public:
+            HelloWorld()
+            @{
+                std::cout 
+                    << "Hello world (phase loaded)" 
+                    << std::endl;
+            @}
+
+            void run(DTO& dto)
+            @{
+                std::cout 
+                    << "Hello world (phase run)" 
+                    << std::endl;
+            @}
+    @};
+@}
+
+EXPORT_PHASE(TL::HelloWorld);
+@end example
+
+A compiler phase is just a class that inherits from @code{TL::CompilerPhase}.
+Its constructor is invoked when the compiler loads the phase, just before
+parsing anything. This is done this way in order for phases to influence the
+parsing (for instance, they might register new constructions). The constructor
+must be invokeable with zero arguments.
+
+Every derived class of @code{TL::CompilerPhase} must implement member function
+@code{run(DTO&)}. This is the entry point of the compiler phase. The phase
+starts in this function and ends leaving it. This function is invoked by the
+compiler for every file compiled (normally one).
+
+Every phase, even if split in several files, must have one (and only one)
+@code{EXPORT_PHASE} definition. This declares a factory function that the
+compiler uses to create an instance of the phase. This definition must be
+located in the global scope (not in any namespace).
+
+This example has set the class within namespace @code{TL}. This is not mandated
+at all but eases writing code that makes use of TL classes. You can define your
+compiler phase in any namespace of your own.
+
+In order to use this phase you have to add a new @code{compiler_phase} in the
+compiler configuration file (@pxref{Configuration}) with the name of the shared
+object file, in this example likely to be @file{tl-helloworld.so}.
+
+@node Phase information
+@subsection Phase information
+@cindex phase information
+
+In order to better integrate with the rest of the compiler, a compiler phase
+should describe itself to the compiler. This is achieved with functions
+@code{TL::CompilerPhase::set_phase_name},
+@code{TL::CompilerPhase::set_phase_description}. These functions if called,
+must be invoked in the constructor. 
+
+The previous constructor can be rewritten like this:
+
+@example
+HelloWorld()
+@{
+    set_phase_name("Hello world phase");
+    set_phase_description("This phase greets the user "
+        "both when loaded and when invoked per file.");
+
+    std::cout 
+        << "Hello world (phase loaded)" 
+        << std::endl;
+@}
+@end example
+
+When the compiler prints the help message (because of an error in the command
+line or a @code{--help} parameter) it will print the loaded phases under the
+current profile. The name of the phase and its description will be printed
+as well, if given.
+
+@node Phase parameters
+@subsection Phase parameters
+@cindex phase parameters
+
+Sometimes we want to allow that some aspects of a given phase be tweaked by the user. For instance, we could
+improve the hello world to greet somebody instead of the world itself. 
+
+To achieve this, in the constructor, we can call @code{register_parameter}. This function receives four parameters,
+namely the parameter name, a description of the parameter, a related storage value and a default value. In addition
+it returns a @code{TL::Signal1} (@pxref{Functors and signals}) that can be connected to a function that will be invoked
+when the parameter is explicitly set from the command line.
+
+@example
+#include "tl-compilerphase.hpp"
+#include <iostream>
+#include <string>
+
+namespace TL
+@{
+    class HelloWorld : public CompilerPhase
+    @{
+        private:
+            std::string _hello_name;
+        public:
+            HelloWorld()
+            @{
+                set_phase_name("Hello world phase");
+                set_phase_description("This phase greets the user "
+                    "both when loaded and when invoked per file.");
+
+                register_parameter("hello-name", 
+                    "Name to be greeted",
+                    _hello_name,
+                    "world");
+
+                std::cout 
+                    << "Hello " << _hello_name << " (phase loaded)" 
+                    << std::endl;
+            @}
+
+            void run(DTO& dto)
+            @{
+                std::cout 
+                    << "Hello " << _hello_name << " (phase run)" 
+                    << std::endl;
+            @}
+    @};
+@}
+@end example
+
+In the previous example @code{_hello_name} will be the reference where the given
+parameter will be stored. Sometimes we have to synthesize something after the
+given parameter (for instance a true or false flag or an integer value). Using
+a functor is useful. For instance, imagine that we want to have an integer
+parameter, having it stored in an integer rather than a plain string makes things
+easier.
+
+@example
+#include <sstream>
+...
+class HelloWorld : public CompilerPhase
+@{
+    private:
+        std::string _hello_age_str;
+        int _hello_age;
+    public:
+        HelloWorld()
+        @{
+            ...
+            register_parameter("hello-age",
+                    "Age reminder",
+                    _hello_age_str 
+                    "-1")
+               .connect(functor(&HelloWorld::set_age, *this));
+            ...
+        @}
+
+        void set_age(std::string value)
+        @{
+            std::stringstream ss;
+
+            ss << value;
+            ss >> _hello_age;
+        @}
+@};
+@end example
+
+In member function @code{set_age} we could check that the given number
+parameter is valid, enable other flags etc. There is a convenience function for
+boolean flags that eases parsing boolean options after strings, it is called
+@code{parse_boolean_option} declared in @file{tl-compilerphase.hpp}.
+
+Parameters are documented when the compiler shows help message after the phase
+description. The default value is also shown. A parameter is passed by the compiler
+when the user specifies in the command line @code{--variable=name:value}. A @code{name}
+can be shared among several phases, each one will receive the specified @code{value}.
+
+@node Static call graph
+@section Static call graph
+@cindex static call graph
+
+@menu
+* Traversing the tree::
+* Static call graph compiler phase::
+* Getting function calls in a function definition::
+@end menu
+
+This example concentrates on how to walk through the tree. There are several ways of finding
+things in a tree. The most powerful implies using a @code{DepthTraverse} but a given
+@code{AST_t} can also be used to get in a quicker way all the sons that satisfy a predicate.
+
+In this example we will write a compiler phase that prints on the standard
+output a simple Graphviz (@uref{http://www.graphviz.org}) graph with the static
+call graph. To do this we will find each function definition in the code and
+find in it all function calls that we know they refer to existing functions.
+
+@node Traversing the tree
+@subsection Traversing the tree
+@cindex traversing the tree
+
+First thing we have to do is creating a @code{TraverseASTFunctor}. This
+@emph{functor} states whether a given tree matches. It also specifies if the
+traversal must recurse in this node. We will use
+@code{FunctionDefinition::predicate} that is a convenience predicate that
+matches function definitions.
+
+@example
+class FunctionDefinitionASTFunctor : public TraverseASTFunctor
+@{
+  public:
+    ASTTraversalResult operator()(AST_t &a) const
+    @{
+       if (FunctionDefinition::predicate(a))
+       @{
+          return ast_traversal_result_helper(/* match */ true, 
+              /* recurse */ false);
+       @}
+       else
+       @{
+          return ast_traversal_result_helper(/* match */ false, 
+              /* recurse */ true);
+       @}
+    @}
+@};
+@end example
+
+A @code{TraverseASTFunctor} is a synonim for @code{Functor<ASTTraversalResult, AST_t>} so
+@code{ASTTraversalResult operator()(AST_t& a) const} needs to be implemented. Function
+@code{ast_traversal_result_helper} is a helper function to build values of 
+@code{ASTTraversalResult} type. Basically it says to recurse always when a
+function definition tree is not found, and not to recurse when not found. Only function
+definitions will match, thus the traverse functors will be called only for function
+definitions.
+
+@node Static call graph compiler phase
+@subsection Static call graph compiler phase
+
+The compiler phase itself is defined as follows. It basically registers an
+object of the class above and links it with a functor of type
+@code{FunctionDefinitionFunctor}, we will define it later.  This is done with
+@code{TL::DepthTraverse::add_functor}.
+
+@example
+class StaticCallGraph : public CompilerPhase
+@{
+  public:
+    StaticCallGraph()
+    @{
+    @}
+
+    void run(DTO& dto)
+    @{
+      std::cout << "digraph static_callgraph @{" << std::endl;
+
+      AST_t ast = dto["translation_unit"];
+      ScopeLink scope_link = dto["scope_link"];
+
+      DepthTraverse depth_traverse;
+      FunctionDefinitionFunctor function_definition_functor;
+      FunctionDefinitionASTFunctor traverse_ast_functor;
+
+      depth_traverse.add_functor(traverse_ast_functor, 
+        function_definition_functor);
+      depth_traverse.traverse(ast, scope_link);
+
+      std::cout << "@}" << std::endl;
+    @}
+@};
+@end example
+
+Objects stored in the DTO are identified by name. Compiler guarantees that at
+least @code{translation_unit} and @code{scope_link} will be always available.
+They contain, respectively, the root tree of all the current file source and a
+suitable scope link. To add an object to the DTO use @code{add_object} with
+a @code{RefPtr<T>} object (@pxref{Reference counted objects}).
+
+@node Getting function calls in a function definition
+@subsection Getting function calls in a function definition
+
+Once we have found a function definition we have to do something with it.
+
+@example
+class FunctionDefinitionFunctor : public TraverseFunctor
+@{
+  public:
+    void preorder(Context ctx, AST_t ast) 
+    @{ 
+      ScopeLink sl = ctx.scope_link;
+      // Wrap into a FunctionDefinition since we know it is
+      FunctionDefinition function_definition(ast, sl);
+
+      // Get the function name
+      IdExpression function_name = 
+        function_definition.get_function_name();
+
+      // Get the body of the function definition
+      Statement stm = function_definition.get_function_body();
+
+      // Now get all function calls
+      ObjectList<AST_t> function_calls = 
+        stm.get_ast().depth_subtrees(
+            PredicateAST<LANG_IS_FUNCTION_CALL>()
+            );
+
+      std::cout 
+        << function_name.prettyprint() 
+        << " [label=\"" 
+        << function_name.prettyprint() 
+        << "\"]"
+        << std::endl;
+
+      // For every function call
+      for (ObjectList<AST_t>::iterator it = function_calls.begin();
+          it != function_calls.end();
+          it++)
+      @{
+        // Wrap it as an expression
+        Expression expr(*it, sl);
+
+        // Check if the called entity is a simple name
+        if (expr.get_called_expression().is_id_expression())
+        @{
+          IdExpression id_expression = 
+            expr.get_called_expression().get_id_expression();
+          Symbol sym = id_expression.get_symbol();
+
+          // And check if it is a function (and not a pointer to
+          // function)
+          if (sym.is_function())
+          @{
+            std::cout 
+              << function_name.prettyprint() 
+              << " -> " 
+              << id_expression.prettyprint()
+              << " [label=\"" 
+              << id_expression.get_ast().get_locus() 
+              << "\"]"
+              << std::endl;
+          @}
+        @}
+      @}
+    @}
+    void postorder(Context, AST_t) @{ @}
+@};
+@end example
+
+For a given functor we can choose where to perform work, either at postorder
+or preorder. As a rule of thumb, when traversing trees most of the information
+gathering has to be done in preorder. Then in postorder we can use this 
+information to implement transformations.
+
+In the example above we first wrap in a @code{FunctionDefinition} the tree and
+then we get its body to get all function calls there. This is another way to
+traverse a tree, using @code{TL::AST_t::dept_subtrees} and a @code{Predicate<AST_t>}.
+Then we check if the called expression is a simple thing, like @code{a} (an id-expression),
+and then we check using the related symbol if this is a function@footnote{Note that this
+code would not work properly in C++ when calling overloads since all overloads would
+get mixed against one name}.
+
+@node Loop lowering
+@section Loop lowering
+@cindex loop lowering
+
+In this example we will lower several high level loop constructs in a simpler
+form involving just if statements and gotos. This example shows how to generate
+new code.
+
+We will convert a @code{while} statement of the form
+
+@example
+while (x)
+    @r{@i{statement}}
+@end example
+
+into something of the form
+
+@example
+@{
+  loop_start_00: if (!x) goto loop_end_00;
+    @r{@i{statement}}
+    goto loop_start_00;
+  loop_end_00:
+@}
+@end example
+
+Like in the previous example, we have to find all @code{while} statements and then perform the
+transform. So we need a @code{TraverseASTFunctor} for @code{while} statements.
+
+@example
+class WhileStatementASTFunctor : public TraverseASTFunctor
+@{
+  public:
+    ASTTraversalResult operator()(AST_t &a) const
+    @{
+      if (WhileStatement::predicate(a))
+      @{
+        return ast_traversal_result_helper(/* match */ true, 
+            /* recurse */ true);
+      @}
+      else
+      @{
+        return ast_traversal_result_helper(/* match */ false, 
+            /* recurse */ true);
+      @}
+    @}
+@};
+@end example
+
+In contrast to the previous example, though, when we find a @code{while} statement we
+want to recurse because there might be other @code{while} statements in it that we
+want to transform too. Remember that rule of thumb is that analysis is
+performed in preorder and transformations in postorder.
+
+In this example we have to create arbitrary labels. If we choose to enumerate
+@code{while} statements in the order that they appear in the code we will need to
+number them first in preorder. So we have to be able to get back this number
+(typically using a stack). If we choose to not to do this, we can count @code{while}
+statements in postorder, this gives an unusual numbering where outermost loops
+have higher numbers while inner ones have lower numbers. This last solution
+does not require any stack. In this example, for simplicity we will develop
+the latter approach.
+
+A first version of this transformation is sketched in the following functor
+for @code{while} statements. As said before, we are not doing anything in preorder.
+
+@example
+class WhileStatementFunctor : public TraverseFunctor
+@{
+  private:
+    int num_whiles;
+  public:
+    WhileStatementFunctor()
+      : num_whiles(0) @{ @}
+
+    void preorder(Context, AST_t) 
+    @{ 
+    @}
+
+    void postorder(Context ctx, AST_t ast) 
+    @{ 
+      num_whiles++;
+
+      // Wrap the tree
+      WhileStatement while_statement(ast, ctx.scope_link);
+
+      Source lowered_while, condition, while_body;
+
+      lowered_while
+        << "@{"
+        <<   "loop_start_" << num_whiles << ": "
+        <<       "if (!(" << condition << "))"
+        <<          "goto loop_end_" << num_whiles << ";"
+        <<   while_body
+        <<   "goto loop_start_" << num_whiles << ";"
+        <<   "loop_end_" << num_whiles << ":"
+        <<       ";"
+        << "@}"
+        ;
+
+      condition << while_statement.get_condition().prettyprint();
+      while_body << while_statement.get_body().prettyprint();
+
+      TL::AST_t lowered_while_tree 
+          = lowered_while.parse_statement(ast, ctx.scope_link);
+
+      ast.replace(lowered_while_tree);
+    @}
+@};
+@end example
+
+As you can se creating code is rather easy. @code{TL::Source} class works like
+a powerful string but it allows to specify other @code{TL::Source} objects so
+we can take a top down approach when laying out the newly created code. In this
+example @code{condition} and @code{while_body} are filled later.
+
+Once the source is created it must be eventually parsed to get a tree. This is
+achieved with @code{parse_statement}. Note that since we are replacing only one
+statement the replaced code should also be one statement. In this example we
+achieve this because we are creating a big compound statement containing the
+lowered code@footnote{Note also that a list of statements cannot be replaced
+easily, instead all statements but one have to be removed and then replace
+the left statmeent with a list of statements. @code{parse_statement} allows
+parsing a sequence of statements. On the other hand, this is an uncommon
+scenario since statements are normally grouped syntactically.}.
+
+The class implementing the phase is as follows.
+
+@example
+class WhileLowering : public CompilerPhase
+@{
+  public:
+    WhileLowering()
+    @{
+    @}
+
+    void run(DTO& dto)
+    @{
+      AST_t ast = dto["translation_unit"];
+      ScopeLink scope_link = dto["scope_link"];
+
+      DepthTraverse depth_traverse;
+      WhileStatementFunctor while_statement_functor;
+      WhileStatementASTFunctor traverse_ast_functor;
+
+      depth_traverse.add_functor(traverse_ast_functor, 
+        while_statement_functor);
+      depth_traverse.traverse(ast, scope_link);
+    @}
+@};
+@end example
+
+Do not forget to export it using @code{EXPORT_PHASE} fully qualifying the class with 
+the phase. For instance,
+
+@example
+EXPORT_PHASE(TL::WhileLowering);
+@end example
+
+if it is defined in the @code{TL} namespace. Once the class is run, following code
+
+@example
+void g(int);
+
+void f(void)
+@{
+    int i = 0;
+
+    while (i < 10)
+    @{
+        g(i);
+        i++;
+        int j = 0;
+
+        while (j < 20)
+        @{
+            j++;
+        @}
+    @}
+@}
+@end example
+
+will be converted into
+
+@example
+void g(int);
+void f(void)
+@{
+  int i = 0;
+  @{
+loop_start_2 : 
+    if (!(i < 10))
+      goto loop_end_2;
+    @{
+      g(i);
+      i++;
+      int j = 0;
+      @{
+loop_start_1 : 
+        if (!(j < 20))
+          goto loop_end_1;
+        @{
+          j++;
+        @}
+        goto loop_start_1;
+loop_end_1 : 
+        ;
+      @}
+    @}
+    goto loop_start_2;
+loop_end_2 : 
+    ;
+  @}
+@}
+@end example
+
+This example, works for these simple cases but it will fail when loops
+are of the form
+
+@example
+while (bool b = i < 10)
+@{
+   i++;
+@}
+@end example
+
+We can take the approach given in the C++ standard where a @code{while} statement of the form
+
+@example
+while (T t = x)
+    @r{@i{statement}}
+@end example
+
+is equivalent to 
+
+@example
+label:
+@{
+    T t = x;
+    if (t) @{
+        @r{@i{statement}}
+        goto label;
+    @}
+@}
+@end example
+
+when the @code{while} statement is of the form
+
+@example
+while (x)
+    @r{@i{statement}}
+@end example
+
+we will avoid the inner declaration, thus
+
+@example
+label:
+@{
+    if (x) @{
+        @r{@i{statement}}
+        goto label;
+    @}
+@}
+@end example
+
+So we rewrite the @code{postorder} method to work in this way.
+
+@example
+void postorder(Context ctx, AST_t ast) 
+@{ 
+  num_whiles++;
+
+  // Wrap the tree
+  WhileStatement while_statement(ast, ctx.scope_link);
+
+  Source lowered_while, 
+         condition_declaration, 
+         condition_expression,
+         while_body;
+
+  lowered_while
+    << "loop_start_" << num_whiles << " : @{"
+    <<  condition_declaration
+    <<   "if (" << condition_expression << ")"
+    <<   "@{"
+    <<         while_body
+    <<         "goto loop_start_" << num_whiles << ";"
+    <<   "@}"
+    << "@}"
+    ;
+
+  Condition condition = while_statement.get_condition();
+
+  if (condition.is_declaration())
+  @{
+    Declaration declaration = condition.get_declaration();
+    ObjectList<DeclaredEntity> declared_entities 
+      = declaration.get_declared_entities();
+
+    condition_declaration 
+      << condition.prettyprint() << ";"
+      ;
+    condition_expression
+      << declared_entities[0].prettyprint()
+      ;
+  @}
+  else if (condition.is_expression())
+  @{
+    condition_expression << condition.prettyprint();
+  @}
+
+  while_body << while_statement.get_body().prettyprint();
+
+  TL::AST_t lowered_while_tree 
+    = lowered_while.parse_statement(ast, ctx.scope_link);
+
+  ast.replace(lowered_while_tree);
+@}
+@end example
+
+@node Concept Index
+@unnumbered Concept Index
+
+@printindex cp
+
+@bye
+

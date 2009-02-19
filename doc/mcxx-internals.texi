@@ -42,8 +42,7 @@ Copyright @copyright{} 2008 Roger Ferrer Ib@'a@~nez.
 * Symbols::
 * Scopes and contexts::
 * Extensible structures and schemas::
-* Introduction to TL::
-* Examples of TL::
+* Library and tool support::
 * Installation of mcxx::
 * Function Index::
 * Type Index::
@@ -122,17 +121,12 @@ in the compiler to allow storing additional information not considered originall
 by the compiler.
 @end itemize
 
-A second part concerns TL, the part intended to be extended more frequently.
-
-@itemize @bullet
-@item @ref{Introduction to TL}. Introduces TL and how it works.
-@item @ref{Examples of TL}. Shows several examples and use cases of TL.
-@end itemize
-
 Finally, some other ``less" internals documentation, but also worthy
 of documentation.
 
 @itemize @bullet
+@item @ref{Library and tool support}. Building a compiler requires some
+special tools.
 @item @ref{Installation of mcxx}. Gives some details about how to install mcxx.
 @end itemize
 
@@ -145,7 +139,6 @@ of documentation.
 * Driver::
 @end menu
 
-
 In this chapter a global vision of the compilation process and an explanation
 about layout of the files and directories is given.
 
@@ -156,7 +149,7 @@ about layout of the files and directories is given.
 @menu
 * Preprocessing::
 * Context free parsing::
-* Semantic analysis::
+* Semantic analysis and type checking::
 * Compilation pipeline::
 * Prettyprinting::
 * Additional steps::
@@ -169,7 +162,7 @@ The compiler flow can be sketched as follows.
 @item The preprocessed source is parsed. 
 @item The ambiguous tree is then analyzed semantically. 
 @item The pipeline of compilation phases is launched. 
-@item The modified abstract syntax tree is prettyprinted into a file.
+@item The (possibly modified) abstract syntax tree is prettyprinted into a file.
 @item Additional steps depending on the exact arguments passed.
 @end enumerate
 
@@ -221,15 +214,17 @@ Main files involved in this step are @file{src/frontend/cxx-lexer.l},
 @file{src/frontend/c99.y.in}, @file{src/frontend/cxx03.y.in}, @file{src/frontend/cxx-construct.y},
 @file{src/frontend/cxx-omp.y} and @file{src/frontend/cxx-pragma.y}.
 
-@node Semantic analysis
-@subsection Semantic analysis
+@node Semantic analysis and type checking
+@subsection Semantic analysis and type checking
 @cindex semantic analysis
+@cindex type checking
 
 In order to fix the AST generated in the previous phase, we need to gather
 symbolic information that will allow us to realize the exact meaning of the
-code. 
+code. We also use this phase to label the tree with typing information deduced
+from expressions, what is typically known as ``type checking''.
 
-Doing this process in two steps, first building the tree in the parsing phase
+This two-steps process, first building the tree in the parsing phase
 and then pruning it, allows easier maintenance of the grammar (always a tough
 part of any generated parser) and simplifies the semantic part (as one has to
 deal with syntactic elements always of the same shape). Doing both things at
@@ -239,7 +234,8 @@ ambiguous parts of the code).
 
 This process builds the scope (symbol tables) information needed for
 disambiguation.  The main files involved in this phase are
-@file{src/frontend/cxx-buildscope.c} and @file{src/frontend/cxx-ambiguity.c}.
+@file{src/frontend/cxx-buildscope.c}, @file{src/frontend/cxx-ambiguity.c}
+and @file{src/frontend/cxx-exprtype.c}.
 
 @node Compilation pipeline
 @subsection Compilation pipeline
@@ -266,7 +262,8 @@ information.
 
 The last step done by the compiler is called prettyprinting. The resulting AST
 after the compilation pipeline phase it is prettyprinted into an output file,
-or the standard output.
+or the standard output. This step is what makes this compiler a
+source-to-source one.
 
 @node Additional steps
 @subsection Additional steps
@@ -295,10 +292,18 @@ handles all the compilation flow described in @ref{Compilation flow overview}.
 @cindex configuration
 
 mcxx is a `configurable' compiler this means that its behaviour can be modified by several
-means, the main being the configuration file.
+means, the main being configuration files.
 
-By default, the configuration file is in @file{@emph{pkgdatadir}/config.mcxx}. Directory
-@file{@emph{pkgdatadir}} is defined at @command{configure} time and by default it is
+Configuration files are stored in the directory
+@file{@emph{pkgdatadir}/config.d}. mcxx will read all files there and load
+them, so you can split your configurations in several files. There is also a
+global configuration file whose usage is deprecated. It is located at
+@file{@emph{pkgdatadir}/config.mcxx}. Using a directory with configuration files
+is preferred since it is more flexible when installing external phases, a global
+file easily suffers from overwrites.
+
+Directory @file{@emph{pkgdatadir}} is
+defined at @command{configure} time and by default it is
 @file{/usr/local/mcxx/share}.
 
 This file allows defining several profiles. The profile modifies the compiler behaviour. The
@@ -334,8 +339,9 @@ compiler_phase = libtlinstr.so
 compiler_phase = libtlomp.so
 @end example
 
-If you want to extend this part with newer configuration lines you will have
-to change file @file{driver/cxx-configfile.c} and @file{driver/cxx-configoptions.gperf}.
+If you want to extend this part with newer configuration options you will have
+to change file @file{driver/cxx-configfile.c} and
+@file{driver/cxx-configoptions.gperf}.
 
 @node Extension handling
 @subsection Extension handling
@@ -357,11 +363,8 @@ involving extension handling is @file{driver/cxx-fileextensions.gperf}.
 mcxx allows that its compiler phases queue newer files to be processed as a result of the compilation process.
 For instance, we could have a file @file{a.c} from which we synthesize two newer files @file{a_1.c} and @file{a_2.c}.
 These two files will be processed as soon as the compiler phase pipeline of @file{a.c} ends. A file is only
-considered once for compilation.
-
-@menu
-* Type system::
-@end menu
+considered once for compilation. Those files can be queued in different profiles, not strictly the same as 
+the original one. This is useful for multiarchitecture environments like heterogeneous multicores.
 
 @node Abstract Syntax Tree
 @chapter Abstract Syntax Tree
@@ -381,11 +384,12 @@ complexity to the compiler but makes happier users, specially when they have to
 check the output code. Trying to realize what is wrong when some information
 has just disappeared tends to upset the debugging user.
 
-AST is just a double linked 4-ary tree. While normally four children are enough
-for most situations, sometimes a fifth or sixth is needed. Instead of
-considering such cases, do not surprise if you see the compiler creating some
-sort of @emph{wrap} trees that just hold two more trees or, in particular for
-some GCC extensions, they hold the extension bit and then the normal syntax.
+AST is just a double linked 4-ary tree. There is a pointer to the parent node,
+except (obviously) for root nodes. While normally four children are enough for
+most situations, sometimes a fifth or sixth is needed. Instead of considering
+such cases, do not surprise if you see the compiler creating some sort of
+@emph{wrap} trees that just hold two more trees or, in particular for some GCC
+extensions, they hold the extension bit and then the standard syntax.
 
 @node Tree definition
 @section Tree definition
@@ -398,26 +402,43 @@ in @file{frontend/cxx-ast-decls.h}. The actual implementation is found in
 @example
 struct AST_tag
 @{
-    node_t node_type; 
+    // Node type (1024 different node types)
+    node_t node_type:10; 
 
-    int num_children; 
+    // Only meaningful if expr_type != NULL
+    unsigned char expr_is_lvalue:1;
 
+    // Number of ambiguities (up to 15)
+    unsigned int num_ambig:4;
+
+    // This is a bitmap for the sons 
+    unsigned int bitmap_sons:MAX_AST_CHILDREN;
+
+    // Parent node
     struct AST_tag* parent; 
 
-    struct AST_tag* children[4];
-
-    int line; 
+    // Node locus
+    unsigned int line; 
     const char* filename;
 
+    // Textual information linked to the node
+    // normally the symbol or the literal
     const char* text; 
 
-    int num_ambig;
-    struct AST_tag** ambig;
+    union
+    @{
+        // The children of this tree (except for AST_AMBIGUITY)
+        struct AST_tag** children;
+        // When type == AST_AMBIGUITY, all intepretations are here
+        struct AST_tag** ambig;
+    @};
 
-    struct type_tag* expr_type;
-    char expr_is_lvalue;
-
+    // Extensible information (created lazily)
     extensible_struct_t* extended_data;
+
+    // For nodes holding some kind of expression
+    // this should be the related type
+    struct type_tag* expr_type;
 @};
 @end example
 @tindex AST
@@ -426,46 +447,58 @@ struct AST_tag
 @table @code
 @item node_type
 This is the tree type, it is an integer that identifies the entity being represented with this tree.
-See @ref{Tree types} for more information about the valid values.
-@item num_children
-States the intended number of children. This does not mean that the tree should have those children
-but in the worst of the cases at least those can be held by the tree. This value is set by
-the @code{ASTMake} macros.
+See @ref{Tree types} for more information about the valid values. Currently up to 1024 different nodes
+are supported.
+@item expr_is_lvalue
+When field @code{expr_type} is not null, this field can represent whether the expression itself is an lvalue or not. In C++
+this is most of the time equivalent to have a reference type in @code{expr_type}. In C this field is mandatory since no referenced
+types exist.
+@item num_ambig
+This field is only meaningful when @code{node_type} is @code{AST_AMBIGUITY} (@pxref{Ambiguity trees}). This field states
+how many ambiguities are represented in this tree.
+@item bitmap_sons
+This is a bitmap field where bit number @emph{n} (with @emph{n} from 0 to 3)
+set means that child number @emph{n} is not null.
 @item parent
-The parent children, except for the top level trees (like those created by subparsing)
-@item children
-The array holding, at much, four references to other trees.
+This is a pointer to a parent. Some root trees, like those from subparsing, or @code{AST_TRANSLATION_UNIT} nodes have
+a null value here.
 @item line
 @itemx filename
 These two fields identify the tree. @code{filename} is the name of the file where this tree was parsed and @code{line}
 the number within it. Note that due to preprocessing reasons, @code{filename} changes among trees.
 @item text
 This field stores textual information related to the lexed token. Many of the times this field is null and
-it is used only for symbolic names (like variables) in the code.
-@item num_ambig
-@itemx ambig
-These two fields are only meaningful when @code{node_type} is @code{AST_AMBIGUITY} (@pxref{Ambiguity trees}). The former
-states how many ambiguities are collapsed in this tree (most of the time this is only two, but sometimes there might be more).
-@code{ambig} is an array of trees representing all the possible interpretations. Parser warrantees that ambiguities do not
+it is used only for symbolic names (like variables) or literals in the code.
+@item children 
+This field is only meaningful when @code{node_type} is @strong{not} @code{AST_AMBIGUITY} (@pxref{Ambiguity trees}). 
+This is a an array holding only children that are not null. The length of this array is determined
+by the number of bits set in field @code{bitmap_sons}.
+@item ambig  
+This field is only meaningful when @code{node_type} is @code{AST_AMBIGUITY} (@pxref{Ambiguity trees}). 
+Is an array of trees representing all the possible interpretations. Parser warrantees that ambiguities do not
 appear directly nested into a given ambiguity, thus none of the trees referenced in @code{ambig} array are of kind @code{AST_AMBIGUITY}
 @item expr_type 
 This field stores a pointer to a type representing the type of the expression. This field can be null for those trees that are not 
 part of an expression or, if they are, do not have a valid computed type (maybe due to failing typechecking).
-@item expr_is_lvalue
-When field @code{expr_type} is not null, this field can represent whether the expression itself is an lvalue or not. In C++
-this is most of the time equivalent to have a reference type in @code{expr_type}. In C this field is mandatory since no referenced
-types exist.
 @item extended_data
-This field stores the extensible struct. @xref{Extensible structure}.
+This field stores the extensible struct. This field is lazily managed, it is null for all trees where no
+extended data has been set or queried. @xref{Extensible structure}.
 @end table
 
 @node Tree types
 @section Tree types
 @cindex tree types
 
-The tree type is just an integer, represented symbolically by an enumerator. The enum type is created after
-the contents of file @file{frontend/cxx-asttype.def}. This file contains one tree type name per line and
-it is used to generate @file{cxx-asttype.c} at build time.
+The tree type is just an integer, represented symbolically by an enumerator.
+The enum type is created after the contents of file
+@file{frontend/cxx-asttype.def}. This file contains one tree type name per line
+and it is used to generate @file{cxx-asttype.c} at build time. In order to ease
+addition of node types, several @file{.def} files are used to generate
+@file{frontend/cxx-asttype.def}. Currently @file{cxx-asttype-base.def}
+(standard language nodes), @file{cxx-asttype-gcc.def} (GCC extension nodes),
+@file{cxx-asttype-omp.def} (OpenMP nodes), @file{cxx-asttype-pragma.def}
+(#pragma handling nodes) and @file{cxx-asttype-superscalar.def} (*Superscalar
+special nodes).
 
 Two special values exist for tree type id. @code{AST_INVALID_NODE} represents a tree with a type id zero and
 represents an internally ill formed tree (the compiler is not supposed to create any of these). @code{AST_LAST_NODE}
@@ -479,7 +512,7 @@ in @ref{List trees}.
 @section Ambiguity trees
 @cindex ambiguity trees
 
-As stated in @ref{Context free parsing} the tree as parsed directly by the GLR parser contains ambiguities. In C the
+As stated in @ref{Context free parsing}, the tree as parsed directly by the GLR parser contains ambiguities. In C the
 only arising ambiguity is 
 
 @example
@@ -689,39 +722,13 @@ later it is given a member @code{b} (with class type @code{B}). More precisely, 
 an empty class type and then it is filled with members incrementally. But this moments of mutability are just special cases
 for classes, normally types are of immutable nature.
 
-Working with pointer to class types with (almost) immutable nature allows the compiler to try to share as most as possible
-data types. Not all data types can be effectively shared but most of them are. For instance, all references to an @code{int}
-type are the same, and so are all the references to @code{const int}, @code{int*}.
-
-Things that are cumbersome, or troublesome or unpractical, to be shared are
-array types (this is a rather unfortunate case because of variable length
-arrays where we will want to keep the original expression of the size) and
-function types. 
-
-Function types are not shared (even if they could) because of typedefs.
-Typedefs are synonyms of types and they could be therefore flattened, but not
-flattening them makes users happier because it avoids converting @code{std::string}
-into the dreaded @code{std::basic_string<char, std::char_traits<char>,
-std::allocator<char> >}, which, is, admittedly, rather harsh to read when
-debugging output code. 
-
-So, although these three functions below have the same underlying function
-type, none of them will share a common type. This does not pose any functional
-limitation to the compiler since it knows they are the same, it will just
-waste more memory.
-
-@example
-void f1(int, float);
-void f2(int, float);
-
-typedef int T;
-typedef float Q;
-
-void f3(T, Q);
-@end example
-
-(This limitation could be removed in the future since we could share things based on the actual pointer of the type and not
-whether it is the same type)
+Working with pointer to class types with (almost) immutable nature allows the
+compiler to try to share as most as possible data types. Not all data types can
+be effectively shared but most of them are. For instance, all references to an
+@code{int} type are the same, and so are all the references to @code{const
+int}, @code{int*}.  Whether a type is shared or not does not determine whether
+it represents the same type, it simply makes the answer faster. Never test equality
+by pointer comparison, always use function @code{equivalent_types}.
 
 Types can be one of the following:
 
@@ -747,33 +754,72 @@ Type @code{type_t} is defined in @file{frontend/cxx-typeutils.c}.
 @example
 struct type_tag
 @{
-    enum type_kind kind;
+    // Kind of the type
+    enum type_kind kind:4;
 
+    // See below for more detailed descriptions
+    unsigned char is_template_specialized_type:1;
+    unsigned char valid_size:1;
+    // This one states if the type has been created with
+    // invalid information. Currently only arrays
+    // can cause this kind of problems
+    unsigned char is_faulty:1;
+
+    // Pointer
+    // (kind == TK_POINTER)
+    // (kind == TK_POINTER_TO_MEMBER)
     pointer_info_t* pointer;
 
+    // Array
+    // (kind == TK_ARRAY)
     array_info_t* array;
 
+    // Function
+    // (kind == TK_FUNCTION)
     function_info_t* function;
 
+    // "Simple" type
+    // (kind == TK_DIRECT)
     simple_type_t* type;
     
+    // For unresolved overload function types 
+    // (kind == TK_OVERLOAD)
     scope_entry_list_t* overload_set;
     template_argument_list_t* explicit_template_argument_list;
 
+    // Vector Type
+    // (kind == TK_VECTOR)
     vector_info_t* vector;
 
+    // cv-qualifier related to this type
+    // The cv-qualifier is in the type
     cv_qualifier_t cv_qualifier;
 
+    // Unqualified type, itself if the type is not qualified
     struct type_tag* unqualified_type;
 
+    // For parameter types, if not null it means
+    // some adjustement was done
     struct type_tag* original_type;
-
-    char is_template_specialized_type;
+    // For template specialized parameters
+    // --> char is_template_specialized_type;
     template_argument_list_t* template_arguments;
     struct type_tag* related_template_type;
+    // It is not obvious why do we need this, but it is for
+    // checking that unification actually succeed
+    // It is only NON-null for complete types
     template_parameter_list_t* template_parameters;
 
+    // The sizeof and alignment of the type
+    // They are only valid once 'computed_size' is true
+    // --> char valid_size;
     _size_t size;
+    _size_t alignment;
+    // This is here only for C++
+    _size_t data_size;
+
+    // (kind == TK_COMPUTED)
+    computed_function_type_t compute_type_function;
 @};
 @end example
 @tindex type_t
@@ -783,7 +829,7 @@ Its fields are documented below.
 
 @table @code
 @item kind 
-Is the kind of the type. Below are the values it can have
+Is the kind of the type. Up to 16 different types are possible. Below are the values it can have
 @table @code
 @item TK_DIRECT
 Direct types.
@@ -906,7 +952,10 @@ feature and it is not expected to work nor to be useful.
 This is a pointer to a function with the following prototype
 
 @example
-typedef type_t* (*computed_function_type_t)(scope_entry_t* symbol, AST* argument, int num_arguments);
+typedef type_t* (*computed_function_type_t)
+      (scope_entry_t* symbol, 
+       AST* argument, 
+       int num_arguments);
 @end example
 
 This field is only used when @code{kind} is @code{TK_COMPUTED}. Only builtin
@@ -920,6 +969,20 @@ with @code{num_arguments} elements.
 The function returns a function type (@pxref{Function types}) and the result
 type of this function type will be the one used as a result type of the whole
 call. @xref{Computed builtin function types}.
+
+@item valid_size
+@item size
+@item alignment
+@item data_size
+
+Flag @code{valid_size} holds whether the type has a valid computed size or not.
+This is used for lazy type size computation. When it is true values of later fields 
+are valid.
+
+These fields are related to size computation of types. Field @code{size} stores the size in @code{sizeof(char)} 
+of a type, @code{alignment} is the natural alignment of the type in bytes. Field @code{data_size} is exclusive of
+C++ and stores the size of a type without taking
+into account its alignment.
 
 @end table
 
@@ -972,46 +1035,103 @@ It is defined as follows.
 @example
 typedef 
 struct simple_type_tag @{
-    simple_type_kind_t kind;
+    // Kind
+    simple_type_kind_t kind:4;
 
-    builtin_type_t builtin_type;
+    // if Kind == STK_BUILTIN_TYPE here we have
+    // the exact builtin type
+    builtin_type_t builtin_type:4;
 
-    char is_long; 
-    char is_short;
-    char is_unsigned;
-    char is_signed;
+    // This can be 0, 1 (long) or 2 (long long)
+    unsigned char is_long:2; 
+    // short
+    unsigned char is_short:1;
+    // unsigned
+    unsigned char is_unsigned:1;
+    // signed
+    unsigned char is_signed:1;
 
-    char is_complex;
+    // GCC extension
+    // __Complex float
+    unsigned char is_complex:1;
 
+    // States whether this type is incomplete, by default all classes and enum
+    // type are incomplete and they must be 
+    unsigned char is_incomplete:1;
+
+    // For typeof and template dependent types
+    // (kind == STK_TYPEOF)
+    // (kind == STK_TEMPLATE_DEPENDENT_TYPE)
+    unsigned char typeof_is_expr:1;
+
+    // This type exists after another symbol, for
+    // instance
+    //
+    // class A
+    // @{
+    // @};
+    // A b;
+    //
+    // creates an 'A' symbol of type SK_CLASS and
+    // a 'b' symbol SK_VARIABLE with type
+    // STK_USER_DEFINED pointing to 'A' symbol
     struct scope_entry_tag* user_defined_type;
 
+    // For typedefs (kind == STK_TYPEDEF)
+    // the aliased type
     struct type_tag* aliased_type;
 
+    // For enums (kind == STK_ENUM)
     enum_info_t* enum_info;
     
+    // For classes (kind == STK_CLASS)
+    // this includes struct/class/union
     class_info_t* class_info;
-
+    
+    // Used when instantiating a template class
+    // (kind == STK_CLASS)
     AST template_class_base_clause;
     AST template_class_body;
 
+    // Decl environment where this type was
+    // declared if not builtin The scope where
+    // this type was declared since sometimes,
+    // types do not have any name related to them
+    // (kind == STK_ENUM)
+    // (kind == STK_CLASS)
     decl_context_t type_decl_context;
 
+    // For typeof and template dependent types
+    // (kind == STK_TYPEOF)
+    // (kind == STK_TEMPLATE_DEPENDENT_TYPE)
     AST typeof_expr;
     decl_context_t typeof_decl_context;
-    char typeof_is_expr;
 
+    // For instantiation purposes
+    // 
+    // The specialized template has already been
+    // instantiated
+    // (kind == STK_CLASS)
     template_nature_t template_nature;
 
+    // For template types
     template_parameter_list_t* template_parameter_list;
+    // This is a STK_USER_DEFINED
     type_t* primary_specialization;
+    // Sometimes we need the original symbol
+    // defining this template type
     scope_entry_t* related_template_symbol;
 
+    // Specialized types
     int num_specialized_types;
+    // These are a STK_USER_DEFINED
     type_t** specialized_types;
 
+    // Template dependent types
+    // (STK_TEMPLATE_DEPENDENT_TYPE)
     scope_entry_t* dependent_entry;
     AST dependent_nested_name;
-    AST dependent_unqualifed_part;
+    AST dependent_unqualified_part;
 @} simple_type_t;
 @end example
 @tindex simple_type_tag
@@ -1349,39 +1469,66 @@ Class types require lots of informations to be stored, in special in C++. This i
 is represented in @code{class_info_t}.
 
 @example
-typedef 
+typedef
 struct class_information_tag @{
-    enum class_kind_t class_kind;
+    // Kind of class @{struct, class@}
+    enum class_kind_t class_kind:4;
 
-    char is_dependent;
-    
-    char is_local_class;
+    // A dependent class
+    unsigned char is_dependent:1;
+    // Currently unused
+    unsigned char is_local_class:1;
+
     struct scope_entry_tag* enclosing_function;
 
+    // The inner decl context created by this class
     decl_context_t inner_decl_context;
 
+    // Destructor
     struct scope_entry_tag* destructor;
 
+    // Member functions
+    int num_member_functions;
+    struct scope_entry_tag** member_functions;
+
+    // Conversion functions info
     int num_conversion_functions;
     struct scope_entry_tag** conversion_functions;
 
+    // Operator function info
     int num_copy_assignment_operator_functions;
     struct scope_entry_tag** copy_assignment_operator_function_list;
 
+    // Class constructors info
     int num_constructors;
     struct scope_entry_tag** constructor_list;
 
+    // Default constructor
+    struct scope_entry_tag* default_constructor;
+
+    // Copy constructors
     int num_copy_constructors;
     struct scope_entry_tag** copy_constructor_list;
 
+    // Nonstatic data members
     int num_nonstatic_data_members;
     struct scope_entry_tag** nonstatic_data_members;
     
+    // Static data members
     int num_static_data_members;
     struct scope_entry_tag** static_data_members;
 
+    // Base (parent classes) info
     int num_bases;
     base_class_info_t** base_classes_list;
+
+    // Virtual base info (used only when laying types)
+    int num_virtual_bases;
+    virtual_base_class_info_t** virtual_base_classes_list;
+
+    // Info for laying out 
+    _size_t non_virtual_size;
+    _size_t non_virtual_align;
 @} class_info_t;
 @end example
 @tindex class_info_t
@@ -1469,7 +1616,8 @@ struct A
 @item num_bases
 @itemx base_classes_list
 
-The number of base classes of the current class. Only the nondependent bases are registered
+The number of direct base classes of the current
+class. Only the nondependent bases are registered
 here. Dependent bases are not considered.
 
 @example
@@ -1487,6 +1635,26 @@ In the previous example, only @code{A} will be signed in as a base of the
 primary template class @code{C}. Nondependent specializations of @code{C} will
 have both classes registered as bases.
 
+@item num_virtual_bases
+@item virtual_base_classes_list
+
+When laying out a class type it is required
+to know the offset of virtual bases. Field
+@code{virtual_base_classes_list} is an array,
+with @code{num_virtual_bases} of
+@code{virtual_base_class_info_t}. Note that
+this array will include all direct virtual bases of the
+class (already represented in
+@code{base_classes_list}) but also those that are
+indirect because of inheritance.
+
+@item non_virtual_size
+@item non_virtual_align
+
+These two fields hold information related to the
+size and alignment of a class type when virtual
+bases are not considered.
+
 @end table
 
 @node Base classes
@@ -1499,13 +1667,20 @@ Base classes require a bit more of information than just the symbol.
 typedef 
 struct base_class_info_tag
 @{
+    // The parent class type
     struct type_tag* class_type;
 
+    // The parent class symbol
     struct scope_entry_tag* class_symbol;
 
+    // The access specifier (public, private, protected inheritance)
     access_specifier_t access_specifier;
 
-    char is_virtual;
+    // A virtual base
+    unsigned char is_virtual:1;
+
+    // Used when laying classes out
+    _size_t base_offset;
 @} base_class_info_t;
 @end example
 @tindex base_class_info_t
@@ -1522,7 +1697,29 @@ States the kind of inheritance. This field is currently unused.
 @item is_virtual
 Holds if the inheritance is virtual. This field is used when performing class
 scope lookup in the inheritance hierarchy
+@item base_offset
+Holds the offset of this base. This is needed when
+laying out bases of class types, since sometimes
+conflicts might arise in empty base classes.
 @end table
+
+When laying out a class type the set of
+(direct or indirect) virtual base classes are
+represented in the field
+@code{virtual_base_classes_list} of a
+@code{class_info_t}. Only offset is actually
+stored for every virtual baese class.
+
+@example
+typedef
+struct virtual_base_class_info_tag
+@{
+    struct scope_entry_tag* virtual_base;
+    _size_t virtual_base_offset;
+@} virtual_base_class_info_t;
+@end example
+@tindex virtual_base_class_info_t
+@tindex virtual_base_class_info_tag
 
 @node Dependent typenames
 @subsection Dependent typenames
@@ -1590,8 +1787,11 @@ Their information is represented in @code{pointer_info_t}.
 typedef 
 struct pointer_tag
 @{
+    // The pointee type
     struct type_tag* pointee;
 
+    // If the type was a TK_POINTER_TO_MEMBER
+    // the pointee class
     struct scope_entry_tag* pointee_class;
 @} pointer_info_t;
 @end example
@@ -1617,12 +1817,16 @@ Array types (@code{TK_ARRAY}) are represented in @code{array_info_t}.
 typedef 
 struct array_tag
 @{
+    // Array sizes
     AST array_expr;
+    // Scope of the array size expression
     decl_context_t array_expr_decl_context;
 
+    // The type of the array elements
     struct type_tag* element_type;
 
-    char is_literal_string;
+    // Is literal string type ?
+    unsigned char is_literal_string:1;
 @} array_info_t;
 @end example
 @tindex array_info_t
@@ -1649,7 +1853,7 @@ void g(void)
 @end example
 @end table
 
-The type of @code{"hello"} is @code{const char[5]} (it is not 4 because of the additional @code{NULL} at the end) and a plain
+The type of @code{"hello"} is @code{const char[6]} (it is not 5 because of the additional @code{NULL} at the end) and a plain
 array-to-pointer conversion would yield @code{const char*} which in C++ cannot be converted to @code{char*},
 the type of parameter @code{c} in function @code{f}. So we need a way to distinguish this special case.
 
@@ -1663,12 +1867,28 @@ Function types (@code{TK_FUNCTION}) are represented in @code{function_info_t}.
 typedef 
 struct function_tag
 @{
+    // The returning type of the function
     struct type_tag* return_type;
 
+    // Parameter information
     int num_parameters;
     parameter_info_t** parameter_list;
 
-    int lacks_prototype;
+    // Contains the function definition tree 
+    // (if the function has been defined)
+    AST definition_tree;
+    
+    // For instantiation purposes
+    template_nature_t template_nature;
+
+    // Is dependent
+    unsigned char is_dependent:1;
+
+    // States if this function has been declared
+    // or defined without prototype.  This is only
+    // meaningful in C but not in C++ where all
+    // functions do have prototype
+    unsigned char lacks_prototype:1;
 @} function_info_t;
 @end example
 @tindex function_tag
@@ -1678,6 +1898,9 @@ struct function_tag
 @item return_type
 This is the return type of the function. If the function type is the one of a constructor, destructor
 or conversion functor it will be null.
+@item definition_tree
+This is used only in C++ when a function is instantiated. This is only for
+function types that are specialized template types.
 @item num_parameters
 @itemx parameter_list
 The list of parameters of the function.
@@ -1700,6 +1923,7 @@ struct parameter_info_tag
 @{
     char is_ellipsis;
     struct type_tag* type_info;
+    struct type_tag* nonadjusted_type_info;
 @} parameter_info_t;
 @end example
 @tindex parameter_info_t
@@ -1710,10 +1934,14 @@ struct parameter_info_tag
 States if the parameter is an ellipsis. Note that in this case both @code{type_info} and @code{original_type} will be null.
 @item type_info
 The (adjusted) type of the parameter.
+@item nonadjusted_type_info
+The original type of the type declaration. This field can be set NULL when creating a function type.
 @end table
 
 Note that the type of the parameter should be adjusted in order to satisfy the standard for both C and C++. Array types should
-be converted into pointer types and function types to pointer to function types.
+be converted into pointer types and function types to pointer to function types. The non adjusted type can be stored in
+@code{nonadjusted_type_info} field@footnote{The existence of this type adjustment means that two function types can be equivalent
+but be represented by different types.}.
 
 @node Vector types
 @section Vector types
@@ -1798,30 +2026,71 @@ can be shared among places, so symbols are used by means of pointers.
 typedef 
 struct scope_entry_tag
 @{
+    // Kind of this symbol
     enum cxx_symbol_kind kind;
     
+    // Decl context when the symbol was declared
+    // it contains the scope where the symbol was
+    // declared
     decl_context_t decl_context;
 
+    // The symbol name
     const char* symbol_name;
 
+    // This allows us to enforce the
+    // one-definition-rule within a translation
+    // unit
     int defined;
 
+    // Type information of this symbol
     struct type_tag* type_information;
 
+    // Related decl_context of a namespace. This
+    // is the declarative region created by a
+    // namespace
     decl_context_t namespace_decl_context;
     
+    // Initializations of several kind are saved here
+    //  - initialization of const objects
+    //  - enumerator values
     struct AST_tag* expression_value;
 
+    // File and line where this simbol was signed up
     const char *file;
     int line;
 
+    // Do not print this symbol (because of
+    // recursion, hiding, etc) Used specially for
+    // the injected class-name, where printing it
+    // in print scope routines would create an
+    // infinite recursion.
     char do_not_print;
 
+    // All entity specifiers are in this structure
     entity_specifiers_t entity_specs;
 
+    // Point in the struct AST_tag* where this was
+    // declared. This is approximate, just to find
+    // the simple_declaration, member_declaration
+    // or function_definition holding this one
     struct AST_tag* point_of_declaration;
 
+    // Dependency info. It states if this symbol
+    // has a template-dependent nature A value of
+    // DI_UNKNOWN means this has not been already
+    // computed
+    //
+    // At the moment, this is used only for
+    // variables and enumerators.  It is intended
+    // to avoid an infinite recursion when
+    // computing whether an enum or enumerator is
+    // dependent.  An enum will check every of its
+    // enumerators, and an enumerator will check
+    // its enum type
     dependency_info_t dependency_info;
+
+    // Extensible information of a symbol
+    extensible_struct_t* extended_data;
 @} scope_entry_t;
 @end example
 @tindex scope_entry_t
@@ -3089,1013 +3358,93 @@ will be set to 1 when the field is found.
 
 @end deftypefun
 
-@node Introduction to TL
-@chapter Introduction to TL
-@cindex introduction TL
+@node Library and tool support
+@chapter Library and tool support
+@cindex library support
+@cindex tool support
 
 @menu
-* History::
-* Compiler phases::
-* Wrapper classes::
-* Creating source::
-* Dealing with common language constructs::
-* Functors and signals::
-* Traversing trees::
-* Reference counted objects::
+* tpp::
+* String pool::
 @end menu
 
-@node History
-@section History
-@cindex history
+@node tpp
+@section tpp
+@cindex tpp
 
-Previous incarnations of Mercurium compilers used a template language to drive
-the transformations. This template language was usually called @code{TPL}.
-Although this kind of template-driven language, a sort of interpreted language
-interspersed with chunks of code, allowed quick tests for some constructions it
-always fell short in expressivity. So we decided to push for a more generic and
-common approach: compiler phases written in C++.
-
-Although this name is completely unofficial, TL stands for Transformation Library.
-
-@node Compiler phases
-@section Compiler phases
-@cindex compiler phases
-
-Compiler phases are run after the compiler has successfully parsed the input
-code (together with the creation of its related symbolic information and the
-needed types). Compiler phases are written in C++ and are dynamically loaded
-libraries, loaded by the compiler as stated by the configuration. They are
-run in the same order as they appear in the compiler configuration.
-
-Every compiler phase receives a @acronym{DTO, Data Transfer Object} with the basic
-information to work: the translation unit abstract syntax tree (@pxref{Abstract Syntax Tree})
-and a suitable scope link (@pxref{Scope link}).
-
-Phases can add information to this DTO, so subsequent phases can use
-information synthesized by previous ones. This makes this part behave more like
-a compiler phase pipeline.
-
-A phase that wants to implement a transformation has to modify the given
-abstract syntax tree. To achieve this it can use several approaches but the
-main approach used in mcxx is creating source code on the fly. This new source
-can then later be parsed and used as any other tree coming from the original
-source. The newly generated trees are commonly used to replace existing ones but
-can also be used as an intermediate step for other transforms.
-
-@node Wrapper classes
-@section Wrapper classes
-@cindex wrapper classes
-
-Instead of working with the internal compiler structures (detailed in
-@ref{Abstract Syntax Tree}, @ref{Type system}, @ref{Symbols}, @ref{Scopes and
-contexts} and @ref{Extensible structures and schemas}) TL provides several C++
-classes wrapping all these structures. Their goal is to be a nicer interface
-and also to provide an extra freedom degree, allowing to change the internals
-of the compiler without disturbing too much the already written compiler
-phases. 
-
-Following table summarizes relationship between classes and the wrapped
-entity.
-
-@multitable @columnfractions .20 .20 
-@headitem Compiler entity @tab Wrap class 
-@item @code{AST} @tab @code{TL::AST_t} 
-@item @code{type_t*} @tab @code{TL::Type} 
-@item @code{scope_entry_t*} @tab @code{TL::Symbol} 
-@item @code{decl_context_t} @tab @code{TL::Scope} 
-@item @code{scope_link_t*} @tab @code{TL::ScopeLink} 
-@end multitable
-
-Class @code{TL::Object} is a base class for all these types and provides
-virtual methods to implement access to the extensible structure
-(@pxref{Extensible structures and schemas}.  Currently, only @code{TL::AST_t}
-provides such facility since at the moment is the only compiler structure using
-it@footnote{Though the idea is that all the others do use it}.
-
-@node Creating source
-@section Creating source
-@cindex creating source
+In order to ease automatic generation of some files, a tool called
+@code{tpp} (tiny preprocessor) is used. This small preprocessor
+understands a set of marks in text files similar to those of C90.  Each
+mark must occupy a whole line.
 
 @menu
-* Parsing the created source::
+* Conditional text inclusion::
+* Include files::
 @end menu
 
-When performing transformations, the main technique involves class
-@code{TL::Source}. This class, that can be viewed as a powerful
-string, is used to create source code on the fly. 
+@node Conditional text inclusion
+@subsection Conditional text inclusion
+@cindex conditional text
 
-An interesting feature of this class is the fact that it allows either
-a top-down or bottom-up approach when creating code. A top-down approach
-allows first to lay out the code and then fill it. For instance.
-
-@example
-Source src;
-Source initialization_src, execution_src;
-
-src
-  << initialization_src
-  << execution_src
-  ;
-
-initialization_src
-  << "int a;"
-  ;
-
-execution_src
-  << "a = 3;"
-  ;
-@end example
-
-When @code{src} is parsed it will use the contents of @code{initialization_src}
-and @code{execution_src} at the moment of parsing.
-@code{TL::Source::operator<<} is used to append either another
-@code{TL::Source}, a @code{std::string} (or something convertible into it) or a
-@code{int} that will be represented in base-10.
-
-@node Parsing the created source
-@subsection Parsing the created source
-@cindex parsing the created source
-
-A @code{TL::AST_t} can be obtained by parsing a @code{TL::Source}. Parsing is 
-a somewhat fragile operation and it requires context. While some structures
-are less ``context-demanding" than others, parsed code should be, at the maximum
-extent possible, always valid@footnote{
-Sometimes this is not possible (for instance, because we are referencing a
-variable that does not already exist in the original context, it will be
-actually declared later). When parsing fails because of this, parsing a fake
-code defining a new context with the needed information can be used
-as a workaround.}.
-
-Two things are always required when parsing a code. A reference tree
-(@code{TL::AST_t}) and a valid scope link (@code{TL::ScopeLink}). The reference
-tree plus the scope link is used to retrieve the valid context where the new
-tree will be parsed. Notice that code that declares entities, will create new
-symbols in the parsing context, and so will do code that create new contexts.
-
-Scope link can always be obtained from the DTO (there is, actually, only one
-scope link in the compiler). Reference tree is a tree with the same context as
-the parsed code, normally it is the tree being replaced or a surrounding tree,
-otherwise.
-
-@node Dealing with common language constructs
-@section Dealing with common language constructs
-@cindex dealing common language constructs
-
-In order to deal with common language constructs in C and C++, TL provides additional
-wrapping classes. They all derive from @code{TL::LangConstruct}. Every @code{TL::LangConstruct}
-is built using a tree and a scope link. Following table summarizes these classes:
-
-@table @code
-@item TL::Declaration 
-A declaration of an entity in C or C++. A declaration is always defined by one
-@code{TL::DeclarationSpec} and zero or more @code{TL::DeclarationEntity}.
-@item TL::DeclarationEntity
-A declared entity in a declaration.
-@item TL::DeclarationSpec 
-Wraps the declaraton specifiers of a given declaration. It allows to get the 
-@code{TL::TypeSpec} involved in the declaration.
-@item TL::Expression
-Represents any expression in C/C++. This class allows navigating easily through the expression
-and getting its related type (provided it has been properly computed).
-@item TL::FunctionDefinition
-This class wraps an entire function definition. This is commonly used to get the name of the
-enclosing function definition.
-@item TL::IdExpression
-This class wraps an occurrence of a reference to a symbol.
-@item TL::ParameterDeclaration
-A special kind of declaration just for parameters obtained using @code{TL::DeclarationEntity}
-that represent function declarations.
-@item TL::Statement
-A generic statement. Allows to know whether the statement is a compound statement and getting
-its inner statements.
-@item TL::ForStatement
-A specialized @code{TL::Statement} to deal with for-loops.
-@item TL::TypeSpec
-In @code{TL::DeclarationSpec}, the tree that represents the basic type of the
-declaration.
-@end table
-
-@node Functors and signals
-@section Functors and signals
-@cindex functors signals
-
-@menu
-* Predicates over AST::
-@end menu
-
-In several places the compiler defines a callback-strategy. To safely implement
-callbacks in C++, TL provides a subset of callback facilities, namely
-@code{TL::Functor} and @code{TL::Signal1}. 
-
-@code{TL::Signal1} is the entity firing a callback. To it several functors can
-be connected and their code will be run when signaled. A @code{TL::Functor}
-wraps a function receiving one parameter (or one plus the implicit object, for
-member functions). This allows an homogeneous approach when dealing with this
-callback style. 
-
-A functor can be explicitly created, by defining a new class inheriting from
-@code{Functor<Ret, Type>} where @code{Ret} is the return type and @code{Type}
-is the parameter type. Most of the time @code{Ret} is left @code{void}. An
-important exception to this are @code{TL::Predicate<T>} that are exactly
-@code{Functor<bool, T>} and are normally used to test properties, in particular
-when traversing trees. 
-
-Another way to get a functor is using the auxiliar function @code{TL::functor}
-that can be applied to many kinds of functor-like objects and returns a
-suitable @code{TL::Functor} for it.
-
-Any class inheriting from @code{TL::Functor<Ret, Type>} will have to implement
-@code{Ret TL::Functor<Ret, Type>::operator()(Type& t) const}. This function
-should not have effects on the parameter @code{Type& t} because it is valid to
-call the functor with a @code{const Type&} (and the overriden method will be
-called).
-
-@node Predicates over AST
-@subsection Predicates over AST
-@cindex predicates ast
-
-The most usual use for predicates are @code{TL::PredicateAST<ATTR-NAME>}.
-Parameter @code{ATTR-NAME} is an attribute of the AST stating a boolean
-property of it. For instance @code{TL::PredicateAST<LANG_IS_FOR_STATEMENT>}
-returns @code{true} for trees representing a for-statement. 
-
-The list of attributes related to trees is defined in file
-@file{cxx-attrnames.def}. Most of the attributes there are self documenting and
-are linked to the tree by the semantic phase in @file{cxx-buildscope.c} and
-@file{cxx-exprtype.c}.
-
-@node Traversing trees
-@section Traversing trees
-@cindex Traversing trees
-
-Traversals in the tree, to find items to potentially be transformed, are implemented
-using @code{TL::DepthTraverse} (a subclass of @code{TL::Traverse}, although no other
-derived class of it exists). 
-
-A @code{TL::TraverseFunctor} is a class defining two methods @code{preorder}
-and @code{postorder} that will be run in preorder and postorder moment when
-performing the traversal of a node that matches the related functor. 
-
-Matching of a tree is defined by @code{TL::TraverseASTFunctor}. This functor
-receives a @code{AST_t} and returns a @code{ASTTraversalResult}. This value
-states whether the current node matches (if it does, then its @code{postorder}
-and @code{preorder} functions of the related functor, see below, will be
-called) and if the traverse must recurse for it (sometimes we are not
-interested in matching anything but the outermost matching entity of a nested
-tree).
-
-A @code{TL::TraverseASTFunctor} is related to a @code{TL::TraverseFunctor} by means
-of method @code{TL::DepthTraverse::add_functor}.
-
-Once all functors we are interested in are added in the @code{TL::DepthTraverse} object,
-we can fire the traversal using @code{TL::DepthTraverse::traverse}.
-
-@node Reference counted objects
-@section Reference counted objects
-@cindex reference counted objects
-
-In several contexts the compiler needs shared objects with hard to predict
-lifetimes. This makes unsuitable the use of pointers, so reference counted
-pointers are used.
-
-The class implementing a reference counted pointer is @code{RefPtr<Class>}, where
-@code{Class} is a class with two member functions @code{obj_reference} and
-@code{obj_unreference} that are called everytime somebody keeps a new reference
-to this object and everytime somebody discards one of this references, respectively.
-Most of the time the implementation of a class designed to be reference counted will
-be as simple as
+Following marks can be used to conditionally enable or disable text
+output.
 
 @example
-void obj_reference()
-@{
-  this->_refcount++;
-@}
-
-void obj_unreference()
-@{
-  this->_refcount--;
-
-  if (this->_refcount == 0)
-  @{
-    delete this;
-  @}
-@}
+/*!if name*/
+/*!ifnot name*/
 @end example
 
-Note that with the previous schema, cycles will not be properly freed. If you ever have
-cycles you will need a fairly more sophisticated approach not covered here.
+For @code{if}, if flag @code{name} is enabled text will be output.
+Conversely, for @code{ifnot}, if flag @code{name} is not enabled
+text will be output.
 
-@node Examples of TL
-@chapter Examples of TL
-@cindex examples TL
-
-@menu
-* Hello world::
-* Static call graph::
-* Loop lowering::
-@end menu
-
-This chapter is devoted to introduce you several examples when using TL, trying to cover
-the most popular transformations and uses of the compiler.
-
-This chapter does not give any detail on specific issues like how to compile
-and build the phases, this is later addressed in @ref{Installation of mcxx}.
-
-@node Hello world
-@section Hello world
-@cindex hello world
-
-@menu
-* Phase information::
-* Phase parameters::
-@end menu
-
-In order to get familiar with the shape of a new compiler phase we will write
-one phase that just writes @code{Hello world} when loaded and when run.
-Following code is to be written in a file called @file{tl-helloworld.cpp}.
+Both constructions must be paired with an @code{endif} mark otherwise
+tpp will end signaling a failure.
 
 @example
-#include "tl-compilerphase.hpp"
-#include <iostream>
-
-namespace TL
-@{
-    class HelloWorld : public CompilerPhase
-    @{
-        public:
-            HelloWorld()
-            @{
-                std::cout 
-                    << "Hello world (phase loaded)" 
-                    << std::endl;
-            @}
-
-            void run(DTO& dto)
-            @{
-                std::cout 
-                    << "Hello world (phase run)" 
-                    << std::endl;
-            @}
-    @};
-@}
-
-EXPORT_PHASE(TL::HelloWorld);
+/*!endif name*/
 @end example
 
-A compiler phase is just a class that inherits from @code{TL::CompilerPhase}.
-Its constructor is invoked when the compiler loads the phase, just before
-parsing anything. This is done this way in order for phases to influence the
-parsing (for instance, they might register new constructions). The constructor
-must be invokeable with zero arguments.
-
-Every derived class of @code{TL::CompilerPhase} must implement member function
-@code{run(DTO&)}. This is the entry point of the compiler phase. The phase
-starts in this function and ends leaving it. This function is invoked by the
-compiler for every file compiled (normally one).
-
-Every phase, even if split in several files, must have one (and only one)
-@code{EXPORT_PHASE} definition. This declares a factory function that the
-compiler uses to create an instance of the phase. This definition must be
-located in the global scope (not in any namespace).
-
-This example has set the class within namespace @code{TL}. This is not mandated
-at all but eases writing code that makes use of TL classes. You can define your
-compiler phase in any namespace of your own.
-
-In order to use this phase you have to add a new @code{compiler_phase} in the
-compiler configuration file (@pxref{Configuration}) with the name of the shared
-object file, in this example likely to be @file{tl-helloworld.so}.
-
-@node Phase information
-@subsection Phase information
-@cindex phase information
-
-In order to better integrate with the rest of the compiler, a compiler phase
-should describe itself to the compiler. This is achieved with functions
-@code{TL::CompilerPhase::set_phase_name},
-@code{TL::CompilerPhase::set_phase_description}. These functions if called,
-must be invoked in the constructor. 
-
-The previous constructor can be rewritten like this:
+Flags can be defined at command line when invoking tpp using syntax
+@code{-Dname}. By default any flag starts as disabled. They can also be
+enabled, or disabled, in the text file by using following marks.
 
 @example
-HelloWorld()
-@{
-    set_phase_name("Hello world phase");
-    set_phase_description("This phase greets the user "
-        "both when loaded and when invoked per file.");
-
-    std::cout 
-        << "Hello world (phase loaded)" 
-        << std::endl;
-@}
+/*!define name*/
+/*!undefine name*/
 @end example
 
-When the compiler prints the help message (because of an error in the command
-line or a @code{--help} parameter) it will print the loaded phases under the
-current profile. The name of the phase and its description will be printed
-as well, if given.
+@node Include files
+@subsection Include files
+@cindex file inclusion
 
-@node Phase parameters
-@subsection Phase parameters
-@cindex phase parameters
-
-Sometimes we want to allow that some aspects of a given phase be tweaked by the user. For instance, we could
-improve the hello world to greet somebody instead of the world itself. 
-
-To achieve this, in the constructor, we can call @code{register_parameter}. This function receives four parameters,
-namely the parameter name, a description of the parameter, a related storage value and a default value. In addition
-it returns a @code{TL::Signal1} (@pxref{Functors and signals}) that can be connected to a function that will be invoked
-when the parameter is explicitly set from the command line.
+Files can be included like a C preprocessor using mark
 
 @example
-#include "tl-compilerphase.hpp"
-#include <iostream>
-#include <string>
-
-namespace TL
-@{
-    class HelloWorld : public CompilerPhase
-    @{
-        private:
-            std::string _hello_name;
-        public:
-            HelloWorld()
-            @{
-                set_phase_name("Hello world phase");
-                set_phase_description("This phase greets the user "
-                    "both when loaded and when invoked per file.");
-
-                register_parameter("hello-name", 
-                    "Name to be greeted",
-                    _hello_name,
-                    "world");
-
-                std::cout 
-                    << "Hello " << _hello_name << " (phase loaded)" 
-                    << std::endl;
-            @}
-
-            void run(DTO& dto)
-            @{
-                std::cout 
-                    << "Hello " << _hello_name << " (phase run)" 
-                    << std::endl;
-            @}
-    @};
-@}
+/*!include file-name*/
 @end example
 
-In the previous example @code{_hello_name} will be the reference where the given
-parameter will be stored. Sometimes we have to synthesize something after the
-given parameter (for instance a true or false flag or an integer value). Using
-a functor is useful. For instance, imagine that we want to have an integer
-parameter, having it stored in an integer rather than a plain string makes things
-easier.
-
-@example
-#include <sstream>
-...
-class HelloWorld : public CompilerPhase
-@{
-    private:
-        std::string _hello_age_str;
-        int _hello_age;
-    public:
-        HelloWorld()
-        @{
-            ...
-            register_parameter("hello-age",
-                    "Age reminder",
-                    _hello_age_str 
-                    "-1")
-               .connect(functor(&HelloWorld::set_age, *this));
-            ...
-        @}
-
-        void set_age(std::string value)
-        @{
-            std::stringstream ss;
-
-            ss << value;
-            ss >> _hello_age;
-        @}
-@};
-@end example
-
-In member function @code{set_age} we could check that the given number
-parameter is valid, enable other flags etc. There is a convenience function for
-boolean flags that eases parsing boolean options after strings, it is called
-@code{parse_boolean_option} declared in @file{tl-compilerphase.hpp}.
-
-Parameters are documented when the compiler shows help message after the phase
-description. The default value is also shown. A parameter is passed by the compiler
-when the user specifies in the command line @code{--variable=name:value}. A @code{name}
-can be shared among several phases, each one will receive the specified @code{value}.
-
-@node Static call graph
-@section Static call graph
-@cindex static call graph
-
-@menu
-* Traversing the tree::
-* Static call graph compiler phase::
-* Getting function calls in a function definition::
-@end menu
-
-This example concentrates on how to walk through the tree. There are several ways of finding
-things in a tree. The most powerful implies using a @code{DepthTraverse} but a given
-@code{AST_t} can also be used to get in a quicker way all the sons that satisfy a predicate.
-
-In this example we will write a compiler phase that prints on the standard
-output a simple Graphviz (@uref{http://www.graphviz.org}) graph with the static
-call graph. To do this we will find each function definition in the code and
-find in it all function calls that we know they refer to existing functions.
-
-@node Traversing the tree
-@subsection Traversing the tree
-@cindex traversing the tree
-
-First thing we have to do is creating a @code{TraverseASTFunctor}. This
-@emph{functor} states whether a given tree matches. It also specifies if the
-traversal must recurse in this node. We will use
-@code{FunctionDefinition::predicate} that is a convenience predicate that
-matches function definitions.
-
-@example
-class FunctionDefinitionASTFunctor : public TraverseASTFunctor
-@{
-  public:
-    ASTTraversalResult operator()(AST_t &a) const
-    @{
-       if (FunctionDefinition::predicate(a))
-       @{
-          return ast_traversal_result_helper(/* match */ true, 
-              /* recurse */ false);
-       @}
-       else
-       @{
-          return ast_traversal_result_helper(/* match */ false, 
-              /* recurse */ true);
-       @}
-    @}
-@};
-@end example
-
-A @code{TraverseASTFunctor} is a synonim for @code{Functor<ASTTraversalResult, AST_t>} so
-@code{ASTTraversalResult operator()(AST_t& a) const} needs to be implemented. Function
-@code{ast_traversal_result_helper} is a helper function to build values of 
-@code{ASTTraversalResult} type. Basically it says to recurse always when a
-function definition tree is not found, and not to recurse when not found. Only function
-definitions will match, thus the traverse functors will be called only for function
-definitions.
-
-@node Static call graph compiler phase
-@subsection Static call graph compiler phase
-
-The compiler phase itself is defined as follows. It basically registers an
-object of the class above and links it with a functor of type
-@code{FunctionDefinitionFunctor}, we will define it later.  This is done with
-@code{TL::DepthTraverse::add_functor}.
-
-@example
-class StaticCallGraph : public CompilerPhase
-@{
-  public:
-    StaticCallGraph()
-    @{
-    @}
-
-    void run(DTO& dto)
-    @{
-      std::cout << "digraph static_callgraph @{" << std::endl;
-
-      AST_t ast = dto["translation_unit"];
-      ScopeLink scope_link = dto["scope_link"];
-
-      DepthTraverse depth_traverse;
-      FunctionDefinitionFunctor function_definition_functor;
-      FunctionDefinitionASTFunctor traverse_ast_functor;
-
-      depth_traverse.add_functor(traverse_ast_functor, 
-        function_definition_functor);
-      depth_traverse.traverse(ast, scope_link);
-
-      std::cout << "@}" << std::endl;
-    @}
-@};
-@end example
-
-Objects stored in the DTO are identified by name. Compiler guarantees that at
-least @code{translation_unit} and @code{scope_link} will be always available.
-They contain, respectively, the root tree of all the current file source and a
-suitable scope link. To add an object to the DTO use @code{add_object} with
-a @code{RefPtr<T>} object (@pxref{Reference counted objects}).
-
-@node Getting function calls in a function definition
-@subsection Getting function calls in a function definition
-
-Once we have found a function definition we have to do something with it.
-
-@example
-class FunctionDefinitionFunctor : public TraverseFunctor
-@{
-  public:
-    void preorder(Context ctx, AST_t ast) 
-    @{ 
-      ScopeLink sl = ctx.scope_link;
-      // Wrap into a FunctionDefinition since we know it is
-      FunctionDefinition function_definition(ast, sl);
-
-      // Get the function name
-      IdExpression function_name = 
-        function_definition.get_function_name();
-
-      // Get the body of the function definition
-      Statement stm = function_definition.get_function_body();
-
-      // Now get all function calls
-      ObjectList<AST_t> function_calls = 
-        stm.get_ast().depth_subtrees(
-            PredicateAST<LANG_IS_FUNCTION_CALL>()
-            );
-
-      std::cout 
-        << function_name.prettyprint() 
-        << " [label=\"" 
-        << function_name.prettyprint() 
-        << "\"]"
-        << std::endl;
-
-      // For every function call
-      for (ObjectList<AST_t>::iterator it = function_calls.begin();
-          it != function_calls.end();
-          it++)
-      @{
-        // Wrap it as an expression
-        Expression expr(*it, sl);
-
-        // Check if the called entity is a simple name
-        if (expr.get_called_expression().is_id_expression())
-        @{
-          IdExpression id_expression = 
-            expr.get_called_expression().get_id_expression();
-          Symbol sym = id_expression.get_symbol();
-
-          // And check if it is a function (and not a pointer to
-          // function)
-          if (sym.is_function())
-          @{
-            std::cout 
-              << function_name.prettyprint() 
-              << " -> " 
-              << id_expression.prettyprint()
-              << " [label=\"" 
-              << id_expression.get_ast().get_locus() 
-              << "\"]"
-              << std::endl;
-          @}
-        @}
-      @}
-    @}
-    void postorder(Context, AST_t) @{ @}
-@};
-@end example
-
-For a given functor we can choose where to perform work, either at postorder
-or preorder. As a rule of thumb, when traversing trees most of the information
-gathering has to be done in preorder. Then in postorder we can use this 
-information to implement transformations.
-
-In the example above we first wrap in a @code{FunctionDefinition} the tree and
-then we get its body to get all function calls there. This is another way to
-traverse a tree, using @code{TL::AST_t::dept_subtrees} and a @code{Predicate<AST_t>}.
-Then we check if the called expression is a simple thing, like @code{a} (an id-expression),
-and then we check using the related symbol if this is a function@footnote{Note that this
-code would not work properly in C++ when calling overloads since all overloads would
-get mixed against one name}.
-
-@node Loop lowering
-@section Loop lowering
-@cindex loop lowering
-
-In this example we will lower several high level loop constructs in a simpler
-form involving just if statements and gotos. This example shows how to generate
-new code.
-
-We will convert a @code{while} statement of the form
-
-@example
-while (x)
-    @r{@i{statement}}
-@end example
-
-into something of the form
-
-@example
-@{
-  loop_start_00: if (!x) goto loop_end_00;
-    @r{@i{statement}}
-    goto loop_start_00;
-  loop_end_00:
-@}
-@end example
-
-Like in the previous example, we have to find all @code{while} statements and then perform the
-transform. So we need a @code{TraverseASTFunctor} for @code{while} statements.
-
-@example
-class WhileStatementASTFunctor : public TraverseASTFunctor
-@{
-  public:
-    ASTTraversalResult operator()(AST_t &a) const
-    @{
-      if (WhileStatement::predicate(a))
-      @{
-        return ast_traversal_result_helper(/* match */ true, 
-            /* recurse */ true);
-      @}
-      else
-      @{
-        return ast_traversal_result_helper(/* match */ false, 
-            /* recurse */ true);
-      @}
-    @}
-@};
-@end example
-
-In contrast to the previous example, though, when we find a @code{while} statement we
-want to recurse because there might be other @code{while} statements in it that we
-want to transform too. Remember that rule of thumb is that analysis is
-performed in preorder and transformations in postorder.
-
-In this example we have to create arbitrary labels. If we choose to enumerate
-@code{while} statements in the order that they appear in the code we will need to
-number them first in preorder. So we have to be able to get back this number
-(typically using a stack). If we choose to not to do this, we can count @code{while}
-statements in postorder, this gives an unusual numbering where outermost loops
-have higher numbers while inner ones have lower numbers. This last solution
-does not require any stack. In this example, for simplicity we will develop
-the latter approach.
-
-A first version of this transformation is sketched in the following functor
-for @code{while} statements. As said before, we are not doing anything in preorder.
-
-@example
-class WhileStatementFunctor : public TraverseFunctor
-@{
-  private:
-    int num_whiles;
-  public:
-    WhileStatementFunctor()
-      : num_whiles(0) @{ @}
-
-    void preorder(Context, AST_t) 
-    @{ 
-    @}
-
-    void postorder(Context ctx, AST_t ast) 
-    @{ 
-      num_whiles++;
-
-      // Wrap the tree
-      WhileStatement while_statement(ast, ctx.scope_link);
-
-      Source lowered_while, condition, while_body;
-
-      lowered_while
-        << "@{"
-        <<   "loop_start_" << num_whiles << ": "
-        <<       "if (!(" << condition << "))"
-        <<          "goto loop_end_" << num_whiles << ";"
-        <<   while_body
-        <<   "goto loop_start_" << num_whiles << ";"
-        <<   "loop_end_" << num_whiles << ":"
-        <<       ";"
-        << "@}"
-        ;
-
-      condition << while_statement.get_condition().prettyprint();
-      while_body << while_statement.get_body().prettyprint();
-
-      TL::AST_t lowered_while_tree 
-          = lowered_while.parse_statement(ast, ctx.scope_link);
-
-      ast.replace(lowered_while_tree);
-    @}
-@};
-@end example
-
-As you can se creating code is rather easy. @code{TL::Source} class works like
-a powerful string but it allows to specify other @code{TL::Source} objects so
-we can take a top down approach when laying out the newly created code. In this
-example @code{condition} and @code{while_body} are filled later.
-
-Once the source is created it must be eventually parsed to get a tree. This is
-achieved with @code{parse_statement}. Note that since we are replacing only one
-statement the replaced code should also be one statement. In this example we
-achieve this because we are creating a big compound statement containing the
-lowered code@footnote{Note also that a list of statements cannot be replaced
-easily, instead all statements but one have to be removed and then replace
-the left statmeent with a list of statements. @code{parse_statement} allows
-parsing a sequence of statements. On the other hand, this is an uncommon
-scenario since statements are normally grouped syntactically.}.
-
-The class implementing the phase is as follows.
-
-@example
-class WhileLowering : public CompilerPhase
-@{
-  public:
-    WhileLowering()
-    @{
-    @}
-
-    void run(DTO& dto)
-    @{
-      AST_t ast = dto["translation_unit"];
-      ScopeLink scope_link = dto["scope_link"];
-
-      DepthTraverse depth_traverse;
-      WhileStatementFunctor while_statement_functor;
-      WhileStatementASTFunctor traverse_ast_functor;
-
-      depth_traverse.add_functor(traverse_ast_functor, 
-        while_statement_functor);
-      depth_traverse.traverse(ast, scope_link);
-    @}
-@};
-@end example
-
-Do not forget to export it using @code{EXPORT_PHASE} fully qualifying the class with 
-the phase. For instance,
-
-@example
-EXPORT_PHASE(TL::WhileLowering);
-@end example
-
-if it is defined in the @code{TL} namespace. Once the class is run, following code
-
-@example
-void g(int);
-
-void f(void)
-@{
-    int i = 0;
-
-    while (i < 10)
-    @{
-        g(i);
-        i++;
-        int j = 0;
-
-        while (j < 20)
-        @{
-            j++;
-        @}
-    @}
-@}
-@end example
-
-will be converted into
-
-@example
-void g(int);
-void f(void)
-@{
-  int i = 0;
-  @{
-loop_start_2 : 
-    if (!(i < 10))
-      goto loop_end_2;
-    @{
-      g(i);
-      i++;
-      int j = 0;
-      @{
-loop_start_1 : 
-        if (!(j < 20))
-          goto loop_end_1;
-        @{
-          j++;
-        @}
-        goto loop_start_1;
-loop_end_1 : 
-        ;
-      @}
-    @}
-    goto loop_start_2;
-loop_end_2 : 
-    ;
-  @}
-@}
-@end example
-
-This example, works for these simple cases but it will fail when loops
-are of the form
-
-@example
-while (bool b = i < 10)
-@{
-   i++;
-@}
-@end example
-
-We can take the approach given in the C++ standard where a @code{while} statement of the form
-
-@example
-while (T t = x)
-    @r{@i{statement}}
-@end example
-
-is equivalent to 
-
-@example
-label:
-@{
-    T t = x;
-    if (t) @{
-        @r{@i{statement}}
-        goto label;
-    @}
-@}
-@end example
-
-when the @code{while} statement is of the form
-
-@example
-while (x)
-    @r{@i{statement}}
-@end example
-
-we will avoid the inner declaration, thus
-
-@example
-label:
-@{
-    if (x) @{
-        @r{@i{statement}}
-        goto label;
-    @}
-@}
-@end example
-
-So we rewrite the @code{postorder} method to work in this way.
-
-@example
-void postorder(Context ctx, AST_t ast) 
-@{ 
-  num_whiles++;
-
-  // Wrap the tree
-  WhileStatement while_statement(ast, ctx.scope_link);
-
-  Source lowered_while, 
-         condition_declaration, 
-         condition_expression,
-         while_body;
-
-  lowered_while
-    << "loop_start_" << num_whiles << " : @{"
-    <<  condition_declaration
-    <<   "if (" << condition_expression << ")"
-    <<   "@{"
-    <<         while_body
-    <<         "goto loop_start_" << num_whiles << ";"
-    <<   "@}"
-    << "@}"
-    ;
-
-  Condition condition = while_statement.get_condition();
-
-  if (condition.is_declaration())
-  @{
-    Declaration declaration = condition.get_declaration();
-    ObjectList<DeclaredEntity> declared_entities 
-      = declaration.get_declared_entities();
-
-    condition_declaration 
-      << condition.prettyprint() << ";"
-      ;
-    condition_expression
-      << declared_entities[0].prettyprint()
-      ;
-  @}
-  else if (condition.is_expression())
-  @{
-    condition_expression << condition.prettyprint();
-  @}
-
-  while_body << while_statement.get_body().prettyprint();
-
-  TL::AST_t lowered_while_tree 
-    = lowered_while.parse_statement(ast, ctx.scope_link);
-
-  ast.replace(lowered_while_tree);
-@}
-@end example
-
-
+Such directive can appear in conditional output sections, where it will
+have no effect if the section is not output.
+
+In order to find included files, @code{-Idir} option can be used at
+command line to tell tpp where files can be found.
+
+@node String pool
+@section String pool
+@cindex string pool
+
+Since lots of repeated strings can be handled by the compiler, there is
+a global pool of immutable strings. A string can be requested from this
+global pool, if it has been allocated again no new memory will be
+allocated.
+
+There is only one single entry point to this global char trie in
+@file{lib/uniquestr.h} in the function @code{uniquestr}. This function
+receives a @code{const char*} and returns another @code{const char*}.
+
+This pool of strings is implemented as a trie in file
+@file{lib/char_trie.c}.
 
 @node Installation of mcxx
 @chapter Installation of mcxx
@@ -4244,6 +3593,5 @@ and @LaTeX{} just type @code{make doxygen}, this last operation requires
 @unnumbered Concept Index
 
 @printindex cp
-
 
 @bye
