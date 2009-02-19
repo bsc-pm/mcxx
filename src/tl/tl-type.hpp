@@ -259,7 +259,7 @@ namespace TL
              * \param has_ellipsis Will be set to true if the function type has ellipsis
              * \return A list of types of the parameters not adjusted.
              */
-            ObjectList<Type> nonadjusted_parameters(bool &b) const;
+            ObjectList<Type> nonadjusted_parameters(bool &has_ellipsis) const;
 
             //! For a function type it states whether it has been declared with prototype
             /*! 
