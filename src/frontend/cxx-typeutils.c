@@ -2021,16 +2021,20 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
                 result->unqualified_type = result;
                 result->array = counted_calloc(1, sizeof(*(result->array)), &_bytes_due_to_type_system);
                 result->array->element_type = element_type;
-                result->array->array_expr = expression;
-                result->array->array_expr_decl_context = decl_context;
 
-                if (expression != NULL
-                        && !check_for_expression(expression, decl_context))
+                if(!check_for_expression(expression, decl_context))
                 {
+                    result->array->array_expr = expression;
+                    result->array->array_expr_decl_context = decl_context;
                     result->is_faulty = 1;
                 }
-
-                hash_put(array_sized_hash, element_type, result);
+                else
+                {
+                    result->array->array_expr = tree_from_literal_value(literal_val);
+                    // This is not relevant for a literal
+                    result->array->array_expr_decl_context = decl_context;
+                    hash_put(array_sized_hash, element_type, result);
+                }
             }
             else
             {
