@@ -264,10 +264,11 @@ called).
 @subsection Predicates over AST
 @cindex predicates ast
 
-The most usual use for predicates are @code{TL::PredicateAST<ATTR-NAME>}.
-Parameter @code{ATTR-NAME} is an attribute of the AST stating a boolean
-property of it. For instance @code{TL::PredicateAST<LANG_IS_FOR_STATEMENT>}
-returns @code{true} for trees representing a for-statement. 
+The most usual use for predicates are @code{TL::PredicateAttr}.  Constructor of
+this class receives a parameter @code{ATTR-NAME} that is an attribute of the
+AST stating a boolean property. For instance
+@code{TL::PredicateAttr(LANG_IS_FOR_STATEMENT)} returns @code{true} for trees
+representing a for-statement. 
 
 The list of attributes related to trees is defined in file
 @file{cxx-attrnames.def}. Most of the attributes there are self documenting and
