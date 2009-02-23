@@ -32,7 +32,8 @@ void temporal_files_cleanup(void)
             {
                 fprintf(stderr, "Removing temporal filename '%s'\n", iter->info->name);
             }
-            if (remove(iter->info->name) != 0)
+            if (remove(iter->info->name) != 0
+                    && errno != ENOENT)
             {
                 fprintf(stderr, "Error while removing temporal filename: '%s'\n", strerror(errno));
             }
