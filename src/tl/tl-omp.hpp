@@ -568,7 +568,7 @@ namespace TL
                             it != current_construct_info.clause_list.end();
                             it++)
                     {
-                        std::cerr << "Warning: Clause '" << it->first << "' unused in OpenMP directive at " << it->second << std::endl;
+                        std::cerr << it->second << ": warning: clause '" << it->first << "' unused in OpenMP directive" << std::endl;
                     }
 
                     delete parallel_construct;
