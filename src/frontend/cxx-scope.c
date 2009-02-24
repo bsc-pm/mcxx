@@ -1991,6 +1991,7 @@ static decl_context_t replace_template_parameters_with_values(
 
             type_t* argument_type = current_argument->type;
 
+            new_entry->entity_specs.is_template_argument = 1;
             new_entry->type_information = get_new_typedef(argument_type);
 
             DEBUG_CODE()
@@ -2029,6 +2030,7 @@ static decl_context_t replace_template_parameters_with_values(
                 AST constant_initializer = 
                     ast_copy_for_instantiation(current_argument->expression);
 
+                new_entry->entity_specs.is_template_argument = 1;
                 new_entry->expression_value = constant_initializer;
                 new_entry->type_information = current_argument->type;
                 new_entry->decl_context = current_argument->expression_context;

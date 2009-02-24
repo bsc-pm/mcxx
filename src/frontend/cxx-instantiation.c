@@ -109,6 +109,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
 
                         // We use a typedef
                         injected_type->kind = SK_TYPEDEF;
+                        injected_type->entity_specs.is_template_argument = 1;
                         injected_type->type_information = get_new_typedef(current_deduction->deduced_parameters[0]->type);
                         break;
                     }
@@ -120,6 +121,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
 
                         // The template type has to be used here
                         injected_type->kind = SK_TEMPLATE;
+                        injected_type->entity_specs.is_template_argument = 1;
                         // These are always kept as named types in the compiler
                         injected_type->type_information = 
                             named_type_get_symbol(current_deduction->deduced_parameters[0]->type)->type_information;
@@ -131,6 +133,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                                 template_parameters_context.template_scope, deduced_parameter_name);
 
                         injected_nontype->kind = SK_VARIABLE;
+                        injected_nontype->entity_specs.is_template_argument = 1;
                         injected_nontype->type_information = current_deduction->deduced_parameters[0]->type;
 
                         // Fold it, as makes things easier
@@ -394,6 +397,7 @@ void instantiate_template_function(scope_entry_t* entry,
                             template_parameters_context.template_scope, template_param->entry->symbol_name);
 
                     injected_type->kind = SK_TYPEDEF;
+                    injected_type->entity_specs.is_template_argument = 1;
                     injected_type->type_information = get_new_typedef(template_argument->type);
                     break;
                 }
@@ -406,6 +410,7 @@ void instantiate_template_function(scope_entry_t* entry,
                             template_parameters_context.template_scope, template_param->entry->symbol_name);
 
                     injected_type->kind = SK_TEMPLATE;
+                    injected_type->entity_specs.is_template_argument = 1;
                     injected_type->type_information = 
                         named_type_get_symbol(template_argument->type)->type_information;
                     break;
@@ -419,6 +424,7 @@ void instantiate_template_function(scope_entry_t* entry,
                             template_parameters_context.template_scope, template_param->entry->symbol_name);
 
                     injected_nontype->kind = SK_VARIABLE;
+                    injected_nontype->entity_specs.is_template_argument = 1;
                     injected_nontype->type_information = template_argument->type;
 
                     // Fold it, as makes things easier

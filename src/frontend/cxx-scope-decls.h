@@ -327,6 +327,10 @@ typedef struct entity_specifiers_tag
     // Is a surrogate fake symbol
     char is_surrogate_function:1;
 
+    // Template argument, we need this to properly evaluate nontype template
+    // arguments
+    char is_template_argument:1;
+
     // Some bits have been moved here, they are repeated in comments below next
     // to their protecting fields
     char is_template_parameter:1;

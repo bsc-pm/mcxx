@@ -1081,7 +1081,13 @@ static literal_value_t evaluate_symbol(AST symbol, decl_context_t decl_context)
             && (result->entry->kind != SK_VARIABLE
                 || !is_array_type(result->entry->type_information)))
     {
-        if (result->entry->expression_value == NULL)
+        // If we do not have initialization expression, or if we have, 
+        // we are not a 'const T' nor a template argument (the latter can be non const)
+        // then this is not a valid symbol for a constant expression
+        if (result->entry->expression_value == NULL
+                || (!is_const_qualified_type(result->entry->type_information)
+                    && !is_enumerated_type(result->entry->type_information)
+                    && !result->entry->entity_specs.is_template_argument))
         {
             literal_value_t dependent_entity;
             memset(&dependent_entity, 0, sizeof(dependent_entity));
@@ -1149,6 +1155,8 @@ static literal_value_t evaluate_symbol(AST symbol, decl_context_t decl_context)
         }
     }
 
+    // If we get here, this is a symbol with an eligible initialization
+    // expression used as a constant expression 
     return evaluate_constant_expression(result->entry->expression_value, result->entry->decl_context);
 }
 
