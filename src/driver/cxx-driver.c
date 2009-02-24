@@ -1474,8 +1474,9 @@ static void load_configuration(void)
             struct stat buf;
             memset(&buf, 0, sizeof(buf));
 
-            if ((strcmp(dir_entry->d_name, ".") != 0)
-                    && (strcmp(dir_entry->d_name, "..") != 0))
+            // Ignore hidden files and backups of many editors
+            if ((dir_entry->d_name[0] != '.')
+                    && (dir_entry->d_name[strlen(dir_entry->d_name)-1] != '~'))
             {
                 const char * full_path =
                     strappend(
