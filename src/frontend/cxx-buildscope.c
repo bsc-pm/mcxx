@@ -359,8 +359,6 @@ static void build_scope_declaration_sequence(AST list, decl_context_t decl_conte
     }
 }
 
-static int max_line = 0;
-
 // Build scope for a declaration
 static void build_scope_declaration(AST a, decl_context_t decl_context)
 {
@@ -2344,6 +2342,7 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
             }
 
             parameter_info_t parameter_info[1];
+            memset(parameter_info, 0, sizeof(parameter_info));
             parameter_info[0].is_ellipsis = 0;
 
             if (const_parameter)
@@ -2509,6 +2508,7 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
             }
 
             parameter_info_t parameter_info[1];
+            memset(parameter_info, 0, sizeof(parameter_info));
             parameter_info[0].is_ellipsis = 0;
 
             if (const_parameter)
@@ -3299,11 +3299,6 @@ void build_scope_member_specification_first_step(decl_context_t inner_decl_conte
     {
         AST member_specification = ASTSon1(iter);
 
-        if (max_line < ASTLine(member_specification))
-        {
-            max_line = ASTLine(member_specification);
-        }
-
         // If this is an access specifier update its related access info
         if (ASTType(member_specification) == AST_MEMBER_ACCESS_SPEC)
         {
@@ -3690,6 +3685,7 @@ static void set_function_parameter_clause(type_t** function_type,
 #define MAX_PARAMETERS (256)
     // Hope 256 will be enough
     parameter_info_t parameter_info[MAX_PARAMETERS];
+    memset(parameter_info, 0, sizeof(parameter_info));
     int num_parameters = 0;
 
     if (ASTType(parameters) == AST_EMPTY_PARAMETER_DECLARATION_CLAUSE)
