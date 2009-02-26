@@ -1945,7 +1945,7 @@ static type_t* compute_pointer_arithmetic_type(type_t* lhs_type, type_t* rhs_typ
 }
 
 static type_t* compute_member_user_defined_bin_operator_type(AST operator_name, 
-        AST lhs UNUSED_PARAMETER, AST rhs,
+        AST expr, AST lhs UNUSED_PARAMETER, AST rhs,
         type_t* lhs_type, type_t* rhs_type, decl_context_t decl_context,
         const char* filename, int line,
         scope_entry_t** selected_operator)
@@ -1984,6 +1984,9 @@ static type_t* compute_member_user_defined_bin_operator_type(AST operator_name,
         overloaded_type = overloaded_call->type_information;
         *selected_operator = overloaded_call;
 
+        ASTAttrSetValueType(expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+        ASTAttrSetValueType(expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(overloaded_call));
+
         if (conversors[1] != NULL)
         {
             ASTAttrSetValueType(rhs, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
@@ -2009,7 +2012,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
         // Try to make a member operator lookup
         type_t* overloaded_member_op_type =
             compute_member_user_defined_bin_operator_type(operator_name, 
-                    lhs, rhs, lhs_type, rhs_type, decl_context, ASTFileName(expr),
+                    expr, lhs, rhs, lhs_type, rhs_type, decl_context, ASTFileName(expr),
                     ASTLine(expr), selected_operator);
 
         if (overloaded_member_op_type != NULL)
@@ -2056,6 +2059,9 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
         if (!overloaded_call->entity_specs.is_builtin)
         {
             *selected_operator = overloaded_call;
+
+            ASTAttrSetValueType(expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(overloaded_call));
         }
 
         overloaded_type = overloaded_call->type_information;
@@ -2068,6 +2074,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
 
 
 static type_t* compute_member_user_defined_unary_operator_type(AST operator_name, 
+        AST expr,
         AST operand UNUSED_PARAMETER,
         type_t* op, decl_context_t decl_context,
         const char* filename, int line,
@@ -2108,6 +2115,9 @@ static type_t* compute_member_user_defined_unary_operator_type(AST operator_name
     {
         *selected_operator = overloaded_call;
 
+        ASTAttrSetValueType(expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+        ASTAttrSetValueType(expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(overloaded_call));
+
         overloaded_type = overloaded_call->type_information;
     }
 
@@ -2128,7 +2138,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
     {
         // Try to make a member operator lookup
         type_t* overloaded_member_op_type = compute_member_user_defined_unary_operator_type(
-                operator_name, op, op_type, decl_context,
+                operator_name, expr, op, op_type, decl_context,
                 ASTFileName(expr), ASTLine(expr), selected_operator);
 
         if (overloaded_member_op_type != NULL)
@@ -2165,6 +2175,9 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
         if (!overloaded_call->entity_specs.is_builtin)
         {
             *selected_operator = overloaded_call;
+
+            ASTAttrSetValueType(expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(overloaded_call));
         }
 
         if (conversors[1] != NULL)
@@ -3075,8 +3088,6 @@ static type_t* compute_bin_operator_assig_only_integral_type(AST expr, AST lhs, 
     // We need to do overload
     return compute_user_defined_bin_operator_type(operator, 
             expr, lhs, rhs, builtins, decl_context, &selected_operator);
-
-    return NULL;
 }
 
 static char operator_bin_assign_arithmetic_or_pointer_pred(type_t* lhs, type_t* rhs)
@@ -3167,8 +3178,6 @@ static type_t* compute_bin_operator_assig_arithmetic_or_pointer_type(AST expr, A
     // We need to do overload
     return compute_user_defined_bin_operator_type(operator, 
             expr, lhs, rhs, builtins, decl_context, &selected_operator);
-
-    return NULL;
 }
 
 static char operator_bin_assign_only_arithmetic_pred(type_t* lhs, type_t* rhs)
@@ -4229,8 +4238,16 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, decl_cont
             {
                 if (!is_dependent_type(entry->type_information))
                 {
-                    ast_set_expression_type(expr, lvalue_ref(entry->type_information));
-                    ast_set_expression_is_lvalue(expr, 1);
+                    if (!entry->entity_specs.is_template_argument)
+                    {
+                        ast_set_expression_type(expr, lvalue_ref(entry->type_information));
+                        ast_set_expression_is_lvalue(expr, 1);
+                    }
+                    else
+                    {
+                        ast_set_expression_type(expr, entry->type_information);
+                        ast_set_expression_is_lvalue(expr, 0);
+                    }
                 }
                 else
                 {
@@ -4502,6 +4519,9 @@ static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context
                 ASTAttrSetValueType(subscript_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(subscript_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[1]));
             }
+
+            ASTAttrSetValueType(expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(overloaded_call));
 
             ast_set_expression_type(expr, function_type_get_return_type(overloaded_call->type_information));
             ast_set_expression_is_lvalue(expr, is_lvalue_reference_type(ASTExprType(expr)));
@@ -5094,6 +5114,11 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
     AST new_type_id = ASTSon2(new_expr);
     AST new_initializer = ASTSon3(new_expr);
 
+    ASTAttrSetValueType(new_expr, LANG_IS_NEW_EXPRESSION, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(new_expr, LANG_NEW_TYPEID, tl_type_t, tl_ast(new_type_id));
+    ASTAttrSetValueType(new_expr, LANG_NEW_INITIALIZER, tl_type_t,
+            new_initializer != NULL ? tl_ast(ASTSon0(new_initializer)) : tl_ast(NULL));
+
     if (new_placement != NULL)
     {
         AST expression_list = ASTSon0(new_placement);
@@ -5292,6 +5317,9 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
                 return 0;
             }
 
+            ASTAttrSetValueType(new_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(new_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(chosen_operator_new));
+
             // Store conversions
             if (new_placement != NULL)
             {
@@ -5316,7 +5344,9 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
                     }
                 }
             }
+
         }
+
     }
 
     // Solve constructor being invoked
@@ -5380,6 +5410,10 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
                 return 0;
             }
             
+            // FIXME - This does not belong to the expression!
+            ASTAttrSetValueType(new_type_id, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(new_type_id, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(chosen_constructor));
+
             // Store conversions
             if (new_initializer != NULL)
             {
@@ -5457,6 +5491,8 @@ static char check_for_delete_expression(AST expression, decl_context_t decl_cont
     {
         is_array_delete = 1;
     }
+
+    ASTAttrSetValueType(expression, LANG_IS_DELETE_EXPRESSION, tl_type_t, tl_bool(1));
 
     // This is always a value, never a type
     AST global_op = ASTSon0(expression);
@@ -5624,6 +5660,9 @@ static char check_for_explicit_type_conversion_common(type_t* type_info,
     memset(conversors, 0, sizeof(conversors));
 
     char has_dependent_arguments = 0;
+
+    ASTAttrSetValueType(expr, LANG_IS_EXPLICIT_TYPE_CONVERSION, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(expr, LANG_EXPLICIT_TYPE_CONVERSION_ARGS, tl_type_t, tl_ast(expression_list));
 
     if (expression_list != NULL)
     {

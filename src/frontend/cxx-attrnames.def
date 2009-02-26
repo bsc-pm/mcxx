@@ -21,6 +21,7 @@ LANG_DECLARED_PARAMETER lang.declared_parameter
 LANG_DO_STATEMENT_BODY lang.do_statement_body
 LANG_DO_STATEMENT_EXPRESSION lang.do_statement_expression
 LANG_ENUM_SPECIFIER_SYMBOL lang.enum_specifier_symbol
+LANG_EXPLICIT_TYPE_CONVERSION_ARGS lang.explicit_type_conversion_args
 LANG_EXPRESSION_DECREMENTED lang.expression_decremented
 LANG_EXPRESSION_INCREMENTED lang.expression_incremented
 LANG_EXPRESSION_NESTED lang.expression_nested
@@ -71,6 +72,7 @@ LANG_IS_DECLARATION lang.is_declaration
 LANG_IS_DECLARATION_STATEMENT lang.is_declaration_statement
 LANG_IS_DECLARED_NAME lang.is_declared_name
 LANG_IS_DEFAULT_STATEMENT lang.is_default_statement
+LANG_IS_DELETE_EXPRESSION lang.is_delete_expression
 LANG_IS_DERREFERENCE_OP lang.is_derreference_op
 LANG_IS_DIFFERENT_OP lang.is_different_op
 LANG_IS_DIV_ASSIGNMENT lang.is_div_assignment
@@ -79,6 +81,7 @@ LANG_IS_DO_STATEMENT lang.is_do_statement
 LANG_IS_EMPTY_STATEMENT lang.is_empty_statement
 LANG_IS_ENUM_SPECIFIER lang.is_enum_specifier
 LANG_IS_EQUAL_OP lang.is_equal_op
+LANG_IS_EXPLICIT_TYPE_CONVERSION lang.is_explicit_type_conversion
 LANG_IS_EXPRESSION_COMPONENT lang.is_expression_component
 LANG_IS_EXPRESSION_NEST lang.is_expression_nest
 LANG_IS_EXPRESSION_STATEMENT lang.is_expression_statement
@@ -110,6 +113,7 @@ LANG_IS_MUL_ASSIGNMENT lang.is_mul_assignment
 LANG_IS_MULT_OP lang.is_mult_op
 LANG_IS_NAMED_PARAMETER_DECLARATION lang.is_named_parameter_declaration
 LANG_IS_NEGATE_OP lang.is_negate_op
+LANG_IS_NEW_EXPRESSION lang.is_new_expression
 LANG_IS_NOT_OP lang.is_not_op
 LANG_IS_OR_ASSIGNMENT lang.is_or_assignment
 LANG_IS_PARAMETER_DECLARATION lang.is_parameter_declaration
@@ -149,6 +153,8 @@ LANG_IS_XOR_ASSIGNMENT lang.is_xor_assignment
 LANG_LHS_ASSIGNMENT lang.lhs_assignment
 LANG_LHS_OPERAND lang.lhs_operand
 LANG_NESTED_NAME_SPECIFIER lang.nested_name_specifier
+LANG_NEW_INITIALIZER lang.new_initializer
+LANG_NEW_TYPEID lang.new_typeid
 LANG_PARAMETER_DECLARATION_NAME lang.parameter_declaration_name
 LANG_PRAGMA_CUSTOM_CLAUSE lang.pragma_custom_clause
 LANG_PRAGMA_CUSTOM_DECLARATION lang.pragma_custom_declaration
