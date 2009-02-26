@@ -24,8 +24,8 @@
 
 #include "tl-compilerphase.hpp"
 #include "tl-langconstruct.hpp"
-#include "tl-traverse.hpp"
 #include "tl-task-table.hpp"
+#include "tl-traverse.hpp"
 #include "tl-type.hpp"
 
 #include "tl-ast-predicates.hpp"
@@ -79,7 +79,7 @@ namespace TL
 					
 					DepthTraverse _body_traverser;
 					
-					PredicateAttr _function_call_predicate(LANG_IS_FUNCTION_CALL) ;
+					PredicateAttr _function_call_predicate;
 					TaskCallHandler _task_call_handler;
 					CallToNamedFunctionPredicate _malloc_call_predicate;
 					MallocHandler _malloc_handler;
@@ -95,7 +95,8 @@ namespace TL
 						: _kill_list(kill_list),
 						_generate_task_side(generate_task_side), _generate_non_task_side(generate_non_task_side),
 						_body_traverser(),
-						_function_call_predicate(), _task_call_handler(),
+                        _function_call_predicate(LANG_IS_FUNCTION_CALL),
+						_task_call_handler(),
 						_malloc_call_predicate("malloc", scope_link), _malloc_handler(),
 						_calloc_call_predicate("calloc", scope_link), _calloc_handler(),
 						_do_traverse(generate_non_task_side)
