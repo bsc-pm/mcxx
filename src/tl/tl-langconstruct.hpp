@@ -773,7 +773,7 @@ namespace TL
     class LIBTL_CLASS ReplaceIdExpression
     {
         protected:
-            std::map<Symbol, AST_t> _repl_map;
+            std::map<Symbol, std::string> _repl_map;
         public:
             ReplaceIdExpression()
             {
@@ -788,21 +788,17 @@ namespace TL
 
             //! Sets a replacement for the symbol with a tree
             /*!
-             * \deprecated This function is deprecated. Instead use add_replacement(Symbol, AST_t)
-             *
              * \param sym The symbol to be replaced
              * \param str A string containing the expression used for the replacement
              */
-            void add_replacement(Symbol sym, std::string str) DEPRECATED;
+            void add_replacement(Symbol sym, std::string str);
             
             //! Sets a replacement for the symbol with a tree
             /*!
-             * \deprecated This function is deprecated. Instead use add_replacement(Symbol, AST_t)
-             *
              * \param sym The symbol to be replaced
              * \param src A Source containing an expression
              */
-            void add_replacement(Symbol sym, Source src) DEPRECATED;
+            void add_replacement(Symbol sym, Source src);
 
             //! Sets a replacement for the symbol with a tree
             /*!
@@ -852,9 +848,14 @@ namespace TL
 
                     if (_repl_map.find(sym) != _repl_map.end())
                     {
-                        // We need to duplicate it, or bad things happen(TM)
-                        AST_t repl_ast = _repl_map[sym].duplicate();
                         AST_t orig_ast = it->get_ast();
+
+                        // This way of duplicating a tree is always safer
+                        Source src;
+                        src << _repl_map[sym]
+                            ;
+
+                        AST_t repl_ast = src.parse_expression(orig_ast, orig_stmt.get_scope_link());
 
                         orig_ast.replace_with(repl_ast);
                     }

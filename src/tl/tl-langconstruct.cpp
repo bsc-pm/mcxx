@@ -347,41 +347,29 @@ namespace TL
         return result;
     }
 
-    /** Beginning of deprecated functions **/
     void ReplaceIdExpression::add_replacement(Symbol sym, std::string str)
     {
-        Source src;
-        src << str;
-
-        AST_t tree = src.parse_expression(sym.get_scope());
-
-        _repl_map[sym] = tree;
+        _repl_map[sym] = str;
     }
 
     void ReplaceIdExpression::add_replacement(Symbol sym, Source src)
     {
         add_replacement(sym, src.get_source());
     }
-    /** End of deprecated functions **/
 
     void ReplaceIdExpression::add_replacement(Symbol sym, AST_t ast)
     {
-        _repl_map[sym] = ast;
+        add_replacement(sym, ast.prettyprint());
     }
 
     void ReplaceIdExpression::add_replacement(Symbol sym, std::string str, AST_t ref_tree, ScopeLink scope_link)
     {
-        Source src;
-        src << str;
-
-        AST_t tree = src.parse_expression(ref_tree, scope_link, Source::DO_NOT_CHECK_EXPRESSION);
-
-        _repl_map[sym] = tree;
+        add_replacement(sym, str);
     }
 
     void ReplaceIdExpression::add_replacement(Symbol sym, Source src, AST_t ref_tree, ScopeLink scope_link)
     {
-        add_replacement(sym, src, ref_tree, scope_link);
+        add_replacement(sym, src.get_source());
     }
 
     bool ReplaceIdExpression::has_replacement(Symbol sym)
