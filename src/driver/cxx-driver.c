@@ -1671,6 +1671,13 @@ static void compile_every_translation_unit(void)
         {
             if (!CURRENT_CONFIGURATION(pass_through))
             {
+                // 0. Do this before open for scan since we might to internally parse some sources
+                mcxx_flex_debug = mc99_flex_debug = CURRENT_CONFIGURATION(debug_options.debug_lexer);
+                mcxxdebug = mc99debug = CURRENT_CONFIGURATION(debug_options.debug_parser);
+
+                initialize_semantic_analysis(translation_unit, parsed_filename);
+
+                // 1. Open file
                 CXX_LANGUAGE()
                 {
                     if (mcxx_open_file_for_scanning(parsed_filename, translation_unit->input_filename) != 0)
@@ -1686,19 +1693,21 @@ static void compile_every_translation_unit(void)
                         running_error("Could not open file '%s'", parsed_filename);
                     }
                 }
-
-                initialize_semantic_analysis(translation_unit, parsed_filename);
-
+                // 2. Parse file
                 parse_translation_unit(translation_unit, parsed_filename);
-
+                // 3. Close file
                 close_scanned_file();
 
+                // 4. TL::pre_run
                 compiler_phases_pre_execution(translation_unit, parsed_filename);
 
+                // 5. typechecking
                 semantic_analysis(translation_unit, parsed_filename);
 
+                // 6. TL::run
                 compiler_phases_execution(translation_unit, parsed_filename);
 
+                // 7. print ast if requested
                 if (CURRENT_CONFIGURATION(debug_options.print_ast))
                 {
                     fprintf(stderr, "Printing AST in graphviz format\n");
@@ -1706,6 +1715,7 @@ static void compile_every_translation_unit(void)
                     ast_dump_graphviz(translation_unit->parsed_tree, stdout);
                 }
 
+                // 8. print symbol table if requested
                 if (CURRENT_CONFIGURATION(debug_options.print_scope))
                 {
                     fprintf(stderr, "============ SYMBOL TABLE ===============\n");
@@ -1756,9 +1766,6 @@ static void compiler_phases_execution(translation_unit_t* translation_unit,
 
 static void parse_translation_unit(translation_unit_t* translation_unit, const char* parsed_filename)
 {
-    mcxx_flex_debug = mc99_flex_debug = CURRENT_CONFIGURATION(debug_options.debug_lexer);
-    mcxxdebug = mc99debug = CURRENT_CONFIGURATION(debug_options.debug_parser);
-
     timing_t timing_parsing;
 
     if (CURRENT_CONFIGURATION(verbose))
