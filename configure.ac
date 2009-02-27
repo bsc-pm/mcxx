@@ -485,6 +485,7 @@ AC_ARG_ENABLE([pkgdir-install],
     then
         is_enabled_pkgdir_install="yes"
         AC_MSG_RESULT([yes])
+        AC_DEFINE([PKGLIB_INSTALL], 1, [Define to 1 if binaries are installed in pkglibdir])
     else if test x"$enableval" = x"no";
          then
             AC_MSG_RESULT([no])
