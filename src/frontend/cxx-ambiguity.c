@@ -64,10 +64,21 @@ void enter_test_expression(void)
 { 
     _ambiguity_testing++; 
 }
+
 void leave_test_expression(void) 
 { 
     ERROR_CONDITION(_ambiguity_testing <= 0, "This cannot be lower than 1", 0); 
     _ambiguity_testing--; 
+}
+
+char get_test_expression_status(void)
+{
+    return _ambiguity_testing;
+}
+
+void set_test_expression_status(char c)
+{
+    _ambiguity_testing = c;
 }
 
 static void choose_option(AST a, int n);

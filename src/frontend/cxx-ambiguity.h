@@ -63,6 +63,10 @@ LIBMCXX_EXTERN char checking_ambiguity(void);
 LIBMCXX_EXTERN void enter_test_expression(void);
 LIBMCXX_EXTERN void leave_test_expression(void);
 
+// This is used when instantiating
+LIBMCXX_EXTERN char get_test_expression_status(void);
+LIBMCXX_EXTERN void set_test_expression_status(char c);
+
 MCXX_END_DECLS
 
 #endif // CXX_AMBIGUITY

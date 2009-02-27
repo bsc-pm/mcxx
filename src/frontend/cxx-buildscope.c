@@ -41,6 +41,9 @@
 #include "cxx-gccsupport.h"
 #include "cxx-gccbuiltins.h"
 #include "cxx-gccspubuiltins.h"
+#include "cxx-lexer.h"
+#include "cxx-parser.h"
+#include "c99-parser.h"
 #include "hash_iterator.h"
 
 /*
@@ -53,6 +56,7 @@
  * this is a full type checking phase
  */
 
+static AST internal_expression_parse(const char *source, decl_context_t decl_context);
 
 static void build_scope_declaration(AST a, decl_context_t decl_context);
 static void build_scope_declaration_sequence(AST a, decl_context_t decl_context);
@@ -271,7 +275,7 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
             null_keyword = new_symbol(decl_context, decl_context.global_scope, "__null");
             null_keyword->kind = SK_VARIABLE;
             null_keyword->type_information = get_null_type();
-            null_keyword->expression_value = ASTLeaf(AST_OCTAL_LITERAL, NULL, 0, "0");
+            null_keyword->expression_value = internal_expression_parse("0", decl_context);
             null_keyword->defined = 1;
             null_keyword->do_not_print = 1;
             null_keyword->file = "(global scope)";
@@ -1901,6 +1905,8 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             }
         }
 
+        int num_enumerator = 0;
+        AST previous_enumerator = NULL;
         // For every enumeration, sign them up in the symbol table
         for_each_element(list, iter)
         {
@@ -1930,16 +1936,31 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                             prettyprint_in_buffer(enumeration_expr));
                 }
 
-                // Do not clear extended data, it will be valid as well for this tree
-                AST duplicate_expr = ast_copy(enumeration_expr);
+                enumeration_item->expression_value = enumeration_expr;
+            }
+            else
+            {
+                if (num_enumerator == 0)
+                {
+                    AST zero_tree = internal_expression_parse("0", decl_context);
 
-                AST fake_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, duplicate_expr, 
-                        ASTFileName(duplicate_expr), ASTLine(duplicate_expr), NULL);
-                enumeration_item->expression_value = fake_initializer;
+                    enumeration_item->expression_value = zero_tree;
+                }
+                else
+                {
+                    const char *source = strappend(
+                            strappend("(", prettyprint_in_buffer(previous_enumerator))
+                            , ") + 1");
+                    AST add_one = internal_expression_parse(source, decl_context);
 
+                    enumeration_item->expression_value = add_one;
+                }
             }
 
             enum_type_add_enumerator(enum_type, enumeration_item);
+
+            previous_enumerator = enumeration_item->expression_value;
+            num_enumerator++;
         }
     }
 
@@ -6313,9 +6334,9 @@ static scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl
         // For C++ we should elaborate a bit more __PRETTY_FUNCTION__
         // but this is very gcc specific
         char c[256] = { 0 };
-        snprintf(c, 255, "%s", entry->symbol_name);
+        snprintf(c, 255, "\"%s\"", entry->symbol_name);
         c[255] = '\0';
-        AST function_name_tree = ASTLeaf(AST_STRING_LITERAL, NULL, 0, c);
+        AST function_name_tree = internal_expression_parse(c, block_context);
 
         const char* func_names[] = 
         {
@@ -7458,10 +7479,11 @@ decl_context_t replace_template_parameters_with_template_arguments(
             // This is no more a SK_TEMPLATE_PARAMETER
             new_entry->kind = SK_VARIABLE;
             // Do not clear extended data
-            AST expression = ast_copy(
-                    template_arguments->argument_list[entry->entity_specs.template_parameter_position]->expression);
-            AST constant_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, expression, 
-                    ASTFileName(expression), ASTLine(expression), NULL);
+            AST expression = template_arguments->argument_list[entry->entity_specs.template_parameter_position]->expression;
+            decl_context_t expr_decl_context = 
+                template_arguments->argument_list[entry->entity_specs.template_parameter_position]->expression_context;
+
+            AST constant_initializer = internal_expression_parse(prettyprint_in_buffer(expression), expr_decl_context);
 
             new_entry->expression_value = constant_initializer;
 
@@ -8314,27 +8336,18 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
                             case AST_BITWISE_XOR_OPERATOR :
                             case AST_LOGICAL_OR_OPERATOR :
                                 {
-                                    neuter = ASTMake1(AST_EXPRESSION, 
-                                            ASTLeaf(AST_OCTAL_LITERAL, ASTFileName(clause), ASTLine(clause), "0"),
-                                            ASTFileName(clause), ASTLine(clause), NULL);
+                                    neuter = internal_expression_parse("0", decl_context);
                                     break;
                                 }
                             case AST_MULT_OPERATOR :
                             case AST_LOGICAL_AND_OPERATOR :
                                 {
-                                    neuter = ASTMake1(AST_EXPRESSION, 
-                                            ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(clause), ASTLine(clause), "1"),
-                                            ASTFileName(clause), ASTLine(clause), NULL);
+                                    neuter = internal_expression_parse("1", decl_context);
                                     break;
                                 }
                             case AST_BITWISE_AND_OPERATOR :
                                 {
-                                    AST zero = ASTLeaf(AST_OCTAL_LITERAL, ASTFileName(clause), ASTLine(clause), "0");
-
-                                    neuter = ASTMake1(AST_EXPRESSION,
-                                            ASTMake1(AST_COMPLEMENT_OP, zero, ASTFileName(clause), ASTLine(clause), NULL),
-                                            ASTFileName(clause), ASTLine(clause), NULL);
-
+                                    neuter = internal_expression_parse("~0", decl_context);
                                     break;
                                 }
                             default:
@@ -9143,3 +9156,49 @@ static AST get_enclosing_declaration(AST point_of_declarator)
 
     return point;
 }
+
+static AST internal_expression_parse(const char *source, decl_context_t decl_context)
+{
+    const char *mangled_text = strappend("@EXPRESSION@ ", source);
+
+    CXX_LANGUAGE()
+    {
+        mcxx_prepare_string_for_scanning(mangled_text);
+    }
+    C_LANGUAGE()
+    {
+        mc99_prepare_string_for_scanning(mangled_text);
+    }
+
+    AST a = NULL;
+    int parse_result = 0;
+
+    CXX_LANGUAGE()
+    {
+        parse_result = mcxxparse(&a);
+    }
+    C_LANGUAGE()
+    {
+        parse_result = mc99parse(&a);
+    }
+
+    if (parse_result != 0)
+    {
+        internal_error("Could not parse the expression '%s'", source);
+    }
+
+    enter_test_expression();
+    char c = check_for_expression(a, decl_context);
+    leave_test_expression();
+
+    if (!c)
+    {
+        internal_error("Internally parsed expression '%s' could not be properly checked\n",
+                prettyprint_in_buffer(a));
+    }
+
+    scope_link_set(CURRENT_COMPILED_FILE(scope_link), a, decl_context);
+
+    return a;
+}
+

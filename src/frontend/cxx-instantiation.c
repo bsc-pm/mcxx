@@ -456,8 +456,14 @@ void instantiate_template_function(scope_entry_t* entry,
     template_parameters_context.decl_flags |= DF_TEMPLATE;
     template_parameters_context.decl_flags |= DF_EXPLICIT_SPECIALIZATION;
 
+    // Temporarily disable ambiguity testing
+    char old_test_status = get_test_expression_status();
+    set_test_expression_status(0);
+
     build_scope_template_function_definition(dupl_function_definition,
             template_parameters_context);
+
+    set_test_expression_status(old_test_status);
 
     DEBUG_CODE()
     {
