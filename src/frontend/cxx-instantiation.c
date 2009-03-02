@@ -27,6 +27,7 @@
 #include "cxx-buildscope.h"
 #include "cxx-typeutils.h"
 #include "cxx-cexpr.h"
+#include "cxx-ambiguity.h"
 
 #include "cxx-printscope.h"
 
