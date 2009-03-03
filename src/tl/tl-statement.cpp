@@ -8,6 +8,8 @@ namespace TL
     const PredicateAttr IfStatement::predicate(LANG_IS_IF_STATEMENT);
     const PredicateAttr DoWhileStatement::predicate(LANG_IS_DO_STATEMENT);
     const PredicateAttr SwitchStatement::predicate(LANG_IS_SWITCH_STATEMENT);
+    const PredicateAttr ReturnStatement::predicate(LANG_IS_RETURN_STATEMENT);
+    const PredicateAttr GotoStatement::predicate(LANG_IS_GOTO_STATEMENT);
 
     bool Condition::is_expression()
     {
@@ -515,4 +517,24 @@ namespace TL
 
         return result;
     }
+
+    bool ReturnStatement::has_return_expression()
+    {
+        return _ref.get_attribute(LANG_RETURN_STATEMENT_HAS_EXPRESSION);
+    }
+
+    Expression ReturnStatement::get_return_expression()
+    {
+        AST_t tree = _ref.get_attribute(LANG_RETURN_EXPRESSION);
+        Expression expr(tree, _scope_link);
+        return expr;
+    }
+
+    std::string GotoStatement::get_label()
+    {
+        AST_t tree = _ref.get_attribute(LANG_GOTO_STATEMENT_LABEL);
+        return tree.prettyprint();
+    }
+
+
 }

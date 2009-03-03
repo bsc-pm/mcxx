@@ -297,6 +297,39 @@ namespace TL
             const static PredicateAttr predicate;
     };
 
+    //! This class wraps a return-statement
+    class LIBTL_CLASS ReturnStatement : public Statement
+    {
+        public:
+            ReturnStatement(AST_t ref, ScopeLink sl)
+                : Statement(ref, sl)
+            {
+            }
+
+            //! States whether this return statement has a related expression
+            bool has_return_expression();
+
+            //! Returns the returned expression
+            Expression get_return_expression();
+
+            const static PredicateAttr predicate;
+    };
+
+    //! This class wraps a goto-statement
+    class LIBTL_CLASS GotoStatement : public Statement
+    {
+        public:
+            GotoStatement(AST_t ref, ScopeLink sl)
+                : Statement(ref, sl)
+            {
+            }
+
+            //! Returns the label of this goto-statement
+            std::string get_label();
+
+            const static PredicateAttr predicate;
+    };
+
     //! @}
 }
 #endif // TL_STATEMENT_HPP

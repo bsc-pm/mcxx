@@ -8053,6 +8053,7 @@ static void build_scope_return_statement(AST a,
     AST expression = ASTSon0(a);
     if (expression != NULL)
     {
+        ASTAttrSetValueType(a, LANG_RETURN_EXPRESSION, tl_type_t, tl_ast(expression));
         if (!check_for_expression(expression, decl_context))
         {
             fprintf(stderr, "%s: could not check return expression '%s'\n",
@@ -8062,6 +8063,7 @@ static void build_scope_return_statement(AST a,
     }
 
     ASTAttrSetValueType(a, LANG_IS_RETURN_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_RETURN_STATEMENT_HAS_EXPRESSION, tl_type_t, tl_bool(expression != NULL));
 }
 
 static void build_scope_try_block(AST a, 
@@ -8137,11 +8139,15 @@ static void build_scope_do_statement(AST a,
     ASTAttrSetValueType(a, LANG_DO_STATEMENT_EXPRESSION, tl_type_t, tl_ast(expression));
 }
 
-static void build_scope_null(AST a UNUSED_PARAMETER, 
+static void build_scope_null(AST a, 
         decl_context_t decl_context UNUSED_PARAMETER, 
-        char* attr_name UNUSED_PARAMETER)
+        char* attr_name)
 {
     // Do nothing
+    if (attr_name != NULL)
+    {
+        ASTAttrSetValueType(a, attr_name, tl_type_t, tl_bool(1));
+    }
 }
 
 /* OpenMP 2.5 handlers */
@@ -8780,9 +8786,9 @@ static stmt_scope_handler_map_t stmt_scope_handlers[] =
     STMT_HANDLER(AST_RETURN_STATEMENT, build_scope_return_statement, NULL),
     STMT_HANDLER(AST_TRY_BLOCK, build_scope_try_block, NULL),
     STMT_HANDLER(AST_SWITCH_STATEMENT, build_scope_switch_statement, NULL),
-    STMT_HANDLER(AST_EMPTY_STATEMENT, build_scope_null, NULL),
-    STMT_HANDLER(AST_BREAK_STATEMENT, build_scope_null, NULL),
-    STMT_HANDLER(AST_CONTINUE_STATEMENT, build_scope_null, NULL),
+    STMT_HANDLER(AST_EMPTY_STATEMENT, build_scope_null, LANG_IS_EMPTY_STATEMENT),
+    STMT_HANDLER(AST_BREAK_STATEMENT, build_scope_null, LANG_IS_BREAK_STATEMENT),
+    STMT_HANDLER(AST_CONTINUE_STATEMENT, build_scope_null, LANG_IS_CONTINUE_STATEMENT),
     STMT_HANDLER(AST_GOTO_STATEMENT, build_scope_goto_statement, NULL),
     // Pragma custom support
     STMT_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, build_scope_pragma_custom_construct_statement, NULL),
