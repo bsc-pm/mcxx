@@ -22,7 +22,7 @@
  #include <config.h>
 #endif
 
-#ifdef _WIN32
+#ifdef WIN32_BUILD
   #include <windows.h>
 #endif
 
@@ -228,7 +228,7 @@ static void native_compilation(translation_unit_t* translation_unit, const char*
 
 static const char* find_home(void);
 
-#ifndef _WIN32
+#if !defined(WIN32_BUILD) || defined(__CYGWIN__)
 static void terminating_signal_handler(int sig);
 #endif
 static char check_tree(AST a);
@@ -326,12 +326,12 @@ static void cleanup_routine(void)
     in_cleanup_routine = 0;
 }
 
+// Basic initialization prior to argument parsing and configuration loading
 static void driver_initialization(int argc, const char* argv[])
 {
-    // Basic initialization prior to argument parsing and configuration loading
     atexit(cleanup_routine);
-#ifdef _WIN32
-#else
+
+#if !defined(WIN32_BUILD) || defined(__CYGWIN__)
     signal(SIGSEGV, terminating_signal_handler);
     signal(SIGQUIT, terminating_signal_handler);
     signal(SIGINT,  terminating_signal_handler);
@@ -2147,19 +2147,15 @@ static void link_objects(void)
 }
 
 
-#ifndef _WIN32
+#if !defined(WIN32_BUILD) || defined(__CYGWIN__)
 static void terminating_signal_handler(int sig)
 {
     signal(sig, SIG_DFL);
 
     fprintf(stderr, "Signal handler called (signal=%d). Exiting.\n", sig);
 
-#ifndef _WIN32
     if (CURRENT_CONFIGURATION(debug_options).run_gdb)
         run_gdb();
-#else
-    fprintf(stderr, "gdb support missing!\n");
-#endif
 
     if (!in_cleanup_routine)
         cleanup_routine();
@@ -2240,7 +2236,7 @@ void _enable_debug(void)
 }
 
 
-#ifndef _WIN32
+#ifndef WIN32_BUILD
 static char* power_suffixes[9] = 
 {
     "",
@@ -2312,7 +2308,7 @@ static void compute_tree_breakdown(AST a, int breakdown[MAX_AST_CHILDREN + 1], i
 
 static void print_memory_report(void)
 {
-#ifndef _WIN32
+#ifndef WIN32_BUILD
     char c[256];
 
     struct mallinfo mallinfo_report = mallinfo();
@@ -2518,8 +2514,9 @@ static void list_environments(void)
     exit(EXIT_SUCCESS);
 }
 
-#ifndef _WIN32
+#if !defined(WIN32_BUILD) || defined(__CYGWIN__)
 // This function is Linux only!
+// Note: cygwin also provides a useful /proc (amazing!)
 static char* getexename(char* buf, size_t size)
 {
 	char linkname[64]; /* /proc/<pid>/exe */
@@ -2570,7 +2567,8 @@ static const char* find_home_linux(void)
     return uniquestr(dirname(c));
 }
 
-#else
+#else 
+// Version for mingw
 static const char* find_home_win32(void)
 {
     char c[1024];
@@ -2590,7 +2588,7 @@ static const char* find_home_win32(void)
 
 static const char* find_home(void)
 {
-#ifndef _WIN32
+#if !defined(WIN32_BUILD) || defined(__CYGWIN__)
     return find_home_linux();
 #else
     return find_home_win32();

@@ -817,6 +817,10 @@ case "$host" in
     AC_MSG_RESULT([yes])
     AC_MSG_WARN([Win32 port is still experimental])
     WIN32_NO_UNDEFINED="-no-undefined"
+    dnl This is sort of a synonym of _WIN32
+    CFLAGS="${CFLAGS} -DWIN32_BUILD"
+# -DNOMINMAX avoids a problem with 'max' and 'min' being defined in Win32 headers as macros
+    CXXFLAGS="${CXXFLAGS} -DWIN32_BUILD -DNOMINMAX"
     ;;
   *)
     AC_MSG_RESULT([no])

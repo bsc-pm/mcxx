@@ -24,7 +24,7 @@
 #include <stdlib.h>
 #include "hash.h"
 
-#ifdef _WIN32
+#ifdef WIN32_BUILD
   #ifdef LIBEXTSTRUCT_DLL_EXPORT
     #define LIBEXTSTRUCT_EXTERN extern __declspec(dllexport)
   #else

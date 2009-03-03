@@ -18,9 +18,13 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
+#ifdef HAVE_CONFIG_H
+  #include "config.h"
+#endif
+
 #include <cstdio>
 #include <vector>
-#ifndef _WIN32
+#ifndef WIN32_BUILD
   #include <dlfcn.h>
 #else
   #include <windows.h>
@@ -302,7 +306,7 @@ namespace TL
 
 static const char* add_dso_extension(const char* c)
 {
-#ifndef _WIN32
+#ifndef WIN32_BUILD
     const char* dso_ext = ".so";
 #else
     const char* dso_ext = ".dll";
@@ -321,7 +325,7 @@ static const char* add_dso_extension(const char* c)
 
 extern "C"
 {
-#ifndef _WIN32
+#ifndef WIN32_BUILD
     static void load_compiler_phases_cxx_unix(void)
     {
         int num = CURRENT_CONFIGURATION(num_compiler_phases);
@@ -501,7 +505,7 @@ extern "C"
 
     void load_compiler_phases_cxx(void)
     {
-#ifdef _WIN32
+#ifdef WIN32_BUILD
         load_compiler_phases_cxx_win32();
 #else
         load_compiler_phases_cxx_unix();

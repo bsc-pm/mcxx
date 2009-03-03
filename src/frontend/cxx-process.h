@@ -5,7 +5,7 @@
 #include "cxx-macros.h"
 #include <stdlib.h>
 
-#ifdef _WIN32
+#ifdef WIN32_BUILD
   #ifdef LIBPROCESS_DLL_EXPORT
      #define LIBPROCESS_EXTERN extern __declspec(dllexport)
   #else

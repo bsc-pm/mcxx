@@ -5,7 +5,8 @@
 #include <sys/time.h>
 #include <time.h>
 
-#ifdef _WIN32
+// Cygwin is so unix...
+#if defined(WIN32_BUILD) && !defined(__CYGWIN__)
   #define DIR_SEPARATOR "\\"
 #else
   #define DIR_SEPARATOR "/"

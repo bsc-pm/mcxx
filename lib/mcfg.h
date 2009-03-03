@@ -26,7 +26,7 @@
 #include <ctype.h>
 #include <string.h>
 
-#ifdef _WIN32
+#ifdef WIN32_BUILD
   #ifdef LIBMCFG_DLL_EXPORT
     #define LIBMCFG_EXTERN extern __declspec(dllexport)
   #else

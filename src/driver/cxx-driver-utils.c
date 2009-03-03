@@ -1,7 +1,11 @@
+#ifdef HAVE_CONFIG_H
+  #include "config.h"
+#endif
+
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#ifndef _WIN32
+#if !defined(WIN32_BUILD) || defined(__CYGWIN__)
   #include <sys/wait.h>
 #else
   #include <windows.h>
@@ -45,7 +49,7 @@ void temporal_files_cleanup(void)
     temporal_file_list = NULL;
 }
 
-#ifndef _WIN32
+#if !defined(WIN32_BUILD) || defined(__CYGWIN__)
 static temporal_file_t new_temporal_file_unix(void)
 {
     char template[256];
@@ -109,7 +113,7 @@ static temporal_file_t new_temporal_file_win32(void)
 
 temporal_file_t new_temporal_file()
 {
-#ifndef _WIN32
+#if !defined(WIN32_BUILD) || defined(__CYGWIN__)
     return new_temporal_file_unix();
 #else
     return new_temporal_file_win32();
@@ -126,7 +130,7 @@ int execute_program(const char* program_name, const char** arguments)
     return execute_program_flags(program_name, arguments, /* stdout_f */ NULL, /* stderr_f */ NULL);
 }
 
-#ifndef _WIN32
+#if !defined(WIN32_BUILD) || defined(__CYGWIN__)
 static int execute_program_flags_unix(const char* program_name, const char** arguments, const char* stdout_f, const char* stderr_f)
 {
     int num = count_null_ended_array((void**)arguments);
@@ -387,7 +391,7 @@ static int execute_program_flags_win32(const char* program_name, const char** ar
 
 int execute_program_flags(const char* program_name, const char** arguments, const char* stdout_f, const char* stderr_f)
 {
-#ifndef _WIN32
+#if !defined(WIN32_BUILD) || defined(__CYGWIN__)
     return execute_program_flags_unix(program_name, arguments, stdout_f, stderr_f);
 #else
     return execute_program_flags_win32(program_name, arguments, stdout_f, stderr_f);
@@ -435,7 +439,7 @@ double timing_elapsed(const timing_t* t)
 }
 
 // Inspired on the GNOME's bug-buddy code
-#ifndef _WIN32
+#if !defined(WIN32_BUILD) || defined(__CYGWIN__)
 void run_gdb(void)
 {
     pid_t son = fork();

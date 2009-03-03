@@ -1,7 +1,7 @@
 #ifndef LIBUTILS_COMMON_H
 #define LIBUTILS_COMMON_H
 
-#ifdef _WIN32
+#ifdef WIN32_BUILD
   #ifdef LIBUTILS_DLL_EXPORT
     #define LIBUTILS_EXTERN extern __declspec(dllexport)
   #else
