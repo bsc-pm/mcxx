@@ -27,6 +27,7 @@ libmcxx_process_la_LDFLAGS=-avoid-version $(no_undefined)
 libmcxx_process_la_LIBADD=$(top_builddir)/lib/libmcxx-utils.la
 libmcxx_process_la_SOURCES = \
                              cxx-process.c \
+                             cxx-process.h \
                              $(END)
 
 # Mercurium C/C++ compiler runtime library
