@@ -304,6 +304,10 @@ namespace TL
              */
             DeclaredEntity get_declared_entity();
 
+            //! Returns the declared function symbol
+            /*! This is a synonym of get_declared_entity().get_declared_symbol() */
+            Symbol get_function_symbol();
+
             //! Returns the point of declaration
             AST_t get_point_of_declaration();
 
@@ -436,6 +440,12 @@ namespace TL
             Expression get_called_expression();
             //! Returns the argument list
             ObjectList<Expression> get_argument_list();
+
+            //! States whether this call is to a known entity
+            bool is_named_function_call();
+            //! Returns the named entity called
+            /*! This function can only be called if is_named_function_call returned true */
+            Symbol get_called_entity();
 
             //! States whether this is an assignment expression
             bool is_assignment();

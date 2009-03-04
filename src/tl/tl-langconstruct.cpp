@@ -160,6 +160,11 @@ namespace TL
         return IdExpression(ast, _scope_link);
     }
 
+    Symbol FunctionDefinition::get_function_symbol()
+    {
+        return get_declared_entity().get_declared_symbol();
+    }
+
     Statement FunctionDefinition::get_function_body()
     {
         TL::AST_t ast = _ref.get_attribute(LANG_FUNCTION_BODY);
@@ -465,6 +470,28 @@ namespace TL
         Expression expr(result, get_scope_link());
 
         return expr;
+    }
+
+    bool Expression::is_named_function_call()
+    {
+        if (is_function_call())
+        {
+            Expression expr = get_called_expression();
+            Symbol sym = expr.get_ast().get_attribute(LANG_FUNCTION_SYMBOL);
+            if (sym.is_valid())
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    Symbol Expression::get_called_entity()
+    {
+        Expression expr = get_called_expression();
+        Symbol result = expr.get_ast().get_attribute(LANG_FUNCTION_SYMBOL);
+
+        return result;
     }
 
     ObjectList<Expression> Expression::get_argument_list()
@@ -1145,4 +1172,5 @@ namespace TL
 
         return result;
     }
+
 }
