@@ -615,8 +615,6 @@ static void build_scope_using_directive(AST a, decl_context_t decl_context)
     // Now add this namespace to the used namespaces of this scope
     scope_t* namespace_scope = decl_context.current_scope;
 
-    ERROR_CONDITION(namespace_scope->kind != NAMESPACE_SCOPE,
-            "Error, using directive not in namespace scope", 0);
     ERROR_CONDITION(entry->namespace_decl_context.current_scope->kind != NAMESPACE_SCOPE,
             "Error, related scope is not namespace scope", 0);
 

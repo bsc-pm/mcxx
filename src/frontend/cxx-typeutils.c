@@ -5871,9 +5871,9 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                             num_parameter_names, parameter_names, is_parameter);
                 }
 
-                const char* prototype;
-                prototype = "(";
+                const char* prototype = "";
                 int i;
+                prototype = strappend(prototype, "(");
                 for (i = 0; i < type_info->function->num_parameters; i++)
                 {
                     if (i > 0)
@@ -5918,7 +5918,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                         prototype = strappend(prototype, "void");
                     }
                 }
-                prototype = strappend(prototype, ") ");
+                prototype = strappend(prototype, ")");
                 prototype = strappend(prototype, get_cv_qualifier_string(type_info));
 
                 (*right) = strappend((*right), prototype);
@@ -6134,7 +6134,7 @@ static const char* get_builtin_type_name(type_t* type_info)
                     if (actual_class->is_template_specialized_type
                             && actual_class->template_arguments != NULL)
                     {
-                        template_arguments = strappend(template_arguments, "< ");
+                        template_arguments = strappend(template_arguments, "<");
                         for (i = 0; i < actual_class->template_arguments->num_arguments; i++)
                         {
                             template_argument_t* template_argument = 
@@ -6167,7 +6167,7 @@ static const char* get_builtin_type_name(type_t* type_info)
                                 template_arguments = strappend(template_arguments, ", ");
                             }
                         }
-                        template_arguments = strappend(template_arguments, " >");
+                        template_arguments = strappend(template_arguments, "> ");
                     }
                 }
 

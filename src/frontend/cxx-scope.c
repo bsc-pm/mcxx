@@ -1867,8 +1867,7 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context, const char* 
 
         // Otherwise, if this is a NAMESPACE_SCOPE, lookup in the used namespaces
         // note that the objects there are not hidden, but added
-        if (current_scope->kind == NAMESPACE_SCOPE
-                && current_scope->num_used_namespaces > 0)
+        if (current_scope->num_used_namespaces > 0)
         {
             result = name_lookup_used_namespaces(decl_context, current_scope, name);
             if (BITMAP_TEST(decl_context.decl_flags, DF_ELABORATED_NAME))
@@ -3106,7 +3105,7 @@ static const char* get_unqualified_template_symbol_name(scope_entry_t* entry,
     const char* result = "";
 
     // It is not enough with the name, we have to print the arguments
-    result = strappend(result, "< ");
+    result = strappend(result, "<");
     template_argument_list_t* template_arguments = template_specialized_type_get_template_arguments(entry->type_information);
 
     int i;
@@ -3151,7 +3150,7 @@ static const char* get_unqualified_template_symbol_name(scope_entry_t* entry,
         }
     }
 
-    result = strappend(result, " >");
+    result = strappend(result, "> ");
 
     return result;
 }
@@ -3185,8 +3184,7 @@ const char* get_fully_qualified_symbol_name(scope_entry_t* entry,
         return result;
     }
     else if (entry->type_information != NULL
-            && is_template_specialized_type(entry->type_information)
-            && !is_function_type(entry->type_information))
+            && is_template_specialized_type(entry->type_information))
     {
         const char *template_arguments = get_unqualified_template_symbol_name(entry, decl_context);
         result = strappend(result, template_arguments);
