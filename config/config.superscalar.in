@@ -26,7 +26,7 @@ pragma_prefix = css
 language = C
 options = --variable=generate-non-task-side:no --variable=generate-task-side:yes --variable=generate-task-ids:no --variable=generate-task-adapters:yes --variable=align-memory:yes
 preprocessor_name = spu-c99
-preprocessor_options = -E -I@prefix@/include
+preprocessor_options = -E -I@prefix@/spu/include
 {gcc} preprocessor_options = -include CellSS.h
 {xlc} preprocessor_options = -qinclude=CellSS.h
 preprocessor_options = -DSPU_CODE -D__STARSS=1 -D__STARSS_ABI_VERSION=@superscalar_version@ -D__STARSS_CELL=1
@@ -34,7 +34,7 @@ preprocessor_options = -DSPU_CODE -D__STARSS=1 -D__STARSS_ABI_VERSION=@superscal
 compiler_name = spu-c99
 compiler_options = -g3
 linker_name = spu-c99
-linker_options = -g3 -L@prefix@/lib -lCellSS-spu
+linker_options = -g3 -L@prefix@/spu/lib -lCellSS-spu
 compiler_phase = libtlsuperscalar-configurator.so
 compiler_phase = libtlsuperscalar-preanalysis.so
 compiler_phase = libtlsuperscalar-task-analysis.so
