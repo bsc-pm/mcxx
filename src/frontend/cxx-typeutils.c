@@ -1626,6 +1626,10 @@ type_t* get_complex_type(type_t* t)
 
         *result->type = *t->type;
         result->type->is_complex = 1;
+        // FIXME - A complex is always twice its base type?
+        result->size = 2 * t->size;
+        result->alignment = t->alignment;
+        result->valid_size = 1;
 
         hash_put(_complex_hash, t, result);
     }
