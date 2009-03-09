@@ -8020,12 +8020,27 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
             }
         case AST_GCC_INITIALIZER_CLAUSE :
             {
+                AST symbol = ASTSon0(initializer);
                 AST initializer_clause = ASTSon1(initializer);
-                char result = check_for_initializer_clause(initializer_clause, decl_context, declared_type);
-                if (result)
+
+                char result = 0;
+                if (is_class_type(declared_type))
                 {
-                    ast_set_expression_type(initializer, ast_get_expression_type(initializer_clause));
+                    scope_entry_list_t* member = get_member_of_class_type(declared_type, symbol, decl_context);
+
+                    result = check_for_initializer_clause(initializer_clause, decl_context, 
+                            member->entry->type_information);
+                    if (result)
+                    {
+                        ast_set_expression_type(initializer, ast_get_expression_type(initializer_clause));
+                    }
                 }
+                else
+                {
+                    fprintf(stderr, "%s: warning: gcc-style initializer clause but type is not a struct/union/class\n",
+                            ast_location(initializer));
+                }
+
                 return result;
                 break;
             }
