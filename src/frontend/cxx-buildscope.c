@@ -1904,7 +1904,13 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         }
 
         int num_enumerator = 0;
-        AST previous_enumerator = NULL;
+
+
+        // Delta respect the previous to latest
+        int delta = 0;
+        // Latest known base enumerator
+        AST base_enumerator = NULL;
+
         // For every enumeration, sign them up in the symbol table
         for_each_element(list, iter)
         {
@@ -1935,29 +1941,35 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                 }
 
                 enumeration_item->expression_value = enumeration_expr;
+                delta = 1;
+                base_enumerator = enumeration_expr;
             }
             else
             {
                 if (num_enumerator == 0)
                 {
                     AST zero_tree = internal_expression_parse("0", decl_context);
-
                     enumeration_item->expression_value = zero_tree;
+                    base_enumerator = zero_tree;
+                    delta = 1;
                 }
                 else
                 {
-                    const char *source = strappend(
-                            strappend("(", prettyprint_in_buffer(previous_enumerator))
-                            , ") + 1");
+                    char c[64];
+                    snprintf(c, 63, "%d", delta);
+                    c[63] = '\0';
+
+                    const char *source = strappend( strappend( strappend("(", prettyprint_in_buffer(base_enumerator)) , ") + "), c);
+
                     AST add_one = internal_expression_parse(source, decl_context);
 
                     enumeration_item->expression_value = add_one;
+
+                    delta++;
                 }
             }
 
             enum_type_add_enumerator(enum_type, enumeration_item);
-
-            previous_enumerator = enumeration_item->expression_value;
             num_enumerator++;
         }
     }
