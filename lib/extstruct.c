@@ -83,7 +83,7 @@ int extensible_schema_add_field_if_needed(extensible_schema_t* schema,
     {
         if (schema_item->size != field_size)
         {
-            fprintf(stderr, "Warning: Field '%s', size of existing field %d does not match the requested one %d. Ignoring new size.\n",
+            fprintf(stderr, "Warning: Field '%s', size of existing field %zd does not match the requested one %zd. Ignoring new size.\n",
                     field_name,
                     schema_item->size, 
                     field_size);
