@@ -96,6 +96,11 @@ namespace TL
         return *this;
     }
 
+    Source::operator std::string()
+    {
+        return this->get_source(true);
+    }
+
     std::string Source::get_source(bool with_newlines) const
     {
         std::string temp_result;

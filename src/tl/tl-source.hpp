@@ -209,6 +209,9 @@ namespace TL
              * to form the whole text.
              */
             std::string get_source(bool with_newlines = false) const;
+
+            //! This is a convenience function that calls get_source
+            operator std::string();
             
             //! Convenience function to build lists with separators
             /*!
