@@ -336,6 +336,7 @@ static void driver_initialization(int argc, const char* argv[])
     signal(SIGQUIT, terminating_signal_handler);
     signal(SIGINT,  terminating_signal_handler);
     signal(SIGTERM, terminating_signal_handler);
+    signal(SIGABRT, terminating_signal_handler);
 #endif
 
     memset(&compilation_process, 0, sizeof(compilation_process));
