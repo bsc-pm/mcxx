@@ -160,238 +160,6 @@ namespace TL
         return result;
     }
 
-    /** Beginning of family of deprecated parse_XXX functions **/
-    // Deprecated function, use parse_expression(TL::AST_t ref_tree, TL::ScopeLink scope_link) instead
-    AST_t Source::parse_expression(TL::Scope ctx)
-    {
-        std::string mangled_text = "@EXPRESSION@ " + this->get_source(true);
-        char* str = strdup(mangled_text.c_str());
-
-        CXX_LANGUAGE()
-        {
-            mcxx_prepare_string_for_scanning(str);
-        }
-        C_LANGUAGE()
-        {
-            mc99_prepare_string_for_scanning(str);
-        }
-
-        int parse_result = 0;
-        AST a;
-
-        CXX_LANGUAGE()
-        {
-            parse_result = mcxxparse(&a);
-        }
-
-        C_LANGUAGE()
-        {
-            parse_result = mc99parse(&a);
-        }
-
-        if (parse_result != 0)
-        {
-            running_error("Could not parse the expression '%s'", 
-                    format_source(this->get_source(true)).c_str());
-        }
-
-        enter_test_expression();
-        char c = check_for_expression(a, ctx._decl_context);
-        leave_test_expression();
-
-        if (!c)
-        {
-            WARNING_MESSAGE("Internally parsed expression '%s' could not be properly checked\n",
-                    prettyprint_in_buffer(a));
-        }
-
-        AST_t result(a);
-        return result;
-    }
-
-    // Deprecated function, use parse_expression(TL::AST_t ref_tree, TL::ScopeLink scope_link) instead
-    AST_t Source::parse_expression(TL::Scope ctx, TL::ScopeLink scope_link)
-    {
-        std::string mangled_text = "@EXPRESSION@ " + this->get_source(true);
-        char* str = strdup(mangled_text.c_str());
-
-        CXX_LANGUAGE()
-        {
-            mcxx_prepare_string_for_scanning(str);
-        }
-        C_LANGUAGE()
-        {
-            mc99_prepare_string_for_scanning(str);
-        }
-
-        AST a;
-        int parse_result = 0;
-
-        CXX_LANGUAGE()
-        {
-            parse_result = mcxxparse(&a);
-        }
-        C_LANGUAGE()
-        {
-            parse_result = mc99parse(&a);
-        }
-
-        if (parse_result != 0)
-        {
-            running_error("Could not parse the expression '%s'", 
-                    format_source(this->get_source(true)).c_str());
-        }
-
-        enter_test_expression();
-        char c = check_for_expression(a, ctx._decl_context);
-        leave_test_expression();
-
-        if (!c)
-        {
-            WARNING_MESSAGE("Internally parsed expression '%s' could not be properly checked\n",
-                    prettyprint_in_buffer(a));
-        }
-
-        AST_t result(a);
-
-        decl_context_t decl_context = scope_link_get_decl_context(scope_link._scope_link, a);
-        scope_link_set(scope_link._scope_link, a, decl_context);
-
-        return result;
-    }
-
-    // Deprecated function, use parse_member(TL::AST_t ref_tree, TL::ScopeLink scope_link) instead
-    AST_t Source::parse_member(TL::Scope ctx, TL::ScopeLink scope_link, Type class_type)
-    {
-        std::string mangled_text = "@MEMBER@ " + this->get_source(true);
-        char* str = strdup(mangled_text.c_str());
-
-        mcxx_prepare_string_for_scanning(str);
-
-        int parse_result = 0;
-        AST a;
-        parse_result = mcxxparse(&a);
-
-        if (parse_result != 0)
-        {
-            running_error("Could not parse member declaration\n\n%s\n", 
-                    format_source(this->get_source(true)).c_str());
-        }
-
-        if (a != NULL)
-        {
-            build_scope_member_specification_with_scope_link(ctx._decl_context, scope_link._scope_link, a, AS_PUBLIC, 
-                    class_type._type_info);
-        }
-
-        return AST_t(a);
-    }
-    
-    // Deprecated function, use parse_statement(TL::AST_t ref_tree, TL::ScopeLink scope_link) instead
-    AST_t Source::parse_statement(TL::Scope ctx, TL::ScopeLink scope_link)
-    {
-        std::string mangled_text = "@STATEMENT@ " + this->get_source(true);
-        char* str = strdup(mangled_text.c_str());
-
-        CXX_LANGUAGE()
-        {
-            mcxx_prepare_string_for_scanning(str);
-        }
-        C_LANGUAGE()
-        {
-            mc99_prepare_string_for_scanning(str);
-        }
-
-        int parse_result = 0;
-        AST a;
-
-        CXX_LANGUAGE()
-        {
-            parse_result = mcxxparse(&a);
-        }
-        C_LANGUAGE()
-        {
-            parse_result = mc99parse(&a);
-        }
-
-        if (parse_result != 0)
-        {
-            running_error("Could not parse statement\n\n%s\n", 
-                    format_source(this->get_source(true)).c_str());
-        }
-
-        if (a != NULL)
-        {
-            build_scope_statement_seq_with_scope_link(a, ctx._decl_context, scope_link._scope_link);
-        }
-
-        AST_t result(a);
-        return result;
-    }
-
-    // Deprecated function, use parse_global(TL::AST_t ref_tree, TL::ScopeLink scope_link) instead
-    AST_t Source::parse_declaration_inner(TL::Scope ctx, TL::ScopeLink scope_link, ParseFlags parse_flags)
-    {
-        std::string mangled_text = "@DECLARATION@ " + this->get_source(true);
-        char* str = strdup(mangled_text.c_str());
-
-        CXX_LANGUAGE()
-        {
-            mcxx_prepare_string_for_scanning(str);
-        }
-        C_LANGUAGE()
-        {
-            mc99_prepare_string_for_scanning(str);
-        }
-
-        int parse_result = 0;
-        AST a;
-
-        CXX_LANGUAGE()
-        {
-            parse_result = mcxxparse(&a);
-        }
-        C_LANGUAGE()
-        {
-            parse_result = mc99parse(&a);
-        }
-
-        if (parse_result != 0)
-        {
-            running_error("Could not parse declaration\n\n%s\n", 
-                    format_source(this->get_source(true)).c_str());
-        }
-
-        decl_context_tag decl_context = ctx._decl_context;
-
-        int parse_flags_int = (int)parse_flags;
-        if ((parse_flags_int & Source::ALLOW_REDECLARATION) == Source::ALLOW_REDECLARATION)
-        {
-            decl_context.decl_flags = (decl_flags_t)((int)(decl_context.decl_flags) | DF_ALLOW_REDEFINITION);
-        }
-
-        if (a != NULL)
-        {
-            build_scope_declaration_sequence_with_scope_link(a, decl_context, scope_link._scope_link);
-        }
-
-        AST_t result(a);
-        return result;
-    }
-
-    AST_t Source::parse_declaration(TL::Scope ctx, TL::ScopeLink scope_link, ParseFlags)
-    {
-        return parse_declaration_inner(ctx, scope_link);
-    }
-
-    // Deprecated function, use parse_global(TL::AST_t ref_tree, TL::ScopeLink scope_link) instead
-    AST_t Source::parse_global(TL::Scope ctx, TL::ScopeLink scope_link)
-    {
-        return parse_declaration_inner(ctx, scope_link);
-    }
-
-    /** end of family of deprecated parse_XXX functions **/
-
     AST_t Source::parse_global(AST_t ref_tree, TL::ScopeLink scope_link)
     {
         AST_t global_tree = ref_tree.get_translation_unit();
@@ -454,6 +222,9 @@ namespace TL
             }
         }
 
+        // Set properly the context of the reference tree
+        scope_link_set(scope_link._scope_link, a, decl_context);
+
         AST_t result(a);
         return result;
     }
@@ -510,7 +281,14 @@ namespace TL
 
             if (!c && !do_not_check_expression)
             {
-                WARNING_MESSAGE("Could not check expression '%s'\n", prettyprint_in_buffer(a));
+                if (CURRENT_CONFIGURATION(strict_typecheck))
+                {
+                    internal_error("Could not check expression '%s'\n", prettyprint_in_buffer(a));
+                }
+                else
+                {
+                    WARNING_MESSAGE("Could not check expression '%s'\n", prettyprint_in_buffer(a));
+                }
             }
         }
 
@@ -569,6 +347,9 @@ namespace TL
             build_scope_declaration_sequence_with_scope_link(a, decl_context, scope_link._scope_link);
         }
 
+        // Set properly the context of the reference tree
+        scope_link_set(scope_link._scope_link, a, decl_context);
+
         AST_t result(a);
         return result;
     }
@@ -595,6 +376,9 @@ namespace TL
 
         build_scope_member_specification_with_scope_link(decl_context, scope_link._scope_link, a, AS_PUBLIC, 
                 class_type._type_info);
+
+        // Set properly the context of the reference tree
+        scope_link_set(scope_link._scope_link, a, decl_context);
 
         return AST_t(a);
     }
@@ -632,6 +416,9 @@ namespace TL
 
         // Get the scope and declarating context of the reference tree
         decl_context_t decl_context = scope_link_get_decl_context(scope_link._scope_link, ref_tree._ast);
+
+        // Set properly the context of the reference tree
+        scope_link_set(scope_link._scope_link, type_specifier_seq, decl_context);
 
         type_t* type_info = NULL;
         gather_decl_spec_t gather_info;

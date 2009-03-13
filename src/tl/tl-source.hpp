@@ -136,7 +136,6 @@ namespace TL
             void append_source_ref(SourceChunkRef src);
 
             bool all_blanks() const;
-            AST_t parse_declaration_inner(TL::Scope ctx, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
 
             std::string format_source(const std::string&);
         public:
@@ -239,39 +238,6 @@ namespace TL
 
             //! Appends a reference to Source
             Source& operator<<(RefPtr<Source>);
-
-            // -- deprecated family of parse_XXX
-            //! Parses a top-level declaration in context of global scope
-            /*!
-             * \deprecated Instead use parse_global(AST_t, TL::ScopeLink)
-             */
-            AST_t parse_global(TL::Scope ctx, TL::ScopeLink scope_link) DEPRECATED;
-            //! Parses this source as a statement
-            /*!
-             * \deprecated Instead use parse_statement(AST_t, TL::ScopeLink)
-             */
-            AST_t parse_statement(TL::Scope ctx, TL::ScopeLink scope_link) DEPRECATED;
-            //! Parses this source as an expression
-            /*!
-             * \deprecated Instead use parse_expression(AST_t, TL::ScopeLink)
-             */
-            AST_t parse_expression(TL::Scope ctx) DEPRECATED;
-            //! Parses this source as an expression
-            /*!
-             * \deprecated Instead use parse_expression(AST_t, TL::ScopeLink)
-             */
-            AST_t parse_expression(TL::Scope ctx, TL::ScopeLink scope_link) DEPRECATED;
-            //! Parses this source as a declaration
-            /*!
-             * \deprecated Instead use parse_declaration(AST_t, TL::ScopeLink)
-             */
-            AST_t parse_declaration(TL::Scope ctx, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT) DEPRECATED;
-            //! Parses this source as a member declaration
-            /*!
-             * \deprecated Instead use parse_member(AST_t, TL::ScopeLink)
-             */
-            AST_t parse_member(TL::Scope ctx, TL::ScopeLink scope_link, Type class_type) DEPRECATED;
-            // -- end of deprecated family
 
             // -- new family of parse_XXX
             // These should work correctly in C++ as they are able to get the exact
