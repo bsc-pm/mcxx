@@ -191,6 +191,7 @@ static void compute_associated_scopes_rec(associated_scopes_t* associated_scopes
         // Nothing else to be done
         return;
 
+
     /*
      * If T is a class type, including unions, its associated classes are, the
      * class itself, the class of which it is a member (if any), and its direct
@@ -199,71 +200,58 @@ static void compute_associated_scopes_rec(associated_scopes_t* associated_scopes
      */
     if (is_class_type(argument_type))
     {
-        compute_set_of_associated_classes_scope(get_actual_class_type(argument_type), associated_scopes);
+        type_t* class_type = get_actual_class_type(argument_type);
+        compute_set_of_associated_classes_scope(class_type, associated_scopes);
+
+        /*
+         * Furthermore, if T is a class template specialization, its associated
+         * namespaces and classes also include: the namespaces and classes
+         * associated with the types of the template arguments provided for
+         * template type parameters (excluding template template parameters); the
+         * namespaces of which any template template arguments are members and the
+         * classes of which any member templates used as template template
+         * arguments are members.
+         *
+         * Example:
+         *
+         * namespace L
+         * {
+         *   template <class T>
+         *   struct A
+         *   {
+         *   };
+         * }
+         *
+         * namespace K
+         * {
+         *    struct M { };
+         *    void f(L::A<M>);
+         * };
+         *
+         * void g()
+         * {
+         *   L::A<K::M> a;
+         *   f(a);
+         * }
+         */
+        if (is_template_specialized_type(class_type))
+        {
+            template_argument_list_t* arg_list = template_specialized_type_get_template_arguments(class_type);
+            int i;
+            for (i = 0; i < arg_list->num_arguments; i++)
+            {
+                template_argument_t* arg = arg_list->argument_list[i];
+                if (arg->kind == TAK_TYPE
+                        || arg->kind == TAK_TEMPLATE)
+                {
+                    compute_associated_scopes_rec( associated_scopes, arg->type);
+                }
+            }
+        }
 
         // Nothing else to be done
         return;
     }
-
-    /*
-     * Furthermore, if T is a class template specialization, its associated
-     * namespaces and classes also include: the namespaces and classes
-     * associated with the types of the template arguments provided for
-     * template type parameters (excluding template template parameters); the
-     * namespaces of which any template template arguments are members and the
-     * classes of which any member templates used as template template
-     * arguments are members.
-     *
-     * Example:
-     *
-     * namespace L
-     * {
-     *   template <class T>
-     *   struct A
-     *   {
-     *   };
-     * }
-     *
-     * namespace K
-     * {
-     *    struct M { };
-     *    void f(L::A<M>);
-     * };
-     *
-     * void g()
-     * {
-     *   L::A<K::M> a;
-     *   f(a);
-     * }
-     */
-    if (is_template_specialized_type(argument_type))
-    {
-        internal_error("Not implemented", 0);
-    }
-#if 0
-        compute_set_of_associated_classes_scope(get_actual_class_type(argument_type), associated_scopes);
-
-        template_argument_list_t* template_arguments = template_type_get_template_arguments(argument_type);
-
-        // Now for every parameter 
-        int i;
-        for (i = 0; i < template_arguments->num_arguments; i++)
-        {
-            template_argument_t* curr_argument = template_arguments->argument_list[i];
-            if (curr_argument->kind == TAK_NONTYPE)
-            {
-                // Non-type arguments do not contribute in the scopes
-            }
-            else if (curr_argument->kind == TAK_TYPE)
-            {
-                compute_associated_scopes_rec(associated_scopes, curr_argument->type);
-            }
-            else if (curr_argument->kind == TAK_TEMPLATE)
-            {
-            }
-        }
-    }
-#endif
 
     /*
      * If T is an enumeration type its associated namespace is the namespace in which it
@@ -334,7 +322,7 @@ static void compute_associated_scopes_rec(associated_scopes_t* associated_scopes
 
         // Return type
         compute_associated_scopes_rec(associated_scopes, function_type_get_return_type(argument_type));
-        
+
         // Nothing else to be done
         return;
     }
