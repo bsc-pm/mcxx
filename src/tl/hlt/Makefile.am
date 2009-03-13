@@ -12,4 +12,6 @@ libtl_hlt_la_LDFLAGS=$(tl_ldflags)
 libtl_hlt_la_SOURCES = \
       hlt-transform.hpp \
       hlt-transform.cpp \
+      hlt-unroll.hpp \
+      hlt-unroll.cpp \
       $(END)
