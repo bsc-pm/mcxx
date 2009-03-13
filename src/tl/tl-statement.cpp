@@ -159,6 +159,7 @@ namespace TL
                             adjust_value << "(" << right_hand.get_ast().prettyprint() << ") - 1";
 
                             _upper_bound = adjust_value.parse_expression(expression.get_ast(), expression.get_scope_link());
+                            _operator_bound = std::string("<=");
                             break;
                         }
                     case Expression::GREATER_THAN:
@@ -168,12 +169,19 @@ namespace TL
                             adjust_value << "(" << right_hand.get_ast().prettyprint() << ") + 1";
 
                             _upper_bound = adjust_value.parse_expression(expression.get_ast(), expression.get_scope_link());
+                            _operator_bound = std::string(">=");
                             break;
                         }
                     case Expression::LOWER_EQUAL_THAN :
+                        {
+                            _upper_bound = right_hand.get_ast();
+                            _operator_bound = std::string("<=");
+                            break;
+                        }
                     case Expression::GREATER_EQUAL_THAN :
                         {
                             _upper_bound = right_hand.get_ast();
+                            _operator_bound = std::string(">=");
                             break;
                         }
                 }
@@ -277,10 +285,20 @@ namespace TL
 
     bool ForStatement::regular_loop()
     {
+        return is_regular_loop();
+    }
+
+    bool ForStatement::is_regular_loop()
+    {
         return (_induction_variable.is_valid()
                 && _lower_bound.is_valid() 
                 && _upper_bound.is_valid() 
                 && _step.is_valid());
+    }
+
+    Source ForStatement::get_bound_operator()
+    {
+        return _operator_bound;
     }
 
     IdExpression ForStatement::get_induction_variable()

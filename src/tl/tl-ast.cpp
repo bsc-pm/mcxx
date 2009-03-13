@@ -92,6 +92,11 @@ namespace TL
         return result;
     }
 
+    std::ostream& operator<< (std::ostream& o, const AST_t& a)
+    {
+        return (o << a.prettyprint());
+    }
+
     std::string AST_t::prettyprint_external() const
     {
         // This is always external

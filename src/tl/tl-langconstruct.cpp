@@ -40,9 +40,19 @@ namespace TL
     const PredicateAttr Declaration::predicate(LANG_IS_DECLARATION);
     const PredicateAttr GCCAttributeSpecifier::predicate(LANG_IS_GCC_ATTRIBUTE);
 
-    std::string LangConstruct::prettyprint()
+    std::string LangConstruct::prettyprint() const
     {
         return _ref.prettyprint();
+    }
+
+    LangConstruct::operator std::string() const
+    {
+        return this->prettyprint();
+    }
+    
+    std::ostream& operator<< (std::ostream& o, const LangConstruct& lang_construct)
+    {
+        return (o << lang_construct.prettyprint());
     }
 
     ObjectList<IdExpression> LangConstruct::all_symbol_occurrences(SymbolsWanted symbol_filter)

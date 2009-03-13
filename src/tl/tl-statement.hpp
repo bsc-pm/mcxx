@@ -111,6 +111,8 @@ namespace TL
             //! The step of a regular loop
             AST_t _step;
 
+            Source _operator_bound;
+
             //! Gathers information of regular loops
             /*! This function is only called when check_statement returns true
              */
@@ -149,15 +151,25 @@ namespace TL
             //! Returns a computed step of a regular loop
             Expression get_step();
 
+            //! Returns the related bounding operator of a regular loop
+            /*! Result can be either <= or >= depending on the original loop operator */
+            Source get_bound_operator();
+
             //! Returns the loop body
             Statement get_loop_body();
+
+            //! States whether this loop is a regular one
+            /*!
+             * \deprecated Do not use it, instead use is_regular_loop
+             */
+            bool regular_loop();
 
             //! States whether this loop is a regular one
             /*!
              * A regular loop is that where computing the lower and upper
              * bounds and its step is easy after the syntax.
              */
-            bool regular_loop();
+            bool is_regular_loop();
 
             //! Returns the iterating initialization
             /*!

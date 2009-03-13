@@ -29,6 +29,7 @@
 #include "tl-source.hpp"
 #include "cxx-attrnames.h"
 #include "cxx-macros.h"
+#include <iostream>
 #include <string>
 #include <utility>
 
@@ -80,7 +81,10 @@ namespace TL
              * This function just calls AST_t::prettyprint(bool) on the underlying
              * tree
              */
-            std::string prettyprint();
+            std::string prettyprint() const;
+
+            //! Convenience function that just calls prettyprint()
+            operator std::string() const;
 
             //! Returns the wrapped tree of this LangConstruct
             AST_t get_ast() const
@@ -129,6 +133,9 @@ namespace TL
             {
             }
     };
+
+    
+    LIBTL_EXTERN std::ostream& operator<< (std::ostream& o, const LangConstruct& lang_construct);
 
     class Declaration;
 
@@ -779,6 +786,13 @@ namespace TL
      * For instance, expression 'a + b' can be converted into '(*p_a) + p_b[0]' 
      * by just registering that Symbol 'a' has to be replaced with expression '(*p_a)' and Symbol
      * 'b' with expression 'p_b[0]'
+     *
+     * \note It is very important that you do not directly use or embed the
+     * returned LangConstruct but instead reparse it in the proper context,
+     * otherwise there are high chances that stale contextual data slips in the
+     * returned tree causing problems to further analysis in that tree. This is
+     * so since the original tree is duplicated, and duplication does not
+     * properly preserve the contextual information contained in trees.
      */
     class LIBTL_CLASS ReplaceIdExpression
     {
@@ -865,7 +879,9 @@ namespace TL
                         src << _repl_map[sym]
                             ;
 
-                        AST_t repl_ast = src.parse_expression(orig_ast, orig_stmt.get_scope_link());
+                        AST_t repl_ast = src.parse_expression(orig_ast, 
+                                orig_stmt.get_scope_link(),
+                                Source::DO_NOT_CHECK_EXPRESSION);
 
                         orig_ast.replace_with(repl_ast);
                     }

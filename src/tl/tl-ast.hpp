@@ -509,6 +509,8 @@ namespace TL
             // mmm
             friend class Expression;
     };
+
+    LIBTL_EXTERN std::ostream& operator<< (std::ostream& o, const AST_t& a);
     
     //! @}
    
