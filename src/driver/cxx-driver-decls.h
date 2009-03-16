@@ -132,7 +132,7 @@ typedef struct debug_options_tag
     char print_memory_report;
     char print_memory_report_in_bytes;
     char debug_sizeof;
-    char run_gdb;
+    char do_not_run_gdb;
 } debug_options_t;
 
 typedef struct external_var_tag {

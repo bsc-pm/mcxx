@@ -508,7 +508,7 @@ void run_gdb(void)
 
             execvp("gdb", args);
 
-            fprintf(stderr, "execvp failed!\n");
+            fprintf(stderr, "exec of gdb failed: %s\n", strerror(errno));
             exit(EXIT_FAILURE);
         }
         else
@@ -521,6 +521,7 @@ void run_gdb(void)
     {
         int wait_result = 0;
         wait(&wait_result);
+        fprintf(stderr, "Please, send this backtrack attached to your bug report. Thank you\n");
     }
 }
 #endif

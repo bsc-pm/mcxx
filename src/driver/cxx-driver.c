@@ -2155,7 +2155,7 @@ static void terminating_signal_handler(int sig)
 
     fprintf(stderr, "Signal handler called (signal=%d). Exiting.\n", sig);
 
-    if (CURRENT_CONFIGURATION(debug_options).run_gdb)
+    if (!CURRENT_CONFIGURATION(debug_options).do_not_run_gdb)
         run_gdb();
 
     if (!in_cleanup_routine)
