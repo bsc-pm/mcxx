@@ -23,6 +23,12 @@
 
 using namespace TL::HLT;
 
+LoopUnroll TL::HLT::unroll_loop(TL::ForStatement for_stmt, unsigned int factor)
+{
+    return LoopUnroll(for_stmt, factor);
+}
+
+
 TL::Source LoopUnroll::get_source()
 {
     // Nothing at the moment
@@ -59,14 +65,30 @@ TL::Source LoopUnroll::do_unroll()
 
     Statement loop_body = _for_stmt.get_loop_body();
 
-    TL::Source result, epilogue, main;
+    TL::Source result, epilogue, main, induction_var_decl;
+
+    std::stringstream ss;
+    ss << _factor;
 
     result
         << "{"
+        << comment("Loop at '" + _for_stmt.get_ast().get_locus() + "' unrolled by a factor of " + ss.str())
+        << induction_var_decl
         << main
         << epilogue
         << "}"
         ;
+
+    AST_t init = _for_stmt.get_iterating_init();
+    if (Declaration::predicate(init))
+    {
+        TL::Symbol sym = induction_var.get_symbol();
+        TL::Type type = sym.get_type();
+        // Declare it since it will have local scope
+        induction_var_decl
+            << type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
+            ;
+    }
 
     Source replicated_body;
     main
