@@ -42,3 +42,5 @@ void HLTPragmaPhase::unroll_loop(PragmaCustomConstruct construct)
         throw HLTException(construct, "'#pragma hlt unroll' can only be used with for statements");
     }
 }
+
+EXPORT_PHASE(TL::HLT::HLTPragmaPhase)
