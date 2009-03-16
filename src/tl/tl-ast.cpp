@@ -848,7 +848,15 @@ namespace TL
         }
         else
         {
-            return ast_get_filename(this->_ast);
+            const char * c = ast_get_filename(this->_ast);
+            if (c == NULL)
+            {
+                return "(unknown file)";
+            }
+            else
+            {
+                return c;
+            }
         }
     }
 
