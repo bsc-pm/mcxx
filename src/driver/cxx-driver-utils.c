@@ -521,7 +521,12 @@ void run_gdb(void)
     {
         int wait_result = 0;
         wait(&wait_result);
-        fprintf(stderr, "Please, send this backtrack attached to your bug report. Thank you\n");
+
+        if (WIFEXITED(wait_result)
+                && WEXITSTATUS(wait_result) == 0)
+        {
+            fprintf(stderr, "Please, send this backtrack attached to your bug report. Thank you\n");
+        }
     }
 }
 #endif
