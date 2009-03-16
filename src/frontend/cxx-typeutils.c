@@ -3325,7 +3325,9 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2)
             result = compare_template_dependent_typename_types(p_t1, p_t2);
             break;
         case STK_TYPEOF :
-            internal_error("__typeof__ comparison still not implemented", 0);
+            // internal_error("__typeof__ comparison still not implemented", 0);
+            // Nobody compares these structurally, but using the "name" (e.g. the pointer)
+            result = (t1 == t2);
             break;
         case STK_VA_LIST :
             // If both are __builtin_va_list, this is trivially true
@@ -6184,7 +6186,9 @@ static const char* get_builtin_type_name(type_t* type_info)
             result = strappend(result, "__builtin_va_list");
             break;
         case STK_TYPEOF :
-            result = strappend(result, "__typeof");
+            result = strappend(result, "__typeof__(");
+            result = strappend(result, prettyprint_in_buffer(simple_type_info->typeof_expr));
+            result = strappend(result, ")");
             break;
         case STK_TEMPLATE_DEPENDENT_TYPE :
             {

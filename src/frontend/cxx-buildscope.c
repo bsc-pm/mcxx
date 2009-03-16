@@ -1200,9 +1200,23 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
 
                     if (is_unresolved_overloaded_type(computed_type))
                     {
-                        running_error("%s: error: unresolved overloaded type '%s'",
-                                ast_location(a), 
-                                prettyprint_in_buffer(a));
+                        scope_entry_list_t* entry_list = 
+                            unresolved_overloaded_type_get_overload_set(computed_type);
+
+                        if (entry_list->next != NULL)
+                        { 
+                            running_error("%s: error: '%s' yields an unresolved overload type",
+                                    ast_location(a), 
+                                    prettyprint_in_buffer(a));
+                        }
+
+                        computed_type = entry_list->entry->type_information;
+                    }
+
+                    if (is_dependent_expr_type(computed_type))
+                    {
+                        // The expression type is dependent, wrap it in a typeof
+                        computed_type = get_gcc_typeof_expr_type(expression, decl_context);
                     }
 
                     switch (ASTType(expression))
@@ -1253,7 +1267,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                 // This one can be computed here, in fact, i don't understand
                 // why one would want to use this
                 //
-                // typeof(int) <-- is it not obvious that it is an int ?
+                // typeof(int) <-- is it not obvious that this is an int ?
 
                 // Compute here
                 AST type_id = ASTSon0(a);
@@ -1301,11 +1315,19 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                             scope_entry_list_t* entry_list = 
                                 unresolved_overloaded_type_get_overload_set(computed_type);
 
-                            ERROR_CONDITION(entry_list->next != NULL,
-                                    "typeof type-spec at '%s' yields an unresolved overload type", 
-                                    ast_location(a));
+                            if (entry_list->next != NULL)
+                            {
+                                running_error("%s: error: '%s' yields an unresolved overload type",
+                                        ast_location(a), 
+                                        prettyprint_in_buffer(a));
+                            }
 
                             computed_type = entry_list->entry->type_information;
+                        }
+                        else if (is_dependent_expr_type(computed_type))
+                        {
+                            // The expression type is dependent, so we will wrap in an typeof expression
+                            computed_type = get_gcc_typeof_expr_type(ASTSon0(a), decl_context);
                         }
                     }
 

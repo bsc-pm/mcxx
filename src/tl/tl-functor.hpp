@@ -51,6 +51,7 @@ namespace TL
                 return this->operator()(const_cast<T&>(t));
             }
 
+
             virtual ~Functor() { }
     };
 
