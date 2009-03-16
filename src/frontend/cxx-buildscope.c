@@ -99,7 +99,7 @@ static void build_scope_declarator_rec(AST a, type_t** declarator_type,
         gather_decl_spec_t* gather_info,
         decl_context_t declarator_context,
         decl_context_t entity_context,
-        decl_context_t prototype_context);
+        decl_context_t *prototype_context);
 
 static scope_entry_t* build_scope_declarator_name(AST declarator_name, type_t* declarator_type, 
         gather_decl_spec_t* gather_info, decl_context_t decl_context);
@@ -3399,13 +3399,8 @@ static void build_scope_member_specification(decl_context_t inner_decl_context, 
 void compute_declarator_type(AST a, gather_decl_spec_t* gather_info,
         type_t* type_info, type_t** declarator_type, decl_context_t decl_context)
 {
-    // Create a prototype context for parameters. For function definitions, this one
-    // is already given and it is the block scope of the function body.
-    // FIXME - Most of the times this is unneeded
-    decl_context_t prototype_context = new_prototype_context(decl_context);
-
     build_scope_declarator_with_parameter_context(a,
-            gather_info, type_info, declarator_type, decl_context, &prototype_context);
+            gather_info, type_info, declarator_type, decl_context, NULL);
 }
 
 /*
@@ -3501,9 +3496,12 @@ static void build_scope_declarator_with_parameter_context(AST a,
                     entity_context = symbols->entry->decl_context;
                     entity_context.template_scope = template_scope;
 
-                    prototype_context->current_scope->contained_in = symbols->entry->decl_context.current_scope;
-                    prototype_context->namespace_scope = symbols->entry->decl_context.namespace_scope;
-                    prototype_context->class_scope = symbols->entry->decl_context.class_scope;
+                    if (prototype_context != NULL)
+                    {
+                        prototype_context->current_scope->contained_in = symbols->entry->decl_context.current_scope;
+                        prototype_context->namespace_scope = symbols->entry->decl_context.namespace_scope;
+                        prototype_context->class_scope = symbols->entry->decl_context.class_scope;
+                    }
                 }
             }
 
@@ -3518,7 +3516,7 @@ static void build_scope_declarator_with_parameter_context(AST a,
 
         // Second traversal, here we build the type
         build_scope_declarator_rec(a, declarator_type, 
-                gather_info, decl_context, entity_context, *prototype_context);
+                gather_info, decl_context, entity_context, prototype_context);
 
         if (declarator_name != NULL)
         {
@@ -3982,8 +3980,20 @@ static void set_function_parameter_clause(type_t** function_type,
  */
 static void set_function_type(type_t** declarator_type,  
         gather_decl_spec_t* gather_info, AST parameter, AST cv_qualif_tree, AST except_spec, 
-        decl_context_t decl_context, decl_context_t prototype_context)
+        decl_context_t decl_context, decl_context_t *p_prototype_context)
 {
+    decl_context_t prototype_context;
+    memset(&prototype_context, 0, sizeof(prototype_context));
+    if (p_prototype_context == NULL)
+    {
+        // Allocate one here
+        prototype_context = new_prototype_context(decl_context);
+    }
+    else
+    {
+        prototype_context = *p_prototype_context;
+    }
+
     /*
      * FIXME - Many things saved in the type actually belong to the symbol thus
      * hindering type information sharing accross symbols
@@ -4172,7 +4182,7 @@ static void build_scope_declarator_rec(AST a, type_t** declarator_type,
         // This one is used to sign in parameters, this is a block context
         // in function definitions and a prototype context for function
         // declarations or functional types
-        decl_context_t prototype_context)
+        decl_context_t *prototype_context)
 {
     ERROR_CONDITION((a == NULL), "This function does not admit NULL trees", 0);
 
