@@ -42,7 +42,10 @@ namespace TL
                 if (!is_expression)
                 {
                     Source src;
-                    src << it2->prettyprint();
+
+                    src 
+                        << "#line " << ref_tree.get_line() << " \"" << ref_tree.get_file() << "\"\n"
+                        << it2->prettyprint();
 
                     AST_t parsed_expr = src.parse_expression(ref_tree, scope_link);
 
