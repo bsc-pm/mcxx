@@ -23,6 +23,10 @@ TL::Source LoopUnroll::do_unroll()
     if (_regular)
     {
         // Do nothing if the given loop was not regular
+        std::cerr << _for_stmt.get_ast().get_locus() 
+            << ": warning: is not a regular loop, unroll will not be applied" 
+            << std::endl;
+
         return _for_stmt.prettyprint();
     }
 
@@ -58,7 +62,7 @@ TL::Source LoopUnroll::do_unroll()
     epilogue
         << "for ( ; "  // No initialization, keep using the old induction var
                    << induction_var << operator_bound << upper_bound << ";"
-                   << induction_var << "+= (" << step << ") * " << _factor << ")"
+                   << induction_var << "+= (" << step << "))"
                    << loop_body
         ;
 
@@ -78,4 +82,6 @@ TL::Source LoopUnroll::do_unroll()
             << replaced_body
             ;
     }
+
+    return result;
 }
