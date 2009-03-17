@@ -768,7 +768,13 @@ static int character_level_vfprintf(FILE* stream, const char* format, va_list ar
     return result;
 }
 
-
+static int increase_level_if_not_compound(AST a, int level)
+{
+    if (ASTType(a) == AST_COMPOUND_STATEMENT)
+        return level;
+    else
+        return level + 1;
+}
 
 int token_fprintf(FILE *stream, AST node UNUSED_PARAMETER, const char *format, ...)
 {
@@ -1732,21 +1738,16 @@ static void while_statement_handler(FILE* f, AST a, int level)
     prettyprint_level(f, ASTSon0(a), level);
     token_fprintf(f, a, ")\n");
 
-    if (ASTType(ASTSon1(a)) != AST_COMPOUND_STATEMENT)
-    {
-        prettyprint_level(f, ASTSon1(a), level+1);
-    }
-    else
-    {
-        prettyprint_level(f, ASTSon1(a), level);
-    }
+    prettyprint_level(f, ASTSon1(a), 
+            increase_level_if_not_compound(ASTSon1(a), level));
 }
 
 static void do_while_statement_handler(FILE* f, AST a, int level)
 {
     indent_at_level(f, a, level);
     token_fprintf(f, a, "do\n");
-    prettyprint_level(f, ASTSon0(a), level);
+    prettyprint_level(f, ASTSon0(a), 
+            increase_level_if_not_compound(ASTSon0(a), level));
     indent_at_level(f, a, level);
     token_fprintf(f, a, "while (");
     prettyprint_level(f, ASTSon1(a), level);
@@ -1763,9 +1764,9 @@ static void for_statement_handler(FILE* f, AST a, int level)
         prettyprint_level(f, ASTSon0(a), 0);
     }
 
+    indent_at_level(f, a, level+1);
     if (ASTSon1(a) != NULL)
     {
-        indent_at_level(f, a, level+1);
         prettyprint_level(f, ASTSon1(a), 0);
     }
     
@@ -1779,7 +1780,8 @@ static void for_statement_handler(FILE* f, AST a, int level)
 
     token_fprintf(f, a, ")\n");
 
-    prettyprint_level(f, ASTSon3(a), level);
+    prettyprint_level(f, ASTSon3(a), 
+            increase_level_if_not_compound(ASTSon3(a), level));
 }
 
 static void return_statement_handler(FILE* f, AST a, int level)
@@ -2050,29 +2052,16 @@ static void if_else_statement_handler(FILE* f, AST a, int level)
     prettyprint_level(f, ASTSon0(a), level);
     token_fprintf(f, a, ")\n");
     
-    // Sthetic
-    if (ASTType(ASTSon1(a)) != AST_COMPOUND_STATEMENT)
-    {
-        prettyprint_level(f, ASTSon1(a), level+1);
-    }
-    else
-    {
-        prettyprint_level(f, ASTSon1(a), level);
-    }
+    prettyprint_level(f, ASTSon1(a), 
+            increase_level_if_not_compound(ASTSon1(a), level));
 
     if (ASTSon2(a) != NULL)
     {
         indent_at_level(f, a, level);
         token_fprintf(f, a, "else\n");
 
-        if (ASTType(ASTSon2(a)) != AST_COMPOUND_STATEMENT)
-        {
-            prettyprint_level(f, ASTSon2(a), level+1);
-        }
-        else
-        {
-            prettyprint_level(f, ASTSon2(a), level);
-        }
+        prettyprint_level(f, ASTSon2(a), 
+                increase_level_if_not_compound(ASTSon2(a), level));
     }
 }
 
