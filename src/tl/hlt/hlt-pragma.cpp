@@ -20,6 +20,7 @@
 */
 #include "hlt-pragma.hpp"
 #include "hlt-unroll.hpp"
+#include "hlt-blocking.hpp"
 #include "hlt-exception.hpp"
 
 using namespace TL::HLT;
@@ -31,10 +32,11 @@ HLTPragmaPhase::HLTPragmaPhase()
     set_phase_description("This phase implement several high level "
             "transformations available through the usage of #pragma hlt");
 
-    // register_variable("hlt-quiet
-
     register_construct("unroll");
     on_directive_post["unroll"].connect(functor(&HLTPragmaPhase::unroll_loop, *this));
+
+    register_construct("block");
+    on_directive_post["block"].connect(functor(&HLTPragmaPhase::block_loop, *this));
 }
 
 void HLTPragmaPhase::run(TL::DTO& dto)
@@ -62,7 +64,7 @@ void HLTPragmaPhase::unroll_loop(PragmaCustomConstruct construct)
     AST_t statement_ast = statement.get_ast();
     if (!ForStatement::predicate(statement_ast))
     {
-        throw HLTException(construct, "'#pragma hlt unroll' can only be used with for statements");
+        throw HLTException(construct, "'#pragma hlt unroll' can only be used with for-statements");
     }
 
     TL::PragmaCustomClause factor_clause = construct.get_clause("factor");
@@ -93,7 +95,7 @@ void HLTPragmaPhase::unroll_loop(PragmaCustomConstruct construct)
     }
     else
     {
-        std::cerr << construct.get_ast().get_locus() << ": warning: no factor clause given for unrolling, assuming factor(32)" << std::endl;
+        std::cerr << construct.get_ast().get_locus() << ": warning: no factor clause given for unrolling, assuming 'factor(32)'" << std::endl;
     }
 
     ForStatement for_stmt(statement_ast, statement.get_scope_link());
@@ -103,6 +105,34 @@ void HLTPragmaPhase::unroll_loop(PragmaCustomConstruct construct)
             construct.get_scope_link());
 
     construct.get_ast().replace(unrolled_loop_tree);
+}
+
+void HLTPragmaPhase::block_loop(PragmaCustomConstruct construct)
+{
+    Statement statement = construct.get_statement();
+
+    AST_t statement_ast = statement.get_ast();
+    if (!ForStatement::predicate(statement_ast))
+    {
+        throw HLTException(construct, "'#pragma hlt block' can only be used with for-statements");
+    }
+
+    TL::PragmaCustomClause factors_clause = construct.get_clause("factors");
+
+    if (!factors_clause.is_defined())
+    {
+        throw HLTException(construct, "'#pragma hlt block' requires a clause 'factors' with a list of block factors");
+    }
+
+    TL::ObjectList<TL::Expression> factors_list = factors_clause.get_expression_list();
+
+    ForStatement for_stmt(statement_ast, statement.get_scope_link());
+    TL::Source blocked_loop_src = HLT::block_loop(for_stmt, factors_list);
+
+    AST_t blocked_loop_tree = blocked_loop_src.parse_statement(construct.get_ast(),
+            construct.get_scope_link());
+
+    construct.get_ast().replace(blocked_loop_tree);
 }
 
 EXPORT_PHASE(TL::HLT::HLTPragmaPhase)

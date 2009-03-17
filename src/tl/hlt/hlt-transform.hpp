@@ -37,6 +37,8 @@ namespace TL
             public:
                  operator Source();
                  operator std::string();
+
+                 virtual ~BaseTransform() { }
         };
     }
 }

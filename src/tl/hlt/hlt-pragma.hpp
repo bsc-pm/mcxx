@@ -34,6 +34,7 @@ namespace TL
                 virtual void run(TL::DTO& dto);
             private:
                 void unroll_loop(PragmaCustomConstruct construct);
+                void block_loop(PragmaCustomConstruct construct);
         };
     }
 

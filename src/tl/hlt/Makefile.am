@@ -15,6 +15,8 @@ libtl_hlt_la_SOURCES = \
       hlt-exception.hpp \
       hlt-unroll.hpp \
       hlt-unroll.cpp \
+      hlt-blocking.hpp \
+      hlt-blocking.cpp \
       $(END)
 
 libtl_hlt_pragma_la_CFLAGS=$(tl_cflags)
