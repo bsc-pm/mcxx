@@ -81,13 +81,23 @@ TL::Source LoopBlocking::do_blocking()
         TL::Type type = sym.get_type();
 
         std::string var = induction_var.prettyprint();
+        std::string init_var = var;
+        // If the loop declares the iterator in the for statement
+        // declare it again
+        AST_t loop_init = current_for->get_iterating_init();
+        if (Declaration::predicate(loop_init))
+        {
+            // Fix init_var to be a declaration
+            init_var = type.get_declaration(sym.get_scope(), var);
+        }
+
         std::string blk_var = "_blk_" + sym.get_name();
 
         TL::Source min_code;
 
         TL::Source *new_innermost_part = new TL::Source();
         (*current_innermost_part)
-            << "for(" << var << " = " << blk_var << ";"
+            << "for(" << init_var << " = " << blk_var << ";"
                       << var << current_for->get_bound_operator() << min_code  << ";"
                       << var << "+= ( " << current_for->get_step() << "))" 
             << (*new_innermost_part)
