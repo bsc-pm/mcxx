@@ -449,11 +449,12 @@ namespace TL
                 }
         };
 
-#define DEFINE_CONSTRUCT_CLASS(_name, _derives_from) \
-        class LIBTL_CLASS _name : public _derives_from  \
+        // Declare classes after OMP constructs
+#define OMP_CONSTRUCT_COMMON(_class_name, _derives_from, _attr_name, _functor_name, _on_name) \
+        class LIBTL_CLASS _class_name : public _derives_from  \
         { \
             public: \
-                _name(AST_t ref,  \
+                _class_name(AST_t ref,  \
                         ScopeLink scope_link,  \
                         Construct *enclosing_construct, \
                         DataSharing* enclosing_data_sharing) \
@@ -461,37 +462,18 @@ namespace TL
                             enclosing_construct,  \
                             enclosing_data_sharing) \
                 { \
-                } \
-        }
-
-        DEFINE_CONSTRUCT_CLASS(ParallelConstruct, DataEnvironmentConstruct);
-
-        DEFINE_CONSTRUCT_CLASS(ParallelForConstruct, DataEnvironmentConstruct);
-        DEFINE_CONSTRUCT_CLASS(ForConstruct, DataEnvironmentConstruct);
-
-        DEFINE_CONSTRUCT_CLASS(BarrierDirective, Construct);
-        DEFINE_CONSTRUCT_CLASS(AtomicConstruct, Construct);
-        DEFINE_CONSTRUCT_CLASS(MasterConstruct, Construct);
-
-        DEFINE_CONSTRUCT_CLASS(ParallelSingleConstruct, DataEnvironmentConstruct);
-        DEFINE_CONSTRUCT_CLASS(SingleConstruct, DataEnvironmentConstruct);
-
-        DEFINE_CONSTRUCT_CLASS(CriticalConstruct, DataEnvironmentConstruct);
-        DEFINE_CONSTRUCT_CLASS(FlushDirective, Construct);
-
-        DEFINE_CONSTRUCT_CLASS(ParallelSectionsConstruct, DataEnvironmentConstruct);
-        DEFINE_CONSTRUCT_CLASS(SectionsConstruct, DataEnvironmentConstruct);
-
-        DEFINE_CONSTRUCT_CLASS(TaskConstruct, DataEnvironmentConstruct);
-        DEFINE_CONSTRUCT_CLASS(TaskWaitDirective, Construct);
-
-        DEFINE_CONSTRUCT_CLASS(ThreadPrivateDirective, Construct);
-
-        DEFINE_CONSTRUCT_CLASS(SectionConstruct, Construct);
-
-        DEFINE_CONSTRUCT_CLASS(OrderedConstruct, Construct);
-
-        DEFINE_CONSTRUCT_CLASS(CustomConstruct, DataEnvironmentConstruct);
+                }
+#define OMP_CONSTRUCT(_class_name, _derives_from, _attr_name, _functor_name, _on_name) \
+        OMP_CONSTRUCT_COMMON(_class_name, _derives_from, _attr_name, _functor_name, _on_name) \
+                const static PredicateAttr predicate; \
+        };
+#define OMP_CONSTRUCT_MAP(_class_name, _derives_from, _attr_name, _functor_name, _on_name) \
+          OMP_CONSTRUCT_COMMON(_class_name, _derives_from, _attr_name, _functor_name, _on_name) \
+          };
+#include "tl-omp-constructs.def"
+#undef OMP_CONSTRUCT_MAP
+#undef OMP_CONSTRUCT
+#undef OMP_CONSTRUCT_COMMON
 
         //! Used to store information of used clauses
         typedef std::pair<std::string, std::string> clause_locus_t;
@@ -655,6 +637,15 @@ namespace TL
         class LIBTL_CLASS OpenMPPhase : public CompilerPhase
         {
             private:
+                // Declare typedef-ed functors
+#define OMP_CONSTRUCT(_class_name, _derives_from, _attr_name, _functor_name, _on_name) \
+                typedef OpenMPConstructFunctor<_class_name> _functor_name;
+#define OMP_CONSTRUCT_MAP(_class_name, _derives_from, _attr_name, _functor_name, _on_name)
+#include "tl-omp-constructs.def"
+#undef OMP_CONSTRUCT
+#undef OMP_CONSTRUCT_MAP
+
+#if 0
                 typedef OpenMPConstructFunctor<ParallelConstruct> ParallelFunctor;
                 typedef OpenMPConstructFunctor<ParallelForConstruct> ParallelForFunctor;
                 typedef OpenMPConstructFunctor<ForConstruct> ForFunctor;
@@ -671,12 +662,24 @@ namespace TL
                 typedef OpenMPConstructFunctor<OrderedConstruct> OrderedFunctor;
                 typedef OpenMPConstructFunctor<MasterConstruct> MasterFunctor;
                 typedef OpenMPConstructFunctor<ThreadPrivateDirective> ThreadPrivateFunctor;
+#endif
             protected:
                 AST_t translation_unit;
                 ScopeLink scope_link;
                 Scope global_scope;
                 DataSharing global_data_sharing;
             public:
+
+                // Declare signals
+#define OMP_CONSTRUCT(_class_name, _derives_from, _attr_name, _functor_name, _on_name) \
+                Signal1<_class_name> _on_name##_pre; \
+                Signal1<_class_name> _on_name##_post;
+#define OMP_CONSTRUCT_MAP(_class_name, _derives_from, _attr_name, _functor_name, _on_name)
+#include "tl-omp-constructs.def"
+#undef OMP_CONSTRUCT
+#undef OMP_CONSTRUCT_MAP
+
+#if 0
                 Signal1<ParallelConstruct> on_parallel_pre;
                 Signal1<ParallelConstruct> on_parallel_post;
                 
@@ -724,6 +727,7 @@ namespace TL
 
                 Signal1<MasterConstruct> on_master_pre;
                 Signal1<MasterConstruct> on_master_post;
+#endif
 
                 //! Custom map for custom OpenMP constructs found on preorder
                 std::map<std::string, Signal1<CustomConstruct> > on_custom_construct_pre;

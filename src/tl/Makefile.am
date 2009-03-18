@@ -20,7 +20,9 @@ COMMON_CFLAGS= -DLIBTL_DLL_EXPORT -Wall \
 libtl_la_CFLAGS = $(COMMON_CFLAGS)
 libtl_la_CXXFLAGS = $(COMMON_CFLAGS)
 
-EXTRA_DIST=Makefile.phases
+EXTRA_DIST=Makefile.phases \
+           tl-omp-constructs.def \
+           $(END)
 
 libtl_la_SOURCES = \
     tl-object.hpp \

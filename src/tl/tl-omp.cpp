@@ -31,6 +31,16 @@ namespace TL
 {
    namespace OpenMP
    {
+
+       // Definition of predicates
+
+#define OMP_CONSTRUCT(_class_name, _derives_from, _attr_name, _functor_name, _on_name) \
+       const PredicateAttr _class_name::predicate(_attr_name);
+#define OMP_CONSTRUCT_MAP(_class_name, _derives_from, _attr_name, _functor_name, _on_name)
+#include "tl-omp-constructs.def"
+#undef OMP_CONSTRUCT
+#undef OMP_CONSTRUCT_MAP
+
        DataSharing::DataSharing(DataSharing *enclosing)
            : _num_refs(new int(1)), 
            _map(new std::map<Symbol, DataAttribute>),
@@ -289,94 +299,15 @@ namespace TL
            // Instantiate a DepthTraverse
            DepthTraverse depth_traverse;
 
-           // Functor for #pragma omp parallel
-           PredicateAttr parallel_construct(OMP_IS_PARALLEL_CONSTRUCT);
-           ParallelFunctor parallel_functor(on_parallel_pre, on_parallel_post, global_data_sharing);
-           // Register the #pragma omp parallel 
-           // filter with its functor
-           depth_traverse.add_predicate(parallel_construct, parallel_functor);
-
-           // Functor for #pragma omp parallel for
-           PredicateAttr parallel_for_construct(OMP_IS_PARALLEL_FOR_CONSTRUCT);
-           ParallelForFunctor parallel_for_functor(on_parallel_for_pre, on_parallel_for_post, global_data_sharing);
-           // Register the #pragma omp parallel for
-           // filter with its functor 
-           depth_traverse.add_predicate(parallel_for_construct, parallel_for_functor);
-
-           // Functor for #pragma omp for
-           PredicateAttr for_construct(OMP_IS_FOR_CONSTRUCT);
-           ForFunctor for_functor(on_for_pre, on_for_post, global_data_sharing);
-           // Register the #pragma omp parallel for
-           // filter with its functor 
-           depth_traverse.add_predicate(for_construct, for_functor);
-
-           // #pragma omp parallel sections
-           PredicateAttr parallel_sections_construct(OMP_IS_PARALLEL_SECTIONS_CONSTRUCT);
-           ParallelSectionsFunctor parallel_sections_functor(on_parallel_sections_pre, 
-                   on_parallel_sections_post, global_data_sharing);
-           depth_traverse.add_predicate(parallel_sections_construct, parallel_sections_functor);
-
-           // #pragma omp task
-           PredicateAttr task_construct(OMP_IS_TASK_CONSTRUCT);
-           TaskConstructFunctor task_construct_functor(on_task_construct_pre,
-                   on_task_construct_post, global_data_sharing);
-           depth_traverse.add_predicate(task_construct, task_construct_functor);
-
-           // #pragma omp taskwait
-           PredicateAttr taskwait_directive(OMP_IS_TASKWAIT_DIRECTIVE);
-           TaskWaitFunctor taskwait_directive_functor(on_taskwait_pre,
-                   on_taskwait_post, global_data_sharing);
-           depth_traverse.add_predicate(taskwait_directive, taskwait_directive_functor);
-           
-           // pragma omp sections
-           PredicateAttr sections_construct(OMP_IS_SECTIONS_CONSTRUCT);
-           SectionsFunctor sections_functor(on_sections_pre, on_sections_post, global_data_sharing);
-           depth_traverse.add_predicate(sections_construct, sections_functor);
-
-           // #pragma omp section
-           PredicateAttr section_construct(OMP_IS_SECTION_CONSTRUCT);
-           SectionFunctor section_functor(on_section_pre, on_section_post, global_data_sharing);
-           depth_traverse.add_predicate(section_construct, section_functor);
-
-           // #pragma omp barrier
-           PredicateAttr barrier_directive(OMP_IS_BARRIER_DIRECTIVE);
-           BarrierFunctor barrier_functor(on_barrier_pre, on_barrier_post, global_data_sharing);
-           depth_traverse.add_predicate(barrier_directive, barrier_functor);
-
-           // #pragma omp atomic
-           PredicateAttr atomic_construct(OMP_IS_ATOMIC_CONSTRUCT);
-           AtomicFunctor atomic_functor(on_atomic_pre, on_atomic_post, global_data_sharing);
-           depth_traverse.add_predicate(atomic_construct, atomic_functor);
-
-           // #pragma omp critical
-           PredicateAttr critical_construct(OMP_IS_CRITICAL_CONSTRUCT);
-           CriticalFunctor critical_functor(on_critical_pre, on_critical_post, global_data_sharing);
-           depth_traverse.add_predicate(critical_construct, critical_functor);
-
-           // #pragma omp single
-           PredicateAttr single_construct(OMP_IS_SINGLE_CONSTRUCT);
-           SingleFunctor single_functor(on_single_pre, on_single_post, global_data_sharing);
-           depth_traverse.add_predicate(single_construct, single_functor);
-
-           // #pragma omp flush
-           PredicateAttr flush_directive(OMP_IS_FLUSH_DIRECTIVE);
-           FlushFunctor flush_functor(on_flush_pre, on_flush_post, global_data_sharing);
-           depth_traverse.add_predicate(flush_directive, flush_functor);
-
-           // #pragma omp threadprivate
-           PredicateAttr threadprivate_directive(OMP_IS_THREADPRIVATE_DIRECTIVE);
-           ThreadPrivateFunctor threadprivate_functor(on_threadprivate_pre, on_threadprivate_post, global_data_sharing);
-           depth_traverse.add_predicate(threadprivate_directive, threadprivate_functor);
-
-           // #pragma omp ordered
-           PredicateAttr ordered_construct(OMP_IS_ORDERED_CONTRUCT);
-           OrderedFunctor ordered_functor(on_ordered_pre, on_ordered_post, global_data_sharing);
-           depth_traverse.add_predicate(ordered_construct, ordered_functor);
-
-           // #pragma omp master
-           PredicateAttr master_construct(OMP_IS_MASTER_CONSTRUCT);
-           MasterFunctor master_functor(on_master_pre, on_master_post, global_data_sharing);
-           depth_traverse.add_predicate(master_construct, master_functor);
+           // Add all functors, as needed
+#define OMP_CONSTRUCT(_class_name, _derives_from, _attr_name, _functor_name, _on_name) \
+           _functor_name _class_name##_functor(_on_name##_pre, _on_name##_post, global_data_sharing); \
+           PredicateAttr _class_name##_predicate(_attr_name); \
+           depth_traverse.add_predicate(_class_name##_predicate, _class_name##_functor);
+#define OMP_CONSTRUCT_MAP(_class_name, _derives_from, _attr_name, _functor_name, _on_name)
+#include "tl-omp-constructs.def"
+#undef OMP_CONSTRUCT
+#undef OMP_CONSTRUCT_MAP
 
            // #pragma omp constructs|directives
            // (custom constructions)
