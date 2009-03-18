@@ -1,5 +1,6 @@
 #include "hlt-blocking.hpp"
 #include "hlt-exception.hpp"
+#include <utility>
 
 using namespace TL::HLT;
 
@@ -36,17 +37,15 @@ TL::Source LoopBlocking::do_blocking()
         << "}"
         ;
 
-    if (_nest_factors.size() < _nest_loops.size())
-    {
-        throw HLTException(_for_stmt, "list of nests is too short");
-    }
+    _nesting = std::min(_nest_factors.size(), _nest_loops.size());
 
     TL::Source *current_innermost_part = &block_loops;
     // For every loop declare its block loop variable and the inter-block loop
     ObjectList<TL::Expression>::iterator current_factor = _nest_factors.begin();
-    for (ObjectList<TL::ForStatement>::iterator current_for = _nest_loops.begin();
-            current_for != _nest_loops.end();
-            current_for++, current_factor++)
+    ObjectList<TL::ForStatement>::iterator current_for = _nest_loops.begin();
+    for (int current_nest = 0;
+            current_nest < _nesting;
+            current_nest++, current_for++, current_factor++)
     {
         TL::IdExpression induction_var = current_for->get_induction_variable();
         TL::Symbol sym = induction_var.get_symbol();
@@ -72,9 +71,10 @@ TL::Source LoopBlocking::do_blocking()
 
     // Now for every loop, declare the intra-loop
     current_factor = _nest_factors.begin();
-    for (ObjectList<TL::ForStatement>::iterator current_for = _nest_loops.begin();
-            current_for != _nest_loops.end();
-            current_for++, current_factor++)
+    current_for = _nest_loops.begin();
+    for (int current_nest = 0;
+            current_nest < _nesting;
+            current_nest++, current_for++, current_factor++)
     {
         TL::IdExpression induction_var = current_for->get_induction_variable();
         TL::Symbol sym = induction_var.get_symbol();
