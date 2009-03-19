@@ -1178,15 +1178,25 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                             &gather_info, type_info, &declarator_type,
                             decl_context);
 
-                     if (!check_for_initializer_list(ASTSon1(expression), decl_context, declarator_type))
-                     {
-                         result = 0;
-                     }
-                     else
-                     {
-                         ast_set_expression_type(expression, declarator_type);
-                         ast_set_expression_is_lvalue(expression, 0);
-                     }
+                    type_t* type_in_context = declarator_type;
+                    if (is_array_type(type_in_context))
+                    {
+                        type_in_context = array_type_get_element_type(type_in_context);
+                    }
+                    else if (is_vector_type(type_in_context))
+                    {
+                        type_in_context = vector_type_get_element_type(type_in_context);
+                    }
+
+                    if (!check_for_initializer_list(ASTSon1(expression), decl_context, type_in_context))
+                    {
+                        result = 0;
+                    }
+                    else
+                    {
+                        ast_set_expression_type(expression, declarator_type);
+                        ast_set_expression_is_lvalue(expression, 0);
+                    }
                 }
                 break;
             }
@@ -7875,6 +7885,7 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
                                 ast_location(initializer));
                     }
 
+                    char faulty = 0;
                     int initializer_num = 0;
                     AST iter;
                     for_each_element(expression_list, iter)
@@ -7912,10 +7923,13 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
 
 
                         if (!check_for_initializer_clause(initializer_clause, decl_context, type_in_context))
-                            return 0;
+                            faulty = 1;
 
                         initializer_num++;
                     }
+
+                    if (faulty)
+                        return 0;
 
                     if (is_class_type(declared_type))
                     {
@@ -8056,6 +8070,7 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
 
 static char check_for_initializer_list(AST initializer_list, decl_context_t decl_context, type_t* declared_type)
 {
+    char faulty = 0;
     if (initializer_list != NULL)
     {
         AST iter;
@@ -8065,11 +8080,11 @@ static char check_for_initializer_list(AST initializer_list, decl_context_t decl
             AST initializer_clause = ASTSon1(iter);
 
             if (!check_for_initializer_clause(initializer_clause, decl_context, declared_type))
-                return 0;
+                faulty = 1;
         }
     }
 
-    return 1;
+    return !faulty;
 }
 
 static char operator_bin_pointer_to_pm_pred(type_t* lhs, type_t* rhs)
@@ -8459,6 +8474,14 @@ char check_for_initialization(AST initializer, decl_context_t decl_context, type
             fprintf(stderr, "EXPRTYPE: Initializer '%s' does not have any computed type\n",
                     prettyprint_in_buffer(initializer));
         }
+    }
+
+    if (CURRENT_CONFIGURATION(strict_typecheck)
+            && !result)
+    {
+        internal_error("Initializer '%s' at '%s' does not have a valid computed type\n",
+                prettyprint_in_buffer(initializer),
+                ast_location(initializer));
     }
 
     return result;
