@@ -49,6 +49,14 @@ mcxx_LDADD = \
    $(top_builddir)/src/mcxx_tl/libmcxxtl.la \
    $(END)
 
+if WINDOWS_BUILD
+else
+# Add a relocatable hint to GNU ld
+mcxx_LDFLAGS = \
+    -Wl,-rpath,'$$ORIGIN'/../lib
+    $(END)
+endif
+
 EXTRA_DIST += cxx-configoptions.gperf
 EXTRA_DIST += cxx-fileextensions.gperf
 EXTRA_DIST += cxx-debugflags.gperf
