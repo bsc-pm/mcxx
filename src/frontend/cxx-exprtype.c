@@ -7896,7 +7896,10 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
 
                         // If the initializer is not a designated one, the type in context
                         // is the subtype of the aggregated one
-                        if (ASTType(initializer_clause) != AST_DESIGNATED_INITIALIZER)
+                        if (ASTType(initializer_clause) != AST_DESIGNATED_INITIALIZER
+                                // This is the gcc-esque way of a designated
+                                // initializer, used when C99 is not available
+                                && ASTType(initializer_clause) != AST_GCC_INITIALIZER_CLAUSE)
                         {
                             if (is_class_type(declared_type))
                             {
@@ -7920,7 +7923,6 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
                                 type_in_context = array_type_get_element_type(declared_type);
                             }
                         }
-
 
                         if (!check_for_initializer_clause(initializer_clause, decl_context, type_in_context))
                             faulty = 1;
