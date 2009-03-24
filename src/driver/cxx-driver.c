@@ -1930,6 +1930,171 @@ static const char* prettyprint_translation_unit(translation_unit_t* translation_
     return output_filename;
 }
 
+static char str_ends_with(const char* str, const char* name)
+{
+    if (strlen(str) >= strlen(name))
+    {
+        if (strcmp(&str[strlen(str) - strlen(name)], name) == 0)
+        {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+// This function warns for some known preprocessors, if we find that no proper flag has been passed
+static void warn_preprocessor_flags(
+        const char* input_filename,
+        int num_arguments)
+{
+    // Since this is easy to forget we will warn the user
+    struct prepro_flags 
+    {
+        const char * flag;
+        char seen;
+    };
+
+    struct prepro_flags known_prepro_flags[] =
+    {
+        { "-E", 0 },
+        { "-P", 0 },
+        { "-EP", 0 },
+        // Sentinel
+        { NULL, 0 },
+    };
+
+    struct prepro_info 
+    {
+        const char * end_name;
+        const char ** required_args;
+    };
+
+    // gcc requires -E
+    const char* gcc_args[] = { "-E", NULL };
+    // icc and xlc will require either -E, -P 
+    // icc allows also -EP
+    const char* icc_args[] = { "-E", "-EP", "-P", NULL };
+    const char* xlc_args[] = { "-E", "-P", NULL };
+
+    struct prepro_info known_prepros[] =
+    {
+        // GCC
+        { "gcc", gcc_args },
+        { "g++", gcc_args },
+        // Intel C/C++
+        { "icc", icc_args },
+        { "icpc", icc_args },
+        // IBM XL C/C++
+        { "xlc", xlc_args },
+        { "xlC", xlc_args },
+        // Sentinel
+        { NULL, NULL }
+    };
+
+    int i;
+    for (i = 0; i < num_arguments; i++)
+    {
+        int j;
+        for (j = 0; known_prepro_flags[j].flag != NULL; j++)
+        {
+            if (strcmp(CURRENT_CONFIGURATION(preprocessor_options[i]), 
+                        known_prepro_flags[j].flag) == 0)
+            {
+                known_prepro_flags[j].seen = 1;
+            }
+        }
+    }
+
+    // Check whether this is a known preprocessor
+    const char* prepro_name = CURRENT_CONFIGURATION(preprocessor_name);
+    char is_known_prepro = 0;
+    struct prepro_info* current_prepro = NULL;
+    char flag_seen = 0;
+
+    for (i = 0; (known_prepros[i].end_name != NULL) && !is_known_prepro && !flag_seen; i++)
+    {
+        if (str_ends_with(prepro_name, known_prepros[i].end_name))
+        {
+            // We known this prepro
+            is_known_prepro = 1;
+            current_prepro = &known_prepros[i];
+            // Now check if any of the required flags have been set
+            int j;
+            for (j = 0; (current_prepro->required_args[j] != NULL) && !flag_seen; j++)
+            {
+                const char * required_arg = current_prepro->required_args[j];
+
+                int k;
+                for (k = 0; (known_prepro_flags[k].flag != NULL) && !flag_seen; k++)
+                {
+                    struct prepro_flags* current_prepro_flag = &known_prepro_flags[k];
+
+                    if (current_prepro_flag->seen 
+                            && (strcmp(current_prepro_flag->flag, required_arg) == 0))
+                    {
+                        flag_seen = 1;
+                    }
+                }
+            }
+        }
+    }
+
+    if (is_known_prepro
+            && !flag_seen)
+    {
+        const char* nice_flags_list = "(empty)";
+        int num_flags = 0;
+        int j;
+        for (j = 0; (current_prepro->required_args[j] != NULL); j++)
+        {
+            num_flags++;
+        }
+
+        // Needed to format a proper english message that does not look like a
+        // telegram
+        const char* none_of = "";
+        const char* either = "";
+        const char* verb = "has not";
+        if (num_flags > 1)
+        {
+            none_of = "none of ";
+            verb = "have";
+            either = "either ";
+        }
+
+        if (num_flags == 1)
+        {
+            nice_flags_list = current_prepro->required_args[0];
+        }
+        else if (num_flags > 1)
+        {
+            nice_flags_list = current_prepro->required_args[0];
+            for (j = 1; j < num_flags - 1; j++)
+            {
+                nice_flags_list = 
+                    strappend(nice_flags_list, 
+                            strappend(", ", current_prepro->required_args[j]));
+            }
+            nice_flags_list = 
+                strappend(nice_flags_list, 
+                        strappend(" or ", current_prepro->required_args[num_flags - 1]));
+        }
+
+        // Count flags
+        fprintf(stderr,
+                "%s: warning: %s%s %s been passed to %s preprocessor. This is likely to fail\n"
+                "%s: note: ensure 'preprocessor_options' of your configuration file includes %s%s\n",
+                input_filename,
+                none_of,
+                nice_flags_list,
+                verb,
+                current_prepro->end_name,
+                input_filename,
+                either,
+                nice_flags_list);
+    }
+}
+
 static const char* preprocess_file(translation_unit_t* translation_unit,
         const char* input_filename)
 {
@@ -1956,6 +2121,9 @@ static const char* preprocess_file(translation_unit_t* translation_unit,
     {
         preprocessor_options[i] = CURRENT_CONFIGURATION(preprocessor_options[i]);
     }
+
+    // This started as being something small, and now has grown to a full fledged check
+    warn_preprocessor_flags(input_filename, num_arguments);
 
     const char *preprocessed_filename = NULL;
 
