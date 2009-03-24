@@ -30,7 +30,7 @@ namespace TL
     class WhileStatementASTFunctor : public TraverseASTFunctor
     {
         public:
-            ASTTraversalResult operator()(AST_t &a) const
+            ASTTraversalResult do_(AST_t &a) const
             {
                 if (WhileStatement::predicate(a))
                 {

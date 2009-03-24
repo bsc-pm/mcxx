@@ -292,7 +292,7 @@ namespace TL
                 {
                 }
 
-                virtual bool operator()(AST_t& t) const
+                virtual bool do_(AST_t& t) const
                 {
                     if (_custom_clause(t))
                     {

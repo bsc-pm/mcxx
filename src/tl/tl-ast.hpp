@@ -533,7 +533,7 @@ namespace TL
             }
 
             //! Function imiting the behaviour of deprecated traversals with Predicate<AST_t>
-            virtual ASTTraversalResult operator()(AST_t& node) const
+            virtual ASTTraversalResult do_(AST_t& node) const
             {
                 bool matches = _pred(node);
                 bool recurse = false;
@@ -566,7 +566,7 @@ namespace TL
     class PredicateAST : public Predicate<AST_t>
     {
         public:
-            virtual bool operator()(AST_t& ast) const
+            virtual bool do_(AST_t& ast) const
             {
                 TL::Bool attr = ast.get_attribute(_ATTR);
                 return attr;
@@ -596,7 +596,7 @@ namespace TL
             {
             }
 
-            virtual bool operator()(AST_t& ast) const
+            virtual bool do_(AST_t& ast) const
             {
                 return TL::Bool(ast.get_attribute(_attr_name));
             }
@@ -612,7 +612,7 @@ namespace TL
                 : _type(type)
                 {
                 }
-            virtual bool operator()(AST_t& ast) const
+            virtual bool do_(AST_t& ast) const
             {
                 return (ast.internal_ast_type_() == _type);
             }

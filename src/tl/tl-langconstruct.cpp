@@ -1041,7 +1041,7 @@ namespace TL
             {
             }
 
-            ASTTraversalResult operator()(AST_t& a) const
+            ASTTraversalResult do_(AST_t& a) const
             {
                 bool match = _pred(a);
                 bool recurse = !match;

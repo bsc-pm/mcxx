@@ -36,4 +36,9 @@
   #define LIBTL_ALWAYS_EXPORT 
 #endif
 
+// In C++0x maybe this will make some sense
+#ifndef FINAL
+  #define FINAL
+#endif
+
 #endif // TL_COMMON_HPP

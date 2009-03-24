@@ -37,7 +37,7 @@ namespace TL
 			{
 			}
 			
-			virtual bool operator()(AST_t& ast) const
+			virtual bool do_(AST_t& ast) const
 			{
 				if (!PredicateAttr::operator()(ast))
 				{
@@ -77,7 +77,7 @@ namespace TL
 			{
 			}
 			
-			virtual bool operator()(AST_t& ast) const
+			virtual bool do_(AST_t& ast) const
 			{
 				if (!PredicateAttr::operator()(ast))
 				{

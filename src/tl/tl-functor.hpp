@@ -37,20 +37,31 @@ namespace TL
     template <class Ret, class T>
     class Functor
     {
+        protected:
+            //! Function implemented by non-abstract derived types
+            /*! This is the function that performs the action of this
+              functor. Note that \a t might be a constant object, so be
+              sure not to modify it
+              */
+            virtual Ret do_(T& t) const = 0;
         public:
-            //! Call function operator implemented by non-abstract derived types
-            virtual Ret operator()(T& t) const = 0; 
-
-            //! Call function operator for const reference arguments
-            /*! Adapters never define this one but we want it to work anyway
-            * This method should be final and your functors should be effect
-            * free when given a "const T&"
-            */
-            virtual Ret operator()(const T& t) const
+            //! Call function operator 
+            /*! This function (despite being marked as virtual) is final!
+             * Overriding it is completely deprecated
+             */
+            FINAL virtual Ret operator()(T& t) const
             {
-                return this->operator()(const_cast<T&>(t));
+                return this->do_(t);
             }
 
+            //! Call function operator for const reference arguments
+            /*! This function (despite being marked as virtual) is final!
+             * Overriding it is completely deprecated.
+             */
+            FINAL virtual Ret operator()(const T& t) const
+            {
+                return this->do_(const_cast<T&>(t));
+            }
 
             virtual ~Functor() { }
     };
@@ -67,7 +78,7 @@ namespace TL
             {
             }
 
-            virtual Ret operator()(T& t) const 
+            virtual Ret do_(T& t) const 
             {
                 return (_pf)(t);
             }
@@ -90,7 +101,7 @@ namespace TL
             {
             }
 
-            virtual Ret operator()(T& t) const 
+            virtual Ret do_(T& t) const 
             {
                 return (_pf)(t);
             }
@@ -114,7 +125,7 @@ namespace TL
             {
             }
 
-            virtual Ret operator()(T& t) const
+            virtual Ret do_(T& t) const
             {
                 return (_q.*_pmf)(t);
             }
@@ -138,7 +149,7 @@ namespace TL
             {
             }
 
-            virtual Ret operator()(T& t) const
+            virtual Ret do_(T& t) const
             {
                 return (_q.*_pmf)(t);
             }
@@ -162,7 +173,7 @@ namespace TL
             {
             }
 
-            virtual Ret operator()(T& t) const
+            virtual Ret do_(T& t) const
             {
                 return (_q.*_pmf)(t);
             }
@@ -186,7 +197,7 @@ namespace TL
             {
             }
 
-            virtual Ret operator()(T& t) const
+            virtual Ret do_(T& t) const
             {
                 return (_q.*_pmf)(t);
             }
@@ -210,7 +221,7 @@ namespace TL
             {
             }
 
-            virtual Ret operator()(T& t) const
+            virtual Ret do_(T& t) const
             {
                 return (_q.*_pmf)(t);
             }
@@ -234,7 +245,7 @@ namespace TL
             {
             }
 
-            virtual Ret operator()(T& t) const
+            virtual Ret do_(T& t) const
             {
                 return (_q.*_pmf)(t);
             }
@@ -260,7 +271,7 @@ namespace TL
             {
             }
 
-            virtual Ret operator()(T& t) const
+            virtual Ret do_(T& t) const
             {
                 return t.*_pdm;
             }
@@ -278,7 +289,7 @@ namespace TL
             {
             }
 
-            virtual Ret operator()(T& t) const
+            virtual Ret do_(T& t) const
             {
                 return (t.*_pmf)();
             }
@@ -300,7 +311,7 @@ namespace TL
             {
             }
 
-            virtual Ret operator()(T& t) const
+            virtual Ret do_(T& t) const
             {
                 return (t.*_pmf)();
             }

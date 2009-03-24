@@ -394,7 +394,7 @@ namespace TL
     {
     }
 
-    bool InstrumentCalls::MainPredicate::operator()(AST_t& t) const
+    bool InstrumentCalls::MainPredicate::do_(AST_t& t) const
     {
         if (is_function_def(t))
         {
@@ -421,7 +421,7 @@ namespace TL
     {
     }
 
-    bool InstrumentCalls::PthreadFunctionPred::operator()(AST_t& t) const
+    bool InstrumentCalls::PthreadFunctionPred::do_(AST_t& t) const
     {
         if (is_function_def(t))
         {

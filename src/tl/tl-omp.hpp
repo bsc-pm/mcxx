@@ -571,7 +571,7 @@ namespace TL
         typedef std::map<std::string, Signal1<CustomConstruct> > CustomFunctorMap;
 
         //! Predicate for custom predicates
-        class LIBTL_CLASS CustomConstructPredicate : Predicate<AST_t>
+        class LIBTL_CLASS CustomConstructPredicate : public Predicate<AST_t>
         {
             private:
                 std::string _construct_name;
@@ -581,7 +581,7 @@ namespace TL
                 {
                 }
 
-                bool operator()(AST_t& node) const
+                bool do_(AST_t& node) const
                 {
                     TL::Bool is_directive = node.get_attribute(OMP_IS_CUSTOM_DIRECTIVE);
                     TL::Bool is_construct = node.get_attribute(OMP_IS_CUSTOM_CONSTRUCT);

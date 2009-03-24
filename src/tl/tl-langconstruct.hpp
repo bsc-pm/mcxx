@@ -905,7 +905,7 @@ namespace TL
             /*!
              * \param ast This must be an id-expression
              */
-            virtual Symbol operator()(AST_t& ast) const 
+            virtual Symbol do_(AST_t& ast) const 
             {
                 Scope sc = scope_link.get_scope(ast);
 

@@ -65,8 +65,7 @@ void HLTPragmaPhase::unroll_loop(PragmaCustomConstruct construct)
 {
     Statement statement = construct.get_statement();
 
-    AST_t statement_ast = statement.get_ast();
-    if (!ForStatement::predicate(statement_ast))
+    if (!ForStatement::predicate(statement.get_ast()))
     {
         throw HLTException(construct, "'#pragma hlt unroll' can only be used with for-statements");
     }
@@ -102,7 +101,7 @@ void HLTPragmaPhase::unroll_loop(PragmaCustomConstruct construct)
         std::cerr << construct.get_ast().get_locus() << ": warning: no factor clause given for unrolling, assuming 'factor(32)'" << std::endl;
     }
 
-    ForStatement for_stmt(statement_ast, statement.get_scope_link());
+    ForStatement for_stmt(statement.get_ast(), statement.get_scope_link());
     TL::Source unrolled_loop_src = HLT::unroll_loop(for_stmt,  unroll_factor);
 
     AST_t unrolled_loop_tree = unrolled_loop_src.parse_statement(construct.get_ast(),
@@ -115,8 +114,7 @@ void HLTPragmaPhase::block_loop(PragmaCustomConstruct construct)
 {
     Statement statement = construct.get_statement();
 
-    AST_t statement_ast = statement.get_ast();
-    if (!ForStatement::predicate(statement_ast))
+    if (!ForStatement::predicate(statement.get_ast()))
     {
         throw HLTException(construct, "'#pragma hlt block' can only be used with for-statements");
     }
@@ -130,7 +128,7 @@ void HLTPragmaPhase::block_loop(PragmaCustomConstruct construct)
 
     TL::ObjectList<TL::Expression> factors_list = factors_clause.get_expression_list();
 
-    ForStatement for_stmt(statement_ast, statement.get_scope_link());
+    ForStatement for_stmt(statement.get_ast(), statement.get_scope_link());
     TL::Source blocked_loop_src = HLT::block_loop(for_stmt, factors_list);
 
     AST_t blocked_loop_tree = blocked_loop_src.parse_statement(construct.get_ast(),
@@ -143,13 +141,12 @@ void HLTPragmaPhase::distribute_loop(PragmaCustomConstruct construct)
 {
     Statement statement = construct.get_statement();
 
-    AST_t statement_ast = statement.get_ast();
-    if (!ForStatement::predicate(statement_ast))
+    if (!ForStatement::predicate(statement.get_ast()))
     {
         throw HLTException(construct, "'#pragma hlt distribute' can only be used with for-statements");
     }
 
-    ForStatement for_stmt(statement_ast, statement.get_scope_link());
+    ForStatement for_stmt(statement.get_ast(), statement.get_scope_link());
 
     PragmaCustomClause expanded_scalars = construct.get_clause("expand");
 

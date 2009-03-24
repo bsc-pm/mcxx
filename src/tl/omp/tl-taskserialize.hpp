@@ -35,7 +35,7 @@ namespace TL
         class AnyOpenMPConstruct : public Predicate<AST_t>
         {
             public:
-                virtual bool operator()(AST_t& a) const
+                virtual bool do_(AST_t& a) const
                 {
                     TL::Bool is_omp_directive = a.get_attribute(OMP_IS_OMP_DIRECTIVE);
                     TL::Bool is_omp_construct = a.get_attribute(OMP_IS_OMP_CONSTRUCT);
@@ -47,7 +47,7 @@ namespace TL
         class TaskConstructPred : public Predicate<AST_t>
         {
             public:
-                virtual bool operator()(AST_t& a) const
+                virtual bool do_(AST_t& a) const
                 {
                     TL::Bool is_custom_omp_construct = a.get_attribute(OMP_IS_CUSTOM_CONSTRUCT);
 
@@ -75,7 +75,7 @@ namespace TL
                 {
                 }
 
-                virtual bool operator()(AST_t& a) const
+                virtual bool do_(AST_t& a) const
                 {
                     if (FunctionDefinition::predicate(a))
                     {

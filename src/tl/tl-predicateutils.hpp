@@ -34,7 +34,7 @@ namespace TL
     {
         private:
         public:
-            virtual bool operator()(T&) const
+            virtual bool do_(T&) const
             {
                 return true;
             }
@@ -46,7 +46,7 @@ namespace TL
     {
         private:
         public:
-            virtual bool operator()(T&) const
+            virtual bool do_(T&) const
             {
                 return false;
             }
@@ -64,7 +64,7 @@ namespace TL
             {
             }
 
-            virtual bool operator()(T& t) const
+            virtual bool do_(T& t) const
             {
                 return pf(t);
             }
@@ -86,7 +86,7 @@ namespace TL
             {
             }
 
-            virtual bool operator()(T& t) const
+            virtual bool do_(T& t) const
             {
                 return mem_funct_adapter(t);
             }
@@ -109,7 +109,7 @@ namespace TL
             {
             }
 
-            virtual bool operator()(T& t) const
+            virtual bool do_(T& t) const
             {
                 return this_mem_funct_adapter(t);
             }
@@ -131,7 +131,7 @@ namespace TL
             {
             }
 
-            virtual bool operator()(T& t) const
+            virtual bool do_(T& t) const
             {
                 return this_mem_funct_adapter(t);
             }
@@ -186,7 +186,7 @@ namespace TL
             }
 
             //! States whether the given element is in the set used to create the predicate
-            virtual bool operator()(T& t) const
+            virtual bool do_(T& t) const
             {
                 return (find(_list.begin(), _list.end(), t) != _list.end());
             }
@@ -217,7 +217,7 @@ namespace TL
              * Functor \a f will be applied to \a t and the resulting value used
              * for comparison.
              */
-            virtual bool operator()(T& t) const
+            virtual bool do_(T& t) const
             {
                 return (find(_list.begin(), _list.end(), _f(t)) != _list.end());
             }
@@ -233,9 +233,9 @@ namespace TL
             {
             }
 
-            virtual bool operator()(T& t) const
+            virtual bool do_(T& t) const
             {
-                return !(InSetPredicate<T>::operator()(t));
+                return !(InSetPredicate<T>::do_(t));
             }
     };
 
@@ -249,9 +249,9 @@ namespace TL
             {
             }
 
-            virtual bool operator()(T& t) const
+            virtual bool do_(T& t) const
             {
-                return !(InSetPredicateFunctor<T, Q>::operator()(t));
+                return !(InSetPredicateFunctor<T, Q>::do_(t));
             }
     };
 
@@ -311,7 +311,7 @@ namespace TL
             {
             }
 
-            virtual bool operator()(T& t) const
+            virtual bool do_(T& t) const
             {
                 return !(_pred(t));
             }

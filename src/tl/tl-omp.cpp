@@ -367,7 +367,7 @@ namespace TL
            class DefaultClausePredicate : public Predicate<AST_t>
            {
                public:
-                   virtual bool operator()(AST_t& ast) const
+                   virtual bool do_(AST_t& ast) const
                    {
                        TL::Bool attr1 = ast.get_attribute(OMP_IS_DEFAULT_NONE_CLAUSE);
                        TL::Bool attr2 = ast.get_attribute(OMP_IS_DEFAULT_SHARED_CLAUSE);
@@ -644,7 +644,7 @@ namespace TL
                    {
                    }
 
-                   virtual bool operator()(AST_t& t) const
+                   virtual bool do_(AST_t& t) const
                    {
                        if (_custom_clause(t))
                        {
