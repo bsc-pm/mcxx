@@ -64,6 +64,23 @@ TL::Source LoopDistribution::do_distribution()
             // Absolute value (calculated this way allows for conditional move instructions)
             << "__loop_trip = (__loop_trip < 0) ? (-__loop_trip) : __loop_trip;"
             ;
+        // We need this because of array nature
+        TL::AST_t array_expr;
+        {
+            TL::AST_t array_expr_ref_tree;
+            Source temporal_parse;
+            temporal_parse
+                << "{"
+                << expanded_scalars
+                << statement_placeholder(array_expr_ref_tree)
+                << "}"
+                ;
+            temporal_parse.parse_statement(_for_stmt.get_ast(),
+                    _for_stmt.get_scope_link());
+
+            array_expr = Source("__loop_trip").parse_expression(array_expr_ref_tree,
+                    _for_stmt.get_scope_link());
+        }
 
         for (TL::ObjectList<TL::Symbol>::iterator it = _expand.begin();
                 it != _expand.end();
@@ -74,8 +91,11 @@ TL::Source LoopDistribution::do_distribution()
             std::string expanded_scalar_name = "_" + sym.get_name();
 
             TL::Type type = sym.get_type();
+            TL::Type array_type = type.get_array_to(array_expr,
+                    _for_stmt.get_scope_link().get_scope(array_expr));
+
             expanded_scalars
-                << type.get_declaration(it->get_scope(), expanded_scalar_name) << ";";
+                << array_type.get_declaration(it->get_scope(), expanded_scalar_name) << ";";
 
             escalar_expansion.add_replacement(sym, 
                     expanded_scalar_name + "[" + _for_stmt.get_induction_variable().prettyprint() + "]" );
@@ -91,7 +111,7 @@ TL::Source LoopDistribution::do_distribution()
     {
         Statement &stmt(*it);
         distributed_loops
-            << "for ( " << _for_stmt.get_iterating_init().prettyprint() << ";"
+            << "for ( " << _for_stmt.get_iterating_init().prettyprint() // This one already includes ';'
             << _for_stmt.get_iterating_condition() << ";"
             << _for_stmt.get_iterating_expression() << ")"
             << "{"
