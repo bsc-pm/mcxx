@@ -3,7 +3,7 @@
 language = C
 options =
 preprocessor_name = gcc
-preprocessor_options = 
+preprocessor_options = -E
 compiler_name = gcc
 compiler_options = 
 linker_name = gcc

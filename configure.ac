@@ -909,6 +909,7 @@ AC_CONFIG_FILES([Makefile
            tests/mcxx.instr.openmp.dg/config.mcxx
            tests/mcxx.stm.dg/config.mcxx
            tests/mcc.superscalar.dg/config.mcxx
+           tests/mcc.hlt.dg/config.mcxx
            doc/Makefile
            doc/doxygen_tl
            scripts/Makefile
