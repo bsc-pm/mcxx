@@ -18,27 +18,32 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#ifndef HLT_PRAGMA_HPP
-#define HLT_PRAGMA_HPP
+#ifndef HLT_DISTRIBUTION_HPP
+#define HLT_DISTRIBUTION_HPP
 
-#include "tl-pragmasupport.hpp"
+#include "hlt-transform.hpp"
+#include "tl-langconstruct.hpp"
 
 namespace TL
 {
     namespace HLT
     {
-        class HLTPragmaPhase : public PragmaCustomCompilerPhase
+        class LoopDistribution : public BaseTransform
         {
-            public:
-                HLTPragmaPhase();
-                virtual void run(TL::DTO& dto);
+            protected:
+                virtual TL::Source get_source();
             private:
-                void unroll_loop(PragmaCustomConstruct construct);
-                void block_loop(PragmaCustomConstruct construct);
-                void distribute_loop(PragmaCustomConstruct construct);
+                TL::ForStatement _for_stmt;
+                TL::Source do_distribution();
+                TL::ObjectList<TL::Symbol> _expand;
+            public:
+                LoopDistribution(TL::ForStatement for_stmt);
+                LoopDistribution(TL::ForStatement for_stmt, 
+                        TL::ObjectList<TL::Symbol> expanded);
         };
-    }
 
+        LoopDistribution distribute_loop(TL::ForStatement for_stmt, ObjectList<TL::Symbol> expanded_scalars);
+    }
 }
 
-#endif // HLT_PRAGMA_HPP
+#endif // HLT_DISTRIBUTION_HPP

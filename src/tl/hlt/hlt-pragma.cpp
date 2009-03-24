@@ -21,6 +21,7 @@
 #include "hlt-pragma.hpp"
 #include "hlt-unroll.hpp"
 #include "hlt-blocking.hpp"
+#include "hlt-distribution.hpp"
 #include "hlt-exception.hpp"
 
 using namespace TL::HLT;
@@ -37,6 +38,9 @@ HLTPragmaPhase::HLTPragmaPhase()
 
     register_construct("block");
     on_directive_post["block"].connect(functor(&HLTPragmaPhase::block_loop, *this));
+
+    register_construct("distribute");
+    on_directive_post["distribute"].connect(functor(&HLTPragmaPhase::distribute_loop, *this));
 }
 
 void HLTPragmaPhase::run(TL::DTO& dto)
@@ -133,6 +137,45 @@ void HLTPragmaPhase::block_loop(PragmaCustomConstruct construct)
             construct.get_scope_link());
 
     construct.get_ast().replace(blocked_loop_tree);
+}
+
+void HLTPragmaPhase::distribute_loop(PragmaCustomConstruct construct)
+{
+    Statement statement = construct.get_statement();
+
+    AST_t statement_ast = statement.get_ast();
+    if (!ForStatement::predicate(statement_ast))
+    {
+        throw HLTException(construct, "'#pragma hlt distribute' can only be used with for-statements");
+    }
+
+    ForStatement for_stmt(statement_ast, statement.get_scope_link());
+
+    PragmaCustomClause expanded_scalars = construct.get_clause("expand");
+
+    ObjectList<Symbol> expanded_syms;
+    if (expanded_scalars.is_defined())
+    {
+        ObjectList<IdExpression> id_expression_list = expanded_scalars.id_expressions();
+
+        if (!id_expression_list.empty())
+        {
+            if (!for_stmt.is_regular_loop())
+            {
+                throw HLTException(construct, 
+                        "'#pragma hlt distribute' when scalar expansion is requested can "
+                        "only be used with regular for-statements");
+            }
+        }
+        expanded_syms.insert(id_expression_list.map(functor(&IdExpression::get_symbol)));
+    }
+
+    TL::Source distributed_loop_src = HLT::distribute_loop(for_stmt, expanded_syms);
+
+    AST_t distributed_loop_tree = distributed_loop_src.parse_statement(construct.get_ast(),
+            construct.get_scope_link());
+
+    construct.get_ast().replace(distributed_loop_tree);
 }
 
 EXPORT_PHASE(TL::HLT::HLTPragmaPhase)
