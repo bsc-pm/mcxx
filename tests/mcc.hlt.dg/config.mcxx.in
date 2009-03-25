@@ -1,7 +1,7 @@
 # This file controls how external programs are handled
 [lt-mcxx]
 language = C
-options =
+options = -std=c99
 preprocessor_name = gcc
 preprocessor_options = -E
 compiler_name = gcc
