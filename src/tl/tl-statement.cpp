@@ -111,6 +111,9 @@ namespace TL
         // // std::cerr << "Gathering for-init-construct" << std::endl;
         AST_t init_expr = _ref.get_attribute(LANG_FOR_INIT_CONSTRUCT);
 
+        if (!init_expr.is_valid())
+            return;
+
         TL::Bool is_expression = init_expr.get_attribute(LANG_IS_EXPRESSION_NEST);
         if (is_expression)
         {
@@ -158,6 +161,10 @@ namespace TL
         // Now gather upper bound
         // std::cerr << "Gathering upper bound" << std::endl;
         AST_t condition = _ref.get_attribute(LANG_FOR_CONDITION);
+
+        if (!condition.is_valid())
+            return;
+
         is_expression = condition.get_attribute(LANG_IS_EXPRESSION_NEST);
 
         if (is_expression)
@@ -212,6 +219,10 @@ namespace TL
 
         // Now get the step
         AST_t iteration_expression_tree = _ref.get_attribute(LANG_FOR_ITERATION_EXPRESSION);
+
+        if (!iteration_expression_tree.is_valid())
+            return;
+
         if (iteration_expression_tree.is_valid())
         {
             Expression iteration_expression(iteration_expression_tree, _scope_link);
