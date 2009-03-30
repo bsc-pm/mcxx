@@ -18,42 +18,29 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#ifndef HLT_EXCEPTION_HPP
-#define HLT_EXCEPTION_HPP
+#ifndef HLT_FUSION_HPP
+#define HLT_FUSION_HPP
 
-#include "tl-ast.hpp"
+#include "hlt-transform.hpp"
 #include "tl-langconstruct.hpp"
-#include <iostream>
 
 namespace TL
 {
-namespace HLT
-{
-
-struct HLTException
-{
-    public:
-        HLTException(TL::LangConstruct place, const std::string& message)
-            : _ast(place.get_ast()), _message(message)
+    namespace HLT
+    {
+        struct LoopFusion : public BaseTransform
         {
-        }
-        HLTException(TL::AST_t place, const std::string& message)
-            : _ast(place), _message(message)
-        {
-        }
-        HLTException(const std::string& message)
-            : _ast(NULL), _message(message)
-        {
-        }
-    private:
-        TL::AST_t _ast;
-        std::string _message;
+            private:
+                ObjectList<ForStatement> _for_stmt_list;
+                Source do_fusion();
+            protected:
+                virtual Source get_source();
+            public:
+                LoopFusion(ObjectList<ForStatement> for_stmt_list);
+        };
 
-        friend std::ostream& operator<<(std::ostream &o, const HLTException&);
-};
-
-}
+        LoopFusion loop_fusion(ObjectList<ForStatement>);
+    }
 }
 
-
-#endif // HLT_EXCEPTION_HPP
+#endif // HLT_FUSION_HPP

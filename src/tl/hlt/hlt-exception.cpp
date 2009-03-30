@@ -18,42 +18,16 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#ifndef HLT_EXCEPTION_HPP
-#define HLT_EXCEPTION_HPP
+#include "hlt-exception.hpp"
 
-#include "tl-ast.hpp"
-#include "tl-langconstruct.hpp"
-#include <iostream>
-
-namespace TL
+std::ostream& TL::HTL::operator<<(std::ostream &o, const HLTException& e)
 {
-namespace HLT
-{
-
-struct HLTException
-{
-    public:
-        HLTException(TL::LangConstruct place, const std::string& message)
-            : _ast(place.get_ast()), _message(message)
-        {
-        }
-        HLTException(TL::AST_t place, const std::string& message)
-            : _ast(place), _message(message)
-        {
-        }
-        HLTException(const std::string& message)
-            : _ast(NULL), _message(message)
-        {
-        }
-    private:
-        TL::AST_t _ast;
-        std::string _message;
-
-        friend std::ostream& operator<<(std::ostream &o, const HLTException&);
-};
-
+    if (e._ast.is_valid())
+    {
+        return (o << e._ast.get_locus() << ": error: " << e._message);
+    }
+    else
+    {
+        return (o << "<unknown-location>: error: " << e._message);
+    }
 }
-}
-
-
-#endif // HLT_EXCEPTION_HPP

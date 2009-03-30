@@ -19,6 +19,8 @@ libtl_hlt_la_SOURCES = \
       hlt-blocking.cpp \
       hlt-distribution.hpp \
       hlt-distribution.cpp \
+      hlt-fusion.hpp \
+      hlt-fusion.cpp \
       $(END)
 
 libtl_hlt_pragma_la_CFLAGS=$(tl_cflags)
