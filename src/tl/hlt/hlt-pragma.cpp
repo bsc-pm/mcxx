@@ -31,7 +31,7 @@ HLTPragmaPhase::HLTPragmaPhase()
     : PragmaCustomCompilerPhase("hlt")
 {
     set_phase_name("High Level Transformations");
-    set_phase_description("This phase implement several high level "
+    set_phase_description("This phase implements several high level "
             "transformations available through the usage of #pragma hlt");
 
     register_construct("unroll");
