@@ -88,6 +88,8 @@ TL::Source LoopFusion::do_fusion()
             integrated_bodies << replace.replace(for_stmt.get_loop_body());
         }
     }
+
+    return result;
 }
 
 LoopFusion::LoopFusion(ObjectList<ForStatement> for_stmt_list)

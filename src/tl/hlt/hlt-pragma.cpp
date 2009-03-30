@@ -22,6 +22,7 @@
 #include "hlt-unroll.hpp"
 #include "hlt-blocking.hpp"
 #include "hlt-distribution.hpp"
+#include "hlt-fusion.hpp"
 #include "hlt-exception.hpp"
 
 using namespace TL::HLT;
@@ -41,6 +42,9 @@ HLTPragmaPhase::HLTPragmaPhase()
 
     register_construct("distribute");
     on_directive_post["distribute"].connect(functor(&HLTPragmaPhase::distribute_loop, *this));
+
+    register_construct("fusion");
+    on_directive_post["fusion"].connect(functor(&HLTPragmaPhase::fuse_loops, *this));
 }
 
 void HLTPragmaPhase::run(TL::DTO& dto)
@@ -173,6 +177,57 @@ void HLTPragmaPhase::distribute_loop(PragmaCustomConstruct construct)
             construct.get_scope_link());
 
     construct.get_ast().replace(distributed_loop_tree);
+}
+
+void HLTPragmaPhase::fuse_loops(PragmaCustomConstruct construct)
+{
+    Statement statement = construct.get_statement();
+
+    if (!statement.is_compound_statement())
+    {
+        throw HLTException(construct, 
+                "'#pragma hlt fusion' must be applied to a compound statement");
+    }
+
+    ObjectList<Statement> statement_list = statement.get_inner_statements();
+
+    ObjectList<ForStatement> for_statement_list;
+
+    for (ObjectList<Statement>::iterator it = statement_list.begin();
+            it != statement_list.end();
+            it++)
+    {
+        if (ForStatement::predicate(it->get_ast()))
+        {
+            for_statement_list.append(ForStatement(it->get_ast(), it->get_scope_link()));
+        }
+    }
+
+    if (for_statement_list.empty())
+    {
+        throw HLTException(construct,
+                "'#pragma hlt fusion' must be applied to a compound statement that contains one or more regular for-statements");
+    }
+
+    TL::Source fused_loops_src = HLT::loop_fusion(for_statement_list);
+
+    TL::AST_t fused_loops_tree = fused_loops_src.parse_statement(
+            for_statement_list[0].get_ast(),
+            construct.get_scope_link());
+
+    // Now remove all the for statements but the first which is replaced,
+    // actually
+    {
+        ObjectList<ForStatement>::iterator it = for_statement_list.begin();
+
+        it->get_ast().replace(fused_loops_tree);
+        it++;
+
+        for (; it != for_statement_list.end(); it++)
+        {
+            it->get_ast().remove_in_list();
+        }
+    }
 }
 
 EXPORT_PHASE(TL::HLT::HLTPragmaPhase)
