@@ -582,6 +582,11 @@ AC_ARG_ENABLE([file-regeneration],
   ]
 )
 
+# Make these variables precious
+AC_ARG_VAR([FLEX], [GNU Flex command])
+AC_ARG_VAR([BISON], [rofi-bison command])
+AC_ARG_VAR([GPERF], [GNU gperf command])
+
 force_flex=no
 flex_good=no
 

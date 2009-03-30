@@ -253,7 +253,7 @@ endif
 
 cxx-scanner.c : cxx03.l cxx-parser.h
 if FLEX_BUILDING
-	flex -Pmcxx -d -ocxx-scanner.c -8 cxx03.l
+	$(FLEX) -Pmcxx -d -ocxx-scanner.c -8 cxx03.l
 else
 	@echo "*** ERROR: file cxx03.l was modified but no suitable flex was found during configure ***"
 	@exit 1
@@ -292,7 +292,7 @@ endif
 
 c99-scanner.c : c99.l c99-parser.h
 if FLEX_BUILDING
-	flex -Pmc99 -d -oc99-scanner.c -8 c99.l
+	$(FLEX) -Pmc99 -d -oc99-scanner.c -8 c99.l
 else
 	@echo "*** ERROR: file c99.l was modified but no suitable flex was found during configure ***"
 	@exit 1

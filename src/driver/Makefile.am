@@ -73,7 +73,7 @@ endif
 
 cxx-configoptions.c : $(srcdir)/cxx-configoptions.gperf $(top_srcdir)/src/driver/cxx-driver.h $(srcdir)/cxx-configfile.h
 if GPERF_BUILDING
-	gperf --language=ANSI-C --hash-function-name=configoptions_hash --struct-type \
+	$(GPERF) --language=ANSI-C --hash-function-name=configoptions_hash --struct-type \
       --lookup-function-name=configoptions_lookup --output=cxx-configoptions.c \
       --initializer-suffix=,NULL $(srcdir)/cxx-configoptions.gperf
 else
@@ -83,7 +83,7 @@ endif
 
 cxx-fileextensions.c : $(srcdir)/cxx-fileextensions.gperf $(top_srcdir)/src/driver/cxx-driver.h
 if GPERF_BUILDING
-	gperf --language=ANSI-C --hash-function-name=fileextensions_hash --struct-type \
+	$(GPERF) --language=ANSI-C --hash-function-name=fileextensions_hash --struct-type \
       --lookup-function-name=fileextensions_lookup --output=cxx-fileextensions.c \
       --initializer-suffix=,SOURCE_LANGUAGE_UNKNOWN,SOURCE_KIND_UNKNOWN $(srcdir)/cxx-fileextensions.gperf
 else
@@ -93,7 +93,7 @@ endif
 
 cxx-debugflags.c : $(srcdir)/cxx-debugflags.gperf $(top_srcdir)/src/driver/cxx-driver.h $(top_srcdir)/src/frontend/cxx-utils.h
 if GPERF_BUILDING
-	gperf --language=ANSI-C --hash-function-name=debugflags_hash --struct-type \
+	$(GPERF) --language=ANSI-C --hash-function-name=debugflags_hash --struct-type \
       --lookup-function-name=debugflags_lookup --output=cxx-debugflags.c \
       --global-table --word-array-name=debugflags_list \
 	  "--initializer-suffix=,0,\"\"" $(srcdir)/cxx-debugflags.gperf
