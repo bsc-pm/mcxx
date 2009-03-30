@@ -34,7 +34,7 @@
 
 namespace TL
 {
-    class LIBTL_CLASS StaticCallGraph : Object
+    class LIBTL_CLASS StaticCallGraph : public Object
     {
         private:
             ObjectList<Symbol> _explicitly_called;
