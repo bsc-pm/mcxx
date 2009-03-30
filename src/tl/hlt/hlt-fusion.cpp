@@ -52,9 +52,9 @@ TL::Source LoopFusion::do_fusion()
 
     for_header
         << "for("
-        // << _for_stmt_list[0].get_iterating_init() 
-        // << _for_stmt_list[0].get_iterating_condition()
-        // << _for_stmt_list[0].get_iterating_expression() 
+        << _for_stmt_list[0].get_iterating_init().prettyprint() 
+        << _for_stmt_list[0].get_iterating_condition() << ";"
+        << _for_stmt_list[0].get_iterating_expression()
         << ")"
         ;
 

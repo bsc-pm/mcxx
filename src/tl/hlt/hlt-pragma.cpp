@@ -193,6 +193,8 @@ void HLTPragmaPhase::fuse_loops(PragmaCustomConstruct construct)
 
     ObjectList<ForStatement> for_statement_list;
 
+    Source kept_statements;
+
     for (ObjectList<Statement>::iterator it = statement_list.begin();
             it != statement_list.end();
             it++)
@@ -200,6 +202,10 @@ void HLTPragmaPhase::fuse_loops(PragmaCustomConstruct construct)
         if (ForStatement::predicate(it->get_ast()))
         {
             for_statement_list.append(ForStatement(it->get_ast(), it->get_scope_link()));
+        }
+        else
+        {
+            kept_statements << (*it);
         }
     }
 
@@ -211,23 +217,20 @@ void HLTPragmaPhase::fuse_loops(PragmaCustomConstruct construct)
 
     TL::Source fused_loops_src = HLT::loop_fusion(for_statement_list);
 
-    TL::AST_t fused_loops_tree = fused_loops_src.parse_statement(
+    Source result;
+
+    result 
+        << "{"
+        << fused_loops_src
+        << kept_statements
+        << "}"
+        ;
+
+    TL::AST_t result_tree = result.parse_statement(
             for_statement_list[0].get_ast(),
             construct.get_scope_link());
 
-    // Now remove all the for statements but the first which is replaced,
-    // actually
-    {
-        ObjectList<ForStatement>::iterator it = for_statement_list.begin();
-
-        it->get_ast().replace(fused_loops_tree);
-        it++;
-
-        for (; it != for_statement_list.end(); it++)
-        {
-            it->get_ast().remove_in_list();
-        }
-    }
+    construct.get_ast().replace(result_tree);
 }
 
 EXPORT_PHASE(TL::HLT::HLTPragmaPhase)
