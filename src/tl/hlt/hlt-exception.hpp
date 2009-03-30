@@ -52,6 +52,8 @@ struct HLTException
         friend std::ostream& operator<<(std::ostream &o, const HLTException&);
 };
 
+std::ostream& operator<<(std::ostream &o, const HLTException& e);
+
 }
 }
 

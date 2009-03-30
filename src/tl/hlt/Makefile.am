@@ -13,6 +13,7 @@ libtl_hlt_la_SOURCES = \
       hlt-transform.hpp \
       hlt-transform.cpp \
       hlt-exception.hpp \
+      hlt-exception.cpp \
       hlt-unroll.hpp \
       hlt-unroll.cpp \
       hlt-blocking.hpp \

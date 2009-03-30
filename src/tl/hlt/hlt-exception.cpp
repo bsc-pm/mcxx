@@ -20,7 +20,7 @@
 */
 #include "hlt-exception.hpp"
 
-std::ostream& TL::HTL::operator<<(std::ostream &o, const HLTException& e)
+std::ostream& TL::HLT::operator<<(std::ostream &o, const HLTException& e)
 {
     if (e._ast.is_valid())
     {
