@@ -25,6 +25,7 @@
 #include <vector>
 #include <utility>
 #include <algorithm>
+#include "tl-object.hpp"
 #include "tl-functor.hpp"
 #include "tl-predicate.hpp"
 #include <signal.h>
@@ -40,7 +41,7 @@ namespace TL
  * When used as a set it is not optimal and elements will require 'operator=='
  */
 template <class T>
-class ObjectList : public std::vector<T>
+class ObjectList : public std::vector<T>, public TL::Object
 {
     private:
         template <class Q>
@@ -60,31 +61,8 @@ class ObjectList : public std::vector<T>
                 result = red_func(arg);
             }
         }
-
-        /*! Internal reference counter. Right after the creation
-         * of the object it will be set to 1
-         */
-        int _refcount;
     public:
-        //! Mandatory function so it can be used with RefPtr
-        void obj_reference()
-        {
-            this->_refcount++;
-        }
-
-        //! Mandatory function so it can be used with RefPtr
-        void obj_unreference()
-        {
-            this->_refcount--;
-
-            if (this->_refcount == 0)
-            {
-                delete this;
-            }
-        }
-
         ObjectList()
-            : _refcount(1)
         {
         }
 
