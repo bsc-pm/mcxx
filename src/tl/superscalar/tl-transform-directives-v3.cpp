@@ -248,7 +248,7 @@ namespace TL
 		for (ObjectList<std::string>::const_iterator it = clauses.begin(); it != clauses.end(); it++)
 		{
 			std::string const &clause = *it;
-			if (!value_in_list(clause, "input", "output", "inout", "highpriority", "blocking"))
+			if (!value_in_list(clause, "input", "output", "inout", "highpriority", "blocking", "reduction"))
 			{
 				std::cerr << construct.get_ast().get_locus() << " Error: invalid clause '" << clause << "' used in 'task' construct." << std::endl;
 				TransformDirectives::fail();
@@ -359,6 +359,61 @@ namespace TL
 	}
 	
 	
+	void TL::TransformDirectives::process_mutex(PragmaCustomConstruct directive)
+	{
+		if (directive.is_construct())
+		{
+			std::cerr << directive.get_ast().get_locus() << " Error: 'mutex' directive used as a construct." << std::endl;
+			TransformDirectives::fail();
+			return;
+		}
+		
+		PragmaCustomClause lock_clause = directive.get_clause("lock");
+		PragmaCustomClause unlock_clause = directive.get_clause("unlock");
+		
+		if (!lock_clause.is_defined() && !unlock_clause.is_defined())
+		{
+			std::cerr << directive.get_ast().get_locus() << " Error: 'mutex' directive used without 'lock' or 'unlock' clause." << std::endl;
+			TransformDirectives::fail();
+			return;
+		}
+
+		if (lock_clause.is_defined() && unlock_clause.is_defined())
+		{
+			std::cerr << directive.get_ast().get_locus() << " Error: 'mutex' directive can't be used with both 'lock' and 'unlock' clauses at the same time." << std::endl;
+			TransformDirectives::fail();
+		}
+
+		ObjectList<Expression> argument_list;
+		Source action;
+		
+		if (lock_clause.is_defined())
+		{
+			argument_list = lock_clause.get_expression_list();
+			action << "lock";
+		} else {
+			argument_list = unlock_clause.get_expression_list();
+			action << "unlock";
+		}
+		
+		
+		Source source;
+		Source parameter;
+		source << "css_"<< action <<"((unsigned long)" << parameter << ");";
+		
+		if (argument_list.size() != 1)
+		{
+			std::cerr << directive.get_ast().get_locus() << " Error: 'lock' and 'unlock' only accept one argument." << std::endl;
+			TransformDirectives::fail();
+		}
+		
+		Expression expression = *argument_list.begin();
+		parameter << expression;
+		
+		AST_t tree = source.parse_statement(directive.get_ast(), directive.get_scope_link());
+		directive.get_ast().replace_with(tree);
+	}
+
 }
 
 

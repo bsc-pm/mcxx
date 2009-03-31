@@ -40,12 +40,14 @@ namespace TL
 				register_directive("barrier");
 				register_directive("wait");
 				register_directive("restart");
+				register_directive("mutex");
 				// task and target have been registered in TaskAnalysis
 				on_directive_post["start"].connect(functor(&TransformDirectives::process_start, *this));
 				on_directive_post["finish"].connect(functor(&TransformDirectives::process_finish, *this));
 				on_directive_post["barrier"].connect(functor(&TransformDirectives::process_barrier, *this));
 				on_directive_post["wait"].connect(functor(&TransformDirectives::process_wait, *this));
 				on_directive_post["restart"].connect(functor(&TransformDirectives::process_restart, *this));
+				on_directive_post["mutex"].connect(functor(&TransformDirectives::process_mutex, *this));
 				on_directive_post["task"].connect(functor(&TransformDirectives::process_task, *this));
 				on_directive_post["target"].connect(functor(&TransformDirectives::process_target, *this));
 			}
@@ -76,6 +78,7 @@ namespace TL
 			void process_barrier(PragmaCustomConstruct directive);
 			void process_wait(PragmaCustomConstruct directive);
 			void process_restart(PragmaCustomConstruct directive);
+			void process_mutex(PragmaCustomConstruct directive);
 			void process_task(PragmaCustomConstruct construct);
 			void process_task_declaration(PragmaCustomConstruct construct);
 			void process_task_definition(PragmaCustomConstruct construct);
