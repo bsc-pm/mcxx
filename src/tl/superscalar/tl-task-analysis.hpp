@@ -44,7 +44,7 @@ namespace TL
 			static ObjectList<Expression> get_array_access_indices(Expression expression);
 			static std::string direction_to_name(Region::Direction direction);
 			
-			Region handle_parameter(AST_t construct_ast, AST_t context_ast, ScopeLink scope_link, std::string const &parameter_specification, std::string const &line_annotation, Region::Direction direction, AugmentedSymbol &parameter_symbol);
+			Region handle_parameter(AST_t construct_ast, AST_t context_ast, ScopeLink scope_link, std::string const &parameter_specification, std::string const &line_annotation, Region::Direction direction, Region::Reduction reduction, AugmentedSymbol &parameter_symbol);
 			
 			void process_task(PragmaCustomConstruct construct);
 			void process_task(PragmaCustomConstruct construct, AST_t context_ast, DeclaredEntity declared_entity);

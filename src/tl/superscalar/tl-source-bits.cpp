@@ -33,7 +33,7 @@
 
 namespace TL
 {
-	Region SourceBits::handle_superscalar_declarator(AST_t ref_tree, ScopeLink scope_link, std::string const &declarator_string, Region::Direction direction, Symbol &original_symbol)
+	Region SourceBits::handle_superscalar_declarator(AST_t ref_tree, ScopeLink scope_link, std::string const &declarator_string, Region::Direction direction, Region::Reduction reduction, Symbol &original_symbol)
 	{
 		std::string mangled_text = "@SUPERSCALAR_DECLARATOR@ " + declarator_string;
 		char* str = strdup(mangled_text.c_str());
@@ -97,7 +97,7 @@ namespace TL
 		
 		// Generate the region
 		ObjectList<Expression> array_subscripts = get_array_subscript_list(augmented_type, scope_link);
-		Region region(direction, array_subscripts, ASTSon1(superscalar_declarator_ast), ref_tree, scope_link);
+		Region region(direction, reduction, array_subscripts, ASTSon1(superscalar_declarator_ast), ref_tree, scope_link);
 		
 		// Set scope link to the outermost node so if we query in this tree
 		// they will be solved in the proper scope

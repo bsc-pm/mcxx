@@ -20,6 +20,7 @@
 #include <iostream>
 #include <map>
 #include <sstream>
+#include <algorithm>
 
 #include "tl-langconstruct.hpp"
 
@@ -125,7 +126,7 @@ namespace TL
 	}
 	
 	
-	Region TL::TaskAnalysis::handle_parameter(AST_t construct_ast, AST_t context_ast, ScopeLink scope_link, std::string const &parameter_specification, std::string const &line_annotation, Region::Direction direction, AugmentedSymbol &parameter_symbol)
+	Region TL::TaskAnalysis::handle_parameter(AST_t construct_ast, AST_t context_ast, ScopeLink scope_link, std::string const &parameter_specification, std::string const &line_annotation, Region::Direction direction, Region::Reduction reduction, AugmentedSymbol &parameter_symbol)
 	{
 		std::string const direction_name = direction_to_name(direction);
 		
@@ -153,7 +154,7 @@ namespace TL
 		
 		try
 		{
-			Region region = SourceBits::handle_superscalar_declarator(context_ast, scope_link, line_annotation + separated_parameter_specification, direction, parameter_symbol);
+			Region region = SourceBits::handle_superscalar_declarator(context_ast, scope_link, line_annotation + separated_parameter_specification, direction, reduction, parameter_symbol);
 			
 			if (!parameter_symbol.is_parameter())
 			{
@@ -260,7 +261,7 @@ namespace TL
 		}
 		
 		std::map<Symbol, RegionList> parameter_region_lists;
-		
+
 		std::string line_annotation;
 		std::ostringstream oss;
 		oss << "# " << construct.get_ast().get_line() << " \"" << construct.get_ast().get_file() << "\"" << std::endl;
@@ -272,7 +273,8 @@ namespace TL
 		{
 			std::string const &parameter_specification = *it;
 			AugmentedSymbol parameter_symbol = AugmentedSymbol::invalid();
-			Region region = handle_parameter(construct_ast, context_ast, construct.get_scope_link(), parameter_specification, line_annotation, Region::INPUT_DIR, parameter_symbol);
+			Region::Reduction red = Region::NON_REDUCTION;
+			Region region = handle_parameter(construct_ast, context_ast, construct.get_scope_link(), parameter_specification, line_annotation, Region::INPUT_DIR, red, parameter_symbol);
 			bool correct = parameter_region_lists[parameter_symbol].add(region);
 			if (!correct)
 			{
@@ -287,7 +289,8 @@ namespace TL
 		{
 			std::string const &parameter_specification = *it;
 			AugmentedSymbol parameter_symbol = AugmentedSymbol::invalid();
-			Region region = handle_parameter(construct_ast, context_ast, construct.get_scope_link(), parameter_specification, line_annotation, Region::OUTPUT_DIR, parameter_symbol);
+			Region::Reduction red = Region::NON_REDUCTION;
+			Region region = handle_parameter(construct_ast, context_ast, construct.get_scope_link(), parameter_specification, line_annotation, Region::OUTPUT_DIR, red, parameter_symbol);
 			bool correct = parameter_region_lists[parameter_symbol].add(region);
 			if (!correct)
 			{
@@ -296,19 +299,36 @@ namespace TL
 			}
 		}
 		
+		ObjectList<std::string> reduction_regions = construct.get_clause("reduction").get_arguments();
+		
 		// Build all inout regions
 		ObjectList<std::string> inout_parameters = construct.get_clause("inout").get_arguments();
 		for (ObjectList<std::string>::iterator it = inout_parameters.begin(); it != inout_parameters.end(); it++)
 		{
 			std::string const &parameter_specification = *it;
+			
+			Region::Reduction red = Region::NON_REDUCTION;
+			if (reduction_regions.contains(parameter_specification))
+			{
+				red = Region::REDUCTION;
+				ObjectList<std::string>::iterator it= find(reduction_regions.begin(), reduction_regions.end(), parameter_specification);
+				reduction_regions.erase(it);
+			}
+			
 			AugmentedSymbol parameter_symbol = AugmentedSymbol::invalid();
-			Region region = handle_parameter(construct_ast, context_ast, construct.get_scope_link(), parameter_specification, line_annotation, Region::INOUT_DIR, parameter_symbol);
+			Region region = handle_parameter(construct_ast, context_ast, construct.get_scope_link(), parameter_specification, line_annotation, Region::INOUT_DIR, red, parameter_symbol);
 			bool correct = parameter_region_lists[parameter_symbol].add(region);
 			if (!correct)
 			{
 				std::cerr << context_ast.get_locus() << " Error: parameter region '" << parameter_specification << "' is duplicated." << std::endl;
 				TaskAnalysis::fail();
 			}
+		}
+		
+		for (ObjectList<std::string>::iterator it = reduction_regions.begin(); it !=reduction_regions.end(); it++)
+		{
+			std::cerr << context_ast.get_locus() << " Error: reduction parameter '" << *it << "' not specified as inout parameter." << std::endl;
+			TaskAnalysis::fail();
 		}
 		
 		

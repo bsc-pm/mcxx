@@ -29,7 +29,7 @@ namespace TL
 	class SourceBits
 	{
 		public:
-			static Region handle_superscalar_declarator(AST_t ref_tree, ScopeLink scope_link, std::string const &declarator_string, Region::Direction direction, Symbol &original_symbol);
+			static Region handle_superscalar_declarator(AST_t ref_tree, ScopeLink scope_link, std::string const &declarator_string, Region::Direction direction, Region::Reduction reduction, Symbol &original_symbol);
 			static ObjectList<Expression> get_array_subscript_list(Type type, ScopeLink scope_link);
 	};
 	

@@ -36,6 +36,12 @@ namespace TL {
 				INOUT_DIR=3
 			};
 			
+			enum Reduction {
+				UNKNOWN_RED=0,
+				NON_REDUCTION=1,
+				REDUCTION=2
+			};
+			
 			
 			class DimensionSpecifier
 			{
@@ -67,6 +73,7 @@ namespace TL {
 			
 		private:
 			Direction _direction;
+			Reduction _reduction;
 			ObjectList<DimensionSpecifier *> _dimensions;
 			
 			bool check_expression(AST expression_ast, AST_t ref_ast, ScopeLink scope_link);
@@ -83,6 +90,7 @@ namespace TL {
 				if (region.get_pointer() != NULL)
 				{
 					_direction = region->_direction;
+					_reduction = region->_reduction;
 					_dimensions = region->_dimensions;
 				}
 				else
@@ -92,11 +100,12 @@ namespace TL {
 						std::cerr << "Bad initialization for Region" << std::endl;
 					}
 					_direction = UNKNOWN_DIR;
+					_reduction = UNKNOWN_RED;
 					_dimensions.clear();
 				}
 			}
 			
-			Region(Direction direction, ObjectList<Expression> dimension_list, AST_t ast, AST_t ref_ast, ScopeLink scope_link);
+			Region(Direction direction, Reduction reduction, ObjectList<Expression> dimension_list, AST_t ast, AST_t ref_ast, ScopeLink scope_link);
 			
 			// The default descructor destroys the contents of _dimensions
 			
@@ -105,6 +114,10 @@ namespace TL {
 				return _direction;
 			}
 			
+			Reduction get_reduction() const
+			{
+				return _reduction;
+			}
 			const_iterator begin() const
 			{
 				return _dimensions.begin();

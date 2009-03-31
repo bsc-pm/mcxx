@@ -162,12 +162,24 @@ namespace TL
 					direction_source << "CSS_OUT_DIR";
 					break;
 				case Region::INOUT_DIR:
-					direction_source << "CSS_INOUT_DIR";
+					switch (region.get_reduction())
+					{
+						case Region::NON_REDUCTION:
+							direction_source << "CSS_INOUT_DIR";
+							break;
+						case Region::REDUCTION:
+							direction_source << "CSS_REDUCTION_FLAG";
+							break;
+						case Region::UNKNOWN_RED:
+							std::cerr << __FILE__ << ":" << __LINE__ << "Internal compiler error." << std::cerr;
+							throw FatalException();
+					}
 					break;
 				case Region::UNKNOWN_DIR:
 					std::cerr << __FILE__ << ":" << __LINE__ << "Internal compiler error." << std::cerr;
 					throw FatalException();
 			}
+			
 			
 			bool is_lvalue;
 			Type argument_type = argument.get_type(is_lvalue);

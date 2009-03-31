@@ -189,8 +189,8 @@ namespace TL {
 	}
 	
 	
-	Region::Region(Direction direction, ObjectList<Expression> dimension_list, AST_t ast, AST_t ref_ast, ScopeLink scope_link)
-		: _direction(direction), _dimensions()
+	Region::Region(Direction direction, Reduction reduction, ObjectList<Expression> dimension_list, AST_t ast, AST_t ref_ast, ScopeLink scope_link)
+		: _direction(direction), _reduction(reduction), _dimensions()
 	{
 		// If there are range specifiers
 		if (ast != NULL)
