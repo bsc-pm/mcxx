@@ -28,11 +28,16 @@ foreach test $testcases {
                 "-o" "-" "$test" "|&" "cat"] 
         } output_execution ]
     } {
-        if [expr { $kind_of_test == "xfailure" }] {
-            pass "$test"
-        } elseif [expr {$kind_of_test == "success"}] {
+# Check if the execution ended properly or was signaled
+        if {[lindex $::errorCode 0] eq "CHILDSTATUS"} {
+            if [expr { $kind_of_test == "xfailure" }] {
+                pass "$test"
+            } elseif [expr {$kind_of_test == "success"}] {
+                fail "$test"
+            } 
+        } else {
             fail "$test"
-        } 
+        }
     } else {
         if [expr { $kind_of_test == "success" }] {
             pass "$test"
