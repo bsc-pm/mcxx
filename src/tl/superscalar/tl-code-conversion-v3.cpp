@@ -168,7 +168,7 @@ namespace TL
 							direction_source << "CSS_INOUT_DIR";
 							break;
 						case Region::REDUCTION:
-							direction_source << "CSS_REDUCTION_FLAG";
+							direction_source << "CSS_REDUCTION_FLAG | CSS_INOUT_DIR";
 							break;
 						case Region::UNKNOWN_RED:
 							std::cerr << __FILE__ << ":" << __LINE__ << "Internal compiler error." << std::cerr;
