@@ -20,6 +20,8 @@ namespace TL
             public:
                 LoopInterchange(ForStatement for_stmt, ObjectList<int> permutation);
         };
+
+        LoopInterchange loop_interchange(ForStatement for_stmt, ObjectList<int> permutation);
     }
 }
 

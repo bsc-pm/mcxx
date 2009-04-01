@@ -104,3 +104,8 @@ bool LoopInterchange::is_valid_permutation(ObjectList<int> permutation, bool &id
 
     return std::equal(range.begin(), range.end(), permutation.begin());
 }
+
+LoopInterchange TL::HLT::loop_interchange(ForStatement for_stmt, ObjectList<int> permutation)
+{
+    return LoopInterchange(for_stmt, permutation);
+}
