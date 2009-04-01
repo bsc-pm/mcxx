@@ -79,6 +79,8 @@ libtl_la_SOURCES = \
 	tl-static-callgraph.hpp \
 	tl-static-callgraph.cpp \
     tl-common.hpp \
+    tl-for-nest.hpp \
+    tl-for-nest.cpp \
 	$(END)
 
 if WINDOWS_BUILD
