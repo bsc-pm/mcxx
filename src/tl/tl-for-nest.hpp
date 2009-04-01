@@ -8,7 +8,7 @@ namespace TL
             bool contains_a_for_statement(Statement stmt);
             bool contains_a_for_statement(Statement stmt, AST_t &result);
 
-            bool has_nested_for(ForStatement &for_stmt);
+            bool has_nested_for(ForStatement &for_stmt, bool &perfect);
             void gather_nest_info();
 
             bool _is_perfect;

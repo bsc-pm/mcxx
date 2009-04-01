@@ -46,21 +46,25 @@ namespace TL
         {
             // has_nested_for updates 'current_for_stmt' with the newly found for-statement if 
             // the nest is still valid
-            valid_nest = has_nested_for(current_for_stmt);
+            bool perfect_nest = true;
+            valid_nest = has_nested_for(current_for_stmt, perfect_nest);
             if (valid_nest)
             {
                 _for_nest.append(current_for_stmt);
+
+                _is_perfect = _is_perfect && perfect_nest;
             }
         }
     }
 
-    bool ForNestInfo::has_nested_for(ForStatement &for_stmt)
+    bool ForNestInfo::has_nested_for(ForStatement &for_stmt, bool &perfect_nest)
     {
         Statement stmt = for_stmt.get_loop_body();
 
         AST_t result(NULL);
         if (contains_a_for_statement(stmt, result))
         {
+            perfect_nest = true;
             for_stmt = ForStatement(result, for_stmt.get_scope_link());
             return true;
         }
@@ -93,6 +97,7 @@ namespace TL
 
                     if (valid_sequence)
                     {
+                        perfect_nest = false;
                         for_stmt = ForStatement(result, for_stmt.get_scope_link());
                         return true;
                     }
