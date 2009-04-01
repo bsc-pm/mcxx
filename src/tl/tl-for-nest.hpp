@@ -2,6 +2,10 @@
 
 namespace TL
 {
+    /*
+       This class is useful when finding nested loops. This class handles
+       perfect and nonperfect nest loops.
+       */
     class ForNestInfo : public Object
     {
         private:
