@@ -267,13 +267,23 @@ namespace TL
 		oss << "# " << construct.get_ast().get_line() << " \"" << construct.get_ast().get_file() << "\"" << std::endl;
 		line_annotation = oss.str();
 		
+		ObjectList<std::string> reduction_regions = construct.get_clause("reduction").get_arguments();
+		
 		// Build all input regions
 		ObjectList<std::string> input_parameters = construct.get_clause("input").get_arguments();
 		for (ObjectList<std::string>::iterator it = input_parameters.begin(); it != input_parameters.end(); it++)
 		{
 			std::string const &parameter_specification = *it;
 			AugmentedSymbol parameter_symbol = AugmentedSymbol::invalid();
+			
 			Region::Reduction red = Region::NON_REDUCTION;
+			if (reduction_regions.contains(parameter_specification))
+			{
+				red = Region::REDUCTION;
+				ObjectList<std::string>::iterator it= find(reduction_regions.begin(), reduction_regions.end(), parameter_specification);
+				reduction_regions.erase(it);
+			}
+			
 			Region region = handle_parameter(construct_ast, context_ast, construct.get_scope_link(), parameter_specification, line_annotation, Region::INPUT_DIR, red, parameter_symbol);
 			bool correct = parameter_region_lists[parameter_symbol].add(region);
 			if (!correct)
@@ -289,23 +299,6 @@ namespace TL
 		{
 			std::string const &parameter_specification = *it;
 			AugmentedSymbol parameter_symbol = AugmentedSymbol::invalid();
-			Region::Reduction red = Region::NON_REDUCTION;
-			Region region = handle_parameter(construct_ast, context_ast, construct.get_scope_link(), parameter_specification, line_annotation, Region::OUTPUT_DIR, red, parameter_symbol);
-			bool correct = parameter_region_lists[parameter_symbol].add(region);
-			if (!correct)
-			{
-				std::cerr << context_ast.get_locus() << " Error: parameter region '" << parameter_specification << "' is duplicated." << std::endl;
-				TaskAnalysis::fail();
-			}
-		}
-		
-		ObjectList<std::string> reduction_regions = construct.get_clause("reduction").get_arguments();
-		
-		// Build all inout regions
-		ObjectList<std::string> inout_parameters = construct.get_clause("inout").get_arguments();
-		for (ObjectList<std::string>::iterator it = inout_parameters.begin(); it != inout_parameters.end(); it++)
-		{
-			std::string const &parameter_specification = *it;
 			
 			Region::Reduction red = Region::NON_REDUCTION;
 			if (reduction_regions.contains(parameter_specification))
@@ -315,7 +308,30 @@ namespace TL
 				reduction_regions.erase(it);
 			}
 			
+			Region region = handle_parameter(construct_ast, context_ast, construct.get_scope_link(), parameter_specification, line_annotation, Region::OUTPUT_DIR, red, parameter_symbol);
+			bool correct = parameter_region_lists[parameter_symbol].add(region);
+			if (!correct)
+			{
+				std::cerr << context_ast.get_locus() << " Error: parameter region '" << parameter_specification << "' is duplicated." << std::endl;
+				TaskAnalysis::fail();
+			}
+		}
+		
+		// Build all inout regions
+		ObjectList<std::string> inout_parameters = construct.get_clause("inout").get_arguments();
+		for (ObjectList<std::string>::iterator it = inout_parameters.begin(); it != inout_parameters.end(); it++)
+		{
+			std::string const &parameter_specification = *it;
 			AugmentedSymbol parameter_symbol = AugmentedSymbol::invalid();
+			
+			Region::Reduction red = Region::NON_REDUCTION;
+			if (reduction_regions.contains(parameter_specification))
+			{
+				red = Region::REDUCTION;
+				ObjectList<std::string>::iterator it= find(reduction_regions.begin(), reduction_regions.end(), parameter_specification);
+				reduction_regions.erase(it);
+			}
+			
 			Region region = handle_parameter(construct_ast, context_ast, construct.get_scope_link(), parameter_specification, line_annotation, Region::INOUT_DIR, red, parameter_symbol);
 			bool correct = parameter_region_lists[parameter_symbol].add(region);
 			if (!correct)
@@ -327,7 +343,7 @@ namespace TL
 		
 		for (ObjectList<std::string>::iterator it = reduction_regions.begin(); it !=reduction_regions.end(); it++)
 		{
-			std::cerr << context_ast.get_locus() << " Error: reduction parameter '" << *it << "' not specified as inout parameter." << std::endl;
+			std::cerr << context_ast.get_locus() << " Error: reduction parameter '" << *it << "' not specified present in any input, output or inout clause." << std::endl;
 			TaskAnalysis::fail();
 		}
 		
