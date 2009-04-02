@@ -11,7 +11,7 @@ static bool for_statement_and(std::pair<TL::ForStatement, bool> p)
 namespace TL
 {
     ForNestInfo::ForNestInfo(ForStatement for_stmt)
-        : _is_perfect(false), _for_nest(), _for_stmt(for_stmt)
+        : _is_perfect(true), _for_nest(), _for_stmt(for_stmt)
     {
         gather_nest_info();
     }
@@ -82,7 +82,7 @@ namespace TL
                     // for-statements. Check that the remaining are not either
 
                     // This kind of checks are O(n^2), so expensive
-                    for (ObjectList<Statement>::iterator it2 = it;
+                    for (ObjectList<Statement>::iterator it2 = it+1;
                             it2 != inner_list.end() && valid_sequence;
                             it2++)
                     {
@@ -127,7 +127,7 @@ namespace TL
 
             if (inner_list.size() == 1)
             {
-                return contains_a_for_statement(inner_list[0]);
+                return contains_a_for_statement(inner_list[0], result);
             }
         }
         return false;
