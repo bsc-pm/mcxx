@@ -22,6 +22,13 @@ struct IotaGenerator
 LoopInterchange::LoopInterchange(ForStatement for_stmt, ObjectList<int> permutation)
      : _for_nest(for_stmt), _permutation(permutation), _is_identity(false)
 {
+    // We could do sinking to achieve perfection
+    if (!_for_nest.is_perfect())
+    {
+        throw HLTException(for_stmt, 
+                "interchange can only be applied in perfect loop nests");
+    }
+
     int nest_size = _for_nest.get_nest_list().size();
     if (!is_valid_permutation(_permutation, _is_identity)
             || (nest_size < _permutation.size()))
@@ -44,13 +51,6 @@ LoopInterchange::LoopInterchange(ForStatement for_stmt, ObjectList<int> permutat
         std::generate_n(back_inserter(_permutation), 
                 nest_size - _permutation.size(),
                 IotaGenerator(next));
-    }
-
-    // We could do sinking to achieve perfection
-    if (!_for_nest.is_perfect())
-    {
-        throw HLTException(for_stmt, 
-                "interchange can only be applied in perfect loop nests");
     }
 }
 
@@ -75,7 +75,7 @@ TL::Source LoopInterchange::do_interchange()
             it != _permutation.end();
             it++)
     {
-        ForStatement& current_for_stmt = loop_nest_list[(*it)];
+        ForStatement& current_for_stmt = loop_nest_list[(*it) - 1];
 
         Source* inner = new Source();
 
