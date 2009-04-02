@@ -4,14 +4,46 @@
 
 using namespace TL::HLT;
 
+// This functor mimics sgi's iota
+struct IotaGenerator
+{
+    private:
+        int _n;
+    public:
+        IotaGenerator(int n)
+            : _n(n) { }
+
+        int operator()()
+        {
+            return (_n++);
+        }
+};
+
 LoopInterchange::LoopInterchange(ForStatement for_stmt, ObjectList<int> permutation)
      : _for_nest(for_stmt), _permutation(permutation), _is_identity(false)
 {
-    if (!is_valid_permutation(permutation, _is_identity)
-            || (permutation.size() != _for_nest.get_nest_list().size()))
+    int nest_size = _for_nest.get_nest_list().size();
+    if (!is_valid_permutation(_permutation, _is_identity)
+            || (nest_size < _permutation.size()))
     {
         throw HLTException(for_stmt, 
                 "invalid permutation specification");
+    }
+
+    // Complete the permutation list if needed
+    if (_permutation.size() < nest_size)
+    {
+        // Get the maximum
+        int next = 1; 
+
+        if (!_permutation.empty())
+        {
+            next = *(std::max_element(_permutation.begin(), _permutation.end())) + 1;
+        }
+
+        std::generate_n(back_inserter(_permutation), 
+                nest_size - _permutation.size(),
+                IotaGenerator(next));
     }
 
     // We could do sinking to achieve perfection
@@ -72,27 +104,13 @@ TL::Source LoopInterchange::do_interchange()
     return result;
 }
 
-struct EpsilonGenerator
-{
-    private:
-        int _n;
-    public:
-        EpsilonGenerator(int n)
-            : _n(n) { }
-
-        int operator()()
-        {
-            return (_n++);
-        }
-};
-
 bool LoopInterchange::is_valid_permutation(ObjectList<int> permutation, bool &identity)
 {
     identity = false;
 
     // Create a range
     ObjectList<int> range;
-    std::generate_n(std::back_inserter(range), permutation.size(), EpsilonGenerator(1));
+    std::generate_n(std::back_inserter(range), permutation.size(), IotaGenerator(1));
 
     if (std::equal(range.begin(), range.end(), permutation.begin()))
     {

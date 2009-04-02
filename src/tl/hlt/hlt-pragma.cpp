@@ -23,6 +23,7 @@
 #include "hlt-blocking.hpp"
 #include "hlt-distribution.hpp"
 #include "hlt-fusion.hpp"
+#include "hlt-interchange.hpp"
 #include "hlt-exception.hpp"
 
 using namespace TL::HLT;
@@ -45,6 +46,9 @@ HLTPragmaPhase::HLTPragmaPhase()
 
     register_construct("fusion");
     on_directive_post["fusion"].connect(functor(&HLTPragmaPhase::fuse_loops, *this));
+
+    register_construct("interchange");
+    on_directive_post["interchange"].connect(functor(&HLTPragmaPhase::interchange_loops, *this));
 }
 
 void HLTPragmaPhase::run(TL::DTO& dto)
@@ -231,6 +235,51 @@ void HLTPragmaPhase::fuse_loops(PragmaCustomConstruct construct)
             construct.get_scope_link());
 
     construct.get_ast().replace(result_tree);
+}
+
+static int evaluate_expr(TL::Expression expr)
+{
+    if (expr.is_constant())
+    {
+        bool valid;
+        return expr.evaluate_constant_int_expression(valid);
+    }
+    else
+    {
+        return -1;
+    }
+}
+
+void HLTPragmaPhase::interchange_loops(PragmaCustomConstruct construct)
+{
+    Statement st = construct.get_statement();
+
+    if (!ForStatement::predicate(st.get_ast()))
+    {
+        throw HLTException(construct, "'#pragma hlt interchange' mut be followed by a for-statement");
+    }
+
+    PragmaCustomClause permutation = construct.get_clause("permutation");
+
+    if (!permutation.is_defined())
+    {
+        throw HLTException(construct, "'#pragma hlt interchange' requires a 'permutation' clause");
+    }
+
+    ObjectList<Expression> expr_list = permutation.get_expression_list();
+
+    // Now evaluate every expression
+    TL::ObjectList<int> permutation_list;
+    std::transform(expr_list.begin(), expr_list.end(), std::back_inserter(permutation_list), evaluate_expr);
+
+    ForStatement for_stmt(st.get_ast(), st.get_scope_link());
+
+    TL::Source interchange_src = loop_interchange(for_stmt, permutation_list);
+
+    TL::AST_t interchange_tree = interchange_src.parse_statement(construct.get_ast(),
+            construct.get_scope_link());
+
+    construct.get_ast().replace(interchange_tree);
 }
 
 EXPORT_PHASE(TL::HLT::HLTPragmaPhase)
