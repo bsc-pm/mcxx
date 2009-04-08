@@ -1,3 +1,6 @@
+#ifndef TL_FOR_NEST_HPP
+#define TL_FOR_NEST_HPP
+
 #include <tl-statement.hpp>
 
 namespace TL
@@ -42,3 +45,5 @@ namespace TL
             bool is_all_regular();
     };
 }
+
+#endif // TL_FOR_NEST_HPP
