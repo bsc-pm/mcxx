@@ -35,7 +35,6 @@ namespace TL
             private:
                 ForStatement _for_stmt;
                 unsigned int _factor;
-                bool _regular;
                 bool _with_epilog;
 
                 Source do_unroll();

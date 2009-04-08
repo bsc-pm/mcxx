@@ -36,26 +36,20 @@ TL::Source LoopUnroll::get_source()
 }
 
 LoopUnroll::LoopUnroll(ForStatement for_stmt, unsigned int factor)
-     : _for_stmt(for_stmt), _factor(factor), _regular(true), _with_epilog(false)
+     : _for_stmt(for_stmt), _factor(factor), _with_epilog(false)
 {
-    if (_for_stmt.regular_loop())
+    if (!_for_stmt.regular_loop())
     {
-        _regular = false;
+        _ostream
+            << _for_stmt.get_ast().get_locus() 
+            << ": warning: is not a regular loop, unroll will not be applied" 
+            << std::endl;
+        set_identity(_for_stmt.prettyprint());
     }
 }
 
 TL::Source LoopUnroll::do_unroll()
 {
-    if (_regular)
-    {
-        // Do nothing if the given loop was not regular
-        std::cerr << _for_stmt.get_ast().get_locus() 
-            << ": warning: is not a regular loop, unroll will not be applied" 
-            << std::endl;
-
-        return _for_stmt.prettyprint();
-    }
-
     // Get parts of the loop
     IdExpression induction_var = _for_stmt.get_induction_variable();
     Expression lower_bound = _for_stmt.get_lower_bound();

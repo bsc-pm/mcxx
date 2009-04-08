@@ -22,12 +22,40 @@
 
 using namespace TL::HLT;
 
+BaseTransform::BaseTransform()
+    : _identity(false), _ostream(std::cerr)
+{
+}
+
+BaseTransform::BaseTransform(std::ostream &o)
+    : _identity(false), _ostream(o)
+{
+}
+
 BaseTransform::operator Source()
 {
-    return this->get_source();
+    return get_source_impl();
 }
 
 BaseTransform::operator std::string()
 {
-    return this->get_source();
+    return get_source_impl();
+}
+
+TL::Source BaseTransform::get_source_impl()
+{
+    if (_identity)
+    {
+        return _identity_src;
+    }
+    else
+    {
+        return this->get_source();
+    }
+}
+
+void BaseTransform::set_identity(const Source &src)
+{
+    _identity = true;
+    _identity_src = src;
 }

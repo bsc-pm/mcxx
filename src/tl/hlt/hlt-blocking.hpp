@@ -23,6 +23,7 @@
 
 #include "hlt-transform.hpp"
 #include "tl-langconstruct.hpp"
+#include "tl-for-nest.hpp"
 
 namespace TL
 {
@@ -36,15 +37,13 @@ namespace TL
                 TL::ForStatement _for_stmt;
                 unsigned int _nesting;
                 ObjectList<TL::Expression> _nest_factors;
-                ObjectList<TL::ForStatement> _nest_loops;
+                ForNestInfo _for_nest_info;
 
                 Source do_blocking();
 
                 Source do_nothing();
 
                 bool check_nesting();
-                void discover_for_nest_rec(TL::AST_t tree);
-                unsigned int discover_for_nest();
             public:
                 LoopBlocking(TL::ForStatement for_stmt, ObjectList<TL::Expression> block_factors);
         };

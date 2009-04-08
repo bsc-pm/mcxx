@@ -25,16 +25,19 @@ LoopInterchange::LoopInterchange(ForStatement for_stmt, ObjectList<int> permutat
     // We could do sinking to achieve perfection
     if (!_for_nest.is_perfect())
     {
-        throw HLTException(for_stmt, 
-                "interchange can only be applied in perfect loop nests");
+        // _ostream << for_stmt.get_ast().get_locus() << ": warning: interchange can only be applied in perfect loop nests";
+        set_identity(for_stmt.prettyprint());
     }
 
     int nest_size = _for_nest.get_nest_list().size();
     if (!is_valid_permutation(_permutation, _is_identity)
             || (nest_size < _permutation.size()))
     {
-        throw HLTException(for_stmt, 
-                "invalid permutation specification");
+        // _ostream << for_stmt.get_ast().get_locus() << ": warning: invalid permutation specification";
+        // throw HLTException(for_stmt, 
+        //         "invalid permutation specification");
+
+        set_identity(for_stmt.prettyprint());
     }
 
     // Complete the permutation list if needed

@@ -23,6 +23,7 @@
 
 #include "tl-source.hpp"
 #include <string>
+#include <iostream>
 
 namespace TL
 {
@@ -31,13 +32,23 @@ namespace TL
         // Base for all transformations
         struct BaseTransform
         {
+            private:
+                Source _identity_src;
+                bool _identity;
+                Source get_source_impl();
+
             protected:
                 // Everybody should implement this one
                 virtual Source get_source() = 0;
+                void set_identity(const Source &str);
+
+                std::ostream &_ostream;
             public:
                  operator Source();
                  operator std::string();
 
+                 BaseTransform();
+                 BaseTransform(std::ostream &o);
                  virtual ~BaseTransform() { }
         };
     }
