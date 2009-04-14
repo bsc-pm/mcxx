@@ -19,16 +19,17 @@
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 #include "hlt-transform.hpp"
+#include "hlt-exception.hpp"
 
 using namespace TL::HLT;
 
 BaseTransform::BaseTransform()
-    : _identity(false), _ostream(std::cerr)
+    : _identity(false), _allow_identity(true), _ostream(std::cerr)
 {
 }
 
 BaseTransform::BaseTransform(std::ostream &o)
-    : _identity(false), _ostream(o)
+    : _identity(false), _allow_identity(true), _ostream(o)
 {
 }
 
@@ -46,7 +47,14 @@ TL::Source BaseTransform::get_source_impl()
 {
     if (_identity)
     {
-        return _identity_src;
+        if (_allow_identity)
+        {
+            return _identity_tree.prettyprint();
+        }
+        else
+        {
+            throw HLTException(_identity_tree, "invalid transformation");
+        }
     }
     else
     {
@@ -54,8 +62,20 @@ TL::Source BaseTransform::get_source_impl()
     }
 }
 
-void BaseTransform::set_identity(const Source &src)
+void BaseTransform::set_identity(AST_t tree)
 {
     _identity = true;
-    _identity_src = src;
+    _identity_tree = tree;
+}
+
+BaseTransform& BaseTransform::allow_identity()
+{
+    _allow_identity = true;
+    return *this;
+}
+
+BaseTransform& BaseTransform::disallow_identity()
+{
+    _allow_identity = false;
+    return *this;
 }

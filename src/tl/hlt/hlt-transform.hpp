@@ -21,6 +21,7 @@
 #ifndef HLT_TRANSFORM_HPP
 #define HLT_TRANSFORM_HPP
 
+#include "tl-ast.hpp"
 #include "tl-source.hpp"
 #include <string>
 #include <iostream>
@@ -33,14 +34,15 @@ namespace TL
         struct BaseTransform
         {
             private:
-                Source _identity_src;
+                AST_t _identity_tree;
                 bool _identity;
+                bool _allow_identity;
                 Source get_source_impl();
 
             protected:
                 // Everybody should implement this one
                 virtual Source get_source() = 0;
-                void set_identity(const Source &str);
+                void set_identity(AST_t tree);
 
                 std::ostream &_ostream;
             public:
@@ -50,6 +52,9 @@ namespace TL
                  BaseTransform();
                  BaseTransform(std::ostream &o);
                  virtual ~BaseTransform() { }
+
+                 BaseTransform& allow_identity();
+                 BaseTransform& disallow_identity();
         };
     }
 }

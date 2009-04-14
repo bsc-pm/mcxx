@@ -30,12 +30,15 @@ TL::Source LoopBlocking::get_source()
 }
 
 LoopBlocking::LoopBlocking(ForStatement for_stmt, ObjectList<Expression> block_factors)
-    : _for_stmt(for_stmt), _nesting(block_factors.size()), _nest_factors(block_factors), _for_nest_info(for_stmt)
+    : _for_stmt(for_stmt), 
+    _nesting(block_factors.size()), 
+    _nest_factors(block_factors), 
+    _for_nest_info(for_stmt)
 {
     if (!check_nesting())
     {
         _ostream << _for_stmt.get_ast().get_locus() << ": warning: blocking not performed" << std::endl;
-        set_identity(_for_stmt.prettyprint());
+        set_identity(_for_stmt.get_ast());
     }
 }
 
@@ -140,7 +143,22 @@ TL::Source LoopBlocking::do_blocking()
 
 bool LoopBlocking::check_nesting()
 {
-    int found_nesting = _for_nest_info.get_nest_list().size();
+    int found_nesting = 0;
+    ObjectList<ForStatement> for_nest_list = _for_nest_info.get_nest_list();
+    for (ObjectList<ForStatement>::iterator it = for_nest_list.begin();
+            it != for_nest_list.end();
+            it++)
+    {
+        if (it->is_regular_loop())
+        {
+            found_nesting++;
+        }
+        else
+        {
+            break;
+        }
+    }
+
     if (_nesting != 0 
             && _nesting > found_nesting)
     {

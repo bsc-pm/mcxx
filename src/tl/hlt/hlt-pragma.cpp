@@ -110,7 +110,7 @@ void HLTPragmaPhase::unroll_loop(PragmaCustomConstruct construct)
     }
 
     ForStatement for_stmt(statement.get_ast(), statement.get_scope_link());
-    TL::Source unrolled_loop_src = HLT::unroll_loop(for_stmt,  unroll_factor);
+    TL::Source unrolled_loop_src = HLT::unroll_loop(for_stmt,  unroll_factor).disallow_identity();
 
     AST_t unrolled_loop_tree = unrolled_loop_src.parse_statement(construct.get_ast(),
             construct.get_scope_link());
@@ -137,7 +137,7 @@ void HLTPragmaPhase::block_loop(PragmaCustomConstruct construct)
     TL::ObjectList<TL::Expression> factors_list = factors_clause.get_expression_list();
 
     ForStatement for_stmt(statement.get_ast(), statement.get_scope_link());
-    TL::Source blocked_loop_src = HLT::block_loop(for_stmt, factors_list);
+    TL::Source blocked_loop_src = HLT::block_loop(for_stmt, factors_list).disallow_identity();
 
     AST_t blocked_loop_tree = blocked_loop_src.parse_statement(construct.get_ast(),
             construct.get_scope_link());
@@ -175,7 +175,7 @@ void HLTPragmaPhase::distribute_loop(PragmaCustomConstruct construct)
         expanded_syms.insert(id_expression_list.map(functor(&IdExpression::get_symbol)));
     }
 
-    TL::Source distributed_loop_src = HLT::distribute_loop(for_stmt, expanded_syms);
+    TL::Source distributed_loop_src = HLT::distribute_loop(for_stmt, expanded_syms).disallow_identity();
 
     AST_t distributed_loop_tree = distributed_loop_src.parse_statement(construct.get_ast(),
             construct.get_scope_link());
@@ -219,7 +219,7 @@ void HLTPragmaPhase::fuse_loops(PragmaCustomConstruct construct)
                 "'#pragma hlt fusion' must be applied to a compound statement that contains one or more regular for-statements");
     }
 
-    TL::Source fused_loops_src = HLT::loop_fusion(for_statement_list);
+    TL::Source fused_loops_src = HLT::loop_fusion(for_statement_list).disallow_identity();
 
     Source result;
 
@@ -274,7 +274,7 @@ void HLTPragmaPhase::interchange_loops(PragmaCustomConstruct construct)
 
     ForStatement for_stmt(st.get_ast(), st.get_scope_link());
 
-    TL::Source interchange_src = loop_interchange(for_stmt, permutation_list);
+    TL::Source interchange_src = HLT::loop_interchange(for_stmt, permutation_list).disallow_identity();
 
     TL::AST_t interchange_tree = interchange_src.parse_statement(construct.get_ast(),
             construct.get_scope_link());

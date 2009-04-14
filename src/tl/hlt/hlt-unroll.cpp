@@ -44,7 +44,7 @@ LoopUnroll::LoopUnroll(ForStatement for_stmt, unsigned int factor)
             << _for_stmt.get_ast().get_locus() 
             << ": warning: is not a regular loop, unroll will not be applied" 
             << std::endl;
-        set_identity(_for_stmt.prettyprint());
+        set_identity(_for_stmt.get_ast());
     }
 }
 
