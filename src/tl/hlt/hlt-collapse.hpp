@@ -14,10 +14,12 @@ namespace TL
             private:
                 ForNestInfo _for_nest_info;
             protected:
-                Source get_source();
+                virtual Source get_source();
             public:
                 LoopCollapse(ForStatement for_nest);
         };
+
+        LoopCollapse loop_collapse(ForStatement for_stmt);
     }
 }
 

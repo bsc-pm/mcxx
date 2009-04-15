@@ -26,6 +26,14 @@ LoopCollapse::LoopCollapse(TL::ForStatement for_stmt)
 
 TL::Source LoopCollapse::get_source()
 {
+    ObjectList<ForStatement> for_nest_list = _for_nest_info.get_nest_list();
+    // Fast path that it is not actually an error
+
+    if (for_nest_list.size() == 1)
+    {
+        return for_nest_list[0].prettyprint();
+    }
+
     Source collapsed_loop, header, collapsed_for;
 
     collapsed_loop
@@ -39,7 +47,6 @@ TL::Source LoopCollapse::get_source()
     // iteration_count_XXX is the number of iterations that every loop does
     // total_iteration_count is the total number of iterations
     // FIXME - Use a proper type not just 'int'
-    ObjectList<ForStatement> for_nest_list = _for_nest_info.get_nest_list();
 
     Source total_iters; 
     Source iter_count_list; 
@@ -194,4 +201,9 @@ TL::Source LoopCollapse::get_source()
         ;
 
     return collapsed_loop;
+}
+
+LoopCollapse TL::HLT::loop_collapse(ForStatement for_stmt)
+{
+    return LoopCollapse(for_stmt);
 }

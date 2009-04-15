@@ -24,6 +24,7 @@
 #include "hlt-distribution.hpp"
 #include "hlt-fusion.hpp"
 #include "hlt-interchange.hpp"
+#include "hlt-collapse.hpp"
 #include "hlt-exception.hpp"
 
 using namespace TL::HLT;
@@ -49,6 +50,9 @@ HLTPragmaPhase::HLTPragmaPhase()
 
     register_construct("interchange");
     on_directive_post["interchange"].connect(functor(&HLTPragmaPhase::interchange_loops, *this));
+
+    register_construct("collapse");
+    on_directive_post["collapse"].connect(functor(&HLTPragmaPhase::collapse_loop, *this));
 }
 
 void HLTPragmaPhase::run(TL::DTO& dto)
@@ -280,6 +284,25 @@ void HLTPragmaPhase::interchange_loops(PragmaCustomConstruct construct)
             construct.get_scope_link());
 
     construct.get_ast().replace(interchange_tree);
+}
+
+void HLTPragmaPhase::collapse_loop(PragmaCustomConstruct construct)
+{
+    Statement st = construct.get_statement();
+
+    if (!ForStatement::predicate(st.get_ast()))
+    {
+        throw HLTException(construct, "'#pragma hlt collapse' mut be followed by a for-statement");
+    }
+
+    ForStatement for_stmt(st.get_ast(), st.get_scope_link());
+
+    TL::Source collapsed_loop_src = HLT::loop_collapse(for_stmt);
+
+    TL::AST_t collapsed_loop_tree = collapsed_loop_src.parse_statement(construct.get_ast(),
+            construct.get_scope_link());
+
+    construct.get_ast().replace(collapsed_loop_tree);
 }
 
 EXPORT_PHASE(TL::HLT::HLTPragmaPhase)
