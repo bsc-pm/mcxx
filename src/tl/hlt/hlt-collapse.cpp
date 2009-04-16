@@ -169,14 +169,29 @@ TL::Source LoopCollapse::get_source()
 
         ForStatement &for_stmt(*it);
 
-        Symbol induction_var_symbol = for_stmt.get_induction_variable().get_symbol();
-        Type induction_var_type = induction_var_symbol.get_type();
-
+        // Only declare the induction variable if it was declared also in the
+        // original for, since its scope is just the loop, otherwise keep using
+        // the original variable
         Source initialization;
+        if (Declaration::predicate(for_stmt.get_iterating_init()))
+        {
+            Symbol induction_var_symbol = for_stmt.get_induction_variable().get_symbol();
+            Type induction_var_type = induction_var_symbol.get_type();
 
-        compute_nested_indexes
-            << induction_var_type.get_declaration(induction_var_symbol.get_scope(),
-                    induction_var_symbol.get_name()) << " = " << initialization << ";";
+
+            compute_nested_indexes
+                << induction_var_type.get_declaration(induction_var_symbol.get_scope(),
+                        induction_var_symbol.get_name()) 
+                ;
+        }
+        else
+        {
+            compute_nested_indexes << for_stmt.get_induction_variable().prettyprint()
+                ;
+        }
+
+        compute_nested_indexes << " = " << initialization << ";"
+            ;
 
         if (loop_n == 0)
         {
