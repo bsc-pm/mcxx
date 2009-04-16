@@ -71,8 +71,8 @@ TL::Source LoopCollapse::get_source()
             Source var_name;
             var_name << "_iteration_count_" << loop_n;
 
-            header
-                << "const int " << var_name << "= (" << it->get_upper_bound() << ")-(" << it->get_lower_bound() << ") + 1;"
+            iter_count_list
+                << "int " << var_name << "= (" << it->get_upper_bound() << ")-(" << it->get_lower_bound() << ") + 1;"
                 // Normalize it according to the step
                 << var_name << "= (" << var_name << "+ (" << it->get_step() << ") - 1) / (" << it->get_step() << ");"
                 ;
@@ -84,8 +84,8 @@ TL::Source LoopCollapse::get_source()
             Source var_name;
             var_name << "_lower_" << loop_n;
 
-            header
-                << "const int " << var_name << " = " << it->get_lower_bound() << ";"
+            iter_count_list
+                << "int " << var_name << " = " << it->get_lower_bound() << ";"
                 ;
         }
 
@@ -94,8 +94,8 @@ TL::Source LoopCollapse::get_source()
             Source var_name;
             var_name << "_step_" << loop_n;
 
-            header
-                << "const int " << var_name << " = " << it->get_step() << ";"
+            iter_count_list
+                << "int " << var_name << " = " << it->get_step() << ";"
                 ;
         }
     }
@@ -105,18 +105,22 @@ TL::Source LoopCollapse::get_source()
             it != for_nest_list.end();
             it++, loop_n++)
     {
-        // See a long comment below to know what is current_count[i]
-        Source var_name;
-        var_name << "_current_count_" << loop_n;
-
-        Source current_count_value;
-
-        header << "const int " << var_name << " = " << current_count_value << ";"
-            ;
-
-        for (int i = loop_n; i < for_nest_list.size(); i++)
+        // _current_count_0 is not used at all cause it is the same as _total_iters
+        if (loop_n != 0)
         {
-            current_count_value.append_with_separator(Source("_iteration_count_") << loop_n, "*");
+            // See a long comment below to know what is current_count[i]
+            Source var_name;
+            var_name << "_current_count_" << loop_n;
+
+            Source current_count_value;
+
+            header << "int " << var_name << " = " << current_count_value << ";"
+                ;
+
+            for (int i = loop_n; i < for_nest_list.size(); i++)
+            {
+                current_count_value.append_with_separator(Source("_iteration_count_") << i, "*");
+            }
         }
     }
 
@@ -197,7 +201,7 @@ TL::Source LoopCollapse::get_source()
     }
 
     original_loop_body
-        << for_nest_list[for_nest_list.size() - 1]
+        << for_nest_list[for_nest_list.size() - 1].get_loop_body()
         ;
 
     return collapsed_loop;
