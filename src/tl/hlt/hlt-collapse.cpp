@@ -58,7 +58,7 @@ TL::Source LoopCollapse::get_source()
 
     Source total_iters_init;
     total_iters
-        << "int _total_iters = " << total_iters_init << ";"
+        << "const int _total_iters = " << total_iters_init << ";"
         ;
 
     int loop_n = 0;
@@ -72,9 +72,8 @@ TL::Source LoopCollapse::get_source()
             var_name << "_iteration_count_" << loop_n;
 
             iter_count_list
-                << "int " << var_name << "= (" << it->get_upper_bound() << ")-(" << it->get_lower_bound() << ") + 1;"
-                // Normalize it according to the step
-                << var_name << "= (" << var_name << "+ (" << it->get_step() << ") - 1) / (" << it->get_step() << ");"
+                << "const int " << var_name << "= (((" << it->get_upper_bound() << ")-(" << it->get_lower_bound() << ") + 1)"
+                 "+(" << it->get_step() << ") - 1) / (" << it->get_step() << ");"
                 ;
             total_iters_init.append_with_separator(var_name , "*");
         }
@@ -85,7 +84,7 @@ TL::Source LoopCollapse::get_source()
             var_name << "_lower_" << loop_n;
 
             iter_count_list
-                << "int " << var_name << " = " << it->get_lower_bound() << ";"
+                << "const int " << var_name << " = " << it->get_lower_bound() << ";"
                 ;
         }
 
@@ -95,7 +94,7 @@ TL::Source LoopCollapse::get_source()
             var_name << "_step_" << loop_n;
 
             iter_count_list
-                << "int " << var_name << " = " << it->get_step() << ";"
+                << "const int " << var_name << " = " << it->get_step() << ";"
                 ;
         }
     }
@@ -114,7 +113,7 @@ TL::Source LoopCollapse::get_source()
 
             Source current_count_value;
 
-            header << "int " << var_name << " = " << current_count_value << ";"
+            header << "const int " << var_name << " = " << current_count_value << ";"
                 ;
 
             for (int i = loop_n; i < for_nest_list.size(); i++)
