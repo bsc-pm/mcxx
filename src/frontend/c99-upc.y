@@ -81,12 +81,17 @@ upc_reference_type_qualifier : UPC_RELAXED
 
 upc_layout_qualifier : '[' ']'
 {
+    $$ = ASTMake1(AST_UPC_LAYOUT_QUALIFIER, NULL, $1.token_file, $1.token_line, NULL);
 }
 | '[' constant_expression ']'
 {
+    $$ = ASTMake1(AST_UPC_LAYOUT_QUALIFIER, $2, $1.token_file, $1.token_line, NULL);
 }
 | '[' '*' ']'
 {
+    $$ = ASTMake1(AST_UPC_LAYOUT_QUALIFIER, 
+            ASTLeaf(AST_UPC_LAYOUT_UNDEF, $2.token_file, $2.token_line, NULL), 
+            $1.token_file, $1.token_line, NULL);
 }
 ;
 
