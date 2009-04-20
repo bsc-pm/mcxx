@@ -287,6 +287,9 @@ typedef struct compilation_configuration_tag
 
     // Type environment
     struct type_environment_tag* type_environment;
+
+    // Unified Parallel C (UPC)
+    char enable_upc;
 } compilation_configuration_t;
 
 

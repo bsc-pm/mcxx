@@ -164,6 +164,7 @@ EXTRA_DIST += cxx-construct.y
 EXTRA_DIST += cxx-superscalar.y
 EXTRA_DIST += cxx-ambig-handler.y
 EXTRA_DIST += cxx-placeholders.y
+EXTRA_DIST += c99-upc.y
 
 EXTRA_DIST += cxx-gccspubuiltins.def
 
@@ -308,7 +309,7 @@ CLEANFILES += c99-parser.output
 CLEANFILES += c99.y
 endif
 
-c99.y : $(srcdir)/c99.y.in $(srcdir)/cxx-placeholders.y $(srcdir)/cxx-omp.y $(srcdir)/cxx-pragma.y $(srcdir)/cxx-construct.y $(srcdir)/cxx-superscalar.y $(srcdir)/cxx-ambig-handler.y
+c99.y : $(srcdir)/c99.y.in $(srcdir)/cxx-placeholders.y $(srcdir)/cxx-omp.y $(srcdir)/cxx-pragma.y $(srcdir)/cxx-construct.y $(srcdir)/cxx-superscalar.y $(srcdir)/cxx-ambig-handler.y $(srcdir)/c99-upc.y
 	$(TPP) -o c99.y -D C99 -I$(srcdir) $(srcdir)/c99.y.in
 
 c99-parser.c : c99.y

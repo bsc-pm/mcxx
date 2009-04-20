@@ -83,6 +83,35 @@ gxx_43_keywords_t gxx_43_keywords[] =
 };
 /*!endif*/
 
+/*!if C99*/
+typedef
+struct upc_keywords_tag
+{
+    const char * keyword;
+    int token;
+} upc_keywords_t;
+
+upc_keywords_t upc_keywords[] =
+{
+    { "MYTHREAD", UPC_MYTHREAD },
+    { "relaxed", UPC_RELAXED },
+    { "shared", UPC_SHARED },
+    { "strict", UPC_STRICT },
+    { "THREADS", UPC_THREADS },
+    { "upc_barrier", UPC_BARRIER },
+    { "upc_blocksizeof", UPC_BLOCKSIZEOF },
+    { "upc_elemsizeof", UPC_ELEMSIZEOF },
+    { "upc_fence", UPC_FENCE },
+    { "upc_forall", UPC_FORALL },
+    { "upc_localsizeof", UPC_LOCALSIZEOF },
+    { "UPC_MAX_BLOCKSIZE", UPC_MAX_BLOCKSIZE },
+    { "upc_notify", UPC_NOTIFY },
+    { "upc_wait", UPC_WAIT },
+    // Sentinel
+    { NULL, 0 }
+};
+/*!endif*/
+
 static int yywrap(void);
 
 static void parse_token_text(void);
@@ -1269,6 +1298,46 @@ runtime {
             yytext);
 }
  /*!endif*/
+
+ /*!if C99*/
+ /* UPC Extensions */
+"MYTHREAD" |
+"relaxed" |
+"shared" |
+"strict" |
+"THREADS" |
+"upc_barrier" |
+"upc_blocksizeof" |
+"upc_elemsizeof" |
+"upc_fence" |
+"upc_forall" |
+"upc_localsizeof" |
+"UPC_MAX_BLOCKSIZE" |
+"upc_notify" |
+"upc_wait" {
+    if (!CURRENT_CONFIGURATION(enable_upc))
+    {
+        parse_token_text();
+        return IDENTIFIER;
+    }
+
+    int i = 0;
+    while (upc_keywords[i].keyword != NULL)
+    {
+        if (strcmp(upc_keywords[i].keyword, yytext) == 0)
+        {
+            parse_token_text();
+            return upc_keywords[i].token;
+        }
+        i++;
+    }
+
+    internal_error("%s:%d: error: unhandled UPC specific token '%s'", 
+            scanning_now.filename,
+            scanning_now.line_number,
+            yytext);
+}
+ /*!endif */
 
  /* mcxx extensions */
 "__construct__" { parse_token_text(); return CONSTRUCT; }
