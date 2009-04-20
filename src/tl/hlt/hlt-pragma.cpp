@@ -25,7 +25,10 @@
 #include "hlt-fusion.hpp"
 #include "hlt-interchange.hpp"
 #include "hlt-collapse.hpp"
+#include "hlt-composition.hpp"
 #include "hlt-exception.hpp"
+
+#include <algorithm>
 
 using namespace TL::HLT;
 
@@ -73,14 +76,20 @@ void HLTPragmaPhase::run(TL::DTO& dto)
     }
 }
 
+static void unroll_loop_fun(TL::ForStatement for_stmt,
+        int unroll_factor)
+{
+    TL::Source unrolled_loop_src = TL::HLT::unroll_loop(for_stmt,  unroll_factor).disallow_identity();
+
+    TL::AST_t unrolled_loop_tree = unrolled_loop_src.parse_statement(for_stmt.get_ast(),
+            for_stmt.get_scope_link());
+
+    for_stmt.get_ast().replace(unrolled_loop_tree);
+}
+
 void HLTPragmaPhase::unroll_loop(PragmaCustomConstruct construct)
 {
     Statement statement = construct.get_statement();
-
-    if (!ForStatement::predicate(statement.get_ast()))
-    {
-        throw HLTException(construct, "'#pragma hlt unroll' can only be used with for-statements");
-    }
 
     TL::PragmaCustomClause factor_clause = construct.get_clause("factor");
 
@@ -113,23 +122,31 @@ void HLTPragmaPhase::unroll_loop(PragmaCustomConstruct construct)
         std::cerr << construct.get_ast().get_locus() << ": warning: no factor clause given for unrolling, assuming 'factor(32)'" << std::endl;
     }
 
-    ForStatement for_stmt(statement.get_ast(), statement.get_scope_link());
-    TL::Source unrolled_loop_src = HLT::unroll_loop(for_stmt,  unroll_factor).disallow_identity();
+    ObjectList<ForStatement> for_statement_list = get_all_sibling_for_statements(statement);
 
-    AST_t unrolled_loop_tree = unrolled_loop_src.parse_statement(construct.get_ast(),
-            construct.get_scope_link());
+    std::for_each(for_statement_list.begin(), for_statement_list.end(),
+            std::bind2nd(std::ptr_fun(unroll_loop_fun), unroll_factor));
 
-    construct.get_ast().replace(unrolled_loop_tree);
+    construct.get_ast().replace(statement.get_ast());
+}
+
+static void block_loop_fun(TL::ForStatement for_stmt, 
+        TL::ObjectList<TL::Expression> factors_list)
+{
+    // ForStatement &for_stmt(*it);
+    TL::Source blocked_loop_src = TL::HLT::block_loop(for_stmt, factors_list);
+
+    TL::AST_t blocked_loop_tree = blocked_loop_src.parse_statement(for_stmt.get_ast(),
+            for_stmt.get_scope_link());
+
+    for_stmt.get_ast().replace(blocked_loop_tree);
 }
 
 void HLTPragmaPhase::block_loop(PragmaCustomConstruct construct)
 {
     Statement statement = construct.get_statement();
 
-    if (!ForStatement::predicate(statement.get_ast()))
-    {
-        throw HLTException(construct, "'#pragma hlt block' can only be used with for-statements");
-    }
+    ObjectList<ForStatement> for_statement_list = get_all_sibling_for_statements(statement);
 
     TL::PragmaCustomClause factors_clause = construct.get_clause("factors");
 
@@ -139,26 +156,29 @@ void HLTPragmaPhase::block_loop(PragmaCustomConstruct construct)
     }
 
     TL::ObjectList<TL::Expression> factors_list = factors_clause.get_expression_list();
+    std::for_each(for_statement_list.begin(), for_statement_list.end(),
+            std::bind2nd(std::ptr_fun(block_loop_fun), factors_list));
 
-    ForStatement for_stmt(statement.get_ast(), statement.get_scope_link());
-    TL::Source blocked_loop_src = HLT::block_loop(for_stmt, factors_list).disallow_identity();
+    // Remove the pragma
+    construct.get_ast().replace(statement.get_ast());
+}
 
-    AST_t blocked_loop_tree = blocked_loop_src.parse_statement(construct.get_ast(),
-            construct.get_scope_link());
+void distribute_loop_fun(TL::ForStatement for_stmt,
+        TL::ObjectList<TL::Symbol> expanded_syms)
+{
+    TL::Source distributed_loop_src = TL::HLT::distribute_loop(for_stmt, expanded_syms);
 
-    construct.get_ast().replace(blocked_loop_tree);
+    TL::AST_t distributed_loop_tree = distributed_loop_src.parse_statement(for_stmt.get_ast(),
+            for_stmt.get_scope_link());
+
+    for_stmt.get_ast().replace(distributed_loop_tree);
 }
 
 void HLTPragmaPhase::distribute_loop(PragmaCustomConstruct construct)
 {
     Statement statement = construct.get_statement();
 
-    if (!ForStatement::predicate(statement.get_ast()))
-    {
-        throw HLTException(construct, "'#pragma hlt distribute' can only be used with for-statements");
-    }
-
-    ForStatement for_stmt(statement.get_ast(), statement.get_scope_link());
+    ObjectList<ForStatement> for_statement_list = get_all_sibling_for_statements(statement);
 
     PragmaCustomClause expanded_scalars = construct.get_clause("expand");
 
@@ -167,76 +187,72 @@ void HLTPragmaPhase::distribute_loop(PragmaCustomConstruct construct)
     {
         ObjectList<IdExpression> id_expression_list = expanded_scalars.id_expressions();
 
-        if (!id_expression_list.empty())
-        {
-            if (!for_stmt.is_regular_loop())
-            {
-                throw HLTException(construct, 
-                        "'#pragma hlt distribute' when scalar expansion is requested can "
-                        "only be used with regular for-statements");
-            }
-        }
+        // FIXME - Figure a nice way to yield this error
+        // if (!id_expression_list.empty())
+        // {
+        //     if (!for_stmt.is_regular_loop())
+        //     {
+        //         throw HLTException(construct, 
+        //                 "'#pragma hlt distribute' when scalar expansion is requested can "
+        //                 "only be used with regular for-statements");
+        //     }
+        // }
         expanded_syms.insert(id_expression_list.map(functor(&IdExpression::get_symbol)));
     }
 
-    TL::Source distributed_loop_src = HLT::distribute_loop(for_stmt, expanded_syms).disallow_identity();
+    std::for_each(for_statement_list.begin(), for_statement_list.end(),
+            std::bind2nd(std::ptr_fun(distribute_loop_fun), expanded_syms));
 
-    AST_t distributed_loop_tree = distributed_loop_src.parse_statement(construct.get_ast(),
-            construct.get_scope_link());
-
-    construct.get_ast().replace(distributed_loop_tree);
+    construct.get_ast().replace(statement.get_ast());
 }
 
 void HLTPragmaPhase::fuse_loops(PragmaCustomConstruct construct)
 {
     Statement statement = construct.get_statement();
 
-    if (!statement.is_compound_statement())
+    AST_t result_tree = statement.get_ast();
+
+    if (statement.is_compound_statement())
     {
-        throw HLTException(construct, 
-                "'#pragma hlt fusion' must be applied to a compound statement");
-    }
+        ObjectList<Statement> statement_list = statement.get_inner_statements();
 
-    ObjectList<Statement> statement_list = statement.get_inner_statements();
+        ObjectList<ForStatement> for_statement_list;
 
-    ObjectList<ForStatement> for_statement_list;
+        Source kept_statements;
 
-    Source kept_statements;
-
-    for (ObjectList<Statement>::iterator it = statement_list.begin();
-            it != statement_list.end();
-            it++)
-    {
-        if (ForStatement::predicate(it->get_ast()))
+        for (ObjectList<Statement>::iterator it = statement_list.begin();
+                it != statement_list.end();
+                it++)
         {
-            for_statement_list.append(ForStatement(it->get_ast(), it->get_scope_link()));
+            if (ForStatement::predicate(it->get_ast()))
+            {
+                for_statement_list.append(ForStatement(it->get_ast(), it->get_scope_link()));
+            }
+            else
+            {
+                kept_statements << (*it);
+            }
         }
-        else
+
+        if (for_statement_list.size() > 1)
         {
-            kept_statements << (*it);
+
+            TL::Source fused_loops_src = HLT::loop_fusion(for_statement_list).disallow_identity();
+
+            Source result;
+
+            result 
+                << "{"
+                << fused_loops_src
+                << kept_statements
+                << "}"
+                ;
+
+            result_tree = result.parse_statement(
+                    for_statement_list[0].get_ast(),
+                    construct.get_scope_link());
         }
     }
-
-    if (for_statement_list.empty())
-    {
-        throw HLTException(construct,
-                "'#pragma hlt fusion' must be applied to a compound statement that contains one or more regular for-statements");
-    }
-
-    TL::Source fused_loops_src = HLT::loop_fusion(for_statement_list).disallow_identity();
-
-    Source result;
-
-    result 
-        << "{"
-        << fused_loops_src
-        << kept_statements
-        << "}"
-        ;
-
-    TL::AST_t result_tree = result.parse_statement(
-            for_statement_list[0].get_ast(),
-            construct.get_scope_link());
 
     construct.get_ast().replace(result_tree);
 }
@@ -254,14 +270,22 @@ static int evaluate_expr(TL::Expression expr)
     }
 }
 
+void interchange_loops_fun(TL::ForStatement for_stmt,
+        TL::ObjectList<int> permutation_list)
+{
+    TL::Source interchange_src = TL::HLT::loop_interchange(for_stmt, permutation_list).disallow_identity();
+
+    TL::AST_t interchange_tree = interchange_src.parse_statement(for_stmt.get_ast(),
+            for_stmt.get_scope_link());
+
+    for_stmt.get_ast().replace(interchange_tree);
+}
+
 void HLTPragmaPhase::interchange_loops(PragmaCustomConstruct construct)
 {
-    Statement st = construct.get_statement();
+    TL::Statement statement = construct.get_statement();
 
-    if (!ForStatement::predicate(st.get_ast()))
-    {
-        throw HLTException(construct, "'#pragma hlt interchange' mut be followed by a for-statement");
-    }
+    TL::ObjectList<TL::ForStatement> for_statement_list = get_all_sibling_for_statements(statement);
 
     PragmaCustomClause permutation = construct.get_clause("permutation");
 
@@ -276,33 +300,30 @@ void HLTPragmaPhase::interchange_loops(PragmaCustomConstruct construct)
     TL::ObjectList<int> permutation_list;
     std::transform(expr_list.begin(), expr_list.end(), std::back_inserter(permutation_list), evaluate_expr);
 
-    ForStatement for_stmt(st.get_ast(), st.get_scope_link());
+    std::for_each(for_statement_list.begin(), for_statement_list.end(),
+            std::bind2nd(std::ptr_fun(interchange_loops_fun), permutation_list));
 
-    TL::Source interchange_src = HLT::loop_interchange(for_stmt, permutation_list).disallow_identity();
+    construct.get_ast().replace(statement.get_ast());
+}
 
-    TL::AST_t interchange_tree = interchange_src.parse_statement(construct.get_ast(),
-            construct.get_scope_link());
+void collapse_loop_fun(TL::ForStatement for_stmt)
+{
+    TL::Source collapsed_loop_src = TL::HLT::loop_collapse(for_stmt);
 
-    construct.get_ast().replace(interchange_tree);
+    TL::AST_t collapsed_loop_tree = collapsed_loop_src.parse_statement(for_stmt.get_ast(),
+            for_stmt.get_scope_link());
 }
 
 void HLTPragmaPhase::collapse_loop(PragmaCustomConstruct construct)
 {
-    Statement st = construct.get_statement();
+    Statement statement = construct.get_statement();
 
-    if (!ForStatement::predicate(st.get_ast()))
-    {
-        throw HLTException(construct, "'#pragma hlt collapse' mut be followed by a for-statement");
-    }
+    ObjectList<ForStatement> for_statement_list = get_all_sibling_for_statements(statement);
 
-    ForStatement for_stmt(st.get_ast(), st.get_scope_link());
+    std::for_each(for_statement_list.begin(), for_statement_list.end(),
+            std::ptr_fun(collapse_loop_fun));
 
-    TL::Source collapsed_loop_src = HLT::loop_collapse(for_stmt);
-
-    TL::AST_t collapsed_loop_tree = collapsed_loop_src.parse_statement(construct.get_ast(),
-            construct.get_scope_link());
-
-    construct.get_ast().replace(collapsed_loop_tree);
+    construct.get_ast().replace(statement.get_ast());
 }
 
 EXPORT_PHASE(TL::HLT::HLTPragmaPhase)
