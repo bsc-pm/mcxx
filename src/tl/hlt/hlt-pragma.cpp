@@ -79,7 +79,7 @@ void HLTPragmaPhase::run(TL::DTO& dto)
 static void unroll_loop_fun(TL::ForStatement for_stmt,
         int unroll_factor)
 {
-    TL::Source unrolled_loop_src = TL::HLT::unroll_loop(for_stmt,  unroll_factor).disallow_identity();
+    TL::Source unrolled_loop_src = TL::HLT::unroll_loop(for_stmt,  unroll_factor);
 
     TL::AST_t unrolled_loop_tree = unrolled_loop_src.parse_statement(for_stmt.get_ast(),
             for_stmt.get_scope_link());
@@ -237,7 +237,7 @@ void HLTPragmaPhase::fuse_loops(PragmaCustomConstruct construct)
         if (for_statement_list.size() > 1)
         {
 
-            TL::Source fused_loops_src = HLT::loop_fusion(for_statement_list).disallow_identity();
+            TL::Source fused_loops_src = HLT::loop_fusion(for_statement_list);
 
             Source result;
 
@@ -273,7 +273,7 @@ static int evaluate_expr(TL::Expression expr)
 void interchange_loops_fun(TL::ForStatement for_stmt,
         TL::ObjectList<int> permutation_list)
 {
-    TL::Source interchange_src = TL::HLT::loop_interchange(for_stmt, permutation_list).disallow_identity();
+    TL::Source interchange_src = TL::HLT::loop_interchange(for_stmt, permutation_list);
 
     TL::AST_t interchange_tree = interchange_src.parse_statement(for_stmt.get_ast(),
             for_stmt.get_scope_link());
