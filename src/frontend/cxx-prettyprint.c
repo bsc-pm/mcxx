@@ -241,10 +241,20 @@ HANDLER_PROTOTYPE(gcc_functional_declarator_handler);
 HANDLER_PROTOTYPE(gcc_offsetof_member_designator_handler);
 HANDLER_PROTOTYPE(gcc_parenthesized_expression_handler);
 
+// g++ 4.3
 HANDLER_PROTOTYPE(gxx_type_traits);
 
 // Mercurium extensions
 HANDLER_PROTOTYPE(array_section_handler);
+
+// UPC 1.2
+HANDLER_PROTOTYPE(upc_forall_header);
+HANDLER_PROTOTYPE(upc_iteration_statement);
+HANDLER_PROTOTYPE(upc_layout_qualifier);
+HANDLER_PROTOTYPE(upc_shared_qualifier);
+HANDLER_PROTOTYPE(upc_sizeof_expr);
+HANDLER_PROTOTYPE(upc_sizeof_type);
+HANDLER_PROTOTYPE(upc_synch_statement);
 
 prettyprint_entry_t handlers_list[] =
 {
@@ -654,6 +664,25 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_GXX_TYPE_TRAITS, gxx_type_traits, NULL),
     // Mercurium extension
     NODE_HANDLER(AST_ARRAY_SECTION, array_section_handler, NULL),
+    // UPC 1.2
+    NODE_HANDLER(AST_UPC_LOCALSIZEOF, upc_sizeof_expr, "local"),
+    NODE_HANDLER(AST_UPC_BLOCKSIZEOF, upc_sizeof_expr, "block"),
+    NODE_HANDLER(AST_UPC_ELEMSIZEOF, upc_sizeof_expr, "elem"),
+    NODE_HANDLER(AST_UPC_LOCALSIZEOF_TYPEID, upc_sizeof_type, "local"),
+    NODE_HANDLER(AST_UPC_BLOCKSIZEOF_TYPEID, upc_sizeof_type, "block"),
+    NODE_HANDLER(AST_UPC_ELEMSIZEOF_TYPEID, upc_sizeof_type, "elem"),
+    NODE_HANDLER(AST_UPC_SHARED, upc_shared_qualifier, NULL),
+    NODE_HANDLER(AST_UPC_RELAXED, simple_parameter_handler, "relaxed"),
+    NODE_HANDLER(AST_UPC_STRICT, simple_parameter_handler, "strict"),
+    NODE_HANDLER(AST_UPC_LAYOUT_QUALIFIER, upc_layout_qualifier, NULL),
+    NODE_HANDLER(AST_UPC_LAYOUT_UNDEF, simple_parameter_handler, "*"),
+    NODE_HANDLER(AST_UPC_NOTIFY, upc_synch_statement, "upc_notify"),
+    NODE_HANDLER(AST_UPC_WAIT, upc_synch_statement, "upc_wait"),
+    NODE_HANDLER(AST_UPC_BARRIER, upc_synch_statement, "upc_barrier"),
+    NODE_HANDLER(AST_UPC_FENCE, upc_synch_statement, "upc_fence"),
+    NODE_HANDLER(AST_UPC_CONTINUE, simple_text_handler, "continue"),
+    NODE_HANDLER(AST_UPC_FORALL, upc_iteration_statement, NULL),
+    NODE_HANDLER(AST_UPC_FORALL_HEADER, upc_forall_header, NULL),
 };
 
 typedef
@@ -1772,7 +1801,7 @@ static void for_statement_handler(FILE* f, AST a, int level)
     
     token_fprintf(f, a, ";\n");
 
-    if (ASTSon3(a) != NULL)
+    if (ASTSon2(a) != NULL)
     {
         indent_at_level(f, a, level+1);
         prettyprint_level(f, ASTSon2(a), 0);
@@ -3238,6 +3267,92 @@ static void gxx_type_traits(FILE* f, AST a, int level)
     {
         token_fprintf(f, a, ", ");
         prettyprint_level(f, ASTSon1(a), level);
+    }
+    token_fprintf(f, a, ")");
+}
+
+static void upc_sizeof_expr(FILE* f, AST a, int level)
+{
+    token_fprintf(f, a, "upc_%s ", HELPER_PARAMETER_STRING);
+    prettyprint_level(f, ASTSon0(a), level);
+}
+
+static void upc_sizeof_type(FILE* f, AST a, int level)
+{
+    token_fprintf(f, a, "upc_%s(", HELPER_PARAMETER_STRING);
+    prettyprint_level(f, ASTSon0(a), level);
+    token_fprintf(f, a, ")");
+}
+
+static void upc_shared_qualifier(FILE* f, AST a, int level)
+{
+    token_fprintf(f, a, "shared");
+
+    if (ASTSon0(a) != NULL)
+    {
+        token_fprintf(f, a, " ");
+        prettyprint_level(f, ASTSon0(a), level);
+    }
+}
+
+static void upc_layout_qualifier(FILE* f, AST a, int level)
+{
+    token_fprintf(f, a, "[");
+    if (ASTSon0(a) != NULL)
+    {
+        prettyprint_level(f, ASTSon0(a), level);
+    }
+    token_fprintf(f, a, "]");
+}
+
+static void upc_synch_statement(FILE* f, AST a, int level)
+{
+    indent_at_level(f, a, level);
+    token_fprintf(f, a, "%s", HELPER_PARAMETER_STRING);
+    if (ASTSon0(a) != NULL)
+    {
+        token_fprintf(f, a, " ");
+        prettyprint_level(f, ASTSon0(a), level);
+    }
+    token_fprintf(f, a, ";\n");
+}
+
+static void upc_iteration_statement(FILE* f, AST a, int level)
+{
+    indent_at_level(f, a, level);
+    prettyprint_level(f, ASTSon0(a), level);
+    token_fprintf(f, a, "\n");
+
+    prettyprint_level(f, ASTSon1(a), 
+            increase_level_if_not_compound(ASTSon1(a), level));
+}
+
+static void upc_forall_header(FILE* f, AST a, int level)
+{
+    token_fprintf(f, a, "upc_forall(");
+    if (ASTSon0(a) != NULL)
+    {
+        prettyprint_level(f, ASTSon0(a), 0);
+    }
+
+    indent_at_level(f, a, level+1);
+    if (ASTSon1(a) != NULL)
+    {
+        prettyprint_level(f, ASTSon1(a), 0);
+    }
+    token_fprintf(f, a, ";\n");
+
+    if (ASTSon2(a) != NULL)
+    {
+        indent_at_level(f, a, level+1);
+        prettyprint_level(f, ASTSon2(a), 0);
+    }
+    token_fprintf(f, a, ";\n");
+
+    if (ASTSon3(a) != NULL)
+    {
+        indent_at_level(f, a, level+1);
+        prettyprint_level(f, ASTSon3(a), 0);
     }
     token_fprintf(f, a, ")");
 }
