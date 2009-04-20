@@ -26,6 +26,8 @@ libtl_hlt_la_SOURCES = \
       hlt-interchange.hpp \
       hlt-collapse.cpp \
       hlt-collapse.hpp \
+      hlt-composition.cpp \
+      hlt-composition.hpp \
       $(END)
 
 libtl_hlt_pragma_la_CFLAGS=$(tl_cflags)
