@@ -44,14 +44,10 @@ LoopBlocking::LoopBlocking(ForStatement for_stmt, ObjectList<Expression> block_f
 
 TL::Source LoopBlocking::do_blocking()
 {
-    Source result, blocked_declarations, inner_declarations, block_loops;
+    Source result, block_loops;
 
     result
-        << "{"
-        << blocked_declarations
-        << inner_declarations
         << block_loops
-        << "}"
         ;
 
     ObjectList<ForStatement> nest_loops = _for_nest_info.get_nest_list();
@@ -72,14 +68,9 @@ TL::Source LoopBlocking::do_blocking()
 
         std::string var = "_blk_" + sym.get_name();
 
-        blocked_declarations
-            << type.get_declaration(sym.get_scope(), var)
-            << ";"
-            ;
-
         TL::Source *new_innermost_part = new TL::Source();
         (*current_innermost_part)
-            << "for(" << var << " = " << current_for->get_lower_bound() << ";"
+            << "for(" << type.get_declaration(sym.get_scope(), var) << " = " << current_for->get_lower_bound() << ";"
                       << var << current_for->get_bound_operator() << current_for->get_upper_bound() << ";"
                       << var << "+= ( " << current_for->get_step() << ") * " << current_factor->prettyprint() << ")" 
             << (*new_innermost_part)
@@ -135,7 +126,7 @@ TL::Source LoopBlocking::do_blocking()
 
     // And now the innermost loop
     (*current_innermost_part)
-        << nest_loops[nest_loops.size() - 1]
+        << nest_loops[_nesting - 1].get_loop_body()
         ;
 
     return result;
