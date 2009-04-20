@@ -143,6 +143,7 @@ AST_NODE_TYPE_FILES += cxx-asttype-gcc.def
 AST_NODE_TYPE_FILES += cxx-asttype-omp.def
 AST_NODE_TYPE_FILES += cxx-asttype-pragma.def
 AST_NODE_TYPE_FILES += cxx-asttype-superscalar.def
+AST_NODE_TYPE_FILES += cxx-asttype-upc.def
 
 EXTRA_DIST += $(AST_NODE_TYPE_FILES)
 
