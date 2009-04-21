@@ -913,11 +913,19 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 break;
             }
         case AST_SIZEOF :
+            /* UPC has upc_{local,block,elem}sizeof that are identical to the normal one */
+        case AST_UPC_BLOCKSIZEOF :
+        case AST_UPC_ELEMSIZEOF :
+        case AST_UPC_LOCALSIZEOF :
             {
                 result = check_for_sizeof_expr(expression, decl_context);
                 break;
             }
         case AST_SIZEOF_TYPEID :
+            /* UPC has upc_{local,block,elem}sizeof that are identical to the normal one */
+        case AST_UPC_BLOCKSIZEOF_TYPEID :
+        case AST_UPC_ELEMSIZEOF_TYPEID :
+        case AST_UPC_LOCALSIZEOF_TYPEID :
             {
                 result = check_for_sizeof_typeid(expression, decl_context);
                 break;

@@ -73,6 +73,13 @@ struct gather_decl_spec_tag {
     // Attribute info
     int num_gcc_attributes;
     gather_gcc_attribute_t gcc_attributes[MAX_GCC_ATTRIBUTES_PER_SYMBOL];
+
+    // UPC info
+    char is_upc_shared;
+    AST upc_shared_layout;
+
+    char is_upc_relaxed;
+    char is_upc_strict;
 } gather_decl_spec_t;
 
 MCXX_END_DECLS

@@ -1083,6 +1083,29 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
         case AST_GCC_COMPLEX_TYPE :
             gather_info->is_complex = 1;
             break;
+            // UPC extensions
+        case AST_UPC_SHARED :
+            {
+                gather_info->is_upc_shared = 1;
+                gather_info->upc_shared_layout = ASTSon0(a);
+                if (gather_info->upc_shared_layout != NULL)
+                {
+                    AST layout_qualif_kind = ASTSon0(gather_info->upc_shared_layout);
+
+                    if (layout_qualif_kind != NULL
+                            && ASTType(layout_qualif_kind) != AST_UPC_LAYOUT_UNDEF)
+                    {
+                        check_for_expression(layout_qualif_kind, decl_context);
+                    }
+                }
+                break;
+            }
+        case AST_UPC_RELAXED :
+            gather_info->is_upc_relaxed = 1;
+            break;
+        case AST_UPC_STRICT :
+            gather_info->is_upc_strict = 1;
+            break;
             // Unknown node
         default:
             internal_error("Unknown node '%s' (%s)", ast_print_node_type(ASTType(a)), ast_location(a));
@@ -8809,6 +8832,73 @@ static void build_scope_custom_construct_statement(AST a,
     // TODO - Fill attributes
 }
 
+static void build_scope_upc_synch_statement(AST a, 
+        decl_context_t decl_context, 
+        char *attr_name)
+{
+    ASTAttrSetValueType(a, attr_name, tl_type_t, tl_bool(1));
+
+    if (ASTSon0(a) != NULL)
+    {
+        check_for_expression(ASTSon0(a), decl_context);
+        ASTAttrSetValueType(a, UPC_SYNC_STMT_ARGUMENT, tl_type_t, tl_ast(ASTSon0(a)));
+    }
+}
+
+static void build_scope_upc_forall_statement(AST a, 
+        decl_context_t decl_context, 
+        char *attr_name UNUSED_PARAMETER)
+{
+    AST forall_header = ASTSon0(a);
+    AST statement = ASTSon1(a);
+
+    AST for_init_statement = ASTSon0(forall_header);
+    AST condition = ASTSon1(forall_header);
+    AST expression = ASTSon2(forall_header);
+    AST affinity = ASTSon3(forall_header);
+
+    if (ASTType(for_init_statement) == AST_AMBIGUITY)
+    {
+        solve_ambiguous_for_init_statement(for_init_statement, decl_context);
+    }
+
+    decl_context_t block_context = new_block_context(decl_context);
+
+    if (ASTType(for_init_statement) == AST_SIMPLE_DECLARATION)
+    {
+        build_scope_simple_declaration(for_init_statement, block_context);
+    }
+    else if (ASTType(for_init_statement) == AST_EXPRESSION_STATEMENT)
+    {
+        build_scope_expression_statement(for_init_statement, block_context, NULL);
+    }
+    scope_link_set(CURRENT_COMPILED_FILE(scope_link), for_init_statement, block_context);
+
+    if (condition != NULL)
+    {
+        check_for_expression(condition, block_context);
+    }
+
+    if (expression != NULL)
+    {
+        check_for_expression(expression, block_context);
+    }
+
+    if (affinity != NULL)
+    {
+        check_for_expression(affinity, block_context);
+    }
+
+    build_scope_statement(statement, block_context);
+    scope_link_set(CURRENT_COMPILED_FILE(scope_link), statement, block_context);
+
+    ASTAttrSetValueType(a, UPC_IS_FORALL_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, UPC_FORALL_INIT_CONSTRUCT, tl_type_t, tl_ast(for_init_statement));
+    ASTAttrSetValueType(a, UPC_FORALL_CONDITION, tl_type_t, tl_ast(condition));
+    ASTAttrSetValueType(a, UPC_FORALL_ITERATION_EXPRESSION, tl_type_t, tl_ast(expression));
+    ASTAttrSetValueType(a, UPC_FORALL_AFFINITY, tl_type_t, tl_ast(affinity));
+    ASTAttrSetValueType(a, UPC_FORALL_BODY_STATEMENT, tl_type_t, tl_ast(statement));
+}
 
 #define STMT_HANDLER(type, hndl, attr_name_v) [type] = { .handler = (hndl), .attr_name = (attr_name_v) }
 
@@ -8855,6 +8945,12 @@ static stmt_scope_handler_map_t stmt_scope_handlers[] =
     STMT_HANDLER(AST_OMP_THREADPRIVATE_DIRECTIVE, build_scope_omp_threadprivate, NULL),
     STMT_HANDLER(AST_OMP_CUSTOM_CONSTRUCT, build_scope_omp_custom_construct_statement, OMP_IS_CUSTOM_CONSTRUCT),
     STMT_HANDLER(AST_OMP_CUSTOM_DIRECTIVE, build_scope_omp_custom_directive_top_level, NULL),
+    // UPC
+    STMT_HANDLER(AST_UPC_NOTIFY, build_scope_upc_synch_statement, UPC_IS_NOTIFY_STATEMENT),
+    STMT_HANDLER(AST_UPC_WAIT, build_scope_upc_synch_statement, UPC_IS_WAIT_STATEMENT),
+    STMT_HANDLER(AST_UPC_BARRIER, build_scope_upc_synch_statement, UPC_IS_BARRIER_STATEMENT),
+    STMT_HANDLER(AST_UPC_FENCE, build_scope_upc_synch_statement, UPC_IS_FENCE_STATEMENT),
+    STMT_HANDLER(AST_UPC_FORALL, build_scope_upc_forall_statement, NULL),
 };
 
 void build_scope_member_specification_with_scope_link(
