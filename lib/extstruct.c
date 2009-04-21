@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include "hash_iterator.h"
 
 #define warning_message(...) \
 { \
@@ -47,6 +48,7 @@ int extensible_schema_add_field(extensible_schema_t* schema,
     extensible_schema_item_t* schema_item = calloc(1, sizeof(*schema_item));
 
     schema_item->size = field_size;
+    schema_item->field_name = field_name;
     schema_item->field_order = schema->num_fields;
 
     const char* c = uniquestr(field_name);
@@ -202,3 +204,32 @@ void *extensible_struct_get_field_pointer(extensible_schema_t* schema,
 
     return new_data->data;
 }
+
+int extensible_struct_get_num_fields(extensible_schema_t* schema,
+        extensible_struct_t* extensible_struct)
+{
+    return extensible_struct->num_items;
+}
+
+const char* extensible_struct_get_field_num(extensible_schema_t* schema,
+        extensible_struct_t* extensible_struct,
+        int num)
+{
+    // FIXME - This is so inefficient, having to traverse all the schema fields
+    // just to know its field index and then get the field_name!
+    Iterator *it = (Iterator*)hash_iterator_create(schema->hash);
+
+    for (iterator_first(it); !iterator_finished(it); iterator_next(it))
+    {
+        extensible_schema_item_t* schema_item = NULL;
+        schema_item = (extensible_schema_item_t*)iterator_item(it);
+
+        if (extensible_struct->items[num].schema_index == schema_item->field_order)
+        {
+            return schema_item->field_name;
+        }
+    }
+
+    return NULL;
+}
+

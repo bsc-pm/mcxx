@@ -49,6 +49,8 @@ extern "C" {
 
 struct extensible_schema_item_tag
 {
+    // We need that for some retrievals
+    const char *field_name;
     size_t size;
     int field_order;
 };
@@ -107,6 +109,15 @@ LIBEXTSTRUCT_EXTERN void *extensible_struct_get_field_pointer_lazy(extensible_sc
         extensible_struct_t* extensible_struct,
         const char* field_name,
         char* is_found);
+
+// Returns the number of fields stored in the extended struct, not all available in the schema
+LIBEXTSTRUCT_EXTERN int extensible_struct_get_num_fields(extensible_schema_t* schema,
+        extensible_struct_t* extensible_struct);
+
+// Number of field is related to the number of fields returned by extensible_struct_get_num_fields
+LIBEXTSTRUCT_EXTERN const char* extensible_struct_get_field_num(extensible_schema_t* schema,
+        extensible_struct_t* extensible_struct,
+        int num);
 
 #ifdef __cplusplus
 }
