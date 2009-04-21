@@ -22,9 +22,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "cxx-driver.h"
 #include "cxx-graphviz.h"
-
 #include "cxx-ast.h"
+#include "cxx-tltype.h"
 
 /*
    ****************************************************
@@ -68,8 +69,7 @@ static char* quote_protect(const char *c)
     return result;
 }
 
-static int nodes_counter = 1000;
-static void ast_dump_graphviz_rec(AST a, FILE* f, int parent_node, int position)
+static void ast_dump_graphviz_rec(AST a, FILE* f, size_t parent_node, int position, char is_extended UNUSED_PARAMETER)
 {
     // static char* octagon = "octagon";
     // static char* doubleoctagon = "doubleoctagon";
@@ -78,7 +78,10 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, int parent_node, int position)
     static char* box = "box";
     char* shape;
 
-    int node_actual = nodes_counter++;
+    // I know this is not exact, but there is a %z qualifier in printf
+    // while there is not such thing for intptr_t
+    size_t current_node = (size_t)a;
+
     if (a != NULL)
     {
         // Select shape
@@ -94,29 +97,69 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, int parent_node, int position)
         {
             char *quoted = quote_protect(ASTText(a));
 
-            fprintf(f, "n%d[shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\\nText: -%s-\"]\n", 
-                    node_actual, shape, ast_print_node_type(ASTType(a)), a, ASTParent(a), ast_location(a), quoted);
+            fprintf(f, "n%zd[shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\\nText: -%s-\"]\n", 
+                    current_node, shape, ast_print_node_type(ASTType(a)), a, ASTParent(a), ast_location(a), quoted);
 
             free(quoted);
         }
         else
         {
-            fprintf(f, "n%d[shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\"]\n", 
-                    node_actual, shape, ast_print_node_type(ASTType(a)), a, ASTParent(a), ast_location(a));
+            fprintf(f, "n%zd[shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\"]\n", 
+                    current_node, shape, ast_print_node_type(ASTType(a)), a, ASTParent(a), ast_location(a));
         }
 
+        // Print this only for non extended referenced nodes
         if (parent_node != 0)
         {
-            fprintf(f, "n%d -> n%d [label=\"%d\"]\n", parent_node, node_actual, position);
+            fprintf(f, "n%zd -> n%zd [label=\"%d\"]\n", parent_node, current_node, position);
         }
-
 
         if (ASTType(a) != AST_AMBIGUITY)
         {
             int i;
-            for(i = 0; i < ASTNumChildren(a); i++)
+            if (!is_extended)
             {
-                ast_dump_graphviz_rec(ASTChild(a, i),f,  node_actual, i);
+                for(i = 0; i < ASTNumChildren(a); i++)
+                {
+                    if (ASTChild(a, i) != NULL)
+                    {
+                        ast_dump_graphviz_rec(ASTChild(a, i), f, current_node, i, /* is_extended */ is_extended);
+                    }
+                }
+            }
+
+            // Now print all extended trees referenced here
+            // First get all TL_AST in 'orig' that point to its childrens
+            if (ast_get_extensible_struct(a) != NULL
+                    && !is_extended)
+            {
+                int num_fields = extensible_struct_get_num_fields(&ast_extensible_schema,
+                        ast_get_extensible_struct(a));
+
+                for (i = 0; i < num_fields; i++)
+                {
+                    const char* field_name = extensible_struct_get_field_num(&ast_extensible_schema,
+                            ast_get_extensible_struct(a), i);
+                    char is_found = 0;
+                    void* data = extensible_struct_get_field_pointer_lazy(&ast_extensible_schema,
+                            ast_get_extensible_struct(a), field_name, &is_found);
+                    tl_type_t* tl_data = (tl_type_t*)data;
+                    if (data != NULL
+                            && tl_data->kind == TL_AST)
+                    {
+                        if (tl_data->data._ast != a)
+                        {
+                            ast_dump_graphviz_rec(tl_data->data._ast, f, /* parent_node */ 0, /* position */ 0, /* is_extended */ 1);
+                        }
+
+                        // Add an edge
+                        fprintf(f, "n%zd -> n%zd [label=\"%s\",style=dashed]\n",
+                                current_node,
+                                (size_t)(tl_data->data._ast),
+                                field_name);
+
+                    }
+                }
             }
         }
         else if (ASTType(a) == AST_AMBIGUITY)
@@ -124,16 +167,16 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, int parent_node, int position)
             int i;
             for(i = 0; i < ast_get_num_ambiguities(a); i++)
             {
-                ast_dump_graphviz_rec(ast_get_ambiguity(a, i), f, node_actual, i);
+                ast_dump_graphviz_rec(ast_get_ambiguity(a, i), f, current_node, i, /* is_extended */ 0);
             }
         }
     }
     else
     {
-        fprintf(f, "n%d[shape=circle,label=\"\",fixedsize=true,style=filled,fillcolor=black,height=0.1,width=0.1]\n", node_actual);
+        fprintf(f, "n%zd[shape=circle,label=\"\",fixedsize=true,style=filled,fillcolor=black,height=0.1,width=0.1]\n", current_node);
         if (parent_node != 0)
         {
-            fprintf(f, "n%d -> n%d [label=\"%d\"]\n", parent_node, node_actual, position);
+            fprintf(f, "n%zd -> n%zd [label=\"%d\"]\n", parent_node, current_node, position);
         }
     }
 }
@@ -142,6 +185,6 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, int parent_node, int position)
 void ast_dump_graphviz(AST a, FILE* f)
 {
     fprintf(f, "digraph mcxx_ast { \n");
-    ast_dump_graphviz_rec(a, f, 0, 0);
+    ast_dump_graphviz_rec(a, f, 0, 0, /* is_extended */ 0);
     fprintf(f, "}\n");
 }
