@@ -410,8 +410,6 @@ static void ast_fix_one_ast_field_rec(
                 internal_error("unreachable code", 0);
         }
 
-        fprintf(stderr, " to %p\n", iter);
-
         // Now update node 'new' with 'iter'
         ASTAttrSetValueType(new, field_name, tl_type_t, tl_ast(iter));
     }
@@ -452,7 +450,6 @@ static void ast_fix_one_ast_field(
         const char *field_name, 
         const_AST pointed_tree)
 {
-    fprintf(stderr, "Fixing reference '%s' of %p from %p", field_name, new, pointed_tree);
     ast_fix_one_ast_field_rec(
             new,
             orig,
