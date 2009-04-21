@@ -11,7 +11,7 @@ TL::ObjectList<TL::ForStatement> TL::HLT::get_all_sibling_for_statements(TL::Sta
     }
     else if (st.is_compound_statement())
     {
-        ObjectList<Statement> inner_stmt;
+        ObjectList<Statement> inner_stmt = st.get_inner_statements();
         for (ObjectList<Statement>::iterator it = inner_stmt.begin();
                 it != inner_stmt.end();
                 it++)
