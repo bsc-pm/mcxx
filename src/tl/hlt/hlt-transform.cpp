@@ -74,6 +74,12 @@ BaseTransform& BaseTransform::allow_identity()
     return *this;
 }
 
+BaseTransform& BaseTransform::allow_identity(bool b)
+{
+    _allow_identity = b;
+    return *this;
+}
+
 BaseTransform& BaseTransform::disallow_identity()
 {
     _allow_identity = false;

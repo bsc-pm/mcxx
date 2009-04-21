@@ -32,6 +32,17 @@
 
 using namespace TL::HLT;
 
+static bool _allow_identity = true;
+static std::string _allow_identity_str;
+
+static void update_identity_flag(const std::string str)
+{
+    TL::parse_boolean_option("disable_identity",
+            str,
+            _allow_identity,
+            "Option 'disable_identity' is a boolean flag");
+}
+
 HLTPragmaPhase::HLTPragmaPhase()
     : PragmaCustomCompilerPhase("hlt")
 {
@@ -56,6 +67,13 @@ HLTPragmaPhase::HLTPragmaPhase()
 
     register_construct("collapse");
     on_directive_post["collapse"].connect(functor(&HLTPragmaPhase::collapse_loop, *this));
+
+    _allow_identity_str = "1";
+
+    register_parameter("allow_identity", 
+            "Use this to disable identity, this is for testing only",
+            _allow_identity_str,
+            "true").connect(functor( update_identity_flag ));
 }
 
 void HLTPragmaPhase::run(TL::DTO& dto)
@@ -79,7 +97,7 @@ void HLTPragmaPhase::run(TL::DTO& dto)
 static void unroll_loop_fun(TL::ForStatement for_stmt,
         int unroll_factor)
 {
-    TL::Source unrolled_loop_src = TL::HLT::unroll_loop(for_stmt,  unroll_factor);
+    TL::Source unrolled_loop_src = TL::HLT::unroll_loop(for_stmt,  unroll_factor).allow_identity(_allow_identity);
 
     TL::AST_t unrolled_loop_tree = unrolled_loop_src.parse_statement(for_stmt.get_ast(),
             for_stmt.get_scope_link());
@@ -124,6 +142,12 @@ void HLTPragmaPhase::unroll_loop(PragmaCustomConstruct construct)
 
     ObjectList<ForStatement> for_statement_list = get_all_sibling_for_statements(statement);
 
+    if (!_allow_identity
+            && for_statement_list.empty())
+    {
+        throw HLTException(construct, "not found any suitable construct for this pragma");
+    }
+
     std::for_each(for_statement_list.begin(), for_statement_list.end(),
             std::bind2nd(std::ptr_fun(unroll_loop_fun), unroll_factor));
 
@@ -134,7 +158,7 @@ static void block_loop_fun(TL::ForStatement for_stmt,
         TL::ObjectList<TL::Expression> factors_list)
 {
     // ForStatement &for_stmt(*it);
-    TL::Source blocked_loop_src = TL::HLT::block_loop(for_stmt, factors_list);
+    TL::Source blocked_loop_src = TL::HLT::block_loop(for_stmt, factors_list).allow_identity(_allow_identity);
 
     TL::AST_t blocked_loop_tree = blocked_loop_src.parse_statement(for_stmt.get_ast(),
             for_stmt.get_scope_link());
@@ -155,6 +179,12 @@ void HLTPragmaPhase::block_loop(PragmaCustomConstruct construct)
         throw HLTException(construct, "'#pragma hlt block' requires a clause 'factors' with a list of block factors");
     }
 
+    if (!_allow_identity
+            && for_statement_list.empty())
+    {
+        throw HLTException(construct, "not found any suitable construct for this pragma");
+    }
+
     TL::ObjectList<TL::Expression> factors_list = factors_clause.get_expression_list();
     std::for_each(for_statement_list.begin(), for_statement_list.end(),
             std::bind2nd(std::ptr_fun(block_loop_fun), factors_list));
@@ -166,7 +196,7 @@ void HLTPragmaPhase::block_loop(PragmaCustomConstruct construct)
 void distribute_loop_fun(TL::ForStatement for_stmt,
         TL::ObjectList<TL::Symbol> expanded_syms)
 {
-    TL::Source distributed_loop_src = TL::HLT::distribute_loop(for_stmt, expanded_syms);
+    TL::Source distributed_loop_src = TL::HLT::distribute_loop(for_stmt, expanded_syms).allow_identity(_allow_identity);
 
     TL::AST_t distributed_loop_tree = distributed_loop_src.parse_statement(for_stmt.get_ast(),
             for_stmt.get_scope_link());
@@ -198,6 +228,12 @@ void HLTPragmaPhase::distribute_loop(PragmaCustomConstruct construct)
         //     }
         // }
         expanded_syms.insert(id_expression_list.map(functor(&IdExpression::get_symbol)));
+    }
+
+    if (!_allow_identity
+            && for_statement_list.empty())
+    {
+        throw HLTException(construct, "not found any suitable construct for this pragma");
     }
 
     std::for_each(for_statement_list.begin(), for_statement_list.end(),
@@ -232,6 +268,12 @@ void HLTPragmaPhase::fuse_loops(PragmaCustomConstruct construct)
             {
                 kept_statements << (*it);
             }
+        }
+
+        if (!_allow_identity
+                && for_statement_list.empty())
+        {
+            throw HLTException(construct, "not found any suitable construct for this pragma");
         }
 
         if (for_statement_list.size() > 1)
@@ -273,7 +315,7 @@ static int evaluate_expr(TL::Expression expr)
 void interchange_loops_fun(TL::ForStatement for_stmt,
         TL::ObjectList<int> permutation_list)
 {
-    TL::Source interchange_src = TL::HLT::loop_interchange(for_stmt, permutation_list);
+    TL::Source interchange_src = TL::HLT::loop_interchange(for_stmt, permutation_list).allow_identity(_allow_identity);
 
     TL::AST_t interchange_tree = interchange_src.parse_statement(for_stmt.get_ast(),
             for_stmt.get_scope_link());
@@ -300,6 +342,12 @@ void HLTPragmaPhase::interchange_loops(PragmaCustomConstruct construct)
     TL::ObjectList<int> permutation_list;
     std::transform(expr_list.begin(), expr_list.end(), std::back_inserter(permutation_list), evaluate_expr);
 
+    if (!_allow_identity
+            && for_statement_list.empty())
+    {
+        throw HLTException(construct, "not found any suitable construct for this pragma");
+    }
+
     std::for_each(for_statement_list.begin(), for_statement_list.end(),
             std::bind2nd(std::ptr_fun(interchange_loops_fun), permutation_list));
 
@@ -308,7 +356,7 @@ void HLTPragmaPhase::interchange_loops(PragmaCustomConstruct construct)
 
 void collapse_loop_fun(TL::ForStatement for_stmt)
 {
-    TL::Source collapsed_loop_src = TL::HLT::loop_collapse(for_stmt);
+    TL::Source collapsed_loop_src = TL::HLT::loop_collapse(for_stmt).allow_identity(_allow_identity);
 
     TL::AST_t collapsed_loop_tree = collapsed_loop_src.parse_statement(for_stmt.get_ast(),
             for_stmt.get_scope_link());
@@ -319,6 +367,12 @@ void HLTPragmaPhase::collapse_loop(PragmaCustomConstruct construct)
     Statement statement = construct.get_statement();
 
     ObjectList<ForStatement> for_statement_list = get_all_sibling_for_statements(statement);
+
+    if (!_allow_identity
+            && for_statement_list.empty())
+    {
+        throw HLTException(construct, "not found any suitable construct for this pragma");
+    }
 
     std::for_each(for_statement_list.begin(), for_statement_list.end(),
             std::ptr_fun(collapse_loop_fun));

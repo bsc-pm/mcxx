@@ -48,6 +48,23 @@ LoopUnroll::LoopUnroll(ForStatement for_stmt, unsigned int factor)
     }
 }
 
+static bool there_is_declaration(TL::Statement st)
+{
+    if (st.is_compound_statement())
+    {
+        TL::ObjectList<TL::Statement> list = st.get_inner_statements();
+        for (TL::ObjectList<TL::Statement>::iterator it = list.begin();
+                it != list.end();
+                it++)
+        {
+            if (TL::Declaration::predicate(it->get_ast()))
+                return true;
+        }
+    }
+    
+    return false;
+}
+
 TL::Source LoopUnroll::do_unroll()
 {
     // Get parts of the loop
@@ -114,9 +131,26 @@ TL::Source LoopUnroll::do_unroll()
         }
 
         Statement replaced_body = replacement.replace(loop_body);
-        replicated_body
-            << replaced_body
-            ;
+
+        if (!replaced_body.is_compound_statement()
+                || there_is_declaration(replaced_body))
+        {
+         replicated_body
+             << replaced_body
+             ;
+        }
+        else
+        {
+            ObjectList<Statement> list = replaced_body.get_inner_statements();
+            for (ObjectList<Statement>::iterator it = list.begin();
+                    it != list.end();
+                    it++)
+            {
+                replicated_body
+                    << *it
+                    ;
+            }
+        }
     }
 
     return result;

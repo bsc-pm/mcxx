@@ -54,6 +54,7 @@ namespace TL
                  virtual ~BaseTransform() { }
 
                  BaseTransform& allow_identity();
+                 BaseTransform& allow_identity(bool b);
                  BaseTransform& disallow_identity();
         };
     }
