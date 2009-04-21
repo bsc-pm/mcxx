@@ -33,6 +33,9 @@
 #include "cxx-typeutils.h"
 #include "cxx-scopelink.h"
 
+// We need this to fix nodes
+#include "cxx-tltype.h"
+
 // Definition of the type
 struct AST_tag
 {
@@ -347,6 +350,202 @@ static void ast_copy_one_node(AST dest, AST orig)
     dest->children = 0;
 }
 
+static char ast_is_parent_rec(const_AST parent, const_AST current)
+{
+    if (current == NULL)
+        return 0;
+
+    if (parent == current)
+        return 1;
+    else
+    {
+        return ast_is_parent_rec(parent, ASTParent(current));
+    }
+}
+
+static char ast_is_parent(const_AST parent, const_AST a)
+{
+    return ast_is_parent_rec(parent, a);
+}
+
+// This function returns the number of son of current tree, -1 if node does not have parent
+static int ast_get_number_of_son(const_AST a)
+{
+    if (ASTParent(a) == NULL)
+        return -1;
+
+    const_AST parent = ASTParent(a);
+
+    int i;
+    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    {
+        if (ASTChild(parent, i) == a)
+            return i;
+    }
+    internal_error("invalid chaining of trees", 0);
+}
+
+static void ast_fix_one_ast_field_rec(
+        AST new, 
+        const_AST orig, 
+        const char *field_name, 
+        // AST pointed_tree,
+        /* Recursion info */
+        const_AST current,
+        int path_length,
+        int *path)
+{
+
+    if (current == orig)
+    {
+        // Now retrace all the path using 'new' as the source
+        int i;
+        AST iter = new;
+        // Note that since we built the list backwards, we have to traverse it
+        // backwards
+        for (i = path_length - 1; i >= 0; i--)
+        {
+            iter = ASTChild(iter, path[i]);
+            if (iter == NULL)
+                internal_error("unreachable code", 0);
+        }
+
+        fprintf(stderr, " to %p\n", iter);
+
+        // Now update node 'new' with 'iter'
+        ASTAttrSetValueType(new, field_name, tl_type_t, tl_ast(iter));
+    }
+    else if (current == NULL)
+    {
+        internal_error("unreachable code", 0);
+    }
+    else
+    {
+        // New path length
+        int new_path_length = path_length + 1;
+
+        // Compute new path (note, path is backwards built)
+        int new_path[new_path_length];
+
+        // !!! We rely on memcpy not doing anything when size copied is 0
+        memcpy(new_path, path, path_length * sizeof(new_path[0]));
+
+        new_path[new_path_length - 1] = ast_get_number_of_son(current);
+
+        // New current node
+        AST new_current = ASTParent(current);
+
+        ast_fix_one_ast_field_rec(
+                new,
+                orig,
+                field_name,
+                // Recursion info
+                new_current,
+                new_path_length,
+                new_path);
+    }
+}
+
+static void ast_fix_one_ast_field(
+        AST new, 
+        const_AST orig, 
+        const char *field_name, 
+        const_AST pointed_tree)
+{
+    fprintf(stderr, "Fixing reference '%s' of %p from %p", field_name, new, pointed_tree);
+    ast_fix_one_ast_field_rec(
+            new,
+            orig,
+            field_name,
+            pointed_tree,
+            0,
+            NULL);
+}
+
+// Note that fixing must be performed later
+static void ast_copy_extended_data(AST new, const_AST orig)
+{
+    if (orig->extended_data == NULL)
+    {
+        new->extended_data = NULL;
+        return;
+    }
+
+    new->extended_data = counted_calloc(1, sizeof(*(new->extended_data)), &_bytes_due_to_astmake);
+    extensible_struct_init(new->extended_data, &ast_extensible_schema);
+
+    int num_fields = extensible_struct_get_num_fields(&ast_extensible_schema,
+            orig->extended_data);
+    int i;
+    for (i = 0; i < num_fields; i++)
+    {
+        const char* field_name = extensible_struct_get_field_num(&ast_extensible_schema,
+                orig->extended_data, i);
+
+        char is_found = 0;
+        void* data = extensible_struct_get_field_pointer_lazy(&ast_extensible_schema,
+                orig->extended_data, field_name, &is_found);
+        if (data != NULL)
+        {
+            tl_type_t* tl_data = (tl_type_t*)data;
+            ASTAttrSetValueType(new, field_name, tl_type_t, (*tl_data));
+        }
+    }
+}
+
+// Use this to fix extended data pointing to other ASTs
+static void ast_fix_extended_data(AST new, const_AST orig)
+{
+    if (orig->extended_data == NULL)
+        return;
+
+    // First get all TL_AST in 'orig' that point to its childrens
+    int num_fields = extensible_struct_get_num_fields(&ast_extensible_schema,
+            orig->extended_data);
+
+    typedef
+    struct tl_data_index_tag
+    {
+        const char* field_name;
+        AST ast;
+    } tl_data_index_t;
+
+    tl_data_index_t tl_data_index[num_fields];
+    memset(tl_data_index, 0, sizeof(tl_data_index));
+    int num_ast_fields = 0;
+
+    int i;
+    for (i = 0; i < num_fields; i++)
+    {
+        const char* field_name = extensible_struct_get_field_num(&ast_extensible_schema,
+                orig->extended_data, i);
+
+        char is_found = 0;
+        void* data = extensible_struct_get_field_pointer_lazy(&ast_extensible_schema,
+                orig->extended_data, field_name, &is_found);
+        tl_type_t* tl_data = (tl_type_t*)data;
+
+        if (data != NULL
+                && tl_data->kind == TL_AST
+                && tl_data->data._ast != NULL)
+        {
+            if (ast_is_parent(/* potential parent */ orig, /* node */ tl_data->data._ast))
+            {
+                tl_data_index[num_ast_fields].field_name = field_name;
+                tl_data_index[num_ast_fields].ast = tl_data->data._ast;
+                num_ast_fields++;
+
+            }
+        }
+    }
+
+    // num_ast_fields contains the number of fixable trees
+    for (i = 0; i < num_ast_fields; i++)
+    {
+        ast_fix_one_ast_field(new, orig, tl_data_index[i].field_name, tl_data_index[i].ast);
+    }
+}
+
 AST ast_copy(const_AST a)
 {
     if (a == NULL)
@@ -380,6 +579,10 @@ AST ast_copy(const_AST a)
     }
 
     result->parent = NULL;
+
+    // Adjust TL_AST extended fields stored in a with the proper son
+    ast_copy_extended_data(result, a);
+    ast_fix_extended_data(result, a);
 
     return result;
 }
@@ -452,6 +655,8 @@ AST ast_copy_for_instantiation(const_AST a)
     }
 
     result->parent = NULL;
+
+    ast_fix_extended_data(result, a);
 
     return result;
 }
@@ -842,6 +1047,9 @@ static AST ast_copy_with_scope_link_rec(AST a, scope_link_t* sl)
         ast_set_text(result, uniquestr(ASTText(a)));
     }
     ast_set_parent(result, NULL);
+
+    ast_copy_extended_data(result, a);
+    ast_fix_extended_data(result, a);
 
     return result;
 }
