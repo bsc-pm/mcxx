@@ -1,6 +1,7 @@
 #ifndef TL_FOR_NEST_HPP
 #define TL_FOR_NEST_HPP
 
+#include <tl-common.hpp>
 #include <tl-statement.hpp>
 
 namespace TL
@@ -9,7 +10,7 @@ namespace TL
        This class is useful when finding nested loops. This class handles
        perfect and nonperfect nest loops.
        */
-    class ForNestInfo : public Object
+    class LIBTL_CLASS ForNestInfo : public Object
     {
         private:
             bool contains_a_for_statement(Statement stmt);
