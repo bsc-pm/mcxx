@@ -2686,23 +2686,35 @@ void class_type_get_instantiation_trees(type_t* t, AST *body, AST *base_clause)
     *base_clause = t->type->template_class_base_clause;
 }
 
-// FIXME - This function should be public and be called 'is_unnamed_enum_type'
-static char is_enum_type(struct type_tag* t)
+char is_enumerated_type(type_t* t)
 {
+    return is_unnamed_enumerated_type(t)
+        || is_named_enumerated_type(t);
+}
+
+char is_unnamed_enumerated_type(struct type_tag* t)
+{
+    t = advance_over_typedefs(t);
     return (t != NULL
             && t->kind == TK_DIRECT
             && t->type->kind == STK_ENUM);
 }
 
+char is_named_enumerated_type(struct type_tag* t)
+{
+    return (is_named_type(t)
+            && is_unnamed_enumerated_type(named_type_get_symbol(t)->type_information));
+}
+
 void enum_type_set_complete(struct type_tag* enum_type)
 {
-    ERROR_CONDITION(!is_enum_type(enum_type), "This is not an enum type", 0);
+    ERROR_CONDITION(!is_unnamed_enumerated_type(enum_type), "This is not an enum type", 0);
     enum_type->type->is_incomplete = 0;
 }
 
 void enum_type_add_enumerator(type_t* t, scope_entry_t* enumeration_item)
 {
-    ERROR_CONDITION(!is_enum_type(t), "This is not an enum type", 0);
+    ERROR_CONDITION(!is_unnamed_enumerated_type(t), "This is not an enum type", 0);
     simple_type_t* enum_type = t->type;
     P_LIST_ADD(enum_type->enum_info->enumeration_list, 
             enum_type->enum_info->num_enumeration,
@@ -4300,22 +4312,6 @@ char is_pointer_to_member_type(type_t* t)
             && t->kind == TK_POINTER_TO_MEMBER);
 }
 
-char is_enumerated_type(type_t* t)
-{
-    // Advance over typedefs
-    t = advance_over_typedefs(t);
-
-    return (t != NULL
-            && ( 
-                (t->kind == TK_DIRECT 
-                 && t->type->kind == STK_ENUM)
-                || (is_named_type(t) 
-                    && is_enumerated_type(
-                        named_type_get_symbol(t)
-                        ->type_information))
-               )
-           );
-}
 
 char is_named_type(type_t* t)
 {
@@ -7457,7 +7453,7 @@ char is_incomplete_type(type_t* t)
     {
         return is_incomplete_type(named_type_get_symbol(t)->type_information);
     }
-    else if (is_enum_type(t)
+    else if (is_unnamed_enumerated_type(t)
             || is_unnamed_class_type(t))
     {
         return t->type->is_incomplete;

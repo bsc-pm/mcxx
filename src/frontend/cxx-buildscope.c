@@ -4811,15 +4811,8 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         }
     }
 
-    // If the type is unnamed, update it
-    // FIXME - What about
-    //
-    // typedef enum { B = 3 } A;
-    //
-    // ??
-    if (is_unnamed_class_type(declarator_type) 
-            && (is_class_type(declarator_type) 
-                || is_enumerated_type(declarator_type)))
+    if (is_unnamed_class_type(declarator_type)
+            || is_unnamed_enumerated_type(declarator_type))
     {
         if (is_class_type(declarator_type))
         {
