@@ -56,13 +56,3 @@ void upc_sign_in_builtins(decl_context_t decl_context)
     upc_UPC_MAX_BLOCK_SIZE->entity_specs.is_builtin = 1;
 }
 
-void register_upc_pragmae(void)
-{
-    // Register '#pragma upc'
-    config_add_preprocessor_prefix(compilation_process.current_compilation_configuration, "upc");
-    // Lexer already uses CURRENT_CONFIGURATION this is why it is not specified here
-    // Register '#pragma upc relaxed'
-    register_new_directive("upc", "relaxed", /* is_construct */ 0);
-    // Register '#pragma upc strict'
-    register_new_directive("upc", "strict", /* is_construct */ 0);
-}

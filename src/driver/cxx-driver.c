@@ -259,6 +259,11 @@ static int parse_parameter_flag(int *should_advance, const char *special_paramet
 
 static void list_environments(void);
 
+// FIXME: This should be in cxx-upc.c, but that file belongs to the frontend
+// where we cannot call driver functions, so we will implement here
+// maybe a better file to put it would be cxx-upc-driver.c
+static void register_upc_pragmae(void);
+
 static char show_help_message = 0;
 
 int main(int argc, char* argv[])
@@ -2419,6 +2424,17 @@ static void load_compiler_phases(void)
     {
         fprintf(stderr, "Compiler phases loaded in %.2f seconds\n", timing_elapsed(&loading_phases));
     }
+}
+
+static void register_upc_pragmae(void)
+{
+    // Register '#pragma upc'
+    config_add_preprocessor_prefix(compilation_process.current_compilation_configuration, "upc");
+    // Lexer already uses CURRENT_CONFIGURATION this is why it is not specified here
+    // Register '#pragma upc relaxed'
+    register_new_directive("upc", "relaxed", /* is_construct */ 0);
+    // Register '#pragma upc strict'
+    register_new_directive("upc", "strict", /* is_construct */ 0);
 }
 
 // Useful for debugging sessions

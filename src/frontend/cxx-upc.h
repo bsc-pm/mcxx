@@ -6,7 +6,6 @@
 MCXX_BEGIN_DECLS
 
 LIBMCXX_EXTERN void upc_sign_in_builtins(decl_context_t decl_context);
-LIBMCXX_EXTERN void register_upc_pragmae();
 
 MCXX_END_DECLS
 
