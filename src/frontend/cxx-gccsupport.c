@@ -129,28 +129,39 @@ static void gather_one_gcc_attribute(const char* attribute_name,
                     ast_location(expression_list));
         }
 
-        AST argument = advance_expression_nest(ASTSon1(expression_list));
-        if (ASTType(argument) == AST_DECIMAL_LITERAL)
+        // Evaluate the expression
+        AST argument = ASTSon1(expression_list);
+        if (check_for_expression(argument, decl_context))
         {
-            char valid_literal = 0;
-            literal_value_t literal_value = 
-                evaluate_constant_expression(argument, decl_context);
-            unsigned int vector_size = literal_value_to_uint(literal_value, &valid_literal);
+            if (!is_dependent_expression(argument, decl_context))
+            {
+                if (is_constant_expression(argument, decl_context))
+                {
+                    literal_value_t literal_value = evaluate_constant_expression(argument, decl_context);
+                    char is_valid = 0;
+                    int vector_size = literal_value_to_uint(literal_value, &is_valid);
 
-            if (valid_literal)
-            {
-                gather_info->vector_size = vector_size;
-                gather_info->is_vector = 1;
-            }
-            else
-            {
-                fprintf(stderr, "%s: warning: ignoring attribute 'vector_size' since the literal is not valid\n",
-                        ast_location(expression_list));
+                    if (is_valid)
+                    {
+                        gather_info->vector_size = vector_size;
+                        gather_info->is_vector = 1;
+                    }
+                    else
+                    {
+                        // This is maybe overly defensive
+                        internal_error("unreachable code", 0);
+                    }
+                }
+                else
+                {
+                    fprintf(stderr, "%s: warning: ignoring attribute 'vector_size' since the expression is not constant\n",
+                            ast_location(expression_list));
+                }
             }
         }
         else
         {
-            fprintf(stderr, "%s: warning: ignoring attribute 'vector_size'\n",
+            fprintf(stderr, "%s: warning: ignoring attribute 'vector_size' since the expression is not valid\n",
                     ast_location(expression_list));
         }
     }
