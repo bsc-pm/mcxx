@@ -41,6 +41,7 @@
 #include "cxx-gccsupport.h"
 #include "cxx-gccbuiltins.h"
 #include "cxx-gccspubuiltins.h"
+#include "cxx-upc.h"
 #include "cxx-lexer.h"
 #include "cxx-parser.h"
 #include "c99-parser.h"
@@ -55,8 +56,6 @@
  * that lookup and symbol registration are performed correctly. By no means
  * this is a full type checking phase
  */
-
-static AST internal_expression_parse(const char *source, decl_context_t decl_context);
 
 static void build_scope_declaration(AST a, decl_context_t decl_context);
 static void build_scope_declaration_sequence(AST a, decl_context_t decl_context);
@@ -351,6 +350,14 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
     {
         // This is reserved for C only
         gcc_sign_in_spu_builtins(decl_context);
+    }
+
+    C_LANGUAGE()
+    {
+        if (CURRENT_CONFIGURATION(enable_upc))
+        {
+            upc_sign_in_builtins(decl_context);
+        }
     }
 }
 
@@ -9294,7 +9301,7 @@ static AST get_enclosing_declaration(AST point_of_declarator)
     return point;
 }
 
-static AST internal_expression_parse(const char *source, decl_context_t decl_context)
+AST internal_expression_parse(const char *source, decl_context_t decl_context)
 {
     const char *mangled_text = strappend("@EXPRESSION@ ", source);
 

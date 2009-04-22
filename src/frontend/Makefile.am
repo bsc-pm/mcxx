@@ -100,6 +100,8 @@ libmcxx_la_SOURCES = \
   cxx-gccbuiltins.c \
   cxx-gccspubuiltins.h \
   cxx-gccspubuiltins.c \
+  cxx-upc.c \
+  cxx-upc.h \
   cxx-typeorder.h \
   cxx-typeorder.c \
   cxx-overload.c \

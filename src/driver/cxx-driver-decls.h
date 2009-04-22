@@ -54,6 +54,7 @@ typedef enum
     OPTION_LIST_ENVIRONMENTS,
     OPTION_PRINT_CONFIG_FILE,
     OPTION_PRINT_CONFIG_DIR,
+    OPTION_ENABLE_UPC,
 } COMMAND_LINE_OPTIONS;
 
 // Kind of source 
@@ -290,6 +291,8 @@ typedef struct compilation_configuration_tag
 
     // Unified Parallel C (UPC)
     char enable_upc;
+    // If this is not null, this should be constant expression
+    const char *upc_threads;
 } compilation_configuration_t;
 
 

@@ -56,6 +56,7 @@
 #include "cxx-lexer.h"
 #include "cxx-parser.h"
 #include "c99-parser.h"
+#include "cxx-upc.h"
 // It does not include any C++ code in the header
 #include "cxx-compilerphases.hpp"
 #include "mcfg.h"
@@ -136,6 +137,9 @@
 "                           only if the compiler has problems when\n" \
 "                           computing size of types. Please report\n" \
 "                           a bug, you should not need this option.\n" \
+"  --upc[=THREADS]          Enables UPC 1.2 syntactic support.\n" \
+"                           Optionally you can define a static \n" \
+"                           number of THREADS.\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -199,6 +203,7 @@ struct command_line_long_options command_line_long_options[] =
     {"list-env", CLP_NO_ARGUMENT, OPTION_LIST_ENVIRONMENTS},
     {"print-config-file", CLP_NO_ARGUMENT, OPTION_PRINT_CONFIG_FILE},
     {"print-config-dir", CLP_NO_ARGUMENT, OPTION_PRINT_CONFIG_DIR},
+    {"upc", CLP_OPTIONAL_ARGUMENT, OPTION_ENABLE_UPC},
     // sentinel
     {NULL, 0, 0}
 };
@@ -727,6 +732,16 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
                     {
                         printf("Default config directory: %s%s\n", compilation_process.home_directory, DIR_CONFIG_RELATIVE_PATH);
                         exit(EXIT_SUCCESS);
+                        break;
+                    }
+                case OPTION_ENABLE_UPC :
+                    {
+                        CURRENT_CONFIGURATION(enable_upc) = 1;
+                        if (parameter_info.argument != NULL)
+                        {
+                            fprintf(stderr, "UPC static THREADS=%s\n", parameter_info.argument);
+                            CURRENT_CONFIGURATION(upc_threads) = uniquestr(parameter_info.argument);
+                        }
                         break;
                     }
                 default:
@@ -1588,6 +1603,12 @@ static void commit_configuration(void)
             fprintf(stderr, "DRIVER: Using type environment '%s' for type size calculation\n",
                     CURRENT_CONFIGURATION(type_environment)->environ_name);
         }
+    }
+
+    // UPC support involves some specific pragmae
+    if (CURRENT_CONFIGURATION(enable_upc))
+    {
+        register_upc_pragmae();
     }
 }
 

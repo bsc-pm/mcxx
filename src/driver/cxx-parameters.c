@@ -203,8 +203,17 @@ static struct command_line_parameter_t parse_long_option(int *current_index,
                         if (((*current_index) + 1) < argc)
                         {
                             argument = argv[(*current_index) + 1];
-                            // Advance this index
-                            (*current_index)++;
+                            // Do not allow the argument to start an option
+                            if (!starts_short_option(argument)
+                                    && !starts_long_option(argument))
+                            {
+                                // Advance this index
+                                (*current_index)++;
+                            }
+                            else
+                            {
+                                argument = NULL;
+                            }
                         }
                     }
 

@@ -92,6 +92,8 @@ LIBMCXX_EXTERN void leave_class_specifier(void);
 
 LIBMCXX_EXTERN unsigned long long int buildscope_used_memory(void);
 
+LIBMCXX_EXTERN AST internal_expression_parse(const char *source, decl_context_t decl_context);
+
 MCXX_END_DECLS
 
 #endif // CXX_BUILDSCOPE_H

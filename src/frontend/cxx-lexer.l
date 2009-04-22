@@ -93,18 +93,19 @@ struct upc_keywords_tag
 
 upc_keywords_t upc_keywords[] =
 {
-    { "MYTHREAD", UPC_MYTHREAD },
+    // It is easier to sign these in as normal builtins
+    // { "MYTHREAD", UPC_MYTHREAD },
+    // { "THREADS", UPC_THREADS },
+    // { "UPC_MAX_BLOCKSIZE", UPC_MAX_BLOCKSIZE },
     { "relaxed", UPC_RELAXED },
     { "shared", UPC_SHARED },
     { "strict", UPC_STRICT },
-    { "THREADS", UPC_THREADS },
     { "upc_barrier", UPC_BARRIER },
     { "upc_blocksizeof", UPC_BLOCKSIZEOF },
     { "upc_elemsizeof", UPC_ELEMSIZEOF },
     { "upc_fence", UPC_FENCE },
     { "upc_forall", UPC_FORALL },
     { "upc_localsizeof", UPC_LOCALSIZEOF },
-    { "UPC_MAX_BLOCKSIZE", UPC_MAX_BLOCKSIZE },
     { "upc_notify", UPC_NOTIFY },
     { "upc_wait", UPC_WAIT },
     // Sentinel
@@ -1301,18 +1302,18 @@ runtime {
 
  /*!if C99*/
  /* UPC Extensions */
-"MYTHREAD" |
+ /* "MYTHREAD" | */
+ /* "THREADS" | */
+ /* "UPC_MAX_BLOCKSIZE" | */
 "relaxed" |
 "shared" |
 "strict" |
-"THREADS" |
 "upc_barrier" |
 "upc_blocksizeof" |
 "upc_elemsizeof" |
 "upc_fence" |
 "upc_forall" |
 "upc_localsizeof" |
-"UPC_MAX_BLOCKSIZE" |
 "upc_notify" |
 "upc_wait" {
     if (!CURRENT_CONFIGURATION(enable_upc))
