@@ -2323,7 +2323,9 @@ static void terminating_signal_handler(int sig)
 
     fprintf(stderr, "Signal handler called (signal=%d). Exiting.\n", sig);
 
-    if (!CURRENT_CONFIGURATION(debug_options).do_not_run_gdb)
+    if (!CURRENT_CONFIGURATION(debug_options).do_not_run_gdb
+            // Do not call the debugger for Ctrl-C
+            && sig != SIGINT)
         run_gdb();
 
     if (!in_cleanup_routine)
