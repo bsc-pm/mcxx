@@ -2438,7 +2438,7 @@ static void register_upc_pragmae(void)
 
     // mfarrera's + IBM UPC extension that annoyingly it is not prefixed with
     // 'upc' (as it ought to be!)
-    config_add_preprocessor_prefix(compilation_process.current_compilation_configuration, "distribute");
+    config_add_preprocessor_prefix(compilation_process.current_compilation_configuration, "distributed");
     // Register the empty directive since the syntax is '#pragma distribute'
     register_new_directive("distributed", "", /* is_construct */ 0);
 }
