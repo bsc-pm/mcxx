@@ -1097,12 +1097,19 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
                 gather_info->upc_shared_layout = ASTSon0(a);
                 if (gather_info->upc_shared_layout != NULL)
                 {
-                    AST layout_qualif_kind = ASTSon0(gather_info->upc_shared_layout);
+                    AST list = gather_info->upc_shared_layout;
+                    AST iter;
 
-                    if (layout_qualif_kind != NULL
-                            && ASTType(layout_qualif_kind) != AST_UPC_LAYOUT_UNDEF)
+                    for_each_element(list, iter)
                     {
-                        check_for_expression(layout_qualif_kind, decl_context);
+                        AST layout = ASTSon1(iter);
+                        AST layout_qualif_kind = ASTSon0(layout);
+
+                        if (layout_qualif_kind != NULL
+                                && ASTType(layout_qualif_kind) != AST_UPC_LAYOUT_UNDEF)
+                        {
+                            check_for_expression(layout_qualif_kind, decl_context);
+                        }
                     }
                 }
                 break;

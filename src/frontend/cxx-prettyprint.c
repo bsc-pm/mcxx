@@ -2458,7 +2458,10 @@ static void custom_construct_parameter(FILE *f, AST a, int level)
 
 static void pragma_custom_line_handler(FILE* f, AST a, int level)
 {
-    token_fprintf(f, a, "%s ", ASTText(a));
+    if (ASTText(a) != NULL)
+    {
+        token_fprintf(f, a, "%s ", ASTText(a));
+    }
     if (ASTSon1(a) != NULL)
     {
         token_fprintf(f, a, "(");

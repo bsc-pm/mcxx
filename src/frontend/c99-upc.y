@@ -17,6 +17,7 @@
 %type<ast> upc_shared_type_qualifier
 %type<ast> upc_reference_type_qualifier
 %type<ast> upc_layout_qualifier
+%type<ast> upc_layout_qualifier_element
 %type<ast> upc_synchronization_statement
 %type<ast> upc_expression_opt
 %type<ast> upc_affinity_opt
@@ -79,7 +80,18 @@ upc_reference_type_qualifier : UPC_RELAXED
 }
 ;
 
-upc_layout_qualifier : '[' ']'
+// UPC only allows one of these qualifiers but as an extension we allow a list
+upc_layout_qualifier: upc_layout_qualifier_element
+{
+    $$ = ASTListLeaf($1);
+}
+| upc_layout_qualifier upc_layout_qualifier_element
+{
+    $$ = ASTList($1, $2);
+}
+;
+
+upc_layout_qualifier_element : '[' ']'
 {
     $$ = ASTMake1(AST_UPC_LAYOUT_QUALIFIER, NULL, $1.token_file, $1.token_line, NULL);
 }

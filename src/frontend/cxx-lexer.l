@@ -434,6 +434,13 @@ threadprivate {
 
     pragma_directive_kind_t directive_kind = lookup_pragma_directive(current_pragma_prefix, yytext);
 
+    if (directive_kind == PDK_NONE)
+    {
+        // Give a chance to the empty "directive" since some ill-designed
+        // pragmas might need this
+        directive_kind = lookup_pragma_directive(current_pragma_prefix, "");
+    }
+
 	parse_token_text(); 
 
     int token = 0;
@@ -463,6 +470,13 @@ threadprivate {
 
     current_pragma_prefix = NULL;
     return token;
+}
+
+\n {
+    // This will cause a fail in the parser, but better this way than a silent \n mislexed
+    scanning_now.line_number++;
+	BEGIN(INITIAL);
+	return PRAGMA_CUSTOM_NEWLINE;
 }
 
 [ \t] {
