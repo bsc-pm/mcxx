@@ -2440,7 +2440,7 @@ static void register_upc_pragmae(void)
     // 'upc' (as it ought to be!)
     config_add_preprocessor_prefix(compilation_process.current_compilation_configuration, "distribute");
     // Register the empty directive since the syntax is '#pragma distribute'
-    register_new_directive("distribute", "", /* is_construct */ 0);
+    register_new_directive("distributed", "", /* is_construct */ 0);
 }
 
 // Useful for debugging sessions
