@@ -2725,9 +2725,8 @@ void enum_type_add_enumerator(type_t* t, scope_entry_t* enumeration_item)
 // This function returns a copy of the old type
 type_t* unnamed_class_enum_type_set_name(type_t* t, scope_entry_t* entry)
 {
-    ERROR_CONDITION (!(t->kind == TK_DIRECT 
-                && (t->type->kind == STK_CLASS
-                    || t->type->kind == STK_ENUM)), 
+    ERROR_CONDITION (!is_unnamed_class_type(t)
+            && !is_unnamed_enumerated_type(t),
             "This should be an unnamed enum or class\n", 0);
 
     _enum_type_counter++;
