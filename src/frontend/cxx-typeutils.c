@@ -2702,6 +2702,7 @@ char is_unnamed_enumerated_type(struct type_tag* t)
 
 char is_named_enumerated_type(struct type_tag* t)
 {
+    t = advance_over_typedefs(t);
     return (is_named_type(t)
             && is_unnamed_enumerated_type(named_type_get_symbol(t)->type_information));
 }
