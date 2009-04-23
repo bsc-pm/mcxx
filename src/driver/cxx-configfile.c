@@ -207,15 +207,22 @@ int config_add_compiler_phase(struct compilation_configuration_tag* config, cons
 
 int config_add_preprocessor_prefix(struct compilation_configuration_tag* config, const char* value)
 {
-    if (strcasecmp(value, "gcc") == 0)
+    const char *reserved[] = {
+        "gcc", 
+        "omp", 
+        "mcc",
+        "mcxx",
+        /* sentinel */ NULL
+    };
+    
+    int i;
+    for (i = 0; reserved[i] != NULL; i++)
     {
-        fprintf(stderr, "gcc is a reserved pragma prefix\n");
-        return 1;
-    }
-    if (strcasecmp(value, "omp") == 0)
-    {
-        fprintf(stderr, "omp is a reserved pragma prefix\n");
-        return 1;
+        if (strcasecmp(value, reserved[i]) == 0)
+        {
+            fprintf(stderr, "%s is a reserved pragma prefix\n", reserved[i]);
+            return 1;
+        }
     }
     
     // Reuse P_LIST_ADD
