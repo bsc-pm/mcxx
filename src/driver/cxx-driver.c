@@ -2435,6 +2435,12 @@ static void register_upc_pragmae(void)
     register_new_directive("upc", "relaxed", /* is_construct */ 0);
     // Register '#pragma upc strict'
     register_new_directive("upc", "strict", /* is_construct */ 0);
+
+    // mfarrera's + IBM UPC extension that annoyingly it is not prefixed with
+    // 'upc' (as it ought to be!)
+    config_add_preprocessor_prefix(compilation_process.current_compilation_configuration, "distribute");
+    // Register the empty directive since the syntax is '#pragma distribute'
+    register_new_directive("distribute", "", /* is_construct */ 0);
 }
 
 // Useful for debugging sessions
