@@ -270,7 +270,7 @@ namespace TL
         }
 
         // Get the scope and declarating context of the reference tree
-        CURRENT_CONFIGURATION(scope_link) = scope_link._scope_link;
+        CURRENT_CONFIGURATION->scope_link = scope_link._scope_link;
         decl_context_t decl_context = scope_link_get_decl_context(scope_link._scope_link, ref_tree._ast);
 
         if (a != NULL)
@@ -281,7 +281,7 @@ namespace TL
 
             if (!c && !do_not_check_expression)
             {
-                if (CURRENT_CONFIGURATION(strict_typecheck))
+                if (CURRENT_CONFIGURATION->strict_typecheck)
                 {
                     internal_error("Could not check expression '%s'\n", prettyprint_in_buffer(a));
                 }
@@ -292,7 +292,7 @@ namespace TL
             }
         }
 
-        CURRENT_CONFIGURATION(scope_link) = NULL;
+        CURRENT_CONFIGURATION->scope_link = NULL;
 
         AST_t result(a);
 

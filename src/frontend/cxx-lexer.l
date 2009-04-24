@@ -235,7 +235,7 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 	// OpenMP
 	if (strcmp(yytext, "omp") == 0)
 	{
-		if (CURRENT_CONFIGURATION(disable_openmp))
+		if (CURRENT_CONFIGURATION->disable_openmp)
 		{
 			fprintf(stderr, "%s:%d: warning: ignoring OpenMP directive\n",
 					scanning_now.current_filename,
@@ -264,9 +264,9 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 
 	if (!matched)
 	{
-		for (i = 0; i < CURRENT_CONFIGURATION(num_pragma_custom_prefix); i++)
+		for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)
 		{
-			if (strcmp(yytext, CURRENT_CONFIGURATION(pragma_custom_prefix[i])) == 0)
+			if (strcmp(yytext, CURRENT_CONFIGURATION->pragma_custom_prefix[i]) == 0)
             {
                 found = 1;
                 break;
@@ -288,7 +288,7 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 		{
 			BEGIN(pragma_custom_directive);
 			parse_token_text();
-            current_pragma_prefix = CURRENT_CONFIGURATION(pragma_custom_prefix[i]);
+            current_pragma_prefix = CURRENT_CONFIGURATION->pragma_custom_prefix[i];
 			return PRAGMA_CUSTOM;
 		}
 	}
@@ -1078,8 +1078,8 @@ runtime {
                 new_top_level_include->system_include = 1;
             }
 
-            P_LIST_ADD(CURRENT_COMPILED_FILE(top_level_include_list),
-                    CURRENT_COMPILED_FILE(num_top_level_includes),
+            P_LIST_ADD(CURRENT_COMPILED_FILE->top_level_include_list,
+                    CURRENT_COMPILED_FILE->num_top_level_includes,
                     new_top_level_include);
         }
     }
@@ -1290,7 +1290,7 @@ runtime {
 "__is_pod" |
 "__is_polymorphic" |
 "__is_union" {
-    if (CURRENT_CONFIGURATION(disable_gxx_type_traits))
+    if (CURRENT_CONFIGURATION->disable_gxx_type_traits)
     {
         parse_token_text();
         return IDENTIFIER;
@@ -1330,7 +1330,7 @@ runtime {
 "upc_localsizeof" |
 "upc_notify" |
 "upc_wait" {
-    if (!CURRENT_CONFIGURATION(enable_upc))
+    if (!CURRENT_CONFIGURATION->enable_upc)
     {
         parse_token_text();
         return IDENTIFIER;
@@ -1545,7 +1545,7 @@ int PREPARE_STRING_FOR_SCANNING(const char* str)
 	memset(&scanning_now, 0, sizeof(scanning_now));
 	scanning_now.line_number = 1;
 
-	const char* current_filename = CURRENT_COMPILED_FILE(input_filename);
+	const char* current_filename = CURRENT_COMPILED_FILE->input_filename;
 
     char c[256];
     sprintf(c, "%s%s-%d", TL_SOURCE_STRING, current_filename, num_string);
@@ -1621,15 +1621,15 @@ pragma_directive_kind_t lookup_pragma_directive(const char* prefix, const char* 
     if (strcmp(prefix, "omp") == 0)
     {
         // OpenMP is handled special
-        return lookup_pragma_directive_inner(&CURRENT_CONFIGURATION(pragma_omp_info), directive);
+        return lookup_pragma_directive_inner(&CURRENT_CONFIGURATION->pragma_omp_info, directive);
     }
 
     int i;
-    for (i = 0; i < CURRENT_CONFIGURATION(num_pragma_custom_prefix); i++)
+    for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)
     {
-        if (strcmp(CURRENT_CONFIGURATION(pragma_custom_prefix)[i], prefix) == 0)
+        if (strcmp(CURRENT_CONFIGURATION->pragma_custom_prefix[i], prefix) == 0)
         {
-            pragma_directive_set_t* pragma_directive_set = CURRENT_CONFIGURATION(pragma_custom_prefix_info)[i];
+            pragma_directive_set_t* pragma_directive_set = CURRENT_CONFIGURATION->pragma_custom_prefix_info[i];
             return lookup_pragma_directive_inner(pragma_directive_set, directive);
         }
     }
@@ -1656,16 +1656,16 @@ void register_new_directive(const char* prefix, const char* directive, char is_c
     if (strcmp(prefix, "omp") == 0)
     {
         // OpenMP is handled special
-        register_new_directive_inner(&CURRENT_CONFIGURATION(pragma_omp_info), directive, kind);
+        register_new_directive_inner(&CURRENT_CONFIGURATION->pragma_omp_info, directive, kind);
         return;
     }
 
     int i;
-    for (i = 0; i < CURRENT_CONFIGURATION(num_pragma_custom_prefix); i++)
+    for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)
     {
-        if (strcmp(CURRENT_CONFIGURATION(pragma_custom_prefix)[i], prefix) == 0)
+        if (strcmp(CURRENT_CONFIGURATION->pragma_custom_prefix[i], prefix) == 0)
         {
-            pragma_directive_set_t* pragma_directive_set = CURRENT_CONFIGURATION(pragma_custom_prefix_info)[i];
+            pragma_directive_set_t* pragma_directive_set = CURRENT_CONFIGURATION->pragma_custom_prefix_info[i];
 
             int j;
             for (j = 0; j < pragma_directive_set->num_directives; j++)

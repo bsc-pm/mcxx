@@ -52,7 +52,7 @@ void temporal_files_cleanup(void)
     {
         if (iter->info != NULL)
         {
-            if (CURRENT_CONFIGURATION(verbose))
+            if (CURRENT_CONFIGURATION->verbose)
             {
                 fprintf(stderr, "Removing temporal filename '%s'\n", iter->info->name);
             }
@@ -167,7 +167,7 @@ static int execute_program_flags_unix(const char* program_name, const char** arg
 
     execvp_arguments[i+1] = NULL;
 
-    if (CURRENT_CONFIGURATION(verbose))
+    if (CURRENT_CONFIGURATION->verbose)
     {
         int j = 0;
         while (execvp_arguments[j] != NULL)
@@ -323,7 +323,7 @@ static int execute_program_flags_win32(const char* program_name, const char** ar
         strcat(quoted_args_str, "\"");
     }
 
-    if (CURRENT_CONFIGURATION(verbose))
+    if (CURRENT_CONFIGURATION->verbose)
     {
         fprintf(stderr, "%s", quoted_args_str);
 

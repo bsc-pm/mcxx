@@ -26,9 +26,9 @@ namespace TL
     ObjectList<IncludeLine> CurrentFile::get_top_level_included_files()
     {
         ObjectList<IncludeLine> result;
-        for (int i = 0; i < CURRENT_COMPILED_FILE(num_top_level_includes); i++)
+        for (int i = 0; i < CURRENT_COMPILED_FILE->num_top_level_includes; i++)
         {
-            top_level_include_t *top_level_include = CURRENT_COMPILED_FILE(top_level_include_list)[i];
+            top_level_include_t *top_level_include = CURRENT_COMPILED_FILE->top_level_include_list[i];
             
             IncludeLine include_line(top_level_include->included_file, top_level_include->system_include);
             result.push_back(include_line);

@@ -263,10 +263,10 @@ namespace TL
             {
                 // This is blatantly inefficient, I know
                 // For every external variable
-                for (int i = 0; i < CURRENT_CONFIGURATION(num_external_vars); i++)
+                for (int i = 0; i < CURRENT_CONFIGURATION->num_external_vars; i++)
                 {
                     // And for every phase
-                    external_var_t* ext_var = CURRENT_CONFIGURATION(external_vars)[i];
+                    external_var_t* ext_var = CURRENT_CONFIGURATION->external_vars[i];
                     bool registered = false;
                     for (compiler_phases_t::iterator it = compiler_phases.begin();
                             it != compiler_phases.end();
@@ -328,12 +328,12 @@ extern "C"
 #ifndef WIN32_BUILD
     static void load_compiler_phases_cxx_unix(void)
     {
-        int num = CURRENT_CONFIGURATION(num_compiler_phases);
+        int num = CURRENT_CONFIGURATION->num_compiler_phases;
 
         int i;
         for (i = 0; i < num; i++)
         {
-            const char* library_name = CURRENT_CONFIGURATION(compiler_phases[i]);
+            const char* library_name = CURRENT_CONFIGURATION->compiler_phases[i];
             library_name = add_dso_extension(library_name);
 
             DEBUG_CODE()
@@ -401,12 +401,12 @@ extern "C"
 #else
     static void load_compiler_phases_cxx_win32(void)
     {
-        int num = CURRENT_CONFIGURATION(num_compiler_phases);
+        int num = CURRENT_CONFIGURATION->num_compiler_phases;
 
         int i;
         for (i = 0; i < num; i++)
         {
-            const char* library_name = CURRENT_CONFIGURATION(compiler_phases[i]);
+            const char* library_name = CURRENT_CONFIGURATION->compiler_phases[i];
             library_name = add_dso_extension(library_name);
 
             DEBUG_CODE()

@@ -40,7 +40,7 @@ namespace TL
 
     std::string CompilationConfiguration::get_current_configuration()
     {
-        return CURRENT_CONFIGURATION(configuration_name);
+        return CURRENT_CONFIGURATION->configuration_name;
     }
 
     CompiledFile CompilationProcess::add_file(
@@ -119,7 +119,7 @@ namespace TL
 
     CompiledFile CompilationProcess::get_current_file()
     {
-        CompiledFile result(CURRENT_COMPILED_FILE(input_filename));
+        CompiledFile result(CURRENT_COMPILED_FILE->input_filename);
         return result;
     }
 

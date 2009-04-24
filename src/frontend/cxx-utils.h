@@ -36,7 +36,7 @@ LIBMCXX_EXTERN void running_error(const char* message, ...) NORETURN;
 #define internal_error(message, ...) \
 { \
     debug_message(message, "Internal compiler error. Please report bug:\n", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__ ); \
-    if (CURRENT_CONFIGURATION(debug_options.abort_on_ice)) \
+    if (CURRENT_CONFIGURATION->debug_options.abort_on_ice) \
             raise(SIGABRT); \
     exit(EXIT_FAILURE); \
 }
@@ -52,7 +52,7 @@ LIBMCXX_EXTERN void debug_message(const char* message, const char* kind, const c
 { if (!(cond)) \
     { \
         debug_message((message), "Assertion failed (" #cond ")\n\t", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
-        if (CURRENT_CONFIGURATION(debug_options.abort_on_ice)) \
+        if (CURRENT_CONFIGURATION->debug_options.abort_on_ice) \
             raise(SIGABRT); \
         exit(EXIT_FAILURE); \
     } \
@@ -62,7 +62,7 @@ LIBMCXX_EXTERN void debug_message(const char* message, const char* kind, const c
 { if ((cond)) \
     { \
         debug_message((message), "Error condition (" #cond ")\n\t", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
-        if (CURRENT_CONFIGURATION(debug_options.abort_on_ice)) \
+        if (CURRENT_CONFIGURATION->debug_options.abort_on_ice) \
             raise(SIGABRT); \
         exit(EXIT_FAILURE); \
     } \
@@ -79,11 +79,11 @@ LIBMCXX_EXTERN const char* strprepend(const char* orig, const char* prepended);
 
 
 
-#define DEBUG_CODE() if (CURRENT_CONFIGURATION(debug_options.enable_debug_code))
-#define NOT_DEBUG_CODE() if (!CURRENT_CONFIGURATION(debug_options.enable_debug_code))
+#define DEBUG_CODE() if (CURRENT_CONFIGURATION->debug_options.enable_debug_code)
+#define NOT_DEBUG_CODE() if (!CURRENT_CONFIGURATION->debug_options.enable_debug_code)
 
-#define IS_CXX_LANGUAGE (CURRENT_CONFIGURATION(source_language) == SOURCE_LANGUAGE_CXX)
-#define IS_C_LANGUAGE (CURRENT_CONFIGURATION(source_language) == SOURCE_LANGUAGE_C)
+#define IS_CXX_LANGUAGE (CURRENT_CONFIGURATION->source_language == SOURCE_LANGUAGE_CXX)
+#define IS_C_LANGUAGE (CURRENT_CONFIGURATION->source_language == SOURCE_LANGUAGE_C)
 
 #define CXX_LANGUAGE() if (IS_CXX_LANGUAGE)
 #define C_LANGUAGE() if (IS_C_LANGUAGE)

@@ -265,8 +265,8 @@ static void system_v_union_sizeof(type_t* class_type)
     // Make it like an int
     if (max_offset == 0)
     {
-        max_offset = CURRENT_CONFIGURATION(type_environment)->sizeof_signed_int;
-        whole_align = CURRENT_CONFIGURATION(type_environment)->alignof_signed_int;
+        max_offset = CURRENT_CONFIGURATION->type_environment->sizeof_signed_int;
+        whole_align = CURRENT_CONFIGURATION->type_environment->alignof_signed_int;
     }
 
     type_set_size(class_type, max_offset);
@@ -1157,9 +1157,9 @@ static void cxx_abi_class_sizeof(type_t* class_type)
             // c) If C has no primary base class, allocate the virtual table pointer
             // for C at offset zero and set sizeof(C), align(C) and dsize(C) to the
             // appropriate values for a pointer
-            layout_info.size = CURRENT_CONFIGURATION(type_environment)->sizeof_pointer;
-            layout_info.align = CURRENT_CONFIGURATION(type_environment)->alignof_pointer;
-            layout_info.dsize = CURRENT_CONFIGURATION(type_environment)->sizeof_pointer;
+            layout_info.size = CURRENT_CONFIGURATION->type_environment->sizeof_pointer;
+            layout_info.align = CURRENT_CONFIGURATION->type_environment->alignof_pointer;
+            layout_info.dsize = CURRENT_CONFIGURATION->type_environment->sizeof_pointer;
 
         }
         else

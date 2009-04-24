@@ -17,9 +17,9 @@ void upc_sign_in_builtins(decl_context_t decl_context)
     upc_THREADS->do_not_print = 1;
     upc_THREADS->file = "(global scope)";
     upc_THREADS->entity_specs.is_builtin = 1;
-    if (CURRENT_CONFIGURATION(upc_threads) != NULL)
+    if (CURRENT_CONFIGURATION->upc_threads != NULL)
     {
-        upc_THREADS->expression_value = internal_expression_parse(CURRENT_CONFIGURATION(upc_threads), decl_context);
+        upc_THREADS->expression_value = internal_expression_parse(CURRENT_CONFIGURATION->upc_threads, decl_context);
     }
 
     // MYTHREAD

@@ -660,8 +660,8 @@ type_t* get_wchar_t_type(void)
             _type = get_simple_type();
             _type->type->kind = STK_BUILTIN_TYPE;
             _type->type->builtin_type = BT_WCHAR;
-            _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_wchar_t;
-            _type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_wchar_t;
+            _type->size = CURRENT_CONFIGURATION->type_environment->sizeof_wchar_t;
+            _type->alignment = CURRENT_CONFIGURATION->type_environment->alignof_wchar_t;
             _type->valid_size = 1;
         }
         // In C there is no wchar_t type, use 'int'
@@ -683,8 +683,8 @@ type_t* get_bool_type(void)
         _type = get_simple_type();
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_BOOL;
-        _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_bool;
-        _type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_bool;
+        _type->size = CURRENT_CONFIGURATION->type_environment->sizeof_bool;
+        _type->alignment = CURRENT_CONFIGURATION->type_environment->alignof_bool;
         _type->valid_size = 1;
     }
 
@@ -700,8 +700,8 @@ type_t* get_signed_int_type(void)
         _type = get_simple_type();
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_INT;
-        _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_signed_int;
-        _type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_signed_int;
+        _type->size = CURRENT_CONFIGURATION->type_environment->sizeof_signed_int;
+        _type->alignment = CURRENT_CONFIGURATION->type_environment->alignof_signed_int;
         _type->valid_size = 1;
     }
 
@@ -718,8 +718,8 @@ type_t* get_signed_short_int_type(void)
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_INT;
         _type->type->is_short = 1;
-        _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_signed_short;
-        _type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_signed_short;
+        _type->size = CURRENT_CONFIGURATION->type_environment->sizeof_signed_short;
+        _type->alignment = CURRENT_CONFIGURATION->type_environment->alignof_signed_short;
         _type->valid_size = 1;
     }
 
@@ -736,8 +736,8 @@ type_t* get_signed_long_int_type(void)
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_INT;
         _type->type->is_long = 1;
-        _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_signed_long;
-        _type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_signed_long;
+        _type->size = CURRENT_CONFIGURATION->type_environment->sizeof_signed_long;
+        _type->alignment = CURRENT_CONFIGURATION->type_environment->alignof_signed_long;
         _type->valid_size = 1;
     }
 
@@ -754,8 +754,8 @@ type_t* get_signed_long_long_int_type(void)
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_INT;
         _type->type->is_long = 2;
-        _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_signed_long_long;
-        _type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_signed_long_long;
+        _type->size = CURRENT_CONFIGURATION->type_environment->sizeof_signed_long_long;
+        _type->alignment = CURRENT_CONFIGURATION->type_environment->alignof_signed_long_long;
         _type->valid_size = 1;
     }
 
@@ -773,8 +773,8 @@ type_t* get_unsigned_int_type(void)
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_INT;
         _type->type->is_unsigned = 1;
-        _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_unsigned_int;
-        _type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_unsigned_int;
+        _type->size = CURRENT_CONFIGURATION->type_environment->sizeof_unsigned_int;
+        _type->alignment = CURRENT_CONFIGURATION->type_environment->alignof_unsigned_int;
         _type->valid_size = 1;
     }
 
@@ -783,9 +783,9 @@ type_t* get_unsigned_int_type(void)
 
 type_t* get_size_t_type(void)
 {
-    if (!CURRENT_CONFIGURATION(disable_sizeof))
+    if (!CURRENT_CONFIGURATION->disable_sizeof)
     {
-        return (CURRENT_CONFIGURATION(type_environment)->type_of_sizeof)();
+        return (CURRENT_CONFIGURATION->type_environment->type_of_sizeof)();
     }
     else
     {
@@ -804,8 +804,8 @@ type_t* get_unsigned_short_int_type(void)
         _type->type->builtin_type = BT_INT;
         _type->type->is_unsigned = 1;
         _type->type->is_short = 1;
-        _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_unsigned_short;
-        _type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_unsigned_short;
+        _type->size = CURRENT_CONFIGURATION->type_environment->sizeof_unsigned_short;
+        _type->alignment = CURRENT_CONFIGURATION->type_environment->alignof_unsigned_short;
         _type->valid_size = 1;
     }
 
@@ -823,8 +823,8 @@ type_t* get_unsigned_long_int_type(void)
         _type->type->builtin_type = BT_INT;
         _type->type->is_unsigned = 1;
         _type->type->is_long = 1;
-        _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_unsigned_long;
-        _type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_unsigned_long;
+        _type->size = CURRENT_CONFIGURATION->type_environment->sizeof_unsigned_long;
+        _type->alignment = CURRENT_CONFIGURATION->type_environment->alignof_unsigned_long;
         _type->valid_size = 1;
     }
 
@@ -842,8 +842,8 @@ type_t* get_unsigned_long_long_int_type(void)
         _type->type->builtin_type = BT_INT;
         _type->type->is_unsigned = 1;
         _type->type->is_long = 2;
-        _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_unsigned_long_long;
-        _type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_unsigned_long_long;
+        _type->size = CURRENT_CONFIGURATION->type_environment->sizeof_unsigned_long_long;
+        _type->alignment = CURRENT_CONFIGURATION->type_environment->alignof_unsigned_long_long;
         _type->valid_size = 1;
     }
 
@@ -859,8 +859,8 @@ type_t* get_float_type(void)
         _type = get_simple_type();
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_FLOAT;
-        _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_float;
-        _type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_float;
+        _type->size = CURRENT_CONFIGURATION->type_environment->sizeof_float;
+        _type->alignment = CURRENT_CONFIGURATION->type_environment->alignof_float;
         _type->valid_size = 1;
     }
 
@@ -876,8 +876,8 @@ type_t* get_double_type(void)
         _type = get_simple_type();
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_DOUBLE;
-        _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_double;
-        _type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_double;
+        _type->size = CURRENT_CONFIGURATION->type_environment->sizeof_double;
+        _type->alignment = CURRENT_CONFIGURATION->type_environment->alignof_double;
         _type->valid_size = 1;
     }
 
@@ -894,8 +894,8 @@ type_t* get_long_double_type(void)
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_DOUBLE;
         _type->type->is_long = 1;
-        _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_long_double;
-        _type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_long_double;
+        _type->size = CURRENT_CONFIGURATION->type_environment->sizeof_long_double;
+        _type->alignment = CURRENT_CONFIGURATION->type_environment->alignof_long_double;
         _type->valid_size = 1;
     }
 
@@ -958,8 +958,8 @@ type_t* get_gcc_builtin_va_list_type(void)
 
         result->type->kind = STK_VA_LIST;
 
-        result->size = CURRENT_CONFIGURATION(type_environment)->sizeof_builtin_va_list;
-        result->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_builtin_va_list;
+        result->size = CURRENT_CONFIGURATION->type_environment->sizeof_builtin_va_list;
+        result->alignment = CURRENT_CONFIGURATION->type_environment->alignof_builtin_va_list;
         result->valid_size = 1;
     }
 
@@ -1031,8 +1031,8 @@ type_t* get_new_enum_type(decl_context_t decl_context)
 
     // FIXME - This might be unsigned int or smaller if '-fshort-enums' is
     // enabled (it might be the default as determined by the ABI)
-    type_info->size = CURRENT_CONFIGURATION(type_environment)->sizeof_signed_int;
-    type_info->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_signed_int;
+    type_info->size = CURRENT_CONFIGURATION->type_environment->sizeof_signed_int;
+    type_info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_signed_int;
     type_info->valid_size = 1;
     // In C++ this must be computed
 
@@ -1736,13 +1736,13 @@ type_t* get_pointer_type(type_t* t)
 
         if (is_function_type(t))
         {
-            pointed_type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_function_pointer;
-            pointed_type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_function_pointer;
+            pointed_type->size = CURRENT_CONFIGURATION->type_environment->sizeof_function_pointer;
+            pointed_type->alignment = CURRENT_CONFIGURATION->type_environment->alignof_function_pointer;
         }
         else
         {
-            pointed_type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_pointer;
-            pointed_type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_pointer;
+            pointed_type->size = CURRENT_CONFIGURATION->type_environment->sizeof_pointer;
+            pointed_type->alignment = CURRENT_CONFIGURATION->type_environment->alignof_pointer;
         }
 
         pointed_type->valid_size = 1;
@@ -1860,16 +1860,16 @@ type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
         if (is_function_type(t))
         {
             pointer_to_member->size 
-                = CURRENT_CONFIGURATION(type_environment)->sizeof_pointer_to_member_function;
+                = CURRENT_CONFIGURATION->type_environment->sizeof_pointer_to_member_function;
             pointer_to_member->alignment
-                = CURRENT_CONFIGURATION(type_environment)->alignof_pointer_to_member_function;
+                = CURRENT_CONFIGURATION->type_environment->alignof_pointer_to_member_function;
         }
         else
         {
             pointer_to_member->size 
-                = CURRENT_CONFIGURATION(type_environment)->sizeof_pointer_to_data_member;
+                = CURRENT_CONFIGURATION->type_environment->sizeof_pointer_to_data_member;
             pointer_to_member->alignment
-                = CURRENT_CONFIGURATION(type_environment)->alignof_pointer_to_data_member;
+                = CURRENT_CONFIGURATION->type_environment->alignof_pointer_to_data_member;
         }
 
         pointer_to_member->valid_size = 1;
@@ -2002,7 +2002,7 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
     }
     else
     {
-        if (!CURRENT_CONFIGURATION(disable_sizeof)
+        if (!CURRENT_CONFIGURATION->disable_sizeof
                 && is_constant_expression(expression, decl_context))
         {
             char valid = 0;
@@ -7203,8 +7203,8 @@ type_t* get_zero_type(void)
         _zero_type = get_simple_type();
         _zero_type->type->kind = STK_BUILTIN_TYPE;
         _zero_type->type->builtin_type = BT_INT;
-        _zero_type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_signed_int;
-        _zero_type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_signed_int;
+        _zero_type->size = CURRENT_CONFIGURATION->type_environment->sizeof_signed_int;
+        _zero_type->alignment = CURRENT_CONFIGURATION->type_environment->alignof_signed_int;
         _zero_type->valid_size = 1;
     }
 
@@ -7222,8 +7222,8 @@ type_t* get_null_type(void)
         _null_type->type->kind = STK_BUILTIN_TYPE;
         _null_type->type->builtin_type = BT_INT;
 
-        _null_type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_pointer;
-        _null_type->alignment = CURRENT_CONFIGURATION(type_environment)->alignof_pointer;
+        _null_type->size = CURRENT_CONFIGURATION->type_environment->sizeof_pointer;
+        _null_type->alignment = CURRENT_CONFIGURATION->type_environment->alignof_pointer;
         _null_type->valid_size = 1;
 
         // Fix the underlying integer type
@@ -7233,16 +7233,16 @@ type_t* get_null_type(void)
         {
             _null_type->type->builtin_type = BT_CHAR;
         }
-        else if (_null_type->size == CURRENT_CONFIGURATION(type_environment)->sizeof_signed_short)
+        else if (_null_type->size == CURRENT_CONFIGURATION->type_environment->sizeof_signed_short)
         {
             // Set 'short'
             _null_type->type->is_short = 1;
         }
-        else if (_null_type->size == CURRENT_CONFIGURATION(type_environment)->sizeof_signed_int)
+        else if (_null_type->size == CURRENT_CONFIGURATION->type_environment->sizeof_signed_int)
         {
             // Do nothing
         }
-        else if (_null_type->size == CURRENT_CONFIGURATION(type_environment)->sizeof_signed_long)
+        else if (_null_type->size == CURRENT_CONFIGURATION->type_environment->sizeof_signed_long)
         {
             // Set 'long'
             _null_type->type->is_long = 1;
@@ -7853,7 +7853,7 @@ char type_is_runtime_sized(type_t* t)
 
 _size_t type_get_size(type_t* t)
 {
-    ERROR_CONDITION(CURRENT_CONFIGURATION(type_environment) == NULL,
+    ERROR_CONDITION(CURRENT_CONFIGURATION->type_environment == NULL,
             "Invalid type environment!", 0);
 
     CXX_LANGUAGE()
@@ -7908,7 +7908,7 @@ _size_t type_get_size(type_t* t)
         {
             // Let's assume that every other thing is aggregated and must have its size
             // computed
-            (CURRENT_CONFIGURATION(type_environment)->compute_sizeof)(t);
+            (CURRENT_CONFIGURATION->type_environment->compute_sizeof)(t);
         }
 
         ERROR_CONDITION(!t->valid_size, 

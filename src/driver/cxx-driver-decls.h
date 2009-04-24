@@ -308,8 +308,8 @@ typedef struct compilation_file_process_tag
     char already_compiled;
 } compilation_file_process_t;
 
-#define CURRENT_CONFIGURATION(x) (compilation_process.current_compilation_configuration->x)
-#define CURRENT_COMPILED_FILE(x) (compilation_process.current_translation_unit->x)
+#define CURRENT_CONFIGURATION (compilation_process.current_compilation_configuration)
+#define CURRENT_COMPILED_FILE (compilation_process.current_translation_unit)
 
 
 MCXX_END_DECLS

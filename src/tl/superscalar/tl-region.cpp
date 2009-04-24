@@ -177,12 +177,12 @@ namespace TL {
 	// Shamelessly copied from Source::parse_expression ( however we do not have any ongoing friendship with AST_t and ScopeLink ;) )
 	bool Region::check_expression(AST expression_ast, AST_t ref_ast, ScopeLink scope_link)
 	{
-		CURRENT_CONFIGURATION(scope_link) = scope_link.get_internal_scope_link();
+		CURRENT_CONFIGURATION->scope_link = scope_link.get_internal_scope_link();
 		decl_context_t decl_context = scope_link_get_decl_context(scope_link.get_internal_scope_link(), ref_ast.get_internal_ast());
 		enter_test_expression();
 		char c = check_for_expression(expression_ast, decl_context);
 		leave_test_expression();
-		CURRENT_CONFIGURATION(scope_link) = NULL;
+		CURRENT_CONFIGURATION->scope_link = NULL;
 		
 		scope_link_set(scope_link.get_internal_scope_link(), expression_ast, decl_context);
 		return (c != 0);

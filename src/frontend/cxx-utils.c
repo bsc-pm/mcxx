@@ -77,7 +77,7 @@ void running_error(const char* message, ...)
     va_end(ap);
     fprintf(stderr, "\n");
 
-    if (CURRENT_CONFIGURATION(debug_options.abort_on_ice))
+    if (CURRENT_CONFIGURATION->debug_options.abort_on_ice)
         raise(SIGABRT);
 
     free(sanitized_message);

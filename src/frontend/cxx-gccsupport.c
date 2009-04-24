@@ -206,7 +206,7 @@ static void gather_one_gcc_attribute(const char* attribute_name,
             if (size_mode[0] != 'V')
             {
                 // Do nothing if we don't do sizeof
-                if (!CURRENT_CONFIGURATION(disable_sizeof))
+                if (!CURRENT_CONFIGURATION->disable_sizeof)
                 {
                     /*
                        QI - An integer that is as wide as the smallest addressable unit, usually 8 bits.
@@ -245,7 +245,7 @@ static void gather_one_gcc_attribute(const char* attribute_name,
                         || strcmp(size_mode, "pointer") == 0)
                     {
                         fix_gather_type_to_match_mode(gather_info,
-                                /* floating */ 0, CURRENT_CONFIGURATION(type_environment)->sizeof_pointer);
+                                /* floating */ 0, CURRENT_CONFIGURATION->type_environment->sizeof_pointer);
                         found = 1;
                     }
                     else if (strcmp(size_mode, "__word__") == 0
@@ -254,7 +254,7 @@ static void gather_one_gcc_attribute(const char* attribute_name,
                         // what is word mode??? At the moment use the size of a long
                         // since it matches what gcc does
                         fix_gather_type_to_match_mode(gather_info,
-                                /* floating */ 0, CURRENT_CONFIGURATION(type_environment)->sizeof_signed_long);
+                                /* floating */ 0, CURRENT_CONFIGURATION->type_environment->sizeof_signed_long);
                         found = 1;
                     }
                     else if (strcmp(size_mode, "__byte__") == 0

@@ -201,7 +201,7 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
         case AST_SIZEOF :
         case AST_SIZEOF_TYPEID :
             {
-                if (!CURRENT_CONFIGURATION(disable_sizeof))
+                if (!CURRENT_CONFIGURATION->disable_sizeof)
                 {
                     return evaluate_sizeof(a, decl_context);
                 }
@@ -701,13 +701,13 @@ static void promote_values(literal_value_t v1, literal_value_t v2,
     else if (((out_v1->kind == LVK_SIGNED_LONG_LONG) && (out_v2->kind == LVK_UNSIGNED_LONG))
             || ((out_v1->kind == LVK_UNSIGNED_LONG) && (out_v2->kind == LVK_SIGNED_LONG_LONG)))
     {
-        if (!CURRENT_CONFIGURATION(disable_sizeof))
+        if (!CURRENT_CONFIGURATION->disable_sizeof)
         {
             // If sizeof(signed long long) == sizeof(unsigned long), a sizeof(signed long long)
             // won't be able to hold all the values of an 'unsigned long', so use 
             // 'unsigned long long'
-            if (CURRENT_CONFIGURATION(type_environment)->sizeof_signed_long_long
-                    == CURRENT_CONFIGURATION(type_environment)->sizeof_unsigned_long)
+            if (CURRENT_CONFIGURATION->type_environment->sizeof_signed_long_long
+                    == CURRENT_CONFIGURATION->type_environment->sizeof_unsigned_long)
             {
                 if (out_v1->kind == LVK_SIGNED_LONG_LONG
                         && out_v2->kind == LVK_UNSIGNED_LONG)
@@ -828,12 +828,12 @@ static void promote_values(literal_value_t v1, literal_value_t v2,
     else if (((out_v1->kind == LVK_SIGNED_LONG) && (out_v2->kind == LVK_UNSIGNED_INT))
             || ((out_v2->kind == LVK_SIGNED_LONG) && out_v1->kind == (LVK_UNSIGNED_INT)))
     {
-        if (!CURRENT_CONFIGURATION(disable_sizeof))
+        if (!CURRENT_CONFIGURATION->disable_sizeof)
         {
             // If sizeof(signed long) == sizeof(unsigned int), 'signed long' won't be able
             // to hold all values of the 'unsigned int', make the result an 'unsigned long'
-            if (CURRENT_CONFIGURATION(type_environment)->sizeof_signed_long
-                    == CURRENT_CONFIGURATION(type_environment)->sizeof_unsigned_int)
+            if (CURRENT_CONFIGURATION->type_environment->sizeof_signed_long
+                    == CURRENT_CONFIGURATION->type_environment->sizeof_unsigned_int)
             {
                 if (out_v1->kind == LVK_SIGNED_LONG 
                         && out_v2->kind == LVK_UNSIGNED_INT)

@@ -1339,7 +1339,7 @@ char check_for_expression(AST expression, decl_context_t decl_context)
             || (ASTExprType(expression) == NULL))
     {
         if (!checking_ambiguity() 
-                && CURRENT_CONFIGURATION(strict_typecheck))
+                && CURRENT_CONFIGURATION->strict_typecheck)
         {
             internal_error("Expression '%s' at '%s' does not have a valid computed type\n",
                     prettyprint_in_buffer(expression),
@@ -8486,7 +8486,7 @@ char check_for_initialization(AST initializer, decl_context_t decl_context, type
         }
     }
 
-    if (CURRENT_CONFIGURATION(strict_typecheck)
+    if (CURRENT_CONFIGURATION->strict_typecheck
             && !result)
     {
         internal_error("Initializer '%s' at '%s' does not have a valid computed type\n",
@@ -8913,7 +8913,7 @@ static char check_for_sizeof_expr(AST expr, decl_context_t decl_context)
     {
         type_t* t = ASTExprType(sizeof_expression);
 
-        if (!CURRENT_CONFIGURATION(disable_sizeof)
+        if (!CURRENT_CONFIGURATION->disable_sizeof
                 && !is_dependent_expr_type(t)
                 && !type_is_runtime_sized(t))
         {
@@ -8940,7 +8940,7 @@ static char check_for_sizeof_typeid(AST expr, decl_context_t decl_context)
     AST type_id = ASTSon0(expr);
     if (check_for_type_id_tree(type_id, decl_context))
     {
-        if (!CURRENT_CONFIGURATION(disable_sizeof))
+        if (!CURRENT_CONFIGURATION->disable_sizeof)
         {
             AST type_specifier = ASTSon0(type_id);
             AST abstract_declarator = ASTSon1(type_id);
