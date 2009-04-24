@@ -55,6 +55,7 @@ typedef enum
     OPTION_PRINT_CONFIG_FILE,
     OPTION_PRINT_CONFIG_DIR,
     OPTION_ENABLE_UPC,
+    OPTION_ENABLE_HLT,
 } COMMAND_LINE_OPTIONS;
 
 // Kind of source 
@@ -293,6 +294,9 @@ typedef struct compilation_configuration_tag
     char enable_upc;
     // If this is not null, this should be constant expression
     const char *upc_threads;
+
+    // Enable HLT
+    char enable_hlt;
 } compilation_configuration_t;
 
 

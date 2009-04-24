@@ -57,6 +57,7 @@
 #include "cxx-parser.h"
 #include "c99-parser.h"
 #include "cxx-upc.h"
+#include "cxx-configfile.h"
 // It does not include any C++ code in the header
 #include "cxx-compilerphases.hpp"
 #include "mcfg.h"
@@ -140,6 +141,8 @@
 "  --upc[=THREADS]          Enables UPC 1.2 syntactic support.\n" \
 "                           Optionally you can define a static \n" \
 "                           number of THREADS.\n" \
+"  --hlt                    Enable High Level Transformations\n" \
+"                           This enables '#pragma hlt'\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -204,6 +207,7 @@ struct command_line_long_options command_line_long_options[] =
     {"print-config-file", CLP_NO_ARGUMENT, OPTION_PRINT_CONFIG_FILE},
     {"print-config-dir", CLP_NO_ARGUMENT, OPTION_PRINT_CONFIG_DIR},
     {"upc", CLP_OPTIONAL_ARGUMENT, OPTION_ENABLE_UPC},
+    {"hlt", CLP_NO_ARGUMENT, OPTION_ENABLE_HLT},
     // sentinel
     {NULL, 0, 0}
 };
@@ -262,7 +266,6 @@ static void list_environments(void);
 // FIXME: This should be in cxx-upc.c, but that file belongs to the frontend
 // where we cannot call driver functions, so we will implement here
 // maybe a better file to put it would be cxx-upc-driver.c
-static void register_upc_pragmae(void);
 
 static char show_help_message = 0;
 
@@ -747,6 +750,11 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
                             fprintf(stderr, "UPC static THREADS=%s\n", parameter_info.argument);
                             CURRENT_CONFIGURATION(upc_threads) = uniquestr(parameter_info.argument);
                         }
+                        break;
+                    }
+                case OPTION_ENABLE_HLT :
+                    {
+                        CURRENT_CONFIGURATION(enable_hlt) = 1;
                         break;
                     }
                 default:
@@ -1538,6 +1546,8 @@ static void load_configuration(void)
     
 }
 
+static void finalize_committed_configuration(void);
+
 static void commit_configuration(void)
 {
     // For every configuration commit its options depending on flags
@@ -1610,11 +1620,54 @@ static void commit_configuration(void)
         }
     }
 
+    finalize_committed_configuration();
+}
+
+static void register_upc_pragmae(void);
+static void enable_hlt_phase(void);
+
+static void finalize_committed_configuration(void)
+{
     // UPC support involves some specific pragmae
     if (CURRENT_CONFIGURATION(enable_upc))
     {
         register_upc_pragmae();
     }
+
+    // HLT additional support
+    if (CURRENT_CONFIGURATION(enable_hlt))
+    {
+        enable_hlt_phase();
+    }
+}
+
+static void enable_hlt_phase(void)
+{
+    // -hlt is like adding the compiler phase of hlt and registering '#pragma hlt'
+    // Register '#pragma hlt'
+    config_add_preprocessor_prefix(compilation_process.current_compilation_configuration, "hlt");
+    // When loading the compiler phase a proper extension will be added
+    const char* library_name = "libtl-hlt-pragma";
+    P_LIST_ADD(CURRENT_CONFIGURATION(compiler_phases), 
+            CURRENT_CONFIGURATION(num_compiler_phases), 
+            library_name);
+}
+
+static void register_upc_pragmae(void)
+{
+    // Register '#pragma upc'
+    config_add_preprocessor_prefix(compilation_process.current_compilation_configuration, "upc");
+    // Lexer already uses CURRENT_CONFIGURATION this is why it is not specified here
+    // Register '#pragma upc relaxed'
+    register_new_directive("upc", "relaxed", /* is_construct */ 0);
+    // Register '#pragma upc strict'
+    register_new_directive("upc", "strict", /* is_construct */ 0);
+
+    // mfarrera's + IBM UPC extension that annoyingly it is not prefixed with
+    // 'upc' (as it ought to be!)
+    config_add_preprocessor_prefix(compilation_process.current_compilation_configuration, "distributed");
+    // Register the empty directive since the syntax is '#pragma distribute'
+    register_new_directive("distributed", "", /* is_construct */ 0);
 }
 
 static void compile_every_translation_unit(void)
@@ -2426,22 +2479,6 @@ static void load_compiler_phases(void)
     }
 }
 
-static void register_upc_pragmae(void)
-{
-    // Register '#pragma upc'
-    config_add_preprocessor_prefix(compilation_process.current_compilation_configuration, "upc");
-    // Lexer already uses CURRENT_CONFIGURATION this is why it is not specified here
-    // Register '#pragma upc relaxed'
-    register_new_directive("upc", "relaxed", /* is_construct */ 0);
-    // Register '#pragma upc strict'
-    register_new_directive("upc", "strict", /* is_construct */ 0);
-
-    // mfarrera's + IBM UPC extension that annoyingly it is not prefixed with
-    // 'upc' (as it ought to be!)
-    config_add_preprocessor_prefix(compilation_process.current_compilation_configuration, "distributed");
-    // Register the empty directive since the syntax is '#pragma distribute'
-    register_new_directive("distributed", "", /* is_construct */ 0);
-}
 
 // Useful for debugging sessions
 void _enable_debug(void)
