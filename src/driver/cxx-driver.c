@@ -837,7 +837,7 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
     for (i = 0; i < num_input_files; i++)
     {
         add_new_file_to_compilation_process(input_files[i],
-                output_file, compilation_process.current_compilation_configuration);
+                output_file, CURRENT_CONFIGURATION);
     }
 
     // If some output was given by means of -o and we are linking (so no -c neither -E nor -y)
@@ -1267,7 +1267,7 @@ static void initialize_default_values(void)
 
     // The minimal default configuration
     memset(&minimal_default_configuration, 0, sizeof(minimal_default_configuration));
-    compilation_process.current_compilation_configuration = &minimal_default_configuration;
+    CURRENT_CONFIGURATION = &minimal_default_configuration;
 
     if (default_environment == NULL)
     {
@@ -1321,7 +1321,7 @@ static int section_callback(const char* sname)
     // End of typing environment 
 
     // Set now as the current compilation configuration (kludgy)
-    compilation_process.current_compilation_configuration = new_compilation_configuration;
+    CURRENT_CONFIGURATION = new_compilation_configuration;
 
     // Check repeated configurations
     int i;
@@ -1527,21 +1527,21 @@ static void load_configuration(void)
     }
     
     // Now set the configuration as stated by the basename
-    compilation_process.current_compilation_configuration = NULL;
+    CURRENT_CONFIGURATION = NULL;
     for (i = 0; i < compilation_process.num_configurations; i++)
     {
         if (strcmp(compilation_process.configuration_set[i]->configuration_name, 
                     compilation_process.exec_basename) == 0)
         {
-            compilation_process.current_compilation_configuration = compilation_process.configuration_set[i];
+            CURRENT_CONFIGURATION = compilation_process.configuration_set[i];
         }
     }
 
-    if (compilation_process.current_compilation_configuration == NULL)
+    if (CURRENT_CONFIGURATION == NULL)
     {
         fprintf(stderr, "No suitable configuration defined for %s. Setting to C++ built-in configuration\n",
                compilation_process.exec_basename);
-        compilation_process.current_compilation_configuration = &minimal_default_configuration;
+        CURRENT_CONFIGURATION = &minimal_default_configuration;
     }
     
 }
@@ -1645,7 +1645,7 @@ static void enable_hlt_phase(void)
 {
     // -hlt is like adding the compiler phase of hlt and registering '#pragma hlt'
     // Register '#pragma hlt'
-    config_add_preprocessor_prefix(compilation_process.current_compilation_configuration, "hlt");
+    config_add_preprocessor_prefix(CURRENT_CONFIGURATION, "hlt");
     // When loading the compiler phase a proper extension will be added
     const char* library_name = "libtl-hlt-pragma";
     P_LIST_ADD(CURRENT_CONFIGURATION->compiler_phases, 
@@ -1656,7 +1656,7 @@ static void enable_hlt_phase(void)
 static void register_upc_pragmae(void)
 {
     // Register '#pragma upc'
-    config_add_preprocessor_prefix(compilation_process.current_compilation_configuration, "upc");
+    config_add_preprocessor_prefix(CURRENT_CONFIGURATION, "upc");
     // Lexer already uses CURRENT_CONFIGURATION this is why it is not specified here
     // Register '#pragma upc relaxed'
     register_new_directive("upc", "relaxed", /* is_construct */ 0);
@@ -1665,7 +1665,7 @@ static void register_upc_pragmae(void)
 
     // mfarrera's + IBM UPC extension that annoyingly it is not prefixed with
     // 'upc' (as it ought to be!)
-    config_add_preprocessor_prefix(compilation_process.current_compilation_configuration, "distributed");
+    config_add_preprocessor_prefix(CURRENT_CONFIGURATION, "distributed");
     // Register the empty directive since the syntax is '#pragma distribute'
     register_new_directive("distributed", "", /* is_construct */ 0);
 }
@@ -1681,10 +1681,10 @@ static void compile_every_translation_unit(void)
         if (file_process->already_compiled)
             continue;
 
-        compilation_process.current_compilation_configuration = file_process->compilation_configuration;
-        compilation_process.current_translation_unit = file_process->translation_unit;
+        CURRENT_CONFIGURATION = file_process->compilation_configuration;
+        CURRENT_COMPILED_FILE = file_process->translation_unit;
 
-        translation_unit_t* translation_unit = compilation_process.current_translation_unit;
+        translation_unit_t* translation_unit = CURRENT_COMPILED_FILE;
         
         // First check the file type
         const char* extension = get_extension_filename(translation_unit->input_filename);

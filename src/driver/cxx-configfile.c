@@ -100,15 +100,15 @@ int config_set_options(struct compilation_configuration_tag* config, const char*
     
     // Change the current configuration otherwise we will handle the parameters
     // in the wrong profile
-    struct compilation_configuration_tag* previous = compilation_process.current_compilation_configuration;
-    compilation_process.current_compilation_configuration = config;
+    struct compilation_configuration_tag* previous = CURRENT_CONFIGURATION;
+    CURRENT_CONFIGURATION = config;
 
     real_options[0] = uniquestr("mcxx");
 
     parse_arguments(num, real_options, /* from_command_line= */ 0);
 
     // Restore the original one
-    compilation_process.current_compilation_configuration = previous;
+    CURRENT_CONFIGURATION = previous;
 
     return 0;
 }
