@@ -34,7 +34,7 @@ foreach test $testcases {
     if {
         [catch { 
             set output_execution [eval exec $wrapper_tool $wrapper_options $full_path_tool \
-                "--config-file=./$subdir/config.mcxx" "--verbose" "--output-dir=." "-c" \
+                "--config-file=./$subdir/config.mcxx" "--profile=lt-mcxx" "--verbose" "--output-dir=." "-c" \
                 "-o" "${rootname_test}.o" "$test" "|&" "cat"] 
         } output_execution ]
     } {

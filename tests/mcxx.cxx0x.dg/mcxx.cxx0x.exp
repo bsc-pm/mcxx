@@ -24,7 +24,7 @@ foreach test $testcases {
     set output_execution ""
     if {
         [catch { 
-            set output_execution [exec "$full_path_tool" "--typecheck" "--config-file=$srcdir/$subdir/config.mcxx" "--verbose" "--output-dir=." "-y" \
+            set output_execution [exec "$full_path_tool" "--typecheck" "--config-file=$srcdir/$subdir/config.mcxx" "--profile=lt-mcxx" "--verbose" "--output-dir=." "-y" \
                 "-o" "-" "$test" "|&" "cat"] 
         } output_execution ]
     } {
