@@ -18,5 +18,7 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
+typedef __typeof__(*(L"")) wchar_t;
+
 char c[256] = "hello";
-int c1[256] = L"hello";
+wchar_t c1[256] = L"hello";
