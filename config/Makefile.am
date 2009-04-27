@@ -5,6 +5,7 @@ CONFIG_MCXX_IN = config.mcxx.in
 
 CONFIG_FILES_IN =  \
        config.acotes.in \
+       config.acotes-msf.in \
        config.nanos_omp.in \
        config.plain.in \
        config.stm_nebelung.in \

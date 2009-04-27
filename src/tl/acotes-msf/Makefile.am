@@ -2,16 +2,16 @@
 
 include ../Makefile.phases
 
-lib_LTLIBRARIES = libtlacotes.la libtlacotes-output.la
+lib_LTLIBRARIES = libtlacotes-msf.la libtlacotes-output-msf.la
 
 COMMON_CFLAGS= -Wall $(tl_cflags)
 
-libtlacotes_la_CFLAGS = $(COMMON_CFLAGS)
-libtlacotes_la_CXXFLAGS = $(COMMON_CFLAGS)
-libtlacotes_la_LDFLAGS = $(tl_ldflags)
-libtlacotes_la_LIBADD = $(tl_libadd) libtlacotes-output.la
+libtlacotes_msf_la_CFLAGS = $(COMMON_CFLAGS)
+libtlacotes_msf_la_CXXFLAGS = $(COMMON_CFLAGS)
+libtlacotes_msf_la_LDFLAGS = $(tl_ldflags)
+libtlacotes_msf_la_LIBADD = $(tl_libadd) libtlacotes-output-msf.la
 
-libtlacotes_la_SOURCES = \
+libtlacotes_msf_la_SOURCES = \
     ac-finalizer.cc \
     ac-finalizer.h \
     ac-forreplicate.cc \
@@ -103,13 +103,13 @@ libtlacotes_la_SOURCES = \
     tl-variabletransform.cc \
     tl-variabletransform.h
 
-libtlacotes_output_la_CFLAGS = $(COMMON_CFLAGS)
-libtlacotes_output_la_CXXFLAGS = $(COMMON_CFLAGS)
+libtlacotes_output_msf_la_CFLAGS = $(COMMON_CFLAGS)
+libtlacotes_output_msf_la_CXXFLAGS = $(COMMON_CFLAGS)
 
-libtlacotes_output_la_LDFLAGS = $(tl_ldflags)
-libtlacotes_output_la_LIBADD = $(tl_libadd)
+libtlacotes_output_msf_la_LDFLAGS = $(tl_ldflags)
+libtlacotes_output_msf_la_LIBADD = $(tl_libadd)
 
-libtlacotes_output_la_SOURCES = \
+libtlacotes_output_msf_la_SOURCES = \
     acotes-output.cpp \
     acotes-output.hpp \
     acotes-outputtasks.cpp \

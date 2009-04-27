@@ -293,6 +293,85 @@ AC_SUBST([ACOLIB_LIBS])
 
 dnl --------------------- End of Acotes support ---------------------
 
+dnl --------------------- Acotes-MSF support ---------------------
+
+is_enabled_tl_acotes_msf="no"
+
+acotes_msf_include=""
+acotes_msf_lib=""
+ACOTES_MSF_INCLUDES=""
+ACOTES_MSF_LIBS=""
+
+AC_MSG_CHECKING([if enabled ACOTES-MSF TL support])
+AC_ARG_ENABLE([tl-acotes-msf],
+  AS_HELP_STRING([--enable-tl-acotes-msf], [Enables generation of ACOTES-MSF TL Support]),
+  [
+    if test x$enableval = xyes -o x$enableval = x;
+    then
+        is_enabled_tl_acotes_msf="yes"
+        AC_MSG_RESULT([yes])
+    else if test x$enableval = xno;
+         then
+            AC_MSG_RESULT([no])
+            is_enabled_tl_acotes_msf="no"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+      is_enabled_tl_acotes_msf="no"
+      AC_MSG_RESULT([no])
+  ]
+)
+
+if test x$is_enabled_tl_acotes_msf = xyes;
+then
+   COMPILER_NAMES="${COMPILER_NAMES} acotes-msfcc"
+
+   TLEXTENSIONS="${TLEXTENSIONS} acotes-msf"
+
+   AC_ARG_WITH([acotes-msf],
+           AS_HELP_STRING([--with-acotes-msf=dir], [Directory of Acotes-MSF installation]),
+           [
+            acotes_msf_include="${withval}/include"
+            acotes_msf_lib="${withval}/lib"
+           ]
+   )
+
+   AC_ARG_WITH([acotes-msf-include],
+           AS_HELP_STRING([--with-acotes-msf-include=dir], [Directory of Acotes-MSF headers]),
+           [
+            acotes_msf_include="${withval}"
+           ]
+   )
+
+   AC_ARG_WITH([acotes-msf-lib],
+           AS_HELP_STRING([--with-acotes-msf-lib=dir], [Directory of Acotes-MSF libraries]),
+           [
+            acotes_msf_lib="${withval}"
+           ]
+   )
+
+   if test x$mintaka_include = x -o x$mintaka_lib = x;
+   then
+      AC_MSG_ERROR([Acotes-MSF support requires '--with-mintaka=dir'. See --help.])
+   fi
+
+   if test x$acotes_msf_include = x -o x$acotes_msf_lib = x;
+   then
+      AC_MSG_ERROR([Acotes-MSF support requires '--with-acotes-msf=dir'. See --help.])
+   fi
+
+   ACOTES_MSF_INCLUDES="${acotes_msf_include}"
+   ACOTES_MSF_LIBS="${acotes_msf_lib}"
+fi
+
+AC_SUBST([ACOTES_MSF_INCLUDES])
+AC_SUBST([ACOTES_MSF_LIBS])
+
+dnl --------------------- End of Acotes MSF support ---------------------
+
 dnl --------------------- Support for Nebeling ---------------------
 
 is_enabled_tl_nebelung="no"
@@ -891,6 +970,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/instr/Makefile 
            src/tl/instr_pthreads/Makefile 
            src/tl/acotes/Makefile
+           src/tl/acotes-msf/Makefile
            src/tl/stm_func/Makefile
            src/tl/testing/Makefile
            src/tl/testing/sizeof/Makefile
@@ -905,6 +985,7 @@ AC_CONFIG_FILES([Makefile
            config/config.plain
            config/config.nanos_omp
            config/config.acotes
+           config/config.acotes-msf
            config/config.stm_nebelung
            config/config.superscalar
            tests/Makefile
@@ -948,6 +1029,13 @@ if test x$is_enabled_tl_acotes = xyes;
 then
   echo "   Acolib includes :" $acolib_include
   echo "   Acolib libraries:" $acolib_lib
+fi
+echo ""
+echo " * Acotes-MSF :" $is_enabled_tl_acotes_msf
+if test x$is_enabled_tl_acotes_msf = xyes;
+then
+  echo "   Acotes-MSF includes :" $acotes_msf_include
+  echo "   Acotes-MSF libraries:" $acotes_msf_lib
 fi
 echo ""
 echo " * Nebelung :" $is_enabled_tl_nebelung

@@ -1,0 +1,15 @@
+# Acotes project
+[acotes-msfcc]
+language = C
+options =
+preprocessor_name = gcc
+# acolib.h or acolib-msf.h?
+preprocessor_options = -E -include pthread.h -include string.h -I @MINTAKA_INCLUDES@ -include mintaka.h -I @ACOTES_MSF_INCLUDES@ -include acolib.h
+compiler_name = gcc
+compiler_options =  -g -ggdb3  
+linker_name = gcc
+linker_options = -L @ACOTES_MSF_LIBS@ -l acolib -Wl,-rpath,@ACOTES_MSF_LIBS@ -l pthread -L @MINTAKA_LIBS@ -l mintaka -Wl,-rpath,@MINTAKA_LIBS@ -g -ggdb3
+compiler_phase = libtlacotes-msf.so
+# Did this change?
+pragma_prefix = acotes
+
