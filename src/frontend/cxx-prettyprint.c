@@ -39,6 +39,7 @@ typedef struct prettyprint_context_tag
     const char *indent_str;
     char internal_output;
     prettyprint_callback_t callback;
+    void *callback_data;
 } prettyprint_context_t;
 
 typedef
@@ -803,12 +804,13 @@ char* prettyprint_in_buffer(AST a)
     return prettyprint_in_buffer_common(a, prettyprint_level, &pt_ctx);
 }
 
-char* prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callback)
+char* prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callback, void *data)
 {
     prettyprint_context_t pt_ctx;
     prettyprint_context_init(&pt_ctx);
 
     pt_ctx.callback = callback;
+    pt_ctx.callback_data = data;
 
     return prettyprint_in_buffer_common(a, prettyprint_level, &pt_ctx);
 }
@@ -911,7 +913,7 @@ static void prettyprint_level(FILE* f, AST a, prettyprint_context_t* pt_ctx)
     const char* cb_result = NULL;
     if (pt_ctx->callback != NULL)
     {
-        cb_result = (pt_ctx->callback)(a);
+        cb_result = (pt_ctx->callback)(a, pt_ctx->callback_data);
     }
     // If the callback did not return anything use the normal handler
     if (cb_result == NULL)
