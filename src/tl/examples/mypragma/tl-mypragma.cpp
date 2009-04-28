@@ -40,22 +40,43 @@ namespace TL
 
             void construct_post(PragmaCustomConstruct pragma_custom_construct)
             {
-                Statement stmt = pragma_custom_construct.get_statement();
+                Source new_var;
 
-                PredicateAttr is_function_call(LANG_IS_FUNCTION_CALL);
+                // Replace all occurrences of induction variable i with _i
+                // for (i = 0; i < 100; i++)
+                // -> for (_i = 0; _i < 100; _i++)
 
-                ObjectList<AST_t> stmt_list = stmt.get_ast().depth_subtrees(is_function_call);
+                Statement st = pragma_custom_construct.get_statement();
 
-                for (ObjectList<AST_t>::iterator it = stmt_list.begin();
-                        it != stmt_list.end();
-                        it++)
+                if (!ForStatement::predicate(st.get_ast()))
                 {
-                    std::cerr << "'" << it->prettyprint() << "'" << std::endl;
-                    Expression expr(*it, pragma_custom_construct.get_scope_link());
-                    Expression top_level = expr.get_top_enclosing_expression();
-
-                    std::cerr << "enclosed by '" << top_level.prettyprint() << "' " << top_level.original_tree().internal_ast_type() << std::endl;
+                    std::cerr << "This is not a for-statement, ignoring" << std::endl;
                 }
+
+                ForStatement for_stmt(st.get_ast(), st.get_scope_link());
+
+                IdExpression ind_var = for_stmt.get_induction_variable();
+                Symbol sym = ind_var.get_symbol();
+
+                ReplaceSrcIdExpression replacements(for_stmt.get_scope_link());
+                replacements.add_replacement(sym, "_" + sym.get_name());
+                
+                Source transformed, replaced_for;
+
+                transformed
+                    << "{"
+                    << sym.get_type().get_declaration(sym.get_scope(), "_" + sym.get_name()) << ";"
+                    << replaced_for
+                    << "}"
+                    ;
+
+                replaced_for = replacements.replace(for_stmt);
+
+                AST_t new_tree =
+                    transformed.parse_statement(pragma_custom_construct.get_ast(),
+                            pragma_custom_construct.get_scope_link());
+
+                pragma_custom_construct.get_ast().replace(new_tree);
             }
     };
 }
