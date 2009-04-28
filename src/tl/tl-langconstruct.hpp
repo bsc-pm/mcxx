@@ -786,13 +786,10 @@ namespace TL
      * For instance, expression 'a + b' can be converted into '(*p_a) + p_b[0]' 
      * by just registering that Symbol 'a' has to be replaced with expression '(*p_a)' and Symbol
      * 'b' with expression 'p_b[0]'
-     *
-     * \note It is very important that you do not directly use or embed the
-     * returned LangConstruct but instead reparse it in the proper context,
-     * otherwise there are high chances that stale contextual data slips in the
-     * returned tree causing problems to further analysis in that tree. This is
-     * so since the original tree is duplicated, and duplication does not
-     * properly preserve the contextual information contained in trees.
+
+     * \note This class poses some restrictions that are unbearable when
+     * performing some transformations. For a class that does not pose such
+     * restrictions use ReplaceSrcIdExpression instead
      */
     class LIBTL_CLASS ReplaceIdExpression
     {
@@ -810,7 +807,7 @@ namespace TL
              */
             void add_replacement(Symbol sym, AST_t ast);
 
-            //! Sets a replacement for the symbol with a tree
+            //! Sets a replacement for the symbol with a string
             /*!
              * \param sym The symbol to be replaced
              * \param str A string containing the expression used for the replacement
@@ -889,6 +886,50 @@ namespace TL
 
                 return result;
             }
+    };
+
+    //! This class eases replacing references to entities within a tree
+    /*!
+     * Since replacing entities in a tree is easier than using other approaches,
+     * this class allows replacing a whole LangConstruct symbolic references
+     * with other given entities.
+     *
+     * In contrast to what ReplaceIdExpression does, this class does not
+     * transform one tree into another but returns a Source with the
+     * transformation already performed. As a benefit, replacement expressions
+     * do not really require a proper context like it happens in
+     * ReplaceIdExpression. Sometimes it happens that the replacement
+     * expression involves new symbols that might not be declared and using
+     * placeholders is not possible or leads to a convoluted transformation.
+     *
+     * \note This class breaks with the awkward fact that all code generation
+     * is performed in Source except for replacing symbol occurrences. You
+     * should use this class instead of the more problematic
+     * ReplaceIdExpression since that works on trees
+     *
+     */
+    class LIBTL_CLASS ReplaceSrcIdExpression
+    {
+        protected:
+            std::map<Symbol, std::string> _repl_map;
+            static const char* prettyprint_callback(AST a, void* data);
+            ScopeLink _sl;
+        public:
+            ReplaceSrcIdExpression(ScopeLink sl)
+                : _sl(sl) { }
+
+            //! Sets a replacement for the symbol with a string
+            /*!
+             * \param sym The symbol to be replaced
+             * \param str A string containing the expression used for the replacement
+             */
+            void add_replacement(Symbol sym, std::string str);
+
+            //! Perform the replacement returning a prettyprinted coe
+            Source replace(AST_t a);
+
+            //! Perform the replacement returning a prettyprinted coe
+            Source replace(LangConstruct a);
     };
 
     //! \addtogroup Functors

@@ -1183,4 +1183,52 @@ namespace TL
         return result;
     }
 
+    void ReplaceSrcIdExpression::add_replacement(Symbol sym, std::string str)
+    {
+        _repl_map[sym] = str;
+    }
+
+    Source ReplaceSrcIdExpression::replace(AST_t a)
+    {
+        Source result;
+
+        char *c = prettyprint_in_buffer_callback(a.get_internal_ast(), 
+                &ReplaceSrcIdExpression::prettyprint_callback, (void*)this);
+
+        // Not sure whether this could happen or not
+        if (c != NULL)
+        {
+            result << std::string(c);
+        }
+
+        // The returned pointer came from C code, so 'free' it
+        free(c);
+
+        return result;
+    }
+
+    Source ReplaceSrcIdExpression::replace(LangConstruct a)
+    {
+        return this->replace(a.get_ast());
+    }
+
+    const char* ReplaceSrcIdExpression::prettyprint_callback(AST a, void* data)
+    {
+        ReplaceSrcIdExpression *_this = reinterpret_cast<ReplaceSrcIdExpression*>(data);
+
+        AST_t wrapped_tree(a);
+
+        if (!IdExpression::predicate(wrapped_tree))
+            return NULL;
+
+        IdExpression id_expr(wrapped_tree, _this->_sl);
+        Symbol sym = id_expr.get_symbol();
+
+        if (_this->_repl_map.find(sym) != _this->_repl_map.end())
+        {
+            const char* result = _this->_repl_map[sym].c_str();
+            return result;
+        }
+        return NULL;
+    }
 }
