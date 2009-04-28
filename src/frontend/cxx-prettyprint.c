@@ -38,7 +38,18 @@ typedef struct prettyprint_context_tag
     int level;
     const char *indent_str;
     char internal_output;
+    prettyprint_callback_t callback;
 } prettyprint_context_t;
+
+typedef
+struct prettyprint_behaviour_tag
+{
+    // States if the output is meant to be internal
+    // i.e.: comments and preprocessor tokens will be output with special
+    // keeping marks or will be converted to standard syntax
+    char internal_output;
+} prettyprint_behaviour_t;
+
 
 typedef void (*prettyprint_handler_t)(FILE* f, AST a, prettyprint_context_t* pt_ctx);
 
@@ -691,15 +702,6 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_UPC_FORALL_HEADER, upc_forall_header, NULL),
 };
 
-typedef
-struct prettyprint_behaviour_tag
-{
-    // States if the output is meant to be internal
-    // i.e.: comments and preprocessor tokens will be output with special
-    // keeping marks or will be converted to standard syntax
-    char internal_output;
-} prettyprint_behaviour_t;
-
 // Initial behaviour
 static prettyprint_behaviour_t prettyprint_behaviour = 
 { 
@@ -759,19 +761,21 @@ void prettyprint(FILE* f, AST a)
     prettyprint_level(f, a, &pt_ctx);
 }
 
-static char* prettyprint_in_buffer_common(AST a, void (*pretty_func)(FILE*, AST))
+static char* prettyprint_in_buffer_common(AST a, 
+        void (*pretty_func)(FILE*, AST, prettyprint_context_t* pt_ctx), 
+        prettyprint_context_t *pt_ctx)
 {
     char *result = NULL;
 #ifdef HAVE_OPEN_MEMSTREAM
     size_t size = 0;
 
     FILE* temporal_stream = open_memstream(&result, &size);
-    pretty_func(temporal_stream, a);
+    pretty_func(temporal_stream, a, pt_ctx);
     fclose(temporal_stream);
 #else
     FILE* temporal_file = tmpfile();
 
-    pretty_func(temporal_file, a);
+    pretty_func(temporal_file, a, pt_ctx);
 
     int bytes_file = ftell(temporal_file) + 20;
     rewind(temporal_file);
@@ -793,19 +797,28 @@ static char* prettyprint_in_buffer_common(AST a, void (*pretty_func)(FILE*, AST)
 
 char* prettyprint_in_buffer(AST a)
 {
-    return prettyprint_in_buffer_common(a, prettyprint);
+    prettyprint_context_t pt_ctx;
+    prettyprint_context_init(&pt_ctx);
+
+    return prettyprint_in_buffer_common(a, prettyprint_level, &pt_ctx);
 }
 
-static void list_handler_adapter(FILE* f, AST a)
+char* prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callback)
 {
     prettyprint_context_t pt_ctx;
     prettyprint_context_init(&pt_ctx);
-    list_handler(f, a, &pt_ctx);
+
+    pt_ctx.callback = callback;
+
+    return prettyprint_in_buffer_common(a, prettyprint_level, &pt_ctx);
 }
 
 char* list_handler_in_buffer(AST a)
 {
-    return prettyprint_in_buffer_common(a, list_handler_adapter);
+    prettyprint_context_t pt_ctx;
+    prettyprint_context_init(&pt_ctx);
+
+    return prettyprint_in_buffer_common(a, list_handler, &pt_ctx);
 }
 
 static int character_level_vfprintf(FILE* stream, const char* format, va_list args)
@@ -894,7 +907,22 @@ static void prettyprint_level(FILE* f, AST a, prettyprint_context_t* pt_ctx)
         // fprintf(stderr, "Calling handler of '%s'\n", ast_node_names[ASTType(a)]);
     }
 
-    (*hnd)(f, a, pt_ctx);
+    // If there is a callback, call it
+    const char* cb_result = NULL;
+    if (pt_ctx->callback != NULL)
+    {
+        cb_result = (pt_ctx->callback)(a);
+    }
+    // If the callback did not return anything use the normal handler
+    if (cb_result == NULL)
+    {
+        (*hnd)(f, a, pt_ctx);
+    }
+    else
+    {
+        // Otherwise use for this node what the callback returned
+        token_fprintf(f, a, cb_result);
+    }
 }
 
 static void ambiguity_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
