@@ -141,15 +141,15 @@ namespace TL { namespace Acotes {
         if (variable) {
            if (port->isOutput()) {
              printf ("AQUI2 control %d\n", port->isControl());
-             ss << "aaa();"
-                << "__wbuf_" << variable->getName()
-                << "_port" << port->getNumber() //<< "a()"
-             //ss << "__wbuf_" << variable->getName()
-             //  << "_port" << port->getNumber() << "["
-             //  << "__wbuf_" << variable->getName()
-             //  << "_port" << port->getNumber() << "_elem"
-             //  << "]"
-             //  << " = " << variable->getName()
+             ss << "aaa();" ;
+             //    << "__wbuf_" << variable->getName()
+             //    << "_port" << port->getNumber() //<< "a()"
+             ss << "__wbuf_" << variable->getName()
+               << "_port" << port->getNumber() << "["
+               << "__wbuf_" << variable->getName()
+               << "_port" << port->getNumber() << "_elem"
+               << "]"
+               << " = " << variable->getName()
              //  //<< Transform::I(driver)->variable()->generateVariableName(variable)
                << ";"
                ;//AQUI2

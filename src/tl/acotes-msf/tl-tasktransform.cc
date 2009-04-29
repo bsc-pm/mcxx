@@ -288,6 +288,7 @@ namespace TL { namespace Acotes {
 	//	<<	   generateBody(task)
 	ss	<< generateControlOutputBufferAccess(task);
         ss      << generateControlInputBufferAccess(task);
+        ss      << "hello();"  ;
         ss      << generateBody(task);
 
 

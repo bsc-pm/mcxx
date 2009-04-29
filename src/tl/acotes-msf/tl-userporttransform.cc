@@ -61,7 +61,7 @@ namespace TL { namespace Acotes {
         printf ("generateReplacement -> Source\n");
         Source replaceSource= generateReplacement(userPort);
         printf ("replaceSource.parse_statement -> AST\n");
-        AST_t replaceTree= replaceSource.parse_statement(userPortAST, userPortScopeLink);
+        AST_t replaceTree= replaceSource.parse_statement(userPortAST, userPortScopeLink, TL::Source::DO_NOT_CHECK_EXPRESSION);
         printf ("userPortAST.replace\n");
         userPortAST.replace(replaceTree);
     }
