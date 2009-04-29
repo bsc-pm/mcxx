@@ -63,15 +63,15 @@ namespace TL { namespace Acotes {
 
     }
 
-    std::string InitializerTransform::generateReplacement(Initializer* initializer)
+    Source InitializerTransform::generateReplacement(Initializer* initializer)
     {
         assert(initializer);
      
-        std::stringstream ss;
+        Source ss;
        
         ss << initializer->getBody()->prettyprint();
        
-        return ss.str();
+        return ss;
 
     }
     
@@ -80,11 +80,11 @@ namespace TL { namespace Acotes {
      * * Generators
      * ****************************************************************/
     
-    std::string InitializerTransform::generate(Task* task)
+    Source InitializerTransform::generate(Task* task)
     {
         assert(task);
         
-        std::stringstream ss;
+        Source ss;
         
         const std::vector<Initializer*> initializers= Initializer::getMatching(task->getInitializerVector());
         for (unsigned i= 0; i < initializers.size(); i++) {
@@ -92,17 +92,17 @@ namespace TL { namespace Acotes {
             ss << generate(initializer);
         }
         
-        return ss.str();
+        return ss;
     }
     
-    std::string InitializerTransform::generate(Initializer* initializer) {
+    Source InitializerTransform::generate(Initializer* initializer) {
         assert(initializer);
         
-        std::stringstream ss;
+        Source ss;
         
         ss << initializer->getBody()->prettyprint();
         
-        return ss.str();
+        return ss;
     }
         
 

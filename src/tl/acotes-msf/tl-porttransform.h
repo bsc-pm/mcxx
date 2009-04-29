@@ -32,6 +32,7 @@
 
 #include <assert.h>
 #include <string>
+#include <tl-langconstruct.hpp>
 
 namespace TL { namespace Acotes {
     
@@ -47,28 +48,28 @@ namespace TL { namespace Acotes {
         
     // -- Auxiliary generators
     public:
-        virtual std::string generatePort(Port* port);
-        virtual std::string generateBufferPort(Port* port);
-        virtual std::string generateNelemsBufferPort(Port* port);
-        virtual std::string generateCommitBufferPort(Port* port);
-        virtual std::string generate_endofstream_condition(Port* port);
-        virtual std::string generateAcquire_task(Port* port);
-        virtual std::string generateAcquire(Port* port);
-        virtual std::string generateInputPeek(Port* port);
-        virtual std::string generateOutputPeek(Port* port);
-        virtual std::string generateOutputBufferAccess(Port* port);
-        virtual std::string generateInputBufferAccess(Port* port);
-        virtual std::string generatePop(Port* port);
-        virtual std::string generatePush(Port* port);
+        virtual Source generatePort(Port* port);
+        virtual Source generateBufferPort(Port* port);
+        virtual Source generateNelemsBufferPort(Port* port);
+        virtual Source generateCommitBufferPort(Port* port);
+        virtual Source generate_endofstream_condition(Port* port);
+        virtual Source generateAcquire_task(Port* port);
+        virtual Source generateAcquire(Port* port);
+        virtual Source generateInputPeek(Port* port);
+        virtual Source generateOutputPeek(Port* port);
+        virtual Source generateOutputBufferAccess(Port* port);
+        virtual Source generateInputBufferAccess(Port* port);
+        virtual Source generatePop(Port* port);
+        virtual Source generatePush(Port* port);
     private:
-        virtual std::string generateNelemsInputBufferPort(Port* port);
-        virtual std::string generateNelemsOutputBufferPort(Port* port);
-        virtual std::string generateCommitOutputBufferPort(Port* port);
-        virtual std::string generate_eos_condition(Port* port);
-        virtual std::string generateInputPort(Port* port);
-        virtual std::string generateInputBufferPort(Port* port);
-        virtual std::string generateOutputPort(Port* port);
-        virtual std::string generateOutputBufferPort(Port* port);
+        virtual Source generateNelemsInputBufferPort(Port* port);
+        virtual Source generateNelemsOutputBufferPort(Port* port);
+        virtual Source generateCommitOutputBufferPort(Port* port);
+        virtual Source generate_eos_condition(Port* port);
+        virtual Source generateInputPort(Port* port);
+        virtual Source generateInputBufferPort(Port* port);
+        virtual Source generateOutputPort(Port* port);
+        virtual Source generateOutputBufferPort(Port* port);
                 
     };
     

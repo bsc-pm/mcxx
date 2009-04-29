@@ -31,6 +31,7 @@
 #define	_TL_USERPORTTRANSFORM_H
 
 #include <string>
+#include <tl-langconstruct.hpp>
 
 namespace TL { namespace Acotes {
 
@@ -52,10 +53,10 @@ namespace TL { namespace Acotes {
         
     // -- Generator
     private:
-        virtual std::string generateReplacement(UserPort* userPort);
-        virtual std::string generateInputPort(UserPort* userPort);
-        virtual std::string generateOutputPort(UserPort* userPort);
-        virtual std::string generateOutputPortAccess(UserPort* userPort);
+        virtual Source generateReplacement(UserPort* userPort);
+        virtual Source generateInputPort(UserPort* userPort);
+        virtual Source generateOutputPort(UserPort* userPort);
+        virtual Source generateOutputPortAccess(UserPort* userPort);
     };
 
 } /* end namespace Acotes */ } /* end namespace TL */

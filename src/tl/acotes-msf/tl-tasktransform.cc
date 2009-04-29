@@ -225,10 +225,10 @@ namespace TL { namespace Acotes {
      * * Outline generation
      * ****************************************************************/
     
-    std::string TaskTransform::generateOutline(Task* task) {
+    Source TaskTransform::generateOutline(Task* task) {
         assert(task);
         
-        std::stringstream ss;
+        Source ss;
 
 #ifdef PARAMS_STRUCT
         ss << "typedef struct " << task->getName() << "_tag {"
@@ -343,13 +343,13 @@ namespace TL { namespace Acotes {
 //                ;
 /* mivax */
 
-        return ss.str();
+        return ss;
     }
     
-    std::string TaskTransform::generateForReplicate(Task* task) {
+    Source TaskTransform::generateForReplicate(Task* task) {
         assert(task);
         
-        std::stringstream ss;
+        Source ss;
 
         const std::vector<ForReplicate*> &replicates= task->getForReplicateVector();
         for (unsigned i= 0; i < replicates.size(); i++) {
@@ -357,16 +357,16 @@ namespace TL { namespace Acotes {
             ss << Transform::I(driver)->forReplicate()->generateFor(forReplicate);
         }
         
-        return ss.str();
+        return ss;
     }
     
     /**
      * Generates the variables declaration of the task.
      */
-    std::string TaskTransform::generateVariable(Task* task) {
+    Source TaskTransform::generateVariable(Task* task) {
         assert(task);
         
-        std::stringstream ss;
+        Source ss;
         
         const std::vector<Variable*> &variables= task->getVariableVector();
         for (unsigned i= 0; i < variables.size(); i++) {
@@ -374,24 +374,24 @@ namespace TL { namespace Acotes {
             ss << Transform::I(driver)->variable()->generateVariable(variable);
         }
         
-        return ss.str();
+        return ss;
     }
     
-    std::string TaskTransform::generateInitializer(Task* task) {
+    Source TaskTransform::generateInitializer(Task* task) {
         return Transform::I(driver)->initializer()->generate(task);
     }
     
-    std::string TaskTransform::generateFinalizer(Task* task) {
+    Source TaskTransform::generateFinalizer(Task* task) {
         return Transform::I(driver)->finalizer()->generate(task);
     }
     
     /**
      * Generates the copyin acquires of the variables.
      */
-    std::string TaskTransform::generateCopyInAcquire(Task* task) {
+    Source TaskTransform::generateCopyInAcquire(Task* task) {
         assert(task);
         
-        std::stringstream ss;
+        Source ss;
         
         const std::vector<State*> &states= task->getStateVector();
         for (unsigned i= 0; i < states.size(); i++) {
@@ -401,16 +401,16 @@ namespace TL { namespace Acotes {
             }
         }
         
-        return ss.str();
+        return ss;
     }
     
     /**
      * Generates the copyout acquires of the variables.
      */
-    std::string TaskTransform::generateCopyOutAcquire(Task* task) {
+    Source TaskTransform::generateCopyOutAcquire(Task* task) {
         assert(task);
         
-        std::stringstream ss;
+        Source ss;
         
         const std::vector<State*> &states= task->getStateVector();
         for (unsigned i= 0; i < states.size(); i++) {
@@ -420,16 +420,16 @@ namespace TL { namespace Acotes {
             }
         }
         
-        return ss.str();
+        return ss;
     }
     
     /**
      * 
      */
-    std::string TaskTransform::generateSharedAcquire(Task* task) {
+    Source TaskTransform::generateSharedAcquire(Task* task) {
         assert(task);
         
-        std::stringstream ss;
+        Source ss;
         
         const std::vector<State*> &states= task->getStateVector();
         printf ("TaskTransform::generateSharedAcquire task %s\n", task->getName().c_str());
@@ -440,29 +440,29 @@ namespace TL { namespace Acotes {
             }
         }
         
-        return ss.str();
+        return ss;
     }
     
     /**
      * Generates the taskbody.
      */
-    std::string TaskTransform::generateBody(Task* task) 
+    Source TaskTransform::generateBody(Task* task) 
     {
        assert(task);
         
-       std::stringstream ss;
+       Source ss;
        printf ("Generate task body + tracing\n");
        ss << "trace_iteration_begin();";
        ss << task->getBody()->prettyprint();
        ss << "trace_iteration_end();";
        
-       return ss.str();
+       return ss;
     }
 
-    std::string TaskTransform::generateControlAcquire(Task* task) {
+    Source TaskTransform::generateControlAcquire(Task* task) {
         assert(task);
         
-        std::stringstream ss;
+        Source ss;
         
         const std::vector<Port*> &ports= task->getPortVector();
         printf ("commented TaskTransform::generateControlAcquire task %s\n", task->getName().c_str());
@@ -473,13 +473,13 @@ namespace TL { namespace Acotes {
             }
         }
         
-        return ss.str();
+        return ss;
     }
 
-    std::string TaskTransform::generateControlSharedCheck(Task* task) {
+    Source TaskTransform::generateControlSharedCheck(Task* task) {
         assert(task);
         
-        std::stringstream ss;
+        Source ss;
         
         const std::vector<State*> &states= task->getStateVector();
         for (unsigned i= 0; i < states.size(); i++) {
@@ -489,13 +489,13 @@ namespace TL { namespace Acotes {
             }
         }
         
-        return ss.str();
+        return ss;
     }
 
-    std::string TaskTransform::generateControlInputPeek(Task* task) {
+    Source TaskTransform::generateControlInputPeek(Task* task) {
         assert(task);
         
-        std::stringstream ss;
+        Source ss;
         
         const std::vector<Port*> &ports= task->getPortVector();
         for (unsigned i= 0; i < ports.size(); i++) {
@@ -505,13 +505,13 @@ namespace TL { namespace Acotes {
             }
         }
         
-        return ss.str();
+        return ss;
     }
 
-    std::string TaskTransform::generateControlInputBufferAccess(Task* task) {
+    Source TaskTransform::generateControlInputBufferAccess(Task* task) {
         assert(task);
 
-        std::stringstream ss;
+        Source ss;
 
         const std::vector<Port*> &ports= task->getPortVector();
         for (unsigned i= 0; i < ports.size(); i++) {
@@ -521,7 +521,7 @@ namespace TL { namespace Acotes {
             }
         }
 
-        return ss.str();
+        return ss;
     }
 
     bool TaskTransform::hasInput (Task * task)
@@ -541,10 +541,10 @@ namespace TL { namespace Acotes {
         return false;
     }
 
-    std::string TaskTransform::generateControlOutputBufferAccess(Task* task) {
+    Source TaskTransform::generateControlOutputBufferAccess(Task* task) {
         assert(task);
 
-        std::stringstream ss;
+        Source ss;
 
         const std::vector<Port*> &ports= task->getPortVector();
         for (unsigned i= 0; i < ports.size(); i++) {
@@ -555,14 +555,14 @@ namespace TL { namespace Acotes {
             }
         }
 
-        return ss.str();
+        return ss;
     }
 
 
-    std::string TaskTransform::generateControlOutputPeek(Task* task) {
+    Source TaskTransform::generateControlOutputPeek(Task* task) {
         assert(task);
         
-        std::stringstream ss;
+        Source ss;
         
         const std::vector<Port*> &ports= task->getPortVector();
         for (unsigned i= 0; i < ports.size(); i++) {
@@ -572,13 +572,13 @@ namespace TL { namespace Acotes {
             }
         }
         
-        return ss.str();
+        return ss;
     }
 
-    std::string TaskTransform::generateControlPop(Task* task) {
+    Source TaskTransform::generateControlPop(Task* task) {
         assert(task);
         
-        std::stringstream ss;
+        Source ss;
         
         const std::vector<Port*> &ports= task->getPortVector();
         for (unsigned i= 0; i < ports.size(); i++) {
@@ -588,13 +588,13 @@ namespace TL { namespace Acotes {
             }
         }
         
-        return ss.str();
+        return ss;
     }
 
-    std::string TaskTransform::generateControlPush(Task* task) {
+    Source TaskTransform::generateControlPush(Task* task) {
         assert(task);
         
-        std::stringstream ss;
+        Source ss;
         
         const std::vector<Port*> &ports= task->getPortVector();
         for (unsigned i= 0; i < ports.size(); i++) {
@@ -604,13 +604,13 @@ namespace TL { namespace Acotes {
             }
         }
         
-        return ss.str();
+        return ss;
     }
     
-    std::string TaskTransform::generateReplicatePeek(Task* task) {
+    Source TaskTransform::generateReplicatePeek(Task* task) {
         assert(task);
         
-        std::stringstream ss;
+        Source ss;
         
         const std::vector<Port*> &ports= task->getPortVector();
         for (unsigned i= 0; i < ports.size(); i++) {
@@ -620,13 +620,13 @@ namespace TL { namespace Acotes {
             }
         }
         
-        return ss.str();
+        return ss;
     }
         
-    std::string TaskTransform::generateReplicateBody(Task* task) {
+    Source TaskTransform::generateReplicateBody(Task* task) {
         assert(task);
         
-        std::stringstream ss;
+        Source ss;
 
         ss << "trace_teamreplicate_begin();";
         const std::vector<TeamReplicate*> &replicates= task->getTeamReplicateVector();
@@ -636,13 +636,13 @@ namespace TL { namespace Acotes {
         }
         ss << "trace_teamreplicate_end();";
         
-        return ss.str();
+        return ss;
     }
 
-    std::string TaskTransform::generateReplicatePop(Task* task) {
+    Source TaskTransform::generateReplicatePop(Task* task) {
         assert(task);
         
-        std::stringstream ss;
+        Source ss;
         
         const std::vector<Port*> &ports= task->getPortVector();
         for (unsigned i= 0; i < ports.size(); i++) {
@@ -652,13 +652,13 @@ namespace TL { namespace Acotes {
             }
         }
         
-        return ss.str();
+        return ss;
     }
 
-    std::string TaskTransform::generateReplicateAcquire(Task* task) {
+    Source TaskTransform::generateReplicateAcquire(Task* task) {
         assert(task);
         
-        std::stringstream ss;
+        Source ss;
         
         const std::vector<Port*> &ports= task->getPortVector();
         printf ("TaskTransform::generateReplicateAcquire task %s\n", task->getName().c_str());
@@ -670,7 +670,7 @@ namespace TL { namespace Acotes {
             }
         }
         
-        return ss.str();
+        return ss;
     }
 
 
@@ -679,10 +679,10 @@ namespace TL { namespace Acotes {
      * * Replacement generation
      * ****************************************************************/
     
-    std::string TaskTransform::generateReplacement(Task* task) {
+    Source TaskTransform::generateReplacement(Task* task) {
         assert(task);
         
-        std::stringstream ss;
+        Source ss;
         
         ss      << "{"
                 << generateArtificialPush(task)
@@ -690,13 +690,13 @@ namespace TL { namespace Acotes {
                 << "}"
                 ;
         
-        return ss.str();
+        return ss;
     }
     
-    std::string TaskTransform::generateArtificialPush(Task* task) {
+    Source TaskTransform::generateArtificialPush(Task* task) {
         assert(task);
         
-        std::stringstream ss;
+        Source ss;
         
         const std::vector<Port*> &ports= task->getPortVector();
         printf ("TaskTransform::generateArtificialPush task %s\n", task->getName().c_str());
@@ -711,13 +711,13 @@ namespace TL { namespace Acotes {
             }
         }
         
-        return ss.str();
+        return ss;
     }
 
-    std::string TaskTransform::generateArtificialPop(Task* task) {
+    Source TaskTransform::generateArtificialPop(Task* task) {
         assert(task);
         
-        std::stringstream ss;
+        Source ss;
         
         const std::vector<Port*> &ports= task->getPortVector();
         printf ("TaskTransform::generateArtificialPop task %s\n", task->getName().c_str());
@@ -731,7 +731,7 @@ namespace TL { namespace Acotes {
             }
         }
         
-        return ss.str();
+        return ss;
     }
 
     
@@ -743,10 +743,10 @@ namespace TL { namespace Acotes {
     /**
      * Generates the start code for the taskgroup.
      */
-    std::string TaskTransform::generateInit(Task* task) {
+    Source TaskTransform::generateInit(Task* task) {
         assert(task);
         
-        std::stringstream ss;
+        Source ss;
         
         if (task->isImplicitTask()) {
             // nothing to do...
@@ -770,16 +770,16 @@ namespace TL { namespace Acotes {
 	// team (xavim)
         //ss      <<   ", " << task->getTeam()
         
-        return ss.str();
+        return ss;
     }
     
     /**
      * Generates the start code for the taskgroup.
      */
-    std::string TaskTransform::generatePorts(Task* task) {
+    Source TaskTransform::generatePorts(Task* task) {
         assert(task);
         
-        std::stringstream ss;
+        Source ss;
         
         const std::vector<Port*> &ports= task->getPortVector();
         for (unsigned i= 0; i < ports.size(); i++) {
@@ -787,16 +787,16 @@ namespace TL { namespace Acotes {
             ss << Transform::I(driver)->port()->generatePort(port);
         }
         
-        return ss.str();
+        return ss;
     }
 
     /**
      * Generates the init code for the task.
      */
-    std::string TaskTransform::generateBufferPorts(Task* task) {
+    Source TaskTransform::generateBufferPorts(Task* task) {
         assert(task);
 
-        std::stringstream ss;
+        Source ss;
 
         const std::vector<Port*> &ports= task->getPortVector();
         for (unsigned i= 0; i < ports.size(); i++) {
@@ -804,16 +804,16 @@ namespace TL { namespace Acotes {
             ss << Transform::I(driver)->port()->generateBufferPort(port);
         }
 
-        return ss.str();
+        return ss;
     }
 
     /**
      * Generates the end of task condition 
      */
-    std::string TaskTransform::generate_task_allopen_condition(Task* task) {
+    Source TaskTransform::generate_task_allopen_condition(Task* task) {
         assert(task);
 
-        std::stringstream ss;
+        Source ss;
 
         ss << "while (";
 
@@ -829,16 +829,16 @@ namespace TL { namespace Acotes {
         }
 
         ss << "1)" ;
-        return ss.str();
+        return ss;
     }
 
     /**
      * Generates the code to get nelems for each input port in the task.
      */
-    std::string TaskTransform::generateNelemsBufferPorts(Task* task) {
+    Source TaskTransform::generateNelemsBufferPorts(Task* task) {
         assert(task);
 
-        std::stringstream ss;
+        Source ss;
 
         const std::vector<Port*> &ports= task->getPortVector();
         for (unsigned i= 0; i < ports.size(); i++) {
@@ -846,33 +846,33 @@ namespace TL { namespace Acotes {
             ss << Transform::I(driver)->port()->generateNelemsBufferPort(port);
         }
 
-        return ss.str();
+        return ss;
     }
 
     /**
      * Generates commits
      */
 
-    std::string TaskTransform::generateCommitPorts(Task* task) {
+    Source TaskTransform::generateCommitPorts(Task* task) {
         assert(task);
 
-        std::stringstream ss;
+        Source ss;
 
         const std::vector<Port*> &ports= task->getPortVector();
         for (unsigned i= 0; i < ports.size(); i++) {
             Port* port= ports.at(i);
             ss << Transform::I(driver)->port()->generateCommitBufferPort(port);
         }
-        return ss.str();
+        return ss;
     }
 
     /**
      * Generates the start code for the taskgroup.
      */
-    std::string TaskTransform::generateShareds(Task* task) {
+    Source TaskTransform::generateShareds(Task* task) {
         assert(task);
         
-        std::stringstream ss;
+        Source ss;
         
         const std::vector<State*> &states= task->getStateVector();
         for (unsigned i= 0; i < states.size(); i++) {
@@ -882,16 +882,16 @@ namespace TL { namespace Acotes {
             }            
         }
         
-        return ss.str();
+        return ss;
     }
     
     /**
      * Generates the start code for the taskgroup.
      */
-    std::string TaskTransform::generateStart(Task* task) {
+    Source TaskTransform::generateStart(Task* task) {
         assert(task);
         
-        std::stringstream ss;
+        Source ss;
         
         //ss << "task_start(" << task->getName() << ");";
         //msf_set_task_state(reader_task, MSF_TASK_READY);
@@ -903,16 +903,16 @@ namespace TL { namespace Acotes {
               << ", MSF_TASK_READY);";
         }
         
-        return ss.str();
+        return ss;
     }
     
     /**
      * Generates the start code for the taskgroup.
      */
-    std::string TaskTransform::generateWait(Task* task) {
+    Source TaskTransform::generateWait(Task* task) {
         assert(task);
         
-        std::stringstream ss;
+        Source ss;
         
         //ss << "task_wait(" << task->getName() << ");";
       if (task->isImplicitTask())
@@ -928,7 +928,7 @@ namespace TL { namespace Acotes {
            << "}";
           ss << "";
       }
-        return ss.str();
+        return ss;
     }
      
     

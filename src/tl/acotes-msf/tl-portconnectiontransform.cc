@@ -46,11 +46,11 @@ namespace TL { namespace Acotes {
      * * Auxiliary generators
      * ******************************************************/
     
-    std::string PortConnectionTransform::generatePortConnection(PortConnection* portConnection)
+    Source PortConnectionTransform::generatePortConnection(PortConnection* portConnection)
     {
         assert(portConnection);
         
-        std::stringstream ss;
+        Source ss;
 
       if ((portConnection->getInput()->getTask()->isImplicitTask()) ||
           (portConnection->getOutput()->getTask()->isImplicitTask()))
@@ -76,14 +76,14 @@ namespace TL { namespace Acotes {
 		<< ");";
       }
         
-        return ss.str();
+        return ss;
     }
     
-    std::string PortConnectionTransform::generateConnection(PortConnection* portConnection)
+    Source PortConnectionTransform::generateConnection(PortConnection* portConnection)
     {
         assert(portConnection);
         
-        std::stringstream ss;
+        Source ss;
 
       if ((portConnection->getInput()->getTask()->isImplicitTask()) ||
           (portConnection->getOutput()->getTask()->isImplicitTask()))
@@ -116,7 +116,7 @@ namespace TL { namespace Acotes {
                   << "][0]);";
       }
         
-        return ss.str();
+        return ss;
     }
     
     

@@ -31,6 +31,7 @@
 #define	_TL_TASKTRANSFORM_H
 
 #include <string>
+#include <tl-langconstruct.hpp>
 
 namespace TL { namespace Acotes {
     
@@ -59,46 +60,46 @@ namespace TL { namespace Acotes {
         
     // -- Outline generation
     private:
-        virtual std::string generateOutline(Task* task);
-        virtual std::string generateForReplicate(Task* task);
-        virtual std::string generateVariable(Task* task);
-        virtual std::string generateInitializer(Task* task);
-        virtual std::string generateFinalizer(Task* task);
-        virtual std::string generateCopyInAcquire(Task* task);
-        virtual std::string generateCopyOutAcquire(Task* task);
-        virtual std::string generateSharedAcquire(Task* task);
-        virtual std::string generateBody(Task* task);
-        virtual std::string generateControlAcquire(Task* task);
-        virtual std::string generateControlSharedCheck(Task* task);
-        virtual std::string generateControlInputPeek(Task* task);
-        virtual std::string generateControlOutputPeek(Task* task);
+        virtual Source generateOutline(Task* task);
+        virtual Source generateForReplicate(Task* task);
+        virtual Source generateVariable(Task* task);
+        virtual Source generateInitializer(Task* task);
+        virtual Source generateFinalizer(Task* task);
+        virtual Source generateCopyInAcquire(Task* task);
+        virtual Source generateCopyOutAcquire(Task* task);
+        virtual Source generateSharedAcquire(Task* task);
+        virtual Source generateBody(Task* task);
+        virtual Source generateControlAcquire(Task* task);
+        virtual Source generateControlSharedCheck(Task* task);
+        virtual Source generateControlInputPeek(Task* task);
+        virtual Source generateControlOutputPeek(Task* task);
         virtual bool hasInput (Task * task);
-        virtual std::string generateControlInputBufferAccess(Task* task);
-        virtual std::string generateControlOutputBufferAccess(Task* task);
-        virtual std::string generateControlPop(Task* task);
-        virtual std::string generateControlPush(Task* task);
-        virtual std::string generateReplicatePeek(Task* task);
-        virtual std::string generateReplicateBody(Task* task);
-        virtual std::string generateReplicatePop(Task* task);
-        virtual std::string generateReplicateAcquire(Task* task);
-        virtual std::string generateCommitPorts(Task* task);
+        virtual Source generateControlInputBufferAccess(Task* task);
+        virtual Source generateControlOutputBufferAccess(Task* task);
+        virtual Source generateControlPop(Task* task);
+        virtual Source generateControlPush(Task* task);
+        virtual Source generateReplicatePeek(Task* task);
+        virtual Source generateReplicateBody(Task* task);
+        virtual Source generateReplicatePop(Task* task);
+        virtual Source generateReplicateAcquire(Task* task);
+        virtual Source generateCommitPorts(Task* task);
 
     // -- Replacement generation
     private:
-        virtual std::string generateReplacement(Task* task);
-        virtual std::string generateArtificialPush(Task* task);
-        virtual std::string generateArtificialPop(Task* task);
+        virtual Source generateReplacement(Task* task);
+        virtual Source generateArtificialPush(Task* task);
+        virtual Source generateArtificialPop(Task* task);
         
     // -- Taskgroup replacement generation support
     public:
-        virtual std::string generateInit(Task* task);
-        virtual std::string generatePorts(Task* task);
-        virtual std::string generateBufferPorts(Task* task);
-        virtual std::string generateNelemsBufferPorts(Task* task);
-        virtual std::string generate_task_allopen_condition(Task* task);
-        virtual std::string generateShareds(Task* task);
-        virtual std::string generateStart(Task* task);
-        virtual std::string generateWait(Task* task);
+        virtual Source generateInit(Task* task);
+        virtual Source generatePorts(Task* task);
+        virtual Source generateBufferPorts(Task* task);
+        virtual Source generateNelemsBufferPorts(Task* task);
+        virtual Source generate_task_allopen_condition(Task* task);
+        virtual Source generateShareds(Task* task);
+        virtual Source generateStart(Task* task);
+        virtual Source generateWait(Task* task);
         
     };
     

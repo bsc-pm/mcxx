@@ -41,11 +41,11 @@ namespace TL { namespace Acotes {
      * * Generate
      * ****************************************************************/
     
-    std::string ForReplicateTransform::generateFor(ForReplicate* forReplicate)
+    Source ForReplicateTransform::generateFor(ForReplicate* forReplicate)
     {
         assert(forReplicate);
         
-        std::stringstream ss;
+        Source ss;
         
         TL::ForStatement forStatement= forReplicate->getForStatement();
         
@@ -56,7 +56,7 @@ namespace TL { namespace Acotes {
                 << ")"
                 ;
         
-        return ss.str();
+        return ss;
     }
     
     

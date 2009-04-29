@@ -31,6 +31,7 @@
 #define	_TL_TASKGROUPTRANSFORM_H
 
 #include <string>
+#include <tl-langconstruct.hpp>
 
 namespace TL { namespace Acotes {
     
@@ -51,19 +52,19 @@ namespace TL { namespace Acotes {
         
     // -- Replacement generation
     private:
-        virtual std::string generateReplacement(Taskgroup* taskgroup);
-        virtual std::string generateBufferSizeInit(Taskgroup* taskgroup);
-        virtual std::string generateBufferInfo(Taskgroup* taskgroup);
-        virtual std::string generateTasksInit(Taskgroup* taskgroup);
-        virtual std::string generateTasksPorts(Taskgroup* taskgroup);
-        virtual std::string generateTasksShareds(Taskgroup* taskgroup);
-        virtual std::string generatePortConnections(Taskgroup* taskgroup);
-        virtual std::string generateConnectionInfo(Taskgroup* taskgroup);
-        virtual std::string generateCopyState(Taskgroup* taskgroup);
-        virtual std::string generateSharedConnections(Taskgroup* taskgroup);
-        virtual std::string generateTasksStart(Taskgroup* taskgroup);
-        virtual std::string generateTasksWait(Taskgroup* taskgroup);
-        virtual std::string generateBody(Taskgroup* taskgroup);
+        virtual Source generateReplacement(Taskgroup* taskgroup);
+        virtual Source generateBufferSizeInit(Taskgroup* taskgroup);
+        virtual Source generateBufferInfo(Taskgroup* taskgroup);
+        virtual Source generateTasksInit(Taskgroup* taskgroup);
+        virtual Source generateTasksPorts(Taskgroup* taskgroup);
+        virtual Source generateTasksShareds(Taskgroup* taskgroup);
+        virtual Source generatePortConnections(Taskgroup* taskgroup);
+        virtual Source generateConnectionInfo(Taskgroup* taskgroup);
+        virtual Source generateCopyState(Taskgroup* taskgroup);
+        virtual Source generateSharedConnections(Taskgroup* taskgroup);
+        virtual Source generateTasksStart(Taskgroup* taskgroup);
+        virtual Source generateTasksWait(Taskgroup* taskgroup);
+        virtual Source generateBody(Taskgroup* taskgroup);
 
     };
     

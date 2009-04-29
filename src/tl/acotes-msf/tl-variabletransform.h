@@ -50,11 +50,11 @@ namespace TL { namespace Acotes {
         
     // -- Generation
     public:
-        virtual std::string generateVariable(Variable* variable);
-        virtual std::string generateReference(Variable* variable);
-        virtual std::string generateSizeof(Variable* variable);
-        virtual std::string generateElementCount(Variable* variable);
-        virtual std::string generateVariableName(Variable* variable);
+        virtual Source generateVariable(Variable* variable);
+        virtual Source generateReference(Variable* variable);
+        virtual Source generateSizeof(Variable* variable);
+        virtual Source generateElementCount(Variable* variable);
+        virtual Source generateVariableName(Variable* variable);
         
     };
     

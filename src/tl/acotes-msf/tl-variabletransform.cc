@@ -87,58 +87,58 @@ namespace TL { namespace Acotes {
     /** 
      * Generates the declaration of one variable.
      */
-    std::string VariableTransform::generateVariable(Variable* variable) {
+    Source VariableTransform::generateVariable(Variable* variable) {
         assert(variable);
         assert(variable->hasSymbol());
         
-        std::stringstream ss;
+        Source ss;
         
         TL::Symbol symbol= variable->getSymbol();
         TL::Scope scope= symbol.get_scope();
-        std::stringstream name;
+        Source name;
         name << variable->getName();
         if (variable->isArray()) {
             name << "[" << variable->getElementCount() << "]";
         }
         
-        ss << variable->getElementType().get_declaration(scope, name.str()) << ";";
+        ss << variable->getElementType().get_declaration(scope, name) << ";";
         
-        return ss.str();
+        return ss;
     }
     
-    std::string VariableTransform::generateReference(Variable* variable)
+    Source VariableTransform::generateReference(Variable* variable)
     {
         assert(variable);
         
-        std::stringstream ss;
+        Source ss;
         
         if (!variable->isArray()) {
             ss << "&";
         }
         ss << variable->getName();
         
-        return ss.str();
+        return ss;
     }
 
-    std::string VariableTransform::generateSizeof(Variable* variable) 
+    Source VariableTransform::generateSizeof(Variable* variable) 
     {
         assert(variable);
         assert(variable->hasSymbol());
         assert(variable->hasElementType());
         
-        std::stringstream ss;
+        Source ss;
         
         TL::Scope scope= variable->getSymbol().get_scope();
         TL::Type type= variable->getElementType();
         
         ss << "sizeof(" << type.get_declaration(scope, "") << ")";
         
-        return ss.str();
+        return ss;
     }
 
-    std::string VariableTransform::generateElementCount(Variable* variable) 
+    Source VariableTransform::generateElementCount(Variable* variable) 
     {
-        std::stringstream ss;
+        Source ss;
 
         if (variable) {
             assert(variable->hasSymbol());
@@ -150,21 +150,21 @@ namespace TL { namespace Acotes {
             
             ss << "1";
         }
-        return ss.str();
+        return ss;
     }
 
-    std::string VariableTransform::generateVariableName(Variable* variable)
+    Source VariableTransform::generateVariableName(Variable* variable)
     {
         assert(variable);
 
-        std::stringstream ss;
+        Source ss;
         ss << variable->getName();
 
         if (variable->isArray()) {
             ss << "[???]";
         }
 
-        return ss.str();
+        return ss;
     }
     
     

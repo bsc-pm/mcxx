@@ -71,11 +71,11 @@ namespace TL { namespace Acotes {
      * ****************************************************************/
     
     // -- Generator
-    std::string UserPortTransform::generateReplacement(UserPort* userPort)
+    Source UserPortTransform::generateReplacement(UserPort* userPort)
     {
         assert(userPort);
         
-        std::stringstream ss;
+        Source ss;
         
         ss      << "{"
         //        <<    generateInputPort(userPort)
@@ -85,12 +85,12 @@ namespace TL { namespace Acotes {
                 << "}"
                 ;
         
-        return ss.str();
+        return ss;
     }
     
-    std::string UserPortTransform::generateInputPort(UserPort* userPort)
+    Source UserPortTransform::generateInputPort(UserPort* userPort)
     {
-        std::stringstream ss;
+        Source ss;
         
         const std::vector<Port*> &ports= userPort->getInputPortVector();
         printf ("UserPortTransform::generateInputPort\n");
@@ -103,12 +103,12 @@ namespace TL { namespace Acotes {
             ss << Transform::I(driver)->port()->generatePop(port);
         }
         
-        return ss.str();
+        return ss;
     }
     
-    std::string UserPortTransform::generateOutputPort(UserPort* userPort)
+    Source UserPortTransform::generateOutputPort(UserPort* userPort)
     {
-        std::stringstream ss;
+        Source ss;
         
         const std::vector<Port*> &ports= userPort->getOutputPortVector();
         printf ("UserPortTransform::generateOutputPort\n");
@@ -121,18 +121,18 @@ namespace TL { namespace Acotes {
             ss << Transform::I(driver)->port()->generatePush(port);
         }
         
-        return ss.str();
+        return ss;
     }
         //xavim generateInputPortAccess is possibly needed
-    std::string UserPortTransform::generateOutputPortAccess(UserPort* userPort)
+    Source UserPortTransform::generateOutputPortAccess(UserPort* userPort)
     {
-        std::stringstream ss;
+        Source ss;
         const std::vector<Port*> &ports= userPort->getOutputPortVector();
         for (unsigned i= 0; i < ports.size(); i++) {
            Port* port= ports.at(i);
            ss << Transform::I(driver)->port()->generateAcquire_task(port);
         }
-        return ss.str();
+        return ss;
     }
 
 } /* end namespace Acotes */ } /* end namespace TL */

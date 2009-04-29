@@ -31,6 +31,7 @@
 #define	_TL_FORREPLICATETRANSFORM_H
 
 #include <string>
+#include <tl-langconstruct.hpp>
 
 namespace TL { namespace Acotes {
     
@@ -46,7 +47,7 @@ namespace TL { namespace Acotes {
         
     // -- Generate
     public:
-        virtual std::string generateFor(ForReplicate* forReplicate);
+        virtual Source generateFor(ForReplicate* forReplicate);
         
     };
     

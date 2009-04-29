@@ -65,15 +65,15 @@ namespace TL { namespace Acotes {
 
     }
 
-    std::string FinalizerTransform::generateReplacement(Finalizer* finalizer)
+    Source FinalizerTransform::generateReplacement(Finalizer* finalizer)
     {
         assert(finalizer);
      
-        std::stringstream ss;
+        Source ss;
        
         ss << finalizer->getBody()->prettyprint();
        
-        return ss.str();
+        return ss;
 
     }
     
@@ -82,11 +82,11 @@ namespace TL { namespace Acotes {
      * * Generators
      * ****************************************************************/
     
-    std::string FinalizerTransform::generate(Task* task)
+    Source FinalizerTransform::generate(Task* task)
     {
         assert(task);
         
-        std::stringstream ss;
+        Source ss;
         
         const std::vector<Finalizer*> finalizers= Finalizer::getMatching(task->getFinalizerVector());
         for (unsigned i= 0; i < finalizers.size(); i++) {
@@ -94,17 +94,17 @@ namespace TL { namespace Acotes {
             ss << generate(finalizer);
         }
         
-        return ss.str();
+        return ss;
     }
     
-    std::string FinalizerTransform::generate(Finalizer* finalizer) {
+    Source FinalizerTransform::generate(Finalizer* finalizer) {
         assert(finalizer);
         
-        std::stringstream ss;
+        Source ss;
         
         ss << finalizer->getBody()->prettyprint();
         
-        return ss.str();
+        return ss;
     }
         
     

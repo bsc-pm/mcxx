@@ -70,22 +70,22 @@ namespace TL { namespace Acotes {
      * * Generation
      * ****************************************************************/
     
-    std::string TeamReplicateTransform::generateReplicate(TeamReplicate* teamReplicate)
+    Source TeamReplicateTransform::generateReplicate(TeamReplicate* teamReplicate)
     {
-        std::stringstream ss;
+        Source ss;
      
         ss << teamReplicate->getBody()->prettyprint();
         
-        return ss.str();
+        return ss;
     }
     
-    std::string TeamReplicateTransform::generateReplacement(TeamReplicate* teamReplicate)
+    Source TeamReplicateTransform::generateReplacement(TeamReplicate* teamReplicate)
     {
-        std::stringstream ss;
+        Source ss;
      
         ss << teamReplicate->getBody()->prettyprint();
         
-        return ss.str();
+        return ss;
     }
         
     

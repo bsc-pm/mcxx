@@ -31,6 +31,7 @@
 #define	_TL_INITIALIZERTRANSFORM_H
 
 #include <string>
+#include <tl-langconstruct.hpp>
 
 namespace TL { namespace Acotes {
     
@@ -50,13 +51,13 @@ namespace TL { namespace Acotes {
         virtual void transform(Initializer* initializer);
     private:
         virtual void transformReplaceConstruct(Initializer* initializer);
-        virtual std::string generateReplacement(Initializer* initializer);
+        virtual Source generateReplacement(Initializer* initializer);
 
     // -- Generators
     public:
-        virtual std::string generate(Task* task);
+        virtual Source generate(Task* task);
     private:
-        virtual std::string generate(Initializer* initializer);
+        virtual Source generate(Initializer* initializer);
         
     };
     

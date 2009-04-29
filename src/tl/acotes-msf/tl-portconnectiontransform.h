@@ -31,6 +31,7 @@
 #define	_TL_PORTCONNECTIONTRANSFORM_H
 
 #include <string>
+#include <tl-langconstruct.hpp>
 
 namespace TL { namespace Acotes {
     
@@ -47,8 +48,8 @@ namespace TL { namespace Acotes {
         
     // -- Auxiliary generators
     public:
-        virtual std::string generatePortConnection(PortConnection* portConnection);
-        virtual std::string generateConnection(PortConnection* portConnection);
+        virtual Source generatePortConnection(PortConnection* portConnection);
+        virtual Source generateConnection(PortConnection* portConnection);
     };
     
     

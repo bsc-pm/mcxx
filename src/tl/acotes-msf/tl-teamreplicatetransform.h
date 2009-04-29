@@ -31,6 +31,7 @@
 #define	_TL_TEAMREPLICATETRANSFORM_H
 
 #include <string>
+#include <tl-langconstruct.hpp>
 
 namespace TL { namespace Acotes {
     
@@ -51,9 +52,9 @@ namespace TL { namespace Acotes {
         
     // -- Generation
     public:
-        virtual std::string generateReplicate(TeamReplicate* teamReplicate);
+        virtual Source generateReplicate(TeamReplicate* teamReplicate);
     private:
-        virtual std::string generateReplacement(TeamReplicate* teamReplicate);
+        virtual Source generateReplacement(TeamReplicate* teamReplicate);
 
     };
     

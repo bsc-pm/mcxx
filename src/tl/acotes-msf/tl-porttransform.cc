@@ -51,11 +51,11 @@ namespace TL { namespace Acotes {
      * * Auxiliary generators
      * ******************************************************/
     
-    std::string PortTransform::generatePort(Port* port)
+    Source PortTransform::generatePort(Port* port)
     {
         assert(port);
         
-        std::stringstream ss;
+        Source ss;
 
         if (port->isInput()) {
             ss << generateInputPort(port);
@@ -65,14 +65,14 @@ namespace TL { namespace Acotes {
             assert(0);
         }
         
-        return ss.str();
+        return ss;
     }
     
-    std::string PortTransform::generateBufferPort(Port* port)
+    Source PortTransform::generateBufferPort(Port* port)
     {
         assert(port);
 
-        std::stringstream ss;
+        Source ss;
 
         if (port->isInput()) {
             ss << generateInputBufferPort(port);
@@ -82,14 +82,14 @@ namespace TL { namespace Acotes {
             assert(0);
         }
 
-        return ss.str();
+        return ss;
     }
 
-    std::string PortTransform::generateNelemsBufferPort(Port* port)
+    Source PortTransform::generateNelemsBufferPort(Port* port)
     {
         assert(port);
 
-        std::stringstream ss;
+        Source ss;
 
         if (port->isInput()) {
             ss << generateNelemsInputBufferPort(port);
@@ -99,27 +99,27 @@ namespace TL { namespace Acotes {
             assert(0);
         }
 
-        return ss.str();
+        return ss;
     }
 
-    std::string PortTransform::generateCommitBufferPort(Port* port)
+    Source PortTransform::generateCommitBufferPort(Port* port)
     {
         assert(port);
-        std::stringstream ss;
+        Source ss;
         if (port->isOutput()) {
             ss << generateCommitOutputBufferPort(port);
         }
         // input port nothing
 
-        return ss.str();
+        return ss;
     }
 
 
-    std::string PortTransform::generate_endofstream_condition(Port* port)
+    Source PortTransform::generate_endofstream_condition(Port* port)
     {
         assert(port);
 
-        std::stringstream ss;
+        Source ss;
 
         if (port->isInput()) {
             ss << generate_eos_condition(port);
@@ -129,13 +129,13 @@ namespace TL { namespace Acotes {
             assert(0);
         }
 
-        return ss.str();
+        return ss;
     }
 
-    std::string PortTransform::generateAcquire_task(Port* port)
+    Source PortTransform::generateAcquire_task(Port* port)
     {
         assert(port);
-        std::stringstream ss;
+        Source ss;
         Variable* variable= port->getVariable();
         ss << "iii();";
         if (variable) {
@@ -155,14 +155,14 @@ namespace TL { namespace Acotes {
                ;//AQUI2
            }
         }
-        return ss.str();
+        return ss;
     }
 
-    std::string PortTransform::generateAcquire(Port* port)
+    Source PortTransform::generateAcquire(Port* port)
     {
         assert(port);
         
-        std::stringstream ss;
+        Source ss;
 
 #if 0        
         Variable* variable= port->getVariable();
@@ -202,15 +202,15 @@ namespace TL { namespace Acotes {
         }
         ss << "";
 #endif
-        return ss.str();
+        return ss;
     }
     
-    std::string PortTransform::generateInputPeek(Port* port)
+    Source PortTransform::generateInputPeek(Port* port)
     {
         assert(port);
         assert(port->isInput());
 
-        std::stringstream ss;
+        Source ss;
         
         Variable* variable= port->getVariable();
         if (variable) {
@@ -235,15 +235,15 @@ namespace TL { namespace Acotes {
                 << "}";
         }
         
-        return ss.str();
+        return ss;
     }
     
-    std::string PortTransform::generateInputBufferAccess(Port* port)
+    Source PortTransform::generateInputBufferAccess(Port* port)
     {
         assert(port);
         assert(port->isInput());
 
-        std::stringstream ss;
+        Source ss;
 
         Variable* variable= port->getVariable();
         if (variable) {
@@ -260,15 +260,15 @@ namespace TL { namespace Acotes {
       else
            fprintf (stderr, "Error: generating inputbufferaccess from control port with no variable associated\n");
 
-        return ss.str();
+        return ss;
     }
 /* AQUI*/
-    std::string PortTransform::generateOutputBufferAccess(Port* port)
+    Source PortTransform::generateOutputBufferAccess(Port* port)
     {
         assert(port);
         assert(port->isOutput());
-        std::stringstream ss;
-        std::stringstream elem;
+        Source ss;
+        Source elem;
 
         Variable* variable= port->getVariable();
         if (variable) {
@@ -328,15 +328,15 @@ namespace TL { namespace Acotes {
       else
            fprintf (stderr, "Error: generating inputbufferaccess from control port with no variable associated\n");
 
-        return ss.str();
+        return ss;
     }
 
-    std::string PortTransform::generateOutputPeek(Port* port)
+    Source PortTransform::generateOutputPeek(Port* port)
     {
         assert(port);
         assert(port->isOutput());
 
-        std::stringstream ss;
+        Source ss;
 //AQUI3
 #if 1
         
@@ -365,15 +365,15 @@ namespace TL { namespace Acotes {
                 ss << "";
 #endif
         
-        return ss.str();
+        return ss;
     }
     
-    std::string PortTransform::generatePop(Port* port)
+    Source PortTransform::generatePop(Port* port)
     {
         assert(port);
         assert(port->isInput());
         
-        std::stringstream ss;
+        Source ss;
         
         Variable* variable= port->getVariable();
         if (variable) {
@@ -392,15 +392,15 @@ namespace TL { namespace Acotes {
                 << ");";
         }
         
-        return ss.str();
+        return ss;
     }
     
-    std::string PortTransform::generatePush(Port* port)
+    Source PortTransform::generatePush(Port* port)
     {
         assert(port);
         assert(port->isOutput());
         
-        std::stringstream ss;
+        Source ss;
 
 #if 0        
         Variable* variable= port->getVariable();
@@ -423,15 +423,15 @@ namespace TL { namespace Acotes {
 	ss << "";
 #endif
         
-        return ss.str();
+        return ss;
     }
 
     
-    std::string PortTransform::generateInputPort(Port* port) {
+    Source PortTransform::generateInputPort(Port* port) {
         assert(port);
         assert(port->isInput());
         
-        std::stringstream ss;
+        Source ss;
         
         Variable* variable= port->getVariable();
 //        ss << "task_iport"
@@ -494,14 +494,14 @@ namespace TL { namespace Acotes {
                     << ");";
         }
         
-        return ss.str();
+        return ss;
     }
 
-    std::string PortTransform::generate_eos_condition(Port* port) {
+    Source PortTransform::generate_eos_condition(Port* port) {
         assert(port);
         assert(port->isInput());
 
-        std::stringstream ss;
+        Source ss;
 
         Variable* variable= port->getVariable();
         if (port->hasVariable()) {
@@ -514,15 +514,15 @@ namespace TL { namespace Acotes {
            //   << "__in_elems_to_process_ctrl_" << port->getNumber() << ")"
            ss << "" ;
         }
-        return ss.str();
+        return ss;
     }
 
 
-    std::string PortTransform::generateNelemsInputBufferPort(Port* port) {
+    Source PortTransform::generateNelemsInputBufferPort(Port* port) {
         assert(port);
         assert(port->isInput());
 
-        std::stringstream ss;
+        Source ss;
 
    //port->getTask()->getName()
 
@@ -555,13 +555,13 @@ namespace TL { namespace Acotes {
            ss << "" ;
         }
 
-        return ss.str();
+        return ss;
     }
 
-    std::string PortTransform::generateCommitOutputBufferPort(Port* port) {
+    Source PortTransform::generateCommitOutputBufferPort(Port* port) {
         assert(port);
         assert(port->isOutput());
-        std::stringstream ss;
+        Source ss;
 
         Variable* variable= port->getVariable();
         if (port->hasVariable()) {
@@ -575,14 +575,14 @@ namespace TL { namespace Acotes {
            assert(0);
         }
 
-        return ss.str();
+        return ss;
     }
 
-    std::string PortTransform::generateNelemsOutputBufferPort(Port* port) {
+    Source PortTransform::generateNelemsOutputBufferPort(Port* port) {
         assert(port);
         assert(port->isOutput());
 
-        std::stringstream ss;
+        Source ss;
 
    //port->getTask()->getName()
 
@@ -618,14 +618,14 @@ namespace TL { namespace Acotes {
            ss << "" ;
         }
 
-        return ss.str();
+        return ss;
     }
 
-    std::string PortTransform::generateInputBufferPort(Port* port) {
+    Source PortTransform::generateInputBufferPort(Port* port) {
         assert(port);
         assert(port->isInput());
 
-        std::stringstream ss;
+        Source ss;
 
    //port->getTask()->getName()
 
@@ -644,14 +644,14 @@ namespace TL { namespace Acotes {
            //     << ", 0);";
            ss << "";
         }
-        return ss.str();
+        return ss;
     }
 
-    std::string PortTransform::generateOutputBufferPort(Port* port) {
+    Source PortTransform::generateOutputBufferPort(Port* port) {
         assert(port);
         assert(port->isOutput());
 
-        std::stringstream ss;
+        Source ss;
 
    //port->getTask()->getName()
         Variable* variable= port->getVariable();
@@ -670,15 +670,15 @@ namespace TL { namespace Acotes {
       }
 
 
-        return ss.str();
+        return ss;
     }
 
     
-    std::string PortTransform::generateOutputPort(Port* port) {
+    Source PortTransform::generateOutputPort(Port* port) {
         assert(port);
         assert(port->isOutput());
         
-        std::stringstream ss;
+        Source ss;
         
         Variable* variable= port->getVariable();
 //        ss << "task_oport"
@@ -722,7 +722,7 @@ namespace TL { namespace Acotes {
          ss << "";
     }
         
-        return ss.str();
+        return ss;
     }
     
     

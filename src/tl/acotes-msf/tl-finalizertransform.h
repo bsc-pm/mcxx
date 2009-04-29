@@ -31,6 +31,7 @@
 #define	_TL_FINALIZERTRANSFORM_H
 
 #include <string>
+#include <tl-langconstruct.hpp>
 
 namespace TL { namespace Acotes {
     
@@ -50,13 +51,13 @@ namespace TL { namespace Acotes {
         void virtual transform(Finalizer* finalizer);
     private:
         void virtual transformReplaceConstruct(Finalizer* finalizer);
-        std::string virtual generateReplacement(Finalizer* finalizer);
+        Source virtual generateReplacement(Finalizer* finalizer);
 
     // -- Generators
     public:
-        std::string virtual generate(Task* task);
+        Source virtual generate(Task* task);
     private:
-        std::string virtual generate(Finalizer* finalizer);
+        Source virtual generate(Finalizer* finalizer);
         
     // -- No Constructor
     private:

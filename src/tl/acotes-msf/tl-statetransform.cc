@@ -51,10 +51,10 @@ namespace TL { namespace Acotes {
     /**
      * Generates the copyin specification.
      */
-    std::string StateTransform::generateCopy(State* state) {
+    Source StateTransform::generateCopy(State* state) {
         assert(state);
         
-        std::stringstream ss;
+        Source ss;
         
         if (state->isCopyIn()) {
             ss << generateCopyIn(state);
@@ -63,32 +63,32 @@ namespace TL { namespace Acotes {
             ss << generateCopyOut(state);
         }
         
-        return ss.str();
+        return ss;
     }
 
-    std::string StateTransform::generateCopyStruct(State * state) {
+    Source StateTransform::generateCopyStruct(State * state) {
        assert (state);
-       std::stringstream ss;
+       Source ss;
        if (state->isCopyIn()) {
           //TOFINISHss << generateCopyinStruct(state);
        }
        if (state->isCopyOut()) {
           //sTOFINISHs << generateCopyoutStruct(state);
        }
-       return ss.str();
+       return ss;
     }
 
             
     /**
      * Get the source code to perform an acquire operation.
      */
-    std::string StateTransform::generateCopyInAcquire(State* state) {
+    Source StateTransform::generateCopyInAcquire(State* state) {
         assert(state);
         assert(state->isCopyIn());
         assert(state->getTask());
         assert(state->getVariable());
         
-        std::stringstream ss;
+        Source ss;
         
         Variable* variable= state->getVariable();
 //        ss << "memcpy"
@@ -98,19 +98,19 @@ namespace TL { namespace Acotes {
 //                << "   * " << Transform::I(driver)->variable()->generateElementCount(variable)
 //                << ");";
         ss << "" ;
-        return ss.str();
+        return ss;
     }
             
     /**
      * Get the source code to perform an acquire operation.
      */
-    std::string StateTransform::generateCopyOutAcquire(State* state) {
+    Source StateTransform::generateCopyOutAcquire(State* state) {
         assert(state);
         assert(state->isCopyOut());
         assert(state->getTask());
         assert(state->getVariable());
         
-        std::stringstream ss;
+        Source ss;
         
         Variable* variable= state->getVariable();
         ss << "memcpy"
@@ -120,32 +120,32 @@ namespace TL { namespace Acotes {
                 << "   * " << Transform::I(driver)->variable()->generateElementCount(variable)
                 << ");";
         
-        return ss.str();
+        return ss;
     }
 
 
-    std::string StateTransform::generateCopyinStruct (State * state) {
+    Source StateTransform::generateCopyinStruct (State * state) {
        assert(state);
        assert(state->isCopyIn());
        assert(state->getTask());
        assert(state->getVariable());
-       std::stringstream ss;
+       Source ss;
        Task* task= state->getTask();
        Variable* variable= state->getVariable();
        //ss << task->getName() + "_" + state->getNumber();
 // TOFINISH
-       
+       assert(0);
     }
     /**
      * Generates the copyin specification.
      */
-    std::string StateTransform::generateCopyIn(State* state) {
+    Source StateTransform::generateCopyIn(State* state) {
         assert(state);
         assert(state->isCopyIn());
         assert(state->getTask());
         assert(state->getVariable());
         
-        std::stringstream ss;
+        Source ss;
         
         Task* task= state->getTask();
         Variable* variable= state->getVariable();
@@ -157,19 +157,19 @@ namespace TL { namespace Acotes {
 //                << "   * " << Transform::I(driver)->variable()->generateElementCount(variable)
 //                << ");";
         ss << "";
-        return ss.str();
+        return ss;
     }
     
     /**
      * Generates the copyout taskgroup specification.
      */
-    std::string StateTransform::generateCopyOut(State* state) {
+    Source StateTransform::generateCopyOut(State* state) {
         assert(state);
         assert(state->isCopyOut());
         assert(state->getTask());
         assert(state->getVariable());
         
-        std::stringstream ss;
+        Source ss;
         
         Task* task= state->getTask();
         Variable* variable= state->getVariable();
@@ -181,7 +181,7 @@ namespace TL { namespace Acotes {
                 << "   * " << Transform::I(driver)->variable()->generateElementCount(variable)
                 << ");";
         
-        return ss.str();
+        return ss;
     }
             
 

@@ -31,6 +31,7 @@
 #define	_TL_SHAREDTRANSFORM_H
 
 #include <string>
+#include <tl-langconstruct.hpp>
 
 namespace TL { namespace Acotes {
 
@@ -54,21 +55,21 @@ namespace TL { namespace Acotes {
         virtual void transform(SharedUpdate* sharedUpdate);
     private:
         virtual void transformReplacement(SharedCheck* sharedCheck);
-        virtual std::string generateReplacement(SharedCheck* sharedCheck);
-        virtual std::string generateCheck(SharedCheck* sharedCheck);
+        virtual Source generateReplacement(SharedCheck* sharedCheck);
+        virtual Source generateCheck(SharedCheck* sharedCheck);
         virtual void transformReplacement(SharedUpdate* sharedUpdate);
-        virtual std::string generateReplacement(SharedUpdate* sharedUpdate);
-        virtual std::string generateUpdate(SharedUpdate* sharedUpdate);
+        virtual Source generateReplacement(SharedUpdate* sharedUpdate);
+        virtual Source generateUpdate(SharedUpdate* sharedUpdate);
         
         
         
     // -- Generator
     public:
-        virtual std::string generateShared(State* state);
-        virtual std::string generateSharedConnection(SharedConnection* sharedConnection);
-        virtual std::string generateAcquire(State* state);
-        virtual std::string generateCheck(State* state);
-        virtual std::string generateUpdate(State* state);
+        virtual Source generateShared(State* state);
+        virtual Source generateSharedConnection(SharedConnection* sharedConnection);
+        virtual Source generateAcquire(State* state);
+        virtual Source generateCheck(State* state);
+        virtual Source generateUpdate(State* state);
     private:
     };
 

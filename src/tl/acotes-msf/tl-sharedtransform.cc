@@ -78,21 +78,21 @@ namespace TL { namespace Acotes {
 
     }
      
-    std::string SharedTransform::generateReplacement(SharedCheck* shared)
+    Source SharedTransform::generateReplacement(SharedCheck* shared)
     {
-        std::stringstream ss;
+        Source ss;
         
         ss      << "{"
                 <<   generateCheck(shared)
                 << "}"
                 ;
         
-        return ss.str();
+        return ss;
     }
     
-    std::string SharedTransform::generateCheck(SharedCheck* shared)
+    Source SharedTransform::generateCheck(SharedCheck* shared)
     {
-        std::stringstream ss;
+        Source ss;
         
         const std::vector<State*> &states= shared->getStateVector();
         for (unsigned i= 0; i < states.size(); i++) {
@@ -100,7 +100,7 @@ namespace TL { namespace Acotes {
             ss << SharedTransform::generateCheck(state);
         }
         
-        return ss.str();
+        return ss;
     }
     
     void SharedTransform::transformReplacement(SharedUpdate* shared)
@@ -118,21 +118,21 @@ namespace TL { namespace Acotes {
 
     }
      
-    std::string SharedTransform::generateReplacement(SharedUpdate* shared)
+    Source SharedTransform::generateReplacement(SharedUpdate* shared)
     {
-        std::stringstream ss;
+        Source ss;
         
         ss      << "{"
                 <<   generateUpdate(shared)
                 << "}"
                 ;
         
-        return ss.str();
+        return ss;
     }
     
-    std::string SharedTransform::generateUpdate(SharedUpdate* shared)
+    Source SharedTransform::generateUpdate(SharedUpdate* shared)
     {
-        std::stringstream ss;
+        Source ss;
         
         const std::vector<State*> &states= shared->getStateVector();
         for (unsigned i= 0; i < states.size(); i++) {
@@ -140,7 +140,7 @@ namespace TL { namespace Acotes {
             ss << SharedTransform::generateUpdate(state);
         }
         
-        return ss.str();
+        return ss;
     }
     
         
@@ -149,13 +149,13 @@ namespace TL { namespace Acotes {
      * * Generator
      * ****************************************************************/
     
-    std::string SharedTransform::generateShared(State* state)
+    Source SharedTransform::generateShared(State* state)
     {
         assert(state);
         assert(state->isShared() || state->isUpdateShared());
         assert(state->hasTask());
         
-        std::stringstream ss;
+        Source ss;
         
         Task* task= state->getTask();
         Variable* variable= state->getVariable();
@@ -166,11 +166,11 @@ namespace TL { namespace Acotes {
                 << ", " << Transform::I(driver)->variable()->generateSizeof(variable)
                 << ");";
         
-        return ss.str();
+        return ss;
 
     }
     
-    std::string SharedTransform::generateSharedConnection(SharedConnection* sharedConnection)
+    Source SharedTransform::generateSharedConnection(SharedConnection* sharedConnection)
     {
         assert(sharedConnection);
         
@@ -179,7 +179,7 @@ namespace TL { namespace Acotes {
         State* target= sharedConnection->getTarget();
         Task* targetTask= target->getTask();
         
-        std::stringstream ss;
+        Source ss;
         
         if (target->isAsyncShared()) {
             ss << "shared_async";
@@ -195,16 +195,16 @@ namespace TL { namespace Acotes {
                 << ");";
         
         
-        return ss.str();
+        return ss;
     }
     
-    std::string SharedTransform::generateAcquire(State* state)
+    Source SharedTransform::generateAcquire(State* state)
     {
         assert(state);
         assert(state->isShared() || state->isUpdateShared());
         assert(state->hasTask());
         
-        std::stringstream ss;
+        Source ss;
         
         Variable* variable= state->getVariable();
         ss << "memcpy"
@@ -213,33 +213,33 @@ namespace TL { namespace Acotes {
                 << ", " << Transform::I(driver)->variable()->generateSizeof(variable)
                 << ");";
         
-        return ss.str();
+        return ss;
 
     }
     
-    std::string SharedTransform::generateCheck(State* state)
+    Source SharedTransform::generateCheck(State* state)
     {
         assert(state);
         assert(state->isShared() || state->isUpdateShared());
         assert(state->hasTask());
          
-        std::stringstream ss;
+        Source ss;
         
         ss << "shared_check(" << state->getNumber() << ");"
            << generateAcquire(state)
            ;
         
-        return ss.str();
+        return ss;
 
     }
     
-    std::string SharedTransform::generateUpdate(State* state)
+    Source SharedTransform::generateUpdate(State* state)
     {
         assert(state);
         assert(state->isShared() || state->isUpdateShared());
         assert(state->hasTask());
         
-        std::stringstream ss;
+        Source ss;
         
         Variable* variable= state->getVariable();
         ss << "memcpy"
@@ -250,7 +250,7 @@ namespace TL { namespace Acotes {
            << "shared_update(" << state->getNumber() << ");"
            ;
         
-        return ss.str();
+        return ss;
 
     }
     

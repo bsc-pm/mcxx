@@ -82,8 +82,8 @@ namespace TL { namespace Acotes {
      * Generates the source for the replacement of the taskgroup.
      * <p>
      */
-    std::string TaskgroupTransform::generateReplacement(Taskgroup* taskgroup) {
-        std::stringstream ss;
+    Source TaskgroupTransform::generateReplacement(Taskgroup* taskgroup) {
+        Source ss;
         
         ss      << "{"
                 << generateBufferSizeInit(taskgroup)
@@ -105,23 +105,23 @@ namespace TL { namespace Acotes {
                 << "}"
                 ;
         
-        return ss.str();
+        return ss;
     }
 
-    std::string TaskgroupTransform::generateBufferSizeInit(Taskgroup* taskgroup)
+    Source TaskgroupTransform::generateBufferSizeInit(Taskgroup* taskgroup)
     {
         assert(taskgroup);
-        std::stringstream ss;
+        Source ss;
         ss << "extern int acotes__bs[16][16][16][2];";
         ss << "int acotes__tg = " << taskgroup->getNum() << ";";
         //ss << "";
-        return ss.str();
+        return ss;
     }
 
-    std::string TaskgroupTransform::generateBufferInfo(Taskgroup* taskgroup)
+    Source TaskgroupTransform::generateBufferInfo(Taskgroup* taskgroup)
     {
         assert(taskgroup);
-        std::stringstream ss;
+        Source ss;
 
         ss << "static FILE * f;"
            << "static int acotes__tg" << taskgroup->getNum() << "_gen = 0;"
@@ -137,17 +137,17 @@ namespace TL { namespace Acotes {
            << "   }"
            << "}";
 
-        return ss.str();
+        return ss;
     }
     
     /**
      * Generates the call to task init.
      */
-    std::string TaskgroupTransform::generateTasksInit(Taskgroup* taskgroup)
+    Source TaskgroupTransform::generateTasksInit(Taskgroup* taskgroup)
     {
         assert(taskgroup);
         
-        std::stringstream ss;
+        Source ss;
         const std::vector<Task*> &tasks= taskgroup->getTaskVector();
         
         for (unsigned i= 0; i < tasks.size(); i++)
@@ -156,17 +156,17 @@ namespace TL { namespace Acotes {
             ss << Transform::I(driver)->task()->generateInit(task);
         }
                         
-        return ss.str();
+        return ss;
     }
 
     /**
      * Generates the ports of the tasks.
      */
-    std::string TaskgroupTransform::generateTasksPorts(Taskgroup* taskgroup)
+    Source TaskgroupTransform::generateTasksPorts(Taskgroup* taskgroup)
     {
         assert(taskgroup);
         
-        std::stringstream ss;
+        Source ss;
         const std::vector<Task*> &tasks= taskgroup->getTaskVector();
         
         for (unsigned i= 0; i < tasks.size(); i++)
@@ -175,17 +175,17 @@ namespace TL { namespace Acotes {
             ss << Transform::I(driver)->task()->generatePorts(task);
         }
                         
-        return ss.str();
+        return ss;
     }
     
     /**
      * Generates the ports of the tasks.
      */
-    std::string TaskgroupTransform::generateTasksShareds(Taskgroup* taskgroup)
+    Source TaskgroupTransform::generateTasksShareds(Taskgroup* taskgroup)
     {
         assert(taskgroup);
         
-        std::stringstream ss;
+        Source ss;
         const std::vector<Task*> &tasks= taskgroup->getTaskVector();
         
         for (unsigned i= 0; i < tasks.size(); i++)
@@ -194,17 +194,17 @@ namespace TL { namespace Acotes {
             ss << Transform::I(driver)->task()->generateShareds(task);
         }
                         
-        return ss.str();
+        return ss;
     }
     
     /**
      * Generates the ports of the tasks.
      */
-    std::string TaskgroupTransform::generatePortConnections(Taskgroup* taskgroup)
+    Source TaskgroupTransform::generatePortConnections(Taskgroup* taskgroup)
     {
         assert(taskgroup);
         
-        std::stringstream ss;
+        Source ss;
         const std::vector<PortConnection*> &connections= taskgroup->getPortConnectionVector();
         
         for (unsigned i= 0; i < connections.size(); i++)
@@ -213,14 +213,14 @@ namespace TL { namespace Acotes {
             ss << Transform::I(driver)->portConnection()->generatePortConnection(portConnection);
         }
                         
-        return ss.str();
+        return ss;
     }
     
-    std::string TaskgroupTransform::generateConnectionInfo(Taskgroup* taskgroup)
+    Source TaskgroupTransform::generateConnectionInfo(Taskgroup* taskgroup)
     {
         assert(taskgroup);
         
-        std::stringstream ss;
+        Source ss;
         const std::vector<PortConnection*> &connections= taskgroup->getPortConnectionVector();
         
         for (unsigned i= 0; i < connections.size(); i++)
@@ -229,17 +229,17 @@ namespace TL { namespace Acotes {
             ss << Transform::I(driver)->portConnection()->generateConnection(portConnection);
         }
                         
-        return ss.str();
+        return ss;
     }
     
     /**
      * Generates the ports of the tasks.
      */
-    std::string TaskgroupTransform::generateCopyState(Taskgroup* taskgroup)
+    Source TaskgroupTransform::generateCopyState(Taskgroup* taskgroup)
     {
         assert(taskgroup);
         
-        std::stringstream ss;
+        Source ss;
         const std::vector<State*> &states= taskgroup->getCopyStateVector();
         
         for (unsigned i= 0; i < states.size(); i++)
@@ -248,17 +248,17 @@ namespace TL { namespace Acotes {
             ss << Transform::I(driver)->state()->generateCopy(state);
         }
                         
-        return ss.str();
+        return ss;
     }
     
     /**
      * Generates the ports of the tasks.
      */
-    std::string TaskgroupTransform::generateSharedConnections(Taskgroup* taskgroup)
+    Source TaskgroupTransform::generateSharedConnections(Taskgroup* taskgroup)
     {
         assert(taskgroup);
         
-        std::stringstream ss;
+        Source ss;
         const std::vector<SharedConnection*> &connections= taskgroup->getSharedConnectionVector();
         
         for (unsigned i= 0; i < connections.size(); i++)
@@ -267,17 +267,17 @@ namespace TL { namespace Acotes {
             ss << Transform::I(driver)->shared()->generateSharedConnection(sharedConnection);
         }
                         
-        return ss.str();
+        return ss;
     }
     
     /**
      * Generates the start of the tasks.
      */
-    std::string TaskgroupTransform::generateTasksStart(Taskgroup* taskgroup)
+    Source TaskgroupTransform::generateTasksStart(Taskgroup* taskgroup)
     {
         assert(taskgroup);
         
-        std::stringstream ss;
+        Source ss;
         const std::vector<Task*> &tasks= taskgroup->getTaskVector();
         
         for (unsigned i= 0; i < tasks.size(); i++)
@@ -286,17 +286,17 @@ namespace TL { namespace Acotes {
             ss << Transform::I(driver)->task()->generateStart(task);
         }
                         
-        return ss.str();
+        return ss;
     }
     
     /**
      * Generates the wait for the tasks.
      */
-    std::string TaskgroupTransform::generateTasksWait(Taskgroup* taskgroup) 
+    Source TaskgroupTransform::generateTasksWait(Taskgroup* taskgroup) 
     {
         assert(taskgroup);
         
-        std::stringstream ss;
+        Source ss;
         const std::vector<Task*> &tasks= taskgroup->getTaskVector();
         
         for (int i= tasks.size() - 1; i >= 0; i--)
@@ -305,23 +305,23 @@ namespace TL { namespace Acotes {
             ss << Transform::I(driver)->task()->generateWait(task);
         }
                         
-        return ss.str();
+        return ss;
     }
         
     /**
      * Generates the taskgroupbody.
      */
-    std::string TaskgroupTransform::generateBody(Taskgroup* taskgroup) 
+    Source TaskgroupTransform::generateBody(Taskgroup* taskgroup) 
     {
        assert(taskgroup);
         
-       std::stringstream ss;
+       Source ss;
        
        //ss << "trace_iteration_begin();" << std::endl;
        ss << taskgroup->getBody()->prettyprint();
        //ss << "trace_iteration_end();" << std::endl;
        
-       return ss.str();
+       return ss;
     }
      
     

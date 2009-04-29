@@ -31,6 +31,7 @@
 #define	_TL_STATETRANSFORM_H
 
 #include <string>
+#include <tl-langconstruct.hpp>
 
 namespace TL { namespace Acotes {
 
@@ -46,15 +47,15 @@ namespace TL { namespace Acotes {
 
     // -- Generation
     public:
-        virtual std::string generateCopy(State* state);
-        virtual std::string generateCopyStruct(State * state);
+        virtual Source generateCopy(State* state);
+        virtual Source generateCopyStruct(State * state);
 
-        virtual std::string generateCopyInAcquire(State* state);
-        virtual std::string generateCopyOutAcquire(State* state);
+        virtual Source generateCopyInAcquire(State* state);
+        virtual Source generateCopyOutAcquire(State* state);
     private:
-        virtual std::string generateCopyIn(State* state);
-        virtual std::string generateCopyOut(State* state);
-        virtual     std::string generateCopyinStruct (State * state) ;
+        virtual Source generateCopyIn(State* state);
+        virtual Source generateCopyOut(State* state);
+        virtual     Source generateCopyinStruct (State * state) ;
 
     
     };
