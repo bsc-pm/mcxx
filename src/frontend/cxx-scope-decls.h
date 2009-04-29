@@ -95,6 +95,9 @@ enum decl_flags_tag
     DF_UPDATE_TEMPLATE_ARGUMENTS = BITMAP(14),
     // We are instantiating: some bits are skipped 
     DF_INSTANTIATING = BITMAP(15),
+    // Relaxed typechecking, ambiguity decl-expr is solved always to expr if it
+    // cannot be disambiguated
+    DF_AMBIGUITY_FALLBACK_TO_EXPR = BITMAP(16),
 } decl_flags_t;
 
 #undef BITMAP

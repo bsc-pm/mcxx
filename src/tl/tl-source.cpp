@@ -214,6 +214,9 @@ namespace TL
             if (do_not_check_expression)
             {
                 enter_test_expression();
+                // As a gotcha, ambiguous decl-expr are defaulted to
+                // expressions if they could not be properly checked
+                decl_context.decl_flags = (decl_flags_t)(decl_context.decl_flags | DF_AMBIGUITY_FALLBACK_TO_EXPR);
             }
             build_scope_statement_seq_with_scope_link(a, decl_context, scope_link._scope_link);
             if (do_not_check_expression)
