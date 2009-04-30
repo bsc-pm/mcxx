@@ -141,6 +141,7 @@ noinst_HEADERS = \
 	tl-code-conversion.hpp \
 	tl-code-conversion-v2.hpp \
 	tl-code-conversion-v3.hpp \
+	tl-code-conversion-v4.hpp \
 	tl-parameter-region-list.hpp \
 	tl-parameter-expression.hpp \
 	tl-task-manifest.hpp
