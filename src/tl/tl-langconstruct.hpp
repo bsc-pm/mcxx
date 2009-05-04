@@ -122,10 +122,6 @@ namespace TL
              * All LangConstruct classes should have a predicate that
              * states whether the tree is valid to be wrapped in such
              * a LangConstruct. 
-             *
-             * Currently this is not used too much since some trees
-             * have complex predicates stating their validity
-             * (e.g. TL::Expression)
              */
             const static AlwaysFalse<AST_t> predicate;
 
