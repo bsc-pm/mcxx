@@ -109,6 +109,9 @@ namespace TL
                  * \return The data sharing attribute or DA_UNDEFINED if no data sharing was set for it in this, and only this, DataSharing
                  */
                 DataAttribute get(Symbol sym);
+
+                //! Returns the enclosing data sharing
+                DataSharing* get_enclosing();
         };
 
         class Directive;
@@ -644,25 +647,6 @@ namespace TL
 #include "tl-omp-constructs.def"
 #undef OMP_CONSTRUCT
 #undef OMP_CONSTRUCT_MAP
-
-#if 0
-                typedef OpenMPConstructFunctor<ParallelConstruct> ParallelFunctor;
-                typedef OpenMPConstructFunctor<ParallelForConstruct> ParallelForFunctor;
-                typedef OpenMPConstructFunctor<ForConstruct> ForFunctor;
-                typedef OpenMPConstructFunctor<BarrierDirective> BarrierFunctor;
-                typedef OpenMPConstructFunctor<CriticalConstruct> CriticalFunctor;
-                typedef OpenMPConstructFunctor<AtomicConstruct> AtomicFunctor;
-                typedef OpenMPConstructFunctor<TaskConstruct> TaskConstructFunctor;
-                typedef OpenMPConstructFunctor<TaskWaitDirective> TaskWaitFunctor;
-                typedef OpenMPConstructFunctor<SingleConstruct> SingleFunctor;
-                typedef OpenMPConstructFunctor<FlushDirective> FlushFunctor;
-                typedef OpenMPConstructFunctor<ParallelSectionsConstruct> ParallelSectionsFunctor;
-                typedef OpenMPConstructFunctor<SectionsConstruct> SectionsFunctor;
-                typedef OpenMPConstructFunctor<SectionConstruct> SectionFunctor;
-                typedef OpenMPConstructFunctor<OrderedConstruct> OrderedFunctor;
-                typedef OpenMPConstructFunctor<MasterConstruct> MasterFunctor;
-                typedef OpenMPConstructFunctor<ThreadPrivateDirective> ThreadPrivateFunctor;
-#endif
             protected:
                 AST_t translation_unit;
                 ScopeLink scope_link;

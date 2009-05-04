@@ -79,6 +79,11 @@ namespace TL
            }
        }
 
+       DataSharing* DataSharing::get_enclosing()
+       {
+           return _enclosing;
+       }
+
        void DataSharing::set(Symbol sym, DataAttribute data_attr)
        {
            (_map->operator[](sym)) = data_attr;
@@ -159,14 +164,14 @@ namespace TL
        {
            DataAttribute result = DA_UNDEFINED;
 
-           const Construct* current_construct = this;
+           DataSharing *current_data_sharing = this->_data_sharing;
 
            while (result == DA_UNDEFINED
-                   && current_construct != NULL)
+                   && current_data_sharing != NULL)
            {
-               DataSharing *current_data_sharing = current_construct->_data_sharing;
                result = current_data_sharing->get(sym);
-               current_construct = current_construct->_enclosing_construct;
+
+               current_data_sharing = current_data_sharing->get_enclosing();
            }
 
            return result;
