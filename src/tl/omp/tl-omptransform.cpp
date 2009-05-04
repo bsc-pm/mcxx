@@ -242,6 +242,12 @@ namespace TL
                 serialized_functions_info = RefPtr<SerializedFunctionsInfo>::cast_dynamic(obj);
             }
         }
+        
+        void OpenMPTransform::run(DTO& dto)
+        {
+            // Call the OpenMPPhase::run
+            OpenMPPhase::run(dto);
+        }
     }
 }
 

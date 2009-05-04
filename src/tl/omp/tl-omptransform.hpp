@@ -113,6 +113,9 @@ namespace TL
 
                 virtual ~OpenMPTransform();
 
+                // Entry point is overridden but calls OpenMP::OpenMPPhase::run
+                virtual void run(DTO& dto);
+
                 // Initialization function called from OpenMP::OpenMPPhase
                 virtual void init(DTO& dto);
 
