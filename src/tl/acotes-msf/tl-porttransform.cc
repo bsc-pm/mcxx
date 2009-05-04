@@ -85,6 +85,43 @@ namespace TL { namespace Acotes {
         return ss;
     }
 
+    Source PortTransform::generatePrevBufferWrite(Port* port)
+    {
+        assert(port);
+
+        Source ss;
+
+        if (port->isInput()) {
+            //ss << generatePrevInputBufferPort(port);
+            //ss << "inputprev();";
+            ss << comment ("inputprev");
+            ss << "";
+        } else if (port->isOutput()) {
+            ss << generatePrevOutputBufferPort(port);
+        } else {
+            assert(0);
+        }
+
+        return ss;
+    }
+
+    Source PortTransform::generateEndOfFile(Port* port)
+    {
+        assert(port);
+
+        Source ss;
+
+        if (port->isInput()) {
+            ss << comment ("inputprev2");
+        } else if (port->isOutput()) {
+            ss << generateEndOfFilePort(port);
+        } else {
+            assert(0);
+        }
+
+        return ss;
+    }
+
     Source PortTransform::generateNelemsBufferPort(Port* port)
     {
         assert(port);
@@ -132,29 +169,76 @@ namespace TL { namespace Acotes {
         return ss;
     }
 
+    Source PortTransform::generate_continue_condition(Port* port)
+    {
+        assert(port);
+
+        Source ss;
+
+        if (port->isInput()) {
+            // noop
+        } else if (port->isOutput()) {
+            ss << generate_cont_condition(port);
+        } else {
+            assert(0);
+        }
+
+        return ss;
+    }
+
     Source PortTransform::generateAcquire_task(Port* port)
     {
         assert(port);
         Source ss;
         Variable* variable= port->getVariable();
-        ss << "iii();";
+        //ss << "iii();";
         if (variable) {
            if (port->isOutput()) {
              printf ("AQUI2 control %d\n", port->isControl());
-             ss << "aaa();" ;
+             //ss << "aaa();" ;
              //    << "__wbuf_" << variable->getName()
              //    << "_port" << port->getNumber() //<< "a()"
-#if 0
+#if 1
              ss << "__wbuf_" << variable->getName()
                << "_port" << port->getNumber() << "["
                << "__wbuf_" << variable->getName()
-               << "_port" << port->getNumber() << "_elem"
+               << "_port" << port->getNumber() << "_elem++"
                << "]"
                << " = " << variable->getName()
              //  //<< Transform::I(driver)->variable()->generateVariableName(variable)
                << ";"
                ;//AQUI2
 #endif
+             ss << "__out_store_" << variable->getName() << "_port"
+                << port->getNumber() << "++;";
+             ss << "if (__wbuf_" << variable->getName()
+               << "_port" << port->getNumber() << "_elem"
+               << " >= " << "__wbuf_" << variable->getName()
+               << "_port" << port->getNumber() << "_elemno) break;"
+
+
+               ;
+           }
+           else if (port->isInput()) {
+             ss << "this_would_be_the_place();";
+           }
+        }
+        return ss;
+    }
+
+    Source PortTransform::generateAcquire_task2(Port* port)
+    {
+        assert(port);
+        Source ss;
+        Variable* variable= port->getVariable();
+        if (variable) {
+           if (port->isOutput()) {
+             ss << "if (__wbuf_" << variable->getName()
+               << "_port" << port->getNumber() << "_elem"
+               << " >= " << "__wbuf_" << variable->getName()
+               << "_port" << port->getNumber() << "_elemno) break"
+               << ";"
+               ;
            }
         }
         return ss;
@@ -250,6 +334,36 @@ namespace TL { namespace Acotes {
         Variable* variable= port->getVariable();
         if (variable) {
             TL::Scope scope= variable->getSymbol().get_scope();
+
+            ss  << "msf_local_buffer_handle_p h_"
+                << "__rbuf_" << variable->getName()
+                << "_port" << port->getNumber() << " = msf_get_current_read_buffer ("
+                << port->getNumber() << ");";
+
+            ss  << variable->getElementType().get_declaration(scope, "")
+                << "  * __rbuf_" << variable->getName()
+                << "_port" << port->getNumber() << " = msf_get_buffer_address ("
+                << "h_" << "__rbuf_" << variable->getName() 
+                << "_port" << port->getNumber() << ");";
+
+            ss  << "unsigned int " << "__rbuf_" << variable->getName()
+                << "_port" << port->getNumber()
+                << "_elem = 0, "
+                << "__rbuf_" << variable->getName()
+                << "_port" << port->getNumber()
+                << "_elemno = msf_get_elements_number(h_"
+                << "__rbuf_" << variable->getName()
+                << "_port" << port->getNumber() << ");";
+            ss  << "__rbuf_" << variable->getName()
+                << "_port" << port->getNumber()
+                << "_elemno = (" << "__rbuf_" << variable->getName()
+                << "_port" << port->getNumber() << "_elemno"
+                << "<(1*1048576))?"
+                << "__rbuf_" << variable->getName() 
+                << "_port" << port->getNumber() << "_elemno"
+                << ":(1*1048576);";
+            //ss  << "while (1)"; // moved to task
+#if 0
             ss  << variable->getElementType().get_declaration(scope, "")
                 << "  * __rbuf_" << variable->getName()
                 << "_port" << port->getNumber() << " = msf_get_current_read_buffer ("
@@ -258,6 +372,7 @@ namespace TL { namespace Acotes {
                 << ", __in_eload_" << variable->getName()
                 << "_port" << port->getNumber() << ");"        //  , MSF_SYNC);"
                   ;
+#endif
         }
       else
            fprintf (stderr, "Error: generating inputbufferaccess from control port with no variable associated\n");
@@ -514,7 +629,28 @@ namespace TL { namespace Acotes {
         else {
            //ss << "( __in_ctrl_" << port->getNumber() << " < "
            //   << "__in_elems_to_process_ctrl_" << port->getNumber() << ")"
-           ss << "" ;
+           ss << "1" ;
+        }
+        return ss;
+    }
+
+    Source PortTransform::generate_cont_condition(Port* port) {
+        assert(port);
+        assert(port->isOutput());
+
+        Source ss;
+
+        Variable* variable= port->getVariable();
+        if (port->hasVariable()) {
+           ss << "( __out_store_" << variable->getName() 
+              << "_port" << port->getNumber() << " < __out_elems_to_process_"
+              << variable->getName() << ")"
+             ;
+        }
+        else {
+           //ss << "( __in_ctrl_" << port->getNumber() << " < "
+           //   << "__in_elems_to_process_ctrl_" << port->getNumber() << ")"
+           ss << "1" ;
         }
         return ss;
     }
@@ -534,13 +670,15 @@ namespace TL { namespace Acotes {
               << " = 0, __in_elems_to_process_"
               << variable->getName() << " = " << "msf_get_max_elem_to_process("
               << port->getNumber() << ");"
-                ;
-           ss << "int __in_eload_" << variable->getName()
-              << "_port" << port->getNumber() << " = "
-              << "msf_get_elements_number("
-              << port->getNumber()
-              << ");"
-                ;
+                ; 
+           ss << "printf (\"Task in elems %d\\n\", __in_elems_to_process_"
+              << variable->getName() << ");";
+           //ss << "int __in_eload_" << variable->getName()
+           //   << "_port" << port->getNumber() << " = "
+          //    << "msf_get_elements_number("
+          //    << port->getNumber()
+          //    << ");"
+          //      ;
         }
         else {
            //ss << "int __in_ctrl_" << port->getNumber()
@@ -568,8 +706,9 @@ namespace TL { namespace Acotes {
         Variable* variable= port->getVariable();
         if (port->hasVariable()) {
            ss << "msf_commit_written_data(" << port->getNumber() << ", "
-              << "__out_elems_to_process_" << variable->getName() << ", "
-              << "0 /*MSF_BUFFER_PORT_ACTIVE*/);";
+              << "__out_store_" << variable->getName() 
+              << "_port" << port->getNumber() << ", "
+              << "__transfer_type);";
         }
         else {
            ss << "";
@@ -579,6 +718,46 @@ namespace TL { namespace Acotes {
 
         return ss;
     }
+
+    Source PortTransform::generatePrevOutputBufferPort(Port * port) {
+        assert (port);
+        assert(port->isOutput());
+
+        Source ss;
+
+        if (port->hasVariable()) {
+           ss << "msf_send_previous_write_buffer (" << port->getNumber() << ");";
+        }
+        else
+           ss << "";
+
+        return ss;
+    }
+
+    Source PortTransform::generateEndOfFilePort(Port * port) {
+        assert (port);
+        assert(port->isOutput());
+
+        Source ss;
+
+        if (port->hasVariable()) {
+           Variable * v = port->getVariable();
+           ss << "if (__wbuf_" << v->getName() 
+              << "_port" << port->getNumber() << "_elem < __wbuf_" 
+              << v->getName() << "_port" << port->getNumber() << "_elemno) {"
+              << comment ("MSF_BUFFER_PORT_LAST")
+              << " __transfer_type = 1; /* MSF_BUFFER_PORT_LAST */"
+              << "break;"
+              << "}"
+              ;
+        }
+        else
+           ss << "";
+
+        return ss;
+    }
+
+
 
     Source PortTransform::generateNelemsOutputBufferPort(Port* port) {
         assert(port);
@@ -595,6 +774,8 @@ namespace TL { namespace Acotes {
               << variable->getName() << " = " << "msf_get_max_elem_to_process("
               << port->getNumber() << ");"
                 ;
+           ss << "printf (\"Task out elems %d\\n\", __out_elems_to_process_"
+              << variable->getName() << ");";
            ss << "int __out_store_" << variable->getName()
               << "_port" << port->getNumber() << " = 0;"
                 ;
@@ -633,6 +814,7 @@ namespace TL { namespace Acotes {
 
         Variable* variable= port->getVariable();
         if (port->hasVariable()) {
+           ss << comment ("MSF_IN_BUFFER_PORT");
            ss << "msf_add_buffer_port (2 /*MSF_IN_BUFFER_PORT*/, "
                 << Transform::I(driver)->variable()->generateSizeof(variable)
                 << ", " << port->getNumber()
@@ -658,6 +840,7 @@ namespace TL { namespace Acotes {
    //port->getTask()->getName()
         Variable* variable= port->getVariable();
         if (port->hasVariable()) {
+           ss << comment ("MSF_OUT_BUFFER_PORT");
            ss << "msf_add_buffer_port (3 /*MSF_OUT_BUFFER_PORT*/, "
                 << Transform::I(driver)->variable()->generateSizeof(variable)
                 << ", " << port->getNumber()
@@ -665,6 +848,7 @@ namespace TL { namespace Acotes {
                 ;
       }
       else {
+         ss << comment ("MSF_OUT_BUFFER_PORT");
          ss << "msf_add_buffer_port (3 /*MSF_OUT_BUFFER_PORT*/, "
               << "0"
               << ", " << port->getNumber()

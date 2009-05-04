@@ -72,6 +72,7 @@ namespace TL { namespace Acotes {
         transformReplacePeek(task);
         transformReplaceVariable(task);
         transformReplaceUserPort(task);
+        //transformReplaceUserPort2(task);
         transformReplaceSharedCheck(task);
         transformReplaceSharedUpdate(task);
         transformReplaceTeamReplicate(task);
@@ -178,6 +179,16 @@ namespace TL { namespace Acotes {
         }
     }
     
+    void TaskTransform::transformReplaceUserPort2(Task* task) {
+        assert(task);
+        
+        const std::vector<UserPort*> &uports= task->getUserPortVector();
+        for (unsigned i= 0; i < uports.size(); i++) {
+            UserPort* userPort= uports.at(i);
+            Transform::I(driver)->userPort()->transform2(userPort);
+        }
+    }
+    
     void TaskTransform::transformReplaceSharedCheck(Task* task) {
         assert(task);
         
@@ -265,6 +276,7 @@ namespace TL { namespace Acotes {
                 <<   "}"
                 <<   "printf (\"START "
                 <<             task->getName() << "\\n\");"
+                <<   "int __transfer_type = 0; /* MSF_BUFFER_PORT_ACTIVE */"
                 ;
 
 	ss
@@ -275,9 +287,12 @@ namespace TL { namespace Acotes {
                 <<   generateNelemsBufferPorts(task) 
                 ;
 //                <<   "while (task_allopen())"
-        if (hasInput(task)) {
+        //if (hasInput(task)) {
            ss      <<   generate_task_allopen_condition(task);
-        }
+        //}
+        //else {
+           //ss      <<   "while (1)";
+        //}
         ss      <<   generateForReplicate(task)
                 <<   "{"
                 <<      generateControlSharedCheck(task)
@@ -293,8 +308,10 @@ namespace TL { namespace Acotes {
 	//	<<	   generateBody(task)
 	ss	<< generateControlOutputBufferAccess(task);
         ss      << generateControlInputBufferAccess(task);
-        ss      << "hello();"  ;
+        //ss      << "hello();"  ;
         ss      << generateBody(task);
+	ss      << generatePreviousBufferWrite(task);
+        ss      << generateEOF(task);
 
 
 
@@ -327,6 +344,11 @@ namespace TL { namespace Acotes {
                 <<   generateCopyOutAcquire(task)
                      // write data on output ports
                 <<   generateCommitPorts(task)
+                <<   comment ("MSF_BUFFER_PORT_LAST")
+                <<   "if (1 == __transfer_type) {"
+                <<   comment ("MSF_TASK_REST")
+                <<   "msf_set_task_state(2);"
+                <<   "}"
                 //<<   "msf_commit_written_data();"
                 //<<   "trace_instance_end();"
                 << "}"
@@ -458,11 +480,34 @@ namespace TL { namespace Acotes {
         
        Source ss;
        printf ("Generate task body + tracing\n");
-       ss << "trace_iteration_begin();";
+       if (hasInput(task)) {
+          ss << "while (1) {";
+          ss << generate_input_connections(task);
+       }
+       //ss << "trace_iteration_begin();";
        ss << task->getBody()->prettyprint();
-       ss << "trace_iteration_end();";
+       //ss << "trace_iteration_end();";
+       if (hasInput(task))
+          ss << "}";
        
        return ss;
+    }
+
+    Source TaskTransform::generate_input_connections(Task* task) {
+        assert(task);
+        
+        Source ss;
+        
+        const std::vector<Port*> &ports= task->getPortVector();
+        printf ("commented TaskTransform::generate_input_connections task %s\n", task->getName().c_str());
+        for (unsigned i= 0; i < ports.size(); i++) {
+            Port* port= ports.at(i);
+            if (port->isInput()) {
+                ss << Transform::I(driver)->port()->generateAcquire_task(port);
+            }
+        }
+        
+        return ss;
     }
 
     Source TaskTransform::generateControlAcquire(Task* task) {
@@ -832,6 +877,11 @@ namespace TL { namespace Acotes {
                   << " && "
                ;
             }
+            else if (port->isOutput()) {
+               ss << Transform::I(driver)->port()->generate_continue_condition(port)
+                  << " && "
+               ;
+            }
         }
 
         ss << "1)" ;
@@ -850,6 +900,42 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < ports.size(); i++) {
             Port* port= ports.at(i);
             ss << Transform::I(driver)->port()->generateNelemsBufferPort(port);
+        }
+
+        return ss;
+    }
+
+#if 1
+    /**
+     * Generates the code to write each port buffer.
+     */
+    Source TaskTransform::generateEOF(Task* task) {
+        assert(task);
+
+        Source ss;
+
+        const std::vector<Port*> &ports= task->getPortVector();
+        for (unsigned i= 0; i < ports.size(); i++) {
+            Port* port= ports.at(i);
+            ss << Transform::I(driver)->port()->generateEndOfFile(port);
+        }
+
+        return ss;
+    }
+#endif
+
+    /**
+     * Generates the code to write each port buffer.
+     */
+    Source TaskTransform::generatePreviousBufferWrite(Task* task) {
+        assert(task);
+
+        Source ss;
+
+        const std::vector<Port*> &ports= task->getPortVector();
+        for (unsigned i= 0; i < ports.size(); i++) {
+            Port* port= ports.at(i);
+            ss << Transform::I(driver)->port()->generatePrevBufferWrite(port);
         }
 
         return ss;
@@ -927,7 +1013,7 @@ namespace TL { namespace Acotes {
         ss << "printf (\"Waiting for tasks to finish\\n\");";
         ss << "while (MSF_TASK_REST != msf_app_get_task_state("
            << task->getName() << ")) {"
-           << "   printf (\"task state %d\\n\", msf_app_get_task_state("
+           << "   printf (\"task " << task->getName() << " state %d\\n\", msf_app_get_task_state("
            << task->getName() << "));"
            << "sleep (1);"
            << "break;"

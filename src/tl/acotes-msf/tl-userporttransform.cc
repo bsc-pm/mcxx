@@ -47,6 +47,10 @@ namespace TL { namespace Acotes {
     {
         transformReplacement(userPort);
     }
+    void UserPortTransform::transform2(UserPort* userPort)
+    {
+        transformReplacement2(userPort);
+    }
    
     void UserPortTransform::transformReplacement(UserPort* userPort)
     {
@@ -60,6 +64,24 @@ namespace TL { namespace Acotes {
         fflush(0L);
         printf ("generateReplacement -> Source\n");
         Source replaceSource= generateReplacement(userPort);
+        printf ("replaceSource.parse_statement -> AST\n");
+        AST_t replaceTree= replaceSource.parse_statement(userPortAST, userPortScopeLink, TL::Source::DO_NOT_CHECK_EXPRESSION);
+        printf ("userPortAST.replace\n");
+        userPortAST.replace(replaceTree);
+    }
+        
+    void UserPortTransform::transformReplacement2(UserPort* userPort)
+    {
+        assert(userPort);
+        
+        TL::LangConstruct* userPortConstruct= userPort->getConstruct();
+        AST_t userPortAST= userPortConstruct->get_ast();
+        ScopeLink userPortScopeLink= userPortConstruct->get_scope_link();
+    
+        // Replace taskgroup construct
+        fflush(0L);
+        printf ("generateReplacement -> Source\n");
+        Source replaceSource= generateReplacement2(userPort);
         printf ("replaceSource.parse_statement -> AST\n");
         AST_t replaceTree= replaceSource.parse_statement(userPortAST, userPortScopeLink, TL::Source::DO_NOT_CHECK_EXPRESSION);
         printf ("userPortAST.replace\n");
@@ -80,8 +102,25 @@ namespace TL { namespace Acotes {
         ss      << "{"
         //        <<    generateInputPort(userPort)
         //        <<    generateOutputPort(userPort)
-                 // xavim generateInputPortAccess(userPort) possibly needed
+                //<<  generateInputPortAccess(userPort) // possibly needed
                 <<  generateOutputPortAccess(userPort)
+                << "}"
+                ;
+        
+        return ss;
+    }
+
+    Source UserPortTransform::generateReplacement2(UserPort* userPort)
+    {
+        assert(userPort);
+        
+        Source ss;
+        
+        ss      << "{"
+        //        <<    generateInputPort(userPort)
+        //        <<    generateOutputPort(userPort)
+                 // xavim generateInputPortAccess(userPort) possibly needed
+                <<  generateOutputPortAccess2(userPort)
                 << "}"
                 ;
         
@@ -124,6 +163,16 @@ namespace TL { namespace Acotes {
         return ss;
     }
         //xavim generateInputPortAccess is possibly needed
+    //Source UserPortTransform::generateInputPortAccess(UserPort* userPort)
+    //{
+    //    Source ss;
+    //    const std::vector<Port*> &ports= userPort->getInputPortVector();
+    //    for (unsigned i= 0; i < ports.size(); i++) {
+    //       Port* port= ports.at(i);
+           //AQUIss << Transform::I(driver)->port()->generateAcquire_itask(port);
+    //    }
+    //    return ss;
+    //}
     Source UserPortTransform::generateOutputPortAccess(UserPort* userPort)
     {
         Source ss;
@@ -131,6 +180,16 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < ports.size(); i++) {
            Port* port= ports.at(i);
            ss << Transform::I(driver)->port()->generateAcquire_task(port);
+        }
+        return ss;
+    }
+    Source UserPortTransform::generateOutputPortAccess2(UserPort* userPort)
+    {
+        Source ss;
+        const std::vector<Port*> &ports= userPort->getOutputPortVector();
+        for (unsigned i= 0; i < ports.size(); i++) {
+           Port* port= ports.at(i);
+           ss << Transform::I(driver)->port()->generateAcquire_task2(port);
         }
         return ss;
     }

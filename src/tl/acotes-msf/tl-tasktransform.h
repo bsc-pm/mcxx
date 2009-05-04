@@ -53,6 +53,7 @@ namespace TL { namespace Acotes {
         virtual void transformReplacePeek(Task* task);
         virtual void transformReplaceVariable(Task* task);
         virtual void transformReplaceUserPort(Task* task);
+        virtual void transformReplaceUserPort2(Task* task);
         virtual void transformReplaceSharedCheck(Task* task);
         virtual void transformReplaceSharedUpdate(Task* task);
         virtual void transformReplaceTeamReplicate(Task* task);
@@ -96,6 +97,9 @@ namespace TL { namespace Acotes {
         virtual Source generatePorts(Task* task);
         virtual Source generateBufferPorts(Task* task);
         virtual Source generateNelemsBufferPorts(Task* task);
+        virtual Source generate_input_connections(Task* task) ;
+        virtual Source generatePreviousBufferWrite(Task * task);
+        virtual Source generateEOF(Task * task);
         virtual Source generate_task_allopen_condition(Task* task);
         virtual Source generateShareds(Task* task);
         virtual Source generateStart(Task* task);

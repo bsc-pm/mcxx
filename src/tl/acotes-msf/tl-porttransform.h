@@ -51,9 +51,13 @@ namespace TL { namespace Acotes {
         virtual Source generatePort(Port* port);
         virtual Source generateBufferPort(Port* port);
         virtual Source generateNelemsBufferPort(Port* port);
+        virtual Source generatePrevBufferWrite(Port* port);
+	virtual Source generateEndOfFile(Port* port);
         virtual Source generateCommitBufferPort(Port* port);
         virtual Source generate_endofstream_condition(Port* port);
+        virtual Source generate_continue_condition(Port* port);
         virtual Source generateAcquire_task(Port* port);
+        virtual Source generateAcquire_task2(Port* port);
         virtual Source generateAcquire(Port* port);
         virtual Source generateInputPeek(Port* port);
         virtual Source generateOutputPeek(Port* port);
@@ -64,8 +68,11 @@ namespace TL { namespace Acotes {
     private:
         virtual Source generateNelemsInputBufferPort(Port* port);
         virtual Source generateNelemsOutputBufferPort(Port* port);
+        virtual Source generatePrevOutputBufferPort(Port * port);
+        virtual Source generateEndOfFilePort(Port * port);
         virtual Source generateCommitOutputBufferPort(Port* port);
         virtual Source generate_eos_condition(Port* port);
+        virtual Source generate_cont_condition(Port* port);
         virtual Source generateInputPort(Port* port);
         virtual Source generateInputBufferPort(Port* port);
         virtual Source generateOutputPort(Port* port);
