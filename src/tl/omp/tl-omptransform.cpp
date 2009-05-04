@@ -20,6 +20,7 @@
 */
 
 #include "tl-omptransform.hpp"
+#include "tl-pretransform.hpp"
 
 namespace TL
 {
@@ -245,6 +246,12 @@ namespace TL
         
         void OpenMPTransform::run(DTO& dto)
         {
+            OpenMP_PreTransform pre_transform;
+            pre_transform.run(dto);
+
+            // Purge local threadprivates, promoting them as global ones
+            pre_transform.purge_local_threadprivates();
+
             // Call the OpenMPPhase::run
             OpenMPPhase::run(dto);
         }

@@ -47,6 +47,8 @@ libtlomp_la_SOURCES = \
    tl-adf.cpp \
    tl-transaction-expression.hpp \
    tl-transaction-expression.cpp \
+   tl-pretransform.hpp \
+   tl-pretransform.cpp \
    $(END)
 
 libtlomp_la_LDFLAGS = $(tl_ldflags)
