@@ -611,8 +611,7 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
 
         // We may have been requested not to fail and assume an expression
         // instead
-        if (BITMAP_TEST(decl_context.decl_flags, DF_AMBIGUITY_FALLBACK_TO_EXPR) 
-                == DF_AMBIGUITY_FALLBACK_TO_EXPR)
+        if (BITMAP_TEST(decl_context.decl_flags, DF_AMBIGUITY_FALLBACK_TO_EXPR))
         {
             do_failure = false;
         }
