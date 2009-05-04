@@ -144,6 +144,7 @@ namespace TL { namespace Acotes {
              ss << "aaa();" ;
              //    << "__wbuf_" << variable->getName()
              //    << "_port" << port->getNumber() //<< "a()"
+#if 0
              ss << "__wbuf_" << variable->getName()
                << "_port" << port->getNumber() << "["
                << "__wbuf_" << variable->getName()
@@ -153,6 +154,7 @@ namespace TL { namespace Acotes {
              //  //<< Transform::I(driver)->variable()->generateVariableName(variable)
                << ";"
                ;//AQUI2
+#endif
            }
         }
         return ss;

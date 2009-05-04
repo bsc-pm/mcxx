@@ -135,12 +135,17 @@ namespace TL { namespace Acotes {
            output_task.filename = "spu_default_" + ss.str() + "_" + current_filename;
         else
            output_task.filename = "ppu_" + ss.str() + "_" + current_filename;
-        //printf ("Getting device\n");
-        //fflush(NULL);
-        //printf ("Getting device %d\n", task->getTaskDevice());
+        printf ("Getting device\n");
+        fflush(NULL);
+        printf ("Getting device %d\n", task->getTaskDevice());
+        printf ("filename %s\n", output_task.filename.c_str());
+        fflush(NULL);
         
 
         output_tasks->add_task(output_task);
+        printf ("Task added\n");
+        fflush(NULL);
+
     }
     
     void TaskTransform::transformReplacePeek(Task* task) {
@@ -708,7 +713,7 @@ namespace TL { namespace Acotes {
                 ss << Transform::I(driver)->port()->generateAcquire(artificialCounterpart);
                 ss << Transform::I(driver)->port()->generateOutputPeek(artificialCounterpart);
                 ss << Transform::I(driver)->port()->generatePush(artificialCounterpart);
-                ss << "kkk();";
+                //ss << "kkk();";
             }
         }
         
