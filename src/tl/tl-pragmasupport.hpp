@@ -98,6 +98,11 @@ namespace TL
             AST_t ast,
             ScopeLink scope_link);
 
+    LIBTL_EXTERN bool is_pragma_custom_construct(const std::string& pragma_preffix, 
+            const std::string& pragma_directive, 
+            AST_t ast,
+            ScopeLink scope_link);
+
     typedef std::map<std::string, Signal1<PragmaCustomConstruct> > CustomFunctorMap;
 
     class LIBTL_CLASS PragmaCustomDispatcher : public TraverseFunctor

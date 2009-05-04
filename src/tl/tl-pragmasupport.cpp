@@ -430,4 +430,23 @@ namespace TL
 
         return false;
     }
+
+    bool is_pragma_custom_construct(const std::string& pragma_preffix, 
+            const std::string& pragma_directive, 
+            AST_t ast,
+            ScopeLink scope_link)
+    {
+        PredicateAttr pred(LANG_IS_PRAGMA_CUSTOM_CONSTRUCT);
+
+        if (pred(ast))
+        {
+            PragmaCustomConstruct pragma_construct(ast, scope_link);
+
+            if (pragma_construct.get_pragma() == pragma_preffix
+                    && pragma_construct.get_directive() == pragma_directive)
+                return true;
+        }
+
+        return false;
+    }
 }
