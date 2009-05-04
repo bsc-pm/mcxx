@@ -83,7 +83,6 @@ TL::Source LoopUnroll::do_unroll()
 
     result
         << "{"
-        << comment("Loop at '" + _for_stmt.get_ast().get_locus() + "' unrolled by a factor of " + ss.str())
         << induction_var_decl
         << main
         << epilogue

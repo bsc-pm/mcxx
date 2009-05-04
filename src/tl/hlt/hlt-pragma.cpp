@@ -60,6 +60,7 @@ HLTPragmaPhase::HLTPragmaPhase()
     on_directive_post["distribute"].connect(functor(&HLTPragmaPhase::distribute_loop, *this));
 
     register_construct("fusion");
+    on_directive_pre["fusion"].connect(functor(&HLTPragmaPhase::pre_fuse_loops, *this));
     on_directive_post["fusion"].connect(functor(&HLTPragmaPhase::fuse_loops, *this));
 
     register_construct("interchange");
@@ -242,13 +243,46 @@ void HLTPragmaPhase::distribute_loop(PragmaCustomConstruct construct)
     construct.get_ast().replace(statement.get_ast());
 }
 
+void HLTPragmaPhase::pre_fuse_loops(PragmaCustomConstruct construct)
+{
+    Statement statement = construct.get_statement();
+
+    bool &is_jam = construct.get_data<bool>("perform_jam");
+    is_jam = false;
+
+    if (is_pragma_custom_construct("hlt", "unroll", statement.get_ast(), construct.get_scope_link()))
+    {
+        PragmaCustomConstruct pragma_construct(statement.get_ast(), construct.get_scope_link());
+        Statement inner_stmt = pragma_construct.get_statement();
+
+        if (ForStatement::predicate(inner_stmt.get_ast()))
+        {
+            ForStatement inner_for_statement(inner_stmt.get_ast(), construct.get_scope_link());
+
+            Statement loop_body = inner_for_statement.get_loop_body();
+
+            if (ForStatement::predicate(loop_body.get_ast()))
+            {
+                is_jam = true;
+            }
+        }
+    }
+}
+
 void HLTPragmaPhase::fuse_loops(PragmaCustomConstruct construct)
 {
     Statement statement = construct.get_statement();
 
     AST_t result_tree = statement.get_ast();
 
-    if (statement.is_compound_statement())
+    bool &is_jam = construct.get_data<bool>("perform_jam");
+
+    if (is_jam)
+    {
+        // We have to jam the loops
+        jam_loops(statement);
+    }
+    else if (statement.is_compound_statement())
     {
         ObjectList<Statement> statement_list = statement.get_inner_statements();
 
@@ -378,6 +412,111 @@ void HLTPragmaPhase::collapse_loop(PragmaCustomConstruct construct)
             std::ptr_fun(collapse_loop_fun));
 
     construct.get_ast().replace(statement.get_ast());
+}
+
+static std::string prettyprint_without_braces(TL::Statement st)
+{
+    std::string result;
+    if (st.is_compound_statement())
+    {
+        TL::ObjectList<TL::Statement> inner_st = st.get_inner_statements();
+        for (TL::ObjectList<TL::Statement>::iterator it = inner_st.begin();
+                it != inner_st.end();
+                it++)
+        {
+            result += it->prettyprint();
+        }
+    }
+    else
+        result = st.prettyprint();
+
+    return result;
+}
+
+void HLTPragmaPhase::jam_loops(Statement unrolled_loop_code)
+{
+    if (!unrolled_loop_code.is_compound_statement())
+    {
+        throw HLTException(unrolled_loop_code, "This should be a compound statement");
+    }
+
+    // This is a bit fragile: most of the time main_loop will be either 0 or 1
+    int main_loop = 0;
+    {
+        ObjectList<Statement> inner_statements = unrolled_loop_code.get_inner_statements();
+        for (ObjectList<Statement>::iterator it = inner_statements.begin();
+                it != inner_statements.end();
+                it++)
+        {
+            if (ForStatement::predicate(it->get_ast()))
+            {
+                break;
+            }
+            main_loop++;
+        }
+    }
+
+    Statement unrolled_loop(unrolled_loop_code.get_inner_statements()[main_loop].get_ast(),
+            unrolled_loop_code.get_scope_link());
+
+    if (!ForStatement::predicate(unrolled_loop.get_ast()))
+    {
+        throw HLTException(unrolled_loop, "This should be a for-statement");
+    }
+    ForStatement for_stmt(unrolled_loop.get_ast(), unrolled_loop.get_scope_link());
+    Statement loop_body = for_stmt.get_loop_body();
+
+    if (!loop_body.is_compound_statement())
+    {
+        throw HLTException(loop_body, "This should be a compound-statement");
+    }
+
+    ObjectList<Statement> inner_statements = loop_body.get_inner_statements();
+
+    Source jammed_loop_bodies;
+
+    for (ObjectList<Statement>::iterator it = inner_statements.begin();
+            it != inner_statements.end();
+            it++)
+    {
+        if (!ForStatement::predicate(it->get_ast()))
+        {
+            throw HLTException(*it, "This should be a for-statement");
+        }
+
+        ForStatement current_for(it->get_ast(), unrolled_loop.get_scope_link());
+
+        jammed_loop_bodies
+            << prettyprint_without_braces(current_for.get_loop_body())
+            ;
+    }
+
+    Source for_header;
+
+    // Assumption: for does not depend on the enclosing induction variable
+    {
+        ForStatement pattern_for(inner_statements[0].get_ast(), unrolled_loop.get_scope_link());
+
+        for_header
+            << "for(" << pattern_for.get_iterating_init().prettyprint() 
+            << pattern_for.get_iterating_condition() << ";"
+            << pattern_for.get_iterating_expression() << ")"
+            ;
+    }
+
+    Source result;
+
+    result
+        << for_header
+        << "{"
+        << jammed_loop_bodies
+        << "}"
+        ;
+
+    AST_t jammed_tree = result.parse_statement(loop_body.get_ast(),
+            loop_body.get_scope_link());
+
+    loop_body.get_ast().replace(jammed_tree);
 }
 
 EXPORT_PHASE(TL::HLT::HLTPragmaPhase)

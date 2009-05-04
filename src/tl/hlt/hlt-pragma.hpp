@@ -36,9 +36,14 @@ namespace TL
                 void unroll_loop(PragmaCustomConstruct construct);
                 void block_loop(PragmaCustomConstruct construct);
                 void distribute_loop(PragmaCustomConstruct construct);
+
+                void pre_fuse_loops(PragmaCustomConstruct construct);
                 void fuse_loops(PragmaCustomConstruct construct);
+
                 void interchange_loops(PragmaCustomConstruct construct);
                 void collapse_loop(PragmaCustomConstruct construct);
+
+                void jam_loops(Statement unrolled_loop);
         };
     }
 
