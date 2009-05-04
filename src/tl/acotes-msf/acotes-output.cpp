@@ -101,7 +101,7 @@ namespace TL
 #if 1
             // Now create the file
             bool is_new_file = 0;
-            if (it->c_str()[0] == 's') {
+            if (it[0] == 's') {
 		         printf ("File is SPU\n");
                CompiledFile new_file = CompilationProcess::add_file(*it, "acotes-spucellcc", 
                     is_new_file);
