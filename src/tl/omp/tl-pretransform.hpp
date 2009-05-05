@@ -21,7 +21,11 @@ namespace TL
                 ObjectList<Symbol> get_symbols_of_function(const function_sym_list_t& sym_list, 
                         Symbol function_sym);
 
+                void remove_symbol_declaration(Symbol sym);
+
                 ScopeLink _scope_link;
+
+                int _function_num;
             public:
                 OpenMP_PreTransform();
 

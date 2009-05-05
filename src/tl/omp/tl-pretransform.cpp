@@ -6,6 +6,7 @@ namespace TL
     namespace Nanos4
     {
         OpenMP_PreTransform::OpenMP_PreTransform()
+            : _function_num(0)
         {
             on_threadprivate_pre.connect(functor(&OpenMP_PreTransform::handle_threadprivate, *this));
         }
@@ -13,6 +14,39 @@ namespace TL
         void OpenMP_PreTransform::init(DTO& dto)
         {
             _scope_link = ScopeLink(dto["scope_link"]);
+        }
+
+        void OpenMP_PreTransform::remove_symbol_declaration(Symbol sym)
+        {
+            AST_t point_of_decl = sym.get_point_of_declaration();
+            Declaration decl(point_of_decl, _scope_link);
+
+            ObjectList<DeclaredEntity> declared_entities = decl.get_declared_entities();
+
+            // If this is the only thing declared here, just remove 
+            if (declared_entities.size() == 1)
+            {
+                point_of_decl.remove_in_list();
+                return;
+            }
+
+            // Otherwise remove it from the list of declared entities
+            for (ObjectList<DeclaredEntity>::iterator it = declared_entities.begin();
+                    it != declared_entities.end();
+                    it++)
+            {
+                DeclaredEntity& decl_entity(*it);
+                Symbol current_symbol = decl_entity.get_declared_symbol();
+
+                if (current_symbol == sym)
+                {
+                    // Do nothing else
+                    decl_entity.get_ast().remove_in_list();
+                    return;
+                }
+            }
+
+            // If not found nothing happens, maybe we should fail
         }
 
         void OpenMP_PreTransform::handle_threadprivate(OpenMP::ThreadPrivateDirective threadprivate_directive)
@@ -136,7 +170,9 @@ namespace TL
 
                     Type type = local_sym.get_type();
 
-                    std::string global_var_name = "__" + funct_sym.get_name() + "_" + local_sym.get_name();
+                    Source global_var_name;
+                    global_var_name
+                        <<  "__" << funct_sym.get_name() << "_" << _function_num << "_" << local_sym.get_name();
 
                     replacement.add_replacement(local_sym, global_var_name);
 
@@ -147,6 +183,7 @@ namespace TL
                     Source global_decl_src;
 
                     global_decl_src
+                        << "static "
                         << type.get_declaration(local_sym.get_scope(), global_var_name)
                         << ";"
                         ;
@@ -173,13 +210,8 @@ namespace TL
                 {
                     Symbol &local_sym(*localsym_it);
 
-                    AST_t point_of_decl = local_sym.get_point_of_declaration();
-
-                    // 3. Remove old declaration
-                    // FIXME - What do we have to do when all the declaration becomes empty?
-                    point_of_decl.remove_in_list();
+                    remove_symbol_declaration(local_sym);
                 }
-
 
                 FunctionDefinition funct_def(funct_point_of_decl,
                         _scope_link);
@@ -187,9 +219,10 @@ namespace TL
                 // 4. Change old references to the new ones
                 Statement replaced_function_body = replacement.replace(function_body);
                 function_body.get_ast().replace(replaced_function_body.get_ast());
-            }
 
-            // Declare #pragma omp threadprivate with the newly moved list
+                // Next function number
+                _function_num++;
+            }
         }
     }
 }

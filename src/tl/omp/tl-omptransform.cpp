@@ -35,7 +35,8 @@ namespace TL
             enable_nth_create(true), 
             disable_restrict_pointers(false),
             use_memcpy_always(true),
-            stm_global_lock_enabled(false)
+            stm_global_lock_enabled(false),
+            run_pretransform(true)
         {
             // Set phase info
             set_phase_name("Nanos 4 OpenMP implementation");
@@ -65,6 +66,19 @@ namespace TL
                         "In C++, always use 'memcpy' when copying arrays if set to '1'. In C, 'memcpy' is always used.",
                         use_memcpy_always_str,
                         "0").connect(functor(&OpenMPTransform::set_use_memcpy_always, *this));
+            }
+            C_LANGUAGE()
+            {
+                run_pretransform = true;
+            }
+            CXX_LANGUAGE()
+            {
+                register_parameter("run_pretransform",
+                        "In C++ some preliminar transforms are not fully supported. "
+                        "This flag allows disabling them in case of trouble."
+                        "In C these transformations are always performed.",
+                        run_pretransform_str,
+                        "1").connect(functor(&OpenMPTransform::set_run_pretransform, *this));
             }
 
             // STM options
@@ -222,6 +236,15 @@ namespace TL
                     /* Error message */ "Will use plain assignment when copying arrays");
         }
 
+        void OpenMPTransform::set_run_pretransform(const std::string& str)
+        {
+            run_pretransform = true;
+            parse_boolean_option(/* Parameter name */ "run_pretransform",
+                    /* Given value */ str,
+                    /* Compiler bool */ run_pretransform,
+                    /* Error message */ "Will run pretransformations");
+        }
+
         bool OpenMPTransform::instrumentation_requested()
         {
             return enable_mintaka_instr;
@@ -246,11 +269,13 @@ namespace TL
         
         void OpenMPTransform::run(DTO& dto)
         {
-            OpenMP_PreTransform pre_transform;
-            pre_transform.run(dto);
-
-            // Purge local threadprivates, promoting them as global ones
-            pre_transform.purge_local_threadprivates();
+            if (run_pretransform)
+            {
+                OpenMP_PreTransform pre_transform;
+                pre_transform.run(dto);
+                // Purge local threadprivates, promoting them as global ones
+                pre_transform.purge_local_threadprivates();
+            }
 
             // Call the OpenMPPhase::run
             OpenMPPhase::run(dto);
