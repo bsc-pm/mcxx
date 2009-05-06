@@ -36,6 +36,7 @@ namespace TL
             private:
                 bool _packed_arguments;
                 bool _use_nonlocal_scope;
+                int _outline_num;
 
                 ObjectList<Statement> _outline_statements;
 
@@ -45,6 +46,8 @@ namespace TL
 
                 Symbol _enclosing_function;
 
+                Source _packed_argument_typename;
+
                 bool _is_member;
                 bool _is_inlined_member;
                 bool _is_templated;
@@ -52,9 +55,8 @@ namespace TL
                 ObjectList<Symbol> _referenced_symbols;
 
                 void do_outline();
-                void compute_outline_name();
-                void compute_referenced_entities();
-
+                void compute_outline_name(Source &template_headers, Source &required_qualification);
+                void compute_referenced_entities(Source &outline_parameters);
 
                 static int _num_outlines;
             protected:
