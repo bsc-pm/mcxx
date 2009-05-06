@@ -57,6 +57,11 @@ namespace TL
             //! Schema of this extensible object
             static Schema schema;
 
+            Symbol()
+                : _symbol(NULL)
+            {
+            }
+
             Symbol(scope_entry_t* symbol)
                 : _symbol(symbol)
             {
