@@ -115,7 +115,7 @@ namespace TL { namespace Acotes {
             acotesMainSource << ")";
             acotesMainSource << "{";
             acotesMainSource << "msf_resources_t resources;";
-            acotesMainSource << "resources.processor_type_0 = 2;";
+            acotesMainSource << "resources.processor_type_0 = 4;";
             acotesMainSource << "resources.processor_type_1 = 0;";
             acotesMainSource << "msf_init(&resources);";
             acotesMainSource << functionDefinition.get_function_body().prettyprint();
@@ -139,14 +139,16 @@ namespace TL { namespace Acotes {
                        << "   }"
                        << "}";
             mainSource << "void readBufferDescription (FILE * f) {"
-                       << "   int tg, task, port, buffs, bs;"
-                       << "   fscanf (f, \" %d %d %d %d %d \\n\", &tg, &task, &port, &buffs, &bs);"
-                       << "   while (!feof (f)) {"
+                       << "   int n, tg, task, port, buffs, bs;"
+                       << "   n = fscanf (f, \" %d %d %d %d %d \\n\", &tg, &task, &port, &buffs, &bs);"
+                       << "   while (n==5) {"
                        << "      acotes__bs[tg][task][port][1] = bs;"
                        << "      acotes__bs[tg][task][port][0] = buffs*bs;"
                        << "      fprintf (stderr, \"tg %d task %d port %d buffs %d size %d\\n\", tg, task, port, buffs, bs);"
-                       << "      fscanf (f, \" %d %d %d %d %d \\n\", &tg, &task, &port, &buffs, &bs);"
+                       << "      n = fscanf (f, \" %d %d %d %d %d \\n\", &tg, &task, &port, &buffs, &bs);"
                        << "   }"
+                       << "   if (n>0) fprintf (stderr, \"Incomplete last line"
+                       << " in buffer description file\\n\");"
                        << "}";
             mainSource << "void getBufferDescription (void) {"
                        << "   FILE * f;"
@@ -156,6 +158,7 @@ namespace TL { namespace Acotes {
                        << "      f = fopen (ev, \"r\");"
                        << "      if (f!=0L) {"
                        << "         readBufferDescription (f);"
+                       << "         fclose(f);"
                        << "      }"
                        << "      else {"
                        << "         fprintf (stderr, \"File %s not found. Using compiled buffer-sizes\\n\", ev);"

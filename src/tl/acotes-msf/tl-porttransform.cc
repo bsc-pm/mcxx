@@ -145,8 +145,10 @@ namespace TL { namespace Acotes {
         Source ss;
         if (port->isOutput()) {
             ss << generateCommitOutputBufferPort(port);
-        }
-        // input port nothing
+        } else if (port->isInput()) {
+            ss << generateCommitInputBufferPort(port);
+        } else
+            assert(0);
 
         return ss;
     }
@@ -214,14 +216,30 @@ namespace TL { namespace Acotes {
              ss << "if (__wbuf_" << variable->getName()
                << "_port" << port->getNumber() << "_elem"
                << " >= " << "__wbuf_" << variable->getName()
-               << "_port" << port->getNumber() << "_elemno) break;"
+               << "_port" << port->getNumber() << "_elemno) __endofoutput = 1;" // HERE
 
 
                ;
            }
            else if (port->isInput()) {
-             ss << "this_would_be_the_place();";
+             ss << "if (__rbuf_" << variable->getName()
+               << "_port" << port->getNumber() << "_elem"
+               << " >= " << "__rbuf_" << variable->getName()
+               << "_port" << port->getNumber() << "_elemno) break;"
+               ;
+             ss  << variable->getName() << " = "
+               << "__rbuf_" << variable->getName()
+               << "_port" << port->getNumber() << "["
+               << "__rbuf_" << variable->getName()
+               << "_port" << port->getNumber() << "_elem++"
+               << "]"
+               << ";"
+               ;//AQUI2
+             ss << "__in_" << variable->getName() //<< "_port"
+                //<< port->getNumber() 
+                << "++;";
            }
+           else assert(0);
         }
         return ss;
     }
@@ -236,7 +254,7 @@ namespace TL { namespace Acotes {
              ss << "if (__wbuf_" << variable->getName()
                << "_port" << port->getNumber() << "_elem"
                << " >= " << "__wbuf_" << variable->getName()
-               << "_port" << port->getNumber() << "_elemno) break"
+               << "_port" << port->getNumber() << "_elemno2) break"
                << ";"
                ;
            }
@@ -362,6 +380,14 @@ namespace TL { namespace Acotes {
                 << "__rbuf_" << variable->getName() 
                 << "_port" << port->getNumber() << "_elemno"
                 << ":(1*1048576);";
+            ss  << "msf_get_next_read_buffer (" << port->getNumber()
+                << ", __rbuf_" << variable->getName() 
+                << "_port" << port->getNumber() << "_elemno + __in_"
+                << variable->getName() << ");";
+
+            ss  << "printf (\"task in elemno %d\\n\", __rbuf_"
+                << variable->getName()
+                << "_port" << port->getNumber() << "_elemno);";
             //ss  << "while (1)"; // moved to task
 #if 0
             ss  << variable->getElementType().get_declaration(scope, "")
@@ -422,6 +448,9 @@ namespace TL { namespace Acotes {
                 << "__wbuf_" << variable->getName() 
                 << "_port" << port->getNumber() << "_elemno"
                 << ":(1*1048576);";
+             ss << "printf (\"task out elemno %d\\n\", __wbuf_"
+                << variable->getName()
+                << "_port" << port->getNumber() << "_elemno);";
 
 
               //<< port->getNumber()                      // << ", 0, "
@@ -709,11 +738,40 @@ namespace TL { namespace Acotes {
               << "__out_store_" << variable->getName() 
               << "_port" << port->getNumber() << ", "
               << "__transfer_type);";
+           ss << "printf (\"msf_commit_written_data (" 
+              << port->getNumber() << ", %d, %d)\\n\", __out_store_" 
+              << variable->getName()
+              << "_port" << port->getNumber() << ", " << "__transfer_type);";
+              
         }
         else {
            ss << "";
            printf ("This should not happen!!!\n");
            assert(0);
+        }
+
+        return ss;
+    }
+
+    Source PortTransform::generateCommitInputBufferPort(Port* port) {
+        assert(port);
+        assert(port->isInput());
+        Source ss;
+
+        Variable* variable= port->getVariable();
+        if (port->hasVariable()) {
+           ss << comment ("MSF_BUFFER_PORT_ACTIVE");
+           ss << "msf_free_read_data(" << port->getNumber() << ", "
+              << "__in_" << variable->getName() 
+              //<< "_port" << port->getNumber() 
+              << ", "
+              << "0);";
+              //<< "__transfer_type);";
+        }
+        else {
+           ss << "";
+           printf ("This should not happen!!!\n");
+           //assert(0);
         }
 
         return ss;

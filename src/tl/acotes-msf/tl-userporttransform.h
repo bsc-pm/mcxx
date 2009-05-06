@@ -48,14 +48,15 @@ namespace TL { namespace Acotes {
     // -- Transform
     public:
         virtual void transform(UserPort* userPort);
+        virtual void transform(UserPort* userPort, int last);
         virtual void transform2(UserPort* userPort);
     private:
-        virtual void transformReplacement(UserPort* userPort);
+        virtual void transformReplacement(UserPort* userPort, int last);
         virtual void transformReplacement2(UserPort* userPort);
         
     // -- Generator
     private:
-        virtual Source generateReplacement(UserPort* userPort);
+        virtual Source generateReplacement(UserPort* userPort, int);
         virtual Source generateReplacement2(UserPort* userPort);
         virtual Source generateInputPort(UserPort* userPort);
         virtual Source generateOutputPort(UserPort* userPort);

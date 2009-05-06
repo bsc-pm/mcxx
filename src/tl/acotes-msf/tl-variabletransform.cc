@@ -54,6 +54,7 @@ namespace TL { namespace Acotes {
         assert(variable);
         assert(variable->hasTask());
 
+        //printf ("VariableTransform::transformReplacement executed on variable %s\n", variable->getSymbol().getName());
         printf ("VariableTransform::transformReplacement executed\n");
         
 #if 0
@@ -67,8 +68,8 @@ namespace TL { namespace Acotes {
         Task* task= variable->getTask();
         TL::LangConstruct& body= task->getBody()[0];
         TL::Source replaceExpression;
-        //replaceExpression << "(*" << symbol.get_name() << ")";
-        replaceExpression << "__wbuf_" << symbol.get_name() << "_port0 [333]";
+        replaceExpression << "(*" << symbol.get_name() << ")";
+        //replaceExpression << "__wbuf_" << symbol.get_name() << "_port0 [333]";
         AST_t replaceAST= replaceExpression.parse_expression(body.get_ast(), body.get_scope_link());
 
         std::cerr << "replacing " << symbol.get_name() << ": " << replaceAST.prettyprint() << std::endl;
@@ -96,10 +97,19 @@ namespace TL { namespace Acotes {
         TL::Symbol symbol= variable->getSymbol();
         TL::Scope scope= symbol.get_scope();
         Source name;
+#if 0
+        if (variable->isArray()) {
+            name << "(*" << variable->getName() << ")";
+            name << "[" << variable->getElementCount() << "]";
+        }
+        else
+            name << " * " << variable->getName();
+#else
         name << variable->getName();
         if (variable->isArray()) {
             name << "[" << variable->getElementCount() << "]";
         }
+#endif
         
         ss << variable->getElementType().get_declaration(scope, name) << ";";
         

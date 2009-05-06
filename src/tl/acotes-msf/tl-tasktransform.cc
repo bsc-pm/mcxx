@@ -175,7 +175,10 @@ namespace TL { namespace Acotes {
         const std::vector<UserPort*> &uports= task->getUserPortVector();
         for (unsigned i= 0; i < uports.size(); i++) {
             UserPort* userPort= uports.at(i);
-            Transform::I(driver)->userPort()->transform(userPort);
+            int last = (i==uports.size()-1);
+            printf ("Userport last %d\n", last);
+            Transform::I(driver)->userPort()->transform(userPort, last);
+            //Transform::I(driver)->userPort()->transform(userPort);
         }
     }
     
@@ -276,7 +279,9 @@ namespace TL { namespace Acotes {
                 <<   "}"
                 <<   "printf (\"START "
                 <<             task->getName() << "\\n\");"
+                <<   comment ("MSF_BUFFER_PORT_ACTIVE")
                 <<   "int __transfer_type = 0; /* MSF_BUFFER_PORT_ACTIVE */"
+                <<   "int __endofoutput = 0;"
                 ;
 
 	ss
@@ -309,6 +314,7 @@ namespace TL { namespace Acotes {
 	ss	<< generateControlOutputBufferAccess(task);
         ss      << generateControlInputBufferAccess(task);
         //ss      << "hello();"  ;
+        ss      << "__endofoutput = 0;";
         ss      << generateBody(task);
 	ss      << generatePreviousBufferWrite(task);
         ss      << generateEOF(task);
@@ -487,8 +493,11 @@ namespace TL { namespace Acotes {
        //ss << "trace_iteration_begin();";
        ss << task->getBody()->prettyprint();
        //ss << "trace_iteration_end();";
-       if (hasInput(task))
+       if (hasInput(task)) {
+          ss << generate_output_connections(task);
+          ss << "if (__endofoutput == 1) break;";
           ss << "}";
+       }
        
        return ss;
     }
@@ -503,6 +512,23 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < ports.size(); i++) {
             Port* port= ports.at(i);
             if (port->isInput()) {
+                ss << Transform::I(driver)->port()->generateAcquire_task(port);
+            }
+        }
+        
+        return ss;
+    }
+
+    Source TaskTransform::generate_output_connections(Task* task) {
+        assert(task);
+        
+        Source ss;
+        
+        const std::vector<Port*> &ports= task->getPortVector();
+        printf ("commented TaskTransform::generate_input_connections task %s\n", task->getName().c_str());
+        for (unsigned i= 0; i < ports.size(); i++) {
+            Port* port= ports.at(i);
+            if (port->isOutput()) {
                 ss << Transform::I(driver)->port()->generateAcquire_task(port);
             }
         }
@@ -735,8 +761,10 @@ namespace TL { namespace Acotes {
         
         Source ss;
         
-        ss      << "{"
-                << generateArtificialPush(task)
+        ss      << "{";
+        //if (!task->isImplicitTask())
+        //      ss  << " if (__endofoutput == 1) break;"; // should be done once!
+        ss      << generateArtificialPush(task)
                 << generateArtificialPop(task)
                 << "}"
                 ;
@@ -1013,12 +1041,14 @@ namespace TL { namespace Acotes {
         ss << "printf (\"Waiting for tasks to finish\\n\");";
         ss << "while (MSF_TASK_REST != msf_app_get_task_state("
            << task->getName() << ")) {"
-           << "   printf (\"task " << task->getName() << " state %d\\n\", msf_app_get_task_state("
-           << task->getName() << "));"
-           << "sleep (1);"
-           << "break;"
+           //<< "   printf (\"task " << task->getName() << " state %d\\n\", msf_app_get_task_state("
+           //<< task->getName() << "));"
+           << "usleep (1000);"
+           ////////////////////NOOOOOOOOOOO<< "break;"
            << "}";
-          ss << "";
+           
+          ss << "printf (\"Wake up from task '" << task->getName()
+             << "'\\n\");";
       }
         return ss;
     }

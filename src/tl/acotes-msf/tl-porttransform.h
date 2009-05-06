@@ -71,6 +71,7 @@ namespace TL { namespace Acotes {
         virtual Source generatePrevOutputBufferPort(Port * port);
         virtual Source generateEndOfFilePort(Port * port);
         virtual Source generateCommitOutputBufferPort(Port* port);
+        virtual Source generateCommitInputBufferPort(Port* port);
         virtual Source generate_eos_condition(Port* port);
         virtual Source generate_cont_condition(Port* port);
         virtual Source generateInputPort(Port* port);

@@ -45,14 +45,18 @@ namespace TL { namespace Acotes {
     
     void UserPortTransform::transform(UserPort* userPort)
     {
-        transformReplacement(userPort);
+        transformReplacement(userPort, 0);
+    }
+    void UserPortTransform::transform(UserPort* userPort, int last)
+    {
+        transformReplacement(userPort, last);
     }
     void UserPortTransform::transform2(UserPort* userPort)
     {
         transformReplacement2(userPort);
     }
    
-    void UserPortTransform::transformReplacement(UserPort* userPort)
+    void UserPortTransform::transformReplacement(UserPort* userPort, int last = 0)
     {
         assert(userPort);
         
@@ -63,7 +67,7 @@ namespace TL { namespace Acotes {
         // Replace taskgroup construct
         fflush(0L);
         printf ("generateReplacement -> Source\n");
-        Source replaceSource= generateReplacement(userPort);
+        Source replaceSource= generateReplacement(userPort, last);
         printf ("replaceSource.parse_statement -> AST\n");
         AST_t replaceTree= replaceSource.parse_statement(userPortAST, userPortScopeLink, TL::Source::DO_NOT_CHECK_EXPRESSION);
         printf ("userPortAST.replace\n");
@@ -93,7 +97,7 @@ namespace TL { namespace Acotes {
      * ****************************************************************/
     
     // -- Generator
-    Source UserPortTransform::generateReplacement(UserPort* userPort)
+    Source UserPortTransform::generateReplacement(UserPort* userPort, int last = 0)
     {
         assert(userPort);
         
@@ -103,8 +107,10 @@ namespace TL { namespace Acotes {
         //        <<    generateInputPort(userPort)
         //        <<    generateOutputPort(userPort)
                 //<<  generateInputPortAccess(userPort) // possibly needed
-                <<  generateOutputPortAccess(userPort)
-                << "}"
+                <<  generateOutputPortAccess(userPort);
+        printf ("UserPortTransform::generateReplacement last %d\n", last);
+        if (last) ss << "if (__endofoutput == 1) break;";
+        ss      << "}"
                 ;
         
         return ss;
@@ -181,6 +187,7 @@ namespace TL { namespace Acotes {
            Port* port= ports.at(i);
            ss << Transform::I(driver)->port()->generateAcquire_task(port);
         }
+        //ss << "if (__endofoutput == 1) break;";
         return ss;
     }
     Source UserPortTransform::generateOutputPortAccess2(UserPort* userPort)

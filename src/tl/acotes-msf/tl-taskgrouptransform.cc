@@ -114,7 +114,7 @@ namespace TL { namespace Acotes {
         Source ss;
         ss << "extern int acotes__bs[16][16][16][2];";
         ss << "int acotes__tg = " << taskgroup->getNum() << ";";
-        //ss << "";
+        ss << "int __endofoutput = 0;";
         return ss;
     }
 
