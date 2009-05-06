@@ -37,6 +37,8 @@
 #include "tl-dto.hpp"
 #include "tl-langconstruct.hpp"
 
+#define ACOTES_DIRECT_BUFFER_ACCESS
+
 namespace TL { namespace Acotes {
     
     class ForReplicate;

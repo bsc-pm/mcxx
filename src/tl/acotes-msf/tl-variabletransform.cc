@@ -57,7 +57,7 @@ namespace TL { namespace Acotes {
         //printf ("VariableTransform::transformReplacement executed on variable %s\n", variable->getSymbol().getName());
         printf ("VariableTransform::transformReplacement executed\n");
         
-#if 0
+#ifdef ACOTES_DIRECT_BUFFER_ACCESS
         //TL::Type type= symbol->get_type();
         //TL::Type ptr_type= type.get_pointer_to();
         //Task* task= variable->getTask();
@@ -97,7 +97,7 @@ namespace TL { namespace Acotes {
         TL::Symbol symbol= variable->getSymbol();
         TL::Scope scope= symbol.get_scope();
         Source name;
-#if 0
+#ifdef ACOTES_DIRECT_BUFFER_ACCESS
         if (variable->isArray()) {
             name << "(*" << variable->getName() << ")";
             name << "[" << variable->getElementCount() << "]";
@@ -110,7 +110,7 @@ namespace TL { namespace Acotes {
             name << "[" << variable->getElementCount() << "]";
         }
 #endif
-        
+
         ss << variable->getElementType().get_declaration(scope, name) << ";";
         
         return ss;

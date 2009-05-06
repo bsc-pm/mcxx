@@ -70,12 +70,13 @@ namespace TL { namespace Acotes {
         // First transform all the children, recursive call
         transformChildren(task);
         transformReplacePeek(task);
-        transformReplaceVariable(task);
+        // was here transformReplaceVariable(task);
         transformReplaceUserPort(task);
         //transformReplaceUserPort2(task);
         transformReplaceSharedCheck(task);
         transformReplaceSharedUpdate(task);
         transformReplaceTeamReplicate(task);
+        transformReplaceVariable(task);
                 
         if (!task->isImplicitTask()) {
             transformAddOutline(task);

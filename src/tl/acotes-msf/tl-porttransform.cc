@@ -200,7 +200,10 @@ namespace TL { namespace Acotes {
              //ss << "aaa();" ;
              //    << "__wbuf_" << variable->getName()
              //    << "_port" << port->getNumber() //<< "a()"
-#if 1
+#ifdef ACOTES_DIRECT_BUFFER_ACCESS
+             ss << "__wbuf_" << variable->getName()
+               << "_port" << port->getNumber() << "_elem++;";
+#else
              ss << "__wbuf_" << variable->getName()
                << "_port" << port->getNumber() << "["
                << "__wbuf_" << variable->getName()
@@ -227,6 +230,11 @@ namespace TL { namespace Acotes {
                << " >= " << "__rbuf_" << variable->getName()
                << "_port" << port->getNumber() << "_elemno) break;"
                ;
+
+#ifdef ACOTES_DIRECT_BUFFER_ACCESS
+             ss  << "__rbuf_" << variable->getName()
+               << "_port" << port->getNumber() << "_elem++;";
+#else
              ss  << variable->getName() << " = "
                << "__rbuf_" << variable->getName()
                << "_port" << port->getNumber() << "["
@@ -235,6 +243,7 @@ namespace TL { namespace Acotes {
                << "]"
                << ";"
                ;//AQUI2
+#endif
              ss << "__in_" << variable->getName() //<< "_port"
                 //<< port->getNumber() 
                 << "++;";
@@ -292,6 +301,9 @@ namespace TL { namespace Acotes {
         if (variable) {
            printf ("PortTransform::generateAcquire this one task %s\n", variable->getName().c_str());
            if (port->isOutput()) {
+#ifdef ACOTES_DIRECT_BUFFER_ACCESS
+             ss << "this_should_not_happen();";
+#else
              ss << "__wbuf_" << variable->getName()
                << "_port" << port->getNumber() << "["
                << "__wbuf_" << variable->getName()
@@ -301,6 +313,7 @@ namespace TL { namespace Acotes {
                << Transform::I(driver)->variable()->generateElementCount(variable)
                << ";"
                ;//AQUI
+#endif
            }
         ss << "oport______acquite();";
         }
@@ -358,11 +371,17 @@ namespace TL { namespace Acotes {
                 << "_port" << port->getNumber() << " = msf_get_current_read_buffer ("
                 << port->getNumber() << ");";
 
+#ifdef ACOTES_DIRECT_BUFFER_ACCESS
+            ss  << variable->getName() << " = msf_get_buffer_address ("
+                << "h_" << "__rbuf_" << variable->getName() 
+                << "_port" << port->getNumber() << ");";
+#else
             ss  << variable->getElementType().get_declaration(scope, "")
                 << "  * __rbuf_" << variable->getName()
                 << "_port" << port->getNumber() << " = msf_get_buffer_address ("
                 << "h_" << "__rbuf_" << variable->getName() 
                 << "_port" << port->getNumber() << ");";
+#endif
 
             ss  << "unsigned int " << "__rbuf_" << variable->getName()
                 << "_port" << port->getNumber()
@@ -427,11 +446,17 @@ namespace TL { namespace Acotes {
                 << port->getNumber() << ", __out_store_"
                 << variable->getName() << "_port" << port->getNumber() << ");";
 
+#ifdef ACOTES_DIRECT_BUFFER_ACCESS
+            ss  << variable->getName() << " = msf_get_buffer_address ("
+                << "h_" << "__wbuf_" << variable->getName() 
+                << "_port" << port->getNumber() << ");";
+#else
             ss  << variable->getElementType().get_declaration(scope, "")
                 << "  * __wbuf_" << variable->getName()
                 << "_port" << port->getNumber() << " = msf_get_buffer_address ("
                 << "h_" << "__wbuf_" << variable->getName() 
                 << "_port" << port->getNumber() << ");";
+#endif
             ss  << "unsigned int " << "__wbuf_" << variable->getName()
                 << "_port" << port->getNumber()
                 << "_elem = 0, "
