@@ -95,9 +95,9 @@ void Outline::compute_outline_name(Source &template_headers, Source &required_qu
         ;
 }
 
-static void get_referenced_entities(TL::Statement stmt, TL::ObjectList<TL::Symbol>& entities)
+static void get_referenced_entities(TL::Statement stmt, TL::ObjectList<TL::Symbol>* entities)
 {
-    entities.insert(stmt.non_local_symbol_occurrences(TL::Statement::ONLY_VARIABLES).map(functor(&TL::IdExpression::get_symbol)));
+    entities->insert(stmt.non_local_symbol_occurrences(TL::Statement::ONLY_VARIABLES).map(functor(&TL::IdExpression::get_symbol)));
 }
 
 static std::string c_argument_declaration(TL::Symbol sym)
@@ -128,7 +128,7 @@ void Outline::compute_referenced_entities(Source &arguments)
 {
     ObjectList<Symbol> entities;
     std::for_each(_outline_statements.begin(), _outline_statements.end(), 
-            std::bind2nd(ptr_fun(get_referenced_entities), entities));
+            std::bind2nd(ptr_fun(get_referenced_entities), &entities));
 
     if (_use_nonlocal_scope)
     {
