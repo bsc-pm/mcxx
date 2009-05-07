@@ -36,7 +36,7 @@ extern "C"
    #define LIBMCXXTL_EXTERN extern
 #endif
 
-LIBMCXXTL_EXTERN void load_compiler_phases_cxx(void);
+LIBMCXXTL_EXTERN void load_compiler_phases_cxx(compilation_configuration_t* config);
 LIBMCXXTL_EXTERN void start_compiler_phase_pre_execution(translation_unit_t* translation_unit);
 LIBMCXXTL_EXTERN void start_compiler_phase_execution(translation_unit_t* translation_unit);
 LIBMCXXTL_EXTERN void phases_help(void);

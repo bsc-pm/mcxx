@@ -263,9 +263,6 @@ static int parse_parameter_flag(int *should_advance, const char *special_paramet
 
 static void list_environments(void);
 
-// FIXME: This should be in cxx-upc.c, but that file belongs to the frontend
-// where we cannot call driver functions, so we will implement here
-// maybe a better file to put it would be cxx-upc-driver.c
 
 static char show_help_message = 0;
 
@@ -1653,6 +1650,9 @@ static void enable_hlt_phase(void)
             library_name);
 }
 
+// FIXME: This should be in cxx-upc.c, but that file belongs to the frontend
+// where we cannot call driver functions, so we will implement here
+// maybe a better file to put it would be cxx-upc-driver.c
 static void register_upc_pragmae(void)
 {
     // Register '#pragma upc'
@@ -1666,7 +1666,7 @@ static void register_upc_pragmae(void)
     // mfarrera's + IBM UPC extension that annoyingly it is not prefixed with
     // 'upc' (as it ought to be!)
     config_add_preprocessor_prefix(CURRENT_CONFIGURATION, "distributed");
-    // Register the empty directive since the syntax is '#pragma distribute'
+    // Register the empty directive since the syntax is '#pragma distributed'
     register_new_directive("distributed", "", /* is_construct */ 0);
 }
 
@@ -2469,7 +2469,7 @@ static void load_compiler_phases(void)
 
     // This invokes a C++ routine that will dlopen all libraries, get the proper symbol
     // and fill an array of compiler phases
-    load_compiler_phases_cxx();
+    load_compiler_phases_cxx(CURRENT_CONFIGURATION);
 
     timing_end(&loading_phases);
 

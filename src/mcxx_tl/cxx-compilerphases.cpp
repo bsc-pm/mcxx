@@ -326,14 +326,14 @@ static const char* add_dso_extension(const char* c)
 extern "C"
 {
 #ifndef WIN32_BUILD
-    static void load_compiler_phases_cxx_unix(void)
+    static void load_compiler_phases_cxx_unix(compilation_configuration_t* config)
     {
-        int num = CURRENT_CONFIGURATION->num_compiler_phases;
+        int num = config->num_compiler_phases;
 
         int i;
         for (i = 0; i < num; i++)
         {
-            const char* library_name = CURRENT_CONFIGURATION->compiler_phases[i];
+            const char* library_name = config->compiler_phases[i];
             library_name = add_dso_extension(library_name);
 
             DEBUG_CODE()
@@ -399,14 +399,14 @@ extern "C"
         }
     }
 #else
-    static void load_compiler_phases_cxx_win32(void)
+    static void load_compiler_phases_cxx_win32(compilation_configuration_t* config)
     {
-        int num = CURRENT_CONFIGURATION->num_compiler_phases;
+        int num = config->num_compiler_phases;
 
         int i;
         for (i = 0; i < num; i++)
         {
-            const char* library_name = CURRENT_CONFIGURATION->compiler_phases[i];
+            const char* library_name = config->compiler_phases[i];
             library_name = add_dso_extension(library_name);
 
             DEBUG_CODE()
@@ -503,12 +503,12 @@ extern "C"
     }
 #endif
 
-    void load_compiler_phases_cxx(void)
+    void load_compiler_phases_cxx(compilation_configuration_t* config)
     {
 #ifdef WIN32_BUILD
-        load_compiler_phases_cxx_win32();
+        load_compiler_phases_cxx_win32(config);
 #else
-        load_compiler_phases_cxx_unix();
+        load_compiler_phases_cxx_unix(config);
 #endif
     }
 

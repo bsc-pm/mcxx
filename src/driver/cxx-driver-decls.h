@@ -262,6 +262,9 @@ typedef struct compilation_configuration_tag
 
     int num_compiler_phases;
     const char** compiler_phases;
+
+    // States whether the phases of this compiler were loaded
+    char phases_where_loaded;
     
     // External vars for compiler pipeline of this configuration
     int num_external_vars;
