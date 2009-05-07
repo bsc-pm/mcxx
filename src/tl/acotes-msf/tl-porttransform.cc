@@ -372,7 +372,9 @@ namespace TL { namespace Acotes {
                 << port->getNumber() << ");";
 
 #ifdef ACOTES_DIRECT_BUFFER_ACCESS
-            ss  << variable->getName() << " = msf_get_buffer_address ("
+            ss  << variable->getName() << " = (" 
+                << variable->getElementType().get_declaration(scope, "")
+                << " *) msf_get_buffer_address ("
                 << "h_" << "__rbuf_" << variable->getName() 
                 << "_port" << port->getNumber() << ");";
 #else
@@ -447,7 +449,9 @@ namespace TL { namespace Acotes {
                 << variable->getName() << "_port" << port->getNumber() << ");";
 
 #ifdef ACOTES_DIRECT_BUFFER_ACCESS
-            ss  << variable->getName() << " = msf_get_buffer_address ("
+            ss  << variable->getName() << " = ("
+                << variable->getElementType().get_declaration(scope, "")
+                << " *) msf_get_buffer_address ("
                 << "h_" << "__wbuf_" << variable->getName() 
                 << "_port" << port->getNumber() << ");";
 #else
