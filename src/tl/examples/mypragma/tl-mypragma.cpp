@@ -26,6 +26,8 @@
 #include <stack>
 #include <sstream>
 
+#include <fstream>
+
 namespace TL
 {
     class MyPragmaPhase : public PragmaCustomCompilerPhase
@@ -38,45 +40,20 @@ namespace TL
                 on_directive_post["test"].connect(functor(&MyPragmaPhase::construct_post, *this));
             }
 
+            virtual void run(DTO& dto)
+            {
+                std::cerr << " --> RUNNING MYPRAGMA <-- " << std::endl;
+                PragmaCustomCompilerPhase::run(dto);
+            }
+
             void construct_post(PragmaCustomConstruct pragma_custom_construct)
             {
-                Source new_var;
+                std::cerr << " -> PRAGMA FOUND <- " << std::endl;
+                CompilationProcess::add_file("myprova.c", "mytestcc");
 
-                // Replace all occurrences of induction variable i with _i
-                // for (i = 0; i < 100; i++)
-                // -> for (_i = 0; _i < 100; _i++)
-
-                Statement st = pragma_custom_construct.get_statement();
-
-                if (!ForStatement::predicate(st.get_ast()))
-                {
-                    std::cerr << "This is not a for-statement, ignoring" << std::endl;
-                }
-
-                ForStatement for_stmt(st.get_ast(), st.get_scope_link());
-
-                IdExpression ind_var = for_stmt.get_induction_variable();
-                Symbol sym = ind_var.get_symbol();
-
-                ReplaceSrcIdExpression replacements(for_stmt.get_scope_link());
-                replacements.add_replacement(sym, "_" + sym.get_name());
-                
-                Source transformed, replaced_for;
-
-                transformed
-                    << "{"
-                    << sym.get_type().get_declaration(sym.get_scope(), "_" + sym.get_name()) << ";"
-                    << replaced_for
-                    << "}"
-                    ;
-
-                replaced_for = replacements.replace(for_stmt);
-
-                AST_t new_tree =
-                    transformed.parse_statement(pragma_custom_construct.get_ast(),
-                            pragma_custom_construct.get_scope_link());
-
-                pragma_custom_construct.get_ast().replace(new_tree);
+                std::fstream of("myprova.c");
+                of << "void f(void);" << std::endl;
+                of.close();
             }
     };
 }

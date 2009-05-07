@@ -97,18 +97,17 @@ int config_set_options(struct compilation_configuration_tag* config, const char*
         real_options[i] = blank_separated_options[i - 1];
     }
 
-    
     // Change the current configuration otherwise we will handle the parameters
     // in the wrong profile
     struct compilation_configuration_tag* previous = CURRENT_CONFIGURATION;
-    CURRENT_CONFIGURATION = config;
+    SET_CURRENT_CONFIGURATION(config);
 
     real_options[0] = uniquestr("mcxx");
 
     parse_arguments(num, real_options, /* from_command_line= */ 0);
 
     // Restore the original one
-    CURRENT_CONFIGURATION = previous;
+    SET_CURRENT_CONFIGURATION(previous);
 
     return 0;
 }

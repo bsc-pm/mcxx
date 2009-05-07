@@ -226,8 +226,14 @@ static void load_configuration(void);
 static void commit_configuration(void);
 static void compile_every_translation_unit(void);
 
-static void compiler_phases_execution(translation_unit_t* translation_unit, const char* parsed_filename);
-static void compiler_phases_pre_execution(translation_unit_t* translation_unit, const char* parsed_filename);
+static void compiler_phases_execution(
+        compilation_configuration_t* config,
+        translation_unit_t* translation_unit, 
+        const char* parsed_filename);
+static void compiler_phases_pre_execution(
+        compilation_configuration_t* config,
+        translation_unit_t* translation_unit,
+        const char* parsed_filename);
 static const char* preprocess_file(translation_unit_t* translation_unit, const char* input_filename);
 static void parse_translation_unit(translation_unit_t* translation_unit, const char* parsed_filename);
 static void initialize_semantic_analysis(translation_unit_t* translation_unit, const char* parsed_filename);
@@ -250,7 +256,7 @@ static void parse_subcommand_arguments(const char* arguments);
 
 static void enable_debug_flag(const char* flag);
 
-static void load_compiler_phases(void);
+static void load_compiler_phases(compilation_configuration_t* config);
 
 static void register_default_initializers(void);
 
@@ -290,9 +296,6 @@ int main(int argc, char* argv[])
 
     commit_configuration();
     
-    // Loads the compiler phases
-    load_compiler_phases();
-
     if (parse_arguments_error)
     {
         if (show_help_message)
@@ -363,7 +366,9 @@ static void help_message(void)
     fprintf(stdout, "Usage: %s options file [file..]\n", compilation_process.argv[0]);
     fprintf(stdout, HELP_STRING);
 
-    phases_help();
+    // We need to load the phases to show their help
+    load_compiler_phases(CURRENT_CONFIGURATION);
+    phases_help(CURRENT_CONFIGURATION);
 
     fprintf(stdout, "\n");
 }
@@ -1264,7 +1269,7 @@ static void initialize_default_values(void)
 
     // The minimal default configuration
     memset(&minimal_default_configuration, 0, sizeof(minimal_default_configuration));
-    CURRENT_CONFIGURATION = &minimal_default_configuration;
+    SET_CURRENT_CONFIGURATION(&minimal_default_configuration);
 
     if (default_environment == NULL)
     {
@@ -1318,7 +1323,7 @@ static int section_callback(const char* sname)
     // End of typing environment 
 
     // Set now as the current compilation configuration (kludgy)
-    CURRENT_CONFIGURATION = new_compilation_configuration;
+    SET_CURRENT_CONFIGURATION(new_compilation_configuration);
 
     // Check repeated configurations
     int i;
@@ -1524,13 +1529,13 @@ static void load_configuration(void)
     }
     
     // Now set the configuration as stated by the basename
-    CURRENT_CONFIGURATION = NULL;
+    SET_CURRENT_CONFIGURATION(NULL);
     for (i = 0; i < compilation_process.num_configurations; i++)
     {
         if (strcmp(compilation_process.configuration_set[i]->configuration_name, 
                     compilation_process.exec_basename) == 0)
         {
-            CURRENT_CONFIGURATION = compilation_process.configuration_set[i];
+            SET_CURRENT_CONFIGURATION(compilation_process.configuration_set[i]);
         }
     }
 
@@ -1538,7 +1543,7 @@ static void load_configuration(void)
     {
         fprintf(stderr, "No suitable configuration defined for %s. Setting to C++ built-in configuration\n",
                compilation_process.exec_basename);
-        CURRENT_CONFIGURATION = &minimal_default_configuration;
+        SET_CURRENT_CONFIGURATION(&minimal_default_configuration);
     }
     
 }
@@ -1681,10 +1686,15 @@ static void compile_every_translation_unit(void)
         if (file_process->already_compiled)
             continue;
 
-        CURRENT_CONFIGURATION = file_process->compilation_configuration;
-        CURRENT_COMPILED_FILE = file_process->translation_unit;
+        // Note: This is the only place where CURRENT_CONFIGURATION can be
+        // changed everywhere else these two variables are constants
+        SET_CURRENT_CONFIGURATION(file_process->compilation_configuration);
+        SET_CURRENT_COMPILED_FILE(file_process->translation_unit);
 
         translation_unit_t* translation_unit = CURRENT_COMPILED_FILE;
+
+        // Ensure phases are loaded for current profile
+        load_compiler_phases(CURRENT_CONFIGURATION);
         
         // First check the file type
         const char* extension = get_extension_filename(translation_unit->input_filename);
@@ -1779,13 +1789,13 @@ static void compile_every_translation_unit(void)
                 close_scanned_file();
 
                 // 4. TL::pre_run
-                compiler_phases_pre_execution(translation_unit, parsed_filename);
+                compiler_phases_pre_execution(CURRENT_CONFIGURATION, translation_unit, parsed_filename);
 
-                // 5. typechecking
+                // 5. Semantic analysis
                 semantic_analysis(translation_unit, parsed_filename);
 
                 // 6. TL::run
-                compiler_phases_execution(translation_unit, parsed_filename);
+                compiler_phases_execution(CURRENT_CONFIGURATION, translation_unit, parsed_filename);
 
                 // 7. print ast if requested
                 if (CURRENT_CONFIGURATION->debug_options.print_ast)
@@ -1812,13 +1822,15 @@ static void compile_every_translation_unit(void)
     }
 }
 
-static void compiler_phases_pre_execution(translation_unit_t* translation_unit,
+static void compiler_phases_pre_execution(
+        compilation_configuration_t* config,
+        translation_unit_t* translation_unit,
         const char* parsed_filename UNUSED_PARAMETER)
 {
     timing_t time_phases;
     timing_start(&time_phases);
 
-    start_compiler_phase_pre_execution(translation_unit);
+    start_compiler_phase_pre_execution(config, translation_unit);
 
     timing_end(&time_phases);
 
@@ -1828,13 +1840,15 @@ static void compiler_phases_pre_execution(translation_unit_t* translation_unit,
     }
 }
 
-static void compiler_phases_execution(translation_unit_t* translation_unit, 
+static void compiler_phases_execution(
+        compilation_configuration_t* config,
+        translation_unit_t* translation_unit, 
         const char* parsed_filename UNUSED_PARAMETER)
 {
     timing_t time_phases;
     timing_start(&time_phases);
 
-    start_compiler_phase_execution(translation_unit);
+    start_compiler_phase_execution(config, translation_unit);
 
     timing_end(&time_phases);
 
@@ -2462,20 +2476,36 @@ static char check_for_ambiguities(AST a, AST* ambiguous_node)
 }
 
 
-static void load_compiler_phases(void)
+static void load_compiler_phases(compilation_configuration_t* config)
 {
+    // Do nothing if they were already loaded 
+    // This is also checked in cxx-compilerphases.cpp but here we avoid showing
+    // the timing message as well
+    if (config->phases_loaded)
+    {
+        return;
+    }
+
+    if (config->verbose)
+    {
+        fprintf(stderr, "Loading compiler phases for profile '%s'\n", 
+                CURRENT_CONFIGURATION->configuration_name);
+    }
+
     timing_t loading_phases;
     timing_start(&loading_phases);
 
     // This invokes a C++ routine that will dlopen all libraries, get the proper symbol
     // and fill an array of compiler phases
-    load_compiler_phases_cxx(CURRENT_CONFIGURATION);
+    load_compiler_phases_cxx(config);
 
     timing_end(&loading_phases);
 
-    if (CURRENT_CONFIGURATION->verbose)
+    if (config->verbose)
     {
-        fprintf(stderr, "Compiler phases loaded in %.2f seconds\n", timing_elapsed(&loading_phases));
+        fprintf(stderr, "Compiler phases for profile '%s' loaded in %.2f seconds\n", 
+                CURRENT_CONFIGURATION->configuration_name,
+                timing_elapsed(&loading_phases));
     }
 }
 

@@ -53,11 +53,16 @@ namespace TL
     class CompilerPhaseRunner
     {
         private:
-            typedef std::vector<TL::CompilerPhase*> compiler_phases_t;
+            typedef std::vector<TL::CompilerPhase*> compiler_phases_list_t;
+            typedef std::map<compilation_configuration_t*, compiler_phases_list_t> compiler_phases_t;
             static compiler_phases_t compiler_phases;
         public :
-            static void start_compiler_phase_pre_execution(translation_unit_t* translation_unit)
+            static void start_compiler_phase_pre_execution(compilation_configuration_t *config,
+                    translation_unit_t* translation_unit)
             {
+                if (compiler_phases.find(config) == compiler_phases.end())
+                    return;
+
                 // Create the DTO stored in the translation unit
                 TL::DTO &dto = *(new TL::DTO());
                 translation_unit->dto = &dto;
@@ -73,8 +78,11 @@ namespace TL
                     fprintf(stderr, "[DTO] Initialized\n");
                 }
 
-                for (compiler_phases_t::iterator it = compiler_phases.begin();
-                        it != compiler_phases.end();
+
+                compiler_phases_list_t &compiler_phases_list = compiler_phases[config];
+
+                for (compiler_phases_list_t::iterator it = compiler_phases_list.begin();
+                        it != compiler_phases_list.end();
                         it++)
                 {
                     DEBUG_CODE()
@@ -136,13 +144,18 @@ namespace TL
                 }
             }
 
-            static void start_compiler_phase_execution(translation_unit_t* translation_unit)
+            static void start_compiler_phase_execution(compilation_configuration_t* config, translation_unit_t* translation_unit)
             {
+                if (compiler_phases.find(config) == compiler_phases.end())
+                    return;
+
                 TL::DTO* _dto = reinterpret_cast<TL::DTO*>(translation_unit->dto);
                 TL::DTO& dto = *_dto;
 
-                for (compiler_phases_t::iterator it = compiler_phases.begin();
-                        it != compiler_phases.end();
+                compiler_phases_list_t &compiler_phases_list = compiler_phases[config];
+
+                for (compiler_phases_list_t::iterator it = compiler_phases_list.begin();
+                        it != compiler_phases_list.end();
                         it++)
                 {
                     DEBUG_CODE()
@@ -204,20 +217,23 @@ namespace TL
                 }
             }
 
-            static void add_compiler_phase(TL::CompilerPhase* new_phase)
+            static void add_compiler_phase(compilation_configuration_t* config, TL::CompilerPhase* new_phase)
             {
-                compiler_phases.push_back(new_phase);
+                compiler_phases[config].push_back(new_phase);
             }
 
-            static void phases_help(void)
+            static void phases_help(compilation_configuration_t* config)
             {
-                if (!compiler_phases.empty())
+                if (!compiler_phases[config].empty())
                 {
                     std::cerr << std::endl;
                     std::cerr << "Loaded compiler phases in this profile (in the order they will be run)" << std::endl;
                     std::cerr << std::endl;
-                    for (compiler_phases_t::iterator it = compiler_phases.begin();
-                            it != compiler_phases.end();
+
+                    compiler_phases_list_t &compiler_phases_list = compiler_phases[config];
+
+                    for (compiler_phases_list_t::iterator it = compiler_phases_list.begin();
+                            it != compiler_phases_list.end();
                             it++)
                     {
 #define BLANK_INDENT "   "
@@ -229,7 +245,6 @@ namespace TL
                             << BLANK_INDENT << phase->get_phase_description() << std::endl
                             << std::endl;
 
-                        // TODO - For every registered parameter, print it and its description
                         std::vector<CompilerPhaseParameter*> parameters = phase->get_parameters();
                         if (!parameters.empty())
                         {
@@ -259,17 +274,22 @@ namespace TL
                 }
             }
 
-            static void phases_update_parameters(void)
+            static void phases_update_parameters(compilation_configuration_t* config)
             {
                 // This is blatantly inefficient, I know
                 // For every external variable
-                for (int i = 0; i < CURRENT_CONFIGURATION->num_external_vars; i++)
+                for (int i = 0; i < config->num_external_vars; i++)
                 {
                     // And for every phase
-                    external_var_t* ext_var = CURRENT_CONFIGURATION->external_vars[i];
+                    external_var_t* ext_var = config->external_vars[i];
                     bool registered = false;
-                    for (compiler_phases_t::iterator it = compiler_phases.begin();
-                            it != compiler_phases.end();
+
+                    if (compiler_phases.find(config) == compiler_phases.end())
+                        continue;
+
+                    compiler_phases_list_t &compiler_phases_list = compiler_phases[config];
+                    for (compiler_phases_list_t::iterator it = compiler_phases_list.begin();
+                            it != compiler_phases_list.end();
                             it++)
                     {
                         TL::CompilerPhase* phase = (*it);
@@ -395,7 +415,7 @@ extern "C"
                 new_phase->set_phase_description("No description available");
             }
 
-            TL::CompilerPhaseRunner::add_compiler_phase(new_phase);
+            TL::CompilerPhaseRunner::add_compiler_phase(config, new_phase);
         }
     }
 #else
@@ -498,42 +518,46 @@ extern "C"
                 new_phase->set_phase_description("No description available");
             }
 
-            TL::CompilerPhaseRunner::add_compiler_phase(new_phase);
+            TL::CompilerPhaseRunner::add_compiler_phase(config, new_phase);
         }
     }
 #endif
 
     void load_compiler_phases_cxx(compilation_configuration_t* config)
     {
+        if (config->phases_loaded)
+            return;
+
 #ifdef WIN32_BUILD
         load_compiler_phases_cxx_win32(config);
 #else
         load_compiler_phases_cxx_unix(config);
 #endif
+
+        config->phases_loaded = 1;
     }
 
-    void start_compiler_phase_execution(translation_unit_t* translation_unit)
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "Starting the compiler phase pipeline\n");
-        }
-        // TL::CompilerPhaseRunner::phases_update_parameters();
-        TL::CompilerPhaseRunner::start_compiler_phase_execution(translation_unit);
-    }
-
-    void start_compiler_phase_pre_execution(translation_unit_t* translation_unit)
+    void start_compiler_phase_pre_execution(compilation_configuration_t* config, translation_unit_t* translation_unit)
     {
         DEBUG_CODE()
         {
             fprintf(stderr, "Starting the compiler pre-phase pipeline\n");
         }
-        TL::CompilerPhaseRunner::phases_update_parameters();
-        TL::CompilerPhaseRunner::start_compiler_phase_pre_execution(translation_unit);
+        TL::CompilerPhaseRunner::phases_update_parameters(config);
+        TL::CompilerPhaseRunner::start_compiler_phase_pre_execution(config, translation_unit);
     }
 
-    void phases_help(void)
+    void start_compiler_phase_execution(compilation_configuration_t* config, translation_unit_t* translation_unit)
     {
-        TL::CompilerPhaseRunner::phases_help();
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "Starting the compiler phase pipeline\n");
+        }
+        TL::CompilerPhaseRunner::start_compiler_phase_execution(config, translation_unit);
+    }
+
+    void phases_help(compilation_configuration_t* config)
+    {
+        TL::CompilerPhaseRunner::phases_help(config);
     }
 }

@@ -264,7 +264,7 @@ typedef struct compilation_configuration_tag
     const char** compiler_phases;
 
     // States whether the phases of this compiler were loaded
-    char phases_where_loaded;
+    char phases_loaded;
     
     // External vars for compiler pipeline of this configuration
     int num_external_vars;
@@ -311,8 +311,12 @@ typedef struct compilation_file_process_tag
     char already_compiled;
 } compilation_file_process_t;
 
-#define CURRENT_CONFIGURATION (compilation_process.current_compilation_configuration)
-#define CURRENT_COMPILED_FILE (compilation_process.current_translation_unit)
+// These castings are here to convert these expressions in lvalues so people won't modify them
+#define CURRENT_CONFIGURATION ((compilation_configuration_t*)compilation_process.current_compilation_configuration)
+#define CURRENT_COMPILED_FILE ((translation_unit_t*)compilation_process.current_translation_unit)
+
+#define SET_CURRENT_CONFIGURATION(_x) compilation_process.current_compilation_configuration = (_x)
+#define SET_CURRENT_COMPILED_FILE(_x) compilation_process.current_translation_unit = (_x)
 
 
 MCXX_END_DECLS
