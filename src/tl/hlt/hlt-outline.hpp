@@ -42,7 +42,7 @@ namespace TL
 
                 Source _outline_name;
                 Source _outlined_source;
-                Source _additiona_decls_source;
+                Source _additional_decls_source;
 
                 Symbol _enclosing_function;
 
@@ -57,6 +57,7 @@ namespace TL
                 void do_outline();
                 void compute_outline_name(Source &template_headers, Source &required_qualification);
                 void compute_referenced_entities(Source &outline_parameters);
+                void compute_outlined_body(Source &outlined_body);
 
                 static int _num_outlines;
             protected:

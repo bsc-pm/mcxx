@@ -1,5 +1,6 @@
 #include "hlt-outline.hpp"
 #include <algorithm>
+#include <functional>
 
 using namespace TL::HLT;
 
@@ -36,13 +37,12 @@ Outline& Outline::use_packed_arguments()
 void Outline::do_outline()
 {
     // We can start building the outline code
-    Source outline_code,
-           template_headers,
+    Source template_headers,
            required_qualification,
            outline_parameters,
            outline_body;
 
-    outline_code
+    _outlined_source
         << template_headers
         << "void " << required_qualification << _outline_name << "(" << outline_parameters << ")"
         << outline_body
@@ -53,6 +53,8 @@ void Outline::do_outline()
 
     // Now find out all the required symbols
     compute_referenced_entities(outline_parameters);
+
+    compute_outlined_body(outline_body);
 }
 
 static std::string template_header_regeneration(TL::AST_t template_header)
@@ -124,6 +126,12 @@ static std::string cxx_argument_declaration(TL::Symbol sym)
 }
 #endif
 
+static void get_field_decls(TL::Symbol sym, TL::Source *src)
+{
+    (*src) << c_argument_declaration(sym) << ";"
+        ;
+}
+
 void Outline::compute_referenced_entities(Source &arguments)
 {
     ObjectList<Symbol> entities;
@@ -136,14 +144,26 @@ void Outline::compute_referenced_entities(Source &arguments)
         entities = entities.filter(negate(predicate(&Symbol::has_local_scope)));
     }
 
+    _referenced_symbols = entities;
+
     if (_packed_arguments)
     {
         _packed_argument_typename 
             << "struct _arg_pack_" << _outline_num
             ;
         arguments
-            << _packed_argument_typename << " args"
+            << _packed_argument_typename << " _args"
             ;
+
+        Source fields;
+        _additional_decls_source
+            << _packed_argument_typename
+            << "{"
+            << fields
+            << "}"
+            ;
+        std::for_each(_referenced_symbols.begin(), _referenced_symbols.end(),
+                std::bind2nd(std::ptr_fun(get_field_decls), &fields));
     }
     else
     {
@@ -152,4 +172,54 @@ void Outline::compute_referenced_entities(Source &arguments)
                     ",")
             ;
     }
+}
+
+struct AuxiliarOutlineReplace
+{
+    TL::ReplaceSrcIdExpression *_replacements;
+    bool _packed_args;
+
+    AuxiliarOutlineReplace(TL::ReplaceSrcIdExpression& replacements,
+            bool packed_args)
+        : _replacements(&replacements),
+        _packed_args(packed_args) { }
+
+    void operator()(TL::Symbol sym)
+    {
+        if (_packed_args)
+        {
+            _replacements->add_replacement(sym, "(*_args->" + sym.get_name() + ")");
+        }
+        else
+        {
+            _replacements->add_replacement(sym, "(*" + sym.get_name() + ")");
+        }
+    }
+};
+
+struct auxiliar_replace_t
+{
+    TL::Source *src;
+    TL::ReplaceSrcIdExpression *replacements;
+};
+
+static void print_replaced_stmts(TL::Statement stmt, auxiliar_replace_t aux)
+{
+    (*aux.src) << aux.replacements->replace(stmt);
+}
+
+void Outline::compute_outlined_body(Source &outlined_body)
+{
+    // Warning, empty outlines are rendered invalid because of this
+    ReplaceSrcIdExpression replacements(_outline_statements[0].get_scope_link());
+
+    std::for_each(_referenced_symbols.begin(),
+            _referenced_symbols.end(),
+            AuxiliarOutlineReplace(replacements, _packed_arguments));
+
+    auxiliar_replace_t aux = { &outlined_body, &replacements };
+
+    std::for_each(_outline_statements.begin(),
+            _outline_statements.end(),
+            std::bind2nd(std::ptr_fun(print_replaced_stmts), aux));
 }
