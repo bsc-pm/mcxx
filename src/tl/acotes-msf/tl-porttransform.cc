@@ -188,6 +188,23 @@ namespace TL { namespace Acotes {
         return ss;
     }
 
+    Source PortTransform::generateAcquire2_task(Port* port)
+    {
+        assert(port);
+        assert(port->isInput());
+        Source ss;
+        Variable* variable= port->getVariable();
+        if (variable) {
+#ifdef ACOTES_DIRECT_BUFFER_ACCESS
+           ss << variable->getName() << "++;";
+#else
+           ss << "";
+#endif
+        }
+        return ss;
+    }
+
+
     Source PortTransform::generateAcquire_task(Port* port)
     {
         assert(port);
@@ -203,6 +220,7 @@ namespace TL { namespace Acotes {
 #ifdef ACOTES_DIRECT_BUFFER_ACCESS
              ss << "__wbuf_" << variable->getName()
                << "_port" << port->getNumber() << "_elem++;";
+             ss << variable->getName() << "++;";
 #else
              ss << "__wbuf_" << variable->getName()
                << "_port" << port->getNumber() << "["
@@ -234,6 +252,7 @@ namespace TL { namespace Acotes {
 #ifdef ACOTES_DIRECT_BUFFER_ACCESS
              ss  << "__rbuf_" << variable->getName()
                << "_port" << port->getNumber() << "_elem++;";
+             // in Acquire2  ss << variable->getName() << "++;";
 #else
              ss  << variable->getName() << " = "
                << "__rbuf_" << variable->getName()

@@ -57,6 +57,7 @@ namespace TL { namespace Acotes {
         virtual Source generate_endofstream_condition(Port* port);
         virtual Source generate_continue_condition(Port* port);
         virtual Source generateAcquire_task(Port* port);
+        virtual Source generateAcquire2_task(Port* port);
         virtual Source generateAcquire_task2(Port* port);
         virtual Source generateAcquire(Port* port);
         virtual Source generateInputPeek(Port* port);

@@ -98,6 +98,7 @@ namespace TL { namespace Acotes {
         virtual Source generateBufferPorts(Task* task);
         virtual Source generateNelemsBufferPorts(Task* task);
         virtual Source generate_input_connections(Task* task) ;
+        virtual Source generate_input2_connections(Task* task) ;
         virtual Source generate_output_connections(Task* task) ;
         virtual Source generatePreviousBufferWrite(Task * task);
         virtual Source generateEOF(Task * task);

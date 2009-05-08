@@ -495,6 +495,7 @@ namespace TL { namespace Acotes {
        ss << task->getBody()->prettyprint();
        //ss << "trace_iteration_end();";
        if (hasInput(task)) {
+          ss << generate_input2_connections(task);
           ss << generate_output_connections(task);
           ss << "if (__endofoutput == 1) break;";
           ss << "}";
@@ -509,11 +510,26 @@ namespace TL { namespace Acotes {
         Source ss;
         
         const std::vector<Port*> &ports= task->getPortVector();
-        printf ("commented TaskTransform::generate_input_connections task %s\n", task->getName().c_str());
         for (unsigned i= 0; i < ports.size(); i++) {
             Port* port= ports.at(i);
             if (port->isInput()) {
                 ss << Transform::I(driver)->port()->generateAcquire_task(port);
+            }
+        }
+        
+        return ss;
+    }
+
+    Source TaskTransform::generate_input2_connections(Task* task) {
+        assert(task);
+        
+        Source ss;
+        
+        const std::vector<Port*> &ports= task->getPortVector();
+        for (unsigned i= 0; i < ports.size(); i++) {
+            Port* port= ports.at(i);
+            if (port->isInput()) {
+                ss << Transform::I(driver)->port()->generateAcquire2_task(port);
             }
         }
         
