@@ -146,6 +146,7 @@ void Outline::compute_referenced_entities(Source &arguments)
 
     _referenced_symbols = entities;
 
+
     if (_packed_arguments)
     {
         _packed_argument_typename 
@@ -167,32 +168,59 @@ void Outline::compute_referenced_entities(Source &arguments)
     }
     else
     {
-        arguments
-            << concat_strings( entities.map(functor(c_argument_declaration)),
-                    ",")
-            ;
+        if (_enclosing_function.is_member() && !_enclosing_function.is_static())
+        {
+            Type class_type = _enclosing_function.get_class_type();
+            arguments
+                << class_type.get_declaration(_enclosing_function.get_scope(), "_this")
+                ;
+        }
+        arguments.append_with_separator(
+                concat_strings( entities.map(functor(c_argument_declaration)),
+                    ","),
+                ",");
     }
 }
 
 struct AuxiliarOutlineReplace
 {
     TL::ReplaceSrcIdExpression *_replacements;
+    TL::Symbol _enclosing_function;
     bool _packed_args;
 
     AuxiliarOutlineReplace(TL::ReplaceSrcIdExpression& replacements,
+            TL::Symbol enclosing_function,
             bool packed_args)
         : _replacements(&replacements),
+        _enclosing_function(enclosing_function),
         _packed_args(packed_args) { }
 
     void operator()(TL::Symbol sym)
     {
-        if (_packed_args)
+        if (/* !IS_CXX_LANGUAGE
+                || */ !sym.is_member() 
+                || !(_enclosing_function.is_member() && !_enclosing_function.is_static())
+                || sym.get_class_type().is_same_type(_enclosing_function.get_class_type()))
         {
-            _replacements->add_replacement(sym, "(*_args->" + sym.get_name() + ")");
+            if (_packed_args)
+            {
+                _replacements->add_replacement(sym, "(*_args->" + sym.get_name() + ")");
+            }
+            else
+            {
+                _replacements->add_replacement(sym, "(*" + sym.get_name() + ")");
+            }
         }
         else
         {
-            _replacements->add_replacement(sym, "(*" + sym.get_name() + ")");
+            if (_packed_args)
+            {
+                _replacements->add_replacement(sym, "(_args->this->" + sym.get_name() + ")");
+            }
+            else
+            {
+                _replacements->add_replacement(sym, "(_this->" + sym.get_name() + ")");
+            }
         }
     }
 };
@@ -215,7 +243,7 @@ void Outline::compute_outlined_body(Source &outlined_body)
 
     std::for_each(_referenced_symbols.begin(),
             _referenced_symbols.end(),
-            AuxiliarOutlineReplace(replacements, _packed_arguments));
+            AuxiliarOutlineReplace(replacements, _enclosing_function, _packed_arguments));
 
     auxiliar_replace_t aux = { &outlined_body, &replacements };
 
