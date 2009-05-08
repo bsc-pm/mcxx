@@ -28,7 +28,7 @@ namespace TL
 {
     namespace HLT
     {
-        class LoopDistribution : public BaseTransform
+        class LIBHLT_CLASS LoopDistribution : public BaseTransform
         {
             protected:
                 virtual TL::Source get_source();
@@ -42,7 +42,7 @@ namespace TL
                         TL::ObjectList<TL::Symbol> expanded);
         };
 
-        LoopDistribution distribute_loop(TL::ForStatement for_stmt, ObjectList<TL::Symbol> expanded_scalars);
+        LIBHLT_EXTERN LoopDistribution distribute_loop(TL::ForStatement for_stmt, ObjectList<TL::Symbol> expanded_scalars);
     }
 }
 

@@ -31,7 +31,7 @@ namespace TL
 {
     namespace HLT
     {
-        struct Outline : public BaseTransform
+        struct LIBHLT_CLASS Outline : public BaseTransform
         {
             private:
                 bool _packed_arguments;

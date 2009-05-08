@@ -21,40 +21,39 @@
 #ifndef HLT_EXCEPTION_HPP
 #define HLT_EXCEPTION_HPP
 
+#include "hlt-common.hpp"
 #include "tl-ast.hpp"
 #include "tl-langconstruct.hpp"
 #include <iostream>
 
 namespace TL
 {
-namespace HLT
-{
-
-struct HLTException
-{
-    public:
-        HLTException(TL::LangConstruct place, const std::string& message)
-            : _ast(place.get_ast()), _message(message)
+    namespace HLT
+    {
+        struct LIBHLT_CLASS HLTException
         {
-        }
-        HLTException(TL::AST_t place, const std::string& message)
-            : _ast(place), _message(message)
-        {
-        }
-        HLTException(const std::string& message)
-            : _ast(NULL), _message(message)
-        {
-        }
-    private:
-        TL::AST_t _ast;
-        std::string _message;
+            public:
+                HLTException(TL::LangConstruct place, const std::string& message)
+                    : _ast(place.get_ast()), _message(message)
+                {
+                }
+                HLTException(TL::AST_t place, const std::string& message)
+                    : _ast(place), _message(message)
+                {
+                }
+                HLTException(const std::string& message)
+                    : _ast(NULL), _message(message)
+                {
+                }
+            private:
+                TL::AST_t _ast;
+                std::string _message;
 
-        friend std::ostream& operator<<(std::ostream &o, const HLTException&);
-};
+                friend std::ostream& operator<<(std::ostream &o, const HLTException&);
+        };
 
-std::ostream& operator<<(std::ostream &o, const HLTException& e);
-
-}
+        LIBHLT_EXTERN std::ostream& operator<<(std::ostream &o, const HLTException& e);
+    }
 }
 
 

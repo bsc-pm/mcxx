@@ -18,32 +18,22 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#ifndef HLT_UNROLL_HPP
-#define HLT_UNROLL_HPP
+#ifndef HLT_COMMON_HPP
+#define HLT_COMMON_HPP
 
-#include "tl-langconstruct.hpp"
-#include "hlt-transform.hpp"
+#ifdef _WIN32
+  #ifdef LIBHLT_DLL_EXPORT
+    #define LIBHLT_EXTERN extern __declspec(dllexport)
+    #define LIBHLT_CLASS __declspec(dllexport)
+  #else
+    #define LIBHLT_EXTERN extern __declspec(dllimport)
+    #define LIBHLT_CLASS __declspec(dllimport)
+  #endif
+  #define LIBHLT_ALWAYS_EXPORT __declspec(dllexport)
+#else
+  #define LIBHLT_EXTERN extern
+  #define LIBHLT_CLASS
+  #define LIBHLT_ALWAYS_EXPORT 
+#endif
 
-namespace TL
-{
-    namespace HLT
-    {
-        class LIBHLT_CLASS LoopUnroll : public BaseTransform
-        {
-            protected:
-                virtual Source get_source();
-            private:
-                ForStatement _for_stmt;
-                unsigned int _factor;
-                bool _with_epilog;
-
-                Source do_unroll();
-            public:
-                LoopUnroll(ForStatement for_stmt, unsigned int factor);
-        };
-
-        LoopUnroll unroll_loop(ForStatement for_stmt, unsigned int factor);
-    }
-}
-
-#endif // HLT_UNROLL_HPP
+#endif // HLT_COMMON_HPP

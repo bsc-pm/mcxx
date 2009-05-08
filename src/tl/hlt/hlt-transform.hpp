@@ -23,6 +23,7 @@
 
 #include "tl-ast.hpp"
 #include "tl-source.hpp"
+#include "hlt-common.hpp"
 #include <string>
 #include <iostream>
 
@@ -31,7 +32,7 @@ namespace TL
     namespace HLT
     {
         // Base for all transformations
-        struct BaseTransform
+        struct LIBHLT_CLASS BaseTransform
         {
             private:
                 AST_t _identity_tree;

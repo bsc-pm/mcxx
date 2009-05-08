@@ -8,7 +8,7 @@ namespace TL
 {
     namespace HLT
     {
-        class LoopInterchange : public BaseTransform
+        class LIBHLT_CLASS LoopInterchange : public BaseTransform
         {
             protected:
                 Source do_interchange();
@@ -21,7 +21,7 @@ namespace TL
                 LoopInterchange(ForStatement for_stmt, ObjectList<int> permutation);
         };
 
-        LoopInterchange loop_interchange(ForStatement for_stmt, ObjectList<int> permutation);
+        LIBHLT_EXTERN LoopInterchange loop_interchange(ForStatement for_stmt, ObjectList<int> permutation);
     }
 }
 

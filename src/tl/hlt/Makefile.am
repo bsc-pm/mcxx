@@ -30,6 +30,7 @@ libtl_hlt_la_SOURCES = \
       hlt-composition.hpp \
       hlt-outline.hpp \
       hlt-outline.cpp \
+      hlt-common.hpp \
       $(END)
 
 libtl_hlt_pragma_la_CFLAGS=$(tl_cflags)

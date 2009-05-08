@@ -28,7 +28,7 @@ namespace TL
 {
     namespace HLT
     {
-        struct LoopFusion : public BaseTransform
+        struct LIBHLT_CLASS LoopFusion : public BaseTransform
         {
             private:
                 ObjectList<ForStatement> _for_stmt_list;
@@ -39,7 +39,7 @@ namespace TL
                 LoopFusion(ObjectList<ForStatement> for_stmt_list);
         };
 
-        LoopFusion loop_fusion(ObjectList<ForStatement>);
+        LIBHLT_EXTERN LoopFusion loop_fusion(ObjectList<ForStatement>);
     }
 }
 

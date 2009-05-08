@@ -9,7 +9,7 @@ namespace TL
 {
     namespace HLT
     {
-        struct LoopCollapse : public BaseTransform
+        struct LIBHLT_CLASS LoopCollapse : public BaseTransform
         {
             private:
                 ForNestInfo _for_nest_info;
@@ -19,7 +19,7 @@ namespace TL
                 LoopCollapse(ForStatement for_nest);
         };
 
-        LoopCollapse loop_collapse(ForStatement for_stmt);
+        LIBHLT_EXTERN LoopCollapse loop_collapse(ForStatement for_stmt);
     }
 }
 
