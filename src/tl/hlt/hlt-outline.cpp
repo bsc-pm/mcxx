@@ -1,4 +1,5 @@
 #include "hlt-outline.hpp"
+#include "cxx-utils.h"
 #include <algorithm>
 #include <functional>
 
@@ -6,16 +7,20 @@ using namespace TL::HLT;
 
 int Outline::_num_outlines = 0;
 
-Outline::Outline(Statement stmt)
-    : _packed_arguments(false), 
+Outline::Outline(ScopeLink sl, Statement stmt)
+    : _sl(sl),
+    _packed_arguments(false), 
+    _do_not_embed(false), 
     _use_nonlocal_scope(true),
     _outline_num(_num_outlines++)
 {
     _outline_statements.append(stmt);
 }
 
-Outline::Outline(ObjectList<Statement> stmt_list)
-    : _packed_arguments(false), 
+Outline::Outline(ScopeLink sl, ObjectList<Statement> stmt_list)
+    : _sl(sl),
+    _packed_arguments(false), 
+    _do_not_embed(false), 
     _use_nonlocal_scope(true),
     _outline_statements(stmt_list),
     _outline_num(_num_outlines++)
@@ -34,27 +39,60 @@ Outline& Outline::use_packed_arguments()
     return *this;
 }
 
+Outline& Outline::do_not_embed()
+{
+    _do_not_embed = true;
+    return *this;
+}
+
 void Outline::do_outline()
 {
     // We can start building the outline code
     Source template_headers,
            required_qualification,
            outline_parameters,
-           outline_body;
+           outline_body,
+           static_qualifier,
+           forward_declarations;
 
     _outlined_source
+        << forward_declarations
         << template_headers
+        << static_qualifier
         << "void " << required_qualification << _outline_name << "(" << outline_parameters << ")"
         << outline_body
         ;
 
     // This gets some information about the enclosing function
-    compute_outline_name(template_headers, required_qualification);
+    compute_outline_name(template_headers, required_qualification, static_qualifier);
 
     // Now find out all the required symbols
     compute_referenced_entities(outline_parameters);
 
     compute_outlined_body(outline_body);
+
+    // For non inlined member functions we need some more things
+    if (_is_member)
+    {
+        if (!_is_inlined_member)
+        {
+            declare_members(template_headers, outline_parameters);
+        }
+        else
+        {
+            fill_member_forward_declarations(forward_declarations);
+        }
+    }
+    else if (!_is_member)
+    {
+        fill_nonmember_forward_declarations(forward_declarations);
+    }
+
+    if (!_do_not_embed)
+    {
+        // Now embed the outline
+        embed_outline();
+    }
 }
 
 static std::string template_header_regeneration(TL::AST_t template_header)
@@ -62,10 +100,13 @@ static std::string template_header_regeneration(TL::AST_t template_header)
     return "template <" + template_header.prettyprint() + " >";
 }
 
-void Outline::compute_outline_name(Source &template_headers, Source &required_qualification)
+void Outline::compute_outline_name(Source &template_headers, 
+        Source &required_qualification, 
+        Source &static_qualifier)
 {
     // Note: We are assuming all statements come from the same function
     // definition
+    // This disqualifies empty lists of statements
     FunctionDefinition funct_def = _outline_statements[0].get_enclosing_function();
     _enclosing_function = funct_def.get_function_symbol();
 
@@ -95,6 +136,11 @@ void Outline::compute_outline_name(Source &template_headers, Source &required_qu
     _outline_name
         << "_ol_" << _outline_num << "_" << _enclosing_function.get_name()
         ;
+
+    if (_is_member && _is_inlined_member)
+    {
+        static_qualifier = Source("static ");
+    }
 }
 
 static void get_referenced_entities(TL::Statement stmt, TL::ObjectList<TL::Symbol>* entities)
@@ -197,8 +243,8 @@ struct AuxiliarOutlineReplace
 
     void operator()(TL::Symbol sym)
     {
-        if (/* !IS_CXX_LANGUAGE
-                || */ !sym.is_member() 
+        if (!IS_CXX_LANGUAGE
+                || !sym.is_member() 
                 || !(_enclosing_function.is_member() && !_enclosing_function.is_static())
                 || sym.get_class_type().is_same_type(_enclosing_function.get_class_type()))
         {
@@ -238,8 +284,7 @@ static void print_replaced_stmts(TL::Statement stmt, auxiliar_replace_t aux)
 
 void Outline::compute_outlined_body(Source &outlined_body)
 {
-    // Warning, empty outlines are rendered invalid because of this
-    ReplaceSrcIdExpression replacements(_outline_statements[0].get_scope_link());
+    ReplaceSrcIdExpression replacements(_sl);
 
     std::for_each(_referenced_symbols.begin(),
             _referenced_symbols.end(),
@@ -250,4 +295,55 @@ void Outline::compute_outlined_body(Source &outlined_body)
     std::for_each(_outline_statements.begin(),
             _outline_statements.end(),
             std::bind2nd(std::ptr_fun(print_replaced_stmts), aux));
+}
+
+void Outline::declare_members(Source template_headers, Source outline_parameters)
+{
+    _additional_decls_source
+        << template_headers
+        << "static void " << _outline_name << "(" << outline_parameters << ");"
+        ;
+
+    AST_t point_of_decl = _enclosing_function.get_point_of_declaration();
+
+    AST_t member_tree = _additional_decls_source.parse_member(
+            point_of_decl, _sl,
+            _enclosing_function.get_class_type());
+
+    point_of_decl.append(member_tree);
+}
+
+void Outline::fill_nonmember_forward_declarations(Source &forward_declarations)
+{
+    forward_declarations
+        << _additional_decls_source
+        << _enclosing_function.get_type().get_declaration(_enclosing_function.get_scope(), _enclosing_function.get_name()) << ";";
+}
+
+void Outline::fill_member_forward_declarations(Source &forward_declarations)
+{
+    forward_declarations
+        << _additional_decls_source
+        ;
+}
+
+void Outline::embed_outline()
+{
+    AST_t funct_def = _outline_statements[0].get_ast().get_enclosing_function_definition(/* jump_templates = */ true);
+
+    if (!_is_member || !_is_inlined_member)
+    {
+        AST_t outline_tree = _outlined_source.parse_declaration(funct_def,
+                _sl);
+
+        funct_def.prepend(outline_tree);
+    }
+    else
+    {
+        // This requires a different function
+        AST_t outline_tree = _outlined_source.parse_member(funct_def,
+                _sl, _enclosing_function.get_class_type());
+
+        funct_def.prepend(outline_tree);
+    }
 }

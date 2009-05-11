@@ -34,7 +34,9 @@ namespace TL
         struct LIBHLT_CLASS Outline : public BaseTransform
         {
             private:
+                ScopeLink _sl;
                 bool _packed_arguments;
+                bool _do_not_embed;
                 bool _use_nonlocal_scope;
                 int _outline_num;
 
@@ -55,18 +57,28 @@ namespace TL
                 ObjectList<Symbol> _referenced_symbols;
 
                 void do_outline();
-                void compute_outline_name(Source &template_headers, Source &required_qualification);
+                void compute_outline_name(Source &template_headers, 
+                        Source &required_qualification,
+                        Source &static_qualifier);
                 void compute_referenced_entities(Source &outline_parameters);
                 void compute_outlined_body(Source &outlined_body);
+
+                void declare_members(Source template_headers, Source outline_parameters);
+                void fill_nonmember_forward_declarations(Source &forward_declarations);
+                void fill_member_forward_declarations(Source &forward_declarations);
+
+                void embed_outline();
 
                 static int _num_outlines;
             protected:
                 virtual Source get_source();
             public:
-                Outline(Statement stmt);
-                Outline(ObjectList<Statement> stmt_list);
+                Outline(ScopeLink sl, Statement stmt);
+                Outline(ScopeLink sl, ObjectList<Statement> stmt_list);
 
                 Outline &use_packed_arguments();
+
+                Outline& do_not_embed();
 
                 Source get_additional_declarations();
         };
