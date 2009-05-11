@@ -48,9 +48,12 @@ namespace TL { namespace Acotes {
     // -- Name
     public:
         std::string getName() const { return name; };
+        std::string getOrigName() const { return origname; };
     private:
         void setName(const std::string &name);
+        void setOrigName(const std::string &name);
         std::string name;
+        std::string origname;
         
     // -- Task relationship
     public:

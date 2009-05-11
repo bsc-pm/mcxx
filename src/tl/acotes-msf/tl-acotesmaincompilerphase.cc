@@ -122,7 +122,7 @@ namespace TL { namespace Acotes {
             acotesMainSource << "msf_shutdown();";
             acotesMainSource << "return 0;";
             acotesMainSource << "}";
-            AST_t acotesMain= acotesMainSource.parse_global(functionDefinition.get_ast(), functionDefinition.get_scope_link());
+            AST_t acotesMain= acotesMainSource.parse_global(functionDefinition.get_ast(), functionDefinition.get_scope_link(), TL::Source::DO_NOT_CHECK_EXPRESSION);
             functionDefinition.prepend_sibling(acotesMain);
             
             Source mainSource;
@@ -147,8 +147,11 @@ namespace TL { namespace Acotes {
                        << "      fprintf (stderr, \"tg %d task %d port %d buffs %d size %d\\n\", tg, task, port, buffs, bs);"
                        << "      n = fscanf (f, \" %d %d %d %d %d \\n\", &tg, &task, &port, &buffs, &bs);"
                        << "   }"
-                       << "   if (n>0) fprintf (stderr, \"Incomplete last line"
-                       << " in buffer description file\\n\");"
+                       << "   if (n>0) {"
+                       << "      fprintf (stderr, \"Incomplete last line"
+                       <<          " in buffer description file\\n\");"
+                       << "      exit(1);"
+                       << "   }"
                        << "}";
             mainSource << "void getBufferDescription (void) {"
                        << "   FILE * f;"
@@ -203,7 +206,7 @@ namespace TL { namespace Acotes {
                     << "  return result;"
                     << "}"
                     ;
-            AST_t main= mainSource.parse_global(functionDefinition.get_ast(), functionDefinition.get_scope_link());
+            AST_t main= mainSource.parse_global(functionDefinition.get_ast(), functionDefinition.get_scope_link(), TL::Source::DO_NOT_CHECK_EXPRESSION);
             functionDefinition.get_ast().replace(main);
         }
     }

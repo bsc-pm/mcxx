@@ -55,7 +55,10 @@ namespace TL { namespace Acotes {
         assert(variable->hasTask());
 
         //printf ("VariableTransform::transformReplacement executed on variable %s\n", variable->getSymbol().getName());
-        printf ("VariableTransform::transformReplacement executed\n");
+        printf ("VariableTransform::transformReplacement\n");
+        fflush (NULL);
+        //printf ("VariableTransform::transformReplacement executed %s\n", 
+        //          variable->getSymbol().get_name());
         
 #ifdef ACOTES_DIRECT_BUFFER_ACCESS
         //TL::Type type= symbol->get_type();
@@ -68,9 +71,15 @@ namespace TL { namespace Acotes {
         Task* task= variable->getTask();
         TL::LangConstruct& body= task->getBody()[0];
         TL::Source replaceExpression;
-        replaceExpression << "(*" << symbol.get_name() << ")";
+        if (task->hasState (variable->getSymbol())) {
+           return;
+           //replaceExpression << symbol.get_name();
+        }
+        else {
+           replaceExpression << "(* _" << symbol.get_name() << ")";
+        }
         //replaceExpression << "__wbuf_" << symbol.get_name() << "_port0 [333]";
-        AST_t replaceAST= replaceExpression.parse_expression(body.get_ast(), body.get_scope_link());
+        AST_t replaceAST= replaceExpression.parse_expression(body.get_ast(), body.get_scope_link(), TL::Source::DO_NOT_CHECK_EXPRESSION);
 
         std::cerr << "replacing " << symbol.get_name() << ": " << replaceAST.prettyprint() << std::endl;
         TL::ReplaceIdExpression replaceIdExpression;
@@ -84,6 +93,32 @@ namespace TL { namespace Acotes {
     /* ****************************************************************
      * * Generation
      * ****************************************************************/
+#if 0
+    Source VariableTransform::generateParamAssign(Variable * variable) {
+        assert(variable);
+        assert(variable->hasSymbol());
+        
+        Source ss;
+#endif
+        
+        
+
+    Source VariableTransform::generateVarAsParam(Variable * variable) {
+        assert(variable);
+        assert(variable->hasSymbol());
+        
+        Source ss;
+        
+        TL::Symbol symbol= variable->getSymbol();
+        TL::Scope scope= symbol.get_scope();
+        Source name;
+        name << variable->getName();
+        if (variable->isArray()) {
+            name << "[" << variable->getElementCount() << "]";
+        }
+        ss << variable->getElementType().get_declaration(scope, name) << ";";
+        return ss;
+    }
     
     /** 
      * Generates the declaration of one variable.
@@ -99,11 +134,11 @@ namespace TL { namespace Acotes {
         Source name;
 #ifdef ACOTES_DIRECT_BUFFER_ACCESS
         if (variable->isArray()) {
-            name << "(*" << variable->getName() << ")";
+            name << "(* _" << variable->getName() << ")";
             name << "[" << variable->getElementCount() << "]";
         }
         else
-            name << " * " << variable->getName();
+            name << " * _" << variable->getName();
 #else
         name << variable->getName();
         if (variable->isArray()) {
@@ -158,9 +193,20 @@ namespace TL { namespace Acotes {
             
         } else {
             
-            ss << "1";
+            ss << "1 /* This should not be generated */";
         }
         return ss;
+    }
+
+    Source VariableTransform::generateFullSizeof(Variable* variable)
+    {
+       Source ss;
+       if (variable) 
+          ss << "(" << generateElementCount(variable) << " * "
+             << generateSizeof(variable) << ")";
+       else
+          ss << "1 /* This should not be generated 2 */";
+       return ss;
     }
 
     Source VariableTransform::generateVariableName(Variable* variable)

@@ -47,6 +47,7 @@ namespace TL { namespace Acotes {
         variable->setTask(task);
         
         variable->setName(symbol.get_name());
+        variable->setOrigName(symbol.get_name());
         variable->setArray(0);
         
         return variable;
@@ -74,6 +75,10 @@ namespace TL { namespace Acotes {
     void Variable::setName(const std::string &name)
     {
         this->name= name;
+    }
+    void Variable::setOrigName(const std::string &name)
+    {
+        this->origname = name;
     }
     
     

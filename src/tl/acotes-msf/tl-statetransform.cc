@@ -47,6 +47,57 @@ namespace TL { namespace Acotes {
     /* ****************************************************************
      * * Generator.
      * ****************************************************************/
+
+    Source StateTransform::generateParamsTask_assign(State* state) {
+        assert(state);
+        assert(state->isCopyIn());
+        assert(state->getTask());
+        assert(state->getVariable());
+
+        Source ss;
+        Variable* variable= state->getVariable();
+        //Task* task = state->getTask();
+        ss << Transform::I(driver)->variable()->generateVariableName(variable)
+           << " = prams_p->"
+           << Transform::I(driver)->variable()->generateVariableName(variable) 
+           << ";";
+        ss << "printf (\"" 
+           << Transform::I(driver)->variable()->generateVariableName(variable)
+           << " = %d\\n\", "
+           << Transform::I(driver)->variable()->generateVariableName(variable)
+           << ");";
+        return ss;
+    }
+
+    Source StateTransform::generateParams_assign(State* state) {
+        assert(state);
+        assert(state->isCopyIn());
+        assert(state->getTask());
+        assert(state->getVariable());
+
+        Source ss;
+        Variable* variable= state->getVariable();
+        Task* task = state->getTask();
+        ss << task->getName() << "_str."
+           << Transform::I(driver)->variable()->generateVariableName(variable) 
+           << " = "
+           << Transform::I(driver)->variable()->generateVariableName(variable)
+           << ";";
+        return ss;
+    }
+
+
+    Source StateTransform::generateParams_struct(State* state) {
+        assert(state);
+        assert(state->isCopyIn());
+        assert(state->getTask());
+        assert(state->getVariable());
+
+        Source ss;
+        Variable* variable= state->getVariable();
+        ss << Transform::I(driver)->variable()->generateVarAsParam(variable);
+        return ss;
+    }
     
     /**
      * Generates the copyin specification.

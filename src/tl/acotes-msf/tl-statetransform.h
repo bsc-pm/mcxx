@@ -47,6 +47,11 @@ namespace TL { namespace Acotes {
 
     // -- Generation
     public:
+        virtual Source generateParams_struct(State* state);
+        virtual Source generateParamsTask_assign (State* state);
+        virtual Source generateParams_assign(State* state);
+
+
         virtual Source generateCopy(State* state);
         virtual Source generateCopyStruct(State * state);
 

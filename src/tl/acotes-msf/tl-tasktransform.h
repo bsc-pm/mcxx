@@ -67,6 +67,10 @@ namespace TL { namespace Acotes {
         virtual Source generateInitializer(Task* task);
         virtual Source generateFinalizer(Task* task);
         virtual Source generateCopyInAcquire(Task* task);
+        virtual Source generateParamsStruct(Task* task);
+        virtual Source generateParamsAssignment(Task* task);
+        virtual Source generateParamTaskAssign(Task* task);
+
         virtual Source generateCopyOutAcquire(Task* task);
         virtual Source generateSharedAcquire(Task* task);
         virtual Source generateBody(Task* task);

@@ -68,7 +68,7 @@ namespace TL { namespace Acotes {
     
         // Replace taskgroup construct
         Source replaceSource= generateReplacement(taskgroup);
-        AST_t replaceTree= replaceSource.parse_statement(taskgroupAST, taskgroupScopeLink);
+        AST_t replaceTree= replaceSource.parse_statement(taskgroupAST, taskgroupScopeLink, TL::Source::DO_NOT_CHECK_EXPRESSION);
         taskgroupAST.replace(replaceTree);
     }
     
@@ -123,17 +123,17 @@ namespace TL { namespace Acotes {
         assert(taskgroup);
         Source ss;
 
-        ss << "static FILE * f;"
+        ss << "FILE * __f_tg;"
            << "static int acotes__tg" << taskgroup->getNum() << "_gen = 0;"
            << "if (acotes__tg" << taskgroup->getNum() << "_gen == 0) {"
            << "   acotes__tg" << taskgroup->getNum() << "_gen = 1;"
-           << "   f = fopen (\"tg" << taskgroup->getNum() << "\", \"w\");"
-           << "   if (f!=0L) {"
-           << "      fprintf (f, \"digraph taskgroup_" 
+           << "   __f_tg = fopen (\"tg" << taskgroup->getNum() << "\", \"w\");"
+           << "   if (__f_tg!=0L) {"
+           << "      fprintf (__f_tg, \"digraph taskgroup_" 
                            << taskgroup->getNum() << " {\\n\");"
            <<        generateConnectionInfo(taskgroup)
-           << "      fprintf (f, \"}\\n\");"
-           << "      fclose (f);"
+           << "      fprintf (__f_tg, \"}\\n\");"
+           << "      fclose (__f_tg);"
            << "   }"
            << "}";
 

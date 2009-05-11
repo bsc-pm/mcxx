@@ -95,7 +95,7 @@ namespace TL { namespace Acotes {
        //    << portConnection->getInput()->getTask()->getName() << "_"
        //    << portConnection->getInput()->getNumber() << "_buff = 0L;";
 
-        ss << "fprintf (f, \"" 
+        ss << "fprintf (__f_tg, \"" 
                << portConnection->getOutput()->getTask()->getName() 
                << " -> "
                << portConnection->getInput()->getTask()->getName()

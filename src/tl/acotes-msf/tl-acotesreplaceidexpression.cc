@@ -168,11 +168,11 @@ namespace TL { namespace Acotes {
             Source localDeclarationSource;
             localDeclarationSource= localType.get_declaration(declaredEntity.get_scope(), newname.str());
             localDeclarationSource << ";";
-            AST_t localDeclarationAST= localDeclarationSource.parse_statement(getRefTree(), scopeLink);
+            AST_t localDeclarationAST= localDeclarationSource.parse_statement(getRefTree(), scopeLink, TL::Source::DO_NOT_CHECK_EXPRESSION);
             setRefTree(localDeclarationAST);
 
             Source localSymbolSource= newname.str();
-            AST_t localSymbolAST= localSymbolSource.parse_expression(localDeclarationAST, scopeLink);
+            AST_t localSymbolAST= localSymbolSource.parse_expression(localDeclarationAST, scopeLink, TL::Source::DO_NOT_CHECK_EXPRESSION);
 
             replaceMap[symbol]= localSymbolAST;
             if (IDEXRPLDBG) std::cerr << "--- DEBUG     newreplace symbol:" << symbol.get_name() << " ast:" << localSymbolAST.prettyprint() << std::endl;
@@ -228,7 +228,7 @@ namespace TL { namespace Acotes {
         
         // Parse head without labels
         Source expressionSource= head;
-        AST_t expressionAST= expressionSource.parse_expression(tree, scopeLink);
+        AST_t expressionAST= expressionSource.parse_expression(tree, scopeLink, TL::Source::DO_NOT_CHECK_EXPRESSION);
         
         // Replace in the expression the variables
         replace(expressionAST, scopeLink);

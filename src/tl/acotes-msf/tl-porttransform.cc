@@ -196,7 +196,7 @@ namespace TL { namespace Acotes {
         Variable* variable= port->getVariable();
         if (variable) {
 #ifdef ACOTES_DIRECT_BUFFER_ACCESS
-           ss << variable->getName() << "++;";
+           ss << "_" << variable->getName() << "++;";
 #else
            ss << "";
 #endif
@@ -209,6 +209,7 @@ namespace TL { namespace Acotes {
     {
         assert(port);
         Source ss;
+        int i = 2;
         Variable* variable= port->getVariable();
         //ss << "iii();";
         if (variable) {
@@ -219,8 +220,19 @@ namespace TL { namespace Acotes {
              //    << "_port" << port->getNumber() //<< "a()"
 #ifdef ACOTES_DIRECT_BUFFER_ACCESS
              ss << "__wbuf_" << variable->getName()
-               << "_port" << port->getNumber() << "_elem++;";
-             ss << variable->getName() << "++;";
+               << "_port" << port->getNumber() << "_elem += "
+               << Transform::I(driver)->variable()->generateFullSizeof(variable)
+               << ";";
+             ss << "(";
+//             do {
+//                printf ("Copying %c\n", variable->getName()[i]);
+//                ss << variable->getName()[i];
+//                ++i;
+//             }
+//             while (variable->getName()[i] != ')');
+//             ss << ")++;";
+             ss << "_" << variable->getOrigName() << ")++;";
+
 #else
              ss << "__wbuf_" << variable->getName()
                << "_port" << port->getNumber() << "["
@@ -233,7 +245,9 @@ namespace TL { namespace Acotes {
                ;//AQUI2
 #endif
              ss << "__out_store_" << variable->getName() << "_port"
-                << port->getNumber() << "++;";
+                << port->getNumber() << " += "
+                << Transform::I(driver)->variable()->generateFullSizeof(variable)
+                << ";";
              ss << "if (__wbuf_" << variable->getName()
                << "_port" << port->getNumber() << "_elem"
                << " >= " << "__wbuf_" << variable->getName()
@@ -251,7 +265,9 @@ namespace TL { namespace Acotes {
 
 #ifdef ACOTES_DIRECT_BUFFER_ACCESS
              ss  << "__rbuf_" << variable->getName()
-               << "_port" << port->getNumber() << "_elem++;";
+               << "_port" << port->getNumber() << "_elem += "
+               << Transform::I(driver)->variable()->generateFullSizeof(variable)
+               << ";";
              // in Acquire2  ss << variable->getName() << "++;";
 #else
              ss  << variable->getName() << " = "
@@ -265,7 +281,9 @@ namespace TL { namespace Acotes {
 #endif
              ss << "__in_" << variable->getName() //<< "_port"
                 //<< port->getNumber() 
-                << "++;";
+                << " += "
+                << Transform::I(driver)->variable()->generateFullSizeof(variable)
+                << ";";
            }
            else assert(0);
         }
@@ -391,7 +409,7 @@ namespace TL { namespace Acotes {
                 << port->getNumber() << ");";
 
 #ifdef ACOTES_DIRECT_BUFFER_ACCESS
-            ss  << variable->getName() << " = (" 
+            ss  << "_" << variable->getName() << " = (" 
                 << variable->getElementType().get_declaration(scope, "")
                 << " *) msf_get_buffer_address ("
                 << "h_" << "__rbuf_" << variable->getName() 
@@ -442,7 +460,7 @@ namespace TL { namespace Acotes {
         }
       else
            fprintf (stderr, "Error: generating inputbufferaccess from control port with no variable associated\n");
-
+        ss << "0;";
         return ss;
     }
 /* AQUI*/
@@ -468,7 +486,7 @@ namespace TL { namespace Acotes {
                 << variable->getName() << "_port" << port->getNumber() << ");";
 
 #ifdef ACOTES_DIRECT_BUFFER_ACCESS
-            ss  << variable->getName() << " = ("
+            ss  << "_" << variable->getName() << " = ("
                 << variable->getElementType().get_declaration(scope, "")
                 << " *) msf_get_buffer_address ("
                 << "h_" << "__wbuf_" << variable->getName() 
@@ -645,25 +663,40 @@ namespace TL { namespace Acotes {
         ss << "";
       else {
         if (variable) {
+           ss << "{ int gbs = acotes__bs[acotes__tg][" << port->getTask()->getNum()
+              <<                 "][" << port->getNumber() << "][0];"
+              << "if (gbs <= 0) {"
+              <<    "fprintf (stderr, \"Invalid global buffer size (%d)\\n\", gbs);"
+              <<    "exit (1);"
+              << "}";
 	   ss << "msf_set_task_global_buffer_size ("
               << port->getTask()->getName() << ", " << port->getNumber();
-           ss << ", acotes__bs[acotes__tg][" << port->getTask()->getNum() 
-              << "][" << port->getNumber() << "][0]";
+           //ss << ", acotes__bs[acotes__tg][" << port->getTask()->getNum() 
+           //   << "][" << port->getNumber() << "][0] * " 
+           ss << ", gbs * "
+              << Transform::I(driver)->variable()->generateFullSizeof(variable);
            //ss << ", 32768";
            //ss  << ", " << Transform::I(driver)->variable()->generateSizeof(variable);
            ss << ");";
+           ss << "}";
         }
         else
            // ss << ", 1";   // was 0...
            ss << "";
 
         if (variable) {
+           ss << "{ int lbs = acotes__bs[acotes__tg][" << port->getTask()->getNum()
+              <<                 "][" << port->getNumber() << "][1];"
+              << "if (lbs <= 0) {"
+              <<    "fprintf (stderr, \"Invalid local buffer size (%d)\\n\", lbs);"
+              <<    "exit (1);"
+              << "}";
            ss << "msf_set_task_local_buffer_size ("
               << port->getTask()->getName() << ", " << port->getNumber();
-           ss << ", acotes__bs[acotes__tg][" << port->getTask()->getNum() 
-              << "][" << port->getNumber() << "][1]";
-           //ss  << ", " << Transform::I(driver)->variable()->generateSizeof(variable);
+           ss << ", lbs * "
+              << Transform::I(driver)->variable()->generateFullSizeof(variable);
            ss << ");";
+           ss << "}";
         }
         else
            //ss << ", 1";   // was 0...
@@ -922,7 +955,8 @@ namespace TL { namespace Acotes {
         if (port->hasVariable()) {
            ss << comment ("MSF_IN_BUFFER_PORT");
            ss << "msf_add_buffer_port (2 /*MSF_IN_BUFFER_PORT*/, "
-                << Transform::I(driver)->variable()->generateSizeof(variable)
+                //<< Transform::I(driver)->variable()->generateFullSizeof(variable)
+                << "sizeof(char)"
                 << ", " << port->getNumber()
                 << ", \"__" << variable->getName() << "__\");"
                 ;
@@ -948,7 +982,8 @@ namespace TL { namespace Acotes {
         if (port->hasVariable()) {
            ss << comment ("MSF_OUT_BUFFER_PORT");
            ss << "msf_add_buffer_port (3 /*MSF_OUT_BUFFER_PORT*/, "
-                << Transform::I(driver)->variable()->generateSizeof(variable)
+                //<< Transform::I(driver)->variable()->generateFullSizeof(variable)
+                << "sizeof(char)"
                 << ", " << port->getNumber()
                 << ", \"__" << variable->getName() << "__\");"
                 ;
@@ -958,7 +993,7 @@ namespace TL { namespace Acotes {
          ss << "msf_add_buffer_port (3 /*MSF_OUT_BUFFER_PORT*/, "
               << "0"
               << ", " << port->getNumber()
-              << ", 0);";
+              << ", 0); /* This should not be generated 3 */";
       }
 
 
@@ -989,25 +1024,38 @@ namespace TL { namespace Acotes {
       ss << "";
     else {
       if (variable) {
+           ss << "{ int gbs = acotes__bs[acotes__tg][" << port->getTask()->getNum()
+              <<                 "][" << port->getNumber() << "][0];"
+              << "if (gbs <= 0) {"
+              <<    "fprintf (stderr, \"Invalid global buffer size (%d)\\n\", gbs);"
+              <<    "exit (1);"
+              << "}";
          ss << "msf_set_task_global_buffer_size ("
             << port->getTask()->getName() << ", " << port->getNumber();
-         ss << ", acotes__bs[acotes__tg][" << port->getTask()->getNum() 
-            << "][" << port->getNumber() << "][0]";
+         ss << ", gbs * "
+            << Transform::I(driver)->variable()->generateFullSizeof(variable);
          //ss << ", 32768";
          //ss << ", " << Transform::I(driver)->variable()->generateSizeof(variable);
          ss      << ");";
+         ss << "}";
       }
       else
           //ss << ", 0";
           ss << "";
 
       if (variable) {
+           ss << "{ int lbs = acotes__bs[acotes__tg][" << port->getTask()->getNum()
+              <<                 "][" << port->getNumber() << "][1];"
+              << "if (lbs <= 0) {"
+              <<    "fprintf (stderr, \"Invalid local buffer size (%d)\\n\", lbs);"
+              <<    "exit (1);"
+              << "}";
          ss << "msf_set_task_local_buffer_size ("
             << port->getTask()->getName() << ", " << port->getNumber();
-         ss << ", acotes__bs[acotes__tg][" << port->getTask()->getNum() 
-            << "][" << port->getNumber() << "][1]";
-         //ss << ", " << Transform::I(driver)->variable()->generateSizeof(variable);
+         ss << ", lbs * "
+            << Transform::I(driver)->variable()->generateFullSizeof(variable);
          ss     << ");";
+         ss << "}";
       }
       else
           //ss << ", 0";

@@ -27,6 +27,8 @@
 #include "ac-userport.h"
 #include "tl-porttransform.h"
 #include "tl-transform.h"
+#include "tl-acoteslogger.h"
+
 
 namespace TL { namespace Acotes {
 
@@ -70,7 +72,10 @@ namespace TL { namespace Acotes {
         Source replaceSource= generateReplacement(userPort, last);
         printf ("replaceSource.parse_statement -> AST\n");
         AST_t replaceTree= replaceSource.parse_statement(userPortAST, userPortScopeLink, TL::Source::DO_NOT_CHECK_EXPRESSION);
-        printf ("userPortAST.replace\n");
+        std::cerr << "replacing " << replaceTree.prettyprint() << std::endl;
+        std::cerr << " to " << userPortAST.prettyprint() << std::endl;
+        std::cerr << "userPortAST.replace" << std::endl;
+        //printf ("userPortAST.replace\n");
         userPortAST.replace(replaceTree);
     }
         

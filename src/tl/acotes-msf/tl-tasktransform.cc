@@ -28,6 +28,7 @@
 #include "ac-port.h"
 #include "ac-state.h"
 #include "ac-task.h"
+#include "ac-variable.h"
 #include "tl-acoteslogger.h"
 #include "tl-initializertransform.h"
 #include "tl-forreplicatetransform.h"
@@ -70,8 +71,9 @@ namespace TL { namespace Acotes {
         // First transform all the children, recursive call
         transformChildren(task);
         transformReplacePeek(task);
-        // was here transformReplaceVariable(task);
+        // was here it does not allow to insert variables transformReplaceVariable(task);
         transformReplaceUserPort(task);
+        //transformReplaceVariable(task);
         //transformReplaceUserPort2(task);
         transformReplaceSharedCheck(task);
         transformReplaceSharedUpdate(task);
@@ -113,7 +115,8 @@ namespace TL { namespace Acotes {
         Source outlineSource= generateOutline(task);
 
         // FIXME - There is 'driver' mechanism, how to deal with it ?
-        AST_t outlineTree= outlineSource.parse_global(taskAST, taskScopeLink);
+        AST_t outlineTree= outlineSource.parse_global(taskAST, taskScopeLink,
+                    TL::Source::DO_NOT_CHECK_EXPRESSION);
         // taskAST.prepend_sibling_function(outlineTree);
 
         /* Set up a new outline for further compilation */
@@ -235,7 +238,7 @@ namespace TL { namespace Acotes {
     
         // Replace taskgroup construct
         Source replaceSource= generateReplacement(task);
-        AST_t replaceTree= replaceSource.parse_statement(taskAST, taskScopeLink);
+        AST_t replaceTree= replaceSource.parse_statement(taskAST, taskScopeLink, TL::Source::DO_NOT_CHECK_EXPRESSION);
         taskAST.replace(replaceTree);
     }
 
@@ -249,28 +252,34 @@ namespace TL { namespace Acotes {
         assert(task);
         
         Source ss;
-
-#ifdef PARAMS_STRUCT
-        ss << "typedef struct " << task->getName() << "_tag {"
-           << "   int ntask;"
-           << "}" << task->getName() << "_param_t;";
+//#define PARAMS_ARRAY
+#ifdef PARAMS_ARRAY
+        //ss << "typedef struct " << task->getName() << "_tag {"
+        //   << "   int ntask;"
+        //   << "}" << task->getName() << "_param_t;";
         
         ss << "void " << task->getName() << "_outline("
-                      << task->getName() << "_param_t * params_p)"
+                      << task->getName() << "int * par_p)"
 #else
         ss << "void " << task->getName() << "_outline("
-                      << "void * params_p)"
+                      << "void * args_p)"
 #endif
                 << "{"
                 //<<   "trace_instance_begin();"
                 <<   generateVariable(task)
+                << "struct {"
+                << "  int ntask;"
+                << generateParamsStruct (task)
+                << "} * prams_p = args_p;"
                 <<   "printf (\"IN "
                 <<                 task->getName() << "\\n\");"
 		<<   "if (0 /* MSF_TASK_INIT */ == msf_get_task_state()) {"
                 <<       "printf (\"INIT " 
                 <<                 task->getName() << "\\n\");"
 		//<<       "msf_set_task_parms_size(sizeof(*params_p));"
-                <<       "msf_set_task_parms_size(0);"
+                <<       "printf (\"msf_set_task_parms_size(%d)\\n\", "
+                <<          "sizeof(*prams_p));"
+                <<       "msf_set_task_parms_size(sizeof(*prams_p));"
 		// msf_add_buffer_ports...
 		<<       generateBufferPorts(task)
 		<<       "msf_update_framework();"
@@ -280,8 +289,9 @@ namespace TL { namespace Acotes {
                 <<   "}"
                 <<   "printf (\"START "
                 <<             task->getName() << "\\n\");"
+                <<   generateParamTaskAssign (task)
                 <<   comment ("MSF_BUFFER_PORT_ACTIVE")
-                <<   "int __transfer_type = 0; /* MSF_BUFFER_PORT_ACTIVE */"
+                <<   "int __transfer_type = 1; /* MSF_BUFFER_PORT_ACTIVE */"
                 <<   "int __endofoutput = 0;"
                 ;
 
@@ -406,7 +416,12 @@ namespace TL { namespace Acotes {
         const std::vector<Variable*> &variables= task->getVariableVector();
         for (unsigned i= 0; i < variables.size(); i++) {
             Variable* variable= variables.at(i);
-            ss << Transform::I(driver)->variable()->generateVariable(variable);
+            if (task->hasState (variable->getSymbol())) {
+               ss << Transform::I(driver)->variable()->generateVarAsParam(variable);
+            }
+            else {
+               ss << Transform::I(driver)->variable()->generateVariable(variable);
+            }
         }
         
         return ss;
@@ -436,6 +451,64 @@ namespace TL { namespace Acotes {
             }
         }
         
+        return ss;
+    }
+
+    /**
+     * Generates the copyin portion of the params struct.
+     */
+    Source TaskTransform::generateParamsStruct(Task* task) {
+        assert(task);
+        
+        Source ss;
+        
+        const std::vector<State*> &states= task->getStateVector();
+        for (unsigned i= 0; i < states.size(); i++) {
+            State* state= states.at(i);
+            if (state->isCopyIn()) {
+                //ss << Transform::I(driver)->state()->generateParams_struct(state);
+                //ss << "int " << state->getVariable()->getName() << ";";
+                ss << Transform::I(driver)->state()->generateParams_struct(state);
+            }
+        }
+        
+        return ss;
+    }
+
+    Source TaskTransform::generateParamTaskAssign(Task* task) {
+        assert (task);
+        Source ss;
+        const std::vector<State*> &states= task->getStateVector();
+        ss << "int ntask = prams_p->ntask;";
+        ss << "printf (\"Task %d\\n\", ntask);";
+        for (unsigned i= 0; i < states.size(); i++) {
+            State* state= states.at(i);
+            if (state->isCopyIn()) {
+                //ss << "//" << state->getVariable()->getName();
+                //ss << task->getName() << "_str."
+                //   << state->getVariable()->getName() << " = "
+                //   << state->getVariable()->getName() << ";";
+                ss << Transform::I(driver)->state()->generateParamsTask_assign(state);
+            }
+        }
+        return ss;
+    }
+
+    Source TaskTransform::generateParamsAssignment(Task* task) {
+        assert (task);
+        Source ss;
+        const std::vector<State*> &states= task->getStateVector();
+        ss << task->getName() << "_str.ntask = " << task->getNum() << ";";
+        for (unsigned i= 0; i < states.size(); i++) {
+            State* state= states.at(i);
+            if (state->isCopyIn()) {
+                //ss << "//" << state->getVariable()->getName();
+                //ss << task->getName() << "_str." 
+                //   << state->getVariable()->getName() << " = " 
+                //   << state->getVariable()->getName() << ";";
+                ss << Transform::I(driver)->state()->generateParams_assign(state);
+            }
+        }
         return ss;
     }
     
@@ -850,15 +923,24 @@ namespace TL { namespace Acotes {
             //ss  <<   "(void*)0";
 	    //ss  <<   ", (void*)0";
         } else {
-            ss      << "msf_task_handle_p " << task->getName() << ";"
-                    << task->getName() << " = msf_task_load(";
+          CompiledFile current_compiled_file = CompilationProcess::get_current_file();
+          std::string current_filename = current_compiled_file.get_filename();
+
+            ss      << "msf_task_handle_p " << task->getName() << ";";
             if (task->getTaskDevice() == TASKDEVICE_SPU) {
               ss  <<   "\"" << task->getName() << "_lib\"";
               ss  <<   ", \"spe_prog_" << task->getName() << "_outline\", 0L, 0";
             }
             else {
-              ss  <<   "\"libmsf_ppu.so\"";
-              ss  <<   ", \"" << task->getName() << "_outline\", 0L, 0";
+              ss << "struct { int ntask;"
+                 << generateParamsStruct (task);
+              ss << "} " << task->getName() << "_str;";
+              ss << generateParamsAssignment (task);
+              ss << task->getName() << " = msf_task_load(";
+              ss  <<   "\"libmsf-" << current_filename << "_ppu.so\"";
+              ss  <<   ", \"" << task->getName() << "_outline\", &" 
+                  << task->getName() << "_str, sizeof ("
+                  << task->getName() << "_str)";
             }
             ss      <<   ");"
             ;
@@ -910,10 +992,28 @@ namespace TL { namespace Acotes {
         assert(task);
 
         Source ss;
+        const std::vector<Port*> &ports= task->getPortVector();
 
+        ss << "if (";
+
+        for (unsigned i= 0; i < ports.size(); i++) {
+            Port* port= ports.at(i);
+            if (port->isInput()) {
+//printf ("next port\n"); fflush (NULL);
+               ss << Transform::I(driver)->port()->generate_endofstream_condition(port)
+                  << " && "
+               ;
+            }
+            else if (port->isOutput()) {
+               ss << Transform::I(driver)->port()->generate_continue_condition(port)
+                  << " && "
+               ;
+            }
+        }
+
+        ss << "1) __transfer_type = 0;";
         ss << "while (";
 
-        const std::vector<Port*> &ports= task->getPortVector();
         for (unsigned i= 0; i < ports.size(); i++) {
             Port* port= ports.at(i);
             if (port->isInput()) {
