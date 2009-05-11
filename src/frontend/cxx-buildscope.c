@@ -9153,6 +9153,7 @@ AST get_declarator_id_expression(AST a, decl_context_t decl_context)
         case AST_CONVERSION_DECLARATOR :
         case AST_ABSTRACT_DECLARATOR :
         case AST_GCC_ABSTRACT_DECLARATOR :
+        case AST_GCC_PTR_ABSTRACT_DECLARATOR :
         case AST_PARENTHESIZED_ABSTRACT_DECLARATOR:
         case AST_ABSTRACT_DECLARATOR_FUNC:
         case AST_ABSTRACT_ARRAY :
