@@ -44,6 +44,8 @@ namespace TL
                 void collapse_loop(PragmaCustomConstruct construct);
 
                 void jam_loops(Statement unrolled_loop);
+
+                void outline_code(PragmaCustomConstruct construct);
         };
     }
 

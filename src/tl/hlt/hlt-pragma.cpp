@@ -69,6 +69,9 @@ HLTPragmaPhase::HLTPragmaPhase()
     register_construct("collapse");
     on_directive_post["collapse"].connect(functor(&HLTPragmaPhase::collapse_loop, *this));
 
+    register_construct("outline");
+    on_directive_post["outline"].connect(functor(&HLTPragmaPhase::outline_code, *this));
+
     _allow_identity_str = "1";
 
     register_parameter("allow_identity", 
@@ -517,6 +520,10 @@ void HLTPragmaPhase::jam_loops(Statement unrolled_loop_code)
             loop_body.get_scope_link());
 
     loop_body.get_ast().replace(jammed_tree);
+}
+
+void HLTPragmaPhase::outline_code(PragmaCustomConstruct construct)
+{
 }
 
 EXPORT_PHASE(TL::HLT::HLTPragmaPhase)
