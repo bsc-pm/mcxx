@@ -42,7 +42,7 @@ namespace TL
                 LoopUnroll(ForStatement for_stmt, unsigned int factor);
         };
 
-        LoopUnroll unroll_loop(ForStatement for_stmt, unsigned int factor);
+        LIBHLT_EXTERN LoopUnroll unroll_loop(ForStatement for_stmt, unsigned int factor);
     }
 }
 

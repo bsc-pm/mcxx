@@ -21,6 +21,7 @@
 #ifndef HLT_BLOCKING_HPP
 #define HLT_BLOCKING_HPP
 
+#include "hlt-common.hpp"
 #include "hlt-transform.hpp"
 #include "tl-langconstruct.hpp"
 #include "tl-for-nest.hpp"
@@ -29,7 +30,7 @@ namespace TL
 {
     namespace HLT
     {
-        class LoopBlocking : public BaseTransform
+        class LIBHLT_CLASS LoopBlocking : public BaseTransform
         {
             protected:
                 virtual Source get_source();
@@ -48,7 +49,7 @@ namespace TL
                 LoopBlocking(TL::ForStatement for_stmt, ObjectList<TL::Expression> block_factors);
         };
 
-        LoopBlocking block_loop(TL::ForStatement for_stmt, ObjectList<TL::Expression> block_factors);
+        LIBHLT_EXTERN LoopBlocking block_loop(TL::ForStatement for_stmt, ObjectList<TL::Expression> block_factors);
     }
 }
 
