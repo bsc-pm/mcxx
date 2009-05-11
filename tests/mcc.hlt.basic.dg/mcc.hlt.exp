@@ -1,6 +1,9 @@
 load_lib target.exp
 
-set testcases [lsort [find $srcdir/$subdir *.c]]
+set testcases1 [lsort [find $srcdir/$subdir *.c]]
+set testcases2 [lsort [find $srcdir/$subdir *.cpp]]
+
+set testcases [concat $testcases1 $testcases2]
 
 send_user "\n"
 
@@ -24,13 +27,23 @@ foreach test $testcases {
         continue
     }
 
+    set profile ""
+    if [string match "*.c" $basename_test] {
+        set profile "hltcc"
+    } elseif [string match "*.cpp" $basename_test] {
+        set profile "hltcxx"
+    } else {
+        unresolved "$test"
+        continue
+    }
+
     send_user "Running test ${basename_test}...\n"
 
     set output_execution ""
     if {
         [catch { 
             set output_execution [eval exec $wrapper_tool $wrapper_options $full_path_tool "--typecheck" \
-                "--config-file=./$subdir/config.mcxx" "--profile=lt-mcxx" "--variable=allow_identity:false" "--verbose" "--output-dir=." "-c" \
+                "--config-file=./$subdir/config.mcxx" "--profile=$profile" "--variable=allow_identity:false" "--verbose" "--output-dir=." "-c" \
                 "-o" "${rootname_test}.o" "$test" "|&" "cat"] 
         } output_execution ]
     } {

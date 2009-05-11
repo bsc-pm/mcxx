@@ -1,12 +1,24 @@
 # This file controls how external programs are handled
-[lt-mcxx]
+[hltcc]
 language = C
-options = -std=c99
+options = -std=gnu99
 preprocessor_name = gcc
 preprocessor_options = -E
 compiler_name = gcc
 compiler_options = 
 linker_name = gcc
+linker_options = 
+pragma_prefix = hlt
+compiler_phase = libtl-hlt-pragma.so
+
+[hltcxx]
+language = C++
+options = 
+preprocessor_name = g++
+preprocessor_options = -E
+compiler_name = g++
+compiler_options = 
+linker_name = g++
 linker_options = 
 pragma_prefix = hlt
 compiler_phase = libtl-hlt-pragma.so
