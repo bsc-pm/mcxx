@@ -57,16 +57,16 @@ namespace TL
     class FunctionPredicate : public Predicate<T>
     {
         private:
-            FunctionAdapter<bool, T> funct_adapter;
+            FunctionAdapter<bool, T> _funct_adapter;
         public:
             FunctionPredicate(bool (*pf)(T&))
-                : funct_adapter(pf)
+                : _funct_adapter(pf)
             {
             }
 
             virtual bool do_(T& t) const
             {
-                return pf(t);
+                return _funct_adapter(t);
             }
 
             ~FunctionPredicate()
