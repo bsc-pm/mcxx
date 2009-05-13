@@ -122,7 +122,8 @@ namespace TL { namespace Acotes {
             acotesMainSource << "msf_shutdown();";
             acotesMainSource << "return 0;";
             acotesMainSource << "}";
-            AST_t acotesMain= acotesMainSource.parse_global(functionDefinition.get_ast(), functionDefinition.get_scope_link(), TL::Source::DO_NOT_CHECK_EXPRESSION);
+            //AST_t acotesMain= acotesMainSource.parse_global(functionDefinition.get_ast(), functionDefinition.get_scope_link(), TL::Source::DO_NOT_CHECK_EXPRESSION);
+            AST_t acotesMain= acotesMainSource.parse_global(functionDefinition.get_ast(), functionDefinition.get_scope_link());
             functionDefinition.prepend_sibling(acotesMain);
             
             Source mainSource;
@@ -206,7 +207,8 @@ namespace TL { namespace Acotes {
                     << "  return result;"
                     << "}"
                     ;
-            AST_t main= mainSource.parse_global(functionDefinition.get_ast(), functionDefinition.get_scope_link(), TL::Source::DO_NOT_CHECK_EXPRESSION);
+            //AST_t main= mainSource.parse_global(functionDefinition.get_ast(), functionDefinition.get_scope_link(), TL::Source::DO_NOT_CHECK_EXPRESSION);
+            AST_t main= mainSource.parse_global(functionDefinition.get_ast(), functionDefinition.get_scope_link());
             functionDefinition.get_ast().replace(main);
         }
     }

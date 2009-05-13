@@ -115,8 +115,9 @@ namespace TL { namespace Acotes {
         Source outlineSource= generateOutline(task);
 
         // FIXME - There is 'driver' mechanism, how to deal with it ?
-        AST_t outlineTree= outlineSource.parse_global(taskAST, taskScopeLink,
-                    TL::Source::DO_NOT_CHECK_EXPRESSION);
+        AST_t outlineTree= outlineSource.parse_global(taskAST, taskScopeLink);
+        //AST_t outlineTree= outlineSource.parse_global(taskAST, taskScopeLink,
+        //            TL::Source::DO_NOT_CHECK_EXPRESSION);
         // taskAST.prepend_sibling_function(outlineTree);
 
         /* Set up a new outline for further compilation */
