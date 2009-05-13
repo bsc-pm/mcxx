@@ -26,6 +26,7 @@
 #include "hlt-interchange.hpp"
 #include "hlt-collapse.hpp"
 #include "hlt-composition.hpp"
+#include "hlt-outline.hpp"
 #include "hlt-exception.hpp"
 
 #include <algorithm>
@@ -524,6 +525,11 @@ void HLTPragmaPhase::jam_loops(Statement unrolled_loop_code)
 
 void HLTPragmaPhase::outline_code(PragmaCustomConstruct construct)
 {
+    Statement stmt = construct.get_statement();
+
+    TL::HLT::Outline outline(construct.get_scope_link(), stmt);
+
+    Source src = outline;
 }
 
 EXPORT_PHASE(TL::HLT::HLTPragmaPhase)

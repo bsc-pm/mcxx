@@ -120,7 +120,7 @@ void Outline::compute_outline_name(Source &template_headers,
     if (id_expr.is_qualified())
     {
         required_qualification
-            << id_expr.get_qualified_part() << "::"
+            << id_expr.get_qualified_part() 
             ;
     }
 
@@ -145,7 +145,8 @@ void Outline::compute_outline_name(Source &template_headers,
 
 static void get_referenced_entities(TL::Statement stmt, TL::ObjectList<TL::Symbol>* entities)
 {
-    entities->insert(stmt.non_local_symbol_occurrences(TL::Statement::ONLY_VARIABLES).map(functor(&TL::IdExpression::get_symbol)));
+    TL::ObjectList<TL::IdExpression> local_list = stmt.non_local_symbol_occurrences(TL::Statement::ONLY_VARIABLES);
+    entities->insert(local_list.map(functor(&TL::IdExpression::get_symbol)));
 }
 
 static std::string c_argument_declaration(TL::Symbol sym)
@@ -178,53 +179,80 @@ static void get_field_decls(TL::Symbol sym, TL::Source *src)
         ;
 }
 
-void Outline::compute_referenced_entities(Source &arguments)
+static bool is_local_or_nonstatic_member(TL::Symbol& sym)
 {
-    ObjectList<Symbol> entities;
-    std::for_each(_outline_statements.begin(), _outline_statements.end(), 
-            std::bind2nd(ptr_fun(get_referenced_entities), &entities));
+    return sym.has_local_scope()
+        || (sym.is_member() && !sym.is_static());
+}
 
-    if (_use_nonlocal_scope)
+void Outline::compute_referenced_entities(Source &parameters)
+{
     {
-        // Remove those that we know that are nonlocal to the function
-        entities = entities.filter(negate(predicate(&Symbol::has_local_scope)));
+        ObjectList<Symbol> entities;
+        std::for_each(_outline_statements.begin(), _outline_statements.end(), 
+                std::bind2nd(ptr_fun(get_referenced_entities), &entities));
+
+        if (_use_nonlocal_scope)
+        {
+            // Remove those that can use the "file" scope
+            entities = entities.filter(predicate(is_local_or_nonstatic_member));
+        }
+
+        _referenced_symbols = entities;
     }
 
-    _referenced_symbols = entities;
-
-
-    if (_packed_arguments)
+    if (_referenced_symbols.empty())
     {
-        _packed_argument_typename 
-            << "struct _arg_pack_" << _outline_num
-            ;
-        arguments
-            << _packed_argument_typename << " _args"
-            ;
-
-        Source fields;
-        _additional_decls_source
-            << _packed_argument_typename
-            << "{"
-            << fields
-            << "}"
-            ;
-        std::for_each(_referenced_symbols.begin(), _referenced_symbols.end(),
-                std::bind2nd(std::ptr_fun(get_field_decls), &fields));
+        C_LANGUAGE()
+        {
+            parameters << "void";
+        }
     }
     else
     {
-        if (_enclosing_function.is_member() && !_enclosing_function.is_static())
+        if (_packed_arguments)
         {
-            Type class_type = _enclosing_function.get_class_type();
-            arguments
-                << class_type.get_declaration(_enclosing_function.get_scope(), "_this")
+            _packed_argument_typename 
+                << "struct _arg_pack_" << _outline_num
                 ;
+            parameters
+                << _packed_argument_typename << " _args"
+                ;
+
+            Source fields;
+            _additional_decls_source
+                << _packed_argument_typename
+                << "{"
+                << fields
+                << "}"
+                ;
+            std::for_each(_referenced_symbols.begin(), _referenced_symbols.end(),
+                    std::bind2nd(std::ptr_fun(get_field_decls), &fields));
         }
-        arguments.append_with_separator(
-                concat_strings( entities.map(functor(c_argument_declaration)),
-                    ","),
-                ",");
+        else
+        {
+            if (_enclosing_function.is_member() && !_enclosing_function.is_static())
+            {
+                Type ptr_class_type = _enclosing_function.get_class_type();
+
+                Type enclosing_function_type = _enclosing_function.get_type();
+
+                if (enclosing_function_type.is_const())
+                {
+                    ptr_class_type = ptr_class_type.get_const_type();
+                }
+
+                ptr_class_type = ptr_class_type.get_pointer_to();
+
+                parameters
+                    << ptr_class_type.get_declaration(_enclosing_function.get_scope(), "_this")
+                    ;
+            }
+            parameters.append_with_separator(
+                    concat_strings( _referenced_symbols.map(functor(c_argument_declaration)),
+                        ","),
+                    ",");
+        }
     }
 }
 
@@ -243,10 +271,11 @@ struct AuxiliarOutlineReplace
 
     void operator()(TL::Symbol sym)
     {
+        std::cerr << "sym '" << sym.get_name() << "' is " << (sym.is_member() ? "member" : "non-member") << std::endl;
         if (!IS_CXX_LANGUAGE
                 || !sym.is_member() 
                 || !(_enclosing_function.is_member() && !_enclosing_function.is_static())
-                || sym.get_class_type().is_same_type(_enclosing_function.get_class_type()))
+                || !sym.get_class_type().is_same_type(_enclosing_function.get_class_type()))
         {
             if (_packed_args)
             {
