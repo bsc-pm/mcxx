@@ -934,13 +934,13 @@ build_version=""
 if test -d $srcdir/.svn;
 then
     AC_PATH_PROG([svnversionpath], [svnversion], [])
-    AC_MSG_CHECKING([build release])
+    AC_MSG_CHECKING([svn build release])
     run_svnversion=""
     if test x"$svnversionpath" != x;
     then
        echo "$svnversionpath" "$srcdir" >&5
        run_svnversion=`env LC_ALL=C "$svnversionpath" "$srcdir" 2>&5`
-       build_version="\"$run_svnversion developer version\""
+       build_version="\"svn $run_svnversion developer version\""
     fi
 
     if test x"$svnversionpath" = x -o x"$run_svnversion" = x;
@@ -948,6 +948,23 @@ then
        build_version="\"unknown svn revision developer version\""
     fi
     AC_MSG_RESULT($build_version)
+fi
+if test -d $srcdir/.git;
+then
+   AC_PATH_PROG([gitpath], [git], [])
+   AC_MSG_CHECKING([git build release])
+   run_git=""
+   if test x"$gitpath" != x;
+   then
+      echo "$gitpath" "$srcdir" >&5
+      run_gitversion=`git --git-dir=$srcdir/.git show "--pretty=format:%h %ci" HEAD | head -n 1`
+      build_version="\"git $run_gitversion developer version\""
+   fi
+
+   if test x"$gitpath" = x -o x"$run_gitversion" = x;
+   then
+       build_subversion="\"unknown git commit\""
+   fi
 fi
 AC_DEFINE_UNQUOTED([MCXX_BUILD_VERSION], $build_version, [Build version])
 
