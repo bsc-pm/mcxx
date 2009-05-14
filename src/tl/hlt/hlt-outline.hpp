@@ -54,7 +54,9 @@ namespace TL
                 bool _is_inlined_member;
                 bool _is_templated;
                 ObjectList<AST_t> _template_header;
-                ObjectList<Symbol> _referenced_symbols;
+
+                ObjectList<Symbol> _replaced_symbols;
+                ObjectList<Symbol> _parameter_passed_symbols;
 
                 void do_outline();
                 void compute_outline_name(Source &template_headers, 

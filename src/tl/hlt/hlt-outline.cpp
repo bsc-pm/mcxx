@@ -187,21 +187,24 @@ static bool is_local_or_nonstatic_member(TL::Symbol& sym)
 
 void Outline::compute_referenced_entities(Source &parameters)
 {
+    ObjectList<Symbol> all_referenced_symbols;
+
+    std::for_each(_outline_statements.begin(), _outline_statements.end(), 
+            std::bind2nd(ptr_fun(get_referenced_entities), &all_referenced_symbols));
+
+    if (_use_nonlocal_scope)
     {
-        ObjectList<Symbol> entities;
-        std::for_each(_outline_statements.begin(), _outline_statements.end(), 
-                std::bind2nd(ptr_fun(get_referenced_entities), &entities));
-
-        if (_use_nonlocal_scope)
-        {
-            // Remove those that can use the "file" scope
-            entities = entities.filter(predicate(is_local_or_nonstatic_member));
-        }
-
-        _referenced_symbols = entities;
+        // Remove those that can use the "file" scope
+        _replaced_symbols = all_referenced_symbols.filter(predicate(is_local_or_nonstatic_member));
+        _parameter_passed_symbols = all_referenced_symbols.filter(predicate(&Symbol::has_local_scope));
+    }
+    else
+    {
+        _replaced_symbols = all_referenced_symbols;
+        _parameter_passed_symbols = all_referenced_symbols;
     }
 
-    if (_referenced_symbols.empty())
+    if (_parameter_passed_symbols.empty())
     {
         C_LANGUAGE()
         {
@@ -226,7 +229,7 @@ void Outline::compute_referenced_entities(Source &parameters)
                 << fields
                 << "}"
                 ;
-            std::for_each(_referenced_symbols.begin(), _referenced_symbols.end(),
+            std::for_each(_parameter_passed_symbols.begin(), _parameter_passed_symbols.end(),
                     std::bind2nd(std::ptr_fun(get_field_decls), &fields));
         }
         else
@@ -249,7 +252,7 @@ void Outline::compute_referenced_entities(Source &parameters)
                     ;
             }
             parameters.append_with_separator(
-                    concat_strings( _referenced_symbols.map(functor(c_argument_declaration)),
+                    concat_strings( _parameter_passed_symbols.map(functor(c_argument_declaration)),
                         ","),
                     ",");
         }
@@ -271,7 +274,6 @@ struct AuxiliarOutlineReplace
 
     void operator()(TL::Symbol sym)
     {
-        std::cerr << "sym '" << sym.get_name() << "' is " << (sym.is_member() ? "member" : "non-member") << std::endl;
         if (!IS_CXX_LANGUAGE
                 || !sym.is_member() 
                 || !(_enclosing_function.is_member() && !_enclosing_function.is_static())
@@ -315,8 +317,8 @@ void Outline::compute_outlined_body(Source &outlined_body)
 {
     ReplaceSrcIdExpression replacements(_sl);
 
-    std::for_each(_referenced_symbols.begin(),
-            _referenced_symbols.end(),
+    std::for_each(_replaced_symbols.begin(),
+            _replaced_symbols.end(),
             AuxiliarOutlineReplace(replacements, _enclosing_function, _packed_arguments));
 
     auxiliar_replace_t aux = { &outlined_body, &replacements };
