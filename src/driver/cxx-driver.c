@@ -34,6 +34,10 @@
 #include <errno.h>
 #include <unistd.h>
 
+#if !defined(WIN32_BUILD) || defined(__CYGWIN__)
+#include <signal.h>
+#endif
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
@@ -168,6 +172,9 @@
 "linker.\n" \
 "\n"
 /* ------------------------------------------------------------------ */
+
+// Alternate signal stack of 32 KB (sometimes the compiler uses a huge stack!)
+static char _alternate_signal_stack[32*1024];
 
 // It mimics getopt
 #define SHORT_OPTIONS_STRING "vkacho:EyI:L:l:gD:x:"
@@ -345,11 +352,40 @@ static void driver_initialization(int argc, const char* argv[])
     atexit(cleanup_routine);
 
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
-    signal(SIGSEGV, terminating_signal_handler);
-    signal(SIGQUIT, terminating_signal_handler);
-    signal(SIGINT,  terminating_signal_handler);
-    signal(SIGTERM, terminating_signal_handler);
-    signal(SIGABRT, terminating_signal_handler);
+    // Define alternate stack
+    stack_t alternate_stack;
+
+    alternate_stack.ss_flags = 0;
+    alternate_stack.ss_size = sizeof(_alternate_signal_stack);
+    alternate_stack.ss_sp = (void*)_alternate_signal_stack;
+
+    if (alternate_stack.ss_sp == 0
+            || sigaltstack(&alternate_stack, /* oss */ NULL) != 0)
+    {
+        running_error("Setting alternate signal stack failed\n");
+    }
+
+    // Program signals
+    struct sigaction terminating_sigaction;
+    memset(&terminating_sigaction, 0, sizeof(terminating_sigaction));
+
+    terminating_sigaction.sa_handler = terminating_signal_handler;
+    // Use alternate stack and we want the signal be reset when it happens
+    terminating_sigaction.sa_flags = SA_RESETHAND | SA_ONSTACK;
+    // Block all blockable signals while handling the termination
+    sigfillset(&terminating_sigaction.sa_mask);
+
+    int result = 0;
+    result |= sigaction(SIGSEGV, &terminating_sigaction, /* old_sigaction */ NULL);
+    result |= sigaction(SIGQUIT, &terminating_sigaction, /* old_sigaction */ NULL);
+    result |= sigaction(SIGINT,  &terminating_sigaction, /* old_sigaction */ NULL);
+    result |= sigaction(SIGTERM, &terminating_sigaction, /* old_sigaction */ NULL);
+    result |= sigaction(SIGABRT, &terminating_sigaction, /* old_sigaction */ NULL);
+    
+    if (result != 0)
+    {
+        running_error("Signal programming failed with '%s'\n", strerror(errno));
+    }
 #endif
 
     memset(&compilation_process, 0, sizeof(compilation_process));
@@ -2412,11 +2448,10 @@ static void link_objects(void)
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
 static void terminating_signal_handler(int sig)
 {
-    signal(sig, SIG_DFL);
-
     fprintf(stderr, "Signal handler called (signal=%d). Exiting.\n", sig);
 
-    if (!CURRENT_CONFIGURATION->debug_options.do_not_run_gdb
+    if (CURRENT_CONFIGURATION != NULL
+            && !CURRENT_CONFIGURATION->debug_options.do_not_run_gdb
             // Do not call the debugger for Ctrl-C
             && sig != SIGINT)
         run_gdb();
