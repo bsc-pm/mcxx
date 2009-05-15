@@ -931,24 +931,6 @@ AC_CHECK_FUNC([open_memstream],
 
 dnl Versioning things
 build_version=""
-if test -d $srcdir/.svn;
-then
-    AC_PATH_PROG([svnversionpath], [svnversion], [])
-    AC_MSG_CHECKING([svn build release])
-    run_svnversion=""
-    if test x"$svnversionpath" != x;
-    then
-       echo "$svnversionpath" "$srcdir" >&5
-       run_svnversion=`env LC_ALL=C "$svnversionpath" "$srcdir" 2>&5`
-       build_version="\"svn $run_svnversion developer version\""
-    fi
-
-    if test x"$svnversionpath" = x -o x"$run_svnversion" = x;
-    then
-       build_version="\"unknown svn revision developer version\""
-    fi
-    AC_MSG_RESULT($build_version)
-fi
 if test -d $srcdir/.git;
 then
    AC_PATH_PROG([gitpath], [git], [])
@@ -965,6 +947,7 @@ then
    then
        build_subversion="\"unknown git commit\""
    fi
+   AC_MSG_RESULT($build_version)
 fi
 AC_DEFINE_UNQUOTED([MCXX_BUILD_VERSION], $build_version, [Build version])
 
