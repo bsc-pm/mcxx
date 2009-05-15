@@ -29,6 +29,7 @@
 #include "tl-exceptions.hpp"
 #include "tl-source-bits.hpp"
 #include "tl-type-utils.hpp"
+#include "tl-source.hpp"
 
 
 namespace TL
@@ -96,7 +97,7 @@ namespace TL
 		Type augmented_type = TypeUtils::fix_type(original_symbol.get_type(), Type(declared_type), scope_link);
 		
 		// Generate the region
-		ObjectList<Expression> array_subscripts = get_array_subscript_list(augmented_type, scope_link);
+		ObjectList<Expression> array_subscripts = get_array_subscript_list(augmented_type, ref_tree, scope_link);
 		Region region(direction, reduction, array_subscripts, ASTSon1(superscalar_declarator_ast), ref_tree, scope_link);
 		
 		// Set scope link to the outermost node so if we query in this tree
@@ -107,18 +108,26 @@ namespace TL
 	}
 	
 	
-	ObjectList<Expression> SourceBits::get_array_subscript_list(Type type, ScopeLink scope_link)
+	ObjectList<Expression> SourceBits::get_array_subscript_list(Type type, AST_t ref_tree, ScopeLink scope_link)
 	{
 		ObjectList<Expression> _result;
 		
 		if (type.is_array())
 		{
-			_result = get_array_subscript_list(type.array_element(), scope_link);
+			_result = get_array_subscript_list(type.array_element(), ref_tree, scope_link);
 			if (!type.explicit_array_dimension())
 			{
 				throw MissingArrayDimensions();
 			}
-			_result.push_back( Expression(type.array_dimension(), scope_link) );
+			
+			_result.push_back(
+				Expression(
+					Source(type.array_dimension().prettyprint())
+					.parse_expression(ref_tree, scope_link),
+					scope_link
+			    	)
+			);
+			
 		}
 		
 		return _result;
