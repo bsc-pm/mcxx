@@ -80,12 +80,12 @@ void Outline::do_outline()
         }
         else
         {
-            fill_member_forward_declarations(forward_declarations);
+            fill_member_forward_declarations(template_headers, forward_declarations);
         }
     }
     else if (!_is_member)
     {
-        fill_nonmember_forward_declarations(forward_declarations);
+        fill_nonmember_forward_declarations(template_headers, forward_declarations);
     }
 
     if (!_do_not_embed)
@@ -344,14 +344,15 @@ void Outline::declare_members(Source template_headers, Source outline_parameters
     point_of_decl.append(member_tree);
 }
 
-void Outline::fill_nonmember_forward_declarations(Source &forward_declarations)
+void Outline::fill_nonmember_forward_declarations(Source template_headers, Source &forward_declarations)
 {
     forward_declarations
         << _additional_decls_source
+        << template_headers
         << _enclosing_function.get_type().get_declaration(_enclosing_function.get_scope(), _enclosing_function.get_name()) << ";";
 }
 
-void Outline::fill_member_forward_declarations(Source &forward_declarations)
+void Outline::fill_member_forward_declarations(Source /*template_headers*/, Source &forward_declarations)
 {
     forward_declarations
         << _additional_decls_source

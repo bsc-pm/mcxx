@@ -66,8 +66,8 @@ namespace TL
                 void compute_outlined_body(Source &outlined_body);
 
                 void declare_members(Source template_headers, Source outline_parameters);
-                void fill_nonmember_forward_declarations(Source &forward_declarations);
-                void fill_member_forward_declarations(Source &forward_declarations);
+                void fill_nonmember_forward_declarations(Source template_headers, Source &forward_declarations);
+                void fill_member_forward_declarations(Source template_headers, Source &forward_declarations);
 
                 void embed_outline();
 
