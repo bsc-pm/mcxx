@@ -357,7 +357,7 @@ namespace TL
         return result;
     }
 
-    AST_t Source::parse_member(AST_t ref_tree, TL::ScopeLink scope_link, Type class_type)
+    AST_t Source::parse_member(AST_t /* ref_tree */, TL::ScopeLink scope_link, Type class_type)
     {
         std::string mangled_text = "@MEMBER@ " + this->get_source(true);
         char* str = strdup(mangled_text.c_str());
@@ -374,9 +374,8 @@ namespace TL
                     format_source(this->get_source(true)).c_str());
         }
         
-        // Get the scope and declarating context of the reference tree
-        decl_context_t decl_context = scope_link_get_decl_context(scope_link._scope_link, ref_tree._ast);
-
+        // Fix the context for the user (the reference tree is unused in this function actually...)
+        decl_context_t decl_context = class_type_get_inner_context(get_actual_class_type(class_type._type_info));
         build_scope_member_specification_with_scope_link(decl_context, scope_link._scope_link, a, AS_PUBLIC, 
                 class_type._type_info);
 
