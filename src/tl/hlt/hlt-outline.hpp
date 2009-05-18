@@ -62,12 +62,15 @@ namespace TL
                 void compute_outline_name(Source &template_headers, 
                         Source &required_qualification,
                         Source &static_qualifier);
-                void compute_referenced_entities(Source &outline_parameters);
+                void compute_referenced_entities();
                 void compute_outlined_body(Source &outlined_body);
 
-                void declare_members(Source template_headers, Source outline_parameters);
+                void declare_members(Source template_headers);
                 void fill_nonmember_forward_declarations(Source template_headers, Source &forward_declarations);
                 void fill_member_forward_declarations(Source template_headers, Source &forward_declarations);
+
+                Source get_parameter_declarations(Scope scope_of_decls);
+                void compute_additional_declarations();
 
                 void embed_outline();
 
@@ -81,8 +84,6 @@ namespace TL
                 Outline &use_packed_arguments();
 
                 Outline& do_not_embed();
-
-                Source get_additional_declarations();
         };
     }
 }
