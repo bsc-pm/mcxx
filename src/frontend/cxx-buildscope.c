@@ -4480,10 +4480,6 @@ static scope_entry_t* build_scope_declarator_name(AST declarator, type_t* declar
         if (declarator_name != NULL)
         {
             ASTAttrSetValueType(declarator_name, LANG_DECLARED_SYMBOL, tl_type_t, tl_symbol(entry));
-
-            fprintf(stderr, "Setting symbol in tree %s (%p)\n",
-                    prettyprint_in_buffer(declarator_name),
-                    declarator_name);
         }
     }
 
