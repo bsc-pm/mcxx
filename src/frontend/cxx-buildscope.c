@@ -4470,8 +4470,15 @@ static scope_entry_t* build_scope_declarator_name(AST declarator_name, type_t* d
     ERROR_CONDITION(ASTType(declarator_name) != AST_DECLARATOR_ID_EXPR,
             "Invalid node '%s'\n", ast_print_node_type(ASTType(declarator_name)));
 
-    return build_scope_declarator_id_expr(declarator_name, declarator_type, gather_info, 
+    scope_entry_t* entry = build_scope_declarator_id_expr(declarator_name, declarator_type, gather_info, 
             decl_context);
+
+    if (entry != NULL)
+    {
+        ASTAttrSetValueType(declarator_name, LANG_DECLARED_SYMBOL, tl_type_t, tl_symbol(entry));
+    }
+
+    return entry;
 }
 
 void update_function_default_arguments(scope_entry_t* function_symbol, 

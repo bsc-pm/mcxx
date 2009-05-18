@@ -18,6 +18,7 @@ LANG_DECLARATION_DECLARATORS lang.declaration_declarators
 LANG_DECLARATION_SPECIFIERS lang.declaration_specifiers
 LANG_DECLARED_NAME lang.declared_name
 LANG_DECLARED_PARAMETER lang.declared_parameter
+LANG_DECLARED_SYMBOL lang.declaration_symbol
 LANG_DO_STATEMENT_BODY lang.do_statement_body
 LANG_DO_STATEMENT_EXPRESSION lang.do_statement_expression
 LANG_ENUM_SPECIFIER_SYMBOL lang.enum_specifier_symbol
