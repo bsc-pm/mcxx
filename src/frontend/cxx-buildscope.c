@@ -5048,6 +5048,11 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             // template type)
             new_entry = named_type_get_symbol(
                     template_type_get_primary_type(template_type));
+
+            // Update info
+            new_entry->line = ASTLine(declarator_id);
+            new_entry->file = ASTFileName(declarator_id);
+            new_entry->point_of_declaration = get_enclosing_declaration(declarator_id);
         }
 
         DEBUG_CODE()
