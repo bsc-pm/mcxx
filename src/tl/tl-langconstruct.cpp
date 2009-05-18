@@ -940,12 +940,14 @@ namespace TL
     Symbol DeclaredEntity::get_declared_symbol()
     {
         AST_t declared_name = _ref.get_attribute(LANG_DECLARED_NAME);
+        TL::Symbol sym = declared_name.get_attribute(LANG_DECLARED_SYMBOL);
 
-        Scope sc = this->_scope_link.get_scope(declared_name);
+        if (!sym.is_valid())
+        {
+        std::cerr << "'" << declared_name.prettyprint() << "' " << declared_name.get_internal_ast() << " at " << declared_name.get_locus() << " NOT VALID !!!" << std::endl;
+        }
 
-        Symbol symbol = sc.get_symbol_from_id_expr(declared_name);
-
-        return symbol;
+        return sym;
     }
 
     DeclarationSpec Declaration::get_declaration_specifiers()
