@@ -600,7 +600,7 @@ namespace TL
 
     AST_t AST_t::get_enclosing_function_definition_declaration()
     {
-        AST_t result = get_enclosing_function_definition(true).get_parent();
+        AST_t result = get_enclosing_function_definition( /* jump_templates = */ true).get_parent();
         return result;
     }
 
