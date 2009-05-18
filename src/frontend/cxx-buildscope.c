@@ -100,7 +100,7 @@ static void build_scope_declarator_rec(AST a, type_t** declarator_type,
         decl_context_t entity_context,
         decl_context_t *prototype_context);
 
-static scope_entry_t* build_scope_declarator_name(AST declarator_name, type_t* declarator_type, 
+static scope_entry_t* build_scope_declarator_name(AST declarator, type_t* declarator_type, 
         gather_decl_spec_t* gather_info, decl_context_t decl_context);
 static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t* declarator_type, 
         gather_decl_spec_t* gather_info, decl_context_t decl_context);
@@ -4459,23 +4459,32 @@ static char is_constructor_declarator(AST a)
 /*
  * This function fills the symbol table with the information of this declarator
  */
-static scope_entry_t* build_scope_declarator_name(AST declarator_name, type_t* declarator_type, 
+static scope_entry_t* build_scope_declarator_name(AST declarator, type_t* declarator_type, 
         gather_decl_spec_t* gather_info, decl_context_t decl_context)
 {
-    declarator_name = get_declarator_id_expression(declarator_name, decl_context);
+    AST declarator_id_expr = get_declarator_id_expression(declarator, decl_context);
 
-    if (declarator_name == NULL)
+    if (declarator_id_expr == NULL)
         return NULL;
 
-    ERROR_CONDITION(ASTType(declarator_name) != AST_DECLARATOR_ID_EXPR,
-            "Invalid node '%s'\n", ast_print_node_type(ASTType(declarator_name)));
+    ERROR_CONDITION(ASTType(declarator_id_expr) != AST_DECLARATOR_ID_EXPR,
+            "Invalid node '%s'\n", ast_print_node_type(ASTType(declarator_id_expr)));
 
-    scope_entry_t* entry = build_scope_declarator_id_expr(declarator_name, declarator_type, gather_info, 
+    scope_entry_t* entry = build_scope_declarator_id_expr(declarator_id_expr, declarator_type, gather_info, 
             decl_context);
 
     if (entry != NULL)
     {
-        ASTAttrSetValueType(declarator_name, LANG_DECLARED_SYMBOL, tl_type_t, tl_symbol(entry));
+        AST declarator_name = get_declarator_name(declarator, decl_context);
+
+        if (declarator_name != NULL)
+        {
+            ASTAttrSetValueType(declarator_name, LANG_DECLARED_SYMBOL, tl_type_t, tl_symbol(entry));
+
+            fprintf(stderr, "Setting symbol in tree %s (%p)\n",
+                    prettyprint_in_buffer(declarator_name),
+                    declarator_name);
+        }
     }
 
     return entry;
@@ -7057,6 +7066,8 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         if (identifier != NULL)
                         {
                             bitfield_symbol = build_scope_declarator_name(identifier, declarator_type, &gather_info, decl_context);
+                            ASTAttrSetValueType(declarator, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
+                            ASTAttrSetValueType(declarator, LANG_DECLARED_NAME, tl_type_t, tl_ast(identifier));
                         }
                         else
                         {
