@@ -35,6 +35,7 @@ namespace TL
         {
             private:
                 ScopeLink _sl;
+                FunctionDefinition* _function_def;
                 bool _packed_arguments;
                 bool _do_not_embed;
                 bool _use_nonlocal_scope;
@@ -84,6 +85,8 @@ namespace TL
                 Outline &use_packed_arguments();
 
                 Outline& do_not_embed();
+
+                ~Outline();
         };
     }
 }

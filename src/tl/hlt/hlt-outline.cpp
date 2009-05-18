@@ -9,6 +9,7 @@ int Outline::_num_outlines = 0;
 
 Outline::Outline(ScopeLink sl, Statement stmt)
     : _sl(sl),
+    _function_def(NULL),
     _packed_arguments(false), 
     _do_not_embed(false), 
     _use_nonlocal_scope(true),
@@ -19,6 +20,7 @@ Outline::Outline(ScopeLink sl, Statement stmt)
 
 Outline::Outline(ScopeLink sl, ObjectList<Statement> stmt_list)
     : _sl(sl),
+    _function_def(NULL),
     _packed_arguments(false), 
     _do_not_embed(false), 
     _use_nonlocal_scope(true),
@@ -111,12 +113,12 @@ void Outline::compute_outline_name(Source &template_headers,
     // Note: We are assuming all statements come from the same function
     // definition
     // This disqualifies empty lists of statements
-    FunctionDefinition funct_def = _outline_statements[0].get_enclosing_function();
-    _enclosing_function = funct_def.get_function_symbol();
+    _function_def = new FunctionDefinition(_outline_statements[0].get_enclosing_function());
+    _enclosing_function = _function_def->get_function_symbol();
 
     _is_member = _enclosing_function.is_member();
 
-    IdExpression id_expr = funct_def.get_function_name();
+    IdExpression id_expr = _function_def->get_function_name();
 
     // FIXME - This is a bit lame
     _is_inlined_member = (!id_expr.is_qualified() && _is_member);
@@ -128,10 +130,10 @@ void Outline::compute_outline_name(Source &template_headers,
             ;
     }
 
-    _is_templated = funct_def.is_templated();
+    _is_templated = _function_def->is_templated();
     if (_is_templated)
     {
-        _template_header = funct_def.get_template_header();
+        _template_header = _function_def->get_template_header();
         template_headers <<
             concat_strings(_template_header.map(functor(template_header_regeneration)))
             ;
@@ -400,17 +402,28 @@ void Outline::compute_outlined_body(Source &outlined_body)
 
 void Outline::declare_members(Source template_headers)
 {
-    Source parameters;
-
     Source member_decl;
+
+    if (_enclosing_function.get_type().is_template_specialized_type())
+    {
+        member_decl
+            << template_headers
+            ;
+    }
+
+    Source parameters;
     member_decl
         << "static void " << _outline_name << "(" << parameters << ");"
         ;
+
+    std::cerr << "FUNCTION SYMBOL '" << _enclosing_function.get_name() << "'" << std::endl;
 
     AST_t point_of_decl = _enclosing_function.get_point_of_declaration();
     Type class_type = _enclosing_function.get_class_type();
 
     parameters = get_parameter_declarations(class_type.get_symbol().get_scope());
+
+    std::cerr << "REF TREE: '" << point_of_decl << "'" << std::endl;
 
     AST_t member_tree = member_decl.parse_member(
             point_of_decl, _sl,
@@ -437,21 +450,23 @@ void Outline::fill_member_forward_declarations(Source /*template_headers*/, Sour
 
 void Outline::embed_outline()
 {
-    FunctionDefinition funct_def(_outline_statements[0].get_ast().get_enclosing_function_definition(),
-            _sl);
-
     AST_t outline_tree;
     if (!_is_member || !_is_inlined_member)
     {
-        outline_tree = _outlined_source.parse_declaration(funct_def.get_point_of_declaration(),
+        outline_tree = _outlined_source.parse_declaration(_function_def->get_point_of_declaration(),
                 _sl);
     }
     else
     {
         // This requires a different function
-        outline_tree = _outlined_source.parse_member(funct_def.get_point_of_declaration(),
+        outline_tree = _outlined_source.parse_member(_function_def->get_point_of_declaration(),
                 _sl, _enclosing_function.get_class_type());
 
     }
-    funct_def.get_ast().prepend_sibling_function(outline_tree);
+    _function_def->get_ast().prepend_sibling_function(outline_tree);
+}
+
+Outline::~Outline()
+{
+    delete _function_def;
 }
