@@ -1460,6 +1460,7 @@ type_t* template_type_get_specialized_type(type_t* t,
 
     specialized_symbol->line = line;
     specialized_symbol->file = filename;
+    specialized_symbol->point_of_declaration = primary_symbol->point_of_declaration;
 
     // Keep information of the entity
     specialized_symbol->entity_specs = primary_symbol->entity_specs;

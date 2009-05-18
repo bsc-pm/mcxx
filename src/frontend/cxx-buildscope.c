@@ -1579,11 +1579,17 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
 
                     new_class->line = ASTLine(a);
                     new_class->file = ASTFileName(a);
+                    new_class->point_of_declaration = get_enclosing_declaration(class_symbol);
 
                     // Get the primary class
                     class_entry = named_type_get_symbol(
                             template_type_get_primary_type(new_class->type_information)
                             );
+                    // Update some fields
+                    class_entry->line = ASTLine(a);
+                    class_entry->file = ASTFileName(a);
+                    class_entry->point_of_declaration = get_enclosing_declaration(class_symbol);
+
                     class_type = class_entry->type_information;
                 }
                 else 
@@ -3144,13 +3150,21 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                                 ASTText(class_head_identifier), decl_context,
                                 ASTLine(class_head_identifier), 
                                 ASTFileName(class_head_identifier));
-
                         template_type_set_related_symbol(class_entry->type_information, class_entry);
+
+                        class_entry->file = ASTFileName(class_head_identifier);
+                        class_entry->line = ASTLine(class_head_identifier);
+                        class_entry->point_of_declaration = get_enclosing_declaration(class_head_identifier);
 
                         // Now update class_entry to be a real class
                         class_entry = named_type_get_symbol(
                                 template_type_get_primary_type(class_entry->type_information)
                                 );
+                        // Update some fields
+                        class_entry->file = ASTFileName(class_head_identifier);
+                        class_entry->line = ASTLine(class_head_identifier);
+                        class_entry->point_of_declaration = get_enclosing_declaration(class_head_identifier);
+
                         class_type = class_entry->type_information;
                     }
                     else
