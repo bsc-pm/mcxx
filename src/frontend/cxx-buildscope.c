@@ -5874,6 +5874,8 @@ static void build_scope_type_template_parameter(AST a,
     AST name = ASTSon0(a);
     AST type_id = ASTSon1(a);
 
+    ASTAttrSetValueType(a, LANG_TEMPLATE_NAME, tl_type_t, tl_ast(name));
+
     int line;
     const char *file;
 
@@ -5988,7 +5990,8 @@ static void build_scope_nontype_template_parameter(AST a,
                     declarator_name_str, 
                     template_context.template_scope);
         }
-        // This is not a variable, but a template parameter
+        ASTAttrSetValueType(a, LANG_TEMPLATE_NAME, tl_type_t, tl_ast(declarator_name));
+
         entry = new_symbol(template_context, template_context.template_scope, declarator_name_str);
     }
     else
@@ -5999,6 +6002,7 @@ static void build_scope_nontype_template_parameter(AST a,
         entry = new_symbol(template_context, template_context.template_scope, template_param_name);
     }
 
+    // This is not a variable, but a template parameter
     entry->kind = SK_TEMPLATE_PARAMETER;
     entry->type_information = declarator_type;
     entry->entity_specs.is_template_parameter = 1;
