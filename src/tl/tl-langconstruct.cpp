@@ -188,13 +188,22 @@ namespace TL
         return result;
     }
 
-    ObjectList<AST_t> FunctionDefinition::get_template_header()
+    ObjectList<TemplateHeader> FunctionDefinition::get_template_header()
     {
         TL::AST_t start = _ref.get_attribute(LANG_TEMPLATE_HEADER);
 
         PredicateAttr template_header_pred(LANG_IS_TEMPLATE_HEADER);
 
-        ObjectList<AST_t> result = start.depth_subtrees(template_header_pred);
+        ObjectList<AST_t> trees = start.depth_subtrees(template_header_pred);
+        ObjectList<TemplateHeader> result;
+
+        for (ObjectList<AST_t>::iterator it = trees.begin();
+                it != trees.end();
+                it++)
+        {
+            result.append(TemplateHeader(*it, _scope_link));
+        }
+
         return result;
     }
 
@@ -215,13 +224,22 @@ namespace TL
         return result;
     }
 
-    ObjectList<AST_t> Declaration::get_template_header()
+    ObjectList<TemplateHeader> Declaration::get_template_header()
     {
         TL::AST_t start = _ref.get_attribute(LANG_TEMPLATE_HEADER);
 
         PredicateAttr template_header_pred(LANG_IS_TEMPLATE_HEADER);
 
-        ObjectList<AST_t> result = start.depth_subtrees(template_header_pred);
+        ObjectList<AST_t> trees = start.depth_subtrees(template_header_pred);
+        ObjectList<TemplateHeader> result;
+
+        for (ObjectList<AST_t>::iterator it = trees.begin();
+                it != trees.end();
+                it++)
+        {
+            result.append(TemplateHeader(*it, _scope_link));
+        }
+
         return result;
     }
 
@@ -1232,5 +1250,55 @@ namespace TL
             return result;
         }
         return NULL;
+    }
+
+    ObjectList<TemplateParameter> TemplateHeader::get_parameters()
+    {
+        ObjectList<TemplateParameter> result;
+        ASTIterator it = _ref.get_list_iterator();
+        it.rewind();
+
+        while (!it.end())
+        {
+            result.append(TemplateParameter(it.item(), _scope_link));
+        }
+
+        return result;
+    }
+
+    bool TemplateParameter::is_named()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_NAMED_TEMPLATE_PARAMETER);
+        return b;
+    }
+
+    std::string TemplateParameter::get_name()
+    {
+        TL::AST_t a = _ref.get_attribute(LANG_TEMPLATE_PARAMETER_NAME);
+        return a.prettyprint();
+    }
+
+    bool TemplateParameter::is_type()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_TYPE_TEMPLATE_PARAMETER);
+        return b;
+    }
+
+    bool TemplateParameter::is_nontype()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_NONTYPE_TEMPLATE_PARAMETER);
+        return b;
+    }
+
+    bool TemplateParameter::is_template()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_TEMPLATE_TEMPLATE_PARAMETER);
+        return b;
+    }
+
+    Symbol TemplateParameter::get_symbol()
+    {
+        TL::Symbol sym = _ref.get_attribute(LANG_TEMPLATE_PARAMETER_SYMBOL);
+        return sym;
     }
 }

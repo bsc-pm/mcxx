@@ -272,6 +272,8 @@ namespace TL
             Expression get_expression();
     };
 
+    class TemplateHeader;
+    class TemplateParameter;
     class DeclaredEntity;
     //! This function wraps a whole function definition
     class LIBTL_CLASS FunctionDefinition : public LangConstruct
@@ -299,7 +301,7 @@ namespace TL
             //! States whether this function definition is templated
             bool is_templated() const;
             //! Returns a list of templated headers for this template declaration
-            ObjectList<AST_t> get_template_header();
+            ObjectList<TemplateHeader> get_template_header();
 
             //! Returns the declared entity of this function definition.
             /*!
@@ -703,7 +705,7 @@ namespace TL
             //! States whether this declaration is templated
             bool is_templated();
             //! Returns a list of template-haders
-            ObjectList<AST_t> get_template_header();
+            ObjectList<TemplateHeader> get_template_header();
 
             //! Returns the point where all the declaration
             //started
@@ -713,6 +715,35 @@ namespace TL
             AST_t get_point_of_declaration();
 
             static const PredicateAttr predicate;
+    };
+
+    class LIBTL_CLASS TemplateParameter : public LangConstruct
+    {
+        public:
+            TemplateParameter(AST_t ast, ScopeLink scope_link)
+                : LangConstruct(ast, scope_link)
+            {
+            }
+
+            bool is_named();
+            std::string get_name();
+
+            bool is_type();
+            bool is_nontype();
+            bool is_template();
+
+            Symbol get_symbol();
+    };
+
+    class LIBTL_CLASS TemplateHeader : public LangConstruct
+    {
+        public:
+            TemplateHeader(AST_t ast, ScopeLink scope_link)
+                : LangConstruct(ast, scope_link)
+            {
+            }
+
+            ObjectList<TemplateParameter> get_parameters();
     };
 
     //! This class wraps a particular attribute in a GCCAttributeSpecifier
