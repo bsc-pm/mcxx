@@ -219,7 +219,7 @@ namespace TL
              *   '%A\<int\>' would return 'A'
              */
             std::string get_template_name() const;
-            //! Returns the template-name of the template-id
+            //! Returns the template-argument of the template-id
             /*!  
              *   '%A\<int\>' would return '\<int\>'
              */
