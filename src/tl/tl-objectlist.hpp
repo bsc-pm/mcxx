@@ -61,8 +61,29 @@ class ObjectList : public std::vector<T>, public TL::Object
                 result = red_func(arg);
             }
         }
+
     public:
+        typedef typename std::vector<T>::iterator iterator;
+        typedef typename std::vector<T>::const_iterator const_iterator;
+        typedef typename std::vector<T>::size_type size_type;
+
         ObjectList()
+        {
+        }
+
+        ObjectList(const ObjectList& o)
+            : std::vector<T>(o)
+        {
+        }
+
+        ObjectList(size_type num, const T& val = T())
+            : std::vector<T>(num, val)
+        {
+        }
+
+        template <typename input_iterator>
+        ObjectList(input_iterator start, input_iterator end)
+            : std::vector<T>(start, end)
         {
         }
 
