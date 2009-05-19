@@ -51,6 +51,7 @@ void Outline::do_outline()
 {
     // We can start building the outline code
     Source template_headers,
+           template_headers_fwd,
            required_qualification,
            outline_parameters,
            outline_body,
@@ -66,7 +67,8 @@ void Outline::do_outline()
         ;
 
     // This gets some information about the enclosing function
-    compute_outline_name(template_headers, required_qualification, static_qualifier);
+    compute_outline_name(template_headers_fwd, template_headers, 
+            required_qualification, static_qualifier);
 
     // Now find out all the required symbols
     compute_referenced_entities();
@@ -82,16 +84,16 @@ void Outline::do_outline()
         if (!_is_inlined_member)
         {
             // For non inlined member functions we need some more things
-            declare_members(template_headers);
+            declare_members(template_headers_fwd);
         }
         else
         {
-            fill_member_forward_declarations(template_headers, forward_declarations);
+            fill_member_forward_declarations(template_headers_fwd, forward_declarations);
         }
     }
     else if (!_is_member)
     {
-        fill_nonmember_forward_declarations(template_headers, forward_declarations);
+        fill_nonmember_forward_declarations(template_headers_fwd, forward_declarations);
     }
 
     if (!_do_not_embed)
@@ -106,7 +108,8 @@ static std::string template_header_regeneration(TL::AST_t template_header)
     return "template <" + template_header.prettyprint() + " >";
 }
 
-void Outline::compute_outline_name(Source &template_headers, 
+void Outline::compute_outline_name(Source &template_headers_fwd, 
+        Source &template_headers,
         Source &required_qualification, 
         Source &static_qualifier)
 {
@@ -137,6 +140,18 @@ void Outline::compute_outline_name(Source &template_headers,
         template_headers <<
             concat_strings(_template_header.map(functor(template_header_regeneration)))
             ;
+        if (!_is_member)
+        {
+
+            template_headers_fwd << template_headers;
+        }
+        else
+        {
+            ObjectList<AST_t> one_less_template_header(_template_header.begin() + 1, _template_header.end());
+            template_headers_fwd <<
+                concat_strings(one_less_template_header.map(functor(template_header_regeneration)))
+                ;
+        }
     }
 
     _outline_name

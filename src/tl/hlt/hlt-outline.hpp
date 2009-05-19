@@ -60,7 +60,9 @@ namespace TL
                 ObjectList<Symbol> _parameter_passed_symbols;
 
                 void do_outline();
-                void compute_outline_name(Source &template_headers, 
+                void compute_outline_name(
+                        Source &template_headers_fwd, 
+                        Source &template_headers, 
                         Source &required_qualification,
                         Source &static_qualifier);
                 void compute_referenced_entities();
