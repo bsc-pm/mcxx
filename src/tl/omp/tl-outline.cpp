@@ -857,7 +857,7 @@ namespace TL
                     TemplateHeader &last_template_header = *(template_headers.rbegin());
 
                     ObjectList<std::string> template_parameters = 
-                        last_template_header.get_parameters().map(functor<std::string, TemplateParameter>(&LangConstruct::prettyprint));
+                        last_template_header.get_parameters().map(functor(&TemplateParameter::get_name));
 
                     outlined_function_name_decl << concat_strings(template_parameters, ",");
 

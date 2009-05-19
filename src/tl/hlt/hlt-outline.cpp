@@ -113,6 +113,11 @@ void Outline::do_outline()
 
 static std::string template_header_regeneration(TL::TemplateHeader template_header)
 {
+    using namespace TL;
+    ObjectList<std::string> template_parameters 
+        = template_header.get_parameters().map(
+                functor<std::string, TemplateParameter>(&LangConstruct::prettyprint));
+
     return "template <" + template_header.prettyprint() + " >";
 }
 
@@ -145,20 +150,30 @@ void Outline::compute_outline_name(Source &template_headers_fwd,
     if (_is_templated)
     {
         _template_header = _function_def->get_template_header();
+
         template_headers <<
             concat_strings(_template_header.map(functor(template_header_regeneration)))
             ;
+
         if (!_is_member)
         {
-
             template_headers_fwd << template_headers;
         }
         else
         {
-            ObjectList<TemplateHeader> one_less_template_header(_template_header.begin() + 1, _template_header.end());
-            template_headers_fwd <<
-                concat_strings(one_less_template_header.map(functor(template_header_regeneration)))
-                ;
+            if (_enclosing_function.get_class_type()
+                    .get_symbol().get_type().is_template_specialized_type())
+            {
+
+                ObjectList<TemplateHeader> one_less_template_header(_template_header.begin() + 1, _template_header.end());
+                template_headers_fwd <<
+                    concat_strings(one_less_template_header.map(functor(template_header_regeneration)))
+                    ;
+            }
+            else
+            {
+                template_headers_fwd << template_headers;
+            }
         }
     }
 
