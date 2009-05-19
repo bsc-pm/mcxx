@@ -416,14 +416,10 @@ void Outline::declare_members(Source template_headers)
         << "static void " << _outline_name << "(" << parameters << ");"
         ;
 
-    std::cerr << "FUNCTION SYMBOL '" << _enclosing_function.get_name() << "'" << std::endl;
-
     AST_t point_of_decl = _enclosing_function.get_point_of_declaration();
     Type class_type = _enclosing_function.get_class_type();
 
     parameters = get_parameter_declarations(class_type.get_symbol().get_scope());
-
-    std::cerr << "REF TREE: '" << point_of_decl << "'" << std::endl;
 
     AST_t member_tree = member_decl.parse_member(
             point_of_decl, _sl,
