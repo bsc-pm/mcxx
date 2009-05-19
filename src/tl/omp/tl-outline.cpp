@@ -68,13 +68,15 @@ namespace TL
 
             if (function_definition.is_templated())
             {
-                ObjectList<AST_t> template_headers = function_definition.get_template_header();
+                ObjectList<TemplateHeader> template_headers = function_definition.get_template_header();
                 // std::cerr << "(1) Num templates " << template_headers.size() << std::endl;
-                for (ObjectList<AST_t>::iterator it = template_headers.begin();
+                for (ObjectList<TemplateHeader>::iterator it = template_headers.begin();
                         it != template_headers.end();
                         it++)
                 {
-                    template_header << "template <" << it->prettyprint(/*comma=*/true) << ">";
+                    ObjectList<std::string> template_parameters = 
+                        it->get_parameters().map(functor<std::string, TemplateParameter>(&LangConstruct::prettyprint));
+                    template_header << "template <" << concat_strings(template_parameters, ",") << ">";
                 }
             }
 
@@ -766,13 +768,15 @@ namespace TL
 
             if (function_declaration.is_templated())
             {
-                ObjectList<AST_t> template_headers = function_declaration.get_template_header();
+                ObjectList<TemplateHeader> template_headers = function_declaration.get_template_header();
                 // std::cerr << "(3) Num templates " << template_headers.size() << std::endl;
-                for (ObjectList<AST_t>::iterator it = template_headers.begin();
+                for (ObjectList<TemplateHeader>::iterator it = template_headers.begin();
                         it != template_headers.end();
                         it++)
                 {
-                    template_header << "template <" << it->prettyprint(/*comma=*/true) << ">";
+                    ObjectList<std::string> template_parameters = 
+                        it->get_parameters().map(functor<std::string, TemplateParameter>(&LangConstruct::prettyprint));
+                    template_header << "template <" << concat_strings(template_parameters, ",") << ">";
                 }
             }
 
@@ -839,7 +843,7 @@ namespace TL
 
             if (function_symbol.is_template_function())
             {
-                ObjectList<AST_t> template_headers = function_definition.get_template_header();
+                ObjectList<TemplateHeader> template_headers = function_definition.get_template_header();
                 // std::cerr << "(2) Num templates " << template_headers.size() << std::endl;
 
                 Source outlined_function_name = get_outlined_function_name(function_name, /*qualif=*/true, 
@@ -849,22 +853,13 @@ namespace TL
                 if (!template_headers.empty())
                 {
                     outlined_function_name_decl << "<";
-                    AST_t last_template_header = *(template_headers.rbegin());
+                    // Get the last template parameter
+                    TemplateHeader &last_template_header = *(template_headers.rbegin());
 
-                    PredicateAttr template_parameter_pred(LANG_IS_TEMPLATE_PARAMETER) ;
-                    ObjectList<AST_t> template_parameters = last_template_header.depth_subtrees(template_parameter_pred);
+                    ObjectList<std::string> template_parameters = 
+                        last_template_header.get_parameters().map(functor<std::string, TemplateParameter>(&LangConstruct::prettyprint));
 
-                    for (ObjectList<AST_t>::iterator it = template_parameters.begin();
-                            it != template_parameters.end();
-                            it++)
-                    {
-                        if (it != template_parameters.begin())
-                        {
-                            outlined_function_name_decl << ", ";
-                        }
-
-                        outlined_function_name_decl << it->prettyprint();
-                    }
+                    outlined_function_name_decl << concat_strings(template_parameters, ",");
 
                     outlined_function_name_decl << ">";
                 }

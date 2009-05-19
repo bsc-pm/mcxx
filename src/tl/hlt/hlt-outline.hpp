@@ -54,7 +54,7 @@ namespace TL
                 bool _is_member;
                 bool _is_inlined_member;
                 bool _is_templated;
-                ObjectList<AST_t> _template_header;
+                ObjectList<TemplateHeader> _template_header;
 
                 ObjectList<Symbol> _replaced_symbols;
                 ObjectList<Symbol> _parameter_passed_symbols;
@@ -73,7 +73,7 @@ namespace TL
                 void fill_member_forward_declarations(Source template_headers, Source &forward_declarations);
 
                 Source get_parameter_declarations(Scope scope_of_decls);
-                void compute_additional_declarations();
+                void compute_additional_declarations(Source template_headers, Scope scope_of_decls);
 
                 void embed_outline();
 

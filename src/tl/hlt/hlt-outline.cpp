@@ -75,7 +75,15 @@ void Outline::do_outline()
 
     outline_parameters = get_parameter_declarations(_sl.get_scope(_outline_statements[0].get_ast()));
 
-    compute_additional_declarations();
+    if (!_enclosing_function.is_member())
+    {
+        compute_additional_declarations(template_headers_fwd, _sl.get_scope(_outline_statements[0].get_ast()));
+    }
+    else
+    {
+        // Additional declarations will go inside the class
+        compute_additional_declarations(template_headers_fwd, _enclosing_function.get_class_type().get_symbol().get_scope());
+    }
 
     compute_outlined_body(outline_body);
 
@@ -103,7 +111,7 @@ void Outline::do_outline()
     }
 }
 
-static std::string template_header_regeneration(TL::AST_t template_header)
+static std::string template_header_regeneration(TL::TemplateHeader template_header)
 {
     return "template <" + template_header.prettyprint() + " >";
 }
@@ -147,7 +155,7 @@ void Outline::compute_outline_name(Source &template_headers_fwd,
         }
         else
         {
-            ObjectList<AST_t> one_less_template_header(_template_header.begin() + 1, _template_header.end());
+            ObjectList<TemplateHeader> one_less_template_header(_template_header.begin() + 1, _template_header.end());
             template_headers_fwd <<
                 concat_strings(one_less_template_header.map(functor(template_header_regeneration)))
                 ;
@@ -247,24 +255,54 @@ static bool is_local_or_nonstatic_member(TL::Symbol& sym)
         || (sym.is_member() && !sym.is_static());
 }
 
-void Outline::compute_additional_declarations()
+void Outline::compute_additional_declarations(Source template_headers, 
+        Scope scope_of_decls)
 {
     if (_packed_arguments)
     {
-        _packed_argument_typename 
-            << "struct _arg_pack_" << _outline_num
-            ;
+        Source arg_typename;
+        arg_typename
+            << "struct _arg_pack_" << _outline_num << "_t"
+                ;
+
+        C_LANGUAGE()
+        {
+            _packed_argument_typename << arg_typename;
+        }
+        CXX_LANGUAGE()
+        {
+            _packed_argument_typename << "_arg_pack_" << _outline_num << "_t";
+        }
 
         Source fields;
         _additional_decls_source
-            << _packed_argument_typename
+            << arg_typename
             << "{"
             << fields
-            << "}"
+            << "};"
             ;
 
+        if (_enclosing_function.is_member()
+                && !_enclosing_function.is_static())
+        {
+            Type ptr_class_type = _enclosing_function.get_class_type();
+
+            Type enclosing_function_type = _enclosing_function.get_type();
+
+            if (enclosing_function_type.is_const())
+            {
+                ptr_class_type = ptr_class_type.get_const_type();
+            }
+
+            ptr_class_type = ptr_class_type.get_pointer_to();
+
+            fields
+                << ptr_class_type.get_declaration(scope_of_decls, "_this")
+                ;
+        }
+
         std::for_each(_parameter_passed_symbols.begin(), _parameter_passed_symbols.end(),
-                GetFieldDeclarations(_enclosing_function.get_scope(), fields));
+                GetFieldDeclarations(scope_of_decls, fields));
 
     }
 }
@@ -286,7 +324,7 @@ TL::Source Outline::get_parameter_declarations(Scope scope_of_decls)
         {
             Source packed_argument_typename;
             packed_argument_typename 
-                << "struct _arg_pack_" << _outline_num
+                << _packed_argument_typename
                 ;
             parameters
                 << packed_argument_typename << " *_args"
@@ -379,7 +417,7 @@ struct AuxiliarOutlineReplace
         {
             if (_packed_args)
             {
-                _replacements->add_replacement(sym, "(_args->this->" + sym.get_name() + ")");
+                _replacements->add_replacement(sym, "(_args->_this->" + sym.get_name() + ")");
             }
             else
             {
@@ -419,6 +457,10 @@ void Outline::declare_members(Source template_headers)
 {
     Source member_decl;
 
+    member_decl
+        << _additional_decls_source
+        ;
+
     if (_enclosing_function.get_type().is_template_specialized_type())
     {
         member_decl
@@ -447,7 +489,7 @@ void Outline::fill_nonmember_forward_declarations(Source template_headers, Sourc
 {
     forward_declarations
         // FIXME
-        // << _additional_decls_source
+        << _additional_decls_source
         << template_headers
         << _enclosing_function.get_type().get_declaration(_enclosing_function.get_scope(), _enclosing_function.get_name()) << ";";
 }
