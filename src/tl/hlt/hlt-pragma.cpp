@@ -529,6 +529,12 @@ void HLTPragmaPhase::outline_code(PragmaCustomConstruct construct)
 
     TL::HLT::Outline outline(construct.get_scope_link(), stmt);
 
+    PragmaCustomClause packed = construct.get_clause("packed");
+    if (packed.is_defined())
+    {
+        outline.use_packed_arguments();
+    }
+
     Source src = outline;
 }
 
