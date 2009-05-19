@@ -5772,12 +5772,17 @@ static void build_scope_template_template_parameter(AST a,
     build_scope_template_parameter_list(ASTSon0(a), template_params_context.template_parameters,
             template_params_context);
 
+    ASTAttrSetValueType(a, LANG_IS_TEMPLATE_PARAMETER, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_IS_TEMPLATE_TEMPLATE_PARAMETER, tl_type_t, tl_bool(1));
+
     const char* template_parameter_name = NULL;
     if (ASTSon1(a) != NULL)
     {
         AST symbol = ASTSon1(a);
-        ASTAttrSetValueType(symbol, LANG_IS_TEMPLATE_PARAMETER, tl_type_t, tl_bool(1));
         template_parameter_name = ASTText(symbol);
+
+        ASTAttrSetValueType(a, LANG_IS_NAMED_TEMPLATE_PARAMETER, tl_type_t, tl_bool(1));
+        ASTAttrSetValueType(a, LANG_TEMPLATE_PARAMETER_NAME, tl_type_t, tl_ast(symbol));
     }
     else
     {
@@ -5800,6 +5805,9 @@ static void build_scope_template_template_parameter(AST a,
     }
 
     scope_entry_t* new_entry = new_symbol(template_context, template_context.template_scope, template_parameter_name);
+
+    ASTAttrSetValueType(a, LANG_TEMPLATE_PARAMETER_SYMBOL, tl_type_t, tl_symbol(new_entry));
+
     new_entry->line = ASTLine(a);
     new_entry->file = ASTFileName(a);
     new_entry->point_of_declaration = 
@@ -5874,10 +5882,11 @@ static void build_scope_type_template_parameter(AST a,
     AST name = ASTSon0(a);
     AST type_id = ASTSon1(a);
 
-    ASTAttrSetValueType(a, LANG_TEMPLATE_NAME, tl_type_t, tl_ast(name));
-
     int line;
     const char *file;
+
+    ASTAttrSetValueType(a, LANG_IS_TEMPLATE_PARAMETER, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_IS_TYPE_TEMPLATE_PARAMETER, tl_type_t, tl_bool(1));
 
     const char* template_parameter_name = NULL;
     if (name != NULL)
@@ -5891,8 +5900,10 @@ static void build_scope_type_template_parameter(AST a,
                     template_context.template_scope);
         }
         // Note that we sign it in the template_scope !
-        ASTAttrSetValueType(name, LANG_IS_TEMPLATE_PARAMETER, tl_type_t, tl_bool(1));
         template_parameter_name = ASTText(name);
+
+        ASTAttrSetValueType(a, LANG_IS_NAMED_TEMPLATE_PARAMETER, tl_type_t, tl_bool(1));
+        ASTAttrSetValueType(a, LANG_TEMPLATE_PARAMETER_NAME, tl_type_t, tl_ast(name));
 
         line = ASTLine(name);
         file = ASTFileName(name);
@@ -5909,6 +5920,8 @@ static void build_scope_type_template_parameter(AST a,
 
     scope_entry_t* new_entry = new_symbol(template_context, template_context.template_scope,
             template_parameter_name);
+
+    ASTAttrSetValueType(a, LANG_TEMPLATE_PARAMETER_SYMBOL, tl_type_t, tl_symbol(new_entry));
 
     new_entry->line = line;
     new_entry->file = file;
@@ -5979,6 +5992,9 @@ static void build_scope_nontype_template_parameter(AST a,
             &gather_info, type_info, &declarator_type,
             template_context);
 
+    ASTAttrSetValueType(a, LANG_IS_TEMPLATE_PARAMETER, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_IS_NONTYPE_TEMPLATE_PARAMETER, tl_type_t, tl_bool(1));
+
     if (parameter_declarator != NULL)
     {
         AST declarator_name = get_declarator_name(parameter_declarator, template_context);
@@ -5990,7 +6006,8 @@ static void build_scope_nontype_template_parameter(AST a,
                     declarator_name_str, 
                     template_context.template_scope);
         }
-        ASTAttrSetValueType(a, LANG_TEMPLATE_NAME, tl_type_t, tl_ast(declarator_name));
+        ASTAttrSetValueType(a, LANG_IS_NAMED_TEMPLATE_PARAMETER, tl_type_t, tl_ast(declarator_name));
+        ASTAttrSetValueType(a, LANG_TEMPLATE_PARAMETER_NAME, tl_type_t, tl_ast(declarator_name));
 
         entry = new_symbol(template_context, template_context.template_scope, declarator_name_str);
     }
@@ -6001,6 +6018,7 @@ static void build_scope_nontype_template_parameter(AST a,
         sprintf(template_param_name, " <nontype-template-param-%d-%d> ", template_context.template_nesting, num_parameter+1);
         entry = new_symbol(template_context, template_context.template_scope, template_param_name);
     }
+    ASTAttrSetValueType(a, LANG_TEMPLATE_PARAMETER_SYMBOL, tl_type_t, tl_symbol(entry));
 
     // This is not a variable, but a template parameter
     entry->kind = SK_TEMPLATE_PARAMETER;
