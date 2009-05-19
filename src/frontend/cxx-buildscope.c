@@ -6006,7 +6006,7 @@ static void build_scope_nontype_template_parameter(AST a,
                     declarator_name_str, 
                     template_context.template_scope);
         }
-        ASTAttrSetValueType(a, LANG_IS_NAMED_TEMPLATE_PARAMETER, tl_type_t, tl_ast(declarator_name));
+        ASTAttrSetValueType(a, LANG_IS_NAMED_TEMPLATE_PARAMETER, tl_type_t, tl_bool(1));
         ASTAttrSetValueType(a, LANG_TEMPLATE_PARAMETER_NAME, tl_type_t, tl_ast(declarator_name));
 
         entry = new_symbol(template_context, template_context.template_scope, declarator_name_str);
