@@ -1261,6 +1261,7 @@ namespace TL
         while (!it.end())
         {
             result.append(TemplateParameter(it.item(), _scope_link));
+            it.next();
         }
 
         return result;
