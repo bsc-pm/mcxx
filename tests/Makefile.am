@@ -20,6 +20,25 @@ DEJATOOL = \
   $(NULL)
 
 
+END=
+CLEANFILES=
+
+CONFIG_FILES_TESTS= \
+                    mcxx.instr.openmp.dg/config.mcxx \
+                    mcxx.openmp.dg/config.mcxx \
+                    mcc.superscalar.dg/config.mcxx \
+                    mcxx.stm.dg/config.mcxx \
+                    mcc.instr.openmp.dg/config.mcxx \
+                    mcc.openmp.dg/config.mcxx \
+                    mcc.hlt.basic.dg/config.mcxx \
+                    $(END)
+
+CLEANFILES += $(CONFIG_FILES_TESTS)
+BUILT_SOURCES=$(CONFIG_FILES_TESTS)
+
+$(CONFIG_FILES_TESTS) : Makefile $(top_builddir)/config/replace.sh
+	$(top_builddir)/config/replace.sh $(srcdir)/$@.in $@
+
 dist-hook:
 	cp -vf $(srcdir)/*.conf $(distdir)
 	for i in $(srcdir)/*.dg; \

@@ -1,0 +1,43 @@
+#!/bin/sh
+
+# This script is used for replacements. Don't forget to update Makefile.am as well
+# VAR=@VAR@
+ACOLIB_INCLUDES="@ACOLIB_INCLUDES@"
+ACOLIB_LIBS="@ACOLIB_LIBS@"
+ACOTES_MSF_INCLUDES="@ACOTES_MSF_INCLUDES@"
+ACOTES_MSF_LIBS="@ACOTES_MSF_LIBS@"
+INSTRUMENTATION_PHASE="@INSTRUMENTATION_PHASE@"
+MINTAKA_INCLUDES="@MINTAKA_INCLUDES@"
+MINTAKA_LIBS="@MINTAKA_LIBS@"
+NANOS_INCLUDES="@NANOS_INCLUDES@"
+NANOS_LIBS="@NANOS_LIBS@"
+NEBELUNG_INCLUDES="@NEBELUNG_INCLUDES@"
+NEBELUNG_LIBS="@NEBELUNG_LIBS@"
+SUPERSCALAR_INCLUDES="@SUPERSCALAR_INCLUDES@"
+prefix="@prefix@"
+superscalar_version="@superscalar_version@"
+abs_top_srcdir="@abs_top_srcdir@"
+SED="@SED@"
+
+rm -f "$2" "$2.tmp"
+
+# -e "s|@VAR[@]|${VAR}|g"
+${SED} \
+        -e "s|@ACOLIB_INCLUDES[@]|${ACOLIB_INCLUDES}|g" \
+        -e "s|@ACOLIB_LIBS[@]|${ACOLIB_LIBS}|g" \
+        -e "s|@ACOTES_MSF_INCLUDES[@]|${ACOTES_MSF_INCLUDES}|g" \
+        -e "s|@ACOTES_MSF_LIBS[@]|${ACOTES_MSF_LIBS}|g" \
+        -e "s|@INSTRUMENTATION_PHASE[@]|${INSTRUMENTATION_PHASE}|g" \
+        -e "s|@MINTAKA_INCLUDES[@]|${MINTAKA_INCLUDES}|g" \
+        -e "s|@MINTAKA_LIBS[@]|${MINTAKA_LIBS}|g" \
+        -e "s|@NANOS_INCLUDES[@]|${NANOS_INCLUDES}|g" \
+        -e "s|@NANOS_LIBS[@]|${NANOS_LIBS}|g" \
+        -e "s|@NEBELUNG_INCLUDES[@]|${NEBELUNG_INCLUDES}|g" \
+        -e "s|@NEBELUNG_LIBS[@]|${NEBELUNG_LIBS}|g" \
+        -e "s|@SUPERSCALAR_INCLUDES[@]|${SUPERSCALAR_INCLUDES}|g" \
+        -e "s|@prefix[@]|${prefix}|g" \
+        -e "s|@superscalar_version[@]|${superscalar_version}|g" \
+        -e "s|@abs_top_srcdir[@]|${abs_top_srcdir}|g" \
+        "$1" > "$2.tmp"
+
+mv "$2.tmp" "$2"

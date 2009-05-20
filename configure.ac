@@ -981,13 +981,6 @@ AC_CONFIG_FILES([Makefile
            src/tl/examples/decl_closure/Makefile
            src/tl/superscalar/Makefile
            config/Makefile
-           config/config.mcxx
-           config/config.plain
-           config/config.nanos_omp
-           config/config.acotes
-           config/config.acotes-msf
-           config/config.stm_nebelung
-           config/config.superscalar
            tests/Makefile
            tests/mcc.openmp.dg/config.mcxx
            tests/mcxx.openmp.dg/config.mcxx
