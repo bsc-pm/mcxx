@@ -334,7 +334,7 @@ void Outline::compute_additional_declarations(Source template_headers,
             ptr_class_type = ptr_class_type.get_pointer_to();
 
             fields
-                << ptr_class_type.get_declaration(scope_of_decls, "_this")
+                << ptr_class_type.get_declaration(scope_of_decls, "_this") << ";"
                 ;
         }
 
