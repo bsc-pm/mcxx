@@ -118,7 +118,7 @@ static std::string template_header_regeneration(TL::TemplateHeader template_head
         = template_header.get_parameters().map(
                 functor<std::string, TemplateParameter>(&LangConstruct::prettyprint));
 
-    return "template <" + template_header.prettyprint() + " >";
+    return "template <" + concat_strings(template_parameters, ",") + " >";
 }
 
 void Outline::compute_outline_name(Source &template_headers_fwd, 
@@ -276,6 +276,17 @@ void Outline::compute_additional_declarations(Source template_headers,
     if (_packed_arguments)
     {
         Source arg_typename;
+
+        CXX_LANGUAGE()
+        {
+            if (_enclosing_function.get_type().is_template_specialized_type())
+            {
+                _additional_decls_source
+                    << template_headers
+                    ;
+            }
+        }
+
         arg_typename
             << "struct _arg_pack_" << _outline_num << "_t"
                 ;
@@ -287,6 +298,17 @@ void Outline::compute_additional_declarations(Source template_headers,
         CXX_LANGUAGE()
         {
             _packed_argument_typename << "_arg_pack_" << _outline_num << "_t";
+
+            if (_enclosing_function.get_type().is_template_specialized_type())
+            {
+                TemplateHeader& last_template_header = *(_template_header.rbegin());
+
+                _packed_argument_typename
+                    << "<"
+                    << concat_strings(last_template_header.get_parameters().map(functor(&TemplateParameter::get_name)), ",")
+                    << ">"
+                    ;
+            }
         }
 
         Source fields;
