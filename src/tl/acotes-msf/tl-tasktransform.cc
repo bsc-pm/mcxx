@@ -415,9 +415,11 @@ namespace TL { namespace Acotes {
         Source ss;
         
         const std::vector<Variable*> &variables= task->getVariableVector();
+        ss << "static int __has_been_copied = 0;";
         for (unsigned i= 0; i < variables.size(); i++) {
             Variable* variable= variables.at(i);
             if (task->hasState (variable->getSymbol())) {
+               ss << "static ";
                ss << Transform::I(driver)->variable()->generateVarAsParam(variable);
             }
             else {
@@ -482,6 +484,7 @@ namespace TL { namespace Acotes {
         const std::vector<State*> &states= task->getStateVector();
         ss << "int ntask = prams_p->ntask;";
         ss << "printf (\"Task %d\\n\", ntask);";
+        ss << "if (__has_been_copied == 0) { __has_been_copied = 1;";
         for (unsigned i= 0; i < states.size(); i++) {
             State* state= states.at(i);
             if (state->isCopyIn()) {
@@ -492,6 +495,7 @@ namespace TL { namespace Acotes {
                 ss << Transform::I(driver)->state()->generateParamsTask_assign(state);
             }
         }
+        ss << "}";
         return ss;
     }
 
