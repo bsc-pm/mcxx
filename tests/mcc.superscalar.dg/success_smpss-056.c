@@ -6,7 +6,7 @@ void task_a(int t, int t2, int *tt)
 
 int  main()
 {
-	int size, size2;
+	int size=1, size2=1;
 	int tt[3][5][5][5];
 
 #pragma css start
