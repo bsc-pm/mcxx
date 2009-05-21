@@ -13,7 +13,9 @@ Outline::Outline(ScopeLink sl, Statement stmt)
     _packed_arguments(false), 
     _do_not_embed(false), 
     _use_nonlocal_scope(true),
-    _outline_num(_num_outlines++)
+    _outline_num(_num_outlines++),
+    _outline_performed(false),
+    _overriden_outline_name(false)
 {
     _outline_statements.append(stmt);
 }
@@ -25,7 +27,9 @@ Outline::Outline(ScopeLink sl, ObjectList<Statement> stmt_list)
     _do_not_embed(false), 
     _use_nonlocal_scope(true),
     _outline_statements(stmt_list),
-    _outline_num(_num_outlines++)
+    _outline_num(_num_outlines++),
+    _outline_performed(false),
+    _overriden_outline_name(false)
 {
 }
 
@@ -49,6 +53,11 @@ Outline& Outline::do_not_embed()
 
 void Outline::do_outline()
 {
+    if (_outline_performed)
+        return;
+    
+    _outline_performed = true;
+
     // We can start building the outline code
     Source template_headers,
            template_headers_fwd,
@@ -177,9 +186,12 @@ void Outline::compute_outline_name(Source &template_headers_fwd,
         }
     }
 
-    _outline_name
-        << "_ol_" << _outline_num << "_" << _enclosing_function.get_name()
-        ;
+    if (!_overriden_outline_name)
+    {
+        _outline_name
+            << "_ol_" << _outline_num << "_" << _enclosing_function.get_name()
+            ;
+    }
 
     if (_is_member && _is_inlined_member)
     {
@@ -554,6 +566,17 @@ void Outline::embed_outline()
 
     }
     _function_def->get_ast().prepend_sibling_function(outline_tree);
+}
+
+Outline& Outline::set_outline_name(const std::string& str)
+{
+    _outline_name = str;
+}
+
+std::string Outline::get_outline_name()
+{
+    do_outline();
+    return _outline_name;
 }
 
 Outline::~Outline()
