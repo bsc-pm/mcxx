@@ -20,7 +20,7 @@ CONFIG_FILES =  \
 dist-hook:
 	for i in $(CONFIG_FILES) $(CONFIG_MCXX); \
     do \
-       cp "$(srcdir)/$${i}.in" "$(distdir)" \
+       cp "$(srcdir)/$${i}.in" "$(distdir)" ; \
     done
 
 EXTRA_DIST = replace.sh.in
@@ -62,10 +62,10 @@ replace.sh : replace.sh.in
 $(CONFIG_MCXX) $(CONFIG_FILES) : Makefile replace.sh
 	./replace.sh "$(srcdir)/$@.in" "$@"
 
-dist_pkgdata_DATA = \
+pkgdata_DATA = \
 		config.mcxx \
 		$(END)
 
 configdir = $(pkgdatadir)/config.d
-dist_config_DATA = \
+config_DATA = \
         $(CONFIG_FILES)
