@@ -680,3 +680,9 @@ TL::ObjectList<TL::Symbol> Outline::get_parameter_list()
     do_outline();
     return _parameter_passed_symbols;
 }
+
+std::string Outline::get_packing_struct_typename()
+{
+    do_outline();
+    return _packed_argument_typename;
+}

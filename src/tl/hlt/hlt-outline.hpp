@@ -120,6 +120,8 @@ namespace TL
 
                 ParameterPassing get_parameter_passing(Symbol);
 
+                std::string get_packing_struct_typename();
+
                 ObjectList<Symbol> get_parameter_list();
 
                 ~Outline();
