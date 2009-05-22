@@ -44,8 +44,11 @@ config_edit = \
      -e 's|@NEBELUNG_INCLUDES[@]|$(NEBELUNG_INCLUDES)|g' \
      -e 's|@NEBELUNG_LIBS[@]|$(NEBELUNG_LIBS)|g' \
      -e "s|@SUPERSCALAR_INCLUDES[@]|$(SUPERSCALAR_INCLUDES)|g" \
+     -e "s|@SUPERSCALAR_LIBS[@]|$(SUPERSCALAR_LIBS)|g" \
      -e "s|@abs_top_srcdir[@]|$(abs_top_srcdir)|g" \
      -e 's|@prefix[@]|$(prefix)|g' \
+     -e 's|@includedir[@]|$(includedir)|g' \
+     -e 's|@libdir[@]|$(libdir)|g' \
      -e 's|@superscalar_version[@]|$(superscalar_version)|g' \
     $(END)
 
