@@ -13,7 +13,9 @@ Outline::Outline(ScopeLink sl, Statement stmt)
     _packed_arguments(false), 
     _do_not_embed(false), 
     _use_nonlocal_scope(true),
-    _outline_num(_num_outlines++)
+    _outline_num(_num_outlines++),
+    _outline_performed(false),
+    _overriden_outline_name(false)
 {
     _outline_statements.append(stmt);
 }
@@ -25,7 +27,9 @@ Outline::Outline(ScopeLink sl, ObjectList<Statement> stmt_list)
     _do_not_embed(false), 
     _use_nonlocal_scope(true),
     _outline_statements(stmt_list),
-    _outline_num(_num_outlines++)
+    _outline_num(_num_outlines++),
+    _outline_performed(false),
+    _overriden_outline_name(false)
 {
 }
 
@@ -49,6 +53,11 @@ Outline& Outline::do_not_embed()
 
 void Outline::do_outline()
 {
+    if (_outline_performed)
+        return;
+    
+    _outline_performed = true;
+
     // We can start building the outline code
     Source template_headers,
            template_headers_fwd,
@@ -118,7 +127,7 @@ static std::string template_header_regeneration(TL::TemplateHeader template_head
         = template_header.get_parameters().map(
                 functor<std::string, TemplateParameter>(&LangConstruct::prettyprint));
 
-    return "template <" + template_header.prettyprint() + " >";
+    return "template <" + concat_strings(template_parameters, ",") + " >";
 }
 
 void Outline::compute_outline_name(Source &template_headers_fwd, 
@@ -177,9 +186,12 @@ void Outline::compute_outline_name(Source &template_headers_fwd,
         }
     }
 
-    _outline_name
-        << "_ol_" << _outline_num << "_" << _enclosing_function.get_name()
-        ;
+    if (!_overriden_outline_name)
+    {
+        _outline_name
+            << "_ol_" << _outline_num << "_" << _enclosing_function.get_name()
+            ;
+    }
 
     if (_is_member && _is_inlined_member)
     {
@@ -276,6 +288,17 @@ void Outline::compute_additional_declarations(Source template_headers,
     if (_packed_arguments)
     {
         Source arg_typename;
+
+        CXX_LANGUAGE()
+        {
+            if (_enclosing_function.get_type().is_template_specialized_type())
+            {
+                _additional_decls_source
+                    << template_headers
+                    ;
+            }
+        }
+
         arg_typename
             << "struct _arg_pack_" << _outline_num << "_t"
                 ;
@@ -287,6 +310,17 @@ void Outline::compute_additional_declarations(Source template_headers,
         CXX_LANGUAGE()
         {
             _packed_argument_typename << "_arg_pack_" << _outline_num << "_t";
+
+            if (_enclosing_function.get_type().is_template_specialized_type())
+            {
+                TemplateHeader& last_template_header = *(_template_header.rbegin());
+
+                _packed_argument_typename
+                    << "<"
+                    << concat_strings(last_template_header.get_parameters().map(functor(&TemplateParameter::get_name)), ",")
+                    << ">"
+                    ;
+            }
         }
 
         Source fields;
@@ -312,7 +346,7 @@ void Outline::compute_additional_declarations(Source template_headers,
             ptr_class_type = ptr_class_type.get_pointer_to();
 
             fields
-                << ptr_class_type.get_declaration(scope_of_decls, "_this")
+                << ptr_class_type.get_declaration(scope_of_decls, "_this") << ";"
                 ;
         }
 
@@ -532,6 +566,17 @@ void Outline::embed_outline()
 
     }
     _function_def->get_ast().prepend_sibling_function(outline_tree);
+}
+
+Outline& Outline::set_outline_name(const std::string& str)
+{
+    _outline_name = str;
+}
+
+std::string Outline::get_outline_name()
+{
+    do_outline();
+    return _outline_name;
 }
 
 Outline::~Outline()

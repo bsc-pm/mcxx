@@ -40,6 +40,8 @@ namespace TL
                 bool _do_not_embed;
                 bool _use_nonlocal_scope;
                 int _outline_num;
+                bool _outline_performed;
+                bool _overriden_outline_name;
 
                 ObjectList<Statement> _outline_statements;
 
@@ -85,6 +87,10 @@ namespace TL
                 Outline(ScopeLink sl, ObjectList<Statement> stmt_list);
 
                 Outline &use_packed_arguments();
+
+                Outline &set_outline_name(const std::string& str);
+
+                std::string get_outline_name();
 
                 Outline& do_not_embed();
 

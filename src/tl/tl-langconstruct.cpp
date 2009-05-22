@@ -962,7 +962,9 @@ namespace TL
 
         if (!sym.is_valid())
         {
-        std::cerr << "'" << declared_name.prettyprint() << "' " << declared_name.get_internal_ast() << " at " << declared_name.get_locus() << " NOT VALID !!!" << std::endl;
+            std::cerr << "Warning: declared name '" << declared_name.prettyprint() 
+                << " at " << declared_name.get_locus() 
+                << " does not have a valid symbol. This is likely a bug." << std::endl;
         }
 
         return sym;

@@ -62,22 +62,18 @@ static void parse_boolean(const char *c, int *value)
 // Set source language
 int config_set_language(struct compilation_configuration_tag* config, const char* value)
 {
-    // If it was set in the command line, do not overwrite
-    if (config->source_language == SOURCE_LANGUAGE_UNKNOWN)
+    if (strcasecmp(value, "c") == 0)
     {
-        if (strcasecmp(value, "c") == 0)
-        {
-            config->source_language = SOURCE_LANGUAGE_C;
-        }
-        else if (strcasecmp(value, "c++") == 0)
-        {
-            config->source_language = SOURCE_LANGUAGE_CXX;
-        }
-        else
-        {
-            fprintf(stderr, "Unknown language '%s' assuming C++\n", value);
-            config->source_language = SOURCE_LANGUAGE_CXX;
-        }
+        config->source_language = SOURCE_LANGUAGE_C;
+    }
+    else if (strcasecmp(value, "c++") == 0)
+    {
+        config->source_language = SOURCE_LANGUAGE_CXX;
+    }
+    else
+    {
+        fprintf(stderr, "Unknown language '%s' assuming C++\n", value);
+        config->source_language = SOURCE_LANGUAGE_CXX;
     }
     return 0;
 }
@@ -104,7 +100,7 @@ int config_set_options(struct compilation_configuration_tag* config, const char*
 
     real_options[0] = uniquestr("mcxx");
 
-    parse_arguments(num, real_options, /* from_command_line= */ 0);
+    parse_arguments(num, real_options, /* from_command_line= */ 0, /* parse_implicits_only*/ 0);
 
     // Restore the original one
     SET_CURRENT_CONFIGURATION(previous);
@@ -115,11 +111,7 @@ int config_set_options(struct compilation_configuration_tag* config, const char*
 // Set preprocessor name
 int config_set_preprocessor_name(struct compilation_configuration_tag* config, const char* value)
 {
-    // If it was set in command line, do not set it here
-    if (config->preprocessor_name == NULL)
-    {
-        config->preprocessor_name = uniquestr(value);
-    }
+    config->preprocessor_name = uniquestr(value);
     return 0;
 }
 
@@ -155,11 +147,7 @@ int config_set_preprocessor_uses_stdout(struct compilation_configuration_tag * c
 // Set native compiler name
 int config_set_compiler_name(struct compilation_configuration_tag* config, const char* value)
 {
-    // If it was set in command line, do not set it here
-    if (config->native_compiler_name == NULL)
-    {
-        config->native_compiler_name = uniquestr(value);
-    }
+    config->native_compiler_name = uniquestr(value);
     return 0;
 }
 
@@ -176,11 +164,7 @@ int config_set_compiler_options(struct compilation_configuration_tag* config, co
 // Set linker name
 int config_set_linker_name(struct compilation_configuration_tag* config, const char* value)
 {
-    // If it was set in command line, do not set it here
-    if (config->linker_name == NULL)
-    {
-        config->linker_name = uniquestr(value);
-    }
+    config->linker_name = uniquestr(value);
     return 0;
 }
 
@@ -243,11 +227,6 @@ int config_add_preprocessor_prefix(struct compilation_configuration_tag* config,
 int config_set_environment(struct compilation_configuration_tag* config, const char* value)
 {
     type_environment_t* chosen_env = get_environment(value);
-
-    if (chosen_env != NULL)
-    {
-        config->type_environment = chosen_env;
-    }
-
+    config->type_environment = chosen_env;
     return 0;
 }

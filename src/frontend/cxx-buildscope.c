@@ -7104,7 +7104,9 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         {
                             bitfield_symbol = build_scope_declarator_name(identifier, declarator_type, &gather_info, decl_context);
                             ASTAttrSetValueType(declarator, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
-                            ASTAttrSetValueType(declarator, LANG_DECLARED_NAME, tl_type_t, tl_ast(identifier));
+
+                            AST declarator_name = get_declarator_name(identifier, decl_context);
+                            ASTAttrSetValueType(declarator, LANG_DECLARED_NAME, tl_type_t, tl_ast(declarator_name));
                         }
                         else
                         {

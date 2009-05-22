@@ -535,6 +535,13 @@ void HLTPragmaPhase::outline_code(PragmaCustomConstruct construct)
         outline.use_packed_arguments();
     }
 
+    PragmaCustomClause name = construct.get_clause("name");
+    if (name.is_defined())
+    {
+        ObjectList<std::string> clause_args = name.get_arguments();
+        outline.set_outline_name(clause_args[0]);
+    }
+
     Source src = outline;
 }
 

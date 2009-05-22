@@ -18,13 +18,9 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#ifndef INI_H
-#define INI_H
+#ifndef MCFG_H
+#define MCFG_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <ctype.h>
-#include <string.h>
 
 #ifdef WIN32_BUILD
   #ifdef LIBMCFG_DLL_EXPORT
@@ -52,12 +48,18 @@ enum param_process_result_tag
     PPR_PARSE_ERROR = -3
 } param_process_t;
 
+typedef int (*mcfg_section_callback_t)(const char* name, 
+        const char* base);
+typedef int (*mcfg_parameter_callback_t)(const char* option, 
+        const char* value, 
+        int num_flags, const char** flags);
+
 LIBMCFG_EXTERN int param_process(const char *filename,
-        int (*sfunc)(const char *),
-        int (*pfunc)(const char * option, const char * value, int num_flags, const char** flags));
+        mcfg_section_callback_t sfunc,
+        mcfg_parameter_callback_t pfunc);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  /* INI_H */
+#endif  /* MCFG_H */

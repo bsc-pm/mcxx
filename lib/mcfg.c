@@ -22,6 +22,10 @@
     // so just little bits of the original code remain
 */
 #include "mcfg.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
 #include <string.h>
 
 #define BUFR_INC    1024
@@ -37,11 +41,11 @@
 ** local function prototypes
 */
 static FILE *openConfFile (const char *filename);
-static int Parse (FILE * fp, int (*sfunc) (const char *),
-          int (*pfunc) (const char * option, const char * value, int num_flags, const char** flags));
-static int Section (FILE * fp, int (*sfunc) (const char *));
+static int Parse (FILE * fp, mcfg_section_callback_t sfunc,
+          mcfg_parameter_callback_t pfunc);
+static int Section (FILE * fp, mcfg_section_callback_t sfunc);
 static int eatWhitespace (FILE * fp);
-static int Parameter (FILE * fp, int (*pfunc) (const char * option, const char * value, int num_flags, const char** flags), int c);
+static int Parameter (FILE * fp, mcfg_parameter_callback_t pfunc, int c);
 
 /*
 **  Parameter()
@@ -70,7 +74,7 @@ static int Parameter (FILE * fp, int (*pfunc) (const char * option, const char *
 */
 
 static int
-Parameter (FILE * fp, int (*pfunc) (const char * option, const char * value, int num_flags, const char **flags), int c)
+Parameter (FILE * fp, mcfg_parameter_callback_t pfunc, int c)
 {
     int option_length = 0;
     char option[OPTION_LENGTH];
@@ -423,7 +427,8 @@ openConfFile (const char *filename)
 
 int
 param_process (const char *filename,
-          int (*sfunc) (const char *), int (*pfunc) (const char * option, const char * value, int num_flags, const char** flags))
+          mcfg_section_callback_t sfunc, 
+          mcfg_parameter_callback_t pfunc)
 {
     char *func = "params.c:param_process() -";
 
@@ -495,8 +500,8 @@ eatWhitespace (FILE * fp)
 */
 
 static int
-Parse (FILE * fp, int (*sfunc) (const char *), 
-        int (*pfunc) (const char * option, const char * value, int num_flags, const char** flags))
+Parse (FILE * fp, mcfg_section_callback_t sfunc,
+        mcfg_parameter_callback_t pfunc)
 {
     int c;
     c = eatWhitespace (fp);
@@ -562,96 +567,92 @@ Parse (FILE * fp, int (*sfunc) (const char *),
 **      ma_muquit@fccc.edu   Apr-10-1998    first cut
 */
 
-static int Section (FILE * fp, int (*sfunc) (const char *))
+static int parse_profile_name(FILE* fp, 
+        char section_name[SECTION_LENGTH], 
+        const char** error,
+        int *p)
 {
-    int p;
-    p = eatWhitespace (fp);   /* 
-                               ** we've already got the '['. scan past initial
-                               ** white space
-                               */
+    *error = NULL;
+    int num_chars = 0;
 
-    char section[SECTION_LENGTH];
-    int section_length = 0;
+    (*p) = eatWhitespace (fp); 
 
-    char section_finished = 0;
-    while (!section_finished)
+    const char other_valid_chars[] = "._-";
+
+    char name_finished = 0;
+    while (!name_finished)
     {
-        switch (p)
+        if (isalnum(*p)
+                || strchr(other_valid_chars, *p) != NULL)
         {
-            case ']' :
-                {
-                    if (section_length == 0)
-                    {
-                        fprintf(stderr, "Empty section length\n");
-                        return -1;
-                        break;
-                    }
+            if (num_chars == SECTION_LENGTH)
+            {
+                *error = "Profile name too long";
+                return -1;
+            }
+            section_name[num_chars] = (*p);
+            num_chars++;
 
-                    if (section_length == SECTION_LENGTH)
-                    {
-                        fprintf(stderr, "Section name too long\n");
-                        return -1;
-                    }
+            (*p) = getc(fp);
+        }
+        else
+        {
+            if (num_chars == 0)
+            {
+                *error = "Profile name empty";
+                return -1;
+            }
 
-                    // Terminate the string
-                    section[section_length] = '\0';
-                    section_length++;
+            section_name[num_chars] = '\0';
+            name_finished = 1;
 
-                    section_finished = 1;
-                    break;
-                }
-            case ' ' :
-            case '\t' :
-                {
-                    fprintf(stderr, "Unexpected whitespace in section name\n");
-                    return -1;
-                    break;
-                }
-            case EOF :
-                {
-                    fprintf(stderr, "Unexpected end of file\n");
-                    return -1;
-                    break;
-                }
-            case '\n':
-                {
-                    fprintf(stderr, "Unexpected end of file\n");
-                    return -1;
-                    break;
-                }
-            default:
-                {
-                    while (p != ']'
-                            && p != '\n'
-                            && p != ' '
-                            && p != '\t'
-                            && p != EOF)
-                    {
-                        if (section_length == SECTION_LENGTH)
-                        {
-                            fprintf(stderr, "Section name too long\n");
-                        }
-
-                        section[section_length] = p;
-                        section_length++;
-
-                        p = getc(fp);
-                    }
-
-                    // Maybe this is the end of name
-                    if (p == ' '
-                            || p == '\t')
-                    {
-                        p = eatWhitespace(fp);
-                    }
-                }
+            if (*p == ' ' || *p == '\t')
+            {
+                (*p) = eatWhitespace(fp);
+            }
         }
     }
 
-    /*
-    fprintf(stderr, "[MCFG] Section -> '%s'\n", section);
-    fprintf(stderr, "[MCFG] \n");
-    */
+    return 0;
+}
 
-    return sfunc(section);
+static int Section (FILE * fp, mcfg_section_callback_t sfunc)
+{
+    // '[' has already been scanned we are after it
+    int p = 0;
+
+    char section_name[SECTION_LENGTH] = { '\0' },
+         base_name[SECTION_LENGTH] = { '\0' };
+    const char* error;
+    if (parse_profile_name(fp, section_name, &error, &p) != 0)
+    {
+        fprintf(stderr, "%s\n", error);
+        return -1;
+    }
+
+    if (p == ':'
+            || p == '>')
+    {
+        if (parse_profile_name(fp, base_name, &error, &p) != 0)
+        {
+            fprintf(stderr, "%s\n", error);
+            return -1;
+        }
+
+    }
+
+    if (p != ']')
+    {
+        fprintf(stderr, "Syntax error in section name\n");
+        return -1;
+    }
+
+    eatWhitespace(fp);
+
+    // Pass null if no basename was specified
+    const char *base_name_ptr = base_name;
+    if (base_name[0] == '\0')
+        base_name_ptr = NULL;
+
+    return sfunc(section_name, base_name_ptr);
 }

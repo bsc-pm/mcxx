@@ -41,7 +41,8 @@ struct configuration_directive_t*
 configoptions_lookup (register const char *str, 
         register unsigned int len);
 
-int parse_arguments(int argc, const char* argv[], char from_command_line);
+int parse_arguments(int argc, const char* argv[], 
+        char from_command_line, char parse_implicits_only);
 
 struct debug_flags_list_t** list_of_debug_flags(void);
 
