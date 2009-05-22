@@ -31,26 +31,41 @@ namespace TL
 {
     namespace HLT
     {
+        //! \addtogroup HLT High Level Transformations
+        //! @{
+
+        //! This class implements 'outlining' of parts of code
+        /*! 
+          Outlining means creating a function off a part of code (this is like
+          the opposite of inlining). This class works on a given statement, or
+          set of statements in the very same scope, and creates a function with
+          that statement in it. It takes care of creating the required
+          parameters and returns information about the newly created function.
+          */
         struct LIBHLT_CLASS Outline : public BaseTransform
         {
             public:
+                //! Kind of parameter pass
                 enum ParameterPassing
                 {
                     INVALID = 0,
+                    //! This symbol must not be passed at all to the outlined function
                     DO_NOT_PASS,
+                    //! This symbol must be passed by pointer
                     POINTER,
+                    //! This symbol must be passed by value
                     VALUE,
                     // Not implemented
                     /* REFERENCE */
                 };
-
+            private:
                 struct ParameterInfo
                 {
                     Symbol related_symbol;
                     ParameterPassing passing;
                     std::string outline_ref;
                 };
-            private:
+
                 ScopeLink _sl;
                 FunctionDefinition* _function_def;
                 bool _packed_arguments;
@@ -104,28 +119,82 @@ namespace TL
             protected:
                 virtual Source get_source();
             public:
+                //! Creates an Outline object given a single statement
                 Outline(ScopeLink sl, Statement stmt);
+                //! Creates an Outline object given a set of statements
+                /*!
+                  \param sl ScopeLink
+                  \param stmt_list This is a list of statements that should share the very same scope
+                 */
                 Outline(ScopeLink sl, ObjectList<Statement> stmt_list);
 
+                //! Enables packed arguments
+                /*! 
+                  Packed arguments will pack all the arguments into a single
+                  structure and pass the structure by pointer 
+                 */
                 Outline &use_packed_arguments();
 
+                //! Sets the outline function name
+                /*! 
+                  %Outline function will have a computed name unless it is set using this function 
+                 */
                 Outline &set_outline_name(const std::string& str);
 
+                //! Returns the outline function name
+                /*!
+                  If set_outline_name was called, the name set on the call will be returned here, otherwise
+                  this will be the computed name of the outline function
+                 */
                 std::string get_outline_name();
 
+                //! Disables embedding newly created outline
+                /*!
+                  This disables automatic embedding of the outline. This is discouraged since
+                  sometimes it is not obvious where the outline must be placed.
+                 */
                 Outline& do_not_embed();
 
-                void set_default_parameter_passing(ParameterPassing);
-                void set_parameter_passing(Symbol, ParameterPassing);
+                //! Sets a default parameter pass mode
+                /*!
+                  For all symbols without an explicit pass mode, this will be the pass mode used.
+                  If no default pass mode is defined, it will be POINTER
+                  \sa ParameterPassing
+                 */
+                void set_default_parameter_passing(ParameterPassing passing);
+                //! Sets a parameter pass mode for a given Symbol
+                /*!
+                  \param symbol The symbol whose pass mode is being set
+                  \param passing Passing mode
+                  \sa ParameterPassing
+                 */
+                void set_parameter_passing(Symbol symbol, ParameterPassing passing);
 
+                //! Returns the pass mode for a given symbol
+                /*!
+                  If the symbol had not a pass mode set beforehand, the default
+                  passing mode will be returned.
+                 */
                 ParameterPassing get_parameter_passing(Symbol);
 
+                //! Returns the typename of the packing struct
+                /*!
+                  If packed arguments are used, this is the name of the packed type
+                  as it should be used when filling it in point where the outline
+                  should be called.
+                 */
                 std::string get_packing_struct_typename();
 
+                //! Returns the parameters expected by the outline function
+                /*! 
+                  If packed arguments are used, this list contain the fields, in
+                  declaration order, of the struct.
+                  */
                 ObjectList<Symbol> get_parameter_list();
 
                 ~Outline();
         };
+        //! @}
     }
 }
 
