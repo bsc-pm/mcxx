@@ -33,6 +33,23 @@ namespace TL
     {
         struct LIBHLT_CLASS Outline : public BaseTransform
         {
+            public:
+                enum ParameterPassing
+                {
+                    INVALID = 0,
+                    DO_NOT_PASS,
+                    POINTER,
+                    VALUE,
+                    // Not implemented
+                    /* REFERENCE */
+                };
+
+                struct ParameterInfo
+                {
+                    Symbol related_symbol;
+                    ParameterPassing passing;
+                    std::string outline_ref;
+                };
             private:
                 ScopeLink _sl;
                 FunctionDefinition* _function_def;
@@ -42,6 +59,8 @@ namespace TL
                 int _outline_num;
                 bool _outline_performed;
                 bool _overriden_outline_name;
+                ParameterPassing _default_parameter_passing;
+                ObjectList<ParameterInfo> _parameter_info;
 
                 ObjectList<Statement> _outline_statements;
 
@@ -77,6 +96,8 @@ namespace TL
                 Source get_parameter_declarations(Scope scope_of_decls);
                 void compute_additional_declarations(Source template_headers, Scope scope_of_decls);
 
+                void set_parameter_passing_if_not_set(Symbol sym);
+
                 void embed_outline();
 
                 static int _num_outlines;
@@ -93,6 +114,13 @@ namespace TL
                 std::string get_outline_name();
 
                 Outline& do_not_embed();
+
+                void set_default_parameter_passing(ParameterPassing);
+                void set_parameter_passing(Symbol, ParameterPassing);
+
+                ParameterPassing get_parameter_passing(Symbol);
+
+                ObjectList<Symbol> get_parameter_list();
 
                 ~Outline();
         };
