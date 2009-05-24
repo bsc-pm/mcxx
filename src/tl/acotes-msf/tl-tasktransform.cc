@@ -933,8 +933,15 @@ namespace TL { namespace Acotes {
 
             ss      << "msf_task_handle_p " << task->getName() << ";";
             if (task->getTaskDevice() == TASKDEVICE_SPU) {
-              ss  <<   "\"" << task->getName() << "_lib\"";
-              ss  <<   ", \"spe_prog_" << task->getName() << "_outline\", 0L, 0";
+              ss << "struct { int ntask;"
+                 << generateParamsStruct (task);
+              ss << "} " << task->getName() << "_str;";
+              ss << generateParamsAssignment (task);
+              ss << task->getName() << " = msf_task_load(";
+              ss  <<   "\"libmsf-" << current_filename << ".a\"";
+              ss  <<   ", \"spe_prog_" << task->getName() << "_outline\", &"
+                  << task->getName() << "_str, sizeof ("
+                  << task->getName() << "_str)";
             }
             else {
               ss << "struct { int ntask;"
