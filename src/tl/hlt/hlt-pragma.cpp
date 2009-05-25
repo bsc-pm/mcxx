@@ -27,6 +27,7 @@
 #include "hlt-collapse.hpp"
 #include "hlt-composition.hpp"
 #include "hlt-outline.hpp"
+#include "hlt-extension.hpp"
 #include "hlt-exception.hpp"
 
 #include <algorithm>
@@ -72,6 +73,9 @@ HLTPragmaPhase::HLTPragmaPhase()
 
     register_construct("outline");
     on_directive_post["outline"].connect(functor(&HLTPragmaPhase::outline_code, *this));
+
+    register_construct("extend");
+    on_directive_post["extend"].connect(functor(&HLTPragmaPhase::extend_function, *this));
 
     _allow_identity_str = "1";
 
@@ -543,6 +547,38 @@ void HLTPragmaPhase::outline_code(PragmaCustomConstruct construct)
     }
 
     Source src = outline;
+}
+
+void HLTPragmaPhase::extend_function(PragmaCustomConstruct construct)
+{
+    AST_t decl = construct.get_declaration();
+    if (!FunctionDefinition::predicate(decl))
+    {
+        throw HLTException(construct, "'#pragma hlt extend' must be followed by a function-definition");
+    }
+
+    PragmaCustomClause factor_clause = construct.get_clause("factor");
+
+    if (!factor_clause.is_defined())
+    {
+        throw HLTException(construct, "'#pragma hlt extend' requires a 'factor(expr)' clause");
+    }
+
+    Expression factor = factor_clause.get_expression_list()[0];
+
+    FunctionDefinition funct_def(decl, construct.get_scope_link());
+
+    TL::HLT::FunctionExtension funct_extensions(funct_def, factor);
+
+    Source src = funct_extensions;
+
+    TL::AST_t new_function = src.parse_declaration(construct.get_ast(),
+            construct.get_scope_link());
+
+    construct.get_ast().prepend(new_function);
+
+    // Now remove the pragma
+    construct.get_ast().replace(decl);
 }
 
 EXPORT_PHASE(TL::HLT::HLTPragmaPhase)

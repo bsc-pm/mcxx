@@ -30,6 +30,9 @@ namespace TL
 {
     namespace HLT
     {
+        //! \addtogroup HLT High Level Transformations
+        //! @{
+        //! Exception throwable inside HLT code
         struct LIBHLT_CLASS HLTException
         {
             public:
@@ -53,6 +56,7 @@ namespace TL
         };
 
         LIBHLT_EXTERN std::ostream& operator<<(std::ostream &o, const HLTException& e);
+        //! @}
     }
 }
 

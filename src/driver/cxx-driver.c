@@ -231,6 +231,7 @@ static void print_version(void);
 static void driver_initialization(int argc, const char* argv[]);
 static void initialize_default_values(void);
 static void load_configuration(void);
+static void finalize_committed_configuration(void);
 static void commit_configuration(void);
 static void compile_every_translation_unit(void);
 
@@ -328,6 +329,9 @@ int main(int argc, char* argv[])
         }
         exit(EXIT_FAILURE);
     }
+
+    // This performs additional steps depending on some enabled features
+    finalize_committed_configuration();
 
     // Compiler phases can define additional dynamic initializers
     // (besides the built in ones)
@@ -1628,7 +1632,6 @@ static void load_configuration(void)
     
 }
 
-static void finalize_committed_configuration(void);
 
 static void commit_configuration(void)
 {
@@ -1706,8 +1709,6 @@ static void commit_configuration(void)
                     CURRENT_CONFIGURATION->type_environment->environ_name);
         }
     }
-
-    finalize_committed_configuration();
 }
 
 static void register_upc_pragmae(void);

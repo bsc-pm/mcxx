@@ -27,6 +27,61 @@ namespace TL
 {
     namespace HLT
     {
+        //! \addtogroup HLT High Level Transformations
+        //! @{
+
+        //! Compiler phase that implements a pragma interface to the HLT transformations
+        /*!
+          This class implements several pragmas
+
+          \code
+#pragma hlt unroll factor(N)
+  regular-for-loop
+          \endcode
+          \sa TL::HLT::LoopUnroll
+
+          \code
+#pragma hlt block factors(expr-list)
+  perfect-loop-nest
+          \endcode
+          \sa TL::HLT::LoopBlocking
+
+          \code
+#pragma hlt distribute expand(var-list)
+  regular-for-loop
+          \endcode
+          \sa TL::HLT::LoopDistribution
+
+          \code
+#pragma hlt fusion
+  compound-statement
+          \endcode
+          \sa TL::HLT::LoopFusion
+
+          \code
+#pragma hlt interchange permutation(perm{1..N})
+  perfect-loop-nest
+          \endcode
+          \sa TL::HLT::LoopInterchange
+
+          \code
+#pragma hlt collapse
+  perfect-loop-nest
+          \endcode
+          \sa TL::HLT::LoopCollapse
+            
+          \code
+#pragma hlt outline
+  statement
+          \endcode
+          \sa TL::HLT::Outline
+
+          \code
+#pragma hlt extend
+  function-definition
+          \endcode
+          \sa TL::HLT::FunctionExtension
+          */
         class HLTPragmaPhase : public PragmaCustomCompilerPhase
         {
             public:
@@ -46,7 +101,11 @@ namespace TL
                 void jam_loops(Statement unrolled_loop);
 
                 void outline_code(PragmaCustomConstruct construct);
+
+                void extend_function(PragmaCustomConstruct construct);
         };
+
+        //! @}
     }
 
 }
