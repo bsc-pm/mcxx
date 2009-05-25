@@ -75,6 +75,12 @@ namespace TL
   statement
           \endcode
           \sa TL::HLT::Outline
+
+          \code
+#pragma hlt extend
+  function-definition
+          \endcode
+          \sa TL::HLT::FunctionExtension
           */
         class HLTPragmaPhase : public PragmaCustomCompilerPhase
         {
@@ -95,6 +101,8 @@ namespace TL
                 void jam_loops(Statement unrolled_loop);
 
                 void outline_code(PragmaCustomConstruct construct);
+
+                void extend_function(PragmaCustomConstruct construct);
         };
 
         //! @}

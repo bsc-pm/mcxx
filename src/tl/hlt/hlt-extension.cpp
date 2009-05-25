@@ -57,22 +57,42 @@ void FunctionExtension::do_extension()
 
         ObjectList<ParameterDeclaration> param_decl = declared_entity.get_parameter_declarations(has_ellipsis);
 
+        Statement function_body = _funct_def.get_function_body();
+        Expression *fake_dim_expr = NULL;
+        Scope fake_dim_expr_sc;
+        {
+            // I hate having to do this
+            AST_t placeholder;
+            Source fake_context;
+            fake_context
+                << "{ int _N; " << statement_placeholder(placeholder) << "}";
+
+            fake_context.parse_statement(function_body.get_ast(), function_body.get_scope_link());
+
+            fake_dim_expr = new Expression(Source("_N").parse_expression(placeholder, function_body.get_scope_link()),
+                    function_body.get_scope_link());
+
+            fake_dim_expr_sc = function_body.get_scope_link().get_scope(placeholder);
+        }
+
         ReplaceSrcIdExpression replacements(_funct_def.get_scope_link());
         for (ObjectList<ParameterDeclaration>::iterator it = param_decl.begin();
                 it != param_decl.end();
                 it++)
         {
             IdExpression id_expr = it->get_name();
-            Symbol sym = id_expr.get_computed_symbol();
+            Symbol sym = id_expr.get_symbol();
             Type param_type = it->get_type();
 
-            Type array_type = param_type.get_array_to(_extension_amount.get_ast(), _extension_amount.get_scope());
+            Type array_type = param_type.get_array_to(fake_dim_expr->get_ast(), fake_dim_expr_sc);
+
+            // This expression is not valid
 
             extended_args.append_with_separator(
                     array_type.get_declaration(_function_symbol.get_scope(), id_expr),
                     ",");
 
-            replacements.add_replacement(sym, "(" + sym.get_name() + ")[_i]");
+            replacements.add_replacement(sym, "(" + sym.get_name() + "[_i])");
         }
 
         Source replaced_body;
@@ -81,10 +101,11 @@ void FunctionExtension::do_extension()
             <<   "int _i;"
             <<   "for (_i = 0; _i < " << _extension_amount << "; _i++)"
             <<   "{"
-            <<   replacements.replace(_funct_def.get_function_body())
+            <<   replacements.replace(function_body)
             <<   "}"
             << "}"
             ;
 
+        delete fake_dim_expr;
     }
 }
