@@ -94,10 +94,6 @@ namespace TL
      * The closure must be requested once all relevant symbols and types have
      * been added. Adding twice a symbol or type is not an error and might
      * happen implicitly because of dependences between declarations.
-     *
-     * \bug At the moment the declaration closure does not handle the case
-     * where there is some sort of cyclic dependence between types like
-     * classes and their forward declarations.
      */
     class LIBTL_CLASS DeclarationClosure
     {
