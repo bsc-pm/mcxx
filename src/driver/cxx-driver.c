@@ -321,8 +321,8 @@ int main(int argc, char* argv[])
     char parse_arguments_error;
     parse_arguments_error = parse_arguments(compilation_process.argc,
             compilation_process.argv, 
-            /* from_command_line= */1,
-            /* parse_implicits_only */0);
+            /* from_command_line= */ 1,
+            /* parse_implicits_only */ 0);
     
     if (parse_arguments_error)
     {
