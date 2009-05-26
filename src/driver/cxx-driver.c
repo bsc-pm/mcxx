@@ -1150,9 +1150,10 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                         && argument[2] != 's')
                 {
                     char *error = NULL;
-                    strtol(&(argument[2]), &error, 10);
+                    long int value = strtol(&(argument[2]), &error, 10);
 
-                    if (*error != '\0')
+                    if (*error != '\0'
+                            || value < 0)
                     {
                         failure = 1;
                     }

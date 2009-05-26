@@ -210,7 +210,11 @@ static int execute_program_flags_unix(const char* program_name, const char** arg
 
             int fd = fileno(new_stdout);
             close(1);
-            dup(fd);
+            int new_fd = dup(fd);
+            if (new_fd < 0)
+            {
+                running_error("error: could not duplicate standard output", 0);
+            }
         }
         if (stderr_f != NULL)
         {
@@ -224,7 +228,11 @@ static int execute_program_flags_unix(const char* program_name, const char** arg
 
             int fd = fileno(new_stderr);
             close(2);
-            dup(fd);
+            int new_fd = dup(fd);
+            if (new_fd < 0)
+            {
+                running_error("error: could not duplicate standard error", 0);
+            }
         }
         
         // The cast is here because execvp prototype does not get 
