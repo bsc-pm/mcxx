@@ -48,7 +48,7 @@ pragma_prefix = css
 language = C
 options = --variable=generate-non-task-side:yes --variable=generate-task-side:yes --variable=generate-task-ids:yes --variable=generate-task-adapters:yes --variable=align-memory:yes
 preprocessor_name = c99
-preprocessor_options = -E -I@SUPERSCALAR_INCLUDES@/cellss 
+preprocessor_options = -E -I@SUPERSCALAR_INCLUDES@
 {gcc} preprocessor_options = -include CellSS.h 
 {xlc} preprocessor_options = -qinclude=CellSS.h 
 preprocessor_options = -D__STARSS=1 -D__STARSS_ABI_VERSION=@superscalar_version@ -D__STARSS_SMP=1
