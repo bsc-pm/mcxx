@@ -168,6 +168,9 @@
 "  -export-dynamic\n" \
 "  -W<option>\n" \
 "  -pthread\n" \
+"  -Xpreprocessor OPTION\n" \
+"  -Xlinker OPTION\n" \
+"  -Xassembler OPTION\n" \
 "\n" \
 "These gcc flags are passed verbatim to preprocessor, compiler and\n" \
 "linker.\n" \
@@ -318,8 +321,8 @@ int main(int argc, char* argv[])
     char parse_arguments_error;
     parse_arguments_error = parse_arguments(compilation_process.argc,
             compilation_process.argv, 
-            /* from_command_line= */1,
-            /* parse_implicits_only */0);
+            /* from_command_line= */ 1,
+            /* parse_implicits_only */ 0);
     
     if (parse_arguments_error)
     {
@@ -1229,6 +1232,23 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                 {
                     failure = 1;
                 }
+                break;
+            }
+        case 'X' :
+            {
+                if ((strcmp(&argument[2], "preprocessor") == 0)
+                        || (strcmp(&argument[2], "linker") == 0)
+                        || (strcmp(&argument[2], "assembler") == 0))
+                {
+                    add_parameter_all_toolchain(argument, dry_run);
+                    (*should_advance)++;
+
+                    // Pass the next argument too
+                    argument = argv[parameter_index + 1];
+                    add_parameter_all_toolchain(argument, dry_run);
+                    (*should_advance)++;
+                }
+
                 break;
             }
         case '-' :

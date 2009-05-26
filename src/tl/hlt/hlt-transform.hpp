@@ -29,6 +29,7 @@
 
 namespace TL
 {
+    //! High Level Transformations for TL
     namespace HLT
     {
         //! \addtogroup HLT High Level Transformations
