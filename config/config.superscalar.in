@@ -3,8 +3,8 @@ language = C
 options = --variable=generate-non-task-side:yes --variable=generate-task-side:no --variable=generate-task-ids:yes --variable=generate-task-adapters:no --variable=align-memory:yes
 preprocessor_name = ppu-c99
 preprocessor_options = -E
-{gcc} preprocessor_options =  -m32 -I@prefix@/include -include CellSS.h
-{xlc} preprocessor_options =  -q32 -I@prefix@/include -qinclude=CellSS.h
+{gcc} preprocessor_options =  -m32 -I@SUPERSCALAR_INCLUDES@/cellss -include CellSS.h
+{xlc} preprocessor_options =  -q32 -I@SUPERSCALAR_INCLUDES@/cellss -qinclude=CellSS.h
 {gcc} preprocessor_options = -DPPU_CODE -maltivec -include malloc.h
 {xlc} preprocessor_options = -DPPU_CODE -maltivec -qinclude=malloc.h
 preprocessor_options = -D__STARSS=1 -D__STARSS_ABI_VERSION=@superscalar_version@ -D__STARSS_CELL=1
@@ -12,7 +12,7 @@ compiler_name = ppu-c99
 {gcc} compiler_options = -g3 -m32 -maltivec
 {xlc} compiler_options = -g -q32 -qaltivec
 linker_name = ppu-g++
-linker_options = -g3 -m32 -L@prefix@/lib -lCellSS -lspe2 -lpthread
+linker_options = -g3 -m32 -L@SUPERSCALAR_LIBS@ -lCellSS -lspe2 -lpthread
 compiler_phase = libtlsuperscalar-configurator.so
 compiler_phase = libtlsuperscalar-preanalysis.so
 compiler_phase = libtlsuperscalar-task-analysis.so
@@ -26,7 +26,7 @@ pragma_prefix = css
 language = C
 options = --variable=generate-non-task-side:no --variable=generate-task-side:yes --variable=generate-task-ids:no --variable=generate-task-adapters:yes --variable=align-memory:yes
 preprocessor_name = spu-c99
-preprocessor_options = -E -I@prefix@/spu/include
+preprocessor_options = -E -I@SUPERSCALAR_INCLUDES@/cellss
 {gcc} preprocessor_options = -include CellSS.h
 {xlc} preprocessor_options = -qinclude=CellSS.h
 preprocessor_options = -DSPU_CODE -D__STARSS=1 -D__STARSS_ABI_VERSION=@superscalar_version@ -D__STARSS_CELL=1
@@ -34,7 +34,7 @@ preprocessor_options = -DSPU_CODE -D__STARSS=1 -D__STARSS_ABI_VERSION=@superscal
 compiler_name = spu-c99
 compiler_options = -g3
 linker_name = spu-c99
-linker_options = -g3 -L@prefix@/spu/lib -lCellSS-spu
+linker_options = -g3 -L@SUPERSCALAR_LIBS@/spu -lCellSS-spu
 compiler_phase = libtlsuperscalar-configurator.so
 compiler_phase = libtlsuperscalar-preanalysis.so
 compiler_phase = libtlsuperscalar-task-analysis.so
@@ -48,7 +48,7 @@ pragma_prefix = css
 language = C
 options = --variable=generate-non-task-side:yes --variable=generate-task-side:yes --variable=generate-task-ids:yes --variable=generate-task-adapters:yes --variable=align-memory:yes
 preprocessor_name = c99
-preprocessor_options = -E -I@prefix@/include 
+preprocessor_options = -E -I@SUPERSCALAR_INCLUDES@
 {gcc} preprocessor_options = -include CellSS.h 
 {xlc} preprocessor_options = -qinclude=CellSS.h 
 preprocessor_options = -D__STARSS=1 -D__STARSS_ABI_VERSION=@superscalar_version@ -D__STARSS_SMP=1
@@ -57,7 +57,7 @@ compiler_name = c99
 {gcc} compiler_options = -g3
 {xlc} compiler_options = -g
 linker_name = g++
-linker_options = -g3 -L@prefix@/lib -lSMPSS -lpthread
+linker_options = -g3 -L@SUPERSCALAR_LIBS@ -lSMPSS -lpthread
 compiler_phase = libtlsuperscalar-configurator.so
 compiler_phase = libtlsuperscalar-preanalysis.so
 compiler_phase = libtlsuperscalar-task-analysis.so
