@@ -62,6 +62,7 @@ replace.sh : Makefile
 
 replace.sh : replace.sh.in
 
+# This is valid in parallel make since we are generating one goal file at a time
 $(CONFIG_MCXX) $(CONFIG_FILES) : Makefile replace.sh
 	./replace.sh "$(srcdir)/$@.in" "$@"
 
