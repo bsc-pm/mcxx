@@ -868,10 +868,9 @@ int parse_arguments(int argc, const char* argv[],
             && (strcmp(output_file, "-") == 0)
             && !E_specified
             && !y_specified
-            && !v_specified
             && !CURRENT_CONFIGURATION->do_not_process_files)
     {
-        fprintf(stderr, "You must specify an output file.\n");
+        fprintf(stderr, "Specifying stdout by means of '-o -' is only valid with -y or -E\n");
         return 1;
     }
 
@@ -1150,9 +1149,10 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                         && argument[2] != 's')
                 {
                     char *error = NULL;
-                    strtol(&(argument[2]), &error, 10);
+                    long int value = strtol(&(argument[2]), &error, 10);
 
-                    if (*error != '\0')
+                    if (*error != '\0'
+                            || value < 0)
                     {
                         failure = 1;
                     }
