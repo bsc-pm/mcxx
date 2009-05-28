@@ -570,6 +570,13 @@ void HLTPragmaPhase::extend_function(PragmaCustomConstruct construct)
 
     TL::HLT::FunctionExtension funct_extensions(funct_def, factor);
 
+    PragmaCustomClause name_clause = construct.get_clause("name");
+    if (name_clause.is_defined())
+    {
+        ObjectList<std::string> clause_args = name_clause.get_arguments();
+        funct_extensions.set_extended_function_name(clause_args[0]);
+    }
+
     Source src = funct_extensions;
 
     TL::AST_t new_function = src.parse_declaration(construct.get_ast(),

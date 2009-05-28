@@ -3,7 +3,10 @@
 using namespace TL::HLT;
 
 FunctionExtension::FunctionExtension(FunctionDefinition funct_def, Expression extension_amount)
-    : _funct_def(funct_def), _extension_amount(extension_amount), _function_symbol(_funct_def.get_function_symbol())
+    : _funct_def(funct_def), 
+    _extension_amount(extension_amount), 
+    _function_symbol(_funct_def.get_function_symbol()),
+    _extended_function_name("")
 {
 }
 
@@ -30,8 +33,16 @@ void FunctionExtension::do_extension()
     // This is so silly but maybe in the future we will work on an array
     return_type << "void";
 
-    function_name << "_" << _function_symbol.get_name() << "_ext"
-        ;
+    if (_extended_function_name != "")
+    {
+        function_name << _extended_function_name
+            ;
+    }
+    else
+    {
+        function_name << "_" << _function_symbol.get_name() << "_ext"
+            ;
+    }
 
     bool has_ellipsis = false;
     ObjectList<Type> parameters = function_type.parameters(has_ellipsis);
@@ -139,4 +150,10 @@ void FunctionExtension::do_extension()
 
         delete fake_dim_expr;
     }
+}
+
+FunctionExtension& FunctionExtension::set_extended_function_name(const std::string name)
+{
+    this->_extended_function_name = name;
+    return *this;
 }

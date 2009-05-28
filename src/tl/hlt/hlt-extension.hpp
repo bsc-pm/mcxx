@@ -19,7 +19,7 @@ namespace TL
                 Expression _extension_amount;
                 Symbol _function_symbol;
                 Source _extension_code;
-
+                std::string _extended_function_name;
 
                 void do_extension();
             public:
@@ -27,6 +27,8 @@ namespace TL
 
                 FunctionExtension(FunctionDefinition funct_def, 
                         Expression extension_amount);
+
+                FunctionExtension& set_extended_function_name(const std::string name);
         };
 
         FunctionExtension function_extension(FunctionDefinition funct_def,
