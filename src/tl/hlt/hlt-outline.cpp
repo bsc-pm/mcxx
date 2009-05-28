@@ -1,4 +1,5 @@
 #include "hlt-outline.hpp"
+#include "hlt-exception.hpp"
 #include "cxx-utils.h"
 #include <algorithm>
 #include <functional>
@@ -13,7 +14,10 @@ Outline::Outline(ScopeLink sl, Statement stmt)
     _packed_arguments(false), 
     _do_not_embed(false), 
     _use_nonlocal_scope(true),
-    _outline_num(_num_outlines++)
+    _outline_num(_num_outlines++),
+    _outline_performed(false),
+    _overriden_outline_name(false),
+    _default_parameter_passing(POINTER)
 {
     _outline_statements.append(stmt);
 }
@@ -25,13 +29,23 @@ Outline::Outline(ScopeLink sl, ObjectList<Statement> stmt_list)
     _do_not_embed(false), 
     _use_nonlocal_scope(true),
     _outline_statements(stmt_list),
-    _outline_num(_num_outlines++)
+    _outline_num(_num_outlines++),
+    _outline_performed(false),
+    _overriden_outline_name(false),
+    _default_parameter_passing(POINTER)
 {
 }
 
 TL::Source Outline::get_source()
 {
     do_outline();
+
+    if (!_do_not_embed)
+    {
+        // Now embed the outline
+        embed_outline();
+    }
+
     return _outlined_source;
 }
 
@@ -49,6 +63,11 @@ Outline& Outline::do_not_embed()
 
 void Outline::do_outline()
 {
+    if (_outline_performed)
+        return;
+    
+    _outline_performed = true;
+
     // We can start building the outline code
     Source template_headers,
            template_headers_fwd,
@@ -104,11 +123,6 @@ void Outline::do_outline()
         fill_nonmember_forward_declarations(template_headers_fwd, forward_declarations);
     }
 
-    if (!_do_not_embed)
-    {
-        // Now embed the outline
-        embed_outline();
-    }
 }
 
 static std::string template_header_regeneration(TL::TemplateHeader template_header)
@@ -118,7 +132,7 @@ static std::string template_header_regeneration(TL::TemplateHeader template_head
         = template_header.get_parameters().map(
                 functor<std::string, TemplateParameter>(&LangConstruct::prettyprint));
 
-    return "template <" + template_header.prettyprint() + " >";
+    return "template <" + concat_strings(template_parameters, ",") + " >";
 }
 
 void Outline::compute_outline_name(Source &template_headers_fwd, 
@@ -177,9 +191,12 @@ void Outline::compute_outline_name(Source &template_headers_fwd,
         }
     }
 
-    _outline_name
-        << "_ol_" << _outline_num << "_" << _enclosing_function.get_name()
-        ;
+    if (!_overriden_outline_name)
+    {
+        _outline_name
+            << "_ol_" << _outline_num << "_" << _enclosing_function.get_name()
+            ;
+    }
 
     if (_is_member && _is_inlined_member)
     {
@@ -193,55 +210,43 @@ static void get_referenced_entities(TL::Statement stmt, TL::ObjectList<TL::Symbo
     entities->insert(local_list.map(functor(&TL::IdExpression::get_symbol)));
 }
 
-static std::string c_argument_declaration(TL::Symbol sym)
-{
-    TL::Type type = sym.get_type();
-    if (type.is_array())
-    {
-        type = type.array_element();
-    }
-
-    type = type.get_pointer_to();
-
-    return type.get_declaration(sym.get_scope(), sym.get_name());
-}
-
-#if 0
-static std::string cxx_argument_declaration(TL::Symbol sym)
-{
-    Type type = sym.get_type();
-
-    type = type.get_reference_to();
-
-    return type.get_declaration(sym.get_scope(), sym.get_name());
-}
-#endif
-
-static void get_field_decls(TL::Symbol sym, TL::Source *src)
-{
-    (*src) << c_argument_declaration(sym) << ";"
-        ;
-}
-
 struct GetDeclarationInScope 
 {
     private:
+        Outline& _outline;
         TL::Scope _sc;
     public:
-        GetDeclarationInScope(TL::Scope sc)
-            : _sc(sc)
+        GetDeclarationInScope(Outline& outline, TL::Scope sc)
+            : _outline(outline), _sc(sc)
         {
         }
 
         std::string operator()(TL::Symbol sym)
         {
-            TL::Type type = sym.get_type();
-            if (type.is_array())
-            {
-                type = type.array_element();
-            }
+            Outline::ParameterPassing passing = _outline.get_parameter_passing(sym);
 
-            type = type.get_pointer_to();
+            TL::Type type = sym.get_type();
+            switch (passing)
+            {
+                case Outline::POINTER:
+                    {
+                        if (type.is_array())
+                        {
+                            type = type.array_element();
+                        }
+
+                        type = type.get_pointer_to();
+                        break;
+                    }
+                case Outline::VALUE:
+                    {
+                        break;
+                    }
+                default:
+                    {
+                        throw HLTException("invalid passing mode");
+                    }
+            }
 
             return type.get_declaration(_sc, sym.get_name());
         }
@@ -252,8 +257,8 @@ struct GetFieldDeclarations : public GetDeclarationInScope
     private:
         TL::Source _src;
     public:
-        GetFieldDeclarations(TL::Scope sc, TL::Source& src)
-            : GetDeclarationInScope(sc),
+        GetFieldDeclarations(Outline& outline, TL::Scope sc, TL::Source& src)
+            : GetDeclarationInScope(outline, sc),
             _src(src)
         {
         }
@@ -276,6 +281,17 @@ void Outline::compute_additional_declarations(Source template_headers,
     if (_packed_arguments)
     {
         Source arg_typename;
+
+        CXX_LANGUAGE()
+        {
+            if (_enclosing_function.get_type().is_template_specialized_type())
+            {
+                _additional_decls_source
+                    << template_headers
+                    ;
+            }
+        }
+
         arg_typename
             << "struct _arg_pack_" << _outline_num << "_t"
                 ;
@@ -287,6 +303,17 @@ void Outline::compute_additional_declarations(Source template_headers,
         CXX_LANGUAGE()
         {
             _packed_argument_typename << "_arg_pack_" << _outline_num << "_t";
+
+            if (_enclosing_function.get_type().is_template_specialized_type())
+            {
+                TemplateHeader& last_template_header = *(_template_header.rbegin());
+
+                _packed_argument_typename
+                    << "<"
+                    << concat_strings(last_template_header.get_parameters().map(functor(&TemplateParameter::get_name)), ",")
+                    << ">"
+                    ;
+            }
         }
 
         Source fields;
@@ -312,12 +339,12 @@ void Outline::compute_additional_declarations(Source template_headers,
             ptr_class_type = ptr_class_type.get_pointer_to();
 
             fields
-                << ptr_class_type.get_declaration(scope_of_decls, "_this")
+                << ptr_class_type.get_declaration(scope_of_decls, "_this") << ";"
                 ;
         }
 
         std::for_each(_parameter_passed_symbols.begin(), _parameter_passed_symbols.end(),
-                GetFieldDeclarations(scope_of_decls, fields));
+                GetFieldDeclarations(*this, scope_of_decls, fields));
 
     }
 }
@@ -365,7 +392,7 @@ TL::Source Outline::get_parameter_declarations(Scope scope_of_decls)
                     ;
             }
 
-            GetDeclarationInScope get_declarations(scope_of_decls);
+            GetDeclarationInScope get_declarations(*this, scope_of_decls);
             ObjectList<std::string> declarations =
                 _parameter_passed_symbols.map(functor(&GetDeclarationInScope::operator(), get_declarations));
 
@@ -377,6 +404,22 @@ TL::Source Outline::get_parameter_declarations(Scope scope_of_decls)
 
     return parameters;
 }
+
+struct DoNotPass : public TL::Predicate<TL::Symbol>
+{
+    private:
+        Outline& _outline;
+    public:
+        DoNotPass(Outline& outline)
+            : _outline(outline)
+        {
+        }
+
+        virtual bool do_(TL::Symbol& sym) const
+        {
+            return (_outline.get_parameter_passing(sym) != Outline::DO_NOT_PASS);
+        }
+};
 
 void Outline::compute_referenced_entities()
 {
@@ -397,60 +440,92 @@ void Outline::compute_referenced_entities()
         _parameter_passed_symbols = all_referenced_symbols;
     }
 
+    // Remove those that we've been told they should not be passed
+    _parameter_passed_symbols = _parameter_passed_symbols.filter(DoNotPass(*this));
 }
 
 struct AuxiliarOutlineReplace
 {
-    TL::ReplaceSrcIdExpression *_replacements;
-    TL::Symbol _enclosing_function;
-    bool _packed_args;
+    private:
+        Outline &_outline;
+        TL::ReplaceSrcIdExpression *_replacements;
+        TL::Symbol _enclosing_function;
+        bool _packed_args;
 
-    AuxiliarOutlineReplace(TL::ReplaceSrcIdExpression& replacements,
-            TL::Symbol enclosing_function,
-            bool packed_args)
-        : _replacements(&replacements),
-        _enclosing_function(enclosing_function),
-        _packed_args(packed_args) { }
+    public:
+        AuxiliarOutlineReplace(
+                Outline &outline,
+                TL::ReplaceSrcIdExpression& replacements,
+                TL::Symbol enclosing_function,
+                bool packed_args)
+            : _outline(outline),
+            _replacements(&replacements),
+            _enclosing_function(enclosing_function),
+            _packed_args(packed_args) { }
 
-    void operator()(TL::Symbol sym)
-    {
-        if (!IS_CXX_LANGUAGE
-                || !sym.is_member() 
-                || !(_enclosing_function.is_member() && !_enclosing_function.is_static())
-                || !sym.get_class_type().is_same_type(_enclosing_function.get_class_type()))
+        void operator()(TL::Symbol sym)
         {
-            if (_packed_args)
+            Outline::ParameterPassing passing = _outline.get_parameter_passing(sym);
+            if (!IS_CXX_LANGUAGE
+                    || !sym.is_member() 
+                    || !(_enclosing_function.is_member() && !_enclosing_function.is_static())
+                    || !sym.get_class_type().is_same_type(_enclosing_function.get_class_type()))
             {
-                _replacements->add_replacement(sym, "(*_args->" + sym.get_name() + ")");
+                if (_packed_args)
+                {
+                    if (passing == Outline::POINTER)
+                    {
+                        _replacements->add_replacement(sym, "(*_args->" + sym.get_name() + ")");
+                    }
+                    else if (passing == Outline::VALUE)
+                    {
+                        _replacements->add_replacement(sym, "(_args->" + sym.get_name() + ")");
+                    }
+                    else
+                    {
+                        throw HLTException("invalid passing mode");
+                    }
+                }
+                else
+                {
+                    if (passing == Outline::POINTER)
+                    {
+                        _replacements->add_replacement(sym, "(*" + sym.get_name() + ")");
+                    }
+                    else if (passing == Outline::VALUE)
+                    {
+                        // Do nothing, actually
+                        // _replacements->add_replacement(sym, "(" + sym.get_name() + ")");
+                    }
+                    else
+                    {
+                        throw HLTException("invalid passing mode");
+                    }
+                }
             }
             else
             {
-                _replacements->add_replacement(sym, "(*" + sym.get_name() + ")");
+                if (_packed_args)
+                {
+                    _replacements->add_replacement(sym, "(_args->_this->" + sym.get_name() + ")");
+                }
+                else
+                {
+                    _replacements->add_replacement(sym, "(_this->" + sym.get_name() + ")");
+                }
             }
         }
-        else
-        {
-            if (_packed_args)
-            {
-                _replacements->add_replacement(sym, "(_args->_this->" + sym.get_name() + ")");
-            }
-            else
-            {
-                _replacements->add_replacement(sym, "(_this->" + sym.get_name() + ")");
-            }
-        }
-    }
 };
 
 struct auxiliar_replace_t
 {
     TL::Source *src;
-    TL::ReplaceSrcIdExpression *replacements;
+    TL::ReplaceSrcIdExpression *repls;
 };
 
 static void print_replaced_stmts(TL::Statement stmt, auxiliar_replace_t aux)
 {
-    (*aux.src) << aux.replacements->replace(stmt);
+    (*aux.src) << aux.repls->replace(stmt);
 }
 
 void Outline::compute_outlined_body(Source &outlined_body)
@@ -459,7 +534,7 @@ void Outline::compute_outlined_body(Source &outlined_body)
 
     std::for_each(_replaced_symbols.begin(),
             _replaced_symbols.end(),
-            AuxiliarOutlineReplace(replacements, _enclosing_function, _packed_arguments));
+            AuxiliarOutlineReplace(*this, replacements, _enclosing_function, _packed_arguments));
 
     auxiliar_replace_t aux = { &outlined_body, &replacements };
 
@@ -534,7 +609,80 @@ void Outline::embed_outline()
     _function_def->get_ast().prepend_sibling_function(outline_tree);
 }
 
+Outline& Outline::set_outline_name(const std::string& str)
+{
+    _outline_name = str;
+}
+
+std::string Outline::get_outline_name()
+{
+    do_outline();
+    return _outline_name;
+}
+
 Outline::~Outline()
 {
     delete _function_def;
+}
+
+void Outline::set_default_parameter_passing(ParameterPassing passing)
+{
+    _default_parameter_passing = passing;
+}
+
+void Outline::set_parameter_passing(Symbol sym, ParameterPassing passing)
+{
+    if (!_parameter_info.contains(functor(&ParameterInfo::related_symbol), sym))
+    {
+        ParameterInfo param_info;
+
+        param_info.related_symbol = sym;
+        param_info.passing = passing;
+        param_info.outline_ref = sym.get_name();
+
+        _parameter_info.append(param_info);
+    }
+    else
+    {
+        ParameterInfo &param_info = *(_parameter_info
+                .find(functor(&ParameterInfo::related_symbol), sym).begin());
+
+        param_info.passing = passing;
+    }
+}
+
+Outline::ParameterPassing Outline::get_parameter_passing(Symbol sym)
+{
+    set_parameter_passing_if_not_set(sym);
+
+    ParameterInfo &param_info = *(_parameter_info
+            .find(functor(&ParameterInfo::related_symbol), sym).begin());
+
+    return param_info.passing;
+}
+
+void Outline::set_parameter_passing_if_not_set(Symbol sym)
+{
+    if (!_parameter_info.contains(functor(&ParameterInfo::related_symbol), sym))
+    {
+        ParameterInfo param_info;
+
+        param_info.related_symbol = sym;
+        param_info.passing = _default_parameter_passing;
+        param_info.outline_ref = sym.get_name();
+
+        _parameter_info.append(param_info);
+    }
+}
+
+TL::ObjectList<TL::Symbol> Outline::get_parameter_list()
+{
+    do_outline();
+    return _parameter_passed_symbols;
+}
+
+std::string Outline::get_packing_struct_typename()
+{
+    do_outline();
+    return _packed_argument_typename;
 }

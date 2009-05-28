@@ -28,6 +28,15 @@ namespace TL
 {
     namespace HLT
     {
+        //! \addtogroup HLT High Level Transformations
+        //! @{
+
+        //! Unrolls a regular loop a given number of times
+        /*! 
+          This class implements loop unrolling. Loop unrolling
+          repeats the body of the loop in the loop itsel, adjusting
+          the stride and creating, if necessary an epilog loop.
+          */
         class LIBHLT_CLASS LoopUnroll : public BaseTransform
         {
             protected:
@@ -39,10 +48,22 @@ namespace TL
 
                 Source do_unroll();
             public:
+                //! Creates a LoopUnroll object
+                /*!
+                  \param for_stmt Regular loop
+                  \param factor Number of times this loop is unrolled
+                 */
                 LoopUnroll(ForStatement for_stmt, unsigned int factor);
         };
 
+        //! Creates a LoopUnroll object
+        /*!
+          \param for_stmt Regular loop
+          \param factor Number of times this loop is unrolled
+         */
         LIBHLT_EXTERN LoopUnroll unroll_loop(ForStatement for_stmt, unsigned int factor);
+
+        //! @}
     }
 }
 

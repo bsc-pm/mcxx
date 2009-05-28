@@ -30,6 +30,16 @@ namespace TL
 {
     namespace HLT
     {
+        //! \addtogroup HLT High Level Transformations
+        //! @{
+
+        //! Class that implements loop blocking
+        /*! 
+          This class implements blocking on a perfect loop nest.
+
+          Input of this transformation is a perfect loop nest and a list of 
+          expressions containing each the value of blocking in each loop nest.
+         */
         class LIBHLT_CLASS LoopBlocking : public BaseTransform
         {
             protected:
@@ -46,10 +56,22 @@ namespace TL
 
                 bool check_nesting();
             public:
+                //! Constructs a LoopBlocking object
+                /*!
+                   \param for_stmt For statement that should be a perfect loop nest
+                   \param block_factors List of expressions, each one with the block size of the corresponding nest level
+                   */
                 LoopBlocking(TL::ForStatement for_stmt, ObjectList<TL::Expression> block_factors);
         };
 
+        //! Returns a LoopBlocking object
+        /*!
+          \param for_stmt For statement that should be a perfect loop nest
+          \param block_factors List of expressions, each one with the block size of the corresponding nest level
+         */
         LIBHLT_EXTERN LoopBlocking block_loop(TL::ForStatement for_stmt, ObjectList<TL::Expression> block_factors);
+
+        //! @}
     }
 }
 

@@ -78,8 +78,9 @@ libraries, loaded by the compiler as stated by the configuration. They are
 run in the same order as they appear in the compiler configuration.
 
 Every compiler phase receives a @acronym{DTO, Data Transfer Object} with the basic
-information to work: the translation unit abstract syntax tree (@pxref{Abstract Syntax Tree})
-and a suitable scope link (@pxref{Scope link}).
+information to work: the translation unit abstract syntax tree 
+(@pxref{Abstract Syntax Tree, , Abstract Syntax Tree, mcxx-internals, mcxx Internals Manual})
+and a suitable scope link (@pxref{Scope link, , Scope Link, mcxx-internals, mcxx Internals Manual}).
 
 Phases can add information to this DTO, so subsequent phases can use
 information synthesized by previous ones. This makes this part behave more like
@@ -97,12 +98,15 @@ can also be used as an intermediate step for other transforms.
 @cindex wrapper classes
 
 Instead of working with the internal compiler structures (detailed in
-@ref{Abstract Syntax Tree}, @ref{Type system}, @ref{Symbols}, @ref{Scopes and
-contexts} and @ref{Extensible structures and schemas}) TL provides several C++
-classes wrapping all these structures. Their goal is to be a nicer interface
-and also to provide an extra freedom degree, allowing to change the internals
-of the compiler without disturbing too much the already written compiler
-phases. 
+@ref{Abstract Syntax Tree, , Abstract Syntax Tree, mcxx-internals, mcxx Internals Manual}, 
+@ref{Type system, , Type System, mcxx-internals, mcxx Internals Manual}, 
+@ref{Symbols, , Symbols, mcxx-internals, mcxx Internals Manual}, 
+@ref{Scopes and contexts, , Scopes and contexts, mcxx-internals, mcxx Internals Manual} 
+and @ref{Extensible structures and schemas, , Extensible structures and schemas, mcxx-internals, mcxx Internals Manual}) 
+TL provides several C++ classes wrapping all these structures. Their goal is to
+be a nicer interface and also to provide an extra freedom degree, allowing to
+change the internals of the compiler without disturbing too much the already
+written compiler phases. 
 
 Following table summarizes relationship between classes and the wrapped
 entity.
@@ -118,9 +122,8 @@ entity.
 
 Class @code{TL::Object} is a base class for all these types and provides
 virtual methods to implement access to the extensible structure
-(@pxref{Extensible structures and schemas}.  Currently, only @code{TL::AST_t}
-provides such facility since at the moment is the only compiler structure using
-it@footnote{Though the idea is that all the others do use it}.
+(@pxref{Extensible structures and schemas, , Extensible structures and schemas, mcxx-internals, mcxx Internals Manual}). 
+Currently, only @code{TL::AST_t} and @code{TL::Symbol} provide such facilities@footnote{Though the idea is that all the others do use it}.
 
 @node Creating source
 @section Creating source
@@ -350,7 +353,7 @@ This chapter is devoted to introduce you several examples when using TL, trying 
 the most popular transformations and uses of the compiler.
 
 This chapter does not give any detail on specific issues like how to compile
-and build the phases, this is later addressed in @ref{Installation of mcxx}.
+and build the phases, this is later addressed in @ref{Installation of mcxx, , Installation of mcxx, mcxx-internals, mcxx Internals Manual}.
 
 @node Hello world
 @section Hello world
@@ -414,7 +417,7 @@ at all but eases writing code that makes use of TL classes. You can define your
 compiler phase in any namespace of your own.
 
 In order to use this phase you have to add a new @code{compiler_phase} in the
-compiler configuration file (@pxref{Configuration}) with the name of the shared
+compiler configuration file (@pxref{Configuration, , Configuration, mcxx-internals, mcxx Internals Manual}) with the name of the shared
 object file, in this example likely to be @file{tl-helloworld.so}.
 
 @node Phase information

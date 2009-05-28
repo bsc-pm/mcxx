@@ -216,6 +216,7 @@ typedef struct compilation_configuration_line
 typedef struct compilation_configuration_tag
 {
     const char *configuration_name;
+    struct compilation_configuration_tag* base_configuration;
 
     // Configuration lines, this information is used
     // before configuration commit

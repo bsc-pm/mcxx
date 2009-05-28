@@ -28,7 +28,15 @@ namespace TL
 {
     namespace HLT
     {
-        struct LIBHLT_CLASS LoopFusion : public BaseTransform
+        //! \addtogroup HLT High Level Transformations
+        //! @{
+
+        //! This class implements loop fusion 
+        /*!
+          Loop fusion is a loop transformation where a set of loops
+          with the same iteration space is fused into a single loop.
+         */
+        class LIBHLT_CLASS LoopFusion : public BaseTransform
         {
             private:
                 ObjectList<ForStatement> _for_stmt_list;
@@ -36,10 +44,19 @@ namespace TL
             protected:
                 virtual Source get_source();
             public:
+                //! Creates a LoopFusion object
+                /*!
+                  \param for_stmt_list List of regular for statements
+                  */
                 LoopFusion(ObjectList<ForStatement> for_stmt_list);
         };
 
-        LIBHLT_EXTERN LoopFusion loop_fusion(ObjectList<ForStatement>);
+        //! Creates a LoopFusion object
+        /*!
+          \param for_stmt_list List of regular for statements
+         */
+        LIBHLT_EXTERN LoopFusion loop_fusion(ObjectList<ForStatement> for_stmt_list);
+        //! @}
     }
 }
 

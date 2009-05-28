@@ -28,6 +28,7 @@
 #include "tl-objectlist.hpp"
 #include "tl-refptr.hpp"
 
+//! TL classes for compiler phases
 namespace TL
 {
     //! Class type of the object used to pass information along the compiler phase pipeline

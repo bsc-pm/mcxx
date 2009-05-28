@@ -28,6 +28,16 @@ namespace TL
 {
     namespace HLT
     {
+        //! \addtogroup HLT High Level Transformations
+        //! @{
+
+        //! This class implements loop distribution
+        /*!
+          Loop distribution transforms a given loop into several loops, each
+          one performing one of the statements of the original loop. In
+          addition, the class supports expanding scalars, this is, adding them
+          a dimension so non loop carried dependences can be preserved
+         */
         class LIBHLT_CLASS LoopDistribution : public BaseTransform
         {
             protected:
@@ -37,12 +47,29 @@ namespace TL
                 TL::Source do_distribution();
                 TL::ObjectList<TL::Symbol> _expand;
             public:
+                //! Creates a LoopDistribution object
+                /*!
+                  \param for_stmt Regular loop that will be distributed
+                 */
                 LoopDistribution(TL::ForStatement for_stmt);
+                //! Creates a LoopDistribution object
+                /*!
+                  \param for_stmt Regular loop that will be distributed
+                  \param expanded List of symbols we want to expand in order to
+                  preserve dependences
+                 */
                 LoopDistribution(TL::ForStatement for_stmt, 
                         TL::ObjectList<TL::Symbol> expanded);
         };
 
+        //! Creates a LoopDistribution object
+        /*!
+          \param for_stmt Regular loop that will be distributed
+          \param expanded_scalars List of symbols we want to expand in order to
+          preserve dependences
+         */
         LIBHLT_EXTERN LoopDistribution distribute_loop(TL::ForStatement for_stmt, ObjectList<TL::Symbol> expanded_scalars);
+        //! @}
     }
 }
 

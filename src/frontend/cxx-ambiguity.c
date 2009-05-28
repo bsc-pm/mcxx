@@ -135,7 +135,7 @@ do \
 // Returns 1 if ASTType(t1) == n1 && ASTType(t2) == n2
 // Returns -1 if ASTType(t1) == n2 && ASTType(t2) == n1
 // Returns 0 otherwise
-char either_type(AST t1, AST t2, node_t n1, node_t n2)
+int either_type(AST t1, AST t2, node_t n1, node_t n2)
 {
     if ((ASTType(t1) == n1) 
             && (ASTType(t2) == n2)) 

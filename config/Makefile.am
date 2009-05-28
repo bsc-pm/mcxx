@@ -20,7 +20,7 @@ CONFIG_FILES =  \
 dist-hook:
 	for i in $(CONFIG_FILES) $(CONFIG_MCXX); \
     do \
-       cp "$(srcdir)/$${i}.in" "$(distdir)" \
+       cp "$(srcdir)/$${i}.in" "$(distdir)" ; \
     done
 
 EXTRA_DIST = replace.sh.in
@@ -44,8 +44,11 @@ config_edit = \
      -e 's|@NEBELUNG_INCLUDES[@]|$(NEBELUNG_INCLUDES)|g' \
      -e 's|@NEBELUNG_LIBS[@]|$(NEBELUNG_LIBS)|g' \
      -e "s|@SUPERSCALAR_INCLUDES[@]|$(SUPERSCALAR_INCLUDES)|g" \
+     -e "s|@SUPERSCALAR_LIBS[@]|$(SUPERSCALAR_LIBS)|g" \
      -e "s|@abs_top_srcdir[@]|$(abs_top_srcdir)|g" \
      -e 's|@prefix[@]|$(prefix)|g' \
+     -e 's|@includedir[@]|$(includedir)|g' \
+     -e 's|@libdir[@]|$(libdir)|g' \
      -e 's|@superscalar_version[@]|$(superscalar_version)|g' \
     $(END)
 
@@ -59,13 +62,14 @@ replace.sh : Makefile
 
 replace.sh : replace.sh.in
 
+# This is valid in parallel make since we are generating one goal file at a time
 $(CONFIG_MCXX) $(CONFIG_FILES) : Makefile replace.sh
 	./replace.sh "$(srcdir)/$@.in" "$@"
 
-dist_pkgdata_DATA = \
+pkgdata_DATA = \
 		config.mcxx \
 		$(END)
 
 configdir = $(pkgdatadir)/config.d
-dist_config_DATA = \
+config_DATA = \
         $(CONFIG_FILES)

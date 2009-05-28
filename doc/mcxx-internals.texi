@@ -3504,6 +3504,8 @@ This tool is used to generated the document you are reading.
 @item Doxygen
 Source code documentation extraction tool @code{doxygen} is required to build
 the internal reference documentation.
+@item DejaGnu
+Testsuite driver tool. Required if you execute @code{make check} to run tests.
 @end table
 
 @code{configure} script will try to find suitable versions of these tools.
@@ -3572,7 +3574,7 @@ Directory @file{doc} contains several documentation resources of mcxx.
 The document you are reading can be generated in @code{info} form by typing
 @code{make} in that directory, this requires @code{texinfo} (@code{configure}
 does not check this). This info file is automatically installed along the
-compiler when you type @code{make install}.  To get @acronym{PDF, Portable
+compiler when you type @code{make install}.  To get a @acronym{PDF, Portable
 Document Format} version of this document just type @code{make pdf}.  
 
 To generate reference code, both in @acronym{HTML, HyperText Mark-up Language}

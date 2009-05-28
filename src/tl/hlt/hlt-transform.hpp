@@ -29,9 +29,16 @@
 
 namespace TL
 {
+    //! High Level Transformations for TL
     namespace HLT
     {
-        // Base for all transformations
+        //! \addtogroup HLT High Level Transformations
+        //! @{
+
+        //! Base for all transformations
+        /*!
+          All HLT transformations derive from this class.
+         */
         struct LIBHLT_CLASS BaseTransform
         {
             private:
@@ -41,23 +48,47 @@ namespace TL
                 Source get_source_impl();
 
             protected:
-                // Everybody should implement this one
+                //! Every subclass of HLT will implement this
+                /*!
+                   This function implements the transformation and returns
+                   the transformed code
+                 */
                 virtual Source get_source() = 0;
+                /*!
+                  Sets that this transformation will not do anything but
+                  returning \a tree as identity code
+
+                  \param tree Returned code representing the identity of the transformation
+                 */
                 void set_identity(AST_t tree);
 
+                //! Where warnings or error messages can be written
+                /*!
+                  By default this is std::cerr
+                 */
                 std::ostream &_ostream;
             public:
                  operator Source();
                  operator std::string();
 
                  BaseTransform();
+                 //! Constructs a BaseTransform specifying the output stream
                  BaseTransform(std::ostream &o);
                  virtual ~BaseTransform() { }
 
+                 //! Allows an identity transformation
                  BaseTransform& allow_identity();
+                 //! Allows or disallows identity transformation
+                 /*!
+                   \param b If true allows identity, otherwise is it is disallowed
+                  */
                  BaseTransform& allow_identity(bool b);
+
+                 //! Disallows identity transformation
                  BaseTransform& disallow_identity();
         };
+
+        //! @}
     }
 }
 

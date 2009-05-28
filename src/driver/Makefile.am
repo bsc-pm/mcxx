@@ -37,6 +37,8 @@ mcxx_SOURCES = \
   cxx-driver.h \
   cxx-driver-utils.c \
   cxx-driver-utils.h \
+  cxx-profile.c \
+  cxx-profile.h \
   $(END)
 
 mcxx_LDADD = \

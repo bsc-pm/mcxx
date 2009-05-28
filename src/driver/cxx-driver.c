@@ -62,6 +62,7 @@
 #include "c99-parser.h"
 #include "cxx-upc.h"
 #include "cxx-configfile.h"
+#include "cxx-profile.h"
 // It does not include any C++ code in the header
 #include "cxx-compilerphases.hpp"
 #include "mcfg.h"
@@ -167,6 +168,9 @@
 "  -export-dynamic\n" \
 "  -W<option>\n" \
 "  -pthread\n" \
+"  -Xpreprocessor OPTION\n" \
+"  -Xlinker OPTION\n" \
+"  -Xassembler OPTION\n" \
 "\n" \
 "These gcc flags are passed verbatim to preprocessor, compiler and\n" \
 "linker.\n" \
@@ -230,6 +234,7 @@ static void print_version(void);
 static void driver_initialization(int argc, const char* argv[]);
 static void initialize_default_values(void);
 static void load_configuration(void);
+static void finalize_committed_configuration(void);
 static void commit_configuration(void);
 static void compile_every_translation_unit(void);
 
@@ -271,8 +276,9 @@ static void help_message(void);
 
 static void print_memory_report(void);
 
-static int parse_special_parameters(int *should_advance, int argc, const char* argv[]);
-static int parse_parameter_flag(int *should_advance, const char *special_parameter);
+static int parse_special_parameters(int *should_advance, int argc, 
+        const char* argv[], char dry_run);
+static int parse_implicit_parameter_flag(int *should_advance, const char *special_parameter);
 
 static void list_environments(void);
 
@@ -293,15 +299,30 @@ int main(int argc, char* argv[])
     // Register default initializers
     register_default_initializers();
 
-    // Load configuration
+    // Load configuration files and the profiles defined there Here we get all
+    // the implicit parameters defined in configuration files and we switch to
+    // the main profile of the compiler. Profiles are not yet fully populated.
     load_configuration();
     
-    // Parse arguments
+    // Parse arguments just to get the implicit parameters passed in the
+    // command line. We need those to properly populate profiles.
+    parse_arguments(compilation_process.argc,
+            compilation_process.argv, 
+            /* from_command_line= */1,
+            /* parse_implicits_only */ 1);
+
+    // This commits the profiles using the implicit parameters passed in the
+    // command line that we have just fetched.  Committing a profile means
+    // filling its values.
+    commit_configuration();
+
+    // Parse arguments again, but this time ignore implicit ones and
+    // update the chosen profile
     char parse_arguments_error;
     parse_arguments_error = parse_arguments(compilation_process.argc,
-            compilation_process.argv, /* from_command_line= */1);
-
-    commit_configuration();
+            compilation_process.argv, 
+            /* from_command_line= */ 1,
+            /* parse_implicits_only */ 0);
     
     if (parse_arguments_error)
     {
@@ -311,6 +332,9 @@ int main(int argc, char* argv[])
         }
         exit(EXIT_FAILURE);
     }
+
+    // This performs additional steps depending on some enabled features
+    finalize_committed_configuration();
 
     // Compiler phases can define additional dynamic initializers
     // (besides the built in ones)
@@ -434,7 +458,11 @@ static void options_error(char* message)
 
 // Returns nonzero if an error happened. In that case we would show the help
 // Messages issued here must be ended with \n for sthetic reasons
-int parse_arguments(int argc, const char* argv[], char from_command_line)
+// if parse_implicits_only is true, then only implicit parameters are
+// considered, all other should be ignored
+int parse_arguments(int argc, const char* argv[], 
+        char from_command_line,
+        char parse_implicits_only)
 {
     const char* output_file = NULL;
 
@@ -468,11 +496,14 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
             char used_flag = 0;
 
             int should_advance_1 = 0;
-            used_flag |= !parse_parameter_flag(&should_advance_1, argv[parameter_index]);
+            used_flag |= !parse_implicit_parameter_flag(&should_advance_1, argv[parameter_index]);
             int should_advance_2 = 0;
-            used_flag |= !parse_special_parameters(&should_advance_2, parameter_index, argv);
+            used_flag |= !parse_special_parameters(&should_advance_2, 
+                    parameter_index, argv,
+                    /* dry_run */ parse_implicits_only);
 
-            if (!used_flag)
+            if (!used_flag
+                    && parse_implicits_only)
             {
                 fprintf(stderr, "Warning: Parameter '%s' skipped.\n", argv[parameter_index]);
                 // Advance one parameter if we do not know anything
@@ -492,6 +523,9 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
         // A plain parameter (not under the hood of any option)
         else if (parameter_info.flag == CLP_PLAIN_PARAMETER)
         {
+            if (parse_implicits_only)
+                continue;
+
             if (!from_command_line)
             {
                 fprintf(stderr, "Invalid non-option binded argument '%s'"
@@ -509,6 +543,10 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
         // A known option
         else 
         {
+            // Ignore normal flags since we are parsing only implicits
+            if (parse_implicits_only)
+                continue;
+
             switch (parameter_info.value)
             {
                 case OPTION_VERSION : // --version
@@ -803,7 +841,8 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
         }
     }
 
-    if (!from_command_line)
+    if (!from_command_line
+            || parse_implicits_only)
     {
         return 0;
     }
@@ -829,10 +868,9 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
             && (strcmp(output_file, "-") == 0)
             && !E_specified
             && !y_specified
-            && !v_specified
             && !CURRENT_CONFIGURATION->do_not_process_files)
     {
-        fprintf(stderr, "You must specify an output file.\n");
+        fprintf(stderr, "Specifying stdout by means of '-o -' is only valid with -y or -E\n");
         return 1;
     }
 
@@ -891,14 +929,17 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
     return 0;
 }
 
-static void add_parameter_all_toolchain(const char *argument)
+static void add_parameter_all_toolchain(const char *argument, char dry_run)
 {
-    add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, argument);
-    add_to_parameter_list_str(&CURRENT_CONFIGURATION->native_compiler_options, argument);
-    add_to_parameter_list_str(&CURRENT_CONFIGURATION->linker_options, argument);
+    if (!dry_run)
+    {
+        add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, argument);
+        add_to_parameter_list_str(&CURRENT_CONFIGURATION->native_compiler_options, argument);
+        add_to_parameter_list_str(&CURRENT_CONFIGURATION->linker_options, argument);
+    }
 }
 
-static int parse_parameter_flag(int * should_advance, const char *parameter_flag)
+static int parse_implicit_parameter_flag(int * should_advance, const char *parameter_flag)
 {
     // Check whether this flag is of the implicitly registered flags 
     // because of the configuration
@@ -981,8 +1022,10 @@ static char strprefix(const char* str, const char *prefix)
 }
 
 static int parse_special_parameters(int *should_advance, int parameter_index,
-        const char* argv[])
+        const char* argv[], char dry_run)
 {
+    // If dry_run is true do not change any configuration!  just make what is
+    // needed to advance along the parameters
     // FIXME: This function should use gperf-ectionated
     // This code can be written better
     int failure = 0;
@@ -1007,7 +1050,7 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
 
                 if (!failure)
                 {
-                    add_parameter_all_toolchain(argument);
+                    add_parameter_all_toolchain(argument, dry_run);
                     (*should_advance)++;
                 }
                 break;
@@ -1015,7 +1058,7 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
         case 'f':
         case 'm':
             {
-                add_parameter_all_toolchain(argument);
+                add_parameter_all_toolchain(argument, dry_run);
                 (*should_advance)++;
                 break;
             }
@@ -1033,24 +1076,27 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                     if (strcmp(&argument[1], "M") == 0
                             || strcmp(&argument[1], "MM") == 0)
                     {
-                        CURRENT_CONFIGURATION->do_not_parse = 1;
-                        CURRENT_CONFIGURATION->do_not_compile = 1;
-                        CURRENT_CONFIGURATION->do_not_link = 1;
+                        if (!dry_run)
+                        {
+                            CURRENT_CONFIGURATION->do_not_parse = 1;
+                            CURRENT_CONFIGURATION->do_not_compile = 1;
+                            CURRENT_CONFIGURATION->do_not_link = 1;
+                        }
                     }
 
-                    add_parameter_all_toolchain(argument);
+                    add_parameter_all_toolchain(argument, dry_run);
                     (*should_advance)++;
                 }
                 else if (((argument[2] == 'F') && (argument[3] == '\0')) // -MF
                         || ((argument[2] == 'G') && (argument[3] == '\0')) // -MG
                         || ((argument[2] == 'T') && (argument[3] == '\0'))) // -MT
                 {
-                    add_parameter_all_toolchain(argument);
+                    add_parameter_all_toolchain(argument, dry_run);
                     (*should_advance)++;
 
                     // Pass the next argument too
                     argument = argv[parameter_index + 1];
-                    add_parameter_all_toolchain(argument);
+                    add_parameter_all_toolchain(argument, dry_run);
                     (*should_advance)++;
                 }
                 else
@@ -1075,7 +1121,7 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
 
                 if (!failure)
                 {
-                    add_parameter_all_toolchain(argument);
+                    add_parameter_all_toolchain(argument, dry_run);
                     (*should_advance)++;
                 }
 
@@ -1091,7 +1137,7 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
 
                 if (!failure)
                 {
-                    add_parameter_all_toolchain(argument);
+                    add_parameter_all_toolchain(argument, dry_run);
                     (*should_advance)++;
                 }
                 break;
@@ -1103,9 +1149,10 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                         && argument[2] != 's')
                 {
                     char *error = NULL;
-                    strtol(&(argument[2]), &error, 10);
+                    long int value = strtol(&(argument[2]), &error, 10);
 
-                    if (*error != '\0')
+                    if (*error != '\0'
+                            || value < 0)
                     {
                         failure = 1;
                     }
@@ -1113,7 +1160,7 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
 
                 if (!failure)
                 {
-                    add_parameter_all_toolchain(argument);
+                    add_parameter_all_toolchain(argument, dry_run);
                     (*should_advance)++;
                 }
                 break;
@@ -1130,7 +1177,7 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
 
                 if (!failure)
                 {
-                    add_parameter_all_toolchain(argument);
+                    add_parameter_all_toolchain(argument, dry_run);
                     (*should_advance)++;
                 }
                 break;
@@ -1143,7 +1190,8 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                 else if (strcmp(argument, "-print-search-dirs") == 0)
                 {
                     // Do not process anything
-                    CURRENT_CONFIGURATION->do_not_process_files = 1;
+                    if (!dry_run)
+                        CURRENT_CONFIGURATION->do_not_process_files = 1;
                 }
                 else if (strprefix(argument, "-print-prog-name"))
                 {
@@ -1153,7 +1201,8 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                             && *(p+1) != '\0')
                     {
                         // Do not process anything
-                        CURRENT_CONFIGURATION->do_not_process_files = 1;
+                        if (!dry_run)
+                            CURRENT_CONFIGURATION->do_not_process_files = 1;
                     }
                     else
                     {
@@ -1167,7 +1216,7 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
 
                 if (!failure)
                 {
-                    add_parameter_all_toolchain(argument);
+                    add_parameter_all_toolchain(argument, dry_run);
                     (*should_advance)++;
                 }
                 break;
@@ -1176,7 +1225,7 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
             {
                 if (strlen(argument) > strlen("-W"))
                 {
-                    add_parameter_all_toolchain(argument);
+                    add_parameter_all_toolchain(argument, dry_run);
                     (*should_advance)++;
                 }
                 else
@@ -1185,12 +1234,30 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                 }
                 break;
             }
+        case 'X' :
+            {
+                if ((strcmp(&argument[2], "preprocessor") == 0)
+                        || (strcmp(&argument[2], "linker") == 0)
+                        || (strcmp(&argument[2], "assembler") == 0))
+                {
+                    add_parameter_all_toolchain(argument, dry_run);
+                    (*should_advance)++;
+
+                    // Pass the next argument too
+                    argument = argv[parameter_index + 1];
+                    add_parameter_all_toolchain(argument, dry_run);
+                    (*should_advance)++;
+                }
+
+                break;
+            }
         case '-' :
         {
             if (argument[2] == 'W'
                     && (strlen(argument) > strlen("--Wx,")))
             {
-                parse_subcommand_arguments(&argument[3]);
+                if (!dry_run)
+                    parse_subcommand_arguments(&argument[3]);
                 (*should_advance)++;
                 break;
             }
@@ -1343,37 +1410,42 @@ static void print_version(void)
 }
 
 // Callback called for every [section] in the config file
-static int section_callback(const char* sname)
+static int section_callback(const char* sname, const char* base_name)
 {
     char section_name[128];
     strncpy(section_name, sname, 127);
     section_name[127] = '\0';
 
-    // Create the new configuration
-    compilation_configuration_t* new_compilation_configuration = calloc(1, sizeof(*new_compilation_configuration));
-    new_compilation_configuration->configuration_name = uniquestr(section_name);
+    compilation_configuration_t* base_config = NULL; 
+    if (base_name != NULL)
+    {
+        base_config = get_compilation_configuration(base_name);
 
-    // Typing environment - Highly experimental - Ignore it for now
-    // Set to an hypothetic Linux IA32 type environment
-    new_compilation_configuration->type_environment = default_environment;
-    // End of typing environment 
+        if (base_config == NULL)
+        {
+            fprintf(stderr, "Base configuration '%s' does not exist. Ignoring\n",
+                    base_name);
+        }
+    }
+
+    // Create the new configuration
+    compilation_configuration_t* new_configuration = 
+        new_compilation_configuration(section_name, base_config);
+
+    new_configuration->type_environment = default_environment;
 
     // Set now as the current compilation configuration (kludgy)
-    SET_CURRENT_CONFIGURATION(new_compilation_configuration);
+    SET_CURRENT_CONFIGURATION(new_configuration);
 
-    // Check repeated configurations
-    int i;
-    for (i = 0; i < compilation_process.num_configurations; i++)
+    if (get_compilation_configuration(section_name) != NULL)
     {
-        if (strcmp(compilation_process.configuration_set[i]->configuration_name, section_name) == 0)
-        {
-            fprintf(stderr, "Warning: configuration for '%s' defined more than once\n", section_name);
-        }
+        fprintf(stderr, "Warning: configuration profile '%s' already exists!\n",
+                section_name);
     }
 
     P_LIST_ADD(compilation_process.configuration_set, 
             compilation_process.num_configurations, 
-            new_compilation_configuration);
+            new_configuration);
 
     return 0;
 }
@@ -1568,11 +1640,7 @@ static void load_configuration(void)
     SET_CURRENT_CONFIGURATION(NULL);
     for (i = 0; i < compilation_process.num_configurations; i++)
     {
-        if (strcmp(compilation_process.configuration_set[i]->configuration_name, 
-                    compilation_process.exec_basename) == 0)
-        {
-            SET_CURRENT_CONFIGURATION(compilation_process.configuration_set[i]);
-        }
+        SET_CURRENT_CONFIGURATION(get_compilation_configuration(compilation_process.exec_basename));
     }
 
     if (CURRENT_CONFIGURATION == NULL)
@@ -1584,7 +1652,6 @@ static void load_configuration(void)
     
 }
 
-static void finalize_committed_configuration(void);
 
 static void commit_configuration(void)
 {
@@ -1592,8 +1659,13 @@ static void commit_configuration(void)
     int i;
     for (i = 0; i < compilation_process.num_configurations; i++)
     {
-        struct compilation_configuration_tag* configuration = NULL;
-        configuration = compilation_process.configuration_set[i];
+        struct compilation_configuration_tag* configuration 
+            = compilation_process.configuration_set[i];
+
+        // First preinitialize it with the base information (if any). Since
+        // they have been introduced in order, bases have been
+        // initialized/committed before
+        initialize_with_base(configuration);
 
         int j;
         for (j = 0; j < configuration->num_configuration_lines; j++)
@@ -1657,8 +1729,6 @@ static void commit_configuration(void)
                     CURRENT_CONFIGURATION->type_environment->environ_name);
         }
     }
-
-    finalize_committed_configuration();
 }
 
 static void register_upc_pragmae(void);

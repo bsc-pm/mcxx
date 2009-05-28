@@ -14,7 +14,10 @@ NANOS_LIBS="@NANOS_LIBS@"
 NEBELUNG_INCLUDES="@NEBELUNG_INCLUDES@"
 NEBELUNG_LIBS="@NEBELUNG_LIBS@"
 SUPERSCALAR_INCLUDES="@SUPERSCALAR_INCLUDES@"
+SUPERSCALAR_LIBS="@SUPERSCALAR_LIBS@"
 prefix="@prefix@"
+includedir="@includedir@"
+libdir="@libdir@"
 superscalar_version="@superscalar_version@"
 abs_top_srcdir="@abs_top_srcdir@"
 SED="@SED@"
@@ -35,7 +38,10 @@ ${SED} \
         -e "s|@NEBELUNG_INCLUDES[@]|${NEBELUNG_INCLUDES}|g" \
         -e "s|@NEBELUNG_LIBS[@]|${NEBELUNG_LIBS}|g" \
         -e "s|@SUPERSCALAR_INCLUDES[@]|${SUPERSCALAR_INCLUDES}|g" \
+        -e "s|@SUPERSCALAR_LIBS[@]|${SUPERSCALAR_LIBS}|g" \
         -e "s|@prefix[@]|${prefix}|g" \
+        -e "s|@includedir[@]|${includedir}|g" \
+        -e "s|@libdir[@]|${libdir}|g" \
         -e "s|@superscalar_version[@]|${superscalar_version}|g" \
         -e "s|@abs_top_srcdir[@]|${abs_top_srcdir}|g" \
         "$1" > "$2.tmp"

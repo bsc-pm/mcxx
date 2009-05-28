@@ -1,5 +1,5 @@
 dnl Package definition: name, version, mail
-AC_INIT([mcxx],[1.3.0.1],[rferrer@ac.upc.edu])
+AC_INIT([mcxx],[1.3.1],[rferrer@ac.upc.edu])
 
 dnl Where are we ?
 AC_CANONICAL_BUILD
@@ -455,8 +455,8 @@ dnl --------------------- Superscalar support ---------------------
  
 superscalar_include="${prefix}/include"
 superscalar_lib="${prefix}/lib"
-SUPERSCALAR_INCLUDES="-I ${superscalar_include} -include CellSS.h"
-SUPERSCALAR_LIBS=""
+SUPERSCALAR_INCLUDES="${superscalar_include}"
+SUPERSCALAR_LIBS="$superscalar_lib"
 
 is_enabled_tl_superscalar="no"
 AC_MSG_CHECKING([if Cell/SMP superscalar TL support is enabled])
@@ -536,7 +536,8 @@ then
    ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.superscalar"
 fi
      
-SUPERSCALAR_INCLUDES="-I ${superscalar_include} -include CellSS.h"
+SUPERSCALAR_INCLUDES="${superscalar_include}"
+SUPERSCALAR_LIBS="${superscalar_lib}"
  
 AM_CONDITIONAL(USE_TL_SUPERSCALAR_V1, test x"$use_tl_superscalar_version" = x"1")
 AM_CONDITIONAL(USE_TL_SUPERSCALAR_V2, test x"$use_tl_superscalar_version" = x"2")
