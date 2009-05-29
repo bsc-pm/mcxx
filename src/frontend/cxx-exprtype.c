@@ -7887,9 +7887,12 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
                 {
                     if (!is_array_type(declared_type)
                             && !is_class_type(declared_type)
+                            && !is_vector_type(declared_type)
                             && !is_dependent_type(declared_type))
                     {
-                        fprintf(stderr, "%s: warning: initialization using braces but the declared type is not an array or struct/class\n",
+                        fprintf(stderr, "%s: warning: brace initialization can only be used with\n",
+                                ast_location(initializer));
+                        fprintf(stderr, "%s: warning: array types, struct, class, union or vector types\n",
                                 ast_location(initializer));
                     }
 
@@ -7929,6 +7932,15 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
                             else if (is_array_type(declared_type))
                             {
                                 type_in_context = array_type_get_element_type(declared_type);
+                            }
+                            else if (is_vector_type(declared_type))
+                            {
+                                type_in_context = vector_type_get_element_type(declared_type);
+                            }
+                            else
+                            {
+                                internal_error("Invalid aggregated type '%s'",
+                                        print_decl_type_str(declared_type, decl_context, ""));
                             }
                         }
 
