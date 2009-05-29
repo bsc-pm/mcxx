@@ -103,6 +103,8 @@ namespace TL
                 void outline_code(PragmaCustomConstruct construct);
 
                 void extend_function(PragmaCustomConstruct construct);
+
+                void peel_loop(PragmaCustomConstruct construct);
         };
 
         //! @}

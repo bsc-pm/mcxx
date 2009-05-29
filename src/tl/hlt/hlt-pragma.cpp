@@ -28,6 +28,7 @@
 #include "hlt-composition.hpp"
 #include "hlt-outline.hpp"
 #include "hlt-extension.hpp"
+#include "hlt-peeling.hpp"
 #include "hlt-exception.hpp"
 
 #include <algorithm>
@@ -76,6 +77,9 @@ HLTPragmaPhase::HLTPragmaPhase()
 
     register_construct("extend");
     on_directive_post["extend"].connect(functor(&HLTPragmaPhase::extend_function, *this));
+
+    register_construct("peel");
+    on_directive_post["peel"].connect(functor(&HLTPragmaPhase::peel_loop, *this));
 
     _allow_identity_str = "1";
 
@@ -586,6 +590,78 @@ void HLTPragmaPhase::extend_function(PragmaCustomConstruct construct)
 
     // Now remove the pragma
     construct.get_ast().replace(decl);
+}
+
+void HLTPragmaPhase::peel_loop(PragmaCustomConstruct construct)
+{
+    Statement stmt = construct.get_statement();
+
+    if (!ForStatement::predicate(stmt.get_ast()))
+    {
+        throw HLTException(construct, "'#pragma hlt peel' must be followed by a for-statement");
+    }
+
+    ForStatement for_statement(stmt.get_ast(), stmt.get_scope_link());
+
+    PragmaCustomClause init_peel_clause = construct.get_clause("start");
+    PragmaCustomClause end_peel_clause = construct.get_clause("end");
+
+    if (!init_peel_clause.is_defined() && !end_peel_clause.is_defined())
+    {
+        throw HLTException(construct, "'#pragma hlt peel' requires at least a clause 'start(N)' or 'end(N)'");
+    }
+
+    int init_peel = 0;
+    int end_peel = 0;
+
+    if (init_peel_clause.is_defined())
+    {
+        bool valid = true;
+
+        ObjectList<Expression> args = init_peel_clause.get_expression_list();
+
+        if (args.size() != 1)
+        {
+            throw HLTException(init_peel_clause, "'start' clause requires one argument");
+        }
+
+        Expression &factor = args[0];
+
+        init_peel = factor.evaluate_constant_int_expression(valid);
+
+        if (!valid)
+        {
+            throw HLTException(factor, "invalid constant expression in clause 'start'");
+        }
+    }
+
+    if (end_peel_clause.is_defined())
+    {
+        bool valid = true;
+
+        ObjectList<Expression> args = end_peel_clause.get_expression_list();
+
+        if (args.size() != 1)
+        {
+            throw HLTException(end_peel_clause, "'end' clause requires one argument");
+        }
+
+        Expression &factor = args[0];
+
+        end_peel = factor.evaluate_constant_int_expression(valid);
+
+        if (!valid)
+        {
+            throw HLTException(factor, "invalid constant expression in clause 'end'");
+        }
+    }
+
+    Source src = loop_peeling(for_statement, init_peel, end_peel);
+
+    AST_t tree = src.parse_statement(construct.get_ast(),
+            construct.get_scope_link());
+
+    construct.get_ast().replace(tree);
 }
 
 EXPORT_PHASE(TL::HLT::HLTPragmaPhase)

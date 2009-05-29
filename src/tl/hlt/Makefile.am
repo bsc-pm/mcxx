@@ -34,6 +34,8 @@ libtl_hlt_la_SOURCES = \
       hlt-outline.cpp \
       hlt-extension.hpp \
       hlt-extension.cpp \
+      hlt-peeling.hpp \
+      hlt-peeling.cpp \
       hlt-common.hpp \
       $(END)
 
