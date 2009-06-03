@@ -18,6 +18,8 @@ libtl_hlt_la_SOURCES = \
       hlt-exception.cpp \
       hlt-unroll.hpp \
       hlt-unroll.cpp \
+      hlt-unroll-omp.hpp \
+      hlt-unroll-omp.cpp \
       hlt-blocking.hpp \
       hlt-blocking.cpp \
       hlt-distribution.hpp \

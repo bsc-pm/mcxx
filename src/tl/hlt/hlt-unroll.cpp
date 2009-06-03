@@ -119,7 +119,25 @@ TL::Source LoopUnroll::do_unroll()
         ;
 
     // Replicate the body
-    for (unsigned int i = 0; i < _factor; i++)
+    bool consider_omp = false;
+
+    if (!consider_omp)
+    {
+        simple_replication(_factor, replicated_body, 
+                induction_var, loop_body);
+    }
+    else
+    {
+        // foo
+    }
+
+    return result;
+}
+
+void LoopUnroll::simple_replication(int factor, Source &replicated_body, 
+        IdExpression induction_var, Statement loop_body)
+{
+    for (unsigned int i = 0; i < factor; i++)
     {
         ReplaceIdExpression replacement;
         if (i > 0)
@@ -134,9 +152,9 @@ TL::Source LoopUnroll::do_unroll()
         if (!replaced_body.is_compound_statement()
                 || there_is_declaration(replaced_body))
         {
-         replicated_body
-             << replaced_body
-             ;
+            replicated_body
+                << replaced_body
+                ;
         }
         else
         {
@@ -151,6 +169,4 @@ TL::Source LoopUnroll::do_unroll()
             }
         }
     }
-
-    return result;
 }
