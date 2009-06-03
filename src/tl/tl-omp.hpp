@@ -458,6 +458,13 @@ namespace TL
         { \
             public: \
                 _class_name(AST_t ref,  \
+                        ScopeLink scope_link)  \
+                    : _derives_from(ref, scope_link,  \
+                            NULL,  \
+                            NULL) \
+                { \
+                } \
+                _class_name(AST_t ref,  \
                         ScopeLink scope_link,  \
                         Construct *enclosing_construct, \
                         DataSharing* enclosing_data_sharing) \
