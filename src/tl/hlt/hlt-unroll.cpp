@@ -121,6 +121,11 @@ TL::Source LoopUnroll::do_unroll()
     // Replicate the body
     bool consider_omp = false;
 
+    if (contains_relevant_openmp(loop_body))
+    {
+        consider_omp = true;
+    }
+
     if (!consider_omp)
     {
         simple_replication(_factor, replicated_body, 
@@ -128,7 +133,8 @@ TL::Source LoopUnroll::do_unroll()
     }
     else
     {
-        // foo
+        omp_replication(_factor, replicated_body, 
+                induction_var, loop_body);
     }
 
     return result;

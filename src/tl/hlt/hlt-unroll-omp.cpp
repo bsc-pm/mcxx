@@ -72,7 +72,6 @@ void LoopUnroll::omp_replication(int factor, Source &replicated_body,
     // FIXME: We need to know the omp data sharing of symbols in order to
     // FIXME: implement this properly.
     // FIXME: For the time being, we will rely on the firstprivate clause
-
     Source task_header, task_contents;
 
     ObjectList<TaskPart> task_parts = get_task_parts(loop_body);
@@ -140,10 +139,10 @@ void LoopUnroll::omp_replication(int factor, Source &replicated_body,
                 ;
         }
 
-        Source firstprivate_list;
+        Source firstprivate_clause_src, firstprivate_list;
         task_header
             << "#pragma omp task"
-            << "firstprivate(" << firstprivate_list << ")"
+            << firstprivate_clause_src
             << "\n"
             ;
 
@@ -160,39 +159,11 @@ void LoopUnroll::omp_replication(int factor, Source &replicated_body,
                         name.get_source(), ",");
             }
         }
-    }
-#if 0
-    for (unsigned int i = 0; i < factor; i++)
-    {
-        ReplaceIdExpression replacement;
-        if (i > 0)
-        {
-            std::stringstream ss;
-            ss << induction_var << " + " << i;
-            replacement.add_replacement(induction_var.get_symbol(), ss.str());
-        }
 
-        Statement replaced_body = replacement.replace(loop_body);
-
-        if (!replaced_body.is_compound_statement()
-                || there_is_declaration(replaced_body))
+        if (!firstprivate_list.empty())
         {
-            replicated_body
-                << replaced_body
+            firstprivate_clause_src << " firstprivate(" << firstprivate_list << ")"
                 ;
         }
-        else
-        {
-            ObjectList<Statement> list = replaced_body.get_inner_statements();
-            for (ObjectList<Statement>::iterator it = list.begin();
-                    it != list.end();
-                    it++)
-            {
-                replicated_body
-                    << *it
-                    ;
-            }
-        }
     }
-#endif
 }

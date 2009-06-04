@@ -23,6 +23,11 @@ namespace TL
                 TaskPart(ObjectList<Statement> prolog)
                     : _prolog(prolog), _task(NULL) { }
 
+                TaskPart(const TaskPart& t)
+                    : _task(new TL::OpenMP::TaskConstruct(*t._task))
+                {
+                }
+
                 ~TaskPart() 
                 {
                     delete _task;
