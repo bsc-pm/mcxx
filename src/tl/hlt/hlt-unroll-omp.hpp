@@ -24,7 +24,7 @@ namespace TL
                     : _prolog(prolog), _task(NULL) { }
 
                 TaskPart(const TaskPart& t)
-                    : _task(new TL::OpenMP::TaskConstruct(*t._task))
+                    : _prolog(t._prolog), _task(new TL::OpenMP::TaskConstruct(*t._task))
                 {
                 }
 
