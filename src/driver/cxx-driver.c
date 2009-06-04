@@ -177,8 +177,8 @@
 "\n"
 /* ------------------------------------------------------------------ */
 
-// Alternate signal stack of 32 KB (sometimes the compiler uses a huge stack!)
-static char _alternate_signal_stack[32*1024];
+// alternate signal stack
+static char *_alternate_signal_stack;
 
 // It mimics getopt
 #define SHORT_OPTIONS_STRING "vkacho:EyI:L:l:gD:x:"
@@ -379,14 +379,25 @@ static void driver_initialization(int argc, const char* argv[])
     // Define alternate stack
     stack_t alternate_stack;
 
+	// Allocate a maximum of 1 Mbyte or more if MINSIGSTKSZ was
+	// bigger than that (this is unlikely)
+	int allocated_size = 1024 * 1024;
+	if (MINSIGSTKSZ > 1024*1024)
+	{
+		allocated_size = MINSIGSTKSZ;
+	}
+
+	_alternate_signal_stack = malloc(allocated_size);
+
     alternate_stack.ss_flags = 0;
-    alternate_stack.ss_size = sizeof(_alternate_signal_stack);
+    alternate_stack.ss_size = allocated_size;
     alternate_stack.ss_sp = (void*)_alternate_signal_stack;
 
     if (alternate_stack.ss_sp == 0
             || sigaltstack(&alternate_stack, /* oss */ NULL) != 0)
     {
-        running_error("Setting alternate signal stack failed\n");
+        running_error("Setting alternate signal stack failed (%s)\n",
+				strerror(errno));
     }
 
     // Program signals
