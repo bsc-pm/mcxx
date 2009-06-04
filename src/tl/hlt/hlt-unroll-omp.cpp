@@ -124,7 +124,6 @@ void LoopUnroll::omp_replication(int factor, Source &replicated_body,
         for (unsigned int i = 0; i < factor; i++)
         {
             ReplaceSrcIdExpression replacements(task_construct.get_scope_link());
-            // replacements.set_replacement(
             for (ObjectList<IdExpression>::iterator current_id_expr = firstprivate_ids.begin();
                     current_id_expr != firstprivate_ids.end();
                     current_id_expr++)
@@ -134,9 +133,25 @@ void LoopUnroll::omp_replication(int factor, Source &replicated_body,
 
                 replacements.add_replacement(current_id_expr->get_symbol(), name.get_source());
             }
-            task_contents
-                << replacements.replace(task_construct.body())
-                ;
+
+            if (!task_construct.body().is_compound_statement()
+                    || there_is_declaration(task_construct.body()))
+            {
+                task_contents
+                    << replacements.replace(task_construct.body())
+                    ;
+            }
+            else
+            {
+                ObjectList<Statement> list = task_construct.body().get_inner_statements();
+                for (ObjectList<Statement>::iterator each_stmt = list.begin();
+                        each_stmt != list.end();
+                        each_stmt++)
+                {
+                    task_contents
+                        << replacements.replace(*each_stmt);
+                }
+            }
         }
 
         Source firstprivate_clause_src, firstprivate_list;
@@ -166,4 +181,21 @@ void LoopUnroll::omp_replication(int factor, Source &replicated_body,
                 ;
         }
     }
+}
+
+bool TL::HLT::there_is_declaration(TL::Statement st)
+{
+    if (st.is_compound_statement())
+    {
+        TL::ObjectList<TL::Statement> list = st.get_inner_statements();
+        for (TL::ObjectList<TL::Statement>::iterator it = list.begin();
+                it != list.end();
+                it++)
+        {
+            if (TL::Declaration::predicate(it->get_ast()))
+                return true;
+        }
+    }
+    
+    return false;
 }

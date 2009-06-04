@@ -48,6 +48,9 @@ namespace TL
                     return *_task;
                 }
         };
+
+        // Private, do not use it elsewhere!!!
+        bool there_is_declaration(TL::Statement st);
     }
 }
 

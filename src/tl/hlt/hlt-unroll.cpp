@@ -48,22 +48,6 @@ LoopUnroll::LoopUnroll(ForStatement for_stmt, unsigned int factor)
     }
 }
 
-static bool there_is_declaration(TL::Statement st)
-{
-    if (st.is_compound_statement())
-    {
-        TL::ObjectList<TL::Statement> list = st.get_inner_statements();
-        for (TL::ObjectList<TL::Statement>::iterator it = list.begin();
-                it != list.end();
-                it++)
-        {
-            if (TL::Declaration::predicate(it->get_ast()))
-                return true;
-        }
-    }
-    
-    return false;
-}
 
 TL::Source LoopUnroll::do_unroll()
 {
