@@ -105,7 +105,7 @@ TL::Source LoopUnroll::do_unroll()
     // Replicate the body
     bool consider_omp = false;
 
-    if (contains_relevant_openmp(loop_body))
+    if (TaskAggregation::contains_relevant_openmp(loop_body))
     {
         consider_omp = true;
     }

@@ -39,6 +39,8 @@ libtl_hlt_la_SOURCES = \
       hlt-peeling.hpp \
       hlt-peeling.cpp \
       hlt-common.hpp \
+      hlt-task-aggregation.hpp \
+      hlt-task-aggregation.cpp \
       $(END)
 
 libtl_hlt_pragma_la_CFLAGS=$(tl_cflags)

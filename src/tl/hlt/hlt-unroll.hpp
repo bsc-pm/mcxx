@@ -50,10 +50,6 @@ namespace TL
 
                 Source do_unroll();
 
-                bool contains_relevant_openmp(Statement stmt);
-                void get_task_parts_aux(ObjectList<TaskPart>& result, 
-                        ObjectList<Statement> &current_prologue, Statement stmt);
-                ObjectList<TaskPart> get_task_parts(Statement stmt);
 
                 void simple_replication(int factor, Source &replicated_body,
                         IdExpression induction_var, Statement loop_body);

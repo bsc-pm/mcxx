@@ -5,67 +5,6 @@
 using namespace TL::HLT;
 using namespace TL::OpenMP;
 
-bool LoopUnroll::contains_relevant_openmp(Statement stmt)
-{
-    if (TaskConstruct::predicate(stmt.get_ast()))
-        return true;
-    else if (stmt.is_compound_statement())
-    {
-        ObjectList<Statement> stmt_list = stmt.get_inner_statements();
-        for (ObjectList<Statement>::iterator it = stmt_list.begin();
-                it != stmt_list.end();
-                it++)
-        {
-            if (contains_relevant_openmp(*it))
-                return true;
-
-        }
-    }
-
-    return false;
-}
-
-void LoopUnroll::get_task_parts_aux(ObjectList<TaskPart>& result, ObjectList<Statement> &current_prologue, Statement stmt)
-{
-    if (TaskConstruct::predicate(stmt.get_ast()))
-    {
-        TaskConstruct task_construct(stmt.get_ast(), stmt.get_scope_link());
-        TaskPart new_task_part(current_prologue, task_construct);
-        result.append(new_task_part);
-        current_prologue.clear();
-    }
-    else if (stmt.is_compound_statement())
-    {
-        ObjectList<Statement> stmt_list = stmt.get_inner_statements();
-        for (ObjectList<Statement>::iterator it = stmt_list.begin();
-                it != stmt_list.end();
-                it++)
-        {
-            get_task_parts_aux(result, current_prologue, *it);
-        }
-    }
-    else
-    {
-        current_prologue.append(stmt);
-    }
-}
-
-TL::ObjectList<TaskPart> LoopUnroll::get_task_parts(Statement stmt)
-{
-    ObjectList<TaskPart> result;
-    ObjectList<Statement> prologue;
-
-    get_task_parts_aux(result, prologue, stmt);
-
-    if (!prologue.empty())
-    {
-        TaskPart last_part(prologue);
-        result.append(last_part);
-    }
-
-    return result;
-}
-
 void LoopUnroll::omp_replication(int factor, Source &replicated_body, 
         IdExpression induction_var, Statement loop_body)
 {
@@ -74,7 +13,7 @@ void LoopUnroll::omp_replication(int factor, Source &replicated_body,
     // FIXME: For the time being, we will rely on the firstprivate clause
     Source task_header, task_contents;
 
-    ObjectList<TaskPart> task_parts = get_task_parts(loop_body);
+    ObjectList<TaskPart> task_parts = TaskAggregation::get_task_parts(loop_body);
 
     unsigned int j = 0;
     for (ObjectList<TaskPart>::iterator it = task_parts.begin();
