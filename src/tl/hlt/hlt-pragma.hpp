@@ -105,6 +105,8 @@ namespace TL
                 void extend_function(PragmaCustomConstruct construct);
 
                 void peel_loop(PragmaCustomConstruct construct);
+
+                void task_aggregate(PragmaCustomConstruct construct);
         };
 
         //! @}

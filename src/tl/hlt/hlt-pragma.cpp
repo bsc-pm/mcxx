@@ -29,6 +29,7 @@
 #include "hlt-outline.hpp"
 #include "hlt-extension.hpp"
 #include "hlt-peeling.hpp"
+#include "hlt-task-aggregation.hpp"
 #include "hlt-exception.hpp"
 
 #include <algorithm>
@@ -80,6 +81,9 @@ HLTPragmaPhase::HLTPragmaPhase()
 
     register_construct("peel");
     on_directive_post["peel"].connect(functor(&HLTPragmaPhase::peel_loop, *this));
+
+    register_construct("task_aggregate");
+    on_directive_post["task_aggregate"].connect(functor(&HLTPragmaPhase::task_aggregate, *this));
 
     _allow_identity_str = "1";
 
@@ -657,6 +661,20 @@ void HLTPragmaPhase::peel_loop(PragmaCustomConstruct construct)
     }
 
     Source src = loop_peeling(for_statement, init_peel, end_peel);
+
+    AST_t tree = src.parse_statement(construct.get_ast(),
+            construct.get_scope_link());
+
+    construct.get_ast().replace(tree);
+}
+
+void HLTPragmaPhase::task_aggregate(PragmaCustomConstruct construct)
+{
+    Statement stmt = construct.get_statement();
+
+    TaskAggregation task_aggregation(stmt);
+
+    Source src = task_aggregation;
 
     AST_t tree = src.parse_statement(construct.get_ast(),
             construct.get_scope_link());

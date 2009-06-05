@@ -14,6 +14,7 @@ namespace TL
             private:
                 ObjectList<Statement> _prolog;
                 TL::OpenMP::TaskConstruct *_task;
+
             public:
                 TaskPart(ObjectList<Statement> prolog, TL::OpenMP::TaskConstruct task)
                     : _prolog(prolog), _task(new TL::OpenMP::TaskConstruct(task)) { }
@@ -50,7 +51,7 @@ namespace TL
                 }
         };
 
-        class TaskAggregation : BaseTransform
+        class TaskAggregation : public BaseTransform
         {
             private:
                 Statement _stmt;
@@ -58,6 +59,7 @@ namespace TL
                 static void get_task_parts_aux(ObjectList<TaskPart>& result, 
                         ObjectList<Statement> &current_prologue, Statement stmt);
 
+                Source do_aggregation();
             protected:
                 virtual Source get_source();
             public:
