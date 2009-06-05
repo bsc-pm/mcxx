@@ -474,8 +474,8 @@ void run_gdb(void)
 
     if (son < 0)
     {
-        fprintf(stderr, "fork failed\n");
-        exit(EXIT_FAILURE);
+        const char* reason = strerror(errno);
+        fprintf(stderr, "fork failed: %s\n", reason);
     }
     else if (son == 0)
     {
@@ -516,13 +516,14 @@ void run_gdb(void)
 
             execvp("gdb", args);
 
-            fprintf(stderr, "exec of gdb failed: %s\n", strerror(errno));
-            exit(EXIT_FAILURE);
+            const char* reason = strerror(errno);
+            fprintf(stderr, "exec of gdb failed: %s\n", reason);
         }
         else
         {
-            fprintf(stderr, "Could not open for output dump file '%s'\n",
-                    dump_name);
+            const char* reason = strerror(errno);
+            fprintf(stderr, "Could not open for output dump file '%s' (%s)\n",
+                    dump_name, reason);
         }
     }
     else
@@ -536,5 +537,7 @@ void run_gdb(void)
             fprintf(stderr, "Please, send this backtrack attached to your bug report. Thank you\n");
         }
     }
+    // Disable gdb from now
+    CURRENT_CONFIGURATION->debug_options.do_not_run_gdb = 0;
 }
 #endif
