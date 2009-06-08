@@ -116,6 +116,23 @@ namespace TL
 			void prepend(Statement st);
 			//! Appends a Statement
 			void append(Statement st);
+
+            //! It is a declaration
+            /*!
+              This function simply states that this statement is a declaration
+              but does not say anything about its exact kind. For simple
+              declarations, use is_simple_declaration and get_simple_declaration
+              */
+            bool is_declaration();
+
+            //! It is a simple declaration
+            bool is_simple_declaration();
+            //! Get the declaration of this simple declaration
+            /*!
+              If is_simple_declaration returns true you can use
+              this function to retrieve the underlying declaration
+              */
+            Declaration get_simple_declaration();
     };
     
     //! This LangConstruct wraps a for-statement in the code
