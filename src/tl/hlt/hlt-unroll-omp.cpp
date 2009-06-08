@@ -8,87 +8,118 @@ using namespace TL::OpenMP;
 void LoopUnroll::omp_replication(int factor, Source &replicated_body, 
         IdExpression induction_var, Statement loop_body)
 {
-    Source replication;
-    Source aggregation;
-    aggregation
-        << "{"
-        << replication
-        << "}"
-        ;
+    // FIXME: We need to know the omp data sharing of symbols in order to
+    // FIXME: implement this properly.
+    // FIXME: For the time being, we will rely on the firstprivate clause
+    Source task_header, task_contents;
 
-    Symbol induction_sym = induction_var.get_symbol();
-    for (unsigned int i = 0; i < factor; i++)
+    ObjectList<TaskPart> task_parts = TaskAggregation::get_task_parts(loop_body);
+
+    unsigned int j = 0;
+    for (ObjectList<TaskPart>::iterator it = task_parts.begin();
+            it != task_parts.end();
+            it++, j++)
     {
-        replication
-            << flatten_compound(loop_body, i, induction_sym)
-            ;
-    }
-    
-    // Implement task aggregation
-    AST_t tree = aggregation.parse_statement(loop_body.get_ast(),
-            loop_body.get_scope_link());
+        TaskConstruct task_construct = it->get_task();
+        Directive task_directive = task_construct.directive();
+        Clause firstprivate_clause = task_directive.firstprivate_clause();
+        ObjectList<IdExpression> firstprivate_ids;
+        ObjectList<Statement> prolog = it->get_prolog();
 
-    ASTIterator iterator = tree.get_list_iterator();
-    Statement stmt(iterator.item(), loop_body.get_scope_link());
-
-    TaskAggregation task_aggregation(stmt);
-
-    replicated_body = task_aggregation;
-}
-
-TL::Source LoopUnroll::flatten_compound(Statement stmt, int num, Symbol sym)
-{
-    if (!stmt.is_compound_statement())
-    {
-        return stmt.prettyprint();
-    }
-
-    Source result;
-
-    ReplaceSrcIdExpression replacements(stmt.get_scope_link());
-
-    // Induction var
-    Source induction_var_rpl;
-    induction_var_rpl
-        << "(" << sym.get_name() << "+" << num << ")"
-        ;
-    replacements.add_replacement(sym, induction_var_rpl);
-
-    ObjectList<Statement> stmt_list = stmt.get_inner_statements();
-    for (ObjectList<Statement>::iterator it_current_stmt = stmt_list.begin();
-            it_current_stmt != stmt_list.end();
-            it_current_stmt++)
-    {
-        Statement &current_stmt(*it_current_stmt);
-
-        if (current_stmt.is_simple_declaration())
+        if (firstprivate_clause.is_defined())
         {
-            Declaration decl = current_stmt.get_simple_declaration();
+            firstprivate_ids = firstprivate_clause.id_expressions();
+        }
 
-            ObjectList<DeclaredEntity> declaration_list = decl.get_declared_entities();
-
-            for (ObjectList<DeclaredEntity>::iterator it_entity = declaration_list.begin();
-                    it_entity != declaration_list.end();
-                    it_entity++)
+        for (unsigned int i = 0; i < factor; i++)
+        {
+            for (ObjectList<Statement>::iterator stmt = prolog.begin();
+                    stmt != prolog.end();
+                    stmt++)
             {
-                DeclaredEntity &entity(*it_entity);
-                Symbol sym = entity.get_declared_symbol();
-
-                Source repl_src;
-                repl_src
-                    << "_" << sym.get_name() << "_" << num
+                replicated_body
+                    << (*stmt)
                     ;
+            }
 
-                replacements.add_replacement(sym, repl_src);
+            for (ObjectList<IdExpression>::iterator current_id_expr = firstprivate_ids.begin();
+                    current_id_expr != firstprivate_ids.end();
+                    current_id_expr++)
+            {
+                Source name;
+                name << (*current_id_expr) << "_" << j << "_" << i;
+
+                replicated_body
+                    << current_id_expr->get_symbol().get_type().get_declaration(current_id_expr->get_symbol().get_scope(),
+                            name.get_source()) << " = " << (*current_id_expr) << ";";
+            }
+        }
+        replicated_body
+            << task_header
+            << "{"
+            << task_contents
+            << "}"
+            ;
+        for (unsigned int i = 0; i < factor; i++)
+        {
+            ReplaceSrcIdExpression replacements(task_construct.get_scope_link());
+            for (ObjectList<IdExpression>::iterator current_id_expr = firstprivate_ids.begin();
+                    current_id_expr != firstprivate_ids.end();
+                    current_id_expr++)
+            {
+                Source name;
+                name << (*current_id_expr) << "_" << j << "_" << i;
+
+                replacements.add_replacement(current_id_expr->get_symbol(), name.get_source());
+            }
+
+            if (!task_construct.body().is_compound_statement()
+                    || there_is_declaration(task_construct.body()))
+            {
+                task_contents
+                    << replacements.replace(task_construct.body())
+                    ;
+            }
+            else
+            {
+                ObjectList<Statement> list = task_construct.body().get_inner_statements();
+                for (ObjectList<Statement>::iterator each_stmt = list.begin();
+                        each_stmt != list.end();
+                        each_stmt++)
+                {
+                    task_contents
+                        << replacements.replace(*each_stmt);
+                }
             }
         }
 
-        result
-            << replacements.replace(current_stmt)
+        Source firstprivate_clause_src, firstprivate_list;
+        task_header
+            << "#pragma omp task"
+            << firstprivate_clause_src
+            << "\n"
             ;
-    }
 
-    return result;
+        for (unsigned int i = 0; i < factor; i++)
+        {
+            for (ObjectList<IdExpression>::iterator current_id_expr = firstprivate_ids.begin();
+                    current_id_expr != firstprivate_ids.end();
+                    current_id_expr++)
+            {
+                Source name;
+                name << (*current_id_expr) << "_" << j << "_" << i;
+
+                firstprivate_list.append_with_separator(
+                        name.get_source(), ",");
+            }
+        }
+
+        if (!firstprivate_list.empty())
+        {
+            firstprivate_clause_src << " firstprivate(" << firstprivate_list << ")"
+                ;
+        }
+    }
 }
 
 bool TL::HLT::there_is_declaration(TL::Statement st)
@@ -100,7 +131,7 @@ bool TL::HLT::there_is_declaration(TL::Statement st)
                 it != list.end();
                 it++)
         {
-            if (it->is_declaration())
+            if (TL::Declaration::predicate(it->get_ast()))
                 return true;
         }
     }
