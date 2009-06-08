@@ -1205,6 +1205,11 @@ namespace TL
         return result;
     }
 
+    void ReplaceSrcIdExpression::set_replace_declarators(bool b)
+    {
+        _do_not_replace_declarators = !b;
+    }
+
     void ReplaceSrcIdExpression::add_replacement(Symbol sym, std::string str)
     {
         _repl_map[sym] = str;
@@ -1240,17 +1245,30 @@ namespace TL
 
         AST_t wrapped_tree(a);
 
-        if (!IdExpression::predicate(wrapped_tree))
-            return NULL;
-
-        IdExpression id_expr(wrapped_tree, _this->_sl);
-        Symbol sym = id_expr.get_symbol();
-
-        if (_this->_repl_map.find(sym) != _this->_repl_map.end())
+        if (IdExpression::predicate(wrapped_tree))
         {
-            const char* result = _this->_repl_map[sym].c_str();
-            return result;
+            IdExpression id_expr(wrapped_tree, _this->_sl);
+            Symbol sym = id_expr.get_symbol();
+
+            if (_this->_repl_map.find(sym) != _this->_repl_map.end())
+            {
+                const char* result = _this->_repl_map[sym].c_str();
+                return result;
+            }
         }
+        else if (!_this->_do_not_replace_declarators)
+        {
+            Symbol sym = wrapped_tree.get_attribute(LANG_DECLARED_SYMBOL);
+            if (sym.is_valid())
+            {
+                if (_this->_repl_map.find(sym) != _this->_repl_map.end())
+                {
+                    const char* result = _this->_repl_map[sym].c_str();
+                    return result;
+                }
+            }
+        }
+
         return NULL;
     }
 

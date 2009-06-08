@@ -546,6 +546,37 @@ namespace TL
         }
     }
 
+    bool Statement::is_declaration()
+    {
+        PredicateAttr is_decl_stmt(LANG_IS_DECLARATION_STATEMENT);
+        return is_decl_stmt(_ref);
+    }
+
+    bool Statement::is_simple_declaration()
+    {
+        if (is_declaration())
+        {
+            // Check son 0 is a declaration
+            AST_t first_son = _ref.children()[0];
+
+            if (Declaration::predicate(first_son))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    Declaration Statement::get_simple_declaration()
+    {
+        // Check son 0 is a declaration
+        AST_t first_son = _ref.children()[0];
+
+        Declaration decl(first_son, _scope_link);
+
+        return decl;
+    }
+
     ObjectList<CaseStatement> SwitchStatement::get_cases()
     {
         TL::AST_t case_statement_body = _ref.get_attribute(LANG_CASE_STATEMENT_BODY);

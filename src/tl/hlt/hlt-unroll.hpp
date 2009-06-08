@@ -55,6 +55,8 @@ namespace TL
                         IdExpression induction_var, Statement loop_body);
                 void omp_replication(int factor, Source &replicated_body,
                         IdExpression induction_var, Statement loop_body);
+
+                Source flatten_compound(Statement stmt, int num, Symbol sym);
             public:
                 //! Creates a LoopUnroll object
                 /*!

@@ -15,6 +15,7 @@ TL::Source TaskAggregation::get_source()
 {
     if (!contains_relevant_openmp(_stmt))
     {
+        std::cerr << "BLAH!" << std::endl;
         return _stmt.prettyprint();
     }
     else
