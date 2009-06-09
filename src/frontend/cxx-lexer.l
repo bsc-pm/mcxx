@@ -203,6 +203,7 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 %x openmp_directive
 %x openmp_clause
 %x openmp_default
+%x openmp_order
 %x unknown_pragma
 %x pragma_custom_directive
 %x pragma_custom_clause
@@ -210,6 +211,7 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 %x pragma_custom_var_list
 
 %s openmp_var_list
+%s openmp_var_list_identity
 %s openmp_schedule
 
 %%
@@ -382,6 +384,11 @@ ordered {
 critical {
 	BEGIN(openmp_clause);
 	return OMP_CRITICAL;
+}
+
+declare {
+    BEGIN(openmp_clause);
+    return OMP_DECLARE;
 }
 
 threadprivate {
@@ -707,6 +714,33 @@ if {
 	return OMP_IF;
 }
 
+type {
+    omp_var_list_parentheses = 0;
+    BEGIN(openmp_var_list);
+    return OMP_TYPE;
+}
+
+operator {
+    omp_var_list_parentheses = 0;
+    BEGIN(openmp_var_list);
+    return OMP_OPERATOR;
+}
+
+identity {
+    omp_var_list_parentheses = 0;
+    BEGIN(openmp_var_list_identity);
+    return OMP_IDENTITY;
+}
+
+order {
+    BEGIN(openmp_order);
+    return OMP_ORDER;
+}
+
+commutative {
+    return OMP_COMMUTATIVE;
+}
+
 num_threads {
 	// Lexing is the same as a var-list
 	omp_var_list_parentheses = 0;
@@ -753,6 +787,29 @@ none {
 
 }
 
+<openmp_order>{
+
+[(] {
+		return '(';
+}
+
+[)] {
+	BEGIN(openmp_clause);
+	return ')';
+}
+
+left {
+	return OMP_REDUCTION_LEFT;
+}
+
+right {
+	return OMP_REDUCTION_RIGHT;
+}
+
+[ \t] { }
+
+}
+
 <openmp_var_list>{
 
 [(] {
@@ -779,13 +836,17 @@ none {
 }
 
 {idnondigit}({idnondigit}|{digit})* {
-	// Special case for custom clauses 
+	// Special case for custom clauses where the previous did not have parentheses
+    // #pragma directive foo bar
+    // We were going to lex the arguments of 'foo' but we found 'bar', start again
+    // as if nothing happened, this case may be right
 	if (omp_var_list_parentheses == 0)
 	{
         // We want to tokenize this one again
 		BEGIN(openmp_clause);
         // Note that we are not doing REJECT because we do not want it to be
         // matched below but against under openmp_clause start condition
+        // This reintroduces the token in the token stream
         yyless(0);
 	}
 	else
@@ -793,6 +854,31 @@ none {
         // Not handled here but below
 		REJECT;
 	}
+}
+
+}
+
+<openmp_var_list_identity>{
+
+[(] {
+	parse_token_text();
+	omp_var_list_parentheses++;
+	return '(';
+}
+
+[)] {
+    parse_token_text();
+    omp_var_list_parentheses--;
+    if (omp_var_list_parentheses == 0)
+    {
+        BEGIN(openmp_clause);
+    }
+    return ')';
+}
+
+constructor {
+    parse_token_text();
+    return OMP_CONSTRUCTOR;
 }
 
 }
