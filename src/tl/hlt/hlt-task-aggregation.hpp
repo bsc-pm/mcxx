@@ -53,19 +53,30 @@ namespace TL
 
         class TaskAggregation : public BaseTransform
         {
+            public:
+                enum AggregationMethod
+                {
+                    PREDICATION,
+                    BUNDLING
+                };
             private:
                 Statement _stmt;
+                AggregationMethod _method;
 
                 static void get_task_parts_aux(ObjectList<TaskPart>& result, 
                         ObjectList<Statement> &current_prologue, Statement stmt);
 
                 Source do_aggregation();
+                Source do_predicated_aggregation();
+                Source do_bundled_aggregation();
             protected:
                 virtual Source get_source();
             public:
                 static bool contains_relevant_openmp(Statement stmt);
                 static ObjectList<TaskPart> get_task_parts(Statement stmt);
-                TaskAggregation(Statement stmt);
+                TaskAggregation(Statement stmt, AggregationMethod = PREDICATION);
+
+                TaskAggregation& set_aggregation_method(AggregationMethod);
         };
     }
 }

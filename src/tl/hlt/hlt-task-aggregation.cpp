@@ -11,9 +11,15 @@ using namespace TL;
 using namespace HLT;
 using namespace OpenMP;
 
-TaskAggregation::TaskAggregation(Statement stmt)
-    : _stmt(stmt)
+TaskAggregation::TaskAggregation(Statement stmt, AggregationMethod method)
+    : _stmt(stmt), _method(method)
 {
+}
+
+TaskAggregation& TaskAggregation::set_aggregation_method(AggregationMethod method)
+{
+    _method = method;
+    return *this;
 }
 
 Source TaskAggregation::get_source()
@@ -156,6 +162,28 @@ struct GuardTaskGenerator : Functor<TL::AST_t::callback_result, TL::AST_t>
 };
 
 Source TaskAggregation::do_aggregation()
+{
+    switch ((int)_method)
+    {
+        case PREDICATION:
+            {
+                return do_predicated_aggregation();
+            }
+        case BUNDLING:
+            {
+                return do_bundled_aggregation();
+            }
+        default:
+            return Source("");
+    }
+}
+
+Source TaskAggregation::do_bundled_aggregation()
+{
+    return Source("");
+}
+
+Source TaskAggregation::do_predicated_aggregation()
 {
     GuardTaskInfo guard_task_info;
     GuardTaskGenerator guard_task_generator(_stmt.get_scope_link(), guard_task_info);
