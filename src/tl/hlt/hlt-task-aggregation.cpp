@@ -3,15 +3,20 @@
 
 #include "hlt-unroll-omp.hpp"
 
-using namespace TL::HLT;
-using namespace TL::OpenMP;
+/*
+   FIXME - Still relying on explicit firstprivates :(
+ */
+
+using namespace TL;
+using namespace HLT;
+using namespace OpenMP;
 
 TaskAggregation::TaskAggregation(Statement stmt)
     : _stmt(stmt)
 {
 }
 
-TL::Source TaskAggregation::get_source()
+Source TaskAggregation::get_source()
 {
     if (!contains_relevant_openmp(_stmt))
     {
@@ -23,98 +28,208 @@ TL::Source TaskAggregation::get_source()
     }
 }
 
-TL::Source TaskAggregation::do_aggregation()
+struct GuardedTask
 {
-    Source result;
-    ObjectList<TaskPart> task_part_list = get_task_parts(_stmt);
+    public:
+        typedef std::pair<std::string, Symbol> additional_var;
+    private:
+        TaskConstruct _task_construct;
+        ObjectList<additional_var> _additional_vars;
+        std::string _predicate_name;
+    public:
+        GuardedTask(TaskConstruct task_construct,
+                ObjectList<additional_var> additional_vars,
+                std::string predicate_name)
+            : _task_construct(task_construct),
+            _additional_vars(additional_vars),
+            _predicate_name(predicate_name)
+        {
+        }
 
-    // FIXME - Still relying on explicit firstprivates
+        TaskConstruct get_task() const
+        {
+            return _task_construct;
+        }
 
-    Source prologue, big_task, firstprivate_clause_src, firstprivate_arg;
+        ObjectList<additional_var> get_additional_vars() const
+        {
+            return _additional_vars;
+        }
+
+        std::string get_predicate_name() const
+        {
+            return _predicate_name;
+        }
+};
+
+struct GuardTaskInfo
+{
+    public:
+    private:
+        int _num_tasks;
+        ObjectList<GuardedTask> _guarded_task_list;
+    public:
+        GuardTaskInfo()
+            : _num_tasks(0)
+        {
+        }
+
+        int get_num_tasks() const
+        {
+            return _num_tasks;
+        }
+
+        ObjectList<GuardedTask> get_guarded_tasks()
+        {
+            return _guarded_task_list;
+        }
+
+        friend struct GuardTaskGenerator;
+};
+
+struct GuardTaskGenerator : Functor<TL::AST_t::callback_result, TL::AST_t>
+{
+    private:
+        ScopeLink _sl;
+        GuardTaskInfo& _info;
+    public:
+        GuardTaskGenerator(ScopeLink sl, GuardTaskInfo& info)
+            : _sl(sl), _info(info)
+        {
+        }
+
+        virtual AST_t::callback_result do_(TL::AST_t& a) const
+        {
+            if (TaskConstruct::predicate(a))
+            {
+                Source result;
+                Source predicate_name;
+
+                predicate_name
+                    << "_task_guard_" << _info._num_tasks
+                    ;
+
+                result
+                    << predicate_name << "=" << _info._num_tasks << ";"
+                    ;
+
+                // Capture current firstprivate values
+                // FIXME -> We are relying on explicit firstprivates
+                TaskConstruct task_construct(a, _sl);
+                Directive directive = task_construct.directive();
+                Clause firstprivate_clause = directive.firstprivate_clause();
+
+                ObjectList<GuardedTask::additional_var> additional_vars;
+
+                if (firstprivate_clause.is_defined())
+                {
+                    ObjectList<TL::IdExpression> vars = firstprivate_clause.id_expressions();
+
+                    for (ObjectList<TL::IdExpression>::iterator it = vars.begin();
+                            it != vars.end();
+                            it++)
+                    {
+                        Symbol sym = it->get_symbol();
+                        Source new_name;
+                        new_name
+                            << "_" << sym.get_name() << "_" << _info._num_tasks;
+                        GuardedTask::additional_var new_var(new_name, sym);
+
+                        additional_vars.append(new_var);
+
+                        result 
+                            << new_name << " = " << sym.get_name() << ";"
+                            ;
+                    }
+                }
+                
+                GuardedTask new_guarded_task(task_construct, additional_vars, predicate_name);
+                _info._guarded_task_list.append(new_guarded_task);
+
+                _info._num_tasks++;
+
+                return AST_t::callback_result(true, result);
+            }
+            else 
+                return AST_t::callback_result(false, "");
+        }
+};
+
+Source TaskAggregation::do_aggregation()
+{
+    GuardTaskInfo guard_task_info;
+    GuardTaskGenerator guard_task_generator(_stmt.get_scope_link(), guard_task_info);
+
+    Source result, guard_declarations, temporal_values_declarations, guarded_tasks, predicated_task;
 
     result
-        << prologue
-        << "#pragma omp task"
-        << firstprivate_clause_src
-        << "\n"
         << "{"
-        << big_task
+        << guard_declarations
+        << temporal_values_declarations
+        << guarded_tasks
+        << predicated_task
         << "}"
         ;
 
 
-    int i = 0;
-    for (ObjectList<TaskPart>::iterator it_task_part = task_part_list.begin();
-            it_task_part != task_part_list.end();
-            it_task_part++, i++)
+    guarded_tasks << _stmt.get_ast().prettyprint_with_callback(guard_task_generator);
+
+    ObjectList<GuardedTask> guarded_task_list = guard_task_info.get_guarded_tasks();
+
+    Source firstprivate_clause, firstprivate_args, predicated_body;
+    predicated_task
+        << "#pragma omp task" << firstprivate_clause << "\n"
+        << "{"
+        << predicated_body
+        << "}"
+        ;
+
+    for (ObjectList<GuardedTask>::iterator it = guarded_task_list.begin();
+            it != guarded_task_list.end();
+            it++)
     {
-        TaskPart &task_part(*it_task_part);
-        ObjectList<Statement> current_prolog = task_part.get_prolog();
+        TaskConstruct task = it->get_task();
 
-        for (ObjectList<Statement>::iterator it = current_prolog.begin();
-                it != current_prolog.end();
-                it++)
+        Source replaced_body;
+
+        Statement body = task.body();
+        predicated_body
+            << "if (" << it->get_predicate_name() << ")"
+            << "{"
+            << replaced_body
+            << "}"
+            ;
+
+        guard_declarations
+            << "char " << it->get_predicate_name() << " = 0;"
+            ;
+
+        firstprivate_args.append_with_separator(it->get_predicate_name(), ",");
+
+        ReplaceSrcIdExpression replacements(_stmt.get_scope_link());
+        ObjectList<GuardedTask::additional_var> additional_vars = it->get_additional_vars();
+        for (ObjectList<GuardedTask::additional_var>::iterator it_additional_var = additional_vars.begin();
+                it_additional_var != additional_vars.end();
+                it_additional_var++)
         {
-            prologue << *it
-                ;
+            GuardedTask::additional_var& additional_var(*it_additional_var);
+
+            replacements.add_replacement(additional_var.second, additional_var.first);
+
+            replaced_body << replacements.replace(body);
+
+            firstprivate_args.append_with_separator(additional_var.first, ",");
+
+            Symbol &sym(additional_var.second);
+            temporal_values_declarations
+                << sym.get_type().get_declaration(sym.get_scope(), additional_var.first) << ";";
+
         }
-
-        if (task_part.has_task())
-        {
-            TaskConstruct task_construct = task_part.get_task();
-            Directive task_directive = task_construct.directive();
-            Clause firstprivate_clause = task_directive.firstprivate_clause();
-            ObjectList<IdExpression> firstprivate_ids;
-            if (firstprivate_clause.is_defined())
-            {
-                firstprivate_ids = firstprivate_clause.id_expressions();
-            }
-
-            ReplaceSrcIdExpression replacements(_stmt.get_scope_link());
-
-            for (ObjectList<IdExpression>::iterator current_id_expr = firstprivate_ids.begin();
-                    current_id_expr != firstprivate_ids.end();
-                    current_id_expr++)
-            {
-                Source name;
-                name << (*current_id_expr) << "_" << i;
-
-                prologue
-                    << current_id_expr->get_symbol().get_type().get_declaration(current_id_expr->get_symbol().get_scope(),
-                            name.get_source()) << " = " << (*current_id_expr) << ";";
-
-                replacements.add_replacement(current_id_expr->get_symbol(), name.get_source());
-
-                firstprivate_arg.append_with_separator(name.get_source(), ",");
-            }
-
-            if (!task_construct.body().is_compound_statement()
-                    || there_is_declaration(task_construct.body()))
-            {
-                big_task
-                    << replacements.replace(task_construct.body())
-                    ;
-            }
-            else
-            {
-                ObjectList<Statement> inner = task_construct.body().get_inner_statements();
-                for (ObjectList<Statement>::iterator it = inner.begin();
-                        it != inner.end();
-                        it++)
-                {
-                    big_task
-                        << replacements.replace(*it)
-                        ;
-                }
-            }
-        }
-
     }
 
-    if (!firstprivate_arg.empty())
+    if (!firstprivate_args.empty())
     {
-        firstprivate_clause_src
-            << " firstprivate(" << firstprivate_arg << ")"
+        firstprivate_clause << " firstprivate(" << firstprivate_args << ")"
             ;
     }
 
@@ -173,7 +288,7 @@ void TaskAggregation::get_task_parts_aux(ObjectList<TaskPart>& result, ObjectLis
     }
 }
 
-TL::ObjectList<TaskPart> TaskAggregation::get_task_parts(Statement stmt)
+ObjectList<TaskPart> TaskAggregation::get_task_parts(Statement stmt)
 {
     ObjectList<TaskPart> result;
     ObjectList<Statement> prologue;
