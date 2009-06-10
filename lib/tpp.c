@@ -44,6 +44,7 @@
 
 #define MAX_TEXT_LINE 1024
 #define MAX_INCLUDE_NESTING 32
+#define MAX_IF_NESTING 32
 #define MAX_INCLUDE_DIRS 32
 #define MAX_DEFINES 32
 
@@ -221,9 +222,11 @@ static void conditional_process(char* input_filename, char* output_filename)
     }
 
 
-    char output_enabled = 1;
-    int block_nesting = 0;
     char buffer[MAX_TEXT_LINE];
+
+    int block_nesting = 0;
+    char output_enable_stack[MAX_IF_NESTING] = { 0 };
+    output_enable_stack[block_nesting] = 1;
 
     FILE* input_stack[MAX_INCLUDE_NESTING];
     int top_input_stack = 0;
@@ -235,7 +238,7 @@ static void conditional_process(char* input_filename, char* output_filename)
         {
             regmatch_t offsets[2];
 
-            if (output_enabled 
+            if (output_enable_stack[block_nesting]
                     && (regexec(&include_regex, buffer, 2, offsets, 0) == 0))
             {
                 char include_name[MAX_TEXT_LINE] = { 0 };
@@ -274,7 +277,7 @@ static void conditional_process(char* input_filename, char* output_filename)
 
                 fprintf(output, "\n");
             }
-            else if (output_enabled
+            else if (output_enable_stack[block_nesting]
                     && (regexec(&define_regex, buffer, 2, offsets, 0) == 0))
             {
                 char define_name[MAX_TEXT_LINE] = { 0 };
@@ -310,7 +313,7 @@ static void conditional_process(char* input_filename, char* output_filename)
 
                 fprintf(output, "\n");
             }
-            else if (output_enabled
+            else if (output_enable_stack[block_nesting]
                     && (regexec(&undefine_regex, buffer, 2, offsets, 0) == 0))
             {
                 char define_name[MAX_TEXT_LINE] = { 0 };
@@ -360,23 +363,17 @@ static void conditional_process(char* input_filename, char* output_filename)
                 strncpy(define_name, &(buffer[start]), length);
 
                 // If output is enabled, then we have to ensure this macro is defined
-                if (output_enabled)
+                int j;
+                char found = 0;;
+                for (j = 0; (j < num_defines) && !found; j++)
                 {
-                    int j;
-                    char found = 0;;
-                    for (j = 0; (j < num_defines) && !found; j++)
+                    if (strcmp(defines[j], define_name) == 0)
                     {
-                        if (strcmp(defines[j], define_name) == 0)
-                        {
-                            found = 1;
-                        }
-                    }
-
-                    if (!found)
-                    {
-                        output_enabled = 0;
+                        found = 1;
                     }
                 }
+
+                output_enable_stack[block_nesting] = found && output_enable_stack[block_nesting - 1];
 
                 fprintf(output, "\n");
             }
@@ -393,42 +390,35 @@ static void conditional_process(char* input_filename, char* output_filename)
                 strncpy(define_name, &(buffer[start]), length);
 
                 // If output is enabled, then we have to ensure this macro is undefined
-                if (output_enabled)
+                int j;
+                char found = 0;;
+                for (j = 0; (j < num_defines) && !found; j++)
                 {
-                    int j;
-                    char found = 0;;
-                    for (j = 0; (j < num_defines) && !found; j++)
+                    if (strcmp(defines[j], define_name) == 0)
                     {
-                        if (strcmp(defines[j], define_name) == 0)
-                        {
-                            found = 1;
-                        }
-                    }
-
-                    if (found)
-                    {
-                        output_enabled = 0;
+                        found = 1;
                     }
                 }
+
+                output_enable_stack[block_nesting] = !found && output_enable_stack[block_nesting - 1];
 
                 fprintf(output, "\n");
             }
             else if (regexec(&endif_regex, buffer, 0, NULL, 0) == 0)
             {
                 block_nesting--;
-
-                if (block_nesting == 0)
+                if (block_nesting < 0)
                 {
-                    output_enabled = 1;
+                    fprintf(stderr, "Too many !endif\n");
+                    exit(EXIT_FAILURE);
                 }
-
                 fprintf(output, "\n");
             }
-            else if (output_enabled)
+            else if (output_enable_stack[block_nesting])
             {
                 fprintf(output, "%s", buffer);
             }
-            else if (!output_enabled)
+            else if (!output_enable_stack[block_nesting])
             {
                 fprintf(output, "\n");
             }
@@ -438,9 +428,9 @@ static void conditional_process(char* input_filename, char* output_filename)
         top_input_stack--;
     }
 
-    if (block_nesting != 0)
+    if (block_nesting > 0)
     {
-        fprintf(stderr, "Unpaired !if when reached the end of the file (%d)\n", block_nesting);
+        fprintf(stderr, "Unpaired number of !if/!endif (%d)\n", block_nesting);
         exit(EXIT_FAILURE);
     }
 
