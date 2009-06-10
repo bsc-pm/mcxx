@@ -1059,19 +1059,27 @@ namespace TL
 
     static const char * auxiliar_handler_prettprint(AST a, void *data)
     {
-        Functor<std::string, AST_t> *functor = reinterpret_cast<Functor<std::string, AST_t>*>(data);
+        Functor<AST_t::callback_result, AST_t> *functor 
+            = reinterpret_cast<Functor<AST_t::callback_result, AST_t>*>(data);
 
         AST_t wrapped_tree(a);
-        std::string str = (*functor)(wrapped_tree);
+        AST_t::callback_result result = (*functor)(wrapped_tree);
 
-        return str.c_str();
+        if (result.first)
+        {
+            return result.second.c_str();
+        }
+        else
+        {
+            return NULL;
+        }
     }
 
-    std::string AST_t::prettyprint_with_callback(const Functor<std::string, AST_t> &functor)
+    std::string AST_t::prettyprint_with_callback(const Functor<callback_result, AST_t> &functor)
     {
         // This const cast is fine
         char *c = prettyprint_in_buffer_callback(_ast,
-                auxiliar_handler_prettprint, const_cast<Functor<std::string, AST_t>*>(&functor));
+                auxiliar_handler_prettprint, const_cast<Functor<callback_result, AST_t>*>(&functor));
 
         std::string result(c);
         free(c);

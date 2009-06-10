@@ -327,7 +327,8 @@ namespace TL
              * can change on-the-fly prettyprinting. This is a simple minded
              * replace strategy on output.
              */
-            std::string prettyprint_with_callback(const Functor<std::string, AST_t> &functor);
+            typedef std::pair<bool, std::string> callback_result;
+            std::string prettyprint_with_callback(const Functor<callback_result, AST_t> &functor);
 
             //! Replaces current tree in a smart way
             /*
