@@ -322,6 +322,13 @@ namespace TL
              */
             void prettyprint_in_file(const CompiledFile& compiled_file,  bool internal = false) const;
 
+            //! Prettyprints a tree but calling a callback per each AST node prettyprinted
+            /*! Functor will be called with every AST being printed, thus you
+             * can change on-the-fly prettyprinting. This is a simple minded
+             * replace strategy on output.
+             */
+            std::string prettyprint_with_callback(const Functor<std::string, AST_t> &functor);
+
             //! Replaces current tree in a smart way
             /*
              * \param ast The tree used to replace the current one 

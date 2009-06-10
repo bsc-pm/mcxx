@@ -1056,4 +1056,25 @@ namespace TL
 
         return result;
     }
+
+    static const char * auxiliar_handler_prettprint(AST a, void *data)
+    {
+        Functor<std::string, AST_t> *functor = reinterpret_cast<Functor<std::string, AST_t>*>(data);
+
+        AST_t wrapped_tree(a);
+        std::string str = (*functor)(wrapped_tree);
+
+        return str.c_str();
+    }
+
+    std::string AST_t::prettyprint_with_callback(const Functor<std::string, AST_t> &functor)
+    {
+        // This const cast is fine
+        char *c = prettyprint_in_buffer_callback(_ast,
+                auxiliar_handler_prettprint, const_cast<Functor<std::string, AST_t>*>(&functor));
+
+        std::string result(c);
+        free(c);
+        return result;
+    } 
 }
