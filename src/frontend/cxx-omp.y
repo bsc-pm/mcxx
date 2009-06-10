@@ -958,11 +958,12 @@ omp_identity_expression : initializer_clause
 {
     $$ = ASTMake1(AST_OMP_IDENTITY_INITIALIZER, $1, ASTFileName($1), ASTLine($1), NULL);
 }
- // FIXME This is only for C++ (but tpp has a bug)
+/*!if CPLUSPLUS*/
 | OMP_CONSTRUCTOR '(' expression_list ')'
 {
     $$ = ASTMake1(AST_OMP_IDENTITY_CONSTRUCTOR, $3, $1.token_file, $1.token_line, NULL);
 }
+/*!endif*/
 ;
 
 omp_reduction_order : OMP_REDUCTION_LEFT
