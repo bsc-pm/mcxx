@@ -137,6 +137,13 @@ bool TaskAggregation::contains_relevant_openmp(Statement stmt)
 
         }
     }
+    else if (IfStatement::predicate(stmt.get_ast()))
+    {
+        IfStatement if_statement(stmt.get_ast(), stmt.get_scope_link());
+
+        return contains_relevant_openmp(if_statement.get_then_body())
+            || (if_statement.has_else() && contains_relevant_openmp(if_statement.get_else_body()));
+    }
 
     return false;
 }
