@@ -169,6 +169,7 @@ static AST get_enclosing_declaration(AST point_of_declarator);
 // OpenMP functions needed here
 static void build_scope_omp_custom_directive(AST a, decl_context_t decl_context, char* attr_name);
 static void build_scope_omp_threadprivate(AST a, decl_context_t decl_context, char* attr_name);
+static void build_scope_omp_declare_reduction(AST a, decl_context_t decl_context, char* attr_name);
 static void build_scope_omp_custom_construct_declaration(AST a, decl_context_t decl_context);
 
 static void build_scope_pragma_custom_directive(AST a, decl_context_t decl_context, char* _dummy);
@@ -497,6 +498,11 @@ static void build_scope_declaration(AST a, decl_context_t decl_context)
         case AST_OMP_THREADPRIVATE_DIRECTIVE :
             {
                 build_scope_omp_threadprivate(a, decl_context, OMP_IS_THREADPRIVATE_DIRECTIVE);
+                break;
+            }
+        case AST_OMP_DECLARE_REDUCTION_DIRECTIVE :
+            {
+                build_scope_omp_declare_reduction(a, decl_context, OMP_IS_DECLARE_REDUCTION_DIRECTIVE);
                 break;
             }
         case AST_OMP_CUSTOM_DIRECTIVE :
@@ -8305,6 +8311,7 @@ static void build_scope_omp_data_clause(AST a, decl_context_t decl_context)
     }
 }
 
+// FIXME - Consider moving OpenMP functions out of this file
 static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* attr_name) 
 {
     if (attr_name != NULL)
@@ -8320,6 +8327,7 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
         AST list = ASTSon0(a);
         AST iter;
 
+        type_t* type_in_context = NULL;
         for_each_element(list, iter)
         {
             AST clause = ASTSon1(iter);
@@ -8509,31 +8517,54 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
                         ASTAttrSetValueType(clause, OMP_REDUCTION_NEUTER, tl_type_t, tl_ast(ASTSon2(clause)));
                         break;
                     }
-                case AST_OMP_USER_DEFINED_REDUCTION_CLAUSE :
+                case AST_OMP_TYPE_CLAUSE :
                     {
-                        // Check the id-expression
-                        if (!check_for_expression(ASTSon0(clause), decl_context))
+                        AST type_id = ASTSon0(clause);
+
+                        // This might be ambiguous, disambiguate
+                        AST type_specifier_seq = ASTSon0(type_id);
+                        AST abstract_decl = ASTSon1(type_id);
+
+                        type_t *type_info = NULL;
+
+                        gather_decl_spec_t gather_info;
+                        memset(&gather_info, 0, sizeof(gather_info));
+
+                        build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info, decl_context);
+
+                        type_in_context = type_info;
+                        compute_declarator_type(abstract_decl, 
+                                &gather_info, type_info, &type_in_context,
+                                decl_context);
+                        break;
+                    }
+                case AST_OMP_IDENTITY_CLAUSE:
+                    {
+                        if (type_in_context == NULL)
                         {
-                            internal_error("Could not check expression %s\n", 
-                                    prettyprint_in_buffer(ASTSon0(clause)));
+                            running_error("%s: error: a clause 'type' must be seen prior to 'identity' clause\n",
+                                    ast_location(clause));
                         }
 
-                        // Check the neuter expression
-                        if (!check_for_expression(ASTSon1(clause), decl_context))
+                        AST omp_id_expr = ASTSon0(clause);
+                        switch (ASTType(omp_id_expr))
                         {
-                            internal_error("Could not check expression %s\n", 
-                                    prettyprint_in_buffer(ASTSon0(clause)));
+                            case AST_OMP_IDENTITY_INITIALIZER:
+                                {
+                                    check_for_initializer_clause(ASTSon0(omp_id_expr), decl_context, type_in_context);
+                                    break;
+                                }
+                            case AST_OMP_IDENTITY_CONSTRUCTOR :
+                                {
+                                    check_for_expression_list(ASTSon0(omp_id_expr), decl_context);
+                                    // FIXME - We should check here there is a suitable constructor for this type
+                                    break;
+                                }
+                            default:
+                                {
+                                    internal_error("Unexpected tree %s\n", ast_print_node_type(ASTType(omp_id_expr)));
+                                }
                         }
-
-                        // Build scope for var-lists
-                        build_scope_omp_data_clause(ASTSon2(clause), decl_context);
-
-                        ASTAttrSetValueType(clause, OMP_IS_REDUCTION_CLAUSE, tl_type_t, tl_bool(1));
-                        ASTAttrSetValueType(clause, OMP_IS_USER_DEFINED_REDUCTION, tl_type_t, tl_bool(1));
-                        ASTAttrSetValueType(clause, OMP_REDUCTION_FUNCTION, tl_type_t, tl_ast(ASTSon0(clause)));
-                        ASTAttrSetValueType(clause, OMP_REDUCTION_NEUTER, tl_type_t, tl_ast(ASTSon1(clause)));
-                        ASTAttrSetValueType(clause, OMP_REDUCTION_VARIABLES, tl_type_t, tl_ast(ASTSon2(clause)));
-
                         break;
                     }
                 case AST_OMP_CUSTOM_PARAMETER_CLAUSE :
@@ -8666,6 +8697,16 @@ static void build_scope_omp_threadprivate(AST a,
     ASTAttrSetValueType(a, OMP_IS_THREADPRIVATE_DIRECTIVE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, tl_ast(a));
     ASTAttrSetValueType(ASTSon0(a), OMP_IS_PARAMETER_CLAUSE, tl_type_t, tl_bool(1));
+    build_scope_omp_directive(a, decl_context, attr_name);
+}
+
+static void build_scope_omp_declare_reduction(AST a, 
+        decl_context_t decl_context, 
+        char* attr_name UNUSED_PARAMETER)
+{
+    ASTAttrSetValueType(a, OMP_IS_OMP_DIRECTIVE, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, OMP_IS_DECLARE_REDUCTION_DIRECTIVE, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, tl_ast(a));
     build_scope_omp_data_clause(ASTSon0(a), decl_context);
 }
 
