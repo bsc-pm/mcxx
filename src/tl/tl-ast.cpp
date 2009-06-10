@@ -1067,7 +1067,7 @@ namespace TL
 
         if (result.first)
         {
-            return result.second.c_str();
+            return strdup(result.second.c_str());
         }
         else
         {
