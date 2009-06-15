@@ -261,7 +261,7 @@ class ObjectList : public std::vector<T>, public TL::Object
          * This function requires that elements of type T be comparable
          * with 'operator=='
          */
-        bool contains(const T& t)
+        bool contains(const T& t) const
         {
             return (std::find(this->begin(), this->end(), t) != this->end());
         }
@@ -277,7 +277,7 @@ class ObjectList : public std::vector<T>, public TL::Object
          * a value of T
          */
         template <class S>
-        bool contains(const T& t, const Functor<S, T>& f)
+        bool contains(const T& t, const Functor<S, T>& f) const
         {
             for (typename ObjectList<T>::const_iterator it = this->begin();
                     it != this->end();
@@ -302,9 +302,9 @@ class ObjectList : public std::vector<T>, public TL::Object
          * a value of T
          */
         template <class S>
-        bool contains(const Functor<S, T>& f, const S& s)
+        bool contains(const Functor<S, T>& f, const S& s) const
         {
-            for (typename ObjectList<T>::iterator it = this->begin();
+            for (typename ObjectList<T>::const_iterator it = this->begin();
                     it != this->end();
                     it++)
             {
@@ -324,11 +324,11 @@ class ObjectList : public std::vector<T>, public TL::Object
          *
          * This function requires 'operator==' be defined for the type T
          */
-        ObjectList<T> find(const T& t)
+        ObjectList<T> find(const T& t) const
         {
             ObjectList<T> result;
 
-            for (typename ObjectList<T>::iterator it = find(this->begin(), this->end(), t);
+            for (typename ObjectList<T>::const_iterator it = find(this->begin(), this->end(), t);
                     it != this->end();
                     it++)
             {
@@ -344,11 +344,11 @@ class ObjectList : public std::vector<T>, public TL::Object
          *
          * This function requires 'operator==' be defined for the type T
          */
-        ObjectList<T> not_find(const T& t)
+        ObjectList<T> not_find(const T& t) const
         {
             ObjectList<T> result;
 
-            for (typename ObjectList<T>::iterator it = this->begin();
+            for (typename ObjectList<T>::const_iterator it = this->begin();
                     it != this->end();
                     it++)
             {
@@ -371,11 +371,11 @@ class ObjectList : public std::vector<T>, public TL::Object
          * This function requires type S to be comparable with 'operator=='
          */
         template <class S>
-        ObjectList<T> not_find(const Functor<S, T>& f, const S& s)
+        ObjectList<T> not_find(const Functor<S, T>& f, const S& s) const
         {
             ObjectList<T> result;
 
-            for (typename ObjectList<T>::iterator it = this->begin();
+            for (typename ObjectList<T>::const_iterator it = this->begin();
                     it != this->end();
                     it++)
             {
@@ -398,11 +398,11 @@ class ObjectList : public std::vector<T>, public TL::Object
          * This function requires type S to be comparable with 'operator=='
          */
         template <class S>
-        ObjectList<T> find(const Functor<S, T>& f, const S& s)
+        ObjectList<T> find(const Functor<S, T>& f, const S& s) const
         {
             ObjectList<T> result;
 
-            for (typename ObjectList<T>::iterator it = this->begin();
+            for (typename ObjectList<T>::const_iterator it = this->begin();
                     it != this->end();
                     it++)
             {
@@ -426,11 +426,11 @@ class ObjectList : public std::vector<T>, public TL::Object
          * This function requires type S to be comparable with 'operator=='
          */
         template <class S>
-        ObjectList<T> not_find(const T& t, const Functor<S, T>& f)
+        ObjectList<T> not_find(const T& t, const Functor<S, T>& f) const
         {
             ObjectList<T> result;
 
-            for (typename ObjectList<T>::iterator it = this->begin();
+            for (typename ObjectList<T>::const_iterator it = this->begin();
                     it != this->end();
                     it++)
             {
@@ -454,11 +454,11 @@ class ObjectList : public std::vector<T>, public TL::Object
          * This function requires type S to be comparable with 'operator=='
          */
         template <class S>
-        ObjectList<T> find(const T& t, const Functor<S, T>& f)
+        ObjectList<T> find(const T& t, const Functor<S, T>& f) const
         {
             ObjectList<T> result;
 
-            for (typename ObjectList<T>::iterator it = this->begin();
+            for (typename ObjectList<T>::const_iterator it = this->begin();
                     it != this->end();
                     it++)
             {
