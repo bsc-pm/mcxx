@@ -655,3 +655,15 @@ ObjectList<TaskPart> TaskAggregation::get_task_parts(Statement stmt)
 
     return result;
 }
+
+TaskAggregation& TaskAggregation::set_global_bundling_source(Source& src)
+{
+    _global_bundling_src = &src;
+    return *this;
+}
+
+TaskAggregation& TaskAggregation::set_finish_bundling_source(Source& src)
+{
+    _finish_bundling_src = &src;
+    return *this;
+}

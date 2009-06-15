@@ -60,7 +60,9 @@ TL::Source LoopUnroll::do_unroll()
 
     Statement loop_body = _for_stmt.get_loop_body();
 
-    TL::Source result, epilogue, main, induction_var_decl;
+    TL::Source result, epilogue, 
+        main, induction_var_decl,
+        before_main, after_main;
 
     std::stringstream ss;
     ss << _factor;
@@ -68,7 +70,9 @@ TL::Source LoopUnroll::do_unroll()
     result
         << "{"
         << induction_var_decl
+        << before_main
         << main
+        << after_main
         << epilogue
         << "}"
         ;
@@ -118,7 +122,7 @@ TL::Source LoopUnroll::do_unroll()
     else
     {
         omp_replication(_factor, replicated_body, 
-                induction_var, loop_body);
+                induction_var, loop_body, before_main, after_main);
     }
 
     return result;

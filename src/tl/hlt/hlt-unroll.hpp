@@ -56,11 +56,13 @@ namespace TL
                 void simple_replication(int factor, Source &replicated_body,
                         IdExpression induction_var, Statement loop_body);
                 void omp_replication(int factor, Source &replicated_body,
-                        IdExpression induction_var, Statement loop_body);
+                        IdExpression induction_var, Statement loop_body,
+                        Source &before, Source &after);
                 void omp_replication_by_task_aggregation(int factor, Source &replicated_body,
                         IdExpression induction_var, Statement loop_body);
-                void omp_replication_by_task_bundling(int factor, Source &replicated_body,
-                        IdExpression induction_var, Statement loop_body);
+                void omp_replication_by_task_bundling(int factor, Source& replicated_body,
+                        IdExpression induction_var, Statement loop_body,
+                        Source& before, Source &after);
 
                 Source flatten_compound(Statement stmt, int num, Symbol sym);
             public:
