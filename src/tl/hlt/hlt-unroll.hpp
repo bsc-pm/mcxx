@@ -47,6 +47,8 @@ namespace TL
                 ForStatement _for_stmt;
                 unsigned int _factor;
                 bool _with_epilog;
+                bool _ignore_omp;
+                bool _omp_bundling;
 
                 Source do_unroll();
 
@@ -54,6 +56,10 @@ namespace TL
                 void simple_replication(int factor, Source &replicated_body,
                         IdExpression induction_var, Statement loop_body);
                 void omp_replication(int factor, Source &replicated_body,
+                        IdExpression induction_var, Statement loop_body);
+                void omp_replication_by_task_aggregation(int factor, Source &replicated_body,
+                        IdExpression induction_var, Statement loop_body);
+                void omp_replication_by_task_bundling(int factor, Source &replicated_body,
                         IdExpression induction_var, Statement loop_body);
 
                 Source flatten_compound(Statement stmt, int num, Symbol sym);
@@ -64,6 +70,9 @@ namespace TL
                   \param factor Number of times this loop is unrolled
                  */
                 LoopUnroll(ForStatement for_stmt, unsigned int factor);
+
+                LoopUnroll& ignore_omp(bool b);
+                LoopUnroll& enable_omp_bundling(bool b);
         };
 
         //! Creates a LoopUnroll object

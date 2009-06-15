@@ -8,6 +8,25 @@ using namespace TL::OpenMP;
 void LoopUnroll::omp_replication(int factor, Source &replicated_body, 
         IdExpression induction_var, Statement loop_body)
 {
+    if (_omp_bundling)
+    {
+        omp_replication_by_task_bundling(factor, replicated_body, induction_var, loop_body);
+    }
+    else
+    {
+        // Plain task aggregation will be used instead
+        omp_replication_by_task_aggregation(factor, replicated_body, induction_var, loop_body);
+    }
+}
+
+void LoopUnroll::omp_replication_by_task_bundling(int factor, Source& replicated_body,
+        IdExpression induction_var, Statement loop_body)
+{
+}
+
+void LoopUnroll::omp_replication_by_task_aggregation(int factor, Source& replicated_body,
+        IdExpression induction_var, Statement loop_body)
+{
     Source replication;
     Source aggregation;
     aggregation
@@ -107,3 +126,4 @@ bool TL::HLT::there_is_declaration(TL::Statement st)
     
     return false;
 }
+

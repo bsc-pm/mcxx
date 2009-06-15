@@ -62,6 +62,10 @@ namespace TL
             private:
                 Statement _stmt;
                 AggregationMethod _method;
+                int _bundling_amount;
+
+                Source *_global_bundling_src;
+                Source *_finish_bundling_src;
 
                 static void get_task_parts_aux(ObjectList<TaskPart>& result, 
                         ObjectList<Statement> &current_prologue, Statement stmt);
@@ -77,6 +81,11 @@ namespace TL
                 TaskAggregation(Statement stmt, AggregationMethod = PREDICATION);
 
                 TaskAggregation& set_aggregation_method(AggregationMethod);
+
+                TaskAggregation& set_bundling_amount(int amount);
+
+                TaskAggregation& set_global_bundling_source(Source& src);
+                TaskAggregation& set_finish_bundling_source(Source& src);
         };
     }
 }

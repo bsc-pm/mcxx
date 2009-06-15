@@ -110,7 +110,7 @@ TL::Source LoopUnroll::do_unroll()
         consider_omp = true;
     }
 
-    if (!consider_omp)
+    if (_ignore_omp || !consider_omp)
     {
         simple_replication(_factor, replicated_body, 
                 induction_var, loop_body);
@@ -159,4 +159,16 @@ void LoopUnroll::simple_replication(int factor, Source &replicated_body,
             }
         }
     }
+}
+
+LoopUnroll& LoopUnroll::ignore_omp(bool b)
+{
+    _ignore_omp = b;
+    return *this;
+}
+
+LoopUnroll& LoopUnroll::enable_omp_bundling(bool b)
+{
+    _omp_bundling = b;
+    return *this;
 }
