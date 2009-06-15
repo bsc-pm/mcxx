@@ -51,7 +51,8 @@ void LoopUnroll::omp_replication_by_task_bundling(int factor, Source& replicated
     TaskAggregation task_aggregation(stmt);
     task_aggregation.set_aggregation_method(TaskAggregation::BUNDLING)
         .set_global_bundling_source(before)
-        .set_finish_bundling_source(after);
+        .set_finish_bundling_source(after)
+        .set_enclosing_function_tree(_for_stmt.get_ast().get_enclosing_function_definition());
 
     replicated_body = task_aggregation;
 }
@@ -83,6 +84,8 @@ void LoopUnroll::omp_replication_by_task_aggregation(int factor, Source& replica
     Statement stmt(iterator.item(), loop_body.get_scope_link());
 
     TaskAggregation task_aggregation(stmt);
+    task_aggregation
+        .set_enclosing_function_tree(_for_stmt.get_ast().get_enclosing_function_definition());
 
     replicated_body = task_aggregation;
 }

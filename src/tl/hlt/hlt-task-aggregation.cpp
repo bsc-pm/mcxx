@@ -16,7 +16,8 @@ TaskAggregation::TaskAggregation(Statement stmt, AggregationMethod method)
     _method(method),
     _bundling_amount(4),
     _global_bundling_src(NULL),
-    _finish_bundling_src(NULL)
+    _finish_bundling_src(NULL),
+    _enclosing_function_def_tree(NULL)
 {
 }
 
@@ -180,7 +181,7 @@ struct GuardTaskGenerator : Functor<TL::AST_t::callback_result, TL::AST_t>
                     ;
 
                 result
-                    << _info.get_guard_struct_var_name() << "." << predicate_name << "=" << _info._num_tasks << ";"
+                    << _info.get_guard_struct_var_name() << "." << predicate_name << "= 1;"
                     ;
 
                 // Capture current firstprivate values
@@ -405,13 +406,11 @@ Source TaskAggregation::do_bundled_aggregation()
     Source result,
            inline_task_counters,
            inline_finish_task,
-           extended_declarations,
            bundled_tasks;
 
     result
         << "{"
         << inline_task_counters
-        << extended_declarations
         << bundled_tasks
         << inline_finish_task
         << "}"
@@ -419,6 +418,10 @@ Source TaskAggregation::do_bundled_aggregation()
 
     Source &task_counters = (_global_bundling_src != NULL ? *_global_bundling_src : inline_task_counters);
     Source &bundle_remainder = (_finish_bundling_src != NULL ? *_finish_bundling_src : inline_finish_task);
+
+    Source extended_declarations;
+    task_counters
+        << extended_declarations;
 
     ObjectList<GuardedTask> guarded_tasks = guard_task_info.get_guarded_tasks();
 
@@ -467,6 +470,9 @@ Source TaskAggregation::do_bundled_aggregation()
         << "int _global_task_index = 0;" 
         ;
 
+    GuardTaskGeneratorBundled guard_task_generator(_stmt.get_scope_link(), guard_task_info, _bundling_amount);
+    bundled_tasks << _stmt.get_ast().prettyprint_with_callback(guard_task_generator);
+
     BundleGenerator bundle_gen(guard_task_info, _stmt.get_scope_link());
     Source clear_indexes;
     bundle_remainder
@@ -508,14 +514,17 @@ Source TaskAggregation::do_predicated_aggregation()
     static int num_guard_structs = 0;
     num_guard_structs++;
 
-    AST_t enclosing_function_def_tree = _stmt.get_ast().get_enclosing_function_definition();
-    FunctionDefinition enclosing_function_def(enclosing_function_def_tree, _stmt.get_scope_link());
+    if (!_enclosing_function_def_tree.is_valid())
+    {
+        _enclosing_function_def_tree = _stmt.get_ast().get_enclosing_function_definition();
+    }
+    FunctionDefinition enclosing_function_def(_enclosing_function_def_tree, _stmt.get_scope_link());
 
     guard_struct_name << "_guard_" << enclosing_function_def.get_function_symbol().get_name() << "_" << num_guard_structs
         ;
 
     Source guard_struct_var_name = guard_task_info.get_guard_struct_var_name();
-    guard_struct_var_decl << "struct " << guard_struct_name << " " << guard_struct_var_name << ";"
+    guard_struct_var_decl << "struct " << guard_struct_name << " " << guard_struct_var_name << " = { 0 };"
         ;
 
     // This fills all the guard task info, before it won't contain any guarded task
@@ -563,7 +572,6 @@ Source TaskAggregation::do_predicated_aggregation()
 
             replaced_body << replacements.replace(body);
 
-
             Symbol &sym(additional_var.second);
             temporal_values_declarations
                 << sym.get_type().get_declaration(sym.get_scope(), additional_var.first) << ";";
@@ -583,7 +591,7 @@ Source TaskAggregation::do_predicated_aggregation()
     AST_t guard_struct_tree = guard_struct_src.parse_declaration(enclosing_function_def.get_ast(),
             _stmt.get_scope_link());
 
-    enclosing_function_def_tree.prepend(guard_struct_tree);
+    _enclosing_function_def_tree.prepend(guard_struct_tree);
 
     return result;
 }
@@ -665,5 +673,11 @@ TaskAggregation& TaskAggregation::set_global_bundling_source(Source& src)
 TaskAggregation& TaskAggregation::set_finish_bundling_source(Source& src)
 {
     _finish_bundling_src = &src;
+    return *this;
+}
+
+TaskAggregation& TaskAggregation::set_enclosing_function_tree(AST_t ast)
+{
+    _enclosing_function_def_tree = ast;
     return *this;
 }

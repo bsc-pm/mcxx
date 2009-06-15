@@ -36,7 +36,8 @@ TL::Source LoopUnroll::get_source()
 }
 
 LoopUnroll::LoopUnroll(ForStatement for_stmt, unsigned int factor)
-     : _for_stmt(for_stmt), _factor(factor), _with_epilog(false)
+     : _for_stmt(for_stmt), _factor(factor), _with_epilog(false),
+     _ignore_omp(false)
 {
     if (!_for_stmt.regular_loop())
     {

@@ -67,6 +67,8 @@ namespace TL
                 Source *_global_bundling_src;
                 Source *_finish_bundling_src;
 
+                AST_t _enclosing_function_def_tree;
+
                 static void get_task_parts_aux(ObjectList<TaskPart>& result, 
                         ObjectList<Statement> &current_prologue, Statement stmt);
 
@@ -86,6 +88,8 @@ namespace TL
 
                 TaskAggregation& set_global_bundling_source(Source& src);
                 TaskAggregation& set_finish_bundling_source(Source& src);
+
+                TaskAggregation& set_enclosing_function_tree(AST_t enclosing_tree);
         };
     }
 }

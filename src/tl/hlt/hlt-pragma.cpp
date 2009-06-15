@@ -111,10 +111,27 @@ void HLTPragmaPhase::run(TL::DTO& dto)
     }
 }
 
-static void unroll_loop_fun(TL::ForStatement for_stmt,
-        int unroll_factor)
+struct UnrollInfo
 {
-    TL::Source unrolled_loop_src = TL::HLT::unroll_loop(for_stmt,  unroll_factor).allow_identity(_allow_identity);
+    int factor;
+    bool enable_omp_bundling;
+    bool ignore_omp;
+
+    UnrollInfo()
+        : factor(4), 
+        enable_omp_bundling(false),
+        ignore_omp(false)
+    {
+    }
+};
+
+static void unroll_loop_fun(TL::ForStatement for_stmt,
+        UnrollInfo unroll_info)
+{
+    TL::Source unrolled_loop_src = TL::HLT::unroll_loop(for_stmt,  unroll_info.factor)
+        .ignore_omp(unroll_info.ignore_omp)
+        .enable_omp_bundling(unroll_info.enable_omp_bundling)
+        .allow_identity(_allow_identity);
 
     TL::AST_t unrolled_loop_tree = unrolled_loop_src.parse_statement(for_stmt.get_ast(),
             for_stmt.get_scope_link());
@@ -165,8 +182,20 @@ void HLTPragmaPhase::unroll_loop(PragmaCustomConstruct construct)
         throw HLTException(construct, "not found any suitable construct for this pragma");
     }
 
+    UnrollInfo unroll_info;
+    unroll_info.factor = unroll_factor;
+
+    if (construct.get_clause("ignore_omp").is_defined())
+    {
+        unroll_info.ignore_omp = true;
+    }
+    if (construct.get_clause("omp_bundling").is_defined())
+    {
+        unroll_info.enable_omp_bundling = true;
+    }
+
     std::for_each(for_statement_list.begin(), for_statement_list.end(),
-            std::bind2nd(std::ptr_fun(unroll_loop_fun), unroll_factor));
+            std::bind2nd(std::ptr_fun(unroll_loop_fun), unroll_info));
 
     construct.get_ast().replace(statement.get_ast());
 }
