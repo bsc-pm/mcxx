@@ -703,7 +703,22 @@ void HLTPragmaPhase::task_aggregate(PragmaCustomConstruct construct)
 
     TaskAggregation task_aggregation(stmt);
 
-    Source src = task_aggregation;
+
+    Source src, aggregation, global, finish;
+    src
+        << global
+        << aggregation
+        << finish
+        ;
+
+    if (construct.get_clause("omp_bundling").is_defined())
+    {
+        task_aggregation.set_aggregation_method(TaskAggregation::BUNDLING)
+            .set_global_bundling_source(global)
+            .set_finish_bundling_source(finish);
+    }
+
+    aggregation << task_aggregation;
 
     AST_t tree = src.parse_statement(construct.get_ast(),
             construct.get_scope_link());

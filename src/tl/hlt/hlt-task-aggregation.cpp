@@ -249,6 +249,7 @@ struct BundleGenerator
                 << "}"
                 ;
 
+            ObjectList<Symbol> firstprivated_symbols;
             ObjectList<GuardedTask> guarded_task_list = _info.get_guarded_tasks();
             for (ObjectList<GuardedTask>::iterator it = guarded_task_list.begin();
                     it != guarded_task_list.end();
@@ -272,9 +273,13 @@ struct BundleGenerator
                             it_var++)
                     {
                         Symbol sym(it_var->get_symbol());
-                        firstprivate_args.append_with_separator(
-                                "_tmp_" + sym.get_name(),
-                                ",");
+                        if (!firstprivated_symbols.contains(sym))
+                        {
+                            firstprivate_args.append_with_separator(
+                                    "_tmp_" + sym.get_name(),
+                                    ",");
+                            firstprivated_symbols.insert(sym);
+                        }
 
                         Source replace_src;
                         replace_src
@@ -355,6 +360,9 @@ struct GuardTaskGeneratorBundled : Functor<TL::AST_t::callback_result, TL::AST_t
                     }
                 }
 
+                result << "_task_index_" << task_id << "++;"
+                    ;
+
                 Source try_to_run_every_task, clear_indexes;
 
                 result
@@ -362,9 +370,9 @@ struct GuardTaskGeneratorBundled : Functor<TL::AST_t::callback_result, TL::AST_t
                     << "if (_global_task_index == " << _bundling_amount << ")"
                     << "{"
                     <<     try_to_run_every_task
+                    <<     "_global_task_index = 0;"
+                    <<     clear_indexes
                     << "}"
-                    << "_global_task_index = 0;"
-                    << clear_indexes
                     ;
 
                 BundleGenerator bundle_gen(_info, _sl);
