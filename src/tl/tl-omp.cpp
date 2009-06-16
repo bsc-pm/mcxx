@@ -270,12 +270,15 @@ namespace TL
            {
                ConstructInfo &current_construct_info = construct_stack.top();
                // Emit a warning for every unused one
-               for (ObjectList<clause_locus_t>::iterator it = current_construct_info.clause_list.begin();
-                       it != current_construct_info.clause_list.end();
-                       it++)
+               if (!_disable_clause_warnings)
                {
-                   std::cerr << it->second 
-                       << ": warning: clause '" << it->first << "' unused in OpenMP directive" << std::endl;
+                   for (ObjectList<clause_locus_t>::iterator it = current_construct_info.clause_list.begin();
+                           it != current_construct_info.clause_list.end();
+                           it++)
+                   {
+                       std::cerr << it->second 
+                           << ": warning: clause '" << it->first << "' unused in custom OpenMP directive" << std::endl;
+                   }
                }
 
                construct_stack.pop();
@@ -306,7 +309,7 @@ namespace TL
 
            // Add all functors, as needed
 #define OMP_CONSTRUCT(_class_name, _derives_from, _attr_name, _functor_name, _on_name) \
-           _functor_name _class_name##_functor(_on_name##_pre, _on_name##_post, global_data_sharing); \
+           _functor_name _class_name##_functor(_on_name##_pre, _on_name##_post, global_data_sharing, _disable_clause_warnings); \
            PredicateAttr _class_name##_predicate(_attr_name); \
            depth_traverse.add_predicate(_class_name##_predicate, _class_name##_functor);
 #define OMP_CONSTRUCT_MAP(_class_name, _derives_from, _attr_name, _functor_name, _on_name)
@@ -317,7 +320,8 @@ namespace TL
            // #pragma omp constructs|directives
            // (custom constructions)
            PredicateAttr custom_construct(OMP_IS_CUSTOM_CONSTRUCT);
-           CustomConstructFunctor custom_construct_functor(on_custom_construct_pre, on_custom_construct_post, global_data_sharing);
+           CustomConstructFunctor custom_construct_functor(on_custom_construct_pre, on_custom_construct_post, 
+                   global_data_sharing, _disable_clause_warnings);
            depth_traverse.add_predicate(custom_construct, custom_construct_functor);
            PredicateAttr custom_directive(OMP_IS_CUSTOM_DIRECTIVE);
            depth_traverse.add_predicate(custom_directive, custom_construct_functor);
@@ -345,6 +349,11 @@ namespace TL
        void OpenMPPhase::register_construct(const std::string& str)
        {
            register_new_directive("omp", str.c_str(), true);
+       }
+
+       void OpenMPPhase::disable_clause_warnings(bool b)
+       {
+           _disable_clause_warnings = b;
        }
 
        Clause Directive::nowait_clause()

@@ -501,6 +501,7 @@ namespace TL
                 Signal1<T>& _on_construct_pre;
                 Signal1<T>& _on_construct_post;
                 DataSharing &_global_data_sharing;
+                bool &_disable_clause_warnings;
             public:
                 virtual void preorder(Context ctx, AST_t node) 
                 {
@@ -549,11 +550,14 @@ namespace TL
                     _on_construct_post.signal(*parallel_construct);
 
                     // Emit a warning for every unused one
-                    for (ObjectList<clause_locus_t>::iterator it = current_construct_info.clause_list.begin();
-                            it != current_construct_info.clause_list.end();
-                            it++)
+                    if (!_disable_clause_warnings)
                     {
-                        std::cerr << it->second << ": warning: clause '" << it->first << "' unused in OpenMP directive" << std::endl;
+                        for (ObjectList<clause_locus_t>::iterator it = current_construct_info.clause_list.begin();
+                                it != current_construct_info.clause_list.end();
+                                it++)
+                        {
+                            std::cerr << it->second << ": warning: clause '" << it->first << "' unused in OpenMP directive" << std::endl;
+                        }
                     }
 
                     delete parallel_construct;
@@ -562,11 +566,13 @@ namespace TL
 
                 OpenMPConstructFunctor(Signal1<T>& on_construct_pre,
                         Signal1<T>& on_construct_post,
-                        DataSharing& global_data_sharing
+                        DataSharing& global_data_sharing,
+                        bool &disable_warnings
                         )
                     : _on_construct_pre(on_construct_pre),
                     _on_construct_post(on_construct_post),
-                    _global_data_sharing(global_data_sharing)
+                    _global_data_sharing(global_data_sharing),
+                    _disable_clause_warnings(disable_warnings)
                 {
                 }
         };
@@ -616,6 +622,7 @@ namespace TL
                 CustomFunctorMap& _custom_functor_pre;
                 CustomFunctorMap& _custom_functor_post;
                 DataSharing &_global_data_sharing;
+                bool &_disable_clause_warnings;
 
                 void dispatch_custom_construct(CustomFunctorMap& search_map, Context ctx, AST_t node);
             public:
@@ -624,10 +631,12 @@ namespace TL
 
                 CustomConstructFunctor(CustomFunctorMap& custom_functor_pre, 
                         CustomFunctorMap& custom_functor_post,
-                        DataSharing &global_data_sharing)
+                        DataSharing &global_data_sharing,
+                        bool &disable_clause_warnings)
                     : _custom_functor_pre(custom_functor_pre),
                     _custom_functor_post(custom_functor_post),
-                    _global_data_sharing(global_data_sharing)
+                    _global_data_sharing(global_data_sharing),
+                    _disable_clause_warnings(disable_clause_warnings)
             {
             }
         };
@@ -652,6 +661,7 @@ namespace TL
                 ScopeLink scope_link;
                 Scope global_scope;
                 DataSharing global_data_sharing;
+                bool _disable_clause_warnings;
             public:
 
                 // Declare signals
@@ -745,9 +755,19 @@ namespace TL
                 virtual void init(DTO& data_flow);
 
                 OpenMPPhase() 
-                    : global_data_sharing(NULL) 
+                    : global_data_sharing(NULL), 
+                    _disable_clause_warnings(false)
                 { 
                 }
+
+                //! Disables warnings due to unused clauses
+                /*! 
+                 * Sometimes it is useful to traverse a subset of OpenMP and do not care
+                 * about some unused clauses that might be in the constructs not traversed.
+                 *
+                 * A value of true disables those warnings
+                 */
+                void disable_clause_warnings(bool b);
 
                 virtual ~OpenMPPhase() { }
         };
