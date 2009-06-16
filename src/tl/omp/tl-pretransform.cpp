@@ -14,6 +14,9 @@ namespace TL
         void OpenMP_PreTransform::init(DTO& dto)
         {
             _scope_link = ScopeLink(dto["scope_link"]);
+
+            // Silence the compiler about unused clauses
+            disable_clause_warnings(true);
         }
 
         void OpenMP_PreTransform::remove_symbol_declaration(Symbol sym)
