@@ -852,11 +852,11 @@ namespace TL {
 		AST_t ref_ast = expr1.get_ast();
 		ScopeLink scope_link = expr1.get_scope_link();
 		
-		if (!ref_ast.get_attribute(LANG_IS_INTEGER_LITERAL) && !ref_ast.get_attribute(LANG_IS_FLOATING_LITERAL))
+		if (!TL::Bool(ref_ast.get_attribute(LANG_IS_INTEGER_LITERAL)) && !TL::Bool(ref_ast.get_attribute(LANG_IS_FLOATING_LITERAL)))
 		{
 			throw UnsupportedTypeException();
 		}
-		if (!expr2.get_ast().get_attribute(LANG_IS_INTEGER_LITERAL) && !expr2.get_ast().get_attribute(LANG_IS_FLOATING_LITERAL))
+		if (!TL::Bool(expr2.get_ast().get_attribute(LANG_IS_INTEGER_LITERAL)) && !TL::Bool(expr2.get_ast().get_attribute(LANG_IS_FLOATING_LITERAL)))
 		{
 			throw UnsupportedTypeException();
 		}
@@ -923,7 +923,8 @@ namespace TL {
 		AST_t ref_ast = expr.get_ast();
 		ScopeLink scope_link = expr.get_scope_link();
 		
-		if (!ref_ast.get_attribute(LANG_IS_INTEGER_LITERAL) && !ref_ast.get_attribute(LANG_IS_FLOATING_LITERAL))
+		if (!TL::Bool(ref_ast.get_attribute(LANG_IS_INTEGER_LITERAL)) && 
+                !TL::Bool(ref_ast.get_attribute(LANG_IS_FLOATING_LITERAL)))
 		{
 			throw UnsupportedTypeException();
 		}
@@ -964,11 +965,13 @@ namespace TL {
 		AST_t ref_ast = expr1.get_ast();
 		ScopeLink scope_link = expr1.get_scope_link();
 		
-		if (!ref_ast.get_attribute(LANG_IS_INTEGER_LITERAL) && !ref_ast.get_attribute(LANG_IS_FLOATING_LITERAL))
+		if (!TL::Bool(ref_ast.get_attribute(LANG_IS_INTEGER_LITERAL)) 
+                && !TL::Bool(ref_ast.get_attribute(LANG_IS_FLOATING_LITERAL)))
 		{
 			throw UnsupportedTypeException();
 		}
-		if (!expr2.get_ast().get_attribute(LANG_IS_INTEGER_LITERAL) && !expr2.get_ast().get_attribute(LANG_IS_FLOATING_LITERAL))
+		if (!TL::Bool(expr2.get_ast().get_attribute(LANG_IS_INTEGER_LITERAL)) 
+                && !TL::Bool(expr2.get_ast().get_attribute(LANG_IS_FLOATING_LITERAL)))
 		{
 			throw UnsupportedTypeException();
 		}

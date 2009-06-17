@@ -111,7 +111,7 @@ namespace TL
 
        Directive Construct::directive()
        {
-           if (_ref.get_attribute(OMP_IS_OMP_CONSTRUCT))
+           if (TL::Bool(_ref.get_attribute(OMP_IS_OMP_CONSTRUCT)))
            {
                AST_t ast = _ref.get_attribute(OMP_CONSTRUCT_DIRECTIVE);
                return Directive(ast, _scope_link);
@@ -835,7 +835,7 @@ namespace TL
                        it != names.end() && !result;
                        it++)
                {
-                   bool is_custom = _ref.get_attribute(OMP_IS_DEFAULT_CUSTOM_CLAUSE);
+                   bool is_custom = TL::Bool(_ref.get_attribute(OMP_IS_DEFAULT_CUSTOM_CLAUSE));
                    std::string default_custom = "";
                    if (is_custom)
                    {

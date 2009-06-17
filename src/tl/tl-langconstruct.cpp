@@ -1210,6 +1210,11 @@ namespace TL
         _do_not_replace_declarators = !b;
     }
 
+    void ReplaceSrcIdExpression::set_ignore_pragma(bool b)
+    {
+        _ignore_pragmas = b;
+    }
+
     void ReplaceSrcIdExpression::add_replacement(Symbol sym, std::string str)
     {
         _repl_map[sym] = str;
@@ -1244,6 +1249,18 @@ namespace TL
         ReplaceSrcIdExpression *_this = reinterpret_cast<ReplaceSrcIdExpression*>(data);
 
         AST_t wrapped_tree(a);
+
+        if (_this->_ignore_pragmas)
+        {
+            bool b = TL::Bool(wrapped_tree.get_attribute(OMP_IS_OMP_DIRECTIVE))
+                    || TL::Bool(wrapped_tree.get_attribute(LANG_IS_PRAGMA_CUSTOM_DIRECTIVE));
+
+            if (b)
+            {
+                std::string str = wrapped_tree.prettyprint() + "\n";
+                return str.c_str();
+            }
+        }
 
         if (IdExpression::predicate(wrapped_tree))
         {
