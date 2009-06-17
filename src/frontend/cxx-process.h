@@ -57,6 +57,19 @@ do { \
     (list)[((size)-1)] = (elem); \
 } while(0)
 
+#define P_LIST_ADD_PREPEND(list, size, elem) \
+do {  \
+    (size)++; \
+    (list) = realloc((list), sizeof(*(list))*(size)); \
+    _bytes_dynamic_lists += sizeof(*(list)); \
+    int _i; \
+    for (_i = (size) - 1; _i > 0; _i--) \
+    { \
+        (list)[_i] = (list)[_i - 1]; \
+    } \
+    (list)[0] = elem; \
+} while(0)
+
 // This is a bit inefficient. Should not be used for large lists
 #define P_LIST_ADD_ONCE(list, size, elem) \
 do { \
@@ -73,7 +86,7 @@ do { \
 } while (0)
 
 // This is a bit inefficient. Should not be used for large lists
-// Like P_LIST_ADD_ONCE_FUN but using fun as an equality function
+// Like P_LIST_ADD_ONCE but using fun as an equality function
 #define P_LIST_ADD_ONCE_FUN(list, size, elem, fun) \
 do { \
     int _i; \
