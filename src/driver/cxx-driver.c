@@ -1767,7 +1767,7 @@ static void enable_hlt_phase(void)
     config_add_preprocessor_prefix(CURRENT_CONFIGURATION, "hlt");
     // When loading the compiler phase a proper extension will be added
     const char* library_name = "libtl-hlt-pragma";
-    P_LIST_ADD(CURRENT_CONFIGURATION->compiler_phases, 
+    P_LIST_ADD_PREPEND(CURRENT_CONFIGURATION->compiler_phases, 
             CURRENT_CONFIGURATION->num_compiler_phases, 
             library_name);
 }
