@@ -39,7 +39,7 @@
 
 #define HELP_MESSAGE \
 "Syntax: \n" \
-"  tpp -o output_file [-D define...] [-I directory...] input_file" \
+"  tpp -o output_file [-l] [-D define...] [-I directory...] input_file" \
 "\n"
 
 #define MAX_TEXT_LINE 1024
@@ -50,6 +50,8 @@
 
 static int num_include_dirs = 1;
 static char* include_dirs[MAX_INCLUDE_DIRS] = {"."};
+
+static char enable_line_markers = 0;
 
 static int num_defines = 0;
 static char* defines[MAX_DEFINES];
@@ -67,7 +69,7 @@ static void help_message(char* error_message)
     exit(EXIT_FAILURE);
 }
 
-#define GETOPT_OPTIONS "o:D:I:"
+#define GETOPT_OPTIONS "o:D:I:l"
 static void parse_arguments(int argc, char* argv[])
 {
     int n;
@@ -111,6 +113,11 @@ static void parse_arguments(int argc, char* argv[])
                     num_include_dirs++;
                     break;
                 }
+           case 'l' :
+                {
+                    enable_line_markers = 1;
+                    break;
+                }
            default :
                 {
                     break;
@@ -135,6 +142,13 @@ static void parse_arguments(int argc, char* argv[])
 
     input_file = strdup(argv[optind]);
 }
+
+typedef struct file_description_tag
+{
+    FILE* file;
+    char name[512];
+    int line;
+} file_description_t;
 
 static void conditional_process(char* input_filename, char* output_filename)
 {
@@ -228,14 +242,20 @@ static void conditional_process(char* input_filename, char* output_filename)
     char output_enable_stack[MAX_IF_NESTING] = { 0 };
     output_enable_stack[block_nesting] = 1;
 
-    FILE* input_stack[MAX_INCLUDE_NESTING];
+    file_description_t input_stack[MAX_INCLUDE_NESTING];
+    memset(input_stack, 0, sizeof(input_stack));
+
     int top_input_stack = 0;
-    input_stack[top_input_stack] = input;
+
+    input_stack[top_input_stack].file = input;
+    strncpy(input_stack[top_input_stack].name, input_filename, 511);
+    input_stack[top_input_stack].line = 0;
 
     while (top_input_stack >= 0)
     {
-        while (fgets(buffer, MAX_TEXT_LINE, input_stack[top_input_stack]) != NULL)
+        while (fgets(buffer, MAX_TEXT_LINE, input_stack[top_input_stack].file) != NULL)
         {
+            input_stack[top_input_stack].line++;
             regmatch_t offsets[2];
 
             if (output_enable_stack[block_nesting]
@@ -257,10 +277,11 @@ static void conditional_process(char* input_filename, char* output_filename)
                 }
                 FILE* new_input; 
 
+                char full_path[512];
                 int current_include_dir = 0;
                 do 
                 {
-                    char full_path[512];
+                    memset(full_path, 0, sizeof(full_path));
                     snprintf(full_path, 511, "%s/%s", include_dirs[current_include_dir], include_name);
                     new_input = fopen(full_path, "r");
                     current_include_dir++;
@@ -273,9 +294,18 @@ static void conditional_process(char* input_filename, char* output_filename)
                 }
 
                 top_input_stack++;
-                input_stack[top_input_stack] = new_input;
+                input_stack[top_input_stack].file = new_input;
+                strncpy(input_stack[top_input_stack].name, full_path, 511);
+                input_stack[top_input_stack].line = 0;
 
-                fprintf(output, "\n");
+                if (enable_line_markers)
+                {
+                    fprintf(output, "#line 1 \"%s\"\n", input_stack[top_input_stack].name);
+                }
+                else
+                {
+                    fprintf(output, "\n");
+                }
             }
             else if (output_enable_stack[block_nesting]
                     && (regexec(&define_regex, buffer, 2, offsets, 0) == 0))
@@ -424,8 +454,16 @@ static void conditional_process(char* input_filename, char* output_filename)
             }
         }
 
-        fclose(input_stack[top_input_stack]);
+        fclose(input_stack[top_input_stack].file);
         top_input_stack--;
+
+        if (top_input_stack >= 0
+                && enable_line_markers)
+        {
+            fprintf(output, "#line %d \"%s\"\n", 
+                    input_stack[top_input_stack].line + 1,
+                    input_stack[top_input_stack].name);
+        }
     }
 
     if (block_nesting > 0)

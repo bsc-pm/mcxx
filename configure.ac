@@ -9,6 +9,8 @@ AC_CANONICAL_TARGET
 dnl A rather recent version
 AC_PREREQ(2.59)
 
+AC_CONFIG_MACRO_DIR([m4])
+
 dnl Initialization of Automake
 AM_INIT_AUTOMAKE([dist-bzip2])
 
@@ -41,6 +43,9 @@ AC_PROG_CPP
 
 dnl Check c++
 AC_PROG_CXX
+
+dnl Check for sed
+AC_PROG_SED
 
 dnl Check LN_S
 AC_PROG_LN_S
