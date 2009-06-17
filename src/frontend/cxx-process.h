@@ -63,9 +63,9 @@ do {  \
     (list) = realloc((list), sizeof(*(list))*(size)); \
     _bytes_dynamic_lists += sizeof(*(list)); \
     int _i; \
-    for (_i = 0; _i < (size)-1; _i++) \
+    for (_i = (size) - 1; _i > 0; _i--) \
     { \
-        (list)[_i+1] = (list)[_i]; \
+        (list)[_i] = (list)[_i - 1]; \
     } \
     (list)[0] = elem; \
 } while(0)
