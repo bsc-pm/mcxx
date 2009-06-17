@@ -433,7 +433,7 @@ namespace TL
 
             // If we have such information fill serialized branch, otherwise don't do anything
             // and exploit the fall-through of the switch
-            if (serialized_functions_info)
+            if (serialized_functions_info.valid())
             {
                 Source duplicated_code_src;
                 duplicated_code_src
