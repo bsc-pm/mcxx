@@ -100,6 +100,7 @@ TL::Source LoopUnroll::flatten_compound(Statement stmt, int num, Symbol sym)
     Source result;
 
     ReplaceSrcIdExpression replacements(stmt.get_scope_link());
+    replacements.set_ignore_pragma(true);
 
     // Induction var
     Source induction_var_rpl;
