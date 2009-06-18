@@ -56,32 +56,21 @@ struct BundleGenerator
                 Clause current_firstprivate_clause = current_directive.firstprivate_clause();
                 ReplaceSrcIdExpression replacements(_sl);
 
-                if (current_firstprivate_clause.is_defined())
-                {
-                    ObjectList<TL::IdExpression> vars = current_firstprivate_clause.id_expressions();
-
-                    for (ObjectList<TL::IdExpression>::iterator it_var = vars.begin();
-                            it_var != vars.end();
-                            it_var++)
-                    {
-                        Symbol sym(it_var->get_symbol());
-                        if (!firstprivated_symbols.contains(sym))
-                        {
-                            firstprivate_args.append_with_separator(
-                                    "_tmp_" + sym.get_name(),
-                                    ",");
-                            firstprivated_symbols.insert(sym);
-                        }
-
-                        Source replace_src;
-                        replace_src
-                            << "(_tmp_" << sym.get_name() << "[_current_index])"
-                            ;
-                        replacements.add_replacement(sym, replace_src);
-                    }
-                }
-
                 Source extended_task_body;
+
+                ObjectList<IdExpression> firstprivate_id_expr_list = current_firstprivate_clause.id_expressions();
+                for (ObjectList<IdExpression>::iterator fp_it = firstprivate_id_expr_list.begin();
+                        fp_it != firstprivate_id_expr_list.end();
+                        fp_it++)
+                {
+                    IdExpression& id_expr(*fp_it);
+                    Symbol sym(id_expr.get_symbol());
+
+                    Source repl_src;
+                    repl_src << "(_bundle_info[_current_index]._info_" << it->get_id() << "." << sym.get_name() << ")"
+                        ;
+                    replacements.add_replacement(sym, repl_src);
+                }
 
                 code_of_all_tasks
                     << "case " << it->get_id() << ":"
@@ -94,6 +83,10 @@ struct BundleGenerator
                 extended_task_body << replacements.replace(current_task.body());
             }
 
+            // Bundle info
+            firstprivate_args.append_with_separator(
+                    "_bundle_info",
+                    ",");
             // Task log is always passed
             firstprivate_args.append_with_separator(
                     "_task_log",
@@ -158,7 +151,8 @@ struct GuardTaskGeneratorBundled : Functor<TL::AST_t::callback_result, TL::AST_t
                     {
                         Symbol sym(it->get_symbol());
                         result
-                            << "_tmp_" << sym.get_name() << "[" << task_index_name << "] = " << it->prettyprint() << ";"
+                            << "_bundle_info[" << task_index_name << "]._info_" << task_id << "." << sym.get_name() 
+                            << " = " << it->prettyprint() << ";"
                             ;
                     }
                 }
@@ -210,10 +204,18 @@ Source TaskAggregation::do_bundled_aggregation()
     Source &task_counters = (_global_bundling_src != NULL ? *_global_bundling_src : inline_task_counters);
     Source &bundle_remainder = (_finish_bundling_src != NULL ? *_finish_bundling_src : inline_finish_task);
 
-    Source extended_declarations;
     task_counters
         << "int _task_log[" << _bundling_amount << "] = {0};"
-        << extended_declarations;
+        << "_task_bundle_info_t _bundle_info[" << _bundling_amount << "];"
+        ;
+
+    Source union_definition, union_fields;
+
+    union_definition
+        << "typedef union {"
+        <<   union_fields
+        << "} _task_bundle_info_t;"
+        ;
 
     ObjectList<GuardedTask> guarded_tasks = guard_task_info.get_guarded_tasks();
 
@@ -233,25 +235,36 @@ Source TaskAggregation::do_bundled_aggregation()
         {
             ObjectList<IdExpression> id_expressions = firstprivate_clause.id_expressions();
             firstprivate_syms.insert(id_expressions.map(functor(&IdExpression::get_symbol)));
+
+            Source union_task_fields;
+            union_fields
+                << "struct _task_info_" << guarded_task.get_id() << " {"
+                << union_task_fields
+                << "} _info_" << guarded_task.get_id() << ";"
+                ;
+            for (ObjectList<IdExpression>::iterator it = id_expressions.begin();
+                    it != id_expressions.end();
+                    it++)
+            {
+                Symbol sym(it->get_symbol());
+                Type type(sym.get_type());
+
+                union_task_fields
+                    << type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
+                    ;
+            }
         }
     }
 
+    // Define the union
     {
-        Source bundle_expr_src;
-        bundle_expr_src << _bundling_amount;
-        AST_t bundle_expr_tree = bundle_expr_src.parse_expression(_stmt.get_ast(),
-                _stmt.get_scope_link());
-        for (ObjectList<Symbol>::iterator it_sym = firstprivate_syms.begin();
-                it_sym != firstprivate_syms.end();
-                it_sym++)
+        if (!_enclosing_function_def_tree.is_valid())
         {
-            Symbol& sym(*it_sym);
-            Type array_type = sym.get_type().get_array_to(bundle_expr_tree, sym.get_scope());
-
-            extended_declarations
-                << array_type.get_declaration(sym.get_scope(), "_tmp_" + sym.get_name()) << ";"
-                ;
+            _enclosing_function_def_tree = _stmt.get_ast().get_enclosing_function_definition();
         }
+
+        AST_t union_def_tree = union_definition.parse_declaration(_enclosing_function_def_tree, _stmt.get_scope_link());
+        _enclosing_function_def_tree.prepend(union_def_tree);
     }
 
     task_counters
