@@ -17,33 +17,65 @@ struct BundleGenerator
     private:
         const GuardTaskInfo &_info;
         ScopeLink _sl;
+        int _bundling_amount;
     public:
-        BundleGenerator(const GuardTaskInfo& info, ScopeLink sl)
-            : _info(info), _sl(sl)
+        BundleGenerator(const GuardTaskInfo& info, ScopeLink sl, int bundling_amount)
+            : _info(info), _sl(sl), _bundling_amount(bundling_amount)
         {
         }
 
-        Source generate_bundle(Source &clear_indexes)
+        Source generate_bundle(Source &clear_indexes, bool unroll = false)
         {
             Source try_to_run_every_task;
             Source firstprivate_clause_src, firstprivate_args, code_of_all_tasks;
+            Source switch_structure, loop_header;
             try_to_run_every_task
                 << "#pragma omp task" << firstprivate_clause_src << "\n"
                 << "{"
-                <<   "int _current_index = 0;"
+                << "int _current_index = 0;"
                 //   FIXME - Unroll this
-                <<   "for (_current_index = 0; "
-                <<         "_current_index < _global_task_index; "
-                <<         "_current_index++)"
-                <<   "{"
-                <<       "switch (_task_log[_current_index])"
-                <<       "{"
-                <<           code_of_all_tasks
-                <<           "default: break;"
-                <<       "}"
-                <<   "}"
+                << loop_header
+                << switch_structure
                 << "}"
                 ;
+            
+            Source current_index;
+            current_index
+                << "_current_index"
+                ;
+            if (!unroll)
+            {
+                loop_header
+                    << "for (_current_index = 0; "
+                    <<       "_current_index < _global_task_index; "
+                    <<       "_current_index++)"
+                    ;
+                switch_structure
+                    << "{"
+                    <<    "switch (_task_log[_current_index])"
+                    <<    "{"
+                    <<        code_of_all_tasks
+                    <<        "default: break;"
+                    <<    "}"
+                    << "}"
+                    ;
+            }
+            else
+            {
+                for (int i = 0; i < _bundling_amount; i++)
+                {
+                    switch_structure
+                        << "switch (_task_log[_current_index])"
+                        << "{"
+                        <<     code_of_all_tasks
+                        <<     "default: break;"
+                        << "}"
+                        << "_current_index++;";
+                        ;
+                }
+            }
+
+
 
             ObjectList<Symbol> firstprivated_symbols;
             ObjectList<GuardedTask> guarded_task_list = _info.get_guarded_tasks();
@@ -67,7 +99,7 @@ struct BundleGenerator
                     Symbol sym(id_expr.get_symbol());
 
                     Source repl_src;
-                    repl_src << "(_bundle_info[_current_index]._info_" << it->get_id() << "." << sym.get_name() << ")"
+                    repl_src << "(_bundle_info[" << current_index << "]._info_" << it->get_id() << "." << sym.get_name() << ")"
                         ;
                     replacements.add_replacement(sym, repl_src);
                 }
@@ -91,10 +123,13 @@ struct BundleGenerator
             firstprivate_args.append_with_separator(
                     "_task_log",
                     ",");
-            // Global index is always passed
-            firstprivate_args.append_with_separator(
-                    "_global_task_index",
-                    ",");
+            // Global index is passed only if not unrolled
+            if (!unroll)
+            {
+                firstprivate_args.append_with_separator(
+                        "_global_task_index",
+                        ",");
+            }
             if (!firstprivate_args.empty())
             {
                 firstprivate_clause_src << " firstprivate(" << firstprivate_args << ")"
@@ -169,10 +204,10 @@ struct GuardTaskGeneratorBundled : Functor<TL::AST_t::callback_result, TL::AST_t
                     << "}"
                     ;
 
-                BundleGenerator bundle_gen(_info, _sl);
+                BundleGenerator bundle_gen(_info, _sl, _bundling_amount);
 
                 try_to_run_every_task
-                    << bundle_gen.generate_bundle(clear_indexes)
+                    << bundle_gen.generate_bundle(clear_indexes, /* unroll= */ true)
                     ;
 
 
@@ -274,12 +309,12 @@ Source TaskAggregation::do_bundled_aggregation()
     GuardTaskGeneratorBundled guard_task_generator(_stmt.get_scope_link(), guard_task_info, _bundling_amount);
     bundled_tasks << _stmt.get_ast().prettyprint_with_callback(guard_task_generator);
 
-    BundleGenerator bundle_gen(guard_task_info, _stmt.get_scope_link());
+    BundleGenerator bundle_gen(guard_task_info, _stmt.get_scope_link(), _bundling_amount);
     Source clear_indexes;
     bundle_remainder
         << "if (_global_task_index != 0)"
         << "{"
-        << bundle_gen.generate_bundle(clear_indexes)
+        << bundle_gen.generate_bundle(clear_indexes, /*unroll=*/ false)
         // << clear_indexes
         << "}"
         ;
