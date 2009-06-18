@@ -41,6 +41,9 @@ libtl_hlt_la_SOURCES = \
       hlt-common.hpp \
       hlt-task-aggregation.hpp \
       hlt-task-aggregation.cpp \
+      hlt-task-aggregation-common.hpp \
+      hlt-task-aggregation-predication.cpp \
+      hlt-task-aggregation-bundling.cpp \
       $(END)
 
 libtl_hlt_pragma_la_CFLAGS=$(tl_cflags)
