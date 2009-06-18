@@ -244,8 +244,18 @@ struct BundleGenerator
             try_to_run_every_task
                 << "#pragma omp task" << firstprivate_clause_src << "\n"
                 << "{"
-                << "int _current_index = 0;"
-                << code_of_all_tasks
+                <<   "int _current_index = 0;"
+                //   FIXME - Unroll this
+                <<   "for (_current_index = 0; "
+                <<         "_current_index < _global_task_index; "
+                <<         "_current_index++)"
+                <<   "{"
+                <<       "switch (_task_log[_current_index])"
+                <<       "{"
+                <<           code_of_all_tasks
+                <<           "default: break;"
+                <<       "}"
+                <<   "}"
                 << "}"
                 ;
 
@@ -255,10 +265,6 @@ struct BundleGenerator
                     it != guarded_task_list.end();
                     it++)
             {
-                clear_indexes
-                    << "_task_index_" << it->get_id() << "= 0;"
-                    ;
-
                 TaskConstruct current_task = it->get_task();
                 Directive current_directive = current_task.directive();
                 Clause current_firstprivate_clause = current_directive.firstprivate_clause();
@@ -292,17 +298,24 @@ struct BundleGenerator
                 Source extended_task_body;
 
                 code_of_all_tasks
-                    << "while (_task_index_" << it->get_id() << " > 0)"
+                    << "case " << it->get_id() << ":"
                     << "{"
                     <<    extended_task_body
-                    <<    "_task_index_" << it->get_id() << "--;"
-                    <<    "_current_index++;"
+                    <<    "break;"
                     << "}"
                     ;
 
                 extended_task_body << replacements.replace(current_task.body());
             }
 
+            // Task log is always passed
+            firstprivate_args.append_with_separator(
+                    "_task_log",
+                    ",");
+            // Global index is always passed
+            firstprivate_args.append_with_separator(
+                    "_global_task_index",
+                    ",");
             if (!firstprivate_args.empty())
             {
                 firstprivate_clause_src << " firstprivate(" << firstprivate_args << ")"
@@ -345,6 +358,10 @@ struct GuardTaskGeneratorBundled : Functor<TL::AST_t::callback_result, TL::AST_t
                 task_index_name << "_global_task_index"
                     ;
 
+                result
+                    << "_task_log[" << task_index_name << "] = " << task_id << ";"
+                    ;
+
                 if (firstprivate_clause.is_defined())
                 {
                     ObjectList<TL::IdExpression> vars = firstprivate_clause.id_expressions();
@@ -359,9 +376,6 @@ struct GuardTaskGeneratorBundled : Functor<TL::AST_t::callback_result, TL::AST_t
                             ;
                     }
                 }
-
-                result << "_task_index_" << task_id << "++;"
-                    ;
 
                 Source try_to_run_every_task, clear_indexes;
 
@@ -429,6 +443,7 @@ Source TaskAggregation::do_bundled_aggregation()
 
     Source extended_declarations;
     task_counters
+        << "int _task_log[" << _bundling_amount << "] = {0};"
         << extended_declarations;
 
     ObjectList<GuardedTask> guarded_tasks = guard_task_info.get_guarded_tasks();
@@ -440,10 +455,6 @@ Source TaskAggregation::do_bundled_aggregation()
             it_guarded_task++)
     {
         GuardedTask &guarded_task(*it_guarded_task);
-
-        task_counters
-            << "int _task_index_" << guarded_task.get_id() << " = 0;"
-            ;
 
         TaskConstruct task_construct = guarded_task.get_task();
         Directive task_directive = task_construct.directive();
