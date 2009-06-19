@@ -1,6 +1,7 @@
 #include "hlt-task-aggregation.hpp"
 #include "hlt-task-aggregation-common.hpp"
 #include "tl-omp.hpp"
+#include "tl-counters.hpp"
 
 #include "hlt-unroll-omp.hpp"
 
@@ -11,6 +12,8 @@
 using namespace TL;
 using namespace HLT;
 using namespace OpenMP;
+
+const std::string TASK_PREDICATION_COUNTER("hlt.task_predication");
 
 struct GuardTaskGenerator : Functor<TL::AST_t::callback_result, TL::AST_t>
 {
@@ -82,6 +85,8 @@ struct GuardTaskGenerator : Functor<TL::AST_t::callback_result, TL::AST_t>
 
 Source TaskAggregation::do_predicated_aggregation()
 {
+    CounterManager::get_counter(TASK_PREDICATION_COUNTER)++;
+
     GuardTaskInfo guard_task_info;
     GuardTaskGenerator guard_task_generator(_stmt.get_scope_link(), guard_task_info);
 
@@ -114,7 +119,8 @@ Source TaskAggregation::do_predicated_aggregation()
     }
     FunctionDefinition enclosing_function_def(_enclosing_function_def_tree, _stmt.get_scope_link());
 
-    guard_struct_name << "_guard_" << enclosing_function_def.get_function_symbol().get_name() << "_" << num_guard_structs
+    guard_struct_name 
+        << "_guard_" << CounterManager::get_counter(TASK_PREDICATION_COUNTER) << "_" << num_guard_structs
         ;
 
     Source guard_struct_var_name = guard_task_info.get_guard_struct_var_name();

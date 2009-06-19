@@ -4,6 +4,7 @@
 
 #include "tl-symbol.hpp"
 #include "tl-omp.hpp"
+#include "tl-counters.hpp"
 
 using namespace TL;
 using namespace TL::OpenMP;
@@ -12,7 +13,6 @@ struct GuardedTask
 {
     public:
         typedef std::pair<std::string, Symbol> additional_var;
-        static int _global_task_id;
     private:
         TaskConstruct _task_construct;
         ObjectList<additional_var> _additional_vars;
@@ -25,7 +25,7 @@ struct GuardedTask
             : _task_construct(task_construct),
             _additional_vars(additional_vars),
             _predicate_name(predicate_name),
-            _task_id(_global_task_id++)
+            _task_id(CounterManager::get_counter("hlt.guarded_task")++)
         {
         }
 
@@ -54,14 +54,13 @@ struct GuardTaskInfo
 {
     public:
     private:
-        static int _guard_task_num;
+        int _task_counter;
         int _num_tasks;
         ObjectList<GuardedTask> _guarded_task_list;
     public:
         GuardTaskInfo()
-            : _num_tasks(0)
+            : _num_tasks(0), _task_counter(CounterManager::get_counter("hlt.guard_task_info")++)
         {
-            _guard_task_num++;
         }
 
         int get_num_tasks() const
@@ -77,7 +76,7 @@ struct GuardTaskInfo
         std::string get_guard_struct_var_name() const
         {
             Source src;
-            src << "_g_" << _guard_task_num;
+            src << "_g_" << _task_counter;
             return src.get_source();
         }
 

@@ -1,6 +1,7 @@
 #include "hlt-task-aggregation.hpp"
 #include "hlt-task-aggregation-common.hpp"
 #include "tl-omp.hpp"
+#include "tl-counters.hpp"
 
 #include "hlt-unroll-omp.hpp"
 
@@ -11,6 +12,8 @@
 using namespace TL;
 using namespace HLT;
 using namespace OpenMP;
+
+static const std::string TASK_BUNDLE_COUNTER("hlt.task_bundle");
 
 struct BundleGenerator
 {
@@ -29,30 +32,46 @@ struct BundleGenerator
             Source try_to_run_every_task;
             Source firstprivate_clause_src, firstprivate_args, code_of_all_tasks;
             Source switch_structure, loop_header;
+
+            Source current_index_name;
+            current_index_name
+                << "_current_index_" << CounterManager::get_counter(TASK_BUNDLE_COUNTER)
+                ;
+
+            Source global_task_index_name;
+            global_task_index_name
+                << "_global_task_index_" << CounterManager::get_counter(TASK_BUNDLE_COUNTER)
+                ;
+
+            Source task_log_name;
+            task_log_name << "_task_log_" << CounterManager::get_counter(TASK_BUNDLE_COUNTER)
+                ;
+
+            Source bundle_info_name;
+            bundle_info_name
+                << "_bundle_info_" << CounterManager::get_counter(TASK_BUNDLE_COUNTER)
+                ;
+
             try_to_run_every_task
                 << "#pragma omp task" << firstprivate_clause_src << "\n"
                 << "{"
-                << "int _current_index = 0;"
+                << "int " << current_index_name << "  = 0;"
                 //   FIXME - Unroll this
                 << loop_header
                 << switch_structure
                 << "}"
                 ;
             
-            Source current_index;
-            current_index
-                << "_current_index"
-                ;
             if (!unroll)
             {
                 loop_header
-                    << "for (_current_index = 0; "
-                    <<       "_current_index < _global_task_index; "
-                    <<       "_current_index++)"
+                    << "for (" << current_index_name << " = 0; "
+                    <<       "" << current_index_name << " < " << global_task_index_name << "; "
+                    <<       "" << current_index_name << "++)"
                     ;
                 switch_structure
                     << "{"
-                    <<    "switch (_task_log[_current_index])"
+                    <<    "switch (" << task_log_name << "[" << current_index_name << "])"
                     <<    "{"
                     <<        code_of_all_tasks
                     <<        "default: break;"
@@ -65,12 +84,12 @@ struct BundleGenerator
                 for (int i = 0; i < _bundling_amount; i++)
                 {
                     switch_structure
-                        << "switch (_task_log[_current_index])"
+                        << "switch (" << task_log_name << "[" << current_index_name << "])"
                         << "{"
                         <<     code_of_all_tasks
                         <<     "default: break;"
                         << "}"
-                        << "_current_index++;";
+                        << current_index_name << "++;";
                         ;
                 }
             }
@@ -99,7 +118,7 @@ struct BundleGenerator
                     Symbol sym(id_expr.get_symbol());
 
                     Source repl_src;
-                    repl_src << "(_bundle_info[" << current_index << "]._info_" << it->get_id() << "." << sym.get_name() << ")"
+                    repl_src << "(" << bundle_info_name << "[" << current_index_name << "]._info_" << it->get_id() << "." << sym.get_name() << ")"
                         ;
                     replacements.add_replacement(sym, repl_src);
                 }
@@ -117,17 +136,17 @@ struct BundleGenerator
 
             // Bundle info
             firstprivate_args.append_with_separator(
-                    "_bundle_info",
+                    bundle_info_name,
                     ",");
             // Task log is always passed
             firstprivate_args.append_with_separator(
-                    "_task_log",
+                    task_log_name,
                     ",");
             // Global index is passed only if not unrolled
             if (!unroll)
             {
                 firstprivate_args.append_with_separator(
-                        "_global_task_index",
+                        global_task_index_name,
                         ",");
             }
             if (!firstprivate_args.empty())
@@ -168,12 +187,21 @@ struct GuardTaskGeneratorBundled : Functor<TL::AST_t::callback_result, TL::AST_t
 
                 ObjectList<GuardedTask::additional_var> additional_vars;
 
-                Source task_index_name;
-                task_index_name << "_global_task_index"
+                Source global_task_index_name;
+                global_task_index_name << "_global_task_index_" << CounterManager::get_counter(TASK_BUNDLE_COUNTER)
+                    ;
+
+                Source bundle_info_name;
+                bundle_info_name
+                    << "_bundle_info_" << CounterManager::get_counter(TASK_BUNDLE_COUNTER)
+                    ;
+
+                Source task_log_name;
+                task_log_name << "_task_log_" << CounterManager::get_counter(TASK_BUNDLE_COUNTER)
                     ;
 
                 result
-                    << "_task_log[" << task_index_name << "] = " << task_id << ";"
+                    << task_log_name << "[" << global_task_index_name << "] = " << task_id << ";"
                     ;
 
                 if (firstprivate_clause.is_defined())
@@ -186,7 +214,7 @@ struct GuardTaskGeneratorBundled : Functor<TL::AST_t::callback_result, TL::AST_t
                     {
                         Symbol sym(it->get_symbol());
                         result
-                            << "_bundle_info[" << task_index_name << "]._info_" << task_id << "." << sym.get_name() 
+                            << bundle_info_name << "[" << global_task_index_name << "]._info_" << task_id << "." << sym.get_name() 
                             << " = " << it->prettyprint() << ";"
                             ;
                     }
@@ -195,11 +223,11 @@ struct GuardTaskGeneratorBundled : Functor<TL::AST_t::callback_result, TL::AST_t
                 Source try_to_run_every_task, clear_indexes;
 
                 result
-                    << "_global_task_index++;"
-                    << "if (_global_task_index == " << _bundling_amount << ")"
+                    << global_task_index_name << "++;"
+                    << "if (" << global_task_index_name << "== " << _bundling_amount << ")"
                     << "{"
                     <<     try_to_run_every_task
-                    <<     "_global_task_index = 0;"
+                    <<     global_task_index_name << " = 0;"
                     <<     clear_indexes
                     << "}"
                     ;
@@ -220,6 +248,8 @@ struct GuardTaskGeneratorBundled : Functor<TL::AST_t::callback_result, TL::AST_t
 
 Source TaskAggregation::do_bundled_aggregation()
 {
+    CounterManager::get_counter("hlt.task_bundle")++;
+
     GuardTaskInfo guard_task_info;
     guard_task_info.fill_guard_tasks_basic(_stmt);
 
@@ -236,12 +266,31 @@ Source TaskAggregation::do_bundled_aggregation()
         << "}"
         ;
 
+    Source global_task_index_name;
+    global_task_index_name << "_global_task_index_" << CounterManager::get_counter(TASK_BUNDLE_COUNTER)
+        ;
+
+    Source bundle_info_name;
+    bundle_info_name
+        << "_bundle_info_" << CounterManager::get_counter(TASK_BUNDLE_COUNTER)
+        ;
+
+    Source task_log_name;
+    task_log_name << "_task_log_" << CounterManager::get_counter(TASK_BUNDLE_COUNTER)
+        ;
+
+    Source union_type_name;
+    union_type_name
+        << "_task_bundle_info_" << CounterManager::get_counter("hlt.task_bundle") << "_t"
+        ;
+
+
     Source &task_counters = (_global_bundling_src != NULL ? *_global_bundling_src : inline_task_counters);
     Source &bundle_remainder = (_finish_bundling_src != NULL ? *_finish_bundling_src : inline_finish_task);
 
     task_counters
-        << "int _task_log[" << _bundling_amount << "] = {0};"
-        << "_task_bundle_info_t _bundle_info[" << _bundling_amount << "];"
+        << "int " << task_log_name << "[" << _bundling_amount << "] = {0};"
+        << union_type_name << " " << bundle_info_name << "[" << _bundling_amount << "]" << ";"
         ;
 
     Source union_definition, union_fields;
@@ -249,7 +298,7 @@ Source TaskAggregation::do_bundled_aggregation()
     union_definition
         << "typedef union {"
         <<   union_fields
-        << "} _task_bundle_info_t;"
+        << "} " << union_type_name << ";"
         ;
 
     ObjectList<GuardedTask> guarded_tasks = guard_task_info.get_guarded_tasks();
@@ -303,8 +352,8 @@ Source TaskAggregation::do_bundled_aggregation()
     }
 
     task_counters
-        << "int _global_task_index = 0;" 
-        ;
+        << "int " << global_task_index_name << " = 0;" 
+        ; 
 
     GuardTaskGeneratorBundled guard_task_generator(_stmt.get_scope_link(), guard_task_info, _bundling_amount);
     bundled_tasks << _stmt.get_ast().prettyprint_with_callback(guard_task_generator);
@@ -312,7 +361,7 @@ Source TaskAggregation::do_bundled_aggregation()
     BundleGenerator bundle_gen(guard_task_info, _stmt.get_scope_link(), _bundling_amount);
     Source clear_indexes;
     bundle_remainder
-        << "if (_global_task_index != 0)"
+        << "if (" << global_task_index_name << " != 0)"
         << "{"
         << bundle_gen.generate_bundle(clear_indexes, /*unroll=*/ false)
         // << clear_indexes

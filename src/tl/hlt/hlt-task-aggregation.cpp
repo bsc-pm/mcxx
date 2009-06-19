@@ -12,9 +12,6 @@ using namespace TL;
 using namespace HLT;
 using namespace OpenMP;
 
-int GuardedTask::_global_task_id = 0;
-int GuardTaskInfo::_guard_task_num;
-
 TaskAggregation::TaskAggregation(Statement stmt, AggregationMethod method)
 : _stmt(stmt),
     _method(method),
