@@ -138,6 +138,8 @@
 %type<ast> omp_variable_list
 
 %type<ast> omp_reduction_operator
+%type<ast> omp_builtin_reduction_operator
+%type<ast> omp_non_builtin_reduction_operator
 
 %type<ast> omp_custom_construct_statement
 %type<ast> omp_custom_construct_declaration
@@ -154,6 +156,7 @@
 %type<ast> omp_declare_reduction_clauses
 %type<ast> omp_identity_expression
 %type<ast> omp_reduction_order
+%type<ast> omp_user_defined_operator_list
 %type<ast> omp_user_defined_operator
 
 /*!endif*/
@@ -926,7 +929,7 @@ omp_declare_reduction_clause : OMP_TYPE '(' type_id ')'
 {
     $$ = ASTMake1(AST_OMP_IDENTITY_CLAUSE, $3, $1.token_file, $1.token_line, NULL);
 }
-| OMP_OPERATOR '(' omp_user_defined_operator ')'
+| OMP_OPERATOR '(' omp_user_defined_operator_list ')'
 {
     $$ = ASTMake1(AST_OMP_OPERATOR_CLAUSE, $3, $1.token_file, $1.token_line, NULL);
 }
@@ -940,11 +943,27 @@ omp_declare_reduction_clause : OMP_TYPE '(' type_id ')'
 }
 ;
 
-omp_user_defined_operator : omp_reduction_operator
+omp_user_defined_operator_list : omp_user_defined_operator
+{
+    $$ = ASTListLeaf($1);
+}
+| omp_user_defined_operator_list ',' omp_user_defined_operator
+{
+    $$ = ASTList($1, $3);
+}
+;
+
+omp_user_defined_operator : omp_builtin_reduction_operator
 {
     $$ = ASTMake1(AST_OMP_REDUCTION_OPERATOR_BUILTIN, $1, ASTFileName($1), ASTLine($1), NULL);
 }
-| id_expression
+| omp_non_builtin_reduction_operator
+{
+    $$ = $1;
+}
+;
+
+omp_non_builtin_reduction_operator: id_expression
 {
     $$ = ASTMake1(AST_OMP_REDUCTION_OPERATOR_FUNCTION, $1, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -1019,7 +1038,17 @@ omp_data_clause : OMP_PRIVATE '(' omp_variable_list ')'
 }
 ;
 
-omp_reduction_operator : '+' 
+omp_reduction_operator : omp_builtin_reduction_operator
+{
+    $$ = $1;
+}
+| omp_non_builtin_reduction_operator
+{
+    $$ = $1;
+}
+;
+
+omp_builtin_reduction_operator : '+' 
 {
 	$$ = ASTLeaf(AST_ADD_OPERATOR, $1.token_file, $1.token_line, NULL);
 }

@@ -630,7 +630,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_OMP_CRITICAL_DIRECTIVE, omp_critical_directive_handler, NULL),
     NODE_HANDLER(AST_OMP_DECLARE_REDUCTION_DIRECTIVE, omp_generic_directive_handler, "declare reduction"),
     NODE_HANDLER(AST_OMP_TYPE_CLAUSE, omp_generic_clause_handler_with_argument, "type"),
-    NODE_HANDLER(AST_OMP_OPERATOR_CLAUSE, omp_generic_clause_handler_with_argument, "operator"),
+    NODE_HANDLER(AST_OMP_OPERATOR_CLAUSE, omp_generic_clause_handler_with_list, "operator"),
     NODE_HANDLER(AST_OMP_REDUCTION_OPERATOR_BUILTIN, unary_container_handler, NULL),
     NODE_HANDLER(AST_OMP_REDUCTION_OPERATOR_FUNCTION, unary_container_handler, NULL),
     NODE_HANDLER(AST_OMP_REDUCTION_OPERATOR_MEMBER_FUNCTION, prefix_with_parameter_then_son_handler, "."),

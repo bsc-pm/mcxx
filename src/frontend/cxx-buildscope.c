@@ -8475,6 +8475,8 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
                     {
                         build_scope_omp_data_clause(ASTSon1(clause), decl_context);
 
+                        char is_user_defined = 0;
+
                         // Compute here the neuter for future use
                         AST neuter = NULL;
                         switch (ASTType(ASTSon0(clause)))
@@ -8499,6 +8501,14 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
                                     neuter = internal_expression_parse("~0", decl_context);
                                     break;
                                 }
+                            case AST_OMP_REDUCTION_OPERATOR_FUNCTION :
+                            case AST_OMP_REDUCTION_OPERATOR_MEMBER_FUNCTION :
+                                {
+                                    // FIXME - We need to get the neuter information back
+                                    neuter = internal_expression_parse("0", decl_context);
+                                    is_user_defined = 1;
+                                    break;
+                                }
                             default:
                                 {
                                     internal_error("Unknown node' %s'\n", 
@@ -8512,7 +8522,7 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
                         ast_set_parent(neuter, clause);
 
                         ASTAttrSetValueType(clause, OMP_IS_REDUCTION_CLAUSE, tl_type_t, tl_bool(1));
-                        ASTAttrSetValueType(clause, OMP_IS_USER_DEFINED_REDUCTION, tl_type_t, tl_bool(0));
+                        ASTAttrSetValueType(clause, OMP_IS_USER_DEFINED_REDUCTION, tl_type_t, tl_bool(is_user_defined));
                         ASTAttrSetValueType(clause, OMP_REDUCTION_OPERATOR, tl_type_t, tl_ast(ASTSon0(clause)));
                         ASTAttrSetValueType(clause, OMP_REDUCTION_VARIABLES, tl_type_t, tl_ast(ASTSon1(clause)));
                         ASTAttrSetValueType(clause, OMP_REDUCTION_NEUTER, tl_type_t, tl_ast(ASTSon2(clause)));
@@ -8565,6 +8575,42 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
                                 {
                                     internal_error("Unexpected tree %s\n", ast_print_node_type(ASTType(omp_id_expr)));
                                 }
+                        }
+                        break;
+                    }
+                case AST_OMP_OPERATOR_CLAUSE :
+                    {
+                        if (type_in_context == NULL)
+                        {
+                            running_error("%s: error: a clause 'type' must be seen prior to 'identity' clause\n",
+                                    ast_location(clause));
+                        }
+
+                        AST operator_list = ASTSon0(clause), it;
+                        for_each_element(operator_list, it)
+                        {
+                            AST operator = ASTSon1(it);
+
+                            switch (ASTType(operator))
+                            {
+                                case AST_OMP_REDUCTION_OPERATOR_BUILTIN:
+                                    {
+                                        break;
+                                    }
+                                case AST_OMP_REDUCTION_OPERATOR_FUNCTION:
+                                    {
+                                        AST id_expr = ASTSon0(operator);
+                                        check_for_expression(id_expr, decl_context);
+                                        // FIXME - Check the function is valid reduction function
+                                        break;
+                                    }
+                                case AST_OMP_REDUCTION_OPERATOR_MEMBER_FUNCTION:
+                                    {
+                                        break;
+                                    }
+                                default:
+                                    internal_error("Invalid tree kind %s\n", ast_print_node_type(ASTType(operator)));
+                            }
                         }
                         break;
                     }
@@ -8708,7 +8754,7 @@ static void build_scope_omp_declare_reduction(AST a,
     ASTAttrSetValueType(a, OMP_IS_OMP_DIRECTIVE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, OMP_IS_DECLARE_REDUCTION_DIRECTIVE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, tl_ast(a));
-    build_scope_omp_data_clause(ASTSon0(a), decl_context);
+    build_scope_omp_directive(ASTSon0(a), decl_context, NULL);
 }
 
 static void build_scope_omp_flush_directive(AST a, 
