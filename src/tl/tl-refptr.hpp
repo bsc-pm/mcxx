@@ -137,7 +137,9 @@ public:
    *     do_something();
    * @endcode
    */
-  inline operator bool() const;
+// private:
+//   inline operator bool() const;
+  inline bool valid() const;
 
   /// Set underlying instance to 0, decrementing reference count of existing instance appropriately.
   inline void clear();
@@ -308,8 +310,14 @@ bool RefPtr<T_CppObject>::operator!=(const RefPtr<T_CppObject>& src) const
   return (pCppObject_ != src.pCppObject_);
 }
 
+// template <class T_CppObject> inline
+// RefPtr<T_CppObject>::operator bool() const
+// {
+//   return (pCppObject_ != 0);
+// }
+
 template <class T_CppObject> inline
-RefPtr<T_CppObject>::operator bool() const
+bool RefPtr<T_CppObject>::valid() const
 {
   return (pCppObject_ != 0);
 }

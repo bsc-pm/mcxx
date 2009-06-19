@@ -943,9 +943,12 @@ namespace TL
             std::map<Symbol, std::string> _repl_map;
             ScopeLink _sl;
             bool _do_not_replace_declarators;
+            bool _ignore_pragmas;
         public:
             ReplaceSrcIdExpression(ScopeLink sl)
-                : _sl(sl), _do_not_replace_declarators(false) { }
+                : _sl(sl), 
+                _do_not_replace_declarators(false),
+                _ignore_pragmas(false) { }
 
             //! Sets a replacement for the symbol with a string
             /*!
@@ -957,10 +960,12 @@ namespace TL
             //! Perform the replacement returning a prettyprinted coe
             Source replace(AST_t a);
 
-            //! Perform the replacement returning a prettyprinted coe
+            //! Perform the replacement returning a prettyprinted code
             Source replace(LangConstruct a);
 
             void set_replace_declarators(bool b);
+
+            void set_ignore_pragma(bool b);
     };
 
     //! \addtogroup Functors

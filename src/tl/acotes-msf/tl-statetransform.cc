@@ -141,7 +141,7 @@ namespace TL { namespace Acotes {
         
         Source ss;
         
-        Variable* variable= state->getVariable();
+        // Variable* variable= state->getVariable();
 //        ss << "memcpy"
 //                << "( " << Transform::I(driver)->variable()->generateReference(variable)
 //                << ", copyin_acquire(" << state->getNumber() << ")"
@@ -181,8 +181,8 @@ namespace TL { namespace Acotes {
        assert(state->getTask());
        assert(state->getVariable());
        Source ss;
-       Task* task= state->getTask();
-       Variable* variable= state->getVariable();
+       // Task* task= state->getTask();
+       // Variable* variable= state->getVariable();
        //ss << task->getName() + "_" + state->getNumber();
 // TOFINISH
        assert(0);
@@ -198,8 +198,8 @@ namespace TL { namespace Acotes {
         
         Source ss;
         
-        Task* task= state->getTask();
-        Variable* variable= state->getVariable();
+        // Task* task= state->getTask();
+        // Variable* variable= state->getVariable();
 //        ss << "task_copyin"
 //                << "( " << task->getName()
 //                << ", " << state->getNumber()

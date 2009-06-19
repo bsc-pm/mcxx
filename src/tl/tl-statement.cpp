@@ -600,7 +600,7 @@ namespace TL
 
     bool ReturnStatement::has_return_expression()
     {
-        return _ref.get_attribute(LANG_RETURN_STATEMENT_HAS_EXPRESSION);
+        return TL::Bool(_ref.get_attribute(LANG_RETURN_STATEMENT_HAS_EXPRESSION));
     }
 
     Expression ReturnStatement::get_return_expression()

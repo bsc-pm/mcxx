@@ -209,7 +209,7 @@ namespace TL { namespace Acotes {
     {
         assert(port);
         Source ss;
-        int i = 2;
+        // int i = 2;
         Variable* variable= port->getVariable();
         //ss << "iii();";
         if (variable) {

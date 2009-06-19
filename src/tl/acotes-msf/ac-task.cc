@@ -371,7 +371,7 @@ namespace TL { namespace Acotes {
                         << std::endl;
             }
         }
-        printf ("PARENT VARIABLE %x\n", parentVariable);
+        printf ("PARENT VARIABLE %p\n", parentVariable);
         if (port->hasVariable() && !isBypass(port->getVariable()) && (parentVariable != NULL) && !getParent()->isBypass(parentVariable)) {
             if (port->isInput()) {
                 Port* counterpart= Port::createArtificialOutputPort(parentVariable);

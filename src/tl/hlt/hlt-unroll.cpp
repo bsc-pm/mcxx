@@ -121,7 +121,8 @@ TL::Source LoopUnroll::do_unroll()
     // Replicate the body
     for (unsigned int i = 0; i < _factor; i++)
     {
-        ReplaceIdExpression replacement;
+        ReplaceSrcIdExpression replacement(_for_stmt.get_scope_link());
+        replacement.set_ignore_pragma(true);
         if (i > 0)
         {
             std::stringstream ss;
@@ -129,24 +130,22 @@ TL::Source LoopUnroll::do_unroll()
             replacement.add_replacement(induction_var.get_symbol(), ss.str());
         }
 
-        Statement replaced_body = replacement.replace(loop_body);
-
-        if (!replaced_body.is_compound_statement()
-                || there_is_declaration(replaced_body))
+        if (!loop_body.is_compound_statement()
+                || there_is_declaration(loop_body))
         {
-         replicated_body
-             << replaced_body
-             ;
+            replicated_body
+                << replacement.replace(loop_body)
+                ;
         }
         else
         {
-            ObjectList<Statement> list = replaced_body.get_inner_statements();
+            ObjectList<Statement> list = loop_body.get_inner_statements();
             for (ObjectList<Statement>::iterator it = list.begin();
                     it != list.end();
                     it++)
             {
                 replicated_body
-                    << *it
+                    << replacement.replace(*it)
                     ;
             }
         }

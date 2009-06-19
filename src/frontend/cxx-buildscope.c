@@ -8314,6 +8314,7 @@ static void build_scope_omp_data_clause(AST a, decl_context_t decl_context)
 // FIXME - Consider moving OpenMP functions out of this file
 static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* attr_name) 
 {
+    ASTAttrSetValueType(a, OMP_IS_OMP_DIRECTIVE, tl_type_t, tl_bool(1));
     if (attr_name != NULL)
     {
         ASTAttrSetValueType(a, attr_name, tl_type_t, tl_bool(1));
