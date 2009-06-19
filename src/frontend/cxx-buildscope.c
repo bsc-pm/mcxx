@@ -8311,6 +8311,268 @@ static void build_scope_omp_data_clause(AST a, decl_context_t decl_context)
     }
 }
 
+static char omp_eligible_reduction_function(scope_entry_t* entry, type_t** deduced_type)
+{
+    // Let's model the reduction as something performing at each step something like:
+    // 
+    //          a = fun(a, b)
+    // 
+    // Valid cases
+    // -----------
+    //
+    // Non-member functions (or static member functions)
+    // 
+    //    ( 1) T fun(T a, T b) 
+    //    ( 2) void fun(T* a, T b)
+    //    ( 3) void fun(T* a, const T* b)
+    //
+    //    ( 4) T fun(const T& a, const T& b)      [C++]
+    //    ( 5) T fun(T a, const T& b)             [C++]
+    //    ( 6) T fun(const T& a, T b)             [C++]
+    //    ( 7) void fun(T& a, T b)                [C++]
+    //    ( 8) void fun(T& a, const T& b)         [C++]
+    // 
+    // Non-static Member functions: [C++ only]
+    //    ('this' plays the role of 'a' here)
+    // 
+    //    ( 9) T::mem_fun(T b)
+    //    (10) T::mem_fun(const T& b)
+    //    (11) T::mem_fun(const T* b)
+    *deduced_type = NULL;
+
+    if (!entry->entity_specs.is_member
+            || entry->entity_specs.is_static)
+    {
+        // It must be callable with two arguments
+        if (!can_be_called_with_number_of_arguments(entry, 2))
+        {
+            return 0;
+        }
+        type_t* function_type = entry->type_information;
+        type_t* first_type = function_type_get_parameter_type_num(function_type, 0);
+        type_t* second_type = function_type_get_parameter_type_num(function_type, 1);
+        type_t* return_type = function_type_get_return_type(function_type);
+
+        // (1) T fun(T a, T b) 
+        if (equivalent_types(first_type, second_type)
+                && equivalent_types(first_type, return_type)
+                && !is_non_derived_type(first_type))
+        {
+            *deduced_type = first_type;
+            return 1;
+        }
+        else if (is_void_type(return_type)
+                && is_pointer_type(first_type))
+        {
+            type_t* first_indirect_type = pointer_type_get_pointee_type(first_type);
+            // (2) void fun(T* a, T b)
+            if (equivalent_types(first_indirect_type, second_type))
+            {
+                *deduced_type = first_indirect_type;
+                return 1;
+            }
+            if (is_pointer_type(second_type))
+            {
+                type_t* second_indirect_type = pointer_type_get_pointee_type(second_type);
+
+                if (is_const_qualified_type(second_indirect_type)
+                        && equivalent_types(first_indirect_type, get_unqualified_type(second_indirect_type)))
+                {
+                    // (3) void fun(T* a, const T* b)
+                    *deduced_type = first_indirect_type;
+                    return 1;
+                }
+            }
+        }
+        else if (IS_CXX_LANGUAGE
+                && is_lvalue_reference_type(first_type)
+                && is_lvalue_reference_type(second_type)
+                && is_const_qualified_type(reference_type_get_referenced_type(first_type))
+                && is_const_qualified_type(reference_type_get_referenced_type(second_type))
+                && equivalent_types(first_type, second_type)
+                && equivalent_types(get_unqualified_type(reference_type_get_referenced_type(first_type)), return_type)
+                )
+        {
+            // ( 4) T fun(const T& a, const T& b)      [C++]
+            *deduced_type = get_unqualified_type(reference_type_get_referenced_type(first_type));
+            return 1;
+        }
+        else if (IS_CXX_LANGUAGE
+                && is_lvalue_reference_type(second_type)
+                && is_const_qualified_type(reference_type_get_referenced_type(second_type))
+                && equivalent_types(first_type, get_unqualified_type(reference_type_get_referenced_type(second_type)))
+                && equivalent_types(first_type, return_type))
+        {
+            // ( 5) T fun(T a, const T& b)             [C++]
+            *deduced_type = return_type;
+            return 1;
+        }
+        else if (IS_CXX_LANGUAGE
+                && is_lvalue_reference_type(first_type)
+                && is_const_qualified_type(reference_type_get_referenced_type(first_type))
+                && equivalent_types(second_type, get_unqualified_type(reference_type_get_referenced_type(first_type)))
+                && equivalent_types(second_type, return_type))
+        {
+            // ( 6) T fun(const T& a, T b)             [C++]
+            *deduced_type = return_type;
+            return 1;
+        }
+        else if (IS_CXX_LANGUAGE
+                && is_void_type(return_type)
+                && is_lvalue_reference_type(first_type)
+                && !is_const_qualified_type(reference_type_get_referenced_type(first_type))
+                && equivalent_types(get_unqualified_type(reference_type_get_referenced_type(first_type)), second_type))
+        {
+            // ( 7) void fun(T& a, T b)                [C++]
+            *deduced_type = second_type;
+            return 1;
+        }
+        else if (IS_CXX_LANGUAGE
+                && is_lvalue_reference_type(first_type)
+                && is_lvalue_reference_type(second_type)
+                && !is_const_qualified_type(reference_type_get_referenced_type(first_type))
+                && is_const_qualified_type(reference_type_get_referenced_type(second_type))
+                && equivalent_types(reference_type_get_referenced_type(first_type),
+                    get_unqualified_type(reference_type_get_referenced_type(second_type)))
+                )
+        {
+            // ( 8) void fun(T& a, const T& b)         [C++]
+            *deduced_type = reference_type_get_referenced_type(first_type);
+            return 1;
+        }
+    }
+    else
+    {
+        if (!can_be_called_with_number_of_arguments(entry, 1))
+        {
+            return 0;
+        }
+        type_t* class_type = entry->entity_specs.class_type;
+        type_t* function_type = entry->type_information;
+        type_t* first_type = function_type_get_parameter_type_num(function_type, 0);
+
+        // ( 9) T::mem_fun(T b)
+        if (equivalent_types(class_type, first_type)
+                // (10) T::mem_fun(const T& b)
+                || (is_lvalue_reference_type(first_type)
+                    && is_const_qualified_type(reference_type_get_referenced_type(first_type))
+                    && equivalent_types(class_type, get_unqualified_type(reference_type_get_referenced_type(first_type))))
+                // (11) T::mem_fun(const T* b)
+                || (is_pointer_type(first_type)
+                    && is_const_qualified_type(pointer_type_get_pointee_type(first_type))
+                    && equivalent_types(class_type, get_unqualified_type(pointer_type_get_pointee_type(first_type))))
+                )
+        {
+            *deduced_type = class_type;
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+static void build_scope_omp_reduction_clause(AST clause, decl_context_t decl_context)
+{
+    build_scope_omp_data_clause(ASTSon1(clause), decl_context);
+
+    char is_user_defined = 0;
+
+    // Compute here the neuter for future use
+    AST neuter = NULL;
+    switch (ASTType(ASTSon0(clause)))
+    {
+        case AST_ADD_OPERATOR :
+        case AST_MINUS_OPERATOR : 
+        case AST_BITWISE_OR_OPERATOR :
+        case AST_BITWISE_XOR_OPERATOR :
+        case AST_LOGICAL_OR_OPERATOR :
+            {
+                neuter = internal_expression_parse("0", decl_context);
+                break;
+            }
+        case AST_MULT_OPERATOR :
+        case AST_LOGICAL_AND_OPERATOR :
+            {
+                neuter = internal_expression_parse("1", decl_context);
+                break;
+            }
+        case AST_BITWISE_AND_OPERATOR :
+            {
+                neuter = internal_expression_parse("~0", decl_context);
+                break;
+            }
+        case AST_OMP_REDUCTION_OPERATOR_FUNCTION :
+            {
+                AST reductor = ASTSon0(ASTSon0(clause));
+
+                scope_entry_list_t *result 
+                    = query_id_expression(decl_context, reductor);
+
+                if (result == NULL)
+                {
+                    fprintf(stderr, "%s: warning invalid reduction function '%s'\n", 
+                            ast_location(reductor),
+                            prettyprint_in_buffer(reductor));
+                }
+                else
+                {
+                    if (result->next != NULL)
+                    {
+                        CXX_LANGUAGE()
+                        {
+                            fprintf(stderr, "%s: warning: an overloaded function as a reduction function is not yet supported\n",
+                                    ast_location(reductor));
+                        }
+                        C_LANGUAGE()
+                        {
+                            internal_error("Code unreachable", 0);
+                        }
+                    }
+                    scope_entry_t* entry = result->entry;
+                    if (entry->kind != SK_FUNCTION)
+                    {
+                        fprintf(stderr, "%s: warning: argument '%s' is not a a function-name\n",
+                                ast_location(reductor),
+                                prettyprint_in_buffer(reductor));
+                    }
+
+                    type_t* deduced_type = NULL;
+                    if (!omp_eligible_reduction_function(entry, &deduced_type))
+                    {
+                        fprintf(stderr, "%s: warning: argument '%s' is not eligible as a function-name\n",
+                                ast_location(reductor),
+                                prettyprint_in_buffer(reductor));
+                    }
+                }
+
+                break;
+            }
+        case AST_OMP_REDUCTION_OPERATOR_MEMBER_FUNCTION :
+            {
+                // FIXME - We need to get the neuter information back
+                neuter = internal_expression_parse("0", decl_context);
+                is_user_defined = 1;
+                break;
+            }
+        default:
+            {
+                internal_error("Unknown node' %s'\n", 
+                        ast_print_node_type(ASTType(ASTSon0(clause))));
+            }
+
+    }
+
+    // Save the neuter
+    ast_set_child(clause, 2, neuter);
+    ast_set_parent(neuter, clause);
+
+    ASTAttrSetValueType(clause, OMP_IS_REDUCTION_CLAUSE, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(clause, OMP_IS_USER_DEFINED_REDUCTION, tl_type_t, tl_bool(is_user_defined));
+    ASTAttrSetValueType(clause, OMP_REDUCTION_OPERATOR, tl_type_t, tl_ast(ASTSon0(clause)));
+    ASTAttrSetValueType(clause, OMP_REDUCTION_VARIABLES, tl_type_t, tl_ast(ASTSon1(clause)));
+    ASTAttrSetValueType(clause, OMP_REDUCTION_NEUTER, tl_type_t, tl_ast(ASTSon2(clause)));
+}
+
 // FIXME - Consider moving OpenMP functions out of this file
 static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* attr_name) 
 {
@@ -8473,59 +8735,7 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
                     }
                 case AST_OMP_REDUCTION_CLAUSE :
                     {
-                        build_scope_omp_data_clause(ASTSon1(clause), decl_context);
-
-                        char is_user_defined = 0;
-
-                        // Compute here the neuter for future use
-                        AST neuter = NULL;
-                        switch (ASTType(ASTSon0(clause)))
-                        {
-                            case AST_ADD_OPERATOR :
-                            case AST_MINUS_OPERATOR : 
-                            case AST_BITWISE_OR_OPERATOR :
-                            case AST_BITWISE_XOR_OPERATOR :
-                            case AST_LOGICAL_OR_OPERATOR :
-                                {
-                                    neuter = internal_expression_parse("0", decl_context);
-                                    break;
-                                }
-                            case AST_MULT_OPERATOR :
-                            case AST_LOGICAL_AND_OPERATOR :
-                                {
-                                    neuter = internal_expression_parse("1", decl_context);
-                                    break;
-                                }
-                            case AST_BITWISE_AND_OPERATOR :
-                                {
-                                    neuter = internal_expression_parse("~0", decl_context);
-                                    break;
-                                }
-                            case AST_OMP_REDUCTION_OPERATOR_FUNCTION :
-                            case AST_OMP_REDUCTION_OPERATOR_MEMBER_FUNCTION :
-                                {
-                                    // FIXME - We need to get the neuter information back
-                                    neuter = internal_expression_parse("0", decl_context);
-                                    is_user_defined = 1;
-                                    break;
-                                }
-                            default:
-                                {
-                                    internal_error("Unknown node' %s'\n", 
-                                            ast_print_node_type(ASTType(ASTSon0(clause))));
-                                }
-
-                        }
-
-                        // Save the neuter
-                        ast_set_child(clause, 2, neuter);
-                        ast_set_parent(neuter, clause);
-
-                        ASTAttrSetValueType(clause, OMP_IS_REDUCTION_CLAUSE, tl_type_t, tl_bool(1));
-                        ASTAttrSetValueType(clause, OMP_IS_USER_DEFINED_REDUCTION, tl_type_t, tl_bool(is_user_defined));
-                        ASTAttrSetValueType(clause, OMP_REDUCTION_OPERATOR, tl_type_t, tl_ast(ASTSon0(clause)));
-                        ASTAttrSetValueType(clause, OMP_REDUCTION_VARIABLES, tl_type_t, tl_ast(ASTSon1(clause)));
-                        ASTAttrSetValueType(clause, OMP_REDUCTION_NEUTER, tl_type_t, tl_ast(ASTSon2(clause)));
+                        build_scope_omp_reduction_clause(clause, decl_context);
                         break;
                     }
                 case AST_OMP_TYPE_CLAUSE :
