@@ -139,7 +139,7 @@ void LoopUnroll::simple_replication(int factor, Source &replicated_body,
         if (i > 0)
         {
             std::stringstream ss;
-            ss << induction_var << " + " << i;
+            ss << "(" << induction_var << " + " << i << ")";
             replacement.add_replacement(induction_var.get_symbol(), ss.str());
         }
 
