@@ -23,9 +23,17 @@
 
 #include "libutils-common.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define uniqstr uniquestr
 LIBUTILS_EXTERN const char *uniquestr(const char*);
 
 LIBUTILS_EXTERN unsigned long long int char_trie_used_memory(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // UNIQUESTR_H
