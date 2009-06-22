@@ -178,6 +178,9 @@ struct GuardTaskGeneratorBundled : Functor<TL::AST_t::callback_result, TL::AST_t
             if (TaskConstruct::predicate(a))
             {
                 Source result;
+				result
+					<< "{"
+					;
                 // Capture current firstprivate values
                 // FIXME -> We are relying on explicit firstprivates
                 TaskConstruct task_construct(a, _sl);
@@ -237,6 +240,10 @@ struct GuardTaskGeneratorBundled : Functor<TL::AST_t::callback_result, TL::AST_t
                 try_to_run_every_task
                     << bundle_gen.generate_bundle(clear_indexes, /* unroll= */ true)
                     ;
+
+				result
+					<< "}"
+					;
 
 
                 return AST_t::callback_result(true, result);
