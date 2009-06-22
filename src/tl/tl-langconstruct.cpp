@@ -1258,7 +1258,7 @@ namespace TL
             if (b)
             {
                 std::string str = wrapped_tree.prettyprint() + "\n";
-                return str.c_str();
+                return uniquestr(str.c_str());
             }
         }
 
