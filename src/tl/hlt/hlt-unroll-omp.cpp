@@ -92,11 +92,6 @@ void LoopUnroll::omp_replication_by_task_aggregation(int factor, Source& replica
 
 TL::Source LoopUnroll::flatten_compound(Statement stmt, int num, Symbol sym)
 {
-    if (!stmt.is_compound_statement())
-    {
-        return stmt.prettyprint();
-    }
-
     Source result;
 
     ReplaceSrcIdExpression replacements(stmt.get_scope_link());
@@ -109,38 +104,47 @@ TL::Source LoopUnroll::flatten_compound(Statement stmt, int num, Symbol sym)
         ;
     replacements.add_replacement(sym, induction_var_rpl);
 
-    ObjectList<Statement> stmt_list = stmt.get_inner_statements();
-    for (ObjectList<Statement>::iterator it_current_stmt = stmt_list.begin();
-            it_current_stmt != stmt_list.end();
-            it_current_stmt++)
+    if (!stmt.is_compound_statement())
     {
-        Statement &current_stmt(*it_current_stmt);
-
-        if (current_stmt.is_simple_declaration())
-        {
-            Declaration decl = current_stmt.get_simple_declaration();
-
-            ObjectList<DeclaredEntity> declaration_list = decl.get_declared_entities();
-
-            for (ObjectList<DeclaredEntity>::iterator it_entity = declaration_list.begin();
-                    it_entity != declaration_list.end();
-                    it_entity++)
-            {
-                DeclaredEntity &entity(*it_entity);
-                Symbol sym = entity.get_declared_symbol();
-
-                Source repl_src;
-                repl_src
-                    << "_" << sym.get_name() << "_" << num
-                    ;
-
-                replacements.add_replacement(sym, repl_src);
-            }
-        }
-
         result
-            << replacements.replace(current_stmt)
+            << replacements.replace(stmt)
             ;
+    }
+    else
+    {
+        ObjectList<Statement> stmt_list = stmt.get_inner_statements();
+        for (ObjectList<Statement>::iterator it_current_stmt = stmt_list.begin();
+                it_current_stmt != stmt_list.end();
+                it_current_stmt++)
+        {
+            Statement &current_stmt(*it_current_stmt);
+
+            if (current_stmt.is_simple_declaration())
+            {
+                Declaration decl = current_stmt.get_simple_declaration();
+
+                ObjectList<DeclaredEntity> declaration_list = decl.get_declared_entities();
+
+                for (ObjectList<DeclaredEntity>::iterator it_entity = declaration_list.begin();
+                        it_entity != declaration_list.end();
+                        it_entity++)
+                {
+                    DeclaredEntity &entity(*it_entity);
+                    Symbol sym = entity.get_declared_symbol();
+
+                    Source repl_src;
+                    repl_src
+                        << "_" << sym.get_name() << "_" << num
+                        ;
+
+                    replacements.add_replacement(sym, repl_src);
+                }
+            }
+
+            result
+                << replacements.replace(current_stmt)
+                ;
+        }
     }
 
     return result;

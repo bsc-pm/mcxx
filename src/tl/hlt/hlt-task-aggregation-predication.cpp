@@ -33,6 +33,10 @@ struct GuardTaskGenerator : Functor<TL::AST_t::callback_result, TL::AST_t>
                 Source result;
                 Source predicate_name;
 
+                result
+                    << "{"
+                    ;
+
                 predicate_name
                     << "_task_guard_" << _info._num_tasks
                     ;
@@ -75,6 +79,10 @@ struct GuardTaskGenerator : Functor<TL::AST_t::callback_result, TL::AST_t>
                 _info._guarded_task_list.append(new_guarded_task);
 
                 _info._num_tasks++;
+
+                result
+                    << "}"
+                    ;
 
                 return AST_t::callback_result(true, result);
             }
