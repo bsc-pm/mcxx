@@ -213,7 +213,6 @@ HANDLER_PROTOTYPE(omp_custom_clause_handler);
 HANDLER_PROTOTYPE(omp_custom_parameter_clause_handler);
 HANDLER_PROTOTYPE(omp_critical_directive_handler);
 HANDLER_PROTOTYPE(omp_default_custom_clause_handler);
-HANDLER_PROTOTYPE(omp_identity_constructor_handler);
 
 // GCC Extensions
 HANDLER_PROTOTYPE(gcc_label_declaration_handler);

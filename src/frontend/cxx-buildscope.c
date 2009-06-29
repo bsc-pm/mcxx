@@ -41,6 +41,7 @@
 #include "cxx-gccsupport.h"
 #include "cxx-gccbuiltins.h"
 #include "cxx-gccspubuiltins.h"
+#include "cxx-omp-support.h"
 #include "cxx-upc.h"
 #include "cxx-lexer.h"
 #include "cxx-parser.h"
@@ -8471,15 +8472,64 @@ static char omp_eligible_reduction_function(scope_entry_t* entry, type_t** deduc
     return 0;
 }
 
+static scope_entry_t* build_scope_omp_reduction_operator_function(AST reductor, decl_context_t decl_context)
+{
+    scope_entry_list_t *result 
+        = query_id_expression(decl_context, reductor);
+
+    if (result == NULL)
+    {
+        fprintf(stderr, "%s: warning invalid reduction function '%s'\n", 
+                ast_location(reductor),
+                prettyprint_in_buffer(reductor));
+    }
+    else
+    {
+        if (result->next != NULL)
+        {
+            CXX_LANGUAGE()
+            {
+                fprintf(stderr, "%s: warning: an overloaded function as a reduction function is not yet supported\n",
+                        ast_location(reductor));
+            }
+            C_LANGUAGE()
+            {
+                internal_error("Code unreachable", 0);
+            }
+        }
+        scope_entry_t* entry = result->entry;
+        if (entry->kind != SK_FUNCTION)
+        {
+            fprintf(stderr, "%s: warning: argument '%s' is not a a function-name\n",
+                    ast_location(reductor),
+                    prettyprint_in_buffer(reductor));
+        }
+
+        type_t* deduced_type = NULL;
+        if (!omp_eligible_reduction_function(entry, &deduced_type))
+        {
+            fprintf(stderr, "%s: warning: argument '%s' is not eligible as a function-name\n",
+                    ast_location(reductor),
+                    prettyprint_in_buffer(reductor));
+        }
+
+        return entry;
+    }
+
+    return NULL;
+}
+
 static void build_scope_omp_reduction_clause(AST clause, decl_context_t decl_context)
 {
     build_scope_omp_data_clause(ASTSon1(clause), decl_context);
+
+    AST operator = ASTSon0(clause);
 
     char is_user_defined = 0;
 
     // Compute here the neuter for future use
     AST neuter = NULL;
-    switch (ASTType(ASTSon0(clause)))
+    switch (ASTType(operator))
     {
         case AST_ADD_OPERATOR :
         case AST_MINUS_OPERATOR : 
@@ -8503,48 +8553,8 @@ static void build_scope_omp_reduction_clause(AST clause, decl_context_t decl_con
             }
         case AST_OMP_REDUCTION_OPERATOR_FUNCTION :
             {
-                AST reductor = ASTSon0(ASTSon0(clause));
-
-                scope_entry_list_t *result 
-                    = query_id_expression(decl_context, reductor);
-
-                if (result == NULL)
-                {
-                    fprintf(stderr, "%s: warning invalid reduction function '%s'\n", 
-                            ast_location(reductor),
-                            prettyprint_in_buffer(reductor));
-                }
-                else
-                {
-                    if (result->next != NULL)
-                    {
-                        CXX_LANGUAGE()
-                        {
-                            fprintf(stderr, "%s: warning: an overloaded function as a reduction function is not yet supported\n",
-                                    ast_location(reductor));
-                        }
-                        C_LANGUAGE()
-                        {
-                            internal_error("Code unreachable", 0);
-                        }
-                    }
-                    scope_entry_t* entry = result->entry;
-                    if (entry->kind != SK_FUNCTION)
-                    {
-                        fprintf(stderr, "%s: warning: argument '%s' is not a a function-name\n",
-                                ast_location(reductor),
-                                prettyprint_in_buffer(reductor));
-                    }
-
-                    type_t* deduced_type = NULL;
-                    if (!omp_eligible_reduction_function(entry, &deduced_type))
-                    {
-                        fprintf(stderr, "%s: warning: argument '%s' is not eligible as a function-name\n",
-                                ast_location(reductor),
-                                prettyprint_in_buffer(reductor));
-                    }
-                }
-
+                AST id_expr = ASTSon0(operator);
+                /* scope_entry_t* entry = */ build_scope_omp_reduction_operator_function(id_expr, decl_context);
                 break;
             }
         case AST_OMP_REDUCTION_OPERATOR_MEMBER_FUNCTION :
@@ -8552,12 +8562,13 @@ static void build_scope_omp_reduction_clause(AST clause, decl_context_t decl_con
                 // FIXME - We need to get the neuter information back
                 neuter = internal_expression_parse("0", decl_context);
                 is_user_defined = 1;
+                internal_error("Not supported yet", 0);
                 break;
             }
         default:
             {
                 internal_error("Unknown node' %s'\n", 
-                        ast_print_node_type(ASTType(ASTSon0(clause))));
+                        ast_print_node_type(ASTType(operator)));
             }
 
     }
@@ -8568,7 +8579,7 @@ static void build_scope_omp_reduction_clause(AST clause, decl_context_t decl_con
 
     ASTAttrSetValueType(clause, OMP_IS_REDUCTION_CLAUSE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(clause, OMP_IS_USER_DEFINED_REDUCTION, tl_type_t, tl_bool(is_user_defined));
-    ASTAttrSetValueType(clause, OMP_REDUCTION_OPERATOR, tl_type_t, tl_ast(ASTSon0(clause)));
+    ASTAttrSetValueType(clause, OMP_REDUCTION_OPERATOR, tl_type_t, tl_ast(operator));
     ASTAttrSetValueType(clause, OMP_REDUCTION_VARIABLES, tl_type_t, tl_ast(ASTSon1(clause)));
     ASTAttrSetValueType(clause, OMP_REDUCTION_NEUTER, tl_type_t, tl_ast(ASTSon2(clause)));
 }
@@ -8757,6 +8768,8 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
                         compute_declarator_type(abstract_decl, 
                                 &gather_info, type_info, &type_in_context,
                                 decl_context);
+
+                        ASTAttrSetValueType(a, OMP_UDR_TYPE, tl_type_t, tl_type(type_in_context));
                         break;
                     }
                 case AST_OMP_IDENTITY_CLAUSE:
@@ -8786,6 +8799,7 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
                                     internal_error("Unexpected tree %s\n", ast_print_node_type(ASTType(omp_id_expr)));
                                 }
                         }
+                        ASTAttrSetValueType(a, OMP_UDR_IDENTITY, tl_type_t, tl_ast(omp_id_expr));
                         break;
                     }
                 case AST_OMP_OPERATOR_CLAUSE :
@@ -8796,7 +8810,8 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
                                     ast_location(clause));
                         }
 
-                        AST operator_list = ASTSon0(clause), it;
+                        AST operator_list = ASTSon0(clause);
+                        AST it;
                         for_each_element(operator_list, it)
                         {
                             AST operator = ASTSon1(it);
@@ -8810,8 +8825,14 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
                                 case AST_OMP_REDUCTION_OPERATOR_FUNCTION:
                                     {
                                         AST id_expr = ASTSon0(operator);
-                                        check_for_expression(id_expr, decl_context);
-                                        // FIXME - Check the function is valid reduction function
+                                        if (check_for_expression(id_expr, decl_context))
+                                        {
+                                            scope_entry_t* entry = build_scope_omp_reduction_operator_function(id_expr, decl_context);
+                                            if (entry != NULL)
+                                            {
+                                                ASTAttrSetValueType(operator, OMP_UDR_OPERATOR_SYMBOL, tl_type_t, tl_symbol(entry));
+                                            }
+                                        }
                                         break;
                                     }
                                 case AST_OMP_REDUCTION_OPERATOR_MEMBER_FUNCTION:
@@ -8822,6 +8843,7 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
                                     internal_error("Invalid tree kind %s\n", ast_print_node_type(ASTType(operator)));
                             }
                         }
+                        ASTAttrSetValueType(a, OMP_UDR_OPERATOR, tl_type_t, tl_ast(operator_list));
                         break;
                     }
                 case AST_OMP_CUSTOM_PARAMETER_CLAUSE :
@@ -8964,7 +8986,88 @@ static void build_scope_omp_declare_reduction(AST a,
     ASTAttrSetValueType(a, OMP_IS_OMP_DIRECTIVE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, OMP_IS_DECLARE_REDUCTION_DIRECTIVE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, tl_ast(a));
-    build_scope_omp_directive(ASTSon0(a), decl_context, NULL);
+    AST directive = ASTSon0(a);
+    build_scope_omp_directive(directive, decl_context, NULL);
+
+    // Now use what it is gathered (this is a bit lame)
+    type_t* declared_type = NULL;
+    tl_type_t* p = NULL;
+    if ((p = (tl_type_t*)ASTAttrValue(directive, OMP_UDR_TYPE)) != NULL)
+    {
+        declared_type = p->data._type;
+    }
+    else
+    {
+        // FIXME - We should attempt to deduce it, but at the moment we will not
+        running_error("%s: error: '#pragma omp declare reduction' requires a 'type' clause\n",
+                ast_location(a));
+    }
+
+    AST identity_tree = NULL;
+    if ((p = (tl_type_t*)ASTAttrValue(directive, OMP_UDR_IDENTITY)) != NULL)
+    {
+        ERROR_CONDITION(p->kind != TL_AST, "Invalid TL type", 0);
+        identity_tree = p->data._ast;
+    }
+    else
+    {
+        running_error("%s: error: '#pragma omp declare reduction' requires an 'identity' clause\n",
+                ast_location(a));
+    }
+
+    AST operator_list_tree = NULL;
+    if ((p = (tl_type_t*)ASTAttrValue(directive, OMP_UDR_OPERATOR)) != NULL)
+    {
+        ERROR_CONDITION(p->kind != TL_AST, "Invalid TL type", 0);
+        operator_list_tree = p->data._ast;
+    }
+    else
+    {
+        running_error("%s: error: '#pragma omp declare reduction' requires an 'operator' clause\n",
+                ast_location(a));
+    }
+
+    AST it;
+    for_each_element(operator_list_tree, it)
+    {
+        AST operator = ASTSon1(it);
+        switch (ASTType(operator))
+        {
+            case AST_OMP_REDUCTION_OPERATOR_BUILTIN:
+                {
+                    omp_udr_register_reduction_builtin(declared_type, 
+                            prettyprint_in_buffer(operator), 
+                            identity_tree,
+                            OMP_UDR_ORDER_LEFT);
+                    break;
+                }
+            case AST_OMP_REDUCTION_OPERATOR_FUNCTION:
+                {
+                    if ((p = (tl_type_t*)ASTAttrValue(directive, OMP_UDR_OPERATOR_SYMBOL)) != NULL)
+                    {
+                        ERROR_CONDITION(p->kind != TL_SYMBOL, "Invalid TL type", 0);
+                        scope_entry_t *entry = p->data._entry;
+                        omp_udr_register_reduction_function(declared_type,
+                                entry,
+                                identity_tree,
+                                OMP_UDR_ORDER_LEFT);
+                    }
+                    else
+                    {
+                        running_error("%s: error: '%s' is an invalid name in clause 'operator'\n",
+                                ast_location(operator),
+                                prettyprint_in_buffer(operator));
+                    }
+                    break;
+                }
+            case AST_OMP_REDUCTION_OPERATOR_MEMBER_FUNCTION:
+                {
+                    break;
+                }
+            default:
+                internal_error("Invalid tree kind %s\n", ast_print_node_type(ASTType(operator)));
+        }
+    }
 }
 
 static void build_scope_omp_flush_directive(AST a, 
