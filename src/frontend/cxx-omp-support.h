@@ -35,4 +35,6 @@ char omp_udr_lookup_builtin(type_t* t,
         AST* identity, 
         omp_udr_associativity_t* assoc);
 
+void omp_udr_initialize_basic_types(decl_context_t decl_context);
+
 #endif // CXX_OMP_SUPPORT_H

@@ -1,5 +1,6 @@
 #include "cxx-omp-support.h"
 #include "cxx-utils.h"
+#include "cxx-buildscope.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -98,4 +99,88 @@ char omp_udr_lookup_builtin(type_t* t,
     }
 
     return 0;
+}
+
+void omp_udr_initialize_basic_types(decl_context_t decl_context)
+{
+    // This populates basic types
+
+    type_t* all_arithmetic_types[] =
+    {
+        get_char_type(),
+        get_signed_short_int_type(),
+        get_signed_int_type(),
+        get_signed_long_int_type(),
+        get_signed_long_long_int_type(),
+        get_signed_char_type(),
+        get_signed_short_int_type(),
+        get_signed_int_type(),
+        get_signed_long_int_type(),
+        get_signed_long_long_int_type(),
+        get_unsigned_char_type(),
+        get_unsigned_short_int_type(),
+        get_unsigned_int_type(),
+        get_unsigned_long_int_type(),
+        get_unsigned_long_long_int_type(),
+        get_float_type(),
+        get_double_type(),
+        get_long_double_type(),
+        NULL,
+    };
+
+    typedef
+    struct 
+    {
+        const char* operator_name;
+        AST neuter_tree;
+    } reduction_info_t; 
+
+    AST zero = internal_expression_parse("0", decl_context);
+    AST one = internal_expression_parse("1", decl_context);
+    AST neg_zero = internal_expression_parse("~0", decl_context);
+
+    reduction_info_t builtin_arithmetic_operators[] =
+    {
+        {"+", zero}, 
+        {"-", zero}, 
+        {"*", one}, 
+        {NULL, NULL}
+    };
+
+    reduction_info_t builtin_logic_bit_operators[] =
+    {
+        {"&", neg_zero}, 
+        {"|", zero}, 
+        {"^", zero}, 
+        {"&&", one}, 
+        {"||", zero}, 
+        {NULL, NULL}
+    };
+    
+    int i;
+    type_t* type;
+    for (i = 0; (type = all_arithmetic_types[i]) != NULL; i++)
+    {
+        int j;
+        for (j = 0; builtin_arithmetic_operators[j].operator_name != NULL; j++)
+        {
+            omp_udr_register_reduction_builtin(type,
+                    builtin_arithmetic_operators[j].operator_name,
+                    builtin_arithmetic_operators[j].neuter_tree,
+                    OMP_UDR_ORDER_LEFT // left?
+                    );
+
+        }
+        if (is_integral_type(type))
+        {
+            for (j = 0; builtin_logic_bit_operators[j].operator_name != NULL; j++)
+            {
+                omp_udr_register_reduction_builtin(type,
+                        builtin_logic_bit_operators[j].operator_name,
+                        builtin_logic_bit_operators[j].neuter_tree,
+                        OMP_UDR_ORDER_LEFT // left?
+                        );
+            }
+        }
+    }
 }

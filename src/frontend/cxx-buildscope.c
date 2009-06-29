@@ -361,6 +361,12 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
             upc_sign_in_builtins(decl_context);
         }
     }
+
+    // Initialize basic OpenMP reduction types
+    if (!CURRENT_CONFIGURATION->disable_openmp)
+    {
+        omp_udr_initialize_basic_types(decl_context);
+    }
 }
 
 static void build_scope_declaration_sequence(AST list, decl_context_t decl_context)
@@ -8505,13 +8511,13 @@ static scope_entry_t* build_scope_omp_reduction_operator_function(AST reductor, 
                     prettyprint_in_buffer(reductor));
         }
 
-        type_t* deduced_type = NULL;
-        if (!omp_eligible_reduction_function(entry, &deduced_type))
-        {
-            fprintf(stderr, "%s: warning: argument '%s' is not eligible as a function-name\n",
-                    ast_location(reductor),
-                    prettyprint_in_buffer(reductor));
-        }
+        // type_t* deduced_type = NULL;
+        // if (!omp_eligible_reduction_function(entry, &deduced_type))
+        // {
+        //     fprintf(stderr, "%s: warning: argument '%s' is not eligible as a function-name\n",
+        //             ast_location(reductor),
+        //             prettyprint_in_buffer(reductor));
+        // }
 
         return entry;
     }
@@ -8527,8 +8533,6 @@ static void build_scope_omp_reduction_clause(AST clause, decl_context_t decl_con
 
     char is_user_defined = 0;
 
-    // Compute here the neuter for future use
-    AST neuter = NULL;
     switch (ASTType(operator))
     {
         case AST_ADD_OPERATOR :
@@ -8536,31 +8540,22 @@ static void build_scope_omp_reduction_clause(AST clause, decl_context_t decl_con
         case AST_BITWISE_OR_OPERATOR :
         case AST_BITWISE_XOR_OPERATOR :
         case AST_LOGICAL_OR_OPERATOR :
-            {
-                neuter = internal_expression_parse("0", decl_context);
-                break;
-            }
         case AST_MULT_OPERATOR :
         case AST_LOGICAL_AND_OPERATOR :
-            {
-                neuter = internal_expression_parse("1", decl_context);
-                break;
-            }
         case AST_BITWISE_AND_OPERATOR :
             {
-                neuter = internal_expression_parse("~0", decl_context);
+                // FIXME - Use builtins
                 break;
             }
         case AST_OMP_REDUCTION_OPERATOR_FUNCTION :
             {
                 AST id_expr = ASTSon0(operator);
                 /* scope_entry_t* entry = */ build_scope_omp_reduction_operator_function(id_expr, decl_context);
+                is_user_defined = 1;
                 break;
             }
         case AST_OMP_REDUCTION_OPERATOR_MEMBER_FUNCTION :
             {
-                // FIXME - We need to get the neuter information back
-                neuter = internal_expression_parse("0", decl_context);
                 is_user_defined = 1;
                 internal_error("Not supported yet", 0);
                 break;
@@ -8572,10 +8567,6 @@ static void build_scope_omp_reduction_clause(AST clause, decl_context_t decl_con
             }
 
     }
-
-    // Save the neuter
-    ast_set_child(clause, 2, neuter);
-    ast_set_parent(neuter, clause);
 
     ASTAttrSetValueType(clause, OMP_IS_REDUCTION_CLAUSE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(clause, OMP_IS_USER_DEFINED_REDUCTION, tl_type_t, tl_bool(is_user_defined));
@@ -8986,14 +8977,14 @@ static void build_scope_omp_declare_reduction(AST a,
     ASTAttrSetValueType(a, OMP_IS_OMP_DIRECTIVE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, OMP_IS_DECLARE_REDUCTION_DIRECTIVE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, tl_ast(a));
-    AST directive = ASTSon0(a);
-    build_scope_omp_directive(directive, decl_context, NULL);
+    build_scope_omp_directive(a, decl_context, NULL);
 
     // Now use what it is gathered (this is a bit lame)
     type_t* declared_type = NULL;
     tl_type_t* p = NULL;
-    if ((p = (tl_type_t*)ASTAttrValue(directive, OMP_UDR_TYPE)) != NULL)
+    if ((p = (tl_type_t*)ASTAttrValue(a, OMP_UDR_TYPE)) != NULL)
     {
+        ERROR_CONDITION(p->kind != TL_TYPE, "Invalid TL type %d", p->kind);
         declared_type = p->data._type;
     }
     else
@@ -9004,9 +8995,9 @@ static void build_scope_omp_declare_reduction(AST a,
     }
 
     AST identity_tree = NULL;
-    if ((p = (tl_type_t*)ASTAttrValue(directive, OMP_UDR_IDENTITY)) != NULL)
+    if ((p = (tl_type_t*)ASTAttrValue(a, OMP_UDR_IDENTITY)) != NULL)
     {
-        ERROR_CONDITION(p->kind != TL_AST, "Invalid TL type", 0);
+        ERROR_CONDITION(p->kind != TL_AST, "Invalid TL type %d", p->kind);
         identity_tree = p->data._ast;
     }
     else
@@ -9016,7 +9007,7 @@ static void build_scope_omp_declare_reduction(AST a,
     }
 
     AST operator_list_tree = NULL;
-    if ((p = (tl_type_t*)ASTAttrValue(directive, OMP_UDR_OPERATOR)) != NULL)
+    if ((p = (tl_type_t*)ASTAttrValue(a, OMP_UDR_OPERATOR)) != NULL)
     {
         ERROR_CONDITION(p->kind != TL_AST, "Invalid TL type", 0);
         operator_list_tree = p->data._ast;
@@ -9043,9 +9034,9 @@ static void build_scope_omp_declare_reduction(AST a,
                 }
             case AST_OMP_REDUCTION_OPERATOR_FUNCTION:
                 {
-                    if ((p = (tl_type_t*)ASTAttrValue(directive, OMP_UDR_OPERATOR_SYMBOL)) != NULL)
+                    if ((p = (tl_type_t*)ASTAttrValue(operator, OMP_UDR_OPERATOR_SYMBOL)) != NULL)
                     {
-                        ERROR_CONDITION(p->kind != TL_SYMBOL, "Invalid TL type", 0);
+                        ERROR_CONDITION(p->kind != TL_SYMBOL, "Invalid TL type %d", p->kind);
                         scope_entry_t *entry = p->data._entry;
                         omp_udr_register_reduction_function(declared_type,
                                 entry,
