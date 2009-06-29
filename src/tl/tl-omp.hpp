@@ -23,6 +23,7 @@
 
 #include "tl-common.hpp"
 #include "cxx-utils.h"
+#include "cxx-omp-support.h"
 
 #include "tl-compilerphase.hpp"
 #include "tl-ast.hpp"
@@ -335,13 +336,28 @@ namespace TL
         {
             private:
                 Symbol _symbol;
-                AST_t _op;
+                std::string _op;
                 AST_t _neuter;
                 bool _is_user_defined;
+                bool _is_left; 
             public:
-                ReductionSymbol(Symbol s, AST_t op, AST_t neuter, bool is_user_defined = false)
-                    : _symbol(s), _op(op), _neuter(neuter), _is_user_defined(is_user_defined)
+                // FIXME - Overloads in C++ require a bit more of machinery
+                ReductionSymbol(Symbol s, const std::string& builtin_operator)
+                    : _symbol(s), _op(builtin_operator)
                 {
+                    AST identity = NULL;
+                    omp_udr_associativity_t assoc = OMP_UDR_ORDER_INVALID;
+
+                    Type t = _symbol.get_type();
+
+                    if (omp_udr_lookup_builtin(t.get_internal_type(),
+                                builtin_operator.c_str(),
+                                &identity,
+                                &assoc))
+                    {
+                        _neuter = AST_t(identity);
+                        _is_left = (assoc == OMP_UDR_ORDER_LEFT);
+                    }
                 }
 
                 //! States that the reduction is user defined
@@ -366,7 +382,7 @@ namespace TL
                 }
 
                 //! Gets the reduction operation
-                AST_t get_operation() const
+                std::string get_operation() const
                 {
                     return _op;
                 }

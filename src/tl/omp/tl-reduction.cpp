@@ -58,7 +58,7 @@ namespace TL
                 std::string reduction_var_name = "rdp_" + it->get_symbol().get_name();
 
                 // get the operator involved
-                std::string op = it->get_operation().prettyprint();
+                std::string op = it->get_operation();
 
                 reduction_gathering 
                     << reduced_var_name << " = " << reduced_var_name << op << reduction_var_name << ";"
@@ -232,7 +232,7 @@ namespace TL
                 std::string reduction_vector_name = "rdv_" + it->get_symbol().get_name();
 
                 // get the operator involved
-                std::string op = it->get_operation().prettyprint();
+                std::string op = it->get_operation();
                 reduction_gathering
                     << reduced_var_name << " = " << reduced_var_name << op << reduction_vector_name << "[rdv_i]" << ";";
             }

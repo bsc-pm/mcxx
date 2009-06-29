@@ -8570,9 +8570,8 @@ static void build_scope_omp_reduction_clause(AST clause, decl_context_t decl_con
 
     ASTAttrSetValueType(clause, OMP_IS_REDUCTION_CLAUSE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(clause, OMP_IS_USER_DEFINED_REDUCTION, tl_type_t, tl_bool(is_user_defined));
-    ASTAttrSetValueType(clause, OMP_REDUCTION_OPERATOR, tl_type_t, tl_ast(operator));
     ASTAttrSetValueType(clause, OMP_REDUCTION_VARIABLES, tl_type_t, tl_ast(ASTSon1(clause)));
-    ASTAttrSetValueType(clause, OMP_REDUCTION_NEUTER, tl_type_t, tl_ast(ASTSon2(clause)));
+    ASTAttrSetValueType(clause, OMP_REDUCTION_OPERATOR, tl_type_t, tl_ast(operator));
 }
 
 // FIXME - Consider moving OpenMP functions out of this file
@@ -9029,6 +9028,7 @@ static void build_scope_omp_declare_reduction(AST a,
                     omp_udr_register_reduction_builtin(declared_type, 
                             prettyprint_in_buffer(operator), 
                             identity_tree,
+                            // FIXME - Retrieve the order
                             OMP_UDR_ORDER_LEFT);
                     break;
                 }
@@ -9041,6 +9041,7 @@ static void build_scope_omp_declare_reduction(AST a,
                         omp_udr_register_reduction_function(declared_type,
                                 entry,
                                 identity_tree,
+                                // FIXME - Retrieve the order!
                                 OMP_UDR_ORDER_LEFT);
                     }
                     else

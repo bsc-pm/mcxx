@@ -1,8 +1,11 @@
 #ifndef CXX_OMP_SUPPORT_H
 #define CXX_OMP_SUPPORT_H
 
+#include "cxx-macros.h"
 #include "cxx-typeutils.h"
 #include "cxx-scope-decls.h"
+
+MCXX_BEGIN_DECLS
 
 typedef struct omp_reductor_tag omp_reductor_t;
 
@@ -36,5 +39,7 @@ char omp_udr_lookup_builtin(type_t* t,
         omp_udr_associativity_t* assoc);
 
 void omp_udr_initialize_basic_types(decl_context_t decl_context);
+
+MCXX_END_DECLS
 
 #endif // CXX_OMP_SUPPORT_H
