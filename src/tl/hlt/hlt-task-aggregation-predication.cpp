@@ -178,14 +178,13 @@ Source TaskAggregation::do_predicated_aggregation()
 
             replacements.add_replacement(additional_var.second, additional_var.first);
 
-            replaced_body << replacements.replace(body);
-
             Symbol &sym(additional_var.second);
             temporal_values_declarations
                 << sym.get_type().get_declaration(sym.get_scope(), additional_var.first) << ";";
 
             firstprivate_args.append_with_separator(additional_var.first, ",");
         }
+		replaced_body << replacements.replace(body);
     }
 
     if (!firstprivate_args.empty())
