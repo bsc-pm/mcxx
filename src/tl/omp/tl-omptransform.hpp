@@ -69,6 +69,9 @@ namespace TL
                 // Serialized functions info
                 RefPtr<SerializedFunctionsInfo> serialized_functions_info;
 
+				// Keys of tasks
+				std::map<std::string, Source> task_key_map;
+
                 // -- Transactional world
                 int transaction_nesting;
                 std::fstream stm_log_file;

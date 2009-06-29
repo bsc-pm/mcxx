@@ -108,76 +108,104 @@ namespace TL
             // create the outlined function name
             Source outlined_function_name = get_outlined_function_name(function_name);
 
-            // Data sharing information as filled by task_preorder
-            ObjectList<Symbol> & captureaddress_references = 
-                task_construct.get_data<ObjectList<Symbol> >("captureaddress_references");
-            ObjectList<Symbol> & local_references = 
-                task_construct.get_data<ObjectList<Symbol> >("local_references");
-            ObjectList<Symbol> & captureprivate_references = 
-                task_construct.get_data<ObjectList<Symbol> >("captureprivate_references");
-            AST_t& original_code =
-                task_construct.get_data<AST_t>("original_code");
+			bool create_outline = true;
+			bool task_has_key = false;
+			std::string task_key_str = "";
+			OpenMP::CustomClause task_key_clause = directive.custom_clause("task_key");
+			if (task_key_clause.is_defined())
+			{
+				task_has_key = true;
+				task_key_str = task_key_clause.get_expression_list()[0];
+				
+				if (task_key_map.find(task_key_str) != task_key_map.end())
+				{
+					create_outline = false;
+				}
+			}
 
-            ObjectList<Symbol> empty;
-            ObjectList<OpenMP::ReductionSymbol> reduction_empty;
+			Source task_queueing;
+			if (create_outline)
+			{
 
-            ObjectList<Symbol> captured_references;
-            captured_references.insert(captureaddress_references);
-            captured_references.insert(captureprivate_references);
+				// Data sharing information as filled by task_preorder
+				ObjectList<Symbol> & captureaddress_references = 
+					task_construct.get_data<ObjectList<Symbol> >("captureaddress_references");
+				ObjectList<Symbol> & local_references = 
+					task_construct.get_data<ObjectList<Symbol> >("local_references");
+				ObjectList<Symbol> & captureprivate_references = 
+					task_construct.get_data<ObjectList<Symbol> >("captureprivate_references");
+				AST_t& original_code =
+					task_construct.get_data<AST_t>("original_code");
 
-            ObjectList<ParameterInfo> parameter_info_list;
+				ObjectList<Symbol> empty;
+				ObjectList<OpenMP::ReductionSymbol> reduction_empty;
 
-            ReplaceIdExpression replace_references  = 
-                set_replacements(function_definition,
-                        directive,
-                        construct_body,
-                        captured_references, // Captured entities (firstprivate and shared)
-                        local_references, // Private entities (private clause)
-                        empty,
-                        empty,
-                        reduction_empty,
-                        reduction_empty,
-                        empty,
-                        empty,
-                        parameter_info_list,
-                        /* all_shared */ true);
+				ObjectList<Symbol> captured_references;
+				captured_references.insert(captureaddress_references);
+				captured_references.insert(captureprivate_references);
 
-            // Fix parameter_info_list
-            // Currently set_replacement assumes that everything will be passed BY_POINTER,
-            // every entity found in captureprivate_references will be set to BY_VALUE
-            //
-            // The proper way should be fixing "set_replacements" one day, but already
-            // takes too much parameters so a more creative approach will be required
-            for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
-                    it != parameter_info_list.end();
-                    it++)
-            {
-                if (captureprivate_references.contains(it->symbol))
-                {
-                    it->kind = ParameterInfo::BY_VALUE;
-                }
-            }
+				ObjectList<ParameterInfo> parameter_info_list;
 
-            // Get the code of the outline
-            AST_t outline_code  = get_outline_task(
-                    task_construct,
-                    function_definition,
-                    outlined_function_name, 
-                    construct_body,
-                    replace_references,
-                    parameter_info_list,
-                    local_references);
+				ReplaceIdExpression replace_references  = 
+					set_replacements(function_definition,
+							directive,
+							construct_body,
+							captured_references, // Captured entities (firstprivate and shared)
+							local_references, // Private entities (private clause)
+							empty,
+							empty,
+							reduction_empty,
+							reduction_empty,
+							empty,
+							empty,
+							parameter_info_list,
+							/* all_shared */ true);
 
-            // Now prepend the outline
-            function_definition.get_ast().prepend_sibling_function(outline_code);
+				// Fix parameter_info_list
+				// Currently set_replacement assumes that everything will be passed BY_POINTER,
+				// every entity found in captureprivate_references will be set to BY_VALUE
+				//
+				// The proper way should be fixing "set_replacements" one day, but already
+				// takes too much parameters so a more creative approach will be required
+				for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
+						it != parameter_info_list.end();
+						it++)
+				{
+					if (captureprivate_references.contains(it->symbol))
+					{
+						it->kind = ParameterInfo::BY_VALUE;
+					}
+				}
 
-            Source task_queueing;
-            task_queueing = task_get_spawn_code(parameter_info_list,
-                    function_definition, 
-                    task_construct,
-                    directive,
-                    construct_body,
-                    original_code);
+				// Get the code of the outline
+				AST_t outline_code  = get_outline_task(
+						task_construct,
+						function_definition,
+						outlined_function_name, 
+						construct_body,
+						replace_references,
+						parameter_info_list,
+						local_references);
+
+				// Now prepend the outline
+				function_definition.get_ast().prepend_sibling_function(outline_code);
+
+				task_queueing = task_get_spawn_code(parameter_info_list,
+						function_definition, 
+						task_construct,
+						directive,
+						construct_body,
+						original_code);
+
+				if (task_has_key)
+				{
+					task_key_map[task_key_str] = task_queueing;
+				}
+			}
+			else
+			{
+				task_queueing = task_key_map[task_key_str];
+			}
 
             // Parse the code
             AST_t task_code = task_queueing.parse_statement(task_construct.get_ast(),

@@ -27,7 +27,7 @@ struct BundleGenerator
         {
         }
 
-        Source generate_bundle(Source &clear_indexes, bool unroll = false)
+        Source generate_bundle(Source &clear_indexes, bool unroll = false, bool empty = false)
         {
             Source try_to_run_every_task;
             Source firstprivate_clause_src, firstprivate_args, code_of_all_tasks;
@@ -52,108 +52,135 @@ struct BundleGenerator
                 << "_bundle_info_" << CounterManager::get_counter(TASK_BUNDLE_COUNTER)
                 ;
 
+			Source task_key;
+
+			if (unroll)
+			{
+				task_key
+					<< " task_key(" << task_log_name << ")"
+					;
+			}
+			else
+			{
+				task_key
+					<< " task_key(" << bundle_info_name << ")"
+					;
+			}
+
+			Source task_body;
             try_to_run_every_task
-                << "#pragma omp task" << firstprivate_clause_src << "\n"
-                << "{"
-                << "int " << current_index_name << "  = 0;"
-                //   FIXME - Unroll this
-                << loop_header
-                << switch_structure
-                << "}"
-                ;
-            
-            if (!unroll)
-            {
-                loop_header
-                    << "for (" << current_index_name << " = 0; "
-                    <<       "" << current_index_name << " < " << global_task_index_name << "; "
-                    <<       "" << current_index_name << "++)"
-                    ;
-                switch_structure
-                    << "{"
-                    <<    "switch (" << task_log_name << "[" << current_index_name << "])"
-                    <<    "{"
-                    <<        code_of_all_tasks
-                    <<        "default: break;"
-                    <<    "}"
-                    << "}"
-                    ;
-            }
-            else
-            {
-                for (int i = 0; i < _bundling_amount; i++)
-                {
-                    switch_structure
-                        << "switch (" << task_log_name << "[" << current_index_name << "])"
-                        << "{"
-                        <<     code_of_all_tasks
-                        <<     "default: break;"
-                        << "}"
-                        << current_index_name << "++;";
-                        ;
-                }
-            }
+                << "#pragma omp task" << firstprivate_clause_src 
+				<< task_key << "\n"
+				<< task_body
+				;
 
+			if (empty)
+			{
+				task_body
+					<< ";"
+					;
+			}
+			else
+			{
+				task_body
+					<< "{"
+					<< "int " << current_index_name << "  = 0;"
+					<< loop_header
+					<< switch_structure
+					<< "}"
+					;
 
+				if (!unroll)
+				{
+					loop_header
+						<< "for (" << current_index_name << " = 0; "
+						<<       "" << current_index_name << " < " << global_task_index_name << "; "
+						<<       "" << current_index_name << "++)"
+						;
+					switch_structure
+						<< "{"
+						<<    "switch (" << task_log_name << "[" << current_index_name << "])"
+						<<    "{"
+						<<        code_of_all_tasks
+						<<        "default: break;"
+						<<    "}"
+						<< "}"
+						;
+				}
+				else
+				{
+					for (int i = 0; i < _bundling_amount; i++)
+					{
+						switch_structure
+							<< "switch (" << task_log_name << "[" << current_index_name << "])"
+							<< "{"
+							<<     code_of_all_tasks
+							<<     "default: break;"
+							<< "}"
+							<< current_index_name << "++;";
+						;
+					}
+				}
 
-            ObjectList<Symbol> firstprivated_symbols;
-            ObjectList<GuardedTask> guarded_task_list = _info.get_guarded_tasks();
-            for (ObjectList<GuardedTask>::iterator it = guarded_task_list.begin();
-                    it != guarded_task_list.end();
-                    it++)
-            {
-                TaskConstruct current_task = it->get_task();
-                Directive current_directive = current_task.directive();
-                Clause current_firstprivate_clause = current_directive.firstprivate_clause();
-                ReplaceSrcIdExpression replacements(_sl);
+				ObjectList<Symbol> firstprivated_symbols;
+				ObjectList<GuardedTask> guarded_task_list = _info.get_guarded_tasks();
+				for (ObjectList<GuardedTask>::iterator it = guarded_task_list.begin();
+						it != guarded_task_list.end();
+						it++)
+				{
+					TaskConstruct current_task = it->get_task();
+					Directive current_directive = current_task.directive();
+					Clause current_firstprivate_clause = current_directive.firstprivate_clause();
+					ReplaceSrcIdExpression replacements(_sl);
 
-                Source extended_task_body;
+					Source extended_task_body;
 
-                ObjectList<IdExpression> firstprivate_id_expr_list = current_firstprivate_clause.id_expressions();
-                for (ObjectList<IdExpression>::iterator fp_it = firstprivate_id_expr_list.begin();
-                        fp_it != firstprivate_id_expr_list.end();
-                        fp_it++)
-                {
-                    IdExpression& id_expr(*fp_it);
-                    Symbol sym(id_expr.get_symbol());
+					ObjectList<IdExpression> firstprivate_id_expr_list = current_firstprivate_clause.id_expressions();
+					for (ObjectList<IdExpression>::iterator fp_it = firstprivate_id_expr_list.begin();
+							fp_it != firstprivate_id_expr_list.end();
+							fp_it++)
+					{
+						IdExpression& id_expr(*fp_it);
+						Symbol sym(id_expr.get_symbol());
 
-                    Source repl_src;
-                    repl_src << "(" << bundle_info_name << "[" << current_index_name << "]._info_" << it->get_id() << "." << sym.get_name() << ")"
-                        ;
-                    replacements.add_replacement(sym, repl_src);
-                }
+						Source repl_src;
+						repl_src << "(" << bundle_info_name << "[" << current_index_name << "]._info_" << it->get_id() << "." << sym.get_name() << ")"
+							;
+						replacements.add_replacement(sym, repl_src);
+					}
 
-                code_of_all_tasks
-                    << "case " << it->get_id() << ":"
-                    << "{"
-                    <<    extended_task_body
-                    <<    "break;"
-                    << "}"
-                    ;
+					code_of_all_tasks
+						<< "case " << it->get_id() << ":"
+						<< "{"
+						<<    extended_task_body
+						<<    "break;"
+						<< "}"
+						;
 
-                extended_task_body << replacements.replace(current_task.body());
-            }
+					extended_task_body << replacements.replace(current_task.body());
+				}
 
-            // Bundle info
-            firstprivate_args.append_with_separator(
-                    bundle_info_name,
-                    ",");
-            // Task log is always passed
-            firstprivate_args.append_with_separator(
-                    task_log_name,
-                    ",");
-            // Global index is passed only if not unrolled
-            if (!unroll)
-            {
-                firstprivate_args.append_with_separator(
-                        global_task_index_name,
-                        ",");
-            }
-            if (!firstprivate_args.empty())
-            {
-                firstprivate_clause_src << " firstprivate(" << firstprivate_args << ")"
-                    ;
-            }
+				// Bundle info
+				firstprivate_args.append_with_separator(
+						bundle_info_name,
+						",");
+				// Task log is always passed
+				firstprivate_args.append_with_separator(
+						task_log_name,
+						",");
+				// Global index is passed only if not unrolled
+				if (!unroll)
+				{
+					firstprivate_args.append_with_separator(
+							global_task_index_name,
+							",");
+				}
+				if (!firstprivate_args.empty())
+				{
+					firstprivate_clause_src << " firstprivate(" << firstprivate_args << ")"
+						;
+				}
+			}
 
             return try_to_run_every_task;
         }
@@ -165,18 +192,27 @@ struct GuardTaskGeneratorBundled : Functor<TL::AST_t::callback_result, TL::AST_t
         ScopeLink _sl;
         const GuardTaskInfo& _info;
         int _bundling_amount;
+		int *_task_num;
     public:
         GuardTaskGeneratorBundled(ScopeLink sl, const GuardTaskInfo& info, int bundling_amount = 4)
             : _sl(sl), 
             _info(info), 
-            _bundling_amount(bundling_amount)
+            _bundling_amount(bundling_amount),
+			_task_num(new int(0))
         {
         }
+
+		~GuardTaskGeneratorBundled()
+		{
+			delete _task_num;
+		}
 
         virtual AST_t::callback_result do_(TL::AST_t& a) const
         {
             if (TaskConstruct::predicate(a))
             {
+				(*_task_num)++;
+				
                 Source result;
 				result
 					<< "{"
@@ -238,7 +274,7 @@ struct GuardTaskGeneratorBundled : Functor<TL::AST_t::callback_result, TL::AST_t
                 BundleGenerator bundle_gen(_info, _sl, _bundling_amount);
 
                 try_to_run_every_task
-                    << bundle_gen.generate_bundle(clear_indexes, /* unroll= */ true)
+                    << bundle_gen.generate_bundle(clear_indexes, /* unroll= */ true, /* empty */ ((*_task_num) != 1))
                     ;
 
 				result
@@ -255,7 +291,7 @@ struct GuardTaskGeneratorBundled : Functor<TL::AST_t::callback_result, TL::AST_t
 
 Source TaskAggregation::do_bundled_aggregation()
 {
-    CounterManager::get_counter("hlt.task_bundle")++;
+    CounterManager::get_counter(TASK_BUNDLE_COUNTER)++;
 
     GuardTaskInfo guard_task_info;
     guard_task_info.fill_guard_tasks_basic(_stmt);
@@ -288,7 +324,7 @@ Source TaskAggregation::do_bundled_aggregation()
 
     Source union_type_name;
     union_type_name
-        << "_task_bundle_info_" << CounterManager::get_counter("hlt.task_bundle") << "_t"
+        << "_task_bundle_info_" << CounterManager::get_counter(TASK_BUNDLE_COUNTER) << "_t"
         ;
 
 
