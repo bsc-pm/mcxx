@@ -6703,7 +6703,8 @@ char can_be_called_with_number_of_arguments(scope_entry_t *entry, int num_argume
     else if (num_arguments < num_parameters)
     {
         // We have to check that parameter num_arguments has default argument
-        if (entry->entity_specs.default_argument_info[num_arguments] != NULL)
+        if (entry->entity_specs.default_argument_info != NULL
+                && entry->entity_specs.default_argument_info[num_arguments] != NULL)
         {
             // Sanity check
             int i;
