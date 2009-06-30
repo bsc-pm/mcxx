@@ -24,6 +24,60 @@ namespace TL
 {
     namespace Nanos4
     {
+        static Source perform_reduction_symbol(
+                const OpenMP::ReductionSymbol& reduction_symbol,
+                Source reduced_var_name, 
+                Source reduction_var_name)
+        {
+            Source result;
+
+            // get the operator involved
+            if (reduction_symbol.is_builtin_operator())
+            {
+                std::string op = reduction_symbol.get_operation();
+
+                if (reduction_symbol.reductor_is_left_associative())
+                {
+                    result 
+                        << reduced_var_name << " = " << reduced_var_name << op << reduction_var_name << ";"
+                        ;
+                }
+                else
+                {
+                    result 
+                        << reduced_var_name << " = " << reduction_var_name << op << reduced_var_name << ";"
+                        ;
+                }
+            }
+            else
+            {
+                std::string op = reduction_symbol.get_reductor_name();
+                if (!reduction_symbol.reductor_is_member())
+                {
+                    if (reduction_symbol.reductor_is_left_associative())
+                    {
+                        result
+                            << reduced_var_name << " = " << op << "(" << reduced_var_name << ", " << reduction_var_name << ");"
+                            ;
+                    }
+                    else
+                    {
+                        result
+                            << reduced_var_name << " = " << op << "(" << reduction_var_name << ", " << reduced_var_name << ");"
+                            ;
+                    }
+                }
+                else
+                {
+                    result
+                        << reduced_var_name << op << "(" << reduction_var_name << ")"
+                        ;
+                }
+            }
+
+            return result;
+        }
+
         Source OpenMPTransform::get_critical_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references)
         {
             Source reduction_code;
@@ -57,12 +111,12 @@ namespace TL
                 std::string reduced_var_name = it->get_symbol().get_qualified_name();
                 std::string reduction_var_name = "rdp_" + it->get_symbol().get_name();
 
-                // get the operator involved
-                std::string op = it->get_operation();
-
-                reduction_gathering 
-                    << reduced_var_name << " = " << reduced_var_name << op << reduction_var_name << ";"
+                reduction_gathering
+                    << perform_reduction_symbol(*it,
+                            reduced_var_name,
+                            reduction_var_name)
                     ;
+
             }
 
             return reduction_code;
@@ -232,9 +286,13 @@ namespace TL
                 std::string reduction_vector_name = "rdv_" + it->get_symbol().get_name();
 
                 // get the operator involved
-                std::string op = it->get_operation();
+                Source reduction_var_name;
+                reduction_var_name
+                    << reduction_vector_name << "[rdv_i]"
+                    ;
                 reduction_gathering
-                    << reduced_var_name << " = " << reduced_var_name << op << reduction_vector_name << "[rdv_i]" << ";";
+                    << perform_reduction_symbol(*it, reduced_var_name, reduction_var_name)
+                    ;
             }
 
             return reduction_gathering;

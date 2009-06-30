@@ -921,7 +921,6 @@ namespace TL
                AST_t reduction_clause = *it;
 
                AST_t reduct_operator = it->get_attribute(OMP_REDUCTION_OPERATOR);
-               TL::Bool is_user_defined = it->get_attribute(OMP_IS_USER_DEFINED_REDUCTION);
 
                AST_t reduct_vars = it->get_attribute(OMP_REDUCTION_VARIABLES);
 
@@ -949,16 +948,9 @@ namespace TL
 
                    if (eligible)
                    {
-                       if (!is_user_defined)
-                       {
-                           IdExpression id_expr(*jt, this->_scope_link);
-                           ReductionSymbol reduct_id_expr(sym, reduct_operator.prettyprint());
-                           result.append(reduct_id_expr);
-                       }
-                       else
-                       {
-                           internal_error("Not yet implemented", 0);
-                       }
+                       IdExpression id_expr(*jt, this->_scope_link);
+                       ReductionSymbol reduct_id_expr(sym, reduct_operator.prettyprint());
+                       result.append(reduct_id_expr);
                    }
                }
            }

@@ -339,34 +339,52 @@ namespace TL
                 std::string _op;
                 AST_t _neuter;
                 bool _is_user_defined;
-                bool _is_left; 
+                bool _is_right_assoc; 
+                bool _is_member;
             public:
                 // FIXME - Overloads in C++ require a bit more of machinery
-                ReductionSymbol(Symbol s, const std::string& builtin_operator)
-                    : _symbol(s), _op(builtin_operator)
+                ReductionSymbol(Symbol s, const std::string& reductor_name)
+                    : _symbol(s), 
+                    _op(reductor_name), 
+                    _neuter(NULL), 
+                    _is_user_defined(false), 
+                    _is_right_assoc(false), 
+                    _is_member(false)
                 {
                     AST identity = NULL;
                     omp_udr_associativity_t assoc = OMP_UDR_ORDER_INVALID;
 
                     Type t = _symbol.get_type();
 
-                    if (omp_udr_lookup_builtin(t.get_internal_type(),
-                                builtin_operator.c_str(),
+                    char is_builtin = 0;
+
+                    if (omp_udr_lookup_reduction(t.get_internal_type(),
+                                reductor_name.c_str(),
                                 &identity,
-                                &assoc))
+                                &assoc,
+                                &is_builtin))
                     {
                         _neuter = AST_t(identity);
-                        _is_left = (assoc == OMP_UDR_ORDER_LEFT);
+                        _is_right_assoc = (assoc == OMP_UDR_ORDER_RIGHT);
+
+                        _is_user_defined = !is_builtin;
+
+                        // This is a bit lame
+                        _is_member = (reductor_name[0] == '.');
                     }
                 }
 
                 //! States that the reduction is user defined
-                /*!
-                 * \bug Unsupported at the moment
-                 */
                 bool is_user_defined() const
                 {
                     return _is_user_defined;
+                }
+
+                //! States that the reduction uses a builtin operator
+                /*! This is the opposite of is_user_defined */
+                bool is_builtin_operator() const
+                {
+                    return !is_user_defined();
                 }
 
                 //! Returns the symbol related to this reduction
@@ -385,6 +403,33 @@ namespace TL
                 std::string get_operation() const
                 {
                     return _op;
+                }
+
+                //! Gets the reductor name
+                /*! This is a fancy alias for get_operation */
+                std::string get_reductor_name() const
+                {
+                    return get_operation();
+                }
+
+                //! States whether this is a member specificication
+                bool reductor_is_member() const
+                {
+                    return _is_member;
+                }
+
+                //! States whether the reductor is right associative
+                /*! \note Most of reductors are left associative */
+                bool reductor_is_right_associative() const
+                {
+                    return _is_right_assoc;
+                }
+
+                //! States whether the reductor is right associative
+                /*! \note Most of reductors are left associative */
+                bool reductor_is_left_associative() const
+                {
+                    return !_is_right_assoc;
                 }
         };
 

@@ -8,11 +8,7 @@ typedef
 struct omp_udr_reduction_tag
 {
     type_t* type;
-    union 
-    {
-        const char* operator_name;
-        scope_entry_t* entry;
-    } _red;
+    const char* reductor_name;
     omp_udr_associativity_t assoc;
     char is_builtin;
     AST identity;
@@ -21,79 +17,65 @@ struct omp_udr_reduction_tag
 int _omp_udr_num;
 omp_udr_reduction_t** _omp_udr_reduction;
 
+static void omp_udr_register_reduction_(type_t* type, 
+        const char* reductor_name, 
+        AST identity,
+        omp_udr_associativity_t assoc,
+        char is_builtin)
+{
+    type = advance_over_typedefs(type);
+
+    omp_udr_reduction_t* new_udr = calloc(1, sizeof(*new_udr));
+    new_udr->type = type;
+    new_udr->is_builtin = is_builtin;
+    new_udr->assoc = assoc;
+    new_udr->identity = identity;
+    new_udr->reductor_name = reductor_name;
+
+    P_LIST_ADD(_omp_udr_reduction, _omp_udr_num, new_udr);
+}
+
 void omp_udr_register_reduction_builtin(type_t* type, 
-        const char* operator_name, 
+        const char* reductor_name, 
         AST identity,
         omp_udr_associativity_t assoc)
 {
-    type = advance_over_typedefs(type);
-
-    omp_udr_reduction_t* new_udr = calloc(1, sizeof(*new_udr));
-    new_udr->type = type;
-    new_udr->is_builtin = 1;
-    new_udr->assoc = assoc;
-    new_udr->identity = identity;
-    new_udr->_red.operator_name = operator_name;
-
-    P_LIST_ADD(_omp_udr_reduction, _omp_udr_num, new_udr);
+    omp_udr_register_reduction_(type, 
+            reductor_name, 
+            identity, 
+            assoc, 
+            /* is_builtin */ 1);
 }
 
-void omp_udr_register_reduction_function(type_t* type,
-        scope_entry_t* entry, 
+void omp_udr_register_reduction(type_t* type, 
+        const char* reductor_name, 
         AST identity,
         omp_udr_associativity_t assoc)
 {
-    type = advance_over_typedefs(type);
-
-    omp_udr_reduction_t* new_udr = calloc(1, sizeof(*new_udr));
-    new_udr->type = type;
-    new_udr->is_builtin = 0;
-    new_udr->assoc = assoc;
-    new_udr->identity = identity;
-    new_udr->_red.entry = entry;
-
-    P_LIST_ADD(_omp_udr_reduction, _omp_udr_num, new_udr);
+    omp_udr_register_reduction_(type, 
+            reductor_name, 
+            identity, 
+            assoc, 
+            /* is_builtin */ 0);
 }
 
-char omp_udr_lookup_function(type_t* t, 
-        scope_entry_t* entry, 
+char omp_udr_lookup_reduction(type_t* t, 
+        const char* reductor_name, 
         AST* identity, 
-        omp_udr_associativity_t* assoc)
+        omp_udr_associativity_t* assoc,
+        char *is_builtin)
 {
     t = advance_over_typedefs(t);
 
     int i;
     for (i = 0; i < _omp_udr_num; i++)
     {
-        if (!_omp_udr_reduction[i]->is_builtin
-                && _omp_udr_reduction[i]->type == t
-                && _omp_udr_reduction[i]->_red.entry == entry)
+        if (equivalent_types(_omp_udr_reduction[i]->type, t)
+                && (strcmp(_omp_udr_reduction[i]->reductor_name, reductor_name) == 0))
         {
             *identity = _omp_udr_reduction[i]->identity;
             *assoc = _omp_udr_reduction[i]->assoc;
-            return 1;
-        }
-    }
-
-    return 0;
-}
-
-char omp_udr_lookup_builtin(type_t* t, 
-        const char* operator_name,
-        AST *identity,
-        omp_udr_associativity_t* assoc)
-{
-    t = advance_over_typedefs(t);
-
-    int i;
-    for (i = 0; i < _omp_udr_num; i++)
-    {
-        if (_omp_udr_reduction[i]->is_builtin
-                && _omp_udr_reduction[i]->type == t
-                && (strcmp(operator_name, _omp_udr_reduction[i]->_red.operator_name) == 0))
-        {
-            *identity = _omp_udr_reduction[i]->identity;
-            *assoc = _omp_udr_reduction[i]->assoc;
+            *is_builtin = _omp_udr_reduction[i]->is_builtin;
             return 1;
         }
     }
@@ -167,7 +149,7 @@ void omp_udr_initialize_basic_types(decl_context_t decl_context)
             omp_udr_register_reduction_builtin(type,
                     builtin_arithmetic_operators[j].operator_name,
                     builtin_arithmetic_operators[j].neuter_tree,
-                    OMP_UDR_ORDER_LEFT // left?
+                    OMP_UDR_ORDER_LEFT
                     );
 
         }
@@ -178,7 +160,7 @@ void omp_udr_initialize_basic_types(decl_context_t decl_context)
                 omp_udr_register_reduction_builtin(type,
                         builtin_logic_bit_operators[j].operator_name,
                         builtin_logic_bit_operators[j].neuter_tree,
-                        OMP_UDR_ORDER_LEFT // left?
+                        OMP_UDR_ORDER_LEFT
                         );
             }
         }

@@ -8318,6 +8318,7 @@ static void build_scope_omp_data_clause(AST a, decl_context_t decl_context)
     }
 }
 
+#if 0
 static char omp_eligible_reduction_function(scope_entry_t* entry, type_t** deduced_type)
 {
     // Let's model the reduction as something performing at each step something like:
@@ -8477,6 +8478,7 @@ static char omp_eligible_reduction_function(scope_entry_t* entry, type_t** deduc
 
     return 0;
 }
+#endif
 
 static scope_entry_t* build_scope_omp_reduction_operator_function(AST reductor, decl_context_t decl_context)
 {
@@ -8531,8 +8533,6 @@ static void build_scope_omp_reduction_clause(AST clause, decl_context_t decl_con
 
     AST operator = ASTSon0(clause);
 
-    char is_user_defined = 0;
-
     switch (ASTType(operator))
     {
         case AST_ADD_OPERATOR :
@@ -8551,12 +8551,10 @@ static void build_scope_omp_reduction_clause(AST clause, decl_context_t decl_con
             {
                 AST id_expr = ASTSon0(operator);
                 /* scope_entry_t* entry = */ build_scope_omp_reduction_operator_function(id_expr, decl_context);
-                is_user_defined = 1;
                 break;
             }
         case AST_OMP_REDUCTION_OPERATOR_MEMBER_FUNCTION :
             {
-                is_user_defined = 1;
                 internal_error("Not supported yet", 0);
                 break;
             }
@@ -8569,7 +8567,6 @@ static void build_scope_omp_reduction_clause(AST clause, decl_context_t decl_con
     }
 
     ASTAttrSetValueType(clause, OMP_IS_REDUCTION_CLAUSE, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(clause, OMP_IS_USER_DEFINED_REDUCTION, tl_type_t, tl_bool(is_user_defined));
     ASTAttrSetValueType(clause, OMP_REDUCTION_VARIABLES, tl_type_t, tl_ast(ASTSon1(clause)));
     ASTAttrSetValueType(clause, OMP_REDUCTION_OPERATOR, tl_type_t, tl_ast(operator));
 }
@@ -8809,22 +8806,7 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
                             switch (ASTType(operator))
                             {
                                 case AST_OMP_REDUCTION_OPERATOR_BUILTIN:
-                                    {
-                                        break;
-                                    }
                                 case AST_OMP_REDUCTION_OPERATOR_FUNCTION:
-                                    {
-                                        AST id_expr = ASTSon0(operator);
-                                        if (check_for_expression(id_expr, decl_context))
-                                        {
-                                            scope_entry_t* entry = build_scope_omp_reduction_operator_function(id_expr, decl_context);
-                                            if (entry != NULL)
-                                            {
-                                                ASTAttrSetValueType(operator, OMP_UDR_OPERATOR_SYMBOL, tl_type_t, tl_symbol(entry));
-                                            }
-                                        }
-                                        break;
-                                    }
                                 case AST_OMP_REDUCTION_OPERATOR_MEMBER_FUNCTION:
                                     {
                                         break;
@@ -9033,27 +9015,13 @@ static void build_scope_omp_declare_reduction(AST a,
                     break;
                 }
             case AST_OMP_REDUCTION_OPERATOR_FUNCTION:
-                {
-                    if ((p = (tl_type_t*)ASTAttrValue(operator, OMP_UDR_OPERATOR_SYMBOL)) != NULL)
-                    {
-                        ERROR_CONDITION(p->kind != TL_SYMBOL, "Invalid TL type %d", p->kind);
-                        scope_entry_t *entry = p->data._entry;
-                        omp_udr_register_reduction_function(declared_type,
-                                entry,
-                                identity_tree,
-                                // FIXME - Retrieve the order!
-                                OMP_UDR_ORDER_LEFT);
-                    }
-                    else
-                    {
-                        running_error("%s: error: '%s' is an invalid name in clause 'operator'\n",
-                                ast_location(operator),
-                                prettyprint_in_buffer(operator));
-                    }
-                    break;
-                }
             case AST_OMP_REDUCTION_OPERATOR_MEMBER_FUNCTION:
                 {
+                    omp_udr_register_reduction(declared_type,
+                            prettyprint_in_buffer(operator),
+                            identity_tree,
+                            // FIXME - Retrieve the order
+                            OMP_UDR_ORDER_LEFT);
                     break;
                 }
             default:
