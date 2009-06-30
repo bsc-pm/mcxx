@@ -49,6 +49,7 @@ namespace TL
                 bool _with_epilog;
                 bool _ignore_omp;
                 bool _omp_bundling;
+				int _omp_bundling_factor;
 
                 Source do_unroll();
 
@@ -75,6 +76,8 @@ namespace TL
 
                 LoopUnroll& ignore_omp(bool b);
                 LoopUnroll& enable_omp_bundling(bool b);
+
+				LoopUnroll& set_omp_bundling_factor(int n);
         };
 
         //! Creates a LoopUnroll object

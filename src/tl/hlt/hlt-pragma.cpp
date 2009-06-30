@@ -116,11 +116,13 @@ struct UnrollInfo
     int factor;
     bool enable_omp_bundling;
     bool ignore_omp;
+	int omp_bundling_factor;
 
     UnrollInfo()
         : factor(4), 
         enable_omp_bundling(false),
-        ignore_omp(false)
+        ignore_omp(false),
+		omp_bundling_factor(-1)
     {
     }
 };
@@ -131,6 +133,7 @@ static void unroll_loop_fun(TL::ForStatement for_stmt,
     TL::Source unrolled_loop_src = TL::HLT::unroll_loop(for_stmt,  unroll_info.factor)
         .ignore_omp(unroll_info.ignore_omp)
         .enable_omp_bundling(unroll_info.enable_omp_bundling)
+		.set_omp_bundling_factor(unroll_info.omp_bundling_factor)
         .allow_identity(_allow_identity);
 
     TL::AST_t unrolled_loop_tree = unrolled_loop_src.parse_statement(for_stmt.get_ast(),
@@ -193,6 +196,30 @@ void HLTPragmaPhase::unroll_loop(PragmaCustomConstruct construct)
     {
         unroll_info.enable_omp_bundling = true;
     }
+	if (construct.get_clause("omp_bundling_factor").is_defined())
+	{
+		TL::PragmaCustomClause bundling_factor = construct.get_clause("omp_bundling_factor");
+        ObjectList<Expression> args = bundling_factor.get_expression_list();
+
+        if (args.size() != 1)
+        {
+            throw HLTException(construct, "omp_bundling_factor clause only accepts one argument");
+        }
+
+        Expression& expr = args[0];
+
+        if (!expr.is_constant())
+        {
+            throw HLTException(expr, "omp_bundling_factor clause argument should be a constant expression");
+        }
+
+        bool valid = false;
+        unroll_info.omp_bundling_factor = expr.evaluate_constant_int_expression(valid);
+        if (!valid)
+        {
+            throw HLTException(expr, "omp_bundling_factor clause argument expression could not be evaluated");
+        }
+	}
 
     std::for_each(for_statement_list.begin(), for_statement_list.end(),
             std::bind2nd(std::ptr_fun(unroll_loop_fun), unroll_info));

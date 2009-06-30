@@ -37,7 +37,7 @@ TL::Source LoopUnroll::get_source()
 
 LoopUnroll::LoopUnroll(ForStatement for_stmt, unsigned int factor)
      : _for_stmt(for_stmt), _factor(factor), _with_epilog(false),
-     _ignore_omp(false)
+     _ignore_omp(false), _omp_bundling_factor(-1)
 {
     if (!_for_stmt.regular_loop())
     {
@@ -175,4 +175,10 @@ LoopUnroll& LoopUnroll::enable_omp_bundling(bool b)
 {
     _omp_bundling = b;
     return *this;
+}
+
+LoopUnroll& LoopUnroll::set_omp_bundling_factor(int n)
+{
+	_omp_bundling_factor = n;
+	return *this;
 }

@@ -11,12 +11,17 @@ void LoopUnroll::omp_replication(int factor, Source &replicated_body,
 {
     if (_omp_bundling)
     {
-        omp_replication_by_task_bundling(factor, replicated_body, 
+		int current_factor = factor;
+		if (_omp_bundling_factor > 0)
+		{
+			current_factor = _omp_bundling_factor;
+		}
+        omp_replication_by_task_bundling(current_factor, replicated_body, 
                 induction_var, loop_body, before, after);
     }
     else
     {
-        // Plain task aggregation will be used instead
+        // Plain task predication will be used instead
         omp_replication_by_task_aggregation(factor, replicated_body, induction_var, loop_body);
     }
 }
