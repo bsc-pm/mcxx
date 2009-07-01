@@ -140,12 +140,15 @@ Source TaskAggregation::do_predicated_aggregation()
 
     ObjectList<GuardedTask> guarded_task_list = guard_task_info.get_guarded_tasks();
 
-    Source firstprivate_clause, firstprivate_args, predicated_body;
+    Source firstprivate_clause, firstprivate_args, predicated_body, guard_task_list;
     predicated_task
-        << "#pragma omp task" << firstprivate_clause << "\n"
-        << "{"
-        << predicated_body
-        << "}"
+		<< "if (" << guard_task_list << ")"
+		<< "{"
+        <<    "#pragma omp task" << firstprivate_clause << "\n"
+        <<    "{"
+        <<       predicated_body
+        <<    "}"
+		<< "}"
         ;
 
     for (ObjectList<GuardedTask>::iterator it = guarded_task_list.begin();
@@ -163,6 +166,10 @@ Source TaskAggregation::do_predicated_aggregation()
             << replaced_body
             << "}"
             ;
+
+		guard_task_list.append_with_separator(
+				guard_task_info.get_guard_struct_var_name() + "." + it->get_predicate_name(),
+				"||");
 
         guard_struct_fields
             << "char " << it->get_predicate_name() << ":1;"
