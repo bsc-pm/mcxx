@@ -358,20 +358,21 @@ namespace TL
 
                     char is_builtin = 0;
 
-                    if (omp_udr_lookup_reduction(t.get_internal_type(),
-                                reductor_name.c_str(),
-                                &identity,
-                                &assoc,
-                                &is_builtin))
-                    {
-                        _neuter = AST_t(identity);
-                        _is_right_assoc = (assoc == OMP_UDR_ORDER_RIGHT);
+#warning FIXME with new api
+                    // if (omp_udr_lookup_reduction(t.get_internal_type(),
+                    //             reductor_name.c_str(),
+                    //             &identity,
+                    //             &assoc,
+                    //             &is_builtin))
+                    // {
+                    //     _neuter = AST_t(identity);
+                    //     _is_right_assoc = (assoc == OMP_UDR_ORDER_RIGHT);
 
-                        _is_user_defined = !is_builtin;
+                    //     _is_user_defined = !is_builtin;
 
-                        // This is a bit lame
-                        _is_member = (reductor_name[0] == '.');
-                    }
+                    //     // This is a bit lame
+                    //     _is_member = (reductor_name[0] == '.');
+                    // }
                 }
 
                 //! States that the reduction is user defined
