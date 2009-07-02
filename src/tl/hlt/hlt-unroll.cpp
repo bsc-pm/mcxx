@@ -122,35 +122,32 @@ TL::Source LoopUnroll::silly_unroll()
 		<< "}"
 		;
 
-	// if (!_ignore_omp && TaskAggregation::contains_relevant_openmp(loop_body))
-	// {
-	// 	AST_t tree = silly_unrolled_loop.parse_statement(loop_body.get_ast(),
-	// 			loop_body.get_scope_link());
+	if (!_ignore_omp && TaskAggregation::contains_relevant_openmp(loop_body))
+	{
+		AST_t tree = silly_unrolled_loop.parse_statement(loop_body.get_ast(),
+				loop_body.get_scope_link());
 
-	// 	ASTIterator iterator = tree.get_list_iterator();
-	// 	Statement stmt(iterator.item(), loop_body.get_scope_link());
+		ASTIterator iterator = tree.get_list_iterator();
+		Statement stmt(iterator.item(), loop_body.get_scope_link());
 
-	// 	TaskAggregation task_aggregation(stmt);
+		TaskAggregation task_aggregation(stmt);
 
-	// 	if (_omp_bundling)
-	// 	{
-	// 		task_aggregation.set_aggregation_method(TaskAggregation::BUNDLING);
-	// 	}
-	// 	
-	// 	task_aggregation
-	// 		.set_global_bundling_source(before)
-	// 		.set_finish_bundling_source(after)
-	// 		.set_enclosing_function_tree(_for_stmt.get_ast().get_enclosing_function_definition());
+		if (_omp_bundling)
+		{
+			task_aggregation.set_aggregation_method(TaskAggregation::BUNDLING);
+		}
+		
+		task_aggregation
+			.set_global_bundling_source(before)
+			.set_finish_bundling_source(after)
+			.set_enclosing_function_tree(_for_stmt.get_ast().get_enclosing_function_definition());
 
-	// 	replicated_body = task_aggregation;
-	// }
-	// else
+		replicated_body = task_aggregation;
+	}
+	else
 	{
 		replicated_body << silly_unrolled_loop;
 	}
-
-	std::cerr << result.get_source()
-		;
 
 	return result;
 }
