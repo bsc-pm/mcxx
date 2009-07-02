@@ -133,7 +133,7 @@ struct BundleGenerator
 					Clause current_firstprivate_clause = current_directive.firstprivate_clause();
 					ReplaceSrcIdExpression replacements(_sl);
 
-					Source extended_task_body;
+					Source extended_task_body, task_cleanup;
 
 					ObjectList<IdExpression> firstprivate_id_expr_list = current_firstprivate_clause.id_expressions();
 					for (ObjectList<IdExpression>::iterator fp_it = firstprivate_id_expr_list.begin();
@@ -144,15 +144,47 @@ struct BundleGenerator
 						Symbol sym(id_expr.get_symbol());
 
 						Source repl_src;
-						repl_src << "(" << bundle_info_name << "[" << current_index_name << "]._info_" << it->get_id() << "." << sym.get_name() << ")"
-							;
-						replacements.add_replacement(sym, repl_src);
+						C_LANGUAGE()
+						{
+							repl_src << "(" << bundle_info_name << "[" << current_index_name << "]._info_" << it->get_id() << "." << sym.get_name() << ")"
+								;
+							replacements.add_replacement(sym, repl_src);
+						}
+						CXX_LANGUAGE()
+						{
+							Type type = sym.get_type();
+							if (type.is_class())
+							{
+								extended_task_body
+									<< type.get_reference_to().get_declaration(sym.get_scope(), sym.get_name()) 
+									<< "(*(" << type.get_pointer_to().get_declaration(sym.get_scope(), "") << ")" 
+									<<  "(" << bundle_info_name << "[" << current_index_name << "]._info_" 
+									<< it->get_id() << "._pt_" << sym.get_name() << ")"
+									<< ");"
+									;
+
+								Symbol class_symbol = type.get_symbol();
+
+								task_cleanup
+									<< sym.get_name() << "." << type.get_declaration(sym.get_scope(), "") << "::~" << class_symbol.get_name() << "();"
+									;
+							}
+							else
+							{
+								repl_src << "(" << bundle_info_name << "[" << current_index_name << "]._info_" 
+									<< it->get_id() << "." << sym.get_name() << ")"
+									;
+								replacements.add_replacement(sym, repl_src);
+							}
+						}
+						
 					}
 
 					code_of_all_tasks
 						<< "case " << it->get_id() << ":"
 						<< "{"
 						<<    extended_task_body
+						<<    task_cleanup
 						<<    "break;"
 						<< "}"
 						;
@@ -252,10 +284,32 @@ struct GuardTaskGeneratorBundled : Functor<TL::AST_t::callback_result, TL::AST_t
                             it++)
                     {
                         Symbol sym(it->get_symbol());
-                        result
-                            << bundle_info_name << "[" << global_task_index_name << "]._info_" << task_id << "." << sym.get_name() 
-                            << " = " << it->prettyprint() << ";"
-                            ;
+						C_LANGUAGE()
+						{
+							result
+								<< bundle_info_name << "[" << global_task_index_name << "]._info_" << task_id << "." << sym.get_name() 
+								<< " = " << it->prettyprint() << ";"
+								;
+						}
+						CXX_LANGUAGE()
+						{
+							Type type = sym.get_type();
+							if (type.is_class())
+							{
+								result
+									<< "new((void*)(" 
+										<< bundle_info_name << "[" << global_task_index_name << "]._info_" << task_id << "._pt_" << sym.get_name() 
+									<< "))" << type.get_declaration(sym.get_scope(), "") << "(" << it->prettyprint() << ");"
+									;
+							}
+							else
+							{
+								result
+									<< bundle_info_name << "[" << global_task_index_name << "]._info_" << task_id << "." << sym.get_name() 
+									<< " = " << it->prettyprint() << ";"
+									;
+							}
+						}
                     }
                 }
 
@@ -376,9 +430,28 @@ Source TaskAggregation::do_bundled_aggregation()
                 Symbol sym(it->get_symbol());
                 Type type(sym.get_type());
 
-                union_task_fields
-                    << type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
-                    ;
+				C_LANGUAGE()
+				{
+					union_task_fields
+						<< type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
+						;
+				}
+
+				CXX_LANGUAGE()
+				{
+					if (type.is_class())
+					{
+						union_task_fields
+							<< "char _pt_" << sym.get_name() << "[sizeof(" << type.get_declaration(sym.get_scope(), "") << ")];"
+							;
+					}
+					else
+					{
+						union_task_fields
+							<< type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
+							;
+					}
+				}
             }
         }
     }
