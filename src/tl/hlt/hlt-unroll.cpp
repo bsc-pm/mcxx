@@ -142,6 +142,15 @@ TL::Source LoopUnroll::silly_unroll()
 			.set_finish_bundling_source(after)
 			.set_enclosing_function_tree(_for_stmt.get_ast().get_enclosing_function_definition());
 
+		if (_omp_bundling_factor > 0)
+		{
+			task_aggregation.set_bundling_amount(_omp_bundling_factor);
+		}
+		else
+		{
+			task_aggregation.set_bundling_amount(_factor);
+		}
+
 		replicated_body = task_aggregation;
 	}
 	else
