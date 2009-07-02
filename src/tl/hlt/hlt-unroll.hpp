@@ -52,7 +52,7 @@ namespace TL
 				int _omp_bundling_factor;
 
                 Source do_unroll();
-
+				Source silly_unroll();
 
                 void simple_replication(int factor, Source &replicated_body,
                         IdExpression induction_var, Statement loop_body);

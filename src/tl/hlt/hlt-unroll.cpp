@@ -43,15 +43,125 @@ LoopUnroll::LoopUnroll(ForStatement for_stmt, unsigned int factor)
     {
         _ostream
             << _for_stmt.get_ast().get_locus() 
-            << ": warning: is not a regular loop, unroll will not be applied" 
+            << ": warning: is not a regular loop, silly unroll will be applied" 
             << std::endl;
-        set_identity(_for_stmt.get_ast());
     }
 }
 
+TL::Source LoopUnroll::silly_unroll()
+{
+	TL::Source result, silly_unrolled_loop, decl, before, after,
+		replicated_body, loop_header;
+
+	result
+		<< "{"
+		<< decl
+		<< before
+		<< "for( " << loop_header
+		<< ")"
+		<< replicated_body
+		<< after
+		<< "}"
+		;
+
+	silly_unrolled_loop
+		<< "{"
+		;
+
+	Statement loop_body = _for_stmt.get_loop_body();
+
+	if (TL::Declaration::predicate(_for_stmt.get_iterating_init()))
+	{
+		decl << _for_stmt.get_iterating_init().prettyprint()
+			;
+		loop_header
+			<< ";"
+			<< _for_stmt.get_iterating_condition() << ";"
+			<< _for_stmt.get_iterating_expression()
+			;
+	}
+	else
+	{
+		loop_header
+			<< _for_stmt.get_iterating_init().prettyprint() 
+			<< _for_stmt.get_iterating_condition() << ";"
+			<< _for_stmt.get_iterating_expression()
+			;
+	}
+
+	for (int i = 0; i < _factor; i++)
+	{
+		if (i > 0)
+		{
+			silly_unrolled_loop
+				<< "if (" << _for_stmt.get_iterating_condition() << ")"
+				;
+		}
+
+		silly_unrolled_loop
+			<< "{"
+			<< loop_body
+			;
+
+		if ((i + 1) != _factor)
+		{
+			silly_unrolled_loop
+				<< _for_stmt.get_iterating_expression() << ";"
+			;
+		}
+	}
+
+	// Close braces
+	for (int i = 0; i < _factor; i++)
+	{
+		silly_unrolled_loop
+			<< "}"
+			;
+	}
+	silly_unrolled_loop
+		<< "}"
+		;
+
+	// if (!_ignore_omp && TaskAggregation::contains_relevant_openmp(loop_body))
+	// {
+	// 	AST_t tree = silly_unrolled_loop.parse_statement(loop_body.get_ast(),
+	// 			loop_body.get_scope_link());
+
+	// 	ASTIterator iterator = tree.get_list_iterator();
+	// 	Statement stmt(iterator.item(), loop_body.get_scope_link());
+
+	// 	TaskAggregation task_aggregation(stmt);
+
+	// 	if (_omp_bundling)
+	// 	{
+	// 		task_aggregation.set_aggregation_method(TaskAggregation::BUNDLING);
+	// 	}
+	// 	
+	// 	task_aggregation
+	// 		.set_global_bundling_source(before)
+	// 		.set_finish_bundling_source(after)
+	// 		.set_enclosing_function_tree(_for_stmt.get_ast().get_enclosing_function_definition());
+
+	// 	replicated_body = task_aggregation;
+	// }
+	// else
+	{
+		replicated_body << silly_unrolled_loop;
+	}
+
+	std::cerr << result.get_source()
+		;
+
+	return result;
+}
 
 TL::Source LoopUnroll::do_unroll()
 {
+	if (!_for_stmt.regular_loop())
+	{
+		return silly_unroll();
+	}
+	
     // Get parts of the loop
     IdExpression induction_var = _for_stmt.get_induction_variable();
     Expression lower_bound = _for_stmt.get_lower_bound();
