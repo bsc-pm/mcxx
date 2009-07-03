@@ -29,13 +29,9 @@ struct BundleGenerator
 
         Source generate_bundle(Source &clear_indexes, bool unroll = false, bool empty = false)
         {
-			// Do not unroll if bundling amount is huge
-			if (_bundling_amount > 128)
-				unroll = false;
-			
             Source try_to_run_every_task;
             Source firstprivate_clause_src, firstprivate_args, code_of_all_tasks;
-            Source switch_structure, loop_header;
+            Source switch_structure, loop_header, loop_end;
 
             Source current_index_name;
             current_index_name
@@ -91,6 +87,7 @@ struct BundleGenerator
 					<< "int " << current_index_name << "  = 0;"
 					<< loop_header
 					<< switch_structure
+					<< loop_end
 					<< "}"
 					;
 
@@ -113,7 +110,21 @@ struct BundleGenerator
 				}
 				else
 				{
-					for (int i = 0; i < _bundling_amount; i++)
+					int unroll_extent = _bundling_amount;
+					if (_bundling_amount > 128)
+					{
+						unroll_extent = 128;
+
+						loop_header
+							<< "while (" << current_index_name << " < " << _bundling_amount << ")"
+							<< "{"
+							;
+
+						loop_end
+							<< "}"
+							;
+					}
+					for (int i = 0; i < unroll_extent; i++)
 					{
 						switch_structure
 							<< "switch (" << task_log_name << "[" << current_index_name << "])"
