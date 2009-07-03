@@ -29,6 +29,10 @@ struct BundleGenerator
 
         Source generate_bundle(Source &clear_indexes, bool unroll = false, bool empty = false)
         {
+			// Do not unroll if bundling amount is huge
+			if (_bundling_amount > 128)
+				unroll = false;
+			
             Source try_to_run_every_task;
             Source firstprivate_clause_src, firstprivate_args, code_of_all_tasks;
             Source switch_structure, loop_header;

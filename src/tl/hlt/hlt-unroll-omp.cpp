@@ -11,12 +11,7 @@ void LoopUnroll::omp_replication(int factor, Source &replicated_body,
 {
     if (_omp_bundling)
     {
-		int current_factor = factor;
-		if (_omp_bundling_factor > 0)
-		{
-			current_factor = _omp_bundling_factor;
-		}
-        omp_replication_by_task_bundling(current_factor, replicated_body, 
+        omp_replication_by_task_bundling(factor, replicated_body, 
                 induction_var, loop_body, before, after);
     }
     else
@@ -58,6 +53,11 @@ void LoopUnroll::omp_replication_by_task_bundling(int factor, Source& replicated
         .set_global_bundling_source(before)
         .set_finish_bundling_source(after)
         .set_enclosing_function_tree(_for_stmt.get_ast().get_enclosing_function_definition());
+
+	if (_omp_bundling_factor > 0)
+	{
+		task_aggregation.set_bundling_amount(_omp_bundling_factor);
+	}
 
     replicated_body = task_aggregation;
 }

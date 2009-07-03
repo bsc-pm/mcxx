@@ -194,34 +194,48 @@ TL::Source LoopUnroll::do_unroll()
         << "}"
         ;
 
-    AST_t init = _for_stmt.get_iterating_init();
-    if (Declaration::predicate(init))
-    {
-        TL::Symbol sym = induction_var.get_symbol();
-        TL::Type type = sym.get_type();
-        // Declare it since it will have local scope
-        induction_var_decl
-            << type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
-            ;
-    }
+	Source replicated_body;
+	if (_factor > 1)
+	{
+		AST_t init = _for_stmt.get_iterating_init();
+		if (Declaration::predicate(init))
+		{
+			TL::Symbol sym = induction_var.get_symbol();
+			TL::Type type = sym.get_type();
+			// Declare it since it will have local scope
+			induction_var_decl
+				<< type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
+				;
+		}
 
-    Source replicated_body;
-    main
-        << "for (" << induction_var << " = " << lower_bound << ";"
-                   << induction_var << operator_bound << "((" << upper_bound << ") - " << _factor << ") ;"
-                   << induction_var << "+= (" << step << ") * " << _factor << ")"
-        << "{"
-        << replicated_body
-        << "}"
-        ;
+		main
+			<< "for (" << induction_var << " = " << lower_bound << ";"
+			<< induction_var << operator_bound << "((" << upper_bound << ") - " << _factor << ") ;"
+			<< induction_var << "+= (" << step << ") * " << _factor << ")"
+			<< "{"
+			<< replicated_body
+			<< "}"
+			;
 
-    // FIXME - It could help to initialize here another variable and make both loops independent
-    epilogue
-        << "for ( ; "  // No initialization, keep using the old induction var
-                   << induction_var << operator_bound << upper_bound << ";"
-                   << induction_var << "+= (" << step << "))"
-                   << loop_body
-        ;
+		// FIXME - It could help to initialize here another variable and make both loops independent
+		epilogue
+			<< "for ( ; "  // No initialization, keep using the old induction var
+			<< induction_var << operator_bound << upper_bound << ";"
+			<< induction_var << "+= (" << step << "))"
+			<< loop_body
+			;
+	}
+	else
+	{
+		// Leave it as is
+		main << "for(" << _for_stmt.get_iterating_init().prettyprint()
+			<< _for_stmt.get_iterating_condition() << ";"
+			<< _for_stmt.get_iterating_expression() << ")"
+			<< "{"
+			<< replicated_body
+			<< "}"
+			;
+	}
 
     // Replicate the body
     bool consider_omp = false;
