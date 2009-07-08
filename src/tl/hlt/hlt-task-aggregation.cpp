@@ -16,6 +16,7 @@ TaskAggregation::TaskAggregation(Statement stmt, AggregationMethod method)
 : _stmt(stmt),
     _method(method),
     _bundling_amount(4),
+	_do_not_create_tasks(false),
     _global_bundling_src(NULL),
     _finish_bundling_src(NULL),
     _enclosing_function_def_tree(NULL)
@@ -147,4 +148,10 @@ TaskAggregation& TaskAggregation::set_enclosing_function_tree(AST_t ast)
 {
     _enclosing_function_def_tree = ast;
     return *this;
+}
+
+TaskAggregation& TaskAggregation::set_do_not_create_tasks(bool b)
+{
+	_do_not_create_tasks = b;
+	return *this;
 }

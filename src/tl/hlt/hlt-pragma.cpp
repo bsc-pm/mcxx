@@ -117,12 +117,14 @@ struct UnrollInfo
     bool enable_omp_bundling;
     bool ignore_omp;
 	int omp_bundling_factor;
+	bool remove_tasks;
 
     UnrollInfo()
         : factor(4), 
         enable_omp_bundling(false),
         ignore_omp(false),
-		omp_bundling_factor(-1)
+		omp_bundling_factor(-1),
+		remove_tasks(false)
     {
     }
 };
@@ -134,6 +136,7 @@ static void unroll_loop_fun(TL::ForStatement for_stmt,
         .ignore_omp(unroll_info.ignore_omp)
         .enable_omp_bundling(unroll_info.enable_omp_bundling)
 		.set_omp_bundling_factor(unroll_info.omp_bundling_factor)
+		.set_remove_tasks(unroll_info.remove_tasks)
         .allow_identity(_allow_identity);
 
     TL::AST_t unrolled_loop_tree = unrolled_loop_src.parse_statement(for_stmt.get_ast(),
@@ -196,6 +199,10 @@ void HLTPragmaPhase::unroll_loop(PragmaCustomConstruct construct)
     {
         unroll_info.enable_omp_bundling = true;
     }
+	if (construct.get_clause("remove_tasks").is_defined())
+	{
+		unroll_info.remove_tasks = true;
+	}
 	if (construct.get_clause("omp_bundling_factor").is_defined())
 	{
 		TL::PragmaCustomClause bundling_factor = construct.get_clause("omp_bundling_factor");

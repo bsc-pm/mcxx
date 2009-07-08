@@ -37,7 +37,7 @@ TL::Source LoopUnroll::get_source()
 
 LoopUnroll::LoopUnroll(ForStatement for_stmt, unsigned int factor)
      : _for_stmt(for_stmt), _factor(factor), _with_epilog(false),
-     _ignore_omp(false), _omp_bundling_factor(-1)
+     _ignore_omp(false), _omp_bundling_factor(-1), _remove_tasks(false)
 {
     if (!_for_stmt.regular_loop())
     {
@@ -161,6 +161,18 @@ TL::Source LoopUnroll::silly_unroll()
 	return result;
 }
 
+static TL::AST_t::callback_result ignore_tasks(TL::AST_t a)
+{
+	if (TL::OpenMP::TaskConstruct::predicate(a))
+	{
+		return TL::AST_t::callback_result(true, ";");
+	}
+	else
+	{
+		return TL::AST_t::callback_result(false, "");
+	}
+}
+
 TL::Source LoopUnroll::do_unroll()
 {
 	if (!_for_stmt.regular_loop())
@@ -218,12 +230,23 @@ TL::Source LoopUnroll::do_unroll()
 			;
 
 		// FIXME - It could help to initialize here another variable and make both loops independent
+		Source epilogue_body;
 		epilogue
 			<< "for ( ; "  // No initialization, keep using the old induction var
 			<< induction_var << operator_bound << upper_bound << ";"
 			<< induction_var << "+= (" << step << "))"
-			<< loop_body
+			<< epilogue_body
 			;
+
+		if (!_remove_tasks)
+		{
+			epilogue_body << loop_body;
+		}
+		else
+		{
+			std::cerr << "Do not create task " << __FILE__ << ":" << __LINE__ << std::endl;
+			epilogue_body << loop_body.get_ast().prettyprint_with_callback(functor(ignore_tasks));
+		}
 	}
 	else
 	{
@@ -310,5 +333,11 @@ LoopUnroll& LoopUnroll::enable_omp_bundling(bool b)
 LoopUnroll& LoopUnroll::set_omp_bundling_factor(int n)
 {
 	_omp_bundling_factor = n;
+	return *this;
+}
+
+LoopUnroll& LoopUnroll::set_remove_tasks(bool b)
+{
+	_remove_tasks = b;
 	return *this;
 }

@@ -9,7 +9,7 @@ void LoopUnroll::omp_replication(int factor, Source &replicated_body,
         IdExpression induction_var, Statement loop_body,
         Source &before, Source &after)
 {
-    if (_omp_bundling)
+	if (_omp_bundling)
     {
         omp_replication_by_task_bundling(factor, replicated_body, 
                 induction_var, loop_body, before, after);
@@ -52,6 +52,7 @@ void LoopUnroll::omp_replication_by_task_bundling(int factor, Source& replicated
     task_aggregation.set_aggregation_method(TaskAggregation::BUNDLING)
         .set_global_bundling_source(before)
         .set_finish_bundling_source(after)
+		.set_do_not_create_tasks(_remove_tasks)
         .set_enclosing_function_tree(_for_stmt.get_ast().get_enclosing_function_definition());
 
 	if (_omp_bundling_factor > 0)
@@ -90,6 +91,7 @@ void LoopUnroll::omp_replication_by_task_aggregation(int factor, Source& replica
 
     TaskAggregation task_aggregation(stmt);
     task_aggregation
+		.set_do_not_create_tasks(_remove_tasks)
         .set_enclosing_function_tree(_for_stmt.get_ast().get_enclosing_function_definition());
 
     replicated_body = task_aggregation;

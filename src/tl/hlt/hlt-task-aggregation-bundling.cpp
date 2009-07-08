@@ -180,9 +180,9 @@ struct BundleGenerator
 
 								Symbol class_symbol = type.get_symbol();
 
-								task_cleanup
-									<< sym.get_name() << "." << type.get_declaration(sym.get_scope(), "") << "::~" << class_symbol.get_name() << "();"
-									;
+								// task_cleanup
+								// 	<< sym.get_name() << "." << type.get_declaration(sym.get_scope(), "") << "::~" << class_symbol.get_name() << "();"
+								// 	;
 							}
 							else
 							{
@@ -240,12 +240,15 @@ struct GuardTaskGeneratorBundled : Functor<TL::AST_t::callback_result, TL::AST_t
         const GuardTaskInfo& _info;
         int _bundling_amount;
 		int *_task_num;
+		bool _do_not_create_tasks;
     public:
-        GuardTaskGeneratorBundled(ScopeLink sl, const GuardTaskInfo& info, int bundling_amount = 4)
+		GuardTaskGeneratorBundled(ScopeLink sl, const GuardTaskInfo& info, 
+				int bundling_amount, bool do_not_create_tasks)
             : _sl(sl), 
             _info(info), 
             _bundling_amount(bundling_amount),
-			_task_num(new int(0))
+			_task_num(new int(0)),
+			_do_not_create_tasks(do_not_create_tasks)
         {
         }
 
@@ -342,9 +345,16 @@ struct GuardTaskGeneratorBundled : Functor<TL::AST_t::callback_result, TL::AST_t
 
                 BundleGenerator bundle_gen(_info, _sl, _bundling_amount);
 
-                try_to_run_every_task
-                    << bundle_gen.generate_bundle(clear_indexes, /* unroll= */ true, /* empty */ ((*_task_num) != 1))
-                    ;
+				if (!(this->_do_not_create_tasks))
+				{
+					try_to_run_every_task
+						<< bundle_gen.generate_bundle(clear_indexes, /* unroll= */ true, /* empty */ ((*_task_num) != 1))
+						;
+				}
+				else
+				{
+					std::cerr << "Do not create task " << __FILE__ << ":" << __LINE__ << std::endl;
+				}
 
 				result
 					<< "}"
@@ -486,18 +496,26 @@ Source TaskAggregation::do_bundled_aggregation()
         << "int " << global_task_index_name << " = 0;" 
         ; 
 
-    GuardTaskGeneratorBundled guard_task_generator(_stmt.get_scope_link(), guard_task_info, _bundling_amount);
+    GuardTaskGeneratorBundled guard_task_generator(_stmt.get_scope_link(), guard_task_info, _bundling_amount, _do_not_create_tasks);
     bundled_tasks << _stmt.get_ast().prettyprint_with_callback(guard_task_generator);
 
     BundleGenerator bundle_gen(guard_task_info, _stmt.get_scope_link(), _bundling_amount);
-    Source clear_indexes;
+    Source clear_indexes, bundle_code;
     bundle_remainder
         << "if (" << global_task_index_name << " != 0)"
         << "{"
-        << bundle_gen.generate_bundle(clear_indexes, /*unroll=*/ false)
-        // << clear_indexes
+		<< bundle_code
         << "}"
         ;
+
+	if (!(this->_do_not_create_tasks))
+	{
+		bundle_code << bundle_gen.generate_bundle(clear_indexes, /*unroll=*/ false);
+	}
+	else
+	{
+		std::cerr << "Do not create task " << __FILE__ << ":" << __LINE__ << std::endl;
+	}
 
     return result;
 }
