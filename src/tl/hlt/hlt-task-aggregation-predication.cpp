@@ -42,6 +42,7 @@ struct GuardTaskGenerator : Functor<TL::AST_t::callback_result, TL::AST_t>
                     ;
 
                 result
+					<< "_global_pred_" << CounterManager::get_counter(TASK_PREDICATION_COUNTER) << " = "
                     << _info.get_guard_struct_var_name() << "." << predicate_name << "= 1;"
                     ;
 
@@ -63,17 +64,46 @@ struct GuardTaskGenerator : Functor<TL::AST_t::callback_result, TL::AST_t>
                     {
                         Symbol sym = it->get_symbol();
                         Source new_name;
-                        new_name
-							<< "_pred_info_" << CounterManager::get_counter(TASK_PREDICATION_COUNTER) 
-							<< "[" << _info._num_tasks << "].task_" << _info._num_tasks << "." << sym.get_name()
-							;
+
+						Type type = sym.get_type();
+
+						C_LANGUAGE()
+						{
+							new_name
+								<< "(_pred_info_" << CounterManager::get_counter(TASK_PREDICATION_COUNTER) 
+								<< "[" << _info._num_tasks << "]._task_" << _info._num_tasks << "." << sym.get_name() << ")"
+								;
+							result 
+								<< new_name << " = " << (*it) << ";"
+								;
+						}
+						CXX_LANGUAGE()
+						{
+							if (type.is_class())
+							{
+								new_name
+									<< "(_pred_info_" << CounterManager::get_counter(TASK_PREDICATION_COUNTER) 
+									<< "[" << _info._num_tasks << "]._task_" << _info._num_tasks << "._pt_" << sym.get_name() << ")"
+									;
+								result
+									<< "new((void*)(" << new_name << "))" 
+									<< type.get_declaration(sym.get_scope(), "") << "(" << (*it) << ");"
+									;
+							}
+							else
+							{
+								new_name
+									<< "(_pred_info_" << CounterManager::get_counter(TASK_PREDICATION_COUNTER) 
+									<< "[" << _info._num_tasks << "]._task_" << _info._num_tasks << "." << sym.get_name() << ")"
+									;
+								result 
+									<< new_name << " = " << sym.get_name() << ";"
+									;
+							}
+						}
+
                         GuardedTask::additional_var new_var(new_name, sym);
-
                         additional_vars.append(new_var);
-
-                        result 
-                            << new_name << " = " << sym.get_name() << ";"
-                            ;
                     }
                 }
                 
@@ -142,10 +172,10 @@ Source TaskAggregation::do_predicated_aggregation()
 
     ObjectList<GuardedTask> guarded_task_list = guard_task_info.get_guarded_tasks();
 
-    Source firstprivate_clause, firstprivate_args, predicated_body, guard_task_list;
+    Source firstprivate_clause, firstprivate_args, predicated_body;
 	Source task_construct;
     predicated_task
-		<< "if (" << guard_task_list << ")"
+		<< "if (_global_pred_" << CounterManager::get_counter(TASK_PREDICATION_COUNTER) << ")"
 		<< "{"
 		<< task_construct
 		<< "}"
@@ -154,10 +184,10 @@ Source TaskAggregation::do_predicated_aggregation()
 	if (!_do_not_create_tasks)
 	{
 		task_construct
-			<<    "#pragma omp task" << firstprivate_clause << "\n"
-			<<    "{"
-			<<       predicated_body
-			<<    "}"
+			<< "#pragma omp task" << firstprivate_clause << "\n"
+			<< "{"
+			<<    predicated_body
+			<< "}"
 			;
 	}
 
@@ -172,19 +202,16 @@ Source TaskAggregation::do_predicated_aggregation()
     {
         TaskConstruct task = it->get_task();
 
-        Source replaced_body;
+        Source replaced_body, local_binding;
 
         Statement body = task.body();
         predicated_body
             << "if (" << guard_task_info.get_guard_struct_var_name() << "." << it->get_predicate_name() << ")"
             << "{"
+			<< local_binding
             << replaced_body
             << "}"
             ;
-
-		guard_task_list.append_with_separator(
-				guard_task_info.get_guard_struct_var_name() + "." + it->get_predicate_name(),
-				"||");
 
         guard_struct_fields
             << "char " << it->get_predicate_name() << ":1;"
@@ -207,12 +234,50 @@ Source TaskAggregation::do_predicated_aggregation()
         {
             GuardedTask::additional_var& additional_var(*it_additional_var);
 
-            replacements.add_replacement(additional_var.second, additional_var.first);
 
             Symbol &sym(additional_var.second);
+			Type type = sym.get_type();
 
-			predicated_info_struct
-                << sym.get_type().get_declaration(sym.get_scope(), sym.get_name()) << ";";
+			C_LANGUAGE()
+			{
+				predicated_info_struct
+					<< type.get_declaration(sym.get_scope(), sym.get_name()) << ";";
+				replacements.add_replacement(additional_var.second, additional_var.first);
+			}
+			CXX_LANGUAGE()
+			{
+				if (type.is_class())
+				{
+					Source name_class_ptr;
+					name_class_ptr
+						<<  "_pt_" << sym.get_name() 
+						;
+					predicated_info_struct
+						<< "char " << name_class_ptr << "[sizeof(" << type.get_declaration(sym.get_scope(), "") << ")];"
+						;
+
+					Type ref_type = sym.get_type().get_reference_to();
+					Type ptr_type = sym.get_type().get_pointer_to();
+
+					local_binding
+						<< ref_type.get_declaration(sym.get_scope(), sym.get_name()) 
+						<< "( *(" 
+						<< "(" << ptr_type.get_declaration(sym.get_scope(), "") << ")"
+						<< "_pred_info_" << CounterManager::get_counter(TASK_PREDICATION_COUNTER) 
+						<< "[" << num_tasks << "]._task_" << num_tasks << "."
+						<< name_class_ptr 
+						<< "));"
+						;
+					// No replacement
+				}
+				else
+				{
+					predicated_info_struct
+						<< type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
+						;
+					replacements.add_replacement(additional_var.second, additional_var.first);
+				}
+			}
         }
 
 		if (!additional_vars.empty())
@@ -236,13 +301,10 @@ Source TaskAggregation::do_predicated_aggregation()
 		<< "} " << pred_info_name << "[" << num_tasks << "];"
 		;
 
-    if (!firstprivate_args.empty())
-    {
-        firstprivate_args.append_with_separator(pred_info_name, ",");
-        firstprivate_args.append_with_separator(guard_struct_var_name, ",");
-        firstprivate_clause << " firstprivate(" << firstprivate_args << ")"
-            ;
-    }
+	firstprivate_args.append_with_separator(pred_info_name, ",");
+	firstprivate_args.append_with_separator(guard_struct_var_name, ",");
+	firstprivate_clause << " firstprivate(" << firstprivate_args << ")"
+		;
 
     // Now parse the guard struct and prepend it
     AST_t guard_struct_tree = guard_struct_src.parse_declaration(enclosing_function_def.get_ast(),
