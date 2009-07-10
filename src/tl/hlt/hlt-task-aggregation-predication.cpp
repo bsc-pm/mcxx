@@ -64,7 +64,9 @@ struct GuardTaskGenerator : Functor<TL::AST_t::callback_result, TL::AST_t>
                         Symbol sym = it->get_symbol();
                         Source new_name;
                         new_name
-                            << "_" << sym.get_name() << "_" << _info._num_tasks;
+							<< "_pred_info_" << CounterManager::get_counter(TASK_PREDICATION_COUNTER) 
+							<< "[" << _info._num_tasks << "].task_" << _info._num_tasks << "." << sym.get_name()
+							;
                         GuardedTask::additional_var new_var(new_name, sym);
 
                         additional_vars.append(new_var);
@@ -100,6 +102,7 @@ Source TaskAggregation::do_predicated_aggregation()
 
     Source result, temporal_values_declarations, guarded_tasks, predicated_task;
     Source guard_struct_src, guard_struct_fields, guard_struct_name, guard_struct_var_decl;
+	Source predicated_info_struct;
 
     result
         << "{"
@@ -115,12 +118,10 @@ Source TaskAggregation::do_predicated_aggregation()
         << "{"
         << guard_struct_fields
         << "};"
+		<< predicated_info_struct
         ;
 
     // Number of guard structs created so far
-    static int num_guard_structs = 0;
-    num_guard_structs++;
-
     if (!_enclosing_function_def_tree.is_valid())
     {
         _enclosing_function_def_tree = _stmt.get_ast().get_enclosing_function_definition();
@@ -128,11 +129,12 @@ Source TaskAggregation::do_predicated_aggregation()
     FunctionDefinition enclosing_function_def(_enclosing_function_def_tree, _stmt.get_scope_link());
 
     guard_struct_name 
-        << "_guard_" << CounterManager::get_counter(TASK_PREDICATION_COUNTER) << "_" << num_guard_structs
+        << "_guard_" << CounterManager::get_counter(TASK_PREDICATION_COUNTER) 
         ;
 
     Source guard_struct_var_name = guard_task_info.get_guard_struct_var_name();
     guard_struct_var_decl << "struct " << guard_struct_name << " " << guard_struct_var_name << " = { 0 };"
+		<< "char _global_pred_" << CounterManager::get_counter(TASK_PREDICATION_COUNTER) << " = 0;"
         ;
 
     // This fills all the guard task info, before it won't contain any guarded task
@@ -159,6 +161,11 @@ Source TaskAggregation::do_predicated_aggregation()
 			;
 	}
 
+	predicated_info_struct
+		<< "union _pred_info_" << CounterManager::get_counter(TASK_PREDICATION_COUNTER) << "_t { " ;
+	;
+
+	int num_tasks = 0;
     for (ObjectList<GuardedTask>::iterator it = guarded_task_list.begin();
             it != guarded_task_list.end();
             it++)
@@ -183,8 +190,17 @@ Source TaskAggregation::do_predicated_aggregation()
             << "char " << it->get_predicate_name() << ":1;"
             ;
 
+
         ReplaceSrcIdExpression replacements(_stmt.get_scope_link());
         ObjectList<GuardedTask::additional_var> additional_vars = it->get_additional_vars();
+
+		if (!additional_vars.empty())
+		{
+			predicated_info_struct
+				<< "struct {"
+				;
+		}
+		
         for (ObjectList<GuardedTask::additional_var>::iterator it_additional_var = additional_vars.begin();
                 it_additional_var != additional_vars.end();
                 it_additional_var++)
@@ -194,16 +210,35 @@ Source TaskAggregation::do_predicated_aggregation()
             replacements.add_replacement(additional_var.second, additional_var.first);
 
             Symbol &sym(additional_var.second);
-            temporal_values_declarations
-                << sym.get_type().get_declaration(sym.get_scope(), additional_var.first) << ";";
 
-            firstprivate_args.append_with_separator(additional_var.first, ",");
+			predicated_info_struct
+                << sym.get_type().get_declaration(sym.get_scope(), sym.get_name()) << ";";
         }
+
+		if (!additional_vars.empty())
+		{
+			predicated_info_struct
+				<< "} _task_" << num_tasks << ";"
+				;
+		}
+
+		num_tasks++;
+
 		replaced_body << replacements.replace(body);
     }
 
+	Source pred_info_name;
+	pred_info_name
+		<< "_pred_info_" << CounterManager::get_counter(TASK_PREDICATION_COUNTER)
+		;
+
+	predicated_info_struct
+		<< "} " << pred_info_name << "[" << num_tasks << "];"
+		;
+
     if (!firstprivate_args.empty())
     {
+        firstprivate_args.append_with_separator(pred_info_name, ",");
         firstprivate_args.append_with_separator(guard_struct_var_name, ",");
         firstprivate_clause << " firstprivate(" << firstprivate_args << ")"
             ;

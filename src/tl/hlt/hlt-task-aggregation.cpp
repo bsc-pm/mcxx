@@ -69,7 +69,8 @@ Source TaskAggregation::do_aggregation(bool contains_conditional_code)
 	}
 	else
 	{
-		return do_simple_aggregation();
+		// FIXME - Do simple!
+		return do_predicated_aggregation();
 	}
 }
 
