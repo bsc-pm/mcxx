@@ -75,12 +75,14 @@ namespace TL
                 static void get_task_parts_aux(ObjectList<TaskPart>& result, 
                         ObjectList<Statement> &current_prologue, Statement stmt);
 
-                Source do_aggregation();
+                Source do_aggregation(bool contains_conditional_code);
                 Source do_predicated_aggregation();
                 Source do_bundled_aggregation();
+                Source do_simple_aggregation();
             protected:
                 virtual Source get_source();
             public:
+                static bool contains_relevant_openmp(Statement stmt, bool &contains_conditional_code);
                 static bool contains_relevant_openmp(Statement stmt);
                 static ObjectList<TaskPart> get_task_parts(Statement stmt);
                 TaskAggregation(Statement stmt, AggregationMethod = PREDICATION);

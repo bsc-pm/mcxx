@@ -38,34 +38,48 @@ TaskAggregation& TaskAggregation::set_bundling_amount(int amount)
 
 Source TaskAggregation::get_source()
 {
+	bool contains_conditional_code = false;
     if (!contains_relevant_openmp(_stmt))
     {
         return _stmt.prettyprint();
     }
     else
     {
-        return do_aggregation();
+        return do_aggregation(contains_conditional_code);
     }
 }
 
-Source TaskAggregation::do_aggregation()
+Source TaskAggregation::do_aggregation(bool contains_conditional_code)
 {
-    switch ((int)_method)
-    {
-        case PREDICATION:
-            {
-                return do_predicated_aggregation();
-            }
-        case BUNDLING:
-            {
-                return do_bundled_aggregation();
-            }
-        default:
-            return Source("");
-    }
+	if (contains_conditional_code)
+	{
+		switch ((int)_method)
+		{
+			case PREDICATION:
+				{
+					return do_predicated_aggregation();
+				}
+			case BUNDLING:
+				{
+					return do_bundled_aggregation();
+				}
+			default:
+				return Source("");
+		}
+	}
+	else
+	{
+		return do_simple_aggregation();
+	}
 }
 
 bool TaskAggregation::contains_relevant_openmp(Statement stmt)
+{
+	bool b = false;
+	return TaskAggregation::contains_relevant_openmp(stmt, b);
+}
+
+bool TaskAggregation::contains_relevant_openmp(Statement stmt, bool &contains_conditional_code)
 {
     if (TaskConstruct::predicate(stmt.get_ast()))
         return true;
@@ -83,6 +97,7 @@ bool TaskAggregation::contains_relevant_openmp(Statement stmt)
     }
     else if (IfStatement::predicate(stmt.get_ast()))
     {
+		contains_conditional_code = true;
         IfStatement if_statement(stmt.get_ast(), stmt.get_scope_link());
 
         return contains_relevant_openmp(if_statement.get_then_body())

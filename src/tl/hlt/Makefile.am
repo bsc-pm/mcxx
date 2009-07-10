@@ -42,6 +42,7 @@ libtl_hlt_la_SOURCES = \
       hlt-task-aggregation.hpp \
       hlt-task-aggregation.cpp \
       hlt-task-aggregation-common.hpp \
+      hlt-task-aggregation-simple.cpp \
       hlt-task-aggregation-predication.cpp \
       hlt-task-aggregation-bundling.cpp \
       $(END)
