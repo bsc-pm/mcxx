@@ -936,7 +936,7 @@ static void prettyprint_level(FILE* f, AST a, prettyprint_context_t* pt_ctx)
     else
     {
         // Otherwise use for this node what the callback returned
-        token_fprintf(f, a, cb_result);
+        token_fprintf(f, a, "%s", cb_result);
     }
 }
 
