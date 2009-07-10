@@ -202,7 +202,7 @@ Source TaskAggregation::do_predicated_aggregation()
     {
         TaskConstruct task = it->get_task();
 
-        Source replaced_body, local_binding;
+        Source replaced_body, local_binding, local_cleanup;
 
         Statement body = task.body();
         predicated_body
@@ -210,6 +210,7 @@ Source TaskAggregation::do_predicated_aggregation()
             << "{"
 			<< local_binding
             << replaced_body
+			<< local_cleanup
             << "}"
             ;
 
@@ -256,8 +257,10 @@ Source TaskAggregation::do_predicated_aggregation()
 						<< "char " << name_class_ptr << "[sizeof(" << type.get_declaration(sym.get_scope(), "") << ")];"
 						;
 
-					Type ref_type = sym.get_type().get_reference_to();
-					Type ptr_type = sym.get_type().get_pointer_to();
+					Symbol class_symbol = type.get_symbol();
+					Type type = sym.get_type();
+					Type ref_type = type.get_reference_to();
+					Type ptr_type = type.get_pointer_to();
 
 					local_binding
 						<< ref_type.get_declaration(sym.get_scope(), sym.get_name()) 
@@ -267,6 +270,10 @@ Source TaskAggregation::do_predicated_aggregation()
 						<< "[" << num_tasks << "]._task_" << num_tasks << "."
 						<< name_class_ptr 
 						<< "));"
+						;
+
+					local_cleanup
+						<< sym.get_name() << "." << type.get_declaration(sym.get_scope(), "") << "::~" << class_symbol.get_name() << "();"
 						;
 					// No replacement
 				}

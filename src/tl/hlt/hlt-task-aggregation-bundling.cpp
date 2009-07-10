@@ -194,9 +194,9 @@ struct BundleGenerator
 
 								Symbol class_symbol = type.get_symbol();
 
-								// task_cleanup
-								// 	<< sym.get_name() << "." << type.get_declaration(sym.get_scope(), "") << "::~" << class_symbol.get_name() << "();"
-								// 	;
+								task_cleanup
+									<< sym.get_name() << "." << type.get_declaration(sym.get_scope(), "") << "::~" << class_symbol.get_name() << "();"
+									;
 							}
 							else
 							{
