@@ -15,6 +15,20 @@ using namespace OpenMP;
 
 static const std::string TASK_BUNDLE_COUNTER("hlt.task_bundle");
 
+static TL::Source get_timing_code()
+{
+	TL::Source result;
+	result
+		<< "_hlt_number_of_bundles++;"
+		<< "{"
+		<< "double _tmp = omp_get_wtime();"
+		<< "_hlt_accum_time_bundle += (_tmp - _hlt_start_bundle);"
+		<< "_hlt_start_bundle = _tmp;"
+		<< "}"
+		;
+	return result;
+}
+
 struct BundleGenerator
 {
     private:
@@ -241,14 +255,16 @@ struct GuardTaskGeneratorBundled : Functor<TL::AST_t::callback_result, TL::AST_t
         int _bundling_amount;
 		int *_task_num;
 		bool _do_not_create_tasks;
+		bool _timing;
     public:
 		GuardTaskGeneratorBundled(ScopeLink sl, const GuardTaskInfo& info, 
-				int bundling_amount, bool do_not_create_tasks)
+				int bundling_amount, bool do_not_create_tasks, bool timing)
             : _sl(sl), 
             _info(info), 
             _bundling_amount(bundling_amount),
 			_task_num(new int(0)),
-			_do_not_create_tasks(do_not_create_tasks)
+			_do_not_create_tasks(do_not_create_tasks),
+			_timing(timing)
         {
         }
 
@@ -333,12 +349,19 @@ struct GuardTaskGeneratorBundled : Functor<TL::AST_t::callback_result, TL::AST_t
 
                 Source try_to_run_every_task, clear_indexes;
 
+				Source timing_code;
+				if (_timing)
+				{
+					timing_code = get_timing_code();
+				}
+
                 result
                     << global_task_index_name << "++;"
                     << "if (" << global_task_index_name << "== " << _bundling_amount << ")"
                     << "{"
                     <<     try_to_run_every_task
                     <<     global_task_index_name << " = 0;"
+					<<     timing_code
                     <<     clear_indexes
                     << "}"
                     ;
@@ -496,15 +519,31 @@ Source TaskAggregation::do_bundled_aggregation()
         << "int " << global_task_index_name << " = 0;" 
         ; 
 
-    GuardTaskGeneratorBundled guard_task_generator(_stmt.get_scope_link(), guard_task_info, _bundling_amount, _do_not_create_tasks);
+	if (_timing)
+	{
+		task_counters << "double _hlt_start_bundle = omp_get_wtime();"
+			;
+	}
+
+    GuardTaskGeneratorBundled guard_task_generator(_stmt.get_scope_link(), 
+			guard_task_info, _bundling_amount, _do_not_create_tasks, _timing);
     bundled_tasks << _stmt.get_ast().prettyprint_with_callback(guard_task_generator);
 
     BundleGenerator bundle_gen(guard_task_info, _stmt.get_scope_link(), _bundling_amount);
     Source clear_indexes, bundle_code;
+
+	Source timing_code ;
+	
+	if (_timing)
+	{
+		timing_code = get_timing_code();
+	}
+	
     bundle_remainder
         << "if (" << global_task_index_name << " != 0)"
         << "{"
 		<< bundle_code
+		<< timing_code
         << "}"
         ;
 

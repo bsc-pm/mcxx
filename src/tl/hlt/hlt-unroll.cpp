@@ -37,7 +37,7 @@ TL::Source LoopUnroll::get_source()
 
 LoopUnroll::LoopUnroll(ForStatement for_stmt, unsigned int factor)
      : _for_stmt(for_stmt), _factor(factor), _with_epilog(false),
-     _ignore_omp(false), _omp_bundling_factor(-1), _remove_tasks(false)
+     _ignore_omp(false), _omp_bundling_factor(-1), _remove_tasks(false), _timing(false)
 {
     if (!_for_stmt.regular_loop())
     {
@@ -85,7 +85,7 @@ TL::Source LoopUnroll::silly_unroll()
 		loop_header
 			<< _for_stmt.get_iterating_init().prettyprint() 
 			<< _for_stmt.get_iterating_condition() << ";"
-			<< _for_stmt.get_iterating_expression()
+			<< "({ if (" << _for_stmt.get_iterating_condition() << ")" << _for_stmt.get_iterating_expression() << "; 0; })"
 			;
 	}
 
@@ -140,6 +140,7 @@ TL::Source LoopUnroll::silly_unroll()
 		task_aggregation
 			.set_global_bundling_source(before)
 			.set_finish_bundling_source(after)
+			.set_timing(_timing)
 			.set_enclosing_function_tree(_for_stmt.get_ast().get_enclosing_function_definition());
 
 		if (_omp_bundling_factor > 0)
@@ -339,5 +340,11 @@ LoopUnroll& LoopUnroll::set_omp_bundling_factor(int n)
 LoopUnroll& LoopUnroll::set_remove_tasks(bool b)
 {
 	_remove_tasks = b;
+	return *this;
+}
+
+LoopUnroll& LoopUnroll::set_timing(bool b)
+{
+	_timing = b;
 	return *this;
 }

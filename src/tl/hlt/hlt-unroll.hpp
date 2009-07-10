@@ -52,6 +52,7 @@ namespace TL
 				int _omp_bundling_factor;
 
 				bool _remove_tasks;
+				bool _timing;
 
                 Source do_unroll();
 				Source silly_unroll();
@@ -82,6 +83,8 @@ namespace TL
 				LoopUnroll& set_omp_bundling_factor(int n);
 
 				LoopUnroll& set_remove_tasks(bool b);
+
+				LoopUnroll& set_timing(bool b);
         };
 
         //! Creates a LoopUnroll object

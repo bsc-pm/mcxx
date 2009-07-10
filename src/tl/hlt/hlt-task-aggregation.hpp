@@ -65,6 +65,7 @@ namespace TL
                 int _bundling_amount;
 
 				bool _do_not_create_tasks;
+				bool _timing;
 
                 Source *_global_bundling_src;
                 Source *_finish_bundling_src;
@@ -94,6 +95,8 @@ namespace TL
 				TaskAggregation& set_do_not_create_tasks(bool b);
 
                 TaskAggregation& set_enclosing_function_tree(AST_t enclosing_tree);
+
+				TaskAggregation& set_timing(bool b);
         };
     }
 }

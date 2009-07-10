@@ -53,6 +53,7 @@ void LoopUnroll::omp_replication_by_task_bundling(int factor, Source& replicated
         .set_global_bundling_source(before)
         .set_finish_bundling_source(after)
 		.set_do_not_create_tasks(_remove_tasks)
+		.set_timing(_timing)
         .set_enclosing_function_tree(_for_stmt.get_ast().get_enclosing_function_definition());
 
 	if (_omp_bundling_factor > 0)

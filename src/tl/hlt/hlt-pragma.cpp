@@ -118,13 +118,15 @@ struct UnrollInfo
     bool ignore_omp;
 	int omp_bundling_factor;
 	bool remove_tasks;
+	bool timing;
 
     UnrollInfo()
         : factor(4), 
         enable_omp_bundling(false),
         ignore_omp(false),
 		omp_bundling_factor(-1),
-		remove_tasks(false)
+		remove_tasks(false),
+		timing(false)
     {
     }
 };
@@ -137,6 +139,7 @@ static void unroll_loop_fun(TL::ForStatement for_stmt,
         .enable_omp_bundling(unroll_info.enable_omp_bundling)
 		.set_omp_bundling_factor(unroll_info.omp_bundling_factor)
 		.set_remove_tasks(unroll_info.remove_tasks)
+		.set_timing(unroll_info.timing)
         .allow_identity(_allow_identity);
 
     TL::AST_t unrolled_loop_tree = unrolled_loop_src.parse_statement(for_stmt.get_ast(),
@@ -202,6 +205,11 @@ void HLTPragmaPhase::unroll_loop(PragmaCustomConstruct construct)
 	if (construct.get_clause("remove_tasks").is_defined())
 	{
 		unroll_info.remove_tasks = true;
+	}
+	if (construct.get_clause("timing").is_defined())
+	{
+		unroll_info.timing = true;
+		std::cerr << "TIMING clause found" << std::endl;
 	}
 	if (construct.get_clause("omp_bundling_factor").is_defined())
 	{
