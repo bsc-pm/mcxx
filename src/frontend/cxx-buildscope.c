@@ -6498,6 +6498,8 @@ static scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl
 
             build_scope_statement_seq(list, block_context);
         }
+		ASTAttrSetValueType(statement, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
+        ASTAttrSetValueType(statement, LANG_COMPOUND_STATEMENT_LIST, tl_type_t, tl_ast(list));
     }
     else
     {
