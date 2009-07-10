@@ -45,7 +45,8 @@ namespace TL
 				it++)
 			{
 				AugmentedSymbol callee2 = *it;
-				propagate_side_cohercion(callee, callee2);
+				if (!(((Symbol&)callee) == callee2))
+					propagate_side_cohercion(callee, callee2);
 			}
 		}
 	}
