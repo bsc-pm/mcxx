@@ -7178,16 +7178,8 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
         else if (entry->kind == SK_FUNCTION
                 || entry->kind == SK_TEMPLATE)
         {
-            if (entry->entity_specs.is_destructor)
-            {
-                // This cannot be used in an expression as a plain member
-                return 0;
-            }
-            else
-            {
-                ast_set_expression_type(member_access, get_unresolved_overloaded_type(entry_list, 
-                            /* explicit_template_arguments */ NULL));
-            }
+            ast_set_expression_type(member_access, get_unresolved_overloaded_type(entry_list, 
+                        /* explicit_template_arguments */ NULL));
             return 1;
         }
     }
