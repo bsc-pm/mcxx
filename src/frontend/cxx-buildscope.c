@@ -8763,6 +8763,30 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
                         ASTAttrSetValueType(a, OMP_UDR_TYPE, tl_type_t, tl_type(type_in_context));
                         break;
                     }
+                case AST_OMP_ORDER_CLAUSE:
+                    {
+                        omp_udr_associativity_t assoc = OMP_UDR_ORDER_LEFT;
+                        switch (ASTType(ASTSon0(clause)))
+                        {
+                            case AST_OMP_REDUCTION_LEFT:
+                                {
+                                    assoc = OMP_UDR_ORDER_LEFT;
+                                    break;
+                                }
+                            case AST_OMP_REDUCTION_RIGHT:
+                                {
+                                    assoc = OMP_UDR_ORDER_RIGHT;
+                                    break;
+                                }
+                            default:
+                                {
+                                    internal_error("Invalid node type %s\n", ast_print_node_type(ASTType(ASTSon0(clause))));
+                                }
+                        }
+
+                        ASTAttrSetValueType(a, OMP_UDR_ORDER, tl_type_t, tl_integer((int)assoc));
+                        break;
+                    }
                 case AST_OMP_IDENTITY_CLAUSE:
                     {
                         if (type_in_context == NULL)
@@ -9003,6 +9027,13 @@ static void build_scope_omp_declare_reduction(AST a,
                 ast_location(a));
     }
 
+    omp_udr_associativity_t associativity = OMP_UDR_ORDER_LEFT;
+    if ((p = (tl_type_t*)ASTAttrValue(a, OMP_UDR_ORDER)) != NULL)
+    {
+        ERROR_CONDITION(p->kind != TL_INTEGER, "Invalid TL type", 0);
+        associativity = (omp_udr_associativity_t)p->data._integer;
+    }
+
     AST it;
     for_each_element(operator_list_tree, it)
     {
@@ -9014,8 +9045,7 @@ static void build_scope_omp_declare_reduction(AST a,
                     omp_udr_register_reduction_builtin(declared_type, 
                             prettyprint_in_buffer(operator), 
                             identity_tree,
-                            // FIXME - Retrieve the order
-                            OMP_UDR_ORDER_LEFT);
+                            associativity);
                     break;
                 }
             case AST_OMP_REDUCTION_OPERATOR_FUNCTION:
@@ -9024,8 +9054,7 @@ static void build_scope_omp_declare_reduction(AST a,
                     omp_udr_register_reduction(declared_type, 
                             prettyprint_in_buffer(operator), 
                             identity_tree,
-                            // FIXME - Retrieve the order
-                            OMP_UDR_ORDER_LEFT);
+                            associativity);
                     break;
                 }
             default:
