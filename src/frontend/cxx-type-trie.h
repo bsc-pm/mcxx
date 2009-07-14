@@ -23,11 +23,15 @@
 
 #include "cxx-type-decls.h"
 
+MCXX_BEGIN_DECLS
+
 typedef struct type_trie_tag type_trie_t;
 
 type_trie_t* allocate_type_trie(void);
 
 const type_t* lookup_type_trie(type_trie_t* trie, const type_t** type_seq, int num_types);
 void insert_type_trie(type_trie_t* trie, const type_t** type_seq, int num_types, const type_t* funct_type);
+
+MCXX_END_DECLS
 
 #endif // CXX_TYPE_TRIE_H

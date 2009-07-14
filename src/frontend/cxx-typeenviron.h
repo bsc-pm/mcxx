@@ -29,6 +29,8 @@
 #include "libmcxx-common.h"
 #include "cxx-typeenviron-decls.h"
 
+MCXX_BEGIN_DECLS
+
 #define DEBUG_SIZEOF_CODE() if (CURRENT_CONFIGURATION->debug_options.debug_sizeof)
 
 // Environments are to be defined in cxx-typeenviron.c
@@ -42,5 +44,7 @@ LIBMCXX_EXTERN type_environment_t* default_environment;
 #ifndef DEFAULT_TYPE_ENVIRONMENT
   #error Missing default type environment
 #endif
+
+MCXX_END_DECLS
 
 #endif // CXX_TYPEENVIRON_H

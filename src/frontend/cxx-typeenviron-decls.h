@@ -27,6 +27,8 @@
 
 #include "cxx-type-decls.h"
 
+MCXX_BEGIN_DECLS
+
 #include <stdlib.h>
 typedef size_t _size_t;
 
@@ -120,5 +122,7 @@ struct type_environment_tag
 };
 
 typedef struct type_environment_tag type_environment_t;
+
+MCXX_END_DECLS
 
 #endif // CXX_TYPEENVIRON_DECLS_H

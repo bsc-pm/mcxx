@@ -24,6 +24,8 @@
 #include "libmcxx-common.h"
 #include "cxx-typeunif.h"
 
+MCXX_BEGIN_DECLS
+
 LIBMCXX_EXTERN char deduce_template_arguments_common(
         template_parameter_list_t* template_parameters,
         struct type_tag** arguments, int num_arguments,
@@ -53,5 +55,7 @@ LIBMCXX_EXTERN template_argument_list_t* build_template_argument_list_from_deduc
         deduction_set_t* deduction_set);
 
 LIBMCXX_EXTERN unsigned long long int typededuc_used_memory(void);
+
+MCXX_END_DECLS
 
 #endif // CXX_TYPEDEDUC_H
