@@ -77,6 +77,23 @@ namespace TL
             OpenMP::ReductionClause reduction_clause = directive.reduction_clause();
             reduction_references = reduction_clause.id_expressions();
 
+            // Check reduction references since if they are faulty are quite likely to fail
+            for (ObjectList<OpenMP::ReductionSymbol>::iterator it = reduction_references.begin();
+                    it != reduction_references.end();
+                    it++)
+            {
+                if (it->is_faulty())
+                {
+                    Symbol sym = it->get_symbol();
+                    Type t = sym.get_type();
+
+                    std::string type_name = t.get_declaration(sym.get_scope(), "");
+                    std::string reductor_name = it->get_reductor_name();
+                    std::cerr << directive.get_ast().get_locus() << ": warning: no OpenMP reduction '" << reductor_name << "'"
+                        " was defined for type '" << type_name << "'" << std::endl;
+                }
+            }
+
             add_data_attribute_to_list(construct, 
                     reduction_references.map(functor(&OpenMP::ReductionSymbol::get_symbol)), 
                     OpenMP::DA_REDUCTION);

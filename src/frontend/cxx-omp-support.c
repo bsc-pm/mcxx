@@ -10,7 +10,6 @@ struct omp_udr_reduction_tag
     type_t* type;
 
     const char* reductor_name;
-    scope_entry_t* entry;
 
     omp_udr_associativity_t assoc;
     char is_builtin;
@@ -22,7 +21,6 @@ omp_udr_reduction_t** _omp_udr_reduction;
 
 static void omp_udr_register_reduction_(type_t* type, 
         const char* reductor_name, 
-        scope_entry_t* entry,
         AST identity,
         omp_udr_associativity_t assoc,
         char is_builtin)
@@ -35,7 +33,6 @@ static void omp_udr_register_reduction_(type_t* type,
     new_udr->assoc = assoc;
     new_udr->identity = identity;
     new_udr->reductor_name = reductor_name;
-    new_udr->entry = entry;
 
     P_LIST_ADD(_omp_udr_reduction, _omp_udr_num, new_udr);
 }
@@ -47,26 +44,24 @@ void omp_udr_register_reduction_builtin(type_t* type,
 {
     omp_udr_register_reduction_(type, 
             reductor_name, 
-            NULL,
             identity, 
             assoc, 
             /* is_builtin */ 1);
 }
 
 void omp_udr_register_reduction(type_t* type, 
-        scope_entry_t* entry,
+        const char* reductor_name,
         AST identity,
         omp_udr_associativity_t assoc)
 {
     omp_udr_register_reduction_(type, 
-            NULL, 
-            entry,
+            reductor_name,
             identity, 
             assoc, 
             /* is_builtin */ 0);
 }
 
-char omp_udr_lookup_reduction_builtin(type_t* t, 
+char omp_udr_lookup_reduction(type_t* t, 
         const char* reductor_name, 
         AST* identity, 
         omp_udr_associativity_t* assoc,
@@ -80,32 +75,6 @@ char omp_udr_lookup_reduction_builtin(type_t* t,
         if (equivalent_types(_omp_udr_reduction[i]->type, t)
                 && _omp_udr_reduction[i]->is_builtin
                 && (strcmp(_omp_udr_reduction[i]->reductor_name, reductor_name) == 0))
-        {
-            *identity = _omp_udr_reduction[i]->identity;
-            *assoc = _omp_udr_reduction[i]->assoc;
-            *is_builtin = _omp_udr_reduction[i]->is_builtin;
-            return 1;
-        }
-    }
-
-    return 0;
-}
-
-char omp_udr_lookup_reduction(type_t* t, 
-        scope_entry_t* entry,
-        AST* identity, 
-        omp_udr_associativity_t* assoc,
-        char *is_builtin)
-{
-    t = advance_over_typedefs(t);
-
-    int i;
-    for (i = 0; i < _omp_udr_num; i++)
-    {
-        if (equivalent_types(_omp_udr_reduction[i]->type, t)
-                && !_omp_udr_reduction[i]->is_builtin
-                && (_omp_udr_reduction[i]->entry != NULL)
-                && (_omp_udr_reduction[i]->entry == entry))
         {
             *identity = _omp_udr_reduction[i]->identity;
             *assoc = _omp_udr_reduction[i]->assoc;

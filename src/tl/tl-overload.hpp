@@ -8,8 +8,7 @@ namespace TL
 {
     struct Overload
     {
-        // Symbol solve_overload(ObjectList<Type> argument_types, bool &valid);
-        Symbol solve(
+        static Symbol solve(
                 ObjectList<Symbol> candidate_functions,
                 Type implicit_argument_type,
                 ObjectList<Type> argument_types, 

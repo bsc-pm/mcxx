@@ -20,23 +20,17 @@ enum omp_udr_associativity_tag
 // OMP User defined reductions
 
 void omp_udr_register_reduction(type_t* type, 
-        scope_entry_t* entry,
+        const char* reductor_name,
         AST identity,
         omp_udr_associativity_t assoc);
 
 void omp_udr_register_reduction_builtin(type_t* type, 
-        const char* reductor_name, 
+        const char* reductor_name,
         AST identity,
         omp_udr_associativity_t assoc);
 
-char omp_udr_lookup_reduction_builtin(type_t* t, 
-        const char* reductor_name, 
-        AST* identity, 
-        omp_udr_associativity_t* assoc,
-        char *is_builtin);
-
 char omp_udr_lookup_reduction(type_t* t, 
-        scope_entry_t* entry,
+        const char* reductor_name,
         AST* identity, 
         omp_udr_associativity_t* assoc,
         char *is_builtin);

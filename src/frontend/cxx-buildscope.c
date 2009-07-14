@@ -9021,8 +9021,8 @@ static void build_scope_omp_declare_reduction(AST a,
             case AST_OMP_REDUCTION_OPERATOR_FUNCTION:
             case AST_OMP_REDUCTION_OPERATOR_MEMBER_FUNCTION:
                 {
-                    omp_udr_register_reduction(declared_type,
-                            prettyprint_in_buffer(operator),
+                    omp_udr_register_reduction(declared_type, 
+                            prettyprint_in_buffer(operator), 
                             identity_tree,
                             // FIXME - Retrieve the order
                             OMP_UDR_ORDER_LEFT);

@@ -31,6 +31,10 @@ namespace TL
         {
             Source result;
 
+            if (reduction_symbol.is_faulty())
+            {
+            }
+
             // get the operator involved
             if (reduction_symbol.is_builtin_operator())
             {
@@ -70,6 +74,7 @@ namespace TL
                 else
                 {
                     result
+                        // "op" includes already a starting '.'
                         << reduced_var_name << op << "(" << reduction_var_name << ")"
                         ;
                 }

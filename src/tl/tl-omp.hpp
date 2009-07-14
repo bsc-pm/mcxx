@@ -341,6 +341,7 @@ namespace TL
                 bool _is_user_defined;
                 bool _is_right_assoc; 
                 bool _is_member;
+                bool _is_faulty;
             public:
                 // FIXME - Overloads in C++ require a bit more of machinery
                 ReductionSymbol(Symbol s, const std::string& reductor_name)
@@ -349,30 +350,40 @@ namespace TL
                     _neuter(NULL), 
                     _is_user_defined(false), 
                     _is_right_assoc(false), 
-                    _is_member(false)
+                    _is_member(false),
+                    _is_faulty(false)
                 {
                     AST identity = NULL;
-                    omp_udr_associativity_t assoc = OMP_UDR_ORDER_INVALID;
+                    omp_udr_associativity_t assoc = OMP_UDR_ORDER_LEFT;
 
                     Type t = _symbol.get_type();
 
                     char is_builtin = 0;
 
-#warning FIXME with new api
-                    // if (omp_udr_lookup_reduction(t.get_internal_type(),
-                    //             reductor_name.c_str(),
-                    //             &identity,
-                    //             &assoc,
-                    //             &is_builtin))
-                    // {
-                    //     _neuter = AST_t(identity);
-                    //     _is_right_assoc = (assoc == OMP_UDR_ORDER_RIGHT);
+                    if (omp_udr_lookup_reduction(t.get_internal_type(),
+                                reductor_name.c_str(),
+                                &identity,
+                                &assoc,
+                                &is_builtin))
+                    {
+                        _neuter = AST_t(identity);
+                        _is_right_assoc = (assoc == OMP_UDR_ORDER_RIGHT);
 
-                    //     _is_user_defined = !is_builtin;
+                        _is_user_defined = !is_builtin;
 
-                    //     // This is a bit lame
-                    //     _is_member = (reductor_name[0] == '.');
-                    // }
+                        // This is a bit lame
+                        _is_member = (reductor_name[0] == '.');
+                    }
+                    else
+                    {
+                        _is_faulty = true;
+                    }
+                }
+
+                //! Returns the symbol of this reduction
+                Symbol get_symbol() const
+                {
+                    return _symbol;
                 }
 
                 //! States that the reduction is user defined
@@ -386,12 +397,6 @@ namespace TL
                 bool is_builtin_operator() const
                 {
                     return !is_user_defined();
-                }
-
-                //! Returns the symbol related to this reduction
-                Symbol get_symbol() const
-                {
-                    return _symbol;
                 }
 
                 //! Returns a tree with an expression of the neuter value of the reduction
@@ -431,6 +436,15 @@ namespace TL
                 bool reductor_is_left_associative() const
                 {
                     return !_is_right_assoc;
+                }
+
+                //! States whether this reduction symbol is faulty
+                /*! A faulty reduction symbol means that no reductor
+                  was declared for it
+                  */
+                bool is_faulty() const
+                {
+                    return _is_faulty;
                 }
         };
 
