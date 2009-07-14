@@ -7180,7 +7180,7 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
                 || entry->kind == SK_TEMPLATE)
         {
             ast_set_expression_type(member_access, get_unresolved_overloaded_type(entry_list, 
-                    /* explicit_template_arguments */ NULL));
+                        /* explicit_template_arguments */ NULL));
             return 1;
         }
     }

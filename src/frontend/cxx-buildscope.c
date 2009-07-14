@@ -2756,6 +2756,7 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
             implicit_destructor->kind = SK_FUNCTION;
             implicit_destructor->type_information = destructor_type;
             implicit_destructor->entity_specs.is_member = 1;
+            implicit_destructor->entity_specs.is_destructor = 1;
             implicit_destructor->entity_specs.class_type = type_info;
             implicit_destructor->defined = 1;
 
@@ -6938,6 +6939,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
                 {
                     entry->entity_specs.is_virtual = 1;
                 }
+                entry->entity_specs.is_destructor = 1;
                 class_type_set_destructor(get_actual_class_type(class_type), entry);
                 break;
             }

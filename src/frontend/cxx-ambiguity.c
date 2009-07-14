@@ -2425,6 +2425,25 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
                 }
                 // This one covers the following case
                 //
+                // void f(_T a)
+                // {
+                //   a.A::~A();
+                // }
+                //
+                // could be regarded as either a member access (like a.B::b
+                // provided B is a base class of the type of 'a') or like a
+                // pseudo destructor call, but the latter wins
+                else if ((either = either_type(previous_choice, current_choice,
+                                AST_PSEUDO_DESTRUCTOR_CALL,
+                                AST_CLASS_MEMBER_ACCESS)))
+                {
+                    if (either < 0)
+                    {
+                        correct_choice = i;
+                    }
+                }
+                // This one covers the following case
+                //
                 // template <typename _T>
                 // void f(_T* a)
                 // {
