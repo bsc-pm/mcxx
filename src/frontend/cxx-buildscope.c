@@ -9030,7 +9030,7 @@ static void build_scope_omp_declare_reduction(AST a,
     omp_udr_associativity_t associativity = OMP_UDR_ORDER_LEFT;
     if ((p = (tl_type_t*)ASTAttrValue(a, OMP_UDR_ORDER)) != NULL)
     {
-        ERROR_CONDITION(p->kind != TL_INTEGER, "Invalid TL type", 0);
+        ERROR_CONDITION(p->kind != TL_INTEGER, "Invalid TL type %p", p);
         associativity = (omp_udr_associativity_t)p->data._integer;
     }
 

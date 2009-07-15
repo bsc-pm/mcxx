@@ -73,7 +73,6 @@ char omp_udr_lookup_reduction(type_t* t,
     for (i = 0; i < _omp_udr_num; i++)
     {
         if (equivalent_types(_omp_udr_reduction[i]->type, t)
-                && _omp_udr_reduction[i]->is_builtin
                 && (strcmp(_omp_udr_reduction[i]->reductor_name, reductor_name) == 0))
         {
             *identity = _omp_udr_reduction[i]->identity;

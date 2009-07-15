@@ -222,15 +222,16 @@ LIBMCXX_EXTERN AST ast_copy_with_scope_link(AST a, scope_link_t* sl);
 
 // Extensible structure function
 #define ASTAttrValue(_a, _name) \
-    ( \
-      extensible_struct_get_field_pointer(&ast_extensible_schema, ast_get_extensible_struct(_a), (_name)) \
-    )
+    ( extensible_struct_get_field_pointer_lazy(&ast_extensible_schema, ast_get_extensible_struct(_a), (_name), NULL) )
+
+#define ASTAttrGetAlwaysValue(_a, _name) \
+    ( extensible_struct_get_field_pointer(&ast_extensible_schema, ast_get_extensible_struct(_a), (_name)) )
 
 #define ASTAttrValueType(_a, _name, _type) \
-    ( (*(_type*)(ASTAttrValue((_a), (_name)))))
+    ( ((_type*)(ASTAttrGetAlwaysValue((_a), (_name)))))
 
 #define ASTAttrSetValueType(_a, _name, _type, _value) \
-    ( ASTAttrValueType((_a), (_name), _type) = _value )
+    ( *(ASTAttrValueType((_a), (_name), _type)) = _value )
 
 
 #define ASTCheck ast_check

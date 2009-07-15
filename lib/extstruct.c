@@ -116,7 +116,9 @@ void *extensible_struct_get_field_pointer_lazy(extensible_schema_t* schema,
         const char* field_name,
         char* is_found)
 {
-    *is_found = 0;
+    if (is_found != NULL)
+        *is_found = 0;
+
     if (schema == NULL || schema->hash == NULL)
     {
         warning_message("Schema is NULL\n");
@@ -139,7 +141,8 @@ void *extensible_struct_get_field_pointer_lazy(extensible_schema_t* schema,
     int schema_field_order = schema_item->field_order;
     // size_t schema_field_size = schema_item->size;
 
-    *is_found = 1;
+    if (is_found != NULL)
+        *is_found = 1;
     
     int i;
     for (i = 0; i < extensible_struct->num_items; i++)
