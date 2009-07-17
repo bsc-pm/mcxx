@@ -31,7 +31,7 @@ namespace TL
         //! @{
 
         //! Class that implements loop peeling
-        class LoopPeeling : public BaseTransform
+        class LIBHLT_CLASS LoopPeeling : public BaseTransform
         {
             private:
                 ForStatement _for_stmt;
@@ -47,7 +47,7 @@ namespace TL
                         int end_peeling);
         };
 
-        LoopPeeling loop_peeling(ForStatement for_stmt, int init_peeling, int end_peeling);
+        LIBHLT_EXTERN LoopPeeling loop_peeling(ForStatement for_stmt, int init_peeling, int end_peeling);
 
         //! @}
     }

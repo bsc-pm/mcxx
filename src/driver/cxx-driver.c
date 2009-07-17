@@ -178,7 +178,9 @@
 /* ------------------------------------------------------------------ */
 
 // alternate signal stack
+#if !defined(WIN32_BUILD)
 static char *_alternate_signal_stack;
+#endif
 
 // It mimics getopt
 #define SHORT_OPTIONS_STRING "vkacho:EyI:L:l:gD:x:"
