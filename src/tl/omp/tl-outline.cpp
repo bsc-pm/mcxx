@@ -336,14 +336,27 @@ namespace TL
                 Symbol sym = it->get_symbol();
                 Type type = sym.get_type();
 
+                Source init;
+
                 private_declarations
                     << comment("Reduction private entity : 'rdp_" + sym.get_name() + "'")
-                    << type.get_declaration_with_initializer(
+                    << type.get_declaration(
                             construct.get_scope(),
-                            "rdp_" + sym.get_name(),
-                            it->get_neuter().prettyprint())
+                            "rdp_" + sym.get_name())
+                    << init
                     << ";"
                     ;
+
+                if (!it->neuter_is_constructor())
+                {
+                    init << " = " << it->get_neuter().prettyprint()
+                        ;
+                }
+                else
+                {
+                    init << it->get_neuter().prettyprint()
+                        ;
+                }
             }
 
             // COPYIN
@@ -496,14 +509,27 @@ namespace TL
                 Symbol sym = it->get_symbol();
                 Type type = sym.get_type();
 
+                Source init;
+
                 private_declarations
                     << comment("Reduction private entity : 'rdp_" + sym.get_name() + "'")
-                    << type.get_declaration_with_initializer(
+                    << type.get_declaration(
                             construct.get_scope(),
-                            "rdp_" + sym.get_name(),
-                            it->get_neuter().prettyprint())
+                            "rdp_" + sym.get_name())
+                    << init
                     << ";"
                     ;
+
+                if (!it->neuter_is_constructor())
+                {
+                    init << " = " << it->get_neuter().prettyprint()
+                        ;
+                }
+                else
+                {
+                    init << it->get_neuter().prettyprint()
+                        ;
+                }
             }
 
             // COPYIN

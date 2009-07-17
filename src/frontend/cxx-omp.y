@@ -980,7 +980,10 @@ omp_identity_expression : initializer_clause
 /*!if CPLUSPLUS*/
 | OMP_CONSTRUCTOR '(' expression_list ')'
 {
-    $$ = ASTMake1(AST_OMP_IDENTITY_CONSTRUCTOR, $3, $1.token_file, $1.token_line, NULL);
+    $$ = ASTMake1(AST_OMP_IDENTITY_CONSTRUCTOR, 
+            // This is like a C++ initializer
+            ASTMake1(AST_PARENTHESIZED_INITIALIZER, $3, $2.token_file, $2.token_line, NULL),
+            $1.token_file, $1.token_line, NULL);
 }
 /*!endif*/
 ;

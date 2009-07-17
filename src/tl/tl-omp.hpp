@@ -405,6 +405,12 @@ namespace TL
                     return _neuter;
                 }
 
+                bool neuter_is_constructor() const
+                {
+                    // Ugly way to do this
+                    return (_neuter.internal_ast_type_() == AST_PARENTHESIZED_INITIALIZER);
+                }
+
                 //! Gets the reduction operation
                 std::string get_operation() const
                 {

@@ -8796,6 +8796,7 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
                         }
 
                         AST omp_id_expr = ASTSon0(clause);
+                        AST relevant_tree = omp_id_expr;
                         switch (ASTType(omp_id_expr))
                         {
                             case AST_OMP_IDENTITY_INITIALIZER:
@@ -8805,8 +8806,9 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
                                 }
                             case AST_OMP_IDENTITY_CONSTRUCTOR :
                                 {
-                                    check_for_expression_list(ASTSon0(omp_id_expr), decl_context);
-                                    // FIXME - We should check here there is a suitable constructor for this type
+                                    check_for_initialization(ASTSon0(omp_id_expr), decl_context, type_in_context);
+                                    // We are not interested in the 'constructor' part
+                                    relevant_tree = ASTSon0(omp_id_expr);
                                     break;
                                 }
                             default:
@@ -8814,7 +8816,7 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
                                     internal_error("Unexpected tree %s\n", ast_print_node_type(ASTType(omp_id_expr)));
                                 }
                         }
-                        ASTAttrSetValueType(a, OMP_UDR_IDENTITY, tl_type_t, tl_ast(omp_id_expr));
+                        ASTAttrSetValueType(a, OMP_UDR_IDENTITY, tl_type_t, tl_ast(relevant_tree));
                         break;
                     }
                 case AST_OMP_OPERATOR_CLAUSE :

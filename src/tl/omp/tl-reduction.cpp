@@ -31,10 +31,6 @@ namespace TL
         {
             Source result;
 
-            if (reduction_symbol.is_faulty())
-            {
-            }
-
             // get the operator involved
             if (reduction_symbol.is_builtin_operator())
             {
