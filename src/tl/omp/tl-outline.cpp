@@ -347,14 +347,18 @@ namespace TL
                     << ";"
                     ;
 
-                if (!it->neuter_is_constructor())
+                if (it->neuter_is_constructor())
                 {
-                    init << " = " << it->get_neuter().prettyprint()
+                    init << it->get_neuter().prettyprint()
                         ;
+                }
+                else if (it->neuter_is_empty())
+                {
+                    // Do nothing for empty initializers
                 }
                 else
                 {
-                    init << it->get_neuter().prettyprint()
+                    init << " = " << it->get_neuter().prettyprint()
                         ;
                 }
             }
@@ -520,14 +524,18 @@ namespace TL
                     << ";"
                     ;
 
-                if (!it->neuter_is_constructor())
+                if (it->neuter_is_constructor())
                 {
-                    init << " = " << it->get_neuter().prettyprint()
+                    init << it->get_neuter().prettyprint()
                         ;
+                }
+                else if (it->neuter_is_empty())
+                {
+                    // Do nothing for empty initializers
                 }
                 else
                 {
-                    init << it->get_neuter().prettyprint()
+                    init << " = " << it->get_neuter().prettyprint()
                         ;
                 }
             }

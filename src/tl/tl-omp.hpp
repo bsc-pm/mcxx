@@ -408,7 +408,13 @@ namespace TL
                 bool neuter_is_constructor() const
                 {
                     // Ugly way to do this
-                    return (_neuter.internal_ast_type_() == AST_PARENTHESIZED_INITIALIZER);
+                    return (!neuter_is_empty()
+                            && (_neuter.internal_ast_type_() == AST_PARENTHESIZED_INITIALIZER));
+                }
+
+                bool neuter_is_empty() const
+                {
+                    return !_neuter.is_valid();
                 }
 
                 //! Gets the reduction operation

@@ -985,6 +985,13 @@ omp_identity_expression : initializer_clause
             ASTMake1(AST_PARENTHESIZED_INITIALIZER, $3, $2.token_file, $2.token_line, NULL),
             $1.token_file, $1.token_line, NULL);
 }
+| OMP_CONSTRUCTOR 
+{
+    // Special case for empty constructors
+    $$ = ASTMake1(AST_OMP_IDENTITY_CONSTRUCTOR, 
+            NULL,
+            $1.token_file, $1.token_line, NULL);
+}
 /*!endif*/
 ;
 

@@ -8796,19 +8796,23 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
                         }
 
                         AST omp_id_expr = ASTSon0(clause);
-                        AST relevant_tree = omp_id_expr;
+                        AST relevant_tree = NULL;
                         switch (ASTType(omp_id_expr))
                         {
                             case AST_OMP_IDENTITY_INITIALIZER:
                                 {
                                     check_for_initializer_clause(ASTSon0(omp_id_expr), decl_context, type_in_context);
+                                    relevant_tree = omp_id_expr;
                                     break;
                                 }
                             case AST_OMP_IDENTITY_CONSTRUCTOR :
                                 {
-                                    check_for_initialization(ASTSon0(omp_id_expr), decl_context, type_in_context);
-                                    // We are not interested in the 'constructor' part
-                                    relevant_tree = ASTSon0(omp_id_expr);
+                                    if (ASTSon0(omp_id_expr) != NULL)
+                                    {
+                                        check_for_initialization(ASTSon0(omp_id_expr), decl_context, type_in_context);
+                                        // We are not interested in the 'constructor' part
+                                        relevant_tree = ASTSon0(omp_id_expr);
+                                    }
                                     break;
                                 }
                             default:
@@ -8816,7 +8820,10 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
                                     internal_error("Unexpected tree %s\n", ast_print_node_type(ASTType(omp_id_expr)));
                                 }
                         }
-                        ASTAttrSetValueType(a, OMP_UDR_IDENTITY, tl_type_t, tl_ast(relevant_tree));
+                        if (relevant_tree != NULL)
+                        {
+                            ASTAttrSetValueType(a, OMP_UDR_IDENTITY, tl_type_t, tl_ast(relevant_tree));
+                        }
                         break;
                     }
                 case AST_OMP_OPERATOR_CLAUSE :
@@ -9011,11 +9018,11 @@ static void build_scope_omp_declare_reduction(AST a,
         ERROR_CONDITION(p->kind != TL_AST, "Invalid TL type %d", p->kind);
         identity_tree = p->data._ast;
     }
-    else
-    {
-        running_error("%s: error: '#pragma omp declare reduction' requires an 'identity' clause\n",
-                ast_location(a));
-    }
+    // else
+    // {
+    //     running_error("%s: error: '#pragma omp declare reduction' requires an 'identity' clause\n",
+    //             ast_location(a));
+    // }
 
     AST operator_list_tree = NULL;
     if ((p = (tl_type_t*)ASTAttrValue(a, OMP_UDR_OPERATOR)) != NULL)

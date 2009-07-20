@@ -202,6 +202,7 @@ HANDLER_PROTOTYPE(omp_generic_construct_handler);
 HANDLER_PROTOTYPE(omp_generic_clause_handler_with_argument);
 HANDLER_PROTOTYPE(omp_generic_directive_handler);
 HANDLER_PROTOTYPE(omp_generic_clause_handler_with_list);
+HANDLER_PROTOTYPE(omp_generic_clause_handler_with_optional_list);
 HANDLER_PROTOTYPE(omp_schedule_clause_handler);
 HANDLER_PROTOTYPE(omp_reduction_clause_handler);
 HANDLER_PROTOTYPE(omp_sections_construct_handler);
@@ -639,7 +640,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_OMP_REDUCTION_RIGHT, simple_parameter_handler, "right"),
     NODE_HANDLER(AST_OMP_IDENTITY_CLAUSE, omp_generic_clause_handler_with_argument, "identity"),
     NODE_HANDLER(AST_OMP_IDENTITY_INITIALIZER, unary_container_handler, NULL),
-    NODE_HANDLER(AST_OMP_IDENTITY_CONSTRUCTOR, omp_generic_clause_handler_with_list, "constructor"),
+    NODE_HANDLER(AST_OMP_IDENTITY_CONSTRUCTOR, omp_generic_clause_handler_with_optional_list, "constructor"),
     // GCC Extensions
     NODE_HANDLER(AST_GCC_EXTENSION, gcc_extension_preffix_handler, "__extension__ "),
     NODE_HANDLER(AST_GCC_EXTENSION_EXPR, prefix_with_token_text_then_son_handler, NULL),
@@ -3294,6 +3295,17 @@ static void omp_generic_clause_handler_with_argument(FILE* f, AST a, prettyprint
     token_fprintf(f, a, "(");
     prettyprint_level(f, ASTSon0(a), pt_ctx);
     token_fprintf(f, a, ")");
+}
+
+static void omp_generic_clause_handler_with_optional_list(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    token_fprintf(f, a, "%s", HELPER_PARAMETER_STRING);
+    if (ASTSon0(a) != NULL)
+    {
+        token_fprintf(f, a, "(");
+        list_handler(f, ASTSon0(a), pt_ctx);
+        token_fprintf(f, a, ")");
+    }
 }
 
 static void omp_generic_clause_handler_with_list(FILE* f, AST a, prettyprint_context_t* pt_ctx)
