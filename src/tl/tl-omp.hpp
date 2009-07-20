@@ -358,6 +358,12 @@ namespace TL
 
                     Type t = _symbol.get_type();
 
+                    // Adjust reference types
+                    if (t.is_reference())
+                    {
+                        t = t.references_to();
+                    }
+
                     char is_builtin = 0;
 
                     if (omp_udr_lookup_reduction(t.get_internal_type(),

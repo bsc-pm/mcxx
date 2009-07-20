@@ -8760,6 +8760,17 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
                                 &gather_info, type_info, &type_in_context,
                                 decl_context);
 
+                        CXX_LANGUAGE()
+                        {
+                            if (is_lvalue_reference_type(type_in_context)
+                                    || is_rvalue_reference_type(type_in_context))
+                            {
+                                fprintf(stderr, "%s: warning: reference types should not be used in 'type' clause, "
+                                        "the referenced type will be used instead\n", ast_location(clause));
+                                type_in_context = reference_type_get_referenced_type(type_in_context);
+                            }
+                        }
+
                         ASTAttrSetValueType(a, OMP_UDR_TYPE, tl_type_t, tl_type(type_in_context));
                         break;
                     }

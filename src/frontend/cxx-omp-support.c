@@ -25,6 +25,7 @@ static void omp_udr_register_reduction_(type_t* type,
         omp_udr_associativity_t assoc,
         char is_builtin)
 {
+    // Check that the type has not already been redefined
     type = advance_over_typedefs(type);
 
     omp_udr_reduction_t* new_udr = calloc(1, sizeof(*new_udr));
