@@ -89,8 +89,11 @@ namespace TL
 
                     std::string type_name = t.get_declaration(sym.get_scope(), "");
                     std::string reductor_name = it->get_reductor_name();
-                    std::cerr << directive.get_ast().get_locus() << ": warning: no OpenMP reduction '" << reductor_name << "'"
-                        " was defined for type '" << type_name << "'" << std::endl;
+                    // This is just unbearable cause it will cause problems later
+                    running_error("%s: error: no OpenMP reduction '%s' was defined for type '%s'\n",
+                            directive.get_ast().get_locus().c_str(),
+                            reductor_name.c_str(),
+                            type_name.c_str());
                 }
             }
 
