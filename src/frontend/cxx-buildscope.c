@@ -9058,6 +9058,23 @@ static void build_scope_omp_declare_reduction(AST a,
     for_each_element(operator_list_tree, it)
     {
         AST operator = ASTSon1(it);
+
+        if (omp_udr_lookup_reduction(declared_type,
+                    prettyprint_in_buffer(operator),
+                    NULL, NULL, NULL))
+        {
+            running_error("%s: error: redefining reduction '%s' for type '%s'\n",
+                    ast_location(a),
+                    prettyprint_in_buffer(operator),
+                    get_declaration_string_internal(declared_type, 
+                        decl_context, /* symbol_name */"", 
+                        /* initializer */ "", 
+                        /* semicolon */ 0,
+                        /* num_parameter_names */ NULL,
+                        /* parameter_names */ NULL,
+                        /* is_parameter */ 0));
+        }
+
         switch (ASTType(operator))
         {
             case AST_OMP_REDUCTION_OPERATOR_BUILTIN:
