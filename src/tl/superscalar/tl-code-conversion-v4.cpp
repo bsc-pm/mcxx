@@ -184,7 +184,7 @@ namespace TL
 			Type parameter_type = parameter_types[index];
 			
 			// For earch region of the parameter
-			for (int region_index = 0; region_index < region_list.size(); region_index++)
+			for (unsigned int region_index = 0; region_index < region_list.size(); region_index++)
 			{
 				Region &region = region_list[region_index];
 				Source direction_source;
