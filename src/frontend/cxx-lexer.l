@@ -116,6 +116,7 @@ upc_keywords_t upc_keywords[] =
 static int yywrap(void);
 
 static void parse_token_text(void);
+static void parse_token_text_str(const char*);
 
 struct scan_file_descriptor scanning_now;
 
@@ -144,6 +145,14 @@ static int num_new_lines(const char* c)
 }
 
 static int include_counter;
+
+// static int verbatim_buffer_size = 0;
+// static const char *verbatim_buffer = NULL;
+
+static void verbatim_buffer_append(const char* c);
+static void verbatim_buffer_free(void);
+static const char* verbatim_buffer_get(void);
+
 
 %}
 
@@ -210,6 +219,8 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 %x pragma_custom_clause_first
 %x pragma_custom_var_list
 
+%x verbatim
+
 %s openmp_var_list
 %s openmp_var_list_identity
 %s openmp_schedule
@@ -221,11 +232,33 @@ binary_exponent_part ([pP]([+-])?{digit}+)
     BEGIN(preprocess); 
 }
 
-
 <preprocess>[ ]*pragma[ ]+ {
 	BEGIN(pragma_line);
 }
 
+<pragma_line>((mcxx)|(mcc))[ ]+verbatim[ ]+start[ ]*\n {
+    BEGIN(verbatim);
+    scanning_now.line_number++;
+}
+
+<verbatim>[^\n] {
+    verbatim_buffer_append(yytext);
+}
+
+<verbatim>\n {
+    verbatim_buffer_append(yytext);
+    scanning_now.line_number++;
+}
+
+<verbatim>#pragma[ ]+((mcxx)|(mcc))[ ]+verbatim[ ]+end[ ]*\n {
+    BEGIN(INITIAL);
+
+    parse_token_text_str(verbatim_buffer_get());
+    verbatim_buffer_free();
+    
+    scanning_now.line_number++;
+    return VERBATIM_CONSTRUCT;
+}
 
 <pragma_line>{idnondigit}({idnondigit}|{digit})* {
 	// Unknown pragmas
@@ -1608,6 +1641,14 @@ static void parse_token_text(void)
     FLEX_LVAL.token_atrib.token_text = uniquestr(yytext);
 }
 
+static void parse_token_text_str(const char* c)
+{
+    FLEX_LVAL.token_atrib.token_line = scanning_now.line_number;
+    FLEX_LVAL.token_atrib.token_file = uniquestr(scanning_now.current_filename);
+    FLEX_LVAL.token_atrib.token_text = uniquestr(c);
+}
+
+
 /*!if CPLUSPLUS*/
 #define OPEN_FILE_FOR_SCANNING mcxx_open_file_for_scanning
 #define PREPARE_STRING_FOR_SCANNING mcxx_prepare_string_for_scanning
@@ -1771,3 +1812,54 @@ void register_new_directive(const char* prefix, const char* directive, char is_c
     }
 }
 /*!endif*/
+
+static char* _verbatim_buffer = NULL;
+static int _verbatim_buffer_length = 0;
+static int _verbatim_buffer_capacity = 0;
+
+#define BUFF_SIZE 512
+
+static void verbatim_buffer_append(const char* c)
+{
+    const char* p = c;
+
+    // This may be regarded a bit inefficient but it is safer this way
+    while (*p != '\0')
+    {
+        ERROR_CONDITION((_verbatim_buffer_length > _verbatim_buffer_capacity), 
+                "Verbatim buffer overflow", 0);
+
+        if (_verbatim_buffer_length == _verbatim_buffer_capacity)
+        {
+            // Enlarge verbatim buffer
+            _verbatim_buffer_capacity += BUFF_SIZE;
+            _verbatim_buffer = realloc(_verbatim_buffer, sizeof(char) * _verbatim_buffer_capacity);
+            int i;
+            for (i = _verbatim_buffer_length; i < _verbatim_buffer_capacity; i++)
+            {
+                _verbatim_buffer[i] = '\0';
+            }
+        }
+
+        ERROR_CONDITION(!(_verbatim_buffer_length < _verbatim_buffer_capacity),
+                "Wrong logic in verbatim buffer handling", 0);
+
+        _verbatim_buffer[_verbatim_buffer_length] = *p;
+        _verbatim_buffer_length++;
+
+        p++;
+    }
+}
+
+static void verbatim_buffer_free(void)
+{
+    free(_verbatim_buffer);
+    _verbatim_buffer = NULL;
+    _verbatim_buffer_length = 0;
+    _verbatim_buffer_capacity = 0;
+}
+
+static const char* verbatim_buffer_get(void)
+{
+    return _verbatim_buffer;
+}

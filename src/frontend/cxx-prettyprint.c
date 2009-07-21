@@ -186,6 +186,8 @@ HANDLER_PROTOTYPE(decltype_handler);
 HANDLER_PROTOTYPE(pp_comment_handler);
 HANDLER_PROTOTYPE(pp_prepro_token_handler);
 
+HANDLER_PROTOTYPE(verbatim_construct_handler);
+
 // Pragma custom support
 HANDLER_PROTOTYPE(pragma_custom_directive_handler);
 HANDLER_PROTOTYPE(pragma_custom_construct_handler);
@@ -562,6 +564,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_UNKNOWN_PRAGMA, unknown_pragma_handler, NULL),
     NODE_HANDLER(AST_PP_COMMENT, pp_comment_handler, NULL),
     NODE_HANDLER(AST_PP_TOKEN, pp_prepro_token_handler, NULL),
+    NODE_HANDLER(AST_VERBATIM, verbatim_construct_handler, NULL),
     // Pragma custom
     NODE_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE, pragma_custom_directive_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, pragma_custom_construct_handler, NULL),
@@ -2541,6 +2544,19 @@ static void pp_comment_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
     }
 
     free(text);
+}
+
+static void verbatim_construct_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    if (pt_ctx->internal_output)
+    {
+        token_fprintf(f, "%s", "#pragma mcxx verbatim start\n");
+    }
+    token_fprintf(f, "%s\n", ASTText(a));
+    if (pt_ctx->internal_output)
+    {
+        token_fprintf(f, "%s", "#pragma mcxx verbatim stop\n");
+    }
 }
 
 static void custom_construct_statement_handler(FILE *f, AST a, prettyprint_context_t* pt_ctx)

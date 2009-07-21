@@ -545,6 +545,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context)
             }
         case AST_PP_COMMENT :
         case AST_PP_TOKEN :
+        case AST_VERBATIM :
             {
                 // Ignore this, it is a prettyprinted comment or token
                 break;
@@ -6600,6 +6601,7 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
                 break;
             }
         case AST_UNKNOWN_PRAGMA :
+        case AST_VERBATIM :
             {
                 break;
             }
