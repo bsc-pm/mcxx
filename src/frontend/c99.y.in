@@ -141,8 +141,6 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %token<token_atrib> WHILE "while"
 %token<token_atrib> XOR_ASSIGN "^="
 
-%token<token_atrib> VERBATIM_CONSTRUCT "<verbatim construct>"
-
 %token<token_atrib> UNKNOWN_PRAGMA "<unknown-pragma>"
 
 %token<token_atrib> PP_COMMENT "<preprocessor-comment>"
@@ -327,8 +325,6 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> decl_specifier_alone_seq
 %type<ast> type_specifier_alone
 
-%type<ast> verbatim_construct
-
 %type<node_type> unary_operator
 %type<node_type> assignment_operator
 
@@ -450,16 +446,8 @@ block_declaration : simple_declaration
 {
 	$$ = ASTLeaf(AST_PP_TOKEN, $1.token_file, $1.token_line, $1.token_text);
 }
-| verbatim_construct
-{
-    $$ = $1;
-}
 ;
 
-verbatim_construct : VERBATIM_CONSTRUCT
-{
-    $$ = ASTLeaf(AST_VERBATIM, $1.token_file, $1.token_line, $1.token_text);
-}
 ;
 
 /* GNU Extension */
@@ -1656,10 +1644,6 @@ member_declaration : decl_specifier_seq member_declarator_list ';'
 | unknown_pragma
 {
 	$$ = $1;
-}
-| verbatim_construct
-{
-    $$ = $1;
 }
 // This is a common tolerated error
 | ';' 

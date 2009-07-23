@@ -1,5 +1,12 @@
 /*!if GRAMMAR_PROLOGUE*/
 
+%token<token_atrib> VERBATIM_PRAGMA "<verbatim pragma>"
+%token<token_atrib> VERBATIM_CONSTRUCT "<verbatim construct>"
+%token<token_atrib> VERBATIM_TYPE "<verbatim type clause>"
+%token<token_atrib> VERBATIM_TEXT "<verbatim text>"
+
+%type<ast> verbatim_construct
+
 %token<token_atrib> PRAGMA_CUSTOM "<pragma-custom>"
 %token<token_atrib> PRAGMA_CUSTOM_NEWLINE "<pragma-custom-newline>"
 %token<token_atrib> PRAGMA_CUSTOM_DIRECTIVE "<pragma-custom-directive>"
@@ -222,6 +229,32 @@ pragma_clause_arg_item_nested_item : pragma_clause_arg_item
 pragma_clause_arg_text : PRAGMA_CLAUSE_ARG_TEXT
 {
     $$ = $1.token_text;
+}
+;
+
+// Verbatim construct
+
+verbatim_construct : VERBATIM_PRAGMA VERBATIM_TYPE '(' IDENTIFIER ')' VERBATIM_TEXT
+{
+    AST ident = ASTLeaf(AST_SYMBOL, $4.token_file, $4.token_line, $4.token_text);
+
+    $$ = ASTMake1(AST_VERBATIM, ident, $1.token_file, $1.token_line, $6.token_text);
+}
+| VERBATIM_PRAGMA VERBATIM_TEXT
+{
+    $$ = ASTMake1(AST_VERBATIM, NULL, $1.token_file, $1.token_line, $2.token_text);
+}
+;
+
+block_declaration : verbatim_construct
+{
+    $$ = $1;
+}
+;
+
+member_declaration : verbatim_construct
+{
+    $$ = $1;
 }
 ;
 

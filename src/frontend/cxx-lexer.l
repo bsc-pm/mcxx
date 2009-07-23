@@ -204,6 +204,9 @@ hexprefix   0[xX]
 hexadecimal_fractional_constant (({hexdigit}*\.{hexdigit}+)|({hexdigit}\.))
 binary_exponent_part ([pP]([+-])?{digit}+)
 
+ /* Identifier */
+identifier {idnondigit}({idnondigit}|{digit})* 
+
  /* states */
 %x longcomment
 %x linecomment
@@ -219,7 +222,9 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 %x pragma_custom_clause_first
 %x pragma_custom_var_list
 
-%x verbatim
+%x verbatim_text
+%x verbatim_clauses
+%x verbatim_clauses_args
 
 %s openmp_var_list
 %s openmp_var_list_identity
@@ -236,31 +241,86 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 	BEGIN(pragma_line);
 }
 
-<pragma_line>((mcxx)|(mcc))[ ]+verbatim[ ]+start[ ]*\n {
+<pragma_line>((mcxx)|(mcc))[ ]+verbatim[ ]+start[ ]* {
+    BEGIN(verbatim_clauses);
+    parse_token_text();
+    return VERBATIM_PRAGMA;
+}
+
+<verbatim_clauses>{
+    
+type {
+    parse_token_text();
+    BEGIN(verbatim_clauses_args);
+    return VERBATIM_TYPE;
+}
+
+[ \t] { } 
+
+[\n] {
+    BEGIN(verbatim_text);
+    scanning_now.line_number++;
+}
+
+}
+
+<verbatim_clauses_args>{
+
+[(] {
+    parse_token_text();
+    return '(';
+}
+
+[,] {
+    parse_token_text();
+    return ',';
+}
+
+[)] {
+    parse_token_text();
+    BEGIN(verbatim_clauses);
+    return ')';
+}
+
+[ \t] { }
+
+identifier { 
+    parse_token_text();
+    return IDENTIFIER;
+}
+
+[\n] 
+{
     BEGIN(verbatim);
     scanning_now.line_number++;
 }
 
-<verbatim>[^\n] {
+}
+
+<verbatim_text>{
+
+[^\n] {
     verbatim_buffer_append(yytext);
 }
 
-<verbatim>\n {
+[\n] {
     verbatim_buffer_append(yytext);
     scanning_now.line_number++;
 }
 
-<verbatim>#pragma[ ]+((mcxx)|(mcc))[ ]+verbatim[ ]+end[ ]*\n {
+#pragma[ ]+((mcxx)|(mcc))[ ]+verbatim[ ]+end[ ]*\n {
     BEGIN(INITIAL);
 
     parse_token_text_str(verbatim_buffer_get());
     verbatim_buffer_free();
     
     scanning_now.line_number++;
-    return VERBATIM_CONSTRUCT;
+    return VERBATIM_TEXT;
 }
 
-<pragma_line>{idnondigit}({idnondigit}|{digit})* {
+}
+
+<pragma_line>{identifier} {
 	// Unknown pragmas
 	int i;
 	char found = 0;
@@ -430,7 +490,7 @@ threadprivate {
 	return OMP_THREADPRIVATE;
 }
 
-{idnondigit}({idnondigit}|{digit})* {
+{identifier} {
 	// Special case for custom constructs/directives
 	BEGIN(openmp_clause);
     pragma_directive_kind_t directive_kind = lookup_pragma_directive("omp", yytext);
@@ -469,7 +529,7 @@ threadprivate {
 
 <pragma_custom_directive>{
 
-{idnondigit}({idnondigit}|{digit})* {
+{identifier} {
 	BEGIN(pragma_custom_clause_first);
 
     pragma_directive_kind_t directive_kind = lookup_pragma_directive(current_pragma_prefix, yytext);
@@ -533,7 +593,7 @@ threadprivate {
 	return PRAGMA_CUSTOM_NEWLINE;
 }
 
-{idnondigit}({idnondigit}|{digit})* {
+{identifier} {
 	// Special case for custom clauses
 	BEGIN(pragma_custom_var_list);
 	parse_token_text(); 
@@ -561,7 +621,7 @@ threadprivate {
 	return PRAGMA_CUSTOM_NEWLINE;
 }
 
-{idnondigit}({idnondigit}|{digit})* {
+{identifier} {
 	// Special case for custom clauses
 	BEGIN(pragma_custom_var_list);
 	parse_token_text(); 
@@ -601,7 +661,7 @@ threadprivate {
     }
 }
 
-{idnondigit}({idnondigit}|{digit})* {
+{identifier} {
     if (pragma_custom_var_list_parentheses > 0)
     {
         parse_token_text();
@@ -781,7 +841,7 @@ num_threads {
 	return OMP_NUM_THREADS;
 }
 
-{idnondigit}({idnondigit}|{digit})* {
+{identifier} {
 	// Special case for custom clauses 
 	omp_var_list_parentheses = 0;
 	BEGIN(openmp_var_list);
@@ -811,7 +871,7 @@ none {
 }
 
  /* Special case for default custom */
-{idnondigit}({idnondigit}|{digit})* {
+{identifier} {
     parse_token_text();
     return OMP_DEFAULT_CUSTOM;
 }
@@ -868,7 +928,7 @@ right {
     return OMP_NEWLINE;
 }
 
-{idnondigit}({idnondigit}|{digit})* {
+{identifier} {
 	// Special case for custom clauses where the previous did not have parentheses
     // #pragma directive foo bar
     // We were going to lex the arguments of 'foo' but we found 'bar', start again
@@ -986,7 +1046,7 @@ runtime {
 	}
 }
 
-{idnondigit}({idnondigit}|{digit})* {
+{identifier} {
     parse_token_text();
     if (!omp_seen_schedule_kind)
     {
@@ -1493,7 +1553,7 @@ runtime {
 @SUPERSCALAR_DECLARATOR@ { parse_token_text(); return SUBPARSE_SUPERSCALAR_DECLARATOR; }
 
  /* A plain identifier */
-{idnondigit}({idnondigit}|{digit})* {parse_token_text(); return IDENTIFIER; }
+{identifier} {parse_token_text(); return IDENTIFIER; }
 
  /* A.2.17 */
 {nonzero}({digit})*{integersuffix}?     { parse_token_text(); return DECIMAL_LITERAL; }

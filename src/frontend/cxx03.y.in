@@ -191,8 +191,6 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %token<token_atrib> GXX_IS_POLYMORPHIC "__is_polymorphic"
 %token<token_atrib> GXX_IS_UNION "__is_union"
 
-%token<token_atrib> VERBATIM_CONSTRUCT "<verbatim construct>"
-
 // Lexical symbols
 %token<token_atrib> '!'
 %token<token_atrib> '%'
@@ -433,8 +431,6 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> volatile_optional
 %type<ast> gnu_type_traits
 
-%type<ast> verbatim_construct
-
 %type<node_type> unary_operator
 %type<node_type> assignment_operator
 
@@ -660,16 +656,6 @@ block_declaration : simple_declaration
 | PP_TOKEN
 {
 	$$ = ASTLeaf(AST_PP_TOKEN, $1.token_file, $1.token_line, $1.token_text);
-}
-| verbatim_construct
-{
-    $$ = $1;
-}
-;
-
-verbatim_construct : VERBATIM_CONSTRUCT
-{
-    $$ = ASTLeaf(AST_VERBATIM, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 

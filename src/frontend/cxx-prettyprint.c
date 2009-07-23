@@ -2550,9 +2550,17 @@ static void verbatim_construct_handler(FILE* f, AST a, prettyprint_context_t* pt
 {
     if (pt_ctx->internal_output)
     {
-        token_fprintf(f, a, "%s", "#pragma mcxx verbatim start\n");
+        token_fprintf(f, a, "%s", "#pragma mcxx verbatim start");
+        if (ASTSon0(a) != NULL)
+        {
+            token_fprintf(f, a, " type(");
+            prettyprint_level(f, ASTSon0(a), pt_ctx);
+            token_fprintf(f, a, ")");
+        }
+        token_fprintf(f, a, "\n", ASTText(a));
     }
-    token_fprintf(f, a, "%s\n", ASTText(a));
+
+    token_fprintf(f, a, "%s", ASTText(a));
     if (pt_ctx->internal_output)
     {
         token_fprintf(f, a, "%s", "#pragma mcxx verbatim stop\n");
