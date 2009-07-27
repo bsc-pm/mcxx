@@ -50,9 +50,9 @@ namespace TL
         int i, N = argument_types.size();
         type_t** argument_types_array = new type_t*[argument_types.size() + 1];
         argument_types_array[0] = implicit_argument_type.get_internal_type();
-        for (i = 1; i < N; i++)
+        for (i = 0; i < N; i++)
         {
-            argument_types_array[i] = argument_types[i].get_internal_type();
+            argument_types_array[i+1] = argument_types[i].get_internal_type();
         }
 
         // Now we need a decl_context_t but we were not given any explicitly,
@@ -74,6 +74,7 @@ namespace TL
         {
             valid = true;
             // Store the arguments
+            argument_conversor.clear();
             for (i = 0; i < (N+1); i++)
             {
                 argument_conversor.append(Symbol(conversor_per_argument[i]));

@@ -8501,11 +8501,6 @@ static scope_entry_t* build_scope_omp_reduction_operator_function(AST reductor, 
     {
         if (result->next != NULL)
         {
-            CXX_LANGUAGE()
-            {
-                fprintf(stderr, "%s: warning: an overloaded function as a reduction function is not yet supported\n",
-                        ast_location(reductor));
-            }
             C_LANGUAGE()
             {
                 internal_error("Code unreachable", 0);
@@ -8518,14 +8513,6 @@ static scope_entry_t* build_scope_omp_reduction_operator_function(AST reductor, 
                     ast_location(reductor),
                     prettyprint_in_buffer(reductor));
         }
-
-        // type_t* deduced_type = NULL;
-        // if (!omp_eligible_reduction_function(entry, &deduced_type))
-        // {
-        //     fprintf(stderr, "%s: warning: argument '%s' is not eligible as a function-name\n",
-        //             ast_location(reductor),
-        //             prettyprint_in_buffer(reductor));
-        // }
 
         return entry;
     }
