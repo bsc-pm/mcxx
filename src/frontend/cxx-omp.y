@@ -253,6 +253,10 @@ omp_construct : omp_parallel_construct
 {
 	$$ = $1;
 }
+| omp_declare_directive
+{
+    $$ = $1;
+}
 | omp_custom_directive
 {
 	$$ = $1;
