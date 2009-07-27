@@ -116,10 +116,10 @@ namespace TL
                 <<        nth_creation_function
                 <<    "}"
                 <<    master_outline_invocation
-                <<    reduction_code
                 <<    instrument_code_after
                 <<    comment("Ending team")
                 <<    "nth_end_team(&nth_current_team);"
+                <<    reduction_code
                 << "}"
                 ;
 
