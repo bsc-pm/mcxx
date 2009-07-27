@@ -48,6 +48,30 @@ namespace TL
            void f (T& , [const] T*) -> f(red,&elem)
          */
 
+        static Source perform_reduction_symbol_member_(
+                const OpenMP::ReductionSymbol& reduction_symbol,
+                Source reduction_var_name, 
+                Source partial_reduction)
+        {
+            C_LANGUAGE()
+            {
+                internal_error("Code unreachable", 0);
+            }
+
+            Source result;
+
+            // get the operator involved
+            std::string op = reduction_symbol.get_reductor_name();
+
+            // FIXME - We may want to do overload here as well
+
+            result
+                << reduction_var_name << op << "(" << partial_reduction << ");"
+                ;
+
+            return result;
+        }
+
         static Source perform_reduction_symbol_(
                 const OpenMP::ReductionSymbol& reduction_symbol,
                 Source reduction_var_name, 
@@ -249,9 +273,18 @@ namespace TL
             }
             else
             {
-                return perform_reduction_symbol_(reduction_symbol,
-                        reduction_var_name,
-                        partial_reduction);
+                if (!reduction_symbol.reductor_is_member())
+                {
+                    return perform_reduction_symbol_(reduction_symbol,
+                            reduction_var_name,
+                            partial_reduction);
+                }
+                else
+                {
+                    return perform_reduction_symbol_member_(reduction_symbol,
+                            reduction_var_name,
+                            partial_reduction);
+                }
             }
         }
 
