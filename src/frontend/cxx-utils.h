@@ -33,8 +33,8 @@ MCXX_BEGIN_DECLS
 
 LIBMCXX_EXTERN void running_error(const char* message, ...) NORETURN;
 
-#define BUG_URL "\nPlease report a bug at\n" \
-                "http://nanos.ac.upc.edu/projects/mcxx/newticket\n" \
+#define BUG_URL "\nPlease report a bug at " \
+                "http://nanos.ac.upc.edu/projects/mcxx/newticket " \
                 "with preprocessed source if possible\n"
 
 #define internal_error(message, ...) \
