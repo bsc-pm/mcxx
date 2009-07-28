@@ -223,7 +223,7 @@ TL::Source LoopUnroll::do_unroll()
 
 		main
 			<< "for (" << induction_var << " = " << lower_bound << ";"
-			<< induction_var << operator_bound << "((" << upper_bound << ") - " << _factor << ") ;"
+			<< induction_var << operator_bound << "((" << upper_bound << ") - (" << _factor << " - 1)* (" << step << "));"
 			<< induction_var << "+= (" << step << ") * " << _factor << ")"
 			<< "{"
 			<< replicated_body
