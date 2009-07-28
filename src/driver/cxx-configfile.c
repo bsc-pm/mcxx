@@ -192,7 +192,6 @@ int config_add_preprocessor_prefix(struct compilation_configuration_tag* config,
 {
     const char *reserved[] = {
         "gcc", 
-        "omp", 
         "mcc",
         "mcxx",
         /* sentinel */ NULL

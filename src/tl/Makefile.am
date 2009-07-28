@@ -1,4 +1,4 @@
-SUBDIRS = . hlt @TLEXTENSIONS@
+SUBDIRS = . hlt omp_core @TLEXTENSIONS@ 
 
 END=
 
