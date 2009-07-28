@@ -1,0 +1,27 @@
+// CONSTRUCT_INFO(name)
+
+CONSTRUCT_INFO(parallel)
+
+CONSTRUCT_INFO(for)
+
+CONSTRUCT_INFO(sections)
+CONSTRUCT_INFO(section)
+
+CONSTRUCT_INFO(single)
+
+CONSTRUCT_INFO(atomic)
+
+CONSTRUCT_INFO(critical)
+
+CONSTRUCT_INFO(ordered)
+
+CONSTRUCT_INFO(master)
+
+CONSTRUCT_INFO(task)
+
+// DIRECTIVE_INFO(name)
+DIRECTIVE_INFO(threadprivate)
+
+DIRECTIVE_INFO(flush)
+
+DIRECTIVE_INFO(taskwait)
