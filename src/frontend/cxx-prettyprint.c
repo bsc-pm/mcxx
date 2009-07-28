@@ -186,6 +186,8 @@ HANDLER_PROTOTYPE(decltype_handler);
 HANDLER_PROTOTYPE(pp_comment_handler);
 HANDLER_PROTOTYPE(pp_prepro_token_handler);
 
+HANDLER_PROTOTYPE(verbatim_construct_handler);
+
 // Pragma custom support
 HANDLER_PROTOTYPE(pragma_custom_directive_handler);
 HANDLER_PROTOTYPE(pragma_custom_construct_handler);
@@ -199,9 +201,10 @@ HANDLER_PROTOTYPE(custom_construct_parameter);
 
 // OpenMP
 HANDLER_PROTOTYPE(omp_generic_construct_handler);
-HANDLER_PROTOTYPE(omp_generic_clause_handler_with_expression);
+HANDLER_PROTOTYPE(omp_generic_clause_handler_with_argument);
 HANDLER_PROTOTYPE(omp_generic_directive_handler);
 HANDLER_PROTOTYPE(omp_generic_clause_handler_with_list);
+HANDLER_PROTOTYPE(omp_generic_clause_handler_with_optional_list);
 HANDLER_PROTOTYPE(omp_schedule_clause_handler);
 HANDLER_PROTOTYPE(omp_reduction_clause_handler);
 HANDLER_PROTOTYPE(omp_sections_construct_handler);
@@ -561,6 +564,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_UNKNOWN_PRAGMA, unknown_pragma_handler, NULL),
     NODE_HANDLER(AST_PP_COMMENT, pp_comment_handler, NULL),
     NODE_HANDLER(AST_PP_TOKEN, pp_prepro_token_handler, NULL),
+    NODE_HANDLER(AST_VERBATIM, verbatim_construct_handler, NULL),
     // Pragma custom
     NODE_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE, pragma_custom_directive_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, pragma_custom_construct_handler, NULL),
@@ -604,8 +608,8 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_OMP_CUSTOM_PARAMETER_CLAUSE, omp_custom_parameter_clause_handler, NULL),
     NODE_HANDLER(AST_OMP_BARRIER_DIRECTIVE, omp_generic_directive_handler, "barrier"),
     NODE_HANDLER(AST_OMP_FLUSH_DIRECTIVE, omp_generic_directive_handler, "flush"),
-    NODE_HANDLER(AST_OMP_IF_CLAUSE, omp_generic_clause_handler_with_expression, "if"),
-    NODE_HANDLER(AST_OMP_NUM_THREADS_CLAUSE, omp_generic_clause_handler_with_expression, "num_threads"),
+    NODE_HANDLER(AST_OMP_IF_CLAUSE, omp_generic_clause_handler_with_argument, "if"),
+    NODE_HANDLER(AST_OMP_NUM_THREADS_CLAUSE, omp_generic_clause_handler_with_argument, "num_threads"),
     NODE_HANDLER(AST_OMP_NOWAIT_CLAUSE, simple_parameter_handler, "nowait"),
     NODE_HANDLER(AST_OMP_ORDERED_CLAUSE, simple_parameter_handler, "ordered"),
     NODE_HANDLER(AST_OMP_SCHEDULE_CLAUSE, omp_schedule_clause_handler, NULL),
@@ -627,6 +631,19 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_OMP_THREADPRIVATE_DIRECTIVE, omp_threadprivate_directive_handler, NULL),
     NODE_HANDLER(AST_OMP_CRITICAL_CONSTRUCT, omp_generic_construct_handler, NULL),
     NODE_HANDLER(AST_OMP_CRITICAL_DIRECTIVE, omp_critical_directive_handler, NULL),
+    NODE_HANDLER(AST_OMP_DECLARE_REDUCTION_DIRECTIVE, omp_generic_directive_handler, "declare reduction"),
+    NODE_HANDLER(AST_OMP_TYPE_CLAUSE, omp_generic_clause_handler_with_argument, "type"),
+    NODE_HANDLER(AST_OMP_OPERATOR_CLAUSE, omp_generic_clause_handler_with_list, "operator"),
+    NODE_HANDLER(AST_OMP_REDUCTION_OPERATOR_BUILTIN, unary_container_handler, NULL),
+    NODE_HANDLER(AST_OMP_REDUCTION_OPERATOR_FUNCTION, unary_container_handler, NULL),
+    NODE_HANDLER(AST_OMP_REDUCTION_OPERATOR_MEMBER_FUNCTION, prefix_with_parameter_then_son_handler, "."),
+    NODE_HANDLER(AST_OMP_COMMUTATIVE_CLAUSE, simple_parameter_handler, "commutative"),
+    NODE_HANDLER(AST_OMP_ORDER_CLAUSE, omp_generic_clause_handler_with_argument, "order"),
+    NODE_HANDLER(AST_OMP_REDUCTION_LEFT, simple_parameter_handler, "left"),
+    NODE_HANDLER(AST_OMP_REDUCTION_RIGHT, simple_parameter_handler, "right"),
+    NODE_HANDLER(AST_OMP_IDENTITY_CLAUSE, omp_generic_clause_handler_with_argument, "identity"),
+    NODE_HANDLER(AST_OMP_IDENTITY_INITIALIZER, unary_container_handler, NULL),
+    NODE_HANDLER(AST_OMP_IDENTITY_CONSTRUCTOR, omp_generic_clause_handler_with_optional_list, "constructor"),
     // GCC Extensions
     NODE_HANDLER(AST_GCC_EXTENSION, gcc_extension_preffix_handler, "__extension__ "),
     NODE_HANDLER(AST_GCC_EXTENSION_EXPR, prefix_with_token_text_then_son_handler, NULL),
@@ -2529,6 +2546,27 @@ static void pp_comment_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
     free(text);
 }
 
+static void verbatim_construct_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    if (pt_ctx->internal_output)
+    {
+        token_fprintf(f, a, "%s", "#pragma mcxx verbatim start");
+        if (ASTSon0(a) != NULL)
+        {
+            token_fprintf(f, a, " type(");
+            prettyprint_level(f, ASTSon0(a), pt_ctx);
+            token_fprintf(f, a, ")");
+        }
+        token_fprintf(f, a, "\n", ASTText(a));
+    }
+
+    token_fprintf(f, a, "%s", ASTText(a));
+    if (pt_ctx->internal_output)
+    {
+        token_fprintf(f, a, "%s", "#pragma mcxx verbatim end\n");
+    }
+}
+
 static void custom_construct_statement_handler(FILE *f, AST a, prettyprint_context_t* pt_ctx)
 {
     indent_at_level(f, a, pt_ctx);
@@ -3275,12 +3313,23 @@ static void omp_generic_directive_handler(FILE* f, AST a, prettyprint_context_t*
     token_fprintf(f, a, "\n");
 }
 
-static void omp_generic_clause_handler_with_expression(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+static void omp_generic_clause_handler_with_argument(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     token_fprintf(f, a, "%s", HELPER_PARAMETER_STRING);
     token_fprintf(f, a, "(");
     prettyprint_level(f, ASTSon0(a), pt_ctx);
     token_fprintf(f, a, ")");
+}
+
+static void omp_generic_clause_handler_with_optional_list(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    token_fprintf(f, a, "%s", HELPER_PARAMETER_STRING);
+    if (ASTSon0(a) != NULL)
+    {
+        token_fprintf(f, a, "(");
+        list_handler(f, ASTSon0(a), pt_ctx);
+        token_fprintf(f, a, ")");
+    }
 }
 
 static void omp_generic_clause_handler_with_list(FILE* f, AST a, prettyprint_context_t* pt_ctx)

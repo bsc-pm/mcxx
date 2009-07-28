@@ -45,6 +45,8 @@ libtl_la_SOURCES = \
 	tl-source.cpp \
 	tl-type.hpp \
 	tl-type.cpp \
+    tl-overload.cpp \
+    tl-overload.hpp \
 	tl-traverse.hpp \
 	tl-traverse.cpp \
 	tl-context.hpp \

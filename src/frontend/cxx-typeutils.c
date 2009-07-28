@@ -6785,10 +6785,13 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     //   pointer-to-member conversion
     //   boolean conversion
     /*
-     * FIXME, enums can be promoted to different underlying types
-     * Now assuming that all are int
+     * FIXME, enums can be promoted to different underlying types. Now assuming
+     * that all are int
+     *
+     * Note that the types compared here must be unqualified, since we
+     * don't care their qualification here
      */
-    if (!equivalent_types(dest, orig))
+    if (!equivalent_types(get_unqualified_type(dest), get_unqualified_type(orig)))
     {
         if (is_signed_int_type(dest)
                 && (is_char_type(orig)

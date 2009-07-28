@@ -436,14 +436,18 @@ block_declaration : simple_declaration
 {
 	$$ = $1;
 }
+// Prettyprinted comments
 | PP_COMMENT
 {
 	$$ = ASTLeaf(AST_PP_COMMENT, $1.token_file, $1.token_line, $1.token_text);
 }
+// Prettyprinted preprocessor elements
 | PP_TOKEN
 {
 	$$ = ASTLeaf(AST_PP_TOKEN, $1.token_file, $1.token_line, $1.token_text);
 }
+;
+
 ;
 
 /* GNU Extension */

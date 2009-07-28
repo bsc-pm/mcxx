@@ -37,6 +37,7 @@ libtlomp_la_SOURCES = \
    tl-single.cpp \
    tl-spawn.cpp \
    tl-spawn-old.cpp \
+   tl-declare.cpp \
    tl-task.cpp \
    tl-taskwait.cpp \
    tl-taskyield.cpp \

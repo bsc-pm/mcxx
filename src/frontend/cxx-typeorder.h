@@ -26,6 +26,8 @@
 #include "cxx-typeunif.h"
 #include "cxx-buildscope-decls.h"
 
+MCXX_BEGIN_DECLS
+
 LIBMCXX_EXTERN char is_less_or_equal_specialized_template_class(struct type_tag* c1, struct type_tag* c2, 
         decl_context_t decl_context, deduction_set_t** deduction_set, 
         const char *filename, int line);
@@ -36,5 +38,7 @@ LIBMCXX_EXTERN char is_less_or_equal_specialized_template_function(struct type_t
         const char *filename, int line, char is_conversion);
 
 LIBMCXX_EXTERN char is_sound_type(struct type_tag* t, decl_context_t decl_context);
+
+MCXX_END_DECLS
 
 #endif // CXX_TYPEORDER_H

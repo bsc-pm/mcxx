@@ -2493,6 +2493,10 @@ member_declaration : decl_specifier_seq member_declarator_list ';'
 {
 	$$ = $1;
 }
+| verbatim_construct
+{
+    $$ = $1;
+}
 // This is a common tolerated error
 | ';' 
 {

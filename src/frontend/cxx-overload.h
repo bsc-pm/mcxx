@@ -26,6 +26,8 @@
 #include "cxx-scope-decls.h"
 #include "cxx-buildscope-decls.h"
 
+MCXX_BEGIN_DECLS
+
 LIBMCXX_EXTERN struct scope_entry_tag* solve_overload(struct scope_entry_list_tag* candidate_functions, 
         struct type_tag **argument_types, int num_arguments,
         decl_context_t decl_context,
@@ -51,5 +53,7 @@ LIBMCXX_EXTERN scope_entry_t* solve_constructor(type_t* class_type,
         scope_entry_t** conversors);
 
 LIBMCXX_EXTERN unsigned long long overload_used_memory(void);
+
+MCXX_END_DECLS
 
 #endif // CXX_OVERLOAD_H

@@ -20,10 +20,274 @@
 */
 #include "tl-omptransform.hpp"
 
+#include "tl-overload.hpp"
+
+#include <utility>
+
 namespace TL
 {
     namespace Nanos4
     {
+        /*
+           T f ([const] T , [const] T) -> red = f(red,elem)
+           T f ([const] T* , [const] T) -> red = f(&red,elem)
+           T f ([const] T* , [const] T*) -> red = f(&red,&elem)
+           T f ([const] T , [const] T*) -> red = f(red,&elem)
+           void f (T* , [const] T) -> f(&red,elem)
+           void f (T* , [const] T*) -> f(&red,&elem)
+
+           more for C++:
+
+           T f ([const] T& , [const] T) -> red = f(red,elem)
+           T f ([const] T , [const] T&) -> red = f(red,elem)
+           T f ([const] T& , [const] T&) -> red = f(red,elem)
+           T f ([const] T& , [const] T*) -> red = f(red,&elem)
+           T f ([const] T* , [const] T&) -> red = f(&red,elem)
+           void f (T& , [const] T) -> f(red,elem)
+           void f (T& , [const] T&) -> f(red,elem)
+           void f (T& , [const] T*) -> f(red,&elem)
+         */
+
+        static Source perform_reduction_symbol_member_(
+                const OpenMP::ReductionSymbol& reduction_symbol,
+                Source reduction_var_name, 
+                Source partial_reduction)
+        {
+            C_LANGUAGE()
+            {
+                internal_error("Code unreachable", 0);
+            }
+
+            Source result;
+
+            // get the operator involved
+            std::string op = reduction_symbol.get_reductor_name();
+
+            // FIXME - We may want to do overload here as well
+
+            result
+                << reduction_var_name << op << "(" << partial_reduction << ");"
+                ;
+
+            return result;
+        }
+
+        static Source perform_reduction_symbol_(
+                const OpenMP::ReductionSymbol& reduction_symbol,
+                Source reduction_var_name, 
+                Source partial_reduction)
+        {
+            Source result;
+
+            // get the operator involved
+            std::string op = reduction_symbol.get_reductor_name();
+
+            Symbol sym = reduction_symbol.get_symbol();
+            // FIXME - Is it always OK to use the symbol scope?
+            Scope sc = sym.get_scope();
+            ObjectList<Symbol> sym_list = sc.get_symbols_from_name(op);
+
+            if (sym_list.empty())
+            {
+                // FIXME - We lack a location here!
+                running_error("error: invalid reduction operator '%s'\n",
+                        op.c_str());
+            }
+
+            Symbol op_sym(NULL);
+            C_LANGUAGE()
+            {
+                if (sym_list.size() > 1)
+                {
+                    internal_error("Too many symbols returned from reduction operator lookup", 0);
+                }
+                op_sym = sym_list[0];
+            }
+            CXX_LANGUAGE()
+            {
+                bool valid = false;
+
+                Type ref_type = sym.get_type().get_reference_to();
+                Type ptr_type = sym.get_type().get_pointer_to();
+
+                TL::ObjectList<TL::Type> argument_types_list[4];
+                // (T&, T&)
+                argument_types_list[0].append(ref_type);
+                argument_types_list[0].append(ref_type);
+
+                // (T*, T&)
+                argument_types_list[1].append(ptr_type);
+                argument_types_list[1].append(ref_type);
+
+                // (T&, T*)
+                argument_types_list[2].append(ref_type);
+                argument_types_list[2].append(ptr_type);
+
+                // (T*, T*)
+                argument_types_list[3].append(ptr_type);
+                argument_types_list[3].append(ptr_type);
+
+                for (int i = 0; i < 4; i++)
+                {
+                    bool current_valid = false;
+                    ObjectList<Symbol> argument_conversor_list;
+                    Symbol current_op_sym;
+                    current_op_sym = Overload::solve(sym_list, 
+                            /* no implicit at the time */ Type(NULL),
+                            argument_types_list[i],
+                            /* No location info available */ "", 0,
+                            current_valid, argument_conversor_list);
+
+                    if (current_valid)
+                    {
+                        if (valid)
+                        {
+                            // FIXME - Handle this gracefully
+                            internal_error("More than one feasible reduction function!", 0);
+                        }
+                        else
+                        {
+                            valid = true;
+                            op_sym = current_op_sym;
+                        }
+                    }
+                }
+
+                if (!valid)
+                {
+                    // FIXME - Handle this gracefully
+                    internal_error("No valid reduction function found", 0); 
+                }
+            }
+
+            Type op_type = op_sym.get_type();
+
+            if (!op_type.is_function())
+            {
+                internal_error("This is not a function type!\n", 0);
+            }
+
+            Source reduction_arg, partial_reduction_arg, reduction_return;
+            if (op_type.returns().is_void())
+            {
+                if (reduction_symbol.reductor_is_left_associative())
+                {
+                    result
+                        << op << "(" << reduction_arg << ", " << partial_reduction_arg << ")"
+                        ;
+                }
+                else
+                {
+                    result
+                        << op << "(" << partial_reduction_arg << "," << reduction_arg << ")"
+                        ;
+                }
+            }
+            else
+            {
+                if (reduction_symbol.reductor_is_left_associative())
+                {
+                    result
+                        << reduction_return << " = " << op << "(" << reduction_arg << ", " << partial_reduction_arg << ")"
+                        ;
+                }
+                else
+                {
+                    result
+                        << reduction_return << " = " << op << "(" << partial_reduction_arg << ", " << reduction_arg << ")"
+                        ;
+                }
+            }
+
+            // This could be different if we allowed returning types other than
+            // T, but this is not the case so this is always the reduced entity
+            reduction_return << reduction_var_name;
+
+            TL::ObjectList<TL::Type> parameters = op_type.parameters();
+
+            // Indexes in the argument, by default this is the left associativity
+            int reduction_index = 0;
+            int partial_reduction_index = 1;
+
+            if (!reduction_symbol.reductor_is_left_associative())
+            {
+                // reduction_index = 1;
+                // partial_reduction_index = 0;
+                std::swap(reduction_index, partial_reduction_index);
+            }
+
+            // If the type related to the reduction var is pointer, pass an address
+            if (parameters[reduction_index].is_pointer())
+            {
+                reduction_arg << "&" << reduction_var_name
+                    ;
+            }
+            else
+            {
+                reduction_arg << reduction_var_name
+                    ;
+            }
+
+            if (parameters[partial_reduction_index].is_pointer())
+            {
+                partial_reduction_arg << "&(" << partial_reduction << ")"
+                    ;
+            }
+            else
+            {
+                partial_reduction_arg << partial_reduction
+                    ;
+            }
+
+            // Add trailing ';'
+            result
+                << ";"
+                ;
+
+            return result;
+        }
+
+        static Source perform_reduction_symbol(
+                const OpenMP::ReductionSymbol& reduction_symbol,
+                Source reduction_var_name, 
+                Source partial_reduction)
+        {
+            if (reduction_symbol.is_builtin_operator())
+            {
+                Source result;
+                std::string op = reduction_symbol.get_operation();
+
+                if (reduction_symbol.reductor_is_left_associative())
+                {
+                    result 
+                        << reduction_var_name << " = " << reduction_var_name << op << partial_reduction << ";"
+                        ;
+                }
+                else
+                {
+                    result 
+                        << reduction_var_name << " = " << partial_reduction << op << reduction_var_name << ";"
+                        ;
+                }
+                return result;
+            }
+            else
+            {
+                if (!reduction_symbol.reductor_is_member())
+                {
+                    return perform_reduction_symbol_(reduction_symbol,
+                            reduction_var_name,
+                            partial_reduction);
+                }
+                else
+                {
+                    return perform_reduction_symbol_member_(reduction_symbol,
+                            reduction_var_name,
+                            partial_reduction);
+                }
+            }
+        }
+
         Source OpenMPTransform::get_critical_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references)
         {
             Source reduction_code;
@@ -54,15 +318,15 @@ namespace TL
                     it++)
             {
                 // We lack a scope here for the qualified name
-                std::string reduced_var_name = it->get_symbol().get_qualified_name();
-                std::string reduction_var_name = "rdp_" + it->get_symbol().get_name();
+                std::string reduction_var_name = it->get_symbol().get_qualified_name();
+                std::string partial_reduction = "rdp_" + it->get_symbol().get_name();
 
-                // get the operator involved
-                std::string op = it->get_operation().prettyprint();
-
-                reduction_gathering 
-                    << reduced_var_name << " = " << reduced_var_name << op << reduction_var_name << ";"
+                reduction_gathering
+                    << perform_reduction_symbol(*it,
+                            reduction_var_name,
+                            partial_reduction)
                     ;
+
             }
 
             return reduction_code;
@@ -228,13 +492,19 @@ namespace TL
 
                 // Construct the name of its related reduction vector
                 // We are lacking a scope here for the qualified name
-                std::string reduced_var_name = it->get_symbol().get_qualified_name();
-                std::string reduction_vector_name = "rdv_" + it->get_symbol().get_name();
+                std::string reduction_var_name = it->get_symbol().get_qualified_name();
+                std::string partial_reduction_vector_name = "rdv_" + it->get_symbol().get_name();
 
                 // get the operator involved
-                std::string op = it->get_operation().prettyprint();
+                Source partial_reduction;
+                partial_reduction
+                    << partial_reduction_vector_name << "[rdv_i]"
+                    ;
                 reduction_gathering
-                    << reduced_var_name << " = " << reduced_var_name << op << reduction_vector_name << "[rdv_i]" << ";";
+                    << perform_reduction_symbol(*it, 
+                            reduction_var_name, 
+                            partial_reduction)
+                    ;
             }
 
             return reduction_gathering;

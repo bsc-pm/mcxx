@@ -400,7 +400,7 @@ namespace TL
              * in the list might be invalid if the tree does not have such
              * children.
              */
-            ObjectList<AST_t> children();
+            ObjectList<AST_t> children() const;
 
             //! Debug function - Do not use 
             /*! Returns a string with the name of the internal ast kind */

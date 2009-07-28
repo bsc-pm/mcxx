@@ -41,6 +41,7 @@
 #include "cxx-gccsupport.h"
 #include "cxx-gccbuiltins.h"
 #include "cxx-gccspubuiltins.h"
+#include "cxx-omp-support.h"
 #include "cxx-upc.h"
 #include "cxx-lexer.h"
 #include "cxx-parser.h"
@@ -169,6 +170,7 @@ static AST get_enclosing_declaration(AST point_of_declarator);
 // OpenMP functions needed here
 static void build_scope_omp_custom_directive(AST a, decl_context_t decl_context, char* attr_name);
 static void build_scope_omp_threadprivate(AST a, decl_context_t decl_context, char* attr_name);
+static void build_scope_omp_declare_reduction(AST a, decl_context_t decl_context, char* attr_name);
 static void build_scope_omp_custom_construct_declaration(AST a, decl_context_t decl_context);
 
 static void build_scope_pragma_custom_directive(AST a, decl_context_t decl_context, char* _dummy);
@@ -359,6 +361,12 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
             upc_sign_in_builtins(decl_context);
         }
     }
+
+    // Initialize basic OpenMP reduction types
+    if (!CURRENT_CONFIGURATION->disable_openmp)
+    {
+        omp_udr_initialize_basic_types(decl_context);
+    }
 }
 
 static void build_scope_declaration_sequence(AST list, decl_context_t decl_context)
@@ -499,6 +507,11 @@ static void build_scope_declaration(AST a, decl_context_t decl_context)
                 build_scope_omp_threadprivate(a, decl_context, OMP_IS_THREADPRIVATE_DIRECTIVE);
                 break;
             }
+        case AST_OMP_DECLARE_REDUCTION_DIRECTIVE :
+            {
+                build_scope_omp_declare_reduction(a, decl_context, OMP_IS_DECLARE_REDUCTION_DIRECTIVE);
+                break;
+            }
         case AST_OMP_CUSTOM_DIRECTIVE :
             {
                 build_scope_omp_custom_directive(a, decl_context, NULL);
@@ -532,6 +545,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context)
             }
         case AST_PP_COMMENT :
         case AST_PP_TOKEN :
+        case AST_VERBATIM :
             {
                 // Ignore this, it is a prettyprinted comment or token
                 break;
@@ -6587,6 +6601,7 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
                 break;
             }
         case AST_UNKNOWN_PRAGMA :
+        case AST_VERBATIM :
             {
                 break;
             }
@@ -8309,6 +8324,247 @@ static void build_scope_omp_data_clause(AST a, decl_context_t decl_context)
     }
 }
 
+#if 0
+static char omp_eligible_reduction_function(scope_entry_t* entry, type_t** deduced_type)
+{
+    // Let's model the reduction as something performing at each step something like:
+    // 
+    //          a = fun(a, b)
+    // 
+    // Valid cases
+    // -----------
+    //
+    // Non-member functions (or static member functions)
+    // 
+    //    ( 1) T fun(T a, T b) 
+    //    ( 2) void fun(T* a, T b)
+    //    ( 3) void fun(T* a, const T* b)
+    //
+    //    ( 4) T fun(const T& a, const T& b)      [C++]
+    //    ( 5) T fun(T a, const T& b)             [C++]
+    //    ( 6) T fun(const T& a, T b)             [C++]
+    //    ( 7) void fun(T& a, T b)                [C++]
+    //    ( 8) void fun(T& a, const T& b)         [C++]
+    // 
+    // Non-static Member functions: [C++ only]
+    //    ('this' plays the role of 'a' here)
+    // 
+    //    ( 9) T::mem_fun(T b)
+    //    (10) T::mem_fun(const T& b)
+    //    (11) T::mem_fun(const T* b)
+    *deduced_type = NULL;
+
+    if (!entry->entity_specs.is_member
+            || entry->entity_specs.is_static)
+    {
+        // It must be callable with two arguments
+        if (!can_be_called_with_number_of_arguments(entry, 2))
+        {
+            return 0;
+        }
+        type_t* function_type = entry->type_information;
+        type_t* first_type = function_type_get_parameter_type_num(function_type, 0);
+        type_t* second_type = function_type_get_parameter_type_num(function_type, 1);
+        type_t* return_type = function_type_get_return_type(function_type);
+
+        // (1) T fun(T a, T b) 
+        if (equivalent_types(first_type, second_type)
+                && equivalent_types(first_type, return_type)
+                && !is_non_derived_type(first_type))
+        {
+            *deduced_type = first_type;
+            return 1;
+        }
+        else if (is_void_type(return_type)
+                && is_pointer_type(first_type))
+        {
+            type_t* first_indirect_type = pointer_type_get_pointee_type(first_type);
+            // (2) void fun(T* a, T b)
+            if (equivalent_types(first_indirect_type, second_type))
+            {
+                *deduced_type = first_indirect_type;
+                return 1;
+            }
+            if (is_pointer_type(second_type))
+            {
+                type_t* second_indirect_type = pointer_type_get_pointee_type(second_type);
+
+                if (is_const_qualified_type(second_indirect_type)
+                        && equivalent_types(first_indirect_type, get_unqualified_type(second_indirect_type)))
+                {
+                    // (3) void fun(T* a, const T* b)
+                    *deduced_type = first_indirect_type;
+                    return 1;
+                }
+            }
+        }
+        else if (IS_CXX_LANGUAGE
+                && is_lvalue_reference_type(first_type)
+                && is_lvalue_reference_type(second_type)
+                && is_const_qualified_type(reference_type_get_referenced_type(first_type))
+                && is_const_qualified_type(reference_type_get_referenced_type(second_type))
+                && equivalent_types(first_type, second_type)
+                && equivalent_types(get_unqualified_type(reference_type_get_referenced_type(first_type)), return_type)
+                )
+        {
+            // ( 4) T fun(const T& a, const T& b)      [C++]
+            *deduced_type = get_unqualified_type(reference_type_get_referenced_type(first_type));
+            return 1;
+        }
+        else if (IS_CXX_LANGUAGE
+                && is_lvalue_reference_type(second_type)
+                && is_const_qualified_type(reference_type_get_referenced_type(second_type))
+                && equivalent_types(first_type, get_unqualified_type(reference_type_get_referenced_type(second_type)))
+                && equivalent_types(first_type, return_type))
+        {
+            // ( 5) T fun(T a, const T& b)             [C++]
+            *deduced_type = return_type;
+            return 1;
+        }
+        else if (IS_CXX_LANGUAGE
+                && is_lvalue_reference_type(first_type)
+                && is_const_qualified_type(reference_type_get_referenced_type(first_type))
+                && equivalent_types(second_type, get_unqualified_type(reference_type_get_referenced_type(first_type)))
+                && equivalent_types(second_type, return_type))
+        {
+            // ( 6) T fun(const T& a, T b)             [C++]
+            *deduced_type = return_type;
+            return 1;
+        }
+        else if (IS_CXX_LANGUAGE
+                && is_void_type(return_type)
+                && is_lvalue_reference_type(first_type)
+                && !is_const_qualified_type(reference_type_get_referenced_type(first_type))
+                && equivalent_types(get_unqualified_type(reference_type_get_referenced_type(first_type)), second_type))
+        {
+            // ( 7) void fun(T& a, T b)                [C++]
+            *deduced_type = second_type;
+            return 1;
+        }
+        else if (IS_CXX_LANGUAGE
+                && is_lvalue_reference_type(first_type)
+                && is_lvalue_reference_type(second_type)
+                && !is_const_qualified_type(reference_type_get_referenced_type(first_type))
+                && is_const_qualified_type(reference_type_get_referenced_type(second_type))
+                && equivalent_types(reference_type_get_referenced_type(first_type),
+                    get_unqualified_type(reference_type_get_referenced_type(second_type)))
+                )
+        {
+            // ( 8) void fun(T& a, const T& b)         [C++]
+            *deduced_type = reference_type_get_referenced_type(first_type);
+            return 1;
+        }
+    }
+    else
+    {
+        if (!can_be_called_with_number_of_arguments(entry, 1))
+        {
+            return 0;
+        }
+        type_t* class_type = entry->entity_specs.class_type;
+        type_t* function_type = entry->type_information;
+        type_t* first_type = function_type_get_parameter_type_num(function_type, 0);
+
+        // ( 9) T::mem_fun(T b)
+        if (equivalent_types(class_type, first_type)
+                // (10) T::mem_fun(const T& b)
+                || (is_lvalue_reference_type(first_type)
+                    && is_const_qualified_type(reference_type_get_referenced_type(first_type))
+                    && equivalent_types(class_type, get_unqualified_type(reference_type_get_referenced_type(first_type))))
+                // (11) T::mem_fun(const T* b)
+                || (is_pointer_type(first_type)
+                    && is_const_qualified_type(pointer_type_get_pointee_type(first_type))
+                    && equivalent_types(class_type, get_unqualified_type(pointer_type_get_pointee_type(first_type))))
+                )
+        {
+            *deduced_type = class_type;
+            return 1;
+        }
+    }
+
+    return 0;
+}
+#endif
+
+static scope_entry_t* build_scope_omp_reduction_operator_function(AST reductor, decl_context_t decl_context)
+{
+    scope_entry_list_t *result 
+        = query_id_expression(decl_context, reductor);
+
+    if (result == NULL)
+    {
+        fprintf(stderr, "%s: warning invalid reduction function '%s'\n", 
+                ast_location(reductor),
+                prettyprint_in_buffer(reductor));
+    }
+    else
+    {
+        if (result->next != NULL)
+        {
+            C_LANGUAGE()
+            {
+                internal_error("Code unreachable", 0);
+            }
+        }
+        scope_entry_t* entry = result->entry;
+        if (entry->kind != SK_FUNCTION)
+        {
+            fprintf(stderr, "%s: warning: argument '%s' is not a a function-name\n",
+                    ast_location(reductor),
+                    prettyprint_in_buffer(reductor));
+        }
+
+        return entry;
+    }
+
+    return NULL;
+}
+
+static void build_scope_omp_reduction_clause(AST clause, decl_context_t decl_context)
+{
+    build_scope_omp_data_clause(ASTSon1(clause), decl_context);
+
+    AST operator = ASTSon0(clause);
+
+    switch (ASTType(operator))
+    {
+        case AST_ADD_OPERATOR :
+        case AST_MINUS_OPERATOR : 
+        case AST_BITWISE_OR_OPERATOR :
+        case AST_BITWISE_XOR_OPERATOR :
+        case AST_LOGICAL_OR_OPERATOR :
+        case AST_MULT_OPERATOR :
+        case AST_LOGICAL_AND_OPERATOR :
+        case AST_BITWISE_AND_OPERATOR :
+            {
+                // FIXME - Use builtins
+                break;
+            }
+        case AST_OMP_REDUCTION_OPERATOR_FUNCTION :
+            {
+                AST id_expr = ASTSon0(operator);
+                /* scope_entry_t* entry = */ build_scope_omp_reduction_operator_function(id_expr, decl_context);
+                break;
+            }
+        case AST_OMP_REDUCTION_OPERATOR_MEMBER_FUNCTION :
+            {
+                internal_error("Not supported yet", 0);
+                break;
+            }
+        default:
+            {
+                internal_error("Unknown node' %s'\n", 
+                        ast_print_node_type(ASTType(operator)));
+            }
+
+    }
+
+    ASTAttrSetValueType(clause, OMP_IS_REDUCTION_CLAUSE, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(clause, OMP_REDUCTION_VARIABLES, tl_type_t, tl_ast(ASTSon1(clause)));
+    ASTAttrSetValueType(clause, OMP_REDUCTION_OPERATOR, tl_type_t, tl_ast(operator));
+}
+
+// FIXME - Consider moving OpenMP functions out of this file
 static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* attr_name) 
 {
     ASTAttrSetValueType(a, OMP_IS_OMP_DIRECTIVE, tl_type_t, tl_bool(1));
@@ -8325,6 +8581,7 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
         AST list = ASTSon0(a);
         AST iter;
 
+        type_t* type_in_context = NULL;
         for_each_element(list, iter)
         {
             AST clause = ASTSon1(iter);
@@ -8469,76 +8726,133 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
                     }
                 case AST_OMP_REDUCTION_CLAUSE :
                     {
-                        build_scope_omp_data_clause(ASTSon1(clause), decl_context);
+                        build_scope_omp_reduction_clause(clause, decl_context);
+                        break;
+                    }
+                case AST_OMP_TYPE_CLAUSE :
+                    {
+                        AST type_id = ASTSon0(clause);
 
-                        // Compute here the neuter for future use
-                        AST neuter = NULL;
+                        // This might be ambiguous, disambiguate
+                        AST type_specifier_seq = ASTSon0(type_id);
+                        AST abstract_decl = ASTSon1(type_id);
+
+                        type_t *type_info = NULL;
+
+                        gather_decl_spec_t gather_info;
+                        memset(&gather_info, 0, sizeof(gather_info));
+
+                        build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info, decl_context);
+
+                        type_in_context = type_info;
+                        compute_declarator_type(abstract_decl, 
+                                &gather_info, type_info, &type_in_context,
+                                decl_context);
+
+                        CXX_LANGUAGE()
+                        {
+                            if (is_lvalue_reference_type(type_in_context)
+                                    || is_rvalue_reference_type(type_in_context))
+                            {
+                                fprintf(stderr, "%s: warning: reference types should not be used in 'type' clause, "
+                                        "the referenced type will be used instead\n", ast_location(clause));
+                                type_in_context = reference_type_get_referenced_type(type_in_context);
+                            }
+                        }
+
+                        ASTAttrSetValueType(a, OMP_UDR_TYPE, tl_type_t, tl_type(type_in_context));
+                        break;
+                    }
+                case AST_OMP_ORDER_CLAUSE:
+                    {
+                        omp_udr_associativity_t assoc = OMP_UDR_ORDER_LEFT;
                         switch (ASTType(ASTSon0(clause)))
                         {
-                            case AST_ADD_OPERATOR :
-                            case AST_MINUS_OPERATOR : 
-                            case AST_BITWISE_OR_OPERATOR :
-                            case AST_BITWISE_XOR_OPERATOR :
-                            case AST_LOGICAL_OR_OPERATOR :
+                            case AST_OMP_REDUCTION_LEFT:
                                 {
-                                    neuter = internal_expression_parse("0", decl_context);
+                                    assoc = OMP_UDR_ORDER_LEFT;
                                     break;
                                 }
-                            case AST_MULT_OPERATOR :
-                            case AST_LOGICAL_AND_OPERATOR :
+                            case AST_OMP_REDUCTION_RIGHT:
                                 {
-                                    neuter = internal_expression_parse("1", decl_context);
-                                    break;
-                                }
-                            case AST_BITWISE_AND_OPERATOR :
-                                {
-                                    neuter = internal_expression_parse("~0", decl_context);
+                                    assoc = OMP_UDR_ORDER_RIGHT;
                                     break;
                                 }
                             default:
                                 {
-                                    internal_error("Unknown node' %s'\n", 
-                                            ast_print_node_type(ASTType(ASTSon0(clause))));
+                                    internal_error("Invalid node type %s\n", ast_print_node_type(ASTType(ASTSon0(clause))));
                                 }
-
                         }
 
-                        // Save the neuter
-                        ast_set_child(clause, 2, neuter);
-                        ast_set_parent(neuter, clause);
-
-                        ASTAttrSetValueType(clause, OMP_IS_REDUCTION_CLAUSE, tl_type_t, tl_bool(1));
-                        ASTAttrSetValueType(clause, OMP_IS_USER_DEFINED_REDUCTION, tl_type_t, tl_bool(0));
-                        ASTAttrSetValueType(clause, OMP_REDUCTION_OPERATOR, tl_type_t, tl_ast(ASTSon0(clause)));
-                        ASTAttrSetValueType(clause, OMP_REDUCTION_VARIABLES, tl_type_t, tl_ast(ASTSon1(clause)));
-                        ASTAttrSetValueType(clause, OMP_REDUCTION_NEUTER, tl_type_t, tl_ast(ASTSon2(clause)));
+                        ASTAttrSetValueType(a, OMP_UDR_ORDER, tl_type_t, tl_integer((int)assoc));
                         break;
                     }
-                case AST_OMP_USER_DEFINED_REDUCTION_CLAUSE :
+                case AST_OMP_IDENTITY_CLAUSE:
                     {
-                        // Check the id-expression
-                        if (!check_for_expression(ASTSon0(clause), decl_context))
+                        if (type_in_context == NULL)
                         {
-                            internal_error("Could not check expression %s\n", 
-                                    prettyprint_in_buffer(ASTSon0(clause)));
+                            running_error("%s: error: a clause 'type' must be seen prior to 'identity' clause\n",
+                                    ast_location(clause));
                         }
 
-                        // Check the neuter expression
-                        if (!check_for_expression(ASTSon1(clause), decl_context))
+                        AST omp_id_expr = ASTSon0(clause);
+                        AST relevant_tree = NULL;
+                        switch (ASTType(omp_id_expr))
                         {
-                            internal_error("Could not check expression %s\n", 
-                                    prettyprint_in_buffer(ASTSon0(clause)));
+                            case AST_OMP_IDENTITY_INITIALIZER:
+                                {
+                                    check_for_initializer_clause(ASTSon0(omp_id_expr), decl_context, type_in_context);
+                                    relevant_tree = omp_id_expr;
+                                    break;
+                                }
+                            case AST_OMP_IDENTITY_CONSTRUCTOR :
+                                {
+                                    if (ASTSon0(omp_id_expr) != NULL)
+                                    {
+                                        check_for_initialization(ASTSon0(omp_id_expr), decl_context, type_in_context);
+                                        // We are not interested in the 'constructor' part
+                                        relevant_tree = ASTSon0(omp_id_expr);
+                                    }
+                                    break;
+                                }
+                            default:
+                                {
+                                    internal_error("Unexpected tree %s\n", ast_print_node_type(ASTType(omp_id_expr)));
+                                }
+                        }
+                        if (relevant_tree != NULL)
+                        {
+                            ASTAttrSetValueType(a, OMP_UDR_IDENTITY, tl_type_t, tl_ast(relevant_tree));
+                        }
+                        break;
+                    }
+                case AST_OMP_OPERATOR_CLAUSE :
+                    {
+                        if (type_in_context == NULL)
+                        {
+                            running_error("%s: error: a clause 'type' must be seen prior to 'identity' clause\n",
+                                    ast_location(clause));
                         }
 
-                        // Build scope for var-lists
-                        build_scope_omp_data_clause(ASTSon2(clause), decl_context);
+                        AST operator_list = ASTSon0(clause);
+                        AST it;
+                        for_each_element(operator_list, it)
+                        {
+                            AST operator = ASTSon1(it);
 
-                        ASTAttrSetValueType(clause, OMP_IS_REDUCTION_CLAUSE, tl_type_t, tl_bool(1));
-                        ASTAttrSetValueType(clause, OMP_IS_USER_DEFINED_REDUCTION, tl_type_t, tl_bool(1));
-                        ASTAttrSetValueType(clause, OMP_REDUCTION_FUNCTION, tl_type_t, tl_ast(ASTSon0(clause)));
-                        ASTAttrSetValueType(clause, OMP_REDUCTION_NEUTER, tl_type_t, tl_ast(ASTSon1(clause)));
-                        ASTAttrSetValueType(clause, OMP_REDUCTION_VARIABLES, tl_type_t, tl_ast(ASTSon2(clause)));
-
+                            switch (ASTType(operator))
+                            {
+                                case AST_OMP_REDUCTION_OPERATOR_BUILTIN:
+                                case AST_OMP_REDUCTION_OPERATOR_FUNCTION:
+                                case AST_OMP_REDUCTION_OPERATOR_MEMBER_FUNCTION:
+                                    {
+                                        break;
+                                    }
+                                default:
+                                    internal_error("Invalid tree kind %s\n", ast_print_node_type(ASTType(operator)));
+                            }
+                        }
+                        ASTAttrSetValueType(a, OMP_UDR_OPERATOR, tl_type_t, tl_ast(operator_list));
                         break;
                     }
                 case AST_OMP_CUSTOM_PARAMETER_CLAUSE :
@@ -8671,7 +8985,108 @@ static void build_scope_omp_threadprivate(AST a,
     ASTAttrSetValueType(a, OMP_IS_THREADPRIVATE_DIRECTIVE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, tl_ast(a));
     ASTAttrSetValueType(ASTSon0(a), OMP_IS_PARAMETER_CLAUSE, tl_type_t, tl_bool(1));
-    build_scope_omp_data_clause(ASTSon0(a), decl_context);
+    build_scope_omp_directive(a, decl_context, attr_name);
+}
+
+static void build_scope_omp_declare_reduction(AST a, 
+        decl_context_t decl_context, 
+        char* attr_name UNUSED_PARAMETER)
+{
+    ASTAttrSetValueType(a, OMP_IS_OMP_DIRECTIVE, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, OMP_IS_DECLARE_REDUCTION_DIRECTIVE, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, tl_ast(a));
+    build_scope_omp_directive(a, decl_context, NULL);
+
+    // Now use what it is gathered (this is a bit lame)
+    type_t* declared_type = NULL;
+    tl_type_t* p = NULL;
+    if ((p = (tl_type_t*)ASTAttrValue(a, OMP_UDR_TYPE)) != NULL)
+    {
+        ERROR_CONDITION(p->kind != TL_TYPE, "Invalid TL type %d", p->kind);
+        declared_type = p->data._type;
+    }
+    else
+    {
+        // FIXME - We should attempt to deduce it, but at the moment we will not
+        running_error("%s: error: '#pragma omp declare reduction' requires a 'type' clause\n",
+                ast_location(a));
+    }
+
+    AST identity_tree = NULL;
+    if ((p = (tl_type_t*)ASTAttrValue(a, OMP_UDR_IDENTITY)) != NULL)
+    {
+        ERROR_CONDITION(p->kind != TL_AST, "Invalid TL type %d", p->kind);
+        identity_tree = p->data._ast;
+    }
+    // else
+    // {
+    //     running_error("%s: error: '#pragma omp declare reduction' requires an 'identity' clause\n",
+    //             ast_location(a));
+    // }
+
+    AST operator_list_tree = NULL;
+    if ((p = (tl_type_t*)ASTAttrValue(a, OMP_UDR_OPERATOR)) != NULL)
+    {
+        ERROR_CONDITION(p->kind != TL_AST, "Invalid TL type", 0);
+        operator_list_tree = p->data._ast;
+    }
+    else
+    {
+        running_error("%s: error: '#pragma omp declare reduction' requires an 'operator' clause\n",
+                ast_location(a));
+    }
+
+    omp_udr_associativity_t associativity = OMP_UDR_ORDER_LEFT;
+    if ((p = (tl_type_t*)ASTAttrValue(a, OMP_UDR_ORDER)) != NULL)
+    {
+        ERROR_CONDITION(p->kind != TL_INTEGER, "Invalid TL type %p", p);
+        associativity = (omp_udr_associativity_t)p->data._integer;
+    }
+
+    AST it;
+    for_each_element(operator_list_tree, it)
+    {
+        AST operator = ASTSon1(it);
+
+        if (omp_udr_lookup_reduction(declared_type,
+                    prettyprint_in_buffer(operator),
+                    NULL, NULL, NULL))
+        {
+            running_error("%s: error: redefining reduction '%s' for type '%s'\n",
+                    ast_location(a),
+                    prettyprint_in_buffer(operator),
+                    get_declaration_string_internal(declared_type, 
+                        decl_context, /* symbol_name */"", 
+                        /* initializer */ "", 
+                        /* semicolon */ 0,
+                        /* num_parameter_names */ NULL,
+                        /* parameter_names */ NULL,
+                        /* is_parameter */ 0));
+        }
+
+        switch (ASTType(operator))
+        {
+            case AST_OMP_REDUCTION_OPERATOR_BUILTIN:
+                {
+                    omp_udr_register_reduction_builtin(declared_type, 
+                            prettyprint_in_buffer(operator), 
+                            identity_tree,
+                            associativity);
+                    break;
+                }
+            case AST_OMP_REDUCTION_OPERATOR_FUNCTION:
+            case AST_OMP_REDUCTION_OPERATOR_MEMBER_FUNCTION:
+                {
+                    omp_udr_register_reduction(declared_type, 
+                            prettyprint_in_buffer(operator), 
+                            identity_tree,
+                            associativity);
+                    break;
+                }
+            default:
+                internal_error("Invalid tree kind %s\n", ast_print_node_type(ASTType(operator)));
+        }
+    }
 }
 
 static void build_scope_omp_flush_directive(AST a, 
@@ -9019,6 +9434,7 @@ static stmt_scope_handler_map_t stmt_scope_handlers[] =
     STMT_HANDLER(AST_OMP_THREADPRIVATE_DIRECTIVE, build_scope_omp_threadprivate, NULL),
     STMT_HANDLER(AST_OMP_CUSTOM_CONSTRUCT, build_scope_omp_custom_construct_statement, OMP_IS_CUSTOM_CONSTRUCT),
     STMT_HANDLER(AST_OMP_CUSTOM_DIRECTIVE, build_scope_omp_custom_directive_top_level, NULL),
+    STMT_HANDLER(AST_OMP_DECLARE_REDUCTION_DIRECTIVE, build_scope_omp_declare_reduction, OMP_IS_DECLARE_REDUCTION_DIRECTIVE),
     // UPC
     STMT_HANDLER(AST_UPC_NOTIFY, build_scope_upc_synch_statement, UPC_IS_NOTIFY_STATEMENT),
     STMT_HANDLER(AST_UPC_WAIT, build_scope_upc_synch_statement, UPC_IS_WAIT_STATEMENT),

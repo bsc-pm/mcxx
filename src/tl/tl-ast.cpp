@@ -1045,7 +1045,7 @@ namespace TL
         return ast_iterator;
     }
 
-    ObjectList<AST_t> AST_t::children()
+    ObjectList<AST_t> AST_t::children() const
     {
         ObjectList<AST_t> result;
 

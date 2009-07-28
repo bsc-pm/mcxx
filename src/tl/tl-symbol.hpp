@@ -242,6 +242,12 @@ namespace TL
             /*! This function might not make sense for all kind of symbols
              */
             bool is_defined() const;
+
+            //! Do not use unless told to do so
+            scope_entry_t* get_internal_symbol() const
+            {
+                return _symbol;
+            }
     };
     
     //! @}

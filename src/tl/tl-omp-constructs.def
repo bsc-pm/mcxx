@@ -37,4 +37,6 @@ OMP_CONSTRUCT(ThreadPrivateDirective, Construct, OMP_IS_THREADPRIVATE_DIRECTIVE,
 
 OMP_CONSTRUCT(OrderedConstruct, Construct, OMP_IS_ORDERED_CONTRUCT, OrderedFunctor, on_ordered)
 
+OMP_CONSTRUCT(DeclareReductionConstruct, Construct, OMP_IS_DECLARE_REDUCTION_DIRECTIVE, DeclareReductionFunctor, on_declare_reduction)
+
 OMP_CONSTRUCT_MAP(CustomConstruct, DataEnvironmentConstruct, OMP_IS_CUSTOM_CONSTRUCT, CustomConstructFunctor, on_custom_construct)

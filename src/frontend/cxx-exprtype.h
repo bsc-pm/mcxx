@@ -53,6 +53,7 @@ LIBMCXX_EXTERN char check_for_expression(AST a, decl_context_t decl_context);
 LIBMCXX_EXTERN char check_for_expression_list(AST expression_list, decl_context_t decl_context);
 
 LIBMCXX_EXTERN char check_for_initialization(AST initializer, decl_context_t decl_context, type_t* declared_type);
+LIBMCXX_EXTERN char check_for_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type);
 
 LIBMCXX_EXTERN char check_zero_args_constructor(type_t* class_type, decl_context_t decl_context, AST declarator);
 

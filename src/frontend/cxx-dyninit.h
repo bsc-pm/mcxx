@@ -21,11 +21,16 @@
 #ifndef CXX_DYNINIT
 #define CXX_DYNINIT
 
+#include "cxx-macros.h"
 #include "libmcxx-common.h"
+
+MCXX_BEGIN_DECLS
 
 typedef void (*dynamic_initializer_t)(void);
 
 LIBMCXX_EXTERN void register_dynamic_initializer(dynamic_initializer_t dynamic_initializer);
 LIBMCXX_EXTERN void run_dynamic_initializers(void);
+
+MCXX_END_DECLS
 
 #endif // CXX_DYNINIT

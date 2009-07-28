@@ -23,6 +23,7 @@
 
 #include "tl-common.hpp"
 #include "cxx-utils.h"
+#include "cxx-omp-support.h"
 
 #include "tl-compilerphase.hpp"
 #include "tl-ast.hpp"
@@ -335,28 +336,73 @@ namespace TL
         {
             private:
                 Symbol _symbol;
-                AST_t _op;
+                std::string _op;
                 AST_t _neuter;
                 bool _is_user_defined;
+                bool _is_right_assoc; 
+                bool _is_member;
+                bool _is_faulty;
             public:
-                ReductionSymbol(Symbol s, AST_t op, AST_t neuter, bool is_user_defined = false)
-                    : _symbol(s), _op(op), _neuter(neuter), _is_user_defined(is_user_defined)
+                // FIXME - Overloads in C++ require a bit more of machinery
+                ReductionSymbol(Symbol s, const std::string& reductor_name)
+                    : _symbol(s), 
+                    _op(reductor_name), 
+                    _neuter(NULL), 
+                    _is_user_defined(false), 
+                    _is_right_assoc(false), 
+                    _is_member(false),
+                    _is_faulty(false)
                 {
+                    AST identity = NULL;
+                    omp_udr_associativity_t assoc = OMP_UDR_ORDER_LEFT;
+
+                    Type t = _symbol.get_type();
+
+                    // Adjust reference types
+                    if (t.is_reference())
+                    {
+                        t = t.references_to();
+                    }
+
+                    char is_builtin = 0;
+
+                    if (omp_udr_lookup_reduction(t.get_internal_type(),
+                                reductor_name.c_str(),
+                                &identity,
+                                &assoc,
+                                &is_builtin))
+                    {
+                        _neuter = AST_t(identity);
+                        _is_right_assoc = (assoc == OMP_UDR_ORDER_RIGHT);
+
+                        _is_user_defined = !is_builtin;
+
+                        // This is a bit lame
+                        _is_member = (reductor_name[0] == '.');
+                    }
+                    else
+                    {
+                        _is_faulty = true;
+                    }
+                }
+
+                //! Returns the symbol of this reduction
+                Symbol get_symbol() const
+                {
+                    return _symbol;
                 }
 
                 //! States that the reduction is user defined
-                /*!
-                 * \bug Unsupported at the moment
-                 */
                 bool is_user_defined() const
                 {
                     return _is_user_defined;
                 }
 
-                //! Returns the symbol related to this reduction
-                Symbol get_symbol() const
+                //! States that the reduction uses a builtin operator
+                /*! This is the opposite of is_user_defined */
+                bool is_builtin_operator() const
                 {
-                    return _symbol;
+                    return !is_user_defined();
                 }
 
                 //! Returns a tree with an expression of the neuter value of the reduction
@@ -365,10 +411,58 @@ namespace TL
                     return _neuter;
                 }
 
+                bool neuter_is_constructor() const
+                {
+                    // Ugly way to do this
+                    return (!neuter_is_empty()
+                            && (_neuter.internal_ast_type_() == AST_PARENTHESIZED_INITIALIZER));
+                }
+
+                bool neuter_is_empty() const
+                {
+                    return !_neuter.is_valid();
+                }
+
                 //! Gets the reduction operation
-                AST_t get_operation() const
+                std::string get_operation() const
                 {
                     return _op;
+                }
+
+                //! Gets the reductor name
+                /*! This is a fancy alias for get_operation */
+                std::string get_reductor_name() const
+                {
+                    return get_operation();
+                }
+
+                //! States whether this is a member specificication
+                bool reductor_is_member() const
+                {
+                    return _is_member;
+                }
+
+                //! States whether the reductor is right associative
+                /*! \note Most of reductors are left associative */
+                bool reductor_is_right_associative() const
+                {
+                    return _is_right_assoc;
+                }
+
+                //! States whether the reductor is right associative
+                /*! \note Most of reductors are left associative */
+                bool reductor_is_left_associative() const
+                {
+                    return !_is_right_assoc;
+                }
+
+                //! States whether this reduction symbol is faulty
+                /*! A faulty reduction symbol means that no reductor
+                  was declared for it
+                  */
+                bool is_faulty() const
+                {
+                    return _is_faulty;
                 }
         };
 

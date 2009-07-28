@@ -116,6 +116,7 @@ upc_keywords_t upc_keywords[] =
 static int yywrap(void);
 
 static void parse_token_text(void);
+static void parse_token_text_str(const char*);
 
 struct scan_file_descriptor scanning_now;
 
@@ -144,6 +145,14 @@ static int num_new_lines(const char* c)
 }
 
 static int include_counter;
+
+// static int verbatim_buffer_size = 0;
+// static const char *verbatim_buffer = NULL;
+
+static void verbatim_buffer_append(const char* c);
+static void verbatim_buffer_free(void);
+static const char* verbatim_buffer_get(void);
+
 
 %}
 
@@ -195,6 +204,9 @@ hexprefix   0[xX]
 hexadecimal_fractional_constant (({hexdigit}*\.{hexdigit}+)|({hexdigit}\.))
 binary_exponent_part ([pP]([+-])?{digit}+)
 
+ /* Identifier */
+identifier {idnondigit}({idnondigit}|{digit})* 
+
  /* states */
 %x longcomment
 %x linecomment
@@ -203,13 +215,19 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 %x openmp_directive
 %x openmp_clause
 %x openmp_default
+%x openmp_order
 %x unknown_pragma
 %x pragma_custom_directive
 %x pragma_custom_clause
 %x pragma_custom_clause_first
 %x pragma_custom_var_list
 
+%x verbatim_text
+%x verbatim_clauses
+%x verbatim_clauses_args
+
 %s openmp_var_list
+%s openmp_var_list_identity
 %s openmp_schedule
 
 %%
@@ -219,13 +237,90 @@ binary_exponent_part ([pP]([+-])?{digit}+)
     BEGIN(preprocess); 
 }
 
-
 <preprocess>[ ]*pragma[ ]+ {
 	BEGIN(pragma_line);
 }
 
+<pragma_line>((mcxx)|(mcc))[ ]+verbatim[ ]+start[ ]* {
+    BEGIN(verbatim_clauses);
+    parse_token_text();
+    return VERBATIM_PRAGMA;
+}
 
-<pragma_line>{idnondigit}({idnondigit}|{digit})* {
+<verbatim_clauses>{
+    
+type {
+    parse_token_text();
+    BEGIN(verbatim_clauses_args);
+    return VERBATIM_TYPE;
+}
+
+[ \t] { } 
+
+[\n] {
+    BEGIN(verbatim_text);
+    scanning_now.line_number++;
+}
+
+}
+
+<verbatim_clauses_args>{
+
+[(] {
+    parse_token_text();
+    return '(';
+}
+
+[,] {
+    parse_token_text();
+    return ',';
+}
+
+[)] {
+    parse_token_text();
+    BEGIN(verbatim_clauses);
+    return ')';
+}
+
+[ \t] { }
+
+identifier { 
+    parse_token_text();
+    return IDENTIFIER;
+}
+
+[\n] 
+{
+    BEGIN(verbatim);
+    scanning_now.line_number++;
+}
+
+}
+
+<verbatim_text>{
+
+[^\n] {
+    verbatim_buffer_append(yytext);
+}
+
+[\n] {
+    verbatim_buffer_append(yytext);
+    scanning_now.line_number++;
+}
+
+#pragma[ ]+((mcxx)|(mcc))[ ]+verbatim[ ]+end[ ]*\n {
+    BEGIN(INITIAL);
+
+    parse_token_text_str(verbatim_buffer_get());
+    verbatim_buffer_free();
+    
+    scanning_now.line_number++;
+    return VERBATIM_TEXT;
+}
+
+}
+
+<pragma_line>{identifier} {
 	// Unknown pragmas
 	int i;
 	char found = 0;
@@ -384,13 +479,18 @@ critical {
 	return OMP_CRITICAL;
 }
 
+declare {
+    BEGIN(openmp_clause);
+    return OMP_DECLARE;
+}
+
 threadprivate {
 	omp_var_list_parentheses = 0;
 	BEGIN(openmp_var_list);
 	return OMP_THREADPRIVATE;
 }
 
-{idnondigit}({idnondigit}|{digit})* {
+{identifier} {
 	// Special case for custom constructs/directives
 	BEGIN(openmp_clause);
     pragma_directive_kind_t directive_kind = lookup_pragma_directive("omp", yytext);
@@ -429,7 +529,7 @@ threadprivate {
 
 <pragma_custom_directive>{
 
-{idnondigit}({idnondigit}|{digit})* {
+{identifier} {
 	BEGIN(pragma_custom_clause_first);
 
     pragma_directive_kind_t directive_kind = lookup_pragma_directive(current_pragma_prefix, yytext);
@@ -493,7 +593,7 @@ threadprivate {
 	return PRAGMA_CUSTOM_NEWLINE;
 }
 
-{idnondigit}({idnondigit}|{digit})* {
+{identifier} {
 	// Special case for custom clauses
 	BEGIN(pragma_custom_var_list);
 	parse_token_text(); 
@@ -521,7 +621,7 @@ threadprivate {
 	return PRAGMA_CUSTOM_NEWLINE;
 }
 
-{idnondigit}({idnondigit}|{digit})* {
+{identifier} {
 	// Special case for custom clauses
 	BEGIN(pragma_custom_var_list);
 	parse_token_text(); 
@@ -561,7 +661,7 @@ threadprivate {
     }
 }
 
-{idnondigit}({idnondigit}|{digit})* {
+{identifier} {
     if (pragma_custom_var_list_parentheses > 0)
     {
         parse_token_text();
@@ -707,6 +807,33 @@ if {
 	return OMP_IF;
 }
 
+type {
+    omp_var_list_parentheses = 0;
+    BEGIN(openmp_var_list);
+    return OMP_TYPE;
+}
+
+operator {
+    omp_var_list_parentheses = 0;
+    BEGIN(openmp_var_list);
+    return OMP_OPERATOR;
+}
+
+identity {
+    omp_var_list_parentheses = 0;
+    BEGIN(openmp_var_list_identity);
+    return OMP_IDENTITY;
+}
+
+order {
+    BEGIN(openmp_order);
+    return OMP_ORDER;
+}
+
+commutative {
+    return OMP_COMMUTATIVE;
+}
+
 num_threads {
 	// Lexing is the same as a var-list
 	omp_var_list_parentheses = 0;
@@ -714,7 +841,7 @@ num_threads {
 	return OMP_NUM_THREADS;
 }
 
-{idnondigit}({idnondigit}|{digit})* {
+{identifier} {
 	// Special case for custom clauses 
 	omp_var_list_parentheses = 0;
 	BEGIN(openmp_var_list);
@@ -744,9 +871,32 @@ none {
 }
 
  /* Special case for default custom */
-{idnondigit}({idnondigit}|{digit})* {
+{identifier} {
     parse_token_text();
     return OMP_DEFAULT_CUSTOM;
+}
+
+[ \t] { }
+
+}
+
+<openmp_order>{
+
+[(] {
+		return '(';
+}
+
+[)] {
+	BEGIN(openmp_clause);
+	return ')';
+}
+
+left {
+	return OMP_REDUCTION_LEFT;
+}
+
+right {
+	return OMP_REDUCTION_RIGHT;
 }
 
 [ \t] { }
@@ -778,14 +928,18 @@ none {
     return OMP_NEWLINE;
 }
 
-{idnondigit}({idnondigit}|{digit})* {
-	// Special case for custom clauses 
+{identifier} {
+	// Special case for custom clauses where the previous did not have parentheses
+    // #pragma directive foo bar
+    // We were going to lex the arguments of 'foo' but we found 'bar', start again
+    // as if nothing happened, this case may be right
 	if (omp_var_list_parentheses == 0)
 	{
         // We want to tokenize this one again
 		BEGIN(openmp_clause);
         // Note that we are not doing REJECT because we do not want it to be
         // matched below but against under openmp_clause start condition
+        // This reintroduces the token in the token stream
         yyless(0);
 	}
 	else
@@ -793,6 +947,31 @@ none {
         // Not handled here but below
 		REJECT;
 	}
+}
+
+}
+
+<openmp_var_list_identity>{
+
+[(] {
+	parse_token_text();
+	omp_var_list_parentheses++;
+	return '(';
+}
+
+[)] {
+    parse_token_text();
+    omp_var_list_parentheses--;
+    if (omp_var_list_parentheses == 0)
+    {
+        BEGIN(openmp_clause);
+    }
+    return ')';
+}
+
+constructor {
+    parse_token_text();
+    return OMP_CONSTRUCTOR;
 }
 
 }
@@ -867,7 +1046,7 @@ runtime {
 	}
 }
 
-{idnondigit}({idnondigit}|{digit})* {
+{identifier} {
     parse_token_text();
     if (!omp_seen_schedule_kind)
     {
@@ -1374,7 +1553,7 @@ runtime {
 @SUPERSCALAR_DECLARATOR@ { parse_token_text(); return SUBPARSE_SUPERSCALAR_DECLARATOR; }
 
  /* A plain identifier */
-{idnondigit}({idnondigit}|{digit})* {parse_token_text(); return IDENTIFIER; }
+{identifier} {parse_token_text(); return IDENTIFIER; }
 
  /* A.2.17 */
 {nonzero}({digit})*{integersuffix}?     { parse_token_text(); return DECIMAL_LITERAL; }
@@ -1521,6 +1700,14 @@ static void parse_token_text(void)
     FLEX_LVAL.token_atrib.token_file = uniquestr(scanning_now.current_filename);
     FLEX_LVAL.token_atrib.token_text = uniquestr(yytext);
 }
+
+static void parse_token_text_str(const char* c)
+{
+    FLEX_LVAL.token_atrib.token_line = scanning_now.line_number;
+    FLEX_LVAL.token_atrib.token_file = uniquestr(scanning_now.current_filename);
+    FLEX_LVAL.token_atrib.token_text = uniquestr(c);
+}
+
 
 /*!if CPLUSPLUS*/
 #define OPEN_FILE_FOR_SCANNING mcxx_open_file_for_scanning
@@ -1685,3 +1872,54 @@ void register_new_directive(const char* prefix, const char* directive, char is_c
     }
 }
 /*!endif*/
+
+static char* _verbatim_buffer = NULL;
+static int _verbatim_buffer_length = 0;
+static int _verbatim_buffer_capacity = 0;
+
+#define BUFF_SIZE 512
+
+static void verbatim_buffer_append(const char* c)
+{
+    const char* p = c;
+
+    // This may be regarded a bit inefficient but it is safer this way
+    while (*p != '\0')
+    {
+        ERROR_CONDITION((_verbatim_buffer_length > _verbatim_buffer_capacity), 
+                "Verbatim buffer overflow", 0);
+
+        if (_verbatim_buffer_length == _verbatim_buffer_capacity)
+        {
+            // Enlarge verbatim buffer
+            _verbatim_buffer_capacity += BUFF_SIZE;
+            _verbatim_buffer = realloc(_verbatim_buffer, sizeof(char) * _verbatim_buffer_capacity);
+            int i;
+            for (i = _verbatim_buffer_length; i < _verbatim_buffer_capacity; i++)
+            {
+                _verbatim_buffer[i] = '\0';
+            }
+        }
+
+        ERROR_CONDITION(!(_verbatim_buffer_length < _verbatim_buffer_capacity),
+                "Wrong logic in verbatim buffer handling", 0);
+
+        _verbatim_buffer[_verbatim_buffer_length] = *p;
+        _verbatim_buffer_length++;
+
+        p++;
+    }
+}
+
+static void verbatim_buffer_free(void)
+{
+    free(_verbatim_buffer);
+    _verbatim_buffer = NULL;
+    _verbatim_buffer_length = 0;
+    _verbatim_buffer_capacity = 0;
+}
+
+static const char* verbatim_buffer_get(void)
+{
+    return _verbatim_buffer;
+}

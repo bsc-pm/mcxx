@@ -435,6 +435,9 @@ namespace TL
                         ObjectList<Symbol> list_id_expressions,
                         OpenMP::DataAttribute data_attrib);
 
+                // #pragma omp declare
+                void declare_reduction_postorder(OpenMP::DeclareReductionConstruct construct);
+
                 // #pragma omp task special support
                 void task_compute_explicit_data_sharing(
                         OpenMP::Directive &directive,

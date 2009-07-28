@@ -170,6 +170,9 @@ namespace TL
             on_custom_construct_post["taskyield"].connect(functor(&OpenMPTransform::taskyield_postorder, *this));
             // End of OMP 3.0 tasks
 
+            // #pragma omp declare reduction
+            on_declare_reduction_post.connect(functor(&OpenMPTransform::declare_reduction_postorder, *this));
+
             // --- Transactional world --
             // #pragma omp transaction
             register_construct("transaction");

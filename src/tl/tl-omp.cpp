@@ -920,26 +920,11 @@ namespace TL
            {
                AST_t reduction_clause = *it;
 
-               AST_t reduct_entity;
-
-               TL::Bool is_user_defined = it->get_attribute(OMP_IS_USER_DEFINED_REDUCTION);
-
-               if (is_user_defined)
-               {
-                   reduct_entity = it->get_attribute(OMP_REDUCTION_FUNCTION);
-               }
-               else
-               {
-                   reduct_entity = it->get_attribute(OMP_REDUCTION_OPERATOR);
-               }
-
-
-               AST_t reduct_neuter = it->get_attribute(OMP_REDUCTION_NEUTER);
+               AST_t reduct_operator = it->get_attribute(OMP_REDUCTION_OPERATOR);
 
                AST_t reduct_vars = it->get_attribute(OMP_REDUCTION_VARIABLES);
 
                ObjectList<AST_t> reduct_references = reduct_vars.depth_subtrees().filter(id_expr_pred);
-
                for (ObjectList<AST_t>::iterator jt = reduct_references.begin();
                        jt != reduct_references.end();
                        jt++)
@@ -964,8 +949,7 @@ namespace TL
                    if (eligible)
                    {
                        IdExpression id_expr(*jt, this->_scope_link);
-                       ReductionSymbol reduct_id_expr(sym, reduct_entity, reduct_neuter, is_user_defined);
-
+                       ReductionSymbol reduct_id_expr(sym, reduct_operator.prettyprint());
                        result.append(reduct_id_expr);
                    }
                }
