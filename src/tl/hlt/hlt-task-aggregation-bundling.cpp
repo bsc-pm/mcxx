@@ -194,9 +194,9 @@ struct BundleGenerator
 
 								Symbol class_symbol = type.get_symbol();
 
-								// task_cleanup
-								// 	<< sym.get_name() << "." << type.get_declaration(sym.get_scope(), "") << "::~" << class_symbol.get_name() << "();"
-								// 	;
+								task_cleanup
+									<< sym.get_name() << "." << type.get_declaration(sym.get_scope(), "") << "::~" << class_symbol.get_name() << "();"
+									;
 							}
 							else
 							{
@@ -359,9 +359,9 @@ struct GuardTaskGeneratorBundled : Functor<TL::AST_t::callback_result, TL::AST_t
                     << global_task_index_name << "++;"
                     << "if (" << global_task_index_name << "== " << _bundling_amount << ")"
                     << "{"
+					<<     timing_code
                     <<     try_to_run_every_task
                     <<     global_task_index_name << " = 0;"
-					<<     timing_code
                     <<     clear_indexes
                     << "}"
                     ;
@@ -542,8 +542,8 @@ Source TaskAggregation::do_bundled_aggregation()
     bundle_remainder
         << "if (" << global_task_index_name << " != 0)"
         << "{"
-		<< bundle_code
 		<< timing_code
+		<< bundle_code
         << "}"
         ;
 

@@ -51,7 +51,7 @@ Source TaskAggregation::get_source()
 
 Source TaskAggregation::do_aggregation(bool contains_conditional_code)
 {
-	if (contains_conditional_code)
+	// if (contains_conditional_code)
 	{
 		switch ((int)_method)
 		{
@@ -67,11 +67,11 @@ Source TaskAggregation::do_aggregation(bool contains_conditional_code)
 				return Source("");
 		}
 	}
-	else
-	{
-		// FIXME - Do simple!
-		return do_predicated_aggregation();
-	}
+	// else
+	// {
+	// 	// FIXME - Do simple!
+	// 	return do_predicated_aggregation();
+	// }
 }
 
 bool TaskAggregation::contains_relevant_openmp(Statement stmt)
