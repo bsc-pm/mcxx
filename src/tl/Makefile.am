@@ -1,8 +1,9 @@
-SUBDIRS = . hlt omp_core @TLEXTENSIONS@ 
+SUBDIRS = . hlt omp_core 
+# @TLEXTENSIONS@ 
 
 END=
 
-DIST_SUBDIRS=omp instr instr_pthreads acotes examples stm_func superscalar nanos testing hlt acotes-msf
+# DIST_SUBDIRS=omp instr instr_pthreads acotes examples stm_func superscalar nanos testing hlt acotes-msf
 
 lib_LTLIBRARIES = libtl.la
 
@@ -69,8 +70,6 @@ libtl_la_SOURCES = \
 	tl-handler.cpp \
 	tl-pragmasupport.hpp \
 	tl-pragmasupport.cpp \
-	tl-omp.hpp \
-	tl-omp.cpp \
 	tl-refptr.hpp \
 	tl-multifile.hpp \
 	tl-multifile.cpp \

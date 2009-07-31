@@ -19,37 +19,355 @@
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 #include "tl-omp-core.hpp"
+#include "tl-langconstruct.hpp"
+#include "tl-source.hpp"
+
+#include <algorithm>
 
 namespace TL
 {
-    OmpCore::OmpCore()
-        : PragmaCustomCompilerPhase("omp")
+    namespace OpenMP
     {
-    }
+        Core::Core()
+            : PragmaCustomCompilerPhase("omp")
+        {
+        }
 
-    void OmpCore::run(TL::DTO& dto)
-    {
-    }
+        void Core::run(TL::DTO& dto)
+        {
+            // "openmp_info" should exist
+            if (!dto.get_keys().contains("openmp_info"))
+            {
+                std::cerr << "OpenMP Info was not found in the pipeline" << std::endl;
+                set_phase_status(PHASE_STATUS_ERROR);
+                return;
+            }
 
-    void OmpCore::pre_run(TL::DTO& dto)
-    {
-        register_omp_constructs();
-    }
+            PragmaCustomCompilerPhase::run(dto);
+        }
 
-    void OmpCore::register_omp_constructs()
-    {
+        void Core::pre_run(TL::DTO& dto)
+        {
+            register_omp_constructs();
+
+            if (!dto.get_keys().contains("openmp_info"))
+            {
+                DataSharing* root_data_sharing = new DataSharing(NULL);
+                /* _openmp_info = */ new OpenMP::Info(root_data_sharing);
+                dto.set_object("openmp_info", _openmp_info);
+            }
+
+            PragmaCustomCompilerPhase::pre_run(dto);
+        }
+
+        void Core::register_omp_constructs()
+        {
 #define CONSTRUCT_INFO(_name) \
-        { \
-            register_construct(#_name); \
-            on_directive_pre[#_name].connect(functor(&OmpCore::_name##_handler, *this)); \
-        }
+            { \
+                register_construct(#_name); \
+                on_directive_pre[#_name].connect(functor(&Core::_name##_handler, *this)); \
+            }
 #define DIRECTIVE_INFO(_name) \
-        { \
-            register_directive(#_name); \
-            on_directive_pre[#_name].connect(functor(&OmpCore::_name##_handler, *this)); \
-        }
+            { \
+                register_directive(#_name); \
+                on_directive_pre[#_name].connect(functor(&Core::_name##_handler, *this)); \
+            }
 #include "tl-omp-core.def"
 #undef CONSTRUCT_INFO
 #undef DIRECTIVE_INFO
+        }
+
+        void Core::get_clause_symbols(PragmaCustomClause clause, ObjectList<Symbol>& sym_list)
+        {
+            ObjectList<IdExpression> id_expr_list;
+            if (clause.is_defined())
+            {
+                id_expr_list = clause.id_expressions();
+
+                for (ObjectList<IdExpression>::iterator it = id_expr_list.begin();
+                        it != id_expr_list.end(); 
+                        it++)
+                {
+                    Symbol sym = it->get_symbol();
+                    if (sym.is_valid())
+                    {
+                        sym_list.append(sym);
+                    }
+                    else
+                    {
+                        std::cerr << it->get_ast().get_locus() << ": warning: identifier '" << (*it) << "' is unknown" << std::endl;
+                    }
+                }
+            }
+        }
+
+        void Core::get_reduction_symbols(PragmaCustomClause clause, 
+                ObjectList<ReductionSymbol>& sym_list)
+        {
+            if (!clause.is_defined())
+                return;
+
+            ObjectList<std::string> arguments = clause.get_arguments();
+
+            if (arguments.empty())
+                return;
+
+            // The first argument is special, we have to look for a ':' that is not followed by any other ':'
+            // #pragma omp parallel for reduction(A::F : A::d)
+
+            std::string first_arg = arguments[0];
+            std::string::iterator split_colon = first_arg.end();
+            for (std::string::iterator it = first_arg.begin();
+                    it != first_arg.end();
+                    it++)
+            {
+                if ((*it) == ':'
+                        && (it + 1) != first_arg.end())
+                {
+                    if (*(it + 1) != ':')
+                    {
+                        split_colon = it;
+                        break;
+                    }
+                    else
+                    {
+                        // Next one is also a ':' but it is not a valid splitting
+                        // ':', so ignore it
+                        it++;
+                    }
+                }
+            }
+
+            if (split_colon == first_arg.end())
+            {
+                std::cerr << clause.get_ast().get_locus() << ": warning: 'reduction' clause does not have a valid reductor" << std::endl;
+                std::cerr << clause.get_ast().get_locus() << ": warning: skipping the whole clause" << std::endl;
+                return;
+            }
+
+            std::string reductor_name;
+            std::copy(first_arg.begin(), split_colon, std::back_inserter(reductor_name));
+
+            std::string remainder_arg;
+            std::copy(split_colon + 1, first_arg.end(), std::back_inserter(remainder_arg));
+
+            // Put it back into the arguments array so we do not have to do strange things
+            arguments[0] = remainder_arg;
+
+            for (ObjectList<std::string>::iterator it = arguments.begin();
+                    it != arguments.end();
+                    it++)
+            {
+                std::string &arg(*it);
+                Source src (arg);
+
+                AST_t expr_tree = src.parse_expression(clause.get_ast(), clause.get_scope_link());
+
+                Expression expr(expr_tree, clause.get_scope_link());
+
+                if (!expr.is_id_expression())
+                {
+                    std::cerr << clause.get_ast().get_locus() 
+                        << ": warning: argument '" 
+                        << expr
+                        << "' is not an identifier, skipping" 
+                        << std::endl;
+                }
+                else
+                {
+
+                    Symbol sym = expr.get_id_expression().get_symbol();
+
+                    if (!sym.is_valid())
+                    {
+                        std::cerr << clause.get_ast().get_locus()
+                            << ": warning: argument '"
+                            << expr
+                            << "' does not name a valid symbol, skipping"
+                            << std::endl
+                            ;
+                    }
+
+                    sym_list.append(ReductionSymbol(sym, reductor_name));
+                }
+            }
+        }
+
+        struct DataSharingSetter
+        {
+            private:
+                DataSharing& _data_sharing;
+                DataAttribute _data_attrib;
+            public:
+                DataSharingSetter(DataSharing& data_sharing, DataAttribute data_attrib)
+                    : _data_sharing(data_sharing),
+                    _data_attrib(data_attrib) { }
+
+                void operator()(Symbol s)
+                {
+                    _data_sharing.set(s, _data_attrib);
+                }
+        };
+
+        struct DataSharingSetterReduction
+        {
+            private:
+                DataSharing& _data_sharing;
+                DataAttribute _data_attrib;
+                std::string _reductor_name;
+            public:
+                DataSharingSetterReduction(DataSharing& data_sharing, DataAttribute data_attrib)
+                    : _data_sharing(data_sharing),
+                    _data_attrib(data_attrib) { }
+
+                void operator()(ReductionSymbol red_sym)
+                {
+                    _data_sharing.set_reduction(red_sym.get_symbol(), red_sym.get_reductor_name());
+                }
+        };
+
+        void Core::get_data_explicit_attributes(PragmaCustomConstruct construct, 
+                DataSharing& data_sharing)
+        {
+            ObjectList<Symbol> shared_references;
+            get_clause_symbols(construct.get_clause("shared"), shared_references);
+            std::for_each(shared_references.begin(), shared_references.end(), 
+                    DataSharingSetter(data_sharing, DA_SHARED));
+
+            ObjectList<Symbol> private_references;
+            get_clause_symbols(construct.get_clause("private"), private_references);
+            std::for_each(private_references.begin(), private_references.end(), 
+                    DataSharingSetter(data_sharing, DA_PRIVATE));
+
+            ObjectList<Symbol> firstprivate_references;
+            get_clause_symbols(construct.get_clause("firstprivate"), firstprivate_references);
+            std::for_each(firstprivate_references.begin(), firstprivate_references.end(), 
+                    DataSharingSetter(data_sharing, DA_FIRSTPRIVATE));
+
+            ObjectList<Symbol> lastprivate_references;
+            get_clause_symbols(construct.get_clause("lastprivate"), lastprivate_references);
+            std::for_each(lastprivate_references.begin(), lastprivate_references.end(), 
+                    DataSharingSetter(data_sharing, DA_LASTPRIVATE));
+
+            ObjectList<OpenMP::ReductionSymbol> reduction_references;
+            std::string reductor_name;
+            get_reduction_symbols(construct.get_clause("reduction"), reduction_references);
+            std::for_each(reduction_references.begin(), reduction_references.end(), 
+                    DataSharingSetterReduction(data_sharing, DA_REDUCTION));
+
+            ObjectList<Symbol> copyin_references;
+            get_clause_symbols(construct.get_clause("copyin"), copyin_references);
+            std::for_each(copyin_references.begin(), copyin_references.end(), 
+                    DataSharingSetter(data_sharing, DA_COPYIN));
+
+            ObjectList<Symbol> copyprivate_references;
+            get_clause_symbols(construct.get_clause("copyprivate"), copyprivate_references);
+            std::for_each(copyprivate_references.begin(), copyprivate_references.end(), 
+                    DataSharingSetter(data_sharing, DA_COPYPRIVATE));
+        }
+
+        DataAttribute Core::get_default_data_sharing(PragmaCustomConstruct construct,
+                DataAttribute fallback_data_sharing)
+        {
+            PragmaCustomClause default_clause = construct.get_clause("default");
+
+            if (!default_clause.is_defined())
+            {
+                return fallback_data_sharing;
+            }
+            else
+            {
+                ObjectList<std::string> args = default_clause.get_arguments();
+
+                struct pairs_t
+                {
+                    const char* name;
+                    DataAttribute data_attr;
+                } pairs[] = 
+                {
+                    { "none", (DataAttribute)DA_NONE },
+                    { "shared", (DataAttribute)DA_SHARED },
+                    { "firstprivate", (DataAttribute)DA_FIRSTPRIVATE },
+                    { NULL, (DataAttribute)DA_UNDEFINED },
+                };
+
+                for (unsigned int i = 0; pairs[i].name != NULL; i++)
+                {
+                    if (std::string(pairs[i].name) == args[0])
+                    {
+                        return pairs[i].data_attr;
+                    }
+                }
+
+                std::cerr << default_clause.get_ast().get_locus() 
+                    << ": warning: data sharing '" << args[0] << "' is not valid in 'default' clause" << std::endl;
+                std::cerr << default_clause.get_ast().get_locus() 
+                    << ": warning: assuming 'shared'" << std::endl;
+
+                return DA_SHARED;
+            }
+        }
+
+        void Core::get_data_implicit_attributes(PragmaCustomConstruct construct, 
+                DataAttribute default_data_attr, 
+                DataSharing& data_sharing)
+        {
+            Statement statement = construct.get_statement();
+
+            ObjectList<IdExpression> id_expr_list = statement.non_local_symbol_occurrences();
+            ObjectList<Symbol> already_nagged;
+
+            for (ObjectList<IdExpression>::iterator it = id_expr_list.begin();
+                    it != id_expr_list.end();
+                    it++)
+            {
+                Symbol sym = it->get_symbol();
+
+                if (!sym.is_valid())
+                    continue;
+
+                DataAttribute data_attr = data_sharing.get(sym);
+
+                if (data_attr == DA_UNDEFINED)
+                {
+                    if (default_data_attr == DA_NONE)
+                    {
+                        if (!already_nagged.contains(sym))
+                        {
+                            std::cerr << it->get_ast().get_locus() 
+                                << ": warning: symbol '" << sym.get_qualified_name(sym.get_scope()) 
+                                << "' does not have data sharing and 'default(none)' was specified. Assuming shared "
+                                << std::endl;
+
+                            // Maybe we do not want to assume always shared?
+                            data_sharing.set(sym, DA_SHARED);
+
+                            already_nagged.append(sym);
+                        }
+                    }
+                    else
+                    {
+                        // Set the symbol as having default data sharing
+                        data_sharing.set(sym, default_data_attr);
+                    }
+                }
+            }
+        }
+
+        void Core::parallel_handler(PragmaCustomConstruct construct)
+        {
+            DataSharing& data_sharing = _openmp_info->get_new_data_sharing(construct);
+            _openmp_info->push_current_data_sharing(data_sharing);
+
+            // Analyze things here
+            get_data_explicit_attributes(construct, data_sharing);
+
+            DataAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DA_SHARED);
+
+            get_data_implicit_attributes(construct, default_data_attr, data_sharing);
+
+            _openmp_info->pop_current_data_sharing();
+        }
+
     }
 }

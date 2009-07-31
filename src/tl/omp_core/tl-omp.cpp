@@ -33,7 +33,6 @@ namespace TL
    {
 
        // Definition of predicates
-
 #define OMP_CONSTRUCT(_class_name, _derives_from, _attr_name, _functor_name, _on_name) \
        const PredicateAttr _class_name::predicate(_attr_name);
 #define OMP_CONSTRUCT_MAP(_class_name, _derives_from, _attr_name, _functor_name, _on_name)
@@ -89,6 +88,12 @@ namespace TL
            (_map->operator[](sym)) = data_attr;
        }
 
+       void DataSharing::set_reduction(Symbol sym, const std::string& reductor_name)
+       {
+           (_map->operator[](sym)) = DA_REDUCTION;
+           (_map_reductions->operator[](sym)) = reductor_name;
+       }
+
        DataAttribute DataSharing::get_internal(Symbol sym)
        {
            std::map<Symbol, DataAttribute>::iterator it = _map->find(sym);
@@ -107,6 +112,14 @@ namespace TL
            DataAttribute result;
            result = get_internal(sym);
            return result;
+       }
+
+       std::string DataSharing::get_reductor_name(Symbol sym)
+       {
+           if (_map_reductions.find(sym) == _map_reductions.end())
+               return "(unknown-reductor)";
+
+           return _map_reductions[sym];
        }
 
        Directive Construct::directive()
@@ -297,6 +310,8 @@ namespace TL
 
        void OpenMPPhase::run(DTO& data_flow)
        {
+           // Use the DTO instead
+
            // get the translation_unit tree
            translation_unit = data_flow["translation_unit"];
            // get the scope_link

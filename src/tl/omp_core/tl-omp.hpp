@@ -72,7 +72,9 @@ namespace TL
             //! Copy in data-sharing
             DA_COPYIN = BITMAP(7),
             //! Copy private data-sharing
-            DA_COPYPRIVATE = BITMAP(8)
+            DA_COPYPRIVATE = BITMAP(8),
+            //! Special to state no data sharing
+            DA_NONE = BITMAP(9)
         };
 #undef BITMAP
 
@@ -82,6 +84,7 @@ namespace TL
             private:
                 int *_num_refs;
                 std::map<Symbol, DataAttribute>  *_map;
+                std::map<Symbol, std::string>  *_map_reductions;
                 DataSharing *_enclosing;
 
                 DataAttribute get_internal(Symbol sym);
@@ -104,6 +107,16 @@ namespace TL
                  */
                 void set(Symbol sym, DataAttribute data_attr);
 
+                //! Sets a data sharing of reduction together its reduction info
+                /*!
+                 * \param sym The symbol to be set reduction data sharing attribute
+                 * \param reductor_name The reductor name of symbol \a sym
+                 */
+                void set_reduction(Symbol sym, const std::string& reductor_name);
+
+                //! Returns the reductor name of a previous set_reduction
+                std::string get_reductor_name(Symbol sym);
+
                 //! Gets the data sharing attribute of a symbol
                 /*!
                  * \param sym The symbol requested its data sharing attribute
@@ -125,6 +138,7 @@ namespace TL
                 Construct *_enclosing_construct;
                 //! The data sharing defined by this construct
                 DataSharing *_data_sharing;
+                ObjectList<Construct*> _inner_constructs;
             public:
                 Construct(AST_t ref, 
                         ScopeLink scope_link,
@@ -149,6 +163,21 @@ namespace TL
                 Construct& get_enclosing_construct() const
                 {
                     return *_enclosing_construct;
+                }
+
+                ObjectList<Construct*> get_inner_constructs() const
+                {
+                    return _inner_constructs;
+                }
+
+                ObjectList<Construct*> set_inner_constructs(ObjectList<Construct*> inner_constructs)
+                {
+                    _inner_constructs = inner_constructs;
+                }
+
+                void add_inner_construct(Construct* inner_ctr)
+                {
+                    _inner_constructs.append(inner_ctr);
                 }
 
                 //! States if the construct is orphaned
@@ -546,6 +575,23 @@ namespace TL
                 }
         };
 
+        class LIBTL_CLASS Info : public Object
+        {
+            private:
+                DataSharing* _root_data_sharing;
+                ObjectList<OpenMP::Construct*> _root_constructs;
+            public:
+                Info(DataSharing* root_data_sharing)
+                    : _root_data_sharing(root_data_sharing) { }
+
+                ObjectList<OpenMP::Construct*>& get_constructs();
+
+                DataSharing& get_new_data_sharing(PragmaCustomConstruct);
+
+                void push_current_data_sharing(DataSharing&);
+                void pop_current_data_sharing();
+        };
+
         // Declare classes after OMP constructs
 #define OMP_CONSTRUCT_COMMON(_class_name, _derives_from, _attr_name, _functor_name, _on_name) \
         class LIBTL_CLASS _class_name : public _derives_from  \
@@ -766,56 +812,6 @@ namespace TL
 #include "tl-omp-constructs.def"
 #undef OMP_CONSTRUCT
 #undef OMP_CONSTRUCT_MAP
-
-#if 0
-                Signal1<ParallelConstruct> on_parallel_pre;
-                Signal1<ParallelConstruct> on_parallel_post;
-                
-                Signal1<ParallelForConstruct> on_parallel_for_pre;
-                Signal1<ParallelForConstruct> on_parallel_for_post;
-
-                Signal1<ForConstruct> on_for_pre;
-                Signal1<ForConstruct> on_for_post;
-
-                Signal1<BarrierDirective> on_barrier_pre;
-                Signal1<BarrierDirective> on_barrier_post;
-
-                Signal1<AtomicConstruct> on_atomic_pre;
-                Signal1<AtomicConstruct> on_atomic_post;
-
-                Signal1<SingleConstruct> on_single_pre;
-                Signal1<SingleConstruct> on_single_post;
-
-                Signal1<FlushDirective> on_flush_pre;
-                Signal1<FlushDirective> on_flush_post;
-
-                Signal1<CriticalConstruct> on_critical_pre;
-                Signal1<CriticalConstruct> on_critical_post;
-
-                Signal1<ParallelSectionsConstruct> on_parallel_sections_pre;
-                Signal1<ParallelSectionsConstruct> on_parallel_sections_post;
-
-                Signal1<TaskConstruct> on_task_construct_pre;
-                Signal1<TaskConstruct> on_task_construct_post;
-
-                Signal1<TaskWaitDirective> on_taskwait_pre;
-                Signal1<TaskWaitDirective> on_taskwait_post;
-
-                Signal1<SectionsConstruct> on_sections_pre;
-                Signal1<SectionsConstruct> on_sections_post;
-
-                Signal1<SectionConstruct> on_section_pre;
-                Signal1<SectionConstruct> on_section_post;
-
-                Signal1<OrderedConstruct> on_ordered_pre;
-                Signal1<OrderedConstruct> on_ordered_post;
-
-                Signal1<ThreadPrivateDirective> on_threadprivate_pre;
-                Signal1<ThreadPrivateDirective> on_threadprivate_post;
-
-                Signal1<MasterConstruct> on_master_pre;
-                Signal1<MasterConstruct> on_master_post;
-#endif
 
                 //! Custom map for custom OpenMP constructs found on preorder
                 std::map<std::string, Signal1<CustomConstruct> > on_custom_construct_pre;
