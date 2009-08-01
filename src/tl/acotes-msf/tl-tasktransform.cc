@@ -939,7 +939,7 @@ namespace TL { namespace Acotes {
               ss << generateParamsAssignment (task);
               ss << task->getName() << " = msf_task_load(";
               ss  <<   "\"libmsf-" << current_filename << ".a\"";
-              ss  <<   ", \"spe_prog_" << task->getName() << "_outline\", &"
+              ss  <<   ", \"" << task->getName() << "_outline\", &"
                   << task->getName() << "_str, sizeof ("
                   << task->getName() << "_str)";
             }
