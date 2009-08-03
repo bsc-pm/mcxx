@@ -115,8 +115,16 @@ namespace TL { namespace Acotes {
             acotesMainSource << ")";
             acotesMainSource << "{";
             acotesMainSource << "msf_resources_t resources;";
-            acotesMainSource << "resources.processor_type_0 = 4;";
-            acotesMainSource << "resources.processor_type_1 = 0;";
+            acotesMainSource << "char * strp = getenv (\"ACOTES_RESOURCES_PPU\");";
+            acotesMainSource << "if (strp != 0L) resources.processor_type_0 = atoi (strp);";
+            acotesMainSource << "else            resources.processor_type_0 = 1;";
+            acotesMainSource << "if ((resources.processor_type_0 < 1) || (resources.processor_type_0 > 16)) resources.processor_type_0 = 1;";
+            acotesMainSource << "strp = getenv (\"ACOTES_RESOURCES_SPU\");";
+            acotesMainSource << "if (strp != 0L) resources.processor_type_1 = atoi (strp);";
+            acotesMainSource << "else            resources.processor_type_1 = 0;";
+            acotesMainSource << "if ((resources.processor_type_0 < 1) || (resources.processor_type_0 > 16)) resources.processor_type_0 = 0;";
+
+            acotesMainSource << "printf (\"Using %d PPUs and %d SPUs\\n\", resources.processor_type_0, resources.processor_type_1);";
             acotesMainSource << "msf_init(&resources);";
             acotesMainSource << functionDefinition.get_function_body().prettyprint();
             acotesMainSource << "msf_shutdown();";
