@@ -356,7 +356,7 @@ namespace TL
 
         void Core::parallel_handler(PragmaCustomConstruct construct)
         {
-            DataSharing& data_sharing = _openmp_info->get_new_data_sharing(construct);
+            DataSharing& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
             _openmp_info->push_current_data_sharing(data_sharing);
 
             // Analyze things here

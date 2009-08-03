@@ -129,6 +129,33 @@ namespace TL
         };
 
         class Directive;
+        class Construct;
+
+        class LIBTL_CLASS Info : public Object
+        {
+            private:
+                DataSharing* _root_data_sharing;
+                DataSharing* _current_data_sharing;
+                ObjectList<OpenMP::Construct*> _root_constructs;
+                std::map<AST_t, DataSharing*> _map_data_sharing;
+                std::stack<DataSharing*> _stack_data_sharing;
+            public:
+                Info(DataSharing* root_data_sharing)
+                    : _root_data_sharing(root_data_sharing), 
+                    _current_data_sharing(root_data_sharing) { }
+
+                ObjectList<OpenMP::Construct*>& get_constructs();
+
+                DataSharing& get_new_data_sharing(AST_t);
+
+                DataSharing& get_data_sharing(AST_t);
+
+                DataSharing& get_current_data_sharing();
+                DataSharing& get_root_data_sharing();
+
+                void push_current_data_sharing(DataSharing&);
+                void pop_current_data_sharing();
+        };
 
         //! Base class for all OpenMP constructs 
         class LIBTL_CLASS Construct : public LangConstruct, public LinkData
@@ -143,10 +170,10 @@ namespace TL
                 Construct(AST_t ref, 
                         ScopeLink scope_link,
                         Construct* enclosing_construct,
-                        DataSharing* enclosing_data_sharing)
+                        OpenMP::Info info)
                     : LangConstruct(ref, scope_link),
                     _enclosing_construct(enclosing_construct),
-                    _data_sharing(enclosing_data_sharing)
+                    _data_sharing(&info.get_root_data_sharing())
                 {
                 }
 
@@ -567,29 +594,12 @@ namespace TL
                 DataEnvironmentConstruct(AST_t ref, 
                         ScopeLink scope_link, 
                         Construct *enclosing_construct,
-                        DataSharing* enclosing_data_sharing)
-                    : Construct(ref, scope_link, enclosing_construct, enclosing_data_sharing)
+                        OpenMP::Info info)
+                    : Construct(ref, scope_link, enclosing_construct, info)
                 {
-                    // Do not inherit but create a new data sharing
-                    _data_sharing = new DataSharing(enclosing_data_sharing);
+                    // Override the data sharing since this tree has context
+                    _data_sharing = &info.get_data_sharing(ref);
                 }
-        };
-
-        class LIBTL_CLASS Info : public Object
-        {
-            private:
-                DataSharing* _root_data_sharing;
-                ObjectList<OpenMP::Construct*> _root_constructs;
-            public:
-                Info(DataSharing* root_data_sharing)
-                    : _root_data_sharing(root_data_sharing) { }
-
-                ObjectList<OpenMP::Construct*>& get_constructs();
-
-                DataSharing& get_new_data_sharing(PragmaCustomConstruct);
-
-                void push_current_data_sharing(DataSharing&);
-                void pop_current_data_sharing();
         };
 
         // Declare classes after OMP constructs
@@ -600,10 +610,10 @@ namespace TL
                 _class_name(AST_t ref,  \
                         ScopeLink scope_link,  \
                         Construct *enclosing_construct, \
-                        DataSharing* enclosing_data_sharing) \
+                        OpenMP::Info openmp_info) \
                     : _derives_from(ref, scope_link,  \
                             enclosing_construct,  \
-                            enclosing_data_sharing) \
+                            openmp_info) \
                 { \
                 }
 #define OMP_CONSTRUCT(_class_name, _derives_from, _attr_name, _functor_name, _on_name) \
@@ -640,23 +650,21 @@ namespace TL
             private:
                 Signal1<T>& _on_construct_pre;
                 Signal1<T>& _on_construct_post;
-                DataSharing &_global_data_sharing;
+                OpenMP::Info _openmp_info;
                 bool &_disable_clause_warnings;
             public:
                 virtual void preorder(Context ctx, AST_t node) 
                 {
                     Construct* enclosing_construct = NULL;
-                    DataSharing* enclosing_data_sharing = &_global_data_sharing;
                     if (!construct_stack.empty())
                     {
                         enclosing_construct = construct_stack.top().current_construct;
-                        enclosing_data_sharing = &(enclosing_construct->get_data_sharing());
                     }
 
                     T *parallel_construct = new T(node, 
                             ctx.scope_link, 
                             enclosing_construct,
-                            enclosing_data_sharing);
+                            _openmp_info);
 
                     Directive directive = parallel_construct->directive();
 
@@ -706,12 +714,12 @@ namespace TL
 
                 OpenMPConstructFunctor(Signal1<T>& on_construct_pre,
                         Signal1<T>& on_construct_post,
-                        DataSharing& global_data_sharing,
+                        OpenMP::Info info,
                         bool &disable_warnings
                         )
                     : _on_construct_pre(on_construct_pre),
                     _on_construct_post(on_construct_post),
-                    _global_data_sharing(global_data_sharing),
+                    _openmp_info(info),
                     _disable_clause_warnings(disable_warnings)
                 {
                 }
@@ -761,7 +769,7 @@ namespace TL
             private:
                 CustomFunctorMap& _custom_functor_pre;
                 CustomFunctorMap& _custom_functor_post;
-                DataSharing &_global_data_sharing;
+                OpenMP::Info _openmp_info;
                 bool &_disable_clause_warnings;
 
                 void dispatch_custom_construct(CustomFunctorMap& search_map, Context ctx, AST_t node);
@@ -771,14 +779,12 @@ namespace TL
 
                 CustomConstructFunctor(CustomFunctorMap& custom_functor_pre, 
                         CustomFunctorMap& custom_functor_post,
-                        DataSharing &global_data_sharing,
+                        OpenMP::Info openmp_info,
                         bool &disable_clause_warnings)
                     : _custom_functor_pre(custom_functor_pre),
                     _custom_functor_post(custom_functor_post),
-                    _global_data_sharing(global_data_sharing),
-                    _disable_clause_warnings(disable_clause_warnings)
-            {
-            }
+                    _openmp_info(openmp_info),
+                    _disable_clause_warnings(disable_clause_warnings) { }
         };
 
         //! Base class for any implementation of OpenMP in Mercurium
@@ -800,7 +806,6 @@ namespace TL
                 AST_t translation_unit;
                 ScopeLink scope_link;
                 Scope global_scope;
-                DataSharing global_data_sharing;
                 bool _disable_clause_warnings;
             public:
 
@@ -845,8 +850,7 @@ namespace TL
                 virtual void init(DTO& data_flow);
 
                 OpenMPPhase() 
-                    : global_data_sharing(NULL), 
-                    _disable_clause_warnings(false)
+                    : _disable_clause_warnings(false)
                 { 
                 }
 
