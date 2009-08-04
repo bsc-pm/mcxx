@@ -122,10 +122,6 @@ struct scan_file_descriptor scanning_now;
 
 static const char* main_input_filename;
 
-static int omp_var_list_parentheses = 0;
-static int omp_schedule_parentheses = 0;
-static char omp_seen_schedule_kind = 0;
-
 static int pragma_custom_var_list_parentheses = 0;
 
 static const char *current_pragma_prefix = NULL;
@@ -152,6 +148,11 @@ static int include_counter;
 static void verbatim_buffer_append(const char* c);
 static void verbatim_buffer_free(void);
 static const char* verbatim_buffer_get(void);
+
+
+static const char* return_pragma_prefix_longest_match(const char* prefix, 
+        const char* lexed_directive,
+        pragma_directive_kind_t* kind);
 
 
 %}
@@ -388,19 +389,28 @@ identifier {
 
 <pragma_custom_directive>{
 
-{identifier} {
+{identifier}([ \t]+{identifier})* {
 	BEGIN(pragma_custom_clause_first);
 
-    pragma_directive_kind_t directive_kind = lookup_pragma_directive(current_pragma_prefix, yytext);
+    pragma_directive_kind_t directive_kind = PDK_NONE; 
+    // lookup_pragma_directive(current_pragma_prefix, yytext);
+
+    // This call will unput appropriately what was lexed too much
+    const char* longest_match = return_pragma_prefix_longest_match(
+            current_pragma_prefix, yytext, &directive_kind);
 
     if (directive_kind == PDK_NONE)
     {
         // Give a chance to the empty "directive" since some ill-designed
         // pragmas might need this
         directive_kind = lookup_pragma_directive(current_pragma_prefix, "");
+        parse_token_text(); 
+    }
+    else
+    {
+        parse_token_text_str(longest_match);
     }
 
-	parse_token_text(); 
 
     int token = 0;
     switch (directive_kind)
@@ -540,11 +550,6 @@ identifier {
 [,][ \t]* {
     parse_token_text();
     return ',';
-}
-
-[ \t] { 
-    parse_token_text();
-    return PRAGMA_CLAUSE_ARG_TEXT;
 }
 
 \n {
@@ -1308,12 +1313,6 @@ static pragma_directive_kind_t lookup_pragma_directive_inner(pragma_directive_se
 
 pragma_directive_kind_t lookup_pragma_directive(const char* prefix, const char* directive)
 {
-    if (strcmp(prefix, "omp") == 0)
-    {
-        // OpenMP is handled special
-        return lookup_pragma_directive_inner(&CURRENT_CONFIGURATION->pragma_omp_info, directive);
-    }
-
     int i;
     for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)
     {
@@ -1425,4 +1424,145 @@ static void verbatim_buffer_free(void)
 static const char* verbatim_buffer_get(void)
 {
     return _verbatim_buffer;
+}
+
+// I hate that this is not C90
+static char is_blank(char c)
+{
+    return (c == ' ') || (c == '\t');
+}
+
+static int compute_length_match(const char* lexed_directive,
+        const char* available_directive,
+        const char **discard_source)
+{
+    char* lexed = strdup(lexed_directive);
+    char* available = strdup(available_directive);
+
+    char *next_lexed_info = NULL;
+    char *next_lexed = strtok_r(lexed, " ", &next_lexed_info);
+    char *next_available_info = NULL;
+    char *next_available = strtok_r(available, "|", &next_available_info);
+
+    int num_matches = 0;
+
+    while (next_lexed != NULL
+            && next_available != NULL)
+    {
+        if (strcmp(next_lexed, next_available) == 0)
+        {
+            num_matches++;
+            next_lexed = strtok_r(NULL, " ", &next_lexed_info);
+            next_available = strtok_r(NULL, "|", &next_available_info);
+        }
+        else
+        {
+            // Failing one match is enough to discard all of it so we favour
+            // the longest match and discard all partial matches
+            num_matches = 0;
+            break;
+        }
+    }
+
+    free(available);
+    free(lexed);
+
+    // Compute the length of the discards
+    const char* p = lexed_directive;
+
+    if (num_matches != 0)
+    {
+        ERROR_CONDITION((*p == ' ') || (*p == '\t'), 
+                "Invalid lexing, there should not be a leading blank", 0);
+
+        // Skip first match
+        while (!is_blank(*p))
+        {
+            p++;
+        }
+
+        int n = num_matches - 1;
+
+        while ((n > 0)
+                && (*p != '\0'))
+        {
+            // Now advance blanks
+            while (is_blank(*p) 
+                    && (*p != '\0'))
+            {
+                p++;
+            }
+            // And now, non-blanks
+            while (!is_blank(*p) 
+                    && (*p != '\0'))
+            {
+                p++;
+            }
+            n--;
+        }
+
+        // Where p is, is the beginning of the discard area
+        *discard_source = p;
+    }
+
+    return num_matches;
+}
+
+static const char* return_pragma_prefix_longest_match_inner(pragma_directive_set_t* pragma_directive_set,
+        const char* lexed_directive,
+        const char **discard_source,
+        pragma_directive_kind_t* directive_kind)
+{
+    const char* longest_match_so_far = NULL;
+    int length_match = 0;
+
+    int j;
+    for (j = 0; j < pragma_directive_set->num_directives; j++)
+    {
+        const char * current_discard_source = NULL;
+        int current_match = compute_length_match(pragma_directive_set->directive_names[j], 
+                lexed_directive, &current_discard_source);
+
+        if (current_match > length_match)
+        {
+            length_match = current_match;
+            longest_match_so_far = pragma_directive_set->directive_names[j];
+            *discard_source = current_discard_source;
+            *directive_kind = pragma_directive_set->directive_kinds[j];
+        }
+    }
+
+    return longest_match_so_far;
+}
+
+static const char* return_pragma_prefix_longest_match(const char* prefix, 
+        const char* lexed_directive,
+        pragma_directive_kind_t* kind)
+{
+    const char* longest_match = NULL;
+    const char* discard_source = NULL;
+
+    int i;
+    for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)
+    {
+        if (strcmp(CURRENT_CONFIGURATION->pragma_custom_prefix[i], prefix) == 0)
+        {
+            pragma_directive_set_t* pragma_directive_set = CURRENT_CONFIGURATION->pragma_custom_prefix_info[i];
+            longest_match = return_pragma_prefix_longest_match_inner(pragma_directive_set, lexed_directive, 
+                    &discard_source, kind);
+        }
+    }
+
+    if (discard_source != NULL)
+    {
+        // Discard the characters "too much lexed"
+        const char* unput_char = &(lexed_directive[strlen(lexed_directive) - 1]);
+        while (discard_source != unput_char)
+        {
+            unput(*unput_char);
+            unput_char--;
+        }
+    }
+
+    return longest_match;
 }
