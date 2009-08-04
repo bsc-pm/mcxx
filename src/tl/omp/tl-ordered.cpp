@@ -28,7 +28,7 @@ namespace TL
         {
             Symbol induction_var = induction_var_stack.top();
 
-            Statement construct_body = ordered_construct.body();
+            Statement construct_body = ordered_construct.get_statement();
             Source ordered_source;
 
             ordered_source

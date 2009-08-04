@@ -29,7 +29,7 @@ namespace TL
             // TODO - An atomic can be implemented better
             Source critical_source;
 
-            Statement critical_body = atomic_construct.body();
+            Statement critical_body = atomic_construct.get_statement();
 
             critical_source
                 << "{"

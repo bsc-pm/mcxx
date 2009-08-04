@@ -23,7 +23,7 @@ namespace TL
 {
     namespace Nanos4
     {
-        static std::string schedule_constant_name(OpenMP::ScheduleClause schedule_clause);
+        static std::string schedule_constant_name(const std::string& str);
 
         Source OpenMPTransform::get_loop_distribution_in_sections(
                 int num_sections,
@@ -75,8 +75,7 @@ namespace TL
                 ForStatement for_statement,
                 OpenMP::Construct &for_construct,
                 ReplaceIdExpression replace_references,
-                FunctionDefinition function_definition,
-                OpenMP::Directive directive)
+                FunctionDefinition function_definition)
         {
             Source parallel_for_body;
 
@@ -146,16 +145,15 @@ namespace TL
                 << "nth_chunk = " << schedule_chunk << ";"
                 ;
 
-            OpenMP::ScheduleClause schedule_clause = directive.schedule_clause();
+            PragmaCustomClause schedule_clause = for_construct.get_clause("schedule");
             if (schedule_clause.is_defined())
             {
-                schedule_const << schedule_constant_name(schedule_clause);
+                ObjectList<std::string> args = schedule_clause.get_arguments();
+                schedule_const << schedule_constant_name(args[0]);
 
-                AST_t schedule_chunk_tree = schedule_clause.get_chunk();
-
-                if (schedule_chunk_tree.is_valid())
+                if (args.size() > 1)
                 {
-                    schedule_chunk << schedule_chunk_tree.prettyprint();
+                    schedule_chunk << args[1];
                 }
                 else
                 {
@@ -167,11 +165,6 @@ namespace TL
                 schedule_const << "INTONE_SCH_DEFAULT";
                 schedule_chunk << "0";
             }
-
-            // #define INTONE_DEFAULT              0
-            // #define INTONE_STATIC               1
-            // #define INTONE_DYNAMIC              2
-            // #define INTONE_GUIDED               4
 
             // Loop distribution
             Source modified_loop_body;
@@ -226,25 +219,21 @@ namespace TL
             return loop_finalization;
         }
 
-        static std::string schedule_constant_name(OpenMP::ScheduleClause schedule_clause)
+        static std::string schedule_constant_name(const std::string& schedule_name)
         {
-            if (!schedule_clause.is_defined())
-            {
-                return "INTONE_SCH_DEFAULT";
-            }
-            else if (schedule_clause.is_static())
+            if (schedule_name == "static")
             {
                 return "INTONE_SCH_STATIC";
             }
-            else if (schedule_clause.is_dynamic())
+            else if (schedule_name == "dynamic")
             {
                 return "INTONE_SCH_DYNAMIC";
             }
-            else if (schedule_clause.is_guided())
+            else if (schedule_name == "guided")
             {
                 return "INTONE_SCH_GUIDED";
             }
-            else if (schedule_clause.is_runtime())
+            else if (schedule_name == "runtime")
             {
                 return "INTONE_SCH_RUNTIME";
             }

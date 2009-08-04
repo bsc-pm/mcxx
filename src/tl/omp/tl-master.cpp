@@ -28,7 +28,7 @@ namespace TL
         {
             Source master_source;
 
-            Statement statement = master_construct.body();
+            Statement statement = master_construct.get_statement();
 
             master_source
                 << "if (in__tone_is_master_())"

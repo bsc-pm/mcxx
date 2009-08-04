@@ -16,12 +16,14 @@ namespace TL
                 virtual void register_omp_constructs();
 
                 // Handler functions
-#define DIRECTIVE_INFO(_name) \
-                void _name##_handler(PragmaCustomConstruct);
-#define CONSTRUCT_INFO(_name) DIRECTIVE_INFO(_name)
-#include "tl-omp-core.def"
-#undef DIRECTIVE_INFO
-#undef CONSTRUCT_INFO
+#define OMP_DIRECTIVE(_name, _class, _subclass, _attr_name, _functor_name) \
+                void _name##_handler_pre(PragmaCustomConstruct); \
+                void _name##_handler_post(PragmaCustomConstruct);
+#define OMP_CONSTRUCT(_name, _class, _subclass, _attr_name, _functor_name) \
+                OMP_DIRECTIVE(_name, _class, _subclass, _attr_name, _functor_name)
+#include "tl-omp-constructs.def"
+#undef OMP_CONSTRUCT
+#undef OMP_DIRECTIVE
 
                 RefPtr<OpenMP::Info> _openmp_info;
 
@@ -32,8 +34,17 @@ namespace TL
                 void get_data_implicit_attributes(PragmaCustomConstruct construct, 
                         DataAttribute default_data_attr, 
                         DataSharing& data_sharing);
+                void get_data_implicit_attributes_task(PragmaCustomConstruct construct,
+                        DataSharing& data_sharing,
+                        DataAttribute default_data_attr);
+
                 DataAttribute get_default_data_sharing(PragmaCustomConstruct construct,
                         DataAttribute fallback_data_sharing);
+
+                void common_parallel_handler(PragmaCustomConstruct ctr, DataSharing& data_sharing);
+                void common_for_handler(PragmaCustomConstruct ctr, DataSharing& data_sharing);
+                void common_workshare_handler(PragmaCustomConstruct construct, DataSharing& data_sharing);
+
             public:
                 Core();
 

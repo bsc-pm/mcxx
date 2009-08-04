@@ -160,9 +160,9 @@ namespace TL
 
                 void taskwait_postorder(OpenMP::TaskWaitDirective taskwait_construct);
 
-                void taskyield_postorder(OpenMP::CustomConstruct taskyield_construct);
+                void taskyield_postorder(PragmaCustomConstruct taskyield_construct);
 
-                void taskgroup_postorder(OpenMP::CustomConstruct taskgroup_construct);
+                void taskgroup_postorder(PragmaCustomConstruct taskgroup_construct);
 
                 void flush_postorder(OpenMP::FlushDirective flush_directive);
 
@@ -175,9 +175,9 @@ namespace TL
                         ScopeLink scope_link,
                         ObjectList<ParameterInfo> parameter_info_list,
                         ObjectList<OpenMP::ReductionSymbol> reduction_references,
-                        OpenMP::Clause if_clause,
-                        OpenMP::Clause num_threads_clause,
-                        OpenMP::CustomClause groups_clause,
+                        PragmaCustomClause if_clause,
+                        PragmaCustomClause num_threads_clause,
+                        PragmaCustomClause groups_clause,
                         Source& instrument_code_before,
                         Source& instrument_code_after);
 
@@ -189,8 +189,8 @@ namespace TL
                         ScopeLink scope_link,
                         ObjectList<ParameterInfo> parameter_info_list,
                         ObjectList<OpenMP::ReductionSymbol> reduction_references,
-                        OpenMP::Clause num_threads_clause,
-                        OpenMP::CustomClause groups_clause,
+                        PragmaCustomClause num_threads_clause,
+                        PragmaCustomClause groups_clause,
                         Source& instrument_code_before,
                         Source& instrument_code_after);
                 AST_t get_parallel_spawn_code_with_team(
@@ -200,9 +200,9 @@ namespace TL
                         ScopeLink scope_link,
                         ObjectList<ParameterInfo> parameter_info_list,
                         ObjectList<OpenMP::ReductionSymbol> reduction_references,
-                        OpenMP::Clause if_clause,
-                        OpenMP::Clause num_threads_clause,
-                        OpenMP::CustomClause groups_clause,
+                        PragmaCustomClause if_clause,
+                        PragmaCustomClause num_threads_clause,
+                        PragmaCustomClause groups_clause,
                         Source& instrument_code_before,
                         Source& instrument_code_after);
 
@@ -296,35 +296,10 @@ namespace TL
                         ObjectList<Symbol> lastprivate_references,
                         ObjectList<OpenMP::ReductionSymbol> reduction_references,
                         ObjectList<Symbol> copyin_references,
-                        ObjectList<Symbol> copyprivate_references,
-                        OpenMP::Directive directive
+                        ObjectList<Symbol> copyprivate_references
                         );
 
-                void get_data_explicit_attributes(
-                        OpenMP::Construct &construct,
-                        OpenMP::Directive directive,
-                        ObjectList<Symbol>& shared_references,
-                        ObjectList<Symbol>& private_references,
-                        ObjectList<Symbol>& firstprivate_references,
-                        ObjectList<Symbol>& lastprivate_references,
-                        ObjectList<OpenMP::ReductionSymbol>& reduction_references,
-                        ObjectList<Symbol>& copyin_references,
-                        ObjectList<Symbol>& copyprivate_references);
-
-                void get_data_attributes(
-                        OpenMP::Construct &construct,
-                        OpenMP::Directive directive,
-                        Statement construct_body,
-                        ObjectList<Symbol>& shared_references,
-                        ObjectList<Symbol>& private_references,
-                        ObjectList<Symbol>& firstprivate_references,
-                        ObjectList<Symbol>& lastprivate_references,
-                        ObjectList<OpenMP::ReductionSymbol>& reduction_references,
-                        ObjectList<Symbol>& copyin_references,
-                        ObjectList<Symbol>& copyprivate_references);
-
                 ReplaceIdExpression set_replacements(FunctionDefinition function_definition,
-                        OpenMP::Directive directive,
                         Statement construct_body,
                         ObjectList<Symbol>& shared_references,
                         ObjectList<Symbol>& private_references,
@@ -338,7 +313,6 @@ namespace TL
                         bool share_always = false);
 
                 ReplaceIdExpression set_replacements_inline(FunctionDefinition function_definition,
-                        OpenMP::Directive,
                         Statement construct_body,
                         ObjectList<Symbol>& shared_references,
                         ObjectList<Symbol>& private_references,
@@ -357,8 +331,7 @@ namespace TL
                 Source get_loop_distribution_code(ForStatement for_statement,
                         OpenMP::Construct &construct,
                         ReplaceIdExpression replace_references,
-                        FunctionDefinition function_definition,
-                        OpenMP::Directive directive);
+                        FunctionDefinition function_definition);
 
                 Source get_loop_finalization(bool do_barrier);
 
@@ -414,6 +387,7 @@ namespace TL
                 Symbol warn_no_data_sharing(Symbol sym);
 
                 // Dependences support
+#if 0
                 void handle_dependences(OpenMP::Directive directive,
                         ObjectList<Expression> &input_dependences,
                         ObjectList<Expression> &output_dependences,
@@ -423,19 +397,16 @@ namespace TL
 
                 static Symbol handle_dep_expr(Expression expr);
                 static Symbol handle_scalar_dep_expr(Expression expr);
+#endif
 
                 Source debug_parameter_info(
                         ObjectList<ParameterInfo> parameter_info_list);
-
-                void add_data_attribute_to_list(
-                        OpenMP::Construct &construct,
-                        ObjectList<Symbol> list_id_expressions,
-                        OpenMP::DataAttribute data_attrib);
 
                 // #pragma omp declare
                 void declare_reduction_postorder(OpenMP::DeclareReductionConstruct construct);
 
                 // #pragma omp task special support
+#if 0
                 void task_compute_explicit_data_sharing(
                         OpenMP::Directive &directive,
                         ObjectList<Symbol> &captureaddress_references,
@@ -454,12 +425,12 @@ namespace TL
                         FunctionDefinition &function_definition,
                         Statement &construct_body,
                         OpenMP::Construct &construct);
+#endif
 
                 Source task_get_spawn_code(
                         ObjectList<ParameterInfo> &parameter_info_list,
                         FunctionDefinition &function_definition,
                         OpenMP::Construct &task_construct,
-                        OpenMP::Directive &directive,
                         Statement& construct_body,
                         AST_t& original_code);
 
@@ -469,15 +440,15 @@ namespace TL
                 // --- Transactional world --
                 class STMExpressionReplacement;
 
-                void stm_transaction_preorder(OpenMP::CustomConstruct protect_construct);
-                void stm_transaction_postorder(OpenMP::CustomConstruct protect_construct);
+                void stm_transaction_preorder(PragmaCustomConstruct protect_construct);
+                void stm_transaction_postorder(PragmaCustomConstruct protect_construct);
 
-                void stm_retry_postorder(OpenMP::CustomConstruct protect_construct);
+                void stm_retry_postorder(PragmaCustomConstruct protect_construct);
 
-                void stm_preserve_postorder(OpenMP::CustomConstruct protect_construct);
+                void stm_preserve_postorder(PragmaCustomConstruct protect_construct);
 
-                void stm_transaction_full_stm(OpenMP::CustomConstruct transaction_construct);
-                void stm_transaction_global_lock(OpenMP::CustomConstruct transaction_construct);
+                void stm_transaction_full_stm(PragmaCustomConstruct transaction_construct);
+                void stm_transaction_global_lock(PragmaCustomConstruct transaction_construct);
 
                 void stm_replace_init_declarators(AST_t transaction_tree,
                         STMExpressionReplacement &expression_replacement,
@@ -488,15 +459,15 @@ namespace TL
                         STMExpressionReplacement &expression_replacement,
                         ScopeLink scope_link);
                 void stm_replace_code(
-                        OpenMP::CustomConstruct transaction_construct,
+                        PragmaCustomConstruct transaction_construct,
                         AST_t&replaced_tree, 
                         AST_t& inner_tree,
                         ObjectList<Symbol> &local_symbols,
                         bool from_wrapped_function);
 
                 // ADF part of STM
-                void adf_task_preorder(OpenMP::CustomConstruct adf_construct);
-                void adf_task_postorder(OpenMP::CustomConstruct adf_construct);
+                void adf_task_preorder(PragmaCustomConstruct adf_construct);
+                void adf_task_postorder(PragmaCustomConstruct adf_construct);
 
                 // --- End of transactional world --
                 

@@ -29,8 +29,7 @@ namespace TL
             Source single_source;
             Source barrier_code;
 
-            Statement body_construct = single_construct.body();
-            OpenMP::Directive directive = single_construct.directive();
+            Statement body_construct = single_construct.get_statement();
 
             single_source
                 << "{"
@@ -63,7 +62,7 @@ namespace TL
                 << "}"
                 ;
 
-            OpenMP::Clause nowait_clause = directive.nowait_clause();
+            PragmaCustomClause nowait_clause = single_construct.get_clause("nowait");
             barrier_code = get_loop_finalization(!(nowait_clause.is_defined()));
 
             AST_t single_tree = single_source.parse_statement(single_construct.get_ast(), 

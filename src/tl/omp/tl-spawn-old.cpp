@@ -31,8 +31,8 @@ namespace TL
                 ScopeLink scope_link,
                 ObjectList<ParameterInfo> parameter_info_list,
                 ObjectList<OpenMP::ReductionSymbol> reduction_references,
-                OpenMP::Clause num_threads_clause,
-                OpenMP::CustomClause groups_clause,
+                PragmaCustomClause num_threads_clause,
+                PragmaCustomClause groups_clause,
                 Source &instrument_code_before,
                 Source &instrument_code_after)
         {

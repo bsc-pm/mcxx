@@ -1,7 +1,9 @@
-SUBDIRS = . hlt omp_core 
+SUBDIRS = . hlt omp_core omp
 # @TLEXTENSIONS@ 
 
 END=
+
+DIST_SUBDIRS=omp
 
 # DIST_SUBDIRS=omp instr instr_pthreads acotes examples stm_func superscalar nanos testing hlt acotes-msf
 

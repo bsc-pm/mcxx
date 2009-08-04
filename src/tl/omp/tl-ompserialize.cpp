@@ -95,8 +95,8 @@ namespace TL
                             it++)
                     {
                         // FIXME - This is pathetic :)
-                        OpenMP::CustomConstruct task_construct(*it, scope_link, NULL, NULL);
-                        Statement stmt = task_construct.body();
+                        PragmaCustomConstruct task_construct(*it, scope_link);
+                        Statement stmt = task_construct.get_statement();
 
                         // Now find all function calls 
                         // FIXME - We should factorize this

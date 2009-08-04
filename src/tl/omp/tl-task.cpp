@@ -25,24 +25,17 @@ namespace TL
 {
     namespace Nanos4
     {
-        // Defined at the end of the file
-        static std::string get_representative_dependence_expr(Expression expr);
-        static std::string get_size_dependence_expr(Expression expr);
-        static std::string get_align_dependence_expr(Expression expr);
-
         void OpenMPTransform::task_preorder(OpenMP::TaskConstruct task_construct)
         {
-            // Get the directive of the task construct
-            OpenMP::Directive directive = task_construct.directive();
-
             // Get the related statement of this task construct
-            Statement construct_body = task_construct.body();
+            Statement construct_body = task_construct.get_statement();
 
             // Get the enclosing function definition
             FunctionDefinition function_definition = task_construct.get_enclosing_function();
             // and its scope
             Scope function_scope = function_definition.get_scope();
 
+            // FIXME
             // Data sharing information
             ObjectList<Symbol> & captureaddress_references = 
                 task_construct.get_data<ObjectList<Symbol> >("captureaddress_references");
@@ -56,36 +49,27 @@ namespace TL
                 task_construct.get_data<AST_t>("original_code");
             original_code = construct_body.get_ast();
 
-            task_compute_explicit_data_sharing(directive, captureaddress_references,
-                    local_references,
-                    captureprivate_references,
-                    function_scope,
-                    function_definition,
-                    task_construct);
+            OpenMP::DataSharing &data_sharing = task_construct.get_data_sharing();
 
-            task_compute_implicit_data_sharing(directive, captureaddress_references,
-                    local_references,
-                    captureprivate_references,
-                    function_scope,
-                    function_definition,
-                    construct_body,
-                    task_construct);
-            
+            data_sharing.get_all_symbols(OpenMP::DA_SHARED, captureaddress_references);
+            data_sharing.get_all_symbols(OpenMP::DA_PRIVATE, local_references);
+            data_sharing.get_all_symbols(OpenMP::DA_FIRSTPRIVATE, captureprivate_references);
+
             // Task dependence information
-            ObjectList<Expression> & input_dependences =
-                task_construct.get_data<ObjectList<Expression> >("input_dependences");
-            ObjectList<Expression> & output_dependences =
-                task_construct.get_data<ObjectList<Expression> >("output_dependences");
+            // ObjectList<Expression> & input_dependences =
+            //     task_construct.get_data<ObjectList<Expression> >("input_dependences");
+            // ObjectList<Expression> & output_dependences =
+            //     task_construct.get_data<ObjectList<Expression> >("output_dependences");
 
-            if ( Nanos4::Version::is_family("trunk") &&
-                    Nanos4::Version::version >= 4202 ) 
-            {
-                handle_dependences(directive, 
-                        input_dependences, output_dependences, 
-                        task_construct, 
-                        captureaddress_references,
-                        captureprivate_references);
-            }
+            // if ( Nanos4::Version::is_family("trunk") &&
+            //         Nanos4::Version::version >= 4202 ) 
+            // {
+            //     handle_dependences(directive, 
+            //             input_dependences, output_dependences, 
+            //             task_construct, 
+            //             captureaddress_references,
+            //             captureprivate_references);
+            // }
         }
 
         void OpenMPTransform::task_postorder(OpenMP::TaskConstruct task_construct)
@@ -93,11 +77,8 @@ namespace TL
             // Another parallel
             num_parallels++;
 
-            // Get the directive of the task construct
-            OpenMP::Directive directive = task_construct.directive();
-
             // Get the related statement of this task construct
-            Statement construct_body = task_construct.body();
+            Statement construct_body = task_construct.get_statement();
 
             // Get the enclosing function definition
             FunctionDefinition function_definition = task_construct.get_enclosing_function();
@@ -129,7 +110,6 @@ namespace TL
 
             ReplaceIdExpression replace_references  = 
                 set_replacements(function_definition,
-                        directive,
                         construct_body,
                         captured_references, // Captured entities (firstprivate and shared)
                         local_references, // Private entities (private clause)
@@ -175,7 +155,6 @@ namespace TL
             task_queueing = task_get_spawn_code(parameter_info_list,
                     function_definition, 
                     task_construct,
-                    directive,
                     construct_body,
                     original_code);
 
@@ -191,7 +170,6 @@ namespace TL
                 ObjectList<ParameterInfo> &parameter_info_list,
                 FunctionDefinition &function_definition,
                 OpenMP::Construct &task_construct,
-                OpenMP::Directive &directive,
                 Statement &construct_body,
                 AST_t &original_code)
         {
@@ -306,7 +284,7 @@ namespace TL
 
             // 'untied' clause support
             Source task_type;
-            if (directive.custom_clause("untied").is_defined())
+            if (task_construct.get_clause("untied").is_defined())
             {
                 task_type << "NTH_DTYPE_TEAM";
             }
@@ -492,7 +470,7 @@ namespace TL
                 <<    "nth_cutoff_res_t nth_cutoff = NTH_CUTOFF_IMMEDIATE;"
                 ;
 
-            OpenMP::Clause if_clause = directive.if_clause();
+            PragmaCustomClause if_clause = task_construct.get_clause("if");
             Source if_clause_check;
 
             if (if_clause.is_defined())
@@ -526,127 +504,127 @@ namespace TL
                     ;
             }
 
-            if (!input_dependences.empty())
-            {
-                ObjectList<Expression>::iterator it_begin = input_dependences.begin();
-                ObjectList<Expression>::iterator it_end = input_dependences.end();
-                ObjectList<Expression>::iterator it;
+            // if (!input_dependences.empty())
+            // {
+            //     ObjectList<Expression>::iterator it_begin = input_dependences.begin();
+            //     ObjectList<Expression>::iterator it_end = input_dependences.end();
+            //     ObjectList<Expression>::iterator it;
 
-                int num_dep = 0;
-                for ( it = it_begin; it != it_end; it++ ) 
-                {
-                    Expression &expr = *it;
-                    Symbol sym = handle_dep_expr(expr);
-                    Type pointer_type = sym.get_type().get_pointer_to();
+            //     int num_dep = 0;
+            //     for ( it = it_begin; it != it_end; it++ ) 
+            //     {
+            //         Expression &expr = *it;
+            //         Symbol sym = handle_dep_expr(expr);
+            //         Type pointer_type = sym.get_type().get_pointer_to();
 
-                    // Find the position of the related symbol in the arguments
-                    bool found = false;
-                    int referred_num_ref = -1;
+            //         // Find the position of the related symbol in the arguments
+            //         bool found = false;
+            //         int referred_num_ref = -1;
 
-                    for (ObjectList<ParameterInfo>::iterator it2 = parameter_info_list.begin();
-                            it2 != parameter_info_list.end();
-                            it2++)
-                    {
-                        if (it2->symbol == sym)
-                        {
-                            found = true;
-                            referred_num_ref = it2->parameter_position;
-                            break;
-                        }
-                    }
+            //         for (ObjectList<ParameterInfo>::iterator it2 = parameter_info_list.begin();
+            //                 it2 != parameter_info_list.end();
+            //                 it2++)
+            //         {
+            //             if (it2->symbol == sym)
+            //             {
+            //                 found = true;
+            //                 referred_num_ref = it2->parameter_position;
+            //                 break;
+            //             }
+            //         }
 
-                    if (!found)
-                    {
-                        internal_error("Not found proper symbol %s", sym.get_name().c_str());
-                    }
+            //         if (!found)
+            //         {
+            //             internal_error("Not found proper symbol %s", sym.get_name().c_str());
+            //         }
 
-                    inputs_prologue
-                        << comment("Find an output to connect input '" + expr.prettyprint() + "'")
-                        << "nth_outdep_t *connect_" << sym.get_name() << "_dep_" << num_dep << " = nth_find_output_dep_in_scope(nth_self_task_ctx,"
-                        << get_representative_dependence_expr(expr)
-                        << ");"
-                        ;
+            //         inputs_prologue
+            //             << comment("Find an output to connect input '" + expr.prettyprint() + "'")
+            //             << "nth_outdep_t *connect_" << sym.get_name() << "_dep_" << num_dep << " = nth_find_output_dep_in_scope(nth_self_task_ctx,"
+            //             << get_representative_dependence_expr(expr)
+            //             << ");"
+            //             ;
 
-                    inputs_epilogue
-                        << comment("Register input dependence '" + expr.prettyprint() + "'")
-                        << "nth_add_input_to_task(nth_self_task_ctx, nth->task_ctx, "
-                        // NULL means let Nanos allocate it
-                        <<                    "(void*)0,"
-                        <<                    "connect_" << sym.get_name() << "_dep_" << num_dep << ", "
-                        <<                    get_representative_dependence_expr(expr) << ", "
-                        <<                    get_size_dependence_expr(expr) << ", "
-                        <<                    get_align_dependence_expr(expr) << ", "
-                        <<                    "nth_arg_addr[" << (referred_num_ref + 1) << "]);"
-                        ;
+            //         inputs_epilogue
+            //             << comment("Register input dependence '" + expr.prettyprint() + "'")
+            //             << "nth_add_input_to_task(nth_self_task_ctx, nth->task_ctx, "
+            //             // NULL means let Nanos allocate it
+            //             <<                    "(void*)0,"
+            //             <<                    "connect_" << sym.get_name() << "_dep_" << num_dep << ", "
+            //             <<                    get_representative_dependence_expr(expr) << ", "
+            //             <<                    get_size_dependence_expr(expr) << ", "
+            //             <<                    get_align_dependence_expr(expr) << ", "
+            //             <<                    "nth_arg_addr[" << (referred_num_ref + 1) << "]);"
+            //             ;
 
-                    inputs_immediate
-                        << comment("Satisfy input dependence '" + expr.prettyprint() + "'")
-                        << "nth_indep_t nth_" << sym.get_name() << "_indep_" << num_dep << ";"
-                        << "nth_satisfy_input_dep(nth_self_task_ctx, &nth_ctx, "
-                        <<         "&nth_" << sym.get_name() << "_indep_" << num_dep << ", "
-                        <<         "connect_" << sym.get_name() << "_dep_" << num_dep << ", "
-                        <<         get_representative_dependence_expr(expr) << ", "
-                        <<         get_size_dependence_expr(expr) << ", "
-                        <<         get_align_dependence_expr(expr) 
-                        << ");"
-                        ;
+            //         inputs_immediate
+            //             << comment("Satisfy input dependence '" + expr.prettyprint() + "'")
+            //             << "nth_indep_t nth_" << sym.get_name() << "_indep_" << num_dep << ";"
+            //             << "nth_satisfy_input_dep(nth_self_task_ctx, &nth_ctx, "
+            //             <<         "&nth_" << sym.get_name() << "_indep_" << num_dep << ", "
+            //             <<         "connect_" << sym.get_name() << "_dep_" << num_dep << ", "
+            //             <<         get_representative_dependence_expr(expr) << ", "
+            //             <<         get_size_dependence_expr(expr) << ", "
+            //             <<         get_align_dependence_expr(expr) 
+            //             << ");"
+            //             ;
 
-                    num_dep++;
-                }
-            }
+            //         num_dep++;
+            //     }
+            // }
 
             // output dependences 
-            if (!output_dependences.empty())
-            {
-                ObjectList<Expression>::iterator it_begin = output_dependences.begin();
-                ObjectList<Expression>::iterator it_end = output_dependences.end();
-                ObjectList<Expression>::iterator it;
+            // if (!output_dependences.empty())
+            // {
+            //     ObjectList<Expression>::iterator it_begin = output_dependences.begin();
+            //     ObjectList<Expression>::iterator it_end = output_dependences.end();
+            //     ObjectList<Expression>::iterator it;
 
-                for ( it = it_begin; it != it_end; it++ ) 
-                {
-                    Expression &expr = *it;
-                    Symbol sym = handle_dep_expr(expr);
+            //     for ( it = it_begin; it != it_end; it++ ) 
+            //     {
+            //         Expression &expr = *it;
+            //         Symbol sym = handle_dep_expr(expr);
 
-                    // Find the position of the related symbol in the arguments
-                    bool found = false;
-                    int referred_num_ref = -1;
+            //         // Find the position of the related symbol in the arguments
+            //         bool found = false;
+            //         int referred_num_ref = -1;
 
-                    for (ObjectList<ParameterInfo>::iterator it2 = parameter_info_list.begin();
-                            it2 != parameter_info_list.end();
-                            it2++)
-                    {
-                        if (it2->symbol == sym)
-                        {
-                            found = true;
-                            referred_num_ref = it2->parameter_position;
-                            break;
-                        }
-                    }
+            //         for (ObjectList<ParameterInfo>::iterator it2 = parameter_info_list.begin();
+            //                 it2 != parameter_info_list.end();
+            //                 it2++)
+            //         {
+            //             if (it2->symbol == sym)
+            //             {
+            //                 found = true;
+            //                 referred_num_ref = it2->parameter_position;
+            //                 break;
+            //             }
+            //         }
 
-                    if (!found)
-                    {
-                        internal_error("Not found proper symbol %s", sym.get_name().c_str());
-                    }
+            //         if (!found)
+            //         {
+            //             internal_error("Not found proper symbol %s", sym.get_name().c_str());
+            //         }
 
-                    outputs_epilogue 
-                        << comment("Register output dependence of symbol '" + expr.prettyprint() + "'")
-                        << "nth_add_output_to_task(nth_self_task_ctx, nth->task_ctx, "
-                        // NULL means let Nanos allocate it
-                        <<                    "(void*)0,"
-                        <<                    get_representative_dependence_expr(expr) << ", "
-                        <<                    get_size_dependence_expr(expr) << ", "
-                        <<                    get_align_dependence_expr(expr) << ", "
-                        <<                    "nth_arg_addr[" << (referred_num_ref + 1) << "]);"
-                        ;
+            //         outputs_epilogue 
+            //             << comment("Register output dependence of symbol '" + expr.prettyprint() + "'")
+            //             << "nth_add_output_to_task(nth_self_task_ctx, nth->task_ctx, "
+            //             // NULL means let Nanos allocate it
+            //             <<                    "(void*)0,"
+            //             <<                    get_representative_dependence_expr(expr) << ", "
+            //             <<                    get_size_dependence_expr(expr) << ", "
+            //             <<                    get_align_dependence_expr(expr) << ", "
+            //             <<                    "nth_arg_addr[" << (referred_num_ref + 1) << "]);"
+            //             ;
 
-                    outputs_immediate
-                        << comment("Notify we have an output dependence of symbol '" + expr.prettyprint() + "'")
-                        << "nth_shadow_output_dep(nth_self_task_ctx, "
-                        <<        get_representative_dependence_expr(expr)
-                        << ");"
-                        ;
-                }
-            }
+            //         outputs_immediate
+            //             << comment("Notify we have an output dependence of symbol '" + expr.prettyprint() + "'")
+            //             << "nth_shadow_output_dep(nth_self_task_ctx, "
+            //             <<        get_representative_dependence_expr(expr)
+            //             << ");"
+            //             ;
+            //     }
+            // }
 
             // FIXME: Instrumentation is still missing!!!
             task_queueing
@@ -758,381 +736,6 @@ namespace TL
                     /* team_parameter */ false);
         }
 
-        // Data sharing computation for tasks.
-        //
-        // Tasks have slightly different requirements to other OpenMP constructs so their code
-        // can't be merged easily
-
-        void OpenMPTransform::task_compute_explicit_data_sharing(
-                OpenMP::Directive &directive,
-                ObjectList<Symbol> &captureaddress_references,
-                ObjectList<Symbol> &local_references,
-                ObjectList<Symbol> &captureprivate_references,
-                Scope& function_scope,
-                FunctionDefinition &function_definition,
-                OpenMP::Construct &task_construct)
-        {
-            // Get references in local clause
-            OpenMP::Clause private_clause = directive.private_clause();
-            ObjectList<IdExpression> local_references_in_clause = private_clause.id_expressions();
-            // Those stated by the user to be local are local_references
-            local_references.insert(local_references_in_clause.map(functor(&IdExpression::get_symbol)));
-
-            OpenMP::Clause shared_clause = directive.shared_clause();
-
-            // Get all the identifiers of the captureaddress clause
-            ObjectList<IdExpression> captureaddress_references_in_clause = shared_clause.id_expressions();
-
-            {
-                // Legacy check
-                ObjectList<std::string> legacy_captureaddress_names;
-                legacy_captureaddress_names.append("captureaddress");
-                legacy_captureaddress_names.append("capture_address");
-
-                OpenMP::CustomClause legacy_captureaddress_clause = directive.custom_clause(legacy_captureaddress_names);
-
-                if (legacy_captureaddress_clause.is_defined())
-                {
-                    std::cerr << legacy_captureaddress_clause.get_ast().get_locus() 
-                        << ": warning: clauses 'captureaddress' and 'capture_address' are deprecated, instead use 'shared'"
-                        << std::endl;
-                    // Now get the id-expressions for backward compatibility
-                    captureaddress_references_in_clause.append(legacy_captureaddress_clause.id_expressions());
-                }
-            }
-
-            {
-                // We discard symbols here referenced in captureaddress
-                // clause that can be referenced in the outline (thus, they
-                // come from an outer scope to this whole function)
-                for (ObjectList<IdExpression>::iterator it = captureaddress_references_in_clause.begin();
-                        it != captureaddress_references_in_clause.end();
-                        it++)
-                {
-                    Symbol global_sym = function_scope.get_symbol_from_id_expr(it->get_ast());
-
-                    if (!global_sym.is_valid() 
-                            || global_sym != it->get_symbol()
-                            || is_unqualified_member_symbol(it->get_symbol(), function_definition))
-                    {
-                        // If the symbol found in the function scope is not
-                        // the same as the one referenced in the
-                        // captureaddress it will be really
-                        // 'captureaddressed', otherwise it can be
-                        // referenced from the outline
-                        captureaddress_references.insert(it->get_symbol());
-                    }
-                }
-            }
-
-            // Set the data sharing attribute 'shared' to all captureaddress
-            add_data_attribute_to_list(task_construct, captureaddress_references, OpenMP::DA_SHARED);
-
-            OpenMP::Clause captureprivate_clause = directive.firstprivate_clause();
-            // Get the identifiers of the capturevalue clause
-            ObjectList<IdExpression> captureprivate_references_in_clause = captureprivate_clause.id_expressions();
-
-            // Legacy check
-            {
-                ObjectList<std::string> legacy_captureprivate_names;
-                legacy_captureprivate_names.append("captureprivate");
-                legacy_captureprivate_names.append("capture_private");
-                legacy_captureprivate_names.append("capturevalue");
-                legacy_captureprivate_names.append("capture_value");
-
-                OpenMP::CustomClause legacy_captureprivate_clause 
-                    = directive.custom_clause(legacy_captureprivate_names);
-
-                if (legacy_captureprivate_clause.is_defined())
-                {
-                    std::cerr << legacy_captureprivate_clause.get_ast().get_locus() << ": warning: clauses 'captureprivate',"
-                        << "'capture_private', 'capturevalue' and 'capture_value' are deprecated. Instead use 'firstprivate'."
-                        << std::endl;
-
-                    // Now append the found things for joy of the user (does not check for repeated things!)
-                    captureprivate_references_in_clause.append(legacy_captureprivate_clause.id_expressions());
-                }
-            }
-
-            // As stated by the user, everything in the clause is already
-            // capturevalued (no pruning here as we did for captureaddress)
-            captureprivate_references.insert(captureprivate_references_in_clause.map(functor(&IdExpression::get_symbol)));
-
-            // Set the data sharing attribute 'firstprivate' to all captureaddress
-            add_data_attribute_to_list(task_construct, captureprivate_references, OpenMP::DA_FIRSTPRIVATE);
-        }
-
-        void OpenMPTransform::task_compute_implicit_data_sharing(
-                OpenMP::Directive &directive,
-                ObjectList<Symbol> &captureaddress_references,
-                ObjectList<Symbol> &local_references,
-                ObjectList<Symbol> &captureprivate_references,
-                Scope& function_scope,
-                FunctionDefinition &function_definition,
-                Statement& construct_body,
-                OpenMP::Construct &task_construct)
-        {
-            // These are used later
-            OpenMP::Clause shared_clause = directive.shared_clause();
-            ObjectList<IdExpression> captureaddress_references_in_clause = shared_clause.id_expressions();
-            OpenMP::Clause captureprivate_clause = directive.firstprivate_clause();
-            ObjectList<IdExpression> captureprivate_references_in_clause = captureprivate_clause.id_expressions();
-            OpenMP::Clause private_clause = directive.private_clause();
-            ObjectList<IdExpression> local_references_in_clause = private_clause.id_expressions();
-
-            OpenMP::CustomClause input_clause = directive.custom_clause("input");
-            ObjectList<Expression> input_references_in_clause = input_clause.get_expression_list();
-            OpenMP::CustomClause output_clause = directive.custom_clause("output");
-            ObjectList<Expression> output_references_in_clause = output_clause.get_expression_list();
-
-            // Default calculus
-            OpenMP::DefaultClause default_clause = directive.default_clause();
-            enum 
-            {
-                DK_TASK_INVALID = 0,
-                DK_TASK_UNDEFINED,
-                DK_TASK_SHARED,
-                DK_TASK_FIRSTPRIVATE,
-                DK_TASK_PRIVATE,
-                DK_TASK_NONE
-            } default_task_data_sharing = DK_TASK_INVALID;
-
-            ObjectList<std::string> captureprivate_names;
-            captureprivate_names.append("firstprivate");
-            if (!default_clause.is_defined())
-            {
-                // If not given then DK_TASK_UNDEFINED will trigger a more
-                // complex calculus of the data sharing involving inherited
-                // attributes
-                default_task_data_sharing = DK_TASK_UNDEFINED;
-            }
-            else if (default_clause.is_none())
-            {
-                default_task_data_sharing = DK_TASK_NONE;
-            }
-            else if (default_clause.is_private())
-            {
-                default_task_data_sharing = DK_TASK_PRIVATE;
-            }
-            else if (default_clause.is_custom(captureprivate_names))
-            {
-                default_task_data_sharing = DK_TASK_FIRSTPRIVATE;
-            }
-            else if (default_clause.is_shared())
-            {
-                default_task_data_sharing = DK_TASK_SHARED;
-            }
-            else
-            {
-                std::cerr << default_clause.get_ast().get_locus() << ": warning: unknown default clause '" 
-                    << default_clause.prettyprint() << "'. Assuming 'default(firstprivate)'."
-                    << std::endl;
-                default_task_data_sharing = DK_TASK_FIRSTPRIVATE;
-            }
-
-            // Now deal with the references of the body
-            {
-                // Get all id-expressions in the body construct
-                ObjectList<IdExpression> references_body_all
-                    = construct_body.non_local_symbol_occurrences(Statement::ONLY_VARIABLES);
-
-                for (ObjectList<IdExpression>::iterator it = references_body_all.begin();
-                        it != references_body_all.end();
-                        it++)
-                {
-                    // If the variable has a sharing attribute of 'threadprivate' do not consider
-                    // it for anything
-                    if ((task_construct.get_data_attribute(it->get_symbol()) & OpenMP::DA_THREADPRIVATE)
-                            == OpenMP::DA_THREADPRIVATE)
-                    {
-                        continue;
-                    }
-
-
-                    // If this symbol appears in any data-sharing clause,
-                    // ignore it since it already has an explicit data
-                    // sharing attribute
-                    //
-                    // Note that all captureaddressed things are in
-                    // 'captureaddress_references_in_clause',
-                    // 'captureaddress_references' might contain less of
-                    // them if they are globally accessible
-                    Expression expr(it->get_ast(), it->get_scope_link());
-                    if (captureaddress_references_in_clause.contains(*it, functor(&IdExpression::get_symbol)) 
-                            || captureprivate_references_in_clause.contains(*it, functor(&IdExpression::get_symbol))
-                            || local_references_in_clause.contains(*it, functor(&IdExpression::get_symbol))
-                            || input_references_in_clause.contains(expr, functor(handle_dep_expr))
-                            || output_references_in_clause.contains(expr, functor(handle_dep_expr))
-                            )
-                        continue;
-
-                    Symbol global_sym = function_scope.get_symbol_from_id_expr(it->get_ast());
-
-                    bool will_be_visible_from_outline = false;
-                    bool is_unqualified_member = false;
-                    if (global_sym.is_valid()
-                            && (global_sym == it->get_symbol()))
-                    {
-                        // If the function-scope accessible symbol is the same
-                        // found then it must be implicitly captureaddress,
-                        // instead of capturevalue but since it is accessible
-                        // it does not have to be passed
-                        //
-                        // As an exception, member symbols must be passed as
-                        // captureaddress and they will be converted to
-                        // "_this->member"
-                        will_be_visible_from_outline = true;
-                        is_unqualified_member = is_unqualified_member_symbol(it->get_symbol(), function_definition);
-                    }
-
-                    switch ((int)default_task_data_sharing)
-                    {
-                        case DK_TASK_UNDEFINED :
-                            {
-                                /*
-                                 * According to the standard when a variable is
-                                 * referenced inside a task construct and no
-                                 * default is given and the variable does not
-                                 * appear in any data-sharing clause:
-                                 *
-                                 *  (1) if the task is orphaned and the variable is a
-                                 *  parameter then it is 'firstprivate'
-                                 *
-                                 *  (2) otherwise, if the task is not orphaned and
-                                 *  nested inside a parallel and the variable is
-                                 *  private in that construct, then it is
-                                 *  firstprivate in this task construct
-                                 *
-                                 *  (3) otherwise, if the task is not nested in a
-                                 *  parallel and the variable is private in the
-                                 *  enclosing function (this might happen because
-                                 *  the induction variable of an enclosing loop or
-                                 *  simply because the variable is local)
-                                 *
-                                 *  (4) otherwise the variable is shared in this
-                                 *  task construct
-                                 */
-                                Symbol sym = it->get_symbol();
-                                // This will use the inherited scope if any
-                                OpenMP::DataAttribute data_attrib = task_construct.get_data_attribute(sym);
-
-                                if (data_attrib != OpenMP::DA_UNDEFINED)
-                                {
-                                    // Some enclosing construct defined a data sharing for this attribute
-                                    if ((data_attrib & OpenMP::DA_PRIVATE) == OpenMP::DA_PRIVATE)
-                                    {
-                                        // (2) if an enclosing construct defined private for it (e.g. a 'parallel')
-                                        // (3) if an enclosing non-parallel construct defined private for it (e.g. a 'for')
-                                        captureprivate_references.insert(sym);
-                                        task_construct.add_data_attribute(sym, OpenMP::DA_FIRSTPRIVATE);
-                                    }
-                                    else if ((data_attrib & OpenMP::DA_SHARED) == OpenMP::DA_SHARED)
-                                    {
-                                        if (will_be_visible_from_outline)
-                                        {
-                                            // (4)
-                                            // Do nothing, will be shared by scope
-                                        }
-                                        else 
-                                        {
-                                            // (4) An enclosing construct (e.g. a 'parallel') defined it shared
-                                            captureaddress_references.insert(sym);
-                                            task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        // (4) If not shared or private in an
-                                        // enclosing scope (but somebody
-                                        // defined some data sharing for it) it
-                                        // is shared in this task
-                                        captureaddress_references.insert(sym);
-                                        task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
-                                    }
-                                }
-                                else
-                                {
-                                    // No data sharing was set by any enclosing construct
-                                    if (will_be_visible_from_outline)
-                                    {
-                                        // (4) It is shared because it is a global symbol
-                                    }
-                                    else if (sym.is_static())
-                                    {
-                                        // (4) It is shared because it is a
-                                        // static variable.  Note that this
-                                        // static is for local variables, since
-                                        // global variables should have
-                                        // 'will_be_visible_from_outline' set
-                                        // to true
-                                        captureaddress_references.insert(sym);
-                                        task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
-                                    }
-                                    else
-                                    {
-                                        Type t = sym.get_type();
-
-                                        if (t.is_const()
-                                                && (!t.is_class()
-                                                    || !t.some_member_is_mutable()))
-                                        {
-                                            // (3) If it is shared in the enclosing scope (so,
-                                            // it is a const variable of a class/struct without
-                                            // any mutable member) then it is shared.
-                                            captureaddress_references.insert(sym);
-                                            task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
-                                        }
-                                        else
-                                        {
-                                            // Otherwise, this includes (1), the symbol is firstprivate
-                                            captureprivate_references.insert(sym);
-                                            task_construct.add_data_attribute(sym, OpenMP::DA_FIRSTPRIVATE);
-                                        }
-                                    }
-                                }
-
-                                break;
-                            }
-                        case DK_TASK_NONE :
-                            {
-                                std::cerr << it->get_ast().get_locus() << ": warning: '" 
-                                    << it->prettyprint() << "' does not have a data sharing attribute "
-                                    << "and 'default(none)' was specified. " 
-                                    << "It will be considered firstprivate." << std::endl;
-                                /* Fall through captureprivate */
-                            }
-                        case DK_TASK_FIRSTPRIVATE :
-                            {
-                                captureprivate_references.insert(it->get_symbol());
-                                task_construct.add_data_attribute(it->get_symbol(), OpenMP::DA_FIRSTPRIVATE);
-                                break;
-                            }
-                        case DK_TASK_SHARED :
-                            {
-                                // If is not visible from the outline (or
-                                // if it is, it is an unqualified member)
-                                // then add to the captureaddress
-                                if (!will_be_visible_from_outline
-                                        || is_unqualified_member)
-                                {
-                                    captureaddress_references.insert(it->get_symbol());
-                                    task_construct.add_data_attribute(it->get_symbol(), OpenMP::DA_SHARED);
-                                }
-                                break;
-                            }
-                        case DK_TASK_PRIVATE :
-                            {
-                                local_references.insert(it->get_symbol());
-                                break;
-                            }
-                        case DK_TASK_INVALID :
-                        default:
-                            break;
-                    }
-                }
-            }
-        }
-
         /* 
            Subset of expressions accepted as dependence expressions
 
@@ -1145,6 +748,7 @@ namespace TL
                            -> scalar_dep_expr '->' identifier
          */
 
+#if 0
         Symbol OpenMPTransform::handle_dep_expr(Expression expr)
         {
             // scalar_dep_expr '[' expr : expr ']'
@@ -1203,7 +807,7 @@ namespace TL
         {
             // input(x) clause support
             // input variables must be shared or firstprivate
-            OpenMP::CustomClause input = directive.custom_clause("input");
+            PragmaCustomClause input = directive.custom_clause("input");
             if (input.is_defined()) 
             {
                 ObjectList<Expression> dep_list = input.get_expression_list();
@@ -1250,7 +854,7 @@ namespace TL
 
             // output(x) clause support
             // output variables must be shared
-            OpenMP::CustomClause output = directive.custom_clause("output");
+            PragmaCustomClause output = directive.custom_clause("output");
             if (output.is_defined()) 
             {
                 ObjectList<Expression> dep_list = output.get_expression_list();
@@ -1297,7 +901,7 @@ namespace TL
 
             // inout(x) clause support
             // inout variables must be shared
-            OpenMP::CustomClause inout = directive.custom_clause("inout");
+            PragmaCustomClause inout = directive.custom_clause("inout");
             if (inout.is_defined()) 
             {
                 ObjectList<Expression> dep_list = inout.get_expression_list();
@@ -1343,7 +947,9 @@ namespace TL
                 }
             }
         }
+#endif
 
+#if 0
         static std::string get_representative_dependence_expr(Expression expr)
         {
             if (expr.is_array_section())
@@ -1436,5 +1042,6 @@ namespace TL
 
             return "<<invalid-expression(align)>>";
         }
+#endif
     }
 }

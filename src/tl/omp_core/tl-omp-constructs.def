@@ -1,42 +1,39 @@
 // These macros are defined in several places to automatically generate all OpenMP support
 // 
-// OMP_CONSTRUCT(class_name, construct_subclasse, attr_name, functor_name, on_name)
+// OMP_CONSTRUCT(class_name, construct_subclasse, attr_name, functor_name)
+//    * construct_name an identifier used to build names
 //    * class_name is the name of the class, e.g. ParallelConstruct
 //    * construct_subclasse is either DataEnvironmentConstruct or Construct
 //    * attr_name is the related attribute in the AST marking the node holding that construct
-//    * functor_name is the name of the functor declared inside OpenMPPhase
-//    * on_name is the name of the signal, two signals are generated
-//    on_name_pre and on_name_post for preorder and postorder, respectively
+//    * functor_name is the name of the functor
+//
+// OMP_DIRECTIVE is the same as OMP_CONSTRUCT but for directives
 // 
-// OMP_CONSTRUCT_MAP is like OMP_CONSTRUCT, use it only for CustomConstruct. It
-// will not define any functor, signal and will not add the functor in the
-// traversal (these things are already in the code)
 
-OMP_CONSTRUCT(ParallelConstruct, DataEnvironmentConstruct, OMP_IS_PARALLEL_CONSTRUCT, ParallelFunctor, on_parallel)
+OMP_CONSTRUCT(parallel, ParallelConstruct, DataEnvironmentConstruct, OMP_IS_PARALLEL_CONSTRUCT, ParallelFunctor)
 
-OMP_CONSTRUCT(ParallelForConstruct, DataEnvironmentConstruct, OMP_IS_PARALLEL_FOR_CONSTRUCT, ParallelForFunctor, on_parallel_for)
-OMP_CONSTRUCT(ForConstruct, DataEnvironmentConstruct, OMP_IS_FOR_CONSTRUCT, ForFunctor, on_for)
+OMP_CONSTRUCT(parallel_for, ParallelForConstruct, DataEnvironmentConstruct, OMP_IS_PARALLEL_FOR_CONSTRUCT, ParallelForFunctor)
+OMP_CONSTRUCT(for, ForConstruct, DataEnvironmentConstruct, OMP_IS_FOR_CONSTRUCT, ForFunctor)
 
-OMP_CONSTRUCT(BarrierDirective, Construct, OMP_IS_BARRIER_DIRECTIVE, BarrierFunctor, on_barrier)
-OMP_CONSTRUCT(AtomicConstruct, Construct, OMP_IS_ATOMIC_CONSTRUCT, AtomicFunctor, on_atomic)
-OMP_CONSTRUCT(MasterConstruct, Construct, OMP_IS_MASTER_CONSTRUCT, MasterFunctor, on_master)
+OMP_DIRECTIVE(barrier, BarrierDirective, Construct, OMP_IS_BARRIER_DIRECTIVE, BarrierFunctor)
+OMP_CONSTRUCT(atomic, AtomicConstruct, Construct, OMP_IS_ATOMIC_CONSTRUCT, AtomicFunctor)
+OMP_CONSTRUCT(master, MasterConstruct, Construct, OMP_IS_MASTER_CONSTRUCT, MasterFunctor)
 
-OMP_CONSTRUCT(CriticalConstruct, DataEnvironmentConstruct, OMP_IS_CRITICAL_CONSTRUCT, CriticalFunctor, on_critical)
-OMP_CONSTRUCT(FlushDirective, Construct, OMP_IS_FLUSH_DIRECTIVE, FlushFunctor, on_flush)
+OMP_CONSTRUCT(critical, CriticalConstruct, DataEnvironmentConstruct, OMP_IS_CRITICAL_CONSTRUCT, CriticalFunctor)
+OMP_DIRECTIVE(flush, FlushDirective, Construct, OMP_IS_FLUSH_DIRECTIVE, FlushFunctor)
 
-OMP_CONSTRUCT(SingleConstruct, DataEnvironmentConstruct, OMP_IS_SINGLE_CONSTRUCT, SingleFunctor, on_single)
+OMP_CONSTRUCT(single, SingleConstruct, DataEnvironmentConstruct, OMP_IS_SINGLE_CONSTRUCT, SingleFunctor)
 
-OMP_CONSTRUCT(ParallelSectionsConstruct, DataEnvironmentConstruct, OMP_IS_PARALLEL_SECTIONS_CONSTRUCT, ParallelSectionsFunctor, on_parallel_sections)
-OMP_CONSTRUCT(SectionsConstruct, DataEnvironmentConstruct, OMP_IS_SECTIONS_CONSTRUCT, SectionsFunctor, on_sections)
-OMP_CONSTRUCT(SectionConstruct, Construct, OMP_IS_SECTION_CONSTRUCT, SectionFunctor, on_section)
+OMP_CONSTRUCT(parallel_sections, ParallelSectionsConstruct, DataEnvironmentConstruct, OMP_IS_PARALLEL_SECTIONS_CONSTRUCT, ParallelSectionsFunctor)
+OMP_CONSTRUCT(sections, SectionsConstruct, DataEnvironmentConstruct, OMP_IS_SECTIONS_CONSTRUCT, SectionsFunctor)
+OMP_CONSTRUCT(section, SectionConstruct, Construct, OMP_IS_SECTION_CONSTRUCT, SectionFunctor)
 
-OMP_CONSTRUCT(TaskConstruct, DataEnvironmentConstruct, OMP_IS_TASK_CONSTRUCT, TaskConstructFunctor, on_task_construct)
-OMP_CONSTRUCT(TaskWaitDirective, Construct, OMP_IS_TASKWAIT_DIRECTIVE, TaskWaitFunctor, on_taskwait)
+OMP_CONSTRUCT(task, TaskConstruct, DataEnvironmentConstruct, OMP_IS_TASK_CONSTRUCT, TaskConstructFunctor)
+OMP_DIRECTIVE(taskwait, TaskWaitDirective, Construct, OMP_IS_TASKWAIT_DIRECTIVE, TaskWaitFunctor)
 
-OMP_CONSTRUCT(ThreadPrivateDirective, Construct, OMP_IS_THREADPRIVATE_DIRECTIVE, ThreadPrivateFunctor, on_threadprivate)
+OMP_CONSTRUCT(threadprivate, ThreadPrivateDirective, Construct, OMP_IS_THREADPRIVATE_DIRECTIVE, ThreadPrivateFunctor)
 
-OMP_CONSTRUCT(OrderedConstruct, Construct, OMP_IS_ORDERED_CONTRUCT, OrderedFunctor, on_ordered)
+OMP_CONSTRUCT(ordered, OrderedConstruct, Construct, OMP_IS_ORDERED_CONTRUCT, OrderedFunctor)
 
-OMP_CONSTRUCT(DeclareReductionConstruct, Construct, OMP_IS_DECLARE_REDUCTION_DIRECTIVE, DeclareReductionFunctor, on_declare_reduction)
-
-OMP_CONSTRUCT_MAP(CustomConstruct, DataEnvironmentConstruct, OMP_IS_CUSTOM_CONSTRUCT, CustomConstructFunctor, on_custom_construct)
+// This will cause problems in the future
+OMP_DIRECTIVE(declare, DeclareReductionConstruct, Construct, OMP_IS_DECLARE_REDUCTION_DIRECTIVE, DeclareReductionFunctor)

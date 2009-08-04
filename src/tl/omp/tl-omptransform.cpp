@@ -155,42 +155,42 @@ namespace TL
             on_threadprivate_post.connect(functor(&OpenMPTransform::threadprivate_postorder, *this));
 
             // OMP 3.0 tasks
-            on_task_construct_pre.connect(functor(&OpenMPTransform::task_preorder, *this));
-            on_task_construct_post.connect(functor(&OpenMPTransform::task_postorder, *this));
+            on_task_pre.connect(functor(&OpenMPTransform::task_preorder, *this));
+            on_task_post.connect(functor(&OpenMPTransform::task_postorder, *this));
 
             // // #pragma omp taskwait
             on_taskwait_post.connect(functor(&OpenMPTransform::taskwait_postorder, *this));
 
             // #pragma omp taskgroup
             register_directive("taskgroup");
-            on_custom_construct_post["taskgroup"].connect(functor(&OpenMPTransform::taskgroup_postorder, *this));
+            on_directive_post["taskgroup"].connect(functor(&OpenMPTransform::taskgroup_postorder, *this));
 
             // #pragma omp taskyield
             register_directive("taskyield");
-            on_custom_construct_post["taskyield"].connect(functor(&OpenMPTransform::taskyield_postorder, *this));
+            on_directive_post["taskyield"].connect(functor(&OpenMPTransform::taskyield_postorder, *this));
             // End of OMP 3.0 tasks
 
             // #pragma omp declare reduction
-            on_declare_reduction_post.connect(functor(&OpenMPTransform::declare_reduction_postorder, *this));
+            on_declare_post.connect(functor(&OpenMPTransform::declare_reduction_postorder, *this));
 
             // --- Transactional world --
             // #pragma omp transaction
             register_construct("transaction");
-            on_custom_construct_pre["transaction"].connect(functor(&OpenMPTransform::stm_transaction_preorder, *this));
-            on_custom_construct_post["transaction"].connect(functor(&OpenMPTransform::stm_transaction_postorder, *this));
+            on_directive_pre["transaction"].connect(functor(&OpenMPTransform::stm_transaction_preorder, *this));
+            on_directive_post["transaction"].connect(functor(&OpenMPTransform::stm_transaction_postorder, *this));
 
             // #pragma omp retry
             register_directive("retry");
-            on_custom_construct_post["retry"].connect(functor(&OpenMPTransform::stm_retry_postorder, *this));
+            on_directive_post["retry"].connect(functor(&OpenMPTransform::stm_retry_postorder, *this));
 
             // #pragma omp preserve
             register_construct("preserve");
-            on_custom_construct_post["preserve"].connect(functor(&OpenMPTransform::stm_preserve_postorder, *this));
+            on_directive_post["preserve"].connect(functor(&OpenMPTransform::stm_preserve_postorder, *this));
 
             // #pragma omp adf
             register_construct("adf");
-            on_custom_construct_pre["adf"].connect(functor(&OpenMPTransform::adf_task_preorder, *this));
-            on_custom_construct_post["adf"].connect(functor(&OpenMPTransform::adf_task_postorder, *this));
+            on_directive_pre["adf"].connect(functor(&OpenMPTransform::adf_task_preorder, *this));
+            on_directive_post["adf"].connect(functor(&OpenMPTransform::adf_task_postorder, *this));
             // --- End of transactional world --
         }
 

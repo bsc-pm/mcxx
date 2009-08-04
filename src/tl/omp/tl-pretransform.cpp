@@ -55,14 +55,30 @@ namespace TL
         void OpenMP_PreTransform::handle_threadprivate(OpenMP::ThreadPrivateDirective threadprivate_directive)
         {
             // Get the threadprivate directive
-            OpenMP::Directive directive = threadprivate_directive.directive();
-
             // And get its parameter clause (you can see the (...) as a
             // clause without name, we'll call it "parameter_clause")
-            OpenMP::Clause clause = directive.parameter_clause();
 
             // Now get the list of symbols of this clause
-            ObjectList<IdExpression> threadprivate_references = clause.id_expressions();
+            ObjectList<Expression> parameter_expr = threadprivate_directive.get_parameter_expressions();
+
+            ObjectList<IdExpression> threadprivate_references;
+            for (ObjectList<Expression>::iterator it = parameter_expr.begin();
+                    it != parameter_expr.end();
+                    it++)
+            {
+                Expression &expr(*it);
+
+                if (expr.is_id_expression())
+                {
+                    threadprivate_references.append(expr.get_id_expression());
+                }
+                else
+                {
+                    std::cerr << expr.get_ast().get_locus() 
+                        << ": warning: '" << expr << "' is not an id-expression, skipping" << std::endl;
+                }
+            }
+
 
             // For every symbol in the clause
             int num_elems = threadprivate_references.size();
@@ -75,7 +91,7 @@ namespace TL
                 // We are in a FunctionDefinition
                 if (symbol.has_block_scope())
                 {
-                    FunctionDefinition enclosing_function = directive.get_enclosing_function();
+                    FunctionDefinition enclosing_function = threadprivate_directive.get_enclosing_function();
 
                     Symbol function_sym = enclosing_function.get_function_symbol();
 

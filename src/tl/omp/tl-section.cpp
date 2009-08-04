@@ -29,7 +29,7 @@ namespace TL
             int &num_sections = num_sections_stack.top();
 
             Source section_source, instrumentation_before, instrumentation_after;
-            Statement construct_body = section_construct.body();
+            Statement construct_body = section_construct.get_statement();
 
             section_source
                 << "case " << num_sections << ":"
