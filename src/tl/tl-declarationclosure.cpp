@@ -149,9 +149,9 @@ namespace TL
                     return false;
 
                 // Add as a dependency since this typedef will be actually used
-                _dependencies.add_symbol(named_type);
             }
 
+            _dependencies.add_symbol(named_type);
             if (depending_symbol.is_valid())
             {
                 _dependencies.add_symbol_depending_on(depending_symbol, named_type);
