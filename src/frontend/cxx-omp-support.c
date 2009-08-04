@@ -106,6 +106,12 @@ void omp_udr_initialize_basic_types(decl_context_t decl_context)
 {
     // This populates basic types
 
+    static char already_initialized = 0;
+
+    if (already_initialized)
+        return;
+    already_initialized = 1;
+
     type_t* all_arithmetic_types[] =
     {
         get_char_type(),
