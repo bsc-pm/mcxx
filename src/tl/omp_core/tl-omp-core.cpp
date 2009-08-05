@@ -113,90 +113,102 @@ namespace TL
             if (!clause.is_defined())
                 return;
 
-            ObjectList<std::string> arguments = clause.get_arguments();
+            ObjectList<ObjectList<std::string> > arguments_unflat = clause.get_arguments_unflattened();
 
-            if (arguments.empty())
-                return;
-
-            // The first argument is special, we have to look for a ':' that is not followed by any other ':'
-            // #pragma omp parallel for reduction(A::F : A::d)
-
-            std::string first_arg = arguments[0];
-            std::string::iterator split_colon = first_arg.end();
-            for (std::string::iterator it = first_arg.begin();
-                    it != first_arg.end();
-                    it++)
+            for (ObjectList<ObjectList<std::string> >::iterator list_it = arguments_unflat.begin();
+                    list_it != arguments_unflat.end();
+                    list_it++)
             {
-                if ((*it) == ':'
-                        && (it + 1) != first_arg.end())
+                ObjectList<std::string>& arguments(*list_it);
+
+                // The first argument is special, we have to look for a ':' that is not followed by any other ':'
+                // #pragma omp parallel for reduction(A::F : A::d)
+
+                std::string first_arg = arguments[0];
+                std::string::iterator split_colon = first_arg.end();
+                for (std::string::iterator it = first_arg.begin();
+                        it != first_arg.end();
+                        it++)
                 {
-                    if (*(it + 1) != ':')
+                    if ((*it) == ':'
+                            && (it + 1) != first_arg.end())
                     {
-                        split_colon = it;
-                        break;
+                        if (*(it + 1) != ':')
+                        {
+                            split_colon = it;
+                            break;
+                        }
+                        else
+                        {
+                            // Next one is also a ':' but it is not a valid splitting
+                            // ':', so ignore it
+                            it++;
+                        }
+                    }
+                }
+
+                if (split_colon == first_arg.end())
+                {
+                    std::cerr << clause.get_ast().get_locus() << ": warning: 'reduction' clause does not have a valid reductor" << std::endl;
+                    std::cerr << clause.get_ast().get_locus() << ": warning: skipping the whole clause" << std::endl;
+                    return;
+                }
+
+                std::string reductor_name;
+                std::copy(first_arg.begin(), split_colon, std::back_inserter(reductor_name));
+
+                std::string remainder_arg;
+                std::copy(split_colon + 1, first_arg.end(), std::back_inserter(remainder_arg));
+
+                // Put it back into the arguments array so we do not have to do strange things
+                arguments[0] = remainder_arg;
+
+                for (ObjectList<std::string>::iterator it = arguments.begin();
+                        it != arguments.end();
+                        it++)
+                {
+                    std::string &arg(*it);
+                    Source src (arg);
+
+                    AST_t expr_tree = src.parse_expression(clause.get_ast(), clause.get_scope_link());
+
+                    Expression expr(expr_tree, clause.get_scope_link());
+
+                    if (!expr.is_id_expression())
+                    {
+                        std::cerr << clause.get_ast().get_locus() 
+                            << ": warning: argument '" 
+                            << expr
+                            << "' is not an identifier, skipping" 
+                            << std::endl;
                     }
                     else
                     {
-                        // Next one is also a ':' but it is not a valid splitting
-                        // ':', so ignore it
-                        it++;
+
+                        Symbol sym = expr.get_id_expression().get_symbol();
+
+                        if (!sym.is_valid())
+                        {
+                            std::cerr << clause.get_ast().get_locus()
+                                << ": warning: argument '"
+                                << expr
+                                << "' does not name a valid symbol, skipping"
+                                << std::endl
+                                ;
+                        }
+
+                        ReductionSymbol red_sym(sym, reductor_name, _openmp_info->get_udr_info());
+
+                        if (red_sym.is_faulty())
+                        {
+                            running_error("%s: error: user defined reduction for type '%s' and reductor '%s' not declared",
+                                    expr.get_ast().get_locus().c_str(),
+                                    sym.get_type().get_declaration(sym.get_scope(), "").c_str(), 
+                                    reductor_name.c_str());
+                        }
+
+                        sym_list.append(red_sym);
                     }
-                }
-            }
-
-            if (split_colon == first_arg.end())
-            {
-                std::cerr << clause.get_ast().get_locus() << ": warning: 'reduction' clause does not have a valid reductor" << std::endl;
-                std::cerr << clause.get_ast().get_locus() << ": warning: skipping the whole clause" << std::endl;
-                return;
-            }
-
-            std::string reductor_name;
-            std::copy(first_arg.begin(), split_colon, std::back_inserter(reductor_name));
-
-            std::string remainder_arg;
-            std::copy(split_colon + 1, first_arg.end(), std::back_inserter(remainder_arg));
-
-            // Put it back into the arguments array so we do not have to do strange things
-            arguments[0] = remainder_arg;
-
-            for (ObjectList<std::string>::iterator it = arguments.begin();
-                    it != arguments.end();
-                    it++)
-            {
-                std::string &arg(*it);
-                Source src (arg);
-
-                AST_t expr_tree = src.parse_expression(clause.get_ast(), clause.get_scope_link());
-
-                Expression expr(expr_tree, clause.get_scope_link());
-
-                if (!expr.is_id_expression())
-                {
-                    std::cerr << clause.get_ast().get_locus() 
-                        << ": warning: argument '" 
-                        << expr
-                        << "' is not an identifier, skipping" 
-                        << std::endl;
-                }
-                else
-                {
-
-                    Symbol sym = expr.get_id_expression().get_symbol();
-
-                    if (!sym.is_valid())
-                    {
-                        std::cerr << clause.get_ast().get_locus()
-                            << ": warning: argument '"
-                            << expr
-                            << "' does not name a valid symbol, skipping"
-                            << std::endl
-                            ;
-                    }
-
-                    ReductionSymbol red_sym(sym, reductor_name, _openmp_info->get_udr_info());
-
-                    sym_list.append(red_sym);
                 }
             }
         }

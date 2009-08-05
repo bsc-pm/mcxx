@@ -211,6 +211,51 @@ namespace TL
         return result;
     }
 
+    ObjectList<IdExpression> PragmaCustomConstruct::get_parameter_id_expressions(IdExpressionCriteria criteria)
+    {
+        ObjectList<IdExpression> result;
+        ObjectList<Expression> expr_list = get_parameter_expressions();
+
+        for (ObjectList<Expression>::iterator it = expr_list.begin();
+                it != expr_list.end();
+                it++)
+        {
+            if (it->is_id_expression())
+            {
+                IdExpression id_expr(it->get_id_expression());
+
+                bool eligible = false;
+
+                switch (criteria)
+                {
+                    case VALID_SYMBOLS:
+                        {
+                            eligible = (id_expr.get_symbol().is_valid());
+                            break;
+                        }
+                    case ALL_FOUND_SYMBOLS:
+                        {
+                            eligible = true;
+                            break;
+                        }
+                    case INVALID_SYMBOLS:
+                        {
+                            eligible = !(id_expr.get_symbol().is_valid());
+                            break;
+                        }
+                    default: { }
+                }
+
+                if (eligible)
+                {
+                    result.append(id_expr);
+                }
+            }
+        }
+
+        return result;
+    }
+
     ObjectList<std::string> PragmaCustomConstruct::get_parameter_arguments()
     {
         ObjectList<std::string> result;
@@ -334,6 +379,32 @@ namespace TL
         return result;
     }
 
+    ObjectList<ObjectList<std::string> > PragmaCustomClause::get_arguments_unflattened()
+    {
+        ObjectList<ObjectList<std::string> > result;
+
+        PredicateAttr clause_arg_pred(LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT);
+
+        ObjectList<AST_t> clause_list = filter_pragma_clause();
+        for (ObjectList<AST_t>::iterator it = clause_list.begin();
+                it != clause_list.end();
+                it++)
+        {
+            ObjectList<std::string> list;
+            ObjectList<AST_t> arguments = it->depth_subtrees(clause_arg_pred, AST_t::NON_RECURSIVE);
+            for (ObjectList<AST_t>::iterator jt = arguments.begin();
+                    jt != arguments.end();
+                    jt++)
+            {
+                list.append(jt->prettyprint());
+            }
+
+            result.append(list);
+        }
+
+        return result;
+    }
+
     ObjectList<AST_t> PragmaCustomClause::get_arguments_tree()
     {
         ObjectList<AST_t> result;
@@ -360,43 +431,46 @@ namespace TL
 
     ObjectList<IdExpression> PragmaCustomClause::id_expressions(IdExpressionCriteria criteria)
     {
-        PredicateAttr id_expr_pred(LANG_IS_ID_EXPRESSION);
+        return get_id_expressions(criteria);
+    }
 
-        ObjectList<Expression> expressions = get_expression_list();
-
+    ObjectList<IdExpression> PragmaCustomClause::get_id_expressions(IdExpressionCriteria criteria)
+    {
         ObjectList<IdExpression> result;
-        GetSymbolFromAST get_symbol_from_ast(this->_scope_link);
+        ObjectList<Expression> expr_list = get_expression_list();
 
-        for(ObjectList<Expression>::iterator it = expressions.begin();
-                it != expressions.end();
+        for (ObjectList<Expression>::iterator it = expr_list.begin();
+                it != expr_list.end();
                 it++)
         {
-            ObjectList<AST_t> id_expressions = it->get_ast().depth_subtrees().filter(id_expr_pred);
-
-            for (ObjectList<AST_t>::iterator jt = id_expressions.begin();
-                    jt != id_expressions.end();
-                    jt++)
+            if (it->is_id_expression())
             {
-                Symbol sym = get_symbol_from_ast(*jt);
+                IdExpression id_expr(it->get_id_expression());
 
                 bool eligible = false;
 
                 switch (criteria)
                 {
-                    case ALL_FOUND_SYMBOLS :
-                        eligible = true;
-                        break;
-                    case VALID_SYMBOLS :
-                        eligible = sym.is_valid();
-                        break;
-                    case INVALID_SYMBOLS :
-                        eligible = !sym.is_valid();
-                        break;
+                    case VALID_SYMBOLS:
+                        {
+                            eligible = (id_expr.get_symbol().is_valid());
+                            break;
+                        }
+                    case ALL_FOUND_SYMBOLS:
+                        {
+                            eligible = true;
+                            break;
+                        }
+                    case INVALID_SYMBOLS:
+                        {
+                            eligible = !(id_expr.get_symbol().is_valid());
+                            break;
+                        }
+                    default: { }
                 }
 
                 if (eligible)
                 {
-                    IdExpression id_expr(*jt, this->_scope_link);
                     result.append(id_expr);
                 }
             }

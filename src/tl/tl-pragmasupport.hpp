@@ -49,12 +49,17 @@ namespace TL
             // Convenience function, it returns all the arguments parsed as expressions
             ObjectList<Expression> get_expression_list();
 
+            ObjectList<IdExpression> id_expressions(IdExpressionCriteria criteria = VALID_SYMBOLS);
+            
             // Convenience function, it returns all the id-expressions of the arguments when 
             // parsed as expressions
-            ObjectList<IdExpression> id_expressions(IdExpressionCriteria criteria = VALID_SYMBOLS);
+            ObjectList<IdExpression> get_id_expressions(IdExpressionCriteria criteria = VALID_SYMBOLS);
 
             // Raw clause arguments for custom parsing
             ObjectList<std::string> get_arguments();
+
+            // Raw clause arguments for even more custom parsing
+            ObjectList<ObjectList<std::string> > get_arguments_unflattened();
 
             // Raw clause arguments tree for custom parsing
             ObjectList<AST_t> get_arguments_tree();
@@ -86,6 +91,7 @@ namespace TL
             bool is_function_definition();
 
             bool is_parameterized();
+            ObjectList<IdExpression> get_parameter_id_expressions(IdExpressionCriteria criteria = VALID_SYMBOLS);
             ObjectList<Expression> get_parameter_expressions();
             ObjectList<std::string> get_parameter_arguments();
 
