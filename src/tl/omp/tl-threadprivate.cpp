@@ -24,7 +24,7 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::threadprivate_postorder(OpenMP::ThreadPrivateDirective threadprivate_directive)
+        void OpenMPTransform::threadprivate_postorder(PragmaCustomConstruct threadprivate_directive)
         {
             // Given
             //

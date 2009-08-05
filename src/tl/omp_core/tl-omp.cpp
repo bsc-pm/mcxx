@@ -32,15 +32,6 @@ namespace TL
     namespace OpenMP
     {
 
-        // Definition of predicates
-#define OMP_CONSTRUCT(_name, _class_name, _derives_from, _attr_name, _functor_name) \
-        const PredicateAttr _class_name::predicate(_attr_name);
-#define OMP_DIRECTIVE(_name, _class_name, _derives_from, _attr_name, _functor_name) \
-        OMP_CONSTRUCT(_name, _class_name, _derives_from, _attr_name, _functor_name)
-#include "tl-omp-constructs.def"
-#undef OMP_DIRECTIVE
-#undef OMP_CONSTRUCT
-
         DataSharing::DataSharing(DataSharing *enclosing)
             : _num_refs(new int(1)), 
             _map(new std::map<Symbol, DataAttribute>),
@@ -172,11 +163,6 @@ namespace TL
             // Get the global_scope
             global_scope = scope_link.get_scope(translation_unit);
 
-            // Instantiate a DepthTraverse
-            DepthTraverse depth_traverse;
-
-            RefPtr<OpenMP::Info> openmp_info;
-
             if (data_flow.get_keys().contains("openmp_info"))
             {
                 openmp_info = RefPtr<OpenMP::Info>::cast_static(data_flow["openmp_info"]);
@@ -185,24 +171,14 @@ namespace TL
             {
                 std::cerr << "No OpenMP info was found" << std::endl;
                 set_phase_status(PHASE_STATUS_ERROR);
+                return;
             }
-
-            // Add all functors, as needed
-#define OMP_CONSTRUCT(_name, _class_name, _derives_from, _attr_name, _functor_name) \
-            _functor_name _class_name##_functor(on_##_name##_pre, on_##_name##_post, *openmp_info, _disable_clause_warnings); \
-            PredicateAttr _class_name##_predicate(_attr_name); \
-            depth_traverse.add_predicate(_class_name##_predicate, _class_name##_functor);
-#define OMP_DIRECTIVE(_name, _class_name, _derives_from, _attr_name, _functor_name) \
-            OMP_CONSTRUCT(_name, _class_name, _derives_from, _attr_name, _functor_name)
-#include "tl-omp-constructs.def"
-#undef OMP_DIRECTIVE
-#undef OMP_CONSTRUCT
 
             // Let the user register its slots
             this->init(data_flow);
 
-            // Traverse in a depth-first fashion the AST
-            depth_traverse.traverse(translation_unit, scope_link);
+            // Call pragma run
+            PragmaCustomCompilerPhase::run(data_flow);
         }
 
         void OpenMPPhase::init(DTO& dto)
@@ -211,6 +187,7 @@ namespace TL
 
         void OpenMPPhase::pre_run(DTO& dto)
         {
+            PragmaCustomCompilerPhase::pre_run(dto);
         }
 
         void OpenMPPhase::register_directive(const std::string& str)
@@ -227,9 +204,6 @@ namespace TL
         {
             _disable_clause_warnings = b;
         }
-
-        // Definition of construct_stack
-        construct_stack_t construct_stack;
 
         DataSharing& Info::get_new_data_sharing(AST_t a)
         {

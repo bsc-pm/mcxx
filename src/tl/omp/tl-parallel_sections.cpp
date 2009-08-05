@@ -24,7 +24,7 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::parallel_sections_preorder(OpenMP::ParallelSectionsConstruct parallel_sections_construct)
+        void OpenMPTransform::parallel_sections_preorder(PragmaCustomConstruct parallel_sections_construct)
         {
             ObjectList<OpenMP::ReductionSymbol> inner_reductions;
             inner_reductions_stack.push(inner_reductions);
@@ -39,7 +39,7 @@ namespace TL
             common_parallel_data_sharing_code(parallel_sections_construct);
         }
 
-        void OpenMPTransform::parallel_sections_postorder(OpenMP::ParallelSectionsConstruct parallel_sections_construct)
+        void OpenMPTransform::parallel_sections_postorder(PragmaCustomConstruct parallel_sections_construct)
         {
             // One more parallel seen
             num_parallels++;
@@ -150,7 +150,7 @@ namespace TL
 
         // Create outline for parallel sections
         AST_t OpenMPTransform::get_outline_parallel_sections(
-                OpenMP::Construct &construct,
+                PragmaCustomConstruct &construct,
                 FunctionDefinition function_definition,
                 Source outlined_function_name, 
                 Statement construct_body,

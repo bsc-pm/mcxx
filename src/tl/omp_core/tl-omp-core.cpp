@@ -62,17 +62,17 @@ namespace TL
 
         void Core::register_omp_constructs()
         {
-#define OMP_CONSTRUCT(_name, _class, _subclass, _attr_name, _functor_name) \
+#define OMP_CONSTRUCT(_directive, _name) \
             { \
-                register_construct(#_name); \
-                on_directive_pre[#_name].connect(functor(&Core::_name##_handler_pre, *this)); \
-                on_directive_post[#_name].connect(functor(&Core::_name##_handler_post, *this)); \
+                register_construct(_directive); \
+                on_directive_pre[_directive].connect(functor(&Core::_name##_handler_pre, *this)); \
+                on_directive_post[_directive].connect(functor(&Core::_name##_handler_post, *this)); \
             }
-#define OMP_DIRECTIVE(_name, _class, _subclass, _attr_name, _functor_name) \
+#define OMP_DIRECTIVE(_directive, _name) \
             { \
-                register_directive(#_name); \
-                on_directive_pre[#_name].connect(functor(&Core::_name##_handler_pre, *this)); \
-                on_directive_post[#_name].connect(functor(&Core::_name##_handler_post, *this)); \
+                register_directive(_directive); \
+                on_directive_pre[_directive].connect(functor(&Core::_name##_handler_pre, *this)); \
+                on_directive_post[_directive].connect(functor(&Core::_name##_handler_post, *this)); \
             }
 #include "tl-omp-constructs.def"
 #undef OMP_DIRECTIVE
@@ -841,6 +841,6 @@ namespace TL
         EMPTY_HANDLERS(flush)
         EMPTY_HANDLERS(taskwait)
         EMPTY_HANDLERS(ordered)
-        EMPTY_HANDLERS(declare)
+        EMPTY_HANDLERS(declare_reduction)
     }
 }

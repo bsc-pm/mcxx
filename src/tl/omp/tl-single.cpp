@@ -24,7 +24,7 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::single_postorder(OpenMP::SingleConstruct single_construct)
+        void OpenMPTransform::single_postorder(PragmaCustomConstruct single_construct)
         {
             Source single_source;
             Source barrier_code;

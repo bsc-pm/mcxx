@@ -52,7 +52,7 @@ namespace TL
             // If not found nothing happens, maybe we should fail
         }
 
-        void OpenMP_PreTransform::handle_threadprivate(OpenMP::ThreadPrivateDirective threadprivate_directive)
+        void OpenMP_PreTransform::handle_threadprivate(PragmaCustomConstruct threadprivate_directive)
         {
             // Get the threadprivate directive
             // And get its parameter clause (you can see the (...) as a

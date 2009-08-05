@@ -16,11 +16,11 @@ namespace TL
                 virtual void register_omp_constructs();
 
                 // Handler functions
-#define OMP_DIRECTIVE(_name, _class, _subclass, _attr_name, _functor_name) \
+#define OMP_DIRECTIVE(_directive, _name) \
                 void _name##_handler_pre(PragmaCustomConstruct); \
                 void _name##_handler_post(PragmaCustomConstruct);
-#define OMP_CONSTRUCT(_name, _class, _subclass, _attr_name, _functor_name) \
-                OMP_DIRECTIVE(_name, _class, _subclass, _attr_name, _functor_name)
+#define OMP_CONSTRUCT(_directive, _name) \
+                OMP_DIRECTIVE(_directive, _name)
 #include "tl-omp-constructs.def"
 #undef OMP_CONSTRUCT
 #undef OMP_DIRECTIVE

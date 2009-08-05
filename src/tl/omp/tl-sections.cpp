@@ -24,7 +24,7 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::sections_preorder(OpenMP::SectionsConstruct sections_construct)
+        void OpenMPTransform::sections_preorder(PragmaCustomConstruct sections_construct)
         {
             Statement construct_body = sections_construct.get_statement();
 
@@ -48,7 +48,7 @@ namespace TL
             ObjectList<Symbol>& copyprivate_references = 
                 sections_construct.get_data<ObjectList<Symbol> >("copyprivate_references");
             
-            OpenMP::DataSharing& data_sharing = sections_construct.get_data_sharing();
+            OpenMP::DataSharing& data_sharing = openmp_info->get_data_sharing(sections_construct.get_ast());
 
             data_sharing.get_all_symbols(OpenMP::DA_SHARED, shared_references);
             data_sharing.get_all_symbols(OpenMP::DA_PRIVATE, private_references);
@@ -69,7 +69,7 @@ namespace TL
             data_sharing.get_all_symbols(OpenMP::DA_COPYPRIVATE, copyprivate_references);
         }
 
-        void OpenMPTransform::sections_postorder(OpenMP::SectionsConstruct sections_construct)
+        void OpenMPTransform::sections_postorder(PragmaCustomConstruct sections_construct)
         {
             // Get the construct_body of the statement
             Statement construct_body = sections_construct.get_statement();

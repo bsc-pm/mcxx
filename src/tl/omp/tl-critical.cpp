@@ -24,7 +24,7 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::critical_postorder(OpenMP::CriticalConstruct critical_construct)
+        void OpenMPTransform::critical_postorder(PragmaCustomConstruct critical_construct)
         {
             Source critical_source;
 

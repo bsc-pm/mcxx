@@ -73,7 +73,7 @@ namespace TL
 
         Source OpenMPTransform::get_loop_distribution_code(
                 ForStatement for_statement,
-                OpenMP::Construct &for_construct,
+                PragmaCustomConstruct &for_construct,
                 ReplaceIdExpression replace_references,
                 FunctionDefinition function_definition)
         {
@@ -100,7 +100,10 @@ namespace TL
             Source induction_var_name;
             // Induction var name is handled specially. We check that only in 'for' it will be private, not in
             // any enclosing data environment
-            if ((for_construct.get_data_sharing().get(induction_var.get_symbol()) & OpenMP::DA_PRIVATE) == OpenMP::DA_PRIVATE)
+
+            OpenMP::DataSharing& data_sharing = openmp_info->get_data_sharing(for_construct.get_ast());
+
+            if ((data_sharing.get(induction_var.get_symbol()) & OpenMP::DA_PRIVATE) == OpenMP::DA_PRIVATE)
             {
                 induction_var_name << "p_" << induction_var.mangle_id_expression();
             }

@@ -24,7 +24,7 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::for_preorder(OpenMP::ForConstruct for_construct)
+        void OpenMPTransform::for_preorder(PragmaCustomConstruct for_construct)
         {
             Statement construct_body = for_construct.get_statement();
             // The construct is in fact a ForStatement in a #pragma omp parallel do
@@ -51,7 +51,7 @@ namespace TL
             ObjectList<Symbol>& copyprivate_references = 
                 for_construct.get_data<ObjectList<Symbol> >("copyprivate_references");
 
-            OpenMP::DataSharing& data_sharing = for_construct.get_data_sharing();
+            OpenMP::DataSharing& data_sharing = openmp_info->get_data_sharing(for_construct.get_ast());
 
             data_sharing.get_all_symbols(OpenMP::DA_SHARED, shared_references);
             data_sharing.get_all_symbols(OpenMP::DA_PRIVATE, private_references);
@@ -72,7 +72,7 @@ namespace TL
             data_sharing.get_all_symbols(OpenMP::DA_COPYPRIVATE, copyprivate_references);
         }
 
-        void OpenMPTransform::for_postorder(OpenMP::ForConstruct for_construct)
+        void OpenMPTransform::for_postorder(PragmaCustomConstruct for_construct)
         {
             Statement construct_body = for_construct.get_statement();
             ForStatement for_statement = construct_body;

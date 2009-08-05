@@ -29,7 +29,7 @@ namespace TL
             public:
                 OpenMP_PreTransform();
 
-                void handle_threadprivate(OpenMP::ThreadPrivateDirective);
+                void handle_threadprivate(PragmaCustomConstruct);
 
                 void purge_local_threadprivates();
 

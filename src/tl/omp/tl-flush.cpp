@@ -24,7 +24,7 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::flush_postorder(OpenMP::FlushDirective flush_directive)
+        void OpenMPTransform::flush_postorder(PragmaCustomConstruct flush_directive)
         {
             Source flush_source;
 

@@ -24,7 +24,7 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::common_parallel_data_sharing_code(OpenMP::Construct &parallel_construct)
+        void OpenMPTransform::common_parallel_data_sharing_code(PragmaCustomConstruct &parallel_construct)
         {
             // They will hold the entities as they appear in the clauses
             ObjectList<Symbol>& shared_references = 
@@ -42,7 +42,7 @@ namespace TL
             ObjectList<Symbol>& copyprivate_references = 
                 parallel_construct.get_data<ObjectList<Symbol> >("copyprivate_references");
 
-            OpenMP::DataSharing& data_sharing = parallel_construct.get_data_sharing();
+            OpenMP::DataSharing& data_sharing = openmp_info->get_data_sharing(parallel_construct.get_ast());
 
             data_sharing.get_all_symbols(OpenMP::DA_SHARED, shared_references);
             data_sharing.get_all_symbols(OpenMP::DA_PRIVATE, private_references);
@@ -63,7 +63,7 @@ namespace TL
             data_sharing.get_all_symbols(OpenMP::DA_COPYPRIVATE, copyprivate_references);
         }
 
-        void OpenMPTransform::parallel_preorder(OpenMP::ParallelConstruct parallel_construct)
+        void OpenMPTransform::parallel_preorder(PragmaCustomConstruct parallel_construct)
         {
             // Inner reductions stack
             ObjectList<OpenMP::ReductionSymbol> inner_reductions;
@@ -75,7 +75,7 @@ namespace TL
             common_parallel_data_sharing_code(parallel_construct);
         }
 
-        void OpenMPTransform::parallel_postorder(OpenMP::ParallelConstruct parallel_construct)
+        void OpenMPTransform::parallel_postorder(PragmaCustomConstruct parallel_construct)
         {
             // One more parallel seen
             num_parallels++;
@@ -188,7 +188,7 @@ namespace TL
         }
 
         AST_t OpenMPTransform::get_outline_parallel(
-                OpenMP::Construct &construct,
+                PragmaCustomConstruct &construct,
                 FunctionDefinition function_definition,
                 Source outlined_function_name,
                 Statement construct_body,

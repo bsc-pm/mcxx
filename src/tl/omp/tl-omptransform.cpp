@@ -171,7 +171,7 @@ namespace TL
             // End of OMP 3.0 tasks
 
             // #pragma omp declare reduction
-            on_declare_post.connect(functor(&OpenMPTransform::declare_reduction_postorder, *this));
+            on_declare_reduction_post.connect(functor(&OpenMPTransform::declare_reduction_postorder, *this));
 
             // --- Transactional world --
             // #pragma omp transaction

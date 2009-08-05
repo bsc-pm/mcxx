@@ -24,7 +24,7 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::ordered_postorder(OpenMP::OrderedConstruct ordered_construct)
+        void OpenMPTransform::ordered_postorder(PragmaCustomConstruct ordered_construct)
         {
             Symbol induction_var = induction_var_stack.top();
 

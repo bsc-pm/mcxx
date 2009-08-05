@@ -24,7 +24,7 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::section_postorder(OpenMP::SectionConstruct section_construct)
+        void OpenMPTransform::section_postorder(PragmaCustomConstruct section_construct)
         {
             int &num_sections = num_sections_stack.top();
 

@@ -24,7 +24,7 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::taskwait_postorder(OpenMP::TaskWaitDirective taskwait_construct)
+        void OpenMPTransform::taskwait_postorder(PragmaCustomConstruct taskwait_construct)
         {
             Source taskwait_source;
 

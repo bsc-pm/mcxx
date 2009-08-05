@@ -29,7 +29,7 @@ namespace TL
                 Source& specific_body,
                 Source outlined_function_name,
                 ObjectList<ParameterInfo> parameter_info_list,
-                OpenMP::Construct &construct,
+                PragmaCustomConstruct &construct,
                 bool team_parameter
                 )
         {
@@ -192,7 +192,7 @@ namespace TL
         }
 
         Source OpenMPTransform::get_privatized_declarations(
-                OpenMP::Construct &construct,
+                PragmaCustomConstruct &construct,
                 ObjectList<Symbol> private_references,
                 ObjectList<Symbol> firstprivate_references,
                 ObjectList<Symbol> lastprivate_references,
@@ -379,7 +379,7 @@ namespace TL
         }
 
         Source OpenMPTransform::get_privatized_declarations_inline(
-                OpenMP::Construct &construct,
+                PragmaCustomConstruct &construct,
                 ObjectList<Symbol> private_references,
                 ObjectList<Symbol> firstprivate_references,
                 ObjectList<Symbol> lastprivate_references,
@@ -763,7 +763,7 @@ namespace TL
                 Source& instrumentation_code_after,
                 FunctionDefinition function_definition,
                 Source outlined_function_name,
-                OpenMP::Construct &construct)
+                PragmaCustomConstruct &construct)
         {
             if (instrumentation_requested())
             {

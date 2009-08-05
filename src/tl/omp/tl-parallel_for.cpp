@@ -24,7 +24,7 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::parallel_for_preorder(OpenMP::ParallelForConstruct parallel_for_construct)
+        void OpenMPTransform::parallel_for_preorder(PragmaCustomConstruct parallel_for_construct)
         {
             ObjectList<OpenMP::ReductionSymbol> inner_reductions;
             inner_reductions_stack.push(inner_reductions);
@@ -35,7 +35,7 @@ namespace TL
             common_parallel_data_sharing_code(parallel_for_construct);
         }
 
-        void OpenMPTransform::parallel_for_postorder(OpenMP::ParallelForConstruct parallel_for_construct)
+        void OpenMPTransform::parallel_for_postorder(PragmaCustomConstruct parallel_for_construct)
         {
             // One more parallel seen
             num_parallels++;
@@ -140,7 +140,7 @@ namespace TL
 
         // Create outline for parallel for
         AST_t OpenMPTransform::get_outline_parallel_for(
-                OpenMP::Construct &construct,
+                PragmaCustomConstruct &construct,
                 FunctionDefinition function_definition,
                 Source outlined_function_name,
                 ForStatement for_statement,

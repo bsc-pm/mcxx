@@ -25,7 +25,7 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::task_preorder(OpenMP::TaskConstruct task_construct)
+        void OpenMPTransform::task_preorder(PragmaCustomConstruct task_construct)
         {
             // Get the related statement of this task construct
             Statement construct_body = task_construct.get_statement();
@@ -49,7 +49,8 @@ namespace TL
                 task_construct.get_data<AST_t>("original_code");
             original_code = construct_body.get_ast();
 
-            OpenMP::DataSharing &data_sharing = task_construct.get_data_sharing();
+            OpenMP::DataSharing &data_sharing 
+                = openmp_info->get_data_sharing(task_construct.get_ast());
 
             data_sharing.get_all_symbols(OpenMP::DA_SHARED, captureaddress_references);
             data_sharing.get_all_symbols(OpenMP::DA_PRIVATE, local_references);
@@ -72,7 +73,7 @@ namespace TL
             // }
         }
 
-        void OpenMPTransform::task_postorder(OpenMP::TaskConstruct task_construct)
+        void OpenMPTransform::task_postorder(PragmaCustomConstruct task_construct)
         {
             // Another parallel
             num_parallels++;
@@ -169,7 +170,7 @@ namespace TL
         Source OpenMPTransform::task_get_spawn_code(
                 ObjectList<ParameterInfo> &parameter_info_list,
                 FunctionDefinition &function_definition,
-                OpenMP::Construct &task_construct,
+                PragmaCustomConstruct &task_construct,
                 Statement &construct_body,
                 AST_t &original_code)
         {
@@ -685,7 +686,7 @@ namespace TL
         }
 
         AST_t OpenMPTransform::get_outline_task(
-                OpenMP::Construct &construct,
+                PragmaCustomConstruct &construct,
                 FunctionDefinition function_definition,
                 Source outlined_function_name,
                 Statement construct_body,
@@ -798,10 +799,10 @@ namespace TL
             }
         }
 
-        void OpenMPTransform::handle_dependences(OpenMP::Directive directive,
+        void OpenMPTransform::handle_dependences(PragmaCustomConstruct directive,
                 ObjectList<Expression> &input_dependences,
                 ObjectList<Expression> &output_dependences,
-                OpenMP::Construct &task_construct,
+                PragmaCustomConstruct &task_construct,
                 ObjectList<Symbol>& captureaddress_references,
                 ObjectList<Symbol>& captureprivate_references)
         {

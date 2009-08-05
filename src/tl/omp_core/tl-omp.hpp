@@ -138,22 +138,17 @@ namespace TL
                 bool get_is_parallel();
         };
 
-        class Construct;
-
         class LIBTL_CLASS Info : public Object
         {
             private:
                 DataSharing* _root_data_sharing;
                 DataSharing* _current_data_sharing;
-                ObjectList<OpenMP::Construct*> _root_constructs;
                 std::map<AST_t, DataSharing*> _map_data_sharing;
                 std::stack<DataSharing*> _stack_data_sharing;
             public:
                 Info(DataSharing* root_data_sharing)
                     : _root_data_sharing(root_data_sharing), 
                     _current_data_sharing(root_data_sharing) { }
-
-                ObjectList<OpenMP::Construct*>& get_constructs();
 
                 DataSharing& get_new_data_sharing(AST_t);
 
@@ -165,40 +160,6 @@ namespace TL
                 void push_current_data_sharing(DataSharing&);
                 void pop_current_data_sharing();
         };
-
-        //! Base class for all OpenMP constructs 
-        class LIBTL_CLASS Construct : public PragmaCustomConstruct
-        {
-            protected:
-                //! The enclosing construct
-                Construct *_enclosing_construct;
-                //! The data sharing defined by this construct
-                DataSharing *_data_sharing;
-            public:
-                Construct(AST_t ref, 
-                        ScopeLink scope_link,
-                        Construct* enclosing_construct,
-                        OpenMP::Info info)
-                    : PragmaCustomConstruct(ref, scope_link),
-                    _enclosing_construct(enclosing_construct),
-                    _data_sharing(&info.get_root_data_sharing())
-                {
-                }
-
-                //! Gets the data sharing context of the current Construct
-                DataSharing& get_data_sharing() const
-                {
-                    return *_data_sharing;
-                }
-
-                Construct& get_enclosing_construct()
-                {
-                    return *_enclosing_construct;
-                }
-
-                ~Construct() { }
-        };
-
 
         //! Auxiliar class used in reduction clauses
         class LIBTL_CLASS ReductionSymbol
@@ -212,7 +173,6 @@ namespace TL
                 bool _is_member;
                 bool _is_faulty;
             public:
-                // FIXME - Overloads in C++ require a bit more of machinery
                 ReductionSymbol(Symbol s, const std::string& reductor_name)
                     : _symbol(s), 
                     _op(reductor_name), 
@@ -335,143 +295,6 @@ namespace TL
                 }
         };
 
-        //! Base class for constructs that inherit data sharing attribute
-        class LIBTL_CLASS DataEnvironmentConstruct : public Construct
-        {
-            public:
-                DataEnvironmentConstruct(AST_t ref, 
-                        ScopeLink scope_link, 
-                        Construct *enclosing_construct,
-                        OpenMP::Info info)
-                    : Construct(ref, scope_link, enclosing_construct, info)
-                {
-                    // Override the data sharing since this tree has context
-                    _data_sharing = &info.get_data_sharing(ref);
-                }
-        };
-
-        // Declare classes after OMP constructs
-#define OMP_CONSTRUCT_COMMON(_name, _class_name, _derives_from, _attr_name, _functor_name) \
-        class LIBTL_CLASS _class_name : public _derives_from  \
-        { \
-            public: \
-                _class_name(AST_t ref,  \
-                        ScopeLink scope_link,  \
-                        Construct *enclosing_construct, \
-                        OpenMP::Info openmp_info) \
-                    : _derives_from(ref, scope_link,  \
-                            enclosing_construct,  \
-                            openmp_info) \
-                { \
-                }
-#define OMP_CONSTRUCT(_name, _class_name, _derives_from, _attr_name, _functor_name) \
-        OMP_CONSTRUCT_COMMON(_name, _class_name, _derives_from, _attr_name, _functor_name) \
-                const static PredicateAttr predicate; \
-        };
-#define OMP_DIRECTIVE(_name, _class_name, _derives_from, _attr_name, _functor_name) \
-        OMP_CONSTRUCT(_name, _class_name, _derives_from, _attr_name, _functor_name)
-#include "tl-omp-constructs.def"
-#undef OMP_CONSTRUCT
-#undef OMP_DIRECTIVE
-#undef OMP_CONSTRUCT_COMMON
-
-        //! Used to store information of used clauses
-        typedef std::pair<std::string, std::string> clause_locus_t;
-
-        //! Auxiliar class for construct information
-        class ConstructInfo
-        {
-            public:
-                Construct *current_construct;
-                ObjectList<clause_locus_t> clause_list;
-        };
-
-        typedef std::stack<ConstructInfo> construct_stack_t;
-        //! Stack of constructs built when traversing OpenMP constructs
-        LIBTL_EXTERN construct_stack_t construct_stack;
-
-        //! Generic functor for OpenMP constructs
-        template<class T>
-            class OpenMPConstructFunctor : public TraverseFunctor
-        {
-            private:
-                Signal1<T>& _on_construct_pre;
-                Signal1<T>& _on_construct_post;
-                OpenMP::Info _openmp_info;
-                bool &_disable_clause_warnings;
-            public:
-                virtual void preorder(Context ctx, AST_t node) 
-                {
-                    Construct* enclosing_construct = NULL;
-                    if (!construct_stack.empty())
-                    {
-                        enclosing_construct = construct_stack.top().current_construct;
-                    }
-
-                    T *parallel_construct = new T(node, 
-                            ctx.scope_link, 
-                            enclosing_construct,
-                            _openmp_info);
-
-                    // Directive directive = parallel_construct->directive();
-
-                    // Fill the construct info
-                    ConstructInfo current_construct_info;
-                    current_construct_info.current_construct = parallel_construct;
-
-                    // ObjectList<std::string> clauses_names = directive.get_all_custom_clauses();
-                    // for (ObjectList<std::string>::iterator it = clauses_names.begin();
-                    //         it != clauses_names.end();
-                    //         it++)
-                    // {
-                    //     clause_locus_t p(*it, directive.get_ast().get_locus());
-                    //     current_construct_info.clause_list.push_back(p);
-                    // }
-
-                    construct_stack.push(current_construct_info);
-
-                    _on_construct_pre.signal(*parallel_construct);
-                }
-
-                // These two parameters are not used because we use a stack
-                virtual void postorder(Context /*ctx*/, AST_t /*node*/) 
-                {
-                    ERROR_CONDITION( (construct_stack.empty()),
-                            "Stack of OpenMP constructs is empty in the postorder", 0);
-                    
-                    ConstructInfo &current_construct_info = construct_stack.top();
-
-                    T *parallel_construct = static_cast<T*>(current_construct_info.current_construct);
-                    _on_construct_post.signal(*parallel_construct);
-
-                    // Emit a warning for every unused one
-                    // if (!_disable_clause_warnings)
-                    // {
-                    //     for (ObjectList<clause_locus_t>::iterator it = current_construct_info.clause_list.begin();
-                    //             it != current_construct_info.clause_list.end();
-                    //             it++)
-                    //     {
-                    //         std::cerr << it->second << ": warning: clause '" << it->first << "' unused in OpenMP directive" << std::endl;
-                    //     }
-                    // }
-
-                    delete parallel_construct;
-                    construct_stack.pop();
-                }
-
-                OpenMPConstructFunctor(Signal1<T>& on_construct_pre,
-                        Signal1<T>& on_construct_post,
-                        OpenMP::Info info,
-                        bool &disable_warnings
-                        )
-                    : _on_construct_pre(on_construct_pre),
-                    _on_construct_post(on_construct_post),
-                    _openmp_info(info),
-                    _disable_clause_warnings(disable_warnings)
-                {
-                }
-        };
-
         //! Base class for any implementation of OpenMP in Mercurium
         /*!
          * This class is currently used for the Nanos 4 runtime but it might be
@@ -479,28 +302,21 @@ namespace TL
          */
         class LIBTL_CLASS OpenMPPhase : public PragmaCustomCompilerPhase
         {
-            private:
-                // Declare typedef-ed functors
-#define OMP_CONSTRUCT(_name, _class_name, _derives_from, _attr_name, _functor_name) \
-                typedef OpenMPConstructFunctor<_class_name> _functor_name;
-#define OMP_DIRECTIVE(_name, _class_name, _derives_from, _attr_name, _functor_name) \
-                OMP_CONSTRUCT(_name, _class_name, _derives_from, _attr_name, _functor_name)
-#include "tl-omp-constructs.def"
-#undef OMP_DIRECTIVE
-#undef OMP_CONSTRUCT
             protected:
                 AST_t translation_unit;
                 ScopeLink scope_link;
                 Scope global_scope;
                 bool _disable_clause_warnings;
+
+                RefPtr<OpenMP::Info> openmp_info;
             public:
 
                 // Declare signals
-#define OMP_CONSTRUCT(_name, _class_name, _derives_from, _attr_name, _functor_name) \
-                Signal1<_class_name> on_##_name##_pre; \
-                Signal1<_class_name> on_##_name##_post;
-#define OMP_DIRECTIVE(_name, _class_name, _derives_from, _attr_name, _functor_name) \
-                OMP_CONSTRUCT(_name, _class_name, _derives_from, _attr_name, _functor_name)
+#define OMP_CONSTRUCT(_directive, _name) \
+                Signal1<PragmaCustomConstruct> on_##_name##_pre; \
+                Signal1<PragmaCustomConstruct> on_##_name##_post;
+#define OMP_DIRECTIVE(_directive, _name) \
+                OMP_CONSTRUCT(_directive, _name)
 #include "tl-omp-constructs.def"
 #undef OMP_DIRECTIVE
 #undef OMP_CONSTRUCT
