@@ -106,60 +106,13 @@ namespace TL
                     "normal");
 
             // Register callbacks for constructs and directives
-            //
-            // #pragma omp parallel
-            on_parallel_pre.connect(functor(&OpenMPTransform::parallel_preorder, *this));
-            on_parallel_post.connect(functor(&OpenMPTransform::parallel_postorder, *this));
-
-            // #pragma omp parallel for
-            on_parallel_for_pre.connect(functor(&OpenMPTransform::parallel_for_preorder, *this));
-            on_parallel_for_post.connect(functor(&OpenMPTransform::parallel_for_postorder, *this));
-
-            // #pragma omp for
-            on_for_pre.connect(functor(&OpenMPTransform::for_preorder, *this));
-            on_for_post.connect(functor(&OpenMPTransform::for_postorder, *this));
-
-            // #pragma omp parallel sections 
-            on_parallel_sections_pre.connect(functor(&OpenMPTransform::parallel_sections_preorder, *this));
-            on_parallel_sections_post.connect(functor(&OpenMPTransform::parallel_sections_postorder, *this));
-
-            // #pragma omp sections
-            on_sections_pre.connect(functor(&OpenMPTransform::sections_preorder, *this));
-            on_sections_post.connect(functor(&OpenMPTransform::sections_postorder, *this));
-
-            // #pragma omp section
-            on_section_post.connect(functor(&OpenMPTransform::section_postorder, *this));
-
-            // #pragma omp barrier
-            on_barrier_post.connect(functor(&OpenMPTransform::barrier_postorder, *this));
-
-            // #pragma omp atomic
-            on_atomic_post.connect(functor(&OpenMPTransform::atomic_postorder, *this));
-
-            // #pragma omp ordered
-            on_ordered_post.connect(functor(&OpenMPTransform::ordered_postorder, *this));
-
-            // #pragma omp master
-            on_master_post.connect(functor(&OpenMPTransform::master_postorder, *this));
-
-            // #pragma omp single
-            on_single_post.connect(functor(&OpenMPTransform::single_postorder, *this));
-
-            // #pragma omp critical
-            on_critical_post.connect(functor(&OpenMPTransform::critical_postorder, *this));
-
-            // #pragma omp flush
-            on_flush_post.connect(functor(&OpenMPTransform::flush_postorder, *this));
-
-            // #pragma omp threadprivate
-            on_threadprivate_post.connect(functor(&OpenMPTransform::threadprivate_postorder, *this));
-
-            // OMP 3.0 tasks
-            on_task_pre.connect(functor(&OpenMPTransform::task_preorder, *this));
-            on_task_post.connect(functor(&OpenMPTransform::task_postorder, *this));
-
-            // // #pragma omp taskwait
-            on_taskwait_post.connect(functor(&OpenMPTransform::taskwait_postorder, *this));
+#define OMP_CONSTRUCT(_name, _construct_name) \
+              on_directive_pre[_name].connect(functor(&OpenMPTransform::_construct_name##_preorder, *this)); \
+              on_directive_post[_name].connect(functor(&OpenMPTransform::_construct_name##_postorder, *this));
+#define OMP_DIRECTIVE(_name, _construct_name) OMP_CONSTRUCT(_name, _construct_name)
+#include "tl-omp-constructs.def"
+#undef OMP_CONSTRUCT
+#undef OMP_DIRECTIVE
 
             // #pragma omp taskgroup
             register_directive("taskgroup");
@@ -169,9 +122,6 @@ namespace TL
             register_directive("taskyield");
             on_directive_post["taskyield"].connect(functor(&OpenMPTransform::taskyield_postorder, *this));
             // End of OMP 3.0 tasks
-
-            // #pragma omp declare reduction
-            on_declare_reduction_post.connect(functor(&OpenMPTransform::declare_reduction_postorder, *this));
 
             // --- Transactional world --
             // #pragma omp transaction
@@ -272,6 +222,7 @@ namespace TL
         
         void OpenMPTransform::run(DTO& dto)
         {
+#if 0
             if (run_pretransform)
             {
                 OpenMP_PreTransform pre_transform;
@@ -279,9 +230,16 @@ namespace TL
                 // Purge local threadprivates, promoting them as global ones
                 pre_transform.purge_local_threadprivates();
             }
+#endif
 
             // Call the OpenMPPhase::run
             OpenMPPhase::run(dto);
+        }
+
+        void OpenMPTransform::pre_run(DTO& dto)
+        {
+            OpenMPPhase::pre_run(dto);
+            // ;
         }
     }
 }

@@ -320,20 +320,6 @@ identifier {
 
 	char matched = 0;
 
-	// OpenMP
-	if (strcmp(yytext, "omp") == 0)
-	{
-		if (CURRENT_CONFIGURATION->disable_openmp)
-		{
-			fprintf(stderr, "%s:%d: warning: ignoring OpenMP directive\n",
-					scanning_now.current_filename,
-					scanning_now.line_number);
-			matched = 1;
-			BEGIN(unknown_pragma);
-			yymore();
-		}
-	}
-
 	// Ignore gcc
 	if (!matched && strcasecmp(yytext, "gcc") == 0)
 	{
@@ -1342,13 +1328,6 @@ void register_new_directive(const char* prefix, const char* directive, char is_c
 {
     pragma_directive_kind_t kind = (is_construct ? PDK_CONSTRUCT : PDK_DIRECTIVE);
 
-    if (strcmp(prefix, "omp") == 0)
-    {
-        // OpenMP is handled special
-        register_new_directive_inner(&CURRENT_CONFIGURATION->pragma_omp_info, directive, kind);
-        return;
-    }
-
     int i;
     for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)
     {
@@ -1472,6 +1451,7 @@ static int compute_length_match(const char* lexed_directive,
 
     if (num_matches != 0)
     {
+        *discard_source = NULL;
         ERROR_CONDITION((*p == ' ') || (*p == '\t'), 
                 "Invalid lexing, there should not be a leading blank", 0);
 
@@ -1499,10 +1479,9 @@ static int compute_length_match(const char* lexed_directive,
                 p++;
             }
             n--;
-        }
 
-        // Where p is, is the beginning of the discard area
-        *discard_source = p;
+            *discard_source = p;
+        }
     }
 
     return num_matches;
@@ -1520,8 +1499,9 @@ static const char* return_pragma_prefix_longest_match_inner(pragma_directive_set
     for (j = 0; j < pragma_directive_set->num_directives; j++)
     {
         const char * current_discard_source = NULL;
-        int current_match = compute_length_match(pragma_directive_set->directive_names[j], 
-                lexed_directive, &current_discard_source);
+
+        int current_match = compute_length_match(lexed_directive, pragma_directive_set->directive_names[j], 
+                &current_discard_source);
 
         if (current_match > length_match)
         {
@@ -1556,11 +1536,17 @@ static const char* return_pragma_prefix_longest_match(const char* prefix,
     if (discard_source != NULL)
     {
         // Discard the characters "too much lexed"
-        const char* unput_char = &(lexed_directive[strlen(lexed_directive) - 1]);
-        while (discard_source != unput_char)
+        char* end = discard_source;
+
+        while (*end != '\0')
+            end++;
+
+        end--;
+
+        while (end != discard_source)
         {
-            unput(*unput_char);
-            unput_char--;
+            unput(*end);
+            end--;
         }
     }
 

@@ -1749,6 +1749,12 @@ static void enable_hlt_phase(void);
 
 static void finalize_committed_configuration(void)
 {
+    // OpenMP support involves omp pragma
+    if (!CURRENT_CONFIGURATION->disable_openmp)
+    {
+        config_add_preprocessor_prefix(CURRENT_CONFIGURATION, "omp");
+    }
+
     // UPC support involves some specific pragmae
     if (CURRENT_CONFIGURATION->enable_upc)
     {

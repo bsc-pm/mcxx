@@ -118,6 +118,8 @@ namespace TL
                 // Entry point is overridden but calls OpenMP::OpenMPPhase::run
                 virtual void run(DTO& dto);
 
+                virtual void pre_run(DTO& dto);
+
                 // Initialization function called from OpenMP::OpenMPPhase
                 virtual void init(DTO& dto);
 
@@ -165,6 +167,18 @@ namespace TL
                 void taskgroup_postorder(PragmaCustomConstruct taskgroup_construct);
 
                 void flush_postorder(PragmaCustomConstruct flush_directive);
+
+                void barrier_preorder(PragmaCustomConstruct construct) { }
+                void atomic_preorder(PragmaCustomConstruct construct) { }
+                void master_preorder(PragmaCustomConstruct construct) { }
+                void critical_preorder(PragmaCustomConstruct construct) { }
+                void flush_preorder(PragmaCustomConstruct construct) { }
+                void single_preorder(PragmaCustomConstruct construct) { }
+                void section_preorder(PragmaCustomConstruct construct) { }
+                void taskwait_preorder(PragmaCustomConstruct construct) { }
+                void threadprivate_preorder(PragmaCustomConstruct construct) { }
+                void ordered_preorder(PragmaCustomConstruct construct) { }
+                void declare_reduction_preorder(PragmaCustomConstruct construct) { }
 
                 void common_parallel_data_sharing_code(PragmaCustomConstruct &parallel_construct);
 

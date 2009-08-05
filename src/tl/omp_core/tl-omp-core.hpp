@@ -13,7 +13,7 @@ namespace TL
         class Core : public TL::PragmaCustomCompilerPhase
         {
             private:
-                virtual void register_omp_constructs();
+                void register_omp_constructs();
 
                 // Handler functions
 #define OMP_DIRECTIVE(_directive, _name) \

@@ -86,7 +86,7 @@ namespace TL
                     it != _map->end();
                     it++)
             {
-                if ((it->second & data_attribute) == data_attribute)
+                if (it->second == data_attribute)
                 {
                     sym_list.append(it->first);
                 }
@@ -188,16 +188,6 @@ namespace TL
         void OpenMPPhase::pre_run(DTO& dto)
         {
             PragmaCustomCompilerPhase::pre_run(dto);
-        }
-
-        void OpenMPPhase::register_directive(const std::string& str)
-        {
-            register_new_directive("omp", str.c_str(), false);
-        }
-
-        void OpenMPPhase::register_construct(const std::string& str)
-        {
-            register_new_directive("omp", str.c_str(), true);
         }
 
         void OpenMPPhase::disable_clause_warnings(bool b)

@@ -349,7 +349,7 @@ namespace TL
 
                 if (it->neuter_is_constructor())
                 {
-                    init << it->get_neuter().prettyprint()
+                    init << it->get_neuter()
                         ;
                 }
                 else if (it->neuter_is_empty())
@@ -358,7 +358,7 @@ namespace TL
                 }
                 else
                 {
-                    init << " = " << it->get_neuter().prettyprint()
+                    init << " = " << it->get_neuter()
                         ;
                 }
             }
@@ -526,7 +526,7 @@ namespace TL
 
                 if (it->neuter_is_constructor())
                 {
-                    init << it->get_neuter().prettyprint()
+                    init << it->get_neuter()
                         ;
                 }
                 else if (it->neuter_is_empty())
@@ -535,7 +535,7 @@ namespace TL
                 }
                 else
                 {
-                    init << " = " << it->get_neuter().prettyprint()
+                    init << " = " << it->get_neuter()
                         ;
                 }
             }

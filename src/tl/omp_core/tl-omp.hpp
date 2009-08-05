@@ -269,26 +269,12 @@ namespace TL
         {
             private:
                 Symbol _symbol;
-                std::string _op;
-                AST_t _neuter;
-                bool _is_user_defined;
-                bool _is_right_assoc; 
-                bool _is_member;
-                bool _is_faulty;
+                UDRInfoItem *_udr_item;
             public:
-                ReductionSymbol(Symbol s, const std::string& reductor_name)
-                    : _symbol(s), 
-                    _op(reductor_name), 
-                    _neuter(NULL), 
-                    _is_user_defined(false), 
-                    _is_right_assoc(false), 
-                    _is_member(false),
-                    _is_faulty(false)
+                ReductionSymbol(Symbol s, const std::string& reductor_name,
+                        const UDRInfoSet& udr_info_set)
+                    : _symbol(s), _udr_item(NULL)
                 {
-#if 0
-                    AST identity = NULL;
-                    omp_udr_associativity_t assoc = OMP_UDR_ORDER_LEFT;
-
                     Type t = _symbol.get_type();
 
                     // Adjust reference types
@@ -297,27 +283,16 @@ namespace TL
                         t = t.references_to();
                     }
 
-                    char is_builtin = 0;
-
-                    if (omp_udr_lookup_reduction(t.get_internal_type(),
-                                reductor_name.c_str(),
-                                &identity,
-                                &assoc,
-                                &is_builtin))
+                    if (udr_info_set.lookup_udr(t, reductor_name))
                     {
-                        _neuter = AST_t(identity);
-                        _is_right_assoc = (assoc == OMP_UDR_ORDER_RIGHT);
-
-                        _is_user_defined = !is_builtin;
-
-                        // This is a bit lame
-                        _is_member = (reductor_name[0] == '.');
+                        UDRInfoItem udr_item = udr_info_set.get_udr(t, reductor_name);
+                        _udr_item = new UDRInfoItem(udr_item);
                     }
-                    else
-                    {
-                        _is_faulty = true;
-                    }
-#endif
+                }
+
+                ~ReductionSymbol()
+                {
+                    delete _udr_item;
                 }
 
                 //! Returns the symbol of this reduction
@@ -329,7 +304,7 @@ namespace TL
                 //! States that the reduction is user defined
                 bool is_user_defined() const
                 {
-                    return _is_user_defined;
+                    return !_udr_item->is_builtin_op();
                 }
 
                 //! States that the reduction uses a builtin operator
@@ -340,27 +315,25 @@ namespace TL
                 }
 
                 //! Returns a tree with an expression of the neuter value of the reduction
-                AST_t get_neuter() const
+                std::string get_neuter() const
                 {
-                    return _neuter;
+                    return _udr_item->get_identity();
                 }
 
                 bool neuter_is_constructor() const
                 {
-                    // Ugly way to do this
-                    return (!neuter_is_empty()
-                            && (_neuter.internal_ast_type_() == AST_PARENTHESIZED_INITIALIZER));
+                    return _udr_item->is_constructor_identity();
                 }
 
                 bool neuter_is_empty() const
                 {
-                    return !_neuter.is_valid();
+                    return (_udr_item->get_identity() == "");
                 }
 
                 //! Gets the reduction operation
                 std::string get_operation() const
                 {
-                    return _op;
+                    return _udr_item->get_op_name();
                 }
 
                 //! Gets the reductor name
@@ -373,30 +346,42 @@ namespace TL
                 //! States whether this is a member specificication
                 bool reductor_is_member() const
                 {
-                    return _is_member;
+                    return _udr_item->is_member_op();
                 }
 
                 //! States whether the reductor is right associative
                 /*! \note Most of reductors are left associative */
                 bool reductor_is_right_associative() const
                 {
-                    return _is_right_assoc;
+                    return (_udr_item->get_assoc() == UDRInfoItem::RIGHT);
                 }
 
                 //! States whether the reductor is right associative
                 /*! \note Most of reductors are left associative */
                 bool reductor_is_left_associative() const
                 {
-                    return !_is_right_assoc;
+                    return !reductor_is_right_associative();
+                }
+
+                //! States whether the reductor is flagged as being commutative
+                bool reductor_is_commutative() const
+                {
+                    return (_udr_item->is_commutative());
                 }
 
                 //! States whether this reduction symbol is faulty
                 /*! A faulty reduction symbol means that no reductor
-                  was declared for it
+                  was declared for it. Do not use it
                   */
                 bool is_faulty() const
                 {
-                    return _is_faulty;
+                    return (_udr_item == NULL);
+                }
+
+                //! Means that this ReductionSymbol is valid
+                bool is_valid() const
+                {
+                    return !is_faulty();
                 }
         };
 
@@ -415,40 +400,13 @@ namespace TL
 
                 RefPtr<OpenMP::Info> openmp_info;
             public:
-
-                // Declare signals
-#define OMP_CONSTRUCT(_directive, _name) \
-                Signal1<PragmaCustomConstruct> on_##_name##_pre; \
-                Signal1<PragmaCustomConstruct> on_##_name##_post;
-#define OMP_DIRECTIVE(_directive, _name) \
-                OMP_CONSTRUCT(_directive, _name)
-#include "tl-omp-constructs.def"
-#undef OMP_DIRECTIVE
-#undef OMP_CONSTRUCT
-
-                //! Registers a custom directive
-                /*!
-                 * This is needed for proper parsing of directives and constructs.
-                 * mcxx will complain if an unknown construct is found without 
-                 * being registered. This function must be called in the constructor
-                 * of the phase.
-                 */
-                void register_directive(const std::string& str);
-                //! Registers a custom construct
-                /*!
-                 * This is needed for proper parsing of directives and constructs.
-                 * mcxx will complain if an unknown construct is found without 
-                 * being registered. This function must be called in the constructor
-                 * of the phase.
-                 */
-                void register_construct(const std::string& str);
-
                 //! Pre entry
                 virtual void pre_run(DTO& data_flow);
 
                 //! Virtual function that registers all predicates when
                 //traversing the tree looking for OpenMP constructs
                 virtual void run(DTO& data_flow);
+
                 //! User definable function called in run
                 virtual void init(DTO& data_flow);
 

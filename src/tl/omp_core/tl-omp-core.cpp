@@ -31,6 +31,7 @@ namespace TL
         Core::Core()
             : PragmaCustomCompilerPhase("omp")
         {
+            register_omp_constructs();
         }
 
         static void initialize_builtin_udr_reductions(UDRInfoSet &udr_info_set);
@@ -52,7 +53,7 @@ namespace TL
 
         void Core::pre_run(TL::DTO& dto)
         {
-            register_omp_constructs();
+            PragmaCustomCompilerPhase::pre_run(dto);
 
             if (!dto.get_keys().contains("openmp_info"))
             {
@@ -61,7 +62,6 @@ namespace TL
                 dto.set_object("openmp_info", _openmp_info);
             }
 
-            PragmaCustomCompilerPhase::pre_run(dto);
         }
 
         void Core::register_omp_constructs()
@@ -194,7 +194,7 @@ namespace TL
                             ;
                     }
 
-                    sym_list.append(ReductionSymbol(sym, reductor_name));
+                    sym_list.append(ReductionSymbol(sym, reductor_name, _openmp_info->get_udr_info()));
                 }
             }
         }
@@ -362,15 +362,12 @@ namespace TL
 
         void Core::common_parallel_handler(PragmaCustomConstruct construct, DataSharing& data_sharing)
         {
-
             // Analyze things here
             get_data_explicit_attributes(construct, data_sharing);
 
             DataAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DA_SHARED);
 
             get_data_implicit_attributes(construct, default_data_attr, data_sharing);
-
-            _openmp_info->pop_current_data_sharing();
         }
 
         void Core::common_for_handler(PragmaCustomConstruct construct, DataSharing& data_sharing)
@@ -599,7 +596,11 @@ namespace TL
             }
 
             PragmaCustomClause identity_clause = construct.get_clause("identity");
-            std::string identity = order_clause.get_arguments()[0];
+            std::string identity("");
+            if (identity_clause.is_defined())
+            {
+                identity = identity_clause.get_arguments()[0];
+            }
 
             PragmaCustomClause commutative_clause = construct.get_clause("commutative");
             bool is_commutative = commutative_clause.is_defined();
@@ -700,8 +701,8 @@ namespace TL
                     {
                         udr_info_set.add_udr_item(
                                 UDRInfoItem(Type(type),
-                                    builtin_arithmetic_operators[j].operator_name,
-                                    builtin_arithmetic_operators[j].neuter_tree,
+                                    builtin_logic_bit_operators[j].operator_name,
+                                    builtin_logic_bit_operators[j].neuter_tree,
                                     UDRInfoItem::LEFT,
                                     /* is_commutative */ true));
                     }
@@ -715,6 +716,7 @@ namespace TL
         void Core::_name##_handler_pre(PragmaCustomConstruct) { } \
         void Core::_name##_handler_post(PragmaCustomConstruct) { }
 
+        EMPTY_HANDLERS(sections)
         EMPTY_HANDLERS(section)
         EMPTY_HANDLERS(barrier)
         EMPTY_HANDLERS(atomic)

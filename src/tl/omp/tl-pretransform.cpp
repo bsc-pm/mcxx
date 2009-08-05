@@ -8,7 +8,7 @@ namespace TL
         OpenMP_PreTransform::OpenMP_PreTransform()
             : _function_num(0)
         {
-            on_threadprivate_pre.connect(functor(&OpenMP_PreTransform::handle_threadprivate, *this));
+            on_directive_pre["threadprivate"].connect(functor(&OpenMP_PreTransform::handle_threadprivate, *this));
         }
 
         void OpenMP_PreTransform::init(DTO& dto)
