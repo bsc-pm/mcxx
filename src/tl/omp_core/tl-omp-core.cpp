@@ -33,6 +33,8 @@ namespace TL
         {
         }
 
+        static void initialize_builtin_udr_reductions(UDRInfoSet &udr_info_set);
+
         void Core::run(TL::DTO& dto)
         {
             // "openmp_info" should exist
@@ -42,6 +44,8 @@ namespace TL
                 set_phase_status(PHASE_STATUS_ERROR);
                 return;
             }
+
+            initialize_builtin_udr_reductions(_openmp_info->get_udr_info());
 
             PragmaCustomCompilerPhase::run(dto);
         }
@@ -53,7 +57,7 @@ namespace TL
             if (!dto.get_keys().contains("openmp_info"))
             {
                 DataSharing* root_data_sharing = new DataSharing(NULL);
-                /* _openmp_info = */ new OpenMP::Info(root_data_sharing);
+                _openmp_info = RefPtr<OpenMP::Info>(new OpenMP::Info(root_data_sharing));
                 dto.set_object("openmp_info", _openmp_info);
             }
 
@@ -455,280 +459,6 @@ namespace TL
             }
         }
 
-#if 0
-        void OpenMPTransform::task_compute_implicit_data_sharing(
-                OpenMP::Directive &directive,
-                ObjectList<Symbol> &captureaddress_references,
-                ObjectList<Symbol> &local_references,
-                ObjectList<Symbol> &captureprivate_references,
-                Scope& function_scope,
-                FunctionDefinition &function_definition,
-                Statement& construct_body,
-                OpenMP::Construct &task_construct)
-        {
-            // These are used later
-            OpenMP::Clause shared_clause = directive.shared_clause();
-            ObjectList<IdExpression> captureaddress_references_in_clause = shared_clause.id_expressions();
-            OpenMP::Clause captureprivate_clause = directive.firstprivate_clause();
-            ObjectList<IdExpression> captureprivate_references_in_clause = captureprivate_clause.id_expressions();
-            OpenMP::Clause private_clause = directive.private_clause();
-            ObjectList<IdExpression> local_references_in_clause = private_clause.id_expressions();
-
-            OpenMP::CustomClause input_clause = directive.custom_clause("input");
-            ObjectList<Expression> input_references_in_clause = input_clause.get_expression_list();
-            OpenMP::CustomClause output_clause = directive.custom_clause("output");
-            ObjectList<Expression> output_references_in_clause = output_clause.get_expression_list();
-
-            // Default calculus
-            OpenMP::DefaultClause default_clause = directive.default_clause();
-            enum 
-            {
-                DK_TASK_INVALID = 0,
-                DK_TASK_UNDEFINED,
-                DK_TASK_SHARED,
-                DK_TASK_FIRSTPRIVATE,
-                DK_TASK_PRIVATE,
-                DK_TASK_NONE
-            } default_task_data_sharing = DK_TASK_INVALID;
-
-            ObjectList<std::string> captureprivate_names;
-            captureprivate_names.append("firstprivate");
-            if (!default_clause.is_defined())
-            {
-                // If not given then DK_TASK_UNDEFINED will trigger a more
-                // complex calculus of the data sharing involving inherited
-                // attributes
-                default_task_data_sharing = DK_TASK_UNDEFINED;
-            }
-            else if (default_clause.is_none())
-            {
-                default_task_data_sharing = DK_TASK_NONE;
-            }
-            else if (default_clause.is_private())
-            {
-                default_task_data_sharing = DK_TASK_PRIVATE;
-            }
-            else if (default_clause.is_custom(captureprivate_names))
-            {
-                default_task_data_sharing = DK_TASK_FIRSTPRIVATE;
-            }
-            else if (default_clause.is_shared())
-            {
-                default_task_data_sharing = DK_TASK_SHARED;
-            }
-            else
-            {
-                std::cerr << default_clause.get_ast().get_locus() << ": warning: unknown default clause '" 
-                    << default_clause.prettyprint() << "'. Assuming 'default(firstprivate)'."
-                    << std::endl;
-                default_task_data_sharing = DK_TASK_FIRSTPRIVATE;
-            }
-
-            // Now deal with the references of the body
-            {
-                // Get all id-expressions in the body construct
-                ObjectList<IdExpression> references_body_all
-                    = construct_body.non_local_symbol_occurrences(Statement::ONLY_VARIABLES);
-
-                for (ObjectList<IdExpression>::iterator it = references_body_all.begin();
-                        it != references_body_all.end();
-                        it++)
-                {
-                    // If the variable has a sharing attribute of 'threadprivate' do not consider
-                    // it for anything
-                    if ((task_construct.get_data_attribute(it->get_symbol()) & OpenMP::DA_THREADPRIVATE)
-                            == OpenMP::DA_THREADPRIVATE)
-                    {
-                        continue;
-                    }
-
-
-                    // If this symbol appears in any data-sharing clause,
-                    // ignore it since it already has an explicit data
-                    // sharing attribute
-                    //
-                    // Note that all captureaddressed things are in
-                    // 'captureaddress_references_in_clause',
-                    // 'captureaddress_references' might contain less of
-                    // them if they are globally accessible
-                    Expression expr(it->get_ast(), it->get_scope_link());
-                    if (captureaddress_references_in_clause.contains(*it, functor(&IdExpression::get_symbol)) 
-                            || captureprivate_references_in_clause.contains(*it, functor(&IdExpression::get_symbol))
-                            || local_references_in_clause.contains(*it, functor(&IdExpression::get_symbol))
-                            || input_references_in_clause.contains(expr, functor(handle_dep_expr))
-                            || output_references_in_clause.contains(expr, functor(handle_dep_expr))
-                            )
-                        continue;
-
-                    Symbol global_sym = function_scope.get_symbol_from_id_expr(it->get_ast());
-
-                    bool will_be_visible_from_outline = false;
-                    bool is_unqualified_member = false;
-                    if (global_sym.is_valid()
-                            && (global_sym == it->get_symbol()))
-                    {
-                        // If the function-scope accessible symbol is the same
-                        // found then it must be implicitly captureaddress,
-                        // instead of capturevalue but since it is accessible
-                        // it does not have to be passed
-                        //
-                        // As an exception, member symbols must be passed as
-                        // captureaddress and they will be converted to
-                        // "_this->member"
-                        will_be_visible_from_outline = true;
-                        is_unqualified_member = is_unqualified_member_symbol(it->get_symbol(), function_definition);
-                    }
-
-                    switch ((int)default_task_data_sharing)
-                    {
-                        case DK_TASK_UNDEFINED :
-                            {
-                                /*
-                                 * According to the standard when a variable is
-                                 * referenced inside a task construct and no
-                                 * default is given and the variable does not
-                                 * appear in any data-sharing clause:
-                                 *
-                                 *  (1) if the task is orphaned and the variable is a
-                                 *  parameter then it is 'firstprivate'
-                                 *
-                                 *  (2) otherwise, if the task is not orphaned and
-                                 *  nested inside a parallel and the variable is
-                                 *  private in that construct, then it is
-                                 *  firstprivate in this task construct
-                                 *
-                                 *  (3) otherwise, if the task is not nested in a
-                                 *  parallel and the variable is private in the
-                                 *  enclosing function (this might happen because
-                                 *  the induction variable of an enclosing loop or
-                                 *  simply because the variable is local)
-                                 *
-                                 *  (4) otherwise the variable is shared in this
-                                 *  task construct
-                                 */
-                                Symbol sym = it->get_symbol();
-                                // This will use the inherited scope if any
-                                OpenMP::DataAttribute data_attrib = task_construct.get_data_attribute(sym);
-
-                                if (data_attrib != OpenMP::DA_UNDEFINED)
-                                {
-                                    // Some enclosing construct defined a data sharing for this attribute
-                                    if ((data_attrib & OpenMP::DA_PRIVATE) == OpenMP::DA_PRIVATE)
-                                    {
-                                        // (2) if an enclosing construct defined private for it (e.g. a 'parallel')
-                                        // (3) if an enclosing non-parallel construct defined private for it (e.g. a 'for')
-                                        captureprivate_references.insert(sym);
-                                        task_construct.add_data_attribute(sym, OpenMP::DA_FIRSTPRIVATE);
-                                    }
-                                    else if ((data_attrib & OpenMP::DA_SHARED) == OpenMP::DA_SHARED)
-                                    {
-                                        if (will_be_visible_from_outline)
-                                        {
-                                            // (4)
-                                            // Do nothing, will be shared by scope
-                                        }
-                                        else 
-                                        {
-                                            // (4) An enclosing construct (e.g. a 'parallel') defined it shared
-                                            captureaddress_references.insert(sym);
-                                            task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        // (4) If not shared or private in an
-                                        // enclosing scope (but somebody
-                                        // defined some data sharing for it) it
-                                        // is shared in this task
-                                        captureaddress_references.insert(sym);
-                                        task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
-                                    }
-                                }
-                                else
-                                {
-                                    // No data sharing was set by any enclosing construct
-                                    if (will_be_visible_from_outline)
-                                    {
-                                        // (4) It is shared because it is a global symbol
-                                    }
-                                    else if (sym.is_static())
-                                    {
-                                        // (4) It is shared because it is a
-                                        // static variable.  Note that this
-                                        // static is for local variables, since
-                                        // global variables should have
-                                        // 'will_be_visible_from_outline' set
-                                        // to true
-                                        captureaddress_references.insert(sym);
-                                        task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
-                                    }
-                                    else
-                                    {
-                                        Type t = sym.get_type();
-
-                                        if (t.is_const()
-                                                && (!t.is_class()
-                                                    || !t.some_member_is_mutable()))
-                                        {
-                                            // (3) If it is shared in the enclosing scope (so,
-                                            // it is a const variable of a class/struct without
-                                            // any mutable member) then it is shared.
-                                            captureaddress_references.insert(sym);
-                                            task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
-                                        }
-                                        else
-                                        {
-                                            // Otherwise, this includes (1), the symbol is firstprivate
-                                            captureprivate_references.insert(sym);
-                                            task_construct.add_data_attribute(sym, OpenMP::DA_FIRSTPRIVATE);
-                                        }
-                                    }
-                                }
-
-                                break;
-                            }
-                        case DK_TASK_NONE :
-                            {
-                                std::cerr << it->get_ast().get_locus() << ": warning: '" 
-                                    << it->prettyprint() << "' does not have a data sharing attribute "
-                                    << "and 'default(none)' was specified. " 
-                                    << "It will be considered firstprivate." << std::endl;
-                                /* Fall through captureprivate */
-                            }
-                        case DK_TASK_FIRSTPRIVATE :
-                            {
-                                captureprivate_references.insert(it->get_symbol());
-                                task_construct.add_data_attribute(it->get_symbol(), OpenMP::DA_FIRSTPRIVATE);
-                                break;
-                            }
-                        case DK_TASK_SHARED :
-                            {
-                                // If is not visible from the outline (or
-                                // if it is, it is an unqualified member)
-                                // then add to the captureaddress
-                                if (!will_be_visible_from_outline
-                                        || is_unqualified_member)
-                                {
-                                    captureaddress_references.insert(it->get_symbol());
-                                    task_construct.add_data_attribute(it->get_symbol(), OpenMP::DA_SHARED);
-                                }
-                                break;
-                            }
-                        case DK_TASK_PRIVATE :
-                            {
-                                local_references.insert(it->get_symbol());
-                                break;
-                            }
-                        case DK_TASK_INVALID :
-                        default:
-                            break;
-                    }
-                }
-            }
-        }
-#endif
-
-
         // Handlers
         void Core::parallel_handler_pre(PragmaCustomConstruct construct)
         {
@@ -889,6 +619,92 @@ namespace TL
                     std::string& op_name(*op_it);
 
                     udr_info_set.add_udr_item(UDRInfoItem(type, op_name, identity, assoc, is_commutative));
+                }
+            }
+        }
+
+        static void initialize_builtin_udr_reductions(UDRInfoSet &udr_info_set)
+        {
+            static bool already_initialized = false;
+
+            if (already_initialized)
+                return;
+
+            already_initialized = true;
+
+            // FIXME - There should be a way to get these without using internal type info
+            type_t* all_arithmetic_types[] =
+            {
+                get_char_type(),
+                get_signed_int_type(),
+                get_signed_short_int_type(),
+                get_signed_long_int_type(),
+                get_signed_long_long_int_type(),
+                get_signed_char_type(),
+                get_unsigned_int_type(),
+                get_unsigned_short_int_type(),
+                get_unsigned_long_int_type(),
+                get_unsigned_long_long_int_type(),
+                get_unsigned_char_type(),
+                get_float_type(),
+                get_double_type(),
+                get_long_double_type(),
+                NULL,
+            };
+
+            typedef struct 
+            {
+                const char* operator_name;
+                const char* neuter_tree;
+            } reduction_info_t; 
+
+            const char* zero = "0";
+            const char* one = "1";
+            const char* neg_zero = "~0";
+
+            reduction_info_t builtin_arithmetic_operators[] =
+            {
+                {"+", zero}, 
+                {"-", zero}, 
+                {"*", one}, 
+                {NULL, NULL}
+            };
+
+            reduction_info_t builtin_logic_bit_operators[] =
+            {
+                {"&", neg_zero}, 
+                {"|", zero}, 
+                {"^", zero}, 
+                {"&&", one}, 
+                {"||", zero}, 
+                {NULL, NULL}
+            };
+
+            int i;
+            type_t* type;
+            for (i = 0; (type = all_arithmetic_types[i]) != NULL; i++)
+            {
+                int j;
+                for (j = 0; builtin_arithmetic_operators[j].operator_name != NULL; j++)
+                {
+                    udr_info_set.add_udr_item(
+                            UDRInfoItem(Type(type),
+                                builtin_arithmetic_operators[j].operator_name,
+                                builtin_arithmetic_operators[j].neuter_tree,
+                                UDRInfoItem::LEFT,
+                                /* is_commutative */ true));
+                }
+                if (is_integral_type(type))
+                {
+                    for (j = 0; builtin_logic_bit_operators[j].operator_name != NULL; j++)
+                    {
+                        udr_info_set.add_udr_item(
+                                UDRInfoItem(Type(type),
+                                    builtin_arithmetic_operators[j].operator_name,
+                                    builtin_arithmetic_operators[j].neuter_tree,
+                                    UDRInfoItem::LEFT,
+                                    /* is_commutative */ true));
+                    }
                 }
             }
         }
