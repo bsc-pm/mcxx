@@ -18,6 +18,7 @@ linker_options = -L@NANOS_LIBS@ -Wl,-rpath,@NANOS_LIBS@
 pragma_prefix = nanos
 compiler_phase = libtlnanos.so
 {instrument,!debug} @INSTRUMENTATION_PHASE@
+compiler_phase = libtlomp-core.so
 compiler_phase = libtlomp.so
 
 [mcxx]
@@ -39,6 +40,7 @@ linker_options = -L@NANOS_LIBS@ -Wl,-rpath,@NANOS_LIBS@
 pragma_prefix = nanos
 compiler_phase = libtlnanos.so
 {instrument,!debug} @INSTRUMENTATION_PHASE@
+compiler_phase = libtlomp-core.so
 compiler_phase = libtlomp.so
 
 [imcc]
@@ -60,6 +62,7 @@ linker_options = -L@NANOS_LIBS@ -Wl,-rpath,@NANOS_LIBS@
 pragma_prefix = nanos
 compiler_phase = libtlnanos.so
 {instrument,!debug} @INSTRUMENTATION_PHASE@
+compiler_phase = libtlomp-core.so
 compiler_phase = libtlomp.so
 
 [imcxx]
@@ -81,4 +84,5 @@ linker_options = -L@NANOS_LIBS@ -Wl,-rpath,@NANOS_LIBS@
 pragma_prefix = nanos
 compiler_phase = libtlnanos.so
 {instrument,!debug} @INSTRUMENTATION_PHASE@
+compiler_phase = libtlomp-core.so
 compiler_phase = libtlomp.so
