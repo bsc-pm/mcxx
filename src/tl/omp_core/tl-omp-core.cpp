@@ -407,6 +407,11 @@ namespace TL
 
         void Core::common_workshare_handler(PragmaCustomConstruct construct, DataSharing& data_sharing)
         {
+            get_data_explicit_attributes(construct, data_sharing);
+
+            DataAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DA_SHARED);
+
+            get_data_implicit_attributes(construct, default_data_attr, data_sharing);
         }
 
         // Data sharing computation for tasks.
