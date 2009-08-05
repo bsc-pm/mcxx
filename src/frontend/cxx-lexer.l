@@ -554,6 +554,18 @@ identifier {
     return PRAGMA_CUSTOM_NEWLINE;
 }
 
+  /* 
+     These are needed for proper clause nesting do not remove 
+   otherwise catch-all rule below will match 
+   */
+"{" { parse_token_text(); return '{'; }
+"}" { parse_token_text(); return '}'; }
+"[" { parse_token_text(); return '['; }
+"]" { parse_token_text(); return ']'; }
+"<" { parse_token_text(); return '<'; }
+">" { parse_token_text(); return '>'; }
+
+  /* Catch all rule */
 [^,] {
     parse_token_text();
     return PRAGMA_CLAUSE_ARG_TEXT;

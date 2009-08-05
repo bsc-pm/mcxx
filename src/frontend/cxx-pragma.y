@@ -182,14 +182,21 @@ pragma_clause_arg_item : pragma_clause_arg_text
     char c[256];
     snprintf(c, 255, "[%s]", $2);
     c[255] = '\0';
-    $$ = c;
+    $$ = uniquestr(c);
 }
 | '{' pragma_clause_arg_item_nested '}'
 {
     char c[256];
     snprintf(c, 255, "{%s}", $2);
     c[255] = '\0';
-    $$ = c;
+    $$ = uniquestr(c);
+}
+| '<' pragma_clause_arg_item_nested '>'
+{
+    char c[256];
+    snprintf(c, 255, "<%s>", $2);
+    c[255] = '\0';
+    $$ = uniquestr(c);
 }
 | '(' ')'
 {
@@ -202,6 +209,10 @@ pragma_clause_arg_item : pragma_clause_arg_text
 | '{' '}'
 {
     $$ = "{}";
+}
+| '<' '>'
+{
+    $$ = "<>";
 }
 ;
 
