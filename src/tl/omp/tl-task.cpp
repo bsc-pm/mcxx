@@ -430,7 +430,7 @@ namespace TL
                 DepthTraverse depth_traverse;
 
                 // Remove any OpenMP vestige in the original code
-                AnyOpenMPConstruct any_openmp_construct_pred;
+                AnyOpenMPConstruct any_openmp_construct_pred(construct_body.get_scope_link());
                 RemoveOpenMP remove_openmp_traverse_functor;
                 depth_traverse.add_predicate(any_openmp_construct_pred, remove_openmp_traverse_functor);
 

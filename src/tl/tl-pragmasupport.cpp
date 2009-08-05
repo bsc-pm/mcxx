@@ -412,6 +412,22 @@ namespace TL
         return (!clauses.empty());
     }
 
+    bool is_pragma_custom(const std::string& pragma_preffix,
+            AST_t ast, ScopeLink scope_link)
+    {
+        PredicateAttr pred_ctr(LANG_IS_PRAGMA_CUSTOM_CONSTRUCT);
+        PredicateAttr pred_dir(LANG_IS_PRAGMA_CUSTOM_DIRECTIVE);
+
+        if (pred_ctr(ast) || pred_dir(ast))
+        {
+            PragmaCustomConstruct pragma_construct(ast, scope_link);
+
+            if (pragma_construct.get_pragma() == pragma_preffix)
+                return true;
+        }
+        return false;
+    }
+
     bool is_pragma_custom_directive(const std::string& pragma_preffix, 
             const std::string& pragma_directive, 
             AST_t ast,
@@ -430,6 +446,7 @@ namespace TL
 
         return false;
     }
+
 
     bool is_pragma_custom_construct(const std::string& pragma_preffix, 
             const std::string& pragma_directive, 

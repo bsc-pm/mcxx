@@ -89,7 +89,7 @@ namespace TL
 
                     // Now for every task construct get the called functions for which we have
                     // their definition
-                    ObjectList<AST_t> task_construct_list = tree.depth_subtrees(TaskConstructPred());
+                    ObjectList<AST_t> task_construct_list = tree.depth_subtrees(TaskConstructPred(scope_link));
                     for (ObjectList<AST_t>::iterator it = task_construct_list.begin();
                             it != task_construct_list.end();
                             it++)
@@ -307,7 +307,7 @@ namespace TL
                         DepthTraverse depth_traverse;
 
                         // Now remove any OpenMP vestige
-                        AnyOpenMPConstruct any_openmp_construct_pred;
+                        AnyOpenMPConstruct any_openmp_construct_pred(function_def.get_scope_link());
                         RemoveOpenMP remove_openmp_traverse_functor;
                         depth_traverse.add_predicate(any_openmp_construct_pred, remove_openmp_traverse_functor);
 

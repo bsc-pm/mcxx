@@ -436,7 +436,6 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 
 /*!define GRAMMAR_PROLOGUE*/
 /*!include cxx-placeholders.y*/
-/*!include cxx-omp.y*/
 /*!include cxx-pragma.y*/
 /*!include cxx-construct.y*/
 /*!include cxx-superscalar.y*/
@@ -4811,7 +4810,6 @@ right_bracket_token : '>'
 
 /*!define GRAMMAR_RULES*/
 /*!include cxx-placeholders.y*/
-/*!include cxx-omp.y*/
 /*!include cxx-pragma.y*/
 /*!include cxx-construct.y*/
 /*!include cxx-superscalar.y*/

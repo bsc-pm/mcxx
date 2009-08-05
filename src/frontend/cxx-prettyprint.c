@@ -200,22 +200,22 @@ HANDLER_PROTOTYPE(custom_construct_header_handler);
 HANDLER_PROTOTYPE(custom_construct_parameter);
 
 // OpenMP
-HANDLER_PROTOTYPE(omp_generic_construct_handler);
-HANDLER_PROTOTYPE(omp_generic_clause_handler_with_argument);
-HANDLER_PROTOTYPE(omp_generic_directive_handler);
-HANDLER_PROTOTYPE(omp_generic_clause_handler_with_list);
-HANDLER_PROTOTYPE(omp_generic_clause_handler_with_optional_list);
-HANDLER_PROTOTYPE(omp_schedule_clause_handler);
-HANDLER_PROTOTYPE(omp_reduction_clause_handler);
-HANDLER_PROTOTYPE(omp_sections_construct_handler);
-HANDLER_PROTOTYPE(omp_section_handler);
-HANDLER_PROTOTYPE(omp_threadprivate_directive_handler);
-HANDLER_PROTOTYPE(omp_custom_directive_handler);
-HANDLER_PROTOTYPE(omp_custom_construct_directive_handler);
-HANDLER_PROTOTYPE(omp_custom_clause_handler);
-HANDLER_PROTOTYPE(omp_custom_parameter_clause_handler);
-HANDLER_PROTOTYPE(omp_critical_directive_handler);
-HANDLER_PROTOTYPE(omp_default_custom_clause_handler);
+// HANDLER_PROTOTYPE(omp_generic_construct_handler);
+// HANDLER_PROTOTYPE(omp_generic_clause_handler_with_argument);
+// HANDLER_PROTOTYPE(omp_generic_directive_handler);
+// HANDLER_PROTOTYPE(omp_generic_clause_handler_with_list);
+// HANDLER_PROTOTYPE(omp_generic_clause_handler_with_optional_list);
+// HANDLER_PROTOTYPE(omp_schedule_clause_handler);
+// HANDLER_PROTOTYPE(omp_reduction_clause_handler);
+// HANDLER_PROTOTYPE(omp_sections_construct_handler);
+// HANDLER_PROTOTYPE(omp_section_handler);
+// HANDLER_PROTOTYPE(omp_threadprivate_directive_handler);
+// HANDLER_PROTOTYPE(omp_custom_directive_handler);
+// HANDLER_PROTOTYPE(omp_custom_construct_directive_handler);
+// HANDLER_PROTOTYPE(omp_custom_clause_handler);
+// HANDLER_PROTOTYPE(omp_custom_parameter_clause_handler);
+// HANDLER_PROTOTYPE(omp_critical_directive_handler);
+// HANDLER_PROTOTYPE(omp_default_custom_clause_handler);
 
 // GCC Extensions
 HANDLER_PROTOTYPE(gcc_label_declaration_handler);
@@ -576,74 +576,74 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_CUSTOM_CONSTRUCT_HEADER, custom_construct_header_handler, NULL),
     NODE_HANDLER(AST_CUSTOM_CONSTRUCT_PARAMETER, custom_construct_parameter, NULL),
     // OpenMP 2.5
-    NODE_HANDLER(AST_OMP_PARALLEL_CONSTRUCT, omp_generic_construct_handler, NULL),
-    NODE_HANDLER(AST_OMP_PARALLEL_DIRECTIVE, omp_generic_directive_handler, "parallel"),
-    NODE_HANDLER(AST_OMP_TASK_CONSTRUCT, omp_generic_construct_handler, NULL),
-    NODE_HANDLER(AST_OMP_TASK_DIRECTIVE, omp_generic_directive_handler, "task"),
-    NODE_HANDLER(AST_OMP_TASKWAIT_DIRECTIVE, omp_generic_directive_handler, "taskwait"),
-    NODE_HANDLER(AST_OMP_FOR_CONSTRUCT, omp_generic_construct_handler, NULL),
-    NODE_HANDLER(AST_OMP_FOR_DIRECTIVE, omp_generic_directive_handler, "for"),
-    NODE_HANDLER(AST_OMP_PARALLEL_SINGLE_CONSTRUCT, omp_generic_construct_handler, NULL),
-    NODE_HANDLER(AST_OMP_PARALLEL_SINGLE_DIRECTIVE, omp_generic_directive_handler, "parallel single"),
-    NODE_HANDLER(AST_OMP_PARALLEL_FOR_CONSTRUCT, omp_generic_construct_handler, NULL),
-    NODE_HANDLER(AST_OMP_PARALLEL_FOR_DIRECTIVE, omp_generic_directive_handler, "parallel for"),
-    NODE_HANDLER(AST_OMP_PARALLEL_SECTIONS_CONSTRUCT, omp_sections_construct_handler, NULL),
-    NODE_HANDLER(AST_OMP_PARALLEL_SECTIONS_DIRECTIVE, omp_generic_directive_handler, "parallel sections"),
-    NODE_HANDLER(AST_OMP_SECTIONS_CONSTRUCT, omp_sections_construct_handler, NULL),
-    NODE_HANDLER(AST_OMP_SECTIONS_DIRECTIVE, omp_generic_directive_handler, "sections"),
-    NODE_HANDLER(AST_OMP_SECTION, omp_section_handler, NULL),
-    NODE_HANDLER(AST_OMP_SECTION_DIRECTIVE, omp_generic_directive_handler, "section"),
-    NODE_HANDLER(AST_OMP_SINGLE_CONSTRUCT, omp_generic_construct_handler, NULL),
-    NODE_HANDLER(AST_OMP_SINGLE_DIRECTIVE, omp_generic_directive_handler, "single"),
-    NODE_HANDLER(AST_OMP_MASTER_CONSTRUCT, omp_generic_construct_handler, NULL),
-    NODE_HANDLER(AST_OMP_MASTER_DIRECTIVE, omp_generic_directive_handler, "master"),
-    NODE_HANDLER(AST_OMP_ATOMIC_CONSTRUCT, omp_generic_construct_handler, NULL),
-    NODE_HANDLER(AST_OMP_ATOMIC_DIRECTIVE, omp_generic_directive_handler, "atomic"),
-    NODE_HANDLER(AST_OMP_ORDERED_CONSTRUCT, omp_generic_construct_handler, NULL),
-    NODE_HANDLER(AST_OMP_ORDERED_DIRECTIVE, omp_generic_directive_handler, "ordered"),
-    NODE_HANDLER(AST_OMP_CUSTOM_CONSTRUCT, omp_generic_construct_handler, NULL),
-    NODE_HANDLER(AST_OMP_CUSTOM_DIRECTIVE, omp_custom_directive_handler, NULL),
-    NODE_HANDLER(AST_OMP_CUSTOM_CONSTRUCT_DIRECTIVE, omp_custom_construct_directive_handler, NULL),
-    NODE_HANDLER(AST_OMP_CUSTOM_CLAUSE, omp_custom_clause_handler, NULL),
-    NODE_HANDLER(AST_OMP_CUSTOM_PARAMETER_CLAUSE, omp_custom_parameter_clause_handler, NULL),
-    NODE_HANDLER(AST_OMP_BARRIER_DIRECTIVE, omp_generic_directive_handler, "barrier"),
-    NODE_HANDLER(AST_OMP_FLUSH_DIRECTIVE, omp_generic_directive_handler, "flush"),
-    NODE_HANDLER(AST_OMP_IF_CLAUSE, omp_generic_clause_handler_with_argument, "if"),
-    NODE_HANDLER(AST_OMP_NUM_THREADS_CLAUSE, omp_generic_clause_handler_with_argument, "num_threads"),
-    NODE_HANDLER(AST_OMP_NOWAIT_CLAUSE, simple_parameter_handler, "nowait"),
-    NODE_HANDLER(AST_OMP_ORDERED_CLAUSE, simple_parameter_handler, "ordered"),
-    NODE_HANDLER(AST_OMP_SCHEDULE_CLAUSE, omp_schedule_clause_handler, NULL),
-    NODE_HANDLER(AST_OMP_CUSTOM_SCHEDULE, simple_text_handler, NULL),
-    NODE_HANDLER(AST_OMP_STATIC_SCHEDULE, simple_parameter_handler, "static"),
-    NODE_HANDLER(AST_OMP_DYNAMIC_SCHEDULE, simple_parameter_handler, "dynamic"),
-    NODE_HANDLER(AST_OMP_RUNTIME_SCHEDULE, simple_parameter_handler, "runtime"),
-    NODE_HANDLER(AST_OMP_GUIDED_SCHEDULE, simple_parameter_handler, "guided"),
-    NODE_HANDLER(AST_OMP_SHARED_CLAUSE, omp_generic_clause_handler_with_list, "shared"),
-    NODE_HANDLER(AST_OMP_PRIVATE_CLAUSE, omp_generic_clause_handler_with_list, "private"),
-    NODE_HANDLER(AST_OMP_FIRSTPRIVATE_CLAUSE, omp_generic_clause_handler_with_list, "firstprivate"),
-    NODE_HANDLER(AST_OMP_LASTPRIVATE_CLAUSE, omp_generic_clause_handler_with_list, "lastprivate"),
-    NODE_HANDLER(AST_OMP_COPYPRIVATE_CLAUSE, omp_generic_clause_handler_with_list, "copyprivate"),
-    NODE_HANDLER(AST_OMP_COPYIN_CLAUSE, omp_generic_clause_handler_with_list, "copyin"),
-    NODE_HANDLER(AST_OMP_DEFAULT_SHARED_CLAUSE, simple_parameter_handler, "default(shared)"),
-    NODE_HANDLER(AST_OMP_DEFAULT_NONE_CLAUSE, simple_parameter_handler, "default(none)"),
-    NODE_HANDLER(AST_OMP_DEFAULT_CUSTOM_CLAUSE, omp_default_custom_clause_handler, NULL),
-    NODE_HANDLER(AST_OMP_REDUCTION_CLAUSE, omp_reduction_clause_handler, NULL),
-    NODE_HANDLER(AST_OMP_THREADPRIVATE_DIRECTIVE, omp_threadprivate_directive_handler, NULL),
-    NODE_HANDLER(AST_OMP_CRITICAL_CONSTRUCT, omp_generic_construct_handler, NULL),
-    NODE_HANDLER(AST_OMP_CRITICAL_DIRECTIVE, omp_critical_directive_handler, NULL),
-    NODE_HANDLER(AST_OMP_DECLARE_REDUCTION_DIRECTIVE, omp_generic_directive_handler, "declare reduction"),
-    NODE_HANDLER(AST_OMP_TYPE_CLAUSE, omp_generic_clause_handler_with_argument, "type"),
-    NODE_HANDLER(AST_OMP_OPERATOR_CLAUSE, omp_generic_clause_handler_with_list, "operator"),
-    NODE_HANDLER(AST_OMP_REDUCTION_OPERATOR_BUILTIN, unary_container_handler, NULL),
-    NODE_HANDLER(AST_OMP_REDUCTION_OPERATOR_FUNCTION, unary_container_handler, NULL),
-    NODE_HANDLER(AST_OMP_REDUCTION_OPERATOR_MEMBER_FUNCTION, prefix_with_parameter_then_son_handler, "."),
-    NODE_HANDLER(AST_OMP_COMMUTATIVE_CLAUSE, simple_parameter_handler, "commutative"),
-    NODE_HANDLER(AST_OMP_ORDER_CLAUSE, omp_generic_clause_handler_with_argument, "order"),
-    NODE_HANDLER(AST_OMP_REDUCTION_LEFT, simple_parameter_handler, "left"),
-    NODE_HANDLER(AST_OMP_REDUCTION_RIGHT, simple_parameter_handler, "right"),
-    NODE_HANDLER(AST_OMP_IDENTITY_CLAUSE, omp_generic_clause_handler_with_argument, "identity"),
-    NODE_HANDLER(AST_OMP_IDENTITY_INITIALIZER, unary_container_handler, NULL),
-    NODE_HANDLER(AST_OMP_IDENTITY_CONSTRUCTOR, omp_generic_clause_handler_with_optional_list, "constructor"),
+    // NODE_HANDLER(AST_OMP_PARALLEL_CONSTRUCT, omp_generic_construct_handler, NULL),
+    // NODE_HANDLER(AST_OMP_PARALLEL_DIRECTIVE, omp_generic_directive_handler, "parallel"),
+    // NODE_HANDLER(AST_OMP_TASK_CONSTRUCT, omp_generic_construct_handler, NULL),
+    // NODE_HANDLER(AST_OMP_TASK_DIRECTIVE, omp_generic_directive_handler, "task"),
+    // NODE_HANDLER(AST_OMP_TASKWAIT_DIRECTIVE, omp_generic_directive_handler, "taskwait"),
+    // NODE_HANDLER(AST_OMP_FOR_CONSTRUCT, omp_generic_construct_handler, NULL),
+    // NODE_HANDLER(AST_OMP_FOR_DIRECTIVE, omp_generic_directive_handler, "for"),
+    // NODE_HANDLER(AST_OMP_PARALLEL_SINGLE_CONSTRUCT, omp_generic_construct_handler, NULL),
+    // NODE_HANDLER(AST_OMP_PARALLEL_SINGLE_DIRECTIVE, omp_generic_directive_handler, "parallel single"),
+    // NODE_HANDLER(AST_OMP_PARALLEL_FOR_CONSTRUCT, omp_generic_construct_handler, NULL),
+    // NODE_HANDLER(AST_OMP_PARALLEL_FOR_DIRECTIVE, omp_generic_directive_handler, "parallel for"),
+    // NODE_HANDLER(AST_OMP_PARALLEL_SECTIONS_CONSTRUCT, omp_sections_construct_handler, NULL),
+    // NODE_HANDLER(AST_OMP_PARALLEL_SECTIONS_DIRECTIVE, omp_generic_directive_handler, "parallel sections"),
+    // NODE_HANDLER(AST_OMP_SECTIONS_CONSTRUCT, omp_sections_construct_handler, NULL),
+    // NODE_HANDLER(AST_OMP_SECTIONS_DIRECTIVE, omp_generic_directive_handler, "sections"),
+    // NODE_HANDLER(AST_OMP_SECTION, omp_section_handler, NULL),
+    // NODE_HANDLER(AST_OMP_SECTION_DIRECTIVE, omp_generic_directive_handler, "section"),
+    // NODE_HANDLER(AST_OMP_SINGLE_CONSTRUCT, omp_generic_construct_handler, NULL),
+    // NODE_HANDLER(AST_OMP_SINGLE_DIRECTIVE, omp_generic_directive_handler, "single"),
+    // NODE_HANDLER(AST_OMP_MASTER_CONSTRUCT, omp_generic_construct_handler, NULL),
+    // NODE_HANDLER(AST_OMP_MASTER_DIRECTIVE, omp_generic_directive_handler, "master"),
+    // NODE_HANDLER(AST_OMP_ATOMIC_CONSTRUCT, omp_generic_construct_handler, NULL),
+    // NODE_HANDLER(AST_OMP_ATOMIC_DIRECTIVE, omp_generic_directive_handler, "atomic"),
+    // NODE_HANDLER(AST_OMP_ORDERED_CONSTRUCT, omp_generic_construct_handler, NULL),
+    // NODE_HANDLER(AST_OMP_ORDERED_DIRECTIVE, omp_generic_directive_handler, "ordered"),
+    // NODE_HANDLER(AST_OMP_CUSTOM_CONSTRUCT, omp_generic_construct_handler, NULL),
+    // NODE_HANDLER(AST_OMP_CUSTOM_DIRECTIVE, omp_custom_directive_handler, NULL),
+    // NODE_HANDLER(AST_OMP_CUSTOM_CONSTRUCT_DIRECTIVE, omp_custom_construct_directive_handler, NULL),
+    // NODE_HANDLER(AST_OMP_CUSTOM_CLAUSE, omp_custom_clause_handler, NULL),
+    // NODE_HANDLER(AST_OMP_CUSTOM_PARAMETER_CLAUSE, omp_custom_parameter_clause_handler, NULL),
+    // NODE_HANDLER(AST_OMP_BARRIER_DIRECTIVE, omp_generic_directive_handler, "barrier"),
+    // NODE_HANDLER(AST_OMP_FLUSH_DIRECTIVE, omp_generic_directive_handler, "flush"),
+    // NODE_HANDLER(AST_OMP_IF_CLAUSE, omp_generic_clause_handler_with_argument, "if"),
+    // NODE_HANDLER(AST_OMP_NUM_THREADS_CLAUSE, omp_generic_clause_handler_with_argument, "num_threads"),
+    // NODE_HANDLER(AST_OMP_NOWAIT_CLAUSE, simple_parameter_handler, "nowait"),
+    // NODE_HANDLER(AST_OMP_ORDERED_CLAUSE, simple_parameter_handler, "ordered"),
+    // NODE_HANDLER(AST_OMP_SCHEDULE_CLAUSE, omp_schedule_clause_handler, NULL),
+    // NODE_HANDLER(AST_OMP_CUSTOM_SCHEDULE, simple_text_handler, NULL),
+    // NODE_HANDLER(AST_OMP_STATIC_SCHEDULE, simple_parameter_handler, "static"),
+    // NODE_HANDLER(AST_OMP_DYNAMIC_SCHEDULE, simple_parameter_handler, "dynamic"),
+    // NODE_HANDLER(AST_OMP_RUNTIME_SCHEDULE, simple_parameter_handler, "runtime"),
+    // NODE_HANDLER(AST_OMP_GUIDED_SCHEDULE, simple_parameter_handler, "guided"),
+    // NODE_HANDLER(AST_OMP_SHARED_CLAUSE, omp_generic_clause_handler_with_list, "shared"),
+    // NODE_HANDLER(AST_OMP_PRIVATE_CLAUSE, omp_generic_clause_handler_with_list, "private"),
+    // NODE_HANDLER(AST_OMP_FIRSTPRIVATE_CLAUSE, omp_generic_clause_handler_with_list, "firstprivate"),
+    // NODE_HANDLER(AST_OMP_LASTPRIVATE_CLAUSE, omp_generic_clause_handler_with_list, "lastprivate"),
+    // NODE_HANDLER(AST_OMP_COPYPRIVATE_CLAUSE, omp_generic_clause_handler_with_list, "copyprivate"),
+    // NODE_HANDLER(AST_OMP_COPYIN_CLAUSE, omp_generic_clause_handler_with_list, "copyin"),
+    // NODE_HANDLER(AST_OMP_DEFAULT_SHARED_CLAUSE, simple_parameter_handler, "default(shared)"),
+    // NODE_HANDLER(AST_OMP_DEFAULT_NONE_CLAUSE, simple_parameter_handler, "default(none)"),
+    // NODE_HANDLER(AST_OMP_DEFAULT_CUSTOM_CLAUSE, omp_default_custom_clause_handler, NULL),
+    // NODE_HANDLER(AST_OMP_REDUCTION_CLAUSE, omp_reduction_clause_handler, NULL),
+    // NODE_HANDLER(AST_OMP_THREADPRIVATE_DIRECTIVE, omp_threadprivate_directive_handler, NULL),
+    // NODE_HANDLER(AST_OMP_CRITICAL_CONSTRUCT, omp_generic_construct_handler, NULL),
+    // NODE_HANDLER(AST_OMP_CRITICAL_DIRECTIVE, omp_critical_directive_handler, NULL),
+    // NODE_HANDLER(AST_OMP_DECLARE_REDUCTION_DIRECTIVE, omp_generic_directive_handler, "declare reduction"),
+    // NODE_HANDLER(AST_OMP_TYPE_CLAUSE, omp_generic_clause_handler_with_argument, "type"),
+    // NODE_HANDLER(AST_OMP_OPERATOR_CLAUSE, omp_generic_clause_handler_with_list, "operator"),
+    // NODE_HANDLER(AST_OMP_REDUCTION_OPERATOR_BUILTIN, unary_container_handler, NULL),
+    // NODE_HANDLER(AST_OMP_REDUCTION_OPERATOR_FUNCTION, unary_container_handler, NULL),
+    // NODE_HANDLER(AST_OMP_REDUCTION_OPERATOR_MEMBER_FUNCTION, prefix_with_parameter_then_son_handler, "."),
+    // NODE_HANDLER(AST_OMP_COMMUTATIVE_CLAUSE, simple_parameter_handler, "commutative"),
+    // NODE_HANDLER(AST_OMP_ORDER_CLAUSE, omp_generic_clause_handler_with_argument, "order"),
+    // NODE_HANDLER(AST_OMP_REDUCTION_LEFT, simple_parameter_handler, "left"),
+    // NODE_HANDLER(AST_OMP_REDUCTION_RIGHT, simple_parameter_handler, "right"),
+    // NODE_HANDLER(AST_OMP_IDENTITY_CLAUSE, omp_generic_clause_handler_with_argument, "identity"),
+    // NODE_HANDLER(AST_OMP_IDENTITY_INITIALIZER, unary_container_handler, NULL),
+    // NODE_HANDLER(AST_OMP_IDENTITY_CONSTRUCTOR, omp_generic_clause_handler_with_optional_list, "constructor"),
     // GCC Extensions
     NODE_HANDLER(AST_GCC_EXTENSION, gcc_extension_preffix_handler, "__extension__ "),
     NODE_HANDLER(AST_GCC_EXTENSION_EXPR, prefix_with_token_text_then_son_handler, NULL),
@@ -3253,161 +3253,161 @@ static void gcc_parenthesized_expression_handler(FILE* f, AST a, prettyprint_con
 
 // OpenMP 2.5
 
-static void omp_generic_construct_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
-}
-
-static void omp_custom_clause_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    token_fprintf(f, a, "%s", ASTText(a));
-    if (ASTSon0(a) != NULL)
-    {
-        token_fprintf(f, a, "(");
-        list_handler(f, ASTSon0(a), pt_ctx);
-        token_fprintf(f, a, ")");
-    }
-}
-
-static void omp_custom_parameter_clause_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    token_fprintf(f, a, "(");
-    if (ASTSon0(a) != NULL)
-    {
-        list_handler(f, ASTSon0(a), pt_ctx);
-    }
-    token_fprintf(f, a, ")");
-}
-
-static void omp_custom_directive_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    token_fprintf(f, a, "#pragma omp %s", ASTText(a));
-    if (ASTSon0(a) != NULL)
-    {
-        token_fprintf(f, a, " ");
-        spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
-    }
-    token_fprintf(f, a, "\n");
-}
-
-static void omp_custom_construct_directive_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    token_fprintf(f, a, "#pragma omp %s", ASTText(a));
-    if (ASTSon0(a) != NULL)
-    {
-        token_fprintf(f, a, " ");
-        spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
-    }
-    token_fprintf(f, a, "\n");
-}
-
-static void omp_generic_directive_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    token_fprintf(f, a, "#pragma omp %s", HELPER_PARAMETER_STRING);
-    if (ASTSon0(a) != NULL)
-    {
-        token_fprintf(f, a, " ");
-        spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
-    }
-    token_fprintf(f, a, "\n");
-}
-
-static void omp_generic_clause_handler_with_argument(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    token_fprintf(f, a, "%s", HELPER_PARAMETER_STRING);
-    token_fprintf(f, a, "(");
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, ")");
-}
-
-static void omp_generic_clause_handler_with_optional_list(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    token_fprintf(f, a, "%s", HELPER_PARAMETER_STRING);
-    if (ASTSon0(a) != NULL)
-    {
-        token_fprintf(f, a, "(");
-        list_handler(f, ASTSon0(a), pt_ctx);
-        token_fprintf(f, a, ")");
-    }
-}
-
-static void omp_generic_clause_handler_with_list(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    token_fprintf(f, a, "%s", HELPER_PARAMETER_STRING);
-    token_fprintf(f, a, "(");
-    list_handler(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, ")");
-}
-
-static void omp_schedule_clause_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    token_fprintf(f, a, "schedule(");
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-    if (ASTSon1(a) != NULL)
-    {
-        token_fprintf(f, a, ", ");
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-    }
-    token_fprintf(f, a, ")");
-}
-
-static void omp_critical_directive_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    token_fprintf(f, a, "#pragma omp critical ");
-    if (ASTSon0(a) != NULL)
-    {
-        token_fprintf(f, a, "(");
-        prettyprint_level(f, ASTSon0(a), pt_ctx);
-        token_fprintf(f, a, ")");
-    }
-    token_fprintf(f, a, "\n");
-}
-
-static void omp_reduction_clause_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    token_fprintf(f, a, "reduction");
-    token_fprintf(f, a, "(");
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, ":");
-    list_handler(f, ASTSon1(a), pt_ctx);
-    token_fprintf(f, a, ")");
-}
-
-static void omp_sections_construct_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-
-    indent_at_level(f, a, pt_ctx);
-    token_fprintf(f, a, "{\n");
-    NEW_PT_CONTEXT(new_pt_ctx, increase_level);
-    prettyprint_level(f, ASTSon1(a), new_pt_ctx);
-    indent_at_level(f, a, pt_ctx);
-    token_fprintf(f, a, "}\n");
-}
-
-static void omp_section_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    if (ASTSon0(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon0(a), pt_ctx);
-    }
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
-}
-
-static void omp_threadprivate_directive_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    token_fprintf(f, a, "#pragma omp threadprivate");
-    token_fprintf(f, a, "(");
-    list_handler(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, ")");
-    token_fprintf(f, a, "\n");
-}
-
-static void omp_default_custom_clause_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx UNUSED_PARAMETER)
-{
-    token_fprintf(f, a, "default(%s)", ASTText(a));
-}
+// static void omp_generic_construct_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+// {
+//     prettyprint_level(f, ASTSon0(a), pt_ctx);
+//     prettyprint_level(f, ASTSon1(a), pt_ctx);
+// }
+// 
+// static void omp_custom_clause_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+// {
+//     token_fprintf(f, a, "%s", ASTText(a));
+//     if (ASTSon0(a) != NULL)
+//     {
+//         token_fprintf(f, a, "(");
+//         list_handler(f, ASTSon0(a), pt_ctx);
+//         token_fprintf(f, a, ")");
+//     }
+// }
+// 
+// static void omp_custom_parameter_clause_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+// {
+//     token_fprintf(f, a, "(");
+//     if (ASTSon0(a) != NULL)
+//     {
+//         list_handler(f, ASTSon0(a), pt_ctx);
+//     }
+//     token_fprintf(f, a, ")");
+// }
+// 
+// static void omp_custom_directive_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+// {
+//     token_fprintf(f, a, "#pragma omp %s", ASTText(a));
+//     if (ASTSon0(a) != NULL)
+//     {
+//         token_fprintf(f, a, " ");
+//         spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
+//     }
+//     token_fprintf(f, a, "\n");
+// }
+// 
+// static void omp_custom_construct_directive_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+// {
+//     token_fprintf(f, a, "#pragma omp %s", ASTText(a));
+//     if (ASTSon0(a) != NULL)
+//     {
+//         token_fprintf(f, a, " ");
+//         spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
+//     }
+//     token_fprintf(f, a, "\n");
+// }
+// 
+// static void omp_generic_directive_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+// {
+//     token_fprintf(f, a, "#pragma omp %s", HELPER_PARAMETER_STRING);
+//     if (ASTSon0(a) != NULL)
+//     {
+//         token_fprintf(f, a, " ");
+//         spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
+//     }
+//     token_fprintf(f, a, "\n");
+// }
+// 
+// static void omp_generic_clause_handler_with_argument(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+// {
+//     token_fprintf(f, a, "%s", HELPER_PARAMETER_STRING);
+//     token_fprintf(f, a, "(");
+//     prettyprint_level(f, ASTSon0(a), pt_ctx);
+//     token_fprintf(f, a, ")");
+// }
+// 
+// static void omp_generic_clause_handler_with_optional_list(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+// {
+//     token_fprintf(f, a, "%s", HELPER_PARAMETER_STRING);
+//     if (ASTSon0(a) != NULL)
+//     {
+//         token_fprintf(f, a, "(");
+//         list_handler(f, ASTSon0(a), pt_ctx);
+//         token_fprintf(f, a, ")");
+//     }
+// }
+// 
+// static void omp_generic_clause_handler_with_list(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+// {
+//     token_fprintf(f, a, "%s", HELPER_PARAMETER_STRING);
+//     token_fprintf(f, a, "(");
+//     list_handler(f, ASTSon0(a), pt_ctx);
+//     token_fprintf(f, a, ")");
+// }
+// 
+// static void omp_schedule_clause_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+// {
+//     token_fprintf(f, a, "schedule(");
+//     prettyprint_level(f, ASTSon0(a), pt_ctx);
+//     if (ASTSon1(a) != NULL)
+//     {
+//         token_fprintf(f, a, ", ");
+//         prettyprint_level(f, ASTSon1(a), pt_ctx);
+//     }
+//     token_fprintf(f, a, ")");
+// }
+// 
+// static void omp_critical_directive_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+// {
+//     token_fprintf(f, a, "#pragma omp critical ");
+//     if (ASTSon0(a) != NULL)
+//     {
+//         token_fprintf(f, a, "(");
+//         prettyprint_level(f, ASTSon0(a), pt_ctx);
+//         token_fprintf(f, a, ")");
+//     }
+//     token_fprintf(f, a, "\n");
+// }
+// 
+// static void omp_reduction_clause_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+// {
+//     token_fprintf(f, a, "reduction");
+//     token_fprintf(f, a, "(");
+//     prettyprint_level(f, ASTSon0(a), pt_ctx);
+//     token_fprintf(f, a, ":");
+//     list_handler(f, ASTSon1(a), pt_ctx);
+//     token_fprintf(f, a, ")");
+// }
+// 
+// static void omp_sections_construct_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+// {
+//     prettyprint_level(f, ASTSon0(a), pt_ctx);
+// 
+//     indent_at_level(f, a, pt_ctx);
+//     token_fprintf(f, a, "{\n");
+//     NEW_PT_CONTEXT(new_pt_ctx, increase_level);
+//     prettyprint_level(f, ASTSon1(a), new_pt_ctx);
+//     indent_at_level(f, a, pt_ctx);
+//     token_fprintf(f, a, "}\n");
+// }
+// 
+// static void omp_section_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+// {
+//     if (ASTSon0(a) != NULL)
+//     {
+//         prettyprint_level(f, ASTSon0(a), pt_ctx);
+//     }
+//     prettyprint_level(f, ASTSon1(a), pt_ctx);
+// }
+// 
+// static void omp_threadprivate_directive_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+// {
+//     token_fprintf(f, a, "#pragma omp threadprivate");
+//     token_fprintf(f, a, "(");
+//     list_handler(f, ASTSon0(a), pt_ctx);
+//     token_fprintf(f, a, ")");
+//     token_fprintf(f, a, "\n");
+// }
+// 
+// static void omp_default_custom_clause_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx UNUSED_PARAMETER)
+// {
+//     token_fprintf(f, a, "default(%s)", ASTText(a));
+// }
 
 static void array_section_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
