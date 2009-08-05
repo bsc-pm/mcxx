@@ -40,9 +40,6 @@ namespace TL
             // One more parallel seen
             num_parallels++;
 
-            // Remove the induction var from the stack
-            induction_var_stack.pop();
-
             // Decrease the parallel nesting level 
             parallel_nesting--;
 

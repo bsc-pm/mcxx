@@ -111,7 +111,7 @@ namespace TL
                     return _type;
                 }
 
-                const std::string& get_op_name() const
+                std::string get_op_name() const
                 {
                     return _op_name;
                 }
@@ -290,9 +290,31 @@ namespace TL
                     }
                 }
 
+                ReductionSymbol(const ReductionSymbol& red_sym)
+                    : _symbol(red_sym._symbol), _udr_item(NULL)
+                 {
+                    if (red_sym._udr_item != NULL)
+                    {
+                        this->_udr_item = new UDRInfoItem(*red_sym._udr_item);
+                    }
+                }
+
                 ~ReductionSymbol()
                 {
                     delete _udr_item;
+                }
+
+                ReductionSymbol& operator=(const ReductionSymbol& red_sym)
+                {
+                    if (this != &red_sym)
+                    {
+                        this->_symbol = red_sym._symbol;
+                        if (red_sym._udr_item != NULL)
+                        {
+                            this->_udr_item = new UDRInfoItem(*red_sym._udr_item);
+                        }
+                    }
+                    return *this;
                 }
 
                 //! Returns the symbol of this reduction

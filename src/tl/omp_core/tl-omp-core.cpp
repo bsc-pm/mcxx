@@ -194,7 +194,9 @@ namespace TL
                             ;
                     }
 
-                    sym_list.append(ReductionSymbol(sym, reductor_name, _openmp_info->get_udr_info()));
+                    ReductionSymbol red_sym(sym, reductor_name, _openmp_info->get_udr_info());
+
+                    sym_list.append(red_sym);
                 }
             }
         }
@@ -329,7 +331,8 @@ namespace TL
             {
                 Symbol sym = it->get_symbol();
 
-                if (!sym.is_valid())
+                if (!sym.is_valid()
+                        || !sym.is_variable())
                     continue;
 
                 DataAttribute data_attr = data_sharing.get(sym, /* check_enclosing */ false);
@@ -372,12 +375,26 @@ namespace TL
 
         void Core::common_for_handler(PragmaCustomConstruct construct, DataSharing& data_sharing)
         {
-            // FIXME - Set induction variable as private!
+            Statement stmt = construct.get_statement();
+
+            if (!ForStatement::predicate(stmt.get_ast()))
+            {
+                running_error("%s: error: a for-statement is required for '#pragma omp for' and '#pragma omp parallel for'",
+                        stmt.get_ast().get_locus().c_str());
+            }
+
+            ForStatement for_statement(stmt.get_ast(), stmt.get_scope_link());
+
+            if (for_statement.is_regular_loop())
+            {
+                IdExpression id_expr = for_statement.get_induction_variable();
+                Symbol sym = id_expr.get_symbol();
+                data_sharing.set(sym, DA_PRIVATE);
+            }
         }
 
         void Core::common_workshare_handler(PragmaCustomConstruct construct, DataSharing& data_sharing)
         {
-            // FIXME 
         }
 
         // Data sharing computation for tasks.
@@ -400,6 +417,10 @@ namespace TL
                     it++)
             {
                 Symbol sym = it->get_symbol();
+
+                if (!sym.is_valid()
+                        || !sym.is_variable())
+                    continue;
 
                 DataAttribute data_attr = data_sharing.get(sym);
 

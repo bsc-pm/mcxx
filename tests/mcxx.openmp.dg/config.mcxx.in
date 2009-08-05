@@ -10,4 +10,5 @@ linker_name = g++
 linker_options = -L@NANOS_LIBS@ -Wl,-rpath,@NANOS_LIBS@
 pragma_prefix = nanos
 compiler_phase = libtlnanos.so
+compiler_phase = libtlomp-core.so
 compiler_phase = libtlomp.so

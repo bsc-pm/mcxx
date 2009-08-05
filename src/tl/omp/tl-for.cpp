@@ -32,9 +32,6 @@ namespace TL
 
             IdExpression induction_var = for_statement.get_induction_variable();
 
-            // Save this induction var in the stack
-            induction_var_stack.push(induction_var.get_symbol());
-
             // They will hold the entities as they appear in the clauses
             ObjectList<Symbol>& shared_references = 
                 for_construct.get_data<ObjectList<Symbol> >("shared_references");
@@ -85,9 +82,6 @@ namespace TL
             FunctionDefinition function_definition = for_construct.get_enclosing_function();
             // its scope
             Scope function_scope = function_definition.get_scope();
-
-            // Remove the induction var from the stack
-            induction_var_stack.pop();
 
             ObjectList<OpenMP::ReductionSymbol> reduction_empty;
 

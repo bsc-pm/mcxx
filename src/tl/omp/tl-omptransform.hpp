@@ -56,9 +56,6 @@ namespace TL
                 // level of sections
                 std::stack<int> num_sections_stack;
 
-                // Stores the innermost induction variable of a parallel for or for construct
-                std::stack<Symbol> induction_var_stack;
-
                 // Stores the non orphaned reduction of the enclosing parallel (if any)
                 std::stack<ObjectList<OpenMP::ReductionSymbol> > inner_reductions_stack;
 

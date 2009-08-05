@@ -1533,7 +1533,8 @@ static const char* return_pragma_prefix_longest_match(const char* prefix,
         }
     }
 
-    if (discard_source != NULL)
+    if (discard_source != NULL
+            && strlen(discard_source) > 0)
     {
         // Discard the characters "too much lexed"
         char* end = discard_source;
