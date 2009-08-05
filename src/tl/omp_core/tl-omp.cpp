@@ -245,6 +245,63 @@ namespace TL
             _current_data_sharing = _stack_data_sharing.top();
             _stack_data_sharing.pop();
         }
-    }
 
+        UDRInfoSet& Info::get_udr_info()
+        {
+            return _udr_info_set;
+        }
+
+        void UDRInfoSet::add_udr_item(const UDRInfoItem& item)
+        {
+            Type type = item.get_type();
+            const std::string& op_name = item.get_op_name();
+
+            for (ObjectList<UDRInfoItem>::iterator it = _udr_info_set.begin();
+                    it != _udr_info_set.end();
+                    it++)
+            {
+                if (it->get_type() == type
+                        && it->get_op_name() == op_name)
+                {
+                    // Do not readd an UDR
+                    return;
+                }
+            }
+
+            _udr_info_set.append(item);
+        }
+
+        bool UDRInfoSet::lookup_udr(Type type, const std::string& op_name) const
+        {
+            for (ObjectList<UDRInfoItem>::const_iterator it = _udr_info_set.begin();
+                    it != _udr_info_set.end();
+                    it++)
+            {
+                if (it->get_type() == type
+                        && it->get_op_name() == op_name)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        UDRInfoItem UDRInfoSet::get_udr(Type type, const std::string& op_name) const
+        {
+            for (ObjectList<UDRInfoItem>::const_iterator it = _udr_info_set.begin();
+                    it != _udr_info_set.end();
+                    it++)
+            {
+                if (it->get_type() == type
+                        && it->get_op_name() == op_name)
+                {
+                    return *it;
+                }
+            }
+
+            internal_error("UDR lookup failed", 0);
+        }
+
+    }
 }

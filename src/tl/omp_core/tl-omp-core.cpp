@@ -829,6 +829,72 @@ namespace TL
             _openmp_info->pop_current_data_sharing();
         }
 
+        static void is_builtin_operator(const std::string& str)
+        {
+        }
+
+        void Core::declare_reduction_handler_pre(PragmaCustomConstruct construct)
+        {
+            UDRInfoSet& udr_info_set = _openmp_info->get_udr_info();
+
+            // #pragma omp declare reduction type(type-name-list) operator(op-name-list) order(left|right) commutative
+            ScopeLink scope_link = construct.get_scope_link();
+
+            PragmaCustomClause type_clause = construct.get_clause("type");
+            ObjectList<std::string> type_args = type_clause.get_arguments();
+
+            PragmaCustomClause operator_clause = construct.get_clause("operator");
+            ObjectList<std::string> op_args = operator_clause.get_arguments();
+
+            PragmaCustomClause order_clause = construct.get_clause("order");
+            UDRInfoItem::Associativity assoc = UDRInfoItem::LEFT;
+            if (order_clause.is_defined())
+            {
+                std::string str = order_clause.get_arguments()[0];
+
+                if (str == "right")
+                {
+                    assoc = UDRInfoItem::RIGHT;
+                }
+                else if (str == "left")
+                {
+                    assoc = UDRInfoItem::LEFT;
+                }
+                else
+                {
+                    std::cerr << construct.get_ast().get_locus() 
+                        << ": warning: invalid 'order' clause argument, assuming 'left'" 
+                        << std::endl;
+                }
+            }
+
+            PragmaCustomClause identity_clause = construct.get_clause("identity");
+            std::string identity = order_clause.get_arguments()[0];
+
+            PragmaCustomClause commutative_clause = construct.get_clause("commutative");
+            bool is_commutative = commutative_clause.is_defined();
+
+            for (ObjectList<std::string>::iterator type_it = type_args.begin();
+                    type_it != type_args.end();
+                    type_it++)
+            {
+                Source src(*type_it);
+
+                Type type = src.parse_type(construct.get_ast(), construct.get_scope_link());
+
+                for (ObjectList<std::string>::iterator op_it = op_args.begin();
+                        op_it != op_args.end();
+                        op_it++)
+                {
+                    std::string& op_name(*op_it);
+
+                    udr_info_set.add_udr_item(UDRInfoItem(type, op_name, identity, assoc, is_commutative));
+                }
+            }
+        }
+
+        void Core::declare_reduction_handler_post(PragmaCustomConstruct construct) { }
+
 #define EMPTY_HANDLERS(_name) \
         void Core::_name##_handler_pre(PragmaCustomConstruct) { } \
         void Core::_name##_handler_post(PragmaCustomConstruct) { }
@@ -841,6 +907,5 @@ namespace TL
         EMPTY_HANDLERS(flush)
         EMPTY_HANDLERS(taskwait)
         EMPTY_HANDLERS(ordered)
-        EMPTY_HANDLERS(declare_reduction)
     }
 }

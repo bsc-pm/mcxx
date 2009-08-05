@@ -41,7 +41,6 @@
 #include "cxx-gccsupport.h"
 #include "cxx-gccbuiltins.h"
 #include "cxx-gccspubuiltins.h"
-#include "cxx-omp-support.h"
 #include "cxx-upc.h"
 #include "cxx-lexer.h"
 #include "cxx-parser.h"
@@ -354,12 +353,6 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
         {
             upc_sign_in_builtins(decl_context);
         }
-    }
-
-    // Initialize basic OpenMP reduction types
-    if (!CURRENT_CONFIGURATION->disable_openmp)
-    {
-        omp_udr_initialize_basic_types(decl_context);
     }
 }
 

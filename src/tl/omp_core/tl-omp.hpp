@@ -23,7 +23,6 @@
 
 #include "tl-common.hpp"
 #include "cxx-utils.h"
-#include "cxx-omp-support.h"
 
 #include "tl-pragmasupport.hpp"
 #include "tl-ast.hpp"
@@ -77,6 +76,106 @@ namespace TL
             DA_NONE = BITMAP(9)
         };
 #undef BITMAP
+
+        class LIBTL_CLASS UDRInfoItem
+        {
+            public:
+                enum Associativity
+                {
+                    NONE = 0,
+                    LEFT,
+                    RIGHT
+                };
+            private:
+                Type _type;
+                std::string _op_name;
+                std::string _identity;
+                Associativity _assoc;
+                bool _is_commutative;
+            public:
+                UDRInfoItem(Type type, 
+                        const std::string& op_name,
+                        const std::string& identity,
+                        Associativity assoc,
+                        bool is_commutative)
+                    : _type(type),
+                    _op_name(op_name),
+                    _identity(identity),
+                    _assoc(assoc),
+                    _is_commutative(is_commutative)
+                {
+                }
+
+                Type get_type() const
+                {
+                    return _type;
+                }
+
+                const std::string& get_op_name() const
+                {
+                    return _op_name;
+                }
+
+                std::string get_identity() const
+                {
+                    if (is_constructor_identity())
+                    {
+                        // Skip constructor part
+                        return _identity.substr(std::string("constructor").length());
+                    }
+                    else
+                    {
+                        return _identity;
+                    }
+                }
+
+                Associativity get_assoc() const
+                {
+                    return _assoc;
+                }
+
+                bool is_commutative() const
+                {
+                    return _is_commutative;
+                }
+
+                bool is_builtin_op() const
+                {
+                    return (_op_name == "+"
+                            || _op_name == "-"
+                            || _op_name == "*"
+                            || _op_name == "/"
+                            || _op_name == "&"
+                            || _op_name == "|"
+                            || _op_name == "^"
+                            || _op_name == "&&"
+                            || _op_name == "||");
+                }
+
+                bool is_member_op() const
+                {
+                    return (_op_name[0] == '.');
+                }
+
+                bool is_constructor_identity() const
+                {
+                    return _identity.substr(0, std::string("constructor").length()) 
+                        == std::string("constructor");
+                }
+        };
+
+        class LIBTL_CLASS UDRInfoSet
+        {
+            private:
+                ObjectList<UDRInfoItem> _udr_info_set;
+            public:
+                UDRInfoSet() { }
+
+                void add_udr_item(const UDRInfoItem & item);
+
+                bool lookup_udr(Type type, const std::string& op_name) const;
+                UDRInfoItem get_udr(Type type, const std::string& op_name) const;
+        };
 
         //! This class represents data sharing environment in a OpenMP construct
         class LIBTL_CLASS DataSharing
@@ -145,6 +244,8 @@ namespace TL
                 DataSharing* _current_data_sharing;
                 std::map<AST_t, DataSharing*> _map_data_sharing;
                 std::stack<DataSharing*> _stack_data_sharing;
+
+                UDRInfoSet _udr_info_set;
             public:
                 Info(DataSharing* root_data_sharing)
                     : _root_data_sharing(root_data_sharing), 
@@ -159,6 +260,8 @@ namespace TL
 
                 void push_current_data_sharing(DataSharing&);
                 void pop_current_data_sharing();
+
+                UDRInfoSet& get_udr_info();
         };
 
         //! Auxiliar class used in reduction clauses
@@ -182,6 +285,7 @@ namespace TL
                     _is_member(false),
                     _is_faulty(false)
                 {
+#if 0
                     AST identity = NULL;
                     omp_udr_associativity_t assoc = OMP_UDR_ORDER_LEFT;
 
@@ -213,6 +317,7 @@ namespace TL
                     {
                         _is_faulty = true;
                     }
+#endif
                 }
 
                 //! Returns the symbol of this reduction
