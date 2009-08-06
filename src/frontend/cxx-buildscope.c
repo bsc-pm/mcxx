@@ -8272,13 +8272,7 @@ static void build_scope_null(AST a,
 static void build_scope_pragma_custom_clause_argument(AST a, 
         decl_context_t decl_context UNUSED_PARAMETER)
 {
-    AST list, iter;
-    list = a;
-
-    for_each_element(list, iter)
-    {
-        ASTAttrSetValueType(ASTSon1(iter), LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT, tl_type_t, tl_bool(1));
-    }
+    ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_pragma_custom_clause(AST a, decl_context_t decl_context)

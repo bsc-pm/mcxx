@@ -20,9 +20,11 @@
 */
 #include "tl-pragmasupport.hpp"
 
+#include "cxx-utils.h"
+
 namespace TL
 {
-    static ObjectList<Expression> parse_as_expressions(ObjectList<AST_t> clause_list, AST_t ref_tree, ScopeLink scope_link)
+    static ObjectList<Expression> parse_as_expression_list(ObjectList<AST_t> clause_list, AST_t ref_tree, ScopeLink scope_link)
     {
         ObjectList<Expression> result;
         PredicateAttr clause_argument_pred(LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT);
@@ -33,13 +35,14 @@ namespace TL
         {
             ObjectList<AST_t> argument_list = it->depth_subtrees(clause_argument_pred, AST_t::NON_RECURSIVE);
 
+            // There should be only one of these
             for (ObjectList<AST_t>::iterator it2 = argument_list.begin();
                     it2 != argument_list.end();
                     it2++)
             {
-                TL::Bool is_expression = it2->get_attribute(LANG_IS_EXPRESSION_NEST);
+                TL::Bool is_expr_list = it2->is_list();
 
-                if (!is_expression)
+                if (!is_expr_list)
                 {
                     Source src;
 
@@ -47,20 +50,31 @@ namespace TL
                         << "#line " << ref_tree.get_line() << " \"" << ref_tree.get_file() << "\"\n"
                         << it2->prettyprint();
 
-                    AST_t parsed_expr = src.parse_expression(ref_tree, scope_link);
+                    AST_t parsed_expr = src.parse_expression_list(ref_tree, scope_link);
 
-                    Expression expr(parsed_expr, scope_link);
-                    it2->replace(expr.get_ast());
+                    ERROR_CONDITION(!parsed_expr.is_list(),
+                            "This should be a list!", 0);
 
+                    ASTIterator ast_list_iter =  parsed_expr.get_list_iterator();
+
+                    while (!ast_list_iter.end())
+                    {
+                        Expression expr(ast_list_iter.item(), scope_link);
+                        result.push_back(expr);
+                    }
+
+                    it2->replace(parsed_expr);
                     it2->set_attribute(LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT, true);
-
-                    Expression expr2(*it2, scope_link);
-                    result.push_back(expr2);
                 }
                 else
                 {
-                    Expression expr(*it2, scope_link);
-                    result.push_back(expr);
+                    ASTIterator ast_list_iter = it2->get_list_iterator();
+
+                    while (!ast_list_iter.end())
+                    {
+                        Expression expr(ast_list_iter.item(), scope_link);
+                        result.push_back(expr);
+                    }
                 }
             }
         }
@@ -206,7 +220,7 @@ namespace TL
         ObjectList<AST_t> parameter_list;
         parameter_list.append(parameter);
 
-        result = parse_as_expressions(parameter_list, this->_ref, this->_scope_link);
+        result = parse_as_expression_list(parameter_list, this->_ref, this->_scope_link);
 
         return result;
     }
@@ -319,9 +333,8 @@ namespace TL
    
     ObjectList<Expression> PragmaCustomClause::get_expression_list()
     {
-        return parse_as_expressions(filter_pragma_clause(), this->_ref, this->_scope_link);
+        return parse_as_expression_list(filter_pragma_clause(), this->_ref, this->_scope_link);
     }
-
 
     ObjectList<AST_t> PragmaCustomClause::filter_pragma_clause()
     {
