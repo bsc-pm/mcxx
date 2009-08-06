@@ -1036,6 +1036,7 @@ identifier {
 @STATEMENT@ { parse_token_text(); return SUBPARSE_STATEMENT; }
 @DECLARATION@ { parse_token_text(); return SUBPARSE_DECLARATION; }
 @TYPE@ { parse_token_text(); return SUBPARSE_TYPE; }
+@TYPE-LIST@ { parse_token_text(); return SUBPARSE_TYPE_LIST; }
  /*!if CPLUSPLUS*/
 @MEMBER@ { parse_token_text(); return SUBPARSE_MEMBER; }
  /*!endif*/

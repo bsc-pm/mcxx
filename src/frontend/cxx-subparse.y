@@ -1,5 +1,7 @@
 /*!if GRAMMAR_PROLOGUE*/
 
+%type<ast> subparse_type_list
+
 // Subparsing
 %token<token_atrib> SUBPARSE_EXPRESSION "<subparse-expression>"
 %token<token_atrib> SUBPARSE_EXPRESSION_LIST "<subparse-expression-list>"
@@ -7,6 +9,7 @@
 %token<token_atrib> SUBPARSE_DECLARATION "<subparse-declaration>"
 %token<token_atrib> SUBPARSE_MEMBER "<subparse-member>"
 %token<token_atrib> SUBPARSE_TYPE "<subparse-type>"
+%token<token_atrib> SUBPARSE_TYPE_LIST "<subparse-type-list>"
 
 /*!endif*/
 /*!if GRAMMAR_RULES*/
@@ -45,9 +48,23 @@ subparsing : SUBPARSE_EXPRESSION expression
 {
     $$ = $2;
 }
+| SUBPARSE_TYPE_LIST subparse_type_list
+{
+    $$ = $2;
+}
 | SUBPARSE_EXPRESSION_LIST expression_list
 {
     $$ = $2;
+}
+;
+
+subparse_type_list : type_specifier_seq
+{
+    $$ = ASTListLeaf($1);
+}
+| subparse_type_list ',' type_specifier_seq
+{
+    $$ = ASTList($1, $3);
 }
 ;
 
