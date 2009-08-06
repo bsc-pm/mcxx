@@ -1418,6 +1418,8 @@ static int compute_length_match(const char* lexed_directive,
         const char* available_directive,
         const char **discard_source)
 {
+    int num_matches = 0;
+    {
     char* lexed = strdup(lexed_directive);
     char* available = strdup(available_directive);
 
@@ -1425,8 +1427,6 @@ static int compute_length_match(const char* lexed_directive,
     char *next_lexed = strtok_r(lexed, " ", &next_lexed_info);
     char *next_available_info = NULL;
     char *next_available = strtok_r(available, "|", &next_available_info);
-
-    int num_matches = 0;
 
     while (next_lexed != NULL
             && next_available != NULL)
@@ -1448,46 +1448,45 @@ static int compute_length_match(const char* lexed_directive,
 
     free(available);
     free(lexed);
+    }
 
     // Compute the length of the discards
     const char* p = lexed_directive;
 
+    *discard_source = NULL;
     if (num_matches != 0)
     {
-        *discard_source = NULL;
         ERROR_CONDITION((*p == ' ') || (*p == '\t'), 
                 "Invalid lexing, there should not be a leading blank", 0);
 
         // Skip first match
-        while (!is_blank(*p))
+        while (*p != '\0' 
+                && !is_blank(*p))
         {
             p++;
         }
 
-        if (*p != '\0')
-        {
-            *discard_source = p;
-        }
-
         int n = num_matches - 1;
-
         while ((n > 0)
                 && (*p != '\0'))
         {
             // Now advance blanks
-            while (is_blank(*p) 
-                    && (*p != '\0'))
+            while ((*p != '\0')
+                    && is_blank(*p))
             {
                 p++;
             }
             // And now, non-blanks
-            while (!is_blank(*p) 
-                    && (*p != '\0'))
+            while ((*p != '\0')
+                    && !is_blank(*p))
             {
                 p++;
             }
             n--;
+        }
 
+        if (*p != '\0')
+        {
             *discard_source = p;
         }
     }
