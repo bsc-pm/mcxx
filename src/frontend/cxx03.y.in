@@ -245,12 +245,6 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %token<token_atrib> ATTRIBUTE "__attribute__"
 %token<token_atrib> THREAD "__thread__"
 
-// Subparsing
-%token<token_atrib> SUBPARSE_EXPRESSION "<subparse-expression>"
-%token<token_atrib> SUBPARSE_STATEMENT "<subparse-statement>"
-%token<token_atrib> SUBPARSE_DECLARATION "<subparse-declaration>"
-%token<token_atrib> SUBPARSE_MEMBER "<subparse-member>"
-%token<token_atrib> SUBPARSE_TYPE "<subparse-type>"
 
 // Nonterminals
 %type<ast> abstract_declarator
@@ -435,6 +429,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<node_type> assignment_operator
 
 /*!define GRAMMAR_PROLOGUE*/
+/*!include cxx-subparse.y*/
 /*!include cxx-placeholders.y*/
 /*!include cxx-pragma.y*/
 /*!include cxx-construct.y*/
@@ -458,52 +453,12 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 
 translation_unit : declaration_sequence
 {
-	// *parsed_tree = ASTMake1(AST_TRANSLATION_UNIT, $1, NULL, 0, NULL);
 	*parsed_tree = $1;
 }
 // This is used for subparsing
-| subparsing
-{
-	*parsed_tree = $1;
-}
 | /* empty */
 {
-	// *parsed_tree = ASTMake1(AST_TRANSLATION_UNIT, NULL, NULL, 0, NULL);
     *parsed_tree = NULL;
-}
-;
-
-subparsing : SUBPARSE_EXPRESSION expression
-{
-	$$ = $2;
-}
-| SUBPARSE_STATEMENT statement_seq
-{
-	$$ = $2;
-}
-| SUBPARSE_STATEMENT
-{
-	$$ = NULL;
-}
-| SUBPARSE_MEMBER member_specification_seq
-{
-	$$ = $2;
-}
-| SUBPARSE_MEMBER
-{
-	$$ = NULL;
-}
-| SUBPARSE_DECLARATION declaration_sequence
-{
-	$$ = $2;
-}
-| SUBPARSE_DECLARATION
-{
-    $$ = NULL;
-}
-| SUBPARSE_TYPE type_specifier_seq
-{
-    $$ = $2;
 }
 ;
 
@@ -4809,6 +4764,7 @@ right_bracket_token : '>'
 ;
 
 /*!define GRAMMAR_RULES*/
+/*!include cxx-subparse.y*/
 /*!include cxx-placeholders.y*/
 /*!include cxx-pragma.y*/
 /*!include cxx-construct.y*/

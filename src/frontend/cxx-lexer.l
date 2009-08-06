@@ -1032,6 +1032,7 @@ identifier {
 
  /* Special tokens for subparsing */
 @EXPRESSION@ { parse_token_text(); return SUBPARSE_EXPRESSION; }
+@EXPRESSION-LIST@ { parse_token_text(); return SUBPARSE_EXPRESSION_LIST; }
 @STATEMENT@ { parse_token_text(); return SUBPARSE_STATEMENT; }
 @DECLARATION@ { parse_token_text(); return SUBPARSE_DECLARATION; }
 @TYPE@ { parse_token_text(); return SUBPARSE_TYPE; }

@@ -160,6 +160,7 @@ EXTRA_DIST += cxx03.y
 EXTRA_DIST += cxx03.y.in
 EXTRA_DIST += cxx-scanner.c
 
+EXTRA_DIST += cxx-subparse.y
 EXTRA_DIST += cxx-pragma.y
 EXTRA_DIST += cxx-construct.y
 EXTRA_DIST += cxx-superscalar.y
@@ -271,7 +272,7 @@ CLEANFILES += cxx-parser.output
 CLEANFILES += cxx03.y
 endif
 
-cxx03.y : $(srcdir)/cxx03.y.in $(srcdir)/cxx-placeholders.y $(srcdir)/cxx-pragma.y $(srcdir)/cxx-construct.y $(srcdir)/cxx-superscalar.y $(srcdir)/cxx-ambig-handler.y
+cxx03.y : $(srcdir)/cxx03.y.in $(srcdir)/cxx-placeholders.y $(srcdir)/cxx-subparse.y $(srcdir)/cxx-pragma.y $(srcdir)/cxx-construct.y $(srcdir)/cxx-superscalar.y $(srcdir)/cxx-ambig-handler.y
 	$(TPP) -o cxx03.y -D CPLUSPLUS -I$(srcdir) $(srcdir)/cxx03.y.in
 
 cxx-parser.c : cxx03.y
@@ -310,7 +311,7 @@ CLEANFILES += c99-parser.output
 CLEANFILES += c99.y
 endif
 
-c99.y : $(srcdir)/c99.y.in $(srcdir)/cxx-placeholders.y $(srcdir)/cxx-pragma.y $(srcdir)/cxx-construct.y $(srcdir)/cxx-superscalar.y $(srcdir)/cxx-ambig-handler.y $(srcdir)/c99-upc.y
+c99.y : $(srcdir)/c99.y.in $(srcdir)/cxx-placeholders.y $(srcdir)/cxx-subparse.y $(srcdir)/cxx-pragma.y $(srcdir)/cxx-construct.y $(srcdir)/cxx-superscalar.y $(srcdir)/cxx-ambig-handler.y $(srcdir)/c99-upc.y
 	$(TPP) -o c99.y -D C99 -I$(srcdir) $(srcdir)/c99.y.in
 
 c99-parser.c : c99.y
