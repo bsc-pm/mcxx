@@ -11,4 +11,5 @@ linker_options = -L@NANOS_LIBS@ -Wl,-rpath,@NANOS_LIBS@ -L @MINTAKA_LIBS@ -lmint
 pragma_prefix = nanos
 compiler_phase = libtlnanos.so
 compiler_phase = libtlinstr.so
+compiler_phase = libtlomp-core.so
 compiler_phase = libtlomp.so
