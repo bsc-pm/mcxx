@@ -493,8 +493,16 @@ identifier {
 
 [(] {
 	parse_token_text();
-	pragma_custom_var_list_parentheses++;
-	return '(';
+	if (pragma_custom_var_list_parentheses == 0)
+    {
+        pragma_custom_var_list_parentheses++;
+        return '(';
+    }
+    else
+    {
+        pragma_custom_var_list_parentheses++;
+        return PRAGMA_CLAUSE_ARG_TEXT;
+    }
 }
 
 [)] {
