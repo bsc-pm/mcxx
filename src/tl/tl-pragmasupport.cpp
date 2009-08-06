@@ -40,7 +40,22 @@ namespace TL
                     it2 != argument_list.end();
                     it2++)
             {
-                TL::Bool is_expr_list = it2->is_list();
+                bool is_expr_list = false;
+
+                if (it2->is_list())
+                {
+                    ASTIterator iter = it2->get_list_iterator();
+                    iter.rewind();
+                    // Do nothing if empty
+                    if (iter.end())
+                    {
+                        is_expr_list = true;
+                    }
+                    else
+                    {
+                        is_expr_list = Expression::predicate(iter.item());
+                    }
+                }
 
                 if (!is_expr_list)
                 {
@@ -57,10 +72,12 @@ namespace TL
 
                     ASTIterator ast_list_iter =  parsed_expr.get_list_iterator();
 
+                    ast_list_iter.rewind();
                     while (!ast_list_iter.end())
                     {
                         Expression expr(ast_list_iter.item(), scope_link);
                         result.push_back(expr);
+                        ast_list_iter.next();
                     }
 
                     it2->replace(parsed_expr);
@@ -70,10 +87,12 @@ namespace TL
                 {
                     ASTIterator ast_list_iter = it2->get_list_iterator();
 
+                    ast_list_iter.rewind();
                     while (!ast_list_iter.end())
                     {
                         Expression expr(ast_list_iter.item(), scope_link);
                         result.push_back(expr);
+                        ast_list_iter.next();
                     }
                 }
             }

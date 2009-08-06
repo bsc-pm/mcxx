@@ -554,7 +554,7 @@ identifier {
 }
 
   /* Catch all rule */
-[^,] {
+[^\n] {
     parse_token_text();
     return PRAGMA_CLAUSE_ARG_TEXT;
 }
@@ -1460,6 +1460,11 @@ static int compute_length_match(const char* lexed_directive,
         while (!is_blank(*p))
         {
             p++;
+        }
+
+        if (*p != '\0')
+        {
+            *discard_source = p;
         }
 
         int n = num_matches - 1;

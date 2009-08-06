@@ -48,12 +48,25 @@ namespace TL
 
             void construct_post(PragmaCustomConstruct pragma_custom_construct)
             {
-                std::cerr << " -> PRAGMA FOUND <- " << std::endl;
-                CompilationProcess::add_file("myprova.c", "mytestcc");
+                std::cerr << " --> RUNNING CONSTRUCT POST <-- " << std::endl;
+                PragmaCustomClause clause = pragma_custom_construct.get_clause("clause");
 
-                std::fstream of("myprova.c");
-                of << "void f(void);" << std::endl;
-                of.close();
+                if (clause.is_defined())
+                {
+                    ObjectList<Expression> expr = clause.get_expression_list();
+
+                    int i = 0;
+                    for (ObjectList<Expression>::iterator it = expr.begin();
+                            it != expr.end();
+                            it++)
+                    {
+                        std::cerr << "[" << i << "] '" << *it << "'" << std::endl;
+                        i++;
+                    }
+
+                    // Second time, to check that things are right
+                    ObjectList<Expression> expr2 = clause.get_expression_list();
+                }
             }
     };
 }
