@@ -503,8 +503,12 @@ identifier {
 	if (pragma_custom_var_list_parentheses == 0)
 	{
 		BEGIN(pragma_custom_clause);
+        return ')';
 	}
-	return ')';
+    else
+    {
+        return PRAGMA_CLAUSE_ARG_TEXT;
+    }
 }
 
 [ \t]+ {
@@ -524,18 +528,13 @@ identifier {
     }
     else
     {
-        // We are in (*)
-        // #pragma foo bar (*) doe
+        // We are in .
+        // #pragma foo bar . doe
         // and 'doe' must be lexed as another custom clause
         BEGIN(pragma_custom_var_list);
         parse_token_text(); 
         return PRAGMA_CUSTOM_CLAUSE; 
     }
-}
-
-[,][ \t]* {
-    parse_token_text();
-    return ',';
 }
 
 \n {
@@ -553,17 +552,6 @@ identifier {
     BEGIN(INITIAL);
     return PRAGMA_CUSTOM_NEWLINE;
 }
-
-  /* 
-     These are needed for proper clause nesting do not remove 
-   otherwise catch-all rule below will match 
-   */
-"{" { parse_token_text(); return '{'; }
-"}" { parse_token_text(); return '}'; }
-"[" { parse_token_text(); return '['; }
-"]" { parse_token_text(); return ']'; }
-"<" { parse_token_text(); return '<'; }
-">" { parse_token_text(); return '>'; }
 
   /* Catch all rule */
 [^,] {
@@ -1549,7 +1537,7 @@ static const char* return_pragma_prefix_longest_match(const char* prefix,
             && strlen(discard_source) > 0)
     {
         // Discard the characters "too much lexed"
-        char* end = discard_source;
+        const char* end = discard_source;
 
         while (*end != '\0')
             end++;
