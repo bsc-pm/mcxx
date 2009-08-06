@@ -107,7 +107,9 @@ namespace TL
             }
         }
 
-        void Core::get_reduction_symbols(PragmaCustomClause clause, 
+        void Core::get_reduction_symbols(
+                PragmaCustomConstruct construct,
+                PragmaCustomClause clause, 
                 ObjectList<ReductionSymbol>& sym_list)
         {
             if (!clause.is_defined())
@@ -125,6 +127,10 @@ namespace TL
                 // #pragma omp parallel for reduction(A::F : A::d)
 
                 std::string first_arg = arguments[0];
+
+                // Remove blanks
+                first_arg.erase(std::remove(first_arg.begin(), first_arg.end(), ' '), first_arg.end());
+
                 std::string::iterator split_colon = first_arg.end();
                 for (std::string::iterator it = first_arg.begin();
                         it != first_arg.end();
@@ -168,7 +174,12 @@ namespace TL
                         it++)
                 {
                     std::string &arg(*it);
-                    Source src (arg);
+                    Source src;
+
+                    src
+                        << "#line " << construct.get_ast().get_line() << " \"" << construct.get_ast().get_file() << "\"\n"
+                        << arg
+                        ;
 
                     AST_t expr_tree = src.parse_expression(clause.get_ast(), clause.get_scope_link());
 
@@ -271,7 +282,7 @@ namespace TL
 
             ObjectList<OpenMP::ReductionSymbol> reduction_references;
             std::string reductor_name;
-            get_reduction_symbols(construct.get_clause("reduction"), reduction_references);
+            get_reduction_symbols(construct, construct.get_clause("reduction"), reduction_references);
             std::for_each(reduction_references.begin(), reduction_references.end(), 
                     DataSharingSetterReduction(data_sharing, DA_REDUCTION));
 
@@ -663,7 +674,20 @@ namespace TL
                             op_it++)
                     {
                         std::string& op_name(*op_it);
-                        udr_info_set.add_udr_item(UDRInfoItem(type, op_name, identity, assoc, is_commutative));
+                        if (!udr_info_set.lookup_udr(type, op_name))
+                        {
+                            std::cerr << "INTRODUCING UDR FOR '" << op_name << "' type '" 
+                                << type.get_declaration(construct.get_scope_link().get_scope(construct.get_ast()), "")
+                                << "'"
+                                << std::endl;
+                            udr_info_set.add_udr_item(UDRInfoItem(type, op_name, identity, assoc, is_commutative));
+                        }
+                        else
+                        {
+                            running_error("%s: error: user defined reduction for type '%s' and operator '%s' already defined",
+                                    construct.get_ast().get_locus().c_str(),
+                                    type.get_declaration(construct.get_scope_link().get_scope(construct.get_ast()), "").c_str());
+                        }
                     }
                 }
             }

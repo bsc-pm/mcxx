@@ -28,7 +28,8 @@ namespace TL
                 RefPtr<OpenMP::Info> _openmp_info;
 
                 void get_clause_symbols(PragmaCustomClause clause, ObjectList<Symbol>& sym_list);
-                void get_reduction_symbols(PragmaCustomClause clause, ObjectList<ReductionSymbol>& sym_list);
+                void get_reduction_symbols(PragmaCustomConstruct construct, 
+                        PragmaCustomClause clause, ObjectList<ReductionSymbol>& sym_list);
                 void get_data_explicit_attributes(PragmaCustomConstruct construct, 
                         DataSharing& data_sharing);
                 void get_data_implicit_attributes(PragmaCustomConstruct construct, 
