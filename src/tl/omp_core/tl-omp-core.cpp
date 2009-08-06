@@ -649,15 +649,21 @@ namespace TL
             {
                 Source src(*type_it);
 
-                Type type = src.parse_type(construct.get_ast(), construct.get_scope_link());
+                ObjectList<Type> type_list = src.parse_type_list(construct.get_ast(), construct.get_scope_link());
 
-                for (ObjectList<std::string>::iterator op_it = op_args.begin();
-                        op_it != op_args.end();
-                        op_it++)
+                for (ObjectList<Type>::iterator type_it = type_list.begin();
+                        type_it != type_list.end();
+                        type_it++)
                 {
-                    std::string& op_name(*op_it);
+                    Type &type(*type_it);
 
-                    udr_info_set.add_udr_item(UDRInfoItem(type, op_name, identity, assoc, is_commutative));
+                    for (ObjectList<std::string>::iterator op_it = op_args.begin();
+                            op_it != op_args.end();
+                            op_it++)
+                    {
+                        std::string& op_name(*op_it);
+                        udr_info_set.add_udr_item(UDRInfoItem(type, op_name, identity, assoc, is_commutative));
+                    }
                 }
             }
         }
