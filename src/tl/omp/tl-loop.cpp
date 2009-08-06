@@ -151,7 +151,7 @@ namespace TL
             PragmaCustomClause schedule_clause = for_construct.get_clause("schedule");
             if (schedule_clause.is_defined())
             {
-                ObjectList<std::string> args = schedule_clause.get_arguments();
+                ObjectList<std::string> args = schedule_clause.get_arguments(ExpressionTokenizer());
                 schedule_const << schedule_constant_name(args[0]);
 
                 if (args.size() > 1)

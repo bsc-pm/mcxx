@@ -297,7 +297,7 @@ namespace TL
             }
             else
             {
-                ObjectList<std::string> args = default_clause.get_arguments();
+                ObjectList<std::string> args = default_clause.get_arguments(ExpressionTokenizer());
 
                 struct pairs_t
                 {
@@ -606,16 +606,17 @@ namespace TL
             ScopeLink scope_link = construct.get_scope_link();
 
             PragmaCustomClause type_clause = construct.get_clause("type");
+            // Do NOT tokenize this one
             ObjectList<std::string> type_args = type_clause.get_arguments();
 
             PragmaCustomClause operator_clause = construct.get_clause("operator");
-            ObjectList<std::string> op_args = operator_clause.get_arguments();
+            ObjectList<std::string> op_args = operator_clause.get_arguments(ExpressionTokenizer());
 
             PragmaCustomClause order_clause = construct.get_clause("order");
             UDRInfoItem::Associativity assoc = UDRInfoItem::LEFT;
             if (order_clause.is_defined())
             {
-                std::string str = order_clause.get_arguments()[0];
+                std::string str = order_clause.get_arguments(ExpressionTokenizer())[0];
 
                 if (str == "right")
                 {
@@ -637,7 +638,7 @@ namespace TL
             std::string identity("");
             if (identity_clause.is_defined())
             {
-                identity = identity_clause.get_arguments()[0];
+                identity = identity_clause.get_arguments(ExpressionTokenizer())[0];
             }
 
             PragmaCustomClause commutative_clause = construct.get_clause("commutative");

@@ -5,9 +5,10 @@
 
 // Tokens for subparsing
 %token<token_atrib> SUBPARSE_SUPERSCALAR_DECLARATOR "<subparse-superscalar-declarator>"
+%token<token_atrib> SUBPARSE_SUPERSCALAR_DECLARATOR_LIST "<subparse-superscalar-declarator-list>"
 
 // Tokens for rules
-%type<ast> superscalar_declarator opt_superscalar_region_spec_list superscalar_region_spec_list superscalar_region_spec
+%type<ast> superscalar_declarator superscalar_declarator_list opt_superscalar_region_spec_list superscalar_region_spec_list superscalar_region_spec
 
 /*!endif*/
 /*!if GRAMMAR_RULES*/
@@ -16,6 +17,22 @@
 subparsing : SUBPARSE_SUPERSCALAR_DECLARATOR superscalar_declarator opt_superscalar_region_spec_list
 {
 	$$ = ASTMake2(AST_SUPERSCALAR_DECLARATOR, $2, $3, ASTFileName($2), ASTLine($2), NULL);
+}
+| SUBPARSE_SUPERSCALAR_DECLARATOR_LIST superscalar_declarator_list
+{
+    $$ = $2;
+}
+;
+
+superscalar_declarator_list : superscalar_declarator opt_superscalar_region_spec_list
+{
+	AST ss_decl = ASTMake2(AST_SUPERSCALAR_DECLARATOR, $1, $2, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTListLeaf(ss_decl);
+}
+| superscalar_declarator_list ',' superscalar_declarator opt_superscalar_region_spec_list
+{
+	AST ss_decl = ASTMake2(AST_SUPERSCALAR_DECLARATOR, $3, $4, ASTFileName($3), ASTLine($3), NULL);
+    $$ = ASTList($1, ss_decl);
 }
 ;
 

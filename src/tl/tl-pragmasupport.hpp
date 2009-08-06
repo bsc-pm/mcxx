@@ -33,6 +33,73 @@
 
 namespace TL
 {
+    class LIBTL_CLASS ClauseTokenizer
+    {
+        public:
+            virtual ObjectList<std::string> tokenize(const std::string& str) const = 0;
+            ~ClauseTokenizer() { }
+    };
+
+    class LIBTL_CLASS NullClauseTokenizer : public ClauseTokenizer
+    {
+        public:
+            virtual ObjectList<std::string> tokenize(const std::string& str) const
+            {
+                ObjectList<std::string> result;
+                result.append(str);
+                return result;
+            }
+    };
+
+    class LIBTL_CLASS ExpressionTokenizer : public ClauseTokenizer
+    {
+        public:
+            virtual ObjectList<std::string> tokenize(const std::string& str) const
+            {
+                int bracket_nesting = 0;
+                ObjectList<std::string> result;
+
+                std::string temporary("");
+                for (std::string::const_iterator it = str.begin();
+                        it != str.end();
+                        it++)
+                {
+                    const char & c(*it);
+
+                    if (c == ',' 
+                            && bracket_nesting == 0
+                            && temporary != "")
+                    {
+                        result.append(temporary);
+                        temporary = "";
+                    }
+                    else
+                    {
+                        if (c == '('
+                                || c == '{'
+                                || c == '[')
+                        {
+                            bracket_nesting++;
+                        }
+                        else if (c == ')'
+                                || c == '}'
+                                || c == ']')
+                        {
+                            bracket_nesting--;
+                        }
+                        temporary += c;
+                    }
+                }
+
+                if (temporary != "")
+                {
+                    result.append(temporary);
+                }
+
+                return result;
+            }
+    };
+
     class LIBTL_CLASS PragmaCustomClause : public LangConstruct
     {
         private:
@@ -57,6 +124,9 @@ namespace TL
 
             // Raw clause arguments for custom parsing
             ObjectList<std::string> get_arguments();
+
+            // Raw clause arguments for custom parsing with a given tokenizer
+            ObjectList<std::string> get_arguments(const ClauseTokenizer&);
 
             // Raw clause arguments for even more custom parsing
             ObjectList<ObjectList<std::string> > get_arguments_unflattened();

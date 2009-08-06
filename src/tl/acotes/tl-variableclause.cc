@@ -74,7 +74,7 @@ namespace TL { namespace Acotes {
     bool VariableClause::hasLabel(unsigned position) 
     {
         assert(position < getVariableCount());
-        std::string text= this->get_arguments().at(position);
+        std::string text= this->get_arguments(ExpressionTokenizer()).at(position);
         
         bool result= text.find(':') != std::string::npos;
         
@@ -86,7 +86,7 @@ namespace TL { namespace Acotes {
         assert(position < getVariableCount());
         assert(hasLabel(position));
         
-        std::string text= this->get_arguments().at(position);
+        std::string text= this->get_arguments(ExpressionTokenizer()).at(position);
         
         text= text.substr(text.find(':', 0) + 1);
         return text;
@@ -94,7 +94,7 @@ namespace TL { namespace Acotes {
     
     unsigned VariableClause::getVariableCount()
     {
-        unsigned count= this->get_arguments().size();
+        unsigned count= this->get_arguments(ExpressionTokenizer()).size();
         
         return count;
     }
@@ -102,7 +102,7 @@ namespace TL { namespace Acotes {
     TL::Expression VariableClause::getExpression(unsigned position)
     {
         assert(position < getVariableCount());
-        std::string text= this->get_arguments().at(position);
+        std::string text= this->get_arguments(ExpressionTokenizer()).at(position);
         
         text= text.substr(0, text.find(':', 0));
         

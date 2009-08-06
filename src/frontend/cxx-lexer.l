@@ -1047,6 +1047,7 @@ identifier {
 @STATEMENT-PH::0[xX]{hexdigit}+@ { parse_token_text(); return STATEMENT_PLACEHOLDER; }
  /* Special tokens for parsing superscalar related things */
 @SUPERSCALAR_DECLARATOR@ { parse_token_text(); return SUBPARSE_SUPERSCALAR_DECLARATOR; }
+@SUPERSCALAR_DECLARATOR_LIST@ { parse_token_text(); return SUBPARSE_SUPERSCALAR_DECLARATOR_LIST; }
 
  /* A plain identifier */
 {identifier} {parse_token_text(); return IDENTIFIER; }

@@ -390,6 +390,11 @@ namespace TL
 
     ObjectList<std::string> PragmaCustomClause::get_arguments()
     {
+        return get_arguments(NullClauseTokenizer());
+    }
+
+    ObjectList<std::string> PragmaCustomClause::get_arguments(const ClauseTokenizer& tokenizer)
+    {
         ObjectList<std::string> result;
 
         PredicateAttr clause_arg_pred(LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT);
@@ -404,7 +409,7 @@ namespace TL
                     jt != arguments.end();
                     jt++)
             {
-                result.append(jt->prettyprint());
+                result.append(tokenizer.tokenize(jt->prettyprint()));
             }
         }
 
