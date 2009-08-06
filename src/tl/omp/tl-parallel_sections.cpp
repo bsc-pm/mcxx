@@ -24,7 +24,7 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::parallel_sections_preorder(OpenMP::ParallelSectionsConstruct parallel_sections_construct)
+        void OpenMPTransform::parallel_sections_preorder(PragmaCustomConstruct parallel_sections_construct)
         {
             ObjectList<OpenMP::ReductionSymbol> inner_reductions;
             inner_reductions_stack.push(inner_reductions);
@@ -39,16 +39,13 @@ namespace TL
             common_parallel_data_sharing_code(parallel_sections_construct);
         }
 
-        void OpenMPTransform::parallel_sections_postorder(OpenMP::ParallelSectionsConstruct parallel_sections_construct)
+        void OpenMPTransform::parallel_sections_postorder(PragmaCustomConstruct parallel_sections_construct)
         {
             // One more parallel seen
             num_parallels++;
 
             // Decrease the parallel nesting
             parallel_nesting--;
-
-            // Get the directive
-            OpenMP::Directive directive = parallel_sections_construct.directive();
 
             // Get the enclosing function definition
             FunctionDefinition function_definition = parallel_sections_construct.get_enclosing_function();
@@ -74,12 +71,11 @@ namespace TL
                 parallel_sections_construct.get_data<ObjectList<Symbol> >("copyprivate_references");
 
             // Get the construct_body of the statement
-            Statement construct_body = parallel_sections_construct.body();
+            Statement construct_body = parallel_sections_construct.get_statement();
 
             ObjectList<ParameterInfo> parameter_info_list;
             ReplaceIdExpression replace_references = 
                 set_replacements(function_definition,
-                        directive,
                         construct_body,
                         shared_references,
                         private_references,
@@ -118,9 +114,9 @@ namespace TL
             // as a sibling (at the same level)
             function_definition.get_ast().prepend_sibling_function(outline_code);
 
-            OpenMP::Clause if_clause = directive.if_clause();
-            OpenMP::Clause num_threads = directive.num_threads_clause();
-            OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
+            PragmaCustomClause if_clause = parallel_sections_construct.get_clause("if_clause");
+            PragmaCustomClause num_threads = parallel_sections_construct.get_clause("num_threads");
+            PragmaCustomClause groups_clause = parallel_sections_construct.get_clause("groups"); 
 
             // Now create the spawning code. Pass by pointer list and
             // reductions are needed for proper pass of data and reduction
@@ -154,7 +150,7 @@ namespace TL
 
         // Create outline for parallel sections
         AST_t OpenMPTransform::get_outline_parallel_sections(
-                OpenMP::Construct &construct,
+                PragmaCustomConstruct &construct,
                 FunctionDefinition function_definition,
                 Source outlined_function_name, 
                 Statement construct_body,

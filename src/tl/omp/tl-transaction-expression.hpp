@@ -69,10 +69,11 @@ namespace TL
         {
             private:
                 const Predicate<AST_t>& _pred;
-                OpenMP::CustomConstructPredicate is_preserve_construct;
+                ScopeLink _scope_link;
             public:
-                IgnorePreserveFunctor(const Predicate<AST_t>& pred)
-                    : _pred(pred), is_preserve_construct("preserve")
+                IgnorePreserveFunctor(const Predicate<AST_t>& pred, 
+                        ScopeLink scope_link)
+                    : _pred(pred)
                 {
                 }
 
@@ -82,7 +83,7 @@ namespace TL
                     // Do not recurse if we match
                     bool recurse = !match;
 
-                    if (is_preserve_construct(a))
+                    if (is_pragma_custom_construct("omp", "preserve", a, _scope_link))
                     {
                         recurse = false;
                     }

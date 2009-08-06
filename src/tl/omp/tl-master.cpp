@@ -24,11 +24,11 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::master_postorder(OpenMP::MasterConstruct master_construct)
+        void OpenMPTransform::master_postorder(PragmaCustomConstruct master_construct)
         {
             Source master_source;
 
-            Statement statement = master_construct.body();
+            Statement statement = master_construct.get_statement();
 
             master_source
                 << "if (in__tone_is_master_())"

@@ -122,10 +122,6 @@ struct scan_file_descriptor scanning_now;
 
 static const char* main_input_filename;
 
-static int omp_var_list_parentheses = 0;
-static int omp_schedule_parentheses = 0;
-static char omp_seen_schedule_kind = 0;
-
 static int pragma_custom_var_list_parentheses = 0;
 
 static const char *current_pragma_prefix = NULL;
@@ -152,6 +148,11 @@ static int include_counter;
 static void verbatim_buffer_append(const char* c);
 static void verbatim_buffer_free(void);
 static const char* verbatim_buffer_get(void);
+
+
+static const char* return_pragma_prefix_longest_match(const char* prefix, 
+        const char* lexed_directive,
+        pragma_directive_kind_t* kind);
 
 
 %}
@@ -212,10 +213,6 @@ identifier {idnondigit}({idnondigit}|{digit})*
 %x linecomment
 %x preprocess
 %x pragma_line
-%x openmp_directive
-%x openmp_clause
-%x openmp_default
-%x openmp_order
 %x unknown_pragma
 %x pragma_custom_directive
 %x pragma_custom_clause
@@ -225,10 +222,6 @@ identifier {idnondigit}({idnondigit}|{digit})*
 %x verbatim_text
 %x verbatim_clauses
 %x verbatim_clauses_args
-
-%s openmp_var_list
-%s openmp_var_list_identity
-%s openmp_schedule
 
 %%
  /* preprocess */
@@ -327,26 +320,6 @@ identifier {
 
 	char matched = 0;
 
-	// OpenMP
-	if (strcmp(yytext, "omp") == 0)
-	{
-		if (CURRENT_CONFIGURATION->disable_openmp)
-		{
-			fprintf(stderr, "%s:%d: warning: ignoring OpenMP directive\n",
-					scanning_now.current_filename,
-					scanning_now.line_number);
-			matched = 1;
-			BEGIN(unknown_pragma);
-			yymore();
-		}
-		else
-		{
-			BEGIN(openmp_directive);
-			parse_token_text();
-			return OMP_PRAGMA;
-		}
-	}
-
 	// Ignore gcc
 	if (!matched && strcasecmp(yytext, "gcc") == 0)
 	{
@@ -400,148 +373,30 @@ identifier {
 
 }
 
-<openmp_directive>{
-
-[ \t] { }
-
-parallel {
-	BEGIN(openmp_clause);
-	return OMP_PARALLEL;
-}
-
-for {
-	BEGIN(openmp_clause);
-	return OMP_FOR;
-}
-
-sections {
-	BEGIN(openmp_clause);
-	return OMP_SECTIONS;
-}
-
-section {
-	BEGIN(openmp_clause);
-	return OMP_SECTION;
-}
-
-task {
-    BEGIN(openmp_clause);
-    return OMP_TASK;
-}
-
-taskwait {
-    BEGIN(openmp_clause);
-    return OMP_TASKWAIT;
-}
-
-parallel[ ]+for {
-	BEGIN(openmp_clause);
-	return OMP_PARALLEL_FOR;
-}
-
-parallel[ ]+sections {
-	BEGIN(openmp_clause);
-	return OMP_PARALLEL_SECTIONS;
-}
-
-single {
-	BEGIN(openmp_clause);
-	return OMP_SINGLE;
-}
-
-master {
-	BEGIN(openmp_clause);
-	return OMP_MASTER;
-}
-
-atomic {
-	BEGIN(openmp_clause);
-	return OMP_ATOMIC;
-}
-
-flush {
-	BEGIN(openmp_clause);
-	return OMP_FLUSH;
-}
-
-barrier {
-	BEGIN(openmp_clause);
-	return OMP_BARRIER;
-}
-
-ordered {
-	BEGIN(openmp_clause);
-	return OMP_ORDERED;
-}
-
-critical {
-	BEGIN(openmp_clause);
-	return OMP_CRITICAL;
-}
-
-declare {
-    BEGIN(openmp_clause);
-    return OMP_DECLARE;
-}
-
-threadprivate {
-	omp_var_list_parentheses = 0;
-	BEGIN(openmp_var_list);
-	return OMP_THREADPRIVATE;
-}
-
-{identifier} {
-	// Special case for custom constructs/directives
-	BEGIN(openmp_clause);
-    pragma_directive_kind_t directive_kind = lookup_pragma_directive("omp", yytext);
-
-	parse_token_text(); 
-
-    int token = 0;
-    switch (directive_kind)
-    {
-        case PDK_DIRECTIVE : 
-            {
-                token = OMP_CUSTOM_DIRECTIVE;
-                break;
-            }
-        case PDK_CONSTRUCT :
-            {
-                token = OMP_CUSTOM_CONSTRUCT;
-                break;
-            }
-        case PDK_NONE :
-            {
-                running_error("%s:%d: error: unknown OpenMP directive '%s'."
-                        " Maybe you forgot to register it?", 
-                        scanning_now.current_filename, 
-                        scanning_now.line_number,
-                        yytext);
-            }
-        default:
-            internal_error("Invalid pragma directive kind kind=%d", directive_kind);
-    }
-
-    return token;
-}
-
-}
-
 <pragma_custom_directive>{
 
-{identifier} {
+{identifier}([ \t]+{identifier})* {
 	BEGIN(pragma_custom_clause_first);
 
-    pragma_directive_kind_t directive_kind = lookup_pragma_directive(current_pragma_prefix, yytext);
+    pragma_directive_kind_t directive_kind = PDK_NONE; 
+    // lookup_pragma_directive(current_pragma_prefix, yytext);
+
+    // This call will unput appropriately what was lexed too much
+    const char* longest_match = return_pragma_prefix_longest_match(
+            current_pragma_prefix, yytext, &directive_kind);
 
     if (directive_kind == PDK_NONE)
     {
         // Give a chance to the empty "directive" since some ill-designed
         // pragmas might need this
         directive_kind = lookup_pragma_directive(current_pragma_prefix, "");
+        parse_token_text(); 
+    }
+    else
+    {
+        parse_token_text_str(longest_match);
     }
 
-	parse_token_text(); 
 
     int token = 0;
     switch (directive_kind)
@@ -638,8 +493,16 @@ threadprivate {
 
 [(] {
 	parse_token_text();
-	pragma_custom_var_list_parentheses++;
-	return '(';
+	if (pragma_custom_var_list_parentheses == 0)
+    {
+        pragma_custom_var_list_parentheses++;
+        return '(';
+    }
+    else
+    {
+        pragma_custom_var_list_parentheses++;
+        return PRAGMA_CLAUSE_ARG_TEXT;
+    }
 }
 
 [)] {
@@ -648,8 +511,12 @@ threadprivate {
 	if (pragma_custom_var_list_parentheses == 0)
 	{
 		BEGIN(pragma_custom_clause);
+        return ')';
 	}
-	return ')';
+    else
+    {
+        return PRAGMA_CLAUSE_ARG_TEXT;
+    }
 }
 
 [ \t]+ {
@@ -669,23 +536,13 @@ threadprivate {
     }
     else
     {
-        // We are in (*)
-        // #pragma foo bar (*) doe
+        // We are in .
+        // #pragma foo bar . doe
         // and 'doe' must be lexed as another custom clause
         BEGIN(pragma_custom_var_list);
         parse_token_text(); 
         return PRAGMA_CUSTOM_CLAUSE; 
     }
-}
-
-[,][ \t]* {
-    parse_token_text();
-    return ',';
-}
-
-[ \t] { 
-    parse_token_text();
-    return PRAGMA_CLAUSE_ARG_TEXT;
 }
 
 \n {
@@ -704,365 +561,10 @@ threadprivate {
     return PRAGMA_CUSTOM_NEWLINE;
 }
 
-[^,] {
+  /* Catch all rule */
+[^\n] {
     parse_token_text();
     return PRAGMA_CLAUSE_ARG_TEXT;
-}
-
-}
-
-<openmp_clause>{
-
-\n {
-    scanning_now.line_number++;
-    BEGIN(INITIAL);
-
-    return OMP_NEWLINE;
-}
-
-[(] {
-   /* 
-	   This is a special one, this is a clause without name
-	   and must be lexed as if it was a var-list, but a '(' has
-	   already been seen thus "omp_var_list_parentheses == 1"
-   */
-   omp_var_list_parentheses = 1;
-
-   BEGIN(openmp_var_list);
-   return '(';
-}
-
-[,] {
-	return ',';
-}
-
-[ \t] { }
-
-schedule {
-	omp_schedule_parentheses = 0;
-	omp_seen_schedule_kind = 0;
-	BEGIN(openmp_schedule);
-	return OMP_SCHEDULE;
-}
-
-nowait {
-	return OMP_NOWAIT;
-}
-
-ordered {
-	return OMP_ORDERED;
-}
-
-private {
-	omp_var_list_parentheses = 0;
-	BEGIN(openmp_var_list);
-	return OMP_PRIVATE;
-}
-
-copyprivate {
-	omp_var_list_parentheses = 0;
-	BEGIN(openmp_var_list);
-	return OMP_COPYPRIVATE;
-}
-
-firstprivate {
-	omp_var_list_parentheses = 0;
-	BEGIN(openmp_var_list);
-	return OMP_FIRSTPRIVATE;
-}
-
-lastprivate {
-	omp_var_list_parentheses = 0;
-	BEGIN(openmp_var_list);
-	return OMP_LASTPRIVATE;
-}
-
-shared {
-	omp_var_list_parentheses = 0;
-	BEGIN(openmp_var_list);
-	return OMP_SHARED;
-}
-
-copyin {
-	omp_var_list_parentheses = 0;
-	BEGIN(openmp_var_list);
-	return OMP_COPYIN;
-}
-
-reduction {
-	omp_var_list_parentheses = 0;
-	BEGIN(openmp_var_list);
-	return OMP_REDUCTION;
-}
-
-default {
-	BEGIN(openmp_default);
-	return OMP_DEFAULT;
-}
-
-if {
-	// Lexing is the same as a var-list
-	omp_var_list_parentheses = 0;
-	BEGIN(openmp_var_list);
-	return OMP_IF;
-}
-
-type {
-    omp_var_list_parentheses = 0;
-    BEGIN(openmp_var_list);
-    return OMP_TYPE;
-}
-
-operator {
-    omp_var_list_parentheses = 0;
-    BEGIN(openmp_var_list);
-    return OMP_OPERATOR;
-}
-
-identity {
-    omp_var_list_parentheses = 0;
-    BEGIN(openmp_var_list_identity);
-    return OMP_IDENTITY;
-}
-
-order {
-    BEGIN(openmp_order);
-    return OMP_ORDER;
-}
-
-commutative {
-    return OMP_COMMUTATIVE;
-}
-
-num_threads {
-	// Lexing is the same as a var-list
-	omp_var_list_parentheses = 0;
-	BEGIN(openmp_var_list);
-	return OMP_NUM_THREADS;
-}
-
-{identifier} {
-	// Special case for custom clauses 
-	omp_var_list_parentheses = 0;
-	BEGIN(openmp_var_list);
-	parse_token_text(); 
-	return OMP_CUSTOM_CLAUSE; 
-}
-
-}
-
-<openmp_default>{
-
-[(] {
-		return '(';
-}
-
-[)] {
-	BEGIN(openmp_clause);
-	return ')';
-}
-
-shared {
-	return OMP_SHARED;
-}
-
-none {
-	return OMP_NONE;
-}
-
- /* Special case for default custom */
-{identifier} {
-    parse_token_text();
-    return OMP_DEFAULT_CUSTOM;
-}
-
-[ \t] { }
-
-}
-
-<openmp_order>{
-
-[(] {
-		return '(';
-}
-
-[)] {
-	BEGIN(openmp_clause);
-	return ')';
-}
-
-left {
-	return OMP_REDUCTION_LEFT;
-}
-
-right {
-	return OMP_REDUCTION_RIGHT;
-}
-
-[ \t] { }
-
-}
-
-<openmp_var_list>{
-
-[(] {
-	parse_token_text();
-	omp_var_list_parentheses++;
-	return '(';
-}
-
-[)] {
-    parse_token_text();
-    omp_var_list_parentheses--;
-    if (omp_var_list_parentheses == 0)
-    {
-        BEGIN(openmp_clause);
-    }
-    return ')';
-}
-
-[\n] {
-    // This happens only in custom clauses with no parameters at the end of the line
-    scanning_now.line_number++;
-    BEGIN(INITIAL);
-    return OMP_NEWLINE;
-}
-
-{identifier} {
-	// Special case for custom clauses where the previous did not have parentheses
-    // #pragma directive foo bar
-    // We were going to lex the arguments of 'foo' but we found 'bar', start again
-    // as if nothing happened, this case may be right
-	if (omp_var_list_parentheses == 0)
-	{
-        // We want to tokenize this one again
-		BEGIN(openmp_clause);
-        // Note that we are not doing REJECT because we do not want it to be
-        // matched below but against under openmp_clause start condition
-        // This reintroduces the token in the token stream
-        yyless(0);
-	}
-	else
-	{
-        // Not handled here but below
-		REJECT;
-	}
-}
-
-}
-
-<openmp_var_list_identity>{
-
-[(] {
-	parse_token_text();
-	omp_var_list_parentheses++;
-	return '(';
-}
-
-[)] {
-    parse_token_text();
-    omp_var_list_parentheses--;
-    if (omp_var_list_parentheses == 0)
-    {
-        BEGIN(openmp_clause);
-    }
-    return ')';
-}
-
-constructor {
-    parse_token_text();
-    return OMP_CONSTRUCTOR;
-}
-
-}
-
-<openmp_schedule>{
-
-[(] {
-	parse_token_text();
-	omp_schedule_parentheses++;
-	return '(';
-}
-
-[)] {
-	parse_token_text();
-	omp_schedule_parentheses--;
-
-	if (omp_schedule_parentheses == 0)
-	{
-		BEGIN(openmp_clause);
-	}
-
-	return ')';
-}
-
-static {
-	// static is a reserved word in C++
-	// We do not need to take additional care
-	parse_token_text();
-	omp_seen_schedule_kind = 1;
-	return OMP_STATIC;
-}
-
-dynamic {
-	// dynamic is only a schedule-kind after "schedule("
-	parse_token_text();
-	if (!omp_seen_schedule_kind)
-	{
-		omp_seen_schedule_kind = 1;
-		return OMP_DYNAMIC;
-	}
-	else
-	{
-		return IDENTIFIER;
-	}
-}
-
-guided {
-	// guided is only a schedule-kind after "schedule("
-	parse_token_text();
-	if (!omp_seen_schedule_kind)
-	{
-		omp_seen_schedule_kind = 1;
-		return OMP_GUIDED;
-	}
-	else
-	{
-		return IDENTIFIER;
-	}
-}
-
-runtime {
-	// runtime is only a schedule-kind after "schedule("
-	parse_token_text();
-	if (!omp_seen_schedule_kind)
-	{
-		omp_seen_schedule_kind = 1;
-		return OMP_RUNTIME;
-	}
-	else
-	{
-		return IDENTIFIER;
-	}
-}
-
-{identifier} {
-    parse_token_text();
-    if (!omp_seen_schedule_kind)
-    {
-        omp_seen_schedule_kind = 1;
-        return OMP_SCHEDULE_CUSTOM;
-    }
-    else
-    {
-        return IDENTIFIER;
-    }
-}
-
-[,] {
-	// After the comma, no schedule-kind may appear
-	omp_seen_schedule_kind = 1;
-	return ',';
 }
 
 }
@@ -1538,9 +1040,11 @@ runtime {
 
  /* Special tokens for subparsing */
 @EXPRESSION@ { parse_token_text(); return SUBPARSE_EXPRESSION; }
+@EXPRESSION-LIST@ { parse_token_text(); return SUBPARSE_EXPRESSION_LIST; }
 @STATEMENT@ { parse_token_text(); return SUBPARSE_STATEMENT; }
 @DECLARATION@ { parse_token_text(); return SUBPARSE_DECLARATION; }
 @TYPE@ { parse_token_text(); return SUBPARSE_TYPE; }
+@TYPE-LIST@ { parse_token_text(); return SUBPARSE_TYPE_LIST; }
  /*!if CPLUSPLUS*/
 @MEMBER@ { parse_token_text(); return SUBPARSE_MEMBER; }
  /*!endif*/
@@ -1551,6 +1055,7 @@ runtime {
 @STATEMENT-PH::0[xX]{hexdigit}+@ { parse_token_text(); return STATEMENT_PLACEHOLDER; }
  /* Special tokens for parsing superscalar related things */
 @SUPERSCALAR_DECLARATOR@ { parse_token_text(); return SUBPARSE_SUPERSCALAR_DECLARATOR; }
+@SUPERSCALAR_DECLARATOR_LIST@ { parse_token_text(); return SUBPARSE_SUPERSCALAR_DECLARATOR_LIST; }
 
  /* A plain identifier */
 {identifier} {parse_token_text(); return IDENTIFIER; }
@@ -1805,12 +1310,6 @@ static pragma_directive_kind_t lookup_pragma_directive_inner(pragma_directive_se
 
 pragma_directive_kind_t lookup_pragma_directive(const char* prefix, const char* directive)
 {
-    if (strcmp(prefix, "omp") == 0)
-    {
-        // OpenMP is handled special
-        return lookup_pragma_directive_inner(&CURRENT_CONFIGURATION->pragma_omp_info, directive);
-    }
-
     int i;
     for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)
     {
@@ -1839,13 +1338,6 @@ static void register_new_directive_inner(pragma_directive_set_t* pragma_directiv
 void register_new_directive(const char* prefix, const char* directive, char is_construct)
 {
     pragma_directive_kind_t kind = (is_construct ? PDK_CONSTRUCT : PDK_DIRECTIVE);
-
-    if (strcmp(prefix, "omp") == 0)
-    {
-        // OpenMP is handled special
-        register_new_directive_inner(&CURRENT_CONFIGURATION->pragma_omp_info, directive, kind);
-        return;
-    }
 
     int i;
     for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)
@@ -1922,4 +1414,157 @@ static void verbatim_buffer_free(void)
 static const char* verbatim_buffer_get(void)
 {
     return _verbatim_buffer;
+}
+
+// I hate that this is not C90
+static char is_blank(char c)
+{
+    return (c == ' ') || (c == '\t');
+}
+
+static int compute_length_match(const char* lexed_directive,
+        const char* available_directive,
+        const char **discard_source)
+{
+    int num_matches = 0;
+    {
+    char* lexed = strdup(lexed_directive);
+    char* available = strdup(available_directive);
+
+    char *next_lexed_info = NULL;
+    char *next_lexed = strtok_r(lexed, " ", &next_lexed_info);
+    char *next_available_info = NULL;
+    char *next_available = strtok_r(available, "|", &next_available_info);
+
+    while (next_lexed != NULL
+            && next_available != NULL)
+    {
+        if (strcmp(next_lexed, next_available) == 0)
+        {
+            num_matches++;
+            next_lexed = strtok_r(NULL, " ", &next_lexed_info);
+            next_available = strtok_r(NULL, "|", &next_available_info);
+        }
+        else
+        {
+            // Failing one match is enough to discard all of it so we favour
+            // the longest match and discard all partial matches
+            num_matches = 0;
+            break;
+        }
+    }
+
+    free(available);
+    free(lexed);
+    }
+
+    // Compute the length of the discards
+    const char* p = lexed_directive;
+
+    *discard_source = NULL;
+    if (num_matches != 0)
+    {
+        ERROR_CONDITION((*p == ' ') || (*p == '\t'), 
+                "Invalid lexing, there should not be a leading blank", 0);
+
+        // Skip first match
+        while (*p != '\0' 
+                && !is_blank(*p))
+        {
+            p++;
+        }
+
+        int n = num_matches - 1;
+        while ((n > 0)
+                && (*p != '\0'))
+        {
+            // Now advance blanks
+            while ((*p != '\0')
+                    && is_blank(*p))
+            {
+                p++;
+            }
+            // And now, non-blanks
+            while ((*p != '\0')
+                    && !is_blank(*p))
+            {
+                p++;
+            }
+            n--;
+        }
+
+        if (*p != '\0')
+        {
+            *discard_source = p;
+        }
+    }
+
+    return num_matches;
+}
+
+static const char* return_pragma_prefix_longest_match_inner(pragma_directive_set_t* pragma_directive_set,
+        const char* lexed_directive,
+        const char **discard_source,
+        pragma_directive_kind_t* directive_kind)
+{
+    const char* longest_match_so_far = NULL;
+    int length_match = 0;
+
+    int j;
+    for (j = 0; j < pragma_directive_set->num_directives; j++)
+    {
+        const char * current_discard_source = NULL;
+
+        int current_match = compute_length_match(lexed_directive, pragma_directive_set->directive_names[j], 
+                &current_discard_source);
+
+        if (current_match > length_match)
+        {
+            length_match = current_match;
+            longest_match_so_far = pragma_directive_set->directive_names[j];
+            *discard_source = current_discard_source;
+            *directive_kind = pragma_directive_set->directive_kinds[j];
+        }
+    }
+
+    return longest_match_so_far;
+}
+
+static const char* return_pragma_prefix_longest_match(const char* prefix, 
+        const char* lexed_directive,
+        pragma_directive_kind_t* kind)
+{
+    const char* longest_match = NULL;
+    const char* discard_source = NULL;
+
+    int i;
+    for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)
+    {
+        if (strcmp(CURRENT_CONFIGURATION->pragma_custom_prefix[i], prefix) == 0)
+        {
+            pragma_directive_set_t* pragma_directive_set = CURRENT_CONFIGURATION->pragma_custom_prefix_info[i];
+            longest_match = return_pragma_prefix_longest_match_inner(pragma_directive_set, lexed_directive, 
+                    &discard_source, kind);
+        }
+    }
+
+    if (discard_source != NULL
+            && strlen(discard_source) > 0)
+    {
+        // Discard the characters "too much lexed"
+        const char* end = discard_source;
+
+        while (*end != '\0')
+            end++;
+
+        end--;
+
+        while (end != discard_source)
+        {
+            unput(*end);
+            end--;
+        }
+    }
+
+    return longest_match;
 }

@@ -24,7 +24,7 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::threadprivate_postorder(OpenMP::ThreadPrivateDirective threadprivate_directive)
+        void OpenMPTransform::threadprivate_postorder(PragmaCustomConstruct threadprivate_directive)
         {
             // Given
             //
@@ -38,24 +38,35 @@ namespace TL
             //    int c;
             //
 
-            // Get the threadprivate directive
-            OpenMP::Directive directive = threadprivate_directive.directive();
-
-            // And get its parameter clause (you can see the (...) as a
-            // clause without name, we'll call it "parameter_clause")
-            OpenMP::Clause clause = directive.parameter_clause();
-
             // Now get the list of symbols of this clause
-            ObjectList<IdExpression> threadprivate_references = clause.id_expressions();
+
+            ObjectList<Expression> parameter_expr = threadprivate_directive.get_parameter_expressions();
+
+            ObjectList<IdExpression> threadprivate_references;
+            for (ObjectList<Expression>::iterator it = parameter_expr.begin();
+                    it != parameter_expr.end();
+                    it++)
+            {
+                Expression &expr(*it);
+
+                if (expr.is_id_expression())
+                {
+                    threadprivate_references.append(expr.get_id_expression());
+                }
+                else
+                {
+                    std::cerr << expr.get_ast().get_locus() 
+                        << ": warning: '" << expr << "' is not an id-expression, skipping" << std::endl;
+                }
+            }
+
 
             // For every symbol in the clause
             for (ObjectList<IdExpression>::iterator it = threadprivate_references.begin();
                     it != threadprivate_references.end();
                     it++)
             {
-                // Register the symbol in the DataSharing of threadprivate 
                 Symbol symbol = it->get_symbol();
-                threadprivate_directive.add_data_attribute(symbol, OpenMP::DA_THREADPRIVATE);
 
                 // Get its declaration
                 Declaration decl = it->get_declaration();

@@ -29,17 +29,17 @@ namespace TL
     namespace Nanos4
     {
 
-        void OpenMPTransform::stm_transaction_preorder(OpenMP::CustomConstruct transaction_construct)
+        void OpenMPTransform::stm_transaction_preorder(PragmaCustomConstruct transaction_construct)
         {
             transaction_nesting++;
 
             /*
              * Warn for initializers as they are not currently stmized
              */
-            PredicateAttr is_declaration_pred_(LANG_IS_DECLARATION) ;
-            IgnorePreserveFunctor is_declaration_pred(is_declaration_pred_);
+            IgnorePreserveFunctor is_declaration_pred(Declaration::predicate, 
+                    transaction_construct.get_scope_link());
 
-            Statement transaction_statement = transaction_construct.body();
+            Statement transaction_statement = transaction_construct.get_statement();
             ObjectList<AST_t> found_declarations = transaction_statement.get_ast().depth_subtrees(is_declaration_pred);
 
             for (ObjectList<AST_t>::iterator it = found_declarations.begin();
@@ -70,8 +70,7 @@ namespace TL
                 STMExpressionReplacement &expression_replacement,
                 ScopeLink scope_link)
         {
-            PredicateAttr is_declaration_pred_(LANG_IS_DECLARATION) ;
-            IgnorePreserveFunctor is_declaration_pred(is_declaration_pred_);
+            IgnorePreserveFunctor is_declaration_pred(Declaration::predicate, scope_link);
 
             ObjectList<AST_t> found_declarations = transaction_tree.depth_subtrees(is_declaration_pred);
 
@@ -118,9 +117,7 @@ namespace TL
                 ScopeLink scope_link)
         {
             // For every expression, replace it properly with read and write
-            PredicateAttr expression_pred_(LANG_IS_EXPRESSION_NEST) ;
-
-            IgnorePreserveFunctor expression_pred(expression_pred_);
+            IgnorePreserveFunctor expression_pred(Declaration::predicate, scope_link);
             ObjectList<AST_t> expressions = transaction_tree.depth_subtrees(expression_pred);
             for (ObjectList<AST_t>::iterator it = expressions.begin();
                     it != expressions.end();
@@ -137,9 +134,7 @@ namespace TL
         {
             // We have to invalidate every parameter of the function
             // just before the return
-            PredicateAttr return_pred_(LANG_IS_RETURN_STATEMENT) ;
-
-            IgnorePreserveFunctor return_pred(return_pred_);
+            IgnorePreserveFunctor return_pred(ReturnStatement::predicate, scope_link);
             ObjectList<AST_t> returns = transaction_tree.depth_subtrees(return_pred);
             for (ObjectList<AST_t>::iterator it = returns.begin();
                     it != returns.end();
@@ -266,7 +261,7 @@ namespace TL
         }
 
         void OpenMPTransform::stm_replace_code(
-                OpenMP::CustomConstruct transaction_construct,
+                PragmaCustomConstruct transaction_construct,
                 AST_t& replaced_tree, 
                 AST_t& inner_tree,
                 ObjectList<Symbol> &local_symbols,
@@ -416,18 +411,17 @@ namespace TL
                     transaction_construct.get_scope_link());
         }
 
-        void OpenMPTransform::stm_transaction_full_stm(OpenMP::CustomConstruct transaction_construct)
+        void OpenMPTransform::stm_transaction_full_stm(PragmaCustomConstruct transaction_construct)
         {
             static int transaction_id = 0;
             transaction_id++;
 
             // The "transacted" statement
-            Statement transaction_statement = transaction_construct.body();
-            OpenMP::Directive transaction_directive = transaction_construct.directive();
+            Statement transaction_statement = transaction_construct.get_statement();
 
             // This is a flag telling that this function was wrapped in stm_funct phase
-            OpenMP::CustomClause converted_function = 
-                transaction_directive.custom_clause("converted_function");
+            PragmaCustomClause converted_function = 
+                transaction_construct.get_clause("converted_function");
 
             bool from_wrapped_function = converted_function.is_defined();
 
@@ -447,7 +441,7 @@ namespace TL
 
             // Gather symbols in 'unmanaged' clause
             ObjectList<Symbol> unmanaged_symbols;
-            OpenMP::CustomClause unmanaged_clause = transaction_directive.custom_clause("unmanaged");
+            PragmaCustomClause unmanaged_clause = transaction_construct.get_clause("unmanaged");
             if (unmanaged_clause.is_defined())
             {
                 unmanaged_symbols = 
@@ -456,7 +450,7 @@ namespace TL
 
             // Gather symbols in 'local' clause
             ObjectList<Symbol> local_symbols;
-            OpenMP::CustomClause local_clause = transaction_directive.custom_clause("local");
+            PragmaCustomClause local_clause = transaction_construct.get_clause("local");
             if (local_clause.is_defined())
             {
                 local_symbols = 
@@ -513,10 +507,10 @@ namespace TL
 
         }
 
-        void OpenMPTransform::stm_transaction_global_lock(OpenMP::CustomConstruct transaction_construct)
+        void OpenMPTransform::stm_transaction_global_lock(PragmaCustomConstruct transaction_construct)
         {
             // The "transacted" statement
-            Statement transaction_statement = transaction_construct.body();
+            Statement transaction_statement = transaction_construct.get_statement();
             // OpenMP::Directive transaction_directive = transaction_construct.directive();
 
             // If lexical nesting is higher than one, ignore the innermost one
@@ -547,7 +541,7 @@ namespace TL
             transaction_construct.get_ast().replace(replaced_tree);
         }
 
-        void OpenMPTransform::stm_transaction_postorder(OpenMP::CustomConstruct transaction_construct)
+        void OpenMPTransform::stm_transaction_postorder(PragmaCustomConstruct transaction_construct)
         {
             if (!stm_global_lock_enabled)
             {
@@ -560,7 +554,7 @@ namespace TL
             transaction_nesting--;
         }
 
-        void OpenMPTransform::stm_retry_postorder(OpenMP::CustomConstruct retry_directive)
+        void OpenMPTransform::stm_retry_postorder(PragmaCustomConstruct retry_directive)
         {
             Source retry_src;
 
@@ -584,13 +578,12 @@ namespace TL
             retry_directive.get_ast().replace_with(retry_tree);
         }
 
-        void OpenMPTransform::stm_preserve_postorder(OpenMP::CustomConstruct preserve_construct)
+        void OpenMPTransform::stm_preserve_postorder(PragmaCustomConstruct preserve_construct)
         {
             bool being_preserved = false;
 
-            OpenMP::Directive preserve_directive = preserve_construct.directive();
-            OpenMP::CustomClause on_tx_clause = preserve_directive.custom_clause("on_tx");
-            OpenMP::CustomClause off_tx_clause = preserve_directive.custom_clause("off_tx");
+            PragmaCustomClause on_tx_clause = preserve_construct.get_clause("on_tx");
+            PragmaCustomClause off_tx_clause = preserve_construct.get_clause("off_tx");
 
             if (!on_tx_clause.is_defined()
                     && !off_tx_clause.is_defined())

@@ -304,6 +304,78 @@ namespace TL
         return result;
     }
 
+    AST_t Source::parse_expression_list(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags)
+    {
+        std::string mangled_text = "@EXPRESSION-LIST@ " + this->get_source(true);
+        char* str = strdup(mangled_text.c_str());
+
+        CXX_LANGUAGE()
+        {
+            mcxx_prepare_string_for_scanning(str);
+        }
+        C_LANGUAGE()
+        {
+            mc99_prepare_string_for_scanning(str);
+        }
+
+        AST a;
+        int parse_result = 0;
+
+        CXX_LANGUAGE()
+        {
+            parse_result = mcxxparse(&a);
+        }
+        C_LANGUAGE()
+        {
+            parse_result = mc99parse(&a);
+        }
+
+        if (parse_result != 0)
+        {
+            running_error("Could not parse the expression-list '%s'", 
+                    format_source(this->get_source(true)).c_str());
+        }
+
+        bool do_not_check_expression = false;
+        int parse_flags_int = (int)parse_flags;
+        if ((parse_flags_int & Source::DO_NOT_CHECK_EXPRESSION) 
+                == Source::DO_NOT_CHECK_EXPRESSION)
+        {
+            do_not_check_expression = true;
+        }
+
+        // Get the scope and declarating context of the reference tree
+        CURRENT_CONFIGURATION->scope_link = scope_link._scope_link;
+        decl_context_t decl_context = scope_link_get_decl_context(scope_link._scope_link, ref_tree._ast);
+
+        if (a != NULL)
+        {
+            enter_test_expression();
+            char c = check_for_expression_list(a, decl_context);
+            leave_test_expression();
+
+            if (!c && !do_not_check_expression)
+            {
+                if (CURRENT_CONFIGURATION->strict_typecheck)
+                {
+                    internal_error("Could not check expression-list '%s'\n", prettyprint_in_buffer(a));
+                }
+                else
+                {
+                    WARNING_MESSAGE("Could not check expression-list '%s'\n", prettyprint_in_buffer(a));
+                }
+            }
+        }
+
+        CURRENT_CONFIGURATION->scope_link = NULL;
+
+        AST_t result(a);
+
+        scope_link_set(scope_link._scope_link, a, decl_context);
+
+        return result;
+    }
+
     AST_t Source::parse_declaration(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags)
     {
         std::string mangled_text = "@DECLARATION@ " + this->get_source(true);
@@ -430,6 +502,64 @@ namespace TL
                 decl_context);
 
         return Type(type_info);
+    }
+
+    ObjectList<Type> Source::parse_type_list(AST_t ref_tree, TL::ScopeLink scope_link)
+    {
+        std::string mangled_text = "@TYPE-LIST@ " + this->get_source(true);
+        char* str = strdup(mangled_text.c_str());
+
+        CXX_LANGUAGE()
+        {
+            mcxx_prepare_string_for_scanning(str);
+        }
+        C_LANGUAGE()
+        {
+            mc99_prepare_string_for_scanning(str);
+        }
+
+        int parse_result = 0;
+        AST type_specifier_seq_list;
+        CXX_LANGUAGE()
+        {
+            parse_result = mcxxparse(&type_specifier_seq_list);
+        }
+        C_LANGUAGE()
+        {
+            parse_result = mc99parse(&type_specifier_seq_list);
+        }
+
+        if (parse_result != 0)
+        {
+            running_error("Could not parse type specifier list\n\n%s\n", 
+                    format_source(this->get_source(true)).c_str());
+        }
+
+        ObjectList<Type> result;
+
+        // Get the scope and declarating context of the reference tree
+        decl_context_t decl_context = scope_link_get_decl_context(scope_link._scope_link, ref_tree._ast);
+
+        // Set properly the context of the reference tree
+        scope_link_set(scope_link._scope_link, type_specifier_seq_list, decl_context);
+
+        AST iter, list = type_specifier_seq_list;
+
+        for_each_element(list, iter)
+        {
+            AST type_spec = ASTSon1(iter);
+
+            type_t* type_info = NULL;
+            gather_decl_spec_t gather_info;
+            memset(&gather_info, 0, sizeof(gather_info));
+
+            build_scope_decl_specifier_seq(type_spec, &gather_info, &type_info,
+                    decl_context);
+
+            result.append(Type(type_info));
+        }
+
+        return result;
     }
 
     bool Source::operator==(const Source& src) const

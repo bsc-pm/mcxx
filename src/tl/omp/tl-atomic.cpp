@@ -24,12 +24,12 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::atomic_postorder(OpenMP::AtomicConstruct atomic_construct)
+        void OpenMPTransform::atomic_postorder(PragmaCustomConstruct atomic_construct)
         {
             // TODO - An atomic can be implemented better
             Source critical_source;
 
-            Statement critical_body = atomic_construct.body();
+            Statement critical_body = atomic_construct.get_statement();
 
             critical_source
                 << "{"

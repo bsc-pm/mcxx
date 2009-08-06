@@ -34,33 +34,29 @@ namespace TL
         // Predicate for any OpenMP construct
         class AnyOpenMPConstruct : public Predicate<AST_t>
         {
+            private:
+                ScopeLink _sl;
             public:
+                AnyOpenMPConstruct(ScopeLink sl)
+                    : _sl(sl) { }
+
                 virtual bool do_(AST_t& a) const
                 {
-                    TL::Bool is_omp_directive = a.get_attribute(OMP_IS_OMP_DIRECTIVE);
-                    TL::Bool is_omp_construct = a.get_attribute(OMP_IS_OMP_CONSTRUCT);
-
-                    return is_omp_directive || is_omp_construct;
+                    return is_pragma_custom("omp", a, _sl);
                 }
         };
 
         class TaskConstructPred : public Predicate<AST_t>
         {
+            private:
+                ScopeLink _sl;
             public:
+                TaskConstructPred(ScopeLink sl)
+                    : _sl(sl) { }
+
                 virtual bool do_(AST_t& a) const
                 {
-                    TL::Bool is_custom_omp_construct = a.get_attribute(OMP_IS_CUSTOM_CONSTRUCT);
-
-                    if (is_custom_omp_construct)
-                    {
-                        AST_t directive = a.get_attribute(OMP_CONSTRUCT_DIRECTIVE);
-                        TL::String directive_name = directive.get_attribute(OMP_CUSTOM_DIRECTIVE_NAME);
-
-                        if (directive_name == "task")
-                            return true;
-                    }
-
-                    return false;
+                    return is_pragma_custom_construct("omp", "task", a, _sl);
                 }
         };
 
@@ -81,6 +77,7 @@ namespace TL
                     {
                         FunctionDefinition function_def(a, _sl);
                         Symbol function_symbol 
+                            // Fix this, there should be a function for this in FunctionDefinition
                             = function_def.get_ast().get_attribute(LANG_FUNCTION_SYMBOL);
                         if (function_symbol == _sym)
                         {
@@ -101,14 +98,14 @@ namespace TL
             public:
                 virtual void postorder(Context ctx, AST_t a)
                 {
-                    TL::Bool b = a.get_attribute(OMP_IS_OMP_DIRECTIVE);
+                    TL::Bool b = a.get_attribute(LANG_IS_PRAGMA_CUSTOM_DIRECTIVE);
                     if (b)
                     {
                         a.remove_in_list();
                     }
                     else
                     {
-                        AST_t body = a.get_attribute(OMP_CONSTRUCT_BODY);
+                        AST_t body = a.get_attribute(LANG_PRAGMA_CUSTOM_STATEMENT);
                         a.replace(body);
                     }
                 }

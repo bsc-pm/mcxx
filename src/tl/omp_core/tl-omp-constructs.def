@@ -1,0 +1,35 @@
+// These macros are defined in several places to automatically generate all OpenMP support
+// 
+// OMP_CONSTRUCT(pragma_directive, construct_name, class_name, construct_subclasse, attr_name, functor_name)
+//    * pragma_directive is a string | separated for compound directive names used when registering the construct
+//    * construct_name an identifier used to build names
+//
+// OMP_DIRECTIVE is the same as OMP_CONSTRUCT but for directives
+// 
+
+OMP_CONSTRUCT("parallel", parallel)
+
+OMP_CONSTRUCT("parallel|for", parallel_for)
+OMP_CONSTRUCT("for", for)
+
+OMP_DIRECTIVE("barrier", barrier)
+OMP_CONSTRUCT("atomic", atomic)
+OMP_CONSTRUCT("master", master)
+
+OMP_CONSTRUCT("critical", critical)
+OMP_DIRECTIVE("flush", flush)
+
+OMP_CONSTRUCT("single", single)
+
+OMP_CONSTRUCT("parallel|sections", parallel_sections)
+OMP_CONSTRUCT("sections", sections)
+OMP_CONSTRUCT("section", section)
+
+OMP_CONSTRUCT("task", task)
+OMP_DIRECTIVE("taskwait", taskwait)
+
+OMP_DIRECTIVE("threadprivate", threadprivate)
+
+OMP_CONSTRUCT("ordered", ordered)
+
+OMP_DIRECTIVE("declare|reduction", declare_reduction)

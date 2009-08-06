@@ -24,7 +24,7 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::common_parallel_data_sharing_code(OpenMP::Construct &parallel_construct)
+        void OpenMPTransform::common_parallel_data_sharing_code(PragmaCustomConstruct &parallel_construct)
         {
             // They will hold the entities as they appear in the clauses
             ObjectList<Symbol>& shared_references = 
@@ -42,26 +42,29 @@ namespace TL
             ObjectList<Symbol>& copyprivate_references = 
                 parallel_construct.get_data<ObjectList<Symbol> >("copyprivate_references");
 
-            // Get the directive
-            OpenMP::Directive directive = parallel_construct.directive();
+            OpenMP::DataSharing& data_sharing = openmp_info->get_data_sharing(parallel_construct.get_ast());
 
-            // Get the construct_body of the statement
-            Statement construct_body = parallel_construct.body();
+            data_sharing.get_all_symbols(OpenMP::DA_SHARED, shared_references);
+            data_sharing.get_all_symbols(OpenMP::DA_PRIVATE, private_references);
+            data_sharing.get_all_symbols(OpenMP::DA_FIRSTPRIVATE, firstprivate_references);
+            data_sharing.get_all_symbols(OpenMP::DA_LASTPRIVATE, lastprivate_references);
 
-            // Get the data attributes for every entity
-            get_data_attributes(parallel_construct,
-                    directive,
-                    construct_body,
-                    shared_references,
-                    private_references,
-                    firstprivate_references,
-                    lastprivate_references,
-                    reduction_references,
-                    copyin_references,
-                    copyprivate_references);
+            // As usual, reductions are special
+            ObjectList<Symbol> temp_reduction_sym;
+            data_sharing.get_all_symbols(OpenMP::DA_REDUCTION, temp_reduction_sym);
+            for (ObjectList<Symbol>::iterator it = temp_reduction_sym.begin();
+                    it != temp_reduction_sym.end();
+                    it++)
+            {
+                reduction_references.append(
+                        OpenMP::ReductionSymbol(*it, data_sharing.get_reductor_name(*it), openmp_info->get_udr_info()));
+            }
+
+            data_sharing.get_all_symbols(OpenMP::DA_COPYIN, copyin_references);
+            data_sharing.get_all_symbols(OpenMP::DA_COPYPRIVATE, copyprivate_references);
         }
 
-        void OpenMPTransform::parallel_preorder(OpenMP::ParallelConstruct parallel_construct)
+        void OpenMPTransform::parallel_preorder(PragmaCustomConstruct parallel_construct)
         {
             // Inner reductions stack
             ObjectList<OpenMP::ReductionSymbol> inner_reductions;
@@ -73,7 +76,7 @@ namespace TL
             common_parallel_data_sharing_code(parallel_construct);
         }
 
-        void OpenMPTransform::parallel_postorder(OpenMP::ParallelConstruct parallel_construct)
+        void OpenMPTransform::parallel_postorder(PragmaCustomConstruct parallel_construct)
         {
             // One more parallel seen
             num_parallels++;
@@ -81,11 +84,8 @@ namespace TL
             // Decrease the parallel nesting value
             parallel_nesting--;
 
-            // Get the directive
-            OpenMP::Directive directive = parallel_construct.directive();
-
             // Get the construct_body of the statement
-            Statement construct_body = parallel_construct.body();
+            Statement construct_body = parallel_construct.get_statement();
 
             // Get the enclosing function definition
             FunctionDefinition function_definition = parallel_construct.get_enclosing_function();
@@ -115,7 +115,6 @@ namespace TL
             // Compute the replacements
             ReplaceIdExpression replace_references = 
                 set_replacements(function_definition,
-                        directive,
                         construct_body,
                         shared_references,
                         private_references,
@@ -136,7 +135,7 @@ namespace TL
             // Additionally {first|last}private and reduction
             // entities are needed for proper initializations
             // and assignments.
-            OpenMP::CustomClause noinstr_clause = directive.custom_clause("noinstr");
+            PragmaCustomClause noinstr_clause = parallel_construct.get_clause("noinstr");
 
             AST_t outline_code  = get_outline_parallel(
                     parallel_construct,
@@ -161,9 +160,9 @@ namespace TL
             // reductions are needed for proper pass of data and reduction
             // vectors declaration
 
-            OpenMP::Clause if_clause = directive.if_clause();
-            OpenMP::Clause num_threads = directive.num_threads_clause();
-            OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
+            PragmaCustomClause if_clause = parallel_construct.get_clause("if");
+            PragmaCustomClause num_threads = parallel_construct.get_clause("num_threads");
+            PragmaCustomClause groups_clause = parallel_construct.get_clause("groups");
 
             Source instrument_code_before;
             Source instrument_code_after;
@@ -190,7 +189,7 @@ namespace TL
         }
 
         AST_t OpenMPTransform::get_outline_parallel(
-                OpenMP::Construct &construct,
+                PragmaCustomConstruct &construct,
                 FunctionDefinition function_definition,
                 Source outlined_function_name,
                 Statement construct_body,

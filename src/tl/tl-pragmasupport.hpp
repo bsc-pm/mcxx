@@ -33,6 +33,73 @@
 
 namespace TL
 {
+    class LIBTL_CLASS ClauseTokenizer
+    {
+        public:
+            virtual ObjectList<std::string> tokenize(const std::string& str) const = 0;
+            ~ClauseTokenizer() { }
+    };
+
+    class LIBTL_CLASS NullClauseTokenizer : public ClauseTokenizer
+    {
+        public:
+            virtual ObjectList<std::string> tokenize(const std::string& str) const
+            {
+                ObjectList<std::string> result;
+                result.append(str);
+                return result;
+            }
+    };
+
+    class LIBTL_CLASS ExpressionTokenizer : public ClauseTokenizer
+    {
+        public:
+            virtual ObjectList<std::string> tokenize(const std::string& str) const
+            {
+                int bracket_nesting = 0;
+                ObjectList<std::string> result;
+
+                std::string temporary("");
+                for (std::string::const_iterator it = str.begin();
+                        it != str.end();
+                        it++)
+                {
+                    const char & c(*it);
+
+                    if (c == ',' 
+                            && bracket_nesting == 0
+                            && temporary != "")
+                    {
+                        result.append(temporary);
+                        temporary = "";
+                    }
+                    else
+                    {
+                        if (c == '('
+                                || c == '{'
+                                || c == '[')
+                        {
+                            bracket_nesting++;
+                        }
+                        else if (c == ')'
+                                || c == '}'
+                                || c == ']')
+                        {
+                            bracket_nesting--;
+                        }
+                        temporary += c;
+                    }
+                }
+
+                if (temporary != "")
+                {
+                    result.append(temporary);
+                }
+
+                return result;
+            }
+    };
+
     class LIBTL_CLASS PragmaCustomClause : public LangConstruct
     {
         private:
@@ -49,12 +116,20 @@ namespace TL
             // Convenience function, it returns all the arguments parsed as expressions
             ObjectList<Expression> get_expression_list();
 
+            ObjectList<IdExpression> id_expressions(IdExpressionCriteria criteria = VALID_SYMBOLS);
+            
             // Convenience function, it returns all the id-expressions of the arguments when 
             // parsed as expressions
-            ObjectList<IdExpression> id_expressions(IdExpressionCriteria criteria = VALID_SYMBOLS);
+            ObjectList<IdExpression> get_id_expressions(IdExpressionCriteria criteria = VALID_SYMBOLS);
 
             // Raw clause arguments for custom parsing
             ObjectList<std::string> get_arguments();
+
+            // Raw clause arguments for custom parsing with a given tokenizer
+            ObjectList<std::string> get_arguments(const ClauseTokenizer&);
+
+            // Raw clause arguments for even more custom parsing
+            ObjectList<ObjectList<std::string> > get_arguments_unflattened();
 
             // Raw clause arguments tree for custom parsing
             ObjectList<AST_t> get_arguments_tree();
@@ -86,12 +161,17 @@ namespace TL
             bool is_function_definition();
 
             bool is_parameterized();
+            ObjectList<IdExpression> get_parameter_id_expressions(IdExpressionCriteria criteria = VALID_SYMBOLS);
             ObjectList<Expression> get_parameter_expressions();
             ObjectList<std::string> get_parameter_arguments();
 
             ObjectList<std::string> get_clause_names();
             PragmaCustomClause get_clause(const std::string& name);
     };
+
+    LIBTL_EXTERN bool is_pragma_custom(const std::string& pragma_preffix, 
+            AST_t ast,
+            ScopeLink scope_link);
 
     LIBTL_EXTERN bool is_pragma_custom_directive(const std::string& pragma_preffix, 
             const std::string& pragma_directive, 
