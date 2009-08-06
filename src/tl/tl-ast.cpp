@@ -960,7 +960,8 @@ namespace TL
             return true;
 
         AST _possible_next = ASTParent(_current);
-        if (ASTType(_possible_next) != AST_NODE_LIST)
+        if (_possible_next == NULL
+                || ASTType(_possible_next) != AST_NODE_LIST)
         {
             return true;
         }

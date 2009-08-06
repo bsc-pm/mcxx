@@ -24,7 +24,7 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::barrier_postorder(OpenMP::BarrierDirective barrier_directive)
+        void OpenMPTransform::barrier_postorder(PragmaCustomConstruct barrier_directive)
         {
             Source barrier_source;
 

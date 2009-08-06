@@ -14,12 +14,12 @@ struct GuardedTask
     public:
         typedef std::pair<std::string, Symbol> additional_var;
     private:
-        TaskConstruct _task_construct;
+        PragmaCustomConstruct _task_construct;
         ObjectList<additional_var> _additional_vars;
         std::string _predicate_name;
         int _task_id;
     public:
-        GuardedTask(TaskConstruct task_construct,
+        GuardedTask(PragmaCustomConstruct task_construct,
                 ObjectList<additional_var> additional_vars = ObjectList<additional_var>(),
                 std::string predicate_name = std::string(""))
             : _task_construct(task_construct),
@@ -29,7 +29,7 @@ struct GuardedTask
         {
         }
 
-        TaskConstruct get_task() const
+        PragmaCustomConstruct get_task() const
         {
             return _task_construct;
         }
@@ -82,13 +82,13 @@ struct GuardTaskInfo
 
         void fill_guard_tasks_basic(Statement stmt) 
         {
-            ObjectList<AST_t> tasks = stmt.get_ast().depth_subtrees(TaskConstruct::predicate);
+            ObjectList<AST_t> tasks = stmt.get_ast().depth_subtrees(PragmaCustomConstruct::predicate);
 
             for (ObjectList<AST_t>::iterator it = tasks.begin();
                     it != tasks.end();
                     it++)
             {
-                TaskConstruct task_construct(*it, stmt.get_scope_link());
+                PragmaCustomConstruct task_construct(*it, stmt.get_scope_link());
 
                 GuardedTask guarded_task(task_construct);
                 _guarded_task_list.append(guarded_task);
@@ -96,7 +96,7 @@ struct GuardTaskInfo
             }
         }
 
-        int get_task_id(TaskConstruct task_construct) const
+        int get_task_id(PragmaCustomConstruct task_construct) const
         {
             ObjectList<GuardedTask> found_tasks 
                 = _guarded_task_list.find(functor(get_ast_from_guarded_task),

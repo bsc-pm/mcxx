@@ -23,10 +23,10 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::taskyield_postorder(OpenMP::CustomConstruct taskyield_construct)
+        void OpenMPTransform::taskyield_postorder(PragmaCustomConstruct taskyield_construct)
         {
             Source taskyield_source;
-            Statement taskyield_body = taskyield_construct.body();
+            Statement taskyield_body = taskyield_construct.get_statement();
 
             taskyield_source
                 << "{"

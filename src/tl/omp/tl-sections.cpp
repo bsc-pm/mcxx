@@ -24,10 +24,9 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::sections_preorder(OpenMP::SectionsConstruct sections_construct)
+        void OpenMPTransform::sections_preorder(PragmaCustomConstruct sections_construct)
         {
-            OpenMP::Directive directive = sections_construct.directive();
-            Statement construct_body = sections_construct.body();
+            Statement construct_body = sections_construct.get_statement();
 
             // We push a new level of sections with zero "section" counted
             // so far
@@ -49,24 +48,32 @@ namespace TL
             ObjectList<Symbol>& copyprivate_references = 
                 sections_construct.get_data<ObjectList<Symbol> >("copyprivate_references");
             
-            // Get the data attributes for every entity
-            get_data_explicit_attributes(
-                    sections_construct,
-                    directive,
-                    shared_references,
-                    private_references,
-                    firstprivate_references,
-                    lastprivate_references,
-                    reduction_references,
-                    copyin_references,
-                    copyprivate_references);
+            OpenMP::DataSharing& data_sharing = openmp_info->get_data_sharing(sections_construct.get_ast());
+
+            data_sharing.get_all_symbols(OpenMP::DA_SHARED, shared_references);
+            data_sharing.get_all_symbols(OpenMP::DA_PRIVATE, private_references);
+            data_sharing.get_all_symbols(OpenMP::DA_FIRSTPRIVATE, firstprivate_references);
+            data_sharing.get_all_symbols(OpenMP::DA_LASTPRIVATE, lastprivate_references);
+
+            // As usual, reductions are special
+            ObjectList<Symbol> temp_reduction_sym;
+            data_sharing.get_all_symbols(OpenMP::DA_REDUCTION, temp_reduction_sym);
+            for (ObjectList<Symbol>::iterator it = temp_reduction_sym.begin();
+                    it != temp_reduction_sym.end();
+                    it++)
+            {
+                reduction_references.append(
+                        OpenMP::ReductionSymbol(*it, data_sharing.get_reductor_name(*it), openmp_info->get_udr_info()));
+            }
+
+            data_sharing.get_all_symbols(OpenMP::DA_COPYIN, copyin_references);
+            data_sharing.get_all_symbols(OpenMP::DA_COPYPRIVATE, copyprivate_references);
         }
 
-        void OpenMPTransform::sections_postorder(OpenMP::SectionsConstruct sections_construct)
+        void OpenMPTransform::sections_postorder(PragmaCustomConstruct sections_construct)
         {
             // Get the construct_body of the statement
-            OpenMP::Directive directive = sections_construct.directive();
-            Statement construct_body = sections_construct.body();
+            Statement construct_body = sections_construct.get_statement();
 
             // Get the enclosing function definition
             FunctionDefinition function_definition = sections_construct.get_enclosing_function();
@@ -94,7 +101,6 @@ namespace TL
 
             ReplaceIdExpression replace_references = 
                 set_replacements(function_definition,
-                        directive,
                         construct_body,
                         shared_references,
                         private_references,
@@ -143,7 +149,7 @@ namespace TL
                     ;
             }
 
-            OpenMP::Clause nowait_clause = directive.nowait_clause();
+            PragmaCustomClause nowait_clause = sections_construct.get_clause("nowait");
             Source loop_finalization = get_loop_finalization(/*do_barrier=*/!(nowait_clause.is_defined()));
 
             Source reduction_code;

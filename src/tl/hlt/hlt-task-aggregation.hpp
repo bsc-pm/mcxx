@@ -13,20 +13,20 @@ namespace TL
         {
             private:
                 ObjectList<Statement> _prolog;
-                TL::OpenMP::TaskConstruct *_task;
+                TL::PragmaCustomConstruct *_task;
 
             public:
-                TaskPart(ObjectList<Statement> prolog, TL::OpenMP::TaskConstruct task)
-                    : _prolog(prolog), _task(new TL::OpenMP::TaskConstruct(task)) { }
+                TaskPart(ObjectList<Statement> prolog, TL::PragmaCustomConstruct task)
+                    : _prolog(prolog), _task(new TL::PragmaCustomConstruct(task)) { }
 
-                TaskPart(TL::OpenMP::TaskConstruct task)
-                    : _task(new TL::OpenMP::TaskConstruct(task)) { }
+                TaskPart(TL::PragmaCustomConstruct task)
+                    : _task(new TL::PragmaCustomConstruct(task)) { }
 
                 TaskPart(ObjectList<Statement> prolog)
                     : _prolog(prolog), _task(NULL) { }
 
                 TaskPart(const TaskPart& t)
-                    : _prolog(t._prolog), _task(new TL::OpenMP::TaskConstruct(*t._task))
+                    : _prolog(t._prolog), _task(new TL::PragmaCustomConstruct(*t._task))
                 {
                 }
 
@@ -45,7 +45,7 @@ namespace TL
                     return (_task != NULL);
                 }
 
-                TL::OpenMP::TaskConstruct get_task()
+                TL::PragmaCustomConstruct get_task()
                 {
                     return *_task;
                 }

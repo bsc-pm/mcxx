@@ -272,8 +272,6 @@ typedef struct compilation_configuration_tag
     external_var_t** external_vars;
 
     // Pragma configuration
-    // OMP pragmae
-    pragma_directive_set_t pragma_omp_info;
     // Custom pragmae
     int num_pragma_custom_prefix;
     const char** pragma_custom_prefix;

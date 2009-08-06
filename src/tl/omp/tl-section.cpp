@@ -24,12 +24,12 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::section_postorder(OpenMP::SectionConstruct section_construct)
+        void OpenMPTransform::section_postorder(PragmaCustomConstruct section_construct)
         {
             int &num_sections = num_sections_stack.top();
 
             Source section_source, instrumentation_before, instrumentation_after;
-            Statement construct_body = section_construct.body();
+            Statement construct_body = section_construct.get_statement();
 
             section_source
                 << "case " << num_sections << ":"

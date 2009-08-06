@@ -107,19 +107,19 @@ namespace TL
             PragmaCustomClause family_clause = construct.get_clause("family");
 
             if (version_clause.is_defined()
-                    && !version_clause.get_arguments().empty())
+                    && !version_clause.get_arguments(ExpressionTokenizer()).empty())
             {
                 // Convert into an integer
                 std::stringstream ss;
 
-                ss << version_clause.get_arguments()[0];
+                ss << version_clause.get_arguments(ExpressionTokenizer())[0];
                 ss >> Version::version;
             }
 
             if (family_clause.is_defined()
-                    && !family_clause.get_arguments().empty())
+                    && !family_clause.get_arguments(ExpressionTokenizer()).empty())
             {
-                Version::family = family_clause.get_arguments()[0];
+                Version::family = family_clause.get_arguments(ExpressionTokenizer())[0];
             }
         }
 

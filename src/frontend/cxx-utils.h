@@ -33,9 +33,13 @@ MCXX_BEGIN_DECLS
 
 LIBMCXX_EXTERN void running_error(const char* message, ...) NORETURN;
 
+#define BUG_URL "\nPlease report a bug at " \
+                "http://nanos.ac.upc.edu/projects/mcxx/newticket " \
+                "with preprocessed source if possible\n"
+
 #define internal_error(message, ...) \
 { \
-    debug_message(message, "Internal compiler error. Please report bug:\n", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__ ); \
+    debug_message(message, "Internal compiler error."BUG_URL, __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__ ); \
     if (CURRENT_CONFIGURATION->debug_options.abort_on_ice) \
             raise(SIGABRT); \
     exit(EXIT_FAILURE); \
@@ -51,7 +55,7 @@ LIBMCXX_EXTERN void debug_message(const char* message, const char* kind, const c
 #define ASSERT_MESSAGE(cond, message, ...) \
 { if (!(cond)) \
     { \
-        debug_message((message), "Assertion failed (" #cond ")\n\t", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
+        debug_message((message), "Assertion failed (" #cond ")"BUG_URL, __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
         if (CURRENT_CONFIGURATION->debug_options.abort_on_ice) \
             raise(SIGABRT); \
         exit(EXIT_FAILURE); \
@@ -61,7 +65,7 @@ LIBMCXX_EXTERN void debug_message(const char* message, const char* kind, const c
 #define ERROR_CONDITION(cond, message, ...) \
 { if ((cond)) \
     { \
-        debug_message((message), "Error condition (" #cond ")\n\t", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
+        debug_message((message), "Error condition (" #cond ")"BUG_URL, __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
         if (CURRENT_CONFIGURATION->debug_options.abort_on_ice) \
             raise(SIGABRT); \
         exit(EXIT_FAILURE); \

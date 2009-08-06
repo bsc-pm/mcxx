@@ -23,10 +23,10 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::taskgroup_postorder(OpenMP::CustomConstruct taskgroup_construct)
+        void OpenMPTransform::taskgroup_postorder(PragmaCustomConstruct taskgroup_construct)
         {
             Source taskgroup_source;
-            Statement taskgroup_body = taskgroup_construct.body();
+            Statement taskgroup_body = taskgroup_construct.get_statement();
 
 
             taskgroup_source

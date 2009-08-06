@@ -24,11 +24,14 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::ordered_postorder(OpenMP::OrderedConstruct ordered_construct)
+        void OpenMPTransform::ordered_postorder(PragmaCustomConstruct ordered_construct)
         {
+            running_error("%s: error: '#pragma omp ordered' is not supported",
+                    ordered_construct.get_ast().get_locus().c_str());
+            /* 
             Symbol induction_var = induction_var_stack.top();
 
-            Statement construct_body = ordered_construct.body();
+            Statement construct_body = ordered_construct.get_statement();
             Source ordered_source;
 
             ordered_source
@@ -43,6 +46,7 @@ namespace TL
                     ordered_construct.get_scope_link());
 
             ordered_construct.get_ast().replace(ordered_code);
+            */
         }
     }
 }

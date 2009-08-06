@@ -24,18 +24,13 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::for_preorder(OpenMP::ForConstruct for_construct)
+        void OpenMPTransform::for_preorder(PragmaCustomConstruct for_construct)
         {
-            OpenMP::Directive directive = for_construct.directive();
-
-            Statement construct_body = for_construct.body();
+            Statement construct_body = for_construct.get_statement();
             // The construct is in fact a ForStatement in a #pragma omp parallel do
             ForStatement for_statement(construct_body);
 
             IdExpression induction_var = for_statement.get_induction_variable();
-
-            // Save this induction var in the stack
-            induction_var_stack.push(induction_var.get_symbol());
 
             // They will hold the entities as they appear in the clauses
             ObjectList<Symbol>& shared_references = 
@@ -53,35 +48,33 @@ namespace TL
             ObjectList<Symbol>& copyprivate_references = 
                 for_construct.get_data<ObjectList<Symbol> >("copyprivate_references");
 
-            // Get the data attributes for every entity
-            get_data_explicit_attributes(
-                    for_construct,
-                    directive,
-                    shared_references,
-                    private_references,
-                    firstprivate_references,
-                    lastprivate_references,
-                    reduction_references,
-                    copyin_references,
-                    copyprivate_references);
+            OpenMP::DataSharing& data_sharing = openmp_info->get_data_sharing(for_construct.get_ast());
 
-            // Set it private if it was not
-            if ((for_construct.get_data_attribute(induction_var.get_symbol()) & OpenMP::DA_PRIVATE) != OpenMP::DA_PRIVATE)
+            data_sharing.get_all_symbols(OpenMP::DA_SHARED, shared_references);
+            data_sharing.get_all_symbols(OpenMP::DA_PRIVATE, private_references);
+            data_sharing.get_all_symbols(OpenMP::DA_FIRSTPRIVATE, firstprivate_references);
+            data_sharing.get_all_symbols(OpenMP::DA_LASTPRIVATE, lastprivate_references);
+
+            // As usual, reductions are special
+            ObjectList<Symbol> temp_reduction_sym;
+            data_sharing.get_all_symbols(OpenMP::DA_REDUCTION, temp_reduction_sym);
+            for (ObjectList<Symbol>::iterator it = temp_reduction_sym.begin();
+                    it != temp_reduction_sym.end();
+                    it++)
             {
-                ObjectList<Symbol>& private_references = 
-                    for_construct.get_data<ObjectList<Symbol> >("private_references");
-
-                for_construct.add_data_attribute(induction_var.get_symbol(), OpenMP::DA_PRIVATE);
-
-                // And insert into private references as well
-                private_references.insert(induction_var.get_symbol());
+                // Fix this, it appears extremely redundant to me
+                reduction_references.append(OpenMP::ReductionSymbol(*it, 
+                            data_sharing.get_reductor_name(*it),
+                            openmp_info->get_udr_info()));
             }
+
+            data_sharing.get_all_symbols(OpenMP::DA_COPYIN, copyin_references);
+            data_sharing.get_all_symbols(OpenMP::DA_COPYPRIVATE, copyprivate_references);
         }
 
-        void OpenMPTransform::for_postorder(OpenMP::ForConstruct for_construct)
+        void OpenMPTransform::for_postorder(PragmaCustomConstruct for_construct)
         {
-            OpenMP::Directive directive = for_construct.directive();
-            Statement construct_body = for_construct.body();
+            Statement construct_body = for_construct.get_statement();
             ForStatement for_statement = construct_body;
             Statement loop_body = for_statement.get_loop_body();
 
@@ -89,9 +82,6 @@ namespace TL
             FunctionDefinition function_definition = for_construct.get_enclosing_function();
             // its scope
             Scope function_scope = function_definition.get_scope();
-
-            // Remove the induction var from the stack
-            induction_var_stack.pop();
 
             ObjectList<OpenMP::ReductionSymbol> reduction_empty;
 
@@ -116,7 +106,6 @@ namespace TL
             
             ReplaceIdExpression replace_references  = 
                 set_replacements_inline(function_definition,
-                        directive,
                         loop_body,
                         shared_references,
                         private_references,
@@ -141,7 +130,7 @@ namespace TL
             Source loop_distribution_code = get_loop_distribution_code(
                     for_statement,
                     for_construct,
-                    replace_references, function_definition, directive);
+                    replace_references, function_definition);
 
             Source lastprivate_code;
 
@@ -159,7 +148,7 @@ namespace TL
                     ;
             }
 
-            OpenMP::Clause nowait_clause = directive.nowait_clause();
+            PragmaCustomClause nowait_clause = for_construct.get_clause("nowait");
 
             Source loop_finalization = get_loop_finalization(/*do_barrier=*/!(nowait_clause.is_defined()));
 

@@ -82,7 +82,7 @@ bool TaskAggregation::contains_relevant_openmp(Statement stmt)
 
 bool TaskAggregation::contains_relevant_openmp(Statement stmt, bool &contains_conditional_code)
 {
-    if (TaskConstruct::predicate(stmt.get_ast()))
+    if (is_pragma_custom_construct("omp", "task", stmt.get_ast(), stmt.get_scope_link()))
         return true;
     else if (stmt.is_compound_statement())
     {
@@ -110,9 +110,9 @@ bool TaskAggregation::contains_relevant_openmp(Statement stmt, bool &contains_co
 
 void TaskAggregation::get_task_parts_aux(ObjectList<TaskPart>& result, ObjectList<Statement> &current_prologue, Statement stmt)
 {
-    if (TaskConstruct::predicate(stmt.get_ast()))
+    if (is_pragma_custom_construct("omp", "task", stmt.get_ast(), stmt.get_scope_link()))
     {
-        TaskConstruct task_construct(stmt.get_ast(), stmt.get_scope_link());
+        PragmaCustomConstruct task_construct(stmt.get_ast(), stmt.get_scope_link());
         TaskPart new_task_part(current_prologue, task_construct);
         result.append(new_task_part);
         current_prologue.clear();

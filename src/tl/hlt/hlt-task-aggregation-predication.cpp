@@ -28,7 +28,7 @@ struct GuardTaskGenerator : Functor<TL::AST_t::callback_result, TL::AST_t>
 
         virtual AST_t::callback_result do_(TL::AST_t& a) const
         {
-            if (TaskConstruct::predicate(a))
+            if (is_pragma_custom_construct("omp", "task", a, _sl))
             {
                 Source result;
                 Source predicate_name;
@@ -48,9 +48,8 @@ struct GuardTaskGenerator : Functor<TL::AST_t::callback_result, TL::AST_t>
 
                 // Capture current firstprivate values
                 // FIXME -> We are relying on explicit firstprivates
-                TaskConstruct task_construct(a, _sl);
-                Directive directive = task_construct.directive();
-                Clause firstprivate_clause = directive.firstprivate_clause();
+                PragmaCustomConstruct task_construct(a, _sl);
+                PragmaCustomClause firstprivate_clause = task_construct.get_clause("firstprivate");
 
                 ObjectList<GuardedTask::additional_var> additional_vars;
 
@@ -200,11 +199,11 @@ Source TaskAggregation::do_predicated_aggregation()
             it != guarded_task_list.end();
             it++)
     {
-        TaskConstruct task = it->get_task();
+        PragmaCustomConstruct task = it->get_task();
 
         Source replaced_body, local_binding, local_cleanup;
 
-        Statement body = task.body();
+        Statement body = task.get_statement();
         predicated_body
             << "if (" << guard_task_info.get_guard_struct_var_name() << "." << it->get_predicate_name() << ")"
             << "{"

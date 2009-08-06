@@ -42,17 +42,52 @@ void debug_message(const char* message, const char* kind, const char* source_fil
         sanitized_message[length] = '\0';
         length--;
     }
-    
-    char* source_file_copy = strdup(source_file);
-    
-    fprintf(stderr, "%s%s:%d %s: ", kind, give_basename(source_file_copy), line, function_name);
-    va_start(ap, function_name);
-    vfprintf(stderr, sanitized_message, ap);
-    va_end(ap);
-    fprintf(stderr, "\n");
 
-    free(source_file_copy);
+#define LONG_MESSAGE_SIZE 512
+    char* long_message = calloc(sizeof(char), LONG_MESSAGE_SIZE);
+
+    va_start(ap, function_name);
+    vsnprintf(long_message, LONG_MESSAGE_SIZE-1, sanitized_message, ap);
+    long_message[LONG_MESSAGE_SIZE-1] = '\0';
+#undef LONG_MESSAGE_SIZE
+
+    char* kind_copy = strdup(kind);
+
+    char *start, *end;
+
+    start = kind_copy;
+
+    while (*start != '\0'
+            && (end = strchr(start, '\n')) != NULL)
+    {
+        *end = '\0';
+        fprintf(stderr, "%s:%d(%s): %s\n", give_basename(source_file), line, function_name, start);
+        start = end + 1;
+    }
+
+    if (*start != '\0')
+    {
+        fprintf(stderr, "%s:%d(%s): %s\n", give_basename(source_file), line, function_name, start);
+    }
+
+    start = long_message;
+
+    while (*start != '\0'
+            && (end = strchr(start, '\n')) != NULL)
+    {
+        *end = '\0';
+        fprintf(stderr, "%s:%d(%s): %s\n", give_basename(source_file), line, function_name, start);
+        start = end + 1;
+    }
+
+    if (*start != '\0')
+    {
+        fprintf(stderr, "%s:%d(%s): %s\n", give_basename(source_file), line, function_name, start);
+    }
+
+    free(kind_copy);
     free(sanitized_message);
+    free(long_message);
 }
 
 void running_error(const char* message, ...)

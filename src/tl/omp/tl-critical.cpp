@@ -24,28 +24,39 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::critical_postorder(OpenMP::CriticalConstruct critical_construct)
+        void OpenMPTransform::critical_postorder(PragmaCustomConstruct critical_construct)
         {
             Source critical_source;
 
-            OpenMP::Directive directive = critical_construct.directive();
-            Statement critical_body = critical_construct.body();
+            Statement critical_body = critical_construct.get_statement();
             ScopeLink scope_link = critical_construct.get_scope_link();
-
-            OpenMP::Clause region_name = directive.parameter_clause();
 
             std::string mutex_variable;
 
-            if (!region_name.is_defined())
+            if (!critical_construct.is_parameterized())
             {
                 mutex_variable = "_nthf_unspecified_critical";
             }
             else
             {
-                ObjectList<IdExpression> id_expressions = region_name.id_expressions(TL::ALL_FOUND_SYMBOLS);
-                IdExpression head = id_expressions[0];
+                // ObjectList<IdExpression> id_expressions = region_name.id_expressions(TL::ALL_FOUND_SYMBOLS);
+                // IdExpression head = id_expressions[0];
 
-                mutex_variable = "_nthf_"  + head.prettyprint();
+                ObjectList<std::string> args = critical_construct.get_parameter_arguments();
+
+                if (args.size() > 1)
+                {
+                    std::cerr << critical_construct.get_ast().get_locus() 
+                        << ": warning: #pragma omp critical only receives one argument, using first one" 
+                        << std::endl;
+                }
+                else if (args.size() == 0)
+                {
+                    running_error("%s: error: #pragma omp critical needs an argument",
+                            critical_construct.get_ast().get_locus().c_str());
+                }
+
+                mutex_variable = "_nthf_"  + args[0];
             }
 
             critical_source

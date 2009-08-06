@@ -1252,8 +1252,7 @@ namespace TL
 
         if (_this->_ignore_pragmas)
         {
-            bool b = TL::Bool(wrapped_tree.get_attribute(OMP_IS_OMP_DIRECTIVE))
-                    || TL::Bool(wrapped_tree.get_attribute(LANG_IS_PRAGMA_CUSTOM_DIRECTIVE));
+            bool b = TL::Bool(wrapped_tree.get_attribute(LANG_IS_PRAGMA_CUSTOM_DIRECTIVE));
 
             if (b)
             {

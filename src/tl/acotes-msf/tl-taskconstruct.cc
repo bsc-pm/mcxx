@@ -99,7 +99,7 @@ namespace TL { namespace Acotes {
     }
     
     void TaskConstruct::onPreTeam(Task* task) {
-        const ObjectList<std::string> arguments= get_clause("team").get_arguments();
+        const ObjectList<std::string> arguments= get_clause("team").get_arguments(ExpressionTokenizer());
         
         if (arguments.size() == 0) {
         } else if (arguments.size() == 1) {
@@ -179,7 +179,7 @@ namespace TL { namespace Acotes {
     }
 
     void TaskConstruct::onPreDevice(Task * task) {
-        const ObjectList<std::string> arguments= get_clause("device").get_arguments();
+        const ObjectList<std::string> arguments= get_clause("device").get_arguments(ExpressionTokenizer());
         if (arguments.size() == 0) {
            printf ("No Device clause\n");
         } else if (arguments.size() == 1) {

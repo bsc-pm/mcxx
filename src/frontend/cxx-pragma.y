@@ -32,8 +32,6 @@
 %type<text> pragma_clause_arg
 %type<text> pragma_clause_arg_item 
 %type<text> pragma_clause_arg_text
-%type<text> pragma_clause_arg_item_nested
-%type<text> pragma_clause_arg_item_nested_item
 
 /*!endif*/
 /*!if GRAMMAR_RULES*/
@@ -148,12 +146,6 @@ pragma_clause_arg_list : pragma_clause_arg
 
     $$ = ASTListLeaf(node);
 }
-| pragma_clause_arg_list ',' pragma_clause_arg
-{
-    AST node = ASTLeaf(AST_PRAGMA_CLAUSE_ARG, NULL, 0, $3);
-
-    $$ = ASTList($1, node);
-}
 ;
 
 pragma_clause_arg : pragma_clause_arg_item
@@ -170,61 +162,6 @@ pragma_clause_arg_item : pragma_clause_arg_text
 {
     $$ = $1;
 }
-| '(' pragma_clause_arg_item_nested ')'
-{
-    char c[256];
-    snprintf(c, 255, "(%s)", $2);
-    c[255] = '\0';
-    $$ = uniquestr(c);
-}
-| '[' pragma_clause_arg_item_nested ']'
-{
-    char c[256];
-    snprintf(c, 255, "[%s]", $2);
-    c[255] = '\0';
-    $$ = c;
-}
-| '{' pragma_clause_arg_item_nested '}'
-{
-    char c[256];
-    snprintf(c, 255, "{%s}", $2);
-    c[255] = '\0';
-    $$ = c;
-}
-| '(' ')'
-{
-    $$ = "()";
-}
-| '[' ']'
-{
-    $$ = "[]";
-}
-| '{' '}'
-{
-    $$ = "{}";
-}
-;
-
-pragma_clause_arg_item_nested : pragma_clause_arg_item_nested_item
-{
-    $$ = $1;
-}
-| pragma_clause_arg_item_nested pragma_clause_arg_item_nested_item
-{
-    $$ = strappend($1, $2);
-}
-;
-
-pragma_clause_arg_item_nested_item : pragma_clause_arg_item
-{
-    $$ = $1;
-}
-// This way allows strange syntax like '(,,,)'
-| ','
-{
-    $$ = $1.token_text;
-}
-;
 
 pragma_clause_arg_text : PRAGMA_CLAUSE_ARG_TEXT
 {

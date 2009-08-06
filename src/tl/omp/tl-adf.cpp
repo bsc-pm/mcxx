@@ -70,18 +70,17 @@ namespace TL
             return t;
         }
 
-        void OpenMPTransform::adf_task_preorder(OpenMP::CustomConstruct adf_construct)
+        void OpenMPTransform::adf_task_preorder(PragmaCustomConstruct adf_construct)
         {
         }
 
-        void OpenMPTransform::adf_task_postorder(OpenMP::CustomConstruct adf_construct)
+        void OpenMPTransform::adf_task_postorder(PragmaCustomConstruct adf_construct)
         {
-            OpenMP::Directive directive = adf_construct.directive();
-            OpenMP::CustomClause exit_condition_clause = directive.custom_clause("exit_condition");
+            PragmaCustomClause exit_condition_clause = adf_construct.get_clause("exit_condition");
 
-            OpenMP::CustomClause trigger_set = directive.custom_clause("trigger_set");
+            PragmaCustomClause trigger_set = adf_construct.get_clause("trigger_set");
 
-            OpenMP::CustomClause group_name_clause = directive.custom_clause("name");
+            PragmaCustomClause group_name_clause = adf_construct.get_clause("name");
 
             bool group_name_given = group_name_clause.is_defined();
             std::string group_name = "default";
@@ -162,15 +161,12 @@ namespace TL
 
             // Main code
             {
-                // For every expression, replace it properly with read and write
-                PredicateAttr expression_pred(LANG_IS_EXPRESSION_NEST) ;
-
                 // Duplicate with new contextual info
-                Source src = adf_construct.body().prettyprint();
+                Source src = adf_construct.get_statement().prettyprint();
                 AST_t task_tree = src.parse_statement(inner_tree,
                         adf_construct.get_scope_link());
 
-                ObjectList<AST_t> expressions = task_tree.depth_subtrees(expression_pred, AST_t::NON_RECURSIVE);
+                ObjectList<AST_t> expressions = task_tree.depth_subtrees(Expression::predicate, AST_t::NON_RECURSIVE);
                 for (ObjectList<AST_t>::iterator it = expressions.begin();
                         it != expressions.end();
                         it++)

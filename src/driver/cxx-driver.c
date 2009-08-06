@@ -1749,6 +1749,12 @@ static void enable_hlt_phase(void);
 
 static void finalize_committed_configuration(void)
 {
+    // OpenMP support involves omp pragma
+    if (!CURRENT_CONFIGURATION->disable_openmp)
+    {
+        config_add_preprocessor_prefix(CURRENT_CONFIGURATION, "omp");
+    }
+
     // UPC support involves some specific pragmae
     if (CURRENT_CONFIGURATION->enable_upc)
     {
@@ -2310,6 +2316,17 @@ static void warn_preprocessor_flags(
 static const char* preprocess_file(translation_unit_t* translation_unit,
         const char* input_filename)
 {
+    // Add guarding macros
+    C_LANGUAGE()
+    {
+        add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, "-D_MCC");
+    }
+    CXX_LANGUAGE()
+    {
+        add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, "-D_MCXX");
+    }
+    add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, "-D_MERCURIUM");
+
     int num_arguments = count_null_ended_array((void**)CURRENT_CONFIGURATION->preprocessor_options);
 
     char uses_stdout = CURRENT_CONFIGURATION->preprocessor_uses_stdout;

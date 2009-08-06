@@ -621,7 +621,7 @@ void HLTPragmaPhase::outline_code(PragmaCustomConstruct construct)
     PragmaCustomClause name = construct.get_clause("name");
     if (name.is_defined())
     {
-        ObjectList<std::string> clause_args = name.get_arguments();
+        ObjectList<std::string> clause_args = name.get_arguments(ExpressionTokenizer());
         outline.set_outline_name(clause_args[0]);
     }
 
@@ -652,7 +652,7 @@ void HLTPragmaPhase::extend_function(PragmaCustomConstruct construct)
     PragmaCustomClause name_clause = construct.get_clause("name");
     if (name_clause.is_defined())
     {
-        ObjectList<std::string> clause_args = name_clause.get_arguments();
+        ObjectList<std::string> clause_args = name_clause.get_arguments(ExpressionTokenizer());
         funct_extensions.set_extended_function_name(clause_args[0]);
     }
 

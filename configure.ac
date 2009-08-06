@@ -12,7 +12,7 @@ AC_PREREQ(2.59)
 AC_CONFIG_MACRO_DIR([m4])
 
 dnl Initialization of Automake
-AM_INIT_AUTOMAKE([dist-bzip2])
+AM_INIT_AUTOMAKE([1.9 dist-bzip2])
 
 dnl Simple check of code existence
 AC_CONFIG_SRCDIR(src/frontend/cxx03.y.in)
@@ -707,7 +707,7 @@ then
      AC_MSG_NOTICE([You will need flex 2.5.4 or 2.5.3x if you intend to modify *.l files])
   else
     AC_MSG_CHECKING([flex version])
-    flex_ver=`flex --version | head -n 1 | sed -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*\).*$/\1/'`
+    flex_ver=`$FLEX --version | head -n 1 | sed -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*\).*$/\1/'`
     case x${flex_ver} in
       x2.5.4 | x2.5.3? )
        AC_MSG_RESULT([${flex_ver}, ok])
@@ -750,14 +750,14 @@ then
             fi
           ]
   )
-  
+
   AC_CHECK_PROG(BISON, bison, bison, no)
   if test x$BISON = xno;
   then
      AC_MSG_NOTICE([You will need bison-2.3-rofi if you intend to modify *.y and *.y.in files])
   else
     AC_MSG_CHECKING([bison version])
-    bison_ver=`bison --version | head -n 1 | sed -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*\(-rofi\)\?\).*$/\1/'`
+    bison_ver=`$BISON --version | head -n 1 | sed -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*\(-rofi\)\?\).*$/\1/'`
     case x${bison_ver} in
        x2.@<:@0123@:>@-rofi)
           AC_MSG_RESULT([${bison_ver}, ok])
@@ -806,7 +806,7 @@ then
      AC_MSG_NOTICE([You will need gperf 3.0.x if you intend to modify *.gperf files])
   else
     AC_MSG_CHECKING([gperf version])
-    gperf_ver=`gperf --version | head -n 1 | sed -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*\).*$/\1/'`
+    gperf_ver=`$GPERF --version | head -n 1 | sed -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*\).*$/\1/'`
     case x${gperf_ver} in
        x3.0.*)
        AC_MSG_RESULT(${gperf_ver}[, ok])
@@ -972,6 +972,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/Makefile 
            src/tl/hlt/Makefile
            src/tl/nanos/Makefile 
+           src/tl/omp_core/Makefile 
            src/tl/omp/Makefile 
            src/tl/instr/Makefile 
            src/tl/instr_pthreads/Makefile 

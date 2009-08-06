@@ -98,7 +98,7 @@ namespace TL { namespace Acotes {
     }
     
     void TaskConstruct::onPreTeam(Task* task) {
-        const ObjectList<std::string> arguments= get_clause("team").get_arguments();
+        const ObjectList<std::string> arguments= get_clause("team").get_arguments(ExpressionTokenizer());
         
         if (arguments.size() == 0) {
         } else if (arguments.size() == 1) {

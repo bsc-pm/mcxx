@@ -262,6 +262,13 @@ namespace TL
              * \param parse_flags Parsing flags
              */
             AST_t parse_expression(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
+            //! Parses an expression list
+            /*!
+             * \param ref_tree Reference tree used when parsing this code
+             * \param scope_link Scope link used to get the scope of \a ref_tree
+             * \param parse_flags Parsing flags
+             */
+            AST_t parse_expression_list(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
             //! Parses a declaration
             /*!
              * \param ref_tree Reference tree used when parsing this code
@@ -283,6 +290,13 @@ namespace TL
              * \return The synthesized type
              */
             Type parse_type(AST_t ref_tree, TL::ScopeLink scope_link);
+            //! Convenience function to parse a comma separated list of types and synthesize them
+            /*!
+             * \param ref_tree Reference tree used when parsing this code
+             * \param scope_link Scope link used to get the scope of \a ref_tree
+             * \return The synthesized type
+             */
+            ObjectList<Type> parse_type_list(AST_t ref_tree, TL::ScopeLink scope_link);
             // -- end of new family of parse_XXX
 
             //! States whether this Source is empty

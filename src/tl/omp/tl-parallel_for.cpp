@@ -24,7 +24,7 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::parallel_for_preorder(OpenMP::ParallelForConstruct parallel_for_construct)
+        void OpenMPTransform::parallel_for_preorder(PragmaCustomConstruct parallel_for_construct)
         {
             ObjectList<OpenMP::ReductionSymbol> inner_reductions;
             inner_reductions_stack.push(inner_reductions);
@@ -33,46 +33,15 @@ namespace TL
             parallel_nesting++;
 
             common_parallel_data_sharing_code(parallel_for_construct);
-
-            Statement construct_body = parallel_for_construct.body();
-            // The construct is in fact a ForStatement in a #pragma omp parallel for
-            ForStatement for_statement(construct_body);
-
-            // The induction variable deserves special treatment
-            Symbol induction_var = for_statement.get_induction_variable().get_symbol();
-            induction_var_stack.push(induction_var);
-
-            // Set it private if it was not
-            if ((parallel_for_construct.get_data_attribute(induction_var) & OpenMP::DA_PRIVATE) != OpenMP::DA_PRIVATE)
-            {
-                ObjectList<Symbol>& private_references = 
-                    parallel_for_construct.get_data<ObjectList<Symbol> >("private_references");
-                // Set private
-                parallel_for_construct.add_data_attribute(induction_var, OpenMP::DA_PRIVATE);
-
-                // And insert into private references as well
-                private_references.insert(induction_var);
-
-                ObjectList<Symbol>& shared_references = 
-                    parallel_for_construct.get_data<ObjectList<Symbol> >("shared_references");
-                // Remove from shared references if it appears there
-                shared_references = shared_references.not_find(induction_var);
-            }
         }
 
-        void OpenMPTransform::parallel_for_postorder(OpenMP::ParallelForConstruct parallel_for_construct)
+        void OpenMPTransform::parallel_for_postorder(PragmaCustomConstruct parallel_for_construct)
         {
             // One more parallel seen
             num_parallels++;
 
-            // Remove the induction var from the stack
-            induction_var_stack.pop();
-
             // Decrease the parallel nesting level 
             parallel_nesting--;
-
-            // Get the directive
-            OpenMP::Directive directive = parallel_for_construct.directive();
 
             // Get the enclosing function definition
             FunctionDefinition function_definition = parallel_for_construct.get_enclosing_function();
@@ -96,7 +65,7 @@ namespace TL
                 parallel_for_construct.get_data<ObjectList<Symbol> >("copyprivate_references");
 
             // Get the construct_body of the statement
-            Statement construct_body = parallel_for_construct.body();
+            Statement construct_body = parallel_for_construct.get_statement();
             // The construct is in fact a ForStatement in a #pragma omp parallel do
             ForStatement for_statement(construct_body);
             Statement loop_body = for_statement.get_loop_body();
@@ -105,7 +74,6 @@ namespace TL
             ObjectList<ParameterInfo> parameter_info_list;
             ReplaceIdExpression replace_references = 
                 set_replacements(function_definition,
-                        directive,
                         loop_body,
                         shared_references,
                         private_references,
@@ -134,15 +102,14 @@ namespace TL
                     lastprivate_references,
                     reduction_references,
                     copyin_references,
-                    copyprivate_references,
-                    directive);
+                    copyprivate_references);
 
             // Now prepend the outline
             function_definition.get_ast().prepend_sibling_function(outline_code);
 
-            OpenMP::Clause if_clause = directive.if_clause();
-            OpenMP::Clause num_threads = directive.num_threads_clause();
-            OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
+            PragmaCustomClause if_clause = parallel_for_construct.get_clause("if");
+            PragmaCustomClause num_threads = parallel_for_construct.get_clause("num_threads");
+            PragmaCustomClause groups_clause = parallel_for_construct.get_clause("groups");
 
             Source instrument_code_before;
             Source instrument_code_after;
@@ -170,7 +137,7 @@ namespace TL
 
         // Create outline for parallel for
         AST_t OpenMPTransform::get_outline_parallel_for(
-                OpenMP::Construct &construct,
+                PragmaCustomConstruct &construct,
                 FunctionDefinition function_definition,
                 Source outlined_function_name,
                 ForStatement for_statement,
@@ -182,8 +149,7 @@ namespace TL
                 ObjectList<Symbol> lastprivate_references,
                 ObjectList<OpenMP::ReductionSymbol> reduction_references,
                 ObjectList<Symbol> copyin_references,
-                ObjectList<Symbol> copyprivate_references,
-                OpenMP::Directive directive
+                ObjectList<Symbol> copyprivate_references
                 )
         {
             // empty
@@ -216,8 +182,7 @@ namespace TL
                     for_statement, 
                     construct,
                     replace_references, 
-                    function_definition, 
-                    directive);
+                    function_definition);
 
             Source lastprivate_code;
 

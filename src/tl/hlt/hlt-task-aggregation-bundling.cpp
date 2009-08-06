@@ -157,9 +157,8 @@ struct BundleGenerator
 						it != guarded_task_list.end();
 						it++)
 				{
-					TaskConstruct current_task = it->get_task();
-					Directive current_directive = current_task.directive();
-					Clause current_firstprivate_clause = current_directive.firstprivate_clause();
+					PragmaCustomConstruct current_task = it->get_task();
+					PragmaCustomClause current_firstprivate_clause = current_task.get_clause("firstprivate");
 					ReplaceSrcIdExpression replacements(_sl);
 
 					Source extended_task_body, task_cleanup;
@@ -218,7 +217,7 @@ struct BundleGenerator
 						<< "}"
 						;
 
-					extended_task_body << replacements.replace(current_task.body());
+					extended_task_body << replacements.replace(current_task.get_statement());
 				}
 
 				// Bundle info
@@ -275,7 +274,7 @@ struct GuardTaskGeneratorBundled : Functor<TL::AST_t::callback_result, TL::AST_t
 
         virtual AST_t::callback_result do_(TL::AST_t& a) const
         {
-            if (TaskConstruct::predicate(a))
+            if (is_pragma_custom_construct("omp", "task", a, _sl))
             {
 				(*_task_num)++;
 				
@@ -285,10 +284,9 @@ struct GuardTaskGeneratorBundled : Functor<TL::AST_t::callback_result, TL::AST_t
 					;
                 // Capture current firstprivate values
                 // FIXME -> We are relying on explicit firstprivates
-                TaskConstruct task_construct(a, _sl);
+                PragmaCustomConstruct task_construct(a, _sl);
                 int task_id = _info.get_task_id(task_construct);
-                Directive directive = task_construct.directive();
-                Clause firstprivate_clause = directive.firstprivate_clause();
+                PragmaCustomClause firstprivate_clause = task_construct.get_clause("firstprivate");
 
                 ObjectList<GuardedTask::additional_var> additional_vars;
 
@@ -456,9 +454,8 @@ Source TaskAggregation::do_bundled_aggregation()
     {
         GuardedTask &guarded_task(*it_guarded_task);
 
-        TaskConstruct task_construct = guarded_task.get_task();
-        Directive task_directive = task_construct.directive();
-        Clause firstprivate_clause = task_directive.firstprivate_clause();
+        PragmaCustomConstruct task_construct = guarded_task.get_task();
+        PragmaCustomClause firstprivate_clause = task_construct.get_clause("firstprivate");
 
         if (firstprivate_clause.is_defined())
         {
