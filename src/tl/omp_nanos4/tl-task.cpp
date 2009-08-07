@@ -93,7 +93,7 @@ namespace TL
 			bool create_outline = true;
 			bool task_has_key = false;
 			std::string task_key_str = "";
-			PragmaCustomClause task_key_clause = directive.get_clause("task_key");
+			PragmaCustomClause task_key_clause = task_construct.get_clause("task_key");
 			if (task_key_clause.is_defined())
 			{
 				task_has_key = true;
@@ -105,6 +105,7 @@ namespace TL
 				}
 			}
 
+            Source task_queueing;
             if (!create_outline)
             {
 				task_queueing = task_key_map[task_key_str];
@@ -174,7 +175,6 @@ namespace TL
                 // Now prepend the outline
                 function_definition.get_ast().prepend_sibling_function(outline_code);
 
-                Source task_queueing;
                 task_queueing = task_get_spawn_code(parameter_info_list,
                         function_definition, 
                         task_construct,

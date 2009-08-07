@@ -2,7 +2,7 @@ include ../Makefile.phases
 
 lib_LTLIBRARIES = libtlomp-nanos4.la libtlomp_serialize.la
 
-tl_omp_flags = -Wall $(tl_cflags) -I $(srcdir)/../nanos -I $(srcdir)/../omp_core
+tl_omp_flags = -Wall $(tl_cflags) -I $(srcdir)/../nanos4 -I $(srcdir)/../omp_core
 
 libtlomp_nanos4_la_CFLAGS = $(tl_omp_flags)
 libtlomp_nanos4_la_CXXFLAGS = $(tl_omp_flags)

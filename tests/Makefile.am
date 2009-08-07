@@ -24,12 +24,12 @@ END=
 CLEANFILES=
 
 CONFIG_FILES_TESTS= \
-                    mcxx.instr.openmp.dg/config.mcxx \
-                    mcxx.openmp.dg/config.mcxx \
+                    mcxx.instr.nanos4.dg/config.mcxx \
+                    mcxx.nanos4.dg/config.mcxx \
                     mcc.superscalar.dg/config.mcxx \
                     mcxx.stm.dg/config.mcxx \
-                    mcc.instr.openmp.dg/config.mcxx \
-                    mcc.openmp.dg/config.mcxx \
+                    mcc.instr.nanos4.dg/config.mcxx \
+                    mcc.nanos4.dg/config.mcxx \
                     mcc.hlt.basic.dg/config.mcxx \
                     $(END)
 
@@ -58,5 +58,5 @@ distclean-local:
 	rm -vf lt-mcxx_failure*.c
 	rm -vf lt-mcxx_success*.cpp
 	rm -vf lt-mcxx_failure*.cpp
-	rm -vf *backtrace*
+	rm -vf *backtrace.txt
 	rm -vf stm_unhandled_functions*.log

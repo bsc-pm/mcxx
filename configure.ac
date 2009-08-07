@@ -971,8 +971,8 @@ AC_CONFIG_FILES([Makefile
            src/mcxx_tl/Makefile 
            src/tl/Makefile 
            src/tl/hlt/Makefile
-           src/tl/nanos/Makefile 
            src/tl/omp_core/Makefile 
+           src/tl/nanos4/Makefile 
            src/tl/omp_nanos4/Makefile 
            src/tl/instr/Makefile 
            src/tl/instr_pthreads/Makefile 
@@ -989,10 +989,10 @@ AC_CONFIG_FILES([Makefile
            src/tl/superscalar/Makefile
            config/Makefile
            tests/Makefile
-           tests/mcc.openmp.dg/config.mcxx
-           tests/mcxx.openmp.dg/config.mcxx
-           tests/mcc.instr.openmp.dg/config.mcxx
-           tests/mcxx.instr.openmp.dg/config.mcxx
+           tests/mcc.nanos4.dg/config.mcxx
+           tests/mcxx.nanos4.dg/config.mcxx
+           tests/mcc.instr.nanos4.dg/config.mcxx
+           tests/mcxx.instr.nanos4.dg/config.mcxx
            tests/mcxx.stm.dg/config.mcxx
            tests/mcc.superscalar.dg/config.mcxx
            tests/mcc.hlt.basic.dg/config.mcxx
