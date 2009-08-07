@@ -11,7 +11,7 @@ CONFIG_MCXX=\
 CONFIG_FILES =  \
        config.acotes \
        config.acotes-msf \
-       config.nanos_omp \
+       config.nanos4 \
        config.plain \
        config.stm_nebelung \
        config.superscalar \
@@ -39,8 +39,8 @@ config_edit = \
      -e 's|@INSTRUMENTATION_PHASE[@]|$(INSTRUMENTATION_PHASE)|g' \
      -e 's|@MINTAKA_INCLUDES[@]|$(MINTAKA_INCLUDES)|g' \
      -e 's|@MINTAKA_LIBS[@]|$(MINTAKA_LIBS)|g' \
-     -e 's|@NANOS_INCLUDES[@]|$(NANOS_INCLUDES)|g' \
-     -e 's|@NANOS_LIBS[@]|$(NANOS_LIBS)|g' \
+     -e 's|@NANOS4_INCLUDES[@]|$(NANOS4_INCLUDES)|g' \
+     -e 's|@NANOS4_LIBS[@]|$(NANOS4_LIBS)|g' \
      -e 's|@NEBELUNG_INCLUDES[@]|$(NEBELUNG_INCLUDES)|g' \
      -e 's|@NEBELUNG_LIBS[@]|$(NEBELUNG_LIBS)|g' \
      -e "s|@SUPERSCALAR_INCLUDES[@]|$(SUPERSCALAR_INCLUDES)|g" \

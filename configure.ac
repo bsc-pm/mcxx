@@ -67,38 +67,38 @@ ADDITIONAL_TESTSUITES=""
 
 COMPILER_NAMES="plaincxx plaincc"
 
-dnl --------------------- Support for OpenMP ---------------------
+dnl --------------------- Support for OpenMP Nanos4 ---------------------
 
-is_enabled_tl_omp="yes"
+is_enabled_tl_omp_nanos4="no"
 
 AC_MSG_CHECKING([if enabled OpenMP TL support])
-AC_ARG_ENABLE([tl-openmp],
-  AS_HELP_STRING([--disable-tl-openmp], [Disables generation of OpenMP TL support]),
+AC_ARG_ENABLE([tl-openmp-nanos4],
+  AS_HELP_STRING([--enable-tl-openmp-nanos4], [Enables support of OpenMP TL for Nanos 4]),
   [
     if test x$enableval = xyes -o x$enableval = x;
     then
-        is_enabled_tl_omp="yes"
+        is_enabled_tl_omp_nanos4="yes"
         AC_MSG_RESULT([yes])
     else if test x$enableval = xno;
          then
             AC_MSG_RESULT([no])
-            is_enabled_tl_omp="no"
+            is_enabled_tl_omp_nanos4="no"
          else
             AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
          fi
     fi
   ],
   [
-      is_enabled_tl_omp="yes"
+      is_enabled_tl_omp_nanos4="yes"
       AC_MSG_RESULT([yes])
   ]
 )
 
 nanos4_include=""
 nanos4_lib=""
-NANOS_INCLUDES=""
-NANOS_LIBS=""
-if test x$is_enabled_tl_omp = xyes;
+NANOS4_INCLUDES=""
+NANOS4_LIBS=""
+if test x$is_enabled_tl_omp_nanos4 = xyes;
 then
    AC_ARG_WITH([nanos4],
            AS_HELP_STRING([--with-nanos4=dir], [Directory of NANOS 4 installation]),
@@ -127,20 +127,20 @@ then
       AC_MSG_ERROR([OpenMP support requires '--with-nanos4=dir'. See --help.])
    fi
 
-   NANOS_INCLUDES="${nanos4_include}"
-   NANOS_LIBS="${nanos4_lib}"
+   NANOS4_INCLUDES="${nanos4_include}"
+   NANOS4_LIBS="${nanos4_lib}"
 
-   TLEXTENSIONS="${TLEXTENSIONS} nanos omp"
+   TLEXTENSIONS="${TLEXTENSIONS} nanos4 omp_nanos4"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
 
-   ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.openmp mcxx.openmp"
+   ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.nanos4 mcxx.nanos4"
 fi
 
-AC_SUBST([NANOS_INCLUDES])
-AC_SUBST([NANOS_LIBS])
+AC_SUBST([NANOS4_INCLUDES])
+AC_SUBST([NANOS4_LIBS])
 
-dnl --------------------- End Support for OpenMP ---------------------
+dnl --------------------- End Support for OpenMP Nanos4 ---------------------
 
 dnl --------------------- Support for Mintaka ---------------------
 
@@ -945,7 +945,7 @@ then
    if test x"$gitpath" != x;
    then
       echo "$gitpath" "$srcdir" >&5
-      run_gitversion=`git --git-dir=$srcdir/.git show "--pretty=format:%h %ci" HEAD | head -n 1`
+      run_gitversion=`"$gitpath" --git-dir=$srcdir/.git show "--pretty=format:%h %ci" HEAD | head -n 1`
       build_version="\"git $run_gitversion developer version\""
    fi
 
@@ -973,7 +973,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/hlt/Makefile
            src/tl/nanos/Makefile 
            src/tl/omp_core/Makefile 
-           src/tl/omp/Makefile 
+           src/tl/omp_nanos4/Makefile 
            src/tl/instr/Makefile 
            src/tl/instr_pthreads/Makefile 
            src/tl/acotes/Makefile
@@ -1010,8 +1010,8 @@ echo " * Default type environment : " $default_type_environ
 echo ""
 echo " * TL Examples will be built :" $is_enabled_tl_examples
 echo ""
-echo " * OpenMP :" $is_enabled_tl_omp
-if test x$is_enabled_tl_omp = xyes;
+echo " * Nanos 4 OpenMP :" $is_enabled_tl_omp_nanos4
+if test x$is_enabled_tl_omp_nanos4 = xyes;
 then
   echo "   Nanos 4 includes :" $nanos4_include
   echo "   Nanos 4 libraries:" $nanos4_lib

@@ -41,7 +41,7 @@ $(CONFIG_FILES_TESTS) : Makefile $(top_builddir)/config/replace.sh
 
 dist-hook:
 	cp -vf $(srcdir)/*.conf $(distdir)
-	for i in $(srcdir)/*.dg; \
+	for i in $(srcdir)/*.dg $(srcdir)/*.files; \
 	do  \
 	    DIR=$$(basename $$i); \
 		mkdir -p $(distdir)/$${DIR} ; \
@@ -49,6 +49,8 @@ dist-hook:
 		cp -v $(srcdir)/$${DIR}/config.mcxx.in $(distdir)/$${DIR} ; \
 		cp -v $(srcdir)/$${DIR}/*.c $(distdir)/$${DIR} ; \
 		cp -v $(srcdir)/$${DIR}/*.cpp $(distdir)/$${DIR} ; \
+		cp -v $(srcdir)/$${DIR}/*.cc $(distdir)/$${DIR} ; \
+		cp -v $(srcdir)/$${DIR}/*.C $(distdir)/$${DIR} ; \
 	done
 
 distclean-local:
@@ -56,4 +58,5 @@ distclean-local:
 	rm -vf lt-mcxx_failure*.c
 	rm -vf lt-mcxx_success*.cpp
 	rm -vf lt-mcxx_failure*.cpp
+	rm -vf *backtrace*
 	rm -vf stm_unhandled_functions*.log

@@ -2,13 +2,13 @@ load_lib target.exp
 
 set full_path_tool "../src/driver/mcxx"
 # Reuse OpenMP tests
-set testcases [lsort [find $srcdir/$subdir/../mcxx.openmp.dg *.cpp]]
+set testcases [lsort [find $srcdir/$subdir/../c.openmp.dg *.c]]
 
 send_user "\n"
 
 # Mandatory for OpenMP tests
 set wrapper_tool "../libtool"
-source "${srcdir}/openmp_libs_instr.conf"
+source "${srcdir}/nanos4_libs_instr.conf"
 append wrapper_options "--mode=execute "
 set full_path_tool "../src/driver/mcxx"
 

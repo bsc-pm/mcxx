@@ -1,15 +1,15 @@
 include ../Makefile.phases
 
-lib_LTLIBRARIES = libtlomp.la libtlomp_serialize.la
+lib_LTLIBRARIES = libtlomp-nanos4.la libtlomp_serialize.la
 
 tl_omp_flags = -Wall $(tl_cflags) -I $(srcdir)/../nanos -I $(srcdir)/../omp_core
 
-libtlomp_la_CFLAGS = $(tl_omp_flags)
-libtlomp_la_CXXFLAGS = $(tl_omp_flags)
+libtlomp_nanos4_la_CFLAGS = $(tl_omp_flags)
+libtlomp_nanos4_la_CXXFLAGS = $(tl_omp_flags)
 
 END=
 
-libtlomp_la_SOURCES = \
+libtlomp_nanos4_la_SOURCES = \
    tl-omptransform.cpp \
    tl-omptransform.hpp \
    tl-atomic.cpp \
@@ -52,8 +52,8 @@ libtlomp_la_SOURCES = \
    tl-pretransform.cpp \
    $(END)
 
-libtlomp_la_LDFLAGS = $(tl_ldflags)
-libtlomp_la_LIBADD = $(tl_libadd) ../omp_core/libtlomp-core.la
+libtlomp_nanos4_la_LDFLAGS = $(tl_ldflags)
+libtlomp_nanos4_la_LIBADD = $(tl_libadd) ../omp_core/libtlomp-core.la
 
 libtlomp_serialize_la_CFLAGS = $(tl_omp_flags)
 libtlomp_serialize_la_CXXFLAGS = $(tl_omp_flags)
@@ -66,14 +66,3 @@ libtlomp_serialize_la_SOURCES = \
    tl-ompserialize.cpp \
    tl-taskserialize.hpp \
    $(END)
-
-# libtlomp_taskaggregation_la_CFLAGS = $(tl_omp_flags)
-# libtlomp_taskaggregation_la_CXXFLAGS = $(tl_omp_flags)
-# 
-# libtlomp_taskaggregation_la_LDFLAGS = $(tl_ldflags)
-# libtlomp_taskaggregation_la_LIBADD = $(tl_libadd)
-# 
-# libtlomp_taskaggregation_la_SOURCES = \
-#    tl-taskaggregation.hpp \
-#    tl-taskaggregation.cpp \
-#    $(END)

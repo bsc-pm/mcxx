@@ -1,12 +1,12 @@
 load_lib target.exp
 
-set testcases [lsort [find $srcdir/$subdir *.c]]
+set testcases [lsort [find $srcdir/$subdir/../c.openmp.dg *.c]]
 
 send_user "\n"
 
 # Mandatory for OpenMP tests
 set wrapper_tool "../libtool"
-source "${srcdir}/openmp_libs.conf"
+source "${srcdir}/nanos4_libs.conf"
 append wrapper_options "--mode=execute "
 set full_path_tool "../src/driver/mcxx"
 

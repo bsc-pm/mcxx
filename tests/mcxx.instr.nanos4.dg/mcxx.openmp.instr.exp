@@ -1,12 +1,14 @@
 load_lib target.exp
 
-set testcases [lsort [find $srcdir/$subdir *.cpp]]
+set full_path_tool "../src/driver/mcxx"
+# Reuse OpenMP tests
+set testcases [lsort [find $srcdir/$subdir/../cxx.openmp.dg *.cpp]]
 
 send_user "\n"
 
 # Mandatory for OpenMP tests
 set wrapper_tool "../libtool"
-source "${srcdir}/openmp_libs.conf"
+source "${srcdir}/nanos4_libs_instr.conf"
 append wrapper_options "--mode=execute "
 set full_path_tool "../src/driver/mcxx"
 
@@ -29,7 +31,8 @@ foreach test $testcases {
     set output_execution ""
     if {
         [catch { 
-            set output_execution [eval exec $wrapper_tool $wrapper_options $full_path_tool "--typecheck" \
+            set output_execution [eval exec $wrapper_tool $wrapper_options $full_path_tool \
+                "--typecheck" "--variable=instrument:1" \
                 "--config-file=./$subdir/config.mcxx" "--profile=lt-mcxx" "--verbose" "--output-dir=." "-c" \
                 "-o" "${rootname_test}.o" "$test" "|&" "cat"] 
         } output_execution ]

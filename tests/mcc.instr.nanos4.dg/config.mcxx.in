@@ -1,0 +1,15 @@
+# This file controls how external programs are handled
+[lt-mcxx]
+language = C
+options =
+preprocessor_name = gcc
+preprocessor_options = -E -I@NANOS4_INCLUDES@ -D_OPENMP=200505 -include omp.h -include nth_mcc.h -I@MINTAKA_INCLUDES@ -include mintaka.h
+compiler_name = gcc
+compiler_options = 
+linker_name = gcc
+linker_options = -L@NANOS4_LIBS@ -Wl,-rpath,@NANOS4_LIBS@ -L @MINTAKA_LIBS@ -lmintaka
+pragma_prefix = nanos
+compiler_phase = libtlnanos4.so
+compiler_phase = libtlinstr.so
+compiler_phase = libtlomp-core.so
+compiler_phase = libtlomp-nanos4.so

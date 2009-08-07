@@ -1,15 +1,14 @@
 # This file controls how external programs are handled
 [lt-mcxx]
 language = C++
-options = 
+options =
 preprocessor_name = g++
-preprocessor_options = -E -I@NANOS4_INCLUDES@ -D_OPENMP=200505 -include omp.h -include nth_mcc.h @NEBELUNG_INCLUDES@ 
+preprocessor_options = -E -include new -I@NANOS4_INCLUDES@ -D_OPENMP=200505 -include omp.h -include nth_mcc.h
 compiler_name = g++
 compiler_options = 
 linker_name = g++
-linker_options = -L@NANOS4_LIBS@ -Wl,-rpath,@NANOS4_LIBS@ @NEBELUNG_LIBS@
+linker_options = -L@NANOS4_LIBS@ -Wl,-rpath,@NANOS4_LIBS@
 pragma_prefix = nanos
 compiler_phase = libtlnanos4.so
-compiler_phase = libtlstmfunc.so
 compiler_phase = libtlomp-core.so
 compiler_phase = libtlomp-nanos4.so

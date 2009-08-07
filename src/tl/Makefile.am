@@ -2,9 +2,18 @@ SUBDIRS = . hlt omp_core @TLEXTENSIONS@
 
 END=
 
-DIST_SUBDIRS=omp
-
-# DIST_SUBDIRS=omp instr instr_pthreads acotes examples stm_func superscalar nanos testing hlt acotes-msf
+DIST_SUBDIRS=omp_nanos4 \
+             nanos4 \
+             superscalar \
+             acotes \
+             acotes-msf \
+             instr \
+             instr_pthreads \
+             stm_func \
+             examples \
+             testing \
+             hlt \
+             $(END)
 
 lib_LTLIBRARIES = libtl.la
 
