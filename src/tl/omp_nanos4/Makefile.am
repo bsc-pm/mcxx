@@ -2,12 +2,14 @@ include ../Makefile.phases
 
 lib_LTLIBRARIES = libtlnanos4.la libtlomp-nanos4.la libtlomp_serialize.la 
 
-tl_omp_flags = -Wall $(tl_cflags) -I $(srcdir)/../nanos4 -I $(srcdir)/../omp_core
-
-libtlomp_nanos4_la_CFLAGS = $(tl_omp_flags)
-libtlomp_nanos4_la_CXXFLAGS = $(tl_omp_flags)
 
 END=
+tl_omp_flags = -Wall $(tl_cflags) -I $(srcdir)/../omp_core
+
+#### libtl-nanos4.la
+
+libtlnanos4_la_CFLAGS = $(tl_cflags)
+libtlnanos4_la_CXXFLAGS = $(tl_cxxflags)
 
 libtlnanos4_la_LDFLAGS = $(tl_ldflags)
 libtlnanos4_la_LIBADD = $(tl_libadd)
@@ -16,6 +18,8 @@ libtlnanos4_la_SOURCES = \
 	tl-nanos.hpp \
 	tl-nanos.cpp \
 	$(END)
+
+#### libtl-omp-nanos4.la
 
 libtlomp_nanos4_la_SOURCES = \
    tl-omptransform.cpp \
@@ -60,8 +64,14 @@ libtlomp_nanos4_la_SOURCES = \
    tl-pretransform.cpp \
    $(END)
 
+
+libtlomp_nanos4_la_CFLAGS = $(tl_omp_flags)
+libtlomp_nanos4_la_CXXFLAGS = $(tl_omp_flags)
+
 libtlomp_nanos4_la_LDFLAGS = $(tl_ldflags)
 libtlomp_nanos4_la_LIBADD = $(tl_libadd) ../omp_core/libtlomp-core.la
+
+#### libtl-omp-serialize.la
 
 libtlomp_serialize_la_CFLAGS = $(tl_omp_flags)
 libtlomp_serialize_la_CXXFLAGS = $(tl_omp_flags)
