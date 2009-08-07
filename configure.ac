@@ -148,7 +148,7 @@ is_enabled_tl_instr="yes"
 
 AC_MSG_CHECKING([if enabled Mintaka instrumentation TL support])
 AC_ARG_ENABLE([tl-instrumentation],
-  AS_HELP_STRING([--disable-tl-instrumentation], [Disables generation of Mintaka instrumentation TL support]),
+  AS_HELP_STRING([--enable-tl-instrumentation], [Enables generation of Mintaka instrumentation TL support]),
   [
     if test x$enableval = xyes -o x$enableval = x;
     then
@@ -164,8 +164,8 @@ AC_ARG_ENABLE([tl-instrumentation],
     fi
   ],
   [
-      is_enabled_tl_instr="yes"
-      AC_MSG_RESULT([yes])
+      is_enabled_tl_instr="no"
+      AC_MSG_RESULT([no])
   ]
 )
 
@@ -237,8 +237,14 @@ AC_ARG_ENABLE([tl-acotes],
   [
     if test x$enableval = xyes -o x$enableval = x;
     then
-        is_enabled_tl_acotes="yes"
-        AC_MSG_RESULT([yes])
+        if test x$is_enabled_tl_instr = xyes; 
+        then
+          is_enabled_tl_acotes="yes"
+          AC_MSG_RESULT([yes])
+        else
+          AC_MSG_RESULT([no, missing instrumentation support])
+          AC_MSG_ERROR([Acolib support requires both '--enable-tl-instrumentation' and '--with-mintaka=dir'. See --help.])
+        fi
     else if test x$enableval = xno;
          then
             AC_MSG_RESULT([no])
