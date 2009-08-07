@@ -1,6 +1,6 @@
 include ../Makefile.phases
 
-lib_LTLIBRARIES = libtlomp-nanos4.la libtlomp_serialize.la
+lib_LTLIBRARIES = libtlnanos4.la libtlomp-nanos4.la libtlomp_serialize.la 
 
 tl_omp_flags = -Wall $(tl_cflags) -I $(srcdir)/../nanos4 -I $(srcdir)/../omp_core
 
@@ -8,6 +8,14 @@ libtlomp_nanos4_la_CFLAGS = $(tl_omp_flags)
 libtlomp_nanos4_la_CXXFLAGS = $(tl_omp_flags)
 
 END=
+
+libtlnanos4_la_LDFLAGS = $(tl_ldflags)
+libtlnanos4_la_LIBADD = $(tl_libadd)
+
+libtlnanos4_la_SOURCES = \
+	tl-nanos.hpp \
+	tl-nanos.cpp \
+	$(END)
 
 libtlomp_nanos4_la_SOURCES = \
    tl-omptransform.cpp \
@@ -66,3 +74,4 @@ libtlomp_serialize_la_SOURCES = \
    tl-ompserialize.cpp \
    tl-taskserialize.hpp \
    $(END)
+

@@ -4,7 +4,6 @@ END=
 
 DIST_SUBDIRS=omp_core \
              omp_nanos4 \
-             nanos4 \
              superscalar \
              acotes \
              acotes-msf \

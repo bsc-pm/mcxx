@@ -130,7 +130,7 @@ then
    NANOS4_INCLUDES="${nanos4_include}"
    NANOS4_LIBS="${nanos4_lib}"
 
-   TLEXTENSIONS="${TLEXTENSIONS} nanos4 omp_nanos4"
+   TLEXTENSIONS="${TLEXTENSIONS} omp_nanos4"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
 
@@ -981,7 +981,6 @@ AC_CONFIG_FILES([Makefile
            src/tl/Makefile 
            src/tl/hlt/Makefile
            src/tl/omp_core/Makefile 
-           src/tl/nanos4/Makefile 
            src/tl/omp_nanos4/Makefile 
            src/tl/instr/Makefile 
            src/tl/instr_pthreads/Makefile 
