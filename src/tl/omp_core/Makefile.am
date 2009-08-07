@@ -10,6 +10,10 @@ libtlomp_core_la_LIBADD = $(tl_libadd)
 
 END=
 
+EXTRA_DIST =
+
+EXTRA_DIST += tl-omp-constructs.def
+
 libtlomp_core_la_SOURCES = \
    tl-omp-core.hpp \
    tl-omp-core.cpp \

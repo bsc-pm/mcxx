@@ -2,7 +2,8 @@ SUBDIRS = . hlt omp_core @TLEXTENSIONS@
 
 END=
 
-DIST_SUBDIRS=omp_nanos4 \
+DIST_SUBDIRS=omp_core \
+             omp_nanos4 \
              nanos4 \
              superscalar \
              acotes \
@@ -32,7 +33,6 @@ libtl_la_CFLAGS = $(COMMON_CFLAGS)
 libtl_la_CXXFLAGS = $(COMMON_CFLAGS)
 
 EXTRA_DIST=Makefile.phases \
-           tl-omp-constructs.def \
            $(END)
 
 libtl_la_SOURCES = \

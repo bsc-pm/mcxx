@@ -40,17 +40,17 @@ $(CONFIG_FILES_TESTS) : Makefile $(top_builddir)/config/replace.sh
 	$(top_builddir)/config/replace.sh $(srcdir)/$@.in $@
 
 dist-hook:
-	cp -vf $(srcdir)/*.conf $(distdir)
-	for i in $(srcdir)/*.dg $(srcdir)/*.files; \
+	-cp $(srcdir)/*.conf $(distdir)
+	-for i in $(srcdir)/*.dg $(srcdir)/*.files; \
 	do  \
 	    DIR=$$(basename $$i); \
 		mkdir -p $(distdir)/$${DIR} ; \
-		cp -v $(srcdir)/$${DIR}/*.exp $(distdir)/$${DIR} ; \
-		cp -v $(srcdir)/$${DIR}/config.mcxx.in $(distdir)/$${DIR} ; \
-		cp -v $(srcdir)/$${DIR}/*.c $(distdir)/$${DIR} ; \
-		cp -v $(srcdir)/$${DIR}/*.cpp $(distdir)/$${DIR} ; \
-		cp -v $(srcdir)/$${DIR}/*.cc $(distdir)/$${DIR} ; \
-		cp -v $(srcdir)/$${DIR}/*.C $(distdir)/$${DIR} ; \
+		cp $(srcdir)/$${DIR}/*.exp $(distdir)/$${DIR} ; \
+		cp $(srcdir)/$${DIR}/config.mcxx.in $(distdir)/$${DIR} ; \
+		cp $(srcdir)/$${DIR}/*.c $(distdir)/$${DIR} ; \
+		cp $(srcdir)/$${DIR}/*.cpp $(distdir)/$${DIR} ; \
+		cp $(srcdir)/$${DIR}/*.C $(distdir)/$${DIR} ; \
+		cp $(srcdir)/$${DIR}/*.cc $(distdir)/$${DIR} ; \
 	done
 
 distclean-local:
