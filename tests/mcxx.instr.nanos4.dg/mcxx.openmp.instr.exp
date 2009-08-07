@@ -2,7 +2,7 @@ load_lib target.exp
 
 set full_path_tool "../src/driver/mcxx"
 # Reuse OpenMP tests
-set testcases [lsort [find $srcdir/$subdir/../cxx.openmp.dg *.cpp]]
+set testcases [lsort [find $srcdir/$subdir/../cxx.openmp.files *.cpp]]
 
 send_user "\n"
 

@@ -71,7 +71,7 @@ dnl --------------------- Support for OpenMP Nanos4 ---------------------
 
 is_enabled_tl_omp_nanos4="no"
 
-AC_MSG_CHECKING([if enabled OpenMP TL support])
+AC_MSG_CHECKING([if enabled OpenMP TL support for Nanos 4])
 AC_ARG_ENABLE([tl-openmp-nanos4],
   AS_HELP_STRING([--enable-tl-openmp-nanos4], [Enables support of OpenMP TL for Nanos 4]),
   [
@@ -89,8 +89,8 @@ AC_ARG_ENABLE([tl-openmp-nanos4],
     fi
   ],
   [
-      is_enabled_tl_omp_nanos4="yes"
-      AC_MSG_RESULT([yes])
+      is_enabled_tl_omp_nanos4="no"
+      AC_MSG_RESULT([no])
   ]
 )
 
@@ -210,7 +210,10 @@ then
 
    INSTRUMENTATION_PHASE="compiler_phase = libtlinstr.so"
 
-   ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.instr.openmp mcxx.instr.openmp"
+   if test x$is_enabled_tl_omp_nanos4 = xyes;
+   then
+     ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.instr.nanos4 mcxx.instr.nanos4"
+   fi
 fi
 
 AC_SUBST([INSTRUMENTATION_PHASE])

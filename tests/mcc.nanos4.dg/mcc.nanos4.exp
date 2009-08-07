@@ -1,6 +1,6 @@
 load_lib target.exp
 
-set testcases [lsort [find $srcdir/$subdir/../c.openmp.dg *.c]]
+set testcases [lsort [find $srcdir/$subdir/../c.openmp.files *.c]]
 
 send_user "\n"
 
