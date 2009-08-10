@@ -1,0 +1,12 @@
+# OpenMP + nanox
+[mcc]
+language = C
+options =
+preprocessor_name = gcc
+preprocessor_options = -E -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanox.h
+compiler_name = gcc
+compiler_options = 
+linker_name = gcc
+linker_options = -L@NANOX_LIBS@ -Wl,-rpath,@NANOX_LIBS@
+compiler_phase = libtlomp-core.so
+compiler_phase = libtlomp-nanox.so

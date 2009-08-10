@@ -67,7 +67,83 @@ ADDITIONAL_TESTSUITES=""
 
 COMPILER_NAMES="plaincxx plaincc"
 
-dnl --------------------- Support for OpenMP Nanos4 ---------------------
+dnl --------------------- Support for OpenMP Nanox --------------------------------------
+
+is_enabled_tl_omp_nanox="no"
+
+AC_MSG_CHECKING([if enabled OpenMP TL support for Nanos 4])
+AC_ARG_ENABLE([tl-openmp-nanox],
+  AS_HELP_STRING([--enable-tl-openmp-nanox], [Enables support of OpenMP TL for Nanos 4]),
+  [
+    if test x$enableval = xyes -o x$enableval = x;
+    then
+        is_enabled_tl_omp_nanox="yes"
+        AC_MSG_RESULT([yes])
+    else if test x$enableval = xno;
+         then
+            AC_MSG_RESULT([no])
+            is_enabled_tl_omp_nanox="no"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+      is_enabled_tl_omp_nanox="no"
+      AC_MSG_RESULT([no])
+  ]
+)
+
+nanox_include=""
+nanox_lib=""
+NANOX_INCLUDES=""
+NANOX_LIBS=""
+if test x$is_enabled_tl_omp_nanox = xyes;
+then
+   AC_ARG_WITH([nanox],
+           AS_HELP_STRING([--with-nanox=dir], [Directory of nanox installation]),
+           [
+            nanox_include="${withval}/include"
+            nanox_lib="${withval}/lib"
+           ]
+   )
+
+   AC_ARG_WITH([nanox-include],
+           AS_HELP_STRING([--with-nanox-include=dir], [Directory of nanox headers]),
+           [
+            nanox_include="${withval}"
+           ]
+   )
+
+   AC_ARG_WITH([nanox-lib],
+           AS_HELP_STRING([--with-nanox-lib=dir], [Directory of nanox libraries]),
+           [
+            nanox_lib="${withval}"
+           ]
+   )
+
+   if test x$nanox_include = x -o x$nanox_lib = x;
+   then
+      AC_MSG_ERROR([OpenMP support requires '--with-nanox=dir'. See --help.])
+   fi
+
+   NANOX_INCLUDES="${nanox_include}"
+   NANOX_LIBS="${nanox_lib}"
+
+   TLEXTENSIONS="${TLEXTENSIONS} omp_nanox"
+# mcxx always gets installed
+   COMPILER_NAMES="${COMPILER_NAMES} mcc"
+
+# FIXME - Missing testsuites
+# ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.nanox mcxx.nanox"
+fi
+
+AC_SUBST([NANOX_INCLUDES])
+AC_SUBST([NANOX_LIBS])
+
+dnl --------------------- End of Support for OpenMP Nanox -------------------------------
+
+dnl --------------------- Support for OpenMP Nanos4 (to extinguish) ---------------------
 
 is_enabled_tl_omp_nanos4="no"
 
@@ -93,6 +169,12 @@ AC_ARG_ENABLE([tl-openmp-nanos4],
       AC_MSG_RESULT([no])
   ]
 )
+
+dnl There is an issue with configuration files we should solve first
+if test x$is_enabled_tl_omp_nanox = xyes -a x$is_enabled_tl_omp_nanos4 = xyes ;
+then
+  AC_MSG_ERROR([Both nanox and Nanos 4 cannot be enabled at the same time])
+fi
 
 nanos4_include=""
 nanos4_lib=""
@@ -981,6 +1063,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/Makefile 
            src/tl/hlt/Makefile
            src/tl/omp_core/Makefile 
+           src/tl/omp_nanox/Makefile 
            src/tl/omp_nanos4/Makefile 
            src/tl/instr/Makefile 
            src/tl/instr_pthreads/Makefile 
@@ -1017,6 +1100,13 @@ echo ""
 echo " * Default type environment : " $default_type_environ
 echo ""
 echo " * TL Examples will be built :" $is_enabled_tl_examples
+echo ""
+echo " * nanox OpenMP :" $is_enabled_tl_omp_nanox
+if test x$is_enabled_tl_omp_nanox = xyes;
+then
+  echo "   nanox includes :" $nanox_include
+  echo "   nanox libraries:" $nanox_lib
+fi
 echo ""
 echo " * Nanos 4 OpenMP :" $is_enabled_tl_omp_nanos4
 if test x$is_enabled_tl_omp_nanos4 = xyes;
