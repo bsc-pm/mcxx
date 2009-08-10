@@ -64,6 +64,7 @@ dnl --------------------- End Basic toolchain setup -----------------
 
 TLEXTENSIONS=""
 ADDITIONAL_TESTSUITES=""
+INSTALL_CONFIG_FILES="config.plain"
 
 COMPILER_NAMES="plaincxx plaincc"
 
@@ -133,6 +134,7 @@ then
    TLEXTENSIONS="${TLEXTENSIONS} omp_nanox"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.nanox"
 
 # FIXME - Missing testsuites
 # ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.nanox mcxx.nanox"
@@ -215,6 +217,7 @@ then
    TLEXTENSIONS="${TLEXTENSIONS} omp_nanos4"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.nanos4"
 
    ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.nanos4 mcxx.nanos4"
 fi
@@ -345,6 +348,7 @@ AC_ARG_ENABLE([tl-acotes],
 if test x$is_enabled_tl_acotes = xyes;
 then
    COMPILER_NAMES="${COMPILER_NAMES} acotescc"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.acotes"
 
    TLEXTENSIONS="${TLEXTENSIONS} acotes"
 
@@ -424,6 +428,7 @@ AC_ARG_ENABLE([tl-acotes-msf],
 if test x$is_enabled_tl_acotes_msf = xyes;
 then
    COMPILER_NAMES="${COMPILER_NAMES} acotes-msfcc"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.acotes-msf"
 
    TLEXTENSIONS="${TLEXTENSIONS} acotes-msf"
 
@@ -468,7 +473,7 @@ AC_SUBST([ACOTES_MSF_LIBS])
 
 dnl --------------------- End of Acotes MSF support ---------------------
 
-dnl --------------------- Support for Nebeling ---------------------
+dnl --------------------- Support for Nebelung ---------------------
 
 is_enabled_tl_nebelung="no"
 AC_MSG_CHECKING([if enabled Nebelung STM TL support])
@@ -538,6 +543,7 @@ then
    TLEXTENSIONS="${TLEXTENSIONS} stm_func"
 
    COMPILER_NAMES="${COMPILER_NAMES} stmcxx"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.stm_nebelung"
 
    ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcxx.stm"
 fi
@@ -545,7 +551,7 @@ fi
 AC_SUBST([NEBELUNG_INCLUDES])
 AC_SUBST([NEBELUNG_LIBS])
 
-dnl --------------------- End Support for Mintaka ---------------------
+dnl --------------------- End Support for Nebelung ---------------------
 
 dnl --------------------- Superscalar support ---------------------
  
@@ -630,6 +636,7 @@ then
  
    TLEXTENSIONS="${TLEXTENSIONS} superscalar"
    ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.superscalar"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.superscalar"
 fi
      
 SUPERSCALAR_INCLUDES="${superscalar_include}"
@@ -1050,7 +1057,7 @@ AC_DEFINE_UNQUOTED([MCXX_BUILD_VERSION], $build_version, [Build version])
 
 AC_SUBST([TLEXTENSIONS])
 AC_SUBST([COMPILER_NAMES])
-AC_SUBST([ENABLED_PROFILES])
+AC_SUBST([INSTALL_CONFIG_FILES])
 AC_SUBST([ADDITIONAL_TESTSUITES])
 
 dnl Write makefiles

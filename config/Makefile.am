@@ -11,11 +11,14 @@ CONFIG_MCXX=\
 CONFIG_FILES =  \
        config.acotes \
        config.acotes-msf \
+       config.nanox \
        config.nanos4 \
        config.plain \
        config.stm_nebelung \
        config.superscalar \
 	   $(END)
+
+INSTALL_CONFIG_FILES = @INSTALL_CONFIG_FILES@
 
 dist-hook:
 	for i in $(CONFIG_FILES) $(CONFIG_MCXX); \
@@ -72,4 +75,4 @@ pkgdata_DATA = \
 
 configdir = $(pkgdatadir)/config.d
 config_DATA = \
-        $(CONFIG_FILES)
+        $(INSTALL_CONFIG_FILES)
