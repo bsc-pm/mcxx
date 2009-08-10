@@ -36,8 +36,13 @@ CONFIG_FILES_TESTS= \
 CLEANFILES += $(CONFIG_FILES_TESTS)
 BUILT_SOURCES=$(CONFIG_FILES_TESTS)
 
-$(CONFIG_FILES_TESTS) : Makefile $(top_builddir)/config/replace.sh
-	$(top_builddir)/config/replace.sh $(srcdir)/$@.in $@
+# Replacements are defined in this makefile
+include ../config/Makefile.replace
+
+$(CONFIG_FILES_TESTS) : Makefile
+	$(config_edit) $(srcdir)/$@.in > $@.tmp
+	chmod a-wx $@.tmp
+	mv $@.tmp $@
 
 dist-hook:
 	-cp $(srcdir)/*.conf $(distdir)

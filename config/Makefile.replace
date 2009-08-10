@@ -1,0 +1,25 @@
+# Manual substitution ...
+# -e 's|@VAR[@]|$(VAR)|g'
+config_edit = \
+     $(SED) \
+     -e 's|@ACOLIB_INCLUDES[@]|$(ACOLIB_INCLUDES)|g' \
+     -e 's|@ACOLIB_LIBS[@]|$(ACOLIB_LIBS)|g' \
+     -e 's|@ACOTES_MSF_INCLUDES[@]|$(ACOTES_MSF_INCLUDES)|g' \
+     -e 's|@ACOTES_MSF_LIBS[@]|$(ACOTES_MSF_LIBS)|g' \
+     -e 's|@INSTRUMENTATION_PHASE[@]|$(INSTRUMENTATION_PHASE)|g' \
+     -e 's|@MINTAKA_INCLUDES[@]|$(MINTAKA_INCLUDES)|g' \
+     -e 's|@MINTAKA_LIBS[@]|$(MINTAKA_LIBS)|g' \
+     -e 's|@NANOX_INCLUDES[@]|$(NANOX_INCLUDES)|g' \
+     -e 's|@NANOX_LIBS[@]|$(NANOX_LIBS)|g' \
+     -e 's|@NANOS4_INCLUDES[@]|$(NANOS4_INCLUDES)|g' \
+     -e 's|@NANOS4_LIBS[@]|$(NANOS4_LIBS)|g' \
+     -e 's|@NEBELUNG_INCLUDES[@]|$(NEBELUNG_INCLUDES)|g' \
+     -e 's|@NEBELUNG_LIBS[@]|$(NEBELUNG_LIBS)|g' \
+     -e "s|@SUPERSCALAR_INCLUDES[@]|$(SUPERSCALAR_INCLUDES)|g" \
+     -e "s|@SUPERSCALAR_LIBS[@]|$(SUPERSCALAR_LIBS)|g" \
+     -e "s|@abs_top_srcdir[@]|$(abs_top_srcdir)|g" \
+     -e 's|@prefix[@]|$(prefix)|g' \
+     -e 's|@includedir[@]|$(includedir)|g' \
+     -e 's|@libdir[@]|$(libdir)|g' \
+     -e 's|@superscalar_version[@]|$(superscalar_version)|g' \
+    $(END)
