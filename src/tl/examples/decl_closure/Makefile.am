@@ -1,6 +1,6 @@
 include ../../Makefile.phases
 
-lib_LTLIBRARIES = libtldecl_closure.la
+phases_LTLIBRARIES = libtldecl_closure.la
 
 libtldecl_closure_la_CFLAGS = -Wall \
                               $(tl_cflags)

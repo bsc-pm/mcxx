@@ -53,9 +53,12 @@ mcxx_LDADD = \
 
 if WINDOWS_BUILD
 else
-# Add a relocatable hint to GNU ld
+# '$$ORIGIN' is a relocatable hint to GNU ld
 mcxx_LDFLAGS = \
-    -Wl,-rpath,'$$ORIGIN'/../lib
+    -Wl,-rpath,$(libdir) \
+    -Wl,-rpath,$(pkglibdir) \
+    -Wl,-rpath,'$$ORIGIN'/../lib \
+    -Wl,-rpath,'$$ORIGIN'/../lib/mcxx \
     $(END)
 endif
 

@@ -1,6 +1,6 @@
 include ../Makefile.phases
 
-lib_LTLIBRARIES = libtlomp-core.la
+phases_LTLIBRARIES = libtlomp-core.la
 
 libtlomp_core_la_CFLAGS = $(tl_cflags)
 libtlomp_core_la_CXXFLAGS = $(tl_cflags)

@@ -2,7 +2,7 @@
 
 include ../Makefile.phases
 
-lib_LTLIBRARIES = libtlacotes-msf.la libtlacotes-output-msf.la
+phases_LTLIBRARIES = libtlacotes-msf.la libtlacotes-output-msf.la
 
 COMMON_CFLAGS= -Wall $(tl_cflags)
 

@@ -1,6 +1,6 @@
 include ../../Makefile.phases
 
-lib_LTLIBRARIES = libtlbasic_test.la
+phases_LTLIBRARIES = libtlbasic_test.la
 
 COMMON_CFLAGS= -Wall $(tl_cflags)
 

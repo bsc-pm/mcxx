@@ -1,6 +1,6 @@
 include ../../Makefile.phases
 
-lib_LTLIBRARIES = libtlsizeof-check.la
+phases_LTLIBRARIES = libtlsizeof-check.la
 
 libtlsizeof_check_la_CXXFLAGS = -Wall $(tl_cxxflags)
 libtlsizeof_check_la_LDFLAGS = $(tl_ldflags)

@@ -1,6 +1,6 @@
 include ../../Makefile.phases
 
-lib_LTLIBRARIES = libtlmypragma.la
+phases_LTLIBRARIES = libtlmypragma.la
 
 libtlmypragma_la_CFLAGS = -Wall \
                           $(tl_cflags)

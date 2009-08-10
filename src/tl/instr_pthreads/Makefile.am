@@ -1,6 +1,6 @@
 include ../Makefile.phases
 
-lib_LTLIBRARIES = libtlinstr-pthreads.la
+phases_LTLIBRARIES = libtlinstr-pthreads.la
 
 libtlinstr_pthreads_la_CFLAGS = -Wall \
                                 $(tl_cflags)

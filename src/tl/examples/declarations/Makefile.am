@@ -1,6 +1,6 @@
 include ../../Makefile.phases
 
-lib_LTLIBRARIES = libtltraversedecls.la
+phases_LTLIBRARIES = libtltraversedecls.la
 
 libtltraversedecls_la_SOURCES = \
 	tl-traversedecls.cpp

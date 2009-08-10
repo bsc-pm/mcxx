@@ -1,4 +1,5 @@
-lib_LTLIBRARIES = libtl-hlt.la libtl-hlt-pragma.la
+lib_LTLIBRARIES = libtl-hlt.la 
+phases_LTLIBRARIES = libtl-hlt-pragma.la
 
 include ../Makefile.phases
 

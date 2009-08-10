@@ -1,3 +1,5 @@
+phasesdir = $(pkglibdir)
+
 tl_cflags=-I $(top_srcdir)/src/tl \
     -I $(top_srcdir)/src/frontend \
     -I $(top_srcdir)/src/driver \

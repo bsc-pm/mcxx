@@ -26,7 +26,7 @@ AM_CXXFLAGS = -Wall $(tl_cxxflags)
 
 AM_CFLAGS = -Wall $(tl_cxxflags)
 
-lib_LTLIBRARIES = \
+phases_LTLIBRARIES = \
 	libtlsuperscalar-configurator.la \
 	libtlsuperscalar-preanalysis.la \
 	libtlsuperscalar-task-analysis.la \
