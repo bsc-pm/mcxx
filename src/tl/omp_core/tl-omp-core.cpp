@@ -31,6 +31,9 @@ namespace TL
         Core::Core()
             : PragmaCustomCompilerPhase("omp")
         {
+            set_phase_name("OpenMP Core Analysis");
+            set_phase_description("This phase is required for any other phase implementing OpenMP. "
+                    "It performs the common analysis part required by OpenMP");
             register_omp_constructs();
         }
 
