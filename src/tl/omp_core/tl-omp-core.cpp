@@ -391,6 +391,7 @@ namespace TL
 
         void Core::common_parallel_handler(PragmaCustomConstruct construct, DataSharing& data_sharing)
         {
+            data_sharing.set_is_parallel(true);
             // Analyze things here
             get_data_explicit_attributes(construct, data_sharing);
 
