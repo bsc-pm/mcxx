@@ -26,15 +26,12 @@ dist-hook:
        cp "$(srcdir)/$${i}.in" "$(distdir)" ; \
     done
 
-EXTRA_DIST = replace.sh.in
-
-CLEANFILES += $(CONFIG_FILES) $(CONFIG_MCXX) replace.sh
+CLEANFILES += $(CONFIG_FILES) $(CONFIG_MCXX)
 
 # Manual substitution ...
 # -e 's|@VAR[@]|$(VAR)|g'
 config_edit = \
      $(SED) \
-     -e 's|@SED[@]|$(SED)|' \
      -e 's|@ACOLIB_INCLUDES[@]|$(ACOLIB_INCLUDES)|g' \
      -e 's|@ACOLIB_LIBS[@]|$(ACOLIB_LIBS)|g' \
      -e 's|@ACOTES_MSF_INCLUDES[@]|$(ACOTES_MSF_INCLUDES)|g' \
@@ -42,6 +39,8 @@ config_edit = \
      -e 's|@INSTRUMENTATION_PHASE[@]|$(INSTRUMENTATION_PHASE)|g' \
      -e 's|@MINTAKA_INCLUDES[@]|$(MINTAKA_INCLUDES)|g' \
      -e 's|@MINTAKA_LIBS[@]|$(MINTAKA_LIBS)|g' \
+     -e 's|@NANOX_INCLUDES[@]|$(NANOX_INCLUDES)|g' \
+     -e 's|@NANOX_LIBS[@]|$(NANOX_LIBS)|g' \
      -e 's|@NANOS4_INCLUDES[@]|$(NANOS4_INCLUDES)|g' \
      -e 's|@NANOS4_LIBS[@]|$(NANOS4_LIBS)|g' \
      -e 's|@NEBELUNG_INCLUDES[@]|$(NEBELUNG_INCLUDES)|g' \
@@ -55,19 +54,11 @@ config_edit = \
      -e 's|@superscalar_version[@]|$(superscalar_version)|g' \
     $(END)
 
-# A dependence with the Makefile?
-replace.sh : Makefile
-	rm -f $@ $@.tmp
-	$(config_edit) '$(srcdir)/$@.in' > $@.tmp
-	chmod +x $@.tmp
-	chmod a-w $@.tmp
-	mv $@.tmp $@
-
-replace.sh : replace.sh.in
-
 # This is valid in parallel make since we are generating one goal file at a time
-$(CONFIG_MCXX) $(CONFIG_FILES) : Makefile replace.sh
-	./replace.sh "$(srcdir)/$@.in" "$@"
+$(CONFIG_MCXX) $(CONFIG_FILES) : Makefile
+	$(config_edit) "$(srcdir)/$@.in" > "$@.tmp"
+	chmod a-xw $@.tmp
+	mv "$@.tmp" "$@"
 
 pkgdata_DATA = \
 		config.mcxx \
