@@ -44,7 +44,7 @@ subparsing : SUBPARSE_EXPRESSION expression
 {
     $$ = NULL;
 }
-| SUBPARSE_TYPE type_specifier_seq
+| SUBPARSE_TYPE type_id
 {
     $$ = $2;
 }

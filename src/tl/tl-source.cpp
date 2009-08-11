@@ -472,14 +472,14 @@ namespace TL
         }
 
         int parse_result = 0;
-        AST type_specifier_seq;
+        AST type_id;
         CXX_LANGUAGE()
         {
-            parse_result = mcxxparse(&type_specifier_seq);
+            parse_result = mcxxparse(&type_id);
         }
         C_LANGUAGE()
         {
-            parse_result = mc99parse(&type_specifier_seq);
+            parse_result = mc99parse(&type_id);
         }
 
         if (parse_result != 0)
@@ -492,16 +492,23 @@ namespace TL
         decl_context_t decl_context = scope_link_get_decl_context(scope_link._scope_link, ref_tree._ast);
 
         // Set properly the context of the reference tree
-        scope_link_set(scope_link._scope_link, type_specifier_seq, decl_context);
+        scope_link_set(scope_link._scope_link, type_id, decl_context);
 
         type_t* type_info = NULL;
         gather_decl_spec_t gather_info;
         memset(&gather_info, 0, sizeof(gather_info));
 
+        AST type_specifier_seq = ASTSon0(type_id);
+        AST abstract_decl = ASTSon1(type_id);
+
         build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
                 decl_context);
 
-        return Type(type_info);
+        type_t* declarator_type = type_info;
+        compute_declarator_type(abstract_decl, &gather_info, type_info, &declarator_type,
+                decl_context);
+
+        return Type(declarator_type);
     }
 
     ObjectList<Type> Source::parse_type_list(AST_t ref_tree, TL::ScopeLink scope_link)
