@@ -29,13 +29,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             struct_arg_type_decl_src,
             data_environ_info);
 
-    Source fill_data_src;
-
-    std::string arg_var_name = "args";
-    fill_data_args(arg_var_name,
-            data_environ_info,
-            fill_data_src);
-
     FunctionDefinition funct_def = ctr.get_enclosing_function();
 
     int outline_num = TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER);
@@ -74,6 +67,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     fill_data_args("ol_args->", data_environ_info, fill_outline_arguments);
     fill_data_args("imm_args.", data_environ_info, fill_immediate_arguments);
 
+    device_description << "(nanos_device_description_t*)0";
+
     spawn_code
         << "{"
         <<     struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
@@ -94,7 +89,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<        struct_arg_type_name << " imm_args;"
         <<        fill_immediate_arguments
         <<        "err = nanos_create_wd_and_run(" << device_description << ", " 
-        <<        "       &_args, (nanos_dependence_t*)0, (nanos_wd_props_t*)0);"
+        <<        "       &imm_args, (nanos_dependence_t*)0, (nanos_wd_props_t*)0);"
         //     FIXME - Do something useful with err 
         <<     "}"
         << "}"
