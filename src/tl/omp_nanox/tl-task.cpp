@@ -63,7 +63,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     // FIXME - Currently only SMP is supported
     device_descriptor << outline_name << "_devices";
     device_description
-        << "nanos_device_t " << device_descriptor << "="
+        << "nanos_device_t " << device_descriptor << "[] ="
         << "{"
         // SMP
         // FIXME: g++ will not allow C99 initialization syntax!!!
@@ -71,10 +71,10 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         // (sad note aside: even C++0x is not going to support C99 initializers)
         // So, args of a device should be a void* and we could statically make
         // it point a previously device-dependent structure 
-        << "{nanos_smp_factory, { .smp = {"  << outline_name << " }}},"
+        << "{nanos_smp_factory, { .smp = { (void(*)(void*))"  << outline_name << " }}},"
         // There must be some kind of sentinel, otherwise nobody will know the length of this array
         // and does not seem to be a size argument for the device
-        << "{ NULL }"
+        << "{ (void* (*)(void*))0 }"
         << "};"
         ;
 
@@ -95,8 +95,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<     "nanos_wd_t* wd = (nanos_wd_t*)0;"
         // <<     "nanos_wd_props_t props;"
         <<     "nanos_err_t err;"
-        <<     "err = nanos_create_wd(&wd, " << device_descriptor << ", sizeof(" << struct_arg_type_name << "),"
-        <<                "(void**)&ol_args, nanos_current_wd(), (nanos_wd_props_t*)0);" // props are 0 here
+        <<     "err = nanos_create_wd(" << device_descriptor << ", &wd, sizeof(" << struct_arg_type_name << "),"
+        <<                "(void**)&ol_args, (nanos_wd_props_t*)0);" // props are 0 here
         //     FIXME - Do something useful with err
         <<     "if (wd != (nanos_wd_t*)0)"
         <<     "{"
