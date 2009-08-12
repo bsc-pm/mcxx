@@ -12,5 +12,8 @@ libtlomp_nanox_la_LDFLAGS = $(tl_ldflags)
 libtlomp_nanox_la_SOURCES = \
      tl-omp-nanox.cpp \
      tl-omp-nanox.hpp \
+     tl-task.cpp \
+     tl-data-env.hpp \
+     tl-data-env.cpp \
      $(END)
 
