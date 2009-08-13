@@ -33,6 +33,11 @@ void initialize_with_base(compilation_configuration_t* config)
 static const char** copy_null_ended_const_char_array(const char** orig)
 {
     const char** result = NULL;
+    if (orig == NULL)
+    {
+        return result;
+    }
+
     int num = 0;
 
     while (*orig != NULL)
