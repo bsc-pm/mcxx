@@ -29,13 +29,31 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             struct_arg_type_decl_src,
             data_environ_info);
 
+    Source forward_declaration;
     FunctionDefinition funct_def = ctr.get_enclosing_function();
+    Symbol function_symbol = funct_def.get_function_symbol();
+
+    if (!function_symbol.is_member())
+    {
+        IdExpression function_name = funct_def.get_function_name();
+        Declaration point_of_decl = function_name.get_declaration();
+        DeclarationSpec decl_specs = point_of_decl.get_declaration_specifiers();
+        ObjectList<DeclaredEntity> declared_entities = point_of_decl.get_declared_entities();
+        DeclaredEntity declared_entity = *(declared_entities.begin());
+
+        forward_declaration 
+            // << template_header
+            << decl_specs.prettyprint()
+            << " "
+            << declared_entity.prettyprint()
+            << ";";
+    }
 
     int outline_num = TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER);
     TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER)++;
     Source outline_name;
     outline_name
-        << "_ol_" << funct_def.get_function_symbol().get_name() << "_" << outline_num
+        << "_ol_" << function_symbol.get_name() << "_" << outline_num
         ;
 
     Source initial_replace_code, replaced_body;
@@ -47,15 +65,17 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     Source device_description, device_descriptor;
 
+    // FIXME - Refactor this since it is quite common
     Source newly_generated_code;
     newly_generated_code
         << struct_arg_type_decl_src
+        << forward_declaration
         << "void " << outline_name << "(" << struct_arg_type_name << "* _args)"
         << "{"
         <<     initial_replace_code
         <<     replaced_body
         << "}"
-        // Devices related this task
+        // Devices related to this task
         << device_description
         ;
 
@@ -78,6 +98,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         << "};"
         ;
 
+    // Parse it in a sibling function context
     AST_t outline_code 
         = newly_generated_code.parse_declaration(funct_def.get_ast(), ctr.get_scope_link());
     ctr.get_ast().prepend_sibling_function(outline_code);
@@ -140,7 +161,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         << "}"
         ;
 
-    // Parse it in a sibling function context
     AST_t spawn_tree = spawn_code.parse_statement(ctr.get_ast(), ctr.get_scope_link());
     ctr.get_ast().replace(spawn_tree);
 }
