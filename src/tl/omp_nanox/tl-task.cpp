@@ -60,7 +60,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             replaced_body,
             initial_replace_code);
 
-    Source device_description, device_descriptor, device_factory_arguments;
+    Source device_description, device_descriptor, num_devices;
 
     Source outline_code, outline_parameters, outline_body;
 
@@ -91,15 +91,16 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     // FIXME - Currently only SMP is supported
     device_descriptor << outline_name << "_devices";
     device_description
-        << "struct nanos_device_arg_smp_t " << outline_name << "_device_arg_smp = { " << outline_name << "};"
+        << "nanos_smp_args_t " << outline_name << "_smp_args = { (void(*)(void*))" << outline_name << "};"
         << "nanos_device_t " << device_descriptor << "[] ="
         << "{"
         // SMP
-        << "{nanos_smp_factory, &" << outline_name << "_device_arg_smp" << "},"
-        // Sentinel
-        << "{ (void* (*)(void*))0 }"
+        << "{nanos_smp_factory, &" << outline_name << "_smp_args" << "},"
         << "};"
         ;
+
+    // Currently only SMP is supported
+    num_devices << 1;
 
     // Parse it in a sibling function context
     AST_t outline_code_tree
@@ -136,30 +137,45 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         if_expr_cond_end << "}";
     }
 
+    Source tiedness;
+    PragmaCustomClause untied_clause = ctr.get_clause("untied");
+    if (untied_clause.is_defined())
+    {
+        tiedness << "props.tied = 0;";
+    }
+    else
+    {
+        tiedness << "props.tied = 1;";
+    }
+
     spawn_code
         << "{"
         <<     struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
         <<     "nanos_wd_t wd = (nanos_wd_t)0;"
-        // <<     "nanos_wd_props_t props;"
+        <<     "nanos_wd_props_t props = { 0 };"
+        <<     tiedness
         <<     "nanos_err_t err;"
-        <<      if_expr_cond_start
-        <<      "err = nanos_create_wd(&wd, " << device_descriptor << ", sizeof(" << struct_arg_type_name << "),"
-        <<                 "(void**)&ol_args, nanos_current_wd(), (nanos_wd_props_t*)0);" // props are 0 here
-        <<      if_expr_cond_end
-        //     FIXME - Do something useful with err
+        <<     if_expr_cond_start
+        <<     "err = nanos_create_wd(&wd, " << num_devices << "," << device_descriptor << ","
+        <<                 "sizeof(" << struct_arg_type_name << "),"
+        <<                 "(void**)&ol_args, nanos_current_wd(),"
+        <<                 "&props);"
+        <<     "if (err != NANOS_OK) nanos_handle_error (err);"
+        <<     if_expr_cond_end
         <<     "if (wd != (nanos_wd_t)0)"
         <<     "{"
         <<        fill_outline_arguments
         <<        "err = nanos_submit(wd, (nanos_dependence_t*)0, (nanos_team_t)0);"
-        //     FIXME - Do something useful with err 
+        <<        "if (err != NANOS_OK) nanos_handle_error (err);"
         <<     "}"
         <<     "else"
         <<     "{"
         <<        struct_arg_type_name << " imm_args;"
         <<        fill_immediate_arguments
-        <<        "err = nanos_create_wd_and_run(" << device_descriptor << ", " 
-        <<        "       &imm_args, (nanos_dependence_t*)0, (nanos_wd_props_t*)0);"
-        //     FIXME - Do something useful with err 
+        <<        "err = nanos_create_wd_and_run(" 
+        <<                num_devices << ", " << device_descriptor << ", "
+        <<        "       &imm_args, (nanos_dependence_t*)0, &props);"
+        <<        "if (err != NANOS_OK) nanos_handle_error (err);"
         <<     "}"
         << "}"
         ;
