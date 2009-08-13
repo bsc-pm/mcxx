@@ -89,19 +89,44 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     fill_data_args("ol_args->", data_environ_info, fill_outline_arguments);
     fill_data_args("imm_args.", data_environ_info, fill_immediate_arguments);
 
+    // Honour if clause
+    Source if_expr_cond_start, if_expr_cond_end;
+    PragmaCustomClause if_clause = ctr.get_clause("if");
+    if (if_clause.is_defined())
+    {
+        ObjectList<Expression> expr_list = if_clause.get_expression_list();
+
+        if (expr_list.size() != 1)
+        {
+            running_error("%s: error: clause 'if' requires just one argument\n",
+                    ctr.get_ast().get_locus().c_str());
+        }
+
+        Expression &expr = expr_list[0];
+
+        if_expr_cond_start
+            << "if (" << expr << ")"
+            << "{"
+            ;
+
+        if_expr_cond_end << "}";
+    }
+
     spawn_code
         << "{"
         <<     struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
         <<     "nanos_wd_t wd = (nanos_wd_t)0;"
         // <<     "nanos_wd_props_t props;"
         <<     "nanos_err_t err;"
-        <<     "err = nanos_create_wd(&wd, " << device_descriptor << ", sizeof(" << struct_arg_type_name << "),"
-        <<                "(void**)&ol_args, nanos_current_wd(), (nanos_wd_props_t*)0);" // props are 0 here
+        <<      if_expr_cond_start
+        <<      "err = nanos_create_wd(&wd, " << device_descriptor << ", sizeof(" << struct_arg_type_name << "),"
+        <<                 "(void**)&ol_args, nanos_current_wd(), (nanos_wd_props_t*)0);" // props are 0 here
+        <<      if_expr_cond_end
         //     FIXME - Do something useful with err
-        <<     "if (wd != (nanos_wd_t*)0)"
+        <<     "if (wd != (nanos_wd_t)0)"
         <<     "{"
         <<        fill_outline_arguments
-        <<        "err = nanos_submit(wd, (nanos_dependence_t*)0, (nanos_team_t*)0);"
+        <<        "err = nanos_submit(wd, (nanos_dependence_t*)0, (nanos_team_t)0);"
         //     FIXME - Do something useful with err 
         <<     "}"
         <<     "else"
