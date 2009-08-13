@@ -18,6 +18,19 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     ObjectList<Symbol> private_symbols;
     data_sharing.get_all_symbols(OpenMP::DA_PRIVATE, private_symbols);
+    Source private_decls;
+    for (ObjectList<Symbol>::iterator it = private_symbols.begin();
+            it != private_symbols.end();
+            it++)
+    {
+        Symbol& sym(*it);
+        Type type = sym.get_type();
+
+        // In C++ private vars types must be default constructible
+        private_decls
+            << type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
+            ;
+    }
 
     DataEnvironInfo data_environ_info;
 
@@ -47,14 +60,15 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             replaced_body,
             initial_replace_code);
 
-    Source device_description, device_descriptor;
+    Source device_description, device_descriptor, device_factory_arguments;
 
     Source outline_code, outline_parameters, outline_body;
 
     outline_parameters << struct_arg_type_name << "* _args";
     outline_body
-        <<     initial_replace_code
-        <<     replaced_body
+        << private_decls
+        << initial_replace_code
+        << replaced_body
         ;
 
     outline_code = create_outline(
@@ -77,17 +91,12 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     // FIXME - Currently only SMP is supported
     device_descriptor << outline_name << "_devices";
     device_description
+        << "struct nanos_device_arg_smp_t " << outline_name << "_device_arg_smp = { " << outline_name << "};"
         << "nanos_device_t " << device_descriptor << "[] ="
         << "{"
         // SMP
-        // FIXME: g++ will not allow C99 initialization syntax!!!
-        // (technically: only C90 intialization is valid in C++03)
-        // (sad note aside: even C++0x is not going to support C99 initializers)
-        // So, args of a device should be a void* and we could statically make
-        // it point a previously device-dependent structure 
-        << "{nanos_smp_factory, { .smp = { (void(*)(void*))"  << outline_name << " }}},"
-        // There must be some kind of sentinel, otherwise nobody will know the length of this array
-        // and does not seem to be a size argument for the device
+        << "{nanos_smp_factory, &" << outline_name << "_device_arg_smp" << "},"
+        // Sentinel
         << "{ (void* (*)(void*))0 }"
         << "};"
         ;
