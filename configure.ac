@@ -72,9 +72,9 @@ dnl --------------------- Support for OpenMP Nanox -----------------------------
 
 is_enabled_tl_omp_nanox="no"
 
-AC_MSG_CHECKING([if enabled OpenMP TL support for Nanos 4])
+AC_MSG_CHECKING([if enabled OpenMP TL support for Nanos++])
 AC_ARG_ENABLE([tl-openmp-nanox],
-  AS_HELP_STRING([--enable-tl-openmp-nanox], [Enables support of OpenMP TL for Nanos 4]),
+  AS_HELP_STRING([--enable-tl-openmp-nanox], [Enables support of OpenMP TL for Nanos++]),
   [
     if test x$enableval = xyes -o x$enableval = x;
     then
@@ -102,7 +102,7 @@ NANOX_LIBS=""
 if test x$is_enabled_tl_omp_nanox = xyes;
 then
    AC_ARG_WITH([nanox],
-           AS_HELP_STRING([--with-nanox=dir], [Directory of nanox installation]),
+           AS_HELP_STRING([--with-nanox=dir], [Directory of Nanos++ installation]),
            [
             nanox_include="${withval}/include"
             nanox_lib="${withval}/lib"
@@ -110,14 +110,14 @@ then
    )
 
    AC_ARG_WITH([nanox-include],
-           AS_HELP_STRING([--with-nanox-include=dir], [Directory of nanox headers]),
+           AS_HELP_STRING([--with-nanox-include=dir], [Directory of Nanos++ headers]),
            [
             nanox_include="${withval}"
            ]
    )
 
    AC_ARG_WITH([nanox-lib],
-           AS_HELP_STRING([--with-nanox-lib=dir], [Directory of nanox libraries]),
+           AS_HELP_STRING([--with-nanox-lib=dir], [Directory of Nanos++ libraries]),
            [
             nanox_lib="${withval}"
            ]
@@ -175,7 +175,7 @@ AC_ARG_ENABLE([tl-openmp-nanos4],
 dnl There is an issue with configuration files we should solve first
 if test x$is_enabled_tl_omp_nanox = xyes -a x$is_enabled_tl_omp_nanos4 = xyes ;
 then
-  AC_MSG_ERROR([Both nanox and Nanos 4 cannot be enabled at the same time])
+  AC_MSG_ERROR([Nanos++ and Nanos 4 cannot be enabled at the same time])
 fi
 
 nanos4_include=""
@@ -1108,11 +1108,11 @@ echo " * Default type environment : " $default_type_environ
 echo ""
 echo " * TL Examples will be built :" $is_enabled_tl_examples
 echo ""
-echo " * nanox OpenMP :" $is_enabled_tl_omp_nanox
+echo " * Nanos++ OpenMP :" $is_enabled_tl_omp_nanox
 if test x$is_enabled_tl_omp_nanox = xyes;
 then
-  echo "   nanox includes :" $nanox_include
-  echo "   nanox libraries:" $nanox_lib
+  echo "   Nanos++ includes :" $nanox_include
+  echo "   Nanos++ libraries:" $nanox_lib
 fi
 echo ""
 echo " * Nanos 4 OpenMP :" $is_enabled_tl_omp_nanos4
