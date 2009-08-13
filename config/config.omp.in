@@ -1,0 +1,46 @@
+# OpenMP + Nanos 
+[omp-base]
+options =
+{debug} options = -g
+{instrument,!debug} options = --variable=instrument:1
+preprocessor_name = gcc
+{instrument,!debug} preprocessor_options = -I@MINTAKA_INCLUDES@ -include mintaka.h
+compiler_name = gcc
+compiler_options = 
+linker_name = gcc
+compiler_phase = libtlomp-core.so
+# nanos4
+{!nanox} preprocessor_options = -E -I@NANOS4_INCLUDES@ -D_OPENMP=200505 -include nth_mcc.h
+{!nanox} linker_options = -L@NANOS4_LIBS@ -Wl,-rpath,@NANOS4_LIBS@
+{!nanox,!nanos-dev,!debug,!instrument} linker_options = -lnthreads-pfm 
+{!nanox,nanos-dev,!debug,!instrument} linker_options = -lnthreads-dev 
+{!nanox,instrument,!debug} linker_options = -lnthreads-prv -L @MINTAKA_LIBS@ -Wl,-rpath,@MINTAKA_LIBS@ -lmintaka
+{!nanox,debug} linker_options = -g -lnthreads-dbg
+{!nanox} pragma_prefix = nanos
+{!nanox} compiler_phase = libtlnanos4.so
+{!nanox,instrument,!debug} @INSTRUMENTATION_PHASE@
+{!nanox} compiler_phase = libtlomp-nanos4.so
+# nanos++
+{nanox} preprocessor_options = -E -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h
+{nanox} linker_options = -L@NANOX_LIBS@ -Wl,-rpath,@NANOX_LIBS@
+{nanox} linker_options = -lnanox-c
+{nanox} compiler_phase = libtlomp-nanox.so
+
+[mcc : omp-base]
+language = C
+
+[mcxx : omp-base]
+language = C++
+preprocessor_options = -include new 
+compiler_name = g++
+linker_name = g++
+
+[imcc : mcc]
+preprocessor_name = icc
+compiler_name = icc
+linker_name = icc
+
+[imcxx : mcxx]
+preprocessor_name = icc
+compiler_name = icc
+linker_name = icc

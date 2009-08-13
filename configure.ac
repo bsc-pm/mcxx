@@ -134,7 +134,6 @@ then
    TLEXTENSIONS="${TLEXTENSIONS} omp_nanox"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.nanox"
 
 # FIXME - Missing testsuites
 # ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.nanox mcxx.nanox"
@@ -211,7 +210,6 @@ then
    TLEXTENSIONS="${TLEXTENSIONS} omp_nanos4"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.nanos4"
 
    ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.nanos4 mcxx.nanos4"
 fi
@@ -220,6 +218,13 @@ AC_SUBST([NANOS4_INCLUDES])
 AC_SUBST([NANOS4_LIBS])
 
 dnl --------------------- End Support for OpenMP Nanos4 ---------------------
+
+dnl --------------------- Shared between Nanox and Nanos4 ------------------
+if test x$is_enabled_tl_omp_nanos4 = xyes -o x$is_enabled_tl_omp_nanox;
+then
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.nanox"
+fi
+dnl --------------------- End of shared between Nanox and Nanos4 ------------------
 
 dnl --------------------- Support for Mintaka ---------------------
 
