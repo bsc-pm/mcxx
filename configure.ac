@@ -222,7 +222,7 @@ dnl --------------------- End Support for OpenMP Nanos4 ---------------------
 dnl --------------------- Shared between Nanox and Nanos4 ------------------
 if test x$is_enabled_tl_omp_nanos4 = xyes -o x$is_enabled_tl_omp_nanox;
 then
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.nanox"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.omp"
 fi
 dnl --------------------- End of shared between Nanox and Nanos4 ------------------
 

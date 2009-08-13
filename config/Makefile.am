@@ -11,8 +11,7 @@ CONFIG_MCXX=\
 CONFIG_FILES =  \
        config.acotes \
        config.acotes-msf \
-       config.nanox \
-       config.nanos4 \
+       config.omp \
        config.plain \
        config.stm_nebelung \
        config.superscalar \
