@@ -1,3 +1,4 @@
+#include "cxx-driver-utils.h"
 #include "cxx-process.h"
 #include "cxx-profile.h"
 #include <string.h>
@@ -38,16 +39,16 @@ static const char** copy_null_ended_const_char_array(const char** orig)
         return result;
     }
 
-    int num = 0;
+    int num = count_null_ended_array((void**)orig);
 
-    while (*orig != NULL)
+    result = malloc(sizeof(char*) * (num + 1));
+    int i;
+    for (i = 0; i < num; i++)
     {
-        result = realloc(result, sizeof(char*)*(num + 1));
-        result[num] = *orig;
-
-        num++;
-        orig++;
+        result[i] = orig[i];
     }
+    // Don't forget the NULL
+    result[i] = NULL;
 
     return result;
 }
