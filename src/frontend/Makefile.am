@@ -185,6 +185,9 @@ BUILT_SOURCES += cxx03.l
 BUILT_SOURCES += c99.y
 BUILT_SOURCES += cxx03.y
 
+BUILT_SOURCES += cxx-parser.h
+BUILT_SOURCES += c99-parser.h
+
 # Manual targets
 cxx-ast.h : cxx-asttype.h
 
