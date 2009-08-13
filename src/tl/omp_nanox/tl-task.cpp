@@ -92,11 +92,11 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     spawn_code
         << "{"
         <<     struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
-        <<     "nanos_wd_t* wd = (nanos_wd_t*)0;"
+        <<     "nanos_wd_t wd = (nanos_wd_t)0;"
         // <<     "nanos_wd_props_t props;"
         <<     "nanos_err_t err;"
-        <<     "err = nanos_create_wd(" << device_descriptor << ", &wd, sizeof(" << struct_arg_type_name << "),"
-        <<                "(void**)&ol_args, (nanos_wd_props_t*)0);" // props are 0 here
+        <<     "err = nanos_create_wd(&wd, " << device_descriptor << ", sizeof(" << struct_arg_type_name << "),"
+        <<                "(void**)&ol_args, nanos_current_wd(), (nanos_wd_props_t*)0);" // props are 0 here
         //     FIXME - Do something useful with err
         <<     "if (wd != (nanos_wd_t*)0)"
         <<     "{"
