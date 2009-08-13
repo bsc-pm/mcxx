@@ -172,12 +172,6 @@ AC_ARG_ENABLE([tl-openmp-nanos4],
   ]
 )
 
-dnl There is an issue with configuration files we should solve first
-if test x$is_enabled_tl_omp_nanox = xyes -a x$is_enabled_tl_omp_nanos4 = xyes ;
-then
-  AC_MSG_ERROR([Nanos++ and Nanos 4 cannot be enabled at the same time])
-fi
-
 nanos4_include=""
 nanos4_lib=""
 NANOS4_INCLUDES=""
