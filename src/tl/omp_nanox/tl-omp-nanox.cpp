@@ -10,6 +10,8 @@ OMPTransform::OMPTransform()
     set_phase_description("This phase implements OpenMP targeting nanox runtime");
 
     on_directive_post["task"].connect(functor(&OMPTransform::task_postorder, *this));
+
+    on_directive_post["taskwait"].connect(functor(&OMPTransform::taskwait_postorder, *this));
 }
 
 EXPORT_PHASE(TL::Nanox::OMPTransform)

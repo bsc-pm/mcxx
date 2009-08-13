@@ -14,6 +14,7 @@ namespace Nanox
 
         private:
             void task_postorder(PragmaCustomConstruct ctr);
+            void taskwait_postorder(PragmaCustomConstruct ctr);
     };
 
     const std::string NANOX_OUTLINE_COUNTER("nanox_outline_counter");
