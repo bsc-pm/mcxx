@@ -3,7 +3,7 @@
 language = C
 options =
 preprocessor_name = gcc
-preprocessor_options = -E -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanox.h
+preprocessor_options = -E -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h
 compiler_name = gcc
 compiler_options = 
 linker_name = gcc
