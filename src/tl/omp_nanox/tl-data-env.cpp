@@ -58,11 +58,11 @@ namespace TL
             Type t = sym.get_type();
             if (t.is_array())
             {
-                return t.array_element().get_pointer_to();
+                return t.array_element().get_pointer_to().get_restrict_type();
             }
             else
             {
-                return t.get_pointer_to();
+                return t.get_pointer_to().get_restrict_type();
             }
         }
 
