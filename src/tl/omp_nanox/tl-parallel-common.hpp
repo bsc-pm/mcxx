@@ -1,3 +1,6 @@
+#ifndef TL_PARALLEL_COMMON_HPP
+#define TL_PARALLEL_COMMON_HPP
+
 #include "tl-omp-nanox.hpp"
 #include "tl-data-env.hpp"
 
@@ -12,3 +15,5 @@ namespace TL
                 const DataEnvironInfo& data_environ_info);
     }
 }
+
+#endif // TL_PARALLEL_COMMON_HPP

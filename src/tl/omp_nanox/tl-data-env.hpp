@@ -1,3 +1,6 @@
+#ifndef TL_DATA_ENV_HPP
+#define TL_DATA_ENV_HPP
+
 #include "tl-symbol.hpp"
 #include <string>
 
@@ -95,3 +98,5 @@ namespace TL
 
     }
 }
+
+#endif // TL_DATA_ENV_HPP

@@ -22,8 +22,9 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
         <<   "unsigned int _nanos_num_threads = " << num_threads << ";"
         <<   "nanos_team_t _nanos_team;"
         <<   "nanos_thread_t _nanos_threads[_nanos_num_threads];"
-        <<   "err = nth_create_team(&team, (nanos_sched_t)0, &_nanos_num_threads,"
-        <<              "(nanos_constraint_t*)0, /* reuse */ false, _nanos_threads);"
+        <<   "nanos_err_t err;"
+        <<   "err = nth_create_team(&_nanos_team, (nanos_sched_t)0, &_nanos_num_threads,"
+        <<              "(nanos_constraint_t*)0, /* reuse */ 0, _nanos_threads);"
         <<   "if (err != NANOS_OK) nanos_error_handler(err);"
 
         <<   "nanos_wd_props_t props = { 0 };"
@@ -32,7 +33,7 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
         <<   "for (_i = 1; _i < _nanos_num_threads; _i++)"
         <<   "{"
         //   We have to create a wd tied to a thread
-        <<      struct_arg_type_name << " ol_args;"
+        <<      struct_arg_type_name << " *ol_args;"
         <<      "props.tie_to = &_nanos_threads[_i];"
         <<      "nanos_wd_t wd;"
         <<      "err = nanos_create_wd(&wd, " << num_devices << ","
@@ -43,7 +44,7 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
         <<                    "&props);"
         <<      "if (err != NANOS_OK) nanos_error_handler(err);"
         <<      fill_outline_arguments
-        <<      "nanos_submit_wd(wd, (nanos_dependence_t*)0, team);"
+        <<      "nanos_submit(wd, (nanos_dependence_t*)0, _nanos_team);"
         <<   "}"
         <<   "props.tie_to = &_nanos_threads[0];"
         <<   struct_arg_type_name << " imm_args;"
