@@ -229,9 +229,13 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
                 if (ASTType(symbol) != AST_SYMBOL
                         && ASTType(symbol) != AST_QUALIFIED_ID)
                 {
-                    WARNING_MESSAGE("Unsolvable address expression in '%s' while evaluating a constant expression. Assuming zero.\n",
+                    WARNING_MESSAGE("Unsolvable address expression in '%s' while evaluating a constant expression.\n",
                             ast_location(a));
-                    return literal_value_zero();
+                    // Make it dependent
+                    literal_value_t dependent_entity;
+                    memset(&dependent_entity, 0, sizeof(dependent_entity));
+                    dependent_entity.kind = LVK_DEPENDENT_EXPR;
+                    return dependent_entity;
                 }
                 else
                 {
@@ -295,6 +299,25 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
                     }
                     return value;
                 }
+            }
+        case AST_DERREFERENCE:
+            {
+                // gcc (at least g++) is able to evaluate some of these, but
+                // they seem to be limited to things like
+                //
+                // const int a = 3;
+                // const int * const k = &a;
+                //
+                // (*k)
+                //
+                // But other more sophisticated cases are simply ignored by
+                // gcc. Maybe we will try to mimick it some day, for now,
+                // just assume this cannot be compile time evaluated
+                literal_value_t dependent_entity;
+                memset(&dependent_entity, 0, sizeof(dependent_entity));
+                dependent_entity.kind = LVK_DEPENDENT_EXPR;
+                return dependent_entity;
+                break;
             }
             // Cannot evaluate these
         case AST_CLASS_MEMBER_ACCESS :
