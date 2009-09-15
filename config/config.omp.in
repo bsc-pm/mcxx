@@ -41,6 +41,6 @@ compiler_name = icc
 linker_name = icc
 
 [imcxx : mcxx]
-preprocessor_name = icc
-compiler_name = icc
-linker_name = icc
+preprocessor_name = icpc
+compiler_name = icpc
+linker_name = icpc
