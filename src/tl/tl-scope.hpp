@@ -138,6 +138,22 @@ namespace TL
              */
             ObjectList<Symbol> get_all_symbols(bool include_hidden);
 
+            //! Creates an artificial symbol
+            /*!
+              This function is used to create an artifical symbol. Artificial
+              symbols are useful when some information must be stored scope-wise.
+              These symbols should have a name that is not language-accesible, this
+              is, its name it is not possible to be referenced in the program under
+              the syntax of the language (for instance a symbol like ".foo").
+
+              Once the symbol has been created, data can be linked to it using
+              Object::set_attribute and retrieved using Object::get_attribute.
+
+              If the symbol already exists in this scope, it will not be
+              created twice.
+              */
+            Symbol new_artificial_symbol(const std::string& artificial_name);
+
             //! States that this is a scope
             virtual bool is_scope() const
             {

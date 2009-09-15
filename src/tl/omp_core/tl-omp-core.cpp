@@ -707,6 +707,7 @@ namespace TL
             already_initialized = true;
 
             // FIXME - There should be a way to get these without using internal type info
+            // See http://nanos.ac.upc.edu/projects/mcxx/ticket/89
             type_t* all_arithmetic_types[] =
             {
                 get_char_type(),

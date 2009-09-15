@@ -158,7 +158,10 @@ enum cxx_symbol_kind
     // GCC Extension for builtin types
     SK_GCC_BUILTIN_TYPE, // [13]
     // Dependent entity that is named but nothing is known at the moment
-    SK_DEPENDENT_ENTITY // [14]
+    SK_DEPENDENT_ENTITY, // [14]
+    // Other symbols whose use is defined elsewhere
+    // These symbols should not be language-accessible
+    SK_OTHER // [15]
 };
 
 #define BITMAP(x) (1 << x)

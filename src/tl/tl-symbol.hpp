@@ -142,6 +142,14 @@ namespace TL
 
             //! States if this is a member entity
             bool is_member() const;
+
+            //! States if this symbol is artificial
+            /*!
+              See Scope::new_artificial_symbol for more information on
+              artificial symbols
+              */
+            bool is_artificial() const;
+
             //! Returns the class to which this member belongs
             Type get_class_type() const;
 

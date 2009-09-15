@@ -167,6 +167,11 @@ namespace TL
         return _symbol->entity_specs.is_member;
     }
 
+    bool Symbol::is_artificial() const
+    {
+        return (_symbol->kind == SK_OTHER);
+    }
+
     Type Symbol::get_class_type() const
     {
         return Type(_symbol->entity_specs.class_type);

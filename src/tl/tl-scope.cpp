@@ -21,6 +21,7 @@
 #include "tl-scope.hpp"
 #include "cxx-scope.h"
 #include "cxx-printscope.h"
+#include "cxx-utils.h"
 #include "hash_iterator.h"
 
 namespace TL
@@ -162,5 +163,27 @@ namespace TL
         }
 
         return result;
+    }
+
+    Symbol Scope::new_artificial_symbol(const std::string& artificial_name)
+    {
+        scope_entry_list_t* sym_res_list = ::query_in_scope_str(_decl_context, artificial_name.c_str());
+        scope_entry_t* sym_res = NULL;
+
+        if (sym_res_list == NULL)
+        {
+            // Create the symbol
+            sym_res = ::new_symbol(_decl_context, _decl_context.current_scope, artificial_name.c_str());
+        }
+        else
+        {
+            sym_res = sym_res_list->entry;
+            if (sym_res->kind != SK_OTHER)
+            {
+                internal_error("This function can only be used for artificial symbols. '%s' is not artificial", sym_res->symbol_name);
+            }
+        }
+
+        return Symbol(sym_res);
     }
 }
