@@ -5062,6 +5062,17 @@ char is_dependent_expression(AST expression, decl_context_t decl_context)
                 return is_dependent_expression(ASTSon0(expression), decl_context)
                     || is_dependent_expression(ASTSon1(expression), decl_context);
             }
+        case AST_CLASS_MEMBER_ACCESS :
+        case AST_POINTER_CLASS_MEMBER_ACCESS :
+            {
+                return is_dependent_expression(ASTSon0(expression), decl_context);
+            }
+        case AST_POINTER_TO_POINTER_MEMBER:
+        case AST_POINTER_TO_MEMBER:
+            {
+                return is_dependent_expression(ASTSon0(expression), decl_context)
+                    || is_dependent_expression(ASTSon1(expression), decl_context);
+            }
         case AST_CONDITIONAL_EXPRESSION :
             {
                 return is_dependent_expression(ASTSon0(expression), decl_context)

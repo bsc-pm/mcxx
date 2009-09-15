@@ -13,6 +13,8 @@ libtlomp_nanox_la_SOURCES = \
      tl-omp-nanox.cpp \
      tl-omp-nanox.hpp \
      tl-parallel.cpp \
+     tl-parallel-common.hpp \
+     tl-parallel-common.cpp \
      tl-task.cpp \
      tl-taskwait.cpp \
      tl-data-env.hpp \
