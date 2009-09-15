@@ -3,6 +3,7 @@ SUBDIRS = . hlt omp_core @TLEXTENSIONS@
 END=
 
 DIST_SUBDIRS=omp_core \
+             omp_nanox \
              omp_nanos4 \
              superscalar \
              acotes \
