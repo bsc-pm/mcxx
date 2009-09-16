@@ -174,6 +174,7 @@ namespace TL
         {
             // Create the symbol
             sym_res = ::new_symbol(_decl_context, _decl_context.current_scope, artificial_name.c_str());
+            sym_res->kind = SK_OTHER;
         }
         else
         {
