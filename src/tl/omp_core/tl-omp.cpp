@@ -236,54 +236,104 @@ namespace TL
             _stack_data_sharing.pop();
         }
 
-        UDRInfoSet& Info::get_udr_info()
+        UDRInfoSet::UDRInfoSet(Scope sc, Type type)
+            : _scope(sc), _type(type)
         {
-            return _udr_info_set;
-        }
-
-        void UDRInfoSet::add_udr_item(const UDRInfoItem& item)
-        {
-            Type type = item.get_type();
-            const std::string& op_name = item.get_op_name();
-
-            // Do not re-add an UDR
-            if (!lookup_udr(type, op_name))
+            if (_type.is_reference())
             {
-                _udr_info_set.append(item);
+                _type = _type.references_to();
             }
         }
 
-        bool UDRInfoSet::lookup_udr(Type type, const std::string& op_name) const
+        void UDRInfoSet::add_udr(const UDRInfoItem& item)
         {
-            for (ObjectList<UDRInfoItem>::const_iterator it = _udr_info_set.begin();
-                    it != _udr_info_set.end();
-                    it++)
+            // Create an artificial symbol in the scope using the name of the
+            // type (in its original scope to avoid template issues)
+            Scope typename_used_scope = _scope;
+            if (_type.is_named())
             {
-                if (it->get_type().is_same_type(type)
-                        && it->get_op_name() == op_name)
-                {
-                    return true;
-                }
+                Symbol related_sym = _type.get_symbol();
+                typename_used_scope = related_sym.get_scope();
+            }
+
+            std::string symbol_name = ".udr_";
+
+            symbol_name += _type.get_declaration(typename_used_scope, "");
+            symbol_name += "_";
+            symbol_name += item.get_op_name();
+
+            Symbol artificial_sym = _scope.new_artificial_symbol(symbol_name);
+
+            RefPtr<UDRInfoItem> udr_info_item(new UDRInfoItem(item));
+            artificial_sym.set_attribute("udr_info", udr_info_item);
+        }
+
+        bool UDRInfoSet::lookup_udr(const std::string& str) const
+        {
+            Scope typename_used_scope = _scope;
+            if (_type.is_named())
+            {
+                Symbol related_sym = _type.get_symbol();
+                typename_used_scope = related_sym.get_scope();
+            }
+
+            std::string symbol_name = ".udr_";
+
+            symbol_name += _type.get_declaration(typename_used_scope, "");
+            symbol_name += "_";
+            symbol_name += str;
+
+            ObjectList<Symbol> symbol_list = _scope.get_symbols_from_name(symbol_name);
+            if (symbol_list.empty())
+            {
+                return false;
+            }
+
+            Symbol &sym = symbol_list[0];
+
+            RefPtr<UDRInfoItem> obj = RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
+
+            if (obj.valid())
+            {
+                return true;
             }
 
             return false;
         }
 
-        UDRInfoItem UDRInfoSet::get_udr(Type type, const std::string& op_name) const
+        UDRInfoItem UDRInfoSet::get_udr(const std::string& str) const
         {
-            for (ObjectList<UDRInfoItem>::const_iterator it = _udr_info_set.begin();
-                    it != _udr_info_set.end();
-                    it++)
+            Scope typename_used_scope = _scope;
+            if (_type.is_named())
             {
-                if (it->get_type().is_same_type(type)
-                        && it->get_op_name() == op_name)
-                {
-                    return *it;
-                }
+                Symbol related_sym = _type.get_symbol();
+                typename_used_scope = related_sym.get_scope();
             }
 
-            internal_error("UDR lookup failed", 0);
-        }
+            std::string symbol_name = ".udr_";
 
+            symbol_name += _type.get_declaration(typename_used_scope, "");
+            symbol_name += "_";
+            symbol_name += str;
+
+            ObjectList<Symbol> symbol_list = _scope.get_symbols_from_name(symbol_name);
+            if (symbol_list.empty())
+            {
+                internal_error("empty list!", 0);
+            }
+
+            Symbol &sym = symbol_list[0];
+
+            RefPtr<UDRInfoItem> obj = RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
+
+            if (obj.valid())
+            {
+                return *obj;
+            }
+            else
+            {
+                internal_error("Invalid cast!", 0);
+            }
+        }
     }
 }

@@ -57,7 +57,8 @@ namespace TL
                     it++)
             {
                 reduction_references.append(
-                        OpenMP::ReductionSymbol(*it, data_sharing.get_reductor_name(*it), openmp_info->get_udr_info()));
+                        OpenMP::ReductionSymbol(*it, data_sharing.get_reductor_name(*it), 
+                            OpenMP::UDRInfoSet(parallel_construct.get_scope(), it->get_type())));
             }
 
             data_sharing.get_all_symbols(OpenMP::DA_COPYIN, copyin_references);

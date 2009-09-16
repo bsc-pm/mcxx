@@ -77,7 +77,7 @@ namespace TL
         };
 #undef BITMAP
 
-        class LIBTL_CLASS UDRInfoItem
+        class LIBTL_CLASS UDRInfoItem : public TL::Object
         {
             public:
                 enum Associativity
@@ -167,14 +167,14 @@ namespace TL
         class LIBTL_CLASS UDRInfoSet
         {
             private:
-                ObjectList<UDRInfoItem> _udr_info_set;
+                Scope _scope;
+                Type _type;
             public:
-                UDRInfoSet() { }
+                UDRInfoSet(Scope sc, Type type);
 
-                void add_udr_item(const UDRInfoItem & item);
-
-                bool lookup_udr(Type type, const std::string& op_name) const;
-                UDRInfoItem get_udr(Type type, const std::string& op_name) const;
+                UDRInfoItem get_udr(const std::string& str) const;
+                bool lookup_udr(const std::string& str) const;
+                void add_udr(const UDRInfoItem& item);
         };
 
         //! This class represents data sharing environment in a OpenMP construct
@@ -245,7 +245,6 @@ namespace TL
                 std::map<AST_t, DataSharing*> _map_data_sharing;
                 std::stack<DataSharing*> _stack_data_sharing;
 
-                UDRInfoSet _udr_info_set;
             public:
                 Info(DataSharing* root_data_sharing)
                     : _root_data_sharing(root_data_sharing), 
@@ -260,8 +259,6 @@ namespace TL
 
                 void push_current_data_sharing(DataSharing&);
                 void pop_current_data_sharing();
-
-                UDRInfoSet& get_udr_info();
         };
 
         //! Auxiliar class used in reduction clauses
@@ -275,17 +272,9 @@ namespace TL
                         const UDRInfoSet& udr_info_set)
                     : _symbol(s), _udr_item(NULL)
                 {
-                    Type t = _symbol.get_type();
-
-                    // Adjust reference types
-                    if (t.is_reference())
+                    if (udr_info_set.lookup_udr(reductor_name))
                     {
-                        t = t.references_to();
-                    }
-
-                    if (udr_info_set.lookup_udr(t, reductor_name))
-                    {
-                        UDRInfoItem udr_item = udr_info_set.get_udr(t, reductor_name);
+                        UDRInfoItem udr_item = udr_info_set.get_udr(reductor_name);
                         _udr_item = new UDRInfoItem(udr_item);
                     }
                 }
@@ -299,11 +288,6 @@ namespace TL
                     }
                 }
 
-                ~ReductionSymbol()
-                {
-                    delete _udr_item;
-                }
-
                 ReductionSymbol& operator=(const ReductionSymbol& red_sym)
                 {
                     if (this != &red_sym)
@@ -315,6 +299,11 @@ namespace TL
                         }
                     }
                     return *this;
+                }
+
+                ~ReductionSymbol()
+                {
+                    delete _udr_item;
                 }
 
                 //! Returns the symbol of this reduction

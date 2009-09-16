@@ -37,7 +37,7 @@ namespace TL
             register_omp_constructs();
         }
 
-        static void initialize_builtin_udr_reductions(UDRInfoSet &udr_info_set);
+        static void initialize_builtin_udr_reductions(Scope global_scope);
 
         void Core::run(TL::DTO& dto)
         {
@@ -49,7 +49,12 @@ namespace TL
                 return;
             }
 
-            initialize_builtin_udr_reductions(_openmp_info->get_udr_info());
+            AST_t translation_unit = dto["translation_unit"];
+            ScopeLink scope_link = dto["scope_link"];
+
+            Scope global_scope = scope_link.get_scope(translation_unit);
+
+            initialize_builtin_udr_reductions(global_scope);
 
             PragmaCustomCompilerPhase::run(dto);
         }
@@ -108,6 +113,21 @@ namespace TL
                     }
                 }
             }
+        }
+
+        static void trim_spaces(std::string& str)
+        {
+            // Trim Both leading and trailing spaces
+            size_t startpos = str.find_first_not_of(" \t"); // Find the first character position after excluding leading blank spaces
+            size_t endpos = str.find_last_not_of(" \t"); // Find the first character position from reverse af
+
+            // if all spaces or empty return an empty string
+            if((std::string::npos == startpos) || (std::string::npos == endpos))
+            {
+                str = "";
+            }
+            else
+                str = str.substr( startpos, endpos-startpos+1 );
         }
 
         void Core::get_reduction_symbols(
@@ -211,7 +231,7 @@ namespace TL
                                 ;
                         }
 
-                        ReductionSymbol red_sym(sym, reductor_name, _openmp_info->get_udr_info());
+                        ReductionSymbol red_sym(sym, reductor_name, UDRInfoSet(expr.get_scope(), sym.get_type()));
 
                         if (red_sym.is_faulty())
                         {
@@ -615,7 +635,7 @@ namespace TL
 
         void Core::declare_reduction_handler_pre(PragmaCustomConstruct construct)
         {
-            UDRInfoSet& udr_info_set = _openmp_info->get_udr_info();
+            // UDRInfoSet udr_info_set(construct.get_scope())
 
             // #pragma omp declare reduction type(type-name-list) operator(op-name-list) order(left|right) commutative
             ScopeLink scope_link = construct.get_scope_link();
@@ -673,18 +693,23 @@ namespace TL
                 {
                     Type &type(*type_it);
 
+                    UDRInfoSet udr_info_set(construct.get_scope(), type);
+
                     for (ObjectList<std::string>::iterator op_it = op_args.begin();
                             op_it != op_args.end();
                             op_it++)
                     {
                         std::string& op_name(*op_it);
-                        if (!udr_info_set.lookup_udr(type, op_name))
+
+                        trim_spaces(op_name);
+
+                        if (!udr_info_set.lookup_udr(op_name))
                         {
                             std::cerr << "INTRODUCING UDR FOR '" << op_name << "' type '" 
                                 << type.get_declaration(construct.get_scope_link().get_scope(construct.get_ast()), "")
                                 << "'"
                                 << std::endl;
-                            udr_info_set.add_udr_item(UDRInfoItem(type, op_name, identity, assoc, is_commutative));
+                            udr_info_set.add_udr(UDRInfoItem(type, op_name, identity, assoc, is_commutative));
                         }
                         else
                         {
@@ -697,7 +722,7 @@ namespace TL
             }
         }
 
-        static void initialize_builtin_udr_reductions(UDRInfoSet &udr_info_set)
+        static void initialize_builtin_udr_reductions(Scope global_scope)
         {
             static bool already_initialized = false;
 
@@ -762,7 +787,8 @@ namespace TL
                 int j;
                 for (j = 0; builtin_arithmetic_operators[j].operator_name != NULL; j++)
                 {
-                    udr_info_set.add_udr_item(
+                    UDRInfoSet udr_info_set(global_scope, Type(type));
+                    udr_info_set.add_udr(
                             UDRInfoItem(Type(type),
                                 builtin_arithmetic_operators[j].operator_name,
                                 builtin_arithmetic_operators[j].neuter_tree,
@@ -773,7 +799,8 @@ namespace TL
                 {
                     for (j = 0; builtin_logic_bit_operators[j].operator_name != NULL; j++)
                     {
-                        udr_info_set.add_udr_item(
+                        UDRInfoSet udr_info_set(global_scope, Type(type));
+                        udr_info_set.add_udr(
                                 UDRInfoItem(Type(type),
                                     builtin_logic_bit_operators[j].operator_name,
                                     builtin_logic_bit_operators[j].neuter_tree,
