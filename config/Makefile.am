@@ -34,7 +34,6 @@ include ./Makefile.replace
 $(CONFIG_MCXX) $(CONFIG_FILES) : Makefile
 	$(config_edit) "$(srcdir)/$@.in" > "$@.tmp"
 	mv -f "$@.tmp" "$@"
-	chmod a-xw $@
 
 pkgdata_DATA = \
 		config.mcxx \

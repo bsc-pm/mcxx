@@ -41,7 +41,6 @@ include ../config/Makefile.replace
 
 $(CONFIG_FILES_TESTS) : Makefile
 	$(config_edit) $(srcdir)/$@.in > $@.tmp
-	chmod a-wx $@.tmp
 	mv $@.tmp $@
 
 dist-hook:
