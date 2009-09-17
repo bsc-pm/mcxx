@@ -239,6 +239,7 @@ namespace TL
         UDRInfoSet::UDRInfoSet(Scope sc, Type type)
             : _scope(sc), _type(type)
         {
+            type = type.advance_over_typedefs();
             if (_type.is_reference())
             {
                 _type = _type.references_to();
