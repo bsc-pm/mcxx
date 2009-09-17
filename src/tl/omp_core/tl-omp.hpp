@@ -106,62 +106,14 @@ namespace TL
                 {
                 }
 
-                Type get_type() const
-                {
-                    return _type;
-                }
-
-                std::string get_op_name() const
-                {
-                    return _op_name;
-                }
-
-                std::string get_identity() const
-                {
-                    if (is_constructor_identity())
-                    {
-                        // Skip constructor part
-                        return _identity.substr(std::string("constructor").length());
-                    }
-                    else
-                    {
-                        return _identity;
-                    }
-                }
-
-                Associativity get_assoc() const
-                {
-                    return _assoc;
-                }
-
-                bool is_commutative() const
-                {
-                    return _is_commutative;
-                }
-
-                bool is_builtin_op() const
-                {
-                    return (_op_name == "+"
-                            || _op_name == "-"
-                            || _op_name == "*"
-                            || _op_name == "/"
-                            || _op_name == "&"
-                            || _op_name == "|"
-                            || _op_name == "^"
-                            || _op_name == "&&"
-                            || _op_name == "||");
-                }
-
-                bool is_member_op() const
-                {
-                    return (_op_name[0] == '.');
-                }
-
-                bool is_constructor_identity() const
-                {
-                    return _identity.substr(0, std::string("constructor").length()) 
-                        == std::string("constructor");
-                }
+                Type get_type() const;
+                std::string get_op_name() const;
+                std::string get_identity() const;
+                Associativity get_assoc() const;
+                bool is_commutative() const;
+                bool is_builtin_op() const;
+                bool is_member_op() const;
+                bool is_constructor_identity() const;
         };
 
         class LIBTL_CLASS UDRInfoSet

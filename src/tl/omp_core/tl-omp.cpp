@@ -25,6 +25,7 @@
 #include "tl-scopelink.hpp"
 #include "tl-traverse.hpp"
 #include "tl-predicateutils.hpp"
+#include "tl-omp-udr.hpp"
 #include "cxx-attrnames.h"
 
 namespace TL
@@ -239,7 +240,7 @@ namespace TL
         UDRInfoSet::UDRInfoSet(Scope sc, Type type)
             : _scope(sc), _type(type)
         {
-            type = type.advance_over_typedefs();
+            type = type.advance_over_typedefs().get_unqualified_type();
             if (_type.is_reference())
             {
                 _type = _type.references_to();
@@ -335,6 +336,56 @@ namespace TL
             {
                 internal_error("Invalid cast!", 0);
             }
+        }
+
+
+        Type UDRInfoItem::get_type() const
+        {
+            return _type;
+        }
+
+        std::string UDRInfoItem::get_op_name() const
+        {
+            return _op_name;
+        }
+
+        std::string UDRInfoItem::get_identity() const
+        {
+            if (is_constructor_identity())
+            {
+                // Skip constructor part
+                return _identity.substr(std::string("constructor").length());
+            }
+            else
+            {
+                return _identity;
+            }
+        }
+
+        UDRInfoItem::Associativity UDRInfoItem::get_assoc() const
+        {
+            return _assoc;
+        }
+
+        bool UDRInfoItem::is_commutative() const
+        {
+            return _is_commutative;
+        }
+
+        bool UDRInfoItem::is_builtin_op() const
+        {
+            return udr_is_builtin_operator(_op_name);
+        }
+
+        bool UDRInfoItem::is_member_op() const
+        {
+            return (_op_name[0] == '.');
+        }
+
+        bool UDRInfoItem::is_constructor_identity() const
+        {
+            return _identity.substr(0, std::string("constructor").length()) 
+                == std::string("constructor");
         }
     }
 }

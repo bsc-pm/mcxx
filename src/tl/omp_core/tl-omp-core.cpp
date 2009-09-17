@@ -21,6 +21,7 @@
 #include "tl-omp-core.hpp"
 #include "tl-langconstruct.hpp"
 #include "tl-source.hpp"
+#include "tl-omp-udr.hpp"
 
 #include <algorithm>
 
@@ -717,9 +718,16 @@ namespace TL
                         type_it != type_list.end();
                         type_it++)
                 {
-                    Type &type(*type_it);
+                    Type &reduction_type(*type_it);
 
-                    UDRInfoSet udr_info_set(construct.get_scope(), type);
+                    // Remove any cv-qualifications
+                    reduction_type = reduction_type.advance_over_typedefs().get_unqualified_type();
+                    if (reduction_type.is_reference())
+                    {
+                        reduction_type = reduction_type.references_to();
+                    }
+
+                    UDRInfoSet udr_info_set(construct.get_scope(), reduction_type);
 
                     for (ObjectList<std::string>::iterator op_it = op_args.begin();
                             op_it != op_args.end();
@@ -729,31 +737,174 @@ namespace TL
 
                         trim_spaces(op_name);
 
+                        // Perform lookup and further checking
+                        C_LANGUAGE()
+                        {
+                            Symbol reductor_sym = construct.get_scope().get_symbol_from_name(op_name);
+
+                            if (!reductor_sym.is_valid())
+                            {
+                                running_error("%s: error: reduction operator '%s' not found in the current scope",
+                                        construct.get_ast().get_locus().c_str(),
+                                        op_name.c_str());
+                            }
+
+                            if (!function_is_valid_udr_reductor_c(reduction_type, reductor_sym))
+                            {
+                                std::cerr << construct.get_ast().get_locus() 
+                                    << ": warning: reduction operator '" << op_name << "' does not suit "
+                                    << "OpenMP reduction operator requirements" 
+                                    << std::endl;
+                            }
+
+                            op_name = reductor_sym.get_name();
+                        }
+
+                        CXX_LANGUAGE()
+                        {
+                            // Fix the names as needed
+                            Symbol op_symbol(NULL);
+                            if (op_name[0] == '.')
+                            {
+                                // Fix the name if possible
+                                if (reduction_type.is_class() || reduction_type.is_dependent())
+                                {
+                                    // Qualify the name
+                                    op_name = reduction_type.get_declaration(construct.get_scope(), "") + "::" + op_name;
+                                }
+                                else
+                                {
+                                    running_error("%s: error: reduction operator specification '%s' is not valid for non-class type '%s'\n",
+                                            construct.get_ast().get_locus().c_str(),
+                                            op_name.c_str(),
+                                            reduction_type.get_declaration(construct.get_scope(), "").c_str());
+                                }
+                            }
+
+                            if (udr_is_builtin_operator(op_name))
+                            {
+                                // Builtin operators require a bit more of work
+                                op_name = "operator " + op_name;
+
+                                // First attempt a member search
+                                Source src;
+                                src <<  reduction_type.get_declaration(construct.get_scope(), "") << "::" << op_name;
+
+                                // Do not nag the user if this attempt fails
+                                AST_t tree = src.parse_expression(construct.get_ast(), construct.get_scope_link(), 
+                                        Source::DO_NOT_CHECK_EXPRESSION); 
+                                Expression expr(tree, construct.get_scope_link());
+
+                                if (!expr.get_type().is_valid())
+                                {
+                                    // Attempt a second lookup, this time in the current scope
+                                    src = op_name;
+                                    tree = src.parse_expression(construct.get_ast(), construct.get_scope_link());
+
+                                    expr = Expression(tree, construct.get_scope_link());
+
+                                    if (!expr.get_type().is_valid())
+                                    {
+                                        running_error("%s: invalid reduction operator '%s'",
+                                                construct.get_ast().get_locus().c_str(),
+                                                op_name.c_str());
+                                    }
+                                }
+
+                                if (expr.is_id_expression())
+                                {
+                                    IdExpression id_expr = expr.get_id_expression();
+                                    op_symbol = id_expr.get_symbol();
+                                }
+                                else
+                                {
+                                    running_error("%s: invalid reduction operator '%s' since it is not an id-expression",
+                                            construct.get_ast().get_locus().c_str(),
+                                            op_name.c_str());
+                                }
+                            }
+                            else
+                            {
+                                // Parse it to cause a scope search when typechecking
+                                Source src = op_name;
+
+                                AST_t expr_tree = src.parse_expression(construct.get_ast(), construct.get_scope_link());
+                                Expression expr(expr_tree, construct.get_scope_link());
+
+                                if (expr.is_id_expression())
+                                {
+                                    IdExpression id_expr = expr.get_id_expression();
+                                    op_symbol = id_expr.get_symbol();
+                                }
+                                else
+                                {
+                                    running_error("%s: invalid reduction operator '%s' since it is not an id-expression",
+                                            construct.get_ast().get_locus().c_str(),
+                                            op_name.c_str());
+                                }
+                            }
+
+                            Type op_symbol_type = op_symbol.get_type();
+
+                            if (op_symbol_type.is_unresolved_overload())
+                            {
+                                internal_error("%s: overloads not yet supported",
+                                        construct.get_ast().get_locus().c_str());
+                            }
+                            else if (op_symbol.is_template_function())
+                            {
+                                internal_error("%s: template functions not yet supported", 
+                                        construct.get_ast().get_locus().c_str());
+                            }
+                            else if (op_symbol_type.is_dependent())
+                            {
+                                // Do nothing but trust the programmer
+                            }
+                            else
+                            {
+                                // Perform a plain check
+                                if (!function_is_valid_udr_reductor_cxx(reduction_type, op_symbol))
+                                {
+                                    std::cerr << construct.get_ast().get_locus() 
+                                        << ": warning: reduction operator '" << op_name << "' does not suit "
+                                        << "OpenMP reduction operator requirements" 
+                                        << std::endl;
+                                }
+                                op_name = op_symbol.get_name();
+                            }
+                        }
+                        else
+                        {
+                            running_error("%s: invalid reduction operator specification '%s'\n",
+                                    construct.get_ast().get_locus().c_str(),
+                                    op_name.c_str());
+                        }
+
                         if (!identity_clause.is_defined())
                         {
                             C_LANGUAGE()
                             {
-                                identity = get_valid_zero_initializer(type);
+                                identity = get_valid_zero_initializer(reduction_type);
                             }
                             CXX_LANGUAGE()
                             {
-                                identity = get_valid_value_initializer(type);
+                                identity = get_valid_value_initializer(reduction_type);
                             }
                         }
 
                         if (!udr_info_set.lookup_udr(op_name))
                         {
-                            std::cerr << "INTRODUCING UDR FOR '" << op_name << "' type '" 
-                                << type.get_declaration(construct.get_scope_link().get_scope(construct.get_ast()), "")
+                            std::cerr << "INTRODUCING UDR FOR '" << op_name << "' reduction_type '" 
+                                << reduction_type.get_declaration(construct.get_scope_link().get_scope(construct.get_ast()), "")
                                 << "'"
                                 << std::endl;
-                            udr_info_set.add_udr(UDRInfoItem(type, op_name, identity, assoc, is_commutative));
+                            udr_info_set.add_udr(UDRInfoItem(reduction_type, op_name, identity, assoc, is_commutative));
                         }
                         else
                         {
-                            running_error("%s: error: user defined reduction for type '%s' and operator '%s' already defined",
+                            running_error("%s: error: user defined reduction for reduction_type '%s' and operator '%s' already defined",
                                     construct.get_ast().get_locus().c_str(),
-                                    type.get_declaration(construct.get_scope_link().get_scope(construct.get_ast()), "").c_str());
+                                    reduction_type.get_declaration(construct.get_scope_link().get_scope(construct.get_ast()), "").c_str());
                         }
                     }
                 }

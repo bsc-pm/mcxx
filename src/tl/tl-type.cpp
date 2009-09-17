@@ -290,7 +290,12 @@ namespace TL
 
     Type Type::get_int_type(void)
     {
-        return Type(get_signed_int_type());
+        return Type(::get_signed_int_type());
+    }
+
+    Type Type::get_void_type(void)
+    {
+        return Type(::get_void_type());
     }
 
     bool Type::is_integral_type() const
@@ -596,5 +601,24 @@ namespace TL
     bool Type::is_pod()
     {
         return ::is_pod_type(_type_info);
+    }
+
+    bool Type::is_unresolved_overload()
+    {
+        return ::is_unresolved_overloaded_type(_type_info);
+    }
+
+    ObjectList<Symbol> Type::get_unresolved_overload_set()
+    {
+        ObjectList<Symbol> result;
+        scope_entry_list_t* entry_list = ::unresolved_overloaded_type_get_overload_set(_type_info);
+
+        while (entry_list != NULL)
+        {
+            result.append(Symbol(entry_list->entry));
+            entry_list = entry_list->next;
+        }
+
+        return result;
     }
 }

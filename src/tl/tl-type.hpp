@@ -97,6 +97,9 @@ namespace TL
 
             //! Convenience function that returns a wrapped 'signed int'
             static Type get_int_type(void);
+            
+            //! Convenience function that returns a wrapped 'void'
+            static Type get_void_type(void);
 
             //! Returns a string with a declaration
             std::string get_simple_declaration(Scope sc, const std::string& symbol_name, 
@@ -318,6 +321,24 @@ namespace TL
             bool explicit_array_dimension() const;
             //! Returns the expression of the array dimension
             AST_t array_dimension() const;
+
+
+            //! States whether this type represents an unresolved overload type
+            /*! 
+              Unresolved overloads are expressions whose type cannot be
+              determine because they designate an overloaded function name
+              */
+            bool is_unresolved_overload();
+
+            //! Get the overload set
+            /*! For a type that is an unresolved overload type,
+              this returns the candidate function set. This is
+              useful when manually solving overloads
+              by means of Overload class.
+
+              \see Overload
+              */
+            ObjectList<Symbol> get_unresolved_overload_set();
 
             //! States whether the type is a dependent one
             /*!

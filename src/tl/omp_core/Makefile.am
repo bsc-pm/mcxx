@@ -19,4 +19,6 @@ libtlomp_core_la_SOURCES = \
    tl-omp-core.cpp \
    tl-omp.cpp \
    tl-omp.hpp \
+   tl-omp-udr.hpp \
+   tl-omp-udr.cpp \
    $(END)
