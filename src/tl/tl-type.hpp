@@ -186,6 +186,12 @@ namespace TL
 
             //! States whether this type is '_Complex' qualified
             bool is_complex() const;
+
+            //! States this type is POD
+            /*! 
+              Informally, in C++ terms, a POD types is something you could have
+              written in C */
+            bool is_pod();
             
             //! States wheter this is a direct type
             /*!

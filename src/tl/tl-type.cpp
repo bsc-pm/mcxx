@@ -592,4 +592,9 @@ namespace TL
 
         return Type(get_cv_qualified_type(type, cv));
     }
+
+    bool Type::is_pod()
+    {
+        return ::is_pod_type(_type_info);
+    }
 }
