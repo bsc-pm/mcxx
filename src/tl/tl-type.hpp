@@ -225,6 +225,33 @@ namespace TL
             //! For a typedef, it returns the aliased type
             Type aliased_type() const;
 
+            //! Advances over typedefs
+            /*! 
+              This function advances over a typedef as many times
+              as needed until it reaches a type that is not a typedef.
+              Note that this function does not combine cv-qualifiers
+              found while advancing typedefs. This is relevant
+              for cases like the one below:
+
+              \code
+              typedef int T;
+              typedef const T Q;
+              typedef volatile S;
+              \endcode
+
+              'S' would be simplified to 'int' while if cv-qualifiers
+              were properly considered it would be 'const volatile int'.
+              Use advance_over_typedefs_cv to get the properly cv-qualified
+              type.
+              */
+            Type advance_over_typedefs();
+
+            //! Advances over typedefs preserving cv-qualification
+            /*!
+              \see advance_over_typedefs
+             */
+            Type advance_over_typedefs_cv();
+
             //! States whether current type type is a function-type
             bool is_function() const;
             //! For a function-type, it gives the returned type
