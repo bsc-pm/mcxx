@@ -629,8 +629,35 @@ namespace TL
             _openmp_info->pop_current_data_sharing();
         }
 
-        static void is_builtin_operator(const std::string& str)
+        static std::string get_valid_zero_initializer(Type t)
         {
+            if (t.is_array())
+            {
+                return "{" + get_valid_zero_initializer(t.array_element()) + "}";
+            }
+            else if (t.is_class())
+            {
+                // Use the first one
+                return "{" + get_valid_zero_initializer(t.get_nonstatic_data_members()[0].get_type()) + "}";
+            }
+            else
+            {
+                return "0";
+            }
+        }
+
+        static std::string get_valid_value_initializer(Type t)
+        {
+            if (t.is_class())
+            {
+                if (!t.is_pod())
+                {
+                    // If it is not pod, default initialization should do the right thing
+                    return "";
+                }
+            }
+            // For most cases, get_valid_zero_initializer is enough
+            return get_valid_zero_initializer(t);
         }
 
         void Core::declare_reduction_handler_pre(PragmaCustomConstruct construct)
@@ -659,7 +686,6 @@ namespace TL
                 }
                 else if (str == "left")
                 {
-                    assoc = UDRInfoItem::LEFT;
                 }
                 else
                 {
@@ -702,6 +728,18 @@ namespace TL
                         std::string& op_name(*op_it);
 
                         trim_spaces(op_name);
+
+                        if (!identity_clause.is_defined())
+                        {
+                            C_LANGUAGE()
+                            {
+                                identity = get_valid_zero_initializer(type);
+                            }
+                            CXX_LANGUAGE()
+                            {
+                                identity = get_valid_value_initializer(type);
+                            }
+                        }
 
                         if (!udr_info_set.lookup_udr(op_name))
                         {
