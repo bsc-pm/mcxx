@@ -1,10 +1,33 @@
+#include "tl-omp-core.hpp"
 #include "tl-omp-udr.hpp"
+#include "tl-overload.hpp"
 #include "cxx-utils.h"
 
 namespace TL
 {
-    bool function_is_valid_udr_reductor_c(Type reduct_type, Symbol sym, OpenMP::UDRInfoItem::Associativity &assoc)
+    struct udr_valid_prototypes_t
     {
+        Type return_type;
+        Type first_arg;
+        Type second_arg;
+        OpenMP::UDRInfoItem::Associativity default_assoc;
+        bool allows_left;
+        bool allows_right;
+    };
+
+    struct udr_valid_member_prototypes_t
+    {
+        Type return_type;
+        Type first_arg;
+    };
+
+    static bool function_is_valid_udr_reductor_c(
+            ObjectList<udr_valid_prototypes_t>& valid_prototypes,
+            Symbol sym, 
+            OpenMP::UDRInfoItem::Associativity &assoc)
+    {
+        using OpenMP::UDRInfoItem;
+
         if (!sym.is_function())
             return false;
 
@@ -22,49 +45,24 @@ namespace TL
 
         Type return_type = function_type.returns();
 
-        Type ptr_reduct_type = reduct_type.get_pointer_to();
-
-        // FIXME - We need a way to get basic types
-        Type void_type = Type::get_void_type();
-
-        using OpenMP::UDRInfoItem;
-
-        struct valid_prototypes_tag
-        {
-            Type return_type;
-            Type first_arg;
-            Type second_arg;
-            UDRInfoItem::Associativity default_assoc;
-            bool allows_left;
-            bool allows_right;
-        } valid_prototypes[] =
-        {
-            { /* T f(T, T) */      reduct_type, reduct_type,     reduct_type,     /* default */ UDRInfoItem::LEFT,  /* left */ true,  /* right */ true  },
-            { /* T f(T*, T) */     reduct_type, ptr_reduct_type, reduct_type,     /* default */ UDRInfoItem::LEFT,  /* left */ true,  /* right */ true  },
-            { /* T f(T, T*) */     reduct_type, reduct_type,     ptr_reduct_type, /* default */ UDRInfoItem::LEFT,  /* left */ true,  /* right */ true  },
-            { /* T f(T*, T*) */    reduct_type, ptr_reduct_type, ptr_reduct_type, /* default */ UDRInfoItem::LEFT,  /* left */ true,  /* right */ true  },
-            { /* void f(T*, T) */  void_type, ptr_reduct_type,   reduct_type,     /* default */ UDRInfoItem::LEFT,  /* left */ true,  /* right */ false },
-            { /* void f(T, T*) */  void_type, reduct_type,       ptr_reduct_type, /* default */ UDRInfoItem::RIGHT, /* left */ false, /* right */ true  },
-            { /* void f(T*, T*) */ void_type, ptr_reduct_type,   ptr_reduct_type, /* default */ UDRInfoItem::LEFT,  /* left */ true,  /* right */ true  },
-            { /* sentinel */ Type(NULL), Type(NULL), Type(NULL) }
-        };
-
         // Remove qualifications since they do not play any role in this comparison
         parameter_types[0] = parameter_types[0].get_unqualified_type();
         parameter_types[1] = parameter_types[1].get_unqualified_type();
 
-        for (int i = 0; valid_prototypes[i].return_type.is_valid(); i++)
+        for (ObjectList<udr_valid_prototypes_t>::iterator it = valid_prototypes.begin(); 
+                it != valid_prototypes.end(); 
+                it++)
         {
-            if (return_type.is_same_type(valid_prototypes[i].return_type)
-                    && parameter_types[0].is_same_type(valid_prototypes[i].first_arg)
-                    && parameter_types[1].is_same_type(valid_prototypes[i].second_arg)
+            if (return_type.is_same_type(it->return_type)
+                    && parameter_types[0].is_same_type(it->first_arg)
+                    && parameter_types[1].is_same_type(it->second_arg)
                     && ((assoc == UDRInfoItem::UNDEFINED)
-                        || (assoc == UDRInfoItem::RIGHT && valid_prototypes[i].allows_right)
-                        || (assoc == UDRInfoItem::LEFT && valid_prototypes[i].allows_left)))
+                        || (assoc == UDRInfoItem::RIGHT && it->allows_right)
+                        || (assoc == UDRInfoItem::LEFT && it->allows_left)))
             {
                 if (assoc == UDRInfoItem::UNDEFINED)
                 {
-                    assoc = valid_prototypes[i].default_assoc;
+                    assoc = it->default_assoc;
                 }
                 return true;
             }
@@ -73,7 +71,12 @@ namespace TL
         return false;
     }
 
-    bool function_is_valid_udr_reductor_cxx(Type reduct_type, Symbol sym, OpenMP::UDRInfoItem::Associativity &assoc)
+    static bool function_is_valid_udr_reductor_cxx(
+            ObjectList<udr_valid_prototypes_t>& valid_prototypes,
+            ObjectList<udr_valid_member_prototypes_t>& valid_member_prototypes,
+            Type reduct_type,
+            Symbol sym, 
+            OpenMP::UDRInfoItem::Associativity &assoc)
     {
         if (!sym.is_function())
             return false;
@@ -87,10 +90,6 @@ namespace TL
 
         ObjectList<Type> parameter_types = function_type.parameters();
 
-        // FIXME - We need a way to get basic types
-        Type void_type(NULL);
-        Type ptr_reduct_type = reduct_type.get_pointer_to();
-        Type ref_reduct_type = reduct_type.get_reference_to();
 
         Type return_type = function_type.returns();
 
@@ -101,57 +100,29 @@ namespace TL
 
             using OpenMP::UDRInfoItem;
 
-            struct valid_prototypes_tag
-            {
-              Type return_type;
-              Type first_arg;
-              Type second_arg;
-              UDRInfoItem::Associativity default_assoc;
-              bool allows_left;
-              bool allows_right;
-            } valid_prototypes[] =
-            {
-             { /* T f(T, T) */      reduct_type, reduct_type,     reduct_type,      /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-             { /* T f(T*, T) */     reduct_type, ptr_reduct_type, reduct_type,      /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-             { /* T f(T, T*) */     reduct_type, reduct_type,     ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-             { /* T f(T*, T*) */    reduct_type, ptr_reduct_type, ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-
-             { /* void f(T*, T) */  void_type, ptr_reduct_type,   reduct_type,      /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ false },
-             { /* void f(T, T*) */  void_type, reduct_type,       ptr_reduct_type,  /* default */ UDRInfoItem::RIGHT, /* left */ false, /* right */ true  },
-             { /* void f(T*, T*) */ void_type, ptr_reduct_type,   ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-
-             { /* T f(T&, T) */     reduct_type, ref_reduct_type, reduct_type,      /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-             { /* T f(T, T&) */     reduct_type, reduct_type,     ref_reduct_type,  /* default */ UDRInfoItem::RIGHT, /* left */ true,  /* right */ true  },
-             { /* T f(T&, T&) */    reduct_type, ref_reduct_type, ref_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-
-             { /* T f(T&, T*) */    reduct_type, ref_reduct_type, ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-             { /* T f(T*, T&) */    reduct_type, ptr_reduct_type, ref_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-
-             { /* void f(T&, T) */  void_type, ref_reduct_type,   reduct_type,      /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ false },
-             { /* void f(T, T&) */  void_type, reduct_type,       ref_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ false, /* right */ true  },
-             { /* void f(T&, T&) */ void_type, ref_reduct_type,   ref_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-             { /* sentinel */ Type(NULL), Type(NULL), Type(NULL) }
-            };
-
             // Remove qualifications since they do not play any role in this comparison
             parameter_types[0] = parameter_types[0].get_unqualified_type();
             parameter_types[1] = parameter_types[1].get_unqualified_type();
 
-            for (int i = 0; valid_prototypes[i].return_type.is_valid(); i++)
+            for (ObjectList<udr_valid_prototypes_t>::iterator it = valid_prototypes.begin(); 
+                    it != valid_prototypes.end(); 
+                    it++)
             {
-                if (return_type.is_same_type(valid_prototypes[i].return_type)
-                        && parameter_types[0].is_same_type(valid_prototypes[i].first_arg)
-                        && parameter_types[1].is_same_type(valid_prototypes[i].second_arg)
+                if (return_type.is_same_type(it->return_type)
+                        && parameter_types[0].is_same_type(it->first_arg)
+                        && parameter_types[1].is_same_type(it->second_arg)
                         && ((assoc == UDRInfoItem::UNDEFINED)
-                            || (assoc == UDRInfoItem::RIGHT && valid_prototypes[i].allows_right)
-                            || (assoc == UDRInfoItem::LEFT && valid_prototypes[i].allows_left)))
+                            || (assoc == UDRInfoItem::RIGHT && it->allows_right)
+                            || (assoc == UDRInfoItem::LEFT && it->allows_left)))
                 {
                     if (assoc == UDRInfoItem::UNDEFINED)
                     {
-                        assoc = valid_prototypes[i].default_assoc;
+                        assoc = it->default_assoc;
                     }
+                    return true;
                 }
             }
+
         }
         else
         {
@@ -164,26 +135,15 @@ namespace TL
             if (!class_type.is_same_type(reduct_type))
                 return false;
 
-            struct valid_prototypes_tag
-            {
-                Type return_type;
-                Type first_arg;
-            } valid_prototypes[] =
-            {
-                { /* void f(T) */  void_type, reduct_type      },
-                { /* void f(T*) */  void_type, ptr_reduct_type },
-                { /* void f(T&) */ void_type, ref_reduct_type  },
-
-                { /* sentinel */ Type(NULL), Type(NULL)        }
-            };
-
             // Remove qualifications since they do not play any role in this comparison
             parameter_types[0] = parameter_types[0].get_unqualified_type();
 
-            for (int i = 0; valid_prototypes[i].return_type.is_valid(); i++)
+            for (ObjectList<udr_valid_member_prototypes_t>::iterator it = valid_member_prototypes.begin();
+                    it != valid_member_prototypes.end();
+                    it++)
             {
-                if (return_type.is_same_type(valid_prototypes[i].return_type)
-                        && parameter_types[0].is_same_type(valid_prototypes[i].first_arg))
+                if (return_type.is_same_type(it->return_type)
+                        && parameter_types[0].is_same_type(it->first_arg))
                     return true;
             }
         }
@@ -202,5 +162,569 @@ namespace TL
                 || op_name == "^"
                 || op_name == "&&"
                 || op_name == "||");
+    }
+
+    static ObjectList<udr_valid_prototypes_t> get_valid_prototypes_c(Type reduct_type)
+    {
+        using OpenMP::UDRInfoItem;
+
+        Type void_type = Type::get_void_type();
+        Type ptr_reduct_type = reduct_type.get_pointer_to();
+        Type ref_reduct_type = reduct_type.get_reference_to();
+
+        udr_valid_prototypes_t valid_prototypes[] = 
+        {
+            { /* T f(T, T) */      reduct_type, reduct_type,     reduct_type,     /* default */ UDRInfoItem::LEFT,  /* left */ true,  /* right */ true  },
+            { /* T f(T*, T) */     reduct_type, ptr_reduct_type, reduct_type,     /* default */ UDRInfoItem::LEFT,  /* left */ true,  /* right */ true  },
+            { /* T f(T, T*) */     reduct_type, reduct_type,     ptr_reduct_type, /* default */ UDRInfoItem::LEFT,  /* left */ true,  /* right */ true  },
+            { /* T f(T*, T*) */    reduct_type, ptr_reduct_type, ptr_reduct_type, /* default */ UDRInfoItem::LEFT,  /* left */ true,  /* right */ true  },
+            { /* void f(T*, T) */  void_type, ptr_reduct_type,   reduct_type,     /* default */ UDRInfoItem::LEFT,  /* left */ true,  /* right */ false },
+            { /* void f(T, T*) */  void_type, reduct_type,       ptr_reduct_type, /* default */ UDRInfoItem::RIGHT, /* left */ false, /* right */ true  },
+            { /* void f(T*, T*) */ void_type, ptr_reduct_type,   ptr_reduct_type, /* default */ UDRInfoItem::LEFT,  /* left */ true,  /* right */ true  } 
+        };
+
+        return ObjectList<udr_valid_prototypes_t>(valid_prototypes);
+    }
+
+    static ObjectList<udr_valid_prototypes_t> get_valid_prototypes_cxx(Type reduct_type)
+    {
+        using OpenMP::UDRInfoItem;
+
+        Type void_type = Type::get_void_type();
+        Type ptr_reduct_type = reduct_type.get_pointer_to();
+        Type ref_reduct_type = reduct_type.get_reference_to();
+
+        udr_valid_prototypes_t valid_prototypes[] =
+        {
+            { /* T f(T, T) */      reduct_type, reduct_type,     reduct_type,      /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+            { /* T f(T*, T) */     reduct_type, ptr_reduct_type, reduct_type,      /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+            { /* T f(T, T*) */     reduct_type, reduct_type,     ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+            { /* T f(T*, T*) */    reduct_type, ptr_reduct_type, ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+
+            { /* void f(T*, T) */  void_type, ptr_reduct_type,   reduct_type,      /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ false },
+            { /* void f(T, T*) */  void_type, reduct_type,       ptr_reduct_type,  /* default */ UDRInfoItem::RIGHT, /* left */ false, /* right */ true  },
+            { /* void f(T*, T*) */ void_type, ptr_reduct_type,   ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+
+            { /* T f(T&, T) */     reduct_type, ref_reduct_type, reduct_type,      /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+            { /* T f(T, T&) */     reduct_type, reduct_type,     ref_reduct_type,  /* default */ UDRInfoItem::RIGHT, /* left */ true,  /* right */ true  },
+            { /* T f(T&, T&) */    reduct_type, ref_reduct_type, ref_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+
+            { /* T f(T&, T*) */    reduct_type, ref_reduct_type, ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+            { /* T f(T*, T&) */    reduct_type, ptr_reduct_type, ref_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+
+            { /* void f(T&, T) */  void_type, ref_reduct_type,   reduct_type,      /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ false },
+            { /* void f(T, T&) */  void_type, reduct_type,       ref_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ false, /* right */ true  },
+            { /* void f(T&, T&) */ void_type, ref_reduct_type,   ref_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+        };
+
+        return ObjectList<udr_valid_prototypes_t>(valid_prototypes);
+    }
+
+    static ObjectList<udr_valid_member_prototypes_t> get_valid_member_prototypes_cxx(Type reduct_type)
+    {
+        using OpenMP::UDRInfoItem;
+
+        Type void_type = Type::get_void_type();
+        Type ptr_reduct_type = reduct_type.get_pointer_to();
+        Type ref_reduct_type = reduct_type.get_reference_to();
+
+        udr_valid_member_prototypes_t valid_prototypes[] =
+            {
+                { /* void f(T) */  void_type, reduct_type      },
+                { /* void f(T*) */  void_type, ptr_reduct_type },
+                { /* void f(T&) */ void_type, ref_reduct_type  }
+            };
+
+        return ObjectList<udr_valid_member_prototypes_t>(valid_prototypes);
+    }
+
+
+    void initialize_builtin_udr_reductions(Scope global_scope)
+    {
+        using OpenMP::UDRInfoItem;
+        using OpenMP::UDRInfoSet;
+
+        static bool already_initialized = false;
+
+        if (already_initialized)
+            return;
+
+        already_initialized = true;
+
+        // FIXME - There should be a way to get these without using internal type info
+        // See http://nanos.ac.upc.edu/projects/mcxx/ticket/89
+        type_t* all_arithmetic_types[] =
+        {
+            get_char_type(),
+            get_signed_int_type(),
+            get_signed_short_int_type(),
+            get_signed_long_int_type(),
+            get_signed_long_long_int_type(),
+            get_signed_char_type(),
+            get_unsigned_int_type(),
+            get_unsigned_short_int_type(),
+            get_unsigned_long_int_type(),
+            get_unsigned_long_long_int_type(),
+            get_unsigned_char_type(),
+            get_float_type(),
+            get_double_type(),
+            get_long_double_type(),
+            NULL,
+        };
+
+        typedef struct 
+        {
+            const char* operator_name;
+            const char* neuter_tree;
+        } reduction_info_t; 
+
+        const char* zero = "0";
+        const char* one = "1";
+        const char* neg_zero = "~0";
+
+        reduction_info_t builtin_arithmetic_operators[] =
+        {
+            {"+", zero}, 
+            {"-", zero}, 
+            {"*", one}, 
+            {NULL, NULL}
+        };
+
+        reduction_info_t builtin_logic_bit_operators[] =
+        {
+            {"&", neg_zero}, 
+            {"|", zero}, 
+            {"^", zero}, 
+            {"&&", one}, 
+            {"||", zero}, 
+            {NULL, NULL}
+        };
+
+        int i;
+        type_t* type;
+        for (i = 0; (type = all_arithmetic_types[i]) != NULL; i++)
+        {
+            int j;
+            for (j = 0; builtin_arithmetic_operators[j].operator_name != NULL; j++)
+            {
+                UDRInfoSet udr_info_set(global_scope, Type(type));
+                udr_info_set.add_udr(
+                        UDRInfoItem(Type(type),
+                            builtin_arithmetic_operators[j].operator_name,
+                            builtin_arithmetic_operators[j].neuter_tree,
+                            UDRInfoItem::LEFT,
+                            /* is_commutative */ true));
+            }
+            if (is_integral_type(type))
+            {
+                for (j = 0; builtin_logic_bit_operators[j].operator_name != NULL; j++)
+                {
+                    UDRInfoSet udr_info_set(global_scope, Type(type));
+                    udr_info_set.add_udr(
+                            UDRInfoItem(Type(type),
+                                builtin_logic_bit_operators[j].operator_name,
+                                builtin_logic_bit_operators[j].neuter_tree,
+                                UDRInfoItem::LEFT,
+                                /* is_commutative */ true));
+                }
+            }
+        }
+    }
+
+    static void trim_spaces(std::string& str)
+    {
+        // Trim Both leading and trailing spaces
+        size_t startpos = str.find_first_not_of(" \t"); // Find the first character position after excluding leading blank spaces
+        size_t endpos = str.find_last_not_of(" \t"); // Find the first character position from reverse af
+
+        // if all spaces or empty return an empty string
+        if((std::string::npos == startpos) || (std::string::npos == endpos))
+        {
+            str = "";
+        }
+        else
+            str = str.substr( startpos, endpos-startpos+1 );
+    }
+
+    static std::string get_valid_zero_initializer(Type t)
+    {
+        if (t.is_array())
+        {
+            return "{" + get_valid_zero_initializer(t.array_element()) + "}";
+        }
+        else if (t.is_class())
+        {
+            // Use the first one
+            return "{" + get_valid_zero_initializer(t.get_nonstatic_data_members()[0].get_type()) + "}";
+        }
+        else
+        {
+            return "0";
+        }
+    }
+
+    static std::string get_valid_value_initializer(Type t)
+    {
+        if (t.is_class())
+        {
+            if (!t.is_pod())
+            {
+                // If it is not pod, default initialization should do the right thing
+                return "";
+            }
+        }
+        // For most cases, get_valid_zero_initializer is enough
+        return get_valid_zero_initializer(t);
+    }
+
+    namespace OpenMP
+    {
+
+        void Core::declare_reduction_handler_pre(PragmaCustomConstruct construct)
+        {
+            // UDRInfoSet udr_info_set(construct.get_scope())
+
+            // #pragma omp declare reduction type(type-name-list) operator(op-name-list) order(left|right) commutative
+            ScopeLink scope_link = construct.get_scope_link();
+
+            PragmaCustomClause type_clause = construct.get_clause("type");
+            // Do NOT tokenize this one
+            ObjectList<std::string> type_args = type_clause.get_arguments();
+
+            PragmaCustomClause operator_clause = construct.get_clause("operator");
+            ObjectList<std::string> op_args = operator_clause.get_arguments(ExpressionTokenizer());
+
+            PragmaCustomClause order_clause = construct.get_clause("order");
+            UDRInfoItem::Associativity assoc = UDRInfoItem::UNDEFINED;
+            if (order_clause.is_defined())
+            {
+                std::string str = order_clause.get_arguments(ExpressionTokenizer())[0];
+
+                if (str == "right")
+                {
+                    assoc = UDRInfoItem::RIGHT;
+                }
+                else if (str == "left")
+                {
+                }
+                else
+                {
+                    std::cerr << construct.get_ast().get_locus() 
+                        << ": warning: ignoring invalid 'order' clause argument." 
+                        << std::endl;
+                }
+            }
+
+            PragmaCustomClause identity_clause = construct.get_clause("identity");
+            std::string identity("");
+            if (identity_clause.is_defined())
+            {
+                identity = identity_clause.get_arguments(ExpressionTokenizer())[0];
+            }
+
+            PragmaCustomClause commutative_clause = construct.get_clause("commutative");
+            bool is_commutative = commutative_clause.is_defined();
+
+            for (ObjectList<std::string>::iterator type_it = type_args.begin();
+                    type_it != type_args.end();
+                    type_it++)
+            {
+                Source src(*type_it);
+
+                ObjectList<Type> type_list = src.parse_type_list(construct.get_ast(), construct.get_scope_link());
+
+                for (ObjectList<Type>::iterator type_it = type_list.begin();
+                        type_it != type_list.end();
+                        type_it++)
+                {
+                    Type &reduction_type(*type_it);
+
+                    // Remove any cv-qualifications
+                    reduction_type = reduction_type.advance_over_typedefs().get_unqualified_type();
+                    if (reduction_type.is_reference())
+                    {
+                        reduction_type = reduction_type.references_to();
+                    }
+
+                    UDRInfoSet udr_info_set(construct.get_scope(), reduction_type);
+
+                    for (ObjectList<std::string>::iterator op_it = op_args.begin();
+                            op_it != op_args.end();
+                            op_it++)
+                    {
+                        std::string& op_name(*op_it);
+
+                        trim_spaces(op_name);
+
+                        // Perform lookup and further checking
+                        C_LANGUAGE()
+                        {
+                            Symbol reductor_sym = construct.get_scope().get_symbol_from_name(op_name);
+
+                            if (!reductor_sym.is_valid())
+                            {
+                                running_error("%s: error: reduction operator '%s' not found in the current scope",
+                                        construct.get_ast().get_locus().c_str(),
+                                        op_name.c_str());
+                            }
+
+                            ObjectList<udr_valid_prototypes_t> valid_prototypes = get_valid_prototypes_c(reduction_type);
+
+                            if (!function_is_valid_udr_reductor_c(valid_prototypes, reductor_sym, assoc))
+                            {
+                                std::cerr << construct.get_ast().get_locus() 
+                                    << ": warning: reduction operator '" << op_name << "' does not meet "
+                                    << "OpenMP reduction operator requirements" 
+                                    << std::endl;
+                            }
+
+                            op_name = reductor_sym.get_name();
+                        }
+
+                        CXX_LANGUAGE()
+                        {
+                            // Fix the names as needed
+                            Symbol op_symbol(NULL);
+                            if (op_name[0] == '.')
+                            {
+                                // Fix the name if possible
+                                if (reduction_type.is_class() || reduction_type.is_dependent())
+                                {
+                                    // Qualify the name
+                                    op_name = reduction_type.get_declaration(construct.get_scope(), "") + "::" + op_name;
+                                }
+                                else
+                                {
+                                    running_error("%s: error: reduction operator specification '%s' is not valid for non-class type '%s'\n",
+                                            construct.get_ast().get_locus().c_str(),
+                                            op_name.c_str(),
+                                            reduction_type.get_declaration(construct.get_scope(), "").c_str());
+                                }
+                            }
+
+                            if (udr_is_builtin_operator(op_name))
+                            {
+                                // Builtin operators require a bit more of work
+                                op_name = "operator " + op_name;
+
+                                // First attempt a member search
+                                Source src;
+                                src <<  reduction_type.get_declaration(construct.get_scope(), "") << "::" << op_name;
+
+                                AST_t tree = src.parse_expression(construct.get_ast(), construct.get_scope_link(), 
+                                        // Do not nag the user if this attempt fails
+                                        Source::DO_NOT_CHECK_EXPRESSION); 
+                                Expression expr(tree, construct.get_scope_link());
+
+                                if (!expr.get_type().is_valid())
+                                {
+                                    // Attempt a second lookup, this time in the current scope
+                                    src = op_name;
+                                    tree = src.parse_expression(construct.get_ast(), construct.get_scope_link());
+
+                                    expr = Expression(tree, construct.get_scope_link());
+
+                                    if (!expr.get_type().is_valid())
+                                    {
+                                        running_error("%s: invalid reduction operator '%s'",
+                                                construct.get_ast().get_locus().c_str(),
+                                                op_name.c_str());
+                                    }
+                                }
+
+                                if (expr.is_id_expression())
+                                {
+                                    IdExpression id_expr = expr.get_id_expression();
+                                    op_symbol = id_expr.get_symbol();
+                                }
+                                else
+                                {
+                                    running_error("%s: invalid reduction operator '%s' since it is not an id-expression",
+                                            construct.get_ast().get_locus().c_str(),
+                                            op_name.c_str());
+                                }
+                            }
+                            else
+                            {
+                                // Parse it to cause a scope search when typechecking
+                                Source src = op_name;
+
+                                AST_t expr_tree = src.parse_expression(construct.get_ast(), construct.get_scope_link());
+                                Expression expr(expr_tree, construct.get_scope_link());
+
+                                if (!expr.get_type().is_valid())
+                                {
+                                    running_error("%s: invalid reduction operator '%s'",
+                                            construct.get_ast().get_locus().c_str(),
+                                            op_name.c_str());
+                                }
+
+                                if (expr.is_id_expression())
+                                {
+                                    IdExpression id_expr = expr.get_id_expression();
+                                    op_symbol = id_expr.get_symbol();
+                                }
+                                else
+                                {
+                                    running_error("%s: invalid reduction operator '%s' since it is not an id-expression",
+                                            construct.get_ast().get_locus().c_str(),
+                                            op_name.c_str());
+                                }
+                            }
+
+                            Type op_symbol_type = op_symbol.get_type();
+
+                            if (op_symbol_type.is_unresolved_overload())
+                            {
+                                ObjectList<udr_valid_prototypes_t> valid_prototypes 
+                                    = get_valid_prototypes_c(reduction_type);
+                                ObjectList<udr_valid_member_prototypes_t> valid_member_prototypes 
+                                    = get_valid_member_prototypes_cxx(reduction_type);
+
+                                ObjectList<Symbol> overload_set = op_symbol_type.get_unresolved_overload_set();
+
+                                bool found_valid = false;
+
+                                // First the set of nonmembers
+                                for (ObjectList<udr_valid_prototypes_t>::iterator it = valid_prototypes.begin();
+                                        it != valid_prototypes.end();
+                                        it++)
+                                {
+                                    ObjectList<Type> arguments;
+                                    arguments.append(it->first_arg);
+                                    arguments.append(it->second_arg);
+
+                                    bool valid = false;
+                                    ObjectList<Symbol> argument_conversor;
+                                    Symbol solved_sym = Overload::solve(
+                                            overload_set,
+                                            Type(NULL), // No implicit
+                                            arguments,
+                                            construct.get_ast().get_file(),
+                                            construct.get_ast().get_line(),
+                                            valid,
+                                            argument_conversor);
+
+                                    if (valid 
+                                            && function_is_valid_udr_reductor_cxx(valid_prototypes, valid_member_prototypes, 
+                                                reduction_type, solved_sym, assoc))
+                                    {
+                                        found_valid = true;
+                                        op_symbol = solved_sym;
+                                    }
+                                    else
+                                    {
+                                        running_error("%s: error: reduction operator '%s' and '%s' both meet the requeriments of OpenMP",
+                                                op_symbol.get_type().get_declaration(op_symbol.get_scope(), 
+                                                    op_symbol.get_qualified_name(op_symbol.get_scope())).c_str(),
+                                                solved_sym.get_type().get_declaration(solved_sym.get_scope(), 
+                                                    solved_sym.get_qualified_name(op_symbol.get_scope())).c_str());
+                                    }
+
+                                    // FIXME - What about members!!!
+                                }
+
+                                if (!found_valid
+                                        && reduction_type.is_named_class())
+                                {
+                                    // Do likewise for members this time
+                                    for (ObjectList<udr_valid_member_prototypes_t>::iterator it = valid_member_prototypes.begin();
+                                            it != valid_member_prototypes.end();
+                                            it++)
+                                    {
+                                        ObjectList<Type> arguments;
+                                        arguments.append(it->first_arg);
+
+                                        bool valid = false;
+                                        ObjectList<Symbol> argument_conversor;
+                                        Symbol solved_sym = Overload::solve(
+                                                overload_set,
+                                                reduction_type, // implicit argument
+                                                arguments,
+                                                construct.get_ast().get_file(),
+                                                construct.get_ast().get_line(),
+                                                valid,
+                                                argument_conversor);
+
+                                        if (valid 
+                                                && function_is_valid_udr_reductor_cxx(valid_prototypes, valid_member_prototypes, 
+                                                    reduction_type, solved_sym, assoc))
+                                        {
+                                            found_valid = true;
+                                            op_symbol = solved_sym;
+                                        }
+                                        else
+                                        {
+                                            running_error("%s: error: reduction operator '%s' and '%s' both meet the requeriments of OpenMP",
+                                                    op_symbol.get_type().get_declaration(op_symbol.get_scope(), 
+                                                        op_symbol.get_qualified_name(op_symbol.get_scope())).c_str(),
+                                                    solved_sym.get_type().get_declaration(solved_sym.get_scope(), 
+                                                        solved_sym.get_qualified_name(solved_sym.get_scope())).c_str());
+                                        }
+                                    }
+                                }
+
+                                if (!found_valid)
+                                {
+                                    std::cerr << construct.get_ast().get_locus() 
+                                        << ": warning: reduction operator '" << op_name << "' does not meet "
+                                        << "OpenMP reduction operator requirements" 
+                                        << std::endl;
+
+                                    for (ObjectList<Symbol>::iterator it = overload_set.begin();
+                                            it != overload_set.end();
+                                            it++)
+                                    {
+                                        std::cerr << construct.get_ast().get_locus()
+                                            << ": note: '" << it->get_type().get_declaration(it->get_scope(), 
+                                                    it->get_qualified_name(it->get_scope())) << "' is not an eligible operator" 
+                                            << " for type '" << reduction_type.get_declaration(construct.get_scope(), "") << "'"
+                                            << std::endl;
+                                    }
+                                }
+                            }
+                            else if (op_symbol_type.is_dependent())
+                            {
+                                // Do nothing but trust the programmer
+                            }
+                            else
+                            {
+                                internal_error("Code unreachable", 0);
+                            }
+                        }
+
+                        if (!identity_clause.is_defined())
+                        {
+                            C_LANGUAGE()
+                            {
+                                identity = get_valid_zero_initializer(reduction_type);
+                            }
+                            CXX_LANGUAGE()
+                            {
+                                identity = get_valid_value_initializer(reduction_type);
+                            }
+                        }
+
+                        if (!udr_info_set.lookup_udr(op_name))
+                        {
+                            std::cerr << "INTRODUCING UDR FOR '" << op_name << "' reduction_type '" 
+                                << reduction_type.get_declaration(construct.get_scope_link().get_scope(construct.get_ast()), "")
+                                << "'"
+                                << std::endl;
+                            udr_info_set.add_udr(UDRInfoItem(reduction_type, op_name, identity, assoc, is_commutative));
+                        }
+                        else
+                        {
+                            running_error("%s: error: user defined reduction for reduction_type '%s' and operator '%s' already defined",
+                                    construct.get_ast().get_locus().c_str(),
+                                    reduction_type.get_declaration(construct.get_scope_link().get_scope(construct.get_ast()), "").c_str());
+                        }
+                    }
+                }
+            }
+        }
+
+        void Core::declare_reduction_handler_post(PragmaCustomConstruct construct) { }
+
     }
 }

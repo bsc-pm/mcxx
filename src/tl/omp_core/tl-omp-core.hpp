@@ -54,10 +54,7 @@ namespace TL
 
                 virtual ~Core() { }
         };
-
     }
 }
-
-EXPORT_PHASE(TL::OpenMP::Core)
 
 #endif // TL_OMP_CORE_HPP
