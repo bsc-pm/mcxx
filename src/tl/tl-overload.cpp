@@ -1,5 +1,6 @@
 #include "tl-overload.hpp"
 #include "cxx-overload.h"
+#include "cxx-exprtype.h"
 
 namespace TL
 {
@@ -11,6 +12,15 @@ namespace TL
             free_scope_entry_list(entry->next);
         }
         delete entry;
+    }
+
+    static void c_free_scope_entry_list(scope_entry_list_t* entry)
+    {
+        if (entry->next != NULL)
+        {
+            c_free_scope_entry_list(entry->next);
+        }
+        free(entry);
     }
 
     Symbol Overload::solve(
@@ -30,7 +40,7 @@ namespace TL
             return Symbol(NULL);
         }
 
-        scope_entry_list_t* candidate_list = NULL;
+        scope_entry_list_t* first_candidate_list = NULL;
         
         // Build the candidates list
         for (ObjectList<Symbol>::iterator it = candidate_functions.begin();
@@ -41,10 +51,12 @@ namespace TL
 
             scope_entry_list_t* new_item = new scope_entry_list_t;
             new_item->entry = sym.get_internal_symbol();
-            new_item->next = candidate_list;
+            new_item->next = first_candidate_list;
 
-            candidate_list = new_item;
+            first_candidate_list = new_item;
         }
+
+
 
         // Build the type array
         int i, N = argument_types.size();
@@ -58,6 +70,15 @@ namespace TL
         // Now we need a decl_context_t but we were not given any explicitly,
         // use the one of the first candidate
         decl_context_t decl_context = candidate_functions[0].get_scope().get_decl_context();
+
+        // Unfold and mix!
+        scope_entry_list_t* candidate_list = NULL;
+        candidate_list = unfold_and_mix_candidate_functions(first_candidate_list,
+                NULL /* builtins */,
+                &argument_types_array[1], N - 1,
+                decl_context,
+                filename.c_str(), line,
+                NULL /* explicit template arguments */);
 
         // We also need a scope_entry_t** for holding the conversor argument
         scope_entry_t** conversor_per_argument = new scope_entry_t*[argument_types.size()];
@@ -88,7 +109,11 @@ namespace TL
         delete[] argument_types_array;
 
         // Free the scope entry list
-        free_scope_entry_list(candidate_list);
+        // This one was allocated in C
+        c_free_scope_entry_list(candidate_list);
+
+        // This one has been allocated above
+        free_scope_entry_list(first_candidate_list);
 
         return Symbol(entry_result);
     }
