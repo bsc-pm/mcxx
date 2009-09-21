@@ -87,6 +87,12 @@ class ObjectList : public std::vector<T>, public TL::Object
         {
         }
 
+        template <int _N>
+        ObjectList(T (&v)[_N])
+         : std::vector<T>(v, v + _N)
+        {
+        }
+
         virtual ~ObjectList()
         {
         }
