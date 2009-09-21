@@ -7,20 +7,20 @@ namespace TL
 
     static void free_scope_entry_list(scope_entry_list_t* entry)
     {
-        if (entry->next != NULL)
+        if (entry != NULL)
         {
             free_scope_entry_list(entry->next);
+            delete entry;
         }
-        delete entry;
     }
 
     static void c_free_scope_entry_list(scope_entry_list_t* entry)
     {
-        if (entry->next != NULL)
+        if (entry != NULL)
         {
             c_free_scope_entry_list(entry->next);
+            free(entry);
         }
-        free(entry);
     }
 
     Symbol Overload::solve(
