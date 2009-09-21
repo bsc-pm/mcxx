@@ -30,6 +30,7 @@ namespace TL
             const std::string filename,
             int line,
             bool &valid, 
+            ObjectList<Symbol>& viable_functions,
             ObjectList<Symbol>& argument_conversor)
     {
         valid = false;
@@ -79,6 +80,15 @@ namespace TL
                 decl_context,
                 filename.c_str(), line,
                 NULL /* explicit template arguments */);
+
+        {
+            scope_entry_list_t* iter = candidate_list;
+            while (iter != NULL)
+            {
+                viable_functions.append(iter->entry);
+                iter = iter->next;
+            }
+        }
 
         // We also need a scope_entry_t** for holding the conversor argument
         scope_entry_t** conversor_per_argument = new scope_entry_t*[argument_types.size()];

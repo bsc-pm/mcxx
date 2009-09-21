@@ -131,12 +131,15 @@ namespace TL
                 {
                     bool current_valid = false;
                     ObjectList<Symbol> argument_conversor_list;
+                    ObjectList<Symbol> viable_functs;
                     Symbol current_op_sym;
                     current_op_sym = Overload::solve(sym_list, 
                             /* no implicit at the time */ Type(NULL),
                             argument_types_list[i],
                             /* No location info available */ "", 0,
-                            current_valid, argument_conversor_list);
+                            current_valid, 
+                            viable_functs,
+                            argument_conversor_list);
 
                     if (current_valid)
                     {

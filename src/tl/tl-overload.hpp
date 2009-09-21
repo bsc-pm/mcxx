@@ -31,6 +31,7 @@ namespace TL
           is used for potential instantiations
           \p valid States if the overload succeeded. If this boolean is true, then the returning
           Symbol is meaningful. Otherwise the returning Symbol will not be valid.
+          \p viable_functions Is the list actually used when performing overload, it includes all deduced specialized templates
           \p argument_conversor A list of symbols, with the same number of elements as argument_types, 
           with conversors used for a overload. If no conversor is used for that argument the Symbol
           is not valid.
@@ -42,6 +43,7 @@ namespace TL
                 const std::string filename,
                 int line,
                 bool &valid, 
+                ObjectList<Symbol>& viable_functions,
                 ObjectList<Symbol>& argument_conversor);
     };
 };

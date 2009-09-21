@@ -477,14 +477,11 @@ namespace TL
                                     << "OpenMP reduction operator requirements" 
                                     << std::endl;
                             }
-
-                            op_name = reductor_sym.get_name();
                         }
 
                         CXX_LANGUAGE()
                         {
                             // Fix the names as needed
-                            Symbol op_symbol(NULL);
                             if (op_name[0] == '.')
                             {
                                 // Fix the name if possible
@@ -501,6 +498,8 @@ namespace TL
                                             reduction_type.get_declaration(construct.get_scope(), "").c_str());
                                 }
                             }
+
+                            Type op_symbol_type(NULL);
 
                             if (udr_is_builtin_operator(op_name))
                             {
@@ -531,11 +530,15 @@ namespace TL
                                                 op_name.c_str());
                                     }
                                 }
+                                else
+                                {
+                                    // Use the full name
+                                    op_name = src;
+                                }
 
                                 if (expr.is_id_expression())
                                 {
-                                    IdExpression id_expr = expr.get_id_expression();
-                                    op_symbol = id_expr.get_symbol();
+                                    op_symbol_type = expr.get_type();
                                 }
                                 else
                                 {
@@ -561,8 +564,7 @@ namespace TL
 
                                 if (expr.is_id_expression())
                                 {
-                                    IdExpression id_expr = expr.get_id_expression();
-                                    op_symbol = id_expr.get_symbol();
+                                    op_symbol_type = expr.get_type();
                                 }
                                 else
                                 {
@@ -571,8 +573,6 @@ namespace TL
                                             op_name.c_str());
                                 }
                             }
-
-                            Type op_symbol_type = op_symbol.get_type();
 
                             if (op_symbol_type.is_unresolved_overload())
                             {
@@ -584,6 +584,7 @@ namespace TL
                                 ObjectList<Symbol> overload_set = op_symbol_type.get_unresolved_overload_set();
 
                                 bool found_valid = false;
+                                Symbol op_symbol(NULL);
 
                                 // First the set of nonmembers
                                 for (ObjectList<udr_valid_prototypes_t>::iterator it = valid_prototypes.begin();
@@ -596,6 +597,7 @@ namespace TL
 
                                     bool valid = false;
                                     ObjectList<Symbol> argument_conversor;
+                                    ObjectList<Symbol> viable_functs;
                                     Symbol solved_sym = Overload::solve(
                                             overload_set,
                                             Type(NULL), // No implicit
@@ -603,22 +605,26 @@ namespace TL
                                             construct.get_ast().get_file(),
                                             construct.get_ast().get_line(),
                                             valid,
+                                            viable_functs,
                                             argument_conversor);
 
                                     if (valid 
                                             && function_is_valid_udr_reductor_cxx(valid_prototypes, valid_member_prototypes, 
                                                 reduction_type, solved_sym, assoc))
                                     {
-                                        found_valid = true;
-                                        op_symbol = solved_sym;
-                                    }
-                                    else
-                                    {
-                                        running_error("%s: error: reduction operator '%s' and '%s' both meet the requeriments of OpenMP",
-                                                op_symbol.get_type().get_declaration(op_symbol.get_scope(), 
-                                                    op_symbol.get_qualified_name(op_symbol.get_scope())).c_str(),
-                                                solved_sym.get_type().get_declaration(solved_sym.get_scope(), 
-                                                    solved_sym.get_qualified_name(op_symbol.get_scope())).c_str());
+                                        if (!found_valid)
+                                        {
+                                            found_valid = true;
+                                            op_symbol = solved_sym;
+                                        }
+                                        else
+                                        {
+                                            running_error("%s: error: reduction operator '%s' and '%s' both meet the requeriments of OpenMP",
+                                                    op_symbol.get_type().get_declaration(op_symbol.get_scope(), 
+                                                        op_symbol.get_qualified_name(op_symbol.get_scope())).c_str(),
+                                                    solved_sym.get_type().get_declaration(solved_sym.get_scope(), 
+                                                        solved_sym.get_qualified_name(op_symbol.get_scope())).c_str());
+                                        }
                                     }
 
                                     // FIXME - What about members!!!
@@ -637,6 +643,7 @@ namespace TL
 
                                         bool valid = false;
                                         ObjectList<Symbol> argument_conversor;
+                                        ObjectList<Symbol> viable_functs;
                                         Symbol solved_sym = Overload::solve(
                                                 overload_set,
                                                 reduction_type, // implicit argument
@@ -644,22 +651,26 @@ namespace TL
                                                 construct.get_ast().get_file(),
                                                 construct.get_ast().get_line(),
                                                 valid,
+                                                viable_functs,
                                                 argument_conversor);
 
                                         if (valid 
                                                 && function_is_valid_udr_reductor_cxx(valid_prototypes, valid_member_prototypes, 
                                                     reduction_type, solved_sym, assoc))
                                         {
-                                            found_valid = true;
-                                            op_symbol = solved_sym;
-                                        }
-                                        else
-                                        {
-                                            running_error("%s: error: reduction operator '%s' and '%s' both meet the requeriments of OpenMP",
-                                                    op_symbol.get_type().get_declaration(op_symbol.get_scope(), 
-                                                        op_symbol.get_qualified_name(op_symbol.get_scope())).c_str(),
-                                                    solved_sym.get_type().get_declaration(solved_sym.get_scope(), 
-                                                        solved_sym.get_qualified_name(solved_sym.get_scope())).c_str());
+                                            if (!found_valid)
+                                            {
+                                                found_valid = true;
+                                                op_symbol = solved_sym;
+                                            }
+                                            else
+                                            {
+                                                running_error("%s: error: reduction operator '%s' and '%s' both meet the requeriments of OpenMP",
+                                                        op_symbol.get_type().get_declaration(op_symbol.get_scope(), 
+                                                            op_symbol.get_qualified_name(op_symbol.get_scope())).c_str(),
+                                                        solved_sym.get_type().get_declaration(solved_sym.get_scope(), 
+                                                            solved_sym.get_qualified_name(solved_sym.get_scope())).c_str());
+                                            }
                                         }
                                     }
                                 }
@@ -685,11 +696,14 @@ namespace TL
                             }
                             else if (op_symbol_type.is_dependent())
                             {
-                                // Do nothing but trust the programmer
+                                // Do nothing but trust the programmer (!)
+                                // FIXME - Is this the flow we want?
+                                return;
                             }
                             else
                             {
-                                internal_error("Code unreachable", 0);
+                                std::cerr << construct.get_ast().get_locus() <<  ": error: operator '" 
+                                    << op_name << "' does not have function type" << std::endl;
                             }
                         }
 
@@ -707,9 +721,9 @@ namespace TL
 
                         if (!udr_info_set.lookup_udr(op_name))
                         {
-                            std::cerr << "INTRODUCING UDR FOR '" << op_name << "' reduction_type '" 
-                                << reduction_type.get_declaration(construct.get_scope_link().get_scope(construct.get_ast()), "")
-                                << "'"
+                            std::cerr << construct.get_ast().get_locus() << ": note: introducing user-defined reduction for type '"
+                                << reduction_type.get_declaration(construct.get_scope_link().get_scope(construct.get_ast()), "") << "'"
+                                << " and operator '" << op_name << "'"
                                 << std::endl;
                             udr_info_set.add_udr(UDRInfoItem(reduction_type, op_name, identity, assoc, is_commutative));
                         }
