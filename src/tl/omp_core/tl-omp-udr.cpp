@@ -168,9 +168,10 @@ namespace TL
     {
         using OpenMP::UDRInfoItem;
 
+        reduct_type = reduct_type.get_unqualified_type();
+
         Type void_type = Type::get_void_type();
         Type ptr_reduct_type = reduct_type.get_pointer_to();
-        Type ref_reduct_type = reduct_type.get_reference_to();
 
         udr_valid_prototypes_t valid_prototypes[] = 
         {
@@ -190,9 +191,13 @@ namespace TL
     {
         using OpenMP::UDRInfoItem;
 
+        reduct_type = reduct_type.get_unqualified_type();
+
         Type void_type = Type::get_void_type();
         Type ptr_reduct_type = reduct_type.get_pointer_to();
+        Type c_ptr_reduct_type = reduct_type.get_const_type().get_pointer_to();
         Type ref_reduct_type = reduct_type.get_reference_to();
+        Type c_ref_reduct_type = reduct_type.get_const_type().get_reference_to();
 
         udr_valid_prototypes_t valid_prototypes[] =
         {
@@ -201,20 +206,47 @@ namespace TL
             { /* T f(T, T*) */     reduct_type, reduct_type,     ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
             { /* T f(T*, T*) */    reduct_type, ptr_reduct_type, ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
 
+            // const-qualified versions
+            { /* T f(const T*, T) */ reduct_type, c_ptr_reduct_type, reduct_type,      /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+            { /* T f(T, const T*) */ reduct_type, reduct_type, c_ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+            { /* T f(const T*, T*) */reduct_type, c_ptr_reduct_type, ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+            { /* T f(const T*, const T*) */ reduct_type, c_ptr_reduct_type, c_ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+
             { /* void f(T*, T) */  void_type, ptr_reduct_type,   reduct_type,      /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ false },
             { /* void f(T, T*) */  void_type, reduct_type,       ptr_reduct_type,  /* default */ UDRInfoItem::RIGHT, /* left */ false, /* right */ true  },
             { /* void f(T*, T*) */ void_type, ptr_reduct_type,   ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+
+            // const-qualified versions
+            { /* void f(const T*, T*) */ void_type, ptr_reduct_type,   ptr_reduct_type,  /* default */ UDRInfoItem::RIGHT, /* left */ false,  /* right */ true  },
+            { /* void f(T*, const T*) */ void_type, ptr_reduct_type,   ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ false  },
 
             { /* T f(T&, T) */     reduct_type, ref_reduct_type, reduct_type,      /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
             { /* T f(T, T&) */     reduct_type, reduct_type,     ref_reduct_type,  /* default */ UDRInfoItem::RIGHT, /* left */ true,  /* right */ true  },
             { /* T f(T&, T&) */    reduct_type, ref_reduct_type, ref_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
 
+            // const-qualified versions
+            { /* T f(const T&, T) */ reduct_type, c_ref_reduct_type, reduct_type,      /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+            { /* T f(T, const T&) */ reduct_type, reduct_type, c_ref_reduct_type,  /* default */ UDRInfoItem::RIGHT, /* left */ true,  /* right */ true  },
+            { /* T f(const T&, const T&) */ reduct_type, c_ref_reduct_type, c_ref_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+
             { /* T f(T&, T*) */    reduct_type, ref_reduct_type, ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
             { /* T f(T*, T&) */    reduct_type, ptr_reduct_type, ref_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+
+            // const-qualified versions
+            { /* T f(const T&, T*) */ reduct_type, c_ref_reduct_type, ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+            { /* T f(T&, const T*) */ reduct_type, ref_reduct_type, c_ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+            { /* T f(const T&, const T*) */ reduct_type, c_ref_reduct_type, c_ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+            { /* T f(const T*, T&) */ reduct_type, c_ptr_reduct_type, ref_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+            { /* T f(T*, const T&) */ reduct_type, ptr_reduct_type, c_ref_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+            { /* T f(const T*, const T&) */ reduct_type, c_ptr_reduct_type, c_ref_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
 
             { /* void f(T&, T) */  void_type, ref_reduct_type,   reduct_type,      /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ false },
             { /* void f(T, T&) */  void_type, reduct_type,       ref_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ false, /* right */ true  },
             { /* void f(T&, T&) */ void_type, ref_reduct_type,   ref_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+
+            // const-qualified versions
+            { /* void f(const T&, T&) */ void_type, ref_reduct_type,   ref_reduct_type,  /* default */ UDRInfoItem::RIGHT, /* left */ false,  /* right */ true  },
+            { /* void f(T&, const T&) */ void_type, ref_reduct_type,   ref_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ false  },
         };
 
         return ObjectList<udr_valid_prototypes_t>(valid_prototypes);
@@ -577,7 +609,7 @@ namespace TL
                             if (op_symbol_type.is_unresolved_overload())
                             {
                                 ObjectList<udr_valid_prototypes_t> valid_prototypes 
-                                    = get_valid_prototypes_c(reduction_type);
+                                    = get_valid_prototypes_cxx(reduction_type);
                                 ObjectList<udr_valid_member_prototypes_t> valid_member_prototypes 
                                     = get_valid_member_prototypes_cxx(reduction_type);
 
@@ -617,17 +649,16 @@ namespace TL
                                             found_valid = true;
                                             op_symbol = solved_sym;
                                         }
-                                        else
+                                        else if (solved_sym != op_symbol)
                                         {
-                                            running_error("%s: error: reduction operator '%s' and '%s' both meet the requeriments of OpenMP",
+                                            running_error("%s: error: reduction operator '%s' and '%s' both meet the requirements of OpenMP",
+                                                    construct.get_ast().get_locus().c_str(),
                                                     op_symbol.get_type().get_declaration(op_symbol.get_scope(), 
                                                         op_symbol.get_qualified_name(op_symbol.get_scope())).c_str(),
                                                     solved_sym.get_type().get_declaration(solved_sym.get_scope(), 
                                                         solved_sym.get_qualified_name(op_symbol.get_scope())).c_str());
                                         }
                                     }
-
-                                    // FIXME - What about members!!!
                                 }
 
                                 if (!found_valid
@@ -663,9 +694,10 @@ namespace TL
                                                 found_valid = true;
                                                 op_symbol = solved_sym;
                                             }
-                                            else
+                                            else if (solved_sym != op_symbol)
                                             {
-                                                running_error("%s: error: reduction operator '%s' and '%s' both meet the requeriments of OpenMP",
+                                                running_error("%s: error: reduction operator '%s' and '%s' both meet the requirements of OpenMP",
+                                                        construct.get_ast().get_locus().c_str(),
                                                         op_symbol.get_type().get_declaration(op_symbol.get_scope(), 
                                                             op_symbol.get_qualified_name(op_symbol.get_scope())).c_str(),
                                                         solved_sym.get_type().get_declaration(solved_sym.get_scope(), 

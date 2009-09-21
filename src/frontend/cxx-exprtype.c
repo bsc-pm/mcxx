@@ -713,6 +713,7 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 break;
             }
         case AST_SYMBOL :
+        case AST_OPERATOR_FUNCTION_ID :
             {
                 decl_context_t symbol_decl_context;
                 result = check_for_symbol(expression, decl_context, &symbol_decl_context);
@@ -732,12 +733,6 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 decl_context_t symbol_decl_context;
                 AST symbol = ASTSon0(expression);
                 result = check_for_symbol(symbol, decl_context, &symbol_decl_context);
-                break;
-            }
-        case AST_OPERATOR_FUNCTION_ID :
-            {
-                decl_context_t symbol_decl_context;
-                result = check_for_symbol(expression, decl_context, &symbol_decl_context);
                 break;
             }
         case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
