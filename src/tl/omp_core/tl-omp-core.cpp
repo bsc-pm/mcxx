@@ -676,7 +676,7 @@ namespace TL
             ObjectList<std::string> op_args = operator_clause.get_arguments(ExpressionTokenizer());
 
             PragmaCustomClause order_clause = construct.get_clause("order");
-            UDRInfoItem::Associativity assoc = UDRInfoItem::LEFT;
+            UDRInfoItem::Associativity assoc = UDRInfoItem::UNDEFINED;
             if (order_clause.is_defined())
             {
                 std::string str = order_clause.get_arguments(ExpressionTokenizer())[0];
@@ -691,7 +691,7 @@ namespace TL
                 else
                 {
                     std::cerr << construct.get_ast().get_locus() 
-                        << ": warning: invalid 'order' clause argument, assuming 'left'" 
+                        << ": warning: ignoring invalid 'order' clause argument." 
                         << std::endl;
                 }
             }
@@ -749,7 +749,7 @@ namespace TL
                                         op_name.c_str());
                             }
 
-                            if (!function_is_valid_udr_reductor_c(reduction_type, reductor_sym))
+                            if (!function_is_valid_udr_reductor_c(reduction_type, reductor_sym, assoc))
                             {
                                 std::cerr << construct.get_ast().get_locus() 
                                     << ": warning: reduction operator '" << op_name << "' does not suit "
@@ -863,7 +863,7 @@ namespace TL
                             else
                             {
                                 // Perform a plain check
-                                if (!function_is_valid_udr_reductor_cxx(reduction_type, op_symbol))
+                                if (!function_is_valid_udr_reductor_cxx(reduction_type, op_symbol, assoc))
                                 {
                                     std::cerr << construct.get_ast().get_locus() 
                                         << ": warning: reduction operator '" << op_name << "' does not suit "

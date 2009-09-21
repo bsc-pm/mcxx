@@ -84,7 +84,8 @@ namespace TL
                 {
                     NONE = 0,
                     LEFT,
-                    RIGHT
+                    RIGHT,
+                    UNDEFINED,
                 };
             private:
                 Type _type;
