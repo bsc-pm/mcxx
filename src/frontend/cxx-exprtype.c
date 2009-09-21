@@ -208,7 +208,7 @@ scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
     return NULL;
 }
 
-static scope_entry_list_t* unfold_and_mix_candidate_functions(
+scope_entry_list_t* unfold_and_mix_candidate_functions(
         scope_entry_list_t* result_from_lookup,
         scope_entry_list_t* builtin_list,
         type_t** argument_types,

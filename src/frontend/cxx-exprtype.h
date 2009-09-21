@@ -59,6 +59,17 @@ LIBMCXX_EXTERN char check_zero_args_constructor(type_t* class_type, decl_context
 
 LIBMCXX_EXTERN unsigned long long exprtype_used_memory(void);
 
+LIBMCXX_EXTERN scope_entry_list_t* unfold_and_mix_candidate_functions(
+        scope_entry_list_t* result_from_lookup,
+        scope_entry_list_t* builtin_list,
+        type_t** argument_types,
+        int num_arguments,
+        decl_context_t decl_context,
+        const char *filename,
+        int line,
+        template_argument_list_t *explicit_template_arguments
+        );
+
 MCXX_END_DECLS
 
 #endif
