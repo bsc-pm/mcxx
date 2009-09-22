@@ -203,7 +203,6 @@ namespace TL
                     }
                     else
                     {
-
                         Symbol sym = expr.get_id_expression().get_symbol();
 
                         if (!sym.is_valid())
@@ -216,6 +215,7 @@ namespace TL
                                 ;
                         }
 
+                        Type reduct_type = sym.get_type().advance_over_typedefs().get_unqualified_type();
                         CXX_LANGUAGE()
                         {
                             // Fix the name for the operator
@@ -223,16 +223,36 @@ namespace TL
                             {
                                 reductor_name = "operator " + reductor_name;
                             }
+                            // We have to do some more work in C++ to have things working
+                            // First do a query in the scope to get all the named entities and then
+
+                            // This is bogus, only neede for the call to solve_udr_name_cxx
+                            UDRInfoItem::Associativity assoc = UDRInfoItem::UNDEFINED;
+
+                            Symbol reductor_symbol = solve_udr_name_cxx(construct,
+                                    reductor_name,
+                                    reduct_type,
+                                    assoc);
+
+                            if (reductor_symbol.is_valid())
+                            {
+                                reductor_name = reductor_symbol.get_qualified_name();
+                            }
+                            else
+                            {
+                                // FIXME - solve_udr_name_cxx should have a better interface for this case
+                                // This name is dependent, nothing to do here
+                                continue;
+                            }
                         }
 
-                        Type reduct_type = sym.get_type().advance_over_typedefs().get_unqualified_type();
                         ReductionSymbol red_sym(sym, reductor_name, UDRInfoSet(expr.get_scope(), reduct_type));
 
                         if (red_sym.is_faulty())
                         {
                             running_error("%s: error: user defined reduction for type '%s' and reductor '%s' not declared",
                                     expr.get_ast().get_locus().c_str(),
-                                    sym.get_type().get_declaration(sym.get_scope(), "").c_str(), 
+                                    reduct_type.get_declaration(sym.get_scope(), "").c_str(), 
                                     reductor_name.c_str());
                         }
 

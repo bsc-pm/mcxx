@@ -102,7 +102,7 @@ namespace TL
                         bool is_commutative)
                     : _type(type),
                     _op_symbol(op_symbol),
-                    _op_name(op_symbol.get_name()),
+                    _op_name(op_symbol.get_qualified_name()),
                     _identity(identity),
                     _assoc(assoc),
                     _is_commutative(is_commutative)
@@ -249,12 +249,6 @@ namespace TL
                     {
                         UDRInfoItem udr_item = udr_info_set.get_udr(reductor_name);
                         _udr_item = new UDRInfoItem(udr_item);
-                    }
-                    else
-                    {
-                        internal_error("Reduction symbol '%s' of type '%s' does not have a valid related UDR",
-                                s.get_name().c_str(),
-                                s.get_type().get_declaration(s.get_scope(), "").c_str());
                     }
                 }
 
