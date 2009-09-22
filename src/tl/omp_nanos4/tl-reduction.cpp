@@ -59,14 +59,31 @@ namespace TL
             }
 
             Source result;
+            Symbol op_sym = reduction_symbol.get_reductor_symbol();
 
-            // get the operator involved
-            std::string op = reduction_symbol.get_reductor_name();
+            Type op_type = op_sym.get_type();
+            std::string op_name = op_sym.get_name();
 
-            // FIXME - We may want to do overload here as well
+            if (!op_type.is_function())
+            {
+                internal_error("This is not a function type!\n", 0);
+            }
+
+            Source partial_reduction_arg;
+
+            TL::ObjectList<TL::Type> parameters = op_type.parameters();
+
+            if (parameters[0].is_pointer())
+            {
+                partial_reduction_arg << "&(" << partial_reduction << ")";
+            }
+            else
+            {
+                partial_reduction_arg << partial_reduction;
+            }
 
             result
-                << reduction_var_name << op << "(" << partial_reduction << ");"
+                << reduction_var_name << "." << op_name << "(" << partial_reduction_arg << ");"
                 ;
 
             return result;
@@ -79,91 +96,9 @@ namespace TL
         {
             Source result;
 
-            // get the operator involved
-            std::string op = reduction_symbol.get_reductor_name();
-
-            Symbol sym = reduction_symbol.get_symbol();
-            // FIXME - Is it always OK to use the symbol scope?
-            Scope sc = sym.get_scope();
-            ObjectList<Symbol> sym_list = sc.get_symbols_from_name(op);
-
-            if (sym_list.empty())
-            {
-                // FIXME - We lack a location here!
-                running_error("error: invalid reduction operator '%s'\n",
-                        op.c_str());
-            }
-
-            Symbol op_sym(NULL);
-            C_LANGUAGE()
-            {
-                if (sym_list.size() > 1)
-                {
-                    internal_error("Too many symbols returned from reduction operator lookup", 0);
-                }
-                op_sym = sym_list[0];
-            }
-            CXX_LANGUAGE()
-            {
-                bool valid = false;
-
-                Type ref_type = sym.get_type().get_reference_to();
-                Type ptr_type = sym.get_type().get_pointer_to();
-
-                TL::ObjectList<TL::Type> argument_types_list[4];
-                // (T&, T&)
-                argument_types_list[0].append(ref_type);
-                argument_types_list[0].append(ref_type);
-
-                // (T*, T&)
-                argument_types_list[1].append(ptr_type);
-                argument_types_list[1].append(ref_type);
-
-                // (T&, T*)
-                argument_types_list[2].append(ref_type);
-                argument_types_list[2].append(ptr_type);
-
-                // (T*, T*)
-                argument_types_list[3].append(ptr_type);
-                argument_types_list[3].append(ptr_type);
-
-                for (int i = 0; i < 4; i++)
-                {
-                    bool current_valid = false;
-                    ObjectList<Symbol> argument_conversor_list;
-                    ObjectList<Symbol> viable_functs;
-                    Symbol current_op_sym;
-                    current_op_sym = Overload::solve(sym_list, 
-                            /* no implicit at the time */ Type(NULL),
-                            argument_types_list[i],
-                            /* No location info available */ "", 0,
-                            current_valid, 
-                            viable_functs,
-                            argument_conversor_list);
-
-                    if (current_valid)
-                    {
-                        if (valid)
-                        {
-                            // FIXME - Handle this gracefully
-                            internal_error("More than one feasible reduction function!", 0);
-                        }
-                        else
-                        {
-                            valid = true;
-                            op_sym = current_op_sym;
-                        }
-                    }
-                }
-
-                if (!valid)
-                {
-                    // FIXME - Handle this gracefully
-                    internal_error("No valid reduction function found", 0); 
-                }
-            }
-
+            Symbol op_sym = reduction_symbol.get_reductor_symbol();
             Type op_type = op_sym.get_type();
+            std::string op_name = op_sym.get_name();
 
             if (!op_type.is_function())
             {
@@ -176,13 +111,13 @@ namespace TL
                 if (reduction_symbol.reductor_is_left_associative())
                 {
                     result
-                        << op << "(" << reduction_arg << ", " << partial_reduction_arg << ")"
+                        << op_name << "(" << reduction_arg << ", " << partial_reduction_arg << ")"
                         ;
                 }
                 else
                 {
                     result
-                        << op << "(" << partial_reduction_arg << "," << reduction_arg << ")"
+                        << op_name << "(" << partial_reduction_arg << "," << reduction_arg << ")"
                         ;
                 }
             }
@@ -191,13 +126,13 @@ namespace TL
                 if (reduction_symbol.reductor_is_left_associative())
                 {
                     result
-                        << reduction_return << " = " << op << "(" << reduction_arg << ", " << partial_reduction_arg << ")"
+                        << reduction_return << " = " << op_name << "(" << reduction_arg << ", " << partial_reduction_arg << ")"
                         ;
                 }
                 else
                 {
                     result
-                        << reduction_return << " = " << op << "(" << partial_reduction_arg << ", " << reduction_arg << ")"
+                        << reduction_return << " = " << op_name << "(" << partial_reduction_arg << ", " << reduction_arg << ")"
                         ;
                 }
             }
