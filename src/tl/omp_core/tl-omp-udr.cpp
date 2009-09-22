@@ -773,7 +773,8 @@ namespace TL
                         {
                             std::cerr << construct.get_ast().get_locus() << ": note: introducing user-defined reduction for type '"
                                 << reduction_type.get_declaration(construct.get_scope_link().get_scope(construct.get_ast()), "") << "'"
-                                << " and operator '" << op_symbol.get_name() << "'"
+                                << " and operator '" 
+                                << op_symbol.get_type().get_declaration(op_symbol.get_scope(), op_symbol.get_qualified_name(op_symbol.get_scope())) << "'"
                                 << std::endl;
                             udr_info_set.add_udr(UDRInfoItem(reduction_type, op_symbol, identity, assoc, is_commutative));
                         }
