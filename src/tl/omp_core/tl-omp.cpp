@@ -262,7 +262,22 @@ namespace TL
 
             symbol_name += _type.get_declaration(typename_used_scope, "");
             symbol_name += "_";
-            symbol_name += item.get_op_name();
+            C_LANGUAGE()
+            {
+                symbol_name += item.get_op_name();
+            }
+            CXX_LANGUAGE()
+            {
+                // Fix operator names for C++
+                if (udr_is_builtin_operator(item.get_op_name()))
+                {
+                   symbol_name += "operator " + item.get_op_name(); 
+                }
+                else
+                {
+                    symbol_name += item.get_op_name();
+                }
+            }
 
             Symbol artificial_sym = _scope.new_artificial_symbol(symbol_name);
 
@@ -283,7 +298,22 @@ namespace TL
 
             symbol_name += _type.get_declaration(typename_used_scope, "");
             symbol_name += "_";
-            symbol_name += str;
+            C_LANGUAGE()
+            {
+                symbol_name += str;
+            }
+            CXX_LANGUAGE()
+            {
+                // Fix the operator name for C++
+                if (udr_is_builtin_operator(str))
+                {
+                    symbol_name += "operator " + str;
+                }
+                else
+                {
+                    symbol_name += str;
+                }
+            }
 
             ObjectList<Symbol> symbol_list = _scope.get_symbols_from_name(symbol_name);
             if (symbol_list.empty())
@@ -316,7 +346,23 @@ namespace TL
 
             symbol_name += _type.get_declaration(typename_used_scope, "");
             symbol_name += "_";
-            symbol_name += str;
+
+            C_LANGUAGE()
+            {
+                symbol_name += str;
+            }
+            CXX_LANGUAGE()
+            {
+                // Fix the operator name for C++
+                if (udr_is_builtin_operator(str))
+                {
+                    symbol_name += "operator " + str;
+                }
+                else
+                {
+                    symbol_name += str;
+                }
+            }
 
             ObjectList<Symbol> symbol_list = _scope.get_symbols_from_name(symbol_name);
             if (symbol_list.empty())
