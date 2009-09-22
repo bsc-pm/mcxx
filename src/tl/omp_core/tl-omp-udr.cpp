@@ -705,6 +705,8 @@ namespace TL
             if (identity_clause.is_defined())
             {
                 identity = identity_clause.get_arguments(ExpressionTokenizer())[0];
+                // Remove blanks
+                identity.erase(std::remove(identity.begin(), identity.end(), ' '), identity.end());
             }
 
             PragmaCustomClause commutative_clause = construct.get_clause("commutative");

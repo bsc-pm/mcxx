@@ -405,7 +405,15 @@ namespace TL
             if (is_constructor_identity())
             {
                 // Skip constructor part
-                return _identity.substr(std::string("constructor").length());
+                if (_identity == "constructor()")
+                {
+                    // This is a special empty case we allow
+                    return "";
+                }
+                else
+                {
+                    return _identity.substr(std::string("constructor").length());
+                }
             }
             else
             {
