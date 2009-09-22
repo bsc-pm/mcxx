@@ -215,34 +215,41 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
         template_argument_list_t* arguments = 
             template_specialized_type_get_template_arguments(entry->type_information);
 
-        int j;
-        for (j = 0; j < arguments->num_arguments; j++)
+        if (arguments != NULL)
         {
-            template_argument_t* current_argument = arguments->argument_list[j];
-
-            char* argument_kind[] =
+            int j;
+            for (j = 0; j < arguments->num_arguments; j++)
             {
-                [TAK_NONTYPE] = "nontype template argument",
-                [TAK_TYPE] = "type template argument",
-                [TAK_TEMPLATE] = "template template argument",
-            };
+                template_argument_t* current_argument = arguments->argument_list[j];
 
-            const char *template_arg_info = NULL;
+                char* argument_kind[] =
+                {
+                    [TAK_NONTYPE] = "nontype template argument",
+                    [TAK_TYPE] = "type template argument",
+                    [TAK_TEMPLATE] = "template template argument",
+                };
 
-            if (current_argument->kind == TAK_TYPE
-                    || current_argument->kind == TAK_TEMPLATE)
-            {
-                template_arg_info = print_declarator(current_argument->type);
+                const char *template_arg_info = NULL;
+
+                if (current_argument->kind == TAK_TYPE
+                        || current_argument->kind == TAK_TEMPLATE)
+                {
+                    template_arg_info = print_declarator(current_argument->type);
+                }
+                else if (current_argument->kind == TAK_NONTYPE)
+                {
+                    template_arg_info = prettyprint_in_buffer(current_argument->expression);
+                }
+
+                PRINT_INDENTED_LINE(stderr, global_indent+2, "[%d] : %s - %s\n", 
+                        j,
+                        argument_kind[current_argument->kind],
+                        template_arg_info);
             }
-            else if (current_argument->kind == TAK_NONTYPE)
-            {
-                template_arg_info = prettyprint_in_buffer(current_argument->expression);
-            }
-
-            PRINT_INDENTED_LINE(stderr, global_indent+2, "[%d] : %s - %s\n", 
-                    j,
-                    argument_kind[current_argument->kind],
-                    template_arg_info);
+        }
+        else
+        {
+            PRINT_INDENTED_LINE(stderr, global_indent + 2, "Invalid template arguments!!!\n", 0);
         }
 
         if (is_class_type(entry->type_information))
