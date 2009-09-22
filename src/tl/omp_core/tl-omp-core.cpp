@@ -216,7 +216,17 @@ namespace TL
                                 ;
                         }
 
-                        ReductionSymbol red_sym(sym, reductor_name, UDRInfoSet(expr.get_scope(), sym.get_type()));
+                        CXX_LANGUAGE()
+                        {
+                            // Fix the name for the operator
+                            if (udr_is_builtin_operator(reductor_name))
+                            {
+                                reductor_name = "operator " + reductor_name;
+                            }
+                        }
+
+                        Type reduct_type = sym.get_type().advance_over_typedefs().get_unqualified_type();
+                        ReductionSymbol red_sym(sym, reductor_name, UDRInfoSet(expr.get_scope(), reduct_type));
 
                         if (red_sym.is_faulty())
                         {
