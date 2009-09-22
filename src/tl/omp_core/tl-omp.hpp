@@ -89,17 +89,35 @@ namespace TL
                 };
             private:
                 Type _type;
+                Symbol _op_symbol;
                 std::string _op_name;
                 std::string _identity;
                 Associativity _assoc;
                 bool _is_commutative;
             public:
                 UDRInfoItem(Type type, 
-                        const std::string& op_name,
+                        Symbol op_symbol,
                         const std::string& identity,
                         Associativity assoc,
                         bool is_commutative)
                     : _type(type),
+                    _op_symbol(op_symbol),
+                    _op_name(op_symbol.get_name()),
+                    _identity(identity),
+                    _assoc(assoc),
+                    _is_commutative(is_commutative)
+                {
+                }
+
+                // Use this constructor for builtin types whose operator is not
+                // related to any symbol.
+                UDRInfoItem(Type type,
+                        std::string op_name,
+                        const std::string& identity,
+                        Associativity assoc,
+                        bool is_commutative)
+                    : _type(type),
+                    _op_symbol(NULL),
                     _op_name(op_name),
                     _identity(identity),
                     _assoc(assoc),
@@ -107,7 +125,9 @@ namespace TL
                 {
                 }
 
+
                 Type get_type() const;
+                Symbol get_op_symbol() const;
                 std::string get_op_name() const;
                 std::string get_identity() const;
                 Associativity get_assoc() const;
@@ -230,6 +250,12 @@ namespace TL
                         UDRInfoItem udr_item = udr_info_set.get_udr(reductor_name);
                         _udr_item = new UDRInfoItem(udr_item);
                     }
+                    else
+                    {
+                        internal_error("Reduction symbol '%s' of type '%s' does not have a valid related UDR",
+                                s.get_name().c_str(),
+                                s.get_type().get_declaration(s.get_scope(), "").c_str());
+                    }
                 }
 
                 ReductionSymbol(const ReductionSymbol& red_sym)
@@ -305,6 +331,11 @@ namespace TL
                 std::string get_reductor_name() const
                 {
                     return get_operation();
+                }
+
+                Symbol get_reductor_symbol() const
+                {
+                    return _udr_item->get_op_symbol();
                 }
 
                 //! States whether this is a member specificication

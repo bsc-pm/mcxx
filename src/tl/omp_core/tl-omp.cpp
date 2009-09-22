@@ -240,7 +240,7 @@ namespace TL
         UDRInfoSet::UDRInfoSet(Scope sc, Type type)
             : _scope(sc), _type(type)
         {
-            type = type.advance_over_typedefs().get_unqualified_type();
+            _type = _type.advance_over_typedefs().get_unqualified_type();
             if (_type.is_reference())
             {
                 _type = _type.references_to();
@@ -344,6 +344,11 @@ namespace TL
             return _type;
         }
 
+        Symbol UDRInfoItem::get_op_symbol() const
+        {
+            return _op_symbol;
+        }
+
         std::string UDRInfoItem::get_op_name() const
         {
             return _op_name;
@@ -374,12 +379,13 @@ namespace TL
 
         bool UDRInfoItem::is_builtin_op() const
         {
-            return udr_is_builtin_operator(_op_name);
+            return (!_op_symbol.is_valid());
         }
 
         bool UDRInfoItem::is_member_op() const
         {
-            return (_op_name[0] == '.');
+            return (_op_symbol.is_valid() 
+                    && _op_symbol.is_member());
         }
 
         bool UDRInfoItem::is_constructor_identity() const
