@@ -10,7 +10,7 @@ namespace TL
         Type return_type;
         Type first_arg;
         Type second_arg;
-        OpenMP::UDRInfoItem::Associativity default_assoc;
+        // OpenMP::UDRInfoItem::Associativity default_assoc;
         bool allows_left;
         bool allows_right;
     };
@@ -62,7 +62,10 @@ namespace TL
             {
                 if (assoc == UDRInfoItem::UNDEFINED)
                 {
-                    assoc = it->default_assoc;
+                    if (it->allows_left)
+                        assoc = UDRInfoItem::LEFT;
+                    else
+                        assoc = UDRInfoItem::RIGHT;
                 }
                 return true;
             }
@@ -117,7 +120,10 @@ namespace TL
                 {
                     if (assoc == UDRInfoItem::UNDEFINED)
                     {
-                        assoc = it->default_assoc;
+                        if (it->allows_left)
+                            assoc = UDRInfoItem::LEFT;
+                        else
+                            assoc = UDRInfoItem::RIGHT;
                     }
                     return true;
                 }
@@ -175,13 +181,13 @@ namespace TL
 
         udr_valid_prototypes_t valid_prototypes[] = 
         {
-            { /* T f(T, T) */      reduct_type, reduct_type,     reduct_type,     /* default */ UDRInfoItem::LEFT,  /* left */ true,  /* right */ true  },
-            { /* T f(T*, T) */     reduct_type, ptr_reduct_type, reduct_type,     /* default */ UDRInfoItem::LEFT,  /* left */ true,  /* right */ true  },
-            { /* T f(T, T*) */     reduct_type, reduct_type,     ptr_reduct_type, /* default */ UDRInfoItem::LEFT,  /* left */ true,  /* right */ true  },
-            { /* T f(T*, T*) */    reduct_type, ptr_reduct_type, ptr_reduct_type, /* default */ UDRInfoItem::LEFT,  /* left */ true,  /* right */ true  },
-            { /* void f(T*, T) */  void_type, ptr_reduct_type,   reduct_type,     /* default */ UDRInfoItem::LEFT,  /* left */ true,  /* right */ false },
-            { /* void f(T, T*) */  void_type, reduct_type,       ptr_reduct_type, /* default */ UDRInfoItem::RIGHT, /* left */ false, /* right */ true  },
-            { /* void f(T*, T*) */ void_type, ptr_reduct_type,   ptr_reduct_type, /* default */ UDRInfoItem::LEFT,  /* left */ true,  /* right */ true  } 
+            { /* T f(T, T) */      reduct_type, reduct_type,     reduct_type,     /* left */ true,  /* right */ true  },
+            { /* T f(T*, T) */     reduct_type, ptr_reduct_type, reduct_type,     /* left */ true,  /* right */ true  },
+            { /* T f(T, T*) */     reduct_type, reduct_type,     ptr_reduct_type, /* left */ true,  /* right */ true  },
+            { /* T f(T*, T*) */    reduct_type, ptr_reduct_type, ptr_reduct_type, /* left */ true,  /* right */ true  },
+            { /* void f(T*, T) */  void_type, ptr_reduct_type,   reduct_type,     /* left */ true,  /* right */ false },
+            { /* void f(T, T*) */  void_type, reduct_type,       ptr_reduct_type, /* left */ false, /* right */ true  },
+            { /* void f(T*, T*) */ void_type, ptr_reduct_type,   ptr_reduct_type, /* left */ true,  /* right */ true  } 
         };
 
         return ObjectList<udr_valid_prototypes_t>(valid_prototypes);
@@ -201,52 +207,61 @@ namespace TL
 
         udr_valid_prototypes_t valid_prototypes[] =
         {
-            { /* T f(T, T) */      reduct_type, reduct_type,     reduct_type,      /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-            { /* T f(T*, T) */     reduct_type, ptr_reduct_type, reduct_type,      /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-            { /* T f(T, T*) */     reduct_type, reduct_type,     ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-            { /* T f(T*, T*) */    reduct_type, ptr_reduct_type, ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+            { /* T f(T, T) */      reduct_type, reduct_type,     reduct_type,     /* right */ true, /* left */ true  },
+            { /* T f(T*, T) */     reduct_type, ptr_reduct_type, reduct_type,     /* right */ true, /* left */ true  },
+            { /* T f(T, T*) */     reduct_type, reduct_type,     ptr_reduct_type, /* right */ true, /* left */ true  },
+            { /* T f(T*, T*) */    reduct_type, ptr_reduct_type, ptr_reduct_type, /* right */ true, /* left */ true  },
 
             // const-qualified versions
-            { /* T f(const T*, T) */ reduct_type, c_ptr_reduct_type, reduct_type,      /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-            { /* T f(T, const T*) */ reduct_type, reduct_type, c_ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-            { /* T f(const T*, T*) */reduct_type, c_ptr_reduct_type, ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-            { /* T f(const T*, const T*) */ reduct_type, c_ptr_reduct_type, c_ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+            { /* T f(const T*, T) */ reduct_type, c_ptr_reduct_type, reduct_type, /* left */ true,  /* right */ true  },
+            { /* T f(T, const T*) */ reduct_type, reduct_type, c_ptr_reduct_type, /* left */ true,  /* right */ true  },
+            { /* T f(const T*, T*) */reduct_type, c_ptr_reduct_type, ptr_reduct_type,   /* left */ true,  /* right */ true  },
+            { /* T f(const T*, const T*) */ reduct_type, c_ptr_reduct_type, c_ptr_reduct_type,   /* left */ true,  /* right */ true  },
 
-            { /* void f(T*, T) */  void_type, ptr_reduct_type,   reduct_type,      /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ false },
-            { /* void f(T, T*) */  void_type, reduct_type,       ptr_reduct_type,  /* default */ UDRInfoItem::RIGHT, /* left */ false, /* right */ true  },
-            { /* void f(T*, T*) */ void_type, ptr_reduct_type,   ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-
-            // const-qualified versions
-            { /* void f(const T*, T*) */ void_type, ptr_reduct_type,   ptr_reduct_type,  /* default */ UDRInfoItem::RIGHT, /* left */ false,  /* right */ true  },
-            { /* void f(T*, const T*) */ void_type, ptr_reduct_type,   ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ false  },
-
-            { /* T f(T&, T) */     reduct_type, ref_reduct_type, reduct_type,      /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-            { /* T f(T, T&) */     reduct_type, reduct_type,     ref_reduct_type,  /* default */ UDRInfoItem::RIGHT, /* left */ true,  /* right */ true  },
-            { /* T f(T&, T&) */    reduct_type, ref_reduct_type, ref_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+            { /* void f(T*, T) */  void_type, ptr_reduct_type,   reduct_type,       /* left */ true,  /* right */ false },
+            { /* void f(T, T*) */  void_type, reduct_type,       ptr_reduct_type,   /* left */ false, /* right */ true  },
+            { /* void f(T*, T*) */ void_type, ptr_reduct_type,   ptr_reduct_type,   /* left */ true,  /* right */ true  },
 
             // const-qualified versions
-            { /* T f(const T&, T) */ reduct_type, c_ref_reduct_type, reduct_type,      /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-            { /* T f(T, const T&) */ reduct_type, reduct_type, c_ref_reduct_type,  /* default */ UDRInfoItem::RIGHT, /* left */ true,  /* right */ true  },
-            { /* T f(const T&, const T&) */ reduct_type, c_ref_reduct_type, c_ref_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+            { /* void f(const T*, T*) */ void_type, ptr_reduct_type,   ptr_reduct_type,   /* left */ false,  /* right */ true  },
+            { /* void f(T*, const T*) */ void_type, ptr_reduct_type,   ptr_reduct_type,   /* left */ true,  /* right */ false  },
 
-            { /* T f(T&, T*) */    reduct_type, ref_reduct_type, ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-            { /* T f(T*, T&) */    reduct_type, ptr_reduct_type, ref_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-
-            // const-qualified versions
-            { /* T f(const T&, T*) */ reduct_type, c_ref_reduct_type, ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-            { /* T f(T&, const T*) */ reduct_type, ref_reduct_type, c_ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-            { /* T f(const T&, const T*) */ reduct_type, c_ref_reduct_type, c_ptr_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-            { /* T f(const T*, T&) */ reduct_type, c_ptr_reduct_type, ref_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-            { /* T f(T*, const T&) */ reduct_type, ptr_reduct_type, c_ref_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-            { /* T f(const T*, const T&) */ reduct_type, c_ptr_reduct_type, c_ref_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
-
-            { /* void f(T&, T) */  void_type, ref_reduct_type,   reduct_type,      /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ false },
-            { /* void f(T, T&) */  void_type, reduct_type,       ref_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ false, /* right */ true  },
-            { /* void f(T&, T&) */ void_type, ref_reduct_type,   ref_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ true  },
+            { /* T f(T&, T) */     reduct_type, ref_reduct_type, reduct_type,       /* left */ true,  /* right */ true  },
+            { /* T f(T, T&) */     reduct_type, reduct_type,     ref_reduct_type,   /* left */ true,  /* right */ true  },
+            { /* T f(T&, T&) */    reduct_type, ref_reduct_type, ref_reduct_type,   /* left */ true,  /* right */ true  },
 
             // const-qualified versions
-            { /* void f(const T&, T&) */ void_type, ref_reduct_type,   ref_reduct_type,  /* default */ UDRInfoItem::RIGHT, /* left */ false,  /* right */ true  },
-            { /* void f(T&, const T&) */ void_type, ref_reduct_type,   ref_reduct_type,  /* default */ UDRInfoItem::LEFT, /* left */ true,  /* right */ false  },
+            { /* T f(const T&, T) */ reduct_type, c_ref_reduct_type, reduct_type,       /* left */ true,  /* right */ true  },
+            { /* T f(T, const T&) */ reduct_type, reduct_type, c_ref_reduct_type,   /* left */ true,  /* right */ true  },
+            { /* T f(const T&, const T&) */ reduct_type, c_ref_reduct_type, c_ref_reduct_type,   /* left */ true,  /* right */ true  },
+
+            { /* T f(T&, T*) */    reduct_type, ref_reduct_type, ptr_reduct_type,   /* left */ true,  /* right */ true  },
+            { /* T f(T*, T&) */    reduct_type, ptr_reduct_type, ref_reduct_type,   /* left */ true,  /* right */ true  },
+
+            // const-qualified versions
+            { /* T f(const T&, T*) */ reduct_type, c_ref_reduct_type, ptr_reduct_type,   /* left */ true,  /* right */ true  },
+            { /* T f(T&, const T*) */ reduct_type, ref_reduct_type, c_ptr_reduct_type,   /* left */ true,  /* right */ true  },
+            { /* T f(const T&, const T*) */ reduct_type, c_ref_reduct_type, c_ptr_reduct_type,   /* left */ true,  /* right */ true  },
+            { /* T f(const T*, T&) */ reduct_type, c_ptr_reduct_type, ref_reduct_type,   /* left */ true,  /* right */ true  },
+            { /* T f(T*, const T&) */ reduct_type, ptr_reduct_type, c_ref_reduct_type,   /* left */ true,  /* right */ true  },
+            { /* T f(const T*, const T&) */ reduct_type, c_ptr_reduct_type, c_ref_reduct_type,   /* left */ true,  /* right */ true  },
+
+            { /* void f(T&, T) */  void_type, ref_reduct_type,   reduct_type,       /* left */ true,  /* right */ false },
+            { /* void f(T, T&) */  void_type, reduct_type,       ref_reduct_type,   /* left */ false, /* right */ true  },
+            { /* void f(T&, T&) */ void_type, ref_reduct_type,   ref_reduct_type,   /* left */ true,  /* right */ true  },
+
+            // const-qualified versions
+            { /* void f(const T&, T&) */ void_type, ref_reduct_type,   ref_reduct_type,   /* left */ false,  /* right */ true  },
+            { /* void f(T&, const T&) */ void_type, ref_reduct_type,   ref_reduct_type,   /* left */ true,  /* right */ false  },
+
+            { /* void f(T*, T&) */ void_type, ptr_reduct_type, ref_reduct_type,  /* left */ true, /* right */ true },
+            { /* void f(T&, T*) */ void_type, ref_reduct_type, ptr_reduct_type,  /* left */ true, /* right */ true },
+
+            // const-qualified versions
+            { /* void f(const T*, T&) */ void_type, c_ptr_reduct_type, ref_reduct_type,  /* left */ false, /* right */ true },
+            { /* void f(T*, const T&) */ void_type, ptr_reduct_type, c_ref_reduct_type,  /* left */ true, /* right */ false },
+            { /* void f(const T&, T*) */ void_type, c_ref_reduct_type, ptr_reduct_type,  /* left */ false, /* right */ true },
+            { /* void f(T&, const T*) */ void_type, ref_reduct_type, c_ptr_reduct_type,  /* left */ true, /* right */ false },
         };
 
         return ObjectList<udr_valid_prototypes_t>(valid_prototypes);
@@ -470,6 +485,7 @@ namespace TL
                         type_it++)
                 {
                     Type &reduction_type(*type_it);
+                    Symbol op_symbol(NULL);
 
                     // Remove any cv-qualifications
                     reduction_type = reduction_type.advance_over_typedefs().get_unqualified_type();
@@ -504,11 +520,13 @@ namespace TL
 
                             if (!function_is_valid_udr_reductor_c(valid_prototypes, reductor_sym, assoc))
                             {
-                                std::cerr << construct.get_ast().get_locus() 
-                                    << ": warning: reduction operator '" << op_name << "' does not meet "
-                                    << "OpenMP reduction operator requirements" 
-                                    << std::endl;
+                                running_error("%s: error: reduction operator '%s' does not meet " 
+                                        "OpenMP reduction operator requirements", 
+                                        construct.get_ast().get_locus().c_str(),
+                                        op_name.c_str());
                             }
+
+                            op_symbol = reductor_sym;
                         }
 
                         CXX_LANGUAGE()
@@ -557,7 +575,7 @@ namespace TL
 
                                     if (!expr.get_type().is_valid())
                                     {
-                                        running_error("%s: invalid reduction operator '%s'",
+                                        running_error("%s: error: invalid reduction operator '%s'",
                                                 construct.get_ast().get_locus().c_str(),
                                                 op_name.c_str());
                                     }
@@ -574,7 +592,7 @@ namespace TL
                                 }
                                 else
                                 {
-                                    running_error("%s: invalid reduction operator '%s' since it is not an id-expression",
+                                    running_error("%s: error: invalid reduction operator '%s' since it is not an id-expression",
                                             construct.get_ast().get_locus().c_str(),
                                             op_name.c_str());
                                 }
@@ -589,7 +607,7 @@ namespace TL
 
                                 if (!expr.get_type().is_valid())
                                 {
-                                    running_error("%s: invalid reduction operator '%s'",
+                                    running_error("%s: error: invalid reduction operator '%s'",
                                             construct.get_ast().get_locus().c_str(),
                                             op_name.c_str());
                                 }
@@ -600,7 +618,7 @@ namespace TL
                                 }
                                 else
                                 {
-                                    running_error("%s: invalid reduction operator '%s' since it is not an id-expression",
+                                    running_error("%s: error: invalid reduction operator '%s' since it is not an id-expression",
                                             construct.get_ast().get_locus().c_str(),
                                             op_name.c_str());
                                 }
@@ -616,7 +634,6 @@ namespace TL
                                 ObjectList<Symbol> overload_set = op_symbol_type.get_unresolved_overload_set();
 
                                 bool found_valid = false;
-                                Symbol op_symbol(NULL);
 
                                 // First the set of nonmembers
                                 for (ObjectList<udr_valid_prototypes_t>::iterator it = valid_prototypes.begin();
@@ -709,10 +726,6 @@ namespace TL
 
                                 if (!found_valid)
                                 {
-                                    std::cerr << construct.get_ast().get_locus() 
-                                        << ": warning: reduction operator '" << op_name << "' does not meet "
-                                        << "OpenMP reduction operator requirements" 
-                                        << std::endl;
 
                                     for (ObjectList<Symbol>::iterator it = overload_set.begin();
                                             it != overload_set.end();
@@ -724,6 +737,11 @@ namespace TL
                                             << " for type '" << reduction_type.get_declaration(construct.get_scope(), "") << "'"
                                             << std::endl;
                                     }
+
+                                    running_error("%s: error: reduction operator '%s' does not meet " 
+                                            "OpenMP reduction operator requirements", 
+                                            construct.get_ast().get_locus().c_str(),
+                                            op_name.c_str());
                                 }
                             }
                             else if (op_symbol_type.is_dependent())
@@ -755,15 +773,16 @@ namespace TL
                         {
                             std::cerr << construct.get_ast().get_locus() << ": note: introducing user-defined reduction for type '"
                                 << reduction_type.get_declaration(construct.get_scope_link().get_scope(construct.get_ast()), "") << "'"
-                                << " and operator '" << op_name << "'"
+                                << " and operator '" << op_symbol.get_name() << "'"
                                 << std::endl;
-                            udr_info_set.add_udr(UDRInfoItem(reduction_type, op_name, identity, assoc, is_commutative));
+                            udr_info_set.add_udr(UDRInfoItem(reduction_type, op_symbol, identity, assoc, is_commutative));
                         }
                         else
                         {
                             running_error("%s: error: user defined reduction for reduction_type '%s' and operator '%s' already defined",
                                     construct.get_ast().get_locus().c_str(),
-                                    reduction_type.get_declaration(construct.get_scope_link().get_scope(construct.get_ast()), "").c_str());
+                                    reduction_type.get_declaration(construct.get_scope_link().get_scope(construct.get_ast()), "").c_str(),
+                                    op_name.c_str());
                         }
                     }
                 }
