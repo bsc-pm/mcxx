@@ -491,9 +491,17 @@ void run_gdb(void)
         {
             fprintf(stderr, "Backtrace will be left at '%s'\n", dump_name);
             close(1);
-            dup(fileno(output_dump));
+            int new_stdout = dup(fileno(output_dump));
+            if (new_stdout < 0)
+            {
+                running_error("error: could not duplicate standard output", 0);
+            }
             close(2);
-            dup(fileno(output_dump));
+            int new_stderr = dup(fileno(output_dump));
+            if (new_stderr < 0)
+            {
+                running_error("error: could not duplicate standard error", 0);
+            }
 
             char pid[16];
             snprintf(pid, 15, "%d", getppid());
