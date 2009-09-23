@@ -249,7 +249,7 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
         }
         else
         {
-            PRINT_INDENTED_LINE(stderr, global_indent + 2, "Invalid template arguments!!!\n", 0);
+            PRINT_INDENTED_LINE(stderr, global_indent + 2, "%s", "Invalid template arguments!!!\n");
         }
 
         if (is_class_type(entry->type_information))
