@@ -332,7 +332,7 @@ static const char* add_dso_extension(const char* c)
     const char* dso_ext = ".dll";
 #endif
 
-    char* e = NULL;
+    const char* e = NULL;
     if ((e = strrchr(c, '.')) == NULL)
     {
         return strappend(c, dso_ext);
