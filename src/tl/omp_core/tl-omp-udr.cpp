@@ -442,7 +442,7 @@ namespace TL
              if (reduction_type.is_class() || reduction_type.is_dependent())
              {
                  // Qualify the name
-                 op_name = reduction_type.get_declaration(construct.get_scope(), "") + "::" + op_name;
+                 op_name = reduction_type.get_declaration(construct.get_scope(), "") + "::" + op_name.substr(1);
              }
              else
              {
