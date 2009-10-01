@@ -23,9 +23,9 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
         <<   "nanos_team_t _nanos_team;"
         <<   "nanos_thread_t _nanos_threads[_nanos_num_threads];"
         <<   "nanos_err_t err;"
-        <<   "err = nth_create_team(&_nanos_team, (nanos_sched_t)0, &_nanos_num_threads,"
+        <<   "err = nanos_create_team(&_nanos_team, (nanos_sched_t)0, &_nanos_num_threads,"
         <<              "(nanos_constraint_t*)0, /* reuse */ 0, _nanos_threads);"
-        <<   "if (err != NANOS_OK) nanos_error_handler(err);"
+        <<   "if (err != NANOS_OK) nanos_handle_error(err);"
 
         <<   "nanos_wd_props_t props = { 0 };"
         <<   "props.mandatory_creation = 1;"
@@ -42,7 +42,7 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
         <<                    "(void**)&ol_args,"
         <<                    "nanos_current_wd(), "
         <<                    "&props);"
-        <<      "if (err != NANOS_OK) nanos_error_handler(err);"
+        <<      "if (err != NANOS_OK) nanos_handle_error(err);"
         <<      fill_outline_arguments
         <<      "nanos_submit(wd, (nanos_dependence_t*)0, _nanos_team);"
         <<   "}"
