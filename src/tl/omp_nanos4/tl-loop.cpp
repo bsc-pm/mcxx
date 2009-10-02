@@ -183,6 +183,8 @@ namespace TL
                 << "if ( nth_step > 0 ) nth_iters =  nth_upper - nth_low;"
                 << "else nth_iters = nth_low - nth_upper;"
 
+                << "if (nth_iters != 0)"
+                << "{"
 
                 << "in__tone_begin_for_(&nth_zero, &nth_iters, &nth_step, &nth_chunk, &nth_schedule);"
 
@@ -198,6 +200,8 @@ namespace TL
                 <<        modified_loop_body
                 << "   }"
                 << instrument_code_after
+                << "}"
+
                 << "}"
                 ;
 
