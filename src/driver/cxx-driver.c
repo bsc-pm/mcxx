@@ -541,7 +541,7 @@ int parse_arguments(int argc, const char* argv[],
 
             if (!from_command_line)
             {
-                fprintf(stderr, "Invalid non-option binded argument '%s'"
+                fprintf(stderr, "Invalid non-option bound argument '%s'"
                         " specified in the configuration file\n",
                         parameter_info.argument);
                 continue;
@@ -732,6 +732,31 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_NO_OPENMP :
                     {
                         CURRENT_CONFIGURATION->disable_openmp = 1;
+
+                        // If 'openmp' is in the parameter flags, set it to false, otherwise add it as false
+                        int i;
+                        char found = 0;
+                        for (i = 0; !found && (i < compilation_process.num_parameter_flags); i++)
+                        {
+                            if (strcmp(compilation_process.parameter_flags[i]->name, "openmp") == 0)
+                            {
+                                found = 1;
+                                // Set it to false
+                                compilation_process.parameter_flags[i]->value = 0;
+                            }
+                        }
+                        if (!found)
+                        {
+                            struct parameter_flags_tag *new_parameter_flag = calloc(1, sizeof(*new_parameter_flag));
+
+                            new_parameter_flag->name = uniquestr("openmp");
+                            // This is redundant because of calloc, but make it explicit here anyway
+                            new_parameter_flag->value = 0;
+
+                            P_LIST_ADD(compilation_process.parameter_flags, 
+                                    compilation_process.num_parameter_flags,
+                                    new_parameter_flag);
+                        }
                         break;
                     }
                 case OPTION_HELP_DEBUG_FLAGS :
@@ -1604,6 +1629,7 @@ static void load_configuration(void)
     }
 
     load_configuration_file(compilation_process.config_file);
+
 
     // Now load all files in the config_dir
     DIR* config_dir = opendir(compilation_process.config_dir);
