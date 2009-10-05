@@ -688,9 +688,10 @@ int parse_arguments(int argc, const char* argv[],
                         break;
                     }
                 case OPTION_CONFIG_FILE :
+                case OPTION_CONFIG_DIR:
                     {
-                        // This option is handled in "load_configuration"
-                        // and ignored here for getopt_long happiness
+                        // These options are handled in "load_configuration"
+                        // and ignored here
                         break;
                     }
                 case 'o' :
@@ -1665,6 +1666,12 @@ static void load_configuration(void)
                 uniquestr(&(compilation_process.argv[i][strlen("--config-file=") ]));
         }
         else if (strncmp(compilation_process.argv[i], 
+                    "--config-dir=", strlen("--config-dir=")) == 0)
+        {
+            compilation_process.config_dir = 
+                uniquestr(&(compilation_process.argv[i][strlen("--config-dir=") ]));
+        }
+        else if (strncmp(compilation_process.argv[i], 
                     "--profile=", strlen("--profile=")) == 0)
         {
             // Change the basename, from now it will look like the compiler
@@ -1675,7 +1682,6 @@ static void load_configuration(void)
     }
 
     load_configuration_file(compilation_process.config_file);
-
 
     // Now load all files in the config_dir
     DIR* config_dir = opendir(compilation_process.config_dir);
