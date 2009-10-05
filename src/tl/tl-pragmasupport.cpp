@@ -168,6 +168,21 @@ namespace TL
         // The user will put it into a FunctionDefinition or a Declaration
         // depending on his needs
         TL::AST_t declaration = this->get_ast().get_attribute(LANG_PRAGMA_CUSTOM_DECLARATION);
+
+        if (!declaration.is_valid())
+        {
+            // Try to find a statement which is a declaration itself
+            AST_t tree = this->get_ast().get_attribute(LANG_PRAGMA_CUSTOM_STATEMENT);
+            if (tree.is_valid())
+            {
+                Statement result(tree, this->get_scope_link());
+                if (result.is_declaration())
+                {
+                    return result.get_simple_declaration().get_ast();
+                }
+            }
+        }
+
         return declaration;
     }
 

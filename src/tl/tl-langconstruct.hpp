@@ -695,6 +695,14 @@ namespace TL
             Declaration(AST_t ast, ScopeLink scope_link)
                 : LangConstruct(ast, scope_link)
             {
+                PredicateAttr decl_stmt(LANG_IS_DECLARATION_STATEMENT);
+
+                // Adjust declaration statements to behave like real
+                // declarations
+                if (decl_stmt(ast))
+                {
+                    ast = ast.get_attribute(LANG_DECLARATION_STATEMENT_DECLARATION);
+                }
             }
 
             //! Returns the list of declared entities in this declaration
@@ -714,6 +722,7 @@ namespace TL
              */
             AST_t get_point_of_declaration();
 
+            // Fix the predicate
             static const PredicateAttr predicate;
     };
 

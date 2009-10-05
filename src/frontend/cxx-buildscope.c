@@ -7969,6 +7969,7 @@ static void build_scope_declaration_statement(AST a,
     build_scope_declaration(declaration, decl_context);
 
     ASTAttrSetValueType(a, LANG_IS_DECLARATION_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_DECLARATION_STATEMENT_DECLARATION, tl_type_t, tl_ast(declaration));
 }
 
 static void build_scope_expression_statement(AST a, 

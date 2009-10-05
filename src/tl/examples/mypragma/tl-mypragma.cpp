@@ -46,26 +46,19 @@ namespace TL
                 PragmaCustomCompilerPhase::run(dto);
             }
 
-            void construct_post(PragmaCustomConstruct pragma_custom_construct)
+            void construct_post(PragmaCustomConstruct construct)
             {
                 std::cerr << " --> RUNNING CONSTRUCT POST <-- " << std::endl;
-                PragmaCustomClause clause = pragma_custom_construct.get_clause("clause");
 
-                if (clause.is_defined())
+                Declaration declaration(construct.get_declaration(), construct.get_scope_link());
+                ObjectList<DeclaredEntity> declaration_list = declaration.get_declared_entities();
+
+                for (ObjectList<DeclaredEntity>::iterator it = declaration_list.begin();
+                        it != declaration_list.end();
+                        it++)
                 {
-                    ObjectList<Expression> expr = clause.get_expression_list();
-
-                    int i = 0;
-                    for (ObjectList<Expression>::iterator it = expr.begin();
-                            it != expr.end();
-                            it++)
-                    {
-                        std::cerr << "[" << i << "] '" << *it << "'" << std::endl;
-                        i++;
-                    }
-
-                    // Second time, to check that things are right
-                    ObjectList<Expression> expr2 = clause.get_expression_list();
+                    std::cerr << it->get_declared_symbol().get_name() << " of type '" 
+                        << it->get_declared_symbol().get_type().get_declaration(it->get_declared_symbol().get_scope(), "") << "'" << std::endl;
                 }
             }
     };
