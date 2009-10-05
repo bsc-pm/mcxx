@@ -718,6 +718,8 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_UPC_CONTINUE, simple_text_handler, "continue"),
     NODE_HANDLER(AST_UPC_FORALL, upc_iteration_statement, NULL),
     NODE_HANDLER(AST_UPC_FORALL_HEADER, upc_forall_header, NULL),
+    // IBM XL
+    NODE_HANDLER(AST_XL_BUILTIN_SPEC, simple_text_handler, "_Builtin"),
 };
 
 // Initial behaviour

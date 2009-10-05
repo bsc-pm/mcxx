@@ -5,3 +5,4 @@
 /*!include cxx-asttype-pragma.def*/
 /*!include cxx-asttype-superscalar.def*/
 /*!include cxx-asttype-upc.def*/
+/*!include cxx-asttype-xl.def*/

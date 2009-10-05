@@ -952,6 +952,8 @@ identifier {
 "__volatile__"        { parse_token_text(); return TOKEN_VOLATILE; } 
 "__asm" { parse_token_text(); return ASM; }
 "__asm__" { parse_token_text(); return ASM; }
+ /* XL Compiler extensions */
+ "_Builtin" { parse_token_text(); return XL_BUILTIN_SPEC; }
  /*!if CPLUSPLUS*/
  /* g++ 4.3 extensions */
 "__has_nothrow_assign" |

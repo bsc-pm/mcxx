@@ -145,6 +145,7 @@ AST_NODE_TYPE_FILES += cxx-asttype-gcc.def
 AST_NODE_TYPE_FILES += cxx-asttype-pragma.def
 AST_NODE_TYPE_FILES += cxx-asttype-superscalar.def
 AST_NODE_TYPE_FILES += cxx-asttype-upc.def
+AST_NODE_TYPE_FILES += cxx-asttype-xl.def
 
 EXTRA_DIST += $(AST_NODE_TYPE_FILES)
 
@@ -167,6 +168,7 @@ EXTRA_DIST += cxx-superscalar.y
 EXTRA_DIST += cxx-ambig-handler.y
 EXTRA_DIST += cxx-placeholders.y
 EXTRA_DIST += c99-upc.y
+EXTRA_DIST += cxx-xl.y
 
 EXTRA_DIST += cxx-gccspubuiltins.def
 
@@ -275,7 +277,7 @@ CLEANFILES += cxx-parser.output
 CLEANFILES += cxx03.y
 endif
 
-cxx03.y : $(srcdir)/cxx03.y.in $(srcdir)/cxx-placeholders.y $(srcdir)/cxx-subparse.y $(srcdir)/cxx-pragma.y $(srcdir)/cxx-construct.y $(srcdir)/cxx-superscalar.y $(srcdir)/cxx-ambig-handler.y
+cxx03.y : $(srcdir)/cxx03.y.in $(srcdir)/cxx-placeholders.y $(srcdir)/cxx-subparse.y $(srcdir)/cxx-pragma.y $(srcdir)/cxx-construct.y $(srcdir)/cxx-superscalar.y $(srcdir)/cxx-ambig-handler.y $(srcdir)/cxx-xl.y
 	$(TPP) -o cxx03.y -D CPLUSPLUS -I$(srcdir) $(srcdir)/cxx03.y.in
 
 cxx-parser.c : cxx03.y
@@ -314,7 +316,7 @@ CLEANFILES += c99-parser.output
 CLEANFILES += c99.y
 endif
 
-c99.y : $(srcdir)/c99.y.in $(srcdir)/cxx-placeholders.y $(srcdir)/cxx-subparse.y $(srcdir)/cxx-pragma.y $(srcdir)/cxx-construct.y $(srcdir)/cxx-superscalar.y $(srcdir)/cxx-ambig-handler.y $(srcdir)/c99-upc.y
+c99.y : $(srcdir)/c99.y.in $(srcdir)/cxx-placeholders.y $(srcdir)/cxx-subparse.y $(srcdir)/cxx-pragma.y $(srcdir)/cxx-construct.y $(srcdir)/cxx-superscalar.y $(srcdir)/cxx-ambig-handler.y $(srcdir)/c99-upc.y $(srcdir)/cxx-xl.y
 	$(TPP) -o c99.y -D C99 -I$(srcdir) $(srcdir)/c99.y.in
 
 c99-parser.c : c99.y

@@ -434,6 +434,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 /*!include cxx-pragma.y*/
 /*!include cxx-construct.y*/
 /*!include cxx-superscalar.y*/
+/*!include cxx-xl.y*/
 /*!undefine GRAMMAR_PROLOGUE*/
 
 %type<ast> subparsing
@@ -4769,6 +4770,7 @@ right_bracket_token : '>'
 /*!include cxx-pragma.y*/
 /*!include cxx-construct.y*/
 /*!include cxx-superscalar.y*/
+/*!include cxx-xl.y*/
 /*!undefine GRAMMAR_RULES*/
 
 %%

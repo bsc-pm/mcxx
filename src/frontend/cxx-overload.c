@@ -740,19 +740,22 @@ static void compute_ics(type_t* orig, type_t* dest, decl_context_t decl_context,
 char type_can_be_implicitly_converted_to(type_t* orig, type_t* dest, decl_context_t decl_context, 
         char *ambiguous_conversion, scope_entry_t** conversor)
 {
-    implicit_conversion_sequence_t result;
-    compute_ics(orig, dest, decl_context, &result, 
-            /* filename = */ NULL, /* line = */ 0);
-
-    *ambiguous_conversion = result.is_ambiguous_ics;
-
-    if (conversor != NULL 
-            && result.kind == ICSK_USER_DEFINED)
+    CXX_LANGUAGE()
     {
-        *conversor = result.conversor;
-    }
+        implicit_conversion_sequence_t result;
+        compute_ics(orig, dest, decl_context, &result, 
+                /* filename = */ NULL, /* line = */ 0);
 
-    return (result.kind != ICSK_INVALID);
+        *ambiguous_conversion = result.is_ambiguous_ics;
+
+        if (conversor != NULL 
+                && result.kind == ICSK_USER_DEFINED)
+        {
+            *conversor = result.conversor;
+        }
+
+        return (result.kind != ICSK_INVALID);
+    }
 }
 
 /*

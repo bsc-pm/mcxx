@@ -1100,6 +1100,9 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
         case AST_UPC_STRICT :
             gather_info->is_upc_strict = 1;
             break;
+        case AST_XL_BUILTIN_SPEC :
+            // Do nothing at the moment
+            break;
             // Unknown node
         default:
             internal_error("Unknown node '%s' (%s)", ast_print_node_type(ASTType(a)), ast_location(a));
