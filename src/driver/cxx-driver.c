@@ -556,10 +556,70 @@ int parse_arguments(int argc, const char* argv[],
         // A known option
         else 
         {
-            // Ignore normal flags since we are parsing only implicits
+            // Put here those flags that for some reason have special meanings
+            // and at the same time they modify an implicit flag.
+            // Currently only --no-openmp and --hlt behave this way
+            char already_handled = 1;
+            switch (parameter_info.value)
+            {
+                case OPTION_NO_OPENMP :
+                    {
+                        CURRENT_CONFIGURATION->disable_openmp = 1;
+                        // If 'openmp' is in the parameter flags, set it to false, otherwise add it as false
+                        int i;
+                        char found = 0;
+                        for (i = 0; !found && (i < compilation_process.num_parameter_flags); i++)
+                        {
+                            if (strcmp(compilation_process.parameter_flags[i]->name, "openmp") == 0)
+                            {
+                                found = 1;
+                                compilation_process.parameter_flags[i]->value = 0;
+                            }
+                        }
+                        if (!found)
+                        {
+                            internal_error("'openmp' implicit flag was not properly registered", 0);
+                        }
+                        break;
+                    }
+                case OPTION_ENABLE_HLT :
+                    {
+                        CURRENT_CONFIGURATION->enable_hlt = 1;
+                        // If 'hlt' is in the parameter flags, set it to false, otherwise add it as false
+                        int i;
+                        char found = 0;
+                        for (i = 0; !found && (i < compilation_process.num_parameter_flags); i++)
+                        {
+                            if (strcmp(compilation_process.parameter_flags[i]->name, "hlt") == 0)
+                            {
+                                found = 1;
+                                compilation_process.parameter_flags[i]->value = 1;
+                            }
+                        }
+                        if (!found)
+                        {
+                            internal_error("'hlt' implicit flag was not properly registered", 0);
+                        }
+                        break;
+                    }
+                default:
+                    {
+                        // Do nothing for this case, it is not an error
+                        already_handled = 0;
+                    }
+            }
+
+            // Do nothing else since we were already handled
+            // otherwise the switch below will complain as if we had
+            // forgotten to handle a known option
+            if (already_handled)
+                continue;
+
+            // From now, ignore non-implicit flags
             if (parse_implicits_only)
                 continue;
 
+            // Put here all normal flags that do not require to be checked at implicit flag time
             switch (parameter_info.value)
             {
                 case OPTION_VERSION : // --version
@@ -729,36 +789,6 @@ int parse_arguments(int argc, const char* argv[],
                         CURRENT_CONFIGURATION->output_directory = uniquestr(parameter_info.argument);
                         break;
                     }
-                case OPTION_NO_OPENMP :
-                    {
-                        CURRENT_CONFIGURATION->disable_openmp = 1;
-
-                        // If 'openmp' is in the parameter flags, set it to false, otherwise add it as false
-                        int i;
-                        char found = 0;
-                        for (i = 0; !found && (i < compilation_process.num_parameter_flags); i++)
-                        {
-                            if (strcmp(compilation_process.parameter_flags[i]->name, "openmp") == 0)
-                            {
-                                found = 1;
-                                // Set it to false
-                                compilation_process.parameter_flags[i]->value = 0;
-                            }
-                        }
-                        if (!found)
-                        {
-                            struct parameter_flags_tag *new_parameter_flag = calloc(1, sizeof(*new_parameter_flag));
-
-                            new_parameter_flag->name = uniquestr("openmp");
-                            // This is redundant because of calloc, but make it explicit here anyway
-                            new_parameter_flag->value = 0;
-
-                            P_LIST_ADD(compilation_process.parameter_flags, 
-                                    compilation_process.num_parameter_flags,
-                                    new_parameter_flag);
-                        }
-                        break;
-                    }
                 case OPTION_HELP_DEBUG_FLAGS :
                     {
                         print_debug_flags_list();
@@ -864,11 +894,6 @@ int parse_arguments(int argc, const char* argv[],
                             fprintf(stderr, "UPC static THREADS=%s\n", parameter_info.argument);
                             CURRENT_CONFIGURATION->upc_threads = uniquestr(parameter_info.argument);
                         }
-                        break;
-                    }
-                case OPTION_ENABLE_HLT :
-                    {
-                        CURRENT_CONFIGURATION->enable_hlt = 1;
                         break;
                     }
                 default:
@@ -1434,6 +1459,27 @@ static void initialize_default_values(void)
 
     CURRENT_CONFIGURATION->linker_name = uniquestr("c++");
     CURRENT_CONFIGURATION->linker_options = NULL;
+
+    // Add openmp as an implicit flag
+    struct parameter_flags_tag *new_parameter_flag = calloc(1, sizeof(*new_parameter_flag));
+
+    new_parameter_flag->name = uniquestr("openmp");
+    new_parameter_flag->value = 1;
+
+    P_LIST_ADD(compilation_process.parameter_flags, 
+            compilation_process.num_parameter_flags,
+            new_parameter_flag);
+
+    // Add hlt as an implicit flag
+    new_parameter_flag = calloc(1, sizeof(*new_parameter_flag));
+
+    new_parameter_flag->name = uniquestr("hlt");
+    // This is redundant because of calloc, but make it explicit here anyway
+    new_parameter_flag->value = 0;
+
+    P_LIST_ADD(compilation_process.parameter_flags, 
+            compilation_process.num_parameter_flags,
+            new_parameter_flag);
 }
 
 static void register_default_initializers(void)
