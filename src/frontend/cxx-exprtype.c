@@ -7989,10 +7989,20 @@ char check_for_initializer_clause(AST initializer, decl_context_t decl_context, 
                     // Now we have to check whether this can be converted to the declared entity
                     char ambiguous_conversion = 0;
                     scope_entry_t* conversor = NULL;
+                    standard_conversion_t standard_conversion_sequence;
                     if (!is_dependent_type(declared_type_no_cv)
                             && !is_dependent_expr_type(initializer_expr_type)
-                            && !type_can_be_implicitly_converted_to(initializer_expr_type, declared_type_no_cv, decl_context, 
-                                &ambiguous_conversion, &conversor)
+                            && !(IS_C_LANGUAGE
+                                && standard_conversion_between_types(
+                                    &standard_conversion_sequence,
+                                    initializer_expr_type,
+                                    declared_type_no_cv))
+                            && !(IS_CXX_LANGUAGE 
+                                && type_can_be_implicitly_converted_to(initializer_expr_type, 
+                                    declared_type_no_cv, 
+                                    decl_context, 
+                                    &ambiguous_conversion, 
+                                    &conversor))
                             // A cv char[x] can be initialized with a string literal, we do not check the size
                             && !(is_array_type(declared_type_no_cv)
                                 && is_char_type(array_type_get_element_type(declared_type_no_cv))
