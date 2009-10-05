@@ -95,11 +95,7 @@ namespace TL
                 return true;
             }
 
-            //! Convenience function that returns a wrapped 'signed int'
-            static Type get_int_type(void);
             
-            //! Convenience function that returns a wrapped 'void'
-            static Type get_void_type(void);
 
             //! Returns a string with a declaration
             std::string get_simple_declaration(Scope sc, const std::string& symbol_name, 
@@ -424,6 +420,23 @@ namespace TL
             //! Returns what sizeof would yield for this type
             /*! Note that the result of this function depends on the current type environment */
             unsigned int get_size();
+
+            //! Returns all the arithmetic types
+            /*!  These types include all the integer types and floating types */
+            static ObjectList<Type> get_arithmetic_types();
+            //! Returns all the integer types
+            /*! These types include all variants of char 
+              and int including all long, short and unsigned varieties */
+            static ObjectList<Type> get_integer_types();
+            //! Returns all the floating types
+            /*! These types include float, double and long double */
+            static ObjectList<Type> get_floating_types();
+
+            //! Convenience function that returns a wrapped 'void'
+            static Type get_void_type(void);
+
+            //! Convenience function that returns a wrapped 'signed int'
+            static Type get_int_type(void);
     };
     
     //! @}

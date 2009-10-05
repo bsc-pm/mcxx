@@ -621,4 +621,45 @@ namespace TL
 
         return result;
     }
+
+    //! Returns all the builtins of the type system
+    ObjectList<Type> Type::get_integer_types()
+    {
+        Type all_integer_types[] =
+        {
+            Type(get_char_type()),
+            Type(get_signed_int_type()),
+            Type(get_signed_short_int_type()),
+            Type(get_signed_long_int_type()),
+            Type(get_signed_long_long_int_type()),
+            Type(get_signed_char_type()),
+            Type(get_unsigned_int_type()),
+            Type(get_unsigned_short_int_type()),
+            Type(get_unsigned_long_int_type()),
+            Type(get_unsigned_long_long_int_type()),
+            Type(get_unsigned_char_type()),
+        };
+
+        return ObjectList<Type>(all_integer_types);
+    }
+
+    ObjectList<Type> Type::get_floating_types()
+    {
+        Type all_floating_types[] =
+        {
+            Type(get_float_type()),
+            Type(get_double_type()),
+            Type(get_long_double_type()),
+        };
+
+        return ObjectList<Type>(all_floating_types);
+    }
+
+    ObjectList<Type> Type::get_arithmetic_types()
+    {
+        ObjectList<Type> res(Type::get_integer_types());
+        res.append(Type::get_floating_types());
+        return res;
+        //return Type::get_integer_types().append(Type::get_floating_types());
+    }
 }
