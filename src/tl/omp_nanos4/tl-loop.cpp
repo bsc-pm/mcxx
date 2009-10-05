@@ -183,9 +183,6 @@ namespace TL
                 << "if ( nth_step > 0 ) nth_iters =  nth_upper - nth_low;"
                 << "else nth_iters = nth_low - nth_upper;"
 
-                << "if (nth_iters != 0)"
-                << "{"
-
                 << "in__tone_begin_for_(&nth_zero, &nth_iters, &nth_step, &nth_chunk, &nth_schedule);"
 
                 // Get a slice of the iteration space
@@ -202,7 +199,6 @@ namespace TL
                 << instrument_code_after
                 << "}"
 
-                << "}"
                 ;
 
             // Replace references using set "replace_references" over loop body
