@@ -111,7 +111,7 @@
 "                           the native compiler\n" \
 "  --Wl,<options>           Pass comma-separated <options> on to\n" \
 "                           the linker\n" \
-"  --no-openmp              Disables OpenMP 2.5 support\n" \
+"  --no-openmp              Disables all OpenMP support\n" \
 "  --config-file=<file>     Uses <file> as config file.\n" \
 "                           Use --print-config-file to get the\n" \
 "                           default path\n" \
