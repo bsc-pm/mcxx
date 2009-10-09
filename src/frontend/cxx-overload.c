@@ -756,6 +756,10 @@ char type_can_be_implicitly_converted_to(type_t* orig, type_t* dest, decl_contex
 
         return (result.kind != ICSK_INVALID);
     }
+    C_LANGUAGE()
+    {
+        internal_error("This function cannot be used in C", 0);
+    }
 }
 
 /*
