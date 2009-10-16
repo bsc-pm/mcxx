@@ -37,7 +37,7 @@ namespace TL
     {
         public:
             virtual ObjectList<std::string> tokenize(const std::string& str) const = 0;
-            ~ClauseTokenizer() { }
+            virtual ~ClauseTokenizer() { }
     };
 
     class LIBTL_CLASS NullClauseTokenizer : public ClauseTokenizer
