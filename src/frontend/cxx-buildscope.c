@@ -3803,8 +3803,8 @@ static void set_function_parameter_clause(type_t** function_type,
         return;
     }
 
-    AST iter, list;
-    list = parameters;
+    AST iter = NULL;
+    AST list = parameters;
     
     // Do not contaminate the current symbol table if we are in
     // a function declaration, otherwise this should already be 
@@ -3818,7 +3818,11 @@ static void set_function_parameter_clause(type_t** function_type,
         // Nothing to do here with K&R parameters
         if (ASTType(parameters) == AST_KR_PARAMETER_LIST)
         {
+            // The list is inside this wrapping tree
+            list = ASTSon0(parameters);
+
             // Count them and create a function lacking prototype
+            num_parameters = 0;
             for_each_element(list, iter)
             {
                 num_parameters++;
