@@ -65,29 +65,23 @@ dnl --------------------- End Basic toolchain setup -----------------
 
 dnl --------------------- Check we are not using too old gcc compilers ----
 
-AS_CASE($CC,
-    [*gcc],
-    [
-     AC_MSG_CHECKING([whether gcc is new enough])
-     AC_COMPILE_IFELSE(
-        AC_LANG_PROGRAM([
-          #ifdef __GNUC__
-           #if __GNUC__ <= 2
-            #error "Too old compiler"
-           #endif
-        
-           #if __GNUC__ == 3
-            #if __GNUC_MINOR__ <= 3
-             #error "Too old compiler"
-            #endif
-           #endif
-          #endif
-            ]),
-        AC_MSG_RESULT([ok]),
-        AC_MSG_ERROR([too old compiler, gcc 3.4 or upper is required])
-        )
-    ],
-    []
+AC_MSG_CHECKING([whether gcc is new enough])
+AC_COMPILE_IFELSE(
+   [[
+     #ifdef __GNUC__
+      #if __GNUC__ <= 2
+       #error "Too old compiler"
+      #endif
+   
+      #if __GNUC__ == 3
+       #if __GNUC_MINOR__ <= 3
+        #error "Too old compiler"
+       #endif
+      #endif
+     #endif
+   ]],
+   [AC_MSG_RESULT([ok])],
+   [AC_MSG_ERROR([too old compiler, gcc 3.4 or upper is required])]
 )
 
 dnl --------------------- end check of old gcc ---
