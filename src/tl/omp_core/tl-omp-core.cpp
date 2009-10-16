@@ -174,8 +174,8 @@ namespace TL
                 std::string remainder_arg;
                 std::copy(split_colon + 1, first_arg.end(), std::back_inserter(remainder_arg));
 
-                // Put it back into the arguments array so we do not have to do strange things
-                arguments[0] = remainder_arg;
+                // Put back the arguments after tokenization
+				arguments = ExpressionTokenizer().tokenize(remainder_arg);
 
                 for (ObjectList<std::string>::iterator it = arguments.begin();
                         it != arguments.end();

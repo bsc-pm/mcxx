@@ -162,6 +162,7 @@ pragma_clause_arg_item : pragma_clause_arg_text
 {
     $$ = $1;
 }
+;
 
 pragma_clause_arg_text : PRAGMA_CLAUSE_ARG_TEXT
 {
