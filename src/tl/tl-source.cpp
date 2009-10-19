@@ -358,11 +358,11 @@ namespace TL
             {
                 if (CURRENT_CONFIGURATION->strict_typecheck)
                 {
-                    internal_error("Could not check expression-list '%s'\n", prettyprint_in_buffer(a));
+                    internal_error("Could not check expression-list '%s'\n", list_handler_in_buffer(a));
                 }
                 else
                 {
-                    WARNING_MESSAGE("Could not check expression-list '%s'\n", prettyprint_in_buffer(a));
+                    WARNING_MESSAGE("Could not check expression-list '%s'\n", list_handler_in_buffer(a));
                 }
             }
         }
