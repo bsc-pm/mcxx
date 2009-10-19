@@ -24,6 +24,30 @@
 
 namespace TL
 {
+    static AST_t build_list_after_asts(ObjectList<AST_t> ast_list)
+    {
+        if (ast_list.empty())
+        {
+            // Invalid tree
+            return AST_t(NULL);
+        }
+        else
+        {
+            ObjectList<AST_t>::iterator it = ast_list.begin();
+
+            AST result = ::ast_list_leaf(it->get_internal_ast());
+            it++;
+
+            while (it != ast_list.end())
+            {
+                result = ::ast_list(result, it->get_internal_ast());
+                it++;
+            }
+
+            return AST_t(result);
+        }
+    }
+
     static ObjectList<Expression> parse_as_expression_list(ObjectList<AST_t> clause_list, AST_t ref_tree, ScopeLink scope_link)
     {
         ObjectList<Expression> result;
@@ -59,28 +83,35 @@ namespace TL
 
                 if (!is_expr_list)
                 {
-                    Source src;
+                    // Tokenize and parse properly
+                    ObjectList<AST_t> current_tree_list;
+                    ObjectList<std::string> expr_list_src = ExpressionTokenizer().tokenize(it2->prettyprint());
 
-                    src 
-                        << "#line " << ref_tree.get_line() << " \"" << ref_tree.get_file() << "\"\n"
-                        << it2->prettyprint();
-
-                    AST_t parsed_expr = src.parse_expression_list(ref_tree, scope_link);
-
-                    ERROR_CONDITION(!parsed_expr.is_list(),
-                            "This should be a list!", 0);
-
-                    ASTIterator ast_list_iter =  parsed_expr.get_list_iterator();
-
-                    ast_list_iter.rewind();
-                    while (!ast_list_iter.end())
+                    for (ObjectList<std::string>::iterator it_src = expr_list_src.begin();
+                            it_src != expr_list_src.end();
+                            it_src++)
                     {
-                        Expression expr(ast_list_iter.item(), scope_link);
-                        result.push_back(expr);
-                        ast_list_iter.next();
-                    }
+                        Source src;
 
-                    it2->replace(parsed_expr);
+                        src 
+                            << "#line " << ref_tree.get_line() << " \"" << ref_tree.get_file() << "\"\n"
+                            << (*it_src)
+                            ;
+
+                        AST_t parsed_expr = src.parse_expression(ref_tree, scope_link);
+
+                        if (parsed_expr.is_valid())
+                        {
+                            current_tree_list.append(parsed_expr);
+
+                            Expression expr(parsed_expr, scope_link);
+                            result.append(expr);
+                        }
+
+                    }
+                    AST_t list_of_exprs = build_list_after_asts(current_tree_list);
+
+                    it2->replace(list_of_exprs);
                     it2->set_attribute(LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT, true);
                 }
                 else
