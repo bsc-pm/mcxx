@@ -283,6 +283,19 @@ namespace TL
             FunctionDefinition(AST_t ref, ScopeLink scope_link)
                 : LangConstruct(ref, scope_link)
             {
+                // Allow wrapping a list whose first item is a function-def as
+                // well. 
+                if (ref.is_list())
+                {
+                    ASTIterator iter = ref.get_list_iterator();
+
+                    AST_t item = iter.item();
+
+                    if (FunctionDefinition::predicate(item))
+                    {
+                        _ref = item;
+                    }
+                }
             }
             
             //! Prepends a tree as a sibling of this function definition
