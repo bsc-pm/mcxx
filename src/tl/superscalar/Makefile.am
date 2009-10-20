@@ -33,6 +33,7 @@ phases_LTLIBRARIES = \
 	libtlsuperscalar-function-router.la \
 	libtlsuperscalar-transform-directives.la \
 	libtlsuperscalar-code-conversion.la	\
+	libtlsuperscalar-task-reshaper.la \
 	libtlsuperscalar-task-manifest.la
 
 
@@ -87,6 +88,10 @@ if USE_TL_SUPERSCALAR_V4
 libtlsuperscalar_transform_directives_la_SOURCES += \
 	tl-transform-directives-v3.cpp
 endif
+if USE_TL_SUPERSCALAR_V5
+libtlsuperscalar_transform_directives_la_SOURCES += \
+	tl-transform-directives-v3.cpp
+endif
 
 libtlsuperscalar_code_conversion_la_SOURCES = 
 if USE_TL_SUPERSCALAR_V1
@@ -109,7 +114,17 @@ libtlsuperscalar_code_conversion_la_SOURCES += \
 	tl-task-table.cpp \
 	tl-code-conversion-v4.cpp
 endif
+if USE_TL_SUPERSCALAR_V5
+libtlsuperscalar_code_conversion_la_SOURCES += \
+	tl-parameter-expression.cpp \
+	tl-task-table.cpp \
+	tl-code-conversion-v5.cpp
+endif
 
+libtlsuperscalar_task_reshaper_la_SOURCES = \
+	tl-task-table.cpp \
+	tl-task-reshaper.cpp
+	
 libtlsuperscalar_task_manifest_la_SOURCES = \
 	tl-task-table.cpp \
 	tl-task-manifest.cpp
@@ -119,6 +134,8 @@ noinst_HEADERS = \
 	cxx-ss-attrnames.h \
 	calculator-parser-types.h\
 	\
+	tl-access-bounds.hpp \
+	tl-access-bounds-list.hpp \
 	tl-ast-predicates.hpp \
 	tl-augmented-symbol.hpp \
 	tl-exceptions.hpp \
@@ -142,6 +159,7 @@ noinst_HEADERS = \
 	tl-code-conversion-v2.hpp \
 	tl-code-conversion-v3.hpp \
 	tl-code-conversion-v4.hpp \
+	tl-code-conversion-v5.hpp \
 	tl-parameter-region-list.hpp \
 	tl-parameter-expression.hpp \
 	tl-task-manifest.hpp

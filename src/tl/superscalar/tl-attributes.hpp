@@ -22,6 +22,7 @@
 
 namespace TL {
 	static char const * const SYMBOL_SUPERSCALAR_PARAMETER_REGION_LIST = "symbol.superscalar.parameter_region_list";
+	static char const * const SYMBOL_SUPERSCALAR_PARAMETER_ACCESS_BOUNDS_LIST = "symbol.superscalar.parameter_access_bounds_list";
 	static char const * const SYMBOL_SUPERSCALAR_IS_TASK = "symbol.superscalar.is_task";
 	static char const * const SYMBOL_SUPERSCALAR_HAS_HIGH_PRIORITY = "symbol.superscalar.has_high_priority";
 	static char const * const SYMBOL_SUPERSCALAR_HAS_COHERCED_SIDES = "symbol.superscalar.has_coherced_sides";

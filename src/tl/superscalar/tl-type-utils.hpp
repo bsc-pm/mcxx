@@ -117,6 +117,18 @@ namespace TL
 				return result;
 			}
 			
+			static Type remove_array_levels(Type type, ScopeLink scope_link, int levels)
+			{
+				if (type.is_array() && levels > 0)
+				{
+					return remove_array_levels(type.array_element(), scope_link, levels-1);
+				}
+				else
+				{
+					return type;
+				}
+			}
+			
 			static Type get_array_element_type(Type type, ScopeLink scope_link)
 			{
 				if (type.is_array())

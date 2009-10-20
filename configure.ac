@@ -612,11 +612,11 @@ AC_ARG_WITH([superscalar-runtime-api-version],
     [
         if test $is_enabled_tl_superscalar = "yes" ; then
             case $withval in
-            1|2|3|4)
+            1|2|3|4|5)
                 use_tl_superscalar_version=$withval
                 ;;
             *)
-                AC_MSG_ERROR([Invalid Cell/SMP superscalar version specified. Available versions are 1, 2, 3 and 4.])
+                AC_MSG_ERROR([Invalid Cell/SMP superscalar version specified. Available versions are 1, 2, 3, 4 and 5.])
                 ;;
             esac
         else
@@ -668,6 +668,7 @@ AM_CONDITIONAL(USE_TL_SUPERSCALAR_V1, test x"$use_tl_superscalar_version" = x"1"
 AM_CONDITIONAL(USE_TL_SUPERSCALAR_V2, test x"$use_tl_superscalar_version" = x"2")
 AM_CONDITIONAL(USE_TL_SUPERSCALAR_V3, test x"$use_tl_superscalar_version" = x"3")
 AM_CONDITIONAL(USE_TL_SUPERSCALAR_V4, test x"$use_tl_superscalar_version" = x"4")
+AM_CONDITIONAL(USE_TL_SUPERSCALAR_V5, test x"$use_tl_superscalar_version" = x"5")
 AC_MSG_RESULT([$use_tl_superscalar_version])
 
 superscalar_version=$use_tl_superscalar_version
