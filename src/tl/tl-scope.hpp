@@ -80,7 +80,7 @@ namespace TL
             bool is_valid() const
             {
                 if (_valid)
-                    return false;
+                    return true;
                 return _decl_context.current_scope != NULL;
             }
 
