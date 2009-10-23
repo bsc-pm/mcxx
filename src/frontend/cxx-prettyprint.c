@@ -565,6 +565,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_PP_COMMENT, pp_comment_handler, NULL),
     NODE_HANDLER(AST_PP_TOKEN, pp_prepro_token_handler, NULL),
     NODE_HANDLER(AST_VERBATIM, verbatim_construct_handler, NULL),
+    NODE_HANDLER(AST_DIMENSION_STR, simple_text_handler, NULL),
     // Pragma custom
     NODE_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE, pragma_custom_directive_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, pragma_custom_construct_handler, NULL),

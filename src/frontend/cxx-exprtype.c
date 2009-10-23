@@ -1307,6 +1307,12 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 }
                 break;
             }
+            // Special nodes
+        case AST_DIMENSION_STR:
+            {
+                result = 1;
+                break;
+            }
         case AST_AMBIGUITY :
             {
                 if (!solve_ambiguous_expression(expression, decl_context))

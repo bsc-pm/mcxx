@@ -36,6 +36,7 @@
 namespace TL
 {
     class FunctionDefinition;
+    class Statement;
     class IdExpression;
 
     //! \addtogroup LangConstruct Language construction wrappers
@@ -106,6 +107,9 @@ namespace TL
 
             //! Returns the enclosing function definition
             FunctionDefinition get_enclosing_function();
+
+            //! Returns the enclosing statement of this lang construct, if any
+            Statement get_enclosing_statement();
 
             //! Returns a list of all symbolic occurrences
             ObjectList<IdExpression> all_symbol_occurrences(SymbolsWanted symbols = ALL_SYMBOLS);

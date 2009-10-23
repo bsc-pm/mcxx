@@ -158,6 +158,13 @@ namespace TL
         return result;
     }
 
+    Statement LangConstruct::get_enclosing_statement()
+    {
+        AST_t enclosing_statement = _ref.get_enclosing_statement();
+
+        return Statement(enclosing_statement, _scope_link);
+    }
+
     void FunctionDefinition::prepend_sibling(AST_t ast)
     {
         _ref.prepend_sibling_function(ast);

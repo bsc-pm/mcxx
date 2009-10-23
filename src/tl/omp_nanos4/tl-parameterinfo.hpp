@@ -46,6 +46,13 @@ namespace TL
 
             int parameter_position;
 
+            // VLA support
+            // {
+            bool is_variably_modified;
+            Type type_in_outline;
+            std::string vla_cast_name;
+            // }
+
             ParameterInfo(const std::string& _parameter_name, 
                     const std::string& _argument_name, 
                     Symbol _symbol, 
@@ -55,7 +62,9 @@ namespace TL
                 argument_name(_argument_name), 
                 symbol(_symbol),
                 type(_type), 
-                kind(_kind)
+                kind(_kind),
+                is_variably_modified(false),
+                type_in_outline(NULL)
             {
             }
     };

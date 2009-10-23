@@ -95,6 +95,9 @@ LIBMCXX_EXTERN template_argument_list_t* unresolved_overloaded_type_get_explicit
 
 LIBMCXX_EXTERN struct type_tag* get_dependent_expr_type(void);
 
+// States that this is a variably modified type
+LIBMCXX_EXTERN char is_variably_modified_type(struct type_tag* t);
+
 // This is a plain '0'
 LIBMCXX_EXTERN struct type_tag* get_zero_type(void);
 // This is for g++'s '__null'
@@ -126,6 +129,8 @@ LIBMCXX_EXTERN struct type_tag* get_rvalue_reference_type(struct type_tag* t);
 LIBMCXX_EXTERN struct type_tag* lvalue_ref_for_implicit_arg(struct type_tag* t);
 
 LIBMCXX_EXTERN struct type_tag* get_array_type(struct type_tag*, struct AST_tag* expression, decl_context_t decl_context);
+
+LIBMCXX_EXTERN struct type_tag* get_array_type_str(struct type_tag*, const char* dim);
 
 LIBMCXX_EXTERN struct type_tag* get_new_function_type(struct type_tag* t, parameter_info_t* parameter_info, int num_parameters);
 LIBMCXX_EXTERN struct type_tag* get_nonproto_function_type(struct type_tag* t, int num_parameters);
@@ -340,6 +345,7 @@ LIBMCXX_EXTERN scope_entry_list_t *unresolved_overloaded_type_get_overload_set(s
 LIBMCXX_EXTERN struct type_tag* array_type_get_element_type(struct type_tag* t);
 LIBMCXX_EXTERN struct AST_tag* array_type_get_array_size_expr(struct type_tag* t);
 LIBMCXX_EXTERN decl_context_t array_type_get_array_size_expr_context(struct type_tag* t);
+LIBMCXX_EXTERN char array_type_is_vla(struct type_tag* t);
 
 LIBMCXX_EXTERN enum class_kind_t class_type_get_class_kind(type_t* t);
 LIBMCXX_EXTERN int class_type_get_num_bases(struct type_tag* class_type);

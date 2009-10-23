@@ -34,7 +34,6 @@ namespace TL
                 )
         {
             Source formal_parameters;
-            Source reduction_code;
 
             Source static_qualifier;
 
@@ -51,6 +50,8 @@ namespace TL
                     outlined_function_name,
                     construct);
 
+            Source vla_castings;
+
             Source result;
             result
                 << forward_declaration
@@ -58,6 +59,7 @@ namespace TL
                 << static_qualifier
                 << "void " << outlined_function_name << "(" << formal_parameters << ")"
                 << "{"
+                <<    vla_castings
                 <<    instrumentation_code_before
                 <<    specific_body
                 <<    instrumentation_code_after
@@ -108,6 +110,34 @@ namespace TL
                     << " "
                     << declared_entity.prettyprint()
                     << ";";
+            }
+
+            C_LANGUAGE()
+            {
+                // VLA castings
+                for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
+                        it != parameter_info_list.end();
+                        it++)
+                {
+                    ParameterInfo &param_info(*it);
+                    if (!param_info.is_variably_modified)
+                        continue;
+
+                    // Now add a casting
+                    vla_castings
+                        << param_info.type_in_outline.get_declaration(
+                                function_definition.get_function_body().get_scope(),
+                                param_info.vla_cast_name)
+                        << " = " 
+                        << "("
+                        << param_info.type_in_outline.get_declaration(
+                                function_definition.get_function_body().get_scope(),
+                                "")
+                        << ")"
+                        << param_info.parameter_name
+                        << ";"
+                        ;
+                }
             }
 
             return result;

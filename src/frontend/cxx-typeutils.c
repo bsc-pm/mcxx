@@ -395,16 +395,19 @@ struct pointer_tag
 typedef 
 struct array_tag
 {
-    // Array sizes
     AST array_expr;
     // Scope of the array size expression
     decl_context_t array_expr_decl_context;
+    const char* array_dim;
 
     // The type of the array elements
     struct type_tag* element_type;
 
     // Is literal string type ?
     unsigned char is_literal_string:1;
+    unsigned char is_vla:1;
+    // This one states that we should be using dim instead of array_expr_decl_context
+    unsigned char is_plain:1;
 } array_info_t;
 
 // Vector type
@@ -1945,6 +1948,12 @@ static Hash* get_array_sized_hash(_size_t size)
     }
 }
 
+type_t* get_array_type_str(type_t* element_type, const char* dim)
+{
+    AST expr = ASTLeaf(AST_DIMENSION_STR, NULL, NULL, dim);
+    return get_array_type(element_type, expr, CURRENT_COMPILED_FILE->global_decl_context);
+}
+
 type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl_context)
 {
     // This type is not efficiently managed since sometimes we cannot state
@@ -2056,6 +2065,14 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
             result->array->element_type = element_type;
             result->array->array_expr = expression;
             result->array->array_expr_decl_context = decl_context;
+
+            C_LANGUAGE()
+            {
+                // This is a VLA
+                // In C++ there are no VLA's but this path can be followed by
+                // dependent arrays
+                result->array->is_vla = 1;
+            }
 
             if (expression != NULL
                     && !check_for_expression(expression, decl_context))
@@ -4245,6 +4262,14 @@ decl_context_t array_type_get_array_size_expr_context(type_t* t)
     t = advance_over_typedefs(t);
 
     return t->array->array_expr_decl_context;
+}
+
+char array_type_is_vla(type_t* t)
+{
+    ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
+    t = advance_over_typedefs(t);
+
+    return t->array->is_vla;
 }
 
 char is_array_type(type_t* t)
@@ -7841,14 +7866,7 @@ char type_is_runtime_sized(type_t* t)
 
     if (is_array_type(t))
     {
-        AST array_size_expr = array_type_get_array_size_expr(t);
-        decl_context_t array_size_expr_ctx = array_type_get_array_size_expr_context(t);
-
-        if (array_size_expr != NULL 
-                && !is_constant_expression(array_size_expr, array_size_expr_ctx))
-            return 1;
-
-        return type_is_runtime_sized(array_type_get_element_type(t));
+        return array_type_is_vla(t);
     }
     else if (is_class_type(t))
     {
@@ -8168,4 +8186,35 @@ void class_type_get_virtual_base_with_offset_num(type_t* t, int num,
 
     *symbol = class_type->type->class_info->virtual_base_classes_list[num]->virtual_base;
     *offset = class_type->type->class_info->virtual_base_classes_list[num]->virtual_base_offset;
+}
+
+char is_variably_modified_type(struct type_tag* t)
+{
+    CXX_LANGUAGE()
+    {
+        return 0;
+    }
+
+    if (is_array_type(t))
+    {
+        return array_type_is_vla(t);
+    }
+    else if (is_pointer_type(t))
+    {
+        return is_variably_modified_type(pointer_type_get_pointee_type(t));
+    }
+    else if (is_class_type(t))
+    {
+        type_t* class_type = get_actual_class_type(t);
+        int i;
+        for (i = 0; i < class_type_get_num_nonstatic_data_members(class_type); i++)
+        {
+            scope_entry_t* member = class_type_get_nonstatic_data_member_num(class_type, i);
+
+            if (type_is_runtime_sized(member->type_information))
+                    return 1;
+        }
+    }
+
+    return 0;
 }

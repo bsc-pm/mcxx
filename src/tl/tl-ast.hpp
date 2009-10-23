@@ -490,6 +490,9 @@ namespace TL
             //! Returns the enclosing namespace definition
             AST_t get_enclosing_namespace_definition();
 
+            //! Returns the enclosing statement
+            AST_t get_enclosing_statement();
+
             //! States whether this tree has a related text
             bool has_text() const;
 
