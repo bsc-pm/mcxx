@@ -1,0 +1,144 @@
+/*
+    SMP superscalar Compiler
+    Copyright (C) 2008 Barcelona Supercomputing Center
+
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; version 2.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+*/
+
+#ifndef TL_ACCESS_BOUNDS_HPP
+#define TL_ACCESS_BOUNDS_HPP
+
+#include <cstddef>
+
+#include "tl-object.hpp"
+
+
+namespace TL {
+	class AccessBounds : public Object
+	{
+		private:
+			ObjectList<Expression> *_list;
+			
+		public:
+			typedef ObjectList<Expression>::iterator iterator;
+			typedef ObjectList<Expression>::const_iterator const_iterator;
+			
+			AccessBounds()
+				: Object(), _list(NULL)
+			{
+			}
+			
+			AccessBounds(RefPtr<Object> object)
+			{
+				RefPtr<AccessBounds> access_bounds = RefPtr<AccessBounds>::cast_dynamic(object);
+				if (access_bounds.get_pointer() != NULL)
+				{
+					_list = access_bounds->_list;
+				}
+				else
+				{
+					if (typeid(*object.get_pointer()) != typeid(Undefined))
+					{
+						std::cerr << "Bad initialization for AccessBounds" << std::endl;
+					}
+					_list = NULL;
+				}
+			}
+			
+			AccessBounds(AccessBounds const &other)
+				: Object(other), _list(other._list)
+			{
+			}
+			
+			~AccessBounds()
+			{
+			}
+			
+			void initialize()
+			{
+				_list = new ObjectList<Expression>();
+			}
+			
+			ObjectList<Expression>::const_iterator begin() const
+			{
+				return _list->begin();
+			}
+			
+			ObjectList<Expression>::iterator begin()
+			{
+				return _list->begin();
+			}
+			
+			ObjectList<Expression>::const_iterator end() const
+			{
+				return _list->end();
+			}
+			
+			Expression const &operator[](int index) const
+			{
+				return (*_list)[index];
+			}
+			
+			Expression &operator[](int index)
+			{
+				return (*_list)[index];
+			}
+			
+			size_t size() const
+			{
+				return (*_list).size();
+			}
+			
+			void add(Expression const &bound)
+			{
+				if (_list == NULL)
+				{
+					initialize();
+				}
+				(*_list).push_back(bound);
+			}
+			
+			bool operator==(AccessBounds const &other) const
+			{
+				if ((_list == NULL) != (other._list == NULL))
+				{
+					return false;
+				}
+				
+				if (_list->size() != other._list->size())
+				{
+					return false;
+				}
+				
+				for (unsigned int i=0; i < _list->size(); i++)
+				{
+					if ((*_list)[i].prettyprint() != (*other._list)[i].prettyprint())
+					{
+						return false;
+					}
+				}
+				
+				return true;
+			}
+			
+			bool operator!=(AccessBounds const &other) const
+			{
+				return !(*this == other);
+			}
+			
+	};
+}
+
+
+#endif // TL_ACCESS_BOUNDS_HPP

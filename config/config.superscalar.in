@@ -64,5 +64,6 @@ compiler_phase = libtlsuperscalar-task-analysis.so
 compiler_phase = libtlsuperscalar-function-router.so
 compiler_phase = libtlsuperscalar-transform-directives.so
 compiler_phase = libtlsuperscalar-code-conversion.so
+{reshape} compiler_phase = libtlsuperscalar-task-reshaper.so
 compiler_phase = libtlsuperscalar-task-manifest.so
 pragma_prefix = css

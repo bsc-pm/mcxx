@@ -84,7 +84,7 @@ namespace TL {
 	} // namespace TaskTableInternals
 	
 	
-	TaskTable::TaskTable(AST_t translation_unit, ScopeLink scope_link)
+	TaskTable::TaskTable(AST_t translation_unit, ScopeLink scope_link, bool include_declarations)
 		: _table()
 	{
 		DepthTraverse depth_traverse;
@@ -96,7 +96,10 @@ namespace TL {
 		FunctionDeclarationPredicate function_declaration_predicate(scope_link);
 		TraverseASTPredicate function_declaration_traverser(function_declaration_predicate, AST_t::NON_RECURSIVE);
 		TaskTableInternals::FunctionDeclarationHandler function_declaration_handler(_table);
-		depth_traverse.add_functor(function_declaration_traverser, function_declaration_handler);
+		if (include_declarations)
+		{
+			depth_traverse.add_functor(function_declaration_traverser, function_declaration_handler);
+		}
 		
 		depth_traverse.traverse(translation_unit, scope_link);
 	}

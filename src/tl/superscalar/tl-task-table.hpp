@@ -47,7 +47,7 @@ namespace TL {
 			typedef table_t::iterator iterator;
 			typedef table_t::const_iterator const_iterator;
 			
-			TaskTable(AST_t translation_unit, ScopeLink scope_link);
+			TaskTable(AST_t translation_unit, ScopeLink scope_link, bool include_declarations = true);
 			
 			const_iterator begin() const
 			{
