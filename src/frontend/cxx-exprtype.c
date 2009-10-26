@@ -1311,6 +1311,9 @@ char check_for_expression(AST expression, decl_context_t decl_context)
         case AST_DIMENSION_STR:
             {
                 result = 1;
+                // We do this to avoid later failures
+                ast_set_expression_type(expression, get_signed_int_type());
+                ast_set_expression_is_lvalue(expression, 0);
                 break;
             }
         case AST_AMBIGUITY :
