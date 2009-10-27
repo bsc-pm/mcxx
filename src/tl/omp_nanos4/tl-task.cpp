@@ -25,6 +25,10 @@ namespace TL
 {
     namespace Nanos4
     {
+        static std::string get_representative_dependence_expr(Expression expr);
+        static std::string get_size_dependence_expr(Expression expr);
+        static std::string get_align_dependence_expr(Expression expr);
+
         void OpenMPTransform::task_preorder(PragmaCustomConstruct task_construct)
         {
             // Get the related statement of this task construct
@@ -57,20 +61,23 @@ namespace TL
             data_sharing.get_all_symbols(OpenMP::DA_FIRSTPRIVATE, captureprivate_references);
 
             // Task dependence information
-            // ObjectList<Expression> & input_dependences =
-            //     task_construct.get_data<ObjectList<Expression> >("input_dependences");
-            // ObjectList<Expression> & output_dependences =
-            //     task_construct.get_data<ObjectList<Expression> >("output_dependences");
+            ObjectList<Expression> & input_dependences =
+                task_construct.get_data<ObjectList<Expression> >("input_dependences");
+            ObjectList<Expression> & output_dependences =
+                task_construct.get_data<ObjectList<Expression> >("output_dependences");
 
-            // if ( Nanos4::Version::is_family("trunk") &&
-            //         Nanos4::Version::version >= 4202 ) 
-            // {
-            //     handle_dependences(directive, 
-            //             input_dependences, output_dependences, 
-            //             task_construct, 
-            //             captureaddress_references,
-            //             captureprivate_references);
-            // }
+            if ( Nanos4::Version::is_family("trunk") &&
+                    Nanos4::Version::version >= 4202 ) 
+            {
+                OpenMP::DataSharing& current_data_sharing 
+                    = openmp_info->get_data_sharing(task_construct.get_ast());
+                handle_dependences(task_construct, 
+                        current_data_sharing,
+                        input_dependences, output_dependences, 
+                        task_construct, 
+                        captureaddress_references,
+                        captureprivate_references);
+            }
         }
 
         void OpenMPTransform::task_postorder(PragmaCustomConstruct task_construct)
@@ -547,127 +554,127 @@ namespace TL
                     ;
             }
 
-            // if (!input_dependences.empty())
-            // {
-            //     ObjectList<Expression>::iterator it_begin = input_dependences.begin();
-            //     ObjectList<Expression>::iterator it_end = input_dependences.end();
-            //     ObjectList<Expression>::iterator it;
+            if (!input_dependences.empty())
+            {
+                ObjectList<Expression>::iterator it_begin = input_dependences.begin();
+                ObjectList<Expression>::iterator it_end = input_dependences.end();
+                ObjectList<Expression>::iterator it;
 
-            //     int num_dep = 0;
-            //     for ( it = it_begin; it != it_end; it++ ) 
-            //     {
-            //         Expression &expr = *it;
-            //         Symbol sym = handle_dep_expr(expr);
-            //         Type pointer_type = sym.get_type().get_pointer_to();
+                int num_dep = 0;
+                for ( it = it_begin; it != it_end; it++ ) 
+                {
+                    Expression &expr = *it;
+                    Symbol sym = handle_dep_expr(expr);
+                    Type pointer_type = sym.get_type().get_pointer_to();
 
-            //         // Find the position of the related symbol in the arguments
-            //         bool found = false;
-            //         int referred_num_ref = -1;
+                    // Find the position of the related symbol in the arguments
+                    bool found = false;
+                    int referred_num_ref = -1;
 
-            //         for (ObjectList<ParameterInfo>::iterator it2 = parameter_info_list.begin();
-            //                 it2 != parameter_info_list.end();
-            //                 it2++)
-            //         {
-            //             if (it2->symbol == sym)
-            //             {
-            //                 found = true;
-            //                 referred_num_ref = it2->parameter_position;
-            //                 break;
-            //             }
-            //         }
+                    for (ObjectList<ParameterInfo>::iterator it2 = parameter_info_list.begin();
+                            it2 != parameter_info_list.end();
+                            it2++)
+                    {
+                        if (it2->symbol == sym)
+                        {
+                            found = true;
+                            referred_num_ref = it2->parameter_position;
+                            break;
+                        }
+                    }
 
-            //         if (!found)
-            //         {
-            //             internal_error("Not found proper symbol %s", sym.get_name().c_str());
-            //         }
+                    if (!found)
+                    {
+                        internal_error("Not found proper symbol %s", sym.get_name().c_str());
+                    }
 
-            //         inputs_prologue
-            //             << comment("Find an output to connect input '" + expr.prettyprint() + "'")
-            //             << "nth_outdep_t *connect_" << sym.get_name() << "_dep_" << num_dep << " = nth_find_output_dep_in_scope(nth_self_task_ctx,"
-            //             << get_representative_dependence_expr(expr)
-            //             << ");"
-            //             ;
+                    inputs_prologue
+                        << comment("Find an output to connect input '" + expr.prettyprint() + "'")
+                        << "nth_outdep_t *connect_" << sym.get_name() << "_dep_" << num_dep << " = nth_find_output_dep_in_scope(nth_self_task_ctx,"
+                        << get_representative_dependence_expr(expr)
+                        << ");"
+                        ;
 
-            //         inputs_epilogue
-            //             << comment("Register input dependence '" + expr.prettyprint() + "'")
-            //             << "nth_add_input_to_task(nth_self_task_ctx, nth->task_ctx, "
-            //             // NULL means let Nanos allocate it
-            //             <<                    "(void*)0,"
-            //             <<                    "connect_" << sym.get_name() << "_dep_" << num_dep << ", "
-            //             <<                    get_representative_dependence_expr(expr) << ", "
-            //             <<                    get_size_dependence_expr(expr) << ", "
-            //             <<                    get_align_dependence_expr(expr) << ", "
-            //             <<                    "nth_arg_addr[" << (referred_num_ref + 1) << "]);"
-            //             ;
+                    inputs_epilogue
+                        << comment("Register input dependence '" + expr.prettyprint() + "'")
+                        << "nth_add_input_to_task(nth_self_task_ctx, nth->task_ctx, "
+                        // NULL means let Nanos allocate it
+                        <<                    "(void*)0,"
+                        <<                    "connect_" << sym.get_name() << "_dep_" << num_dep << ", "
+                        <<                    get_representative_dependence_expr(expr) << ", "
+                        <<                    get_size_dependence_expr(expr) << ", "
+                        <<                    get_align_dependence_expr(expr) << ", "
+                        <<                    "nth_arg_addr[" << (referred_num_ref + 1) << "]);"
+                        ;
 
-            //         inputs_immediate
-            //             << comment("Satisfy input dependence '" + expr.prettyprint() + "'")
-            //             << "nth_indep_t nth_" << sym.get_name() << "_indep_" << num_dep << ";"
-            //             << "nth_satisfy_input_dep(nth_self_task_ctx, &nth_ctx, "
-            //             <<         "&nth_" << sym.get_name() << "_indep_" << num_dep << ", "
-            //             <<         "connect_" << sym.get_name() << "_dep_" << num_dep << ", "
-            //             <<         get_representative_dependence_expr(expr) << ", "
-            //             <<         get_size_dependence_expr(expr) << ", "
-            //             <<         get_align_dependence_expr(expr) 
-            //             << ");"
-            //             ;
+                    inputs_immediate
+                        << comment("Satisfy input dependence '" + expr.prettyprint() + "'")
+                        << "nth_indep_t nth_" << sym.get_name() << "_indep_" << num_dep << ";"
+                        << "nth_satisfy_input_dep(nth_self_task_ctx, &nth_ctx, "
+                        <<         "&nth_" << sym.get_name() << "_indep_" << num_dep << ", "
+                        <<         "connect_" << sym.get_name() << "_dep_" << num_dep << ", "
+                        <<         get_representative_dependence_expr(expr) << ", "
+                        <<         get_size_dependence_expr(expr) << ", "
+                        <<         get_align_dependence_expr(expr) 
+                        << ");"
+                        ;
 
-            //         num_dep++;
-            //     }
-            // }
+                    num_dep++;
+                }
+            }
 
             // output dependences 
-            // if (!output_dependences.empty())
-            // {
-            //     ObjectList<Expression>::iterator it_begin = output_dependences.begin();
-            //     ObjectList<Expression>::iterator it_end = output_dependences.end();
-            //     ObjectList<Expression>::iterator it;
+            if (!output_dependences.empty())
+            {
+                ObjectList<Expression>::iterator it_begin = output_dependences.begin();
+                ObjectList<Expression>::iterator it_end = output_dependences.end();
+                ObjectList<Expression>::iterator it;
 
-            //     for ( it = it_begin; it != it_end; it++ ) 
-            //     {
-            //         Expression &expr = *it;
-            //         Symbol sym = handle_dep_expr(expr);
+                for ( it = it_begin; it != it_end; it++ ) 
+                {
+                    Expression &expr = *it;
+                    Symbol sym = handle_dep_expr(expr);
 
-            //         // Find the position of the related symbol in the arguments
-            //         bool found = false;
-            //         int referred_num_ref = -1;
+                    // Find the position of the related symbol in the arguments
+                    bool found = false;
+                    int referred_num_ref = -1;
 
-            //         for (ObjectList<ParameterInfo>::iterator it2 = parameter_info_list.begin();
-            //                 it2 != parameter_info_list.end();
-            //                 it2++)
-            //         {
-            //             if (it2->symbol == sym)
-            //             {
-            //                 found = true;
-            //                 referred_num_ref = it2->parameter_position;
-            //                 break;
-            //             }
-            //         }
+                    for (ObjectList<ParameterInfo>::iterator it2 = parameter_info_list.begin();
+                            it2 != parameter_info_list.end();
+                            it2++)
+                    {
+                        if (it2->symbol == sym)
+                        {
+                            found = true;
+                            referred_num_ref = it2->parameter_position;
+                            break;
+                        }
+                    }
 
-            //         if (!found)
-            //         {
-            //             internal_error("Not found proper symbol %s", sym.get_name().c_str());
-            //         }
+                    if (!found)
+                    {
+                        internal_error("Not found proper symbol %s", sym.get_name().c_str());
+                    }
 
-            //         outputs_epilogue 
-            //             << comment("Register output dependence of symbol '" + expr.prettyprint() + "'")
-            //             << "nth_add_output_to_task(nth_self_task_ctx, nth->task_ctx, "
-            //             // NULL means let Nanos allocate it
-            //             <<                    "(void*)0,"
-            //             <<                    get_representative_dependence_expr(expr) << ", "
-            //             <<                    get_size_dependence_expr(expr) << ", "
-            //             <<                    get_align_dependence_expr(expr) << ", "
-            //             <<                    "nth_arg_addr[" << (referred_num_ref + 1) << "]);"
-            //             ;
+                    outputs_epilogue 
+                        << comment("Register output dependence of symbol '" + expr.prettyprint() + "'")
+                        << "nth_add_output_to_task(nth_self_task_ctx, nth->task_ctx, "
+                        // NULL means let Nanos allocate it
+                        <<                    "(void*)0,"
+                        <<                    get_representative_dependence_expr(expr) << ", "
+                        <<                    get_size_dependence_expr(expr) << ", "
+                        <<                    get_align_dependence_expr(expr) << ", "
+                        <<                    "nth_arg_addr[" << (referred_num_ref + 1) << "]);"
+                        ;
 
-            //         outputs_immediate
-            //             << comment("Notify we have an output dependence of symbol '" + expr.prettyprint() + "'")
-            //             << "nth_shadow_output_dep(nth_self_task_ctx, "
-            //             <<        get_representative_dependence_expr(expr)
-            //             << ");"
-            //             ;
-            //     }
-            // }
+                    outputs_immediate
+                        << comment("Notify we have an output dependence of symbol '" + expr.prettyprint() + "'")
+                        << "nth_shadow_output_dep(nth_self_task_ctx, "
+                        <<        get_representative_dependence_expr(expr)
+                        << ");"
+                        ;
+                }
+            }
 
             // FIXME: Instrumentation is still missing!!!
             task_queueing
@@ -794,7 +801,6 @@ namespace TL
                            -> scalar_dep_expr '->' identifier
          */
 
-#if 0
         Symbol OpenMPTransform::handle_dep_expr(Expression expr)
         {
             // scalar_dep_expr '[' expr : expr ']'
@@ -844,7 +850,8 @@ namespace TL
             }
         }
 
-        void OpenMPTransform::handle_dependences(PragmaCustomConstruct directive,
+        void OpenMPTransform::handle_dependences(PragmaCustomConstruct construct,
+                OpenMP::DataSharing& data_sharing,
                 ObjectList<Expression> &input_dependences,
                 ObjectList<Expression> &output_dependences,
                 PragmaCustomConstruct &task_construct,
@@ -853,7 +860,7 @@ namespace TL
         {
             // input(x) clause support
             // input variables must be shared or firstprivate
-            PragmaCustomClause input = directive.custom_clause("input");
+            PragmaCustomClause input = construct.get_clause("input");
             if (input.is_defined()) 
             {
                 ObjectList<Expression> dep_list = input.get_expression_list();
@@ -882,14 +889,14 @@ namespace TL
                     {
                         // If we are passing an array section built after a pointer
                         // the pointer itself must be capturevalued.
-                        task_construct.add_data_attribute(sym, OpenMP::DA_FIRSTPRIVATE);
+                        data_sharing.set(sym, OpenMP::DA_FIRSTPRIVATE); 
                         captureprivate_references.insert(sym);
                     }
                     else
                     {
                         // Otherwise, capture its address (even if it is an
                         // array since they are already properly handled)
-                        task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
+                        data_sharing.set(sym, OpenMP::DA_SHARED);
                         captureaddress_references.insert(sym);
                     }
 
@@ -900,7 +907,7 @@ namespace TL
 
             // output(x) clause support
             // output variables must be shared
-            PragmaCustomClause output = directive.custom_clause("output");
+            PragmaCustomClause output = construct.get_clause("output");
             if (output.is_defined()) 
             {
                 ObjectList<Expression> dep_list = output.get_expression_list();
@@ -929,14 +936,14 @@ namespace TL
                     {
                         // If we are passing an array section built after a pointer
                         // the pointer itself must be capturevalued.
-                        task_construct.add_data_attribute(sym, OpenMP::DA_FIRSTPRIVATE);
+                        data_sharing.set(sym, OpenMP::DA_FIRSTPRIVATE);
                         captureprivate_references.insert(sym);
                     }
                     else
                     {
                         // Otherwise, capture its address (even if it is an
                         // array since they are already properly handled)
-                        task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
+                        data_sharing.set(sym, OpenMP::DA_SHARED);
                         captureaddress_references.insert(sym);
                     }
 
@@ -947,7 +954,7 @@ namespace TL
 
             // inout(x) clause support
             // inout variables must be shared
-            PragmaCustomClause inout = directive.custom_clause("inout");
+            PragmaCustomClause inout = construct.get_clause("inout");
             if (inout.is_defined()) 
             {
                 ObjectList<Expression> dep_list = inout.get_expression_list();
@@ -976,14 +983,14 @@ namespace TL
                     {
                         // If we are passing an array section built after a pointer
                         // the pointer itself must be capturevalued.
-                        task_construct.add_data_attribute(sym, OpenMP::DA_FIRSTPRIVATE);
+                        data_sharing.set(sym, OpenMP::DA_FIRSTPRIVATE);
                         captureprivate_references.insert(sym);
                     }
                     else
                     {
                         // Otherwise, capture its address (even if it is an
                         // array since they are already properly handled)
-                        task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
+                        data_sharing.set(sym, OpenMP::DA_SHARED);
                         captureaddress_references.insert(sym);
                     }
 
@@ -993,9 +1000,7 @@ namespace TL
                 }
             }
         }
-#endif
 
-#if 0
         static std::string get_representative_dependence_expr(Expression expr)
         {
             if (expr.is_array_section())
@@ -1088,6 +1093,5 @@ namespace TL
 
             return "<<invalid-expression(align)>>";
         }
-#endif
     }
 }
