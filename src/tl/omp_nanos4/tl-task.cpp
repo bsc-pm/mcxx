@@ -513,6 +513,25 @@ namespace TL
                     << cutoff_call;
             }
 
+            // Final clause
+            PragmaCustomClause final_clause = task_construct.get_clause("final");
+            Source final_code, final_create, final_immediate;
+            if (final_clause.is_defined())
+            {
+
+                final_code
+                    << "char _task_is_final = (" << final_clause.get_expression_list()[0].prettyprint() << ");"
+                    ;
+
+                final_create
+                    << "if (_task_is_final) nth_finalize(nth);"
+                    ;
+
+                final_immediate
+                    << "if (_task_is_final) nth_finalize(nth_self());"
+                    ;
+            }
+
             // input dependences 
             // Task dependence information from task_preorder
 
@@ -656,6 +675,7 @@ namespace TL
                 // FIXME - I'd like there was a NTH_CUTOFF_INVALID (with zero
                 // value but this would break current interface)
                 <<    cutoff_code
+                <<    final_code
                 <<    "switch (nth_cutoff)"
                 <<    "{"
                 <<      "case NTH_CUTOFF_CREATE:"
@@ -681,6 +701,7 @@ namespace TL
                 <<          outputs_epilogue
                 <<          inputs_epilogue
                 <<          copy_construction_part
+                <<          final_create
                 <<          "nth_submit(nth);"
                 <<          "break;" 
                 <<      "}"
@@ -693,6 +714,7 @@ namespace TL
                 <<          dependences_common
                 <<          inputs_prologue
                 <<          increment_task_level
+                <<          final_immediate
                 <<          outputs_immediate
                 <<          inputs_immediate
                 <<          "(" << outlined_function_reference << ")" << "(" << fallback_arguments << ");"
