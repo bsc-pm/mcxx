@@ -6149,6 +6149,46 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                 }
             }
         }
+        else if (!is_function_type(ASTExprType(called_expression))
+                && !is_pointer_to_function_type(ASTExprType(called_expression)))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: Expression is not callable\n");
+            }
+            if (!checking_ambiguity())
+            {
+                fprintf(stderr, "%s: warning: cannot call '%s' since its type '%s' is neither a function or a pointer to function\n",
+                        ast_location(called_expression),
+                        prettyprint_in_buffer(called_expression),
+                        print_type_str(ASTExprType(called_expression), decl_context));
+            }
+            return 0;
+        }
+
+        // Do not allow invalid types from now
+        ERROR_CONDITION(!is_function_type(ASTExprType(called_expression))
+                && !is_pointer_to_function_type(ASTExprType(called_expression)),
+                "Invalid type for function call %s\n", print_declarator(ASTExprType(called_expression)));
+
+        // Check arguments, at the moment just check the number of arguments. 
+        // Maybe we will be checking the types themselves one day
+        type_t* proper_function_type = ASTExprType(called_expression);
+        if (is_pointer_to_function_type(proper_function_type))
+        {
+            proper_function_type = pointer_type_get_pointee_type(proper_function_type);
+        }
+
+        if (!(num_explicit_arguments == function_type_get_num_parameters(proper_function_type)
+                    || ((num_explicit_arguments >= function_type_get_num_parameters(proper_function_type))
+                        && function_type_get_has_ellipsis(proper_function_type))))
+        {
+            fprintf(stderr, "%s: warning: number of arguments of call '%s' is not valid for function type '%s'\n",
+                    ast_location(called_expression),
+                    prettyprint_in_buffer(whole_function_call),
+                    print_type_str(proper_function_type, decl_context));
+        }
+
 
         DEBUG_CODE()
         {
@@ -6194,7 +6234,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         }
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: Called entity '%s' is not valid\n", 
+            fprintf(stderr, "%s: warning: called entity '%s' is not valid\n", 
                     ast_location(called_expression), 
                     prettyprint_in_buffer(called_expression));
         }
