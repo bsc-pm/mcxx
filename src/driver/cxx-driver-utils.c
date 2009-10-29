@@ -82,8 +82,7 @@ static temporal_file_t new_temporal_file_unix(void)
     int fd = open(tempfile, O_EXCL | O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
     if (fd < 0)
     {
-        fprintf(stderr, "Could not create the temporal file '%s' (%s)\n", tempfile, strerror(errno));
-        return NULL;
+        running_error("error: could not create the temporal file '%s' (%s)\n", tempfile, strerror(errno));
     }
     close(fd);
 
