@@ -27,6 +27,9 @@
 #include <errno.h>
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
   #include <sys/wait.h>
+  #include <sys/types.h>
+  #include <sys/stat.h>
+  #include <fcntl.h>
 #else
   #include <windows.h>
 #endif
@@ -72,27 +75,23 @@ void temporal_files_cleanup(void)
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
 static temporal_file_t new_temporal_file_unix(void)
 {
-    char template[256];
-    snprintf(template, 255, "/tmp/%s_XXXXXX", compilation_process.exec_basename);
-    template[255] = '\0';
+    // This function honours TMPDIR, which is handy for some users
+    char* tempfile = tempnam(/* dir */ NULL, compilation_process.exec_basename);
 
-    // Create the temporal file
-    int file_descriptor = mkstemp(template);
-
-    if (file_descriptor < 0) 
+    // Ensure it is us who creates the file
+    int fd = open(tempfile, O_EXCL | O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+    if (fd < 0)
     {
+        fprintf(stderr, "Could not create the temporal file '%s' (%s)\n", tempfile, strerror(errno));
         return NULL;
     }
+    close(fd);
 
     // Save the info of the new file
     temporal_file_t result = calloc(sizeof(*result), 1);
-    result->name = uniquestr(template);
-    // Get a FILE* descriptor
-    // result->file = fdopen(file_descriptor, "w+");
-    // if (result->file == NULL)
-    // {
-    //     running_error("error: cannot create temporary file (%s)", strerror(errno));
-    // }
+    result->name = uniquestr(tempfile);
+
+    free(tempfile);
 
     // Link to the temporal_file_list
     temporal_file_list_t new_file_element = calloc(sizeof(*new_file_element), 1);
