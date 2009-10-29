@@ -224,6 +224,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> functional_declarator
 %type<ast> declarator_id
 %type<ast> functional_declarator_id
+%type<ast> final_declarator_id
 // %type<ast> decl_specifier
 %type<ast> decl_specifier_seq
 %type<ast> abstract_direct_declarator
@@ -1112,19 +1113,31 @@ optional_array_expression : /* empty */
 }
 ;
 
-functional_declarator_id : declarator_id '(' parameter_type_list ')'
+functional_declarator_id : final_declarator_id '(' parameter_type_list ')'
 {
 	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-| declarator_id '(' identifier_list ')' 
+| final_declarator_id '(' identifier_list ')' 
 {
 	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-| declarator_id '(' ')'
+| final_declarator_id '(' ')'
 {
 	AST empty_parameter = ASTLeaf(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, NULL, 0, NULL);
 
 	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, empty_parameter, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+;
+
+// This rule is needed because of redundant parentheses
+final_declarator_id : declarator_id
+{
+    $$ = $1;
+}
+|
+'(' final_declarator_id ')'
+{
+    $$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, $1.token_file, $1.token_line, NULL);
 }
 ;
 
