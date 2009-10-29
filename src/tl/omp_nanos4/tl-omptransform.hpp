@@ -401,8 +401,8 @@ namespace TL
                 Symbol warn_no_data_sharing(Symbol sym);
 
                 // Dependences support
-#if 0
                 void handle_dependences(PragmaCustomConstruct directive,
+                        OpenMP::DataSharing& data_sharing,
                         ObjectList<Expression> &input_dependences,
                         ObjectList<Expression> &output_dependences,
                         PragmaCustomConstruct &task_construct,
@@ -411,7 +411,6 @@ namespace TL
 
                 static Symbol handle_dep_expr(Expression expr);
                 static Symbol handle_scalar_dep_expr(Expression expr);
-#endif
 
                 Source debug_parameter_info(
                         ObjectList<ParameterInfo> parameter_info_list);

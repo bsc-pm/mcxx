@@ -577,7 +577,7 @@ static int parse_profile_name(FILE* fp,
 
     (*p) = eatWhitespace (fp); 
 
-    const char other_valid_chars[] = "._-";
+    const char other_valid_chars[] = "._-+";
 
     char name_finished = 0;
     while (!name_finished)

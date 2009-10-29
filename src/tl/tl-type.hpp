@@ -129,6 +129,15 @@ namespace TL
              * \param scope Scope of \a expression_array
              */
             Type get_array_to(AST_t expression_array, Scope scope);
+
+            //! Convenience function that returns an array type built after a dimension string
+            /*!
+              The frontend never creates this kind of array types. They exist
+              to ease array type creation in TL. They should be only used for
+              types that are going to be prettyprinted.
+              */
+            Type get_array_to(const std::string& str);
+
             //! Gets a reference (C++) to the current type
             Type get_reference_to();
 
@@ -317,6 +326,8 @@ namespace TL
             bool explicit_array_dimension() const;
             //! Returns the expression of the array dimension
             AST_t array_dimension() const;
+            //! [C only] States whether current array is a VLA
+            bool array_is_vla() const;
 
 
             //! States whether this type represents an unresolved overload type
@@ -370,6 +381,9 @@ namespace TL
 
             //! States whether any nonstatic member of class-type is defined as mutable
             bool some_member_is_mutable() const;
+
+            //! Is variably modified type
+            bool is_variably_modified() const;
 
             //! States whether this type is const qualified
             bool is_const() const;

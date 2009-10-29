@@ -20,10 +20,22 @@
 */
 #include "tl-omptransform.hpp"
 
+#include "tl-counters.hpp"
+
 namespace TL
 {
     namespace Nanos4
     {
+        static void dimensional_replacements_of_variable_type_aux(Type t, Symbol sym, 
+                ObjectList<Source> &dim_names, 
+                ObjectList<Source> &dim_decls);
+        static Type compute_replacemement_type_for_vla(Type t, ObjectList<Source>::iterator dim_names);
+        static Type compute_replacemement_type_for_vla_in_outline(Type t, ObjectList<Source>::iterator dim_names);
+
+        static void vla_handling(ObjectList<ParameterInfo>& parameter_info, 
+                ReplaceIdExpression& result,
+                ScopeLink sl, bool disable_restrict_pointers);
+
         ReplaceIdExpression OpenMPTransform::set_replacements(FunctionDefinition function_definition,
                 Statement construct_body,
                 ObjectList<Symbol>& shared_references,
@@ -278,6 +290,11 @@ namespace TL
                 }
             }
 
+            C_LANGUAGE()
+            {
+                vla_handling(parameter_info, result, construct_body.get_scope_link(), disable_restrict_pointers);
+            }
+
             return result;
         }
 
@@ -353,6 +370,216 @@ namespace TL
             }
 
             return result;
+        }
+
+        static void vla_handling(ObjectList<ParameterInfo>& parameter_info, 
+                ReplaceIdExpression& result,
+                ScopeLink sl, bool disable_restrict_pointers)
+        {
+            // Now review each parameter to see whether it is a
+            // variable-sized type (so, a VLA or containing one)
+            ObjectList<ParameterInfo> new_parameters;
+            for (ObjectList<ParameterInfo>::iterator it = parameter_info.begin();
+                    it != parameter_info.end();
+                    it++)
+            {
+                ParameterInfo& param_info(*it);
+                Symbol &symbol(param_info.symbol);
+
+                if (symbol.get_type().is_variably_modified())
+                {
+                    ObjectList<Source> dim_decls;
+                    ObjectList<Source> dim_names;
+
+                    dimensional_replacements_of_variable_type_aux(symbol.get_type(),
+                            symbol, dim_names, dim_decls);
+
+                    Source new_decls;
+                    for (ObjectList<Source>::iterator it = dim_decls.begin();
+                            it != dim_decls.end();
+                            it++)
+                    {
+                        new_decls << *it << ";"
+                            ;
+                    }
+
+                    AST_t point_of_decl = symbol.get_point_of_declaration();
+                    AST_t enclosing_stmt_tree;
+                    if (symbol.is_parameter())
+                    {
+                        FunctionDefinition 
+                            funct_def(point_of_decl.get_enclosing_function_definition(),
+                                    sl);
+
+                        enclosing_stmt_tree = funct_def.get_function_body().get_inner_statements()[0].get_ast();
+                    }
+                    else
+                    {
+                        enclosing_stmt_tree = point_of_decl.get_enclosing_statement();
+                    }
+
+                    AST_t statement_seq 
+                        = new_decls.parse_statement(enclosing_stmt_tree, sl);
+
+                    enclosing_stmt_tree.prepend(statement_seq);
+
+                    for (ObjectList<Source>::iterator it = dim_names.begin();
+                            it != dim_names.end();
+                            it++)
+                    {
+                        Scope sc = sl.get_scope(enclosing_stmt_tree);
+
+                        Symbol new_sym = sc.get_symbol_from_name(it->get_source());
+
+                        if (!new_sym.is_valid())
+                        {
+                            internal_error("Symbol just declared, not found", 0);
+                        }
+
+                        Type pointer_type = Type::get_int_type();
+                        if (!disable_restrict_pointers)
+                        {
+                            pointer_type = pointer_type.get_restrict_type();
+                        }
+
+                        ParameterInfo new_param(new_sym.get_name(), 
+                                "&" + new_sym.get_name(),
+                                new_sym, 
+                                Type::get_int_type().get_pointer_to(), 
+                                ParameterInfo::BY_VALUE);
+
+                        new_parameters.append(new_param);
+                    }
+
+                    if (!symbol.is_parameter())
+                    {
+                        // If this is not a parameter, we'll want to rewrite the declaration itself
+                        Type new_type_spawn = compute_replacemement_type_for_vla(symbol.get_type(), dim_names.begin());
+
+                        // Now redeclare
+                        Source redeclaration;
+                        redeclaration
+                            << new_type_spawn.get_declaration(symbol.get_scope(), symbol.get_name())
+                            << ";"
+                            ;
+
+                        AST_t redeclaration_tree = redeclaration.parse_statement(enclosing_stmt_tree,
+                                sl, Source::ALLOW_REDECLARATION);
+
+                        enclosing_stmt_tree.prepend(redeclaration_tree);
+
+                        // Now remove the declarator of the declaration
+                        Declaration decl(point_of_decl, sl);
+
+                        if (decl.get_declared_entities().size() == 1)
+                        {
+                            // We have to remove all the whole declaration
+                            enclosing_stmt_tree.remove_in_list();
+                        }
+                        else
+                        {
+                            // Remove only this entity
+                            ObjectList<DeclaredEntity> entities = decl.get_declared_entities();
+                            for (ObjectList<DeclaredEntity>::iterator it = entities.begin();
+                                    it != entities.end();
+                                    it++)
+                            {
+                                if (it->get_declared_symbol() == param_info.symbol)
+                                {
+                                    it->get_ast().remove_in_list();
+                                }
+                            }
+                        }
+                    }
+
+                    Type new_type_outline = compute_replacemement_type_for_vla_in_outline(symbol.get_type(), dim_names.begin());
+                    new_type_outline = new_type_outline.get_pointer_to();
+                    if (!disable_restrict_pointers)
+                    {
+                        new_type_outline = new_type_outline.get_restrict_type();
+                    }
+
+                    // Fix the info for this parameter
+                    param_info.type = Type::get_void_type().get_pointer_to();
+                    param_info.is_variably_modified = true;
+                    param_info.vla_cast_name = param_info.parameter_name;
+                    param_info.parameter_name = "_vla_" + param_info.parameter_name;
+                    param_info.type_in_outline = new_type_outline;
+
+                    // Override the replacement
+                    result.add_replacement(param_info.symbol, "(*" + param_info.symbol.get_name() + ")", 
+                            point_of_decl, sl);
+                }
+            }
+            parameter_info.append(new_parameters);
+        }
+
+        static void dimensional_replacements_of_variable_type_aux(Type t, Symbol sym, 
+                ObjectList<Source> &dim_names, 
+                ObjectList<Source> &dim_decls)
+        {
+            Counter& vla_counter = CounterManager::get_counter("VLA_DIMENSIONS_COUNTER");
+            if (t.is_array())
+            {
+                Source dim_name;
+                dim_name
+                    << "_" << sym.get_name() << "_" << vla_counter
+                    ;
+                vla_counter++;
+
+                dimensional_replacements_of_variable_type_aux(t.array_element(), sym, dim_names, dim_decls);
+
+                dim_names.append(dim_name);
+                dim_decls.append(Source("") << "int " << dim_name << " = " << t.array_dimension().prettyprint());
+            }
+            else if (t.is_pointer())
+            {
+                dimensional_replacements_of_variable_type_aux(t.points_to(), sym, dim_names, dim_decls);
+            }
+        }
+
+        static Type compute_replacemement_type_for_vla(Type t, ObjectList<Source>::iterator dim_names)
+        {
+            Type new_type(NULL);
+            if (t.is_array())
+            {
+                new_type = compute_replacemement_type_for_vla(t.array_element(), dim_names + 1);
+
+                new_type = new_type.get_array_to(*dim_names);
+            }
+            else if (t.is_pointer())
+            {
+                new_type = compute_replacemement_type_for_vla(t.points_to(), dim_names);
+                new_type = new_type.get_pointer_to();
+            }
+            else
+            {
+                new_type = t;
+            }
+
+            return new_type;
+        }
+
+        static Type compute_replacemement_type_for_vla_in_outline(Type t, ObjectList<Source>::iterator dim_names)
+        {
+            Type new_type(NULL);
+            if (t.is_array())
+            {
+                new_type = compute_replacemement_type_for_vla_in_outline(t.array_element(), dim_names + 1);
+
+                new_type = new_type.get_array_to(std::string("*") + dim_names->get_source());
+            }
+            else if (t.is_pointer())
+            {
+                new_type = compute_replacemement_type_for_vla_in_outline(t.points_to(), dim_names);
+                new_type = new_type.get_pointer_to();
+            }
+            else
+            {
+                new_type = t;
+            }
+
+            return new_type;
         }
     }
 }

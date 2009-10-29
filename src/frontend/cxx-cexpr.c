@@ -325,6 +325,7 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
         case AST_CLASS_TEMPLATE_MEMBER_ACCESS :
         case AST_POINTER_CLASS_TEMPLATE_MEMBER_ACCESS :
         case AST_ARRAY_SUBSCRIPT :
+        case AST_DIMENSION_STR:
         case AST_FUNCTION_CALL :
         case AST_POINTER_TO_MEMBER :
         case AST_POINTER_TO_POINTER_MEMBER :
@@ -582,6 +583,7 @@ static literal_value_t create_value_from_literal(AST a)
             }
             else
             {
+                // Note: literal_text[0] is the quote
                 // FIXME: Make a flag signed/unsigned char
                 result.kind = LVK_SIGNED_CHAR;
                 if (literal_text[1] != '\\')
@@ -590,7 +592,114 @@ static literal_value_t create_value_from_literal(AST a)
                 }
                 else
                 {
-                    internal_error("TODO - Check for escape sentences!", 0);
+                    switch (literal_text[2])
+                    {
+                        case '\'':
+                            {
+                                result.value.signed_char = literal_text[2];
+                                break;
+                            }
+                        case 'a' :
+                            {
+                                result.value.signed_char = '\a';
+                                break;
+                            }
+                        case 'b' :
+                            {
+                                result.value.signed_char = '\b';
+                                break;
+                            }
+                        case 'e' :
+                            {
+                                result.value.signed_char = '\e';
+                                break;
+                            }
+                        case 'f' :
+                            {
+                                result.value.signed_char = '\f';
+                                break;
+                            }
+                        case 'n' :
+                            {
+                                result.value.signed_char = '\n';
+                                break;
+                            }
+                        case 'r' :
+                            {
+                                result.value.signed_char = '\r';
+                                break;
+                            }
+                        case 't' :
+                            {
+                                result.value.signed_char = '\t';
+                                break;
+                            }
+                        case 'v' :
+                            {
+                                result.value.signed_char = '\v';
+                                break;
+                            }
+                        case '\\' :
+                            {
+                                result.value.signed_char = '\\';
+                                break;
+                            }
+                        case 0:
+                        case 1:
+                        case 2:
+                        case 3:
+                        case 4:
+                        case 5:
+                        case 6:
+                        case 7:
+                            {
+                                int i;
+                                char c[32] = { 0 };
+                                // Copy until the quote
+                                for (i = 2; literal_text[i] != '\'' && literal_text[i] != '\0' ; i++)
+                                {
+                                    c[i - 2] = literal_text[i];
+                                }
+
+                                char *err = NULL;
+                                result.value.signed_char = (signed char) strtol(c, &err, 8);
+
+                                if (!(*c != '\0'
+                                        && *err == '\0'))
+                                {
+                                    running_error("%s: error: %s does not seem a valid character literal\n", 
+                                            ast_location(a),
+                                            prettyprint_in_buffer(a));
+                                }
+                                break;
+                            }
+                        case 'x':
+                            {
+                                int i;
+                                char c[32] = { 0 };
+                                // Copy until the quote
+                                // Note literal_value is '\x000' so the number
+                                // starts at literal_value[3]
+                                for (i = 3; literal_text[i] != '\'' && literal_text[i] != '\0' ; i++)
+                                {
+                                    c[i - 3] = literal_text[i];
+                                }
+
+                                char * err = NULL;
+                                result.value.signed_char = (signed char) strtol(c, &err, 16);
+
+                                if (!(*c != '\0'
+                                        && *err == '\0'))
+                                {
+                                    running_error("%s: error: %s does not seem a valid character literal\n", 
+                                            ast_location(a),
+                                            prettyprint_in_buffer(a));
+                                }
+                                break;
+                            }
+                        default:
+                            internal_error("Unhandled char literal %s", literal_text);
+                    }
                 }
             }
             break;

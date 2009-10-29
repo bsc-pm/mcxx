@@ -23,6 +23,7 @@
 #include "tl-scopelink.hpp"
 #include "tl-predicate.hpp"
 #include "cxx-ast.h"
+#include "cxx-attrnames.h"
 #include "cxx-utils.h"
 #include <sstream>
 #include <cstdio>
@@ -643,6 +644,19 @@ namespace TL
         return node;
     }
 
+    //! Returns the enclosing statement
+    AST_t AST_t::get_enclosing_statement()
+    {
+        AST_t a = *this;
+        while (a.is_valid()
+                && !(TL::Bool)a.get_attribute(LANG_IS_STATEMENT))
+        {
+            a = a.get_parent();
+        }
+
+        return a;
+    }
+
     AST_t AST_t::get_enclosing_function_definition(bool jump_templates)
     {
         AST node = _ast;
@@ -686,11 +700,11 @@ namespace TL
         }
 
         AST parent = ASTParent(list);
-        AST next = ASTSon0(list);
+        AST previous = ASTSon0(list);
 
-        if (next != NULL)
+        if (previous != NULL)
         {
-            ast_set_parent(next, parent);
+            ast_set_parent(previous, parent);
         }
 
         int i;
@@ -698,7 +712,7 @@ namespace TL
         {
             if (ASTChild(parent, i) == list)
             {
-                ast_set_child(parent, i, next);
+                ast_set_child(parent, i, previous);
                 break;
             }
         }

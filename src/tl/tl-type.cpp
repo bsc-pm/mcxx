@@ -91,6 +91,15 @@ namespace TL
         return Type(array_to);
     }
 
+    Type Type::get_array_to(const std::string& str)
+    {
+        type_t* result_type = this->_type_info;
+
+        type_t* array_to = get_array_type_str(result_type, uniquestr(str.c_str()));
+
+        return Type(array_to);
+    }
+
     bool Type::operator==(Type t) const
     {
         return this->_type_info == t._type_info;
@@ -202,6 +211,11 @@ namespace TL
     Type Type::array_element() const
     {
         return array_type_get_element_type(_type_info);
+    }
+
+    bool Type::array_is_vla() const
+    {
+        return array_type_is_vla(_type_info);
     }
 
     Type Type::references_to() const
@@ -661,5 +675,10 @@ namespace TL
         res.append(Type::get_floating_types());
         return res;
         //return Type::get_integer_types().append(Type::get_floating_types());
+    }
+
+    bool Type::is_variably_modified() const
+    {
+        return ::is_variably_modified_type(_type_info);
     }
 }

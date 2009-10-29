@@ -1065,14 +1065,14 @@ then
    run_git=""
    if test x"$gitpath" != x;
    then
-      echo "$gitpath" "$srcdir" >&5
+      echo "$gitpath" "$srcdir" >& AS_MESSAGE_LOG_FD
       run_gitversion=`"$gitpath" --git-dir=$srcdir/.git show "--pretty=format:%h %ci" HEAD | head -n 1`
       build_version="\"git $run_gitversion developer version\""
    fi
 
    if test x"$gitpath" = x -o x"$run_gitversion" = x;
    then
-       build_subversion="\"unknown git commit\""
+       build_version="\"unknown git commit\""
    fi
    AC_MSG_RESULT($build_version)
 fi
