@@ -167,13 +167,13 @@ namespace TL
 					if (access_bounds.size() > 0)
 					{
 						shaper_datastructure_filling
-							<< "dimensions[" << index << "][0].total_size = (" << dimension_sizes[0] << ")*" << "sizeof(" << parameter_basic_type.get_declaration(parameter_scope, "") << ")" << ";"
-							<< "dimensions[" << index << "][0].region_size = (" << access_bounds[0] << ")*" << "sizeof(" << parameter_basic_type.get_declaration(parameter_scope, "") << ")" << ";";
+							<< "dimensions[" << index << "][0].original_size = (" << dimension_sizes[0] << ")*" << "sizeof(" << parameter_basic_type.get_declaration(parameter_scope, "") << ")" << ";"
+							<< "dimensions[" << index << "][0].reshaped_size = (" << access_bounds[0] << ")*" << "sizeof(" << parameter_basic_type.get_declaration(parameter_scope, "") << ")" << ";";
 					}
 					for (unsigned int dimension=1; dimension < access_bounds.size(); dimension++) {
 						shaper_datastructure_filling
-							<< "dimensions[" << index << "][" << dimension << "].total_size = " << dimension_sizes[dimension] << ";"
-							<< "dimensions[" << index << "][" << dimension << "].region_size = " << access_bounds[dimension] << ";";
+							<< "dimensions[" << index << "][" << dimension << "].original_size = " << dimension_sizes[dimension] << ";"
+							<< "dimensions[" << index << "][" << dimension << "].reshaped_size = " << access_bounds[dimension] << ";";
 					}
 					shaper_datastructure_filling
 						<< "}";
