@@ -73,7 +73,24 @@ void temporal_files_cleanup(void)
 static temporal_file_t new_temporal_file_unix(void)
 {
     char template[256];
-    snprintf(template, 255, "/tmp/%s_XXXXXX", compilation_process.exec_basename);
+
+    // Behave like glibc
+    const char * dir = getenv("TMPDIR");
+    if (dir == NULL)
+    {
+        if (P_tmpdir != NULL)
+        {
+            dir = P_tmpdir;
+        }
+        else
+        {
+            // Desperate fallback
+            dir = "/tmp";
+        }
+    }
+
+    snprintf(template, 255, "%s/%s_XXXXXX", 
+            dir, compilation_process.exec_basename);
     template[255] = '\0';
 
     // Create the temporal file
