@@ -52,26 +52,12 @@ namespace TL
 
                 std::cerr << "Getting enclosing function def" << std::endl;
 
-                // This is easier, you can get it from any LangConstruct!
-                // FunctionDefinition function_def = construct.get_enclosing_function();
-                AST_t tree = construct.get_ast().get_enclosing_function_definition();
-                FunctionDefinition function_def(tree, construct.get_scope_link());
+                FunctionDefinition function_def = construct.get_enclosing_function();
 
                 Statement fun_body = function_def.get_function_body();
                 std::cerr << "BODY -->" << fun_body << "<--" << std::endl;
 
                 std::cerr << "BODY is compound statement? " << fun_body.is_compound_statement() << std::endl;
-
-                ObjectList<Statement> stmt_list = fun_body.get_inner_statements();
-
-                std::cerr << "NUMBER of inner statements = " << stmt_list.size() << std::endl;
-
-                for (ObjectList<Statement>::iterator it = stmt_list.begin();
-                        it != stmt_list.end();
-                        it++)
-                {
-                    std::cerr << "--> " << it->prettyprint() << std::endl;
-                }
 
             }
     };
