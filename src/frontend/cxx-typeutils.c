@@ -1950,7 +1950,7 @@ static Hash* get_array_sized_hash(_size_t size)
 
 type_t* get_array_type_str(type_t* element_type, const char* dim)
 {
-    AST expr = ASTLeaf(AST_DIMENSION_STR, NULL, NULL, dim);
+    AST expr = ASTLeaf(AST_DIMENSION_STR, NULL, 0, dim);
     return get_array_type(element_type, expr, CURRENT_COMPILED_FILE->global_decl_context);
 }
 
