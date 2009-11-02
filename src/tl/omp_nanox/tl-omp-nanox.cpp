@@ -14,6 +14,8 @@ OMPTransform::OMPTransform()
     on_directive_post["task"].connect(functor(&OMPTransform::task_postorder, *this));
 
     on_directive_post["taskwait"].connect(functor(&OMPTransform::taskwait_postorder, *this));
+
+    on_directive_post["single"].connect(functor(&OMPTransform::single_postorder, *this));
 }
 
 EXPORT_PHASE(TL::Nanox::OMPTransform)
