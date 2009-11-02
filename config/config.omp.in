@@ -20,6 +20,7 @@ linker_name = gcc
 {openmp,!nanox} pragma_prefix = nanos
 {openmp,!nanox} compiler_phase = libtlnanos4.so
 {openmp,!nanox,instrument,!debug} @INSTRUMENTATION_PHASE@
+{openmp,!nanox,serialize} compiler_phase = libtlomp-serialize.so
 {openmp,!nanox} compiler_phase = libtlomp-nanos4.so
 # nanos++
 {openmp,nanox} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h

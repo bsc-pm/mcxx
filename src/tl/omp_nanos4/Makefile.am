@@ -1,6 +1,6 @@
 include ../Makefile.phases
 
-phases_LTLIBRARIES = libtlnanos4.la libtlomp-nanos4.la libtlomp_serialize.la 
+phases_LTLIBRARIES = libtlnanos4.la libtlomp-nanos4.la libtlomp-serialize.la 
 
 
 END=

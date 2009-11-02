@@ -327,7 +327,7 @@ namespace TL
             // This is the code that will be executed if the task cannot be created
             // (i.e. NTH_CANNOT_ALLOCATE_TASK is returned)
             Source fallback_capture_values;
-            Source fallback_arguments;
+            Source fallback_arguments, serialized_arguments;
 
             // This might be needed for nonstatic member functions
             if (is_nonstatic_member_function(function_definition))
@@ -344,6 +344,7 @@ namespace TL
                     continue;
 
                 fallback_arguments.append_with_separator(it->argument_name, ",");
+                serialized_arguments.append_with_separator(it->argument_name, ",");
             }
 
             // For capture value we will be passing pointers to local copies
@@ -374,6 +375,7 @@ namespace TL
                             << ";"
                             ;
                         fallback_arguments.append_with_separator("&cval_" + it->symbol.get_name(), ",");
+                        serialized_arguments.append_with_separator("&" + it->symbol.get_qualified_name(task_construct.get_scope()), ",");
                     }
                     CXX_LANGUAGE()
                     {
@@ -393,6 +395,7 @@ namespace TL
                                 << ";"
                                 ;
                             fallback_arguments.append_with_separator("&cval_" + it->symbol.get_name(), ",");
+                            serialized_arguments.append_with_separator(it->symbol.get_qualified_name(task_construct.get_scope()), ",");
                         }
                         else
                         {
@@ -404,6 +407,7 @@ namespace TL
                                 << ";"
                                 ;
                             fallback_arguments.append_with_separator("&cval_" + it->symbol.get_name(), ",");
+                            serialized_arguments.append_with_separator("&" + it->symbol.get_qualified_name(task_construct.get_scope()), ",");
                         }
                     }
                 }
@@ -419,6 +423,7 @@ namespace TL
                         << src_array_copy
                         ;
                     fallback_arguments.append_with_separator("cval_" + it->symbol.get_name(), ",");
+                    serialized_arguments.append_with_separator(it->symbol.get_qualified_name(task_construct.get_scope()), ",");
                 }
             }
 
@@ -473,6 +478,15 @@ namespace TL
 
                 serialized_code
                     << duplicated_code_tree.prettyprint();
+            }
+            else
+            {
+                serialized_code
+                    << "{"
+                    << "(" << outlined_function_reference << ")" << "(" << serialized_arguments << ");"
+                    << "break;"
+                    << "}"
+                    ;
             }
 
             increment_task_level <<  "nth_task_ctx_t nth_ctx;";
