@@ -50,16 +50,15 @@ namespace TL
             {
                 std::cerr << " --> RUNNING CONSTRUCT POST <-- " << std::endl;
 
-                Declaration declaration(construct.get_declaration(), construct.get_scope_link());
-                ObjectList<DeclaredEntity> declaration_list = declaration.get_declared_entities();
+                std::cerr << "Getting enclosing function def" << std::endl;
 
-                for (ObjectList<DeclaredEntity>::iterator it = declaration_list.begin();
-                        it != declaration_list.end();
-                        it++)
-                {
-                    std::cerr << it->get_declared_symbol().get_name() << " of type '" 
-                        << it->get_declared_symbol().get_type().get_declaration(it->get_declared_symbol().get_scope(), "") << "'" << std::endl;
-                }
+                FunctionDefinition function_def = construct.get_enclosing_function();
+
+                Statement fun_body = function_def.get_function_body();
+                std::cerr << "BODY -->" << fun_body << "<--" << std::endl;
+
+                std::cerr << "BODY is compound statement? " << fun_body.is_compound_statement() << std::endl;
+
             }
     };
 }

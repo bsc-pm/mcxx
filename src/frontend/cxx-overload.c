@@ -760,6 +760,7 @@ char type_can_be_implicitly_converted_to(type_t* orig, type_t* dest, decl_contex
     {
         internal_error("This function cannot be used in C", 0);
     }
+    return 0;
 }
 
 /*

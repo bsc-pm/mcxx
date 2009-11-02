@@ -6272,6 +6272,7 @@ static scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl
             {
                 if (decl_spec_seq == NULL)
                 {
+                    internal_error("sux hard", 0);
                     fprintf(stderr, "%s: warning: function definition does not have decl-specifier, assuming 'int'\n",
                             ast_location(a));
                 }

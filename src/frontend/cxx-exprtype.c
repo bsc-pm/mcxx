@@ -6179,8 +6179,8 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             proper_function_type = pointer_type_get_pointee_type(proper_function_type);
         }
 
-        if (!(num_explicit_arguments == function_type_get_num_parameters(proper_function_type)
-                    || ((num_explicit_arguments >= function_type_get_num_parameters(proper_function_type))
+        if (!((num_explicit_arguments == function_type_get_num_parameters(proper_function_type))
+                    || ((num_explicit_arguments >= (function_type_get_num_parameters(proper_function_type) - 1))
                         && function_type_get_has_ellipsis(proper_function_type))))
         {
             fprintf(stderr, "%s: warning: number of arguments of call '%s' is not valid for function type '%s'\n",

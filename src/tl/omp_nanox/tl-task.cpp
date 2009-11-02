@@ -64,7 +64,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     Source outline_code, outline_parameters, outline_body;
 
-    outline_parameters << struct_arg_type_name << "* _args";
+    outline_parameters << struct_arg_type_name << "* __restrict _args";
     outline_body
         << private_decls
         << initial_replace_code

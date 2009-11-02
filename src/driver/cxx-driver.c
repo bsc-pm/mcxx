@@ -1148,19 +1148,28 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                         }
                     }
 
-                    add_parameter_all_toolchain(argument, dry_run);
+                    if (!dry_run)
+                    {
+                        add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, argument);
+                    }
                     (*should_advance)++;
                 }
                 else if (((argument[2] == 'F') && (argument[3] == '\0')) // -MF
                         || ((argument[2] == 'G') && (argument[3] == '\0')) // -MG
                         || ((argument[2] == 'T') && (argument[3] == '\0'))) // -MT
                 {
-                    add_parameter_all_toolchain(argument, dry_run);
+                    if (!dry_run)
+                    {
+                        add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, argument);
+                    }
                     (*should_advance)++;
 
                     // Pass the next argument too
                     argument = argv[parameter_index + 1];
-                    add_parameter_all_toolchain(argument, dry_run);
+                    if (!dry_run)
+                    {
+                        add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, argument);
+                    }
                     (*should_advance)++;
                 }
                 else
