@@ -116,6 +116,11 @@ namespace TL {
 					return false;
 				}
 				
+				if (_list == NULL && other._list == NULL)
+				{
+					return true;
+				}
+				
 				if (_list->size() != other._list->size())
 				{
 					return false;
