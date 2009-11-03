@@ -31,8 +31,6 @@
 
 MCXX_BEGIN_DECLS
 
-extern int yyparse(AST* parsed_tree);
-
 struct extensions_table_t*
 fileextensions_lookup (register const char *str, 
         register unsigned int len);
