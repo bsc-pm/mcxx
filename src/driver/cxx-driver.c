@@ -1403,7 +1403,7 @@ static void parse_subcommand_arguments(const char* arguments)
                 && arguments[0] != 'p'
                 && arguments[0] != 'l'))
     {
-        options_error("Option -W is of the form -Wx, where 'x' can be 'n', 'p' or 'l'");
+        options_error("Option --W is of the form --Wx, where 'x' can be 'n', 'p' or 'l'");
     }
 
     int num_parameters = 0;
