@@ -26,9 +26,9 @@ foreach test $testcases {
     }
 
     send_user "Running test ${basename_test}...\n"
-    send_log "-------------------------------------------------------------------------------\n"
-    # send_log "$wrapper_tool $wrapper_options $full_path_tool --config-file=./$subdir/config.mcxx\n"
-    # send_log "-------------------------------------------------------------------------------\n"
+    send_log -- "-------------------------------------------------------------------------------\n"
+    # send_log -- "$wrapper_tool $wrapper_options $full_path_tool --config-file=./$subdir/config.mcxx\n"
+    # send_log -- "-------------------------------------------------------------------------------\n"
 
     set output_execution ""
     if {
@@ -55,11 +55,11 @@ foreach test $testcases {
             xpass "$test"
         }
     }
-    send_log "===============================================================================\n"
-    send_log "${output_execution}\n"
-    send_log "===============================================================================\n"
+    send_log -- "===============================================================================\n"
+    send_log -- "${output_execution}\n"
+    send_log -- "===============================================================================\n"
 
     exec "sh" "-c" "rm -f *mcxx_${basename_test} *${rootname_test}.o" 
 	 
-	 send_log "\n\n"
+	 send_log -- "\n\n"
 }

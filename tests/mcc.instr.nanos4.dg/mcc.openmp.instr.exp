@@ -54,7 +54,7 @@ foreach test $testcases {
             xpass "$test"
         }
     }
-    send_log "${output_execution}\n"
+    send_log -- "${output_execution}\n"
 
     exec "sh" "-c" "rm -f *mcxx_${basename_test} *${rootname_test}.o" 
 }
