@@ -39,12 +39,16 @@ mcxx_SOURCES = \
   cxx-driver-utils.h \
   cxx-profile.c \
   cxx-profile.h \
+  cxx-configfile-parser-internal.h \
+  cxx-configfile-parser.h \
+  cxx-configfile-parser.c \
+  cxx-configfile-lexer.h \
+  cxx-configfile-lexer.c \
   $(END)
 
 mcxx_LDADD = \
    $(top_builddir)/lib/libmcxx-utils.la \
    $(top_builddir)/lib/libmcxx-extstruct.la \
-   $(top_builddir)/lib/libmcxx-mcfg.la \
    $(top_builddir)/src/frontend/libmcxx-process.la \
    $(top_builddir)/src/frontend/libmcxx.la \
    $(top_builddir)/src/tl/libtl.la \
@@ -66,15 +70,28 @@ EXTRA_DIST += cxx-configoptions.gperf
 EXTRA_DIST += cxx-fileextensions.gperf
 EXTRA_DIST += cxx-debugflags.gperf
 
+EXTRA_DIST += cxx-configfile.y
+EXTRA_DIST += cxx-configfile.l
+
 BUILT_SOURCES += cxx-configoptions.c
 BUILT_SOURCES += cxx-fileextensions.c
 BUILT_SOURCES += cxx-debugflags.c
+
+
+BUILT_SOURCES += cxx-configfile-parser.c
+BUILT_SOURCES += cxx-configfile-parser-internal.h
+BUILT_SOURCES += cxx-configfile-lexer.c
 
 if GPERF_BUILDING
 CLEANFILES += cxx-configoptions.c
 CLEANFILES += cxx-debugflags.c
 CLEANFILES += cxx-fileextensions.c
 endif
+
+CLEANFILES += cxx-configfile-lexer.c
+CLEANFILES += cxx-configfile-parser.c
+CLEANFILES += cxx-configfile-parser-internal.h
+CLEANFILES += cxx-configfile-parser.output
 
 cxx-configoptions.c : $(srcdir)/cxx-configoptions.gperf $(top_srcdir)/src/driver/cxx-driver.h $(srcdir)/cxx-configfile.h
 if GPERF_BUILDING
@@ -106,6 +123,14 @@ else
 	@echo "*** ERROR: file cxx-debugflags.gperf was modified but no suitable gperf was found during configure ***"
 	@exit 1
 endif
+
+cxx-configfile-lexer.c: $(srcdir)/cxx-configfile-lexer.l
+	$(FLEX) -Pconfigfile -d -ocxx-configfile-lexer.c -8 $(srcdir)/cxx-configfile-lexer.l
+
+cxx-configfile-parser-internal.h : cxx-configfile-parser.c
+
+cxx-configfile-parser.c: $(srcdir)/cxx-configfile-parser.y
+	$(BISON) -pconfigfile --debug --defines=cxx-configfile-parser-internal.h --report=all --output=cxx-configfile-parser.c $(srcdir)/cxx-configfile-parser.y
 
 # Install hooks
 # installs "mcc" as a soft link of mcxx

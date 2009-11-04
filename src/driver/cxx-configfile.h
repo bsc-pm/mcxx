@@ -26,6 +26,8 @@
 
 MCXX_BEGIN_DECLS
 
+char config_file_parse(const char *filename);
+
 typedef int (option_function_t)(struct compilation_configuration_tag*, const char* value);
 
 option_function_t config_set_language;

@@ -14,7 +14,7 @@ tpp.o : tpp.c
 #end of tpp
 
 
-lib_LTLIBRARIES = libmcxx-utils.la libmcxx-mcfg.la libmcxx-extstruct.la
+lib_LTLIBRARIES = libmcxx-utils.la libmcxx-extstruct.la
 
 if WINDOWS_BUILD
 no_undefined=-no-undefined
@@ -49,12 +49,6 @@ libmcxx_utils_la_SOURCES = \
 
 libmcxx_utils_la_LDFLAGS= -avoid-version $(no_undefined)
 
-
-libmcxx_mcfg_la_CFLAGS = -Wall -DLIBMCFG_DLL_EXPORT
-libmcxx_mcfg_la_SOURCES = \
-                          mcfg.h \
-                          mcfg.c
-libmcxx_mcfg_la_LDFLAGS= -avoid-version $(no_undefined)
 
 libmcxx_extstruct_la_CFLAGS = -Wall -DLIBEXTSTRUCT_DLL_EXPORT
 libmcxx_extstruct_la_SOURCES = \

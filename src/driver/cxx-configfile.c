@@ -23,6 +23,8 @@
 #include "cxx-driver.h"
 #include "cxx-utils.h"
 #include "cxx-driver-utils.h"
+#include "cxx-configfile-lexer.h"
+#include "cxx-configfile-parser.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -227,5 +229,21 @@ int config_set_environment(struct compilation_configuration_tag* config, const c
 {
     type_environment_t* chosen_env = get_environment(value);
     config->type_environment = chosen_env;
+    return 0;
+}
+
+char config_file_parse(const char *filename)
+{
+    if (open_configuration_file_for_scan(filename))
+    {
+        int n = configfileparse();
+        close_configuration_file_for_scan();
+
+        if (n != 0)
+        {
+            fprintf(stderr, "warning: parsing of configuration file '%s' failed\n", filename);
+        }
+        return (n == 0);
+    }
     return 0;
 }
