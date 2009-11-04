@@ -164,6 +164,7 @@ namespace TL
             ObjectList<IdExpression> get_parameter_id_expressions(IdExpressionCriteria criteria = VALID_SYMBOLS);
             ObjectList<Expression> get_parameter_expressions();
             ObjectList<std::string> get_parameter_arguments();
+            ObjectList<std::string> get_parameter_arguments(const ClauseTokenizer& tokenizer);
 
             ObjectList<std::string> get_clause_names();
             PragmaCustomClause get_clause(const std::string& name);

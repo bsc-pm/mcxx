@@ -337,6 +337,11 @@ namespace TL
 
     ObjectList<std::string> PragmaCustomConstruct::get_parameter_arguments()
     {
+        return get_parameter_arguments(NullClauseTokenizer());
+    }
+
+    ObjectList<std::string> PragmaCustomConstruct::get_parameter_arguments(const ClauseTokenizer& tokenizer)
+    {
         ObjectList<std::string> result;
         AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);
         AST_t parameter = pragma_line.get_attribute(LANG_PRAGMA_CUSTOM_LINE_PARAMETER);
@@ -349,7 +354,7 @@ namespace TL
                 it != argument_list.end();
                 it++)
         {
-            result.append(it->prettyprint());
+            result.append(tokenizer.tokenize(it->prettyprint()));
         }
 
         return result;
