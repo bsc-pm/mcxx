@@ -4,7 +4,7 @@ struct A
     void foo(A&);
 };
 
-#pragma omp declare reduction type(A) operator(.foo)
+#pragma omp declare reduction(.foo:A)
 
 void f(void)
 {

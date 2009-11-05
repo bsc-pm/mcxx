@@ -7,9 +7,9 @@ my_complex_t complex_add (my_complex_t a, my_complex_t b);
 my_complex_t complex_sub (my_complex_t a, my_complex_t b);
 my_complex_t complex_mul (my_complex_t a, my_complex_t b);
 
-#pragma omp declare reduction type(my_complex_t) operator(complex_add, complex_sub) identity({0,0})
+#pragma omp declare reduction(complex_add, complex_sub:my_complex_t) identity({0,0})
 
-#pragma omp declare reduction type(my_complex_t) operator(complex_mul) identity({1,0})
+#pragma omp declare reduction(complex_mul:my_complex_t) identity({1,0})
 
 #define N 100
 my_complex_t vector[N];

@@ -3,7 +3,7 @@ int imax(int a, int b) {
 }
 
 int main(int argc, char **argv) {
-#pragma omp declare reduction type(int) operator(imax) identity( (-2147483647 - 1) )
+#pragma omp declare reduction(imax:int) identity( (-2147483647 - 1) )
 
     int k, v[100], m;
 #pragma omp parallel for reduction(imax : m)

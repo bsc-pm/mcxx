@@ -5,7 +5,7 @@ typedef struct {
 	int value;
 } myint;
 
-#pragma omp declare reduction type(myint) operator(+,-) identity({0})
+#pragma omp declare reduction(+,-:myint) identity({0})
 
 
 int main ()

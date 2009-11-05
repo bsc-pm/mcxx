@@ -137,7 +137,6 @@ namespace TL
 
             bool all_blanks() const;
 
-            std::string format_source(const std::string&);
         public:
             //! Constructor
             /*!
@@ -298,6 +297,9 @@ namespace TL
              */
             ObjectList<Type> parse_type_list(AST_t ref_tree, TL::ScopeLink scope_link);
             // -- end of new family of parse_XXX
+
+            // Format string for debugging
+            static std::string format_source(const std::string&);
 
             //! States whether this Source is empty
             bool empty() const;

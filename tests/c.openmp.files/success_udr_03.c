@@ -10,7 +10,7 @@ void myint_add (myint *a, myint b)
 	a->value += b.value;
 }
 
-#pragma omp declare reduction type(myint) operator(myint_add) identity({0})
+#pragma omp declare reduction(myint_add:myint) identity({0})
 
 int main (int argc, char *argv[])
 {

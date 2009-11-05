@@ -1047,6 +1047,7 @@ identifier {
 @DECLARATION@ { parse_token_text(); return SUBPARSE_DECLARATION; }
 @TYPE@ { parse_token_text(); return SUBPARSE_TYPE; }
 @TYPE-LIST@ { parse_token_text(); return SUBPARSE_TYPE_LIST; }
+@OMP_UDR_DECLARE@ { parse_token_text(); return SUBPARSE_OMP_UDR_DECLARE; }
  /*!if CPLUSPLUS*/
 @MEMBER@ { parse_token_text(); return SUBPARSE_MEMBER; }
  /*!endif*/

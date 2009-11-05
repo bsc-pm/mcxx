@@ -4,7 +4,7 @@
 
 typedef int myint;
 
-#pragma omp declare reduction type(myint) operator(+) identity(1)
+#pragma omp declare reduction(+:myint) identity(1)
 
 int main ()
 {

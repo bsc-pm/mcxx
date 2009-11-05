@@ -12,8 +12,8 @@ MyComplex operator+(const MyComplex&, const MyComplex &);
 MyComplex operator-(const MyComplex&, const MyComplex &);
 MyComplex operator*(const MyComplex&, const MyComplex &);
 
-#pragma omp declare reduction type(MyComplex) operator(+, -) identity(constructor(0, 0))
-#pragma omp declare reduction type(MyComplex) operator(*) identity(constructor(1, 0))
+#pragma omp declare reduction(+, -:MyComplex) identity(constructor(0, 0))
+#pragma omp declare reduction(*:MyComplex) identity(constructor(1, 0))
 
 #define N 100
 MyComplex vector[N];

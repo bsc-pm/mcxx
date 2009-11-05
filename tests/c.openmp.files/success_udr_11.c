@@ -13,7 +13,7 @@ myint myint_add (myint a, myint *b)
     return res;
 }
 
-#pragma omp declare reduction type(myint) operator(myint_add) identity({0}) order(right)
+#pragma omp declare reduction(myint_add:myint) identity({0}) order(right)
 
 int main (int argc, char *argv[])
 {

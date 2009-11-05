@@ -13,7 +13,7 @@ inline string toString (const T& t)
    return ss.str();
 }
 
-#pragma omp declare reduction type(string) operator(+) identity(constructor)
+#pragma omp declare reduction(+:string) identity(constructor)
 
 int main ()
 {
