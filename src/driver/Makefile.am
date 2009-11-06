@@ -70,8 +70,8 @@ EXTRA_DIST += cxx-configoptions.gperf
 EXTRA_DIST += cxx-fileextensions.gperf
 EXTRA_DIST += cxx-debugflags.gperf
 
-EXTRA_DIST += cxx-configfile.y
-EXTRA_DIST += cxx-configfile.l
+EXTRA_DIST += cxx-configfile-parser.y
+EXTRA_DIST += cxx-configfile-lexer.l
 
 BUILT_SOURCES += cxx-configoptions.c
 BUILT_SOURCES += cxx-fileextensions.c
