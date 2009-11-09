@@ -414,8 +414,15 @@ namespace TL
         }
         else if (t.is_class())
         {
-            // Use the first one
-            return "{" + get_valid_zero_initializer(t.get_nonstatic_data_members()[0].get_type()) + "}";
+            ObjectList<Symbol> nonstatic_data = t.get_nonstatic_data_members();
+            if (nonstatic_data.empty())
+            {
+                return "";
+            }
+            else
+            {
+                return "{" + get_valid_zero_initializer(t.get_nonstatic_data_members()[0].get_type()) + "}";
+            }
         }
         else
         {
@@ -682,7 +689,8 @@ namespace TL
     static void parse_omp_udr_declare_arguments(const std::string &omp_udr_str, 
             AST_t ref_tree, ScopeLink sl,
             ObjectList<std::string>& operator_list,
-            ObjectList<Type>& type_list)
+            ObjectList<Type>& type_list,
+            Scope& scope_of_clause)
     {
         std::string mangled_str = "@OMP_UDR_DECLARE@ " + omp_udr_str;
         char *str = strdup(mangled_str.c_str());
@@ -721,9 +729,6 @@ namespace TL
 
         scope_link_t* _scope_link = sl.get_internal_scope_link();
 
-        // Set the proper scope link
-        scope_link_set(_scope_link, a, decl_context);
-
         AST template_header = ASTSon0(a);
         AST id_expr_list = ASTSon1(a);
         AST type_spec_list = ASTSon2(a);
@@ -732,9 +737,17 @@ namespace TL
         {
             if (template_header != NULL)
             {
-                fprintf(stderr, "warning: templated udr not supported yet\n");
+                decl_context_t templated_context;
+                build_scope_template_header(template_header, decl_context, &templated_context);
+                // Replace the current context with the templated one, so
+                // parsing does not fail later
+                decl_context = templated_context;
             }
         }
+
+        // Set the proper scope link
+        scope_link_set(_scope_link, a, decl_context);
+        scope_of_clause = Scope(decl_context);
 
         AST iter;
         for_each_element(id_expr_list, iter)
@@ -786,12 +799,14 @@ namespace TL
 
             ObjectList<std::string> op_args;
             ObjectList<Type> type_list;
+            Scope scope_of_clause;
 
             parse_omp_udr_declare_arguments(parameter_str,
                     construct.get_ast(),
                     construct.get_scope_link(),
                     op_args,
-                    type_list);
+                    type_list,
+                    scope_of_clause);
 
             PragmaCustomClause order_clause = construct.get_clause("order");
             UDRInfoItem::Associativity assoc = UDRInfoItem::UNDEFINED;
@@ -895,9 +910,9 @@ namespace TL
                     if (!udr_info_set.lookup_udr(op_symbol.get_qualified_name()))
                     {
                         std::cerr << construct.get_ast().get_locus() << ": note: introducing user-defined reduction for type '"
-                            << reduction_type.get_declaration(construct.get_scope_link().get_scope(construct.get_ast()), "") << "'"
+                            << reduction_type.get_declaration(scope_of_clause, "") << "'"
                             << " and operator '" 
-                            << op_symbol.get_type().get_declaration(op_symbol.get_scope(), op_symbol.get_qualified_name(op_symbol.get_scope())) << "'"
+                            << op_symbol.get_type().get_declaration(scope_of_clause, op_symbol.get_qualified_name(scope_of_clause)) << "'"
                             << std::endl;
                         udr_info_set.add_udr(UDRInfoItem(reduction_type, op_symbol, identity, assoc, is_commutative));
                     }

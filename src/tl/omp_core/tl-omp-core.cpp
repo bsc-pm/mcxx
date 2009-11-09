@@ -163,7 +163,7 @@ namespace TL
 
                 if (split_colon == first_arg.end())
                 {
-                    std::cerr << clause.get_ast().get_locus() << ": warning: 'reduction' clause does not have a valid reductor" << std::endl;
+                    std::cerr << clause.get_ast().get_locus() << ": warning: 'reduction' clause does not have a valid operator" << std::endl;
                     std::cerr << clause.get_ast().get_locus() << ": warning: skipping the whole clause" << std::endl;
                     return;
                 }
@@ -250,7 +250,7 @@ namespace TL
 
                         if (red_sym.is_faulty())
                         {
-                            running_error("%s: error: user defined reduction for type '%s' and reductor '%s' not declared",
+                            running_error("%s: error: user defined reduction for type '%s' and operator '%s' not declared",
                                     expr.get_ast().get_locus().c_str(),
                                     reduct_type.get_declaration(sym.get_scope(), "").c_str(), 
                                     reductor_name.c_str());
