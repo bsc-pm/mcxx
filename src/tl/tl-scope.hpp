@@ -138,6 +138,12 @@ namespace TL
              */
             ObjectList<Symbol> get_all_symbols(bool include_hidden);
 
+
+            //! This function inserts a symbol using its name in the current scope
+            /*! Use this function to bring the information of one symbol into another scope
+             */
+            void insert_symbol(Symbol sym);
+
             //! Creates an artificial symbol
             /*!
               This function is used to create an artifical symbol. Artificial
@@ -149,10 +155,10 @@ namespace TL
               Once the symbol has been created, data can be linked to it using
               Object::set_attribute and retrieved using Object::get_attribute.
 
-              If the symbol already exists in this scope, it will not be
-              created twice.
+              \param reuse_symbol If set to true and the symbol already exists
+              in this scope, it will not be created twice.
               */
-            Symbol new_artificial_symbol(const std::string& artificial_name);
+            Symbol new_artificial_symbol(const std::string& artificial_name, bool reuse_symbol=false);
 
             //! States that this is a scope
             virtual bool is_scope() const

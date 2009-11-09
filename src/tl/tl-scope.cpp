@@ -165,26 +165,33 @@ namespace TL
         return result;
     }
 
-    Symbol Scope::new_artificial_symbol(const std::string& artificial_name)
+    Symbol Scope::new_artificial_symbol(const std::string& artificial_name, bool reuse_symbol)
     {
-        scope_entry_list_t* sym_res_list = ::query_in_scope_str(_decl_context, artificial_name.c_str());
         scope_entry_t* sym_res = NULL;
+        if (reuse_symbol)
+        {
+            scope_entry_list_t* sym_res_list = ::query_in_scope_str(_decl_context, artificial_name.c_str());
 
-        if (sym_res_list == NULL)
-        {
-            // Create the symbol
-            sym_res = ::new_symbol(_decl_context, _decl_context.current_scope, artificial_name.c_str());
-            sym_res->kind = SK_OTHER;
-        }
-        else
-        {
-            sym_res = sym_res_list->entry;
-            if (sym_res->kind != SK_OTHER)
+            if (sym_res_list != NULL)
             {
-                internal_error("This function can only be used for artificial symbols. '%s' is not artificial", sym_res->symbol_name);
+                sym_res = sym_res_list->entry;
+                if (sym_res->kind != SK_OTHER)
+                {
+                    internal_error("This function can only be used for artificial symbols. '%s' is not artificial", sym_res->symbol_name);
+                }
+                return Symbol(sym_res);
             }
         }
 
+        // Create the symbol anyway
+        sym_res = ::new_symbol(_decl_context, _decl_context.current_scope, artificial_name.c_str());
+        sym_res->kind = SK_OTHER;
+
         return Symbol(sym_res);
+    }
+
+    void Scope::insert_symbol(Symbol sym)
+    {
+        insert_entry(_decl_context.current_scope, sym.get_internal_symbol());
     }
 }

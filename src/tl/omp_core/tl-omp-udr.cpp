@@ -367,7 +367,7 @@ namespace TL
             int j;
             for (j = 0; builtin_arithmetic_operators[j].operator_name != NULL; j++)
             {
-                UDRInfoSet udr_info_set(global_scope, Type(type));
+                UDRInfoSet udr_info_set(global_scope);
                 udr_info_set.add_udr(
                         UDRInfoItem(Type(type),
                             builtin_arithmetic_operators[j].operator_name,
@@ -379,7 +379,7 @@ namespace TL
             {
                 for (j = 0; builtin_logic_bit_operators[j].operator_name != NULL; j++)
                 {
-                    UDRInfoSet udr_info_set(global_scope, Type(type));
+                    UDRInfoSet udr_info_set(global_scope);
                     udr_info_set.add_udr(
                             UDRInfoItem(Type(type),
                                 builtin_logic_bit_operators[j].operator_name,
@@ -855,7 +855,7 @@ namespace TL
                     reduction_type = reduction_type.references_to();
                 }
 
-                UDRInfoSet udr_info_set(construct.get_scope(), reduction_type);
+                UDRInfoSet udr_info_set(construct.get_scope());
 
                 for (ObjectList<std::string>::iterator op_it = op_args.begin();
                         op_it != op_args.end();
@@ -907,7 +907,7 @@ namespace TL
                         }
                     }
 
-                    if (!udr_info_set.lookup_udr(op_symbol.get_qualified_name()))
+                    if (!udr_info_set.lookup_udr(op_symbol.get_name(), reduction_type))
                     {
                         std::cerr << construct.get_ast().get_locus() << ": note: introducing user-defined reduction for type '"
                             << reduction_type.get_declaration(scope_of_clause, "") << "'"

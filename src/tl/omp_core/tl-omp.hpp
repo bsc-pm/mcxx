@@ -141,12 +141,14 @@ namespace TL
         {
             private:
                 Scope _scope;
-                Type _type;
-            public:
-                UDRInfoSet(Scope sc, Type type);
 
-                UDRInfoItem get_udr(const std::string& str) const;
-                bool lookup_udr(const std::string& str) const;
+                std::string build_artificial_name(const UDRInfoItem&);
+                std::string build_artificial_name(const std::string& item);
+            public:
+                UDRInfoSet(Scope sc);
+
+                UDRInfoItem get_udr(const std::string& str, Type reduction_type) const;
+                bool lookup_udr(const std::string& str, Type reduction_type) const;
                 void add_udr(const UDRInfoItem& item);
         };
 
@@ -245,9 +247,9 @@ namespace TL
                         const UDRInfoSet& udr_info_set)
                     : _symbol(s), _udr_item(NULL)
                 {
-                    if (udr_info_set.lookup_udr(reductor_name))
+                    if (udr_info_set.lookup_udr(reductor_name, s.get_type()))
                     {
-                        UDRInfoItem udr_item = udr_info_set.get_udr(reductor_name);
+                        UDRInfoItem udr_item = udr_info_set.get_udr(reductor_name, s.get_type());
                         _udr_item = new UDRInfoItem(udr_item);
                     }
                 }

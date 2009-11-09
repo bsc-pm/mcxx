@@ -236,7 +236,7 @@ namespace TL
 
                             if (reductor_symbol.is_valid())
                             {
-                                reductor_name = reductor_symbol.get_qualified_name();
+                                reductor_name = reductor_symbol.get_name();
                             }
                             else
                             {
@@ -246,7 +246,7 @@ namespace TL
                             }
                         }
 
-                        ReductionSymbol red_sym(sym, reductor_name, UDRInfoSet(expr.get_scope(), reduct_type));
+                        ReductionSymbol red_sym(sym, reductor_name, UDRInfoSet(expr.get_scope()));
 
                         if (red_sym.is_faulty())
                         {

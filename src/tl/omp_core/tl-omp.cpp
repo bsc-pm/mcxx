@@ -237,153 +237,142 @@ namespace TL
             _stack_data_sharing.pop();
         }
 
-        UDRInfoSet::UDRInfoSet(Scope sc, Type type)
-            : _scope(sc), _type(type)
+        UDRInfoSet::UDRInfoSet(Scope sc)
+            : _scope(sc)
         {
-            _type = _type.advance_over_typedefs().get_unqualified_type();
-            if (_type.is_reference())
-            {
-                _type = _type.references_to();
-            }
         }
 
-        void UDRInfoSet::add_udr(const UDRInfoItem& item)
+        std::string UDRInfoSet::build_artificial_name(const UDRInfoItem& item)
         {
-            // Create an artificial symbol in the scope using the name of the
-            // type (in its original scope to avoid template issues)
-            Scope typename_used_scope = _scope;
-            if (_type.is_named())
-            {
-                Symbol related_sym = _type.get_symbol();
-                typename_used_scope = related_sym.get_scope();
-            }
+            return build_artificial_name(item.get_op_name());
+        }
 
+        std::string UDRInfoSet::build_artificial_name(const std::string& item)
+        {
             std::string symbol_name = ".udr_";
 
-            symbol_name += _type.get_declaration(typename_used_scope, "");
-            symbol_name += "_";
             C_LANGUAGE()
             {
-                symbol_name += item.get_op_name();
+                symbol_name += item;
             }
             CXX_LANGUAGE()
             {
                 // Fix operator names for C++
-                if (udr_is_builtin_operator(item.get_op_name()))
+                if (udr_is_builtin_operator(item))
                 {
-                   symbol_name += "operator " + item.get_op_name(); 
+                   symbol_name += "operator " + item; 
                 }
                 else
                 {
-                    symbol_name += item.get_op_name();
+                    symbol_name += item;
                 }
             }
 
-            Symbol artificial_sym = _scope.new_artificial_symbol(symbol_name);
+            return symbol_name;
+        }
+
+        void UDRInfoSet::add_udr(const UDRInfoItem& item)
+        {
+            std::string symbol_name = item.get_op_name();
+            bool reuse_symbol = true;
+            C_LANGUAGE()
+            {
+                // Check the symbol is not created twice
+                ObjectList<Symbol> sym_list = _scope.get_symbols_from_name(symbol_name);
+
+                if (!sym_list.empty())
+                {
+                    internal_error("UDR registered twice!\n", 0);
+                }
+            }
+
+            CXX_LANGUAGE()
+            {
+                // Check that a UDR is not created twice
+                ObjectList<Symbol> sym_list = _scope.get_symbols_from_name(symbol_name);
+
+                bool in_current_scope = false;
+                for (ObjectList<Symbol>::iterator it = sym_list.begin();
+                        it != sym_list.end();
+                        it++)
+                {
+                    Symbol &sym(*it);
+                    in_current_scope = in_current_scope || (sym.get_scope() == _scope);
+                    RefPtr<UDRInfoItem> obj = RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
+
+                    if (obj.valid())
+                    {
+                        if (obj->get_type().is_same_type(item.get_type()))
+                        {
+                            internal_error("UDR introduced twice", 0);
+                        }
+                    }
+                    else
+                    {
+                        internal_error("Invalid cast!", 0);
+                    }
+                }
+
+                // None was found in the current scope, just bring them in
+                // to make them visible later
+                if (!in_current_scope)
+                {
+                    // Insert all the symbols we have found to the current scope
+                    for (ObjectList<Symbol>::iterator it = sym_list.begin();
+                            it != sym_list.end();
+                            it++)
+                    {
+                        Symbol &sym(*it);
+                        _scope.insert_symbol(sym);
+                    }
+                }
+                reuse_symbol = true;
+            }
+
+            Symbol artificial_sym = _scope.new_artificial_symbol(symbol_name, reuse_symbol);
 
             RefPtr<UDRInfoItem> udr_info_item(new UDRInfoItem(item));
             artificial_sym.set_attribute("udr_info", udr_info_item);
         }
 
-        bool UDRInfoSet::lookup_udr(const std::string& str) const
+        bool UDRInfoSet::lookup_udr(const std::string& str, Type type) const
         {
-            Scope typename_used_scope = _scope;
-            if (_type.is_named())
-            {
-                Symbol related_sym = _type.get_symbol();
-                typename_used_scope = related_sym.get_scope();
-            }
-
-            std::string symbol_name = ".udr_";
-
-            symbol_name += _type.get_declaration(typename_used_scope, "");
-            symbol_name += "_";
+            // Try to find a valid type
             C_LANGUAGE()
             {
-                symbol_name += str;
+                ObjectList<Symbol> sym_list = _scope.get_symbols_from_name(str);
+                if (sym_list.empty())
+                    return false;
+
+                return (sym_list[0].get_type().is_same_type(type));
             }
+
             CXX_LANGUAGE()
             {
-                // Fix the operator name for C++
-                if (udr_is_builtin_operator(str))
-                {
-                    symbol_name += "operator " + str;
-                }
-                else
-                {
-                    symbol_name += str;
-                }
-            }
-
-            ObjectList<Symbol> symbol_list = _scope.get_symbols_from_name(symbol_name);
-            if (symbol_list.empty())
-            {
-                return false;
-            }
-
-            Symbol &sym = symbol_list[0];
-
-            RefPtr<UDRInfoItem> obj = RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
-
-            if (obj.valid())
-            {
-                return true;
+                // FIXME - This requires type deduction
             }
 
             return false;
         }
 
-        UDRInfoItem UDRInfoSet::get_udr(const std::string& str) const
+        UDRInfoItem UDRInfoSet::get_udr(const std::string& str, Type type) const
         {
-            Scope typename_used_scope = _scope;
-            if (_type.is_named())
-            {
-                Symbol related_sym = _type.get_symbol();
-                typename_used_scope = related_sym.get_scope();
-            }
-
-            std::string symbol_name = ".udr_";
-
-            symbol_name += _type.get_declaration(typename_used_scope, "");
-            symbol_name += "_";
-
             C_LANGUAGE()
             {
-                symbol_name += str;
-            }
-            CXX_LANGUAGE()
-            {
-                // Fix the operator name for C++
-                if (udr_is_builtin_operator(str))
-                {
-                    symbol_name += "operator " + str;
-                }
-                else
-                {
-                    symbol_name += str;
-                }
-            }
+                ObjectList<Symbol> sym_list = _scope.get_symbols_from_name(str);
 
-            ObjectList<Symbol> symbol_list = _scope.get_symbols_from_name(symbol_name);
-            if (symbol_list.empty())
-            {
-                internal_error("empty list!", 0);
-            }
+                Symbol &sym(sym_list[0]);
 
-            Symbol &sym = symbol_list[0];
+                RefPtr<UDRInfoItem> obj = RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
 
-            RefPtr<UDRInfoItem> obj = RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
-
-            if (obj.valid())
-            {
                 return *obj;
             }
-            else
+
+            // CXX_LANGUAGE()
             {
-                internal_error("Invalid cast!", 0);
+                // FIXME - This requires type deduction
             }
         }
-
 
         Type UDRInfoItem::get_type() const
         {
