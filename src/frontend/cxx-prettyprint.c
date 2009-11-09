@@ -3446,6 +3446,6 @@ static void upc_forall_header(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 
 static void omp_udr_member_op_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
-    token_fprintf(f, "%s", ".");
+    token_fprintf(f, a, "%s", ".");
     prettyprint_level(f, ASTSon0(a), pt_ctx);
 }
