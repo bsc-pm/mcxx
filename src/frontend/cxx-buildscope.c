@@ -5394,14 +5394,8 @@ static void build_scope_template_declaration(AST a, AST top_template_decl, decl_
     /*
      * Template parameter information is constructed first
      */
-    decl_context_t template_context = new_template_context(decl_context);
-    template_context.decl_flags |= DF_TEMPLATE;
-    // A new level of template nesting
-    template_context.template_nesting++;
-    template_context.template_parameters = counted_calloc(1, sizeof(*template_context.template_parameters), &_bytes_used_buildscope);
-
-    build_scope_template_parameter_list(ASTSon0(a), template_context.template_parameters, 
-            template_context);
+    decl_context_t template_context;
+    build_scope_template_header(ASTSon0(a), decl_context, &template_context);
     
     AST templated_decl = ASTSon1(a);
     if (ASTType(templated_decl) == AST_AMBIGUITY)
@@ -5440,6 +5434,20 @@ static void build_scope_template_declaration(AST a, AST top_template_decl, decl_
 
     ASTAttrSetValueType(ASTSon0(a), LANG_IS_TEMPLATE_HEADER, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(templated_decl, LANG_TEMPLATE_HEADER, tl_type_t, tl_ast(top_template_decl));
+}
+
+void build_scope_template_header(AST template_parameter_list, 
+        decl_context_t decl_context, 
+        decl_context_t *template_context)
+{
+    (*template_context) = new_template_context(decl_context);
+    (*template_context).decl_flags |= DF_TEMPLATE;
+    // A new level of template nesting
+    (*template_context).template_nesting++;
+    (*template_context).template_parameters = counted_calloc(1, sizeof(*(*template_context).template_parameters), &_bytes_used_buildscope);
+
+    build_scope_template_parameter_list(template_parameter_list, (*template_context).template_parameters, 
+            (*template_context));
 }
 
 /*
@@ -6625,14 +6633,8 @@ static void build_scope_member_template_declaration(decl_context_t decl_context,
     /*
      * Template parameter information is constructed first
      */
-    decl_context_t template_context = new_template_context(decl_context);
-    template_context.decl_flags |= DF_TEMPLATE;
-    // A new level of template nesting
-    template_context.template_nesting++;
-    template_context.template_parameters = counted_calloc(1, sizeof(*template_context.template_parameters), &_bytes_used_buildscope);
-
-    build_scope_template_parameter_list(ASTSon0(a), template_context.template_parameters, 
-            template_context);
+    decl_context_t template_context;
+    build_scope_template_header(ASTSon0(a), decl_context, &template_context);
     
     AST templated_decl = ASTSon1(a);
     if (ASTType(templated_decl) == AST_AMBIGUITY)
