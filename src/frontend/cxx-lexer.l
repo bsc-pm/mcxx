@@ -1155,6 +1155,8 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
 >/>         { parse_token_text(); return AB1; }
 >/=         { parse_token_text(); return AB2; }
 >/[^>=]     { parse_token_text(); return '>'; }
+ /* Pathological case (EOF and such) */
+>           { parse_token_text(); return '>'; }
  /*!endif*/
  /*!if C99*/
 ">"         { parse_token_text(); return '>'; } 
