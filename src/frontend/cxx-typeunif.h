@@ -47,6 +47,11 @@ LIBMCXX_EXTERN deduction_t* get_unification_item_template_parameter(deduction_se
 
 LIBMCXX_EXTERN long long int typeunif_used_memory(void);
 
+LIBMCXX_EXTERN void unificate_two_id_expressions(AST left_id_expr, AST right_id_expr,
+        decl_context_t left_decl_context, 
+        decl_context_t right_decl_context,
+        deduction_set_t** deduction_set);
+
 MCXX_END_DECLS
 
 #endif

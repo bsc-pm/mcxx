@@ -1139,3 +1139,221 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
         fprintf(stderr, "TYPEUNIF: Unification of unresolved overloaded types ended\n");
     }
 }
+
+static void unificate_template_arguments_(template_argument_list_t* targ_list_1, 
+        template_argument_list_t* targ_list_2, 
+        decl_context_t decl_context, 
+        deduction_set_t** deduction_set,
+        const char* filename,
+        int line)
+{
+    if (targ_list_1->num_arguments != targ_list_2->num_arguments)
+    {
+        return;
+    }
+
+    int i;
+    for (i = 0; i < targ_list_1->num_arguments; i++)
+    {
+        template_argument_t* current_arg_1 = targ_list_1->argument_list[i];
+        template_argument_t* current_arg_2 = targ_list_2->argument_list[i];
+
+        switch (current_arg_1->kind)
+        {
+            case TAK_TEMPLATE:
+            case TAK_TYPE:
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "TYPEUNIF: Unificating template/type-template argument %d\n",
+                                i);
+                    }
+                    unificate_two_types(current_arg_1->type, current_arg_2->type, 
+                            deduction_set, decl_context, filename, line);
+                }
+                break;
+            case TAK_NONTYPE:
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "TYPEUNIF: Unificating nontype-template argument %d\n",
+                                i);
+                    }
+                    unificate_two_expressions(deduction_set, 
+                            current_arg_1->expression,
+                            current_arg_1->expression_context,
+                            current_arg_2->expression,
+                            current_arg_2->expression_context);
+                }
+                break;
+            default:
+                {
+                    internal_error("Invalid template argument kind", 0);
+                }
+        }
+    }
+}
+
+static void unificate_template_id_(AST left_tree, AST right_tree, 
+        decl_context_t left_decl_context, 
+        decl_context_t right_decl_context, 
+        deduction_set_t** deduction_set)
+{
+    ERROR_CONDITION(ASTType(left_tree) != AST_TEMPLATE_ID
+            || ASTType(right_tree) != AST_TEMPLATE_ID, "Wrong trees, must be template-id both", 0);
+
+    if (strcmp(ASTText(ASTSon0(left_tree)), ASTText(ASTSon0(right_tree))) != 0)
+            return;
+
+    template_argument_list_t* targ_list_1 =
+        get_template_arguments_from_syntax(ASTSon1(left_tree),
+                left_decl_context, 
+                /* nesting_level */ 0);
+
+    template_argument_list_t* targ_list_2 =
+        get_template_arguments_from_syntax(ASTSon1(right_tree),
+                right_decl_context, 
+                /* nesting_level */ 0);
+
+    // It does not matter very much which decl context we use
+    unificate_template_arguments_(targ_list_1, targ_list_2, left_decl_context, deduction_set, ASTFileName(left_tree), ASTLine(left_tree));
+}
+
+static void unificate_unqualified_id_(AST left_tree, 
+        AST right_tree, 
+        decl_context_t left_decl_context,
+        decl_context_t right_decl_context,
+        deduction_set_t** deduction_set)
+{
+    if (ASTType(left_tree) == ASTType(right_tree))
+    {
+        switch (ASTType(left_tree))
+        {
+            case AST_SYMBOL:
+            case AST_OPERATOR_FUNCTION_ID:
+            case AST_CONVERSION_FUNCTION_ID :
+            case AST_DESTRUCTOR_ID :
+                {
+                    return;
+                    // Do nothing for these
+                }
+            case AST_DESTRUCTOR_TEMPLATE_ID :
+                {
+                    return unificate_template_id_(ASTSon0(left_tree),
+                            ASTSon1(right_tree), left_decl_context,
+                            right_decl_context, deduction_set);
+                }
+            case AST_TEMPLATE_ID :
+                {
+                    return unificate_template_id_(left_tree, right_tree,
+                            left_decl_context, right_decl_context,
+                            deduction_set);
+                }
+            default:
+                {
+                    internal_error("Unhandled node type '%s'\n", ast_print_node_type(ASTType(left_tree)));
+                }
+        }
+    }
+}
+
+static void unificate_nested_name_specifier_(AST left_tree, 
+        AST right_tree, 
+        decl_context_t left_decl_context,
+        decl_context_t right_decl_context,
+        deduction_set_t** deduction_set)
+{
+    if ((ASTSon1(left_tree) == NULL
+                && ASTSon1(right_tree) != NULL)
+            || (ASTSon1(left_tree) != NULL
+             && ASTSon1(right_tree) == NULL))
+        return;
+
+    AST left_nest = ASTSon0(left_tree);
+    AST right_nest = ASTSon1(right_tree);
+    if (ASTType(left_nest) == ASTType(right_nest))
+    {
+        // If the name is totally dependent, we have to rely on a plain syntactic comparison
+        switch (ASTType(left_nest))
+        {
+            case AST_SYMBOL:
+                {
+                    break;
+                }
+            case AST_TEMPLATE_ID:
+                {
+                    // This is enough
+                    unificate_template_id_(left_nest, right_nest, left_decl_context, right_decl_context, deduction_set);
+
+                    break;
+                }
+            default:
+                internal_error("Unhandled node '%s'\n", ast_print_node_type(ASTType(left_nest)));
+        }
+    }
+
+    // More nested specifiers to be checked
+    if (ASTSon1(left_tree) != NULL
+            && ASTSon1(right_tree) != NULL)
+    {
+        unificate_nested_name_specifier_(ASTSon1(left_tree),
+                ASTSon1(right_tree), left_decl_context, right_decl_context,
+                deduction_set);
+    }
+}
+
+void unificate_two_id_expressions(AST left_id_expr, AST right_id_expr,
+        decl_context_t left_decl_context, 
+        decl_context_t right_decl_context,
+        deduction_set_t** deduction_set)
+{
+    if (ASTType(left_id_expr) != ASTType(right_id_expr))
+        return;
+
+    switch (ASTType(left_id_expr))
+    {
+        case AST_QUALIFIED_ID:
+        case AST_QUALIFIED_TEMPLATE:
+            {
+                char left_has_global = ASTSon0(left_id_expr) != NULL;
+                char right_has_global = ASTSon0(right_id_expr) != NULL;
+
+                if (left_has_global != right_has_global)
+                    return;
+
+                char left_has_qualif = ASTSon1(left_id_expr) != NULL;
+                char right_has_qualif = ASTSon1(right_id_expr) != NULL;
+
+                if (left_has_qualif != right_has_qualif)
+                    return;
+
+                if (left_has_qualif)
+                {
+                    unificate_nested_name_specifier_(
+                            ASTSon1(left_id_expr),
+                            ASTSon1(right_id_expr), 
+                            left_decl_context,
+                            right_decl_context, 
+                            deduction_set);
+                }
+
+                unificate_unqualified_id_(
+                        ASTSon2(left_id_expr),
+                        ASTSon2(right_id_expr),
+                        left_decl_context,
+                        right_decl_context,
+                        deduction_set);
+                break;
+            }
+        default:
+            {
+                unificate_unqualified_id_(
+                        left_id_expr,
+                        right_id_expr,
+                        left_decl_context,
+                        right_decl_context,
+                        deduction_set);
+            }
+    }
+}
+
