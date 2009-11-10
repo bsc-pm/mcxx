@@ -194,4 +194,11 @@ namespace TL
     {
         insert_entry(_decl_context.current_scope, sym.get_internal_symbol());
     }
+
+    ObjectList<Symbol> Scope::cascade_lookup(const std::string& str)
+    {
+        scope_entry_list_t* entry_list = ::cascade_lookup(_decl_context, str.c_str());
+        ObjectList<Symbol> result;
+        convert_to_vector(entry_list, result);
+    }
 }

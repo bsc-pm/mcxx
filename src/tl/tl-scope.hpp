@@ -138,6 +138,28 @@ namespace TL
              */
             ObjectList<Symbol> get_all_symbols(bool include_hidden);
 
+            //! This function performs a cascaded lookup
+            /*!
+              Normal C/C++ lookup, when looking up an unqualified name,
+              stops when a name (or names) are found in the current
+              or enclosing stops. A cascaded lookup, which is not
+              what C/C++ does, continues to lookup enclosing scopes.
+
+              This is useful, for instance, when you have names
+              that are somehow inherited through enclosing scopes
+              but would be hidden because of symbols of the current
+              scope if a normal lookup was performed.
+
+              Note that qualified names are not eligible for a cascaded
+              lookup. This is why this function simply receives
+              a string.
+
+              The order of the symbols goes from the innermost scope
+              to the outermost scope. So checking each symbol sequentially
+              will give you the expected semantics of checking from inner
+              to outer.
+              */
+            ObjectList<Symbol> cascade_lookup(const std::string& name);
 
             //! This function inserts a symbol using its name in the current scope
             /*! Use this function to bring the information of one symbol into another scope

@@ -3229,3 +3229,57 @@ decl_context_t decl_context_empty()
     memset(&result, 0, sizeof(result));
     return result;
 }
+
+scope_entry_list_t* cascade_lookup(decl_context_t decl_context, const char* name)
+{
+    // This function is a simplified version of name_lookup, it turns that
+    // name_lookup is complex enough to avoid touching it unless needed
+
+    ERROR_CONDITION(name == NULL, "Name cannot be null!", 0);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "SCOPE: Cascade lookup of '%s'\n", name);
+    }
+
+    scope_entry_list_t *result = NULL;
+
+    // This one has higher priority
+    scope_t* template_scope = decl_context.template_scope;
+    // The frontend should keep the template scope always up to date
+    while (template_scope != NULL)
+    {
+        ERROR_CONDITION((template_scope->kind != TEMPLATE_SCOPE), "This is not a template scope!", 0);
+
+        result = append_scope_entry_list(result, query_name_in_scope(template_scope, name));
+
+        // If nothing was found, look up in the enclosing template_scope
+        // (they form a stack of template_scopes)
+        template_scope = template_scope->contained_in;
+    }
+
+    scope_t* current_scope = decl_context.current_scope;
+    while (current_scope != NULL)
+    {
+        if (current_scope->kind != CLASS_SCOPE)
+        {
+            result = append_scope_entry_list(result, query_name_in_scope(current_scope, name));
+        }
+        else
+        {
+            // Class scopes require slightly different strategy
+            result = append_scope_entry_list(result, class_scope_lookup(current_scope, name, decl_context.decl_flags));
+        }
+
+        // Otherwise, if this is a NAMESPACE_SCOPE, lookup in the used namespaces
+        // note that the objects there are not hidden, but added
+        if (current_scope->num_used_namespaces > 0)
+        {
+            result = append_scope_entry_list(result, name_lookup_used_namespaces(decl_context, current_scope, name));
+        }
+
+        current_scope = current_scope->contained_in;
+    }
+
+    return result;
+}

@@ -122,6 +122,9 @@ LIBMCXX_EXTERN struct type_tag* update_type(template_argument_list_t* given_temp
         decl_context_t template_arguments_context,
         const char* filename, int line);
 
+// Other stuff
+LIBMCXX_EXTERN scope_entry_list_t* cascade_lookup(decl_context_t decl_context, const char* name);
+
 LIBMCXX_EXTERN unsigned long long scope_used_memory(void);
 LIBMCXX_EXTERN unsigned long long symbols_used_memory(void);
 
