@@ -273,7 +273,7 @@ namespace TL
 
         void UDRInfoSet::add_udr(const UDRInfoItem& item)
         {
-            std::string symbol_name = item.get_op_name();
+            std::string symbol_name = build_artificial_name(item);
             bool reuse_symbol = true;
             C_LANGUAGE()
             {
@@ -288,45 +288,7 @@ namespace TL
 
             CXX_LANGUAGE()
             {
-                // Check that a UDR is not created twice
-                ObjectList<Symbol> sym_list = _scope.get_symbols_from_name(symbol_name);
-
-                bool in_current_scope = false;
-                for (ObjectList<Symbol>::iterator it = sym_list.begin();
-                        it != sym_list.end();
-                        it++)
-                {
-                    Symbol &sym(*it);
-                    in_current_scope = in_current_scope || (sym.get_scope() == _scope);
-                    RefPtr<UDRInfoItem> obj = RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
-
-                    if (obj.valid())
-                    {
-                        if (obj->get_type().is_same_type(item.get_type()))
-                        {
-                            internal_error("UDR introduced twice", 0);
-                        }
-                    }
-                    else
-                    {
-                        internal_error("Invalid cast!", 0);
-                    }
-                }
-
-                // None was found in the current scope, just bring them in
-                // to make them visible later
-                if (!in_current_scope)
-                {
-                    // Insert all the symbols we have found to the current scope
-                    for (ObjectList<Symbol>::iterator it = sym_list.begin();
-                            it != sym_list.end();
-                            it++)
-                    {
-                        Symbol &sym(*it);
-                        _scope.insert_symbol(sym);
-                    }
-                }
-                reuse_symbol = true;
+                // FIXME -- Check that a UDR is not created twice
             }
 
             Symbol artificial_sym = _scope.new_artificial_symbol(symbol_name, reuse_symbol);

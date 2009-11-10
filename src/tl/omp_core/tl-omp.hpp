@@ -102,7 +102,7 @@ namespace TL
                         bool is_commutative)
                     : _type(type),
                     _op_symbol(op_symbol),
-                    _op_name(op_symbol.get_qualified_name()),
+                    _op_name(op_symbol.get_name()),
                     _identity(identity),
                     _assoc(assoc),
                     _is_commutative(is_commutative)
