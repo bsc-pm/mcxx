@@ -200,5 +200,6 @@ namespace TL
         scope_entry_list_t* entry_list = ::cascade_lookup(_decl_context, str.c_str());
         ObjectList<Symbol> result;
         convert_to_vector(entry_list, result);
+        return result;
     }
 }
