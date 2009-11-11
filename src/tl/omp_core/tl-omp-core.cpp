@@ -246,17 +246,18 @@ namespace TL
                             }
                         }
 
-                        ReductionSymbol red_sym(sym, reductor_name, UDRInfoSet(expr.get_scope()));
+                        // FIXME !!!
+                        // ReductionSymbol red_sym(sym, reductor_name, UDRInfoSet(expr.get_scope()));
 
-                        if (red_sym.is_faulty())
-                        {
-                            running_error("%s: error: user defined reduction for type '%s' and operator '%s' not declared",
-                                    expr.get_ast().get_locus().c_str(),
-                                    reduct_type.get_declaration(sym.get_scope(), "").c_str(), 
-                                    reductor_name.c_str());
-                        }
+                        // if (red_sym.is_faulty())
+                        // {
+                        //     running_error("%s: error: user defined reduction for type '%s' and operator '%s' not declared",
+                        //             expr.get_ast().get_locus().c_str(),
+                        //             reduct_type.get_declaration(sym.get_scope(), "").c_str(), 
+                        //             reductor_name.c_str());
+                        // }
 
-                        sym_list.append(red_sym);
+                        // sym_list.append(red_sym);
                     }
                 }
             }

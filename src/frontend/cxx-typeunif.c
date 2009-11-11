@@ -1358,6 +1358,7 @@ static void unificate_nested_name_specifier_first_(AST left_tree,
                 switch (ASTType(right_nest))
                 {
                     case AST_SYMBOL:
+                    case AST_TEMPLATE_ID:
                         {
                             scope_entry_list_t* entry_list_2 = query_id_expression(right_decl_context, right_nest);
                             if (entry_list_2 == NULL
@@ -1435,10 +1436,6 @@ static void unificate_nested_name_specifier_first_(AST left_tree,
                             }
                             break;
                         }
-                    case AST_TEMPLATE_ID:
-                        {
-                            break;
-                        }
                     default:
                         {
                             internal_error("Unhandled node type '%s'\n", ast_print_node_type(ASTType(right_nest)));
@@ -1446,6 +1443,11 @@ static void unificate_nested_name_specifier_first_(AST left_tree,
                 }
             }
         }
+    }
+    else if (ASTType(left_nest) == AST_TEMPLATE_ID)
+    {
+        // FIXME - template template parameters!!!
+        unificate_template_id_(left_nest, right_nest, left_decl_context, right_decl_context, deduction_set);
     }
 
     // More nested specifiers to be checked
@@ -1513,84 +1515,7 @@ static void unificate_id_expressions_(AST left_id_expr, AST right_id_expr,
     }
 }
 
-char advance_until_dependent_qualification_(AST id_expr, 
-        decl_context_t decl_context,
-        scope_entry_t** dependent_entry,
-        AST *nested_name_seq,
-        decl_context_t* current_decl_context)
-{
-    switch (ASTType(id_expr))
-    {
-        case AST_QUALIFIED_ID:
-        case AST_QUALIFIED_TEMPLATE:
-            {
-                *nested_name_seq = ASTSon0(id_expr);
-                // AST unqualified_id = ASTSon1(id_expr);
-
-                *current_decl_context = decl_context;
-                // The first nested name is looked up normally
-                AST nested_name = ASTSon0(*nested_name_seq);
-
-                scope_entry_list_t* entry_list = query_id_expression(*current_decl_context, nested_name);
-
-                do {
-                    if (entry_list == NULL)
-                        return 0;
-
-                    scope_entry_t* current_sym = entry_list->entry;
-
-                    if (current_sym->kind == SK_TYPEDEF)
-                    {
-                        current_sym = named_type_get_symbol(advance_over_typedefs(current_sym->type_information));
-                    }
-
-                    if (current_sym->kind == SK_CLASS)
-                    {
-                        if (is_dependent_type(current_sym->type_information))
-                        {
-                            *dependent_entry = current_sym;
-                            return 1;
-                        }
-                        else
-                        {
-                            *current_decl_context = class_type_get_context(current_sym->type_information);
-                        }
-                    }
-                    else if (current_sym->kind == SK_TEMPLATE_TYPE_PARAMETER)
-                    {
-                        *dependent_entry = current_sym;
-                        return 1;
-                    }
-                    else if (current_sym->kind == SK_NAMESPACE)
-                    {
-                        *current_decl_context = current_sym->namespace_decl_context;
-                    }
-                    else
-                    {
-                        internal_error("Unhandled symbol kind %d\n", current_sym->kind);
-                    }
-
-                    *nested_name_seq = ASTSon1(*nested_name_seq);
-                    nested_name = ASTSon0(*nested_name_seq);
-
-                    // Only in this scope
-                    entry_list = query_id_expression_flags(*current_decl_context, nested_name,
-                            DF_ONLY_CURRENT_SCOPE);
-
-                } while (*nested_name_seq != NULL);
-
-                // We got here? This is not as dependent as we thought!
-                internal_error("Code unreachable", 0);
-
-                break;
-            }
-        default:
-            {
-                internal_error("Unhandled node kind %s\n", ast_print_node_type(ASTType(id_expr)));
-            }
-    }
-}
-
+// FIXME - Copied from cxx-instantiation.c
 static const char* get_name_of_template_parameter(
         template_parameter_list_t* template_parameters,
         int nesting,

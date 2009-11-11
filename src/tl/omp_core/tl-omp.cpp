@@ -290,10 +290,11 @@ namespace TL
             {
                 ObjectList<Symbol> sym_list = _scope.cascade_lookup(symbol_name);
 
-                for (ObjectList<Symbol>::iterator sym_list.begin();
+                for (ObjectList<Symbol>::iterator it = sym_list.begin();
                         it != sym_list.end();
                         it++)
                 {
+                    Symbol &sym(*it);
                     RefPtr<UDRInfoItem> obj = RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
                     if (!obj.valid())
                     {

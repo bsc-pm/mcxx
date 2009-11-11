@@ -248,7 +248,7 @@ namespace TL
                 }
 
                 ReductionSymbol(const ReductionSymbol& red_sym)
-                    : _symbol(red_sym._symbol), _udr_item(red_sym.udr_info_item)
+                    : _symbol(red_sym._symbol), _udr_item(red_sym._udr_item)
                 {
                 }
 

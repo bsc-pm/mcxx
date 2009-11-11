@@ -62,10 +62,10 @@ namespace TL
                     it != temp_reduction_sym.end();
                     it++)
             {
-                // Fix this, it appears extremely redundant to me
-                reduction_references.append(OpenMP::ReductionSymbol(*it, 
-                            data_sharing.get_reductor_name(*it),
-                            OpenMP::UDRInfoSet(for_construct.get_scope())));
+                // FIXME !!!
+                // reduction_references.append(OpenMP::ReductionSymbol(*it, 
+                //             data_sharing.get_reductor_name(*it),
+                //             OpenMP::UDRInfoSet(for_construct.get_scope())));
             }
 
             data_sharing.get_all_symbols(OpenMP::DA_COPYIN, copyin_references);

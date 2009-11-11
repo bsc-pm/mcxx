@@ -302,7 +302,7 @@ namespace TL
     void initialize_builtin_udr_reductions(Scope global_scope)
     {
         using OpenMP::UDRInfoItem;
-        using OpenMP::UDRInfoSet;
+        using OpenMP::UDRInfoScope;
 
         static bool already_initialized = false;
 
@@ -367,7 +367,7 @@ namespace TL
             int j;
             for (j = 0; builtin_arithmetic_operators[j].operator_name != NULL; j++)
             {
-                UDRInfoSet udr_info_set(global_scope);
+                UDRInfoScope udr_info_set(global_scope);
                 udr_info_set.add_udr(
                         UDRInfoItem(Type(type),
                             builtin_arithmetic_operators[j].operator_name,
@@ -379,7 +379,7 @@ namespace TL
             {
                 for (j = 0; builtin_logic_bit_operators[j].operator_name != NULL; j++)
                 {
-                    UDRInfoSet udr_info_set(global_scope);
+                    UDRInfoScope udr_info_set(global_scope);
                     udr_info_set.add_udr(
                             UDRInfoItem(Type(type),
                                 builtin_logic_bit_operators[j].operator_name,
@@ -784,7 +784,7 @@ namespace TL
 
         void Core::declare_reduction_handler_pre(PragmaCustomConstruct construct)
         {
-            // UDRInfoSet udr_info_set(construct.get_scope())
+            // UDRInfoScope udr_info_set(construct.get_scope())
 
             // #pragma omp declare reduction type(type-name-list) operator(op-name-list) order(left|right) commutative
             ScopeLink scope_link = construct.get_scope_link();
@@ -855,7 +855,7 @@ namespace TL
                     reduction_type = reduction_type.references_to();
                 }
 
-                UDRInfoSet udr_info_set(construct.get_scope());
+                UDRInfoScope udr_info_set(construct.get_scope());
 
                 for (ObjectList<std::string>::iterator op_it = op_args.begin();
                         op_it != op_args.end();
@@ -907,22 +907,23 @@ namespace TL
                         }
                     }
 
-                    if (!udr_info_set.lookup_udr(op_symbol.get_name(), reduction_type))
-                    {
-                        std::cerr << construct.get_ast().get_locus() << ": note: introducing user-defined reduction for type '"
-                            << reduction_type.get_declaration(scope_of_clause, "") << "'"
-                            << " and operator '" 
-                            << op_symbol.get_type().get_declaration(scope_of_clause, op_symbol.get_qualified_name(scope_of_clause)) << "'"
-                            << std::endl;
-                        udr_info_set.add_udr(UDRInfoItem(reduction_type, op_symbol, identity, assoc, is_commutative));
-                    }
-                    else
-                    {
-                        running_error("%s: error: user defined reduction for reduction_type '%s' and operator '%s' already defined",
-                                construct.get_ast().get_locus().c_str(),
-                                reduction_type.get_declaration(construct.get_scope_link().get_scope(construct.get_ast()), "").c_str(),
-                                op_name.c_str());
-                    }
+                    // FIXME !!
+                    // if (!udr_info_set.lookup_udr(op_symbol.get_name(), reduction_type))
+                    // {
+                    //     std::cerr << construct.get_ast().get_locus() << ": note: introducing user-defined reduction for type '"
+                    //         << reduction_type.get_declaration(scope_of_clause, "") << "'"
+                    //         << " and operator '" 
+                    //         << op_symbol.get_type().get_declaration(scope_of_clause, op_symbol.get_qualified_name(scope_of_clause)) << "'"
+                    //         << std::endl;
+                    //     udr_info_set.add_udr(UDRInfoItem(reduction_type, op_symbol, identity, assoc, is_commutative));
+                    // }
+                    // else
+                    // {
+                    //     running_error("%s: error: user defined reduction for reduction_type '%s' and operator '%s' already defined",
+                    //             construct.get_ast().get_locus().c_str(),
+                    //             reduction_type.get_declaration(construct.get_scope_link().get_scope(construct.get_ast()), "").c_str(),
+                    //             op_name.c_str());
+                    // }
                 }
             }
         }
@@ -933,7 +934,7 @@ namespace TL
     // This is a dirty function messing with some parts of the frontend
     // Here type is the type of the entity being reduced and udr_sym the list
     // of udr_symbols found so far. We have to deduce which one is the one we want
-    bool solve_udr_cxx(ObjectList<Symbol> udr_sym_list, Type type, Symbol& sym)
+    bool solve_udr_cxx(ObjectList<Symbol> udr_sym_list, Type type, Symbol& solved_sym)
     {
         bool result = false;
         solved_sym = Symbol(NULL);
@@ -944,7 +945,7 @@ namespace TL
             Symbol &sym(*it);
             scope_entry_t* entry = sym.get_internal_symbol();
 
-            RefPtr<UDRInfoItem> obj = RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
+            RefPtr<TL::OpenMP::UDRInfoItem> obj = RefPtr<TL::OpenMP::UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
 
             // Change the type
 
@@ -969,8 +970,10 @@ namespace TL
         ObjectList<Symbol> viable_functions;
         ObjectList<Symbol> argument_conversor;
 
+        bool valid = false;
+
         // Solve the overload!
-        Symbol overload_sym = solve( /* candidate_functions */ udr_sym_list,
+        Symbol overload_sym = TL::Overload::solve( /* candidate_functions */ udr_sym_list,
                 Type(NULL), // No implicit -- FIXME for members!!!
                 argument_types,
                 "--no file--", // No file
@@ -982,7 +985,7 @@ namespace TL
         if (valid)
         {
             // Now figure which symbol was
-            Type first_param_type = overload_sym.parameters()[0];
+            Type first_param_type = overload_sym.get_type().parameters()[0];
 
             for(ObjectList<Symbol>::iterator it = udr_sym_list.begin();
                     it != udr_sym_list.end();
@@ -990,11 +993,11 @@ namespace TL
             {
                 Symbol &sym(*it);
 
-                RefPtr<UDRInfoItem> obj = RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
+                RefPtr<TL::OpenMP::UDRInfoItem> obj = RefPtr<TL::OpenMP::UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
 
-                if (obj.get_type().is_same_type(first_param_type))
+                if (obj->get_type().is_same_type(first_param_type))
                 {
-                    result_sym = sym;
+                    solved_sym = sym;
                     result = true;
                 }
             }
