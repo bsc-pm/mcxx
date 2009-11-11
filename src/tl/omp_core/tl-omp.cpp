@@ -237,17 +237,17 @@ namespace TL
             _stack_data_sharing.pop();
         }
 
-        UDRInfoSet::UDRInfoSet(Scope sc)
+        UDRInfoScope::UDRInfoScope(Scope sc)
             : _scope(sc)
         {
         }
 
-        std::string UDRInfoSet::build_artificial_name(const UDRInfoItem& item)
+        std::string UDRInfoScope::build_artificial_name(const UDRInfoItem& item)
         {
             return build_artificial_name(item.get_op_name());
         }
 
-        std::string UDRInfoSet::build_artificial_name(const std::string& item)
+        std::string UDRInfoScope::build_artificial_name(const std::string& item)
         {
             std::string symbol_name = ".udr_";
 
@@ -271,7 +271,7 @@ namespace TL
             return symbol_name;
         }
 
-        void UDRInfoSet::add_udr(const UDRInfoItem& item)
+        void UDRInfoScope::add_udr(const UDRInfoItem& item)
         {
             std::string symbol_name = build_artificial_name(item);
             bool reuse_symbol = true;
@@ -288,52 +288,29 @@ namespace TL
 
             CXX_LANGUAGE()
             {
-                // FIXME -- Check that a UDR is not created twice
+                ObjectList<Symbol> sym_list = _scope.cascade_lookup(symbol_name);
+
+                for (ObjectList<Symbol>::iterator sym_list.begin();
+                        it != sym_list.end();
+                        it++)
+                {
+                    RefPtr<UDRInfoItem> obj = RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
+                    if (!obj.valid())
+                    {
+                        internal_error("Invalid data in udr symbol", 0);
+                    }
+
+                    if (obj->get_type().is_same_type(item.get_type()))
+                    {
+                        internal_error("UDR registered twice\n", 0);
+                    }
+                }
             }
 
             Symbol artificial_sym = _scope.new_artificial_symbol(symbol_name, reuse_symbol);
 
             RefPtr<UDRInfoItem> udr_info_item(new UDRInfoItem(item));
             artificial_sym.set_attribute("udr_info", udr_info_item);
-        }
-
-        bool UDRInfoSet::lookup_udr(const std::string& str, Type type) const
-        {
-            // Try to find a valid type
-            C_LANGUAGE()
-            {
-                ObjectList<Symbol> sym_list = _scope.get_symbols_from_name(str);
-                if (sym_list.empty())
-                    return false;
-
-                return (sym_list[0].get_type().is_same_type(type));
-            }
-
-            CXX_LANGUAGE()
-            {
-                // FIXME - This requires type deduction
-            }
-
-            return false;
-        }
-
-        UDRInfoItem UDRInfoSet::get_udr(const std::string& str, Type type) const
-        {
-            C_LANGUAGE()
-            {
-                ObjectList<Symbol> sym_list = _scope.get_symbols_from_name(str);
-
-                Symbol &sym(sym_list[0]);
-
-                RefPtr<UDRInfoItem> obj = RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
-
-                return *obj;
-            }
-
-            // CXX_LANGUAGE()
-            {
-                // FIXME - This requires type deduction
-            }
         }
 
         Type UDRInfoItem::get_type() const

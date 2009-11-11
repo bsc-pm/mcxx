@@ -929,4 +929,90 @@ namespace TL
 
         void Core::declare_reduction_handler_post(PragmaCustomConstruct construct) { }
     }
+
+    // This is a dirty function messing with some parts of the frontend
+    // Here type is the type of the entity being reduced and udr_sym the list
+    // of udr_symbols found so far. We have to deduce which one is the one we want
+    bool solve_udr_cxx(ObjectList<Symbol> udr_sym_list, Type type, Symbol& sym)
+    {
+        bool result = false;
+        solved_sym = Symbol(NULL);
+        for(ObjectList<Symbol>::iterator it = udr_sym_list.begin();
+                it != udr_sym_list.end();
+                it++)
+        {
+            Symbol &sym(*it);
+            scope_entry_t* entry = sym.get_internal_symbol();
+
+            RefPtr<UDRInfoItem> obj = RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
+
+            // Change the type
+
+            entry->kind = SK_FUNCTION;
+
+            parameter_info_t param_info[] = 
+            {
+                { 
+                    /* .is_ellipsis = */ 0, 
+                    /* .type_info = */ obj->get_type().get_internal_type(), 
+                    /* .nonadjusted_type = */ NULL 
+                }
+            };
+
+            // Build a proper type for further overload
+            entry->type_information = get_new_function_type(get_void_type(), param_info, 1);
+        }
+
+        ObjectList<Type> argument_types;
+        argument_types.push_back(type);
+
+        ObjectList<Symbol> viable_functions;
+        ObjectList<Symbol> argument_conversor;
+
+        // Solve the overload!
+        Symbol overload_sym = solve( /* candidate_functions */ udr_sym_list,
+                Type(NULL), // No implicit -- FIXME for members!!!
+                argument_types,
+                "--no file--", // No file
+                0, // No line
+                valid,
+                viable_functions,
+                argument_conversor);
+
+        if (valid)
+        {
+            // Now figure which symbol was
+            Type first_param_type = overload_sym.parameters()[0];
+
+            for(ObjectList<Symbol>::iterator it = udr_sym_list.begin();
+                    it != udr_sym_list.end();
+                    it++)
+            {
+                Symbol &sym(*it);
+
+                RefPtr<UDRInfoItem> obj = RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
+
+                if (obj.get_type().is_same_type(first_param_type))
+                {
+                    result_sym = sym;
+                    result = true;
+                }
+            }
+        }
+
+        // Fix the types again as SK_OTHER, otherwise TL
+        // will complain later when creating other artificial symbols
+        for(ObjectList<Symbol>::iterator it = udr_sym_list.begin();
+                it != udr_sym_list.end();
+                it++)
+        {
+            Symbol &sym(*it);
+            scope_entry_t* entry = sym.get_internal_symbol();
+
+            entry->kind = SK_OTHER;
+        }
+
+        return result;
+    }
+    
 }

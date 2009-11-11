@@ -137,7 +137,7 @@ namespace TL
                 bool is_constructor_identity() const;
         };
 
-        class LIBTL_CLASS UDRInfoSet
+        class LIBTL_CLASS UDRInfoScope
         {
             private:
                 Scope _scope;
@@ -145,10 +145,8 @@ namespace TL
                 std::string build_artificial_name(const UDRInfoItem&);
                 std::string build_artificial_name(const std::string& item);
             public:
-                UDRInfoSet(Scope sc);
+                UDRInfoScope(Scope sc);
 
-                UDRInfoItem get_udr(const std::string& str, Type reduction_type) const;
-                bool lookup_udr(const std::string& str, Type reduction_type) const;
                 void add_udr(const UDRInfoItem& item);
         };
 
@@ -241,26 +239,17 @@ namespace TL
         {
             private:
                 Symbol _symbol;
-                UDRInfoItem *_udr_item;
+                UDRInfoItem _udr_item;
             public:
                 ReductionSymbol(Symbol s, const std::string& reductor_name,
-                        const UDRInfoSet& udr_info_set)
-                    : _symbol(s), _udr_item(NULL)
+                        const UDRInfoItem& udr_info_item)
+                    : _symbol(s), _udr_item(udr_info_item)
                 {
-                    if (udr_info_set.lookup_udr(reductor_name, s.get_type()))
-                    {
-                        UDRInfoItem udr_item = udr_info_set.get_udr(reductor_name, s.get_type());
-                        _udr_item = new UDRInfoItem(udr_item);
-                    }
                 }
 
                 ReductionSymbol(const ReductionSymbol& red_sym)
-                    : _symbol(red_sym._symbol), _udr_item(NULL)
-                 {
-                    if (red_sym._udr_item != NULL)
-                    {
-                        this->_udr_item = new UDRInfoItem(*red_sym._udr_item);
-                    }
+                    : _symbol(red_sym._symbol), _udr_item(red_sym.udr_info_item)
+                {
                 }
 
                 ReductionSymbol& operator=(const ReductionSymbol& red_sym)
@@ -268,17 +257,13 @@ namespace TL
                     if (this != &red_sym)
                     {
                         this->_symbol = red_sym._symbol;
-                        if (red_sym._udr_item != NULL)
-                        {
-                            this->_udr_item = new UDRInfoItem(*red_sym._udr_item);
-                        }
+                        this->_udr_item = red_sym._udr_item;
                     }
                     return *this;
                 }
 
                 ~ReductionSymbol()
                 {
-                    delete _udr_item;
                 }
 
                 //! Returns the symbol of this reduction
@@ -290,7 +275,7 @@ namespace TL
                 //! States that the reduction is user defined
                 bool is_user_defined() const
                 {
-                    return !_udr_item->is_builtin_op();
+                    return !_udr_item.is_builtin_op();
                 }
 
                 //! States that the reduction uses a builtin operator
@@ -303,23 +288,23 @@ namespace TL
                 //! Returns a tree with an expression of the neuter value of the reduction
                 std::string get_neuter() const
                 {
-                    return _udr_item->get_identity();
+                    return _udr_item.get_identity();
                 }
 
                 bool neuter_is_constructor() const
                 {
-                    return _udr_item->is_constructor_identity();
+                    return _udr_item.is_constructor_identity();
                 }
 
                 bool neuter_is_empty() const
                 {
-                    return (_udr_item->get_identity() == "");
+                    return (_udr_item.get_identity() == "");
                 }
 
                 //! Gets the reduction operation
                 std::string get_operation() const
                 {
-                    return _udr_item->get_op_name();
+                    return _udr_item.get_op_name();
                 }
 
                 //! Gets the reductor name
@@ -331,20 +316,20 @@ namespace TL
 
                 Symbol get_reductor_symbol() const
                 {
-                    return _udr_item->get_op_symbol();
+                    return _udr_item.get_op_symbol();
                 }
 
                 //! States whether this is a member specificication
                 bool reductor_is_member() const
                 {
-                    return _udr_item->is_member_op();
+                    return _udr_item.is_member_op();
                 }
 
                 //! States whether the reductor is right associative
                 /*! \note Most of reductors are left associative */
                 bool reductor_is_right_associative() const
                 {
-                    return (_udr_item->get_assoc() == UDRInfoItem::RIGHT);
+                    return (_udr_item.get_assoc() == UDRInfoItem::RIGHT);
                 }
 
                 //! States whether the reductor is right associative
@@ -357,7 +342,7 @@ namespace TL
                 //! States whether the reductor is flagged as being commutative
                 bool reductor_is_commutative() const
                 {
-                    return (_udr_item->is_commutative());
+                    return (_udr_item.is_commutative());
                 }
 
                 //! States whether this reduction symbol is faulty
@@ -366,7 +351,7 @@ namespace TL
                   */
                 bool is_faulty() const
                 {
-                    return (_udr_item == NULL);
+                    return false;
                 }
 
                 //! Means that this ReductionSymbol is valid
