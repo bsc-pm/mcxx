@@ -11,6 +11,7 @@ namespace TL
     bool udr_is_builtin_operator(const std::string &op_name);
 
     Symbol solve_udr_name_cxx(LangConstruct construct,
+            AST_t ref_tree_of_clause,
             std::string &op_name,
             Type reduction_type,
             OpenMP::UDRInfoItem::Associativity &assoc);

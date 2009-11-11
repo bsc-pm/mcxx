@@ -143,7 +143,12 @@ namespace TL
 
     bool Type::is_dependent() const
     {
-        return 0;
+        return ::is_dependent_type(_type_info);
+    }
+
+    bool Type::is_expression_dependent() const
+    {
+        return ::is_dependent_expr_type(_type_info);
     }
 
     Type Type::returns() const

@@ -444,7 +444,9 @@ namespace TL
         return get_valid_zero_initializer(t);
     }
 
+    // This function computes the declared udr function in C++
     Symbol solve_udr_name_cxx(LangConstruct construct,
+            AST_t ref_tree_of_clause,
             std::string &op_name,
             Type reduction_type,
             OpenMP::UDRInfoItem::Associativity &assoc)
@@ -479,7 +481,7 @@ namespace TL
             Source src;
             src <<  reduction_type.get_declaration(construct.get_scope(), "") << "::" << op_name;
 
-            AST_t tree = src.parse_expression(construct.get_ast(), construct.get_scope_link(), 
+            AST_t tree = src.parse_expression(ref_tree_of_clause, construct.get_scope_link(), 
                     // Do not nag the user if this attempt fails
                     Source::DO_NOT_CHECK_EXPRESSION); 
             Expression expr(tree, construct.get_scope_link());
@@ -488,7 +490,7 @@ namespace TL
             {
                 // Attempt a second lookup, this time in the current scope
                 src = op_name;
-                tree = src.parse_expression(construct.get_ast(), construct.get_scope_link());
+                tree = src.parse_expression(ref_tree_of_clause, construct.get_scope_link());
 
                 expr = Expression(tree, construct.get_scope_link());
 
@@ -521,7 +523,7 @@ namespace TL
             // Parse it to cause a scope search when typechecking
             Source src = op_name;
 
-            AST_t expr_tree = src.parse_expression(construct.get_ast(), construct.get_scope_link());
+            AST_t expr_tree = src.parse_expression(ref_tree_of_clause, construct.get_scope_link());
             Expression expr(expr_tree, construct.get_scope_link());
 
             if (!expr.get_type().is_valid())
@@ -542,6 +544,7 @@ namespace TL
                         op_name.c_str());
             }
         }
+
 
         if (op_symbol_type.is_unresolved_overload())
         {
@@ -663,9 +666,9 @@ namespace TL
                         op_name.c_str());
             }
         }
-        else if (op_symbol_type.is_dependent())
+        else if (op_symbol_type.is_expression_dependent())
         {
-            // Do nothing
+            // Do nothing 
         }
         else
         {
@@ -690,6 +693,7 @@ namespace TL
             AST_t ref_tree, ScopeLink sl,
             ObjectList<std::string>& operator_list,
             ObjectList<Type>& type_list,
+            AST_t &ref_tree_of_clause,
             Scope& scope_of_clause)
     {
         std::string mangled_str = "@OMP_UDR_DECLARE@ " + omp_udr_str;
@@ -747,6 +751,7 @@ namespace TL
 
         // Set the proper scope link
         scope_link_set(_scope_link, a, decl_context);
+        ref_tree_of_clause = AST_t(a);
         scope_of_clause = Scope(decl_context);
 
         AST iter;
@@ -786,7 +791,7 @@ namespace TL
         {
             // UDRInfoScope udr_info_set(construct.get_scope())
 
-            // #pragma omp declare reduction type(type-name-list) operator(op-name-list) order(left|right) commutative
+            // #pragma omp declare reduction(op-name-list : type-list) order(left|right) commutative
             ScopeLink scope_link = construct.get_scope_link();
 
             if (!construct.is_parameterized())
@@ -801,11 +806,14 @@ namespace TL
             ObjectList<Type> type_list;
             Scope scope_of_clause;
 
+            AST_t ref_tree_of_clause(NULL);
+
             parse_omp_udr_declare_arguments(parameter_str,
                     construct.get_ast(),
                     construct.get_scope_link(),
                     op_args,
                     type_list,
+                    ref_tree_of_clause,
                     scope_of_clause);
 
             PragmaCustomClause order_clause = construct.get_clause("order");
@@ -892,7 +900,7 @@ namespace TL
 
                     CXX_LANGUAGE()
                     {
-                        op_symbol = solve_udr_name_cxx(construct, op_name, reduction_type, assoc);
+                        op_symbol = solve_udr_name_cxx(construct, ref_tree_of_clause, op_name, reduction_type, assoc);
                     }
 
                     if (!identity_clause.is_defined())
@@ -906,6 +914,13 @@ namespace TL
                             identity = get_valid_value_initializer(reduction_type);
                         }
                     }
+
+                    std::cerr << construct.get_ast().get_locus() << ": note: introducing user-defined reduction for type '"
+                        << reduction_type.get_declaration(scope_of_clause, "") << "'"
+                        << " and operator '" 
+                        << op_symbol.get_type().get_declaration(scope_of_clause, op_symbol.get_qualified_name(scope_of_clause)) << "'"
+                        << std::endl;
+                    udr_info_set.add_udr(UDRInfoItem(reduction_type, op_symbol, identity, assoc, is_commutative));
 
                     // FIXME !!
                     // if (!udr_info_set.lookup_udr(op_symbol.get_name(), reduction_type))
@@ -974,7 +989,7 @@ namespace TL
 
         // Solve the overload!
         Symbol overload_sym = TL::Overload::solve( /* candidate_functions */ udr_sym_list,
-                Type(NULL), // No implicit -- FIXME for members!!!
+                Type(NULL), // No implicit 
                 argument_types,
                 "--no file--", // No file
                 0, // No line

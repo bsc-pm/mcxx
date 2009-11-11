@@ -278,7 +278,7 @@ namespace TL
             C_LANGUAGE()
             {
                 // Check the symbol is not created twice
-                ObjectList<Symbol> sym_list = _scope.get_symbols_from_name(symbol_name);
+                ObjectList<Symbol> sym_list = _scope.cascade_lookup(symbol_name);
 
                 if (!sym_list.empty())
                 {

@@ -230,6 +230,7 @@ namespace TL
                             UDRInfoItem::Associativity assoc = UDRInfoItem::UNDEFINED;
 
                             Symbol reductor_symbol = solve_udr_name_cxx(construct,
+                                    construct.get_ast(),
                                     reductor_name,
                                     reduct_type,
                                     assoc);

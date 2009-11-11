@@ -360,6 +360,21 @@ namespace TL
              */
             bool is_dependent() const;
 
+            //! States whether the type is the result of a type dependent expression
+            /*! Consider the following case
+             *
+             *   template <typename _T>
+             *   void f(_T t)
+             *   {
+             *      t + 1;
+             *   }
+             *
+             * Expression 't + 1' is a type dependent expression since the exact
+             * depends on some objects whose type is dependent. These expressions
+             * cannot be checked until instatiation time
+             */
+            bool is_expression_dependent() const;
+
             //! States whether the current type is incomplete
             bool is_incomplete() const;
 
