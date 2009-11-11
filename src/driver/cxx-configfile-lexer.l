@@ -1,6 +1,8 @@
 %{
 
 #include <ctype.h>
+#include <errno.h>
+#include <string.h>
 #include "cxx-configfile-lexer.h"
 #include "cxx-configfile-parser.h"
 #include "cxx-utils.h"
