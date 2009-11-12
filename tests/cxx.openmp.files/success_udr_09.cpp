@@ -7,7 +7,7 @@ struct my_int
 
 void fun(my_int*, my_int*);
 
-#pragma omp declare reduction type(my_int) operator(fun) identity(constructor) order(right)
+#pragma omp declare reduction(fun:my_int) identity(constructor) order(right)
 
 void g()
 {
