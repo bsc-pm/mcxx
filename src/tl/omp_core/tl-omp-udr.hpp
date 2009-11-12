@@ -15,6 +15,8 @@ namespace TL
             std::string &op_name,
             Type reduction_type,
             OpenMP::UDRInfoItem::Associativity &assoc);
+
+    bool udr_lookup_cxx(ObjectList<Symbol> udr_sym_list, Type type, Symbol& solved_sym);
 }
 
 #endif // TL_OMP_UDR_HPP

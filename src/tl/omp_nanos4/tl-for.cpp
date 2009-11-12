@@ -55,18 +55,8 @@ namespace TL
             data_sharing.get_all_symbols(OpenMP::DA_FIRSTPRIVATE, firstprivate_references);
             data_sharing.get_all_symbols(OpenMP::DA_LASTPRIVATE, lastprivate_references);
 
-            // As usual, reductions are special
-            ObjectList<Symbol> temp_reduction_sym;
-            data_sharing.get_all_symbols(OpenMP::DA_REDUCTION, temp_reduction_sym);
-            for (ObjectList<Symbol>::iterator it = temp_reduction_sym.begin();
-                    it != temp_reduction_sym.end();
-                    it++)
-            {
-                // FIXME !!!
-                // reduction_references.append(OpenMP::ReductionSymbol(*it, 
-                //             data_sharing.get_reductor_name(*it),
-                //             OpenMP::UDRInfoSet(for_construct.get_scope())));
-            }
+            // As usual reductions are special
+            data_sharing.get_all_reduction_symbols(reduction_references);
 
             data_sharing.get_all_symbols(OpenMP::DA_COPYIN, copyin_references);
             data_sharing.get_all_symbols(OpenMP::DA_COPYPRIVATE, copyprivate_references);

@@ -175,7 +175,7 @@ namespace TL
                 std::copy(split_colon + 1, first_arg.end(), std::back_inserter(remainder_arg));
 
                 // Put back the arguments after tokenization
-				arguments = ExpressionTokenizer().tokenize(remainder_arg);
+                arguments = ExpressionTokenizer().tokenize(remainder_arg);
 
                 for (ObjectList<std::string>::iterator it = arguments.begin();
                         it != arguments.end();
@@ -198,7 +198,7 @@ namespace TL
                         std::cerr << clause.get_ast().get_locus() 
                             << ": warning: argument '" 
                             << expr
-                            << "' is not an identifier, skipping" 
+                            << "' is not an id-expression, skipping" 
                             << std::endl;
                     }
                     else
@@ -248,17 +248,20 @@ namespace TL
                         }
 
                         // FIXME !!!
-                        // ReductionSymbol red_sym(sym, reductor_name, UDRInfoSet(expr.get_scope()));
+                        UDRInfoScope udr_info_scope(expr.get_scope());
 
-                        // if (red_sym.is_faulty())
-                        // {
-                        //     running_error("%s: error: user defined reduction for type '%s' and operator '%s' not declared",
-                        //             expr.get_ast().get_locus().c_str(),
-                        //             reduct_type.get_declaration(sym.get_scope(), "").c_str(), 
-                        //             reductor_name.c_str());
-                        // }
+                        UDRInfoItem udr_info_item = udr_info_scope.get_udr(reductor_name, reduct_type);
 
-                        // sym_list.append(red_sym);
+                        if (!udr_info_item.is_valid())
+                        {
+                            running_error("%s: error: user defined reduction for type '%s' and operator '%s' not declared",
+                                    expr.get_ast().get_locus().c_str(),
+                                    reduct_type.get_declaration(sym.get_scope(), "").c_str(), 
+                                    reductor_name.c_str());
+                        }
+
+                        ReductionSymbol red_sym(sym, udr_info_item);
+                        sym_list.append(red_sym);
                     }
                 }
             }
@@ -293,7 +296,7 @@ namespace TL
 
                 void operator()(ReductionSymbol red_sym)
                 {
-                    _data_sharing.set_reduction(red_sym.get_symbol(), red_sym.get_reductor_name());
+                    _data_sharing.set_reduction(red_sym);
                 }
         };
 
@@ -321,7 +324,6 @@ namespace TL
                     DataSharingSetter(data_sharing, DA_LASTPRIVATE));
 
             ObjectList<OpenMP::ReductionSymbol> reduction_references;
-            std::string reductor_name;
             get_reduction_symbols(construct, construct.get_clause("reduction"), reduction_references);
             std::for_each(reduction_references.begin(), reduction_references.end(), 
                     DataSharingSetterReduction(data_sharing, DA_REDUCTION));

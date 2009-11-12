@@ -367,8 +367,8 @@ namespace TL
             int j;
             for (j = 0; builtin_arithmetic_operators[j].operator_name != NULL; j++)
             {
-                UDRInfoScope udr_info_set(global_scope);
-                udr_info_set.add_udr(
+                UDRInfoScope udr_info_scope(global_scope);
+                udr_info_scope.add_udr(
                         UDRInfoItem(Type(type),
                             builtin_arithmetic_operators[j].operator_name,
                             builtin_arithmetic_operators[j].neuter_tree,
@@ -379,8 +379,8 @@ namespace TL
             {
                 for (j = 0; builtin_logic_bit_operators[j].operator_name != NULL; j++)
                 {
-                    UDRInfoScope udr_info_set(global_scope);
-                    udr_info_set.add_udr(
+                    UDRInfoScope udr_info_scope(global_scope);
+                    udr_info_scope.add_udr(
                             UDRInfoItem(Type(type),
                                 builtin_logic_bit_operators[j].operator_name,
                                 builtin_logic_bit_operators[j].neuter_tree,
@@ -741,11 +741,15 @@ namespace TL
         {
             if (template_header != NULL)
             {
+                running_error("%s: error: OpenMP template user-defined reductions are not supported yet\n",
+                        ref_tree.get_locus().c_str());
+#if 0
                 decl_context_t templated_context;
                 build_scope_template_header(template_header, decl_context, &templated_context);
                 // Replace the current context with the templated one, so
                 // parsing does not fail later
                 decl_context = templated_context;
+#endif
             }
         }
 
@@ -789,7 +793,7 @@ namespace TL
 
         void Core::declare_reduction_handler_pre(PragmaCustomConstruct construct)
         {
-            // UDRInfoScope udr_info_set(construct.get_scope())
+            // UDRInfoScope udr_info_scope(construct.get_scope())
 
             // #pragma omp declare reduction(op-name-list : type-list) order(left|right) commutative
             ScopeLink scope_link = construct.get_scope_link();
@@ -863,7 +867,7 @@ namespace TL
                     reduction_type = reduction_type.references_to();
                 }
 
-                UDRInfoScope udr_info_set(construct.get_scope());
+                UDRInfoScope udr_info_scope(construct.get_scope());
 
                 for (ObjectList<std::string>::iterator op_it = op_args.begin();
                         op_it != op_args.end();
@@ -901,6 +905,15 @@ namespace TL
                     CXX_LANGUAGE()
                     {
                         op_symbol = solve_udr_name_cxx(construct, ref_tree_of_clause, op_name, reduction_type, assoc);
+
+                        // The interface of solve_udr_name_cxx should be
+                        // improved, if it returns an invalid symbol it means
+                        // it was dependent
+                        if (!op_symbol.is_valid())
+                        {
+                            std::cerr << construct.get_ast().get_locus() << ": note: skipping user-defined-reduction in dependent context" << std::endl;
+                            continue;
+                        }
                     }
 
                     if (!identity_clause.is_defined())
@@ -920,25 +933,25 @@ namespace TL
                         << " and operator '" 
                         << op_symbol.get_type().get_declaration(scope_of_clause, op_symbol.get_qualified_name(scope_of_clause)) << "'"
                         << std::endl;
-                    udr_info_set.add_udr(UDRInfoItem(reduction_type, op_symbol, identity, assoc, is_commutative));
 
-                    // FIXME !!
-                    // if (!udr_info_set.lookup_udr(op_symbol.get_name(), reduction_type))
-                    // {
-                    //     std::cerr << construct.get_ast().get_locus() << ": note: introducing user-defined reduction for type '"
-                    //         << reduction_type.get_declaration(scope_of_clause, "") << "'"
-                    //         << " and operator '" 
-                    //         << op_symbol.get_type().get_declaration(scope_of_clause, op_symbol.get_qualified_name(scope_of_clause)) << "'"
-                    //         << std::endl;
-                    //     udr_info_set.add_udr(UDRInfoItem(reduction_type, op_symbol, identity, assoc, is_commutative));
-                    // }
-                    // else
-                    // {
-                    //     running_error("%s: error: user defined reduction for reduction_type '%s' and operator '%s' already defined",
-                    //             construct.get_ast().get_locus().c_str(),
-                    //             reduction_type.get_declaration(construct.get_scope_link().get_scope(construct.get_ast()), "").c_str(),
-                    //             op_name.c_str());
-                    // }
+                    UDRInfoItem previously_declared = udr_info_scope.get_udr(op_symbol.get_name(), reduction_type);
+
+                    if (!previously_declared.is_valid())
+                    {
+                        std::cerr << construct.get_ast().get_locus() << ": note: introducing user-defined reduction for type '"
+                            << reduction_type.get_declaration(scope_of_clause, "") << "'"
+                            << " and operator '" 
+                            << op_symbol.get_type().get_declaration(scope_of_clause, op_symbol.get_qualified_name(scope_of_clause)) << "'"
+                            << std::endl;
+                        udr_info_scope.add_udr(UDRInfoItem(reduction_type, op_symbol, identity, assoc, is_commutative));
+                    }
+                    else
+                    {
+                        running_error("%s: error: user defined reduction for reduction_type '%s' and operator '%s' already defined",
+                                construct.get_ast().get_locus().c_str(),
+                                reduction_type.get_declaration(construct.get_scope_link().get_scope(construct.get_ast()), "").c_str(),
+                                op_name.c_str());
+                    }
                 }
             }
         }
@@ -949,7 +962,7 @@ namespace TL
     // This is a dirty function messing with some parts of the frontend
     // Here type is the type of the entity being reduced and udr_sym the list
     // of udr_symbols found so far. We have to deduce which one is the one we want
-    bool solve_udr_cxx(ObjectList<Symbol> udr_sym_list, Type type, Symbol& solved_sym)
+    bool udr_lookup_cxx(ObjectList<Symbol> udr_sym_list, Type type, Symbol& solved_sym)
     {
         bool result = false;
         solved_sym = Symbol(NULL);

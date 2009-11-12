@@ -88,6 +88,7 @@ namespace TL
                     UNDEFINED,
                 };
             private:
+                bool _valid;
                 Type _type;
                 Symbol _op_symbol;
                 std::string _op_name;
@@ -95,12 +96,24 @@ namespace TL
                 Associativity _assoc;
                 bool _is_commutative;
             public:
+                UDRInfoItem()
+                    : _valid(false),
+                    _type(NULL),
+                    _op_symbol(NULL),
+                    _op_name(""),
+                    _identity(""),
+                    _assoc(NONE),
+                    _is_commutative(false)
+                {
+                }
+
                 UDRInfoItem(Type type, 
                         Symbol op_symbol,
                         const std::string& identity,
                         Associativity assoc,
                         bool is_commutative)
-                    : _type(type),
+                    : _valid(true),
+                    _type(type),
                     _op_symbol(op_symbol),
                     _op_name(op_symbol.get_name()),
                     _identity(identity),
@@ -116,7 +129,8 @@ namespace TL
                         const std::string& identity,
                         Associativity assoc,
                         bool is_commutative)
-                    : _type(type),
+                    : _valid(true),
+                    _type(type),
                     _op_symbol(NULL),
                     _op_name(op_name),
                     _identity(identity),
@@ -125,6 +139,8 @@ namespace TL
                 {
                 }
 
+
+                bool is_valid() const;
 
                 Type get_type() const;
                 Symbol get_op_symbol() const;
@@ -148,90 +164,8 @@ namespace TL
                 UDRInfoScope(Scope sc);
 
                 void add_udr(const UDRInfoItem& item);
-        };
 
-        //! This class represents data sharing environment in a OpenMP construct
-        class LIBTL_CLASS DataSharing
-        {
-            private:
-                int *_num_refs;
-                typedef std::map<Symbol, DataAttribute> map_symbol_data_t;
-                map_symbol_data_t  *_map;
-                std::map<Symbol, std::string>  *_map_reductions;
-                DataSharing *_enclosing;
-
-                bool _is_parallel;
-
-                DataAttribute get_internal(Symbol sym);
-            public:
-                //! Constructor
-                /*!
-                 * \param enclosing Enclosing data sharing used when looking up
-                 * the data sharing of a given symbol
-                 */
-                DataSharing(DataSharing *enclosing);
-                ~DataSharing();
-
-                //! Copy constructor
-                DataSharing(const DataSharing& ds);
-
-                //! Sets a data sharing attribute of a symbol
-                /*!
-                 * \param sym The symbol to be set the data sharing attribute
-                 * \param data_attr The symbol to which the data sharing will be set
-                 */
-                void set(Symbol sym, DataAttribute data_attr);
-
-                //! Sets a data sharing of reduction together its reduction info
-                /*!
-                 * \param sym The symbol to be set reduction data sharing attribute
-                 * \param reductor_name The reductor name of symbol \a sym
-                 */
-                void set_reduction(Symbol sym, const std::string& reductor_name);
-
-                //! Returns the reductor name of a previous set_reduction
-                std::string get_reductor_name(Symbol sym);
-
-                //! Gets the data sharing attribute of a symbol
-                /*!
-                 * \param sym The symbol requested its data sharing attribute
-                 * \param check_enclosing Checks enclosing data sharings
-                 * \return The data sharing attribute or DA_UNDEFINED if no data sharing was set for it in this, and only this, DataSharing
-                 */
-                DataAttribute get(Symbol sym, bool check_enclosing = true);
-
-                //! Returns the enclosing data sharing
-                DataSharing* get_enclosing();
-
-                //! Returns all symbols that match the given data attribute
-                void get_all_symbols(DataAttribute data_attr, ObjectList<Symbol> &symbols);
-
-                DataSharing& set_is_parallel(bool b);
-                bool get_is_parallel();
-        };
-
-        class LIBTL_CLASS Info : public Object
-        {
-            private:
-                DataSharing* _root_data_sharing;
-                DataSharing* _current_data_sharing;
-                std::map<AST_t, DataSharing*> _map_data_sharing;
-                std::stack<DataSharing*> _stack_data_sharing;
-
-            public:
-                Info(DataSharing* root_data_sharing)
-                    : _root_data_sharing(root_data_sharing), 
-                    _current_data_sharing(root_data_sharing) { }
-
-                DataSharing& get_new_data_sharing(AST_t);
-
-                DataSharing& get_data_sharing(AST_t);
-
-                DataSharing& get_current_data_sharing();
-                DataSharing& get_root_data_sharing();
-
-                void push_current_data_sharing(DataSharing&);
-                void pop_current_data_sharing();
+                UDRInfoItem get_udr(const std::string& udr_name, Type udr_type);
         };
 
         //! Auxiliar class used in reduction clauses
@@ -241,7 +175,7 @@ namespace TL
                 Symbol _symbol;
                 UDRInfoItem _udr_item;
             public:
-                ReductionSymbol(Symbol s, const std::string& reductor_name,
+                ReductionSymbol(Symbol s, 
                         const UDRInfoItem& udr_info_item)
                     : _symbol(s), _udr_item(udr_info_item)
                 {
@@ -351,15 +285,100 @@ namespace TL
                   */
                 bool is_faulty() const
                 {
-                    return false;
+                    return !is_valid();
                 }
 
                 //! Means that this ReductionSymbol is valid
                 bool is_valid() const
                 {
-                    return !is_faulty();
+                    return _udr_item.is_valid();
                 }
         };
+
+        //! This class represents data sharing environment in a OpenMP construct
+        class LIBTL_CLASS DataSharing
+        {
+            private:
+                int *_num_refs;
+                typedef std::map<Symbol, DataAttribute> map_symbol_data_t;
+                map_symbol_data_t  *_map;
+                DataSharing *_enclosing;
+
+                ObjectList<ReductionSymbol> _reduction_symbols;
+
+                bool _is_parallel;
+
+                DataAttribute get_internal(Symbol sym);
+            public:
+                //! Constructor
+                /*!
+                 * \param enclosing Enclosing data sharing used when looking up
+                 * the data sharing of a given symbol
+                 */
+                DataSharing(DataSharing *enclosing);
+                ~DataSharing();
+
+                //! Copy constructor
+                DataSharing(const DataSharing& ds);
+
+                //! Sets a data sharing attribute of a symbol
+                /*!
+                 * \param sym The symbol to be set the data sharing attribute
+                 * \param data_attr The symbol to which the data sharing will be set
+                 */
+                void set(Symbol sym, DataAttribute data_attr);
+
+                //! Adds a reduction symbol
+                /*!
+                 * Reduction symbols are special, adding them sets their attribute
+                 * also their attribute and keeps the extra information stored in the ReductionSymbol
+                 */
+                void set_reduction(const ReductionSymbol& reduction_symbol);
+
+                //! Gets the data sharing attribute of a symbol
+                /*!
+                 * \param sym The symbol requested its data sharing attribute
+                 * \param check_enclosing Checks enclosing data sharings
+                 * \return The data sharing attribute or DA_UNDEFINED if no data sharing was set for it in this, and only this, DataSharing
+                 */
+                DataAttribute get(Symbol sym, bool check_enclosing = true);
+
+                //! Returns the enclosing data sharing
+                DataSharing* get_enclosing();
+
+                //! Returns all symbols that match the given data attribute
+                void get_all_symbols(DataAttribute data_attr, ObjectList<Symbol> &symbols);
+
+                void get_all_reduction_symbols(ObjectList<ReductionSymbol> &symbols);
+
+                DataSharing& set_is_parallel(bool b);
+                bool get_is_parallel();
+        };
+
+        class LIBTL_CLASS Info : public Object
+        {
+            private:
+                DataSharing* _root_data_sharing;
+                DataSharing* _current_data_sharing;
+                std::map<AST_t, DataSharing*> _map_data_sharing;
+                std::stack<DataSharing*> _stack_data_sharing;
+
+            public:
+                Info(DataSharing* root_data_sharing)
+                    : _root_data_sharing(root_data_sharing), 
+                    _current_data_sharing(root_data_sharing) { }
+
+                DataSharing& get_new_data_sharing(AST_t);
+
+                DataSharing& get_data_sharing(AST_t);
+
+                DataSharing& get_current_data_sharing();
+                DataSharing& get_root_data_sharing();
+
+                void push_current_data_sharing(DataSharing&);
+                void pop_current_data_sharing();
+        };
+
 
         //! Base class for any implementation of OpenMP in Mercurium
         /*!

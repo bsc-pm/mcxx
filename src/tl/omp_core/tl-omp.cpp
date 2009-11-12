@@ -36,7 +36,6 @@ namespace TL
         DataSharing::DataSharing(DataSharing *enclosing)
             : _num_refs(new int(1)), 
             _map(new std::map<Symbol, DataAttribute>),
-            _map_reductions(new std::map<Symbol, std::string>),
             _enclosing(enclosing),
             _is_parallel(false)
         {
@@ -57,7 +56,6 @@ namespace TL
                 }
 
                 delete _map;
-                delete _map_reductions;
                 delete _num_refs;
             }
         }
@@ -65,8 +63,8 @@ namespace TL
         DataSharing::DataSharing(const DataSharing& ds)
             : _num_refs(ds._num_refs),
             _map(ds._map),
-            _map_reductions(ds._map_reductions),
-            _enclosing(ds._enclosing)
+            _enclosing(ds._enclosing),
+            _reduction_symbols(ds._reduction_symbols)
         {
             (*_num_refs)++;
             if (_enclosing != NULL)
@@ -110,10 +108,15 @@ namespace TL
             (_map->operator[](sym)) = data_attr;
         }
 
-        void DataSharing::set_reduction(Symbol sym, const std::string& reductor_name)
+        void DataSharing::set_reduction(const ReductionSymbol &reduction_symbol)
         {
-            (_map->operator[](sym)) = DA_REDUCTION;
-            (_map_reductions->operator[](sym)) = reductor_name;
+            (_map->operator[](reduction_symbol.get_symbol())) = DA_REDUCTION;
+            _reduction_symbols.append(reduction_symbol);
+        }
+
+        void DataSharing::get_all_reduction_symbols(ObjectList<ReductionSymbol> &symbols)
+        {
+            symbols = _reduction_symbols;
         }
 
         DataAttribute DataSharing::get_internal(Symbol sym)
@@ -143,14 +146,6 @@ namespace TL
             }
 
             return result;
-        }
-
-        std::string DataSharing::get_reductor_name(Symbol sym)
-        {
-            if (_map_reductions->find(sym) == _map_reductions->end())
-                return "(unknown-reductor)";
-
-            return (*_map_reductions)[sym];
         }
 
         void OpenMPPhase::run(DTO& data_flow)
@@ -274,13 +269,13 @@ namespace TL
         void UDRInfoScope::add_udr(const UDRInfoItem& item)
         {
             std::string symbol_name = build_artificial_name(item);
-            bool reuse_symbol = true;
             C_LANGUAGE()
             {
                 // Check the symbol is not created twice
                 ObjectList<Symbol> sym_list = _scope.cascade_lookup(symbol_name);
 
-                if (!sym_list.empty())
+                if (!sym_list.empty()
+                        && !udr_is_builtin_operator(item.get_op_name()))
                 {
                     internal_error("UDR registered twice!\n", 0);
                 }
@@ -308,10 +303,90 @@ namespace TL
                 }
             }
 
-            Symbol artificial_sym = _scope.new_artificial_symbol(symbol_name, reuse_symbol);
+            Symbol artificial_sym = _scope.new_artificial_symbol(symbol_name, /* reuse_symbol */ false);
 
             RefPtr<UDRInfoItem> udr_info_item(new UDRInfoItem(item));
             artificial_sym.set_attribute("udr_info", udr_info_item);
+        }
+
+        UDRInfoItem UDRInfoScope::get_udr(const std::string& udr_name, Type udr_type)
+        {
+            std::string symbol_name = build_artificial_name(udr_name);
+            // Check the symbol is not created twice
+            ObjectList<Symbol> sym_list = _scope.cascade_lookup(symbol_name);
+
+            UDRInfoItem result;
+            if (!sym_list.empty())
+            {
+                C_LANGUAGE()
+                {
+                    if (udr_is_builtin_operator(udr_name))
+                    {
+                        // Look for the one whose type matches this
+                        for (ObjectList<Symbol>::iterator it = sym_list.begin();
+                                it != sym_list.end();
+                                it++)
+                        {
+                            Symbol &sym(sym_list[0]);
+                            RefPtr<UDRInfoItem> obj = RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
+                            if (!obj.valid())
+                            {
+                                if (obj->get_type().is_same_type(udr_type))
+                                {
+                                    result = *obj;
+                                }
+                            }
+                            else
+                            {
+                                internal_error("Invalid UDR info in the symbol '%s'\n", sym.get_name().c_str());
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // For non builtins there is only one UDR defined, always
+                        if (sym_list.size() > 1)
+                        {
+                            internal_error("Too many UDR were returned for '%s'\n", symbol_name.c_str());
+                        }
+
+                        Symbol &sym(sym_list[0]);
+                        RefPtr<UDRInfoItem> obj = RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
+                        if (obj.valid())
+                        {
+                            result = *obj;
+                        }
+                        else
+                        {
+                            internal_error("Invalid UDR info in the symbol '%s'\n", sym.get_name().c_str());
+                        }
+                    }
+                }
+
+                CXX_LANGUAGE()
+                {
+                    Symbol sym(NULL);
+                    if (udr_lookup_cxx(sym_list, udr_type, sym))
+                    {
+                        RefPtr<UDRInfoItem> obj = RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
+                        if (obj.valid())
+                        {
+                            result = *obj;
+                        }
+                        else
+                        {
+                            internal_error("Invalid UDR info in the symbol '%s'\n", sym.get_name().c_str());
+                        }
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        bool UDRInfoItem::is_valid() const
+        {
+            return _valid;
         }
 
         Type UDRInfoItem::get_type() const
