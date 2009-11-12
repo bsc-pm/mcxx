@@ -210,9 +210,6 @@ namespace TL
                 referenced_parameters << ", &nth_sizes[" << (num_args_val + 1) << "], &" 
                     << it->symbol.get_qualified_name(scope);
 
-                // FIXME - This might clash in C++
-                outline_arguments << ", &cv_" << it->symbol.get_name();
-
                 Type type = it->symbol.get_type();
 
                 // Advance over references in C++
@@ -226,6 +223,7 @@ namespace TL
                 // Shamelessly copied from tl-task.cpp
                 if (!type.is_array())
                 {
+                    outline_arguments << ", &cv_" << it->symbol.get_name();
                     firstprivatized_data
                         << type.get_declaration_with_initializer(
                                 scope,
@@ -236,6 +234,7 @@ namespace TL
                 }
                 else
                 {
+                    outline_arguments << ", cv_" << it->symbol.get_name();
                     Source src_array_copy = array_copy(type, "cv_" + it->symbol.get_name(),
                             it->symbol.get_qualified_name(scope), 0);
 
