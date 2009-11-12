@@ -254,7 +254,7 @@ namespace TL
 
                         if (!udr_info_item.is_valid())
                         {
-                            running_error("%s: error: user defined reduction for type '%s' and operator '%s' not declared",
+                            running_error("%s: error: user-defined reduction for type '%s' and operator '%s' not declared",
                                     expr.get_ast().get_locus().c_str(),
                                     reduct_type.get_declaration(sym.get_scope(), "").c_str(), 
                                     reductor_name.c_str());

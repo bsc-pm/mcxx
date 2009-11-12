@@ -928,17 +928,11 @@ namespace TL
                         }
                     }
 
-                    std::cerr << construct.get_ast().get_locus() << ": note: introducing user-defined reduction for type '"
-                        << reduction_type.get_declaration(scope_of_clause, "") << "'"
-                        << " and operator '" 
-                        << op_symbol.get_type().get_declaration(scope_of_clause, op_symbol.get_qualified_name(scope_of_clause)) << "'"
-                        << std::endl;
-
                     UDRInfoItem previously_declared = udr_info_scope.get_udr(op_symbol.get_name(), reduction_type);
 
                     if (!previously_declared.is_valid())
                     {
-                        std::cerr << construct.get_ast().get_locus() << ": note: introducing user-defined reduction for type '"
+                        std::cerr << construct.get_ast().get_locus() << ": note: declaring user-defined reduction for type '"
                             << reduction_type.get_declaration(scope_of_clause, "") << "'"
                             << " and operator '" 
                             << op_symbol.get_type().get_declaration(scope_of_clause, op_symbol.get_qualified_name(scope_of_clause)) << "'"

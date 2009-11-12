@@ -277,7 +277,7 @@ namespace TL
                 if (!sym_list.empty()
                         && !udr_is_builtin_operator(item.get_op_name()))
                 {
-                    internal_error("UDR registered twice!\n", 0);
+                    internal_error("UDR for '%s' registered twice!\n", symbol_name.c_str());
                 }
             }
 
@@ -293,12 +293,12 @@ namespace TL
                     RefPtr<UDRInfoItem> obj = RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
                     if (!obj.valid())
                     {
-                        internal_error("Invalid data in udr symbol", 0);
+                        internal_error("Invalid data in udr symbol '%s'", sym.get_name().c_str());
                     }
 
                     if (obj->get_type().is_same_type(item.get_type()))
                     {
-                        internal_error("UDR registered twice\n", 0);
+                        internal_error("UDR registered twice for '%s'\n", item.get_type().get_declaration(sym.get_scope(), "").c_str());
                     }
                 }
             }
@@ -327,13 +327,14 @@ namespace TL
                                 it != sym_list.end();
                                 it++)
                         {
-                            Symbol &sym(sym_list[0]);
+                            Symbol &sym(*it);
                             RefPtr<UDRInfoItem> obj = RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
-                            if (!obj.valid())
+                            if (obj.valid())
                             {
                                 if (obj->get_type().is_same_type(udr_type))
                                 {
                                     result = *obj;
+                                    break;
                                 }
                             }
                             else
