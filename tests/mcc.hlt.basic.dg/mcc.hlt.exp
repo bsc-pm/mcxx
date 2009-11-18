@@ -1,70 +1,11 @@
 load_lib target.exp
 
-set testcases1 [lsort [find $srcdir/$subdir *.c]]
-set testcases2 [lsort [find $srcdir/$subdir *.cpp]]
+source "$srcdir/config/mercurium.exp"
 
-set testcases [concat $testcases1 $testcases2]
-
-send_user "\n"
-
-# Mandatory for OpenMP tests
-set wrapper_tool "../libtool"
 source "${srcdir}/hlt_libs.conf"
-append wrapper_options "--mode=execute "
-set full_path_tool "../src/driver/mcxx"
 
-foreach test $testcases {
-    set basename_test [file tail $test]
-    set dirname_test [file dirname $test]
-    set rootname_test [file rootname $basename_test]
-    set kind_of_test ""
-    if [string match "success_*" $basename_test] {
-        set kind_of_test "success"
-    } elseif [string match "failure_*" $basename_test] {
-        set kind_of_test "xfailure"
-    } else {
-        unresolved "$test"
-        continue
-    }
+set testcases1 [lsort [find $srcdir/$subdir *.c]]
+execute_testsuite_phases_profile $testcases1 $loaded_phases "hltcc" "--hlt --variable=allow_identity:false"
 
-    set profile ""
-    if [string match "*.c" $basename_test] {
-        set profile "hltcc"
-    } elseif [string match "*.cpp" $basename_test] {
-        set profile "hltcxx"
-    } else {
-        unresolved "$test"
-        continue
-    }
-
-    send_user "Running test ${basename_test}...\n"
-
-    set output_execution ""
-    if {
-        [catch { 
-            set output_execution [eval exec $wrapper_tool $wrapper_options $full_path_tool "--typecheck" \
-                "--config-file=./$subdir/config.mcxx" "--profile=$profile" "--variable=allow_identity:false" "--verbose" "--output-dir=." "-c" \
-                "-o" "${rootname_test}.o" "$test" "|&" "cat"] 
-        } output_execution ]
-    } {
-# Check if the execution ended properly or was signaled
-        if {[lindex $::errorCode 0] eq "CHILDSTATUS"} {
-            if [expr { $kind_of_test == "xfailure" }] {
-                pass "$test"
-            } elseif [expr {$kind_of_test == "success"}] {
-                fail "$test"
-            } 
-        } else {
-            fail "$test"
-        }
-    } else {
-        if [expr { $kind_of_test == "success" }] {
-            pass "$test"
-        } elseif [expr { $kind_of_test == "xfailure"} ] {
-            xpass "$test"
-        }
-    }
-    send_log -- "${output_execution}\n"
-
-    exec "sh" "-c" "rm -f *mcxx_${basename_test} *${rootname_test}.o" 
-}
+set testcases2 [lsort [find $srcdir/$subdir *.cpp]]
+execute_testsuite_phases_profile $testcases2 $loaded_phases "hltcxx" "--hlt --variable=allow_identity:false"
