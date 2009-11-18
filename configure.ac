@@ -1110,6 +1110,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/superscalar/Makefile
            config/Makefile
            tests/Makefile
+           tests/config/Makefile
            tests/mcc.nanos4.dg/config.mcxx
            tests/mcxx.nanos4.dg/config.mcxx
            tests/mcc.instr.nanos4.dg/config.mcxx

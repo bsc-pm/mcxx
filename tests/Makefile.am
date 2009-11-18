@@ -23,6 +23,8 @@
 
 AUTOMAKE_OPTIONS = dejagnu
 
+SUBDIRS = config
+
 RUNTESTFLAGS=--srcdir=$(srcdir) 
 
 NULL=
