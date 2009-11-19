@@ -484,12 +484,26 @@ namespace TL
             }
             else
             {
-                serialized_code
-                    << "{"
-                    << "(" << outlined_function_reference << ")" << "(" << serialized_arguments << ");"
-                    << "break;"
-                    << "}"
-                    ;
+                if (!allow_inlining_of_outlines)
+                {
+                    serialized_code
+                        << "{"
+                        << comment("Call of the outline function")
+                        << "(" << outlined_function_reference << ")" << "(" << serialized_arguments << ");"
+                        << "break;"
+                        << "}"
+                        ;
+                }
+                else
+                {
+                    serialized_code
+                        << "{"
+                        << comment("Full inlining of serialized path")
+                        << construct_body.prettyprint() 
+                        << "break;"
+                        << "}"
+                        ;
+                }
             }
 
             increment_task_level <<  "nth_task_ctx_t nth_ctx;";
@@ -699,11 +713,11 @@ namespace TL
                 // FIXME - I'd like there was a NTH_CUTOFF_INVALID (with zero
                 // value but this would break current interface)
                 <<    cutoff_code
-                <<    final_code
                 <<    "switch (nth_cutoff)"
                 <<    "{"
                 <<      "case NTH_CUTOFF_CREATE:"
                 <<      "{"
+                <<          final_code
                 <<          comment("Create the task")
                 <<          "nth_desc * nth;"
                 <<          "int nth_type = " << task_type << ";"
@@ -734,6 +748,7 @@ namespace TL
                 <<      "case NTH_CUTOFF_IMMEDIATE:"
                 <<      "{"
                 <<          comment("Run the task inline")
+                <<          final_code
                 <<          fallback_capture_values
                 <<          dependences_common
                 <<          inputs_prologue
