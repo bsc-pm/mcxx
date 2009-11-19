@@ -106,8 +106,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     newly_generated_code
         << struct_arg_type_decl_src
         << outline_code
-        // Devices related to this task
-        << device_description
         ;
 
     // Device descriptor
@@ -118,7 +116,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         << "nanos_device_t " << device_descriptor << "[] ="
         << "{"
         // SMP
-        << "{nanos_smp_factory, &" << outline_name << "_smp_args" << "},"
+        << "{nanos_smp_factory, nanos_smp_dd_size, &" << outline_name << "_smp_args" << "},"
         << "};"
         ;
 
@@ -173,6 +171,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     spawn_code
         << "{"
+        // Devices related to this task
+        <<     device_description
         <<     struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
         <<     "nanos_wd_t wd = (nanos_wd_t)0;"
         <<     "nanos_wd_props_t props = { 0 };"

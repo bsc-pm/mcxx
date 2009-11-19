@@ -27,7 +27,7 @@ using namespace TL;
 using namespace TL::Nanox;
 
 Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
-        Source device_descriptor, 
+        Source outline_name, 
         Source struct_arg_type_name,
         Source num_threads,
         const DataEnvironInfo& data_environ_info)
@@ -39,6 +39,19 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
     fill_data_args("ol_args->", data_environ_info, fill_outline_arguments);
     fill_data_args("imm_args.", data_environ_info, fill_immediate_arguments);
 
+    Source device_descriptor,device_description;
+    // Device descriptor
+    // FIXME - Currently only SMP is supported
+    device_descriptor << outline_name << "_devices";
+    device_description
+        << "nanos_smp_args_t " << outline_name << "_smp_args = { (void(*)(void*))" << outline_name << "};"
+        << "nanos_device_t " << device_descriptor << "[] ="
+        << "{"
+        // SMP
+        << "{nanos_smp_factory, nanos_smp_dd_size, &" << outline_name << "_smp_args" << "},"
+        << "};"
+        ;
+
     result
         << "{"
         // FIXME - How to get the default number of threads?
@@ -49,6 +62,8 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
         <<   "err = nanos_create_team(&_nanos_team, (nanos_sched_t)0, &_nanos_num_threads,"
         <<              "(nanos_constraint_t*)0, /* reuse */ 0, _nanos_threads);"
         <<   "if (err != NANOS_OK) nanos_handle_error(err);"
+
+        <<   device_description      
 
         <<   "nanos_wd_props_t props = { 0 };"
         <<   "props.mandatory_creation = 1;"

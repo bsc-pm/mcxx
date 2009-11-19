@@ -107,30 +107,16 @@ void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
             outline_parameters,
             outline_body);
 
-    Source device_description, device_descriptor, num_devices;
 
     // Refactor!
     Source newly_generated_code;
     newly_generated_code
         << struct_arg_type_decl_src
         << outline_code
-        // Devices related to this task
-        << device_description
         ;
     
-    // Device descriptor
-    // FIXME - Currently only SMP is supported
-    device_descriptor << outline_name << "_devices";
-    device_description
-        << "nanos_smp_args_t " << outline_name << "_smp_args = { (void(*)(void*))" << outline_name << "};"
-        << "nanos_device_t " << device_descriptor << "[] ="
-        << "{"
-        // SMP
-        << "{nanos_smp_factory, &" << outline_name << "_smp_args" << "},"
-        << "};"
-        ;
-
     // Currently only SMP is supported
+    Source num_devices;
     num_devices << 1;
     
     // Parse it in a sibling function context
@@ -152,7 +138,7 @@ void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
     }
 
     Source spawn_source = common_parallel_spawn_code(num_devices,
-            device_descriptor,
+            outline_name,
             struct_arg_type_name,
             num_threads,
             data_environ_info);
