@@ -59,6 +59,11 @@ namespace TL
                     disable_restrict_str,
                     "0").connect(functor(&OpenMPTransform::set_disable_restrict_pointers, *this));
 
+            register_parameter("allow_inlining_of_outlines",
+                    "Hints the backend compiler that the parallel outline can be inlined (if directly called)",
+                    allow_inlining_of_outlines_str,
+                    "0").connect(functor(&OpenMPTransform::set_allow_inlining_of_outlines, *this));
+
             C_LANGUAGE()
             {
                 use_memcpy_always = true;
@@ -199,6 +204,15 @@ namespace TL
                     /* Given value */ str,
                     /* Compiler bool */ run_pretransform,
                     /* Error message */ "Will run pretransformations");
+        }
+
+        void OpenMPTransform::set_allow_inlining_of_outlines(const std::string& str)
+        {
+            allow_inlining_of_outlines = false;
+            parse_boolean_option(/* Parameter name */ "allow_inlining_of_outlines",
+                    /* Given value */ str,
+                    /* Compiler bool */ allow_inlining_of_outlines,
+                    /* Error message */ "Outlines will not be inlined");
         }
 
         bool OpenMPTransform::instrumentation_requested()

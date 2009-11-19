@@ -36,13 +36,11 @@ namespace TL
                 bool team_parameter
                 )
         {
-            Source formal_parameters;
-
-            Source static_qualifier;
-
-            Source forward_declaration;
-
-            Source template_header;
+            Source formal_parameters, 
+                static_qualifier, 
+                forward_declaration, 
+                inline_attribute, 
+                template_header;
 
             IdExpression function_name = function_definition.get_function_name();
 
@@ -60,6 +58,7 @@ namespace TL
                 << forward_declaration
                 << template_header
                 << static_qualifier
+                << inline_attribute
                 << "void " << outlined_function_name << "(" << formal_parameters << ")"
                 << "{"
                 <<    vla_castings
@@ -68,6 +67,13 @@ namespace TL
                 <<    instrumentation_code_after
                 << "}"
                 ;
+
+            if (allow_inlining_of_outlines)
+            {
+                inline_attribute
+                    << " __inline__ "
+                    ;
+            }
 
             Symbol function_symbol = function_definition.get_ast().get_attribute(LANG_FUNCTION_SYMBOL);
 
