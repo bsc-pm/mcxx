@@ -80,6 +80,18 @@ static const char* print_decl_type_str(type_t* t, decl_context_t decl_context, c
         snprintf(c, 255, "< unknown type > %s\n", name);
         return uniquestr(c);
     }
+    else if (is_unresolved_overloaded_type(t))
+    {
+        scope_entry_list_t* overload_set = unresolved_overloaded_type_get_overload_set(t);
+        if (overload_set->next == NULL)
+        {
+            return print_decl_type_str(overload_set->entry->type_information, decl_context, name);
+        }
+        else
+        {
+            return uniquestr("<unresolved overload>");
+        }
+    }
     else
     {
         return get_declaration_string_internal(t, 
