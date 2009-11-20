@@ -34,12 +34,18 @@ namespace TL
     bool udr_is_builtin_operator(const std::string &op_name);
 
     Symbol solve_udr_name_cxx(LangConstruct construct,
-            AST_t ref_tree_of_clause,
-            std::string &op_name,
+            Scope scope_of_clause,
+            AST_t op_name,
             Type reduction_type,
             OpenMP::UDRInfoItem::Associativity &assoc);
 
-    bool udr_lookup_cxx(ObjectList<Symbol> udr_sym_list, Type type, Symbol& solved_sym);
+    OpenMP::UDRInfoItem udr_lookup_cxx(
+            const std::string& udr_name,
+            ObjectList<Symbol> udr_sym_list, 
+            Type type, 
+            ScopeLink scope_link,
+            Scope current_scope,
+            const std::string& filename, int line);
 }
 
 #endif // TL_OMP_UDR_HPP

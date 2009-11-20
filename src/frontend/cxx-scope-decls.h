@@ -237,9 +237,6 @@ typedef struct template_parameter_tag
 
     char has_default_argument;
     template_argument_t* default_template_argument;
-
-    decl_context_t nontype_param_typename_context;
-    struct AST_tag* nontype_param_typename;
 } template_parameter_t;
 
 typedef struct template_parameter_list_tag

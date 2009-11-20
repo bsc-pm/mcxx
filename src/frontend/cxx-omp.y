@@ -4,7 +4,9 @@
 
 %type<ast> omp_udr_operator_list
 %type<ast> omp_udr_operator
+/*!if CPLUSPLUS*/
 %type<ast> omp_udr_builtin_op
+/*!endif*/
 %type<ast> omp_udr_type_specifier
 %type<ast> omp_udr_declare_arg
 
@@ -57,6 +59,7 @@ omp_udr_operator : id_expression
 {
     $$ = $1;
 }
+/*!if CPLUSPLUS*/
 | omp_udr_builtin_op
 {
     $$ = $1;
@@ -65,8 +68,10 @@ omp_udr_operator : id_expression
 {
     $$ = ASTMake1(AST_OMP_UDR_MEMBER_OP, $2, $1.token_file, $1.token_line, $1.token_text);
 }
+/*!endif*/
 ;
 
+/*!if CPLUSPLUS*/
 omp_udr_builtin_op : '+'
 {
     $$ = ASTLeaf(AST_OMP_UDR_BUILTIN_OP, $1.token_file, $1.token_line, $1.token_text);
@@ -104,6 +109,7 @@ omp_udr_builtin_op : '+'
     $$ = ASTLeaf(AST_OMP_UDR_BUILTIN_OP, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
+/*!endif*/
 
 subparsing: SUBPARSE_OMP_UDR_DECLARE omp_udr_declare_arg
 {

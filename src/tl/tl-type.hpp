@@ -30,12 +30,15 @@
 #include "tl-symbol.hpp"
 #include "tl-ast.hpp"
 #include "tl-scope.hpp"
+#include "tl-templates.hpp"
 #include "cxx-scope.h"
 
 namespace TL
 {
     class Scope;
     class Symbol;
+    class TemplateParameter;
+    class TemplateArgument;
     
     //! \addtogroup Wrap
     //! @{
@@ -419,10 +422,42 @@ namespace TL
             //! Returns a restrict qualified type of current type
             Type get_restrict_type();
 
+            //! States that the type is a template type
+            /*!
+              A template type is the type of a template-name like A and f
+              in the example below.
+
+              template <typename _T> struct A { };
+              template <typename _T> void f(_T) { }
+
+
+              Note that 'A<int>' and 'f(3)' (which is like 'f<int>(3)')
+              are not template-types but template specialized types
+             */
+            bool is_template_type() const;
+
+            //! Returns the template parameters of a template type
+            /*!
+              This function can be used both in template types and in template 
+              specialized types
+              */
+            ObjectList<TemplateParameter> get_template_parameters() const;
+
             //! States whether the type is a template specialized one
+            /*!
+              A template specialized type is a type which was created
+              not by a user declaration but the instantiation of
+              a template type.
+            */
             bool is_template_specialized_type() const;
-            //! For a template-specialized type return the list of template-parameters
-            ObjectList<Symbol> get_template_parameters() const;
+            //! Returns the template arguments of a specialized template type
+            ObjectList<TemplateArgument> get_template_arguments() const;
+
+            //! Returns the related template type of a specialized template type
+            /*!
+              This function is only valid for template specialized types
+            */
+            Type get_related_template_type() const;
 
             //! States whether two types represent the same type
             /*!

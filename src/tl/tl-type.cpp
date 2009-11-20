@@ -535,26 +535,57 @@ namespace TL
         return typedef_type_get_aliased_type(_type_info);
     }
 
+    bool Type::is_template_type() const
+    {
+        return (::is_template_type(_type_info));
+    }
+
     bool Type::is_template_specialized_type() const
     {
         return (::is_template_specialized_type(_type_info));
     }
 
-    ObjectList<Symbol> Type::get_template_parameters() const
+    ObjectList<TemplateParameter> Type::get_template_parameters() const
     {
-        ObjectList<Symbol> result;
-        template_parameter_list_t* template_parameters = template_specialized_type_get_template_parameters(_type_info);
+        ObjectList<TemplateParameter> result;
+        template_parameter_list_t* template_parameters = NULL;
+
+        if (is_template_type())
+        {
+            template_parameters = template_type_get_template_parameters(_type_info);
+        }
+        else if (is_template_specialized_type())
+        {
+            template_parameters = template_specialized_type_get_template_parameters(_type_info);
+        }
 
         int i;
         for (i = 0; i < template_parameters->num_template_parameters; i++)
         {
             template_parameter_t* template_parameter = template_parameters->template_parameters[i];
 
-            Symbol sym(template_parameter->entry);
-            result.append(sym);
+            result.append(template_parameter);
         }
 
         return result;
+    }
+
+    ObjectList<TemplateArgument> Type::get_template_arguments() const
+    {
+        ObjectList<TemplateArgument> result;
+        template_argument_list_t* arg_list = template_specialized_type_get_template_arguments(_type_info);
+
+        for (int i = 0; i < arg_list->num_arguments; i++)
+        {
+            result.append(TemplateArgument(arg_list->argument_list[i]));
+        }
+
+        return result;
+    }
+
+    Type Type::get_related_template_type() const
+    {
+        return Type(::template_specialized_type_get_related_template_type(_type_info));
     }
 
     bool Type::is_same_type(Type t)

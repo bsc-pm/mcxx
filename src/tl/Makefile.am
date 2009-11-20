@@ -117,6 +117,8 @@ libtl_la_SOURCES = \
     tl-for-nest.cpp \
     tl-counters.hpp \
     tl-counters.cpp \
+    tl-templates.hpp \
+    tl-templates.cpp \
 	$(END)
 
 if WINDOWS_BUILD

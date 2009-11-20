@@ -343,6 +343,11 @@ namespace TL
 
     std::string IdExpression::get_unqualified_part(bool with_template_id) const
     {
+        if (!this->is_qualified())
+        {
+            return _ref.prettyprint();
+        }
+
         TL::AST_t unqualified_part = _ref.get_attribute(LANG_UNQUALIFIED_ID);
 
         if (!with_template_id)
@@ -1298,52 +1303,52 @@ namespace TL
         return NULL;
     }
 
-    ObjectList<TemplateParameter> TemplateHeader::get_parameters()
+    ObjectList<TemplateParameterConstruct> TemplateHeader::get_parameters()
     {
-        ObjectList<TemplateParameter> result;
+        ObjectList<TemplateParameterConstruct> result;
         ASTIterator it = _ref.get_list_iterator();
         it.rewind();
 
         while (!it.end())
         {
-            result.append(TemplateParameter(it.item(), _scope_link));
+            result.append(TemplateParameterConstruct(it.item(), _scope_link));
             it.next();
         }
 
         return result;
     }
 
-    bool TemplateParameter::is_named()
+    bool TemplateParameterConstruct::is_named()
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_NAMED_TEMPLATE_PARAMETER);
         return b;
     }
 
-    std::string TemplateParameter::get_name()
+    std::string TemplateParameterConstruct::get_name()
     {
         TL::AST_t a = _ref.get_attribute(LANG_TEMPLATE_PARAMETER_NAME);
         return a.prettyprint();
     }
 
-    bool TemplateParameter::is_type()
+    bool TemplateParameterConstruct::is_type()
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_TYPE_TEMPLATE_PARAMETER);
         return b;
     }
 
-    bool TemplateParameter::is_nontype()
+    bool TemplateParameterConstruct::is_nontype()
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_NONTYPE_TEMPLATE_PARAMETER);
         return b;
     }
 
-    bool TemplateParameter::is_template()
+    bool TemplateParameterConstruct::is_template()
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_TEMPLATE_TEMPLATE_PARAMETER);
         return b;
     }
 
-    Symbol TemplateParameter::get_symbol()
+    Symbol TemplateParameterConstruct::get_symbol()
     {
         TL::Symbol sym = _ref.get_attribute(LANG_TEMPLATE_PARAMETER_SYMBOL);
         return sym;

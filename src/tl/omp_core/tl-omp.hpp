@@ -94,59 +94,55 @@ namespace TL
                 bool _valid;
                 Type _type;
                 Symbol _op_symbol;
+                std::string _internal_name;
                 std::string _op_name;
                 std::string _identity;
                 Associativity _assoc;
                 bool _is_commutative;
-            public:
-                UDRInfoItem()
-                    : _valid(false),
-                    _type(NULL),
-                    _op_symbol(NULL),
-                    _op_name(""),
-                    _identity(""),
-                    _assoc(NONE),
-                    _is_commutative(false)
-                {
-                }
+                bool _is_template;
+                Scope _template_scope;
 
                 UDRInfoItem(Type type, 
                         Symbol op_symbol,
+                        const std::string& unqualified_name,
+                        const std::string& op_name,
                         const std::string& identity,
                         Associativity assoc,
-                        bool is_commutative)
-                    : _valid(true),
-                    _type(type),
-                    _op_symbol(op_symbol),
-                    _op_name(op_symbol.get_name()),
-                    _identity(identity),
-                    _assoc(assoc),
-                    _is_commutative(is_commutative)
-                {
-                }
+                        bool is_commutative,
+                        bool is_template);
+            public:
+                // Can we remove this?
+                UDRInfoItem();
 
-                // Use this constructor for builtin types whose operator is not
-                // related to any symbol.
-                UDRInfoItem(Type type,
+                // Factories
+                // Builtin UDR
+                static UDRInfoItem get_builtin_udr(Type type,
                         std::string op_name,
                         const std::string& identity,
                         Associativity assoc,
-                        bool is_commutative)
-                    : _valid(true),
-                    _type(type),
-                    _op_symbol(NULL),
-                    _op_name(op_name),
-                    _identity(identity),
-                    _assoc(assoc),
-                    _is_commutative(is_commutative)
-                {
-                }
+                        bool is_commutative);
 
+                // Regular UDR
+                static UDRInfoItem get_udr(Type type,
+                        Symbol op_symbol,
+                        const std::string& identity,
+                        Associativity assoc,
+                        bool is_commutative);
+
+                // Template UDR
+                static UDRInfoItem get_template_udr(Type type,
+                        const std::string& unqualified_name,
+                        const std::string& op_name,
+                        const std::string& identity,
+                        Associativity assoc,
+                        bool is_commutative,
+                        Scope template_scope);
 
                 bool is_valid() const;
 
                 Type get_type() const;
                 Symbol get_op_symbol() const;
+                std::string get_internal_name() const;
                 std::string get_op_name() const;
                 std::string get_identity() const;
                 Associativity get_assoc() const;
@@ -154,6 +150,9 @@ namespace TL
                 bool is_builtin_op() const;
                 bool is_member_op() const;
                 bool is_constructor_identity() const;
+
+                bool is_template() const;
+                Scope get_template_scope() const;
         };
 
         class LIBTL_CLASS UDRInfoScope
@@ -166,9 +165,15 @@ namespace TL
             public:
                 UDRInfoScope(Scope sc);
 
-                void add_udr(const UDRInfoItem& item);
+                void add_udr(const UDRInfoItem& item, const std::string& str,
+                        int line);
 
-                UDRInfoItem get_udr(const std::string& udr_name, Type udr_type);
+                UDRInfoItem get_udr(const std::string& udr_name, 
+                        const std::string& full_udr_name,
+                        Type udr_type,
+                        ScopeLink scope_link,
+                        Scope current_scope,
+                        const std::string& str, int line);
         };
 
         //! Auxiliar class used in reduction clauses

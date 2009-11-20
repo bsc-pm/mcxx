@@ -137,11 +137,14 @@ namespace TL
             //! States whether this symbol is a function
             bool is_function() const;
             //! States whether this symbol is a template function
-            bool is_template_function() const;
+            bool is_template_function_name() const;
             //! States whether this symbol is a parameter of a function
             bool is_parameter() const;
             //! Returns the position of this parameter
             int get_parameter_position() const;
+
+            //! States whether what was named is a dependent entity
+            bool is_dependent_entity() const;
 
             //! States if this is a member entity
             bool is_member() const;

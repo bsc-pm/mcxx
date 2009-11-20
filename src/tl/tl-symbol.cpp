@@ -146,15 +146,20 @@ namespace TL
         return (this->_symbol->kind == SK_FUNCTION);
     }
 
-    bool Symbol::is_template_function() const
+    bool Symbol::is_template_function_name() const
     {
-        return (this->_symbol->kind == SK_FUNCTION
-                && is_template_specialized_type(this->_symbol->type_information));
+        return (this->_symbol->kind == SK_TEMPLATE
+                && is_function_type(named_type_get_symbol(template_type_get_primary_type(_symbol->type_information))->type_information));
     }
 
     bool Symbol::is_typedef() const
     {
         return (this->_symbol->kind == SK_TYPEDEF);
+    }
+
+    bool Symbol::is_dependent_entity() const
+    {
+        return (this->_symbol->kind == SK_DEPENDENT_ENTITY);
     }
 
     bool Symbol::is_typename() const

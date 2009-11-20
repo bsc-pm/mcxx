@@ -25,7 +25,9 @@
 #include "cxx-scope.h"
 #include "cxx-printscope.h"
 #include "cxx-utils.h"
+#include "cxx-instantiation.h"
 #include "hash_iterator.h"
+#include "uniquestr.h"
 
 namespace TL
 {
@@ -65,7 +67,6 @@ namespace TL
     ObjectList<Symbol> Scope::get_symbols_from_name(const std::string& str) const
     {
         ObjectList<Symbol> result;
-        // Fix this for C++
         scope_entry_list_t* entry_list = query_unqualified_name_str(_decl_context, const_cast<char*>(str.c_str()));
 
         convert_to_vector(entry_list, result);
@@ -178,16 +179,12 @@ namespace TL
             if (sym_res_list != NULL)
             {
                 sym_res = sym_res_list->entry;
-                if (sym_res->kind != SK_OTHER)
-                {
-                    internal_error("This function can only be used for artificial symbols. '%s' is not artificial", sym_res->symbol_name);
-                }
                 return Symbol(sym_res);
             }
         }
 
         // Create the symbol anyway
-        sym_res = ::new_symbol(_decl_context, _decl_context.current_scope, artificial_name.c_str());
+        sym_res = ::new_symbol(_decl_context, _decl_context.current_scope, uniquestr(artificial_name.c_str()));
         sym_res->kind = SK_OTHER;
 
         return Symbol(sym_res);
@@ -203,6 +200,44 @@ namespace TL
         scope_entry_list_t* entry_list = ::cascade_lookup(_decl_context, str.c_str());
         ObjectList<Symbol> result;
         convert_to_vector(entry_list, result);
+        return result;
+    }
+
+    Scope Scope::instantiation_scope(Symbol specialized_template_function)
+    {
+        return ::get_instantiation_context(specialized_template_function.get_internal_symbol(), NULL);
+    }
+
+    Scope Scope::instantiation_scope(Symbol specialized_template_function, ObjectList<TemplateParameter> template_parameter_list)
+    {
+        template_parameter_list_t tpl_list;
+        tpl_list.num_template_parameters = template_parameter_list.size();
+
+        template_parameter_t* _list[tpl_list.num_template_parameters];
+
+        tpl_list.template_parameters = _list;
+        for (int i = 0; i < tpl_list.num_template_parameters; i++)
+        {
+            _list[i] = template_parameter_list[i].get_internal_template_parameter();
+        }
+
+        return ::get_instantiation_context(specialized_template_function.get_internal_symbol(), &tpl_list);
+    }
+
+    ObjectList<TemplateParameter> Scope::get_template_parameters() const
+    {
+        ObjectList<TemplateParameter> result;
+
+        if (_decl_context.template_parameters != NULL)
+        {
+            for (int i = 0; i < _decl_context.template_parameters->num_template_parameters; i++)
+            {
+                result.append(TemplateParameter(
+                            _decl_context.template_parameters->template_parameters[i]
+                            ));
+            }
+        }
+
         return result;
     }
 }

@@ -725,6 +725,19 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
     ERROR_CONDITION(specialized_symbol->kind != SK_FUNCTION, 
             "This is not a template specialized function", 0);
 
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "TYPEDEDUC: Deducing template parameters using arguments of call\n");
+
+        fprintf(stderr, "TYPEDEDUC: Number of arguments: %d\n", num_arguments);
+        int i;
+        for (i = 0; i < num_arguments; i++)
+        {
+            fprintf(stderr, "TYPEDEDUC:    Argument %d: Type: '%s'\n", i,
+                    print_declarator(call_argument_types[i]));
+        }
+    }
+
     type_t* specialized_type = specialized_symbol->type_information;
 
     int num_parameters = function_type_get_num_parameters(specialized_type);

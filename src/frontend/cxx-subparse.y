@@ -10,6 +10,7 @@
 %token<token_atrib> SUBPARSE_MEMBER "<subparse-member>"
 %token<token_atrib> SUBPARSE_TYPE "<subparse-type>"
 %token<token_atrib> SUBPARSE_TYPE_LIST "<subparse-type-list>"
+%token<token_atrib> SUBPARSE_ID_EXPRESSION "<subparse-id-expression>"
 
 
 /*!endif*/
@@ -54,6 +55,10 @@ subparsing : SUBPARSE_EXPRESSION expression
     $$ = $2;
 }
 | SUBPARSE_EXPRESSION_LIST expression_list
+{
+    $$ = $2;
+}
+| SUBPARSE_ID_EXPRESSION id_expression
 {
     $$ = $2;
 }

@@ -153,7 +153,7 @@ static std::string template_header_regeneration(TL::TemplateHeader template_head
     using namespace TL;
     ObjectList<std::string> template_parameters 
         = template_header.get_parameters().map(
-                functor<std::string, TemplateParameter>(&LangConstruct::prettyprint));
+                functor<std::string, TemplateParameterConstruct>(&LangConstruct::prettyprint));
 
     return "template <" + concat_strings(template_parameters, ",") + " >";
 }
@@ -333,7 +333,7 @@ void Outline::compute_additional_declarations(Source template_headers,
 
                 _packed_argument_typename
                     << "<"
-                    << concat_strings(last_template_header.get_parameters().map(functor(&TemplateParameter::get_name)), ",")
+                    << concat_strings(last_template_header.get_parameters().map(functor(&TemplateParameterConstruct::get_name)), ",")
                     << ">"
                     ;
             }

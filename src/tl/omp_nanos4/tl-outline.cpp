@@ -86,7 +86,7 @@ namespace TL
                         it++)
                 {
                     ObjectList<std::string> template_parameters = 
-                        it->get_parameters().map(functor<std::string, TemplateParameter>(&LangConstruct::prettyprint));
+                        it->get_parameters().map(functor<std::string, TemplateParameterConstruct>(&LangConstruct::prettyprint));
                     template_header << "template <" << concat_strings(template_parameters, ",") << ">";
                 }
             }
@@ -848,7 +848,7 @@ namespace TL
                         it++)
                 {
                     ObjectList<std::string> template_parameters = 
-                        it->get_parameters().map(functor<std::string, TemplateParameter>(&LangConstruct::prettyprint));
+                        it->get_parameters().map(functor<std::string, TemplateParameterConstruct>(&LangConstruct::prettyprint));
                     template_header << "template <" << concat_strings(template_parameters, ",") << ">";
                 }
             }
@@ -874,7 +874,8 @@ namespace TL
             // in C++ this is achieved via a casting. A cast of an overload function name
             // does not obey unconditionally the programmer but selects the proper overloaded
             // function (if any, otherwise the program is ill-formed)
-            if (function_symbol.is_template_function())
+            if (function_symbol.is_function()
+                    && function_symbol.get_type().is_template_specialized_type())
             {
                 Source overload_selector_cast_parameters;
 
@@ -911,11 +912,7 @@ namespace TL
                 }
 
                 outlined_function_name_decl << "(void(*)(" << overload_selector_cast_parameters << "))";
-            }
 
-
-            if (function_symbol.is_template_function())
-            {
                 ObjectList<TemplateHeader> template_headers = function_definition.get_template_header();
                 // std::cerr << "(2) Num templates " << template_headers.size() << std::endl;
 
@@ -930,7 +927,7 @@ namespace TL
                     TemplateHeader &last_template_header = *(template_headers.rbegin());
 
                     ObjectList<std::string> template_parameters = 
-                        last_template_header.get_parameters().map(functor(&TemplateParameter::get_name));
+                        last_template_header.get_parameters().map(functor(&TemplateParameterConstruct::get_name));
 
                     outlined_function_name_decl << concat_strings(template_parameters, ",");
 

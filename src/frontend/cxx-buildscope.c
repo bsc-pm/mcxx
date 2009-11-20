@@ -6050,9 +6050,6 @@ static void build_scope_nontype_template_parameter(AST a,
         template_parameters->default_template_argument = default_template_argument;
     }
 
-    // Save the typename
-    template_parameters->nontype_param_typename_context = template_context;
-    template_parameters->nontype_param_typename = a;
     template_parameters->kind = TPK_NONTYPE;
 }
 

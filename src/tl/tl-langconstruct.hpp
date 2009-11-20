@@ -30,6 +30,7 @@
 #include "tl-scopelink.hpp"
 #include "tl-builtin.hpp"
 #include "tl-source.hpp"
+#include "tl-type.hpp"
 #include "cxx-attrnames.h"
 #include "cxx-macros.h"
 #include <iostream>
@@ -280,7 +281,7 @@ namespace TL
     };
 
     class TemplateHeader;
-    class TemplateParameter;
+    class TemplateParameterConstruct;
     class DeclaredEntity;
     //! This function wraps a whole function definition
     class LIBTL_CLASS FunctionDefinition : public LangConstruct
@@ -746,10 +747,10 @@ namespace TL
             static const PredicateAttr predicate;
     };
 
-    class LIBTL_CLASS TemplateParameter : public LangConstruct
+    class LIBTL_CLASS TemplateParameterConstruct : public LangConstruct
     {
         public:
-            TemplateParameter(AST_t ast, ScopeLink scope_link)
+            TemplateParameterConstruct(AST_t ast, ScopeLink scope_link)
                 : LangConstruct(ast, scope_link)
             {
             }
@@ -772,7 +773,7 @@ namespace TL
             {
             }
 
-            ObjectList<TemplateParameter> get_parameters();
+            ObjectList<TemplateParameterConstruct> get_parameters();
     };
 
     //! This class wraps a particular attribute in a GCCAttributeSpecifier

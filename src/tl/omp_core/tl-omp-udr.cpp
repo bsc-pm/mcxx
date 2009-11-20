@@ -392,11 +392,11 @@ namespace TL
             {
                 UDRInfoScope udr_info_scope(global_scope);
                 udr_info_scope.add_udr(
-                        UDRInfoItem(Type(type),
+                        UDRInfoItem::get_builtin_udr(Type(type),
                             builtin_arithmetic_operators[j].operator_name,
                             builtin_arithmetic_operators[j].neuter_tree,
                             UDRInfoItem::LEFT,
-                            /* is_commutative */ true));
+                            /* is_commutative */ true), "<global-scope>", 0);
             }
             if (is_integral_type(type))
             {
@@ -404,29 +404,14 @@ namespace TL
                 {
                     UDRInfoScope udr_info_scope(global_scope);
                     udr_info_scope.add_udr(
-                            UDRInfoItem(Type(type),
+                            UDRInfoItem::get_builtin_udr(Type(type),
                                 builtin_logic_bit_operators[j].operator_name,
                                 builtin_logic_bit_operators[j].neuter_tree,
                                 UDRInfoItem::LEFT,
-                                /* is_commutative */ true));
+                                /* is_commutative */ true), "<global-scope>", 0);
                 }
             }
         }
-    }
-
-    static void trim_spaces(std::string& str)
-    {
-        // Trim both leading and trailing spaces
-        size_t startpos = str.find_first_not_of(" \t"); // Find the first character position after excluding leading blank spaces
-        size_t endpos = str.find_last_not_of(" \t"); // Find the first character position from reverse af
-
-        // if all spaces or empty return an empty string
-        if((std::string::npos == startpos) || (std::string::npos == endpos))
-        {
-            str = "";
-        }
-        else
-            str = str.substr( startpos, endpos-startpos+1 );
     }
 
     static std::string get_valid_zero_initializer(Type t)
@@ -467,137 +452,75 @@ namespace TL
         return get_valid_zero_initializer(t);
     }
 
-    // This function computes the declared udr function in C++
-    Symbol solve_udr_name_cxx(LangConstruct construct,
-            AST_t ref_tree_of_clause,
-            std::string &op_name,
-            Type reduction_type,
-            OpenMP::UDRInfoItem::Associativity &assoc)
+    static Symbol overload_on_udr(Type reduction_type, 
+            ObjectList<Symbol> overload_set, 
+            OpenMP::UDRInfoItem::Associativity assoc,
+            const std::string& filename,
+            int line,
+            const std::string& op_name,
+            Scope scope_of_clause,
+            bool nofail = false)
     {
-        Symbol op_symbol(NULL);
-        // Fix the names as needed
-        if (op_name[0] == '.')
+        ObjectList<Symbol> result;
+        
+        ObjectList<udr_valid_prototypes_t> valid_prototypes 
+            = get_valid_prototypes_cxx(reduction_type);
+        ObjectList<udr_valid_member_prototypes_t> valid_member_prototypes 
+            = get_valid_member_prototypes_cxx(reduction_type);
+
+        bool found_valid = false;
+
+        // First the set of nonmembers
+        for (ObjectList<udr_valid_prototypes_t>::iterator it = valid_prototypes.begin();
+                it != valid_prototypes.end();
+                it++)
         {
-            // Fix the name if possible
-            if (reduction_type.is_class() || reduction_type.is_dependent())
+            ObjectList<Type> arguments;
+            arguments.append(it->first_arg);
+            arguments.append(it->second_arg);
+
+            bool valid = false;
+            ObjectList<Symbol> argument_conversor;
+            ObjectList<Symbol> viable_functs;
+            Symbol solved_sym = Overload::solve(
+                    overload_set,
+                    Type(NULL), // No implicit
+                    arguments,
+                    filename,
+                    line,
+                    valid,
+                    viable_functs,
+                    argument_conversor);
+
+            if (valid 
+                    && function_is_valid_udr_reductor_cxx(valid_prototypes, valid_member_prototypes, 
+                        reduction_type, solved_sym, assoc))
             {
-                // Qualify the name
-                op_name = reduction_type.get_declaration(construct.get_scope(), "") + "::" + op_name.substr(1);
-            }
-            else
-            {
-                running_error("%s: error: reduction operator specification '%s' is not valid for non-class type '%s'\n",
-                        construct.get_ast().get_locus().c_str(),
-                        op_name.c_str(),
-                        reduction_type.get_declaration(construct.get_scope(), "").c_str());
+                result.insert(solved_sym);
+                found_valid = true;
             }
         }
 
-        Type op_symbol_type(NULL);
-
-        if (udr_is_builtin_operator(op_name))
+        if (!found_valid
+                && reduction_type.is_named_class())
         {
-            // Builtin operators require a bit more of work
-            op_name = "operator " + op_name;
-
-            // First attempt a member search
-            Source src;
-            src <<  reduction_type.get_declaration(construct.get_scope(), "") << "::" << op_name;
-
-            AST_t tree = src.parse_expression(ref_tree_of_clause, construct.get_scope_link(), 
-                    // Do not nag the user if this attempt fails
-                    Source::DO_NOT_CHECK_EXPRESSION); 
-            Expression expr(tree, construct.get_scope_link());
-
-            if (!expr.get_type().is_valid())
-            {
-                // Attempt a second lookup, this time in the current scope
-                src = op_name;
-                tree = src.parse_expression(ref_tree_of_clause, construct.get_scope_link());
-
-                expr = Expression(tree, construct.get_scope_link());
-
-                if (!expr.get_type().is_valid())
-                {
-                    running_error("%s: error: invalid reduction operator '%s'",
-                            construct.get_ast().get_locus().c_str(),
-                            op_name.c_str());
-                }
-            }
-            else
-            {
-                // Use the full name
-                op_name = src;
-            }
-
-            if (expr.is_id_expression())
-            {
-                op_symbol_type = expr.get_type();
-            }
-            else
-            {
-                running_error("%s: error: invalid reduction operator '%s' since it is not an id-expression",
-                        construct.get_ast().get_locus().c_str(),
-                        op_name.c_str());
-            }
-        }
-        else
-        {
-            // Parse it to cause a scope search when typechecking
-            Source src = op_name;
-
-            AST_t expr_tree = src.parse_expression(ref_tree_of_clause, construct.get_scope_link());
-            Expression expr(expr_tree, construct.get_scope_link());
-
-            if (!expr.get_type().is_valid())
-            {
-                running_error("%s: error: invalid reduction operator '%s'",
-                        construct.get_ast().get_locus().c_str(),
-                        op_name.c_str());
-            }
-
-            if (expr.is_id_expression())
-            {
-                op_symbol_type = expr.get_type();
-            }
-            else
-            {
-                running_error("%s: error: invalid reduction operator '%s' since it is not an id-expression",
-                        construct.get_ast().get_locus().c_str(),
-                        op_name.c_str());
-            }
-        }
-
-
-        if (op_symbol_type.is_unresolved_overload())
-        {
-            ObjectList<udr_valid_prototypes_t> valid_prototypes 
-                = get_valid_prototypes_cxx(reduction_type);
-            ObjectList<udr_valid_member_prototypes_t> valid_member_prototypes 
-                = get_valid_member_prototypes_cxx(reduction_type);
-
-            ObjectList<Symbol> overload_set = op_symbol_type.get_unresolved_overload_set();
-
-            bool found_valid = false;
-
-            // First the set of nonmembers
-            for (ObjectList<udr_valid_prototypes_t>::iterator it = valid_prototypes.begin();
-                    it != valid_prototypes.end();
+            // Do likewise for members this time
+            for (ObjectList<udr_valid_member_prototypes_t>::iterator it = valid_member_prototypes.begin();
+                    it != valid_member_prototypes.end();
                     it++)
             {
                 ObjectList<Type> arguments;
                 arguments.append(it->first_arg);
-                arguments.append(it->second_arg);
 
                 bool valid = false;
                 ObjectList<Symbol> argument_conversor;
                 ObjectList<Symbol> viable_functs;
                 Symbol solved_sym = Overload::solve(
                         overload_set,
-                        Type(NULL), // No implicit
+                        reduction_type.get_reference_to(), // implicit argument (it must be a reference)
                         arguments,
-                        construct.get_ast().get_file(),
-                        construct.get_ast().get_line(),
+                        filename,
+                        line,
                         valid,
                         viable_functs,
                         argument_conversor);
@@ -606,101 +529,159 @@ namespace TL
                         && function_is_valid_udr_reductor_cxx(valid_prototypes, valid_member_prototypes, 
                             reduction_type, solved_sym, assoc))
                 {
-                    if (!found_valid)
-                    {
-                        found_valid = true;
-                        op_symbol = solved_sym;
-                    }
-                    else if (solved_sym != op_symbol)
-                    {
-                        running_error("%s: error: reduction operator '%s' and '%s' both meet the requirements of OpenMP",
-                                construct.get_ast().get_locus().c_str(),
-                                op_symbol.get_type().get_declaration(op_symbol.get_scope(), 
-                                    op_symbol.get_qualified_name(op_symbol.get_scope())).c_str(),
-                                solved_sym.get_type().get_declaration(solved_sym.get_scope(), 
-                                    solved_sym.get_qualified_name(op_symbol.get_scope())).c_str());
-                    }
+                    result.insert(solved_sym);
                 }
-            }
-
-            if (!found_valid
-                    && reduction_type.is_named_class())
-            {
-                // Do likewise for members this time
-                for (ObjectList<udr_valid_member_prototypes_t>::iterator it = valid_member_prototypes.begin();
-                        it != valid_member_prototypes.end();
-                        it++)
-                {
-                    ObjectList<Type> arguments;
-                    arguments.append(it->first_arg);
-
-                    bool valid = false;
-                    ObjectList<Symbol> argument_conversor;
-                    ObjectList<Symbol> viable_functs;
-                    Symbol solved_sym = Overload::solve(
-                            overload_set,
-                            reduction_type.get_reference_to(), // implicit argument (it must be a reference)
-                            arguments,
-                            construct.get_ast().get_file(),
-                            construct.get_ast().get_line(),
-                            valid,
-                            viable_functs,
-                            argument_conversor);
-
-                    if (valid 
-                            && function_is_valid_udr_reductor_cxx(valid_prototypes, valid_member_prototypes, 
-                                reduction_type, solved_sym, assoc))
-                    {
-                        if (!found_valid)
-                        {
-                            found_valid = true;
-                            op_symbol = solved_sym;
-                        }
-                        else if (solved_sym != op_symbol)
-                        {
-                            running_error("%s: error: reduction operator '%s' and '%s' both meet the requirements of OpenMP",
-                                    construct.get_ast().get_locus().c_str(),
-                                    op_symbol.get_type().get_declaration(op_symbol.get_scope(), 
-                                        op_symbol.get_qualified_name(op_symbol.get_scope())).c_str(),
-                                    solved_sym.get_type().get_declaration(solved_sym.get_scope(), 
-                                        solved_sym.get_qualified_name(solved_sym.get_scope())).c_str());
-                        }
-                    }
-                }
-            }
-
-            if (!found_valid)
-            {
-
-                for (ObjectList<Symbol>::iterator it = overload_set.begin();
-                        it != overload_set.end();
-                        it++)
-                {
-                    std::cerr << construct.get_ast().get_locus()
-                        << ": note: '" << it->get_type().get_declaration(it->get_scope(), 
-                                it->get_qualified_name(it->get_scope())) << "' is not an eligible operator" 
-                        << " for type '" << reduction_type.get_declaration(construct.get_scope(), "") << "'"
-                        << std::endl;
-                }
-
-                running_error("%s: error: reduction operator '%s' does not meet " 
-                        "OpenMP reduction operator requirements", 
-                        construct.get_ast().get_locus().c_str(),
-                        op_name.c_str());
             }
         }
-        else if (op_symbol_type.is_expression_dependent())
+
+        if (result.size() > 1)
         {
-            // Do nothing 
+            if (!nofail)
+            {
+                for (ObjectList<Symbol>::iterator it = result.begin();
+                        it != result.end();
+                        it++)
+                {
+                    std::cerr << filename << ":" << line 
+                        << ": note: '" << it->get_type().get_declaration(it->get_scope(), 
+                                it->get_qualified_name(it->get_scope())) << "' is an eligible operator" 
+                        << " for type '" << reduction_type.get_declaration(scope_of_clause, "") << "'"
+                        << std::endl;
+                }
+                running_error("%s:%d: error: more than one reduction operator '%s' meets " 
+                        "OpenMP reduction operator requirements", 
+                        filename.c_str(), line, op_name.c_str());
+            }
+        }
+        else if (result.empty())
+        {
+            if (!nofail)
+            {
+                if (!overload_set.empty())
+                {
+                    for (ObjectList<Symbol>::iterator it = overload_set.begin();
+                            it != overload_set.end();
+                            it++)
+                    {
+                        std::cerr << filename << ":" << line
+                            << ": note: '" << it->get_type().get_declaration(it->get_scope(), 
+                                    it->get_qualified_name(it->get_scope())) << "' is not a valid operator" 
+                            << " for type '" << reduction_type.get_declaration(scope_of_clause, "") << "'"
+                            << std::endl;
+                    }
+                    running_error("%s:%d: error: reduction operator '%s' does not meet " 
+                            "OpenMP reduction operator requirements", 
+                            filename.c_str(), line, op_name.c_str());
+                }
+                else
+                {
+                    running_error("%s:%d: error: reduction operator '%s' is unknown" ,
+                            filename.c_str(), line, op_name.c_str());
+                }
+            }
         }
         else
         {
-            running_error("%s: error: operator '%s' does not have function type", 
-                    construct.get_ast().get_locus().c_str(),
-                    op_name.c_str());
+            return result[0];
         }
 
-        return op_symbol;
+        return Symbol(NULL);
+    }
+
+    // This function computes the declared udr function in C++
+    Symbol solve_udr_name_cxx(LangConstruct construct,
+            Scope scope_of_clause,
+            AST_t op_name,
+            Type reduction_type,
+            OpenMP::UDRInfoItem::Associativity &assoc)
+    {
+        // Ignore dependent types
+        if (reduction_type.is_dependent())
+            return Symbol(NULL);
+
+        ObjectList<Symbol> sym_list;
+
+        // FIXME - Use a better strategy for this case
+        if (op_name.internal_ast_type_() == AST_OMP_UDR_MEMBER_OP)
+        {
+            // Fix the name if possible
+            if (reduction_type.is_class() || reduction_type.is_dependent())
+            {
+                // Qualify the name
+                Source new_id_expression;
+                new_id_expression <<
+                    reduction_type.get_declaration(scope_of_clause, "") << "::" << op_name.prettyprint().substr(1);
+
+                // Parse this id_expression again
+                op_name = new_id_expression.parse_id_expression(op_name, construct.get_scope_link());
+            }
+            else
+            {
+                running_error("%s: error: reduction operator specification '%s' is not valid for non-class type '%s'\n",
+                        construct.get_ast().get_locus().c_str(),
+                        op_name.prettyprint().c_str(),
+                        reduction_type.get_declaration(scope_of_clause, "").c_str());
+            }
+        }
+
+        if (udr_is_builtin_operator(op_name.prettyprint()))
+        {
+            // First attempt a member search
+            Source src;
+            src <<  reduction_type.get_declaration(scope_of_clause, "") << "::operator " << op_name.prettyprint();
+            AST_t tree = src.parse_id_expression(op_name, construct.get_scope_link());
+
+            sym_list = scope_of_clause.get_symbols_from_id_expr(tree);
+
+            if (sym_list.empty())
+            {
+                src = Source("operator ") << op_name.prettyprint();
+                tree = src.parse_id_expression(op_name, construct.get_scope_link());
+
+                sym_list = scope_of_clause.get_symbols_from_id_expr(tree);
+            }
+        }
+        else
+        {
+            sym_list = scope_of_clause.get_symbols_from_id_expr(op_name);
+        }
+
+        // Filter functions or dependent types
+        struct OnlyFunctionsOrDependent : Predicate<Symbol>
+        {
+            virtual bool do_(Symbol& sym) const
+            {
+                return sym.is_function()
+                    || sym.is_template_function_name()
+                    || sym.is_dependent_entity();
+            }
+        };
+
+        sym_list = sym_list.filter(OnlyFunctionsOrDependent());
+
+        Symbol result(NULL);
+        if (sym_list.empty())
+        {
+            running_error("%s: error: operator '%s' is not eligible for a user defined reduction", 
+                    construct.get_ast().get_locus().c_str(),
+                    op_name.prettyprint().c_str());
+        }
+        else if (sym_list.size() == 1 && sym_list[0].is_dependent_entity())
+        {
+            // Do nothing for dependent names
+        }
+        else 
+        {
+            result = overload_on_udr(reduction_type, 
+                    sym_list, 
+                    assoc,
+                    construct.get_ast().get_file(),
+                    construct.get_ast().get_line(),
+                    op_name.prettyprint(),
+                    scope_of_clause);
+        }
+
+        return result;
     }
 
     // omp_udr_declare_arg : omp_udr_id_expr_list ':' omp_udr_type_specifier
@@ -714,10 +695,11 @@ namespace TL
     // }
     static void parse_omp_udr_declare_arguments(const std::string &omp_udr_str, 
             AST_t ref_tree, ScopeLink sl,
-            ObjectList<std::string>& operator_list,
+            ObjectList<AST_t>& operator_list,
             ObjectList<Type>& type_list,
             AST_t &ref_tree_of_clause,
-            Scope& scope_of_clause)
+            Scope& scope_of_clause,
+            bool &is_template)
     {
         std::string mangled_str = "@OMP_UDR_DECLARE@ " + omp_udr_str;
         char *str = strdup(mangled_str.c_str());
@@ -764,15 +746,13 @@ namespace TL
         {
             if (template_header != NULL)
             {
-                running_error("%s: error: OpenMP template user-defined reductions are not supported yet\n",
-                        ref_tree.get_locus().c_str());
-#if 0
                 decl_context_t templated_context;
                 build_scope_template_header(template_header, decl_context, &templated_context);
                 // Replace the current context with the templated one, so
                 // parsing does not fail later
                 decl_context = templated_context;
-#endif
+
+                is_template = true;
             }
         }
 
@@ -785,7 +765,14 @@ namespace TL
         for_each_element(id_expr_list, iter)
         {
             AST operator_id = ASTSon1(iter);
-            operator_list.append(AST_t(operator_id).prettyprint());
+
+            if (ASTType(operator_id) != AST_OMP_UDR_MEMBER_OP
+                    && ASTType(operator_id) != AST_OMP_UDR_BUILTIN_OP)
+            {
+                check_for_expression(operator_id, decl_context);
+            }
+
+            operator_list.append(AST_t(operator_id));
         }
 
         // Build types
@@ -829,11 +816,13 @@ namespace TL
 
             std::string parameter_str = construct.get_parameter_arguments()[0];
 
-            ObjectList<std::string> op_args;
+            ObjectList<AST_t> op_args;
             ObjectList<Type> type_list;
             Scope scope_of_clause;
 
             AST_t ref_tree_of_clause(NULL);
+
+            bool is_template = false;
 
             parse_omp_udr_declare_arguments(parameter_str,
                     construct.get_ast(),
@@ -841,7 +830,8 @@ namespace TL
                     op_args,
                     type_list,
                     ref_tree_of_clause,
-                    scope_of_clause);
+                    scope_of_clause,
+                    is_template);
 
             PragmaCustomClause order_clause = construct.get_clause("order");
             UDRInfoItem::Associativity assoc = UDRInfoItem::UNDEFINED;
@@ -890,26 +880,24 @@ namespace TL
                     reduction_type = reduction_type.references_to();
                 }
 
-                UDRInfoScope udr_info_scope(construct.get_scope());
+                UDRInfoScope udr_info_scope(scope_of_clause);
 
-                for (ObjectList<std::string>::iterator op_it = op_args.begin();
+                for (ObjectList<AST_t>::iterator op_it = op_args.begin();
                         op_it != op_args.end();
                         op_it++)
                 {
-                    std::string& op_name(*op_it);
-
-                    trim_spaces(op_name);
+                    AST_t& op_name(*op_it);
 
                     // Perform lookup and further checking
                     C_LANGUAGE()
                     {
-                        Symbol reductor_sym = construct.get_scope().get_symbol_from_name(op_name);
+                        Symbol reductor_sym = construct.get_scope().get_symbol_from_id_expr(op_name);
 
                         if (!reductor_sym.is_valid())
                         {
                             running_error("%s: error: reduction operator '%s' not found in the current scope",
                                     construct.get_ast().get_locus().c_str(),
-                                    op_name.c_str());
+                                    op_name.prettyprint().c_str());
                         }
 
                         ObjectList<udr_valid_prototypes_t> valid_prototypes = get_valid_prototypes_c(reduction_type);
@@ -919,7 +907,7 @@ namespace TL
                             running_error("%s: error: reduction operator '%s' does not meet " 
                                     "OpenMP reduction operator requirements", 
                                     construct.get_ast().get_locus().c_str(),
-                                    op_name.c_str());
+                                    op_name.prettyprint().c_str());
                         }
 
                         op_symbol = reductor_sym;
@@ -927,12 +915,16 @@ namespace TL
 
                     CXX_LANGUAGE()
                     {
-                        op_symbol = solve_udr_name_cxx(construct, ref_tree_of_clause, op_name, reduction_type, assoc);
+                        op_symbol = solve_udr_name_cxx(construct,
+                                scope_of_clause, 
+                                op_name,
+                                reduction_type, assoc);
 
                         // The interface of solve_udr_name_cxx should be
                         // improved, if it returns an invalid symbol it means
                         // it was dependent
-                        if (!op_symbol.is_valid())
+                        if (!op_symbol.is_valid()
+                                && !is_template)
                         {
                             std::cerr << construct.get_ast().get_locus() << ": note: skipping user-defined-reduction in dependent context" << std::endl;
                             continue;
@@ -951,23 +943,54 @@ namespace TL
                         }
                     }
 
-                    UDRInfoItem previously_declared = udr_info_scope.get_udr(op_symbol.get_name(), reduction_type);
+                    IdExpression op_name_id_expr(op_name, construct.get_scope_link());
+                    std::string op_name_unqualif = op_name_id_expr.get_unqualified_part(/* with_template */ false);
+
+                    UDRInfoItem previously_declared =
+                        udr_info_scope.get_udr(
+                                op_name_unqualif,
+                                op_name.prettyprint(),
+                                reduction_type, construct.get_scope_link(),
+                                construct.get_scope(),
+                                construct.get_ast().get_file(),
+                                construct.get_ast().get_line());
 
                     if (!previously_declared.is_valid())
                     {
-                        std::cerr << construct.get_ast().get_locus() << ": note: declaring user-defined reduction for type '"
-                            << reduction_type.get_declaration(scope_of_clause, "") << "'"
-                            << " and operator '" 
-                            << op_symbol.get_type().get_declaration(scope_of_clause, op_symbol.get_qualified_name(scope_of_clause)) << "'"
-                            << std::endl;
-                        udr_info_scope.add_udr(UDRInfoItem(reduction_type, op_symbol, identity, assoc, is_commutative));
+                        if (!is_template)
+                        {
+                            std::cerr << construct.get_ast().get_locus() << ": note: declaring user-defined reduction for type '"
+                                << reduction_type.get_declaration(scope_of_clause, "") << "'"
+                                << " and operator '" 
+                                << op_symbol.get_type().get_declaration(scope_of_clause, op_symbol.get_qualified_name(scope_of_clause)) << "'"
+                                << std::endl;
+
+                            udr_info_scope.add_udr(UDRInfoItem::get_udr(reduction_type,
+                                        op_symbol, identity, assoc, is_commutative),
+                                    construct.get_ast().get_file(),
+                                    construct.get_ast().get_line());
+                        }
+                        else
+                        {
+                            std::cerr << construct.get_ast().get_locus() << ": note: declaring template user-defined reduction for type '"
+                                << reduction_type.get_declaration(scope_of_clause, "") << "'"
+                                << " and operator '" 
+                                << op_name << "'"
+                                << std::endl;
+
+                            udr_info_scope.add_udr(UDRInfoItem::get_template_udr(reduction_type,
+                                        op_name_unqualif, op_name.prettyprint(), 
+                                        identity, assoc, is_commutative, scope_of_clause),
+                                    construct.get_ast().get_file(),
+                                    construct.get_ast().get_line());
+                        }
                     }
                     else
                     {
                         running_error("%s: error: user defined reduction for reduction_type '%s' and operator '%s' already defined",
                                 construct.get_ast().get_locus().c_str(),
                                 reduction_type.get_declaration(construct.get_scope_link().get_scope(construct.get_ast()), "").c_str(),
-                                op_name.c_str());
+                                op_name.prettyprint().c_str());
                     }
                 }
             }
@@ -976,38 +999,15 @@ namespace TL
         void Core::declare_reduction_handler_post(PragmaCustomConstruct construct) { }
     }
 
-    // This is a dirty function messing with some parts of the frontend
-    // Here type is the type of the entity being reduced and udr_sym the list
-    // of udr_symbols found so far. We have to deduce which one is the one we want
-    bool udr_lookup_cxx(ObjectList<Symbol> udr_sym_list, Type type, Symbol& solved_sym)
+    OpenMP::UDRInfoItem udr_lookup_cxx(const std::string& _udr_name,
+            ObjectList<Symbol> udr_sym_list, 
+            Type type, 
+            ScopeLink scope_link,
+            Scope current_scope,
+            const std::string& filename, int line)
     {
-        bool result = false;
-        solved_sym = Symbol(NULL);
-        for(ObjectList<Symbol>::iterator it = udr_sym_list.begin();
-                it != udr_sym_list.end();
-                it++)
-        {
-            Symbol &sym(*it);
-            scope_entry_t* entry = sym.get_internal_symbol();
-
-            RefPtr<TL::OpenMP::UDRInfoItem> obj = RefPtr<TL::OpenMP::UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
-
-            // Change the type
-
-            entry->kind = SK_FUNCTION;
-
-            parameter_info_t param_info[] = 
-            {
-                { 
-                    /* .is_ellipsis = */ 0, 
-                    /* .type_info = */ obj->get_type().get_internal_type(), 
-                    /* .nonadjusted_type = */ NULL 
-                }
-            };
-
-            // Build a proper type for further overload
-            entry->type_information = get_new_function_type(get_void_type(), param_info, 1);
-        }
+        std::string udr_name(_udr_name);
+        OpenMP::UDRInfoItem result;
 
         ObjectList<Type> argument_types;
         argument_types.push_back(type);
@@ -1021,43 +1021,138 @@ namespace TL
         Symbol overload_sym = TL::Overload::solve( /* candidate_functions */ udr_sym_list,
                 Type(NULL), // No implicit 
                 argument_types,
-                "--no file--", // No file
-                0, // No line
+                filename.c_str(), // No file
+                line, // No line
                 valid,
                 viable_functions,
                 argument_conversor);
 
         if (valid)
         {
-            // Now figure which symbol was
-            Type first_param_type = overload_sym.get_type().parameters()[0];
-
-            for(ObjectList<Symbol>::iterator it = udr_sym_list.begin();
-                    it != udr_sym_list.end();
-                    it++)
+            // Now figure the symbol that actually succeeded the overload
+            // We need to use the template type for unification
+            if (overload_sym.get_type().is_template_specialized_type())
             {
-                Symbol &sym(*it);
+                Type related_template_type = overload_sym.get_type().get_related_template_type();
 
-                RefPtr<TL::OpenMP::UDRInfoItem> obj = RefPtr<TL::OpenMP::UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
+                RefPtr<TL::OpenMP::UDRInfoItem> item;
 
-                if (obj->get_type().is_same_type(first_param_type))
+                bool found = false;
+                for(ObjectList<Symbol>::iterator it = udr_sym_list.begin();
+                        it != udr_sym_list.end() && !found;
+                        it++)
                 {
-                    solved_sym = sym;
-                    result = true;
+                    Symbol &sym(*it);
+
+                    RefPtr<TL::OpenMP::UDRInfoItem> obj = RefPtr<TL::OpenMP::UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
+
+                    if (sym.get_type().is_same_type(related_template_type))
+                    {
+                        found = true;
+                        item = obj;
+                    }
+                }
+
+                if (found)
+                {
+                    // Now we have to "instantiate" the UDR
+                    Scope instantiation_scope = Scope::instantiation_scope(overload_sym, 
+                            item->get_template_scope().get_template_parameters());
+
+                    // Now parse the id-expression in this context
+                    Source src = item->get_op_name();
+
+                    AST_t id_expression_tree = src.parse_id_expression(instantiation_scope, scope_link);
+
+                    ObjectList<Symbol> sym_list = instantiation_scope.get_symbols_from_id_expr(id_expression_tree);
+
+                    Type udr_type = overload_sym.get_type().parameters()[0];
+
+                    Symbol sym = overload_on_udr(udr_type, sym_list, 
+                            item->get_assoc(),
+                            filename,
+                            line,
+                            item->get_internal_name(),
+                            current_scope);
+
+                    if (sym.is_valid())
+                    {
+                        std::cerr << filename << ":" << line << ": note: reduction solved to symbol '" 
+                            << sym.get_qualified_name(sym.get_scope()) << "'"
+                            << std::endl;
+
+                        result = OpenMP::UDRInfoItem::get_udr(udr_type, sym,
+                                item->get_identity(), 
+                                item->get_assoc(), 
+                                item->is_commutative());
+                    }
+                }
+            }
+            else
+            {
+                bool found = false;
+                for(ObjectList<Symbol>::iterator it = udr_sym_list.begin();
+                        it != udr_sym_list.end() && !found;
+                        it++)
+                {
+                    Symbol &sym(*it);
+
+                    RefPtr<TL::OpenMP::UDRInfoItem> obj = RefPtr<TL::OpenMP::UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
+
+                    if (sym.get_type().is_same_type(overload_sym.get_type()))
+                    {
+                        result = *obj;
+                        found = true;
+                    }
                 }
             }
         }
 
-        // Fix the types again as SK_OTHER, otherwise TL
-        // will complain later when creating other artificial symbols
-        for(ObjectList<Symbol>::iterator it = udr_sym_list.begin();
-                it != udr_sym_list.end();
-                it++)
+        if (result.is_valid())
         {
-            Symbol &sym(*it);
-            scope_entry_t* entry = sym.get_internal_symbol();
+            // Now check the udr_name to match with what we discovered so far
+            Symbol sym(NULL);
 
-            entry->kind = SK_OTHER;
+            if (udr_is_builtin_operator(udr_name))
+            {
+                if (type.is_named_class())
+                {
+                    // Try a first lookup in the class scope
+                    AST_t udr_name_id_expr_tree = Source(
+                            type.get_declaration(current_scope, "") + "::operator " + udr_name
+                            ).parse_id_expression(current_scope, scope_link);
+                    ObjectList<Symbol> udr_name_sym_list = current_scope.get_symbols_from_id_expr(udr_name_id_expr_tree);
+
+                    sym = overload_on_udr(type, udr_name_sym_list, 
+                            result.get_assoc(),
+                            filename,
+                            line,
+                            udr_name,
+                            current_scope,
+                            /* nofail */ true);
+                }
+
+                udr_name = "operator " + udr_name;
+            }
+            
+            if (!sym.is_valid())
+            {
+                AST_t udr_name_id_expr_tree = Source(udr_name).parse_id_expression(current_scope, scope_link);
+                ObjectList<Symbol> udr_name_sym_list = current_scope.get_symbols_from_id_expr(udr_name_id_expr_tree);
+
+                sym = overload_on_udr(type, udr_name_sym_list, 
+                        result.get_assoc(),
+                        filename,
+                        line,
+                        udr_name,
+                        current_scope);
+            }
+
+            if (!sym.is_valid()
+                    || (sym != result.get_op_symbol()))
+            {
+                result = OpenMP::UDRInfoItem();
+            }
         }
 
         return result;

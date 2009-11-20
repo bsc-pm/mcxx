@@ -6437,9 +6437,6 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                 ASTFileName(whole_function_call), ASTLine(whole_function_call),
                 /* explicit_template_arguments */ NULL);
 
-        // FIXME - Implement surrogate calls. They are so odd that they require their own
-        // machinery in the overload code
-        // Append if needed all conversions leading to pointers to functions
 #define MAX_SURROGATE_FUNCTIONS (64)
         int num_surrogate_functions = 0;
 

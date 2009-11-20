@@ -24,6 +24,7 @@
 #include "tl-overload.hpp"
 #include "cxx-overload.h"
 #include "cxx-exprtype.h"
+#include "uniquestr.h"
 
 namespace TL
 {
@@ -80,8 +81,6 @@ namespace TL
             first_candidate_list = new_item;
         }
 
-
-
         // Build the type array
         int i, N = argument_types.size();
         type_t** argument_types_array = new type_t*[argument_types.size() + 1];
@@ -99,9 +98,9 @@ namespace TL
         scope_entry_list_t* candidate_list = NULL;
         candidate_list = unfold_and_mix_candidate_functions(first_candidate_list,
                 NULL /* builtins */,
-                &argument_types_array[1], N - 1,
+                &argument_types_array[1], N,
                 decl_context,
-                filename.c_str(), line,
+                uniquestr(filename.c_str()), line,
                 NULL /* explicit template arguments */);
 
         {
@@ -121,7 +120,7 @@ namespace TL
         solve_overload(candidate_list, 
                 argument_types_array, /* Number of arguments */ N + 1,
                 decl_context,
-                filename.c_str(), line,
+                uniquestr(filename.c_str()), line,
                 conversor_per_argument);
 
         if (entry_result != NULL)

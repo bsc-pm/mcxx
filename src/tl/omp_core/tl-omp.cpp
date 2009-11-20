@@ -30,6 +30,8 @@
 #include "tl-predicateutils.hpp"
 #include "tl-omp-udr.hpp"
 #include "cxx-attrnames.h"
+#include "cxx-scope-decls.h"
+#include "uniquestr.h"
 
 namespace TL
 {
@@ -242,34 +244,20 @@ namespace TL
 
         std::string UDRInfoScope::build_artificial_name(const UDRInfoItem& item)
         {
-            return build_artificial_name(item.get_op_name());
+            return build_artificial_name(item.get_internal_name());
         }
 
         std::string UDRInfoScope::build_artificial_name(const std::string& item)
         {
             std::string symbol_name = ".udr_";
 
-            C_LANGUAGE()
-            {
-                symbol_name += item;
-            }
-            CXX_LANGUAGE()
-            {
-                // Fix operator names for C++
-                if (udr_is_builtin_operator(item))
-                {
-                   symbol_name += "operator " + item; 
-                }
-                else
-                {
-                    symbol_name += item;
-                }
-            }
+            symbol_name += item;
 
             return symbol_name;
         }
 
-        void UDRInfoScope::add_udr(const UDRInfoItem& item)
+        void UDRInfoScope::add_udr(const UDRInfoItem& item, const std::string&
+                filename, int line)
         {
             std::string symbol_name = build_artificial_name(item);
             C_LANGUAGE()
@@ -308,11 +296,59 @@ namespace TL
 
             Symbol artificial_sym = _scope.new_artificial_symbol(symbol_name, /* reuse_symbol */ false);
 
+            CXX_LANGUAGE()
+            {
+                // We have to synthesize a function type
+                parameter_info_t param_info[] = 
+                {
+                    { 
+                        /* .is_ellipsis = */ 0, 
+                        /* .type_info = */ item.get_type().get_internal_type(), 
+                        /* .nonadjusted_type = */ NULL 
+                    }
+                };
+
+                // Build a proper type for further overload
+                type_t* basic_function_type = get_new_function_type(get_void_type(), param_info, 1);
+
+                scope_entry_t* internal_sym = artificial_sym.get_internal_symbol();
+
+                if (item.is_template())
+                {
+                    // FIXME This *must* be wrapped somehow
+                    type_t* templated_type = ::get_actual_class_type(item.get_type().get_internal_type());
+
+                    template_parameter_list_t* template_params = 
+                        template_specialized_type_get_template_parameters(templated_type);
+
+                    type_t* new_templated_function_type = get_new_template_type(template_params, basic_function_type,
+                            uniquestr(artificial_sym.get_name().c_str()), artificial_sym.get_scope().get_decl_context(), line, 
+                            uniquestr(filename.c_str()));
+
+                    internal_sym->type_information = new_templated_function_type;
+
+                    ::template_type_set_related_symbol(new_templated_function_type, internal_sym);
+
+                    artificial_sym.get_internal_symbol()->kind = SK_TEMPLATE;
+                }
+                else
+                {
+                    internal_sym->type_information = basic_function_type;
+                    artificial_sym.get_internal_symbol()->kind = SK_FUNCTION;
+                }
+            }
+
             RefPtr<UDRInfoItem> udr_info_item(new UDRInfoItem(item));
             artificial_sym.set_attribute("udr_info", udr_info_item);
         }
 
-        UDRInfoItem UDRInfoScope::get_udr(const std::string& udr_name, Type udr_type)
+        UDRInfoItem UDRInfoScope::get_udr(
+                const std::string& udr_name,
+                const std::string& full_udr_name, 
+                Type udr_type, 
+                ScopeLink scope_link,
+                Scope current_scope,
+                const std::string& filename, int line)
         {
             std::string symbol_name = build_artificial_name(udr_name);
             // Check the symbol is not created twice
@@ -369,23 +405,86 @@ namespace TL
 
                 CXX_LANGUAGE()
                 {
-                    Symbol sym(NULL);
-                    if (udr_lookup_cxx(sym_list, udr_type, sym))
-                    {
-                        RefPtr<UDRInfoItem> obj = RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
-                        if (obj.valid())
-                        {
-                            result = *obj;
-                        }
-                        else
-                        {
-                            internal_error("Invalid UDR info in the symbol '%s'\n", sym.get_name().c_str());
-                        }
-                    }
+                    // There are chances to find it
+                    result = udr_lookup_cxx(full_udr_name, sym_list, udr_type, scope_link, current_scope, filename, line);
                 }
             }
 
             return result;
+        }
+
+        UDRInfoItem UDRInfoItem::get_builtin_udr(Type type,
+                std::string op_name,
+                const std::string& identity,
+                Associativity assoc,
+                bool is_commutative)
+        {
+            return UDRInfoItem(type, Symbol(NULL), op_name, op_name, identity, assoc, is_commutative,
+                    /* is_template */ false);
+        }
+
+        UDRInfoItem UDRInfoItem::get_udr(Type type,
+                Symbol op_symbol,
+                const std::string& identity,
+                Associativity assoc,
+                bool is_commutative)
+        {
+            const std::string op_prefix = "operator ";
+            std::string name = op_symbol.get_name();
+            if (name.substr(0, op_prefix.size()) == op_prefix)
+            {
+                name = name.substr(op_prefix.size());
+            }
+            return UDRInfoItem(type, op_symbol, name, op_symbol.get_name(), identity, assoc, is_commutative,
+                    /* is_template */ false);
+        }
+
+        UDRInfoItem UDRInfoItem::get_template_udr(Type type,
+                const std::string &unqualified_name,
+                const std::string &op_name,
+                const std::string& identity,
+                Associativity assoc,
+                bool is_commutative,
+                Scope template_scope)
+        {
+            UDRInfoItem item(type, Symbol(NULL), unqualified_name, op_name,
+                    identity, assoc, is_commutative,
+                    /* is_template */ true);
+            item._template_scope = template_scope;
+            return item;
+        }
+
+        UDRInfoItem::UDRInfoItem()
+            : _valid(false),
+            _type(NULL),
+            _op_symbol(NULL),
+            _internal_name(""),
+            _op_name(""),
+            _identity(""),
+            _assoc(NONE),
+            _is_commutative(false),
+            _is_template(false)
+        {
+        }
+
+        UDRInfoItem::UDRInfoItem(Type type, 
+                Symbol op_symbol,
+                const std::string& unqualified_name,
+                const std::string& op_name,
+                const std::string& identity,
+                Associativity assoc,
+                bool is_commutative,
+                bool is_template)
+            : _valid(true),
+            _type(type),
+            _op_symbol(op_symbol),
+            _internal_name(unqualified_name),
+            _op_name(op_name),
+            _identity(identity),
+            _assoc(assoc),
+            _is_commutative(is_commutative),
+            _is_template(is_template)
+        {
         }
 
         bool UDRInfoItem::is_valid() const
@@ -406,6 +505,11 @@ namespace TL
         std::string UDRInfoItem::get_op_name() const
         {
             return _op_name;
+        }
+
+        std::string UDRInfoItem::get_internal_name() const
+        {
+            return _internal_name;
         }
 
         std::string UDRInfoItem::get_identity() const
@@ -454,6 +558,16 @@ namespace TL
         {
             return _identity.substr(0, std::string("constructor").length()) 
                 == std::string("constructor");
+        }
+
+        bool UDRInfoItem::is_template() const
+        {
+            return _is_template;
+        }
+
+        Scope UDRInfoItem::get_template_scope() const
+        {
+            return _template_scope;
         }
     }
 }

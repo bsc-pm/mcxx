@@ -35,10 +35,12 @@
 #include "tl-objectlist.hpp"
 #include "tl-symbol.hpp"
 #include "tl-ast.hpp"
+#include "tl-templates.hpp"
 
 namespace TL
 {
     class Symbol;
+    class TemplateParameter;
     
     //! \addtogroup Wrap 
     //! @{
@@ -133,6 +135,9 @@ namespace TL
             //! Builds a fake temporal scope not related to any real code
             Scope temporal_scope() const;
 
+            //! Returns the template parameters related to this scope
+            ObjectList<TemplateParameter> get_template_parameters() const;
+
             //! Returns all symbols signed in in this scope
             /*! 
               \param include_hidden If true, hidden symbols (most of 
@@ -184,6 +189,11 @@ namespace TL
               in this scope, it will not be created twice.
               */
             Symbol new_artificial_symbol(const std::string& artificial_name, bool reuse_symbol=false);
+
+            //! Creates a scope with replacement symbols for a template function specialization
+            static Scope instantiation_scope(Symbol specialized_template_function);
+            static Scope instantiation_scope(Symbol specialized_template_function, 
+                    ObjectList<TemplateParameter> template_parameter_list);
 
             //! States that this is a scope
             virtual bool is_scope() const

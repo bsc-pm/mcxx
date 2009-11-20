@@ -27,6 +27,7 @@
 #include "tl-common.hpp"
 #include <string>
 #include "tl-object.hpp"
+#include "tl-type.hpp"
 #include "tl-ast.hpp"
 #include "tl-scope.hpp"
 #include "tl-scopelink.hpp"
@@ -38,6 +39,7 @@
 
 namespace TL
 {
+    class Type;
     class Source;
 
     //! Auxiliar class used by Source
@@ -271,6 +273,23 @@ namespace TL
              * \param parse_flags Parsing flags
              */
             AST_t parse_expression_list(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
+
+            //! Parses an id-expression
+            /*!
+             * \param ref_tree Reference tree used when parsing this code
+             * \param scope_link Scope link used to get the scope of \a ref_tree
+             * \param parse_flags Parsing flags
+             */
+            AST_t parse_id_expression(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
+
+            //! Parses an id-expression
+            /*
+             * \param scope Scope used to parse this code
+             * \param scope_link Scope link used to get the scope of \a ref_tree
+             * \param parse_flags Parsing flags
+             */
+            AST_t parse_id_expression(Scope scope, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
+
             //! Parses a declaration
             /*!
              * \param ref_tree Reference tree used when parsing this code

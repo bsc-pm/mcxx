@@ -36,6 +36,8 @@ namespace TL
     //! \addtogroup Wrap 
     //! @{
 
+    class Scope;
+
     //! This function wraps the internal compiler scope link
     class LIBTL_CLASS ScopeLink : public Object
     {

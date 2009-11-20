@@ -126,10 +126,11 @@ namespace TL
             if (!clause.is_defined())
                 return;
 
-            ObjectList<ObjectList<std::string> > arguments_unflat = clause.get_arguments_unflattened();
+            // FIXME - Change the name of this function!
+            ObjectList<ObjectList<std::string> > clause_arguments = clause.get_arguments_unflattened();
 
-            for (ObjectList<ObjectList<std::string> >::iterator list_it = arguments_unflat.begin();
-                    list_it != arguments_unflat.end();
+            for (ObjectList<ObjectList<std::string> >::iterator list_it = clause_arguments.begin();
+                    list_it != clause_arguments.end();
                     list_it++)
             {
                 ObjectList<std::string>& arguments(*list_it);
@@ -171,8 +172,8 @@ namespace TL
                     return;
                 }
 
-                std::string reductor_name;
-                std::copy(first_arg.begin(), split_colon, std::back_inserter(reductor_name));
+                std::string original_reductor_name;
+                std::copy(first_arg.begin(), split_colon, std::back_inserter(original_reductor_name));
 
                 std::string remainder_arg;
                 std::copy(split_colon + 1, first_arg.end(), std::back_inserter(remainder_arg));
@@ -180,91 +181,95 @@ namespace TL
                 // Put back the arguments after tokenization
                 arguments = ExpressionTokenizer().tokenize(remainder_arg);
 
-                for (ObjectList<std::string>::iterator it = arguments.begin();
-                        it != arguments.end();
+                // Rename 'arguments' to variables, since 'arguments' would be
+                // too vague
+                ObjectList<std::string> &variables(arguments);
+                for (ObjectList<std::string>::iterator it = variables.begin();
+                        it != variables.end();
                         it++)
                 {
-                    std::string &arg(*it);
+                    std::string &variable(*it);
                     Source src;
-
                     src
                         << "#line " << construct.get_ast().get_line() << " \"" << construct.get_ast().get_file() << "\"\n"
-                        << arg
+                        << variable
                         ;
 
-                    AST_t expr_tree = src.parse_expression(clause.get_ast(), clause.get_scope_link());
+                    AST_t var_tree = src.parse_id_expression(clause.get_ast(), clause.get_scope_link());
+                    IdExpression var_id_expr(var_tree, clause.get_scope_link());
 
-                    Expression expr(expr_tree, clause.get_scope_link());
+                    Symbol var_sym = var_id_expr.get_symbol();
+                    Type var_type = var_sym.get_type();
 
-                    if (!expr.is_id_expression())
+                    std::string reductor_name = original_reductor_name;
+                    // Ammend as needed the reductor name for this variable
+                    CXX_LANGUAGE()
                     {
-                        std::cerr << clause.get_ast().get_locus() 
-                            << ": warning: argument '" 
-                            << expr
-                            << "' is not an id-expression, skipping" 
-                            << std::endl;
-                    }
-                    else
-                    {
-                        Symbol sym = expr.get_id_expression().get_symbol();
-
-                        if (!sym.is_valid())
+                        if (reductor_name[0] == '.')
                         {
-                            std::cerr << clause.get_ast().get_locus()
-                                << ": warning: argument '"
-                                << expr
-                                << "' does not name a valid symbol, skipping"
-                                << std::endl
-                                ;
-                        }
-
-                        Type reduct_type = sym.get_type().advance_over_typedefs().get_unqualified_type();
-                        CXX_LANGUAGE()
-                        {
-                            // Fix the name for the operator
-                            if (udr_is_builtin_operator(reductor_name))
+                            if (!var_type.is_named_class()
+                                    && !var_type.is_dependent())
                             {
-                                reductor_name = "operator " + reductor_name;
-                            }
-                            // We have to do some more work in C++ to have things working
-                            // First do a query in the scope to get all the named entities and then
-
-                            // This is bogus, only neede for the call to solve_udr_name_cxx
-                            UDRInfoItem::Associativity assoc = UDRInfoItem::UNDEFINED;
-
-                            Symbol reductor_symbol = solve_udr_name_cxx(construct,
-                                    construct.get_ast(),
-                                    reductor_name,
-                                    reduct_type,
-                                    assoc);
-
-                            if (reductor_symbol.is_valid())
-                            {
-                                reductor_name = reductor_symbol.get_name();
+                                std::cerr << construct.get_ast().get_locus() << ": warning: reductor '" << reductor_name 
+                                    << "' is no valid for non class-type variable '" << var_id_expr.prettyprint() << "'"
+                                    << ", skipping"
+                                    << std::endl;
+                                continue;
                             }
                             else
                             {
-                                // FIXME - solve_udr_name_cxx should have a better interface for this case
-                                // This name is dependent, nothing to do here
-                                continue;
+                                reductor_name = var_type.get_declaration(construct.get_scope(), "") + "::" + reductor_name.substr(1);
                             }
                         }
+                    }
 
-                        // FIXME !!!
-                        UDRInfoScope udr_info_scope(expr.get_scope());
+                    std::string unqualified_reductor_name = reductor_name;
 
-                        UDRInfoItem udr_info_item = udr_info_scope.get_udr(reductor_name, reduct_type);
+                    if (!udr_is_builtin_operator(reductor_name))
+                    {
+                        AST_t reductor_name_tree 
+                            = Source(reductor_name).parse_id_expression(construct.get_ast(), construct.get_scope_link());
+                        IdExpression reductor_id_expr(reductor_name_tree, clause.get_scope_link());
+                        unqualified_reductor_name = reductor_id_expr.get_unqualified_part();
+                    }
 
-                        if (!udr_info_item.is_valid())
+
+                    if (!var_sym.is_valid())
+                    {
+                        running_error("%s: error: variable '%s' in reduction clause is invalid\n",
+                                construct.get_ast().get_locus().c_str(),
+                                var_tree.prettyprint().c_str());
+                    }
+                    else if (var_sym.is_dependent_entity())
+                    {
+                        std::cerr << construct.get_ast().get_locus() << ": warning: symbol "
+                            << "'" << var_tree.prettyprint() << "' is dependent, skipping it" << std::endl;
+                    }
+                    else
+                    {
+
+                        UDRInfoScope udr_info_scope(construct.get_scope());
+
+                        UDRInfoItem udr_info_item = udr_info_scope.get_udr(
+                                unqualified_reductor_name,
+                                reductor_name, 
+                                var_type, 
+                                construct.get_scope_link(),
+                                construct.get_scope(),
+                                construct.get_ast().get_file(), 
+                                construct.get_ast().get_line());
+
+                        if (udr_info_item.is_valid())
                         {
-                            running_error("%s: error: user-defined reduction for type '%s' and operator '%s' not declared",
-                                    expr.get_ast().get_locus().c_str(),
-                                    reduct_type.get_declaration(sym.get_scope(), "").c_str(), 
-                                    reductor_name.c_str());
+                            ReductionSymbol red_sym(var_sym, udr_info_item);
+                            sym_list.append(red_sym);
                         }
-
-                        ReductionSymbol red_sym(sym, udr_info_item);
-                        sym_list.append(red_sym);
+                        else
+                        {
+                            std::cerr << construct.get_ast().get_locus() << ": warning: reductor operation "
+                                << "'" << reductor_name << "'" 
+                                << " for reduced variable '" << var_tree.prettyprint() << "' is not valid, skipping the variable" << std::endl;
+                        }
                     }
                 }
             }
