@@ -545,6 +545,33 @@ namespace TL
 
         bool found_valid = false;
 
+        struct OnlyMembers : Predicate<Symbol>
+        {
+            virtual bool do_(Symbol& sym) const
+            {
+                // Well, it turns that the frontend is not properly labelling template names
+                // as being members
+                if (sym.get_type().is_template_type())
+                {
+                    sym = sym.get_type().get_primary_template().get_symbol();
+                }
+                return sym.is_member()
+                    && !sym.is_static();
+            }
+        };
+
+        ObjectList<Symbol> members_set = overload_set.filter(OnlyMembers());
+
+        struct OnlyNonMembers : Predicate<Symbol>
+        {
+            virtual bool do_(Symbol& sym) const
+            {
+                return !OnlyMembers()(sym);
+            }
+        };
+
+        ObjectList<Symbol> non_members_set = overload_set.filter(OnlyNonMembers());
+
         ObjectList<Symbol> all_viables;
         // First the set of nonmembers
         for (ObjectList<udr_valid_prototypes_t>::iterator it = valid_prototypes.begin();
@@ -559,7 +586,7 @@ namespace TL
             ObjectList<Symbol> argument_conversor;
             ObjectList<Symbol> viable_functs;
             Symbol solved_sym = Overload::solve(
-                    overload_set,
+                    non_members_set,
                     Type(NULL), // No implicit
                     arguments,
                     filename,
@@ -594,7 +621,7 @@ namespace TL
                 ObjectList<Symbol> argument_conversor;
                 ObjectList<Symbol> viable_functs;
                 Symbol solved_sym = Overload::solve(
-                        overload_set,
+                        members_set,
                         reduction_type.get_reference_to(), // implicit argument (it must be a reference)
                         arguments,
                         filename,
