@@ -436,6 +436,10 @@ namespace TL
              */
             bool is_template_type() const;
 
+            //! Returns the primary template of a template type
+            //! This is always a named type, so you can get a symbol after it
+            Type get_primary_template() const;
+
             //! Returns the template parameters of a template type
             /*!
               This function can be used both in template types and in template 

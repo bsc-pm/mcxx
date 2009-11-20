@@ -540,6 +540,11 @@ namespace TL
         return (::is_template_type(_type_info));
     }
 
+    Type Type::get_primary_template() const
+    {
+        return ::template_type_get_primary_type(_type_info);
+    }
+
     bool Type::is_template_specialized_type() const
     {
         return (::is_template_specialized_type(_type_info));
