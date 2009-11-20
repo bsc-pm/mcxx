@@ -102,6 +102,15 @@ namespace TL
 
             //! Returns the wrapped template parameter
             template_parameter_t* get_internal_template_parameter() const;
+
+            //! Returns the name of the template parameter
+            std::string get_name() const;
+
+            //! Gets the position of this template parameter
+            int get_position() const;
+
+            //! Gets the nesting of this template parameter
+            int get_nesting() const;
     };
 
     //! This class wraps a template argument

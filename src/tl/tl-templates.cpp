@@ -60,6 +60,21 @@ namespace TL
         return _tpl_param;
     }
 
+    std::string TemplateParameter::get_name() const
+    {
+        return get_symbol().get_name();
+    }
+
+    int TemplateParameter::get_position() const
+    {
+        return _tpl_param->entry->entity_specs.template_parameter_position;
+    }
+
+    int TemplateParameter::get_nesting() const
+    {
+        return _tpl_param->entry->entity_specs.template_parameter_nesting;
+    }
+
     TemplateArgument TemplateParameter::get_default_argument() const
     {
         return TemplateArgument(_tpl_param->default_template_argument);
