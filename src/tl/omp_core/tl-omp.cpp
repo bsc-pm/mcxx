@@ -256,6 +256,22 @@ namespace TL
             return symbol_name;
         }
 
+        static template_parameter_list_t* convert_list_of_template_parameters(ObjectList<TemplateParameter> tpl_list)
+        {
+            template_parameter_list_t* result = (template_parameter_list_t*) calloc(1, sizeof(*result));
+
+            result->num_template_parameters = tpl_list.size();
+            result->template_parameters = 
+                (template_parameter_t**) calloc(result->num_template_parameters, sizeof(*result->template_parameters));
+
+            for (int i = 0; i < result->num_template_parameters; i++)
+            {
+                result->template_parameters[i] = tpl_list[i].get_internal_template_parameter();
+            }
+
+            return result;
+        }
+
         void UDRInfoScope::add_udr(const UDRInfoItem& item, const std::string&
                 filename, int line)
         {
@@ -316,10 +332,10 @@ namespace TL
                 if (item.is_template())
                 {
                     // FIXME This *must* be wrapped somehow
-                    type_t* templated_type = ::get_actual_class_type(item.get_type().get_internal_type());
+                    ObjectList<TemplateParameter> template_param_list = item.get_template_scope().get_template_parameters();
+                    template_parameter_list_t * template_params = convert_list_of_template_parameters(template_param_list);
 
-                    template_parameter_list_t* template_params = 
-                        template_specialized_type_get_template_parameters(templated_type);
+                    // template_parameter_list_t* template_params = item.get_template_scope().get_template_parameters();
 
                     type_t* new_templated_function_type = get_new_template_type(template_params, basic_function_type,
                             uniquestr(artificial_sym.get_name().c_str()), artificial_sym.get_scope().get_decl_context(), line, 
