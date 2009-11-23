@@ -551,12 +551,13 @@ namespace TL
             {
                 // Well, it turns that the frontend is not properly labelling template names
                 // as being members
-                if (sym.get_type().is_template_type())
+                Symbol current = sym;
+                if (current.get_type().is_template_type())
                 {
-                    sym = sym.get_type().get_primary_template().get_symbol();
+                    current = current.get_type().get_primary_template().get_symbol();
                 }
-                return sym.is_member()
-                    && !sym.is_static();
+                return current.is_member()
+                    && !current.is_static();
             }
         };
 
@@ -910,6 +911,10 @@ namespace TL
 
         void Core::declare_reduction_handler_pre(PragmaCustomConstruct construct)
         {
+            DEBUG_CODE()
+            {
+                std::cerr << "=== Declare reduction [" << construct.get_ast().get_locus() << "]===" << std::endl;
+            }
             // UDRInfoScope udr_info_scope(construct.get_scope())
 
             // #pragma omp declare reduction(op-name-list : type-list) order(left|right) commutative
