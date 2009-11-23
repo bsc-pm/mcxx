@@ -1114,6 +1114,7 @@ namespace TL
         std::string identity(_identity);
 
         if (template_params.empty()
+                || identity == ""
                 || identity == "constructor"
                 || identity == "constructor()")
             return identity;
