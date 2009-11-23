@@ -73,13 +73,13 @@ proc execute_testsuite_simple {testcases {additional_cflags ""}} {
 proc execute_testsuite_typecheck {testcases {additional_cflags ""}} {
     global subdir
     set full_path_tool "../src/driver/mcxx"
-    execute_testsuite_ex $full_path_tool "" "lt-mcxx" $subdir $testcases "--typecheck ${additional_cflags}" "1"
+    execute_testsuite_ex $full_path_tool "" "lt-mcxx" $subdir $testcases "--typecheck ${additional_cflags}" "0"
 }
 
 proc execute_testsuite_no_compile {testcases {additional_cflags ""}} {
     global subdir
     set full_path_tool "../src/driver/mcxx"
-    execute_testsuite_ex $full_path_tool "" "lt-mcxx" $subdir $testcases "--typecheck ${additional_cflags}" "0"
+    execute_testsuite_ex $full_path_tool "" "lt-mcxx" $subdir $testcases "--typecheck ${additional_cflags}" "1"
 }
 
 proc execute_testsuite_phases {testcases libtool_dlopen_files {additional_cflags ""}} {
