@@ -4857,13 +4857,14 @@ static char check_for_conditional_expression_impl(AST expression, decl_context_t
             return 0;
         }
     }
-    CXX_LANGUAGE()
-    {
-        converted_type = get_bool_type();
-    }
+
+    // In C++ this might be an lvalue, but it is not in C
+    ast_set_expression_is_lvalue(expression, 0);
 
     CXX_LANGUAGE()
     {
+        converted_type = get_bool_type();
+
         /*
          * C++ standard is a mess here but we will try to make it clear
          */
@@ -5034,16 +5035,16 @@ static char check_for_conditional_expression_impl(AST expression, decl_context_t
             second_type = function_type_get_parameter_type_num(overloaded_call->type_information, 1);
             third_type = function_type_get_parameter_type_num(overloaded_call->type_information, 2);
         }
-    }
 
-    /*
-     * If both types are the same and lvalue the resulting expression is a lvalue
-     */
-    if (second_is_lvalue 
-            && third_is_lvalue
-            && equivalent_types(no_ref(second_type), no_ref(third_type)))
-    {
-        ast_set_expression_is_lvalue(expression, 1);
+        /*
+         * If both types are the same and lvalue the resulting expression is a lvalue
+         */
+        if (second_is_lvalue 
+                && third_is_lvalue
+                && equivalent_types(no_ref(second_type), no_ref(third_type)))
+        {
+            ast_set_expression_is_lvalue(expression, 1);
+        }
     }
 
     /*
