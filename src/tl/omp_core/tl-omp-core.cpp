@@ -123,6 +123,11 @@ namespace TL
                 PragmaCustomClause clause, 
                 ObjectList<ReductionSymbol>& sym_list)
         {
+            DEBUG_CODE()
+            {
+                std::cerr << "=== Reduction clause [" << construct.get_ast().get_locus() << "]===" << std::endl;
+            }
+
             if (!clause.is_defined())
                 return;
 
