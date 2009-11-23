@@ -463,7 +463,14 @@ namespace TL
                 bool is_commutative,
                 Scope template_scope)
         {
-            UDRInfoItem item(type, Symbol(NULL), unqualified_name, op_name,
+            // Remove "." and operator
+            std::string name = unqualified_name;
+            if (name[0] == '.')
+            {
+                name = name.substr(1);
+            }
+
+            UDRInfoItem item(type, Symbol(NULL), name, op_name,
                     identity, assoc, is_commutative,
                     /* is_template */ true);
             item._template_scope = template_scope;

@@ -515,6 +515,9 @@ namespace TL
 
     static std::string get_valid_value_initializer(Type t)
     {
+        if (t.is_dependent())
+            return "";
+
         if (t.is_class())
         {
             if (!t.is_pod())
@@ -1239,7 +1242,14 @@ namespace TL
                             item->get_template_scope().get_template_parameters());
 
                     // Now parse the id-expression in this context
-                    Source src = item->get_op_name();
+                    // Source src = item->get_op_name();
+                    std::string op_name = item->get_op_name();
+                    if (op_name[0] == '.')
+                    {
+                        op_name =  item->get_type().get_declaration(item->get_template_scope(), "") + "::" + op_name.substr(1);
+                    }
+
+                    Source src = op_name;
 
                     AST_t id_expression_tree = src.parse_id_expression(instantiation_scope, scope_link);
 
