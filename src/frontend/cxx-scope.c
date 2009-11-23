@@ -3153,7 +3153,14 @@ static const char* get_unqualified_template_symbol_name(scope_entry_t* entry,
         }
     }
 
-    result = strappend(result, "> ");
+    if (result[strlen(result) - 1] == '>')
+    {
+        result = strappend(result, " >");
+    }
+    else
+    {
+        result = strappend(result, ">");
+    }
 
     return result;
 }
