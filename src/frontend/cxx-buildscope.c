@@ -5893,10 +5893,11 @@ static void build_scope_type_template_parameter(AST a,
         // This is a named type parameter. Register it in the symbol table
         DEBUG_CODE()
         {
-            fprintf(stderr, "[%d] Registering type template-parameter '%s' in scope %p\n",
+            fprintf(stderr, "[%d] Registering type template-parameter '%s' in scope %p with nesting %d\n",
                     num_parameter,
                     ASTText(name), 
-                    template_context.template_scope);
+                    template_context.template_scope,
+                    template_context.template_nesting);
         }
         // Note that we sign it in the template_scope !
         template_parameter_name = ASTText(name);

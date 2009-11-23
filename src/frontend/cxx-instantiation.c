@@ -369,7 +369,8 @@ decl_context_t get_instantiation_context(scope_entry_t* entry, template_paramete
 
                     DEBUG_CODE()
                     {
-                        fprintf(stderr, "Injecting typedef '%s'\n", injected_type->symbol_name);
+                        fprintf(stderr, "Injecting typedef '%s' to '%s'\n", injected_type->symbol_name,
+                                print_declarator(template_argument->type));
                     }
 
                     injected_type->kind = SK_TYPEDEF;
@@ -385,15 +386,16 @@ decl_context_t get_instantiation_context(scope_entry_t* entry, template_paramete
                     scope_entry_t* injected_type = new_symbol(template_parameters_context, 
                             template_parameters_context.template_scope, template_param->entry->symbol_name);
 
+                    injected_type->kind = SK_TEMPLATE;
+                    injected_type->entity_specs.is_template_argument = 1;
+                    injected_type->type_information = 
+                        named_type_get_symbol(template_argument->type)->type_information;
+
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "Injecting template name '%s'\n", injected_type->symbol_name);
                     }
 
-                    injected_type->kind = SK_TEMPLATE;
-                    injected_type->entity_specs.is_template_argument = 1;
-                    injected_type->type_information = 
-                        named_type_get_symbol(template_argument->type)->type_information;
                     break;
                 }
             case TPK_NONTYPE:
@@ -403,11 +405,6 @@ decl_context_t get_instantiation_context(scope_entry_t* entry, template_paramete
 
                     scope_entry_t* injected_nontype = new_symbol(template_parameters_context, 
                             template_parameters_context.template_scope, template_param->entry->symbol_name);
-
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "Injecting parameter '%s'\n", injected_nontype->symbol_name);
-                    }
 
                     injected_nontype->kind = SK_VARIABLE;
                     injected_nontype->entity_specs.is_template_argument = 1;
@@ -419,6 +416,13 @@ decl_context_t get_instantiation_context(scope_entry_t* entry, template_paramete
                     AST evaluated_tree = tree_from_literal_value(literal_value);
                     AST fake_initializer = evaluated_tree;
                     injected_nontype->expression_value = fake_initializer;
+
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "Injecting parameter '%s' with expression '%s'\n", 
+                                injected_nontype->symbol_name,
+                                prettyprint_in_buffer(fake_initializer));
+                    }
                     break;
                 }
             default:
