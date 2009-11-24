@@ -78,7 +78,35 @@ namespace TL
             //! Special to state no data sharing
             DA_NONE = BITMAP(9)
         };
+
 #undef BITMAP
+
+        class LIBTL_CLASS DependencyItem : public TL::Object
+        {
+            public:
+#define BITMAP(x) (1<<x)
+                enum DependencyAttribute
+                {
+                    UNDEFINED = 0,
+                    // Input dependence
+                    INPUT = BITMAP(1),
+                    // Output dependence
+                    OUTPUT = BITMAP(2),
+                    // Inout dependence
+                    INOUT = DependencyItem::INPUT | DependencyItem::OUTPUT
+                };
+#undef BITMAP
+            private:
+                Symbol _base_sym;
+                AST_t _dep_expr;
+                DependencyAttribute _kind;
+            public:
+                DependencyItem(Symbol base_sym, AST_t dep_expr, DependencyAttribute kind);
+
+                DependencyAttribute get_kind() const;
+                AST_t get_dependency_expression() const;
+                Symbol get_base_symbol() const;
+        };
 
         class LIBTL_CLASS UDRInfoItem : public TL::Object
         {
@@ -313,6 +341,7 @@ namespace TL
                 DataSharing *_enclosing;
 
                 ObjectList<ReductionSymbol> _reduction_symbols;
+                ObjectList<DependencyItem> _dependency_items;
 
                 bool _is_parallel;
 
@@ -361,6 +390,9 @@ namespace TL
 
                 DataSharing& set_is_parallel(bool b);
                 bool get_is_parallel();
+
+                void add_dependence(const DependencyItem &dependency_item);
+                void get_all_dependences(ObjectList<DependencyItem>& dependency_items);
         };
 
         class LIBTL_CLASS Info : public Object
