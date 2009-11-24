@@ -42,15 +42,30 @@ namespace TL { namespace OpenMP {
             // FIXME - This is the base symbol of the dependence
             Expression& expr(*it);
             Symbol base_sym(NULL);
-            if (!check_for_dep_expression(expr, base_sym))
+            if (check_for_dep_expression(expr, base_sym))
             {
                 DependencyItem dep_item(base_sym, it->get_ast(), attr);
 
                 if ((data_sharing.get(base_sym) & DA_SHARED) != DA_SHARED)
                 {
-                    std::cerr << expr.get_ast().get_locus() 
-                        << ": warning: dependenciy specification '" << expr.prettyprint() 
-                        << "' has a related variable whose data sharing is not shared" << std::endl;
+                    if ((data_sharing.get(base_sym) & DA_PRIVATE) != DA_PRIVATE)
+                    {
+                        std::cerr << expr.get_ast().get_locus() 
+                            << ": warning: dependency specification '" << expr.prettyprint() 
+                            << "' has a related variable whose data sharing is not shared, setting it to shared" << std::endl;
+                        data_sharing.set(base_sym, DA_SHARED);
+                    }
+                    else
+                    {
+                        // std::cerr << expr.get_ast().get_locus() 
+                        //     << ": warning: dependency specification '" << expr.prettyprint() 
+                        //     << "' has a related variable whose data sharing is private, this is likely to fail" << std::endl;
+                        running_error("%s: error: related variable '%s' of dependency specification '%s' is private, "
+                                "it must be shared if referenced in an 'input' or an 'output' clause\n",
+                                expr.get_ast().get_locus().c_str(),
+                                expr.prettyprint().c_str(),
+                                base_sym.get_name().c_str());
+                    }
                 }
 
                 data_sharing.add_dependence(dep_item);
@@ -65,23 +80,18 @@ namespace TL { namespace OpenMP {
 
     void Core::get_dependences_info(PragmaCustomConstruct construct, DataSharing& data_sharing)
     {
-        // Input
         PragmaCustomClause input_clause = construct.get_clause("input");
-
         if (input_clause.is_defined())
         {
-            // FIXME - We need something more than simple id-expressions
-            ObjectList<Expression> input_id_expr = input_clause.get_expression_list();
-            add_data_sharings(input_id_expr, data_sharing, DependencyItem::INPUT);
+            ObjectList<Expression> input_expr = input_clause.get_expression_list();
+            add_data_sharings(input_expr, data_sharing, DependencyItem::INPUT);
         }
 
         PragmaCustomClause output_clause = construct.get_clause("output");
-
-        if (input_clause.is_defined())
+        if (output_clause.is_defined())
         {
-            // FIXME - We need something more than simple id-expressions
-            ObjectList<Expression> input_id_expr = input_clause.get_expression_list();
-            add_data_sharings(input_id_expr, data_sharing, DependencyItem::OUTPUT);
+            ObjectList<Expression> output_expr = output_clause.get_expression_list();
+            add_data_sharings(output_expr, data_sharing, DependencyItem::OUTPUT);
         }
     }
 
