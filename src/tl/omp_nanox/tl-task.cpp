@@ -55,6 +55,9 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             ;
     }
 
+    ObjectList<OpenMP::DependencyItem> dependences;
+    data_sharing.get_all_dependences(dependences);
+
     DataEnvironInfo data_environ_info;
 
     Source struct_arg_type_decl_src;
@@ -128,12 +131,99 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         = newly_generated_code.parse_declaration(funct_def.get_ast(), ctr.get_scope_link());
     ctr.get_ast().prepend_sibling_function(outline_code_tree);
     
-// FIXME - No dependences (yet)
     Source spawn_code;
-    Source fill_outline_arguments, fill_immediate_arguments;
+    Source fill_outline_arguments, fill_immediate_arguments, 
+           fill_dependences_outline,
+           fill_dependences_immediate;
+
+    Source dependency_array, num_dependences;
 
     fill_data_args("ol_args->", data_environ_info, fill_outline_arguments);
     fill_data_args("imm_args.", data_environ_info, fill_immediate_arguments);
+
+    // Fill dependences, if any
+    if (!dependences.empty())
+    {
+        num_dependences << dependences.size();
+        Source dependency_defs_outline, dependency_defs_immediate;
+        fill_dependences_outline
+            << "nanos_dependence_t _dependences[" << num_dependences << "] = {"
+            << dependency_defs_outline
+            << "};"
+            ;
+
+        fill_dependences_immediate
+            << "nanos_dependence_t _dependences[" << num_dependences << "] = {"
+            << dependency_defs_immediate
+            << "};"
+            ;
+
+        dependency_array << "_dependences";
+
+        for (ObjectList<OpenMP::DependencyItem>::iterator it = dependences.begin();
+                it != dependences.end();
+                it++)
+        {
+            Source dependency_flags;
+            dependency_flags << "{";
+            OpenMP::DependencyItem::DependencyAttribute attr = it->get_kind();
+            if ((attr & OpenMP::DependencyItem::INPUT) == OpenMP::DependencyItem::INPUT)
+            {
+                dependency_flags << "1,"; 
+            }
+            else
+            {
+                dependency_flags << "0,"; 
+            }
+            if ((attr & OpenMP::DependencyItem::OUTPUT) == OpenMP::DependencyItem::OUTPUT)
+            {
+                dependency_flags << "1,"; 
+            }
+            else
+            {
+                dependency_flags << "0,"; 
+            }
+            // can_rename not yet implemented
+            dependency_flags << "0"
+                << "}"
+                ;
+
+            DataEnvironItem data_env_item = data_environ_info.get_data_of_symbol(it->get_base_symbol());
+
+            if (!data_env_item.get_symbol().is_valid())
+            {
+                internal_error("Could not get the data environment info of symbol '%s'\n",
+                        it->get_base_symbol().get_name().c_str());
+            }
+
+            dependency_defs_outline
+                << "{"
+                << "(void**)&ol_args->" << data_env_item.get_field_name() << ","
+                << dependency_flags << ","
+                << "sizeof(" << it->get_dependency_expression().prettyprint() << ")"
+                << "}"
+                ;
+
+            dependency_defs_immediate
+                << "{"
+                << "(void**)&imm_args." << data_env_item.get_field_name() << ","
+                << dependency_flags << ","
+                << "sizeof(" << it->get_dependency_expression().prettyprint() << ")"
+                << "}"
+                ;
+
+            if ((it + 1) != dependences.end())
+            {
+                dependency_defs_outline << ",";
+                dependency_defs_immediate << ",";
+            }
+        }
+    }
+    else
+    {
+        dependency_array << "0";
+        num_dependences << "0";
+    }
 
     // Honour if clause
     Source if_expr_cond_start, if_expr_cond_end;
@@ -188,16 +278,19 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<     "if (wd != (nanos_wd_t)0)"
         <<     "{"
         <<        fill_outline_arguments
-        <<        "err = nanos_submit(wd, (nanos_dependence_t*)0, (nanos_team_t)0);"
+        <<        fill_dependences_outline
+        <<        "err = nanos_submit(wd, " << num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", (nanos_team_t)0);"
         <<        "if (err != NANOS_OK) nanos_handle_error (err);"
         <<     "}"
         <<     "else"
         <<     "{"
         <<        struct_arg_type_name << " imm_args;"
         <<        fill_immediate_arguments
+        <<        fill_dependences_immediate
         <<        "err = nanos_create_wd_and_run(" 
         <<                num_devices << ", " << device_descriptor << ", "
-        <<        "       &imm_args, (nanos_dependence_t*)0, &props);"
+        <<                "&imm_args, "
+        <<                num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", &props);"
         <<        "if (err != NANOS_OK) nanos_handle_error (err);"
         <<     "}"
         << "}"

@@ -40,13 +40,20 @@ namespace TL
                 bool _is_raw_buffer;
 
             public:
+                DataEnvironItem() 
+                    : _sym(NULL), 
+                    _field_name(""), 
+                    _is_pointer(false),
+                    _is_raw_buffer(false)
+                { }
+
                 DataEnvironItem(Symbol sym, const std::string &field_name)
                     : _sym(sym), 
                     _field_name(field_name),
                     _is_pointer(false),
                     _is_raw_buffer(false)
-            {
-            }
+                {
+                }
 
                 Symbol get_symbol() const
                 {
@@ -96,6 +103,17 @@ namespace TL
                 void get_items(ObjectList<DataEnvironItem> &data_env_item) const
                 {
                     data_env_item = _data_env_items;
+                }
+
+                DataEnvironItem get_data_of_symbol(Symbol sym)
+                {
+                    if (_data_env_items.contains(functor(&DataEnvironItem::get_symbol), sym))
+                    {
+                        ObjectList<DataEnvironItem> list = _data_env_items.find(functor(&DataEnvironItem::get_symbol), sym);
+                        return list[0];
+                    }
+
+                    return DataEnvironItem();
                 }
         };
 
