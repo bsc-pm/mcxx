@@ -656,6 +656,8 @@ namespace TL
             DataAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DA_UNDEFINED);
 
             get_data_implicit_attributes_task(construct, data_sharing, default_data_attr);
+
+            get_dependences_info(construct, data_sharing);
         }
 
         void Core::task_handler_post(PragmaCustomConstruct construct)

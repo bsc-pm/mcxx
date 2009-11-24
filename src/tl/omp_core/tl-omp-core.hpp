@@ -62,6 +62,8 @@ namespace TL
                         DataSharing& data_sharing,
                         DataAttribute default_data_attr);
 
+                void get_dependences_info(PragmaCustomConstruct construct, DataSharing& data_sharing);
+
                 DataAttribute get_default_data_sharing(PragmaCustomConstruct construct,
                         DataAttribute fallback_data_sharing);
 

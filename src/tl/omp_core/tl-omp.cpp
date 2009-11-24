@@ -153,6 +153,16 @@ namespace TL
             return result;
         }
 
+        void DataSharing::add_dependence(const DependencyItem& dependency_item)
+        {
+            _dependency_items.append(dependency_item);
+        }
+
+        void DataSharing::get_all_dependences(ObjectList<DependencyItem>& dependency_items)
+        {
+            dependency_items = _dependency_items;
+        }
+
         void OpenMPPhase::run(DTO& data_flow)
         {
             // Use the DTO instead
@@ -591,6 +601,26 @@ namespace TL
         Scope UDRInfoItem::get_template_scope() const
         {
             return _template_scope;
+        }
+
+        DependencyItem::DependencyItem(Symbol base_sym, AST_t dep_expr, DependencyAttribute kind)
+            : _base_sym(base_sym), _dep_expr(dep_expr), _kind(kind)
+        {
+        }
+
+        DependencyItem::DependencyAttribute DependencyItem::get_kind() const
+        {
+            return _kind;
+        }
+
+        Symbol DependencyItem::get_base_symbol() const
+        {
+            return _base_sym;
+        }
+
+        AST_t DependencyItem::get_dependency_expression() const
+        {
+            return _dep_expr;
         }
     }
 }
