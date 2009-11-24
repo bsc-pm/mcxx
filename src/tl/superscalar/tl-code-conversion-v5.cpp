@@ -280,9 +280,9 @@ namespace TL
 						Expression parametrized_dimension_start = region[dimension_index].get_dimension_start();
 						Expression parametrized_accessed_length = region[dimension_index].get_accessed_length();
 						
-						ParameterExpression::substitute(parametrized_dimension_length, arguments, scope_link);
-						ParameterExpression::substitute(parametrized_dimension_start, arguments, scope_link);
-						ParameterExpression::substitute(parametrized_accessed_length, arguments, scope_link);
+						ParameterExpression::substitute(parametrized_dimension_length, arguments, argument.get_ast(), scope_link);
+						ParameterExpression::substitute(parametrized_dimension_start, arguments, argument.get_ast(), scope_link);
+						ParameterExpression::substitute(parametrized_accessed_length, arguments, argument.get_ast(), scope_link);
 						
 						if (!parametrized_dimension_start.is_constant()) {
 							can_be_reshaped = false;
