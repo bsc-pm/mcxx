@@ -45,6 +45,14 @@ namespace TL { namespace OpenMP {
             if (!check_for_dep_expression(expr, base_sym))
             {
                 DependencyItem dep_item(base_sym, it->get_ast(), attr);
+
+                if ((data_sharing.get(base_sym) & DA_SHARED) != DA_SHARED)
+                {
+                    std::cerr << expr.get_ast().get_locus() 
+                        << ": warning: dependenciy specification '" << expr.prettyprint() 
+                        << "' has a related variable whose data sharing is not shared" << std::endl;
+                }
+
                 data_sharing.add_dependence(dep_item);
             }
             else
