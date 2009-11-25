@@ -53,6 +53,7 @@ namespace TL
 		
 		Source reshaped_task_code;
 		Source parameter_declarations_code;
+		Source reshaped_parameter_declarations_code;
 		
 		Type type = symbol.get_type();
 		std::string function_name = symbol.get_name();
@@ -74,18 +75,22 @@ namespace TL
 		RefPtr<AccessBoundsList> access_bounds_list = symbol.get_parameter_access_bounds_list();
 		for (unsigned int i=0; i < access_bounds_list->size(); i++)
 		{
-			Source reshaped_parameter_declaration_source;
-			
 			ParameterDeclaration &original_parameter_declaration = parameter_declarations[i];
 			AccessBounds &access_bounds = (*access_bounds_list)[i];
 			if (access_bounds == AccessBounds())
 			{
 				// A non-reshapable parameter
-				reshaped_parameter_declaration_source
+				Source parameter_declaration_source;
+				
+				parameter_declaration_source
 					<< original_parameter_declaration.prettyprint();
+				
+				parameter_declarations_code.append_with_separator(parameter_declaration_source, ",");
 			}
 			else
 			{
+				Source reshaped_parameter_declaration_source;
+				
 				std::string parameter_name = original_parameter_declaration.get_name().get_symbol().get_name();
 				Type original_parameter_type = parameter_types[i];
 				Type final_parameter_type = TypeUtils::remove_array_levels(original_parameter_type, scope_link, access_bounds.size());
@@ -96,9 +101,12 @@ namespace TL
 				}
 				reshaped_parameter_declaration_source
 					<< final_parameter_type.get_declaration(body_scope, parameter_name);
+				
+				reshaped_parameter_declarations_code.append_with_separator(reshaped_parameter_declaration_source, ",");
 			}
-			parameter_declarations_code.append_with_separator(reshaped_parameter_declaration_source, ",");
 		}
+		
+		parameter_declarations_code.append_with_separator(reshaped_parameter_declarations_code, ", ");
 		
 		AST_t reshaped_task_ast = reshaped_task_code.parse_global(node, scope_link);
 		
@@ -124,6 +132,7 @@ namespace TL
 			
 			Source adapter_source;
 			Source adapter_parameters;
+			Source adapter_reshaped_parameters;
 			
 			adapter_source
 				<< "void __attribute__((weak)) " << symbol.get_qualified_name() << "__minimal_reshape__csssynthesised" << "_adapter__cssgenerated" << "(void **parameter_data)"
@@ -153,14 +162,10 @@ namespace TL
 				Symbol parameter_symbol = parameter_declarations[index].get_name().get_symbol();
 				Scope parameter_scope = parameter_symbol.get_scope();
 				
-				if (index != 0)
-				{
-					adapter_parameters
-						<< ",";
-				}
 				if (parameter_type.is_array())
 				{
-					adapter_parameters
+					adapter_reshaped_parameters.append_with_separator("", ", ");
+					adapter_reshaped_parameters
 						<< "parameter_data[" << index << "]";
 					
 					// Calculate the shape of the array (if needed)
@@ -186,6 +191,7 @@ namespace TL
 				}
 				else if (parameter_type.is_pointer() && !parameter_type.points_to().is_void())
 				{
+					adapter_parameters.append_with_separator("", ", ");
 					adapter_parameters
 						<< "parameter_data[" << index << "]";
 					
@@ -198,6 +204,7 @@ namespace TL
 				}
 				else
 				{
+					adapter_parameters.append_with_separator("", ", ");
 					adapter_parameters
 						<< "*("
 							<< "(" << parameter_type.get_pointer_to().get_declaration(scope_link.get_scope(symbol.get_point_of_declaration()), "") << ")"
@@ -216,6 +223,8 @@ namespace TL
 						<< parameter_type.get_declaration_with_initializer(parameter_scope, parameter_symbol.get_name(), shaper_parameter_initializer) << ";";
 				}
 			}
+			
+			adapter_parameters.append_with_separator(adapter_reshaped_parameters, ", ");
 			
 			AST_t tree = adapter_source.parse_global(symbol.get_point_of_declaration(), scope_link);
 			symbol.get_point_of_declaration().append_to_translation_unit(tree);

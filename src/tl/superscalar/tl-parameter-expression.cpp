@@ -1681,7 +1681,7 @@ std::cout << recursion_prefix << "Result is false" << std::endl;
 	
 	
 #endif
-	void ParameterExpression::substitute(/* INOUT */ Expression &expression, ObjectList<Expression> parameters, ScopeLink scope_link)
+	void ParameterExpression::substitute(/* INOUT */ Expression &expression, ObjectList<Expression> parameters, AST_t ref_ast, ScopeLink scope_link)
 	{
 		Source source;
 		source << expression.prettyprint();
@@ -1700,7 +1700,12 @@ std::cout << recursion_prefix << "Result is false" << std::endl;
 			}
 		}
 		
-		expression = Expression(new_ast, scope_link);
+		// We need to rebuild the expression from scratch using the correct Scope
+		Source new_source;
+		new_source << new_ast.prettyprint();
+		AST_t well_scoped_ast = new_source.parse_expression(ref_ast, scope_link);
+		
+		expression = Expression(well_scoped_ast, scope_link);
 	}
 	
 	

@@ -218,7 +218,7 @@ namespace TL
 				Expression parametrized_size(parametrized_size_ast, scope_link);
 				
 				// Replace the parameters in the parametrized size
-				ParameterExpression::substitute(parametrized_size, arguments, scope_link);
+				ParameterExpression::substitute(parametrized_size, arguments, argument.get_ast(), scope_link);
 				
 				size_source
 					<< parametrized_size.prettyprint();
