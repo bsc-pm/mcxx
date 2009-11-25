@@ -56,7 +56,7 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
         << "{"
         // FIXME - How to get the default number of threads?
         <<   "unsigned int _nanos_num_threads = " << num_threads << ";"
-        <<   "nanos_team_t _nanos_team;"
+        <<   "nanos_team_t _nanos_team = (nanos_team_t)0;"
         <<   "nanos_thread_t _nanos_threads[_nanos_num_threads];"
         <<   "nanos_err_t err;"
         <<   "err = nanos_create_team(&_nanos_team, (nanos_sched_t)0, &_nanos_num_threads,"
