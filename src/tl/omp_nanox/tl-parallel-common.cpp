@@ -60,7 +60,7 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
         <<   "nanos_thread_t _nanos_threads[_nanos_num_threads];"
         <<   "nanos_err_t err;"
         <<   "err = nanos_create_team(&_nanos_team, (nanos_sched_t)0, &_nanos_num_threads,"
-        <<              "(nanos_constraint_t*)0, /* reuse */ 0, _nanos_threads);"
+        <<              "(nanos_constraint_t*)0, /* reuse_current */ 1, _nanos_threads);"
         <<   "if (err != NANOS_OK) nanos_handle_error(err);"
 
         <<   device_description      
