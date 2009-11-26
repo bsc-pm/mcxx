@@ -94,6 +94,17 @@ namespace TL
         return Type(array_to);
     }
 
+    Type Type::get_array_to()
+    {
+        type_t* result_type = this->_type_info;
+
+        decl_context_t null_decl_context;
+        memset(&null_decl_context, 0, sizeof(null_decl_context));
+        type_t* array_to = get_array_type(result_type, NULL, null_decl_context);
+
+        return Type(array_to);
+    }
+
     Type Type::get_array_to(const std::string& str)
     {
         type_t* result_type = this->_type_info;

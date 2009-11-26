@@ -136,6 +136,13 @@ namespace TL
              */
             Type get_array_to(AST_t expression_array, Scope scope);
 
+            //! Returns an array to the current type
+            /*! 
+             * Use this for arrays with empty dimension including C99 
+             * wildcard sized arrays
+             */
+            Type get_array_to();
+
             //! Convenience function that returns an array type built after a dimension string
             /*!
               The frontend never creates this kind of array types. They exist
