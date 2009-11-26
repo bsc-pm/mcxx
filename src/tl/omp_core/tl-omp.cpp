@@ -377,6 +377,26 @@ namespace TL
                 const std::string& filename, int line)
         {
             std::string symbol_name = build_artificial_name(udr_name);
+
+            int num_dimensions = 0;
+
+            {
+                Type arr_type = udr_type;
+                while (arr_type.is_array())
+                {
+                    num_dimensions++;
+                    arr_type = arr_type.array_element();
+                }
+            }
+
+            // Add the dimension
+            if (num_dimensions != 0)
+            {
+                std::stringstream ss;
+                ss << num_dimensions;
+                symbol_name += "_" + ss.str();
+            }
+
             // Check the symbol is not created twice
             ObjectList<Symbol> sym_list = _scope.cascade_lookup(symbol_name);
 
@@ -445,8 +465,10 @@ namespace TL
                 Associativity assoc,
                 bool is_commutative)
         {
-            return UDRInfoItem(type, Symbol(NULL), op_name, op_name, identity, assoc, is_commutative,
-                    /* is_template */ false);
+            return UDRInfoItem(type, Symbol(NULL), op_name, 
+                    op_name, identity, assoc, is_commutative,
+                    /* is_template */ false,
+                    /* is_array */ false, /* dimensions */ 0);
         }
 
         UDRInfoItem UDRInfoItem::get_udr(Type type,
@@ -461,8 +483,11 @@ namespace TL
             {
                 name = name.substr(op_prefix.size());
             }
-            return UDRInfoItem(type, op_symbol, name, op_symbol.get_name(), identity, assoc, is_commutative,
-                    /* is_template */ false);
+            return UDRInfoItem(type, op_symbol, 
+                    name, op_symbol.get_name(), 
+                    identity, assoc, is_commutative,
+                    /* is_template */ false,
+                    /* is_array */ false, /* dimensions */ 0);
         }
 
         UDRInfoItem UDRInfoItem::get_template_udr(Type type,
@@ -482,9 +507,36 @@ namespace TL
 
             UDRInfoItem item(type, Symbol(NULL), name, op_name,
                     identity, assoc, is_commutative,
-                    /* is_template */ true);
+                    /* is_template */ true,
+                    /* is_array */ false, /* dimensions */ 0);
             item._template_scope = template_scope;
             return item;
+        }
+
+        UDRInfoItem UDRInfoItem::get_array_udr(Type type,
+                int num_dimensions,
+                Symbol op_symbol,
+                const std::string& identity,
+                Associativity assoc,
+                bool is_commutative)
+        {
+            const std::string op_prefix = "operator ";
+            std::string name = op_symbol.get_name();
+            if (name.substr(0, op_prefix.size()) == op_prefix)
+            {
+                name = name.substr(op_prefix.size());
+            }
+
+            std::stringstream ss;
+            ss << num_dimensions;
+
+            name += "_" + ss.str();
+
+            return UDRInfoItem(type, op_symbol, 
+                    name, op_symbol.get_name(), 
+                    identity, assoc, is_commutative,
+                    /* is_template */ false,
+                    /* is_array */ true, /* dimensions */ num_dimensions);
         }
 
         UDRInfoItem::UDRInfoItem()
@@ -507,7 +559,9 @@ namespace TL
                 const std::string& identity,
                 Associativity assoc,
                 bool is_commutative,
-                bool is_template)
+                bool is_template,
+                bool is_array,
+                int num_dimensions)
             : _valid(true),
             _type(type),
             _op_symbol(op_symbol),
@@ -516,7 +570,9 @@ namespace TL
             _identity(identity),
             _assoc(assoc),
             _is_commutative(is_commutative),
-            _is_template(is_template)
+            _is_template(is_template),
+            _is_array(is_array),
+            _num_dimensions(num_dimensions)
         {
         }
 
@@ -601,6 +657,16 @@ namespace TL
         Scope UDRInfoItem::get_template_scope() const
         {
             return _template_scope;
+        }
+
+        bool UDRInfoItem::is_array() const
+        {
+            return _is_array;
+        }
+
+        int UDRInfoItem::get_dimensions() const
+        {
+            return _num_dimensions;
         }
 
         DependencyItem::DependencyItem(Symbol base_sym, AST_t dep_expr, DependencyAttribute kind)

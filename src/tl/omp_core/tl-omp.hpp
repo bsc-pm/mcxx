@@ -127,8 +127,12 @@ namespace TL
                 std::string _identity;
                 Associativity _assoc;
                 bool _is_commutative;
+
                 bool _is_template;
                 Scope _template_scope;
+
+                bool _is_array;
+                int _num_dimensions;
 
                 UDRInfoItem(Type type, 
                         Symbol op_symbol,
@@ -137,9 +141,10 @@ namespace TL
                         const std::string& identity,
                         Associativity assoc,
                         bool is_commutative,
-                        bool is_template);
+                        bool is_template,
+                        bool is_array,
+                        int num_dimensions);
             public:
-                // Can we remove this?
                 UDRInfoItem();
 
                 // Factories
@@ -152,6 +157,14 @@ namespace TL
 
                 // Regular UDR
                 static UDRInfoItem get_udr(Type type,
+                        Symbol op_symbol,
+                        const std::string& identity,
+                        Associativity assoc,
+                        bool is_commutative);
+
+                // Array UDR
+                static UDRInfoItem get_array_udr(Type type,
+                        int num_dimensions,
                         Symbol op_symbol,
                         const std::string& identity,
                         Associativity assoc,
@@ -181,6 +194,9 @@ namespace TL
 
                 bool is_template() const;
                 Scope get_template_scope() const;
+
+                bool is_array() const;
+                int get_dimensions() const;
         };
 
         class LIBTL_CLASS UDRInfoScope

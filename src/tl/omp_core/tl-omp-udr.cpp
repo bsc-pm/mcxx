@@ -52,6 +52,104 @@ namespace TL
         Type first_arg;
     };
 
+    struct udr_valid_array_prototypes_t
+    {
+        Type return_type;
+        ObjectList<Type> parameters;
+        // OpenMP::UDRInfoItem::Associativity default_assoc;
+        bool allows_left;
+        bool allows_right;
+    };
+
+    static bool equivalent_array_types(Type param_type, Type reduct_type, int num_dimensions)
+    {
+        if (param_type.is_pointer()
+                && param_type.points_to().is_same_type(reduct_type))
+            return true;
+
+        Type element_type = param_type;
+        for (int i = 0; i < num_dimensions; i++)
+        {
+            if (element_type.is_array())
+            {
+                element_type = element_type.array_element();
+            }
+            else if (i == (num_dimensions - 1) && element_type.is_pointer())
+            {
+                element_type = element_type.points_to();
+            }
+            else
+                return false;
+        }
+
+        return element_type.is_same_type(reduct_type);
+    }
+
+    static bool function_is_valid_udr_reductor_c_array(
+            Type reduct_type,
+            ObjectList<udr_valid_array_prototypes_t>& valid_prototypes,
+            Symbol sym, 
+            OpenMP::UDRInfoItem::Associativity &assoc,
+            int num_dimensions)
+    {
+        using OpenMP::UDRInfoItem;
+
+        if (!sym.is_function())
+            return false;
+
+        Type function_type = sym.get_type();
+
+        if (!function_type.is_function())
+        {
+            internal_error("Function name should have function type!", 0);
+        }
+
+        ObjectList<Type> parameter_types = function_type.parameters();
+
+        if (parameter_types.size() != (num_dimensions + 2))
+            return false;
+
+        Type return_type = function_type.returns();
+
+        for (ObjectList<udr_valid_array_prototypes_t>::iterator it = valid_prototypes.begin(); 
+                it != valid_prototypes.end(); 
+                it++)
+        {
+            if (!return_type.is_same_type(it->return_type))
+                continue;
+
+            bool valid = true;
+            for (int i = 0; i < num_dimensions; i++)
+            {
+                if (!parameter_types[i].is_same_type(get_signed_int_type()))
+                {
+                    valid = false;
+                    break;
+                }
+            }
+            if (!valid)
+                continue;
+
+            if (equivalent_array_types(parameter_types[parameter_types.size() - 2], reduct_type, num_dimensions)
+                    && equivalent_array_types(parameter_types[parameter_types.size() - 1], reduct_type, num_dimensions)
+                    && ((assoc == UDRInfoItem::UNDEFINED)
+                        || (assoc == UDRInfoItem::RIGHT && it->allows_right)
+                        || (assoc == UDRInfoItem::LEFT && it->allows_left)))
+            {
+                if (assoc == UDRInfoItem::UNDEFINED)
+                {
+                    if (it->allows_left)
+                        assoc = UDRInfoItem::LEFT;
+                    else
+                        assoc = UDRInfoItem::RIGHT;
+                }
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     static bool function_is_valid_udr_reductor_c(
             ObjectList<udr_valid_prototypes_t>& valid_prototypes,
             Symbol sym, 
@@ -202,31 +300,100 @@ namespace TL
 
     static ObjectList<udr_valid_prototypes_t> get_valid_prototypes_c(Type reduct_type)
     {
-        using OpenMP::UDRInfoItem;
-
         reduct_type = reduct_type.get_unqualified_type();
 
         Type void_type = Type::get_void_type();
         Type ptr_reduct_type = reduct_type.get_pointer_to();
+        Type c_ptr_reduct_type = reduct_type.get_const_type().get_pointer_to();
 
         udr_valid_prototypes_t valid_prototypes[] = 
         {
-            { /* T f(T, T) */      reduct_type, reduct_type,     reduct_type,     /* left */ true,  /* right */ true  },
-            { /* T f(T*, T) */     reduct_type, ptr_reduct_type, reduct_type,     /* left */ true,  /* right */ true  },
-            { /* T f(T, T*) */     reduct_type, reduct_type,     ptr_reduct_type, /* left */ true,  /* right */ true  },
-            { /* T f(T*, T*) */    reduct_type, ptr_reduct_type, ptr_reduct_type, /* left */ true,  /* right */ true  },
-            { /* void f(T*, T) */  void_type, ptr_reduct_type,   reduct_type,     /* left */ true,  /* right */ false },
-            { /* void f(T, T*) */  void_type, reduct_type,       ptr_reduct_type, /* left */ false, /* right */ true  },
-            { /* void f(T*, T*) */ void_type, ptr_reduct_type,   ptr_reduct_type, /* left */ true,  /* right */ true  } 
+            { /* T f(T, T) */      reduct_type, reduct_type,       reduct_type,     /* left */ true,  /* right */ true  },
+            { /* T f(T*, T) */     reduct_type, ptr_reduct_type,   reduct_type,     /* left */ true,  /* right */ true  },
+            { /* T f(T, T*) */     reduct_type, reduct_type,       ptr_reduct_type, /* left */ true,  /* right */ true  },
+            { /* T f(T*, T*) */    reduct_type, ptr_reduct_type,   ptr_reduct_type, /* left */ true,  /* right */ true  },
+            { /* void f(T*, T) */  void_type,   ptr_reduct_type,   reduct_type,     /* left */ true,  /* right */ false },
+            { /* void f(T, T*) */  void_type,   reduct_type,       ptr_reduct_type, /* left */ false, /* right */ true  },
+            { /* void f(T*, T*) */ void_type,   ptr_reduct_type,   ptr_reduct_type, /* left */ true,  /* right */ true  },
+
+            { /* void f(T*, const T*) */ void_type, ptr_reduct_type,   c_ptr_reduct_type, /* left */ true,   /* right */ false },
+            { /* void f(const T*, T*) */ void_type, c_ptr_reduct_type, ptr_reduct_type,   /* left */ false,  /* right */ true  },
+
+            { /* T f(const T*, T) */           reduct_type, c_ptr_reduct_type, reduct_type,       /* left */ true,  /* right */ true  },
+            { /* T f(T, const T*) */           reduct_type, reduct_type,       c_ptr_reduct_type, /* left */ true,  /* right */ true  },
+            { /* T f(T*, const T*) */          reduct_type, ptr_reduct_type,   c_ptr_reduct_type, /* left */ true,  /* right */ true  },
+            { /* T f(const T*, T*) */          reduct_type, ptr_reduct_type,   c_ptr_reduct_type, /* left */ true,  /* right */ true  },
+            { /* T f(const T*, const T*) */    reduct_type, c_ptr_reduct_type, c_ptr_reduct_type, /* left */ true,  /* right */ true  },
+            { /* void f(const T*, T) */        void_type,   c_ptr_reduct_type, reduct_type,       /* left */ true,  /* right */ false },
+            { /* void f(T, const T*) */        void_type,   reduct_type,       c_ptr_reduct_type, /* left */ false, /* right */ true  },
+            { /* void f(const T*, const T*) */ void_type,   c_ptr_reduct_type, c_ptr_reduct_type, /* left */ true,  /* right */ true  } 
         };
 
         return ObjectList<udr_valid_prototypes_t>(valid_prototypes);
     }
 
+
+    static ObjectList<udr_valid_array_prototypes_t> get_valid_prototypes_arrays_c(Type reduct_type, int num_dimensions)
+    {
+        reduct_type = reduct_type.get_unqualified_type();
+
+        ObjectList<udr_valid_array_prototypes_t> result;
+        Type void_type = Type::get_void_type();
+
+        Type ptr_reduct_type = reduct_type.get_pointer_to();
+        Type array_reduc_type = reduct_type;
+        Type ptr_array_reduc_type = reduct_type;
+        for (int i = 0; i < num_dimensions; i++)
+        {
+            if (i == num_dimensions - 1)
+            {
+                ptr_array_reduc_type = ptr_array_reduc_type.get_pointer_to();
+            }
+            else
+            {
+                ptr_array_reduc_type = ptr_array_reduc_type.get_array_to();
+            }
+            array_reduc_type = array_reduc_type.get_array_to();
+        }
+
+        // FIXME - const qualified versions are still missing
+        udr_valid_prototypes_t valid_prototypes[] = 
+        {
+            { /* void f(dim-list, T*, T*) */ void_type, ptr_reduct_type, ptr_reduct_type, 
+                /* left */ true,  /* right */ true  },
+            { /* void f(dim-list, T[]..[], T[]..[]) */ void_type, array_reduc_type, array_reduc_type, 
+                /* left */ true,  /* right */ true  },
+            { /* void f(dim-list, T(*)[]..[], T(*)[]..[]) */ void_type, ptr_array_reduc_type, ptr_array_reduc_type, 
+                /* left */ true,  /* right */ true  },
+        };
+
+        ObjectList<udr_valid_prototypes_t> plain_prototypes(valid_prototypes);
+
+        for (ObjectList<udr_valid_prototypes_t>::iterator it = plain_prototypes.begin();
+                it != plain_prototypes.end();
+                it++)
+        {
+            udr_valid_array_prototypes_t proto = { it->return_type };
+
+            for (int i = 0; i < num_dimensions; i++)
+            {
+                proto.parameters.append(Type::get_int_type());
+            }
+
+            proto.parameters.append(it->first_arg);
+            proto.parameters.append(it->second_arg);
+
+            proto.allows_right = it->allows_right;
+            proto.allows_left = it->allows_left;
+
+            result.append(proto);
+        }
+
+        return result;
+    }
+
     static ObjectList<udr_valid_prototypes_t> get_valid_prototypes_cxx(Type reduct_type)
     {
-        using OpenMP::UDRInfoItem;
-
         reduct_type = reduct_type.get_unqualified_type();
 
         Type void_type = Type::get_void_type();
@@ -981,6 +1148,29 @@ namespace TL
             PragmaCustomClause commutative_clause = construct.get_clause("commutative");
             bool is_commutative = commutative_clause.is_defined();
 
+            bool is_array = false;
+            int num_dimensions = 0;
+            PragmaCustomClause dimensions_clause = construct.get_clause("dimensions");
+
+            if (dimensions_clause.is_defined())
+            {
+                is_array = true;
+
+                ObjectList<Expression> expr_list = dimensions_clause.get_expression_list();
+                if (expr_list.size() != 1)
+                {
+                    running_error("%s: error: 'dimensions' clause must have only one argument\n",
+                            dimensions_clause.get_ast().get_locus().c_str());
+                }
+                bool valid = false;
+                num_dimensions = expr_list[0].evaluate_constant_int_expression(valid);
+                if (!valid)
+                {
+                    running_error("%s: error: 'dimensions' clause requires a constant-expression\n",
+                            dimensions_clause.get_ast().get_locus().c_str());
+                }
+            }
+
             for (ObjectList<Type>::iterator type_it = type_list.begin();
                     type_it != type_list.end();
                     type_it++)
@@ -1015,16 +1205,36 @@ namespace TL
                                     op_name.prettyprint().c_str());
                         }
 
-                        ObjectList<udr_valid_prototypes_t> valid_prototypes = get_valid_prototypes_c(reduction_type);
-
-                        if (!function_is_valid_udr_reductor_c(valid_prototypes, reductor_sym, assoc))
+                        if (!is_array)
                         {
-                            running_error("%s: error: reduction operator '%s' does not meet " 
-                                    "OpenMP reduction operator requirements", 
-                                    construct.get_ast().get_locus().c_str(),
-                                    op_name.prettyprint().c_str());
-                        }
+                            ObjectList<udr_valid_prototypes_t> valid_prototypes = get_valid_prototypes_c(reduction_type);
 
+                            if (!function_is_valid_udr_reductor_c(valid_prototypes, reductor_sym, assoc))
+                            {
+                                running_error("%s: error: reduction operator '%s' does not meet " 
+                                        "OpenMP reduction operator requirements", 
+                                        construct.get_ast().get_locus().c_str(),
+                                        op_name.prettyprint().c_str());
+                            }
+                        }
+                        else
+                        {
+                            ObjectList<udr_valid_array_prototypes_t> valid_prototypes 
+                                = get_valid_prototypes_arrays_c(reduction_type, num_dimensions);
+
+                            if (!function_is_valid_udr_reductor_c_array(reduction_type, 
+                                        valid_prototypes, 
+                                        reductor_sym, 
+                                        assoc, 
+                                        num_dimensions))
+                            {
+                                running_error("%s: error: reduction operator '%s' does not meet " 
+                                        "OpenMP reduction operator requirements for %d-dimensional array types", 
+                                        construct.get_ast().get_locus().c_str(),
+                                        op_name.prettyprint().c_str(),
+                                        num_dimensions);
+                            }
+                        }
                         op_symbol = reductor_sym;
                     }
 
@@ -1074,16 +1284,34 @@ namespace TL
                     {
                         if (!is_template)
                         {
-                            std::cerr << construct.get_ast().get_locus() << ": note: declaring user-defined reduction for type '"
-                                << reduction_type.get_declaration(scope_of_clause, "") << "'"
-                                << " and operator '" 
-                                << op_symbol.get_type().get_declaration(scope_of_clause, op_symbol.get_qualified_name(scope_of_clause)) << "'"
-                                << std::endl;
+                            if (!is_array)
+                            {
+                                std::cerr << construct.get_ast().get_locus() << ": note: declaring user-defined reduction for type '"
+                                    << reduction_type.get_declaration(scope_of_clause, "") << "'"
+                                    << " and operator '" 
+                                    << op_symbol.get_type().get_declaration(scope_of_clause, op_symbol.get_qualified_name(scope_of_clause)) << "'"
+                                    << std::endl;
 
-                            udr_info_scope.add_udr(UDRInfoItem::get_udr(reduction_type,
-                                        op_symbol, identity, assoc, is_commutative),
-                                    construct.get_ast().get_file(),
-                                    construct.get_ast().get_line());
+                                udr_info_scope.add_udr(UDRInfoItem::get_udr(reduction_type,
+                                            op_symbol, identity, assoc, is_commutative),
+                                        construct.get_ast().get_file(),
+                                        construct.get_ast().get_line());
+                            }
+                            else
+                            {
+                                std::cerr << construct.get_ast().get_locus() << ": note: declaring user-defined reduction for "
+                                    << num_dimensions << "-dimensional arrays of type '"
+                                    << reduction_type.get_declaration(scope_of_clause, "") << "'"
+                                    << " and operator '" 
+                                    << op_symbol.get_type().get_declaration(scope_of_clause, op_symbol.get_qualified_name(scope_of_clause)) << "'"
+                                    << std::endl;
+
+                                udr_info_scope.add_udr(UDRInfoItem::get_array_udr(reduction_type,
+                                            num_dimensions,
+                                            op_symbol, identity, assoc, is_commutative),
+                                        construct.get_ast().get_file(),
+                                        construct.get_ast().get_line());
+                            }
                         }
                         else
                         {
