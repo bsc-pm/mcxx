@@ -1185,6 +1185,14 @@ namespace TL
                     reduction_type = reduction_type.references_to();
                 }
 
+                if (reduction_type.is_function()
+                        || reduction_type.is_array())
+                {
+                    running_error("%s: error: '%s' is not a valid type for the declare reduction directive",
+                            construct.get_ast().get_locus().c_str(),
+                            reduction_type.get_declaration(construct.get_scope(), "").c_str());
+                }
+
                 UDRInfoScope udr_info_scope(scope_of_clause);
 
                 for (ObjectList<AST_t>::iterator op_it = op_args.begin();
