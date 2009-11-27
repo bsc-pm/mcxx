@@ -331,6 +331,18 @@ namespace TL
                     return (_udr_item.is_commutative());
                 }
 
+                //! States whether the reduction is on array types
+                bool is_array() const
+                {
+                    return _udr_item.is_array();
+                }
+
+                //! Returns the number of dimensions of the array
+                int num_dimensions() const
+                {
+                    return _udr_item.get_dimensions();
+                }
+
                 //! States whether this reduction symbol is faulty
                 /*! A faulty reduction symbol means that no reductor
                   was declared for it. Do not use it
@@ -345,6 +357,7 @@ namespace TL
                 {
                     return _udr_item.is_valid();
                 }
+
         };
 
         //! This class represents data sharing environment in a OpenMP construct

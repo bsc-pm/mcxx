@@ -1266,13 +1266,24 @@ namespace TL
 
                     if (!identity_clause.is_defined())
                     {
+                        Type real_type = reduction_type;
+
+                        if (is_array)
+                        {
+                            // Get the real array type
+                            for (int i = 0; i < num_dimensions; i++)
+                            {
+                                real_type = real_type.get_array_to();
+                            }
+                        }
+
                         C_LANGUAGE()
                         {
-                            identity = get_valid_zero_initializer(reduction_type);
+                            identity = get_valid_zero_initializer(real_type);
                         }
                         CXX_LANGUAGE()
                         {
-                            identity = get_valid_value_initializer(reduction_type);
+                            identity = get_valid_value_initializer(real_type);
                         }
                     }
 

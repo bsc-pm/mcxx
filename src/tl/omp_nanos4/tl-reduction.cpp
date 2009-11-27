@@ -31,26 +31,6 @@ namespace TL
 {
     namespace Nanos4
     {
-        /*
-           T f ([const] T , [const] T) -> red = f(red,elem)
-           T f ([const] T* , [const] T) -> red = f(&red,elem)
-           T f ([const] T* , [const] T*) -> red = f(&red,&elem)
-           T f ([const] T , [const] T*) -> red = f(red,&elem)
-           void f (T* , [const] T) -> f(&red,elem)
-           void f (T* , [const] T*) -> f(&red,&elem)
-
-           more for C++:
-
-           T f ([const] T& , [const] T) -> red = f(red,elem)
-           T f ([const] T , [const] T&) -> red = f(red,elem)
-           T f ([const] T& , [const] T&) -> red = f(red,elem)
-           T f ([const] T& , [const] T*) -> red = f(red,&elem)
-           T f ([const] T* , [const] T&) -> red = f(&red,elem)
-           void f (T& , [const] T) -> f(red,elem)
-           void f (T& , [const] T&) -> f(red,elem)
-           void f (T& , [const] T*) -> f(red,&elem)
-         */
-
         static Source perform_reduction_symbol_member_(
                 const OpenMP::ReductionSymbol& reduction_symbol,
                 Source reduction_var_name, 
@@ -111,18 +91,49 @@ namespace TL
             Source reduction_arg, partial_reduction_arg, reduction_return;
             if (op_type.returns().is_void())
             {
+                result
+                    << op_name << "("
+                    ;
+
+                if (reduction_symbol.is_array())
+                {
+                    Type current_type = reduction_symbol.get_symbol().get_type();
+                    // Arrays require more parameters
+                    for (int i = 0; i < reduction_symbol.num_dimensions(); i++)
+                    {
+                        if (!current_type.is_array()
+                                || !current_type.explicit_array_dimension())
+                        {
+                            internal_error("We expected an array type here but we got '%s'", 
+                                    print_declarator(current_type.get_internal_type()));
+                        }
+                        else
+                        {
+                            result << current_type.array_dimension().prettyprint()
+                                ;
+                            if ((i + 1) == reduction_symbol.num_dimensions())
+                                result << ","
+                                    ;
+                        }
+                        current_type = current_type.array_element();
+                    }
+                }
+
                 if (reduction_symbol.reductor_is_left_associative())
                 {
                     result
-                        << op_name << "(" << reduction_arg << ", " << partial_reduction_arg << ")"
+                        << reduction_arg << ", " << partial_reduction_arg 
                         ;
                 }
                 else
                 {
                     result
-                        << op_name << "(" << partial_reduction_arg << "," << reduction_arg << ")"
+                        << partial_reduction_arg << "," << reduction_arg
                         ;
                 }
+
+                result << ")"
+                    ;
             }
             else
             {
@@ -157,8 +168,11 @@ namespace TL
                 std::swap(reduction_index, partial_reduction_index);
             }
 
+            // FIXME - Prototype for arrays and arithmetic
+
             // If the type related to the reduction var is pointer, pass an address
-            if (parameters[reduction_index].is_pointer())
+            if (parameters[reduction_index].is_pointer()
+                    && !reduction_symbol.is_array())
             {
                 reduction_arg << "&" << reduction_var_name
                     ;
@@ -169,7 +183,8 @@ namespace TL
                     ;
             }
 
-            if (parameters[partial_reduction_index].is_pointer())
+            if (parameters[partial_reduction_index].is_pointer()
+                    && !reduction_symbol.is_array())
             {
                 partial_reduction_arg << "&(" << partial_reduction << ")"
                     ;
@@ -407,9 +422,21 @@ namespace TL
                     it != reduction_references.end();
                     it++)
             {
-                reduction_update
-                    << "rdv_" << it->get_symbol().get_name() << "[nth_thread_id] = "
-                    << "rdp_" << it->get_symbol().get_name() << ";";
+                if (!it->is_array())
+                {
+                    reduction_update
+                        << "rdv_" << it->get_symbol().get_name() << "[nth_thread_id] = "
+                        << "rdp_" << it->get_symbol().get_name() << ";";
+                }
+                else
+                {
+                    // FIXME - We can't simply memcpy in C++
+                    reduction_update
+                        << "__builtin_memcpy(rdv_" << it->get_symbol().get_name() << "[nth_thread_id],"
+                        << "rdp_" << it->get_symbol().get_name() << ","
+                        << "sizeof(rdp_" << it->get_symbol().get_name() << ")"
+                        << ");";
+                }
             }
 
             reduction_update
