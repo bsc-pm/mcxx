@@ -1188,7 +1188,7 @@ namespace TL
                 if (reduction_type.is_function()
                         || reduction_type.is_array())
                 {
-                    running_error("%s: error: '%s' is not a valid type for the declare reduction directive",
+                    running_error("%s: error: '%s' is not a valid type for a declare reduction directive",
                             construct.get_ast().get_locus().c_str(),
                             reduction_type.get_declaration(construct.get_scope(), "").c_str());
                 }
