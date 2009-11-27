@@ -437,7 +437,7 @@ namespace TL
                     else
                     {
                         // Set the symbol as having default data sharing
-                        data_sharing.set(sym, default_data_attr);
+                        data_sharing.set(sym, (DataAttribute)(default_data_attr | DA_IMPLICIT));
                     }
                 }
             }
@@ -527,7 +527,7 @@ namespace TL
                                 << "' does not have data sharing and 'default(none)' was specified. Assuming firstprivate "
                                 << std::endl;
 
-                            data_sharing.set(sym, DA_FIRSTPRIVATE);
+                            data_sharing.set(sym, (DataAttribute)(DA_FIRSTPRIVATE | DA_IMPLICIT));
                             already_nagged.append(sym);
                         }
                     }
@@ -543,21 +543,22 @@ namespace TL
                             // Stop once we see the innermost parallel
                             if (!enclosing->get_is_parallel())
                                 break;
+                            enclosing = enclosing->get_enclosing();
                         }
 
                         if (is_shared)
                         {
-                            data_sharing.set(sym, DA_SHARED);
+                            data_sharing.set(sym, (DataAttribute)(DA_SHARED | DA_IMPLICIT));
                         }
                         else
                         {
-                            data_sharing.set(sym, DA_FIRSTPRIVATE);
+                            data_sharing.set(sym, (DataAttribute)(DA_FIRSTPRIVATE | DA_IMPLICIT));
                         }
                     }
                     else
                     {
                         // Set the symbol as having the default data sharing
-                        data_sharing.set(sym, default_data_attr);
+                        data_sharing.set(sym, (DataAttribute)(default_data_attr | DA_IMPLICIT));
                     }
                 }
             }
@@ -666,6 +667,18 @@ namespace TL
         }
 
 
+        void Core::taskwait_handler_pre(PragmaCustomConstruct construct)
+        {
+            DataSharing& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+            _openmp_info->push_current_data_sharing(data_sharing);
+
+            get_dependences_info_clause(construct.get_clause("on"), data_sharing, DependencyItem::INPUT);
+        }
+
+        void Core::taskwait_handler_post(PragmaCustomConstruct construct)
+        {
+            _openmp_info->pop_current_data_sharing();
+        }
 
 #define EMPTY_HANDLERS(_name) \
         void Core::_name##_handler_pre(PragmaCustomConstruct) { } \
@@ -678,7 +691,6 @@ namespace TL
         EMPTY_HANDLERS(master)
         EMPTY_HANDLERS(critical)
         EMPTY_HANDLERS(flush)
-        EMPTY_HANDLERS(taskwait)
         EMPTY_HANDLERS(ordered)
     }
 }

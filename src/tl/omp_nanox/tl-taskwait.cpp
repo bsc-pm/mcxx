@@ -29,10 +29,65 @@ namespace TL
     {
         void OMPTransform::taskwait_postorder(PragmaCustomConstruct ctr)
         {
+            OpenMP::DataSharing& data_sharing = openmp_info->get_data_sharing(ctr.get_ast());
             Source src;
-            src 
-                << "nanos_wg_wait_completation(nanos_current_wd());"
-                ;
+
+            ObjectList<OpenMP::DependencyItem> dependences;
+            data_sharing.get_all_dependences(dependences);
+
+            if (!dependences.empty())
+            {
+                Source dependences_wait;
+                src << dependences_wait;
+
+                int num_dependences = dependences.size();
+                Source dependency_defs_wait, fake_struct_fields, dep_holder_init;
+                dependences_wait << "{"
+                    << "struct _dependence_holder {"
+                    << fake_struct_fields
+                    << "} _dep_holder = {" << dep_holder_init << "};"
+                    << "nanos_dependence_t _wait_dependences[" << num_dependences << "] = {"
+                    << dependency_defs_wait
+                    << "};"
+                    ;
+
+                for (ObjectList<OpenMP::DependencyItem>::iterator it = dependences.begin();
+                        it != dependences.end();
+                        it++)
+                {
+                    Symbol sym(it->get_base_symbol());
+                    fake_struct_fields
+                        << sym.get_type().get_pointer_to().get_declaration(sym.get_scope(), sym.get_name()) << ";"
+                        ;
+                    dep_holder_init << "&" << sym.get_name()
+                        ;
+                    dependency_defs_wait
+                        << "{"
+                        << "(void**)&_dep_holder." << sym.get_name() << ","
+                        << "{0, 0, 0},"
+                        << "sizeof(" << sym.get_name() << ")"
+                        << "}"
+                        ;
+
+                    if ((it + 1) != dependences.end())
+                    {
+                        dep_holder_init
+                            << ","
+                            ;
+                        dependency_defs_wait
+                            << ","
+                            ;
+                    }
+                }
+
+                dependences_wait << "nanos_wait_on(" << num_dependences << ", _wait_dependences);";
+                dependences_wait << "}";
+            }
+            else
+            {
+                src << "nanos_wg_wait_completation(nanos_current_wd());"
+                    ;
+            }
 
             AST_t tree = src.parse_statement(ctr.get_ast(), ctr.get_scope_link());
             ctr.get_ast().replace(tree);

@@ -86,11 +86,15 @@ namespace TL
         void DataSharing::get_all_symbols(DataAttribute data_attribute, 
                 ObjectList<Symbol>& sym_list)
         {
+            // Remove implicit bit
+            data_attribute = (DataAttribute)(data_attribute & ~DA_IMPLICIT);
             for (map_symbol_data_t::iterator it = _map->begin();
                     it != _map->end();
                     it++)
             {
-                if (it->second == data_attribute)
+                // Remove implicit bit
+                if ((DataAttribute)(it->second & ~DA_IMPLICIT) 
+                            == data_attribute)
                 {
                     sym_list.append(it->first);
                 }

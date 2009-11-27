@@ -75,8 +75,12 @@ namespace TL
             DA_COPYIN = BITMAP(7),
             //! Copy private data-sharing
             DA_COPYPRIVATE = BITMAP(8),
+
             //! Special to state no data sharing
-            DA_NONE = BITMAP(9)
+            DA_NONE = BITMAP(9),
+
+            //! States that the data sharing is implicit. Special attribute that makes no difference
+            DA_IMPLICIT = BITMAP(15)
         };
 
 #undef BITMAP

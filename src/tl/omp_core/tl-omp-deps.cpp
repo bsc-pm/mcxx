@@ -48,24 +48,18 @@ namespace TL { namespace OpenMP {
 
                 if ((data_sharing.get(base_sym) & DA_SHARED) != DA_SHARED)
                 {
-                    if ((data_sharing.get(base_sym) & DA_PRIVATE) != DA_PRIVATE)
+                    // If it is not implicitly set fail
+                    if (((data_sharing.get(base_sym) & DA_PRIVATE) == DA_PRIVATE)
+                        && ((data_sharing.get(base_sym) & DA_IMPLICIT) != DA_IMPLICIT))
                     {
-                        std::cerr << expr.get_ast().get_locus() 
-                            << ": warning: dependency specification '" << expr.prettyprint() 
-                            << "' has a related variable whose data sharing is not shared, setting it to shared" << std::endl;
-                        data_sharing.set(base_sym, DA_SHARED);
-                    }
-                    else
-                    {
-                        // std::cerr << expr.get_ast().get_locus() 
-                        //     << ": warning: dependency specification '" << expr.prettyprint() 
-                        //     << "' has a related variable whose data sharing is private, this is likely to fail" << std::endl;
                         running_error("%s: error: related variable '%s' of dependency specification '%s' is private, "
                                 "it must be shared if referenced in an 'input' or an 'output' clause\n",
                                 expr.get_ast().get_locus().c_str(),
                                 expr.prettyprint().c_str(),
                                 base_sym.get_name().c_str());
                     }
+                    // Set to shared
+                    data_sharing.set(base_sym, DA_SHARED);
                 }
 
                 data_sharing.add_dependence(dep_item);
@@ -81,18 +75,20 @@ namespace TL { namespace OpenMP {
     void Core::get_dependences_info(PragmaCustomConstruct construct, DataSharing& data_sharing)
     {
         PragmaCustomClause input_clause = construct.get_clause("input");
-        if (input_clause.is_defined())
-        {
-            ObjectList<Expression> input_expr = input_clause.get_expression_list();
-            add_data_sharings(input_expr, data_sharing, DependencyItem::INPUT);
-        }
+        get_dependences_info_clause(input_clause, data_sharing, DependencyItem::INPUT);
 
         PragmaCustomClause output_clause = construct.get_clause("output");
-        if (output_clause.is_defined())
-        {
-            ObjectList<Expression> output_expr = output_clause.get_expression_list();
-            add_data_sharings(output_expr, data_sharing, DependencyItem::OUTPUT);
-        }
+        get_dependences_info_clause(output_clause, data_sharing, DependencyItem::OUTPUT);
     }
 
+    void Core::get_dependences_info_clause(PragmaCustomClause clause,
+           DataSharing& data_sharing,
+           DependencyItem::DependencyAttribute dep_attr)
+    {
+        if (clause.is_defined())
+        {
+            ObjectList<Expression> expr_list = clause.get_expression_list();
+            add_data_sharings(expr_list, data_sharing, dep_attr);
+        }
+    }
 } }
