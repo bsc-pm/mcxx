@@ -320,7 +320,6 @@ namespace TL
         return expression;
     }
 
-
     Type Type::get_int_type(void)
     {
         return Type(::get_signed_int_type());

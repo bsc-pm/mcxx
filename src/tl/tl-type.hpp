@@ -339,6 +339,7 @@ namespace TL
             bool explicit_array_dimension() const;
             //! Returns the expression of the array dimension
             AST_t array_dimension() const;
+
             //! [C only] States whether current array is a VLA
             bool array_is_vla() const;
 

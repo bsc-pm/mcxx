@@ -27,6 +27,76 @@ namespace TL
 {
     namespace Nanos4
     {
+        static void generate_static_array_initializer(Source& init, 
+                ObjectList<int>::iterator current,
+                ObjectList<int>::iterator end,
+                Source element_level_initializer)
+        {
+            if (current == end)
+            {
+                init << element_level_initializer;
+            }
+            else
+            {
+                init << "{";
+                Source sub_init;
+                generate_static_array_initializer(sub_init,
+                        current + 1,
+                        end,
+                        element_level_initializer);
+                for (int i = 0; i < *current; i++)
+                {
+                    init << sub_init;
+                    if ((i + 1) != *current)
+                    {
+                        init << ",";
+                    }
+                }
+                init << "}";
+            }
+        }
+
+        static void generate_dynamic_array_initializer(Source& init,
+                Type type,
+                Source array_name,
+                Source element_level_initializer,
+                int n = 0)
+        {
+            if (!type.is_array())
+            {
+                Source array_item;
+
+                init << array_item << "=" << element_level_initializer << ";";
+
+                array_item << array_name;
+                for (int i = 0; i < n; i++)
+                {
+                    array_item << "[_i" << i << "]";
+                }
+            }
+            else
+            {
+                Source inner_init;
+
+                init
+                    << "{"
+                    << "int _i" << n << ";"
+                    << "for (_i" << n << " = 0; _i" << n << " < (" << type.array_dimension().prettyprint() << "); _i" << n << "++)"
+                    << "{"
+                    <<     inner_init
+                    << "}"
+                    << "}"
+                    ;
+
+                generate_dynamic_array_initializer(inner_init,
+                        type.array_element(),
+                        array_name,
+                        element_level_initializer,
+                        n + 1);
+            }
+        }
+
+
         Source OpenMPTransform::get_outline_common(
                 FunctionDefinition function_definition,
                 Source& specific_body,
@@ -374,7 +444,7 @@ namespace TL
             {
                 Symbol sym = it->get_symbol();
                 Type type = sym.get_type();
-                
+
                 bool is_variably_modified = false;
 
                 if (type.is_variably_modified())
@@ -400,41 +470,112 @@ namespace TL
                     }
                 }
 
-                Source init;
+                Source static_initializer, dynamic_initializer;
 
                 private_declarations
                     << comment("Reduction private entity : 'rdp_" + sym.get_name() + "'")
                     << type.get_declaration(
                             construct.get_scope(),
                             "rdp_" + sym.get_name())
-                    << init
+                    << static_initializer
                     << ";"
+                    << dynamic_initializer
                     ;
 
-                if (!is_variably_modified)
+                if (!it->neuter_is_empty())
                 {
-                    if (it->neuter_is_constructor())
+                    if (!it->is_array())
                     {
-                        init << it->get_neuter()
-                            ;
-                    }
-                    else if (it->neuter_is_empty())
-                    {
-                        // Do nothing for empty initializers
+                        if (it->neuter_is_constructor())
+                        {
+                            static_initializer << it->get_neuter()
+                                ;
+                        }
+                        else
+                        {
+                            static_initializer << " = " << it->get_neuter()
+                                ;
+                        }
                     }
                     else
                     {
-                        init << " = " << it->get_neuter()
-                            ;
+                        Source element_level_initializer;
+
+                        if (it->neuter_is_constructor())
+                        {
+                            // Prepend with the constructor name
+                            element_level_initializer
+                                << sym.get_type().get_declaration(construct.get_scope(), "")
+                                << it->get_neuter();
+                        }
+                        else
+                        {
+                            element_level_initializer 
+                                << it->get_neuter();
+                        }
+                        if (!is_variably_modified)
+                        {
+                            ObjectList<int> dimension_sizes(it->num_dimensions(), 0);
+                            Type array_type = sym.get_type();
+
+                            for (int i = 0; i < it->num_dimensions(); i++)
+                            {
+                                Expression expr(array_type.array_dimension(),
+                                        construct.get_scope_link());
+                                bool valid;
+                                dimension_sizes[i] = expr.evaluate_constant_int_expression(valid);
+                                if (!valid)
+                                {
+                                    internal_error("Error when evaluating constant expression '%s' of non vla array!\n", 
+                                            expr.prettyprint().c_str());
+                                }
+                            }
+
+                            static_initializer << " = ";
+
+                            generate_static_array_initializer(static_initializer, 
+                                    dimension_sizes.begin(), 
+                                    dimension_sizes.end(), 
+                                    element_level_initializer);
+                        }
+                        else
+                        {
+                            dynamic_initializer
+                                << comment("Initializing VLA 'rdp_" + sym.get_name() + "'")
+                                ;
+                            generate_dynamic_array_initializer(
+                                    dynamic_initializer,
+                                    type,
+                                    Source("rdp_" + sym.get_name()),
+                                    element_level_initializer);
+                        }
                     }
                 }
-                else
-                {
-                    std::cerr << construct.get_ast().get_locus() << ": warning: reduction symbol '" 
-                        << sym.get_name()
-                        << "' of variable-modified type cannot be initialized yet" 
-                        << std::endl;
-                }
+
+                // if (!is_variably_modified)
+                // {
+                //     if (it->neuter_is_constructor())
+                //     {
+                //         static_initializer << it->get_neuter()
+                //             ;
+                //     }
+                //     else if (it->neuter_is_empty())
+                //     {
+                //         // Do nothing for empty initializers
+                //     }
+                //     else
+                //     {
+                //         static_initializer << " = " << it->get_neuter()
+                //             ;
+                //     }
+                // }
+                // else
+                // {
+                //     std::cerr << construct.get_ast().get_locus() << ": warning: reduction symbol '" 
+                //         << sym.get_name()
+                //         << "' of variable-modified type cannot be initialized yet" 
+                //         << std::endl;
+                // }
 
             }
 
