@@ -633,6 +633,14 @@ static void build_scope_using_declaration(AST a, decl_context_t decl_context)
             prettyprint_in_buffer(a), 
             ast_location(a));
 
+    type_t* current_class_type = NULL;
+    char is_class_scope = 0;
+    if (decl_context.current_scope->kind == CLASS_SCOPE)
+    {
+        current_class_type = decl_context.current_scope->class_type;
+        is_class_scope = 1;
+    }
+
     while (used_entity != NULL)
     {
         // Now add all the used entities to the current scope
@@ -641,6 +649,31 @@ static void build_scope_using_declaration(AST a, decl_context_t decl_context)
         if (entry->kind != SK_DEPENDENT_ENTITY)
         {
             insert_entry(decl_context.current_scope, entry);
+        }
+
+        if (is_class_scope)
+        {
+            if (entry->entity_specs.is_member
+                    && !is_dependent_type(entry->entity_specs.class_type))
+            {
+                if (!class_type_is_base(entry->entity_specs.class_type, current_class_type))
+                {
+                    char is_dependent = 0;
+                    int max_qualif = 0;
+                    fprintf(stderr, "%s: warning: '%s' is not a member of a base class\n",
+                            ast_location(a),
+                            get_fully_qualified_symbol_name(entry, 
+                                decl_context,
+                                &is_dependent, 
+                                &max_qualif));
+                }
+
+                // If we are introducing special members, introduce also to current class type
+                if (entry->entity_specs.is_conversion)
+                {
+                    class_type_add_conversion_function(current_class_type, entry);
+                }
+            }
         }
 
         used_entity = used_entity->next;
@@ -3582,10 +3615,18 @@ static void build_scope_declarator_with_parameter_context(AST a,
                 if (conversion_function_id != NULL)
                 {
                     // Conversion functions do not haver parameters and just return their conversion
+                    cv_qualifier_t cv_qualif = get_cv_qualifier(*declarator_type);
+
                     type_t* conversion_function_type;
                     get_conversion_function_name(decl_context, conversion_function_id, &conversion_function_type);
                     *declarator_type = get_new_function_type(conversion_function_type, 
                             /*parameter_info*/ NULL, /*num_parameters=*/0);
+
+                    // Keep the const-qualification in the crafted type
+                    if ((cv_qualif & CV_CONST) == CV_CONST)
+                    {
+                        *declarator_type = get_const_qualified_type(*declarator_type);
+                    }
                 }
             }
         }
