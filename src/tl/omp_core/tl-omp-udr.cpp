@@ -74,7 +74,8 @@ namespace TL
             {
                 element_type = element_type.array_element();
             }
-            else if (i == (num_dimensions - 1) && element_type.is_pointer())
+            // The outermost dimension can be a pointer
+            else if (i == 0 && element_type.is_pointer())
             {
                 element_type = element_type.points_to();
             }

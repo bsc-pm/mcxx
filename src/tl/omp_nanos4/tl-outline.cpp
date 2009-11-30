@@ -374,6 +374,31 @@ namespace TL
             {
                 Symbol sym = it->get_symbol();
                 Type type = sym.get_type();
+                
+                bool is_variably_modified = false;
+
+                if (type.is_variably_modified())
+                {
+                    is_variably_modified = true;
+                    bool found = false;
+                    for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
+                            it != parameter_info_list.end();
+                            it++)
+                    {
+                        if (it->symbol == sym)
+                        {
+                            // Use the parameter type instead, but ignore an
+                            // additional pointer we added for proper casting
+                            type = it->type_in_outline.points_to();
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found)
+                    {
+                        internal_error("Missing VLA type in parameter info for symbol '%s'!", sym.get_name().c_str());
+                    }
+                }
 
                 Source init;
 
@@ -386,20 +411,31 @@ namespace TL
                     << ";"
                     ;
 
-                if (it->neuter_is_constructor())
+                if (!is_variably_modified)
                 {
-                    init << it->get_neuter()
-                        ;
-                }
-                else if (it->neuter_is_empty())
-                {
-                    // Do nothing for empty initializers
+                    if (it->neuter_is_constructor())
+                    {
+                        init << it->get_neuter()
+                            ;
+                    }
+                    else if (it->neuter_is_empty())
+                    {
+                        // Do nothing for empty initializers
+                    }
+                    else
+                    {
+                        init << " = " << it->get_neuter()
+                            ;
+                    }
                 }
                 else
                 {
-                    init << " = " << it->get_neuter()
-                        ;
+                    std::cerr << construct.get_ast().get_locus() << ": warning: reduction symbol '" 
+                        << sym.get_name()
+                        << "' of variable-modified type cannot be initialized yet" 
+                        << std::endl;
                 }
+
             }
 
             // COPYIN

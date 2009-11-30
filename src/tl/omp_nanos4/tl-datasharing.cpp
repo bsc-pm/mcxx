@@ -37,7 +37,8 @@ namespace TL
 
         static void vla_handling(ObjectList<ParameterInfo>& parameter_info, 
                 ReplaceIdExpression& result,
-                ScopeLink sl, bool disable_restrict_pointers);
+                ScopeLink sl, bool disable_restrict_pointers,
+                const ObjectList<OpenMP::ReductionSymbol>& reduction_references);
 
         ReplaceIdExpression OpenMPTransform::set_replacements(FunctionDefinition function_definition,
                 Statement construct_body,
@@ -295,7 +296,10 @@ namespace TL
 
             C_LANGUAGE()
             {
-                vla_handling(parameter_info, result, construct_body.get_scope_link(), disable_restrict_pointers);
+                vla_handling(parameter_info, result, 
+                        construct_body.get_scope_link(), 
+                        disable_restrict_pointers,
+                        reduction_references);
             }
 
             return result;
@@ -377,7 +381,8 @@ namespace TL
 
         static void vla_handling(ObjectList<ParameterInfo>& parameter_info, 
                 ReplaceIdExpression& result,
-                ScopeLink sl, bool disable_restrict_pointers)
+                ScopeLink sl, bool disable_restrict_pointers,
+                const ObjectList<OpenMP::ReductionSymbol>& reduction_references)
         {
             // Now review each parameter to see whether it is a
             // variable-sized type (so, a VLA or containing one)
@@ -509,9 +514,13 @@ namespace TL
                     param_info.parameter_name = "_vla_" + param_info.parameter_name;
                     param_info.type_in_outline = new_type_outline;
 
-                    // Override the replacement
-                    result.add_replacement(param_info.symbol, "(*" + param_info.symbol.get_name() + ")", 
-                            point_of_decl, sl);
+                    // Override the replacement only if it was not a reduction
+                    // because reductions have their own special naming
+                    if (!reduction_references.contains(functor(&OpenMP::ReductionSymbol::get_symbol), param_info.symbol))
+                    {
+                        result.add_replacement(param_info.symbol, "(*" + param_info.symbol.get_name() + ")", 
+                                point_of_decl, sl);
+                    }
                 }
             }
             parameter_info.append(new_parameters);
