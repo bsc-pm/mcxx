@@ -332,6 +332,7 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
         case AST_FUNCTION_CALL :
         case AST_POINTER_TO_MEMBER :
         case AST_POINTER_TO_POINTER_MEMBER :
+        case AST_VLA_EXPRESSION:
             {
                 literal_value_t dependent_entity;
                 memset(&dependent_entity, 0, sizeof(dependent_entity));

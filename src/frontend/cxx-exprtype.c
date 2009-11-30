@@ -1164,6 +1164,17 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 result = check_for_pseudo_destructor_call(expression, decl_context);
                 break;
             }
+        case AST_VLA_EXPRESSION :
+            {
+                // This is not actually an expression per se, but it appears in
+                // a place where 99% of the time an expression is used instead,
+                // so instead of filling the code with checks for this node
+                // type, accept it in the club of expressions with a type of
+                // signed int and a non constant expression
+                result = 1;
+                ast_set_expression_type(expression, get_signed_int_type());
+                break;
+            }
         case AST_GCC_POSTFIX_EXPRESSION :
             {
                 result = check_for_type_id_tree(ASTSon0(expression), decl_context);

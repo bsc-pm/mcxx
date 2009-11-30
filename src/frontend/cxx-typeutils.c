@@ -4988,6 +4988,12 @@ char is_dependent_expression(AST expression, decl_context_t decl_context)
 
                 return 0;
             }
+        case AST_VLA_EXPRESSION:
+            {
+                // This is pointless here since this function is meant for C++
+                // and this is a C99-only feature
+                return 0;
+            }
         case AST_TYPENAME_EXPLICIT_TYPE_CONVERSION :
             {
                 internal_error("Yet to implement", 0);
