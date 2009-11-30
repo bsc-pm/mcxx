@@ -29,8 +29,6 @@ DIST_SUBDIRS=omp_core \
              omp_nanox \
              omp_nanos4 \
              superscalar \
-             acotes \
-             acotes-msf \
              instr \
              instr_pthreads \
              stm_func \

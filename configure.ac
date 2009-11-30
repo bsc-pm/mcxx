@@ -329,172 +329,6 @@ AC_SUBST([MINTAKA_LIBS])
 
 dnl --------------------- End Support for Mintaka ---------------------
 
-dnl --------------------- Acotes support ---------------------
-
-is_enabled_tl_acotes="no"
-
-acolib_include=""
-acolib_lib=""
-ACOLIB_INCLUDES=""
-ACOLIB_LIBS=""
-
-AC_MSG_CHECKING([if enabled ACOTES TL support])
-AC_ARG_ENABLE([tl-acotes],
-  AS_HELP_STRING([--enable-tl-acotes], [Enables generation of ACOTES TL Support]),
-  [
-    if test x$enableval = xyes -o x$enableval = x;
-    then
-        if test x$is_enabled_tl_instr = xyes; 
-        then
-          is_enabled_tl_acotes="yes"
-          AC_MSG_RESULT([yes])
-        else
-          AC_MSG_RESULT([no, missing instrumentation support])
-          AC_MSG_ERROR([Acolib support requires both '--enable-tl-instrumentation' and '--with-mintaka=dir'. See --help.])
-        fi
-    else if test x$enableval = xno;
-         then
-            AC_MSG_RESULT([no])
-            is_enabled_tl_acotes="no"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-      is_enabled_tl_acotes="no"
-      AC_MSG_RESULT([no])
-  ]
-)
-
-if test x$is_enabled_tl_acotes = xyes;
-then
-   COMPILER_NAMES="${COMPILER_NAMES} acotescc"
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.acotes"
-
-   TLEXTENSIONS="${TLEXTENSIONS} acotes"
-
-   AC_ARG_WITH([acolib],
-           AS_HELP_STRING([--with-acolib=dir], [Directory of Acolib installation]),
-           [
-            acolib_include="${withval}/include"
-            acolib_lib="${withval}/lib"
-           ]
-   )
-
-   AC_ARG_WITH([acolib-include],
-           AS_HELP_STRING([--with-acolib-include=dir], [Directory of Acolib headers]),
-           [
-            acolib_include="${withval}"
-           ]
-   )
-
-   AC_ARG_WITH([acolib-lib],
-           AS_HELP_STRING([--with-acolib-lib=dir], [Directory of Acolib libraries]),
-           [
-            acolib_lib="${withval}"
-           ]
-   )
-
-   if test x$mintaka_include = x -o x$mintaka_lib = x;
-   then
-      AC_MSG_ERROR([Acolib support requires '--with-mintaka=dir'. See --help.])
-   fi
-
-   if test x$acolib_include = x -o x$acolib_lib = x;
-   then
-      AC_MSG_ERROR([Acolib support requires '--with-acolib=dir'. See --help.])
-   fi
-
-   ACOLIB_INCLUDES="${acolib_include}"
-   ACOLIB_LIBS="${acolib_lib}"
-fi
-
-AC_SUBST([ACOLIB_INCLUDES])
-AC_SUBST([ACOLIB_LIBS])
-
-dnl --------------------- End of Acotes support ---------------------
-
-dnl --------------------- Acotes-MSF support ---------------------
-
-is_enabled_tl_acotes_msf="no"
-
-acotes_msf_include=""
-acotes_msf_lib=""
-ACOTES_MSF_INCLUDES=""
-ACOTES_MSF_LIBS=""
-
-AC_MSG_CHECKING([if enabled ACOTES-MSF TL support])
-AC_ARG_ENABLE([tl-acotes-msf],
-  AS_HELP_STRING([--enable-tl-acotes-msf], [Enables generation of ACOTES-MSF TL Support]),
-  [
-    if test x$enableval = xyes -o x$enableval = x;
-    then
-        is_enabled_tl_acotes_msf="yes"
-        AC_MSG_RESULT([yes])
-    else if test x$enableval = xno;
-         then
-            AC_MSG_RESULT([no])
-            is_enabled_tl_acotes_msf="no"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-      is_enabled_tl_acotes_msf="no"
-      AC_MSG_RESULT([no])
-  ]
-)
-
-if test x$is_enabled_tl_acotes_msf = xyes;
-then
-   COMPILER_NAMES="${COMPILER_NAMES} acotes-msfcc"
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.acotes-msf"
-
-   TLEXTENSIONS="${TLEXTENSIONS} acotes-msf"
-
-   AC_ARG_WITH([acotes-msf],
-           AS_HELP_STRING([--with-acotes-msf=dir], [Directory of Acotes-MSF installation]),
-           [
-            acotes_msf_include="${withval}/include"
-            acotes_msf_lib="${withval}/lib"
-           ]
-   )
-
-   AC_ARG_WITH([acotes-msf-include],
-           AS_HELP_STRING([--with-acotes-msf-include=dir], [Directory of Acotes-MSF headers]),
-           [
-            acotes_msf_include="${withval}"
-           ]
-   )
-
-   AC_ARG_WITH([acotes-msf-lib],
-           AS_HELP_STRING([--with-acotes-msf-lib=dir], [Directory of Acotes-MSF libraries]),
-           [
-            acotes_msf_lib="${withval}"
-           ]
-   )
-
-   if test x$mintaka_include = x -o x$mintaka_lib = x;
-   then
-      AC_MSG_ERROR([Acotes-MSF support requires '--with-mintaka=dir'. See --help.])
-   fi
-
-   if test x$acotes_msf_include = x -o x$acotes_msf_lib = x;
-   then
-      AC_MSG_ERROR([Acotes-MSF support requires '--with-acotes-msf=dir'. See --help.])
-   fi
-
-   ACOTES_MSF_INCLUDES="${acotes_msf_include}"
-   ACOTES_MSF_LIBS="${acotes_msf_lib}"
-fi
-
-AC_SUBST([ACOTES_MSF_INCLUDES])
-AC_SUBST([ACOTES_MSF_LIBS])
-
-dnl --------------------- End of Acotes MSF support ---------------------
-
 dnl --------------------- Support for Nebelung ---------------------
 
 is_enabled_tl_nebelung="no"
@@ -1097,8 +931,6 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp_nanos4/Makefile 
            src/tl/instr/Makefile 
            src/tl/instr_pthreads/Makefile 
-           src/tl/acotes/Makefile
-           src/tl/acotes-msf/Makefile
            src/tl/stm_func/Makefile
            src/tl/testing/Makefile
            src/tl/testing/sizeof/Makefile
@@ -1151,20 +983,6 @@ if test x$is_enabled_tl_instr = xyes;
 then
   echo "   Mintaka includes :" $mintaka_include
   echo "   Mintaka libraries:" $mintaka_lib
-fi
-echo ""
-echo " * ACOTES :" $is_enabled_tl_acotes
-if test x$is_enabled_tl_acotes = xyes;
-then
-  echo "   Acolib includes :" $acolib_include
-  echo "   Acolib libraries:" $acolib_lib
-fi
-echo ""
-echo " * Acotes-MSF :" $is_enabled_tl_acotes_msf
-if test x$is_enabled_tl_acotes_msf = xyes;
-then
-  echo "   Acotes-MSF includes :" $acotes_msf_include
-  echo "   Acotes-MSF libraries:" $acotes_msf_lib
 fi
 echo ""
 echo " * Nebelung :" $is_enabled_tl_nebelung
