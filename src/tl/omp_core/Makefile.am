@@ -40,9 +40,12 @@ EXTRA_DIST += tl-omp-constructs.def
 libtlomp_core_la_SOURCES = \
    tl-omp-core.hpp \
    tl-omp-core.cpp \
-   tl-omp-deps.cpp \
    tl-omp.cpp \
    tl-omp.hpp \
    tl-omp-udr.hpp \
    tl-omp-udr.cpp \
+   tl-omp-deps.hpp \
+   tl-omp-deps.cpp \
+   tl-omp-tasks.hpp \
+   tl-omp-tasks.cpp \
    $(END)

@@ -1,4 +1,5 @@
 #include "tl-omp-core.hpp"
+#include "tl-omp-deps.hpp"
 
 namespace TL { namespace OpenMP {
 
