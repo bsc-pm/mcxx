@@ -650,6 +650,12 @@ namespace TL
 
         void Core::task_handler_pre(PragmaCustomConstruct construct)
         {
+            if (!Statement::predicate(construct.get_declaration()))
+            {
+                task_function_handler_pre(construct);
+                return;
+            }
+
             DataSharing& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
             _openmp_info->push_current_data_sharing(data_sharing);
 
@@ -663,6 +669,12 @@ namespace TL
 
         void Core::task_handler_post(PragmaCustomConstruct construct)
         {
+            if (!Statement::predicate(construct.get_declaration()))
+            {
+                // Do nothing for this case
+                return;
+            }
+
             _openmp_info->pop_current_data_sharing();
         }
 

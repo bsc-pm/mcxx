@@ -74,6 +74,8 @@ namespace TL
                 void common_for_handler(PragmaCustomConstruct ctr, DataSharing& data_sharing);
                 void common_workshare_handler(PragmaCustomConstruct construct, DataSharing& data_sharing);
 
+                // This member function is implemented in tl-omp-tasks.cpp
+                void task_function_handler_pre(PragmaCustomConstruct construct);
             public:
                 Core();
 
