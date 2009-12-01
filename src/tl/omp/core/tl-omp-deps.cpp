@@ -80,6 +80,9 @@ namespace TL { namespace OpenMP {
 
         PragmaCustomClause output_clause = construct.get_clause("output");
         get_dependences_info_clause(output_clause, data_sharing, DEP_DIR_OUTPUT);
+
+        PragmaCustomClause inout_clause = construct.get_clause("inout");
+        get_dependences_info_clause(inout_clause, data_sharing, DEP_DIR_INOUT);
     }
 
     void Core::get_dependences_info_clause(PragmaCustomClause clause,
