@@ -136,6 +136,12 @@ namespace TL
               this function to retrieve the underlying declaration
               */
             Declaration get_simple_declaration();
+
+            //! It states this is a expression-statement
+            bool is_expression();
+
+            //! Returns the related expression of this expression-statement
+            Expression get_expression();
     };
     
     //! This LangConstruct wraps a for-statement in the code

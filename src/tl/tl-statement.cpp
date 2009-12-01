@@ -388,6 +388,18 @@ namespace TL
         return result;
     }
 
+    bool Statement::is_expression()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_EXPRESSION_STATEMENT);
+        return b;
+    }
+
+    Expression Statement::get_expression()
+    {
+        // It turns that expression statements can be safely wrapped in Expression already
+        return Expression(_ref, _scope_link);
+    }
+
     bool Statement::is_labeled()
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_LABELED_STATEMENT);
@@ -618,6 +630,4 @@ namespace TL
         AST_t tree = _ref.get_attribute(LANG_GOTO_STATEMENT_LABEL);
         return tree.prettyprint();
     }
-
-
 }
