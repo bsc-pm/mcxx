@@ -95,7 +95,9 @@ namespace TL
                     << op_name << "("
                     ;
 
-                if (reduction_symbol.is_array())
+                // Pass the dimensions at the beginning
+                if (reduction_symbol.is_array()
+                        && op_type.parameters()[0].is_signed_int())
                 {
                     Type current_type = reduction_symbol.get_symbol().get_type();
                     // Arrays require more parameters
@@ -109,11 +111,8 @@ namespace TL
                         }
                         else
                         {
-                            result << current_type.array_dimension().prettyprint()
+                            result << current_type.array_dimension().prettyprint() << ","
                                 ;
-                            if ((i + 1) == reduction_symbol.num_dimensions())
-                                result << ","
-                                    ;
                         }
                         current_type = current_type.array_element();
                     }
@@ -130,6 +129,32 @@ namespace TL
                     result
                         << partial_reduction_arg << "," << reduction_arg
                         ;
+                }
+
+                // Pass the dimensions at the end
+                if (reduction_symbol.is_array()
+                        && op_type.parameters()[op_type.parameters().size() - 1].is_signed_int())
+                {
+                    Type current_type = reduction_symbol.get_symbol().get_type();
+                    // Arrays require more parameters
+                    for (int i = 0; i < reduction_symbol.num_dimensions(); i++)
+                    {
+                        if (!current_type.is_array()
+                                || !current_type.explicit_array_dimension())
+                        {
+                            internal_error("We expected an array type here but we got '%s'", 
+                                    print_declarator(current_type.get_internal_type()));
+                        }
+                        else
+                        {
+                            result << current_type.array_dimension().prettyprint()
+                                ;
+                            if ((i + 1) != reduction_symbol.num_dimensions())
+                                result << ","
+                                    ;
+                        }
+                        current_type = current_type.array_element();
+                    }
                 }
 
                 result << ")"

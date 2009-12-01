@@ -148,6 +148,43 @@ namespace TL
             }
         }
 
+        // If we have not returned yet, try the other way round, with integer dimensions at the end
+        for (ObjectList<udr_valid_array_prototypes_t>::iterator it = valid_prototypes.begin(); 
+                it != valid_prototypes.end(); 
+                it++)
+        {
+            if (!return_type.is_same_type(it->return_type))
+                continue;
+
+            bool valid = true;
+            for (int i = parameter_types.size() - 2; i < parameter_types.size(); i++)
+            {
+                if (!parameter_types[i].is_same_type(get_signed_int_type()))
+                {
+                    valid = false;
+                    break;
+                }
+            }
+            if (!valid)
+                continue;
+
+            if (equivalent_array_types(parameter_types[0], reduct_type, num_dimensions)
+                    && equivalent_array_types(parameter_types[1], reduct_type, num_dimensions)
+                    && ((assoc == UDRInfoItem::UNDEFINED)
+                        || (assoc == UDRInfoItem::RIGHT && it->allows_right)
+                        || (assoc == UDRInfoItem::LEFT && it->allows_left)))
+            {
+                if (assoc == UDRInfoItem::UNDEFINED)
+                {
+                    if (it->allows_left)
+                        assoc = UDRInfoItem::LEFT;
+                    else
+                        assoc = UDRInfoItem::RIGHT;
+                }
+                return true;
+            }
+        }
+
         return false;
     }
 
@@ -383,6 +420,27 @@ namespace TL
 
             proto.parameters.append(it->first_arg);
             proto.parameters.append(it->second_arg);
+
+            proto.allows_right = it->allows_right;
+            proto.allows_left = it->allows_left;
+
+            result.append(proto);
+        }
+
+        // List of prototypes where the dim-list is at the end
+        for (ObjectList<udr_valid_prototypes_t>::iterator it = plain_prototypes.begin();
+                it != plain_prototypes.end();
+                it++)
+        {
+            udr_valid_array_prototypes_t proto = { it->return_type };
+
+            proto.parameters.append(it->first_arg);
+            proto.parameters.append(it->second_arg);
+
+            for (int i = 0; i < num_dimensions; i++)
+            {
+                proto.parameters.append(Type::get_int_type());
+            }
 
             proto.allows_right = it->allows_right;
             proto.allows_left = it->allows_left;
