@@ -582,6 +582,8 @@ namespace TL
         public:
             virtual bool do_(AST_t& ast) const
             {
+                if (!ast.is_valid())
+                    return false;
                 TL::Bool attr = ast.get_attribute(_ATTR);
                 return attr;
             }
@@ -612,6 +614,8 @@ namespace TL
 
             virtual bool do_(AST_t& ast) const
             {
+                if (!ast.is_valid())
+                    return false;
                 return TL::Bool(ast.get_attribute(_attr_name));
             }
     };
