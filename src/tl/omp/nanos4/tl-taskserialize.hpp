@@ -49,6 +49,22 @@ namespace TL
                 }
         };
 
+        class AnyOpenMPConstructButSynchronizations : public Predicate<AST_t>
+        {
+            private:
+                ScopeLink _sl;
+            public:
+                AnyOpenMPConstructButSynchronizations(ScopeLink sl)
+                    : _sl(sl) { }
+
+                virtual bool do_(AST_t& a) const
+                {
+                    return is_pragma_custom("omp", a, _sl)
+                        && !is_pragma_custom_construct("omp", "critical", a, _sl)
+                        && !is_pragma_custom_construct("omp", "atomic", a, _sl);
+                }
+        };
+
         class TaskConstructPred : public Predicate<AST_t>
         {
             private:

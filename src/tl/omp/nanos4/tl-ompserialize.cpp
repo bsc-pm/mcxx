@@ -309,8 +309,9 @@ namespace TL
                         // Traversal
                         DepthTraverse depth_traverse;
 
-                        // Now remove any OpenMP vestige
-                        AnyOpenMPConstruct any_openmp_construct_pred(function_def.get_scope_link());
+                        // Now remove any OpenMP vestige except some synchronizations
+                        AnyOpenMPConstructButSynchronizations
+                            any_openmp_construct_pred(function_def.get_scope_link());
                         RemoveOpenMP remove_openmp_traverse_functor;
                         depth_traverse.add_predicate(any_openmp_construct_pred, remove_openmp_traverse_functor);
 
