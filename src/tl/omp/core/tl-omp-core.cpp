@@ -655,7 +655,7 @@ namespace TL
 
         void Core::task_handler_pre(PragmaCustomConstruct construct)
         {
-            if (!Statement::predicate(construct.get_declaration()))
+            if (construct.get_declaration().is_valid())
             {
                 task_function_handler_pre(construct);
                 return;
