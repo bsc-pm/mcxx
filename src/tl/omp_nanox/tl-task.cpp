@@ -31,16 +31,16 @@ using namespace TL::Nanox;
 
 void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 {
-    OpenMP::DataSharing& data_sharing = openmp_info->get_data_sharing(ctr.get_ast());
+    OpenMP::DataSharingEnvironment& data_sharing = openmp_info->get_data_sharing(ctr.get_ast());
 
     ObjectList<Symbol> shared_symbols;
-    data_sharing.get_all_symbols(OpenMP::DA_SHARED, shared_symbols);
+    data_sharing.get_all_symbols(OpenMP::DS_SHARED, shared_symbols);
 
     ObjectList<Symbol> firstprivate_symbols;
-    data_sharing.get_all_symbols(OpenMP::DA_FIRSTPRIVATE, firstprivate_symbols);
+    data_sharing.get_all_symbols(OpenMP::DS_FIRSTPRIVATE, firstprivate_symbols);
 
     ObjectList<Symbol> private_symbols;
-    data_sharing.get_all_symbols(OpenMP::DA_PRIVATE, private_symbols);
+    data_sharing.get_all_symbols(OpenMP::DS_PRIVATE, private_symbols);
     Source private_decls;
     for (ObjectList<Symbol>::iterator it = private_symbols.begin();
             it != private_symbols.end();
@@ -166,8 +166,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         {
             Source dependency_flags;
             dependency_flags << "{";
-            OpenMP::DependencyItem::DependencyAttribute attr = it->get_kind();
-            if ((attr & OpenMP::DependencyItem::INPUT) == OpenMP::DependencyItem::INPUT)
+            OpenMP::DependencyDirection attr = it->get_kind();
+            if ((attr & OpenMP::DEP_DIR_INPUT) == OpenMP::DEP_DIR_INPUT)
             {
                 dependency_flags << "1,"; 
             }
@@ -175,7 +175,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             {
                 dependency_flags << "0,"; 
             }
-            if ((attr & OpenMP::DependencyItem::OUTPUT) == OpenMP::DependencyItem::OUTPUT)
+            if ((attr & OpenMP::DEP_DIR_OUTPUT) == OpenMP::DEP_DIR_OUTPUT)
             {
                 dependency_flags << "1,"; 
             }

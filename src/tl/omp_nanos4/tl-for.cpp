@@ -51,18 +51,18 @@ namespace TL
             ObjectList<Symbol>& copyprivate_references = 
                 for_construct.get_data<ObjectList<Symbol> >("copyprivate_references");
 
-            OpenMP::DataSharing& data_sharing = openmp_info->get_data_sharing(for_construct.get_ast());
+            OpenMP::DataSharingEnvironment& data_sharing = openmp_info->get_data_sharing(for_construct.get_ast());
 
-            data_sharing.get_all_symbols(OpenMP::DA_SHARED, shared_references);
-            data_sharing.get_all_symbols(OpenMP::DA_PRIVATE, private_references);
-            data_sharing.get_all_symbols(OpenMP::DA_FIRSTPRIVATE, firstprivate_references);
-            data_sharing.get_all_symbols(OpenMP::DA_LASTPRIVATE, lastprivate_references);
+            data_sharing.get_all_symbols(OpenMP::DS_SHARED, shared_references);
+            data_sharing.get_all_symbols(OpenMP::DS_PRIVATE, private_references);
+            data_sharing.get_all_symbols(OpenMP::DS_FIRSTPRIVATE, firstprivate_references);
+            data_sharing.get_all_symbols(OpenMP::DS_LASTPRIVATE, lastprivate_references);
 
             // As usual reductions are special
             data_sharing.get_all_reduction_symbols(reduction_references);
 
-            data_sharing.get_all_symbols(OpenMP::DA_COPYIN, copyin_references);
-            data_sharing.get_all_symbols(OpenMP::DA_COPYPRIVATE, copyprivate_references);
+            data_sharing.get_all_symbols(OpenMP::DS_COPYIN, copyin_references);
+            data_sharing.get_all_symbols(OpenMP::DS_COPYPRIVATE, copyprivate_references);
         }
 
         void OpenMPTransform::for_postorder(PragmaCustomConstruct for_construct)

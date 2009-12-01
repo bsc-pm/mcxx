@@ -38,9 +38,9 @@ namespace TL
     namespace OpenMP
     {
 
-        DataSharing::DataSharing(DataSharing *enclosing)
+        DataSharingEnvironment::DataSharingEnvironment(DataSharingEnvironment *enclosing)
             : _num_refs(new int(1)), 
-            _map(new std::map<Symbol, DataAttribute>),
+            _map(new std::map<Symbol, DataSharingAttribute>),
             _enclosing(enclosing),
             _is_parallel(false)
         {
@@ -50,7 +50,7 @@ namespace TL
             }
         }
 
-        DataSharing::~DataSharing()
+        DataSharingEnvironment::~DataSharingEnvironment()
         {
             (*_num_refs)--;
             if (*_num_refs == 0)
@@ -65,7 +65,7 @@ namespace TL
             }
         }
 
-        DataSharing::DataSharing(const DataSharing& ds)
+        DataSharingEnvironment::DataSharingEnvironment(const DataSharingEnvironment& ds)
             : _num_refs(ds._num_refs),
             _map(ds._map),
             _enclosing(ds._enclosing),
@@ -78,22 +78,22 @@ namespace TL
             }
         }
 
-        DataSharing* DataSharing::get_enclosing()
+        DataSharingEnvironment* DataSharingEnvironment::get_enclosing()
         {
             return _enclosing;
         }
 
-        void DataSharing::get_all_symbols(DataAttribute data_attribute, 
+        void DataSharingEnvironment::get_all_symbols(DataSharingAttribute data_attribute, 
                 ObjectList<Symbol>& sym_list)
         {
             // Remove implicit bit
-            data_attribute = (DataAttribute)(data_attribute & ~DA_IMPLICIT);
+            data_attribute = (DataSharingAttribute)(data_attribute & ~DS_IMPLICIT);
             for (map_symbol_data_t::iterator it = _map->begin();
                     it != _map->end();
                     it++)
             {
                 // Remove implicit bit
-                if ((DataAttribute)(it->second & ~DA_IMPLICIT) 
+                if ((DataSharingAttribute)(it->second & ~DS_IMPLICIT) 
                             == data_attribute)
                 {
                     sym_list.append(it->first);
@@ -101,39 +101,39 @@ namespace TL
             }
         } 
 
-        DataSharing& DataSharing::set_is_parallel(bool b)
+        DataSharingEnvironment& DataSharingEnvironment::set_is_parallel(bool b)
         {
             _is_parallel = b;
             return *this;
         }
 
-        bool DataSharing::get_is_parallel()
+        bool DataSharingEnvironment::get_is_parallel()
         {
             return _is_parallel;
         }
 
-        void DataSharing::set(Symbol sym, DataAttribute data_attr)
+        void DataSharingEnvironment::set(Symbol sym, DataSharingAttribute data_attr)
         {
             (_map->operator[](sym)) = data_attr;
         }
 
-        void DataSharing::set_reduction(const ReductionSymbol &reduction_symbol)
+        void DataSharingEnvironment::set_reduction(const ReductionSymbol &reduction_symbol)
         {
-            (_map->operator[](reduction_symbol.get_symbol())) = DA_REDUCTION;
+            (_map->operator[](reduction_symbol.get_symbol())) = DS_REDUCTION;
             _reduction_symbols.append(reduction_symbol);
         }
 
-        void DataSharing::get_all_reduction_symbols(ObjectList<ReductionSymbol> &symbols)
+        void DataSharingEnvironment::get_all_reduction_symbols(ObjectList<ReductionSymbol> &symbols)
         {
             symbols = _reduction_symbols;
         }
 
-        DataAttribute DataSharing::get_internal(Symbol sym)
+        DataSharingAttribute DataSharingEnvironment::get_internal(Symbol sym)
         {
-            std::map<Symbol, DataAttribute>::iterator it = _map->find(sym);
+            std::map<Symbol, DataSharingAttribute>::iterator it = _map->find(sym);
             if (it == _map->end())
             {
-                return DA_UNDEFINED;
+                return DS_UNDEFINED;
             }
             else
             {
@@ -141,13 +141,13 @@ namespace TL
             }
         }
 
-        DataAttribute DataSharing::get(Symbol sym, bool check_enclosing)
+        DataSharingAttribute DataSharingEnvironment::get(Symbol sym, bool check_enclosing)
         {
-            DataAttribute result;
+            DataSharingAttribute result;
             result = get_internal(sym);
 
-            DataSharing *enclosing = NULL;
-            if (result == DA_UNDEFINED
+            DataSharingEnvironment *enclosing = NULL;
+            if (result == DS_UNDEFINED
                     && check_enclosing
                     && ((enclosing = get_enclosing()) != NULL))
             {
@@ -157,12 +157,12 @@ namespace TL
             return result;
         }
 
-        void DataSharing::add_dependence(const DependencyItem& dependency_item)
+        void DataSharingEnvironment::add_dependence(const DependencyItem& dependency_item)
         {
             _dependency_items.append(dependency_item);
         }
 
-        void DataSharing::get_all_dependences(ObjectList<DependencyItem>& dependency_items)
+        void DataSharingEnvironment::get_all_dependences(ObjectList<DependencyItem>& dependency_items)
         {
             dependency_items = _dependency_items;
         }
@@ -210,18 +210,18 @@ namespace TL
             _disable_clause_warnings = b;
         }
 
-        DataSharing& Info::get_new_data_sharing(AST_t a)
+        DataSharingEnvironment& Info::get_new_data_sharing(AST_t a)
         {
             if (_map_data_sharing.find(a) != _map_data_sharing.end())
                 delete _map_data_sharing[a];
 
-            DataSharing* new_data_sharing = new DataSharing(_current_data_sharing);
+            DataSharingEnvironment* new_data_sharing = new DataSharingEnvironment(_current_data_sharing);
             _map_data_sharing[a] = new_data_sharing;
 
             return *new_data_sharing;
         }
 
-        DataSharing& Info::get_data_sharing(AST_t a)
+        DataSharingEnvironment& Info::get_data_sharing(AST_t a)
         {
             if (_map_data_sharing.find(a) == _map_data_sharing.end())
                 return *_root_data_sharing;
@@ -229,17 +229,17 @@ namespace TL
                 return *(_map_data_sharing[a]);
         }
 
-        DataSharing& Info::get_current_data_sharing()
+        DataSharingEnvironment& Info::get_current_data_sharing()
         {
             return *_current_data_sharing;
         }
 
-        DataSharing& Info::get_root_data_sharing()
+        DataSharingEnvironment& Info::get_root_data_sharing()
         {
             return *_current_data_sharing;
         }
 
-        void Info::push_current_data_sharing(DataSharing& data_sharing)
+        void Info::push_current_data_sharing(DataSharingEnvironment& data_sharing)
         {
             _stack_data_sharing.push(_current_data_sharing);
             _current_data_sharing = &data_sharing;
@@ -673,12 +673,12 @@ namespace TL
             return _num_dimensions;
         }
 
-        DependencyItem::DependencyItem(Symbol base_sym, AST_t dep_expr, DependencyAttribute kind)
+        DependencyItem::DependencyItem(Symbol base_sym, AST_t dep_expr, DependencyDirection kind)
             : _base_sym(base_sym), _dep_expr(dep_expr), _kind(kind)
         {
         }
 
-        DependencyItem::DependencyAttribute DependencyItem::get_kind() const
+        DependencyDirection DependencyItem::get_kind() const
         {
             return _kind;
         }

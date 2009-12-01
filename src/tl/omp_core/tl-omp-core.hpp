@@ -54,25 +54,25 @@ namespace TL
                 void get_reduction_symbols(PragmaCustomConstruct construct, 
                         PragmaCustomClause clause, ObjectList<ReductionSymbol>& sym_list);
                 void get_data_explicit_attributes(PragmaCustomConstruct construct, 
-                        DataSharing& data_sharing);
+                        DataSharingEnvironment& data_sharing);
                 void get_data_implicit_attributes(PragmaCustomConstruct construct, 
-                        DataAttribute default_data_attr, 
-                        DataSharing& data_sharing);
+                        DataSharingAttribute default_data_attr, 
+                        DataSharingEnvironment& data_sharing);
                 void get_data_implicit_attributes_task(PragmaCustomConstruct construct,
-                        DataSharing& data_sharing,
-                        DataAttribute default_data_attr);
+                        DataSharingEnvironment& data_sharing,
+                        DataSharingAttribute default_data_attr);
 
-                void get_dependences_info(PragmaCustomConstruct construct, DataSharing& data_sharing);
+                void get_dependences_info(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing);
                 void get_dependences_info_clause(PragmaCustomClause clause,
-                        DataSharing& data_sharing,
-                        DependencyItem::DependencyAttribute dep_attr);
+                        DataSharingEnvironment& data_sharing,
+                        DependencyDirection dep_attr);
 
-                DataAttribute get_default_data_sharing(PragmaCustomConstruct construct,
-                        DataAttribute fallback_data_sharing);
+                DataSharingAttribute get_default_data_sharing(PragmaCustomConstruct construct,
+                        DataSharingAttribute fallback_data_sharing);
 
-                void common_parallel_handler(PragmaCustomConstruct ctr, DataSharing& data_sharing);
-                void common_for_handler(PragmaCustomConstruct ctr, DataSharing& data_sharing);
-                void common_workshare_handler(PragmaCustomConstruct construct, DataSharing& data_sharing);
+                void common_parallel_handler(PragmaCustomConstruct ctr, DataSharingEnvironment& data_sharing);
+                void common_for_handler(PragmaCustomConstruct ctr, DataSharingEnvironment& data_sharing);
+                void common_workshare_handler(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing);
 
                 // This member function is implemented in tl-omp-tasks.cpp
                 void task_function_handler_pre(PragmaCustomConstruct construct);

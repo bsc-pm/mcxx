@@ -408,7 +408,7 @@ namespace TL
 
                 // Dependences support
                 void handle_dependences(PragmaCustomConstruct directive,
-                        OpenMP::DataSharing& data_sharing,
+                        OpenMP::DataSharingEnvironment& data_sharing,
                         ObjectList<Expression> &input_dependences,
                         ObjectList<Expression> &output_dependences,
                         PragmaCustomConstruct &task_construct,

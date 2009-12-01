@@ -32,17 +32,17 @@ using namespace TL::Nanox;
 
 void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
 {
-    OpenMP::DataSharing& data_sharing = openmp_info->get_data_sharing(ctr.get_ast());
+    OpenMP::DataSharingEnvironment& data_sharing = openmp_info->get_data_sharing(ctr.get_ast());
 
     ObjectList<Symbol> shared_symbols;
-    data_sharing.get_all_symbols(OpenMP::DA_SHARED, shared_symbols);
+    data_sharing.get_all_symbols(OpenMP::DS_SHARED, shared_symbols);
 
     ObjectList<Symbol> firstprivate_symbols;
-    data_sharing.get_all_symbols(OpenMP::DA_FIRSTPRIVATE, firstprivate_symbols);
+    data_sharing.get_all_symbols(OpenMP::DS_FIRSTPRIVATE, firstprivate_symbols);
 
     Source private_decls;
     ObjectList<Symbol> private_symbols;
-    data_sharing.get_all_symbols(OpenMP::DA_PRIVATE, private_symbols);
+    data_sharing.get_all_symbols(OpenMP::DS_PRIVATE, private_symbols);
     for (ObjectList<Symbol>::iterator it = private_symbols.begin();
             it != private_symbols.end();
             it++)

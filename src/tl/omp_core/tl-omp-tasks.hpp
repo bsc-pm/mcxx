@@ -12,14 +12,12 @@ namespace TL
     {
         class FunctionTaskParameter 
         {
-            public:
-                typedef DependencyItem::DependencyAttribute DependencyAttribute;
             private:
-                DependencyAttribute _direction;
+                DependencyDirection _direction;
                 Symbol _sym;
             public:
-                FunctionTaskParameter(Symbol param_sym, DependencyAttribute direction);
-                DependencyAttribute get_direction() const; 
+                FunctionTaskParameter(Symbol param_sym, DependencyDirection direction);
+                DependencyDirection get_direction() const; 
                 Symbol get_symbol() const;
         };
 

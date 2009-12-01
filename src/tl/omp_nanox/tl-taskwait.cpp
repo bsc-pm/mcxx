@@ -29,7 +29,7 @@ namespace TL
     {
         void OMPTransform::taskwait_postorder(PragmaCustomConstruct ctr)
         {
-            OpenMP::DataSharing& data_sharing = openmp_info->get_data_sharing(ctr.get_ast());
+            OpenMP::DataSharingEnvironment& data_sharing = openmp_info->get_data_sharing(ctr.get_ast());
             Source src;
 
             ObjectList<OpenMP::DependencyItem> dependences;

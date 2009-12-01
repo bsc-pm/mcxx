@@ -56,12 +56,12 @@ namespace TL
                 task_construct.get_data<AST_t>("original_code");
             original_code = construct_body.get_ast();
 
-            OpenMP::DataSharing &data_sharing 
+            OpenMP::DataSharingEnvironment &data_sharing 
                 = openmp_info->get_data_sharing(task_construct.get_ast());
 
-            data_sharing.get_all_symbols(OpenMP::DA_SHARED, captureaddress_references);
-            data_sharing.get_all_symbols(OpenMP::DA_PRIVATE, local_references);
-            data_sharing.get_all_symbols(OpenMP::DA_FIRSTPRIVATE, captureprivate_references);
+            data_sharing.get_all_symbols(OpenMP::DS_SHARED, captureaddress_references);
+            data_sharing.get_all_symbols(OpenMP::DS_PRIVATE, local_references);
+            data_sharing.get_all_symbols(OpenMP::DS_FIRSTPRIVATE, captureprivate_references);
 
             // Task dependence information
             ObjectList<Expression> & input_dependences =
@@ -72,7 +72,7 @@ namespace TL
             if ( Nanos4::Version::is_family("trunk") &&
                     Nanos4::Version::version >= 4202 ) 
             {
-                OpenMP::DataSharing& current_data_sharing 
+                OpenMP::DataSharingEnvironment& current_data_sharing 
                     = openmp_info->get_data_sharing(task_construct.get_ast());
                 handle_dependences(task_construct, 
                         current_data_sharing,
@@ -883,7 +883,7 @@ namespace TL
         }
 
         void OpenMPTransform::handle_dependences(PragmaCustomConstruct construct,
-                OpenMP::DataSharing& data_sharing,
+                OpenMP::DataSharingEnvironment& data_sharing,
                 ObjectList<Expression> &input_dependences,
                 ObjectList<Expression> &output_dependences,
                 PragmaCustomConstruct &task_construct,
@@ -921,14 +921,14 @@ namespace TL
                     {
                         // If we are passing an array section built after a pointer
                         // the pointer itself must be capturevalued.
-                        data_sharing.set(sym, OpenMP::DA_FIRSTPRIVATE); 
+                        data_sharing.set(sym, OpenMP::DS_FIRSTPRIVATE); 
                         captureprivate_references.insert(sym);
                     }
                     else
                     {
                         // Otherwise, capture its address (even if it is an
                         // array since they are already properly handled)
-                        data_sharing.set(sym, OpenMP::DA_SHARED);
+                        data_sharing.set(sym, OpenMP::DS_SHARED);
                         captureaddress_references.insert(sym);
                     }
 
@@ -968,14 +968,14 @@ namespace TL
                     {
                         // If we are passing an array section built after a pointer
                         // the pointer itself must be capturevalued.
-                        data_sharing.set(sym, OpenMP::DA_FIRSTPRIVATE);
+                        data_sharing.set(sym, OpenMP::DS_FIRSTPRIVATE);
                         captureprivate_references.insert(sym);
                     }
                     else
                     {
                         // Otherwise, capture its address (even if it is an
                         // array since they are already properly handled)
-                        data_sharing.set(sym, OpenMP::DA_SHARED);
+                        data_sharing.set(sym, OpenMP::DS_SHARED);
                         captureaddress_references.insert(sym);
                     }
 
@@ -1015,14 +1015,14 @@ namespace TL
                     {
                         // If we are passing an array section built after a pointer
                         // the pointer itself must be capturevalued.
-                        data_sharing.set(sym, OpenMP::DA_FIRSTPRIVATE);
+                        data_sharing.set(sym, OpenMP::DS_FIRSTPRIVATE);
                         captureprivate_references.insert(sym);
                     }
                     else
                     {
                         // Otherwise, capture its address (even if it is an
                         // array since they are already properly handled)
-                        data_sharing.set(sym, OpenMP::DA_SHARED);
+                        data_sharing.set(sym, OpenMP::DS_SHARED);
                         captureaddress_references.insert(sym);
                     }
 

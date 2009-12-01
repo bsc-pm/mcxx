@@ -36,6 +36,8 @@
 #include "tl-traverse.hpp"
 #include "tl-dto.hpp"
 
+#include "tl-omp-deps.hpp"
+
 #include <map>
 #include <set>
 #include <stack>
@@ -54,60 +56,47 @@ namespace TL
          * This is a bitmap and some values are already combined to express inclusion
          * of some data-sharing attributes within others
          */
-        enum DataAttribute
+        enum DataSharingAttribute
         {
-            DA_UNDEFINED = 0,
+            DS_UNDEFINED = 0,
             //! Shared data sharing
-            DA_SHARED = BITMAP(1),
+            DS_SHARED = BITMAP(1),
             //! Private data sharing
-            DA_PRIVATE = BITMAP(2),
+            DS_PRIVATE = BITMAP(2),
             //! Firstprivate data sharing
-            DA_FIRSTPRIVATE = BITMAP(3) | DA_PRIVATE,
+            DS_FIRSTPRIVATE = BITMAP(3) | DS_PRIVATE,
             //! Lastprivate data sharing
-            DA_LASTPRIVATE = BITMAP(4) | DA_PRIVATE,
+            DS_LASTPRIVATE = BITMAP(4) | DS_PRIVATE,
             //! Both lastprivate and firstprivate
-            DA_FIRSTLASTPRIVATE = DA_FIRSTPRIVATE | DA_LASTPRIVATE,
+            DA_FIRSTLASTPRIVATE = DS_FIRSTPRIVATE | DS_LASTPRIVATE,
             //! Reduction data-sharing 
-            DA_REDUCTION = BITMAP(5),
+            DS_REDUCTION = BITMAP(5),
             //! Threadprivate data-sharing
-            DA_THREADPRIVATE = BITMAP(6),
+            DS_THREADPRIVATE = BITMAP(6),
             //! Copy in data-sharing
-            DA_COPYIN = BITMAP(7),
+            DS_COPYIN = BITMAP(7),
             //! Copy private data-sharing
-            DA_COPYPRIVATE = BITMAP(8),
+            DS_COPYPRIVATE = BITMAP(8),
 
             //! Special to state no data sharing
-            DA_NONE = BITMAP(9),
+            DS_NONE = BITMAP(9),
 
             //! States that the data sharing is implicit. Special attribute that makes no difference
-            DA_IMPLICIT = BITMAP(15)
+            DS_IMPLICIT = BITMAP(15)
         };
 
 #undef BITMAP
 
         class LIBTL_CLASS DependencyItem : public TL::Object
         {
-            public:
-#define BITMAP(x) (1<<x)
-                enum DependencyAttribute
-                {
-                    UNDEFINED = 0,
-                    // Input dependence
-                    INPUT = BITMAP(1),
-                    // Output dependence
-                    OUTPUT = BITMAP(2),
-                    // Inout dependence
-                    INOUT = DependencyItem::INPUT | DependencyItem::OUTPUT
-                };
-#undef BITMAP
             private:
                 Symbol _base_sym;
                 AST_t _dep_expr;
-                DependencyAttribute _kind;
+                DependencyDirection _kind;
             public:
-                DependencyItem(Symbol base_sym, AST_t dep_expr, DependencyAttribute kind);
+                DependencyItem(Symbol base_sym, AST_t dep_expr, DependencyDirection kind);
 
-                DependencyAttribute get_kind() const;
+                DependencyDirection get_kind() const;
                 AST_t get_dependency_expression() const;
                 Symbol get_base_symbol() const;
         };
@@ -365,38 +354,38 @@ namespace TL
         };
 
         //! This class represents data sharing environment in a OpenMP construct
-        class LIBTL_CLASS DataSharing
+        class LIBTL_CLASS DataSharingEnvironment
         {
             private:
                 int *_num_refs;
-                typedef std::map<Symbol, DataAttribute> map_symbol_data_t;
+                typedef std::map<Symbol, DataSharingAttribute> map_symbol_data_t;
                 map_symbol_data_t  *_map;
-                DataSharing *_enclosing;
+                DataSharingEnvironment *_enclosing;
 
                 ObjectList<ReductionSymbol> _reduction_symbols;
                 ObjectList<DependencyItem> _dependency_items;
 
                 bool _is_parallel;
 
-                DataAttribute get_internal(Symbol sym);
+                DataSharingAttribute get_internal(Symbol sym);
             public:
                 //! Constructor
                 /*!
                  * \param enclosing Enclosing data sharing used when looking up
                  * the data sharing of a given symbol
                  */
-                DataSharing(DataSharing *enclosing);
-                ~DataSharing();
+                DataSharingEnvironment(DataSharingEnvironment *enclosing);
+                ~DataSharingEnvironment();
 
                 //! Copy constructor
-                DataSharing(const DataSharing& ds);
+                DataSharingEnvironment(const DataSharingEnvironment& ds);
 
                 //! Sets a data sharing attribute of a symbol
                 /*!
                  * \param sym The symbol to be set the data sharing attribute
                  * \param data_attr The symbol to which the data sharing will be set
                  */
-                void set(Symbol sym, DataAttribute data_attr);
+                void set(Symbol sym, DataSharingAttribute data_attr);
 
                 //! Adds a reduction symbol
                 /*!
@@ -409,19 +398,19 @@ namespace TL
                 /*!
                  * \param sym The symbol requested its data sharing attribute
                  * \param check_enclosing Checks enclosing data sharings
-                 * \return The data sharing attribute or DA_UNDEFINED if no data sharing was set for it in this, and only this, DataSharing
+                 * \return The data sharing attribute or DS_UNDEFINED if no data sharing was set for it in this, and only this, DataSharingEnvironment
                  */
-                DataAttribute get(Symbol sym, bool check_enclosing = true);
+                DataSharingAttribute get(Symbol sym, bool check_enclosing = true);
 
                 //! Returns the enclosing data sharing
-                DataSharing* get_enclosing();
+                DataSharingEnvironment* get_enclosing();
 
                 //! Returns all symbols that match the given data attribute
-                void get_all_symbols(DataAttribute data_attr, ObjectList<Symbol> &symbols);
+                void get_all_symbols(DataSharingAttribute data_attr, ObjectList<Symbol> &symbols);
 
                 void get_all_reduction_symbols(ObjectList<ReductionSymbol> &symbols);
 
-                DataSharing& set_is_parallel(bool b);
+                DataSharingEnvironment& set_is_parallel(bool b);
                 bool get_is_parallel();
 
                 void add_dependence(const DependencyItem &dependency_item);
@@ -431,24 +420,24 @@ namespace TL
         class LIBTL_CLASS Info : public Object
         {
             private:
-                DataSharing* _root_data_sharing;
-                DataSharing* _current_data_sharing;
-                std::map<AST_t, DataSharing*> _map_data_sharing;
-                std::stack<DataSharing*> _stack_data_sharing;
+                DataSharingEnvironment* _root_data_sharing;
+                DataSharingEnvironment* _current_data_sharing;
+                std::map<AST_t, DataSharingEnvironment*> _map_data_sharing;
+                std::stack<DataSharingEnvironment*> _stack_data_sharing;
 
             public:
-                Info(DataSharing* root_data_sharing)
+                Info(DataSharingEnvironment* root_data_sharing)
                     : _root_data_sharing(root_data_sharing), 
                     _current_data_sharing(root_data_sharing) { }
 
-                DataSharing& get_new_data_sharing(AST_t);
+                DataSharingEnvironment& get_new_data_sharing(AST_t);
 
-                DataSharing& get_data_sharing(AST_t);
+                DataSharingEnvironment& get_data_sharing(AST_t);
 
-                DataSharing& get_current_data_sharing();
-                DataSharing& get_root_data_sharing();
+                DataSharingEnvironment& get_current_data_sharing();
+                DataSharingEnvironment& get_root_data_sharing();
 
-                void push_current_data_sharing(DataSharing&);
+                void push_current_data_sharing(DataSharingEnvironment&);
                 void pop_current_data_sharing();
         };
 

@@ -5,7 +5,7 @@ namespace TL
 {
     namespace OpenMP
     {
-        FunctionTaskParameter::FunctionTaskParameter(Symbol sym, DependencyAttribute direction)
+        FunctionTaskParameter::FunctionTaskParameter(Symbol sym, DependencyDirection direction)
             : _sym(sym), _direction(direction)
         {
         }
@@ -15,7 +15,7 @@ namespace TL
             return _sym;
         }
 
-        FunctionTaskParameter::DependencyAttribute FunctionTaskParameter::get_direction() const
+        DependencyDirection FunctionTaskParameter::get_direction() const
         {
             return _direction;
         }
@@ -59,12 +59,12 @@ namespace TL
         struct FunctionTaskParameterGenerator : public Functor<FunctionTaskParameter, std::string>
         {
             private:
-                FunctionTaskParameter::DependencyAttribute _direction;
+                DependencyDirection _direction;
                 AST_t _ref_tree;
                 ScopeLink _sl;
 
             public:
-                FunctionTaskParameterGenerator(FunctionTaskParameter::DependencyAttribute direction,
+                FunctionTaskParameterGenerator(DependencyDirection direction,
                         AST_t ref_tree, ScopeLink sl)
                     : _direction(direction), _ref_tree(ref_tree), _sl(sl)
                 {
@@ -185,19 +185,19 @@ namespace TL
             AST_t param_ref_tree = parameter_decl[0].get_ast();
 
             ObjectList<FunctionTaskParameter> input_info = input_arguments.map(
-                    FunctionTaskParameterGenerator(DependencyItem::INPUT,
+                    FunctionTaskParameterGenerator(DEP_DIR_INPUT,
                         param_ref_tree,
                         construct.get_scope_link())
                     );
 
             ObjectList<FunctionTaskParameter> output_info = output_arguments.map(
-                    FunctionTaskParameterGenerator(DependencyItem::OUTPUT,
+                    FunctionTaskParameterGenerator(DEP_DIR_OUTPUT,
                         param_ref_tree,
                         construct.get_scope_link())
                     );
 
             ObjectList<FunctionTaskParameter> inout_info = inout_arguments.map(
-                    FunctionTaskParameterGenerator(DependencyItem::INOUT,
+                    FunctionTaskParameterGenerator(DEP_DIR_INOUT,
                         param_ref_tree,
                         construct.get_scope_link())
                     );

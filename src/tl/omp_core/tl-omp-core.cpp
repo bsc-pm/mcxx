@@ -67,7 +67,7 @@ namespace TL
 
             if (!dto.get_keys().contains("openmp_info"))
             {
-                DataSharing* root_data_sharing = new DataSharing(NULL);
+                DataSharingEnvironment* root_data_sharing = new DataSharingEnvironment(NULL);
                 _openmp_info = RefPtr<OpenMP::Info>(new OpenMP::Info(root_data_sharing));
                 dto.set_object("openmp_info", _openmp_info);
             }
@@ -282,13 +282,13 @@ namespace TL
             }
         }
 
-        struct DataSharingSetter
+        struct DataSharingEnvironmentSetter
         {
             private:
-                DataSharing& _data_sharing;
-                DataAttribute _data_attrib;
+                DataSharingEnvironment& _data_sharing;
+                DataSharingAttribute _data_attrib;
             public:
-                DataSharingSetter(DataSharing& data_sharing, DataAttribute data_attrib)
+                DataSharingEnvironmentSetter(DataSharingEnvironment& data_sharing, DataSharingAttribute data_attrib)
                     : _data_sharing(data_sharing),
                     _data_attrib(data_attrib) { }
 
@@ -298,14 +298,14 @@ namespace TL
                 }
         };
 
-        struct DataSharingSetterReduction
+        struct DataSharingEnvironmentSetterReduction
         {
             private:
-                DataSharing& _data_sharing;
-                DataAttribute _data_attrib;
+                DataSharingEnvironment& _data_sharing;
+                DataSharingAttribute _data_attrib;
                 std::string _reductor_name;
             public:
-                DataSharingSetterReduction(DataSharing& data_sharing, DataAttribute data_attrib)
+                DataSharingEnvironmentSetterReduction(DataSharingEnvironment& data_sharing, DataSharingAttribute data_attrib)
                     : _data_sharing(data_sharing),
                     _data_attrib(data_attrib) { }
 
@@ -316,46 +316,46 @@ namespace TL
         };
 
         void Core::get_data_explicit_attributes(PragmaCustomConstruct construct, 
-                DataSharing& data_sharing)
+                DataSharingEnvironment& data_sharing)
         {
             ObjectList<Symbol> shared_references;
             get_clause_symbols(construct.get_clause("shared"), shared_references);
             std::for_each(shared_references.begin(), shared_references.end(), 
-                    DataSharingSetter(data_sharing, DA_SHARED));
+                    DataSharingEnvironmentSetter(data_sharing, DS_SHARED));
 
             ObjectList<Symbol> private_references;
             get_clause_symbols(construct.get_clause("private"), private_references);
             std::for_each(private_references.begin(), private_references.end(), 
-                    DataSharingSetter(data_sharing, DA_PRIVATE));
+                    DataSharingEnvironmentSetter(data_sharing, DS_PRIVATE));
 
             ObjectList<Symbol> firstprivate_references;
             get_clause_symbols(construct.get_clause("firstprivate"), firstprivate_references);
             std::for_each(firstprivate_references.begin(), firstprivate_references.end(), 
-                    DataSharingSetter(data_sharing, DA_FIRSTPRIVATE));
+                    DataSharingEnvironmentSetter(data_sharing, DS_FIRSTPRIVATE));
 
             ObjectList<Symbol> lastprivate_references;
             get_clause_symbols(construct.get_clause("lastprivate"), lastprivate_references);
             std::for_each(lastprivate_references.begin(), lastprivate_references.end(), 
-                    DataSharingSetter(data_sharing, DA_LASTPRIVATE));
+                    DataSharingEnvironmentSetter(data_sharing, DS_LASTPRIVATE));
 
             ObjectList<OpenMP::ReductionSymbol> reduction_references;
             get_reduction_symbols(construct, construct.get_clause("reduction"), reduction_references);
             std::for_each(reduction_references.begin(), reduction_references.end(), 
-                    DataSharingSetterReduction(data_sharing, DA_REDUCTION));
+                    DataSharingEnvironmentSetterReduction(data_sharing, DS_REDUCTION));
 
             ObjectList<Symbol> copyin_references;
             get_clause_symbols(construct.get_clause("copyin"), copyin_references);
             std::for_each(copyin_references.begin(), copyin_references.end(), 
-                    DataSharingSetter(data_sharing, DA_COPYIN));
+                    DataSharingEnvironmentSetter(data_sharing, DS_COPYIN));
 
             ObjectList<Symbol> copyprivate_references;
             get_clause_symbols(construct.get_clause("copyprivate"), copyprivate_references);
             std::for_each(copyprivate_references.begin(), copyprivate_references.end(), 
-                    DataSharingSetter(data_sharing, DA_COPYPRIVATE));
+                    DataSharingEnvironmentSetter(data_sharing, DS_COPYPRIVATE));
         }
 
-        DataAttribute Core::get_default_data_sharing(PragmaCustomConstruct construct,
-                DataAttribute fallback_data_sharing)
+        DataSharingAttribute Core::get_default_data_sharing(PragmaCustomConstruct construct,
+                DataSharingAttribute fallback_data_sharing)
         {
             PragmaCustomClause default_clause = construct.get_clause("default");
 
@@ -370,13 +370,13 @@ namespace TL
                 struct pairs_t
                 {
                     const char* name;
-                    DataAttribute data_attr;
+                    DataSharingAttribute data_attr;
                 } pairs[] = 
                 {
-                    { "none", (DataAttribute)DA_NONE },
-                    { "shared", (DataAttribute)DA_SHARED },
-                    { "firstprivate", (DataAttribute)DA_FIRSTPRIVATE },
-                    { NULL, (DataAttribute)DA_UNDEFINED },
+                    { "none", (DataSharingAttribute)DS_NONE },
+                    { "shared", (DataSharingAttribute)DS_SHARED },
+                    { "firstprivate", (DataSharingAttribute)DS_FIRSTPRIVATE },
+                    { NULL, (DataSharingAttribute)DS_UNDEFINED },
                 };
 
                 for (unsigned int i = 0; pairs[i].name != NULL; i++)
@@ -392,13 +392,13 @@ namespace TL
                 std::cerr << default_clause.get_ast().get_locus() 
                     << ": warning: assuming 'shared'" << std::endl;
 
-                return DA_SHARED;
+                return DS_SHARED;
             }
         }
 
         void Core::get_data_implicit_attributes(PragmaCustomConstruct construct, 
-                DataAttribute default_data_attr, 
-                DataSharing& data_sharing)
+                DataSharingAttribute default_data_attr, 
+                DataSharingEnvironment& data_sharing)
         {
             Statement statement = construct.get_statement();
 
@@ -415,11 +415,11 @@ namespace TL
                         || !sym.is_variable())
                     continue;
 
-                DataAttribute data_attr = data_sharing.get(sym, /* check_enclosing */ false);
+                DataSharingAttribute data_attr = data_sharing.get(sym, /* check_enclosing */ false);
 
-                if (data_attr == DA_UNDEFINED)
+                if (data_attr == DS_UNDEFINED)
                 {
-                    if (default_data_attr == DA_NONE)
+                    if (default_data_attr == DS_NONE)
                     {
                         if (!already_nagged.contains(sym))
                         {
@@ -429,7 +429,7 @@ namespace TL
                                 << std::endl;
 
                             // Maybe we do not want to assume always shared?
-                            data_sharing.set(sym, DA_SHARED);
+                            data_sharing.set(sym, DS_SHARED);
 
                             already_nagged.append(sym);
                         }
@@ -437,24 +437,24 @@ namespace TL
                     else
                     {
                         // Set the symbol as having default data sharing
-                        data_sharing.set(sym, (DataAttribute)(default_data_attr | DA_IMPLICIT));
+                        data_sharing.set(sym, (DataSharingAttribute)(default_data_attr | DS_IMPLICIT));
                     }
                 }
             }
         }
 
-        void Core::common_parallel_handler(PragmaCustomConstruct construct, DataSharing& data_sharing)
+        void Core::common_parallel_handler(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing)
         {
             data_sharing.set_is_parallel(true);
             // Analyze things here
             get_data_explicit_attributes(construct, data_sharing);
 
-            DataAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DA_SHARED);
+            DataSharingAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DS_SHARED);
 
             get_data_implicit_attributes(construct, default_data_attr, data_sharing);
         }
 
-        void Core::common_for_handler(PragmaCustomConstruct construct, DataSharing& data_sharing)
+        void Core::common_for_handler(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing)
         {
             Statement stmt = construct.get_statement();
 
@@ -470,15 +470,15 @@ namespace TL
             {
                 IdExpression id_expr = for_statement.get_induction_variable();
                 Symbol sym = id_expr.get_symbol();
-                data_sharing.set(sym, DA_PRIVATE);
+                data_sharing.set(sym, DS_PRIVATE);
             }
         }
 
-        void Core::common_workshare_handler(PragmaCustomConstruct construct, DataSharing& data_sharing)
+        void Core::common_workshare_handler(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing)
         {
             get_data_explicit_attributes(construct, data_sharing);
 
-            DataAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DA_SHARED);
+            DataSharingAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DS_SHARED);
 
             get_data_implicit_attributes(construct, default_data_attr, data_sharing);
         }
@@ -490,8 +490,8 @@ namespace TL
 
         // get_data_implicit_attributes_task(construct, data_sharing, default_data_attr);
         void Core::get_data_implicit_attributes_task(PragmaCustomConstruct construct,
-                DataSharing& data_sharing,
-                DataAttribute default_data_attr)
+                DataSharingEnvironment& data_sharing,
+                DataSharingAttribute default_data_attr)
         {
             Statement statement = construct.get_statement();
 
@@ -508,17 +508,17 @@ namespace TL
                         || !sym.is_variable())
                     continue;
 
-                DataAttribute data_attr = data_sharing.get(sym);
+                DataSharingAttribute data_attr = data_sharing.get(sym);
 
                 // Do nothing with threadprivates
-                if (data_attr == DA_THREADPRIVATE)
+                if (data_attr == DS_THREADPRIVATE)
                     continue;
 
                 data_attr = data_sharing.get(sym, /* check_enclosing */ false);
 
-                if (data_attr == DA_UNDEFINED)
+                if (data_attr == DS_UNDEFINED)
                 {
-                    if (default_data_attr == DA_NONE)
+                    if (default_data_attr == DS_NONE)
                     {
                         if (!already_nagged.contains(sym))
                         {
@@ -527,19 +527,19 @@ namespace TL
                                 << "' does not have data sharing and 'default(none)' was specified. Assuming firstprivate "
                                 << std::endl;
 
-                            data_sharing.set(sym, (DataAttribute)(DA_FIRSTPRIVATE | DA_IMPLICIT));
+                            data_sharing.set(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT));
                             already_nagged.append(sym);
                         }
                     }
-                    else if (default_data_attr == DA_UNDEFINED)
+                    else if (default_data_attr == DS_UNDEFINED)
                     {
                         // This is a special case of task
                         bool is_shared = true;
-                        DataSharing* enclosing = data_sharing.get_enclosing();
+                        DataSharingEnvironment* enclosing = data_sharing.get_enclosing();
 
                         while ((enclosing != NULL) && is_shared)
                         {
-                            is_shared = is_shared && (enclosing->get(sym, /* check_enclosing */ false) == DA_SHARED);
+                            is_shared = is_shared && (enclosing->get(sym, /* check_enclosing */ false) == DS_SHARED);
                             // Stop once we see the innermost parallel
                             if (!enclosing->get_is_parallel())
                                 break;
@@ -548,17 +548,17 @@ namespace TL
 
                         if (is_shared)
                         {
-                            data_sharing.set(sym, (DataAttribute)(DA_SHARED | DA_IMPLICIT));
+                            data_sharing.set(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
                         }
                         else
                         {
-                            data_sharing.set(sym, (DataAttribute)(DA_FIRSTPRIVATE | DA_IMPLICIT));
+                            data_sharing.set(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT));
                         }
                     }
                     else
                     {
                         // Set the symbol as having the default data sharing
-                        data_sharing.set(sym, (DataAttribute)(default_data_attr | DA_IMPLICIT));
+                        data_sharing.set(sym, (DataSharingAttribute)(default_data_attr | DS_IMPLICIT));
                     }
                 }
             }
@@ -567,7 +567,7 @@ namespace TL
         // Handlers
         void Core::parallel_handler_pre(PragmaCustomConstruct construct)
         {
-            DataSharing& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
             _openmp_info->push_current_data_sharing(data_sharing);
             common_parallel_handler(construct, data_sharing);
         }
@@ -578,7 +578,7 @@ namespace TL
 
         void Core::parallel_for_handler_pre(PragmaCustomConstruct construct)
         {
-            DataSharing& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
             _openmp_info->push_current_data_sharing(data_sharing);
             common_parallel_handler(construct, data_sharing);
             common_for_handler(construct, data_sharing);
@@ -590,7 +590,7 @@ namespace TL
 
         void Core::for_handler_pre(PragmaCustomConstruct construct)
         {
-            DataSharing& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
             _openmp_info->push_current_data_sharing(data_sharing);
             common_workshare_handler(construct, data_sharing);
             common_for_handler(construct, data_sharing);
@@ -602,7 +602,7 @@ namespace TL
 
         void Core::single_handler_pre(PragmaCustomConstruct construct)
         {
-            DataSharing& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
             _openmp_info->push_current_data_sharing(data_sharing);
             common_workshare_handler(construct, data_sharing);
         }
@@ -613,7 +613,7 @@ namespace TL
 
         void Core::parallel_sections_handler_pre(PragmaCustomConstruct construct)
         {
-            DataSharing& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
             _openmp_info->push_current_data_sharing(data_sharing);
             common_parallel_handler(construct, data_sharing);
         }
@@ -624,7 +624,7 @@ namespace TL
 
         void Core::threadprivate_handler_pre(PragmaCustomConstruct construct)
         {
-            DataSharing& data_sharing = _openmp_info->get_current_data_sharing();
+            DataSharingEnvironment& data_sharing = _openmp_info->get_current_data_sharing();
 
             ObjectList<Expression> expr_list = construct.get_parameter_expressions();
 
@@ -642,7 +642,7 @@ namespace TL
                     IdExpression id_expr = expr.get_id_expression();
                     Symbol sym = id_expr.get_symbol();
 
-                    data_sharing.set(sym, DA_THREADPRIVATE);
+                    data_sharing.set(sym, DS_THREADPRIVATE);
                 }
             }
         }
@@ -656,11 +656,11 @@ namespace TL
                 return;
             }
 
-            DataSharing& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
             _openmp_info->push_current_data_sharing(data_sharing);
 
             get_data_explicit_attributes(construct, data_sharing);
-            DataAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DA_UNDEFINED);
+            DataSharingAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DS_UNDEFINED);
 
             get_data_implicit_attributes_task(construct, data_sharing, default_data_attr);
 
@@ -681,10 +681,10 @@ namespace TL
 
         void Core::taskwait_handler_pre(PragmaCustomConstruct construct)
         {
-            DataSharing& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
             _openmp_info->push_current_data_sharing(data_sharing);
 
-            get_dependences_info_clause(construct.get_clause("on"), data_sharing, DependencyItem::INPUT);
+            get_dependences_info_clause(construct.get_clause("on"), data_sharing, DEP_DIR_INPUT);
         }
 
         void Core::taskwait_handler_post(PragmaCustomConstruct construct)

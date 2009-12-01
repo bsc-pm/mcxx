@@ -33,8 +33,8 @@ namespace TL { namespace OpenMP {
     }
 
     static void add_data_sharings(ObjectList<Expression> &expression_list, 
-            DataSharing& data_sharing, 
-            DependencyItem::DependencyAttribute attr)
+            DataSharingEnvironment& data_sharing, 
+            DependencyDirection attr)
     {
         for (ObjectList<Expression>::iterator it = expression_list.begin();
                 it != expression_list.end();
@@ -47,11 +47,11 @@ namespace TL { namespace OpenMP {
             {
                 DependencyItem dep_item(base_sym, it->get_ast(), attr);
 
-                if ((data_sharing.get(base_sym) & DA_SHARED) != DA_SHARED)
+                if ((data_sharing.get(base_sym) & DS_SHARED) != DS_SHARED)
                 {
                     // If it is not implicitly set fail
-                    if (((data_sharing.get(base_sym) & DA_PRIVATE) == DA_PRIVATE)
-                        && ((data_sharing.get(base_sym) & DA_IMPLICIT) != DA_IMPLICIT))
+                    if (((data_sharing.get(base_sym) & DS_PRIVATE) == DS_PRIVATE)
+                        && ((data_sharing.get(base_sym) & DS_IMPLICIT) != DS_IMPLICIT))
                     {
                         running_error("%s: error: related variable '%s' of dependency specification '%s' is private, "
                                 "it must be shared if referenced in an 'input' or an 'output' clause\n",
@@ -60,7 +60,7 @@ namespace TL { namespace OpenMP {
                                 base_sym.get_name().c_str());
                     }
                     // Set to shared
-                    data_sharing.set(base_sym, DA_SHARED);
+                    data_sharing.set(base_sym, DS_SHARED);
                 }
 
                 data_sharing.add_dependence(dep_item);
@@ -73,18 +73,18 @@ namespace TL { namespace OpenMP {
         }
     }
 
-    void Core::get_dependences_info(PragmaCustomConstruct construct, DataSharing& data_sharing)
+    void Core::get_dependences_info(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing)
     {
         PragmaCustomClause input_clause = construct.get_clause("input");
-        get_dependences_info_clause(input_clause, data_sharing, DependencyItem::INPUT);
+        get_dependences_info_clause(input_clause, data_sharing, DEP_DIR_INPUT);
 
         PragmaCustomClause output_clause = construct.get_clause("output");
-        get_dependences_info_clause(output_clause, data_sharing, DependencyItem::OUTPUT);
+        get_dependences_info_clause(output_clause, data_sharing, DEP_DIR_OUTPUT);
     }
 
     void Core::get_dependences_info_clause(PragmaCustomClause clause,
-           DataSharing& data_sharing,
-           DependencyItem::DependencyAttribute dep_attr)
+           DataSharingEnvironment& data_sharing,
+           DependencyDirection dep_attr)
     {
         if (clause.is_defined())
         {
