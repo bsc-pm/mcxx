@@ -85,7 +85,8 @@ AC_COMPILE_IFELSE(
 )
 
 dnl --------------------- end check of old gcc ---
-TLEXTENSIONS=""
+TL_EXTENSIONS=""
+TL_OMP_EXTENSIONS=""
 ADDITIONAL_TESTSUITES=""
 INSTALL_CONFIG_FILES="config.plain"
 
@@ -154,7 +155,7 @@ then
    NANOX_INCLUDES="${nanox_include}"
    NANOX_LIBS="${nanox_lib}"
 
-   TLEXTENSIONS="${TLEXTENSIONS} omp_nanox"
+   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanox"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
 
@@ -230,7 +231,7 @@ then
    NANOS4_INCLUDES="${nanos4_include}"
    NANOS4_LIBS="${nanos4_lib}"
 
-   TLEXTENSIONS="${TLEXTENSIONS} omp_nanos4"
+   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos4"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
 
@@ -310,7 +311,7 @@ then
       AC_MSG_ERROR([Mintaka support requires '--with-mintaka=dir'. See --help.])
    fi
 
-   TLEXTENSIONS="${TLEXTENSIONS} instr instr_pthreads"
+   TL_EXTENSIONS="${TL_EXTENSIONS} instr instr_pthreads"
 
    MINTAKA_INCLUDES="${mintaka_include}"
    MINTAKA_LIBS="${mintaka_lib}"
@@ -396,7 +397,7 @@ then
    NEBELUNG_INCLUDES="-I ${nebelung_include} -include nebelung.h"
    NEBELUNG_LIBS="-L ${nebelung_lib} -lnebelung"
 
-   TLEXTENSIONS="${TLEXTENSIONS} stm_func"
+   TL_EXTENSIONS="${TL_EXTENSIONS} stm_func"
 
    COMPILER_NAMES="${COMPILER_NAMES} stmcxx"
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.stm_nebelung"
@@ -490,7 +491,7 @@ then
            ]
    )
  
-   TLEXTENSIONS="${TLEXTENSIONS} superscalar"
+   TL_EXTENSIONS="${TL_EXTENSIONS} superscalar"
    ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.superscalar"
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.superscalar"
 fi
@@ -568,7 +569,7 @@ AC_ARG_ENABLE([tl-examples],
 
 if test x$is_enabled_tl_examples = xyes;
 then
-   TLEXTENSIONS="${TLEXTENSIONS} examples"
+   TL_EXTENSIONS="${TL_EXTENSIONS} examples"
 fi
 
 dnl ------------------------------------
@@ -597,7 +598,7 @@ AC_ARG_ENABLE([tl-tests],
 
 if test x$is_enabled_tl_tests = xyes;
 then
-   TLEXTENSIONS="${TLEXTENSIONS} testing"
+   TL_EXTENSIONS="${TL_EXTENSIONS} testing"
 fi
 
 dnl ------------------------------------
@@ -912,7 +913,8 @@ then
 fi
 AC_DEFINE_UNQUOTED([MCXX_BUILD_VERSION], $build_version, [Build version])
 
-AC_SUBST([TLEXTENSIONS])
+AC_SUBST([TL_EXTENSIONS])
+AC_SUBST([TL_OMP_EXTENSIONS])
 AC_SUBST([COMPILER_NAMES])
 AC_SUBST([INSTALL_CONFIG_FILES])
 AC_SUBST([ADDITIONAL_TESTSUITES])
@@ -926,9 +928,10 @@ AC_CONFIG_FILES([Makefile
            src/mcxx_tl/Makefile 
            src/tl/Makefile 
            src/tl/hlt/Makefile
-           src/tl/omp_core/Makefile 
-           src/tl/omp_nanox/Makefile 
-           src/tl/omp_nanos4/Makefile 
+           src/tl/omp/Makefile 
+           src/tl/omp/core/Makefile 
+           src/tl/omp/nanox/Makefile 
+           src/tl/omp/nanos4/Makefile 
            src/tl/instr/Makefile 
            src/tl/instr_pthreads/Makefile 
            src/tl/stm_func/Makefile

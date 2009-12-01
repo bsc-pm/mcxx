@@ -21,7 +21,7 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-include ../Makefile.phases
+include ../../Makefile.phases
 
 phases_LTLIBRARIES = libtlomp-core.la
 

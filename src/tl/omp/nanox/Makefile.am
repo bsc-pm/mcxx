@@ -21,63 +21,29 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-lib_LTLIBRARIES = libtl-hlt.la 
-phases_LTLIBRARIES = libtl-hlt-pragma.la
+include ../../Makefile.phases
 
-include ../Makefile.phases
-
+tl_omp_flags = -Wall $(tl_cflags) -I $(srcdir)/../core
 END=
- 
-COMMON_CFLAGS=-DLIBHLT_DLL_EXPORT -I $(srcdir)/../omp/core
 
-libtl_hlt_la_CFLAGS=$(tl_cflags) $(COMMON_CFLAGS) 
-libtl_hlt_la_CXXFLAGS=$(tl_cxxflags) $(COMMON_CFLAGS)
-libtl_hlt_la_LIBADD=$(tl_libadd) 
-libtl_hlt_la_LDFLAGS=$(tl_ldflags)
+phases_LTLIBRARIES = libtlomp-nanox.la
 
-libtl_hlt_la_SOURCES = \
-      hlt-transform.hpp \
-      hlt-transform.cpp \
-      hlt-exception.hpp \
-      hlt-exception.cpp \
-      hlt-unroll.hpp \
-      hlt-unroll.cpp \
-      hlt-unroll-omp.hpp \
-      hlt-unroll-omp.cpp \
-      hlt-blocking.hpp \
-      hlt-blocking.cpp \
-      hlt-distribution.hpp \
-      hlt-distribution.cpp \
-      hlt-fusion.hpp \
-      hlt-fusion.cpp \
-      hlt-interchange.cpp \
-      hlt-interchange.hpp \
-      hlt-collapse.cpp \
-      hlt-collapse.hpp \
-      hlt-composition.cpp \
-      hlt-composition.hpp \
-      hlt-outline.hpp \
-      hlt-outline.cpp \
-      hlt-extension.hpp \
-      hlt-extension.cpp \
-      hlt-peeling.hpp \
-      hlt-peeling.cpp \
-      hlt-common.hpp \
-      hlt-task-aggregation.hpp \
-      hlt-task-aggregation.cpp \
-      hlt-task-aggregation-common.hpp \
-      hlt-task-aggregation-simple.cpp \
-      hlt-task-aggregation-predication.cpp \
-      hlt-task-aggregation-bundling.cpp \
-      $(END)
+libtlomp_nanox_la_CFLAGS = $(tl_omp_flags)
+libtlomp_nanox_la_CXXFLAGS = $(tl_omp_flags)
+libtlomp_nanox_la_LDFLAGS = $(tl_ldflags)
 
-libtl_hlt_pragma_la_CFLAGS=$(tl_cflags) $(COMMON_CFLAGS)
-libtl_hlt_pragma_la_CXXFLAGS=$(tl_cxxflags) $(COMMON_CFLAGS)
-libtl_hlt_pragma_la_LIBADD=$(tl_libadd) libtl-hlt.la
-libtl_hlt_pragma_la_LDFLAGS=$(tl_ldflags) 
+libtlomp_nanox_la_SOURCES = \
+     tl-omp-nanox.cpp \
+     tl-omp-nanox.hpp \
+     tl-parallel.cpp \
+     tl-parallel-common.hpp \
+     tl-parallel-common.cpp \
+     tl-single.cpp \
+     tl-task.cpp \
+     tl-taskwait.cpp \
+     tl-data-env.hpp \
+     tl-data-env.cpp \
+     tl-outline-nanox.hpp \
+     tl-outline-nanox.cpp \
+     $(END)
 
-libtl_hlt_pragma_la_SOURCES = \
-      hlt-exception.hpp \
-      hlt-pragma.cpp \
-      hlt-pragma.hpp \
-      $(END)

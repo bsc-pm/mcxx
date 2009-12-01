@@ -21,13 +21,11 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = . hlt omp_core @TLEXTENSIONS@ 
+SUBDIRS = . hlt omp @TL_EXTENSIONS@ 
 
 END=
 
-DIST_SUBDIRS=omp_core \
-             omp_nanox \
-             omp_nanos4 \
+DIST_SUBDIRS=omp \
              superscalar \
              instr \
              instr_pthreads \
