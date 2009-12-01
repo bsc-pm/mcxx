@@ -5,9 +5,16 @@ namespace TL
 {
     namespace OpenMP
     {
-        FunctionTaskParameter::FunctionTaskParameter(Symbol sym, DependencyDirection direction)
-            : _sym(sym), _direction(direction)
+        FunctionTaskParameter::FunctionTaskParameter(Symbol sym, 
+                DependencyDirection direction, 
+                IdExpression id_expr)
+            : _sym(sym), _direction(direction), _id_expr(id_expr)
         {
+        }
+
+        IdExpression FunctionTaskParameter::get_id_expression() const
+        {
+            return _id_expr;
         }
 
         Symbol FunctionTaskParameter::get_symbol() const
@@ -72,7 +79,11 @@ namespace TL
 
                 FunctionTaskParameter do_(std::string& str) const
                 {
-                    Source src(str);
+                    Source src;
+
+                    src
+                        << "#line " << _ref_tree.get_line() << " \"" << _ref_tree.get_file() << "\"\n"
+                        << str;
 
                     AST_t id_expr_tree = src.parse_id_expression(_ref_tree, _sl);
                     IdExpression id_expr(id_expr_tree, _sl);
@@ -86,9 +97,50 @@ namespace TL
                                 id_expr_tree.prettyprint().c_str());
                     }
 
-                    return FunctionTaskParameter(sym, _direction);
+                    return FunctionTaskParameter(sym, _direction, id_expr);
                 }
         };
+
+        static void dependence_list_check(const ObjectList<FunctionTaskParameter>& function_task_param_list)
+        {
+            // More things can be checked
+            ObjectList<Symbol> already_seen;
+            ObjectList<Symbol> already_nagged;
+            for (ObjectList<FunctionTaskParameter>::const_iterator it = function_task_param_list.begin();
+                    it != function_task_param_list.end();
+                    it++)
+            {
+                Symbol sym(it->get_symbol());
+                DependencyDirection direction(it->get_direction());
+                IdExpression id_expr(it->get_id_expression());
+
+                if (!sym.is_parameter())
+                {
+                    std::cerr << id_expr.get_ast().get_locus() << ": warning: '" << id_expr << "' is not a parameter" << std::endl;
+                }
+
+                // This is an output
+                if ((direction & DEP_DIR_OUTPUT) == DEP_DIR_OUTPUT)
+                {
+                    if (!sym.get_type().is_pointer()
+                            && !sym.get_type().is_array())
+                    {
+                        std::cerr << id_expr.get_ast().get_locus() << ": warning: '" << id_expr 
+                            << "' is an output dependence but its type is not a pointer (or array otherwise)" 
+                            << std::endl;
+                    }
+                }
+
+                if (already_seen.contains(sym)
+                        && !already_nagged.contains(sym))
+                {
+                    std::cerr << id_expr.get_ast().get_locus() << ": warning: '" 
+                        << sym.get_name() << "' has been specified a dependency more than once" << std::endl;
+                    already_nagged.insert(sym);
+                }
+                already_seen.insert(sym);
+            }
+        }
 
         void Core::task_function_handler_pre(PragmaCustomConstruct construct)
         {
@@ -165,6 +217,7 @@ namespace TL
 
             bool has_ellipsis = false;
             ObjectList<ParameterDeclaration> parameter_decl = decl_entity.get_parameter_declarations(has_ellipsis);
+            Symbol function_sym = decl_entity.get_declared_symbol();
 
             if (has_ellipsis)
             {
@@ -181,26 +234,46 @@ namespace TL
                 return;
             }
 
+            Type function_type = function_sym.get_type();
+            if (!function_type.returns().is_void())
+            {
+                std::cerr << construct.get_ast().get_locus()
+                    << ": warning: task directive cannot be applied to functions returning non-void, skipping" << std::endl;
+                return;
+            }
+
             // Use the first parameter as a reference tree so we can parse the specifications
             AST_t param_ref_tree = parameter_decl[0].get_ast();
 
-            ObjectList<FunctionTaskParameter> input_info = input_arguments.map(
-                    FunctionTaskParameterGenerator(DEP_DIR_INPUT,
-                        param_ref_tree,
-                        construct.get_scope_link())
+            ObjectList<FunctionTaskParameter> parameter_list;
+            parameter_list.append(input_arguments.map(
+                        FunctionTaskParameterGenerator(DEP_DIR_INPUT,
+                            param_ref_tree,
+                            construct.get_scope_link())
+                        )
                     );
 
-            ObjectList<FunctionTaskParameter> output_info = output_arguments.map(
-                    FunctionTaskParameterGenerator(DEP_DIR_OUTPUT,
-                        param_ref_tree,
-                        construct.get_scope_link())
+            parameter_list.append(output_arguments.map(
+                        FunctionTaskParameterGenerator(DEP_DIR_OUTPUT,
+                            param_ref_tree,
+                            construct.get_scope_link())
+                        )
                     );
 
-            ObjectList<FunctionTaskParameter> inout_info = inout_arguments.map(
-                    FunctionTaskParameterGenerator(DEP_DIR_INOUT,
-                        param_ref_tree,
-                        construct.get_scope_link())
+            parameter_list.append(inout_arguments.map(
+                        FunctionTaskParameterGenerator(DEP_DIR_INOUT,
+                            param_ref_tree,
+                            construct.get_scope_link())
+                        )
                     );
+
+            dependence_list_check(parameter_list);
+
+            FunctionTaskInfo task_info(function_sym, parameter_list);
+
+            std::cerr << construct.get_ast().get_locus()
+                << ": note: adding task function '" << function_sym.get_name() << "'" << std::endl;
+            _function_task_set->add_function_task(function_sym, task_info);
         }
     }
 }

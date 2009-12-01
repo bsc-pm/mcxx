@@ -3,7 +3,8 @@
 
 #include "tl-object.hpp"
 #include "tl-symbol.hpp"
-#include "tl-omp.hpp"
+#include "tl-omp-deps.hpp"
+#include "tl-langconstruct.hpp"
 #include <map>
 
 namespace TL
@@ -15,10 +16,13 @@ namespace TL
             private:
                 DependencyDirection _direction;
                 Symbol _sym;
+                IdExpression _id_expr;
             public:
-                FunctionTaskParameter(Symbol param_sym, DependencyDirection direction);
+                FunctionTaskParameter(Symbol param_sym, 
+                        DependencyDirection direction, IdExpression id_expr);
                 DependencyDirection get_direction() const; 
                 Symbol get_symbol() const;
+                IdExpression get_id_expression() const;
         };
 
         class FunctionTaskInfo 

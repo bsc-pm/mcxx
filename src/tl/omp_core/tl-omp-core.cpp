@@ -72,6 +72,11 @@ namespace TL
                 dto.set_object("openmp_info", _openmp_info);
             }
 
+            if (!dto.get_keys().contains("openmp_task_info"))
+            {
+                _function_task_set = RefPtr<OpenMP::FunctionTaskSet>(new OpenMP::FunctionTaskSet());
+                dto.set_object("openmp_task_info", _function_task_set);
+            }
         }
 
         void Core::register_omp_constructs()

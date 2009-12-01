@@ -28,6 +28,7 @@
 #include "tl-pragmasupport.hpp"
 
 #include "tl-omp.hpp"
+#include "tl-omp-tasks.hpp"
 
 namespace TL
 {
@@ -49,6 +50,7 @@ namespace TL
 #undef OMP_DIRECTIVE
 
                 RefPtr<OpenMP::Info> _openmp_info;
+                RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
 
                 void get_clause_symbols(PragmaCustomClause clause, ObjectList<Symbol>& sym_list);
                 void get_reduction_symbols(PragmaCustomConstruct construct, 
