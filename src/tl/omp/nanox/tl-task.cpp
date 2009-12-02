@@ -289,7 +289,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<        fill_dependences_immediate
         <<        "err = nanos_create_wd_and_run(" 
         <<                num_devices << ", " << device_descriptor << ", "
-        <<                "&imm_args, "
+        <<                "sizeof(imm_args), &imm_args, "
         <<                num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", &props);"
         <<        "if (err != NANOS_OK) nanos_handle_error (err);"
         <<     "}"

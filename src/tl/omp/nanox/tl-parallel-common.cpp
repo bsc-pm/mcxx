@@ -89,7 +89,7 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
         <<   fill_immediate_arguments
         <<   "nanos_create_wd_and_run(" << num_devices << ", "
         <<                              device_descriptor << ", "
-        <<                              "&imm_args,"
+        <<                              "sizeof(imm_args), &imm_args,"
         <<                              "0,"
         <<                              "(nanos_dependence_t*)0, "
         <<                              "&props);"
