@@ -439,6 +439,8 @@ namespace TL
 
                 void push_current_data_sharing(DataSharingEnvironment&);
                 void pop_current_data_sharing();
+
+                void reset();
         };
 
 

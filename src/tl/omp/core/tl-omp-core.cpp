@@ -51,6 +51,9 @@ namespace TL
                 return;
             }
 
+            // Reset any data computed so far
+            _openmp_info->reset();
+
             AST_t translation_unit = dto["translation_unit"];
             ScopeLink scope_link = dto["scope_link"];
 

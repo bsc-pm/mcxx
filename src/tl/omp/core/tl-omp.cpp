@@ -251,6 +251,18 @@ namespace TL
             _stack_data_sharing.pop();
         }
 
+        void Info::reset()
+        {
+            if (_root_data_sharing != NULL)
+            {
+                delete _root_data_sharing;
+            }
+            _current_data_sharing = _root_data_sharing = new DataSharingEnvironment(NULL);
+            _map_data_sharing.clear();
+            // Why stack is so special?
+            _stack_data_sharing = std::stack<DataSharingEnvironment*>();
+        }
+
         UDRInfoScope::UDRInfoScope(Scope sc)
             : _scope(sc)
         {
