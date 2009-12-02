@@ -108,10 +108,12 @@ location_t current_location = { NULL, NULL, 1, 1};
 
 <option_value>{ 
 
-[^\n]* { 
+[^#\n]* { 
     handle_token(yytext); 
     return CONFIGFILE_OPTION_VALUE; 
 }
+
+"#" { /* Start of comment */ BEGIN(linecomment); return EOL; }
 
 [\n] {
     current_location.line++;

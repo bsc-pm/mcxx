@@ -279,10 +279,24 @@ static p_compilation_configuration_line process_option_line(
     // fprintf(stderr, "--> PROCESSING OPTION LINE -> '%s' = '%s'\n", 
     //         name->option_name, option_value);
 
+    char* option_value_tmp = strdup(option_value);
+    {
+        // Trim the option value
+        char *p = &option_value_tmp[strlen(option_value_tmp) - 1];
+        while (p >= option_value_tmp 
+                && (*p == ' ' || *p == '\t'))
+        {
+            *p = '\0';
+            p--;
+        }
+    }
+
     result = calloc(1, sizeof(*result));
 
     result->name = uniquestr(name->option_name);
-    result->value = uniquestr(option_value);
+    result->value = uniquestr(option_value_tmp);
+
+    free(option_value_tmp);
 
     result->num_flags = flaglist->num_flags;
     result->flags = calloc(result->num_flags, sizeof(*result->flags)); 
