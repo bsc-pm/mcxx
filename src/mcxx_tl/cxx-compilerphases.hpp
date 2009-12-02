@@ -43,6 +43,7 @@ LIBMCXXTL_EXTERN void load_compiler_phases_cxx(compilation_configuration_t* conf
 LIBMCXXTL_EXTERN void start_compiler_phase_pre_execution(compilation_configuration_t* config, translation_unit_t* translation_unit);
 LIBMCXXTL_EXTERN void start_compiler_phase_execution(compilation_configuration_t* config, translation_unit_t* translation_unit);
 LIBMCXXTL_EXTERN void phases_help(compilation_configuration_t* config);
+LIBMCXXTL_EXTERN void unload_compiler_phases(void);
 
 #ifdef __cplusplus
 }

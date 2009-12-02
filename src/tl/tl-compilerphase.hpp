@@ -118,7 +118,25 @@ namespace TL
                 return NULL;
             }
         public:
+            //! Constructor of the phase
+            /*!
+              The constructor is called when the phase is loaded. This happens
+              when the compiler starts, after having read the configuration
+              files
+
+              You can set the initial state of a phase in this constructor. If you
+              need to reset your state, override CompilerPhase::phase_cleanup(). All
+              information that is not reset will be shared among executions of this
+              phase (this allows some sort of interfile/interprocedural information
+              processing provided you invoke the compiler with several files at a time)
+              */
             CompilerPhase();
+
+            //! Destructor of the phase
+            /*!
+              This destructor is called when the phase is unloaded, just before
+              ending the compiler.
+              */
             virtual ~CompilerPhase();
 
             //! Entry point of the phase before parsing and typechecking
@@ -134,6 +152,17 @@ namespace TL
              * \param data_flow The data transfer object along the compiler phase pipeline
              */
             virtual void run(DTO& data_flow) = 0;
+
+            //! Phase cleanup
+            /*!
+              This function is called after the phase has been run. Override this function
+              to reset all data of the phase that is not meant to last between files.
+
+              \note If you already do this in the run member function, move
+              the code to this function so the compiler can reset your phase,
+              even if run is not called.
+             */
+            virtual void phase_cleanup(DTO& data_flow) { }
 
             //! Sets the phase name
             /*!

@@ -150,6 +150,9 @@
 "                           number of THREADS.\n" \
 "  --hlt                    Enable High Level Transformations\n" \
 "                           This enables '#pragma hlt'\n" \
+"  --do-not-unload-phases   If the compiler crashes when unloading\n" \
+"                           phases, use this flag to avoid the\n" \
+"                           compiler to unload them.\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -223,6 +226,7 @@ struct command_line_long_options command_line_long_options[] =
     {"print-config-dir", CLP_NO_ARGUMENT, OPTION_PRINT_CONFIG_DIR},
     {"upc", CLP_OPTIONAL_ARGUMENT, OPTION_ENABLE_UPC},
     {"hlt", CLP_NO_ARGUMENT, OPTION_ENABLE_HLT},
+    {"do-not-unload-phases", CLP_NO_ARGUMENT, OPTION_DO_NOT_UNLOAD_PHASES},
     // sentinel
     {NULL, 0, 0}
 };
@@ -287,6 +291,7 @@ static int parse_implicit_parameter_flag(int *should_advance, const char *specia
 static void list_environments(void);
 
 
+static char do_not_unload_phases = 0;
 static char show_help_message = 0;
 
 int main(int argc, char* argv[])
@@ -349,6 +354,12 @@ int main(int argc, char* argv[])
 
     // Link all generated objects
     link_objects();
+
+    // Unload phases
+    if (!do_not_unload_phases)
+    {
+        unload_compiler_phases();
+    }
 
     timing_end(&timing_global);
     if (CURRENT_CONFIGURATION->verbose)
@@ -897,6 +908,11 @@ int parse_arguments(int argc, const char* argv[],
                             fprintf(stderr, "UPC static THREADS=%s\n", parameter_info.argument);
                             CURRENT_CONFIGURATION->upc_threads = uniquestr(parameter_info.argument);
                         }
+                        break;
+                    }
+                case OPTION_DO_NOT_UNLOAD_PHASES:
+                    {
+                        do_not_unload_phases = 1;
                         break;
                     }
                 default:
@@ -1855,7 +1871,7 @@ static void compile_every_translation_unit(void)
                 // 5. Semantic analysis
                 semantic_analysis(translation_unit, parsed_filename);
 
-                // 6. TL::run
+                // 6. TL::run and TL::phase_cleanup
                 compiler_phases_execution(CURRENT_CONFIGURATION, translation_unit, parsed_filename);
 
                 // 7. print ast if requested

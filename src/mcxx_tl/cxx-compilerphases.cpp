@@ -59,6 +59,13 @@ namespace TL
             typedef std::vector<TL::CompilerPhase*> compiler_phases_list_t;
             typedef std::map<compilation_configuration_t*, compiler_phases_list_t> compiler_phases_t;
             static compiler_phases_t compiler_phases;
+#ifndef WIN32_BUILD
+            typedef void* lib_handle_t;
+#else
+            typedef HMODULE lib_handle_t;
+#endif
+        public:
+            static std::vector<lib_handle_t> lib_handle_list;
         public :
             static void start_compiler_phase_pre_execution(compilation_configuration_t *config,
                     translation_unit_t* translation_unit)
@@ -217,6 +224,59 @@ namespace TL
 
                         }
                     }
+
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "[PHASE] Running phase cleanup of phase '%s'\n",
+                                phase->get_phase_name().c_str());
+                    }
+                    // Invoke file cleanup for phase
+                    phase->phase_cleanup(dto);
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "[PHASE] Phase cleanup of phase '%s' finished\n",
+                                phase->get_phase_name().c_str());
+                    }
+                }
+            }
+
+            static void unload_compiler_phases(void)
+            {
+                typedef std::map<compilation_configuration_t*, compiler_phases_list_t> pair_t;
+
+                for (pair_t::iterator config_it = compiler_phases.begin();
+                        config_it != compiler_phases.end();
+                        config_it++)
+                {
+                    compiler_phases_list_t &compiler_phases_list = config_it->second;
+
+                    for (compiler_phases_list_t::iterator it = compiler_phases_list.begin();
+                            it != compiler_phases_list.end();
+                            it++)
+                    {
+                        TL::CompilerPhase* phase = (*it);
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "[PHASE] Unloading phase '%s'\n", phase->get_phase_name().c_str());
+                        }
+                        delete phase;
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "[PHASE] Phase '%s' unloaded\n", phase->get_phase_name().c_str());
+                        }
+                    }
+                }
+
+                // Close handles of libraries
+                for (std::vector<lib_handle_t>::iterator it = lib_handle_list.begin();
+                        it != lib_handle_list.end();
+                        it++)
+                {
+#ifndef WIN32_BUILD
+                    dlclose(*it);
+#else
+                    FreeLibrary(*it);
+#endif
                 }
             }
 
@@ -324,6 +384,7 @@ namespace TL
     };
 
     CompilerPhaseRunner::compiler_phases_t CompilerPhaseRunner::compiler_phases;
+    std::vector<CompilerPhaseRunner::lib_handle_t> CompilerPhaseRunner::lib_handle_list;
 }
 
 
@@ -419,6 +480,7 @@ extern "C"
             }
 
             TL::CompilerPhaseRunner::add_compiler_phase(config, new_phase);
+            TL::CompilerPhaseRunner::lib_handle_list.push_back(handle);
         }
     }
 #else
@@ -522,6 +584,7 @@ extern "C"
             }
 
             TL::CompilerPhaseRunner::add_compiler_phase(config, new_phase);
+            lib_handle_list.push_back(handle);
         }
     }
 #endif
@@ -557,6 +620,11 @@ extern "C"
             fprintf(stderr, "Starting the compiler phase pipeline\n");
         }
         TL::CompilerPhaseRunner::start_compiler_phase_execution(config, translation_unit);
+    }
+
+    void unload_compiler_phases(void)
+    {
+        TL::CompilerPhaseRunner::unload_compiler_phases();
     }
 
     void phases_help(compilation_configuration_t* config)
