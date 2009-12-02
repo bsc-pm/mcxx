@@ -472,15 +472,39 @@ namespace TL
 
                 Source static_initializer, dynamic_initializer;
 
-                private_declarations
-                    << comment("Reduction private entity : 'rdp_" + sym.get_name() + "'")
-                    << type.get_declaration(
-                            construct.get_scope(),
-                            "rdp_" + sym.get_name())
-                    << static_initializer
-                    << ";"
-                    << dynamic_initializer
-                    ;
+                Type sym_type = sym.get_type();
+
+                if (!it->is_array()
+                        || !sym_type.is_pointer())
+                {
+                    private_declarations
+                        << comment("Reduction private entity : 'rdp_" + sym.get_name() + "'")
+                        << type.get_declaration(
+                                construct.get_scope(),
+                                "rdp_" + sym.get_name())
+                        << static_initializer
+                        << ";"
+                        << dynamic_initializer
+                        ;
+                }
+                else // it->is_array() && sym_type.is_pointer()
+                {
+                    // Adjust pointers in array reductions
+                    sym_type = sym_type.points_to();
+                    private_declarations
+                        << comment("Reduction private entity : 'rdp_" + sym.get_name() + "'")
+                        << sym_type.get_declaration(
+                                construct.get_scope(),
+                                "p_rdp_" + sym.get_name())
+                        << static_initializer
+                        << ";"
+                        << type.get_declaration(
+                                construct.get_scope(),
+                                "rdp_" + sym.get_name())
+                        << " = &p_rdp_" << sym.get_name() << ";"
+                        << dynamic_initializer
+                        ;
+                }
 
                 if (!it->neuter_is_empty())
                 {
@@ -497,7 +521,7 @@ namespace TL
                                 ;
                         }
                     }
-                    else
+                    else // is array
                     {
                         Source element_level_initializer;
 
@@ -505,7 +529,7 @@ namespace TL
                         {
                             // Prepend with the constructor name
                             element_level_initializer
-                                << sym.get_type().get_declaration(construct.get_scope(), "")
+                                << sym_type.get_declaration(construct.get_scope(), "")
                                 << it->get_neuter();
                         }
                         else
@@ -516,7 +540,7 @@ namespace TL
                         if (!is_variably_modified)
                         {
                             ObjectList<int> dimension_sizes(it->num_dimensions(), 0);
-                            Type array_type = sym.get_type();
+                            Type array_type = sym_type;
 
                             for (int i = 0; i < it->num_dimensions(); i++)
                             {
@@ -540,13 +564,19 @@ namespace TL
                         }
                         else
                         {
+                            std::string prefix = "rdp_";
+                            if (type.is_pointer())
+                            {
+                                prefix = "p_rdp_";
+                            }
+
                             dynamic_initializer
-                                << comment("Initializing VLA 'rdp_" + sym.get_name() + "'")
+                                << comment("Initializing VLA '" + prefix + sym.get_name() + "'")
                                 ;
                             generate_dynamic_array_initializer(
                                     dynamic_initializer,
-                                    type,
-                                    Source("rdp_" + sym.get_name()),
+                                    sym_type,
+                                    Source(prefix + sym.get_name()),
                                     element_level_initializer);
                         }
                     }

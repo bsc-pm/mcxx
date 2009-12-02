@@ -209,6 +209,14 @@ namespace TL
                     IdExpression var_id_expr(var_tree, clause.get_scope_link());
 
                     Symbol var_sym = var_id_expr.get_symbol();
+
+                    if (!var_sym.is_valid())
+                    {
+                        running_error("%s: error: variable '%s' in reduction clause is invalid\n",
+                                construct.get_ast().get_locus().c_str(),
+                                var_tree.prettyprint().c_str());
+                    }
+
                     Type var_type = var_sym.get_type();
 
                     std::string reductor_name = original_reductor_name;
@@ -243,14 +251,16 @@ namespace TL
                         unqualified_reductor_name = reductor_id_expr.get_unqualified_part();
                     }
 
-
-                    if (!var_sym.is_valid())
+                    // Adjust pointers to arrays
+                    if (!var_sym.is_parameter()
+                            && var_type.is_pointer()
+                            && var_type.points_to().is_array())
                     {
-                        running_error("%s: error: variable '%s' in reduction clause is invalid\n",
-                                construct.get_ast().get_locus().c_str(),
-                                var_tree.prettyprint().c_str());
+                        // Ignore the additional pointer
+                        var_type = var_type.points_to();
                     }
-                    else if (var_sym.is_dependent_entity())
+
+                    if (var_sym.is_dependent_entity())
                     {
                         std::cerr << construct.get_ast().get_locus() << ": warning: symbol "
                             << "'" << var_tree.prettyprint() << "' is dependent, skipping it" << std::endl;

@@ -100,6 +100,9 @@ namespace TL
                         && op_type.parameters()[0].is_signed_int())
                 {
                     Type current_type = reduction_symbol.get_symbol().get_type();
+                    // Adjust for pointer to array
+                    if (current_type.is_pointer())
+                        current_type = current_type.points_to();
                     // Arrays require more parameters
                     for (int i = 0; i < reduction_symbol.num_dimensions(); i++)
                     {
@@ -136,6 +139,8 @@ namespace TL
                         && op_type.parameters()[op_type.parameters().size() - 1].is_signed_int())
                 {
                     Type current_type = reduction_symbol.get_symbol().get_type();
+                    if (current_type.is_pointer())
+                        current_type = current_type.points_to();
                     // Arrays require more parameters
                     for (int i = 0; i < reduction_symbol.num_dimensions(); i++)
                     {
@@ -147,11 +152,8 @@ namespace TL
                         }
                         else
                         {
-                            result << current_type.array_dimension().prettyprint()
+                            result << "," << current_type.array_dimension().prettyprint()
                                 ;
-                            if ((i + 1) != reduction_symbol.num_dimensions())
-                                result << ","
-                                    ;
                         }
                         current_type = current_type.array_element();
                     }
@@ -186,6 +188,16 @@ namespace TL
             int reduction_index = 0;
             int partial_reduction_index = 1;
 
+            if (reduction_symbol.is_array())
+            {
+                // Adjust for array reductions where the ints are at the beginning
+                if (parameters[0].is_signed_int())
+                {
+                    reduction_index = parameters.size() - 2;
+                    partial_reduction_index = parameters.size() - 1;
+                }
+            }
+
             if (!reduction_symbol.reductor_is_left_associative())
             {
                 // reduction_index = 1;
@@ -202,7 +214,33 @@ namespace TL
                 reduction_arg << "&" << reduction_var_name
                     ;
             }
-            else
+            else if (reduction_symbol.is_array())
+            {
+                Source reduction_accessor;
+                if (reduction_symbol.get_symbol().get_type().is_pointer())
+                {
+                    reduction_accessor << "(*(" << reduction_var_name << "))";
+                }
+                else
+                {
+                    reduction_accessor << reduction_var_name;
+                }
+                if (parameters[reduction_index].is_pointer()
+                        && !parameters[reduction_index].points_to().is_array())
+                {
+                    reduction_arg << "&" << reduction_accessor;
+                    for (int i = 0; i < reduction_symbol.num_dimensions(); i++)
+                    {
+                        reduction_arg << "[0]";
+                    }
+                }
+                else
+                {
+                    reduction_arg << reduction_accessor
+                        ;
+                }
+            }
+            else 
             {
                 reduction_arg << reduction_var_name
                     ;
@@ -213,6 +251,25 @@ namespace TL
             {
                 partial_reduction_arg << "&(" << partial_reduction << ")"
                     ;
+            }
+            else if (reduction_symbol.is_array())
+            {
+                Source partial_reduction_access;
+
+                if (parameters[partial_reduction_index].is_pointer()
+                        && !parameters[partial_reduction_index].points_to().is_array())
+                {
+                    partial_reduction_arg << "&" << partial_reduction;
+                    for (int i = 0; i < reduction_symbol.num_dimensions(); i++)
+                    {
+                        partial_reduction_arg << "[0]";
+                    }
+                }
+                else
+                {
+                    partial_reduction_arg << partial_reduction
+                        ;
+                }
             }
             else
             {
@@ -370,6 +427,11 @@ namespace TL
                     // get its type
                     Symbol reduction_symbol = it->get_symbol();
                     Type reduction_type = reduction_symbol.get_type();
+
+                    if (it->is_array() && reduction_type.is_pointer())
+                    {
+                        reduction_type = reduction_type.points_to();
+                    }
 
                     // create a tree of expression 128
                     // FIXME: hardcoded to 128 processors

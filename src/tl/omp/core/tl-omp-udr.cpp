@@ -157,7 +157,7 @@ namespace TL
                 continue;
 
             bool valid = true;
-            for (int i = parameter_types.size() - 2; i < parameter_types.size(); i++)
+            for (int i = 2; i < parameter_types.size(); i++)
             {
                 if (!parameter_types[i].is_same_type(get_signed_int_type()))
                 {

@@ -194,6 +194,11 @@ namespace TL
                 Symbol symbol = reduction_symbol.get_symbol();
                 Type type = symbol.get_type();
 
+                if (it->is_array() && type.is_pointer())
+                {
+                    type = type.points_to();
+                }
+
                 Type pointer_type = type.get_pointer_to();
                 if (!disable_restrict_pointers)
                 {

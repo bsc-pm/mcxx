@@ -144,6 +144,11 @@ namespace TL
                 Symbol reduction_symbol = it->get_symbol();
                 Type reduction_type = reduction_symbol.get_type();
 
+                if (it->is_array() && reduction_type.is_pointer())
+                {
+                    reduction_type = reduction_type.points_to();
+                }
+
                 // create a tree of expression 128
                 // FIXME: hardcoded to 128 processors
                 Source array_length;

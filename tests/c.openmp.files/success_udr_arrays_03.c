@@ -1,8 +1,8 @@
 #include <string.h>
 
-void add_vec(int, float*, float*);
+void add_vec(int n, float v1[n], float v2[n]);
 
-void add_mat(int, int, float*, float*);
+void add_mat(int n1, int n2, float v1[n1][n2], float v2[n1][n2]);
 
 #pragma omp declare reduction(add_vec : float) dimensions(1)
 
@@ -22,7 +22,7 @@ void f1(void)
 #pragma omp parallel for reduction(add_vec : vec_sum)
     for (i = 0; i < NUM_VECTORS; i++)
     {
-        add_vec(VECTOR_SIZE, &vec_sum[0], &array_of_vec[i][0]);
+        add_vec(VECTOR_SIZE, vec_sum, array_of_vec[i]);
     }
 }
 
@@ -39,6 +39,6 @@ void f2(void)
 #pragma omp parallel for reduction(add_mat : mat_sum)
     for (i = 0; i < NUM_MATS; i++)
     {
-        add_mat(VECTOR_SIZE, VECTOR_SIZE, &mat_sum[0][0], &array_of_mat[i][0][0]);
+        add_mat(VECTOR_SIZE, VECTOR_SIZE, mat_sum, array_of_mat[i]);
     }
 }
