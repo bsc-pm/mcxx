@@ -21,11 +21,20 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = core fun-tasks @TL_OMP_EXTENSIONS@ 
+include ../../Makefile.phases
+
+phases_LTLIBRARIES = libtlomp-fun-tasks.la
+
+libtlomp_fun_tasks_la_CFLAGS= $(tl_cflags) 
+libtlomp_fun_tasks_la_CXXFLAGS= $(tl_cflags) -I $(srcdir)/../core
+
+libtlomp_fun_tasks_la_LDFLAGS = $(tl_ldflags)
+libtlomp_fun_tasks_la_LIBADD = $(tl_libadd)
 
 END=
 
-DIST_SUBDIRS=core\
-             nanos4 \
-             nanox \
-             $(END)
+libtlomp_fun_tasks_la_SOURCES = \
+     tl-omp-fun-tasks.hpp \
+     tl-omp-fun-tasks.cpp \
+     $(END)
+
