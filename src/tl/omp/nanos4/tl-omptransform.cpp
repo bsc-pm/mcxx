@@ -39,7 +39,9 @@ namespace TL
             disable_restrict_pointers(false),
             use_memcpy_always(true),
             stm_global_lock_enabled(false),
-            run_pretransform(true)
+            run_pretransform(true),
+            allow_inlining_of_outlines(true),
+            atomic_as_critical(false)
         {
             // Set phase info
             set_phase_name("Nanos 4 OpenMP implementation");
@@ -62,7 +64,7 @@ namespace TL
             register_parameter("allow_inlining_of_outlines",
                     "Hints the backend compiler that the parallel outline can be inlined (if directly called)",
                     allow_inlining_of_outlines_str,
-                    "0").connect(functor(&OpenMPTransform::set_allow_inlining_of_outlines, *this));
+                    "1").connect(functor(&OpenMPTransform::set_allow_inlining_of_outlines, *this));
 
             C_LANGUAGE()
             {
@@ -88,6 +90,12 @@ namespace TL
                         run_pretransform_str,
                         "1").connect(functor(&OpenMPTransform::set_run_pretransform, *this));
             }
+            register_parameter("atomic_as_critical",
+                    "When possible the compiler will use atomic builtins to implement 'atomic' construct."
+                    "If your compiler does not support these atomic builtins you can use this flag and"
+                    "atomics will be implemented as a critical region",
+                    atomic_as_critical_str,
+                    "0").connect(functor(&OpenMPTransform::set_atomic_as_critical, *this));
 
             // STM options
             register_parameter("STM_global_lock",
@@ -206,13 +214,22 @@ namespace TL
                     /* Error message */ "Will run pretransformations");
         }
 
+        void OpenMPTransform::set_atomic_as_critical(const std::string& str)
+        {
+            atomic_as_critical = false;
+            parse_boolean_option(/* Parameter name */ "atomic_as_critical",
+                    /* Given value */ str,
+                    /* Compiler bool */ atomic_as_critical,
+                    /* Error message */ "Atomics will be implemented using atomic builtins");
+        }
+
         void OpenMPTransform::set_allow_inlining_of_outlines(const std::string& str)
         {
             allow_inlining_of_outlines = false;
             parse_boolean_option(/* Parameter name */ "allow_inlining_of_outlines",
                     /* Given value */ str,
                     /* Compiler bool */ allow_inlining_of_outlines,
-                    /* Error message */ "Outlines will not be inlined");
+                    /* Error message */ "Outlines will be inlined");
         }
 
         bool OpenMPTransform::instrumentation_requested()

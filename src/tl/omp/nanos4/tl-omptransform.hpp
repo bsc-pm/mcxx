@@ -88,6 +88,7 @@ namespace TL
                 std::string use_memcpy_always_str;
                 std::string run_pretransform_str;
                 std::string allow_inlining_of_outlines_str;
+                std::string atomic_as_critical_str;
 
                 std::string stm_replace_functions_file;
                 std::string stm_replace_functions_mode;
@@ -103,6 +104,7 @@ namespace TL
                 void set_use_memcpy_always(const std::string& str);
                 void set_run_pretransform(const std::string& str);
                 void set_allow_inlining_of_outlines(const std::string& str);
+                void set_atomic_as_critical(const std::string& str);
 
                 /*
                  * Logical values of parameters computed by the set_XXX functions
@@ -114,6 +116,7 @@ namespace TL
                 bool stm_global_lock_enabled;
                 bool run_pretransform;
                 bool allow_inlining_of_outlines;
+                bool atomic_as_critical;
             public:
                 OpenMPTransform();
 

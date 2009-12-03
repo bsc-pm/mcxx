@@ -145,7 +145,7 @@ namespace TL
                         internal_error("Code unreachable", 0);
                 }
 
-                critical_source << intrinsic_function_name << "(&" << expr.get_unary_operand() << ", 1);"
+                critical_source << intrinsic_function_name << "(&(" << expr.get_unary_operand() << "), 1);"
                     ;
             }
             // No need to check the other case as allowed_expressions_critical
@@ -223,8 +223,11 @@ namespace TL
             Statement critical_body = atomic_construct.get_statement();
 
             AST_t atomic_tree;
-            // FIXME
-            if (!critical_body.is_expression())
+            if (atomic_as_critical)
+            {
+                atomic_tree = inefficient_atomic(atomic_construct);
+            }
+            else if (!critical_body.is_expression())
             {
                 std::cerr << atomic_construct.get_ast().get_locus() << ": warning: 'atomic' construct requires an expression statement" << std::endl;
                 atomic_tree = inefficient_atomic(atomic_construct);
