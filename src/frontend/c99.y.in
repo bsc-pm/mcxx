@@ -776,15 +776,6 @@ type_specifier_alone : class_specifier
 }
 ;
 
-/*
-type_specifier_seq has been rewritten in a similar fashion to "decl_specifier_sequence"
-
-type_specifier_seq : nontype_specifier_seq2 type_specifier nontype_specifier_seq2
-
-nontype_specifier_seq2 is a strict subset of nontype_specifier_seq that allows only
-const, volatile, long, short, unsigned, signed and __complex__
-*/
-
 type_specifier_seq : nontype_specifier_seq type_specifier nontype_specifier_no_end_attrib_seq
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
@@ -800,6 +791,10 @@ type_specifier_seq : nontype_specifier_seq type_specifier nontype_specifier_no_e
 | type_specifier
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| nontype_specifier_no_end_attrib_seq
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 

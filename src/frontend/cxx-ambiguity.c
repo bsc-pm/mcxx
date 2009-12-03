@@ -1563,6 +1563,17 @@ char check_for_simple_type_spec(AST type_spec, decl_context_t decl_context, type
 
 static char check_for_type_specifier(AST type_id, decl_context_t decl_context)
 {
+    C_LANGUAGE()
+    {
+        if (type_id == NULL)
+            return 1;
+    }
+    CXX_LANGUAGE()
+    {
+        ERROR_CONDITION(type_id == NULL,
+                "type-id cannot be null", 0);
+    }
+
     switch (ASTType(type_id))
     {
         case AST_SIMPLE_TYPE_SPECIFIER :
