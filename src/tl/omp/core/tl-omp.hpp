@@ -90,15 +90,19 @@ namespace TL
         class LIBTL_CLASS DependencyItem : public TL::Object
         {
             private:
-                Symbol _base_sym;
-                AST_t _dep_expr;
+                Expression _dep_expr;
                 DependencyDirection _kind;
+
+                Symbol _dep_symbol;
             public:
-                DependencyItem(Symbol base_sym, AST_t dep_expr, DependencyDirection kind);
+                DependencyItem(Expression dep_expr, DependencyDirection kind);
 
                 DependencyDirection get_kind() const;
-                AST_t get_dependency_expression() const;
-                Symbol get_base_symbol() const;
+                Expression get_dependency_expression() const;
+
+                bool is_symbol_dependence() const;
+                Symbol get_symbol_dependence() const;
+                void set_symbol_dependence(Symbol);
         };
 
         class LIBTL_CLASS UDRInfoItem : public TL::Object

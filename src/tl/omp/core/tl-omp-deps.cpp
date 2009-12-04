@@ -3,33 +3,18 @@
 
 namespace TL { namespace OpenMP {
 
-    static bool check_for_dep_expression(Expression expr, Symbol &base_sym)
+    static bool check_for_dep_expression(Expression expr)
     {
-        if (expr.is_id_expression())
+        bool is_lvalue = false;
+        expr.get_type(is_lvalue);
+
+        if (!is_lvalue)
         {
-            base_sym = expr.get_id_expression().get_symbol();
-            return true;
+            std::cerr << expr.get_ast().get_locus() 
+                << ": warning: dependency expression '" << expr.prettyprint() << "' is not a lvalue" << std::endl;
         }
-        else if (expr.is_array_subscript())
-        {
-            // Restrict the array syntax to arrays
-            return expr.get_subscripted_expression().get_type().is_array()
-                && check_for_dep_expression(expr.get_subscripted_expression(), base_sym);
-        }
-        else if (expr.is_array_section())
-        {
-            // Restrict the array section syntax to arrays
-            return expr.get_subscripted_expression().get_type().is_array()
-                && check_for_dep_expression(expr.array_section_item(), base_sym);
-        }
-        else if (expr.is_member_access())
-        {
-            return check_for_dep_expression(expr.get_accessed_entity(), base_sym);
-        }
-        else
-        {
-            return false;
-        }
+
+        return is_lvalue;
     }
 
     static void add_data_sharings(ObjectList<Expression> &expression_list, 
@@ -42,25 +27,35 @@ namespace TL { namespace OpenMP {
         {
             // FIXME - This is the base symbol of the dependence
             Expression& expr(*it);
-            Symbol base_sym(NULL);
-            if (check_for_dep_expression(expr, base_sym))
+            if (check_for_dep_expression(expr))
             {
-                DependencyItem dep_item(base_sym, it->get_ast(), attr);
+                DependencyItem dep_item(*it, attr);
 
-                if ((data_sharing.get(base_sym) & DS_SHARED) != DS_SHARED)
+                if (expr.is_id_expression())
                 {
-                    // If it is not implicitly set fail
-                    if (((data_sharing.get(base_sym) & DS_PRIVATE) == DS_PRIVATE)
-                        && ((data_sharing.get(base_sym) & DS_IMPLICIT) != DS_IMPLICIT))
+                    Symbol sym = expr.get_id_expression().get_computed_symbol();
+                    if (sym.is_valid())
                     {
-                        running_error("%s: error: related variable '%s' of dependency specification '%s' is private, "
-                                "it must be shared if referenced in an 'input' or an 'output' clause\n",
-                                expr.get_ast().get_locus().c_str(),
-                                expr.prettyprint().c_str(),
-                                base_sym.get_name().c_str());
+                        DataSharingAttribute attr = data_sharing.get(sym);
+
+                        if (((attr & DS_PRIVATE) != DS_PRIVATE)
+                                && ((attr & DS_IMPLICIT) != DS_IMPLICIT))
+                        {
+                            std::cerr << ": warning: dependency expression '" 
+                                << expr.prettyprint() << "' names a private variable, making it shared" << std::endl;
+
+                            data_sharing.set(sym, attr);
+                        }
+
+                        data_sharing.set(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
+                        dep_item.set_symbol_dependence(sym);
                     }
-                    // Set to shared
-                    data_sharing.set(base_sym, DS_SHARED);
+                    else
+                    {
+                        std::cerr << expr.get_ast().get_locus() 
+                            << ": warning: skipping invalid dependency expression '" << expr.prettyprint() << "'" << std::endl;
+                        continue;
+                    }
                 }
 
                 data_sharing.add_dependence(dep_item);
@@ -68,7 +63,7 @@ namespace TL { namespace OpenMP {
             else
             {
                 std::cerr << expr.get_ast().get_locus() 
-                    << ": warning: '" << expr.prettyprint() << "' is not a valid dependency specification, skipping" << std::endl;
+                    << ": warning: skipping invalid dependency expression '" << expr.prettyprint() << "'" << std::endl;
             }
         }
     }

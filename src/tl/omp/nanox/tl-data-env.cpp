@@ -92,6 +92,7 @@ namespace TL
         void fill_data_environment_structure(ObjectList<Symbol> value, 
                 ObjectList<Symbol> shared, 
                 ScopeLink scope_link,
+                ObjectList<OpenMP::DependencyItem> dependencies,
                 // Output arguments
                 std::string &struct_name,
                 Source & struct_decl,
@@ -177,10 +178,31 @@ namespace TL
                     data_env_info.add_item(data_item);
                 }
             }
+
+            int dep_counter = 0;
+            for (ObjectList<OpenMP::DependencyItem>::iterator it = dependencies.begin();
+                    it != dependencies.end();
+                    it++)
+            {
+                if (!it->is_symbol_dependence())
+                {
+                    std::stringstream ss;
+                    ss << dep_counter;
+
+                    struct_fields << it->get_dependency_expression()
+                        .get_type().get_pointer_to()
+                        .get_declaration(it->get_dependency_expression().get_scope(), "dep_" + ss.str())
+                        << ";"
+                    ;
+                }
+
+                dep_counter++;
+            }
         }
 
         void fill_data_args(const std::string& arg_var_accessor, 
                 const DataEnvironInfo& data_env, 
+                ObjectList<OpenMP::DependencyItem> dependencies,
                 Source& result)
         {
             ObjectList<DataEnvironItem> data_env_items;
@@ -242,6 +264,19 @@ namespace TL
                         }
                     }
                 }
+            }
+
+            int num_dep = 0;
+            for (ObjectList<OpenMP::DependencyItem>::iterator it = dependencies.begin();
+                    it != dependencies.end();
+                    it++)
+            {
+                if (!it->is_symbol_dependence())
+                {
+                    result << arg_var_accessor << "dep_" << num_dep << "= &(" << it->get_dependency_expression() << ");"
+                        ;
+                }
+                num_dep++;
             }
         }
 

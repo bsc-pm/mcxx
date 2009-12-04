@@ -685,8 +685,8 @@ namespace TL
             return _num_dimensions;
         }
 
-        DependencyItem::DependencyItem(Symbol base_sym, AST_t dep_expr, DependencyDirection kind)
-            : _base_sym(base_sym), _dep_expr(dep_expr), _kind(kind)
+        DependencyItem::DependencyItem(Expression dep_expr, DependencyDirection kind)
+            : _dep_expr(dep_expr), _kind(kind)
         {
         }
 
@@ -695,14 +695,24 @@ namespace TL
             return _kind;
         }
 
-        Symbol DependencyItem::get_base_symbol() const
-        {
-            return _base_sym;
-        }
-
-        AST_t DependencyItem::get_dependency_expression() const
+        Expression DependencyItem::get_dependency_expression() const
         {
             return _dep_expr;
+        }
+
+        bool DependencyItem::is_symbol_dependence() const
+        {
+            return _dep_symbol.is_valid();
+        }
+
+        Symbol DependencyItem::get_symbol_dependence() const
+        {
+            return _dep_symbol;
+        }
+
+        void DependencyItem::set_symbol_dependence(Symbol sym)
+        {
+            _dep_symbol = sym;
         }
     }
 }

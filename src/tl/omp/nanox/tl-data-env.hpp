@@ -24,6 +24,7 @@
 #ifndef TL_DATA_ENV_HPP
 #define TL_DATA_ENV_HPP
 
+#include "tl-omp.hpp"
 #include "tl-symbol.hpp"
 #include <string>
 
@@ -121,6 +122,7 @@ namespace TL
         void fill_data_environment_structure(ObjectList<Symbol> value, 
                 ObjectList<Symbol> shared, 
                 ScopeLink scope_link,
+                ObjectList<OpenMP::DependencyItem> dependencies,
                 // Output arguments
                 std::string &struct_name,
                 Source & struct_decl,
@@ -129,6 +131,7 @@ namespace TL
         // This one is not to be exported
         void fill_data_args(const std::string& arg_var_accessor, 
                 const DataEnvironInfo& data_env, 
+                ObjectList<OpenMP::DependencyItem> dependencies,
                 Source& result);
 
         // This one is not to be exported

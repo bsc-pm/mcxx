@@ -65,6 +65,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     fill_data_environment_structure(firstprivate_symbols,
             shared_symbols,
             ctr.get_scope_link(),
+            dependences,
             struct_arg_type_name,
             struct_arg_type_decl_src,
             data_environ_info);
@@ -138,8 +139,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     Source dependency_array, num_dependences;
 
-    fill_data_args("ol_args->", data_environ_info, fill_outline_arguments);
-    fill_data_args("imm_args.", data_environ_info, fill_immediate_arguments);
+    fill_data_args("ol_args->", data_environ_info, dependences, fill_outline_arguments);
+    fill_data_args("imm_args.", data_environ_info, dependences, fill_immediate_arguments);
 
     // Fill dependences, if any
     if (!dependences.empty())
@@ -160,6 +161,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
         dependency_array << "_dependences";
 
+        int num_dep = 0;
         for (ObjectList<OpenMP::DependencyItem>::iterator it = dependences.begin();
                 it != dependences.end();
                 it++)
@@ -183,22 +185,47 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             {
                 dependency_flags << "0,"; 
             }
-            // can_rename not yet implemented
-            dependency_flags << "0"
-                << "}"
-                ;
 
-            DataEnvironItem data_env_item = data_environ_info.get_data_of_symbol(it->get_base_symbol());
+            Source dependency_field_name;
 
-            if (!data_env_item.get_symbol().is_valid())
+            if (it->is_symbol_dependence())
             {
-                internal_error("Could not get the data environment info of symbol '%s'\n",
-                        it->get_base_symbol().get_name().c_str());
+                Symbol sym = it->get_symbol_dependence();
+
+                DataEnvironItem data_env_item = data_environ_info.get_data_of_symbol(sym);
+
+                if (data_env_item.get_symbol().is_valid())
+                {
+                    dependency_field_name
+                        << data_env_item.get_field_name();
+                }
+                else
+                {
+                    internal_error("symbol without data environment info %s",
+                            it->get_dependency_expression().prettyprint().c_str());
+                }
+
+                // Can rename in this case
+                dependency_flags << "1"
+                    ;
             }
+            else
+            {
+                dependency_field_name
+                    << "dep_" << num_dep;
+
+                // Cannot rename in this case
+                dependency_flags << "0"
+                    ;
+            }
+
+            dependency_flags << "}"
+                    ;
+
 
             dependency_defs_outline
                 << "{"
-                << "(void**)&ol_args->" << data_env_item.get_field_name() << ","
+                << "(void**)&ol_args->" << dependency_field_name << ","
                 << dependency_flags << ","
                 << "sizeof(" << it->get_dependency_expression().prettyprint() << ")"
                 << "}"
@@ -206,7 +233,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
             dependency_defs_immediate
                 << "{"
-                << "(void**)&imm_args." << data_env_item.get_field_name() << ","
+                << "(void**)&imm_args." << dependency_field_name << ","
                 << dependency_flags << ","
                 << "sizeof(" << it->get_dependency_expression().prettyprint() << ")"
                 << "}"
@@ -217,6 +244,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 dependency_defs_outline << ",";
                 dependency_defs_immediate << ",";
             }
+
+            num_dep++;
         }
     }
     else

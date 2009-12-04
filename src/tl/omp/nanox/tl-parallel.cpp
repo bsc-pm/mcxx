@@ -64,6 +64,7 @@ void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
     fill_data_environment_structure(firstprivate_symbols,
             shared_symbols,
             ctr.get_scope_link(),
+            ObjectList<OpenMP::DependencyItem>(), // empty dependences
             struct_arg_type_name,
             struct_arg_type_decl_src,
             data_environ_info);

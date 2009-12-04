@@ -51,21 +51,30 @@ namespace TL
                     << "};"
                     ;
 
+                int dep_num = 0;
                 for (ObjectList<OpenMP::DependencyItem>::iterator it = dependences.begin();
                         it != dependences.end();
                         it++)
                 {
-                    Symbol sym(it->get_base_symbol());
-                    fake_struct_fields
-                        << sym.get_type().get_pointer_to().get_declaration(sym.get_scope(), sym.get_name()) << ";"
+                    Source dependency_name;
+
+                    dependency_name
+                        << "dep_" << dep_num;
+                    
+                    fake_struct_fields << it->get_dependency_expression()
+                        .get_type()
+                        .get_pointer_to()
+                        .get_declaration(it->get_dependency_expression().get_scope(),
+                                dependency_name) << ";";
+
+                    dep_holder_init << "&(" << it->get_dependency_expression() << ")"
                         ;
-                    dep_holder_init << "&" << sym.get_name()
-                        ;
+
                     dependency_defs_wait
                         << "{"
-                        << "(void**)&_dep_holder." << sym.get_name() << ","
+                        << "(void**)&_dep_holder." << dependency_name << ","
                         << "{0, 0, 0},"
-                        << "sizeof(" << sym.get_name() << ")"
+                        << "sizeof(" << it->get_dependency_expression() << ")"
                         << "}"
                         ;
 
@@ -78,6 +87,8 @@ namespace TL
                             << ","
                             ;
                     }
+
+                    dep_num++;
                 }
 
                 dependences_wait << "nanos_wait_on(" << num_dependences << ", _wait_dependences);";

@@ -36,8 +36,12 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
 
     Source fill_outline_arguments, fill_immediate_arguments;
 
-    fill_data_args("ol_args->", data_environ_info, fill_outline_arguments);
-    fill_data_args("imm_args.", data_environ_info, fill_immediate_arguments);
+    fill_data_args("ol_args->", data_environ_info, 
+            ObjectList<OpenMP::DependencyItem>(), // empty
+            fill_outline_arguments);
+    fill_data_args("imm_args.", data_environ_info, 
+            ObjectList<OpenMP::DependencyItem>(), // empty
+            fill_immediate_arguments);
 
     Source device_descriptor,device_description;
     // Device descriptor
