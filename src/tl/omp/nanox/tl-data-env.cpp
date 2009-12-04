@@ -219,8 +219,16 @@ namespace TL
 
                 if (data_env_item.is_pointer())
                 {
-                    result << arg_var_accessor << field_name
-                        << "= &(" << sym.get_name() << ");";
+                    if (type.is_array())
+                    {
+                        result << arg_var_accessor << field_name
+                            << "= (" << sym.get_name() << ");";
+                    }
+                    else
+                    {
+                        result << arg_var_accessor << field_name
+                            << "= &(" << sym.get_name() << ");";
+                    }
                 }
                 else
                 {
