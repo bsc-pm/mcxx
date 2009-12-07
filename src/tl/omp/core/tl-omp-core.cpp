@@ -712,7 +712,7 @@ namespace TL
             DataSharingAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DS_UNDEFINED);
 
             // Do not get implicit attributes for transformed function tasks
-            if (construct.get_clause("__function").is_defined())
+            if (!construct.get_clause("__function").is_defined())
             {
                 get_data_implicit_attributes_task(construct, data_sharing, default_data_attr);
             }
