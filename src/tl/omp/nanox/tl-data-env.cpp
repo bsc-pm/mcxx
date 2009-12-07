@@ -187,11 +187,11 @@ namespace TL
                 if (!it->is_symbol_dependence())
                 {
                     std::stringstream ss;
-                    ss << dep_counter;
+                    ss << "dep_" << dep_counter;
 
                     struct_fields << it->get_dependency_expression()
                         .get_type().get_pointer_to()
-                        .get_declaration(it->get_dependency_expression().get_scope(), "dep_" + ss.str())
+                        .get_declaration(it->get_dependency_expression().get_scope(), ss.str())
                         << ";"
                     ;
                 }

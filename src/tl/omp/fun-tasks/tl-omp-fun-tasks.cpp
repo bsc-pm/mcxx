@@ -227,6 +227,7 @@ namespace OpenMP
                 {
                     argument_list << ",";
                 }
+                i++;
             }
 
             AST_t new_stmt_tree = new_stmt_src.parse_statement(stmt.get_ast(),
