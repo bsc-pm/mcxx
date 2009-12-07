@@ -43,42 +43,6 @@ namespace TL
             register_omp_constructs();
         }
 
-        void Core::run(TL::DTO& dto)
-        {
-            // "openmp_info" should exist
-            if (!dto.get_keys().contains("openmp_info"))
-            {
-                std::cerr << "OpenMP Info was not found in the pipeline" << std::endl;
-                set_phase_status(PHASE_STATUS_ERROR);
-                return;
-            }
-
-            if (dto.get_keys().contains("openmp_core_should_run"))
-            {
-                TL::Bool should_run(dto["openmp_core_should_run"]);
-                if (!should_run)
-                {
-                    // Do not rerun
-                    return;
-                }
-
-                // Make this phase a one shot by default
-                should_run = false;
-            }
-
-            // Reset any data computed so far
-            _openmp_info->reset();
-
-            AST_t translation_unit = dto["translation_unit"];
-            ScopeLink scope_link = dto["scope_link"];
-
-            Scope global_scope = scope_link.get_scope(translation_unit);
-
-            initialize_builtin_udr_reductions(global_scope);
-
-            PragmaCustomCompilerPhase::run(dto);
-        }
-
         void Core::pre_run(TL::DTO& dto)
         {
             PragmaCustomCompilerPhase::pre_run(dto);
@@ -107,27 +71,65 @@ namespace TL
             }
         }
 
+        void Core::run(TL::DTO& dto)
+        {
+            // "openmp_info" should exist
+            if (!dto.get_keys().contains("openmp_info"))
+            {
+                std::cerr << "OpenMP Info was not found in the pipeline" << std::endl;
+                set_phase_status(PHASE_STATUS_ERROR);
+                return;
+            }
+
+            if (dto.get_keys().contains("openmp_core_should_run"))
+            {
+                TL::Bool should_run(dto["openmp_core_should_run"]);
+                if (!should_run)
+                {
+                    return;
+                }
+
+                // Make this phase a one shot by default
+                should_run = false;
+            }
+
+            // Reset any data computed so far
+            _openmp_info->reset();
+
+            AST_t translation_unit = dto["translation_unit"];
+            ScopeLink scope_link = dto["scope_link"];
+
+            Scope global_scope = scope_link.get_scope(translation_unit);
+
+            initialize_builtin_udr_reductions(global_scope);
+
+            PragmaCustomCompilerPhase::run(dto);
+        }
+
         void Core::register_omp_constructs()
         {
-            if (!_already_registered)
-            {
 #define OMP_CONSTRUCT(_directive, _name) \
                 { \
-                    register_construct(_directive); \
+                    if (!_already_registered) \
+                    { \
+                      register_construct(_directive); \
+                    } \
                     on_directive_pre[_directive].connect(functor(&Core::_name##_handler_pre, *this)); \
                     on_directive_post[_directive].connect(functor(&Core::_name##_handler_post, *this)); \
                 }
 #define OMP_DIRECTIVE(_directive, _name) \
                 { \
-                    register_directive(_directive); \
+                    if (!_already_registered) \
+                    { \
+                      register_directive(_directive); \
+                    } \
                     on_directive_pre[_directive].connect(functor(&Core::_name##_handler_pre, *this)); \
                     on_directive_post[_directive].connect(functor(&Core::_name##_handler_post, *this)); \
                 }
 #include "tl-omp-constructs.def"
 #undef OMP_DIRECTIVE
 #undef OMP_CONSTRUCT
-                _already_registered = true;
-            }
+            _already_registered = true;
         }
 
         void Core::get_clause_symbols(PragmaCustomClause clause, ObjectList<Symbol>& sym_list)
@@ -709,7 +711,11 @@ namespace TL
             get_data_explicit_attributes(construct, data_sharing);
             DataSharingAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DS_UNDEFINED);
 
-            get_data_implicit_attributes_task(construct, data_sharing, default_data_attr);
+            // Do not get implicit attributes for transformed function tasks
+            if (construct.get_clause("__function").is_defined())
+            {
+                get_data_implicit_attributes_task(construct, data_sharing, default_data_attr);
+            }
 
             get_dependences_info(construct, data_sharing);
         }
