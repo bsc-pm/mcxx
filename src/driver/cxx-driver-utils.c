@@ -532,7 +532,7 @@ void run_gdb(void)
             char *args[] = { "--batch", 
                 "--quiet",
                 "-ex", "set confirm off",
-                "-ex", "set backtrace limit 200",
+                "-ex", "set backtrace limit 500",
                 "-ex", "bt",
                 "-ex", "thread apply all bt full",
                 "-ex", "detach",
