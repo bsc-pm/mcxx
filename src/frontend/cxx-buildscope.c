@@ -595,10 +595,21 @@ static void build_scope_using_directive(AST a, decl_context_t decl_context)
     scope_entry_list_t* result_list = query_nested_name(decl_context, 
             global_op, nested_name, name);
         
-    ERROR_CONDITION((result_list == NULL), "Namespace '%s' not found\n", ASTText(name));
+    if (result_list == NULL)
+    {
+        running_error("%s: error: unknown namespace '%s%s%s'\n",
+                ast_location(a), 
+                prettyprint_in_buffer(global_op),
+                prettyprint_in_buffer(nested_name),
+                prettyprint_in_buffer(name));
+    }
 
-    ERROR_CONDITION((result_list->next != NULL || result_list->entry->kind != SK_NAMESPACE),
-            "Symbol '%s' is not a namespace\n", ASTText(name));
+    if (result_list->next != NULL || result_list->entry->kind != SK_NAMESPACE)
+    {
+        running_error("%s: error: '%s' does not name a namespace\n",
+                ast_location(a), 
+                prettyprint_in_buffer(a));
+    }
 
     scope_entry_t* entry = result_list->entry;
 
@@ -618,20 +629,28 @@ static void build_scope_using_declaration(AST a, decl_context_t decl_context)
     AST nested_name_specifier = ASTSon1(a);
     AST unqualified_id = ASTSon2(a);
 
-    ERROR_CONDITION(decl_context.current_scope->kind != CLASS_SCOPE
+    if (decl_context.current_scope->kind != CLASS_SCOPE
             && decl_context.current_scope->kind != NAMESPACE_SCOPE
-            && decl_context.current_scope->kind != BLOCK_SCOPE,
-            "Using declaration not in a class, namespace or block scope", 0);
+            && decl_context.current_scope->kind != BLOCK_SCOPE)
+    {
+        running_error("%s: error: using-declaration not in a class, namespace or block scope",
+                ast_location(a));
+    }
 
     scope_entry_list_t* used_entity = query_nested_name(decl_context, 
             global_op, 
             nested_name_specifier, 
             unqualified_id);
 
-    ERROR_CONDITION((used_entity == NULL), 
-            "Entity '%s' not found (%s)\n", 
-            prettyprint_in_buffer(a), 
-            ast_location(a));
+    if (used_entity == NULL)
+    {
+        running_error("%s: error: named entity '%s%s%s' in using-declaration is unknown",
+                ast_location(a),
+                prettyprint_in_buffer(global_op),
+                prettyprint_in_buffer(nested_name_specifier),
+                prettyprint_in_buffer(unqualified_id));
+
+    }
 
     type_t* current_class_type = NULL;
     char is_class_scope = 0;
@@ -4742,12 +4761,12 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
             {
                 scope_entry_t* entry = iter->entry;
                 if (entry->kind != SK_ENUM 
-                        && entry->kind != SK_CLASS)
+                        && entry->kind != SK_CLASS
+                        && entry->kind != SK_TYPEDEF)
                 {
-                    ERROR_CONDITION((entry == NULL), 
-                            "Symbol '%s' in %s has been redeclared as a different symbol kind (look at %s:%d).", 
-                            ASTText(declarator_id), 
+                    running_error("%s: error: symbol '%s' has been redeclared as a different symbol kind (look at '%s:%d').", 
                             ast_location(declarator_id), 
+                            prettyprint_in_buffer(declarator_id), 
                             entry->file,
                             entry->line);
                 }
@@ -4772,12 +4791,14 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         if (!is_named_type(declarator_type)
                 || named_type_get_symbol(declarator_type) != entry)
         {
-            ERROR_CONDITION((!equivalent_types(entry->type_information, declarator_type)), 
-                    "Symbol '%s' in line %s has been redeclared as a different symbol kind (look at %s:%d).", 
-                    ASTText(declarator_id), 
-                    ast_location(declarator_id), 
-                    entry->file,
-                    entry->line);
+            if(!equivalent_types(entry->type_information, declarator_type))
+            {
+                running_error("%s: error: symbol '%s' has been redeclared as a different symbol kind (look at '%s:%d').", 
+                        ast_location(declarator_id), 
+                        prettyprint_in_buffer(declarator_id), 
+                        entry->file,
+                        entry->line);
+            }
 
             if (is_function_type(declarator_type)
                     && !is_named_type(declarator_type))
@@ -4967,7 +4988,14 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
         };
         check_list = filter_symbol_non_kind_set(entry_list, STATIC_ARRAY_LENGTH(valid_symbols), valid_symbols);
 
-        ERROR_CONDITION((check_list != NULL), "The symbol has already been defined as another symbol kind %d", check_list->entry->kind);
+        if (check_list != NULL)
+        {
+            running_error("%s: error: incompatible redeclaration of '%s' (look at '%s:%d')\n",
+                    ast_location(declarator_id),
+                    prettyprint_in_buffer(declarator_id),
+                    check_list->entry->file,
+                    check_list->entry->line);
+        }
 
         DEBUG_CODE()
         {
@@ -6322,7 +6350,6 @@ static scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl
             {
                 if (decl_spec_seq == NULL)
                 {
-                    internal_error("sux hard", 0);
                     fprintf(stderr, "%s: warning: function definition does not have decl-specifier, assuming 'int'\n",
                             ast_location(a));
                 }
