@@ -26,6 +26,7 @@
 
 #include "tl-common.hpp"
 #include <vector>
+#include <sstream>
 #include <utility>
 #include <algorithm>
 #include "tl-object.hpp"
@@ -483,15 +484,34 @@ class ObjectList : public std::vector<T>, public TL::Object
 
 //! @}
 
-//! Auxiliar function that concats two ObjectList<std::string> with an optionally given separator
+//! Auxiliar function that concats two ObjectList<_T> with an optionally given separator
 /*!
  * \param string_list A list of strings
  * \param separator A separator used between the strings. By default empty.
  * \return A single std::string value with all the strings in \a string_list concatenated and interspersed with
  * \a separator
+ *
+ * \note Type _T must implement operator<<(std::ostream&, const T&)
  */
-LIBTL_EXTERN std::string concat_strings(const ObjectList<std::string>& string_list, const std::string& separator = std::string(""));
+template <typename _T>
+LIBTL_EXTERN std::string concat_strings(const ObjectList<_T>& string_list, const std::string& separator = "")
+{
+    std::string result;
+    for (typename ObjectList<_T>::const_iterator it = string_list.begin();
+            it != string_list.end();
+            it++)
+    {
+        if (it != string_list.begin())
+        {
+            result += separator;
+        }
+        std::stringstream ss;
+        ss << *it;
+        result += ss.str();
+    }
 
+    return result;
 }
 
+}
 #endif // TL_OBJECTLIST_HPP
