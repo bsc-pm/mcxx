@@ -52,6 +52,8 @@ namespace TL
                 RefPtr<OpenMP::Info> _openmp_info;
                 RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
 
+                static bool _already_registered;
+
                 void get_clause_symbols(PragmaCustomClause clause, ObjectList<Symbol>& sym_list);
                 void get_reduction_symbols(PragmaCustomConstruct construct, 
                         PragmaCustomClause clause, ObjectList<ReductionSymbol>& sym_list);
@@ -86,6 +88,12 @@ namespace TL
 
                 virtual ~Core() { }
         };
+
+        // OpenMP core is a one shot phase, so even if it is in the compiler
+        // pipeline twice, it will only run once by default.
+        // Call this function to reenable openmp_core. Use this function
+        // when you are sure that your changes require a full OpenMP analysis
+        void openmp_core_run_next_time(DTO& dto);
     }
 }
 

@@ -32,6 +32,8 @@ namespace TL
 {
     namespace OpenMP
     {
+        bool Core::_already_registered(false);
+
         Core::Core()
             : PragmaCustomCompilerPhase("omp")
         {
@@ -49,6 +51,19 @@ namespace TL
                 std::cerr << "OpenMP Info was not found in the pipeline" << std::endl;
                 set_phase_status(PHASE_STATUS_ERROR);
                 return;
+            }
+
+            if (dto.get_keys().contains("openmp_core_should_run"))
+            {
+                TL::Bool should_run(dto["openmp_core_should_run"]);
+                if (!should_run)
+                {
+                    // Do not rerun
+                    return;
+                }
+
+                // Make this phase a one shot by default
+                should_run = false;
             }
 
             // Reset any data computed so far
@@ -74,31 +89,45 @@ namespace TL
                 _openmp_info = RefPtr<OpenMP::Info>(new OpenMP::Info(root_data_sharing));
                 dto.set_object("openmp_info", _openmp_info);
             }
+            else
+            {
+                _openmp_info = RefPtr<OpenMP::Info>::cast_static(dto["openmp_info"]);
+            }
 
             if (!dto.get_keys().contains("openmp_task_info"))
             {
                 _function_task_set = RefPtr<OpenMP::FunctionTaskSet>(new OpenMP::FunctionTaskSet());
                 dto.set_object("openmp_task_info", _function_task_set);
             }
+
+            if (!dto.get_keys().contains("openmp_core_should_run"))
+            {
+                RefPtr<TL::Bool> should_run(new TL::Bool(true));
+                dto.set_object("openmp_core_should_run", should_run);
+            }
         }
 
         void Core::register_omp_constructs()
         {
+            if (!_already_registered)
+            {
 #define OMP_CONSTRUCT(_directive, _name) \
-            { \
-                register_construct(_directive); \
-                on_directive_pre[_directive].connect(functor(&Core::_name##_handler_pre, *this)); \
-                on_directive_post[_directive].connect(functor(&Core::_name##_handler_post, *this)); \
-            }
+                { \
+                    register_construct(_directive); \
+                    on_directive_pre[_directive].connect(functor(&Core::_name##_handler_pre, *this)); \
+                    on_directive_post[_directive].connect(functor(&Core::_name##_handler_post, *this)); \
+                }
 #define OMP_DIRECTIVE(_directive, _name) \
-            { \
-                register_directive(_directive); \
-                on_directive_pre[_directive].connect(functor(&Core::_name##_handler_pre, *this)); \
-                on_directive_post[_directive].connect(functor(&Core::_name##_handler_post, *this)); \
-            }
+                { \
+                    register_directive(_directive); \
+                    on_directive_pre[_directive].connect(functor(&Core::_name##_handler_pre, *this)); \
+                    on_directive_post[_directive].connect(functor(&Core::_name##_handler_post, *this)); \
+                }
 #include "tl-omp-constructs.def"
 #undef OMP_DIRECTIVE
 #undef OMP_CONSTRUCT
+                _already_registered = true;
+            }
         }
 
         void Core::get_clause_symbols(PragmaCustomClause clause, ObjectList<Symbol>& sym_list)
@@ -722,6 +751,13 @@ namespace TL
         EMPTY_HANDLERS(critical)
         EMPTY_HANDLERS(flush)
         EMPTY_HANDLERS(ordered)
+
+        void openmp_core_run_next_time(DTO& dto)
+        {
+            // Make openmp core run in the pipeline
+            TL::Bool openmp_core_should_run = dto["openmp_core_should_run"];
+            openmp_core_should_run = true;
+        }
     }
 }
 
