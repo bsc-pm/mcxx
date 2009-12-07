@@ -63,6 +63,11 @@ namespace TL
             _map.insert(pair);
         }
 
+        bool FunctionTaskSet::empty() const
+        {
+            return _map.empty();
+        }
+
         struct FunctionTaskParameterGenerator : public Functor<FunctionTaskParameter, std::string>
         {
             private:
@@ -275,5 +280,6 @@ namespace TL
                 << ": note: adding task function '" << function_sym.get_name() << "'" << std::endl;
             _function_task_set->add_function_task(function_sym, task_info);
         }
+
     }
 }
