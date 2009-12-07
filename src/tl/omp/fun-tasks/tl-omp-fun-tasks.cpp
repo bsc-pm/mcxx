@@ -1,3 +1,4 @@
+#include "tl-omp-core.hpp"
 #include "tl-omp-fun-tasks.hpp"
 
 namespace TL
@@ -28,6 +29,11 @@ namespace OpenMP
         }
 
         _function_task_set = RefPtr<FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
+
+        if (!_function_task_set->empty())
+        {
+            openmp_core_run_next_time(dto);
+        }
 
         // Run the parent phase which will simply remove the tasks
         OpenMPPhase::run(dto);

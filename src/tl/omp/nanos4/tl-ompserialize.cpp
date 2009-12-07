@@ -23,6 +23,7 @@
 
 #include "tl-ompserialize.hpp"
 #include "tl-omp.hpp"
+#include "tl-omp-core.hpp"
 #include "tl-compilerphase.hpp"
 #include "tl-langconstruct.hpp"
 #include "tl-predicate.hpp"
@@ -59,6 +60,12 @@ namespace TL
                     // First compute the set of functions that must be serialized
                     compute_set_of_serializable(translation_unit, scope_link, 
                             functions_to_serialize);
+
+                    // Ask openmp core to run again
+                    if (!functions_to_serialize.empty())
+                    {
+                        OpenMP::openmp_core_run_next_time(dto);
+                    }
 
                     // Now 'functions_to_serialize' contains all the functions
                     // that must be serialized, now create the serial duplicate
