@@ -11,7 +11,11 @@ namespace OpenMP
                 "have been declared with an OpenMP task construct into tasks "
                 "themselves");
 
-        // on_construct_post["task"].connect(functor(&FunctionTasks::on_task_post, *this));
+        on_directive_post["task"].connect(functor(&FunctionTasks::on_task_post, *this));
+    }
+
+    void FunctionTasks::pre_run(DTO& dto)
+    {
     }
 
     void FunctionTasks::run(DTO& dto)
@@ -29,10 +33,9 @@ namespace OpenMP
         OpenMPPhase::run(dto);
 
         // Convert calls
-        // convert_calls(dto);
+        convert_calls(dto);
     }
 
-#if 0
     void FunctionTasks::on_task_post(PragmaCustomConstruct construct)
     {
         // We do not deal with this kind of tasks
@@ -53,20 +56,21 @@ namespace OpenMP
         struct IsFunctionCall : Predicate<AST_t>
         {
             ScopeLink _sl;
-            RefPtr<FunctionTasksSet> _function_task_set;
-            IsFunctionCall(ScopeLink sl, RefPtr<FunctionTasksSet> function_task_set)
+            RefPtr<FunctionTaskSet> _function_task_set;
+            IsFunctionCall(ScopeLink sl, RefPtr<FunctionTaskSet> function_task_set)
                 : _sl(sl), _function_task_set(function_task_set) { }
 
             bool do_(AST_t& a) const
             {
+                bool result = false;
                 if (Expression::predicate(a))
                 {
-                    bool result = false;
                     Expression expr(a, _sl);
                     // We want a function call
-                    if (expr.is_function_call()
-                        // To an entity
-                        && expr.get_called_expression().is_id_expression())
+                    if (expr.is_top_level_expression()
+                            && expr.is_function_call()
+                            // To an entity
+                            && expr.get_called_expression().is_id_expression())
                     {
                         Symbol sym = expr.get_called_expression().get_id_expression().get_computed_symbol();
                         if (sym.is_valid()
@@ -76,13 +80,13 @@ namespace OpenMP
                             result = true;
                         }
                     }
-                    return result
                 }
+                return result;
             }
         };
 
         ObjectList<AST_t> eligible_function_calls 
-            = translation_unit.depth_subtrees(IsFunctionCall(scope_link));
+            = translation_unit.depth_subtrees(IsFunctionCall(scope_link, _function_task_set));
 
         // This list will contain only calls to function tasks
         for (ObjectList<AST_t>::iterator it = eligible_function_calls.begin();
@@ -96,8 +100,84 @@ namespace OpenMP
 
             // Only void functions can be flagged as function tasks so we now
             // they will never be in an expression
+            Statement stmt = expr.get_enclosing_statement();
+
+            Source arg_clauses;
+            Source new_stmt_src;
+            new_stmt_src
+                << "#pragma omp task __function " << arg_clauses << "\n"
+                <<  stmt
+                ;
+
+            ObjectList<int> input_params;
+            ObjectList<int> output_params;
+            ObjectList<int> inout_params;
+
+            ObjectList<FunctionTaskParameter> task_params = task_info.get_parameter_info();
+
+            for (ObjectList<FunctionTaskParameter>::iterator it = task_params.begin();
+                    it != task_params.end();
+                    it++)
+            {
+                DependencyDirection direction(it->get_direction());
+                Symbol sym(it->get_symbol());
+
+                ObjectList<int>* list = NULL;
+                switch (direction)
+                {
+                    case DEP_DIR_INPUT :
+                        {
+                            list = &input_params;
+                            break;
+                        }
+                    case DEP_DIR_OUTPUT :
+                        {
+                            list = &output_params;
+                            break;
+                        }
+                    case DEP_DIR_INOUT :
+                        {
+                            list = &inout_params;
+                            break;
+                        }
+                }
+                list->insert(sym.get_parameter_position());
+            }
+
+            struct GenerateClause
+            {
+                Source& _arg_clauses;
+                GenerateClause(Source &arg_clauses)
+                    : _arg_clauses(arg_clauses) { }
+
+                void generate(const std::string& clause_name, ObjectList<int> &list)
+                {
+                    if (!list.empty())
+                    {
+                        if (!_arg_clauses.empty())
+                            _arg_clauses << " ";
+
+                        std::sort(list.begin(), list.end());
+                        _arg_clauses 
+                            << clause_name << "(" 
+                            << concat_strings(list, ",")
+                            << ")"
+                            ;
+                    }
+                }
+            };
+
+            GenerateClause aux(arg_clauses);
+
+            aux.generate("__input_args", input_params);
+            aux.generate("__output_args", output_params);
+            aux.generate("__inout_args", inout_params);
+
+            AST_t new_stmt_tree = new_stmt_src.parse_statement(stmt.get_ast(),
+                    scope_link);
+
+            stmt.get_ast().replace(new_stmt_tree);
         }
     }
-#endif
 
 } }

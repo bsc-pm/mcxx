@@ -12,11 +12,15 @@ namespace TL
         {
             private:
                 RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
+
+                void convert_calls(DTO& dto);
+
+                void on_task_post(PragmaCustomConstruct construct);
             public:
                 FunctionTasks();
 
-                void pre_run(DTO& dto);
-                void run(DTO& dto);
+                virtual void pre_run(DTO& dto);
+                virtual void run(DTO& dto);
         };
     }
 }
