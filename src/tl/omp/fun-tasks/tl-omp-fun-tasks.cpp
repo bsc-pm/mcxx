@@ -110,9 +110,18 @@ namespace OpenMP
 
             Source arg_clauses;
             Source new_stmt_src;
+            Source additional_decls;
+            Source new_call;
             new_stmt_src
+                << "{"
+                << additional_decls
                 << "#pragma omp task __function " << arg_clauses << "\n"
-                <<  stmt
+                << "{"
+                << "\n"
+                << "#line " << it->get_line() << " \"" << it->get_file() << "\"\n"
+                << new_call
+                << "}"
+                << "}"
                 ;
 
             ObjectList<int> input_params;
@@ -178,6 +187,47 @@ namespace OpenMP
             aux.generate("__input_args", input_params);
             aux.generate("__output_args", output_params);
             aux.generate("__inout_args", inout_params);
+
+            // Create new call
+            Source argument_list;
+            new_call << expr.get_called_expression() << "(" << argument_list << ");"
+                ;
+
+            ObjectList<Expression> argument_expr = expr.get_argument_list();
+            int i = 0;
+            for (ObjectList<Expression>::iterator it = argument_expr.begin();
+                    it != argument_expr.end();
+                    it++)
+            {
+                bool is_lvalue = false;
+                it->get_type(is_lvalue);
+
+                Source argument;
+
+                if (!is_lvalue)
+                {
+                    Type type = it->get_type();
+                    if (type.is_reference())
+                        type = type.references_to();
+
+                    std::stringstream ss;
+                    ss << "_dep_" << i;
+
+                    additional_decls
+                        << type.get_declaration(expr.get_scope(), ss.str()) << "=(" << it->prettyprint() << ");";
+
+                    argument_list << ss.str();
+                }
+                else
+                {
+                    argument_list << it->prettyprint();
+                }
+
+                if ((it + 1) != argument_expr.end())
+                {
+                    argument_list << ",";
+                }
+            }
 
             AST_t new_stmt_tree = new_stmt_src.parse_statement(stmt.get_ast(),
                     scope_link);
