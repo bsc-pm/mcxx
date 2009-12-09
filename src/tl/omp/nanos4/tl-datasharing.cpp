@@ -255,7 +255,7 @@ namespace TL
 
                 ParameterInfo parameter("cin_" + symbol.get_name(), 
                         "&" + symbol.get_qualified_name(construct_body.get_scope()),
-                        *it, type, ParameterInfo::BY_POINTER);
+                        *it, pointer_type, ParameterInfo::BY_POINTER);
                 parameter_info.append(parameter);
             }
 

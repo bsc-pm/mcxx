@@ -615,10 +615,25 @@ namespace TL
                     it++)
             {
                 Symbol &sym (*it);
+                Source copyin_code;
                 private_declarations
                     << comment("Initializing copyin entity '" + sym.get_name() + "'")
-                    << sym.get_qualified_name(construct.get_scope()) << " = " << "(*cin_" + sym.get_name() << ");"
+                    << copyin_code
                     ;
+
+                if (!sym.get_type().is_array())
+                {
+                    copyin_code << 
+                        sym.get_qualified_name(construct.get_scope()) << " = " << "(*cin_" + sym.get_name() << ");"
+                        ;
+                }
+                else
+                {
+                    copyin_code <<
+                        array_copy(sym.get_type(), 
+                                sym.get_qualified_name(construct.get_scope()),
+                                "(*cin_" + sym.get_name() + ")", 0);
+                }
             }
 
             return private_declarations;
@@ -792,10 +807,25 @@ namespace TL
                     it++)
             {
                 Symbol &sym (*it);
+                Source copyin_code;
                 private_declarations
                     << comment("Initializing copyin entity '" + sym.get_name() + "'")
-                    << sym.get_qualified_name(construct.get_scope()) << " = " << "(*cin_" + sym.get_name() << ");"
+                    << copyin_code
                     ;
+
+                if (!sym.get_type().is_array())
+                {
+                    copyin_code << 
+                        sym.get_qualified_name(construct.get_scope()) << " = " << "(*cin_" + sym.get_name() << ");"
+                        ;
+                }
+                else
+                {
+                    copyin_code <<
+                        array_copy(sym.get_type(), 
+                                sym.get_qualified_name(construct.get_scope()),
+                                "(*cin_" + sym.get_name() + ")", 0);
+                }
             }
 
             return private_declarations;
@@ -868,11 +898,27 @@ namespace TL
                     it != copyprivate_references.end();
                     it++)
             {
+                Source copyprivate_code;
                 Symbol &symbol(*it);
                 lastprivate_assignments
                     << comment("Assignment of copyprivate entity 'cout_" + symbol.get_name() + "'")
-                    << "(*cout_" << symbol.get_name() << ")" << " = p_" << symbol.get_name() << ";"
+                    << copyprivate_code
                     ;
+
+                if (!symbol.get_type().is_array())
+                {
+                    copyprivate_code
+                        << "(*cout_" << symbol.get_name() << ")" << " = p_" << symbol.get_name() << ";"
+                        ;
+                }
+                else
+                {
+                    copyprivate_code <<
+                        array_copy(symbol.get_type(), 
+                                "(*cout_" + symbol.get_name() + ")",
+                                "p_" + symbol.get_name(),
+                                0);
+                }
             }
 
             return lastprivate_assignments;
@@ -921,11 +967,27 @@ namespace TL
                     it != copyprivate_references.end();
                     it++)
             {
+                Source copyprivate_code;
                 Symbol &symbol(*it);
                 lastprivate_assignments
                     << comment("Assignment of copyprivate entity 'cout_" + symbol.get_name() + "'")
-                    << "(*cout_" << symbol.get_name() << ")" << " = p_" << symbol.get_name() << ";"
+                    << copyprivate_code
                     ;
+
+                if (!symbol.get_type().is_array())
+                {
+                    copyprivate_code
+                        << "(*cout_" << symbol.get_name() << ")" << " = p_" << symbol.get_name() << ";"
+                        ;
+                }
+                else
+                {
+                    copyprivate_code <<
+                        array_copy(symbol.get_type(), 
+                                "(*cout_" + symbol.get_name() + ")",
+                                "p_" + symbol.get_name(),
+                                0);
+                }
             }
 
             return lastprivate_assignments;
