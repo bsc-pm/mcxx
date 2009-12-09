@@ -115,7 +115,7 @@ namespace OpenMP
             new_stmt_src
                 << "{"
                 << additional_decls
-                << "#pragma omp task __function " << arg_clauses << "\n"
+                << "#pragma omp task " << arg_clauses << "\n"
                 << "{"
                 << "\n"
                 << "#line " << it->get_line() << " \"" << it->get_file() << "\"\n"
@@ -124,110 +124,88 @@ namespace OpenMP
                 << "}"
                 ;
 
-            ObjectList<int> input_params;
-            ObjectList<int> output_params;
-            ObjectList<int> inout_params;
+            ObjectList<FunctionTaskDependency> task_params = task_info.get_parameter_info();
 
-            ObjectList<FunctionTaskParameter> task_params = task_info.get_parameter_info();
+            // Create new call
+            new_call << expr
+                ;
 
-            for (ObjectList<FunctionTaskParameter>::iterator it = task_params.begin();
+            // Now replace the inputs and outputs
+            Source input_args;
+            Source output_args;
+            Source inout_args;
+
+            ReplaceSrcIdExpression replace(scope_link);
+
+            ObjectList<Symbol> sym_list = task_info.get_involved_parameters();
+            ObjectList<Expression> argument_list = expr.get_argument_list();
+            for (ObjectList<Symbol>::iterator it = sym_list.begin();
+                    it != sym_list.end();
+                    it++)
+            {
+                Symbol &current_sym(*it);
+                if (current_sym.is_parameter())
+                {
+                    if (current_sym.get_parameter_position() < argument_list.size())
+                    {
+                        replace.add_replacement(current_sym, 
+                                argument_list[current_sym.get_parameter_position()].prettyprint());
+                    }
+                    else
+                    {
+                        running_error("Invalid argument position %d >= %d",
+                                current_sym.get_parameter_position(),
+                                argument_list.size());
+
+                    }
+                }
+            }
+
+
+            for (ObjectList<FunctionTaskDependency>::iterator it = task_params.begin();
                     it != task_params.end();
                     it++)
             {
-                DependencyDirection direction(it->get_direction());
-                Symbol sym(it->get_symbol());
-
-                ObjectList<int>* list = NULL;
-                switch (direction)
+                Source *args = NULL;
+                switch (it->get_direction())
                 {
                     case DEP_DIR_INPUT :
                         {
-                            list = &input_params;
+                            args = &input_args;
                             break;
                         }
                     case DEP_DIR_OUTPUT :
                         {
-                            list = &output_params;
+                            args = &output_args;
                             break;
                         }
                     case DEP_DIR_INOUT :
                         {
-                            list = &inout_params;
+                            args = &inout_args;
                             break;
                         }
+                    default:
+                        {
+                            internal_error("Code unreachable", 0);
+                        }
                 }
-                list->insert(sym.get_parameter_position());
+
+                (*args).append_with_separator(
+                        replace.replace(it->get_expression()), 
+                        ",");
             }
 
-            struct GenerateClause
+            if (!input_args.empty())
             {
-                Source& _arg_clauses;
-                GenerateClause(Source &arg_clauses)
-                    : _arg_clauses(arg_clauses) { }
-
-                void generate(const std::string& clause_name, ObjectList<int> &list)
-                {
-                    if (!list.empty())
-                    {
-                        if (!_arg_clauses.empty())
-                            _arg_clauses << " ";
-
-                        std::sort(list.begin(), list.end());
-                        _arg_clauses 
-                            << clause_name << "(" 
-                            << concat_strings(list, ",")
-                            << ")"
-                            ;
-                    }
-                }
-            };
-
-            GenerateClause aux(arg_clauses);
-
-            aux.generate("__input_args", input_params);
-            aux.generate("__output_args", output_params);
-            aux.generate("__inout_args", inout_params);
-
-            // Create new call
-            Source argument_list;
-            new_call << expr.get_called_expression() << "(" << argument_list << ");"
-                ;
-
-            ObjectList<Expression> argument_expr = expr.get_argument_list();
-            int i = 0;
-            for (ObjectList<Expression>::iterator it = argument_expr.begin();
-                    it != argument_expr.end();
-                    it++)
+                arg_clauses << " input(" << input_args << ")";
+            }
+            if (!output_args.empty())
             {
-                bool is_lvalue = false;
-                it->get_type(is_lvalue);
-
-                Source argument;
-
-                if (!is_lvalue)
-                {
-                    Type type = it->get_type();
-                    if (type.is_reference())
-                        type = type.references_to();
-
-                    std::stringstream ss;
-                    ss << "_dep_" << i;
-
-                    additional_decls
-                        << type.get_declaration(expr.get_scope(), ss.str()) << "=(" << it->prettyprint() << ");";
-
-                    argument_list << ss.str();
-                }
-                else
-                {
-                    argument_list << it->prettyprint();
-                }
-
-                if ((it + 1) != argument_expr.end())
-                {
-                    argument_list << ",";
-                }
-                i++;
+                arg_clauses << " output(" << output_args << ")";
+            }
+            if (!inout_args.empty())
+            {
+                arg_clauses << " inout(" << inout_args << ")";
             }
 
             AST_t new_stmt_tree = new_stmt_src.parse_statement(stmt.get_ast(),

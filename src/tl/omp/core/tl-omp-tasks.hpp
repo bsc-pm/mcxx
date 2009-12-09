@@ -11,30 +11,29 @@ namespace TL
 {
     namespace OpenMP
     {
-        class FunctionTaskParameter 
+        class FunctionTaskDependency
         {
             private:
                 DependencyDirection _direction;
-                Symbol _sym;
-                IdExpression _id_expr;
+                Expression _expr;
             public:
-                FunctionTaskParameter(Symbol param_sym, 
-                        DependencyDirection direction, IdExpression id_expr);
+                FunctionTaskDependency(Expression expr, DependencyDirection direction);
                 DependencyDirection get_direction() const; 
-                Symbol get_symbol() const;
-                IdExpression get_id_expression() const;
+                Expression get_expression() const;
         };
 
         class FunctionTaskInfo 
         {
             private:
                 Symbol _sym;
-                ObjectList<FunctionTaskParameter> _parameters;
+                ObjectList<FunctionTaskDependency> _parameters;
             public:
                 FunctionTaskInfo(Symbol sym,
-                        ObjectList<FunctionTaskParameter> parameter_info);
+                        ObjectList<FunctionTaskDependency> parameter_info);
 
-                ObjectList<FunctionTaskParameter> get_parameter_info() const;
+                ObjectList<FunctionTaskDependency> get_parameter_info() const;
+
+                ObjectList<Symbol> get_involved_parameters() const;
         };
 
         class FunctionTaskSet : public TL::Object
