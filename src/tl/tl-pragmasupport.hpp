@@ -27,6 +27,7 @@
 #include "tl-common.hpp"
 #include <string>
 #include <stack>
+#include <algorithm>
 #include "tl-compilerphase.hpp"
 #include "tl-langconstruct.hpp"
 #include "tl-handler.hpp"
@@ -100,6 +101,29 @@ namespace TL
                 }
 
                 return result;
+            }
+    };
+
+    class LIBTL_CLASS ExpressionTokenizerTrim : public ExpressionTokenizer
+    {
+        public:
+			virtual ObjectList<std::string> tokenize(const std::string& str) const
+			{
+				ObjectList<std::string> result;
+				result = ExpressionTokenizer::tokenize(str);
+
+				std::transform(result.begin(), result.end(), result.begin(), trimExp);
+
+				return result;
+			}
+
+        private:
+            static std::string trimExp (const std::string &str) {
+
+            	ssize_t first = str.find_first_not_of(" \t");
+            	ssize_t last = str.find_last_not_of(" \t");
+
+            	return str.substr(first, last - first + 1);
             }
     };
 
