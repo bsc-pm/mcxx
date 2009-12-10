@@ -21,13 +21,17 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = core fun-tasks ss2omp @TL_OMP_EXTENSIONS@ 
+
+include ../../Makefile.phases
+
+phases_LTLIBRARIES = libtl-ss2omp.la
+
+libtl_ss2omp_la_CFLAGS = $(tl_cflags)
+libtl_ss2omp_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../superscalar
 
 END=
 
-DIST_SUBDIRS=core\
-             fun-tasks \
-             nanos4 \
-             nanox \
-             ss2omp \
-             $(END)
+libtl_ss2omp_la_SOURCES = \
+    tl-ss2omp.hpp \
+    tl-ss2omp.cpp \
+    $(END)
