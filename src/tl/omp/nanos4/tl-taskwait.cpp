@@ -33,7 +33,8 @@ namespace TL
 
             taskwait_source
                 << "{"
-                <<    "nthf_task_block_();"
+		<< "  if ( !NTH_MYSELF->task_ctx->final ) " 
+                <<     "nthf_task_block_();"
                 << "}"
                 ;
 
