@@ -119,7 +119,7 @@ namespace OpenMP
                 << "{"
                 << "\n"
                 << "#line " << it->get_line() << " \"" << it->get_file() << "\"\n"
-                << new_call
+                << new_call << ";"
                 << "}"
                 << "}"
                 ;
@@ -127,7 +127,8 @@ namespace OpenMP
             ObjectList<FunctionTaskDependency> task_params = task_info.get_parameter_info();
 
             // Create new call
-            new_call << expr
+            Source new_arguments;
+            new_call << expr.get_called_expression() << "(" << new_arguments << ")"
                 ;
 
             // Now replace the inputs and outputs
@@ -149,7 +150,7 @@ namespace OpenMP
                     if (current_sym.get_parameter_position() < argument_list.size())
                     {
                         replace.add_replacement(current_sym, 
-                                argument_list[current_sym.get_parameter_position()].prettyprint());
+                                "(" + argument_list[current_sym.get_parameter_position()].prettyprint() + ")");
                     }
                     else
                     {
@@ -206,6 +207,43 @@ namespace OpenMP
             if (!inout_args.empty())
             {
                 arg_clauses << " inout(" << inout_args << ")";
+            }
+
+            Source firstprivate_args;
+
+            int i = 0;
+            for (ObjectList<Expression>::iterator it = argument_list.begin();
+                    it != argument_list.end();
+                    it++)
+            {
+                Expression &current_expr(*it);
+                Type real_type = current_expr.get_type();
+                if (real_type.is_array())
+                {
+                    real_type = real_type.array_element().get_pointer_to();
+                }
+                else if (real_type.is_function())
+                {
+                    real_type = real_type.get_pointer_to();
+                }
+
+                std::stringstream ss;
+                ss << "__tmp_" << i;
+
+                additional_decls
+                    << real_type.get_declaration(it->get_scope(), ss.str()) << " = " << current_expr << ";"
+                    ;
+
+                new_arguments.append_with_separator(ss.str(), ",");
+                firstprivate_args.append_with_separator(ss.str(), ",");
+
+                i++;
+            }
+
+            if (!firstprivate_args.empty())
+            {
+                arg_clauses << " firstprivate(" << firstprivate_args << ")"
+                    ;
             }
 
             AST_t new_stmt_tree = new_stmt_src.parse_statement(stmt.get_ast(),
