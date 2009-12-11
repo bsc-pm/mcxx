@@ -454,10 +454,9 @@ namespace TL
             {
                 Source duplicated_code_src;
                 duplicated_code_src
-                    << comment("Fall-through serial!")
                     << "{"
+                    << comment("Fall-through serial!")
                     << original_code.prettyprint()
-                    << "break;"
                     << "}"
                     ;
 
@@ -490,7 +489,6 @@ namespace TL
                         << "{"
                         << comment("Call of the outline function")
                         << "(" << outlined_function_reference << ")" << "(" << serialized_arguments << ");"
-                        << "break;"
                         << "}"
                         ;
                 }
@@ -500,7 +498,6 @@ namespace TL
                         << "{"
                         << comment("Full inlining of serialized path")
                         << construct_body.prettyprint() 
-                        << "break;"
                         << "}"
                         ;
                 }
@@ -709,6 +706,10 @@ namespace TL
 
             // FIXME: Instrumentation is still missing!!!
             task_queueing
+		<< "if (NTH_MYSELF->task_ctx->final)"
+		// Serialized code already has braces
+                <<      serialized_code
+		<< "else"
                 << "{"
                 // FIXME - I'd like there was a NTH_CUTOFF_INVALID (with zero
                 // value but this would break current interface)
@@ -744,7 +745,10 @@ namespace TL
                 <<          "break;" 
                 <<      "}"
                 <<      "case NTH_CUTOFF_SERIALIZE:"
-                <<      serialized_code
+		// Serialized code already has braces
+                //<<      serialized_code
+		<<	    "__builtin_abort();"
+                <<          "break;"
                 <<      "case NTH_CUTOFF_IMMEDIATE:"
                 <<      "{"
                 <<          comment("Run the task inline")
