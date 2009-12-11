@@ -119,18 +119,13 @@ namespace TL
                 {
                     Region::DimensionSpecifier*& dim_spec(*it);
 
-                    // array_sections += 
-                    //     "[ " + dim_spec->get_dimension_start().prettyprint() + " : "
-                    //     "(" + dim_spec->get_accessed_length().prettyprint() + ")-(" 
-                    //            + dim_spec->get_dimension_start().prettyprint() + ") - 1 ]";
-
                     Source lower_bound_src, upper_bound_src;
 
                     array_sections
                         << "["
                         << lower_bound_src
-                        << ":"
-                        << upper_bound_src
+                        // << ":"
+                        // << upper_bound_src
                         << "]"
                         ;
 
@@ -139,23 +134,23 @@ namespace TL
 
                     // Simplify if possible the upper bound, otherwise the
                     // resulting expression is not nice
-                    upper_bound_src << "(" << dim_spec->get_accessed_length() << ")-("
-                        << dim_spec->get_dimension_start().prettyprint() << ") - 1";
+                    // upper_bound_src << "(" << dim_spec->get_accessed_length() << ")-("
+                    //     << dim_spec->get_dimension_start().prettyprint() << ") - 1";
 
-                    AST_t upper_bound_tree = upper_bound_src.parse_expression(context_tree, 
-                            construct.get_scope_link());
+                    // AST_t upper_bound_tree = upper_bound_src.parse_expression(context_tree, 
+                    //         construct.get_scope_link());
 
-                    Expression upper_bound_expr(upper_bound_tree, construct.get_scope_link());
+                    // Expression upper_bound_expr(upper_bound_tree, construct.get_scope_link());
 
-                    if (upper_bound_expr.is_constant())
-                    {
-                        bool valid = false;
-                        int cexpr = upper_bound_expr.evaluate_constant_int_expression(valid);
-                        if (valid)
-                        {
-                            upper_bound_src = (Source() << cexpr);
-                        }
-                    }
+                    // if (upper_bound_expr.is_constant())
+                    // {
+                    //     bool valid = false;
+                    //     int cexpr = upper_bound_expr.evaluate_constant_int_expression(valid);
+                    //     if (valid)
+                    //     {
+                    //         upper_bound_src = (Source() << cexpr);
+                    //     }
+                    // }
                 }
 
                 clause_args->append_with_separator(
