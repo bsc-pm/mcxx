@@ -24,14 +24,15 @@
 
 include ../../Makefile.phases
 
-phases_LTLIBRARIES = libtl-ss2omp.la
+phases_LTLIBRARIES = libtlss2omp.la
 
-libtl_ss2omp_la_CFLAGS = $(tl_cflags)
-libtl_ss2omp_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../superscalar
+libtlss2omp_la_CFLAGS = $(tl_cflags)
+libtlss2omp_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../superscalar
+libtlss2omp_la_LDFLAGS = $(tl_ldflags)
 
 END=
 
-libtl_ss2omp_la_SOURCES = \
+libtlss2omp_la_SOURCES = \
     tl-ss2omp.hpp \
     tl-ss2omp.cpp \
     $(END)
