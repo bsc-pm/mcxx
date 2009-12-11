@@ -12,6 +12,9 @@ namespace TL
             SS2OpenMP()
                 : PragmaCustomCompilerPhase("css")
             {
+                set_phase_name("Superscalar to OpenMP");
+                set_phase_description("This phase converts a subset of Superscalar into OpenMP plus dependences");
+
 				on_directive_post["task"].connect(functor(&SS2OpenMP::on_post_task, *this));
 				on_directive_post["target"].connect(functor(&SS2OpenMP::on_post_target, *this));
             }

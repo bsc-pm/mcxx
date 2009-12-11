@@ -7,7 +7,6 @@
 
 namespace TL
 {
-
     void SS2OpenMP::on_post_task(PragmaCustomConstruct construct)
     {
         AugmentedSymbol augmented_sym = AugmentedSymbol::invalid();
@@ -44,6 +43,7 @@ namespace TL
 
         Source new_pragma_construct_src, clauses;
         new_pragma_construct_src
+            << "#line " << construct.get_ast().get_line() << " \"" << construct.get_ast().get_file() << "\"\n"
             << "#pragma omp task " << clauses << "\n"
             << ";"
             ;
@@ -179,6 +179,8 @@ namespace TL
             clauses << " inout(" << inout_clause_args << ")";
         }
 
+        AST_t pragma_decl = construct.get_declaration();
+
         // std::cerr << new_pragma_construct_src.get_source() << std::endl;
         AST_t new_pragma_tree_list = new_pragma_construct_src.parse_declaration(construct.get_ast(),
                 construct.get_scope_link());
@@ -186,11 +188,14 @@ namespace TL
         ASTIterator iterator_list = new_pragma_tree_list.get_list_iterator();
 
         AST_t new_pragma_tree = iterator_list.item();
-        PragmaCustomConstruct new_pragma_construct(new_pragma_tree, construct.get_scope_link());
+        // PragmaCustomConstruct new_pragma_construct(new_pragma_tree, construct.get_scope_link());
 
-        AST_t new_pragma_line = new_pragma_construct.get_pragma_line();
-        construct.get_pragma_line().replace(new_pragma_line);
-        construct.get_ast().replace_text("omp");
+        construct.get_ast().replace(new_pragma_tree);
+        construct.get_declaration().replace(pragma_decl);
+
+        // AST_t new_pragma_line = new_pragma_construct.get_pragma_line();
+        // construct.get_pragma_line().replace(new_pragma_line);
+        // construct.get_ast().replace_text("omp");
     }
 
     void SS2OpenMP::on_post_target(PragmaCustomConstruct construct)
