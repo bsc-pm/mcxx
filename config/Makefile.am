@@ -35,6 +35,7 @@ CONFIG_FILES =  \
        config.acotes \
        config.acotes-msf \
        config.omp \
+       config.ss2omp \
        config.plain \
        config.stm_nebelung \
        config.superscalar \
@@ -58,6 +59,7 @@ $(CONFIG_MCXX) $(CONFIG_FILES) : Makefile
 	$(config_edit) "$(srcdir)/$@.in" > "$@.tmp"
 	mv -f "$@.tmp" "$@"
 
+# Where and what to install
 pkgdata_DATA = \
 		config.mcxx \
 		$(END)
