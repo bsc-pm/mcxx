@@ -161,6 +161,8 @@ namespace TL
             Statement get_statement();
             AST_t get_declaration();
 
+            AST_t get_pragma_line();
+
             bool is_function_definition();
 
             bool is_parameterized();

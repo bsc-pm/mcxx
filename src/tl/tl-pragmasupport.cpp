@@ -220,6 +220,12 @@ namespace TL
         return declaration;
     }
 
+    AST_t PragmaCustomConstruct::get_pragma_line()
+    {
+        TL::AST_t declaration = this->get_ast().get_attribute(LANG_PRAGMA_CUSTOM_LINE);
+        return declaration;
+    }
+
     bool PragmaCustomConstruct::is_construct()
     {
         TL::Bool is_construct = this->get_ast().get_attribute(LANG_IS_PRAGMA_CUSTOM_CONSTRUCT);
