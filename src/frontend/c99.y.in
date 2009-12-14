@@ -305,6 +305,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 
 /*!define GRAMMAR_PROLOGUE*/
 /*!include cxx-subparse.y*/
+/*!include cxx-extensions.y*/
 /*!include cxx-placeholders.y*/
 /*!include cxx-pragma.y*/
 /*!include cxx-construct.y*/
@@ -2423,6 +2424,7 @@ string_literal : STRING_LITERAL
 
 /*!define GRAMMAR_RULES*/
 /*!include cxx-subparse.y*/
+/*!include cxx-extensions.y*/
 /*!include cxx-placeholders.y*/
 /*!include cxx-pragma.y*/
 /*!include cxx-construct.y*/

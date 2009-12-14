@@ -476,6 +476,7 @@ static char check_for_conversion_function_id_expression(AST expression, decl_con
 static char check_for_pseudo_destructor_call(AST expression, decl_context_t decl_context);
 
 static char check_for_array_section_expression(AST expression, decl_context_t decl_context);
+static char check_for_shaping_expression(AST expression, decl_context_t decl_context);
 
 static char check_for_gcc_builtin_offsetof(AST expression, decl_context_t decl_context);
 static char check_for_gcc_builtin_choose_expr(AST expression, decl_context_t decl_context);
@@ -1334,6 +1335,16 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                     ASTAttrSetValueType(expression, LANG_ARRAY_SECTION_ITEM, tl_type_t, tl_ast(ASTSon0(expression)));
                     ASTAttrSetValueType(expression, LANG_ARRAY_SECTION_LOWER, tl_type_t, tl_ast(ASTSon1(expression)));
                     ASTAttrSetValueType(expression, LANG_ARRAY_SECTION_UPPER, tl_type_t, tl_ast(ASTSon2(expression)));
+                }
+                break;
+            }
+            // This is a mcxx extension
+            // that gives an array shape to pointer expressions
+        case AST_SHAPING_EXPRESSION:
+            {
+                if (check_for_shaping_expression(expression, decl_context))
+                {
+                    result = 1;
                 }
                 break;
             }
@@ -9381,6 +9392,76 @@ static char check_for_array_section_expression(AST expression, decl_context_t de
     ast_set_expression_type(expression, result_type);
 
     return 1;
+}
+
+static char check_for_shaping_expression(AST expression, decl_context_t decl_context)
+{
+    char result = 1;
+    AST shaped_expr = ASTSon1(expression);
+    AST shape_list = ASTSon0(expression);
+
+    if (!check_for_expression(shaped_expr, decl_context))
+    {
+        result = 0;
+    }
+
+    if (!check_for_expression_list(shape_list, decl_context))
+    {
+        result = 0;
+    }
+
+    AST it;
+    for_each_element(shape_list, it)
+    {
+        AST current_expr = ASTSon1(it);
+        type_t *current_expr_type = ASTExprType(current_expr);
+
+        standard_conversion_t scs;
+        if (!standard_conversion_between_types(&scs, current_expr_type, get_signed_int_type()))
+        {
+            if (!checking_ambiguity())
+            {
+                fprintf(stderr, "%s: warning: shaping expression '%s' cannot be converted to 'int'\n",
+                        ast_location(current_expr),
+                        prettyprint_in_buffer(current_expr));
+            }
+            result = 0;
+        }
+    }
+
+    // Now check the shape makes sense
+    type_t* shaped_expr_type = ASTExprType(shaped_expr);
+
+    if (!is_pointer_type(shaped_expr_type))
+    {
+        if (!checking_ambiguity())
+        {
+            fprintf(stderr, "%s: warning: shaped expression '%s' does not have pointer type\n",
+                    ast_location(shaped_expr),
+                    prettyprint_in_buffer(shaped_expr));
+        }
+        result = 0;
+    }
+
+    if (result)
+    {
+        // Synthesize a new type based on what we got
+        type_t* result_type = pointer_type_get_pointee_type(shaped_expr_type);
+
+        it = shape_list;
+        // Traverse the list backwards
+        while (it != NULL)
+        {
+            AST current_expr = ASTSon1(it);
+            result_type = get_array_type(result_type, current_expr, decl_context);
+            it = ASTSon0(it);
+        }
+
+        ast_set_expression_type(expression, result_type);
+        ast_set_expression_is_lvalue(expression, 0);
+    }
+
+    return result;
 }
 
 static char check_for_gxx_type_traits(AST expression, decl_context_t decl_context)

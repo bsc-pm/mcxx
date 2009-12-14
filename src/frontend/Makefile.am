@@ -164,6 +164,7 @@ EXTRA_DIST += cxx-lexer.l
 AST_NODE_TYPE_FILES =
 AST_NODE_TYPE_FILES += cxx-asttype-all.def
 AST_NODE_TYPE_FILES += cxx-asttype-base.def
+AST_NODE_TYPE_FILES += cxx-asttype-extensions.def
 AST_NODE_TYPE_FILES += cxx-asttype-gcc.def
 AST_NODE_TYPE_FILES += cxx-asttype-pragma.def
 AST_NODE_TYPE_FILES += cxx-asttype-superscalar.def
@@ -185,15 +186,19 @@ EXTRA_DIST += cxx03.y
 EXTRA_DIST += cxx03.y.in
 EXTRA_DIST += cxx-scanner.c
 
-EXTRA_DIST += cxx-subparse.y
-EXTRA_DIST += cxx-pragma.y
-EXTRA_DIST += cxx-construct.y
-EXTRA_DIST += cxx-omp.y
-EXTRA_DIST += cxx-superscalar.y
-EXTRA_DIST += cxx-ambig-handler.y
-EXTRA_DIST += cxx-placeholders.y
-EXTRA_DIST += c99-upc.y
-EXTRA_DIST += cxx-xl.y
+ADDITIONAL_GRAMMARS = 
+ADDITIONAL_GRAMMARS += cxx-subparse.y
+ADDITIONAL_GRAMMARS += cxx-pragma.y
+ADDITIONAL_GRAMMARS += cxx-construct.y
+ADDITIONAL_GRAMMARS += cxx-omp.y
+ADDITIONAL_GRAMMARS += cxx-superscalar.y
+ADDITIONAL_GRAMMARS += cxx-ambig-handler.y
+ADDITIONAL_GRAMMARS += cxx-placeholders.y
+ADDITIONAL_GRAMMARS += c99-upc.y
+ADDITIONAL_GRAMMARS += cxx-xl.y
+ADDITIONAL_GRAMMARS += cxx-extensions.y
+
+EXTRA_DIST += $(ADDITIONAL_GRAMMARS)
 
 EXTRA_DIST += cxx-gccspubuiltins.def
 
@@ -302,7 +307,7 @@ CLEANFILES += cxx-parser.output
 CLEANFILES += cxx03.y
 endif
 
-cxx03.y : $(srcdir)/cxx03.y.in $(srcdir)/cxx-placeholders.y $(srcdir)/cxx-subparse.y $(srcdir)/cxx-pragma.y $(srcdir)/cxx-construct.y $(srcdir)/cxx-superscalar.y $(srcdir)/cxx-ambig-handler.y $(srcdir)/cxx-xl.y $(srcdir)/cxx-omp.y
+cxx03.y : $(srcdir)/cxx03.y.in $(addprefix $(srcdir)/, $(ADDITIONAL_GRAMMARS)) 
 	$(TPP) -o cxx03.y -D CPLUSPLUS -I$(srcdir) $(srcdir)/cxx03.y.in
 
 cxx-parser.c : cxx03.y
@@ -341,7 +346,7 @@ CLEANFILES += c99-parser.output
 CLEANFILES += c99.y
 endif
 
-c99.y : $(srcdir)/c99.y.in $(srcdir)/cxx-placeholders.y $(srcdir)/cxx-subparse.y $(srcdir)/cxx-pragma.y $(srcdir)/cxx-construct.y $(srcdir)/cxx-superscalar.y $(srcdir)/cxx-ambig-handler.y $(srcdir)/c99-upc.y $(srcdir)/cxx-xl.y $(srcdir)/cxx-omp.y
+c99.y : $(srcdir)/c99.y.in $(addprefix $(srcdir)/, $(ADDITIONAL_GRAMMARS)) 
 	$(TPP) -o c99.y -D C99 -I$(srcdir) $(srcdir)/c99.y.in
 
 c99-parser.c : c99.y

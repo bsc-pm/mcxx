@@ -1023,6 +1023,7 @@ identifier {
  /* Special tokens for subparsing */
 @EXPRESSION@ { parse_token_text(); return SUBPARSE_EXPRESSION; }
 @EXPRESSION-LIST@ { parse_token_text(); return SUBPARSE_EXPRESSION_LIST; }
+@SHAPING-EXPRESSION@ { parse_token_text(); return SUBPARSE_SHAPING_EXPRESSION; }
 @STATEMENT@ { parse_token_text(); return SUBPARSE_STATEMENT; }
 @DECLARATION@ { parse_token_text(); return SUBPARSE_DECLARATION; }
 @TYPE@ { parse_token_text(); return SUBPARSE_TYPE; }
