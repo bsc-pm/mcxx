@@ -269,7 +269,11 @@ namespace TL
 
             using OpenMP::UDRInfoItem;
 
-            // Remove qualifications since they do not play any role in this comparison
+            // Remove qualifications if they do not play any role in this comparison
+            if (!return_type.is_reference())
+            {
+                return_type = return_type.get_unqualified_type();
+            }
             parameter_types[0] = parameter_types[0].get_unqualified_type();
             parameter_types[1] = parameter_types[1].get_unqualified_type();
 
