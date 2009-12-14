@@ -281,8 +281,29 @@ namespace TL
             {
                 if (!it->is_symbol_dependence())
                 {
-                    result << arg_var_accessor << "dep_" << num_dep << "= &(" << it->get_dependency_expression() << ");"
+                    Source base;
+                    result << arg_var_accessor << "dep_" << num_dep << "= &(" << base << ");"
                         ;
+
+                    Expression dep_expr = it->get_dependency_expression();
+
+                    if (dep_expr.is_array_section())
+                    {
+                        Expression current_expr = dep_expr;
+                        Source dims;
+
+                        while (current_expr.is_array_section())
+                        {
+                            dims << "[" << current_expr.array_section_lower() << "]";
+                            current_expr = current_expr.array_section_item();
+                        }
+
+                        base << current_expr << dims;
+                    }
+                    else
+                    {
+                        base << dep_expr;
+                    }
                 }
                 num_dep++;
             }

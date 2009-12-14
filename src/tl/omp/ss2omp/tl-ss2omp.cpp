@@ -52,7 +52,7 @@ namespace TL
         Source output_clause_args;
         Source inout_clause_args;
 
-        ObjectList<Type> parameters = augmented_sym.get_type().parameters();
+        ObjectList<Type> parameters = augmented_sym.get_type().nonadjusted_parameters();
         int i = 0;
         for (ObjectList<RegionList>::iterator it = parameter_region_list->begin();
                 it != parameter_region_list->end();
@@ -124,8 +124,8 @@ namespace TL
                     array_sections
                         << "["
                         << lower_bound_src
-                        // << ":"
-                        // << upper_bound_src
+                        << ":"
+                        << upper_bound_src
                         << "]"
                         ;
 
@@ -133,29 +133,65 @@ namespace TL
                         ;
 
                     // Simplify if possible the upper bound, otherwise the
-                    // resulting expression is not nice
-                    // upper_bound_src << "(" << dim_spec->get_accessed_length() << ")-("
-                    //     << dim_spec->get_dimension_start().prettyprint() << ") - 1";
+                    // resulting expression can get too complex
+                    upper_bound_src << "(" << dim_spec->get_accessed_length() << ")-("
+                        << dim_spec->get_dimension_start().prettyprint() << ") - 1";
 
-                    // AST_t upper_bound_tree = upper_bound_src.parse_expression(context_tree, 
-                    //         construct.get_scope_link());
+                    AST_t upper_bound_tree = upper_bound_src.parse_expression(context_tree, 
+                            construct.get_scope_link());
 
-                    // Expression upper_bound_expr(upper_bound_tree, construct.get_scope_link());
+                    Expression upper_bound_expr(upper_bound_tree, construct.get_scope_link());
 
-                    // if (upper_bound_expr.is_constant())
-                    // {
-                    //     bool valid = false;
-                    //     int cexpr = upper_bound_expr.evaluate_constant_int_expression(valid);
-                    //     if (valid)
-                    //     {
-                    //         upper_bound_src = (Source() << cexpr);
-                    //     }
-                    // }
+                    if (upper_bound_expr.is_constant())
+                    {
+                        bool valid = false;
+                        int cexpr = upper_bound_expr.evaluate_constant_int_expression(valid);
+                        if (valid)
+                        {
+                            upper_bound_src = (Source() << cexpr);
+                        }
+                    }
                 }
 
-                clause_args->append_with_separator(
-                        parameter_decls[i].get_name().prettyprint() + array_sections.get_source(),
-                        ",");
+                if (parameters[i].is_pointer()
+                        && region.get_dimension_count() > 1)
+                {
+                    // We need a cast if region.size > 1
+                    Type cast_type = parameters[i].points_to();
+
+                    for (Region::iterator it = region.begin();
+                            it != region.end();
+                            it++)
+                    {
+                        Region::DimensionSpecifier*& dim_spec(*it);
+
+                        if ((it + 1) == region.end())
+                        {
+                            cast_type = cast_type.get_pointer_to();
+                        }
+                        else
+                        {
+                            cast_type = cast_type.get_array_to(dim_spec->get_accessed_length().prettyprint());
+                        }
+                    }
+
+                    Source cast_src;
+
+                    cast_src 
+                        << "((" << cast_type.get_declaration(construct.get_scope(), "") << ")"
+                        << parameter_decls[i].get_name().prettyprint() << ")"
+                        ;
+
+                    clause_args->append_with_separator(
+                            cast_src.get_source() + array_sections.get_source(),
+                            ",");
+                }
+                else
+                {
+                    clause_args->append_with_separator(
+                            parameter_decls[i].get_name().prettyprint() + array_sections.get_source(),
+                            ",");
+                }
             }
 
             i++;
