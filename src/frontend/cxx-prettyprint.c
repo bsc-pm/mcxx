@@ -257,6 +257,7 @@ HANDLER_PROTOTYPE(gxx_type_traits);
 
 // Mercurium extensions
 HANDLER_PROTOTYPE(array_section_handler);
+HANDLER_PROTOTYPE(shaping_expression_handler);
 
 // UPC 1.2
 HANDLER_PROTOTYPE(upc_forall_header);
@@ -622,8 +623,9 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_GCC_NAMESPACE_DEFINITION, gcc_namespace_definition_handler, NULL),
     NODE_HANDLER(AST_GCC_FUNCTIONAL_DECLARATOR, gcc_functional_declarator_handler, NULL), 
     NODE_HANDLER(AST_GXX_TYPE_TRAITS, gxx_type_traits, NULL),
-    // Mercurium extension
+    // Mercurium extensions
     NODE_HANDLER(AST_ARRAY_SECTION, array_section_handler, NULL),
+    NODE_HANDLER(AST_SHAPING_EXPRESSION, shaping_expression_handler, NULL),
     // UPC 1.2
     NODE_HANDLER(AST_UPC_LOCALSIZEOF, upc_sizeof_expr, "local"),
     NODE_HANDLER(AST_UPC_BLOCKSIZEOF, upc_sizeof_expr, "block"),
@@ -3354,6 +3356,23 @@ static void array_section_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
     token_fprintf(f, a, pt_ctx, ":");
     prettyprint_level(f, ASTSon2(a), pt_ctx);
     token_fprintf(f, a, pt_ctx, "]");
+}
+
+static void shaping_expression_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    AST it;
+    AST shape_list = ASTSon0(a);
+    for_each_element(shape_list, it)
+    {
+        AST expr = ASTSon1(it);
+
+        token_fprintf(f, a, pt_ctx, "[");
+        prettyprint_level(f, expr, pt_ctx);
+        token_fprintf(f, a, pt_ctx, "]");
+    }
+    token_fprintf(f, a, pt_ctx, " ");
+
+    prettyprint_level(f, ASTSon1(a), pt_ctx);
 }
 
 static void gxx_type_traits(FILE* f, AST a, prettyprint_context_t* pt_ctx)

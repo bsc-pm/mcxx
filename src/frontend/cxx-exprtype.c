@@ -9447,6 +9447,17 @@ static char check_for_shaping_expression(AST expression, decl_context_t decl_con
         result = 0;
     }
 
+    if (is_void_pointer_type(shaped_expr_type))
+    {
+        if (!checking_ambiguity())
+        {
+            fprintf(stderr, "%s: warning: shaped expression '%s' has type 'void*' which is invalid\n",
+                    ast_location(shaped_expr),
+                    prettyprint_in_buffer(shaped_expr));
+        }
+        result = 0;
+    }
+
     if (result)
     {
         // Synthesize a new type based on what we got
