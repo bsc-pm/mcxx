@@ -113,11 +113,13 @@ namespace TL
             else
             {
                 Source array_sections;
-                for (Region::iterator it = region.begin();
-                        it != region.end();
-                        it++)
+                // Note that we start from 1 because we will traverse backwards
+                for (unsigned int j = 1;
+                        j <= region.get_dimension_count();
+                        j++)
                 {
-                    Region::DimensionSpecifier*& dim_spec(*it);
+                    // This list is reversed
+                    Region::DimensionSpecifier &dim_spec(region[region.get_dimension_count() - j]);
 
                     Source lower_bound_src, upper_bound_src;
 
@@ -129,13 +131,13 @@ namespace TL
                         << "]"
                         ;
 
-                    lower_bound_src << dim_spec->get_dimension_start()
+                    lower_bound_src << dim_spec.get_dimension_start()
                         ;
 
                     // Simplify if possible the upper bound, otherwise the
                     // resulting expression can get too complex
-                    upper_bound_src << "(" << dim_spec->get_accessed_length() << ")-("
-                        << dim_spec->get_dimension_start().prettyprint() << ") - 1";
+                    upper_bound_src << "(" << dim_spec.get_accessed_length() << ")-("
+                        << dim_spec.get_dimension_start().prettyprint() << ") - 1";
 
                     AST_t upper_bound_tree = upper_bound_src.parse_expression(context_tree, 
                             construct.get_scope_link());
@@ -156,34 +158,31 @@ namespace TL
                 if (parameters[i].is_pointer()
                         && region.get_dimension_count() > 1)
                 {
-                    // We need a cast if region.size > 1
-                    Type cast_type = parameters[i].points_to();
+                    // We need a shaped expression if num dims > 1
+                    Source shape_dims;
 
-                    for (Region::iterator it = region.begin();
-                            it != region.end();
-                            it++)
+                    // Note that we start from 1 because we will traverse backwards
+                    for (unsigned int j = 1;
+                            j <= region.get_dimension_count();
+                            j++)
                     {
-                        Region::DimensionSpecifier*& dim_spec(*it);
+                        // This list is reversed
+                        Region::DimensionSpecifier& dim_spec(region[region.get_dimension_count() - j]);
 
-                        if ((it + 1) == region.end())
-                        {
-                            cast_type = cast_type.get_pointer_to();
-                        }
-                        else
-                        {
-                            cast_type = cast_type.get_array_to(dim_spec->get_accessed_length().prettyprint());
-                        }
+                        shape_dims
+                            << "[" << dim_spec.get_accessed_length() << "]"
+                            ;
                     }
 
-                    Source cast_src;
+                    Source shape_src;
 
-                    cast_src 
-                        << "((" << cast_type.get_declaration(construct.get_scope(), "") << ")"
-                        << parameter_decls[i].get_name().prettyprint() << ")"
+                    shape_src
+                        << shape_dims << " "
+                        << parameter_decls[i].get_name().prettyprint() 
                         ;
 
                     clause_args->append_with_separator(
-                            cast_src.get_source() + array_sections.get_source(),
+                            shape_src.get_source() + array_sections.get_source(),
                             ",");
                 }
                 else
