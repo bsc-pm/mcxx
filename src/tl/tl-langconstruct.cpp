@@ -876,6 +876,36 @@ namespace TL
         return Expression(array_section_upper, _scope_link);
     }
 
+    bool Expression::is_shaping_expression()
+    {
+        TL::Bool result = _ref.get_attribute(LANG_IS_SHAPING_EXPRESSION);
+        return result;
+    }
+
+    Expression Expression::shaped_expression()
+    {
+        AST_t shaped_expression = _ref.get_attribute(LANG_SHAPED_EXPRESSION);
+        return Expression(shaped_expression, _scope_link);
+    }
+
+    ObjectList<Expression> Expression::shape_list()
+    {
+        ObjectList<Expression> result;
+        AST_t shape_list = _ref.get_attribute(LANG_SHAPE_LIST);
+
+        ASTIterator it = shape_list.get_list_iterator();
+
+        it.rewind();
+        while (!it.end())
+        {
+            Expression expr(it.item(), _scope_link);
+            result.push_back(expr);
+            it.next();
+        }
+
+        return result;
+    }
+
     Expression Expression::get_enclosing_expression()
     {
         AST_t parent = _orig.get_parent();

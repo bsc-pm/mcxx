@@ -541,7 +541,7 @@ namespace TL
              */
             std::string get_operator_str();
 
-            //!States whether the expression is an array section
+            //! States whether the expression is an array section
             bool is_array_section();
             //! Returns the sectioned expression in the array section
             Expression array_section_item();
@@ -549,6 +549,13 @@ namespace TL
             Expression array_section_lower();
             //! Returns the upper bound of the array section
             Expression array_section_upper();
+
+            //! States whether the expression is a shaping expression
+            bool is_shaping_expression();
+            //! Returns the expression being shaped
+            Expression shaped_expression();
+            //! Returns the shape list
+            ObjectList<Expression> shape_list();
 
             static const PredicateAttr predicate;
 

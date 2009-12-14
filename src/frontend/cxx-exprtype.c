@@ -1345,6 +1345,10 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 if (check_for_shaping_expression(expression, decl_context))
                 {
                     result = 1;
+
+                    ASTAttrSetValueType(expression, LANG_IS_SHAPING_EXPRESSION, tl_type_t, tl_bool(1));
+                    ASTAttrSetValueType(expression, LANG_SHAPE_LIST, tl_type_t, tl_ast(ASTSon0(expression)));
+                    ASTAttrSetValueType(expression, LANG_SHAPED_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expression)));
                 }
                 break;
             }
