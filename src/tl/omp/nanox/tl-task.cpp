@@ -226,27 +226,9 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             Type size_type = it->get_dependency_expression().get_type();
 
             Source dep_size;
-            if (dependency_expression.is_array_section())
-            {
-                Expression current_expr = dependency_expression;
-                dep_size
-                    << "sizeof(" << size_type.get_declaration(ctr.get_scope(), "") << ")"
-                    ;
-
-                while (current_expr.is_array_section())
-                {
-                    dep_size 
-                        << "*((" << current_expr.array_section_upper() << ") - (" <<  current_expr.array_section_lower() << ") + 1)"
-                        ;
-                    current_expr = current_expr.array_section_item();
-                }
-            }
-            else
-            {
-                dep_size
-                    << "sizeof(" << size_type.get_declaration(ctr.get_scope(), "") << ")"
-                    ;
-            }
+            dep_size
+                << "sizeof(" << size_type.get_declaration(ctr.get_scope(), "") << ")"
+                ;
 
             dependency_defs_outline
                 << "{"

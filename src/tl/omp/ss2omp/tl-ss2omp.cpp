@@ -69,21 +69,25 @@ namespace TL
             Region &region(region_list[0]);
 
             Source *clause_args = NULL;
+            std::string dir_str;
             switch ((int)region.get_direction())
             {
                 case Region::INPUT_DIR:
                     {
                         clause_args = &input_clause_args;
+                        dir_str = "input";
                         break;
                     }
                 case Region::OUTPUT_DIR:
                     {
                         clause_args = &output_clause_args;
+                        dir_str = "output";
                         break;
                     }
                 case Region::INOUT_DIR:
                     {
                         clause_args = &inout_clause_args;
+                        dir_str = "inout";
                         break;
                     }
                 default:
@@ -93,11 +97,14 @@ namespace TL
                     }
             }
 
-            // std::cerr << "Parameter region #" << i 
-            //     << " direction=" << dir_str 
-            //     << " dimension_count=" << region.get_dimension_count()
-            //     << " is_full=" << region.is_full()
-            //     << std::endl;
+            DEBUG_CODE()
+            {
+                std::cerr << "Parameter region #" << i << std::endl
+                    << " direction=" << dir_str << std::endl
+                    << " dimension_count=" << region.get_dimension_count() << std::endl
+                    << " is_full=" << region.is_full() 
+                    << std::endl;
+            }
 
             if (region.get_dimension_count() == 0)
             {
@@ -121,6 +128,14 @@ namespace TL
                     // This list is reversed
                     Region::DimensionSpecifier &dim_spec(region[region.get_dimension_count() - j]);
 
+                    DEBUG_CODE()
+                    {
+                        std::cerr << "Region: #" << j << std::endl
+                            << " dimension_start: " << dim_spec.get_dimension_start() << std::endl
+                            << " accessed_length: " << dim_spec.get_accessed_length() << std::endl
+                            << " dimension_length: " << dim_spec.get_dimension_length() << std::endl;
+                    }
+
                     Source lower_bound_src, upper_bound_src;
 
                     array_sections
@@ -136,7 +151,7 @@ namespace TL
 
                     // Simplify if possible the upper bound, otherwise the
                     // resulting expression can get too complex
-                    upper_bound_src << "(" << dim_spec.get_accessed_length() << ")-("
+                    upper_bound_src << "(" << dim_spec.get_accessed_length() << ")+("
                         << dim_spec.get_dimension_start().prettyprint() << ") - 1";
 
                     AST_t upper_bound_tree = upper_bound_src.parse_expression(context_tree, 
@@ -170,15 +185,16 @@ namespace TL
                         Region::DimensionSpecifier& dim_spec(region[region.get_dimension_count() - j]);
 
                         shape_dims
-                            << "[" << dim_spec.get_accessed_length() << "]"
+                            << "[" << dim_spec.get_dimension_length() << "]"
                             ;
                     }
 
                     Source shape_src;
 
                     shape_src
-                        << shape_dims << " "
+                        << "(" << shape_dims << " "
                         << parameter_decls[i].get_name().prettyprint() 
+                        << ")"
                         ;
 
                     clause_args->append_with_separator(
@@ -194,6 +210,12 @@ namespace TL
             }
 
             i++;
+
+            DEBUG_CODE()
+            {
+                // Aesthetical
+                std::cerr << std::endl;
+            }
         }
 
         if (!input_clause_args.empty())
