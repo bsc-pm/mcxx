@@ -103,12 +103,12 @@ namespace TL
              * \remark This function will give bogus names to templates parameters. Use get_qualified_name(Scope)
              * instead.
              */
-            std::string get_qualified_name() const;
+            std::string get_qualified_name(bool without_template_id = 0) const;
             //! Returns a fully qualified name
             /*
              * \param sc Scope used to lookup template parameter names
              */
-            std::string get_qualified_name(Scope sc) const;
+            std::string get_qualified_name(Scope sc, bool without_template_id = 0) const;
 
             //! Gets the scope where this symbol is defined
             Scope get_scope() const;

@@ -58,24 +58,12 @@ namespace TL
             std::string("");
     }
 
-    std::string Symbol::get_qualified_name() const
+    std::string Symbol::get_qualified_name(bool without_template_id) const
     {
-        if (_symbol->symbol_name == NULL)
-        {
-            return std::string("");
-        }
-        else
-        {
-            // FIXME -> the scope should be the occurrence one
-            int max_level = 0;
-            char is_dependent = 0;
-            const char* qualified_name = get_fully_qualified_symbol_name(_symbol, _symbol->decl_context, 
-                    &is_dependent, &max_level);
-            return std::string(qualified_name);
-        }
+        return get_qualified_name(this->get_scope(), without_template_id);
     }
 
-    std::string Symbol::get_qualified_name(Scope sc) const
+    std::string Symbol::get_qualified_name(Scope sc, bool without_template_id) const
     {
         if (_symbol->symbol_name == NULL)
         {
@@ -83,11 +71,20 @@ namespace TL
         }
         else
         {
-            // FIXME -> the scope should be the occurrence one
+            const char* (*ptr_fun)(struct
+                    scope_entry_tag* entry, decl_context_t decl_context, char*
+                    is_dependent, int* max_qualif_level) = get_fully_qualified_symbol_name;
+
+            if (without_template_id)
+            {
+                ptr_fun = get_fully_qualified_symbol_name_without_template;
+            }
+
             int max_level = 0;
             char is_dependent = 0;
-            const char* qualified_name = get_fully_qualified_symbol_name(_symbol, sc._decl_context, 
+            const char* qualified_name = ptr_fun(_symbol, sc._decl_context, 
                     &is_dependent, &max_level);
+
             return std::string(qualified_name);
         }
     }
