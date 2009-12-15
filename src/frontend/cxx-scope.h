@@ -100,7 +100,13 @@ LIBMCXX_EXTERN struct scope_entry_list_tag* create_list_from_entry(struct scope_
 LIBMCXX_EXTERN struct scope_entry_list_tag *copy_entry_list(scope_entry_list_t* orig);
 
 // Get the fully qualified symbol name in the scope of the ocurrence
-LIBMCXX_EXTERN const char* get_fully_qualified_symbol_name(struct scope_entry_tag* entry, decl_context_t decl_context, char* is_dependent, int* max_qualif_level);
+LIBMCXX_EXTERN const char* get_fully_qualified_symbol_name(struct
+        scope_entry_tag* entry, decl_context_t decl_context, char*
+        is_dependent, int* max_qualif_level);
+
+LIBMCXX_EXTERN const char* get_fully_qualified_symbol_name_without_template(struct scope_entry_tag* entry,
+        decl_context_t decl_context, char* is_dependent, int*
+        max_qualif_level);
 
 // Class scopes
 LIBMCXX_EXTERN struct scope_entry_list_tag* class_context_lookup(decl_context_t decl_context, const char* name);

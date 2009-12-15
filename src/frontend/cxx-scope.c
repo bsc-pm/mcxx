@@ -3166,8 +3166,9 @@ static const char* get_unqualified_template_symbol_name(scope_entry_t* entry,
 }
 
 // Get the fully qualified symbol name in the scope of the ocurrence
-const char* get_fully_qualified_symbol_name(scope_entry_t* entry, 
-        decl_context_t decl_context, char* is_dependent, int* max_qualif_level)
+static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry, 
+        decl_context_t decl_context, char* is_dependent, int* max_qualif_level,
+        char no_templates)
 {
     // DEBUG_CODE()
     // {
@@ -3193,7 +3194,8 @@ const char* get_fully_qualified_symbol_name(scope_entry_t* entry,
         (*is_dependent) |= 1;
         return result;
     }
-    else if (entry->type_information != NULL
+    else if (!no_templates
+            && entry->type_information != NULL
             && is_template_specialized_type(entry->type_information))
     {
         const char *template_arguments = get_unqualified_template_symbol_name(entry, decl_context);
@@ -3225,6 +3227,20 @@ const char* get_fully_qualified_symbol_name(scope_entry_t* entry,
     }
 
     return result;
+}
+
+const char* get_fully_qualified_symbol_name(scope_entry_t* entry, 
+        decl_context_t decl_context, char* is_dependent, int* max_qualif_level)
+{
+    return get_fully_qualified_symbol_name_ex(entry,
+            decl_context, is_dependent, max_qualif_level, /* no_templates */ 0);
+}
+
+const char* get_fully_qualified_symbol_name_without_template(scope_entry_t* entry, 
+        decl_context_t decl_context, char* is_dependent, int* max_qualif_level)
+{
+    return get_fully_qualified_symbol_name_ex(entry,
+            decl_context, is_dependent, max_qualif_level, /* no_templates */ 1);
 }
 
 void scope_entry_dynamic_initializer(void)
