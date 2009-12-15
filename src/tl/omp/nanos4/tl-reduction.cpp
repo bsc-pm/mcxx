@@ -81,7 +81,7 @@ namespace TL
 
             Symbol op_sym = reduction_symbol.get_reductor_symbol();
             Type op_type = op_sym.get_type();
-            std::string op_name = op_sym.get_qualified_name();
+            std::string op_name = op_sym.get_qualified_name( /* without_templates */ true);
 
             if (!op_type.is_function())
             {
