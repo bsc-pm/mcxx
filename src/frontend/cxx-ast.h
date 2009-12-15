@@ -256,7 +256,7 @@ LIBMCXX_EXTERN AST ast_copy_with_scope_link(AST a, scope_link_t* sl);
 // Name of operators
 #define STR_OPERATOR_ADD "operator +"
 #define STR_OPERATOR_MULT "operator *"
-#define STR_OPERATOR_DIV "operator *"
+#define STR_OPERATOR_DIV "operator /"
 #define STR_OPERATOR_MOD "operator %"
 #define STR_OPERATOR_MINUS "operator -"
 #define STR_OPERATOR_SHIFT_LEFT "operator <<"
