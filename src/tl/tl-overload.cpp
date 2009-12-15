@@ -82,10 +82,10 @@ namespace TL
         }
 
         // Build the type array
-        int i, N = argument_types.size();
+        unsigned int i = argument_types.size();
         type_t** argument_types_array = new type_t*[argument_types.size() + 1];
         argument_types_array[0] = implicit_argument_type.get_internal_type();
-        for (i = 0; i < N; i++)
+        for (i = 0; i < argument_types.size(); i++)
         {
             argument_types_array[i+1] = argument_types[i].get_internal_type();
         }
@@ -98,7 +98,7 @@ namespace TL
         scope_entry_list_t* candidate_list = NULL;
         candidate_list = unfold_and_mix_candidate_functions(first_candidate_list,
                 NULL /* builtins */,
-                &argument_types_array[1], N,
+                &argument_types_array[1], argument_types.size(),
                 decl_context,
                 uniquestr(filename.c_str()), line,
                 NULL /* explicit template arguments */);
@@ -113,12 +113,12 @@ namespace TL
         }
 
         // We also need a scope_entry_t** for holding the conversor argument
-        scope_entry_t** conversor_per_argument = new scope_entry_t*[argument_types.size()];
+        scope_entry_t** conversor_per_argument = new scope_entry_t*[argument_types.size() + 1];
 
         // Now invoke all the machinery
         scope_entry_t* entry_result =
         solve_overload(candidate_list, 
-                argument_types_array, /* Number of arguments */ N + 1,
+                argument_types_array, /* Number of arguments */ argument_types.size() + 1,
                 decl_context,
                 uniquestr(filename.c_str()), line,
                 conversor_per_argument);
@@ -128,7 +128,7 @@ namespace TL
             valid = true;
             // Store the arguments
             argument_conversor.clear();
-            for (i = 0; i < (N+1); i++)
+            for (i = 0; i < argument_types.size(); i++)
             {
                 argument_conversor.append(Symbol(conversor_per_argument[i]));
             }
