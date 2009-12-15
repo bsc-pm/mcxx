@@ -283,6 +283,12 @@ namespace TL
                             = Source(reductor_name).parse_id_expression(construct.get_ast(), construct.get_scope_link());
                         IdExpression reductor_id_expr(reductor_name_tree, clause.get_scope_link());
                         unqualified_reductor_name = reductor_id_expr.get_unqualified_part();
+
+                        const std::string op_prefix = "operator ";
+                        if (unqualified_reductor_name.substr(0, op_prefix.size()) == op_prefix)
+                        {
+                            unqualified_reductor_name = unqualified_reductor_name.substr(op_prefix.size());
+                        }
                     }
 
                     // Adjust pointers to arrays
@@ -301,7 +307,6 @@ namespace TL
                     }
                     else
                     {
-
                         UDRInfoScope udr_info_scope(construct.get_scope());
 
                         UDRInfoItem udr_info_item = udr_info_scope.get_udr(
@@ -317,6 +322,13 @@ namespace TL
                         {
                             ReductionSymbol red_sym(var_sym, udr_info_item);
                             sym_list.append(red_sym);
+
+                            Symbol op_sym = udr_info_item.get_op_symbol();
+                            Type op_type = op_sym.get_type();
+                            std::cerr << construct.get_ast().get_locus() 
+                                << ": note: reduction of variable '" << var_sym.get_name() << "' solved to '" 
+                                << op_type.get_declaration(construct.get_scope(),
+                                        op_sym.get_qualified_name(construct.get_scope())) << "'" << std::endl;
                         }
                         else
                         {
