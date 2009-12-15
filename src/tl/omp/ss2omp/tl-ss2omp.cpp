@@ -250,8 +250,58 @@ namespace TL
         // construct.get_ast().replace_text("omp");
     }
 
-    void SS2OpenMP::on_post_target(PragmaCustomConstruct construct)
+    void SS2OpenMP::on_post_wait(PragmaCustomConstruct construct)
     {
+        Source taskwait_directive_src, on_clause_src;
+
+        taskwait_directive_src
+            << "#line " << construct.get_ast().get_line() << " \"" << construct.get_ast().get_file() << "\"\n"
+            << "#pragma omp taskwait " << on_clause_src << "\n"
+            ;
+
+        if (construct.get_clause("on").is_defined())
+        {
+            on_clause_src << "on(" << concat_strings(construct.get_clause("on").get_arguments(ExpressionTokenizer()), ",") << ")"; 
+        }
+
+        AST_t taskwait_directive_tree = taskwait_directive_src.parse_statement(construct.get_ast(),
+                construct.get_scope_link());
+
+        construct.get_ast().replace(taskwait_directive_tree);
+    }
+
+    void SS2OpenMP::on_post_barrier(PragmaCustomConstruct construct)
+    {
+        Source taskwait_directive_src;
+
+        taskwait_directive_src
+            << "#line " << construct.get_ast().get_line() << " \"" << construct.get_ast().get_file() << "\"\n"
+            << "#pragma omp taskwait\n"
+            ;
+
+        AST_t taskwait_directive_tree = taskwait_directive_src.parse_statement(construct.get_ast(),
+                construct.get_scope_link());
+
+        construct.get_ast().replace(taskwait_directive_tree);
+    }
+
+    void SS2OpenMP::remove_directive(PragmaCustomConstruct construct)
+    {
+        construct.get_ast().remove_in_list();
+    }
+
+    void SS2OpenMP::directive_not_implemented(PragmaCustomConstruct construct)
+    {
+        std::cerr << construct.get_ast().get_locus() << ": warning: directive not implemented yet, skipping" << std::endl;
+        // Remove the directive
+        construct.get_ast().remove_in_list();
+    }
+
+    void SS2OpenMP::construct_not_implemented(PragmaCustomConstruct construct)
+    {
+        std::cerr << construct.get_ast().get_locus() << ": warning: construct not implemented yet, skipping" << std::endl;
+        // Remove the directive
+        construct.get_ast().replace(construct.get_declaration());
     }
 }
 
