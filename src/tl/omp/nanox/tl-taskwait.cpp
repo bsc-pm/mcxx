@@ -67,8 +67,16 @@ namespace TL
                         .get_declaration(it->get_dependency_expression().get_scope(),
                                 dependency_name) << ";";
 
-                    dep_holder_init << "&(" << it->get_dependency_expression() << ")"
-                        ;
+                    if (it->get_dependency_expression().get_type().is_array())
+                    {
+                        dep_holder_init << it->get_dependency_expression() 
+                            ;
+                    }
+                    else
+                    {
+                        dep_holder_init << "&(" << it->get_dependency_expression() << ")"
+                            ;
+                    }
 
                     dependency_defs_wait
                         << "{"
