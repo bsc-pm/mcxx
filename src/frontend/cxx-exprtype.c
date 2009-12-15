@@ -2225,7 +2225,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
             &(argument_types[1]), decl_context, operator_name);
     
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(
-            entry_list, builtins, &(argument_types[1]), num_arguments,
+            entry_list, builtins, &(argument_types[1]), num_arguments - 1,
             decl_context,
             ASTFileName(expr), ASTLine(expr),
             /* explicit_template_arguments */ NULL);
