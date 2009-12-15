@@ -61,19 +61,27 @@ namespace TL
                     dependency_name
                         << "dep_" << dep_num;
                     
-                    fake_struct_fields << it->get_dependency_expression()
-                        .get_type()
-                        .get_pointer_to()
-                        .get_declaration(it->get_dependency_expression().get_scope(),
-                                dependency_name) << ";";
 
                     if (it->get_dependency_expression().get_type().is_array())
                     {
+                        fake_struct_fields << it->get_dependency_expression()
+                            .get_type()
+                            .array_element()
+                            .get_pointer_to()
+                            .get_declaration(it->get_dependency_expression().get_scope(),
+                                    dependency_name) << ";";
+
                         dep_holder_init << it->get_dependency_expression() 
                             ;
                     }
                     else
                     {
+                        fake_struct_fields << it->get_dependency_expression()
+                            .get_type()
+                            .get_pointer_to()
+                            .get_declaration(it->get_dependency_expression().get_scope(),
+                                    dependency_name) << ";";
+
                         dep_holder_init << "&(" << it->get_dependency_expression() << ")"
                             ;
                     }
