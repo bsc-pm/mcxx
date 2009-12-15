@@ -1480,9 +1480,10 @@ type_t* template_type_get_specialized_type(type_t* t,
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "TYPEUTILS: No existing specialization matches for '%s', creating a fresh one of type '%s'\n",
+        fprintf(stderr, "TYPEUTILS: No existing specialization matches for '%s', creating a fresh one of type '%s' %p\n",
                 primary_symbol->symbol_name,
-                print_declarator(specialized_symbol->type_information));
+                print_declarator(specialized_symbol->type_information),
+                specialized_symbol->type_information);
     }
 
     return get_user_defined_type(specialized_symbol);
