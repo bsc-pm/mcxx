@@ -6394,6 +6394,30 @@ static scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl
     entry = build_scope_declarator_name(ASTSon1(a), declarator_type, &gather_info, new_decl_context);
 
     ERROR_CONDITION((entry == NULL), "Function '%s' does not exist! %s", prettyprint_in_buffer(ASTSon1(a)), ast_location(a));
+
+    if (entry->defined)
+    {
+        const char *funct_name = entry->symbol_name;
+        CXX_LANGUAGE()
+        {
+            char is_dependent = 0;
+            int max_qualif = 0;
+            const char* qualified_name = get_fully_qualified_symbol_name(entry, decl_context, &is_dependent, &max_qualif);
+
+            funct_name = get_declaration_string_internal(entry->type_information,
+                    decl_context,
+                    qualified_name, "", 0, NULL, NULL, 0);
+        }
+        running_error("%s: error: function '%s' already defined (look at '%s:%d')\n",
+                ast_location(a),
+                funct_name,
+                entry->file,
+                entry->line);
+    }
+
+    // Set defined now, otherwise some infinite recursion may happen when
+    // instantiating template functions
+    entry->defined = 1;
     
     {
         // Function declaration name
@@ -6583,12 +6607,6 @@ static scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl
     }
     ASTAttrSetValueType(a, LANG_FUNCTION_BODY, tl_type_t, tl_ast(statement));
 
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "Function '%s' is defined\n", entry->symbol_name);
-    }
-
-    entry->defined = 1;
 
     if (BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
     {
