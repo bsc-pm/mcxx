@@ -438,6 +438,10 @@ void instantiate_template_function(scope_entry_t* entry,
         const char* filename UNUSED_PARAMETER, 
         int line UNUSED_PARAMETER)
 {
+    // Do nothing if we are checking for ambiguities as this may cause havoc
+    if (checking_ambiguity())
+        return;
+
     if (entry->kind != SK_FUNCTION)
     {
         internal_error("Invalid symbol\n", 0);
@@ -487,9 +491,6 @@ void instantiate_template_function(scope_entry_t* entry,
         }
         return;
     }
-
-    // Do it now to avoid infinite recursion when two template functions call each other
-    entry->defined = 1;
 
     // Functions are easy. Since they cannot be partially specialized, like
     // classes do, their template parameters always match the computed template
