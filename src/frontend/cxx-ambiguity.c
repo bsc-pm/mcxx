@@ -691,6 +691,27 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
                     leave_test_expression();
                     break;
                 }
+            case AST_IF_ELSE_STATEMENT:
+                {
+                    /* 
+                       Normally the if-else ambiguity is solved in the parser but sometimes it may slip in
+                       because of the nature of C
+
+                       if (0)
+                           for (;;) // This for is not caught in the grammar
+                               if (0)
+                                   if (0)
+                                   {
+                                   }
+                                   else
+                                   {
+                                   }
+                    */
+                    // If this 'if' has an else it is the wrong interpretation
+                    // because we are 'raising' the else too much
+                    current_check = (ASTSon2(ast_get_ambiguity(a, i)) == NULL);
+                    break;
+                }
             default :
                 {
                     internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(a)));
