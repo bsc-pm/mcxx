@@ -261,7 +261,25 @@ namespace TL
 
         if (construct.get_clause("on").is_defined())
         {
-            on_clause_src << "on(" << concat_strings(construct.get_clause("on").get_arguments(ExpressionTokenizer()), ",") << ")"; 
+            Source on_clause_args;
+            on_clause_src << "on(" << on_clause_args << ")"; 
+            ObjectList<Expression> expr_list = construct.get_clause("on").get_expression_list();
+
+            for (ObjectList<Expression>::iterator it = expr_list.begin();
+                    it != expr_list.end();
+                    it++)
+            {
+                Expression in_clause_expr(*it);
+                if (in_clause_expr.get_operation_kind() == Expression::REFERENCE)
+                {
+                    in_clause_expr = in_clause_expr.get_unary_operand();
+                }
+
+                on_clause_args.append_with_separator(
+                        in_clause_expr.prettyprint(),
+                        ",");
+            }
+
         }
 
         AST_t taskwait_directive_tree = taskwait_directive_src.parse_statement(construct.get_ast(),
