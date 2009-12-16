@@ -549,8 +549,8 @@ dnl ----------------------- Superscalar and Nanox allow SS2 --------------------
 if test x$is_enabled_tl_superscalar = xyes -a x$is_enabled_tl_omp_nanox = xyes -a \
       "(" x$use_tl_superscalar_version = x4 -o x$use_tl_superscalar_version = x5 ")" ;
 then
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.ss2omp"
-   COMPILER_NAMES="${COMPILER_NAMES} ss2ompcc"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.sscc"
+   COMPILER_NAMES="${COMPILER_NAMES} sscc"
 fi
 dnl ----------------------- End of Superscalar and Nanox --------------------------------------
 

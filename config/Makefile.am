@@ -35,7 +35,7 @@ CONFIG_FILES =  \
        config.acotes \
        config.acotes-msf \
        config.omp \
-       config.ss2omp \
+       config.sscc \
        config.plain \
        config.stm_nebelung \
        config.superscalar \
