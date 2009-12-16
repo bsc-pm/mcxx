@@ -270,6 +270,21 @@ namespace TL
         construct.get_ast().replace(taskwait_directive_tree);
     }
 
+    void SS2OpenMP::on_post_finish(PragmaCustomConstruct construct)
+    {
+        Source taskwait_directive_src;
+
+        taskwait_directive_src
+            << "#line " << construct.get_ast().get_line() << " \"" << construct.get_ast().get_file() << "\"\n"
+            << "#pragma omp taskwait\n"
+            ;
+
+        AST_t taskwait_directive_tree = taskwait_directive_src.parse_statement(construct.get_ast(),
+                construct.get_scope_link());
+
+        construct.get_ast().replace(taskwait_directive_tree);
+    }
+
     void SS2OpenMP::on_post_barrier(PragmaCustomConstruct construct)
     {
         Source taskwait_directive_src;

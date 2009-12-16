@@ -28,7 +28,7 @@ namespace TL
                 // register_directive("mutex");
 
                 on_directive_post["start"].connect(functor(&SS2OpenMP::remove_directive, *this));
-                on_directive_post["finish"].connect(functor(&SS2OpenMP::remove_directive, *this));
+                on_directive_post["finish"].connect(functor(&SS2OpenMP::on_post_finish, *this));
 
                 on_directive_post["barrier"].connect(functor(&SS2OpenMP::on_post_barrier, *this));
                 on_directive_post["wait"].connect(functor(&SS2OpenMP::on_post_wait, *this));
@@ -38,6 +38,7 @@ namespace TL
 
             void on_post_task(PragmaCustomConstruct construct);
             void on_post_wait(PragmaCustomConstruct construct);
+            void on_post_finish(PragmaCustomConstruct construct);
             void on_post_barrier(PragmaCustomConstruct construct);
 
             void remove_directive(PragmaCustomConstruct);
