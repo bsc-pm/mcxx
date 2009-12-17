@@ -3291,6 +3291,9 @@ char equivalent_types(type_t* t1, type_t* t2)
         case TK_VECTOR :
             result = equivalent_vector_type(t1, t2);
             break;
+        case TK_OVERLOAD:
+            // This is always false
+            break;
         default :
             internal_error("Unknown type kind (%d)\n", t1->kind);
     }
@@ -5581,6 +5584,11 @@ const char* get_simple_type_name_string(decl_context_t decl_context, type_t* typ
                 result = get_simple_type_name_string(decl_context, type_info->vector->element_type);
                 break;
             }
+        case TK_OVERLOAD:
+            {
+                result = uniquestr("<unresolved overload>");
+                break;
+            }
         default:
             break;
     }
@@ -5985,6 +5993,10 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 c[255] = '\0';
 
                 (*left) = strappend((*left), c);
+                break;
+            }
+        case TK_OVERLOAD:
+            {
                 break;
             }
         default:
