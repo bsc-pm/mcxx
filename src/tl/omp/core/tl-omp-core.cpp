@@ -323,12 +323,15 @@ namespace TL
                             ReductionSymbol red_sym(var_sym, udr_info_item);
                             sym_list.append(red_sym);
 
-                            Symbol op_sym = udr_info_item.get_op_symbol();
-                            Type op_type = op_sym.get_type();
-                            std::cerr << construct.get_ast().get_locus() 
-                                << ": note: reduction of variable '" << var_sym.get_name() << "' solved to '" 
-                                << op_type.get_declaration(construct.get_scope(),
-                                        op_sym.get_qualified_name(construct.get_scope())) << "'" << std::endl;
+                            if (!udr_info_item.is_builtin_op())
+                            {
+                                Symbol op_sym = udr_info_item.get_op_symbol();
+                                Type op_type = op_sym.get_type();
+                                std::cerr << construct.get_ast().get_locus() 
+                                    << ": note: reduction of variable '" << var_sym.get_name() << "' solved to '" 
+                                    << op_type.get_declaration(construct.get_scope(),
+                                            op_sym.get_qualified_name(construct.get_scope())) << "'" << std::endl;
+                            }
                         }
                         else
                         {
