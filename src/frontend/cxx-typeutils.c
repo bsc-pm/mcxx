@@ -7258,10 +7258,13 @@ scope_entry_t* unresolved_overloaded_type_simplify(struct type_tag* t, decl_cont
     scope_entry_t* entry = t->overload_set->entry;
     template_argument_list_t *argument_list = t->explicit_template_argument_list;
 
-    if (entry->kind != SK_TEMPLATE
-            || argument_list == NULL)
+    if (entry->kind != SK_TEMPLATE)
     {
         return entry;
+    }
+    else if (argument_list == NULL)
+    {
+        return NULL;
     }
 
     // Get a specialization of this template
@@ -7276,7 +7279,14 @@ scope_entry_t* unresolved_overloaded_type_simplify(struct type_tag* t, decl_cont
             argument_list, template_parameters,
             decl_context, line, filename);
 
-    return named_type_get_symbol(named_specialization_type);
+    if (!is_dependent_type(named_specialization_type))
+    {
+        return named_type_get_symbol(named_specialization_type);
+    }
+    else
+    {
+        return NULL;
+    }
 }
 
 static type_t* _dependent_type = NULL;
