@@ -6490,27 +6490,6 @@ static scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl
     AST function_body = ASTSon3(a);
     AST statement = ASTSon0(function_body);
 
-    CXX_LANGUAGE()
-    {
-        AST ctor_initializer = ASTSon2(a);
-        if (ctor_initializer != NULL)
-        {
-            build_scope_ctor_initializer(ctor_initializer, entry, block_context);
-        }
-    }
-    C_LANGUAGE()
-    {
-        AST kr_parameter_declaration = ASTSon2(a);
-        AST kr_parameter_list = get_function_declarator_parameter_list(ASTSon1(a), decl_context);
-
-        if (kr_parameter_declaration != NULL
-                || ASTType(kr_parameter_list) == AST_KR_PARAMETER_LIST)
-        {
-            build_scope_kr_parameter_declaration(entry, kr_parameter_declaration, 
-                    kr_parameter_list, block_context);
-        }
-    }
-
     if (entry->entity_specs.is_member)
     {
         // If is a member function sign up additional information
@@ -6535,6 +6514,28 @@ static scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl
             this_symbol->kind = SK_VARIABLE;
             this_symbol->type_information = this_type;
             this_symbol->defined = 1;
+        }
+    }
+
+    C_LANGUAGE()
+    {
+        AST kr_parameter_declaration = ASTSon2(a);
+        AST kr_parameter_list = get_function_declarator_parameter_list(ASTSon1(a), decl_context);
+
+        if (kr_parameter_declaration != NULL
+                || ASTType(kr_parameter_list) == AST_KR_PARAMETER_LIST)
+        {
+            build_scope_kr_parameter_declaration(entry, kr_parameter_declaration, 
+                    kr_parameter_list, block_context);
+        }
+    }
+
+    CXX_LANGUAGE()
+    {
+        AST ctor_initializer = ASTSon2(a);
+        if (ctor_initializer != NULL)
+        {
+            build_scope_ctor_initializer(ctor_initializer, entry, block_context);
         }
     }
 
