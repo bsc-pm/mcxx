@@ -5123,6 +5123,14 @@ char is_dependent_expression(AST expression, decl_context_t decl_context)
                         || (ASTSon1(expression) != NULL 
                             && is_dependent_type_id(ASTSon1(expression), decl_context)));
             }
+        case AST_GCC_ALIGNOF:
+            {
+                return is_dependent_expression(ASTSon0(expression), decl_context);
+            }
+        case AST_GCC_ALIGNOF_TYPE:
+            {
+                return is_dependent_type_id(ASTSon0(expression), decl_context);
+            }
         default :
             {
                 internal_error("Unexpected node '%s' %s", ast_print_node_type(ASTType(expression)), 
@@ -5525,7 +5533,12 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
             }
         case STK_CLASS :
             {
-                internal_error("Type STK_CLASS invalid\n", 0);
+                result = uniquestr("class <anonymous>");
+                break;
+            }
+        case STK_ENUM :
+            {
+                result = uniquestr("enum <anonymous>");
                 break;
             }
         case STK_TEMPLATE_DEPENDENT_TYPE :

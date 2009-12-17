@@ -66,6 +66,7 @@ static literal_value_t literal_value_gcc_builtin_types_compatible(AST expression
         decl_context_t decl_context);
 
 static literal_value_t evaluate_sizeof(AST expression, decl_context_t decl_context);
+static literal_value_t evaluate_alignof(AST expression, decl_context_t decl_context);
 
 static literal_value_t evaluate_gxx_type_traits(AST expression, decl_context_t decl_context);
 
@@ -210,7 +211,7 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
                 }
                 else
                 {
-                    WARNING_MESSAGE("Found a sizeof expression in '%s' while evaluating a constant expression. Assuming one.\n", 
+                    WARNING_MESSAGE("%s: warning: sizeof expression will evaluate to one\n", 
                             ast_location(a));
                 }
                 return literal_value_one();
@@ -348,6 +349,20 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
             {
                 return evaluate_gxx_type_traits(a, decl_context);
                 break;
+            }
+        case AST_GCC_ALIGNOF:
+        case AST_GCC_ALIGNOF_TYPE:
+            {
+                if (!CURRENT_CONFIGURATION->disable_sizeof)
+                {
+                    return evaluate_alignof(a, decl_context);
+                }
+                else
+                {
+                    WARNING_MESSAGE("%s: warning: alignof expression will evaluate to one\n", 
+                            ast_location(a));
+                }
+                return literal_value_one();
             }
         case AST_AMBIGUITY :
         default :
@@ -3388,6 +3403,88 @@ static literal_value_t evaluate_sizeof(AST sizeof_tree, decl_context_t decl_cont
     {
         result.kind = LVK_UNSIGNED_LONG;
         result.value.unsigned_long = type_size;
+    }
+    else
+    {
+        internal_error("size_t does not seem a sensible type! "
+                "Either 'unsigned int' or 'unsigned long' is expected but '%s' was defined as 'size_t'\n",
+                print_declarator(size_t_type));
+    }
+
+    return result;
+}
+
+static literal_value_t evaluate_alignof(AST alignof_tree, decl_context_t decl_context)
+{
+    type_t* t = NULL;
+    if (ASTType(alignof_tree) == AST_GCC_ALIGNOF)
+    {
+        AST alignof_expression = ASTSon0(alignof_tree);
+
+        // Ensure we have something already computed here, it might happen
+        // because of 'alignof' nature that the argument of the alignof does not
+        // have any type but alignof itself always has 'size_t' type
+        check_for_expression(alignof_expression, decl_context);
+
+        t = ASTExprType(alignof_expression);
+    }
+    else if (ASTType(alignof_tree) == AST_GCC_ALIGNOF_TYPE)
+    {
+        AST type_id = ASTSon0(alignof_tree);
+        AST type_specifier = ASTSon0(type_id);
+        AST abstract_declarator = ASTSon1(type_id);
+
+        gather_decl_spec_t gather_info;
+        memset(&gather_info, 0, sizeof(gather_info));
+
+        type_t* simple_type_info = NULL;
+        build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
+                decl_context);
+
+        type_t* declarator_type = simple_type_info;
+        compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
+                &declarator_type, decl_context);
+
+        t = declarator_type;
+    }
+
+    // Runtime sized types yield dependent expressions
+    if (is_dependent_type(t)
+            || type_is_runtime_sized(t))
+    {
+        literal_value_t dependent_entity;
+        memset(&dependent_entity, 0, sizeof(dependent_entity));
+        dependent_entity.kind = LVK_DEPENDENT_EXPR;
+
+        return dependent_entity;
+    }
+
+    _size_t type_align = 0;
+    type_align = type_get_size(t);
+
+    DEBUG_SIZEOF_CODE()
+    {
+        fprintf(stderr, "CEXPR: %s: '%s' yields a value of %zu\n",
+                ast_location(alignof_tree),
+                prettyprint_in_buffer(alignof_tree),
+                type_align);
+    }
+
+    // This is a bit kludgy
+    type_t* size_t_type = get_size_t_type();
+    
+    literal_value_t result;
+
+    if (equivalent_types(size_t_type, get_unsigned_int_type()))
+    {
+        result.kind = LVK_UNSIGNED_INT;
+        // This might wipe some bits
+        result.value.unsigned_int = type_align;
+    }
+    else if (equivalent_types(size_t_type, get_unsigned_long_int_type()))
+    {
+        result.kind = LVK_UNSIGNED_LONG;
+        result.value.unsigned_long = type_align;
     }
     else
     {
