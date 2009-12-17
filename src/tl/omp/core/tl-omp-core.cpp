@@ -533,6 +533,11 @@ namespace TL
                 Symbol sym = id_expr.get_symbol();
                 data_sharing.set(sym, DS_PRIVATE);
             }
+            else
+            {
+                running_error("%s: error: for-statement in '#pragma omp for' and '#pragma omp parallel for' is not of canonical form",
+                        stmt.get_ast().get_locus().c_str());
+            }
         }
 
         void Core::common_workshare_handler(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing)
