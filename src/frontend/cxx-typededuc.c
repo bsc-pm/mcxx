@@ -817,7 +817,26 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                 // into a pointer type
                 //
 
-                current_argument_type = get_pointer_type(current_argument_type);
+                if (is_function_type(current_argument_type))
+                {
+                    current_argument_type = get_pointer_type(current_argument_type);
+                }
+                else if (is_unresolved_overloaded_type(current_argument_type))
+                {
+                    // Simplify an unresolved overload of singleton, if possible
+                    scope_entry_t* solved_function = unresolved_overloaded_type_simplify(current_argument_type,
+                            decl_context, line, filename);
+
+                    if (solved_function == NULL)
+                    {
+                        current_argument_type = get_pointer_type(current_argument_type);
+                    }
+                    else
+                    {
+                        current_argument_type = get_pointer_type(solved_function->type_information);
+                    }
+                }
+
             }
             // otherwise, if A is a cv-qualified type, top-level cv qualification for A is ignored for type deduction
             else
@@ -899,12 +918,12 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
             if (is_pointer_type(argument_types[i]))
                 unresolved_type = pointer_type_get_pointee_type(argument_types[i]);
 
-            scope_entry_t* solved_function = address_of_overloaded_function(
+            scope_entry_t* solved_function = solved_function = address_of_overloaded_function(
                     unresolved_overloaded_type_get_overload_set(unresolved_type),
                     unresolved_overloaded_type_get_explicit_template_arguments(unresolved_type),
                     updated_type,
                     decl_context,
-                    /* filename = */ NULL, /* line = */ 0);
+                    filename, line);
 
             if (solved_function != NULL)
             {

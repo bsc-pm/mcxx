@@ -96,6 +96,9 @@ LIBMCXX_EXTERN struct type_tag* get_unresolved_overloaded_type(struct scope_entr
         template_argument_list_t* explicit_template_arguments);
 LIBMCXX_EXTERN template_argument_list_t* unresolved_overloaded_type_get_explicit_template_arguments(struct type_tag* t);
 
+LIBMCXX_EXTERN scope_entry_t* unresolved_overloaded_type_simplify(struct type_tag* t, 
+        decl_context_t decl_context, int line, const char* filename);
+
 LIBMCXX_EXTERN struct type_tag* get_dependent_expr_type(void);
 
 // States that this is a variably modified type

@@ -5586,7 +5586,7 @@ const char* get_simple_type_name_string(decl_context_t decl_context, type_t* typ
             }
         case TK_OVERLOAD:
             {
-                result = uniquestr("<unresolved overload>");
+                result = uniquestr("<unresolved overloaded function type>");
                 break;
             }
         default:
@@ -7233,6 +7233,37 @@ template_argument_list_t* unresolved_overloaded_type_get_explicit_template_argum
     ERROR_CONDITION(!is_unresolved_overloaded_type(t), "This is not an unresolved overloaded type", 0);
 
     return t->explicit_template_argument_list;
+}
+
+scope_entry_t* unresolved_overloaded_type_simplify(struct type_tag* t, decl_context_t decl_context, int line, const char* filename)
+{
+    ERROR_CONDITION(!is_unresolved_overloaded_type(t), "This is not an unresolved overloaded type", 0);
+
+    if (t->overload_set->next != NULL)
+        return NULL;
+
+    scope_entry_t* entry = t->overload_set->entry;
+    template_argument_list_t *argument_list = t->explicit_template_argument_list;
+
+    if (entry->kind != SK_TEMPLATE
+            || argument_list == NULL)
+    {
+        return entry;
+    }
+
+    // Get a specialization of this template
+    type_t* specialization_type = template_type_get_primary_type(entry->type_information);
+    scope_entry_t* specialization_symbol = named_type_get_symbol(specialization_type);
+    type_t* specialized_function_type = specialization_symbol->type_information;
+
+    template_parameter_list_t* template_parameters = 
+        template_specialized_type_get_template_parameters(specialized_function_type);
+
+    type_t* named_specialization_type = template_type_get_specialized_type(entry->type_information,
+            argument_list, template_parameters,
+            decl_context, line, filename);
+
+    return named_type_get_symbol(named_specialization_type);
 }
 
 static type_t* _dependent_type = NULL;

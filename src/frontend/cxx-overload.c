@@ -273,7 +273,6 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
     // if it can't be solved, there is no ICS, it is not an error
     if (is_unresolved_overloaded_type(orig))
     {
-
         scope_entry_t* solved_function = address_of_overloaded_function(
                 unresolved_overloaded_type_get_overload_set(orig),
                 unresolved_overloaded_type_get_explicit_template_arguments(orig),
