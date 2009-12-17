@@ -235,7 +235,8 @@ char* source_language_names[] =
 {
     [SOURCE_LANGUAGE_UNKNOWN] = "unknown",
     [SOURCE_LANGUAGE_C] = "C",
-    [SOURCE_LANGUAGE_CXX] = "C++"
+    [SOURCE_LANGUAGE_CXX] = "C++",
+    [SOURCE_LANGUAGE_ASSEMBLER] = "assembler",
 };
 
 static void print_version(void);
@@ -259,7 +260,8 @@ static void parse_translation_unit(translation_unit_t* translation_unit, const c
 static void initialize_semantic_analysis(translation_unit_t* translation_unit, const char* parsed_filename);
 static void semantic_analysis(translation_unit_t* translation_unit, const char* parsed_filename);
 static const char* prettyprint_translation_unit(translation_unit_t* translation_unit, const char* parsed_filename);
-static void native_compilation(translation_unit_t* translation_unit, const char* prettyprinted_filename);
+static void native_compilation(translation_unit_t* translation_unit, 
+        const char* prettyprinted_filename, char remove_input);
 
 static const char* find_home(void);
 
@@ -1795,7 +1797,8 @@ static void compile_every_translation_unit(void)
         }
 
         if (!CURRENT_CONFIGURATION->force_language
-				&& (current_extension->source_language != CURRENT_CONFIGURATION->source_language))
+				&& (current_extension->source_language != CURRENT_CONFIGURATION->source_language)
+                && (current_extension->source_language != SOURCE_LANGUAGE_ASSEMBLER))
         {
             fprintf(stderr, "%s was configured for %s language but file '%s' looks %s language. Skipping it.\n",
                     compilation_process.exec_basename, 
@@ -1836,7 +1839,8 @@ static void compile_every_translation_unit(void)
 
         if (!CURRENT_CONFIGURATION->do_not_parse)
         {
-            if (!CURRENT_CONFIGURATION->pass_through)
+            if (!CURRENT_CONFIGURATION->pass_through
+                    && (current_extension->source_language != SOURCE_LANGUAGE_ASSEMBLER))
             {
                 // 0. Do this before open for scan since we might to internally parse some sources
                 mcxx_flex_debug = mc99_flex_debug = CURRENT_CONFIGURATION->debug_options.debug_lexer;
@@ -1891,8 +1895,17 @@ static void compile_every_translation_unit(void)
                 }
             }
 
-            const char* prettyprinted_filename = prettyprint_translation_unit(translation_unit, parsed_filename);
-            native_compilation(translation_unit, prettyprinted_filename);
+            if (current_extension->source_language != SOURCE_LANGUAGE_ASSEMBLER)
+            {
+                const char* prettyprinted_filename 
+                    = prettyprint_translation_unit(translation_unit, parsed_filename);
+                native_compilation(translation_unit, prettyprinted_filename, /* remove_input */ true);
+            }
+            else
+            {
+                // Keep the assembler!
+                native_compilation(translation_unit, translation_unit->input_filename, /* remove_input */ false);
+            }
         }
 
         file_process->already_compiled = 1;
@@ -2368,7 +2381,8 @@ static const char* preprocess_file(translation_unit_t* translation_unit,
 }
 
 static void native_compilation(translation_unit_t* translation_unit, 
-        const char* prettyprinted_filename)
+        const char* prettyprinted_filename, 
+        char remove_input)
 {
     if (CURRENT_CONFIGURATION->do_not_compile)
         return;
@@ -2437,7 +2451,8 @@ static void native_compilation(translation_unit_t* translation_unit,
                 timing_elapsed(&timing_compilation));
     }
 
-    if (!CURRENT_CONFIGURATION->keep_files)
+    if (!CURRENT_CONFIGURATION->keep_files
+            && remove_input)
     {
         if (CURRENT_CONFIGURATION->verbose)
         {
