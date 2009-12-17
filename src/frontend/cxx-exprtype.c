@@ -2267,7 +2267,7 @@ static char operator_bin_plus_builtin_pred(type_t* lhs, type_t* rhs)
     return ((is_arithmetic_type(no_ref(lhs))
                 && is_arithmetic_type(no_ref(rhs)))
             // T* + <arithmetic>
-            || ((is_pointer_type(no_ref(lhs)) || is_array_type(no_ref(rhs)))
+            || ((is_pointer_type(no_ref(lhs)) || is_array_type(no_ref(lhs)))
                 && is_arithmetic_type(no_ref(rhs)))
             // <arithmetic> + T*
             || (is_arithmetic_type(no_ref(lhs))
@@ -2554,7 +2554,7 @@ static char operator_bin_sub_builtin_pred(type_t* lhs, type_t* rhs)
     return ((is_arithmetic_type(lhs)
                 && is_arithmetic_type(rhs))
             // T* - <arithmetic>
-            || ((is_pointer_type(lhs) || is_array_type(rhs))
+            || ((is_pointer_type(lhs) || is_array_type(lhs))
                 && is_arithmetic_type(rhs)));
 }
 
