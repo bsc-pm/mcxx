@@ -2743,3 +2743,74 @@ static char check_for_function_definition_declarator(AST declarator, decl_contex
             decl_context,
             /* previous_is_array */ 0, /* previous_is_function */ 0);
 }
+
+void build_solve_condition_ambiguity(AST a, decl_context_t decl_context)
+{
+    ERROR_CONDITION(ASTType(a) != AST_AMBIGUITY,
+            "Must be ambiguous node", 0);
+    int correct_choice = -1;
+    int i;
+    for (i = 0; i < ast_get_num_ambiguities(a); i++)
+    {
+        char current_check = 0;
+        AST current = ast_get_ambiguity(a, i);
+        if (ASTSon0(current) == NULL) // Expression
+        {
+            enter_test_expression();
+            current_check = check_for_expression(ast_get_ambiguity(current, i), decl_context);
+            leave_test_expression();
+        }
+        else
+        {
+            // Like a declaration
+            // type_specifier_seq declarator '=' assignment_expr
+            AST type_specifier_seq = ASTSon0(current);
+            AST declarator = ASTSon1(current);
+            AST expr = ASTSon2(current);
+
+            if (ASTType(type_specifier_seq) == AST_AMBIGUITY)
+            {
+                solve_ambiguous_type_specifier_seq(type_specifier_seq, decl_context);
+            }
+
+            AST type_specifier = ASTSon1(type_specifier_seq);
+
+            current_check = (check_for_type_specifier(type_specifier, decl_context)
+                    && check_for_declarator(declarator, decl_context)
+                    && check_for_expression(expr, decl_context));
+        }
+
+        if (current_check)
+        {
+            if (correct_choice < 0)
+            {
+                correct_choice = i;
+            }
+            else
+            {
+                AST first_option = ast_get_ambiguity(a, correct_choice);
+                AST second_option = current;
+                internal_error("More than one valid choices! '%s' vs '%s' %s", 
+                        ast_print_node_type(ASTType(first_option)),
+                        ast_print_node_type(ASTType(second_option)),
+                        ast_location(second_option));
+            }
+        }
+    }
+
+    if (correct_choice < 0)
+    {
+        for (i = 0; i < ast_get_num_ambiguities(a); i++)
+        {
+            char current_check = 0;
+            AST current = ast_get_ambiguity(a, i);
+            current_check = check_for_expression(ast_get_ambiguity(current, i), decl_context);
+            running_error("%s: error: cannot continue due to serious semantic problems in '%s'",
+                    ast_location(a), prettyprint_in_buffer(a));
+        }
+    }
+    else
+    {
+        choose_option(a, correct_choice);
+    }
+}

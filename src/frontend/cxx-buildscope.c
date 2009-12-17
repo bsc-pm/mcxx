@@ -7964,6 +7964,11 @@ static void build_scope_condition(AST a, decl_context_t decl_context)
 {
     ASTAttrSetValueType(a, LANG_IS_CONDITION, tl_type_t, tl_bool(1));
 
+    if (ASTType(a) == AST_AMBIGUITY)
+    {
+        build_solve_condition_ambiguity(a, decl_context);
+    }
+
     if (ASTSon0(a) != NULL 
             && ASTSon1(a) != NULL)
     {

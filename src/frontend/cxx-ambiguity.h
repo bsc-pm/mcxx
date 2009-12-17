@@ -59,6 +59,8 @@ LIBMCXX_EXTERN char check_for_simple_type_spec(AST type_spec, decl_context_t dec
 LIBMCXX_EXTERN void solve_ambiguous_expression_list(AST expression_list, decl_context_t decl_context);
 LIBMCXX_EXTERN char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_context);
 
+LIBMCXX_EXTERN void build_solve_condition_ambiguity(AST a, decl_context_t decl_context);
+
 LIBMCXX_EXTERN int either_type(AST t1, AST t2, node_t n1, node_t n2);
 
 // States if we are checking ambiguities
