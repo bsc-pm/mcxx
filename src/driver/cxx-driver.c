@@ -507,6 +507,8 @@ int parse_arguments(int argc, const char* argv[],
     const char **input_files = NULL;
     int num_input_files = 0;
 
+    char linker_files_seen = 0;
+
     struct command_line_parameter_t parameter_info;
 
     while (command_line_get_next_parameter(&parameter_index, 
@@ -565,7 +567,26 @@ int parse_arguments(int argc, const char* argv[],
             if ((parameter_info.argument != NULL)
                     && (strlen(parameter_info.argument) > 0))
             {
-                P_LIST_ADD(input_files, num_input_files, parameter_info.argument);
+                // Be a bit smart here
+                const char* extension = get_extension_filename(parameter_info.argument);
+                struct extensions_table_t* current_extension = NULL;
+                if (extension == NULL 
+                        || ((current_extension =
+                                fileextensions_lookup(extension, strlen(extension))) == NULL)
+                        || (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA))
+                {
+                    if (current_extension == NULL)
+                    {
+                        fprintf(stderr, "File '%s' not recognized as a valid input. Passing verbatim on to the linker.\n", 
+                                parameter_info.argument);
+                    }
+                    add_to_parameter_list_str(&CURRENT_CONFIGURATION->linker_options, parameter_info.argument);
+                    linker_files_seen = 1;
+                }
+                else
+                {
+                    P_LIST_ADD(input_files, num_input_files, parameter_info.argument);
+                }
             }
         }
         // A known option
@@ -932,6 +953,7 @@ int parse_arguments(int argc, const char* argv[],
     }
 
     if (num_input_files == 0
+            && !linker_files_seen
             && !v_specified
             && !CURRENT_CONFIGURATION->do_not_process_files)
     {
@@ -940,6 +962,7 @@ int parse_arguments(int argc, const char* argv[],
     }
 
     if (num_input_files == 0
+            && !linker_files_seen
             && v_specified)
     {
         // -v has been given with nothing else
@@ -1778,23 +1801,7 @@ static void compile_every_translation_unit(void)
         // First check the file type
         const char* extension = get_extension_filename(translation_unit->input_filename);
 
-        struct extensions_table_t* current_extension = NULL;
-
-        if (extension == NULL 
-                || ((current_extension =
-                        fileextensions_lookup(extension, strlen(extension))) == NULL))
-        {
-            fprintf(stderr, "File '%s' not recognized as a valid input. Passing verbatim on to the linker.\n", 
-                    translation_unit->input_filename);
-            translation_unit->output_filename = translation_unit->input_filename;
-            continue;
-        }
-
-        if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA)
-        {
-            translation_unit->output_filename = translation_unit->input_filename;
-            continue;
-        }
+        struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
 
         if (!CURRENT_CONFIGURATION->force_language
 				&& (current_extension->source_language != CURRENT_CONFIGURATION->source_language)
