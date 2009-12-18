@@ -1770,7 +1770,7 @@ static scope_entry_list_t* class_scope_lookup(scope_t* current_class_scope, cons
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "SCOPE: Class scope lookup did not found any name '%s'\n", name);
+            fprintf(stderr, "SCOPE: Class scope lookup did not find any name '%s'\n", name);
         }
     }
 
