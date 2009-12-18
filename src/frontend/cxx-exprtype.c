@@ -5292,6 +5292,16 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
             if (is_pointer_to_class_type(declarator_type)
                     && global_op == NULL)
             {
+                type_t* class_type = pointer_type_get_pointee_type(declarator_type);
+
+                // Instantiate the class if needed
+                if (is_named_class_type(class_type)
+                        && class_type_is_incomplete_independent(get_actual_class_type(class_type)))
+                {
+                    scope_entry_t* symbol = named_type_get_symbol(class_type);
+                    instantiate_template_class(symbol, decl_context, ASTFileName(new_expr), ASTLine(new_expr));
+                }
+
                 op_new_context = class_type_get_inner_context(
                         get_actual_class_type(pointer_type_get_pointee_type(declarator_type)));
             }
@@ -5330,7 +5340,7 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
             {
                 if (!checking_ambiguity())
                 {
-                    fprintf(stderr, "warning: %s: no suitable '%s' has been found in the scope\n",
+                    fprintf(stderr, "%s: warning: no suitable '%s' has been found in the scope\n",
                             ast_location(new_expr),
                             prettyprint_in_buffer(called_operation_new_tree));
                 }
