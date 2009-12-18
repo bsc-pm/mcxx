@@ -194,7 +194,8 @@ struct command_line_long_options command_line_long_options[] =
 {
     {"help",        CLP_NO_ARGUMENT, 'h'},
     {"version",     CLP_NO_ARGUMENT, OPTION_VERSION},
-    {"verbose",     CLP_NO_ARGUMENT, 'v'},
+    {"v",           CLP_NO_ARGUMENT, OPTION_VERBOSE},
+    {"verbose",     CLP_NO_ARGUMENT, OPTION_VERBOSE},
     {"keep-files",  CLP_NO_ARGUMENT, 'k'},
     {"check-dates", CLP_NO_ARGUMENT, 'a'},
     {"output",      CLP_REQUIRED_ARGUMENT, 'o'},
@@ -504,6 +505,8 @@ int parse_arguments(int argc, const char* argv[],
     static char y_specified = 0;
     static char v_specified = 0;
 
+    char native_verbose = 0;
+
     const char **input_files = NULL;
     int num_input_files = 0;
 
@@ -665,10 +668,15 @@ int parse_arguments(int argc, const char* argv[],
                         exit(EXIT_SUCCESS);
                         break;
                     }
-                case 'v' : // --verbose || -v
+                case OPTION_VERBOSE : // --verbose || --v
                     {
                         v_specified = 1;
                         CURRENT_CONFIGURATION->verbose = 1;
+                        break;
+                    }
+                case 'v' : // Native compiler/Linker verbose
+                    {
+                        native_verbose = 1;
                         break;
                     }
                 case 'k' : // --keep-files || -k
@@ -955,6 +963,7 @@ int parse_arguments(int argc, const char* argv[],
     if (num_input_files == 0
             && !linker_files_seen
             && !v_specified
+            && !native_verbose
             && !CURRENT_CONFIGURATION->do_not_process_files)
     {
         fprintf(stderr, "You must specify an input file\n");
@@ -963,6 +972,7 @@ int parse_arguments(int argc, const char* argv[],
 
     if (num_input_files == 0
             && !linker_files_seen
+            && !native_verbose
             && v_specified)
     {
         // -v has been given with nothing else
@@ -1030,6 +1040,19 @@ int parse_arguments(int argc, const char* argv[],
         if (!CURRENT_CONFIGURATION->do_not_link)
         {
             CURRENT_CONFIGURATION->linked_output_filename = output_file;
+        }
+    }
+
+    if (native_verbose)
+    {
+        const char* minus_v = uniquestr("-v");
+        if (CURRENT_CONFIGURATION->do_not_link)
+        {
+            add_to_parameter_list_str(&CURRENT_CONFIGURATION->native_compiler_options, minus_v);
+        }
+        else
+        {
+            add_to_parameter_list_str(&CURRENT_CONFIGURATION->linker_options, minus_v);
         }
     }
 
@@ -1807,12 +1830,11 @@ static void compile_every_translation_unit(void)
 				&& (current_extension->source_language != CURRENT_CONFIGURATION->source_language)
                 && (current_extension->source_language != SOURCE_LANGUAGE_ASSEMBLER))
         {
-            fprintf(stderr, "%s was configured for %s language but file '%s' looks %s language. Skipping it.\n",
+            fprintf(stderr, "%s was configured for %s language but file '%s' looks %s language (it will be compiled anyways)\n",
                     compilation_process.exec_basename, 
                     source_language_names[CURRENT_CONFIGURATION->source_language],
                     translation_unit->input_filename,
                     source_language_names[current_extension->source_language]);
-            continue;
         }
 
         if (CURRENT_CONFIGURATION->verbose)
