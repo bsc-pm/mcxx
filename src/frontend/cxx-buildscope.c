@@ -8333,6 +8333,9 @@ static void build_scope_try_block(AST a,
                 type_t* declarator_type = NULL;
                 compute_declarator_type(declarator, &gather_info, type_info, &declarator_type,
                         block_context);
+
+                /* scope_entry_t* entry = */ build_scope_declarator_name(declarator,
+                        declarator_type, &gather_info, block_context);
             }
         }
 
