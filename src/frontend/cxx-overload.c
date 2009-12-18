@@ -2108,6 +2108,13 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                             &deduced_arguments, filename, line,
                             explicit_template_arguments))
                 {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "OVERLOAD: When solving address of overload function: "
+                                "template function-name specialization "
+                                "'%s' deducing template arguments\n",
+                                current_fun->symbol_name);
+                    }
 
                     template_argument_list_t* argument_list = build_template_argument_list_from_deduction_set(
                             deduced_arguments);

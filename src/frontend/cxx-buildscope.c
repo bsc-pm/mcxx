@@ -3693,7 +3693,7 @@ static void build_scope_declarator_with_parameter_context(AST a,
                     cv_qualifier_t cv_qualif = get_cv_qualifier(*declarator_type);
 
                     type_t* conversion_function_type;
-                    get_conversion_function_name(decl_context, conversion_function_id, &conversion_function_type);
+                    get_conversion_function_name(entity_context, conversion_function_id, &conversion_function_type);
                     *declarator_type = get_new_function_type(conversion_function_type, 
                             /*parameter_info*/ NULL, /*num_parameters=*/0);
 

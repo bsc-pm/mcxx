@@ -153,7 +153,8 @@ static std::string template_header_regeneration(TL::TemplateHeader template_head
     using namespace TL;
     ObjectList<std::string> template_parameters 
         = template_header.get_parameters().map(
-                functor<std::string, TemplateParameterConstruct>(&LangConstruct::prettyprint));
+                functor<std::string, TemplateParameterConstruct>(&LangConstruct::prettyprint)
+                );
 
     return "template <" + concat_strings(template_parameters, ",") + " >";
 }

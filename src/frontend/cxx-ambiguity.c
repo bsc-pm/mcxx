@@ -393,7 +393,7 @@ static void solve_ambiguous_simple_declaration(AST a, decl_context_t decl_contex
 
     if (correct_option < 0)
     {
-        internal_error("Ambiguity not solved\n", 0);
+        internal_error("Ambiguity not solved %s", ast_location(a));
     }
     else
     {
@@ -1813,6 +1813,9 @@ static char check_for_declarator(AST declarator, decl_context_t decl_context)
 
 static char check_for_declarator_rec(AST declarator, decl_context_t decl_context)
 {
+    if (declarator == NULL)
+        return 1;
+
     switch (ASTType(declarator))
     {
         case AST_ABSTRACT_DECLARATOR :
@@ -1834,10 +1837,7 @@ static char check_for_declarator_rec(AST declarator, decl_context_t decl_context
                         return 0;
                     }
                 }
-                if (ASTSon0(declarator) != NULL)
-                {
-                    return check_for_declarator_rec(ASTSon0(declarator), decl_context);
-                }
+                return check_for_declarator_rec(ASTSon0(declarator), decl_context);
                 return 1;
             }
         case AST_PARENTHESIZED_ABSTRACT_DECLARATOR :
@@ -1864,11 +1864,7 @@ static char check_for_declarator_rec(AST declarator, decl_context_t decl_context
                         return 0;
                     }
                 }
-                if (ASTSon0(declarator) != NULL)
-                {
-                    return check_for_declarator_rec(ASTSon0(declarator), decl_context);
-                }
-                return 1;
+                return check_for_declarator_rec(ASTSon0(declarator), decl_context);
                 break;
             }
         case AST_DECLARATOR_ID_EXPR :
@@ -2099,7 +2095,7 @@ void solve_ambiguous_parameter_decl(AST parameter_declaration, decl_context_t de
 
     if (current_choice < 0)
     {
-        internal_error("Ambiguity not solved", 0);
+        internal_error("Ambiguity not solved %s", ast_location(parameter_declaration));
     }
     else
     {
@@ -2324,7 +2320,7 @@ void solve_ambiguous_type_specifier(AST ambig_type, decl_context_t decl_context)
 
     if (typeof_choice < 0)
     {
-        internal_error("Ambiguity not solved", 0);
+        internal_error("Ambiguity not solved %s", ast_location(ambig_type));
     }
     else
     {
@@ -2370,7 +2366,7 @@ void solve_ambiguous_expression_list(AST expression_list, decl_context_t decl_co
 
     if (correct_choice < 0)
     {
-        internal_error("Ambiguity not solved", 0);
+        internal_error("Ambiguity not solved %s", ast_location(expression_list));
     }
     else
     {
@@ -2473,7 +2469,7 @@ char check_nested_name_spec(AST nested_name_spec, decl_context_t decl_context)
 char check_for_type_id_tree(AST type_id, decl_context_t decl_context)
 {
     AST type_specifier_seq = ASTSon0(type_id);
-    // AST abstract_declarator = ASTSon1(type_id);
+    AST abstract_declarator = ASTSon1(type_id);
     
     if (ASTType(type_specifier_seq) == AST_AMBIGUITY)
     {
@@ -2483,7 +2479,10 @@ char check_for_type_id_tree(AST type_id, decl_context_t decl_context)
     // This is never NULL
     AST type_specifier = ASTSon1(type_specifier_seq);
 
-    return check_for_type_specifier(type_specifier, decl_context);
+    return check_for_type_specifier(type_specifier, decl_context)
+        && ((abstract_declarator == NULL)
+                || (check_for_declarator(abstract_declarator, decl_context)));
+
 }
 
 
