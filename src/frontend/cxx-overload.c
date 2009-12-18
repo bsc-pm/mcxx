@@ -1993,7 +1993,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
             DEBUG_CODE()
             {
                 fprintf(stderr, "OVERLOAD: When solving address of overload: checking '%s' "
-                        "against overload '%s' ('%s' at '%s:%d')\n",
+                        "against (target) overload '%s' ('%s' at '%s:%d')\n",
                         print_declarator(current_fun->type_information),
                         print_declarator(target_type),
                         current_fun->symbol_name,
@@ -2005,8 +2005,12 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
             if (current_fun->entity_specs.is_member 
                     && !current_fun->entity_specs.is_static
                     && is_pointer_to_member_type(target_type)
-                    && equivalent_types(get_actual_class_type(current_fun->entity_specs.class_type),
-                        get_actual_class_type(class_type->type_information)))
+                    && (equivalent_types(get_actual_class_type(current_fun->entity_specs.class_type),
+                            get_actual_class_type(class_type->type_information))
+                        || class_type_is_base(get_actual_class_type(current_fun->entity_specs.class_type),
+                            get_actual_class_type(class_type->type_information))
+                       )
+               )
             {
                 can_match = 1;
             }
@@ -2074,8 +2078,12 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
             if (primary_symbol->entity_specs.is_member 
                     && !primary_symbol->entity_specs.is_static
                     && is_pointer_to_member_type(target_type)
-                    && equivalent_types(get_actual_class_type(primary_symbol->entity_specs.class_type),
-                        get_actual_class_type(class_type->type_information)))
+                    && (equivalent_types(get_actual_class_type(primary_symbol->entity_specs.class_type),
+                            get_actual_class_type(class_type->type_information))
+                        || class_type_is_base(get_actual_class_type(primary_symbol->entity_specs.class_type),
+                            get_actual_class_type(class_type->type_information))
+                       )
+               )
             {
                 can_match = 1;
             }

@@ -1271,6 +1271,8 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                 if (check_for_expression(expression, decl_context)
                         && (ASTExprType(expression) != NULL))
                 {
+                    // Do not remove the reference here, we will do this later
+                    // if mandated
                     type_t* computed_type = ASTExprType(expression);
 
                     if (is_unresolved_overloaded_type(computed_type))
@@ -1285,7 +1287,17 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                                     prettyprint_in_buffer(a));
                         }
 
-                        computed_type = entry_list->entry->type_information;
+                        if (!entry_list->entry->entity_specs.is_member
+                                || entry_list->entry->entity_specs.is_static)
+                        {
+                            computed_type = entry_list->entry->type_information;
+                        }
+                        else
+                        {
+                            computed_type = get_pointer_to_member_type(
+                                    entry_list->entry->type_information, 
+                                    entry_list->entry);
+                        }
                     }
 
                     if (is_dependent_expr_type(computed_type))
@@ -1397,7 +1409,17 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                                         prettyprint_in_buffer(a));
                             }
 
-                            computed_type = entry_list->entry->type_information;
+                            if (!entry_list->entry->entity_specs.is_member
+                                    || entry_list->entry->entity_specs.is_static)
+                            {
+                                computed_type = entry_list->entry->type_information;
+                            }
+                            else
+                            {
+                                computed_type = get_pointer_to_member_type(
+                                        entry_list->entry->type_information, 
+                                        entry_list->entry);
+                            }
                         }
                         else if (is_dependent_expr_type(computed_type))
                         {
