@@ -2277,7 +2277,7 @@ static char is_virtual_destructor(type_t* class_type);
 // This function is only for C++
 //
 // FIXME - This function is HUGE
-void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t decl_context,
+static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_context_t decl_context,
         const char *filename, int line)
 {
     // Finish the class creating implicitly given operations
@@ -2853,6 +2853,61 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
     }
 }
 
+static void insert_members_of_unnamed_nested(decl_context_t decl_context, scope_entry_t* field)
+{
+    int i;
+    type_t* class_type = field->type_information;
+    for (i = 0; i < class_type_get_num_nonstatic_data_members(get_actual_class_type(class_type)); i++)
+    {
+        scope_entry_t* current_field = class_type_get_nonstatic_data_member_num(get_actual_class_type(class_type), i);
+
+        if (current_field->entity_specs.is_nested_unnamed_struct)
+        {
+            insert_members_of_unnamed_nested(decl_context, current_field);
+        }
+        else
+        {
+            insert_entry(decl_context.current_scope, current_field);
+        }
+    }
+}
+
+static void finish_class_type_c(type_t* class_type, 
+        type_t* type_info UNUSED_PARAMETER, 
+        decl_context_t decl_context,
+        const char *filename UNUSED_PARAMETER, int line UNUSED_PARAMETER)
+{
+    // Only for non nested classes in C
+    if (decl_context.current_scope->contained_in == NULL)
+    {
+        decl_context_t inner_class_context = class_type_get_inner_context(get_actual_class_type(class_type));
+        // Bring in the scope of the class the members of inner fields which are unnamed nested
+        int i;
+        for (i = 0; i < class_type_get_num_nonstatic_data_members(get_actual_class_type(class_type)); i++)
+        {
+            scope_entry_t* field = class_type_get_nonstatic_data_member_num(get_actual_class_type(class_type), i);
+
+            if (field->entity_specs.is_nested_unnamed_struct)
+            {
+                insert_members_of_unnamed_nested(inner_class_context, field);
+            }
+        }
+    }
+}
+
+void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t decl_context,
+        const char *filename, int line)
+{
+    C_LANGUAGE()
+    {
+        finish_class_type_c(class_type, type_info, decl_context, filename, line);
+    }
+    CXX_LANGUAGE()
+    {
+        finish_class_type_cxx(class_type, type_info, decl_context, filename, line);
+    }
+}
+
 
 struct delayed_function_tag
 {
@@ -3379,6 +3434,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     }
     C_LANGUAGE()
     {
+        finish_class_type(class_type, *type_info, decl_context, ASTFileName(a), ASTLine(a));
         class_type_set_complete(class_type);
     }
     
@@ -7533,6 +7589,37 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         break;
                     }
             }
+        }
+    }
+    else
+    {
+        C_LANGUAGE()
+        {
+            // If it is null implement the gcc extension where inner members
+            // are brought to the enclosing scope
+
+            char fake_name[256];
+            static int field_num = 0;
+            sprintf(fake_name, ".unnamed_field_%d", field_num);
+            field_num++;
+
+            AST fake_declarator = 
+                ASTMake1(AST_DECLARATOR_ID_EXPR,
+                        ASTLeaf(AST_SYMBOL, ASTFileName(a), ASTLine(a), fake_name),
+                        ASTFileName(a), ASTLine(a), NULL);
+
+            ast_set_parent(fake_declarator, a);
+
+            scope_entry_t *entry =
+                build_scope_declarator_name(fake_declarator,
+                        member_type, &gather_info,
+                        decl_context);
+
+            // This is a nested unnamed class
+            entry->entity_specs.is_nested_unnamed_struct = 1;
+
+            // We need to add this for layout purposes
+            class_type_add_nonstatic_data_member(get_actual_class_type(class_type), entry);
         }
     }
 }

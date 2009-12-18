@@ -4771,11 +4771,11 @@ char is_dependent_expression(AST expression, decl_context_t decl_context)
             {
                 // [1][2] = 3
                 // a.b = 4
-                // AST designation = ASTSon0(expression);
+                AST designation = ASTSon0(expression);
                 // AST initializer_clause = ASTSon1(expression);
 
-                internal_error("Yet to implement", 0);
-                return 0;
+                // This is C only, in principle this cannot be dependent
+                return is_dependent_expression(designation, decl_context);
                 break;
             }
         case AST_DESIGNATION : 

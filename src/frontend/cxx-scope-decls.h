@@ -349,6 +349,7 @@ typedef struct entity_specifiers_tag
     char is_unnamed_bitfield:1;
     char any_exception:1;
     char is_injected_class_name:1;
+    char is_nested_unnamed_struct:1;
 
     // This symbol has been created because of a typedef
     // of an unnamed struct/class/enum/union type

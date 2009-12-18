@@ -423,7 +423,7 @@ char same_scope(scope_t* stA, scope_t* stB)
     return (stA->hash == stB->hash);
 }
 
-static char* scope_names[] =
+static const char* scope_names[] =
 {
     [UNDEFINED_SCOPE] = "UNDEFINED_SCOPE",
     [NAMESPACE_SCOPE] = "NAMESPACE_SCOPE",
@@ -2402,8 +2402,11 @@ type_t* update_type(template_argument_list_t* given_template_args,
                     expr_context, 
                     template_arguments_context);
             // Update type info
-            ERROR_CONDITION (!check_for_expression(updated_expr, updated_expr_context),
-                    "Updated expression '%s' in array declaration could not be checked", 0);
+            if (!check_for_expression(updated_expr, updated_expr_context))
+            {
+                internal_error("Updated expression '%s' in array declaration could not be checked", 
+                        prettyprint_in_buffer(updated_expr));
+            }
 
             if (!is_dependent_expression(updated_expr, updated_expr_context)
                     && (ASTExprType(updated_expr) == NULL
@@ -2532,14 +2535,18 @@ template_argument_t* update_template_argument(template_argument_list_t* given_te
                 result->expression_context = replace_template_parameters_with_values(
                         given_template_args, 
                         current_template_arg->expression_context, 
-                        template_arguments_context);
+                        // We are updating a template argument
+                        current_template_arg->expression_context);
 
                 // We do not want any residual type information here
                 result->expression = ast_copy_for_instantiation(current_template_arg->expression);
 
                 // Update type information 
-                ERROR_CONDITION( (!check_for_expression(result->expression, result->expression_context)),
-                        "Updated nontype template parameter has an invalid expression", 0);
+                if(!check_for_expression(result->expression, result->expression_context))
+                {
+                    internal_error("Updated nontype template parameter has an invalid expression '%s'", 
+                            prettyprint_in_buffer(result->expression));
+                }
 
                 type_t* expr_type = ASTExprType(result->expression);
                 // Fold the argument
