@@ -119,9 +119,11 @@ foreach test $testcases {
     }
 
 # This avoids an annoying warning
+    global srcdir
+    set current_wd [pwd]
     set config_file ""
-    if [file exists "./$subdir/config.mcxx"] {
-        set config_file "--config-file=./$subdir/config.mcxx"
+    if [file exists "$srcdir/$subdir/config.mcxx"] {
+        set config_file "--config-file=$srcdir/$subdir/config.mcxx"
     }
 
     set command "-c"
@@ -129,7 +131,10 @@ foreach test $testcases {
         set command "-y"
     }
 
+
     send_user "Running test ${basename_test}...\n"
+    send_log -- "Current directory '$current_wd'\n"
+    send_log -- "Test subdirectory '$subdir'\n"
     send_log -- "-------------------------------------------------------------------------------\n"
     send_log -- "$wrapper_tool $wrapper_options $full_path_tool $config_file $command $additional_cflags\n"
     send_log -- "-------------------------------------------------------------------------------\n"
