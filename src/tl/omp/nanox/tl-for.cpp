@@ -59,7 +59,6 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     }
 
     // FIXME - Reductions!!
-
     Source struct_fields;
     struct_fields
         << "nanos_loop_info_t loop_info;"
@@ -101,7 +100,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         << "int _nth_step = _args->loop_info.step;"
         << "int _nth_step_sign = 1;"
         << "if (_nth_step < 0)"
-        <<   "_nth_step_sign = -1";
+        <<   "_nth_step_sign = -1;";
         ;
 
     Source final_barrier;
@@ -168,13 +167,20 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     Source current_slicer;
     Source chunk_value;
     chunk_value = Source("1");
-    current_slicer = Source("slicer_for_static");
+    current_slicer = Source("dynamic_for");
 
     PragmaCustomClause schedule_clause = ctr.get_clause("schedule");
     if (schedule_clause.is_defined())
     {
         ObjectList<std::string> args = schedule_clause.get_arguments(ExpressionTokenizerTrim());
-        current_slicer = "slicer_for_" + args[0];
+
+        if (args[0] == "static")
+        {
+            running_error("%s: error: 'static(schedule)' not implemented yet", 
+                    ctr.get_ast().get_locus().c_str());
+        }
+
+        current_slicer = args[0] + "_for";
 
         if (args.size() > 1)
         {
@@ -182,6 +188,17 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         }
     }
 
+    // if (!_registered_slicer[current_slicer.get_source()])
+    // {
+    //     Source register_slicer;
+    //     register_slicer
+    //         << "__attribute__((weak)) nanos_slicer_t " << current_slicer.get_source() << " = (nanos_slicer_t)0;"
+    //         ;
+    //     AST_t global_tree = ctr.get_ast().get_enclosing_global_tree();
+    //     AST_t slicer_decl = register_slicer.parse_declaration(global_tree, ctr.get_scope_link());
+    //     global_tree.prepend(slicer_decl);
+    //     _registered_slicer[current_slicer.get_source()] = true;
+    // }
 
     // FIXME - Move this to a tl-workshare.cpp
     Source spawn_source;
@@ -206,6 +223,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
 
     spawn_source
         << "{"
+        <<    "nanos_slicer_t " << current_slicer << " = nanos_find_slicer(\"" << current_slicer << "\");"
         <<    "nanos_err_t err;"
         <<    "nanos_wd_t wd = (nanos_wd_t)0;"
         <<    device_description
@@ -215,7 +233,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         <<         ".tied = 0,"
         <<         ".tie_to = 0"
         <<    "};"
-        <<    "nanos_slicer_data_for_t* slicer_data_for = NULL;"
+        <<    "nanos_slicer_data_for_t* slicer_data_for = (void*)0;"
         <<    "err = nanos_create_sliced_wd(&wd, "
         <<          /* num_devices */ "1, " << device_descriptor << ", "
         <<          "sizeof(" << device_descriptor << "),"
@@ -223,14 +241,14 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         <<          "nanos_current_wd(),"
         <<          current_slicer << ","
         <<          "sizeof(nanos_slicer_data_for_t),"
-        <<          "(nanos_slicer_data_for_t*) &slicer_data_for,"
+        <<          "(nanos_slicer_t*) &slicer_data_for,"
         <<          "&props);"
         <<    "if (err != NANOS_OK) nanos_handle_error(err);"
         <<    fill_outline_arguments
         <<    "slicer_data_for->_lower = " << for_statement.get_lower_bound() << ";"
         <<    "slicer_data_for->_upper = " << for_statement.get_upper_bound() << ";"
         <<    "slicer_data_for->_step = " << for_statement.get_step() << ";"
-        <<    "slicer_data_for->-chunk = " << chunk_value << ";"
+        <<    "slicer_data_for->_chunk = " << chunk_value << ";"
         <<    "err = nanos_submit(wd, 0, (nanos_dependence_t*)0, 0);"
         <<    "if (err != NANOS_OK) nanos_handle_error(err);"
         << "}"

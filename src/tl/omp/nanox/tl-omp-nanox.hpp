@@ -41,6 +41,8 @@ namespace Nanox
             void taskwait_postorder(PragmaCustomConstruct ctr);
             void single_postorder(PragmaCustomConstruct ctr);
             void for_postorder(PragmaCustomConstruct ctr);
+
+            std::map<std::string, bool> _registered_slicer;
     };
 
     const std::string NANOX_OUTLINE_COUNTER("nanox_outline_counter");
