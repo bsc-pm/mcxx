@@ -223,6 +223,9 @@ namespace TL
             //! Returns the innermost enclosing list of a given tree
             static AST get_enclosing_list(AST node);
 
+            //! Returns the innermost tree at the global scope starting from \a tree
+            static AST_t get_enclosing_global_tree_(AST_t tree);
+
             //! Given a member specificacion of a class definition, append a member declaration to it
             static void append_to_member_spec(AST member_spec, AST member_decl);
             //! Given a member specificacion of a class definition, prepend a member declaration to it
@@ -495,6 +498,13 @@ namespace TL
 
             //! Returns the enclosing statement
             AST_t get_enclosing_statement();
+
+            //! Returns a reference tree that is in global scope
+            /*! 
+              This is the same tree used by prepend_sibling_global to prepend
+              an element
+              */
+            AST_t get_enclosing_global_tree();
 
             //! States whether this tree has a related text
             bool has_text() const;

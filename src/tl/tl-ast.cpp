@@ -800,14 +800,9 @@ namespace TL
     {
     }
 
-    void AST_t::prepend_sibling_global(AST_t t)
+    AST_t AST_t::get_enclosing_global_tree_(AST_t t)
     {
-        if (t._ast == NULL)
-        {
-            return;
-        }
-
-        AST_t enclosing_global_tree = *this;
+        AST_t enclosing_global_tree = t;
         AST_t enclosing_function = enclosing_global_tree.get_enclosing_function_definition(/*jump_templates*/true);
 
         if (enclosing_function.is_valid())
@@ -830,6 +825,23 @@ namespace TL
             enclosing_namespace = 
                 enclosing_global_tree.get_enclosing_namespace_definition();
         }
+
+        return enclosing_global_tree;
+    }
+
+    AST_t AST_t::get_enclosing_global_tree()
+    {
+        return get_enclosing_global_tree_(*this);
+    }
+
+    void AST_t::prepend_sibling_global(AST_t t)
+    {
+        if (t._ast == NULL)
+        {
+            return;
+        }
+
+        AST_t enclosing_global_tree = get_enclosing_global_tree_(t);
 
         AST list = get_enclosing_list(enclosing_global_tree._ast);
         AST prepended_list = get_list_of_extensible_block(t._ast);
