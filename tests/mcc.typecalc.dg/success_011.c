@@ -21,7 +21,7 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-float (*v[])(char, long);
+extern float (*v[])(char, long);
 
 void k()
 {
