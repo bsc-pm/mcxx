@@ -841,7 +841,7 @@ namespace TL
             return;
         }
 
-        AST_t enclosing_global_tree = get_enclosing_global_tree_(t);
+        AST_t enclosing_global_tree = get_enclosing_global_tree_(this->_ast);
 
         AST list = get_enclosing_list(enclosing_global_tree._ast);
         AST prepended_list = get_list_of_extensible_block(t._ast);
