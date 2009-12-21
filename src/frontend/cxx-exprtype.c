@@ -9431,7 +9431,7 @@ static char check_for_shaping_expression(AST expression, decl_context_t decl_con
         type_t *current_expr_type = ASTExprType(current_expr);
 
         standard_conversion_t scs;
-        if (!standard_conversion_between_types(&scs, current_expr_type, get_signed_int_type()))
+        if (!standard_conversion_between_types(&scs, no_ref(current_expr_type), get_signed_int_type()))
         {
             if (!checking_ambiguity())
             {
@@ -9446,7 +9446,7 @@ static char check_for_shaping_expression(AST expression, decl_context_t decl_con
     // Now check the shape makes sense
     type_t* shaped_expr_type = ASTExprType(shaped_expr);
 
-    if (!is_pointer_type(shaped_expr_type))
+    if (!is_pointer_type(no_ref(shaped_expr_type)))
     {
         if (!checking_ambiguity())
         {
@@ -9457,7 +9457,7 @@ static char check_for_shaping_expression(AST expression, decl_context_t decl_con
         result = 0;
     }
 
-    if (is_void_pointer_type(shaped_expr_type))
+    if (is_void_pointer_type(no_ref(shaped_expr_type)))
     {
         if (!checking_ambiguity())
         {
@@ -9471,7 +9471,7 @@ static char check_for_shaping_expression(AST expression, decl_context_t decl_con
     if (result)
     {
         // Synthesize a new type based on what we got
-        type_t* result_type = pointer_type_get_pointee_type(shaped_expr_type);
+        type_t* result_type = pointer_type_get_pointee_type(no_ref(shaped_expr_type));
 
         it = shape_list;
         // Traverse the list backwards
