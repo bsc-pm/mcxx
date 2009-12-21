@@ -25,13 +25,15 @@
 #include "tl-data-env.hpp"
 #include "tl-counters.hpp"
 #include "tl-outline-nanox.hpp"
-#include "tl-parallel-common.hpp"
 
 using namespace TL;
 using namespace TL::Nanox;
 
-void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
+void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
 {
+    ForStatement for_statement(ctr.get_statement().get_ast(), ctr.get_scope_link());
+    Statement for_body = for_statement.get_loop_body();
+
     OpenMP::DataSharingEnvironment& data_sharing = openmp_info->get_data_sharing(ctr.get_ast());
 
     ObjectList<Symbol> shared_symbols;
@@ -57,9 +59,15 @@ void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
     }
 
     // FIXME - Reductions!!
+
+    Source struct_fields;
+    struct_fields
+        << "nanos_loop_info_t loop_info;"
+        ;
+
     DataEnvironInfo data_environ_info;
 
-    Source struct_arg_type_decl_src, struct_fields;
+    Source struct_arg_type_decl_src;
     std::string struct_arg_type_name;
     fill_data_environment_structure(firstprivate_symbols,
             shared_symbols,
@@ -82,10 +90,19 @@ void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
 
     Source initial_replace_code, replaced_body;
 
-    do_outline_replacements(ctr.get_statement(),
+    do_outline_replacements(for_body,
             data_environ_info,
             replaced_body,
             initial_replace_code);
+
+    initial_replace_code
+        << "int _nth_lower = _args->loop_info.lower;"
+        << "int _nth_upper = _args->loop_info.upper;"
+        << "int _nth_step = _args->loop_info.step;"
+        << "int _nth_step_sign = 1;"
+        << "if (_nth_step < 0)"
+        <<   "_nth_step_sign = -1";
+        ;
 
     Source final_barrier;
 
@@ -95,11 +112,20 @@ void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
 
     Source outline_body, outline_parameters, outline_code;
 
+    Source induction_var_name = for_statement.get_induction_variable().prettyprint();
+
     outline_parameters << struct_arg_type_name << "* __restrict _args";
     outline_body
         << private_decls
         << initial_replace_code
+        << "for ("
+        <<    induction_var_name << "= _nth_lower;"
+        <<    "(_nth_step_sign * " << induction_var_name << ")" << "<= _nth_upper;"
+        <<    induction_var_name << "+= _nth_step"
+        << ")"
+        << "{"
         << replaced_body
+        << "}"
         << final_barrier
         ;
 
@@ -139,13 +165,77 @@ void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
         num_threads << "0";
     }
 
-    Source spawn_source = common_parallel_spawn_code(num_devices,
-            outline_name,
-            struct_arg_type_name,
-            num_threads,
-            data_environ_info);
+    Source current_slicer;
+    Source chunk_value;
+    chunk_value = Source("1");
+    current_slicer = Source("slicer_for_static");
+
+    PragmaCustomClause schedule_clause = ctr.get_clause("schedule");
+    if (schedule_clause.is_defined())
+    {
+        ObjectList<std::string> args = schedule_clause.get_arguments(ExpressionTokenizerTrim());
+        current_slicer = "slicer_for_" + args[0];
+
+        if (args.size() > 1)
+        {
+            chunk_value = Source(args[1]);
+        }
+    }
+
+
+    // FIXME - Move this to a tl-workshare.cpp
+    Source spawn_source;
+
+    Source device_descriptor,device_description;
+    // Device descriptor
+    // FIXME - Currently only SMP is supported
+    device_descriptor << outline_name << "_devices";
+    device_description
+        << "nanos_smp_args_t " << outline_name << "_smp_args = { (void(*)(void*))" << outline_name << "};"
+        << "nanos_device_t " << device_descriptor << "[] ="
+        << "{"
+        // SMP
+        << "{nanos_smp_factory, nanos_smp_dd_size, &" << outline_name << "_smp_args" << "},"
+        << "};"
+        ;
+
+    Source fill_outline_arguments;
+    fill_data_args("loop_data->", data_environ_info, 
+            ObjectList<OpenMP::DependencyItem>(), // empty
+            fill_outline_arguments);
+
+    spawn_source
+        << "{"
+        <<    "nanos_err_t err;"
+        <<    "nanos_wd_t wd = (nanos_wd_t)0;"
+        <<    device_description
+        <<    struct_arg_type_name << "*loop_data = ("<< struct_arg_type_name << "*)0;"
+        <<    "nanos_wd_props_t props = {"
+        <<         ".mandatory_creation = 1,"
+        <<         ".tied = 0,"
+        <<         ".tie_to = 0"
+        <<    "};"
+        <<    "nanos_slicer_data_for_t* slicer_data_for = NULL;"
+        <<    "err = nanos_create_sliced_wd(&wd, "
+        <<          /* num_devices */ "1, " << device_descriptor << ", "
+        <<          "sizeof(" << device_descriptor << "),"
+        <<          "(void**)&loop_data,"
+        <<          "nanos_current_wd(),"
+        <<          current_slicer << ","
+        <<          "sizeof(nanos_slicer_data_for_t),"
+        <<          "(nanos_slicer_data_for_t*) &slicer_data_for,"
+        <<          "&props);"
+        <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+        <<    fill_outline_arguments
+        <<    "slicer_data_for->_lower = " << for_statement.get_lower_bound() << ";"
+        <<    "slicer_data_for->_upper = " << for_statement.get_upper_bound() << ";"
+        <<    "slicer_data_for->_step = " << for_statement.get_step() << ";"
+        <<    "slicer_data_for->-chunk = " << chunk_value << ";"
+        <<    "err = nanos_submit(wd, 0, (nanos_dependence_t*)0, 0);"
+        <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+        << "}"
+        ;
 
     AST_t spawn_tree = spawn_source.parse_statement(ctr.get_ast(), ctr.get_scope_link());
     ctr.get_ast().replace(spawn_tree);
 }
-

@@ -60,7 +60,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     DataEnvironInfo data_environ_info;
 
-    Source struct_arg_type_decl_src;
+    Source struct_arg_type_decl_src, struct_fields;
     std::string struct_arg_type_name;
     fill_data_environment_structure(firstprivate_symbols,
             shared_symbols,
@@ -68,6 +68,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             dependences,
             struct_arg_type_name,
             struct_arg_type_decl_src,
+            struct_fields,
             data_environ_info);
 
     FunctionDefinition funct_def = ctr.get_enclosing_function();

@@ -126,6 +126,7 @@ namespace TL
                 // Output arguments
                 std::string &struct_name,
                 Source & struct_decl,
+                Source & struct_fields,
                 DataEnvironInfo &data_env_info);
 
         // This one is not to be exported

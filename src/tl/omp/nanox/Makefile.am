@@ -41,6 +41,7 @@ libtlomp_nanox_la_SOURCES = \
      tl-single.cpp \
      tl-task.cpp \
      tl-taskwait.cpp \
+     tl-for.cpp \
      tl-data-env.hpp \
      tl-data-env.cpp \
      tl-outline-nanox.hpp \

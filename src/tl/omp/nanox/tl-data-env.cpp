@@ -96,6 +96,7 @@ namespace TL
                 // Output arguments
                 std::string &struct_name,
                 Source & struct_decl,
+                Source & struct_fields,
                 DataEnvironInfo &data_env_info)
         {
             ObjectList<std::string> already_added;
@@ -122,7 +123,6 @@ namespace TL
                 struct_name = ss.str();
             }
 
-            Source struct_fields;
             C_LANGUAGE()
             {
                 struct_decl
