@@ -122,8 +122,14 @@ foreach test $testcases {
     global srcdir
     set current_wd [pwd]
     set config_file ""
+# Try first in srcdir
     if [file exists "$srcdir/$subdir/config.mcxx"] {
         set config_file "--config-file=$srcdir/$subdir/config.mcxx"
+    } else {
+# Then in builddir
+        if [file exists "$current_wd/$subdir/config.mcxx"] {
+           set config_file "--config-file=$current_wd/$subdir/config.mcxx"
+        }
     }
 
     set command "-c"
