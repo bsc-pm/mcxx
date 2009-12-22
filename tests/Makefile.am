@@ -75,6 +75,7 @@ dist-hook:
 	    DIR=$$(basename $$i); \
 		mkdir -p $(distdir)/$${DIR} ; \
 		cp $(srcdir)/$${DIR}/*.exp $(distdir)/$${DIR} ; \
+		cp $(srcdir)/$${DIR}/config.mcxx $(distdir)/$${DIR} ; \
 		cp $(srcdir)/$${DIR}/config.mcxx.in $(distdir)/$${DIR} ; \
 		cp $(srcdir)/$${DIR}/*.c $(distdir)/$${DIR} ; \
 		cp $(srcdir)/$${DIR}/*.cpp $(distdir)/$${DIR} ; \
