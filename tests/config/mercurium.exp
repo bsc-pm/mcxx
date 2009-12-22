@@ -141,6 +141,7 @@ foreach test $testcases {
     send_user "Running test ${basename_test}...\n"
     send_log -- "Current directory '$current_wd'\n"
     send_log -- "Test subdirectory '$subdir'\n"
+    send_log -- "Source subdirectory '$srcdir'\n"
     send_log -- "-------------------------------------------------------------------------------\n"
     send_log -- "$wrapper_tool $wrapper_options $full_path_tool $config_file $command $additional_cflags\n"
     send_log -- "-------------------------------------------------------------------------------\n"
