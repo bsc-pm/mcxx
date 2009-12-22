@@ -66,7 +66,6 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context);
 
 static void build_scope_namespace_alias(AST a, decl_context_t decl_context);
 static void build_scope_namespace_definition(AST a, decl_context_t decl_context);
-// scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl_context);
 static void build_scope_declarator_with_parameter_context(AST a, 
         gather_decl_spec_t* gather_info, type_t* simple_type_info, type_t** declarator_type,
         decl_context_t decl_context, decl_context_t *prototype_context);
@@ -143,7 +142,7 @@ static void build_scope_member_template_simple_declaration(decl_context_t decl_c
 static void build_scope_using_directive(AST a, decl_context_t decl_context);
 static void build_scope_using_declaration(AST a, decl_context_t decl_context);
 
-static scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl_context);
+static void build_scope_template_function_definition(AST a, decl_context_t decl_context);
 
 static void build_scope_explicit_instantiation(AST a, decl_context_t decl_context);
 
@@ -4193,15 +4192,6 @@ static void set_function_type(type_t** declarator_type,
     *declarator_type = get_cv_qualified_type(*declarator_type, cv_qualif);
 
     build_exception_spec(*declarator_type, except_spec, gather_info, decl_context);
-
-    if (BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
-    {
-        set_as_template_specialized_type(
-                *declarator_type,
-                /* at the moment no template arguments */ NULL,
-                decl_context.template_parameters,
-                /* at the moment no related template type */ NULL);
-    }
 }
 
 // This function traverses the declarator tree gathering all attributes that might appear there
@@ -5718,7 +5708,7 @@ static void build_scope_explicit_template_specialization(AST a, decl_context_t d
     }
 }
 
-void build_scope_template_function_definition(AST a, decl_context_t decl_context)
+static void build_scope_template_function_definition(AST a, decl_context_t decl_context)
 {
     /* scope_entry_t* entry = */ build_scope_function_definition(a, decl_context);
 }
@@ -6395,7 +6385,7 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry UNUSED_P
 /*
  * This function builds symbol table information for a function definition
  */
-static scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl_context)
+scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl_context)
 {
     DEBUG_CODE()
     {

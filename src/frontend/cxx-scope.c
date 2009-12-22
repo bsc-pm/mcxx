@@ -2816,6 +2816,7 @@ template_argument_list_t *get_template_arguments_of_template_id(
                                     solved_function->type_information,
                                     current_arg->expression);
 
+#if 0
                             if (function_type_is_incomplete_independent(solved_function->type_information))
                             {
                                 instantiate_template_function(solved_function,
@@ -2823,6 +2824,7 @@ template_argument_list_t *get_template_arguments_of_template_id(
                                         ASTFileName(template_id),
                                         ASTLine(template_id));
                             }
+#endif
                         }
                     }
 

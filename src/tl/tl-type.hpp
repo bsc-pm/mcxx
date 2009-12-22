@@ -88,7 +88,7 @@ namespace TL
 
             bool is_faulty() const
             {
-                return is_faulty_type(_type_info);
+                return false;
             }
 
             virtual ~Type()

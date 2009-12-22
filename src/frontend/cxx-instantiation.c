@@ -540,7 +540,8 @@ void instantiate_template_function(scope_entry_t* entry,
 
                     DEBUG_CODE()
                     {
-                        fprintf(stderr, "Injecting typedef '%s'\n", injected_type->symbol_name);
+                        fprintf(stderr, "Injecting typedef '%s' for type '%s'\n", injected_type->symbol_name, 
+                                print_declarator(template_argument->type));
                     }
 
                     injected_type->kind = SK_TYPEDEF;
@@ -579,10 +580,6 @@ void instantiate_template_function(scope_entry_t* entry,
                     injected_nontype->entity_specs.is_template_argument = 1;
                     injected_nontype->type_information = template_argument->type;
 
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "Injecting parameter '%s'\n", injected_nontype->symbol_name);
-                    }
 
                     // Fold it, as makes things easier
                     literal_value_t literal_value = evaluate_constant_expression(template_argument->expression,
@@ -590,6 +587,12 @@ void instantiate_template_function(scope_entry_t* entry,
                     AST evaluated_tree = tree_from_literal_value(literal_value);
                     AST fake_initializer = evaluated_tree;
                     injected_nontype->expression_value = fake_initializer;
+
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "Injecting parameter '%s' with expression '%s'\n", injected_nontype->symbol_name, 
+                                prettyprint_in_buffer(fake_initializer));
+                    }
                     break;
                 }
             default:
@@ -617,7 +620,7 @@ void instantiate_template_function(scope_entry_t* entry,
     char old_test_status = get_test_expression_status();
     set_test_expression_status(0);
 
-    build_scope_template_function_definition(dupl_function_definition,
+    build_scope_function_definition(dupl_function_definition,
             template_parameters_context);
 
     set_test_expression_status(old_test_status);

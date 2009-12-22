@@ -3310,11 +3310,13 @@ static type_t* compute_bin_nonoperator_assig_only_arithmetic_type(AST expr, AST 
                     return NULL;
                 }
 
+#if 0
                 if (function_type_is_incomplete_independent(solved_function->type_information))
                 {
                     instantiate_template_function(solved_function, decl_context,
                             ASTFileName(rhs), ASTLine(rhs));
                 }
+#endif
 
                 // Update the types everywhere
                 if (!solved_function->entity_specs.is_member
@@ -3406,11 +3408,13 @@ static type_t* compute_bin_operator_assig_only_arithmetic_type(AST expr, AST lhs
                     return NULL;
                 }
                 
+#if 0
                 if (function_type_is_incomplete_independent(solved_function->type_information))
                 {
                     instantiate_template_function(solved_function, decl_context,
                             ASTFileName(rhs), ASTLine(rhs));
                 }
+#endif
 
                 // Update the types everywhere
                 if (!solved_function->entity_specs.is_member
@@ -6022,6 +6026,25 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
                 ast_set_expression_type(called_expression, get_dependent_expr_type());
                 return 1;
             }
+            else if (is_unresolved_overloaded_type(argument_type))
+            {
+                // If possible, simplify it
+                scope_entry_t* entry =
+                    unresolved_overloaded_type_simplify(argument_type, decl_context, ASTLine(argument_tree), ASTFileName(argument_tree));
+                if (entry != NULL)
+                {
+                    if (!entry->entity_specs.is_member
+                            || entry->entity_specs.is_static)
+                    {
+                        argument_type = entry->type_information;
+                    }
+                    else
+                    {
+                        argument_type = get_pointer_to_member_type(entry->type_information,
+                                named_type_get_symbol(entry->entity_specs.class_type));
+                    }
+                }
+            }
 
             ERROR_CONDITION(num_arguments >= MAX_ARGUMENTS, "Too many arguments", 0);
 
@@ -6345,6 +6368,26 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                 return 1;
             }
 
+            if (is_unresolved_overloaded_type(argument_type))
+            {
+                // If possible, simplify it
+                scope_entry_t* entry =
+                    unresolved_overloaded_type_simplify(argument_type, decl_context, ASTLine(argument_tree), ASTFileName(argument_tree));
+                if (entry != NULL)
+                {
+                    if (!entry->entity_specs.is_member
+                            || entry->entity_specs.is_static)
+                    {
+                        argument_type = entry->type_information;
+                    }
+                    else
+                    {
+                        argument_type = get_pointer_to_member_type(entry->type_information,
+                                named_type_get_symbol(entry->entity_specs.class_type));
+                    }
+                }
+            }
+
             ERROR_CONDITION(num_arguments >= MAX_ARGUMENTS, "Too many arguments", 0);
 
             argument_types[num_arguments] = argument_type;
@@ -6639,6 +6682,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             }
         }
 
+#if 0
         // Instantiate if needed the overloaded call
         if (function_type_is_incomplete_independent(overloaded_call->type_information))
         {
@@ -6646,6 +6690,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                     ASTFileName(whole_function_call),
                     ASTLine(whole_function_call));
         }
+#endif
         return 1;
     }
     else

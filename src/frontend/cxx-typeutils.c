@@ -430,7 +430,6 @@ struct type_tag
     // See below for more detailed descriptions
     unsigned char is_template_specialized_type:1;
     unsigned char valid_size:1;
-    unsigned char is_faulty:1;
 
     // Pointer
     // (kind == TK_POINTER)
@@ -486,11 +485,6 @@ struct type_tag
 
     // (kind == TK_COMPUTED)
     computed_function_type_t compute_type_function;
-
-    // This one states if the type has been created with
-    // invalid information. Currently only arrays
-    // can cause this kind of problems
-    // --> char is_faulty;
 };
 
 
@@ -1755,8 +1749,6 @@ type_t* get_pointer_type(type_t* t)
 
         pointed_type->valid_size = 1;
 
-        pointed_type->is_faulty = is_faulty_type(t);
-
         hash_put(_pointer_types, t, pointed_type);
     }
 
@@ -1814,8 +1806,6 @@ static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
         referenced_type->unqualified_type = referenced_type;
         referenced_type->pointer = counted_calloc(1, sizeof(*referenced_type->pointer), &_bytes_due_to_type_system);
         referenced_type->pointer->pointee = t;
-
-        referenced_type->is_faulty = is_faulty_type(t);
 
         hash_put((*_reference_types), t, referenced_type);
     }
@@ -1881,8 +1871,6 @@ type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
         }
 
         pointer_to_member->valid_size = 1;
-
-        pointer_to_member->is_faulty = is_faulty_type(t) || is_faulty_type(class_entry->type_information);
 
         hash_put(class_type_hash, t, pointer_to_member);
     }
@@ -2044,7 +2032,6 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
                 {
                     result->array->array_expr = expression;
                     result->array->array_expr_decl_context = decl_context;
-                    result->is_faulty = 1;
                 }
                 else
                 {
@@ -2076,12 +2063,6 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
                 // In C++ there are no VLA's but this path can be followed by
                 // dependent arrays
                 result->array->is_vla = 1;
-            }
-
-            if (expression != NULL
-                    && !check_for_expression(expression, decl_context))
-            {
-                result->is_faulty = 1;
             }
         }
     }
@@ -2139,8 +2120,6 @@ static type_t* _get_new_function_type(type_t* t, parameter_info_t* parameter_inf
     result->function = counted_calloc(1, sizeof(*(result->function)), &_bytes_due_to_type_system);
     result->function->return_type = t;
 
-    result->is_faulty |= is_faulty_type(t);
-
     result->function->parameter_list = counted_calloc(num_parameters, sizeof(*( result->function->parameter_list )), &_bytes_due_to_type_system);
     result->function->num_parameters = num_parameters;
 
@@ -2150,8 +2129,6 @@ static type_t* _get_new_function_type(type_t* t, parameter_info_t* parameter_inf
         parameter_info_t* new_parameter = counted_calloc(1, sizeof(*new_parameter), &_bytes_due_to_type_system);
 
         *new_parameter = parameter_info[i];
-
-        result->is_faulty |= is_faulty_type(new_parameter->type_info);
 
         result->function->parameter_list[i] = new_parameter;
     }
@@ -7811,12 +7788,6 @@ type_t* lvalue_ref_for_implicit_arg(type_t* t)
         // Otherwise it is already a lvalue-reference
     }
     return t;
-}
-
-char is_faulty_type(type_t* t)
-{
-    return (t == NULL 
-            || t->is_faulty);
 }
 
 static char is_pod_type_aux(type_t* t, char allow_wide_bitfields)
