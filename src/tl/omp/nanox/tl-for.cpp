@@ -221,7 +221,22 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             ObjectList<OpenMP::DependencyItem>(), // empty
             fill_outline_arguments);
 
+    Source bool_type;
+    C_LANGUAGE()
+    {
+        bool_type << "_Bool";
+    }
+    CXX_LANGUAGE()
+    {
+        bool_type << "bool";
+    }
+
     spawn_source
+        << "{"
+        << bool_type << " single_guard;"
+        << "nanos_err_t err = nanos_single_guard(&single_guard);"
+        << "if (err != NANOS_OK) nanos_handle_error(err);"
+        << "if (single_guard)"
         << "{"
         <<    "nanos_slicer_t " << current_slicer << " = nanos_find_slicer(\"" << current_slicer << "\");"
         <<    "nanos_err_t err;"
@@ -229,11 +244,11 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         <<    device_description
         <<    struct_arg_type_name << "*loop_data = ("<< struct_arg_type_name << "*)0;"
         <<    "nanos_wd_props_t props = {"
-        <<         ".mandatory_creation = 1,"
-        <<         ".tied = 0,"
-        <<         ".tie_to = 0"
+        <<         "/*.mandatory_creation =*/ 1,"
+        <<         "/*.tied =*/ 0,"
+        <<         "/*.tie_to =*/ 0"
         <<    "};"
-        <<    "nanos_slicer_data_for_t* slicer_data_for = (void*)0;"
+        <<    "nanos_slicer_data_for_t* slicer_data_for = (nanos_slicer_data_for_t*)0;"
         <<    "err = nanos_create_sliced_wd(&wd, "
         <<          /* num_devices */ "1, " << device_descriptor << ", "
         <<          "sizeof(" << device_descriptor << "),"
@@ -251,6 +266,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         <<    "slicer_data_for->_chunk = " << chunk_value << ";"
         <<    "err = nanos_submit(wd, 0, (nanos_dependence_t*)0, 0);"
         <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+        << "}"
         << "}"
         ;
 
