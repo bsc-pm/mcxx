@@ -2569,7 +2569,7 @@ void class_type_set_is_dependent(type_t* t, char is_dependent)
 void class_type_add_constructor(type_t* class_type, scope_entry_t* entry)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-    P_LIST_ADD(class_type->type->class_info->constructor_list, class_type->type->class_info->num_constructors, entry);
+    P_LIST_ADD_ONCE(class_type->type->class_info->constructor_list, class_type->type->class_info->num_constructors, entry);
 }
 
 void class_type_set_destructor(type_t* class_type, scope_entry_t* entry)
@@ -2613,7 +2613,7 @@ scope_entry_t* class_type_get_copy_assignment_operator_num(type_t* class_type, i
 void class_type_add_copy_assignment_operator(type_t* class_type, scope_entry_t* entry)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-    P_LIST_ADD(class_type->type->class_info->copy_assignment_operator_function_list, 
+    P_LIST_ADD_ONCE(class_type->type->class_info->copy_assignment_operator_function_list, 
             class_type->type->class_info->num_copy_assignment_operator_functions, entry);
 }
 
@@ -2621,7 +2621,7 @@ void class_type_add_copy_constructor(type_t* class_type, scope_entry_t* entry)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
 
-    P_LIST_ADD(class_type->type->class_info->copy_constructor_list,
+    P_LIST_ADD_ONCE(class_type->type->class_info->copy_constructor_list,
             class_type->type->class_info->num_copy_constructors, entry);
 }
 

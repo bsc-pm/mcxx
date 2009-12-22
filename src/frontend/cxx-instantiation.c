@@ -61,6 +61,11 @@ static void instantiate_specialized_template_class(type_t* selected_template,
         deduction_set_t* unification_set,
         const char *filename, int line)
 {
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "INSTANTIATION: About to instantiate class '%s'\n", 
+                named_type_get_symbol(being_instantiated)->symbol_name);
+    }
     ERROR_CONDITION(!is_named_class_type(being_instantiated), "Must be a named class", 0);
 
     scope_entry_t* named_class = named_type_get_symbol(being_instantiated);
@@ -77,6 +82,11 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     instantiation_base_clause = ast_copy_for_instantiation(instantiation_base_clause);
 
     decl_context_t template_parameters_context = new_template_context(named_class->decl_context);
+    // Clear the template nesting level, if we are instantiating it is conceptually 0
+    template_parameters_context.decl_flags &= ~DF_TEMPLATE;
+    template_parameters_context.decl_flags &= ~DF_EXPLICIT_SPECIALIZATION;
+    template_parameters_context.template_nesting = 0;
+    template_parameters_context.template_parameters = NULL;
 
     decl_context_t inner_decl_context = new_class_context(template_parameters_context, 
             /* FIXME the qualification name should be more useful */named_class->symbol_name,

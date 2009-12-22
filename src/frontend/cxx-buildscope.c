@@ -690,7 +690,15 @@ static void build_scope_using_declaration(AST a, decl_context_t decl_context)
                 // If we are introducing special members, introduce also to current class type
                 if (entry->entity_specs.is_conversion)
                 {
-                    class_type_add_conversion_function(current_class_type, entry);
+                    scope_entry_t* actual_symbol = entry;
+                    if (is_template_specialized_type(entry->type_information))
+                    {
+                        type_t* template_type = 
+                            template_specialized_type_get_related_template_type(actual_symbol->type_information);
+                        actual_symbol = template_type_get_related_symbol(template_type);
+                    }
+
+                    class_type_add_conversion_function(current_class_type, actual_symbol);
                 }
             }
         }
@@ -5152,7 +5160,6 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         }
         else /* BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE) */
         {
-            // Create the symbol as a normal function type
             if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
             {
                 // Do not sign in
@@ -5195,11 +5202,12 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "Registering new function '%s' at %s. symbol=%p scope=%p\n", 
+            fprintf(stderr, "Registering new function '%s' at %s. symbol=%p scope=%p is_template=%d\n", 
                     function_name, 
                     ast_location(declarator_id),
                     new_entry,
-                    new_entry->decl_context.current_scope
+                    new_entry->decl_context.current_scope,
+                    (new_entry->kind == SK_TEMPLATE)
                    );
         }
 
@@ -7024,8 +7032,15 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
             {
                 if (is_constructor)
                 {
+                    scope_entry_t* actual_symbol = entry;
+                    if (is_template_specialized_type(entry->type_information))
+                    {
+                        type_t* template_type = 
+                            template_specialized_type_get_related_template_type(actual_symbol->type_information);
+                        actual_symbol = template_type_get_related_symbol(template_type);
+                    }
                     // This is a constructor
-                    class_type_add_constructor(class_type, entry);
+                    class_type_add_constructor(class_type, actual_symbol);
                     entry->entity_specs.is_constructor = 1;
 
                     DEBUG_CODE()
@@ -7058,7 +7073,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
 
                     if (is_copy_constructor(entry, class_type))
                     {
-                        class_type_add_copy_constructor(class_type, entry);
+                        class_type_add_copy_constructor(class_type, actual_symbol);
                     }
                 }
                 else
@@ -7092,7 +7107,14 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
             {
                 if (is_copy_assignment_operator(entry, class_type))
                 {
-                    class_type_add_copy_assignment_operator(get_actual_class_type(class_type), entry);
+                    scope_entry_t* actual_symbol = entry;
+                    if (is_template_specialized_type(entry->type_information))
+                    {
+                        type_t* template_type = 
+                            template_specialized_type_get_related_template_type(actual_symbol->type_information);
+                        actual_symbol = template_type_get_related_symbol(template_type);
+                    }
+                    class_type_add_copy_assignment_operator(get_actual_class_type(class_type), actual_symbol);
                 }
 
                 // These are always static
@@ -7112,9 +7134,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
                 {
                     type_t* template_type = 
                         template_specialized_type_get_related_template_type(actual_symbol->type_information);
-                    type_t* primary_type =
-                        template_type_get_primary_type(template_type);
-                    actual_symbol = named_type_get_symbol(primary_type);
+                    actual_symbol = template_type_get_related_symbol(template_type);
                 }
 
                 // This function checks for repeated symbols
@@ -7429,8 +7449,15 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                     {
                                         if (is_constructor)
                                         {
+                                            scope_entry_t* actual_symbol = entry;
+                                            if (is_template_specialized_type(entry->type_information))
+                                            {
+                                                type_t* template_type = 
+                                                    template_specialized_type_get_related_template_type(actual_symbol->type_information);
+                                                actual_symbol = template_type_get_related_symbol(template_type);
+                                            }
                                             // This is a constructor
-                                            class_type_add_constructor(class_type, entry);
+                                            class_type_add_constructor(class_type, actual_symbol);
                                             entry->entity_specs.is_constructor = 1;
 
                                             DEBUG_CODE()
@@ -7461,9 +7488,9 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                                 class_type_set_default_constructor(class_type, entry);
                                             }
 
-                                            if (is_copy_constructor(entry, class_type))
+                                            if (is_copy_constructor(actual_symbol, class_type))
                                             {
-                                                class_type_add_copy_constructor(class_type, entry);
+                                                class_type_add_copy_constructor(class_type, actual_symbol);
                                             }
                                         }
                                         else
@@ -7495,7 +7522,15 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                     {
                                         if (is_copy_assignment_operator(entry, class_type))
                                         {
-                                            class_type_add_copy_assignment_operator(get_actual_class_type(class_type), entry);
+                                            scope_entry_t* actual_symbol = entry;
+                                            if (is_template_specialized_type(entry->type_information))
+                                            {
+                                                type_t* template_type = 
+                                                    template_specialized_type_get_related_template_type(actual_symbol->type_information);
+                                                actual_symbol = template_type_get_related_symbol(template_type);
+                                            }
+                                            // This is a constructor
+                                            class_type_add_copy_assignment_operator(get_actual_class_type(class_type), actual_symbol);
                                         }
 
                                         // These are always static
@@ -7514,9 +7549,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                         {
                                             type_t* template_type = 
                                                 template_specialized_type_get_related_template_type(actual_symbol->type_information);
-                                            type_t* primary_type =
-                                                template_type_get_primary_type(template_type);
-                                            actual_symbol = named_type_get_symbol(primary_type);
+                                            actual_symbol = template_type_get_related_symbol(template_type);
                                         }
 
                                         // This function checks for repeated symbols

@@ -2312,11 +2312,16 @@ scope_entry_t* solve_constructor(type_t* class_type,
         constructor_list = new_entry_list;
     }
 
+    scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(constructor_list,
+            NULL, &(augmented_argument_types[1]), num_arguments,
+            decl_context,
+            filename, line, /* explicit_template_arguments */ NULL);
+
     scope_entry_t* augmented_conversors[MAX_ARGUMENTS];
     memset(augmented_conversors, 0, sizeof(augmented_conversors));
 
     // Now we have all the constructors, perform an overload resolution on them
-    scope_entry_t* overload_resolution = solve_overload(constructor_list, 
+    scope_entry_t* overload_resolution = solve_overload(overload_set, 
             augmented_argument_types, 
             /* solve_overload expects an implicit argument type */ num_arguments + 1, 
             decl_context, 
