@@ -2242,8 +2242,8 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
 static char class_has_const_copy_assignment_operator(type_t* t)
 {
     ERROR_CONDITION(!is_unnamed_class_type(t), "Must be an unnamed class", 0);
-    ERROR_CONDITION(class_type_get_num_copy_assignment_operators(t) == 0, 
-            "Bad class type", 0);
+    // ERROR_CONDITION(class_type_get_num_copy_assignment_operators(t) == 0, 
+    //         "Bad class type", 0);
 
     int i;
     for (i = 0; i < class_type_get_num_copy_assignment_operators(t); i++)
@@ -2277,8 +2277,8 @@ static char class_has_const_copy_constructor(type_t* t)
 {
     ERROR_CONDITION(!is_unnamed_class_type(t), "Must be an unnamed class", 0);
 
-    ERROR_CONDITION(class_type_get_num_copy_constructors(t) == 0, 
-            "Bad class type", 0);
+    // ERROR_CONDITION(class_type_get_num_copy_constructors(t) == 0, 
+    //         "Bad class type", 0);
 
     int i;
     for (i = 0; i < class_type_get_num_copy_constructors(t); i++)
@@ -2326,6 +2326,14 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             for (i = 0; (i < class_type_get_num_nonstatic_data_members(class_type)); i++)
             {
                 scope_entry_t *data_member = class_type_get_nonstatic_data_member_num(class_type, i);
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "BUILDSCOPE: Completing member '%s' at '%s:%d' with type '%s'\n",
+                            data_member->symbol_name,
+                            data_member->file,
+                            data_member->line,
+                            print_type_str(data_member->type_information, decl_context));
+                }
 
                 type_t* current_type = data_member->type_information;
 
@@ -2345,6 +2353,11 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                     scope_entry_t* named_type_sym = named_type_get_symbol(current_type);
 
                     instantiate_template_class(named_type_sym, decl_context, filename, line);
+                }
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "BUILDSCOPE: Member '%s' completed\n",
+                            data_member->symbol_name);
                 }
             }
         }

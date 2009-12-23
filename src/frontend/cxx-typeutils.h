@@ -546,6 +546,9 @@ LIBMCXX_EXTERN unsigned int get_enum_type_counter(void);
 LIBMCXX_EXTERN unsigned int get_template_type_counter(void);
 LIBMCXX_EXTERN size_t get_type_t_size(void);
 
+LIBMCXX_EXTERN const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const char* name);
+LIBMCXX_EXTERN const char* print_type_str(type_t* t, decl_context_t decl_context);
+
 MCXX_END_DECLS
 
 #endif // CXX_TYPEUTILS_H

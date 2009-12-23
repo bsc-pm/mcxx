@@ -54,55 +54,6 @@ unsigned long long exprtype_used_memory(void)
     return _bytes_used_expr_check;
 }
 
-static const char* print_type_str(type_t* t, decl_context_t decl_context)
-{
-    if (t == NULL)
-    {
-        return uniquestr("< unknown type >");
-    }
-    else
-    {
-        return get_declaration_string_internal(t, 
-                decl_context, /* symbol_name */"", 
-                /* initializer */ "", 
-                /* semicolon */ 0,
-                /* num_parameter_names */ NULL,
-                /* parameter_names */ NULL,
-                /* is_parameter */ 0);
-    }
-}
-
-static const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const char* name)
-{
-    if (t == NULL)
-    {
-        char c[256];
-        snprintf(c, 255, "< unknown type > %s\n", name);
-        return uniquestr(c);
-    }
-    else if (is_unresolved_overloaded_type(t))
-    {
-        scope_entry_list_t* overload_set = unresolved_overloaded_type_get_overload_set(t);
-        if (overload_set->next == NULL)
-        {
-            return print_decl_type_str(overload_set->entry->type_information, decl_context, name);
-        }
-        else
-        {
-            return uniquestr("<unresolved overload>");
-        }
-    }
-    else
-    {
-        return get_declaration_string_internal(t, 
-                decl_context, /* symbol_name */ name, 
-                /* initializer */ "", 
-                /* semicolon */ 0,
-                /* num_parameter_names */ NULL,
-                /* parameter_names */ NULL,
-                /* is_parameter */ 0);
-    }
-}
 
 #define MAX_BUILTINS (256)
 typedef

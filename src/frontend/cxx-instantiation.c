@@ -256,7 +256,8 @@ static void instantiate_specialized_template_class(type_t* selected_template,
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "INSTANTIATION: Instantiation ended\n");
+        fprintf(stderr, "INSTANTIATION: End of instantiation of class '%s'\n", 
+                named_type_get_symbol(being_instantiated)->symbol_name);
     }
 }
 

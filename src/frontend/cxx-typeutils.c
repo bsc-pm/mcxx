@@ -5402,16 +5402,26 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                 // Fix this
                 scope_entry_t* entry = simple_type->user_defined_type;
 
-                char is_dependent = 0;
-                int max_level = 0;
-                result = get_fully_qualified_symbol_name(entry,
-                        decl_context, &is_dependent, &max_level);
-
-                // If is a dependent name and it is qualified then it can be
-                // given a "typename" keyword (in some cases one must do that)
-                if (is_dependent && max_level > 0)
+                if (is_typedef_type(entry->type_information))
                 {
-                    result = strappend("typename ", result);
+                    result = get_declaration_string_internal(
+                            advance_over_typedefs(entry->type_information),
+                            decl_context,
+                            "", "", 0, NULL, NULL, 0);
+                }
+                else
+                {
+                    char is_dependent = 0;
+                    int max_level = 0;
+                    result = get_fully_qualified_symbol_name(entry,
+                            decl_context, &is_dependent, &max_level);
+
+                    // If is a dependent name and it is qualified then it can be
+                    // given a "typename" keyword (in some cases one must do that)
+                    if (is_dependent && max_level > 0)
+                    {
+                        result = strappend("typename ", result);
+                    }
                 }
                 break;
             }
@@ -8264,4 +8274,54 @@ char is_variably_modified_type(struct type_tag* t)
     }
 
     return 0;
+}
+
+const char* print_type_str(type_t* t, decl_context_t decl_context)
+{
+    if (t == NULL)
+    {
+        return uniquestr("< unknown type >");
+    }
+    else
+    {
+        return get_declaration_string_internal(t, 
+                decl_context, /* symbol_name */"", 
+                /* initializer */ "", 
+                /* semicolon */ 0,
+                /* num_parameter_names */ NULL,
+                /* parameter_names */ NULL,
+                /* is_parameter */ 0);
+    }
+}
+
+const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const char* name)
+{
+    if (t == NULL)
+    {
+        char c[256];
+        snprintf(c, 255, "< unknown type > %s\n", name);
+        return uniquestr(c);
+    }
+    else if (is_unresolved_overloaded_type(t))
+    {
+        scope_entry_list_t* overload_set = unresolved_overloaded_type_get_overload_set(t);
+        if (overload_set->next == NULL)
+        {
+            return print_decl_type_str(overload_set->entry->type_information, decl_context, name);
+        }
+        else
+        {
+            return uniquestr("<unresolved overload>");
+        }
+    }
+    else
+    {
+        return get_declaration_string_internal(t, 
+                decl_context, /* symbol_name */ name, 
+                /* initializer */ "", 
+                /* semicolon */ 0,
+                /* num_parameter_names */ NULL,
+                /* parameter_names */ NULL,
+                /* is_parameter */ 0);
+    }
 }
