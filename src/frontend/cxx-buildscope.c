@@ -2242,8 +2242,8 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
 static char class_has_const_copy_assignment_operator(type_t* t)
 {
     ERROR_CONDITION(!is_unnamed_class_type(t), "Must be an unnamed class", 0);
-    // ERROR_CONDITION(class_type_get_num_copy_assignment_operators(t) == 0, 
-    //         "Bad class type", 0);
+    ERROR_CONDITION(class_type_get_num_copy_assignment_operators(t) == 0, 
+            "Bad class type", 0);
 
     int i;
     for (i = 0; i < class_type_get_num_copy_assignment_operators(t); i++)
@@ -2276,9 +2276,8 @@ static char class_has_const_copy_assignment_operator(type_t* t)
 static char class_has_const_copy_constructor(type_t* t)
 {
     ERROR_CONDITION(!is_unnamed_class_type(t), "Must be an unnamed class", 0);
-
-    // ERROR_CONDITION(class_type_get_num_copy_constructors(t) == 0, 
-    //         "Bad class type", 0);
+    ERROR_CONDITION(class_type_get_num_copy_constructors(t) == 0, 
+            "Bad class type", 0);
 
     int i;
     for (i = 0; i < class_type_get_num_copy_constructors(t); i++)

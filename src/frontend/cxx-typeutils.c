@@ -144,6 +144,9 @@ struct class_information_tag {
     // Currently unused
     unsigned char is_local_class:1;
 
+    // Being instantiated
+    unsigned char being_instantiated:1;
+
     struct scope_entry_tag* enclosing_function;
 
     // The inner decl context created by this class
@@ -2325,7 +2328,8 @@ char class_type_is_incomplete_independent(type_t* t)
 char class_type_is_complete_independent(type_t* t)
 {
     ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);
-    return t->type->template_nature == TPN_COMPLETE_INDEPENDENT;
+    return (t->type->template_nature == TPN_COMPLETE_INDEPENDENT) 
+        && (!t->type->class_info->being_instantiated);
 }
 
 char class_type_is_empty(type_t* t)
@@ -2547,6 +2551,12 @@ void class_type_add_constructor(type_t* class_type, scope_entry_t* entry)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
     P_LIST_ADD_ONCE(class_type->type->class_info->constructor_list, class_type->type->class_info->num_constructors, entry);
+}
+
+void class_type_set_being_instantiated(struct type_tag* t, char flag)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);
+    t->type->class_info->being_instantiated = flag;
 }
 
 void class_type_set_destructor(type_t* class_type, scope_entry_t* entry)

@@ -235,6 +235,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
      * (and this is not good at all).
      */
     class_type_set_complete_independent(get_actual_class_type(being_instantiated));
+    class_type_set_being_instantiated(get_actual_class_type(being_instantiated), 1);
 
     if (instantiation_body != NULL)
     {
@@ -253,6 +254,8 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     // Finish the class
     finish_class_type(get_actual_class_type(being_instantiated), being_instantiated, 
             named_class->decl_context, filename, line);
+
+    class_type_set_being_instantiated(get_actual_class_type(being_instantiated), 0);
 
     DEBUG_CODE()
     {

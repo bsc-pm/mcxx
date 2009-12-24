@@ -172,6 +172,8 @@ LIBMCXX_EXTERN void class_type_set_is_dependent(struct type_tag* t, char is_depe
 LIBMCXX_EXTERN void class_type_set_default_constructor(struct type_tag* t, struct scope_entry_tag* entry);
 LIBMCXX_EXTERN void class_type_add_member_function(struct type_tag* t, struct scope_entry_tag* entry);
 
+LIBMCXX_EXTERN void class_type_set_being_instantiated(struct type_tag* t, char flag);
+
 LIBMCXX_EXTERN void enum_type_add_enumerator(struct type_tag* t, struct scope_entry_tag* entry);
 LIBMCXX_EXTERN void enum_type_set_complete(struct type_tag* t);
 
