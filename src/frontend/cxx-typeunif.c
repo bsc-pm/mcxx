@@ -47,7 +47,7 @@ static char equivalent_expression_trees(AST left_tree, decl_context_t left_decl_
 
 static void unificate_unresolved_overloaded(type_t* t1, type_t* t2, 
         deduction_set_t** deduction_set, decl_context_t decl_context, 
-        const char *filename, int line);
+        const char *filename, int line, deduction_flags_t flags);
 
 // Will try to find a substitution to unificate t1 to t2
 //
@@ -55,7 +55,8 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
 //        T**   cannot be unificated to   Q*
 //
 void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set, 
-        decl_context_t decl_context, const char *filename, int line)
+        decl_context_t decl_context, const char *filename, int line,
+        deduction_flags_t flags)
 {
     cv_qualifier_t cv_qualif_1 = CV_NONE;
     cv_qualifier_t cv_qualif_2 = CV_NONE;
@@ -73,7 +74,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
     {
         // Special case for unresolved overloaded function types:
         //  - try all cases in the hope that any will match
-        unificate_unresolved_overloaded(t1, t2, deduction_set, decl_context, filename, line);
+        unificate_unresolved_overloaded(t1, t2, deduction_set, decl_context, filename, line, flags);
         // Nothing else must be done with this t2
         return;
     }
@@ -313,7 +314,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                                         i);
                             }
                             unificate_two_types(current_arg_1->type, current_arg_2->type, 
-                                    deduction_set, decl_context, filename, line);
+                                    deduction_set, decl_context, filename, line, flags);
                         }
                         break;
                     case TAK_NONTYPE:
@@ -327,7 +328,8 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                                     current_arg_1->expression,
                                     current_arg_1->expression_context,
                                     current_arg_2->expression,
-                                    current_arg_2->expression_context);
+                                    current_arg_2->expression_context,
+                                    flags);
                         }
                         break;
                     default:
@@ -345,7 +347,8 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
         }
 
         // Special case where we unificate with all the bases of a given class
-        if (is_named_class_type(t1)
+        if (!flags.do_not_allow_conversions
+                && is_named_class_type(t1)
                 // t1 is a template-id
                 && is_template_specialized_type(get_actual_class_type(t1))
                 && is_named_class_type(t2)
@@ -424,7 +427,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
             {
                 scope_entry_t* entry = it->entry;
 
-                unificate_two_types(t1, get_user_defined_type(entry), deduction_set, decl_context, filename, line);
+                unificate_two_types(t1, get_user_defined_type(entry), deduction_set, decl_context, filename, line, flags);
 
                 it = it->next;
             }
@@ -442,23 +445,24 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
             && is_pointer_type(t2))
     {
         unificate_two_types(pointer_type_get_pointee_type(t1), pointer_type_get_pointee_type(t2), deduction_set,
-                decl_context, filename, line);
+                decl_context, filename, line, flags);
         return;
     }
     else if (is_lvalue_reference_type(t1)
             && is_lvalue_reference_type(t2))
     {
         unificate_two_types(reference_type_get_referenced_type(t1), reference_type_get_referenced_type(t2), deduction_set,
-                decl_context, filename, line);
+                decl_context, filename, line, flags);
         return;
     }
     else if (is_pointer_to_member_type(t1)
             && is_pointer_to_member_type(t2))
     {
         unificate_two_types(pointer_type_get_pointee_type(t1), pointer_type_get_pointee_type(t2), deduction_set,
-                decl_context, filename, line);
+                decl_context, filename, line, flags);
         unificate_two_types(pointer_to_member_type_get_class_type(t1),
-                pointer_to_member_type_get_class_type(t2), deduction_set, decl_context, filename, line);
+                pointer_to_member_type_get_class_type(t2), deduction_set, decl_context, filename, line,
+                flags);
         return;
     }
     else if (is_array_type(t1)
@@ -471,14 +475,15 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                     array_type_get_array_size_expr(t1),
                     array_type_get_array_size_expr_context(t1), 
                     array_type_get_array_size_expr(t2),
-                    array_type_get_array_size_expr_context(t2));
+                    array_type_get_array_size_expr_context(t2),
+                    flags);
         }
 
         unificate_two_types(array_type_get_element_type(t1), 
                 array_type_get_element_type(t2), 
                 deduction_set,
                 decl_context,
-                filename, line);
+                filename, line, flags);
 
         return;
     }
@@ -489,7 +494,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                 function_type_get_return_type(t2), 
                 deduction_set, 
                 decl_context,
-                filename, line);
+                filename, line, flags);
 
         if (function_type_get_num_parameters(t1) == function_type_get_num_parameters(t2)
                 && (function_type_get_has_ellipsis(t1) == function_type_get_has_ellipsis(t2)))
@@ -506,7 +511,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                 type_t* par2 = function_type_get_parameter_type_num(t2, i);
 
                 unificate_two_types(par1, par2, deduction_set,
-                        decl_context, filename, line);
+                        decl_context, filename, line, flags);
             }
         }
 
@@ -516,10 +521,11 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
 
 void unificate_two_expressions(deduction_set_t **deduction_set, 
         AST left_tree, decl_context_t left_decl_context, 
-        AST right_tree, decl_context_t right_decl_context)
+        AST right_tree, decl_context_t right_decl_context,
+        deduction_flags_t flags)
 {
     equivalent_dependent_expressions(left_tree, left_decl_context, right_tree,
-            right_decl_context, deduction_set);
+            right_decl_context, deduction_set, flags);
 }
 
 deduction_t* get_unification_item_template_parameter(deduction_set_t** deduction_set, scope_entry_t* s1)
@@ -578,7 +584,8 @@ deduction_t* get_unification_item_template_parameter(deduction_set_t** deduction
 }
 
 char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_context, AST
-        right_tree, decl_context_t right_decl_context, deduction_set_t** unif_set)
+        right_tree, decl_context_t right_decl_context, deduction_set_t** unif_set,
+        deduction_flags_t flags)
 {
     left_tree = advance_expression_nest(left_tree);
     right_tree = advance_expression_nest(right_tree);
@@ -758,7 +765,7 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
                                         prettyprint_in_buffer(right_tree));
                             }
                             if (equivalent_dependent_expressions(previous_deduced_expression,
-                                        right_decl_context, right_tree, right_decl_context, unif_set))
+                                        right_decl_context, right_tree, right_decl_context, unif_set, flags))
                             {
                                 found = 1;
                                 DEBUG_CODE()
@@ -884,9 +891,9 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
                 AST right_tree_1 = ASTSon1(right_tree);
 
                 return equivalent_dependent_expressions(left_tree_0,
-                        left_decl_context, right_tree_0, right_decl_context, unif_set)
+                        left_decl_context, right_tree_0, right_decl_context, unif_set, flags)
                     && equivalent_dependent_expressions(left_tree_1, 
-                            left_decl_context, right_tree_1, right_decl_context, unif_set);
+                            left_decl_context, right_tree_1, right_decl_context, unif_set, flags);
                 break;
             }
         case AST_CAST_EXPRESSION :
@@ -910,7 +917,7 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
                 AST right_cast = ASTSon1(right_tree);
 
                 return equivalent_dependent_expressions(left_cast, left_decl_context,
-                        right_cast, right_decl_context, unif_set);
+                        right_cast, right_decl_context, unif_set, flags);
                 break;
             }
         case AST_CONDITIONAL_EXPRESSION :
@@ -924,11 +931,11 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
                 AST right_false = ASTSon2(right_tree);
 
                 return equivalent_dependent_expressions(left_condition, left_decl_context,
-                        right_condition, right_decl_context, unif_set)
+                        right_condition, right_decl_context, unif_set, flags)
                     && equivalent_dependent_expressions(left_true, left_decl_context,
-                            right_true, right_decl_context, unif_set)
+                            right_true, right_decl_context, unif_set, flags)
                     && equivalent_dependent_expressions(left_false, left_decl_context,
-                            right_false, right_decl_context, unif_set);
+                            right_false, right_decl_context, unif_set, flags);
                 break;
             }
         case AST_DECIMAL_LITERAL :
@@ -947,7 +954,7 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
                 AST right_operand = ASTSon0(right_tree);
 
                 return equivalent_dependent_expressions(left_operand, left_decl_context,
-                        right_operand, right_decl_context, unif_set);
+                        right_operand, right_decl_context, unif_set, flags);
             }
         case AST_SIZEOF :
             {
@@ -956,7 +963,7 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
                 AST right_sizeof = ASTSon0(right_tree);
 
                 return equivalent_dependent_expressions(left_sizeof, left_decl_context,
-                        right_sizeof, right_decl_context, unif_set);
+                        right_sizeof, right_decl_context, unif_set, flags);
             }
         case AST_SIZEOF_TYPEID :
             {
@@ -981,7 +988,7 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
 
                 return equivalent_dependent_expressions(left_first_expression,
                         left_decl_context, right_first_expression, right_decl_context,
-                        unif_set);
+                        unif_set, flags);
             }
         case AST_REFERENCE :
             {
@@ -1038,17 +1045,18 @@ static char equivalent_expression_trees(AST left_tree, decl_context_t left_decl_
 }
 
 char same_functional_expression(AST left_tree, decl_context_t left_decl_context, AST right_tree, 
-        decl_context_t right_decl_context)
+        decl_context_t right_decl_context, deduction_flags_t flags)
 {
     deduction_set_t* deduction_set = counted_calloc(1, sizeof(*deduction_set), &_bytes_typeunif);
 
     return equivalent_dependent_expressions(left_tree, left_decl_context, right_tree, right_decl_context, 
-            &deduction_set);
+            &deduction_set, flags);
 }
 
 static void unificate_unresolved_overloaded(type_t* t1, type_t* t2, 
         deduction_set_t** deduction_set, decl_context_t decl_context,
-        const char *filename, int line)
+        const char *filename, int line,
+        deduction_flags_t flags)
 {
     DEBUG_CODE()
     {
@@ -1132,7 +1140,7 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
         }
 
         // Now perform deduction
-        unificate_two_types(t1, function_type, deduction_set, decl_context, filename, line);
+        unificate_two_types(t1, function_type, deduction_set, decl_context, filename, line, flags);
 
         it = it->next;
     }
@@ -1143,12 +1151,14 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
     }
 }
 
+#if 0
 static void unificate_template_arguments_(template_argument_list_t* targ_list_1, 
         template_argument_list_t* targ_list_2, 
         decl_context_t decl_context, 
         deduction_set_t** deduction_set,
         const char* filename,
-        int line)
+        int line,
+        deduction_flags_t flags)
 {
     if (targ_list_1->num_arguments != targ_list_2->num_arguments)
     {
@@ -1172,7 +1182,7 @@ static void unificate_template_arguments_(template_argument_list_t* targ_list_1,
                                 i);
                     }
                     unificate_two_types(current_arg_1->type, current_arg_2->type, 
-                            deduction_set, decl_context, filename, line);
+                            deduction_set, decl_context, filename, line, flags);
                 }
                 break;
             case TAK_NONTYPE:
@@ -1186,7 +1196,8 @@ static void unificate_template_arguments_(template_argument_list_t* targ_list_1,
                             current_arg_1->expression,
                             current_arg_1->expression_context,
                             current_arg_2->expression,
-                            current_arg_2->expression_context);
+                            current_arg_2->expression_context, 
+                            flags);
                 }
                 break;
             default:
@@ -1200,7 +1211,8 @@ static void unificate_template_arguments_(template_argument_list_t* targ_list_1,
 static void unificate_template_id_(AST left_tree, AST right_tree, 
         decl_context_t left_decl_context, 
         decl_context_t right_decl_context, 
-        deduction_set_t** deduction_set)
+        deduction_set_t** deduction_set,
+        deduction_flags_t flags)
 {
     ERROR_CONDITION(ASTType(left_tree) != AST_TEMPLATE_ID
             || ASTType(right_tree) != AST_TEMPLATE_ID, "Wrong trees, must be template-id both", 0);
@@ -1219,14 +1231,23 @@ static void unificate_template_id_(AST left_tree, AST right_tree,
                 /* nesting_level */ 0);
 
     // It does not matter very much which decl context we use
-    unificate_template_arguments_(targ_list_1, targ_list_2, left_decl_context, deduction_set, ASTFileName(left_tree), ASTLine(left_tree));
+    unificate_template_arguments_(targ_list_1,
+            targ_list_2,
+            left_decl_context,
+            deduction_set,
+            ASTFileName(left_tree),
+            ASTLine(left_tree),
+            flags);
 }
+#endif
 
+#if 0
 static void unificate_unqualified_id_(AST left_tree, 
         AST right_tree, 
         decl_context_t left_decl_context,
         decl_context_t right_decl_context,
-        deduction_set_t** deduction_set)
+        deduction_set_t** deduction_set,
+        deduction_flags_t flags)
 {
     if (ASTType(left_tree) == ASTType(right_tree))
     {
@@ -1244,13 +1265,13 @@ static void unificate_unqualified_id_(AST left_tree,
                 {
                     return unificate_template_id_(ASTSon0(left_tree),
                             ASTSon1(right_tree), left_decl_context,
-                            right_decl_context, deduction_set);
+                            right_decl_context, deduction_set, flags);
                 }
             case AST_TEMPLATE_ID :
                 {
                     return unificate_template_id_(left_tree, right_tree,
                             left_decl_context, right_decl_context,
-                            deduction_set);
+                            deduction_set, flags);
                 }
             default:
                 {
@@ -1264,7 +1285,8 @@ static void unificate_nested_name_specifier_(AST left_tree,
         AST right_tree, 
         decl_context_t left_decl_context,
         decl_context_t right_decl_context,
-        deduction_set_t** deduction_set)
+        deduction_set_t** deduction_set,
+        deduction_flags_t flags)
 {
     if ((ASTSon1(left_tree) == NULL
                 && ASTSon1(right_tree) != NULL)
@@ -1287,8 +1309,7 @@ static void unificate_nested_name_specifier_(AST left_tree,
             case AST_TEMPLATE_ID:
                 {
                     // This is enough
-                    unificate_template_id_(left_nest, right_nest, left_decl_context, right_decl_context, deduction_set);
-
+                    unificate_template_id_(left_nest, right_nest, left_decl_context, right_decl_context, deduction_set, flags);
                     break;
                 }
             default:
@@ -1302,7 +1323,7 @@ static void unificate_nested_name_specifier_(AST left_tree,
     {
         unificate_nested_name_specifier_(ASTSon1(left_tree),
                 ASTSon1(right_tree), left_decl_context, right_decl_context,
-                deduction_set);
+                deduction_set, flags);
     }
 }
 
@@ -1310,7 +1331,8 @@ static void unificate_nested_name_specifier_first_(AST left_tree,
         AST right_tree, 
         decl_context_t left_decl_context,
         decl_context_t right_decl_context,
-        deduction_set_t** deduction_set)
+        deduction_set_t** deduction_set,
+        deduction_flags_t flags)
 {
     if ((ASTSon1(left_tree) == NULL
                 && ASTSon1(right_tree) != NULL)
@@ -1450,7 +1472,7 @@ static void unificate_nested_name_specifier_first_(AST left_tree,
     else if (ASTType(left_nest) == AST_TEMPLATE_ID)
     {
         // FIXME - template template parameters!!!
-        unificate_template_id_(left_nest, right_nest, left_decl_context, right_decl_context, deduction_set);
+        unificate_template_id_(left_nest, right_nest, left_decl_context, right_decl_context, deduction_set, flags);
     }
 
     // More nested specifiers to be checked
@@ -1459,14 +1481,15 @@ static void unificate_nested_name_specifier_first_(AST left_tree,
     {
         unificate_nested_name_specifier_(ASTSon1(left_tree),
                 ASTSon1(right_tree), left_decl_context, right_decl_context,
-                deduction_set);
+                deduction_set, flags);
     }
 }
 
 static void unificate_id_expressions_(AST left_id_expr, AST right_id_expr,
         decl_context_t left_decl_context, 
         decl_context_t right_decl_context,
-        deduction_set_t** deduction_set)
+        deduction_set_t** deduction_set,
+        deduction_flags_t flags)
 {
     if (ASTType(left_id_expr) != ASTType(right_id_expr))
         return;
@@ -1495,7 +1518,8 @@ static void unificate_id_expressions_(AST left_id_expr, AST right_id_expr,
                             ASTSon1(right_id_expr), 
                             left_decl_context,
                             right_decl_context, 
-                            deduction_set);
+                            deduction_set,
+                            flags);
                 }
 
                 unificate_unqualified_id_(
@@ -1503,7 +1527,8 @@ static void unificate_id_expressions_(AST left_id_expr, AST right_id_expr,
                         ASTSon2(right_id_expr),
                         left_decl_context,
                         right_decl_context,
-                        deduction_set);
+                        deduction_set,
+                        flags);
                 break;
             }
         default:
@@ -1513,12 +1538,12 @@ static void unificate_id_expressions_(AST left_id_expr, AST right_id_expr,
                         right_id_expr,
                         left_decl_context,
                         right_decl_context,
-                        deduction_set);
+                        deduction_set,
+                        flags);
             }
     }
 }
 
-// FIXME - Copied from cxx-instantiation.c
 static const char* get_name_of_template_parameter(
         template_parameter_list_t* template_parameters,
         int nesting,
@@ -1540,151 +1565,12 @@ static const char* get_name_of_template_parameter(
     internal_error("Not found template parameter with nest=%d and position=%d",
             nesting, position);
 }
+#endif
 
-char unificate_two_id_expressions(
-        template_parameter_list_t* template_parameters,
-        AST left_id_expr, AST right_id_expr,
-        decl_context_t left_decl_context, 
-        decl_context_t right_decl_context)
+deduction_flags_t deduction_flags_empty()
 {
-    deduction_set_t * deduction_set = counted_calloc(1, sizeof(*deduction_set), &_bytes_typeunif);
+    deduction_flags_t flags;
+    memset(&flags, 0, sizeof(flags));
 
-    unificate_id_expressions_(left_id_expr, right_id_expr,
-            left_decl_context, right_decl_context,
-            &deduction_set);
-
-    // Check the soundness of the unification
-
-    // First, ensure that no deduced parameter appears twice
-    int i;
-    for (i = 0; i < deduction_set->num_deductions; i++)
-    {
-        deduction_t* deduction = deduction_set->deduction_list[i];
-
-        if (deduction->num_deduced_parameters > 1)
-            return 0;
-    }
-
-    // Second, ensure that all parameters have been deduced
-    char has_been_deduced[template_parameters->num_template_parameters + 1];
-    memset(has_been_deduced, 0, sizeof(has_been_deduced));
-
-    for (i = 0; i < deduction_set->num_deductions; i++)
-    {
-        deduction_t* deduction = deduction_set->deduction_list[i];
-
-        has_been_deduced[deduction->parameter_position] = 1;
-    }
-
-    for (i = 0; i < template_parameters->num_template_parameters; i++)
-    {
-        if (!has_been_deduced[i])
-            return 0;
-    }
-
-    // Third, ensure that the deduced entity really matches both sides
-    // First try a plain lookup, maybe it is enough
-
-    // Create a fake context for the left one
-    decl_context_t template_parameters_context = new_template_context(left_decl_context);
-
-    for (i = 0; i < deduction_set->num_deductions; i++)
-    {
-        deduction_t* current_deduction = deduction_set->deduction_list[i];
-
-        ERROR_CONDITION(current_deduction->num_deduced_parameters != 1,
-                "Number of deduced parameters is not 1!", 0);
-
-        int j;
-        for (j = 0; j < current_deduction->num_deduced_parameters; j++)
-        {
-            const char* deduced_parameter_name = get_name_of_template_parameter(template_parameters,
-                    current_deduction->parameter_nesting,
-                    current_deduction->parameter_position);
-            switch (current_deduction->kind)
-            {
-                case TPK_TYPE :
-                    {
-                        // Note that we sign in the symbol in template_scope and not in current_scope
-                        scope_entry_t* injected_type = new_symbol(template_parameters_context, 
-                                template_parameters_context.template_scope, deduced_parameter_name);
-
-                        // We use a typedef
-                        injected_type->kind = SK_TYPEDEF;
-                        injected_type->entity_specs.is_template_argument = 1;
-                        injected_type->type_information = get_new_typedef(current_deduction->deduced_parameters[0]->type);
-                        break;
-                    }
-                case TPK_TEMPLATE :
-                    {
-                        // Note that we sign in the symbol in template_scope and not in current_scope
-                        scope_entry_t* injected_type = new_symbol(template_parameters_context, 
-                                template_parameters_context.template_scope, deduced_parameter_name);
-
-                        // The template type has to be used here
-                        injected_type->kind = SK_TEMPLATE;
-                        injected_type->entity_specs.is_template_argument = 1;
-                        // These are always kept as named types in the compiler
-                        injected_type->type_information = 
-                            named_type_get_symbol(current_deduction->deduced_parameters[0]->type)->type_information;
-                        break;
-                    }
-                case TPK_NONTYPE :
-                    {
-                        scope_entry_t* injected_nontype = new_symbol(template_parameters_context, 
-                                template_parameters_context.template_scope, deduced_parameter_name);
-
-                        injected_nontype->kind = SK_VARIABLE;
-                        injected_nontype->entity_specs.is_template_argument = 1;
-                        injected_nontype->type_information = current_deduction->deduced_parameters[0]->type;
-
-                        // Fold it, as makes things easier
-                        literal_value_t literal_value = evaluate_constant_expression(current_deduction->deduced_parameters[0]->expression,
-                                current_deduction->deduced_parameters[0]->decl_context);
-                        AST evaluated_tree = tree_from_literal_value(literal_value);
-                        AST fake_initializer = evaluated_tree;
-                        injected_nontype->expression_value = fake_initializer;
-                        break;
-                    }
-                default:
-                    {
-                        internal_error("Invalid parameter kind", 0);
-                    }
-            }
-        }
-    }
-
-    // Lookup of left
-    scope_entry_list_t* left_lookup = query_id_expression(template_parameters_context, left_id_expr);
-    if (left_lookup == NULL)
-        return 0;
-
-    // Normal lookup for the right one
-    scope_entry_list_t* right_lookup = query_id_expression(right_decl_context, right_id_expr);
-    if (right_lookup == NULL)
-        return 0;
-
-    if (left_lookup->entry->kind == SK_DEPENDENT_ENTITY
-            && right_lookup->entry->kind == SK_DEPENDENT_ENTITY)
-    {
-        if (!equivalent_types(left_lookup->entry->type_information,
-                    right_lookup->entry->type_information))
-            return 0;
-    }
-    else if ((left_lookup->entry->kind != SK_DEPENDENT_ENTITY
-                && right_lookup->entry->kind == SK_DEPENDENT_ENTITY)
-            || (left_lookup->entry->kind == SK_DEPENDENT_ENTITY
-                && right_lookup->entry->kind != SK_DEPENDENT_ENTITY))
-    {
-        // This cannot be the same, never
-        return 0;
-    }
-    else
-    {
-        // This is dubious
-        if (left_lookup->entry != right_lookup->entry)
-            return 0;
-    }
-
-    return 1;
+    return flags;
 }

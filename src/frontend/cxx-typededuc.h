@@ -36,7 +36,8 @@ LIBMCXX_EXTERN char deduce_template_arguments_common(
         decl_context_t decl_context,
         deduction_set_t **deduced_arguments,
         const char *filename, int line,
-        template_argument_list_t* explicit_template_arguments);
+        template_argument_list_t* explicit_template_arguments,
+        deduction_flags_t flags);
 
 LIBMCXX_EXTERN char deduce_arguments_from_call_to_specific_template_function(struct type_tag** call_argument_types,
         int num_arguments, struct type_tag* specialized_named_type, 

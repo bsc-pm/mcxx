@@ -1294,7 +1294,8 @@ static char same_template_argument_list(
                     if (!same_functional_expression(targ_1->expression,
                                  targ_1->expression_context,
                                  targ_2->expression,
-                                 targ_2->expression_context))
+                                 targ_2->expression_context,
+                                 deduction_flags_empty()))
                     {
                         return 0;
                     }
@@ -3445,7 +3446,7 @@ static char equivalent_array_type(array_info_t* t1, array_info_t* t2)
         CXX_LANGUAGE()
         {
             if (!same_functional_expression(t1->array_expr, t1->array_expr_decl_context, 
-                        t2->array_expr, t2->array_expr_decl_context))
+                        t2->array_expr, t2->array_expr_decl_context, deduction_flags_empty()))
                 return 0;
         }
         C_LANGUAGE()

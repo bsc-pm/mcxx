@@ -2110,7 +2110,8 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                             parameter_types, 
                             decl_context,
                             &deduced_arguments, filename, line,
-                            explicit_template_arguments))
+                            explicit_template_arguments,
+                            deduction_flags_empty()))
                 {
                     DEBUG_CODE()
                     {

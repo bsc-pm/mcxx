@@ -47,7 +47,8 @@ char deduce_template_arguments_common(
         decl_context_t decl_context,
         deduction_set_t **deduced_arguments,
         const char *filename, int line,
-        template_argument_list_t* explicit_template_arguments)
+        template_argument_list_t* explicit_template_arguments,
+        deduction_flags_t flags)
 {
 
     DEBUG_CODE()
@@ -249,7 +250,7 @@ char deduce_template_arguments_common(
         }
 
         deduction_set_t *current_deduction = counted_calloc(1, sizeof(*current_deduction), &_bytes_typededuc);
-        unificate_two_types(parameter_type, argument_type, &current_deduction, decl_context, filename, line);
+        unificate_two_types(parameter_type, argument_type, &current_deduction, decl_context, filename, line, flags);
         deductions[num_deduction_slots] = current_deduction;
         num_deduction_slots++;
     }
@@ -472,13 +473,13 @@ char deduce_template_arguments_common(
                                         result_deduced_parameter->decl_context,
                                         current_deduced_parameter->expression,
                                         current_deduced_parameter->decl_context,
-                                        &dummy)
+                                        &dummy, flags)
                                     || !equivalent_dependent_expressions(
                                         current_deduced_parameter->expression,
                                         current_deduced_parameter->decl_context,
                                         result_deduced_parameter->expression,
                                         result_deduced_parameter->decl_context,
-                                        &dummy))
+                                        &dummy, flags))
                             {
                                 DEBUG_CODE()
                                 {
@@ -665,7 +666,8 @@ char deduce_arguments_of_conversion(
                 argument_types, /* relevant arguments */ 1,
                 parameter_types, decl_context,
                 deduction_result, filename, line,
-                /* explicit_template_arguments */ NULL))
+                /* explicit_template_arguments */ NULL,
+                deduction_flags_empty()))
     {
         return 0;
     }
@@ -871,7 +873,8 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                 argument_types, relevant_arguments,
                 parameter_types, decl_context,
                 deduction_result, filename, line, 
-                explicit_template_arguments))
+                explicit_template_arguments,
+                deduction_flags_empty()))
     {
         return 0;
     }

@@ -58,6 +58,11 @@ typedef struct deduction_set_tag
     deduction_t** deduction_list;
 } deduction_set_t;
 
+typedef struct deduction_flags_tag
+{
+    char do_not_allow_conversions;
+} deduction_flags_t;
+
 MCXX_END_DECLS
 
 #endif // CXX_TYPEUNIF_DECLS_H

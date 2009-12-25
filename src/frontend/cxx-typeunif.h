@@ -36,25 +36,21 @@
 MCXX_BEGIN_DECLS
 
 LIBMCXX_EXTERN void unificate_two_types(struct type_tag* t1, struct type_tag* t2, deduction_set_t** unif_set, decl_context_t decl_context, 
-        const char* filename, int line);
+        const char* filename, int line, deduction_flags_t flags);
 LIBMCXX_EXTERN void unificate_two_expressions(deduction_set_t **unif_set, 
         struct AST_tag* left_tree, decl_context_t left_decl_context, 
-        struct AST_tag* right_tree, decl_context_t right_decl_context);
+        struct AST_tag* right_tree, decl_context_t right_decl_context, deduction_flags_t flags);
 LIBMCXX_EXTERN char equivalent_dependent_expressions(struct AST_tag* left_tree, decl_context_t left_decl_context, struct AST_tag*
-        right_tree, decl_context_t right_decl_context, deduction_set_t** unif_set);
+        right_tree, decl_context_t right_decl_context, deduction_set_t** unif_set, deduction_flags_t flags);
 LIBMCXX_EXTERN char same_functional_expression(struct AST_tag* left_tree, decl_context_t left_decl_context, struct AST_tag* right_tree, 
-        decl_context_t right_decl_context);
+        decl_context_t right_decl_context, deduction_flags_t flags);
 
 LIBMCXX_EXTERN deduction_t* get_unification_item_template_parameter(deduction_set_t** deduction_set, 
         struct scope_entry_tag* s1);
 
 LIBMCXX_EXTERN long long int typeunif_used_memory(void);
 
-char unificate_two_id_expressions(
-        template_parameter_list_t* template_parameters,
-        AST left_id_expr, AST right_id_expr,
-        decl_context_t left_decl_context, 
-        decl_context_t right_decl_context);
+LIBMCXX_EXTERN deduction_flags_t deduction_flags_empty(void);
 
 MCXX_END_DECLS
 
