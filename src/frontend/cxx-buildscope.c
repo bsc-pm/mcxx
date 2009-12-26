@@ -689,15 +689,7 @@ static void build_scope_using_declaration(AST a, decl_context_t decl_context)
                 // If we are introducing special members, introduce also to current class type
                 if (entry->entity_specs.is_conversion)
                 {
-                    scope_entry_t* actual_symbol = entry;
-                    if (is_template_specialized_type(entry->type_information))
-                    {
-                        type_t* template_type = 
-                            template_specialized_type_get_related_template_type(actual_symbol->type_information);
-                        actual_symbol = template_type_get_related_symbol(template_type);
-                    }
-
-                    class_type_add_conversion_function(current_class_type, actual_symbol);
+                    class_type_add_conversion_function(current_class_type, entry);
                 }
             }
         }
@@ -7034,15 +7026,8 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
             {
                 if (is_constructor)
                 {
-                    scope_entry_t* actual_symbol = entry;
-                    if (is_template_specialized_type(entry->type_information))
-                    {
-                        type_t* template_type = 
-                            template_specialized_type_get_related_template_type(actual_symbol->type_information);
-                        actual_symbol = template_type_get_related_symbol(template_type);
-                    }
                     // This is a constructor
-                    class_type_add_constructor(class_type, actual_symbol);
+                    class_type_add_constructor(class_type, entry);
                     entry->entity_specs.is_constructor = 1;
 
                     DEBUG_CODE()
@@ -7075,7 +7060,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
 
                     if (is_copy_constructor(entry, class_type))
                     {
-                        class_type_add_copy_constructor(class_type, actual_symbol);
+                        class_type_add_copy_constructor(class_type, entry);
                     }
                 }
                 else
@@ -7109,14 +7094,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
             {
                 if (is_copy_assignment_operator(entry, class_type))
                 {
-                    scope_entry_t* actual_symbol = entry;
-                    if (is_template_specialized_type(entry->type_information))
-                    {
-                        type_t* template_type = 
-                            template_specialized_type_get_related_template_type(actual_symbol->type_information);
-                        actual_symbol = template_type_get_related_symbol(template_type);
-                    }
-                    class_type_add_copy_assignment_operator(get_actual_class_type(class_type), actual_symbol);
+                    class_type_add_copy_assignment_operator(get_actual_class_type(class_type), entry);
                 }
 
                 // These are always static
@@ -7130,17 +7108,8 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
         case AST_CONVERSION_FUNCTION_ID :
             {
                 entry->entity_specs.is_conversion = 1;
-
-                scope_entry_t* actual_symbol = entry;
-                if (is_template_specialized_type(entry->type_information))
-                {
-                    type_t* template_type = 
-                        template_specialized_type_get_related_template_type(actual_symbol->type_information);
-                    actual_symbol = template_type_get_related_symbol(template_type);
-                }
-
                 // This function checks for repeated symbols
-                class_type_add_conversion_function(get_actual_class_type(class_type), actual_symbol);
+                class_type_add_conversion_function(get_actual_class_type(class_type), entry);
                 break;
             }
         default :
@@ -7451,15 +7420,8 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                     {
                                         if (is_constructor)
                                         {
-                                            scope_entry_t* actual_symbol = entry;
-                                            if (is_template_specialized_type(entry->type_information))
-                                            {
-                                                type_t* template_type = 
-                                                    template_specialized_type_get_related_template_type(actual_symbol->type_information);
-                                                actual_symbol = template_type_get_related_symbol(template_type);
-                                            }
                                             // This is a constructor
-                                            class_type_add_constructor(class_type, actual_symbol);
+                                            class_type_add_constructor(class_type, entry);
                                             entry->entity_specs.is_constructor = 1;
 
                                             DEBUG_CODE()
@@ -7490,9 +7452,9 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                                 class_type_set_default_constructor(class_type, entry);
                                             }
 
-                                            if (is_copy_constructor(actual_symbol, class_type))
+                                            if (is_copy_constructor(entry, class_type))
                                             {
-                                                class_type_add_copy_constructor(class_type, actual_symbol);
+                                                class_type_add_copy_constructor(class_type, entry);
                                             }
                                         }
                                         else
@@ -7524,15 +7486,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                     {
                                         if (is_copy_assignment_operator(entry, class_type))
                                         {
-                                            scope_entry_t* actual_symbol = entry;
-                                            if (is_template_specialized_type(entry->type_information))
-                                            {
-                                                type_t* template_type = 
-                                                    template_specialized_type_get_related_template_type(actual_symbol->type_information);
-                                                actual_symbol = template_type_get_related_symbol(template_type);
-                                            }
-                                            // This is a constructor
-                                            class_type_add_copy_assignment_operator(get_actual_class_type(class_type), actual_symbol);
+                                            class_type_add_copy_assignment_operator(get_actual_class_type(class_type), entry);
                                         }
 
                                         // These are always static
@@ -7546,16 +7500,9 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                 case AST_CONVERSION_FUNCTION_ID :
                                     {
                                         entry->entity_specs.is_conversion = 1;
-                                        scope_entry_t* actual_symbol = entry;
-                                        if (is_template_specialized_type(entry->type_information))
-                                        {
-                                            type_t* template_type = 
-                                                template_specialized_type_get_related_template_type(actual_symbol->type_information);
-                                            actual_symbol = template_type_get_related_symbol(template_type);
-                                        }
 
                                         // This function checks for repeated symbols
-                                        class_type_add_conversion_function(get_actual_class_type(class_type), actual_symbol);
+                                        class_type_add_conversion_function(get_actual_class_type(class_type), entry);
                                         break;
                                     }
                                 case AST_QUALIFIED_ID :

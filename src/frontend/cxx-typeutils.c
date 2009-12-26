@@ -2652,7 +2652,7 @@ void class_type_add_static_data_member(type_t* class_type, scope_entry_t* entry)
 void class_type_add_member_function(type_t* class_type, scope_entry_t* entry)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-    P_LIST_ADD(class_type->type->class_info->member_functions, 
+    P_LIST_ADD_ONCE(class_type->type->class_info->member_functions, 
             class_type->type->class_info->num_member_functions, entry);
 }
 

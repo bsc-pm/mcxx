@@ -390,7 +390,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                         conv_funct->line);
             }
 
-            if (conv_funct->kind == SK_TEMPLATE)
+            if (is_template_specialized_type(conv_funct->type_information))
             {
                 DEBUG_CODE()
                 {
@@ -403,10 +403,10 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                 // This is a template so we have to get the proper specialization
 
                 // Get the primary specialization
-                type_t* specialization_function = template_type_get_primary_type(conv_funct->type_information);
+                type_t* specialization_function = get_user_defined_type(conv_funct);
                 // Get its template parameters
                 template_parameter_list_t* template_parameters 
-                    = template_specialized_type_get_template_parameters(specialization_function);
+                    = template_specialized_type_get_template_parameters(conv_funct->type_information);
 
                 deduction_set_t* deduction_result = NULL;
                 // Now deduce the arguments
@@ -431,7 +431,9 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                 template_argument_list_t* template_arguments = 
                     build_template_argument_list_from_deduction_set(deduction_result);
 
-                type_t* named_specialization_type = template_type_get_specialized_type(conv_funct->type_information,
+                type_t* template_type = template_specialized_type_get_related_template_type(conv_funct->type_information);
+
+                type_t* named_specialization_type = template_type_get_specialized_type(template_type,
                         template_arguments,
                         template_parameters,
                         decl_context, line, filename);
@@ -519,8 +521,16 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         if (is_named_class_type(class_type)
                 && class_type_is_incomplete_independent(get_actual_class_type(class_type)))
         {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "ICS: Instantiating destination type to get conversor constructors\n");
+            }
             scope_entry_t* symbol = named_type_get_symbol(class_type);
             instantiate_template_class(symbol, decl_context, filename, line);
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "ICS: Destination type instantiated\n");
+            }
         }
 
         int i;
@@ -542,7 +552,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                         constructor->line);
             }
 
-            if (constructor->kind == SK_TEMPLATE)
+            if (is_template_specialized_type(constructor->type_information))
             {
                 DEBUG_CODE()
                 {
@@ -555,10 +565,10 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                 // This is a template so we have to get the proper specialization
 
                 // Get the primary specialization
-                type_t* specialization_function = template_type_get_primary_type(constructor->type_information);
+                type_t* specialization_function = get_user_defined_type(constructor);
                 // Get its template parameters
                 template_parameter_list_t* template_parameters 
-                    = template_specialized_type_get_template_parameters(specialization_function);
+                    = template_specialized_type_get_template_parameters(constructor->type_information);
 
                 deduction_set_t* deduction_result = NULL;
                 // Now deduce the arguments
@@ -588,7 +598,9 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                 template_argument_list_t* template_arguments = 
                     build_template_argument_list_from_deduction_set(deduction_result);
 
-                type_t* named_specialization_type = template_type_get_specialized_type(constructor->type_information,
+                type_t* template_type = template_specialized_type_get_related_template_type(constructor->type_information);
+ 
+                type_t* named_specialization_type = template_type_get_specialized_type(template_type,
                         template_arguments,
                         template_parameters,
                         decl_context, line, filename); 

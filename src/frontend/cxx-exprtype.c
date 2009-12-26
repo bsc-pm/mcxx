@@ -5987,7 +5987,7 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
                     if (!entry->entity_specs.is_member
                             || entry->entity_specs.is_static)
                     {
-                        argument_type = entry->type_information;
+                        argument_type = get_lvalue_reference_type(entry->type_information);
                     }
                     else
                     {
@@ -6329,7 +6329,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                     if (!entry->entity_specs.is_member
                             || entry->entity_specs.is_static)
                     {
-                        argument_type = entry->type_information;
+                        argument_type = get_lvalue_reference_type(entry->type_information);
                     }
                     else
                     {
