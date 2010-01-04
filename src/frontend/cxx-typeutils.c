@@ -1435,7 +1435,8 @@ type_t* template_type_get_specialized_type(type_t* t,
     if (primary_symbol->kind == SK_CLASS)
     {
         if (has_dependent_temp_args
-                || primary_symbol->entity_specs.is_template_parameter)
+                || primary_symbol->entity_specs.is_template_parameter
+                || (template_type_get_nesting_level(t) > 1))
         {
             class_type_set_incomplete_dependent(specialized_type);
             class_type_set_is_dependent(specialized_type, 1);
