@@ -3146,7 +3146,13 @@ scope_entry_list_t* class_type_get_all_conversions(type_t* class_type, decl_cont
 
 type_t* advance_over_typedefs(type_t* t1)
 {
-    return advance_over_typedefs_with_cv_qualif(t1, NULL);
+    cv_qualifier_t cv = CV_NONE;
+    t1 = advance_over_typedefs_with_cv_qualif(t1, &cv);
+
+    if (cv != CV_NONE)
+        return get_cv_qualified_type(t1, cv);
+    else
+        return t1;
 }
 
 /*
@@ -5383,6 +5389,8 @@ static char declarator_needs_parentheses(type_t* type_info)
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
 
+    type_info = advance_over_typedefs(type_info);
+
     char result = 0;
     if (type_info->kind == TK_POINTER_TO_MEMBER
             || type_info->kind == TK_POINTER
@@ -5390,6 +5398,9 @@ static char declarator_needs_parentheses(type_t* type_info)
             || type_info->kind == TK_RVALUE_REFERENCE)
     {
         type_t* pointee = type_info->pointer->pointee;
+
+        pointee = advance_over_typedefs(pointee);
+
         result = (pointee->kind != TK_POINTER_TO_MEMBER
                 && pointee->kind != TK_POINTER
                 && pointee->kind != TK_LVALUE_REFERENCE
@@ -5413,26 +5424,19 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                 // Fix this
                 scope_entry_t* entry = simple_type->user_defined_type;
 
-                if (is_typedef_type(entry->type_information))
-                {
-                    result = get_declaration_string_internal(
-                            advance_over_typedefs(entry->type_information),
-                            decl_context,
-                            "", "", 0, NULL, NULL, 0);
-                }
-                else
-                {
-                    char is_dependent = 0;
-                    int max_level = 0;
-                    result = get_fully_qualified_symbol_name(entry,
-                            decl_context, &is_dependent, &max_level);
+                ERROR_CONDITION(is_typedef_type(entry->type_information),
+                        "typedefs are not allowed in this function", 0);
 
-                    // If is a dependent name and it is qualified then it can be
-                    // given a "typename" keyword (in some cases one must do that)
-                    if (is_dependent && max_level > 0)
-                    {
-                        result = strappend("typename ", result);
-                    }
+                char is_dependent = 0;
+                int max_level = 0;
+                result = get_fully_qualified_symbol_name(entry,
+                        decl_context, &is_dependent, &max_level);
+
+                // If is a dependent name and it is qualified then it can be
+                // given a "typename" keyword (in some cases one must do that)
+                if (is_dependent && max_level > 0)
+                {
+                    result = strappend("typename ", result);
                 }
                 break;
             }
@@ -5560,49 +5564,17 @@ const char* get_simple_type_name_string(decl_context_t decl_context, type_t* typ
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
 
     const char* result = "";
-    switch ((int)(type_info->kind))
+    
+    if (is_unresolved_overloaded_type(type_info))
     {
-        case TK_DIRECT :
-            {
-                result = get_cv_qualifier_string(type_info);
-                result = strappend(result, get_simple_type_name_string_internal(decl_context, type_info->type));
-                return result;
-                break;
-            }
-        case TK_FUNCTION :
-            {
-                if (type_info->function->return_type != NULL)
-                {
-                    result = get_simple_type_name_string(decl_context, type_info->function->return_type);
-                }
-                break;
-            }
-        case TK_POINTER :
-        case TK_LVALUE_REFERENCE :
-        case TK_RVALUE_REFERENCE :
-        case TK_POINTER_TO_MEMBER :
-            {
-                result = get_simple_type_name_string(decl_context, type_info->pointer->pointee);
-                break;
-            }
-        case TK_ARRAY :
-            {
-                result = get_simple_type_name_string(decl_context, type_info->array->element_type);
-                break;
-            }
-        case TK_VECTOR:
-            {
-                result = get_simple_type_name_string(decl_context, type_info->vector->element_type);
-                break;
-            }
-        case TK_OVERLOAD:
-            {
-                result = uniquestr("<unresolved overloaded function type>");
-                break;
-            }
-        default:
-            break;
+        result = uniquestr("<unresolved overloaded function type>");
     }
+    else
+    {
+        result = get_cv_qualifier_string(type_info);
+        result = strappend(result, get_simple_type_name_string_internal(decl_context, type_info->type));
+    }
+
     return result;
 }
 
@@ -5625,7 +5597,8 @@ const char* get_declaration_string_internal(type_t* type_info,
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
 
-    const char* base_type_name = get_simple_type_name_string(decl_context, type_info);
+    type_t* base_type = get_foundation_type(type_info);
+    const char* base_type_name = get_simple_type_name_string(decl_context, base_type);
     const char* declarator_name = get_type_name_string(decl_context, type_info, symbol_name, 
             num_parameter_names, parameter_names, is_parameter);
 
@@ -5826,6 +5799,13 @@ static void get_type_name_str_internal(decl_context_t decl_context,
         char is_parameter)
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
+
+    if (is_typedef_type(type_info))
+    {
+        cv_qualifier_t cv = CV_NONE;
+        type_info = advance_over_typedefs_with_cv_qualif(type_info, &cv);
+        type_info = get_cv_qualified_type(type_info, cv);
+    }
 
     switch (type_info->kind)
     {
@@ -8335,4 +8315,47 @@ const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const ch
                 /* parameter_names */ NULL,
                 /* is_parameter */ 0);
     }
+}
+
+// This function, given a type returns the type-specifier related to it
+//
+// e.g T (*a)[3]  returns 'T'
+//     const T& f(int)   returns 'const T' 
+//
+// so the type-specifier part of a type-id plus cv-qualifiers, if any
+type_t* get_foundation_type(struct type_tag* t)
+{
+    cv_qualifier_t cv = CV_NONE;
+    t = advance_over_typedefs_with_cv_qualif(t, &cv);
+
+    if (is_non_derived_type(t))
+    {
+        return get_cv_qualified_type(t, cv);
+    }
+    else if (is_function_type(t))
+    {
+        return get_foundation_type(function_type_get_return_type(t));
+    }
+    else if (is_pointer_type(t))
+    {
+        return get_foundation_type(pointer_type_get_pointee_type(t));
+    }
+    else if (is_rvalue_reference_type(t)
+            || is_lvalue_reference_type(t))
+    {
+        return get_foundation_type(reference_type_get_referenced_type(t));
+    }
+    else if (is_array_type(t))
+    {
+        return get_foundation_type(array_type_get_element_type(t));
+    }
+    else if (is_vector_type(t))
+    {
+        return get_foundation_type(vector_type_get_element_type(t));
+    }
+    else if (is_unresolved_overloaded_type(t))
+    {
+        return t;
+    }
+    internal_error("Cannot get foundation type of type '%s'", print_declarator(t));
 }

@@ -485,6 +485,8 @@ LIBMCXX_EXTERN void set_as_template_specialized_type(struct type_tag* type_to_sp
         template_parameter_list_t* template_parameters,
         struct type_tag* template_type);
 
+LIBMCXX_EXTERN struct type_tag* get_foundation_type(struct type_tag* t);
+
 /* Naming types functions */
 LIBMCXX_EXTERN const char* get_declaration_string_internal(struct type_tag* type_info, 
         decl_context_t decl_context,
