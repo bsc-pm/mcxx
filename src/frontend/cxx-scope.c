@@ -2408,7 +2408,7 @@ type_t* update_type(template_argument_list_t* given_template_args,
                         prettyprint_in_buffer(updated_expr));
             }
 
-            if (!is_dependent_expression(updated_expr, updated_expr_context)
+            if (!is_value_dependent_expression(updated_expr, updated_expr_context)
                     && (ASTExprType(updated_expr) == NULL
                         || !is_unresolved_overloaded_type(ASTExprType(updated_expr))))
             {
@@ -2550,7 +2550,7 @@ template_argument_t* update_template_argument(template_argument_list_t* given_te
 
                 type_t* expr_type = ASTExprType(result->expression);
                 // Fold the argument
-                if (!is_dependent_expression(result->expression, result->expression_context)
+                if (!is_value_dependent_expression(result->expression, result->expression_context)
                         && (expr_type == NULL
                             || !is_unresolved_overloaded_type(expr_type)))
                 {
@@ -2607,7 +2607,7 @@ template_argument_list_t* get_template_arguments_from_syntax(
 
                     type_t* expr_type = ASTExprType(t_argument->expression);
 
-                    if (!is_dependent_expression(t_argument->expression, 
+                    if (!is_value_dependent_expression(t_argument->expression, 
                                 t_argument->expression_context)
                             && (expr_type == NULL 
                                 || !is_unresolved_overloaded_type(expr_type)))
@@ -2966,7 +2966,7 @@ static scope_entry_list_t* query_template_id(AST template_id,
         {
             // The specialized type alwas has to be dependent to avoid
             // instantiating it
-            class_type_set_incomplete_dependent(named_type_get_symbol(specialized_type)->type_information);
+            // class_type_set_incomplete_dependent(named_type_get_symbol(specialized_type)->type_information);
         }
 
         ERROR_CONDITION(!is_named_type(specialized_type), "This should be a named type", 0);

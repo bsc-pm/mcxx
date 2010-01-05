@@ -682,7 +682,7 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
                     // Fold if possible
                     {
                         type_t* right_tree_type = ASTExprType(right_tree);
-                        if (!is_dependent_expression(right_tree, right_decl_context)
+                        if (!is_value_dependent_expression(right_tree, right_decl_context)
                                 && (right_tree_type == NULL
                                     || !is_unresolved_overloaded_type(right_tree_type)))
                         {

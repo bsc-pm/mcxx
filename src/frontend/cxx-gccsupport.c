@@ -136,7 +136,7 @@ static void gather_one_gcc_attribute(const char* attribute_name,
         AST argument = ASTSon1(expression_list);
         if (check_for_expression(argument, decl_context))
         {
-            if (!is_dependent_expression(argument, decl_context))
+            if (!is_value_dependent_expression(argument, decl_context))
             {
                 if (is_constant_expression(argument, decl_context))
                 {

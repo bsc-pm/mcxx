@@ -2098,8 +2098,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         }
     }
 
-    // Set it complete
-    enum_type_set_complete(enum_type);
+    set_is_complete_type(enum_type, /* is_complete */ 1);
 }
 
 void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t decl_context)
@@ -3333,12 +3332,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         class_type_set_inner_context(class_type, inner_decl_context);
     }
 
-    // Only define the class if we are not in template or 
-    // if we are, we are not in the middle of an instantiation
-    char define_class =
-        !BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE)
-        || !BITMAP_TEST(decl_context.decl_flags, DF_INSTANTIATING);
-
     ERROR_CONDITION(inner_decl_context.current_scope == NULL,
             "The inner context was incorrectly set", 0);
     
@@ -3360,116 +3353,81 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     if (decl_context.current_scope->kind == CLASS_SCOPE)
     {
         // If the enclosing class is dependent, so is this one
-        char c = class_type_get_is_dependent(class_type);
+        char c = is_dependent_type(class_type);
         type_t* enclosing_class_type = decl_context.current_scope->class_type;
-        c = c || class_type_get_is_dependent(enclosing_class_type);
-        class_type_set_is_dependent(class_type, c);
-    }
+        c = c || is_dependent_type(enclosing_class_type);
+        set_is_dependent_type(class_type, c);
 
-    // if (decl_context.current_scope->kind == CLASS_SCOPE
-    //         && class_entry == NULL
-    //         && BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS))
-    // {
-    //     // Anonymous things go in the same context
-    //     // of the enclosing class provided it does not have
-    //     // declarators
-    //     inner_decl_context = decl_context;
-    // }
+        class_type_set_enclosing_class_type(class_type, enclosing_class_type);
+    }
 
     // The inner scope is properly adjusted here thus we can link it with the AST
     scope_link_set(CURRENT_COMPILED_FILE->scope_link, a, inner_decl_context);
 
     // Build scope of members
     AST member_specification = ASTSon1(a);
-    if (define_class)
+
+    // Now add the bases
+    if (base_clause != NULL)
     {
-        // Now add the bases
-        if (base_clause != NULL)
+        DEBUG_CODE()
         {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "Adding the bases of this class\n");
-            }
-
-            build_scope_base_clause(base_clause, 
-                    class_type, 
-                    inner_decl_context);
-
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "Bases added\n");
-            }
+            fprintf(stderr, "Adding the bases of this class\n");
         }
 
-        // Inject the class symbol in the scope
-        CXX_LANGUAGE()
+        build_scope_base_clause(base_clause, 
+                class_type, 
+                inner_decl_context);
+
+        DEBUG_CODE()
         {
-            if (class_entry != NULL 
-                    && class_entry->symbol_name != NULL)
-            {
-                scope_entry_t* injected_symbol = new_symbol(inner_decl_context, 
-                        inner_decl_context.current_scope, 
-                        class_entry->symbol_name);
-
-                *injected_symbol = *class_entry;
-                injected_symbol->do_not_print = 1;
-
-                injected_symbol->entity_specs.is_injected_class_name = 1;
-                injected_symbol->entity_specs.injected_class_referred_symbol = class_entry;
-            }
-        }
-
-
-        access_specifier_t current_access;
-        // classes have a private by default
-        if (ASTType(class_key) == AST_CLASS_KEY_CLASS)
-        {
-            current_access = AS_PRIVATE;
-        }
-        // otherwise this is public (for union and structs)
-        else
-        {
-            current_access = AS_PUBLIC;
-        }
-
-        build_scope_member_specification(inner_decl_context, member_specification, 
-                current_access, *type_info);
-
-        if (class_entry != NULL)
-        {
-            // If the class had a name, it is completely defined here
-            class_entry->defined = 1;
+            fprintf(stderr, "Bases added\n");
         }
     }
-    
-    // Set the template nature of the class
-    if (is_template_specialized_type(class_type))
+
+    // Inject the class symbol in the scope
+    CXX_LANGUAGE()
     {
-        if (is_dependent_type(class_type))
+        if (class_entry != NULL 
+                && class_entry->symbol_name != NULL)
         {
-            class_type_set_complete_dependent(class_type);
+            scope_entry_t* injected_symbol = new_symbol(inner_decl_context, 
+                    inner_decl_context.current_scope, 
+                    class_entry->symbol_name);
+
+            *injected_symbol = *class_entry;
+            injected_symbol->do_not_print = 1;
+
+            injected_symbol->entity_specs.is_injected_class_name = 1;
+            injected_symbol->entity_specs.injected_class_referred_symbol = class_entry;
         }
-        else
-        {
-            class_type_set_complete_independent(class_type);
-        }
+    }
+
+    access_specifier_t current_access;
+    // classes have a private by default
+    if (ASTType(class_key) == AST_CLASS_KEY_CLASS)
+    {
+        current_access = AS_PRIVATE;
+    }
+    // otherwise this is public (for union and structs)
+    else
+    {
+        current_access = AS_PUBLIC;
+    }
+
+    build_scope_member_specification(inner_decl_context, member_specification, 
+            current_access, *type_info);
+
+    if (class_entry != NULL)
+    {
+        // If the class had a name, it is completely defined here
+        class_entry->defined = 1;
     }
     
     class_type_set_instantiation_trees(class_type, member_specification, base_clause);
 
-    CXX_LANGUAGE()
-    {
-        if (define_class)
-        {
-            finish_class_type(class_type, *type_info, decl_context, ASTFileName(a), ASTLine(a));
-            class_type_set_complete(class_type);
-        }
-    }
-    C_LANGUAGE()
-    {
-        finish_class_type(class_type, *type_info, decl_context, ASTFileName(a), ASTLine(a));
-        class_type_set_complete(class_type);
-    }
+    finish_class_type(class_type, *type_info, decl_context, ASTFileName(a), ASTLine(a));
+    set_is_complete_type(class_type, /* is_complete */ 1);
     
     // DO NOT run this before setting the nature of the class or we will try
     // to instantiate independent complete classes within member functions!
@@ -3897,7 +3855,7 @@ static void set_array_type(type_t** declarator_type,
                     prettyprint_in_buffer(constant_expr));
         }
 
-        if (!is_dependent_expression(constant_expr, decl_context))
+        if (!is_value_dependent_expression(constant_expr, decl_context))
         {
             if (!is_constant_expression(constant_expr, decl_context))
             {
@@ -6691,13 +6649,9 @@ scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl_contex
 
     if (BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
     {
-        if (BITMAP_TEST(decl_context.decl_flags, DF_EXPLICIT_SPECIALIZATION))
+        if (!BITMAP_TEST(decl_context.decl_flags, DF_EXPLICIT_SPECIALIZATION))
         {
-            function_type_set_complete_independent(entry->type_information);
-        }
-        else
-        {
-            function_type_set_complete_dependent(entry->type_information);
+            set_is_dependent_type(entry->type_information, /* is_dependent */ 1);
         }
     }
 

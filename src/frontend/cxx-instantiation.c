@@ -234,8 +234,11 @@ static void instantiate_specialized_template_class(type_t* selected_template,
      * Otherwise all the machinery would try to instantiate it again and again
      * (and this is not good at all).
      */
-    class_type_set_complete_independent(get_actual_class_type(being_instantiated));
-    class_type_set_being_instantiated(get_actual_class_type(being_instantiated), 1);
+    set_is_complete_type(being_instantiated, /* is_complete */ 1);
+    set_is_dependent_type(being_instantiated, /* is_dependent */ 0);
+
+    set_is_complete_type(get_actual_class_type(being_instantiated), /* is_complete */ 1);
+    set_is_dependent_type(get_actual_class_type(being_instantiated), /* is_dependent */ 0);
 
     if (instantiation_body != NULL)
     {
@@ -254,8 +257,6 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     // Finish the class
     finish_class_type(get_actual_class_type(being_instantiated), being_instantiated, 
             named_class->decl_context, filename, line);
-
-    class_type_set_being_instantiated(get_actual_class_type(being_instantiated), 0);
 
     DEBUG_CODE()
     {
