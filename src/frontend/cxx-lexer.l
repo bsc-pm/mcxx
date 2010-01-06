@@ -193,6 +193,7 @@ identifier {idnondigit}({idnondigit}|{digit})*
 %x linecomment
 %x preprocess
 %x pragma_line
+%x inline_pragma
 %x unknown_pragma
 %x pragma_custom_directive
 %x pragma_custom_clause
@@ -764,6 +765,26 @@ identifier {
 
 <preprocess>.       { /* ignore line */  }
 <preprocess>\n  { scanning_now.line_number++; BEGIN(INITIAL); }
+
+ /* _Pragma */
+"_Pragma" { BEGIN(inline_pragma); pragma_custom_var_list_parentheses = 0; }
+<inline_pragma>{
+"(" {
+    pragma_custom_var_list_parentheses++;
+}
+
+")" {
+    pragma_custom_var_list_parentheses--;
+
+    if (pragma_custom_var_list_parentheses == 0)
+        BEGIN(INITIAL);
+}
+
+ /* Ignore it */
+. {
+}
+      
+}
 
  /* C comments ( 6.4.9 ) */
 

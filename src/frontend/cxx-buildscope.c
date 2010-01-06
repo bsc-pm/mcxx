@@ -6321,13 +6321,6 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry UNUSED_P
     {
         internal_error("This function is intended only for C99", 0);
     }
-    AST kr_parameter_list = NULL;
-    
-    if (kr_parameters != NULL 
-            && ASTSon0(kr_parameters) != NULL)
-    {
-        kr_parameter_list = ASTSon0(kr_parameters);
-    }
 
     AST declaration_list = kr_parameter_declaration;
     AST iter;
@@ -6340,6 +6333,42 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry UNUSED_P
             AST simple_decl = ASTSon1(iter);
 
             build_scope_simple_declaration(simple_decl, decl_context);
+        }
+    }
+
+    // Perform some adjustments
+    if (kr_parameters != NULL)
+    {
+        AST kr_parameter_list = ASTSon0(kr_parameters);
+        int i = 0;
+        for_each_element(kr_parameter_list, iter)
+        {
+            AST kr_param = ASTSon1(iter);
+
+            scope_entry_list_t* entry_list = query_in_scope(decl_context, kr_param);
+            scope_entry_t* entry = NULL;
+            if (entry_list == NULL)
+            {
+                // Sign in an integer
+                
+                entry = new_symbol(decl_context, decl_context.current_scope, ASTText(kr_param));
+                entry->kind = SK_VARIABLE;
+                entry->type_information = get_signed_int_type();
+                entry->defined = 1;
+                entry->line = ASTLine(kr_param);
+                entry->file = ASTFileName(kr_param);
+                
+                entry->point_of_declaration = kr_param;
+            }
+            else
+            {
+                entry = entry_list->entry;
+            }
+
+            entry->entity_specs.is_parameter = 1;
+            entry->entity_specs.parameter_position = i;
+
+            i++;
         }
     }
 }
