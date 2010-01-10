@@ -31,6 +31,7 @@
 #include "cxx-typeutils.h"
 #include "cxx-cexpr.h"
 #include "cxx-ambiguity.h"
+#include "cxx-scope.h"
 
 #include "cxx-printscope.h"
 
@@ -56,6 +57,682 @@ static const char* get_name_of_template_parameter(
             nesting, position);
 }
 
+// Using tree
+// static void instantiate_specialized_template_class(type_t* selected_template,
+//         type_t* being_instantiated,
+//         deduction_set_t* unification_set,
+//         const char *filename, int line)
+// {
+//     DEBUG_CODE()
+//     {
+//         fprintf(stderr, "INSTANTIATION: About to instantiate class '%s'\n", 
+//                 named_type_get_symbol(being_instantiated)->symbol_name);
+//     }
+//     ERROR_CONDITION(!is_named_class_type(being_instantiated), "Must be a named class", 0);
+// 
+//     scope_entry_t* named_class = named_type_get_symbol(being_instantiated);
+// 
+//     AST instantiation_body = NULL;
+//     AST instantiation_base_clause = NULL;
+//     class_type_get_instantiation_trees(get_actual_class_type(selected_template), 
+//             &instantiation_body, &instantiation_base_clause);
+// 
+//     template_parameter_list_t* selected_template_parameters 
+//         = template_specialized_type_get_template_parameters(get_actual_class_type(selected_template));
+// 
+//     instantiation_body = ast_copy_for_instantiation(instantiation_body);
+//     instantiation_base_clause = ast_copy_for_instantiation(instantiation_base_clause);
+// 
+//     decl_context_t template_parameters_context = new_template_context(named_class->decl_context);
+//     // Clear the template nesting level, if we are instantiating it is conceptually 0
+//     template_parameters_context.decl_flags &= ~DF_TEMPLATE;
+//     template_parameters_context.decl_flags &= ~DF_EXPLICIT_SPECIALIZATION;
+//     template_parameters_context.template_nesting = 0;
+//     // Empty template parameters
+//     template_parameters_context.template_parameters = calloc(1, sizeof(*template_parameters_context));
+// 
+//     decl_context_t inner_decl_context = new_class_context(template_parameters_context, 
+//             /* FIXME the qualification name should be more useful */named_class->symbol_name,
+//             named_class->type_information);
+// 
+//     class_type_set_inner_context(named_class->type_information, inner_decl_context);
+// 
+//     DEBUG_CODE()
+//     {
+//         fprintf(stderr, "INSTANTIATION: Injecting template parameters\n");
+//     }
+// 
+//     int i;
+//     for (i = 0; i < unification_set->num_deductions; i++)
+//     {
+//         deduction_t* current_deduction = unification_set->deduction_list[i];
+// 
+//         ERROR_CONDITION(current_deduction->num_deduced_parameters != 1,
+//                 "Number of deduced parameters is not 1!", 0);
+// 
+//         int j;
+//         for (j = 0; j < current_deduction->num_deduced_parameters; j++)
+//         {
+//             const char* deduced_parameter_name = get_name_of_template_parameter(selected_template_parameters,
+//                     current_deduction->parameter_nesting,
+//                     current_deduction->parameter_position);
+//             switch (current_deduction->kind)
+//             {
+//                 case TPK_TYPE :
+//                     {
+//                         // Note that we sign in the symbol in template_scope and not in current_scope
+//                         scope_entry_t* injected_type = new_symbol(template_parameters_context, 
+//                                 template_parameters_context.template_scope, deduced_parameter_name);
+// 
+//                         // We use a typedef
+//                         injected_type->kind = SK_TYPEDEF;
+//                         injected_type->entity_specs.is_template_argument = 1;
+//                         injected_type->type_information = get_new_typedef(current_deduction->deduced_parameters[0]->type);
+//                         break;
+//                     }
+//                 case TPK_TEMPLATE :
+//                     {
+//                         // Note that we sign in the symbol in template_scope and not in current_scope
+//                         scope_entry_t* injected_type = new_symbol(template_parameters_context, 
+//                                 template_parameters_context.template_scope, deduced_parameter_name);
+// 
+//                         // The template type has to be used here
+//                         injected_type->kind = SK_TEMPLATE;
+//                         injected_type->entity_specs.is_template_argument = 1;
+//                         // These are always kept as named types in the compiler
+//                         injected_type->type_information = 
+//                             named_type_get_symbol(current_deduction->deduced_parameters[0]->type)->type_information;
+//                         break;
+//                     }
+//                 case TPK_NONTYPE :
+//                     {
+//                         scope_entry_t* injected_nontype = new_symbol(template_parameters_context, 
+//                                 template_parameters_context.template_scope, deduced_parameter_name);
+// 
+//                         injected_nontype->kind = SK_VARIABLE;
+//                         injected_nontype->entity_specs.is_template_argument = 1;
+//                         injected_nontype->type_information = current_deduction->deduced_parameters[0]->type;
+// 
+//                         // Fold it, as makes things easier
+//                         literal_value_t literal_value = evaluate_constant_expression(current_deduction->deduced_parameters[0]->expression,
+//                                 current_deduction->deduced_parameters[0]->decl_context);
+//                         AST evaluated_tree = tree_from_literal_value(literal_value);
+//                         AST fake_initializer = evaluated_tree;
+//                         injected_nontype->expression_value = fake_initializer;
+//                         break;
+//                     }
+//                 default:
+//                     {
+//                         internal_error("Invalid parameter kind", 0);
+//                     }
+//             }
+//         }
+// 
+//     }
+// 
+//     DEBUG_CODE()
+//     {
+//         fprintf(stderr, "INSTANTIATION: Template parameters injected\n");
+//     }
+// 
+//     DEBUG_CODE()
+//     {
+//         fprintf(stderr, "INSTANTIATION: Injected context\n");
+//         print_scope(inner_decl_context);
+//         fprintf(stderr, "INSTANTIATION: End of injected context \n");
+//     }
+// 
+//     enter_class_specifier();
+// 
+//     if (instantiation_base_clause != NULL)
+//     {
+//         build_scope_base_clause(instantiation_base_clause, 
+//                 get_actual_class_type(being_instantiated), 
+//                 inner_decl_context);
+//     }
+//     
+//     // Inject the class name
+//     scope_entry_t* injected_symbol = new_symbol(inner_decl_context, 
+//             inner_decl_context.current_scope, named_class->symbol_name);
+// 
+//     *injected_symbol = *named_class;
+// 
+//     injected_symbol->do_not_print = 1;
+//     injected_symbol->entity_specs.is_injected_class_name = 1;
+//     injected_symbol->entity_specs.injected_class_referred_symbol = named_class;
+// 
+//     /*
+//      * Note that the standard allows code like this one
+//      *
+//      * template <typename _T>
+//      * struct A { };
+//      *
+//      * template <>
+//      * struct A<int> 
+//      * {
+//      *   typedef int K;  (1)
+//      *   A<int>::K k;    (2)
+//      * };
+//      *
+//      * So we can use the name 'A<int>::K' inside the class provided 'K' has been declared
+//      * before the point we refer it (so: switching declarations (1) and (2) would not work).
+//      *
+//      * This also affects the injected class-name, so, for another example
+//      *
+//      * template <typename _T>
+//      * struct B
+//      * {
+//      *   typedef _T P;             (3)
+//      *   typename B::P k;          (4)
+//      * };
+//      *
+//      * Note that in a partial, or not at all, specialized class the injected
+//      * class name is dependent so 'typename' is mandatory (like in (4)). It is
+//      * redundant since the injected-class name obviously refers to the current
+//      * class so no ambiguity would arise between identifiers and typenames.
+//      * Seems that a DR has been filled on that.
+//      *
+//      * All this explanation is here just to justify that the class is already
+//      * complete and independent just before start the parsing of its members.
+//      * Otherwise all the machinery would try to instantiate it again and again
+//      * (and this is not good at all).
+//      */
+//     set_is_complete_type(being_instantiated, /* is_complete */ 1);
+//     set_is_dependent_type(being_instantiated, /* is_dependent */ 0);
+// 
+//     set_is_complete_type(get_actual_class_type(being_instantiated), /* is_complete */ 1);
+//     set_is_dependent_type(get_actual_class_type(being_instantiated), /* is_dependent */ 0);
+// 
+//     if (instantiation_body != NULL)
+//     {
+//         inner_decl_context.decl_flags |= DF_INSTANTIATING;
+// 
+//         // Fix this AS_PUBLIC one day
+//         build_scope_member_specification_first_step(inner_decl_context, instantiation_body, AS_PUBLIC,
+//                 being_instantiated);
+//     }
+// 
+//     // The symbol is defined after this
+//     named_class->defined = 1;
+// 
+//     leave_class_specifier();
+//     
+//     // Finish the class
+//     finish_class_type(get_actual_class_type(being_instantiated), being_instantiated, 
+//             named_class->decl_context, filename, line);
+// 
+//     DEBUG_CODE()
+//     {
+//         fprintf(stderr, "INSTANTIATION: End of instantiation of class '%s'\n", 
+//                 named_type_get_symbol(being_instantiated)->symbol_name);
+//     }
+// }
+//
+//
+//
+scope_entry_t* lookup_of_template_parameter(decl_context_t context, int template_parameter_nesting, int template_parameter_position)
+{
+    char tpl_param_name[256] = { 0 };
+
+    snprintf(tpl_param_name, 255, ".tpl_%d_%d",
+            template_parameter_nesting,
+            template_parameter_position);
+
+    scope_entry_list_t* entry_list = query_unqualified_name_str(context, tpl_param_name);
+
+    if (entry_list == NULL)
+        return NULL;
+    else
+        return entry_list->entry;
+}
+
+static scope_entry_list_t* filter_any_non_type(scope_entry_list_t* entry_list)
+{
+    // Filter the types
+    enum cxx_symbol_kind type_filter[] = {
+        SK_ENUM ,
+        SK_CLASS ,
+        SK_TYPEDEF ,
+        SK_TEMPLATE_TYPE_PARAMETER,
+        SK_TEMPLATE_TEMPLATE_PARAMETER,
+        SK_TEMPLATE,
+        SK_GCC_BUILTIN_TYPE
+    };
+
+    return filter_symbol_kind_set(entry_list, STATIC_ARRAY_LENGTH(type_filter), type_filter);
+}
+
+static type_t* update_type_instantiation(type_t* orig_type,
+        type_t* selected_template,
+        type_t* being_instantiated,
+        decl_context_t context_of_being_instantiated);
+
+static type_t* update_type_instantiation_aux_(type_t* orig_type,
+        type_t* selected_template,
+        type_t* being_instantiated,
+        decl_context_t context_of_being_instantiated)
+{
+    if (is_named_type(orig_type))
+    {
+        scope_entry_t* orig_entry = named_type_get_symbol(orig_type);
+
+        type_t* t = NULL;
+        if (orig_entry->kind == SK_TEMPLATE_TYPE_PARAMETER
+                || orig_entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+        {
+            orig_entry = lookup_of_template_parameter(context_of_being_instantiated,
+                    orig_entry->entity_specs.template_parameter_nesting,
+                    orig_entry->entity_specs.template_parameter_position);
+
+            t = orig_entry->type_information;
+        }
+        else if (orig_entry->entity_specs.is_member
+                && (get_actual_class_type(orig_entry->entity_specs.class_type) 
+                    == get_actual_class_type(selected_template)))
+        {
+            being_instantiated = get_actual_class_type(being_instantiated);
+            int i = 0;
+            scope_entry_t* chosen_typename = NULL;
+            for (i = 0; i < class_type_get_num_typenames(being_instantiated); i++)
+            {
+                scope_entry_t* current_entry = class_type_get_typename_num(being_instantiated, i);
+
+                if (strcmp(orig_entry->symbol_name, current_entry->symbol_name) == 0)
+                {
+                    chosen_typename = current_entry;
+                }
+            }
+
+            if (chosen_typename != NULL)
+            {
+                if (is_template_specialized_type(orig_type))
+                {
+                    internal_error("Not yet implemented", 0);
+                }
+                else
+                {
+                    t = get_user_defined_type(chosen_typename);
+                }
+            }
+        }
+        else
+        {
+            internal_error("Unexpected named type kind '%d'\n", orig_entry->kind);
+        }
+
+        if (t != NULL)
+        {
+            t = get_cv_qualified_type(t, get_cv_qualifier(orig_type));
+            return t;
+        }
+    }
+    else if (is_lvalue_reference_type(orig_type))
+    {
+        return get_lvalue_reference_type(
+                update_type_instantiation_aux_(
+                    reference_type_get_referenced_type(orig_type),
+                    selected_template,
+                    being_instantiated,
+                    context_of_being_instantiated)
+                );
+    }
+    else if (is_rvalue_reference_type(orig_type))
+    {
+        return get_rvalue_reference_type(
+                update_type_instantiation_aux_(
+                    reference_type_get_referenced_type(orig_type),
+                    selected_template,
+                    being_instantiated,
+                    context_of_being_instantiated)
+                );
+    }
+    else if (is_pointer_type(orig_type))
+    {
+        type_t* t = get_pointer_type(
+                update_type_instantiation_aux_(
+                    pointer_type_get_pointee_type(orig_type),
+                    selected_template,
+                    being_instantiated,
+                    context_of_being_instantiated)
+                );
+        if (t != NULL)
+        {
+            t = get_cv_qualified_type(t, get_cv_qualifier(orig_type));
+            return t;
+        }
+    }
+    else if (is_pointer_to_member_type(orig_type))
+    {
+        scope_entry_t* class_entry = pointer_to_member_type_get_class(orig_type);
+        type_t* pointed_type = pointer_type_get_pointee_type(orig_type);
+
+        type_t* updated_class = update_type_instantiation_aux_(
+                get_user_defined_type(class_entry),
+                selected_template,
+                being_instantiated,
+                context_of_being_instantiated);
+
+        type_t* updated_pointed_type = update_type_instantiation_aux_(
+                pointed_type,
+                selected_template,
+                being_instantiated,
+                context_of_being_instantiated);
+
+        if (updated_class != NULL
+                && updated_pointed_type != NULL)
+        {
+            type_t* t = get_pointer_to_member_type(updated_pointed_type, 
+                    named_type_get_symbol(updated_class));
+            t = get_cv_qualified_type(t, get_cv_qualifier(orig_type));
+            return t;
+        }
+    }
+    else if (is_array_type(orig_type))
+    {
+        type_t* t = get_array_type(
+                update_type_instantiation_aux_(
+                    array_type_get_element_type(orig_type),
+                    selected_template,
+                    being_instantiated,
+                    context_of_being_instantiated),
+                array_type_get_array_size_expr(orig_type),
+                context_of_being_instantiated
+                );
+
+        if (t != NULL)
+        {
+            t = get_cv_qualified_type(t, get_cv_qualifier(orig_type));
+            return t;
+        }
+    }
+    else if (is_function_type(orig_type))
+    {
+        type_t* return_type = function_type_get_return_type(orig_type);
+        char faulty = 0;
+        if (return_type != NULL)
+        {
+            return_type = update_type_instantiation_aux_(
+                    return_type,
+                    selected_template,
+                    being_instantiated,
+                    context_of_being_instantiated);
+
+            if (return_type == NULL)
+                faulty = 1;
+        }
+
+        if (!faulty)
+        {
+#define MAX_PARAMETERS (256)
+
+            parameter_info_t parameter_types[MAX_PARAMETERS];
+            memset(parameter_types, 0, sizeof(parameter_types));
+            int num_parameters = 0;
+            int last = function_type_get_num_parameters(orig_type);
+
+            char has_ellipsis = function_type_get_has_ellipsis(orig_type);
+
+            if (has_ellipsis)
+                last--;
+
+            int i;
+            for (i = 0; i < last && !faulty; i++)
+            {
+                type_t* param_orig_type = function_type_get_parameter_type_num(orig_type, i);
+
+                param_orig_type = update_type_instantiation_aux_(param_orig_type,
+                    selected_template,
+                    being_instantiated,
+                    context_of_being_instantiated);
+
+                if (param_orig_type == NULL)
+                {
+                    faulty = 1;
+                    break;
+                }
+
+                parameter_info_t parameter_info;
+
+                memset(&parameter_info, 0, sizeof(parameter_info));
+                parameter_info.type_info = param_orig_type;
+
+                ERROR_CONDITION(num_parameters >= MAX_PARAMETERS,
+                        "Too many parameters", 0);
+
+                parameter_types[num_parameters] = parameter_info;
+                num_parameters++;
+            }
+
+            if (!faulty)
+            {
+                if (has_ellipsis)
+                {
+                    parameter_info_t parameter_info;
+
+                    memset(&parameter_info, 0, sizeof(parameter_info));
+                    parameter_info.is_ellipsis = 1;
+
+                    ERROR_CONDITION(num_parameters >= MAX_PARAMETERS,
+                            "Too many parameters", 0);
+
+                    parameter_types[num_parameters] = parameter_info;
+                    num_parameters++;
+                }
+
+                type_t* updated_function_type = get_new_function_type(return_type,
+                        parameter_types, num_parameters);
+
+                cv_qualifier_t cv_qualif = get_cv_qualifier(orig_type);
+                updated_function_type = get_cv_qualified_type(updated_function_type, cv_qualif);
+
+                return updated_function_type;
+            }
+        }
+    }
+    else if (is_dependent_typename_type(orig_type))
+    {
+        decl_context_t dependent_decl_context;
+        scope_entry_t* dependent_entry = NULL;
+        AST nested_name = NULL;
+        AST unqualified_part = NULL;
+
+        dependent_typename_get_components(orig_type, 
+                &dependent_entry, &dependent_decl_context, 
+                &nested_name, &unqualified_part);
+
+        type_t* fixed_type = NULL;
+        fixed_type = update_type_instantiation_aux_(get_user_defined_type(dependent_entry),
+                selected_template,
+                being_instantiated,
+                context_of_being_instantiated);
+
+        if (fixed_type != NULL
+                && is_named_class_type(fixed_type))
+        {
+            // Now lookup again in this class
+            // Get the inner class
+            type_t* class_type = get_actual_class_type(fixed_type);
+
+            // Instantiate if needed
+            if (class_type_is_incomplete_independent(class_type))
+            {
+                internal_error("Not yet implemented", 0);
+                // instantiate_template_class(named_type_get_symbol(fixed_type),
+                //         template_arguments_context, filename, line);
+            }
+            else if (!class_type_is_incomplete_dependent(class_type)
+                    && !class_type_is_complete_dependent(class_type))
+            {
+                decl_context_t inner_context = class_type_get_inner_context(class_type);
+
+                scope_entry_list_t* result_list = query_nested_name(inner_context, 
+                        NULL, nested_name, unqualified_part);
+
+                result_list = filter_any_non_type(result_list);
+
+                if (result_list == NULL)
+                {
+                    return NULL;
+                }
+
+                scope_entry_t* entry = result_list->entry;
+
+                return entry->type_information;
+            }
+        }
+    }
+    else
+    {
+        // No need to update
+        return orig_type;
+    }
+
+    return NULL;
+}
+
+static type_t* update_type_instantiation(type_t* orig_type,
+        type_t* selected_template,
+        type_t* being_instantiated,
+        decl_context_t context_of_being_instantiated)
+{
+    fprintf(stderr, "[INSTANTIATION] Input type '%s'\n", print_declarator(orig_type));
+    type_t* t = update_type_instantiation_aux_(orig_type,
+            selected_template,
+            being_instantiated,
+            context_of_being_instantiated);
+    if (t != NULL)
+    {
+        fprintf(stderr, "[INSTANTIATION] Output type '%s'\n", print_declarator(t));
+    }
+    else
+    {
+        fprintf(stderr, "[INSTANTIATION] No output type!\n");
+    }
+
+    return t;
+}
+
+static void instantiate_member(type_t* selected_template, 
+        type_t* being_instantiated, 
+        scope_entry_t* member_of_template, 
+        decl_context_t context_of_being_instantiated)
+{
+    fprintf(stderr, "[INSTANTIATION] Instantiating member '%s'\n", 
+            member_of_template->symbol_name);
+    scope_entry_t* new_member = new_symbol(context_of_being_instantiated, 
+            context_of_being_instantiated.current_scope,
+            member_of_template->symbol_name);
+
+    *new_member = *member_of_template;
+
+    new_member->decl_context = context_of_being_instantiated;
+    new_member->entity_specs.class_type = being_instantiated;
+    class_type_add_member(get_actual_class_type(being_instantiated), new_member);
+
+    switch (member_of_template->kind)
+    {
+        case SK_VARIABLE:
+            {
+                new_member->type_information = update_type_instantiation(
+                        new_member->type_information,
+                        selected_template,
+                        being_instantiated,
+                        context_of_being_instantiated);
+
+                if (new_member->entity_specs.is_bitfield)
+                {
+                    internal_error("Not yet implemented", 0);
+                }
+                else
+                {
+                    if (new_member->entity_specs.is_static)
+                    {
+                        class_type_add_static_data_member(get_actual_class_type(being_instantiated), new_member);
+                    }
+                    else
+                    {
+                        class_type_add_nonstatic_data_member(get_actual_class_type(being_instantiated), new_member);
+                    }
+                }
+                break;
+            }
+        case SK_TYPEDEF:
+            {
+                new_member->type_information = get_new_typedef(update_type_instantiation(
+                        new_member->type_information,
+                        selected_template,
+                        being_instantiated,
+                        context_of_being_instantiated));
+                class_type_add_typename(get_actual_class_type(being_instantiated), new_member);
+
+                break;
+            }
+        case SK_ENUM:
+            {
+                internal_error("Not yet implemented", 0);
+                break;
+            }
+        case SK_CLASS:
+            {
+                template_parameter_list_t* tpl_empty = calloc(1, sizeof(*tpl_empty));
+
+                type_t* template_type = get_new_template_type(tpl_empty, member_of_template->type_information, 
+                        new_member->symbol_name, context_of_being_instantiated, new_member->line, new_member->file);
+
+                type_t* primary_specialization = named_type_get_symbol(template_type_get_primary_type(template_type))->type_information;
+
+                set_is_complete_type(primary_specialization, /* is_complete */ 1);
+
+                template_argument_list_t *tpl_arg_empty = calloc(1, sizeof(*tpl_arg_empty));
+
+                // FIXME - Update class type internal class info -> trees, at least
+                new_member->type_information = 
+                    named_type_get_symbol(
+                    template_type_get_specialized_type(template_type,
+                            tpl_arg_empty,
+                            tpl_empty,
+                            context_of_being_instantiated,
+                            new_member->line, new_member->file))->type_information;
+
+                AST orig_bases_tree, orig_body_tree;
+                class_type_get_instantiation_trees(member_of_template->type_information,
+                        &orig_body_tree, &orig_bases_tree);
+
+                class_type_set_instantiation_trees(get_actual_class_type(new_member->type_information),
+                        orig_body_tree, orig_bases_tree);
+
+                set_is_complete_type(new_member->type_information, /* is_complete */ 0);
+                set_is_dependent_type(new_member->type_information, /* is_dependent */ 0);
+
+                class_type_add_typename(get_actual_class_type(being_instantiated), new_member);
+                break;
+            }
+        case SK_TEMPLATE:
+            {
+                internal_error("Not yet implemented!\n", 0);
+                break;
+            }
+        case SK_FUNCTION:
+            {
+                // FIXME - Maybe we should create also a 0-template like in classes?
+                new_member->type_information = update_type_instantiation(
+                        new_member->type_information,
+                        selected_template,
+                        being_instantiated,
+                        context_of_being_instantiated);
+
+                class_type_add_member_function(get_actual_class_type(being_instantiated), new_member);
+
+                break;
+            }
+        default:
+            {
+                internal_error("Unexpected member kind=%d\n", member_of_template->kind);
+            }
+    }
+}
+
+// Using typesystem
 static void instantiate_specialized_template_class(type_t* selected_template,
         type_t* being_instantiated,
         deduction_set_t* unification_set,
@@ -86,7 +763,8 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     template_parameters_context.decl_flags &= ~DF_TEMPLATE;
     template_parameters_context.decl_flags &= ~DF_EXPLICIT_SPECIALIZATION;
     template_parameters_context.template_nesting = 0;
-    template_parameters_context.template_parameters = NULL;
+    // Empty template parameters
+    template_parameters_context.template_parameters = calloc(1, sizeof(*template_parameters_context.template_parameters));
 
     decl_context_t inner_decl_context = new_class_context(template_parameters_context, 
             /* FIXME the qualification name should be more useful */named_class->symbol_name,
@@ -113,6 +791,15 @@ static void instantiate_specialized_template_class(type_t* selected_template,
             const char* deduced_parameter_name = get_name_of_template_parameter(selected_template_parameters,
                     current_deduction->parameter_nesting,
                     current_deduction->parameter_position);
+
+            char tpl_param_name[256] = { 0 };
+
+            snprintf(tpl_param_name, 255, ".tpl_%d_%d",
+                    current_deduction->parameter_nesting,
+                    current_deduction->parameter_position);
+            scope_entry_t* param_symbol = new_symbol(template_parameters_context,
+                    template_parameters_context.template_scope, tpl_param_name);
+
             switch (current_deduction->kind)
             {
                 case TPK_TYPE :
@@ -125,6 +812,11 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                         injected_type->kind = SK_TYPEDEF;
                         injected_type->entity_specs.is_template_argument = 1;
                         injected_type->type_information = get_new_typedef(current_deduction->deduced_parameters[0]->type);
+
+                        param_symbol->kind = injected_type->kind;
+                        param_symbol->entity_specs = injected_type->entity_specs;
+                        param_symbol->type_information = injected_type->type_information;
+
                         break;
                     }
                 case TPK_TEMPLATE :
@@ -139,6 +831,10 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                         // These are always kept as named types in the compiler
                         injected_type->type_information = 
                             named_type_get_symbol(current_deduction->deduced_parameters[0]->type)->type_information;
+
+                        param_symbol->kind = injected_type->kind;
+                        param_symbol->entity_specs = injected_type->entity_specs;
+                        param_symbol->type_information = injected_type->type_information;
                         break;
                     }
                 case TPK_NONTYPE :
@@ -156,6 +852,11 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                         AST evaluated_tree = tree_from_literal_value(literal_value);
                         AST fake_initializer = evaluated_tree;
                         injected_nontype->expression_value = fake_initializer;
+
+                        param_symbol->kind = injected_nontype->kind;
+                        param_symbol->entity_specs = injected_nontype->entity_specs;
+                        param_symbol->type_information = injected_nontype->type_information;
+                        param_symbol->expression_value = injected_nontype->expression_value;
                         break;
                     }
                 default:
@@ -179,13 +880,12 @@ static void instantiate_specialized_template_class(type_t* selected_template,
         fprintf(stderr, "INSTANTIATION: End of injected context \n");
     }
 
-    enter_class_specifier();
-
     if (instantiation_base_clause != NULL)
     {
-        build_scope_base_clause(instantiation_base_clause, 
-                get_actual_class_type(being_instantiated), 
-                inner_decl_context);
+        internal_error("FIXME instantiation of bases", 0);
+        // build_scope_base_clause(instantiation_base_clause, 
+        //         get_actual_class_type(being_instantiated), 
+        //         inner_decl_context);
     }
     
     // Inject the class name
@@ -240,20 +940,21 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     set_is_complete_type(get_actual_class_type(being_instantiated), /* is_complete */ 1);
     set_is_dependent_type(get_actual_class_type(being_instantiated), /* is_dependent */ 0);
 
-    if (instantiation_body != NULL)
-    {
-        inner_decl_context.decl_flags |= DF_INSTANTIATING;
+    int num_members = class_type_get_num_members(get_actual_class_type(selected_template));
 
-        // Fix this AS_PUBLIC one day
-        build_scope_member_specification_first_step(inner_decl_context, instantiation_body, AS_PUBLIC,
-                being_instantiated);
+    for (i = 0; i < num_members; i++)
+    {
+        scope_entry_t* member = class_type_get_member_num(get_actual_class_type(selected_template), i);
+
+        instantiate_member(selected_template, 
+                being_instantiated, 
+                member, 
+                inner_decl_context);
     }
 
     // The symbol is defined after this
     named_class->defined = 1;
 
-    leave_class_specifier();
-    
     // Finish the class
     finish_class_type(get_actual_class_type(being_instantiated), being_instantiated, 
             named_class->decl_context, filename, line);

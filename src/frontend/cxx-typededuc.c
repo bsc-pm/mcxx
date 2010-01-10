@@ -257,7 +257,7 @@ char deduce_template_arguments_common(
 
     // Several checks must be performed here when deducing P/A
     // 1. Something must have been deduced
-    char something_deduced = 0;
+    char something_deduced = (template_parameters->num_template_parameters == 0);
     for (i = 0; i < num_deduction_slots; i++)
     {
         something_deduced |= (deductions[i]->num_deductions > 0);

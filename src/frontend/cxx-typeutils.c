@@ -150,6 +150,10 @@ struct class_information_tag {
 
     // The inner decl context created by this class
     decl_context_t inner_decl_context;
+    
+    // All members must be here, but can also be in lists below
+    int num_members;
+    struct scope_entry_tag** members;
 
     // Destructor
     struct scope_entry_tag* destructor;
@@ -1104,6 +1108,7 @@ static template_argument_list_t* compute_arguments_primary(template_parameter_li
 }
 
 static type_t* _get_duplicated_function_type(type_t* function_type);
+static type_t* _get_duplicated_class_type(type_t* function_type);
 
 type_t* get_new_template_type(template_parameter_list_t* template_parameter_list, type_t* primary_type,
         const char* template_name, decl_context_t decl_context, int line, const char* filename)
@@ -1121,6 +1126,7 @@ type_t* get_new_template_type(template_parameter_list_t* template_parameter_list
     if (is_unnamed_class_type(primary_type))
     {
         primary_symbol->kind = SK_CLASS;
+        primary_type = _get_duplicated_class_type(primary_type);
     }
     else if (is_function_type(primary_type))
     {
@@ -1143,13 +1149,20 @@ type_t* get_new_template_type(template_parameter_list_t* template_parameter_list
     primary_type->template_parameters = template_parameter_list;
     primary_type->related_template_type = type_info;
 
-    set_is_incomplete_type(primary_type, /* is_incomplete */ 1);
-    set_is_dependent_type(primary_type, 1);
+    if (template_parameter_list->num_template_parameters != 0)
+    {
+        set_is_dependent_type(primary_type, 1);
+    }
+    else
+    {
+        set_is_dependent_type(primary_type, 0);
+    }
 
     type_info->type->primary_specialization = get_user_defined_type(primary_symbol);
 
     return type_info;
 }
+
 
 void set_as_template_specialized_type(type_t* type_to_specialize, 
         template_argument_list_t * template_arguments, 
@@ -1351,7 +1364,10 @@ type_t* template_type_get_specialized_type(type_t* t,
                     entry->line);
         }
 
-        if (same_template_argument_list(template_argument_list, arguments))
+        if (same_template_argument_list(template_argument_list, arguments)
+                // If this template type is 0-parameterized, the primary never matches
+                && !(specialization == template_type_get_primary_type(t)
+                    && template_type_get_template_parameters(t)->num_template_parameters == 0))
         {
             DEBUG_CODE()
             {
@@ -2135,6 +2151,20 @@ static type_t* _get_new_function_type(type_t* t, parameter_info_t* parameter_inf
     return result;
 }
 
+static type_t* _get_duplicated_class_type(type_t* class_type)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type!", 0);
+
+    type_t* result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
+    *result = *class_type;
+
+    // This is the only part relevant for duplication
+    result->info = counted_calloc(1, sizeof(*result->info), &_bytes_due_to_type_system);
+    *result->info = *class_type->info;
+
+    return result;
+}
+
 static type_t* _get_duplicated_function_type(type_t* function_type)
 {
     ERROR_CONDITION(!is_function_type(function_type), "This is not a function type!", 0);
@@ -2675,6 +2705,14 @@ void class_type_add_typename(type_t* class_type, scope_entry_t* entry)
             class_type->type->class_info->num_typenames, entry);
 }
 
+void class_type_add_member(type_t* class_type, scope_entry_t* entry)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+
+    P_LIST_ADD(class_type->type->class_info->members, 
+            class_type->type->class_info->num_members, entry);
+}
+
 void class_type_set_instantiation_trees(type_t* t, AST body, AST base_clause)
 {
     ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);
@@ -3007,6 +3045,18 @@ struct scope_entry_tag* class_type_get_typename_num(struct type_tag* class_type,
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
     return class_type->type->class_info->typenames[num];
+}
+
+int class_type_get_num_members(struct type_tag* class_type)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+    return class_type->type->class_info->num_members;
+}
+
+struct scope_entry_tag* class_type_get_member_num(struct type_tag* class_type, int num)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+    return class_type->type->class_info->members[num];
 }
 
 scope_entry_list_t* class_type_get_all_conversions(type_t* class_type, decl_context_t decl_context)

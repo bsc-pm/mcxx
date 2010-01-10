@@ -232,7 +232,8 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
 
             // If t1 is a template-template parameter it means that t1 can be
             // unified to the template type of t2
-            if (t1_related_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+            if (t1_related_symbol != NULL
+                    && t1_related_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
             {
                 DEBUG_CODE()
                 {

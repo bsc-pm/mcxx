@@ -3428,6 +3428,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
     finish_class_type(class_type, *type_info, decl_context, ASTFileName(a), ASTLine(a));
     set_is_complete_type(class_type, /* is_complete */ 1);
+    set_is_complete_type(get_actual_class_type(class_type), /* is_complete */ 1);
     
     // DO NOT run this before setting the nature of the class or we will try
     // to instantiate independent complete classes within member functions!
@@ -7110,14 +7111,9 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
     }
     entry->entity_specs.is_member = 1;
     entry->entity_specs.class_type = class_info;
+    class_type_add_member(get_actual_class_type(class_type), entry);
 
-    // Only define the function if we are not instantiating
-    char define_function =
-        !BITMAP_TEST(decl_context.decl_flags, DF_INSTANTIATING);
-    if (define_function)
-    {
-        build_scope_delayed_add_delayed_function_def(a, decl_context);
-    }
+    build_scope_delayed_add_delayed_function_def(a, decl_context);
 
     return entry;
 }
@@ -7191,6 +7187,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                 entry->entity_specs.is_member = 1;
                 entry->entity_specs.class_type = class_info;
+                class_type_add_member(get_actual_class_type(class_type), entry);
 
                 // Register the typename
                 class_type_add_typename(get_actual_class_type(class_type), entry);
@@ -7261,6 +7258,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                         bitfield_symbol->entity_specs.is_member = 1;
                         bitfield_symbol->entity_specs.class_type = class_info;
+                        class_type_add_member(get_actual_class_type(class_type), bitfield_symbol);
 
                         if (gather_info.is_static)
                         {
@@ -7397,6 +7395,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         }
                         entry->entity_specs.is_member = 1;
                         entry->entity_specs.class_type = class_info;
+                        class_type_add_member(get_actual_class_type(class_type), entry);
 
                         if (entry->kind == SK_FUNCTION)
                         {
