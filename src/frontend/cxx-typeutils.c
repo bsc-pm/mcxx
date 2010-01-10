@@ -185,6 +185,10 @@ struct class_information_tag {
     int num_static_data_members;
     struct scope_entry_tag** static_data_members;
 
+    // Typenames (either typedefs, enums or inner classes)
+    int num_typenames;
+    struct scope_entry_tag** typenames;
+
     // Base (parent classes) info
     int num_bases;
     base_class_info_t** base_classes_list;
@@ -2657,6 +2661,20 @@ void class_type_add_member_function(type_t* class_type, scope_entry_t* entry)
             class_type->type->class_info->num_member_functions, entry);
 }
 
+void class_type_add_typename(type_t* class_type, scope_entry_t* entry)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+
+    ERROR_CONDITION(entry->kind != SK_TYPEDEF
+            && entry->kind != SK_CLASS
+            && entry->kind != SK_ENUM
+            && entry->kind != SK_TEMPLATE,
+            "Invalid member typename", 0);
+
+    P_LIST_ADD_ONCE(class_type->type->class_info->typenames, 
+            class_type->type->class_info->num_typenames, entry);
+}
+
 void class_type_set_instantiation_trees(type_t* t, AST body, AST base_clause)
 {
     ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);
@@ -2977,6 +2995,18 @@ scope_entry_t* class_type_get_conversion_num(type_t* class_type, int num)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
     return class_type->type->class_info->conversion_functions[num];
+}
+
+int class_type_get_num_typenames(struct type_tag* class_type)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+    return class_type->type->class_info->num_typenames;
+}
+
+struct scope_entry_tag* class_type_get_typename_num(struct type_tag* class_type, int num)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+    return class_type->type->class_info->typenames[num];
 }
 
 scope_entry_list_t* class_type_get_all_conversions(type_t* class_type, decl_context_t decl_context)

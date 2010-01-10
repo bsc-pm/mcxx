@@ -167,6 +167,8 @@ LIBMCXX_EXTERN void class_type_set_default_constructor(struct type_tag* t, struc
 LIBMCXX_EXTERN void class_type_add_member_function(struct type_tag* t, struct scope_entry_tag* entry);
 LIBMCXX_EXTERN void class_type_set_enclosing_class_type(struct type_tag* t, struct type_tag* class_type);
 
+LIBMCXX_EXTERN void class_type_add_typename(struct type_tag* t, struct scope_entry_tag* class_type);
+
 LIBMCXX_EXTERN void enum_type_add_enumerator(struct type_tag* t, struct scope_entry_tag* entry);
 
 LIBMCXX_EXTERN void set_is_incomplete_type(type_t* t, char is_incomplete);
@@ -359,6 +361,9 @@ LIBMCXX_EXTERN struct scope_entry_tag* class_type_get_member_function_num(struct
 
 LIBMCXX_EXTERN int class_type_get_num_conversions(struct type_tag* t);
 LIBMCXX_EXTERN struct scope_entry_tag* class_type_get_conversion_num(struct type_tag* t, int num);
+
+LIBMCXX_EXTERN int class_type_get_num_typenames(struct type_tag* t);
+LIBMCXX_EXTERN struct scope_entry_tag* class_type_get_typename_num(struct type_tag* t, int num);
 
 LIBMCXX_EXTERN scope_entry_list_t* class_type_get_all_virtual_functions(type_t* class_type);
 

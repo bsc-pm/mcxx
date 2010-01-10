@@ -7143,13 +7143,12 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
     else if (is_unnamed_class_type(class_info))
     {
         class_type = class_info;
-        // class_name remains as empty 
+        // class_name remains empty 
     }
     else
     {
         internal_error("Type is not a class type", 0);
     }
-
 
     type_t* member_type = NULL;
 
@@ -7179,7 +7178,9 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
             // Only in these two cases we will have types defined
             // within the class
             if (ASTType(type_specifier) == AST_CLASS_SPECIFIER
-                    || ASTType(type_specifier) == AST_ENUM_SPECIFIER)
+                    || ASTType(type_specifier) == AST_ELABORATED_TYPE_CLASS
+                    || ASTType(type_specifier) == AST_ENUM_SPECIFIER
+                    || ASTType(type_specifier) == AST_ELABORATED_TYPE_ENUM)
             {
                 scope_entry_t* entry = named_type_get_symbol(member_type);
                 DEBUG_CODE()
@@ -7190,6 +7191,9 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                 entry->entity_specs.is_member = 1;
                 entry->entity_specs.class_type = class_info;
+
+                // Register the typename
+                class_type_add_typename(get_actual_class_type(class_type), entry);
             }
         }
 
@@ -7524,6 +7528,12 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                 class_type_add_static_data_member(get_actual_class_type(class_type), entry);
                             }
                         }
+                        else if (entry->kind == SK_TYPEDEF
+                                || entry->kind == SK_TEMPLATE)
+                        {
+                            class_type_add_typename(get_actual_class_type(class_type), entry);
+                        }
+
                         if (initializer != NULL)
                         {
                             check_for_initialization(initializer,
