@@ -122,10 +122,6 @@ LIBMCXX_EXTERN template_argument_list_t* get_template_arguments_from_syntax(
         int nesting_level);
 
 // Template things, should be moved to typeutils
-LIBMCXX_EXTERN template_argument_t* update_template_argument(template_argument_list_t* given_template_args,
-        template_argument_t* current_template_arg,
-        decl_context_t template_arguments_context,
-        const char *filename, int line);
 LIBMCXX_EXTERN struct type_tag* update_type(template_argument_list_t* given_template_args,
         struct type_tag* orig_type, 
         decl_context_t template_arguments_context,

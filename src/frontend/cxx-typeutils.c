@@ -1131,7 +1131,6 @@ type_t* get_new_template_type(template_parameter_list_t* template_parameter_list
     else if (is_function_type(primary_type))
     {
         primary_symbol->kind = SK_FUNCTION;
-        // Duplicate the primary type
         primary_type = _get_duplicated_function_type(primary_type);
     }
     else
@@ -2158,9 +2157,15 @@ static type_t* _get_duplicated_class_type(type_t* class_type)
     type_t* result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
     *result = *class_type;
 
-    // This is the only part relevant for duplication
+    // These are the parts relevant for duplication
     result->info = counted_calloc(1, sizeof(*result->info), &_bytes_due_to_type_system);
     *result->info = *class_type->info;
+
+    result->type = counted_calloc(1, sizeof(*result->type), &_bytes_due_to_type_system);
+    *result->type = *class_type->type;
+
+    result->type->class_info = counted_calloc(1, sizeof(*result->type->class_info), &_bytes_due_to_type_system);
+    *result->type->class_info = *class_type->type->class_info;
 
     return result;
 }

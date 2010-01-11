@@ -328,7 +328,8 @@ static type_t* update_type_instantiation_aux_(type_t* orig_type,
         }
         else if (orig_entry->entity_specs.is_member
                 && (get_actual_class_type(orig_entry->entity_specs.class_type) 
-                    == get_actual_class_type(selected_template)))
+                    == get_actual_class_type(selected_template))
+                && !is_template_specialized_type(orig_entry->type_information))
         {
             being_instantiated = get_actual_class_type(being_instantiated);
             int i = 0;
@@ -345,15 +346,75 @@ static type_t* update_type_instantiation_aux_(type_t* orig_type,
 
             if (chosen_typename != NULL)
             {
-                if (is_template_specialized_type(orig_type))
-                {
-                    internal_error("Not yet implemented", 0);
-                }
-                else
-                {
-                    t = get_user_defined_type(chosen_typename);
-                }
+                t = get_user_defined_type(chosen_typename);
             }
+        }
+        else if (is_template_specialized_type(orig_entry->type_information))
+        {
+            type_t* template_type = 
+                template_specialized_type_get_related_template_type(orig_entry->type_information);
+            template_parameter_list_t* template_parameters = template_type_get_template_parameters(template_type);
+
+            // FIXME - Template-template parameters
+            // template_related_symbol may be NULL
+            // scope_entry_t* template_related_symbol =
+            //     template_type_get_related_symbol(template_type);
+
+            template_argument_list_t* updated_template_arguments = 
+                calloc(1, sizeof(*updated_template_arguments));
+
+            template_argument_list_t* template_arguments = 
+                template_specialized_type_get_template_arguments(orig_entry->type_information);
+
+            int i;
+            for (i = 0; i < template_arguments->num_arguments; i++)
+            {
+                template_argument_t* current_template_arg = template_arguments->argument_list[i];
+
+                template_argument_t* result = calloc(1, sizeof(*result));
+                result->kind = current_template_arg->kind;
+
+                switch (current_template_arg->kind)
+                {
+                    case TAK_TYPE:
+                    case TAK_TEMPLATE:
+                        {
+                            result->type = update_type_instantiation_aux_(
+                                    current_template_arg->type,
+                                    selected_template,
+                                    being_instantiated,
+                                    context_of_being_instantiated);
+                            break;
+                        }
+                    case TAK_NONTYPE:
+                        {
+                            result->type = update_type_instantiation_aux_(
+                                    current_template_arg->type,
+                                    selected_template,
+                                    being_instantiated,
+                                    context_of_being_instantiated);
+                            internal_error("Not implemented yet for nontype template parameters", 0);
+                            break;
+                        }
+                    default:
+                        {
+                            internal_error("Invalid argument kind", 0);
+                        }
+                        break;
+                }
+
+                P_LIST_ADD(updated_template_arguments->argument_list, updated_template_arguments->num_arguments, result);
+            }
+
+            // Get a new specialization
+            t = template_type_get_specialized_type(
+                    template_type,
+                    updated_template_arguments,
+                    template_parameters,
+                    context_of_being_instantiated,
+                    orig_entry->line, orig_entry->file);
+            t = get_cv_qualified_type(t, get_cv_qualifier(orig_type));
+            return t;
         }
         else
         {
@@ -581,6 +642,16 @@ static type_t* update_type_instantiation_aux_(type_t* orig_type,
             }
         }
     }
+    else if (is_typedef_type(orig_type))
+    {
+        type_t* t = typedef_type_get_aliased_type(orig_type);
+        t = update_type_instantiation_aux_(t,
+                selected_template,
+                being_instantiated,
+                context_of_being_instantiated);
+
+        return get_new_typedef(t);
+    }
     else
     {
         // No need to update
@@ -595,30 +666,27 @@ static type_t* update_type_instantiation(type_t* orig_type,
         type_t* being_instantiated,
         decl_context_t context_of_being_instantiated)
 {
-    fprintf(stderr, "[INSTANTIATION] Input type '%s'\n", print_declarator(orig_type));
+    fprintf(stderr, "INSTANTIATION: Input type '%s'\n", print_declarator(orig_type));
     type_t* t = update_type_instantiation_aux_(orig_type,
             selected_template,
             being_instantiated,
             context_of_being_instantiated);
     if (t != NULL)
     {
-        fprintf(stderr, "[INSTANTIATION] Output type '%s'\n", print_declarator(t));
+        fprintf(stderr, "INSTANTIATION: Output type '%s'\n", print_declarator(t));
     }
     else
     {
-        fprintf(stderr, "[INSTANTIATION] No output type!\n");
+        fprintf(stderr, "INSTANTIATION: No output type!\n");
     }
 
     return t;
 }
 
-static void instantiate_member(type_t* selected_template, 
-        type_t* being_instantiated, 
-        scope_entry_t* member_of_template, 
-        decl_context_t context_of_being_instantiated)
+static scope_entry_t* add_duplicate_member_to_class(decl_context_t context_of_being_instantiated,
+        type_t* being_instantiated,
+        scope_entry_t* member_of_template)
 {
-    fprintf(stderr, "[INSTANTIATION] Instantiating member '%s'\n", 
-            member_of_template->symbol_name);
     scope_entry_t* new_member = new_symbol(context_of_being_instantiated, 
             context_of_being_instantiated.current_scope,
             member_of_template->symbol_name);
@@ -627,12 +695,27 @@ static void instantiate_member(type_t* selected_template,
 
     new_member->decl_context = context_of_being_instantiated;
     new_member->entity_specs.class_type = being_instantiated;
+
     class_type_add_member(get_actual_class_type(being_instantiated), new_member);
+    return new_member;
+}
+
+static void instantiate_member(type_t* selected_template, 
+        type_t* being_instantiated, 
+        scope_entry_t* member_of_template, 
+        decl_context_t context_of_being_instantiated)
+{
+    fprintf(stderr, "INSTANTIATION: Instantiating member '%s'\n", 
+            member_of_template->symbol_name);
 
     switch (member_of_template->kind)
     {
         case SK_VARIABLE:
             {
+                scope_entry_t* new_member = add_duplicate_member_to_class(context_of_being_instantiated,
+                        being_instantiated,
+                        member_of_template);
+
                 new_member->type_information = update_type_instantiation(
                         new_member->type_information,
                         selected_template,
@@ -658,6 +741,10 @@ static void instantiate_member(type_t* selected_template,
             }
         case SK_TYPEDEF:
             {
+                scope_entry_t* new_member = add_duplicate_member_to_class(context_of_being_instantiated,
+                        being_instantiated,
+                        member_of_template);
+
                 new_member->type_information = get_new_typedef(update_type_instantiation(
                         new_member->type_information,
                         selected_template,
@@ -674,37 +761,92 @@ static void instantiate_member(type_t* selected_template,
             }
         case SK_CLASS:
             {
-                template_parameter_list_t* tpl_empty = calloc(1, sizeof(*tpl_empty));
+                if (!is_template_specialized_type(member_of_template->type_information))
+                {
+                    scope_entry_t* new_member = add_duplicate_member_to_class(context_of_being_instantiated,
+                            being_instantiated,
+                            member_of_template);
 
-                type_t* template_type = get_new_template_type(tpl_empty, member_of_template->type_information, 
-                        new_member->symbol_name, context_of_being_instantiated, new_member->line, new_member->file);
+                    template_parameter_list_t* tpl_empty = calloc(1, sizeof(*tpl_empty));
 
-                type_t* primary_specialization = named_type_get_symbol(template_type_get_primary_type(template_type))->type_information;
+                    type_t* template_type = get_new_template_type(tpl_empty, 
+                            member_of_template->type_information, 
+                            new_member->symbol_name, 
+                            context_of_being_instantiated, 
+                            new_member->line, 
+                            new_member->file);
 
-                set_is_complete_type(primary_specialization, /* is_complete */ 1);
+                    type_t* primary_specialization = named_type_get_symbol(template_type_get_primary_type(template_type))->type_information;
 
-                template_argument_list_t *tpl_arg_empty = calloc(1, sizeof(*tpl_arg_empty));
+                    set_is_complete_type(primary_specialization, /* is_complete */ 1);
 
-                // FIXME - Update class type internal class info -> trees, at least
-                new_member->type_information = 
-                    named_type_get_symbol(
-                    template_type_get_specialized_type(template_type,
-                            tpl_arg_empty,
-                            tpl_empty,
-                            context_of_being_instantiated,
-                            new_member->line, new_member->file))->type_information;
+                    template_argument_list_t *tpl_arg_empty = calloc(1, sizeof(*tpl_arg_empty));
 
-                AST orig_bases_tree, orig_body_tree;
-                class_type_get_instantiation_trees(member_of_template->type_information,
-                        &orig_body_tree, &orig_bases_tree);
+                    // FIXME - Update class type internal class info -> trees, at least
+                    new_member->type_information = 
+                        named_type_get_symbol(
+                                template_type_get_specialized_type(template_type,
+                                    tpl_arg_empty,
+                                    tpl_empty,
+                                    context_of_being_instantiated,
+                                    new_member->line, new_member->file))->type_information;
 
-                class_type_set_instantiation_trees(get_actual_class_type(new_member->type_information),
-                        orig_body_tree, orig_bases_tree);
+                    AST orig_bases_tree, orig_body_tree;
+                    class_type_get_instantiation_trees(member_of_template->type_information,
+                            &orig_body_tree, &orig_bases_tree);
 
-                set_is_complete_type(new_member->type_information, /* is_complete */ 0);
-                set_is_dependent_type(new_member->type_information, /* is_dependent */ 0);
+                    class_type_set_instantiation_trees(get_actual_class_type(new_member->type_information),
+                            orig_body_tree, orig_bases_tree);
 
-                class_type_add_typename(get_actual_class_type(being_instantiated), new_member);
+                    set_is_complete_type(new_member->type_information, /* is_complete */ 0);
+                    set_is_dependent_type(new_member->type_information, /* is_dependent */ 0);
+
+                    class_type_add_typename(get_actual_class_type(being_instantiated), new_member);
+                }
+                else
+                {
+                    type_t* template_type = template_specialized_type_get_related_template_type(member_of_template->type_information);
+                    type_t* primary_template = template_type_get_primary_type(template_type);
+
+                    if (named_type_get_symbol(primary_template)->type_information == member_of_template->type_information)
+                    {
+                        // This is the primary template
+                        template_parameter_list_t* template_parameters = template_type_get_template_parameters(template_type);
+
+                        scope_entry_t* new_member = new_symbol(context_of_being_instantiated, 
+                                context_of_being_instantiated.current_scope,
+                                member_of_template->symbol_name);
+
+                        new_member->kind = SK_TEMPLATE;
+                        new_member->type_information = 
+                            get_new_template_type(template_parameters,
+                                    member_of_template->type_information,
+                                    new_member->symbol_name,
+                                    context_of_being_instantiated,
+                                    member_of_template->line,
+                                    member_of_template->file);
+
+                        template_type_set_related_symbol(new_member->type_information, new_member);
+
+                        type_t* new_primary_template = template_type_get_primary_type(new_member->type_information);
+
+                        // Fix some bits inherited from the original class type
+                        class_type_set_enclosing_class_type(get_actual_class_type(new_primary_template),
+                                get_actual_class_type(being_instantiated));
+
+                        class_type_add_member(
+                                get_actual_class_type(being_instantiated),
+                                named_type_get_symbol(new_primary_template));
+
+                        class_type_add_typename(
+                                get_actual_class_type(being_instantiated),
+                                named_type_get_symbol(new_primary_template));
+                    }
+                    else
+                    {
+                        internal_error("Declared specialization not supported yet\n", 0)
+                    }
+                }
                 break;
             }
         case SK_TEMPLATE:
@@ -714,6 +856,10 @@ static void instantiate_member(type_t* selected_template,
             }
         case SK_FUNCTION:
             {
+                scope_entry_t* new_member = add_duplicate_member_to_class(context_of_being_instantiated,
+                        being_instantiated,
+                        member_of_template);
+
                 // FIXME - Maybe we should create also a 0-template like in classes?
                 new_member->type_information = update_type_instantiation(
                         new_member->type_information,
@@ -942,6 +1088,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
 
     int num_members = class_type_get_num_members(get_actual_class_type(selected_template));
 
+    fprintf(stderr, "INSTANTIATION: Have to instantiate %d members\n", num_members);
     for (i = 0; i < num_members; i++)
     {
         scope_entry_t* member = class_type_get_member_num(get_actual_class_type(selected_template), i);

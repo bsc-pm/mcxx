@@ -2074,6 +2074,10 @@ static decl_context_t replace_template_parameters_with_values(
     return fake_context;
 }
 
+static template_argument_t* update_template_argument(template_argument_list_t* given_template_args,
+        template_argument_t* current_template_arg,
+        decl_context_t template_arguments_context,
+        const char *filename, int line);
 
 type_t* update_type(template_argument_list_t* given_template_args,
         type_t* orig_type, 
@@ -2500,7 +2504,7 @@ type_t* update_type(template_argument_list_t* given_template_args,
     return NULL;
 }
 
-template_argument_t* update_template_argument(template_argument_list_t* given_template_args,
+static template_argument_t* update_template_argument(template_argument_list_t* given_template_args,
         template_argument_t* current_template_arg,
         decl_context_t template_arguments_context,
         const char *filename, int line)
@@ -2694,6 +2698,7 @@ static void update_unresolved_overloaded_type(type_t* unresolved_type, type_t* s
         }
     }
 }
+
 
 template_argument_list_t *get_template_arguments_of_template_id(
         AST template_id,
