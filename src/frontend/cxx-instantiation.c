@@ -324,7 +324,14 @@ static type_t* update_type_instantiation_aux_(type_t* orig_type,
                     orig_entry->entity_specs.template_parameter_nesting,
                     orig_entry->entity_specs.template_parameter_position);
 
-            t = orig_entry->type_information;
+            if (orig_entry != NULL)
+            {
+                t = orig_entry->type_information;
+            }
+            else
+            {
+                return NULL;
+            }
         }
         else if (orig_entry->entity_specs.is_member
                 && (get_actual_class_type(orig_entry->entity_specs.class_type) 
@@ -439,13 +446,19 @@ static type_t* update_type_instantiation_aux_(type_t* orig_type,
     }
     else if (is_rvalue_reference_type(orig_type))
     {
-        return get_rvalue_reference_type(
+        type_t* t = get_rvalue_reference_type(
                 update_type_instantiation_aux_(
                     reference_type_get_referenced_type(orig_type),
                     selected_template,
                     being_instantiated,
                     context_of_being_instantiated)
                 );
+
+        if (t != NULL)
+        {
+            t = get_cv_qualified_type(t, get_cv_qualifier(orig_type));
+            return t;
+        }
     }
     else if (is_pointer_type(orig_type))
     {
@@ -829,6 +842,8 @@ static void instantiate_member(type_t* selected_template,
                         template_type_set_related_symbol(new_member->type_information, new_member);
 
                         type_t* new_primary_template = template_type_get_primary_type(new_member->type_information);
+
+                        named_type_get_symbol(new_primary_template)->decl_context = context_of_being_instantiated;
 
                         // Fix some bits inherited from the original class type
                         class_type_set_enclosing_class_type(get_actual_class_type(new_primary_template),

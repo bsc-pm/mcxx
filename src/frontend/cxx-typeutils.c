@@ -1451,8 +1451,8 @@ type_t* template_type_get_specialized_type(type_t* t,
     specialized_symbol->entity_specs = primary_symbol->entity_specs;
     
     // Remove the extra template-scope we got from the primary one
-    specialized_symbol->decl_context.template_scope = 
-        specialized_symbol->decl_context.template_scope->contained_in;
+    // specialized_symbol->decl_context.template_scope = 
+    //     specialized_symbol->decl_context.template_scope->contained_in;
 
     P_LIST_ADD(t->type->specialized_types, t->type->num_specialized_types, 
             get_user_defined_type(specialized_symbol));
