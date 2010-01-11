@@ -2714,7 +2714,8 @@ void class_type_add_member(type_t* class_type, scope_entry_t* entry)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
 
-    P_LIST_ADD(class_type->type->class_info->members, 
+    // It may happen that a type is added twice (redeclared classes ...)
+    P_LIST_ADD_ONCE(class_type->type->class_info->members, 
             class_type->type->class_info->num_members, entry);
 }
 

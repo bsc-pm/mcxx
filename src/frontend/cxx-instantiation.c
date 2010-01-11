@@ -330,7 +330,7 @@ static type_t* update_type_instantiation_aux_(type_t* orig_type,
             }
             else
             {
-                return NULL;
+                return orig_type;
             }
         }
         else if (orig_entry->entity_specs.is_member
@@ -663,7 +663,26 @@ static type_t* update_type_instantiation_aux_(type_t* orig_type,
                 being_instantiated,
                 context_of_being_instantiated);
 
-        return get_new_typedef(t);
+        return get_cv_qualified_type(get_new_typedef(t), get_cv_qualifier(orig_type));
+    }
+    else if (is_template_type(orig_type))
+    {
+        scope_entry_t* orig_entry = template_type_get_related_symbol(orig_type);
+
+        if (orig_entry != NULL
+                && orig_entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+        {
+            orig_entry = lookup_of_template_parameter(context_of_being_instantiated,
+                    orig_entry->entity_specs.template_parameter_nesting,
+                    orig_entry->entity_specs.template_parameter_position);
+
+            if (orig_entry != NULL)
+            {
+                return orig_entry->type_information;
+            }
+        }
+
+        return orig_type;
     }
     else
     {
@@ -830,9 +849,73 @@ static void instantiate_member(type_t* selected_template,
                                 context_of_being_instantiated.current_scope,
                                 member_of_template->symbol_name);
 
+                        template_parameter_list_t* update_template_parameters = calloc(1, sizeof(*update_template_parameters));
+                        // Update the template parameters
+                        int i;
+                        for (i = 0; i < template_parameters->num_template_parameters; i++)
+                        {
+                            template_parameter_t* template_parameter = template_parameters->template_parameters[i];
+
+                            template_parameter_t* updated_template_parameter = calloc(1, sizeof(*updated_template_parameter));
+
+                            updated_template_parameter->kind = template_parameter->kind;
+                            updated_template_parameter->entry = template_parameter->entry;
+                            updated_template_parameter->has_default_argument = template_parameter->has_default_argument;
+
+                            if (updated_template_parameter->has_default_argument)
+                            {
+                                updated_template_parameter->default_template_argument 
+                                    = calloc(1, sizeof(*updated_template_parameter->default_template_argument));
+                                template_argument_t* default_template_argument = updated_template_parameter->default_template_argument;
+
+                                default_template_argument->nesting = template_parameter->entry->entity_specs.template_parameter_nesting;
+                                default_template_argument->position = template_parameter->entry->entity_specs.template_parameter_position;
+
+                                switch (template_parameter->kind)
+                                {
+                                    case TPK_TYPE:
+                                        {
+                                            default_template_argument->kind = TAK_TYPE;
+                                            default_template_argument->type = update_type_instantiation(
+                                                    template_parameter->default_template_argument->type,
+                                                    selected_template,
+                                                    being_instantiated,
+                                                    context_of_being_instantiated);
+
+                                            break;
+                                        }
+                                    case TPK_TEMPLATE:
+                                        {
+                                            default_template_argument->kind = TAK_TEMPLATE;
+                                            default_template_argument->type = update_type_instantiation(
+                                                    template_parameter->default_template_argument->type,
+                                                    selected_template,
+                                                    being_instantiated,
+                                                    context_of_being_instantiated);
+                                            break;
+                                        }
+                                    case TPK_NONTYPE:
+                                        {
+                                            default_template_argument->kind = TAK_NONTYPE;
+                                            internal_error("Not yet implemented", 0);
+                                            break;
+                                        }
+                                    default:
+                                        {
+                                            internal_error("Code unreachable", 0);
+                                            break;
+                                        }
+                                }
+                            }
+
+                            P_LIST_ADD(update_template_parameters->template_parameters,
+                                    update_template_parameters->num_template_parameters,
+                                    updated_template_parameter);
+                        }
+
                         new_member->kind = SK_TEMPLATE;
                         new_member->type_information = 
-                            get_new_template_type(template_parameters,
+                            get_new_template_type(update_template_parameters,
                                     member_of_template->type_information,
                                     new_member->symbol_name,
                                     context_of_being_instantiated,
