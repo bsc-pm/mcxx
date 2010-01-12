@@ -5,7 +5,68 @@
 using namespace TL::HLT;
 using namespace TL::OpenMP;
 
-void LoopUnroll::omp_replication(int factor, Source &replicated_body, 
+struct IfZeroTaskGenerator : public TL::Functor<TL::AST_t::callback_result, TL::AST_t>
+{
+    private:
+		TL::ScopeLink _sl;
+    public:
+        IfZeroTaskGenerator(TL::ScopeLink sl)
+            : _sl(sl)
+        {
+
+        }
+
+        virtual TL::AST_t::callback_result do_(TL::AST_t& a) const
+        {
+			TL::AST_t::callback_result result;
+
+            if (is_pragma_custom_construct("omp", "task", a, _sl))
+            {
+				TL::Source output, clauses;
+
+				TL::PragmaCustomConstruct task_construct(a, _sl);
+
+                output << "#pragma omp task if(0)" << clauses << "\n"
+                    << task_construct.get_statement().get_ast().prettyprint_with_callback(*this)
+                    ;
+
+				TL::ObjectList<std::string> clause_names = task_construct.get_clause_names();
+
+                for (TL::ObjectList<std::string>::iterator it = clause_names.begin();
+                        it != clause_names.end();
+                        it++)
+                {
+                    if (*it != "if")
+                    {
+						TL::PragmaCustomClause clause = task_construct.get_clause(*it);
+
+                        clauses << " " << *it
+                            ;
+
+						TL::ObjectList<std::string> arguments = clause.get_arguments();
+
+                        if (!arguments.empty())
+                        {
+                            clauses << "(" << TL::concat_strings(arguments, ",") << ")"
+                                ;
+                        }
+                    }
+                }
+
+                result.first = true;
+                result.second = output.get_source();
+            }
+            else 
+            {
+                result.first = false;
+            }
+            return result;
+        }
+};
+
+void LoopUnroll::omp_replication(int factor, 
+        Source &replicated_body, 
+        Source &epilog_body,
         IdExpression induction_var, Statement loop_body,
         Source &before, Source &after)
 {
@@ -18,6 +79,18 @@ void LoopUnroll::omp_replication(int factor, Source &replicated_body,
     {
         // Plain task predication will be used instead
         omp_replication_by_task_aggregation(factor, replicated_body, induction_var, loop_body);
+    }
+
+    if (_omp_aggregate_epilog)
+    {
+        // We have to aggregate the epilog, currently we simply add an if clause to be 0
+        Source new_epilog;
+
+        new_epilog = loop_body.get_ast().prettyprint_with_callback(
+				IfZeroTaskGenerator(loop_body.get_scope_link())
+				);
+
+        epilog_body = new_epilog;
     }
 }
 

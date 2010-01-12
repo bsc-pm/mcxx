@@ -50,6 +50,7 @@ namespace TL
                 bool _ignore_omp;
                 bool _omp_bundling;
 				int _omp_bundling_factor;
+                bool _omp_aggregate_epilog;
 
 				bool _remove_tasks;
 				bool _timing;
@@ -57,9 +58,9 @@ namespace TL
                 Source do_unroll();
 				Source silly_unroll();
 
-                void simple_replication(int factor, Source &replicated_body,
+                void simple_replication(int factor, Source &replicated_body, Source &epilog,
                         IdExpression induction_var, Statement loop_body);
-                void omp_replication(int factor, Source &replicated_body,
+                void omp_replication(int factor, Source &replicated_body, Source &epilog,
                         IdExpression induction_var, Statement loop_body,
                         Source &before, Source &after);
                 void omp_replication_by_task_aggregation(int factor, Source &replicated_body,
@@ -85,6 +86,8 @@ namespace TL
 				LoopUnroll& set_remove_tasks(bool b);
 
 				LoopUnroll& set_timing(bool b);
+
+                LoopUnroll& set_omp_aggregate_epilog(bool b);
         };
 
         //! Creates a LoopUnroll object
