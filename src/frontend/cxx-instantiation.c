@@ -270,21 +270,7 @@ static const char* get_name_of_template_parameter(
 //
 //
 //
-scope_entry_t* lookup_of_template_parameter(decl_context_t context, int template_parameter_nesting, int template_parameter_position)
-{
-    char tpl_param_name[256] = { 0 };
 
-    snprintf(tpl_param_name, 255, ".tpl_%d_%d",
-            template_parameter_nesting,
-            template_parameter_position);
-
-    scope_entry_list_t* entry_list = query_unqualified_name_str(context, tpl_param_name);
-
-    if (entry_list == NULL)
-        return NULL;
-    else
-        return entry_list->entry;
-}
 
 static scope_entry_list_t* filter_any_non_type(scope_entry_list_t* entry_list)
 {

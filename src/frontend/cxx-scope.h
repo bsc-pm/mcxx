@@ -137,6 +137,10 @@ LIBMCXX_EXTERN void scope_entry_dynamic_initializer(void);
 
 LIBMCXX_EXTERN extensible_schema_t scope_entry_extensible_schema;
 
+// Templates 
+LIBMCXX_EXTERN scope_entry_t* lookup_of_template_parameter(decl_context_t context, 
+        int template_parameter_nesting, int template_parameter_position);
+
 MCXX_END_DECLS
 
 #endif // CXX_SCOPE_H

@@ -1191,8 +1191,44 @@ static literal_value_t evaluate_symbol(AST symbol, decl_context_t decl_context)
         fprintf(stderr, "CEXPR: Trying to evaluate symbol '%s'\n", prettyprint_in_buffer(symbol));
     }
 
-    scope_entry_list_t* result = 
-        query_id_expression(decl_context, symbol);
+    type_t* symbol_type = ast_get_expression_type(symbol);
+
+    scope_entry_list_t* result = NULL;
+
+    scope_entry_list_t _holder;
+    memset(&_holder, 0, sizeof(_holder));
+
+    if (symbol_type != NULL
+            && is_named_type(symbol_type)
+            && named_type_get_symbol(symbol_type)->kind == SK_TEMPLATE_PARAMETER)
+    {
+        scope_entry_t* template_symbol = named_type_get_symbol(symbol_type);
+
+        scope_entry_t* real_symbol = lookup_of_template_parameter(decl_context,
+                template_symbol->entity_specs.template_parameter_nesting,
+                template_symbol->entity_specs.template_parameter_position);
+
+        if (real_symbol == NULL)
+        {
+            literal_value_t dependent_entity;
+            memset(&dependent_entity, 0, sizeof(dependent_entity));
+
+            dependent_entity.kind = LVK_DEPENDENT_EXPR;
+
+            return dependent_entity;
+        }
+        else
+        {
+            // Add this symbol in the list
+            _holder.entry = real_symbol;
+            _holder.next = NULL;
+            result = &_holder;
+        }
+    }
+    else
+    {
+        result = query_id_expression(decl_context, symbol);
+    }
 
     ERROR_CONDITION((result == NULL), "Cannot evaluate unknown symbol '%s' %s", 
             prettyprint_in_buffer(symbol), ast_location(symbol));
@@ -1214,8 +1250,8 @@ static literal_value_t evaluate_symbol(AST symbol, decl_context_t decl_context)
 
     if (result->entry->kind != SK_ENUMERATOR
             && result->entry->kind != SK_VARIABLE
-            && result->entry->kind != SK_TEMPLATE_PARAMETER
             && result->entry->kind != SK_FUNCTION
+            && result->entry->kind != SK_TEMPLATE_PARAMETER
             && result->entry->kind != SK_TEMPLATE)
     {
         DEBUG_CODE()
@@ -3353,21 +3389,9 @@ static literal_value_t evaluate_sizeof(AST sizeof_tree, decl_context_t decl_cont
     else if (ASTType(sizeof_tree) == AST_SIZEOF_TYPEID)
     {
         AST type_id = ASTSon0(sizeof_tree);
-        AST type_specifier = ASTSon0(type_id);
-        AST abstract_declarator = ASTSon1(type_id);
+        t = ast_get_expression_type(type_id);
 
-        gather_decl_spec_t gather_info;
-        memset(&gather_info, 0, sizeof(gather_info));
-
-        type_t* simple_type_info = NULL;
-        build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
-                decl_context);
-
-        type_t* declarator_type = simple_type_info;
-        compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
-                &declarator_type, decl_context);
-
-        t = declarator_type;
+        // FIXME - This type must be updated with the context
     }
 
     // Runtime sized types yield dependent expressions

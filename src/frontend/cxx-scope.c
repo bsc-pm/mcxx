@@ -1932,146 +1932,65 @@ static template_argument_t* get_corresponding_template_argument(
  */
 static decl_context_t replace_template_parameters_with_values(
         template_argument_list_t* given_template_args,
-        decl_context_t default_template_arguments_context,
-        decl_context_t real_template_arguments_context)
+        decl_context_t template_arguments_context)
 {
-    // Do nothing
-    if (default_template_arguments_context.template_scope == NULL)
-        return real_template_arguments_context;
+    decl_context_t template_parameters_context = new_template_context(template_arguments_context);
 
-    // We are like 'patching' the real_template_arguments_context with those symbols
-    // in the default_template_arguments_context
-    decl_context_t fake_context = new_template_context(real_template_arguments_context);
-
-    DEBUG_CODE()
+    int i;
+    for (i = 0; i < given_template_args->num_arguments; i++)
     {
-        fprintf(stderr, "SCOPE: Replacing template parameters\n");
-    }
+        template_argument_t* current_template_argument = given_template_args->argument_list[i];
+        char tpl_param_name[256] = { 0 };
 
-    Iterator* it = (Iterator*) hash_iterator_create(
-            default_template_arguments_context.template_scope->hash);
-    for (iterator_first(it); !iterator_finished(it); iterator_next(it))
-    {
-        scope_entry_list_t* entry_list = (scope_entry_list_t*) iterator_item(it);
-        scope_entry_t* entry = entry_list->entry;
+        snprintf(tpl_param_name, 255, ".tpl_%d_%d",
+                current_template_argument->nesting,
+                current_template_argument->position);
+        scope_entry_t* param_symbol = new_symbol(template_parameters_context,
+                template_parameters_context.template_scope, tpl_param_name);
 
-        template_argument_t *current_argument =
-            get_corresponding_template_argument(given_template_args,
-                    entry->entity_specs.template_parameter_position,
-                    entry->entity_specs.template_parameter_nesting);
-
-        if (current_argument == NULL)
+        switch (current_template_argument->kind)
         {
-            // Maybe it has not been binded yet
-            continue;
-        }
-
-        if(entry->entity_specs.template_parameter_position != current_argument->position
-                || entry->entity_specs.template_parameter_nesting != current_argument->nesting)
-        {
-            continue;
-        }
-
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCOPE:     Considering template parameter '%s'\n", entry->symbol_name);
-        }
-
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCOPE:     Creating interception symbol '%s' in fake context\n", entry->symbol_name);
-        }
-
-        // Create the new symbol in the interception context
-        scope_entry_t* new_entry = new_symbol(fake_context, fake_context.template_scope, entry->symbol_name);
-
-        // type template parameter
-        if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER)
-        {
-            // Create a typedef, 
-            new_entry->kind = SK_TYPEDEF;
-
-            type_t* argument_type = current_argument->type;
-
-            new_entry->entity_specs.is_template_argument = 1;
-            new_entry->type_information = get_new_typedef(argument_type);
-
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "SCOPE:     Making type template parameter '%s' of type '%s'\n", 
-                        new_entry->symbol_name,
-                        print_declarator(new_entry->type_information));
-            }
-        }
-        // non-type template parameter
-        else if (entry->kind == SK_TEMPLATE_PARAMETER)
-        {
-            type_t* expr_type = ASTExprType(current_argument->expression);
-            if (expr_type != NULL
-                    && is_dependent_expr_type(expr_type)
-                    && is_named_type(expr_type)
-                    && named_type_get_symbol(expr_type)->kind == SK_TEMPLATE_PARAMETER)
-            {
-                scope_entry_t* template_parameter = named_type_get_symbol(expr_type);
-                // Here we sign in a variable with a related expression
-                new_entry->kind = SK_TEMPLATE_PARAMETER;
-
-                new_entry->type_information = NULL;
-
-                new_entry->entity_specs.is_template_parameter = 1;
-                new_entry->entity_specs.template_parameter_position = 
-                    template_parameter->entity_specs.template_parameter_position;
-                new_entry->entity_specs.template_parameter_nesting = 
-                    template_parameter->entity_specs.template_parameter_nesting;
-            }
-            else
-            {
-                // Here we sign in a variable with a related expression
-                new_entry->kind = SK_VARIABLE;
-
-                AST constant_initializer = 
-                    ast_copy_for_instantiation(current_argument->expression);
-
-                new_entry->entity_specs.is_template_argument = 1;
-                new_entry->expression_value = constant_initializer;
-                new_entry->type_information = current_argument->type;
-                new_entry->decl_context = current_argument->expression_context;
-
-                DEBUG_CODE()
+            case TPK_TYPE :
                 {
-                    fprintf(stderr, "SCOPE:     Making non-type template parameter '%s' to have value '%s'\n", 
-                            new_entry->symbol_name,
-                            prettyprint_in_buffer(constant_initializer));
+                    // We use a typedef
+                    param_symbol->kind = SK_TYPEDEF;
+                    param_symbol->entity_specs.is_template_argument = 1;
+                    param_symbol->type_information = get_new_typedef(current_template_argument->type);
+
+                    break;
                 }
-            }
-        }
-        // template template parameter
-        else if (entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
-        {
-            new_entry->kind = SK_TEMPLATE;
-            // type_t* template_argument_type = 
-            //     current_argument->type;
+            case TPK_TEMPLATE :
+                {
+                    // The template type has to be used here
+                    param_symbol->kind = SK_TEMPLATE;
+                    param_symbol->entity_specs.is_template_argument = 1;
+                    // These are always kept as named types in the compiler
+                    param_symbol->type_information = 
+                        named_type_get_symbol(current_template_argument->type)->type_information;
+                    break;
+                }
+            case TPK_NONTYPE :
+                {
+                    param_symbol->kind = SK_VARIABLE;
+                    param_symbol->entity_specs.is_template_argument = 1;
+                    param_symbol->type_information = current_template_argument->type;
 
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "SCOPE:     Making template template parameter '%s' to be '%s'\n", 
-                        new_entry->symbol_name,
-                        print_declarator(new_entry->type_information));
-            }
-            internal_error("Not yet implemented", 0);
-        }
-        else
-        {
-            internal_error("Unexpected symbol kind '%d'\n", entry->kind);
-        }
-
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCOPE:\n");
+                    // Fold it, as makes things easier
+                    literal_value_t literal_value = evaluate_constant_expression(current_template_argument->expression,
+                            current_template_argument->expression_context);
+                    AST evaluated_tree = tree_from_literal_value(literal_value);
+                    AST fake_initializer = evaluated_tree;
+                    param_symbol->expression_value = fake_initializer;
+                    break;
+                }
+            default:
+                {
+                    internal_error("Invalid parameter kind", 0);
+                }
         }
     }
 
-    return fake_context;
+    return template_parameters_context;
 }
 
 static template_argument_t* update_template_argument(template_argument_list_t* given_template_args,
@@ -2404,7 +2323,6 @@ type_t* update_type(template_argument_list_t* given_template_args,
         {
             updated_expr_context = replace_template_parameters_with_values(
                     given_template_args, 
-                    expr_context, 
                     template_arguments_context);
             // Update type info
             if (!check_for_expression(updated_expr, updated_expr_context))
@@ -2539,8 +2457,6 @@ static template_argument_t* update_template_argument(template_argument_list_t* g
                         template_arguments_context, filename, line);
                 result->expression_context = replace_template_parameters_with_values(
                         given_template_args, 
-                        current_template_arg->expression_context, 
-                        // We are updating a template argument
                         current_template_arg->expression_context);
 
                 // We do not want any residual type information here
@@ -3324,4 +3240,20 @@ scope_entry_list_t* cascade_lookup(decl_context_t decl_context, const char* name
     }
 
     return result;
+}
+
+scope_entry_t* lookup_of_template_parameter(decl_context_t context, int template_parameter_nesting, int template_parameter_position)
+{
+    char tpl_param_name[256] = { 0 };
+
+    snprintf(tpl_param_name, 255, ".tpl_%d_%d",
+            template_parameter_nesting,
+            template_parameter_position);
+
+    scope_entry_list_t* entry_list = query_unqualified_name_str(context, tpl_param_name);
+
+    if (entry_list == NULL)
+        return NULL;
+    else
+        return entry_list->entry;
 }

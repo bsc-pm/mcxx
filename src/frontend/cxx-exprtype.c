@@ -9084,6 +9084,8 @@ static char check_for_sizeof_typeid(AST expr, decl_context_t decl_context)
                             type_size);
                 }
             }
+            ast_set_expression_type(type_id, declarator_type);
+            ast_set_expression_is_lvalue(type_id, 0);
         }
 
         ast_set_expression_type(expr, get_size_t_type());
