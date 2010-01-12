@@ -82,7 +82,21 @@ struct GuardTaskInfo
 
         void fill_guard_tasks_basic(Statement stmt) 
         {
-            ObjectList<AST_t> tasks = stmt.get_ast().depth_subtrees(PragmaCustomConstruct::predicate);
+			struct IsOmpTask : public Predicate<AST_t>
+			{
+				ScopeLink _sl;
+				IsOmpTask(ScopeLink sl)
+					:_sl(sl)
+					{
+					}
+
+				bool do_(AST_t& a) const
+				{
+					return is_pragma_custom_construct("omp", "task", a, _sl);
+				}
+			};
+
+            ObjectList<AST_t> tasks = stmt.get_ast().depth_subtrees(IsOmpTask(stmt.get_scope_link()));
 
             for (ObjectList<AST_t>::iterator it = tasks.begin();
                     it != tasks.end();
