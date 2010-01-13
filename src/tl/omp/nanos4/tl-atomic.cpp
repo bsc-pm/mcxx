@@ -74,6 +74,16 @@ namespace TL
                 // No objections
                 return true;
             }
+
+            if (expr.is_assignment()
+                    && !expr.is_operation_assignment())
+            {
+                // Assume that the expression is of the form x = x + y
+                // and work now on 'x+y'
+                expr = expr.get_second_operand();
+                op_kind = expr.get_operation_kind();
+            }
+
             if (op_kind == Expression::ADDITION // x += y
                     || op_kind == Expression::SUBSTRACTION  // x -= y
                     // || op_kind == Expression::MULTIPLICATION  // x *= y
@@ -152,6 +162,15 @@ namespace TL
             // already did this for us
             else
             {
+                if (expr.is_assignment()
+                        && !expr.is_operation_assignment())
+                {
+                    // Assume that the expression is of the form x = x + y
+                    // and work now on 'x+y'
+                    expr = expr.get_second_operand();
+                    op_kind = expr.get_operation_kind();
+                }
+
                 std::string intrinsic_function_name;
                 switch ((int)op_kind)
                 {
