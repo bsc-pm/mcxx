@@ -38,6 +38,7 @@ namespace TL
         static void vla_handling(ObjectList<ParameterInfo>& parameter_info, 
                 ReplaceIdExpression& result,
                 ScopeLink sl, bool disable_restrict_pointers,
+                const ObjectList<Symbol>& firstprivate_references,
                 const ObjectList<OpenMP::ReductionSymbol>& reduction_references);
 
         ReplaceIdExpression OpenMPTransform::set_replacements(FunctionDefinition function_definition,
@@ -304,6 +305,7 @@ namespace TL
                 vla_handling(parameter_info, result, 
                         construct_body.get_scope_link(), 
                         disable_restrict_pointers,
+                        firstprivate_references,
                         reduction_references);
             }
 
@@ -387,6 +389,7 @@ namespace TL
         static void vla_handling(ObjectList<ParameterInfo>& parameter_info, 
                 ReplaceIdExpression& result,
                 ScopeLink sl, bool disable_restrict_pointers,
+                const ObjectList<Symbol>& firstprivate_references,
                 const ObjectList<OpenMP::ReductionSymbol>& reduction_references)
         {
             // Now review each parameter to see whether it is a
@@ -440,6 +443,10 @@ namespace TL
                             it != dim_names.end();
                             it++)
                     {
+                        // Ignore first dimension
+                        if (it == dim_names.begin())
+                            continue;
+
                         Scope sc = sl.get_scope(enclosing_stmt_tree);
 
                         Symbol new_sym = sc.get_symbol_from_name(it->get_source());
@@ -506,7 +513,8 @@ namespace TL
                     }
 
                     Type new_type_outline = compute_replacemement_type_for_vla_in_outline(symbol.get_type(), dim_names.begin());
-                    new_type_outline = new_type_outline.get_pointer_to();
+                    // Ignore the array type
+                    new_type_outline = new_type_outline.array_element().get_pointer_to();
                     if (!disable_restrict_pointers)
                     {
                         new_type_outline = new_type_outline.get_restrict_type();
@@ -519,11 +527,12 @@ namespace TL
                     param_info.parameter_name = "_vla_" + param_info.parameter_name;
                     param_info.type_in_outline = new_type_outline;
 
-                    // Override the replacement only if it was not a reduction
-                    // because reductions have their own special naming
-                    if (!reduction_references.contains(functor(&OpenMP::ReductionSymbol::get_symbol), param_info.symbol))
+                    // Override the replacement only if it is not known to have a special name
+                    // Reduction and firstprivates do
+                    if (!reduction_references.contains(functor(&OpenMP::ReductionSymbol::get_symbol), param_info.symbol)
+                            && !firstprivate_references.contains(param_info.symbol))
                     {
-                        result.add_replacement(param_info.symbol, "(*" + param_info.symbol.get_name() + ")", 
+                        result.add_replacement(param_info.symbol, param_info.symbol.get_name(), 
                                 point_of_decl, sl);
                     }
                 }

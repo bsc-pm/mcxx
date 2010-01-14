@@ -204,6 +204,7 @@ namespace TL
 
                     // Now add a casting
                     vla_castings
+                        // Ignore a pointer
                         << param_info.type_in_outline.get_declaration(
                                 function_definition.get_function_body().get_scope(),
                                 param_info.vla_cast_name)
