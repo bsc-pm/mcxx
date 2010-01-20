@@ -318,7 +318,7 @@ static void instantiate_member(type_t* selected_template,
         decl_context_t context_of_being_instantiated,
         const char* filename, int line,
         template_map_t** template_map, 
-        int num_items_template_map)
+        int *num_items_template_map)
 {
     fprintf(stderr, "INSTANTIATION: Instantiating member '%s'\n", 
             member_of_template->symbol_name);
@@ -504,12 +504,16 @@ static void instantiate_member(type_t* selected_template,
                                     member_of_template->line,
                                     member_of_template->file);
 
+                        new_member->file = member_of_template->file;
+                        new_member->line = member_of_template->line;
+
                         template_map_t new_map;
                         new_map.orig_template_type = template_type;
                         new_map.new_template_type = new_member->type_information;
 
-                        P_LIST_ADD((*template_map), num_items_template_map, 
-                                new_map);
+                        fprintf(stderr, "INSTANTIATION: Adding new template to template map\n");
+
+                        P_LIST_ADD((*template_map), (*num_items_template_map), new_map);
 
                         template_type_set_related_symbol(new_member->type_information, new_member);
 
@@ -534,11 +538,15 @@ static void instantiate_member(type_t* selected_template,
                         type_t* new_template_type = NULL;
                         // Search in the map
                         int i;
-                        for (i = 0; i < num_items_template_map; i++)
+                        fprintf(stderr, "INSTANTIATION: Searching in template map (num_elems = %d)\n",
+                                *num_items_template_map);
+
+                        for (i = 0; i < *num_items_template_map; i++)
                         {
                             if ((*template_map)[i].orig_template_type == template_type)
                             {
                                 new_template_type = (*template_map)[i].new_template_type;
+                                break;
                             }
                         }
 
@@ -584,11 +592,13 @@ static void instantiate_member(type_t* selected_template,
                         }
 
                         // Now ask a new specialization
-                        type_t* new_template_specialized_type = template_type_get_specialized_type(new_template_type,
+                        type_t* new_template_specialized_type = template_type_get_specialized_type_after_type(new_template_type,
                                 new_template_args,
                                 template_type_get_template_parameters(new_template_type),
+                                member_of_template->type_information,
                                 context_of_being_instantiated,
-                                line, filename);
+                                member_of_template->line, 
+                                member_of_template->file);
 
                         class_type_add_member(
                                 get_actual_class_type(being_instantiated),
@@ -702,59 +712,36 @@ static void instantiate_specialized_template_class(type_t* selected_template,
             {
                 case TPK_TYPE :
                     {
-                        // Note that we sign in the symbol in template_scope and not in current_scope
-                        scope_entry_t* injected_type = new_symbol(template_parameters_context, 
-                                template_parameters_context.template_scope, deduced_parameter_name);
-
                         // We use a typedef
-                        injected_type->kind = SK_TYPEDEF;
-                        injected_type->entity_specs.is_template_argument = 1;
-                        injected_type->type_information = get_new_typedef(current_deduction->deduced_parameters[0]->type);
-
-                        param_symbol->kind = injected_type->kind;
-                        param_symbol->entity_specs = injected_type->entity_specs;
-                        param_symbol->type_information = injected_type->type_information;
+                        param_symbol->kind = SK_TYPEDEF;
+                        param_symbol->entity_specs.is_template_argument = 1;
+                        param_symbol->type_information = get_new_typedef(current_deduction->deduced_parameters[0]->type);
 
                         break;
                     }
                 case TPK_TEMPLATE :
                     {
-                        // Note that we sign in the symbol in template_scope and not in current_scope
-                        scope_entry_t* injected_type = new_symbol(template_parameters_context, 
-                                template_parameters_context.template_scope, deduced_parameter_name);
-
                         // The template type has to be used here
-                        injected_type->kind = SK_TEMPLATE;
-                        injected_type->entity_specs.is_template_argument = 1;
+                        param_symbol->kind = SK_TEMPLATE;
+                        param_symbol->entity_specs.is_template_argument = 1;
                         // These are always kept as named types in the compiler
-                        injected_type->type_information = 
+                        param_symbol->type_information = 
                             named_type_get_symbol(current_deduction->deduced_parameters[0]->type)->type_information;
 
-                        param_symbol->kind = injected_type->kind;
-                        param_symbol->entity_specs = injected_type->entity_specs;
-                        param_symbol->type_information = injected_type->type_information;
                         break;
                     }
                 case TPK_NONTYPE :
                     {
-                        scope_entry_t* injected_nontype = new_symbol(template_parameters_context, 
-                                template_parameters_context.template_scope, deduced_parameter_name);
-
-                        injected_nontype->kind = SK_VARIABLE;
-                        injected_nontype->entity_specs.is_template_argument = 1;
-                        injected_nontype->type_information = current_deduction->deduced_parameters[0]->type;
+                        param_symbol->kind = SK_VARIABLE;
+                        param_symbol->entity_specs.is_template_argument = 1;
+                        param_symbol->type_information = current_deduction->deduced_parameters[0]->type;
 
                         // Fold it, as makes things easier
                         literal_value_t literal_value = evaluate_constant_expression(current_deduction->deduced_parameters[0]->expression,
                                 current_deduction->deduced_parameters[0]->decl_context);
                         AST evaluated_tree = tree_from_literal_value(literal_value);
                         AST fake_initializer = evaluated_tree;
-                        injected_nontype->expression_value = fake_initializer;
-
-                        param_symbol->kind = injected_nontype->kind;
-                        param_symbol->entity_specs = injected_nontype->entity_specs;
-                        param_symbol->type_information = injected_nontype->type_information;
-                        param_symbol->expression_value = injected_nontype->expression_value;
+                        param_symbol->expression_value = fake_initializer;
                         break;
                     }
                 default:
@@ -854,7 +841,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                 inner_decl_context,
                 filename, line,
                 &template_map, 
-                num_items_template_map);
+                &num_items_template_map);
     }
 
     // The symbol is defined after this

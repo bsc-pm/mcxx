@@ -401,6 +401,12 @@ LIBMCXX_EXTERN struct type_tag* template_type_get_specialized_type(struct type_t
         template_parameter_list_t *template_parameters, 
         decl_context_t decl_context, 
         int line, const char* filename);
+LIBMCXX_EXTERN type_t* template_type_get_specialized_type_after_type(type_t* t, 
+        template_argument_list_t* template_argument_list,
+        template_parameter_list_t *template_parameters, 
+        type_t* after_type,
+        decl_context_t decl_context, 
+        int line, const char* filename);
 LIBMCXX_EXTERN template_parameter_list_t* template_type_get_template_parameters(struct type_tag* t);
 
 LIBMCXX_EXTERN int template_type_get_num_specializations(struct type_tag* t);

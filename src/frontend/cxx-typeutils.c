@@ -1333,10 +1333,10 @@ char has_dependent_template_arguments(template_argument_list_t* template_argumen
     return 0;
 }
 
-
-type_t* template_type_get_specialized_type(type_t* t, 
+type_t* template_type_get_specialized_type_after_type(type_t* t, 
         template_argument_list_t* template_argument_list,
         template_parameter_list_t *template_parameters, 
+        type_t* after_type,
         decl_context_t decl_context, 
         int line, const char* filename)
 {
@@ -1382,15 +1382,23 @@ type_t* template_type_get_specialized_type(type_t* t,
         }
     }
 
-    type_t* specialized_type = NULL;
+    type_t* specialized_type = after_type;
+
     scope_entry_t* primary_symbol = named_type_get_symbol(t->type->primary_specialization);
 
     if (primary_symbol->kind == SK_CLASS
             || primary_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
     {
-        specialized_type = get_new_class_type(primary_symbol->decl_context,
-                class_type_get_class_kind(
-                    get_actual_class_type(primary_symbol->type_information)));
+        if (specialized_type == NULL)
+        {
+            specialized_type = get_new_class_type(primary_symbol->decl_context,
+                    class_type_get_class_kind(
+                        get_actual_class_type(primary_symbol->type_information)));
+        }
+        else
+        {
+            specialized_type = _get_duplicated_class_type(specialized_type);
+        }
 
         if (primary_symbol->kind == SK_CLASS)
         {
@@ -1405,7 +1413,10 @@ type_t* template_type_get_specialized_type(type_t* t,
         type_t* updated_function_type = update_type(primary_symbol->type_information, updated_context, filename, line);
 
         // This will give us a new function type
-        specialized_type = _get_duplicated_function_type(updated_function_type);
+        if (specialized_type == NULL)
+        {
+            specialized_type = _get_duplicated_function_type(updated_function_type);
+        }
     }
     else
     {
@@ -1467,6 +1478,21 @@ type_t* template_type_get_specialized_type(type_t* t,
     }
 
     return get_user_defined_type(specialized_symbol);
+}
+
+
+type_t* template_type_get_specialized_type(type_t* t, 
+        template_argument_list_t* template_argument_list,
+        template_parameter_list_t *template_parameters, 
+        decl_context_t decl_context, 
+        int line, const char* filename)
+{
+    return template_type_get_specialized_type_after_type(t,
+            template_argument_list,
+            template_parameters,
+            /* after_type */ NULL /* It will create an empty one */,
+            decl_context,
+            line, filename);
 }
 
 template_parameter_list_t* template_type_get_template_parameters(type_t* t)

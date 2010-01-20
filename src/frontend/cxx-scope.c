@@ -2008,10 +2008,10 @@ type_t* update_type(type_t* orig_type,
         {
             scope_entry_t* argument = lookup_of_template_parameter(
                     decl_context,
-                    entry->entity_specs.template_parameter_position,
-                    entry->entity_specs.template_parameter_nesting);
+                    entry->entity_specs.template_parameter_nesting,
+                    entry->entity_specs.template_parameter_position);
 
-            if (entry == NULL)
+            if (argument == NULL)
             {
                 DEBUG_CODE()
                 {
@@ -2076,8 +2076,8 @@ type_t* update_type(type_t* orig_type,
                 // We need to update this template type too
                 scope_entry_t* argument = lookup_of_template_parameter(
                         decl_context,
-                        template_related_symbol->entity_specs.template_parameter_position,
-                        template_related_symbol->entity_specs.template_parameter_nesting);
+                        template_related_symbol->entity_specs.template_parameter_nesting,
+                        template_related_symbol->entity_specs.template_parameter_position);
 
                 ERROR_CONDITION(entry == NULL, "This should not be NULL", 0);
 
@@ -3216,7 +3216,9 @@ scope_entry_list_t* cascade_lookup(decl_context_t decl_context, const char* name
     return result;
 }
 
-scope_entry_t* lookup_of_template_parameter(decl_context_t context, int template_parameter_nesting, int template_parameter_position)
+scope_entry_t* lookup_of_template_parameter(decl_context_t context, 
+        int template_parameter_nesting, 
+        int template_parameter_position)
 {
     char tpl_param_name[256] = { 0 };
 
