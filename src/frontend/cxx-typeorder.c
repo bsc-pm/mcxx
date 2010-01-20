@@ -233,18 +233,20 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
     template_argument_list_t* deduced_template_argument_list = 
         build_template_argument_list_from_deduction_set(deduction_result);
 
+    decl_context_t updated_context = update_context_with_template_arguments(decl_context,
+            deduced_template_argument_list);
+
     for (i = 0; i < num_arguments; i++)
     {
         type_t* original_type = function_type_get_parameter_type_num(f1, i);
         
-        type_t* updated_type = update_type(deduced_template_argument_list, 
-                original_type, 
-                decl_context,
+        type_t* updated_type = update_type(original_type, 
+                updated_context,
                 filename, line);
 
         // Check the soundness of the updated type
         if (updated_type == NULL
-                || !is_sound_type(updated_type, decl_context))
+                || !is_sound_type(updated_type, updated_context))
         {
             DEBUG_CODE()
             {
@@ -395,17 +397,19 @@ static char is_less_or_equal_specialized_template_conversion_function(
     template_argument_list_t* deduced_template_argument_list = 
         build_template_argument_list_from_deduction_set(deduction_result);
 
+    decl_context_t updated_context = update_context_with_template_arguments(decl_context,
+            deduced_template_argument_list);
+
     {
         type_t* original_type = function_type_get_return_type(f1);
         
-        type_t* updated_type = update_type(deduced_template_argument_list, 
-                original_type, 
-                decl_context,
+        type_t* updated_type = update_type(original_type, 
+                updated_context,
                 filename, line);
 
         // Check the soundness of the updated type
         if (updated_type == NULL
-                || !is_sound_type(updated_type, decl_context))
+                || !is_sound_type(updated_type, updated_context))
         {
             DEBUG_CODE()
             {

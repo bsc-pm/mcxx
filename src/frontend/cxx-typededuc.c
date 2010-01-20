@@ -92,9 +92,14 @@ char deduce_template_arguments_common(
         return 1;
     }
 
+    decl_context_t updated_context = decl_context;
+
     int num_deduction_slots = 0;
     if (explicit_template_arguments != NULL)
     {
+        updated_context = update_context_with_template_arguments(updated_context,
+                explicit_template_arguments);
+
         DEBUG_CODE()
         {
             fprintf(stderr, "TYPEDEDUC: Parameter types updated with explicit template arguments\n");
@@ -200,15 +205,16 @@ char deduce_template_arguments_common(
         //  template <int, typename _Q> 
         //  void f(int, _Q); <-- this is what we solve now
         //
+
+
         for (j = 0; j < num_arguments; j++)
         {
             type_t* updated_parameter = NULL;
-            updated_parameter = update_type(explicit_template_arguments, 
-                    parameters[j],
-                    decl_context, filename, line);
+            updated_parameter = update_type(parameters[j],
+                    updated_context, filename, line);
 
             if (updated_parameter == NULL
-                    || !is_sound_type(updated_parameter, decl_context))
+                    || !is_sound_type(updated_parameter, updated_context))
             {
                 DEBUG_CODE()
                 {
@@ -250,7 +256,7 @@ char deduce_template_arguments_common(
         }
 
         deduction_set_t *current_deduction = counted_calloc(1, sizeof(*current_deduction), &_bytes_typededuc);
-        unificate_two_types(parameter_type, argument_type, &current_deduction, decl_context, filename, line, flags);
+        unificate_two_types(parameter_type, argument_type, &current_deduction, updated_context, filename, line, flags);
         deductions[num_deduction_slots] = current_deduction;
         num_deduction_slots++;
     }
@@ -501,9 +507,6 @@ char deduce_template_arguments_common(
     // For nontype template parameters its type could have to be updated
     // since unification has not done it
     {
-        template_argument_list_t* template_arguments 
-            = build_template_argument_list_from_deduction_set(*deduced_arguments);
-
         for (i = 0; i < (*deduced_arguments)->num_deductions; i++)
         {
             deduction_t* current_deduction = (*deduced_arguments)->deduction_list[i];
@@ -516,9 +519,8 @@ char deduce_template_arguments_common(
                         {
                             current_deduction->deduced_parameters[j]->type = 
                                 update_type(
-                                        template_arguments,
                                         current_deduction->deduced_parameters[j]->type,
-                                        decl_context, filename, line);
+                                        updated_context, filename, line);
                         }
                     default:
                         {
@@ -677,11 +679,13 @@ char deduce_arguments_of_conversion(
     template_argument_list_t* deduced_template_argument_list = 
         build_template_argument_list_from_deduction_set(*deduction_result);
 
+    decl_context_t updated_context = update_context_with_template_arguments(decl_context,
+            deduced_template_argument_list);
+
     type_t* original_parameter_type = (*parameter_types);
     type_t* updated_type = 
-        update_type(deduced_template_argument_list, 
-                original_parameter_type, 
-                decl_context, filename, line);
+        update_type(original_parameter_type, 
+                updated_context, filename, line);
 
     if (!equivalent_types((*argument_types), updated_type))
     {
@@ -884,6 +888,10 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
     template_argument_list_t* deduced_template_argument_list = 
         build_template_argument_list_from_deduction_set(*deduction_result);
 
+    decl_context_t updated_context = update_context_with_template_arguments(
+            decl_context,
+            deduced_template_argument_list);
+
     for (i = 0; i < relevant_arguments; i++)
     {
         type_t* original_parameter_type = parameter_types[i];
@@ -893,9 +901,8 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
          */
         if (explicit_template_arguments != NULL)
         {
-            original_parameter_type = update_type(explicit_template_arguments,
-                    original_parameter_type,
-                    decl_context, filename, line);
+            original_parameter_type = update_type(original_parameter_type,
+                    updated_context, filename, line);
 
             if (!is_dependent_type(original_parameter_type))
             {
@@ -906,9 +913,8 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
         }
 
         type_t* updated_type = 
-            update_type(deduced_template_argument_list, 
-                    original_parameter_type, 
-                    decl_context, filename, line);
+            update_type(original_parameter_type, 
+                    updated_context, filename, line);
 
         if (is_unresolved_overloaded_type(argument_types[i])
                 || (is_pointer_type(argument_types[i])
@@ -925,7 +931,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                     unresolved_overloaded_type_get_overload_set(unresolved_type),
                     unresolved_overloaded_type_get_explicit_template_arguments(unresolved_type),
                     updated_type,
-                    decl_context,
+                    updated_context,
                     filename, line);
 
             if (solved_function != NULL)
@@ -1143,9 +1149,8 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
     if (function_return_type != NULL)
     {
         // Now update it, if it returns NULL, everything was wrong :)
-        function_return_type = update_type(deduced_template_argument_list,
-                function_return_type,
-                decl_context,
+        function_return_type = update_type(function_return_type,
+                updated_context,
                 filename, line);
 
         if (function_return_type == NULL)
