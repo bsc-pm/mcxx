@@ -21,7 +21,7 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = core common-nanos fun-tasks ss2omp @TL_OMP_EXTENSIONS@ 
+SUBDIRS = core fun-tasks ss2omp @TL_OMP_EXTENSIONS@ 
 
 END=
 
