@@ -269,7 +269,7 @@ namespace TL
                                 // var = var + incr
                                 // var = incr + var
                                 Expression first_sumand = right_hand_of_assignment.get_first_operand();
-                                Expression second_sumand = right_hand_of_assignment.get_first_operand();
+                                Expression second_sumand = right_hand_of_assignment.get_second_operand();
 
                                 if (first_sumand.is_id_expression())
                                 {

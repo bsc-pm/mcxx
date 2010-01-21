@@ -297,6 +297,7 @@ namespace TL
                         if (dep_expr.is_array_section())
                         {
                             Source dims_src;
+
                             dims_src << "[" << dep_expr.array_section_lower() << "]";
                             (*base) << (*new_base) << dims_src;
 
@@ -316,7 +317,7 @@ namespace TL
 
                         base = new_base;
                     }
-                    (*base) << dep_expr;
+                    (*base) << "(" << dep_expr << ")";
                 }
                 num_dep++;
             }

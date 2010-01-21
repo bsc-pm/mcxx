@@ -105,9 +105,12 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
 
     Source final_barrier;
 
-    final_barrier
-        << "nanos_team_barrier();"
-        ;
+    if (!ctr.get_clause("nowait").is_defined())
+    {
+        final_barrier
+            << "nanos_team_barrier();"
+            ;
+    }
 
     Source outline_body, outline_parameters, outline_code;
 
