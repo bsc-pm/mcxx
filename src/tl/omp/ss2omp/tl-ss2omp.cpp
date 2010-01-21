@@ -218,6 +218,8 @@ namespace TL
             }
         }
 
+        clauses << " untied";
+
         if (!input_clause_args.empty())
         {
             clauses << " input(" << input_clause_args << ")";
