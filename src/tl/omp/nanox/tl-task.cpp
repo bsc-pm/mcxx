@@ -285,7 +285,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         if_expr_cond_end << "}";
     }
 
-    Source tiedness;
+    Source tiedness, priority;
     PragmaCustomClause untied_clause = ctr.get_clause("untied");
     if (untied_clause.is_defined())
     {
@@ -296,6 +296,14 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         tiedness << "props.tied = 1;";
     }
 
+    PragmaCustomClause priority_clause = ctr.get_clause("__priority");
+    if (priority_clause.is_defined())
+    {
+        priority
+            << "props.tied = " << priority_clause.get_arguments()[0] << ";"
+            ;
+    }
+
     spawn_code
         << "{"
         // Devices related to this task
@@ -303,6 +311,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<     struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
         <<     "nanos_wd_t wd = (nanos_wd_t)0;"
         <<     "nanos_wd_props_t props = { 0 };"
+        <<     priority
         <<     tiedness
         <<     "nanos_err_t err;"
         <<     if_expr_cond_start
