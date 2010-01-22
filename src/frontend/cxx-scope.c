@@ -2607,6 +2607,61 @@ static void update_unresolved_overloaded_type(type_t* unresolved_type, type_t* s
     }
 }
 
+static void sign_in_template_name(template_argument_t* current_template_argument,
+        decl_context_t updated_decl_context)
+{
+    char tpl_param_name[256] = { 0 };
+
+    snprintf(tpl_param_name, 255, ".tpl_%d_%d",
+            current_template_argument->nesting,
+            current_template_argument->position);
+    scope_entry_t* param_symbol = new_symbol(updated_decl_context,
+            updated_decl_context.template_scope, tpl_param_name);
+
+    switch (current_template_argument->kind)
+    {
+        case TAK_TYPE:
+            {
+                // Sign in template parameter
+                param_symbol->kind = SK_TYPEDEF;
+                param_symbol->entity_specs.is_template_argument = 1;
+                param_symbol->type_information = get_new_typedef(current_template_argument->type);
+                break;
+            }
+        case TAK_TEMPLATE:
+            {
+                // Sign in template parameter
+                param_symbol->kind = SK_TEMPLATE;
+                param_symbol->entity_specs.is_template_argument = 1;
+                // These are always kept as named types in the compiler
+                param_symbol->type_information = 
+                    named_type_get_symbol(current_template_argument->type)->type_information;
+                break;
+            }
+        case TAK_NONTYPE:
+            {
+                // Sign in template parameter
+                param_symbol->kind = SK_VARIABLE;
+                param_symbol->entity_specs.is_template_argument = 1;
+                param_symbol->type_information = current_template_argument->type;
+
+                if (is_constant_expression(current_template_argument->expression, 
+                            updated_decl_context))
+                {
+                    literal_value_t literal_value = evaluate_constant_expression(current_template_argument->expression,
+                            current_template_argument->expression_context);
+                    param_symbol->expression_value = tree_from_literal_value(literal_value);
+                }
+
+                break;
+            }
+        default:
+            {
+                internal_error("Invalid template argument kind", 0);
+            }
+            break;
+    }
+}
 
 template_argument_list_t *get_template_arguments_of_template_id(
         AST template_id,
@@ -2713,103 +2768,55 @@ template_argument_list_t *get_template_arguments_of_template_id(
     for (num_argument = 0; num_argument < result->num_arguments; num_argument++)
     {
         template_argument_t* current_template_argument = result->argument_list[num_argument];
-        char tpl_param_name[256] = { 0 };
 
-        snprintf(tpl_param_name, 255, ".tpl_%d_%d",
-                current_template_argument->nesting,
-                current_template_argument->position);
-        scope_entry_t* param_symbol = new_symbol(updated_decl_context,
-                updated_decl_context.template_scope, tpl_param_name);
-
-        switch (current_template_argument->kind)
+        if (current_template_argument->kind == TAK_NONTYPE)
         {
-            case TAK_TYPE:
-                {
-                    // Sign in template parameter
-                    param_symbol->kind = SK_TYPEDEF;
-                    param_symbol->entity_specs.is_template_argument = 1;
-                    param_symbol->type_information = get_new_typedef(current_template_argument->type);
-                    break;
-                }
-            case TAK_TEMPLATE:
-                {
-                    // Sign in template parameter
-                    param_symbol->kind = SK_TEMPLATE;
-                    param_symbol->entity_specs.is_template_argument = 1;
-                    // These are always kept as named types in the compiler
-                    param_symbol->type_information = 
-                        named_type_get_symbol(current_template_argument->type)->type_information;
-                    break;
-                }
-            case TAK_NONTYPE:
-                {
-                    current_template_argument->type = update_type(
-                            template_parameters->template_parameters[num_argument]->entry->type_information,
+            current_template_argument->type = update_type(
+                    template_parameters->template_parameters[num_argument]->entry->type_information,
+                    updated_decl_context,
+                    ASTFileName(template_id), ASTLine(template_id));
+            current_template_argument->expression_context = updated_decl_context;
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Type of nontype template parameter updated to '%s'\n",
+                        print_declarator(current_template_argument->type));
+            }
+
+            /*
+             * If the type is an address of function try to solve it
+             */
+            if (ASTExprType(current_template_argument->expression) != NULL
+                    && is_unresolved_overloaded_type(ASTExprType(current_template_argument->expression)))
+            {
+                // Try to solve it
+                scope_entry_t* solved_function =
+                    address_of_overloaded_function(
+                            unresolved_overloaded_type_get_overload_set(ASTExprType(current_template_argument->expression)),
+                            unresolved_overloaded_type_get_explicit_template_arguments(ASTExprType(current_template_argument->expression)),
+                            current_template_argument->type,
                             updated_decl_context,
-                            ASTFileName(template_id), ASTLine(template_id));
-                    current_template_argument->expression_context = updated_decl_context;
+                            ASTFileName(template_id),
+                            ASTLine(template_id));
 
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "SCOPE: Type of nontype template parameter updated to '%s'\n",
-                                print_declarator(current_template_argument->type));
-                    }
-
-                    /*
-                     * If the type is an address of function try to solve it
-                     */
-                    if (ASTExprType(current_template_argument->expression) != NULL
-                            && is_unresolved_overloaded_type(ASTExprType(current_template_argument->expression)))
-                    {
-                        // Try to solve it
-                        scope_entry_t* solved_function =
-                            address_of_overloaded_function(
-                                    unresolved_overloaded_type_get_overload_set(ASTExprType(current_template_argument->expression)),
-                                    unresolved_overloaded_type_get_explicit_template_arguments(ASTExprType(current_template_argument->expression)),
-                                    current_template_argument->type,
-                                    updated_decl_context,
-                                    ASTFileName(template_id),
-                                    ASTLine(template_id));
-
-                        if (solved_function != NULL)
-                        {
-                            // Update the type throughout the expression (this is needed when evaluating it)
-                            update_unresolved_overloaded_type(ASTExprType(current_template_argument->expression),
-                                    solved_function->type_information,
-                                    current_template_argument->expression);
-                        }
-                    }
-
-                    ERROR_CONDITION(current_template_argument->type == NULL, "Could not update properly template argument", 0);
-
-                    // Sign in template parameter
-                    param_symbol->kind = SK_VARIABLE;
-                    param_symbol->entity_specs.is_template_argument = 1;
-                    param_symbol->type_information = current_template_argument->type;
-
-                    if (is_constant_expression(current_template_argument->expression, 
-                                updated_decl_context))
-                    {
-                        literal_value_t literal_value = evaluate_constant_expression(current_template_argument->expression,
-                                current_template_argument->expression_context);
-                        param_symbol->expression_value = tree_from_literal_value(literal_value);
-                    }
-
-                    break;
-                }
-            default:
+                if (solved_function != NULL)
                 {
-                    internal_error("Invalid template argument kind", 0);
+                    // Update the type throughout the expression (this is needed when evaluating it)
+                    update_unresolved_overloaded_type(ASTExprType(current_template_argument->expression),
+                            solved_function->type_information,
+                            current_template_argument->expression);
                 }
-                break;
+            }
+
+            ERROR_CONDITION(current_template_argument->type == NULL, "Could not update properly template argument", 0);
         }
+
+        sign_in_template_name(current_template_argument, updated_decl_context);
+
     }
 
     if (num_argument < template_parameters->num_template_parameters)
     {
-        // Create new template context with current template arguments
-        // decl_context_t updated_decl_context = update_context_with_template_arguments(template_arguments_context, result);
-
         // Complete with default template arguments
         for (; num_argument < template_parameters->num_template_parameters; num_argument++)
         {
@@ -2828,11 +2835,13 @@ template_argument_list_t *get_template_arguments_of_template_id(
 
             template_argument_t* original_default_arg = template_parameter->default_template_argument;
 
-            template_argument_t* updated_argument = update_template_argument(
+            template_argument_t* current_template_argument = update_template_argument(
                     original_default_arg, updated_decl_context, 
                     ASTFileName(template_id), ASTLine(template_id));
 
-            P_LIST_ADD(result->argument_list, result->num_arguments, updated_argument);
+            sign_in_template_name(current_template_argument, updated_decl_context);
+
+            P_LIST_ADD(result->argument_list, result->num_arguments, current_template_argument);
 
             DEBUG_CODE()
             {

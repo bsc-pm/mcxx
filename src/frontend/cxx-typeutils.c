@@ -4361,6 +4361,8 @@ char is_pointer_to_member_type(type_t* t)
 
 char is_named_type(type_t* t)
 {
+    t = advance_over_typedefs(t);
+
     return (t != NULL
             && t->kind == TK_DIRECT
             && t->type->kind == STK_USER_DEFINED
@@ -4369,6 +4371,7 @@ char is_named_type(type_t* t)
 
 scope_entry_t* named_type_get_symbol(type_t* t)
 {
+    t = advance_over_typedefs(t);
     if (is_named_type(t))
     {
         return t->type->user_defined_type;
