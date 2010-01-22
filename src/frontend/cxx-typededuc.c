@@ -507,6 +507,9 @@ char deduce_template_arguments_common(
     // For nontype template parameters its type could have to be updated
     // since unification has not done it
     {
+        template_argument_list_t* deduced_template_args = build_template_argument_list_from_deduction_set((*deduced_arguments));
+        updated_context = update_context_with_template_arguments(decl_context, deduced_template_args);
+
         for (i = 0; i < (*deduced_arguments)->num_deductions; i++)
         {
             deduction_t* current_deduction = (*deduced_arguments)->deduction_list[i];
@@ -517,6 +520,7 @@ char deduce_template_arguments_common(
                 {
                     case TPK_NONTYPE:
                         {
+                            fprintf(stderr, "FOO\n");
                             current_deduction->deduced_parameters[j]->type = 
                                 update_type(
                                         current_deduction->deduced_parameters[j]->type,

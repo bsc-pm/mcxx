@@ -1538,6 +1538,8 @@ namespace TL
 
                 if (found)
                 {
+                    internal_error("Temporarily not supported", 0);
+#if 0
                     // Now we have to "instantiate" the UDR
                     Scope instantiation_scope = Scope::instantiation_scope(overload_sym, 
                             item->get_template_scope().get_template_parameters());
@@ -1581,6 +1583,7 @@ namespace TL
                                 item->get_assoc(), 
                                 item->is_commutative());
                     }
+#endif
                 }
             }
             else

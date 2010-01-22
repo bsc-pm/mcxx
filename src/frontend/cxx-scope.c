@@ -1918,7 +1918,7 @@ decl_context_t update_context_with_template_arguments(
 
         switch (current_template_argument->kind)
         {
-            case TPK_TYPE :
+            case TAK_TYPE :
                 {
                     // We use a typedef
                     param_symbol->kind = SK_TYPEDEF;
@@ -1927,7 +1927,7 @@ decl_context_t update_context_with_template_arguments(
 
                     break;
                 }
-            case TPK_TEMPLATE :
+            case TAK_TEMPLATE :
                 {
                     // The template type has to be used here
                     param_symbol->kind = SK_TEMPLATE;
@@ -1937,7 +1937,7 @@ decl_context_t update_context_with_template_arguments(
                         named_type_get_symbol(current_template_argument->type)->type_information;
                     break;
                 }
-            case TPK_NONTYPE :
+            case TAK_NONTYPE :
                 {
                     param_symbol->kind = SK_VARIABLE;
                     param_symbol->entity_specs.is_template_argument = 1;
@@ -1966,7 +1966,7 @@ static template_argument_t* update_template_argument(
         decl_context_t template_arguments_context,
         const char *filename, int line);
 
-type_t* update_type(type_t* orig_type, 
+static type_t* update_type_aux_(type_t* orig_type, 
         decl_context_t decl_context,
         const char* filename, int line)
 {
@@ -2154,7 +2154,7 @@ type_t* update_type(type_t* orig_type,
     {
         type_t* referenced = reference_type_get_referenced_type(orig_type);
 
-        type_t* updated_referenced = update_type(referenced, decl_context, filename, line);
+        type_t* updated_referenced = update_type_aux_(referenced, decl_context, filename, line);
 
         if (updated_referenced == NULL)
             return NULL;
@@ -2169,7 +2169,7 @@ type_t* update_type(type_t* orig_type,
 
         type_t* pointee = pointer_type_get_pointee_type(orig_type);
 
-        type_t* updated_pointee = update_type(pointee, decl_context, filename, line);
+        type_t* updated_pointee = update_type_aux_(pointee, decl_context, filename, line);
 
         if (updated_pointee == NULL)
             return NULL;
@@ -2185,13 +2185,13 @@ type_t* update_type(type_t* orig_type,
         cv_qualifier_t cv_qualifier = get_cv_qualifier(orig_type);
 
         type_t* pointee = pointer_type_get_pointee_type(orig_type);
-        type_t* updated_pointee = update_type(pointee, decl_context, filename, line);
+        type_t* updated_pointee = update_type_aux_(pointee, decl_context, filename, line);
 
         if (updated_pointee == NULL)
             return NULL;
 
         type_t* pointee_class = pointer_to_member_type_get_class_type(orig_type);
-        pointee_class = update_type(pointee_class, decl_context, filename, line);
+        pointee_class = update_type_aux_(pointee_class, decl_context, filename, line);
 
         // If it is not a named class type _and_ it is not a template type
         // parameter, then this is not a valid pointer to member type
@@ -2217,7 +2217,7 @@ type_t* update_type(type_t* orig_type,
         type_t* return_type = function_type_get_return_type(orig_type);
         if (return_type != NULL)
         {
-            return_type = update_type(return_type, decl_context, filename, line);
+            return_type = update_type_aux_(return_type, decl_context, filename, line);
             // Something went wrong here for the return type
             if (return_type == NULL)
                 return NULL;
@@ -2239,7 +2239,7 @@ type_t* update_type(type_t* orig_type,
         {
             type_t* param_orig_type = function_type_get_parameter_type_num(orig_type, i);
 
-            param_orig_type = update_type(param_orig_type, 
+            param_orig_type = update_type_aux_(param_orig_type, 
                     decl_context, filename, line);
 
             if (param_orig_type == NULL)
@@ -2310,7 +2310,7 @@ type_t* update_type(type_t* orig_type,
         }
 
         type_t* element_type = array_type_get_element_type(orig_type);
-        element_type = update_type(element_type,
+        element_type = update_type_aux_(element_type,
                 decl_context, filename, line);
 
         if (element_type == NULL)
@@ -2334,7 +2334,7 @@ type_t* update_type(type_t* orig_type,
                 &nested_name, &unqualified_part);
 
         type_t* fixed_type = NULL;
-        fixed_type = update_type(get_user_defined_type(dependent_entry),
+        fixed_type = update_type_aux_(get_user_defined_type(dependent_entry),
                 decl_context, filename, line);
 
         if (fixed_type == NULL)
@@ -2391,6 +2391,33 @@ type_t* update_type(type_t* orig_type,
     return NULL;
 }
 
+type_t* update_type(type_t* orig_type, 
+        decl_context_t decl_context,
+        const char* filename, int line)
+{
+    DEBUG_CODE()
+    {
+            fprintf(stderr, "SCOPE: Updating type '%s'\n", print_declarator(orig_type));
+    }
+
+    type_t* result = update_type_aux_(orig_type, decl_context,
+            filename, line);
+
+    DEBUG_CODE()
+    {
+        if (result != NULL)
+        {
+            fprintf(stderr, "SCOPE: Type '%s' has been updated to '%s'\n", print_declarator(orig_type), print_declarator(result));
+        }
+        else
+        {
+            fprintf(stderr, "SCOPE: Type '%s' has been updated to '(null)'\n", print_declarator(orig_type));
+        }
+    }
+
+    return result;
+}
+
 static template_argument_t* update_template_argument(
         template_argument_t* current_template_arg,
         decl_context_t decl_context,
@@ -2423,13 +2450,9 @@ static template_argument_t* update_template_argument(
             {
                 result->type = update_type(current_template_arg->type, 
                         decl_context, filename, line);
-                result->expression_context = current_template_arg->expression_context;
-                // result->expression_context = replace_template_parameters_with_values(
-                //         given_template_args, 
-                //         current_template_arg->expression_context);
 
-                // result->expression = ast_copy_for_instantiation(current_template_arg->expression);
                 result->expression = current_template_arg->expression;
+                result->expression_context = decl_context;
 
                 // Update type information 
                 if(!check_for_expression(result->expression, result->expression_context))
@@ -2600,6 +2623,7 @@ template_argument_list_t *get_template_arguments_of_template_id(
 
     AST template_arguments_list = ASTSon1(template_id);
 
+
     int nesting_level = template_type_get_nesting_level(template_type);
 
     // Get the types raw from the syntax
@@ -2671,56 +2695,106 @@ template_argument_list_t *get_template_arguments_of_template_id(
                         *valid = 0;
                         return NULL;
                     }
+                    break;
+                }
+            default:
+                {
+                    internal_error("Invalid template argument kind", 0);
+                }
+                break;
+        }
+    }
 
-                    current_arg->type = update_type(
+    // Process again and sign in template names, no need to check match of template-args and template-params
+    // since we already did it in the previous loop
+
+    decl_context_t updated_decl_context = new_template_context(template_arguments_context);
+
+    for (num_argument = 0; num_argument < result->num_arguments; num_argument++)
+    {
+        template_argument_t* current_template_argument = result->argument_list[num_argument];
+        char tpl_param_name[256] = { 0 };
+
+        snprintf(tpl_param_name, 255, ".tpl_%d_%d",
+                current_template_argument->nesting,
+                current_template_argument->position);
+        scope_entry_t* param_symbol = new_symbol(updated_decl_context,
+                updated_decl_context.template_scope, tpl_param_name);
+
+        switch (current_template_argument->kind)
+        {
+            case TAK_TYPE:
+                {
+                    // Sign in template parameter
+                    param_symbol->kind = SK_TYPEDEF;
+                    param_symbol->entity_specs.is_template_argument = 1;
+                    param_symbol->type_information = get_new_typedef(current_template_argument->type);
+                    break;
+                }
+            case TAK_TEMPLATE:
+                {
+                    // Sign in template parameter
+                    param_symbol->kind = SK_TEMPLATE;
+                    param_symbol->entity_specs.is_template_argument = 1;
+                    // These are always kept as named types in the compiler
+                    param_symbol->type_information = 
+                        named_type_get_symbol(current_template_argument->type)->type_information;
+                    break;
+                }
+            case TAK_NONTYPE:
+                {
+                    current_template_argument->type = update_type(
                             template_parameters->template_parameters[num_argument]->entry->type_information,
-                            template_arguments_context,
+                            updated_decl_context,
                             ASTFileName(template_id), ASTLine(template_id));
-                    current_arg->expression_context = template_arguments_context;
+                    current_template_argument->expression_context = updated_decl_context;
 
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "SCOPE: Type of nontype template parameter updated to '%s'\n",
-                                print_declarator(current_arg->type));
+                                print_declarator(current_template_argument->type));
                     }
 
                     /*
                      * If the type is an address of function try to solve it
                      */
-                    if (ASTExprType(current_arg->expression) != NULL
-                            && is_unresolved_overloaded_type(ASTExprType(current_arg->expression)))
+                    if (ASTExprType(current_template_argument->expression) != NULL
+                            && is_unresolved_overloaded_type(ASTExprType(current_template_argument->expression)))
                     {
                         // Try to solve it
                         scope_entry_t* solved_function =
                             address_of_overloaded_function(
-                                    unresolved_overloaded_type_get_overload_set(ASTExprType(current_arg->expression)),
-                                    unresolved_overloaded_type_get_explicit_template_arguments(ASTExprType(current_arg->expression)),
-                                    current_arg->type,
-                                    template_arguments_context,
+                                    unresolved_overloaded_type_get_overload_set(ASTExprType(current_template_argument->expression)),
+                                    unresolved_overloaded_type_get_explicit_template_arguments(ASTExprType(current_template_argument->expression)),
+                                    current_template_argument->type,
+                                    updated_decl_context,
                                     ASTFileName(template_id),
                                     ASTLine(template_id));
 
                         if (solved_function != NULL)
                         {
                             // Update the type throughout the expression (this is needed when evaluating it)
-                            update_unresolved_overloaded_type(ASTExprType(current_arg->expression),
+                            update_unresolved_overloaded_type(ASTExprType(current_template_argument->expression),
                                     solved_function->type_information,
-                                    current_arg->expression);
-
-#if 0
-                            if (function_type_is_incomplete_independent(solved_function->type_information))
-                            {
-                                instantiate_template_function(solved_function,
-                                        template_arguments_context,
-                                        ASTFileName(template_id),
-                                        ASTLine(template_id));
-                            }
-#endif
+                                    current_template_argument->expression);
                         }
                     }
 
+                    ERROR_CONDITION(current_template_argument->type == NULL, "Could not update properly template argument", 0);
 
-                    ERROR_CONDITION(current_arg->type == NULL, "Could not update properly template argument", 0);
+                    // Sign in template parameter
+                    param_symbol->kind = SK_VARIABLE;
+                    param_symbol->entity_specs.is_template_argument = 1;
+                    param_symbol->type_information = current_template_argument->type;
+
+                    if (is_constant_expression(current_template_argument->expression, 
+                                updated_decl_context))
+                    {
+                        literal_value_t literal_value = evaluate_constant_expression(current_template_argument->expression,
+                                current_template_argument->expression_context);
+                        param_symbol->expression_value = tree_from_literal_value(literal_value);
+                    }
+
                     break;
                 }
             default:
@@ -2733,7 +2807,8 @@ template_argument_list_t *get_template_arguments_of_template_id(
 
     if (num_argument < template_parameters->num_template_parameters)
     {
-        // FIXME - Create new template context with current template arguments
+        // Create new template context with current template arguments
+        // decl_context_t updated_decl_context = update_context_with_template_arguments(template_arguments_context, result);
 
         // Complete with default template arguments
         for (; num_argument < template_parameters->num_template_parameters; num_argument++)
@@ -2754,7 +2829,7 @@ template_argument_list_t *get_template_arguments_of_template_id(
             template_argument_t* original_default_arg = template_parameter->default_template_argument;
 
             template_argument_t* updated_argument = update_template_argument(
-                    original_default_arg, template_arguments_context, 
+                    original_default_arg, updated_decl_context, 
                     ASTFileName(template_id), ASTLine(template_id));
 
             P_LIST_ADD(result->argument_list, result->num_arguments, updated_argument);

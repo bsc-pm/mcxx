@@ -3391,7 +3391,8 @@ static literal_value_t evaluate_sizeof(AST sizeof_tree, decl_context_t decl_cont
         AST type_id = ASTSon0(sizeof_tree);
         t = ast_get_expression_type(type_id);
 
-        // FIXME - This type must be updated with the context
+        // Update this type because it could be dependent
+        t = update_type(t, decl_context, ASTFileName(sizeof_tree), ASTLine(sizeof_tree));
     }
 
     // Runtime sized types yield dependent expressions

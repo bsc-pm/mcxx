@@ -190,11 +190,6 @@ namespace TL
               */
             Symbol new_artificial_symbol(const std::string& artificial_name, bool reuse_symbol=false);
 
-            //! Creates a scope with replacement symbols for a template function specialization
-            static Scope instantiation_scope(Symbol specialized_template_function);
-            static Scope instantiation_scope(Symbol specialized_template_function, 
-                    ObjectList<TemplateParameter> template_parameter_list);
-
             //! States that this is a scope
             virtual bool is_scope() const
             {

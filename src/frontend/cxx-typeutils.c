@@ -5025,22 +5025,14 @@ static char is_value_dependent_expression_aux_(AST expression, decl_context_t de
             {
                 AST type_id = ASTSon0(expression);
 
-                AST type_specifier = ASTSon0(type_id);
-                AST abstract_declarator = ASTSon1(type_id);
+                type_t* t = ASTExprType(type_id);
 
-                gather_decl_spec_t gather_info;
-                memset(&gather_info, 0, sizeof(gather_info));
+                ERROR_CONDITION(t == NULL, "The type cannot be NULL\n", 0);
 
-                type_t* simple_type_info = NULL;
-                // Fix this
-                build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
-                        decl_context);
+                // Update the type if needed
+                t = update_type(t, decl_context, ASTFileName(type_id), ASTLine(type_id));
 
-                type_t* declarator_type = NULL;
-                compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
-                        &declarator_type, decl_context);
-
-                return is_dependent_type(simple_type_info);
+                return is_dependent_type(t);
             }
         case AST_DERREFERENCE :
         case AST_REFERENCE :
