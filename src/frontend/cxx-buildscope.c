@@ -1905,7 +1905,7 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
                     ast_location(type_name));
         }
     }
-    
+
     scope_entry_list_t* entry_list = query_nested_name(decl_context, global_op, nested_name_spec, 
             type_name);
 

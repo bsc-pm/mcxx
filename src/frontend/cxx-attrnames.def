@@ -204,3 +204,5 @@ UPC_IS_FORALL_STATEMENT upc.is_forall_statement
 UPC_IS_NOTIFY_STATEMENT upc.is_notify_statement
 UPC_IS_WAIT_STATEMENT upc.is_wait_statement
 UPC_SYNC_STMT_ARGUMENT upc.sync_stmt_argument
+LANG_IS_TEMPLATE_PARAMETER_NAME lang.is_template_parameter_name
+LANG_TEMPLATE_PARAMETER_NAME_SYMBOL lang.template_parameter_symbol

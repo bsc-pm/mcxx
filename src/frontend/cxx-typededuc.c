@@ -520,7 +520,6 @@ char deduce_template_arguments_common(
                 {
                     case TPK_NONTYPE:
                         {
-                            fprintf(stderr, "FOO\n");
                             current_deduction->deduced_parameters[j]->type = 
                                 update_type(
                                         current_deduction->deduced_parameters[j]->type,

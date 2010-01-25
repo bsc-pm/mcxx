@@ -2455,15 +2455,15 @@ static template_argument_t* update_template_argument(
                 // whose type was already computed in another context, and we do not
                 // want to overwrite it
                 result->expression =
-                    ast_copy_for_instantiation(current_template_arg->expression);
+                    ast_copy(current_template_arg->expression);
                 result->expression_context = decl_context;
 
-                // Update type information 
-                if(!check_for_expression(result->expression, result->expression_context))
-                {
-                    internal_error("Updated nontype template parameter has an invalid expression '%s'", 
-                            prettyprint_in_buffer(result->expression));
-                }
+                // // Update type information 
+                // if(!check_for_expression(result->expression, result->expression_context))
+                // {
+                //     internal_error("Updated nontype template parameter has an invalid expression '%s'", 
+                //             prettyprint_in_buffer(result->expression));
+                // }
 
                 // Ensure the "destination" type of this nontype template
                 // argument is OK (this is important for unresolved overloads)

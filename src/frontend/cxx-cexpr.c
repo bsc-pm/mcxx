@@ -1192,39 +1192,19 @@ static literal_value_t evaluate_symbol(AST symbol, decl_context_t decl_context)
         fprintf(stderr, "CEXPR: Trying to evaluate symbol '%s'\n", prettyprint_in_buffer(symbol));
     }
 
-    type_t* symbol_type = ast_get_expression_type(symbol);
-
     scope_entry_list_t* result = NULL;
 
     scope_entry_list_t _holder;
     memset(&_holder, 0, sizeof(_holder));
 
-    if (symbol_type != NULL
-            && is_named_type(symbol_type)
-            && named_type_get_symbol(symbol_type)->kind == SK_TEMPLATE_PARAMETER)
+    if (is_template_parameter_name(symbol))
     {
-        scope_entry_t* template_symbol = named_type_get_symbol(symbol_type);
+        scope_entry_t* real_symbol = lookup_template_parameter_name(decl_context, symbol);
 
-        scope_entry_t* real_symbol = lookup_of_template_parameter(decl_context,
-                template_symbol->entity_specs.template_parameter_nesting,
-                template_symbol->entity_specs.template_parameter_position);
-
-        if (real_symbol == NULL)
-        {
-            literal_value_t dependent_entity;
-            memset(&dependent_entity, 0, sizeof(dependent_entity));
-
-            dependent_entity.kind = LVK_DEPENDENT_EXPR;
-
-            return dependent_entity;
-        }
-        else
-        {
-            // Add this symbol in the list
-            _holder.entry = real_symbol;
-            _holder.next = NULL;
-            result = &_holder;
-        }
+        // Add this symbol in the list
+        _holder.entry = real_symbol;
+        _holder.next = NULL;
+        result = &_holder;
     }
     else
     {

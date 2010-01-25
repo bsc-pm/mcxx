@@ -117,6 +117,46 @@ static type_t* lvalue_ref(type_t* t)
     return t;
 }
 
+// Probably used in buildscope as well
+void set_as_template_parameter_name(AST a, scope_entry_t* template_param_sym)
+{
+    ERROR_CONDITION(template_param_sym == NULL, "template parameter symbol cannot be NULL", 0);
+
+    ASTAttrSetValueType(a, LANG_IS_TEMPLATE_PARAMETER_NAME, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_TEMPLATE_PARAMETER_NAME_SYMBOL, tl_type_t, tl_symbol(template_param_sym));
+}
+
+// Probably used in buildscope as well
+char is_template_parameter_name(AST a)
+{
+    tl_type_t* t = (tl_type_t*)(ASTAttrValue(a, LANG_IS_TEMPLATE_PARAMETER_NAME));
+    if (t == NULL)
+        return 0;
+    return t->data._boolean;
+}
+
+scope_entry_t* lookup_template_parameter_name(decl_context_t decl_context, AST a)
+{
+    ERROR_CONDITION(!is_template_parameter_name(a),
+            "'%s' should be a template parameter name!", prettyprint_in_buffer(a));
+
+    tl_type_t* symbol = ASTAttrValue(a, LANG_TEMPLATE_PARAMETER_NAME_SYMBOL);
+
+    ERROR_CONDITION(symbol == NULL,
+            "Template parameter related symbol is wrong", 0);
+
+    scope_entry_t* result = lookup_of_template_parameter(decl_context, 
+            symbol->data._entry->entity_specs.template_parameter_nesting,
+            symbol->data._entry->entity_specs.template_parameter_position);
+
+    if (result == NULL)
+    {
+        // Return the stored symbol
+        result = symbol->data._entry;
+    }
+
+    return result;
+}
 
 static
 scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
@@ -4200,7 +4240,20 @@ static char check_for_unary_expression(AST expression, decl_context_t decl_conte
 
 static char compute_symbol_type(AST expr, decl_context_t decl_context, decl_context_t *symbol_scope)
 {
-    scope_entry_list_t* result = query_nested_name(decl_context, NULL, NULL, expr); 
+    scope_entry_list_t* result = NULL;
+    scope_entry_list_t _fake_list;
+    memset(&_fake_list, 0, sizeof(_fake_list));
+
+    if (is_template_parameter_name(expr))
+    {
+        _fake_list.entry = lookup_template_parameter_name(decl_context, expr);
+        _fake_list.next = NULL;
+        result = &_fake_list;
+    }
+    else
+    {
+        result = query_nested_name(decl_context, NULL, NULL, expr); 
+    }
 
     char names_a_builtin = 0;
     const char *name = ASTText(expr);
@@ -4289,6 +4342,7 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, decl_cont
             {
                 // Nontype template parameter
                 ast_set_expression_type(expr, get_user_defined_type(entry));
+                set_as_template_parameter_name(expr, entry);
             }
             else if (entry->kind == SK_TEMPLATE)
             {
