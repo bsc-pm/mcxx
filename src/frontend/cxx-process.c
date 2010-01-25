@@ -28,7 +28,9 @@
 // Compilation options
 compilation_process_t compilation_process = { 0 };
 
-void add_new_file_to_compilation_process(const char* file_path, const char* output_file, 
+void add_new_file_to_compilation_process(
+        compilation_file_process_t* current_file_process,
+        const char* file_path, const char* output_file, 
         compilation_configuration_t* configuration)
 {
     translation_unit_t* translation_unit = (translation_unit_t*)calloc(1, sizeof(*translation_unit));
@@ -52,9 +54,18 @@ void add_new_file_to_compilation_process(const char* file_path, const char* outp
         translation_unit->output_filename = uniquestr(output_file);
     }
 
-    P_LIST_ADD(compilation_process.translation_units, 
-            compilation_process.num_translation_units, 
-            new_compiled_file);
+    if (current_file_process == NULL)
+    {
+        P_LIST_ADD(compilation_process.translation_units, 
+                compilation_process.num_translation_units, 
+                new_compiled_file);
+    }
+    else
+    {
+        P_LIST_ADD(current_file_process->secondary_translation_units,
+                current_file_process->num_secondary_translation_units,
+                new_compiled_file);
+    }
 }
 
 unsigned long long int _bytes_dynamic_lists = 0;

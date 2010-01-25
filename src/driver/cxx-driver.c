@@ -1031,8 +1031,8 @@ int parse_arguments(int argc, const char* argv[],
     int i;
     for (i = 0; i < num_input_files; i++)
     {
-        add_new_file_to_compilation_process(input_files[i],
-                output_file, CURRENT_CONFIGURATION);
+        add_new_file_to_compilation_process(/* add to the global file process */ NULL,
+                input_files[i], output_file, CURRENT_CONFIGURATION);
     }
 
     // If some output was given by means of -o and we are linking (so no -c neither -E nor -y)
@@ -1813,10 +1813,15 @@ static void compile_every_translation_unit(void)
         if (file_process->already_compiled)
             continue;
 
-        // Note: This is the only place where CURRENT_CONFIGURATION can be
-        // changed everywhere else these two variables are constants
+        // Note: This is the only place where
+        // CURRENT_{FILE_PROCESS,CONFIGURATION} can be changed everywhere else
+        // these two variables are constants. Whenever you modify
+        // SET_CURRENT_FILE_PROCESS update also SET_CURRENT_CONFIGURATION to
+        // its configuration
+        SET_CURRENT_FILE_PROCESS(file_process);
+        // This looks a bit redundant but it turns that the compiler has a
+        // configuration even before of any file
         SET_CURRENT_CONFIGURATION(file_process->compilation_configuration);
-        SET_CURRENT_COMPILED_FILE(file_process->translation_unit);
 
         translation_unit_t* translation_unit = CURRENT_COMPILED_FILE;
 
