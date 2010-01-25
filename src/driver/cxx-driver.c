@@ -1802,12 +1802,13 @@ static void register_upc_pragmae(void)
     register_new_directive("distributed", "", /* is_construct */ 0);
 }
 
-static void compile_every_translation_unit(void)
+static void compile_every_translation_unit_aux_(int num_translation_units,
+        compilation_file_process_t** translation_units)
 {
     int i;
-    for (i = 0; i < compilation_process.num_translation_units; i++)
+    for (i = 0; i < num_translation_units; i++)
     {
-        compilation_file_process_t* file_process = compilation_process.translation_units[i];
+        compilation_file_process_t* file_process = translation_units[i];
 
         // Ensure we do not get in a strange loop
         if (file_process->already_compiled)
@@ -1946,6 +1947,12 @@ static void compile_every_translation_unit(void)
 
         file_process->already_compiled = 1;
     }
+}
+
+static void compile_every_translation_unit(void)
+{
+    compile_every_translation_unit_aux_(compilation_process.num_translation_units,
+            compilation_process.translation_units);
 }
 
 static void compiler_phases_pre_execution(
