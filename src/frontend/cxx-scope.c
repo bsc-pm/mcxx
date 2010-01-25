@@ -2451,7 +2451,11 @@ static template_argument_t* update_template_argument(
                 result->type = update_type(current_template_arg->type, 
                         decl_context, filename, line);
 
-                result->expression = current_template_arg->expression;
+                // We really need to copy this tree because it comes from another tree
+                // whose type was already computed in another context, and we do not
+                // want to overwrite it
+                result->expression =
+                    ast_copy_for_instantiation(current_template_arg->expression);
                 result->expression_context = decl_context;
 
                 // Update type information 
@@ -2460,6 +2464,12 @@ static template_argument_t* update_template_argument(
                     internal_error("Updated nontype template parameter has an invalid expression '%s'", 
                             prettyprint_in_buffer(result->expression));
                 }
+
+                // Ensure the "destination" type of this nontype template
+                // argument is OK (this is important for unresolved overloads)
+                // FIXME - We should check that a standard conversion
+                // (involving no user-defined conversions) is possible
+                ast_set_expression_type(result->expression, result->type);
 
                 type_t* expr_type = ASTExprType(result->expression);
                 // Fold the argument

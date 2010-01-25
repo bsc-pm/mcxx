@@ -276,7 +276,8 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
                             ERROR_CONDITION(ASTExprType(symbol) == NULL,
                                     "This expression lacks a type", 0);
                             ERROR_CONDITION(!is_unresolved_overloaded_type(ASTExprType(symbol))
-                                    && !is_function_type(ASTExprType(symbol)),
+                                    && !is_function_type(ASTExprType(symbol))
+                                    && !is_pointer_to_function_type(ASTExprType(symbol)),
                                     "This expression has the wrong type", 0);
                             // This case can only be a template-argument
                             scope_entry_t* solved_function =
@@ -1314,7 +1315,8 @@ static literal_value_t evaluate_symbol(AST symbol, decl_context_t decl_context)
             ERROR_CONDITION(ASTExprType(symbol) == NULL,
                     "This expression lacks a type", 0);
             ERROR_CONDITION(!is_unresolved_overloaded_type(ASTExprType(symbol))
-                    && !is_function_type(ASTExprType(symbol)),
+                    && !is_function_type(ASTExprType(symbol))
+                    && !is_pointer_to_function_type(ASTExprType(symbol)),
                     "This expression has the wrong type", 0);
             // This case can only be a template-argument
             scope_entry_t* solved_function =
