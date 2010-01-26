@@ -295,6 +295,10 @@ static int parse_implicit_parameter_flag(int *should_advance, const char *specia
 
 static void list_environments(void);
 
+static void do_embed(embed_map_t* embed_map, 
+        translation_unit_t* secondary_translation_unit,
+        translation_unit_t* main_translation_unit);
+
 
 static char do_not_unload_phases = 0;
 static char show_help_message = 0;
@@ -1731,7 +1735,7 @@ static void commit_configuration(void)
 
             if (can_be_committed)
             {
-                config_directive->funct(configuration, configuration_line->value);
+                config_directive->funct(configuration, configuration_line->index, configuration_line->value);
             }
         }
     }
@@ -1754,7 +1758,7 @@ static void finalize_committed_configuration(void)
     // OpenMP support involves omp pragma
     if (!CURRENT_CONFIGURATION->disable_openmp)
     {
-        config_add_preprocessor_prefix(CURRENT_CONFIGURATION, "omp");
+        config_add_preprocessor_prefix(CURRENT_CONFIGURATION, /* index */ NULL, "omp");
     }
 
     // UPC support involves some specific pragmae
@@ -1774,7 +1778,7 @@ static void enable_hlt_phase(void)
 {
     // -hlt is like adding the compiler phase of hlt and registering '#pragma hlt'
     // Register '#pragma hlt'
-    config_add_preprocessor_prefix(CURRENT_CONFIGURATION, "hlt");
+    config_add_preprocessor_prefix(CURRENT_CONFIGURATION, /* index */ NULL, "hlt");
     // When loading the compiler phase a proper extension will be added
     const char* library_name = "libtl-hlt-pragma";
     P_LIST_ADD_PREPEND(CURRENT_CONFIGURATION->compiler_phases, 
@@ -1788,7 +1792,7 @@ static void enable_hlt_phase(void)
 static void register_upc_pragmae(void)
 {
     // Register '#pragma upc'
-    config_add_preprocessor_prefix(CURRENT_CONFIGURATION, "upc");
+    config_add_preprocessor_prefix(CURRENT_CONFIGURATION, /* index */ NULL, "upc");
     // Lexer already uses CURRENT_CONFIGURATION this is why it is not specified here
     // Register '#pragma upc relaxed'
     register_new_directive("upc", "relaxed", /* is_construct */ 0);
@@ -1797,7 +1801,7 @@ static void register_upc_pragmae(void)
 
     // mfarrera's + IBM UPC extension that annoyingly it is not prefixed with
     // 'upc' (as it ought to be!)
-    config_add_preprocessor_prefix(CURRENT_CONFIGURATION, "distributed");
+    config_add_preprocessor_prefix(CURRENT_CONFIGURATION, /* index */ NULL, "distributed");
     // Register the empty directive since the syntax is '#pragma distributed'
     register_new_directive("distributed", "", /* is_construct */ 0);
 }
@@ -1815,10 +1819,10 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
             continue;
 
         // Note: This is the only place where
-        // CURRENT_{FILE_PROCESS,CONFIGURATION} can be changed everywhere else
-        // these two variables are constants. Whenever you modify
-        // SET_CURRENT_FILE_PROCESS update also SET_CURRENT_CONFIGURATION to
-        // its configuration
+        // CURRENT_{FILE_PROCESS,CONFIGURATION} can be changed. Everywhere else
+        // these two variables are constants. 
+        // Whenever you modify SET_CURRENT_FILE_PROCESS update also
+        // SET_CURRENT_CONFIGURATION to its configuration
         SET_CURRENT_FILE_PROCESS(file_process);
         // This looks a bit redundant but it turns that the compiler has a
         // configuration even before of any file
@@ -1932,6 +1936,38 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 }
             }
 
+            // Process secondary translation units
+            if (file_process->num_secondary_translation_units != 0)
+            {
+                compile_every_translation_unit_aux_(
+                        file_process->num_secondary_translation_units,
+                        file_process->secondary_translation_units);
+
+                // Embed
+                // FIXME - 'executable' embedding mode is not implemented
+
+                int j;
+                for (j = 0; j < file_process->num_secondary_translation_units; j++)
+                {
+                    compilation_file_process_t* secondary_file_process = file_process->secondary_translation_units[j];
+                    translation_unit_t* secondary_translation_unit = secondary_file_process->translation_unit;
+
+                    embed_map_t* embed_map = get_embed_map(secondary_file_process->compilation_configuration, 
+                            CURRENT_CONFIGURATION->configuration_name, 
+                            /* return_default */ 1);
+
+                    if (embed_map == NULL)
+                    {
+                        running_error("%s: error: no embedding tool was defined for profile '%s' towards profile '%s'",
+                                secondary_translation_unit->output_filename,
+                                secondary_file_process->compilation_configuration->configuration_name,
+                                CURRENT_CONFIGURATION->configuration_name);
+                    }
+
+                    do_embed(embed_map, secondary_translation_unit, translation_unit);
+               }
+            }
+
             if (current_extension->source_language != SOURCE_LANGUAGE_ASSEMBLER)
             {
                 const char* prettyprinted_filename 
@@ -1953,6 +1989,13 @@ static void compile_every_translation_unit(void)
 {
     compile_every_translation_unit_aux_(compilation_process.num_translation_units,
             compilation_process.translation_units);
+}
+
+static void do_embed(embed_map_t* embed_map, 
+        translation_unit_t* secondary_translation_unit,
+        translation_unit_t* main_translation_unit)
+{
+    internal_error("Not yet implemented", 0);
 }
 
 static void compiler_phases_pre_execution(

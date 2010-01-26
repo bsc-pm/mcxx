@@ -65,7 +65,7 @@ static void parse_boolean(const char *c, int *value)
 }
 
 // Set source language
-int config_set_language(struct compilation_configuration_tag* config, const char* value)
+int config_set_language(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     if (strcasecmp(value, "c") == 0)
     {
@@ -84,7 +84,7 @@ int config_set_language(struct compilation_configuration_tag* config, const char
 }
 
 // Set additional mcxx options
-int config_set_options(struct compilation_configuration_tag* config, const char* value)
+int config_set_options(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     int num;
     const char** blank_separated_options = blank_separate_values(value, &num);
@@ -114,14 +114,14 @@ int config_set_options(struct compilation_configuration_tag* config, const char*
 }
 
 // Set preprocessor name
-int config_set_preprocessor_name(struct compilation_configuration_tag* config, const char* value)
+int config_set_preprocessor_name(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     config->preprocessor_name = uniquestr(value);
     return 0;
 }
 
 // Set preprocessor options
-int config_set_preprocessor_options(struct compilation_configuration_tag* config, const char* value)
+int config_set_preprocessor_options(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     int num;
     const char** blank_separated_options = blank_separate_values(value, &num);
@@ -131,7 +131,7 @@ int config_set_preprocessor_options(struct compilation_configuration_tag* config
     return 0;
 }
 
-int config_set_preprocessor_uses_stdout(struct compilation_configuration_tag * config, const char *value)
+int config_set_preprocessor_uses_stdout(struct compilation_configuration_tag * config, const char* index, const char *value)
 {
     int bool_value = -1;
 
@@ -150,14 +150,14 @@ int config_set_preprocessor_uses_stdout(struct compilation_configuration_tag * c
 }
 
 // Set native compiler name
-int config_set_compiler_name(struct compilation_configuration_tag* config, const char* value)
+int config_set_compiler_name(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     config->native_compiler_name = uniquestr(value);
     return 0;
 }
 
 // Set native compiler options
-int config_set_compiler_options(struct compilation_configuration_tag* config, const char* value)
+int config_set_compiler_options(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     int num;
     const char **blank_separated_options = blank_separate_values(value, &num);
@@ -167,14 +167,14 @@ int config_set_compiler_options(struct compilation_configuration_tag* config, co
 }
 
 // Set linker name
-int config_set_linker_name(struct compilation_configuration_tag* config, const char* value)
+int config_set_linker_name(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     config->linker_name = uniquestr(value);
     return 0;
 }
 
 // Set linker options
-int config_set_linker_options(struct compilation_configuration_tag* config, const char* value)
+int config_set_linker_options(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     int num;
     const char **blank_separated_options = blank_separate_values(value, &num);
@@ -183,7 +183,7 @@ int config_set_linker_options(struct compilation_configuration_tag* config, cons
     return 0;
 }
 
-int config_add_compiler_phase(struct compilation_configuration_tag* config, const char* value)
+int config_add_compiler_phase(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     const char* library_name = uniquestr(value);
     P_LIST_ADD(config->compiler_phases, 
@@ -193,7 +193,7 @@ int config_add_compiler_phase(struct compilation_configuration_tag* config, cons
     return 0;
 }
 
-int config_add_preprocessor_prefix(struct compilation_configuration_tag* config, const char* value)
+int config_add_preprocessor_prefix(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     const char *reserved[] = {
         "gcc", 
@@ -228,10 +228,58 @@ int config_add_preprocessor_prefix(struct compilation_configuration_tag* config,
     return 0;
 }
 
-int config_set_environment(struct compilation_configuration_tag* config, const char* value)
+int config_set_environment(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     type_environment_t* chosen_env = get_environment(value);
     config->type_environment = chosen_env;
+    return 0;
+}
+
+embed_map_t* get_embed_map(struct compilation_configuration_tag* config, const char* index, char return_default)
+{
+    embed_map_t* embed_map = NULL;
+    embed_map_t* def_embed_map = NULL;
+    int i;
+    for (i = 0; i < config->num_embed_maps; i++)
+    {
+        if (config->embed_maps[i]->profile == NULL)
+        {
+            def_embed_map = config->embed_maps[i];
+        }
+        if ((config->embed_maps[i]->profile == NULL
+                    && index == NULL)
+                || (index != NULL 
+                    && config->embed_maps[i]->profile != NULL
+                    && strcmp(index, config->embed_maps[i]->profile) == 0))
+        {
+            embed_map = &(config->embed_maps[i]);
+            break;
+        }
+
+    }
+
+    if (embed_map == NULL
+            && return_default)
+    {
+        return def_embed_map;
+    }
+
+    return embed_map;
+}
+
+int config_set_embedder(struct compilation_configuration_tag* config, const char* index, const char* value)
+{
+    embed_map_t* new_embed_map = get_embed_map(config, index, /* return_default */ 0);
+    if (new_embed_map == NULL)
+    {
+        new_embed_map = calloc(1, sizeof(*new_embed_map));
+        new_embed_map->profile = index;
+
+        P_LIST_ADD(config->embed_maps, config->num_embed_maps, new_embed_map);
+    }
+
+    new_embed_map->command = value;
+
     return 0;
 }
 

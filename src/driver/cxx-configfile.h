@@ -31,7 +31,9 @@ MCXX_BEGIN_DECLS
 
 char config_file_parse(const char *filename);
 
-typedef int (option_function_t)(struct compilation_configuration_tag*, const char* value);
+embed_map_t* get_embed_map(struct compilation_configuration_tag* config, const char* index, char return_default);
+
+typedef int (option_function_t)(struct compilation_configuration_tag*, const char* index, const char* value);
 
 option_function_t config_set_language;
 option_function_t config_set_options;
@@ -45,6 +47,7 @@ option_function_t config_set_linker_options;
 option_function_t config_add_compiler_phase;
 option_function_t config_add_preprocessor_prefix;
 option_function_t config_set_environment;
+option_function_t config_set_embedder;
 
 MCXX_END_DECLS
 

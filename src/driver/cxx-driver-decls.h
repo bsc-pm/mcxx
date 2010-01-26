@@ -119,7 +119,7 @@ struct compilation_configuration_tag;
 struct configuration_directive_t
 {
     const char* name;
-    int (*funct)(struct compilation_configuration_tag*, const char* value);
+    int (*funct)(struct compilation_configuration_tag*, const char* index, const char* value);
 };
 
 struct debug_flags_list_t
@@ -213,11 +213,18 @@ typedef struct compilation_configuration_conditional_flags
 typedef struct compilation_configuration_line
 {
     const char *name;
+    const char *index;
     const char *value;
 
     int num_flags;
     struct compilation_configuration_conditional_flags *flags;
 } compilation_configuration_line_t;
+
+typedef struct embed_map_tag
+{
+    const char* profile;
+    const char* command;
+} embed_map_t;
 
 typedef struct compilation_configuration_tag
 {
@@ -300,11 +307,15 @@ typedef struct compilation_configuration_tag
 
     // Unified Parallel C (UPC)
     char enable_upc;
-    // If this is not null, this should be constant expression
+    // If this is not null, this should be a constant expression
     const char *upc_threads;
 
     // Enable HLT
     char enable_hlt;
+
+    // Embedder map
+    int num_embed_maps;
+    embed_map_t** embed_maps;
 } compilation_configuration_t;
 
 
@@ -324,6 +335,8 @@ typedef struct compilation_file_process_tag
 #define CURRENT_COMPILED_FILE ((translation_unit_t*)compilation_process.current_file_process->translation_unit)
 #define CURRENT_FILE_PROCESS ((compilation_file_process_t*)compilation_process.current_file_process)
 
+// Whenever you modify SET_CURRENT_FILE_PROCESS update also
+// SET_CURRENT_CONFIGURATION to its configuration
 #define SET_CURRENT_FILE_PROCESS(_x) (compilation_process.current_file_process = _x)
 #define SET_CURRENT_CONFIGURATION(_x) (compilation_process.current_compilation_configuration = _x)
 
