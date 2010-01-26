@@ -128,7 +128,6 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         << "{"
         << replaced_body
         << "}"
-        << final_barrier
         ;
 
     outline_code = create_outline(
@@ -254,7 +253,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         <<    "nanos_slicer_data_for_t* slicer_data_for = (nanos_slicer_data_for_t*)0;"
         <<    "err = nanos_create_sliced_wd(&wd, "
         <<          /* num_devices */ "1, " << device_descriptor << ", "
-        <<          "sizeof(" << device_descriptor << "),"
+        <<          "sizeof(" << struct_arg_type_name << "),"
         <<          "(void**)&loop_data,"
         <<          "nanos_current_wd(),"
         <<          current_slicer << ","
@@ -270,6 +269,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         <<    "err = nanos_submit(wd, 0, (nanos_dependence_t*)0, 0);"
         <<    "if (err != NANOS_OK) nanos_handle_error(err);"
         << "}"
+        << final_barrier
         << "}"
         ;
 
