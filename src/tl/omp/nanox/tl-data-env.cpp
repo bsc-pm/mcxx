@@ -33,6 +33,8 @@ namespace TL
     {
         const std::string DATA_ENV_ARG_TYPE_COUNTER = "data_env_arg_type_counter";
 
+        const std::string OMP_NANOX_VLA_DIMS = "omp.nanox.vla_dims";
+
         static void dimensional_replacements_of_variable_type_aux(Type type, 
                 Symbol sym, 
                 ObjectList<Source> &dim_names, 
@@ -58,18 +60,18 @@ namespace TL
             }
         }
 
-        static Type compute_replacemement_type_for_vla(Type type, ObjectList<Source>::iterator dim_names)
+        static Type compute_replacement_type_for_vla(Type type, ObjectList<Source>::iterator dim_names)
         {
             Type new_type(NULL);
             if (type.is_array())
             {
-                new_type = compute_replacemement_type_for_vla(type.array_element(), dim_names + 1);
+                new_type = compute_replacement_type_for_vla(type.array_element(), dim_names + 1);
 
                 new_type = new_type.get_array_to(*dim_names);
             }
             else if (type.is_pointer())
             {
-                new_type = compute_replacemement_type_for_vla(type.points_to(), dim_names);
+                new_type = compute_replacement_type_for_vla(type.points_to(), dim_names);
                 new_type = new_type.get_pointer_to();
             }
             else
@@ -80,11 +82,101 @@ namespace TL
             return new_type;
         }
 
+        static void convert_vla(Symbol sym, ObjectList<Symbol>& converted_vlas, ScopeLink sl)
+        {
+            if (converted_vlas.contains(sym))
+                return;
+
+            ObjectList<Source> dim_decls;
+            ObjectList<Source> dim_names;
+
+            dimensional_replacements_of_variable_type_aux(sym.get_type(),
+                    sym, dim_names, dim_decls);
+
+            Source new_decls;
+            for (ObjectList<Source>::iterator it = dim_decls.begin();
+                    it != dim_decls.end();
+                    it++)
+            {
+                new_decls << *it << ";"
+                    ;
+            }
+
+            AST_t point_of_decl = sym.get_point_of_declaration();
+            AST_t enclosing_stmt_tree;
+            if (sym.is_parameter())
+            {
+                FunctionDefinition 
+                    funct_def(point_of_decl.get_enclosing_function_definition(), sl);
+
+                enclosing_stmt_tree = funct_def.get_function_body().get_inner_statements()[0].get_ast();
+            }
+            else
+            {
+                enclosing_stmt_tree = point_of_decl.get_enclosing_statement();
+            }
+
+            AST_t statement_seq 
+                = new_decls.parse_statement(enclosing_stmt_tree, sl);
+            enclosing_stmt_tree.prepend(statement_seq);
+
+            if (!sym.is_parameter())
+            {
+                // If this is not a parameter, we'll want to rewrite the declaration itself
+                Type new_type_spawn = compute_replacement_type_for_vla(sym.get_type(), dim_names.begin());
+
+                // Now redeclare
+                Source redeclaration;
+                redeclaration
+                    << new_type_spawn.get_declaration(sym.get_scope(), sym.get_name())
+                    << ";"
+                    ;
+
+                AST_t redeclaration_tree = redeclaration.parse_statement(enclosing_stmt_tree,
+                        sl, Source::ALLOW_REDECLARATION);
+
+                enclosing_stmt_tree.prepend(redeclaration_tree);
+
+                // Now remove the declarator of the declaration
+                Declaration decl(point_of_decl, sl);
+
+                if (decl.get_declared_entities().size() == 1)
+                {
+                    // We have to remove all the whole declaration
+                    enclosing_stmt_tree.remove_in_list();
+                }
+                else
+                {
+                    // Remove only this entity
+                    ObjectList<DeclaredEntity> entities = decl.get_declared_entities();
+                    for (ObjectList<DeclaredEntity>::iterator it = entities.begin();
+                            it != entities.end();
+                            it++)
+                    {
+                        if (it->get_declared_symbol() == sym)
+                        {
+                            it->get_ast().remove_in_list();
+                        }
+                    }
+                }
+            }
+
+            // Store dimensions
+            RefPtr<ObjectList<Source> > dim_names_ref(new ObjectList<Source>(dim_names));
+            sym.set_attribute(OMP_NANOX_VLA_DIMS, dim_names_ref);
+
+            converted_vlas.insert(sym);
+        }
+
         static void valued_type(Symbol sym, 
                 ScopeLink sl, 
-                DataEnvironInfo& data_env_info)
+                DataEnvironInfo& data_env_info,
+                ObjectList<Symbol>& converted_vlas)
         {
             bool is_raw_buffer = false;
+            bool is_vla_type = false;
+
+            ObjectList<Source> dim_list;
 
             Type type = sym.get_type();
 
@@ -95,6 +187,18 @@ namespace TL
                 // Other kinds of variably modified types involve local types
                 // (this is a kind of local type but we allow it for
                 // convenience)
+
+                // Normalize VLA, if needed
+                convert_vla(sym, converted_vlas, sl);
+
+                RefPtr<ObjectList<Source> > dim_list_ref 
+                    = RefPtr<ObjectList<Source> >::cast_dynamic(sym.get_attribute(OMP_NANOX_VLA_DIMS));
+
+                is_vla_type = true;
+
+                dim_list = ObjectList<Source>(dim_list_ref->begin(), dim_list_ref->end());
+
+                type = Type::get_void_type().get_pointer_to();
             }
             else if (IS_CXX_LANGUAGE)
             {
@@ -130,6 +234,25 @@ namespace TL
             std::string field_name = data_env_info.get_field_name_for_symbol(sym);
 
             DataEnvironItem data_env_item(sym, type, field_name);
+            C_LANGUAGE()
+            {
+                data_env_item.set_is_vla_type(is_vla_type);
+                data_env_item.set_vla_dimensions(dim_list);
+
+                int i = 0;
+                for (ObjectList<Source>::iterator it = dim_list.begin();
+                        it != dim_list.end();
+                        it++)
+                {
+                    std::stringstream ss;
+                    ss << field_name << "_" << i;
+
+                    // Caution, this symbol is NULL!
+                    DataEnvironItem aux_data_env(Symbol(NULL), Type::get_int_type(), ss.str());
+
+                    i++;
+                }
+            }
             CXX_LANGUAGE()
             {
                 data_env_item.set_is_raw_buffer(is_raw_buffer);
@@ -138,7 +261,8 @@ namespace TL
 
         static void pointer_type(Symbol sym, 
                 ScopeLink sl, 
-                DataEnvironInfo& data_env_info)
+                DataEnvironInfo& data_env_info,
+                ObjectList<Symbol>& converted_vlas)
         {
             Type type = sym.get_type();
             if (IS_C_LANGUAGE
@@ -165,12 +289,13 @@ namespace TL
         void compute_data_environment(ObjectList<Symbol> value,
                 ObjectList<Symbol> shared,
                 ScopeLink scope_link,
-                DataEnvironInfo &data_env_info)
+                DataEnvironInfo &data_env_info,
+                ObjectList<Symbol>& converted_vlas)
         {
             struct auxiliar_struct_t
             {
                 ObjectList<Symbol>* list;
-                void (*transform_type)(Symbol, ScopeLink, DataEnvironInfo&);
+                void (*transform_type)(Symbol, ScopeLink, DataEnvironInfo&, ObjectList<Symbol>&);
             } aux_struct[] =
             {
                 { &shared, pointer_type },
@@ -190,7 +315,7 @@ namespace TL
                     Symbol &sym(*it);
 
                     std::string field_name = sym.get_name();
-                    (aux_struct[i].transform_type)(sym, scope_link, data_env_info);
+                    (aux_struct[i].transform_type)(sym, scope_link, data_env_info, converted_vlas);
                 }
             }
         }

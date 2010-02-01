@@ -40,6 +40,9 @@ namespace TL
                 std::string _field_name;
                 bool _is_pointer;
                 bool _is_raw_buffer;
+                bool _is_vla_type;
+
+                ObjectList<Source> _vla_dim_list;
 
             public:
                 DataEnvironItem() 
@@ -47,7 +50,9 @@ namespace TL
                     _type(NULL),
                     _field_name(""), 
                     _is_pointer(false),
-                    _is_raw_buffer(false)
+                    _is_raw_buffer(false),
+                    _is_vla_type(false),
+                    _vla_dim_list()
                 { }
 
                 DataEnvironItem(Symbol sym, Type type, const std::string &field_name)
@@ -55,7 +60,9 @@ namespace TL
                     _type(type),
                     _field_name(field_name),
                     _is_pointer(false),
-                    _is_raw_buffer(false)
+                    _is_raw_buffer(false),
+                    _is_vla_type(false),
+                    _vla_dim_list()
                 {
                 }
 
@@ -94,6 +101,22 @@ namespace TL
                 bool is_raw_buffer() const
                 {
                     return _is_raw_buffer;
+                }
+
+                bool is_vla_type() const
+                {
+                    return _is_vla_type;
+                }
+
+                DataEnvironItem& set_is_vla_type(bool b) 
+                {
+                    _is_vla_type = b;
+                    return *this;
+                }
+
+                DataEnvironItem& set_vla_dimensions(ObjectList<Source> dim_list)
+                {
+                    return *this;
                 }
         };
 
