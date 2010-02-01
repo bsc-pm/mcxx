@@ -1995,7 +1995,6 @@ static void do_embed(embed_map_t* embed_map,
         translation_unit_t* secondary_translation_unit,
         translation_unit_t* main_translation_unit)
 {
-    internal_error("Not yet implemented", 0);
 }
 
 static void compiler_phases_pre_execution(
