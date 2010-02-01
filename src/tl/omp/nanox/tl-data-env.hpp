@@ -36,6 +36,7 @@ namespace TL
         {
             private:
                 Symbol _sym;
+                Type _type;
                 std::string _field_name;
                 bool _is_pointer;
                 bool _is_raw_buffer;
@@ -43,13 +44,15 @@ namespace TL
             public:
                 DataEnvironItem() 
                     : _sym(NULL), 
+                    _type(NULL),
                     _field_name(""), 
                     _is_pointer(false),
                     _is_raw_buffer(false)
                 { }
 
-                DataEnvironItem(Symbol sym, const std::string &field_name)
+                DataEnvironItem(Symbol sym, Type type, const std::string &field_name)
                     : _sym(sym), 
+                    _type(type),
                     _field_name(field_name),
                     _is_pointer(false),
                     _is_raw_buffer(false)
@@ -59,6 +62,11 @@ namespace TL
                 Symbol get_symbol() const
                 {
                     return _sym;
+                }
+
+                Type get_type() const
+                {
+                    return _type;
                 }
 
                 std::string get_field_name() const
@@ -116,18 +124,39 @@ namespace TL
 
                     return DataEnvironItem();
                 }
+
+                std::string get_field_name_for_symbol(Symbol sym)
+                {
+                    int n = 0;
+
+                    std::stringstream ss;
+
+                    ss << sym.get_name() << "_" << n++;
+
+                    while (_data_env_items.contains(functor(&DataEnvironItem::get_field_name), ss.str()))
+                    {
+                        ss.clear();
+                        ss  << sym.get_name() << "_" << n++;
+                    }
+
+                    return ss.str();
+                }
         };
 
         // This one is not to be exported
-        void fill_data_environment_structure(ObjectList<Symbol> value, 
-                ObjectList<Symbol> shared, 
+        void compute_data_environment(ObjectList<Symbol> value,
+                ObjectList<Symbol> shared,
                 ScopeLink scope_link,
-                ObjectList<OpenMP::DependencyItem> dependencies,
-                // Output arguments
-                std::string &struct_name,
-                Source & struct_decl,
-                Source & struct_fields,
                 DataEnvironInfo &data_env_info);
+
+        // This one is not to be exported
+        void fill_data_environment_structure(
+                Scope sc,
+                const DataEnvironInfo &data_env_info,
+                Source &struct_decl,
+                Source &struct_fields,
+                std::string& struct_arg_type_name,
+                ObjectList<OpenMP::DependencyItem> dependencies);
 
         // This one is not to be exported
         void fill_data_args(const std::string& arg_var_accessor, 

@@ -98,7 +98,6 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
         <<                              "0,"
         <<                              "(nanos_dependence_t*)0, "
         <<                              "&props);"
-        //   The ending barrier will be in the outlined function
         << "}"
         ;
 

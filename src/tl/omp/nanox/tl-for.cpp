@@ -65,17 +65,20 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         ;
 
     DataEnvironInfo data_environ_info;
+    compute_data_environment(firstprivate_symbols,
+            shared_symbols,
+            ctr.get_scope_link(),
+            data_environ_info);
 
     Source struct_arg_type_decl_src;
     std::string struct_arg_type_name;
-    fill_data_environment_structure(firstprivate_symbols,
-            shared_symbols,
-            ctr.get_scope_link(),
-            ObjectList<OpenMP::DependencyItem>(), // empty dependences
-            struct_arg_type_name,
+    fill_data_environment_structure(
+            ctr.get_scope(),
+            data_environ_info,
             struct_arg_type_decl_src,
             struct_fields,
-            data_environ_info);
+            struct_arg_type_name, 
+            ObjectList<OpenMP::DependencyItem>()); // empty dependences
 
     FunctionDefinition funct_def = ctr.get_enclosing_function();
     Symbol function_symbol = funct_def.get_function_symbol();

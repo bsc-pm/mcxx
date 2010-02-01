@@ -33,95 +33,184 @@ namespace TL
     {
         const std::string DATA_ENV_ARG_TYPE_COUNTER = "data_env_arg_type_counter";
 
-        static Type valued_type(Symbol s, ScopeLink sl, bool& is_raw_buffer)
+        static void dimensional_replacements_of_variable_type_aux(Type type, 
+                Symbol sym, 
+                ObjectList<Source> &dim_names, 
+                ObjectList<Source> &dim_decls)
         {
-            is_raw_buffer = false;
-            C_LANGUAGE()
+            Counter& vla_counter = CounterManager::get_counter("VLA_DIMENSIONS_COUNTER");
+            if (type.is_array())
             {
-                return s.get_type();
-            }
-
-            // C++ only from this point
-
-            Type t = s.get_type();
-
-            if (t.is_array())
-            {
-                // This is the "easiest" way to build a type
-                Source src;
-                src
-                    << "char [(" << t.array_dimension().prettyprint() << ") * sizeof(" << t.get_declaration(s.get_scope(), "") << ")]"
+                Source dim_name;
+                dim_name
+                    << "_" << sym.get_name() << "_" << vla_counter
                     ;
+                vla_counter++;
 
-                Type char_buffer_type = src.parse_type(s.get_point_of_declaration(), sl);
-                is_raw_buffer = true;
-                return char_buffer_type;
-            }
-            // Some classes do not need this treatment, in particular if they are pod
-            else if (t.is_named_class())
-            {
-                Source src;
-                src
-                    << "char [sizeof(" << t.get_declaration(s.get_scope(), "") << ")]"
-                    ;
+                dimensional_replacements_of_variable_type_aux(type.array_element(), sym, dim_names, dim_decls);
 
-                Type char_buffer_type = src.parse_type(s.get_point_of_declaration(), sl);
-                is_raw_buffer = true;
-                return char_buffer_type;
+                dim_names.append(dim_name);
+                dim_decls.append(Source("") << "int " << dim_name << " = " << type.array_dimension().prettyprint());
             }
-            else
+            else if (type.is_pointer())
             {
-                return t;
+                dimensional_replacements_of_variable_type_aux(type.points_to(), sym, dim_names, dim_decls);
             }
         }
 
-        static Type pointer_type(Symbol sym, ScopeLink sl, bool& is_raw_buffer)
+        static Type compute_replacemement_type_for_vla(Type type, ObjectList<Source>::iterator dim_names)
         {
-            is_raw_buffer = false;
-            Type t = sym.get_type();
-            if (t.is_array())
+            Type new_type(NULL);
+            if (type.is_array())
             {
-                return t.array_element().get_pointer_to().get_restrict_type();
+                new_type = compute_replacemement_type_for_vla(type.array_element(), dim_names + 1);
+
+                new_type = new_type.get_array_to(*dim_names);
+            }
+            else if (type.is_pointer())
+            {
+                new_type = compute_replacemement_type_for_vla(type.points_to(), dim_names);
+                new_type = new_type.get_pointer_to();
             }
             else
             {
-                return t.get_pointer_to().get_restrict_type();
+                new_type = type;
+            }
+
+            return new_type;
+        }
+
+        static void valued_type(Symbol sym, 
+                ScopeLink sl, 
+                DataEnvironInfo& data_env_info)
+        {
+            bool is_raw_buffer = false;
+
+            Type type = sym.get_type();
+
+            if (IS_C_LANGUAGE
+                    && type.is_variably_modified())
+            {
+                // Only VLA arrays or pointers to VLA are actually allowed.
+                // Other kinds of variably modified types involve local types
+                // (this is a kind of local type but we allow it for
+                // convenience)
+            }
+            else if (IS_CXX_LANGUAGE)
+            {
+                if (type.is_array())
+                {
+                    Type element_type = type.array_element();
+                    // This is the "easiest" way to build a type
+                    Source src;
+                    src
+                        << "char [(" 
+                        << type.array_dimension().prettyprint() 
+                        << ") * sizeof(" 
+                        << element_type.get_declaration(sym.get_scope(), "") 
+                        << ")]"
+                        ;
+
+                    type = src.parse_type(sym.get_point_of_declaration(), sl);
+                    is_raw_buffer = true;
+                }
+                // Some classes do not need this treatment, in particular if they are pod
+                else if (type.is_named_class())
+                {
+                    Source src;
+                    src
+                        << "char [sizeof(" << type.get_declaration(sym.get_scope(), "") << ")]"
+                        ;
+
+                    type = src.parse_type(sym.get_point_of_declaration(), sl);
+                    is_raw_buffer = true;
+                }
+            }
+
+            std::string field_name = data_env_info.get_field_name_for_symbol(sym);
+
+            DataEnvironItem data_env_item(sym, type, field_name);
+            CXX_LANGUAGE()
+            {
+                data_env_item.set_is_raw_buffer(is_raw_buffer);
             }
         }
 
-        void fill_data_environment_structure(ObjectList<Symbol> value, 
-                ObjectList<Symbol> shared, 
+        static void pointer_type(Symbol sym, 
+                ScopeLink sl, 
+                DataEnvironInfo& data_env_info)
+        {
+            Type type = sym.get_type();
+            if (IS_C_LANGUAGE
+                    && type.is_variably_modified())
+            {
+            }
+            else if (type.is_array())
+            {
+                type = type.array_element().get_pointer_to().get_restrict_type();
+            }
+            else
+            {
+                type = type.get_pointer_to().get_restrict_type();
+            }
+
+            std::string field_name = data_env_info.get_field_name_for_symbol(sym);
+
+            DataEnvironItem data_env_item(sym, type, field_name);
+            data_env_item.set_is_pointer(true);
+
+            data_env_info.add_item(data_env_item);
+        }
+
+        void compute_data_environment(ObjectList<Symbol> value,
+                ObjectList<Symbol> shared,
                 ScopeLink scope_link,
-                ObjectList<OpenMP::DependencyItem> dependencies,
-                // Output arguments
-                std::string &struct_name,
-                Source & struct_decl,
-                Source & struct_fields,
                 DataEnvironInfo &data_env_info)
         {
-            ObjectList<std::string> already_added;
-
             struct auxiliar_struct_t
             {
                 ObjectList<Symbol>* list;
-                Type (*transform_type)(Symbol, ScopeLink, bool&);
-                bool is_pointer;
+                void (*transform_type)(Symbol, ScopeLink, DataEnvironInfo&);
             } aux_struct[] =
             {
-                { &shared, pointer_type, true },
-                { &value, valued_type, false },
-                { NULL, NULL, false },
+                { &shared, pointer_type },
+                { &value, valued_type },
+                { NULL, NULL },
             };
 
+            for (unsigned int i = 0;
+                    aux_struct[i].list != NULL;
+                    i++)
             {
-                std::stringstream ss;
+                ObjectList<Symbol>& current_list(*aux_struct[i].list);
+                for (ObjectList<Symbol>::iterator it = current_list.begin();
+                        it != current_list.end();
+                        it++)
+                {
+                    Symbol &sym(*it);
 
-                int data_env_struct = TL::CounterManager::get_counter(DATA_ENV_ARG_TYPE_COUNTER);
-                TL::CounterManager::get_counter(DATA_ENV_ARG_TYPE_COUNTER)++;
-
-                ss << "_nx_data_env_" << data_env_struct << "_t";
-                struct_name = ss.str();
+                    std::string field_name = sym.get_name();
+                    (aux_struct[i].transform_type)(sym, scope_link, data_env_info);
+                }
             }
+        }
+
+        void fill_data_environment_structure(
+                Scope sc,
+                const DataEnvironInfo &data_env_info,
+                Source &struct_decl,
+                Source &struct_fields,
+                std::string& struct_name,
+                ObjectList<OpenMP::DependencyItem> dependencies)
+        {
+
+            std::stringstream ss;
+
+            int data_env_struct = TL::CounterManager::get_counter(DATA_ENV_ARG_TYPE_COUNTER);
+            TL::CounterManager::get_counter(DATA_ENV_ARG_TYPE_COUNTER)++;
+
+            ss << "_nx_data_env_" << data_env_struct << "_t";
+            struct_name = ss.str();
 
             C_LANGUAGE()
             {
@@ -132,6 +221,7 @@ namespace TL
                     << "}" << struct_name << ";"
                     ;
             }
+
             CXX_LANGUAGE()
             {
                 struct_decl
@@ -141,42 +231,19 @@ namespace TL
                     ;
             }
 
-            for (unsigned int i = 0;
-                    aux_struct[i].list != NULL;
-                    i++)
+            ObjectList<DataEnvironItem> data_env_item_list;
+
+            data_env_info.get_items(data_env_item_list);
+
+            for (ObjectList<DataEnvironItem>::iterator it = data_env_item_list.begin();
+                    it != data_env_item_list.end();
+                    it++)
             {
-                ObjectList<Symbol>& current_list(*aux_struct[i].list);
-                // Start first with the shared
-                for (ObjectList<Symbol>::iterator it = current_list.begin();
-                        it != current_list.end();
-                        it++)
-                {
-                    Symbol &sym(*it);
+                DataEnvironItem &data_env_item(*it);
 
-                    std::string field_name = sym.get_name();
-                    int n = 0;
-                    while (already_added.contains(field_name))
-                    {
-                        std::stringstream ss;
-                        ss << sym.get_name() << "_" << n;
-                        field_name = ss.str();
-                        n++;
-                    }
-
-                    bool is_raw_buffer = false;
-                    Type type = (aux_struct[i].transform_type)(sym, scope_link, is_raw_buffer);
-
-                    // FIXME - For C++ this is a bit more involved
-                    struct_fields
-                        << type.get_declaration(sym.get_scope(), field_name) << ";"
-                        ;
-
-                    DataEnvironItem data_item(sym, field_name);
-                    data_item.set_is_pointer(aux_struct[i].is_pointer);
-                    data_item.set_is_raw_buffer(is_raw_buffer);
-
-                    data_env_info.add_item(data_item);
-                }
+                struct_fields
+                    << data_env_item.get_type().get_declaration(sc, data_env_item.get_field_name()) << ";"
+                    ;
             }
 
             int dep_counter = 0;
@@ -193,7 +260,7 @@ namespace TL
                         .get_type().get_pointer_to()
                         .get_declaration(it->get_dependency_expression().get_scope(), ss.str())
                         << ";"
-                    ;
+                        ;
                 }
 
                 dep_counter++;
