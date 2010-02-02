@@ -91,6 +91,27 @@ namespace TL
             }
     };
 
+    template <class Ret, class T>
+    class FunctionConstAdapter : public Functor<Ret, T>
+    {
+        private:
+            Ret (*_pf)(const T&);
+        public:
+            FunctionConstAdapter(Ret (*pf)(const T&))
+                : _pf(pf)
+            {
+            }
+
+            virtual Ret do_(T& t) const 
+            {
+                return (_pf)(t);
+            }
+
+            virtual ~FunctionConstAdapter()
+            {
+            }
+    };
+
     //! Adapter class for non-member functions expecting a value instead of a
     // reference type
     template <class Ret, class T>
