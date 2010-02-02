@@ -68,7 +68,8 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     compute_data_environment(firstprivate_symbols,
             shared_symbols,
             ctr.get_scope_link(),
-            data_environ_info);
+            data_environ_info,
+            _converted_vlas);
 
     Source struct_arg_type_decl_src;
     std::string struct_arg_type_name;
@@ -222,8 +223,11 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         ;
 
     Source fill_outline_arguments;
-    fill_data_args("loop_data->", data_environ_info, 
+    fill_data_args(
+            "loop_data",
+            data_environ_info, 
             ObjectList<OpenMP::DependencyItem>(), // empty
+            /* is_pointer */ true,
             fill_outline_arguments);
 
     Source bool_type;

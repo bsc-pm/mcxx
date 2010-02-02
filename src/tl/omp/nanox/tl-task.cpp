@@ -62,7 +62,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     compute_data_environment(firstprivate_symbols,
             shared_symbols,
             ctr.get_scope_link(),
-            data_environ_info);
+            data_environ_info,
+            _converted_vlas);
 
     Source struct_arg_type_decl_src, struct_fields;
     std::string struct_arg_type_name;
@@ -143,8 +144,17 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     Source dependency_array, num_dependences;
 
-    fill_data_args("ol_args->", data_environ_info, dependences, fill_outline_arguments);
-    fill_data_args("imm_args.", data_environ_info, dependences, fill_immediate_arguments);
+    fill_data_args("ol_args", 
+            data_environ_info, 
+            dependences, 
+            /* is_pointer */ true,
+            fill_outline_arguments);
+    fill_data_args(
+            "imm_args",
+            data_environ_info, 
+            dependences, 
+            /* is_pointer */ false,
+            fill_immediate_arguments);
 
     // Fill dependences, if any
     if (!dependences.empty())

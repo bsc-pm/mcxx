@@ -35,6 +35,20 @@ namespace TL
 
         const std::string OMP_NANOX_VLA_DIMS = "omp.nanox.vla_dims";
 
+#if 0
+        static void print_list(ObjectList<Source> src)
+        {
+            std::cerr << "== SOURCE LIST ==" << std::endl;
+            for (ObjectList<Source>::iterator it = src.begin();
+                    it != src.end();
+                    it++)
+            {
+                std::cerr << it->get_source() << std::endl;
+            }
+            std::cerr << "== END of SOURCE LIST ==" << std::endl;
+        }
+#endif
+
         static void dimensional_replacements_of_variable_type_aux(Type type, 
                 Symbol sym, 
                 ObjectList<Source> &dim_names, 
@@ -49,10 +63,10 @@ namespace TL
                     ;
                 vla_counter++;
 
-                dimensional_replacements_of_variable_type_aux(type.array_element(), sym, dim_names, dim_decls);
-
                 dim_names.append(dim_name);
                 dim_decls.append(Source("") << "int " << dim_name << " = " << type.array_dimension().prettyprint());
+
+                dimensional_replacements_of_variable_type_aux(type.array_element(), sym, dim_names, dim_decls);
             }
             else if (type.is_pointer())
             {
@@ -60,18 +74,25 @@ namespace TL
             }
         }
 
-        static Type compute_replacement_type_for_vla(Type type, ObjectList<Source>::iterator dim_names)
+        static Type compute_replacement_type_for_vla(Type type, 
+                ObjectList<Source>::iterator dim_names_begin,
+                ObjectList<Source>::iterator dim_names_end)
         {
             Type new_type(NULL);
             if (type.is_array())
             {
-                new_type = compute_replacement_type_for_vla(type.array_element(), dim_names + 1);
+                new_type = compute_replacement_type_for_vla(type.array_element(), dim_names_begin + 1, dim_names_end);
 
-                new_type = new_type.get_array_to(*dim_names);
+                if (dim_names_begin == dim_names_end)
+                {
+                    internal_error("Invalid dimension list", 0);
+                }
+
+                new_type = new_type.get_array_to(*dim_names_begin);
             }
             else if (type.is_pointer())
             {
-                new_type = compute_replacement_type_for_vla(type.points_to(), dim_names);
+                new_type = compute_replacement_type_for_vla(type.points_to(), dim_names_begin, dim_names_end);
                 new_type = new_type.get_pointer_to();
             }
             else
@@ -123,7 +144,7 @@ namespace TL
             if (!sym.is_parameter())
             {
                 // If this is not a parameter, we'll want to rewrite the declaration itself
-                Type new_type_spawn = compute_replacement_type_for_vla(sym.get_type(), dim_names.begin());
+                Type new_type_spawn = compute_replacement_type_for_vla(sym.get_type(), dim_names.begin(), dim_names.end());
 
                 // Now redeclare
                 Source redeclaration;
@@ -161,8 +182,9 @@ namespace TL
                 }
             }
 
-            // Store dimensions
-            RefPtr<ObjectList<Source> > dim_names_ref(new ObjectList<Source>(dim_names));
+            ObjectList<Source>* new_dim_ptr = new ObjectList<Source>(dim_names);
+
+            RefPtr<ObjectList<Source> > dim_names_ref(new_dim_ptr);
             sym.set_attribute(OMP_NANOX_VLA_DIMS, dim_names_ref);
 
             converted_vlas.insert(sym);
@@ -190,14 +212,12 @@ namespace TL
 
                 // Normalize VLA, if needed
                 convert_vla(sym, converted_vlas, sl);
-
-                RefPtr<ObjectList<Source> > dim_list_ref 
-                    = RefPtr<ObjectList<Source> >::cast_dynamic(sym.get_attribute(OMP_NANOX_VLA_DIMS));
-
                 is_vla_type = true;
 
+                RefPtr<Object> ref = sym.get_attribute(OMP_NANOX_VLA_DIMS);
+                RefPtr<ObjectList<Source> > dim_list_ref 
+                    = RefPtr<ObjectList<Source> >::cast_dynamic(ref);
                 dim_list = ObjectList<Source>(dim_list_ref->begin(), dim_list_ref->end());
-
                 type = Type::get_void_type().get_pointer_to();
             }
             else if (IS_CXX_LANGUAGE)
@@ -238,25 +258,15 @@ namespace TL
             {
                 data_env_item.set_is_vla_type(is_vla_type);
                 data_env_item.set_vla_dimensions(dim_list);
-
-                int i = 0;
-                for (ObjectList<Source>::iterator it = dim_list.begin();
-                        it != dim_list.end();
-                        it++)
-                {
-                    std::stringstream ss;
-                    ss << field_name << "_" << i;
-
-                    // Caution, this symbol is NULL!
-                    DataEnvironItem aux_data_env(Symbol(NULL), Type::get_int_type(), ss.str());
-
-                    i++;
-                }
             }
             CXX_LANGUAGE()
             {
                 data_env_item.set_is_raw_buffer(is_raw_buffer);
             }
+
+            data_env_item.set_is_copy(true);
+
+            data_env_info.add_item(data_env_item);
         }
 
         static void pointer_type(Symbol sym, 
@@ -264,10 +274,28 @@ namespace TL
                 DataEnvironInfo& data_env_info,
                 ObjectList<Symbol>& converted_vlas)
         {
+            bool is_vla_type = false;
+
+            ObjectList<Source> dim_list;
+
             Type type = sym.get_type();
             if (IS_C_LANGUAGE
                     && type.is_variably_modified())
             {
+                // Only VLA arrays or pointers to VLA are actually allowed.
+                // Other kinds of variably modified types involve local types
+                // (this is a kind of local type but we allow it for
+                // convenience)
+
+                // Normalize VLA, if needed
+                convert_vla(sym, converted_vlas, sl);
+                is_vla_type = true;
+
+                RefPtr<Object> ref = sym.get_attribute(OMP_NANOX_VLA_DIMS);
+                RefPtr<ObjectList<Source> > dim_list_ref 
+                    = RefPtr<ObjectList<Source> >::cast_dynamic(ref);
+                dim_list = *dim_list_ref;
+                type = Type::get_void_type().get_pointer_to();
             }
             else if (type.is_array())
             {
@@ -281,7 +309,11 @@ namespace TL
             std::string field_name = data_env_info.get_field_name_for_symbol(sym);
 
             DataEnvironItem data_env_item(sym, type, field_name);
-            data_env_item.set_is_pointer(true);
+            C_LANGUAGE()
+            {
+                data_env_item.set_is_vla_type(is_vla_type);
+                data_env_item.set_vla_dimensions(dim_list);
+            }
 
             data_env_info.add_item(data_env_item);
         }
@@ -356,15 +388,28 @@ namespace TL
                     ;
             }
 
-            ObjectList<DataEnvironItem> data_env_item_list;
-
-            data_env_info.get_items(data_env_item_list);
+            ObjectList<DataEnvironItem> data_env_item_list = data_env_info.get_items();
 
             for (ObjectList<DataEnvironItem>::iterator it = data_env_item_list.begin();
                     it != data_env_item_list.end();
                     it++)
             {
                 DataEnvironItem &data_env_item(*it);
+
+                if (IS_C_LANGUAGE 
+                        && data_env_item.is_vla_type())
+                {
+                    ObjectList<Source> vla_dims = data_env_item.get_vla_dimensions(); 
+
+                    for (ObjectList<Source>::iterator it = vla_dims.begin();
+                            it != vla_dims.end();
+                            it++)
+                    {
+                        struct_fields
+                            << "int " << *it << ";"
+                            ;
+                    }
+                }
 
                 struct_fields
                     << data_env_item.get_type().get_declaration(sc, data_env_item.get_field_name()) << ";"
@@ -392,13 +437,31 @@ namespace TL
             }
         }
 
-        void fill_data_args(const std::string& arg_var_accessor, 
+        void fill_data_args(
+                const std::string& arg_var_name,
                 const DataEnvironInfo& data_env, 
                 ObjectList<OpenMP::DependencyItem> dependencies,
+                bool is_pointer_struct,
                 Source& result)
         {
-            ObjectList<DataEnvironItem> data_env_items;
-            data_env.get_items(data_env_items);
+            std::string arg_var_accessor;
+            ObjectList<DataEnvironItem> data_env_items = data_env.get_items();
+
+            Source base_offset;
+
+            std::string ptr;
+            if (is_pointer_struct)
+            {
+                arg_var_accessor = arg_var_name + "->";
+                base_offset = "((char*)(" + arg_var_name + ") + sizeof(*" + arg_var_name + "))";
+            }
+            else
+            {
+                arg_var_accessor = arg_var_name + ".";
+
+                base_offset = "((char*)(&" + arg_var_name + ") + sizeof(" + arg_var_name + "))";
+            }
+
 
             for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
                     it != data_env_items.end();
@@ -409,12 +472,28 @@ namespace TL
                 Type type = sym.get_type();
                 const std::string field_name = data_env_item.get_field_name();
 
-                if (data_env_item.is_pointer())
+                if (data_env_item.is_vla_type())
+                {
+                    // VLA require additional effort
+                    ObjectList<Source> dim_list = data_env_item.get_vla_dimensions();
+
+                    for (ObjectList<Source>::iterator it = dim_list.begin();
+                            it != dim_list.end();
+                            it++)
+                    {
+                        result << arg_var_accessor << *it << "="
+                            << *it
+                            << ";"
+                            ;
+                    }
+                }
+
+                if (!data_env_item.is_copy())
                 {
                     if (type.is_array())
                     {
                         result << arg_var_accessor << field_name
-                            << "= (" << sym.get_name() << ");";
+                            << "= " << sym.get_name() << ";";
                     }
                     else
                     {
@@ -424,11 +503,33 @@ namespace TL
                 }
                 else
                 {
+                    if (data_env_item.is_vla_type()
+                            && type.is_array())
+                    {
+                        // We have to adjust the VLA pointers for arrays
+                        result << arg_var_accessor << field_name << " = "
+                            << Source(base_offset) << ";"
+                            ;
+
+                        base_offset = Source() << arg_var_accessor << field_name 
+                            << "+ (sizeof(" << sym.get_type().basic_type().get_declaration(sym.get_scope(), "") << ") ";
+
+                        ObjectList<Source> dim_list = data_env_item.get_vla_dimensions();
+                        for (ObjectList<Source>::iterator it = dim_list.begin();
+                                it != dim_list.end();
+                                it++)
+                        {
+                            base_offset << "* (" << *it << ")";
+                        }
+
+                        base_offset << ")";
+                    }
+
                     if (type.is_array())
                     {
                         C_LANGUAGE()
                         {
-                            result << "__builtin_memcpy(&" << arg_var_accessor << field_name << ", "
+                            result << "__builtin_memcpy(" << arg_var_accessor << field_name << ", "
                                 << sym.get_name() << ","
                                 << "sizeof(" << sym.get_name() << "));"
                                 ;
@@ -451,16 +552,17 @@ namespace TL
                     }
                     else
                     {
-                        C_LANGUAGE()
-                        {
-                            result << arg_var_accessor << field_name
-                                << "= " << sym.get_name() << ";";
-                        }
-                        CXX_LANGUAGE()
+                        if (IS_CXX_LANGUAGE
+                                && type.is_named_class())
                         {
                             result << "new (&" << arg_var_accessor << field_name << ")" 
                                 << type.get_declaration(sym.get_scope(), "") 
                                 << "(" << sym.get_name() << ");";
+                        }
+                        else
+                        {
+                            result << arg_var_accessor << field_name
+                                << "= " << sym.get_name() << ";";
                         }
                     }
                 }
@@ -521,8 +623,7 @@ namespace TL
                 Source &initial_code)
         {
             ReplaceSrcIdExpression replace_src(body.get_scope_link());
-            ObjectList<DataEnvironItem> data_env_items;
-            data_env_info.get_items(data_env_items);
+            ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
 
             // First set up all replacements and needed castings
             for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
@@ -534,54 +635,95 @@ namespace TL
                 Type type = sym.get_type();
                 const std::string field_name = data_env_item.get_field_name();
 
-                if (data_env_item.is_pointer())
+                if (data_env_item.is_vla_type())
                 {
-                    if (type.is_array())
+                    // These do not require replacement because we define a
+                    // local variable for them
+
+                    ObjectList<Source> vla_dims = data_env_item.get_vla_dimensions();
+
+                    ObjectList<Source> arg_vla_dims;
+                    for (ObjectList<Source>::iterator it = vla_dims.begin();
+                            it != vla_dims.end();
+                            it++)
                     {
-                        // Just replace a[i] by (_args->a), no need to derreferentiate
-                        replace_src.add_replacement(sym, "(_args->" + field_name + ")");
+                        Source new_dim;
+                        new_dim << "_args->" << *it;
+
+                        arg_vla_dims.append(new_dim);
                     }
-                    else
+
+                    // Now compute a replacement type which we will use to declare the proper type
+                    Type repl_type = 
+                        compute_replacement_type_for_vla(data_env_item.get_symbol().get_type(),
+                                arg_vla_dims.begin(), arg_vla_dims.end());
+
+                    // Adjust the type if it is an array
+
+                    if (repl_type.is_array())
                     {
-                        replace_src.add_replacement(sym, "(*_args->" + field_name + ")");
+                        repl_type = repl_type.array_element().get_pointer_to();
                     }
+
+                    initial_code
+                        << repl_type.get_declaration(sym.get_scope(), sym.get_name())
+                        << "="
+                        << "(" << repl_type.get_declaration(sym.get_scope(), "") << ")"
+                        << "("
+                        << "_args->" << field_name
+                        << ");"
+                        ;
                 }
                 else
                 {
-                    // FIXME - Check if data is held in a raw buffer data type, to create proper adjustments
-                    if (data_env_item.is_raw_buffer())
+                    if (!data_env_item.is_copy())
                     {
-                        C_LANGUAGE()
+                        if (type.is_array())
                         {
-                            // Set up a casting pointer
-                            initial_code
-                                << type.get_pointer_to().get_declaration(sym.get_scope(), field_name) 
-                                << "="
-                                << "("
-                                << type.get_pointer_to().get_declaration(sym.get_scope(), "")
-                                << ") _args->" << field_name << ";"
-                                ;
-
-                            replace_src.add_replacement(sym, "(*" + field_name + ")");
+                            // Just replace a[i] by (_args->a), no need to derreferentiate
+                            replace_src.add_replacement(sym, "(_args->" + field_name + ")");
                         }
-                        CXX_LANGUAGE()
+                        else
                         {
-                            // Set up a reference to the raw buffer properly casted to the data type
-                            initial_code
-                                << type.get_reference_to().get_declaration(sym.get_scope(), field_name)
-                                << "(" 
-                                << "(" << type.get_pointer_to().get_declaration(sym.get_scope(), "") << ")"
-                                << "_args->" << field_name
-                                << ");"
-                                ;
-
-                            // This is the neatest aspect of references
-                            replace_src.add_replacement(sym, field_name);
+                            replace_src.add_replacement(sym, "(*_args->" + field_name + ")");
                         }
                     }
                     else
                     {
-                        replace_src.add_replacement(sym, "(_args->" + sym.get_name() + ")");
+                        if (data_env_item.is_raw_buffer())
+                        {
+                            C_LANGUAGE()
+                            {
+                                // Set up a casting pointer
+                                initial_code
+                                    << type.get_pointer_to().get_declaration(sym.get_scope(), field_name) 
+                                    << "="
+                                    << "("
+                                    << type.get_pointer_to().get_declaration(sym.get_scope(), "")
+                                    << ") _args->" << field_name << ";"
+                                    ;
+
+                                replace_src.add_replacement(sym, "(*" + field_name + ")");
+                            }
+                            CXX_LANGUAGE()
+                            {
+                                // Set up a reference to the raw buffer properly casted to the data type
+                                initial_code
+                                    << type.get_reference_to().get_declaration(sym.get_scope(), field_name)
+                                    << "(" 
+                                    << "(" << type.get_pointer_to().get_declaration(sym.get_scope(), "") << ")"
+                                    << "_args->" << field_name
+                                    << ");"
+                                    ;
+
+                                // This is the neatest aspect of references
+                                replace_src.add_replacement(sym, field_name);
+                            }
+                        }
+                        else
+                        {
+                            replace_src.add_replacement(sym, "(_args->" + sym.get_name() + ")");
+                        }
                     }
                 }
             }

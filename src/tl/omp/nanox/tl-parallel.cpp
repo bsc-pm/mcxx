@@ -61,7 +61,8 @@ void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
     compute_data_environment(firstprivate_symbols,
             shared_symbols,
             ctr.get_scope_link(),
-            data_environ_info);
+            data_environ_info,
+            _converted_vlas);
 
     Source struct_arg_type_decl_src, struct_fields;
     std::string struct_arg_type_name;

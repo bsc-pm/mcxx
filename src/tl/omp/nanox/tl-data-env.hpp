@@ -38,7 +38,7 @@ namespace TL
                 Symbol _sym;
                 Type _type;
                 std::string _field_name;
-                bool _is_pointer;
+                bool _is_copy;
                 bool _is_raw_buffer;
                 bool _is_vla_type;
 
@@ -49,7 +49,7 @@ namespace TL
                     : _sym(NULL), 
                     _type(NULL),
                     _field_name(""), 
-                    _is_pointer(false),
+                    _is_copy(false),
                     _is_raw_buffer(false),
                     _is_vla_type(false),
                     _vla_dim_list()
@@ -59,7 +59,7 @@ namespace TL
                     : _sym(sym), 
                     _type(type),
                     _field_name(field_name),
-                    _is_pointer(false),
+                    _is_copy(false),
                     _is_raw_buffer(false),
                     _is_vla_type(false),
                     _vla_dim_list()
@@ -81,15 +81,15 @@ namespace TL
                     return _field_name;
                 }
 
-                DataEnvironItem& set_is_pointer(bool b)
+                bool is_copy() const
                 {
-                    _is_pointer = b;
-                    return *this;
+                    return _is_copy;
                 }
 
-                bool is_pointer() const
+                DataEnvironItem& set_is_copy(bool b)
                 {
-                    return _is_pointer;
+                    _is_copy = b;
+                    return *this;
                 }
 
                 DataEnvironItem& set_is_raw_buffer(bool b)
@@ -116,7 +116,13 @@ namespace TL
 
                 DataEnvironItem& set_vla_dimensions(ObjectList<Source> dim_list)
                 {
+                    _vla_dim_list = dim_list;
                     return *this;
+                }
+
+                ObjectList<Source> get_vla_dimensions() const
+                {
+                    return _vla_dim_list;
                 }
         };
 
@@ -124,6 +130,11 @@ namespace TL
         {
             private:
                 ObjectList<DataEnvironItem> _data_env_items;
+
+                static bool data_env_item_has_sym(const DataEnvironItem &item)
+                {
+                    return item.get_symbol().is_valid();
+                }
             public:
                 DataEnvironInfo() { }
 
@@ -132,9 +143,9 @@ namespace TL
                     _data_env_items.append(item);
                 }
 
-                void get_items(ObjectList<DataEnvironItem> &data_env_item) const
+                ObjectList<DataEnvironItem> get_items() const
                 {
-                    data_env_item = _data_env_items;
+                    return _data_env_items.filter(predicate(data_env_item_has_sym));
                 }
 
                 DataEnvironItem get_data_of_symbol(Symbol sym)
@@ -170,7 +181,8 @@ namespace TL
         void compute_data_environment(ObjectList<Symbol> value,
                 ObjectList<Symbol> shared,
                 ScopeLink scope_link,
-                DataEnvironInfo &data_env_info);
+                DataEnvironInfo &data_env_info,
+                ObjectList<Symbol>& converted_vlas);
 
         // This one is not to be exported
         void fill_data_environment_structure(
@@ -182,9 +194,11 @@ namespace TL
                 ObjectList<OpenMP::DependencyItem> dependencies);
 
         // This one is not to be exported
-        void fill_data_args(const std::string& arg_var_accessor, 
+        void fill_data_args(
+                const std::string& arg_var_name,
                 const DataEnvironInfo& data_env, 
                 ObjectList<OpenMP::DependencyItem> dependencies,
+                bool is_pointer_struct,
                 Source& result);
 
         // This one is not to be exported
