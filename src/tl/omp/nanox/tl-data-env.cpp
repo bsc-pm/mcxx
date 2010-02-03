@@ -59,7 +59,7 @@ namespace TL
             {
                 Source dim_name;
                 dim_name
-                    << "_" << sym.get_name() << "_" << vla_counter
+                    << "_dim_" << sym.get_name() << "_" << vla_counter
                     ;
                 vla_counter++;
 
