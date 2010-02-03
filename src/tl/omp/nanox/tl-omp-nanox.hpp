@@ -45,6 +45,8 @@ namespace Nanox
             void threadprivate_postorder(PragmaCustomConstruct ctr);
 
             std::map<std::string, bool> _registered_slicer;
+
+            ObjectList<Symbol> _converted_vlas;
     };
 
     const std::string NANOX_OUTLINE_COUNTER("nanox_outline_counter");
