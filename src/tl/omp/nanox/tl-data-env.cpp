@@ -722,7 +722,7 @@ namespace TL
                         }
                         else
                         {
-                            replace_src.add_replacement(sym, "(_args->" + sym.get_name() + ")");
+                            replace_src.add_replacement(sym, "(_args->" + field_name + ")");
                         }
                     }
                 }
