@@ -252,7 +252,7 @@ embed_map_t* get_embed_map(struct compilation_configuration_tag* config, const c
                     && config->embed_maps[i]->profile != NULL
                     && strcmp(index, config->embed_maps[i]->profile) == 0))
         {
-            embed_map = &(config->embed_maps[i]);
+            embed_map = config->embed_maps[i];
             break;
         }
 
@@ -279,6 +279,44 @@ int config_set_embedder(struct compilation_configuration_tag* config, const char
     }
 
     new_embed_map->command = value;
+
+    return 0;
+}
+
+static identifier_map_t* get_identifier_map(struct compilation_configuration_tag* config, const char* index)
+{
+    identifier_map_t* identifier_map = NULL;
+    int i;
+    for (i = 0; i < config->num_identifier_maps; i++)
+    {
+        if ((config->identifier_maps[i]->profile == NULL
+                    && index == NULL)
+                || (index != NULL 
+                    && config->identifier_maps[i]->profile != NULL
+                    && strcmp(index, config->identifier_maps[i]->profile) == 0))
+        {
+            identifier_map = config->identifier_maps[i];
+            break;
+        }
+    }
+
+    return identifier_map;
+}
+
+int config_set_identifier(struct compilation_configuration_tag* config, const char* index, const char* value)
+{
+    identifier_map_t* new_identifier_map = get_identifier_map(config, index);
+
+    if (new_identifier_map == NULL)
+    {
+        new_identifier_map = calloc(1, sizeof(*new_identifier_map));
+        new_identifier_map->profile = index;
+
+        P_LIST_ADD(config->identifier_maps, config->num_identifier_maps, new_identifier_map);
+    }
+
+    // FIXME - We should parse the action here
+    new_identifier_map->action = value;
 
     return 0;
 }

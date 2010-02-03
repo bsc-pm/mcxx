@@ -226,6 +226,12 @@ typedef struct embed_map_tag
     const char* command;
 } embed_map_t;
 
+typedef struct identifier_map_tag
+{
+    const char* profile;
+    const char* action;
+} identifier_map_t;
+
 typedef struct compilation_configuration_tag
 {
     const char *configuration_name;
@@ -316,6 +322,10 @@ typedef struct compilation_configuration_tag
     // Embedder map
     int num_embed_maps;
     embed_map_t** embed_maps;
+
+    // Identifier map
+    int num_identifier_maps;
+    identifier_map_t** identifier_maps;
 } compilation_configuration_t;
 
 

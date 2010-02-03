@@ -48,6 +48,7 @@ option_function_t config_add_compiler_phase;
 option_function_t config_add_preprocessor_prefix;
 option_function_t config_set_environment;
 option_function_t config_set_embedder;
+option_function_t config_set_identifier;
 
 MCXX_END_DECLS
 
