@@ -175,6 +175,61 @@ namespace TL
 
                     return ss.str();
                 }
+
+                bool environment_is_runtime_sized() const
+                {
+                    ObjectList<DataEnvironItem> data_env_list = get_items();
+
+                    for (ObjectList<DataEnvironItem>::iterator it = data_env_list.begin();
+                            it != data_env_list.end();
+                            it++)
+                    {
+                        if (it->is_vla_type())
+                            return true;
+                    }
+
+                    return false;
+                }
+
+                Source sizeof_variable_part(Scope sc) const
+                {
+                    bool first = true;
+                    Source result = Source("0");
+
+                    ObjectList<DataEnvironItem> data_env_list = get_items();
+
+                    for (ObjectList<DataEnvironItem>::iterator it = data_env_list.begin();
+                            it != data_env_list.end();
+                            it++)
+                    {
+                        if (it->is_vla_type())
+                        {
+                            Type base_type = it->get_symbol().get_type().basic_type();
+
+                            if (first)
+                            {
+                                result = Source() << "sizeof(" << base_type.get_declaration(sc, "") << ") " 
+                                    ;
+                            }
+                            else
+                            {
+                                result << "* sizeof(" << base_type.get_declaration(sc, "") << ") " 
+                                    ;
+                            }
+
+                            ObjectList<Source> dim_list = it->get_vla_dimensions();
+
+                            for (ObjectList<Source>::iterator it = dim_list.begin();
+                                    it != dim_list.end();
+                                    it++)
+                            {
+                                result << " * " << *it;
+                            }
+                        }
+                    }
+
+                    return result;
+                }
         };
 
         // This one is not to be exported

@@ -147,6 +147,7 @@ void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
             outline_name,
             struct_arg_type_name,
             num_threads,
+            ctr.get_scope(),
             data_environ_info);
 
     AST_t spawn_tree = spawn_source.parse_statement(ctr.get_ast(), ctr.get_scope_link());

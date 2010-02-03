@@ -30,6 +30,7 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
         Source outline_name, 
         Source struct_arg_type_name,
         Source num_threads,
+        Scope scope,
         const DataEnvironInfo& data_environ_info)
 {
     Source result;
@@ -42,11 +43,20 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
             ObjectList<OpenMP::DependencyItem>(), // empty
             /* is_pointer */ true,
             fill_outline_arguments);
+
+    bool immediate_is_alloca = false;
+    bool env_is_runtime_sized = data_environ_info.environment_is_runtime_sized();
+
+    if (env_is_runtime_sized)
+    {
+        immediate_is_alloca = true;
+    }
+
     fill_data_args(
             "imm_args",
             data_environ_info, 
             ObjectList<OpenMP::DependencyItem>(), // empty
-            /* is_pointer */ false,
+            /* is_pointer */ immediate_is_alloca,
             fill_immediate_arguments);
 
     Source device_descriptor,device_description;
@@ -62,6 +72,43 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
         << "};"
         ;
 
+    Source struct_runtime_size, struct_size;
+    Source immediate_decl;
+
+    if (!immediate_is_alloca)
+    {
+        immediate_decl
+            << struct_arg_type_name << " imm_args;"
+            ;
+    }
+    else
+    {
+        Source alloca_size;
+        immediate_decl 
+            << struct_arg_type_name << " * __restrict imm_args = (" << struct_arg_type_name << "*) __builtin_alloca(" << struct_size << ");"
+            ;
+
+    }
+
+    if (env_is_runtime_sized)
+    {
+        struct_runtime_size
+            << "int struct_runtime_size = "
+            << "sizeof(" << struct_arg_type_name << ") + "
+            << data_environ_info.sizeof_variable_part(scope)
+            << ";"
+            ;
+        struct_size
+            << "struct_runtime_size" 
+            ;
+    }
+    else
+    {
+        struct_size
+            << "sizeof("  << struct_arg_type_name << ")"
+            ;
+    }
+
     result
         << "{"
         // FIXME - How to get the default number of threads?
@@ -75,6 +122,8 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
 
         <<   device_description      
 
+        <<   struct_runtime_size
+
         <<   "nanos_wd_props_t props = { 0 };"
         <<   "props.mandatory_creation = 1;"
         <<   "int _i;"
@@ -86,7 +135,7 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
         <<      "nanos_wd_t wd = 0;"
         <<      "err = nanos_create_wd(&wd, " << num_devices << ","
         <<                    device_descriptor << ", "
-        <<                    "sizeof(" << struct_arg_type_name << "),"
+        <<                    struct_size << ","
         <<                    "(void**)&ol_args,"
         <<                    "nanos_current_wd(), "
         <<                    "&props);"
@@ -96,11 +145,11 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
         <<      "if (err != NANOS_OK) nanos_handle_error(err);"
         <<   "}"
         <<   "props.tie_to = &_nanos_threads[0];"
-        <<   struct_arg_type_name << " imm_args;"
+        <<   immediate_decl
         <<   fill_immediate_arguments
         <<   "nanos_create_wd_and_run(" << num_devices << ", "
         <<                              device_descriptor << ", "
-        <<                              "sizeof(imm_args), &imm_args,"
+        <<                              struct_size << ", " << (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
         <<                              "0,"
         <<                              "(nanos_dependence_t*)0, "
         <<                              "&props);"

@@ -149,11 +149,20 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             dependences, 
             /* is_pointer */ true,
             fill_outline_arguments);
+
+    bool immediate_is_alloca = false;
+    bool env_is_runtime_sized = data_environ_info.environment_is_runtime_sized();
+
+    if (env_is_runtime_sized)
+    {
+        immediate_is_alloca = true;
+    }
+
     fill_data_args(
             "imm_args",
             data_environ_info, 
             dependences, 
-            /* is_pointer */ false,
+            /* is_pointer */ immediate_is_alloca,
             fill_immediate_arguments);
 
     // Fill dependences, if any
@@ -252,13 +261,26 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 << "}"
                 ;
 
-            dependency_defs_immediate
-                << "{"
-                << "(void**)&imm_args." << dependency_field_name << ","
-                << dependency_flags << ","
-                << dep_size 
-                << "}"
-                ;
+            if (!immediate_is_alloca)
+            {
+                dependency_defs_immediate
+                    << "{"
+                    << "(void**)&imm_args." << dependency_field_name << ","
+                    << dependency_flags << ","
+                    << dep_size 
+                    << "}"
+                    ;
+            }
+            else
+            {
+                dependency_defs_immediate
+                    << "{"
+                    << "(void**)imm_args->" << dependency_field_name << ","
+                    << dependency_flags << ","
+                    << dep_size 
+                    << "}"
+                    ;
+            }
 
             if ((it + 1) != dependences.end())
             {
@@ -317,11 +339,49 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             ;
     }
 
+    Source struct_runtime_size, struct_size;
+    Source immediate_decl;
+
+    if (!immediate_is_alloca)
+    {
+        immediate_decl
+            << struct_arg_type_name << " imm_args;"
+            ;
+    }
+    else
+    {
+        Source alloca_size;
+        immediate_decl 
+            << struct_arg_type_name << " * __restrict imm_args = (" << struct_arg_type_name << "*) __builtin_alloca(" << struct_size << ");"
+            ;
+
+    }
+
+    if (env_is_runtime_sized)
+    {
+        struct_runtime_size
+            << "int struct_runtime_size = "
+            << "sizeof(" << struct_arg_type_name << ") + "
+            << "(" << data_environ_info.sizeof_variable_part(ctr.get_scope()) << ")"
+            << ";"
+            ;
+        struct_size
+            << "struct_runtime_size" 
+            ;
+    }
+    else
+    {
+        struct_size
+            << "sizeof("  << struct_arg_type_name << ")"
+            ;
+    }
+
     spawn_code
         << "{"
         // Devices related to this task
         <<     device_description
         <<     struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
+        <<     struct_runtime_size
         <<     "nanos_wd_t wd = (nanos_wd_t)0;"
         <<     "nanos_wd_props_t props = { 0 };"
         <<     priority
@@ -329,7 +389,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<     "nanos_err_t err;"
         <<     if_expr_cond_start
         <<     "err = nanos_create_wd(&wd, " << num_devices << "," << device_descriptor << ","
-        <<                 "sizeof(" << struct_arg_type_name << "),"
+        <<                 struct_size << ","
         <<                 "(void**)&ol_args, nanos_current_wd(),"
         <<                 "&props);"
         <<     "if (err != NANOS_OK) nanos_handle_error (err);"
@@ -343,12 +403,12 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<     "}"
         <<     "else"
         <<     "{"
-        <<        struct_arg_type_name << " imm_args;"
+        <<        immediate_decl
         <<        fill_immediate_arguments
         <<        fill_dependences_immediate
         <<        "err = nanos_create_wd_and_run(" 
         <<                num_devices << ", " << device_descriptor << ", "
-        <<                "sizeof(imm_args), &imm_args, "
+        <<                struct_size << ", " << (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
         <<                num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", &props);"
         <<        "if (err != NANOS_OK) nanos_handle_error (err);"
         <<     "}"
