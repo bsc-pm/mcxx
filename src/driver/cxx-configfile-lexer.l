@@ -151,11 +151,17 @@ location_t current_location = { NULL, NULL, 1, 1};
     handle_token(yytext);
     if (!isprint(c))
     {
-        fprintf(stderr, "warning: ignoring invalid character '\\0x%03x' found in configuration file\n", c);
+        fprintf(stderr, "%s:%d:warning: ignoring invalid character '\\0x%03x' found in configuration file\n", 
+                give_basename(current_location.filename), 
+                current_location.line, 
+                c);
     }
     else
     {
-        fprintf(stderr, "warning: ignoring invalid character '%c' found in configuration file\n", c);
+        fprintf(stderr, "%s:%d:warning: ignoring invalid character '%c' found in configuration file\n", 
+                give_basename(current_location.filename), 
+                current_location.line, 
+                c);
     }
 }
 

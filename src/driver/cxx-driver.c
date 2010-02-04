@@ -1809,6 +1809,12 @@ static void register_upc_pragmae(void)
 static void compile_every_translation_unit_aux_(int num_translation_units,
         compilation_file_process_t** translation_units)
 {
+    // This is just to avoid having a return in this function by error
+#define return 1 = 1;
+    // Save the old current file
+    compilation_file_process_t* saved_file_process = CURRENT_FILE_PROCESS;
+    compilation_configuration_t* saved_configuration = CURRENT_CONFIGURATION;
+
     int i;
     for (i = 0; i < num_translation_units; i++)
     {
@@ -1939,6 +1945,11 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
             // Process secondary translation units
             if (file_process->num_secondary_translation_units != 0)
             {
+                if (CURRENT_CONFIGURATION->verbose)
+                {
+                    fprintf(stderr, "\nThere are secondary translation units for '%s'. Processing.\n",
+                            translation_unit->input_filename);
+                }
                 compile_every_translation_unit_aux_(
                         file_process->num_secondary_translation_units,
                         file_process->secondary_translation_units);
@@ -1965,7 +1976,12 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                     }
 
                     do_embed(embed_map, secondary_translation_unit, translation_unit);
-               }
+                }
+                if (CURRENT_CONFIGURATION->verbose)
+                {
+                    fprintf(stderr, "All secondary translation units of '%s' have been processed\n\n",
+                            translation_unit->input_filename);
+                }
             }
 
             if (current_extension->source_language != SOURCE_LANGUAGE_ASSEMBLER)
@@ -1983,6 +1999,11 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
         file_process->already_compiled = 1;
     }
+
+    // Recover previous information
+    SET_CURRENT_FILE_PROCESS(saved_file_process);
+    SET_CURRENT_CONFIGURATION(saved_configuration);
+#undef return
 }
 
 static void compile_every_translation_unit(void)
