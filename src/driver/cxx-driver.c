@@ -74,7 +74,7 @@
 "Options: \n" \
 "  -h, --help               Shows this help and quits\n" \
 "  --version                Shows version and quits\n" \
-"  -v, --verbose            Runs verbosely, displaying the programs\n" \
+"  --verbose                Runs verbosely, displaying the programs\n" \
 "                           invoked by the compiler\n" \
 "  -o, --output=<file>      Sets <file> as the output file\n" \
 "  -c                       Does not link, just compile\n" \
@@ -156,6 +156,7 @@
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
+"  -v\n" \
 "  -f<name>\n" \
 "  -m<name>\n" \
 "  -M\n" \
@@ -178,7 +179,8 @@
 "  -Xassembler OPTION\n" \
 "\n" \
 "These gcc flags are passed verbatim to preprocessor, compiler and\n" \
-"linker.\n" \
+"linker. Some of them may disable compilation and linking to be\n" \
+"compatible with gcc and applications expecting gcc behaviour.\n" \
 "\n"
 /* ------------------------------------------------------------------ */
 

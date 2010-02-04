@@ -103,7 +103,8 @@ namespace TL
 		source
 			<< "{"
 				<< constant_redirection_source
-				<< "css_parameter_t const parameters__cssgenerated[] = {" << parameter_initializers_source << "};"
+				<< "css_parameter_t parameters__cssgenerated[" << arguments.size() << "];"
+				<< parameter_initializers_source
 				<< add_task_code
 			<< "}";
 		
@@ -136,11 +137,9 @@ namespace TL
 			Source address_source;
 			
 			parameter_initializers_source
-				<< "{"
-					<< direction_source
-					<< ", " << size_source
-					<< ", " << address_source
-				<< "}, ";
+				<< "parameters__cssgenerated[" << index << "].flags = " << direction_source << ";"
+				<< "parameters__cssgenerated[" << index << "].size = " << size_source << ";"
+				<< "parameters__cssgenerated[" << index << "].address = " << address_source << ";";
 			
 			Expression argument = arguments[index];
 			RegionList region_list = (*parameter_region_list.get_pointer())[index];

@@ -35,6 +35,7 @@ namespace TL
                 Source outline_name,
                 Source struct_arg_type_name,
                 Source num_threads,
+                Scope scope,
                 const DataEnvironInfo& data_environ_info);
     }
 }

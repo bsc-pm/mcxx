@@ -65,17 +65,21 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         ;
 
     DataEnvironInfo data_environ_info;
+    compute_data_environment(firstprivate_symbols,
+            shared_symbols,
+            ctr.get_scope_link(),
+            data_environ_info,
+            _converted_vlas);
 
     Source struct_arg_type_decl_src;
     std::string struct_arg_type_name;
-    fill_data_environment_structure(firstprivate_symbols,
-            shared_symbols,
-            ctr.get_scope_link(),
-            ObjectList<OpenMP::DependencyItem>(), // empty dependences
-            struct_arg_type_name,
+    fill_data_environment_structure(
+            ctr.get_scope(),
+            data_environ_info,
             struct_arg_type_decl_src,
             struct_fields,
-            data_environ_info);
+            struct_arg_type_name, 
+            ObjectList<OpenMP::DependencyItem>()); // empty dependences
 
     FunctionDefinition funct_def = ctr.get_enclosing_function();
     Symbol function_symbol = funct_def.get_function_symbol();
@@ -105,9 +109,12 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
 
     Source final_barrier;
 
-    final_barrier
-        << "nanos_team_barrier();"
-        ;
+    if (!ctr.get_clause("nowait").is_defined())
+    {
+        final_barrier
+            << "nanos_team_barrier();"
+            ;
+    }
 
     Source outline_body, outline_parameters, outline_code;
 
@@ -125,7 +132,6 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         << "{"
         << replaced_body
         << "}"
-        << final_barrier
         ;
 
     outline_code = create_outline(
@@ -217,8 +223,11 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         ;
 
     Source fill_outline_arguments;
-    fill_data_args("loop_data->", data_environ_info, 
+    fill_data_args(
+            "loop_data",
+            data_environ_info, 
             ObjectList<OpenMP::DependencyItem>(), // empty
+            /* is_pointer */ true,
             fill_outline_arguments);
 
     Source bool_type;
@@ -251,7 +260,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         <<    "nanos_slicer_data_for_t* slicer_data_for = (nanos_slicer_data_for_t*)0;"
         <<    "err = nanos_create_sliced_wd(&wd, "
         <<          /* num_devices */ "1, " << device_descriptor << ", "
-        <<          "sizeof(" << device_descriptor << "),"
+        <<          "sizeof(" << struct_arg_type_name << "),"
         <<          "(void**)&loop_data,"
         <<          "nanos_current_wd(),"
         <<          current_slicer << ","
@@ -267,6 +276,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         <<    "err = nanos_submit(wd, 0, (nanos_dependence_t*)0, 0);"
         <<    "if (err != NANOS_OK) nanos_handle_error(err);"
         << "}"
+        << final_barrier
         << "}"
         ;
 

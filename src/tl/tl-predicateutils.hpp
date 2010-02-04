@@ -77,6 +77,27 @@ namespace TL
             }
     };
 
+    template <class T>
+    class FunctionConstPredicate : public Predicate<T>
+    {
+        private:
+            FunctionConstAdapter<bool, T> _funct_adapter;
+        public:
+            FunctionConstPredicate(bool (*pf)(const T&))
+                : _funct_adapter(pf)
+            {
+            }
+
+            virtual bool do_(T& t) const
+            {
+                return _funct_adapter(t);
+            }
+
+            ~FunctionConstPredicate()
+            {
+            }
+    };
+
     //! Builds a predicate after a member function
     template <class T, class Q>
     class MemberFunctionPredicate : public Predicate<T>
@@ -151,9 +172,21 @@ namespace TL
         return FunctionPredicate<T>(pf);
     }
 
+    template <class T>
+    FunctionConstPredicate<T> predicate(bool (*pf)(const T&))
+    {
+        return FunctionConstPredicate<T>(pf);
+    }
+
     //! Adaptor function to create predicates after a member function of a given object returning bool
     template <class T, class Q>
     MemberFunctionPredicate<T, Q> predicate(bool (Q::* pf)(T& t), Q& q)
+    {
+        return MemberFunctionPredicate<T, Q>(pf, q);
+    }
+
+    template <class T, class Q>
+    MemberFunctionPredicate<T, Q> predicate(bool (Q::* pf)(const T& t), Q& q)
     {
         return MemberFunctionPredicate<T, Q>(pf, q);
     }

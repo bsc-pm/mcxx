@@ -59,17 +59,21 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     data_sharing.get_all_dependences(dependences);
 
     DataEnvironInfo data_environ_info;
+    compute_data_environment(firstprivate_symbols,
+            shared_symbols,
+            ctr.get_scope_link(),
+            data_environ_info,
+            _converted_vlas);
 
     Source struct_arg_type_decl_src, struct_fields;
     std::string struct_arg_type_name;
-    fill_data_environment_structure(firstprivate_symbols,
-            shared_symbols,
-            ctr.get_scope_link(),
-            dependences,
-            struct_arg_type_name,
+    fill_data_environment_structure(
+            ctr.get_scope(),
+            data_environ_info,
             struct_arg_type_decl_src,
             struct_fields,
-            data_environ_info);
+            struct_arg_type_name, 
+            dependences); // empty dependences
 
     FunctionDefinition funct_def = ctr.get_enclosing_function();
     Symbol function_symbol = funct_def.get_function_symbol();
@@ -140,8 +144,26 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     Source dependency_array, num_dependences;
 
-    fill_data_args("ol_args->", data_environ_info, dependences, fill_outline_arguments);
-    fill_data_args("imm_args.", data_environ_info, dependences, fill_immediate_arguments);
+    fill_data_args("ol_args", 
+            data_environ_info, 
+            dependences, 
+            /* is_pointer */ true,
+            fill_outline_arguments);
+
+    bool immediate_is_alloca = false;
+    bool env_is_runtime_sized = data_environ_info.environment_is_runtime_sized();
+
+    if (env_is_runtime_sized)
+    {
+        immediate_is_alloca = true;
+    }
+
+    fill_data_args(
+            "imm_args",
+            data_environ_info, 
+            dependences, 
+            /* is_pointer */ immediate_is_alloca,
+            fill_immediate_arguments);
 
     // Fill dependences, if any
     if (!dependences.empty())
@@ -239,13 +261,26 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 << "}"
                 ;
 
-            dependency_defs_immediate
-                << "{"
-                << "(void**)&imm_args." << dependency_field_name << ","
-                << dependency_flags << ","
-                << dep_size 
-                << "}"
-                ;
+            if (!immediate_is_alloca)
+            {
+                dependency_defs_immediate
+                    << "{"
+                    << "(void**)&imm_args." << dependency_field_name << ","
+                    << dependency_flags << ","
+                    << dep_size 
+                    << "}"
+                    ;
+            }
+            else
+            {
+                dependency_defs_immediate
+                    << "{"
+                    << "(void**)imm_args->" << dependency_field_name << ","
+                    << dependency_flags << ","
+                    << dep_size 
+                    << "}"
+                    ;
+            }
 
             if ((it + 1) != dependences.end())
             {
@@ -285,7 +320,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         if_expr_cond_end << "}";
     }
 
-    Source tiedness;
+    Source tiedness, priority;
     PragmaCustomClause untied_clause = ctr.get_clause("untied");
     if (untied_clause.is_defined())
     {
@@ -296,18 +331,65 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         tiedness << "props.tied = 1;";
     }
 
+    PragmaCustomClause priority_clause = ctr.get_clause("__priority");
+    if (priority_clause.is_defined())
+    {
+        priority
+            << "props.tied = " << priority_clause.get_arguments()[0] << ";"
+            ;
+    }
+
+    Source struct_runtime_size, struct_size;
+    Source immediate_decl;
+
+    if (!immediate_is_alloca)
+    {
+        immediate_decl
+            << struct_arg_type_name << " imm_args;"
+            ;
+    }
+    else
+    {
+        Source alloca_size;
+        immediate_decl 
+            << struct_arg_type_name << " * __restrict imm_args = (" << struct_arg_type_name << "*) __builtin_alloca(" << struct_size << ");"
+            ;
+
+    }
+
+    if (env_is_runtime_sized)
+    {
+        struct_runtime_size
+            << "int struct_runtime_size = "
+            << "sizeof(" << struct_arg_type_name << ") + "
+            << "(" << data_environ_info.sizeof_variable_part(ctr.get_scope()) << ")"
+            << ";"
+            ;
+        struct_size
+            << "struct_runtime_size" 
+            ;
+    }
+    else
+    {
+        struct_size
+            << "sizeof("  << struct_arg_type_name << ")"
+            ;
+    }
+
     spawn_code
         << "{"
         // Devices related to this task
         <<     device_description
         <<     struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
+        <<     struct_runtime_size
         <<     "nanos_wd_t wd = (nanos_wd_t)0;"
         <<     "nanos_wd_props_t props = { 0 };"
+        <<     priority
         <<     tiedness
         <<     "nanos_err_t err;"
         <<     if_expr_cond_start
         <<     "err = nanos_create_wd(&wd, " << num_devices << "," << device_descriptor << ","
-        <<                 "sizeof(" << struct_arg_type_name << "),"
+        <<                 struct_size << ","
         <<                 "(void**)&ol_args, nanos_current_wd(),"
         <<                 "&props);"
         <<     "if (err != NANOS_OK) nanos_handle_error (err);"
@@ -321,12 +403,12 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<     "}"
         <<     "else"
         <<     "{"
-        <<        struct_arg_type_name << " imm_args;"
+        <<        immediate_decl
         <<        fill_immediate_arguments
         <<        fill_dependences_immediate
         <<        "err = nanos_create_wd_and_run(" 
         <<                num_devices << ", " << device_descriptor << ", "
-        <<                "sizeof(imm_args), &imm_args, "
+        <<                struct_size << ", " << (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
         <<                num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", &props);"
         <<        "if (err != NANOS_OK) nanos_handle_error (err);"
         <<     "}"
