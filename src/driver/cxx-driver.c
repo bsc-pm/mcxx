@@ -66,6 +66,7 @@
 #include "cxx-upc.h"
 #include "cxx-configfile.h"
 #include "cxx-profile.h"
+#include "cxx-multifile.h"
 // It does not include any C++ code in the header
 #include "cxx-compilerphases.hpp"
 
@@ -274,6 +275,7 @@ static void terminating_signal_handler(int sig);
 static char check_tree(AST a);
 static char check_for_ambiguities(AST a, AST* ambiguous_node);
 
+static void embed_files(void);
 static void link_objects(void);
 
 static void add_to_parameter_list_str(const char*** existing_options, const char* str);
@@ -294,11 +296,6 @@ static int parse_special_parameters(int *should_advance, int argc,
 static int parse_implicit_parameter_flag(int *should_advance, const char *special_parameter);
 
 static void list_environments(void);
-
-static void do_embed(embed_map_t* embed_map, 
-        translation_unit_t* secondary_translation_unit,
-        translation_unit_t* main_translation_unit);
-
 
 static char do_not_unload_phases = 0;
 static char show_help_message = 0;
@@ -360,6 +357,9 @@ int main(int argc, char* argv[])
     
     // Compilation of every specified translation unit
     compile_every_translation_unit();
+
+    // Embed files
+    embed_files();
 
     // Link all generated objects
     link_objects();
@@ -1809,7 +1809,7 @@ static void register_upc_pragmae(void)
 static void compile_every_translation_unit_aux_(int num_translation_units,
         compilation_file_process_t** translation_units)
 {
-    // This is just to avoid having a return in this function by error
+    // This is just to avoid having a return in this function by mistake
 #define return 1 = 1;
     // Save the old current file
     compilation_file_process_t* saved_file_process = CURRENT_FILE_PROCESS;
@@ -1954,29 +1954,6 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                         file_process->num_secondary_translation_units,
                         file_process->secondary_translation_units);
 
-                // Embed
-                // FIXME - 'executable' embedding mode is not implemented
-
-                int j;
-                for (j = 0; j < file_process->num_secondary_translation_units; j++)
-                {
-                    compilation_file_process_t* secondary_file_process = file_process->secondary_translation_units[j];
-                    translation_unit_t* secondary_translation_unit = secondary_file_process->translation_unit;
-
-                    embed_map_t* embed_map = get_embed_map(secondary_file_process->compilation_configuration, 
-                            CURRENT_CONFIGURATION->configuration_name, 
-                            /* return_default */ 1);
-
-                    if (embed_map == NULL)
-                    {
-                        running_error("%s: error: no embedding tool was defined for profile '%s' towards profile '%s'",
-                                secondary_translation_unit->output_filename,
-                                secondary_file_process->compilation_configuration->configuration_name,
-                                CURRENT_CONFIGURATION->configuration_name);
-                    }
-
-                    do_embed(embed_map, secondary_translation_unit, translation_unit);
-                }
                 if (CURRENT_CONFIGURATION->verbose)
                 {
                     fprintf(stderr, "All secondary translation units of '%s' have been processed\n\n",
@@ -2010,12 +1987,6 @@ static void compile_every_translation_unit(void)
 {
     compile_every_translation_unit_aux_(compilation_process.num_translation_units,
             compilation_process.translation_units);
-}
-
-static void do_embed(embed_map_t* embed_map, 
-        translation_unit_t* secondary_translation_unit,
-        translation_unit_t* main_translation_unit)
-{
 }
 
 static void compiler_phases_pre_execution(
@@ -2568,12 +2539,15 @@ static void native_compilation(translation_unit_t* translation_unit,
     }
 }
 
-static void link_objects(void)
+static void embed_files(void)
 {
-    if (CURRENT_CONFIGURATION->do_not_link)
-        return;
+    // Objcopy and such :)
+}
 
-    int num_args_linker = count_null_ended_array((void**)CURRENT_CONFIGURATION->linker_options);
+static void link_files(const char** file_list, int num_files,
+        compilation_configuration_t* compilation_configuration)
+{
+    int num_args_linker = count_null_ended_array((void**)compilation_configuration->linker_options);
 
     const char** linker_args = calloc(num_args_linker
             + compilation_process.num_translation_units + 2 + 1, 
@@ -2582,39 +2556,114 @@ static void link_objects(void)
     int i = 0;
     int j = 0;
 
-    if (CURRENT_CONFIGURATION->linked_output_filename != NULL)
+    if (compilation_configuration->linked_output_filename != NULL)
     {
         linker_args[i] = uniquestr("-o");
         i++;
-        linker_args[i] = CURRENT_CONFIGURATION->linked_output_filename;
+        linker_args[i] = compilation_configuration->linked_output_filename;
         i++;
     }
 
-    for (j = 0; j < compilation_process.num_translation_units; j++)
+    for (j = 0; j < num_files; j++)
     {
-        linker_args[i] = compilation_process.translation_units[j]->translation_unit->output_filename;
+        linker_args[i] = file_list[j];
         i++;
     }
 
     for (j = 0; j < num_args_linker; j++)
     {
-        linker_args[i] = CURRENT_CONFIGURATION->linker_options[j];
+        linker_args[i] = compilation_configuration->linker_options[j];
         i++;
     }
 
     timing_t timing_link;
     timing_start(&timing_link);
-    if (execute_program(CURRENT_CONFIGURATION->linker_name, linker_args) != 0)
+    if (execute_program(compilation_configuration->linker_name, linker_args) != 0)
     {
         running_error("Link failed", 0);
     }
     timing_end(&timing_link);
 
-    if (CURRENT_CONFIGURATION->verbose)
+    if (compilation_configuration->verbose)
     {
         fprintf(stderr, "Link performed in %.2f seconds\n", 
                 timing_elapsed(&timing_link));
     }
+}
+
+static void extract_files_and_sublink(const char** file_list, int num_files,
+        compilation_configuration_t* target_configuration)
+{
+    // Purge multifile directory
+    if (multifile_dir_exists())
+    {
+        multifile_wipe_dir();
+    }
+
+    char no_multifile_info = 1;
+
+    int i;
+    for (i = 0; i < num_files; i++)
+    {
+        if (multifile_object_has_extended_info(file_list[i]))
+        {
+            no_multifile_info = 0;
+            multifile_extract_extended_info(file_list[i]);
+        }
+    }
+
+    if (no_multifile_info)
+        return;
+
+    const char** multifile_profiles = NULL;
+    int num_multifile_profiles = 0;
+    multifile_get_extracted_profiles(&multifile_profiles, &num_multifile_profiles);
+
+    for (i = 0; i < num_multifile_profiles; i++)
+    {
+        compilation_configuration_t* configuration = get_compilation_configuration(multifile_profiles[i]);
+
+        if (configuration == NULL)
+        {
+            running_error("Multifile needs a profile '%s' not defined in the configuration\n",
+                    multifile_profiles[i]);
+        }
+
+        // target_options_map_t* target_map = target_options(configuration, target_configuration->configuration_name);
+
+        // if (!target_map->do_sublink)
+        //     continue;
+
+        const char** multifile_file_list = NULL;
+        int multifile_num_files = 0;
+
+        multifile_get_profile_file_list(
+                multifile_profiles[i],
+                &multifile_file_list, 
+                &multifile_num_files);
+
+        // FIXME - Craft a name for this sublinking
+
+        link_files(multifile_file_list, multifile_num_files, configuration);
+    }
+}
+
+static void link_objects(void)
+{
+    if (CURRENT_CONFIGURATION->do_not_link)
+        return;
+
+    const char * file_list[compilation_process.num_translation_units];
+
+    int j;
+    for (j = 0; j < compilation_process.num_translation_units; j++)
+    {
+        file_list[j] = compilation_process.translation_units[j]->translation_unit->output_filename;
+    }
+
+    extract_files_and_sublink(file_list, compilation_process.num_translation_units, CURRENT_CONFIGURATION);
+
+    link_files(file_list, compilation_process.num_translation_units, CURRENT_CONFIGURATION);
 }
 
 

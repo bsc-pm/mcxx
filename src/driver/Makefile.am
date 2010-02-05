@@ -67,6 +67,8 @@ mcxx_SOURCES = \
   cxx-configfile-parser.c \
   cxx-configfile-lexer.h \
   cxx-configfile-lexer.c \
+  cxx-multifile.h \
+  cxx-multifile.c \
   $(END)
 
 mcxx_LDADD = \
