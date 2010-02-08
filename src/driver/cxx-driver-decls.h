@@ -238,6 +238,12 @@ typedef struct target_options_map_tag
 {
     const char* profile;
     char do_sublink;
+    char do_combining;
+    enum
+    {
+        COMBINING_MODE_INVALID = 0,
+        COMBINING_MODE_SPU_ELF = 1,
+    } combining_mode;
 } target_options_map_t;
 
 typedef struct compilation_configuration_tag

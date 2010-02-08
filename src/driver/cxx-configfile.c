@@ -337,6 +337,21 @@ static void disable_sublink(
     options->do_sublink = 0;
 }
 
+static void combine_spuelf(
+        target_options_map_t* options,
+        const char** opts UNUSED_PARAMETER, int *i UNUSED_PARAMETER)
+{
+    options->do_combining = 1;
+    options->combining_mode = COMBINING_MODE_SPU_ELF;
+}
+
+static void disable_combine(
+        target_options_map_t* options,
+        const char** opts UNUSED_PARAMETER, int *i UNUSED_PARAMETER)
+{
+    options->do_combining = 0;
+}
+
 struct target_options_t
 {
     const char* target_opt_name;
@@ -346,8 +361,10 @@ struct target_options_t
 static 
 struct target_options_t available_target_options[] =
 {
-    { "do_sublink", enable_sublink },
-    { "do_not_sublink", disable_sublink },
+    { "sublink", enable_sublink },
+    { "no_sublink", disable_sublink },
+    { "combine:spu_elf", combine_spuelf },
+    { "no_combine", disable_combine },
     { NULL, NULL }
 };
 
@@ -387,6 +404,8 @@ int config_set_target_options(struct compilation_configuration_tag* config, cons
     }
 
     parse_target_options(target_options, value);
+
+    return 0;
 }
 
 char config_file_parse(const char *filename)

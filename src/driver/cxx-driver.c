@@ -323,7 +323,7 @@ int main(int argc, char* argv[])
     // command line. We need those to properly populate profiles.
     parse_arguments(compilation_process.argc,
             compilation_process.argv, 
-            /* from_command_line= */1,
+            /* from_command_line= */ 1,
             /* parse_implicits_only */ 1);
 
     // This commits the profiles using the implicit parameters passed in the
@@ -2607,6 +2607,47 @@ target_options_map_t* get_target_options(compilation_configuration_t* configurat
     return NULL;
 }
 
+static void do_combining(target_options_map_t* target_map,
+        compilation_configuration_t* configuration)
+{
+    if (!target_map->do_combining)
+        return;
+
+    switch (target_map->combining_mode)
+    {
+        case COMBINING_MODE_SPU_ELF:
+            {
+                char output_filename[1024] = { 0 };
+                snprintf(output_filename, 1023, "comb_%s", configuration->linked_output_filename);
+
+                // Usage: embedspu [flags] symbol_name input_filename output_filename
+                const char* args[] =
+                {
+                    // We will stick to CSS convention of calling the symbol 'spe_prog'
+                    /* FIXME: no flags at the moment */
+                    "spe_prog", 
+                    configuration->linked_output_filename,
+                    output_filename,
+                    NULL,
+                };
+
+                if (execute_program("ppu-spuembed", args) != 0)
+                {
+                    running_error("Error when embedding SPU executable", 0);
+                }
+
+                remove(configuration->linked_output_filename);
+                configuration->linked_output_filename = output_filename;
+                break;
+            }
+        default:
+            {
+                internal_error("Invalid combining mode\n", 0);
+                break;
+            }
+    }
+}
+
 static void extract_files_and_sublink(const char** file_list, int num_files,
         compilation_configuration_t* target_configuration)
 {
@@ -2650,12 +2691,9 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
         if (target_map == NULL)
         {
             running_error("There are no target options defined from profile '%s' to profile '%s' in the configuration\n",
-                    target_configuration->configuration_name, 
-                    CURRENT_CONFIGURATION->configuration_name);
+                    configuration->configuration_name, 
+                    target_configuration->configuration_name);
         }
-
-        if (!target_map->do_sublink)
-            continue;
 
         const char** multifile_file_list = NULL;
         int multifile_num_files = 0;
@@ -2665,23 +2703,41 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
                 &multifile_file_list, 
                 &multifile_num_files);
 
-        // Craft a name for this sublinking
-
-        // Following decades of UNIX tradition
-#ifndef WIN32_BUILD
-        const char* linked_output_suffix = "a.out";
-#else
-        const char* linked_output_suffix = "a.exe";
-#endif
-        if (CURRENT_CONFIGURATION->linked_output_filename != NULL)
+        if (!target_map->do_sublink)
         {
-            linked_output_suffix = CURRENT_CONFIGURATION->linked_output_filename;
+            // Now add the linked output as an additional link file
+            int j;
+            for (j = 0; j < multifile_num_files; j++)
+            {
+                add_to_parameter_list_str(&target_configuration->linker_options, 
+                        multifile_file_list[j]);
+            }
         }
+        else
+        {
+            // Create a name for sublinking
+#ifndef WIN32_BUILD
+            // Following decades of UNIX tradition
+            const char* linked_output_suffix = "a.out";
+#else
+            const char* linked_output_suffix = "a.exe";
+#endif
+            if (CURRENT_CONFIGURATION->linked_output_filename != NULL)
+            {
+                linked_output_suffix = give_basename(CURRENT_CONFIGURATION->linked_output_filename);
+            }
 
-        configuration->linked_output_filename =
-            strappend(configuration->configuration_name, linked_output_suffix);
+            configuration->linked_output_filename =
+                strappend(configuration->configuration_name, linked_output_suffix);
 
-        link_files(multifile_file_list, multifile_num_files, configuration);
+            link_files(multifile_file_list, multifile_num_files, configuration);
+
+            do_combining(target_map, configuration);
+
+            // Now add the linked output as an additional link file
+            add_to_parameter_list_str(&target_configuration->linker_options, 
+                    configuration->linked_output_filename);
+        }
     }
 }
 
