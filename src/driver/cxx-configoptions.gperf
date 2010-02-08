@@ -39,6 +39,5 @@ compiler_phase, config_add_compiler_phase
 pragma_prefix, config_add_preprocessor_prefix
 environment, config_set_environment
 environ, config_set_environment
-embed, config_set_embedder
-identify, config_set_identifier
+target_options, config_set_target_options
 %%

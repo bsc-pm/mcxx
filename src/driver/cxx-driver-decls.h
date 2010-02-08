@@ -220,6 +220,7 @@ typedef struct compilation_configuration_line
     struct compilation_configuration_conditional_flags *flags;
 } compilation_configuration_line_t;
 
+#if 0
 typedef struct embed_map_tag
 {
     const char* profile;
@@ -231,6 +232,13 @@ typedef struct identifier_map_tag
     const char* profile;
     const char* action;
 } identifier_map_t;
+#endif
+
+typedef struct target_options_map_tag
+{
+    const char* profile;
+    char do_sublink;
+} target_options_map_t;
 
 typedef struct compilation_configuration_tag
 {
@@ -319,6 +327,7 @@ typedef struct compilation_configuration_tag
     // Enable HLT
     char enable_hlt;
 
+#if 0
     // Embedder map
     int num_embed_maps;
     embed_map_t** embed_maps;
@@ -326,6 +335,11 @@ typedef struct compilation_configuration_tag
     // Identifier map
     int num_identifier_maps;
     identifier_map_t** identifier_maps;
+#endif
+
+    // Target options
+    int num_target_option_maps;
+    target_options_map_t** target_options_maps;
 } compilation_configuration_t;
 
 

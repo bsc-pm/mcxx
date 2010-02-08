@@ -235,6 +235,7 @@ int config_set_environment(struct compilation_configuration_tag* config, const c
     return 0;
 }
 
+#if 0
 embed_map_t* get_embed_map(struct compilation_configuration_tag* config, const char* index, char return_default)
 {
     embed_map_t* embed_map = NULL;
@@ -320,6 +321,73 @@ int config_set_identifier(struct compilation_configuration_tag* config, const ch
 
     return 0;
 }
+#endif
+
+static void enable_sublink(
+        target_options_map_t* options,
+        const char** opts UNUSED_PARAMETER, int *i UNUSED_PARAMETER)
+{
+    options->do_sublink = 1;
+}
+
+static void disable_sublink(
+        target_options_map_t* options,
+        const char** opts UNUSED_PARAMETER, int *i UNUSED_PARAMETER)
+{
+    options->do_sublink = 0;
+}
+
+struct target_options_t
+{
+    const char* target_opt_name;
+    void (*p)(target_options_map_t* options, const char** opts, int *i);
+};
+
+static 
+struct target_options_t available_target_options[] =
+{
+    { "do_sublink", enable_sublink },
+    { "do_not_sublink", disable_sublink },
+    { NULL, NULL }
+};
+
+static void parse_target_options(target_options_map_t* target_options, const char* value)
+{
+    int num;
+    const char **blank_separated_options = blank_separate_values(value, &num);
+
+    int i = 0;
+    for (i = 0; i < num; i++)
+    {
+        int j = 0;
+        for (j = 0; available_target_options[j].target_opt_name != NULL; j++)
+        {
+            if (strcmp(available_target_options[j].target_opt_name, blank_separated_options[i]) == 0)
+            {
+                (available_target_options[j].p)(target_options, blank_separated_options, &i);
+                break;
+            }
+        }
+    }
+}
+
+// target_options_map_t* get_target_options(compilation_configuration_t* configuration, 
+//         const char* configuration_name)
+int config_set_target_options(struct compilation_configuration_tag* config, const char* index, const char* value)
+{
+    target_options_map_t* target_options = get_target_options(config, index);
+
+    if (target_options == NULL)
+    {
+        target_options = calloc(1, sizeof(*target_options));
+        target_options->profile = index;
+
+        P_LIST_ADD(config->target_options_maps, config->num_target_option_maps,
+                target_options);
+    }
+
+    parse_target_options(target_options, value);
+}
 
 char config_file_parse(const char *filename)
 {
@@ -336,3 +404,4 @@ char config_file_parse(const char *filename)
     }
     return 0;
 }
+

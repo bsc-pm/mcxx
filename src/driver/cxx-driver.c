@@ -2591,6 +2591,22 @@ static void link_files(const char** file_list, int num_files,
     }
 }
 
+target_options_map_t* get_target_options(compilation_configuration_t* configuration, 
+        const char* configuration_name)
+{
+    int i;
+    for (i = 0 ; i < configuration->num_target_option_maps; i++)
+    {
+        if (strcmp(configuration->target_options_maps[i]->profile, 
+                    configuration_name) == 0)
+        {
+            return configuration->target_options_maps[i];
+        }
+    }
+
+    return NULL;
+}
+
 static void extract_files_and_sublink(const char** file_list, int num_files,
         compilation_configuration_t* target_configuration)
 {
@@ -2629,10 +2645,17 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
                     multifile_profiles[i]);
         }
 
-        // target_options_map_t* target_map = target_options(configuration, target_configuration->configuration_name);
+        target_options_map_t* target_map = get_target_options(configuration, target_configuration->configuration_name);
 
-        // if (!target_map->do_sublink)
-        //     continue;
+        if (target_map == NULL)
+        {
+            running_error("There are no target options defined from profile '%s' to profile '%s' in the configuration\n",
+                    target_configuration->configuration_name, 
+                    CURRENT_CONFIGURATION->configuration_name);
+        }
+
+        if (!target_map->do_sublink)
+            continue;
 
         const char** multifile_file_list = NULL;
         int multifile_num_files = 0;
@@ -2642,7 +2665,21 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
                 &multifile_file_list, 
                 &multifile_num_files);
 
-        // FIXME - Craft a name for this sublinking
+        // Craft a name for this sublinking
+
+        // Following decades of UNIX tradition
+#ifndef WIN32_BUILD
+        const char* linked_output_suffix = "a.out";
+#else
+        const char* linked_output_suffix = "a.exe";
+#endif
+        if (CURRENT_CONFIGURATION->linked_output_filename != NULL)
+        {
+            linked_output_suffix = CURRENT_CONFIGURATION->linked_output_filename;
+        }
+
+        configuration->linked_output_filename =
+            strappend(configuration->configuration_name, linked_output_suffix);
 
         link_files(multifile_file_list, multifile_num_files, configuration);
     }

@@ -54,6 +54,9 @@ debugflags_lookup (register const char *str, register unsigned int len);
 void add_to_parameter_list(const char*** existing_options, const char **parameters, int num_parameters);
 type_environment_t* get_environment(const char* env_id);
 
+target_options_map_t* get_target_options(compilation_configuration_t* configuration, 
+        const char* configuration_name);
+
 MCXX_END_DECLS
 
 #endif // CXX_DRIVER_H
