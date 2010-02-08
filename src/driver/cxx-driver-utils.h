@@ -48,11 +48,15 @@ typedef struct
 {
     // FILE* file;
     const char* name;
+    char is_dir;
 }* temporal_file_t;
 
 // Gives you a new temporal file that will be removed when
 // finishing the program
 temporal_file_t new_temporal_file(void);
+
+// The same but a directory that will be wiped at the end of the program
+temporal_file_t new_temporal_dir(void);
 
 // Routine that does the cleanup. Can be atexit-registered
 // or used discretionally inside the program. Every temporal

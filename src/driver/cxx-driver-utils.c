@@ -53,7 +53,9 @@ void temporal_files_cleanup(void)
 
     while (iter != NULL)
     {
-        if (iter->info != NULL)
+        if (iter->info == NULL)
+            continue;
+        if(!iter->info->is_dir)
         {
             if (CURRENT_CONFIGURATION->verbose)
             {
@@ -65,6 +67,17 @@ void temporal_files_cleanup(void)
                 fprintf(stderr, "Error while removing temporal filename: '%s'\n", strerror(errno));
             }
         }
+        else
+        {
+            if (CURRENT_CONFIGURATION->verbose)
+            {
+                fprintf(stderr, "Wiping temporal directory '%s'\n", iter->info->name);
+            }
+            char rm_fr[256];
+            snprintf(rm_fr, 255, "rm -fr \"%s\"", iter->info->name);
+            rm_fr[255] = '\0';
+            system(rm_fr);
+        }
 
         iter = iter->next;
     }
@@ -73,6 +86,57 @@ void temporal_files_cleanup(void)
 }
 
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
+static temporal_file_t new_temporal_dir_unix(void)
+{
+    char template[256];
+
+    // Behave like glibc
+    const char * dir = getenv("TMPDIR");
+    if (dir == NULL)
+    {
+        if (P_tmpdir != NULL)
+        {
+            dir = P_tmpdir;
+        }
+        else
+        {
+            // Desperate fallback
+            dir = "/tmp";
+        }
+    }
+
+    snprintf(template, 255, "%s/%s_XXXXXX", 
+            dir, compilation_process.exec_basename);
+    template[255] = '\0';
+
+    // Create the temporal file
+    char* directory_name = mkdtemp(template);
+
+    if (directory_name == NULL)
+    {
+        return NULL;
+    }
+
+    // Save the info of the new file
+    temporal_file_t result = calloc(sizeof(*result), 1);
+    result->name = uniquestr(directory_name);
+    result->is_dir = 1;
+    // Get a FILE* descriptor
+    // result->file = fdopen(file_descriptor, "w+");
+    // if (result->file == NULL)
+    // {
+    //     running_error("error: cannot create temporary file (%s)", strerror(errno));
+    // }
+
+    // Link to the temporal_file_list
+    temporal_file_list_t new_file_element = calloc(sizeof(*new_file_element), 1);
+    new_file_element->info = result;
+    new_file_element->next = temporal_file_list;
+    temporal_file_list = new_file_element;
+
+    return result;
+}
+
 static temporal_file_t new_temporal_file_unix(void)
 {
     char template[256];
@@ -151,7 +215,16 @@ static temporal_file_t new_temporal_file_win32(void)
 }
 #endif
 
-temporal_file_t new_temporal_file()
+temporal_file_t new_temporal_dir(void)
+{
+#if !defined(WIN32_BUILD) || defined(__CYGWIN__)
+    return new_temporal_dir_unix();
+#else
+#error Not implemented yet
+#endif
+}
+
+temporal_file_t new_temporal_file(void)
 {
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
     return new_temporal_file_unix();
