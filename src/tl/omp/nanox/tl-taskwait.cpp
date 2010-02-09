@@ -89,7 +89,7 @@ namespace TL
                     dependency_defs_wait
                         << "{"
                         << "(void**)&_dep_holder." << dependency_name << ","
-                        << "{0, 0, 0},"
+                        << "{1, 0, 0},"
                         << "sizeof(" << it->get_dependency_expression() << ")"
                         << "}"
                         ;
