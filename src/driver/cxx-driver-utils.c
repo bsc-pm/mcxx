@@ -33,11 +33,14 @@
 #else
   #include <windows.h>
 #endif
+#include <sys/stat.h>
 
 #include "cxx-driver.h"
 #include "cxx-driver-utils.h"
 #include "cxx-utils.h"
 #include "uniquestr.h"
+
+
 
 typedef struct temporal_file_list_tag
 {
@@ -642,3 +645,69 @@ void run_gdb(void)
     CURRENT_CONFIGURATION->debug_options.do_not_run_gdb = 0;
 }
 #endif
+
+char move_file(const char* source, const char* dest)
+{
+    struct stat buf;
+    if (stat(source, &buf) != 0)
+        return -1;
+
+    if (S_ISDIR(buf.st_mode))
+        return -1;
+
+    dev_t source_fs = buf.st_dev;
+
+    if (stat(give_dirname(dest), &buf) != 0)
+        return -1;
+
+    if (!S_ISDIR(buf.st_mode))
+        return -1;
+
+    dev_t dest_fs = buf.st_dev;
+
+    if (source_fs == dest_fs)
+    {
+        return rename(source, dest);
+    }
+    else
+    {
+        // Plain old copy
+        FILE* orig_file = fopen(source, "r");
+        if (orig_file == NULL)
+            return -1;
+
+        FILE* dest_file = fopen(dest, "w");
+
+        if (dest_file == NULL)
+            return -1;
+
+        // size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
+        char c[1024];
+        int actually_read = fread(c, sizeof(c), 1, orig_file);
+
+        while (actually_read != 0)
+        {
+            int actually_written = fwrite(c, actually_read, 1, dest_file);
+            if (actually_written < actually_read)
+            {
+                return -1;
+            }
+            actually_read = fread(c, sizeof(c), 1, orig_file);
+        }
+        if (feof(orig_file))
+        {
+            // Everything is OK
+            clearerr(orig_file);
+        }
+        else if (ferror(orig_file))
+        {
+            // Something went wrong
+            return -1;
+        }
+
+        fclose(orig_file);
+        fclose(dest_file);
+    }
+    // Everything ok
+    return 0;
+}

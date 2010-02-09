@@ -87,4 +87,7 @@ double timing_elapsed(const timing_t* t);
 
 void run_gdb(void);
 
+// Like rename but works accross filesystems
+char move_file(const char* source, const char* dest);
+
 #endif // CXX_DRIVERUTILS_H

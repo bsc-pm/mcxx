@@ -2541,7 +2541,139 @@ static void native_compilation(translation_unit_t* translation_unit,
 
 static void embed_files(void)
 {
-    // Objcopy and such :)
+    char there_are_secondary_files = 0;
+    int i;
+    for (i = 0; i < compilation_process.num_translation_units; i++)
+    {
+        if (compilation_process.translation_units[i]->num_secondary_translation_units != 0)
+        {
+            there_are_secondary_files = 1;
+        }
+    }
+
+    if (!there_are_secondary_files)
+        return;
+
+    // Create the temporal directory
+    temporal_file_t temp_dir = new_temporal_dir();
+
+    for (i = 0; i < compilation_process.num_translation_units; i++)
+    {
+        int num_secondary_translation_units = 
+            compilation_process.translation_units[i]->num_secondary_translation_units;
+        compilation_file_process_t** secondary_translation_units = 
+            compilation_process.translation_units[i]->secondary_translation_units;
+
+        const char *output_filename = compilation_process.translation_units[i]->translation_unit->output_filename;
+
+        // For each translation unit create the profile directory if needed
+        int j;
+        for (j = 0; j < num_secondary_translation_units; j++)
+        {
+            compilation_file_process_t* secondary_compilation_file = secondary_translation_units[j];
+            translation_unit_t* current_secondary = secondary_compilation_file->translation_unit;
+            char dir_path[1024];
+            snprintf(dir_path, 1023, "%s%s%s", 
+                    temp_dir->name, 
+                    DIR_SEPARATOR, 
+                    secondary_compilation_file->compilation_configuration->configuration_name);
+            dir_path[1023] = '\0';
+
+            struct stat buf;
+            int res = stat(dir_path, &buf);
+
+            if (res != 0)
+            {
+                if (errno == ENOENT)
+                {
+                    // Create the directory if it does not exist
+                    if (mkdir(dir_path, 0700) != 0)
+                    {
+                        running_error("When creating multifile archive, cannot create directory '%s': %s\n",
+                                dir_path,
+                                strerror(errno));
+                    }
+                }
+                else
+                {
+                    running_error("Stat failed on '%s': %s\n",
+                            dir_path,
+                            strerror(errno));
+                }
+            }
+            else
+            {
+                if (!S_ISDIR(buf.st_mode))
+                {
+                    running_error("When creating multifile archive, path '%s' is not a directory\n",
+                            dir_path);
+                }
+            }
+
+            // Now move the secondary file
+
+            char dest_path[1024];
+            snprintf(dest_path, 1023, "%s%s%s", 
+                    dir_path, 
+                    DIR_SEPARATOR, 
+                    give_basename(current_secondary->output_filename));
+
+            if (move_file(current_secondary->output_filename, dest_path) != 0)
+            {
+                running_error("When creating multifile archive, file '%s' could not be moved to '%s'\n",
+                        current_secondary->output_filename,
+                        dest_path);
+            }
+        }
+        // Now all files have been moved into the temporal directory, run the tar there
+        temporal_file_t new_tar_file = new_temporal_file();
+        const char* tar_args[] =
+        {
+            "cf",
+            new_tar_file->name,
+            ".",
+            "-C", temp_dir->name,
+            NULL
+        };
+
+        if (execute_program("tar", tar_args) != 0)
+        {
+            running_error("When creating multifile archive, 'tar' failed\n");
+        }
+
+        // Now we have tar that we are going to embed into the .o file
+
+        // objcopy --add-section .mercurium=architectures.tar --set-section-flags .mercurium=alloc,readonly prova.o
+
+        char multifile_section_and_file[1024], multifile_section_and_flags[1024];
+
+        snprintf(multifile_section_and_file, 1023, "%s=%s",
+                MULTIFILE_SECTION, new_tar_file->name);
+        multifile_section_and_file[1023] = '\0';
+
+        snprintf(multifile_section_and_flags, 1023, "%s=alloc,readonly",
+                MULTIFILE_SECTION);
+        multifile_section_and_flags[1023] = '\0';
+
+        const char* objcopy_args[] =
+        {
+            "--add-section", multifile_section_and_file, 
+            "--set-section-flags", multifile_section_and_flags,
+            output_filename,
+            NULL,
+        };
+
+        if (execute_program("objcopy", objcopy_args) != 0)
+        {
+            running_error("When creating multifile archive, 'objcopy' failed\n");
+        }
+
+        if (CURRENT_CONFIGURATION->verbose)
+        {
+            fprintf(stderr, "Secondary files successfully embedded into '%s' file\n", 
+                    output_filename);
+        }
+    }
 }
 
 static void link_files(const char** file_list, int num_files,
