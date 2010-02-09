@@ -48,5 +48,6 @@ libtlomp_nanox_la_SOURCES = \
      tl-outline-nanox.cpp \
      tl-threadprivate.cpp \
      tl-atomic.cpp \
+     tl-barrier.cpp \
      $(END)
 
