@@ -352,21 +352,67 @@ static void disable_combine(
     options->do_combining = 0;
 }
 
+static void disable_embed(
+        target_options_map_t* options,
+        const char** opts UNUSED_PARAMETER, int *i UNUSED_PARAMETER)
+{
+    options->do_embedding = 0;
+}
+
+static void embed_bfd(
+        target_options_map_t* options,
+        const char** opts UNUSED_PARAMETER, int *i UNUSED_PARAMETER)
+{
+    options->do_embedding = 1;
+    options->embedding_mode = EMBEDDING_MODE_BFD;
+}
+
 struct target_options_t
 {
     const char* target_opt_name;
     void (*p)(target_options_map_t* options, const char** opts, int *i);
+    const char* desc;
 };
 
 static 
 struct target_options_t available_target_options[] =
 {
-    { "sublink", enable_sublink },
-    { "no_sublink", disable_sublink },
-    { "combine:spu_elf", combine_spuelf },
-    { "no_combine", disable_combine },
-    { NULL, NULL }
+    // Sublink
+    { "no_sublink", disable_sublink, "Disable sublinking when linking files" },
+    { "sublink",    enable_sublink , "Enable sublinking when linking files" },
+    // Combine
+    { "no_combine",      disable_combine, "Disables combination of sublinking output into link output" },
+    { "combine:spu_elf", combine_spuelf,  "Enables combination of sublinking output into link output" },
+    // Embedder
+    { "no_embed",  disable_embed, "Disables embedding secondary object outputs into the main object output" },
+    { "embed:bfd", embed_bfd,     "Enables embedding secondary objects outputs into the main object output using BFD tools" },
+    { "embed",     embed_bfd,     "A synonym for \"embed:bfd\"" },
+    { NULL, NULL, NULL }
 };
+
+#define TARGET_OPTIONS_MESSAGE \
+"Help for 'target_options' option in configuration file\n" \
+"\n" \
+" Syntax: target_options[target-profile] = option1 [option2 ...]\n" \
+"\n" \
+"  target-profile must be a valid profile registered by the compiler.\n" \
+"  When an instance of execution of target-profile creates secondary\n" \
+"  objects, the target_options of the secondary files profile is used\n" \
+"\n" \
+" Valid options are:\n" \
+"\n"
+
+void print_help_target_options(void)
+{
+    fprintf(stdout, "%s", TARGET_OPTIONS_MESSAGE);
+
+    int i;
+    for (i = 0; available_target_options[i].target_opt_name != NULL; i++)
+    {
+        fprintf(stdout, " %s\n", available_target_options[i].target_opt_name);
+        fprintf(stdout, " %s\n\n", available_target_options[i].desc);
+    }
+}
 
 static void parse_target_options(target_options_map_t* target_options, const char* value)
 {

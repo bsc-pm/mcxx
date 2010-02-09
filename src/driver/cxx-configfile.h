@@ -51,6 +51,8 @@ option_function_t config_set_identifier;
 #endif
 option_function_t config_set_target_options;
 
+void print_help_target_options(void);
+
 MCXX_END_DECLS
 
 #endif // CXX_CONFIGFILE

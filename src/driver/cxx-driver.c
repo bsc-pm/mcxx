@@ -154,6 +154,11 @@
 "  --do-not-unload-phases   If the compiler crashes when unloading\n" \
 "                           phases, use this flag to avoid the\n" \
 "                           compiler to unload them.\n" \
+"  --help-debug-flags       Shows debug flags valid for option\n" \
+"                           --debug-flags\n" \
+"  --help-target-options    Shows valid target options for\n" \
+"                           'target_options' option of configuration\n" \
+"                           file." \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -217,6 +222,7 @@ struct command_line_long_options command_line_long_options[] =
     {"ld", CLP_REQUIRED_ARGUMENT, OPTION_LINKER_NAME},
     {"debug-flags",  CLP_REQUIRED_ARGUMENT, OPTION_DEBUG_FLAG},
     {"help-debug-flags", CLP_NO_ARGUMENT, OPTION_HELP_DEBUG_FLAGS},
+    {"help-target-options", CLP_NO_ARGUMENT, OPTION_HELP_TARGET_OPTIONS},
     {"no-openmp", CLP_NO_ARGUMENT, OPTION_NO_OPENMP},
     {"variable", CLP_REQUIRED_ARGUMENT, OPTION_EXTERNAL_VAR},
     {"typecheck", CLP_NO_ARGUMENT, OPTION_TYPECHECK},
@@ -843,6 +849,12 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_HELP_DEBUG_FLAGS :
                     {
                         print_debug_flags_list();
+                        exit(EXIT_SUCCESS);
+                        break;
+                    }
+                case OPTION_HELP_TARGET_OPTIONS:
+                    {
+                        print_help_target_options();
                         exit(EXIT_SUCCESS);
                         break;
                     }

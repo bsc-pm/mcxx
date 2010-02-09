@@ -42,6 +42,7 @@ typedef enum
     OPTION_LINKER_NAME,
     OPTION_DEBUG_FLAG,
     OPTION_HELP_DEBUG_FLAGS,
+    OPTION_HELP_TARGET_OPTIONS,
     OPTION_OUTPUT_DIRECTORY,
     OPTION_NO_OPENMP,
     OPTION_EXTERNAL_VAR,
@@ -237,7 +238,19 @@ typedef struct identifier_map_tag
 typedef struct target_options_map_tag
 {
     const char* profile;
+
+    // Sublinking
     char do_sublink;
+
+    // Embedding
+    char do_embedding;
+    enum 
+    {
+        EMBEDDING_MODE_INVALID = 0,
+        EMBEDDING_MODE_BFD = 1,
+    } embedding_mode;
+
+    // Combining
     char do_combining;
     enum
     {
