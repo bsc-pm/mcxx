@@ -28,13 +28,9 @@
 
 namespace TL
 {
-    class TraverseDecls : public PragmaCustomCompilerPhase
+    class TraverseDecls : public CompilerPhase
     {
         public:
-            TraverseDecls()
-            {
-            }
-
             void pre_run(DTO& dto) { }
 
             void run(DTO& dto)
