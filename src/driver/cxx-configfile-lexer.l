@@ -104,6 +104,14 @@ location_t current_location = { NULL, NULL, 1, 1};
 
 =[ \t]* { handle_token(yytext); BEGIN(option_value); return '='; }
 
+"[" { handle_token(yytext); return '['; }
+"]" { handle_token(yytext); return ']'; }
+
+[-_+.[:alpha:]][-_+.[:alnum:]]* {
+    handle_token(yytext);
+    return CONFIGFILE_NAME;
+}
+
 }
 
 <option_value>{ 
