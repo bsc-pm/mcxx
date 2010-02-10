@@ -28,7 +28,7 @@
 
 namespace TL
 {
-    class TraverseDecls : public PragmaCustomCompilerPhase
+    class TraverseDecls : public CompilerPhase
     {
         public:
             TraverseDecls()
