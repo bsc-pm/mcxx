@@ -2652,7 +2652,7 @@ static void embed_files(void)
             }
         }
         // Now all files have been moved into the temporal directory, run the tar there
-        temporal_file_t new_tar_file = new_temporal_file();
+        temporal_file_t new_tar_file = new_temporal_file_extension(".tar");
         const char* tar_args[] =
         {
             "cf",
@@ -2771,7 +2771,7 @@ static void do_combining(target_options_map_t* target_map,
     if (!target_map->do_combining)
         return;
 
-    temporal_file_t temp_outfile = new_temporal_file();
+    temporal_file_t temp_outfile = new_temporal_file_extension(".o");
     const char* output_filename = temp_outfile->name;
 
     switch (target_map->combining_mode)
@@ -2801,7 +2801,7 @@ static void do_combining(target_options_map_t* target_map,
             }
         case COMBINING_MODE_INCBIN:
             {
-                temporal_file_t temp_file_as = new_temporal_file();
+                temporal_file_t temp_file_as = new_temporal_file_extension(".s");
                 
                 FILE* temp_file_fd = fopen(temp_file_as->name, "w");
 
@@ -3034,8 +3034,8 @@ static char check_for_ambiguities(AST a, AST* ambiguous_node)
 static void load_compiler_phases(compilation_configuration_t* config)
 {
     // Do nothing if they were already loaded 
-    // This is also checked in cxx-compilerphases.cpp but here we avoid showing
-    // the timing message as well
+    // This is also checked (and set) in cxx-compilerphases.cpp but here we
+    // avoid showing the timing message as well
     if (config->phases_loaded)
     {
         return;
@@ -3062,6 +3062,7 @@ static void load_compiler_phases(compilation_configuration_t* config)
                 CURRENT_CONFIGURATION->configuration_name,
                 timing_elapsed(&loading_phases));
     }
+
 }
 
 

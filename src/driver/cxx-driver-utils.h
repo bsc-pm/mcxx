@@ -58,6 +58,8 @@ temporal_file_t new_temporal_file(void);
 // The same but a directory that will be wiped at the end of the program
 temporal_file_t new_temporal_dir(void);
 
+temporal_file_t new_temporal_file_extension(const char* extension);
+
 // Routine that does the cleanup. Can be atexit-registered
 // or used discretionally inside the program. Every temporal
 // file is closed and erased.

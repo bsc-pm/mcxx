@@ -238,6 +238,42 @@ temporal_file_t new_temporal_file(void)
 #endif
 }
 
+temporal_file_t new_temporal_file_extension(const char* extension)
+{
+    ERROR_CONDITION(extension == NULL, "Extension cannot be NULL", 0);
+
+    while (*extension == '.') 
+        extension++;
+
+    ERROR_CONDITION(*extension == '\0', "Extension cannot be empty", 0);
+
+#if !defined(WIN32_BUILD) || defined(__CYGWIN__)
+    temporal_file_t result = new_temporal_file_unix();
+
+    char c[1024];
+    snprintf(c, 1023, "%s/%s.%s", 
+            give_dirname(result->name),
+            give_basename(result->name), 
+            extension);
+    c[1023] = '\0';
+
+    if (link(result->name, c) != 0)
+    {
+        running_error("Cannot create temporal file '%s': %s\n", c, strerror(errno));
+    }
+
+    if (unlink(result->name) != 0)
+    {
+        running_error("Unlink of '%s' failed: %s\n", result->name, strerror(errno));
+    }
+    result->name = uniquestr(c);
+
+    return result;
+#else
+#error Not yet implemented in windows
+#endif
+}
+
 const char* get_extension_filename(const char* filename)
 {
     return strrchr(filename, '.');
