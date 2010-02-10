@@ -50,6 +50,10 @@ static temporal_file_list_t temporal_file_list = NULL;
 
 void temporal_files_cleanup(void)
 {
+    // Do nothing if we were told to keep temporaries
+    if (CURRENT_CONFIGURATION->keep_temporaries)
+        return;
+
     temporal_file_list_t iter = temporal_file_list;
 
     while (iter != NULL)
