@@ -65,7 +65,7 @@ static void parse_boolean(const char *c, int *value)
 }
 
 // Set source language
-int config_set_language(struct compilation_configuration_tag* config, const char* value)
+int config_set_language(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     if (strcasecmp(value, "c") == 0)
     {
@@ -84,7 +84,7 @@ int config_set_language(struct compilation_configuration_tag* config, const char
 }
 
 // Set additional mcxx options
-int config_set_options(struct compilation_configuration_tag* config, const char* value)
+int config_set_options(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     int num;
     const char** blank_separated_options = blank_separate_values(value, &num);
@@ -114,14 +114,14 @@ int config_set_options(struct compilation_configuration_tag* config, const char*
 }
 
 // Set preprocessor name
-int config_set_preprocessor_name(struct compilation_configuration_tag* config, const char* value)
+int config_set_preprocessor_name(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     config->preprocessor_name = uniquestr(value);
     return 0;
 }
 
 // Set preprocessor options
-int config_set_preprocessor_options(struct compilation_configuration_tag* config, const char* value)
+int config_set_preprocessor_options(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     int num;
     const char** blank_separated_options = blank_separate_values(value, &num);
@@ -131,7 +131,7 @@ int config_set_preprocessor_options(struct compilation_configuration_tag* config
     return 0;
 }
 
-int config_set_preprocessor_uses_stdout(struct compilation_configuration_tag * config, const char *value)
+int config_set_preprocessor_uses_stdout(struct compilation_configuration_tag * config, const char* index, const char *value)
 {
     int bool_value = -1;
 
@@ -150,14 +150,14 @@ int config_set_preprocessor_uses_stdout(struct compilation_configuration_tag * c
 }
 
 // Set native compiler name
-int config_set_compiler_name(struct compilation_configuration_tag* config, const char* value)
+int config_set_compiler_name(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     config->native_compiler_name = uniquestr(value);
     return 0;
 }
 
 // Set native compiler options
-int config_set_compiler_options(struct compilation_configuration_tag* config, const char* value)
+int config_set_compiler_options(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     int num;
     const char **blank_separated_options = blank_separate_values(value, &num);
@@ -167,14 +167,14 @@ int config_set_compiler_options(struct compilation_configuration_tag* config, co
 }
 
 // Set linker name
-int config_set_linker_name(struct compilation_configuration_tag* config, const char* value)
+int config_set_linker_name(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     config->linker_name = uniquestr(value);
     return 0;
 }
 
 // Set linker options
-int config_set_linker_options(struct compilation_configuration_tag* config, const char* value)
+int config_set_linker_options(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     int num;
     const char **blank_separated_options = blank_separate_values(value, &num);
@@ -183,7 +183,7 @@ int config_set_linker_options(struct compilation_configuration_tag* config, cons
     return 0;
 }
 
-int config_add_compiler_phase(struct compilation_configuration_tag* config, const char* value)
+int config_add_compiler_phase(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     const char* library_name = uniquestr(value);
     P_LIST_ADD(config->compiler_phases, 
@@ -193,7 +193,7 @@ int config_add_compiler_phase(struct compilation_configuration_tag* config, cons
     return 0;
 }
 
-int config_add_preprocessor_prefix(struct compilation_configuration_tag* config, const char* value)
+int config_add_preprocessor_prefix(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     const char *reserved[] = {
         "gcc", 
@@ -228,10 +228,238 @@ int config_add_preprocessor_prefix(struct compilation_configuration_tag* config,
     return 0;
 }
 
-int config_set_environment(struct compilation_configuration_tag* config, const char* value)
+int config_set_environment(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
     type_environment_t* chosen_env = get_environment(value);
     config->type_environment = chosen_env;
+    return 0;
+}
+
+#if 0
+embed_map_t* get_embed_map(struct compilation_configuration_tag* config, const char* index, char return_default)
+{
+    embed_map_t* embed_map = NULL;
+    embed_map_t* def_embed_map = NULL;
+    int i;
+    for (i = 0; i < config->num_embed_maps; i++)
+    {
+        if (config->embed_maps[i]->profile == NULL)
+        {
+            def_embed_map = config->embed_maps[i];
+        }
+        if ((config->embed_maps[i]->profile == NULL
+                    && index == NULL)
+                || (index != NULL 
+                    && config->embed_maps[i]->profile != NULL
+                    && strcmp(index, config->embed_maps[i]->profile) == 0))
+        {
+            embed_map = config->embed_maps[i];
+            break;
+        }
+
+    }
+
+    if (embed_map == NULL
+            && return_default)
+    {
+        return def_embed_map;
+    }
+
+    return embed_map;
+}
+
+int config_set_embedder(struct compilation_configuration_tag* config, const char* index, const char* value)
+{
+    embed_map_t* new_embed_map = get_embed_map(config, index, /* return_default */ 0);
+    if (new_embed_map == NULL)
+    {
+        new_embed_map = calloc(1, sizeof(*new_embed_map));
+        new_embed_map->profile = index;
+
+        P_LIST_ADD(config->embed_maps, config->num_embed_maps, new_embed_map);
+    }
+
+    new_embed_map->command = value;
+
+    return 0;
+}
+
+static identifier_map_t* get_identifier_map(struct compilation_configuration_tag* config, const char* index)
+{
+    identifier_map_t* identifier_map = NULL;
+    int i;
+    for (i = 0; i < config->num_identifier_maps; i++)
+    {
+        if ((config->identifier_maps[i]->profile == NULL
+                    && index == NULL)
+                || (index != NULL 
+                    && config->identifier_maps[i]->profile != NULL
+                    && strcmp(index, config->identifier_maps[i]->profile) == 0))
+        {
+            identifier_map = config->identifier_maps[i];
+            break;
+        }
+    }
+
+    return identifier_map;
+}
+
+int config_set_identifier(struct compilation_configuration_tag* config, const char* index, const char* value)
+{
+    identifier_map_t* new_identifier_map = get_identifier_map(config, index);
+
+    if (new_identifier_map == NULL)
+    {
+        new_identifier_map = calloc(1, sizeof(*new_identifier_map));
+        new_identifier_map->profile = index;
+
+        P_LIST_ADD(config->identifier_maps, config->num_identifier_maps, new_identifier_map);
+    }
+
+    // FIXME - We should parse the action here
+    new_identifier_map->action = value;
+
+    return 0;
+}
+#endif
+
+static void enable_sublink(
+        target_options_map_t* options,
+        const char** opts UNUSED_PARAMETER, int *i UNUSED_PARAMETER)
+{
+    options->do_sublink = 1;
+}
+
+static void disable_sublink(
+        target_options_map_t* options,
+        const char** opts UNUSED_PARAMETER, int *i UNUSED_PARAMETER)
+{
+    options->do_sublink = 0;
+}
+
+static void combine_spuelf(
+        target_options_map_t* options,
+        const char** opts UNUSED_PARAMETER, int *i UNUSED_PARAMETER)
+{
+    options->do_combining = 1;
+    options->combining_mode = COMBINING_MODE_SPU_ELF;
+}
+
+static void combine_incbin(
+        target_options_map_t* options,
+        const char** opts UNUSED_PARAMETER, int *i UNUSED_PARAMETER)
+{
+    options->do_combining = 1;
+    options->combining_mode = COMBINING_MODE_INCBIN;
+}
+
+static void disable_combine(
+        target_options_map_t* options,
+        const char** opts UNUSED_PARAMETER, int *i UNUSED_PARAMETER)
+{
+    options->do_combining = 0;
+}
+
+static void disable_embed(
+        target_options_map_t* options,
+        const char** opts UNUSED_PARAMETER, int *i UNUSED_PARAMETER)
+{
+    options->do_embedding = 0;
+}
+
+static void embed_bfd(
+        target_options_map_t* options,
+        const char** opts UNUSED_PARAMETER, int *i UNUSED_PARAMETER)
+{
+    options->do_embedding = 1;
+    options->embedding_mode = EMBEDDING_MODE_BFD;
+}
+
+struct target_options_t
+{
+    const char* target_opt_name;
+    void (*p)(target_options_map_t* options, const char** opts, int *i);
+    const char* desc;
+};
+
+static 
+struct target_options_t available_target_options[] =
+{
+    // Sublink
+    { "no_sublink", disable_sublink, "Disable sublinking when linking files" },
+    { "sublink",    enable_sublink , "Enable sublinking when linking files" },
+    // Combine
+    { "no_combine",      disable_combine, "Disables combination of sublinking output into link output" },
+    { "combine:spu_elf", combine_spuelf,  "Enables combination of sublinking output using ppu-spuembed" },
+    { "combine:incbin", combine_incbin, "Enables combination of sublinking output using GNU as .incbin" },
+    // Embedder
+    { "no_embed",  disable_embed, "Disables embedding secondary object outputs into the main object output" },
+    { "embed:bfd", embed_bfd,     "Enables embedding secondary objects outputs into the main object output using BFD tools" },
+    { "embed",     embed_bfd,     "A synonym for \"embed:bfd\"" },
+    { NULL, NULL, NULL }
+};
+
+#define TARGET_OPTIONS_MESSAGE \
+"Help for 'target_options' option in configuration file\n" \
+"\n" \
+" Syntax: target_options[target-profile] = option1 [option2 ...]\n" \
+"\n" \
+"  target-profile must be a valid profile registered by the compiler.\n" \
+"  When an instance of execution of target-profile creates secondary\n" \
+"  objects, the target_options of the secondary files profile is used\n" \
+"\n" \
+" Valid options are:\n" \
+"\n"
+
+void print_help_target_options(void)
+{
+    fprintf(stdout, "%s", TARGET_OPTIONS_MESSAGE);
+
+    int i;
+    for (i = 0; available_target_options[i].target_opt_name != NULL; i++)
+    {
+        fprintf(stdout, " %s\n", available_target_options[i].target_opt_name);
+        fprintf(stdout, " %s\n\n", available_target_options[i].desc);
+    }
+}
+
+static void parse_target_options(target_options_map_t* target_options, const char* value)
+{
+    int num;
+    const char **blank_separated_options = blank_separate_values(value, &num);
+
+    int i = 0;
+    for (i = 0; i < num; i++)
+    {
+        int j = 0;
+        for (j = 0; available_target_options[j].target_opt_name != NULL; j++)
+        {
+            if (strcmp(available_target_options[j].target_opt_name, blank_separated_options[i]) == 0)
+            {
+                (available_target_options[j].p)(target_options, blank_separated_options, &i);
+                break;
+            }
+        }
+    }
+}
+
+// target_options_map_t* get_target_options(compilation_configuration_t* configuration, 
+//         const char* configuration_name)
+int config_set_target_options(struct compilation_configuration_tag* config, const char* index, const char* value)
+{
+    target_options_map_t* target_options = get_target_options(config, index);
+
+    if (target_options == NULL)
+    {
+        target_options = calloc(1, sizeof(*target_options));
+        target_options->profile = index;
+
+        P_LIST_ADD(config->target_options_maps, config->num_target_option_maps,
+                target_options);
+    }
+
+    parse_target_options(target_options, value);
+
     return 0;
 }
 
@@ -250,3 +478,4 @@ char config_file_parse(const char *filename)
     }
     return 0;
 }
+

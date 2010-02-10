@@ -164,8 +164,7 @@ noinst_HEADERS = \
 	tl-code-conversion-v3.hpp \
 	tl-code-conversion-v4.hpp \
 	tl-code-conversion-v5.hpp \
-	tl-parameter-region-list.hpp \
-	tl-parameter-expression.hpp \
+	tl-task-reshaper.hpp \
 	tl-task-manifest.hpp
 
 AM_LDFLAGS = $(tl_ldflags) -lm

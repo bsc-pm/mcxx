@@ -33,6 +33,7 @@
 #else
   #include <windows.h>
 #endif
+#include <sys/stat.h>
 
 #include "cxx-driver.h"
 #include "cxx-driver-utils.h"
@@ -49,11 +50,17 @@ static temporal_file_list_t temporal_file_list = NULL;
 
 void temporal_files_cleanup(void)
 {
+    // Do nothing if we were told to keep temporaries
+    if (CURRENT_CONFIGURATION->keep_temporaries)
+        return;
+
     temporal_file_list_t iter = temporal_file_list;
 
     while (iter != NULL)
     {
-        if (iter->info != NULL)
+        if (iter->info == NULL)
+            continue;
+        if(!iter->info->is_dir)
         {
             if (CURRENT_CONFIGURATION->verbose)
             {
@@ -65,6 +72,17 @@ void temporal_files_cleanup(void)
                 fprintf(stderr, "Error while removing temporal filename: '%s'\n", strerror(errno));
             }
         }
+        else
+        {
+            if (CURRENT_CONFIGURATION->verbose)
+            {
+                fprintf(stderr, "Removing temporal directory '%s'\n", iter->info->name);
+            }
+            char rm_fr[256];
+            snprintf(rm_fr, 255, "rm -fr \"%s\"", iter->info->name);
+            rm_fr[255] = '\0';
+            system(rm_fr);
+        }
 
         iter = iter->next;
     }
@@ -73,6 +91,57 @@ void temporal_files_cleanup(void)
 }
 
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
+static temporal_file_t new_temporal_dir_unix(void)
+{
+    char template[256];
+
+    // Behave like glibc
+    const char * dir = getenv("TMPDIR");
+    if (dir == NULL)
+    {
+        if (P_tmpdir != NULL)
+        {
+            dir = P_tmpdir;
+        }
+        else
+        {
+            // Desperate fallback
+            dir = "/tmp";
+        }
+    }
+
+    snprintf(template, 255, "%s/%s_XXXXXX", 
+            dir, compilation_process.exec_basename);
+    template[255] = '\0';
+
+    // Create the temporal file
+    char* directory_name = mkdtemp(template);
+
+    if (directory_name == NULL)
+    {
+        return NULL;
+    }
+
+    // Save the info of the new file
+    temporal_file_t result = calloc(sizeof(*result), 1);
+    result->name = uniquestr(directory_name);
+    result->is_dir = 1;
+    // Get a FILE* descriptor
+    // result->file = fdopen(file_descriptor, "w+");
+    // if (result->file == NULL)
+    // {
+    //     running_error("error: cannot create temporary file (%s)", strerror(errno));
+    // }
+
+    // Link to the temporal_file_list
+    temporal_file_list_t new_file_element = calloc(sizeof(*new_file_element), 1);
+    new_file_element->info = result;
+    new_file_element->next = temporal_file_list;
+    temporal_file_list = new_file_element;
+
+    return result;
+}
+
 static temporal_file_t new_temporal_file_unix(void)
 {
     char template[256];
@@ -151,12 +220,57 @@ static temporal_file_t new_temporal_file_win32(void)
 }
 #endif
 
-temporal_file_t new_temporal_file()
+temporal_file_t new_temporal_dir(void)
+{
+#if !defined(WIN32_BUILD) || defined(__CYGWIN__)
+    return new_temporal_dir_unix();
+#else
+#error Not implemented yet
+#endif
+}
+
+temporal_file_t new_temporal_file(void)
 {
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
     return new_temporal_file_unix();
 #else
     return new_temporal_file_win32();
+#endif
+}
+
+temporal_file_t new_temporal_file_extension(const char* extension)
+{
+    ERROR_CONDITION(extension == NULL, "Extension cannot be NULL", 0);
+
+    while (*extension == '.') 
+        extension++;
+
+    ERROR_CONDITION(*extension == '\0', "Extension cannot be empty", 0);
+
+#if !defined(WIN32_BUILD) || defined(__CYGWIN__)
+    temporal_file_t result = new_temporal_file_unix();
+
+    char c[1024];
+    snprintf(c, 1023, "%s/%s.%s", 
+            give_dirname(result->name),
+            give_basename(result->name), 
+            extension);
+    c[1023] = '\0';
+
+    if (link(result->name, c) != 0)
+    {
+        running_error("Cannot create temporal file '%s': %s\n", c, strerror(errno));
+    }
+
+    if (unlink(result->name) != 0)
+    {
+        running_error("Unlink of '%s' failed: %s\n", result->name, strerror(errno));
+    }
+    result->name = uniquestr(c);
+
+    return result;
+#else
+#error Not yet implemented in windows
 #endif
 }
 
@@ -569,3 +683,69 @@ void run_gdb(void)
     CURRENT_CONFIGURATION->debug_options.do_not_run_gdb = 0;
 }
 #endif
+
+char move_file(const char* source, const char* dest)
+{
+    struct stat buf;
+    if (stat(source, &buf) != 0)
+        return -1;
+
+    if (S_ISDIR(buf.st_mode))
+        return -1;
+
+    dev_t source_fs = buf.st_dev;
+
+    if (stat(give_dirname(dest), &buf) != 0)
+        return -1;
+
+    if (!S_ISDIR(buf.st_mode))
+        return -1;
+
+    dev_t dest_fs = buf.st_dev;
+
+    if (source_fs == dest_fs)
+    {
+        return rename(source, dest);
+    }
+    else
+    {
+        // Plain old copy
+        FILE* orig_file = fopen(source, "r");
+        if (orig_file == NULL)
+            return -1;
+
+        FILE* dest_file = fopen(dest, "w");
+
+        if (dest_file == NULL)
+            return -1;
+
+        // size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
+        char c[1024];
+        int actually_read = fread(c, sizeof(c), 1, orig_file);
+
+        while (actually_read != 0)
+        {
+            int actually_written = fwrite(c, actually_read, 1, dest_file);
+            if (actually_written < actually_read)
+            {
+                return -1;
+            }
+            actually_read = fread(c, sizeof(c), 1, orig_file);
+        }
+        if (feof(orig_file))
+        {
+            // Everything is OK
+            clearerr(orig_file);
+        }
+        else if (ferror(orig_file))
+        {
+            // Something went wrong
+            return -1;
+        }
+
+        fclose(orig_file);
+        fclose(dest_file);
+    }
+    // Everything ok
+    return 0;
+}

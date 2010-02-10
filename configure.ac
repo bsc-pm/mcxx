@@ -953,6 +953,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/examples/mypragma/Makefile
            src/tl/examples/declarations/Makefile
            src/tl/examples/decl_closure/Makefile
+           src/tl/examples/multifile_test/Makefile
            src/tl/superscalar/Makefile
            config/Makefile
            tests/Makefile
