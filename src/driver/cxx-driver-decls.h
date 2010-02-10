@@ -233,6 +233,7 @@ typedef struct compilation_configuration_tag
     // Options
     char verbose;
     char keep_files;
+    char keep_temporaries;
     char check_dates;
     char do_not_process_files;
     char do_not_parse;

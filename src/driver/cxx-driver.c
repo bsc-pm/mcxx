@@ -91,8 +91,9 @@
 "  -y                       File will be parsed but it will not be\n" \
 "                           compiled not linked.\n" \
 "  -x lang                  Override language detection to <lang>\n" \
-"  -k, --keep-files         Do not remove intermediate temporary\n" \
-"                           files\n" \
+"  -k, --keep-files         Do not remove intermediate files\n" \
+"  -K, --keep-all-files     Do not remove any generated file, including\n" \
+"                           temporal files\n" \
 "  -a, --check-dates        Checks dates before regenerating files\n" \
 "  --output-dir=<dir>       Prettyprinted files will be left in\n" \
 "                           directory <dir>. Otherwise the input\n" \
@@ -190,7 +191,7 @@ static char *_alternate_signal_stack;
 #endif
 
 // It mimics getopt
-#define SHORT_OPTIONS_STRING "vkacho:EyI:L:l:gD:x:"
+#define SHORT_OPTIONS_STRING "vkKacho:EyI:L:l:gD:x:"
 // This one mimics getopt_long but with one less field (the third one is not given)
 struct command_line_long_options command_line_long_options[] =
 {
@@ -199,6 +200,7 @@ struct command_line_long_options command_line_long_options[] =
     {"v",           CLP_NO_ARGUMENT, OPTION_VERBOSE},
     {"verbose",     CLP_NO_ARGUMENT, OPTION_VERBOSE},
     {"keep-files",  CLP_NO_ARGUMENT, 'k'},
+    {"keep-all-files", CLP_NO_ARGUMENT, 'K'},
     {"check-dates", CLP_NO_ARGUMENT, 'a'},
     {"output",      CLP_REQUIRED_ARGUMENT, 'o'},
     // This option has a chicken-and-egg problem. If we delay till getopt_long
@@ -684,6 +686,12 @@ int parse_arguments(int argc, const char* argv[],
                 case 'k' : // --keep-files || -k
                     {
                         CURRENT_CONFIGURATION->keep_files = 1;
+                        break;
+                    }
+                case 'K' : // --keep-all-files || -K
+                    {
+                        CURRENT_CONFIGURATION->keep_files = 1;
+                        CURRENT_CONFIGURATION->keep_temporaries = 1;
                         break;
                     }
                 case 'c' : // -c
