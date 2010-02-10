@@ -16,21 +16,23 @@ void MultifileTest::run(DTO& dto)
 
     const std::string hello_file = "hello_world.c";
 
-    std::ofstream hello_world("hello_world.c");
+    std::fstream hello_world("hello_world.c", std::ios_base::trunc | std::ios_base::out);
 
-    if (hello_world.bad())
+    if (!hello_world)
     {
         std::cerr << "Descriptor is bad. Bailing out" << std::endl;
         return;
     }
 
     hello_world 
-        << "#include <stdio.h>"
+        << "#include <stdio.h>\n"
 
-        << "void do_hello_world(void)"
-        << "{"
-        <<    "printf(\"Hello world in a world where pointers are of size %zd bytes\n\", sizeof(void*));"
+        << "int main(int argc, char *argv[])\n"
+        << "{\n"
+        <<    "printf(\"Hello world in a world where pointers are of size %zd bytes\\n\", sizeof(void*));\n"
+        <<    "return 0;\n"
         << "}"
+        << std::endl
         ;
         
     hello_world.close();
