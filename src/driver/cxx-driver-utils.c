@@ -40,8 +40,6 @@
 #include "cxx-utils.h"
 #include "uniquestr.h"
 
-
-
 typedef struct temporal_file_list_tag
 {
     temporal_file_t info;

@@ -2566,6 +2566,7 @@ static void embed_files(void)
     if (!there_are_secondary_files)
         return;
 
+
     // Create the temporal directory
     temporal_file_t temp_dir = new_temporal_dir();
 
@@ -2577,6 +2578,11 @@ static void embed_files(void)
             compilation_process.translation_units[i]->secondary_translation_units;
 
         const char *output_filename = compilation_process.translation_units[i]->translation_unit->output_filename;
+
+        if (CURRENT_CONFIGURATION->verbose)
+        {
+            fprintf(stderr, "Embedding secondary files into '%s'\n", output_filename);
+        }
 
         // For each translation unit create the profile directory if needed
         int j;
