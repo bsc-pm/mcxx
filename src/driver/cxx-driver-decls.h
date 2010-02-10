@@ -255,7 +255,8 @@ typedef struct target_options_map_tag
     enum
     {
         COMBINING_MODE_INVALID = 0,
-        COMBINING_MODE_SPU_ELF = 1,
+        COMBINING_MODE_SPU_ELF, 
+        COMBINING_MODE_INCBIN,
     } combining_mode;
 } target_options_map_t;
 

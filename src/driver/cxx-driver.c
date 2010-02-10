@@ -2657,8 +2657,8 @@ static void embed_files(void)
         {
             "cf",
             new_tar_file->name,
-            ".",
             "-C", temp_dir->name,
+            ".",
             NULL
         };
 
@@ -2771,12 +2771,13 @@ static void do_combining(target_options_map_t* target_map,
     if (!target_map->do_combining)
         return;
 
+    temporal_file_t temp_outfile = new_temporal_file();
+    const char* output_filename = temp_outfile->name;
+
     switch (target_map->combining_mode)
     {
         case COMBINING_MODE_SPU_ELF:
             {
-                char output_filename[1024] = { 0 };
-                snprintf(output_filename, 1023, "comb_%s", configuration->linked_output_filename);
 
                 // Usage: embedspu [flags] symbol_name input_filename output_filename
                 const char* args[] =
@@ -2798,6 +2799,55 @@ static void do_combining(target_options_map_t* target_map,
                 configuration->linked_output_filename = output_filename;
                 break;
             }
+        case COMBINING_MODE_INCBIN:
+            {
+                temporal_file_t temp_file_as = new_temporal_file();
+                
+                FILE* temp_file_fd = fopen(temp_file_as->name, "w");
+
+                if (temp_file_fd == NULL)
+                {
+                    running_error("Cannot create temporal assembler file '%s': %s\n",
+                            temp_file_as->name,
+                            strerror(errno));
+                }
+
+                fprintf(temp_file_fd,
+                        ".data\n"
+                        ".global _%s_start\n"
+                        ".global _%s_end\n"
+                        ".align 16\n"
+                        "_%s_start:\n"
+                        ".incbin \"%s\"\n"
+                        "_%s_end:\n",
+                        configuration->configuration_name,
+                        configuration->configuration_name,
+                        configuration->configuration_name,
+                        configuration->linked_output_filename,
+                        configuration->configuration_name
+                        );
+
+                fclose(temp_file_fd);
+
+                const char* args[] =
+                {
+                    "-c",
+                    "-o", output_filename,
+                    "-x", "assembler",
+                    temp_file_as->name,
+                    NULL
+                };
+
+                if (execute_program(CURRENT_CONFIGURATION->native_compiler_name,
+                            args) != 0)
+                {
+                    running_error("Error when complining embedding assembler", 0);
+                }
+
+                remove(configuration->linked_output_filename);
+                configuration->linked_output_filename = output_filename;
+                break;
+            }
         default:
             {
                 internal_error("Invalid combining mode\n", 0);
@@ -2810,10 +2860,7 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
         compilation_configuration_t* target_configuration)
 {
     // Purge multifile directory
-    if (multifile_dir_exists())
-    {
-        multifile_wipe_dir();
-    }
+    multifile_wipe_dir();
 
     char no_multifile_info = 1;
 

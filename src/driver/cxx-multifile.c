@@ -43,6 +43,7 @@ void multifile_wipe_dir(void)
 #else
   #error Uninmplemented function yet
 #endif
+    mkdir(MULTIFILE_DIRECTORY, 0700);
 }
 
 void multifile_extract_extended_info(const char* filename)
@@ -52,7 +53,7 @@ void multifile_extract_extended_info(const char* filename)
     only_section[255] = '\0';
 
     char output_filename[256] = { 0 };
-    snprintf(output_filename, 255, "%s/%s", MULTIFILE_DIRECTORY, MULTIFILE_TAR_FILE);
+    snprintf(output_filename, 255, "%s%s%s", MULTIFILE_DIRECTORY, DIR_SEPARATOR, MULTIFILE_TAR_FILE);
     only_section[255] = '\0';
 
     const char* arguments_objcopy[] = {
@@ -71,10 +72,12 @@ void multifile_extract_extended_info(const char* filename)
     // Now extract the tar
 
     const char* arguments_tar[] = {
-        "xvf",
+        "xf",
         output_filename,
         "-C",
-        MULTIFILE_DIRECTORY
+        MULTIFILE_DIRECTORY,
+        ".",
+        NULL
     };
 
     if (execute_program("tar", arguments_tar) != 0)
@@ -210,7 +213,7 @@ void multifile_get_extracted_profiles(const char*** multifile_profiles, int *num
             snprintf(full_path, 1023, "%s%s%s", MULTIFILE_DIRECTORY, DIR_SEPARATOR, dir_entry->d_name);
             full_path[1023] = '\0';
 
-            if (stat(full_path, &buf) != 0)
+            if (stat(full_path, &buf) == 0)
             {
                 if (S_ISDIR(buf.st_mode)
                         && dir_entry->d_name[0] != '.')
@@ -260,7 +263,7 @@ void multifile_get_profile_file_list(const char* profile_name,
             snprintf(full_path, 1023, "%s%s%s", profile_dir, DIR_SEPARATOR, dir_entry->d_name);
             full_path[1023] = '\0';
 
-            if (stat(full_path, &buf) != 0)
+            if (stat(full_path, &buf) == 0)
             {
                 if (dir_entry->d_name[0] != '.')
                 {

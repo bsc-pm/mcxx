@@ -345,6 +345,14 @@ static void combine_spuelf(
     options->combining_mode = COMBINING_MODE_SPU_ELF;
 }
 
+static void combine_incbin(
+        target_options_map_t* options,
+        const char** opts UNUSED_PARAMETER, int *i UNUSED_PARAMETER)
+{
+    options->do_combining = 1;
+    options->combining_mode = COMBINING_MODE_INCBIN;
+}
+
 static void disable_combine(
         target_options_map_t* options,
         const char** opts UNUSED_PARAMETER, int *i UNUSED_PARAMETER)
@@ -382,7 +390,8 @@ struct target_options_t available_target_options[] =
     { "sublink",    enable_sublink , "Enable sublinking when linking files" },
     // Combine
     { "no_combine",      disable_combine, "Disables combination of sublinking output into link output" },
-    { "combine:spu_elf", combine_spuelf,  "Enables combination of sublinking output into link output" },
+    { "combine:spu_elf", combine_spuelf,  "Enables combination of sublinking output using ppu-spuembed" },
+    { "combine:incbin", combine_incbin, "Enables combination of sublinking output using GNU as .incbin" },
     // Embedder
     { "no_embed",  disable_embed, "Disables embedding secondary object outputs into the main object output" },
     { "embed:bfd", embed_bfd,     "Enables embedding secondary objects outputs into the main object output using BFD tools" },

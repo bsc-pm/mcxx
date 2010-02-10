@@ -76,7 +76,7 @@ void temporal_files_cleanup(void)
         {
             if (CURRENT_CONFIGURATION->verbose)
             {
-                fprintf(stderr, "Wiping temporal directory '%s'\n", iter->info->name);
+                fprintf(stderr, "Removing temporal directory '%s'\n", iter->info->name);
             }
             char rm_fr[256];
             snprintf(rm_fr, 255, "rm -fr \"%s\"", iter->info->name);
