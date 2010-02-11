@@ -343,6 +343,9 @@ LIBMCXX_EXTERN struct AST_tag* array_type_get_array_size_expr(struct type_tag* t
 LIBMCXX_EXTERN decl_context_t array_type_get_array_size_expr_context(struct type_tag* t);
 LIBMCXX_EXTERN char array_type_is_vla(struct type_tag* t);
 
+LIBMCXX_EXTERN int enum_type_get_num_enumerators(struct type_tag* t);
+LIBMCXX_EXTERN scope_entry_t* enum_type_get_enumerator_num(struct type_tag* t, int n);
+
 LIBMCXX_EXTERN enum class_kind_t class_type_get_class_kind(type_t* t);
 LIBMCXX_EXTERN int class_type_get_num_bases(struct type_tag* class_type);
 LIBMCXX_EXTERN struct scope_entry_tag* class_type_get_base_num(struct type_tag* class_type, int num, char *is_virtual);
@@ -456,6 +459,8 @@ LIBMCXX_EXTERN struct type_tag* reference_type_get_referenced_type(struct type_t
 LIBMCXX_EXTERN struct type_tag* no_ref(struct type_tag* t);
 
 LIBMCXX_EXTERN struct type_tag* get_actual_class_type(struct type_tag* class_type);
+
+LIBMCXX_EXTERN struct type_tag* get_actual_enum_type(struct type_tag* enum_type);
 
 LIBMCXX_EXTERN char is_value_dependent_expression(struct AST_tag* expr, decl_context_t decl_context);
 

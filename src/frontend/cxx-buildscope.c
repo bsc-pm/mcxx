@@ -7163,16 +7163,13 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
         build_scope_decl_specifier_seq(ASTSon0(a), &gather_info,
                 &member_type, new_decl_context);
 
+        AST decl_spec_seq = ASTSon0(a);
+        AST type_specifier = ASTSon1(decl_spec_seq);
+
         if (member_type != NULL
                 && is_named_type(member_type))
         {
-            // Register as a member (just for qualification purposes)
-            // if it's been defined inside the class.
-            AST decl_spec_seq = ASTSon0(a);
-            AST type_specifier = ASTSon1(decl_spec_seq);
-
-            // Only in these two cases we will have types defined
-            // within the class
+            // Register the typename properly
             if (ASTType(type_specifier) == AST_CLASS_SPECIFIER
                     || ASTType(type_specifier) == AST_ELABORATED_TYPE_CLASS
                     || ASTType(type_specifier) == AST_ENUM_SPECIFIER
@@ -7191,9 +7188,22 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                 // Register the typename
                 class_type_add_typename(get_actual_class_type(class_type), entry);
+
             }
         }
 
+        if (ASTType(type_specifier) == AST_ENUM_SPECIFIER )
+        {
+            ERROR_CONDITION(!is_enumerated_type(member_type), 
+                    "AST_ENUM_SPECIFIER did not compute an enumerator type", 0);
+
+            int i, num_enums  = enum_type_get_num_enumerators(member_type);
+            for (i = 0; i < num_enums; i++)
+            {
+                scope_entry_t* enumerator = enum_type_get_enumerator_num(member_type, i);
+                class_type_add_member(get_actual_class_type(class_type), enumerator);
+            }
+        }
     }
 
     if (ASTSon1(a) != NULL)

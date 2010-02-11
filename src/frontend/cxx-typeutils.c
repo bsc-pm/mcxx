@@ -2783,13 +2783,46 @@ char is_named_enumerated_type(struct type_tag* t)
             && is_unnamed_enumerated_type(named_type_get_symbol(t)->type_information));
 }
 
-void enum_type_add_enumerator(type_t* t, scope_entry_t* enumeration_item)
+type_t* get_actual_enum_type(struct type_tag* t)
 {
-    ERROR_CONDITION(!is_unnamed_enumerated_type(t), "This is not an enum type", 0);
+    if (is_unnamed_enumerated_type(t))
+        return advance_over_typedefs(t);
+    else if (is_named_enumerated_type(t))
+        return named_type_get_symbol(advance_over_typedefs(t))->type_information;
+    else
+        return NULL;
+}
+
+void enum_type_add_enumerator(struct type_tag* t, scope_entry_t* enumeration_item)
+{
+    ERROR_CONDITION(!is_enumerated_type(t), "This is not an enum type", 0);
+
+    t = get_actual_enum_type(t);
+
     simple_type_t* enum_type = t->type;
     P_LIST_ADD(enum_type->enum_info->enumeration_list, 
             enum_type->enum_info->num_enumeration,
             enumeration_item);
+}
+
+scope_entry_t* enum_type_get_enumerator_num(struct type_tag* t, int n)
+{
+    ERROR_CONDITION(!is_enumerated_type(t), "This is not an enum type", 0);
+
+    t = get_actual_enum_type(t);
+
+    simple_type_t* enum_type = t->type;
+    return enum_type->enum_info->enumeration_list[n];
+}
+
+int enum_type_get_num_enumerators(struct type_tag* t)
+{
+    ERROR_CONDITION(!is_enumerated_type(t), "This is not an enum type", 0);
+    t = get_actual_enum_type(t);
+
+    simple_type_t* enum_type = t->type;
+
+    return enum_type->enum_info->num_enumeration;
 }
 
 // This function returns a copy of the old type

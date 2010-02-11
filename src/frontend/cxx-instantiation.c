@@ -306,11 +306,11 @@ static scope_entry_t* add_duplicate_member_to_class(decl_context_t context_of_be
 }
 
 typedef
-struct template_map_tag
+struct type_map_tag
 {
-    type_t* orig_template_type;
-    type_t* new_template_type;
-} template_map_t;
+    type_t* orig_type;
+    type_t* new_type;
+} type_map_t;
 
 static void instantiate_template_type_member(type_t* template_type, 
         decl_context_t context_of_being_instantiated,
@@ -319,7 +319,7 @@ static void instantiate_template_type_member(type_t* template_type,
         char is_class,
         const char* filename, 
         int line,
-        template_map_t** template_map, 
+        type_map_t** template_map, 
         int *num_items_template_map)
 {
     // This is the primary template
@@ -422,9 +422,9 @@ static void instantiate_template_type_member(type_t* template_type,
     new_member->file = member_of_template->file;
     new_member->line = member_of_template->line;
 
-    template_map_t new_map;
-    new_map.orig_template_type = template_type;
-    new_map.new_template_type = new_member->type_information;
+    type_map_t new_map;
+    new_map.orig_type = template_type;
+    new_map.new_type = new_member->type_information;
 
     fprintf(stderr, "INSTANTIATION: Adding new template to template map\n");
 
@@ -458,8 +458,11 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
         scope_entry_t* member_of_template, 
         decl_context_t context_of_being_instantiated,
         const char* filename, int line,
-        template_map_t** template_map, 
-        int *num_items_template_map)
+        type_map_t** template_map, 
+        int *num_items_template_map,
+        type_map_t** enum_map,
+        int *num_items_enum_map
+        )
 {
     fprintf(stderr, "INSTANTIATION: Instantiating member '%s'\n", 
             member_of_template->symbol_name);
@@ -512,7 +515,63 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
             }
         case SK_ENUM:
             {
-                internal_error("Enums not yet implemented", 0);
+                scope_entry_t* new_member = add_duplicate_member_to_class(context_of_being_instantiated,
+                        being_instantiated,
+                        member_of_template);
+
+                new_member->type_information = get_new_enum_type(context_of_being_instantiated);
+
+                class_type_add_typename(get_actual_class_type(being_instantiated), new_member);
+
+                // Register a map
+
+                type_map_t new_map;
+                new_map.orig_type = member_of_template->type_information;
+                new_map.new_type = new_member->type_information;
+
+                P_LIST_ADD((*enum_map), (*num_items_enum_map), new_map);
+
+                break;
+            }
+        case SK_ENUMERATOR:
+            {
+                scope_entry_t* new_member = add_duplicate_member_to_class(context_of_being_instantiated,
+                        being_instantiated,
+                        member_of_template);
+
+                type_t* new_type = NULL;
+                // Lookup of related enum type
+                int i;
+                for (i = 0; i < (*num_items_enum_map); i++)
+                {
+                    if ((*enum_map)[i].orig_type == get_actual_enum_type(member_of_template->type_information))
+                    {
+                        new_type = (*enum_map)[i].new_type;
+                        break;
+                    }
+                }
+
+                // For named enums, the enum symbol should appear before in the class
+                ERROR_CONDITION (new_type == NULL
+                        && is_named_enumerated_type(member_of_template->type_information),
+                        "Enum new type not found", 0);
+
+                if (new_type == NULL)
+                {
+                    // Sign it now if is an unnamed enum
+                    new_type = get_new_enum_type(context_of_being_instantiated);
+
+                    type_map_t new_map;
+                    new_map.orig_type = member_of_template->type_information;
+                    new_map.new_type = new_type;
+
+                    P_LIST_ADD((*enum_map), (*num_items_enum_map), new_map);
+                }
+
+                member_of_template->type_information = new_type;
+
+                enum_type_add_enumerator(new_type, new_member);
+
                 break;
             }
         case SK_CLASS:
@@ -586,9 +645,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                         for (i = 0; i < *num_items_template_map; i++)
                         {
-                            if ((*template_map)[i].orig_template_type == template_type)
+                            if ((*template_map)[i].orig_type == template_type)
                             {
-                                new_template_type = (*template_map)[i].new_template_type;
+                                new_template_type = (*template_map)[i].new_type;
                                 break;
                             }
                         }
@@ -894,8 +953,11 @@ static void instantiate_specialized_template_class(type_t* selected_template,
 
     int num_members = class_type_get_num_members(get_actual_class_type(selected_template));
 
-    template_map_t* template_map = NULL;
+    type_map_t* template_map = NULL;
     int num_items_template_map = 0;
+
+    type_map_t* enum_map = NULL;
+    int num_items_enum_map = 0;
 
     fprintf(stderr, "INSTANTIATION: Have to instantiate %d members\n", num_members);
     for (i = 0; i < num_members; i++)
@@ -907,8 +969,8 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                 member, 
                 inner_decl_context,
                 filename, line,
-                &template_map, 
-                &num_items_template_map);
+                &template_map, &num_items_template_map,
+                &enum_map, &num_items_enum_map);
     }
 
     // The symbol is defined after this
