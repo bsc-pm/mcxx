@@ -2285,7 +2285,7 @@ static type_t* update_type_aux_(type_t* orig_type,
         AST expression = array_type_get_array_size_expr(orig_type);
         decl_context_t expr_context = array_type_get_array_size_expr_context(orig_type);
 
-        AST updated_expr = ast_copy_for_instantiation(expression);
+        AST updated_expr = expression;
         decl_context_t updated_expr_context = expr_context;
         if (updated_expr != NULL)
         {

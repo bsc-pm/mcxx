@@ -6312,9 +6312,10 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         // 4. If the called expression could not be checked return
         DEBUG_CODE()
         {
-            fprintf(stderr, "EXPRTYPE: Called expression '%s' at '%s' could not be checked\n",
+            fprintf(stderr, "EXPRTYPE: Called expression '%s' at '%s' could not be checked (koenig = %s)\n",
                     prettyprint_in_buffer(called_expression),
-                    ast_location(called_expression));
+                    ast_location(called_expression),
+                    might_require_koenig ? "yes" : "no");
         }
         if (!checking_ambiguity())
         {
