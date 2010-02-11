@@ -22,3 +22,13 @@
 ##########################################################################
 
 SUBDIRS = multifile_test
+
+END=
+
+DIST_SUBDIRS = \
+               basic_test \
+               multifile_test \
+               mypragma \
+               decl_closure \
+               declarations \
+               $(END)
