@@ -1202,7 +1202,7 @@ static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_c
         }
         else
         {
-            // If it is not a named type thus it only can be (3)
+            // If it is not a named type then it can only be (3)
             if (is_dependent_typename_type(class_type))
             {
                 // This is dependent
@@ -1246,8 +1246,6 @@ static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_c
         {
             if (class_type_is_incomplete_independent(class_type))
             {
-                // Bogus context
-                // FIXME - It is useful to know where a template was instantiated
                 instantiate_template_class(class_name, nested_name_context,
                         ASTFileName(unqualified_part), ASTLine(unqualified_part));
             }
@@ -1469,7 +1467,14 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
     for (i = 0; i < num_bases; i++)
     {
         char current_base_is_virtual = 0;
-        scope_entry_t* base_class_entry = class_type_get_base_num(current_class_type, i, &current_base_is_virtual);
+        char current_base_is_dependent = 0;
+        scope_entry_t* base_class_entry = class_type_get_base_num(current_class_type, i, 
+                &current_base_is_virtual,
+                &current_base_is_dependent);
+
+        if (current_base_is_dependent)
+            continue;
+
         type_t* base_class_type = base_class_entry->type_information;
         decl_context_t base_class_context = class_type_get_inner_context(base_class_type);
         scope_t* base_class_scope = base_class_context.current_scope;

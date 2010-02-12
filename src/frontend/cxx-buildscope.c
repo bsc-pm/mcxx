@@ -2115,6 +2115,7 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
         AST name;
 
         char is_virtual = 0;
+        char is_dependent = 0;
         char is_template_qualified = 0;
 
         int base_specifier_kind = ASTType(base_specifier);
@@ -2211,8 +2212,7 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
                 instantiate_template_class(base_class_symbol, decl_context, ASTFileName(base_specifier), ASTLine(base_specifier));
             }
 
-            // Add the base to the class type
-            class_type_add_base_class(get_actual_class_type(class_type), base_class_symbol, is_virtual);
+            result = base_class_symbol;
         }
         else if (result->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
                 || result->kind == SK_TEMPLATE_TYPE_PARAMETER
@@ -2222,11 +2222,15 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
             {
                 fprintf(stderr, "Base class '%s' found IS a dependent type\n", prettyprint_in_buffer(base_specifier));
             }
+            is_dependent = 1;
         }
         else
         {
             internal_error("Code unreachable", 0);
         }
+
+        // Add the base to the class type
+        class_type_add_base_class(get_actual_class_type(class_type), result, is_virtual, is_dependent);
     }
 }
 
@@ -2396,7 +2400,12 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                     i++)
             {
                 char is_virtual = 0;
-                scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
+                char is_dependent = 0;
+                scope_entry_t* base_class = class_type_get_base_num(class_type, i, 
+                        &is_virtual, &is_dependent);
+
+                if (is_dependent)
+                    continue;
 
                 type_t* base_class_type = get_actual_class_type(base_class->type_information);
 
@@ -2476,7 +2485,11 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             for (i = 0; (i < class_type_get_num_bases(class_type)) && const_parameter; i++)
             {
                 char is_virtual = 0;
-                scope_entry_t *base_class = class_type_get_base_num(class_type, i, &is_virtual);
+                char is_dependent = 0;
+                scope_entry_t *base_class = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+                
+                if (is_dependent)
+                    continue;
 
                 const_parameter = const_parameter && 
                     class_has_const_copy_constructor(base_class->type_information);
@@ -2562,7 +2575,13 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                     i++)
             {
                 char is_virtual = 0;
-                scope_entry_t *base_class = class_type_get_base_num(class_type, i, &is_virtual);
+                char is_dependent = 0;
+                scope_entry_t *base_class = class_type_get_base_num(class_type, i, 
+                        &is_virtual, &is_dependent);
+
+                if (is_dependent)
+                    continue;
+
                 has_virtual_bases |= is_virtual;
 
                 type_t* base_class_type = get_actual_class_type(base_class->type_information);
@@ -2644,7 +2663,12 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             for (i = 0; (i < class_type_get_num_bases(class_type)) && const_parameter; i++)
             {
                 char is_virtual = 0;
-                scope_entry_t *base_class = class_type_get_base_num(class_type, i, &is_virtual);
+                char is_dependent = 0;
+                scope_entry_t *base_class = class_type_get_base_num(class_type, i, 
+                        &is_virtual, &is_dependent);
+
+                if (is_dependent)
+                    continue;
 
                 // Bases have always been instantiated
                 const_parameter = const_parameter && 
@@ -2720,7 +2744,12 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                     i++)
             {
                 char is_virtual = 0;
-                scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
+                char is_dependent = 0;
+                scope_entry_t* base_class = class_type_get_base_num(class_type, i, 
+                        &is_virtual, &is_dependent);
+
+                if (is_dependent)
+                    continue;
 
                 has_virtual_bases |= is_virtual;
 
@@ -2832,7 +2861,12 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             for (i = 0; (i < class_type_get_num_bases(class_type)) && !base_has_nontrivial_destructor; i++)
             {
                 char is_virtual = 0;
-                scope_entry_t *base_class = class_type_get_base_num(class_type, i, &is_virtual);
+                char is_dependent = 0;
+                scope_entry_t *base_class = class_type_get_base_num(class_type, i, 
+                        &is_virtual, &is_dependent);
+
+                if (is_dependent)
+                    continue;
 
                 scope_entry_t* destructor 
                     = class_type_get_destructor(get_actual_class_type(base_class->type_information));
@@ -6924,7 +6958,12 @@ static char is_virtual_destructor(type_t* class_type)
     for (i = 0; i < class_type_get_num_bases(class_type); i++)
     {
         char is_virtual = 0;
-        scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
+        char is_dependent = 0;
+        scope_entry_t* base_class = class_type_get_base_num(class_type, i, 
+                &is_virtual, &is_dependent);
+
+        if (is_dependent)
+            continue;
 
         type_t* base_class_type = get_actual_class_type(base_class->type_information);
 

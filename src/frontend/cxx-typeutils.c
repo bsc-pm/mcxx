@@ -124,6 +124,8 @@ struct base_class_info_tag
 
     // A virtual base
     unsigned char is_virtual:1;
+    // A dependent base
+    unsigned char is_dependent:1;
 
     // Used when laying classes out
     _size_t base_offset;
@@ -991,6 +993,8 @@ void dependent_typename_get_components(type_t* t, scope_entry_t** dependent_entr
         AST *nested_name, AST *unqualified_part)
 {
     ERROR_CONDITION(!is_dependent_typename_type(t), "This is not a dependent typename", 0);
+
+    t = advance_over_typedefs(t);
 
     *dependent_entry = t->type->dependent_entry;
     *decl_context = t->type->typeof_decl_context;
@@ -2417,7 +2421,11 @@ char class_type_is_empty(type_t* t)
     for (i = 0; i < class_type_get_num_bases(class_type); i++)
     {
         char is_virtual = 0;
-        scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
+        char is_dependent = 0;
+        scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+
+        if (is_dependent)
+            continue;
 
         has_virtual_bases |= is_virtual;
 
@@ -2465,7 +2473,11 @@ char class_type_is_dynamic(type_t* t)
     for (i = 0; i < num_bases; i++)
     {
         char is_virtual = 0;
-        scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
+        char is_dependent = 0;
+        scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+
+        if (is_dependent)
+            continue;
 
         if (is_virtual
                 || class_type_is_dynamic(base_class->type_information))
@@ -2486,7 +2498,11 @@ static char has_non_virtual_empty_base_class_not_zero_offset_rec(type_t* class_t
     for (i = 0; i < class_type_get_num_bases(class_type); i++)
     {
         char is_virtual = 0;
-        scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
+        char is_dependent = 0;
+        scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+
+        if (is_dependent)
+            continue;
 
         // If not morally virtual and empty
         if (!is_virtual
@@ -2559,7 +2575,11 @@ char class_type_is_nearly_empty(type_t* t)
     for (i = 0; i < class_type_get_num_bases(class_type); i++)
     {
         char is_virtual = 0;
-        scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
+        char is_dependent = 0;
+        scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+
+        if (is_dependent)
+            continue;
 
         if (!is_virtual)
         {
@@ -2943,7 +2963,8 @@ char function_type_get_has_ellipsis(type_t* function_type)
         ->is_ellipsis;
 }
 
-void class_type_add_base_class(type_t* class_type, scope_entry_t* base_class, char is_virtual)
+void class_type_add_base_class(type_t* class_type, scope_entry_t* base_class, 
+        char is_virtual, char is_dependent)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
 
@@ -2951,6 +2972,7 @@ void class_type_add_base_class(type_t* class_type, scope_entry_t* base_class, ch
     new_base_class->class_symbol = base_class;
     /* redundant */ new_base_class->class_type = base_class->type_information;
     new_base_class->is_virtual = is_virtual;
+    new_base_class->is_dependent = is_dependent;
 
     class_info_t* class_info = class_type->type->class_info;
     // Only add once
@@ -3024,7 +3046,7 @@ struct scope_entry_tag* class_type_get_member_function_num(struct type_tag* clas
     return class_type->type->class_info->member_functions[i];
 }
 
-scope_entry_t* class_type_get_base_num(type_t* class_type, int num, char *is_virtual)
+scope_entry_t* class_type_get_base_num(type_t* class_type, int num, char *is_virtual, char *is_dependent)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
 
@@ -3033,6 +3055,11 @@ scope_entry_t* class_type_get_base_num(type_t* class_type, int num, char *is_vir
     if (is_virtual != NULL)
     {
         *is_virtual = class_info->base_classes_list[num]->is_virtual;
+    }
+
+    if (is_dependent != NULL)
+    {
+        *is_dependent = class_info->base_classes_list[num]->is_dependent;
     }
 
     return class_info->base_classes_list[num]->class_symbol;
@@ -3135,7 +3162,13 @@ scope_entry_list_t* class_type_get_all_conversions(type_t* class_type, decl_cont
     scope_entry_list_t* base_result = NULL;
     for (i = 0; i < num_bases; i++)
     {
-        type_t* base_class_type = class_type_get_base_num(class_type, i, /* is_virtual = */ NULL)->type_information;
+        char is_dependent = 0;
+        type_t* base_class_type = class_type_get_base_num(class_type, i, 
+                /* is_virtual = */ NULL, /* is_dependent */ &is_dependent)->type_information;
+
+        if (is_dependent)
+            continue;
+
         scope_entry_list_t* base_conversors = class_type_get_all_conversions(base_class_type, decl_context);
 
         // Append
@@ -3240,6 +3273,8 @@ static char equivalent_simple_types(type_t *t1, type_t *t2);
 static type_t* advance_dependent_typename(type_t* t)
 {
     ERROR_CONDITION(!is_dependent_typename_type(t), "This must be a dependent typename", 0);
+
+    t = advance_over_typedefs(t);
 
     cv_qualifier_t cv_qualif = t->cv_qualifier;
 
@@ -4544,6 +4579,7 @@ char is_bool_type(type_t* t1)
 
 char is_dependent_typename_type(type_t* t)
 {
+    t = advance_over_typedefs(t);
     return (t != NULL
             && t->kind == TK_DIRECT
             && t->type->kind == STK_TEMPLATE_DEPENDENT_TYPE);
@@ -4632,8 +4668,13 @@ char class_type_is_base(type_t* possible_base, type_t* possible_derived)
     for (i = 0; i < class_type_get_num_bases(possible_derived); i++)
     {
         char is_virtual = 0;
-        type_t* current_base = class_type_get_base_num(possible_derived, i, &is_virtual)
+        char is_dependent = 0;
+        type_t* current_base = class_type_get_base_num(possible_derived, i, 
+                &is_virtual, &is_dependent)
             ->type_information;
+
+        if (is_dependent)
+            continue;
 
         if (current_base == possible_base)
             return 1;
@@ -4643,8 +4684,12 @@ char class_type_is_base(type_t* possible_base, type_t* possible_derived)
     for (i = 0; i < class_type_get_num_bases(possible_derived); i++)
     {
         char is_virtual = 0;
-        type_t* current_base = class_type_get_base_num(possible_derived, i, &is_virtual)
+        char is_dependent = 0;
+        type_t* current_base = class_type_get_base_num(possible_derived, i, &is_virtual, &is_dependent)
             ->type_information;
+
+        if (is_dependent)
+            continue;
 
         if (class_type_is_base(possible_base, current_base))
             return 1;
@@ -7473,7 +7518,7 @@ void set_is_complete_type(type_t* t, char is_complete)
     set_is_incomplete_type(t, !is_complete);
 }
 
-scope_entry_list_t* class_type_get_all_bases(type_t *t)
+scope_entry_list_t* class_type_get_all_bases(type_t *t, char include_dependent)
 {
     ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
 
@@ -7484,7 +7529,11 @@ scope_entry_list_t* class_type_get_all_bases(type_t *t)
     for (i = 0; i < num_bases; i++)
     {
         char is_virtual = 0;
-        scope_entry_t* base_class = class_type_get_base_num(t, i, &is_virtual);
+        char is_dependent = 0;
+        scope_entry_t* base_class = class_type_get_base_num(t, i, &is_virtual, &is_dependent);
+
+        if (is_dependent && !include_dependent)
+            continue;
 
         // Add the current class if it is not already in the result
         scope_entry_list_t* it_result = result;
@@ -7526,7 +7575,8 @@ scope_entry_list_t* class_type_get_all_bases(type_t *t)
         }
 
         // Now recursively get all the bases of this base
-        scope_entry_list_t* base_list = class_type_get_all_bases(base_class->type_information);
+        scope_entry_list_t* base_list = class_type_get_all_bases(base_class->type_information, 
+                /* include_dependent */ 0);
 
         // Append those that are not already in the result
         scope_entry_list_t* it_base = base_list;
@@ -7670,7 +7720,12 @@ static void class_type_get_all_virtual_functions_rec(type_t* class_type,
     for (i = 0; i < class_type_get_num_bases(class_type); i++)
     {
         char is_virtual = 0;
-        scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
+        char is_dependent = 0;
+        scope_entry_t* base_class = class_type_get_base_num(class_type, i, 
+                &is_virtual, &is_dependent);
+
+        if (is_dependent)
+            continue;
 
         type_t* base_class_type = get_actual_class_type(base_class->type_information);
 

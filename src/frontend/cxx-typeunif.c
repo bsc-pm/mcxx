@@ -421,7 +421,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                 }
             }
 
-            scope_entry_list_t* all_bases = class_type_get_all_bases(get_actual_class_type(t2));
+            scope_entry_list_t* all_bases = class_type_get_all_bases(get_actual_class_type(t2), /* include_dependent */ 0);
             scope_entry_list_t* it = all_bases;
 
             while (it != NULL)

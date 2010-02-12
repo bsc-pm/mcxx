@@ -447,8 +447,12 @@ static void class_type_preorder_all_bases_rec(type_t* t,
     for (i = 0; i < num_bases; i++)
     {
         char is_virtual = 0;
+        char is_dependent = 0;
         scope_entry_t* current_base = 
-            class_type_get_base_num(class_type, i, &is_virtual);
+            class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+
+        if (is_dependent)
+            continue;
 
         char is_found = 0;
         int j;
@@ -554,8 +558,12 @@ static scope_entry_t* cxx_abi_class_type_get_primary_base_class(type_t* t, char 
     for (i = 0; i < num_direct_bases; i++)
     {
         char current_base_is_virtual = 0;
+        char current_base_is_dependent = 0;
         scope_entry_t* current_direct_base = class_type_get_base_num(class_type, i, 
-                &current_base_is_virtual);
+                &current_base_is_virtual, &current_base_is_dependent);
+
+        if (current_base_is_dependent)
+            continue;
 
         if (!current_base_is_virtual
                 && class_type_is_dynamic(current_direct_base->type_information))
@@ -726,7 +734,12 @@ static void cxx_abi_register_subobject_offset(layout_info_t* layout_info,
         for (i = 0; i < num_bases; i++)
         {
             char is_virtual;
-            scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
+            char is_dependent;
+            scope_entry_t* base_class = class_type_get_base_num(class_type, i, 
+                    &is_virtual, &is_dependent);
+
+            if (is_dependent)
+                continue;
 
             _size_t base_offset = 0;
             // Do not register virtual bases here, only nonvirtual bases
@@ -817,7 +830,12 @@ static char cxx_abi_conflicting_member(layout_info_t* layout_info,
         for (i = 0; i < num_bases; i++)
         {
             char is_virtual = 0;
-            scope_entry_t* base = class_type_get_base_num(class_type, i, &is_virtual);
+            char is_dependent = 0;
+            scope_entry_t* base = class_type_get_base_num(class_type, i, 
+                    &is_virtual, &is_dependent);
+
+            if (is_dependent)
+                continue;
 
             // Only non virtual classes are relevant here
             if (!is_virtual)
@@ -1236,7 +1254,9 @@ static void cxx_abi_class_sizeof(type_t* class_type)
         for (i = 0; i < num_bases; i++)
         {
             char is_virtual;
-            scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
+            char is_dependent;
+            scope_entry_t* base_class = class_type_get_base_num(class_type, i, 
+                    &is_virtual, &is_dependent);
 
             if (!is_virtual
                     && primary_base_class != base_class)

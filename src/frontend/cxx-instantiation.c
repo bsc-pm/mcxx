@@ -764,6 +764,12 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
     }
 }
 
+static void instantiate_bases(
+        type_t* selected_class_type,
+        type_t* instantiated_class_type,
+        decl_context_t context_of_being_instantiated,
+        const char* filename, int line);
+
 // Using typesystem
 static void instantiate_specialized_template_class(type_t* selected_template,
         type_t* being_instantiated,
@@ -893,10 +899,12 @@ static void instantiate_specialized_template_class(type_t* selected_template,
 
     if (instantiation_base_clause != NULL)
     {
-        internal_error("FIXME instantiation of bases", 0);
-        // build_scope_base_clause(instantiation_base_clause, 
-        //         get_actual_class_type(being_instantiated), 
-        //         inner_decl_context);
+        instantiate_bases(
+                get_actual_class_type(selected_template),
+                get_actual_class_type(being_instantiated),
+                inner_decl_context,
+                filename, line
+                );
     }
     
     // Inject the class name
@@ -984,6 +992,39 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     {
         fprintf(stderr, "INSTANTIATION: End of instantiation of class '%s'\n", 
                 named_type_get_symbol(being_instantiated)->symbol_name);
+    }
+}
+
+static void instantiate_bases(
+        type_t* selected_class_type,
+        type_t* instantiated_class_type,
+        decl_context_t context_of_being_instantiated,
+        const char* filename, int line)
+{
+    int i, num_bases = class_type_get_num_bases(selected_class_type);
+
+    for (i = 0; i < num_bases; i++)
+    {
+        char is_virtual = 0;
+        char is_dependent = 0;
+        scope_entry_t* base_class_sym = class_type_get_base_num(selected_class_type, i, &is_virtual, 
+                &is_dependent);
+
+        type_t* base_class_named_type = get_user_defined_type(base_class_sym);
+
+        type_t* upd_base_class_named_type = update_type(base_class_named_type,
+                context_of_being_instantiated,
+                filename, line);
+
+        scope_entry_t* upd_base_class_sym = named_type_get_symbol(upd_base_class_named_type);
+
+        // If the entity (being an independent one) has not been completed, then instantiate it
+        if (class_type_is_incomplete_independent(get_actual_class_type(upd_base_class_named_type)))
+        {
+            instantiate_template_class(upd_base_class_sym, context_of_being_instantiated, filename, line);
+        }
+
+        class_type_add_base_class(instantiated_class_type, upd_base_class_sym, is_virtual, /* is_dependent */ 0);
     }
 }
 

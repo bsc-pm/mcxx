@@ -151,7 +151,8 @@ LIBMCXX_EXTERN char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier
 
 /* Modifiers used when the type is still being built */
 
-LIBMCXX_EXTERN void class_type_add_base_class(struct type_tag* class_type, struct scope_entry_tag* base_class, char is_virtual);
+LIBMCXX_EXTERN void class_type_add_base_class(struct type_tag* class_type, 
+        struct scope_entry_tag* base_class, char is_virtual, char is_dependent);
 LIBMCXX_EXTERN void class_type_set_inner_context(struct type_tag* class_type, decl_context_t decl_context);
 LIBMCXX_EXTERN void class_type_add_constructor(struct type_tag* class_type, struct scope_entry_tag* entry);
 LIBMCXX_EXTERN void class_type_set_destructor(struct type_tag* class_type, struct scope_entry_tag* entry);
@@ -348,8 +349,8 @@ LIBMCXX_EXTERN scope_entry_t* enum_type_get_enumerator_num(struct type_tag* t, i
 
 LIBMCXX_EXTERN enum class_kind_t class_type_get_class_kind(type_t* t);
 LIBMCXX_EXTERN int class_type_get_num_bases(struct type_tag* class_type);
-LIBMCXX_EXTERN struct scope_entry_tag* class_type_get_base_num(struct type_tag* class_type, int num, char *is_virtual);
-LIBMCXX_EXTERN scope_entry_list_t* class_type_get_all_bases(type_t *t);
+LIBMCXX_EXTERN struct scope_entry_tag* class_type_get_base_num(struct type_tag* class_type, int num, char *is_virtual, char *is_dependent);
+LIBMCXX_EXTERN scope_entry_list_t* class_type_get_all_bases(type_t *t, char include_dependent);
 LIBMCXX_EXTERN int class_type_get_num_constructors(struct type_tag* t);
 LIBMCXX_EXTERN struct scope_entry_tag* class_type_get_constructors_num(struct type_tag* t, int num);
 
