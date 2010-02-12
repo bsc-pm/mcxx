@@ -49,8 +49,8 @@ class ObjectList : public std::vector<T>, public TL::Object
 {
     private:
         template <class Q>
-        void reduction_helper(Q &result, typename ObjectList<T>::iterator it,
-                const Functor<Q, std::pair<T, Q> >& red_func, const Q& neuter)
+        void reduction_helper(Q &result, typename ObjectList<T>::const_iterator it,
+                const Functor<Q, std::pair<T, Q> >& red_func, const Q& neuter) const
         {
             if (it == this->end())
             {
@@ -58,7 +58,7 @@ class ObjectList : public std::vector<T>, public TL::Object
             }
             else
             {
-                T& t = *it;
+                const T &t = *it;
                 reduction_helper(result, it + 1, red_func, neuter);
 
                 std::pair<T, Q> arg(t, result);
@@ -106,10 +106,10 @@ class ObjectList : public std::vector<T>, public TL::Object
          * \param p A Predicate over elements of type T
          * \return A new list of elements of type T that satisfy predicate \a p
          */
-        ObjectList<T> filter(const Predicate<T>& p)
+        ObjectList<T> filter(const Predicate<T>& p) const
         {
             ObjectList<T> result;
-            for (typename ObjectList<T>::iterator it = this->begin();
+            for (typename ObjectList<T>::const_iterator it = this->begin();
                     it != this->end();
                     it++)
             {
@@ -129,10 +129,10 @@ class ObjectList : public std::vector<T>, public TL::Object
          * \return A new list of elements of type S
          */
         template <class S>
-        ObjectList<S> map(const Functor<S, T>& f)
+        ObjectList<S> map(const Functor<S, T>& f) const
         {
             ObjectList<S> result;
-            for (typename ObjectList<T>::iterator it = this->begin();
+            for (typename ObjectList<T>::const_iterator it = this->begin();
                     it != this->end();
                     it++)
             {
@@ -150,7 +150,7 @@ class ObjectList : public std::vector<T>, public TL::Object
          * \return A new list of elements of type S
          */
         template <class S>
-        ObjectList<S> map_filter(const Predicate<T>& p, const Functor<S, T>& f)
+        ObjectList<S> map_filter(const Predicate<T>& p, const Functor<S, T>& f) const
         {
             return (this->filter(p)).map(f);
         }
@@ -162,7 +162,7 @@ class ObjectList : public std::vector<T>, public TL::Object
          * \return An element of type Q with all the reduced values of the list
          */
         template <class Q>
-        Q reduction(const Functor<Q, std::pair<T, Q> >& red_func, const Q& neuter)
+        Q reduction(const Functor<Q, std::pair<T, Q> >& red_func, const Q& neuter) const
         {
             Q result;
             reduction_helper(result, this->begin(), red_func, neuter);

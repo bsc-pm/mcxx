@@ -66,6 +66,7 @@
 #include "cxx-upc.h"
 #include "cxx-configfile.h"
 #include "cxx-profile.h"
+#include "cxx-multifile.h"
 // It does not include any C++ code in the header
 #include "cxx-compilerphases.hpp"
 
@@ -91,8 +92,9 @@
 "  -y                       File will be parsed but it will not be\n" \
 "                           compiled not linked.\n" \
 "  -x lang                  Override language detection to <lang>\n" \
-"  -k, --keep-files         Do not remove intermediate temporary\n" \
-"                           files\n" \
+"  -k, --keep-files         Do not remove intermediate files\n" \
+"  -K, --keep-all-files     Do not remove any generated file, including\n" \
+"                           temporal files\n" \
 "  -a, --check-dates        Checks dates before regenerating files\n" \
 "  --output-dir=<dir>       Prettyprinted files will be left in\n" \
 "                           directory <dir>. Otherwise the input\n" \
@@ -153,6 +155,11 @@
 "  --do-not-unload-phases   If the compiler crashes when unloading\n" \
 "                           phases, use this flag to avoid the\n" \
 "                           compiler to unload them.\n" \
+"  --help-debug-flags       Shows debug flags valid for option\n" \
+"                           --debug-flags\n" \
+"  --help-target-options    Shows valid target options for\n" \
+"                           'target_options' option of configuration\n" \
+"                           file." \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -190,7 +197,7 @@ static char *_alternate_signal_stack;
 #endif
 
 // It mimics getopt
-#define SHORT_OPTIONS_STRING "vkacho:EyI:L:l:gD:x:"
+#define SHORT_OPTIONS_STRING "vkKacho:EyI:L:l:gD:x:"
 // This one mimics getopt_long but with one less field (the third one is not given)
 struct command_line_long_options command_line_long_options[] =
 {
@@ -199,6 +206,7 @@ struct command_line_long_options command_line_long_options[] =
     {"v",           CLP_NO_ARGUMENT, OPTION_VERBOSE},
     {"verbose",     CLP_NO_ARGUMENT, OPTION_VERBOSE},
     {"keep-files",  CLP_NO_ARGUMENT, 'k'},
+    {"keep-all-files", CLP_NO_ARGUMENT, 'K'},
     {"check-dates", CLP_NO_ARGUMENT, 'a'},
     {"output",      CLP_REQUIRED_ARGUMENT, 'o'},
     // This option has a chicken-and-egg problem. If we delay till getopt_long
@@ -216,6 +224,7 @@ struct command_line_long_options command_line_long_options[] =
     {"ld", CLP_REQUIRED_ARGUMENT, OPTION_LINKER_NAME},
     {"debug-flags",  CLP_REQUIRED_ARGUMENT, OPTION_DEBUG_FLAG},
     {"help-debug-flags", CLP_NO_ARGUMENT, OPTION_HELP_DEBUG_FLAGS},
+    {"help-target-options", CLP_NO_ARGUMENT, OPTION_HELP_TARGET_OPTIONS},
     {"no-openmp", CLP_NO_ARGUMENT, OPTION_NO_OPENMP},
     {"variable", CLP_REQUIRED_ARGUMENT, OPTION_EXTERNAL_VAR},
     {"typecheck", CLP_NO_ARGUMENT, OPTION_TYPECHECK},
@@ -274,6 +283,7 @@ static void terminating_signal_handler(int sig);
 static char check_tree(AST a);
 static char check_for_ambiguities(AST a, AST* ambiguous_node);
 
+static void embed_files(void);
 static void link_objects(void);
 
 static void add_to_parameter_list_str(const char*** existing_options, const char* str);
@@ -294,7 +304,6 @@ static int parse_special_parameters(int *should_advance, int argc,
 static int parse_implicit_parameter_flag(int *should_advance, const char *special_parameter);
 
 static void list_environments(void);
-
 
 static char do_not_unload_phases = 0;
 static char show_help_message = 0;
@@ -322,7 +331,7 @@ int main(int argc, char* argv[])
     // command line. We need those to properly populate profiles.
     parse_arguments(compilation_process.argc,
             compilation_process.argv, 
-            /* from_command_line= */1,
+            /* from_command_line= */ 1,
             /* parse_implicits_only */ 1);
 
     // This commits the profiles using the implicit parameters passed in the
@@ -356,6 +365,9 @@ int main(int argc, char* argv[])
     
     // Compilation of every specified translation unit
     compile_every_translation_unit();
+
+    // Embed files
+    embed_files();
 
     // Link all generated objects
     link_objects();
@@ -686,6 +698,12 @@ int parse_arguments(int argc, const char* argv[],
                         CURRENT_CONFIGURATION->keep_files = 1;
                         break;
                     }
+                case 'K' : // --keep-all-files || -K
+                    {
+                        CURRENT_CONFIGURATION->keep_files = 1;
+                        CURRENT_CONFIGURATION->keep_temporaries = 1;
+                        break;
+                    }
                 case 'c' : // -c
                     {
                         if (y_specified || E_specified)
@@ -839,6 +857,12 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_HELP_DEBUG_FLAGS :
                     {
                         print_debug_flags_list();
+                        exit(EXIT_SUCCESS);
+                        break;
+                    }
+                case OPTION_HELP_TARGET_OPTIONS:
+                    {
+                        print_help_target_options();
                         exit(EXIT_SUCCESS);
                         break;
                     }
@@ -1031,8 +1055,8 @@ int parse_arguments(int argc, const char* argv[],
     int i;
     for (i = 0; i < num_input_files; i++)
     {
-        add_new_file_to_compilation_process(input_files[i],
-                output_file, CURRENT_CONFIGURATION);
+        add_new_file_to_compilation_process(/* add to the global file process */ NULL,
+                input_files[i], output_file, CURRENT_CONFIGURATION);
     }
 
     // If some output was given by means of -o and we are linking (so no -c neither -E nor -y)
@@ -1731,7 +1755,7 @@ static void commit_configuration(void)
 
             if (can_be_committed)
             {
-                config_directive->funct(configuration, configuration_line->value);
+                config_directive->funct(configuration, configuration_line->index, configuration_line->value);
             }
         }
     }
@@ -1754,7 +1778,7 @@ static void finalize_committed_configuration(void)
     // OpenMP support involves omp pragma
     if (!CURRENT_CONFIGURATION->disable_openmp)
     {
-        config_add_preprocessor_prefix(CURRENT_CONFIGURATION, "omp");
+        config_add_preprocessor_prefix(CURRENT_CONFIGURATION, /* index */ NULL, "omp");
     }
 
     // UPC support involves some specific pragmae
@@ -1774,7 +1798,7 @@ static void enable_hlt_phase(void)
 {
     // -hlt is like adding the compiler phase of hlt and registering '#pragma hlt'
     // Register '#pragma hlt'
-    config_add_preprocessor_prefix(CURRENT_CONFIGURATION, "hlt");
+    config_add_preprocessor_prefix(CURRENT_CONFIGURATION, /* index */ NULL, "hlt");
     // When loading the compiler phase a proper extension will be added
     const char* library_name = "libtl-hlt-pragma";
     P_LIST_ADD_PREPEND(CURRENT_CONFIGURATION->compiler_phases, 
@@ -1788,7 +1812,7 @@ static void enable_hlt_phase(void)
 static void register_upc_pragmae(void)
 {
     // Register '#pragma upc'
-    config_add_preprocessor_prefix(CURRENT_CONFIGURATION, "upc");
+    config_add_preprocessor_prefix(CURRENT_CONFIGURATION, /* index */ NULL, "upc");
     // Lexer already uses CURRENT_CONFIGURATION this is why it is not specified here
     // Register '#pragma upc relaxed'
     register_new_directive("upc", "relaxed", /* is_construct */ 0);
@@ -1797,26 +1821,38 @@ static void register_upc_pragmae(void)
 
     // mfarrera's + IBM UPC extension that annoyingly it is not prefixed with
     // 'upc' (as it ought to be!)
-    config_add_preprocessor_prefix(CURRENT_CONFIGURATION, "distributed");
+    config_add_preprocessor_prefix(CURRENT_CONFIGURATION, /* index */ NULL, "distributed");
     // Register the empty directive since the syntax is '#pragma distributed'
     register_new_directive("distributed", "", /* is_construct */ 0);
 }
 
-static void compile_every_translation_unit(void)
+static void compile_every_translation_unit_aux_(int num_translation_units,
+        compilation_file_process_t** translation_units)
 {
+    // This is just to avoid having a return in this function by mistake
+#define return 1 = 1;
+    // Save the old current file
+    compilation_file_process_t* saved_file_process = CURRENT_FILE_PROCESS;
+    compilation_configuration_t* saved_configuration = CURRENT_CONFIGURATION;
+
     int i;
-    for (i = 0; i < compilation_process.num_translation_units; i++)
+    for (i = 0; i < num_translation_units; i++)
     {
-        compilation_file_process_t* file_process = compilation_process.translation_units[i];
+        compilation_file_process_t* file_process = translation_units[i];
 
         // Ensure we do not get in a strange loop
         if (file_process->already_compiled)
             continue;
 
-        // Note: This is the only place where CURRENT_CONFIGURATION can be
-        // changed everywhere else these two variables are constants
+        // Note: This is the only place where
+        // CURRENT_{FILE_PROCESS,CONFIGURATION} can be changed. Everywhere else
+        // these two variables are constants. 
+        // Whenever you modify SET_CURRENT_FILE_PROCESS update also
+        // SET_CURRENT_CONFIGURATION to its configuration
+        SET_CURRENT_FILE_PROCESS(file_process);
+        // This looks a bit redundant but it turns that the compiler has a
+        // configuration even before of any file
         SET_CURRENT_CONFIGURATION(file_process->compilation_configuration);
-        SET_CURRENT_COMPILED_FILE(file_process->translation_unit);
 
         translation_unit_t* translation_unit = CURRENT_COMPILED_FILE;
 
@@ -1926,6 +1962,25 @@ static void compile_every_translation_unit(void)
                 }
             }
 
+            // Process secondary translation units
+            if (file_process->num_secondary_translation_units != 0)
+            {
+                if (CURRENT_CONFIGURATION->verbose)
+                {
+                    fprintf(stderr, "\nThere are secondary translation units for '%s'. Processing.\n",
+                            translation_unit->input_filename);
+                }
+                compile_every_translation_unit_aux_(
+                        file_process->num_secondary_translation_units,
+                        file_process->secondary_translation_units);
+
+                if (CURRENT_CONFIGURATION->verbose)
+                {
+                    fprintf(stderr, "All secondary translation units of '%s' have been processed\n\n",
+                            translation_unit->input_filename);
+                }
+            }
+
             if (current_extension->source_language != SOURCE_LANGUAGE_ASSEMBLER)
             {
                 const char* prettyprinted_filename 
@@ -1941,6 +1996,17 @@ static void compile_every_translation_unit(void)
 
         file_process->already_compiled = 1;
     }
+
+    // Recover previous information
+    SET_CURRENT_FILE_PROCESS(saved_file_process);
+    SET_CURRENT_CONFIGURATION(saved_configuration);
+#undef return
+}
+
+static void compile_every_translation_unit(void)
+{
+    compile_every_translation_unit_aux_(compilation_process.num_translation_units,
+            compilation_process.translation_units);
 }
 
 static void compiler_phases_pre_execution(
@@ -2493,12 +2559,153 @@ static void native_compilation(translation_unit_t* translation_unit,
     }
 }
 
-static void link_objects(void)
+static void embed_files(void)
 {
-    if (CURRENT_CONFIGURATION->do_not_link)
+    char there_are_secondary_files = 0;
+    int i;
+    for (i = 0; i < compilation_process.num_translation_units; i++)
+    {
+        if (compilation_process.translation_units[i]->num_secondary_translation_units != 0)
+        {
+            there_are_secondary_files = 1;
+        }
+    }
+
+    if (!there_are_secondary_files)
         return;
 
-    int num_args_linker = count_null_ended_array((void**)CURRENT_CONFIGURATION->linker_options);
+
+    // Create the temporal directory
+    temporal_file_t temp_dir = new_temporal_dir();
+
+    for (i = 0; i < compilation_process.num_translation_units; i++)
+    {
+        int num_secondary_translation_units = 
+            compilation_process.translation_units[i]->num_secondary_translation_units;
+        compilation_file_process_t** secondary_translation_units = 
+            compilation_process.translation_units[i]->secondary_translation_units;
+
+        const char *output_filename = compilation_process.translation_units[i]->translation_unit->output_filename;
+
+        if (CURRENT_CONFIGURATION->verbose)
+        {
+            fprintf(stderr, "Embedding secondary files into '%s'\n", output_filename);
+        }
+
+        // For each translation unit create the profile directory if needed
+        int j;
+        for (j = 0; j < num_secondary_translation_units; j++)
+        {
+            compilation_file_process_t* secondary_compilation_file = secondary_translation_units[j];
+            translation_unit_t* current_secondary = secondary_compilation_file->translation_unit;
+            char dir_path[1024];
+            snprintf(dir_path, 1023, "%s%s%s", 
+                    temp_dir->name, 
+                    DIR_SEPARATOR, 
+                    secondary_compilation_file->compilation_configuration->configuration_name);
+            dir_path[1023] = '\0';
+
+            struct stat buf;
+            int res = stat(dir_path, &buf);
+
+            if (res != 0)
+            {
+                if (errno == ENOENT)
+                {
+                    // Create the directory if it does not exist
+                    if (mkdir(dir_path, 0700) != 0)
+                    {
+                        running_error("When creating multifile archive, cannot create directory '%s': %s\n",
+                                dir_path,
+                                strerror(errno));
+                    }
+                }
+                else
+                {
+                    running_error("Stat failed on '%s': %s\n",
+                            dir_path,
+                            strerror(errno));
+                }
+            }
+            else
+            {
+                if (!S_ISDIR(buf.st_mode))
+                {
+                    running_error("When creating multifile archive, path '%s' is not a directory\n",
+                            dir_path);
+                }
+            }
+
+            // Now move the secondary file
+
+            char dest_path[1024];
+            snprintf(dest_path, 1023, "%s%s%s", 
+                    dir_path, 
+                    DIR_SEPARATOR, 
+                    give_basename(current_secondary->output_filename));
+
+            if (move_file(current_secondary->output_filename, dest_path) != 0)
+            {
+                running_error("When creating multifile archive, file '%s' could not be moved to '%s'\n",
+                        current_secondary->output_filename,
+                        dest_path);
+            }
+        }
+        // Now all files have been moved into the temporal directory, run the tar there
+        temporal_file_t new_tar_file = new_temporal_file_extension(".tar");
+        const char* tar_args[] =
+        {
+            "cf",
+            new_tar_file->name,
+            "-C", temp_dir->name,
+            ".",
+            NULL
+        };
+
+        if (execute_program("tar", tar_args) != 0)
+        {
+            running_error("When creating multifile archive, 'tar' failed\n");
+        }
+
+        // Now we have tar that we are going to embed into the .o file
+
+        // objcopy --add-section .mercurium=architectures.tar --set-section-flags .mercurium=alloc,readonly prova.o
+
+        char multifile_section_and_file[1024], multifile_section_and_flags[1024];
+
+        snprintf(multifile_section_and_file, 1023, "%s=%s",
+                MULTIFILE_SECTION, new_tar_file->name);
+        multifile_section_and_file[1023] = '\0';
+
+        snprintf(multifile_section_and_flags, 1023, "%s=alloc,readonly",
+                MULTIFILE_SECTION);
+        multifile_section_and_flags[1023] = '\0';
+
+        const char* objcopy_args[] =
+        {
+            "--add-section", multifile_section_and_file, 
+            "--set-section-flags", multifile_section_and_flags,
+            output_filename,
+            NULL,
+        };
+
+        if (execute_program("objcopy", objcopy_args) != 0)
+        {
+            running_error("When creating multifile archive, 'objcopy' failed\n");
+        }
+
+        if (CURRENT_CONFIGURATION->verbose)
+        {
+            fprintf(stderr, "Secondary files successfully embedded into '%s' file\n", 
+                    output_filename);
+        }
+    }
+}
+
+static void link_files(const char** file_list, int num_files,
+        compilation_configuration_t* compilation_configuration)
+{
+    int num_args_linker = count_null_ended_array((void**)compilation_configuration->linker_options);
 
     const char** linker_args = calloc(num_args_linker
             + compilation_process.num_translation_units + 2 + 1, 
@@ -2507,39 +2714,254 @@ static void link_objects(void)
     int i = 0;
     int j = 0;
 
-    if (CURRENT_CONFIGURATION->linked_output_filename != NULL)
+    if (compilation_configuration->linked_output_filename != NULL)
     {
         linker_args[i] = uniquestr("-o");
         i++;
-        linker_args[i] = CURRENT_CONFIGURATION->linked_output_filename;
+        linker_args[i] = compilation_configuration->linked_output_filename;
         i++;
     }
 
-    for (j = 0; j < compilation_process.num_translation_units; j++)
+    for (j = 0; j < num_files; j++)
     {
-        linker_args[i] = compilation_process.translation_units[j]->translation_unit->output_filename;
+        linker_args[i] = file_list[j];
         i++;
     }
 
     for (j = 0; j < num_args_linker; j++)
     {
-        linker_args[i] = CURRENT_CONFIGURATION->linker_options[j];
+        linker_args[i] = compilation_configuration->linker_options[j];
         i++;
     }
 
     timing_t timing_link;
     timing_start(&timing_link);
-    if (execute_program(CURRENT_CONFIGURATION->linker_name, linker_args) != 0)
+    if (execute_program(compilation_configuration->linker_name, linker_args) != 0)
     {
         running_error("Link failed", 0);
     }
     timing_end(&timing_link);
 
-    if (CURRENT_CONFIGURATION->verbose)
+    if (compilation_configuration->verbose)
     {
         fprintf(stderr, "Link performed in %.2f seconds\n", 
                 timing_elapsed(&timing_link));
     }
+}
+
+target_options_map_t* get_target_options(compilation_configuration_t* configuration, 
+        const char* configuration_name)
+{
+    int i;
+    for (i = 0 ; i < configuration->num_target_option_maps; i++)
+    {
+        if (strcmp(configuration->target_options_maps[i]->profile, 
+                    configuration_name) == 0)
+        {
+            return configuration->target_options_maps[i];
+        }
+    }
+
+    return NULL;
+}
+
+static void do_combining(target_options_map_t* target_map,
+        compilation_configuration_t* configuration)
+{
+    if (!target_map->do_combining)
+        return;
+
+    temporal_file_t temp_outfile = new_temporal_file_extension(".o");
+    const char* output_filename = temp_outfile->name;
+
+    switch (target_map->combining_mode)
+    {
+        case COMBINING_MODE_SPU_ELF:
+            {
+
+                // Usage: embedspu [flags] symbol_name input_filename output_filename
+                const char* args[] =
+                {
+                    // We will stick to CSS convention of calling the symbol 'spe_prog'
+                    /* FIXME: no flags at the moment */
+                    "spe_prog", 
+                    configuration->linked_output_filename,
+                    output_filename,
+                    NULL,
+                };
+
+                if (execute_program("ppu-spuembed", args) != 0)
+                {
+                    running_error("Error when embedding SPU executable", 0);
+                }
+
+                remove(configuration->linked_output_filename);
+                configuration->linked_output_filename = output_filename;
+                break;
+            }
+        case COMBINING_MODE_INCBIN:
+            {
+                temporal_file_t temp_file_as = new_temporal_file_extension(".s");
+                
+                FILE* temp_file_fd = fopen(temp_file_as->name, "w");
+
+                if (temp_file_fd == NULL)
+                {
+                    running_error("Cannot create temporal assembler file '%s': %s\n",
+                            temp_file_as->name,
+                            strerror(errno));
+                }
+
+                fprintf(temp_file_fd,
+                        ".data\n"
+                        ".global _%s_start\n"
+                        ".global _%s_end\n"
+                        ".align 16\n"
+                        "_%s_start:\n"
+                        ".incbin \"%s\"\n"
+                        "_%s_end:\n",
+                        configuration->configuration_name,
+                        configuration->configuration_name,
+                        configuration->configuration_name,
+                        configuration->linked_output_filename,
+                        configuration->configuration_name
+                        );
+
+                fclose(temp_file_fd);
+
+                const char* args[] =
+                {
+                    "-c",
+                    "-o", output_filename,
+                    "-x", "assembler",
+                    temp_file_as->name,
+                    NULL
+                };
+
+                if (execute_program(CURRENT_CONFIGURATION->native_compiler_name,
+                            args) != 0)
+                {
+                    running_error("Error when complining embedding assembler", 0);
+                }
+
+                remove(configuration->linked_output_filename);
+                configuration->linked_output_filename = output_filename;
+                break;
+            }
+        default:
+            {
+                internal_error("Invalid combining mode\n", 0);
+                break;
+            }
+    }
+}
+
+static void extract_files_and_sublink(const char** file_list, int num_files,
+        compilation_configuration_t* target_configuration)
+{
+    // Purge multifile directory
+    multifile_wipe_dir();
+
+    char no_multifile_info = 1;
+
+    int i;
+    for (i = 0; i < num_files; i++)
+    {
+        if (multifile_object_has_extended_info(file_list[i]))
+        {
+            no_multifile_info = 0;
+            multifile_extract_extended_info(file_list[i]);
+        }
+    }
+
+    if (no_multifile_info)
+        return;
+
+    const char** multifile_profiles = NULL;
+    int num_multifile_profiles = 0;
+    multifile_get_extracted_profiles(&multifile_profiles, &num_multifile_profiles);
+
+    for (i = 0; i < num_multifile_profiles; i++)
+    {
+        compilation_configuration_t* configuration = get_compilation_configuration(multifile_profiles[i]);
+
+        if (configuration == NULL)
+        {
+            running_error("Multifile needs a profile '%s' not defined in the configuration\n",
+                    multifile_profiles[i]);
+        }
+
+        target_options_map_t* target_map = get_target_options(configuration, target_configuration->configuration_name);
+
+        if (target_map == NULL)
+        {
+            running_error("There are no target options defined from profile '%s' to profile '%s' in the configuration\n",
+                    configuration->configuration_name, 
+                    target_configuration->configuration_name);
+        }
+
+        const char** multifile_file_list = NULL;
+        int multifile_num_files = 0;
+
+        multifile_get_profile_file_list(
+                multifile_profiles[i],
+                &multifile_file_list, 
+                &multifile_num_files);
+
+        if (!target_map->do_sublink)
+        {
+            // Now add the linked output as an additional link file
+            int j;
+            for (j = 0; j < multifile_num_files; j++)
+            {
+                add_to_parameter_list_str(&target_configuration->linker_options, 
+                        multifile_file_list[j]);
+            }
+        }
+        else
+        {
+            // Create a name for sublinking
+#ifndef WIN32_BUILD
+            // Following decades of UNIX tradition
+            const char* linked_output_suffix = "a.out";
+#else
+            const char* linked_output_suffix = "a.exe";
+#endif
+            if (CURRENT_CONFIGURATION->linked_output_filename != NULL)
+            {
+                linked_output_suffix = give_basename(CURRENT_CONFIGURATION->linked_output_filename);
+            }
+
+            configuration->linked_output_filename =
+                strappend(configuration->configuration_name, linked_output_suffix);
+
+            link_files(multifile_file_list, multifile_num_files, configuration);
+
+            do_combining(target_map, configuration);
+
+            // Now add the linked output as an additional link file
+            add_to_parameter_list_str(&target_configuration->linker_options, 
+                    configuration->linked_output_filename);
+        }
+    }
+}
+
+static void link_objects(void)
+{
+    if (CURRENT_CONFIGURATION->do_not_link)
+        return;
+
+    const char * file_list[compilation_process.num_translation_units];
+
+    int j;
+    for (j = 0; j < compilation_process.num_translation_units; j++)
+    {
+        file_list[j] = compilation_process.translation_units[j]->translation_unit->output_filename;
+    }
+
+    extract_files_and_sublink(file_list, compilation_process.num_translation_units, CURRENT_CONFIGURATION);
+
+    link_files(file_list, compilation_process.num_translation_units, CURRENT_CONFIGURATION);
 }
 
 
@@ -2612,8 +3034,8 @@ static char check_for_ambiguities(AST a, AST* ambiguous_node)
 static void load_compiler_phases(compilation_configuration_t* config)
 {
     // Do nothing if they were already loaded 
-    // This is also checked in cxx-compilerphases.cpp but here we avoid showing
-    // the timing message as well
+    // This is also checked (and set) in cxx-compilerphases.cpp but here we
+    // avoid showing the timing message as well
     if (config->phases_loaded)
     {
         return;
@@ -2640,6 +3062,7 @@ static void load_compiler_phases(compilation_configuration_t* config)
                 CURRENT_CONFIGURATION->configuration_name,
                 timing_elapsed(&loading_phases));
     }
+
 }
 
 

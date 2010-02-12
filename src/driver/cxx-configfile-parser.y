@@ -294,6 +294,7 @@ static p_compilation_configuration_line process_option_line(
     result = calloc(1, sizeof(*result));
 
     result->name = uniquestr(name->option_name);
+    result->index = uniquestr(name->option_index);
     result->value = uniquestr(option_value_tmp);
 
     free(option_value_tmp);

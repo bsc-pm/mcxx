@@ -218,6 +218,13 @@ namespace TL
             }
         }
 
+        clauses << " untied";
+
+        if (augmented_sym.has_high_priority())
+        {
+            clauses << " __priority(99)";
+        }
+
         if (!input_clause_args.empty())
         {
             clauses << " input(" << input_clause_args << ")";

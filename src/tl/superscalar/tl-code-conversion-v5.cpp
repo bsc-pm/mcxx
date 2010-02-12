@@ -107,7 +107,8 @@ namespace TL
 				<< constant_redirection_source
 				<< dimensions_source
 				<< parameter_region_source
-				<< "css_parameter_t const parameters__cssgenerated[] = {" << parameter_initializers_source << "};"
+				<< "css_parameter_t parameters__cssgenerated[" << arguments.size() << "];"
+				<< parameter_initializers_source
 				<< add_task_code
 			<< "}";
 		
@@ -182,15 +183,13 @@ namespace TL
 			Source can_be_reshaped_source;
 			bool can_be_reshaped = parameter_type.is_array();
 			parameter_initializers_source
-				<< "{"
-					<< address_source
-					<< ", " << region_list.size()
-					<< ", " << can_be_reshaped_source
-					<< ", " << parameter_name << "_parameter_regions__cssgenerated"
-				<< "}, ";
+				<< "parameters__cssgenerated[" << index << "].address = " << address_source << ";"
+				<< "parameters__cssgenerated[" << index << "].region_count = " << region_list.size() << ";"
+				<< "parameters__cssgenerated[" << index << "].reshapable = " << can_be_reshaped_source << ";"
+				<< "parameters__cssgenerated[" << index << "].regions = " << parameter_name << "_parameter_regions__cssgenerated;";
 			
 			parameter_region_source
-				<< "css_parameter_region_t const " << parameter_name << "_parameter_regions__cssgenerated[] = {";
+				<< "css_parameter_region_t " << parameter_name << "_parameter_regions__cssgenerated[" << region_list.size() << "];";
 			
 			// For earch region of the parameter
 			for (unsigned int region_index = 0; region_index < region_list.size(); region_index++)
@@ -199,18 +198,10 @@ namespace TL
 				Source direction_source;
 				Source dimension_count_source;
 				
-				if (region_index != 0)
-				{
-					parameter_region_source
-						<< ", ";
-				}
-				
 				parameter_region_source
-					<< "{"
-						<< direction_source
-						<< ", " << dimension_count_source
-						<< ", " << parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated"
-					<< "}";
+					<< parameter_name << "_parameter_regions__cssgenerated[" << region_index << "].flags = " << direction_source << ";"
+					<< parameter_name << "_parameter_regions__cssgenerated[" << region_index << "].dimension_count = " << dimension_count_source << ";"
+					<< parameter_name << "_parameter_regions__cssgenerated[" << region_index << "].dimensions = " << parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated;";
 				
 				switch (region.get_direction())
 				{
@@ -253,7 +244,7 @@ namespace TL
 				}
 				
 				dimensions_source
-					<< "css_parameter_dimension_t const " << parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[]" << " = {";
+					<< "css_parameter_dimension_t " << parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[" << dimension_count_source << "];";
 				
 				if (region.get_dimension_count() != 0)
 				{
@@ -284,6 +275,7 @@ namespace TL
 						ParameterExpression::substitute(parametrized_dimension_start, arguments, argument.get_ast(), scope_link);
 						ParameterExpression::substitute(parametrized_accessed_length, arguments, argument.get_ast(), scope_link);
 						
+#if 0
 						if (!parametrized_dimension_start.is_constant()) {
 							can_be_reshaped = false;
 						} else {
@@ -293,16 +285,15 @@ namespace TL
 								can_be_reshaped = false;
 							}
 						}
+#endif
 						
 						dimensions_source
-							<< (dimension_index == 0 ? "" : ", ") << "{"
-								// Size
-								<< dimension_base.get_source() << " * (" << parametrized_dimension_length.prettyprint() << ")"
-								// Lower bound
-								<< ", " << dimension_base.get_source() << " * (" << parametrized_dimension_start.prettyprint() << ")"
-								// Upper bound
-								<< ", " << dimension_base.get_source() << " * (" << parametrized_accessed_length.prettyprint() << ")"
-							<< "}";
+							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[" << dimension_index << "].size = "
+								<< dimension_base.get_source() << " * (" << parametrized_dimension_length.prettyprint() << ");"
+							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[" << dimension_index << "].lower_bound = "
+								<< dimension_base.get_source() << " * (" << parametrized_dimension_start.prettyprint() << ");"
+							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[" << dimension_index << "].accessed_length = "
+								<< dimension_base.get_source() << " * (" << parametrized_accessed_length.prettyprint() << ");";
 						dimension_base = Source("1");
 					}
 					
@@ -330,12 +321,11 @@ namespace TL
 						{
 							direction_source = Source("CSS_IN_SCALAR_DIR");
 						}
+
 						dimensions_source
-							<< "{"
-								<< "sizeof(void *)"
-								<< ", 0"
-								<< ", sizeof(void *)"
-							<< "}";
+							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].size = sizeof(void *);"
+							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].lower_bound = 0;"
+							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].accessed_length = sizeof(void *);";
 						
 						std::string temporary_name = std::string("opaque_parameter_") + parameter_name + std::string("__cssgenerated");
 						
@@ -362,30 +352,30 @@ namespace TL
 							throw FatalException();
 						}
 						dimensions_source
-							<< "{"
+							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].size = "
 								<< "sizeof("
 									<< base_type.get_declaration(scope_link.get_scope(argument.get_ast()), std::string(""))
-								<< ")"
-								<< ", 0"
-								<< ", sizeof("
+								<< ");"
+							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].lower_bound = 0;"
+							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].accessed_length = "
+								<< "sizeof("
 									<< base_type.get_declaration(scope_link.get_scope(argument.get_ast()), std::string(""))
-								<< ")"
-							<< "}";
+								<< ");";
 						address_source = Source(argument.prettyprint());
 					}
 					else
 					{
 						// A struct
 						dimensions_source
-							<< "{"
+							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].size = "
 								<< "sizeof("
 									<< base_type.get_declaration(scope_link.get_scope(argument.get_ast()), std::string(""))
-								<< ")"
-								<< ", 0"
-								<< ", sizeof("
+								<< ");"
+							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].lower_bound = 0;"
+							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].accessed_length = "
+								<< "sizeof("
 									<< base_type.get_declaration(scope_link.get_scope(argument.get_ast()), std::string(""))
-								<< ")"
-							<< "}";
+								<< ");";
 						address_source = Source(argument.prettyprint());
 					}
 				}
@@ -412,15 +402,15 @@ namespace TL
 						direction_source = Source("CSS_IN_SCALAR_DIR");
 					}
 					dimensions_source
-						<< "{"
+						<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].size = "
 							<< "sizeof("
 								<< parameter_type.get_declaration(scope_link.get_scope(argument.get_ast()), std::string(""))
-							<< ")"
-							<< ", 0"
-							<< ", sizeof("
+							<< ");"
+						<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].lower_bound = 0;"
+						<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].accessed_length = "
+							<< "sizeof("
 								<< parameter_type.get_declaration(scope_link.get_scope(argument.get_ast()), std::string(""))
-							<< ")"
-						<< "}";
+							<< ");";
 					
 					if (is_lvalue && argument_type.is_same_type(parameter_type))
 					{
@@ -445,12 +435,8 @@ namespace TL
 					std::cerr << "Internal compiler error at " << __FILE__ << ":" << __LINE__ << std::endl;
 					throw FatalException();
 				}
-				
-				dimensions_source
-					<< "};";
 			}
-			parameter_region_source
-				<< "};";
+				
 			if (can_be_reshaped)
 			{
 				can_be_reshaped_source << "1";

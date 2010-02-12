@@ -42,6 +42,7 @@ typedef enum
     OPTION_LINKER_NAME,
     OPTION_DEBUG_FLAG,
     OPTION_HELP_DEBUG_FLAGS,
+    OPTION_HELP_TARGET_OPTIONS,
     OPTION_OUTPUT_DIRECTORY,
     OPTION_NO_OPENMP,
     OPTION_EXTERNAL_VAR,
@@ -119,7 +120,7 @@ struct compilation_configuration_tag;
 struct configuration_directive_t
 {
     const char* name;
-    int (*funct)(struct compilation_configuration_tag*, const char* value);
+    int (*funct)(struct compilation_configuration_tag*, const char* index, const char* value);
 };
 
 struct debug_flags_list_t
@@ -200,8 +201,8 @@ typedef struct compilation_process_tag
     struct parameter_flags_tag **parameter_flags;
 
     // The compiler will switch these because compilation is always serialized (never nest it!)
+    struct compilation_file_process_tag* current_file_process;
     struct compilation_configuration_tag *current_compilation_configuration;
-    struct translation_unit_tag *current_translation_unit;
 } compilation_process_t;
 
 typedef struct compilation_configuration_conditional_flags
@@ -213,11 +214,51 @@ typedef struct compilation_configuration_conditional_flags
 typedef struct compilation_configuration_line
 {
     const char *name;
+    const char *index;
     const char *value;
 
     int num_flags;
     struct compilation_configuration_conditional_flags *flags;
 } compilation_configuration_line_t;
+
+#if 0
+typedef struct embed_map_tag
+{
+    const char* profile;
+    const char* command;
+} embed_map_t;
+
+typedef struct identifier_map_tag
+{
+    const char* profile;
+    const char* action;
+} identifier_map_t;
+#endif
+
+typedef struct target_options_map_tag
+{
+    const char* profile;
+
+    // Sublinking
+    char do_sublink;
+
+    // Embedding
+    char do_embedding;
+    enum 
+    {
+        EMBEDDING_MODE_INVALID = 0,
+        EMBEDDING_MODE_BFD = 1,
+    } embedding_mode;
+
+    // Combining
+    char do_combining;
+    enum
+    {
+        COMBINING_MODE_INVALID = 0,
+        COMBINING_MODE_SPU_ELF, 
+        COMBINING_MODE_INCBIN,
+    } combining_mode;
+} target_options_map_t;
 
 typedef struct compilation_configuration_tag
 {
@@ -233,6 +274,7 @@ typedef struct compilation_configuration_tag
     // Options
     char verbose;
     char keep_files;
+    char keep_temporaries;
     char check_dates;
     char do_not_process_files;
     char do_not_parse;
@@ -300,11 +342,25 @@ typedef struct compilation_configuration_tag
 
     // Unified Parallel C (UPC)
     char enable_upc;
-    // If this is not null, this should be constant expression
+    // If this is not null, this should be a constant expression
     const char *upc_threads;
 
     // Enable HLT
     char enable_hlt;
+
+#if 0
+    // Embedder map
+    int num_embed_maps;
+    embed_map_t** embed_maps;
+
+    // Identifier map
+    int num_identifier_maps;
+    identifier_map_t** identifier_maps;
+#endif
+
+    // Target options
+    int num_target_option_maps;
+    target_options_map_t** target_options_maps;
 } compilation_configuration_t;
 
 
@@ -314,14 +370,20 @@ typedef struct compilation_file_process_tag
     compilation_configuration_t *compilation_configuration;
 
     char already_compiled;
+
+    int num_secondary_translation_units;
+    struct compilation_file_process_tag **secondary_translation_units;
 } compilation_file_process_t;
 
 // These castings are here to convert these expressions in lvalues so people won't modify them
 #define CURRENT_CONFIGURATION ((compilation_configuration_t*)compilation_process.current_compilation_configuration)
-#define CURRENT_COMPILED_FILE ((translation_unit_t*)compilation_process.current_translation_unit)
+#define CURRENT_COMPILED_FILE ((translation_unit_t*)compilation_process.current_file_process->translation_unit)
+#define CURRENT_FILE_PROCESS ((compilation_file_process_t*)compilation_process.current_file_process)
 
-#define SET_CURRENT_CONFIGURATION(_x) compilation_process.current_compilation_configuration = (_x)
-#define SET_CURRENT_COMPILED_FILE(_x) compilation_process.current_translation_unit = (_x)
+// Whenever you modify SET_CURRENT_FILE_PROCESS update also
+// SET_CURRENT_CONFIGURATION to its configuration
+#define SET_CURRENT_FILE_PROCESS(_x) (compilation_process.current_file_process = _x)
+#define SET_CURRENT_CONFIGURATION(_x) (compilation_process.current_compilation_configuration = _x)
 
 
 MCXX_END_DECLS

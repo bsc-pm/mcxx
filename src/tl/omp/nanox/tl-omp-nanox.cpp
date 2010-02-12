@@ -41,6 +41,12 @@ OMPTransform::OMPTransform()
     on_directive_post["single"].connect(functor(&OMPTransform::single_postorder, *this));
 
     on_directive_post["for"].connect(functor(&OMPTransform::for_postorder, *this));
+
+    on_directive_post["atomic"].connect(functor(&OMPTransform::atomic_postorder, *this));
+
+    on_directive_post["threadprivate"].connect(functor(&OMPTransform::atomic_postorder, *this));
+
+    on_directive_post["barrier"].connect(functor(&OMPTransform::barrier_postorder, *this));
 }
 
 EXPORT_PHASE(TL::Nanox::OMPTransform)

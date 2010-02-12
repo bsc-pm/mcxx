@@ -100,11 +100,7 @@ namespace TL
             }
 
             // FIXME: All this deserves refactoring
-            add_new_file_to_compilation_process(file_path.c_str(), NULL, chosen_configuration);
-
-            // Truncate the file
-            FILE *new_file = fopen(file_path.c_str(), "w");
-            fclose(new_file);
+            add_new_file_to_compilation_process(CURRENT_FILE_PROCESS, file_path.c_str(), NULL, chosen_configuration);
 
             CompiledFile result(file_path);
 

@@ -48,11 +48,17 @@ typedef struct
 {
     // FILE* file;
     const char* name;
+    char is_dir;
 }* temporal_file_t;
 
 // Gives you a new temporal file that will be removed when
 // finishing the program
 temporal_file_t new_temporal_file(void);
+
+// The same but a directory that will be wiped at the end of the program
+temporal_file_t new_temporal_dir(void);
+
+temporal_file_t new_temporal_file_extension(const char* extension);
 
 // Routine that does the cleanup. Can be atexit-registered
 // or used discretionally inside the program. Every temporal
@@ -82,5 +88,8 @@ int timing_microseconds(const timing_t* t);
 double timing_elapsed(const timing_t* t);
 
 void run_gdb(void);
+
+// Like rename but works accross filesystems
+char move_file(const char* source, const char* dest);
 
 #endif // CXX_DRIVERUTILS_H

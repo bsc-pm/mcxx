@@ -21,4 +21,14 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = basic_test mypragma declarations decl_closure
+SUBDIRS = multifile_test
+
+END=
+
+DIST_SUBDIRS = \
+               basic_test \
+               multifile_test \
+               mypragma \
+               decl_closure \
+               declarations \
+               $(END)

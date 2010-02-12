@@ -101,8 +101,6 @@ namespace TL
                 return true;
             }
 
-            
-
             //! Returns a string with a declaration
             std::string get_simple_declaration(Scope sc, const std::string& symbol_name, 
                     TypeDeclFlags flags = NORMAL_DECLARATION) const;

@@ -42,7 +42,9 @@ MCXX_BEGIN_DECLS
 
 LIBPROCESS_EXTERN compilation_process_t compilation_process;
 
-LIBPROCESS_EXTERN void add_new_file_to_compilation_process(const char* file_path, const char* output_file, 
+LIBPROCESS_EXTERN void add_new_file_to_compilation_process(
+        compilation_file_process_t* current_file_process,
+        const char* file_path, const char* output_file, 
         compilation_configuration_t* configuration);
 
 LIBPROCESS_EXTERN unsigned long long int _bytes_dynamic_lists;
