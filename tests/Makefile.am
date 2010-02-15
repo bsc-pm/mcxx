@@ -21,29 +21,35 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-AUTOMAKE_OPTIONS = dejagnu
-
 SUBDIRS = config
-
-RUNTESTFLAGS=--srcdir=$(srcdir) 
 
 NULL=
 
 ADDITIONAL_TESTS=@ADDITIONAL_TESTSUITES@
 
-DEJATOOL = \
+#MERCURIUM_TESTS = \
+#  mcxx.parser \
+#  mcc.typecalc \
+#  mcxx.typecalc \
+#  mcxx.torture \
+#  mcxx.cxx0x \
+#  mcc.extensions \
+#  mcxx.extensions \
+#  mcxx.gxx_type_traits \
+#  mcc.hlt \
+#  $(ADDITIONAL_TESTS) \
+#  $(NULL)
+
+MERCURIUM_TESTS = \
   mcxx.parser \
   mcc.typecalc \
   mcxx.typecalc \
-  mcxx.torture \
+  mcxx.torture2 \
   mcxx.cxx0x \
   mcc.extensions \
   mcxx.extensions \
   mcxx.gxx_type_traits \
-  mcc.hlt \
-  $(ADDITIONAL_TESTS) \
   $(NULL)
-
 
 END=
 CLEANFILES=
@@ -64,6 +70,18 @@ BUILT_SOURCES=$(CONFIG_FILES_TESTS)
 # Replacements are defined in this makefile
 include ../config/Makefile.replace
 
+check:
+	chmod +x */mercurium
+	for test_dir in $(MERCURIUM_TESTS); \
+	do \
+       if [ ! -d $(builddir)/$${test_dir}.dg ]; \
+       then \
+	      TEST_GENERATOR=$(builddir)/config/mercurium $(srcdir)/config/bets -o $${test_dir}.log ${srcdir}/$${test_dir}.dg; \
+       else \
+	      TEST_GENERATOR=$(builddir)/$${test_dir}.dg/mercurium $(srcdir)/config/bets -o $${test_dir}.log ${srcdir}/$${test_dir}.dg; \
+       fi \
+	done
+
 $(CONFIG_FILES_TESTS) : Makefile
 	$(config_edit) $(srcdir)/$@.in > $@.tmp
 	mv $@.tmp $@
@@ -78,6 +96,7 @@ dist-hook:
 		[ "(" -e "$(srcdir)/$${DIR}/config.mcxx" ")" -a "(" ! -e  "$(srcdir)/$${DIR}/config.mcxx.in" ")" ] \
                && cp $(srcdir)/$${DIR}/config.mcxx $(distdir)/$${DIR}; \
 		cp $(srcdir)/$${DIR}/config.mcxx.in $(distdir)/$${DIR} ; \
+		cp $(srcdir)/$${DIR}/mercurium.in $(distdir)/$${DIR} ; \
 		cp $(srcdir)/$${DIR}/*.c $(distdir)/$${DIR} ; \
 		cp $(srcdir)/$${DIR}/*.cpp $(distdir)/$${DIR} ; \
 		cp $(srcdir)/$${DIR}/*.C $(distdir)/$${DIR} ; \
