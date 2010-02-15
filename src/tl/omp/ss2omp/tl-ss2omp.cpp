@@ -343,6 +343,12 @@ namespace TL
         // Remove the directive
         construct.get_ast().replace(construct.get_declaration());
     }
+    
+    void SS2OpenMP::run(DTO& dto)
+    {
+        PragmaCustomCompilerPhase::run(dto);
+        // Now create a weak symbol so Nanos runtime
+    }
 }
 
 EXPORT_PHASE(TL::SS2OpenMP)
