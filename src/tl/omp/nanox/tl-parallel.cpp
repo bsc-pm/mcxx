@@ -95,6 +95,7 @@ void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
 
     final_barrier
         << "nanos_team_barrier();"
+        << "nanos_leave_team();"
         ;
 
     Source outline_body, outline_parameters, outline_code;
