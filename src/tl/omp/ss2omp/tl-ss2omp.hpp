@@ -44,6 +44,8 @@ namespace TL
             void remove_directive(PragmaCustomConstruct);
             void directive_not_implemented(PragmaCustomConstruct);
             void construct_not_implemented(PragmaCustomConstruct);
+
+            virtual void run(DTO& dto);
     };
 }
 
