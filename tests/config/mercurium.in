@@ -4,12 +4,12 @@ cat <<EOF
 MCXX="@abs_top_builddir@/libtool --mode=execute @abs_top_builddir@/src/driver/mcxx --profile=lt-mcxx"
 test_CC=\${MCXX}
 test_CXX=\${MCXX}
-test_CFLAGS="-c"
-test_CXXFLAGS="-c"
 test_noexec=yes
 EOF
 
-case "$TEST_SOURCE" in
+NAME=$(basename $TEST_SOURCE)
+
+case "$NAME" in
     success*)
       ;;
     failure*)
