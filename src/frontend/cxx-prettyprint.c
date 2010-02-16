@@ -44,6 +44,8 @@ typedef struct prettyprint_context_tag
     prettyprint_callback_t callback;
     void *callback_data;
 
+    // Angular brackets are so troublesome in C++
+    char last_is_left_angle;
     char last_is_right_angle;
 } prettyprint_context_t;
 
@@ -193,6 +195,8 @@ HANDLER_PROTOTYPE(pp_prepro_token_handler);
 
 HANDLER_PROTOTYPE(verbatim_construct_handler);
 
+HANDLER_PROTOTYPE(double_colon_handler);
+
 // Pragma custom support
 HANDLER_PROTOTYPE(pragma_custom_directive_handler);
 HANDLER_PROTOTYPE(pragma_custom_construct_handler);
@@ -280,7 +284,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_POINTER_DECL, pointer_decl_handler, NULL),
     NODE_HANDLER(AST_PARENTHESIZED_DECLARATOR, parenthesized_son_handler, NULL),
     NODE_HANDLER(AST_DECLARATOR_ID_EXPR, unary_container_handler, NULL),
-    NODE_HANDLER(AST_GLOBAL_SCOPE, simple_parameter_handler, "::"),
+    NODE_HANDLER(AST_GLOBAL_SCOPE, double_colon_handler, NULL),
     NODE_HANDLER(AST_NESTED_NAME_SPECIFIER, nested_name_handler, NULL),
     NODE_HANDLER(AST_NESTED_NAME_SPECIFIER_TEMPLATE, nested_name_handler, NULL),
     NODE_HANDLER(AST_SYMBOL, simple_text_handler, NULL),
@@ -792,6 +796,7 @@ static int character_level_vfprintf(FILE* stream, prettyprint_context_t *pt_ctx,
 
     fprintf(stream, "%s", c);
 
+    pt_ctx->last_is_left_angle = (c[result - 1] == '<');
     pt_ctx->last_is_right_angle = (c[result - 1] == '>');
 
     free(c);
@@ -830,6 +835,16 @@ static int token_fprintf(FILE *stream, AST node UNUSED_PARAMETER, prettyprint_co
     va_end(args);
 
     return result;
+}
+
+static void double_colon_handler(FILE* f, AST node, prettyprint_context_t* pt_ctx)
+{
+    if (pt_ctx->last_is_left_angle)
+    {
+        token_fprintf(f, node, pt_ctx, " ");
+    }
+
+    token_fprintf(f, node, pt_ctx, "::");
 }
 
 static void indent_at_level(FILE* f, AST node, prettyprint_context_t* pt_ctx)
@@ -975,7 +990,7 @@ static void nested_name_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     prettyprint_level(f, ASTSon0(a), pt_ctx);
 
-    token_fprintf(f, a, pt_ctx, "::");
+    double_colon_handler(f, a, pt_ctx);
 
     if (ASTSon1(a) != NULL)
     {
@@ -2339,14 +2354,14 @@ static void namespace_definition_handler(FILE* f, AST a, prettyprint_context_t* 
 static void pseudo_destructor_name_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     prettyprint_level(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, "::");
+    double_colon_handler(f, a, pt_ctx);
     prettyprint_level(f, ASTSon1(a), pt_ctx);
 }
 
 static void pseudo_destructor_template_name_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     prettyprint_level(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, "::");
+    double_colon_handler(f, a, pt_ctx);
     token_fprintf(f, a, pt_ctx, "template ");
     prettyprint_level(f, ASTSon1(a), pt_ctx);
 }
