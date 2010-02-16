@@ -701,7 +701,7 @@ namespace TL
 					adapter_parameters
 						<< ",";
 				}
-				if ((parameter_type.is_pointer() && !parameter_type.points_to().is_void()) || parameter_type.is_array())
+				if (parameter_type.is_pointer() || parameter_type.is_array())
 				{
 					adapter_parameters
 						<< "parameter_data[" << index << "]";

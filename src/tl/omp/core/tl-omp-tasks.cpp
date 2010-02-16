@@ -145,7 +145,8 @@ namespace TL
             {
                 if (*it != "input"
                         && *it != "output"
-                        && *it != "inout")
+                        && *it != "inout"
+                        && *it != "untied")
                 {
                     std::cerr << construct.get_ast().get_locus() << ": warning: clause '" << (*it) << "' will be ignored" << std::endl;
                 }

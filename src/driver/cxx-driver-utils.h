@@ -49,6 +49,7 @@ typedef struct
     // FILE* file;
     const char* name;
     char is_dir;
+    char is_temporary;
 }* temporal_file_t;
 
 // Gives you a new temporal file that will be removed when
@@ -91,5 +92,8 @@ void run_gdb(void);
 
 // Like rename but works accross filesystems
 char move_file(const char* source, const char* dest);
+
+// This function adds a file for cleanup for non temporary ones
+void mark_file_for_cleanup(const char* name);
 
 #endif // CXX_DRIVERUTILS_H
