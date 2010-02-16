@@ -1,7 +1,7 @@
 #!/bin/bash
 
 cat <<EOF
-MCXX="@abs_top_builddir@/libtool --mode=execute @abs_top_builddir@/src/driver/mcxx --profile=lt-mcxx"
+MCXX="@abs_top_builddir@/libtool --mode=execute @abs_top_builddir@/src/driver/mcxx --profile=lt-mcxx --verbose"
 test_CC=\${MCXX}
 test_CXX=\${MCXX}
 test_noexec=yes

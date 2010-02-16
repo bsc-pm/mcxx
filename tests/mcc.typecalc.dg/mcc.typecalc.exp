@@ -1,7 +1,0 @@
-load_lib target.exp
-
-source "$srcdir/config/mercurium.exp"
-
-set testcases [lsort [find $srcdir/$subdir *.c]]
-
-execute_testsuite_typecheck $testcases

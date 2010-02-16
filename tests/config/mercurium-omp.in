@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# compile_versions="nanox_plain nanox_instrument"
+
+cat <<EOF
+MERCURIUM_LIBS=
+EOF
+
+CACHE_OMP_LIBRARIES_LT="@abs_builddir@/omp-libraries-libtool"
+
+if [ ! -e ${CACHE_OMP_LIBRARIES_LT} ];
+then
+
+grep -o "compiler_phase\s*=\s*[^# ]*" @abs_top_builddir@/config/config.omp | sed -e 's/compiler_phase\s*=\(.*\).so\s*/\1.la/g' | sort -u | xargs -I{} find @abs_top_builddir@ -iname "{}" -not -path "*/.libs/*" | sed -e 's/^.*$/MERCURIUM_LIBS="${MERCURIUM_LIBS} -dlopen &"/g' > ${CACHE_OMP_LIBRARIES_LT}
+
+fi
+
+cat ${CACHE_OMP_LIBRARIES_LT}
+
+cat <<EOF
+compile_versions="nanos4_plain nanos4_instrument"
+
+MCC="@abs_top_builddir@/libtool --mode=execute \${MERCURIUM_LIBS} @abs_top_builddir@/src/driver/mcxx --profile=mcc --config-file=@abs_top_builddir@/config/config.omp --verbose"
+MCXX="@abs_top_builddir@/libtool --mode=execute \${MERCURIUM_LIBS} @abs_top_builddir@/src/driver/mcxx --profile=mcxx --config-file=@abs_top_builddir@/config/config.omp --verbose"
+
+test_CC_nanos4_plain="\${MCC}"
+test_CXX_nanos4_plain="\${MCXX}"
+
+test_CC_nanos4_instrument="\${test_CC_nanos4_plain}"
+test_CXX_nanos4_instrument="\${test_CXX_nanos4_plain}"
+
+test_CFLAGS_nanos4_plain=
+test_CXXFLAGS_nanos4_plain=
+test_CFLAGS_nanos4_instrument="\${test_CFLAGS_nanos4_plain} --instrument"
+test_CXXFLAGS_nanos4_instrument="\${test_CXXFLAGS_nanos4_plain} --instrument"
+
+test_nolink=yes
+EOF
+
+[ ! -z "$TEST_SOURCE" ] && NAME=$(basename $TEST_SOURCE)
+
+case "$NAME" in
+    success*)
+      ;;
+    failure*)
+      echo "test_compile_fail=yes"
+      ;;
+    *)
+      ;;
+esac

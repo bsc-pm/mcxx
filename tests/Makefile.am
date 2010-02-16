@@ -27,20 +27,7 @@ NULL=
 
 ADDITIONAL_TESTS=@ADDITIONAL_TESTSUITES@
 
-# MERCURIUM_TESTS = \
-#   mcxx.parser \
-#   mcc.typecalc \
-#   mcxx.typecalc \
-#   mcxx.torture \
-#   mcxx.cxx0x \
-#   mcc.extensions \
-#   mcxx.extensions \
-#   mcxx.gxx_type_traits \
-#   mcc.hlt \
-#   $(ADDITIONAL_TESTS) \
-#   $(NULL)
-
-MERCURIUM_TESTS = \
+DIRTESTS = \
   mcxx.parser \
   mcc.typecalc \
   mcxx.typecalc \
@@ -49,31 +36,22 @@ MERCURIUM_TESTS = \
   mcc.extensions \
   mcxx.extensions \
   mcxx.gxx_type_traits \
+  $(ADDITIONAL_TESTS) \
   $(NULL)
 
 END=
 CLEANFILES=
 
-CONFIG_FILES_TESTS= \
-                    mcxx.instr.nanos4.dg/config.mcxx \
-                    mcxx.nanos4.dg/config.mcxx \
-                    mcc.superscalar.dg/config.mcxx \
-                    mcxx.stm.dg/config.mcxx \
-                    mcc.instr.nanos4.dg/config.mcxx \
-                    mcc.nanos4.dg/config.mcxx \
-                    mcc.hlt.basic.dg/config.mcxx \
-                    $(END)
-
-CLEANFILES += $(CONFIG_FILES_TESTS)
-BUILT_SOURCES=$(CONFIG_FILES_TESTS)
-
 # Replacements are defined in this makefile
 include ../config/Makefile.replace
 
-check:
+check-local:
 	chmod +x */mercurium
 	chmod +x config/mercurium-extensions
-	for test_dir in $(MERCURIUM_TESTS); \
+	chmod +x config/mercurium-omp
+	chmod +x config/mercurium-ss
+	chmod +x config/mercurium-stm
+	for test_dir in $(DIRTESTS); \
 	do \
        if [ ! -d $(builddir)/$${test_dir}.dg ]; \
        then \
@@ -83,13 +61,9 @@ check:
        fi \
 	done
 
-$(CONFIG_FILES_TESTS) : Makefile
-	$(config_edit) $(srcdir)/$@.in > $@.tmp
-	mv $@.tmp $@
-
 dist-hook:
 	-cp $(srcdir)/*.conf $(distdir)
-	-for i in $(srcdir)/*.dg $(srcdir)/*.files; \
+	-for i in $(srcdir)/*.dg; \
 	do  \
 	    DIR=$$(basename $$i); \
 		mkdir -p $(distdir)/$${DIR} ; \

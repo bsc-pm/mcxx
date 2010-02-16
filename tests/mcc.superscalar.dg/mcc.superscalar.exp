@@ -1,9 +1,0 @@
-load_lib target.exp
-
-source "$srcdir/config/mercurium.exp"
-
-set testcases [lsort [find $srcdir/$subdir *.c]]
-
-source "${srcdir}/superscalar_libs.conf"
-
-execute_testsuite_phases $testcases $loaded_phases
