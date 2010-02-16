@@ -50,44 +50,71 @@ static temporal_file_list_t temporal_file_list = NULL;
 
 void temporal_files_cleanup(void)
 {
-    // Do nothing if we were told to keep temporaries
-    if (CURRENT_CONFIGURATION->keep_temporaries)
-        return;
-
     temporal_file_list_t iter = temporal_file_list;
 
-    while (iter != NULL)
+    for (iter = temporal_file_list; iter != NULL; iter = iter->next)
     {
         if (iter->info == NULL)
             continue;
+
+        if (!iter->info->is_temporary
+                && CURRENT_CONFIGURATION->keep_files)
+            continue;
+
+        if (iter->info->is_temporary
+                && CURRENT_CONFIGURATION->keep_temporaries)
+            continue;
+
         if(!iter->info->is_dir)
         {
             if (CURRENT_CONFIGURATION->verbose)
             {
-                fprintf(stderr, "Removing temporal filename '%s'\n", iter->info->name);
+                fprintf(stderr, "Removing %s filename '%s'\n", 
+                        iter->info->is_temporary ? "temporal" : "intermediate",
+                        iter->info->name);
             }
             if (remove(iter->info->name) != 0
                     && errno != ENOENT)
             {
-                fprintf(stderr, "Error while removing temporal filename: '%s'\n", strerror(errno));
+                fprintf(stderr, "Error while removing filename: '%s'\n", strerror(errno));
             }
         }
         else
         {
             if (CURRENT_CONFIGURATION->verbose)
             {
-                fprintf(stderr, "Removing temporal directory '%s'\n", iter->info->name);
+                fprintf(stderr, "Removing %s directory '%s'\n", 
+                        iter->info->is_temporary ? "temporal" : "intermediate",
+                        iter->info->name);
             }
+            // FIXME - We really should improve this...
             char rm_fr[256];
             snprintf(rm_fr, 255, "rm -fr \"%s\"", iter->info->name);
             rm_fr[255] = '\0';
             system(rm_fr);
         }
-
-        iter = iter->next;
     }
 
     temporal_file_list = NULL;
+}
+
+static temporal_file_t add_to_list_of_temporal_files(const char* name, char is_temporary)
+{
+    temporal_file_t result = calloc(sizeof(*result), 1);
+    result->name = uniquestr(name);
+    result->is_temporary = is_temporary;
+
+    temporal_file_list_t new_file_element = calloc(sizeof(*new_file_element), 1);
+    new_file_element->info = result;
+    new_file_element->next = temporal_file_list;
+    temporal_file_list = new_file_element;
+
+    return result;
+}
+
+void mark_file_for_cleanup(const char* name)
+{
+    add_to_list_of_temporal_files(name, /* is_temporary */ 0);
 }
 
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
@@ -123,23 +150,8 @@ static temporal_file_t new_temporal_dir_unix(void)
     }
 
     // Save the info of the new file
-    temporal_file_t result = calloc(sizeof(*result), 1);
-    result->name = uniquestr(directory_name);
-    result->is_dir = 1;
-    // Get a FILE* descriptor
-    // result->file = fdopen(file_descriptor, "w+");
-    // if (result->file == NULL)
-    // {
-    //     running_error("error: cannot create temporary file (%s)", strerror(errno));
-    // }
 
-    // Link to the temporal_file_list
-    temporal_file_list_t new_file_element = calloc(sizeof(*new_file_element), 1);
-    new_file_element->info = result;
-    new_file_element->next = temporal_file_list;
-    temporal_file_list = new_file_element;
-
-    return result;
+    return add_to_list_of_temporal_files(directory_name, /* is_temporary */ 1);
 }
 
 static temporal_file_t new_temporal_file_unix(void)
@@ -173,23 +185,7 @@ static temporal_file_t new_temporal_file_unix(void)
         return NULL;
     }
 
-    // Save the info of the new file
-    temporal_file_t result = calloc(sizeof(*result), 1);
-    result->name = uniquestr(template);
-    // Get a FILE* descriptor
-    // result->file = fdopen(file_descriptor, "w+");
-    // if (result->file == NULL)
-    // {
-    //     running_error("error: cannot create temporary file (%s)", strerror(errno));
-    // }
-
-    // Link to the temporal_file_list
-    temporal_file_list_t new_file_element = calloc(sizeof(*new_file_element), 1);
-    new_file_element->info = result;
-    new_file_element->next = temporal_file_list;
-    temporal_file_list = new_file_element;
-
-    return result;
+    return add_to_list_of_temporal_files(template, /* is_temporary */ 1);
 }
 #else
 static temporal_file_t new_temporal_file_win32(void)
@@ -200,23 +196,7 @@ static temporal_file_t new_temporal_file_win32(void)
     if (template == NULL)
         return NULL;
 
-    // Save the info of the new file
-    temporal_file_t result = calloc(sizeof(*result), 1);
-    result->name = strappend(uniquestr(template), ".tmp");
-    // // Get a FILE* descriptor
-    // result->file = fopen(result->name, "w+");
-    // if (result->file == NULL)
-    // {
-    //     running_error("error: cannot create temporary file (%s)", strerror(errno));
-    // }
-
-    // Link to the temporal_file_list
-    temporal_file_list_t new_file_element = calloc(sizeof(*new_file_element), 1);
-    new_file_element->info = result;
-    new_file_element->next = temporal_file_list;
-    temporal_file_list = new_file_element;
-
-    return result;
+    return add_to_list_of_temporal_files(strappend(uniquestr(template), ".tmp"), /* is_temporary */ 1);
 }
 #endif
 

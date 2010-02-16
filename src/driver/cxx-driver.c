@@ -2484,6 +2484,11 @@ static void native_compilation(translation_unit_t* translation_unit,
     if (CURRENT_CONFIGURATION->do_not_compile)
         return;
 
+    if (remove_input)
+    {
+        mark_file_for_cleanup(prettyprinted_filename);
+    }
+
     const char* output_object_filename;
 
     if (translation_unit->output_filename == NULL
@@ -2546,16 +2551,6 @@ static void native_compilation(translation_unit_t* translation_unit,
                 translation_unit->input_filename,
                 prettyprinted_filename,
                 timing_elapsed(&timing_compilation));
-    }
-
-    if (!CURRENT_CONFIGURATION->keep_files
-            && remove_input)
-    {
-        if (CURRENT_CONFIGURATION->verbose)
-        {
-            fprintf(stderr, "Removing prettyprinted file '%s'\n", prettyprinted_filename);
-        }
-        remove(prettyprinted_filename);
     }
 }
 
