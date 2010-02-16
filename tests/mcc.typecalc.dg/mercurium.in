@@ -3,5 +3,5 @@
 @abs_top_builddir@/tests/config/mercurium
 
 cat <<EOF
-test_CC="\${test_CC} --profile=lt-mcxx --config-file=@abs_srcdir@/config.mcxx"
+test_CC="\${test_CC} --config-file=@abs_srcdir@/config.mcxx"
 EOF

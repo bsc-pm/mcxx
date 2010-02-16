@@ -27,18 +27,18 @@ NULL=
 
 ADDITIONAL_TESTS=@ADDITIONAL_TESTSUITES@
 
-#MERCURIUM_TESTS = \
-#  mcxx.parser \
-#  mcc.typecalc \
-#  mcxx.typecalc \
-#  mcxx.torture \
-#  mcxx.cxx0x \
-#  mcc.extensions \
-#  mcxx.extensions \
-#  mcxx.gxx_type_traits \
-#  mcc.hlt \
-#  $(ADDITIONAL_TESTS) \
-#  $(NULL)
+# MERCURIUM_TESTS = \
+#   mcxx.parser \
+#   mcc.typecalc \
+#   mcxx.typecalc \
+#   mcxx.torture \
+#   mcxx.cxx0x \
+#   mcc.extensions \
+#   mcxx.extensions \
+#   mcxx.gxx_type_traits \
+#   mcc.hlt \
+#   $(ADDITIONAL_TESTS) \
+#   $(NULL)
 
 MERCURIUM_TESTS = \
   mcxx.parser \
@@ -72,6 +72,7 @@ include ../config/Makefile.replace
 
 check:
 	chmod +x */mercurium
+	chmod +x config/mercurium-extensions
 	for test_dir in $(MERCURIUM_TESTS); \
 	do \
        if [ ! -d $(builddir)/$${test_dir}.dg ]; \

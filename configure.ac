@@ -959,8 +959,12 @@ AC_CONFIG_FILES([Makefile
            tests/Makefile
            tests/config/Makefile
            tests/config/mercurium
+           tests/config/mercurium-extensions
            tests/mcc.typecalc.dg/mercurium
            tests/mcc.extensions.dg/mercurium
+           tests/mcxx.cxx0x.dg/mercurium
+           tests/mcxx.extensions.dg/mercurium
+           tests/mcxx.torture.dg/mercurium
            tests/mcc.nanos4.dg/config.mcxx
            tests/mcxx.nanos4.dg/config.mcxx
            tests/mcc.instr.nanos4.dg/config.mcxx
