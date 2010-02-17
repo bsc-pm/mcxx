@@ -154,11 +154,12 @@ Source TaskAggregation::do_predicated_aggregation()
 
     Source result, temporal_values_declarations, guarded_tasks, predicated_task;
     Source guard_struct_src, guard_struct_fields, guard_struct_name, guard_struct_var_decl;
-	Source predicated_info_struct;
+	Source predicated_info_struct, predicated_info_var;
 
     result
         << "{"
         << guard_struct_var_decl
+		<< predicated_info_var
         << temporal_values_declarations
         << guarded_tasks
         << predicated_task
@@ -327,7 +328,12 @@ Source TaskAggregation::do_predicated_aggregation()
 		;
 
 	predicated_info_struct
-		<< "} " << pred_info_name << "[" << num_tasks << "];"
+		<< "};" 
+		;
+
+	predicated_info_var
+		<< "union _pred_info_" << CounterManager::get_counter(TASK_PREDICATION_COUNTER) << "_t " 
+		<<  pred_info_name << "[" << num_tasks << "];"
 		;
 
 	firstprivate_args.append_with_separator(pred_info_name, ",");
