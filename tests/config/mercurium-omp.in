@@ -18,8 +18,20 @@ fi
 cat ${CACHE_OMP_LIBRARIES_LT}
 
 cat <<EOF
-compile_versions="nanos4_plain nanos4_instrument"
+compile_versions="nanos4_plain"
+EOF
 
+if [ ! -z "@MINTAKA_INCLUDES@" ];
+then
+
+cat <<EOF
+compile_versions="${compile_versions} nanos4_instrument"
+EOF
+
+fi
+
+
+cat <<EOF
 MCC="@abs_top_builddir@/libtool --mode=execute \${MERCURIUM_LIBS} @abs_top_builddir@/src/driver/mcxx --profile=mcc --config-file=@abs_top_builddir@/config/config.omp --verbose"
 MCXX="@abs_top_builddir@/libtool --mode=execute \${MERCURIUM_LIBS} @abs_top_builddir@/src/driver/mcxx --profile=mcxx --config-file=@abs_top_builddir@/config/config.omp --verbose"
 
