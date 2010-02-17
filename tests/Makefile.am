@@ -51,15 +51,16 @@ check-local:
 	chmod +x config/mercurium-omp
 	chmod +x config/mercurium-ss
 	chmod +x config/mercurium-stm
+	FAIL=0; \
 	for test_dir in $(DIRTESTS); \
 	do \
-       if [ ! -d $(builddir)/$${test_dir}.dg ]; \
+       (if [ ! -d $(builddir)/$${test_dir}.dg ]; \
        then \
 	      TEST_GENERATOR=$(builddir)/config/mercurium $(srcdir)/config/bets -o $${test_dir}.log ${srcdir}/$${test_dir}.dg; \
        else \
 	      TEST_GENERATOR=$(builddir)/$${test_dir}.dg/mercurium $(srcdir)/config/bets -o $${test_dir}.log ${srcdir}/$${test_dir}.dg; \
-       fi \
-	done
+       fi) || FAIL=1\
+	done; exit $${FAIL}
 
 dist-hook:
 	-cp $(srcdir)/*.conf $(distdir)
