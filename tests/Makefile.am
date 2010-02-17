@@ -59,7 +59,7 @@ check-local:
 	      TEST_GENERATOR=$(builddir)/config/mercurium $(srcdir)/config/bets -o $${test_dir}.log ${srcdir}/$${test_dir}.dg; \
        else \
 	      TEST_GENERATOR=$(builddir)/$${test_dir}.dg/mercurium $(srcdir)/config/bets -o $${test_dir}.log ${srcdir}/$${test_dir}.dg; \
-       fi) || FAIL=1\
+       fi) || FAIL=1; \
 	done; exit $${FAIL}
 
 dist-hook:
