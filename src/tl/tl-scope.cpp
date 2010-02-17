@@ -1,28 +1,33 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #include "tl-scope.hpp"
 #include "cxx-scope.h"
 #include "cxx-printscope.h"
 #include "cxx-utils.h"
+#include "cxx-instantiation.h"
 #include "hash_iterator.h"
+#include "uniquestr.h"
 
 namespace TL
 {
@@ -62,7 +67,6 @@ namespace TL
     ObjectList<Symbol> Scope::get_symbols_from_name(const std::string& str) const
     {
         ObjectList<Symbol> result;
-        // Fix this for C++
         scope_entry_list_t* entry_list = query_unqualified_name_str(_decl_context, const_cast<char*>(str.c_str()));
 
         convert_to_vector(entry_list, result);
@@ -165,26 +169,75 @@ namespace TL
         return result;
     }
 
-    Symbol Scope::new_artificial_symbol(const std::string& artificial_name)
+    Symbol Scope::new_artificial_symbol(const std::string& artificial_name, bool reuse_symbol)
     {
-        scope_entry_list_t* sym_res_list = ::query_in_scope_str(_decl_context, artificial_name.c_str());
         scope_entry_t* sym_res = NULL;
+        if (reuse_symbol)
+        {
+            scope_entry_list_t* sym_res_list = ::query_in_scope_str(_decl_context, artificial_name.c_str());
 
-        if (sym_res_list == NULL)
-        {
-            // Create the symbol
-            sym_res = ::new_symbol(_decl_context, _decl_context.current_scope, artificial_name.c_str());
-            sym_res->kind = SK_OTHER;
-        }
-        else
-        {
-            sym_res = sym_res_list->entry;
-            if (sym_res->kind != SK_OTHER)
+            if (sym_res_list != NULL)
             {
-                internal_error("This function can only be used for artificial symbols. '%s' is not artificial", sym_res->symbol_name);
+                sym_res = sym_res_list->entry;
+                return Symbol(sym_res);
             }
         }
 
+        // Create the symbol anyway
+        sym_res = ::new_symbol(_decl_context, _decl_context.current_scope, uniquestr(artificial_name.c_str()));
+        sym_res->kind = SK_OTHER;
+
         return Symbol(sym_res);
+    }
+
+    void Scope::insert_symbol(Symbol sym)
+    {
+        insert_entry(_decl_context.current_scope, sym.get_internal_symbol());
+    }
+
+    ObjectList<Symbol> Scope::cascade_lookup(const std::string& str)
+    {
+        scope_entry_list_t* entry_list = ::cascade_lookup(_decl_context, str.c_str());
+        ObjectList<Symbol> result;
+        convert_to_vector(entry_list, result);
+        return result;
+    }
+
+    Scope Scope::instantiation_scope(Symbol specialized_template_function)
+    {
+        return ::get_instantiation_context(specialized_template_function.get_internal_symbol(), NULL);
+    }
+
+    Scope Scope::instantiation_scope(Symbol specialized_template_function, ObjectList<TemplateParameter> template_parameter_list)
+    {
+        template_parameter_list_t tpl_list;
+        tpl_list.num_template_parameters = template_parameter_list.size();
+
+        template_parameter_t* _list[tpl_list.num_template_parameters];
+
+        tpl_list.template_parameters = _list;
+        for (int i = 0; i < tpl_list.num_template_parameters; i++)
+        {
+            _list[i] = template_parameter_list[i].get_internal_template_parameter();
+        }
+
+        return ::get_instantiation_context(specialized_template_function.get_internal_symbol(), &tpl_list);
+    }
+
+    ObjectList<TemplateParameter> Scope::get_template_parameters() const
+    {
+        ObjectList<TemplateParameter> result;
+
+        if (_decl_context.template_parameters != NULL)
+        {
+            for (int i = 0; i < _decl_context.template_parameters->num_template_parameters; i++)
+            {
+                result.append(TemplateParameter(
+                            _decl_context.template_parameters->template_parameters[i]
+                            ));
+            }
+        }
+
+        return result;
     }
 }

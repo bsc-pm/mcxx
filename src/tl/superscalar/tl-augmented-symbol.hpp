@@ -1,20 +1,26 @@
-/*
-    Cell/SMP superscalar Compiler
-    Copyright (C) 2008 Barcelona Supercomputing Center
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; version 2.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 
 #ifndef TL_AUGMENTED_SYMBOL_H
 #define TL_AUGMENTED_SYMBOL_H
@@ -32,6 +38,7 @@
 
 #include "cxx-ss-attrnames.h"
 #include "tl-exceptions.hpp"
+#include "tl-access-bounds-list.hpp"
 #include "tl-parameter-region-list.hpp"
 
 
@@ -135,6 +142,30 @@ namespace TL {
 					
 			};
 			
+			void generate_maximum_source(/* INOUT */ std::set<std::string> &values, /* INOUT */ Source &source)
+			{
+				std::set<std::string>::iterator first = values.begin();
+				Source first_source;
+				first_source
+					<< *first;
+				values.erase(first);
+				
+				// Base case
+				if (values.empty())
+				{
+					source << first_source;
+					return;
+				}
+				
+				// Recursive case
+				Source other_source;
+				generate_maximum_source(/* INOUT */ values, /* INOUT */ other_source);
+				
+				source
+					<< "(" << first_source << ">" << other_source << "?" << first_source << ":" << other_source << ")";
+			}
+			
+			
 		public:
 			typedef SymbolList::iterator call_iterator;
 			typedef SymbolList::const_iterator const_call_iterator;
@@ -163,6 +194,68 @@ namespace TL {
 			void set_parameter_region_list(RefPtr<Object> parameter_region_list_ref)
 			{
 				set_attribute(SYMBOL_SUPERSCALAR_PARAMETER_REGION_LIST, parameter_region_list_ref);
+			}
+			
+			RefPtr<AccessBoundsList> get_parameter_access_bounds_list()
+			{
+				RefPtr<Object> object( get_attribute(SYMBOL_SUPERSCALAR_PARAMETER_ACCESS_BOUNDS_LIST) );
+				if (typeid(*object.get_pointer()) == typeid(AccessBoundsList))
+				{
+					return RefPtr<AccessBoundsList>::cast_dynamic(object);
+				}
+				
+				// Lazy creation
+				ObjectList<Type> parameter_types = get_type().nonadjusted_parameters();
+				RefPtr<ParameterRegionList> parameter_region_lists = get_parameter_region_list();
+				
+				if (parameter_types.size() != parameter_region_lists->size())
+				{
+					std::cerr << __FILE__ << ":" << __LINE__ << ": " << "Internal compiler error" << std::endl;
+					throw FatalException();
+				}
+				int parameter_count = parameter_types.size();
+				
+				RefPtr<AccessBoundsList> access_bounds_list(new AccessBoundsList());
+				for (int parameter_index = 0; parameter_index < parameter_count; parameter_index++)
+				{
+					RegionList &regionList = (*parameter_region_lists)[parameter_index];
+					int region_count = regionList.size();
+					Type const &parameter_type = parameter_types[parameter_index];
+					
+					access_bounds_list->add(AccessBounds());
+					
+					if (!parameter_type.is_array())
+					{
+						continue;
+					}
+					
+					AccessBounds &access_bounds = (*access_bounds_list)[parameter_index];
+					int dimension_count = regionList[0].get_dimension_count();
+					std::set<std::string> candidate_bounds[dimension_count];
+					
+					for (int dimension_index=0; dimension_index < dimension_count; dimension_index++)
+					{
+						for (int region_index=0; region_index < region_count; region_index++)
+						{
+							// NOTE: Hopefully, the same expression will be prettyprinted identically
+							candidate_bounds[dimension_index].insert(regionList[region_index][dimension_index].get_accessed_length().prettyprint());
+						}
+					}
+					
+					AST_t a_ref_ast = regionList[0][0].get_accessed_length().get_ast();
+					ScopeLink a_scope_link = regionList[0][0].get_accessed_length().get_scope_link();
+					for (int dimension_index=0; dimension_index < dimension_count; dimension_index++)
+					{
+						Source max_accessed_range_source;
+						generate_maximum_source(candidate_bounds[dimension_index], max_accessed_range_source);
+						AST_t max_accessed_range_ast = max_accessed_range_source.parse_expression(a_ref_ast, a_scope_link);
+						Expression max_accessed_range(max_accessed_range_ast, a_scope_link);
+						access_bounds.add(max_accessed_range);
+					}
+				} // For each parameter
+				
+				set_attribute(SYMBOL_SUPERSCALAR_PARAMETER_ACCESS_BOUNDS_LIST, access_bounds_list);
+				return access_bounds_list;
 			}
 			
 			Bool is_task() const

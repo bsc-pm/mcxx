@@ -1,23 +1,3 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
-
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 %{
 /*
    Parser of ISO/IEC 14882:2003 - C++
@@ -314,6 +294,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> for_init_statement
 %type<ast> functional_declarator
 %type<ast> functional_declarator_id
+%type<ast> final_declarator_id
 %type<ast> functional_direct_declarator
 %type<ast> function_body
 %type<ast> function_definition
@@ -430,9 +411,11 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 
 /*!define GRAMMAR_PROLOGUE*/
 /*!include cxx-subparse.y*/
+/*!include cxx-extensions.y*/
 /*!include cxx-placeholders.y*/
 /*!include cxx-pragma.y*/
 /*!include cxx-construct.y*/
+/*!include cxx-omp.y*/
 /*!include cxx-superscalar.y*/
 /*!include cxx-xl.y*/
 /*!undefine GRAMMAR_PROLOGUE*/
@@ -1696,21 +1679,33 @@ functional_direct_declarator : functional_declarator_id
 }
 ;
 
-functional_declarator_id : declarator_id '(' parameter_declaration_clause ')'
+functional_declarator_id : final_declarator_id '(' parameter_declaration_clause ')'
 {
 	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-| declarator_id '(' parameter_declaration_clause ')' cv_qualifier_seq
+| final_declarator_id '(' parameter_declaration_clause ')' cv_qualifier_seq
 {
 	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-| declarator_id '(' parameter_declaration_clause ')' exception_specification
+| final_declarator_id '(' parameter_declaration_clause ')' exception_specification
 {
 	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, $5, ASTFileName($1), ASTLine($1), NULL);
 }
-| declarator_id '(' parameter_declaration_clause ')' cv_qualifier_seq exception_specification
+| final_declarator_id '(' parameter_declaration_clause ')' cv_qualifier_seq exception_specification
 {
 	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, $6, ASTFileName($1), ASTLine($1), NULL);
+}
+;
+
+// This rule is needed because of redundant parentheses
+final_declarator_id : declarator_id
+{
+    $$ = $1;
+}
+|
+'(' final_declarator_id ')'
+{
+    $$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, $1.token_file, $1.token_line, NULL);
 }
 ;
 
@@ -4766,9 +4761,11 @@ right_bracket_token : '>'
 
 /*!define GRAMMAR_RULES*/
 /*!include cxx-subparse.y*/
+/*!include cxx-extensions.y*/
 /*!include cxx-placeholders.y*/
 /*!include cxx-pragma.y*/
 /*!include cxx-construct.y*/
+/*!include cxx-omp.y*/
 /*!include cxx-superscalar.y*/
 /*!include cxx-xl.y*/
 /*!undefine GRAMMAR_RULES*/

@@ -1,6 +1,30 @@
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
 #include "tl-overload.hpp"
 #include "cxx-overload.h"
 #include "cxx-exprtype.h"
+#include "uniquestr.h"
 
 namespace TL
 {
@@ -57,13 +81,11 @@ namespace TL
             first_candidate_list = new_item;
         }
 
-
-
         // Build the type array
-        int i, N = argument_types.size();
+        unsigned int i = argument_types.size();
         type_t** argument_types_array = new type_t*[argument_types.size() + 1];
         argument_types_array[0] = implicit_argument_type.get_internal_type();
-        for (i = 0; i < N; i++)
+        for (i = 0; i < argument_types.size(); i++)
         {
             argument_types_array[i+1] = argument_types[i].get_internal_type();
         }
@@ -76,9 +98,9 @@ namespace TL
         scope_entry_list_t* candidate_list = NULL;
         candidate_list = unfold_and_mix_candidate_functions(first_candidate_list,
                 NULL /* builtins */,
-                &argument_types_array[1], N - 1,
+                &argument_types_array[1], argument_types.size(),
                 decl_context,
-                filename.c_str(), line,
+                uniquestr(filename.c_str()), line,
                 NULL /* explicit template arguments */);
 
         {
@@ -91,14 +113,14 @@ namespace TL
         }
 
         // We also need a scope_entry_t** for holding the conversor argument
-        scope_entry_t** conversor_per_argument = new scope_entry_t*[argument_types.size()];
+        scope_entry_t** conversor_per_argument = new scope_entry_t*[argument_types.size() + 1];
 
         // Now invoke all the machinery
         scope_entry_t* entry_result =
         solve_overload(candidate_list, 
-                argument_types_array, /* Number of arguments */ N + 1,
+                argument_types_array, /* Number of arguments */ argument_types.size() + 1,
                 decl_context,
-                filename.c_str(), line,
+                uniquestr(filename.c_str()), line,
                 conversor_per_argument);
 
         if (entry_result != NULL)
@@ -106,7 +128,7 @@ namespace TL
             valid = true;
             // Store the arguments
             argument_conversor.clear();
-            for (i = 0; i < (N+1); i++)
+            for (i = 0; i < argument_types.size(); i++)
             {
                 argument_conversor.append(Symbol(conversor_per_argument[i]));
             }

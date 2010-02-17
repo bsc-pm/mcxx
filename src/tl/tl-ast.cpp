@@ -1,28 +1,32 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #include "tl-builtin.hpp"
 #include "tl-ast.hpp"
 #include "tl-scopelink.hpp"
 #include "tl-predicate.hpp"
 #include "cxx-ast.h"
+#include "cxx-attrnames.h"
 #include "cxx-utils.h"
 #include <sstream>
 #include <cstdio>
@@ -643,6 +647,19 @@ namespace TL
         return node;
     }
 
+    //! Returns the enclosing statement
+    AST_t AST_t::get_enclosing_statement()
+    {
+        AST_t a = *this;
+        while (a.is_valid()
+                && !(TL::Bool)a.get_attribute(LANG_IS_STATEMENT))
+        {
+            a = a.get_parent();
+        }
+
+        return a;
+    }
+
     AST_t AST_t::get_enclosing_function_definition(bool jump_templates)
     {
         AST node = _ast;
@@ -686,11 +703,11 @@ namespace TL
         }
 
         AST parent = ASTParent(list);
-        AST next = ASTSon0(list);
+        AST previous = ASTSon0(list);
 
-        if (next != NULL)
+        if (previous != NULL)
         {
-            ast_set_parent(next, parent);
+            ast_set_parent(previous, parent);
         }
 
         int i;
@@ -698,7 +715,7 @@ namespace TL
         {
             if (ASTChild(parent, i) == list)
             {
-                ast_set_child(parent, i, next);
+                ast_set_child(parent, i, previous);
                 break;
             }
         }
@@ -783,14 +800,9 @@ namespace TL
     {
     }
 
-    void AST_t::prepend_sibling_global(AST_t t)
+    AST_t AST_t::get_enclosing_global_tree_(AST_t t)
     {
-        if (t._ast == NULL)
-        {
-            return;
-        }
-
-        AST_t enclosing_global_tree = *this;
+        AST_t enclosing_global_tree = t;
         AST_t enclosing_function = enclosing_global_tree.get_enclosing_function_definition(/*jump_templates*/true);
 
         if (enclosing_function.is_valid())
@@ -813,6 +825,23 @@ namespace TL
             enclosing_namespace = 
                 enclosing_global_tree.get_enclosing_namespace_definition();
         }
+
+        return enclosing_global_tree;
+    }
+
+    AST_t AST_t::get_enclosing_global_tree()
+    {
+        return get_enclosing_global_tree_(*this);
+    }
+
+    void AST_t::prepend_sibling_global(AST_t t)
+    {
+        if (t._ast == NULL)
+        {
+            return;
+        }
+
+        AST_t enclosing_global_tree = get_enclosing_global_tree_(this->_ast);
 
         AST list = get_enclosing_list(enclosing_global_tree._ast);
         AST prepended_list = get_list_of_extensible_block(t._ast);

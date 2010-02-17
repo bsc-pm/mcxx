@@ -1,23 +1,26 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #ifndef TL_LANGCONSTRUCT_HPP
 #define TL_LANGCONSTRUCT_HPP
 
@@ -27,6 +30,7 @@
 #include "tl-scopelink.hpp"
 #include "tl-builtin.hpp"
 #include "tl-source.hpp"
+#include "tl-type.hpp"
 #include "cxx-attrnames.h"
 #include "cxx-macros.h"
 #include <iostream>
@@ -36,6 +40,7 @@
 namespace TL
 {
     class FunctionDefinition;
+    class Statement;
     class IdExpression;
 
     //! \addtogroup LangConstruct Language construction wrappers
@@ -106,6 +111,9 @@ namespace TL
 
             //! Returns the enclosing function definition
             FunctionDefinition get_enclosing_function();
+
+            //! Returns the enclosing statement of this lang construct, if any
+            Statement get_enclosing_statement();
 
             //! Returns a list of all symbolic occurrences
             ObjectList<IdExpression> all_symbol_occurrences(SymbolsWanted symbols = ALL_SYMBOLS);
@@ -273,7 +281,7 @@ namespace TL
     };
 
     class TemplateHeader;
-    class TemplateParameter;
+    class TemplateParameterConstruct;
     class DeclaredEntity;
     //! This function wraps a whole function definition
     class LIBTL_CLASS FunctionDefinition : public LangConstruct
@@ -533,7 +541,7 @@ namespace TL
              */
             std::string get_operator_str();
 
-            //!States whether the expression is an array section
+            //! States whether the expression is an array section
             bool is_array_section();
             //! Returns the sectioned expression in the array section
             Expression array_section_item();
@@ -541,6 +549,13 @@ namespace TL
             Expression array_section_lower();
             //! Returns the upper bound of the array section
             Expression array_section_upper();
+
+            //! States whether the expression is a shaping expression
+            bool is_shaping_expression();
+            //! Returns the expression being shaped
+            Expression shaped_expression();
+            //! Returns the shape list
+            ObjectList<Expression> shape_list();
 
             static const PredicateAttr predicate;
 
@@ -739,10 +754,10 @@ namespace TL
             static const PredicateAttr predicate;
     };
 
-    class LIBTL_CLASS TemplateParameter : public LangConstruct
+    class LIBTL_CLASS TemplateParameterConstruct : public LangConstruct
     {
         public:
-            TemplateParameter(AST_t ast, ScopeLink scope_link)
+            TemplateParameterConstruct(AST_t ast, ScopeLink scope_link)
                 : LangConstruct(ast, scope_link)
             {
             }
@@ -765,7 +780,7 @@ namespace TL
             {
             }
 
-            ObjectList<TemplateParameter> get_parameters();
+            ObjectList<TemplateParameterConstruct> get_parameters();
     };
 
     //! This class wraps a particular attribute in a GCCAttributeSpecifier

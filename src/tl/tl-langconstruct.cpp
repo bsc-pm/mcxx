@@ -1,23 +1,26 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #include "tl-langconstruct.hpp"
 #include "tl-predicateutils.hpp"
 #include "tl-source.hpp"
@@ -156,6 +159,13 @@ namespace TL
         FunctionDefinition result(enclosing_function, _scope_link);
 
         return result;
+    }
+
+    Statement LangConstruct::get_enclosing_statement()
+    {
+        AST_t enclosing_statement = _ref.get_enclosing_statement();
+
+        return Statement(enclosing_statement, _scope_link);
     }
 
     void FunctionDefinition::prepend_sibling(AST_t ast)
@@ -333,6 +343,11 @@ namespace TL
 
     std::string IdExpression::get_unqualified_part(bool with_template_id) const
     {
+        if (!this->is_qualified())
+        {
+            return _ref.prettyprint();
+        }
+
         TL::AST_t unqualified_part = _ref.get_attribute(LANG_UNQUALIFIED_ID);
 
         if (!with_template_id)
@@ -861,6 +876,36 @@ namespace TL
         return Expression(array_section_upper, _scope_link);
     }
 
+    bool Expression::is_shaping_expression()
+    {
+        TL::Bool result = _ref.get_attribute(LANG_IS_SHAPING_EXPRESSION);
+        return result;
+    }
+
+    Expression Expression::shaped_expression()
+    {
+        AST_t shaped_expression = _ref.get_attribute(LANG_SHAPED_EXPRESSION);
+        return Expression(shaped_expression, _scope_link);
+    }
+
+    ObjectList<Expression> Expression::shape_list()
+    {
+        ObjectList<Expression> result;
+        AST_t shape_list = _ref.get_attribute(LANG_SHAPE_LIST);
+
+        ASTIterator it = shape_list.get_list_iterator();
+
+        it.rewind();
+        while (!it.end())
+        {
+            Expression expr(it.item(), _scope_link);
+            result.push_back(expr);
+            it.next();
+        }
+
+        return result;
+    }
+
     Expression Expression::get_enclosing_expression()
     {
         AST_t parent = _orig.get_parent();
@@ -1288,52 +1333,52 @@ namespace TL
         return NULL;
     }
 
-    ObjectList<TemplateParameter> TemplateHeader::get_parameters()
+    ObjectList<TemplateParameterConstruct> TemplateHeader::get_parameters()
     {
-        ObjectList<TemplateParameter> result;
+        ObjectList<TemplateParameterConstruct> result;
         ASTIterator it = _ref.get_list_iterator();
         it.rewind();
 
         while (!it.end())
         {
-            result.append(TemplateParameter(it.item(), _scope_link));
+            result.append(TemplateParameterConstruct(it.item(), _scope_link));
             it.next();
         }
 
         return result;
     }
 
-    bool TemplateParameter::is_named()
+    bool TemplateParameterConstruct::is_named()
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_NAMED_TEMPLATE_PARAMETER);
         return b;
     }
 
-    std::string TemplateParameter::get_name()
+    std::string TemplateParameterConstruct::get_name()
     {
         TL::AST_t a = _ref.get_attribute(LANG_TEMPLATE_PARAMETER_NAME);
         return a.prettyprint();
     }
 
-    bool TemplateParameter::is_type()
+    bool TemplateParameterConstruct::is_type()
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_TYPE_TEMPLATE_PARAMETER);
         return b;
     }
 
-    bool TemplateParameter::is_nontype()
+    bool TemplateParameterConstruct::is_nontype()
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_NONTYPE_TEMPLATE_PARAMETER);
         return b;
     }
 
-    bool TemplateParameter::is_template()
+    bool TemplateParameterConstruct::is_template()
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_TEMPLATE_TEMPLATE_PARAMETER);
         return b;
     }
 
-    Symbol TemplateParameter::get_symbol()
+    Symbol TemplateParameterConstruct::get_symbol()
     {
         TL::Symbol sym = _ref.get_attribute(LANG_TEMPLATE_PARAMETER_SYMBOL);
         return sym;

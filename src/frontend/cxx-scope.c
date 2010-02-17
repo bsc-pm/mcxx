@@ -1,23 +1,26 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -420,7 +423,7 @@ char same_scope(scope_t* stA, scope_t* stB)
     return (stA->hash == stB->hash);
 }
 
-static char* scope_names[] =
+static const char* scope_names[] =
 {
     [UNDEFINED_SCOPE] = "UNDEFINED_SCOPE",
     [NAMESPACE_SCOPE] = "NAMESPACE_SCOPE",
@@ -1767,7 +1770,7 @@ static scope_entry_list_t* class_scope_lookup(scope_t* current_class_scope, cons
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "SCOPE: Class scope lookup did not found any name '%s'\n", name);
+            fprintf(stderr, "SCOPE: Class scope lookup did not find any name '%s'\n", name);
         }
     }
 
@@ -2399,8 +2402,11 @@ type_t* update_type(template_argument_list_t* given_template_args,
                     expr_context, 
                     template_arguments_context);
             // Update type info
-            ERROR_CONDITION (!check_for_expression(updated_expr, updated_expr_context),
-                    "Updated expression '%s' in array declaration could not be checked", 0);
+            if (!check_for_expression(updated_expr, updated_expr_context))
+            {
+                internal_error("Updated expression '%s' in array declaration could not be checked", 
+                        prettyprint_in_buffer(updated_expr));
+            }
 
             if (!is_dependent_expression(updated_expr, updated_expr_context)
                     && (ASTExprType(updated_expr) == NULL
@@ -2529,14 +2535,18 @@ template_argument_t* update_template_argument(template_argument_list_t* given_te
                 result->expression_context = replace_template_parameters_with_values(
                         given_template_args, 
                         current_template_arg->expression_context, 
-                        template_arguments_context);
+                        // We are updating a template argument
+                        current_template_arg->expression_context);
 
                 // We do not want any residual type information here
                 result->expression = ast_copy_for_instantiation(current_template_arg->expression);
 
                 // Update type information 
-                ERROR_CONDITION( (!check_for_expression(result->expression, result->expression_context)),
-                        "Updated nontype template parameter has an invalid expression", 0);
+                if(!check_for_expression(result->expression, result->expression_context))
+                {
+                    internal_error("Updated nontype template parameter has an invalid expression '%s'", 
+                            prettyprint_in_buffer(result->expression));
+                }
 
                 type_t* expr_type = ASTExprType(result->expression);
                 // Fold the argument
@@ -3150,14 +3160,22 @@ static const char* get_unqualified_template_symbol_name(scope_entry_t* entry,
         }
     }
 
-    result = strappend(result, "> ");
+    if (result[strlen(result) - 1] == '>')
+    {
+        result = strappend(result, " >");
+    }
+    else
+    {
+        result = strappend(result, ">");
+    }
 
     return result;
 }
 
 // Get the fully qualified symbol name in the scope of the ocurrence
-const char* get_fully_qualified_symbol_name(scope_entry_t* entry, 
-        decl_context_t decl_context, char* is_dependent, int* max_qualif_level)
+static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry, 
+        decl_context_t decl_context, char* is_dependent, int* max_qualif_level,
+        char no_templates)
 {
     // DEBUG_CODE()
     // {
@@ -3183,7 +3201,8 @@ const char* get_fully_qualified_symbol_name(scope_entry_t* entry,
         (*is_dependent) |= 1;
         return result;
     }
-    else if (entry->type_information != NULL
+    else if (!no_templates
+            && entry->type_information != NULL
             && is_template_specialized_type(entry->type_information))
     {
         const char *template_arguments = get_unqualified_template_symbol_name(entry, decl_context);
@@ -3217,6 +3236,20 @@ const char* get_fully_qualified_symbol_name(scope_entry_t* entry,
     return result;
 }
 
+const char* get_fully_qualified_symbol_name(scope_entry_t* entry, 
+        decl_context_t decl_context, char* is_dependent, int* max_qualif_level)
+{
+    return get_fully_qualified_symbol_name_ex(entry,
+            decl_context, is_dependent, max_qualif_level, /* no_templates */ 0);
+}
+
+const char* get_fully_qualified_symbol_name_without_template(scope_entry_t* entry, 
+        decl_context_t decl_context, char* is_dependent, int* max_qualif_level)
+{
+    return get_fully_qualified_symbol_name_ex(entry,
+            decl_context, is_dependent, max_qualif_level, /* no_templates */ 1);
+}
+
 void scope_entry_dynamic_initializer(void)
 {
     // Initialize the schema of scope entries
@@ -3227,5 +3260,59 @@ decl_context_t decl_context_empty()
 {
     decl_context_t result;
     memset(&result, 0, sizeof(result));
+    return result;
+}
+
+scope_entry_list_t* cascade_lookup(decl_context_t decl_context, const char* name)
+{
+    // This function is a simplified version of name_lookup, it turns that
+    // name_lookup is complex enough to avoid touching it unless needed
+
+    ERROR_CONDITION(name == NULL, "Name cannot be null!", 0);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "SCOPE: Cascade lookup of '%s'\n", name);
+    }
+
+    scope_entry_list_t *result = NULL;
+
+    // This one has higher priority
+    scope_t* template_scope = decl_context.template_scope;
+    // The frontend should keep the template scope always up to date
+    while (template_scope != NULL)
+    {
+        ERROR_CONDITION((template_scope->kind != TEMPLATE_SCOPE), "This is not a template scope!", 0);
+
+        result = append_scope_entry_list(result, query_name_in_scope(template_scope, name));
+
+        // If nothing was found, look up in the enclosing template_scope
+        // (they form a stack of template_scopes)
+        template_scope = template_scope->contained_in;
+    }
+
+    scope_t* current_scope = decl_context.current_scope;
+    while (current_scope != NULL)
+    {
+        if (current_scope->kind != CLASS_SCOPE)
+        {
+            result = append_scope_entry_list(result, query_name_in_scope(current_scope, name));
+        }
+        else
+        {
+            // Class scopes require slightly different strategy
+            result = append_scope_entry_list(result, class_scope_lookup(current_scope, name, decl_context.decl_flags));
+        }
+
+        // Otherwise, if this is a NAMESPACE_SCOPE, lookup in the used namespaces
+        // note that the objects there are not hidden, but added
+        if (current_scope->num_used_namespaces > 0)
+        {
+            result = append_scope_entry_list(result, name_lookup_used_namespaces(decl_context, current_scope, name));
+        }
+
+        current_scope = current_scope->contained_in;
+    }
+
     return result;
 }

@@ -1,20 +1,26 @@
-/*
-    Cell/SMP superscalar Compiler
-    Copyright (C) 2007-2009 Barcelona Supercomputing Center
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; version 2.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 
 #include <sstream>
 
@@ -101,7 +107,8 @@ namespace TL
 				<< constant_redirection_source
 				<< dimensions_source
 				<< parameter_region_source
-				<< "css_parameter_t const parameters__cssgenerated[] = {" << parameter_initializers_source << "};"
+				<< "css_parameter_t parameters__cssgenerated[" << arguments.size() << "];"
+				<< parameter_initializers_source
 				<< add_task_code
 			<< "}";
 		
@@ -170,14 +177,12 @@ namespace TL
 			
 			
 			parameter_initializers_source
-				<< "{"
-					<< address_source
-					<< ", " << region_list.size()
-					<< ", " << parameter_name << "_parameter_regions__cssgenerated"
-				<< "}, ";
+				<< "parameters__cssgenerated[" << index << "].address = " << address_source << ";"
+				<< "parameters__cssgenerated[" << index << "].region_count = " << region_list.size() << ";"
+				<< "parameters__cssgenerated[" << index << "].regions = " << parameter_name << "_parameter_regions__cssgenerated;";
 			
 			parameter_region_source
-				<< "css_parameter_region_t const " << parameter_name << "_parameter_regions__cssgenerated[] = {";
+				<< "css_parameter_region_t " << parameter_name << "_parameter_regions__cssgenerated[" << region_list.size() << "];";
 			
 			bool is_lvalue;
 			Type argument_type = argument.get_type(is_lvalue);
@@ -190,18 +195,10 @@ namespace TL
 				Source direction_source;
 				Source dimension_count_source;
 				
-				if (region_index != 0)
-				{
-					parameter_region_source
-						<< ", ";
-				}
-				
 				parameter_region_source
-					<< "{"
-						<< direction_source
-						<< ", " << dimension_count_source
-						<< ", " << parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated"
-					<< "}";
+					<< parameter_name << "_parameter_regions__cssgenerated[" << region_index << "].flags = " << direction_source << ";"
+					<< parameter_name << "_parameter_regions__cssgenerated[" << region_index << "].dimension_count = " << dimension_count_source << ";"
+					<< parameter_name << "_parameter_regions__cssgenerated[" << region_index << "].dimensions = " << parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated;";
 				
 				switch (region.get_direction())
 				{
@@ -244,7 +241,7 @@ namespace TL
 				}
 				
 				dimensions_source
-					<< "css_parameter_dimension_t const " << parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[]" << " = {";
+					<< "css_parameter_dimension_t " << parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[" << dimension_count_source << "];";
 				
 				if (region.get_dimension_count() != 0)
 				{
@@ -271,19 +268,17 @@ namespace TL
 						Expression parametrized_dimension_start = region[dimension_index].get_dimension_start();
 						Expression parametrized_accessed_length = region[dimension_index].get_accessed_length();
 						
-						ParameterExpression::substitute(parametrized_dimension_length, arguments, scope_link);
-						ParameterExpression::substitute(parametrized_dimension_start, arguments, scope_link);
-						ParameterExpression::substitute(parametrized_accessed_length, arguments, scope_link);
+						ParameterExpression::substitute(parametrized_dimension_length, arguments, argument.get_ast(), scope_link);
+						ParameterExpression::substitute(parametrized_dimension_start, arguments, argument.get_ast(), scope_link);
+						ParameterExpression::substitute(parametrized_accessed_length, arguments, argument.get_ast(), scope_link);
 						
 						dimensions_source
-							<< (dimension_index == 0 ? "" : ", ") << "{"
-								// Size
-								<< dimension_base.get_source() << " * (" << parametrized_dimension_length.prettyprint() << ")"
-								// Lower bound
-								<< ", " << dimension_base.get_source() << " * (" << parametrized_dimension_start.prettyprint() << ")"
-								// Upper bound
-								<< ", " << dimension_base.get_source() << " * (" << parametrized_accessed_length.prettyprint() << ")"
-							<< "}";
+							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[" << dimension_index << "].size = "
+								<< dimension_base.get_source() << " * (" << parametrized_dimension_length.prettyprint() << ");"
+							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[" << dimension_index << "].lower_bound = "
+								<< dimension_base.get_source() << " * (" << parametrized_dimension_start.prettyprint() << ");"
+							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[" << dimension_index << "].accessed_length = "
+								<< dimension_base.get_source() << " * (" << parametrized_accessed_length.prettyprint() << ");";
 						dimension_base = Source("1");
 					}
 					
@@ -310,12 +305,11 @@ namespace TL
 						{
 							direction_source = Source("CSS_IN_SCALAR_DIR");
 						}
+
 						dimensions_source
-							<< "{"
-								<< "sizeof(void *)"
-								<< ", 0"
-								<< ", sizeof(void *)"
-							<< "}";
+							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].size = sizeof(void *);"
+							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].lower_bound = 0;"
+							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].accessed_length = sizeof(void *);";
 						
 						std::string temporary_name = std::string("opaque_parameter_") + parameter_name + std::string("__cssgenerated");
 						
@@ -342,30 +336,30 @@ namespace TL
 							throw FatalException();
 						}
 						dimensions_source
-							<< "{"
+							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].size = "
 								<< "sizeof("
 									<< base_type.get_declaration(scope_link.get_scope(argument.get_ast()), std::string(""))
-								<< ")"
-								<< ", 0"
-								<< ", sizeof("
+								<< ");"
+							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].lower_bound = 0;"
+							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].accessed_length = "
+								<< "sizeof("
 									<< base_type.get_declaration(scope_link.get_scope(argument.get_ast()), std::string(""))
-								<< ")"
-							<< "}";
+								<< ");";
 						address_source = Source(argument.prettyprint());
 					}
 					else
 					{
 						// A struct
 						dimensions_source
-							<< "{"
+							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].size = "
 								<< "sizeof("
 									<< base_type.get_declaration(scope_link.get_scope(argument.get_ast()), std::string(""))
-								<< ")"
-								<< ", 0"
-								<< ", sizeof("
+								<< ");"
+							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].lower_bound = 0;"
+							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].accessed_length = "
+								<< "sizeof("
 									<< base_type.get_declaration(scope_link.get_scope(argument.get_ast()), std::string(""))
-								<< ")"
-							<< "}";
+								<< ");";
 						address_source = Source(argument.prettyprint());
 					}
 				}
@@ -390,15 +384,15 @@ namespace TL
 						direction_source = Source("CSS_IN_SCALAR_DIR");
 					}
 					dimensions_source
-						<< "{"
+						<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].size = "
 							<< "sizeof("
 								<< parameter_type.get_declaration(scope_link.get_scope(argument.get_ast()), std::string(""))
-							<< ")"
-							<< ", 0"
-							<< ", sizeof("
+							<< ");"
+						<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].lower_bound = 0;"
+						<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].accessed_length = "
+							<< "sizeof("
 								<< parameter_type.get_declaration(scope_link.get_scope(argument.get_ast()), std::string(""))
-							<< ")"
-						<< "}";
+							<< ");";
 					
 					if (is_lvalue && argument_type.is_same_type(parameter_type))
 					{
@@ -424,11 +418,7 @@ namespace TL
 					throw FatalException();
 				}
 				
-				dimensions_source
-					<< "};";
 			}
-			parameter_region_source
-				<< "};";
 		}
 		
 		AST_t tree = source.parse_statement(node, ctx.scope_link);
@@ -685,7 +675,7 @@ namespace TL
 					adapter_parameters
 						<< ",";
 				}
-				if ((parameter_type.is_pointer() && !parameter_type.points_to().is_void()) || parameter_type.is_array())
+				if (parameter_type.is_pointer() || parameter_type.is_array())
 				{
 					adapter_parameters
 						<< "parameter_data[" << index << "]";

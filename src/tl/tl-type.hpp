@@ -1,23 +1,26 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #ifndef TL_TYPE_HPP
 #define TL_TYPE_HPP
 
@@ -27,12 +30,15 @@
 #include "tl-symbol.hpp"
 #include "tl-ast.hpp"
 #include "tl-scope.hpp"
+#include "tl-templates.hpp"
 #include "cxx-scope.h"
 
 namespace TL
 {
     class Scope;
     class Symbol;
+    class TemplateParameter;
+    class TemplateArgument;
     
     //! \addtogroup Wrap
     //! @{
@@ -95,8 +101,6 @@ namespace TL
                 return true;
             }
 
-            
-
             //! Returns a string with a declaration
             std::string get_simple_declaration(Scope sc, const std::string& symbol_name, 
                     TypeDeclFlags flags = NORMAL_DECLARATION) const;
@@ -129,6 +133,22 @@ namespace TL
              * \param scope Scope of \a expression_array
              */
             Type get_array_to(AST_t expression_array, Scope scope);
+
+            //! Returns an array to the current type
+            /*! 
+             * Use this for arrays with empty dimension including C99 
+             * wildcard sized arrays
+             */
+            Type get_array_to();
+
+            //! Convenience function that returns an array type built after a dimension string
+            /*!
+              The frontend never creates this kind of array types. They exist
+              to ease array type creation in TL. They should be only used for
+              types that are going to be prettyprinted.
+              */
+            Type get_array_to(const std::string& str);
+
             //! Gets a reference (C++) to the current type
             Type get_reference_to();
 
@@ -318,6 +338,9 @@ namespace TL
             //! Returns the expression of the array dimension
             AST_t array_dimension() const;
 
+            //! [C only] States whether current array is a VLA
+            bool array_is_vla() const;
+
 
             //! States whether this type represents an unresolved overload type
             /*! 
@@ -349,6 +372,21 @@ namespace TL
              */
             bool is_dependent() const;
 
+            //! States whether the type is the result of a type dependent expression
+            /*! Consider the following case
+             *
+             *   template <typename _T>
+             *   void f(_T t)
+             *   {
+             *      t + 1;
+             *   }
+             *
+             * Expression 't + 1' is a type dependent expression since the exact
+             * depends on some objects whose type is dependent. These expressions
+             * cannot be checked until instatiation time
+             */
+            bool is_expression_dependent() const;
+
             //! States whether the current type is incomplete
             bool is_incomplete() const;
 
@@ -371,6 +409,9 @@ namespace TL
             //! States whether any nonstatic member of class-type is defined as mutable
             bool some_member_is_mutable() const;
 
+            //! Is variably modified type
+            bool is_variably_modified() const;
+
             //! States whether this type is const qualified
             bool is_const() const;
             //! States whether this type is volatile qualified
@@ -387,10 +428,46 @@ namespace TL
             //! Returns a restrict qualified type of current type
             Type get_restrict_type();
 
+            //! States that the type is a template type
+            /*!
+              A template type is the type of a template-name like A and f
+              in the example below.
+
+              template <typename _T> struct A { };
+              template <typename _T> void f(_T) { }
+
+
+              Note that 'A<int>' and 'f(3)' (which is like 'f<int>(3)')
+              are not template-types but template specialized types
+             */
+            bool is_template_type() const;
+
+            //! Returns the primary template of a template type
+            //! This is always a named type, so you can get a symbol after it
+            Type get_primary_template() const;
+
+            //! Returns the template parameters of a template type
+            /*!
+              This function can be used both in template types and in template 
+              specialized types
+              */
+            ObjectList<TemplateParameter> get_template_parameters() const;
+
             //! States whether the type is a template specialized one
+            /*!
+              A template specialized type is a type which was created
+              not by a user declaration but the instantiation of
+              a template type.
+            */
             bool is_template_specialized_type() const;
-            //! For a template-specialized type return the list of template-parameters
-            ObjectList<Symbol> get_template_parameters() const;
+            //! Returns the template arguments of a specialized template type
+            ObjectList<TemplateArgument> get_template_arguments() const;
+
+            //! Returns the related template type of a specialized template type
+            /*!
+              This function is only valid for template specialized types
+            */
+            Type get_related_template_type() const;
 
             //! States whether two types represent the same type
             /*!

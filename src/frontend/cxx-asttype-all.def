@@ -1,8 +1,10 @@
 # This file only includes other files 
 # and it is used to create cxx-asttype-all.def
 /*!include cxx-asttype-base.def*/
+/*!include cxx-asttype-extensions.def*/
 /*!include cxx-asttype-gcc.def*/
 /*!include cxx-asttype-pragma.def*/
 /*!include cxx-asttype-superscalar.def*/
+/*!include cxx-asttype-omp.def*/
 /*!include cxx-asttype-upc.def*/
 /*!include cxx-asttype-xl.def*/

@@ -1,23 +1,26 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #include <stdio.h>
 #include <string.h>
 #include "extstruct.h"
@@ -86,7 +89,10 @@ static int select_node_type(AST a, node_t type);
 static AST recursive_search(AST a, node_t type);
 static AST look_for_node_type_within_ambig(AST a, node_t type, int n);
 static void solve_integral_specification_ambig(AST a);
+#if 0
 static void solve_nested_name_with_no_type(AST a);
+static void solve_function_returning_function(AST a);
+#endif
 
 static void solve_ambiguous_simple_declaration(AST a, decl_context_t decl_context);
 
@@ -111,6 +117,9 @@ static char check_for_type_specifier(AST type_id, decl_context_t decl_context);
 static char check_for_typeless_declarator(AST declarator, decl_context_t decl_context);
 
 static char check_for_init_declarator(AST init_declarator, decl_context_t decl_context);
+
+static char check_for_function_definition_declarator(AST declarator, decl_context_t decl_context);
+
 static char check_for_declarator(AST declarator, decl_context_t decl_context);
 static char check_for_declarator_rec(AST declarator, decl_context_t decl_context);
 static char check_for_function_declarator_parameters(AST parameter_declaration_clause, decl_context_t decl_context);
@@ -200,10 +209,11 @@ void solve_ambiguous_declaration(AST a, decl_context_t decl_context)
     int i;
     int j;
     
-    // Determine the ambiguity
-    // 
-    // a) signed/unsigned/short/long
+    // This routine is a bit awkward, we first try to discover the real ambiguity 
+    // under the hood and then we choose the correct interpretation
 
+    // 'unsigned long a'; 
+    // here it is unclear if 'unsigned' or 'long' is the type-specifier
     valid = 1;
     for (i = 0; (i < ast_get_num_ambiguities(a)) && valid; i++)
     {
@@ -254,8 +264,12 @@ void solve_ambiguous_declaration(AST a, decl_context_t decl_context)
     }
 
     /*
-     * Ambiguous declaration for a nested name
-     * referring to a constructor
+     * This is an ambiguity arising in function definitions
+     *
+     * Sometimes it is unclear whether the function has type or not. In C++
+     * constructors do not return anything, so their type_specifier is empty.
+     * In C one can specify a function without return type, but most of the
+     * time is not the proper interpretation (and when it is, it is not ambiguous)
      */
     char there_is_empty_type_spec = 0;
     valid = 1;
@@ -263,9 +277,7 @@ void solve_ambiguous_declaration(AST a, decl_context_t decl_context)
     {
         AST option = ast_get_ambiguity(a, i);
 
-        // This should only happen with declarators referring to constructors
-        // and since they cannot appear as just plain declarations this must be
-        // a function definition
+        // This problem only happens for function definitions
         if (ASTType(option) != AST_FUNCTION_DEFINITION)
         {
             valid = 0;
@@ -274,6 +286,7 @@ void solve_ambiguous_declaration(AST a, decl_context_t decl_context)
 
         AST decl_specifier_seq = ASTSon0(option);
 
+        // And there must be one of the interpretations without returning type
         if (decl_specifier_seq == NULL
                 || ASTSon1(decl_specifier_seq) == NULL)
         {
@@ -288,7 +301,43 @@ void solve_ambiguous_declaration(AST a, decl_context_t decl_context)
 
     if (valid)
     {
-        solve_nested_name_with_no_type(a);
+        // Ok, let's see which one is fine here
+        int correct_option = -1;
+        for (i = 0; i < ast_get_num_ambiguities(a); i++)
+        {
+            AST option = ast_get_ambiguity(a, i);
+            AST declarator = ASTSon1(option);
+
+            // This is a syntactic check for sanity of a function definition declarator
+            char current_valid = check_for_function_definition_declarator(declarator, decl_context);
+
+            if (current_valid)
+            {
+                if (correct_option < 0)
+                {
+                    correct_option = i;
+                }
+                else
+                {
+                    AST previous_option = ast_get_ambiguity(a, correct_option);
+                    AST current_option = option;
+                    internal_error("More than one valid alternative! %s vs %s\n", 
+                            ast_print_node_type(ASTType(previous_option)),
+                            ast_print_node_type(ASTType(current_option)));
+                }
+            }
+        }
+
+        if (correct_option < 0)
+        {
+            CXX_LANGUAGE()
+            {
+                internal_error("Could not solve type lacking declarator ambiguity!\n", 0);
+            }
+        }
+
+        choose_option(a, correct_option);
+
         return;
     }
 
@@ -344,7 +393,7 @@ static void solve_ambiguous_simple_declaration(AST a, decl_context_t decl_contex
 
     if (correct_option < 0)
     {
-        internal_error("Ambiguity not solved\n", 0);
+        internal_error("Ambiguity not solved %s", ast_location(a));
     }
     else
     {
@@ -353,9 +402,23 @@ static void solve_ambiguous_simple_declaration(AST a, decl_context_t decl_contex
 }
 
 
+// Solves the case
+//
+//    ClassName::ClassName([param-list]) { ... }
+//
+// The ambiguity arises because it looks like
+//
+//  ClassName  ::ClassName([param-list]) { ... }
+//
+// which must be interpreted correctly as
+//
+//               ClassName::ClassName([param-list]) { ...}
+//
+#if 0
 static void solve_nested_name_with_no_type(AST a)
 {
     int i;
+    int correct_choice = -1;
     for (i = 0; i < ast_get_num_ambiguities(a); i++)
     {
         AST option = ast_get_ambiguity(a, i);
@@ -365,11 +428,78 @@ static void solve_nested_name_with_no_type(AST a)
         if (decl_specifier_seq == NULL || 
                 ASTSon1(decl_specifier_seq) == NULL)
         {
-            choose_option(a, i);
-            return;
+            if (correct_choice < 0)
+            {
+                correct_choice = i;
+            }
+            else
+            {
+                AST first_option = ast_get_ambiguity(a, correct_choice);
+                AST second_option = option;
+                internal_error("More than one valid choices! '%s' vs '%s' %s", 
+                        ast_print_node_type(ASTType(first_option)),
+                        ast_print_node_type(ASTType(second_option)),
+                        ast_location(second_option));
+            }
         }
     }
+
+    if (correct_choice < 0)
+    {
+        internal_error("Could not solve ambiguity of constructor definition at '%s'\n", ast_location(a));
+    }
+
+    choose_option(a, correct_choice);
 }
+
+// Solves the case for
+// 
+//   T (fun)([param-list]) { ... }
+// 
+// In this case the parser generated two interpretations one for a
+// definition of one function called T and another one for a
+// definition of one function called fun. We want fun, basically
+// because if T was valid it would be returning a function, which
+// is not allowed
+static void solve_function_returning_function(AST a)
+{
+    int i;
+    int correct_choice = -1;
+    for (i = 0; i < ast_get_num_ambiguities(a); i++)
+    {
+        AST option = ast_get_ambiguity(a, i);
+
+        AST decl_specifier_seq = ASTSon0(option);
+
+        // We want the case where we return something, not simply
+        if (decl_specifier_seq != NULL && 
+                ASTSon1(decl_specifier_seq) != NULL)
+        {
+            if (correct_choice < 0)
+            {
+                correct_choice = i;
+            }
+            else
+            {
+                AST first_option = ast_get_ambiguity(a, correct_choice);
+                AST second_option = option;
+                internal_error("More than one valid choices! '%s' vs '%s' %s", 
+                        ast_print_node_type(ASTType(first_option)),
+                        ast_print_node_type(ASTType(second_option)),
+                        ast_location(second_option));
+            }
+        }
+    }
+
+    if (correct_choice < 0)
+    {
+        internal_error("Could not solve ambiguity of function definition at '%s'\n", ast_location(a));
+    }
+
+    choose_option(a, correct_choice);
+}
+#endif
+
 // Solves this case
 //
 //    unsigned long A;
@@ -561,6 +691,27 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
                     leave_test_expression();
                     break;
                 }
+            case AST_IF_ELSE_STATEMENT:
+                {
+                    /* 
+                       Normally the if-else ambiguity is solved in the parser but sometimes it may slip in
+                       because of the nature of C
+
+                       if (0)
+                           for (;;) // This for is not caught in the grammar
+                               if (0)
+                                   if (0)
+                                   {
+                                   }
+                                   else
+                                   {
+                                   }
+                    */
+                    // If this 'if' has an else it is the wrong interpretation
+                    // because we are 'raising' the else too much
+                    current_check = (ASTSon2(ast_get_ambiguity(a, i)) == NULL);
+                    break;
+                }
             default :
                 {
                     internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(a)));
@@ -596,7 +747,7 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
                 }
                 else
                 {
-                    internal_error("More than one valid choice! '%s' vs '%s' %s", 
+                    internal_error("More than one valid choices! '%s' vs '%s' %s", 
                             ast_print_node_type(ASTType(first_option)),
                                 ast_print_node_type(ASTType(second_option)),
                                 ast_location(second_option));
@@ -1008,6 +1159,12 @@ static char check_for_typeless_declarator_rec(AST declarator, decl_context_t dec
             {
                 // Do nothing
                 // will continue below
+                break;
+            }
+        case AST_AMBIGUITY:
+            {
+                solve_ambiguous_declarator(declarator, decl_context);
+                return check_for_typeless_declarator_rec(declarator, decl_context, nfuncs);
                 break;
             }
         default :
@@ -1427,6 +1584,17 @@ char check_for_simple_type_spec(AST type_spec, decl_context_t decl_context, type
 
 static char check_for_type_specifier(AST type_id, decl_context_t decl_context)
 {
+    C_LANGUAGE()
+    {
+        if (type_id == NULL)
+            return 1;
+    }
+    CXX_LANGUAGE()
+    {
+        ERROR_CONDITION(type_id == NULL,
+                "type-id cannot be null", 0);
+    }
+
     switch (ASTType(type_id))
     {
         case AST_SIMPLE_TYPE_SPECIFIER :
@@ -1645,6 +1813,9 @@ static char check_for_declarator(AST declarator, decl_context_t decl_context)
 
 static char check_for_declarator_rec(AST declarator, decl_context_t decl_context)
 {
+    if (declarator == NULL)
+        return 1;
+
     switch (ASTType(declarator))
     {
         case AST_ABSTRACT_DECLARATOR :
@@ -1666,10 +1837,7 @@ static char check_for_declarator_rec(AST declarator, decl_context_t decl_context
                         return 0;
                     }
                 }
-                if (ASTSon0(declarator) != NULL)
-                {
-                    return check_for_declarator_rec(ASTSon0(declarator), decl_context);
-                }
+                return check_for_declarator_rec(ASTSon0(declarator), decl_context);
                 return 1;
             }
         case AST_PARENTHESIZED_ABSTRACT_DECLARATOR :
@@ -1696,11 +1864,7 @@ static char check_for_declarator_rec(AST declarator, decl_context_t decl_context
                         return 0;
                     }
                 }
-                if (ASTSon0(declarator) != NULL)
-                {
-                    return check_for_declarator_rec(ASTSon0(declarator), decl_context);
-                }
-                return 1;
+                return check_for_declarator_rec(ASTSon0(declarator), decl_context);
                 break;
             }
         case AST_DECLARATOR_ID_EXPR :
@@ -1931,7 +2095,7 @@ void solve_ambiguous_parameter_decl(AST parameter_declaration, decl_context_t de
 
     if (current_choice < 0)
     {
-        internal_error("Ambiguity not solved", 0);
+        internal_error("Ambiguity not solved %s", ast_location(parameter_declaration));
     }
     else
     {
@@ -2156,7 +2320,7 @@ void solve_ambiguous_type_specifier(AST ambig_type, decl_context_t decl_context)
 
     if (typeof_choice < 0)
     {
-        internal_error("Ambiguity not solved", 0);
+        internal_error("Ambiguity not solved %s", ast_location(ambig_type));
     }
     else
     {
@@ -2202,7 +2366,7 @@ void solve_ambiguous_expression_list(AST expression_list, decl_context_t decl_co
 
     if (correct_choice < 0)
     {
-        internal_error("Ambiguity not solved", 0);
+        internal_error("Ambiguity not solved %s", ast_location(expression_list));
     }
     else
     {
@@ -2305,7 +2469,7 @@ char check_nested_name_spec(AST nested_name_spec, decl_context_t decl_context)
 char check_for_type_id_tree(AST type_id, decl_context_t decl_context)
 {
     AST type_specifier_seq = ASTSon0(type_id);
-    // AST abstract_declarator = ASTSon1(type_id);
+    AST abstract_declarator = ASTSon1(type_id);
     
     if (ASTType(type_specifier_seq) == AST_AMBIGUITY)
     {
@@ -2315,7 +2479,10 @@ char check_for_type_id_tree(AST type_id, decl_context_t decl_context)
     // This is never NULL
     AST type_specifier = ASTSon1(type_specifier_seq);
 
-    return check_for_type_specifier(type_specifier, decl_context);
+    return check_for_type_specifier(type_specifier, decl_context)
+        && ((abstract_declarator == NULL)
+                || (check_for_declarator(abstract_declarator, decl_context)));
+
 }
 
 
@@ -2504,4 +2671,145 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
     }
     
     return result;
+}
+
+static char check_for_function_definition_declarator_rec(AST declarator,
+        decl_context_t decl_context,
+        char previous_is_array, char previous_is_function)
+{
+    switch (ASTType(declarator))
+    {
+        case AST_DECLARATOR_ARRAY :
+            {
+                // An array cannot contain functions
+                if (previous_is_function)
+                    return 0;
+                return check_for_function_definition_declarator_rec(ASTSon0(declarator), 
+                        decl_context,
+                        /* previous_is_array */ 1, /* previous_is_function */ 0);
+            }
+        case AST_PARENTHESIZED_DECLARATOR :
+        case AST_DECLARATOR :
+        case AST_POINTER_DECL :
+            {
+                return check_for_function_definition_declarator_rec(ASTSon0(declarator),
+                        decl_context,
+                        /* previous_is_array */ 0, /* previous_is_function */ 0);
+            }
+        case AST_DECLARATOR_FUNC :
+            {
+                // Functions cannot return arrays or functions
+                if (previous_is_function || previous_is_array)
+                {
+                    return 0;
+                }
+                return check_for_function_definition_declarator_rec(ASTSon0(declarator),
+                        decl_context,
+                        /* previous_is_array */ 0, /* previous_is_function */ 1);
+            }
+        case AST_DECLARATOR_ID_EXPR :
+            {
+                AST id_expr = ASTSon0(declarator);
+                if (ASTType(id_expr) == AST_QUALIFIED_ID)
+                {
+                    // The declarator of a function definition cannot be like '::f'
+                    AST global_op = ASTSon0(id_expr);
+
+                    return (global_op == NULL);
+                }
+                return 1;
+                break;
+            }
+        case AST_AMBIGUITY:
+            {
+                solve_ambiguous_declarator(declarator, decl_context);
+                return check_for_function_definition_declarator_rec(declarator, decl_context,
+                        previous_is_array, previous_is_function);
+            }
+        default :
+            {
+                internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTType(declarator)));
+                break;
+            }
+    }
+
+    return 0;
+}
+
+static char check_for_function_definition_declarator(AST declarator, decl_context_t decl_context)
+{
+    return check_for_function_definition_declarator_rec(declarator, 
+            decl_context,
+            /* previous_is_array */ 0, /* previous_is_function */ 0);
+}
+
+void build_solve_condition_ambiguity(AST a, decl_context_t decl_context)
+{
+    ERROR_CONDITION(ASTType(a) != AST_AMBIGUITY,
+            "Must be ambiguous node", 0);
+    int correct_choice = -1;
+    int i;
+    for (i = 0; i < ast_get_num_ambiguities(a); i++)
+    {
+        char current_check = 0;
+        AST current = ast_get_ambiguity(a, i);
+        if (ASTSon0(current) == NULL) // Expression
+        {
+            enter_test_expression();
+            current_check = check_for_expression(ast_get_ambiguity(current, i), decl_context);
+            leave_test_expression();
+        }
+        else
+        {
+            // Like a declaration
+            // type_specifier_seq declarator '=' assignment_expr
+            AST type_specifier_seq = ASTSon0(current);
+            AST declarator = ASTSon1(current);
+            AST expr = ASTSon2(current);
+
+            if (ASTType(type_specifier_seq) == AST_AMBIGUITY)
+            {
+                solve_ambiguous_type_specifier_seq(type_specifier_seq, decl_context);
+            }
+
+            AST type_specifier = ASTSon1(type_specifier_seq);
+
+            current_check = (check_for_type_specifier(type_specifier, decl_context)
+                    && check_for_declarator(declarator, decl_context)
+                    && check_for_expression(expr, decl_context));
+        }
+
+        if (current_check)
+        {
+            if (correct_choice < 0)
+            {
+                correct_choice = i;
+            }
+            else
+            {
+                AST first_option = ast_get_ambiguity(a, correct_choice);
+                AST second_option = current;
+                internal_error("More than one valid choices! '%s' vs '%s' %s", 
+                        ast_print_node_type(ASTType(first_option)),
+                        ast_print_node_type(ASTType(second_option)),
+                        ast_location(second_option));
+            }
+        }
+    }
+
+    if (correct_choice < 0)
+    {
+        for (i = 0; i < ast_get_num_ambiguities(a); i++)
+        {
+            char current_check = 0;
+            AST current = ast_get_ambiguity(a, i);
+            current_check = check_for_expression(ast_get_ambiguity(current, i), decl_context);
+            running_error("%s: error: cannot continue due to serious semantic problems in '%s'",
+                    ast_location(a), prettyprint_in_buffer(a));
+        }
+    }
+    else
+    {
+        choose_option(a, correct_choice);
+    }
 }

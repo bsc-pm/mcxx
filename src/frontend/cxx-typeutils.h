@@ -1,23 +1,26 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #ifndef CXX_TYPEUTILS_H
 #define CXX_TYPEUTILS_H
 
@@ -93,7 +96,13 @@ LIBMCXX_EXTERN struct type_tag* get_unresolved_overloaded_type(struct scope_entr
         template_argument_list_t* explicit_template_arguments);
 LIBMCXX_EXTERN template_argument_list_t* unresolved_overloaded_type_get_explicit_template_arguments(struct type_tag* t);
 
+LIBMCXX_EXTERN scope_entry_t* unresolved_overloaded_type_simplify(struct type_tag* t, 
+        decl_context_t decl_context, int line, const char* filename);
+
 LIBMCXX_EXTERN struct type_tag* get_dependent_expr_type(void);
+
+// States that this is a variably modified type
+LIBMCXX_EXTERN char is_variably_modified_type(struct type_tag* t);
 
 // This is a plain '0'
 LIBMCXX_EXTERN struct type_tag* get_zero_type(void);
@@ -126,6 +135,8 @@ LIBMCXX_EXTERN struct type_tag* get_rvalue_reference_type(struct type_tag* t);
 LIBMCXX_EXTERN struct type_tag* lvalue_ref_for_implicit_arg(struct type_tag* t);
 
 LIBMCXX_EXTERN struct type_tag* get_array_type(struct type_tag*, struct AST_tag* expression, decl_context_t decl_context);
+
+LIBMCXX_EXTERN struct type_tag* get_array_type_str(struct type_tag*, const char* dim);
 
 LIBMCXX_EXTERN struct type_tag* get_new_function_type(struct type_tag* t, parameter_info_t* parameter_info, int num_parameters);
 LIBMCXX_EXTERN struct type_tag* get_nonproto_function_type(struct type_tag* t, int num_parameters);
@@ -340,6 +351,7 @@ LIBMCXX_EXTERN scope_entry_list_t *unresolved_overloaded_type_get_overload_set(s
 LIBMCXX_EXTERN struct type_tag* array_type_get_element_type(struct type_tag* t);
 LIBMCXX_EXTERN struct AST_tag* array_type_get_array_size_expr(struct type_tag* t);
 LIBMCXX_EXTERN decl_context_t array_type_get_array_size_expr_context(struct type_tag* t);
+LIBMCXX_EXTERN char array_type_is_vla(struct type_tag* t);
 
 LIBMCXX_EXTERN enum class_kind_t class_type_get_class_kind(type_t* t);
 LIBMCXX_EXTERN int class_type_get_num_bases(struct type_tag* class_type);

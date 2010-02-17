@@ -1,23 +1,26 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -63,6 +66,7 @@ static literal_value_t literal_value_gcc_builtin_types_compatible(AST expression
         decl_context_t decl_context);
 
 static literal_value_t evaluate_sizeof(AST expression, decl_context_t decl_context);
+static literal_value_t evaluate_alignof(AST expression, decl_context_t decl_context);
 
 static literal_value_t evaluate_gxx_type_traits(AST expression, decl_context_t decl_context);
 
@@ -207,7 +211,7 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
                 }
                 else
                 {
-                    WARNING_MESSAGE("Found a sizeof expression in '%s' while evaluating a constant expression. Assuming one.\n", 
+                    WARNING_MESSAGE("%s: warning: sizeof expression will evaluate to one\n", 
                             ast_location(a));
                 }
                 return literal_value_one();
@@ -325,9 +329,11 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
         case AST_CLASS_TEMPLATE_MEMBER_ACCESS :
         case AST_POINTER_CLASS_TEMPLATE_MEMBER_ACCESS :
         case AST_ARRAY_SUBSCRIPT :
+        case AST_DIMENSION_STR:
         case AST_FUNCTION_CALL :
         case AST_POINTER_TO_MEMBER :
         case AST_POINTER_TO_POINTER_MEMBER :
+        case AST_VLA_EXPRESSION:
             {
                 literal_value_t dependent_entity;
                 memset(&dependent_entity, 0, sizeof(dependent_entity));
@@ -343,6 +349,20 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
             {
                 return evaluate_gxx_type_traits(a, decl_context);
                 break;
+            }
+        case AST_GCC_ALIGNOF:
+        case AST_GCC_ALIGNOF_TYPE:
+            {
+                if (!CURRENT_CONFIGURATION->disable_sizeof)
+                {
+                    return evaluate_alignof(a, decl_context);
+                }
+                else
+                {
+                    WARNING_MESSAGE("%s: warning: alignof expression will evaluate to one\n", 
+                            ast_location(a));
+                }
+                return literal_value_one();
             }
         case AST_AMBIGUITY :
         default :
@@ -582,6 +602,7 @@ static literal_value_t create_value_from_literal(AST a)
             }
             else
             {
+                // Note: literal_text[0] is the quote
                 // FIXME: Make a flag signed/unsigned char
                 result.kind = LVK_SIGNED_CHAR;
                 if (literal_text[1] != '\\')
@@ -590,7 +611,114 @@ static literal_value_t create_value_from_literal(AST a)
                 }
                 else
                 {
-                    internal_error("TODO - Check for escape sentences!", 0);
+                    switch (literal_text[2])
+                    {
+                        case '\'':
+                            {
+                                result.value.signed_char = literal_text[2];
+                                break;
+                            }
+                        case 'a' :
+                            {
+                                result.value.signed_char = '\a';
+                                break;
+                            }
+                        case 'b' :
+                            {
+                                result.value.signed_char = '\b';
+                                break;
+                            }
+                        case 'e' :
+                            {
+                                result.value.signed_char = '\e';
+                                break;
+                            }
+                        case 'f' :
+                            {
+                                result.value.signed_char = '\f';
+                                break;
+                            }
+                        case 'n' :
+                            {
+                                result.value.signed_char = '\n';
+                                break;
+                            }
+                        case 'r' :
+                            {
+                                result.value.signed_char = '\r';
+                                break;
+                            }
+                        case 't' :
+                            {
+                                result.value.signed_char = '\t';
+                                break;
+                            }
+                        case 'v' :
+                            {
+                                result.value.signed_char = '\v';
+                                break;
+                            }
+                        case '\\' :
+                            {
+                                result.value.signed_char = '\\';
+                                break;
+                            }
+                        case 0:
+                        case 1:
+                        case 2:
+                        case 3:
+                        case 4:
+                        case 5:
+                        case 6:
+                        case 7:
+                            {
+                                int i;
+                                char c[32] = { 0 };
+                                // Copy until the quote
+                                for (i = 2; literal_text[i] != '\'' && literal_text[i] != '\0' ; i++)
+                                {
+                                    c[i - 2] = literal_text[i];
+                                }
+
+                                char *err = NULL;
+                                result.value.signed_char = (signed char) strtol(c, &err, 8);
+
+                                if (!(*c != '\0'
+                                        && *err == '\0'))
+                                {
+                                    running_error("%s: error: %s does not seem a valid character literal\n", 
+                                            ast_location(a),
+                                            prettyprint_in_buffer(a));
+                                }
+                                break;
+                            }
+                        case 'x':
+                            {
+                                int i;
+                                char c[32] = { 0 };
+                                // Copy until the quote
+                                // Note literal_value is '\x000' so the number
+                                // starts at literal_value[3]
+                                for (i = 3; literal_text[i] != '\'' && literal_text[i] != '\0' ; i++)
+                                {
+                                    c[i - 3] = literal_text[i];
+                                }
+
+                                char * err = NULL;
+                                result.value.signed_char = (signed char) strtol(c, &err, 16);
+
+                                if (!(*c != '\0'
+                                        && *err == '\0'))
+                                {
+                                    running_error("%s: error: %s does not seem a valid character literal\n", 
+                                            ast_location(a),
+                                            prettyprint_in_buffer(a));
+                                }
+                                break;
+                            }
+                        default:
+                            internal_error("Unhandled char literal %s", literal_text);
+                    }
                 }
             }
             break;
@@ -3275,6 +3403,88 @@ static literal_value_t evaluate_sizeof(AST sizeof_tree, decl_context_t decl_cont
     {
         result.kind = LVK_UNSIGNED_LONG;
         result.value.unsigned_long = type_size;
+    }
+    else
+    {
+        internal_error("size_t does not seem a sensible type! "
+                "Either 'unsigned int' or 'unsigned long' is expected but '%s' was defined as 'size_t'\n",
+                print_declarator(size_t_type));
+    }
+
+    return result;
+}
+
+static literal_value_t evaluate_alignof(AST alignof_tree, decl_context_t decl_context)
+{
+    type_t* t = NULL;
+    if (ASTType(alignof_tree) == AST_GCC_ALIGNOF)
+    {
+        AST alignof_expression = ASTSon0(alignof_tree);
+
+        // Ensure we have something already computed here, it might happen
+        // because of 'alignof' nature that the argument of the alignof does not
+        // have any type but alignof itself always has 'size_t' type
+        check_for_expression(alignof_expression, decl_context);
+
+        t = ASTExprType(alignof_expression);
+    }
+    else if (ASTType(alignof_tree) == AST_GCC_ALIGNOF_TYPE)
+    {
+        AST type_id = ASTSon0(alignof_tree);
+        AST type_specifier = ASTSon0(type_id);
+        AST abstract_declarator = ASTSon1(type_id);
+
+        gather_decl_spec_t gather_info;
+        memset(&gather_info, 0, sizeof(gather_info));
+
+        type_t* simple_type_info = NULL;
+        build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
+                decl_context);
+
+        type_t* declarator_type = simple_type_info;
+        compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
+                &declarator_type, decl_context);
+
+        t = declarator_type;
+    }
+
+    // Runtime sized types yield dependent expressions
+    if (is_dependent_type(t)
+            || type_is_runtime_sized(t))
+    {
+        literal_value_t dependent_entity;
+        memset(&dependent_entity, 0, sizeof(dependent_entity));
+        dependent_entity.kind = LVK_DEPENDENT_EXPR;
+
+        return dependent_entity;
+    }
+
+    _size_t type_align = 0;
+    type_align = type_get_size(t);
+
+    DEBUG_SIZEOF_CODE()
+    {
+        fprintf(stderr, "CEXPR: %s: '%s' yields a value of %zu\n",
+                ast_location(alignof_tree),
+                prettyprint_in_buffer(alignof_tree),
+                type_align);
+    }
+
+    // This is a bit kludgy
+    type_t* size_t_type = get_size_t_type();
+    
+    literal_value_t result;
+
+    if (equivalent_types(size_t_type, get_unsigned_int_type()))
+    {
+        result.kind = LVK_UNSIGNED_INT;
+        // This might wipe some bits
+        result.value.unsigned_int = type_align;
+    }
+    else if (equivalent_types(size_t_type, get_unsigned_long_int_type()))
+    {
+        result.kind = LVK_UNSIGNED_LONG;
+        result.value.unsigned_long = type_align;
     }
     else
     {

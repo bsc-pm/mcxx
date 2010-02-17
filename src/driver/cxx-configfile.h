@@ -1,23 +1,26 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #ifndef CXX_CONFIGFILE
 #define CXX_CONFIGFILE
 
@@ -26,7 +29,9 @@
 
 MCXX_BEGIN_DECLS
 
-typedef int (option_function_t)(struct compilation_configuration_tag*, const char* value);
+char config_file_parse(const char *filename);
+
+typedef int (option_function_t)(struct compilation_configuration_tag*, const char* index, const char* value);
 
 option_function_t config_set_language;
 option_function_t config_set_options;
@@ -40,6 +45,13 @@ option_function_t config_set_linker_options;
 option_function_t config_add_compiler_phase;
 option_function_t config_add_preprocessor_prefix;
 option_function_t config_set_environment;
+#if 0
+option_function_t config_set_embedder;
+option_function_t config_set_identifier;
+#endif
+option_function_t config_set_target_options;
+
+void print_help_target_options(void);
 
 MCXX_END_DECLS
 

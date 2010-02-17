@@ -1,23 +1,26 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #include <stdio.h>
 #include <string.h>
 #include "cxx-buildscope.h"
@@ -395,16 +398,19 @@ struct pointer_tag
 typedef 
 struct array_tag
 {
-    // Array sizes
     AST array_expr;
     // Scope of the array size expression
     decl_context_t array_expr_decl_context;
+    const char* array_dim;
 
     // The type of the array elements
     struct type_tag* element_type;
 
     // Is literal string type ?
     unsigned char is_literal_string:1;
+    unsigned char is_vla:1;
+    // This one states that we should be using dim instead of array_expr_decl_context
+    unsigned char is_plain:1;
 } array_info_t;
 
 // Vector type
@@ -1474,9 +1480,10 @@ type_t* template_type_get_specialized_type(type_t* t,
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "TYPEUTILS: No existing specialization matches for '%s', creating a fresh one of type '%s'\n",
+        fprintf(stderr, "TYPEUTILS: No existing specialization matches for '%s', creating a fresh one of type '%s' %p\n",
                 primary_symbol->symbol_name,
-                print_declarator(specialized_symbol->type_information));
+                print_declarator(specialized_symbol->type_information),
+                specialized_symbol->type_information);
     }
 
     return get_user_defined_type(specialized_symbol);
@@ -1945,6 +1952,12 @@ static Hash* get_array_sized_hash(_size_t size)
     }
 }
 
+type_t* get_array_type_str(type_t* element_type, const char* dim)
+{
+    AST expr = ASTLeaf(AST_DIMENSION_STR, NULL, 0, dim);
+    return get_array_type(element_type, expr, CURRENT_COMPILED_FILE->global_decl_context);
+}
+
 type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl_context)
 {
     // This type is not efficiently managed since sometimes we cannot state
@@ -2056,6 +2069,14 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
             result->array->element_type = element_type;
             result->array->array_expr = expression;
             result->array->array_expr_decl_context = decl_context;
+
+            C_LANGUAGE()
+            {
+                // This is a VLA
+                // In C++ there are no VLA's but this path can be followed by
+                // dependent arrays
+                result->array->is_vla = 1;
+            }
 
             if (expression != NULL
                     && !check_for_expression(expression, decl_context))
@@ -3270,6 +3291,9 @@ char equivalent_types(type_t* t1, type_t* t2)
         case TK_VECTOR :
             result = equivalent_vector_type(t1, t2);
             break;
+        case TK_OVERLOAD:
+            // This is always false
+            break;
         default :
             internal_error("Unknown type kind (%d)\n", t1->kind);
     }
@@ -4247,6 +4271,14 @@ decl_context_t array_type_get_array_size_expr_context(type_t* t)
     return t->array->array_expr_decl_context;
 }
 
+char array_type_is_vla(type_t* t)
+{
+    ERROR_CONDITION(!is_array_type(t), "This is not an array type", 0);
+    t = advance_over_typedefs(t);
+
+    return t->array->is_vla;
+}
+
 char is_array_type(type_t* t)
 {
     // Advance over typedefs
@@ -4739,11 +4771,11 @@ char is_dependent_expression(AST expression, decl_context_t decl_context)
             {
                 // [1][2] = 3
                 // a.b = 4
-                // AST designation = ASTSon0(expression);
+                AST designation = ASTSon0(expression);
                 // AST initializer_clause = ASTSon1(expression);
 
-                internal_error("Yet to implement", 0);
-                return 0;
+                // This is C only, in principle this cannot be dependent
+                return is_dependent_expression(designation, decl_context);
                 break;
             }
         case AST_DESIGNATION : 
@@ -4960,6 +4992,12 @@ char is_dependent_expression(AST expression, decl_context_t decl_context)
 
                 return 0;
             }
+        case AST_VLA_EXPRESSION:
+            {
+                // This is pointless here since this function is meant for C++
+                // and this is a C99-only feature
+                return 0;
+            }
         case AST_TYPENAME_EXPLICIT_TYPE_CONVERSION :
             {
                 internal_error("Yet to implement", 0);
@@ -5084,6 +5122,14 @@ char is_dependent_expression(AST expression, decl_context_t decl_context)
                 return (is_dependent_type_id(ASTSon0(expression), decl_context)
                         || (ASTSon1(expression) != NULL 
                             && is_dependent_type_id(ASTSon1(expression), decl_context)));
+            }
+        case AST_GCC_ALIGNOF:
+            {
+                return is_dependent_expression(ASTSon0(expression), decl_context);
+            }
+        case AST_GCC_ALIGNOF_TYPE:
+            {
+                return is_dependent_type_id(ASTSon0(expression), decl_context);
             }
         default :
             {
@@ -5487,7 +5533,12 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
             }
         case STK_CLASS :
             {
-                internal_error("Type STK_CLASS invalid\n", 0);
+                result = uniquestr("class <anonymous>");
+                break;
+            }
+        case STK_ENUM :
+            {
+                result = uniquestr("enum <anonymous>");
                 break;
             }
         case STK_TEMPLATE_DEPENDENT_TYPE :
@@ -5544,6 +5595,11 @@ const char* get_simple_type_name_string(decl_context_t decl_context, type_t* typ
         case TK_VECTOR:
             {
                 result = get_simple_type_name_string(decl_context, type_info->vector->element_type);
+                break;
+            }
+        case TK_OVERLOAD:
+            {
+                result = uniquestr("<unresolved overloaded function type>");
                 break;
             }
         default:
@@ -5950,6 +6006,10 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 c[255] = '\0';
 
                 (*left) = strappend((*left), c);
+                break;
+            }
+        case TK_OVERLOAD:
+            {
                 break;
             }
         default:
@@ -7188,6 +7248,47 @@ template_argument_list_t* unresolved_overloaded_type_get_explicit_template_argum
     return t->explicit_template_argument_list;
 }
 
+scope_entry_t* unresolved_overloaded_type_simplify(struct type_tag* t, decl_context_t decl_context, int line, const char* filename)
+{
+    ERROR_CONDITION(!is_unresolved_overloaded_type(t), "This is not an unresolved overloaded type", 0);
+
+    if (t->overload_set->next != NULL)
+        return NULL;
+
+    scope_entry_t* entry = t->overload_set->entry;
+    template_argument_list_t *argument_list = t->explicit_template_argument_list;
+
+    if (entry->kind != SK_TEMPLATE)
+    {
+        return entry;
+    }
+    else if (argument_list == NULL)
+    {
+        return NULL;
+    }
+
+    // Get a specialization of this template
+    type_t* specialization_type = template_type_get_primary_type(entry->type_information);
+    scope_entry_t* specialization_symbol = named_type_get_symbol(specialization_type);
+    type_t* specialized_function_type = specialization_symbol->type_information;
+
+    template_parameter_list_t* template_parameters = 
+        template_specialized_type_get_template_parameters(specialized_function_type);
+
+    type_t* named_specialization_type = template_type_get_specialized_type(entry->type_information,
+            argument_list, template_parameters,
+            decl_context, line, filename);
+
+    if (!is_dependent_type(named_specialization_type))
+    {
+        return named_type_get_symbol(named_specialization_type);
+    }
+    else
+    {
+        return NULL;
+    }
+}
+
 static type_t* _dependent_type = NULL;
 
 type_t* get_dependent_expr_type(void)
@@ -7841,14 +7942,7 @@ char type_is_runtime_sized(type_t* t)
 
     if (is_array_type(t))
     {
-        AST array_size_expr = array_type_get_array_size_expr(t);
-        decl_context_t array_size_expr_ctx = array_type_get_array_size_expr_context(t);
-
-        if (array_size_expr != NULL 
-                && !is_constant_expression(array_size_expr, array_size_expr_ctx))
-            return 1;
-
-        return type_is_runtime_sized(array_type_get_element_type(t));
+        return array_type_is_vla(t);
     }
     else if (is_class_type(t))
     {
@@ -8168,4 +8262,35 @@ void class_type_get_virtual_base_with_offset_num(type_t* t, int num,
 
     *symbol = class_type->type->class_info->virtual_base_classes_list[num]->virtual_base;
     *offset = class_type->type->class_info->virtual_base_classes_list[num]->virtual_base_offset;
+}
+
+char is_variably_modified_type(struct type_tag* t)
+{
+    CXX_LANGUAGE()
+    {
+        return 0;
+    }
+
+    if (is_array_type(t))
+    {
+        return array_type_is_vla(t);
+    }
+    else if (is_pointer_type(t))
+    {
+        return is_variably_modified_type(pointer_type_get_pointee_type(t));
+    }
+    else if (is_class_type(t))
+    {
+        type_t* class_type = get_actual_class_type(t);
+        int i;
+        for (i = 0; i < class_type_get_num_nonstatic_data_members(class_type); i++)
+        {
+            scope_entry_t* member = class_type_get_nonstatic_data_member_num(class_type, i);
+
+            if (type_is_runtime_sized(member->type_information))
+                    return 1;
+        }
+    }
+
+    return 0;
 }

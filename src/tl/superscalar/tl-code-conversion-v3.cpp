@@ -1,20 +1,26 @@
-/*
-    Cell/SMP superscalar Compiler
-    Copyright (C) 2007-2009 Barcelona Supercomputing Center
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; version 2.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 
 #include <sstream>
 
@@ -97,7 +103,8 @@ namespace TL
 		source
 			<< "{"
 				<< constant_redirection_source
-				<< "css_parameter_t const parameters__cssgenerated[] = {" << parameter_initializers_source << "};"
+				<< "css_parameter_t parameters__cssgenerated[" << arguments.size() << "];"
+				<< parameter_initializers_source
 				<< add_task_code
 			<< "}";
 		
@@ -130,11 +137,9 @@ namespace TL
 			Source address_source;
 			
 			parameter_initializers_source
-				<< "{"
-					<< direction_source
-					<< ", " << size_source
-					<< ", " << address_source
-				<< "}, ";
+				<< "parameters__cssgenerated[" << index << "].flags = " << direction_source << ";"
+				<< "parameters__cssgenerated[" << index << "].size = " << size_source << ";"
+				<< "parameters__cssgenerated[" << index << "].address = " << address_source << ";";
 			
 			Expression argument = arguments[index];
 			RegionList region_list = (*parameter_region_list.get_pointer())[index];
@@ -212,7 +217,7 @@ namespace TL
 				Expression parametrized_size(parametrized_size_ast, scope_link);
 				
 				// Replace the parameters in the parametrized size
-				ParameterExpression::substitute(parametrized_size, arguments, scope_link);
+				ParameterExpression::substitute(parametrized_size, arguments, argument.get_ast(), scope_link);
 				
 				size_source
 					<< parametrized_size.prettyprint();
@@ -570,7 +575,7 @@ namespace TL
 					adapter_parameters
 						<< ",";
 				}
-				if ((parameter_type.is_pointer() && !parameter_type.points_to().is_void()) || parameter_type.is_array())
+				if (parameter_type.is_pointer() || parameter_type.is_array())
 				{
 					adapter_parameters
 						<< "parameter_data[" << index << "]";

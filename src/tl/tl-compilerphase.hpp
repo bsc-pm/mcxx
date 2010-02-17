@@ -1,23 +1,26 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #ifndef TL_COMPILER_PHASE_HPP
 #define TL_COMPILER_PHASE_HPP
 
@@ -115,7 +118,25 @@ namespace TL
                 return NULL;
             }
         public:
+            //! Constructor of the phase
+            /*!
+              The constructor is called when the phase is loaded. This happens
+              when the compiler starts, after having read the configuration
+              files
+
+              You can set the initial state of a phase in this constructor. If you
+              need to reset your state, override CompilerPhase::phase_cleanup(). All
+              information that is not reset will be shared among executions of this
+              phase (this allows some sort of interfile/interprocedural information
+              processing provided you invoke the compiler with several files at a time)
+              */
             CompilerPhase();
+
+            //! Destructor of the phase
+            /*!
+              This destructor is called when the phase is unloaded, just before
+              ending the compiler.
+              */
             virtual ~CompilerPhase();
 
             //! Entry point of the phase before parsing and typechecking
@@ -131,6 +152,17 @@ namespace TL
              * \param data_flow The data transfer object along the compiler phase pipeline
              */
             virtual void run(DTO& data_flow) = 0;
+
+            //! Phase cleanup
+            /*!
+              This function is called after the phase has been run. Override this function
+              to reset all data of the phase that is not meant to last between files.
+
+              \note If you already do this in the run member function, move
+              the code to this function so the compiler can reset your phase,
+              even if run is not called.
+             */
+            virtual void phase_cleanup(DTO& data_flow) { }
 
             //! Sets the phase name
             /*!

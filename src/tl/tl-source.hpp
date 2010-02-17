@@ -1,29 +1,33 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #ifndef TL_SOURCE_T_HPP
 #define TL_SOURCE_T_HPP
 
 #include "tl-common.hpp"
 #include <string>
 #include "tl-object.hpp"
+#include "tl-type.hpp"
 #include "tl-ast.hpp"
 #include "tl-scope.hpp"
 #include "tl-scopelink.hpp"
@@ -35,6 +39,7 @@
 
 namespace TL
 {
+    class Type;
     class Source;
 
     //! Auxiliar class used by Source
@@ -137,7 +142,6 @@ namespace TL
 
             bool all_blanks() const;
 
-            std::string format_source(const std::string&);
         public:
             //! Constructor
             /*!
@@ -269,6 +273,23 @@ namespace TL
              * \param parse_flags Parsing flags
              */
             AST_t parse_expression_list(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
+
+            //! Parses an id-expression
+            /*!
+             * \param ref_tree Reference tree used when parsing this code
+             * \param scope_link Scope link used to get the scope of \a ref_tree
+             * \param parse_flags Parsing flags
+             */
+            AST_t parse_id_expression(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
+
+            //! Parses an id-expression
+            /*
+             * \param scope Scope used to parse this code
+             * \param scope_link Scope link used to get the scope of \a ref_tree
+             * \param parse_flags Parsing flags
+             */
+            AST_t parse_id_expression(Scope scope, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
+
             //! Parses a declaration
             /*!
              * \param ref_tree Reference tree used when parsing this code
@@ -298,6 +319,9 @@ namespace TL
              */
             ObjectList<Type> parse_type_list(AST_t ref_tree, TL::ScopeLink scope_link);
             // -- end of new family of parse_XXX
+
+            // Format string for debugging
+            static std::string format_source(const std::string&);
 
             //! States whether this Source is empty
             bool empty() const;

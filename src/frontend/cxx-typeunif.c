@@ -1,23 +1,26 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #include <stdio.h>
 #include <string.h>
 #include "cxx-typeunif.h"
@@ -1138,4 +1141,550 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
     {
         fprintf(stderr, "TYPEUNIF: Unification of unresolved overloaded types ended\n");
     }
+}
+
+static void unificate_template_arguments_(template_argument_list_t* targ_list_1, 
+        template_argument_list_t* targ_list_2, 
+        decl_context_t decl_context, 
+        deduction_set_t** deduction_set,
+        const char* filename,
+        int line)
+{
+    if (targ_list_1->num_arguments != targ_list_2->num_arguments)
+    {
+        return;
+    }
+
+    int i;
+    for (i = 0; i < targ_list_1->num_arguments; i++)
+    {
+        template_argument_t* current_arg_1 = targ_list_1->argument_list[i];
+        template_argument_t* current_arg_2 = targ_list_2->argument_list[i];
+
+        switch (current_arg_1->kind)
+        {
+            case TAK_TEMPLATE:
+            case TAK_TYPE:
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "TYPEUNIF: Unificating template/type-template argument %d\n",
+                                i);
+                    }
+                    unificate_two_types(current_arg_1->type, current_arg_2->type, 
+                            deduction_set, decl_context, filename, line);
+                }
+                break;
+            case TAK_NONTYPE:
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "TYPEUNIF: Unificating nontype-template argument %d\n",
+                                i);
+                    }
+                    unificate_two_expressions(deduction_set, 
+                            current_arg_1->expression,
+                            current_arg_1->expression_context,
+                            current_arg_2->expression,
+                            current_arg_2->expression_context);
+                }
+                break;
+            default:
+                {
+                    internal_error("Invalid template argument kind", 0);
+                }
+        }
+    }
+}
+
+static void unificate_template_id_(AST left_tree, AST right_tree, 
+        decl_context_t left_decl_context, 
+        decl_context_t right_decl_context, 
+        deduction_set_t** deduction_set)
+{
+    ERROR_CONDITION(ASTType(left_tree) != AST_TEMPLATE_ID
+            || ASTType(right_tree) != AST_TEMPLATE_ID, "Wrong trees, must be template-id both", 0);
+
+    if (strcmp(ASTText(ASTSon0(left_tree)), ASTText(ASTSon0(right_tree))) != 0)
+            return;
+
+    template_argument_list_t* targ_list_1 =
+        get_template_arguments_from_syntax(ASTSon1(left_tree),
+                left_decl_context, 
+                /* nesting_level */ 0);
+
+    template_argument_list_t* targ_list_2 =
+        get_template_arguments_from_syntax(ASTSon1(right_tree),
+                right_decl_context, 
+                /* nesting_level */ 0);
+
+    // It does not matter very much which decl context we use
+    unificate_template_arguments_(targ_list_1, targ_list_2, left_decl_context, deduction_set, ASTFileName(left_tree), ASTLine(left_tree));
+}
+
+static void unificate_unqualified_id_(AST left_tree, 
+        AST right_tree, 
+        decl_context_t left_decl_context,
+        decl_context_t right_decl_context,
+        deduction_set_t** deduction_set)
+{
+    if (ASTType(left_tree) == ASTType(right_tree))
+    {
+        switch (ASTType(left_tree))
+        {
+            case AST_SYMBOL:
+            case AST_OPERATOR_FUNCTION_ID:
+            case AST_CONVERSION_FUNCTION_ID :
+            case AST_DESTRUCTOR_ID :
+                {
+                    return;
+                    // Do nothing for these
+                }
+            case AST_DESTRUCTOR_TEMPLATE_ID :
+                {
+                    return unificate_template_id_(ASTSon0(left_tree),
+                            ASTSon1(right_tree), left_decl_context,
+                            right_decl_context, deduction_set);
+                }
+            case AST_TEMPLATE_ID :
+                {
+                    return unificate_template_id_(left_tree, right_tree,
+                            left_decl_context, right_decl_context,
+                            deduction_set);
+                }
+            default:
+                {
+                    internal_error("Unhandled node type '%s'\n", ast_print_node_type(ASTType(left_tree)));
+                }
+        }
+    }
+}
+
+static void unificate_nested_name_specifier_(AST left_tree, 
+        AST right_tree, 
+        decl_context_t left_decl_context,
+        decl_context_t right_decl_context,
+        deduction_set_t** deduction_set)
+{
+    if ((ASTSon1(left_tree) == NULL
+                && ASTSon1(right_tree) != NULL)
+            || (ASTSon1(left_tree) != NULL
+             && ASTSon1(right_tree) == NULL))
+        return;
+
+    AST left_nest = ASTSon0(left_tree);
+    AST right_nest = ASTSon1(right_tree);
+    if (ASTType(left_nest) == ASTType(right_nest))
+    {
+        // If the name is totally dependent, we have to rely on a plain syntactic comparison
+        switch (ASTType(left_nest))
+        {
+            case AST_SYMBOL:
+                {
+                    // Do nothing
+                    break;
+                }
+            case AST_TEMPLATE_ID:
+                {
+                    // This is enough
+                    unificate_template_id_(left_nest, right_nest, left_decl_context, right_decl_context, deduction_set);
+
+                    break;
+                }
+            default:
+                internal_error("Unhandled node '%s'\n", ast_print_node_type(ASTType(left_nest)));
+        }
+    }
+
+    // More nested specifiers to be checked
+    if (ASTSon1(left_tree) != NULL
+            && ASTSon1(right_tree) != NULL)
+    {
+        unificate_nested_name_specifier_(ASTSon1(left_tree),
+                ASTSon1(right_tree), left_decl_context, right_decl_context,
+                deduction_set);
+    }
+}
+
+static void unificate_nested_name_specifier_first_(AST left_tree, 
+        AST right_tree, 
+        decl_context_t left_decl_context,
+        decl_context_t right_decl_context,
+        deduction_set_t** deduction_set)
+{
+    if ((ASTSon1(left_tree) == NULL
+                && ASTSon1(right_tree) != NULL)
+            || (ASTSon1(left_tree) != NULL
+             && ASTSon1(right_tree) == NULL))
+        return;
+
+    AST left_nest = ASTSon0(left_tree);
+    AST right_nest = ASTSon1(right_tree);
+
+    // The first qualifier is more interesting since it can involve
+    // type-template parameters and template-template parameters
+    //
+    // Examples:
+    //
+    //    template <typename _T>  A<_T> :: B
+    //    template <typename _T> _T :: B
+    //    template <template <typename> class _W> _W<int> :: B
+    // 
+    // The issue here is that the thing being unificated in these cases
+    // may be qualified as well, so
+    //  
+    //    _T :: iterator  unifies with std :: vector<int> :: iterator
+    //           with _T <- std::vector<int>
+    // 
+    // So, whenever we find a template type-template parameter we have
+    // to match it with another one
+    
+    if (ASTType(left_nest) == AST_SYMBOL)
+    {
+        scope_entry_list_t* entry_list = query_id_expression(left_decl_context, left_nest);
+
+        if (entry_list == NULL
+                || entry_list->next != NULL)
+            return;
+
+        scope_entry_t* entry = entry_list->entry;
+
+        if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER)
+        {
+            // Try to match the right part to it
+
+            char keep_advancing = 1;
+
+            // Advance until we find a class or another template-type
+            while (keep_advancing)
+            {
+                switch (ASTType(right_nest))
+                {
+                    case AST_SYMBOL:
+                    case AST_TEMPLATE_ID:
+                        {
+                            scope_entry_list_t* entry_list_2 = query_id_expression(right_decl_context, right_nest);
+                            if (entry_list_2 == NULL
+                                    || entry_list_2->next != NULL)
+                                return;
+
+                            scope_entry_t* entry2 = entry_list_2->entry;
+
+
+                            if (entry2->kind == SK_TYPEDEF)
+                            {
+                                type_t* aliased_type = advance_over_typedefs(entry2->type_information);
+
+                                if (!is_named_type(aliased_type))
+                                    return;
+
+                                entry2 = named_type_get_symbol(aliased_type);
+                            }
+
+                            if (entry2->kind == SK_TEMPLATE_TYPE_PARAMETER
+                                    || entry2->kind == SK_CLASS)
+                            {
+                                deduced_parameter_t current_deduced_parameter;
+                                memset(&current_deduced_parameter, 0, sizeof(current_deduced_parameter));
+
+                                if (entry2->kind == SK_TEMPLATE_TYPE_PARAMETER)
+                                {
+                                    current_deduced_parameter.type = get_user_defined_type(entry2);
+                                }
+                                else
+                                {
+                                    current_deduced_parameter.type = entry2->type_information;
+                                }
+
+                                // Create an unification item
+                                deduction_t* deduction = get_unification_item_template_parameter(
+                                        deduction_set, entry);
+
+                                char found = 0;
+                                int i;
+                                for (i = 0; i < deduction->num_deduced_parameters; i++)
+                                {
+                                    // Do not readd if they are the same type
+                                    deduced_parameter_t* previous_deduced_parameter = deduction->deduced_parameters[i];
+
+                                    type_t* previous_deduced_type = previous_deduced_parameter->type;
+
+                                    if (equivalent_types(previous_deduced_type, 
+                                                current_deduced_parameter.type))
+                                    {
+                                        found = 1;
+                                        break;
+                                    }
+                                }
+                                if (!found)
+                                {
+                                    deduced_parameter_t* new_deduced_parameter = counted_calloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
+                                    *new_deduced_parameter = current_deduced_parameter;
+
+                                    P_LIST_ADD(deduction->deduced_parameters, deduction->num_deduced_parameters, new_deduced_parameter);
+                                }
+                                keep_advancing = 0;
+                            }
+                            else if (entry2->kind == SK_NAMESPACE)
+                            {
+                                right_decl_context = entry2->namespace_decl_context;
+                                // keep advancing in this case
+
+                                // Advance right tree
+                                if (ASTSon1(right_tree) == NULL)
+                                    return;
+
+                                right_tree = ASTSon1(right_tree);
+                                right_nest = ASTSon0(right_tree);
+                            }
+                            break;
+                        }
+                    default:
+                        {
+                            internal_error("Unhandled node type '%s'\n", ast_print_node_type(ASTType(right_nest)));
+                        }
+                }
+            }
+        }
+    }
+    else if (ASTType(left_nest) == AST_TEMPLATE_ID)
+    {
+        // FIXME - template template parameters!!!
+        unificate_template_id_(left_nest, right_nest, left_decl_context, right_decl_context, deduction_set);
+    }
+
+    // More nested specifiers to be checked
+    if (ASTSon1(left_tree) != NULL
+            && ASTSon1(right_tree) != NULL)
+    {
+        unificate_nested_name_specifier_(ASTSon1(left_tree),
+                ASTSon1(right_tree), left_decl_context, right_decl_context,
+                deduction_set);
+    }
+}
+
+static void unificate_id_expressions_(AST left_id_expr, AST right_id_expr,
+        decl_context_t left_decl_context, 
+        decl_context_t right_decl_context,
+        deduction_set_t** deduction_set)
+{
+    if (ASTType(left_id_expr) != ASTType(right_id_expr))
+        return;
+
+    switch (ASTType(left_id_expr))
+    {
+        case AST_QUALIFIED_ID:
+        case AST_QUALIFIED_TEMPLATE:
+            {
+                char left_has_global = ASTSon0(left_id_expr) != NULL;
+                char right_has_global = ASTSon0(right_id_expr) != NULL;
+
+                if (left_has_global != right_has_global)
+                    return;
+
+                char left_has_qualif = ASTSon1(left_id_expr) != NULL;
+                char right_has_qualif = ASTSon1(right_id_expr) != NULL;
+
+                if (left_has_qualif != right_has_qualif)
+                    return;
+
+                if (left_has_qualif)
+                {
+                    unificate_nested_name_specifier_first_(
+                            ASTSon1(left_id_expr),
+                            ASTSon1(right_id_expr), 
+                            left_decl_context,
+                            right_decl_context, 
+                            deduction_set);
+                }
+
+                unificate_unqualified_id_(
+                        ASTSon2(left_id_expr),
+                        ASTSon2(right_id_expr),
+                        left_decl_context,
+                        right_decl_context,
+                        deduction_set);
+                break;
+            }
+        default:
+            {
+                unificate_unqualified_id_(
+                        left_id_expr,
+                        right_id_expr,
+                        left_decl_context,
+                        right_decl_context,
+                        deduction_set);
+            }
+    }
+}
+
+// FIXME - Copied from cxx-instantiation.c
+static const char* get_name_of_template_parameter(
+        template_parameter_list_t* template_parameters,
+        int nesting,
+        int position)
+{
+    int i;
+    for (i = 0; i < template_parameters->num_template_parameters; i++)
+    {
+        template_parameter_t* current_template_parameter 
+            = template_parameters->template_parameters[i];
+
+        if ((current_template_parameter->entry->entity_specs.template_parameter_nesting == nesting)
+                && (current_template_parameter->entry->entity_specs.template_parameter_position == position))
+        {
+            return current_template_parameter->entry->symbol_name;
+        }
+    }
+
+    internal_error("Not found template parameter with nest=%d and position=%d",
+            nesting, position);
+}
+
+char unificate_two_id_expressions(
+        template_parameter_list_t* template_parameters,
+        AST left_id_expr, AST right_id_expr,
+        decl_context_t left_decl_context, 
+        decl_context_t right_decl_context)
+{
+    deduction_set_t * deduction_set = counted_calloc(1, sizeof(*deduction_set), &_bytes_typeunif);
+
+    unificate_id_expressions_(left_id_expr, right_id_expr,
+            left_decl_context, right_decl_context,
+            &deduction_set);
+
+    // Check the soundness of the unification
+
+    // First, ensure that no deduced parameter appears twice
+    int i;
+    for (i = 0; i < deduction_set->num_deductions; i++)
+    {
+        deduction_t* deduction = deduction_set->deduction_list[i];
+
+        if (deduction->num_deduced_parameters > 1)
+            return 0;
+    }
+
+    // Second, ensure that all parameters have been deduced
+    char has_been_deduced[template_parameters->num_template_parameters + 1];
+    memset(has_been_deduced, 0, sizeof(has_been_deduced));
+
+    for (i = 0; i < deduction_set->num_deductions; i++)
+    {
+        deduction_t* deduction = deduction_set->deduction_list[i];
+
+        has_been_deduced[deduction->parameter_position] = 1;
+    }
+
+    for (i = 0; i < template_parameters->num_template_parameters; i++)
+    {
+        if (!has_been_deduced[i])
+            return 0;
+    }
+
+    // Third, ensure that the deduced entity really matches both sides
+    // First try a plain lookup, maybe it is enough
+
+    // Create a fake context for the left one
+    decl_context_t template_parameters_context = new_template_context(left_decl_context);
+
+    for (i = 0; i < deduction_set->num_deductions; i++)
+    {
+        deduction_t* current_deduction = deduction_set->deduction_list[i];
+
+        ERROR_CONDITION(current_deduction->num_deduced_parameters != 1,
+                "Number of deduced parameters is not 1!", 0);
+
+        int j;
+        for (j = 0; j < current_deduction->num_deduced_parameters; j++)
+        {
+            const char* deduced_parameter_name = get_name_of_template_parameter(template_parameters,
+                    current_deduction->parameter_nesting,
+                    current_deduction->parameter_position);
+            switch (current_deduction->kind)
+            {
+                case TPK_TYPE :
+                    {
+                        // Note that we sign in the symbol in template_scope and not in current_scope
+                        scope_entry_t* injected_type = new_symbol(template_parameters_context, 
+                                template_parameters_context.template_scope, deduced_parameter_name);
+
+                        // We use a typedef
+                        injected_type->kind = SK_TYPEDEF;
+                        injected_type->entity_specs.is_template_argument = 1;
+                        injected_type->type_information = get_new_typedef(current_deduction->deduced_parameters[0]->type);
+                        break;
+                    }
+                case TPK_TEMPLATE :
+                    {
+                        // Note that we sign in the symbol in template_scope and not in current_scope
+                        scope_entry_t* injected_type = new_symbol(template_parameters_context, 
+                                template_parameters_context.template_scope, deduced_parameter_name);
+
+                        // The template type has to be used here
+                        injected_type->kind = SK_TEMPLATE;
+                        injected_type->entity_specs.is_template_argument = 1;
+                        // These are always kept as named types in the compiler
+                        injected_type->type_information = 
+                            named_type_get_symbol(current_deduction->deduced_parameters[0]->type)->type_information;
+                        break;
+                    }
+                case TPK_NONTYPE :
+                    {
+                        scope_entry_t* injected_nontype = new_symbol(template_parameters_context, 
+                                template_parameters_context.template_scope, deduced_parameter_name);
+
+                        injected_nontype->kind = SK_VARIABLE;
+                        injected_nontype->entity_specs.is_template_argument = 1;
+                        injected_nontype->type_information = current_deduction->deduced_parameters[0]->type;
+
+                        // Fold it, as makes things easier
+                        literal_value_t literal_value = evaluate_constant_expression(current_deduction->deduced_parameters[0]->expression,
+                                current_deduction->deduced_parameters[0]->decl_context);
+                        AST evaluated_tree = tree_from_literal_value(literal_value);
+                        AST fake_initializer = evaluated_tree;
+                        injected_nontype->expression_value = fake_initializer;
+                        break;
+                    }
+                default:
+                    {
+                        internal_error("Invalid parameter kind", 0);
+                    }
+            }
+        }
+    }
+
+    // Lookup of left
+    scope_entry_list_t* left_lookup = query_id_expression(template_parameters_context, left_id_expr);
+    if (left_lookup == NULL)
+        return 0;
+
+    // Normal lookup for the right one
+    scope_entry_list_t* right_lookup = query_id_expression(right_decl_context, right_id_expr);
+    if (right_lookup == NULL)
+        return 0;
+
+    if (left_lookup->entry->kind == SK_DEPENDENT_ENTITY
+            && right_lookup->entry->kind == SK_DEPENDENT_ENTITY)
+    {
+        if (!equivalent_types(left_lookup->entry->type_information,
+                    right_lookup->entry->type_information))
+            return 0;
+    }
+    else if ((left_lookup->entry->kind != SK_DEPENDENT_ENTITY
+                && right_lookup->entry->kind == SK_DEPENDENT_ENTITY)
+            || (left_lookup->entry->kind == SK_DEPENDENT_ENTITY
+                && right_lookup->entry->kind != SK_DEPENDENT_ENTITY))
+    {
+        // This cannot be the same, never
+        return 0;
+    }
+    else
+    {
+        // This is dubious
+        if (left_lookup->entry != right_lookup->entry)
+            return 0;
+    }
+
+    return 1;
 }

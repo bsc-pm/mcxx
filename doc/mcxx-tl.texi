@@ -259,7 +259,7 @@ that can be applied to many kinds of functor-like objects and returns a
 suitable @code{TL::Functor} for it.
 
 Any class inheriting from @code{TL::Functor<Ret, Type>} will have to implement
-@code{Ret TL::Functor<Ret, Type>::operator()(Type& t) const}. This function
+@code{Ret TL::Functor<Ret, Type>::do_(Type& t) const}. This function
 should not have effects on the parameter @code{Type& t} because it is valid to
 call the functor with a @code{const Type&} (and the overriden method will be
 called).
@@ -581,7 +581,7 @@ matches function definitions.
 class FunctionDefinitionASTFunctor : public TraverseASTFunctor
 @{
   public:
-    ASTTraversalResult operator()(AST_t &a) const
+    ASTTraversalResult do_(AST_t &a) const
     @{
        if (FunctionDefinition::predicate(a))
        @{
@@ -598,7 +598,7 @@ class FunctionDefinitionASTFunctor : public TraverseASTFunctor
 @end example
 
 A @code{TraverseASTFunctor} is a synonim for @code{Functor<ASTTraversalResult, AST_t>} so
-@code{ASTTraversalResult operator()(AST_t& a) const} needs to be implemented. Function
+@code{ASTTraversalResult do_(AST_t& a) const} needs to be implemented. Function
 @code{ast_traversal_result_helper} is a helper function to build values of 
 @code{ASTTraversalResult} type. Basically it says to recurse always when a
 function definition tree is not found, and not to recurse when not found. Only function
@@ -763,7 +763,7 @@ transform. So we need a @code{TraverseASTFunctor} for @code{while} statements.
 class WhileStatementASTFunctor : public TraverseASTFunctor
 @{
   public:
-    ASTTraversalResult operator()(AST_t &a) const
+    ASTTraversalResult do_(AST_t &a) const
     @{
       if (WhileStatement::predicate(a))
       @{

@@ -1,29 +1,33 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #ifndef TL_PRAGMASUPPORT_HPP
 #define TL_PRAGMASUPPORT_HPP
 
 #include "tl-common.hpp"
 #include <string>
 #include <stack>
+#include <algorithm>
 #include "tl-compilerphase.hpp"
 #include "tl-langconstruct.hpp"
 #include "tl-handler.hpp"
@@ -100,6 +104,29 @@ namespace TL
             }
     };
 
+    class LIBTL_CLASS ExpressionTokenizerTrim : public ExpressionTokenizer
+    {
+        public:
+			virtual ObjectList<std::string> tokenize(const std::string& str) const
+			{
+				ObjectList<std::string> result;
+				result = ExpressionTokenizer::tokenize(str);
+
+				std::transform(result.begin(), result.end(), result.begin(), trimExp);
+
+				return result;
+			}
+
+        private:
+            static std::string trimExp (const std::string &str) {
+
+            	ssize_t first = str.find_first_not_of(" \t");
+            	ssize_t last = str.find_last_not_of(" \t");
+
+            	return str.substr(first, last - first + 1);
+            }
+    };
+
     class LIBTL_CLASS PragmaCustomClause : public LangConstruct
     {
         private:
@@ -158,12 +185,15 @@ namespace TL
             Statement get_statement();
             AST_t get_declaration();
 
+            AST_t get_pragma_line();
+
             bool is_function_definition();
 
             bool is_parameterized();
             ObjectList<IdExpression> get_parameter_id_expressions(IdExpressionCriteria criteria = VALID_SYMBOLS);
             ObjectList<Expression> get_parameter_expressions();
             ObjectList<std::string> get_parameter_arguments();
+            ObjectList<std::string> get_parameter_arguments(const ClauseTokenizer& tokenizer);
 
             ObjectList<std::string> get_clause_names();
             PragmaCustomClause get_clause(const std::string& name);

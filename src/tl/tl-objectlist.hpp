@@ -1,28 +1,32 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #ifndef TL_OBJECTLIST_HPP
 #define TL_OBJECTLIST_HPP
 
 #include "tl-common.hpp"
 #include <vector>
+#include <sstream>
 #include <utility>
 #include <algorithm>
 #include "tl-object.hpp"
@@ -45,8 +49,8 @@ class ObjectList : public std::vector<T>, public TL::Object
 {
     private:
         template <class Q>
-        void reduction_helper(Q &result, typename ObjectList<T>::iterator it,
-                const Functor<Q, std::pair<T, Q> >& red_func, const Q& neuter)
+        void reduction_helper(Q &result, typename ObjectList<T>::const_iterator it,
+                const Functor<Q, std::pair<T, Q> >& red_func, const Q& neuter) const
         {
             if (it == this->end())
             {
@@ -54,7 +58,7 @@ class ObjectList : public std::vector<T>, public TL::Object
             }
             else
             {
-                T& t = *it;
+                const T &t = *it;
                 reduction_helper(result, it + 1, red_func, neuter);
 
                 std::pair<T, Q> arg(t, result);
@@ -102,10 +106,10 @@ class ObjectList : public std::vector<T>, public TL::Object
          * \param p A Predicate over elements of type T
          * \return A new list of elements of type T that satisfy predicate \a p
          */
-        ObjectList<T> filter(const Predicate<T>& p)
+        ObjectList<T> filter(const Predicate<T>& p) const
         {
             ObjectList<T> result;
-            for (typename ObjectList<T>::iterator it = this->begin();
+            for (typename ObjectList<T>::const_iterator it = this->begin();
                     it != this->end();
                     it++)
             {
@@ -125,10 +129,10 @@ class ObjectList : public std::vector<T>, public TL::Object
          * \return A new list of elements of type S
          */
         template <class S>
-        ObjectList<S> map(const Functor<S, T>& f)
+        ObjectList<S> map(const Functor<S, T>& f) const
         {
             ObjectList<S> result;
-            for (typename ObjectList<T>::iterator it = this->begin();
+            for (typename ObjectList<T>::const_iterator it = this->begin();
                     it != this->end();
                     it++)
             {
@@ -146,7 +150,7 @@ class ObjectList : public std::vector<T>, public TL::Object
          * \return A new list of elements of type S
          */
         template <class S>
-        ObjectList<S> map_filter(const Predicate<T>& p, const Functor<S, T>& f)
+        ObjectList<S> map_filter(const Predicate<T>& p, const Functor<S, T>& f) const
         {
             return (this->filter(p)).map(f);
         }
@@ -158,7 +162,7 @@ class ObjectList : public std::vector<T>, public TL::Object
          * \return An element of type Q with all the reduced values of the list
          */
         template <class Q>
-        Q reduction(const Functor<Q, std::pair<T, Q> >& red_func, const Q& neuter)
+        Q reduction(const Functor<Q, std::pair<T, Q> >& red_func, const Q& neuter) const
         {
             Q result;
             reduction_helper(result, this->begin(), red_func, neuter);
@@ -480,15 +484,34 @@ class ObjectList : public std::vector<T>, public TL::Object
 
 //! @}
 
-//! Auxiliar function that concats two ObjectList<std::string> with an optionally given separator
+//! Auxiliar function that concats two ObjectList<_T> with an optionally given separator
 /*!
  * \param string_list A list of strings
  * \param separator A separator used between the strings. By default empty.
  * \return A single std::string value with all the strings in \a string_list concatenated and interspersed with
  * \a separator
+ *
+ * \note Type _T must implement operator<<(std::ostream&, const T&)
  */
-LIBTL_EXTERN std::string concat_strings(const ObjectList<std::string>& string_list, const std::string& separator = std::string(""));
+template <typename _T>
+LIBTL_EXTERN std::string concat_strings(const ObjectList<_T>& string_list, const std::string& separator = "")
+{
+    std::string result;
+    for (typename ObjectList<_T>::const_iterator it = string_list.begin();
+            it != string_list.end();
+            it++)
+    {
+        if (it != string_list.begin())
+        {
+            result += separator;
+        }
+        std::stringstream ss;
+        ss << *it;
+        result += ss.str();
+    }
 
+    return result;
 }
 
+}
 #endif // TL_OBJECTLIST_HPP

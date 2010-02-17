@@ -1,3 +1,26 @@
+##########################################################################
+#  (C) Copyright 2006-2009 Barcelona Supercomputing Center               #
+#                          Centro Nacional de Supercomputacion           #
+#                                                                        #
+#  This file is part of Mercurium C/C++ source-to-source compiler.       #
+#                                                                        #
+#  This library is free software; you can redistribute it and/or         #
+#  modify it under the terms of the GNU Lesser General Public            #
+#  License as published by the Free Software Foundation; either          #
+#  version 3 of the License, or (at your option) any later version.      #
+#                                                                        #
+#  Mercurium C/C++ source-to-source compiler is distributed in the hope  #
+#  that it will be useful, but WITHOUT ANY WARRANTY; without even the    #
+#  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR       #
+#  PURPOSE.  See the GNU Lesser General Public License for more          #
+#  details.                                                              #
+#                                                                        #
+#  You should have received a copy of the GNU Lesser General Public      #
+#  License along with Mercurium C/C++ source-to-source compiler; if      #
+#  not, write to the Free Software Foundation, Inc., 675 Mass Ave,       #
+#  Cambridge, MA 02139, USA.                                             #
+##########################################################################
+
 lib_LTLIBRARIES = libmcxx-process.la libmcxx.la
 
 END=
@@ -141,10 +164,12 @@ EXTRA_DIST += cxx-lexer.l
 AST_NODE_TYPE_FILES =
 AST_NODE_TYPE_FILES += cxx-asttype-all.def
 AST_NODE_TYPE_FILES += cxx-asttype-base.def
+AST_NODE_TYPE_FILES += cxx-asttype-extensions.def
 AST_NODE_TYPE_FILES += cxx-asttype-gcc.def
 AST_NODE_TYPE_FILES += cxx-asttype-pragma.def
 AST_NODE_TYPE_FILES += cxx-asttype-superscalar.def
 AST_NODE_TYPE_FILES += cxx-asttype-upc.def
+AST_NODE_TYPE_FILES += cxx-asttype-omp.def
 AST_NODE_TYPE_FILES += cxx-asttype-xl.def
 
 EXTRA_DIST += $(AST_NODE_TYPE_FILES)
@@ -161,14 +186,19 @@ EXTRA_DIST += cxx03.y
 EXTRA_DIST += cxx03.y.in
 EXTRA_DIST += cxx-scanner.c
 
-EXTRA_DIST += cxx-subparse.y
-EXTRA_DIST += cxx-pragma.y
-EXTRA_DIST += cxx-construct.y
-EXTRA_DIST += cxx-superscalar.y
-EXTRA_DIST += cxx-ambig-handler.y
-EXTRA_DIST += cxx-placeholders.y
-EXTRA_DIST += c99-upc.y
-EXTRA_DIST += cxx-xl.y
+ADDITIONAL_GRAMMARS = 
+ADDITIONAL_GRAMMARS += cxx-subparse.y
+ADDITIONAL_GRAMMARS += cxx-pragma.y
+ADDITIONAL_GRAMMARS += cxx-construct.y
+ADDITIONAL_GRAMMARS += cxx-omp.y
+ADDITIONAL_GRAMMARS += cxx-superscalar.y
+ADDITIONAL_GRAMMARS += cxx-ambig-handler.y
+ADDITIONAL_GRAMMARS += cxx-placeholders.y
+ADDITIONAL_GRAMMARS += c99-upc.y
+ADDITIONAL_GRAMMARS += cxx-xl.y
+ADDITIONAL_GRAMMARS += cxx-extensions.y
+
+EXTRA_DIST += $(ADDITIONAL_GRAMMARS)
 
 EXTRA_DIST += cxx-gccspubuiltins.def
 
@@ -277,7 +307,7 @@ CLEANFILES += cxx-parser.output
 CLEANFILES += cxx03.y
 endif
 
-cxx03.y : $(srcdir)/cxx03.y.in $(srcdir)/cxx-placeholders.y $(srcdir)/cxx-subparse.y $(srcdir)/cxx-pragma.y $(srcdir)/cxx-construct.y $(srcdir)/cxx-superscalar.y $(srcdir)/cxx-ambig-handler.y $(srcdir)/cxx-xl.y
+cxx03.y : $(srcdir)/cxx03.y.in $(addprefix $(srcdir)/, $(ADDITIONAL_GRAMMARS)) 
 	$(TPP) -o cxx03.y -D CPLUSPLUS -I$(srcdir) $(srcdir)/cxx03.y.in
 
 cxx-parser.c : cxx03.y
@@ -316,7 +346,7 @@ CLEANFILES += c99-parser.output
 CLEANFILES += c99.y
 endif
 
-c99.y : $(srcdir)/c99.y.in $(srcdir)/cxx-placeholders.y $(srcdir)/cxx-subparse.y $(srcdir)/cxx-pragma.y $(srcdir)/cxx-construct.y $(srcdir)/cxx-superscalar.y $(srcdir)/cxx-ambig-handler.y $(srcdir)/c99-upc.y $(srcdir)/cxx-xl.y
+c99.y : $(srcdir)/c99.y.in $(addprefix $(srcdir)/, $(ADDITIONAL_GRAMMARS)) 
 	$(TPP) -o c99.y -D C99 -I$(srcdir) $(srcdir)/c99.y.in
 
 c99-parser.c : c99.y

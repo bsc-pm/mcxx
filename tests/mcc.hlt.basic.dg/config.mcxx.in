@@ -8,8 +8,6 @@ compiler_name = gcc
 compiler_options = 
 linker_name = gcc
 linker_options = 
-pragma_prefix = hlt
-compiler_phase = libtl-hlt-pragma.so
 
 [hltcxx]
 language = C++
@@ -20,5 +18,3 @@ compiler_name = g++
 compiler_options = 
 linker_name = g++
 linker_options = 
-pragma_prefix = hlt
-compiler_phase = libtl-hlt-pragma.so

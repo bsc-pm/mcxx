@@ -1,20 +1,26 @@
-/*
-    SMP superscalar Compiler
-    Copyright (C) 2008 Barcelona Supercomputing Center
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; version 2.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 
 #include "tl-traverse.hpp"
 
@@ -84,7 +90,7 @@ namespace TL {
 	} // namespace TaskTableInternals
 	
 	
-	TaskTable::TaskTable(AST_t translation_unit, ScopeLink scope_link)
+	TaskTable::TaskTable(AST_t translation_unit, ScopeLink scope_link, bool include_declarations)
 		: _table()
 	{
 		DepthTraverse depth_traverse;
@@ -96,7 +102,10 @@ namespace TL {
 		FunctionDeclarationPredicate function_declaration_predicate(scope_link);
 		TraverseASTPredicate function_declaration_traverser(function_declaration_predicate, AST_t::NON_RECURSIVE);
 		TaskTableInternals::FunctionDeclarationHandler function_declaration_handler(_table);
-		depth_traverse.add_functor(function_declaration_traverser, function_declaration_handler);
+		if (include_declarations)
+		{
+			depth_traverse.add_functor(function_declaration_traverser, function_declaration_handler);
+		}
 		
 		depth_traverse.traverse(translation_unit, scope_link);
 	}

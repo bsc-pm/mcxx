@@ -1,20 +1,26 @@
-/*
-    SMP superscalar Compiler
-    Copyright (C) 2008 Barcelona Supercomputing Center
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; version 2.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 
 #include "tl-langconstruct.hpp"
 
@@ -1675,7 +1681,7 @@ std::cout << recursion_prefix << "Result is false" << std::endl;
 	
 	
 #endif
-	void ParameterExpression::substitute(/* INOUT */ Expression &expression, ObjectList<Expression> parameters, ScopeLink scope_link)
+	void ParameterExpression::substitute(/* INOUT */ Expression &expression, ObjectList<Expression> parameters, AST_t ref_ast, ScopeLink scope_link)
 	{
 		Source source;
 		source << expression.prettyprint();
@@ -1694,7 +1700,12 @@ std::cout << recursion_prefix << "Result is false" << std::endl;
 			}
 		}
 		
-		expression = Expression(new_ast, scope_link);
+		// We need to rebuild the expression from scratch using the correct Scope
+		Source new_source;
+		new_source << new_ast.prettyprint();
+		AST_t well_scoped_ast = new_source.parse_expression(ref_ast, scope_link);
+		
+		expression = Expression(well_scoped_ast, scope_link);
 	}
 	
 	

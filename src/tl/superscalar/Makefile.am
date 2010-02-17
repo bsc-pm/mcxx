@@ -1,21 +1,25 @@
-#	Cell Superscalar (CellSs): Easy programming the Cell BE
-#	Copyright (C) 2007 Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-#	
-#	This program is free software; you can redistribute it and/or
-#	modify it under the terms of the GNU General Public License
-#	as published by the Free Software Foundation; version 2.
-#	
-#	This program is distributed in the hope that it will be useful,
-#	but WITHOUT ANY WARRANTY; without even the implied warranty of
-#	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#	GNU General Public License for more details.
-#	
-#	You should have received a copy of the GNU General Public License
-#	along with this program; if not, write to the Free Software
-#	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA. 
-#	
-#	The GNU General Public License is contained in the file COPYING.
-
+##########################################################################
+#  (C) Copyright 2006-2009 Barcelona Supercomputing Center               #
+#                          Centro Nacional de Supercomputacion           #
+#                                                                        #
+#  This file is part of Mercurium C/C++ source-to-source compiler.       #
+#                                                                        #
+#  This library is free software; you can redistribute it and/or         #
+#  modify it under the terms of the GNU Lesser General Public            #
+#  License as published by the Free Software Foundation; either          #
+#  version 3 of the License, or (at your option) any later version.      #
+#                                                                        #
+#  Mercurium C/C++ source-to-source compiler is distributed in the hope  #
+#  that it will be useful, but WITHOUT ANY WARRANTY; without even the    #
+#  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR       #
+#  PURPOSE.  See the GNU Lesser General Public License for more          #
+#  details.                                                              #
+#                                                                        #
+#  You should have received a copy of the GNU Lesser General Public      #
+#  License along with Mercurium C/C++ source-to-source compiler; if      #
+#  not, write to the Free Software Foundation, Inc., 675 Mass Ave,       #
+#  Cambridge, MA 02139, USA.                                             #
+##########################################################################
 
 # Ugly, but necessary since normal YACC rules have been broken
 BISON = @BISON@
@@ -33,6 +37,7 @@ phases_LTLIBRARIES = \
 	libtlsuperscalar-function-router.la \
 	libtlsuperscalar-transform-directives.la \
 	libtlsuperscalar-code-conversion.la	\
+	libtlsuperscalar-task-reshaper.la \
 	libtlsuperscalar-task-manifest.la
 
 
@@ -87,6 +92,10 @@ if USE_TL_SUPERSCALAR_V4
 libtlsuperscalar_transform_directives_la_SOURCES += \
 	tl-transform-directives-v3.cpp
 endif
+if USE_TL_SUPERSCALAR_V5
+libtlsuperscalar_transform_directives_la_SOURCES += \
+	tl-transform-directives-v3.cpp
+endif
 
 libtlsuperscalar_code_conversion_la_SOURCES = 
 if USE_TL_SUPERSCALAR_V1
@@ -109,7 +118,17 @@ libtlsuperscalar_code_conversion_la_SOURCES += \
 	tl-task-table.cpp \
 	tl-code-conversion-v4.cpp
 endif
+if USE_TL_SUPERSCALAR_V5
+libtlsuperscalar_code_conversion_la_SOURCES += \
+	tl-parameter-expression.cpp \
+	tl-task-table.cpp \
+	tl-code-conversion-v5.cpp
+endif
 
+libtlsuperscalar_task_reshaper_la_SOURCES = \
+	tl-task-table.cpp \
+	tl-task-reshaper.cpp
+	
 libtlsuperscalar_task_manifest_la_SOURCES = \
 	tl-task-table.cpp \
 	tl-task-manifest.cpp
@@ -119,6 +138,8 @@ noinst_HEADERS = \
 	cxx-ss-attrnames.h \
 	calculator-parser-types.h\
 	\
+	tl-access-bounds.hpp \
+	tl-access-bounds-list.hpp \
 	tl-ast-predicates.hpp \
 	tl-augmented-symbol.hpp \
 	tl-exceptions.hpp \
@@ -142,8 +163,8 @@ noinst_HEADERS = \
 	tl-code-conversion-v2.hpp \
 	tl-code-conversion-v3.hpp \
 	tl-code-conversion-v4.hpp \
-	tl-parameter-region-list.hpp \
-	tl-parameter-expression.hpp \
+	tl-code-conversion-v5.hpp \
+	tl-task-reshaper.hpp \
 	tl-task-manifest.hpp
 
 AM_LDFLAGS = $(tl_ldflags) -lm

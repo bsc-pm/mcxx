@@ -1,23 +1,26 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #ifndef TL_PREDICATEUTILS_HPP
 #define TL_PREDICATEUTILS_HPP
 
@@ -70,6 +73,27 @@ namespace TL
             }
 
             ~FunctionPredicate()
+            {
+            }
+    };
+
+    template <class T>
+    class FunctionConstPredicate : public Predicate<T>
+    {
+        private:
+            FunctionConstAdapter<bool, T> _funct_adapter;
+        public:
+            FunctionConstPredicate(bool (*pf)(const T&))
+                : _funct_adapter(pf)
+            {
+            }
+
+            virtual bool do_(T& t) const
+            {
+                return _funct_adapter(t);
+            }
+
+            ~FunctionConstPredicate()
             {
             }
     };
@@ -148,9 +172,21 @@ namespace TL
         return FunctionPredicate<T>(pf);
     }
 
+    template <class T>
+    FunctionConstPredicate<T> predicate(bool (*pf)(const T&))
+    {
+        return FunctionConstPredicate<T>(pf);
+    }
+
     //! Adaptor function to create predicates after a member function of a given object returning bool
     template <class T, class Q>
     MemberFunctionPredicate<T, Q> predicate(bool (Q::* pf)(T& t), Q& q)
+    {
+        return MemberFunctionPredicate<T, Q>(pf, q);
+    }
+
+    template <class T, class Q>
+    MemberFunctionPredicate<T, Q> predicate(bool (Q::* pf)(const T& t), Q& q)
     {
         return MemberFunctionPredicate<T, Q>(pf, q);
     }

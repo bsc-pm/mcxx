@@ -1,5 +1,5 @@
 dnl Package definition: name, version, mail
-AC_INIT([mcxx],[1.3.2],[rferrer@ac.upc.edu])
+AC_INIT([mcxx],[1.3.3],[rferrer@ac.upc.edu])
 
 dnl Where are we ?
 AC_CANONICAL_BUILD
@@ -85,7 +85,8 @@ AC_COMPILE_IFELSE(
 )
 
 dnl --------------------- end check of old gcc ---
-TLEXTENSIONS=""
+TL_EXTENSIONS=""
+TL_OMP_EXTENSIONS=""
 ADDITIONAL_TESTSUITES=""
 INSTALL_CONFIG_FILES="config.plain"
 
@@ -154,7 +155,7 @@ then
    NANOX_INCLUDES="${nanox_include}"
    NANOX_LIBS="${nanox_lib}"
 
-   TLEXTENSIONS="${TLEXTENSIONS} omp_nanox"
+   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanox"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
 
@@ -230,7 +231,7 @@ then
    NANOS4_INCLUDES="${nanos4_include}"
    NANOS4_LIBS="${nanos4_lib}"
 
-   TLEXTENSIONS="${TLEXTENSIONS} omp_nanos4"
+   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos4"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
 
@@ -310,7 +311,7 @@ then
       AC_MSG_ERROR([Mintaka support requires '--with-mintaka=dir'. See --help.])
    fi
 
-   TLEXTENSIONS="${TLEXTENSIONS} instr instr_pthreads"
+   TL_EXTENSIONS="${TL_EXTENSIONS} instr instr_pthreads"
 
    MINTAKA_INCLUDES="${mintaka_include}"
    MINTAKA_LIBS="${mintaka_lib}"
@@ -328,172 +329,6 @@ AC_SUBST([MINTAKA_INCLUDES])
 AC_SUBST([MINTAKA_LIBS])
 
 dnl --------------------- End Support for Mintaka ---------------------
-
-dnl --------------------- Acotes support ---------------------
-
-is_enabled_tl_acotes="no"
-
-acolib_include=""
-acolib_lib=""
-ACOLIB_INCLUDES=""
-ACOLIB_LIBS=""
-
-AC_MSG_CHECKING([if enabled ACOTES TL support])
-AC_ARG_ENABLE([tl-acotes],
-  AS_HELP_STRING([--enable-tl-acotes], [Enables generation of ACOTES TL Support]),
-  [
-    if test x$enableval = xyes -o x$enableval = x;
-    then
-        if test x$is_enabled_tl_instr = xyes; 
-        then
-          is_enabled_tl_acotes="yes"
-          AC_MSG_RESULT([yes])
-        else
-          AC_MSG_RESULT([no, missing instrumentation support])
-          AC_MSG_ERROR([Acolib support requires both '--enable-tl-instrumentation' and '--with-mintaka=dir'. See --help.])
-        fi
-    else if test x$enableval = xno;
-         then
-            AC_MSG_RESULT([no])
-            is_enabled_tl_acotes="no"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-      is_enabled_tl_acotes="no"
-      AC_MSG_RESULT([no])
-  ]
-)
-
-if test x$is_enabled_tl_acotes = xyes;
-then
-   COMPILER_NAMES="${COMPILER_NAMES} acotescc"
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.acotes"
-
-   TLEXTENSIONS="${TLEXTENSIONS} acotes"
-
-   AC_ARG_WITH([acolib],
-           AS_HELP_STRING([--with-acolib=dir], [Directory of Acolib installation]),
-           [
-            acolib_include="${withval}/include"
-            acolib_lib="${withval}/lib"
-           ]
-   )
-
-   AC_ARG_WITH([acolib-include],
-           AS_HELP_STRING([--with-acolib-include=dir], [Directory of Acolib headers]),
-           [
-            acolib_include="${withval}"
-           ]
-   )
-
-   AC_ARG_WITH([acolib-lib],
-           AS_HELP_STRING([--with-acolib-lib=dir], [Directory of Acolib libraries]),
-           [
-            acolib_lib="${withval}"
-           ]
-   )
-
-   if test x$mintaka_include = x -o x$mintaka_lib = x;
-   then
-      AC_MSG_ERROR([Acolib support requires '--with-mintaka=dir'. See --help.])
-   fi
-
-   if test x$acolib_include = x -o x$acolib_lib = x;
-   then
-      AC_MSG_ERROR([Acolib support requires '--with-acolib=dir'. See --help.])
-   fi
-
-   ACOLIB_INCLUDES="${acolib_include}"
-   ACOLIB_LIBS="${acolib_lib}"
-fi
-
-AC_SUBST([ACOLIB_INCLUDES])
-AC_SUBST([ACOLIB_LIBS])
-
-dnl --------------------- End of Acotes support ---------------------
-
-dnl --------------------- Acotes-MSF support ---------------------
-
-is_enabled_tl_acotes_msf="no"
-
-acotes_msf_include=""
-acotes_msf_lib=""
-ACOTES_MSF_INCLUDES=""
-ACOTES_MSF_LIBS=""
-
-AC_MSG_CHECKING([if enabled ACOTES-MSF TL support])
-AC_ARG_ENABLE([tl-acotes-msf],
-  AS_HELP_STRING([--enable-tl-acotes-msf], [Enables generation of ACOTES-MSF TL Support]),
-  [
-    if test x$enableval = xyes -o x$enableval = x;
-    then
-        is_enabled_tl_acotes_msf="yes"
-        AC_MSG_RESULT([yes])
-    else if test x$enableval = xno;
-         then
-            AC_MSG_RESULT([no])
-            is_enabled_tl_acotes_msf="no"
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-      is_enabled_tl_acotes_msf="no"
-      AC_MSG_RESULT([no])
-  ]
-)
-
-if test x$is_enabled_tl_acotes_msf = xyes;
-then
-   COMPILER_NAMES="${COMPILER_NAMES} acotes-msfcc"
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.acotes-msf"
-
-   TLEXTENSIONS="${TLEXTENSIONS} acotes-msf"
-
-   AC_ARG_WITH([acotes-msf],
-           AS_HELP_STRING([--with-acotes-msf=dir], [Directory of Acotes-MSF installation]),
-           [
-            acotes_msf_include="${withval}/include"
-            acotes_msf_lib="${withval}/lib"
-           ]
-   )
-
-   AC_ARG_WITH([acotes-msf-include],
-           AS_HELP_STRING([--with-acotes-msf-include=dir], [Directory of Acotes-MSF headers]),
-           [
-            acotes_msf_include="${withval}"
-           ]
-   )
-
-   AC_ARG_WITH([acotes-msf-lib],
-           AS_HELP_STRING([--with-acotes-msf-lib=dir], [Directory of Acotes-MSF libraries]),
-           [
-            acotes_msf_lib="${withval}"
-           ]
-   )
-
-   if test x$mintaka_include = x -o x$mintaka_lib = x;
-   then
-      AC_MSG_ERROR([Acotes-MSF support requires '--with-mintaka=dir'. See --help.])
-   fi
-
-   if test x$acotes_msf_include = x -o x$acotes_msf_lib = x;
-   then
-      AC_MSG_ERROR([Acotes-MSF support requires '--with-acotes-msf=dir'. See --help.])
-   fi
-
-   ACOTES_MSF_INCLUDES="${acotes_msf_include}"
-   ACOTES_MSF_LIBS="${acotes_msf_lib}"
-fi
-
-AC_SUBST([ACOTES_MSF_INCLUDES])
-AC_SUBST([ACOTES_MSF_LIBS])
-
-dnl --------------------- End of Acotes MSF support ---------------------
 
 dnl --------------------- Support for Nebelung ---------------------
 
@@ -562,7 +397,7 @@ then
    NEBELUNG_INCLUDES="-I ${nebelung_include} -include nebelung.h"
    NEBELUNG_LIBS="-L ${nebelung_lib} -lnebelung"
 
-   TLEXTENSIONS="${TLEXTENSIONS} stm_func"
+   TL_EXTENSIONS="${TL_EXTENSIONS} stm_func"
 
    COMPILER_NAMES="${COMPILER_NAMES} stmcxx"
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.stm_nebelung"
@@ -612,11 +447,11 @@ AC_ARG_WITH([superscalar-runtime-api-version],
     [
         if test $is_enabled_tl_superscalar = "yes" ; then
             case $withval in
-            1|2|3|4)
+            1|2|3|4|5)
                 use_tl_superscalar_version=$withval
                 ;;
             *)
-                AC_MSG_ERROR([Invalid Cell/SMP superscalar version specified. Available versions are 1, 2, 3 and 4.])
+                AC_MSG_ERROR([Invalid Cell/SMP superscalar version specified. Available versions are 1, 2, 3, 4 and 5.])
                 ;;
             esac
         else
@@ -656,7 +491,7 @@ then
            ]
    )
  
-   TLEXTENSIONS="${TLEXTENSIONS} superscalar"
+   TL_EXTENSIONS="${TL_EXTENSIONS} superscalar"
    ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.superscalar"
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.superscalar"
 fi
@@ -668,6 +503,7 @@ AM_CONDITIONAL(USE_TL_SUPERSCALAR_V1, test x"$use_tl_superscalar_version" = x"1"
 AM_CONDITIONAL(USE_TL_SUPERSCALAR_V2, test x"$use_tl_superscalar_version" = x"2")
 AM_CONDITIONAL(USE_TL_SUPERSCALAR_V3, test x"$use_tl_superscalar_version" = x"3")
 AM_CONDITIONAL(USE_TL_SUPERSCALAR_V4, test x"$use_tl_superscalar_version" = x"4")
+AM_CONDITIONAL(USE_TL_SUPERSCALAR_V5, test x"$use_tl_superscalar_version" = x"5")
 AC_MSG_RESULT([$use_tl_superscalar_version])
 
 superscalar_version=$use_tl_superscalar_version
@@ -709,6 +545,15 @@ AM_CONDITIONAL(ENABLE_PKGLIB_INSTALL, test x"$is_enabled_pkgdir_install" = x"yes
 
 dnl --------------------- End of Installation of binaries in pkgdir ---------------------
 
+dnl ----------------------- Superscalar and Nanox allow SS2 --------------------------------------
+if test x$is_enabled_tl_superscalar = xyes -a x$is_enabled_tl_omp_nanox = xyes -a \
+      "(" x$use_tl_superscalar_version = x4 -o x$use_tl_superscalar_version = x5 ")" ;
+then
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.sscc"
+   COMPILER_NAMES="${COMPILER_NAMES} sscc"
+fi
+dnl ----------------------- End of Superscalar and Nanox --------------------------------------
+
 dnl ---------------------- TL examples ----------------------------
 is_enabled_tl_examples="no"
 
@@ -733,7 +578,7 @@ AC_ARG_ENABLE([tl-examples],
 
 if test x$is_enabled_tl_examples = xyes;
 then
-   TLEXTENSIONS="${TLEXTENSIONS} examples"
+   TL_EXTENSIONS="${TL_EXTENSIONS} examples"
 fi
 
 dnl ------------------------------------
@@ -762,7 +607,7 @@ AC_ARG_ENABLE([tl-tests],
 
 if test x$is_enabled_tl_tests = xyes;
 then
-   TLEXTENSIONS="${TLEXTENSIONS} testing"
+   TL_EXTENSIONS="${TL_EXTENSIONS} testing"
 fi
 
 dnl ------------------------------------
@@ -1064,20 +909,21 @@ then
    run_git=""
    if test x"$gitpath" != x;
    then
-      echo "$gitpath" "$srcdir" >&5
+      echo "$gitpath" "$srcdir" >& AS_MESSAGE_LOG_FD
       run_gitversion=`"$gitpath" --git-dir=$srcdir/.git show "--pretty=format:%h %ci" HEAD | head -n 1`
       build_version="\"git $run_gitversion developer version\""
    fi
 
    if test x"$gitpath" = x -o x"$run_gitversion" = x;
    then
-       build_subversion="\"unknown git commit\""
+       build_version="\"unknown git commit\""
    fi
    AC_MSG_RESULT($build_version)
 fi
 AC_DEFINE_UNQUOTED([MCXX_BUILD_VERSION], $build_version, [Build version])
 
-AC_SUBST([TLEXTENSIONS])
+AC_SUBST([TL_EXTENSIONS])
+AC_SUBST([TL_OMP_EXTENSIONS])
 AC_SUBST([COMPILER_NAMES])
 AC_SUBST([INSTALL_CONFIG_FILES])
 AC_SUBST([ADDITIONAL_TESTSUITES])
@@ -1091,13 +937,14 @@ AC_CONFIG_FILES([Makefile
            src/mcxx_tl/Makefile 
            src/tl/Makefile 
            src/tl/hlt/Makefile
-           src/tl/omp_core/Makefile 
-           src/tl/omp_nanox/Makefile 
-           src/tl/omp_nanos4/Makefile 
+           src/tl/omp/Makefile 
+           src/tl/omp/core/Makefile 
+           src/tl/omp/fun-tasks/Makefile 
+           src/tl/omp/ss2omp/Makefile 
+           src/tl/omp/nanox/Makefile 
+           src/tl/omp/nanos4/Makefile 
            src/tl/instr/Makefile 
            src/tl/instr_pthreads/Makefile 
-           src/tl/acotes/Makefile
-           src/tl/acotes-msf/Makefile
            src/tl/stm_func/Makefile
            src/tl/testing/Makefile
            src/tl/testing/sizeof/Makefile
@@ -1106,9 +953,11 @@ AC_CONFIG_FILES([Makefile
            src/tl/examples/mypragma/Makefile
            src/tl/examples/declarations/Makefile
            src/tl/examples/decl_closure/Makefile
+           src/tl/examples/multifile_test/Makefile
            src/tl/superscalar/Makefile
            config/Makefile
            tests/Makefile
+           tests/config/Makefile
            tests/mcc.nanos4.dg/config.mcxx
            tests/mcxx.nanos4.dg/config.mcxx
            tests/mcc.instr.nanos4.dg/config.mcxx
@@ -1149,20 +998,6 @@ if test x$is_enabled_tl_instr = xyes;
 then
   echo "   Mintaka includes :" $mintaka_include
   echo "   Mintaka libraries:" $mintaka_lib
-fi
-echo ""
-echo " * ACOTES :" $is_enabled_tl_acotes
-if test x$is_enabled_tl_acotes = xyes;
-then
-  echo "   Acolib includes :" $acolib_include
-  echo "   Acolib libraries:" $acolib_lib
-fi
-echo ""
-echo " * Acotes-MSF :" $is_enabled_tl_acotes_msf
-if test x$is_enabled_tl_acotes_msf = xyes;
-then
-  echo "   Acotes-MSF includes :" $acotes_msf_include
-  echo "   Acotes-MSF libraries:" $acotes_msf_lib
 fi
 echo ""
 echo " * Nebelung :" $is_enabled_tl_nebelung

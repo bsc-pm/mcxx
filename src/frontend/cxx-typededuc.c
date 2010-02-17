@@ -1,23 +1,26 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #include <string.h>
 #include <stdint.h>
 #include <limits.h>
@@ -724,6 +727,20 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
 
     type_t* specialized_type = specialized_symbol->type_information;
 
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "TYPEDEDUC: Deducing template parameters using arguments of call\n");
+        fprintf(stderr, "TYPEDEDUC: Called function : '%s'\n", print_declarator(specialized_type));
+
+        fprintf(stderr, "TYPEDEDUC: Number of arguments: %d\n", num_arguments);
+        int i;
+        for (i = 0; i < num_arguments; i++)
+        {
+            fprintf(stderr, "TYPEDEDUC:    Argument %d: Type: '%s'\n", i,
+                    print_declarator(call_argument_types[i]));
+        }
+    }
+
     int num_parameters = function_type_get_num_parameters(specialized_type);
     if (function_type_get_has_ellipsis(specialized_type))
         num_parameters--;
@@ -800,7 +817,26 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                 // into a pointer type
                 //
 
-                current_argument_type = get_pointer_type(current_argument_type);
+                if (is_function_type(current_argument_type))
+                {
+                    current_argument_type = get_pointer_type(current_argument_type);
+                }
+                else if (is_unresolved_overloaded_type(current_argument_type))
+                {
+                    // Simplify an unresolved overload of singleton, if possible
+                    scope_entry_t* solved_function = unresolved_overloaded_type_simplify(current_argument_type,
+                            decl_context, line, filename);
+
+                    if (solved_function == NULL)
+                    {
+                        current_argument_type = get_pointer_type(current_argument_type);
+                    }
+                    else
+                    {
+                        current_argument_type = get_pointer_type(solved_function->type_information);
+                    }
+                }
+
             }
             // otherwise, if A is a cv-qualified type, top-level cv qualification for A is ignored for type deduction
             else
@@ -882,12 +918,12 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
             if (is_pointer_type(argument_types[i]))
                 unresolved_type = pointer_type_get_pointee_type(argument_types[i]);
 
-            scope_entry_t* solved_function = address_of_overloaded_function(
+            scope_entry_t* solved_function = solved_function = address_of_overloaded_function(
                     unresolved_overloaded_type_get_overload_set(unresolved_type),
                     unresolved_overloaded_type_get_explicit_template_arguments(unresolved_type),
                     updated_type,
                     decl_context,
-                    /* filename = */ NULL, /* line = */ 0);
+                    filename, line);
 
             if (solved_function != NULL)
             {

@@ -1,23 +1,26 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #include "tl-symbol.hpp"
 #include "tl-type.hpp"
 
@@ -55,24 +58,12 @@ namespace TL
             std::string("");
     }
 
-    std::string Symbol::get_qualified_name() const
+    std::string Symbol::get_qualified_name(bool without_template_id) const
     {
-        if (_symbol->symbol_name == NULL)
-        {
-            return std::string("");
-        }
-        else
-        {
-            // FIXME -> the scope should be the occurrence one
-            int max_level = 0;
-            char is_dependent = 0;
-            const char* qualified_name = get_fully_qualified_symbol_name(_symbol, _symbol->decl_context, 
-                    &is_dependent, &max_level);
-            return std::string(qualified_name);
-        }
+        return get_qualified_name(this->get_scope(), without_template_id);
     }
 
-    std::string Symbol::get_qualified_name(Scope sc) const
+    std::string Symbol::get_qualified_name(Scope sc, bool without_template_id) const
     {
         if (_symbol->symbol_name == NULL)
         {
@@ -80,11 +71,20 @@ namespace TL
         }
         else
         {
-            // FIXME -> the scope should be the occurrence one
+            const char* (*ptr_fun)(struct
+                    scope_entry_tag* entry, decl_context_t decl_context, char*
+                    is_dependent, int* max_qualif_level) = get_fully_qualified_symbol_name;
+
+            if (without_template_id)
+            {
+                ptr_fun = get_fully_qualified_symbol_name_without_template;
+            }
+
             int max_level = 0;
             char is_dependent = 0;
-            const char* qualified_name = get_fully_qualified_symbol_name(_symbol, sc._decl_context, 
+            const char* qualified_name = ptr_fun(_symbol, sc._decl_context, 
                     &is_dependent, &max_level);
+
             return std::string(qualified_name);
         }
     }
@@ -143,15 +143,20 @@ namespace TL
         return (this->_symbol->kind == SK_FUNCTION);
     }
 
-    bool Symbol::is_template_function() const
+    bool Symbol::is_template_function_name() const
     {
-        return (this->_symbol->kind == SK_FUNCTION
-                && is_template_specialized_type(this->_symbol->type_information));
+        return (this->_symbol->kind == SK_TEMPLATE
+                && is_function_type(named_type_get_symbol(template_type_get_primary_type(_symbol->type_information))->type_information));
     }
 
     bool Symbol::is_typedef() const
     {
         return (this->_symbol->kind == SK_TYPEDEF);
+    }
+
+    bool Symbol::is_dependent_entity() const
+    {
+        return (this->_symbol->kind == SK_DEPENDENT_ENTITY);
     }
 
     bool Symbol::is_typename() const

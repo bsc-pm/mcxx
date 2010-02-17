@@ -1,51 +1,7 @@
 load_lib target.exp
 
-set full_path_tool "../src/driver/mcxx"
+source "$srcdir/config/mercurium.exp"
+
 set testcases [lsort [find $srcdir/$subdir *.cpp]]
 
-send_user "\n"
-
-foreach test $testcases {
-    set basename_test [file tail $test]
-    set dirname_test [file dirname $test]
-    set rootname_test [file rootname $basename_test]
-    set kind_of_test ""
-    if [string match "success_*" $basename_test] {
-        set kind_of_test "success"
-    } elseif [string match "failure_*" $basename_test] {
-        set kind_of_test "xfailure"
-    } else {
-        unresolved "$test"
-        continue
-    }
-
-    send_user "Running test ${basename_test}...\n"
-
-    set output_execution ""
-    if {
-        [catch { 
-            set output_execution [exec "$full_path_tool" "--typecheck" "--config-file=$srcdir/$subdir/config.mcxx" "--profile=lt-mcxx" "--verbose" "--output-dir=." "-y" \
-                "-o" "-" "$test" "|&" "cat"] 
-        } output_execution ]
-    } {
-# Check if the execution ended properly or was signaled
-        if {[lindex $::errorCode 0] eq "CHILDSTATUS"} {
-            if [expr { $kind_of_test == "xfailure" }] {
-                pass "$test"
-            } elseif [expr {$kind_of_test == "success"}] {
-                fail "$test"
-            } 
-        } else {
-            fail "$test"
-        }
-    } else {
-        if [expr { $kind_of_test == "success" }] {
-            pass "$test"
-        } elseif [expr { $kind_of_test == "xfailure"} ] {
-            xpass "$test"
-        }
-    }
-    send_log "${output_execution}\n"
-
-    exec "sh" "-c" "rm -f mcxx_${basename_test} ${rootname_test}.o" 
-}
+execute_testsuite_no_compile $testcases

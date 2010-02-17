@@ -1,23 +1,26 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #include <string.h>
 #include "cxx-utils.h"
 #include "cxx-ast.h"
@@ -302,12 +305,143 @@ void instantiate_template_class(scope_entry_t* entry, decl_context_t decl_contex
                 entry->line);
     }
 }
+
+decl_context_t get_instantiation_context(scope_entry_t* entry, template_parameter_list_t* template_parameters)
+{
+    type_t* template_specialized_type = entry->type_information;
+
+    if (!is_template_specialized_type(template_specialized_type)
+            || !is_function_type(template_specialized_type))
+    {
+        internal_error("Symbol '%s' is not a template function eligible for instantiation", entry->symbol_name);
+    }
+
+    // type_t* template_type = template_specialized_type_get_related_template_type(template_specialized_type);
+    // scope_entry_t* template_symbol = template_type_get_related_symbol(template_type);
+
+    // The primary specialization is a named type, even if the named type is a function!
+    // type_t* primary_specialization_type = template_type_get_primary_type(template_symbol->type_information);
+    // scope_entry_t* primary_specialization_function = named_type_get_symbol(primary_specialization_type);
+    // type_t* primary_specialization_function_type = primary_specialization_function->type_information;
+
+    // Functions are easy. Since they cannot be partially specialized, like
+    // classes do, their template parameters always match the computed template
+    // arguments. In fact, overload machinery did this part for us
+
+    // Get a new template context where we will sign in the template arguments
+    decl_context_t template_parameters_context = new_template_context(entry->decl_context);
+
+    if (template_parameters == NULL)
+    {
+        template_parameters = template_specialized_type_get_template_parameters(template_specialized_type);
+    }
+
+    template_argument_list_t *template_arguments
+        = template_specialized_type_get_template_arguments(template_specialized_type);
+
+    // FIXME: Does this hold when in C++0x we allow default template parameters in functions?
+    ERROR_CONDITION(template_arguments->num_arguments != template_parameters->num_template_parameters,
+            "Mismatch between template arguments and parameters! %d != %d\n", 
+            template_arguments->num_arguments,
+            template_parameters->num_template_parameters);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "NUM TEMPLATE PARAMS %d\n", template_parameters->num_template_parameters);
+    }
+
+    // Inject template arguments
+    int i;
+    for (i = 0; i < template_parameters->num_template_parameters; i++)
+    {
+        template_parameter_t* template_param = template_parameters->template_parameters[i];
+        template_argument_t* template_argument = template_arguments->argument_list[i];
+
+        switch (template_param->kind)
+        {
+            case TPK_TYPE:
+                {
+                    ERROR_CONDITION(template_argument->kind != TAK_TYPE,
+                            "Mismatch between template argument kind and template parameter kind", 0);
+
+                    scope_entry_t* injected_type = new_symbol(template_parameters_context,
+                            template_parameters_context.template_scope, template_param->entry->symbol_name);
+
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "Injecting typedef '%s' to '%s'\n", injected_type->symbol_name,
+                                print_declarator(template_argument->type));
+                    }
+
+                    injected_type->kind = SK_TYPEDEF;
+                    injected_type->entity_specs.is_template_argument = 1;
+                    injected_type->type_information = get_new_typedef(template_argument->type);
+                    break;
+                }
+            case TPK_TEMPLATE:
+                {
+                    ERROR_CONDITION(template_argument->kind != TAK_TEMPLATE,
+                            "Mismatch between template argument kind and template parameter kind", 0);
+
+                    scope_entry_t* injected_type = new_symbol(template_parameters_context, 
+                            template_parameters_context.template_scope, template_param->entry->symbol_name);
+
+                    injected_type->kind = SK_TEMPLATE;
+                    injected_type->entity_specs.is_template_argument = 1;
+                    injected_type->type_information = 
+                        named_type_get_symbol(template_argument->type)->type_information;
+
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "Injecting template name '%s'\n", injected_type->symbol_name);
+                    }
+
+                    break;
+                }
+            case TPK_NONTYPE:
+                {
+                    ERROR_CONDITION(template_argument->kind != TAK_NONTYPE,
+                            "Mismatch between template argument kind and template parameter kind", 0);
+
+                    scope_entry_t* injected_nontype = new_symbol(template_parameters_context, 
+                            template_parameters_context.template_scope, template_param->entry->symbol_name);
+
+                    injected_nontype->kind = SK_VARIABLE;
+                    injected_nontype->entity_specs.is_template_argument = 1;
+                    injected_nontype->type_information = template_argument->type;
+
+                    // Fold it, as makes things easier
+                    literal_value_t literal_value = evaluate_constant_expression(template_argument->expression,
+                            template_argument->expression_context);
+                    AST evaluated_tree = tree_from_literal_value(literal_value);
+                    AST fake_initializer = evaluated_tree;
+                    injected_nontype->expression_value = fake_initializer;
+
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "Injecting parameter '%s' with expression '%s'\n", 
+                                injected_nontype->symbol_name,
+                                prettyprint_in_buffer(fake_initializer));
+                    }
+                    break;
+                }
+            default:
+                internal_error("Invalid template parameter kind %d\n", template_param->kind);
+        }
+    }
+
+    return template_parameters_context;
+}
  
 void instantiate_template_function(scope_entry_t* entry, 
         decl_context_t decl_context UNUSED_PARAMETER, 
         const char* filename UNUSED_PARAMETER, 
         int line UNUSED_PARAMETER)
 {
+    // Do nothing if we are checking for ambiguities as this may cause havoc
+    if (checking_ambiguity())
+        return;
+
     if (entry->kind != SK_FUNCTION)
     {
         internal_error("Invalid symbol\n", 0);
@@ -358,9 +492,6 @@ void instantiate_template_function(scope_entry_t* entry,
         return;
     }
 
-    // Do it now to avoid infinite recursion when two template functions call each other
-    entry->defined = 1;
-
     // Functions are easy. Since they cannot be partially specialized, like
     // classes do, their template parameters always match the computed template
     // arguments. In fact, overload machinery did this part for us
@@ -397,6 +528,11 @@ void instantiate_template_function(scope_entry_t* entry,
                     scope_entry_t* injected_type = new_symbol(template_parameters_context,
                             template_parameters_context.template_scope, template_param->entry->symbol_name);
 
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "Injecting typedef '%s'\n", injected_type->symbol_name);
+                    }
+
                     injected_type->kind = SK_TYPEDEF;
                     injected_type->entity_specs.is_template_argument = 1;
                     injected_type->type_information = get_new_typedef(template_argument->type);
@@ -409,6 +545,11 @@ void instantiate_template_function(scope_entry_t* entry,
 
                     scope_entry_t* injected_type = new_symbol(template_parameters_context, 
                             template_parameters_context.template_scope, template_param->entry->symbol_name);
+
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "Injecting template name '%s'\n", injected_type->symbol_name);
+                    }
 
                     injected_type->kind = SK_TEMPLATE;
                     injected_type->entity_specs.is_template_argument = 1;
@@ -427,6 +568,11 @@ void instantiate_template_function(scope_entry_t* entry,
                     injected_nontype->kind = SK_VARIABLE;
                     injected_nontype->entity_specs.is_template_argument = 1;
                     injected_nontype->type_information = template_argument->type;
+
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "Injecting parameter '%s'\n", injected_nontype->symbol_name);
+                    }
 
                     // Fold it, as makes things easier
                     literal_value_t literal_value = evaluate_constant_expression(template_argument->expression,
@@ -472,3 +618,5 @@ void instantiate_template_function(scope_entry_t* entry,
                 print_declarator(template_specialized_type));
     }
 }
+
+

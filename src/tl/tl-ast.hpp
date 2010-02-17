@@ -1,23 +1,26 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #ifndef TL_AST_HPP
 #define TL_AST_HPP
 
@@ -219,6 +222,9 @@ namespace TL
 
             //! Returns the innermost enclosing list of a given tree
             static AST get_enclosing_list(AST node);
+
+            //! Returns the innermost tree at the global scope starting from \a tree
+            static AST_t get_enclosing_global_tree_(AST_t tree);
 
             //! Given a member specificacion of a class definition, append a member declaration to it
             static void append_to_member_spec(AST member_spec, AST member_decl);
@@ -490,6 +496,16 @@ namespace TL
             //! Returns the enclosing namespace definition
             AST_t get_enclosing_namespace_definition();
 
+            //! Returns the enclosing statement
+            AST_t get_enclosing_statement();
+
+            //! Returns a reference tree that is in global scope
+            /*! 
+              This is the same tree used by prepend_sibling_global to prepend
+              an element
+              */
+            AST_t get_enclosing_global_tree();
+
             //! States whether this tree has a related text
             bool has_text() const;
 
@@ -576,6 +592,8 @@ namespace TL
         public:
             virtual bool do_(AST_t& ast) const
             {
+                if (!ast.is_valid())
+                    return false;
                 TL::Bool attr = ast.get_attribute(_ATTR);
                 return attr;
             }
@@ -606,6 +624,8 @@ namespace TL
 
             virtual bool do_(AST_t& ast) const
             {
+                if (!ast.is_valid())
+                    return false;
                 return TL::Bool(ast.get_attribute(_attr_name));
             }
     };

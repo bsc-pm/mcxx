@@ -1,23 +1,26 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #include "tl-type.hpp"
 #include "tl-ast.hpp"
 #include "cxx-utils.h"
@@ -91,6 +94,26 @@ namespace TL
         return Type(array_to);
     }
 
+    Type Type::get_array_to()
+    {
+        type_t* result_type = this->_type_info;
+
+        decl_context_t null_decl_context;
+        memset(&null_decl_context, 0, sizeof(null_decl_context));
+        type_t* array_to = get_array_type(result_type, NULL, null_decl_context);
+
+        return Type(array_to);
+    }
+
+    Type Type::get_array_to(const std::string& str)
+    {
+        type_t* result_type = this->_type_info;
+
+        type_t* array_to = get_array_type_str(result_type, uniquestr(str.c_str()));
+
+        return Type(array_to);
+    }
+
     bool Type::operator==(Type t) const
     {
         return this->_type_info == t._type_info;
@@ -134,7 +157,12 @@ namespace TL
 
     bool Type::is_dependent() const
     {
-        return 0;
+        return ::is_dependent_type(_type_info);
+    }
+
+    bool Type::is_expression_dependent() const
+    {
+        return ::is_dependent_expr_type(_type_info);
     }
 
     Type Type::returns() const
@@ -202,6 +230,11 @@ namespace TL
     Type Type::array_element() const
     {
         return array_type_get_element_type(_type_info);
+    }
+
+    bool Type::array_is_vla() const
+    {
+        return array_type_is_vla(_type_info);
     }
 
     Type Type::references_to() const
@@ -286,7 +319,6 @@ namespace TL
         AST expression = array_type_get_array_size_expr(_type_info);
         return expression;
     }
-
 
     Type Type::get_int_type(void)
     {
@@ -461,11 +493,11 @@ namespace TL
     ObjectList<Symbol> Type::get_nonstatic_data_members() const
     {
         ObjectList<Symbol> result;
-        unsigned int n = class_type_get_num_nonstatic_data_members(_type_info);
+        unsigned int n = class_type_get_num_nonstatic_data_members(::get_actual_class_type(_type_info));
 
         for (unsigned int i = 0; i < n; i++)
         {
-            result.push_back(class_type_get_nonstatic_data_member_num(_type_info, i));
+            result.push_back(class_type_get_nonstatic_data_member_num(::get_actual_class_type(_type_info), i));
         }
 
         return result;
@@ -474,11 +506,11 @@ namespace TL
     ObjectList<Symbol> Type::get_static_data_members() const
     {
         ObjectList<Symbol> result;
-        unsigned int n = class_type_get_num_static_data_members(_type_info);
+        unsigned int n = class_type_get_num_static_data_members(::get_actual_class_type(_type_info));
 
         for (unsigned int i = 0; i < n; i++)
         {
-            result.push_back(class_type_get_static_data_member_num(_type_info, i));
+            result.push_back(class_type_get_static_data_member_num(::get_actual_class_type(_type_info), i));
         }
 
         return result;
@@ -513,26 +545,62 @@ namespace TL
         return typedef_type_get_aliased_type(_type_info);
     }
 
+    bool Type::is_template_type() const
+    {
+        return (::is_template_type(_type_info));
+    }
+
+    Type Type::get_primary_template() const
+    {
+        return ::template_type_get_primary_type(_type_info);
+    }
+
     bool Type::is_template_specialized_type() const
     {
         return (::is_template_specialized_type(_type_info));
     }
 
-    ObjectList<Symbol> Type::get_template_parameters() const
+    ObjectList<TemplateParameter> Type::get_template_parameters() const
     {
-        ObjectList<Symbol> result;
-        template_parameter_list_t* template_parameters = template_specialized_type_get_template_parameters(_type_info);
+        ObjectList<TemplateParameter> result;
+        template_parameter_list_t* template_parameters = NULL;
+
+        if (is_template_type())
+        {
+            template_parameters = template_type_get_template_parameters(_type_info);
+        }
+        else if (is_template_specialized_type())
+        {
+            template_parameters = template_specialized_type_get_template_parameters(_type_info);
+        }
 
         int i;
         for (i = 0; i < template_parameters->num_template_parameters; i++)
         {
             template_parameter_t* template_parameter = template_parameters->template_parameters[i];
 
-            Symbol sym(template_parameter->entry);
-            result.append(sym);
+            result.append(template_parameter);
         }
 
         return result;
+    }
+
+    ObjectList<TemplateArgument> Type::get_template_arguments() const
+    {
+        ObjectList<TemplateArgument> result;
+        template_argument_list_t* arg_list = template_specialized_type_get_template_arguments(_type_info);
+
+        for (int i = 0; i < arg_list->num_arguments; i++)
+        {
+            result.append(TemplateArgument(arg_list->argument_list[i]));
+        }
+
+        return result;
+    }
+
+    Type Type::get_related_template_type() const
+    {
+        return Type(::template_specialized_type_get_related_template_type(_type_info));
     }
 
     bool Type::is_same_type(Type t)
@@ -661,5 +729,10 @@ namespace TL
         res.append(Type::get_floating_types());
         return res;
         //return Type::get_integer_types().append(Type::get_floating_types());
+    }
+
+    bool Type::is_variably_modified() const
+    {
+        return ::is_variably_modified_type(_type_info);
     }
 }

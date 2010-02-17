@@ -10,6 +10,8 @@
 %token<token_atrib> SUBPARSE_MEMBER "<subparse-member>"
 %token<token_atrib> SUBPARSE_TYPE "<subparse-type>"
 %token<token_atrib> SUBPARSE_TYPE_LIST "<subparse-type-list>"
+%token<token_atrib> SUBPARSE_ID_EXPRESSION "<subparse-id-expression>"
+
 
 /*!endif*/
 /*!if GRAMMAR_RULES*/
@@ -56,6 +58,10 @@ subparsing : SUBPARSE_EXPRESSION expression
 {
     $$ = $2;
 }
+| SUBPARSE_ID_EXPRESSION id_expression
+{
+    $$ = $2;
+}
 ;
 
 subparse_type_list : type_specifier_seq
@@ -67,5 +73,6 @@ subparse_type_list : type_specifier_seq
     $$ = ASTList($1, $3);
 }
 ;
+
 
 /*!endif*/

@@ -1,23 +1,26 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #include <stdlib.h>
 #include <string.h>
 #include "cxx-typeenviron.h"
@@ -87,19 +90,51 @@ static void system_v_array_sizeof(type_t* t)
             type_set_valid_size(t, 1);
             return;
         }
+        else
+        {
+            internal_error("Cannot compute the size of the array type '%s'!", print_declarator(t));
+        }
     }
-    internal_error("Cannot compute the size of the array type '%s'!", print_declarator(t));
+    else if (expr == NULL)
+    {
+        internal_error("The compiler tried to evaluate the size of an unbounded array", 0);
+    }
 }
 
 static void system_v_field_layout(scope_entry_t* field,
         _size_t *offset,
         _size_t *whole_align,
         _size_t *current_bit_within_storage,
-        char *previous_was_bitfield)
+        char *previous_was_bitfield,
+        char is_last_field)
 {
     type_t* field_type = field->type_information;
 
-    _size_t field_size = type_get_size(field_type);
+    _size_t field_size = 0;
+
+    // gcc flexible arrays support
+    if (is_array_type(field_type)
+            && array_type_get_array_size_expr(field_type) == NULL)
+    {
+        if (!is_last_field)
+        {
+            running_error("Invalid unbounded array found when computing type of struct\n", 0);
+        }
+        else
+        {
+            // Perform a special computation for this array
+            type_t* element_type = array_type_get_element_type(field_type);
+            _size_t element_align = type_get_alignment(element_type);
+
+            type_set_size(field_type, 0);
+            type_set_alignment(field_type, element_align);
+            type_set_valid_size(field_type, 1);
+        }
+    }
+    else
+    {
+        field_size = type_get_size(field_type);
+    }
     _size_t field_align = type_get_alignment(field_type);
 
     if (field->entity_specs.is_bitfield)
@@ -248,11 +283,16 @@ static void system_v_union_sizeof(type_t* class_type)
         previous_was_bitfield = 0;
         
         scope_entry_t* field = class_type_get_nonstatic_data_member_num(class_type, i);
-        system_v_field_layout(field,
+
+        char is_last_field = (i == (num_fields - 1));
+
+        system_v_field_layout(
+                field,
                 &offset,
                 &whole_align,
                 &current_bit_within_storage,
-                &previous_was_bitfield);
+                &previous_was_bitfield,
+                is_last_field);
 
         max_offset = MAX(max_offset, offset);
     }
@@ -293,11 +333,16 @@ static void system_v_struct_sizeof(type_t* class_type)
     for (i = 0; i < num_fields; i++)
     {
         scope_entry_t* field = class_type_get_nonstatic_data_member_num(class_type, i);
-        system_v_field_layout(field,
+
+        char is_last_field = (i == (num_fields - 1));
+
+        system_v_field_layout(
+                field,
                 &offset,
                 &whole_align,
                 &current_bit_within_storage,
-                &previous_was_bitfield);
+                &previous_was_bitfield,
+                is_last_field);
     }
 
     // Compute tail padding, just ensure that the next laid out entity

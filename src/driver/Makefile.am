@@ -1,3 +1,26 @@
+##########################################################################
+#  (C) Copyright 2006-2009 Barcelona Supercomputing Center               #
+#                          Centro Nacional de Supercomputacion           #
+#                                                                        #
+#  This file is part of Mercurium C/C++ source-to-source compiler.       #
+#                                                                        #
+#  This library is free software; you can redistribute it and/or         #
+#  modify it under the terms of the GNU Lesser General Public            #
+#  License as published by the Free Software Foundation; either          #
+#  version 3 of the License, or (at your option) any later version.      #
+#                                                                        #
+#  Mercurium C/C++ source-to-source compiler is distributed in the hope  #
+#  that it will be useful, but WITHOUT ANY WARRANTY; without even the    #
+#  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR       #
+#  PURPOSE.  See the GNU Lesser General Public License for more          #
+#  details.                                                              #
+#                                                                        #
+#  You should have received a copy of the GNU Lesser General Public      #
+#  License along with Mercurium C/C++ source-to-source compiler; if      #
+#  not, write to the Free Software Foundation, Inc., 675 Mass Ave,       #
+#  Cambridge, MA 02139, USA.                                             #
+##########################################################################
+
 # mcxxexec can't be changed to simply 'bin' or 'mcxx' (otherwise things won't
 # work)
 mcxxexec_PROGRAMS = mcxx
@@ -39,12 +62,18 @@ mcxx_SOURCES = \
   cxx-driver-utils.h \
   cxx-profile.c \
   cxx-profile.h \
+  cxx-configfile-parser-internal.h \
+  cxx-configfile-parser.h \
+  cxx-configfile-parser.c \
+  cxx-configfile-lexer.h \
+  cxx-configfile-lexer.c \
+  cxx-multifile.h \
+  cxx-multifile.c \
   $(END)
 
 mcxx_LDADD = \
    $(top_builddir)/lib/libmcxx-utils.la \
    $(top_builddir)/lib/libmcxx-extstruct.la \
-   $(top_builddir)/lib/libmcxx-mcfg.la \
    $(top_builddir)/src/frontend/libmcxx-process.la \
    $(top_builddir)/src/frontend/libmcxx.la \
    $(top_builddir)/src/tl/libtl.la \
@@ -66,15 +95,28 @@ EXTRA_DIST += cxx-configoptions.gperf
 EXTRA_DIST += cxx-fileextensions.gperf
 EXTRA_DIST += cxx-debugflags.gperf
 
+EXTRA_DIST += cxx-configfile-parser.y
+EXTRA_DIST += cxx-configfile-lexer.l
+
 BUILT_SOURCES += cxx-configoptions.c
 BUILT_SOURCES += cxx-fileextensions.c
 BUILT_SOURCES += cxx-debugflags.c
+
+
+BUILT_SOURCES += cxx-configfile-parser.c
+BUILT_SOURCES += cxx-configfile-parser-internal.h
+BUILT_SOURCES += cxx-configfile-lexer.c
 
 if GPERF_BUILDING
 CLEANFILES += cxx-configoptions.c
 CLEANFILES += cxx-debugflags.c
 CLEANFILES += cxx-fileextensions.c
 endif
+
+CLEANFILES += cxx-configfile-lexer.c
+CLEANFILES += cxx-configfile-parser.c
+CLEANFILES += cxx-configfile-parser-internal.h
+CLEANFILES += cxx-configfile-parser.output
 
 cxx-configoptions.c : $(srcdir)/cxx-configoptions.gperf $(top_srcdir)/src/driver/cxx-driver.h $(srcdir)/cxx-configfile.h
 if GPERF_BUILDING
@@ -106,6 +148,14 @@ else
 	@echo "*** ERROR: file cxx-debugflags.gperf was modified but no suitable gperf was found during configure ***"
 	@exit 1
 endif
+
+cxx-configfile-lexer.c: $(srcdir)/cxx-configfile-lexer.l
+	$(FLEX) -Pconfigfile -d -ocxx-configfile-lexer.c -8 $(srcdir)/cxx-configfile-lexer.l
+
+cxx-configfile-parser-internal.h : cxx-configfile-parser.c
+
+cxx-configfile-parser.c: $(srcdir)/cxx-configfile-parser.y
+	$(BISON) -pconfigfile --debug --defines=cxx-configfile-parser-internal.h --report=all --output=cxx-configfile-parser.c $(srcdir)/cxx-configfile-parser.y
 
 # Install hooks
 # installs "mcc" as a soft link of mcxx

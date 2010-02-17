@@ -1,0 +1,21 @@
+[sscc]
+language = C
+options = --variable=generate-non-task-side:yes --variable=generate-task-side:yes --variable=generate-task-ids:yes --variable=generate-task-adapters:yes --variable=align-memory:yes
+preprocessor_name = gcc
+preprocessor_options = -std=gnu99 -E
+{openmp} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h
+preprocessor_options = 
+compiler_name = gcc
+compiler_options = -std=gnu99
+linker_name = gcc
+{openmp} linker_options = -L@NANOX_LIBS@ -Wl,-rpath,@NANOX_LIBS@
+{openmp} linker_options = -lnanox-c -lnanox-ss
+compiler_phase = libtlsuperscalar-configurator.so
+# compiler_phase = libtlsuperscalar-preanalysis.so
+compiler_phase = libtlsuperscalar-task-analysis.so
+compiler_phase = libtlss2omp.so
+{openmp} compiler_phase = libtlomp-core.so
+{openmp,!only-ss2omp} compiler_phase = libtlomp-fun-tasks.so
+{openmp,!only-ss2omp} compiler_phase = libtlomp-core.so
+{openmp,!only-ss2omp} compiler_phase = libtlomp-nanox.so
+pragma_prefix = css

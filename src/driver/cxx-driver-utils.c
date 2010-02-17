@@ -1,23 +1,26 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #ifdef HAVE_CONFIG_H
   #include "config.h"
 #endif
@@ -30,6 +33,7 @@
 #else
   #include <windows.h>
 #endif
+#include <sys/stat.h>
 
 #include "cxx-driver.h"
 #include "cxx-driver-utils.h"
@@ -48,32 +52,129 @@ void temporal_files_cleanup(void)
 {
     temporal_file_list_t iter = temporal_file_list;
 
-    while (iter != NULL)
+    for (iter = temporal_file_list; iter != NULL; iter = iter->next)
     {
-        if (iter->info != NULL)
+        if (iter->info == NULL)
+            continue;
+
+        if (!iter->info->is_temporary
+                && CURRENT_CONFIGURATION->keep_files)
+            continue;
+
+        if (iter->info->is_temporary
+                && CURRENT_CONFIGURATION->keep_temporaries)
+            continue;
+
+        if(!iter->info->is_dir)
         {
             if (CURRENT_CONFIGURATION->verbose)
             {
-                fprintf(stderr, "Removing temporal filename '%s'\n", iter->info->name);
+                fprintf(stderr, "Removing %s filename '%s'\n", 
+                        iter->info->is_temporary ? "temporal" : "intermediate",
+                        iter->info->name);
             }
             if (remove(iter->info->name) != 0
                     && errno != ENOENT)
             {
-                fprintf(stderr, "Error while removing temporal filename: '%s'\n", strerror(errno));
+                fprintf(stderr, "Error while removing filename: '%s'\n", strerror(errno));
             }
         }
-
-        iter = iter->next;
+        else
+        {
+            if (CURRENT_CONFIGURATION->verbose)
+            {
+                fprintf(stderr, "Removing %s directory '%s'\n", 
+                        iter->info->is_temporary ? "temporal" : "intermediate",
+                        iter->info->name);
+            }
+            // FIXME - We really should improve this...
+            char rm_fr[256];
+            snprintf(rm_fr, 255, "rm -fr \"%s\"", iter->info->name);
+            rm_fr[255] = '\0';
+            system(rm_fr);
+        }
     }
 
     temporal_file_list = NULL;
 }
 
+static temporal_file_t add_to_list_of_temporal_files(const char* name, char is_temporary)
+{
+    temporal_file_t result = calloc(sizeof(*result), 1);
+    result->name = uniquestr(name);
+    result->is_temporary = is_temporary;
+
+    temporal_file_list_t new_file_element = calloc(sizeof(*new_file_element), 1);
+    new_file_element->info = result;
+    new_file_element->next = temporal_file_list;
+    temporal_file_list = new_file_element;
+
+    return result;
+}
+
+void mark_file_for_cleanup(const char* name)
+{
+    add_to_list_of_temporal_files(name, /* is_temporary */ 0);
+}
+
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
+static temporal_file_t new_temporal_dir_unix(void)
+{
+    char template[256];
+
+    // Behave like glibc
+    const char * dir = getenv("TMPDIR");
+    if (dir == NULL)
+    {
+        if (P_tmpdir != NULL)
+        {
+            dir = P_tmpdir;
+        }
+        else
+        {
+            // Desperate fallback
+            dir = "/tmp";
+        }
+    }
+
+    snprintf(template, 255, "%s/%s_XXXXXX", 
+            dir, compilation_process.exec_basename);
+    template[255] = '\0';
+
+    // Create the temporal file
+    char* directory_name = mkdtemp(template);
+
+    if (directory_name == NULL)
+    {
+        return NULL;
+    }
+
+    // Save the info of the new file
+
+    return add_to_list_of_temporal_files(directory_name, /* is_temporary */ 1);
+}
+
 static temporal_file_t new_temporal_file_unix(void)
 {
     char template[256];
-    snprintf(template, 255, "/tmp/%s_XXXXXX", compilation_process.exec_basename);
+
+    // Behave like glibc
+    const char * dir = getenv("TMPDIR");
+    if (dir == NULL)
+    {
+        if (P_tmpdir != NULL)
+        {
+            dir = P_tmpdir;
+        }
+        else
+        {
+            // Desperate fallback
+            dir = "/tmp";
+        }
+    }
+
+    snprintf(template, 255, "%s/%s_XXXXXX", 
+            dir, compilation_process.exec_basename);
     template[255] = '\0';
 
     // Create the temporal file
@@ -84,23 +185,7 @@ static temporal_file_t new_temporal_file_unix(void)
         return NULL;
     }
 
-    // Save the info of the new file
-    temporal_file_t result = calloc(sizeof(*result), 1);
-    result->name = uniquestr(template);
-    // Get a FILE* descriptor
-    // result->file = fdopen(file_descriptor, "w+");
-    // if (result->file == NULL)
-    // {
-    //     running_error("error: cannot create temporary file (%s)", strerror(errno));
-    // }
-
-    // Link to the temporal_file_list
-    temporal_file_list_t new_file_element = calloc(sizeof(*new_file_element), 1);
-    new_file_element->info = result;
-    new_file_element->next = temporal_file_list;
-    temporal_file_list = new_file_element;
-
-    return result;
+    return add_to_list_of_temporal_files(template, /* is_temporary */ 1);
 }
 #else
 static temporal_file_t new_temporal_file_win32(void)
@@ -111,32 +196,61 @@ static temporal_file_t new_temporal_file_win32(void)
     if (template == NULL)
         return NULL;
 
-    // Save the info of the new file
-    temporal_file_t result = calloc(sizeof(*result), 1);
-    result->name = strappend(uniquestr(template), ".tmp");
-    // // Get a FILE* descriptor
-    // result->file = fopen(result->name, "w+");
-    // if (result->file == NULL)
-    // {
-    //     running_error("error: cannot create temporary file (%s)", strerror(errno));
-    // }
-
-    // Link to the temporal_file_list
-    temporal_file_list_t new_file_element = calloc(sizeof(*new_file_element), 1);
-    new_file_element->info = result;
-    new_file_element->next = temporal_file_list;
-    temporal_file_list = new_file_element;
-
-    return result;
+    return add_to_list_of_temporal_files(strappend(uniquestr(template), ".tmp"), /* is_temporary */ 1);
 }
 #endif
 
-temporal_file_t new_temporal_file()
+temporal_file_t new_temporal_dir(void)
+{
+#if !defined(WIN32_BUILD) || defined(__CYGWIN__)
+    return new_temporal_dir_unix();
+#else
+#error Not implemented yet
+#endif
+}
+
+temporal_file_t new_temporal_file(void)
 {
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
     return new_temporal_file_unix();
 #else
     return new_temporal_file_win32();
+#endif
+}
+
+temporal_file_t new_temporal_file_extension(const char* extension)
+{
+    ERROR_CONDITION(extension == NULL, "Extension cannot be NULL", 0);
+
+    while (*extension == '.') 
+        extension++;
+
+    ERROR_CONDITION(*extension == '\0', "Extension cannot be empty", 0);
+
+#if !defined(WIN32_BUILD) || defined(__CYGWIN__)
+    temporal_file_t result = new_temporal_file_unix();
+
+    char c[1024];
+    snprintf(c, 1023, "%s/%s.%s", 
+            give_dirname(result->name),
+            give_basename(result->name), 
+            extension);
+    c[1023] = '\0';
+
+    if (link(result->name, c) != 0)
+    {
+        running_error("Cannot create temporal file '%s': %s\n", c, strerror(errno));
+    }
+
+    if (unlink(result->name) != 0)
+    {
+        running_error("Unlink of '%s' failed: %s\n", result->name, strerror(errno));
+    }
+    result->name = uniquestr(c);
+
+    return result;
+#else
+#error Not yet implemented in windows
 #endif
 }
 
@@ -512,7 +626,7 @@ void run_gdb(void)
             char *args[] = { "--batch", 
                 "--quiet",
                 "-ex", "set confirm off",
-                "-ex", "set backtrace limit 200",
+                "-ex", "set backtrace limit 500",
                 "-ex", "bt",
                 "-ex", "thread apply all bt full",
                 "-ex", "detach",
@@ -549,3 +663,69 @@ void run_gdb(void)
     CURRENT_CONFIGURATION->debug_options.do_not_run_gdb = 0;
 }
 #endif
+
+char move_file(const char* source, const char* dest)
+{
+    struct stat buf;
+    if (stat(source, &buf) != 0)
+        return -1;
+
+    if (S_ISDIR(buf.st_mode))
+        return -1;
+
+    dev_t source_fs = buf.st_dev;
+
+    if (stat(give_dirname(dest), &buf) != 0)
+        return -1;
+
+    if (!S_ISDIR(buf.st_mode))
+        return -1;
+
+    dev_t dest_fs = buf.st_dev;
+
+    if (source_fs == dest_fs)
+    {
+        return rename(source, dest);
+    }
+    else
+    {
+        // Plain old copy
+        FILE* orig_file = fopen(source, "r");
+        if (orig_file == NULL)
+            return -1;
+
+        FILE* dest_file = fopen(dest, "w");
+
+        if (dest_file == NULL)
+            return -1;
+
+        // size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
+        char c[1024];
+        int actually_read = fread(c, sizeof(c), 1, orig_file);
+
+        while (actually_read != 0)
+        {
+            int actually_written = fwrite(c, actually_read, 1, dest_file);
+            if (actually_written < actually_read)
+            {
+                return -1;
+            }
+            actually_read = fread(c, sizeof(c), 1, orig_file);
+        }
+        if (feof(orig_file))
+        {
+            // Everything is OK
+            clearerr(orig_file);
+        }
+        else if (ferror(orig_file))
+        {
+            // Something went wrong
+            return -1;
+        }
+
+        fclose(orig_file);
+        fclose(dest_file);
+    }
+    // Everything ok
+    return 0;
+}

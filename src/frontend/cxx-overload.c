@@ -1,23 +1,26 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #include "cxx-overload.h"
 #include "cxx-buildscope.h"
 #include "cxx-typeutils.h"
@@ -270,7 +273,6 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
     // if it can't be solved, there is no ICS, it is not an error
     if (is_unresolved_overloaded_type(orig))
     {
-
         scope_entry_t* solved_function = address_of_overloaded_function(
                 unresolved_overloaded_type_get_overload_set(orig),
                 unresolved_overloaded_type_get_explicit_template_arguments(orig),
@@ -760,6 +762,7 @@ char type_can_be_implicitly_converted_to(type_t* orig, type_t* dest, decl_contex
     {
         internal_error("This function cannot be used in C", 0);
     }
+    return 0;
 }
 
 /*
@@ -1990,7 +1993,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
             DEBUG_CODE()
             {
                 fprintf(stderr, "OVERLOAD: When solving address of overload: checking '%s' "
-                        "against overload '%s' ('%s' at '%s:%d')\n",
+                        "against (target) overload '%s' ('%s' at '%s:%d')\n",
                         print_declarator(current_fun->type_information),
                         print_declarator(target_type),
                         current_fun->symbol_name,
@@ -2002,8 +2005,12 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
             if (current_fun->entity_specs.is_member 
                     && !current_fun->entity_specs.is_static
                     && is_pointer_to_member_type(target_type)
-                    && equivalent_types(get_actual_class_type(current_fun->entity_specs.class_type),
-                        get_actual_class_type(class_type->type_information)))
+                    && (equivalent_types(get_actual_class_type(current_fun->entity_specs.class_type),
+                            get_actual_class_type(class_type->type_information))
+                        || class_type_is_base(get_actual_class_type(current_fun->entity_specs.class_type),
+                            get_actual_class_type(class_type->type_information))
+                       )
+               )
             {
                 can_match = 1;
             }
@@ -2071,8 +2078,12 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
             if (primary_symbol->entity_specs.is_member 
                     && !primary_symbol->entity_specs.is_static
                     && is_pointer_to_member_type(target_type)
-                    && equivalent_types(get_actual_class_type(primary_symbol->entity_specs.class_type),
-                        get_actual_class_type(class_type->type_information)))
+                    && (equivalent_types(get_actual_class_type(primary_symbol->entity_specs.class_type),
+                            get_actual_class_type(class_type->type_information))
+                        || class_type_is_base(get_actual_class_type(primary_symbol->entity_specs.class_type),
+                            get_actual_class_type(class_type->type_information))
+                       )
+               )
             {
                 can_match = 1;
             }
@@ -2105,6 +2116,13 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                             &deduced_arguments, filename, line,
                             explicit_template_arguments))
                 {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "OVERLOAD: When solving address of overload function: "
+                                "template function-name specialization "
+                                "'%s' deducing template arguments\n",
+                                current_fun->symbol_name);
+                    }
 
                     template_argument_list_t* argument_list = build_template_argument_list_from_deduction_set(
                             deduced_arguments);

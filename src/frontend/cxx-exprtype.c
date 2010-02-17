@@ -1,23 +1,26 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #include "cxx-exprtype.h"
 #include "cxx-ambiguity.h"
 #include "cxx-utils.h"
@@ -76,6 +79,18 @@ static const char* print_decl_type_str(type_t* t, decl_context_t decl_context, c
         char c[256];
         snprintf(c, 255, "< unknown type > %s\n", name);
         return uniquestr(c);
+    }
+    else if (is_unresolved_overloaded_type(t))
+    {
+        scope_entry_list_t* overload_set = unresolved_overloaded_type_get_overload_set(t);
+        if (overload_set->next == NULL)
+        {
+            return print_decl_type_str(overload_set->entry->type_information, decl_context, name);
+        }
+        else
+        {
+            return uniquestr("<unresolved overload>");
+        }
     }
     else
     {
@@ -461,6 +476,7 @@ static char check_for_conversion_function_id_expression(AST expression, decl_con
 static char check_for_pseudo_destructor_call(AST expression, decl_context_t decl_context);
 
 static char check_for_array_section_expression(AST expression, decl_context_t decl_context);
+static char check_for_shaping_expression(AST expression, decl_context_t decl_context);
 
 static char check_for_gcc_builtin_offsetof(AST expression, decl_context_t decl_context);
 static char check_for_gcc_builtin_choose_expr(AST expression, decl_context_t decl_context);
@@ -757,6 +773,10 @@ char check_for_expression(AST expression, decl_context_t decl_context)
 
                 if (result)
                 {
+                    ASTAttrSetValueType(expression, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
+                    ASTAttrSetValueType(expression, LANG_IS_UNQUALIFIED_ID, tl_type_t, tl_bool(1));
+                    ASTAttrSetValueType(expression, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(expression));
+
                     ASTAttrSetValueType(expression, LANG_IS_TEMPLATE_ID, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_TEMPLATE_NAME, tl_type_t, tl_ast(ASTSon0(expression)));
                     ASTAttrSetValueType(expression, LANG_TEMPLATE_ARGS, tl_type_t, tl_ast(ASTSon1(expression)));
@@ -1145,6 +1165,17 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 result = check_for_pseudo_destructor_call(expression, decl_context);
                 break;
             }
+        case AST_VLA_EXPRESSION :
+            {
+                // This is not actually an expression per se, but it appears in
+                // a place where 99% of the time an expression is used instead,
+                // so instead of filling the code with checks for this node
+                // type, accept it in the club of expressions with a type of
+                // signed int and a non constant expression
+                result = 1;
+                ast_set_expression_type(expression, get_signed_int_type());
+                break;
+            }
         case AST_GCC_POSTFIX_EXPRESSION :
             {
                 result = check_for_type_id_tree(ASTSon0(expression), decl_context);
@@ -1305,6 +1336,29 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                     ASTAttrSetValueType(expression, LANG_ARRAY_SECTION_LOWER, tl_type_t, tl_ast(ASTSon1(expression)));
                     ASTAttrSetValueType(expression, LANG_ARRAY_SECTION_UPPER, tl_type_t, tl_ast(ASTSon2(expression)));
                 }
+                break;
+            }
+            // This is a mcxx extension
+            // that gives an array shape to pointer expressions
+        case AST_SHAPING_EXPRESSION:
+            {
+                if (check_for_shaping_expression(expression, decl_context))
+                {
+                    result = 1;
+
+                    ASTAttrSetValueType(expression, LANG_IS_SHAPING_EXPRESSION, tl_type_t, tl_bool(1));
+                    ASTAttrSetValueType(expression, LANG_SHAPE_LIST, tl_type_t, tl_ast(ASTSon0(expression)));
+                    ASTAttrSetValueType(expression, LANG_SHAPED_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expression)));
+                }
+                break;
+            }
+            // Special nodes
+        case AST_DIMENSION_STR:
+            {
+                result = 1;
+                // We do this to avoid later failures
+                ast_set_expression_type(expression, get_signed_int_type());
+                ast_set_expression_is_lvalue(expression, 0);
                 break;
             }
         case AST_AMBIGUITY :
@@ -2171,7 +2225,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
             &(argument_types[1]), decl_context, operator_name);
     
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(
-            entry_list, builtins, &(argument_types[1]), num_arguments,
+            entry_list, builtins, &(argument_types[1]), num_arguments - 1,
             decl_context,
             ASTFileName(expr), ASTLine(expr),
             /* explicit_template_arguments */ NULL);
@@ -2213,7 +2267,7 @@ static char operator_bin_plus_builtin_pred(type_t* lhs, type_t* rhs)
     return ((is_arithmetic_type(no_ref(lhs))
                 && is_arithmetic_type(no_ref(rhs)))
             // T* + <arithmetic>
-            || ((is_pointer_type(no_ref(lhs)) || is_array_type(no_ref(rhs)))
+            || ((is_pointer_type(no_ref(lhs)) || is_array_type(no_ref(lhs)))
                 && is_arithmetic_type(no_ref(rhs)))
             // <arithmetic> + T*
             || (is_arithmetic_type(no_ref(lhs))
@@ -2500,7 +2554,7 @@ static char operator_bin_sub_builtin_pred(type_t* lhs, type_t* rhs)
     return ((is_arithmetic_type(lhs)
                 && is_arithmetic_type(rhs))
             // T* - <arithmetic>
-            || ((is_pointer_type(lhs) || is_array_type(rhs))
+            || ((is_pointer_type(lhs) || is_array_type(lhs))
                 && is_arithmetic_type(rhs)));
 }
 
@@ -4829,13 +4883,14 @@ static char check_for_conditional_expression_impl(AST expression, decl_context_t
             return 0;
         }
     }
-    CXX_LANGUAGE()
-    {
-        converted_type = get_bool_type();
-    }
+
+    // In C++ this might be an lvalue, but it is not in C
+    ast_set_expression_is_lvalue(expression, 0);
 
     CXX_LANGUAGE()
     {
+        converted_type = get_bool_type();
+
         /*
          * C++ standard is a mess here but we will try to make it clear
          */
@@ -5006,16 +5061,16 @@ static char check_for_conditional_expression_impl(AST expression, decl_context_t
             second_type = function_type_get_parameter_type_num(overloaded_call->type_information, 1);
             third_type = function_type_get_parameter_type_num(overloaded_call->type_information, 2);
         }
-    }
 
-    /*
-     * If both types are the same and lvalue the resulting expression is a lvalue
-     */
-    if (second_is_lvalue 
-            && third_is_lvalue
-            && equivalent_types(no_ref(second_type), no_ref(third_type)))
-    {
-        ast_set_expression_is_lvalue(expression, 1);
+        /*
+         * If both types are the same and lvalue the resulting expression is a lvalue
+         */
+        if (second_is_lvalue 
+                && third_is_lvalue
+                && equivalent_types(no_ref(second_type), no_ref(third_type)))
+        {
+            ast_set_expression_is_lvalue(expression, 1);
+        }
     }
 
     /*
@@ -5237,6 +5292,16 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
             if (is_pointer_to_class_type(declarator_type)
                     && global_op == NULL)
             {
+                type_t* class_type = pointer_type_get_pointee_type(declarator_type);
+
+                // Instantiate the class if needed
+                if (is_named_class_type(class_type)
+                        && class_type_is_incomplete_independent(get_actual_class_type(class_type)))
+                {
+                    scope_entry_t* symbol = named_type_get_symbol(class_type);
+                    instantiate_template_class(symbol, decl_context, ASTFileName(new_expr), ASTLine(new_expr));
+                }
+
                 op_new_context = class_type_get_inner_context(
                         get_actual_class_type(pointer_type_get_pointee_type(declarator_type)));
             }
@@ -5275,7 +5340,7 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
             {
                 if (!checking_ambiguity())
                 {
-                    fprintf(stderr, "warning: %s: no suitable '%s' has been found in the scope\n",
+                    fprintf(stderr, "%s: warning: no suitable '%s' has been found in the scope\n",
                             ast_location(new_expr),
                             prettyprint_in_buffer(called_operation_new_tree));
                 }
@@ -6140,6 +6205,46 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                 }
             }
         }
+        else if (!is_function_type(ASTExprType(called_expression))
+                && !is_pointer_to_function_type(ASTExprType(called_expression)))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: Expression is not callable\n");
+            }
+            if (!checking_ambiguity())
+            {
+                fprintf(stderr, "%s: warning: cannot call '%s' since its type '%s' is neither a function or a pointer to function\n",
+                        ast_location(called_expression),
+                        prettyprint_in_buffer(called_expression),
+                        print_type_str(ASTExprType(called_expression), decl_context));
+            }
+            return 0;
+        }
+
+        // Do not allow invalid types from now
+        ERROR_CONDITION(!is_function_type(ASTExprType(called_expression))
+                && !is_pointer_to_function_type(ASTExprType(called_expression)),
+                "Invalid type for function call %s\n", print_declarator(ASTExprType(called_expression)));
+
+        // Check arguments, at the moment just check the number of arguments. 
+        // Maybe we will be checking the types themselves one day
+        type_t* proper_function_type = ASTExprType(called_expression);
+        if (is_pointer_to_function_type(proper_function_type))
+        {
+            proper_function_type = pointer_type_get_pointee_type(proper_function_type);
+        }
+
+        if (!((num_explicit_arguments == function_type_get_num_parameters(proper_function_type))
+                    || ((num_explicit_arguments >= (function_type_get_num_parameters(proper_function_type) - 1))
+                        && function_type_get_has_ellipsis(proper_function_type))))
+        {
+            fprintf(stderr, "%s: warning: number of arguments of call '%s' is not valid for function type '%s'\n",
+                    ast_location(called_expression),
+                    prettyprint_in_buffer(whole_function_call),
+                    print_type_str(proper_function_type, decl_context));
+        }
+
 
         DEBUG_CODE()
         {
@@ -6185,7 +6290,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         }
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning: Called entity '%s' is not valid\n", 
+            fprintf(stderr, "%s: warning: called entity '%s' is not valid\n", 
                     ast_location(called_expression), 
                     prettyprint_in_buffer(called_expression));
         }
@@ -6381,9 +6486,6 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                 ASTFileName(whole_function_call), ASTLine(whole_function_call),
                 /* explicit_template_arguments */ NULL);
 
-        // FIXME - Implement surrogate calls. They are so odd that they require their own
-        // machinery in the overload code
-        // Append if needed all conversions leading to pointers to functions
 #define MAX_SURROGATE_FUNCTIONS (64)
         int num_surrogate_functions = 0;
 
@@ -9306,6 +9408,87 @@ static char check_for_array_section_expression(AST expression, decl_context_t de
     return 1;
 }
 
+static char check_for_shaping_expression(AST expression, decl_context_t decl_context)
+{
+    char result = 1;
+    AST shaped_expr = ASTSon1(expression);
+    AST shape_list = ASTSon0(expression);
+
+    if (!check_for_expression(shaped_expr, decl_context))
+    {
+        result = 0;
+    }
+
+    if (!check_for_expression_list(shape_list, decl_context))
+    {
+        result = 0;
+    }
+
+    AST it;
+    for_each_element(shape_list, it)
+    {
+        AST current_expr = ASTSon1(it);
+        type_t *current_expr_type = ASTExprType(current_expr);
+
+        standard_conversion_t scs;
+        if (!standard_conversion_between_types(&scs, no_ref(current_expr_type), get_signed_int_type()))
+        {
+            if (!checking_ambiguity())
+            {
+                fprintf(stderr, "%s: warning: shaping expression '%s' cannot be converted to 'int'\n",
+                        ast_location(current_expr),
+                        prettyprint_in_buffer(current_expr));
+            }
+            result = 0;
+        }
+    }
+
+    // Now check the shape makes sense
+    type_t* shaped_expr_type = ASTExprType(shaped_expr);
+
+    if (!is_pointer_type(no_ref(shaped_expr_type)))
+    {
+        if (!checking_ambiguity())
+        {
+            fprintf(stderr, "%s: warning: shaped expression '%s' does not have pointer type\n",
+                    ast_location(shaped_expr),
+                    prettyprint_in_buffer(shaped_expr));
+        }
+        result = 0;
+    }
+
+    if (is_void_pointer_type(no_ref(shaped_expr_type)))
+    {
+        if (!checking_ambiguity())
+        {
+            fprintf(stderr, "%s: warning: shaped expression '%s' has type 'void*' which is invalid\n",
+                    ast_location(shaped_expr),
+                    prettyprint_in_buffer(shaped_expr));
+        }
+        result = 0;
+    }
+
+    if (result)
+    {
+        // Synthesize a new type based on what we got
+        type_t* result_type = pointer_type_get_pointee_type(no_ref(shaped_expr_type));
+
+        it = shape_list;
+        // Traverse the list backwards
+        while (it != NULL)
+        {
+            AST current_expr = ASTSon1(it);
+            result_type = get_array_type(result_type, current_expr, decl_context);
+            it = ASTSon0(it);
+        }
+
+        ast_set_expression_type(expression, result_type);
+        ast_set_expression_is_lvalue(expression, 0);
+    }
+
+    return result;
+}
+
 static char check_for_gxx_type_traits(AST expression, decl_context_t decl_context)
 {
     AST first_type_id = ASTSon0(expression);
@@ -9396,7 +9579,7 @@ char check_zero_args_constructor(type_t* class_type, decl_context_t decl_context
     {
         // FIXME - There are classes with no constructors, they should have one
         // otherwise some problems will arise with C++
-        if (class_type_get_num_constructors(class_type) != 0)
+        if (class_type_get_num_constructors(get_actual_class_type(class_type)) != 0)
         {
             fprintf(stderr, "%s: warning: no default constructor for '%s' type\n",
                     ast_location(declarator),

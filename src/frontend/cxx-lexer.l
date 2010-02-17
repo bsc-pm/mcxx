@@ -1,23 +1,3 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
-
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 %{
 /* 
    This file should be preprocessed with tpp (available in lib)
@@ -213,6 +193,7 @@ identifier {idnondigit}({idnondigit}|{digit})*
 %x linecomment
 %x preprocess
 %x pragma_line
+%x inline_pragma
 %x unknown_pragma
 %x pragma_custom_directive
 %x pragma_custom_clause
@@ -785,6 +766,26 @@ identifier {
 <preprocess>.       { /* ignore line */  }
 <preprocess>\n  { scanning_now.line_number++; BEGIN(INITIAL); }
 
+ /* _Pragma */
+"_Pragma" { BEGIN(inline_pragma); pragma_custom_var_list_parentheses = 0; }
+<inline_pragma>{
+"(" {
+    pragma_custom_var_list_parentheses++;
+}
+
+")" {
+    pragma_custom_var_list_parentheses--;
+
+    if (pragma_custom_var_list_parentheses == 0)
+        BEGIN(INITIAL);
+}
+
+ /* Ignore it */
+. {
+}
+      
+}
+
  /* C comments ( 6.4.9 ) */
 
  /* // comments. // can be splitted across different lines */
@@ -1047,6 +1048,8 @@ identifier {
 @DECLARATION@ { parse_token_text(); return SUBPARSE_DECLARATION; }
 @TYPE@ { parse_token_text(); return SUBPARSE_TYPE; }
 @TYPE-LIST@ { parse_token_text(); return SUBPARSE_TYPE_LIST; }
+@ID_EXPRESSION@ { parse_token_text(); return SUBPARSE_ID_EXPRESSION; }
+@OMP_UDR_DECLARE@ { parse_token_text(); return SUBPARSE_OMP_UDR_DECLARE; }
  /*!if CPLUSPLUS*/
 @MEMBER@ { parse_token_text(); return SUBPARSE_MEMBER; }
  /*!endif*/
@@ -1154,6 +1157,8 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
 >/>         { parse_token_text(); return AB1; }
 >/=         { parse_token_text(); return AB2; }
 >/[^>=]     { parse_token_text(); return '>'; }
+ /* Pathological case (EOF and such) */
+>           { parse_token_text(); return '>'; }
  /*!endif*/
  /*!if C99*/
 ">"         { parse_token_text(); return '>'; } 

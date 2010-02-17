@@ -1,23 +1,26 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2009 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #include "tl-source.hpp"
 #include "cxx-exprtype.h"
 #include "cxx-ambiguity.h"
@@ -455,6 +458,58 @@ namespace TL
         scope_link_set(scope_link._scope_link, a, decl_context);
 
         return AST_t(a);
+    }
+
+    AST_t Source::parse_id_expression(Scope scope, TL::ScopeLink scope_link, ParseFlags parse_flags)
+    {
+        std::string mangled_text = "@ID_EXPRESSION@ " + this->get_source(true);
+        char* str = strdup(mangled_text.c_str());
+
+        CXX_LANGUAGE()
+        {
+            mcxx_prepare_string_for_scanning(str);
+        }
+        C_LANGUAGE()
+        {
+            mc99_prepare_string_for_scanning(str);
+        }
+
+        int parse_result = 0;
+        AST a;
+
+        CXX_LANGUAGE()
+        {
+            parse_result = mcxxparse(&a);
+        }
+        C_LANGUAGE()
+        {
+            parse_result = mc99parse(&a);
+        }
+
+        if (parse_result != 0)
+        {
+            running_error("Could not parse id-expression\n\n%s\n", 
+                    format_source(this->get_source(true)).c_str());
+        }
+        
+        // Get the scope and declarating context of the reference tree
+        decl_context_t decl_context = scope.get_decl_context();
+
+        enter_test_expression();
+        check_for_expression(a, decl_context);
+        leave_test_expression();
+
+        // Set properly the context of the reference tree
+        scope_link_set(scope_link._scope_link, a, decl_context);
+
+        AST_t result(a);
+        return result;
+    }
+
+    AST_t Source::parse_id_expression(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags)
+    {
+        Scope scope = scope_link.get_scope(ref_tree);
+        return parse_id_expression(scope, scope_link, parse_flags);
     }
 
     Type Source::parse_type(AST_t ref_tree, TL::ScopeLink scope_link)

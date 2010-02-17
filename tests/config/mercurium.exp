@@ -1,0 +1,184 @@
+# Global definitions for mercurium tests
+
+### 
+# If you only want to run the compiler to see if something compiles use
+#     execute_testsuite_simple
+#
+# It receives a single argument which is the list of testcases
+# Optionally you can pass additional cflags
+
+### 
+# If you want to ensure that strict typechecking is enabled, use
+#     execute_testsuite_typecheck
+# 
+# It receives a single argument which is the list of testcases
+# Optionally you can pass additional cflags
+
+### 
+# If you want to run the compiler for a special feature only for it which
+# is not supported by the native compiler use
+#     execute_testsuite_no_compile
+# 
+# It receives a single argument which is the list of testcases
+# Optionally you can pass additional cflags
+
+###
+# If you want to run the compiler specifying the libraries that will be dlopen
+# use
+#    execute_testsuite_phases
+#
+# It receives a first argument which is the list of testcases and
+# a second argument which has the same as libtool_dlopen_files of execute_testsuite_ex (see below)
+# Optionally you can pass additional cflags
+
+###
+# If you want to run the compiler specifying the libraries that will be dlopen
+# and the name of the propfile
+#    execute_testsuite_phases_profile
+#
+# It receives a first argument which is the list of testcases and
+# a second argument which has the same as libtool_dlopen_files of execute_testsuite_ex (see below)
+# and a third argument which is the name of the profile
+# Optionally you can pass additional cflags
+
+### 
+# If you want full power for typechecking use 
+#     execute_testsuite_ex
+# 
+# It receives several arguments:
+# 
+#   full_path_tool 
+#       Most of the time you should use "../src/driver/mcxx"
+#   libtool_dlopen_files - This is a list of the form 
+#       List of .la (yes .la) files that are meant to be dlopened by the compiler
+#       Example [list "../src/tl/supercalar/libtlsuperscalar-code-conversion.la" "../src/tl/superscalar/libtlsuperscalar-configurator.la"]
+#   profile_name
+#       Name of the profile you want to use, most of the time lt-mcxx
+#   subdir
+#       Pass the global variable $subdir that is inherited from the runtest invocation via Makefile
+#   testcases
+#       List of testcases, like in the other examples
+#   additional_cflags
+#       Additional cflags you might want to pass to the compiler
+#   do_not_compile
+#       Sometimes, the native compiler cannot be invoked. This is an optional argument by default it is 0
+
+
+proc execute_testsuite_simple {testcases {additional_cflags ""}} {
+    global subdir
+    set full_path_tool "../src/driver/mcxx"
+    execute_testsuite_ex $full_path_tool "" "lt-mcxx" $subdir $testcases $additional_cflags "0"
+}
+
+proc execute_testsuite_typecheck {testcases {additional_cflags ""}} {
+    global subdir
+    set full_path_tool "../src/driver/mcxx"
+    execute_testsuite_ex $full_path_tool "" "lt-mcxx" $subdir $testcases "--typecheck ${additional_cflags}" "0"
+}
+
+proc execute_testsuite_no_compile {testcases {additional_cflags ""}} {
+    global subdir
+    set full_path_tool "../src/driver/mcxx"
+    execute_testsuite_ex $full_path_tool "" "lt-mcxx" $subdir $testcases "--typecheck ${additional_cflags}" "1"
+}
+
+proc execute_testsuite_phases {testcases libtool_dlopen_files {additional_cflags ""}} {
+    global subdir
+    set full_path_tool "../src/driver/mcxx"
+    execute_testsuite_ex $full_path_tool $libtool_dlopen_files "lt-mcxx" $subdir $testcases $additional_cflags "0"
+}
+
+proc execute_testsuite_phases_profile {testcases libtool_dlopen_files profile_name {additional_cflags ""}} {
+    global subdir
+    set full_path_tool "../src/driver/mcxx"
+    execute_testsuite_ex $full_path_tool $libtool_dlopen_files $profile_name $subdir $testcases $additional_cflags "0"
+}
+
+proc execute_testsuite_ex {full_path_tool libtool_dlopen_files profile_name subdir testcases additional_cflags {do_not_compile 0}} {
+
+set wrapper_tool "../libtool"
+set wrapper_options ""
+
+foreach dlopen_file $libtool_dlopen_files {
+    append wrapper_options "-dlopen $dlopen_file "
+}
+append wrapper_options "--mode=execute "
+
+foreach test $testcases {
+    set basename_test [file tail $test]
+    set dirname_test [file dirname $test]
+    set rootname_test [file rootname $basename_test]
+    set kind_of_test ""
+    if [string match "success_*" $basename_test] {
+        set kind_of_test "success"
+    } elseif [string match "failure_*" $basename_test] {
+        set kind_of_test "xfailure"
+    } else {
+        unresolved "$test"
+        continue
+    }
+
+# This avoids an annoying warning
+    global srcdir
+    set current_wd [pwd]
+    set config_file ""
+# Try first in srcdir
+    if [file exists "$srcdir/$subdir/config.mcxx"] {
+        set config_file "--config-file=$srcdir/$subdir/config.mcxx"
+    } else {
+# Then in builddir
+        if [file exists "$current_wd/$subdir/config.mcxx"] {
+           set config_file "--config-file=$current_wd/$subdir/config.mcxx"
+        }
+    }
+
+    set command "-c"
+    if $do_not_compile {
+        set command "-y"
+    }
+
+
+    send_user "Running test ${basename_test}...\n"
+    send_log -- "Current directory '$current_wd'\n"
+    send_log -- "Test subdirectory '$subdir'\n"
+    send_log -- "Source subdirectory '$srcdir'\n"
+    send_log -- "-------------------------------------------------------------------------------\n"
+    send_log -- "$wrapper_tool $wrapper_options $full_path_tool $config_file $command $additional_cflags\n"
+    send_log -- "-------------------------------------------------------------------------------\n"
+
+    set output_execution ""
+    if {
+        [catch { 
+            set output_execution [eval exec $wrapper_tool $wrapper_options $full_path_tool \
+                $config_file "--profile=$profile_name" "--verbose" "--output-dir=." $command \
+                $additional_cflags "-o" "${rootname_test}.o" "$test" "|&" "cat"] 
+        } output_execution ]
+    } {
+# Check if the execution ended properly or was signaled
+        if {[lindex $::errorCode 0] eq "CHILDSTATUS"} {
+            if [expr { $kind_of_test == "xfailure" }] {
+                pass "$test"
+            } elseif [expr {$kind_of_test == "success"}] {
+                fail "$test"
+            } 
+        } else {
+            fail "$test"
+        }
+    } else {
+        if [expr { $kind_of_test == "success" }] {
+            pass "$test"
+        } elseif [expr { $kind_of_test == "xfailure"} ] {
+            xpass "$test"
+        }
+    }
+    send_log -- "===============================================================================\n"
+    send_log -- "${output_execution}\n"
+    send_log -- "===============================================================================\n"
+
+    exec "sh" "-c" "rm -f *mcxx_${basename_test} *${rootname_test}.o *mcxx*backtrace*.txt" 
+	 
+    send_log -- "\n\n"
+}
+
+}
+
