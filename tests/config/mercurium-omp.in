@@ -25,7 +25,7 @@ if [ ! -z "@MINTAKA_INCLUDES@" ];
 then
 
 cat <<EOF
-compile_versions="${compile_versions} nanos4_instrument"
+compile_versions="\${compile_versions} nanos4_instrument"
 EOF
 
 fi
