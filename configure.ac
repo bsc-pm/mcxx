@@ -313,11 +313,6 @@ then
    MINTAKA_LIBS="${mintaka_lib}"
 
    INSTRUMENTATION_PHASE="compiler_phase = libtlinstr.so"
-
-   if test x$is_enabled_tl_omp_nanos4 = xyes;
-   then
-     ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.instr.nanos4 mcxx.instr.nanos4"
-   fi
 fi
 
 AC_SUBST([INSTRUMENTATION_PHASE])
