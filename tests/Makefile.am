@@ -46,11 +46,12 @@ CLEANFILES=
 include ../config/Makefile.replace
 
 check-local:
-	chmod +x */mercurium
+	chmod +x config/bets
 	chmod +x config/mercurium-extensions
 	chmod +x config/mercurium-omp
 	chmod +x config/mercurium-ss
 	chmod +x config/mercurium-stm
+	chmod +x */mercurium
 	FAIL=0; \
 	for test_dir in $(DIRTESTS); \
 	do \
