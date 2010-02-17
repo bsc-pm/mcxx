@@ -41,7 +41,7 @@ struct BundleGenerator
         {
         }
 
-        Source generate_bundle(Source &clear_indexes, bool unroll = false, bool empty = false)
+        Source generate_bundle(Source &clear_indexes, bool unroll = false, bool empty = false, bool last_bundle = false)
         {
             Source try_to_run_every_task;
             Source firstprivate_clause_src, firstprivate_args, code_of_all_tasks;
@@ -68,19 +68,13 @@ struct BundleGenerator
 
 			Source task_key;
 
-			if (unroll)
+			if (!last_bundle)
 			{
 				task_key
 					<< " task_key(" << task_log_name << ")"
 					;
 			}
-			else
-			{
-				task_key
-					<< " task_key(" << bundle_info_name << ")"
-					;
-			}
-
+			
 			Source task_body;
             try_to_run_every_task
                 << "#pragma omp task" << firstprivate_clause_src 
@@ -546,7 +540,7 @@ Source TaskAggregation::do_bundled_aggregation()
 
 	if (!(this->_do_not_create_tasks))
 	{
-		bundle_code << bundle_gen.generate_bundle(clear_indexes, /*unroll=*/ false);
+		bundle_code << bundle_gen.generate_bundle(clear_indexes, /*unroll=*/ false, /* empty */ false, /* last_bundle = */ true );
 	}
 	else
 	{

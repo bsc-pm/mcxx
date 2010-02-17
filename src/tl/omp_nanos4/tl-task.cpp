@@ -180,6 +180,12 @@ namespace TL
                         task_construct,
                         construct_body,
                         original_code);
+
+
+				if (task_has_key)
+				{
+					task_key_map[task_key_str] = task_queueing;
+				}
             }
 
             // Parse the code
