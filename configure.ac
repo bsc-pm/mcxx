@@ -7,7 +7,7 @@ AC_CANONICAL_HOST
 AC_CANONICAL_TARGET
 
 dnl A rather recent version
-AC_PREREQ(2.59)
+AC_PREREQ(2.61)
 
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -26,13 +26,8 @@ AC_LANG([C])
 dnl Check install
 AC_PROG_INSTALL
 
-dnl Workaround to avoid Libtool checking for FORTRAN
-define([AC_LIBTOOL_LANG_F77_CONFIG], [:])dnl 
-
 dnl Check libtool
-AC_DISABLE_STATIC
-AC_LIBTOOL_WIN32_DLL
-AC_PROG_LIBTOOL
+LT_INIT([disable-static,win32-dll])
 
 dnl Check cc
 AC_PROG_CC
