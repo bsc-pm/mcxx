@@ -1,0 +1,22 @@
+#!/bin/bash
+
+cat <<EOF
+MCXX="@abs_top_builddir@/libtool --mode=execute @abs_top_builddir@/src/driver/mcxx --profile=lt-mcxx --verbose"
+test_CC=\${MCXX}
+test_CXX=\${MCXX}
+test_noexec=yes
+test_CFLAGS="-y"
+test_CXXFLAGS="-y"
+EOF
+
+[ ! -z "$TEST_SOURCE" ] && NAME=$(basename $TEST_SOURCE)
+
+case "$NAME" in
+    success*)
+      ;;
+    failure*)
+      echo "test_compile_fail=yes"
+      ;;
+    *)
+      ;;
+esac

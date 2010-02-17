@@ -153,9 +153,6 @@ then
    TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanox"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
-
-# FIXME - Missing testsuites
-# ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.nanox mcxx.nanox"
 fi
 
 AC_SUBST([NANOX_INCLUDES])
@@ -229,8 +226,6 @@ then
    TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos4"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
-
-   ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.nanos4 mcxx.nanos4"
 fi
 
 AC_SUBST([NANOS4_INCLUDES])
@@ -242,6 +237,7 @@ dnl --------------------- Shared between Nanox and Nanos4 ------------------
 if test x$is_enabled_tl_omp_nanos4 = xyes -o x$is_enabled_tl_omp_nanox;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.omp"
+   ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} c.openmp cxx.openmp"
 fi
 dnl --------------------- End of shared between Nanox and Nanos4 ------------------
 
@@ -312,11 +308,6 @@ then
    MINTAKA_LIBS="${mintaka_lib}"
 
    INSTRUMENTATION_PHASE="compiler_phase = libtlinstr.so"
-
-   if test x$is_enabled_tl_omp_nanos4 = xyes;
-   then
-     ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.instr.nanos4 mcxx.instr.nanos4"
-   fi
 fi
 
 AC_SUBST([INSTRUMENTATION_PHASE])
@@ -953,13 +944,21 @@ AC_CONFIG_FILES([Makefile
            config/Makefile
            tests/Makefile
            tests/config/Makefile
-           tests/mcc.nanos4.dg/config.mcxx
-           tests/mcxx.nanos4.dg/config.mcxx
-           tests/mcc.instr.nanos4.dg/config.mcxx
-           tests/mcxx.instr.nanos4.dg/config.mcxx
-           tests/mcxx.stm.dg/config.mcxx
-           tests/mcc.superscalar.dg/config.mcxx
-           tests/mcc.hlt.basic.dg/config.mcxx
+           tests/config/mercurium
+           tests/config/mercurium-extensions
+           tests/config/mercurium-omp
+           tests/config/mercurium-ss
+           tests/config/mercurium-stm
+           tests/mcc.typecalc.dg/mercurium
+           tests/mcc.extensions.dg/mercurium
+           tests/mcxx.cxx0x.dg/mercurium
+           tests/mcxx.extensions.dg/mercurium
+           tests/mcxx.torture.dg/mercurium
+           tests/c.openmp.dg/mercurium
+           tests/cxx.openmp.dg/mercurium
+           tests/mcc.superscalar.dg/mercurium
+           tests/mcxx.stm.dg/mercurium
+           tests/mcc.hlt.basic.dg/mercurium
            doc/Makefile
            doc/doxygen_tl
            scripts/Makefile
