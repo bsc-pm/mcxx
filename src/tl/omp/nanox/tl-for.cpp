@@ -240,6 +240,11 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         bool_type << "bool";
     }
 
+    // FIXME - This will be meaningful with 'copy_in' and 'copy_out'
+    Source num_copies, copy_data;
+    num_copies << "0";
+    copy_data << "(nanos_copy_data_t*)0";
+
     spawn_source
         << "{"
         << bool_type << " single_guard;"
@@ -266,7 +271,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         <<          current_slicer << ","
         <<          "sizeof(nanos_slicer_data_for_t),"
         <<          "(nanos_slicer_t*) &slicer_data_for,"
-        <<          "&props);"
+        <<          "&props," << num_copies << "," << copy_data << ");"
         <<    "if (err != NANOS_OK) nanos_handle_error(err);"
         <<    fill_outline_arguments
         <<    "slicer_data_for->_lower = " << for_statement.get_lower_bound() << ";"
