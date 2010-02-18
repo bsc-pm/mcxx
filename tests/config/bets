@@ -1,0 +1,513 @@
+#!/bin/bash
+
+#constants
+readonly bets_version=0.9
+
+#color constants
+
+define_colors()
+{
+  if [ "$use_color" = "yes" ]; then
+    GREEN="\033[1;32m"
+    RED="\033[1;31m"
+    BLUE="\033[1;34m"
+    NORMAL="\033[0m"
+  else
+    GREEN=
+    RED=
+    BLUE=
+    NORMAL=
+  fi
+}
+
+#global counters
+pass=0
+fail=0
+
+#utility functions
+log ()
+{
+    local n
+    if [ "$1" = "-n" ]; then
+      shift; n=-n
+    fi
+    echo -e $n $* >> $logfile
+}
+
+debug ()
+{
+    log $*
+}
+
+logcmd ()
+{
+    log $*
+    $* 
+}
+
+message ()
+{
+    local n
+    if [ "$1" = "-n" ]; then
+      shift; n=-n
+    fi
+    echo -e $n "$*"
+}
+
+# action functions
+
+passfail ()
+{
+   local reverse
+   local ret=0
+   $* 1>> $logfile 2>> $logfile || ret=1
+
+   if [ "$test_fail" ]; then
+     reverse='!'
+   fi
+
+   if [ $reverse $ret -eq 0 ]; then
+     message "${GREEN}passed${NORMAL}"
+     log "${GREEN}passed${NORMAL}"
+     let pass=pass+1
+   else
+     message "${RED}failed${NORMAL}!"
+     log "${RED}failed${NORMAL}!"
+     let fail=fail+1
+   fi
+   return $ret
+}
+
+compile_c ()
+{
+   local version=$1
+   local source=$2
+   local exec=$3
+
+   local cc
+   local cflags
+   local ldflags
+   local tmp
+   
+   #defaults
+   cc=${CC:=cc}
+
+   #test values
+   cc=${test_CC:-$cc}
+   cflags=${test_CFLAGS:-$CFLAGS}
+   ldflags=${test_LDFLAGS:-$LDFLAGS}
+
+   #version values
+   eval tmp=\${test_CC_$version}
+   cc=${tmp:-$cc}
+   eval tmp=\"\${test_CFLAGS_$version}\"
+   cflags="$tmp $cflags"
+   if [ "$test_nolink" ]; then
+      cflags="-c $cflags"
+      ldflags=""
+   else
+     eval tmp=\"\${test_LDFLAGS_$version}\"
+     ldflags="$tmp $ldflags"
+   fi
+
+   logcmd $cc $cflags $ldflags -o $exec $source 
+   local ret=$?
+
+   return $ret
+}
+
+compile_cpp ()
+{
+   local version=$1
+   local source=$2
+   local exec=$3
+
+   local cxx
+   local cxxflags
+   local ldflags
+   local tmp
+   
+   #defaults
+   cxx=${CXX:=c++}
+
+   #test values
+   cxx=${test_CXX:-$cxx}
+   cxxflags=${test_CXXFLAGS:-$CXXFLAGS}
+   ldflags=${test_LDFLAGS:-$LDFLAGS}
+
+   #version values
+   eval tmp=\${test_CXX_$version}
+   cxx=${tmp:-$cxx}
+   eval tmp=\"\${test_CXXFLAGS_$version}\"
+   cxxflags="$tmp $cxxflags"
+   if [ "$test_nolink" ]; then
+      cxxflags="-c $cxxflags"
+      ldflags=""
+   else
+     eval tmp=\"\${test_LDFLAGS_$version}\"
+     ldflags="$tmp $ldflags"
+   fi
+
+   logcmd $cxx $cxxflags $ldflags -o $exec $source 
+   local ret=$?
+
+   return $ret
+}
+
+execute ()
+{
+   local version=$1
+   local exec=$2
+   local env
+   local args
+
+   eval env=\"$test_ENV \${test_ENV_$version}\"
+   eval args=\"$test_ARGS \${test_ARGS_$version}\"
+ 
+   log $env ./$exec $args
+
+   echo > $tmpfile
+   echo $env ./$exec $args >> $tmpfile
+  
+   sh $tmpfile >> $logfile
+   local ret=$?
+
+   return $ret
+}
+
+#variable management functions
+
+merge_c_compile_vars ()
+{
+   eval test_CC_$1=\${test_CC_$2}
+   eval test_CFLAGS_$1=\"\${test_CFLAGS_$2} \${test_CFLAGS_$3}\"
+   eval test_LDFLAGS_$1=\"\${test_LDFLAGS_$2} \${test_LDFLAGS_$3}\"
+}
+
+merge_cpp_compile_vars ()
+{
+   eval test_CXX_$1=\${test_CXX_$2}
+   eval test_CXXFLAGS_$1=\"\${test_CXXFLAGS_$2} \${test_CXXFLAGS_$3}\"
+   eval test_LDFLAGS_$1=\"\${test_LDFLAGS_$2} \${test_LDFLAGS_$3}\"
+}
+
+merge_exec_vars ()
+{
+   eval test_ENV_$1=\"\${test_ENV_$2} \${test_ENV_$3}\"
+   eval test_ARGS_$1=\"\${test_ENV_$2} \${test_ENV_$3}\"
+}
+
+clean_c_compile_vars ()
+{
+   unset test_CC
+   unset test_CFLAGS
+   unset test_LDFLAGS
+}
+
+clean_cpp_compile_vars ()
+{
+   unset test_CXX
+   unset test_CXXFLAGS
+   unset test_LDFLAGS
+}
+
+clean_c_compile_version_vars ()
+{
+   unset test_CC_$1
+   unset test_CFLAGS_$1
+   unset test_LDFLAGS_$1
+}
+
+clean_cpp_compile_version_vars ()
+{
+   unset test_CXX_$1
+   unset test_CXXFLAGS_$1
+   unset test_LDFLAGS_$1
+}
+
+clean_exec_vars()
+{
+   unset test_ENV
+   unset test_ARGS
+}
+
+clean_exec_version_vars()
+{
+   unset test_ENV_$v2
+   unset test_ARGS_$v2
+}
+
+clean_test_vars ()
+{
+   unset test_generator
+   unset test_compile_fail
+   unset test_exec_fail
+   unset test_nolink
+   unset test_noexec
+}
+
+# run functions
+
+run_gen_test ()
+{
+   local source=$1
+   local type=$2
+   local name=$(basename ${source%.*})
+
+   debug "Starting $name test"
+
+   # init
+   local all_compile_versions=
+   local all_exec_versions=
+   local exec_versions=
+   local compile_versions=
+   clean_test_vars
+   clean_${type}_compile_vars
+   clean_exec_vars
+
+   # get file options
+   local start=$(grep -n "<testinfo>" $source | cut -d: -f1)
+   let start=start+1
+   local end=$(grep -n "</testinfo>" $source | cut -d: -f1)
+   let end=end-1
+
+   if [ $end -gt 1 ]; then
+     sed -e "${start},${end}p" -n $source > $tmpfile
+     source $tmpfile >> $logfile
+   fi
+
+   test_generator=${test_generator:-$TEST_GENERATOR}
+
+   #build versions
+   all_compile_versions=$compile_versions
+   all_exec_versions=$exec_versions
+   compile_versions=
+   exec_versions=
+
+   if [ "$test_generator" ]; then
+      debug "Using version generator $test_generator"
+      export TEST_SOURCE=$source
+      $basedir/$test_generator > $tmpfile
+      unset TEST_SOURCE
+      source $tmpfile >> $logfile
+      if [ "$compile_versions" ]; then
+        if [ "$all_compile_versions" ]; then
+          local tmp=
+          for v1 in $all_compile_versions; do
+             for v2 in $compile_versions; do
+                v=$v1$v2
+                tmp="$tmp $v" 
+
+                merge_${type}_compile_vars $v $v1 $v2
+             done
+          done
+          for v in $all_compile_versions $compile_versions; do
+             clean_${type}_compile_version_vars $v
+          done
+          all_compile_versions=$tmp
+        else
+          all_compile_versions=$compile_versions
+        fi
+      fi
+      if [ "$exec_versions" ]; then
+        if [ "$all_exec_versions" ]; then
+          local tmp=
+          for v1 in $all_exec_versions; do
+             for v2 in $exec_versions; do
+                v=$v1$v2
+                tmp="$tmp $v" 
+                merge_exec_vars $v $v1 $v2
+             done
+          done
+          for v in $all_exec_versions $exec_versions; do
+             clean_exec_version_vars $v
+          done
+          all_exec_versions=$tmp
+        else
+          all_exec_versions=$exec_versions
+        fi
+      fi
+   fi
+
+   if [ ! "$all_compile_versions" ]; then
+       all_compile_versions="default"
+   fi
+
+   if [ ! "$all_exec_versions" ]; then
+       all_exec_versions="default"
+   fi
+   
+   for v in $all_compile_versions; do
+      message -n "Compile test $name-$v "
+      log "***Start compile test $name-$v"
+      test_fail=$test_compile_fail
+      passfail compile_$type $v $source $name  
+      local ok=$?
+
+      test_noexec=${test_noexec:-$test_nolink}
+      if [ "$ok" -eq "0" -a -z "$test_noexec" ]; then
+        log "***End compile test $name-$v"
+        for e in $all_exec_versions; do
+           message -n "Execute test $name-$v-$e "
+           log "***Start execute test $name-$v-$e"
+           test_fail=$test_exec_fail
+           passfail execute $e $name
+           log "***End execute test $name-$v-$e"
+        done
+      fi
+
+      rm -f $name
+   done
+   
+   for v in $all_compile_versions; do
+      clean_${type}_compile_version_vars $v
+   done
+   for e in $all_exec_versions; do
+      clean_exec_version_vars $e
+   done
+}
+
+run_file()
+{
+   local file=$1
+   local ext=${file##*.}
+   case $ext in 
+     c)
+       run_gen_test $file c
+       ;;
+    cpp) 
+       run_gen_test $file cpp
+       ;;
+   esac
+}
+
+run_dir()
+{
+  local base=$1
+
+  debug "Testing $base"
+  message "===Entering directory $base==="
+
+  #test subdirs
+  local dirs=$(find . -maxdepth 1 -type d -path "./*" | cut -c3- | sort)
+  for d in $dirs; do
+     cd $d
+     run_dir $base/$d
+     cd ..
+  done
+
+  #run test
+  for file in $(find . -maxdepth 1 -type f | sort ); do
+     run_file $file
+  done
+}
+
+# mode functions
+
+do_help ()
+{
+   cat <<EOF
+$0 [options] [tests]
+
+Options:
+-h                  Print this help
+-nocolor            Do not use ANSI colors in output
+-o logfile          Redirect run output to logfile (default=test.log)
+-run                run tests (default) 
+-version            Show version
+
+In run mode specific directory or file tests can be specified in the command line
+EOF
+   return 0
+}
+
+do_version ()
+{
+   echo "Build and Execute Test Suites v$bets_version"
+   return 0
+}
+
+do_run ()
+{
+   #startup
+   declare -r tmpfile=$(mktemp)
+
+   if [ "${logfile:0:1}" != "/" ]; then
+     logfile=$basedir/$logfile
+   fi
+   readonly logfile
+   echo > $logfile
+
+   message "===Running tests==="
+   
+   #run tests
+   if [ "$#" -ge 1 ]; then
+     for t in $*; do
+        if [ -d $t ]; then
+          cd $t
+          run_dir $t
+          cd - > /dev/null
+        fi
+        if [ -f $t ]; then
+          run_file $t
+        fi
+     done
+   else
+     run_dir .
+   fi
+   
+   #clean-up
+   rm $tmpfile
+   
+   if [ $fail -eq 0 -a $pass -eq 0 ]; then
+     message "No test run. Any files in here? :-)"
+   else
+     message
+     message "===Summary==="
+     if [ $fail -eq 0 ]; then
+       message "ALL $pass tests passed! Congratulations! :-)"
+     else
+       message "Pass tests: $pass"
+       message "${RED}Failed tests: $fail${NORMAL}"
+     fi
+     message
+   fi
+   return $fail
+}
+
+#default values
+
+declare -r basedir=$(pwd)
+export basedir
+logfile="test.log"
+mode=run
+use_color=yes
+
+#read options
+
+done=
+while [ -z $done ]; do
+case $1 in
+    -h)
+       mode=help; shift
+       ;;
+    -nocolor)
+       use_color=no; shift
+       ;;
+    -o)
+       shift
+       logfile=$1; 
+       shift
+       ;;
+    -run) 
+       mode=run; shift
+       ;;
+    -version)
+       mode=version; shift
+       ;;
+    *) done=true;;
+esac
+done
+
+define_colors
+do_$mode $*

@@ -1,7 +1,0 @@
-load_lib target.exp
-
-source "$srcdir/config/mercurium.exp"
-
-set testcases [lsort [find $srcdir/$subdir *.cpp]]
-
-execute_testsuite_no_compile $testcases

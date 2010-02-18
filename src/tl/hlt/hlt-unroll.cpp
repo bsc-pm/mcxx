@@ -212,6 +212,7 @@ TL::Source LoopUnroll::do_unroll()
         ;
 
 	Source replicated_body;
+	Source epilogue_body;
 	if (_factor > 1)
 	{
 		AST_t init = _for_stmt.get_iterating_init();
@@ -235,7 +236,6 @@ TL::Source LoopUnroll::do_unroll()
 			;
 
 		// FIXME - It could help to initialize here another variable and make both loops independent
-		Source epilogue_body;
 		epilogue
 			<< "for ( ; "  // No initialization, keep using the old induction var
 			<< induction_var << operator_bound << upper_bound << ";"
@@ -276,12 +276,12 @@ TL::Source LoopUnroll::do_unroll()
 
     if (_ignore_omp || !consider_omp)
     {
-        simple_replication(_factor, replicated_body, 
+        simple_replication(_factor, replicated_body, epilogue_body,
                 induction_var, loop_body);
     }
     else
     {
-        omp_replication(_factor, replicated_body, 
+        omp_replication(_factor, replicated_body, epilogue_body,
                 induction_var, loop_body, before_main, after_main);
     }
 
@@ -289,6 +289,7 @@ TL::Source LoopUnroll::do_unroll()
 }
 
 void LoopUnroll::simple_replication(int factor, Source &replicated_body, 
+		Source &epilogue_body,
         IdExpression induction_var, Statement loop_body)
 {
     for (unsigned int i = 0; i < factor; i++)
@@ -346,6 +347,12 @@ LoopUnroll& LoopUnroll::set_remove_tasks(bool b)
 {
 	_remove_tasks = b;
 	return *this;
+}
+
+LoopUnroll& LoopUnroll::set_omp_aggregate_epilog(bool b)
+{
+    _omp_aggregate_epilog = b;
+    return *this;
 }
 
 LoopUnroll& LoopUnroll::set_timing(bool b)

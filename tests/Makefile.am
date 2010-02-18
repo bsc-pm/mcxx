@@ -21,56 +21,51 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-AUTOMAKE_OPTIONS = dejagnu
-
 SUBDIRS = config
-
-RUNTESTFLAGS=--srcdir=$(srcdir) 
 
 NULL=
 
 ADDITIONAL_TESTS=@ADDITIONAL_TESTSUITES@
 
-DEJATOOL = \
+DIRTESTS = \
   mcxx.parser \
   mcc.typecalc \
   mcxx.typecalc \
-  mcxx.torture \
+  mcxx.torture2 \
   mcxx.cxx0x \
   mcc.extensions \
   mcxx.extensions \
   mcxx.gxx_type_traits \
-  mcc.hlt \
   $(ADDITIONAL_TESTS) \
   $(NULL)
-
 
 END=
 CLEANFILES=
 
-CONFIG_FILES_TESTS= \
-                    mcxx.instr.nanos4.dg/config.mcxx \
-                    mcxx.nanos4.dg/config.mcxx \
-                    mcc.superscalar.dg/config.mcxx \
-                    mcxx.stm.dg/config.mcxx \
-                    mcc.instr.nanos4.dg/config.mcxx \
-                    mcc.nanos4.dg/config.mcxx \
-                    mcc.hlt.basic.dg/config.mcxx \
-                    $(END)
-
-CLEANFILES += $(CONFIG_FILES_TESTS)
-BUILT_SOURCES=$(CONFIG_FILES_TESTS)
-
 # Replacements are defined in this makefile
 include ../config/Makefile.replace
 
-$(CONFIG_FILES_TESTS) : Makefile
-	$(config_edit) $(srcdir)/$@.in > $@.tmp
-	mv $@.tmp $@
+check-local:
+	chmod +x config/bets
+	chmod +x config/mercurium-extensions
+	chmod +x config/mercurium-omp
+	chmod +x config/mercurium-ss
+	chmod +x config/mercurium-stm
+	chmod +x */mercurium
+	FAIL=0; \
+	for test_dir in $(DIRTESTS); \
+	do \
+       (if [ ! -d $(builddir)/$${test_dir}.dg ]; \
+       then \
+	      TEST_GENERATOR=$(builddir)/config/mercurium $(srcdir)/config/bets -o $${test_dir}.log ${srcdir}/$${test_dir}.dg; \
+       else \
+	      TEST_GENERATOR=$(builddir)/$${test_dir}.dg/mercurium $(srcdir)/config/bets -o $${test_dir}.log ${srcdir}/$${test_dir}.dg; \
+       fi) || FAIL=1; \
+	done; exit $${FAIL}
 
 dist-hook:
 	-cp $(srcdir)/*.conf $(distdir)
-	-for i in $(srcdir)/*.dg $(srcdir)/*.files; \
+	-for i in $(srcdir)/*.dg; \
 	do  \
 	    DIR=$$(basename $$i); \
 		mkdir -p $(distdir)/$${DIR} ; \
@@ -78,6 +73,7 @@ dist-hook:
 		[ "(" -e "$(srcdir)/$${DIR}/config.mcxx" ")" -a "(" ! -e  "$(srcdir)/$${DIR}/config.mcxx.in" ")" ] \
                && cp $(srcdir)/$${DIR}/config.mcxx $(distdir)/$${DIR}; \
 		cp $(srcdir)/$${DIR}/config.mcxx.in $(distdir)/$${DIR} ; \
+		cp $(srcdir)/$${DIR}/mercurium.in $(distdir)/$${DIR} ; \
 		cp $(srcdir)/$${DIR}/*.c $(distdir)/$${DIR} ; \
 		cp $(srcdir)/$${DIR}/*.cpp $(distdir)/$${DIR} ; \
 		cp $(srcdir)/$${DIR}/*.C $(distdir)/$${DIR} ; \

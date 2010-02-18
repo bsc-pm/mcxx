@@ -1,9 +1,0 @@
-load_lib target.exp
-
-source "$srcdir/config/mercurium.exp"
-
-set testcases [lsort [find $srcdir/$subdir *.cpp]]
-
-source "${srcdir}/nanos4_libs.conf"
-
-execute_testsuite_phases $testcases $loaded_phases

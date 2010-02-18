@@ -122,6 +122,7 @@ struct UnrollInfo
 	int omp_bundling_factor;
 	bool remove_tasks;
 	bool timing;
+    bool aggregate_epilog;
 
     UnrollInfo()
         : factor(4), 
@@ -129,7 +130,8 @@ struct UnrollInfo
         ignore_omp(false),
 		omp_bundling_factor(-1),
 		remove_tasks(false),
-		timing(false)
+		timing(false),
+        aggregate_epilog(false)
     {
     }
 };
@@ -143,6 +145,7 @@ static void unroll_loop_fun(TL::ForStatement for_stmt,
 		.set_omp_bundling_factor(unroll_info.omp_bundling_factor)
 		.set_remove_tasks(unroll_info.remove_tasks)
 		.set_timing(unroll_info.timing)
+        .set_omp_aggregate_epilog(unroll_info.aggregate_epilog)
         .allow_identity(_allow_identity);
 
     TL::AST_t unrolled_loop_tree = unrolled_loop_src.parse_statement(for_stmt.get_ast(),
@@ -197,6 +200,7 @@ void HLTPragmaPhase::unroll_loop(PragmaCustomConstruct construct)
     UnrollInfo unroll_info;
     unroll_info.factor = unroll_factor;
 
+
     if (construct.get_clause("ignore_omp").is_defined())
     {
         unroll_info.ignore_omp = true;
@@ -208,6 +212,10 @@ void HLTPragmaPhase::unroll_loop(PragmaCustomConstruct construct)
 	if (construct.get_clause("remove_tasks").is_defined())
 	{
 		unroll_info.remove_tasks = true;
+	}
+	if (construct.get_clause("aggregate_epilog").is_defined())
+	{
+		unroll_info.aggregate_epilog = true;
 	}
 	if (construct.get_clause("timing").is_defined())
 	{
