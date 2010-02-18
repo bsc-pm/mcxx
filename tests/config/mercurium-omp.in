@@ -32,8 +32,8 @@ fi
 
 
 cat <<EOF
-MCC="@abs_top_builddir@/libtool --mode=execute \${MERCURIUM_LIBS} @abs_top_builddir@/src/driver/mcxx --profile=mcc --config-file=@abs_top_builddir@/config/config.omp --verbose"
-MCXX="@abs_top_builddir@/libtool --mode=execute \${MERCURIUM_LIBS} @abs_top_builddir@/src/driver/mcxx --profile=mcxx --config-file=@abs_top_builddir@/config/config.omp --verbose"
+MCC="@abs_top_builddir@/libtool --mode=execute \${MERCURIUM_LIBS} @abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=mcc --config-file=@abs_top_builddir@/config/config.omp --verbose"
+MCXX="@abs_top_builddir@/libtool --mode=execute \${MERCURIUM_LIBS} @abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=mcxx --config-file=@abs_top_builddir@/config/config.omp --verbose"
 
 test_CC_nanos4_plain="\${MCC}"
 test_CXX_nanos4_plain="\${MCXX}"

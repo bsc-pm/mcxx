@@ -83,6 +83,7 @@ compile_c ()
    local version=$1
    local source=$2
    local exec=$3
+   local pwd=$(pwd)
 
    local cc
    local cflags
@@ -110,8 +111,10 @@ compile_c ()
      ldflags="$tmp $ldflags"
    fi
 
-   logcmd $cc $cflags $ldflags -o $exec $source 
+   cd $tmpdir
+   logcmd $cc $cflags $ldflags -o $exec $pwd/$source 
    local ret=$?
+   cd $pwd
 
    return $ret
 }
@@ -121,6 +124,7 @@ compile_cpp ()
    local version=$1
    local source=$2
    local exec=$3
+   local pwd=$(pwd)
 
    local cxx
    local cxxflags
@@ -148,8 +152,10 @@ compile_cpp ()
      ldflags="$tmp $ldflags"
    fi
 
-   logcmd $cxx $cxxflags $ldflags -o $exec $source 
+   cd $tmpdir
+   logcmd $cxx $cxxflags $ldflags -o $exec $pwd/$source 
    local ret=$?
+   cd $pwd
 
    return $ret
 }
@@ -167,7 +173,7 @@ execute ()
    log $env ./$exec $args
 
    echo > $tmpfile
-   echo $env ./$exec $args >> $tmpfile
+   echo $env $tmpdir/$exec $args >> $tmpfile
   
    sh $tmpfile >> $logfile
    local ret=$?
@@ -430,6 +436,8 @@ do_version ()
 do_run ()
 {
    #startup
+   declare -r tmpdir=$(mktemp -d)
+   export TMPDIR=$tmpdir
    declare -r tmpfile=$(mktemp)
 
    if [ "${logfile:0:1}" != "/" ]; then
@@ -457,7 +465,7 @@ do_run ()
    fi
    
    #clean-up
-   rm $tmpfile
+   rm -fr $tmpdir
    
    if [ $fail -eq 0 -a $pass -eq 0 ]; then
      message "No test run. Any files in here? :-)"

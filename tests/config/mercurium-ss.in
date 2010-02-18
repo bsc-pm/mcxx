@@ -16,7 +16,7 @@ fi
 cat ${CACHE_SS_LIBRARIES_LT}
 
 cat <<EOF
-MCC="@abs_top_builddir@/libtool --mode=execute \${SS_LIBS} @abs_top_builddir@/src/driver/mcxx --profile=smpss-cc --config-file=@abs_top_builddir@/config/config.superscalar --verbose"
+MCC="@abs_top_builddir@/libtool --mode=execute \${SS_LIBS} @abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=smpss-cc --config-file=@abs_top_builddir@/config/config.superscalar --verbose"
 
 test_CC="\${MCC}"
 

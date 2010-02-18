@@ -234,7 +234,7 @@ AC_SUBST([NANOS4_LIBS])
 dnl --------------------- End Support for OpenMP Nanos4 ---------------------
 
 dnl --------------------- Shared between Nanox and Nanos4 ------------------
-if test x$is_enabled_tl_omp_nanos4 = xyes -o x$is_enabled_tl_omp_nanox;
+if test x$is_enabled_tl_omp_nanos4 = xyes -o x$is_enabled_tl_omp_nanox = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.omp"
    ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} c.openmp cxx.openmp"
