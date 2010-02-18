@@ -63,20 +63,13 @@ check-local: $(builddir)/config/bets
 	done; exit $${FAIL}
 
 dist-hook:
-	-cp $(srcdir)/*.conf $(distdir)
 	-for i in $(srcdir)/*.dg; \
 	do  \
 	    DIR=$$(basename $$i); \
 		mkdir -p $(distdir)/$${DIR} ; \
-		cp $(srcdir)/$${DIR}/*.exp $(distdir)/$${DIR} ; \
-		[ "(" -e "$(srcdir)/$${DIR}/config.mcxx" ")" -a "(" ! -e  "$(srcdir)/$${DIR}/config.mcxx.in" ")" ] \
-               && cp $(srcdir)/$${DIR}/config.mcxx $(distdir)/$${DIR}; \
-		cp $(srcdir)/$${DIR}/config.mcxx.in $(distdir)/$${DIR} ; \
-		cp $(srcdir)/$${DIR}/mercurium.in $(distdir)/$${DIR} ; \
-		cp $(srcdir)/$${DIR}/*.c $(distdir)/$${DIR} ; \
-		cp $(srcdir)/$${DIR}/*.cpp $(distdir)/$${DIR} ; \
-		cp $(srcdir)/$${DIR}/*.C $(distdir)/$${DIR} ; \
-		cp $(srcdir)/$${DIR}/*.cc $(distdir)/$${DIR} ; \
+		[ -e $(srcdir)/$${DIR}/config.mcxx ] && cp $(srcdir)/$${DIR}/config.mcxx $(distdir)/$${DIR} ; \
+		[ -e $(srcdir)/$${DIR}/mercurium.in ] && cp $(srcdir)/$${DIR}/mercurium.in $(distdir)/$${DIR} ; \
+        find $(srcdir)/$${DIR} "(" -name "*.c" -o -name "*.cpp" -o -name "*.C" -o -name "*.cc" ")" -exec cp {} $(distdir)/$${DIR} ';' ; \
 	done
 
 distclean-local:
