@@ -1,4 +1,4 @@
-EXTRA_DIST=bets 
+EXTRA_DIST=bets.in
 
 CLEANFILES=
 # These are a cache files used by generators
@@ -7,3 +7,9 @@ CLEANFILES=
 CLEANFILES+=omp-libraries-libtool
 CLEANFILES+=ss-libraries-libtool
 CLEANFILES+=stm-libraries-libtool
+
+BUILT_SOURCES=bets
+
+bets: $(srcdir)/bets.in
+	cp $< $@
+	chmod +x $@

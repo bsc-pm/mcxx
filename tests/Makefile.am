@@ -21,7 +21,7 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = config
+SUBDIRS = config .
 
 NULL=
 
@@ -45,8 +45,7 @@ CLEANFILES=
 # Replacements are defined in this makefile
 include ../config/Makefile.replace
 
-check-local:
-	chmod +x config/bets
+check-local: $(builddir)/config/bets
 	chmod +x config/mercurium-extensions
 	chmod +x config/mercurium-omp
 	chmod +x config/mercurium-ss
@@ -57,9 +56,9 @@ check-local:
 	do \
        (if [ ! -d $(builddir)/$${test_dir}.dg ]; \
        then \
-	      TEST_GENERATOR=$(builddir)/config/mercurium $(srcdir)/config/bets -o $${test_dir}.log ${srcdir}/$${test_dir}.dg; \
+	      TEST_GENERATOR=$(builddir)/config/mercurium $(builddir)/config/bets -o $${test_dir}.log ${srcdir}/$${test_dir}.dg; \
        else \
-	      TEST_GENERATOR=$(builddir)/$${test_dir}.dg/mercurium $(srcdir)/config/bets -o $${test_dir}.log ${srcdir}/$${test_dir}.dg; \
+	      TEST_GENERATOR=$(builddir)/$${test_dir}.dg/mercurium $(builddir)/config/bets -o $${test_dir}.log ${srcdir}/$${test_dir}.dg; \
        fi) || FAIL=1; \
 	done; exit $${FAIL}
 
@@ -81,9 +80,9 @@ dist-hook:
 	done
 
 distclean-local:
-	rm -vf lt-mcxx_success*.c
-	rm -vf lt-mcxx_failure*.c
-	rm -vf lt-mcxx_success*.cpp
-	rm -vf lt-mcxx_failure*.cpp
-	rm -vf *backtrace.txt
-	rm -vf stm_unhandled_functions*.log
+	rm -f lt-mcxx_success*.c
+	rm -f lt-mcxx_failure*.c
+	rm -f lt-mcxx_success*.cpp
+	rm -f lt-mcxx_failure*.cpp
+	rm -f *backtrace.txt
+	rm -f stm_unhandled_functions*.log
