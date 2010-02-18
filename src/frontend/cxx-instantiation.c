@@ -681,7 +681,20 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                     }
                                 case TAK_NONTYPE:
                                     {
-                                        internal_error("Not yet implemented", 0);
+                                        new_template_arg->type = update_type(template_arg->type,
+                                                context_of_being_instantiated,
+                                                filename, line);
+
+                                        new_template_arg->expression = template_arg->expression;
+
+                                        if (is_constant_expression(template_arg->expression, context_of_being_instantiated))
+                                        {
+                                            literal_value_t literal_value = evaluate_constant_expression(template_arg->expression, 
+                                                    context_of_being_instantiated);
+                                            new_template_arg->expression = tree_from_literal_value(literal_value);
+                                        }
+
+                                        new_template_arg->expression_context = context_of_being_instantiated;
                                         break;
                                     }
                                 default:
@@ -689,6 +702,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                         break;
                                     }
                             }
+
+                            new_template_arg->position = template_arg->position;
+                            new_template_arg->nesting = template_arg->nesting;
 
                             P_LIST_ADD(new_template_args->argument_list, new_template_args->num_arguments, new_template_arg);
                         }
@@ -776,11 +792,9 @@ static void instantiate_specialized_template_class(type_t* selected_template,
         deduction_set_t* unification_set,
         const char *filename, int line)
 {
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "INSTANTIATION: About to instantiate class '%s'\n", 
-                named_type_get_symbol(being_instantiated)->symbol_name);
-    }
+    fprintf(stderr, "INSTANTIATION: Instantiating class '%s'\n", 
+            print_declarator(being_instantiated));
+
     ERROR_CONDITION(!is_named_class_type(being_instantiated), "Must be a named class", 0);
 
     scope_entry_t* named_class = named_type_get_symbol(being_instantiated);
