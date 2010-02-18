@@ -109,9 +109,13 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
             ;
     }
 
+    // FIXME - This will be meaningful with 'copy_in' and 'copy_out'
+    Source num_copies, copy_data;
+    num_copies << "0";
+    copy_data << "(nanos_copy_data_t*)0";
+
     result
         << "{"
-        // FIXME - How to get the default number of threads?
         <<   "unsigned int _nanos_num_threads = " << num_threads << ";"
         <<   "nanos_team_t _nanos_team = (nanos_team_t)0;"
         <<   "nanos_thread_t _nanos_threads[_nanos_num_threads];"
@@ -138,7 +142,7 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
         <<                    struct_size << ","
         <<                    "(void**)&ol_args,"
         <<                    "nanos_current_wd(), "
-        <<                    "&props);"
+        <<                    "&props, " << num_copies << "," << copy_data << ");"
         <<      "if (err != NANOS_OK) nanos_handle_error(err);"
         <<      fill_outline_arguments
         <<      "err = nanos_submit(wd, 0, (nanos_dependence_t*)0, 0);"
@@ -152,7 +156,7 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
         <<                              struct_size << ", " << (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
         <<                              "0,"
         <<                              "(nanos_dependence_t*)0, "
-        <<                              "&props);"
+        <<                              "&props, " << num_copies << "," << copy_data << ");"
         <<   "nanos_end_team(_nanos_team);"
         << "}"
         ;
