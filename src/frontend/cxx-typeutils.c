@@ -4815,19 +4815,6 @@ static char is_value_dependent_expression_aux_(AST expression, decl_context_t de
 {
     ERROR_CONDITION(expression == NULL, "This cannot be null", 0);
 
-    if (ASTExprType(expression) != NULL)
-    {
-        if (is_dependent_expr_type(ASTExprType(expression)))
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "Expression '%s' was already marked as dependent\n",
-                        prettyprint_in_buffer(expression));
-            }
-            return 1;
-        }
-    }
-
     switch (ASTType(expression))
     {
         case AST_EXPRESSION : 
@@ -4930,8 +4917,23 @@ static char is_value_dependent_expression_aux_(AST expression, decl_context_t de
         case AST_QUALIFIED_ID :
         case AST_QUALIFIED_TEMPLATE :
             {
-                scope_entry_list_t* entry_list = 
-                    query_id_expression_flags(decl_context, expression, DF_DEPENDENT_TYPENAME);
+                scope_entry_list_t _tpl_list;
+                scope_entry_list_t* entry_list = NULL;
+                memset(&_tpl_list, 0, sizeof(_tpl_list));
+                if (ASTType(expression) == AST_SYMBOL
+                        && is_template_parameter_name(expression))
+                {
+                    scope_entry_t* entry = lookup_template_parameter_name(decl_context, expression);
+                    if (entry != NULL)
+                    {
+                        _tpl_list.entry = entry;
+                        entry_list = &_tpl_list;
+                    }
+                }
+                else
+                {
+                    entry_list = query_id_expression_flags(decl_context, expression, DF_DEPENDENT_TYPENAME);
+                }
 
                 if (entry_list == NULL)
                 {

@@ -111,11 +111,11 @@ LIBMCXX_EXTERN const char* get_fully_qualified_symbol_name_without_template(stru
 // Class scopes
 LIBMCXX_EXTERN struct scope_entry_list_tag* class_context_lookup(decl_context_t decl_context, const char* name);
 
-LIBMCXX_EXTERN template_argument_list_t *get_template_arguments_of_template_id(
-        struct AST_tag* template_id,
-        struct type_tag* template_type,
-        decl_context_t template_arguments_context,
-        char *valid);
+// LIBMCXX_EXTERN template_argument_list_t *get_template_arguments_of_template_id(
+//         struct AST_tag* template_id,
+//         struct type_tag* template_type,
+//         decl_context_t template_arguments_context,
+//         char *valid);
 LIBMCXX_EXTERN template_argument_list_t* get_template_arguments_from_syntax(
         struct AST_tag* template_arguments_list,
         decl_context_t template_arguments_context,

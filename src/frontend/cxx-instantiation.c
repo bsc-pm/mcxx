@@ -681,7 +681,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                     }
                                 case TAK_NONTYPE:
                                     {
-                                        internal_error("Not implemented yet", 0);
+                                        internal_error("Not yet implemented", 0);
                                         break;
                                     }
                                 default:
