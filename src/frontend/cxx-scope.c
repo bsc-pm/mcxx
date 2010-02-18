@@ -1976,11 +1976,15 @@ decl_context_t update_context_with_template_arguments(
                     param_symbol->type_information = current_template_argument->type;
 
                     // Fold it, as makes things easier
-                    literal_value_t literal_value = evaluate_constant_expression(current_template_argument->expression,
-                            current_template_argument->expression_context);
-                    AST evaluated_tree = tree_from_literal_value(literal_value);
-                    AST fake_initializer = evaluated_tree;
-                    param_symbol->expression_value = fake_initializer;
+                    if (is_constant_expression(current_template_argument->expression,
+                                current_template_argument->expression_context))
+                    {
+                        literal_value_t literal_value = evaluate_constant_expression(current_template_argument->expression,
+                                current_template_argument->expression_context);
+                        AST evaluated_tree = tree_from_literal_value(literal_value);
+                        AST fake_initializer = evaluated_tree;
+                        param_symbol->expression_value = fake_initializer;
+                    }
                     break;
                 }
             default:
@@ -2504,10 +2508,10 @@ static template_argument_t* update_template_argument(
                 ast_set_expression_type(result->expression, result->type);
 
                 type_t* expr_type = ASTExprType(result->expression);
-                // Fold the argument
-                if (!is_value_dependent_expression(result->expression, result->expression_context)
-                        && (expr_type == NULL
-                            || !is_unresolved_overloaded_type(expr_type)))
+                // Fold the argument if possible
+                if (expr_type != NULL
+                        && !is_unresolved_overloaded_type(expr_type)
+                        && is_constant_expression(result->expression, result->expression_context))
                 {
                     literal_value_t literal 
                         = evaluate_constant_expression(result->expression, result->expression_context);
@@ -2516,7 +2520,7 @@ static template_argument_t* update_template_argument(
                 }
 
                 ERROR_CONDITION ((result->type == NULL), 
-                        "type/template template could not be updated", 0);
+                        "nontype/template template could not be updated", 0);
 
                 break;
             }

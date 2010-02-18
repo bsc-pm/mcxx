@@ -659,6 +659,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         template_argument_list_t *template_args =
                             template_specialized_type_get_template_arguments(member_of_template->type_information);
 
+                        template_parameter_list_t *template_params =
+                            template_specialized_type_get_template_parameters(member_of_template->type_information);
+
                         template_argument_list_t* new_template_args = calloc(1, sizeof(*new_template_args));
 
                         for  (i = 0; i < template_args->num_arguments; i++)
@@ -712,7 +715,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         // Now ask a new specialization
                         type_t* new_template_specialized_type = template_type_get_specialized_type_after_type(new_template_type,
                                 new_template_args,
-                                template_type_get_template_parameters(new_template_type),
+                                template_params,
                                 member_of_template->type_information,
                                 context_of_being_instantiated,
                                 member_of_template->line, 

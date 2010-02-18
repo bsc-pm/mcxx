@@ -5002,10 +5002,6 @@ static char is_value_dependent_expression_aux_(AST expression, decl_context_t de
                     entry->dependency_info = (result ? DI_DEPENDENT : DI_NOT_DEPENDENT);
                 }
 
-                if (entry->dependency_info == DI_DEPENDENT)
-                {
-                    ast_set_expression_type(expression, get_dependent_expr_type());
-                }
                 return (entry->dependency_info == DI_DEPENDENT);
             }
             // Postfix expressions

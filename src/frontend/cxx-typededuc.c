@@ -342,7 +342,6 @@ char deduce_template_arguments_common(
             {
                 if (!template_parameters->template_parameters[i]->has_default_argument)
                 {
-
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "TYPEDEDUC: Some template parameter was not deduced a type\n");
