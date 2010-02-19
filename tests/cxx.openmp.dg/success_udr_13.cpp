@@ -1,3 +1,8 @@
+/*
+<testinfo>
+test_generator=config/mercurium-omp
+</testinfo>
+*/
 #include <iostream>
 #include <limits>
 

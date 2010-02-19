@@ -24,15 +24,3 @@ test_CFLAGS=
 
 test_nolink=yes
 EOF
-
-[ ! -z "$TEST_SOURCE" ] && NAME=$(basename $TEST_SOURCE)
-
-case "$NAME" in
-    success*)
-      ;;
-    failure*)
-      echo "test_compile_fail=yes"
-      ;;
-    *)
-      ;;
-esac

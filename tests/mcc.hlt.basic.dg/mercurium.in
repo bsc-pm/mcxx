@@ -10,15 +10,3 @@ test_CFLAGS="--hlt --variable=allow_identity:false"
 test_CXXFLAGS="--hlt --variable=allow_identity:false"
 test_nolink=yes
 EOF
-
-[ ! -z "$TEST_SOURCE" ] && NAME=$(basename $TEST_SOURCE)
-
-case "$NAME" in
-    success*)
-      ;;
-    failure*)
-      echo "test_compile_fail=yes"
-      ;;
-    *)
-      ;;
-esac

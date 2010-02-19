@@ -27,17 +27,19 @@ NULL=
 
 ADDITIONAL_TESTS=@ADDITIONAL_TESTSUITES@
 
-DIRTESTS = \
-  mcxx.parser \
-  mcc.typecalc \
-  mcxx.typecalc \
-  mcxx.torture2 \
-  mcxx.cxx0x \
-  mcc.extensions \
-  mcxx.extensions \
-  mcxx.gxx_type_traits \
-  $(ADDITIONAL_TESTS) \
-  $(NULL)
+DIRTESTS=.
+
+# DIRTESTS = \
+#   mcxx.parser \
+#   mcc.typecalc \
+#   mcxx.typecalc \
+#   mcxx.torture2 \
+#   mcxx.cxx0x \
+#   mcc.extensions \
+#   mcxx.extensions \
+#   mcxx.gxx_type_traits \
+#   $(ADDITIONAL_TESTS) \
+#   $(NULL)
 
 END=
 CLEANFILES=
@@ -51,16 +53,17 @@ check-local: $(builddir)/config/bets
 	chmod +x config/mercurium-ss
 	chmod +x config/mercurium-stm
 	chmod +x */mercurium
-	FAIL=0; \
-	for test_dir in $(DIRTESTS); \
-	do \
-       (if [ ! -d $(builddir)/$${test_dir}.dg ]; \
-       then \
-	      TEST_GENERATOR=$(builddir)/config/mercurium $(builddir)/config/bets -o $${test_dir}.log ${srcdir}/$${test_dir}.dg; \
-       else \
-	      TEST_GENERATOR=$(builddir)/$${test_dir}.dg/mercurium $(builddir)/config/bets -o $${test_dir}.log ${srcdir}/$${test_dir}.dg; \
-       fi) || FAIL=1; \
-	done; exit $${FAIL}
+	$(builddir)/config/bets -o tests.log $(srcdir)
+# 	FAIL=0; \
+# 	for test_dir in $(DIRTESTS); \
+# 	do \
+#        (if [ ! -e $(builddir)/$${test_dir}.dg/mercurium ]; \
+#        then \
+# 	      TEST_GENERATOR=$(builddir)/config/mercurium $(builddir)/config/bets -o $${test_dir}.log ${srcdir}/$${test_dir}.dg; \
+#        else \
+# 	      TEST_GENERATOR=$(builddir)/$${test_dir}.dg/mercurium $(builddir)/config/bets -o $${test_dir}.log ${srcdir}/$${test_dir}.dg; \
+#        fi) || FAIL=1; \
+# 	done; exit $${FAIL}
 
 dist-hook:
 	-for i in $(srcdir)/*.dg; \

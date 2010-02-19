@@ -1,3 +1,0 @@
-#!/bin/bash
-
-@abs_top_builddir@/tests/config/mercurium-omp

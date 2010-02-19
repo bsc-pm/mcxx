@@ -1,11 +1,21 @@
 #!/bin/bash
 
+# Basic mercurium generator
+
+if [ ! -e "mercurium" ];
+then
+# Mercurium defalt
+
 cat <<EOF
-MCXX="@abs_top_builddir@/libtool --mode=execute @abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=lt-mcxx --verbose"
-test_CC=\${MCXX}
-test_CXX=\${MCXX}
+MCXX="@abs_top_builddir@/libtool --mode=execute @abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --config-file=@abs_top_builddir@/config/config.plain --verbose"
+test_CC="\${MCXX} --profile=plaincc"
+test_CXX="\${MCXX} --profile=plaincxx"
 test_nolink=yes
 EOF
+else
+    # If current directory has a generator, use it
+    ./mercurium
+fi
 
 [ ! -z "$TEST_SOURCE" ] && NAME=$(basename $TEST_SOURCE)
 

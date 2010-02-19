@@ -1,3 +1,8 @@
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
 extern int a[];
 enum { B };
 

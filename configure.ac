@@ -949,15 +949,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-omp
            tests/config/mercurium-ss
            tests/config/mercurium-stm
-           tests/mcc.typecalc.dg/mercurium
-           tests/mcc.extensions.dg/mercurium
-           tests/mcxx.cxx0x.dg/mercurium
-           tests/mcxx.extensions.dg/mercurium
            tests/mcxx.torture.dg/mercurium
-           tests/c.openmp.dg/mercurium
-           tests/cxx.openmp.dg/mercurium
-           tests/mcc.superscalar.dg/mercurium
-           tests/mcxx.stm.dg/mercurium
            tests/mcc.hlt.basic.dg/mercurium
            doc/Makefile
            doc/doxygen_tl

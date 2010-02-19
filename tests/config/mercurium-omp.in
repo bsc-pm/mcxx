@@ -48,15 +48,3 @@ test_CXXFLAGS_nanos4_instrument="\${test_CXXFLAGS_nanos4_plain} --instrument"
 
 test_nolink=yes
 EOF
-
-[ ! -z "$TEST_SOURCE" ] && NAME=$(basename $TEST_SOURCE)
-
-case "$NAME" in
-    success*)
-      ;;
-    failure*)
-      echo "test_compile_fail=yes"
-      ;;
-    *)
-      ;;
-esac
