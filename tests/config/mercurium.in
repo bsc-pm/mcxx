@@ -4,7 +4,7 @@
 
 if [ ! -e "mercurium" ];
 then
-# Mercurium defalt
+# Mercurium default
 
 cat <<EOF
 MCXX="@abs_top_builddir@/libtool --mode=execute @abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --config-file=@abs_top_builddir@/config/config.plain --verbose"
@@ -16,15 +16,3 @@ else
     # If current directory has a generator, use it
     ./mercurium
 fi
-
-[ ! -z "$TEST_SOURCE" ] && NAME=$(basename $TEST_SOURCE)
-
-case "$NAME" in
-    success*)
-      ;;
-    failure*)
-      echo "test_compile_fail=yes"
-      ;;
-    *)
-      ;;
-esac

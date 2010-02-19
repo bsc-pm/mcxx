@@ -1,6 +1,16 @@
 #!/bin/bash
 
+# Add support for nanox one day
 # compile_versions="nanox_plain nanox_instrument"
+
+if [ -z "@NANOS4_INCLUDES" ];
+then
+
+cat <<EOF
+test_ignore=yes
+EOF
+
+fi
 
 cat <<EOF
 MERCURIUM_LIBS=
@@ -8,14 +18,19 @@ EOF
 
 CACHE_OMP_LIBRARIES_LT="@abs_builddir@/omp-libraries-libtool"
 
-if [ ! -e ${CACHE_OMP_LIBRARIES_LT} ];
+if [ ! -e ${CACHE_OMP_LIBRARIES_LT} -a -e "@abs_top_builddir@/config/config.omp" ];
 then
 
 grep -o "compiler_phase\s*=\s*[^# ]*" @abs_top_builddir@/config/config.omp | sed -e 's/compiler_phase\s*=\(.*\).so\s*/\1.la/g' | sort -u | xargs -I{} find @abs_top_builddir@ -iname "{}" -not -path "*/.libs/*" | sed -e 's/^.*$/MERCURIUM_LIBS="${MERCURIUM_LIBS} -dlopen &"/g' > ${CACHE_OMP_LIBRARIES_LT}
 
 fi
 
+if [ -e ${CACHE_OMP_LIBRARIES_LT} ];
+then
+
 cat ${CACHE_OMP_LIBRARIES_LT}
+
+fi
 
 cat <<EOF
 compile_versions="nanos4_plain"

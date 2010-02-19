@@ -1,6 +1,7 @@
 /*
 <testinfo>
-test_generator=mcxx.hlt.basic.dg/mercurium
+test_generator=mcc.hlt.basic.dg/mercurium
+test_compile_fail=yes
 </testinfo>
 */
 /*--------------------------------------------------------------------

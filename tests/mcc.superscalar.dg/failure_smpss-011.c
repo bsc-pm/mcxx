@@ -1,6 +1,7 @@
 /*
 <testinfo>
 test_generator=config/mercurium-ss
+test_compile_fail=yes
 </testinfo>
 */
 /*--------------------------------------------------------------------

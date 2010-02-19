@@ -11,11 +11,13 @@ define_colors()
     GREEN="\033[1;32m"
     RED="\033[1;31m"
     BLUE="\033[1;34m"
+    YELLOW="\033[1;33m"
     NORMAL="\033[0m"
   else
     GREEN=
     RED=
     BLUE=
+    YELLOW=
     NORMAL=
   fi
 }
@@ -250,6 +252,7 @@ clean_test_vars ()
    unset test_exec_fail
    unset test_nolink
    unset test_noexec
+   unset test_ignore
 }
 
 # run functions
@@ -296,7 +299,7 @@ run_gen_test ()
       $basedir/$test_generator > $tmpfile
       unset TEST_SOURCE
       source $tmpfile >> $logfile
-      if [ "$compile_versions" ]; then
+      if [ "$compile_versions" -a ! "$test_ignore" ]; then
         if [ "$all_compile_versions" ]; then
           local tmp=
           for v1 in $all_compile_versions; do
@@ -315,7 +318,7 @@ run_gen_test ()
           all_compile_versions=$compile_versions
         fi
       fi
-      if [ "$exec_versions" ]; then
+      if [ "$exec_versions" -a ! "$test_ignore" ]; then
         if [ "$all_exec_versions" ]; then
           local tmp=
           for v1 in $all_exec_versions; do
@@ -343,27 +346,31 @@ run_gen_test ()
        all_exec_versions="default"
    fi
    
-   for v in $all_compile_versions; do
-      message -n "Compile test $name-$v "
-      log "***Start compile test $name-$v"
-      test_fail=$test_compile_fail
-      passfail compile_$type $v $source $name  
-      local ok=$?
+   test_noexec=${test_noexec:-$test_nolink}
+   if [ "$test_ignore" ]; then
+      echo -e "Test $name ${YELLOW}ignored${NORMAL}"
+   else    
+     for v in $all_compile_versions; do
+        message -n "Compile test $name-$v "
+        log "***Start compile test $name-$v"
+        test_fail=$test_compile_fail
+        passfail compile_$type $v $source $name  
+        local ok=$?
 
-      test_noexec=${test_noexec:-$test_nolink}
-      if [ "$ok" -eq "0" -a -z "$test_noexec" ]; then
-        log "***End compile test $name-$v"
-        for e in $all_exec_versions; do
-           message -n "Execute test $name-$v-$e "
-           log "***Start execute test $name-$v-$e"
-           test_fail=$test_exec_fail
-           passfail execute $e $name
-           log "***End execute test $name-$v-$e"
-        done
-      fi
+        if [ "$ok" -eq "0" -a -z "$test_noexec" ]; then
+          log "***End compile test $name-$v"
+          for e in $all_exec_versions; do
+             message -n "Execute test $name-$v-$e "
+             log "***Start execute test $name-$v-$e"
+             test_fail=$test_exec_fail
+             passfail execute $e $name
+             log "***End execute test $name-$v-$e"
+          done
+        fi
 
-      rm -f $name
-   done
+        rm -f $name
+     done
+   fi
    
    for v in $all_compile_versions; do
       clean_${type}_compile_version_vars $v
