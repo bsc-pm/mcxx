@@ -3237,7 +3237,8 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
     else if (!no_templates
             && entry->type_information != NULL
             && is_template_specialized_type(entry->type_information)
-            && (template_specialized_type_get_template_parameters(entry->type_information)->num_template_parameters > 0))
+            && template_specialized_type_get_template_arguments(entry->type_information) != NULL
+            && template_specialized_type_get_template_arguments(entry->type_information)->num_arguments > 0)
     {
         const char *template_arguments = get_unqualified_template_symbol_name(entry, decl_context);
         result = strappend(result, template_arguments);

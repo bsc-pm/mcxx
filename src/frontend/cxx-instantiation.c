@@ -1084,13 +1084,10 @@ void instantiate_template_class(scope_entry_t* entry, decl_context_t decl_contex
 
     type_t* template_specialized_type = entry->type_information;
 
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "INSTANTIATION: Instantiating class '%s' at '%s:%d'\n",
-                entry->symbol_name,
-                entry->file,
-                entry->line);
-    }
+    fprintf(stderr, "INSTANTIATION: Instantiating class '%s' at '%s:%d'\n",
+            entry->symbol_name,
+            entry->file,
+            entry->line);
 
 
     if (!is_template_specialized_type(template_specialized_type)
