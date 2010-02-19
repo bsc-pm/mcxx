@@ -482,18 +482,42 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                 if (new_member->entity_specs.is_bitfield)
                 {
-                    internal_error("Bitfields not yet implemented", 0);
-                }
-                else
-                {
-                    if (new_member->entity_specs.is_static)
+                    // Evaluate the bitfield expression
+                    if (is_constant_expression(new_member->entity_specs.bitfield_expr, context_of_being_instantiated))
                     {
-                        class_type_add_static_data_member(get_actual_class_type(being_instantiated), new_member);
+                        literal_value_t literal =
+                            evaluate_constant_expression(new_member->entity_specs.bitfield_expr,
+                                    context_of_being_instantiated);
+                        
+                        if (literal_value_is_zero(literal)
+                                || literal_value_is_negative(literal))
+                        {
+                            char valid = 0;
+                            int val = literal_value_to_int(literal, &valid);
+
+                            running_error("%s:%d: error: invalid bitfield of size '%d'",
+                                new_member->file, new_member->line, val);
+                        }
+
+                        new_member->entity_specs.bitfield_expr =
+                            tree_from_literal_value(literal);
+                        new_member->entity_specs.bitfield_expr_context =
+                            context_of_being_instantiated;
                     }
                     else
                     {
-                        class_type_add_nonstatic_data_member(get_actual_class_type(being_instantiated), new_member);
+                        running_error("%s:%d: error: bitfield specification is not a constant expression", 
+                                new_member->file, new_member->line);
                     }
+                }
+
+                if (new_member->entity_specs.is_static)
+                {
+                    class_type_add_static_data_member(get_actual_class_type(being_instantiated), new_member);
+                }
+                else
+                {
+                    class_type_add_nonstatic_data_member(get_actual_class_type(being_instantiated), new_member);
                 }
                 break;
             }
@@ -734,7 +758,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
             }
         case SK_TEMPLATE:
             {
-                internal_error("Not yet implemented!\n", 0);
+                internal_error("Code unreachable\n", 0);
                 break;
             }
         case SK_FUNCTION:

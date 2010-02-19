@@ -1349,6 +1349,12 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
     char has_dependent_temp_args = has_dependent_template_arguments(template_argument_list);
 
     // Search an existing specialization
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "TYPEUTILS: Searching an existing specialization that matches the requested one\n");
+        fprintf(stderr, "TYPEUTILS: There are '%d' specializations of this template type\n", 
+                template_type_get_num_specializations(t));
+    }
     int i;
     for (i = 0; i < template_type_get_num_specializations(t); i++)
     {
@@ -1374,6 +1380,7 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
         {
             DEBUG_CODE()
             {
+                fprintf(stderr, "TYPEUTILS: An existing specialization matches\n", entry->type_information);
                 fprintf(stderr, "TYPEUTILS: Returning template type %p\n", entry->type_information);
             }
 
