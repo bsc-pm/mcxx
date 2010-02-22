@@ -61,6 +61,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     DataEnvironInfo data_environ_info;
     compute_data_environment(firstprivate_symbols,
             shared_symbols,
+            private_symbols,
             ctr.get_scope_link(),
             data_environ_info,
             _converted_vlas);

@@ -41,6 +41,7 @@ namespace TL
                 bool _is_copy;
                 bool _is_raw_buffer;
                 bool _is_vla_type;
+                bool _is_private;
 
                 ObjectList<Source> _vla_dim_list;
 
@@ -52,6 +53,7 @@ namespace TL
                     _is_copy(false),
                     _is_raw_buffer(false),
                     _is_vla_type(false),
+                    _is_private(false),
                     _vla_dim_list()
                 { }
 
@@ -62,6 +64,7 @@ namespace TL
                     _is_copy(false),
                     _is_raw_buffer(false),
                     _is_vla_type(false),
+                    _is_private(false),
                     _vla_dim_list()
                 {
                 }
@@ -124,6 +127,16 @@ namespace TL
                 {
                     return _vla_dim_list;
                 }
+
+                void set_is_private(bool b)
+                {
+                    _is_private = b;
+                }
+
+                bool is_private() const
+                {
+                    return _is_private;
+                }
         };
 
         class DataEnvironInfo
@@ -184,7 +197,8 @@ namespace TL
                             it != data_env_list.end();
                             it++)
                     {
-                        if (it->is_vla_type())
+                        if (!it->is_private() 
+                                && it->is_vla_type())
                             return true;
                     }
 
@@ -202,7 +216,8 @@ namespace TL
                             it != data_env_list.end();
                             it++)
                     {
-                        if (it->is_vla_type())
+                        if (!it->is_private() 
+                                && it->is_vla_type())
                         {
                             Type base_type = it->get_symbol().get_type().basic_type();
 
@@ -235,6 +250,7 @@ namespace TL
         // This one is not to be exported
         void compute_data_environment(ObjectList<Symbol> value,
                 ObjectList<Symbol> shared,
+                ObjectList<Symbol> private_symbols,
                 ScopeLink scope_link,
                 DataEnvironInfo &data_env_info,
                 ObjectList<Symbol>& converted_vlas);

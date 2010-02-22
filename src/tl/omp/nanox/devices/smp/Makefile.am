@@ -28,8 +28,10 @@ END=
 
 phases_LTLIBRARIES=libtl-nanox-smp.la
 
-libtl_nanox_smp_la_CFLAGS = $(tl_cflags)
-libtl_nanox_smp_la_CXXFLAGS = $(tl_cxxflags)
+device_flags=$(tl_cflags) -I$(srcdir)/../.. -I$(srcdir)/../../../core
+
+libtl_nanox_smp_la_CFLAGS = $(device_flags)
+libtl_nanox_smp_la_CXXFLAGS = $(device_flags)
 
 libtl_nanox_smp_la_LDFLAGS = $(tl_ldflags)
 

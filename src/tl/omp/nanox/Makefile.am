@@ -21,7 +21,7 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS=devices
+SUBDIRS=. devices
 
 include ../../Makefile.phases
 
@@ -52,5 +52,7 @@ libtlomp_nanox_la_SOURCES = \
      tl-atomic.cpp \
      tl-barrier.cpp \
      tl-target.cpp \
+     tl-devices.hpp \
+     tl-devices.cpp \
      $(END)
 
