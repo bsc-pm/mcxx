@@ -5,7 +5,7 @@ using namespace TL::Nanox;
 
 static DeviceHandler* _nanox_handler = 0;
 
-DeviceHandler::DeviceHandler& get_nanox_device_handler()
+DeviceHandler::DeviceHandler& get_device_handler()
 {
     if (_nanox_handler == 0)
     {

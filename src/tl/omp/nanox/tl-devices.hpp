@@ -27,7 +27,7 @@ namespace Nanox
     class DeviceHandler
     {
         public:
-            static DeviceHandler& get_nanox_device_handler();
+            static DeviceHandler& get_device_handler();
 
             void register_device(const std::string& str, 
                     DeviceProvider* nanox_device_provider);

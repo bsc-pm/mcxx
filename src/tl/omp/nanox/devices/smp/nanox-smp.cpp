@@ -1,3 +1,4 @@
+#include "tl-devices.hpp"
 #include "nanox-smp.hpp"
 
 using namespace TL;
@@ -153,6 +154,7 @@ static void do_smp_outline_replacements(Statement body,
 
 DeviceSMP::DeviceSMP()
 {
+    DeviceHandler &device_handler(DeviceHandler::get_device_handler());
 }
 
 void DeviceSMP::create_outline(const std::string& task_name,
