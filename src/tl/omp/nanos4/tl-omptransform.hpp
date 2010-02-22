@@ -424,6 +424,9 @@ namespace TL
                 Source debug_parameter_info(
                         ObjectList<ParameterInfo> parameter_info_list);
 
+                void target_postorder(PragmaCustomConstruct construct);
+                void target_preorder(PragmaCustomConstruct construct);
+
                 // #pragma omp declare
                 void declare_reduction_postorder(PragmaCustomConstruct construct);
 
