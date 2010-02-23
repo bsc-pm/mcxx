@@ -155,6 +155,11 @@ static void do_smp_outline_replacements(Statement body,
 DeviceSMP::DeviceSMP()
 {
     DeviceHandler &device_handler(DeviceHandler::get_device_handler());
+
+    device_handler.register_device("smp", this);
+
+    set_phase_name("Nanox SMP support");
+    set_phase_description("This phase is used by Nanox phases to implement SMP device support");
 }
 
 void DeviceSMP::create_outline(const std::string& task_name,

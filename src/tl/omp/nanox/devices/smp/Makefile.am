@@ -26,16 +26,16 @@ include ../../../../Makefile.phases
 
 END=
 
-phases_LTLIBRARIES=libtl-nanox-smp.la
+phases_LTLIBRARIES=libtlnanox-smp.la
 
 device_flags=$(tl_cflags) -I$(srcdir)/../.. -I$(srcdir)/../../../core
 
-libtl_nanox_smp_la_CFLAGS = $(device_flags)
-libtl_nanox_smp_la_CXXFLAGS = $(device_flags)
+libtlnanox_smp_la_CFLAGS = $(device_flags)
+libtlnanox_smp_la_CXXFLAGS = $(device_flags)
 
-libtl_nanox_smp_la_LDFLAGS = $(tl_ldflags)
+libtlnanox_smp_la_LDFLAGS = $(tl_ldflags)
 
-libtl_nanox_smp_la_SOURCES = \
+libtlnanox_smp_la_SOURCES = \
        nanox-smp.hpp \
        nanox-smp.cpp \
        $(END)
