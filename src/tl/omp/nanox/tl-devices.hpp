@@ -19,7 +19,9 @@ namespace Nanox
                     AST_t reference_tree) = 0;
 
             virtual void get_device_descriptor(const std::string& task_name,
-                    DataEnvironInfo data_environ) = 0;
+                    DataEnvironInfo data_environ,
+                    Source &ancillary_device_description,
+                    Source &device_descriptor) = 0;
 
             virtual ~DeviceProvider() { }
     };

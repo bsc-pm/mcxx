@@ -218,11 +218,31 @@ void DeviceSMP::create_outline(const std::string& task_name,
         << initial_replace_code
         << replaced_body
         ;
+
+    // Parse it in a sibling function context
+    AST_t outline_code_tree
+        = result.parse_declaration(enclosing_function.get_ast(), sl);
+    reference_tree.prepend_sibling_function(outline_code_tree);
 }
 
 void DeviceSMP::get_device_descriptor(const std::string& task_name,
-        DataEnvironInfo data_environ)
+        DataEnvironInfo data_environ,
+        Source &ancillary_device_description,
+        Source &device_descriptor)
 {
+    Source outline_name;
+    outline_name
+        << "_ol_smp_" << task_name
+        ;
+
+    ancillary_device_description
+        << comment("SMP")
+        << "nanos_smp_args_t " << task_name << "_smp_args = { (void(*)(void*))" << outline_name << "};"
+        ;
+
+    device_descriptor
+        << "{ nanos_smp_factory, nanos_smp_dd_size, &" << task_name << "_smp_args },"
+        ;
 }
 
 EXPORT_PHASE(TL::Nanox::DeviceSMP);

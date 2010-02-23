@@ -25,6 +25,7 @@
 #include "tl-data-env.hpp"
 #include "tl-counters.hpp"
 #include "tl-outline-nanox.hpp"
+#include "tl-devices.hpp"
 
 using namespace TL;
 using namespace TL::Nanox;
@@ -81,63 +82,54 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     int outline_num = TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER);
     TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER)++;
-    Source outline_name;
-    outline_name
-        << "_ol_" << function_symbol.get_name() << "_" << outline_num
-        ;
 
-    Source initial_replace_code, replaced_body;
+    std::stringstream ss;
+    ss << "_ol_" << function_symbol.get_name() << "_" << outline_num;
+    std::string outline_name = ss.str();
 
-    do_outline_replacements(ctr.get_statement(),
-            data_environ_info,
-            replaced_body,
-            initial_replace_code);
 
-    Source device_description, device_descriptor, num_devices;
-
-    Source outline_code, outline_parameters, outline_body;
-
-    outline_parameters << struct_arg_type_name << "* __restrict _args";
-    outline_body
-        << private_decls
-        << initial_replace_code
-        << replaced_body
-        ;
-
-    outline_code = create_outline(
-            funct_def,
-            outline_name,
-            outline_parameters,
-            outline_body);
-            
-
-    // FIXME - Refactor this since it is quite common
-    Source newly_generated_code;
-    newly_generated_code
-        << struct_arg_type_decl_src
-        << outline_code
-        ;
-
-    // Device descriptor
-    // FIXME - Currently only SMP is supported
+    Source device_descriptor, 
+           device_description, 
+           device_description_line, 
+           num_devices,
+           ancillary_device_description;
     device_descriptor << outline_name << "_devices";
     device_description
-        << "nanos_smp_args_t " << outline_name << "_smp_args = { (void(*)(void*))" << outline_name << "};"
+        << ancillary_device_description
         << "nanos_device_t " << device_descriptor << "[] ="
         << "{"
-        // SMP
-        << "{nanos_smp_factory, nanos_smp_dd_size, &" << outline_name << "_smp_args" << "},"
+        << device_description_line
         << "};"
         ;
 
-    // Currently only SMP is supported
-    num_devices << 1;
 
-    // Parse it in a sibling function context
-    AST_t outline_code_tree
-        = newly_generated_code.parse_declaration(funct_def.get_ast(), ctr.get_scope_link());
-    ctr.get_ast().prepend_sibling_function(outline_code_tree);
-    
+    DeviceHandler &device_handler = DeviceHandler::get_device_handler();
+    ObjectList<std::string> &current_targets = _target_ctx.back();
+    for (ObjectList<std::string>::iterator it = current_targets.begin();
+            it != current_targets.end();
+            it++)
+    {
+        DeviceProvider* device_provider = device_handler.get_device(*it);
+
+        if (device_provider == NULL)
+        {
+            internal_error("invalid device '%s' at '%s'\n",
+                    it->c_str(), ctr.get_ast().get_locus().c_str());
+        }
+
+        device_provider->create_outline(outline_name,
+                struct_arg_type_name,
+                data_environ_info,
+                ctr.get_scope_link(),
+                ctr.get_statement().get_ast());
+
+        device_provider->get_device_descriptor(outline_name, data_environ_info, 
+                ancillary_device_description, 
+                device_description_line);
+    }
+
+    num_devices << current_targets.size();
+
     Source spawn_code;
     Source fill_outline_arguments, fill_immediate_arguments, 
            fill_dependences_outline,

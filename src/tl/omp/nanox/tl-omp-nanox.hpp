@@ -52,7 +52,8 @@ namespace Nanox
 
             ObjectList<Symbol> _converted_vlas;
 
-            ObjectList<ObjectList<std::string> > _target_ctx;
+            typedef ObjectList<ObjectList<std::string> > target_ctx_t;
+            target_ctx_t _target_ctx;
     };
 
     const std::string NANOX_OUTLINE_COUNTER("nanox_outline_counter");

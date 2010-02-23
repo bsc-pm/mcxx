@@ -29,7 +29,9 @@ namespace TL
                         AST_t reference_tree);
 
                 virtual void get_device_descriptor(const std::string& task_name,
-                        DataEnvironInfo data_environ);
+                        DataEnvironInfo data_environ,
+                        Source &ancillary_device_description,
+                        Source &device_descriptor);
         };
 
     }
