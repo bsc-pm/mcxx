@@ -87,6 +87,14 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     ss << "_ol_" << function_symbol.get_name() << "_" << outline_num;
     std::string outline_name = ss.str();
 
+    Source newly_generated_code;
+    newly_generated_code
+        << struct_arg_type_decl_src
+        ;
+
+    AST_t outline_code_tree
+        = newly_generated_code.parse_declaration(funct_def.get_ast(), ctr.get_scope_link());
+    ctr.get_ast().prepend_sibling_function(outline_code_tree);
 
     Source device_descriptor, 
            device_description, 

@@ -4,6 +4,11 @@
 using namespace TL;
 using namespace TL::Nanox;
 
+static std::string smp_outline_name(const std::string &task_name)
+{
+    return "_smp_" + task_name;
+}
+
 static Type compute_replacement_type_for_vla(Type type, 
         ObjectList<Source>::iterator dim_names_begin,
         ObjectList<Source>::iterator dim_names_end)
@@ -209,7 +214,7 @@ void DeviceSMP::create_outline(const std::string& task_name,
         ;
 
     outline_name
-        << "_ol_smp_" << task_name
+        << smp_outline_name(task_name)
         ;
 
     Source replaced_body, initial_replace_code;
@@ -237,7 +242,7 @@ void DeviceSMP::get_device_descriptor(const std::string& task_name,
 {
     Source outline_name;
     outline_name
-        << "_ol_smp_" << task_name
+        << smp_outline_name(task_name);
         ;
 
     ancillary_device_description
