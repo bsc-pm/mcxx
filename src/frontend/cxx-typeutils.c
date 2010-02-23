@@ -1015,8 +1015,7 @@ type_t* get_new_enum_type(decl_context_t decl_context)
     // This is incomplete by default
     type_info->info->is_incomplete = 1;
 
-    // FIXME - This might be unsigned int or smaller if '-fshort-enums' is
-    // enabled (it might be the default as determined by the ABI)
+    // FIXME - In the size of an enum depends of the range of enumerators
     type_info->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_signed_int;
     type_info->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_signed_int;
     type_info->info->valid_size = 1;
@@ -1380,7 +1379,7 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "TYPEUTILS: An existing specialization matches\n", entry->type_information);
+                fprintf(stderr, "TYPEUTILS: An existing specialization matches '%s'\n", print_declarator(entry->type_information));
                 fprintf(stderr, "TYPEUTILS: Returning template type %p\n", entry->type_information);
             }
 

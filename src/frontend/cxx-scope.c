@@ -37,6 +37,8 @@
 #include "cxx-exprtype.h"
 #include "cxx-buildscope.h"
 #include "cxx-overload.h"
+#include "cxx-tltype.h"
+#include "cxx-attrnames.h"
 #include "hash.h"
 #include "hash_iterator.h"
 
@@ -782,12 +784,33 @@ static scope_entry_list_t* query_unqualified_name(decl_context_t decl_context,
     {
         case AST_SYMBOL:
             {
+                if (is_template_parameter_name(unqualified_name))
+                {
+                    // Special lookup, it uses query_unqualified_name_str, so it is safe
+                    scope_entry_t* name = lookup_template_parameter_name(decl_context, 
+                            unqualified_name);
+                    if (name != NULL)
+                    {
+                        return create_list_from_entry(name);
+                    }
+                }
+
                 const char* name = uniquestr(ASTText(unqualified_name));
                 if (BITMAP_TEST(decl_context.decl_flags, DF_CONSTRUCTOR))
                 {
                     name = strprepend(name, "constructor ");
                 }
                 result = name_lookup(decl_context, name);
+
+                if (result != NULL
+                        && result->next == NULL
+                        && (result->entry->kind == SK_TEMPLATE_TYPE_PARAMETER
+                            || result->entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
+                            || result->entry->kind == SK_TEMPLATE_PARAMETER))
+                {
+                    // This is a template parameter, label it 
+                    set_as_template_parameter_name(unqualified_name, result->entry);
+                }
             }
             break;
         case AST_TEMPLATE_ID:
@@ -2928,28 +2951,38 @@ static scope_entry_list_t* query_template_id(AST template_id,
         template_name = get_operator_function_name(template_id);
     }
 
-    scope_entry_list_t* template_symbol_list = name_lookup(template_name_context, template_name);
+    scope_entry_t* template_symbol = NULL;
+    scope_entry_list_t* template_symbol_list = NULL;
 
-    // Filter template-names
-    enum cxx_symbol_kind template_name_filter[] = {
-        SK_TEMPLATE_TEMPLATE_PARAMETER,
-        SK_TEMPLATE,
-    };
-
-    template_symbol_list = filter_symbol_kind_set(template_symbol_list, 
-            STATIC_ARRAY_LENGTH(template_name_filter), 
-            template_name_filter);
-
-    if (template_symbol_list == NULL)
+    if (is_template_parameter_name(template_id))
     {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCOPE: No template-name '%s' was found in this scope\n", template_name);
-        }
-        return NULL;
+        template_symbol = lookup_template_parameter_name(template_name_context, template_id);
     }
+    else
+    {
+        template_symbol_list = name_lookup(template_name_context, template_name);
 
-    scope_entry_t* template_symbol = template_symbol_list->entry;
+        // Filter template-names
+        enum cxx_symbol_kind template_name_filter[] = {
+            SK_TEMPLATE_TEMPLATE_PARAMETER,
+            SK_TEMPLATE,
+        };
+
+        template_symbol_list = filter_symbol_kind_set(template_symbol_list, 
+                STATIC_ARRAY_LENGTH(template_name_filter), 
+                template_name_filter);
+
+        if (template_symbol_list == NULL)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: No template-name '%s' was found in this scope\n", template_name);
+            }
+            return NULL;
+        }
+
+        template_symbol = template_symbol_list->entry;
+    }
 
     type_t* generic_type = template_symbol->type_information;
 
@@ -2995,9 +3028,7 @@ static scope_entry_list_t* query_template_id(AST template_id,
 
         if (template_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
         {
-            // The specialized type alwas has to be dependent to avoid
-            // instantiating it
-            // class_type_set_incomplete_dependent(named_type_get_symbol(specialized_type)->type_information);
+            set_as_template_parameter_name(template_id, template_symbol);
         }
 
         ERROR_CONDITION(!is_named_type(specialized_type), "This should be a named type", 0);
@@ -3368,4 +3399,20 @@ scope_entry_t* lookup_of_template_parameter(decl_context_t context,
         return NULL;
     else
         return entry_list->entry;
+}
+
+void set_as_template_parameter_name(AST a, scope_entry_t* template_param_sym)
+{
+    ERROR_CONDITION(template_param_sym == NULL, "template parameter symbol cannot be NULL", 0);
+
+    ASTAttrSetValueType(a, LANG_IS_TEMPLATE_PARAMETER_NAME, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_TEMPLATE_PARAMETER_NAME_SYMBOL, tl_type_t, tl_symbol(template_param_sym));
+}
+
+char is_template_parameter_name(AST a)
+{
+    tl_type_t* t = (tl_type_t*)(ASTAttrValue(a, LANG_IS_TEMPLATE_PARAMETER_NAME));
+    if (t == NULL)
+        return 0;
+    return t->data._boolean;
 }

@@ -117,23 +117,6 @@ static type_t* lvalue_ref(type_t* t)
     return t;
 }
 
-// Probably used in buildscope as well
-void set_as_template_parameter_name(AST a, scope_entry_t* template_param_sym)
-{
-    ERROR_CONDITION(template_param_sym == NULL, "template parameter symbol cannot be NULL", 0);
-
-    ASTAttrSetValueType(a, LANG_IS_TEMPLATE_PARAMETER_NAME, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_TEMPLATE_PARAMETER_NAME_SYMBOL, tl_type_t, tl_symbol(template_param_sym));
-}
-
-// Probably used in buildscope as well
-char is_template_parameter_name(AST a)
-{
-    tl_type_t* t = (tl_type_t*)(ASTAttrValue(a, LANG_IS_TEMPLATE_PARAMETER_NAME));
-    if (t == NULL)
-        return 0;
-    return t->data._boolean;
-}
 
 scope_entry_t* lookup_template_parameter_name(decl_context_t decl_context, AST a)
 {

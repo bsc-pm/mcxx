@@ -73,9 +73,6 @@ LIBMCXX_EXTERN scope_entry_list_t* unfold_and_mix_candidate_functions(
         template_argument_list_t *explicit_template_arguments
         );
 
-LIBMCXX_EXTERN void set_as_template_parameter_name(AST a, scope_entry_t* template_param_sym);
-LIBMCXX_EXTERN char is_template_parameter_name(AST a);
-LIBMCXX_EXTERN scope_entry_t* lookup_template_parameter_name(decl_context_t decl_context, AST a);
 
 MCXX_END_DECLS
 
