@@ -125,13 +125,18 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     it->c_str(), ctr.get_ast().get_locus().c_str());
         }
 
+        OutlineFlags outline_flags;
+
         device_provider->create_outline(outline_name,
                 struct_arg_type_name,
                 data_environ_info,
+                outline_flags,
                 ctr.get_scope_link(),
                 ctr.get_statement().get_ast());
 
-        device_provider->get_device_descriptor(outline_name, data_environ_info, 
+        device_provider->get_device_descriptor(outline_name, 
+                data_environ_info, 
+                outline_flags,
                 ancillary_device_description, 
                 device_description_line);
     }

@@ -8,18 +8,32 @@ namespace TL {
 
 namespace Nanox
 {
+    struct OutlineFlags
+    {
+        bool barrier_at_end;
+        bool leave_team;
+
+        OutlineFlags()
+            : barrier_at_end(false),
+            leave_team(false)
+        {
+        }
+    };
 
     class DeviceProvider
     {
         public:
-            virtual void create_outline(const std::string& task_name,
+            virtual void create_outline(
+                    const std::string& task_name,
                     const std::string& struct_typename,
                     DataEnvironInfo data_environ,
+                    const OutlineFlags& outline_flags,
                     ScopeLink sl,
                     AST_t reference_tree) = 0;
 
             virtual void get_device_descriptor(const std::string& task_name,
                     DataEnvironInfo data_environ,
+                    const OutlineFlags& outline_flags,
                     Source &ancillary_device_description,
                     Source &device_descriptor) = 0;
 

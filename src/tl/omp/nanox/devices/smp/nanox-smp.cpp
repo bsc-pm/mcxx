@@ -156,7 +156,6 @@ static void do_smp_outline_replacements(Statement body,
     replaced_outline << replace_src.replace(body.get_ast());
 }
 
-
 DeviceSMP::DeviceSMP()
 {
     DeviceHandler &device_handler(DeviceHandler::get_device_handler());
@@ -167,9 +166,11 @@ DeviceSMP::DeviceSMP()
     set_phase_description("This phase is used by Nanox phases to implement SMP device support");
 }
 
-void DeviceSMP::create_outline(const std::string& task_name,
+void DeviceSMP::create_outline(
+        const std::string& task_name,
         const std::string& struct_typename,
         DataEnvironInfo data_environ,
+        const OutlineFlags& outline_flags,
         ScopeLink sl,
         AST_t reference_tree)
 {
@@ -224,10 +225,27 @@ void DeviceSMP::create_outline(const std::string& task_name,
             replaced_body,
             initial_replace_code);
 
+    Source final_code;
+
     body
         << initial_replace_code
         << replaced_body
+        << final_code
         ;
+
+    if (outline_flags.barrier_at_end)
+    {
+        final_code
+            << "nanos_team_barrier();"
+            ;
+    }
+
+    if (outline_flags.leave_team)
+    {
+        final_code
+            << "nanos_leave_team();"
+            ;
+    }
 
     // Parse it in a sibling function context
     AST_t outline_code_tree
@@ -237,6 +255,7 @@ void DeviceSMP::create_outline(const std::string& task_name,
 
 void DeviceSMP::get_device_descriptor(const std::string& task_name,
         DataEnvironInfo data_environ,
+        const OutlineFlags&,
         Source &ancillary_device_description,
         Source &device_descriptor)
 {

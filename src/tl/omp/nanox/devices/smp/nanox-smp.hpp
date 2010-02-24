@@ -21,15 +21,17 @@ namespace TL
 
                 virtual ~DeviceSMP() { }
 
-
-                virtual void create_outline(const std::string& task_name,
+                virtual void create_outline(
+                        const std::string& task_name,
                         const std::string& struct_typename,
                         DataEnvironInfo data_environ,
+                        const OutlineFlags& outline_flags,
                         ScopeLink sl,
                         AST_t reference_tree);
 
                 virtual void get_device_descriptor(const std::string& task_name,
                         DataEnvironInfo data_environ,
+                        const OutlineFlags& outline_flags,
                         Source &ancillary_device_description,
                         Source &device_descriptor);
         };
