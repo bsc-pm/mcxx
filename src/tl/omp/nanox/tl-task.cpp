@@ -96,6 +96,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         << "};"
         ;
 
+    OutlineFlags outline_flags;
 
     DeviceHandler &device_handler = DeviceHandler::get_device_handler();
     ObjectList<std::string> &current_targets = _target_ctx.back();
@@ -111,13 +112,13 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     it->c_str(), ctr.get_ast().get_locus().c_str());
         }
 
-        OutlineFlags outline_flags;
 
-        Source replaced_body;
+        Source initial_setup, replaced_body;
 
         device_provider->do_replacements(data_environ_info,
                 ctr.get_statement().get_ast(),
                 ctr.get_scope_link(),
+                initial_setup,
                 replaced_body);
 
         device_provider->create_outline(outline_name,
@@ -126,6 +127,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 outline_flags,
                 ctr.get_statement().get_ast(),
                 ctr.get_scope_link(),
+                initial_setup,
                 replaced_body);
 
         device_provider->get_device_descriptor(outline_name, 

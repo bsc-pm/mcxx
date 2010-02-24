@@ -28,11 +28,13 @@ namespace TL
                         const OutlineFlags& outline_flags,
                         AST_t reference_tree,
                         ScopeLink sl,
-                        Source body);
+                        Source initial_setup,
+                        Source outline_body);
 
                 virtual void do_replacements(DataEnvironInfo& data_environ,
                         AST_t body,
                         ScopeLink scope_link,
+                        Source &initial_setup,
                         Source &replace_src);
 
                 virtual void get_device_descriptor(const std::string& task_name,

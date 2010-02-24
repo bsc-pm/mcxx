@@ -30,12 +30,14 @@ namespace Nanox
                     const OutlineFlags& outline_flags,
                     AST_t reference_tree,
                     ScopeLink sl,
-                    Source body) = 0;
+                    Source initial_setup,
+                    Source outline_body) = 0;
 
             virtual void do_replacements(DataEnvironInfo& data_environ,
                     AST_t body,
                     ScopeLink scope_link,
-                    Source &replace_src) = 0;
+                    Source &replace_setup,
+                    Source &replaced_src) = 0;
 
             virtual void get_device_descriptor(const std::string& task_name,
                     DataEnvironInfo &data_environ,

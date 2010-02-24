@@ -93,11 +93,12 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
         outline_flags.leave_team = true;
         outline_flags.barrier_at_end = true;
 
-        Source replaced_body;
+        Source initial_setup, replaced_body;
 
         device_provider->do_replacements(data_environ_info,
                 parallel_code,
                 sl,
+                initial_setup,
                 replaced_body);
 
         device_provider->create_outline(outline_name,
@@ -106,6 +107,7 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
                 outline_flags,
                 parallel_code,
                 sl,
+                initial_setup,
                 replaced_body);
 
         device_provider->get_device_descriptor(outline_name, 

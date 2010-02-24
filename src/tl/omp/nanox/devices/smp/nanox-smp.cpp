@@ -174,7 +174,8 @@ void DeviceSMP::create_outline(
         const OutlineFlags& outline_flags,
         AST_t reference_tree,
         ScopeLink sl,
-        Source input_body)
+        Source initial_setup,
+        Source outline_body)
 {
     AST_t function_def_tree = reference_tree.get_enclosing_function_definition();
     FunctionDefinition enclosing_function(function_def_tree, sl);
@@ -223,7 +224,8 @@ void DeviceSMP::create_outline(
 
     body
         << private_vars
-        << input_body
+        << initial_setup
+        << outline_body
         << final_code
         ;
 
@@ -288,19 +290,14 @@ void DeviceSMP::get_device_descriptor(const std::string& task_name,
 void DeviceSMP::do_replacements(DataEnvironInfo& data_environ,
         AST_t body,
         ScopeLink scope_link,
-        Source &replace_src)
+        Source &initial_setup,
+        Source &replaced_src)
 {
-    Source initial_replace, body_replace;
-
     do_smp_outline_replacements(body,
             scope_link,
             data_environ,
-            body_replace,
-            initial_replace);
-
-    replace_src
-        << initial_replace
-        << body_replace;
+            initial_setup,
+            replaced_src);
 }
 
 EXPORT_PHASE(TL::Nanox::DeviceSMP);
