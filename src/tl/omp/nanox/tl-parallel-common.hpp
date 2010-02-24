@@ -31,12 +31,13 @@ namespace TL
 {
     namespace Nanox
     {
-        Source common_parallel_spawn_code(Source num_devices,
-                Source outline_name,
-                Source struct_arg_type_name,
+        Source common_parallel_code(const std::string& outline_name, 
+                const std::string& struct_arg_type_name,
                 Source num_threads,
-                Scope scope,
-                const DataEnvironInfo& data_environ_info);
+                ScopeLink sl,
+                const DataEnvironInfo& data_environ_info,
+                AST_t parallel_code,
+                const ObjectList<std::string>& current_targets);
     }
 }
 

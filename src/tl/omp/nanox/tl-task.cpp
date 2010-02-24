@@ -42,19 +42,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     ObjectList<Symbol> private_symbols;
     data_sharing.get_all_symbols(OpenMP::DS_PRIVATE, private_symbols);
-    Source private_decls;
-    for (ObjectList<Symbol>::iterator it = private_symbols.begin();
-            it != private_symbols.end();
-            it++)
-    {
-        Symbol& sym(*it);
-        Type type = sym.get_type();
-
-        // In C++ private vars types must be default constructible
-        private_decls
-            << type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
-            ;
-    }
 
     ObjectList<OpenMP::DependencyItem> dependences;
     data_sharing.get_all_dependences(dependences);
