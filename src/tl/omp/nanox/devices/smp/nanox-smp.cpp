@@ -218,7 +218,7 @@ void DeviceSMP::create_outline(
         << smp_outline_name(task_name)
         ;
 
-    Source replaced_body, initial_replace_code;
+    Source replaced_body, initial_replace_code, private_vars;
 
     do_smp_outline_replacements(stmt,
             data_environ,
@@ -228,10 +228,28 @@ void DeviceSMP::create_outline(
     Source final_code;
 
     body
+        << private_vars
         << initial_replace_code
         << replaced_body
         << final_code
         ;
+
+    ObjectList<DataEnvironItem> data_env_items = data_environ.get_items();
+
+    for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
+            it != data_env_items.end();
+            it++)
+    {
+        if (!it->is_private())
+            continue;
+
+        Symbol sym = it->get_symbol();
+        Type type = sym.get_type();
+
+        private_vars
+            << type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
+            ;
+    }
 
     if (outline_flags.barrier_at_end)
     {
