@@ -38,12 +38,13 @@ static Type compute_replacement_type_for_vla(Type type,
     return new_type;
 }
 
-static void do_smp_outline_replacements(Statement body,
+static void do_smp_outline_replacements(AST_t body,
+        ScopeLink scope_link,
         const DataEnvironInfo& data_env_info,
         Source &replaced_outline,
         Source &initial_code)
 {
-    ReplaceSrcIdExpression replace_src(body.get_scope_link());
+    ReplaceSrcIdExpression replace_src(scope_link);
     ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
 
     // First set up all replacements and needed castings
@@ -153,7 +154,7 @@ static void do_smp_outline_replacements(Statement body,
         }
     }
 
-    replaced_outline << replace_src.replace(body.get_ast());
+    replaced_outline << replace_src.replace(body);
 }
 
 DeviceSMP::DeviceSMP()
@@ -169,12 +170,12 @@ DeviceSMP::DeviceSMP()
 void DeviceSMP::create_outline(
         const std::string& task_name,
         const std::string& struct_typename,
-        DataEnvironInfo data_environ,
+        DataEnvironInfo &data_environ,
         const OutlineFlags& outline_flags,
+        AST_t reference_tree,
         ScopeLink sl,
-        AST_t reference_tree)
+        Source input_body)
 {
-    Statement stmt(reference_tree, sl);
     AST_t function_def_tree = reference_tree.get_enclosing_function_definition();
     FunctionDefinition enclosing_function(function_def_tree, sl);
 
@@ -218,19 +219,11 @@ void DeviceSMP::create_outline(
         << smp_outline_name(task_name)
         ;
 
-    Source replaced_body, initial_replace_code, private_vars;
-
-    do_smp_outline_replacements(stmt,
-            data_environ,
-            replaced_body,
-            initial_replace_code);
-
-    Source final_code;
+    Source private_vars, final_code;
 
     body
         << private_vars
-        << initial_replace_code
-        << replaced_body
+        << input_body
         << final_code
         ;
 
@@ -272,7 +265,7 @@ void DeviceSMP::create_outline(
 }
 
 void DeviceSMP::get_device_descriptor(const std::string& task_name,
-        DataEnvironInfo data_environ,
+        DataEnvironInfo &data_environ,
         const OutlineFlags&,
         Source &ancillary_device_description,
         Source &device_descriptor)
@@ -290,6 +283,24 @@ void DeviceSMP::get_device_descriptor(const std::string& task_name,
     device_descriptor
         << "{ nanos_smp_factory, nanos_smp_dd_size, &" << task_name << "_smp_args },"
         ;
+}
+
+void DeviceSMP::do_replacements(DataEnvironInfo& data_environ,
+        AST_t body,
+        ScopeLink scope_link,
+        Source &replace_src)
+{
+    Source initial_replace, body_replace;
+
+    do_smp_outline_replacements(body,
+            scope_link,
+            data_environ,
+            body_replace,
+            initial_replace);
+
+    replace_src
+        << initial_replace
+        << body_replace;
 }
 
 EXPORT_PHASE(TL::Nanox::DeviceSMP);

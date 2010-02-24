@@ -24,7 +24,6 @@
 #include "tl-omp-nanox.hpp"
 #include "tl-data-env.hpp"
 #include "tl-counters.hpp"
-#include "tl-outline-nanox.hpp"
 #include "tl-devices.hpp"
 
 using namespace TL;
@@ -114,12 +113,20 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
         OutlineFlags outline_flags;
 
+        Source replaced_body;
+
+        device_provider->do_replacements(data_environ_info,
+                ctr.get_statement().get_ast(),
+                ctr.get_scope_link(),
+                replaced_body);
+
         device_provider->create_outline(outline_name,
                 struct_arg_type_name,
                 data_environ_info,
                 outline_flags,
+                ctr.get_statement().get_ast(),
                 ctr.get_scope_link(),
-                ctr.get_statement().get_ast());
+                replaced_body);
 
         device_provider->get_device_descriptor(outline_name, 
                 data_environ_info, 

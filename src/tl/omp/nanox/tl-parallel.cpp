@@ -24,7 +24,6 @@
 #include "tl-omp-nanox.hpp"
 #include "tl-data-env.hpp"
 #include "tl-counters.hpp"
-#include "tl-outline-nanox.hpp"
 #include "tl-parallel-common.hpp"
 #include "tl-devices.hpp"
 

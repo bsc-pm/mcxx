@@ -26,13 +26,19 @@ namespace Nanox
             virtual void create_outline(
                     const std::string& task_name,
                     const std::string& struct_typename,
-                    DataEnvironInfo data_environ,
+                    DataEnvironInfo &data_environ,
                     const OutlineFlags& outline_flags,
+                    AST_t reference_tree,
                     ScopeLink sl,
-                    AST_t reference_tree) = 0;
+                    Source body) = 0;
+
+            virtual void do_replacements(DataEnvironInfo& data_environ,
+                    AST_t body,
+                    ScopeLink scope_link,
+                    Source &replace_src) = 0;
 
             virtual void get_device_descriptor(const std::string& task_name,
-                    DataEnvironInfo data_environ,
+                    DataEnvironInfo &data_environ,
                     const OutlineFlags& outline_flags,
                     Source &ancillary_device_description,
                     Source &device_descriptor) = 0;

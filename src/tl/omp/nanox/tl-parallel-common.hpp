@@ -35,7 +35,7 @@ namespace TL
                 const std::string& struct_arg_type_name,
                 Source num_threads,
                 ScopeLink sl,
-                const DataEnvironInfo& data_environ_info,
+                DataEnvironInfo& data_environ_info,
                 AST_t parallel_code,
                 const ObjectList<std::string>& current_targets);
     }
