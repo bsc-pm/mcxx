@@ -65,6 +65,15 @@ void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
     FunctionDefinition funct_def = ctr.get_enclosing_function();
     Symbol function_symbol = funct_def.get_function_symbol();
 
+    Source newly_generated_code;
+    newly_generated_code
+        << struct_arg_type_decl_src
+        ;
+
+    AST_t outline_code_tree
+        = newly_generated_code.parse_declaration(funct_def.get_ast(), ctr.get_scope_link());
+    ctr.get_ast().prepend_sibling_function(outline_code_tree);
+
     int outline_num = TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER);
     TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER)++;
 

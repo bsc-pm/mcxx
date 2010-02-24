@@ -107,6 +107,8 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
                 device_description_line);
     }
 
+    num_devices << current_targets.size();
+
     Source struct_runtime_size, struct_size;
     Source immediate_decl;
 
