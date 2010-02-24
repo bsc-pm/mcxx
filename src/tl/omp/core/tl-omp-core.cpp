@@ -778,6 +778,8 @@ namespace TL
         EMPTY_HANDLERS(flush)
         EMPTY_HANDLERS(ordered)
 
+        EMPTY_HANDLERS(target)
+
         void openmp_core_run_next_time(DTO& dto)
         {
             // Make openmp core run in the pipeline
