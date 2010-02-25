@@ -51,6 +51,9 @@ namespace Nanox
             std::map<std::string, bool> _registered_slicer;
 
             ObjectList<Symbol> _converted_vlas;
+
+            typedef ObjectList<ObjectList<std::string> > target_ctx_t;
+            target_ctx_t _target_ctx;
     };
 
     const std::string NANOX_OUTLINE_COUNTER("nanox_outline_counter");

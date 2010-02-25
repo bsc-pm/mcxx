@@ -21,38 +21,21 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS=. devices
 
-include ../../Makefile.phases
+include ../../../../Makefile.phases
 
-tl_omp_flags = -Wall $(tl_cflags) -I $(srcdir)/../core
 END=
 
-phases_LTLIBRARIES = libtlomp-nanox.la
+phases_LTLIBRARIES=libtlnanox-smp.la
 
-libtlomp_nanox_la_CFLAGS = $(tl_omp_flags)
-libtlomp_nanox_la_CXXFLAGS = $(tl_omp_flags)
-libtlomp_nanox_la_LDFLAGS = $(tl_ldflags)
+device_flags=$(tl_cflags) -I$(srcdir)/../.. -I$(srcdir)/../../../core
 
-libtlomp_nanox_la_SOURCES = \
-     tl-omp-nanox.cpp \
-     tl-omp-nanox.hpp \
-     tl-parallel.cpp \
-     tl-parallel-common.hpp \
-     tl-parallel-common.cpp \
-     tl-single.cpp \
-     tl-task.cpp \
-     tl-taskwait.cpp \
-     tl-for.cpp \
-     tl-data-env.hpp \
-     tl-data-env.cpp \
-     tl-outline-nanox.hpp \
-     tl-outline-nanox.cpp \
-     tl-threadprivate.cpp \
-     tl-atomic.cpp \
-     tl-barrier.cpp \
-     tl-target.cpp \
-     tl-devices.hpp \
-     tl-devices.cpp \
-     $(END)
+libtlnanox_smp_la_CFLAGS = $(device_flags)
+libtlnanox_smp_la_CXXFLAGS = $(device_flags)
 
+libtlnanox_smp_la_LDFLAGS = $(tl_ldflags)
+
+libtlnanox_smp_la_SOURCES = \
+       nanox-smp.hpp \
+       nanox-smp.cpp \
+       $(END)

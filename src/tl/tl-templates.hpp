@@ -41,7 +41,7 @@ namespace TL
       A template parameter is something that appears after a 'template' keyword
       in a template declaration.
 
-      template<typename _T, int _N, template<typename> class _W>
+      template\<typename _T, int _N, template\<typename\> class _W\>
       struct A { };
 
       _T, _N and _W are template parameters of kind type, nontype and template
@@ -61,11 +61,11 @@ namespace TL
             enum Kind
             {
                 INVALID = 0,
-                //! This is for template parameters like _T in 'template <typename _T>'
+                //! This is for template parameters like _T in 'template \<typename _T\>'
                 TYPE,
-                //! This is for template parameters like _N in 'template <int _N>'
+                //! This is for template parameters like _N in 'template \<int _N\>'
                 NONTYPE,
-                //! This is for template parameters like _W in 'template <template <typename> class _W>'
+                //! This is for template parameters like _W in 'template \<template \<typename\> class _W\>'
                 TEMPLATE
             };
         public:
@@ -88,7 +88,7 @@ namespace TL
 
               NONTYPE template parameters have a Symbol that holds Symbol::is_nontype_template_parameter
               and whose Type is the exact type of the nontype template parameter. For instance
-              in 'template <long _L>', the symbol created to '_L' will have a Type of long.
+              in 'template \<long _L\>', the symbol created to '_L' will have a Type of long.
 
               TEMPLATE template parameters have a Symbol whose type states that Type::is_template_type.
               You can, then, get its template parameters.
@@ -116,7 +116,7 @@ namespace TL
     //! This class wraps a template argument
     /*!
       A template argument is what we put inside < and > when a template-id
-      is named. For instance 'A<int, 3>'
+      is named. For instance 'A\<int, 3\>'
       
       Every specialization of a template class or a template function has its
       set of template arguments. For template functions, sometimes these

@@ -318,8 +318,22 @@ namespace TL
             data_env_info.add_item(data_env_item);
         }
 
+        static void private_type(Symbol sym, 
+                ScopeLink sl, 
+                DataEnvironInfo& data_env_info,
+                ObjectList<Symbol>& converted_vlas)
+        {
+            Type type = sym.get_type();
+            DataEnvironItem data_env_item(sym, type, "");
+
+            data_env_item.set_is_private(true);
+
+            data_env_info.add_item(data_env_item);
+        }
+
         void compute_data_environment(ObjectList<Symbol> value,
                 ObjectList<Symbol> shared,
+                ObjectList<Symbol> private_symbols,
                 ScopeLink scope_link,
                 DataEnvironInfo &data_env_info,
                 ObjectList<Symbol>& converted_vlas)
@@ -332,6 +346,7 @@ namespace TL
             {
                 { &shared, pointer_type },
                 { &value, valued_type },
+                { &private_symbols, private_type },
                 { NULL, NULL },
             };
 
@@ -395,6 +410,9 @@ namespace TL
                     it++)
             {
                 DataEnvironItem &data_env_item(*it);
+
+                if (data_env_item.is_private())
+                    continue;
 
                 if (IS_C_LANGUAGE 
                         && data_env_item.is_vla_type())
@@ -468,6 +486,10 @@ namespace TL
                     it++)
             {
                 DataEnvironItem& data_env_item(*it);
+
+                if (data_env_item.is_private())
+                    continue;
+
                 Symbol sym = data_env_item.get_symbol();
                 Type type = sym.get_type();
                 const std::string field_name = data_env_item.get_field_name();
@@ -631,6 +653,10 @@ namespace TL
                     it++)
             {
                 DataEnvironItem& data_env_item(*it);
+
+                if (data_env_item.is_private())
+                    continue;
+
                 Symbol sym = data_env_item.get_symbol();
                 Type type = sym.get_type();
                 const std::string field_name = data_env_item.get_field_name();

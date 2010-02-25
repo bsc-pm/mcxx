@@ -925,6 +925,8 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/fun-tasks/Makefile 
            src/tl/omp/ss2omp/Makefile 
            src/tl/omp/nanox/Makefile 
+           src/tl/omp/nanox/devices/Makefile 
+           src/tl/omp/nanox/devices/smp/Makefile 
            src/tl/omp/nanos4/Makefile 
            src/tl/instr/Makefile 
            src/tl/instr_pthreads/Makefile 

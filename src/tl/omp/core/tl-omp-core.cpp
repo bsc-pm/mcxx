@@ -777,7 +777,6 @@ namespace TL
         EMPTY_HANDLERS(critical)
         EMPTY_HANDLERS(flush)
         EMPTY_HANDLERS(ordered)
-
         EMPTY_HANDLERS(target)
 
         void openmp_core_run_next_time(DTO& dto)
