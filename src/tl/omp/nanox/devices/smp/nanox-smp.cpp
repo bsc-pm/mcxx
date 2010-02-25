@@ -41,8 +41,8 @@ static Type compute_replacement_type_for_vla(Type type,
 static void do_smp_outline_replacements(AST_t body,
         ScopeLink scope_link,
         const DataEnvironInfo& data_env_info,
-        Source &replaced_outline,
-        Source &initial_code)
+        Source &initial_code,
+        Source &replaced_outline)
 {
     ReplaceSrcIdExpression replace_src(scope_link);
     ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
@@ -278,7 +278,7 @@ void DeviceSMP::get_device_descriptor(const std::string& task_name,
         ;
 
     ancillary_device_description
-        << comment("SMP")
+        << comment("SMP device descriptor")
         << "nanos_smp_args_t " << task_name << "_smp_args = { (void(*)(void*))" << outline_name << "};"
         ;
 

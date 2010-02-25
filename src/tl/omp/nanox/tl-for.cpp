@@ -114,6 +114,15 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         << "};"
         ;
 
+    Source newly_generated_code;
+    newly_generated_code
+        << struct_arg_type_decl_src
+        ;
+    
+    AST_t outline_code_tree
+        = newly_generated_code.parse_declaration(funct_def.get_ast(), ctr.get_scope_link());
+    ctr.get_ast().prepend_sibling_function(outline_code_tree);
+
     OutlineFlags outline_flags;
 
     DeviceHandler &device_handler = DeviceHandler::get_device_handler();
@@ -133,7 +142,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         Source initial_setup, replaced_body;
 
         device_provider->do_replacements(data_environ_info,
-                ctr.get_statement().get_ast(),
+                for_statement.get_loop_body().get_ast(),
                 ctr.get_scope_link(),
                 initial_setup,
                 replaced_body);
@@ -166,18 +175,8 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                 ancillary_device_description, 
                 device_description_line);
     }
-
-    Source newly_generated_code;
-    newly_generated_code
-        << struct_arg_type_decl_src
-        ;
     
     num_devices << current_targets.size();
-    
-    // Parse it in a sibling function context
-    AST_t outline_code_tree
-        = newly_generated_code.parse_declaration(funct_def.get_ast(), ctr.get_scope_link());
-    ctr.get_ast().prepend_sibling_function(outline_code_tree);
 
     Source num_threads;
 
