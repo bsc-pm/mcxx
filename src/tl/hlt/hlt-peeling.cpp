@@ -80,7 +80,7 @@ void LoopPeeling::do_peeling()
             ;
     }
 
-    for (int i = _end_peeling; i >= 0; i--)
+    for (int i = _end_peeling - 1; i >= 0; i--)
     {
         Source src;
         if (i == 0)
