@@ -492,6 +492,8 @@ void collapse_loop_fun(TL::ForStatement for_stmt)
 
     TL::AST_t collapsed_loop_tree = collapsed_loop_src.parse_statement(for_stmt.get_ast(),
             for_stmt.get_scope_link());
+
+    for_stmt.get_ast().replace(collapsed_loop_tree);
 }
 
 void HLTPragmaPhase::collapse_loop(PragmaCustomConstruct construct)
