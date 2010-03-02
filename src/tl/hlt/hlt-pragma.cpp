@@ -649,18 +649,18 @@ void HLTPragmaPhase::extend_function(PragmaCustomConstruct construct)
         throw HLTException(construct, "'#pragma hlt extend' must be followed by a function-definition");
     }
 
-    PragmaCustomClause factor_clause = construct.get_clause("factor");
-
-    if (!factor_clause.is_defined())
-    {
-        throw HLTException(construct, "'#pragma hlt extend' requires a 'factor(expr)' clause");
-    }
-
-    Expression factor = factor_clause.get_expression_list()[0];
 
     FunctionDefinition funct_def(decl, construct.get_scope_link());
 
-    TL::HLT::FunctionExtension funct_extensions(funct_def, factor);
+    TL::HLT::FunctionExtension funct_extensions(funct_def);
+
+    PragmaCustomClause factor_clause = construct.get_clause("factor");
+    if (factor_clause.is_defined())
+    {
+        Expression factor = factor_clause.get_expression_list()[0];
+        funct_extensions.set_extension_amount(factor);
+    }
+
 
     PragmaCustomClause name_clause = construct.get_clause("name");
     if (name_clause.is_defined())
