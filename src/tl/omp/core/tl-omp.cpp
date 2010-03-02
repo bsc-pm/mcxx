@@ -167,6 +167,16 @@ namespace TL
             dependency_items = _dependency_items;
         }
 
+        void DataSharingEnvironment::add_copy(const CopyItem& copy_item)
+        {
+            _copy_items.append(copy_item);
+        }
+
+        void DataSharingEnvironment::get_all_copies(ObjectList<CopyItem>& copy_items)
+        {
+            copy_items = _copy_items;
+        }
+
         void OpenMPPhase::run(DTO& data_flow)
         {
             // Use the DTO instead
@@ -713,6 +723,21 @@ namespace TL
         void DependencyItem::set_symbol_dependence(Symbol sym)
         {
             _dep_symbol = sym;
+        }
+
+        CopyItem::CopyItem(Expression copy_expr, CopyDirection direction)
+            : _copy_expr(copy_expr), _kind(direction)
+        {
+        }
+
+        CopyDirection CopyItem::get_kind() const
+        {
+            return _kind;
+        }
+
+        Expression CopyItem::get_copy_expression() const
+        {
+            return _copy_expr;
         }
     }
 }

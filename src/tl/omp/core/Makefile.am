@@ -48,4 +48,6 @@ libtlomp_core_la_SOURCES = \
    tl-omp-deps.cpp \
    tl-omp-tasks.hpp \
    tl-omp-tasks.cpp \
+   tl-omp-target.hpp \
+   tl-omp-target.cpp \
    $(END)
