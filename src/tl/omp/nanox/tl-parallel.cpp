@@ -98,7 +98,8 @@ void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
 
     AST_t parallel_code = ctr.get_statement().get_ast();
 
-    ObjectList<std::string> &current_targets = _target_ctx.back();
+    ObjectList<std::string> current_targets;
+    data_sharing.get_all_devices(current_targets);
 
     Source spawn_source = common_parallel_code(outline_name,
             struct_arg_type_name,

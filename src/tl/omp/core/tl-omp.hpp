@@ -389,6 +389,8 @@ namespace TL
                 ObjectList<DependencyItem> _dependency_items;
                 ObjectList<CopyItem> _copy_items;
 
+                ObjectList<std::string> _device_list;
+
                 bool _is_parallel;
 
                 DataSharingAttribute get_internal(Symbol sym);
@@ -442,6 +444,9 @@ namespace TL
 
                 void add_copy(const CopyItem& copy_item);
                 void get_all_copies(ObjectList<CopyItem>& copy_items);
+
+                void add_device(const std::string& str);
+                void get_all_devices(ObjectList<std::string>& devices);
         };
 
         class LIBTL_CLASS Info : public Object

@@ -177,6 +177,22 @@ namespace TL
             copy_items = _copy_items;
         }
 
+        void DataSharingEnvironment::add_device(const std::string& str)
+        {
+            _device_list.append(str);
+        }
+
+        void DataSharingEnvironment::get_all_devices(ObjectList<std::string>& device_names)
+        {
+            device_names = _device_list;
+
+            // Always ensure there is smp
+            if (!_device_list.contains("smp"))
+            {
+                device_names.append("smp");
+            }
+        }
+
         void OpenMPPhase::run(DTO& data_flow)
         {
             // Use the DTO instead

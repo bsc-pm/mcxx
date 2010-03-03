@@ -95,6 +95,13 @@ namespace TL
             add_copy_items(construct, data_sharing,
                     target_ctx.copy_out,
                     COPY_DIR_OUT);
+
+            for (ObjectList<std::string>::iterator it = target_ctx.device_list.begin();
+                    it != target_ctx.device_list.end();
+                    it++)
+            {
+                data_sharing.add_device(*it);
+            }
         }
     }
 }

@@ -48,13 +48,7 @@ OMPTransform::OMPTransform()
 
     on_directive_post["barrier"].connect(functor(&OMPTransform::barrier_postorder, *this));
 
-    on_directive_pre["target"].connect(functor(&OMPTransform::target_preorder, *this));
     on_directive_post["target"].connect(functor(&OMPTransform::target_postorder, *this));
-
-    ObjectList<std::string> smp_device_fallback;
-    smp_device_fallback.append("smp");
-
-    _target_ctx.push_back(smp_device_fallback);
 }
 
 EXPORT_PHASE(TL::Nanox::OMPTransform)

@@ -126,7 +126,8 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     OutlineFlags outline_flags;
 
     DeviceHandler &device_handler = DeviceHandler::get_device_handler();
-    ObjectList<std::string> &current_targets = _target_ctx.back();
+    ObjectList<std::string> current_targets;
+    data_sharing.get_all_devices(current_targets);
     for (ObjectList<std::string>::iterator it = current_targets.begin();
             it != current_targets.end();
             it++)
