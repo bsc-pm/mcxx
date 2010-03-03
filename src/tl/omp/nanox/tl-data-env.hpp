@@ -309,12 +309,6 @@ namespace TL
                 bool is_pointer_struct,
                 Source& result);
 
-        // This one is not to be exported
-        void do_outline_replacements(Statement body,
-                const DataEnvironInfo& data_env_info,
-                Source &replaced_outline,
-                Source &initial_code);
-
         //! \endcond
     }
 }
