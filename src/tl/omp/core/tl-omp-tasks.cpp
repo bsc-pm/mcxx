@@ -268,6 +268,5 @@ namespace TL
                 << ": note: adding task function '" << function_sym.get_name() << "'" << std::endl;
             _function_task_set->add_function_task(function_sym, task_info);
         }
-
     }
 }

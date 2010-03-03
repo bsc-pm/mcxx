@@ -82,7 +82,6 @@ AC_COMPILE_IFELSE(
 dnl --------------------- end check of old gcc ---
 TL_EXTENSIONS=""
 TL_OMP_EXTENSIONS=""
-ADDITIONAL_TESTSUITES=""
 INSTALL_CONFIG_FILES="config.plain"
 
 COMPILER_NAMES="plaincxx plaincc"
@@ -237,7 +236,6 @@ dnl --------------------- Shared between Nanox and Nanos4 ------------------
 if test x$is_enabled_tl_omp_nanos4 = xyes -o x$is_enabled_tl_omp_nanox = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.omp"
-   ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} c.openmp cxx.openmp"
 fi
 dnl --------------------- End of shared between Nanox and Nanos4 ------------------
 
@@ -387,8 +385,6 @@ then
 
    COMPILER_NAMES="${COMPILER_NAMES} stmcxx"
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.stm_nebelung"
-
-   ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcxx.stm"
 fi
 
 AC_SUBST([NEBELUNG_INCLUDES])
@@ -426,6 +422,9 @@ AC_ARG_ENABLE([tl-superscalar],
       AC_MSG_RESULT([no])
   ]
 )
+
+ENABLE_SUPERSCALAR=$is_enabled_tl_superscalar
+AC_SUBST([ENABLE_SUPERSCALAR])
 
 AC_MSG_CHECKING([which Cell/SMP superscalar runtime API version to use])
 AC_ARG_WITH([superscalar-runtime-api-version],
@@ -478,7 +477,6 @@ then
    )
  
    TL_EXTENSIONS="${TL_EXTENSIONS} superscalar"
-   ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.superscalar"
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.superscalar"
 fi
      
@@ -912,7 +910,6 @@ AC_SUBST([TL_EXTENSIONS])
 AC_SUBST([TL_OMP_EXTENSIONS])
 AC_SUBST([COMPILER_NAMES])
 AC_SUBST([INSTALL_CONFIG_FILES])
-AC_SUBST([ADDITIONAL_TESTSUITES])
 
 dnl Write makefiles
 AC_CONFIG_FILES([Makefile 
@@ -928,6 +925,8 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/fun-tasks/Makefile 
            src/tl/omp/ss2omp/Makefile 
            src/tl/omp/nanox/Makefile 
+           src/tl/omp/nanox/devices/Makefile 
+           src/tl/omp/nanox/devices/smp/Makefile 
            src/tl/omp/nanos4/Makefile 
            src/tl/instr/Makefile 
            src/tl/instr_pthreads/Makefile 
@@ -949,15 +948,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-omp
            tests/config/mercurium-ss
            tests/config/mercurium-stm
-           tests/mcc.typecalc.dg/mercurium
-           tests/mcc.extensions.dg/mercurium
-           tests/mcxx.cxx0x.dg/mercurium
-           tests/mcxx.extensions.dg/mercurium
            tests/mcxx.torture.dg/mercurium
-           tests/c.openmp.dg/mercurium
-           tests/cxx.openmp.dg/mercurium
-           tests/mcc.superscalar.dg/mercurium
-           tests/mcxx.stm.dg/mercurium
            tests/mcc.hlt.basic.dg/mercurium
            doc/Makefile
            doc/doxygen_tl

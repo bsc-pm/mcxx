@@ -24,11 +24,15 @@
 #ifndef TL_OMP_CORE_HPP
 #define TL_OMP_CORE_HPP
 
+#include <stack>
+
 #include "tl-compilerphase.hpp"
 #include "tl-pragmasupport.hpp"
 
 #include "tl-omp.hpp"
 #include "tl-omp-tasks.hpp"
+
+#include "tl-omp-target.hpp"
 
 namespace TL
 {
@@ -52,6 +56,8 @@ namespace TL
                 RefPtr<OpenMP::Info> _openmp_info;
                 RefPtr<OpenMP::FunctionTaskSet> _function_task_set;
 
+                std::stack<TargetContext> _target_context;
+
                 static bool _already_registered;
 
                 void get_clause_symbols(PragmaCustomClause clause, ObjectList<Symbol>& sym_list);
@@ -66,7 +72,10 @@ namespace TL
                         DataSharingEnvironment& data_sharing,
                         DataSharingAttribute default_data_attr);
 
-                void get_dependences_info(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing);
+                void get_target_info(PragmaCustomConstruct construct, 
+                        DataSharingEnvironment& data_sharing);
+                void get_dependences_info(PragmaCustomConstruct construct, 
+                        DataSharingEnvironment& data_sharing);
                 void get_dependences_info_clause(PragmaCustomClause clause,
                         DataSharingEnvironment& data_sharing,
                         DependencyDirection dep_attr);

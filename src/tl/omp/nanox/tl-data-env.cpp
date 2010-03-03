@@ -318,12 +318,34 @@ namespace TL
             data_env_info.add_item(data_env_item);
         }
 
-        void compute_data_environment(ObjectList<Symbol> value,
-                ObjectList<Symbol> shared,
+        static void private_type(Symbol sym, 
+                ScopeLink sl, 
+                DataEnvironInfo& data_env_info,
+                ObjectList<Symbol>& converted_vlas)
+        {
+            Type type = sym.get_type();
+            DataEnvironItem data_env_item(sym, type, "");
+
+            data_env_item.set_is_private(true);
+
+            data_env_info.add_item(data_env_item);
+        }
+
+        void compute_data_environment(
+                OpenMP::DataSharingEnvironment &data_sharing,
                 ScopeLink scope_link,
                 DataEnvironInfo &data_env_info,
                 ObjectList<Symbol>& converted_vlas)
         {
+            ObjectList<Symbol> shared;
+            data_sharing.get_all_symbols(OpenMP::DS_SHARED, shared);
+
+            ObjectList<Symbol> value;
+            data_sharing.get_all_symbols(OpenMP::DS_FIRSTPRIVATE, value);
+
+            ObjectList<Symbol> private_symbols;
+            data_sharing.get_all_symbols(OpenMP::DS_PRIVATE, private_symbols);
+
             struct auxiliar_struct_t
             {
                 ObjectList<Symbol>* list;
@@ -332,6 +354,7 @@ namespace TL
             {
                 { &shared, pointer_type },
                 { &value, valued_type },
+                { &private_symbols, private_type },
                 { NULL, NULL },
             };
 
@@ -348,6 +371,27 @@ namespace TL
 
                     std::string field_name = sym.get_name();
                     (aux_struct[i].transform_type)(sym, scope_link, data_env_info, converted_vlas);
+                }
+            }
+
+            ObjectList<OpenMP::CopyItem> copies;
+            data_sharing.get_all_copies(copies);
+
+            for (ObjectList<OpenMP::CopyItem>::iterator it = copies.begin();
+                    it != copies.end();
+                    it++)
+            {
+                if (it->get_kind() == OpenMP::COPY_DIR_IN)
+                {
+                    data_env_info.add_copy_in_item(it->get_copy_expression());
+                }
+                else if (it->get_kind() == OpenMP::COPY_DIR_OUT)
+                {
+                    data_env_info.add_copy_out_item(it->get_copy_expression());
+                }
+                else
+                {
+                    internal_error("Invalid copy kind", 0);
                 }
             }
         }
@@ -395,6 +439,9 @@ namespace TL
                     it++)
             {
                 DataEnvironItem &data_env_item(*it);
+
+                if (data_env_item.is_private())
+                    continue;
 
                 if (IS_C_LANGUAGE 
                         && data_env_item.is_vla_type())
@@ -468,6 +515,10 @@ namespace TL
                     it++)
             {
                 DataEnvironItem& data_env_item(*it);
+
+                if (data_env_item.is_private())
+                    continue;
+
                 Symbol sym = data_env_item.get_symbol();
                 Type type = sym.get_type();
                 const std::string field_name = data_env_item.get_field_name();
@@ -615,120 +666,6 @@ namespace TL
                 }
                 num_dep++;
             }
-        }
-
-        void do_outline_replacements(Statement body,
-                const DataEnvironInfo& data_env_info,
-                Source &replaced_outline,
-                Source &initial_code)
-        {
-            ReplaceSrcIdExpression replace_src(body.get_scope_link());
-            ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
-
-            // First set up all replacements and needed castings
-            for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
-                    it != data_env_items.end();
-                    it++)
-            {
-                DataEnvironItem& data_env_item(*it);
-                Symbol sym = data_env_item.get_symbol();
-                Type type = sym.get_type();
-                const std::string field_name = data_env_item.get_field_name();
-
-                if (data_env_item.is_vla_type())
-                {
-                    // These do not require replacement because we define a
-                    // local variable for them
-
-                    ObjectList<Source> vla_dims = data_env_item.get_vla_dimensions();
-
-                    ObjectList<Source> arg_vla_dims;
-                    for (ObjectList<Source>::iterator it = vla_dims.begin();
-                            it != vla_dims.end();
-                            it++)
-                    {
-                        Source new_dim;
-                        new_dim << "_args->" << *it;
-
-                        arg_vla_dims.append(new_dim);
-                    }
-
-                    // Now compute a replacement type which we will use to declare the proper type
-                    Type repl_type = 
-                        compute_replacement_type_for_vla(data_env_item.get_symbol().get_type(),
-                                arg_vla_dims.begin(), arg_vla_dims.end());
-
-                    // Adjust the type if it is an array
-
-                    if (repl_type.is_array())
-                    {
-                        repl_type = repl_type.array_element().get_pointer_to();
-                    }
-
-                    initial_code
-                        << repl_type.get_declaration(sym.get_scope(), sym.get_name())
-                        << "="
-                        << "(" << repl_type.get_declaration(sym.get_scope(), "") << ")"
-                        << "("
-                        << "_args->" << field_name
-                        << ");"
-                        ;
-                }
-                else
-                {
-                    if (!data_env_item.is_copy())
-                    {
-                        if (type.is_array())
-                        {
-                            // Just replace a[i] by (_args->a), no need to derreferentiate
-                            replace_src.add_replacement(sym, "(_args->" + field_name + ")");
-                        }
-                        else
-                        {
-                            replace_src.add_replacement(sym, "(*_args->" + field_name + ")");
-                        }
-                    }
-                    else
-                    {
-                        if (data_env_item.is_raw_buffer())
-                        {
-                            C_LANGUAGE()
-                            {
-                                // Set up a casting pointer
-                                initial_code
-                                    << type.get_pointer_to().get_declaration(sym.get_scope(), field_name) 
-                                    << "="
-                                    << "("
-                                    << type.get_pointer_to().get_declaration(sym.get_scope(), "")
-                                    << ") _args->" << field_name << ";"
-                                    ;
-
-                                replace_src.add_replacement(sym, "(*" + field_name + ")");
-                            }
-                            CXX_LANGUAGE()
-                            {
-                                // Set up a reference to the raw buffer properly casted to the data type
-                                initial_code
-                                    << type.get_reference_to().get_declaration(sym.get_scope(), field_name)
-                                    << "(" 
-                                    << "(" << type.get_pointer_to().get_declaration(sym.get_scope(), "") << ")"
-                                    << "_args->" << field_name
-                                    << ");"
-                                    ;
-
-                                // This is the neatest aspect of references
-                                replace_src.add_replacement(sym, field_name);
-                            }
-                        }
-                        else
-                        {
-                            replace_src.add_replacement(sym, "(_args->" + field_name + ")");
-                        }
-                    }
-                }
-            }
-
-            replaced_outline << replace_src.replace(body.get_ast());
         }
 
     }

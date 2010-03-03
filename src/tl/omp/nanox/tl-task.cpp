@@ -24,7 +24,7 @@
 #include "tl-omp-nanox.hpp"
 #include "tl-data-env.hpp"
 #include "tl-counters.hpp"
-#include "tl-outline-nanox.hpp"
+#include "tl-devices.hpp"
 
 using namespace TL;
 using namespace TL::Nanox;
@@ -33,34 +33,11 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 {
     OpenMP::DataSharingEnvironment& data_sharing = openmp_info->get_data_sharing(ctr.get_ast());
 
-    ObjectList<Symbol> shared_symbols;
-    data_sharing.get_all_symbols(OpenMP::DS_SHARED, shared_symbols);
-
-    ObjectList<Symbol> firstprivate_symbols;
-    data_sharing.get_all_symbols(OpenMP::DS_FIRSTPRIVATE, firstprivate_symbols);
-
-    ObjectList<Symbol> private_symbols;
-    data_sharing.get_all_symbols(OpenMP::DS_PRIVATE, private_symbols);
-    Source private_decls;
-    for (ObjectList<Symbol>::iterator it = private_symbols.begin();
-            it != private_symbols.end();
-            it++)
-    {
-        Symbol& sym(*it);
-        Type type = sym.get_type();
-
-        // In C++ private vars types must be default constructible
-        private_decls
-            << type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
-            ;
-    }
-
     ObjectList<OpenMP::DependencyItem> dependences;
     data_sharing.get_all_dependences(dependences);
 
     DataEnvironInfo data_environ_info;
-    compute_data_environment(firstprivate_symbols,
-            shared_symbols,
+    compute_data_environment(data_sharing,
             ctr.get_scope_link(),
             data_environ_info,
             _converted_vlas);
@@ -80,63 +57,79 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     int outline_num = TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER);
     TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER)++;
-    Source outline_name;
-    outline_name
-        << "_ol_" << function_symbol.get_name() << "_" << outline_num
-        ;
 
-    Source initial_replace_code, replaced_body;
+    std::stringstream ss;
+    ss << "_ol_" << function_symbol.get_name() << "_" << outline_num;
+    std::string outline_name = ss.str();
 
-    do_outline_replacements(ctr.get_statement(),
-            data_environ_info,
-            replaced_body,
-            initial_replace_code);
-
-    Source device_description, device_descriptor, num_devices;
-
-    Source outline_code, outline_parameters, outline_body;
-
-    outline_parameters << struct_arg_type_name << "* __restrict _args";
-    outline_body
-        << private_decls
-        << initial_replace_code
-        << replaced_body
-        ;
-
-    outline_code = create_outline(
-            funct_def,
-            outline_name,
-            outline_parameters,
-            outline_body);
-            
-
-    // FIXME - Refactor this since it is quite common
     Source newly_generated_code;
     newly_generated_code
         << struct_arg_type_decl_src
-        << outline_code
         ;
 
-    // Device descriptor
-    // FIXME - Currently only SMP is supported
-    device_descriptor << outline_name << "_devices";
-    device_description
-        << "nanos_smp_args_t " << outline_name << "_smp_args = { (void(*)(void*))" << outline_name << "};"
-        << "nanos_device_t " << device_descriptor << "[] ="
-        << "{"
-        // SMP
-        << "{nanos_smp_factory, nanos_smp_dd_size, &" << outline_name << "_smp_args" << "},"
-        << "};"
-        ;
-
-    // Currently only SMP is supported
-    num_devices << 1;
-
-    // Parse it in a sibling function context
     AST_t outline_code_tree
         = newly_generated_code.parse_declaration(funct_def.get_ast(), ctr.get_scope_link());
     ctr.get_ast().prepend_sibling_function(outline_code_tree);
-    
+
+    Source device_descriptor, 
+           device_description, 
+           device_description_line, 
+           num_devices,
+           ancillary_device_description;
+    device_descriptor << outline_name << "_devices";
+    device_description
+        << ancillary_device_description
+        << "nanos_device_t " << device_descriptor << "[] ="
+        << "{"
+        << device_description_line
+        << "};"
+        ;
+
+    OutlineFlags outline_flags;
+
+    DeviceHandler &device_handler = DeviceHandler::get_device_handler();
+
+    ObjectList<std::string> current_targets;
+    data_sharing.get_all_devices(current_targets);
+    for (ObjectList<std::string>::iterator it = current_targets.begin();
+            it != current_targets.end();
+            it++)
+    {
+        DeviceProvider* device_provider = device_handler.get_device(*it);
+
+        if (device_provider == NULL)
+        {
+            internal_error("invalid device '%s' at '%s'\n",
+                    it->c_str(), ctr.get_ast().get_locus().c_str());
+        }
+
+
+        Source initial_setup, replaced_body;
+
+        device_provider->do_replacements(data_environ_info,
+                ctr.get_statement().get_ast(),
+                ctr.get_scope_link(),
+                initial_setup,
+                replaced_body);
+
+        device_provider->create_outline(outline_name,
+                struct_arg_type_name,
+                data_environ_info,
+                outline_flags,
+                ctr.get_statement().get_ast(),
+                ctr.get_scope_link(),
+                initial_setup,
+                replaced_body);
+
+        device_provider->get_device_descriptor(outline_name, 
+                data_environ_info, 
+                outline_flags,
+                ancillary_device_description, 
+                device_description_line);
+    }
+
+    num_devices << current_targets.size();
+
     Source spawn_code;
     Source fill_outline_arguments, fill_immediate_arguments, 
            fill_dependences_outline,

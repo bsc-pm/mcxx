@@ -121,7 +121,7 @@ TL::Source LoopBlocking::do_blocking()
             << "((" << a << ") < (" << b << ") ? (" << a << ") : (" << b << "))"
             ;
 
-        a << blk_var << " * (" << current_for->get_step() << ") * (" << current_factor->prettyprint() << " - 1 )";
+        a << blk_var << " + (" << current_for->get_step() << ") * (" << current_factor->prettyprint() << " - 1 )";
         b << current_for->get_upper_bound();
 
         current_innermost_part = new_innermost_part;

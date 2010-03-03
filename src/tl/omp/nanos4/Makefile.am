@@ -85,6 +85,7 @@ libtlomp_nanos4_la_SOURCES = \
    tl-transaction-expression.cpp \
    tl-pretransform.hpp \
    tl-pretransform.cpp \
+   tl-target.cpp \
    $(END)
 
 

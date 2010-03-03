@@ -265,7 +265,7 @@ namespace TL
 
             //! Custom functor map for directives found in preorder
             CustomFunctorMap on_directive_pre;
-            //! Custom functor map for directives found in preorder
+            //! Custom functor map for directives found in postorder
             CustomFunctorMap on_directive_post;
 
             //! Function to register a directive

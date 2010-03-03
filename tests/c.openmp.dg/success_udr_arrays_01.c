@@ -1,3 +1,8 @@
+/*
+<testinfo>
+test_generator=config/mercurium-omp
+</testinfo>
+*/
 #include <string.h>
 
 void add_vec(int, float*, float*);

@@ -21,21 +21,26 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_OUTLINE_HPP
-#define TL_OUTLINE_HPP
+#ifndef TL_OMP_TARGET_HPP
+#define TL_OMP_TARGET_HPP
 
-#include "tl-omp-nanox.hpp"
+#include "tl-objectlist.hpp"
 
 namespace TL
 {
-    namespace Nanox
+    namespace OpenMP
     {
-        Source create_outline(
-                FunctionDefinition enclosing_function,
-                Source outline_name,
-                Source parameter_list,
-                Source body);
+        struct TargetContext
+        {
+            ObjectList<std::string> device_list;
+
+            ObjectList<std::string> copy_in;
+            ObjectList<std::string> copy_out;
+
+            bool has_implements;
+            std::string implements;
+        };
     }
 }
 
-#endif // TL_OUTLINE_HPP
+#endif // TL_OMP_TARGET_HPP

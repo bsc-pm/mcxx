@@ -3,5 +3,5 @@
 @abs_top_builddir@/tests/config/mercurium-extensions
 
 cat<<EOF
-test_CXXFLAGS="\${test_CXXFLAGS} --disable-gxx-traits"
+test_CXXFLAGS="\${test_CXXFLAGS} --disable-gxx-traits --env=linux-i386" 
 EOF

@@ -516,6 +516,8 @@ namespace TL
             DataSharingAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DS_SHARED);
 
             get_data_implicit_attributes(construct, default_data_attr, data_sharing);
+
+            get_target_info(construct, data_sharing);
         }
 
         void Core::common_for_handler(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing)
@@ -550,6 +552,8 @@ namespace TL
             DataSharingAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DS_SHARED);
 
             get_data_implicit_attributes(construct, default_data_attr, data_sharing);
+
+            get_target_info(construct, data_sharing);
         }
 
         // Data sharing computation for tasks.
@@ -736,8 +740,9 @@ namespace TL
             {
                 get_data_implicit_attributes_task(construct, data_sharing, default_data_attr);
             }
-
+            
             get_dependences_info(construct, data_sharing);
+            get_target_info(construct, data_sharing);
         }
 
         void Core::task_handler_post(PragmaCustomConstruct construct)

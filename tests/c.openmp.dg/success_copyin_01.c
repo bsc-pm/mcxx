@@ -1,3 +1,8 @@
+/*
+<testinfo>
+test_generator=config/mercurium-omp
+</testinfo>
+*/
 int d;
 #pragma omp threadprivate(d)
 
