@@ -991,6 +991,7 @@ void dependent_typename_get_components(type_t* t,
         AST* global_scope, AST *nested_name, AST *unqualified_part)
 {
     ERROR_CONDITION(!is_dependent_typename_type(t), "This is not a dependent typename", 0);
+    t = advance_over_typedefs(t);
 
     *global_scope = t->type->dependent_global_scope;
     *nested_name = t->type->dependent_nested_name;
