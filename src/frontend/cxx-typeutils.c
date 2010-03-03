@@ -348,7 +348,7 @@ struct simple_type_tag {
     type_t** specialized_types;
 
     // Template dependent types (STK_TEMPLATE_DEPENDENT_TYPE)
-    AST dependent_global_scope;
+    scope_entry_t* dependent_entry;
     AST dependent_nested_name;
     AST dependent_unqualified_part;
 
@@ -994,27 +994,30 @@ type_t* get_user_defined_type(scope_entry_t* entry)
     return type_info;
 }
 
-struct type_tag* get_dependent_typename_type(
-        struct AST_tag* global_scope, 
-        struct AST_tag* nested_name, 
-        struct AST_tag* unqualified_part)
+type_t* get_dependent_typename_type(scope_entry_t* dependent_entity, 
+        decl_context_t decl_context,
+        AST nested_name, 
+        AST unqualified_part)
 {
     type_t* type_info = get_simple_type();
 
     type_info->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
-    type_info->type->dependent_global_scope = global_scope;
+    type_info->type->dependent_entry = dependent_entity;
+    type_info->type->typeof_decl_context = decl_context;
     type_info->type->dependent_nested_name = nested_name;
     type_info->type->dependent_unqualified_part = unqualified_part;
 
     return type_info;
 }
 
-void dependent_typename_get_components(type_t* t, 
-        AST* global_scope, AST *nested_name, AST *unqualified_part)
+void dependent_typename_get_components(type_t* t, scope_entry_t** dependent_entry, 
+        decl_context_t* decl_context,
+        AST *nested_name, AST *unqualified_part)
 {
     ERROR_CONDITION(!is_dependent_typename_type(t), "This is not a dependent typename", 0);
 
-    *global_scope = t->type->dependent_global_scope;
+    *dependent_entry = t->type->dependent_entry;
+    *decl_context = t->type->typeof_decl_context;
     *nested_name = t->type->dependent_nested_name;
     *unqualified_part = t->type->dependent_unqualified_part;
 }
@@ -3169,7 +3172,6 @@ static type_t* advance_dependent_typename(type_t* t)
 {
     ERROR_CONDITION(!is_dependent_typename_type(t), "This must be a dependent typename", 0);
 
-#if 0
     cv_qualifier_t cv_qualif = t->cv_qualifier;
 
     decl_context_t dependent_decl_context;
@@ -3205,7 +3207,6 @@ static type_t* advance_dependent_typename(type_t* t)
             return get_cv_qualified_type(get_user_defined_type(result_list->entry), cv_qualif_2);
         }
     }
-#endif
 
     return t;
 }
@@ -3861,10 +3862,8 @@ char syntactic_comparison_of_nested_names(
     return 1;
 }
 
-static char compare_template_dependent_typename_types(type_t* p_t1 UNUSED_PARAMETER, type_t* p_t2 UNUSED_PARAMETER)
+static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2)
 {
-    internal_error("Not yet implemented", 0);
-#if 0
     DEBUG_CODE()
     {
         fprintf(stderr , "Comparing template dependent typenames '%s' and '%s'\n",
@@ -3928,7 +3927,6 @@ static char compare_template_dependent_typename_types(type_t* p_t1 UNUSED_PARAME
     }
 
     return 1;
-#endif
 }
 
 char is_builtin_type(type_t* t)
@@ -6263,8 +6261,8 @@ static const char* get_builtin_type_name(type_t* type_info)
         case STK_TEMPLATE_DEPENDENT_TYPE :
             {
                 char c[256] = { 0 };
-                snprintf(c, 255, "<template dependent type %s%s%s>", 
-                        prettyprint_in_buffer(simple_type_info->dependent_global_scope),
+                snprintf(c, 255, "<template dependent type [%s]::%s%s>", 
+                        get_named_simple_type_name(simple_type_info->dependent_entry),
                         prettyprint_in_buffer(simple_type_info->dependent_nested_name),
                         prettyprint_in_buffer(simple_type_info->dependent_unqualified_part));
                 result = strappend(result, c);
