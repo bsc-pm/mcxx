@@ -36,15 +36,6 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
 
     OpenMP::DataSharingEnvironment& data_sharing = openmp_info->get_data_sharing(ctr.get_ast());
 
-    ObjectList<Symbol> shared_symbols;
-    data_sharing.get_all_symbols(OpenMP::DS_SHARED, shared_symbols);
-
-    ObjectList<Symbol> firstprivate_symbols;
-    data_sharing.get_all_symbols(OpenMP::DS_FIRSTPRIVATE, firstprivate_symbols);
-
-    ObjectList<Symbol> private_symbols;
-    data_sharing.get_all_symbols(OpenMP::DS_PRIVATE, private_symbols);
-
     // FIXME - Reductions!!
     Source struct_fields;
     struct_fields
@@ -52,9 +43,8 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         ;
 
     DataEnvironInfo data_environ_info;
-    compute_data_environment(firstprivate_symbols,
-            shared_symbols,
-            private_symbols,
+    compute_data_environment(
+            data_sharing,
             ctr.get_scope_link(),
             data_environ_info,
             _converted_vlas);

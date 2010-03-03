@@ -166,6 +166,8 @@ namespace TL
         {
             private:
                 ObjectList<DataEnvironItem> _data_env_items;
+                ObjectList<Expression> _copy_in_items;
+                ObjectList<Expression> _copy_out_items;
 
                 static bool data_env_item_has_sym(const DataEnvironItem &item)
                 {
@@ -280,14 +282,33 @@ namespace TL
 
                     return result;
                 }
+
+                void add_copy_in_item(Expression expr)
+                {
+                    _copy_in_items.append(expr);
+                }
+
+                void add_copy_out_item(Expression expr)
+                {
+                    _copy_out_items.append(expr);
+                }
+
+                ObjectList<Expression> get_copy_in_items()
+                {
+                    return _copy_in_items;
+                }
+
+                ObjectList<Expression> get_copy_out_items()
+                {
+                    return _copy_out_items;
+                }
         };
 
         //! \cond NO_DOCUMENT
 
         // This one is not to be exported
-        void compute_data_environment(ObjectList<Symbol> value,
-                ObjectList<Symbol> shared,
-                ObjectList<Symbol> private_symbols,
+        void compute_data_environment(
+                const OpenMP::DataSharingEnvironment& data_sharing,
                 ScopeLink scope_link,
                 DataEnvironInfo &data_env_info,
                 ObjectList<Symbol>& converted_vlas);
@@ -295,7 +316,7 @@ namespace TL
         // This one is not to be exported
         void fill_data_environment_structure(
                 Scope sc,
-                const DataEnvironInfo &data_env_info,
+                DataEnvironInfo &data_env_info,
                 Source &struct_decl,
                 Source &struct_fields,
                 std::string& struct_arg_type_name,
@@ -308,12 +329,6 @@ namespace TL
                 ObjectList<OpenMP::DependencyItem> dependencies,
                 bool is_pointer_struct,
                 Source& result);
-
-        // This one is not to be exported
-        void do_outline_replacements(Statement body,
-                const DataEnvironInfo& data_env_info,
-                Source &replaced_outline,
-                Source &initial_code);
 
         //! \endcond
     }

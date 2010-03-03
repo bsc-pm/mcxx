@@ -28,6 +28,35 @@ namespace TL
 {
     namespace OpenMP
     {
+
+        static bool check_for_copy_data_reference(Expression expr)
+        {
+            // Allowed expressions
+            //   data_ref -> sym
+            //               data_ref [ e ]
+            //               data_ref [ e1 : e2 ]
+            //               [shape] data_ref
+
+            if (expr.is_id_expression())
+            {
+                return true;
+            }
+            else if (expr.is_array_subscript())
+            {
+                return check_for_copy_data_reference(expr.get_subscripted_expression());
+            }
+            else if (expr.is_array_section())
+            {
+                return check_for_copy_data_reference(expr.array_section_item());
+            }
+            else if (expr.is_shaping_expression())
+            {
+                return check_for_copy_data_reference(expr.shaped_expression());
+            }
+            else 
+                return false;
+        }
+
         void Core::target_handler_pre(PragmaCustomConstruct ctr)
         {
             PragmaCustomClause device = ctr.get_clause("device");
@@ -76,8 +105,16 @@ namespace TL
                 AST_t ast = src.parse_expression(construct.get_ast(),
                         construct.get_scope_link());
 
-                CopyItem copy_item(Expression(ast, construct.get_scope_link()),
-                        copy_direction);
+                Expression expr(ast, construct.get_scope_link());
+
+                if (!check_for_copy_data_reference(expr))
+                {
+                    std::cerr << construct.get_ast().get_locus() 
+                        << ": warning: '" << expr.prettyprint() << "' is not a valid copy data-reference" 
+                        << std::endl;
+                }
+
+                CopyItem copy_item(expr, copy_direction);
                 data_sharing.add_copy(copy_item);
             }
         }
