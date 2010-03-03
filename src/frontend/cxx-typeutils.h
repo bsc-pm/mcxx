@@ -78,9 +78,9 @@ LIBMCXX_EXTERN struct type_tag* get_gcc_builtin_va_list_type(void);
 
 LIBMCXX_EXTERN struct type_tag* get_user_defined_type(struct scope_entry_tag* entry);
 
-LIBMCXX_EXTERN struct type_tag* get_dependent_typename_type(struct scope_entry_tag* dependent_entity, 
-        decl_context_t decl_context,
-        struct AST_tag* nested_name, struct AST_tag* unqualified_part);
+LIBMCXX_EXTERN struct type_tag* get_dependent_typename_type(struct AST_tag *global_scope, 
+        struct AST_tag* nested_name, 
+        struct AST_tag* unqualified_part);
 
 LIBMCXX_EXTERN struct type_tag* get_new_enum_type(decl_context_t decl_context);
 LIBMCXX_EXTERN struct type_tag* get_new_class_type(decl_context_t decl_context, enum class_kind_t class_kind);
@@ -423,8 +423,8 @@ LIBMCXX_EXTERN struct type_tag* template_specialized_type_get_related_template_t
 LIBMCXX_EXTERN template_parameter_list_t* template_specialized_type_get_template_parameters(struct type_tag* t);
 LIBMCXX_EXTERN void template_specialized_type_update_template_parameters(struct type_tag* t, template_parameter_list_t* template_parameters);
 
-LIBMCXX_EXTERN void dependent_typename_get_components(struct type_tag* t, struct scope_entry_tag** dependent_entry, 
-        decl_context_t* decl_context, struct AST_tag* *nested_name, struct AST_tag* *unqualified_part);
+LIBMCXX_EXTERN void dependent_typename_get_components(struct type_tag* t,
+        struct AST_tag* *global_scope, struct AST_tag* *nested_name, struct AST_tag* *unqualified_part);
 
 LIBMCXX_EXTERN int vector_type_get_vector_size(struct type_tag*);
 LIBMCXX_EXTERN struct type_tag* vector_type_get_element_type(struct type_tag*);

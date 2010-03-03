@@ -63,12 +63,19 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context, const char* 
 // Solve a template given a template-id, a list of found names for the template-id and the declaration context
 
 // Looks up the qualification scope for a nested-name-spec
-static scope_t* lookup_qualification_scope(decl_context_t decl_context, AST nested_name, AST unqualifed_part, type_t** dependent_type);
+static scope_t* lookup_qualification_scope(decl_context_t decl_context, 
+        AST global_scope, AST nested_name, AST unqualifed_part, type_t** dependent_type);
 
-static scope_t* lookup_qualification_scope_in_namespace(decl_context_t nested_name_context, scope_entry_t* namespace, 
-        AST nested_name_spec, AST unqualified_part, type_t **is_dependent);
-static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_context, scope_entry_t* class_name, 
-        AST nested_name_spec, AST unqualified_part, type_t **is_dependent);
+static scope_t* lookup_qualification_scope_in_namespace(decl_context_t nested_name_context, 
+        scope_entry_t* namespace, 
+        AST global_scope, AST original_nested_name,
+        AST nested_name_spec, AST unqualified_part, 
+        type_t** dependent_type);
+static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_context, 
+        scope_entry_t* class_name, 
+        AST global_scope, AST original_nested_name,
+        AST nested_name_spec, AST unqualified_part, 
+        type_t** dependent_type);
 
 static scope_entry_list_t* query_template_id(AST template_id, 
         decl_context_t template_name_context,
@@ -831,7 +838,6 @@ static scope_entry_list_t* query_unqualified_name(decl_context_t decl_context,
     return result;
 }
 
-
 static scope_entry_list_t* query_qualified_name(decl_context_t nested_name_context,
         AST global_op,
         AST nested_name,
@@ -897,7 +903,11 @@ static scope_entry_list_t* query_qualified_name(decl_context_t nested_name_conte
 
     if (nested_name != NULL)
     {
-        qualified_scope = lookup_qualification_scope(nested_part_context, nested_name, unqualified_name, &dependent_type);
+        qualified_scope = lookup_qualification_scope(nested_part_context, 
+                global_op, 
+                nested_name, 
+                unqualified_name, 
+                &dependent_type);
     }
 
     if (qualified_scope == NULL)
@@ -956,7 +966,7 @@ static enum cxx_symbol_kind classes_or_namespaces_filter[] = {
 static int classes_or_namespaces_filter_num_elements = STATIC_ARRAY_LENGTH(classes_or_namespaces_filter);
 
 static scope_t* lookup_qualification_scope(decl_context_t nested_name_context, 
-        AST nested_name_spec, AST unqualified_part, type_t** dependent_type)
+        AST global_scope, AST nested_name_spec, AST unqualified_part, type_t** dependent_type)
 {
     /*
      * A nested-name-spec is of the form
@@ -1060,6 +1070,7 @@ static scope_t* lookup_qualification_scope(decl_context_t nested_name_context,
         }
         // If it is a namespace work on the namespace
         result = lookup_qualification_scope_in_namespace(nested_name_context, starting_symbol, 
+                global_scope, nested_name_spec,
                 next_nested_name_spec, unqualified_part, dependent_type);
     }
     else
@@ -1070,6 +1081,7 @@ static scope_t* lookup_qualification_scope(decl_context_t nested_name_context,
         }
         // Otherwise deal with classes
         result = lookup_qualification_scope_in_class(nested_name_context, starting_symbol, 
+                global_scope, nested_name_spec,
                 next_nested_name_spec, unqualified_part, dependent_type);
     }
 
@@ -1077,8 +1089,11 @@ static scope_t* lookup_qualification_scope(decl_context_t nested_name_context,
 }
 
 // Lookup qualification within namespaces
-static scope_t* lookup_qualification_scope_in_namespace(decl_context_t nested_name_context, scope_entry_t* namespace, 
-        AST nested_name_spec, AST unqualified_part, type_t** dependent_type)
+static scope_t* lookup_qualification_scope_in_namespace(decl_context_t nested_name_context, 
+        scope_entry_t* namespace, 
+        AST global_scope, AST original_nested_name,
+        AST nested_name_spec, AST unqualified_part, 
+        type_t** dependent_type)
 {
     // Lookup the name in the related scope of this namespace
     scope_t* namespace_scope = namespace->namespace_decl_context.current_scope;
@@ -1146,6 +1161,7 @@ static scope_t* lookup_qualification_scope_in_namespace(decl_context_t nested_na
             fprintf(stderr, "SCOPE: Component '%s' found to be a namespace\n", prettyprint_in_buffer(current_name));
         }
         return lookup_qualification_scope_in_namespace(nested_name_context, symbol, 
+                global_scope, original_nested_name,
                 next_nested_name_spec, unqualified_part, dependent_type);
     }
     else
@@ -1155,12 +1171,16 @@ static scope_t* lookup_qualification_scope_in_namespace(decl_context_t nested_na
             fprintf(stderr, "SCOPE: Component '%s' found to be a class-name\n", prettyprint_in_buffer(current_name));
         }
         return lookup_qualification_scope_in_class(nested_name_context, symbol, 
+                global_scope, original_nested_name,
                 next_nested_name_spec, unqualified_part, dependent_type);
     }
 }
 
-static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_context, scope_entry_t* class_name, 
-        AST nested_name_spec, AST unqualified_part, type_t** dependent_type)
+static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_context, 
+        scope_entry_t* class_name, 
+        AST global_scope, AST original_nested_name,
+        AST nested_name_spec, AST unqualified_part, 
+        type_t** dependent_type)
 {
     ERROR_CONDITION(class_name == NULL, "The class name cannot be null", 0);
 
@@ -1206,8 +1226,8 @@ static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_c
             if (is_dependent_typename_type(class_type))
             {
                 // This is dependent
-                *dependent_type = get_dependent_typename_type(class_name, 
-                        nested_name_context, nested_name_spec, unqualified_part);
+                *dependent_type = get_dependent_typename_type(global_scope,
+                        original_nested_name, unqualified_part);
                 return NULL;
             }
 
@@ -1258,8 +1278,8 @@ static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_c
             {
                 // We cannot do anything else here but returning NULL
                 // and stating that it is dependent
-                *dependent_type = get_dependent_typename_type(class_name, 
-                        nested_name_context, nested_name_spec, unqualified_part);
+                *dependent_type = get_dependent_typename_type(global_scope,
+                        original_nested_name, unqualified_part);
                 return NULL;
             }
         }
@@ -1279,8 +1299,8 @@ static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_c
          */
         // We cannot do anything else here but returning NULL
         // and stating that it is dependent
-        *dependent_type = get_dependent_typename_type(class_name, 
-                nested_name_context, nested_name_spec, unqualified_part);
+        *dependent_type = get_dependent_typename_type(global_scope,
+                original_nested_name, unqualified_part);
         return NULL;
     }
     else
@@ -1351,7 +1371,10 @@ static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_c
         fprintf(stderr, "SCOPE: Component '%s' found to be a class-name\n", prettyprint_in_buffer(current_name));
     }
 
-    return lookup_qualification_scope_in_class(decl_context, symbol, next_nested_name_spec, unqualified_part, dependent_type);
+    return lookup_qualification_scope_in_class(decl_context, symbol, 
+            global_scope, original_nested_name,
+            next_nested_name_spec, unqualified_part, 
+            dependent_type);
 }
 
 static scope_entry_list_t* name_lookup_used_namespaces(decl_context_t decl_context, 
@@ -2432,47 +2455,15 @@ type_t* update_type(template_argument_list_t* given_template_args,
     }
     else if (is_dependent_typename_type(orig_type))
     {
-        decl_context_t dependent_decl_context;
-        scope_entry_t* dependent_entry = NULL;
+        AST global_scope = NULL;
         AST nested_name = NULL;
         AST unqualified_part = NULL;
 
-        dependent_typename_get_components(orig_type, 
-                &dependent_entry, &dependent_decl_context, 
-                &nested_name, &unqualified_part);
+        dependent_typename_get_components(orig_type,
+                &global_scope, &nested_name, &unqualified_part);
 
-        type_t* fixed_type = NULL;
-        fixed_type = update_type(given_template_args, get_user_defined_type(dependent_entry),
-                template_arguments_context, filename, line);
-
-        if (fixed_type == NULL)
-            return NULL;
-
-        if (!is_named_class_type(fixed_type))
-        {
-            return NULL;
-        }
-
-        // Now lookup again in this class
-        // Get the inner class
-        type_t* class_type = get_actual_class_type(fixed_type);
-
-        if (class_type_is_incomplete_independent(class_type))
-        {
-            instantiate_template_class(named_type_get_symbol(fixed_type),
-                    template_arguments_context, filename, line);
-        }
-        else if (class_type_is_incomplete_dependent(class_type)
-                || class_type_is_complete_dependent(class_type))
-        {
-            // Nothing can be done here
-            return orig_type;
-        }
-
-        decl_context_t inner_context = class_type_get_inner_context(class_type);
-
-        scope_entry_list_t* result_list = query_qualified_name(inner_context, 
-                NULL, nested_name, unqualified_part);
+        scope_entry_list_t* result_list = query_qualified_name(template_arguments_context, 
+                global_scope, nested_name, unqualified_part);
 
         result_list = filter_any_non_type(result_list);
 
