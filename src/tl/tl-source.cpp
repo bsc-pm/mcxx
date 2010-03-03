@@ -655,15 +655,33 @@ namespace TL
         return (*this);
     }
 
+    static bool string_is_blank(const std::string& src)
+    {
+        for (std::string::const_iterator it = src.begin();
+                it != src.end();
+                it++)
+        {
+            if (*it != ' '
+                    || *it != '\t')
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
     Source& Source::append_with_separator(const std::string& src, const std::string& separator)
     {
-        if (all_blanks())
+        if (!string_is_blank(src))
         {
-            append_text_chunk(src);
-        }
-        else
-        {
-            append_text_chunk(separator + src);
+            if (all_blanks())
+            {
+                append_text_chunk(src);
+            }
+            else
+            {
+                append_text_chunk(separator + src);
+            }
         }
 
         return (*this);
@@ -671,12 +689,15 @@ namespace TL
 
     Source& Source::append_with_separator(Source& src, const std::string& separator)
     {
-        if (!all_blanks())
+        if (!src.all_blanks())
         {
-            append_text_chunk(separator);
+            if (!all_blanks())
+            {
+                append_text_chunk(separator);
+            }
+            RefPtr<Source> ref_source = RefPtr<Source>(new Source(src));
+            append_source_ref(SourceChunkRef(new SourceRef(ref_source)));
         }
-        RefPtr<Source> ref_source = RefPtr<Source>(new Source(src));
-        append_source_ref(SourceChunkRef(new SourceRef(ref_source)));
 
         return (*this);
     }
@@ -689,20 +710,10 @@ namespace TL
     bool Source::all_blanks() const
     {
         if (_chunk_list->empty())
-        {
             return true;
-        }
 
-        bool blanks = true;
-        std::string code = this->get_source();
-        int len = code.size();
-
-        for (int i = 0; (i < len) && blanks; i++)
-        {
-            blanks &= (code[i] == ' ') || (code[i] == '\t');
-        }
-
-        return blanks;
+        std::string str = this->get_source();
+        return string_is_blank(str);
     }
 
     std::string comment(const std::string& str)
