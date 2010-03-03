@@ -182,7 +182,7 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
         <<   "for (_i = 1; _i < _nanos_num_threads; _i++)"
         <<   "{"
         //   We have to create a wd tied to a thread
-        <<      struct_arg_type_name << " *ol_args;"
+        <<      struct_arg_type_name << " *ol_args = 0;"
         <<      "props.tie_to = _nanos_threads[_i];"
         <<      "nanos_wd_t wd = 0;"
         <<      "err = nanos_create_wd(&wd, " << num_devices << ","
