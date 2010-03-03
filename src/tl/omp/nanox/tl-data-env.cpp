@@ -331,13 +331,21 @@ namespace TL
             data_env_info.add_item(data_env_item);
         }
 
-        void compute_data_environment(ObjectList<Symbol> value,
-                ObjectList<Symbol> shared,
-                ObjectList<Symbol> private_symbols,
+        void compute_data_environment(
+                OpenMP::DataSharingEnvironment &data_sharing,
                 ScopeLink scope_link,
                 DataEnvironInfo &data_env_info,
                 ObjectList<Symbol>& converted_vlas)
         {
+            ObjectList<Symbol> shared;
+            data_sharing.get_all_symbols(OpenMP::DS_SHARED, shared);
+
+            ObjectList<Symbol> value;
+            data_sharing.get_all_symbols(OpenMP::DS_FIRSTPRIVATE, value);
+
+            ObjectList<Symbol> private_symbols;
+            data_sharing.get_all_symbols(OpenMP::DS_PRIVATE, private_symbols);
+
             struct auxiliar_struct_t
             {
                 ObjectList<Symbol>* list;
@@ -363,6 +371,27 @@ namespace TL
 
                     std::string field_name = sym.get_name();
                     (aux_struct[i].transform_type)(sym, scope_link, data_env_info, converted_vlas);
+                }
+            }
+
+            ObjectList<OpenMP::CopyItem> copies;
+            data_sharing.get_all_copies(copies);
+
+            for (ObjectList<OpenMP::CopyItem>::iterator it = copies.begin();
+                    it != copies.end();
+                    it++)
+            {
+                if (it->get_kind() == OpenMP::COPY_DIR_IN)
+                {
+                    data_env_info.add_copy_in_item(it->get_copy_expression());
+                }
+                else if (it->get_kind() == OpenMP::COPY_DIR_OUT)
+                {
+                    data_env_info.add_copy_out_item(it->get_copy_expression());
+                }
+                else
+                {
+                    internal_error("Invalid copy kind", 0);
                 }
             }
         }
