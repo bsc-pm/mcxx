@@ -251,7 +251,7 @@ namespace TL
                 if (declared_entities.size() != 1)
                 {
                     std::cerr << construct.get_ast().get_locus() 
-                        << ": warning: '#pragma omp task' directive applied to non suitable declaration, skipping" << std::endl;
+                        << ": warning: '#pragma omp task' construct applied to non suitable declaration, skipping" << std::endl;
                     return;
                 }
 

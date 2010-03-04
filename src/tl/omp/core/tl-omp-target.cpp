@@ -97,8 +97,16 @@ namespace TL
 
                     bool valid = false;
 
+                    Symbol sym (NULL);
                     if (implements_name.is_id_expression())
-                        valid = true;
+                    {
+                        IdExpression id_expr = implements_name.get_id_expression();
+                        sym = id_expr.get_computed_symbol();
+
+                        if (sym.is_valid()
+                                && sym.is_function())
+                            valid = true;
+                    }
 
                     if (!valid)
                     {
@@ -107,12 +115,82 @@ namespace TL
                             << "' is not a valid identifier, skipping" 
                             << std::endl;
                     }
+                    else
+                    {
+                        target_ctx.has_implements = true;
+                        target_ctx.implements = sym;
+                    }
+                }
+            }
 
-                    IdExpression id_expr = implements_name.get_id_expression();
-                    Symbol sym = id_expr.get_computed_symbol();
+            if (target_ctx.has_implements)
+            {
+                // We need to check this #pragma omp target precedes a function-decl or function-def
+                DeclaredEntity decl_entity(AST_t(), ctr.get_scope_link());
+                bool valid_target = true;
+                if (Declaration::predicate(ctr.get_declaration()))
+                {
+                    Declaration decl(ctr.get_declaration(), ctr.get_scope_link());
+                    ObjectList<DeclaredEntity> declared_entities = decl.get_declared_entities();
 
-                    target_ctx.has_implements = true;
-                    target_ctx.implements = sym;
+                    if (declared_entities.size() != 1)
+                    {
+                        valid_target = false;
+                    }
+                    else
+                    {
+                        decl_entity = declared_entities[0];
+                    }
+                }
+                else if (FunctionDefinition::predicate(ctr.get_declaration()))
+                {
+                    FunctionDefinition funct_def(ctr.get_declaration(), ctr.get_scope_link());
+                    decl_entity = funct_def.get_declared_entity();
+                }
+                else
+                {
+                    valid_target = false;
+                }
+
+                if (!decl_entity.is_functional_declaration())
+                {
+                    valid_target = false;
+                }
+
+                if (!valid_target)
+                {
+                    std::cerr << ctr.get_ast().get_locus() 
+                        << ": warning: '#pragma omp target' with an 'implements' clause must "
+                        "precede a single function declaration or a function definition"
+                        << std::endl;
+                    std::cerr << ctr.get_ast().get_locus() << ": warning: skipping the whole '#pragma omp target'" << std::endl;
+                    return;
+                }
+
+                Symbol function_sym = decl_entity.get_declared_symbol();
+
+                // Now lookup a FunctionTaskInfo
+                if (_function_task_set->is_function_task(target_ctx.implements))
+                {
+                    std::cerr << ctr.get_ast().get_locus() << ": warning: '" 
+                        << target_ctx.implements.get_qualified_name()
+                        << "' is not a '#pragma omp task' function, skipping"
+                        << std::endl;
+                }
+                else
+                {
+                    FunctionTaskInfo& function_task_info = _function_task_set->get_function_task(target_ctx.implements);
+
+                    for (ObjectList<std::string>::iterator it = target_ctx.device_list.begin();
+                            it != target_ctx.device_list.end();
+                            it++)
+                    {
+                        std::cerr << ctr.get_ast().get_locus() << 
+                            ": note: adding function '" << function_sym.get_qualified_name() << "'"
+                            << " as the implementation of '" << target_ctx.implements.get_qualified_name() << "'"
+                            << " for device '" << *it << "'" << std::endl;
+                        function_task_info.add_device_with_implementation(*it, function_sym);
+                    }
                 }
             }
 
