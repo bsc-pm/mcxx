@@ -35,6 +35,7 @@ namespace TL
 
         const std::string OMP_NANOX_VLA_DIMS = "omp.nanox.vla_dims";
 
+
 #if 0
         static void print_list(ObjectList<Source> src)
         {
@@ -331,342 +332,342 @@ namespace TL
             data_env_info.add_item(data_env_item);
         }
 
-        void compute_data_environment(
-                OpenMP::DataSharingEnvironment &data_sharing,
-                ScopeLink scope_link,
-                DataEnvironInfo &data_env_info,
-                ObjectList<Symbol>& converted_vlas)
+    }
+
+    void Nanox::compute_data_environment(
+            OpenMP::DataSharingEnvironment &data_sharing,
+            ScopeLink scope_link,
+            DataEnvironInfo &data_env_info,
+            ObjectList<Symbol>& converted_vlas)
+    {
+        ObjectList<Symbol> shared;
+        data_sharing.get_all_symbols(OpenMP::DS_SHARED, shared);
+
+        ObjectList<Symbol> value;
+        data_sharing.get_all_symbols(OpenMP::DS_FIRSTPRIVATE, value);
+
+        ObjectList<Symbol> private_symbols;
+        data_sharing.get_all_symbols(OpenMP::DS_PRIVATE, private_symbols);
+
+        struct auxiliar_struct_t
         {
-            ObjectList<Symbol> shared;
-            data_sharing.get_all_symbols(OpenMP::DS_SHARED, shared);
+            ObjectList<Symbol>* list;
+            void (*transform_type)(Symbol, ScopeLink, DataEnvironInfo&, ObjectList<Symbol>&);
+        } aux_struct[] =
+        {
+            { &shared, pointer_type },
+            { &value, valued_type },
+            { &private_symbols, private_type },
+            { NULL, NULL },
+        };
 
-            ObjectList<Symbol> value;
-            data_sharing.get_all_symbols(OpenMP::DS_FIRSTPRIVATE, value);
-
-            ObjectList<Symbol> private_symbols;
-            data_sharing.get_all_symbols(OpenMP::DS_PRIVATE, private_symbols);
-
-            struct auxiliar_struct_t
-            {
-                ObjectList<Symbol>* list;
-                void (*transform_type)(Symbol, ScopeLink, DataEnvironInfo&, ObjectList<Symbol>&);
-            } aux_struct[] =
-            {
-                { &shared, pointer_type },
-                { &value, valued_type },
-                { &private_symbols, private_type },
-                { NULL, NULL },
-            };
-
-            for (unsigned int i = 0;
-                    aux_struct[i].list != NULL;
-                    i++)
-            {
-                ObjectList<Symbol>& current_list(*aux_struct[i].list);
-                for (ObjectList<Symbol>::iterator it = current_list.begin();
-                        it != current_list.end();
-                        it++)
-                {
-                    Symbol &sym(*it);
-
-                    std::string field_name = sym.get_name();
-                    (aux_struct[i].transform_type)(sym, scope_link, data_env_info, converted_vlas);
-                }
-            }
-
-            ObjectList<OpenMP::CopyItem> copies;
-            data_sharing.get_all_copies(copies);
-
-            for (ObjectList<OpenMP::CopyItem>::iterator it = copies.begin();
-                    it != copies.end();
+        for (unsigned int i = 0;
+                aux_struct[i].list != NULL;
+                i++)
+        {
+            ObjectList<Symbol>& current_list(*aux_struct[i].list);
+            for (ObjectList<Symbol>::iterator it = current_list.begin();
+                    it != current_list.end();
                     it++)
             {
-                if (it->get_kind() == OpenMP::COPY_DIR_IN)
-                {
-                    data_env_info.add_copy_in_item(it->get_copy_expression());
-                }
-                else if (it->get_kind() == OpenMP::COPY_DIR_OUT)
-                {
-                    data_env_info.add_copy_out_item(it->get_copy_expression());
-                }
-                else
-                {
-                    internal_error("Invalid copy kind", 0);
-                }
+                Symbol &sym(*it);
+
+                std::string field_name = sym.get_name();
+                (aux_struct[i].transform_type)(sym, scope_link, data_env_info, converted_vlas);
             }
         }
 
-        void fill_data_environment_structure(
-                Scope sc,
-                const DataEnvironInfo &data_env_info,
-                Source &struct_decl,
-                Source &struct_fields,
-                std::string& struct_name,
-                ObjectList<OpenMP::DependencyItem> dependencies)
+        ObjectList<OpenMP::CopyItem> copies;
+        data_sharing.get_all_copies(copies);
+
+        for (ObjectList<OpenMP::CopyItem>::iterator it = copies.begin();
+                it != copies.end();
+                it++)
         {
-
-            std::stringstream ss;
-
-            int data_env_struct = TL::CounterManager::get_counter(DATA_ENV_ARG_TYPE_COUNTER);
-            TL::CounterManager::get_counter(DATA_ENV_ARG_TYPE_COUNTER)++;
-
-            ss << "_nx_data_env_" << data_env_struct << "_t";
-            struct_name = ss.str();
-
-            C_LANGUAGE()
+            if (it->get_kind() == OpenMP::COPY_DIR_IN)
             {
-                struct_decl
-                    << "typedef "
-                    << "struct " << struct_name << "_tag {"
-                    << struct_fields
-                    << "}" << struct_name << ";"
-                    ;
+                data_env_info.add_copy_in_item(it->get_copy_expression());
             }
-
-            CXX_LANGUAGE()
+            else if (it->get_kind() == OpenMP::COPY_DIR_OUT)
             {
-                struct_decl
-                    << "struct " << struct_name << " {"
-                    << struct_fields
-                    << "};"
-                    ;
-            }
-
-            ObjectList<DataEnvironItem> data_env_item_list = data_env_info.get_items();
-
-            for (ObjectList<DataEnvironItem>::iterator it = data_env_item_list.begin();
-                    it != data_env_item_list.end();
-                    it++)
-            {
-                DataEnvironItem &data_env_item(*it);
-
-                if (data_env_item.is_private())
-                    continue;
-
-                if (IS_C_LANGUAGE 
-                        && data_env_item.is_vla_type())
-                {
-                    ObjectList<Source> vla_dims = data_env_item.get_vla_dimensions(); 
-
-                    for (ObjectList<Source>::iterator it = vla_dims.begin();
-                            it != vla_dims.end();
-                            it++)
-                    {
-                        struct_fields
-                            << "int " << *it << ";"
-                            ;
-                    }
-                }
-
-                struct_fields
-                    << data_env_item.get_type().get_declaration(sc, data_env_item.get_field_name()) << ";"
-                    ;
-            }
-
-            int dep_counter = 0;
-            for (ObjectList<OpenMP::DependencyItem>::iterator it = dependencies.begin();
-                    it != dependencies.end();
-                    it++)
-            {
-                if (!it->is_symbol_dependence())
-                {
-                    std::stringstream ss;
-                    ss << "dep_" << dep_counter;
-
-                    struct_fields << it->get_dependency_expression()
-                        .get_type().get_pointer_to()
-                        .get_declaration(it->get_dependency_expression().get_scope(), ss.str())
-                        << ";"
-                        ;
-                }
-
-                dep_counter++;
-            }
-        }
-
-        void fill_data_args(
-                const std::string& arg_var_name,
-                const DataEnvironInfo& data_env, 
-                ObjectList<OpenMP::DependencyItem> dependencies,
-                bool is_pointer_struct,
-                Source& result)
-        {
-            std::string arg_var_accessor;
-            ObjectList<DataEnvironItem> data_env_items = data_env.get_items();
-
-            Source base_offset;
-
-            std::string ptr;
-            if (is_pointer_struct)
-            {
-                arg_var_accessor = arg_var_name + "->";
-                base_offset = "((char*)(" + arg_var_name + ") + sizeof(*" + arg_var_name + "))";
+                data_env_info.add_copy_out_item(it->get_copy_expression());
             }
             else
             {
-                arg_var_accessor = arg_var_name + ".";
+                internal_error("Invalid copy kind", 0);
+            }
+        }
+    }
 
-                base_offset = "((char*)(&" + arg_var_name + ") + sizeof(" + arg_var_name + "))";
+    void Nanox::fill_data_environment_structure(
+            Scope sc,
+            DataEnvironInfo &data_env_info,
+            Source &struct_decl,
+            Source &struct_fields,
+            std::string& struct_name,
+            ObjectList<OpenMP::DependencyItem> dependencies)
+    {
+
+        std::stringstream ss;
+
+        int data_env_struct = TL::CounterManager::get_counter(DATA_ENV_ARG_TYPE_COUNTER);
+        TL::CounterManager::get_counter(DATA_ENV_ARG_TYPE_COUNTER)++;
+
+        ss << "_nx_data_env_" << data_env_struct << "_t";
+        struct_name = ss.str();
+
+        C_LANGUAGE()
+        {
+            struct_decl
+                << "typedef "
+                << "struct " << struct_name << "_tag {"
+                << struct_fields
+                << "}" << struct_name << ";"
+                ;
+        }
+
+        CXX_LANGUAGE()
+        {
+            struct_decl
+                << "struct " << struct_name << " {"
+                << struct_fields
+                << "};"
+                ;
+        }
+
+        ObjectList<DataEnvironItem> data_env_item_list = data_env_info.get_items();
+
+        for (ObjectList<DataEnvironItem>::iterator it = data_env_item_list.begin();
+                it != data_env_item_list.end();
+                it++)
+        {
+            DataEnvironItem &data_env_item(*it);
+
+            if (data_env_item.is_private())
+                continue;
+
+            if (IS_C_LANGUAGE 
+                    && data_env_item.is_vla_type())
+            {
+                ObjectList<Source> vla_dims = data_env_item.get_vla_dimensions(); 
+
+                for (ObjectList<Source>::iterator it = vla_dims.begin();
+                        it != vla_dims.end();
+                        it++)
+                {
+                    struct_fields
+                        << "int " << *it << ";"
+                        ;
+                }
             }
 
+            struct_fields
+                << data_env_item.get_type().get_declaration(sc, data_env_item.get_field_name()) << ";"
+                ;
+        }
 
-            for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
-                    it != data_env_items.end();
-                    it++)
+        int dep_counter = 0;
+        for (ObjectList<OpenMP::DependencyItem>::iterator it = dependencies.begin();
+                it != dependencies.end();
+                it++)
+        {
+            if (!it->is_symbol_dependence())
             {
-                DataEnvironItem& data_env_item(*it);
+                std::stringstream ss;
+                ss << "dep_" << dep_counter;
 
-                if (data_env_item.is_private())
-                    continue;
+                struct_fields << it->get_dependency_expression()
+                    .get_type().get_pointer_to()
+                    .get_declaration(it->get_dependency_expression().get_scope(), ss.str())
+                    << ";"
+                    ;
+            }
 
-                Symbol sym = data_env_item.get_symbol();
-                Type type = sym.get_type();
-                const std::string field_name = data_env_item.get_field_name();
+            dep_counter++;
+        }
+    }
 
-                if (data_env_item.is_vla_type())
+    void Nanox::fill_data_args(
+            const std::string& arg_var_name,
+            const DataEnvironInfo& data_env, 
+            ObjectList<OpenMP::DependencyItem> dependencies,
+            bool is_pointer_struct,
+            Source& result)
+    {
+        std::string arg_var_accessor;
+        ObjectList<DataEnvironItem> data_env_items = data_env.get_items();
+
+        Source base_offset;
+
+        std::string ptr;
+        if (is_pointer_struct)
+        {
+            arg_var_accessor = arg_var_name + "->";
+            base_offset = "((char*)(" + arg_var_name + ") + sizeof(*" + arg_var_name + "))";
+        }
+        else
+        {
+            arg_var_accessor = arg_var_name + ".";
+
+            base_offset = "((char*)(&" + arg_var_name + ") + sizeof(" + arg_var_name + "))";
+        }
+
+
+        for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
+                it != data_env_items.end();
+                it++)
+        {
+            DataEnvironItem& data_env_item(*it);
+
+            if (data_env_item.is_private())
+                continue;
+
+            Symbol sym = data_env_item.get_symbol();
+            Type type = sym.get_type();
+            const std::string field_name = data_env_item.get_field_name();
+
+            if (data_env_item.is_vla_type())
+            {
+                // VLA require additional effort
+                ObjectList<Source> dim_list = data_env_item.get_vla_dimensions();
+
+                for (ObjectList<Source>::iterator it = dim_list.begin();
+                        it != dim_list.end();
+                        it++)
                 {
-                    // VLA require additional effort
-                    ObjectList<Source> dim_list = data_env_item.get_vla_dimensions();
+                    result << arg_var_accessor << *it << "="
+                        << *it
+                        << ";"
+                        ;
+                }
+            }
 
+            if (!data_env_item.is_copy())
+            {
+                if (type.is_array())
+                {
+                    result << arg_var_accessor << field_name
+                        << "= " << sym.get_name() << ";";
+                }
+                else
+                {
+                    result << arg_var_accessor << field_name
+                        << "= &(" << sym.get_name() << ");";
+                }
+            }
+            else
+            {
+                if (data_env_item.is_vla_type()
+                        && type.is_array())
+                {
+                    // We have to adjust the VLA pointers for arrays
+                    result << arg_var_accessor << field_name << " = "
+                        << Source(base_offset) << ";"
+                        ;
+
+                    base_offset = Source() << arg_var_accessor << field_name 
+                        << "+ (sizeof(" << sym.get_type().basic_type().get_declaration(sym.get_scope(), "") << ") ";
+
+                    ObjectList<Source> dim_list = data_env_item.get_vla_dimensions();
                     for (ObjectList<Source>::iterator it = dim_list.begin();
                             it != dim_list.end();
                             it++)
                     {
-                        result << arg_var_accessor << *it << "="
-                            << *it
-                            << ";"
-                            ;
+                        base_offset << "* (" << *it << ")";
                     }
+
+                    base_offset << ")";
                 }
 
-                if (!data_env_item.is_copy())
+                if (type.is_array())
                 {
-                    if (type.is_array())
+                    C_LANGUAGE()
                     {
-                        result << arg_var_accessor << field_name
-                            << "= " << sym.get_name() << ";";
+                        result << "__builtin_memcpy(" << arg_var_accessor << field_name << ", "
+                            << sym.get_name() << ","
+                            << "sizeof(" << sym.get_name() << "));"
+                            ;
                     }
-                    else
+                    CXX_LANGUAGE()
                     {
-                        result << arg_var_accessor << field_name
-                            << "= &(" << sym.get_name() << ");";
+                        Source ptr_type_decl;
+                        ptr_type_decl << type.get_pointer_to().get_declaration(sym.get_scope(), "") 
+                            ;
+                        Source type_decl;
+                        type_decl << type.get_declaration(sym.get_scope(), "") 
+                            ;
+                        result << "for (int _i = 0; _i < (" << type.array_dimension().prettyprint() << "); _i++)"
+                            << "{"
+                            << "new ( &((" << ptr_type_decl << ")" << field_name << ")[_i])"
+                            << type_decl << "(" << sym.get_name() << "[_i]);"
+                            << "}"
+                            ;
                     }
                 }
                 else
                 {
-                    if (data_env_item.is_vla_type()
-                            && type.is_array())
+                    if (IS_CXX_LANGUAGE
+                            && type.is_named_class())
                     {
-                        // We have to adjust the VLA pointers for arrays
-                        result << arg_var_accessor << field_name << " = "
-                            << Source(base_offset) << ";"
-                            ;
-
-                        base_offset = Source() << arg_var_accessor << field_name 
-                            << "+ (sizeof(" << sym.get_type().basic_type().get_declaration(sym.get_scope(), "") << ") ";
-
-                        ObjectList<Source> dim_list = data_env_item.get_vla_dimensions();
-                        for (ObjectList<Source>::iterator it = dim_list.begin();
-                                it != dim_list.end();
-                                it++)
-                        {
-                            base_offset << "* (" << *it << ")";
-                        }
-
-                        base_offset << ")";
-                    }
-
-                    if (type.is_array())
-                    {
-                        C_LANGUAGE()
-                        {
-                            result << "__builtin_memcpy(" << arg_var_accessor << field_name << ", "
-                                << sym.get_name() << ","
-                                << "sizeof(" << sym.get_name() << "));"
-                                ;
-                        }
-                        CXX_LANGUAGE()
-                        {
-                            Source ptr_type_decl;
-                            ptr_type_decl << type.get_pointer_to().get_declaration(sym.get_scope(), "") 
-                                ;
-                            Source type_decl;
-                            type_decl << type.get_declaration(sym.get_scope(), "") 
-                                ;
-                            result << "for (int _i = 0; _i < (" << type.array_dimension().prettyprint() << "); _i++)"
-                                << "{"
-                                << "new ( &((" << ptr_type_decl << ")" << field_name << ")[_i])"
-                                << type_decl << "(" << sym.get_name() << "[_i]);"
-                                << "}"
-                                ;
-                        }
+                        result << "new (&" << arg_var_accessor << field_name << ")" 
+                            << type.get_declaration(sym.get_scope(), "") 
+                            << "(" << sym.get_name() << ");";
                     }
                     else
                     {
-                        if (IS_CXX_LANGUAGE
-                                && type.is_named_class())
-                        {
-                            result << "new (&" << arg_var_accessor << field_name << ")" 
-                                << type.get_declaration(sym.get_scope(), "") 
-                                << "(" << sym.get_name() << ");";
-                        }
-                        else
-                        {
-                            result << arg_var_accessor << field_name
-                                << "= " << sym.get_name() << ";";
-                        }
+                        result << arg_var_accessor << field_name
+                            << "= " << sym.get_name() << ";";
                     }
                 }
-            }
-
-            int num_dep = 0;
-            for (ObjectList<OpenMP::DependencyItem>::iterator it = dependencies.begin();
-                    it != dependencies.end();
-                    it++)
-            {
-                if (!it->is_symbol_dependence())
-                {
-                    RefPtr<Source> base(new Source);
-                    result << arg_var_accessor << "dep_" << num_dep << "= &(" << (*base) << ");"
-                        ;
-
-                    Expression dep_expr = it->get_dependency_expression();
-
-                    bool is_shaped = false;
-
-                    // Remove internal expressions that are not valid C
-                    while (dep_expr.is_array_section()
-                            || dep_expr.is_shaping_expression())
-                    {
-                        RefPtr<Source> new_base(new Source);
-                        if (dep_expr.is_array_section())
-                        {
-                            Source dims_src;
-
-                            dims_src << "[" << dep_expr.array_section_lower() << "]";
-                            (*base) << (*new_base) << dims_src;
-
-                            dep_expr = dep_expr.array_section_item();
-                        }
-                        else /* if (dep_expr.is_shaping_expression()) */
-                        {
-                            is_shaped = true;
-                            // Create a meaningful casting
-                            Type cast_type = dep_expr.get_type();
-                            cast_type = cast_type.array_element().get_pointer_to();
-
-                            (*base) << "((" << cast_type.get_declaration(dep_expr.get_scope(), "") << ")" << (*new_base)  << ")" ;
-
-                            dep_expr = dep_expr.shaped_expression();
-                        }
-
-                        base = new_base;
-                    }
-                    (*base) << "(" << dep_expr << ")";
-                }
-                num_dep++;
             }
         }
 
+        int num_dep = 0;
+        for (ObjectList<OpenMP::DependencyItem>::iterator it = dependencies.begin();
+                it != dependencies.end();
+                it++)
+        {
+            if (!it->is_symbol_dependence())
+            {
+                RefPtr<Source> base(new Source);
+                result << arg_var_accessor << "dep_" << num_dep << "= &(" << (*base) << ");"
+                    ;
+
+                Expression dep_expr = it->get_dependency_expression();
+
+                bool is_shaped = false;
+
+                // Remove internal expressions that are not valid C
+                while (dep_expr.is_array_section()
+                        || dep_expr.is_shaping_expression())
+                {
+                    RefPtr<Source> new_base(new Source);
+                    if (dep_expr.is_array_section())
+                    {
+                        Source dims_src;
+
+                        dims_src << "[" << dep_expr.array_section_lower() << "]";
+                        (*base) << (*new_base) << dims_src;
+
+                        dep_expr = dep_expr.array_section_item();
+                    }
+                    else /* if (dep_expr.is_shaping_expression()) */
+                    {
+                        is_shaped = true;
+                        // Create a meaningful casting
+                        Type cast_type = dep_expr.get_type();
+                        cast_type = cast_type.array_element().get_pointer_to();
+
+                        (*base) << "((" << cast_type.get_declaration(dep_expr.get_scope(), "") << ")" << (*new_base)  << ")" ;
+
+                        dep_expr = dep_expr.shaped_expression();
+                    }
+
+                    base = new_base;
+                }
+                (*base) << "(" << dep_expr << ")";
+            }
+            num_dep++;
+        }
     }
 }

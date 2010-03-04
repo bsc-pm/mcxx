@@ -308,7 +308,7 @@ namespace TL
 
         // This one is not to be exported
         void compute_data_environment(
-                const OpenMP::DataSharingEnvironment& data_sharing,
+                OpenMP::DataSharingEnvironment& data_sharing,
                 ScopeLink scope_link,
                 DataEnvironInfo &data_env_info,
                 ObjectList<Symbol>& converted_vlas);
