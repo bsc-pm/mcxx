@@ -2422,8 +2422,29 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         decl_context_t inner_context = class_type_get_inner_context(class_type);
 
-        scope_entry_list_t* result_list = query_qualified_name(inner_context, 
-                NULL, nested_name, unqualified_part);
+        // No other way than replicating some part of the qualified lookup
+        type_t* dependent_type = NULL;
+        char is_valid = 1;
+        decl_context_t lookup_context = lookup_qualification_scope_in_class(decl_context,
+                named_type_get_symbol(fixed_type), nested_name, unqualified_part, &dependent_type, &is_valid);
+
+        if (!is_valid)
+        {
+            return dependent_type;
+        }
+
+        lookup_context.decl_flags |= decl_context.decl_flags;
+
+        scope_entry_list_t* result_list = NULL;
+        if (ASTType(unqualified_part) != AST_TEMPLATE_ID
+                && ASTType(unqualified_part) != AST_OPERATOR_FUNCTION_ID_TEMPLATE)
+        {
+            result_list = query_unqualified_name(lookup_context, unqualified_part);
+        }
+        else
+        {
+            result_list = query_template_id(unqualified_part, lookup_context, decl_context);
+        }
 
         result_list = filter_any_non_type(result_list);
 
@@ -2433,7 +2454,6 @@ static type_t* update_type_aux_(type_t* orig_type,
         }
 
         scope_entry_t* entry = result_list->entry;
-
         return entry->type_information;
     }
     else
