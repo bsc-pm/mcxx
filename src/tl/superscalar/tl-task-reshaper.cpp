@@ -164,9 +164,10 @@ namespace TL
 				
 				if (parameter_type.is_array())
 				{
-					adapter_reshaped_parameters.append_with_separator("", ", ");
-					adapter_reshaped_parameters
+					Source adapter_reshaped_parameter;
+					adapter_reshaped_parameter
 						<< "parameter_data[" << index << "]";
+					adapter_reshaped_parameters.append_with_separator(adapter_reshaped_parameter, ", ");
 					
 					// Calculate the shape of the array (if needed)
 					AccessBounds const &access_bounds = (*access_bounds_list)[index];
@@ -191,9 +192,10 @@ namespace TL
 				}
 				else if (parameter_type.is_pointer() && !parameter_type.points_to().is_void())
 				{
-					adapter_parameters.append_with_separator("", ", ");
-					adapter_parameters
+					Source adapter_parameter;
+					adapter_parameter
 						<< "parameter_data[" << index << "]";
+					adapter_parameters.append_with_separator(adapter_parameter, ",");
 					
 					// Declarations used for determining the shapes
 					Source shaper_parameter_initializer;
@@ -204,12 +206,13 @@ namespace TL
 				}
 				else
 				{
-					adapter_parameters.append_with_separator("", ", ");
-					adapter_parameters
+					Source adapter_parameter;
+					adapter_parameter
 						<< "*("
 							<< "(" << parameter_type.get_pointer_to().get_declaration(scope_link.get_scope(symbol.get_point_of_declaration()), "") << ")"
 							<< "parameter_data[" << index << "]"
 						<< ")";
+					adapter_parameters.append_with_separator(adapter_parameter, ",");
 					
 					// Declarations used for determining the shapes
 					Source shaper_parameter_initializer;
