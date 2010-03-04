@@ -25,6 +25,7 @@
 #define TL_OMP_TARGET_HPP
 
 #include "tl-objectlist.hpp"
+#include "tl-symbol.hpp"
 
 namespace TL
 {
@@ -38,7 +39,7 @@ namespace TL
             ObjectList<std::string> copy_out;
 
             bool has_implements;
-            std::string implements;
+            Symbol implements;
         };
     }
 }
