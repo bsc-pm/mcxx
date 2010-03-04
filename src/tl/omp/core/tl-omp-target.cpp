@@ -82,6 +82,40 @@ namespace TL
                 target_ctx.copy_out = copy_out.get_arguments(ExpressionTokenizer());
             }
 
+            PragmaCustomClause implements = ctr.get_clause("implements");
+            if (implements.is_defined())
+            {
+                ObjectList<Expression> implements_list = implements.get_expression_list();
+
+                if (implements_list.size() != 1)
+                {
+                    std::cerr << ctr.get_ast().get_locus() << ": warning: clause 'implements' expects one identifier, skipping" << std::endl;
+                }
+                else
+                {
+                    Expression implements_name = implements_list[0];
+
+                    bool valid = false;
+
+                    if (implements_name.is_id_expression())
+                        valid = true;
+
+                    if (!valid)
+                    {
+                        std::cerr << ctr.get_ast().get_locus() << ": warning: '" 
+                            << implements_name.prettyprint() 
+                            << "' is not a valid identifier, skipping" 
+                            << std::endl;
+                    }
+
+                    IdExpression id_expr = implements_name.get_id_expression();
+                    Symbol sym = id_expr.get_computed_symbol();
+
+                    target_ctx.has_implements = true;
+                    target_ctx.implements = sym;
+                }
+            }
+
             _target_context.push(target_ctx);
         }
 
