@@ -131,7 +131,7 @@ namespace TL
         shadow_declaration += " ";
         shadow_declaration += shadow_function_name;
         shadow_declaration += "(";
-        shadow_declaration += "const char* __file, int __line";
+        shadow_declaration += "char* __file, int __line";
 
         bool has_ellipsis = false;
         ObjectList<Type> parameters = function_type.parameters(has_ellipsis);
@@ -216,7 +216,7 @@ namespace TL
             ;
 
         after_code
-            << "nth_instrumentation_pop_ctx();"
+            << "nth_instrument_pop_ctx();"
             ;
 
         AST_t shadow_function_def_tree = 
