@@ -7083,6 +7083,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
 
                     if (is_copy_constructor(entry, class_type))
                     {
+                        entry->entity_specs.is_copy_constructor = 1;
                         class_type_add_copy_constructor(class_type, entry);
                     }
                 }
@@ -7231,7 +7232,8 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
             }
         }
 
-        if (ASTType(type_specifier) == AST_ENUM_SPECIFIER )
+        if (type_specifier != NULL
+                && ASTType(type_specifier) == AST_ENUM_SPECIFIER )
         {
             ERROR_CONDITION(!is_enumerated_type(member_type), 
                     "AST_ENUM_SPECIFIER did not compute an enumerator type", 0);
@@ -7489,6 +7491,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                                             if (is_copy_constructor(entry, class_type))
                                             {
+                                                entry->entity_specs.is_copy_constructor = 1;
                                                 class_type_add_copy_constructor(class_type, entry);
                                             }
                                         }

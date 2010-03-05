@@ -312,7 +312,7 @@ struct type_map_tag
     type_t* new_type;
 } type_map_t;
 
-static void instantiate_template_type_member(type_t* template_type, 
+static scope_entry_t* instantiate_template_type_member(type_t* template_type, 
         decl_context_t context_of_being_instantiated,
         scope_entry_t *member_of_template,
         type_t* being_instantiated, 
@@ -451,6 +451,8 @@ static void instantiate_template_type_member(type_t* template_type,
                 get_actual_class_type(being_instantiated),
                 named_type_get_symbol(new_primary_template));
     }
+
+    return new_member;
 }
 
 static void instantiate_member(type_t* selected_template UNUSED_PARAMETER, 
@@ -763,9 +765,10 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
             }
         case SK_FUNCTION:
             {
+                scope_entry_t* new_member = NULL;
                 if (!is_template_specialized_type(member_of_template->type_information))
                 {
-                    scope_entry_t* new_member = add_duplicate_member_to_class(context_of_being_instantiated,
+                    new_member = add_duplicate_member_to_class(context_of_being_instantiated,
                             being_instantiated,
                             member_of_template);
 
@@ -776,6 +779,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             filename, line);
 
                     class_type_add_member_function(get_actual_class_type(being_instantiated), new_member);
+
                 }
                 else
                 {
@@ -787,7 +791,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         internal_error("Code unreachable\n", 0);
                     }
 
-                    instantiate_template_type_member(template_type,
+                    new_member = instantiate_template_type_member(template_type,
                             context_of_being_instantiated,
                             member_of_template,
                             being_instantiated, 
@@ -796,6 +800,29 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             line,
                             template_map, 
                             num_items_template_map);
+                }
+
+                if (member_of_template->entity_specs.is_constructor)
+                {
+                    class_type_add_constructor(get_actual_class_type(being_instantiated), new_member);
+
+                    if (member_of_template->entity_specs.is_default_constructor)
+                    {
+                        class_type_set_default_constructor(get_actual_class_type(being_instantiated), new_member);
+                    }
+
+                    if (member_of_template->entity_specs.is_copy_constructor)
+                    {
+                        class_type_add_copy_constructor(get_actual_class_type(being_instantiated), new_member);
+                    }
+                }
+                if (member_of_template->entity_specs.is_destructor)
+                {
+                    class_type_set_destructor(get_actual_class_type(being_instantiated), new_member);
+                }
+                if (member_of_template->entity_specs.is_conversion)
+                {
+                    class_type_add_conversion_function(get_actual_class_type(being_instantiated), new_member);
                 }
 
                 break;

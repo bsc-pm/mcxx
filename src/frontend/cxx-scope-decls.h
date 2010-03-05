@@ -324,6 +324,8 @@ typedef struct entity_specifiers_tag
     // Is a constructor
     char is_constructor:1;
     char is_default_constructor:1;
+    // Is a copy constructor
+    char is_copy_constructor:1;
     // Is a conversor one
     char is_conversor_constructor:1;
 
