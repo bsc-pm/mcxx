@@ -39,7 +39,7 @@ namespace TL
         {
             private:
                 FunctionDefinition _funct_def;
-                Expression _extension_amount;
+                Expression *_extension_amount;
                 Symbol _function_symbol;
                 Source _extension_code;
                 std::string _extended_function_name;
@@ -48,10 +48,15 @@ namespace TL
             public:
                 virtual Source get_source();
 
-                FunctionExtension(FunctionDefinition funct_def, 
-                        Expression extension_amount);
+                FunctionExtension(FunctionDefinition funct_def);
 
                 FunctionExtension& set_extended_function_name(const std::string name);
+                FunctionExtension& set_extension_amount(Expression expr);
+
+                virtual ~FunctionExtension()
+                {
+                    delete _extension_amount;
+                }
         };
 
         FunctionExtension function_extension(FunctionDefinition funct_def,

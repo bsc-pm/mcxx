@@ -1,3 +1,8 @@
+/*
+<testinfo>
+test_generator=mcc.hlt.basic.dg/mercurium
+</testinfo>
+*/
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2009 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion

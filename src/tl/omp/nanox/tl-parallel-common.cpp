@@ -22,16 +22,18 @@
 --------------------------------------------------------------------*/
 
 #include "tl-parallel-common.hpp"
+#include "tl-devices.hpp"
 
 using namespace TL;
 using namespace TL::Nanox;
 
-Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
-        Source outline_name, 
-        Source struct_arg_type_name,
+Source TL::Nanox::common_parallel_code(const std::string& outline_name, 
+        const std::string& struct_arg_type_name,
         Source num_threads,
-        Scope scope,
-        const DataEnvironInfo& data_environ_info)
+        ScopeLink sl,
+        DataEnvironInfo& data_environ_info,
+        AST_t parallel_code,
+        const ObjectList<std::string>& current_targets)
 {
     Source result;
 
@@ -59,18 +61,63 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
             /* is_pointer */ immediate_is_alloca,
             fill_immediate_arguments);
 
-    Source device_descriptor,device_description;
-    // Device descriptor
-    // FIXME - Currently only SMP is supported
+    Source device_descriptor, 
+           device_description, 
+           device_description_line, 
+           num_devices,
+           ancillary_device_description;
     device_descriptor << outline_name << "_devices";
     device_description
-        << "nanos_smp_args_t " << outline_name << "_smp_args = { (void(*)(void*))" << outline_name << "};"
+        << ancillary_device_description
         << "nanos_device_t " << device_descriptor << "[] ="
         << "{"
-        // SMP
-        << "{nanos_smp_factory, nanos_smp_dd_size, &" << outline_name << "_smp_args" << "},"
+        << device_description_line
         << "};"
         ;
+
+    DeviceHandler &device_handler = DeviceHandler::get_device_handler();
+    for (ObjectList<std::string>::const_iterator it = current_targets.begin();
+            it != current_targets.end();
+            it++)
+    {
+        DeviceProvider* device_provider = device_handler.get_device(*it);
+
+        if (device_provider == NULL)
+        {
+            internal_error("invalid device '%s'\n",
+                    it->c_str());
+        }
+
+        OutlineFlags outline_flags;
+
+        outline_flags.leave_team = true;
+        outline_flags.barrier_at_end = true;
+
+        Source initial_setup, replaced_body;
+
+        device_provider->do_replacements(data_environ_info,
+                parallel_code,
+                sl,
+                initial_setup,
+                replaced_body);
+
+        device_provider->create_outline(outline_name,
+                struct_arg_type_name,
+                data_environ_info,
+                outline_flags,
+                parallel_code,
+                sl,
+                initial_setup,
+                replaced_body);
+
+        device_provider->get_device_descriptor(outline_name, 
+                data_environ_info, 
+                outline_flags,
+                ancillary_device_description, 
+                device_description_line);
+    }
+
+    num_devices << current_targets.size();
 
     Source struct_runtime_size, struct_size;
     Source immediate_decl;
@@ -87,8 +134,9 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
         immediate_decl 
             << struct_arg_type_name << " * __restrict imm_args = (" << struct_arg_type_name << "*) __builtin_alloca(" << struct_size << ");"
             ;
-
     }
+
+    Scope scope = sl.get_scope(parallel_code);
 
     if (env_is_runtime_sized)
     {
@@ -109,9 +157,13 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
             ;
     }
 
+    // FIXME - This will be meaningful with 'copy_in' and 'copy_out'
+    Source num_copies, copy_data;
+    num_copies << "0";
+    copy_data << "(nanos_copy_data_t*)0";
+
     result
         << "{"
-        // FIXME - How to get the default number of threads?
         <<   "unsigned int _nanos_num_threads = " << num_threads << ";"
         <<   "nanos_team_t _nanos_team = (nanos_team_t)0;"
         <<   "nanos_thread_t _nanos_threads[_nanos_num_threads];"
@@ -130,7 +182,7 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
         <<   "for (_i = 1; _i < _nanos_num_threads; _i++)"
         <<   "{"
         //   We have to create a wd tied to a thread
-        <<      struct_arg_type_name << " *ol_args;"
+        <<      struct_arg_type_name << " *ol_args = 0;"
         <<      "props.tie_to = _nanos_threads[_i];"
         <<      "nanos_wd_t wd = 0;"
         <<      "err = nanos_create_wd(&wd, " << num_devices << ","
@@ -138,7 +190,7 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
         <<                    struct_size << ","
         <<                    "(void**)&ol_args,"
         <<                    "nanos_current_wd(), "
-        <<                    "&props);"
+        <<                    "&props, " << num_copies << "," << copy_data << ");"
         <<      "if (err != NANOS_OK) nanos_handle_error(err);"
         <<      fill_outline_arguments
         <<      "err = nanos_submit(wd, 0, (nanos_dependence_t*)0, 0);"
@@ -152,7 +204,7 @@ Source TL::Nanox::common_parallel_spawn_code(Source num_devices,
         <<                              struct_size << ", " << (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
         <<                              "0,"
         <<                              "(nanos_dependence_t*)0, "
-        <<                              "&props);"
+        <<                              "&props, " << num_copies << "," << copy_data << ");"
         <<   "nanos_end_team(_nanos_team);"
         << "}"
         ;

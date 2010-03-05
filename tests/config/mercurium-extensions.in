@@ -1,0 +1,10 @@
+#!/bin/bash
+
+cat <<EOF
+MCXX="@abs_top_builddir@/libtool --mode=execute @abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --config-file=@abs_top_builddir@/config/config.plain --verbose"
+test_CC="\${MCXX} --profile=plaincc"
+test_CXX="\${MCXX} --profile=plaincxx"
+test_noexec=yes
+test_CFLAGS="-y"
+test_CXXFLAGS="-y"
+EOF

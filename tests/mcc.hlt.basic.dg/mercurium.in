@@ -1,0 +1,12 @@
+#!/bin/bash
+
+HLT_LIBS="-dlopen @abs_top_builddir@/src/tl/hlt/libtl-hlt.la -dlopen @abs_top_builddir@/src/tl/hlt/libtl-hlt-pragma.la"
+
+cat <<EOF
+MCXX="@abs_top_builddir@/libtool --mode=execute ${HLT_LIBS} @abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --config-file=@abs_srcdir@/config.mcxx"
+test_CC="\${MCXX} --profile=hltcc"
+test_CXX="\${MCXX} --profile=hltcxx"
+test_CFLAGS="--hlt --variable=allow_identity:false"
+test_CXXFLAGS="--hlt --variable=allow_identity:false"
+test_nolink=yes
+EOF

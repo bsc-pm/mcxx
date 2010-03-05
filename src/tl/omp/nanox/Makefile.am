@@ -21,6 +21,8 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
+SUBDIRS=. devices
+
 include ../../Makefile.phases
 
 tl_omp_flags = -Wall $(tl_cflags) -I $(srcdir)/../core
@@ -44,10 +46,11 @@ libtlomp_nanox_la_SOURCES = \
      tl-for.cpp \
      tl-data-env.hpp \
      tl-data-env.cpp \
-     tl-outline-nanox.hpp \
-     tl-outline-nanox.cpp \
      tl-threadprivate.cpp \
      tl-atomic.cpp \
      tl-barrier.cpp \
+     tl-target.cpp \
+     tl-devices.hpp \
+     tl-devices.cpp \
      $(END)
 

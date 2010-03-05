@@ -105,6 +105,25 @@ namespace TL
                 void set_symbol_dependence(Symbol);
         };
 
+        enum CopyDirection
+        {
+            COPY_DIR_INVALID = 0,
+            COPY_DIR_IN = 1,
+            COPY_DIR_OUT = 2,
+        };
+
+        class LIBTL_CLASS CopyItem : public TL::Object
+        {
+            private:
+                Expression _copy_expr;
+                CopyDirection _kind;
+            public:
+                CopyItem(Expression copy_expr, CopyDirection direction);
+
+                CopyDirection get_kind() const;
+                Expression get_copy_expression() const;
+        };
+
         class LIBTL_CLASS UDRInfoItem : public TL::Object
         {
             public:
@@ -368,6 +387,9 @@ namespace TL
 
                 ObjectList<ReductionSymbol> _reduction_symbols;
                 ObjectList<DependencyItem> _dependency_items;
+                ObjectList<CopyItem> _copy_items;
+
+                ObjectList<std::string> _device_list;
 
                 bool _is_parallel;
 
@@ -419,6 +441,12 @@ namespace TL
 
                 void add_dependence(const DependencyItem &dependency_item);
                 void get_all_dependences(ObjectList<DependencyItem>& dependency_items);
+
+                void add_copy(const CopyItem& copy_item);
+                void get_all_copies(ObjectList<CopyItem>& copy_items);
+
+                void add_device(const std::string& str);
+                void get_all_devices(ObjectList<std::string>& devices);
         };
 
         class LIBTL_CLASS Info : public Object
@@ -450,8 +478,8 @@ namespace TL
 
         //! Base class for any implementation of OpenMP in Mercurium
         /*!
-         * This class is currently used for the Nanos 4 runtime but it might be
-         * used to target other runtimes
+         * This class is currently used for the Nanos 4 and Nanox runtimes but
+         * it might be used to target other runtimes
          */
         class LIBTL_CLASS OpenMPPhase : public PragmaCustomCompilerPhase
         {

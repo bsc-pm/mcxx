@@ -363,7 +363,7 @@ namespace TL
             /*!
              * Symbol t below will have a dependent type
              * \code
-             * template <typename _T>
+             * template \<typename _T\>
              * struct A
              * {
              *   typename _T::B t;
@@ -375,7 +375,7 @@ namespace TL
             //! States whether the type is the result of a type dependent expression
             /*! Consider the following case
              *
-             *   template <typename _T>
+             *   template \<typename _T\>
              *   void f(_T t)
              *   {
              *      t + 1;
@@ -433,11 +433,11 @@ namespace TL
               A template type is the type of a template-name like A and f
               in the example below.
 
-              template <typename _T> struct A { };
-              template <typename _T> void f(_T) { }
+              template \<typename _T\> struct A { };
+              template \<typename _T\> void f(_T) { }
 
 
-              Note that 'A<int>' and 'f(3)' (which is like 'f<int>(3)')
+              Note that 'A\<int\>' and 'f(3)' (which is like 'f\<int\>(3)')
               are not template-types but template specialized types
              */
             bool is_template_type() const;

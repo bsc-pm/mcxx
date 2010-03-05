@@ -25,9 +25,9 @@
 
 using namespace TL::HLT;
 
-FunctionExtension::FunctionExtension(FunctionDefinition funct_def, Expression extension_amount)
+FunctionExtension::FunctionExtension(FunctionDefinition funct_def)
     : _funct_def(funct_def), 
-    _extension_amount(extension_amount), 
+    _extension_amount(NULL), 
     _function_symbol(_funct_def.get_function_symbol()),
     _extended_function_name("")
 {
@@ -84,15 +84,15 @@ void FunctionExtension::do_extension()
     {
         bool is_const_extension = false;
         int const_value = 0;
-        is_const_extension = _extension_amount.is_constant();
+        is_const_extension = _extension_amount != NULL && _extension_amount->is_constant();
         if (!is_const_extension)
         {
-            extended_args << _extension_amount.get_type().get_declaration(_function_symbol.get_scope(), "_N");
+            extended_args << Type::get_int_type().get_declaration(_function_symbol.get_scope(), "_N");
         }
         else
         {
             bool valid = false;
-            const_value = _extension_amount.evaluate_constant_int_expression(valid);
+            const_value = _extension_amount->evaluate_constant_int_expression(valid);
         }
 
         DeclaredEntity declared_entity = _funct_def.get_declared_entity();
@@ -179,4 +179,9 @@ FunctionExtension& FunctionExtension::set_extended_function_name(const std::stri
 {
     this->_extended_function_name = name;
     return *this;
+}
+
+FunctionExtension& FunctionExtension::set_extension_amount(Expression expr)
+{
+    _extension_amount = new Expression(expr);
 }

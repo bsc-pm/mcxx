@@ -33,3 +33,5 @@ OMP_DIRECTIVE("threadprivate", threadprivate)
 OMP_CONSTRUCT("ordered", ordered)
 
 OMP_DIRECTIVE("declare|reduction", declare_reduction)
+
+OMP_CONSTRUCT("target", target)

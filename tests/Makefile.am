@@ -21,73 +21,40 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-AUTOMAKE_OPTIONS = dejagnu
-
-SUBDIRS = config
-
-RUNTESTFLAGS=--srcdir=$(srcdir) 
+SUBDIRS = config .
 
 NULL=
 
 ADDITIONAL_TESTS=@ADDITIONAL_TESTSUITES@
 
-DEJATOOL = \
-  mcxx.parser \
-  mcc.typecalc \
-  mcxx.typecalc \
-  mcxx.torture \
-  mcxx.cxx0x \
-  mcc.extensions \
-  mcxx.extensions \
-  mcxx.gxx_type_traits \
-  mcc.hlt \
-  $(ADDITIONAL_TESTS) \
-  $(NULL)
-
-
 END=
 CLEANFILES=
-
-CONFIG_FILES_TESTS= \
-                    mcxx.instr.nanos4.dg/config.mcxx \
-                    mcxx.nanos4.dg/config.mcxx \
-                    mcc.superscalar.dg/config.mcxx \
-                    mcxx.stm.dg/config.mcxx \
-                    mcc.instr.nanos4.dg/config.mcxx \
-                    mcc.nanos4.dg/config.mcxx \
-                    mcc.hlt.basic.dg/config.mcxx \
-                    $(END)
-
-CLEANFILES += $(CONFIG_FILES_TESTS)
-BUILT_SOURCES=$(CONFIG_FILES_TESTS)
 
 # Replacements are defined in this makefile
 include ../config/Makefile.replace
 
-$(CONFIG_FILES_TESTS) : Makefile
-	$(config_edit) $(srcdir)/$@.in > $@.tmp
-	mv $@.tmp $@
+check-local: $(builddir)/config/bets
+	chmod +x config/mercurium-extensions
+	chmod +x config/mercurium-omp
+	chmod +x config/mercurium-ss
+	chmod +x config/mercurium-stm
+	chmod +x */mercurium
+	$(builddir)/config/bets -o tests.log $(srcdir)
 
 dist-hook:
-	-cp $(srcdir)/*.conf $(distdir)
-	-for i in $(srcdir)/*.dg $(srcdir)/*.files; \
+	-for i in $(srcdir)/*.dg; \
 	do  \
 	    DIR=$$(basename $$i); \
 		mkdir -p $(distdir)/$${DIR} ; \
-		cp $(srcdir)/$${DIR}/*.exp $(distdir)/$${DIR} ; \
-		[ "(" -e "$(srcdir)/$${DIR}/config.mcxx" ")" -a "(" ! -e  "$(srcdir)/$${DIR}/config.mcxx.in" ")" ] \
-               && cp $(srcdir)/$${DIR}/config.mcxx $(distdir)/$${DIR}; \
-		cp $(srcdir)/$${DIR}/config.mcxx.in $(distdir)/$${DIR} ; \
-		cp $(srcdir)/$${DIR}/*.c $(distdir)/$${DIR} ; \
-		cp $(srcdir)/$${DIR}/*.cpp $(distdir)/$${DIR} ; \
-		cp $(srcdir)/$${DIR}/*.C $(distdir)/$${DIR} ; \
-		cp $(srcdir)/$${DIR}/*.cc $(distdir)/$${DIR} ; \
+		[ -e $(srcdir)/$${DIR}/config.mcxx ] && cp $(srcdir)/$${DIR}/config.mcxx $(distdir)/$${DIR} ; \
+		[ -e $(srcdir)/$${DIR}/mercurium.in ] && cp $(srcdir)/$${DIR}/mercurium.in $(distdir)/$${DIR} ; \
+        find $(srcdir)/$${DIR} "(" -name "*.c" -o -name "*.cpp" -o -name "*.C" -o -name "*.cc" ")" -exec cp {} $(distdir)/$${DIR} ';' ; \
 	done
 
 distclean-local:
-	rm -vf lt-mcxx_success*.c
-	rm -vf lt-mcxx_failure*.c
-	rm -vf lt-mcxx_success*.cpp
-	rm -vf lt-mcxx_failure*.cpp
-	rm -vf *backtrace.txt
-	rm -vf stm_unhandled_functions*.log
+	rm -f lt-mcxx_success*.c
+	rm -f lt-mcxx_failure*.c
+	rm -f lt-mcxx_success*.cpp
+	rm -f lt-mcxx_failure*.cpp
+	rm -f *backtrace.txt
+	rm -f stm_unhandled_functions*.log

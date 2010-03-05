@@ -82,7 +82,6 @@ AC_COMPILE_IFELSE(
 dnl --------------------- end check of old gcc ---
 TL_EXTENSIONS=""
 TL_OMP_EXTENSIONS=""
-ADDITIONAL_TESTSUITES=""
 INSTALL_CONFIG_FILES="config.plain"
 
 COMPILER_NAMES="plaincxx plaincc"
@@ -153,9 +152,6 @@ then
    TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanox"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
-
-# FIXME - Missing testsuites
-# ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.nanox mcxx.nanox"
 fi
 
 AC_SUBST([NANOX_INCLUDES])
@@ -229,8 +225,6 @@ then
    TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos4"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
-
-   ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.nanos4 mcxx.nanos4"
 fi
 
 AC_SUBST([NANOS4_INCLUDES])
@@ -239,7 +233,7 @@ AC_SUBST([NANOS4_LIBS])
 dnl --------------------- End Support for OpenMP Nanos4 ---------------------
 
 dnl --------------------- Shared between Nanox and Nanos4 ------------------
-if test x$is_enabled_tl_omp_nanos4 = xyes -o x$is_enabled_tl_omp_nanox;
+if test x$is_enabled_tl_omp_nanos4 = xyes -o x$is_enabled_tl_omp_nanox = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.omp"
 fi
@@ -312,11 +306,6 @@ then
    MINTAKA_LIBS="${mintaka_lib}"
 
    INSTRUMENTATION_PHASE="compiler_phase = libtlinstr.so"
-
-   if test x$is_enabled_tl_omp_nanos4 = xyes;
-   then
-     ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.instr.nanos4 mcxx.instr.nanos4"
-   fi
 fi
 
 AC_SUBST([INSTRUMENTATION_PHASE])
@@ -396,8 +385,6 @@ then
 
    COMPILER_NAMES="${COMPILER_NAMES} stmcxx"
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.stm_nebelung"
-
-   ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcxx.stm"
 fi
 
 AC_SUBST([NEBELUNG_INCLUDES])
@@ -435,6 +422,9 @@ AC_ARG_ENABLE([tl-superscalar],
       AC_MSG_RESULT([no])
   ]
 )
+
+ENABLE_SUPERSCALAR=$is_enabled_tl_superscalar
+AC_SUBST([ENABLE_SUPERSCALAR])
 
 AC_MSG_CHECKING([which Cell/SMP superscalar runtime API version to use])
 AC_ARG_WITH([superscalar-runtime-api-version],
@@ -487,7 +477,6 @@ then
    )
  
    TL_EXTENSIONS="${TL_EXTENSIONS} superscalar"
-   ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.superscalar"
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.superscalar"
 fi
      
@@ -921,7 +910,6 @@ AC_SUBST([TL_EXTENSIONS])
 AC_SUBST([TL_OMP_EXTENSIONS])
 AC_SUBST([COMPILER_NAMES])
 AC_SUBST([INSTALL_CONFIG_FILES])
-AC_SUBST([ADDITIONAL_TESTSUITES])
 
 dnl Write makefiles
 AC_CONFIG_FILES([Makefile 
@@ -937,6 +925,8 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/fun-tasks/Makefile 
            src/tl/omp/ss2omp/Makefile 
            src/tl/omp/nanox/Makefile 
+           src/tl/omp/nanox/devices/Makefile 
+           src/tl/omp/nanox/devices/smp/Makefile 
            src/tl/omp/nanos4/Makefile 
            src/tl/instr/Makefile 
            src/tl/instr_pthreads/Makefile 
@@ -953,13 +943,13 @@ AC_CONFIG_FILES([Makefile
            config/Makefile
            tests/Makefile
            tests/config/Makefile
-           tests/mcc.nanos4.dg/config.mcxx
-           tests/mcxx.nanos4.dg/config.mcxx
-           tests/mcc.instr.nanos4.dg/config.mcxx
-           tests/mcxx.instr.nanos4.dg/config.mcxx
-           tests/mcxx.stm.dg/config.mcxx
-           tests/mcc.superscalar.dg/config.mcxx
-           tests/mcc.hlt.basic.dg/config.mcxx
+           tests/config/mercurium
+           tests/config/mercurium-extensions
+           tests/config/mercurium-omp
+           tests/config/mercurium-ss
+           tests/config/mercurium-stm
+           tests/mcxx.torture.dg/mercurium
+           tests/mcc.hlt.basic.dg/mercurium
            doc/Makefile
            doc/doxygen_tl
            scripts/Makefile

@@ -50,9 +50,9 @@ namespace TL
             public:
                 //! Constructs a LoopCollapse object
                 /*!
-                  \param for_nest Perfect loop nest
+                  \param for_stmt Perfect loop nest
                   */
-                LoopCollapse(ForStatement for_nest);
+                LoopCollapse(ForStatement for_stmt);
         };
 
         //! Constructs a LoopCollapse object

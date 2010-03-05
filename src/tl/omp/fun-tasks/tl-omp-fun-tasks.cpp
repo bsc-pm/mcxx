@@ -246,6 +246,16 @@ namespace OpenMP
                     ;
             }
 
+            ObjectList<FunctionTaskInfo::implementation_pair_t> implemented_tasks = task_info.get_devices_with_implementation();
+
+            for (ObjectList<FunctionTaskInfo::implementation_pair_t>::iterator it = implemented_tasks.begin();
+                    it != implemented_tasks.end();
+                    it++)
+            {
+                arg_clauses << " __implemented(" << it->first << ", " << it->second.get_qualified_name() << ")"
+                    ;
+            }
+
             AST_t new_stmt_tree = new_stmt_src.parse_statement(stmt.get_ast(),
                     scope_link);
 

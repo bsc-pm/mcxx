@@ -185,6 +185,7 @@ namespace TL
               Once the symbol has been created, data can be linked to it using
               Object::set_attribute and retrieved using Object::get_attribute.
 
+              \param artificial_name An arbitrary name for the symbol which should not be language accessible
               \param reuse_symbol If set to true and the symbol already exists
               in this scope, it will not be created twice.
               */
