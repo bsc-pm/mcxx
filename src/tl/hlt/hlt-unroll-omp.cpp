@@ -156,6 +156,10 @@ void LoopUnroll::omp_replication_by_task_bundling(int factor, Source& replicated
 	{
 		task_aggregation.set_bundling_amount(_omp_bundling_factor);
 	}
+    else
+    {
+		task_aggregation.set_bundling_amount(factor);
+    }
 
     replicated_body = task_aggregation;
 }
