@@ -5272,18 +5272,40 @@ char is_value_dependent_expression(AST expression, decl_context_t decl_context)
     return result;
 }
 
+static type_t* canonical_type(type_t* type)
+{
+    if (type == NULL)
+        return NULL;
+
+    while (is_typedef_type(type)
+            || is_named_type(type))
+    {
+        if (is_typedef_type(type))
+        {
+            type = advance_over_typedefs(type);
+        }
+        if (is_named_type(type))
+        {
+            type = named_type_get_symbol(type)->type_information;
+        }
+    }
+
+    return type;
+}
+
 char is_dependent_type(type_t* type)
 {
     if (type == NULL)
         return 0;
 
-    type = advance_over_typedefs(type);
+    type = canonical_type(type);
+
     return type->info->is_dependent;
 }
 
 void set_is_dependent_type(struct type_tag* t, char is_dependent)
 {
-    t = advance_over_typedefs(t);
+    t = canonical_type(t);
     t->info->is_dependent = is_dependent;
 }
 
@@ -7502,8 +7524,7 @@ char is_scalar_type(type_t* t)
 
 char is_incomplete_type(type_t* t)
 {
-    t = advance_over_typedefs(t);
-
+    t = canonical_type(t);
     return t->info->is_incomplete;
 }
 
@@ -7514,7 +7535,7 @@ char is_complete_type(type_t* t)
 
 void set_is_incomplete_type(type_t* t, char is_incomplete)
 {
-    t = advance_over_typedefs(t);
+    t = canonical_type(t);
     t->info->is_incomplete = is_incomplete;
 }
 

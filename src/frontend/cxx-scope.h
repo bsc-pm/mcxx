@@ -51,6 +51,7 @@ LIBMCXX_EXTERN struct scope_entry_tag* new_symbol(decl_context_t decl_context,
         struct scope_tag* st, const char* name);
 LIBMCXX_EXTERN void remove_entry(struct scope_tag* st, struct scope_entry_tag* entry);
 LIBMCXX_EXTERN void insert_entry(struct scope_tag* st, struct scope_entry_tag* entry);
+LIBMCXX_EXTERN void insert_alias(struct scope_tag* st, struct scope_entry_tag* entry, const char* alias_name);
 
 // Given a list of symbols, purge all those that are not of symbol_kind kind
 LIBMCXX_EXTERN struct scope_entry_list_tag* filter_symbol_kind(struct scope_entry_list_tag* entry_list, enum cxx_symbol_kind symbol_kind);

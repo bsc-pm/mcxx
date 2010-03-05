@@ -6005,6 +6005,14 @@ static void build_scope_template_template_parameter(AST a,
     }
 
     template_parameters->kind = TPK_TEMPLATE;
+
+    // Add the alias to the scope
+    char tpl_param_name[256];
+    snprintf(tpl_param_name, 255, ".tpl_%d_%d",
+            new_entry->entity_specs.template_parameter_nesting,
+            new_entry->entity_specs.template_parameter_position);
+
+    insert_alias(template_context.template_scope, new_entry, tpl_param_name);
 }
 
 static void build_scope_type_template_parameter(AST a,
@@ -6107,6 +6115,14 @@ static void build_scope_type_template_parameter(AST a,
     }
 
     template_parameters->kind = TPK_TYPE;
+
+    // Add the alias to the scope
+    char tpl_param_name[256];
+    snprintf(tpl_param_name, 255, ".tpl_%d_%d",
+            new_entry->entity_specs.template_parameter_nesting,
+            new_entry->entity_specs.template_parameter_position);
+
+    insert_alias(template_context.template_scope, new_entry, tpl_param_name);
 }
 
 static void build_scope_nontype_template_parameter(AST a,
@@ -6160,6 +6176,7 @@ static void build_scope_nontype_template_parameter(AST a,
         sprintf(template_param_name, " <nontype-template-param-%d-%d> ", template_context.template_nesting, num_parameter+1);
         entry = new_symbol(template_context, template_context.template_scope, template_param_name);
     }
+
     ASTAttrSetValueType(a, LANG_TEMPLATE_PARAMETER_SYMBOL, tl_type_t, tl_symbol(entry));
 
     // This is not a variable, but a template parameter
@@ -6194,6 +6211,14 @@ static void build_scope_nontype_template_parameter(AST a,
     }
 
     template_parameters->kind = TPK_NONTYPE;
+
+    // Add the alias to the scope
+    char tpl_param_name[256];
+    snprintf(tpl_param_name, 255, ".tpl_%d_%d",
+            entry->entity_specs.template_parameter_nesting,
+            entry->entity_specs.template_parameter_position);
+
+    insert_alias(template_context.template_scope, entry, tpl_param_name);
 }
 
 static void build_scope_namespace_alias(AST a, decl_context_t decl_context)
@@ -7211,9 +7236,9 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
         {
             // Register the typename properly
             if (ASTType(type_specifier) == AST_CLASS_SPECIFIER
-                    || ASTType(type_specifier) == AST_ELABORATED_TYPE_CLASS
+                    || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_CLASS) && (ASTSon1(a) == NULL))
                     || ASTType(type_specifier) == AST_ENUM_SPECIFIER
-                    || ASTType(type_specifier) == AST_ELABORATED_TYPE_ENUM)
+                    || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_ENUM) && (ASTSon1(a) == NULL)))
             {
                 scope_entry_t* entry = named_type_get_symbol(member_type);
                 DEBUG_CODE()

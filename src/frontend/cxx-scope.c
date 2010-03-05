@@ -381,6 +381,34 @@ decl_context_t new_template_context(decl_context_t enclosing_context)
     return result;
 }
 
+void insert_alias(scope_t* sc, scope_entry_t* entry, const char* name)
+{
+    ERROR_CONDITION(name == NULL ||
+            *name == '\0', "Insert alias called with an empty or NULL string", 0);
+
+    const char* symbol_name = uniquestr(name);
+
+    scope_entry_list_t* result_set = (scope_entry_list_t*) hash_get(sc->hash, symbol_name);
+
+    if (result_set != NULL)
+    {
+        scope_entry_list_t* new_set = (scope_entry_list_t*) counted_calloc(1, sizeof(*new_set), &_bytes_used_symbols);
+
+        // Put the new entry in front of the previous
+        *new_set = *result_set;
+
+        result_set->next = new_set;
+        result_set->entry = entry;
+    }
+    else
+    {
+        result_set = (scope_entry_list_t*) counted_calloc(1, sizeof(*result_set), &_bytes_used_symbols);
+        result_set->entry = entry;
+        result_set->next = NULL; // redundant, though
+
+        hash_put(sc->hash, symbol_name, result_set);
+    }
+}
 
 // Normally we work on decl_context.current_scope but for template parameters
 // sc != decl_context.current_scope so allow the user such freedom
@@ -388,8 +416,6 @@ scope_entry_t* new_symbol(decl_context_t decl_context, scope_t* sc, const char* 
 {
     ERROR_CONDITION(name == NULL ||
             *name == '\0', "New symbol called with an empty or NULL string", 0);
-
-    scope_entry_list_t* result_set = (scope_entry_list_t*) hash_get(sc->hash, name);
 
     scope_entry_t* result;
 
@@ -402,24 +428,7 @@ scope_entry_t* new_symbol(decl_context_t decl_context, scope_t* sc, const char* 
     result->extended_data = counted_calloc(1, sizeof(*(result->extended_data)), &_bytes_used_symbols);
     extensible_struct_init(result->extended_data, &scope_entry_extensible_schema);
 
-    if (result_set != NULL)
-    {
-        scope_entry_list_t* new_set = (scope_entry_list_t*) counted_calloc(1, sizeof(*new_set), &_bytes_used_symbols);
-
-        // Put the new entry in front of the previous
-        *new_set = *result_set;
-
-        result_set->next = new_set;
-        result_set->entry = result;
-    }
-    else
-    {
-        result_set = (scope_entry_list_t*) counted_calloc(1, sizeof(*result_set), &_bytes_used_symbols);
-        result_set->entry = result;
-        result_set->next = NULL; // redundant, though
-
-        hash_put(sc->hash, result->symbol_name, result_set);
-    }
+    insert_alias(sc, result, result->symbol_name);
 
     return result;
 }
@@ -503,6 +512,7 @@ void insert_entry(scope_t* sc, scope_entry_t* entry)
         hash_put(sc->hash, entry->symbol_name, result_set);
     }
 }
+
 
 
 void remove_entry(scope_t* sc, scope_entry_t* entry)
@@ -1975,6 +1985,12 @@ decl_context_t update_context_with_template_arguments(
         {
             case TAK_TYPE :
                 {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "Adding '%s' as a type template parameter to '%s'\n",
+                                tpl_param_name,
+                                print_declarator(current_template_argument->type));
+                    }
                     // We use a typedef
                     param_symbol->kind = SK_TYPEDEF;
                     param_symbol->entity_specs.is_template_argument = 1;
@@ -1984,6 +2000,12 @@ decl_context_t update_context_with_template_arguments(
                 }
             case TAK_TEMPLATE :
                 {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "Adding '%s' as a template template parameter to '%s'\n",
+                                tpl_param_name,
+                                named_type_get_symbol(current_template_argument->type)->symbol_name);
+                    }
                     // The template type has to be used here
                     param_symbol->kind = SK_TEMPLATE;
                     param_symbol->entity_specs.is_template_argument = 1;
@@ -1994,6 +2016,12 @@ decl_context_t update_context_with_template_arguments(
                 }
             case TAK_NONTYPE :
                 {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "Adding '%s' as a nontype template parameter to '%s'\n",
+                                tpl_param_name,
+                                prettyprint_in_buffer(current_template_argument->expression));
+                    }
                     param_symbol->kind = SK_VARIABLE;
                     param_symbol->entity_specs.is_template_argument = 1;
                     param_symbol->type_information = current_template_argument->type;
@@ -2420,7 +2448,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             return orig_type;
         }
 
-        decl_context_t inner_context = class_type_get_inner_context(class_type);
+        // decl_context_t inner_context = class_type_get_inner_context(class_type);
 
         // No other way than replicating some part of the qualified lookup
         type_t* dependent_type = NULL;
@@ -2711,6 +2739,12 @@ static void sign_in_template_name(template_argument_t* current_template_argument
     {
         case TAK_TYPE:
             {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "Adding '%s' as a type template parameter to '%s'\n",
+                            tpl_param_name,
+                            print_declarator(current_template_argument->type));
+                }
                 // Sign in template parameter
                 param_symbol->kind = SK_TYPEDEF;
                 param_symbol->entity_specs.is_template_argument = 1;
@@ -2719,6 +2753,12 @@ static void sign_in_template_name(template_argument_t* current_template_argument
             }
         case TAK_TEMPLATE:
             {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "Adding '%s' as a template template parameter to '%s'\n",
+                            tpl_param_name,
+                            named_type_get_symbol(current_template_argument->type)->symbol_name);
+                }
                 // Sign in template parameter
                 param_symbol->kind = SK_TEMPLATE;
                 param_symbol->entity_specs.is_template_argument = 1;
@@ -2729,13 +2769,19 @@ static void sign_in_template_name(template_argument_t* current_template_argument
             }
         case TAK_NONTYPE:
             {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "Adding '%s' as a nontype template parameter to '%s'\n",
+                            tpl_param_name,
+                            prettyprint_in_buffer(current_template_argument->expression));
+                }
                 // Sign in template parameter
                 param_symbol->kind = SK_VARIABLE;
                 param_symbol->entity_specs.is_template_argument = 1;
                 param_symbol->type_information = current_template_argument->type;
 
                 if (is_constant_expression(current_template_argument->expression, 
-                            updated_decl_context))
+                            current_template_argument->expression_context))
                 {
                     literal_value_t literal_value = evaluate_constant_expression(current_template_argument->expression,
                             current_template_argument->expression_context);
@@ -2864,7 +2910,7 @@ static template_argument_list_t *get_template_arguments_of_template_id(
                     template_parameters->template_parameters[num_argument]->entry->type_information,
                     updated_decl_context,
                     ASTFileName(template_id), ASTLine(template_id));
-            current_template_argument->expression_context = updated_decl_context;
+            current_template_argument->expression_context = template_arguments_context;
 
             DEBUG_CODE()
             {
@@ -2901,7 +2947,6 @@ static template_argument_list_t *get_template_arguments_of_template_id(
         }
 
         sign_in_template_name(current_template_argument, updated_decl_context);
-
     }
 
     if (num_argument < template_parameters->num_template_parameters)
