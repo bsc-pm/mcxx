@@ -3364,9 +3364,19 @@ static literal_value_t evaluate_sizeof(AST sizeof_tree, decl_context_t decl_cont
         // Ensure we have something already computed here, it might happen
         // because of 'sizeof' nature that the argument of the sizeof does not
         // have any type but sizeof itself always has 'size_t' type
-        check_for_expression(sizeof_expression, decl_context);
+        if (ASTExprType(sizeof_expression) == NULL)
+        {
+            check_for_expression(sizeof_expression, decl_context);
+        }
 
         t = ASTExprType(sizeof_expression);
+        if (is_dependent_expr_type(t))
+        {
+            // Reevaluate this expression
+            AST copied_tree = ast_copy_for_instantiation(sizeof_expression);
+            check_for_expression(copied_tree, decl_context);
+            t = ASTExprType(copied_tree);
+        }
     }
     else if (ASTType(sizeof_tree) == AST_SIZEOF_TYPEID)
     {
