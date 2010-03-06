@@ -802,6 +802,9 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             num_items_template_map);
                 }
 
+                // Functions are not defined yet
+                new_member->defined = 0;
+
                 if (member_of_template->entity_specs.is_constructor)
                 {
                     class_type_add_constructor(get_actual_class_type(being_instantiated), new_member);
