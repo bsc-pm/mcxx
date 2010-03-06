@@ -329,6 +329,9 @@ typedef struct entity_specifiers_tag
     // Is a conversor one
     char is_conversor_constructor:1;
 
+    // Is an assignment operator
+    char is_assignment_operator:1;
+
     // Is destructor
     char is_destructor:1;
 
