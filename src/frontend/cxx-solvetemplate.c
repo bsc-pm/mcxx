@@ -23,6 +23,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "cxx-utils.h"
 #include "cxx-cexpr.h"
 #include "cxx-scope.h"
@@ -358,6 +359,63 @@ type_t* determine_most_specialized_template_function(int num_feasible_templates,
     return most_specialized;
 }
 
+static type_t* extend_function_with_return_type(type_t* funct_type)
+{
+    int num_params = function_type_get_num_parameters(funct_type);
+    parameter_info_t params[num_params + 1];
+    memset(params, 0, sizeof(params));
+
+    char has_ellipsis = function_type_get_has_ellipsis(funct_type);
+
+    if (has_ellipsis)
+        num_params--;
+
+    int i;
+    for (i = 0; i < num_params; i++)
+    {
+        params[i].type_info = function_type_get_parameter_type_num(funct_type, i);
+        params[i].nonadjusted_type_info = function_type_get_nonadjusted_parameter_type_num(funct_type, i);
+    }
+
+    params[i].type_info = function_type_get_return_type(funct_type);
+    params[i].nonadjusted_type_info = function_type_get_return_type(funct_type);
+
+    if (has_ellipsis)
+    {
+        i++;
+        params[i].is_ellipsis = 1;
+
+        num_params = function_type_get_num_parameters(funct_type);
+    }
+
+    type_t* result_type = get_new_function_type(get_void_type(), params, num_params + 1);
+
+    if (is_template_specialized_type(funct_type))
+    {
+        type_t* template_type = template_specialized_type_get_related_template_type(funct_type);
+        type_t* primary_type = template_type_get_primary_type(template_type);
+
+        type_t* new_template = get_new_template_type(
+                template_type_get_template_parameters(template_type),
+                result_type, 
+                named_type_get_symbol(primary_type)->symbol_name,
+                named_type_get_symbol(primary_type)->decl_context,
+                named_type_get_symbol(primary_type)->line,
+                named_type_get_symbol(primary_type)->file);
+
+        result_type = named_type_get_symbol(template_type_get_primary_type(new_template))->type_information;
+    }
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "SOLVETEMPLATE: Type has been extended from '%s' to '%s'\n", 
+                print_declarator(funct_type),
+                print_declarator(result_type));
+    }
+
+    return result_type;
+}
+
 scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
         template_argument_list_t* explicit_template_arguments,
         type_t* function_type, decl_context_t decl_context,
@@ -369,6 +427,8 @@ scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
     type_t* feasible_templates[MAX_FEASIBLE_SPECIALIZATIONS];
     deduction_set_t *feasible_deductions[MAX_FEASIBLE_SPECIALIZATIONS];
     int num_feasible_templates = 0;
+
+    type_t* extended_function_type = extend_function_with_return_type(function_type);
 
     while (it != NULL)
     {
@@ -384,10 +444,12 @@ scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
         scope_entry_t* primary_symbol = named_type_get_symbol(primary_named_type);
         type_t* primary_type = primary_symbol->type_information;
 
+        type_t* extended_primary_type = extend_function_with_return_type(primary_type);
+
         deduction_set_t *feasible_deduction = NULL;
         if (is_less_or_equal_specialized_template_function(
-                    primary_type,
-                    function_type,
+                    extended_primary_type,
+                    extended_function_type,
                     decl_context,
                     &feasible_deduction,
                     explicit_template_arguments,
