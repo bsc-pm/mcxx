@@ -5226,7 +5226,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
              *
              * In this case we are registering an 'f' that does not have any number of parameters
              * nor any default argument info, so we have to fix and make that 'f' looks like
-             * it was normally declarated as 'int f(float)' instead of that awkward thing of 
+             * it was normally declared as 'int f(float)' instead of that awkward thing of 
              * 'T f' (with T being a function type)
              *
              */
@@ -5387,7 +5387,7 @@ static scope_entry_t* find_function_declaration(AST declarator_id, type_t* decla
             equal_entry = considered_symbol;
             DEBUG_CODE()
             {
-                fprintf(stderr, "Function declarator '%s' at '%s' matches symbol '%s' declarated at '%s:%d'\n",
+                fprintf(stderr, "Function declarator '%s' at '%s' matches symbol '%s' declared at '%s:%d'\n",
                         prettyprint_in_buffer(declarator_id), 
                         ast_location(declarator_id),
                         considered_symbol->symbol_name,
@@ -5747,7 +5747,7 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
     
     if (decl_specifier_seq != NULL)
     {
-        // If a class specifier appears here it will be properly declarated in the scope (not within
+        // If a class specifier appears here it will be properly declared in the scope (not within
         // in the template one)
         decl_context_t new_decl_context = decl_context;
         if (init_declarator_list == NULL)

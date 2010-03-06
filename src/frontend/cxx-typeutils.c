@@ -3310,23 +3310,20 @@ static type_t* advance_dependent_typename(type_t* t)
             ERROR_CONDITION(result_list->next != NULL,
                     "Invalid result when solving a dependent typename", 0);
 
-            if (result_list->entry->kind == SK_TYPEDEF)
+            // Add the qualifications found so far
+            cv_qualifier_t cv_qualif_2 = CV_NONE;
+            advance_over_typedefs_with_cv_qualif(result_list->entry->type_information, &cv_qualif_2);
+            cv_qualif_2 |= cv_qualif;
+
+            type_t* result = get_cv_qualified_type(get_user_defined_type(result_list->entry), cv_qualif_2);
+
+            if (is_dependent_typename_type(result))
             {
-                // Add the qualifications found so far
-                cv_qualifier_t cv_qualif_2 = CV_NONE;
-                advance_over_typedefs_with_cv_qualif(result_list->entry->type_information, &cv_qualif_2);
-                cv_qualif_2 |= cv_qualif;
-
-                type_t* result = get_cv_qualified_type(get_user_defined_type(result_list->entry), cv_qualif_2);
-
-                if (is_dependent_typename_type(result))
-                {
-                    return advance_dependent_typename(result);
-                }
-                else
-                {
-                    return result;
-                }
+                return advance_dependent_typename(result);
+            }
+            else
+            {
+                return result;
             }
         }
     }
