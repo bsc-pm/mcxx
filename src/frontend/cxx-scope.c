@@ -2110,7 +2110,8 @@ static type_t* update_type_aux_(type_t* orig_type,
             }
 
             if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
-                    && argument->kind == SK_TYPEDEF)
+                    && (argument->kind == SK_TYPEDEF
+                        || argument->kind == SK_TEMPLATE_TYPE_PARAMETER))
             {
                 // Sum the qualification
                 //
@@ -2121,12 +2122,19 @@ static type_t* update_type_aux_(type_t* orig_type,
                 //
                 // "A<const int>" -> "A<const int, const volatile int>"
                 cv_qualifier_t cv_qualif = get_cv_qualifier(orig_type);
-                cv_qualif |= get_cv_qualifier(argument->type_information);
-
-                return get_cv_qualified_type(argument->type_information, cv_qualif);
+                if (argument->kind != SK_TEMPLATE_TYPE_PARAMETER)
+                {
+                    cv_qualif |= get_cv_qualifier(argument->type_information);
+                    return get_cv_qualified_type(argument->type_information, cv_qualif);
+                }
+                else
+                {
+                    return get_cv_qualified_type(get_user_defined_type(argument), cv_qualif);
+                }
             }
             else if (entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
-                    && argument->kind == SK_TEMPLATE)
+                    && (argument->kind == SK_TEMPLATE
+                        || argument->kind == SK_TEMPLATE_TEMPLATE_PARAMETER))
             {
                 return argument->type_information;
             }
