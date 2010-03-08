@@ -299,9 +299,7 @@ struct simple_type_tag {
 
     // Template dependent types (STK_TEMPLATE_DEPENDENT_TYPE)
     scope_entry_t* dependent_entry;
-    AST dependent_nested_name;
-    AST dependent_unqualified_part;
-
+    dependent_name_part_t* dependent_parts;
 } simple_type_t;
 
 
@@ -969,6 +967,64 @@ type_t* get_user_defined_type(scope_entry_t* entry)
     return type_info;
 }
 
+static dependent_name_part_t* get_dependent_nested_part(
+        decl_context_t decl_context,
+        AST nested_part)
+{
+    ERROR_CONDITION(nested_part != NULL, "This tree cannot be NULL", 0);
+
+    dependent_name_part_t* result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
+
+    if (ASTType(nested_part) == AST_SYMBOL)
+    {
+        result->name = ASTText(nested_part);
+    }
+    else if (ASTType(nested_part) == AST_TEMPLATE_ID)
+    {
+        AST sym = ASTSon0(nested_part);
+
+        result->name = ASTText(sym);
+
+        result->template_arguments = get_template_arguments_from_syntax(
+                ASTSon1(nested_part),
+                decl_context,
+                /* nesting level (?) */ 0);
+    }
+    else
+    {
+        internal_error("Invalid tree of kind '%s'\n", ast_print_node_type(ASTType(nested_part)));
+    }
+
+    return result;
+}
+
+static dependent_name_part_t* compute_dependent_parts(
+        decl_context_t decl_context,
+        AST nested_name,
+        AST unqualified_part)
+{
+    if (nested_name == NULL)
+    {
+        return get_dependent_nested_part(decl_context, unqualified_part);
+    }
+    else
+    {
+        AST next_part = ASTSon1(nested_name);
+
+        dependent_name_part_t* next = compute_dependent_parts(
+                decl_context,
+                next_part,
+                unqualified_part);
+
+        dependent_name_part_t* current = get_dependent_nested_part(
+                decl_context, ASTSon0(nested_name));
+
+        current->next = next;
+
+        return current;
+    }
+}
+
 type_t* get_dependent_typename_type(scope_entry_t* dependent_entity, 
         decl_context_t decl_context,
         AST nested_name, 
@@ -978,9 +1034,15 @@ type_t* get_dependent_typename_type(scope_entry_t* dependent_entity,
 
     type_info->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
     type_info->type->dependent_entry = dependent_entity;
-    type_info->type->typeof_decl_context = decl_context;
-    type_info->type->dependent_nested_name = nested_name;
-    type_info->type->dependent_unqualified_part = unqualified_part;
+
+    type_info->type->dependent_parts = compute_dependent_parts(
+            decl_context,
+            nested_name,
+            unqualified_part);
+
+    // type_info->type->typeof_decl_context = decl_context;
+    // type_info->type->dependent_nested_name = nested_name;
+    // type_info->type->dependent_unqualified_part = unqualified_part;
 
     // This is always dependent
     type_info->info->is_dependent = 1;
@@ -988,19 +1050,21 @@ type_t* get_dependent_typename_type(scope_entry_t* dependent_entity,
     return type_info;
 }
 
-void dependent_typename_get_components(type_t* t, scope_entry_t** dependent_entry, 
-        decl_context_t* decl_context,
-        AST *nested_name, AST *unqualified_part)
+void dependent_typename_get_components(type_t* t, 
+        scope_entry_t** dependent_entry UNUSED_PARAMETER, 
+        decl_context_t* decl_context UNUSED_PARAMETER,
+        AST *nested_name UNUSED_PARAMETER, 
+        AST *unqualified_part UNUSED_PARAMETER)
 {
     ERROR_CONDITION(!is_dependent_typename_type(t), "This is not a dependent typename", 0);
     t = advance_over_typedefs(t);
 
     t = advance_over_typedefs(t);
 
-    *dependent_entry = t->type->dependent_entry;
-    *decl_context = t->type->typeof_decl_context;
-    *nested_name = t->type->dependent_nested_name;
-    *unqualified_part = t->type->dependent_unqualified_part;
+    // *dependent_entry = t->type->dependent_entry;
+    // *decl_context = t->type->typeof_decl_context;
+    // *nested_name = t->type->dependent_nested_name;
+    // *unqualified_part = t->type->dependent_unqualified_part;
 }
 
 type_t* get_new_enum_type(decl_context_t decl_context)
@@ -6093,11 +6157,56 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
     return result;
 }
 
+// Prints the template arguments, this routine is for debugging
+static const char* get_template_arguments_list_str(template_argument_list_t* template_arguments)
+{
+    const char* result = NULL;
+    result = strappend(result, "<");
+    int i;
+    for (i = 0; i < template_arguments->num_arguments; i++)
+    {
+        template_argument_t* template_argument = 
+            template_arguments->argument_list[i];
+
+        switch (template_argument->kind)
+        {
+            case TAK_TYPE:
+            case TAK_TEMPLATE:
+                {
+                    result = strappend(result, 
+                            print_declarator(template_argument->type));
+                    break;
+                }
+            case TAK_NONTYPE:
+                {
+                    result = strappend(result, 
+                            prettyprint_in_buffer(template_argument->expression));
+                    break;
+                }
+            default:
+                {
+                    result = strappend(result,
+                            " << unknown template argument >> ");
+                    break;
+                }
+        }
+        if ((i + 1) < template_arguments->num_arguments)
+        {
+            result = strappend(result, ", ");
+        }
+    }
+    result = strappend(result, "> ");
+
+    return result;
+}
+
 const char* get_named_type_name(scope_entry_t* entry)
 {
     ERROR_CONDITION(entry == NULL, "This cannot be null", 0);
     return get_named_simple_type_name(entry);
 }
+
+
 
 // Gives the name of a builtin type. This routine is for debugging
 static const char* get_builtin_type_name(type_t* type_info)
@@ -6184,45 +6293,12 @@ static const char* get_builtin_type_name(type_t* type_info)
             {
                 const char *template_arguments = "";
                 {
-                    int i;
                     type_t* actual_class = type_info;
                     if (actual_class->info->is_template_specialized_type
                             && actual_class->template_arguments != NULL)
                     {
-                        template_arguments = strappend(template_arguments, "<");
-                        for (i = 0; i < actual_class->template_arguments->num_arguments; i++)
-                        {
-                            template_argument_t* template_argument = 
-                                actual_class->template_arguments->argument_list[i];
-
-                            switch (template_argument->kind)
-                            {
-                                case TAK_TYPE:
-                                case TAK_TEMPLATE:
-                                    {
-                                        template_arguments = strappend(template_arguments, 
-                                                print_declarator(template_argument->type));
-                                        break;
-                                    }
-                                case TAK_NONTYPE:
-                                    {
-                                        template_arguments = strappend(template_arguments, 
-                                                prettyprint_in_buffer(template_argument->expression));
-                                        break;
-                                    }
-                                default:
-                                    {
-                                        template_arguments = strappend(template_arguments,
-                                                " << unknown template argument >> ");
-                                        break;
-                                    }
-                            }
-                            if ((i + 1) < actual_class->template_arguments->num_arguments)
-                            {
-                                template_arguments = strappend(template_arguments, ", ");
-                            }
-                        }
-                        template_arguments = strappend(template_arguments, "> ");
+                        template_arguments = get_template_arguments_list_str(
+                                actual_class->template_arguments);
                     }
                 }
 
@@ -6241,12 +6317,32 @@ static const char* get_builtin_type_name(type_t* type_info)
             break;
         case STK_TEMPLATE_DEPENDENT_TYPE :
             {
-                char c[256] = { 0 };
-                snprintf(c, 255, "<template dependent type [%s]::%s%s>", 
-                        get_named_simple_type_name(simple_type_info->dependent_entry),
-                        prettyprint_in_buffer(simple_type_info->dependent_nested_name),
-                        prettyprint_in_buffer(simple_type_info->dependent_unqualified_part));
-                result = strappend(result, c);
+                // snprintf(c, 255, "<template dependent type [%s]::%s%s>", 
+                //         get_named_simple_type_name(simple_type_info->dependent_entry),
+                //         prettyprint_in_buffer(simple_type_info->dependent_nested_name),
+                //         prettyprint_in_buffer(simple_type_info->dependent_unqualified_part));
+
+                result = strappend(result, "<template dependent type: [");
+                result = strappend(result, 
+                        get_named_simple_type_name(simple_type_info->dependent_entry));
+                result = strappend(result, "]");
+
+                dependent_name_part_t* parts = simple_type_info->dependent_parts;
+                while (parts != NULL)
+                {
+                    result = strappend(result, "::");
+                    result = strappend(result, parts->name);
+
+                    if (parts->template_arguments != NULL)
+                    {
+                        result = strappend(result, 
+                                get_template_arguments_list_str(parts->template_arguments));
+                    }
+
+                    parts = parts->next;
+                }
+
+                result = strappend(result, ">");
             }
             break;
         case STK_TEMPLATE_TYPE :
