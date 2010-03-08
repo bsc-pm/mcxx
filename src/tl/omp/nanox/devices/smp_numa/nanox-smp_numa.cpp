@@ -6,7 +6,7 @@ using namespace TL::Nanox;
 
 static std::string smp_outline_name(const std::string &task_name)
 {
-    return "_smp_" + task_name;
+    return "_smp_numa_" + task_name;
 }
 
 static Type compute_replacement_type_for_vla(Type type, 
@@ -279,11 +279,11 @@ void DeviceSMP_NUMA::get_device_descriptor(const std::string& task_name,
 
     ancillary_device_description
         << comment("SMP device descriptor")
-        << "nanos_smp_args_t " << task_name << "_smp_args = { (void(*)(void*))" << outline_name << "};"
+        << "nanos_smp_args_t " << task_name << "_smp_numa_args = { (void(*)(void*))" << outline_name << "};"
         ;
 
     device_descriptor
-        << "{ nanos_smp_factory, nanos_smp_dd_size, &" << task_name << "_smp_args },"
+        << "{ nanos_smp_factory, nanos_smp_dd_size, &" << task_name << "_smp_numa_args },"
         ;
 }
 

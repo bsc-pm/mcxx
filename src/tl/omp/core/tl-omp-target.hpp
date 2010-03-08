@@ -40,6 +40,11 @@ namespace TL
 
             bool has_implements;
             Symbol implements;
+
+            TargetContext()
+                : device_list(), copy_in(), copy_out(), has_implements(), implements() 
+            {
+            }
         };
     }
 }
