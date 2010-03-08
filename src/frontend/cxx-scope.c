@@ -65,16 +65,30 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context, const char* 
 // Solve a template given a template-id, a list of found names for the template-id and the declaration context
 
 // Looks up the qualification scope for a nested-name-spec
-static decl_context_t lookup_qualification_scope(decl_context_t decl_context, 
+static decl_context_t lookup_qualification_scope(
+        decl_context_t original_context,
+        decl_context_t decl_context, 
         AST nested_name, 
         AST unqualifed_part, 
         type_t** dependent_type,
         char *is_valid);
 
-static decl_context_t lookup_qualification_scope_in_namespace(decl_context_t nested_name_context, scope_entry_t* namespace, 
-        AST nested_name_spec, AST unqualified_part, type_t **is_dependent, char *is_valid);
-static decl_context_t lookup_qualification_scope_in_class(decl_context_t nested_name_context, scope_entry_t* class_name, 
-        AST nested_name_spec, AST unqualified_part, type_t **is_dependent, char *is_valid);
+static decl_context_t lookup_qualification_scope_in_namespace(
+        decl_context_t original_context,
+        decl_context_t nested_name_context, 
+        scope_entry_t* namespace, 
+        AST nested_name_spec, 
+        AST unqualified_part, 
+        type_t **is_dependent, 
+        char *is_valid);
+static decl_context_t lookup_qualification_scope_in_class(
+        decl_context_t original_context,
+        decl_context_t nested_name_context, 
+        scope_entry_t* class_name, 
+        AST nested_name_spec, 
+        AST unqualified_part, 
+        type_t **is_dependent, 
+        char *is_valid);
 
 static scope_entry_list_t* query_template_id(AST template_id, 
         decl_context_t template_name_context,
@@ -869,7 +883,8 @@ static scope_entry_list_t* query_unqualified_name(decl_context_t decl_context,
 }
 
 
-static scope_entry_list_t* query_qualified_name(decl_context_t nested_name_context,
+static scope_entry_list_t* query_qualified_name(
+        decl_context_t nested_name_context,
         AST global_op,
         AST nested_name,
         AST unqualified_name)
@@ -936,8 +951,13 @@ static scope_entry_list_t* query_qualified_name(decl_context_t nested_name_conte
 
     if (nested_name != NULL)
     {
-        qualified_context = lookup_qualification_scope(nested_part_context, nested_name, unqualified_name, 
-                &dependent_type, &qualified_context_valid);
+        qualified_context = lookup_qualification_scope(
+                nested_name_context,
+                nested_part_context, 
+                nested_name, 
+                unqualified_name, 
+                &dependent_type, 
+                &qualified_context_valid);
     }
 
     if (!qualified_context_valid)
@@ -994,8 +1014,13 @@ static enum cxx_symbol_kind classes_or_namespaces_filter[] = {
 
 static int classes_or_namespaces_filter_num_elements = STATIC_ARRAY_LENGTH(classes_or_namespaces_filter);
 
-static decl_context_t lookup_qualification_scope(decl_context_t nested_name_context, 
-        AST nested_name_spec, AST unqualified_part, type_t** dependent_type, char *is_valid)
+static decl_context_t lookup_qualification_scope(
+        decl_context_t original_context, 
+        decl_context_t nested_name_context, 
+        AST nested_name_spec, 
+        AST unqualified_part, 
+        type_t** dependent_type, 
+        char *is_valid)
 {
     /*
      * A nested-name-spec is of the form
@@ -1101,8 +1126,14 @@ static decl_context_t lookup_qualification_scope(decl_context_t nested_name_cont
             fprintf(stderr, "SCOPE: Component '%s' found to be a namespace\n", prettyprint_in_buffer(first_qualification));
         }
         // If it is a namespace work on the namespace
-        result = lookup_qualification_scope_in_namespace(nested_name_context, starting_symbol, 
-                next_nested_name_spec, unqualified_part, dependent_type, is_valid);
+        result = lookup_qualification_scope_in_namespace(
+                original_context, 
+                nested_name_context, 
+                starting_symbol, 
+                next_nested_name_spec, 
+                unqualified_part, 
+                dependent_type, 
+                is_valid);
     }
     else
     {
@@ -1111,16 +1142,28 @@ static decl_context_t lookup_qualification_scope(decl_context_t nested_name_cont
             fprintf(stderr, "SCOPE: Component '%s' found to be a class-name\n", prettyprint_in_buffer(first_qualification));
         }
         // Otherwise deal with classes
-        result = lookup_qualification_scope_in_class(nested_name_context, starting_symbol, 
-                next_nested_name_spec, unqualified_part, dependent_type, is_valid);
+        result = lookup_qualification_scope_in_class(
+                original_context, 
+                nested_name_context, 
+                starting_symbol, 
+                next_nested_name_spec, 
+                unqualified_part, 
+                dependent_type, 
+                is_valid);
     }
 
     return result;
 }
 
 // Lookup qualification within namespaces
-static decl_context_t lookup_qualification_scope_in_namespace(decl_context_t nested_name_context, scope_entry_t* namespace, 
-        AST nested_name_spec, AST unqualified_part, type_t** dependent_type, char *is_valid)
+static decl_context_t lookup_qualification_scope_in_namespace(
+        decl_context_t original_context,
+        decl_context_t nested_name_context, 
+        scope_entry_t* namespace, 
+        AST nested_name_spec, 
+        AST unqualified_part, 
+        type_t** dependent_type, 
+        char *is_valid)
 {
     // Lookup the name in the related scope of this namespace
     decl_context_t namespace_context = namespace->namespace_decl_context;
@@ -1189,8 +1232,14 @@ static decl_context_t lookup_qualification_scope_in_namespace(decl_context_t nes
         {
             fprintf(stderr, "SCOPE: Component '%s' found to be a namespace\n", prettyprint_in_buffer(current_name));
         }
-        return lookup_qualification_scope_in_namespace(nested_name_context, symbol, 
-                next_nested_name_spec, unqualified_part, dependent_type, is_valid);
+        return lookup_qualification_scope_in_namespace(
+                original_context,
+                nested_name_context, 
+                symbol, 
+                next_nested_name_spec, 
+                unqualified_part, 
+                dependent_type, 
+                is_valid);
     }
     else
     {
@@ -1198,13 +1247,25 @@ static decl_context_t lookup_qualification_scope_in_namespace(decl_context_t nes
         {
             fprintf(stderr, "SCOPE: Component '%s' found to be a class-name\n", prettyprint_in_buffer(current_name));
         }
-        return lookup_qualification_scope_in_class(nested_name_context, symbol, 
-                next_nested_name_spec, unqualified_part, dependent_type, is_valid);
+        return lookup_qualification_scope_in_class(
+                original_context,
+                nested_name_context, 
+                symbol, 
+                next_nested_name_spec, 
+                unqualified_part, 
+                dependent_type, 
+                is_valid);
     }
 }
 
-static decl_context_t lookup_qualification_scope_in_class(decl_context_t nested_name_context, scope_entry_t* class_name, 
-        AST nested_name_spec, AST unqualified_part, type_t** dependent_type, char *is_valid)
+static decl_context_t lookup_qualification_scope_in_class(
+        decl_context_t original_context,
+        decl_context_t nested_name_context, 
+        scope_entry_t* class_name, 
+        AST nested_name_spec, 
+        AST unqualified_part, 
+        type_t** dependent_type, 
+        char *is_valid)
 {
     ERROR_CONDITION(class_name == NULL, "The class name cannot be null", 0);
 
@@ -1404,7 +1465,9 @@ static decl_context_t lookup_qualification_scope_in_class(decl_context_t nested_
         fprintf(stderr, "SCOPE: Component '%s' found to be a class-name\n", prettyprint_in_buffer(current_name));
     }
 
-    return lookup_qualification_scope_in_class(class_context, 
+    return lookup_qualification_scope_in_class(
+            original_context,
+            class_context, 
             symbol, 
             next_nested_name_spec, 
             unqualified_part, 
@@ -2461,8 +2524,13 @@ static type_t* update_type_aux_(type_t* orig_type,
         // No other way than replicating some part of the qualified lookup
         type_t* dependent_type = NULL;
         char is_valid = 1;
-        decl_context_t lookup_context = lookup_qualification_scope_in_class(decl_context,
-                named_type_get_symbol(fixed_type), nested_name, unqualified_part, &dependent_type, &is_valid);
+        decl_context_t lookup_context = lookup_qualification_scope_in_class(
+                decl_context,
+                decl_context,
+                named_type_get_symbol(fixed_type), 
+                nested_name, 
+                unqualified_part, 
+                &dependent_type, &is_valid);
 
         if (!is_valid)
         {
