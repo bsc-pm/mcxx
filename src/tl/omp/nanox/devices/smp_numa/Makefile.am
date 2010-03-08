@@ -21,4 +21,21 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS=smp smp_numa
+
+include ../../../../Makefile.phases
+
+END=
+
+phases_LTLIBRARIES=libtlnanox-smp_numa.la
+
+device_flags=$(tl_cflags) -I$(srcdir)/../.. -I$(srcdir)/../../../core
+
+libtlnanox_smp_numa_la_CFLAGS = $(device_flags)
+libtlnanox_smp_numa_la_CXXFLAGS = $(device_flags)
+
+libtlnanox_smp_numa_la_LDFLAGS = $(tl_ldflags)
+
+libtlnanox_smp_numa_la_SOURCES = \
+       nanox-smp_numa.hpp \
+       nanox-smp_numa.cpp \
+       $(END)
