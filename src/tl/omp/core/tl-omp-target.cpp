@@ -82,6 +82,12 @@ namespace TL
                 target_ctx.copy_out = copy_out.get_arguments(ExpressionTokenizer());
             }
 
+            PragmaCustomClause copy_inout = ctr.get_clause("copy_inout");
+            if (copy_inout.is_defined())
+            {
+                target_ctx.copy_inout = copy_inout.get_arguments(ExpressionTokenizer());
+            }
+
             PragmaCustomClause implements = ctr.get_clause("implements");
             if (implements.is_defined())
             {
@@ -244,6 +250,9 @@ namespace TL
             add_copy_items(construct, data_sharing,
                     target_ctx.copy_out,
                     COPY_DIR_OUT);
+            add_copy_items(construct, data_sharing,
+                    target_ctx.copy_inout,
+                    COPY_DIR_INOUT);
 
             for (ObjectList<std::string>::iterator it = target_ctx.device_list.begin();
                     it != target_ctx.device_list.end();

@@ -108,8 +108,9 @@ namespace TL
         enum CopyDirection
         {
             COPY_DIR_INVALID = 0,
-            COPY_DIR_IN = 1,
-            COPY_DIR_OUT = 2,
+            COPY_DIR_IN = 1 << 1,
+            COPY_DIR_OUT = 1 << 2,
+            COPY_DIR_INOUT = COPY_DIR_IN | COPY_DIR_OUT,
         };
 
         class LIBTL_CLASS CopyItem : public TL::Object

@@ -37,6 +37,7 @@ namespace TL
 
             ObjectList<std::string> copy_in;
             ObjectList<std::string> copy_out;
+            ObjectList<std::string> copy_inout;
 
             bool has_implements;
             Symbol implements;
