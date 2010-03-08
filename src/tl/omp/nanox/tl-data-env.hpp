@@ -168,6 +168,7 @@ namespace TL
                 ObjectList<DataEnvironItem> _data_env_items;
                 ObjectList<Expression> _copy_in_items;
                 ObjectList<Expression> _copy_out_items;
+                ObjectList<Expression> _copy_inout_items;
 
                 static bool data_env_item_has_sym(const DataEnvironItem &item)
                 {
@@ -288,6 +289,11 @@ namespace TL
                     _copy_in_items.append(expr);
                 }
 
+                void add_copy_inout_item(Expression expr)
+                {
+                    _copy_inout_items.append(expr);
+                }
+
                 void add_copy_out_item(Expression expr)
                 {
                     _copy_out_items.append(expr);
@@ -301,6 +307,11 @@ namespace TL
                 ObjectList<Expression> get_copy_out_items()
                 {
                     return _copy_out_items;
+                }
+
+                ObjectList<Expression> get_copy_inout_items()
+                {
+                    return _copy_inout_items;
                 }
         };
 

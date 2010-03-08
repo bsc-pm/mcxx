@@ -369,10 +369,60 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             ;
     }
 
-    // FIXME - This will be meaningful with 'copy_in' and 'copy_out'
     Source num_copies, copy_data;
-    num_copies << "0";
-    copy_data << "(nanos_copy_data_t*)0";
+
+    ObjectList<OpenMP::CopyItem> copy_items;
+    data_sharing.get_all_copies(copy_items);
+
+    Source copy_setup;
+
+    if (copy_items.empty())
+    {
+        copy_data << "(nanos_copy_data_t*)0";
+        num_copies << "0";
+    }
+    else
+    {
+        num_copies << copy_items.size();
+
+        Source copy_items_src;
+        copy_setup
+            << "nanos_copy_data_t copy_data[] = {"
+            << copy_items_src
+            << "};"
+            ;
+        copy_data << "copy_data";
+
+        for (ObjectList<OpenMP::CopyItem>::iterator it = copy_items.begin();
+                it != copy_items.end();
+                it++)
+        {
+            Source copy_direction;
+
+            if (it->get_kind() == OpenMP::COPY_DIR_IN)
+            {
+                copy_direction << "{1, 0}";
+            }
+            else if (it->get_kind() == OpenMP::COPY_DIR_OUT)
+            {
+                copy_direction << "{0, 1}";
+            }
+            else if (it->get_kind() == OpenMP::COPY_DIR_INOUT)
+            {
+                copy_direction << "{1, 1}";
+            }
+
+            copy_items_src
+                << "{" 
+                <<    "&(" << it->get_copy_expression() << "),"
+                <<    "NX_SHARED," // FIXME
+                <<    copy_direction << ","
+                <<    "sizeof(" << it->get_copy_expression() << ")"
+                << "},"
+                ;
+        }
+    }
+
 
     spawn_code
         << "{"
@@ -384,6 +434,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<     "nanos_wd_props_t props = { 0 };"
         <<     priority
         <<     tiedness
+        <<     copy_setup
         <<     "nanos_err_t err;"
         <<     if_expr_cond_start
         <<     "err = nanos_create_wd(&wd, " << num_devices << "," << device_descriptor << ","

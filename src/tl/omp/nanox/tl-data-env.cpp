@@ -392,6 +392,10 @@ namespace TL
             {
                 data_env_info.add_copy_out_item(it->get_copy_expression());
             }
+            else if (it->get_kind() == OpenMP::COPY_DIR_INOUT)
+            {
+                data_env_info.add_copy_inout_item(it->get_copy_expression());
+            }
             else
             {
                 internal_error("Invalid copy kind", 0);
