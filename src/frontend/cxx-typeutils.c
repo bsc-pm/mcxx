@@ -1051,20 +1051,14 @@ type_t* get_dependent_typename_type(scope_entry_t* dependent_entity,
 }
 
 void dependent_typename_get_components(type_t* t, 
-        scope_entry_t** dependent_entry UNUSED_PARAMETER, 
-        decl_context_t* decl_context UNUSED_PARAMETER,
-        AST *nested_name UNUSED_PARAMETER, 
-        AST *unqualified_part UNUSED_PARAMETER)
+        scope_entry_t** dependent_entry, 
+        dependent_name_part_t** dependent_parts)
 {
     ERROR_CONDITION(!is_dependent_typename_type(t), "This is not a dependent typename", 0);
     t = advance_over_typedefs(t);
 
-    t = advance_over_typedefs(t);
-
-    // *dependent_entry = t->type->dependent_entry;
-    // *decl_context = t->type->typeof_decl_context;
-    // *nested_name = t->type->dependent_nested_name;
-    // *unqualified_part = t->type->dependent_unqualified_part;
+    *dependent_entry = t->type->dependent_entry;
+    *dependent_parts = t->type->dependent_parts;
 }
 
 type_t* get_new_enum_type(decl_context_t decl_context)
@@ -3349,13 +3343,12 @@ static type_t* advance_dependent_typename(type_t* t)
 
     cv_qualifier_t cv_qualif = t->cv_qualifier;
 
-    decl_context_t dependent_decl_context;
     scope_entry_t* dependent_entry = NULL;
-    AST nested_name = NULL;
-    AST unqualified_part = NULL;
+    dependent_name_part_t* dependent_parts;
 
-    dependent_typename_get_components(t, &dependent_entry, 
-            &dependent_decl_context, &nested_name, &unqualified_part);
+    dependent_typename_get_components(t, 
+            &dependent_entry, 
+            &dependent_parts);
 
     if (dependent_entry->kind == SK_TEMPLATE_TYPE_PARAMETER)
         return t;
@@ -3366,8 +3359,9 @@ static type_t* advance_dependent_typename(type_t* t)
 
         decl_context_t inner_context = class_type_get_inner_context(class_type);
 
-        scope_entry_list_t* result_list = query_nested_name(inner_context, 
-                NULL, nested_name, unqualified_part);
+        scope_entry_list_t* result_list = NULL;
+        // scope_entry_list_t* result_list = query_nested_name(inner_context, 
+        //         NULL, nested_name, unqualified_part);
 
         if (result_list != NULL)
         {
@@ -4051,6 +4045,8 @@ char syntactic_comparison_of_nested_names(
 
 static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2)
 {
+    return 0;
+#if 0
     DEBUG_CODE()
     {
         fprintf(stderr , "Comparing template dependent typenames '%s' and '%s'\n",
@@ -4114,6 +4110,7 @@ static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2
     }
 
     return 1;
+#endif
 }
 
 char is_builtin_type(type_t* t)
