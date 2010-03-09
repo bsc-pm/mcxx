@@ -38,119 +38,80 @@ static Type compute_replacement_type_for_vla(Type type,
     return new_type;
 }
 
-static void do_smp_outline_replacements(AST_t body,
+static void do_smp_numa_outline_replacements(
+        AST_t body,
         ScopeLink scope_link,
         const DataEnvironInfo& data_env_info,
         Source &initial_code,
         Source &replaced_outline)
 {
+    Source copy_setup;
+    Scope sc = scope_link.get_scope(body);
+
+    typedef ObjectList<CopyData> (DataEnvironInfo::* fun_t)() const;
+    struct {
+        fun_t fun;
+    } copy_data_aux[] = {
+        &DataEnvironInfo::get_copy_in_items,
+        &DataEnvironInfo::get_copy_out_items,
+        &DataEnvironInfo::get_copy_inout_items,
+        NULL,
+    };
+
     ReplaceSrcIdExpression replace_src(scope_link);
-    ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
 
-    // First set up all replacements and needed castings
-    for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
-            it != data_env_items.end();
-            it++)
+    for (int i = 0; copy_data_aux[i].fun != NULL; i++)
     {
-        DataEnvironItem& data_env_item(*it);
+        fun_t p = copy_data_aux[i].fun;
+        ObjectList<CopyData> copies = (data_env_info.*p)();
 
-        if (data_env_item.is_private())
-            continue;
+        bool err_declared = false;
 
-        Symbol sym = data_env_item.get_symbol();
-        Type type = sym.get_type();
-        const std::string field_name = data_env_item.get_field_name();
-
-        if (data_env_item.is_vla_type())
+        for (ObjectList<CopyData>::iterator it = copies.begin();
+                it != copies.end();
+                it++)
         {
-            // These do not require replacement because we define a
-            // local variable for them
+            Symbol sym = it->get_symbol();
+            Type type = sym.get_type();
 
-            ObjectList<Source> vla_dims = data_env_item.get_vla_dimensions();
-
-            ObjectList<Source> arg_vla_dims;
-            for (ObjectList<Source>::iterator it = vla_dims.begin();
-                    it != vla_dims.end();
-                    it++)
+            if (type.is_array())
             {
-                Source new_dim;
-                new_dim << "_args->" << *it;
-
-                arg_vla_dims.append(new_dim);
-            }
-
-            // Now compute a replacement type which we will use to declare the proper type
-            Type repl_type = 
-                compute_replacement_type_for_vla(data_env_item.get_symbol().get_type(),
-                        arg_vla_dims.begin(), arg_vla_dims.end());
-
-            // Adjust the type if it is an array
-
-            if (repl_type.is_array())
-            {
-                repl_type = repl_type.array_element().get_pointer_to();
-            }
-
-            initial_code
-                << repl_type.get_declaration(sym.get_scope(), sym.get_name())
-                << "="
-                << "(" << repl_type.get_declaration(sym.get_scope(), "") << ")"
-                << "("
-                << "_args->" << field_name
-                << ");"
-                ;
-        }
-        else
-        {
-            if (!data_env_item.is_copy())
-            {
-                if (type.is_array())
-                {
-                    // Just replace a[i] by (_args->a), no need to derreferentiate
-                    replace_src.add_replacement(sym, "(_args->" + field_name + ")");
-                }
-                else
-                {
-                    replace_src.add_replacement(sym, "(*_args->" + field_name + ")");
-                }
+                type = type.array_element().get_pointer_to();
             }
             else
             {
-                if (data_env_item.is_raw_buffer())
-                {
-                    C_LANGUAGE()
-                    {
-                        // Set up a casting pointer
-                        initial_code
-                            << type.get_pointer_to().get_declaration(sym.get_scope(), field_name) 
-                            << "="
-                            << "("
-                            << type.get_pointer_to().get_declaration(sym.get_scope(), "")
-                            << ") _args->" << field_name << ";"
-                            ;
-
-                        replace_src.add_replacement(sym, "(*" + field_name + ")");
-                    }
-                    CXX_LANGUAGE()
-                    {
-                        // Set up a reference to the raw buffer properly casted to the data type
-                        initial_code
-                            << type.get_reference_to().get_declaration(sym.get_scope(), field_name)
-                            << "(" 
-                            << "(" << type.get_pointer_to().get_declaration(sym.get_scope(), "") << ")"
-                            << "_args->" << field_name
-                            << ");"
-                            ;
-
-                        // This is the neatest aspect of references
-                        replace_src.add_replacement(sym, field_name);
-                    }
-                }
-                else
-                {
-                    replace_src.add_replacement(sym, "(_args->" + field_name + ")");
-                }
+                type = type.get_pointer_to();
             }
+
+            std::string copy_name = "_cp_" + sym.get_name();
+
+            std::string sharing = "NX_SHARED";
+            if (it->is_private())
+            {
+                sharing = "NX_PRIVATE";
+            }
+            
+            if (!err_declared)
+            {
+                copy_setup
+                    << "nanos_err_t cp_err;"
+                    ;
+            }
+
+            DataEnvironItem data_env_item = data_env_info.get_data_of_symbol(sym);
+
+            ERROR_CONDITION(data_env_item.get_symbol().is_valid(),
+                "Invalid data for copy symbol", 0);
+
+            std::string field_addr = "_args->" + data_env_item.get_field_name();
+
+            copy_setup
+                << type.get_declaration(sc, copy_name) << ";"
+                << "cp_err = nanos_get_addr(&" << field_addr << ", " << sharing << ", (void**)&" << copy_name << ");"
+                << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
+                ;
+
+            replace_src.add_replacement(sym, "(*" + copy_name + ")");
         }
     }
 
@@ -293,7 +254,7 @@ void DeviceSMP_NUMA::do_replacements(DataEnvironInfo& data_environ,
         Source &initial_setup,
         Source &replaced_src)
 {
-    do_smp_outline_replacements(body,
+    do_smp_numa_outline_replacements(body,
             scope_link,
             data_environ,
             initial_setup,

@@ -219,7 +219,7 @@ namespace TL
                 /*
                    \param sym Symbol whose DataEnvironItem is being requested
                  */
-                DataEnvironItem get_data_of_symbol(Symbol sym)
+                DataEnvironItem get_data_of_symbol(Symbol sym) const
                 {
                     if (_data_env_items.contains(functor(&DataEnvironItem::get_symbol), sym))
                     {
@@ -231,7 +231,7 @@ namespace TL
                 }
 
                 //! Returns the field name for a given symbol
-                std::string get_field_name_for_symbol(Symbol sym)
+                std::string get_field_name_for_symbol(Symbol sym) const
                 {
                     int n = 0;
 
@@ -325,17 +325,17 @@ namespace TL
                     _copy_out_items.append(expr);
                 }
 
-                ObjectList<CopyData> get_copy_in_items()
+                ObjectList<CopyData> get_copy_in_items() const
                 {
                     return _copy_in_items;
                 }
 
-                ObjectList<CopyData> get_copy_out_items()
+                ObjectList<CopyData> get_copy_out_items() const
                 {
                     return _copy_out_items;
                 }
 
-                ObjectList<CopyData> get_copy_inout_items()
+                ObjectList<CopyData> get_copy_inout_items() const
                 {
                     return _copy_inout_items;
                 }
