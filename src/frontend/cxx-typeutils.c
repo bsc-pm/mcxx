@@ -988,7 +988,29 @@ static dependent_name_part_t* get_dependent_nested_part(
         result->template_arguments = get_template_arguments_from_syntax(
                 ASTSon1(nested_part),
                 decl_context,
-                /* nesting level (?) */ 0);
+                /* nesting level */ 0);
+    }
+    else if (ASTType(nested_part) == AST_OPERATOR_FUNCTION_ID
+            || ASTType(nested_part) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
+    {
+        result->name = get_operator_function_name(nested_part);
+
+        if (ASTType(nested_part) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
+        {
+            result->template_arguments = get_template_arguments_from_syntax(
+                    ASTSon1(nested_part),
+                    decl_context,
+                    /* nesting_level */ 0);
+        }
+    }
+    else if (ASTType(nested_part) == AST_CONVERSION_FUNCTION_ID)
+    {
+        result->name = get_conversion_function_name(decl_context, nested_part, 
+                &result->related_type);
+    }
+    else if (ASTType(nested_part) == AST_DESTRUCTOR_ID)
+    {
+        return get_dependent_nested_part(decl_context, ASTSon0(nested_part));
     }
     else
     {
@@ -3890,7 +3912,7 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2)
 
 static const char* get_template_arguments_list_str(template_argument_list_t* template_arguments);
 
-static char syntactic_comparison_of_dependent_typenames(
+static char syntactic_comparison_of_dependent_parts(
         dependent_name_part_t* dependent_parts_1,
         dependent_name_part_t* dependent_parts_2)
 {
@@ -3945,6 +3967,38 @@ static char syntactic_comparison_of_dependent_typenames(
                         dependent_parts_1->template_arguments == NULL ? "first" : "second");
             }
             return 0;
+        }
+        
+        if ((dependent_parts_1->related_type == NULL
+                    && dependent_parts_2->related_type != NULL)
+                || (dependent_parts_1->related_type != NULL
+                    && dependent_parts_2->related_type == NULL))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "Mismatch in the kind of components %s type has a related type while %s does not\n",
+                        dependent_parts_1->related_type != NULL ? "first" : "second",
+                        dependent_parts_1->related_type == NULL ? "first" : "second");
+            }
+        }
+
+        if (dependent_parts_1->related_type != NULL
+                && dependent_parts_2->related_type != NULL)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "Need to compare related types\n");
+            }
+
+            if (!equivalent_types(dependent_parts_1->related_type,
+                        dependent_parts_2->related_type))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "Related types do not match\n");
+                }
+                return 0;
+            }
         }
 
         if (dependent_parts_1->template_arguments != NULL
@@ -4039,7 +4093,7 @@ static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2
     if (equivalent_types(type_to_compare_1,
                 type_to_compare_2))
     {
-        return syntactic_comparison_of_dependent_typenames(dependent_parts_1, dependent_parts_2);
+        return syntactic_comparison_of_dependent_parts(dependent_parts_1, dependent_parts_2);
     }
     else
     {

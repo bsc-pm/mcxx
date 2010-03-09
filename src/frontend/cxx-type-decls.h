@@ -94,6 +94,7 @@ struct dependent_name_part_tag
 {
     const char* name;
     struct template_argument_list_tag* template_arguments;
+    struct type_tag* related_type;
     struct dependent_name_part_tag* next;
 } dependent_name_part_t;
 
