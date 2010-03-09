@@ -162,13 +162,39 @@ namespace TL
                 }
         };
 
+        class CopyData
+        {
+            private:
+                Expression _expr;
+                Symbol _sym;
+                bool _is_private;
+            public:
+                CopyData(Expression expr, Symbol sym, bool is_private)
+                    : _expr(expr), _sym(sym), _is_private(is_private) { }
+
+                Expression expr() const
+                {
+                    return _expr;
+                }
+
+                Symbol get_symbol() const
+                {
+                    return _sym;
+                }
+
+                bool is_private() const
+                {
+                    return _is_private;
+                }
+        };
+
         class DataEnvironInfo
         {
             private:
                 ObjectList<DataEnvironItem> _data_env_items;
-                ObjectList<Expression> _copy_in_items;
-                ObjectList<Expression> _copy_out_items;
-                ObjectList<Expression> _copy_inout_items;
+                ObjectList<CopyData> _copy_in_items;
+                ObjectList<CopyData> _copy_out_items;
+                ObjectList<CopyData> _copy_inout_items;
 
                 static bool data_env_item_has_sym(const DataEnvironItem &item)
                 {
@@ -284,32 +310,32 @@ namespace TL
                     return result;
                 }
 
-                void add_copy_in_item(Expression expr)
+                void add_copy_in_item(CopyData expr)
                 {
                     _copy_in_items.append(expr);
                 }
 
-                void add_copy_inout_item(Expression expr)
+                void add_copy_inout_item(CopyData expr)
                 {
                     _copy_inout_items.append(expr);
                 }
 
-                void add_copy_out_item(Expression expr)
+                void add_copy_out_item(CopyData expr)
                 {
                     _copy_out_items.append(expr);
                 }
 
-                ObjectList<Expression> get_copy_in_items()
+                ObjectList<CopyData> get_copy_in_items()
                 {
                     return _copy_in_items;
                 }
 
-                ObjectList<Expression> get_copy_out_items()
+                ObjectList<CopyData> get_copy_out_items()
                 {
                     return _copy_out_items;
                 }
 
-                ObjectList<Expression> get_copy_inout_items()
+                ObjectList<CopyData> get_copy_inout_items()
                 {
                     return _copy_inout_items;
                 }
