@@ -94,10 +94,6 @@ static scope_entry_list_t* query_template_id(AST template_id,
         decl_context_t template_name_context,
         decl_context_t template_arguments_context);
 
-static scope_entry_list_t* query_dependent_typename(decl_context_t decl_context,
-        scope_entry_t* dependent_entry,
-        dependent_name_part_t* dependent_parts);
-
 static scope_entry_list_t* query_qualified_name(decl_context_t decl_context,
         AST global_op,
         AST nested_name,
@@ -886,11 +882,13 @@ static scope_entry_list_t* query_unqualified_name(decl_context_t decl_context,
     return result;
 }
 
-static scope_entry_list_t* query_dependent_typename(decl_context_t decl_context,
-        scope_entry_t* dependent_entry,
-        dependent_name_part_t* dependent_parts)
-{
-}
+// static scope_entry_list_t* query_dependent_typename(decl_context_t decl_context,
+//         scope_entry_t* dependent_entry,
+//         dependent_name_part_t* dependent_parts)
+// {
+//     // FIXME
+//     return NULL;
+// }
 
 static scope_entry_list_t* query_qualified_name(
         decl_context_t nested_name_context,

@@ -512,8 +512,8 @@ LIBMCXX_EXTERN char is_ellipsis_type(struct type_tag* t);
 LIBMCXX_EXTERN char has_dependent_template_arguments(template_argument_list_t* template_arguments);
 
 LIBMCXX_EXTERN char syntactic_comparison_of_nested_names(
-        struct AST_tag* nested_name_1, struct AST_tag* nested_name_2, decl_context_t decl_context_1,
-        struct AST_tag* unqualified_part_1, struct AST_tag* unqualified_part_2, decl_context_t decl_context_2);
+        dependent_name_part_t* dependent_parts_1,
+        dependent_name_part_t* dependent_parts_2);
 
 /* Debug purpose functions */
 LIBMCXX_EXTERN const char* print_declarator(struct type_tag* printed_declarator);

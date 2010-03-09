@@ -3355,9 +3355,9 @@ static type_t* advance_dependent_typename(type_t* t)
 
     if (dependent_entry->kind == SK_CLASS)
     {
-        type_t* class_type = dependent_entry->type_information;
+        // type_t* class_type = dependent_entry->type_information;
 
-        decl_context_t inner_context = class_type_get_inner_context(class_type);
+        // decl_context_t inner_context = class_type_get_inner_context(class_type);
 
         scope_entry_list_t* result_list = NULL;
         // scope_entry_list_t* result_list = query_nested_name(inner_context, 
@@ -3888,110 +3888,91 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2)
     return still_compatible;
 }
 
-static char syntactic_comparison_of_template_id(AST template_id_1, decl_context_t decl_context_1,
-        AST template_id_2, decl_context_t decl_context_2, int nesting_level)
-{
-    ERROR_CONDITION((ASTType(template_id_1) != AST_TEMPLATE_ID
-                || ASTType(template_id_2) != AST_TEMPLATE_ID), 
-            "Only template-id are valid", 0);
+static const char* get_template_arguments_list_str(template_argument_list_t* template_arguments);
 
-    AST symbol_name_1 = ASTSon0(template_id_1);
-    AST symbol_name_2 = ASTSon0(template_id_2);
-    if (strcmp(ASTText(symbol_name_1), ASTText(symbol_name_2)) != 0)
-    {
-        return 0;
-    }
-
-    AST template_arguments_1 = ASTSon1(template_id_1);
-    AST template_arguments_2 = ASTSon1(template_id_2);
-
-    template_argument_list_t* t_arg_list_1 = get_template_arguments_from_syntax(template_arguments_1, 
-            decl_context_1, nesting_level);
-    template_argument_list_t* t_arg_list_2 = get_template_arguments_from_syntax(template_arguments_2, 
-            decl_context_2, nesting_level);
-
-    return same_template_argument_list(t_arg_list_1, t_arg_list_2);
-}
-
-static char syntactic_comparison_of_symbol(AST symbol_1, AST symbol_2)
-{
-    ERROR_CONDITION((ASTType(symbol_1) != AST_SYMBOL
-                || ASTType(symbol_2) != AST_SYMBOL), 
-            "Only symbols are valid", 0);
-    return (strcmp(ASTText(symbol_1), ASTText(symbol_2)) == 0);
-}
-
-char syntactic_comparison_of_nested_names(
-        AST nested_name_1, AST nested_name_2, decl_context_t decl_context_1,
-        AST unqualified_part_1, AST unqualified_part_2, decl_context_t decl_context_2)
+static char syntactic_comparison_of_dependent_typenames(
+        dependent_name_part_t* dependent_parts_1,
+        dependent_name_part_t* dependent_parts_2)
 {
     DEBUG_CODE()
     {
-        fprintf(stderr, "Comparing nested-name parts '%s%s' vs '%s%s'\n", 
-                prettyprint_in_buffer(nested_name_1), 
-                prettyprint_in_buffer(unqualified_part_1), 
-                prettyprint_in_buffer(nested_name_2), 
-                prettyprint_in_buffer(unqualified_part_2));
+        fprintf(stderr, "Comparing (syntactically) nested-name parts '");
+        dependent_name_part_t* part = dependent_parts_1;
+        while (part != NULL)
+        {
+            fprintf(stderr, "%s%s%s",
+                    part->name,
+                    part->template_arguments == NULL ? "" : get_template_arguments_list_str(part->template_arguments),
+                    part->next == NULL ? "" : "::");
+            part = part->next;
+        }
+        fprintf(stderr, "' vs '");
+        part = dependent_parts_2;
+        while (part != NULL)
+        {
+            fprintf(stderr, "%s%s%s",
+                    part->name,
+                    part->template_arguments == NULL ? "" : get_template_arguments_list_str(part->template_arguments),
+                    part->next == NULL ? "" : "::");
+            part = part->next;
+        }
+        fprintf(stderr, "'\n");
     }
 
-    int nesting_level = 0;
-
-    while (nested_name_1 != NULL
-            && nested_name_2 != NULL)
+    while (dependent_parts_1 != NULL
+            && dependent_parts_2 != NULL)
     {
-        AST current_name_1 = ASTSon0(nested_name_1);
-        AST current_name_2 = ASTSon0(nested_name_2);
-
-        if (ASTType(current_name_1) != ASTType(current_name_2))
+        if (strcmp(dependent_parts_1->name, dependent_parts_2->name) != 0)
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "Nested-name element is different '%s' vs '%s'\n",
-                        ast_print_node_type(ASTType(current_name_1)),
-                        ast_print_node_type(ASTType(current_name_2)));
+                fprintf(stderr, "Mismatch of component name '%s' != '%s'\n",
+                        dependent_parts_1->name,
+                        dependent_parts_2->name);
             }
             return 0;
         }
 
-        if (ASTType(current_name_1) == AST_SYMBOL)
+        if ((dependent_parts_1->template_arguments == NULL
+                    && dependent_parts_2->template_arguments != NULL)
+                || (dependent_parts_1->template_arguments != NULL
+                    && dependent_parts_2->template_arguments == NULL))
         {
-            if (!syntactic_comparison_of_symbol(current_name_1, current_name_2))
+            DEBUG_CODE()
             {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "Syntactic comparison of symbols '%s' vs '%s' failed\n",
-                            prettyprint_in_buffer(current_name_1),
-                            prettyprint_in_buffer(current_name_2));
-                }
-                return 0;
+                fprintf(stderr, "Mismatch in the kind of components %s type has template arguments while %s does not\n",
+                        dependent_parts_1->template_arguments != NULL ? "first" : "second",
+                        dependent_parts_1->template_arguments == NULL ? "first" : "second");
             }
-        }
-        else if (ASTType(current_name_1) == AST_TEMPLATE_ID)
-        {
-            if (!syntactic_comparison_of_template_id(current_name_1, decl_context_1,
-                        current_name_2, decl_context_2, nesting_level))
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "Syntactic comparison of template-ids '%s' vs '%s' failed\n",
-                            prettyprint_in_buffer(current_name_1),
-                            prettyprint_in_buffer(current_name_2));
-                }
-                return 0;
-            }
-            nesting_level++;
-        }
-        else
-        {
-            internal_error("Invalid node type '%s'\n", ast_print_node_type(ASTType(current_name_1)));
+            return 0;
         }
 
-        nested_name_1 = ASTSon1(nested_name_1);
-        nested_name_2 = ASTSon1(nested_name_2);
+        if (dependent_parts_1->template_arguments != NULL
+                    && dependent_parts_2->template_arguments != NULL)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "Need to compare template arguments\n");
+            }
+
+            if (!same_template_argument_list(dependent_parts_1->template_arguments,
+                        dependent_parts_2->template_arguments))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "Template arguments do not match\n");
+                }
+                return 0;
+            }
+            return 0;
+        }
+
+        dependent_parts_1 = dependent_parts_1->next;
+        dependent_parts_2 = dependent_parts_2->next;
     }
 
-    if (nested_name_1 != NULL
-            || nested_name_2 != NULL)
+    if (dependent_parts_1 != NULL
+            || dependent_parts_2 != NULL)
     {
         DEBUG_CODE()
         {
@@ -4000,77 +3981,34 @@ char syntactic_comparison_of_nested_names(
         return 0;
     }
 
-
-    if (ASTType(unqualified_part_1) != ASTType(unqualified_part_2))
+    DEBUG_CODE()
     {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "Unqualified part node kind '%s' is not the same as '%s'\n",
-                    ast_print_node_type(ASTType(unqualified_part_1)),
-                    ast_print_node_type(ASTType(unqualified_part_2)));
-        }
-        return 0;
+        fprintf(stderr, "Both dependent typenames seem the same\n");
     }
-
-    if (ASTType(unqualified_part_1) == AST_SYMBOL)
-    {
-        if (!syntactic_comparison_of_symbol(unqualified_part_1, unqualified_part_2))
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "Syntactic comparison of unqualified symbols '%s' vs '%s' failed\n",
-                        prettyprint_in_buffer(unqualified_part_1),
-                        prettyprint_in_buffer(unqualified_part_2));
-            }
-            return 0;
-        }
-    }
-    else
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "Syntactic comparison of unqualified template-id '%s' vs '%s' failed\n",
-                    prettyprint_in_buffer(unqualified_part_1),
-                    prettyprint_in_buffer(unqualified_part_2));
-        }
-        if (!syntactic_comparison_of_template_id(unqualified_part_1, 
-                    decl_context_1,
-                    unqualified_part_2, decl_context_2, nesting_level))
-            return 0;
-        nesting_level++;
-    }
-
     return 1;
 }
 
 static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2)
 {
-    return 0;
-#if 0
+    // It is likely that in these contrived cases users will use a typedef
+    // to help themselves so most of the time this fast path will be fired
+    if (p_t1 == p_t2)
+        return 1;
+
     DEBUG_CODE()
     {
         fprintf(stderr , "Comparing template dependent typenames '%s' and '%s'\n",
                 print_declarator(p_t1),
                 print_declarator(p_t2));
     }
-    // It is likely that in these contrived cases the user will use a typedef
-    // to help himself so most of the time this fast path will be fired
-    if (p_t1 == p_t2)
-        return 1;
 
-    // This should be easier now, no context needed!
-    decl_context_t decl_context_1;
     scope_entry_t* dependent_entry_1 = NULL;
-    AST nested_name_1 = NULL;
-    AST unqualified_part_1 = NULL;
+    dependent_name_part_t* dependent_parts_1 = NULL;
 
-    decl_context_t decl_context_2;
-    scope_entry_t* dependent_entry_2;
-    AST nested_name_2;
-    AST unqualified_part_2;
+    dependent_typename_get_components(p_t1, 
+            &dependent_entry_1,
+            &dependent_parts_1);
 
-    dependent_typename_get_components(p_t1, &dependent_entry_1, 
-            &decl_context_1, &nested_name_1, &unqualified_part_1);
     type_t* type_to_compare_1 = NULL;
     if (dependent_entry_1->kind == SK_TEMPLATE_TYPE_PARAMETER)
     {
@@ -4081,8 +4019,13 @@ static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2
         type_to_compare_1 = dependent_entry_1->type_information;
     }
 
-    dependent_typename_get_components(p_t2, &dependent_entry_2, 
-            &decl_context_2, &nested_name_2, &unqualified_part_2);
+    scope_entry_t* dependent_entry_2 = NULL;
+    dependent_name_part_t* dependent_parts_2 = NULL;
+
+    dependent_typename_get_components(p_t2, 
+            &dependent_entry_2,
+            &dependent_parts_2);
+
     type_t* type_to_compare_2 = NULL;
     if (dependent_entry_2->kind == SK_TEMPLATE_TYPE_PARAMETER)
     {
@@ -4096,21 +4039,16 @@ static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2
     if (equivalent_types(type_to_compare_1,
                 type_to_compare_2))
     {
-        return syntactic_comparison_of_nested_names(
-                nested_name_1, nested_name_2, decl_context_1,
-                unqualified_part_1, unqualified_part_2, decl_context_2);
+        return syntactic_comparison_of_dependent_typenames(dependent_parts_1, dependent_parts_2);
     }
     else
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "Dependent entry is already different\n");
+            fprintf(stderr, "Dependent entry is different\n");
         }
         return 0;
     }
-
-    return 1;
-#endif
 }
 
 char is_builtin_type(type_t* t)

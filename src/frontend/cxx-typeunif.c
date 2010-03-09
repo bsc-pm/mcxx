@@ -845,25 +845,7 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
             }
         case AST_QUALIFIED_ID :
             {
-                AST global_op_1 = ASTSon0(left_tree);
-                AST nested_name_1 = ASTSon1(left_tree);
-                AST unqualified_part_1 = ASTSon2(left_tree);
-
-                AST global_op_2 = ASTSon0(right_tree);
-                AST nested_name_2 = ASTSon1(right_tree);
-                AST unqualified_part_2 = ASTSon2(right_tree);
-
-                if ((global_op_1 == NULL
-                        || global_op_2 == NULL)
-                        &&  (global_op_1 != global_op_2))
-                {
-                    return 0;
-                }
-
-                // Doing a syntactic comparison since anything else can be compared here
-                // as an expression ...
-                return syntactic_comparison_of_nested_names(nested_name_1, nested_name_2, left_decl_context,
-                        unqualified_part_1, unqualified_part_2, right_decl_context);
+                internal_error("Not yet implemented", 0);
                 break;
             }
         case AST_LOGICAL_OR :
