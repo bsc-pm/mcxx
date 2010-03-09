@@ -116,13 +116,15 @@ namespace TL
         class LIBTL_CLASS CopyItem : public TL::Object
         {
             private:
+                Symbol _sym;
                 Expression _copy_expr;
                 CopyDirection _kind;
             public:
-                CopyItem(Expression copy_expr, CopyDirection direction);
+                CopyItem(Symbol sym, Expression copy_expr, CopyDirection direction);
 
                 CopyDirection get_kind() const;
                 Expression get_copy_expression() const;
+                Symbol get_symbol() const;
         };
 
         class LIBTL_CLASS UDRInfoItem : public TL::Object
