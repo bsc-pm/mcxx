@@ -10,11 +10,10 @@ namespace TL
     namespace Nanox
     {
 
-        class DeviceSMP : public CompilerPhase, public DeviceProvider
+        class DeviceSMP : public DeviceProvider
         {
             public:
 
-                // This phase does nothing
                 virtual void run(DTO& dto) { }
 
                 DeviceSMP();

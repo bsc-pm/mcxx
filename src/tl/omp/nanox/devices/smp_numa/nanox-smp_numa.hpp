@@ -10,7 +10,7 @@ namespace TL
     namespace Nanox
     {
 
-        class DeviceSMP_NUMA : public CompilerPhase, public DeviceProvider
+        class DeviceSMP_NUMA : public DeviceProvider
         {
             public:
 

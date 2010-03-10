@@ -49,6 +49,20 @@ OMPTransform::OMPTransform()
     on_directive_post["barrier"].connect(functor(&OMPTransform::barrier_postorder, *this));
 
     on_directive_post["target"].connect(functor(&OMPTransform::target_postorder, *this));
+
+    register_parameter("instrument", 
+            "Enables nanox instrumentation if set to '1'",
+            _enable_instrumentation_str,
+            "0").connect(functor(&OMPTransform::set_instrumentation, *this));
+}
+
+void OMPTransform::set_instrumentation(const std::string& str)
+{
+    _enable_instrumentation = false;
+    parse_boolean_option(/* Parameter name */ "instrument", 
+            /* Given value */ str, 
+            /* Computed bool */ _enable_instrumentation, 
+            /* Error message */  "Instrumentation disabled");
 }
 
 EXPORT_PHASE(TL::Nanox::OMPTransform)

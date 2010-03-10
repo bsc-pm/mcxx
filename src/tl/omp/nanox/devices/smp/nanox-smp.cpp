@@ -203,14 +203,42 @@ void DeviceSMP::create_outline(
             << ";";
     }
 
+    Source instrument_before, instrument_after;
 
     result
         << forward_declaration
         << "void " << outline_name << "(" << parameter_list << ")"
         << "{"
+        << instrument_before
         << body
+        << instrument_after
         << "}"
         ;
+
+    if (instrumentation_enabled())
+    {
+        instrument_before
+            << "static volatile nanos_event_value_t nanos_funct_id = 0;"
+            << "static volatile int nanos_funct_id_init = 0;"
+            << "if (nanos_funct_id_init != 1)"
+            << "{"
+            // 2 means 'busy'
+            <<     "if (__sync_bool_compare_and_swap(&nanos_funct_id_init, 0, 2))"
+            <<     "{"
+            // FIXME: How can we make sure these two stores are issued in this order?
+            <<     "    nanos_funct_id = __sync_add_and_fetch(&nanos_global_funct_id_counter, 1);"
+            <<     "    nanos_funct_id_init = 1;"
+            <<     "}"
+            <<     "__sync_synchronize();"
+            <<     "while (nanos_funct_id_init != 1);"
+            << "}"
+            << "nanos_instrument_enter_burst(NANOS_INSTRUMENT_USER_FUNCT, nanos_funct_id);"
+            ;
+
+        instrument_after
+            << "nanos_instrument_leave_burst(NANOS_INSTRUMENT_USER_FUNCT, funct_id);"
+            ;
+    }
 
     parameter_list
         << struct_typename << "* _args"
