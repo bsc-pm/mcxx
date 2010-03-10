@@ -110,6 +110,10 @@ namespace TL
                 void peel_loop(PragmaCustomConstruct construct);
 
                 void task_aggregate(PragmaCustomConstruct construct);
+
+                void set_instrument_hlt(const std::string &str);
+
+                std::string _enable_hlt_instr_str;
         };
 
         //! @}

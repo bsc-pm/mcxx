@@ -26,6 +26,8 @@
 
 using namespace TL::HLT;
 
+bool TL::HLT::enable_instrumentation = false;
+
 BaseTransform::BaseTransform()
     : _identity(false), _allow_identity(true), _ostream(std::cerr)
 {
