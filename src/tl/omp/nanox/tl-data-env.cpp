@@ -388,7 +388,7 @@ namespace TL
             Symbol sym = it->get_symbol();
 
             OpenMP::DataSharingAttribute ds_attr = data_sharing.get(sym);
-            bool is_private = false;
+            bool is_private = true;
             if (ds_attr == OpenMP::DS_UNDEFINED)
             {
                 std::cerr 
@@ -404,7 +404,7 @@ namespace TL
             }
             else if ((ds_attr & OpenMP::DS_SHARED) == OpenMP::DS_SHARED)
             {
-                is_private = true;
+                is_private = false;
             }
 
             if (it->get_kind() == OpenMP::COPY_DIR_IN)

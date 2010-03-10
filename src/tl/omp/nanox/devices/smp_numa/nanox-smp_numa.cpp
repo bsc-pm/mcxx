@@ -48,6 +48,10 @@ static void do_smp_numa_outline_replacements(
     Source copy_setup;
     Scope sc = scope_link.get_scope(body);
 
+    initial_code
+        << copy_setup
+        ;
+
     typedef ObjectList<CopyData> (DataEnvironInfo::* fun_t)() const;
     struct {
         fun_t fun;
@@ -60,12 +64,11 @@ static void do_smp_numa_outline_replacements(
 
     ReplaceSrcIdExpression replace_src(scope_link);
 
+    bool err_declared = false;
     for (int i = 0; copy_data_aux[i].fun != NULL; i++)
     {
         fun_t p = copy_data_aux[i].fun;
         ObjectList<CopyData> copies = (data_env_info.*p)();
-
-        bool err_declared = false;
 
         for (ObjectList<CopyData>::iterator it = copies.begin();
                 it != copies.end();
@@ -96,18 +99,19 @@ static void do_smp_numa_outline_replacements(
                 copy_setup
                     << "nanos_err_t cp_err;"
                     ;
+                err_declared = true;
             }
 
             DataEnvironItem data_env_item = data_env_info.get_data_of_symbol(sym);
 
-            ERROR_CONDITION(data_env_item.get_symbol().is_valid(),
+            ERROR_CONDITION(!data_env_item.get_symbol().is_valid(),
                 "Invalid data for copy symbol", 0);
 
             std::string field_addr = "_args->" + data_env_item.get_field_name();
 
             copy_setup
                 << type.get_declaration(sc, copy_name) << ";"
-                << "cp_err = nanos_get_addr(&" << field_addr << ", " << sharing << ", (void**)&" << copy_name << ");"
+                << "cp_err = nanos_get_addr((uint64_t)(&" << field_addr << "), " << sharing << ", (void**)&" << copy_name << ");"
                 << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
                 ;
 
