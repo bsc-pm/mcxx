@@ -85,10 +85,10 @@ static void do_smp_numa_outline_replacements(
 
             std::string copy_name = "_cp_" + sym.get_name();
 
-            std::string sharing = "NX_SHARED";
+            std::string sharing = "NANOS_SHARED";
             if (it->is_private())
             {
-                sharing = "NX_PRIVATE";
+                sharing = "NANOS_PRIVATE";
             }
             
             if (!err_declared)
