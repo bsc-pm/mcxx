@@ -214,9 +214,30 @@ Source TaskAggregation::do_predicated_aggregation()
 			;
 	}
 
+    if (HLT::enable_instrumentation)
+    {
+        predicated_body
+            << "mintaka_event(" << (int)HLT::TASK_OVERHEAD << ", 1);"
+            ;
+    }
+
 	predicated_info_struct
 		<< "union _pred_info_" << CounterManager::get_counter(TASK_PREDICATION_COUNTER) << "_t { " ;
 	;
+
+        
+    Source instrumentation_before, instrumentation_after;
+    if (HLT::enable_instrumentation)
+    {
+        instrumentation_before
+            << "mintaka_event(" << (int)HLT::TASK_OVERHEAD << ", 0);"
+            << "mintaka_event(" << (int)HLT::TASK_CODE << ", 1);"
+            ;
+        instrumentation_after
+            << "mintaka_event(" << (int)HLT::TASK_CODE << ", 0);"
+            << "mintaka_event(" << (int)HLT::TASK_OVERHEAD << ", 1);"
+            ;
+    }
 
 	int num_tasks = 0;
     for (ObjectList<GuardedTask>::iterator it = guarded_task_list.begin();
@@ -232,7 +253,9 @@ Source TaskAggregation::do_predicated_aggregation()
             << "if (" << guard_task_info.get_guard_struct_var_name() << "." << it->get_predicate_name() << ")"
             << "{"
 			<< local_binding
+            << instrumentation_before
             << replaced_body
+            << instrumentation_after
 			<< local_cleanup
             << "}"
             ;
@@ -320,6 +343,13 @@ Source TaskAggregation::do_predicated_aggregation()
 		num_tasks++;
 
 		replaced_body << replacements.replace(body);
+    }
+
+    if (HLT::enable_instrumentation)
+    {
+        predicated_body
+            << "mintaka_event(" << (int)HLT::TASK_OVERHEAD << ", 0);"
+            ;
     }
 
 	Source pred_info_name;

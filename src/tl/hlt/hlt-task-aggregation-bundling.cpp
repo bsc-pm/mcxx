@@ -113,14 +113,36 @@ struct BundleGenerator
 			}
 			else
 			{
+                Source instrumentation_bundl_before, instrumentation_bundl_after;
+                Source instrumentation_task_before, instrumentation_task_after;
 				task_body
 					<< "{"
+                    << instrumentation_bundl_before
 					<< "int " << current_index_name << "  = 0;"
 					<< loop_header
 					<< switch_structure
 					<< loop_end
+                    << instrumentation_bundl_after
 					<< "}"
 					;
+
+                if (HLT::enable_instrumentation)
+                {
+                    instrumentation_bundl_before
+                        << "mintaka_event(" << (int)HLT::TASK_OVERHEAD << ", 1);"
+                        ;
+                    instrumentation_bundl_after
+                        << "mintaka_event(" << (int)HLT::TASK_OVERHEAD << ", 0);"
+                        ;
+                    instrumentation_task_before
+                        << "mintaka_event(" << (int)HLT::TASK_OVERHEAD << ", 0);"
+                        << "mintaka_event(" << (int)HLT::TASK_CODE << ", 1);"
+                        ;
+                    instrumentation_task_after
+                        << "mintaka_event(" << (int)HLT::TASK_CODE << ", 0);"
+                        << "mintaka_event(" << (int)HLT::TASK_OVERHEAD << ", 1);"
+                        ;
+                }
 
 				if (!unroll)
 				{
@@ -228,7 +250,9 @@ struct BundleGenerator
 					code_of_all_tasks
 						<< "case " << it->get_id() << ":"
 						<< "{"
+                        <<    instrumentation_task_before
 						<<    extended_task_body
+                        <<    instrumentation_task_after
 						<<    task_cleanup
 						<<    "break;"
 						<< "}"
