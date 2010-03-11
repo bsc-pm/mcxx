@@ -112,6 +112,12 @@ namespace TL
                 target_ctx.copy_inout = copy_inout.get_arguments(ExpressionTokenizer());
             }
 
+            PragmaCustomClause copy_deps = ctr.get_clause("copy_deps");
+            if (copy_deps.is_defined())
+            {
+                target_ctx.copy_deps = true;
+            }
+
             PragmaCustomClause implements = ctr.get_clause("implements");
             if (implements.is_defined())
             {
@@ -317,6 +323,58 @@ namespace TL
                     fp_copy_in,
                     COPY_DIR_IN,
                     /* warn_not_shared */ false);
+
+            if (target_ctx.copy_deps)
+            {
+                // Copy the dependences, as well
+
+                ObjectList<DependencyItem> dependences;
+                data_sharing.get_all_dependences(dependences);
+
+                ObjectList<std::string> dep_list_in;
+                ObjectList<std::string> dep_list_out;
+                ObjectList<std::string> dep_list_inout;
+                for (ObjectList<DependencyItem>::iterator it = dependences.begin();
+                        it != dependences.end();
+                        it++)
+                {
+                    ObjectList<std::string>* p = NULL;
+                    if (it->get_kind() == DEP_DIR_INPUT)
+                    {
+                        p = &dep_list_in;
+                    }
+                    else if (it->get_kind() == DEP_DIR_OUTPUT)
+                    {
+                        p = &dep_list_out;
+                    }
+                    else if (it->get_kind() == DEP_DIR_INOUT)
+                    {
+                        p = &dep_list_inout;
+                    }
+                    else
+                    {
+                        internal_error("Invalid dependency kind", 0);
+                    }
+
+                    p->append(it->get_dependency_expression());
+                }
+
+                add_copy_items(construct, 
+                        data_sharing,
+                        dep_list_in,
+                        COPY_DIR_IN,
+                        /* warn_not_shared */ false);
+                add_copy_items(construct, 
+                        data_sharing,
+                        dep_list_out,
+                        COPY_DIR_OUT,
+                        /* warn_not_shared */ false);
+                add_copy_items(construct, 
+                        data_sharing,
+                        dep_list_inout,
+                        COPY_DIR_INOUT,
+                        /* warn_not_shared */ false);
+            }
         }
     }
 }
