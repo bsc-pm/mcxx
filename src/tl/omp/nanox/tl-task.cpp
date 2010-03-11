@@ -455,15 +455,46 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
             for (int j = 0; fill_copy_data_info[j].source != NULL; j++)
             {
-                // FIXME - Compute size of array sections!!!
+                Source expression_size;
                 const char* array_name = fill_copy_data_info[j].array;
                 (*(fill_copy_data_info[j].source))
                     << array_name << "[" << i << "].address = (uint64_t)&(" << it->get_copy_expression() << ");"
                     << array_name << "[" << i << "].sharing = " << copy_sharing << ";"
                     << array_name << "[" << i << "].flags.input = " << copy_direction_in << ";"
                     << array_name << "[" << i << "].flags.output = " << copy_direction_out << ";"
-                    << array_name << "[" << i << "].size = sizeof(" << it->get_copy_expression() << ");"
+                    << array_name << "[" << i << "].size = " << expression_size << ";"
                     ;
+
+                Expression copy_expr = it->get_copy_expression();
+                Source dimension_qualif, postfix_size;
+
+                while (copy_expr.is_array_section())
+                {
+                    Source section_size;
+                    section_size
+                        << "(" << copy_expr.array_section_upper() << ") - (" << copy_expr.array_section_upper() << ") + 1"
+                        ;
+                    AST_t section_expr_tree = section_size.parse_expression(copy_expr.get_ast(), ctr.get_scope_link());
+                    Expression section_expr(section_expr_tree, ctr.get_scope_link());
+
+                    bool valid = false;
+                    int size = section_expr.evaluate_constant_int_expression(valid);
+                    if (valid)
+                    {
+                        postfix_size << "* " << size 
+                            ;
+                    }
+                    else
+                    {
+                        postfix_size << " * (" << section_size << ")";
+                    }
+
+                    dimension_qualif << "[0]";
+
+                    copy_expr = copy_expr.array_section_item();
+                }
+
+                expression_size << "sizeof(" << copy_expr.prettyprint() << dimension_qualif << ")" << postfix_size;
             }
 
             i++;
