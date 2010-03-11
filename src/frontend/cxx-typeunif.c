@@ -845,7 +845,23 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
             }
         case AST_QUALIFIED_ID :
             {
-                internal_error("Not yet implemented", 0);
+                // Perform a query and compare their dependent types
+                scope_entry_list_t* result_left = query_id_expression(left_decl_context, left_tree);
+                scope_entry_list_t* result_right = query_id_expression(right_decl_context, right_tree);
+
+                if (result_left == NULL
+                        || result_right == NULL)
+                    return 0;
+
+                if (result_left->entry->kind != SK_DEPENDENT_ENTITY
+                        || result_right->entry->kind != SK_DEPENDENT_ENTITY)
+                    return 0;
+
+                // Both are dependent entities now, compare their dependent types
+                type_t* dependent_type_left = result_left->entry->type_information;
+                type_t* dependent_type_right = result_right->entry->type_information;
+
+                return equivalent_types(dependent_type_left, dependent_type_right);
                 break;
             }
         case AST_LOGICAL_OR :
