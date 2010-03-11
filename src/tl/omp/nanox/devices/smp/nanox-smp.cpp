@@ -225,12 +225,15 @@ void DeviceSMP::create_outline(
             // 2 means 'busy'
             <<     "if (__sync_bool_compare_and_swap(&nanos_funct_id_init, 0, 2))"
             <<     "{"
-            // FIXME: How can we make sure these two stores are issued in this order?
-            <<     "    nanos_funct_id = __sync_add_and_fetch(&nanos_global_funct_id_counter, 1);"
-            <<     "    nanos_funct_id_init = 1;"
+            <<         "nanos_funct_id = __sync_add_and_fetch(&nanos_global_funct_id_counter, 1);"
+            <<         "nanos_funct_id_init = 1;"
             <<     "}"
-            <<     "__sync_synchronize();"
             <<     "while (nanos_funct_id_init != 1);"
+            // It could happen that nanos_funct_id_init is viewed as being 1
+            // before nanos_funct_id has been updated, so we issue here a
+            // synchronize to ensure all stores so far are visible by all
+            // threads
+            <<     "__sync_synchronize();"
             << "}"
             << "nanos_instrument_enter_burst(NANOS_INSTRUMENT_USER_FUNCT, nanos_funct_id);"
             ;
