@@ -971,7 +971,7 @@ static dependent_name_part_t* get_dependent_nested_part(
         decl_context_t decl_context,
         AST nested_part)
 {
-    ERROR_CONDITION(nested_part != NULL, "This tree cannot be NULL", 0);
+    ERROR_CONDITION(nested_part == NULL, "This tree cannot be NULL", 0);
 
     dependent_name_part_t* result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
 
