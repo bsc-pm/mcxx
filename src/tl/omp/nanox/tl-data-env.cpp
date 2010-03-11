@@ -384,17 +384,53 @@ namespace TL
                 it != copies.end();
                 it++)
         {
+            Expression expr = it->get_copy_expression();
+            Symbol sym = it->get_symbol();
+
+            OpenMP::DataSharingAttribute ds_attr = data_sharing.get(sym);
+            bool is_private = true;
+            if (ds_attr == OpenMP::DS_UNDEFINED)
+            {
+                std::cerr 
+                    << expr.get_ast().get_locus() 
+                    << ": warning: data-reference '" 
+                    << expr.prettyprint() << "' does not have a data-sharing attribute, skipping" 
+                    << std::endl;
+                std::cerr
+                    << expr.get_ast().get_locus() 
+                    << ": info: this may be caused because the referenced data is not used in the construct"
+                    << std::endl;
+                continue;
+            }
+            else if ((ds_attr & OpenMP::DS_SHARED) == OpenMP::DS_SHARED)
+            {
+                is_private = false;
+            }
+
             if (it->get_kind() == OpenMP::COPY_DIR_IN)
             {
-                data_env_info.add_copy_in_item(it->get_copy_expression());
+                data_env_info.add_copy_in_item(CopyData(expr, sym, is_private));
             }
             else if (it->get_kind() == OpenMP::COPY_DIR_OUT)
             {
-                data_env_info.add_copy_out_item(it->get_copy_expression());
+                data_env_info.add_copy_out_item(CopyData(expr, sym, is_private));
+            }
+            else if (it->get_kind() == OpenMP::COPY_DIR_INOUT)
+            {
+                data_env_info.add_copy_inout_item(CopyData(expr, sym, is_private));
             }
             else
             {
                 internal_error("Invalid copy kind", 0);
+            }
+
+            if (is_private && it->get_kind() != OpenMP::COPY_DIR_IN)
+            {
+                std::cerr 
+                    << expr.get_ast().get_locus()
+                    << ": warning: copy out of data-reference '" << expr.prettyprint() 
+                    << "' will have no effect since the related variable is private"
+                    << std::endl;
             }
         }
     }

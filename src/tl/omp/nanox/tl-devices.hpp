@@ -1,6 +1,7 @@
 #ifndef NANOX_DEVICES_H
 #define NANOX_DEVICES_H
 
+#include "tl-compilerphase.hpp"
 #include "tl-objectlist.hpp"
 #include "tl-data-env.hpp"
 
@@ -36,9 +37,58 @@ namespace Nanox
     /*!
       This class should be implemented by each device supported in Nanox
       */
-    class DeviceProvider
+    class DeviceProvider : public TL::CompilerPhase
     {
+        protected:
+            bool instrumentation_enabled()
+            {
+                return _enable_instrumentation;
+            }
+        private:
+            bool _enable_instrumentation;
+            std::string _enable_instrumentation_str;
+            void set_instrumentation(const std::string& str)
+            {
+                _enable_instrumentation = false;
+                parse_boolean_option(/* Parameter name */ "instrument", 
+                        /* Given value */ str, 
+                        /* Computed bool */ _enable_instrumentation, 
+                        /* Error message */  "Instrumentation disabled");
+            }
+
+            bool _needs_copies;
         public:
+
+            //! Constructor of a DeviceProvider
+            /*!
+              \param needs_copies Set this parameter to true if this device requires explicit copies. 
+              DeviceProvider::needs_copies can be used to retrieve this value
+             */
+            DeviceProvider(bool needs_copies)
+                : _enable_instrumentation(false), 
+                _enable_instrumentation_str(""),
+                _needs_copies(needs_copies)
+            {
+                register_parameter("instrument", 
+                        "Enables instrumentation of the device provider if set to '1'",
+                        _enable_instrumentation_str,
+                        "0").connect(functor(&DeviceProvider::set_instrumentation, *this));
+            }
+
+            //! States if this device needs copies
+            /*!
+              Some device providers do not need runtime copies to work. If the implemented
+              device needs those, this function returns true.
+              The constructor of DeviceProvider receives a parameter stating whether this particular
+              device needs copies or not
+              */
+            bool needs_copies() const
+            {
+                return _needs_copies;
+            }
+
+            virtual void run(DTO& dto) { }
+
             /*!
               This function creates the outline which will run the parallel code
 

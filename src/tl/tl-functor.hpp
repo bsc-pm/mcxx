@@ -352,11 +352,12 @@ namespace TL
         FunctionAdapter<Ret, T> result(pf);
         return result;
     }
+
     //! Adaptor to create functors of non-member functions with const reference parameter
     template <class Ret, class T>
-    FunctionAdapter<Ret, T> functor(Ret (*pf)(const T&))
+    FunctionConstAdapter<Ret, T> functor(Ret (*pf)(const T&))
     {
-        FunctionAdapter<Ret, T> result(pf);
+        FunctionConstAdapter<Ret, T> result(pf);
         return result;
     }
 

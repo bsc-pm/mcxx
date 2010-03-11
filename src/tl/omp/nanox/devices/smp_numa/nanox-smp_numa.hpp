@@ -10,15 +10,16 @@ namespace TL
     namespace Nanox
     {
 
-        class DeviceSMP : public DeviceProvider
+        class DeviceSMP_NUMA : public DeviceProvider
         {
             public:
 
+                // This phase does nothing
                 virtual void run(DTO& dto) { }
 
-                DeviceSMP();
+                DeviceSMP_NUMA();
 
-                virtual ~DeviceSMP() { }
+                virtual ~DeviceSMP_NUMA() { }
 
                 virtual void create_outline(
                         const std::string& task_name,

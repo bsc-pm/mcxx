@@ -89,6 +89,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     DeviceHandler &device_handler = DeviceHandler::get_device_handler();
 
+    bool some_device_needs_copies = false;
+
     ObjectList<std::string> current_targets;
     data_sharing.get_all_devices(current_targets);
     for (ObjectList<std::string>::iterator it = current_targets.begin();
@@ -126,6 +128,10 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 outline_flags,
                 ancillary_device_description, 
                 device_description_line);
+
+
+        some_device_needs_copies = some_device_needs_copies
+            || device_provider->needs_copies();
     }
 
     num_devices << current_targets.size();
@@ -369,10 +375,100 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             ;
     }
 
-    // FIXME - This will be meaningful with 'copy_in' and 'copy_out'
-    Source num_copies, copy_data;
-    num_copies << "0";
-    copy_data << "(nanos_copy_data_t*)0";
+    Source num_copies;
+
+    ObjectList<OpenMP::CopyItem> copy_items;
+    data_sharing.get_all_copies(copy_items);
+
+    Source copy_data, copy_decl, copy_setup;
+    Source copy_imm_data, copy_immediate_setup;
+
+    if (copy_items.empty()
+            || !some_device_needs_copies)
+    {
+        num_copies << "0";
+        // Non immediate
+        copy_data << "(nanos_copy_data_t**)0";
+        // Immediate
+        copy_imm_data << "(nanos_copy_data_t*)0";
+    }
+    else
+    {
+        num_copies << copy_items.size();
+
+        // Non immediate
+        copy_decl << "nanos_copy_data_t* copy_data = (nanos_copy_data_t*)0;";
+        Source copy_items_src;
+        copy_setup << copy_items_src;
+        copy_data << "&copy_data";
+
+        // Immediate
+        copy_immediate_setup << "nanos_copy_data_t imm_copy_data[" << num_copies << "];";
+        copy_imm_data << "imm_copy_data";
+
+        int i = 0;
+        for (ObjectList<OpenMP::CopyItem>::iterator it = copy_items.begin();
+                it != copy_items.end();
+                it++)
+        {
+            Source copy_direction_in, copy_direction_out;
+
+            if (it->get_kind() == OpenMP::COPY_DIR_IN)
+            {
+                copy_direction_in << 1;
+                copy_direction_out << 0;
+            }
+            else if (it->get_kind() == OpenMP::COPY_DIR_OUT)
+            {
+                copy_direction_in << 0;
+                copy_direction_out << 1;
+            }
+            else if (it->get_kind() == OpenMP::COPY_DIR_INOUT)
+            {
+                copy_direction_in << 1;
+                copy_direction_out << 1;
+            }
+
+            OpenMP::DataSharingAttribute data_attr = data_sharing.get(it->get_symbol());
+
+            ERROR_CONDITION(data_attr == OpenMP::DS_UNDEFINED, "Invalid data sharing for copy", 0);
+
+            Source copy_sharing;
+            if ((data_attr & OpenMP::DS_SHARED) == OpenMP::DS_SHARED)
+            {
+                copy_sharing << "NANOS_SHARED";
+            }
+            else if ((data_attr & OpenMP::DS_PRIVATE) == OpenMP::DS_PRIVATE)
+            {
+                copy_sharing << "NANOS_PRIVATE";
+            }
+            else internal_error("Unhandled data sharing", 0);
+
+            struct {
+                Source *source;
+                const char* array;
+            } fill_copy_data_info[] = {
+                { &copy_items_src, "copy_data" },
+                { &copy_immediate_setup, "imm_copy_data" },
+                { NULL, "" },
+            };
+
+            for (int j = 0; fill_copy_data_info[j].source != NULL; j++)
+            {
+                // FIXME - Compute size of array sections!!!
+                const char* array_name = fill_copy_data_info[j].array;
+                (*(fill_copy_data_info[j].source))
+                    << array_name << "[" << i << "].address = (uint64_t)&(" << it->get_copy_expression() << ");"
+                    << array_name << "[" << i << "].sharing = " << copy_sharing << ";"
+                    << array_name << "[" << i << "].flags.input = " << copy_direction_in << ";"
+                    << array_name << "[" << i << "].flags.output = " << copy_direction_out << ";"
+                    << array_name << "[" << i << "].size = sizeof(" << it->get_copy_expression() << ");"
+                    ;
+            }
+
+            i++;
+        }
+    }
 
     spawn_code
         << "{"
@@ -384,6 +480,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<     "nanos_wd_props_t props = { 0 };"
         <<     priority
         <<     tiedness
+        <<     copy_decl
         <<     "nanos_err_t err;"
         <<     if_expr_cond_start
         <<     "err = nanos_create_wd(&wd, " << num_devices << "," << device_descriptor << ","
@@ -396,6 +493,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<     "{"
         <<        fill_outline_arguments
         <<        fill_dependences_outline
+        <<        copy_setup
         <<        "err = nanos_submit(wd, " << num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", (nanos_team_t)0);"
         <<        "if (err != NANOS_OK) nanos_handle_error (err);"
         <<     "}"
@@ -404,11 +502,12 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<        immediate_decl
         <<        fill_immediate_arguments
         <<        fill_dependences_immediate
+        <<        copy_immediate_setup
         <<        "err = nanos_create_wd_and_run(" 
         <<                num_devices << ", " << device_descriptor << ", "
         <<                struct_size << ", " << (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
         <<                num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", &props,"
-        <<                num_copies << "," << copy_data << ");"
+        <<                num_copies << "," << copy_imm_data << ");"
         <<        "if (err != NANOS_OK) nanos_handle_error (err);"
         <<     "}"
         << "}"

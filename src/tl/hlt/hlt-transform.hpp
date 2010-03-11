@@ -91,6 +91,7 @@ namespace TL
                  BaseTransform& disallow_identity();
         };
 
+        extern bool enable_instrumentation;
         //! @}
     }
 }

@@ -108,7 +108,7 @@ struct BundleGenerator
 			if (empty)
 			{
 				task_body
-					<< ";"
+					<< "{ }"
 					;
 			}
 			else

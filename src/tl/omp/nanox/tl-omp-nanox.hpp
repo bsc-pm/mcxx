@@ -50,6 +50,10 @@ namespace Nanox
             std::map<std::string, bool> _registered_slicer;
 
             ObjectList<Symbol> _converted_vlas;
+
+            bool _enable_instrumentation;
+            std::string _enable_instrumentation_str;
+            void set_instrumentation(const std::string& str);
     };
 
     const std::string NANOX_OUTLINE_COUNTER("nanox_outline_counter");

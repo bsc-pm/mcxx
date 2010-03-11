@@ -741,8 +741,8 @@ namespace TL
             _dep_symbol = sym;
         }
 
-        CopyItem::CopyItem(Expression copy_expr, CopyDirection direction)
-            : _copy_expr(copy_expr), _kind(direction)
+        CopyItem::CopyItem(Symbol sym, Expression copy_expr, CopyDirection direction)
+            : _sym(sym), _copy_expr(copy_expr), _kind(direction)
         {
         }
 
@@ -754,6 +754,11 @@ namespace TL
         Expression CopyItem::get_copy_expression() const
         {
             return _copy_expr;
+        }
+
+        Symbol CopyItem::get_symbol() const
+        {
+            return _sym;
         }
     }
 }

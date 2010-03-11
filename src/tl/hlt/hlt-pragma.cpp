@@ -42,7 +42,7 @@ using namespace TL::HLT;
 static bool _allow_identity = true;
 static std::string _allow_identity_str;
 
-static void update_identity_flag(const std::string str)
+static void update_identity_flag(const std::string &str)
 {
     TL::parse_boolean_option("disable_identity",
             str,
@@ -94,6 +94,19 @@ HLTPragmaPhase::HLTPragmaPhase()
             "Use this to disable identity, this is for testing only",
             _allow_identity_str,
             "true").connect(functor( update_identity_flag ));
+
+    register_parameter("instrument",
+            "Enables mintaka instrumentation if set to '1'",
+            _enable_hlt_instr_str,
+            "0").connect(functor( &HLTPragmaPhase::set_instrument_hlt, *this ));
+}
+
+void HLTPragmaPhase::set_instrument_hlt(const std::string &str)
+{
+    TL::parse_boolean_option("instrument",
+            str,
+            HLT::enable_instrumentation,
+            "Option 'instrument' is a boolean flag");
 }
 
 void HLTPragmaPhase::run(TL::DTO& dto)
