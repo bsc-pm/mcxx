@@ -158,6 +158,7 @@ static void do_smp_outline_replacements(AST_t body,
 }
 
 DeviceSMP::DeviceSMP()
+    : DeviceProvider(/* needs_copies */ false)
 {
     DeviceHandler &device_handler(DeviceHandler::get_device_handler());
 

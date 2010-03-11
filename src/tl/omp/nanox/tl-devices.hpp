@@ -55,13 +55,36 @@ namespace Nanox
                         /* Computed bool */ _enable_instrumentation, 
                         /* Error message */  "Instrumentation disabled");
             }
+
+            bool _needs_copies;
         public:
-            DeviceProvider()
+
+            //! Constructor of a DeviceProvider
+            /*!
+              \param needs_copies Set this parameter to true if this device requires explicit copies. 
+              DeviceProvider::needs_copies can be used to retrieve this value
+             */
+            DeviceProvider(bool needs_copies)
+                : _enable_instrumentation(false), 
+                _enable_instrumentation_str(""),
+                _needs_copies(needs_copies)
             {
-                    register_parameter("instrument", 
-                            "Enables instrumentation of the device provider if set to '1'",
-                            _enable_instrumentation_str,
-                            "0").connect(functor(&DeviceProvider::set_instrumentation, *this));
+                register_parameter("instrument", 
+                        "Enables instrumentation of the device provider if set to '1'",
+                        _enable_instrumentation_str,
+                        "0").connect(functor(&DeviceProvider::set_instrumentation, *this));
+            }
+
+            //! States if this device needs copies
+            /*!
+              Some device providers do not need runtime copies to work. If the implemented
+              device needs those, this function returns true.
+              The constructor of DeviceProvider receives a parameter stating whether this particular
+              device needs copies or not
+              */
+            bool needs_copies() const
+            {
+                return _needs_copies;
             }
 
             virtual void run(DTO& dto) { }

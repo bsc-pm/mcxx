@@ -123,6 +123,7 @@ static void do_smp_numa_outline_replacements(
 }
 
 DeviceSMP_NUMA::DeviceSMP_NUMA()
+    : DeviceProvider(/* needs_copies */ true)
 {
     DeviceHandler &device_handler(DeviceHandler::get_device_handler());
 
