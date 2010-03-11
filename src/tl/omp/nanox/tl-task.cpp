@@ -89,6 +89,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     DeviceHandler &device_handler = DeviceHandler::get_device_handler();
 
+    bool some_device_needs_copies = false;
+
     ObjectList<std::string> current_targets;
     data_sharing.get_all_devices(current_targets);
     for (ObjectList<std::string>::iterator it = current_targets.begin();
@@ -126,6 +128,10 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 outline_flags,
                 ancillary_device_description, 
                 device_description_line);
+
+
+        some_device_needs_copies = some_device_needs_copies
+            || device_provider->needs_copies();
     }
 
     num_devices << current_targets.size();
@@ -377,7 +383,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     Source copy_data, copy_decl, copy_setup;
     Source copy_imm_data, copy_immediate_setup;
 
-    if (copy_items.empty())
+    if (copy_items.empty()
+            || !some_device_needs_copies)
     {
         num_copies << "0";
         // Non immediate
@@ -462,7 +469,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             i++;
         }
     }
-
 
     spawn_code
         << "{"

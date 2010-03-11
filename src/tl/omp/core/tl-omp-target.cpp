@@ -235,7 +235,8 @@ namespace TL
         static void add_copy_items(PragmaCustomConstruct construct, 
                 DataSharingEnvironment& data_sharing,
                 const ObjectList<std::string>& list,
-                CopyDirection copy_direction)
+                CopyDirection copy_direction,
+                bool warn_not_shared = true)
         {
             for (ObjectList<std::string>::const_iterator it = list.begin();
                     it != list.end();
@@ -258,6 +259,18 @@ namespace TL
                 }
 
                 Symbol sym = get_symbol_of_copy_data_reference(expr);
+
+                DataSharingAttribute attr = data_sharing.get(sym);
+
+                if (warn_not_shared
+                        && ((attr & DS_SHARED) != DS_SHARED))
+                {
+                    std::cerr << construct.get_ast().get_locus()
+                        << ": warning: symbol '" << sym.get_name() 
+                        << "' is referenced in a copy clause but its data sharing attribute is not shared, skipping"
+                        << std::endl;
+                    continue;
+                }
 
                 CopyItem copy_item(sym, expr, copy_direction);
                 data_sharing.add_copy(copy_item);
@@ -287,6 +300,23 @@ namespace TL
             {
                 data_sharing.add_device(*it);
             }
+
+            // Add firstprivates as copy_in
+            ObjectList<std::string> fp_copy_in;
+            ObjectList<Symbol> fp_list;
+            data_sharing.get_all_symbols(OpenMP::DS_FIRSTPRIVATE, fp_list);
+            for (ObjectList<Symbol>::iterator it = fp_list.begin();
+                    it != fp_list.end();
+                    it++)
+            {
+                fp_copy_in.append(it->get_qualified_name());
+            }
+
+            add_copy_items(construct, 
+                    data_sharing,
+                    fp_copy_in,
+                    COPY_DIR_IN,
+                    /* warn_not_shared */ false);
         }
     }
 }
