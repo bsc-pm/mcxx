@@ -28,7 +28,7 @@ using namespace TL::Nanox;
 
 static AST_t inefficient_atomic(PragmaCustomConstruct atomic_construct)
 {
-    running_error("%s: '#pragma atomic' cannot be currently implemented for '%s'\n",
+    running_error("%s: error '#pragma atomic' cannot be currently implemented for '%s'\n",
             atomic_construct.get_ast().get_locus().c_str(),
             atomic_construct.get_statement().prettyprint().c_str());
 }
@@ -98,19 +98,19 @@ static bool allowed_expressions_critical(Expression expr, bool &using_builtin)
 
         // Likewise for rhs
         t = rhs.get_type(is_lvalue);
-        if (!is_lvalue
-                || !(t.is_integral_type()
+        if (!(t.is_integral_type()
                     || t.is_floating_type()))
             return false;
 
         using_builtin =
-            lhs_is_integral && 
-            (op_kind == Expression::ADDITION // x += y
-             || op_kind == Expression::SUBSTRACTION  // x -= y
-             || op_kind == Expression::BITWISE_AND  // x &= y
-             || op_kind == Expression::BITWISE_OR  // x |= y
-             || op_kind == Expression::BITWISE_XOR // x ^= y
-            );
+            is_lvalue
+            && lhs_is_integral 
+            && (op_kind == Expression::ADDITION // x += y
+                    || op_kind == Expression::SUBSTRACTION  // x -= y
+                    || op_kind == Expression::BITWISE_AND  // x &= y
+                    || op_kind == Expression::BITWISE_OR  // x |= y
+                    || op_kind == Expression::BITWISE_XOR // x ^= y
+               );
 
         return true;
     }
@@ -122,7 +122,7 @@ static AST_t compare_and_exchange(PragmaCustomConstruct atomic_construct, Expres
 {
     Expression::OperationKind op_kind = expr.get_operation_kind();
     Source critical_source;
-    Source type, lhs, rhs, op, bytes, proper_int_type;
+    Source type, lhs, rhs, op, bytes, proper_int_type, temporary;
 
     Type expr_type = expr.get_type();
 
@@ -135,6 +135,8 @@ static AST_t compare_and_exchange(PragmaCustomConstruct atomic_construct, Expres
         << "{"
         <<   type << " __oldval;"
         <<   type << " __newval;"
+
+        <<   temporary
 
         <<   "do {"
         <<      "__oldval = (" << lhs << ");"
@@ -167,9 +169,22 @@ static AST_t compare_and_exchange(PragmaCustomConstruct atomic_construct, Expres
     }
     else
     {
-        op << expr.get_operator_str();
+        bool is_lvalue = false;
+        expr.get_second_operand().get_type(is_lvalue);
+
         lhs << expr.get_first_operand().prettyprint();
-        rhs << expr.get_second_operand().prettyprint();
+        op << expr.get_operator_str();
+
+        if (is_lvalue)
+        {
+            rhs << expr.get_second_operand().prettyprint();
+        }
+        else
+        {
+            temporary
+                << type << " __temp = " << expr.get_second_operand().prettyprint() << ";";
+            rhs << "__temp";
+        }
     }
 
     type = expr_type.get_declaration(expr.get_scope(), "");
@@ -346,10 +361,12 @@ void OMPTransform::atomic_postorder(PragmaCustomConstruct atomic_construct)
             if (using_builtin)
             {
                 atomic_tree = builtin_atomic_int_op(atomic_construct, expr);
+                std::cerr << atomic_construct.get_ast().get_locus() << ": info: 'atomic' construct implemented using atomic builtins" << std::endl;
             }
             else
             {
                 atomic_tree = compare_and_exchange(atomic_construct, expr);
+                std::cerr << atomic_construct.get_ast().get_locus() << ": info: 'atomic' construct implemented using compare and exchange" << std::endl;
             }
         }
 
