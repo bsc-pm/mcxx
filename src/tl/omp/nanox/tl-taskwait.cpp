@@ -112,7 +112,7 @@ namespace TL
             }
             else
             {
-                src << "nanos_wg_wait_completation(nanos_current_wd());"
+                src << "nanos_wg_wait_completion(nanos_current_wd());"
                     ;
             }
 
