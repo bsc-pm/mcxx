@@ -18,4 +18,5 @@ compiler_phase = libtlss2omp.so
 {openmp,!only-ss2omp} compiler_phase = libtlomp-fun-tasks.so
 {openmp,!only-ss2omp} compiler_phase = libtlomp-core.so
 {openmp,!only-ss2omp} compiler_phase = libtlomp-nanox.so
+{openmp,!only-ss2omp} compiler_phase = libtlnanox-smp.so
 pragma_prefix = css
