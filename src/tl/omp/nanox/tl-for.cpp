@@ -242,7 +242,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     // FIXME - This will be meaningful with 'copy_in' and 'copy_out'
     Source num_copies, copy_data;
     num_copies << "0";
-    copy_data << "(nanos_copy_data_t*)0";
+    copy_data << "(nanos_copy_data_t**)0";
 
     spawn_source
         << "{"
