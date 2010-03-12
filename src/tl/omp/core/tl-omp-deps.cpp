@@ -26,6 +26,59 @@
 
 namespace TL { namespace OpenMP {
 
+    static bool check_for_data_reference(Expression expr)
+    {
+        // Allowed expressions
+        //   data_ref -> sym
+        //               data_ref [ e ]
+        //               data_ref [ e1 : e2 ]
+        //               [shape] data_ref
+
+        if (expr.is_id_expression())
+        {
+            return true;
+        }
+        else if (expr.is_array_subscript())
+        {
+            return check_for_data_reference(expr.get_subscripted_expression());
+        }
+        else if (expr.is_array_section())
+        {
+            return check_for_data_reference(expr.array_section_item());
+        }
+        else if (expr.is_shaping_expression())
+        {
+            return check_for_data_reference(expr.shaped_expression());
+        }
+        else 
+            return false;
+    }
+
+    static Symbol get_symbol_of_data_reference(Expression expr)
+    {
+        if (expr.is_id_expression())
+        {
+            IdExpression id_expr = expr.get_id_expression();
+            return id_expr.get_symbol();
+        }
+        else if (expr.is_array_subscript())
+        {
+            return get_symbol_of_data_reference(expr.get_subscripted_expression());
+        }
+        else if (expr.is_array_section())
+        {
+            return get_symbol_of_data_reference(expr.array_section_item());
+        }
+        else if (expr.is_shaping_expression())
+        {
+            return get_symbol_of_data_reference(expr.shaped_expression());
+        }
+        else
+        {
+            internal_error("Invalid expression kind", 0);
+        }
+    }
+
     static bool check_for_dep_expression(Expression expr)
     {
         bool is_lvalue = false;
@@ -35,9 +88,17 @@ namespace TL { namespace OpenMP {
         {
             std::cerr << expr.get_ast().get_locus() 
                 << ": warning: dependency expression '" << expr.prettyprint() << "' is not a lvalue" << std::endl;
+            return false;
         }
 
-        return is_lvalue;
+        if (!check_for_data_reference(expr))
+        {
+            std::cerr << expr.get_ast().get_locus() 
+                << ": warning: dependency expression '" << expr.prettyprint() << "' is not a valid dependence" << std::endl;
+            return false;
+        }
+
+        return true;
     }
 
     static void add_data_sharings(ObjectList<Expression> &expression_list, 
@@ -54,32 +115,29 @@ namespace TL { namespace OpenMP {
             {
                 DependencyItem dep_item(*it, attr);
 
-                if (expr.is_id_expression())
+                Symbol sym = get_symbol_of_data_reference(expr);
+                if (sym.is_valid())
                 {
-                    Symbol sym = expr.get_id_expression().get_computed_symbol();
-                    if (sym.is_valid())
+                    DataSharingAttribute attr = data_sharing.get(sym);
+
+                    if (((attr & DS_PRIVATE) == DS_PRIVATE)
+                            && ((attr & DS_IMPLICIT) != DS_IMPLICIT))
                     {
-                        DataSharingAttribute attr = data_sharing.get(sym);
+                        std::cerr << expr.get_ast().get_locus()
+                            << ": warning: dependency expression '" 
+                            << expr.prettyprint() << "' names a private variable, making it shared" << std::endl;
 
-                        if (((attr & DS_PRIVATE) == DS_PRIVATE)
-                                && ((attr & DS_IMPLICIT) != DS_IMPLICIT))
-                        {
-                            std::cerr << expr.get_ast().get_locus()
-                                << ": warning: dependency expression '" 
-                                << expr.prettyprint() << "' names a private variable, making it shared" << std::endl;
-
-                            data_sharing.set(sym, attr);
-                        }
-
-                        data_sharing.set(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
-                        dep_item.set_symbol_dependence(sym);
+                        data_sharing.set(sym, attr);
                     }
-                    else
-                    {
-                        std::cerr << expr.get_ast().get_locus() 
-                            << ": warning: skipping invalid dependency expression '" << expr.prettyprint() << "'" << std::endl;
-                        continue;
-                    }
+
+                    data_sharing.set(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
+                    dep_item.set_symbol_dependence(sym);
+                }
+                else
+                {
+                    std::cerr << expr.get_ast().get_locus() 
+                        << ": warning: skipping invalid dependency expression '" << expr.prettyprint() << "'" << std::endl;
+                    continue;
                 }
 
                 data_sharing.add_dependence(dep_item);
