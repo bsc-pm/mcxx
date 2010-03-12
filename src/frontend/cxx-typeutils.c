@@ -299,9 +299,7 @@ struct simple_type_tag {
 
     // Template dependent types (STK_TEMPLATE_DEPENDENT_TYPE)
     scope_entry_t* dependent_entry;
-    AST dependent_nested_name;
-    AST dependent_unqualified_part;
-
+    dependent_name_part_t* dependent_parts;
 } simple_type_t;
 
 
@@ -969,6 +967,86 @@ type_t* get_user_defined_type(scope_entry_t* entry)
     return type_info;
 }
 
+static dependent_name_part_t* get_dependent_nested_part(
+        decl_context_t decl_context,
+        AST nested_part)
+{
+    ERROR_CONDITION(nested_part == NULL, "This tree cannot be NULL", 0);
+
+    dependent_name_part_t* result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
+
+    if (ASTType(nested_part) == AST_SYMBOL)
+    {
+        result->name = ASTText(nested_part);
+    }
+    else if (ASTType(nested_part) == AST_TEMPLATE_ID)
+    {
+        AST sym = ASTSon0(nested_part);
+
+        result->name = ASTText(sym);
+
+        result->template_arguments = get_template_arguments_from_syntax(
+                ASTSon1(nested_part),
+                decl_context,
+                /* nesting level */ 0);
+    }
+    else if (ASTType(nested_part) == AST_OPERATOR_FUNCTION_ID
+            || ASTType(nested_part) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
+    {
+        result->name = get_operator_function_name(nested_part);
+
+        if (ASTType(nested_part) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
+        {
+            result->template_arguments = get_template_arguments_from_syntax(
+                    ASTSon1(nested_part),
+                    decl_context,
+                    /* nesting_level */ 0);
+        }
+    }
+    else if (ASTType(nested_part) == AST_CONVERSION_FUNCTION_ID)
+    {
+        result->name = get_conversion_function_name(decl_context, nested_part, 
+                &result->related_type);
+    }
+    else if (ASTType(nested_part) == AST_DESTRUCTOR_ID)
+    {
+        return get_dependent_nested_part(decl_context, ASTSon0(nested_part));
+    }
+    else
+    {
+        internal_error("Invalid tree of kind '%s'\n", ast_print_node_type(ASTType(nested_part)));
+    }
+
+    return result;
+}
+
+static dependent_name_part_t* compute_dependent_parts(
+        decl_context_t decl_context,
+        AST nested_name,
+        AST unqualified_part)
+{
+    if (nested_name == NULL)
+    {
+        return get_dependent_nested_part(decl_context, unqualified_part);
+    }
+    else
+    {
+        AST next_part = ASTSon1(nested_name);
+
+        dependent_name_part_t* next = compute_dependent_parts(
+                decl_context,
+                next_part,
+                unqualified_part);
+
+        dependent_name_part_t* current = get_dependent_nested_part(
+                decl_context, ASTSon0(nested_name));
+
+        current->next = next;
+
+        return current;
+    }
+}
+
 type_t* get_dependent_typename_type(scope_entry_t* dependent_entity, 
         decl_context_t decl_context,
         AST nested_name, 
@@ -978,9 +1056,15 @@ type_t* get_dependent_typename_type(scope_entry_t* dependent_entity,
 
     type_info->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
     type_info->type->dependent_entry = dependent_entity;
-    type_info->type->typeof_decl_context = decl_context;
-    type_info->type->dependent_nested_name = nested_name;
-    type_info->type->dependent_unqualified_part = unqualified_part;
+
+    type_info->type->dependent_parts = compute_dependent_parts(
+            decl_context,
+            nested_name,
+            unqualified_part);
+
+    // type_info->type->typeof_decl_context = decl_context;
+    // type_info->type->dependent_nested_name = nested_name;
+    // type_info->type->dependent_unqualified_part = unqualified_part;
 
     // This is always dependent
     type_info->info->is_dependent = 1;
@@ -988,19 +1072,15 @@ type_t* get_dependent_typename_type(scope_entry_t* dependent_entity,
     return type_info;
 }
 
-void dependent_typename_get_components(type_t* t, scope_entry_t** dependent_entry, 
-        decl_context_t* decl_context,
-        AST *nested_name, AST *unqualified_part)
+void dependent_typename_get_components(type_t* t, 
+        scope_entry_t** dependent_entry, 
+        dependent_name_part_t** dependent_parts)
 {
     ERROR_CONDITION(!is_dependent_typename_type(t), "This is not a dependent typename", 0);
     t = advance_over_typedefs(t);
 
-    t = advance_over_typedefs(t);
-
     *dependent_entry = t->type->dependent_entry;
-    *decl_context = t->type->typeof_decl_context;
-    *nested_name = t->type->dependent_nested_name;
-    *unqualified_part = t->type->dependent_unqualified_part;
+    *dependent_parts = t->type->dependent_parts;
 }
 
 type_t* get_new_enum_type(decl_context_t decl_context)
@@ -3285,25 +3365,25 @@ static type_t* advance_dependent_typename(type_t* t)
 
     cv_qualifier_t cv_qualif = t->cv_qualifier;
 
-    decl_context_t dependent_decl_context;
     scope_entry_t* dependent_entry = NULL;
-    AST nested_name = NULL;
-    AST unqualified_part = NULL;
+    dependent_name_part_t* dependent_parts;
 
-    dependent_typename_get_components(t, &dependent_entry, 
-            &dependent_decl_context, &nested_name, &unqualified_part);
+    dependent_typename_get_components(t, 
+            &dependent_entry, 
+            &dependent_parts);
 
     if (dependent_entry->kind == SK_TEMPLATE_TYPE_PARAMETER)
         return t;
 
     if (dependent_entry->kind == SK_CLASS)
     {
-        type_t* class_type = dependent_entry->type_information;
+        // type_t* class_type = dependent_entry->type_information;
 
-        decl_context_t inner_context = class_type_get_inner_context(class_type);
+        // decl_context_t inner_context = class_type_get_inner_context(class_type);
 
-        scope_entry_list_t* result_list = query_nested_name(inner_context, 
-                NULL, nested_name, unqualified_part);
+        scope_entry_list_t* result_list = NULL;
+        // scope_entry_list_t* result_list = query_nested_name(inner_context, 
+        //         NULL, nested_name, unqualified_part);
 
         if (result_list != NULL)
         {
@@ -3827,110 +3907,123 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2)
     return still_compatible;
 }
 
-static char syntactic_comparison_of_template_id(AST template_id_1, decl_context_t decl_context_1,
-        AST template_id_2, decl_context_t decl_context_2, int nesting_level)
-{
-    ERROR_CONDITION((ASTType(template_id_1) != AST_TEMPLATE_ID
-                || ASTType(template_id_2) != AST_TEMPLATE_ID), 
-            "Only template-id are valid", 0);
+static const char* get_template_arguments_list_str(template_argument_list_t* template_arguments);
 
-    AST symbol_name_1 = ASTSon0(template_id_1);
-    AST symbol_name_2 = ASTSon0(template_id_2);
-    if (strcmp(ASTText(symbol_name_1), ASTText(symbol_name_2)) != 0)
-    {
-        return 0;
-    }
-
-    AST template_arguments_1 = ASTSon1(template_id_1);
-    AST template_arguments_2 = ASTSon1(template_id_2);
-
-    template_argument_list_t* t_arg_list_1 = get_template_arguments_from_syntax(template_arguments_1, 
-            decl_context_1, nesting_level);
-    template_argument_list_t* t_arg_list_2 = get_template_arguments_from_syntax(template_arguments_2, 
-            decl_context_2, nesting_level);
-
-    return same_template_argument_list(t_arg_list_1, t_arg_list_2);
-}
-
-static char syntactic_comparison_of_symbol(AST symbol_1, AST symbol_2)
-{
-    ERROR_CONDITION((ASTType(symbol_1) != AST_SYMBOL
-                || ASTType(symbol_2) != AST_SYMBOL), 
-            "Only symbols are valid", 0);
-    return (strcmp(ASTText(symbol_1), ASTText(symbol_2)) == 0);
-}
-
-char syntactic_comparison_of_nested_names(
-        AST nested_name_1, AST nested_name_2, decl_context_t decl_context_1,
-        AST unqualified_part_1, AST unqualified_part_2, decl_context_t decl_context_2)
+static char syntactic_comparison_of_dependent_parts(
+        dependent_name_part_t* dependent_parts_1,
+        dependent_name_part_t* dependent_parts_2)
 {
     DEBUG_CODE()
     {
-        fprintf(stderr, "Comparing nested-name parts '%s%s' vs '%s%s'\n", 
-                prettyprint_in_buffer(nested_name_1), 
-                prettyprint_in_buffer(unqualified_part_1), 
-                prettyprint_in_buffer(nested_name_2), 
-                prettyprint_in_buffer(unqualified_part_2));
+        fprintf(stderr, "Comparing (syntactically) nested-name parts '");
+        dependent_name_part_t* part = dependent_parts_1;
+        while (part != NULL)
+        {
+            fprintf(stderr, "%s%s%s",
+                    part->name,
+                    part->template_arguments == NULL ? "" : get_template_arguments_list_str(part->template_arguments),
+                    part->next == NULL ? "" : "::");
+            part = part->next;
+        }
+        fprintf(stderr, "' vs '");
+        part = dependent_parts_2;
+        while (part != NULL)
+        {
+            fprintf(stderr, "%s%s%s",
+                    part->name,
+                    part->template_arguments == NULL ? "" : get_template_arguments_list_str(part->template_arguments),
+                    part->next == NULL ? "" : "::");
+            part = part->next;
+        }
+        fprintf(stderr, "'\n");
     }
 
-    int nesting_level = 0;
-
-    while (nested_name_1 != NULL
-            && nested_name_2 != NULL)
+    while (dependent_parts_1 != NULL
+            && dependent_parts_2 != NULL)
     {
-        AST current_name_1 = ASTSon0(nested_name_1);
-        AST current_name_2 = ASTSon0(nested_name_2);
-
-        if (ASTType(current_name_1) != ASTType(current_name_2))
+        if (strcmp(dependent_parts_1->name, dependent_parts_2->name) != 0)
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "Nested-name element is different '%s' vs '%s'\n",
-                        ast_print_node_type(ASTType(current_name_1)),
-                        ast_print_node_type(ASTType(current_name_2)));
+                fprintf(stderr, "Mismatch of component name '%s' != '%s'\n",
+                        dependent_parts_1->name,
+                        dependent_parts_2->name);
             }
             return 0;
         }
 
-        if (ASTType(current_name_1) == AST_SYMBOL)
+        if ((dependent_parts_1->template_arguments == NULL
+                    && dependent_parts_2->template_arguments != NULL)
+                || (dependent_parts_1->template_arguments != NULL
+                    && dependent_parts_2->template_arguments == NULL))
         {
-            if (!syntactic_comparison_of_symbol(current_name_1, current_name_2))
+            DEBUG_CODE()
             {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "Syntactic comparison of symbols '%s' vs '%s' failed\n",
-                            prettyprint_in_buffer(current_name_1),
-                            prettyprint_in_buffer(current_name_2));
-                }
-                return 0;
+                fprintf(stderr, "Mismatch in the kind of components %s type has template arguments while %s does not\n",
+                        dependent_parts_1->template_arguments != NULL ? "first" : "second",
+                        dependent_parts_1->template_arguments == NULL ? "first" : "second");
             }
+            return 0;
         }
-        else if (ASTType(current_name_1) == AST_TEMPLATE_ID)
+        
+        if ((dependent_parts_1->related_type == NULL
+                    && dependent_parts_2->related_type != NULL)
+                || (dependent_parts_1->related_type != NULL
+                    && dependent_parts_2->related_type == NULL))
         {
-            if (!syntactic_comparison_of_template_id(current_name_1, decl_context_1,
-                        current_name_2, decl_context_2, nesting_level))
+            DEBUG_CODE()
             {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "Syntactic comparison of template-ids '%s' vs '%s' failed\n",
-                            prettyprint_in_buffer(current_name_1),
-                            prettyprint_in_buffer(current_name_2));
-                }
-                return 0;
+                fprintf(stderr, "Mismatch in the kind of components %s type has a related type while %s does not\n",
+                        dependent_parts_1->related_type != NULL ? "first" : "second",
+                        dependent_parts_1->related_type == NULL ? "first" : "second");
             }
-            nesting_level++;
-        }
-        else
-        {
-            internal_error("Invalid node type '%s'\n", ast_print_node_type(ASTType(current_name_1)));
         }
 
-        nested_name_1 = ASTSon1(nested_name_1);
-        nested_name_2 = ASTSon1(nested_name_2);
+        if (dependent_parts_1->related_type != NULL
+                && dependent_parts_2->related_type != NULL)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "Need to compare related types\n");
+            }
+
+            if (!equivalent_types(dependent_parts_1->related_type,
+                        dependent_parts_2->related_type))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "Related types do not match\n");
+                }
+                return 0;
+            }
+        }
+
+        if (dependent_parts_1->template_arguments != NULL
+                    && dependent_parts_2->template_arguments != NULL)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "Need to compare template arguments\n");
+            }
+
+            if (!same_template_argument_list(dependent_parts_1->template_arguments,
+                        dependent_parts_2->template_arguments))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "Template arguments do not match\n");
+                }
+                return 0;
+            }
+            return 0;
+        }
+
+        dependent_parts_1 = dependent_parts_1->next;
+        dependent_parts_2 = dependent_parts_2->next;
     }
 
-    if (nested_name_1 != NULL
-            || nested_name_2 != NULL)
+    if (dependent_parts_1 != NULL
+            || dependent_parts_2 != NULL)
     {
         DEBUG_CODE()
         {
@@ -3939,75 +4032,34 @@ char syntactic_comparison_of_nested_names(
         return 0;
     }
 
-
-    if (ASTType(unqualified_part_1) != ASTType(unqualified_part_2))
+    DEBUG_CODE()
     {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "Unqualified part node kind '%s' is not the same as '%s'\n",
-                    ast_print_node_type(ASTType(unqualified_part_1)),
-                    ast_print_node_type(ASTType(unqualified_part_2)));
-        }
-        return 0;
+        fprintf(stderr, "Both dependent typenames seem the same\n");
     }
-
-    if (ASTType(unqualified_part_1) == AST_SYMBOL)
-    {
-        if (!syntactic_comparison_of_symbol(unqualified_part_1, unqualified_part_2))
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "Syntactic comparison of unqualified symbols '%s' vs '%s' failed\n",
-                        prettyprint_in_buffer(unqualified_part_1),
-                        prettyprint_in_buffer(unqualified_part_2));
-            }
-            return 0;
-        }
-    }
-    else
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "Syntactic comparison of unqualified template-id '%s' vs '%s' failed\n",
-                    prettyprint_in_buffer(unqualified_part_1),
-                    prettyprint_in_buffer(unqualified_part_2));
-        }
-        if (!syntactic_comparison_of_template_id(unqualified_part_1, 
-                    decl_context_1,
-                    unqualified_part_2, decl_context_2, nesting_level))
-            return 0;
-        nesting_level++;
-    }
-
     return 1;
 }
 
 static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2)
 {
+    // It is likely that in these contrived cases users will use a typedef
+    // to help themselves so most of the time this fast path will be fired
+    if (p_t1 == p_t2)
+        return 1;
+
     DEBUG_CODE()
     {
         fprintf(stderr , "Comparing template dependent typenames '%s' and '%s'\n",
                 print_declarator(p_t1),
                 print_declarator(p_t2));
     }
-    // It is likely that in these contrived cases the user will use a typedef
-    // to help himself so most of the time this fast path will be fired
-    if (p_t1 == p_t2)
-        return 1;
 
-    // This should be easier now, no context needed!
-    decl_context_t decl_context_1;
     scope_entry_t* dependent_entry_1 = NULL;
-    AST nested_name_1 = NULL;
-    AST unqualified_part_1 = NULL;
+    dependent_name_part_t* dependent_parts_1 = NULL;
 
-    decl_context_t decl_context_2;
-    scope_entry_t* dependent_entry_2;
-    AST nested_name_2;
-    AST unqualified_part_2;
+    dependent_typename_get_components(p_t1, 
+            &dependent_entry_1,
+            &dependent_parts_1);
 
-    dependent_typename_get_components(p_t1, &dependent_entry_1, 
-            &decl_context_1, &nested_name_1, &unqualified_part_1);
     type_t* type_to_compare_1 = NULL;
     if (dependent_entry_1->kind == SK_TEMPLATE_TYPE_PARAMETER)
     {
@@ -4018,8 +4070,13 @@ static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2
         type_to_compare_1 = dependent_entry_1->type_information;
     }
 
-    dependent_typename_get_components(p_t2, &dependent_entry_2, 
-            &decl_context_2, &nested_name_2, &unqualified_part_2);
+    scope_entry_t* dependent_entry_2 = NULL;
+    dependent_name_part_t* dependent_parts_2 = NULL;
+
+    dependent_typename_get_components(p_t2, 
+            &dependent_entry_2,
+            &dependent_parts_2);
+
     type_t* type_to_compare_2 = NULL;
     if (dependent_entry_2->kind == SK_TEMPLATE_TYPE_PARAMETER)
     {
@@ -4033,20 +4090,16 @@ static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2
     if (equivalent_types(type_to_compare_1,
                 type_to_compare_2))
     {
-        return syntactic_comparison_of_nested_names(
-                nested_name_1, nested_name_2, decl_context_1,
-                unqualified_part_1, unqualified_part_2, decl_context_2);
+        return syntactic_comparison_of_dependent_parts(dependent_parts_1, dependent_parts_2);
     }
     else
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "Dependent entry is already different\n");
+            fprintf(stderr, "Dependent entry is different\n");
         }
         return 0;
     }
-
-    return 1;
 }
 
 char is_builtin_type(type_t* t)
@@ -6090,11 +6143,56 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
     return result;
 }
 
+// Prints the template arguments, this routine is for debugging
+static const char* get_template_arguments_list_str(template_argument_list_t* template_arguments)
+{
+    const char* result = NULL;
+    result = strappend(result, "<");
+    int i;
+    for (i = 0; i < template_arguments->num_arguments; i++)
+    {
+        template_argument_t* template_argument = 
+            template_arguments->argument_list[i];
+
+        switch (template_argument->kind)
+        {
+            case TAK_TYPE:
+            case TAK_TEMPLATE:
+                {
+                    result = strappend(result, 
+                            print_declarator(template_argument->type));
+                    break;
+                }
+            case TAK_NONTYPE:
+                {
+                    result = strappend(result, 
+                            prettyprint_in_buffer(template_argument->expression));
+                    break;
+                }
+            default:
+                {
+                    result = strappend(result,
+                            " << unknown template argument >> ");
+                    break;
+                }
+        }
+        if ((i + 1) < template_arguments->num_arguments)
+        {
+            result = strappend(result, ", ");
+        }
+    }
+    result = strappend(result, "> ");
+
+    return result;
+}
+
 const char* get_named_type_name(scope_entry_t* entry)
 {
     ERROR_CONDITION(entry == NULL, "This cannot be null", 0);
     return get_named_simple_type_name(entry);
 }
+
+
 
 // Gives the name of a builtin type. This routine is for debugging
 static const char* get_builtin_type_name(type_t* type_info)
@@ -6181,45 +6279,12 @@ static const char* get_builtin_type_name(type_t* type_info)
             {
                 const char *template_arguments = "";
                 {
-                    int i;
                     type_t* actual_class = type_info;
                     if (actual_class->info->is_template_specialized_type
                             && actual_class->template_arguments != NULL)
                     {
-                        template_arguments = strappend(template_arguments, "<");
-                        for (i = 0; i < actual_class->template_arguments->num_arguments; i++)
-                        {
-                            template_argument_t* template_argument = 
-                                actual_class->template_arguments->argument_list[i];
-
-                            switch (template_argument->kind)
-                            {
-                                case TAK_TYPE:
-                                case TAK_TEMPLATE:
-                                    {
-                                        template_arguments = strappend(template_arguments, 
-                                                print_declarator(template_argument->type));
-                                        break;
-                                    }
-                                case TAK_NONTYPE:
-                                    {
-                                        template_arguments = strappend(template_arguments, 
-                                                prettyprint_in_buffer(template_argument->expression));
-                                        break;
-                                    }
-                                default:
-                                    {
-                                        template_arguments = strappend(template_arguments,
-                                                " << unknown template argument >> ");
-                                        break;
-                                    }
-                            }
-                            if ((i + 1) < actual_class->template_arguments->num_arguments)
-                            {
-                                template_arguments = strappend(template_arguments, ", ");
-                            }
-                        }
-                        template_arguments = strappend(template_arguments, "> ");
+                        template_arguments = get_template_arguments_list_str(
+                                actual_class->template_arguments);
                     }
                 }
 
@@ -6238,12 +6303,32 @@ static const char* get_builtin_type_name(type_t* type_info)
             break;
         case STK_TEMPLATE_DEPENDENT_TYPE :
             {
-                char c[256] = { 0 };
-                snprintf(c, 255, "<template dependent type [%s]::%s%s>", 
-                        get_named_simple_type_name(simple_type_info->dependent_entry),
-                        prettyprint_in_buffer(simple_type_info->dependent_nested_name),
-                        prettyprint_in_buffer(simple_type_info->dependent_unqualified_part));
-                result = strappend(result, c);
+                // snprintf(c, 255, "<template dependent type [%s]::%s%s>", 
+                //         get_named_simple_type_name(simple_type_info->dependent_entry),
+                //         prettyprint_in_buffer(simple_type_info->dependent_nested_name),
+                //         prettyprint_in_buffer(simple_type_info->dependent_unqualified_part));
+
+                result = strappend(result, "<template dependent type: [");
+                result = strappend(result, 
+                        get_named_simple_type_name(simple_type_info->dependent_entry));
+                result = strappend(result, "]");
+
+                dependent_name_part_t* parts = simple_type_info->dependent_parts;
+                while (parts != NULL)
+                {
+                    result = strappend(result, "::");
+                    result = strappend(result, parts->name);
+
+                    if (parts->template_arguments != NULL)
+                    {
+                        result = strappend(result, 
+                                get_template_arguments_list_str(parts->template_arguments));
+                    }
+
+                    parts = parts->next;
+                }
+
+                result = strappend(result, ">");
             }
             break;
         case STK_TEMPLATE_TYPE :

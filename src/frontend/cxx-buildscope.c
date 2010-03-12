@@ -6520,7 +6520,14 @@ scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl_contex
             new_decl_context, &block_context);
     entry = build_scope_declarator_name(ASTSon1(a), declarator_type, &gather_info, new_decl_context);
 
-    ERROR_CONDITION((entry == NULL), "Function '%s' does not exist! %s", prettyprint_in_buffer(ASTSon1(a)), ast_location(a));
+    // ERROR_CONDITION((entry == NULL), "Function '%s' does not exist! %s", prettyprint_in_buffer(ASTSon1(a)), ast_location(a));
+    if (entry == NULL)
+    {
+        running_error("%s: error: function '%s' was not found in the scope\n", 
+                ast_location(a), 
+                print_decl_type_str(declarator_type, new_decl_context, 
+                    prettyprint_in_buffer(get_declarator_name(ASTSon1(a), new_decl_context))));
+    }
 
     if (entry->defined)
     {

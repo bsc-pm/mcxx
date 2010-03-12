@@ -108,20 +108,23 @@ namespace TL
         enum CopyDirection
         {
             COPY_DIR_INVALID = 0,
-            COPY_DIR_IN = 1,
-            COPY_DIR_OUT = 2,
+            COPY_DIR_IN = 1 << 1,
+            COPY_DIR_OUT = 1 << 2,
+            COPY_DIR_INOUT = COPY_DIR_IN | COPY_DIR_OUT,
         };
 
         class LIBTL_CLASS CopyItem : public TL::Object
         {
             private:
+                Symbol _sym;
                 Expression _copy_expr;
                 CopyDirection _kind;
             public:
-                CopyItem(Expression copy_expr, CopyDirection direction);
+                CopyItem(Symbol sym, Expression copy_expr, CopyDirection direction);
 
                 CopyDirection get_kind() const;
                 Expression get_copy_expression() const;
+                Symbol get_symbol() const;
         };
 
         class LIBTL_CLASS UDRInfoItem : public TL::Object

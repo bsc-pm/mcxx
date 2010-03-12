@@ -91,6 +91,14 @@ namespace TL
                  BaseTransform& disallow_identity();
         };
 
+        enum InstrumentationEvents
+        {
+            TASK_INVALID = 0,
+            TASK_CODE = 9000001,
+            TASK_OVERHEAD,
+        };
+
+        extern bool enable_instrumentation;
         //! @}
     }
 }

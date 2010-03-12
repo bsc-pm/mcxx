@@ -26,6 +26,7 @@
 
 #include "libmcxx-common.h"
 #include "cxx-macros.h"
+#include "cxx-scope-decls.h"
 
 MCXX_BEGIN_DECLS
 
@@ -70,6 +71,7 @@ enum standard_conversion_item_tag
     SCI_QUALIFICATION_CONVERSION,
 } standard_conversion_item_t;
 
+// Class kind
 enum class_kind_t {
     CK_INVALID = 0,
     CK_STRUCT, // struct
@@ -77,6 +79,7 @@ enum class_kind_t {
     CK_UNION // union 
 };
 
+// Standard conversion info
 typedef
 struct standard_conversion_tag
 {
@@ -84,6 +87,16 @@ struct standard_conversion_tag
     struct type_tag* dest;
     standard_conversion_item_t conv[3];
 } standard_conversion_t;
+
+// Dependent typenames
+typedef
+struct dependent_name_part_tag
+{
+    const char* name;
+    struct template_argument_list_tag* template_arguments;
+    struct type_tag* related_type;
+    struct dependent_name_part_tag* next;
+} dependent_name_part_t;
 
 LIBMCXX_EXTERN const standard_conversion_t no_scs_conversion;
 

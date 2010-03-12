@@ -31,6 +31,7 @@ linker_name = gcc
 {openmp,nanox,fun-tasks} compiler_phase = libtlomp-core.so # Run again omp-core after fun-tasks
 {openmp,nanox} compiler_phase = libtlomp-nanox.so
 {openmp,nanox} compiler_phase = libtlnanox-smp.so
+{openmp,nanox} compiler_phase = libtlnanox-smp_numa.so
 
 [mcc : omp-base]
 language = C

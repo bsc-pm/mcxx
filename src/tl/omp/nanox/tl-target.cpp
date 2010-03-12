@@ -6,5 +6,5 @@ using namespace TL::Nanox;
 
 void OMPTransform::target_postorder(PragmaCustomConstruct ctr)
 {
-    // FIXME - We should do something here
+    ctr.get_ast().replace(ctr.get_statement().get_ast());
 }

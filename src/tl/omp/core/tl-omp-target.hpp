@@ -37,9 +37,22 @@ namespace TL
 
             ObjectList<std::string> copy_in;
             ObjectList<std::string> copy_out;
+            ObjectList<std::string> copy_inout;
 
             bool has_implements;
             Symbol implements;
+
+            bool copy_deps;
+
+            TargetContext()
+                : device_list(), 
+                copy_in(), 
+                copy_out(), 
+                has_implements(), 
+                implements(), 
+                copy_deps()
+            {
+            }
         };
     }
 }

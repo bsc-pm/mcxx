@@ -429,8 +429,9 @@ LIBMCXX_EXTERN struct type_tag* template_specialized_type_get_related_template_t
 LIBMCXX_EXTERN template_parameter_list_t* template_specialized_type_get_template_parameters(struct type_tag* t);
 LIBMCXX_EXTERN void template_specialized_type_update_template_parameters(struct type_tag* t, template_parameter_list_t* template_parameters);
 
-LIBMCXX_EXTERN void dependent_typename_get_components(struct type_tag* t, struct scope_entry_tag** dependent_entry, 
-        decl_context_t* decl_context, struct AST_tag* *nested_name, struct AST_tag* *unqualified_part);
+LIBMCXX_EXTERN void dependent_typename_get_components(type_t* t, 
+        scope_entry_t** dependent_entry, 
+        dependent_name_part_t** dependent_parts);
 
 LIBMCXX_EXTERN int vector_type_get_vector_size(struct type_tag*);
 LIBMCXX_EXTERN struct type_tag* vector_type_get_element_type(struct type_tag*);
@@ -511,8 +512,8 @@ LIBMCXX_EXTERN char is_ellipsis_type(struct type_tag* t);
 LIBMCXX_EXTERN char has_dependent_template_arguments(template_argument_list_t* template_arguments);
 
 LIBMCXX_EXTERN char syntactic_comparison_of_nested_names(
-        struct AST_tag* nested_name_1, struct AST_tag* nested_name_2, decl_context_t decl_context_1,
-        struct AST_tag* unqualified_part_1, struct AST_tag* unqualified_part_2, decl_context_t decl_context_2);
+        dependent_name_part_t* dependent_parts_1,
+        dependent_name_part_t* dependent_parts_2);
 
 /* Debug purpose functions */
 LIBMCXX_EXTERN const char* print_declarator(struct type_tag* printed_declarator);

@@ -28,7 +28,6 @@ namespace TL
 {
     namespace OpenMP
     {
-
         static bool check_for_copy_data_reference(Expression expr)
         {
             // Allowed expressions
@@ -57,6 +56,31 @@ namespace TL
                 return false;
         }
 
+        static Symbol get_symbol_of_copy_data_reference(Expression expr)
+        {
+            if (expr.is_id_expression())
+            {
+                IdExpression id_expr = expr.get_id_expression();
+                return id_expr.get_symbol();
+            }
+            else if (expr.is_array_subscript())
+            {
+                return get_symbol_of_copy_data_reference(expr.get_subscripted_expression());
+            }
+            else if (expr.is_array_section())
+            {
+                return get_symbol_of_copy_data_reference(expr.array_section_item());
+            }
+            else if (expr.is_shaping_expression())
+            {
+                return get_symbol_of_copy_data_reference(expr.shaped_expression());
+            }
+            else
+            {
+                internal_error("Invalid expression kind", 0);
+            }
+        }
+
         void Core::target_handler_pre(PragmaCustomConstruct ctr)
         {
             PragmaCustomClause device = ctr.get_clause("device");
@@ -80,6 +104,18 @@ namespace TL
             if (copy_out.is_defined())
             {
                 target_ctx.copy_out = copy_out.get_arguments(ExpressionTokenizer());
+            }
+
+            PragmaCustomClause copy_inout = ctr.get_clause("copy_inout");
+            if (copy_inout.is_defined())
+            {
+                target_ctx.copy_inout = copy_inout.get_arguments(ExpressionTokenizer());
+            }
+
+            PragmaCustomClause copy_deps = ctr.get_clause("copy_deps");
+            if (copy_deps.is_defined())
+            {
+                target_ctx.copy_deps = true;
             }
 
             PragmaCustomClause implements = ctr.get_clause("implements");
@@ -205,7 +241,8 @@ namespace TL
         static void add_copy_items(PragmaCustomConstruct construct, 
                 DataSharingEnvironment& data_sharing,
                 const ObjectList<std::string>& list,
-                CopyDirection copy_direction)
+                CopyDirection copy_direction,
+                bool warn_not_shared = true)
         {
             for (ObjectList<std::string>::const_iterator it = list.begin();
                     it != list.end();
@@ -222,11 +259,26 @@ namespace TL
                 if (!check_for_copy_data_reference(expr))
                 {
                     std::cerr << construct.get_ast().get_locus() 
-                        << ": warning: '" << expr.prettyprint() << "' is not a valid copy data-reference" 
+                        << ": warning: '" << expr.prettyprint() << "' is not a valid copy data-reference, skipping" 
                         << std::endl;
+                    continue;
                 }
 
-                CopyItem copy_item(expr, copy_direction);
+                Symbol sym = get_symbol_of_copy_data_reference(expr);
+
+                DataSharingAttribute attr = data_sharing.get(sym);
+
+                if (warn_not_shared
+                        && ((attr & DS_SHARED) != DS_SHARED))
+                {
+                    std::cerr << construct.get_ast().get_locus()
+                        << ": warning: symbol '" << sym.get_name() 
+                        << "' is referenced in a copy clause but its data sharing attribute is not shared, skipping"
+                        << std::endl;
+                    continue;
+                }
+
+                CopyItem copy_item(sym, expr, copy_direction);
                 data_sharing.add_copy(copy_item);
             }
         }
@@ -244,12 +296,84 @@ namespace TL
             add_copy_items(construct, data_sharing,
                     target_ctx.copy_out,
                     COPY_DIR_OUT);
+            add_copy_items(construct, data_sharing,
+                    target_ctx.copy_inout,
+                    COPY_DIR_INOUT);
 
             for (ObjectList<std::string>::iterator it = target_ctx.device_list.begin();
                     it != target_ctx.device_list.end();
                     it++)
             {
                 data_sharing.add_device(*it);
+            }
+
+            // Add firstprivates as copy_in
+            ObjectList<std::string> fp_copy_in;
+            ObjectList<Symbol> fp_list;
+            data_sharing.get_all_symbols(OpenMP::DS_FIRSTPRIVATE, fp_list);
+            for (ObjectList<Symbol>::iterator it = fp_list.begin();
+                    it != fp_list.end();
+                    it++)
+            {
+                fp_copy_in.append(it->get_qualified_name());
+            }
+
+            add_copy_items(construct, 
+                    data_sharing,
+                    fp_copy_in,
+                    COPY_DIR_IN,
+                    /* warn_not_shared */ false);
+
+            if (target_ctx.copy_deps)
+            {
+                // Copy the dependences, as well
+
+                ObjectList<DependencyItem> dependences;
+                data_sharing.get_all_dependences(dependences);
+
+                ObjectList<std::string> dep_list_in;
+                ObjectList<std::string> dep_list_out;
+                ObjectList<std::string> dep_list_inout;
+                for (ObjectList<DependencyItem>::iterator it = dependences.begin();
+                        it != dependences.end();
+                        it++)
+                {
+                    ObjectList<std::string>* p = NULL;
+                    if (it->get_kind() == DEP_DIR_INPUT)
+                    {
+                        p = &dep_list_in;
+                    }
+                    else if (it->get_kind() == DEP_DIR_OUTPUT)
+                    {
+                        p = &dep_list_out;
+                    }
+                    else if (it->get_kind() == DEP_DIR_INOUT)
+                    {
+                        p = &dep_list_inout;
+                    }
+                    else
+                    {
+                        internal_error("Invalid dependency kind", 0);
+                    }
+
+                    p->append(it->get_dependency_expression());
+                }
+
+                add_copy_items(construct, 
+                        data_sharing,
+                        dep_list_in,
+                        COPY_DIR_IN,
+                        /* warn_not_shared */ false);
+                add_copy_items(construct, 
+                        data_sharing,
+                        dep_list_out,
+                        COPY_DIR_OUT,
+                        /* warn_not_shared */ false);
+                add_copy_items(construct, 
+                        data_sharing,
+                        dep_list_inout,
+                        COPY_DIR_INOUT,
+                        /* warn_not_shared */ false);
             }
         }
     }
