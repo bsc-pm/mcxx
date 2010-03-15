@@ -38,6 +38,19 @@ namespace TL { namespace OpenMP {
         {
             return true;
         }
+        else if (expr.is_unary_operation())
+        {
+            if (expr.get_operation_kind() == Expression::DERREFERENCE)
+            {
+                Expression ref = expr.get_unary_operand();
+
+                if (ref.is_unary_operation()
+                        && ref.get_operation_kind() == Expression::REFERENCE)
+                    return check_for_data_reference(ref.get_unary_operand());
+                else
+                    return check_for_data_reference(ref);
+            }
+        }
         else if (expr.is_array_subscript())
         {
             return check_for_data_reference(expr.get_subscripted_expression());
@@ -60,6 +73,19 @@ namespace TL { namespace OpenMP {
         {
             IdExpression id_expr = expr.get_id_expression();
             return id_expr.get_symbol();
+        }
+        else if (expr.is_unary_operation())
+        {
+            if (expr.get_operation_kind() == Expression::DERREFERENCE)
+            {
+                Expression ref = expr.get_unary_operand();
+
+                if (ref.is_unary_operation()
+                        && ref.get_operation_kind() == Expression::REFERENCE)
+                    return get_symbol_of_data_reference(ref.get_unary_operand());
+                else
+                    return get_symbol_of_data_reference(ref);
+            }
         }
         else if (expr.is_array_subscript())
         {
