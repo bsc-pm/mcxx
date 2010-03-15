@@ -158,9 +158,10 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
     }
 
     // FIXME - This will be meaningful with 'copy_in' and 'copy_out'
-    Source num_copies, copy_data;
+    Source num_copies, copy_data, imm_copy_data;
     num_copies << "0";
-    copy_data << "(nanos_copy_data_t*)0";
+    copy_data << "(nanos_copy_data_t**)0";
+    imm_copy_data << "(nanos_copy_data_t*)0";
 
     result
         << "{"
@@ -204,7 +205,7 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
         <<                              struct_size << ", " << (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
         <<                              "0,"
         <<                              "(nanos_dependence_t*)0, "
-        <<                              "&props, " << num_copies << "," << copy_data << ");"
+        <<                              "&props, " << num_copies << "," << imm_copy_data << ");"
         <<   "nanos_end_team(_nanos_team);"
         << "}"
         ;
