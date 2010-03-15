@@ -9483,7 +9483,7 @@ static char check_for_shaping_expression(AST expression, decl_context_t decl_con
         }
 
         ast_set_expression_type(expression, result_type);
-        ast_set_expression_is_lvalue(expression, 0);
+        ast_set_expression_is_lvalue(expression, 1);
     }
 
     return result;
