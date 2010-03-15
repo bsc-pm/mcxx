@@ -293,7 +293,11 @@ namespace TL
                 }
                 else
                 {
-                    WARNING_MESSAGE("Could not check expression '%s'\n", prettyprint_in_buffer(a));
+                    std::cerr << ref_tree.get_locus() 
+                        << ": warning: internally generated expression '" 
+                        << prettyprint_in_buffer(a) 
+                        <<  "' is bad" 
+                        << std::endl;
                 }
             }
         }
@@ -365,7 +369,11 @@ namespace TL
                 }
                 else
                 {
-                    WARNING_MESSAGE("Could not check expression-list '%s'\n", list_handler_in_buffer(a));
+                    std::cerr << ref_tree.get_locus() 
+                        << ": warning: internally generated expression list '" 
+                        << list_handler_in_buffer(a) 
+                        <<  "' is bad" 
+                        << std::endl;
                 }
             }
         }

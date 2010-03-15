@@ -4536,7 +4536,7 @@ static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context
     {
         C_LANGUAGE()
         {
-            fprintf(stderr, "%s: warning, expression '%s' is invalid since '%s' has type '%s'\n",
+            fprintf(stderr, "%s: warning: expression '%s' is invalid since '%s' has type '%s'\n",
                     ast_location(expr),
                     prettyprint_in_buffer(expr),
                     prettyprint_in_buffer(subscripted_expr),
@@ -4596,7 +4596,7 @@ static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context
         }
     }
 
-    fprintf(stderr, "%s: warning, in '%s' operator[] cannot be applied to '%s' of type '%s'\n",
+    fprintf(stderr, "%s: warning: in '%s' operator[] cannot be applied to '%s' of type '%s'\n",
             ast_location(expr),
             prettyprint_in_buffer(expr),
             prettyprint_in_buffer(subscripted_expr),
@@ -7065,7 +7065,7 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
         {
             if (!checking_ambiguity())
             {
-                fprintf(stderr, "%s: warning, '->' cannot be applied to '%s' (of type '%s')\n",
+                fprintf(stderr, "%s: warning: '->' cannot be applied to '%s' (of type '%s')\n",
                         ast_location(class_expr),
                         prettyprint_in_buffer(class_expr),
                         print_type_str(no_ref(accessed_type), decl_context));
@@ -7129,7 +7129,7 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning, '.' cannot be applied to '%s' (of type '%s')\n",
+            fprintf(stderr, "%s: warning: '.' cannot be applied to '%s' (of type '%s')\n",
                     ast_location(class_expr),
                     prettyprint_in_buffer(class_expr),
                     print_type_str(no_ref(accessed_type), decl_context));
@@ -7167,7 +7167,7 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning, '%s' is not a member/field of type '%s'\n",
+            fprintf(stderr, "%s: warning: '%s' is not a member/field of type '%s'\n",
                     ast_location(id_expression),
                     prettyprint_in_buffer(id_expression),
                     print_type_str(no_ref(accessed_type), decl_context));
@@ -9392,7 +9392,7 @@ static char check_for_array_section_expression(AST expression, decl_context_t de
     {
         if (!checking_ambiguity())
         {
-            fprintf(stderr, "%s: warning, array section '%s' is invalid since '%s' has type '%s'\n",
+            fprintf(stderr, "%s: warning: array section '%s' is invalid since '%s' has type '%s'\n",
                     ast_location(expression),
                     prettyprint_in_buffer(expression),
                     prettyprint_in_buffer(postfix_expression),
