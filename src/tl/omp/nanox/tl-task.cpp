@@ -29,7 +29,7 @@
 using namespace TL;
 using namespace TL::Nanox;
 
-static void fix_dependency_expression(Source &src, Expression expr, bool top_level = true, bool addr = false);
+static void fix_dependency_expression(Source &src, Expression expr);
 
 void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 {
@@ -572,7 +572,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     ctr.get_ast().replace(spawn_tree);
 }
 
-static void fix_dependency_expression(Source &src, Expression expr, bool top_level, bool get_addr)
+static void fix_dependency_expression_rec(Source &src, Expression expr, bool top_level, bool get_addr)
 {
     if (expr.is_id_expression())
     {
@@ -580,13 +580,13 @@ static void fix_dependency_expression(Source &src, Expression expr, bool top_lev
     }
     else if (expr.is_array_subscript())
     {
-        fix_dependency_expression(src, expr.get_subscripted_expression(), /* top_level */ false, /* get_addr */ true);
+        fix_dependency_expression_rec(src, expr.get_subscripted_expression(), /* top_level */ false, /* get_addr */ true);
 
         src << "[" << expr.get_subscript_expression() << "]";
     }
     else if (expr.is_array_section())
     {
-        fix_dependency_expression(src, expr.array_section_item(), /* top_level */ false, /* get_addr */ true);
+        fix_dependency_expression_rec(src, expr.array_section_item(), /* top_level */ false, /* get_addr */ true);
 
         src << "[" << expr.array_section_lower() << "]";
     }
@@ -600,19 +600,25 @@ static void fix_dependency_expression(Source &src, Expression expr, bool top_lev
             if (get_addr)
             {
                 src <<"((" << cast_type.get_declaration(expr.get_scope(), "") << ")";
-                fix_dependency_expression(src, expr.shaped_expression(), /* top_level */ false);
+                fix_dependency_expression_rec(src, expr.shaped_expression(), /* top_level */ false, /* get_addr */ true);
                 src << ")";
             }
             else
             {
                 src <<"(*(" << cast_type.get_declaration(expr.get_scope(), "") << ")";
-                fix_dependency_expression(src, expr.shaped_expression(), /* top_level */ false);
+                fix_dependency_expression_rec(src, expr.shaped_expression(), /* top_level */ false, /* get_addr */ true);
                 src << ")";
             }
         }
         else
         {
-            fix_dependency_expression(src, expr.shaped_expression(), /* top_level */ false);
+            fix_dependency_expression_rec(src, expr.shaped_expression(), /* top_level */ false, /* get_addr */ false);
         }
     }
+}
+
+
+static void fix_dependency_expression(Source &src, Expression expr)
+{
+    fix_dependency_expression_rec(src, expr, /* top_level */ true, /* get_addr */ false);
 }
