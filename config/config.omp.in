@@ -11,28 +11,35 @@ compiler_options =
 linker_name = gcc
 {openmp} compiler_phase = libtlomp-core.so
 # nanos4
-{openmp,!nanox} preprocessor_options = -I@NANOS4_INCLUDES@ -D_OPENMP=200505 -include nth_mcc.h
-{openmp,!nanox} linker_options = -L@NANOS4_LIBS@ -Wl,-rpath,@NANOS4_LIBS@
-{openmp,!nanox,!nanos-dev,!debug,!instrument} linker_options = -lnthreads-pfm 
-{openmp,!nanox,nanos-dev,!debug,!instrument} linker_options = -lnthreads-dev 
-{openmp,!nanox,instrument,!debug} linker_options = -lnthreads-prv -L @MINTAKA_LIBS@ -Wl,-rpath,@MINTAKA_LIBS@ -lmintaka
-{openmp,!nanox,debug} linker_options = -g -lnthreads-dbg
-{openmp,!nanox} pragma_prefix = nanos
-{openmp,!nanox} compiler_phase = libtlnanos4.so
-{openmp,!nanox,instrument,!debug} @INSTRUMENTATION_PHASE@
-{openmp,!nanox,serialize} compiler_phase = libtlomp-serialize.so
-{openmp,!nanox,serialize} compiler_phase = libtlomp-core.so  # Rerun core after serialization
-{openmp,!nanox} compiler_phase = libtlomp-nanos4.so
+{openmp,!openmpt,!nanox} preprocessor_options = -I@NANOS4_INCLUDES@ -D_OPENMP=200505 -include nth_mcc.h
+{openmp,!openmpt,!nanox} linker_options = -L@NANOS4_LIBS@ -Wl,-rpath,@NANOS4_LIBS@
+{openmp,!openmpt,!nanox,!nanos-dev,!debug,!instrument} linker_options = -lnthreads-pfm 
+{openmp,!openmpt,!nanox,nanos-dev,!debug,!instrument} linker_options = -lnthreads-dev 
+{openmp,!openmpt,!nanox,instrument,!debug} linker_options = -lnthreads-prv -L @MINTAKA_LIBS@ -Wl,-rpath,@MINTAKA_LIBS@ -lmintaka
+{openmp,!openmpt,!nanox,debug} linker_options = -g -lnthreads-dbg
+{openmp,!openmpt,!nanox} pragma_prefix = nanos
+{openmp,!openmpt,!nanox} compiler_phase = libtlnanos4.so
+{openmp,!openmpt,!nanox,instrument,!debug} @INSTRUMENTATION_PHASE@
+{openmp,!openmpt,!nanox,serialize} compiler_phase = libtlomp-serialize.so
+{openmp,!openmpt,!nanox,serialize} compiler_phase = libtlomp-core.so  # Rerun core after serialization
+{openmp,!openmpt,!nanox} compiler_phase = libtlomp-nanos4.so
 # nanos++
 {openmp,nanox} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h
 {openmp,nanox} linker_options = -L@NANOX_LIBS@ -Wl,-rpath,@NANOX_LIBS@
-{openmp,!openmpt,nanox} linker_options = -lnanox-c -lnanox-omp
-{openmp,openmpt,nanox} linker_options = -lnanox-c -lnanox-ss
-{openmp,nanox,fun-tasks} compiler_phase = libtlomp-fun-tasks.so 
-{openmp,nanox,fun-tasks} compiler_phase = libtlomp-core.so # Run again omp-core after fun-tasks
+{openmp,openmpt,!nanox} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h
+{openmp,openmpt,!nanox} linker_options = -L@NANOX_LIBS@ -Wl,-rpath,@NANOX_LIBS@
+{openmp,nanox,!openmpt} linker_options = -lnanox-c -lnanox-omp
+{openmp,openmpt} linker_options = -lnanox-c -lnanox-ss
+{openmp,nanox} compiler_phase = libtlomp-fun-tasks.so 
+{openmp,nanox} compiler_phase = libtlomp-core.so 
 {openmp,nanox} compiler_phase = libtlomp-nanox.so
 {openmp,nanox} compiler_phase = libtlnanox-smp.so
 {openmp,nanox} compiler_phase = libtlnanox-smp_numa.so
+{openmp,openmpt,!nanox} compiler_phase = libtlomp-fun-tasks.so 
+{openmp,openmpt,!nanox} compiler_phase = libtlomp-core.so 
+{openmp,openmpt,!nanox} compiler_phase = libtlomp-nanox.so
+{openmp,openmpt,!nanox} compiler_phase = libtlnanox-smp.so
+{openmp,openmpt,!nanox} compiler_phase = libtlnanox-smp_numa.so
 
 [mcc : omp-base]
 language = C
