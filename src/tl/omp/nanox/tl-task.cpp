@@ -29,7 +29,7 @@
 using namespace TL;
 using namespace TL::Nanox;
 
-static void fix_dependency_expression(Source &src, Expression expr);
+static void fix_dependency_expression(Source &src, Expression expr, bool top_level = true, bool addr = false);
 
 void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 {
@@ -572,7 +572,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     ctr.get_ast().replace(spawn_tree);
 }
 
-static void fix_dependency_expression(Source &src, Expression expr)
+static void fix_dependency_expression(Source &src, Expression expr, bool top_level, bool get_addr)
 {
     if (expr.is_id_expression())
     {
@@ -580,13 +580,13 @@ static void fix_dependency_expression(Source &src, Expression expr)
     }
     else if (expr.is_array_subscript())
     {
-        fix_dependency_expression(src, expr.get_subscripted_expression());
+        fix_dependency_expression(src, expr.get_subscripted_expression(), /* top_level */ false, /* get_addr */ true);
 
         src << "[" << expr.get_subscript_expression() << "]";
     }
     else if (expr.is_array_section())
     {
-        fix_dependency_expression(src, expr.array_section_item());
+        fix_dependency_expression(src, expr.array_section_item(), /* top_level */ false, /* get_addr */ true);
 
         src << "[" << expr.array_section_lower() << "]";
     }
@@ -595,10 +595,24 @@ static void fix_dependency_expression(Source &src, Expression expr)
         Type cast_type = expr.get_type();
         cast_type = cast_type.array_element().get_pointer_to();
 
-        src <<"(*(" << cast_type.get_declaration(expr.get_scope(), "") << ")";
-
-        fix_dependency_expression(src, expr.shaped_expression());
-
-        src << ")";
+        if (!top_level)
+        {
+            if (get_addr)
+            {
+                src <<"((" << cast_type.get_declaration(expr.get_scope(), "") << ")";
+                fix_dependency_expression(src, expr.shaped_expression(), /* top_level */ false);
+                src << ")";
+            }
+            else
+            {
+                src <<"(*(" << cast_type.get_declaration(expr.get_scope(), "") << ")";
+                fix_dependency_expression(src, expr.shaped_expression(), /* top_level */ false);
+                src << ")";
+            }
+        }
+        else
+        {
+            fix_dependency_expression(src, expr.shaped_expression(), /* top_level */ false);
+        }
     }
 }
