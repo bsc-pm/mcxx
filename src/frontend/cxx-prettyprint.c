@@ -685,6 +685,7 @@ static void prettyprint_context_copy(prettyprint_context_t* dest,
     memcpy(dest, src, sizeof(*dest));
 }
 
+
 #define NEW_PT_CONTEXT(_name, _init_fun) \
     prettyprint_context_t _v_##_name; \
     prettyprint_context_t *_name = &_v_##_name; \
@@ -1146,7 +1147,26 @@ static void braced_initializer_handler(FILE* f, AST a, prettyprint_context_t* pt
     token_fprintf(f, a, pt_ctx, "{");
     if (ASTSon0(a) != NULL)
     {
-        list_handler(f, ASTSon0(a), pt_ctx);
+        token_fprintf(f, a, pt_ctx, "\n");
+        AST init_list = ASTSon0(a), it;
+
+        NEW_PT_CONTEXT(new_ctx, increase_level);
+
+        for_each_element(init_list, it)
+        {
+            indent_at_level(f, a, new_ctx);
+
+            AST initializer = ASTSon1(it);
+            prettyprint_level(f, initializer, new_ctx);
+
+            if (it != init_list)
+            {
+                token_fprintf(f, initializer, pt_ctx, ",");
+            }
+            token_fprintf(f, initializer, pt_ctx, "\n");
+        }
+
+        indent_at_level(f, a, pt_ctx);
     }
     token_fprintf(f, a, pt_ctx, "}");
 }

@@ -86,6 +86,30 @@ INSTALL_CONFIG_FILES="config.plain"
 
 COMPILER_NAMES="plaincxx plaincc"
 
+dnl --------------------- Support for OpenMPT ------------------------------------------
+is_enabled_openmpt="no"
+AC_MSG_CHECKING([if enabled OpenMPT (ENCORE) support in the compiler])
+AC_ARG_ENABLE([openmpt],
+    AS_HELP_STRING([--enable-openmpt], [Enables support of OpenMPT (ENCORE)]),
+    [
+      if test x$enableval = xyes -o x$enableval = x;
+      then
+         is_enabled_openmpt="yes"
+         AC_MSG_RESULT([yes])
+      else if test x$enableval = xno;
+           then
+              is_enabled_openmpt="no"
+              AC_MSG_RESULT([no])
+           else
+              AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+           fi
+      fi
+    ],
+    [
+       AC_MSG_RESULT([no])
+    ]
+)
+
 dnl --------------------- Support for OpenMP Nanox --------------------------------------
 
 is_enabled_tl_omp_nanox="no"
@@ -108,8 +132,14 @@ AC_ARG_ENABLE([tl-openmp-nanox],
     fi
   ],
   [
-      is_enabled_tl_omp_nanox="no"
-      AC_MSG_RESULT([no])
+    if test x$is_enabled_openmpt = xyes;
+    then
+        is_enabled_tl_omp_nanox="yes"
+          AC_MSG_RESULT([yes (ENCORE)])
+    else
+          is_enabled_tl_omp_nanox="no"
+          AC_MSG_RESULT([no])
+    fi
   ]
 )
 
@@ -117,6 +147,13 @@ nanox_include=""
 nanox_lib=""
 NANOX_INCLUDES=""
 NANOX_LIBS=""
+
+if test x$is_enabled_openmpt = xyes;
+then
+    nanox_include="${prefix}/include"
+    nanox_lib="${prefix}/lib"
+fi
+
 if test x$is_enabled_tl_omp_nanox = xyes;
 then
    AC_ARG_WITH([nanox],
@@ -400,6 +437,7 @@ SUPERSCALAR_INCLUDES="${superscalar_include}"
 SUPERSCALAR_LIBS="$superscalar_lib"
 
 is_enabled_tl_superscalar="no"
+
 AC_MSG_CHECKING([if Cell/SMP superscalar TL support is enabled])
 AC_ARG_ENABLE([tl-superscalar],
   AS_HELP_STRING([--enable-tl-superscalar], [Enables generation of Cell/SMP superscalar TL support]),
@@ -418,8 +456,14 @@ AC_ARG_ENABLE([tl-superscalar],
     fi
   ],
   [
+    if test x$is_enabled_openmpt = xyes;
+    then
+      is_enabled_tl_superscalar="yes"
+      AC_MSG_RESULT([yes, (ENCORE)])
+    else
       is_enabled_tl_superscalar="no"
       AC_MSG_RESULT([no])
+    fi
   ]
 )
 
@@ -445,7 +489,12 @@ AC_ARG_WITH([superscalar-runtime-api-version],
     ],
     [
         if test $is_enabled_tl_superscalar = "yes" ; then
-            use_tl_superscalar_version=3
+            if test x$is_enabled_openmpt = xyes;
+            then
+                use_tl_superscalar_version=5
+            else
+                use_tl_superscalar_version=3
+            fi
         else
             use_tl_superscalar_version=none
         fi

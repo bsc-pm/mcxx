@@ -29,6 +29,8 @@
 using namespace TL;
 using namespace TL::Nanox;
 
+static void fix_dependency_expression(Source &src, Expression expr);
+
 void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 {
     OpenMP::DataSharingEnvironment& data_sharing = openmp_info->get_data_sharing(ctr.get_ast());
@@ -50,7 +52,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             struct_arg_type_decl_src,
             struct_fields,
             struct_arg_type_name, 
-            dependences); // empty dependences
+            dependences);
 
     FunctionDefinition funct_def = ctr.get_enclosing_function();
     Symbol function_symbol = funct_def.get_function_symbol();
@@ -252,12 +254,24 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 << "sizeof(" << size_type.get_declaration(ctr.get_scope(), "") << ")"
                 ;
 
+            Source dependency_offset, imm_dependency_offset;
+
             dependency_defs_outline
                 << "{"
                 << "(void**)&ol_args->" << dependency_field_name << ","
+                << dependency_offset << ","
                 << dependency_flags << ","
                 << dep_size  
                 << "}"
+                ;
+
+            // Fix The expression first!
+            Source fixed_dep_expr;
+
+            fix_dependency_expression(fixed_dep_expr, dependency_expression);
+
+            dependency_offset
+                << "(unsigned int)((void*)&(" << fixed_dep_expr << ") - " << "(void*)ol_args->" << dependency_field_name << ")"
                 ;
 
             if (!immediate_is_alloca)
@@ -265,9 +279,14 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 dependency_defs_immediate
                     << "{"
                     << "(void**)&imm_args." << dependency_field_name << ","
+                    << imm_dependency_offset << ","
                     << dependency_flags << ","
                     << dep_size 
                     << "}"
+                    ;
+
+                imm_dependency_offset
+                    << "(unsigned int)((void*)&(" << fixed_dep_expr << ") - " << "(void*)imm_args." << dependency_field_name << ")"
                     ;
             }
             else
@@ -275,9 +294,14 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 dependency_defs_immediate
                     << "{"
                     << "(void**)imm_args->" << dependency_field_name << ","
+                    << imm_dependency_offset << ","
                     << dependency_flags << ","
                     << dep_size 
                     << "}"
+                    ;
+
+                imm_dependency_offset
+                    << "(unsigned int)((void*)&(" << fixed_dep_expr << ") - " << "(void*)imm_args->" << dependency_field_name << ")"
                     ;
             }
 
@@ -455,10 +479,10 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
             for (int j = 0; fill_copy_data_info[j].source != NULL; j++)
             {
-                Source expression_size;
+                Source expression_size, expression_address;
                 const char* array_name = fill_copy_data_info[j].array;
                 (*(fill_copy_data_info[j].source))
-                    << array_name << "[" << i << "].address = (uint64_t)&(" << it->get_copy_expression() << ");"
+                    << array_name << "[" << i << "].address = (uint64_t)&(" << expression_address << ");"
                     << array_name << "[" << i << "].sharing = " << copy_sharing << ";"
                     << array_name << "[" << i << "].flags.input = " << copy_direction_in << ";"
                     << array_name << "[" << i << "].flags.output = " << copy_direction_out << ";"
@@ -495,6 +519,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 }
 
                 expression_size << "sizeof(" << copy_expr.prettyprint() << dimension_qualif << ")" << postfix_size;
+                expression_address << copy_expr.prettyprint() << dimension_qualif;
             }
 
             i++;
@@ -546,4 +571,55 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     AST_t spawn_tree = spawn_code.parse_statement(ctr.get_ast(), ctr.get_scope_link());
     ctr.get_ast().replace(spawn_tree);
+}
+
+static void fix_dependency_expression_rec(Source &src, Expression expr, bool top_level, bool get_addr)
+{
+    if (expr.is_id_expression())
+    {
+        src << expr.prettyprint();
+    }
+    else if (expr.is_array_subscript())
+    {
+        fix_dependency_expression_rec(src, expr.get_subscripted_expression(), /* top_level */ false, /* get_addr */ true);
+
+        src << "[" << expr.get_subscript_expression() << "]";
+    }
+    else if (expr.is_array_section())
+    {
+        fix_dependency_expression_rec(src, expr.array_section_item(), /* top_level */ false, /* get_addr */ true);
+
+        src << "[" << expr.array_section_lower() << "]";
+    }
+    else if (expr.is_shaping_expression())
+    {
+        Type cast_type = expr.get_type();
+        cast_type = cast_type.array_element().get_pointer_to();
+
+        if (!top_level)
+        {
+            if (get_addr)
+            {
+                src <<"((" << cast_type.get_declaration(expr.get_scope(), "") << ")";
+                fix_dependency_expression_rec(src, expr.shaped_expression(), /* top_level */ false, /* get_addr */ true);
+                src << ")";
+            }
+            else
+            {
+                src <<"(*(" << cast_type.get_declaration(expr.get_scope(), "") << ")";
+                fix_dependency_expression_rec(src, expr.shaped_expression(), /* top_level */ false, /* get_addr */ true);
+                src << ")";
+            }
+        }
+        else
+        {
+            fix_dependency_expression_rec(src, expr.shaped_expression(), /* top_level */ false, /* get_addr */ false);
+        }
+    }
+}
+
+
+static void fix_dependency_expression(Source &src, Expression expr)
+{
+    fix_dependency_expression_rec(src, expr, /* top_level */ true, /* get_addr */ false);
 }

@@ -115,6 +115,7 @@ namespace OpenMP
             new_stmt_src
                 << "{"
                 << additional_decls
+                << "#line " << it->get_line() << " \"" << it->get_file() << "\"\n"
                 << "#pragma omp task " << arg_clauses << "\n"
                 << "{"
                 << "\n"
@@ -140,11 +141,11 @@ namespace OpenMP
 
             ObjectList<Symbol> sym_list = task_info.get_involved_parameters();
             ObjectList<Expression> argument_list = expr.get_argument_list();
-            for (ObjectList<Symbol>::iterator it = sym_list.begin();
-                    it != sym_list.end();
-                    it++)
+            for (ObjectList<Symbol>::iterator it2 = sym_list.begin();
+                    it2 != sym_list.end();
+                    it2++)
             {
-                Symbol &current_sym(*it);
+                Symbol &current_sym(*it2);
                 if (current_sym.is_parameter())
                 {
                     if (current_sym.get_parameter_position() < argument_list.size())
@@ -163,12 +164,12 @@ namespace OpenMP
             }
 
 
-            for (ObjectList<FunctionTaskDependency>::iterator it = task_params.begin();
-                    it != task_params.end();
-                    it++)
+            for (ObjectList<FunctionTaskDependency>::iterator it2 = task_params.begin();
+                    it2 != task_params.end();
+                    it2++)
             {
                 Source *args = NULL;
-                switch (it->get_direction())
+                switch (it2->get_direction())
                 {
                     case DEP_DIR_INPUT :
                         {
@@ -192,7 +193,7 @@ namespace OpenMP
                 }
 
                 (*args).append_with_separator(
-                        replace.replace(it->get_expression()), 
+                        replace.replace(it2->get_expression()), 
                         ",");
             }
 
@@ -212,11 +213,11 @@ namespace OpenMP
             Source firstprivate_args;
 
             int i = 0;
-            for (ObjectList<Expression>::iterator it = argument_list.begin();
-                    it != argument_list.end();
-                    it++)
+            for (ObjectList<Expression>::iterator it2 = argument_list.begin();
+                    it2 != argument_list.end();
+                    it2++)
             {
-                Expression &current_expr(*it);
+                Expression &current_expr(*it2);
                 Type real_type = current_expr.get_type();
                 if (real_type.is_array())
                 {
@@ -231,7 +232,8 @@ namespace OpenMP
                 ss << "__tmp_" << i;
 
                 additional_decls
-                    << real_type.get_declaration(it->get_scope(), ss.str()) << " = " << current_expr << ";"
+                    << "#line " << it->get_line() << " \"" << it->get_file() << "\"\n"
+                    << real_type.get_declaration(it2->get_scope(), ss.str()) << " = " << current_expr << ";"
                     ;
 
                 new_arguments.append_with_separator(ss.str(), ",");
@@ -248,11 +250,11 @@ namespace OpenMP
 
             ObjectList<FunctionTaskInfo::implementation_pair_t> implemented_tasks = task_info.get_devices_with_implementation();
 
-            for (ObjectList<FunctionTaskInfo::implementation_pair_t>::iterator it = implemented_tasks.begin();
-                    it != implemented_tasks.end();
-                    it++)
+            for (ObjectList<FunctionTaskInfo::implementation_pair_t>::iterator it2 = implemented_tasks.begin();
+                    it2 != implemented_tasks.end();
+                    it2++)
             {
-                arg_clauses << " __implemented(" << it->first << ", " << it->second.get_qualified_name() << ")"
+                arg_clauses << " __implemented(" << it2->first << ", " << it2->second.get_qualified_name() << ")"
                     ;
             }
 

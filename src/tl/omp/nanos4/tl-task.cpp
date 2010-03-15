@@ -34,6 +34,11 @@ namespace TL
 
         void OpenMPTransform::task_preorder(PragmaCustomConstruct task_construct)
         {
+            if (task_construct.get_declaration().is_valid())
+            {
+                running_error("%s: error: function tasks are not supported in Nanos 4", 
+                        task_construct.get_ast().get_locus().c_str());
+            }
             // Get the related statement of this task construct
             Statement construct_body = task_construct.get_statement();
 
@@ -85,6 +90,10 @@ namespace TL
 
         void OpenMPTransform::task_postorder(PragmaCustomConstruct task_construct)
         {
+            // Ignore function tasks
+            if (task_construct.get_declaration().is_valid())
+                return;
+
             // Another parallel
             num_parallels++;
 
