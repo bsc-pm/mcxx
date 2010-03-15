@@ -479,10 +479,10 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
             for (int j = 0; fill_copy_data_info[j].source != NULL; j++)
             {
-                Source expression_size;
+                Source expression_size, expression_address;
                 const char* array_name = fill_copy_data_info[j].array;
                 (*(fill_copy_data_info[j].source))
-                    << array_name << "[" << i << "].address = (uint64_t)&(" << it->get_copy_expression() << ");"
+                    << array_name << "[" << i << "].address = (uint64_t)&(" << expression_address << ");"
                     << array_name << "[" << i << "].sharing = " << copy_sharing << ";"
                     << array_name << "[" << i << "].flags.input = " << copy_direction_in << ";"
                     << array_name << "[" << i << "].flags.output = " << copy_direction_out << ";"
@@ -519,6 +519,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 }
 
                 expression_size << "sizeof(" << copy_expr.prettyprint() << dimension_qualif << ")" << postfix_size;
+                expression_address << copy_expr.prettyprint() << dimension_qualif;
             }
 
             i++;

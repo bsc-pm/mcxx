@@ -116,6 +116,15 @@ static void do_smp_numa_outline_replacements(
                 ;
 
             replace_src.add_replacement(sym, "(*" + copy_name + ")");
+
+            if (sym.get_type().is_array())
+            {
+                replace_src.add_replacement(sym, copy_name);
+            }
+            else
+            {
+                replace_src.add_replacement(sym, "(*" + copy_name + ")");
+            }
         }
     }
 
