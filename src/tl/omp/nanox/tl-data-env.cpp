@@ -671,8 +671,6 @@ namespace TL
 
                 Expression dep_expr = it->get_dependency_expression();
 
-                bool is_shaped = false;
-
                 // Remove internal expressions that are not valid C
                 while (dep_expr.is_array_section()
                         || dep_expr.is_shaping_expression())
@@ -689,7 +687,6 @@ namespace TL
                     }
                     else /* if (dep_expr.is_shaping_expression()) */
                     {
-                        is_shaped = true;
                         // Create a meaningful casting
                         Type cast_type = dep_expr.get_type();
                         cast_type = cast_type.array_element().get_pointer_to();
