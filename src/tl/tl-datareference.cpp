@@ -178,6 +178,38 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
             }
         }
     }
+    else if (expr.is_shaping_expression())
+    {
+        Expression shaped_expr = expr.shaped_expression();
+
+        Source arr_size, arr_addr;
+
+        bool b = gather_info_data_expr_rec(shaped_expr, base_sym, arr_size, arr_addr, /* enclosing_is_array */ true);
+
+        if (!b)
+            return false;
+
+        ObjectList<Expression> shape_list = shaped_expr.shape_list();
+
+        Source factor;
+        for (ObjectList<Expression>::iterator it = shape_list.begin();
+                it != shape_list.end();
+                it++)
+        {
+            factor.append_with_separator("(" + it->prettyprint() + ")", "*");
+        }
+
+        size << "(" << arr_size << ") * " << factor;
+
+        if (!enclosing_is_array)
+        {
+            addr << "*" << arr_addr;
+        }
+        else
+        {
+            addr << arr_addr;
+        }
+    }
     return false;
 }
 
