@@ -115,6 +115,8 @@ libtl_la_SOURCES = \
     tl-counters.cpp \
     tl-templates.hpp \
     tl-templates.cpp \
+    tl-datareference.hpp \
+    tl-datareference.cpp \
 	$(END)
 
 if WINDOWS_BUILD
