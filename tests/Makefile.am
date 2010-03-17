@@ -42,7 +42,7 @@ check-local: $(builddir)/config/bets
 	$(builddir)/config/bets -o tests.log $(srcdir)
 
 dist-hook:
-	-for i in $(srcdir)/*.dg; \
+	for i in $(srcdir)/*.dg; \
 	do  \
 	    DIR=$$(basename $$i); \
 		mkdir -p $(distdir)/$${DIR} ; \
