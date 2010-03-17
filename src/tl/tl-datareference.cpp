@@ -73,7 +73,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
             else
             {
                 t = t.basic_type();
-                size << t.get_declaration(expr.get_scope(), "");
+                size << "sizeof(" << t.get_declaration(expr.get_scope(), "") << ")";
             }
         }
         else if (t.is_pointer() && enclosing_is_array)
