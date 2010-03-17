@@ -18,10 +18,13 @@ namespace TL
                 d[e1:e2]
                 d.id
                 [e1]...[eN] pd
+                *d
 
       Where 'd' is a data reference and 'pd' a data reference whose type is pointer
+
+      Note that silly expressions like &*d and *&d are assumed to be d
     */
-    class DataReference : Expression
+    class DataReference : public Expression
     {
         private:
             bool _valid;

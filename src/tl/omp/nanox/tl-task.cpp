@@ -212,36 +212,25 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
             Source dependency_field_name;
 
-            if (it->is_symbol_dependence())
+            DataReference data_ref = it->get_dependency_expression();
+            Symbol sym = data_ref.get_base_symbol();
+
+            DataEnvironItem data_env_item = data_environ_info.get_data_of_symbol(sym);
+
+            if (data_env_item.get_symbol().is_valid())
             {
-                Symbol sym = it->get_symbol_dependence();
-
-                DataEnvironItem data_env_item = data_environ_info.get_data_of_symbol(sym);
-
-                if (data_env_item.get_symbol().is_valid())
-                {
-                    dependency_field_name
-                        << data_env_item.get_field_name();
-                }
-                else
-                {
-                    internal_error("symbol without data environment info %s",
-                            it->get_dependency_expression().prettyprint().c_str());
-                }
-
-                // Can rename in this case
-                dependency_flags << "1"
-                    ;
+                dependency_field_name
+                    << data_env_item.get_field_name();
             }
             else
             {
-                dependency_field_name
-                    << "dep_" << num_dep;
-
-                // Cannot rename in this case
-                dependency_flags << "0"
-                    ;
+                internal_error("symbol without data environment info %s",
+                        it->get_dependency_expression().prettyprint().c_str());
             }
+
+            // Can rename in this case
+            dependency_flags << "1"
+                ;
 
             dependency_flags << "}"
                     ;
@@ -453,7 +442,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 copy_direction_out << 1;
             }
 
-            OpenMP::DataSharingAttribute data_attr = data_sharing.get(it->get_symbol());
+            DataReference data_ref = it->get_copy_expression();
+            OpenMP::DataSharingAttribute data_attr = data_sharing.get(data_ref.get_base_symbol());
 
             ERROR_CONDITION(data_attr == OpenMP::DS_UNDEFINED, "Invalid data sharing for copy", 0);
 

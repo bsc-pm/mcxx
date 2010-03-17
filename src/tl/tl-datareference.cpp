@@ -171,6 +171,14 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                         addr, 
                         enclosing_is_array);
             }
+            else
+            {
+                return gather_info_data_expr_rec(ref_expr,
+                        base_sym,
+                        size, 
+                        addr, 
+                        enclosing_is_array);
+            }
         }
     }
     else if (expr.is_shaping_expression())

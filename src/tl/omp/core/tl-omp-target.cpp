@@ -28,59 +28,6 @@ namespace TL
 {
     namespace OpenMP
     {
-        static bool check_for_copy_data_reference(Expression expr)
-        {
-            // Allowed expressions
-            //   data_ref -> sym
-            //               data_ref [ e ]
-            //               data_ref [ e1 : e2 ]
-            //               [shape] data_ref
-
-            if (expr.is_id_expression())
-            {
-                return true;
-            }
-            else if (expr.is_array_subscript())
-            {
-                return check_for_copy_data_reference(expr.get_subscripted_expression());
-            }
-            else if (expr.is_array_section())
-            {
-                return check_for_copy_data_reference(expr.array_section_item());
-            }
-            else if (expr.is_shaping_expression())
-            {
-                return check_for_copy_data_reference(expr.shaped_expression());
-            }
-            else 
-                return false;
-        }
-
-        static Symbol get_symbol_of_copy_data_reference(Expression expr)
-        {
-            if (expr.is_id_expression())
-            {
-                IdExpression id_expr = expr.get_id_expression();
-                return id_expr.get_symbol();
-            }
-            else if (expr.is_array_subscript())
-            {
-                return get_symbol_of_copy_data_reference(expr.get_subscripted_expression());
-            }
-            else if (expr.is_array_section())
-            {
-                return get_symbol_of_copy_data_reference(expr.array_section_item());
-            }
-            else if (expr.is_shaping_expression())
-            {
-                return get_symbol_of_copy_data_reference(expr.shaped_expression());
-            }
-            else
-            {
-                internal_error("Invalid expression kind", 0);
-            }
-        }
-
         void Core::target_handler_pre(PragmaCustomConstruct ctr)
         {
             PragmaCustomClause device = ctr.get_clause("device");
@@ -254,9 +201,9 @@ namespace TL
                 AST_t ast = src.parse_expression(construct.get_ast(),
                         construct.get_scope_link());
 
-                Expression expr(ast, construct.get_scope_link());
+                DataReference expr(ast, construct.get_scope_link());
 
-                if (!check_for_copy_data_reference(expr))
+                if (!expr.is_valid())
                 {
                     std::cerr << construct.get_ast().get_locus() 
                         << ": warning: '" << expr.prettyprint() << "' is not a valid copy data-reference, skipping" 
@@ -264,8 +211,7 @@ namespace TL
                     continue;
                 }
 
-                Symbol sym = get_symbol_of_copy_data_reference(expr);
-
+                Symbol sym = expr.get_base_symbol();
                 DataSharingAttribute attr = data_sharing.get(sym);
 
                 if (warn_not_shared
@@ -278,7 +224,7 @@ namespace TL
                     continue;
                 }
 
-                CopyItem copy_item(sym, expr, copy_direction);
+                CopyItem copy_item(expr, copy_direction);
                 data_sharing.add_copy(copy_item);
             }
         }

@@ -384,8 +384,8 @@ namespace TL
                 it != copies.end();
                 it++)
         {
-            Expression expr = it->get_copy_expression();
-            Symbol sym = it->get_symbol();
+            DataReference expr = it->get_copy_expression();
+            Symbol sym = expr.get_base_symbol();
 
             OpenMP::DataSharingAttribute ds_attr = data_sharing.get(sym);
             bool is_private = true;
@@ -500,26 +500,6 @@ namespace TL
             struct_fields
                 << data_env_item.get_type().get_declaration(sc, data_env_item.get_field_name()) << ";"
                 ;
-        }
-
-        int dep_counter = 0;
-        for (ObjectList<OpenMP::DependencyItem>::iterator it = dependencies.begin();
-                it != dependencies.end();
-                it++)
-        {
-            if (!it->is_symbol_dependence())
-            {
-                std::stringstream ss;
-                ss << "dep_" << dep_counter;
-
-                struct_fields << it->get_dependency_expression()
-                    .get_type().get_pointer_to()
-                    .get_declaration(it->get_dependency_expression().get_scope(), ss.str())
-                    << ";"
-                    ;
-            }
-
-            dep_counter++;
         }
     }
 
@@ -656,51 +636,6 @@ namespace TL
                     }
                 }
             }
-        }
-
-        int num_dep = 0;
-        for (ObjectList<OpenMP::DependencyItem>::iterator it = dependencies.begin();
-                it != dependencies.end();
-                it++)
-        {
-            if (!it->is_symbol_dependence())
-            {
-                RefPtr<Source> base(new Source);
-                result << arg_var_accessor << "dep_" << num_dep << "= &(" << (*base) << ");"
-                    ;
-
-                Expression dep_expr = it->get_dependency_expression();
-
-                // Remove internal expressions that are not valid C
-                while (dep_expr.is_array_section()
-                        || dep_expr.is_shaping_expression())
-                {
-                    RefPtr<Source> new_base(new Source);
-                    if (dep_expr.is_array_section())
-                    {
-                        Source dims_src;
-
-                        dims_src << "[" << dep_expr.array_section_lower() << "]";
-                        (*base) << (*new_base) << dims_src;
-
-                        dep_expr = dep_expr.array_section_item();
-                    }
-                    else /* if (dep_expr.is_shaping_expression()) */
-                    {
-                        // Create a meaningful casting
-                        Type cast_type = dep_expr.get_type();
-                        cast_type = cast_type.array_element().get_pointer_to();
-
-                        (*base) << "((" << cast_type.get_declaration(dep_expr.get_scope(), "") << ")" << (*new_base)  << ")" ;
-
-                        dep_expr = dep_expr.shaped_expression();
-                    }
-
-                    base = new_base;
-                }
-                (*base) << "(" << dep_expr << ")";
-            }
-            num_dep++;
         }
     }
 }
