@@ -35,7 +35,7 @@ namespace Nanox
     };
 
     /*!
-      This class should be implemented by each device supported in Nanox
+      This class should be implemented by each device supported in Nanos++
       */
     class DeviceProvider : public TL::CompilerPhase
     {
