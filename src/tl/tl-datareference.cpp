@@ -71,18 +71,13 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
 
             Source dim_size;
 
-            while (t.is_array())
-            {
-                dim_size.append_with_separator("(" + t.array_dimension().prettyprint() + ")", "*");
-                t = t.array_element();
-            }
-
             if (!enclosing_is_array)
             {
-                size << dim_size << "* sizeof(" << t.get_declaration(expr.get_scope(), "") << ")";
+                size << dim_size << "sizeof(" << t.get_declaration(expr.get_scope(), "") << ")";
             }
             else
             {
+                t = t.basic_type();
                 size << t.get_declaration(expr.get_scope(), "");
             }
         }
@@ -208,6 +203,37 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         else
         {
             addr << arr_addr;
+        }
+    }
+    else if(expr.is_member_access())
+    {
+        Expression obj_expr = expr.get_accessed_entity();
+
+        Source obj_addr, obj_size;
+
+        bool b = gather_info_data_expr_rec(obj_expr, base_sym, 
+                obj_size, obj_addr, 
+                /* enclosing_is_array */ false);
+
+        if (!b)
+            return false;
+
+        Type t = obj_expr.get_type();
+
+        if (t.is_reference())
+            t = t.references_to();
+
+
+        if (!enclosing_is_array)
+        {
+            size << "sizeof(" << t.get_declaration(expr.get_scope(), "") << ")";
+            addr << "&" << obj_addr << "." << expr.get_accessed_member();
+        }
+        else
+        {
+            t = t.basic_type();
+            size << "sizeof(" << t.get_declaration(expr.get_scope(), "") << ")";
+            addr << obj_addr << "." << expr.get_accessed_member();
         }
     }
     return false;
