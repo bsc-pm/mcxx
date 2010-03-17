@@ -73,7 +73,7 @@ namespace TL { namespace OpenMP {
                 it++)
         {
             DataReference expr(*it);
-            if (expr.is_valid())
+            if (!expr.is_valid())
             {
                 std::cerr << expr.get_ast().get_locus() 
                     << ": warning: skipping invalid dependency expression '" << expr.prettyprint() << "'" << std::endl;

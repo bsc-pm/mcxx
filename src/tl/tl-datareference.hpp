@@ -69,12 +69,6 @@ namespace TL
               */
             Symbol get_base_symbol();
 
-            //! Returns the type of the data reference
-            /*!
-              This function is equivalent to Expression::get_type
-              */
-            Type get_type();
-
             //! Returns a way to obtain an address of the data reference
             /*!
               Since data references express named entities, there is a way to

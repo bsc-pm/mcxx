@@ -28,11 +28,6 @@ Symbol DataReference::get_base_symbol()
     return _base_symbol;
 }
 
-Type DataReference::get_type()
-{
-    return this->get_type();
-}
-
 Source DataReference::get_address()
 {
     return _addr;

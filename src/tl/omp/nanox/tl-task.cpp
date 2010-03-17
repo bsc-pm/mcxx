@@ -29,8 +29,6 @@
 using namespace TL;
 using namespace TL::Nanox;
 
-static void fix_dependency_expression(Source &src, Expression expr);
-
 void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 {
     OpenMP::DataSharingEnvironment& data_sharing = openmp_info->get_data_sharing(ctr.get_ast());
@@ -255,12 +253,10 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 ;
 
             // Fix The expression first!
-            Source fixed_dep_expr;
-
-            fix_dependency_expression(fixed_dep_expr, dependency_expression);
+            Source dep_expr_addr = data_ref.get_address();
 
             dependency_offset
-                << "(unsigned int)((void*)&(" << fixed_dep_expr << ") - " << "(void*)ol_args->" << dependency_field_name << ")"
+                << "(unsigned int)((void*)(" << dep_expr_addr << ") - " << "(void*)ol_args->" << dependency_field_name << ")"
                 ;
 
             if (!immediate_is_alloca)
@@ -275,7 +271,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     ;
 
                 imm_dependency_offset
-                    << "(unsigned int)((void*)&(" << fixed_dep_expr << ") - " << "(void*)imm_args." << dependency_field_name << ")"
+                    << "(unsigned int)((void*)(" << dep_expr_addr << ") - " << "(void*)imm_args." << dependency_field_name << ")"
                     ;
             }
             else
@@ -290,7 +286,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     ;
 
                 imm_dependency_offset
-                    << "(unsigned int)((void*)&(" << fixed_dep_expr << ") - " << "(void*)imm_args->" << dependency_field_name << ")"
+                    << "(unsigned int)((void*)(" << dep_expr_addr << ") - " << "(void*)imm_args->" << dependency_field_name << ")"
                     ;
             }
 
@@ -608,8 +604,3 @@ static void fix_dependency_expression_rec(Source &src, Expression expr, bool top
     }
 }
 
-
-static void fix_dependency_expression(Source &src, Expression expr)
-{
-    fix_dependency_expression_rec(src, expr, /* top_level */ true, /* get_addr */ false);
-}
