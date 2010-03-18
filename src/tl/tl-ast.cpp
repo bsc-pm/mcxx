@@ -141,14 +141,12 @@ namespace TL
     {
         if (ast._ast == NULL)
         {
-            std::cerr << "Trying to replace with an empty tree" << std::endl;
-            return;
+            internal_error("Trying to replace a tree with an empty tree", 0);
         }
 
         if (this->_ast == NULL)
         {
-            std::cerr << "Trying to replace an empty tree" << std::endl;
-            return;
+            internal_error("Trying to replace an empty tree with another tree", 0);
         }
 
         if (ASTType(ast._ast) == AST_NODE_LIST)
@@ -203,14 +201,12 @@ namespace TL
     {
         if (ast._ast == NULL)
         {
-            std::cerr << "Warning, you are trying to replace using an empty tree. Skipping" << std::endl;
-            return;
+            internal_error("Trying to replace a tree with an empty tree.", 0);
         }
 
         if (this->_ast == NULL)
         {
-            std::cerr << "Warning, you are trying to replace an empty tree. Skipping" << std::endl;
-            return;
+            internal_error("Trying to replace an empty tree with another tree", 0);
         }
 
         AST previous_parent = ASTParent(this->_ast);
