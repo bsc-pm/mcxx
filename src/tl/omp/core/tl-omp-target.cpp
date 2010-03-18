@@ -224,6 +224,15 @@ namespace TL
                     continue;
                 }
 
+                if (copy_direction == COPY_DIR_IN
+                        && ((attr & DS_PRIVATE) == DS_PRIVATE))
+                {
+                    std::cerr << construct.get_ast().get_locus()
+                        << ": warning: symbol '" << sym.get_name() 
+                        << "' has a private data sharing but it appears in a copy clause other than 'copy_in'"
+                        << std::endl;
+                }
+
                 CopyItem copy_item(expr, copy_direction);
                 data_sharing.add_copy(copy_item);
             }

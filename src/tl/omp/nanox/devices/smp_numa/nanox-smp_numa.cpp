@@ -52,79 +52,62 @@ static void do_smp_numa_outline_replacements(
         << copy_setup
         ;
 
-    typedef ObjectList<CopyData> (DataEnvironInfo::* fun_t)() const;
-    struct {
-        fun_t fun;
-    } copy_data_aux[] = {
-        &DataEnvironInfo::get_copy_in_items,
-        &DataEnvironInfo::get_copy_out_items,
-        &DataEnvironInfo::get_copy_inout_items,
-        NULL,
-    };
-
     ReplaceSrcIdExpression replace_src(scope_link);
 
     bool err_declared = false;
-    for (int i = 0; copy_data_aux[i].fun != NULL; i++)
+
+    ObjectList<OpenMP::CopyItem> copies = data_env_info.get_copy_items();
+
+    unsigned int j = 0;
+    for (ObjectList<OpenMP::CopyItem>::iterator it = copies.begin();
+            it != copies.end();
+            it++, j++)
     {
-        fun_t p = copy_data_aux[i].fun;
-        ObjectList<CopyData> copies = (data_env_info.*p)();
+        DataReference data_ref = it->get_copy_expression();
+        Symbol sym = data_ref.get_base_symbol();
+        Type type = sym.get_type();
 
-        for (ObjectList<CopyData>::iterator it = copies.begin();
-                it != copies.end();
-                it++)
+        if (type.is_array())
         {
-            Symbol sym = it->get_symbol();
-            Type type = sym.get_type();
+            type = type.array_element().get_pointer_to();
+        }
+        else
+        {
+            type = type.get_pointer_to();
+        }
 
-            if (type.is_array())
-            {
-                type = type.array_element().get_pointer_to();
-            }
-            else
-            {
-                type = type.get_pointer_to();
-            }
+        std::string copy_name = "_cp_" + sym.get_name();
 
-            std::string copy_name = "_cp_" + sym.get_name();
+        if (!err_declared)
+        {
+            copy_setup
+                << "nanos_err_t cp_err;"
+                ;
+            err_declared = true;
+        }
 
-            std::string sharing = "NANOS_SHARED";
-            if (it->is_private())
-            {
-                sharing = "NANOS_PRIVATE";
-            }
-            
-            if (!err_declared)
-            {
-                copy_setup
-                    << "nanos_err_t cp_err;"
-                    ;
-                err_declared = true;
-            }
+        DataEnvironItem data_env_item = data_env_info.get_data_of_symbol(sym);
 
-            DataEnvironItem data_env_item = data_env_info.get_data_of_symbol(sym);
-
-            ERROR_CONDITION(!data_env_item.get_symbol().is_valid(),
+        ERROR_CONDITION(!data_env_item.get_symbol().is_valid(),
                 "Invalid data for copy symbol", 0);
 
-            std::string field_addr = "_args->" + data_env_item.get_field_name();
+        std::string field_addr = "_args->" + data_env_item.get_field_name();
 
-            copy_setup
-                << type.get_declaration(sc, copy_name) << ";"
-                << "cp_err = nanos_get_addr((uint64_t)(&" << field_addr << "), " << sharing << ", (void**)&" << copy_name << ");"
-                << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
-                ;
+        copy_setup
+            << type.get_declaration(sc, copy_name) << ";"
+            << "cp_err = nanos_get_addr(" << j << ", (void**)&" << copy_name << ");"
+            << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
+            ;
 
+        replace_src.add_replacement(sym, "(*" + copy_name + ")");
+
+        if (sym.get_type().is_array())
+        {
+            replace_src.add_replacement(sym, copy_name);
+        }
+        else
+        {
             replace_src.add_replacement(sym, "(*" + copy_name + ")");
-
-            if (sym.get_type().is_array())
-            {
-                replace_src.add_replacement(sym, copy_name);
-            }
-            else
-            {
-                replace_src.add_replacement(sym, "(*" + copy_name + ")");
-            }
         }
     }
 

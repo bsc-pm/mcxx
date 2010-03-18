@@ -407,22 +407,7 @@ namespace TL
                 is_private = false;
             }
 
-            if (it->get_kind() == OpenMP::COPY_DIR_IN)
-            {
-                data_env_info.add_copy_in_item(CopyData(expr, sym, is_private));
-            }
-            else if (it->get_kind() == OpenMP::COPY_DIR_OUT)
-            {
-                data_env_info.add_copy_out_item(CopyData(expr, sym, is_private));
-            }
-            else if (it->get_kind() == OpenMP::COPY_DIR_INOUT)
-            {
-                data_env_info.add_copy_inout_item(CopyData(expr, sym, is_private));
-            }
-            else
-            {
-                internal_error("Invalid copy kind", 0);
-            }
+            data_env_info.add_copy_item(*it);
 
             if (is_private && it->get_kind() != OpenMP::COPY_DIR_IN)
             {

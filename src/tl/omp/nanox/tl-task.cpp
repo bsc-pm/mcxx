@@ -105,7 +105,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     it->c_str(), ctr.get_ast().get_locus().c_str());
         }
 
-
         Source initial_setup, replaced_body;
 
         device_provider->do_replacements(data_environ_info,
@@ -386,8 +385,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     Source num_copies;
 
-    ObjectList<OpenMP::CopyItem> copy_items;
-    data_sharing.get_all_copies(copy_items);
+    ObjectList<OpenMP::CopyItem> copy_items = data_environ_info.get_copy_items();
 
     Source copy_data, copy_decl, copy_setup;
     Source copy_imm_data, copy_immediate_setup;
