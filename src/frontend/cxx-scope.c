@@ -2118,6 +2118,11 @@ decl_context_t update_context_with_template_arguments(
     return updated_context;
 }
 
+static template_argument_t* update_template_argument(
+        template_argument_t* current_template_arg,
+        decl_context_t template_arguments_context,
+        const char *filename, int line);
+
 static type_t* update_dependent_typename(
         type_t* dependent_entry_type,
         dependent_name_part_t* dependent_parts,
@@ -2142,9 +2147,9 @@ static type_t* update_dependent_typename(
     {
         ERROR_CONDITION(dependent_parts->related_type != NULL, "Dependent part has a related type", 0);
 
-        if (is_dependent_type(dependent_entry_type))
+        if (is_dependent_type(get_user_defined_type(current_member)))
         {
-            return get_dependent_typename_type_from_parts(dependent_entry,
+            return get_dependent_typename_type_from_parts(current_member,
                     dependent_parts);
         }
 
@@ -2245,13 +2250,28 @@ static type_t* update_dependent_typename(
 
             DEBUG_CODE()
             {
-                fprintf(stderr, "SCOPE: requesting specialization '%s'\n", 
+                fprintf(stderr, "SCOPE: Requesting specialization '%s'\n", 
                         dependent_parts->name);
+            }
+
+            template_argument_list_t* updated_template_arguments = 
+                counted_calloc(1, sizeof(*updated_template_arguments), &_bytes_used_scopes);
+
+            template_argument_list_t* template_arguments = dependent_parts->template_arguments;
+
+            int i;
+            for (i = 0; i < template_arguments->num_arguments; i++)
+            {
+                template_argument_t* updated_argument = update_template_argument(
+                        template_arguments->argument_list[i],
+                        class_context, filename, line);
+
+                P_LIST_ADD(updated_template_arguments->argument_list, updated_template_arguments->num_arguments, updated_argument);
             }
 
             type_t* specialized_type = template_type_get_specialized_type(
                     template_type,
-                    dependent_parts->template_arguments,
+                    updated_template_arguments,
                     template_type_get_template_parameters(template_type),
                     class_context, line, filename);
 
@@ -2270,6 +2290,12 @@ static type_t* update_dependent_typename(
     }
 
     // Last part
+    if (is_dependent_type(get_user_defined_type(current_member)))
+    {
+        return get_dependent_typename_type_from_parts(current_member,
+                dependent_parts);
+    }
+
     if (class_type_is_incomplete_independent(get_actual_class_type(current_member->type_information)))
     {
         instantiate_template_class(current_member, class_context, filename, line);
@@ -2382,10 +2408,6 @@ static type_t* update_dependent_typename(
     return result_type;
 }
 
-static template_argument_t* update_template_argument(
-        template_argument_t* current_template_arg,
-        decl_context_t template_arguments_context,
-        const char *filename, int line);
 
 static type_t* update_type_aux_(type_t* orig_type, 
         decl_context_t decl_context,
@@ -2780,7 +2802,8 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         if (!is_named_type(fixed_type))
         {
-            fprintf(stderr, "SCOPE: Dependent type is not a named type\n");
+            fprintf(stderr, "SCOPE: Dependent type '%s' is not a named type\n",
+                    print_declarator(fixed_type));
             return NULL;
         }
 
