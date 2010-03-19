@@ -5537,6 +5537,7 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                         {
                             template_argument_t * template_arg = parts->template_arguments->argument_list[i];
 
+
                             switch (template_arg->kind)
                             {
                                 case TAK_TYPE:
@@ -5567,7 +5568,7 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
 
                             if ((i + 1) < parts->template_arguments->num_arguments)
                             {
-                                result = strappend(result, ",");
+                                result = strappend(result, ", ");
                             }
                         }
 
@@ -5581,9 +5582,6 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
 
                     parts = parts->next;
                 }
-
-                result = strappend(result, ">");
-
 
                 break;
             }
@@ -5645,15 +5643,13 @@ const char* get_declaration_string_internal(type_t* type_info,
     const char* result;
 
     result = base_type_name;
-    if (strcmp(base_type_name, "") != 0)
+    if (strcmp(base_type_name, "") != 0
+            && strcmp(declarator_name, "") != 0)
     {
         result = strappend(result, " ");
     }
-    if (strcmp(declarator_name, "") != 0)
-    {
-        result = strappend(result, declarator_name);
-    }
-
+    result = strappend(result, declarator_name);
+    
     // FIXME Should check if copy-constructor is not flagged as "explicit"
     // (for parameters this can be useful to declare default arguments)
     if (strcmp(initializer, "") != 0)
