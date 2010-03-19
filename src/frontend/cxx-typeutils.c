@@ -6146,7 +6146,7 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
 // Prints the template arguments, this routine is for debugging
 static const char* get_template_arguments_list_str(template_argument_list_t* template_arguments)
 {
-    const char* result = NULL;
+    const char* result = "";
     result = strappend(result, "<");
     int i;
     for (i = 0; i < template_arguments->num_arguments; i++)
