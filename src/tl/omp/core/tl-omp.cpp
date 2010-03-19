@@ -711,7 +711,7 @@ namespace TL
             return _num_dimensions;
         }
 
-        DependencyItem::DependencyItem(Expression dep_expr, DependencyDirection kind)
+        DependencyItem::DependencyItem(DataReference dep_expr, DependencyDirection kind)
             : _dep_expr(dep_expr), _kind(kind)
         {
         }
@@ -721,28 +721,13 @@ namespace TL
             return _kind;
         }
 
-        Expression DependencyItem::get_dependency_expression() const
+        DataReference DependencyItem::get_dependency_expression() const
         {
             return _dep_expr;
         }
 
-        bool DependencyItem::is_symbol_dependence() const
-        {
-            return _dep_symbol.is_valid();
-        }
-
-        Symbol DependencyItem::get_symbol_dependence() const
-        {
-            return _dep_symbol;
-        }
-
-        void DependencyItem::set_symbol_dependence(Symbol sym)
-        {
-            _dep_symbol = sym;
-        }
-
-        CopyItem::CopyItem(Symbol sym, Expression copy_expr, CopyDirection direction)
-            : _sym(sym), _copy_expr(copy_expr), _kind(direction)
+        CopyItem::CopyItem(DataReference copy_expr, CopyDirection direction)
+            : _copy_expr(copy_expr), _kind(direction)
         {
         }
 
@@ -751,14 +736,9 @@ namespace TL
             return _kind;
         }
 
-        Expression CopyItem::get_copy_expression() const
+        DataReference CopyItem::get_copy_expression() const
         {
             return _copy_expr;
-        }
-
-        Symbol CopyItem::get_symbol() const
-        {
-            return _sym;
         }
     }
 }

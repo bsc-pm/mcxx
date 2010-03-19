@@ -51,7 +51,35 @@ namespace OpenMP
         }
 
         // Remove the task pragma
-        construct.get_ast().replace(construct.get_declaration());
+        // construct.get_ast().replace(construct.get_declaration());
+
+        AST_t function_task_body = construct.get_declaration();
+
+        // Remove the task pragma but take into account potentially enclosing target pragmas
+        AST_t current_construct = construct.get_ast();
+        AST_t enclosing_tree = current_construct.get_parent();
+
+        bool there_is_target = false;
+        while (enclosing_tree.is_valid()
+                && is_pragma_custom_construct("omp", "target", enclosing_tree, construct.get_scope_link()))
+        {
+            enclosing_tree = enclosing_tree.get_parent();
+            there_is_target = true;
+        }
+
+        if (!enclosing_tree.is_valid())
+        {
+            internal_error("Invalid tree when pruning a function task", 0);
+        }
+
+        if (!there_is_target)
+        {
+            current_construct.replace(function_task_body);
+        }
+        else
+        {
+            enclosing_tree.replace(function_task_body);
+        }
     }
 
     void FunctionTasks::convert_calls(DTO& dto)
@@ -108,6 +136,7 @@ namespace OpenMP
             // they will never be in an expression
             Statement stmt = expr.get_enclosing_statement();
 
+            Source target_line;
             Source arg_clauses;
             Source new_stmt_src;
             Source additional_decls;
@@ -116,6 +145,7 @@ namespace OpenMP
                 << "{"
                 << additional_decls
                 << "#line " << it->get_line() << " \"" << it->get_file() << "\"\n"
+                << target_line
                 << "#pragma omp task " << arg_clauses << "\n"
                 << "{"
                 << "\n"
@@ -256,6 +286,63 @@ namespace OpenMP
             {
                 arg_clauses << " __implemented(" << it2->first << ", " << it2->second.get_qualified_name() << ")"
                     ;
+            }
+
+            FunctionTaskTargetInfo target_info = task_info.get_target_info();
+
+            if (!target_info.can_be_ommitted())
+            {
+                Source target_clauses;
+
+                target_line
+                    << "#pragma omp target " << target_clauses << "\n"
+                    ;
+
+                if (target_info.has_copy_deps())
+                {
+                    target_clauses << "copy_deps";
+                }
+
+                ObjectList<CopyItem> copy_in = target_info.get_copy_in();
+
+                struct
+                {
+                    ObjectList<CopyItem> (FunctionTaskTargetInfo::*pmf)() const;
+                    std::string clause_name;
+                } replace_copies[] = 
+                {
+                    { &FunctionTaskTargetInfo::get_copy_in,    "copy_in"    },
+                    { &FunctionTaskTargetInfo::get_copy_out,   "copy_out"   },
+                    { &FunctionTaskTargetInfo::get_copy_inout, "copy_inout" },
+                    NULL,
+                };
+
+                for (int i = 0; replace_copies[i].pmf != NULL; i++)
+                {
+                    ObjectList<CopyItem> copy_items = (target_info.*(replace_copies[i].pmf))();
+
+                    if (copy_items.empty())
+                        continue;
+
+                    Source clause, clause_args;
+
+                    clause << replace_copies[i].clause_name << "(" << clause_args << ")";
+
+                    for (ObjectList<CopyItem>::iterator it = copy_items.begin();
+                            it != copy_items.end();
+                            it++)
+                    {
+                        clause_args.append_with_separator(replace.replace(it->get_copy_expression()), ",");
+                    }
+
+                    target_clauses << " " << clause;
+                }
+
+                ObjectList<std::string> device_list = target_info.get_device_list();
+                if (device_list.empty())
+                {
+                    target_clauses << "device(" << TL::concat_strings(device_list, ",") << ")";
+                }
             }
 
             AST_t new_stmt_tree = new_stmt_src.parse_statement(stmt.get_ast(),

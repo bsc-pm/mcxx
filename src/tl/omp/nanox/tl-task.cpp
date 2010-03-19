@@ -29,8 +29,6 @@
 using namespace TL;
 using namespace TL::Nanox;
 
-static void fix_dependency_expression(Source &src, Expression expr);
-
 void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 {
     OpenMP::DataSharingEnvironment& data_sharing = openmp_info->get_data_sharing(ctr.get_ast());
@@ -106,7 +104,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             internal_error("invalid device '%s' at '%s'\n",
                     it->c_str(), ctr.get_ast().get_locus().c_str());
         }
-
 
         Source initial_setup, replaced_body;
 
@@ -212,36 +209,25 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
             Source dependency_field_name;
 
-            if (it->is_symbol_dependence())
+            DataReference data_ref = it->get_dependency_expression();
+            Symbol sym = data_ref.get_base_symbol();
+
+            DataEnvironItem data_env_item = data_environ_info.get_data_of_symbol(sym);
+
+            if (data_env_item.get_symbol().is_valid())
             {
-                Symbol sym = it->get_symbol_dependence();
-
-                DataEnvironItem data_env_item = data_environ_info.get_data_of_symbol(sym);
-
-                if (data_env_item.get_symbol().is_valid())
-                {
-                    dependency_field_name
-                        << data_env_item.get_field_name();
-                }
-                else
-                {
-                    internal_error("symbol without data environment info %s",
-                            it->get_dependency_expression().prettyprint().c_str());
-                }
-
-                // Can rename in this case
-                dependency_flags << "1"
-                    ;
+                dependency_field_name
+                    << data_env_item.get_field_name();
             }
             else
             {
-                dependency_field_name
-                    << "dep_" << num_dep;
-
-                // Cannot rename in this case
-                dependency_flags << "0"
-                    ;
+                internal_error("symbol without data environment info %s",
+                        it->get_dependency_expression().prettyprint().c_str());
             }
+
+            // Can rename in this case
+            dependency_flags << "1"
+                ;
 
             dependency_flags << "}"
                     ;
@@ -266,12 +252,10 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 ;
 
             // Fix The expression first!
-            Source fixed_dep_expr;
-
-            fix_dependency_expression(fixed_dep_expr, dependency_expression);
+            Source dep_expr_addr = data_ref.get_address();
 
             dependency_offset
-                << "(unsigned int)((void*)&(" << fixed_dep_expr << ") - " << "(void*)ol_args->" << dependency_field_name << ")"
+                << "((char*)(" << dep_expr_addr << ") - " << "(char*)ol_args->" << dependency_field_name << ")"
                 ;
 
             if (!immediate_is_alloca)
@@ -286,7 +270,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     ;
 
                 imm_dependency_offset
-                    << "(unsigned int)((void*)&(" << fixed_dep_expr << ") - " << "(void*)imm_args." << dependency_field_name << ")"
+                    << "((char*)(" << dep_expr_addr << ") - " << "(char*)imm_args." << dependency_field_name << ")"
                     ;
             }
             else
@@ -301,7 +285,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     ;
 
                 imm_dependency_offset
-                    << "(unsigned int)((void*)&(" << fixed_dep_expr << ") - " << "(void*)imm_args->" << dependency_field_name << ")"
+                    << "((char*)(" << dep_expr_addr << ") - " << "(char*)imm_args->" << dependency_field_name << ")"
                     ;
             }
 
@@ -401,8 +385,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     Source num_copies;
 
-    ObjectList<OpenMP::CopyItem> copy_items;
-    data_sharing.get_all_copies(copy_items);
+    ObjectList<OpenMP::CopyItem> copy_items = data_environ_info.get_copy_items();
 
     Source copy_data, copy_decl, copy_setup;
     Source copy_imm_data, copy_immediate_setup;
@@ -453,7 +436,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 copy_direction_out << 1;
             }
 
-            OpenMP::DataSharingAttribute data_attr = data_sharing.get(it->get_symbol());
+            DataReference data_ref = it->get_copy_expression();
+            OpenMP::DataSharingAttribute data_attr = data_sharing.get(data_ref.get_base_symbol());
 
             ERROR_CONDITION(data_attr == OpenMP::DS_UNDEFINED, "Invalid data sharing for copy", 0);
 
@@ -482,44 +466,17 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 Source expression_size, expression_address;
                 const char* array_name = fill_copy_data_info[j].array;
                 (*(fill_copy_data_info[j].source))
-                    << array_name << "[" << i << "].address = (uint64_t)&(" << expression_address << ");"
+                    << array_name << "[" << i << "].address = (uint64_t)(" << expression_address << ");"
                     << array_name << "[" << i << "].sharing = " << copy_sharing << ";"
                     << array_name << "[" << i << "].flags.input = " << copy_direction_in << ";"
                     << array_name << "[" << i << "].flags.output = " << copy_direction_out << ";"
                     << array_name << "[" << i << "].size = " << expression_size << ";"
                     ;
 
-                Expression copy_expr = it->get_copy_expression();
-                Source dimension_qualif, postfix_size;
+                DataReference copy_expr = it->get_copy_expression();
 
-                while (copy_expr.is_array_section())
-                {
-                    Source section_size;
-                    section_size
-                        << "(" << copy_expr.array_section_upper() << ") - (" << copy_expr.array_section_upper() << ") + 1"
-                        ;
-                    AST_t section_expr_tree = section_size.parse_expression(copy_expr.get_ast(), ctr.get_scope_link());
-                    Expression section_expr(section_expr_tree, ctr.get_scope_link());
-
-                    bool valid = false;
-                    int size = section_expr.evaluate_constant_int_expression(valid);
-                    if (valid)
-                    {
-                        postfix_size << "* " << size 
-                            ;
-                    }
-                    else
-                    {
-                        postfix_size << " * (" << section_size << ")";
-                    }
-
-                    dimension_qualif << "[0]";
-
-                    copy_expr = copy_expr.array_section_item();
-                }
-
-                expression_size << "sizeof(" << copy_expr.prettyprint() << dimension_qualif << ")" << postfix_size;
-                expression_address << copy_expr.prettyprint() << dimension_qualif;
+                expression_address << copy_expr.get_address();
+                expression_size << copy_expr.get_sizeof();
             }
 
             i++;
@@ -618,8 +575,3 @@ static void fix_dependency_expression_rec(Source &src, Expression expr, bool top
     }
 }
 
-
-static void fix_dependency_expression(Source &src, Expression expr)
-{
-    fix_dependency_expression_rec(src, expr, /* top_level */ true, /* get_addr */ false);
-}

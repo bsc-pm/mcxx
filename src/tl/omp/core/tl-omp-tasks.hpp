@@ -45,6 +45,88 @@ namespace TL
                 Expression get_expression() const;
         };
 
+        class FunctionTaskTargetInfo
+        {
+            private:
+                ObjectList<CopyItem> _copy_in;
+                ObjectList<CopyItem> _copy_out;
+                ObjectList<CopyItem> _copy_inout;
+
+                ObjectList<std::string> _device_list;
+
+                bool _copy_deps;
+            public:
+
+                bool can_be_ommitted()
+                {
+                    return _copy_in.empty()
+                        && _copy_out.empty()
+                        && _copy_inout.empty()
+                        && (_device_list.empty()
+                                || ((_device_list.size() == 1)
+                                    && (_device_list[0] == "smp")));
+                }
+
+                FunctionTaskTargetInfo()
+                    : _copy_in(),
+                    _copy_out(),
+                    _copy_inout(),
+                    _device_list(),
+                    _copy_deps()
+                {
+                }
+
+                void set_copy_in(const ObjectList<CopyItem>& copy_items)
+                {
+                    _copy_in = copy_items;
+                }
+
+                void set_copy_out(const ObjectList<CopyItem>& copy_items)
+                {
+                    _copy_out = copy_items;
+                }
+
+                void set_copy_inout(const ObjectList<CopyItem>& copy_items)
+                {
+                    _copy_inout = copy_items;
+                }
+
+                ObjectList<CopyItem> get_copy_in() const
+                {
+                    return _copy_in;
+                }
+
+                ObjectList<CopyItem> get_copy_out() const
+                {
+                    return _copy_out;
+                }
+
+                ObjectList<CopyItem> get_copy_inout() const
+                {
+                    return _copy_inout;
+                }
+
+                void set_copy_deps(bool b)
+                {
+                    _copy_deps = b;
+                }
+
+                bool has_copy_deps() const
+                {
+                    return _copy_deps;
+                }
+
+                void set_device_list(const ObjectList<std::string>& device_list)
+                {
+                    _device_list = device_list;
+                }
+
+                ObjectList<std::string> get_device_list() const
+                {
+                    return _device_list;
+                }
+        };
+
         class FunctionTaskInfo 
         {
             private:
@@ -53,13 +135,18 @@ namespace TL
 
                 typedef std::map<std::string, Symbol> implementation_table_t;
                 implementation_table_t _implementation_table;
+
+                FunctionTaskTargetInfo _target_info;
             public:
                 FunctionTaskInfo(Symbol sym,
-                        ObjectList<FunctionTaskDependency> parameter_info);
+                        ObjectList<FunctionTaskDependency> parameter_info,
+                        FunctionTaskTargetInfo target_info);
 
                 ObjectList<FunctionTaskDependency> get_parameter_info() const;
 
                 ObjectList<Symbol> get_involved_parameters() const;
+
+                FunctionTaskTargetInfo get_target_info() const;
 
                 void add_device(const std::string& device_name);
                 void add_device_with_implementation(

@@ -45,8 +45,12 @@ namespace TL
         }
 
         FunctionTaskInfo::FunctionTaskInfo(Symbol sym,
-                ObjectList<FunctionTaskDependency> parameter_info)
-            : _sym(sym), _parameters(parameter_info)
+                ObjectList<FunctionTaskDependency> parameter_info,
+                FunctionTaskTargetInfo target_info)
+            : _sym(sym), 
+            _parameters(parameter_info), 
+            _implementation_table(),
+            _target_info(target_info)
         {
         }
 
@@ -145,6 +149,11 @@ namespace TL
             return _map.empty();
         }
 
+        FunctionTaskTargetInfo FunctionTaskInfo::get_target_info() const
+        {
+            return _target_info;
+        }
+
         struct FunctionTaskDependencyGenerator : public Functor<FunctionTaskDependency, std::string>
         {
             private:
@@ -162,7 +171,6 @@ namespace TL
                 FunctionTaskDependency do_(std::string& str) const
                 {
                     Source src;
-
                     src
                         << "#line " << _ref_tree.get_line() << " \"" << _ref_tree.get_file() << "\"\n"
                         << str;
@@ -171,6 +179,35 @@ namespace TL
                     Expression expr(expr_tree, _sl);
 
                     return FunctionTaskDependency(expr, _direction);
+                }
+        };
+
+        struct FunctionCopyItemGenerator : public Functor<CopyItem, std::string>
+        {
+            private:
+                CopyDirection _copy_direction;
+                AST_t _ref_tree;
+                ScopeLink _sl;
+
+            public:
+                FunctionCopyItemGenerator(CopyDirection copy_direction,
+                        AST_t ref_tree, ScopeLink sl)
+                    : _copy_direction(copy_direction), _ref_tree(ref_tree), _sl(sl)
+                {
+                }
+
+                CopyItem do_(std::string& str) const
+                {
+                    Source src;
+                    src
+                        << "#line " << _ref_tree.get_line() << " \"" << _ref_tree.get_file() << "\"\n"
+                        << str
+                        ;
+
+                    AST_t expr_tree = src.parse_expression(_ref_tree, _sl);
+                    DataReference data_ref(expr_tree, _sl);
+
+                    return CopyItem(data_ref, _copy_direction);
                 }
         };
 
@@ -330,7 +367,29 @@ namespace TL
 
             dependence_list_check(parameter_list);
 
-            FunctionTaskInfo task_info(function_sym, parameter_list);
+            FunctionTaskTargetInfo target_info;
+            // Now gather task information
+            if (!_target_context.empty())
+            {
+                TargetContext& target_context = _target_context.top();
+
+                ObjectList<CopyItem> copy_in = target_context.copy_in.map(FunctionCopyItemGenerator(
+                            COPY_DIR_IN, param_ref_tree, construct.get_scope_link()));
+                ObjectList<CopyItem> copy_out = target_context.copy_in.map(FunctionCopyItemGenerator(
+                            COPY_DIR_OUT, param_ref_tree, construct.get_scope_link()));
+                ObjectList<CopyItem> copy_inout = target_context.copy_in.map(FunctionCopyItemGenerator(
+                            COPY_DIR_INOUT, param_ref_tree, construct.get_scope_link()));
+
+                target_info.set_copy_in(copy_in);
+                target_info.set_copy_out(copy_in);
+                target_info.set_copy_inout(copy_in);
+
+                target_info.set_device_list(target_context.device_list);
+
+                target_info.set_copy_deps(target_context.copy_deps);
+            }
+
+            FunctionTaskInfo task_info(function_sym, parameter_list, target_info);
 
             std::cerr << construct.get_ast().get_locus()
                 << ": note: adding task function '" << function_sym.get_name() << "'" << std::endl;

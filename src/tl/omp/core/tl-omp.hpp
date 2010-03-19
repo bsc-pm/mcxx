@@ -36,6 +36,7 @@
 #include "tl-traverse.hpp"
 #include "tl-dto.hpp"
 
+#include "tl-datareference.hpp"
 #include "tl-omp-deps.hpp"
 
 #include <map>
@@ -90,19 +91,13 @@ namespace TL
         class LIBTL_CLASS DependencyItem : public TL::Object
         {
             private:
-                Expression _dep_expr;
+                DataReference _dep_expr;
                 DependencyDirection _kind;
-
-                Symbol _dep_symbol;
             public:
-                DependencyItem(Expression dep_expr, DependencyDirection kind);
+                DependencyItem(DataReference dep_expr, DependencyDirection kind);
 
                 DependencyDirection get_kind() const;
-                Expression get_dependency_expression() const;
-
-                bool is_symbol_dependence() const;
-                Symbol get_symbol_dependence() const;
-                void set_symbol_dependence(Symbol);
+                DataReference get_dependency_expression() const;
         };
 
         enum CopyDirection
@@ -116,15 +111,13 @@ namespace TL
         class LIBTL_CLASS CopyItem : public TL::Object
         {
             private:
-                Symbol _sym;
-                Expression _copy_expr;
+                DataReference _copy_expr;
                 CopyDirection _kind;
             public:
-                CopyItem(Symbol sym, Expression copy_expr, CopyDirection direction);
+                CopyItem(DataReference data_reference, CopyDirection direction);
 
                 CopyDirection get_kind() const;
-                Expression get_copy_expression() const;
-                Symbol get_symbol() const;
+                DataReference get_copy_expression() const;
         };
 
         class LIBTL_CLASS UDRInfoItem : public TL::Object
