@@ -882,14 +882,6 @@ static scope_entry_list_t* query_unqualified_name(decl_context_t decl_context,
     return result;
 }
 
-// static scope_entry_list_t* query_dependent_typename(decl_context_t decl_context,
-//         scope_entry_t* dependent_entry,
-//         dependent_name_part_t* dependent_parts)
-// {
-//     // FIXME
-//     return NULL;
-// }
-
 static scope_entry_list_t* query_qualified_name(
         decl_context_t nested_name_context,
         AST global_op,

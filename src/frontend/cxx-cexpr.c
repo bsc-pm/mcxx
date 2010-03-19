@@ -3388,7 +3388,8 @@ static literal_value_t evaluate_sizeof(AST sizeof_tree, decl_context_t decl_cont
     }
 
     // Runtime sized types yield dependent expressions
-    if (is_dependent_type(t)
+    if (is_dependent_expr_type(t)
+            || is_dependent_type(t)
             || type_is_runtime_sized(t))
     {
         literal_value_t dependent_entity;

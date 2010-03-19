@@ -2456,28 +2456,32 @@ type_t* function_type_get_nonadjusted_parameter_type_num(type_t* function_type, 
 char class_type_is_incomplete_dependent(type_t* t)
 {
     ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);
-    return t->info->is_dependent
+    return t->info->is_template_specialized_type
+        && t->info->is_dependent
         && t->info->is_incomplete;
 }
 
 char class_type_is_complete_dependent(type_t* t)
 {
     ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);
-    return t->info->is_dependent
+    return t->info->is_template_specialized_type
+        && t->info->is_dependent
         && !t->info->is_incomplete;
 }
 
 char class_type_is_incomplete_independent(type_t* t)
 {
     ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);
-    return !t->info->is_dependent
+    return t->info->is_template_specialized_type
+        && !t->info->is_dependent
         && t->info->is_incomplete;
 }
 
 char class_type_is_complete_independent(type_t* t)
 {
     ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);
-    return !t->info->is_dependent
+    return t->info->is_template_specialized_type
+        && !t->info->is_dependent
         && !t->info->is_incomplete;
 }
 
@@ -3362,102 +3366,12 @@ type_t* advance_over_typedefs(type_t* t1)
  */
 static char equivalent_simple_types(type_t *t1, type_t *t2);
 
-static type_t* advance_dependent_typename(type_t* t)
-{
-    ERROR_CONDITION(!is_dependent_typename_type(t), "This must be a dependent typename", 0);
-
-    t = advance_over_typedefs(t);
-
-    cv_qualifier_t cv_qualif = t->cv_qualifier;
-
-    scope_entry_t* dependent_entry = NULL;
-    dependent_name_part_t* dependent_parts;
-
-    dependent_typename_get_components(t, 
-            &dependent_entry, 
-            &dependent_parts);
-
-    if (dependent_entry->kind == SK_TEMPLATE_TYPE_PARAMETER)
-        return t;
-
-    if (dependent_entry->kind == SK_CLASS)
-    {
-        // type_t* class_type = dependent_entry->type_information;
-
-        // decl_context_t inner_context = class_type_get_inner_context(class_type);
-
-        scope_entry_list_t* result_list = NULL;
-        // scope_entry_list_t* result_list = query_nested_name(inner_context, 
-        //         NULL, nested_name, unqualified_part);
-
-        if (result_list != NULL)
-        {
-            ERROR_CONDITION(result_list->next != NULL,
-                    "Invalid result when solving a dependent typename", 0);
-
-            // Add the qualifications found so far
-            cv_qualifier_t cv_qualif_2 = CV_NONE;
-            advance_over_typedefs_with_cv_qualif(result_list->entry->type_information, &cv_qualif_2);
-            cv_qualif_2 |= cv_qualif;
-
-            type_t* result = get_cv_qualified_type(get_user_defined_type(result_list->entry), cv_qualif_2);
-
-            if (is_dependent_typename_type(result))
-            {
-                return advance_dependent_typename(result);
-            }
-            else
-            {
-                return result;
-            }
-        }
-    }
-
-    return t;
-}
-
 char equivalent_types(type_t* t1, type_t* t2)
 {
 
     ERROR_CONDITION( (t1 == NULL || t2 == NULL), "No type can be null here", 0);
 
     cv_qualifier_t cv_qualifier_t1, cv_qualifier_t2;
-
-    // This is a small adjustement that has to be performed because of the stupid
-    // nature of dependent typenames
-    // Try to advance as much as possible every type because of typedefs
-    // like in this example
-    //
-    // template <typename _T>
-    // struct B
-    // {
-    //   typedef typename A<_T>::T T;
-    //   T f1();
-    //   T f2();
-    // };
-    //
-    // template <typename _T>
-    // typename B<_T>::T f1()
-    // {
-    // }
-    //
-    // template <typename _T>
-    // typename A<_T>::T f2()
-    // {
-    // }
-    //
-    // In this context both A<_T>::T and B<_T>::T are the same
-    //
-    if (is_dependent_typename_type(t1))
-    {
-        t1 = advance_dependent_typename(t1);
-    }
-
-    if (is_dependent_typename_type(t2))
-    {
-        t2 = advance_dependent_typename(t2);
-    }
-
 
     // Advance over typedefs
     t1 = advance_over_typedefs_with_cv_qualif(t1, &cv_qualifier_t1);
@@ -5603,7 +5517,74 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
             }
         case STK_TEMPLATE_DEPENDENT_TYPE :
             {
-                result = prettyprint_in_buffer(simple_type->typeof_expr);
+                // result = prettyprint_in_buffer(simple_type->typeof_expr);
+                char is_dependent = 0;
+                int max_level = 0;
+                result = get_fully_qualified_symbol_name(simple_type->dependent_entry,
+                        decl_context, &is_dependent, &max_level);
+
+                dependent_name_part_t* parts = simple_type->dependent_parts;
+                while (parts != NULL)
+                {
+                    result = strappend(result, "::");
+                    result = strappend(result, parts->name);
+
+                    if (parts->template_arguments != NULL)
+                    {
+                        result = strappend(result, "<");
+                        int i;
+                        for (i = 0; i < parts->template_arguments->num_arguments; i++)
+                        {
+                            template_argument_t * template_arg = parts->template_arguments->argument_list[i];
+
+                            switch (template_arg->kind)
+                            {
+                                case TAK_TYPE:
+                                    {
+                                        result = strappend(result, 
+                                                print_type_str(template_arg->type, decl_context));
+                                        break;
+                                    }
+                                case TAK_NONTYPE:
+                                    {
+                                        result = strappend(result, 
+                                                prettyprint_in_buffer(template_arg->expression));
+                                        break;
+                                    }
+                                case TAK_TEMPLATE:
+                                    {
+                                        char is_dep = 0; int max_lev = 0;
+                                        result = strappend(result,
+                                                get_fully_qualified_symbol_name(named_type_get_symbol(template_arg->type),
+                                                    decl_context, &is_dep, &max_lev));
+                                        break;
+                                    }
+                                default:
+                                    {
+                                        internal_error("Invalid template argument kind", 0);
+                                    }
+                            }
+
+                            if ((i + 1) < parts->template_arguments->num_arguments)
+                            {
+                                result = strappend(result, ",");
+                            }
+                        }
+
+                        if (result[strlen(result) - 1] == '>')
+                        {
+                            result = strappend(result, " ");
+                        }
+
+                        result = strappend(result, ">");
+                    }
+
+                    parts = parts->next;
+                }
+
+                result = strappend(result, ">");
+
+
                 break;
             }
         default:
@@ -5619,9 +5600,10 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
 // Gives the simple type name of a full fledged type
 const char* get_simple_type_name_string(decl_context_t decl_context, type_t* type_info)
 {
-    ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
-
     const char* result = "";
+
+    if (type_info == NULL)
+        return result;
     
     if (is_unresolved_overloaded_type(type_info))
     {
@@ -5663,9 +5645,12 @@ const char* get_declaration_string_internal(type_t* type_info,
     const char* result;
 
     result = base_type_name;
-    if (strcmp(declarator_name, "") != 0)
+    if (strcmp(base_type_name, "") != 0)
     {
         result = strappend(result, " ");
+    }
+    if (strcmp(declarator_name, "") != 0)
+    {
         result = strappend(result, declarator_name);
     }
 
@@ -8427,7 +8412,11 @@ type_t* get_foundation_type(struct type_tag* t)
     cv_qualifier_t cv = CV_NONE;
     t = advance_over_typedefs_with_cv_qualif(t, &cv);
 
-    if (is_non_derived_type(t))
+    if (t == NULL)
+    {
+        return NULL;
+    }
+    else if (is_non_derived_type(t))
     {
         return get_cv_qualified_type(t, cv);
     }

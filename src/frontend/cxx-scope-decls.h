@@ -101,6 +101,8 @@ enum decl_flags_tag
     // Relaxed typechecking, ambiguity decl-expr is solved always to expr if it
     // cannot be disambiguated
     DF_AMBIGUITY_FALLBACK_TO_EXPR = BITMAP(16),
+    // Avoid dependent typenames if possible
+    DF_AVOID_DEPENDENT_TYPENAMES = BITMAP(17)
 } decl_flags_t;
 
 #undef BITMAP
