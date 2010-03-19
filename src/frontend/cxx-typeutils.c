@@ -1047,30 +1047,35 @@ static dependent_name_part_t* compute_dependent_parts(
     }
 }
 
-type_t* get_dependent_typename_type(scope_entry_t* dependent_entity, 
-        decl_context_t decl_context,
-        AST nested_name, 
-        AST unqualified_part)
+type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entity, 
+        dependent_name_part_t* dependent_parts)
 {
     type_t* type_info = get_simple_type();
 
     type_info->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
     type_info->type->dependent_entry = dependent_entity;
 
-    type_info->type->dependent_parts = compute_dependent_parts(
-            decl_context,
-            nested_name,
-            unqualified_part);
+    type_info->type->dependent_parts = dependent_parts;
 
-    // type_info->type->typeof_decl_context = decl_context;
-    // type_info->type->dependent_nested_name = nested_name;
-    // type_info->type->dependent_unqualified_part = unqualified_part;
-
-    // This is always dependent
     type_info->info->is_dependent = 1;
 
     return type_info;
 }
+
+type_t* get_dependent_typename_type(scope_entry_t* dependent_entity, 
+        decl_context_t decl_context,
+        AST nested_name, 
+        AST unqualified_part)
+{
+    dependent_name_part_t* dependent_parts = compute_dependent_parts(
+            decl_context,
+            nested_name,
+            unqualified_part);
+
+    return get_dependent_typename_type_from_parts(dependent_entity, 
+            dependent_parts);
+}
+
 
 void dependent_typename_get_components(type_t* t, 
         scope_entry_t** dependent_entry, 

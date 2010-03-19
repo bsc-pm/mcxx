@@ -2124,13 +2124,15 @@ static type_t* update_dependent_typename(
         const char* filename, int line)
 {
     scope_entry_t* dependent_entry = named_type_get_symbol(dependent_entry_type);
+
+    if (is_dependent_type(dependent_entry_type))
+    {
+        return get_dependent_typename_type_from_parts(dependent_entry,
+                dependent_parts);
+    }
+
     ERROR_CONDITION(dependent_entry->kind != SK_CLASS, "Must be a class-name", 0);
     ERROR_CONDITION(dependent_parts == NULL, "Dependent parts cannot be empty", 0);
-
-    if (is_dependent_type(dependent_entry->type_information))
-    {
-        internal_error("Not yet implemented", 0);
-    }
 
     scope_entry_t* current_member = dependent_entry;
 
@@ -2139,6 +2141,12 @@ static type_t* update_dependent_typename(
     while (dependent_parts->next != NULL)
     {
         ERROR_CONDITION(dependent_parts->related_type != NULL, "Dependent part has a related type", 0);
+
+        if (is_dependent_type(dependent_entry_type))
+        {
+            return get_dependent_typename_type_from_parts(dependent_entry,
+                    dependent_parts);
+        }
 
         if (class_type_is_incomplete_independent(get_actual_class_type(current_member->type_information)))
         {
@@ -2358,6 +2366,15 @@ static type_t* update_dependent_typename(
 
         current_member = named_type_get_symbol(specialized_type);
 
+    }
+    else
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCOPE: Unexpected symbol for part '%s'\n", dependent_parts->name);
+        }
+
+        return NULL;
     }
 
     type_t* result_type = current_member->type_information;
@@ -2742,20 +2759,33 @@ static type_t* update_type_aux_(type_t* orig_type,
         dependent_typename_get_components(orig_type, 
                 &dependent_entry, &dependent_parts);
 
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCOPE: Updating typename '%s'\n",
+                    print_declarator(orig_type));
+        }
+
         type_t* fixed_type = NULL;
         fixed_type = update_type_aux_(get_user_defined_type(dependent_entry),
                 decl_context, filename, line);
 
         if (fixed_type == NULL)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Dependent type could not be updated\n");
+            }
             return NULL;
+        }
 
-        if (!is_named_class_type(fixed_type))
+        if (!is_named_type(fixed_type))
+        {
+            fprintf(stderr, "SCOPE: Dependent type is not a named type\n");
             return NULL;
+        }
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "SCOPE: Updating typename '%s'\n",
-                    print_declarator(orig_type));
             fprintf(stderr, "SCOPE: Dependent entity updated to '%s'\n",
                     print_declarator(fixed_type));
         }

@@ -82,6 +82,9 @@ LIBMCXX_EXTERN struct type_tag* get_dependent_typename_type(struct scope_entry_t
         decl_context_t decl_context,
         struct AST_tag* nested_name, struct AST_tag* unqualified_part);
 
+LIBMCXX_EXTERN struct type_tag* get_dependent_typename_type_from_parts(struct scope_entry_tag* dependent_entity, 
+        dependent_name_part_t* dependent_parts);
+
 LIBMCXX_EXTERN struct type_tag* get_new_enum_type(decl_context_t decl_context);
 LIBMCXX_EXTERN struct type_tag* get_new_class_type(decl_context_t decl_context, enum class_kind_t class_kind);
 
