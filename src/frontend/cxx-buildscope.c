@@ -1843,28 +1843,13 @@ static void gather_type_spec_from_dependent_typename(AST a, type_t** type_info,
 
 
     scope_entry_list_t* result = NULL;
-    if (BITMAP_TEST(decl_context.decl_flags, DF_AVOID_DEPENDENT_TYPENAMES))
-    {
-        // This is one shot, not to be inherited in nested dependent typenames
-        result = query_nested_name_flags(decl_context, 
-                global_scope, 
-                nested_name_spec, 
-                name, DF_AVOID_DEPENDENT_TYPENAMES);
-
-        // if result == NULL here, we'll try again so we get the proper
-        // dependent typename, as a fallback type
-    }
-
-    if (result == NULL)
-    {
-        result = query_nested_name_flags(decl_context, 
-                global_scope, 
-                nested_name_spec, 
-                name, 
-                // We do not want to use uninstantiated 
-                // templates when looking up
-                DF_DEPENDENT_TYPENAME);
-    }
+    result = query_nested_name_flags(decl_context, 
+            global_scope, 
+            nested_name_spec, 
+            name, 
+            // We do not want to use uninstantiated 
+            // templates when looking up
+            DF_DEPENDENT_TYPENAME);
 
     ERROR_CONDITION(result == NULL,
             "This should not be null", 0);
@@ -1928,11 +1913,6 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
     }
 
     decl_flags_t flags = DF_NONE;
-
-    if (BITMAP_TEST(decl_context.decl_flags, DF_AVOID_DEPENDENT_TYPENAMES))
-    {
-        flags |= DF_AVOID_DEPENDENT_TYPENAMES;
-    }
 
     scope_entry_list_t* entry_list = query_nested_name_flags(decl_context, 
             global_op, 
@@ -6488,8 +6468,6 @@ scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl_contex
             && ((ASTType(decl_spec_seq) != AST_AMBIGUITY && ASTSon1(decl_spec_seq) != NULL)
              || (ASTType(decl_spec_seq) == AST_AMBIGUITY)))
     {
-        // Only for function definitions, the returned name is examined always inside 
-        decl_context.decl_flags |= DF_AVOID_DEPENDENT_TYPENAMES;
         build_scope_decl_specifier_seq(decl_spec_seq, &gather_info, &type_info, decl_context);
     }
     else
