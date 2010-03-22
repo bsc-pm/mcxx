@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/stat.h>
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -39,15 +40,19 @@
 #include "filename.h"
 
 #define HELP_STRING \
-"Usage: %s -o file.o --profile=name file.o [--profile=name file.o...]\n" \
+"usage: %s [options] --compiler-profile=name -o file.o --profile=name file.o [--profile=name file.o...]\n" \
 "\n" \
 "This application expects a list of profiles followed by a set of\n" \
 "to be embedded under that profile\n" \
+"\n" \
+"Options:\n" \
+"   --verbose           Shows what the embedder is doing\n" \
 "\n"
 
 enum {
     OPTION_EMBED_VERSION = 1024,
     OPTION_EMBED_PROFILE,
+    OPTION_EMBED_COMPILER_PROFILE,
 };
 
 // It mimics getopt
@@ -59,6 +64,8 @@ struct command_line_long_options command_line_long_options[] =
     {"version",     CLP_NO_ARGUMENT, OPTION_EMBED_VERSION },
     {"output",      CLP_REQUIRED_ARGUMENT, 'o' },
     {"profile",     CLP_REQUIRED_ARGUMENT, OPTION_EMBED_PROFILE },
+    {"compiler-profile", CLP_REQUIRED_ARGUMENT, OPTION_EMBED_COMPILER_PROFILE },
+    {"verbose",     CLP_NO_ARGUMENT, OPTION_VERBOSE },
 };
 
 #define MAX_EMBED_FILES 64
@@ -189,11 +196,12 @@ int main(int argc, char *argv[])
     tool_initialization(argc, (const char**)argv);
     initialize_default_values();
 
-    // Parse parameters
-    int parameter_index = 0;
+    // Parse parameters (ignore argv[0])
+    int parameter_index = 1;
 
     struct command_line_parameter_t parameter_info;
 
+    const char* compiler_profile = NULL;
     const char* current_profile = NULL;
     const char* output_filename = NULL;
 
@@ -262,6 +270,20 @@ int main(int argc, char *argv[])
                         current_profile = strdup(parameter_info.argument);
                         break;
                     }
+                case OPTION_VERBOSE:
+                    {
+                        CURRENT_CONFIGURATION->verbose = 1;
+                        break;
+                    }
+                case OPTION_EMBED_COMPILER_PROFILE:
+                    {
+                        if (compiler_profile != NULL)
+                        {
+                            print_help_and_error("Compiler profile specified twice");
+                        }
+                        compiler_profile = strdup(parameter_info.argument);
+                        break;
+                    }
                 default:
                     {
                         internal_error("Unhandled unknown option", 0);
@@ -269,6 +291,13 @@ int main(int argc, char *argv[])
                     }
             }
         }
+    }
+
+    if (output_filename == NULL
+            && compiler_profile == NULL
+            && num_embed_files == 0)
+    {
+        print_help_and_error("No arguments passed");
     }
 
     if (output_filename == NULL)
@@ -281,12 +310,43 @@ int main(int argc, char *argv[])
         print_help_and_error("No files to embed have been specified");
     }
 
+    if (compiler_profile == NULL)
+    {
+        print_help_and_error("No compiler profile specified");
+    }
+
     // Now embed
+
+    // Check if output filename exists, otherwise create an empty one
+    struct stat s;
+
+    if (stat(output_filename, &s) != 0)
+    {
+        if (errno != ENOENT)
+        {
+            running_error("Cannot stat output file '%s'. %s\n", output_filename, strerror(errno));
+        }
+
+        // FIXME - Assuming the compiler profile allows C
+        temporal_file_t temp_file = new_temporal_file_extension(".c");
+
+        const char* compiler_args[] =
+        {
+            "-c", 
+            "-o", output_filename, 
+            temp_file->name, NULL
+        };
+
+        if (execute_program(compiler_profile, compiler_args) != 0)
+        {
+            running_error("Invocation of the compiler to generate output file '%s' failed", 
+                    output_filename);
+        }
+    }
 
     if (embed_to_file(output_filename, num_embed_files, embed_files) == 0)
     {
-        fprintf(stderr, "Embedding into '%s' failed\n", output_filename);
-        exit(EXIT_FAILURE);
+        running_error("Embedding into '%s' failed\n", output_filename);
     }
 
     return 0;
