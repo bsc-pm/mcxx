@@ -7,6 +7,7 @@
 #include "cxx-configfile-parser.h"
 #include "cxx-utils.h"
 #include "uniquestr.h"
+#include "filename.h"
 
 char configfile_lexer_free_text = 0;
 

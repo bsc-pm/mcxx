@@ -68,6 +68,10 @@ libmcxx_utils_la_SOURCES = \
 						  uniquestr.h \
 						  char_trie.c \
                           libutils-common.h \
+                          filename.c \
+                          filename.h \
+                          string_utils.h \
+                          string_utils.c \
                           $(END)
 
 libmcxx_utils_la_LDFLAGS= -avoid-version $(no_undefined)

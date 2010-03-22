@@ -21,49 +21,20 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef CXX_PARAMETERS_H
-#define CXX_PARAMETERS_H
+#ifndef FILENAME_H
+#define FILENAME_H
 
-#include "cxx-macros.h"
+#include "libutils-common.h"
 
-MCXX_BEGIN_DECLS
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-enum command_line_parameters_flag_t
-{
-    // Error value
-    CLP_INVALID = 0,
-    // This option does not have an argument
-    CLP_NO_ARGUMENT,
-    // This option has a mandatory argument
-    CLP_REQUIRED_ARGUMENT,
-    // This option have an optional
-    CLP_OPTIONAL_ARGUMENT,
-    // This is not an option, just a plain parameter
-    CLP_PLAIN_PARAMETER
-};
+LIBUTILS_EXTERN const char* give_basename(const char* c);
+LIBUTILS_EXTERN const char* give_dirname(const char* c);
 
-struct command_line_parameter_t
-{
-    enum command_line_parameters_flag_t flag;
-    int value;
-    const char *argument;
-};
+#ifdef __cplusplus
+}
+#endif
 
-struct command_line_long_options
-{
-    const char *option_name;
-    enum command_line_parameters_flag_t flag;
-    int value;
-};
-
-char command_line_get_next_parameter(
-        int *index, 
-        struct command_line_parameter_t *parameter_info,
-        const char *short_options_spec,
-        struct command_line_long_options *long_options, 
-        int argc, const char *argv[]
-        );
-
-MCXX_END_DECLS
-
-#endif // CXX_PARAMETERS_H
+#endif // FILENAME_H
