@@ -100,11 +100,12 @@ void temporal_files_cleanup(void)
     temporal_file_list = NULL;
 }
 
-static temporal_file_t add_to_list_of_temporal_files(const char* name, char is_temporary)
+static temporal_file_t add_to_list_of_temporal_files(const char* name, char is_temporary, char is_dir)
 {
     temporal_file_t result = calloc(sizeof(*result), 1);
     result->name = uniquestr(name);
     result->is_temporary = is_temporary;
+    result->is_dir = is_dir;
 
     temporal_file_list_t new_file_element = calloc(sizeof(*new_file_element), 1);
     new_file_element->info = result;
@@ -116,7 +117,12 @@ static temporal_file_t add_to_list_of_temporal_files(const char* name, char is_t
 
 void mark_file_for_cleanup(const char* name)
 {
-    add_to_list_of_temporal_files(name, /* is_temporary */ 0);
+    add_to_list_of_temporal_files(name, /* is_temporary */ 0, /* is_dir */ 0);
+}
+
+void mark_dir_for_cleanup(const char* name)
+{
+    add_to_list_of_temporal_files(name, /* is_temporary */ 0, /* is_dir */ 1);
 }
 
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
@@ -153,7 +159,7 @@ static temporal_file_t new_temporal_dir_unix(void)
 
     // Save the info of the new file
 
-    return add_to_list_of_temporal_files(directory_name, /* is_temporary */ 1);
+    return add_to_list_of_temporal_files(directory_name, /* is_temporary */ 1, /* is_dir */ 1);
 }
 
 static temporal_file_t new_temporal_file_unix(void)
@@ -187,7 +193,7 @@ static temporal_file_t new_temporal_file_unix(void)
         return NULL;
     }
 
-    return add_to_list_of_temporal_files(template, /* is_temporary */ 1);
+    return add_to_list_of_temporal_files(template, /* is_temporary */ 1, /* is_dir */ 0);
 }
 #else
 static temporal_file_t new_temporal_file_win32(void)
@@ -198,7 +204,7 @@ static temporal_file_t new_temporal_file_win32(void)
     if (template == NULL)
         return NULL;
 
-    return add_to_list_of_temporal_files(strappend(uniquestr(template), ".tmp"), /* is_temporary */ 1);
+    return add_to_list_of_temporal_files(strappend(uniquestr(template), ".tmp"), /* is_temporary */ 1, /* is_dir */ 0);
 }
 #endif
 
