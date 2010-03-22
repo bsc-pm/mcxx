@@ -998,8 +998,9 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-omp
            tests/config/mercurium-ss
            tests/config/mercurium-stm
-           tests/mcxx.torture.dg/mercurium
-           tests/mcc.hlt.basic.dg/mercurium
+           tests/05_torture_cxx_1.dg/mercurium
+           tests/05_torture_cxx_2.dg/mercurium
+           tests/06_phases_hlt.dg/mercurium
            doc/Makefile
            doc/doxygen_tl
            scripts/Makefile
