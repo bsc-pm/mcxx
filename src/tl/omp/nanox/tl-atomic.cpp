@@ -175,16 +175,9 @@ static AST_t compare_and_exchange(PragmaCustomConstruct atomic_construct, Expres
         lhs << expr.get_first_operand().prettyprint();
         op << expr.get_operator_str();
 
-        if (is_lvalue)
-        {
-            rhs << expr.get_second_operand().prettyprint();
-        }
-        else
-        {
-            temporary
-                << type << " __temp = " << expr.get_second_operand().prettyprint() << ";";
-            rhs << "__temp";
-        }
+        temporary
+            << type << " __temp = " << expr.get_second_operand().prettyprint() << ";";
+        rhs << "__temp";
     }
 
     type = expr_type.get_declaration(expr.get_scope(), "");
