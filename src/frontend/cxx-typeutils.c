@@ -3379,9 +3379,8 @@ char equivalent_types(type_t* t1, type_t* t2)
     t1 = advance_over_typedefs_with_cv_qualif(t1, &cv_qualifier_t1);
     t2 = advance_over_typedefs_with_cv_qualif(t2, &cv_qualifier_t2);
 
-    if (t1->kind != t2->kind
-            && (is_dependent_typename_type(t1)
-                || is_dependent_typename_type(t2)))
+    if (is_dependent_typename_type(t1)
+            || is_dependent_typename_type(t2))
     {
         DEBUG_CODE()
         {
@@ -4131,7 +4130,7 @@ static type_t* advance_dependent_typename_aux(
         return original_type;
     }
 
-    type_t* result_type = current_member->type_information;
+    type_t* result_type = get_user_defined_type(current_member);
 
     return result_type;
 }
