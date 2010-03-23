@@ -3366,6 +3366,8 @@ type_t* advance_over_typedefs(type_t* t1)
  */
 static char equivalent_simple_types(type_t *t1, type_t *t2);
 
+static type_t* advance_dependent_typename(type_t* t);
+
 char equivalent_types(type_t* t1, type_t* t2)
 {
 
@@ -3376,6 +3378,27 @@ char equivalent_types(type_t* t1, type_t* t2)
     // Advance over typedefs
     t1 = advance_over_typedefs_with_cv_qualif(t1, &cv_qualifier_t1);
     t2 = advance_over_typedefs_with_cv_qualif(t2, &cv_qualifier_t2);
+
+    if (t1->kind != t2->kind
+            && (is_dependent_typename_type(t1)
+                || is_dependent_typename_type(t2)))
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "TYPEUTILS: Comparing two different types where one is a dependent typename\n");
+        }
+        // Try to advance dependent typenames if we are comparing a
+        // dependent typename with another non dependent one
+        // FIXME - There are cases where this should not be attempted
+        if (is_dependent_typename_type(t1))
+        {
+            t1 = advance_dependent_typename(t1);
+        }
+        if (is_dependent_typename_type(t2))
+        {
+            t2 = advance_dependent_typename(t2);
+        }
+    }
 
     if (t1->kind != t2->kind)
     {
@@ -3827,6 +3850,313 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2)
 }
 
 static const char* get_template_arguments_list_str(template_argument_list_t* template_arguments);
+
+// FIXME - This function looks rather similar to update_dependent_typename, can
+// we abstract them away?
+static type_t* advance_dependent_typename_aux(
+        type_t* original_type,
+        type_t* dependent_entry_type,
+        dependent_name_part_t* dependent_parts)
+{
+    scope_entry_t* dependent_entry = named_type_get_symbol(dependent_entry_type);
+
+    if (dependent_entry->kind == SK_TYPEDEF)
+    {
+        dependent_entry_type = advance_over_typedefs(dependent_entry_type);
+        dependent_entry = named_type_get_symbol(dependent_entry_type);
+    }
+
+    if (dependent_entry->kind == SK_TEMPLATE_TYPE_PARAMETER)
+    {
+        // No way if this is a template type parameter
+        return original_type;
+    }
+
+    ERROR_CONDITION(dependent_entry->kind != SK_CLASS, "Must be a class-name", 0);
+    ERROR_CONDITION(dependent_parts == NULL, "Dependent parts cannot be empty", 0);
+
+    scope_entry_t* current_member = dependent_entry;
+
+    // FIXME ???
+    decl_context_t class_context/* = class_type_get_inner_context(current_member->type_information) */;
+
+    while (dependent_parts->next != NULL)
+    {
+        ERROR_CONDITION(dependent_parts->related_type != NULL, "Dependent part has a related type", 0);
+
+        class_context = class_type_get_inner_context(current_member->type_information);
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCOPE: Looking for dependent-part '%s'\n", dependent_parts->name);
+        }
+
+        scope_entry_list_t* member_list = query_in_scope_str(class_context, dependent_parts->name);
+
+        if (member_list == NULL)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Nothing was found for dependent-part '%s'\n", dependent_parts->name);
+            }
+            return original_type;
+        }
+
+        if (member_list->next != NULL)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Too many symbols where found for '%s'\n", dependent_parts->name);
+            }
+            return original_type;
+        }
+
+        scope_entry_t* member = member_list->entry;
+
+        if (member->kind == SK_TYPEDEF)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Got a typedef when looking up dependent-part '%s'\n", dependent_parts->name);
+            }
+            type_t* advanced_type = advance_over_typedefs(member->type_information);
+
+            if (is_named_class_type(advanced_type))
+            {
+                member = named_type_get_symbol(advanced_type);
+            }
+        }
+
+        if (member->kind == SK_CLASS)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Got a class when looking up dependent-part '%s'\n", dependent_parts->name);
+            }
+            if (dependent_parts->template_arguments != NULL)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "SCOPE: But this part has template arguments, so it is not valid\n");
+                }
+                return original_type;
+            }
+
+            current_member = member;
+        }
+        else if (member->kind == SK_TEMPLATE)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Got a template-name when looking up dependent-part '%s'\n", 
+                        dependent_parts->name);
+            }
+
+            if (dependent_parts->template_arguments == NULL)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "SCOPE: But this part does not have template arguments, so it is not valid\n");
+                }
+                return original_type;
+            }
+
+            // TEMPLATE RESOLUTION
+            type_t* template_type = member->type_information;
+
+            // Only template classes
+            if (named_type_get_symbol(template_type_get_primary_type(template_type))->kind == SK_FUNCTION)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "SCOPE: The named template is a template function, so it is not valid\n");
+                }
+                return original_type;
+            }
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Requesting specialization '%s'\n", 
+                        dependent_parts->name);
+            }
+
+            template_argument_list_t* template_arguments = dependent_parts->template_arguments;
+
+            type_t* specialized_type = template_type_get_specialized_type(
+                    template_type,
+                    template_arguments,
+                    template_type_get_template_parameters(template_type),
+                    class_context, 
+                    // They should not be needed
+                    0, NULL);
+
+            current_member = named_type_get_symbol(specialized_type);
+
+            if (current_member == NULL)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "Somehow when requesting a specialization nothing was returned");
+                }
+                return original_type;
+            }
+        }
+        else 
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Unexpected symbol for part '%s'\n", dependent_parts->name);
+            }
+            return original_type;
+        }
+
+        dependent_parts = dependent_parts->next;
+    }
+
+    // Last part
+    class_context = class_type_get_inner_context(current_member->type_information);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "SCOPE: Looking for last dependent-part '%s'\n", dependent_parts->name);
+    }
+
+    scope_entry_list_t* member_list = query_in_scope_str(class_context, dependent_parts->name);
+
+    if (member_list == NULL)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCOPE: Nothing was found for dependent-part '%s'\n", dependent_parts->name);
+        }
+        return original_type;
+    }
+
+    if (member_list->next != NULL)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCOPE: Too many symbols where found for '%s'\n", dependent_parts->name);
+        }
+        return original_type;
+    }
+
+    scope_entry_t* member = member_list->entry;
+
+    if (member->kind == SK_CLASS
+            || member->kind == SK_TYPEDEF)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCOPE: Got a typename when looking up dependent-part '%s'\n", dependent_parts->name);
+        }
+        if (dependent_parts->template_arguments != NULL)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: But this part has template arguments, so it is not valid\n");
+            }
+            return original_type;
+        }
+        
+        if (member->kind == SK_TYPEDEF)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Got a typedef when looking up dependent-part '%s'\n", dependent_parts->name);
+            }
+            type_t* advanced_type = advance_over_typedefs(member->type_information);
+
+            if (is_named_class_type(advanced_type))
+            {
+                member = named_type_get_symbol(advanced_type);
+            }
+        }
+
+        current_member = member;
+    }
+    else if (member->kind == SK_TEMPLATE)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCOPE: Got a template-name when looking up dependent-part '%s'\n", 
+                    dependent_parts->name);
+        }
+
+        if (dependent_parts->template_arguments == NULL)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: But this part does not have template arguments, so it is not valid\n");
+            }
+            return original_type;
+        }
+
+        // TEMPLATE RESOLUTION
+        type_t* template_type = member->type_information;
+
+        // Only template classes
+        if (named_type_get_symbol(template_type_get_primary_type(template_type))->kind == SK_FUNCTION)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: The named template is a template function, so it is not valid\n");
+            }
+            return original_type;
+        }
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCOPE: requesting specialization '%s'\n", 
+                    dependent_parts->name);
+        }
+
+        type_t* specialized_type = template_type_get_specialized_type(
+                template_type,
+                dependent_parts->template_arguments,
+                template_type_get_template_parameters(template_type),
+                class_context, 
+                // They should not be needed
+                /*line*/0, /*filename*/NULL);
+
+        current_member = named_type_get_symbol(specialized_type);
+
+    }
+    else
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCOPE: Unexpected symbol for part '%s'\n", dependent_parts->name);
+        }
+        return original_type;
+    }
+
+    type_t* result_type = current_member->type_information;
+
+    return result_type;
+}
+
+static type_t* advance_dependent_typename(type_t* t)
+{
+    // A dependent typename is a dependent entity followed by a sequence of
+    // syntactic bits Advancing them means examining uninstantiated types,
+    // which is always a dangerous thing to do
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Advancing dependent typename '%s'\n", print_declarator(t));
+    }
+
+    ERROR_CONDITION(!is_dependent_typename_type(t), "This is not a dependent typename", 0);
+
+    scope_entry_t* dependent_entry = NULL;
+    dependent_name_part_t* dependent_parts = NULL;
+
+    dependent_typename_get_components(t, &dependent_entry, &dependent_parts);
+
+    type_t* dependent_entry_type = get_user_defined_type(dependent_entry);
+
+    return advance_dependent_typename_aux(t, dependent_entry_type, dependent_parts);
+}
 
 static char syntactic_comparison_of_dependent_parts(
         dependent_name_part_t* dependent_parts_1,
