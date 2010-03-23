@@ -246,7 +246,7 @@ namespace TL
 
                     if (!var_sym.is_valid())
                     {
-                        running_error("%s: error: variable '%s' in reduction clause is invalid\n",
+                        running_error("%s: error: variable '%s' in reduction clause has not been found in the scope\n",
                                 construct.get_ast().get_locus().c_str(),
                                 var_tree.prettyprint().c_str());
                     }

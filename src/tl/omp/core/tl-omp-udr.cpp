@@ -916,7 +916,7 @@ namespace TL
                 }
                 else
                 {
-                    running_error("%s:%d: error: reduction operator '%s' is unknown" ,
+                    running_error("%s:%d: error: no reduction operator '%s' was found in the scope" ,
                             filename.c_str(), line, op_name.c_str());
                 }
             }
@@ -1003,7 +1003,7 @@ namespace TL
         Symbol result(NULL);
         if (sym_list.empty())
         {
-            running_error("%s: error: operator '%s' is not eligible for a user defined reduction", 
+            running_error("%s: error: operator '%s' is not an entity eligible for a user defined reduction", 
                     construct.get_ast().get_locus().c_str(),
                     op_name.prettyprint().c_str());
         }
@@ -1540,6 +1540,8 @@ namespace TL
                 {
                     internal_error("Temporarily not supported", 0);
 #if 0
+                    Symbol sym(NULL);
+
                     // Now we have to "instantiate" the UDR
                     Scope instantiation_scope = Scope::instantiation_scope(overload_sym, 
                             item->get_template_scope().get_template_parameters());
@@ -1549,23 +1551,43 @@ namespace TL
                     std::string op_name = item->get_op_name();
                     if (op_name[0] == '.')
                     {
-                        op_name =  item->get_type().get_declaration(item->get_template_scope(), "") + "::" + op_name.substr(1);
+                        op_name = item->get_type().get_declaration(item->get_template_scope(), "") + "::" + op_name.substr(1);
+                    }
+                    else if (udr_is_builtin_operator(op_name))
+                    {
+                        if (type.is_named_class())
+                        {
+                            // Try a first lookup in the class scope
+                            AST_t udr_name_id_expr_tree = Source(
+                                    type.get_declaration(instantiation_scope, "") + "::operator " + op_name
+                                    ).parse_id_expression(instantiation_scope, scope_link);
+                            ObjectList<Symbol> udr_name_sym_list = instantiation_scope.get_symbols_from_id_expr(udr_name_id_expr_tree);
+
+                            sym = overload_on_udr(type, udr_name_sym_list, 
+                                    result.get_assoc(),
+                                    filename,
+                                    line,
+                                    op_name,
+                                    instantiation_scope,
+                                    /* nofail */ true);
+                        }
+
+                        op_name = "operator " + op_name;
                     }
 
-                    Source src = op_name;
-
-                    AST_t id_expression_tree = src.parse_id_expression(instantiation_scope, scope_link);
-
-                    ObjectList<Symbol> sym_list = instantiation_scope.get_symbols_from_id_expr(id_expression_tree);
-
                     Type udr_type = overload_sym.get_type().parameters()[0];
-
-                    Symbol sym = overload_on_udr(udr_type, sym_list, 
-                            item->get_assoc(),
-                            filename,
-                            line,
-                            item->get_internal_name(),
-                            current_scope);
+                    if (!sym.is_valid())
+                    {
+                        Source src = op_name;
+                        AST_t id_expression_tree = src.parse_id_expression(instantiation_scope, scope_link);
+                        ObjectList<Symbol> sym_list = instantiation_scope.get_symbols_from_id_expr(id_expression_tree);
+                        sym = overload_on_udr(udr_type, sym_list, 
+                                item->get_assoc(),
+                                filename,
+                                line,
+                                item->get_internal_name(),
+                                current_scope);
+                    }
 
                     if (sym.is_valid())
                     {

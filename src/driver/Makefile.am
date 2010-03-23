@@ -70,6 +70,7 @@ mcxx_SOURCES = \
   cxx-multifile.h \
   cxx-multifile.c \
   cxx-embed.c \
+  cxx-embed.h \
   $(END)
 
 mcxx_LDADD = \
@@ -187,6 +188,7 @@ mcxx_embedder_CFLAGS=\
 mcxx_embedder_SOURCES = \
                         cxx-embedder.c \
                         cxx-embed.c \
+                        cxx-embed.h \
                         cxx-driver-utils.h \
                         cxx-driver-utils.c \
                         cxx-parameters.h \
