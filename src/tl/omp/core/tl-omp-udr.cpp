@@ -916,7 +916,7 @@ namespace TL
                 }
                 else
                 {
-                    running_error("%s:%d: error: reduction operator '%s' is unknown" ,
+                    running_error("%s:%d: error: no reduction operator '%s' was found in the scope" ,
                             filename.c_str(), line, op_name.c_str());
                 }
             }
@@ -1003,7 +1003,7 @@ namespace TL
         Symbol result(NULL);
         if (sym_list.empty())
         {
-            running_error("%s: error: operator '%s' is not eligible for a user defined reduction", 
+            running_error("%s: error: operator '%s' is not an entity eligible for a user defined reduction", 
                     construct.get_ast().get_locus().c_str(),
                     op_name.prettyprint().c_str());
         }
