@@ -47,64 +47,51 @@ LIBPROCESS_EXTERN void add_new_file_to_compilation_process(
         const char* file_path, const char* output_file, 
         compilation_configuration_t* configuration);
 
-LIBPROCESS_EXTERN unsigned long long int _bytes_dynamic_lists;
-LIBPROCESS_EXTERN unsigned long long dynamic_lists_used_memory(void);
+LIBMCXX_EXTERN void running_error(const char* message, ...) NORETURN;
 
-// Routine to ease adding pointers to a pointer list
-//   list is a T**
-//   size is an int
-//   elem is a T*
-#define P_LIST_ADD(list, size, elem)  \
-do { \
-    (size)++; \
-    (list) = realloc((list), sizeof(*(list))*(size)); \
-    _bytes_dynamic_lists += sizeof(*(list)); \
-    (list)[((size)-1)] = (elem); \
-} while(0)
+#define BUG_URL "\nPlease report a bug at " \
+                "http://nanos.ac.upc.edu/projects/mcxx/newticket " \
+                "with preprocessed source if possible\n"
 
-#define P_LIST_ADD_PREPEND(list, size, elem) \
-do {  \
-    (size)++; \
-    (list) = realloc((list), sizeof(*(list))*(size)); \
-    _bytes_dynamic_lists += sizeof(*(list)); \
-    int _i; \
-    for (_i = (size) - 1; _i > 0; _i--) \
-    { \
-        (list)[_i] = (list)[_i - 1]; \
-    } \
-    (list)[0] = elem; \
-} while(0)
+#define internal_error(message, ...) \
+{ \
+    debug_message(message, "Internal compiler error."BUG_URL, __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__ ); \
+    if (CURRENT_CONFIGURATION->debug_options.abort_on_ice) \
+            raise(SIGABRT); \
+    exit(EXIT_FAILURE); \
+}
 
-// This is a bit inefficient. Should not be used for large lists
-#define P_LIST_ADD_ONCE(list, size, elem) \
-do { \
-    int _i; \
-    char _found = 0; \
-    for (_i = 0; (_i < (size)) && !_found; _i++) \
-    { \
-         _found = ((list)[_i] == (elem)); \
-    } \
-    if (!_found) \
-    { \
-        P_LIST_ADD((list), (size), (elem)); \
-    } \
-} while (0)
+LIBMCXX_EXTERN void debug_message(const char* message, const char* kind, const char* source_file, int line, const char* function_name, ...);
 
-// This is a bit inefficient. Should not be used for large lists
-// Like P_LIST_ADD_ONCE but using fun as an equality function
-#define P_LIST_ADD_ONCE_FUN(list, size, elem, fun) \
-do { \
-    int _i; \
-    char _found = 0; \
-    for (_i = 0; (_i < (size)) && !_found; _i++) \
+#define WARNING_MESSAGE(message, ...) \
+{ \
+    debug_message(message, "Warning: ", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
+}
+
+#define ASSERT_MESSAGE(cond, message, ...) \
+{ if (!(cond)) \
     { \
-         _found = (fun)((list)[_i], (elem)); \
+        debug_message((message), "Assertion failed (" #cond ")"BUG_URL, __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
+        if (CURRENT_CONFIGURATION->debug_options.abort_on_ice) \
+            raise(SIGABRT); \
+        exit(EXIT_FAILURE); \
     } \
-    if (!_found) \
+}
+
+#define ERROR_CONDITION(cond, message, ...) \
+{ if ((cond)) \
     { \
-        P_LIST_ADD((list), (size), (elem)); \
+        debug_message((message), "Error condition (" #cond ")"BUG_URL, __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
+        if (CURRENT_CONFIGURATION->debug_options.abort_on_ice) \
+            raise(SIGABRT); \
+        exit(EXIT_FAILURE); \
     } \
-} while (0)
+}
+
+#define DEBUG_MESSAGE(message, ...) \
+{ \
+    debug_message(message, "Debug : ", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
+}
 
 MCXX_END_DECLS
 

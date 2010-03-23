@@ -1,5 +1,5 @@
 dnl Package definition: name, version, mail
-AC_INIT([mcxx],[1.3.3],[rferrer@ac.upc.edu])
+AC_INIT([mcxx],[1.3.4],[rferrer@ac.upc.edu])
 
 dnl Where are we ?
 AC_CANONICAL_BUILD
@@ -998,8 +998,9 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-omp
            tests/config/mercurium-ss
            tests/config/mercurium-stm
-           tests/mcxx.torture.dg/mercurium
-           tests/mcc.hlt.basic.dg/mercurium
+           tests/05_torture_cxx_1.dg/mercurium
+           tests/05_torture_cxx_2.dg/mercurium
+           tests/06_phases_hlt.dg/mercurium
            doc/Makefile
            doc/doxygen_tl
            scripts/Makefile

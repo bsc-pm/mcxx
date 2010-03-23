@@ -30,6 +30,7 @@
 #include <errno.h>
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
   #include <sys/wait.h>
+  #include <libgen.h>
 #else
   #include <windows.h>
 #endif
@@ -39,6 +40,7 @@
 #include "cxx-driver-utils.h"
 #include "cxx-utils.h"
 #include "uniquestr.h"
+#include "filename.h"
 
 typedef struct temporal_file_list_tag
 {
@@ -98,11 +100,12 @@ void temporal_files_cleanup(void)
     temporal_file_list = NULL;
 }
 
-static temporal_file_t add_to_list_of_temporal_files(const char* name, char is_temporary)
+static temporal_file_t add_to_list_of_temporal_files(const char* name, char is_temporary, char is_dir)
 {
     temporal_file_t result = calloc(sizeof(*result), 1);
     result->name = uniquestr(name);
     result->is_temporary = is_temporary;
+    result->is_dir = is_dir;
 
     temporal_file_list_t new_file_element = calloc(sizeof(*new_file_element), 1);
     new_file_element->info = result;
@@ -114,7 +117,12 @@ static temporal_file_t add_to_list_of_temporal_files(const char* name, char is_t
 
 void mark_file_for_cleanup(const char* name)
 {
-    add_to_list_of_temporal_files(name, /* is_temporary */ 0);
+    add_to_list_of_temporal_files(name, /* is_temporary */ 0, /* is_dir */ 0);
+}
+
+void mark_dir_for_cleanup(const char* name)
+{
+    add_to_list_of_temporal_files(name, /* is_temporary */ 0, /* is_dir */ 1);
 }
 
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
@@ -151,7 +159,7 @@ static temporal_file_t new_temporal_dir_unix(void)
 
     // Save the info of the new file
 
-    return add_to_list_of_temporal_files(directory_name, /* is_temporary */ 1);
+    return add_to_list_of_temporal_files(directory_name, /* is_temporary */ 1, /* is_dir */ 1);
 }
 
 static temporal_file_t new_temporal_file_unix(void)
@@ -185,7 +193,7 @@ static temporal_file_t new_temporal_file_unix(void)
         return NULL;
     }
 
-    return add_to_list_of_temporal_files(template, /* is_temporary */ 1);
+    return add_to_list_of_temporal_files(template, /* is_temporary */ 1, /* is_dir */ 0);
 }
 #else
 static temporal_file_t new_temporal_file_win32(void)
@@ -196,7 +204,7 @@ static temporal_file_t new_temporal_file_win32(void)
     if (template == NULL)
         return NULL;
 
-    return add_to_list_of_temporal_files(strappend(uniquestr(template), ".tmp"), /* is_temporary */ 1);
+    return add_to_list_of_temporal_files(strappend(uniquestr(template), ".tmp"), /* is_temporary */ 1, /* is_dir */ 0);
 }
 #endif
 
@@ -728,4 +736,85 @@ char move_file(const char* source, const char* dest)
     }
     // Everything ok
     return 0;
+}
+
+#if !defined(WIN32_BUILD) || defined(__CYGWIN__)
+// This function is Linux only!
+// Note: cygwin also provides a useful /proc (amazing!)
+static char* getexename(char* buf, size_t size)
+{
+	char linkname[64]; /* /proc/<pid>/exe */
+	pid_t pid;
+	int ret;
+	
+	/* Get our PID and build the name of the link in /proc */
+	pid = getpid();
+	
+	if (snprintf(linkname, sizeof(linkname), "/proc/%i/exe", pid) < 0)
+		{
+		/* This should only happen on large word systems. I'm not sure
+		   what the proper response is here.
+		   Since it really is an assert-like condition, aborting the
+		   program seems to be in order. */
+		abort();
+		}
+
+	
+	/* Now read the symbolic link */
+	ret = readlink(linkname, buf, size);
+	
+	/* In case of an error, leave the handling up to the caller */
+	if (ret == -1)
+		return NULL;
+	
+	/* Report insufficient buffer size */
+	if (ret >= size)
+		{
+		errno = ERANGE;
+		return NULL;
+		}
+	
+	/* Ensure proper NUL termination */
+	buf[ret] = 0;
+	
+	return buf;
+}
+
+static const char* find_home_linux(void)
+{
+    char c[1024];
+    if (getexename(c, sizeof(c)) == NULL)
+    {
+        internal_error("Error when running getexename = %s\n", strerror(errno));
+    }
+
+    return uniquestr(dirname(c));
+}
+
+#else 
+// Version for mingw
+static const char* find_home_win32(void)
+{
+    char c[1024];
+    GetModuleFileName(0, c, sizeof(c));
+
+    char drive[_MAX_DRIVE];
+    char dir[_MAX_DIR];
+    char fname[_MAX_FNAME];
+    char ext[_MAX_EXT];
+
+    _splitpath(c, drive, dir, fname, ext);
+
+    const char* result = strappend(drive, dir);
+    return result;
+}
+#endif
+
+const char* find_home(void)
+{
+#if !defined(WIN32_BUILD) || defined(__CYGWIN__)
+    return find_home_linux();
+#else
+    return find_home_win32();
+#endif
 }

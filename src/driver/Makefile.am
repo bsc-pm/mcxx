@@ -23,7 +23,7 @@
 
 # mcxxexec can't be changed to simply 'bin' or 'mcxx' (otherwise things won't
 # work)
-mcxxexec_PROGRAMS = mcxx
+mcxxexec_PROGRAMS = mcxx mcxx-embedder
 
 if ENABLE_PKGLIB_INSTALL
 mcxxexecdir = $(pkglibdir)
@@ -69,6 +69,7 @@ mcxx_SOURCES = \
   cxx-configfile-lexer.c \
   cxx-multifile.h \
   cxx-multifile.c \
+  cxx-embed.c \
   $(END)
 
 mcxx_LDADD = \
@@ -162,8 +163,9 @@ cxx-configfile-parser.c: $(srcdir)/cxx-configfile-parser.y
 install-exec-hook: 
 	for compiler_name in @COMPILER_NAMES@; \
 		do \
-			(cd $(DESTDIR)/$(mcxxexecdir); test -e $${compiler_name} || $(LN_S) mcxx$(EXEEXT) $${compiler_name}) ; \
+			(cd $(DESTDIR)/$(mcxxexecdir); test -e $${compiler_name}$(EXEEXT) || $(LN_S) mcxx$(EXEEXT) $${compiler_name}$(EXEEXT)) ; \
 		done
+	(cd $(DESTDIR)/$(mcxxexecdir); test -e mcc-embedder$(EXEEXT) || $(LN_S) mcxx-embedder$(EXEEXT) mcc-embedder$(EXEEXT) ) 
 	
 uninstall-local:
 	for compiler_name in @COMPILER_NAMES@; \
@@ -172,3 +174,30 @@ uninstall-local:
 		done
 
 
+# Embedder
+
+mcxx_embedder_CFLAGS=\
+			-I$(top_srcdir)/lib \
+			-I$(top_srcdir)/src/frontend \
+			-I$(top_builddir)/lib \
+			-I$(top_builddir)/src/frontend \
+			-DPKGDATADIR=\"$(pkgdatadir)\" \
+			-Wall
+
+mcxx_embedder_SOURCES = \
+                        cxx-embedder.c \
+                        cxx-embed.c \
+                        cxx-driver-utils.h \
+                        cxx-driver-utils.c \
+                        cxx-parameters.h \
+                        cxx-parameters.c \
+                        $(END)
+
+mcxx_embedder_LDADD = \
+   $(top_builddir)/lib/libmcxx-utils.la \
+   $(top_builddir)/src/frontend/libmcxx-process.la \
+   $(END)
+
+mcxx_embedder_LDFLAGS = \
+    -Wl,-rpath,'$$ORIGIN'/../lib \
+    $(END)

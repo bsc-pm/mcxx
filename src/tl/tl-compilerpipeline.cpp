@@ -24,6 +24,7 @@
 #include "tl-compilerpipeline.hpp"
 #include "cxx-driver.h"
 #include "cxx-utils.h"
+#include "filename.h"
 
 namespace TL
 {

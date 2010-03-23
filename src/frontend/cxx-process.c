@@ -25,6 +25,9 @@
 #include "cxx-utils.h"
 #include "uniquestr.h"
 
+#include <string.h>
+#include <stdarg.h>
+
 // Compilation options
 compilation_process_t compilation_process = { 0 };
 
@@ -73,4 +76,97 @@ unsigned long long int _bytes_dynamic_lists = 0;
 unsigned long long dynamic_lists_used_memory(void)
 {
     return _bytes_dynamic_lists;
+}
+
+void debug_message(const char* message, const char* kind, const char* source_file, int line, const char* function_name, ...)
+{
+    va_list ap;
+    char* sanitized_message = strdup(message);
+
+    // Remove annoying \n at the end. This will make this function
+    // interchangeable with fprintf(stderr, 
+    int length = strlen(sanitized_message);
+
+    length--;
+    while (length > 0 && sanitized_message[length] == '\n')
+    {
+        sanitized_message[length] = '\0';
+        length--;
+    }
+
+#define LONG_MESSAGE_SIZE 512
+    char* long_message = calloc(sizeof(char), LONG_MESSAGE_SIZE);
+
+    va_start(ap, function_name);
+    vsnprintf(long_message, LONG_MESSAGE_SIZE-1, sanitized_message, ap);
+    long_message[LONG_MESSAGE_SIZE-1] = '\0';
+#undef LONG_MESSAGE_SIZE
+
+    char* kind_copy = strdup(kind);
+
+    char *start, *end;
+
+    start = kind_copy;
+
+    while (*start != '\0'
+            && (end = strchr(start, '\n')) != NULL)
+    {
+        *end = '\0';
+        fprintf(stderr, "%s:%d(%s): %s\n", give_basename(source_file), line, function_name, start);
+        start = end + 1;
+    }
+
+    if (*start != '\0')
+    {
+        fprintf(stderr, "%s:%d(%s): %s\n", give_basename(source_file), line, function_name, start);
+    }
+
+    start = long_message;
+
+    while (*start != '\0'
+            && (end = strchr(start, '\n')) != NULL)
+    {
+        *end = '\0';
+        fprintf(stderr, "%s:%d(%s): %s\n", give_basename(source_file), line, function_name, start);
+        start = end + 1;
+    }
+
+    if (*start != '\0')
+    {
+        fprintf(stderr, "%s:%d(%s): %s\n", give_basename(source_file), line, function_name, start);
+    }
+
+    free(kind_copy);
+    free(sanitized_message);
+    free(long_message);
+}
+
+void running_error(const char* message, ...)
+{
+    va_list ap;
+
+    char* sanitized_message = strdup(message);
+
+    // Remove annoying \n at the end. This will make this function
+    // interchangeable with fprintf(stderr, 
+    int length = strlen(sanitized_message);
+
+    length--;
+    while (length > 0 && sanitized_message[length] == '\n')
+    {
+        sanitized_message[length] = '\0';
+        length--;
+    }
+    
+    va_start(ap, message);
+    vfprintf(stderr, sanitized_message, ap);
+    va_end(ap);
+    fprintf(stderr, "\n");
+
+    if (CURRENT_CONFIGURATION->debug_options.abort_on_ice)
+        raise(SIGABRT);
+
+    free(sanitized_message);
+
+    exit(EXIT_FAILURE);
 }
