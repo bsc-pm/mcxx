@@ -1055,6 +1055,10 @@ type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entity,
     type_info->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
     type_info->type->dependent_entry = dependent_entity;
 
+    ERROR_CONDITION(dependent_entity->kind != SK_TEMPLATE_TYPE_PARAMETER
+            && dependent_entity->kind != SK_CLASS, 
+            "Invalid dependent entity of kind '%d'", dependent_entity->kind);
+
     type_info->type->dependent_parts = dependent_parts;
 
     type_info->info->is_dependent = 1;
