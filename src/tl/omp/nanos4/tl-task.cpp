@@ -229,6 +229,24 @@ namespace TL
 
             Source size_vector;
 
+            Source task_creation_instrumentation_start,
+                   task_creation_instrumentation_end,
+                   task_fp_instrumentation_start,
+                   task_fp_instrumentation_end;
+
+            if (instrumentation_requested())
+            {
+                task_creation_instrumentation_start
+                    << "mintaka_event(8000001, 1);";
+                task_creation_instrumentation_end
+                    << "mintaka_event(8000001, 0);";
+
+                task_fp_instrumentation_start
+                    << "mintaka_event(8000002, 1);";
+                task_fp_instrumentation_end
+                    << "mintaka_event(8000002, 0);";
+            }
+
             // For each capture address entity just pass a reference to it
             int num_reference_args = 0;
 
@@ -316,6 +334,7 @@ namespace TL
 
                 num_value_args++;
             }
+
             size_vector << "};"
                 ;
 
@@ -451,8 +470,6 @@ namespace TL
             outlined_function_reference 
                 << get_outline_function_reference(function_definition, parameter_info_list, /* team_parameter */ false);
 
-            Source instrument_code_task_creation;
-
             Source increment_task_level;
             Source decrement_task_level;
             Source file_params;
@@ -462,7 +479,6 @@ namespace TL
             std::string mangled_function_name;
 
             Source serialized_code;
-
             // If we have such information fill serialized branch, otherwise don't do anything
             // and exploit the fall-through of the switch
             if (serialized_functions_info.valid())
@@ -549,13 +565,21 @@ namespace TL
 
             if (if_clause.is_defined())
             {
+                Source else_instrument;
                 cutoff_code
                     << comment("Check whether we have to create a task or just run it immediately")
                     << "if (" << if_clause.get_expression_list()[0].prettyprint() << ")"
                     << "{"
                     <<    cutoff_call
                     << "}"
+                    << else_instrument
                     ;
+
+                if (instrumentation_requested())
+                {
+                    else_instrument
+                        << "nth_cutoff = 5;";
+                }
             }
             else
             {
@@ -719,12 +743,13 @@ namespace TL
                 }
             }
 
-            // FIXME: Instrumentation is still missing!!!
+            Source immediate_instrumentation;
+
             task_queueing
-		<< "if (NTH_MYSELF->task_ctx->final)"
-		// Serialized code already has braces
+                << "if (NTH_MYSELF->task_ctx->final)"
+                // Serialized code already has braces
                 <<      serialized_code
-		<< "else"
+                << "else"
                 << "{"
                 // FIXME - I'd like there was a NTH_CUTOFF_INVALID (with zero
                 // value but this would break current interface)
@@ -760,10 +785,9 @@ namespace TL
                 <<          "break;" 
                 <<      "}"
                 <<      "case NTH_CUTOFF_SERIALIZE:"
-		// Serialized code already has braces
-                //<<      serialized_code
-		<<	    "__builtin_abort();"
+                <<	        "__builtin_abort();"
                 <<          "break;"
+                <<      immediate_instrumentation
                 <<      "case NTH_CUTOFF_IMMEDIATE:"
                 <<      "{"
                 <<          comment("Run the task inline")
@@ -781,9 +805,35 @@ namespace TL
                 <<      "}"
                 <<      "default: { " << comment("Invalid cutoff") << "__builtin_abort(); break; }"
                 <<    "}"
-
                 << "}"
                 ;
+
+            if (instrumentation_requested())
+            {
+                immediate_instrumentation
+                <<      "case 5:"
+                <<      "{"
+                <<          comment("Run the task inline plus instrumentation")
+                <<          task_fp_instrumentation_start
+                <<          fallback_capture_values
+                <<          task_fp_instrumentation_end
+                <<          task_creation_instrumentation_start
+                <<          final_code
+                <<          dependences_common
+                <<          inputs_prologue
+                <<          increment_task_level
+                <<          final_immediate
+                <<          outputs_immediate
+                <<          inputs_immediate
+                <<          task_creation_instrumentation_end
+                <<          "(" << outlined_function_reference << ")" << "(" << fallback_arguments << ");"
+                <<          task_creation_instrumentation_start
+                <<          decrement_task_level
+                <<          task_creation_instrumentation_end
+                <<          "break;"
+                <<      "}"
+                ;
+            }
 
             return task_queueing;
         }
