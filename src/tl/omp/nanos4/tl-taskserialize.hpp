@@ -158,6 +158,12 @@ namespace TL
                             AST_t function_name = src.parse_expression(a, ctx.scope_link);
                             called_entity.get_ast().replace(function_name);
                         }
+                        else if (sym.get_name() == "omp_in_final")
+                        {
+                            Source src("0");
+                            AST_t function_name = src.parse_expression(a, ctx.scope_link);
+                            funct_call.get_ast().replace(function_name);
+                        }
                     }
                 }
         };
