@@ -2118,6 +2118,7 @@ static template_argument_t* update_template_argument(
 static type_t* update_dependent_typename(
         type_t* dependent_entry_type,
         dependent_name_part_t* dependent_parts,
+        decl_context_t decl_context,
         const char* filename, int line)
 {
     scope_entry_t* dependent_entry = named_type_get_symbol(dependent_entry_type);
@@ -2256,7 +2257,7 @@ static type_t* update_dependent_typename(
             {
                 template_argument_t* updated_argument = update_template_argument(
                         template_arguments->argument_list[i],
-                        class_context, filename, line);
+                        decl_context, filename, line);
 
                 P_LIST_ADD(updated_template_arguments->argument_list, updated_template_arguments->num_arguments, updated_argument);
             }
@@ -2806,7 +2807,7 @@ static type_t* update_type_aux_(type_t* orig_type,
         }
 
         type_t* updated_type =
-            update_dependent_typename(fixed_type, dependent_parts, filename, line);
+            update_dependent_typename(fixed_type, dependent_parts, decl_context, filename, line);
 
         return updated_type;
     }

@@ -1047,6 +1047,26 @@ static dependent_name_part_t* compute_dependent_parts(
     }
 }
 
+static dependent_name_part_t* copy_dependent_parts(
+        dependent_name_part_t* dependent_part)
+{
+    if (dependent_part == NULL)
+    {
+        return NULL;
+    }
+    else
+    {
+        dependent_name_part_t* result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
+
+        // Plain copy
+        *result = *dependent_part;
+
+        result->next = copy_dependent_parts(dependent_part->next);
+        return result;
+    }
+}
+
+
 type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entity, 
         dependent_name_part_t* dependent_parts)
 {
@@ -1075,6 +1095,39 @@ type_t* get_dependent_typename_type(scope_entry_t* dependent_entity,
             decl_context,
             nested_name,
             unqualified_part);
+
+    // Advance even more dependent typenames built after other dependent
+    // typenames (this only happens because of SK_TYPEDEF)
+    while (dependent_entity->kind == SK_TYPEDEF)
+    {
+        type_t* real_type = advance_over_typedefs(dependent_entity->type_information);
+
+        if (is_named_type(real_type))
+        {
+            dependent_entity = named_type_get_symbol(real_type);
+        }
+        else if (is_dependent_typename_type(real_type))
+        {
+            dependent_name_part_t* previous_dependent_parts = NULL;
+            dependent_typename_get_components(real_type, 
+                    &dependent_entity,
+                    &previous_dependent_parts);
+
+            // Now append dependent_parts to a copy of previous_dependent_parts
+            dependent_name_part_t* copy_parts = copy_dependent_parts(previous_dependent_parts);
+
+            dependent_name_part_t* it = copy_parts;
+            while (it->next != NULL) it = it->next;
+            it->next = dependent_parts;
+
+            // Update dependent parts
+            dependent_parts = copy_parts;
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+    }
 
     return get_dependent_typename_type_from_parts(dependent_entity, 
             dependent_parts);
