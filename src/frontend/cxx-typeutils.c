@@ -3944,7 +3944,7 @@ static type_t* advance_dependent_typename_aux(
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "SCOPE: Looking for dependent-part '%s'\n", dependent_parts->name);
+            fprintf(stderr, "TYPEUTILS: Looking for dependent-part '%s'\n", dependent_parts->name);
         }
 
         scope_entry_list_t* member_list = query_in_scope_str(class_context, dependent_parts->name);
@@ -3953,7 +3953,7 @@ static type_t* advance_dependent_typename_aux(
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "SCOPE: Nothing was found for dependent-part '%s'\n", dependent_parts->name);
+                fprintf(stderr, "TYPEUTILS: Nothing was found for dependent-part '%s'\n", dependent_parts->name);
             }
             return original_type;
         }
@@ -3962,7 +3962,7 @@ static type_t* advance_dependent_typename_aux(
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "SCOPE: Too many symbols where found for '%s'\n", dependent_parts->name);
+                fprintf(stderr, "TYPEUTILS: Too many symbols where found for '%s'\n", dependent_parts->name);
             }
             return original_type;
         }
@@ -3973,7 +3973,7 @@ static type_t* advance_dependent_typename_aux(
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "SCOPE: Got a typedef when looking up dependent-part '%s'\n", dependent_parts->name);
+                fprintf(stderr, "TYPEUTILS: Got a typedef when looking up dependent-part '%s'\n", dependent_parts->name);
             }
             type_t* advanced_type = advance_over_typedefs(member->type_information);
 
@@ -3987,13 +3987,13 @@ static type_t* advance_dependent_typename_aux(
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "SCOPE: Got a class when looking up dependent-part '%s'\n", dependent_parts->name);
+                fprintf(stderr, "TYPEUTILS: Got a class when looking up dependent-part '%s'\n", dependent_parts->name);
             }
             if (dependent_parts->template_arguments != NULL)
             {
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "SCOPE: But this part has template arguments, so it is not valid\n");
+                    fprintf(stderr, "TYPEUTILS: But this part has template arguments, so it is not valid\n");
                 }
                 return original_type;
             }
@@ -4004,7 +4004,7 @@ static type_t* advance_dependent_typename_aux(
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "SCOPE: Got a template-name when looking up dependent-part '%s'\n", 
+                fprintf(stderr, "TYPEUTILS: Got a template-name when looking up dependent-part '%s'\n", 
                         dependent_parts->name);
             }
 
@@ -4012,7 +4012,7 @@ static type_t* advance_dependent_typename_aux(
             {
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "SCOPE: But this part does not have template arguments, so it is not valid\n");
+                    fprintf(stderr, "TYPEUTILS: But this part does not have template arguments, so it is not valid\n");
                 }
                 return original_type;
             }
@@ -4025,14 +4025,14 @@ static type_t* advance_dependent_typename_aux(
             {
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "SCOPE: The named template is a template function, so it is not valid\n");
+                    fprintf(stderr, "TYPEUTILS: The named template is a template function, so it is not valid\n");
                 }
                 return original_type;
             }
 
             DEBUG_CODE()
             {
-                fprintf(stderr, "SCOPE: Requesting specialization '%s'\n", 
+                fprintf(stderr, "TYPEUTILS: Requesting specialization '%s'\n", 
                         dependent_parts->name);
             }
 
@@ -4052,7 +4052,7 @@ static type_t* advance_dependent_typename_aux(
             {
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "Somehow when requesting a specialization nothing was returned");
+                    fprintf(stderr, "TYPEUTILS: Somehow when requesting a specialization nothing was returned");
                 }
                 return original_type;
             }
@@ -4061,7 +4061,7 @@ static type_t* advance_dependent_typename_aux(
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "SCOPE: Unexpected symbol for part '%s'\n", dependent_parts->name);
+                fprintf(stderr, "TYPEUTILS: Unexpected symbol for part '%s'\n", dependent_parts->name);
             }
             return original_type;
         }
@@ -4074,7 +4074,7 @@ static type_t* advance_dependent_typename_aux(
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "SCOPE: Looking for last dependent-part '%s'\n", dependent_parts->name);
+        fprintf(stderr, "TYPEUTILS: Looking for last dependent-part '%s'\n", dependent_parts->name);
     }
 
     scope_entry_list_t* member_list = query_in_scope_str(class_context, dependent_parts->name);
@@ -4083,7 +4083,7 @@ static type_t* advance_dependent_typename_aux(
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "SCOPE: Nothing was found for dependent-part '%s'\n", dependent_parts->name);
+            fprintf(stderr, "TYPEUTILS: Nothing was found for dependent-part '%s'\n", dependent_parts->name);
         }
         return original_type;
     }
@@ -4092,7 +4092,7 @@ static type_t* advance_dependent_typename_aux(
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "SCOPE: Too many symbols where found for '%s'\n", dependent_parts->name);
+            fprintf(stderr, "TYPEUTILS: Too many symbols where found for '%s'\n", dependent_parts->name);
         }
         return original_type;
     }
@@ -4104,13 +4104,13 @@ static type_t* advance_dependent_typename_aux(
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "SCOPE: Got a typename when looking up dependent-part '%s'\n", dependent_parts->name);
+            fprintf(stderr, "TYPEUTILS: Got a typename when looking up dependent-part '%s'\n", dependent_parts->name);
         }
         if (dependent_parts->template_arguments != NULL)
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "SCOPE: But this part has template arguments, so it is not valid\n");
+                fprintf(stderr, "TYPEUTILS: But this part has template arguments, so it is not valid\n");
             }
             return original_type;
         }
@@ -4119,7 +4119,7 @@ static type_t* advance_dependent_typename_aux(
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "SCOPE: Got a typedef when looking up dependent-part '%s'\n", dependent_parts->name);
+                fprintf(stderr, "TYPEUTILS: Got a typedef when looking up dependent-part '%s'\n", dependent_parts->name);
             }
             type_t* advanced_type = advance_over_typedefs(member->type_information);
 
@@ -4135,7 +4135,7 @@ static type_t* advance_dependent_typename_aux(
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "SCOPE: Got a template-name when looking up dependent-part '%s'\n", 
+            fprintf(stderr, "TYPEUTILS: Got a template-name when looking up dependent-part '%s'\n", 
                     dependent_parts->name);
         }
 
@@ -4143,7 +4143,7 @@ static type_t* advance_dependent_typename_aux(
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "SCOPE: But this part does not have template arguments, so it is not valid\n");
+                fprintf(stderr, "TYPEUTILS: But this part does not have template arguments, so it is not valid\n");
             }
             return original_type;
         }
@@ -4156,14 +4156,14 @@ static type_t* advance_dependent_typename_aux(
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "SCOPE: The named template is a template function, so it is not valid\n");
+                fprintf(stderr, "TYPEUTILS: The named template is a template function, so it is not valid\n");
             }
             return original_type;
         }
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "SCOPE: requesting specialization '%s'\n", 
+            fprintf(stderr, "TYPEUTILS: requesting specialization '%s'\n", 
                     dependent_parts->name);
         }
 
@@ -4182,12 +4182,14 @@ static type_t* advance_dependent_typename_aux(
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "SCOPE: Unexpected symbol for part '%s'\n", dependent_parts->name);
+            fprintf(stderr, "TYPEUTILS: Unexpected symbol for part '%s'\n", dependent_parts->name);
         }
         return original_type;
     }
 
-    type_t* result_type = get_user_defined_type(current_member);
+    // This looks a bit twisted
+    type_t* result_type = 
+        advance_over_typedefs(get_user_defined_type(current_member));
 
     return result_type;
 }
@@ -4199,7 +4201,7 @@ static type_t* advance_dependent_typename(type_t* t)
     // which is always a dangerous thing to do
     DEBUG_CODE()
     {
-        fprintf(stderr, "Advancing dependent typename '%s'\n", print_declarator(t));
+        fprintf(stderr, "TYPEUTILS: Advancing dependent typename '%s'\n", print_declarator(t));
     }
 
     ERROR_CONDITION(!is_dependent_typename_type(t), "This is not a dependent typename", 0);
@@ -4211,7 +4213,21 @@ static type_t* advance_dependent_typename(type_t* t)
 
     type_t* dependent_entry_type = get_user_defined_type(dependent_entry);
 
-    return advance_dependent_typename_aux(t, dependent_entry_type, dependent_parts);
+    type_t* result = advance_dependent_typename_aux(t, dependent_entry_type, dependent_parts);
+    DEBUG_CODE()
+    {
+        if (result != t)
+        {
+            fprintf(stderr, "TYPEUTILS: Type was advanced to '%s'\n",
+                    print_declarator(result));
+        }
+        else
+        {
+            fprintf(stderr, "TYPEUTILS: Type was left as is\n");
+        }
+    }
+
+    return result;
 }
 
 static char syntactic_comparison_of_dependent_parts(

@@ -1085,7 +1085,15 @@ static void instantiate_bases(
         scope_entry_t* base_class_sym = class_type_get_base_num(selected_class_type, i, &is_virtual, 
                 &is_dependent);
 
-        type_t* base_class_named_type = get_user_defined_type(base_class_sym);
+        type_t* base_class_named_type = NULL;
+        if (base_class_sym->kind == SK_DEPENDENT_ENTITY)
+        {
+            base_class_named_type = base_class_sym->type_information;
+        }
+        else
+        {
+            base_class_named_type = get_user_defined_type(base_class_sym);
+        }
 
         type_t* upd_base_class_named_type = update_type(base_class_named_type,
                 context_of_being_instantiated,
