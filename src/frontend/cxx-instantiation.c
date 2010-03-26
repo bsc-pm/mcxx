@@ -619,6 +619,10 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                     type_t* primary_specialization = named_type_get_symbol(template_type_get_primary_type(template_type))->type_information;
 
+                    // Fix some bits inherited from the original class type
+                    class_type_set_enclosing_class_type(get_actual_class_type(primary_specialization),
+                            get_actual_class_type(being_instantiated));
+
                     set_is_complete_type(primary_specialization, /* is_complete */ 1);
 
                     template_argument_list_t *tpl_arg_empty = calloc(1, sizeof(*tpl_arg_empty));
@@ -779,7 +783,6 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             filename, line);
 
                     class_type_add_member_function(get_actual_class_type(being_instantiated), new_member);
-
                 }
                 else
                 {

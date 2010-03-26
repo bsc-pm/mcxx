@@ -1047,7 +1047,6 @@ static dependent_name_part_t* compute_dependent_parts(
     }
 }
 
-#if 0
 static dependent_name_part_t* copy_dependent_parts(
         dependent_name_part_t* dependent_part)
 {
@@ -1066,8 +1065,6 @@ static dependent_name_part_t* copy_dependent_parts(
         return result;
     }
 }
-#endif
-
 
 type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entity, 
         dependent_name_part_t* dependent_parts)
@@ -1803,6 +1800,7 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
     // Ensure it is initialized
     init_qualification_hash();
 
+    ERROR_CONDITION(original == NULL, "This cannot be NULL", 0);
     ERROR_CONDITION(original->unqualified_type == NULL, "This cannot be NULL", 0);
 
     if (cv_qualification == CV_NONE)
@@ -3880,6 +3878,7 @@ static const char* get_template_arguments_list_str(template_argument_list_t* tem
 // FIXME - This function looks rather similar to update_dependent_typename, can
 // we abstract them away?
 static type_t* advance_dependent_typename_aux(
+        type_t* original_type,
         type_t* dependent_entry_type,
         dependent_name_part_t* dependent_parts)
 {
@@ -3889,7 +3888,7 @@ static type_t* advance_dependent_typename_aux(
         {
             fprintf(stderr, "TYPEUTILS: Not a named type, returning it unchanged\n");
         }
-        return NULL;
+        return original_type;
     }
 
     scope_entry_t* dependent_entry = named_type_get_symbol(dependent_entry_type);
@@ -3903,7 +3902,7 @@ static type_t* advance_dependent_typename_aux(
     if (dependent_entry->kind == SK_TEMPLATE_TYPE_PARAMETER)
     {
         // No way if this is a template type parameter
-        return NULL;
+        return original_type;
     }
 
     ERROR_CONDITION(dependent_entry->kind != SK_CLASS, "Must be a class-name", 0);
@@ -3932,7 +3931,9 @@ static type_t* advance_dependent_typename_aux(
             {
                 fprintf(stderr, "TYPEUTILS: Nothing was found for dependent-part '%s'\n", dependent_parts->name);
             }
-            return NULL;
+
+            return get_dependent_typename_type_from_parts(current_member, 
+                    copy_dependent_parts(dependent_parts));
         }
 
         if (member_list->next != NULL)
@@ -3941,7 +3942,8 @@ static type_t* advance_dependent_typename_aux(
             {
                 fprintf(stderr, "TYPEUTILS: Too many symbols where found for '%s'\n", dependent_parts->name);
             }
-            return NULL;
+            return get_dependent_typename_type_from_parts(current_member, 
+                    copy_dependent_parts(dependent_parts));
         }
 
         scope_entry_t* member = member_list->entry;
@@ -3972,7 +3974,8 @@ static type_t* advance_dependent_typename_aux(
                 {
                     fprintf(stderr, "TYPEUTILS: But this part has template arguments, so it is not valid\n");
                 }
-                return NULL;
+                return get_dependent_typename_type_from_parts(current_member, 
+                        copy_dependent_parts(dependent_parts));
             }
 
             current_member = member;
@@ -3991,7 +3994,8 @@ static type_t* advance_dependent_typename_aux(
                 {
                     fprintf(stderr, "TYPEUTILS: But this part does not have template arguments, so it is not valid\n");
                 }
-                return NULL;
+                return get_dependent_typename_type_from_parts(current_member, 
+                        copy_dependent_parts(dependent_parts));
             }
 
             // TEMPLATE RESOLUTION
@@ -4004,7 +4008,8 @@ static type_t* advance_dependent_typename_aux(
                 {
                     fprintf(stderr, "TYPEUTILS: The named template is a template function, so it is not valid\n");
                 }
-                return NULL;
+                return get_dependent_typename_type_from_parts(current_member, 
+                        copy_dependent_parts(dependent_parts));
             }
 
             DEBUG_CODE()
@@ -4031,7 +4036,8 @@ static type_t* advance_dependent_typename_aux(
                 {
                     fprintf(stderr, "TYPEUTILS: Somehow when requesting a specialization nothing was returned");
                 }
-                return NULL;
+                return get_dependent_typename_type_from_parts(current_member, 
+                        copy_dependent_parts(dependent_parts));
             }
         }
         else 
@@ -4040,7 +4046,8 @@ static type_t* advance_dependent_typename_aux(
             {
                 fprintf(stderr, "TYPEUTILS: Unexpected symbol for part '%s'\n", dependent_parts->name);
             }
-            return NULL;
+            return get_dependent_typename_type_from_parts(current_member, 
+                    copy_dependent_parts(dependent_parts));
         }
 
         dependent_parts = dependent_parts->next;
@@ -4062,7 +4069,8 @@ static type_t* advance_dependent_typename_aux(
         {
             fprintf(stderr, "TYPEUTILS: Nothing was found for dependent-part '%s'\n", dependent_parts->name);
         }
-        return NULL;
+        return get_dependent_typename_type_from_parts(current_member, 
+                copy_dependent_parts(dependent_parts));
     }
 
     if (member_list->next != NULL)
@@ -4071,7 +4079,8 @@ static type_t* advance_dependent_typename_aux(
         {
             fprintf(stderr, "TYPEUTILS: Too many symbols where found for '%s'\n", dependent_parts->name);
         }
-        return NULL;
+        return get_dependent_typename_type_from_parts(current_member, 
+                copy_dependent_parts(dependent_parts));
     }
 
     scope_entry_t* member = member_list->entry;
@@ -4089,7 +4098,8 @@ static type_t* advance_dependent_typename_aux(
             {
                 fprintf(stderr, "TYPEUTILS: But this part has template arguments, so it is not valid\n");
             }
-            return NULL;
+            return get_dependent_typename_type_from_parts(current_member, 
+                    copy_dependent_parts(dependent_parts));
         }
         
         if (member->kind == SK_TYPEDEF)
@@ -4122,7 +4132,8 @@ static type_t* advance_dependent_typename_aux(
             {
                 fprintf(stderr, "TYPEUTILS: But this part does not have template arguments, so it is not valid\n");
             }
-            return NULL;
+            return get_dependent_typename_type_from_parts(current_member, 
+                    copy_dependent_parts(dependent_parts));
         }
 
         // TEMPLATE RESOLUTION
@@ -4135,7 +4146,8 @@ static type_t* advance_dependent_typename_aux(
             {
                 fprintf(stderr, "TYPEUTILS: The named template is a template function, so it is not valid\n");
             }
-            return NULL;
+            return get_dependent_typename_type_from_parts(current_member, 
+                    copy_dependent_parts(dependent_parts));
         }
 
         DEBUG_CODE()
@@ -4161,7 +4173,8 @@ static type_t* advance_dependent_typename_aux(
         {
             fprintf(stderr, "TYPEUTILS: Unexpected symbol for part '%s'\n", dependent_parts->name);
         }
-        return NULL;
+        return get_dependent_typename_type_from_parts(current_member, 
+                copy_dependent_parts(dependent_parts));
     }
 
     // This looks a bit twisted
@@ -4192,34 +4205,27 @@ static type_t* advance_dependent_typename(type_t* t)
 
     type_t* dependent_entry_type = get_user_defined_type(dependent_entry);
 
-    type_t* result = advance_dependent_typename_aux(dependent_entry_type, dependent_parts);
+    type_t* result = advance_dependent_typename_aux(t, dependent_entry_type, dependent_parts);
+    result = get_qualified_type(result, cv_qualif);
 
-    if (result == NULL)
+    DEBUG_CODE()
     {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "TYPEUTILS: Type was left unmodified\n");
-        }
-        return t;
+        fprintf(stderr, "TYPEUTILS: Type was advanced to '%s'\n",
+                print_declarator(result));
     }
-    else
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "TYPEUTILS: Type was advanced to '%s'\n",
-                    print_declarator(result));
-        }
-        result = get_qualified_type(result, cv_qualif);
 
-        if (is_dependent_typename_type(result))
+    if (is_dependent_typename_type(result))
+    {
+        scope_entry_t* new_dependent_entry = NULL;
+        dependent_typename_get_components(result, &new_dependent_entry, &dependent_parts);
+
+        if (new_dependent_entry != dependent_entry)
         {
             return advance_dependent_typename(result);
         }
-        else
-        {
-            return result;
-        }
     }
+
+    return result;
 }
 
 static char syntactic_comparison_of_dependent_parts(
@@ -4358,7 +4364,10 @@ static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2
     // to help themselves so most of the time this fast path will be fired
     if (p_t1 == p_t2)
     {
-        fprintf(stderr , "TYPEUTILS: Dependent typenames are trivially the same\n");
+        DEBUG_CODE()
+        {
+            fprintf(stderr , "TYPEUTILS: Dependent typenames are trivially the same\n");
+        }
         return 1;
     }
 
