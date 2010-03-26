@@ -1047,6 +1047,7 @@ static dependent_name_part_t* compute_dependent_parts(
     }
 }
 
+#if 0
 static dependent_name_part_t* copy_dependent_parts(
         dependent_name_part_t* dependent_part)
 {
@@ -1065,6 +1066,7 @@ static dependent_name_part_t* copy_dependent_parts(
         return result;
     }
 }
+#endif
 
 
 type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entity, 
@@ -1076,7 +1078,8 @@ type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entity,
     type_info->type->dependent_entry = dependent_entity;
 
     ERROR_CONDITION(dependent_entity->kind != SK_TEMPLATE_TYPE_PARAMETER
-            && dependent_entity->kind != SK_CLASS, 
+            && dependent_entity->kind != SK_CLASS
+            && dependent_entity->kind != SK_TYPEDEF, 
             "Invalid dependent entity of kind '%d'", dependent_entity->kind);
 
     type_info->type->dependent_parts = dependent_parts;
@@ -1095,39 +1098,6 @@ type_t* get_dependent_typename_type(scope_entry_t* dependent_entity,
             decl_context,
             nested_name,
             unqualified_part);
-
-    // Advance even more dependent typenames built after other dependent
-    // typenames (this only happens because of SK_TYPEDEF)
-    while (dependent_entity->kind == SK_TYPEDEF)
-    {
-        type_t* real_type = advance_over_typedefs(dependent_entity->type_information);
-
-        if (is_named_type(real_type))
-        {
-            dependent_entity = named_type_get_symbol(real_type);
-        }
-        else if (is_dependent_typename_type(real_type))
-        {
-            dependent_name_part_t* previous_dependent_parts = NULL;
-            dependent_typename_get_components(real_type, 
-                    &dependent_entity,
-                    &previous_dependent_parts);
-
-            // Now append dependent_parts to a copy of previous_dependent_parts
-            dependent_name_part_t* copy_parts = copy_dependent_parts(previous_dependent_parts);
-
-            dependent_name_part_t* it = copy_parts;
-            while (it->next != NULL) it = it->next;
-            it->next = dependent_parts;
-
-            // Update dependent parts
-            dependent_parts = copy_parts;
-        }
-        else
-        {
-            internal_error("Code unreachable", 0);
-        }
-    }
 
     return get_dependent_typename_type_from_parts(dependent_entity, 
             dependent_parts);
@@ -3914,6 +3884,15 @@ static type_t* advance_dependent_typename_aux(
         type_t* dependent_entry_type,
         dependent_name_part_t* dependent_parts)
 {
+    if (!is_named_type(dependent_entry_type))
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "TYPEUTILS: Not a named type, returning it unchanged\n");
+        }
+        return dependent_entry_type;
+    }
+
     scope_entry_t* dependent_entry = named_type_get_symbol(dependent_entry_type);
 
     if (dependent_entry->kind == SK_TYPEDEF)
