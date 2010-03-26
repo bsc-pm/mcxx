@@ -3890,7 +3890,7 @@ static type_t* advance_dependent_typename_aux(
         {
             fprintf(stderr, "TYPEUTILS: Not a named type, returning it unchanged\n");
         }
-        return dependent_entry_type;
+        return original_type;
     }
 
     scope_entry_t* dependent_entry = named_type_get_symbol(dependent_entry_type);
@@ -4183,6 +4183,8 @@ static type_t* advance_dependent_typename(type_t* t)
         fprintf(stderr, "TYPEUTILS: Advancing dependent typename '%s'\n", print_declarator(t));
     }
 
+    cv_qualifier_t cv_qualif = get_cv_qualifier(t);
+
     ERROR_CONDITION(!is_dependent_typename_type(t), "This is not a dependent typename", 0);
 
     scope_entry_t* dependent_entry = NULL;
@@ -4193,17 +4195,12 @@ static type_t* advance_dependent_typename(type_t* t)
     type_t* dependent_entry_type = get_user_defined_type(dependent_entry);
 
     type_t* result = advance_dependent_typename_aux(t, dependent_entry_type, dependent_parts);
+
+    result = get_qualified_type(result, cv_qualif);
     DEBUG_CODE()
     {
-        if (result != t)
-        {
-            fprintf(stderr, "TYPEUTILS: Type was advanced to '%s'\n",
-                    print_declarator(result));
-        }
-        else
-        {
-            fprintf(stderr, "TYPEUTILS: Type was left as is\n");
-        }
+        fprintf(stderr, "TYPEUTILS: Type was advanced to '%s'\n",
+                print_declarator(result));
     }
 
     return result;
@@ -4215,7 +4212,7 @@ static char syntactic_comparison_of_dependent_parts(
 {
     DEBUG_CODE()
     {
-        fprintf(stderr, "Comparing (syntactically) nested-name parts '");
+        fprintf(stderr, "TYPEUTILS: Comparing (syntactically) nested-name parts '");
         dependent_name_part_t* part = dependent_parts_1;
         while (part != NULL)
         {
@@ -4245,7 +4242,7 @@ static char syntactic_comparison_of_dependent_parts(
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "Mismatch of component name '%s' != '%s'\n",
+                fprintf(stderr, "TYPEUTILS: Mismatch of component name '%s' != '%s'\n",
                         dependent_parts_1->name,
                         dependent_parts_2->name);
             }
@@ -4259,7 +4256,7 @@ static char syntactic_comparison_of_dependent_parts(
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "Mismatch in the kind of components %s type has template arguments while %s does not\n",
+                fprintf(stderr, "TYPEUTILS: Mismatch in the kind of components %s type has template arguments while %s does not\n",
                         dependent_parts_1->template_arguments != NULL ? "first" : "second",
                         dependent_parts_1->template_arguments == NULL ? "first" : "second");
             }
@@ -4273,7 +4270,7 @@ static char syntactic_comparison_of_dependent_parts(
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "Mismatch in the kind of components %s type has a related type while %s does not\n",
+                fprintf(stderr, "TYPEUTILS: Mismatch in the kind of components %s type has a related type while %s does not\n",
                         dependent_parts_1->related_type != NULL ? "first" : "second",
                         dependent_parts_1->related_type == NULL ? "first" : "second");
             }
@@ -4284,7 +4281,7 @@ static char syntactic_comparison_of_dependent_parts(
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "Need to compare related types\n");
+                fprintf(stderr, "TYPEUTILS: Need to compare related types\n");
             }
 
             if (!equivalent_types(dependent_parts_1->related_type,
@@ -4292,7 +4289,7 @@ static char syntactic_comparison_of_dependent_parts(
             {
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "Related types do not match\n");
+                    fprintf(stderr, "TYPEUTILS: Related types do not match\n");
                 }
                 return 0;
             }
@@ -4303,7 +4300,7 @@ static char syntactic_comparison_of_dependent_parts(
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "Need to compare template arguments\n");
+                fprintf(stderr, "TYPEUTILS: Need to compare template arguments\n");
             }
 
             if (!same_template_argument_list(dependent_parts_1->template_arguments,
@@ -4311,7 +4308,7 @@ static char syntactic_comparison_of_dependent_parts(
             {
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "Template arguments do not match\n");
+                    fprintf(stderr, "TYPEUTILS: Template arguments do not match\n");
                 }
                 return 0;
             }
@@ -4327,14 +4324,14 @@ static char syntactic_comparison_of_dependent_parts(
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "One of the nested names is longer than the other\n");
+            fprintf(stderr, "TYPEUTILS: One of the nested names is longer than the other\n");
         }
         return 0;
     }
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "Both dependent typenames seem the same\n");
+        fprintf(stderr, "TYPEUTILS: Both dependent typenames seem the same\n");
     }
     return 1;
 }
@@ -4344,11 +4341,15 @@ static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2
     // It is likely that in these contrived cases users will use a typedef
     // to help themselves so most of the time this fast path will be fired
     if (p_t1 == p_t2)
+    {
+        fprintf(stderr , "TYPEUTILS: Dependent typenames are trivially the same\n");
         return 1;
+    }
+
 
     DEBUG_CODE()
     {
-        fprintf(stderr , "Comparing template dependent typenames '%s' and '%s'\n",
+        fprintf(stderr , "TYPEUTILS: Comparing template dependent typenames '%s' and '%s'\n",
                 print_declarator(p_t1),
                 print_declarator(p_t2));
     }
@@ -4387,8 +4388,7 @@ static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2
         type_to_compare_2 = dependent_entry_2->type_information;
     }
 
-    if (equivalent_types(type_to_compare_1,
-                type_to_compare_2))
+    if (equivalent_types(type_to_compare_1, type_to_compare_2))
     {
         return syntactic_comparison_of_dependent_parts(dependent_parts_1, dependent_parts_2);
     }
@@ -4396,7 +4396,7 @@ static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "Dependent entry is different\n");
+            fprintf(stderr, "TYPEUTILS: Dependent entry is different\n");
         }
         return 0;
     }
