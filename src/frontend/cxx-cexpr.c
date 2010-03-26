@@ -1208,7 +1208,7 @@ static literal_value_t evaluate_symbol(AST symbol, decl_context_t decl_context)
     }
     else
     {
-        result = query_id_expression(decl_context, symbol);
+        result = query_id_expression_flags(decl_context, symbol, DF_DEPENDENT_TYPENAME);
     }
 
     ERROR_CONDITION((result == NULL), "Cannot evaluate unknown symbol '%s' %s", 
