@@ -1948,8 +1948,22 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
         }
     }
 
-    scope_entry_t* simple_type_entry = entry_list->entry;
-    (*type_info) = get_user_defined_type(simple_type_entry);
+    scope_entry_t* entry = entry_list->entry;
+
+    if (entry->entity_specs.is_member
+            && is_dependent_type(entry->entity_specs.class_type))
+    {
+        dependent_name_part_t* part = counted_calloc(1, sizeof(*part), &_bytes_used_buildscope);
+        part->name = entry->symbol_name;
+
+        (*type_info) = get_dependent_typename_type_from_parts(
+                named_type_get_symbol(entry->entity_specs.class_type), 
+                part);
+    }
+    else
+    {
+        (*type_info) = get_user_defined_type(entry);
+    }
 }
 
 /*
