@@ -560,8 +560,6 @@ namespace TL
         //
         // Tasks have slightly different requirements to other OpenMP constructs so their code
         // can't be merged easily
-
-        // get_data_implicit_attributes_task(construct, data_sharing, default_data_attr);
         void Core::get_data_implicit_attributes_task(PragmaCustomConstruct construct,
                 DataSharingEnvironment& data_sharing,
                 DataSharingAttribute default_data_attr)
@@ -610,13 +608,18 @@ namespace TL
                         bool is_shared = true;
                         DataSharingEnvironment* enclosing = data_sharing.get_enclosing();
 
-                        while ((enclosing != NULL) && is_shared)
+                        // If it is a global, it will be always shared
+                        if (!(sym.has_namespace_scope()
+                                    || (sym.is_member() && sym.is_static())))
                         {
-                            is_shared = is_shared && (enclosing->get(sym, /* check_enclosing */ false) == DS_SHARED);
-                            // Stop once we see the innermost parallel
-                            if (!enclosing->get_is_parallel())
-                                break;
-                            enclosing = enclosing->get_enclosing();
+                            while ((enclosing != NULL) && is_shared)
+                            {
+                                is_shared = is_shared && (enclosing->get(sym, /* check_enclosing */ false) == DS_SHARED);
+                                // Stop once we see the innermost parallel
+                                if (enclosing->get_is_parallel())
+                                    break;
+                                enclosing = enclosing->get_enclosing();
+                            }
                         }
 
                         if (is_shared)
