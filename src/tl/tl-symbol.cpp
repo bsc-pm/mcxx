@@ -349,4 +349,23 @@ namespace TL
     {
         return _symbol->defined;
     }
+
+    std::string Symbol::get_locus() const
+    {
+        std::stringstream ss;
+
+        ss << this->get_filename() << ":" << this->get_line();
+
+        return ss.str();
+    }
+
+    std::string Symbol::get_filename() const
+    {
+        return _symbol->file;
+    }
+
+    int Symbol::get_line() const
+    {
+        return _symbol->line;
+    }
 }
