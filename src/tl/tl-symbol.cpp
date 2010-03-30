@@ -361,7 +361,10 @@ namespace TL
 
     std::string Symbol::get_filename() const
     {
-        return _symbol->file;
+        if (_symbol->file != NULL)
+            return _symbol->file;
+        else 
+            return "(unknown file)";
     }
 
     int Symbol::get_line() const
