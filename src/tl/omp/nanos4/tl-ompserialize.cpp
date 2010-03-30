@@ -126,7 +126,7 @@ namespace TL
                                 if (functions_defined.contains(sym))
                                 {
                                     std::cerr << id_expression.get_ast().get_locus() 
-                                        << ":info: adding '" << sym.get_name() << "' to the list of OpenMP serializable" << std::endl;
+                                        << ": info: adding '" << sym.get_name() << "' to the list of OpenMP serializable" << std::endl;
 
                                     // And insert it to the list of functions to serialize (this makes most of the magic
                                     // of this closure)
@@ -153,7 +153,7 @@ namespace TL
                         {
                             // Ignore not defined
                             std::cerr << it.get_locus()
-                                << ":warning: function definition for '" 
+                                << ": warning: function definition for '" 
                                 << it.get_name() 
                                 << "' not found and we wanted to serialize it" 
                                 << std::endl;
@@ -182,7 +182,7 @@ namespace TL
                                 if (functions_defined.contains(sym))
                                 {
                                     std::cerr << id_expression.get_ast().get_locus() 
-                                        << ":info: adding '" << sym.get_name() << "' to the list of OpenMP serializable" << std::endl;
+                                        << ": info: adding '" << sym.get_name() << "' to the list of OpenMP serializable" << std::endl;
 
                                     // And insert it to the list of functions to serialize (this makes most of the magic
                                     // of this closure)
@@ -236,7 +236,7 @@ namespace TL
                         {
                             // Ignore not defined
                             std::cerr << it->get_locus() 
-                                << ":warning: function definition for '" 
+                                << ": warning: function definition for '" 
                                 << it->get_name() 
                                 << "' not found and we wanted to serialize it" 
                                 << std::endl;
