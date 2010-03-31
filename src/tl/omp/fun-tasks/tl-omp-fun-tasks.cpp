@@ -51,7 +51,6 @@ namespace OpenMP
         }
 
         // Remove the task pragma
-        // construct.get_ast().replace(construct.get_declaration());
 
         AST_t function_task_body = construct.get_declaration();
 
@@ -60,11 +59,19 @@ namespace OpenMP
         AST_t enclosing_tree = current_construct.get_parent();
 
         bool there_is_target = false;
-        while (enclosing_tree.is_valid()
-                && is_pragma_custom_construct("omp", "target", enclosing_tree, construct.get_scope_link()))
+        if (is_pragma_custom_construct("omp", "target", enclosing_tree, construct.get_scope_link()))
         {
-            enclosing_tree = enclosing_tree.get_parent();
             there_is_target = true;
+
+            AST_t it = enclosing_tree.get_parent();
+            // It might happen that it is not the outermost 'target'
+
+            while (it.is_valid()
+                    && is_pragma_custom_construct("omp", "target", it, construct.get_scope_link()))
+            {
+                enclosing_tree = it;
+                it = it.get_parent();
+            }
         }
 
         if (!enclosing_tree.is_valid())
@@ -298,6 +305,13 @@ namespace OpenMP
                     << "#pragma omp target " << target_clauses << "\n"
                     ;
 
+                ObjectList<std::string> device_list = target_info.get_device_list();
+                // This shall never be empty ...
+                if (!device_list.empty())
+                {
+                    target_clauses << "device(" << TL::concat_strings(device_list, ",") << ")";
+                }
+
                 if (target_info.has_copy_deps())
                 {
                     target_clauses << "copy_deps";
@@ -336,12 +350,6 @@ namespace OpenMP
                     }
 
                     target_clauses << " " << clause;
-                }
-
-                ObjectList<std::string> device_list = target_info.get_device_list();
-                if (device_list.empty())
-                {
-                    target_clauses << "device(" << TL::concat_strings(device_list, ",") << ")";
                 }
             }
 
