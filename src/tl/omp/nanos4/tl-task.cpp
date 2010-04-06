@@ -181,25 +181,28 @@ namespace TL
                     }
                 }
 
-                // Get the code of the outline
-                AST_t outline_code  = get_outline_task(
-                        task_construct,
-                        function_definition,
-                        outlined_function_name, 
-                        construct_body,
-                        replace_references,
-                        parameter_info_list,
-                        local_references);
+                // Do not create outline if it is serialized
+                if (!task_construct.get_clause("__serialize").is_defined())
+                {
+                    // Get the code of the outline
+                    AST_t outline_code  = get_outline_task(
+                            task_construct,
+                            function_definition,
+                            outlined_function_name, 
+                            construct_body,
+                            replace_references,
+                            parameter_info_list,
+                            local_references);
 
-                // Now prepend the outline
-                function_definition.get_ast().prepend_sibling_function(outline_code);
+                    // Now prepend the outline
+                    function_definition.get_ast().prepend_sibling_function(outline_code);
+                }
 
                 task_queueing = task_get_spawn_code(parameter_info_list,
                         function_definition, 
                         task_construct,
                         construct_body,
                         original_code);
-
 
 				if (task_has_key)
 				{
@@ -366,6 +369,8 @@ namespace TL
             Source fallback_capture_values;
             Source fallback_arguments, serialized_arguments;
 
+            ReplaceSrcIdExpression fallback_replacements(task_construct.get_scope_link());
+
             // This might be needed for nonstatic member functions
             if (is_nonstatic_member_function(function_definition))
             {
@@ -413,6 +418,8 @@ namespace TL
                             ;
                         fallback_arguments.append_with_separator("&cval_" + it->symbol.get_name(), ",");
                         serialized_arguments.append_with_separator("&" + it->symbol.get_qualified_name(task_construct.get_scope()), ",");
+
+                        fallback_replacements.add_replacement(it->symbol, "cval_" + it->symbol.get_name());
                     }
                     CXX_LANGUAGE()
                     {
@@ -433,6 +440,8 @@ namespace TL
                                 ;
                             fallback_arguments.append_with_separator("&cval_" + it->symbol.get_name(), ",");
                             serialized_arguments.append_with_separator(it->symbol.get_qualified_name(task_construct.get_scope()), ",");
+
+                            fallback_replacements.add_replacement(it->symbol, "cval_" + it->symbol.get_name());
                         }
                         else
                         {
@@ -445,6 +454,8 @@ namespace TL
                                 ;
                             fallback_arguments.append_with_separator("&cval_" + it->symbol.get_name(), ",");
                             serialized_arguments.append_with_separator("&" + it->symbol.get_qualified_name(task_construct.get_scope()), ",");
+
+                            fallback_replacements.add_replacement(it->symbol, "cval_" + it->symbol.get_name());
                         }
                     }
                 }
@@ -461,6 +472,8 @@ namespace TL
                         ;
                     fallback_arguments.append_with_separator("cval_" + it->symbol.get_name(), ",");
                     serialized_arguments.append_with_separator(it->symbol.get_qualified_name(task_construct.get_scope()), ",");
+
+                    fallback_replacements.add_replacement(it->symbol, "cval_" + it->symbol.get_name());
                 }
             }
 
@@ -506,8 +519,20 @@ namespace TL
 
                 depth_traverse.traverse(duplicated_code_tree, construct_body.get_scope_link());
 
-                serialized_code
-                    << duplicated_code_tree.prettyprint();
+                if (serialize_with_data_env)
+                {
+                    serialized_code
+                        << "{"
+                        << fallback_capture_values
+                        << fallback_replacements.replace(duplicated_code_tree)
+                        << "}"
+                        ;
+                }
+                else
+                {
+                    serialized_code
+                        << duplicated_code_tree.prettyprint();
+                }
             }
             else
             {
@@ -522,12 +547,24 @@ namespace TL
                 }
                 else
                 {
-                    serialized_code
-                        << "{"
-                        << comment("Full inlining of serialized path")
-                        << construct_body.prettyprint() 
-                        << "}"
-                        ;
+                    if (serialize_with_data_env)
+                    {
+                        serialized_code
+                            << "{"
+                            << comment("Full inlining of serialized path")
+                            << fallback_capture_values
+                            << fallback_replacements.replace(construct_body) 
+                            << "}"
+                            ;
+                    }
+                    else
+                    {
+                        serialized_code
+                            << "{"
+                            << construct_body.prettyprint()
+                            << "}"
+                            ;
+                    }
                 }
             }
 
@@ -742,94 +779,119 @@ namespace TL
 
             Source immediate_instrumentation;
 
-            task_queueing
-                << "if (NTH_MYSELF->task_ctx->final)"
-                // Serialized code already has braces
-                <<      serialized_code
-                << "else"
-                << "{"
-                // FIXME - I'd like there was a NTH_CUTOFF_INVALID (with zero
-                // value but this would break current interface)
-                <<    cutoff_code
-                <<    "switch (nth_cutoff)"
-                <<    "{"
-                <<      "case NTH_CUTOFF_CREATE:"
-                <<      "{"
-                <<          final_code
-                <<          comment("Create the task")
-                <<          "nth_desc * nth;"
-                <<          "int nth_type = " << task_type << ";"
-                <<          "int nth_ndeps = 0;"
-                <<          "int nth_vp = 0;"
-                <<          "nth_desc_t* nth_succ = (nth_desc_t*)0;"
-                <<          "int nth_nargs_ref = " << num_reference_args << ";"
-                <<          "int nth_nargs_val = " << num_value_args << ";"
-                <<          "void* nth_arg_addr[" << (num_value_args + num_reference_args) << " + 1];"
-                <<          "void** nth_arg_addr_ptr = &nth_arg_addr[1];"
-                <<          dependences_common
-                <<          inputs_prologue
-                <<          outputs_prologue
-                <<          size_vector
-                <<          "nth = nth_create_task_ci((void*)(" << outlined_function_reference << "), "
-                <<                 "&nth_type, &nth_ndeps, &nth_vp, &nth_succ, NTH_CI_ALL,"
-                <<                 "&nth_arg_addr_ptr, &nth_nargs_ref, &nth_nargs_val"  
-                <<                 task_arguments << ");"
-                <<          outputs_epilogue
-                <<          inputs_epilogue
-                <<          copy_construction_part
-                <<          final_create
-                <<          "nth_submit(nth);"
-                <<          "break;" 
-                <<      "}"
-                <<      "case NTH_CUTOFF_SERIALIZE:"
-                <<	        "__builtin_abort();"
-                <<          "break;"
-                <<      immediate_instrumentation
-                <<      "case NTH_CUTOFF_IMMEDIATE:"
-                <<      "{"
-                <<          comment("Run the task inline")
-                <<          final_code
-                <<          fallback_capture_values
-                <<          dependences_common
-                <<          inputs_prologue
-                <<          increment_task_level
-                <<          final_immediate
-                <<          outputs_immediate
-                <<          inputs_immediate
-                <<          "(" << outlined_function_reference << ")" << "(" << fallback_arguments << ");"
-                <<          decrement_task_level
-                <<          "break;"
-                <<      "}"
-                <<      "default: { " << comment("Invalid cutoff") << "__builtin_abort(); break; }"
-                <<    "}"
-                << "}"
-                ;
-
-            if (instrumentation_requested())
+            if (!task_construct.get_clause("__serialize").is_defined())
             {
-                immediate_instrumentation
-                <<      "case 5:"
-                <<      "{"
-                <<          comment("Run the task inline plus instrumentation")
-                <<          task_fp_instrumentation_start
-                <<          fallback_capture_values
-                <<          task_fp_instrumentation_end
-                <<          task_creation_instrumentation_start
-                <<          final_code
-                <<          dependences_common
-                <<          inputs_prologue
-                <<          increment_task_level
-                <<          final_immediate
-                <<          outputs_immediate
-                <<          inputs_immediate
-                <<          task_creation_instrumentation_end
-                <<          "(" << outlined_function_reference << ")" << "(" << fallback_arguments << ");"
-                <<          task_creation_instrumentation_start
-                <<          decrement_task_level
-                <<          task_creation_instrumentation_end
-                <<          "break;"
-                <<      "}"
-                ;
+                task_queueing
+                    << "if (NTH_MYSELF->task_ctx->final)"
+                    // Serialized code already has braces
+                    <<      serialized_code
+                    << "else"
+                    << "{"
+                    // FIXME - I'd like there was a NTH_CUTOFF_INVALID (with zero
+                    // value but this would break current interface)
+                    <<    cutoff_code
+                    <<    "switch (nth_cutoff)"
+                    <<    "{"
+                    <<      "case NTH_CUTOFF_CREATE:"
+                    <<      "{"
+                    <<          final_code
+                    <<          comment("Create the task")
+                    <<          "nth_desc * nth;"
+                    <<          "int nth_type = " << task_type << ";"
+                    <<          "int nth_ndeps = 0;"
+                    <<          "int nth_vp = 0;"
+                    <<          "nth_desc_t* nth_succ = (nth_desc_t*)0;"
+                    <<          "int nth_nargs_ref = " << num_reference_args << ";"
+                    <<          "int nth_nargs_val = " << num_value_args << ";"
+                    <<          "void* nth_arg_addr[" << (num_value_args + num_reference_args) << " + 1];"
+                    <<          "void** nth_arg_addr_ptr = &nth_arg_addr[1];"
+                    <<          dependences_common
+                    <<          inputs_prologue
+                    <<          outputs_prologue
+                    <<          size_vector
+                    <<          "nth = nth_create_task_ci((void*)(" << outlined_function_reference << "), "
+                    <<                 "&nth_type, &nth_ndeps, &nth_vp, &nth_succ, NTH_CI_ALL,"
+                    <<                 "&nth_arg_addr_ptr, &nth_nargs_ref, &nth_nargs_val"  
+                    <<                 task_arguments << ");"
+                    <<          outputs_epilogue
+                    <<          inputs_epilogue
+                    <<          copy_construction_part
+                    <<          final_create
+                    <<          "nth_submit(nth);"
+                    <<          "break;" 
+                    <<      "}"
+                    <<      "case NTH_CUTOFF_SERIALIZE:"
+                    <<	        "__builtin_abort();"
+                    <<          "break;"
+                    <<      immediate_instrumentation
+                    <<      "case NTH_CUTOFF_IMMEDIATE:"
+                    <<      "{"
+                    <<          comment("Run the task inline")
+                    <<          final_code
+                    <<          fallback_capture_values
+                    <<          dependences_common
+                    <<          inputs_prologue
+                    <<          increment_task_level
+                    <<          final_immediate
+                    <<          outputs_immediate
+                    <<          inputs_immediate
+                    <<          "(" << outlined_function_reference << ")" << "(" << fallback_arguments << ");"
+                    <<          decrement_task_level
+                    <<          "break;"
+                    <<      "}"
+                    <<      "default: { " << comment("Invalid cutoff") << "__builtin_abort(); break; }"
+                    <<    "}"
+                    << "}"
+                    ;
+
+                if (instrumentation_requested())
+                {
+                    immediate_instrumentation
+                        <<      "case 5:"
+                        <<      "{"
+                        <<          comment("Run the task inline plus instrumentation")
+                        <<          task_fp_instrumentation_start
+                        <<          fallback_capture_values
+                        <<          task_fp_instrumentation_end
+                        <<          task_creation_instrumentation_start
+                        <<          final_code
+                        <<          dependences_common
+                        <<          inputs_prologue
+                        <<          increment_task_level
+                        <<          final_immediate
+                        <<          outputs_immediate
+                        <<          inputs_immediate
+                        <<          task_creation_instrumentation_end
+                        <<          "(" << outlined_function_reference << ")" << "(" << fallback_arguments << ");"
+                        <<          task_creation_instrumentation_start
+                        <<          decrement_task_level
+                        <<          task_creation_instrumentation_end
+                        <<          "break;"
+                        <<      "}"
+                        ;
+                }
+            }
+            else
+            {
+                if (!serialize_with_data_env)
+                {
+                    task_queueing 
+                        << "{"
+                        << comment("Serialized task WITHOUT data environment")
+                        << task_construct.get_statement()
+                        << "}"
+                        ;
+                }
+                else
+                {
+                    task_queueing 
+                        << "{"
+                        << comment("Serialized task with data environment")
+                        << fallback_capture_values
+                        << fallback_replacements.replace(task_construct.get_statement())
+                        << "}"
+                        ;
+                }
             }
 
             return task_queueing;
