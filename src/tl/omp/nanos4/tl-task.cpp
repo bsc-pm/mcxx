@@ -519,7 +519,7 @@ namespace TL
 
                 depth_traverse.traverse(duplicated_code_tree, construct_body.get_scope_link());
 
-                if (serialize_with_data_env)
+                if (final_with_data_env)
                 {
                     serialized_code
                         << "{"
@@ -538,20 +538,33 @@ namespace TL
             {
                 if (!allow_inlining_of_outlines)
                 {
-                    serialized_code
-                        << "{"
-                        << comment("Call of the outline function")
-                        << "(" << outlined_function_reference << ")" << "(" << serialized_arguments << ");"
-                        << "}"
-                        ;
-                }
-                else
-                {
-                    if (serialize_with_data_env)
+                    if (!final_with_data_env)
                     {
                         serialized_code
                             << "{"
-                            << comment("Full inlining of serialized path")
+                            << comment("Call of the outline function WITHOUT data environment")
+                            << "(" << outlined_function_reference << ")" << "(" << serialized_arguments << ");"
+                            << "}"
+                            ;
+                    }
+                    else
+                    {
+                        serialized_code
+                            << "{"
+                            << comment("Call of the outline function with data environment")
+                            << fallback_capture_values
+                            << "(" << outlined_function_reference << ")" << "(" << fallback_arguments << ");"
+                            << "}"
+                            ;
+                    }
+                }
+                else
+                {
+                    if (final_with_data_env)
+                    {
+                        serialized_code
+                            << "{"
+                            << comment("Full inlining of serialized path with data environment")
                             << fallback_capture_values
                             << fallback_replacements.replace(construct_body) 
                             << "}"
@@ -561,6 +574,7 @@ namespace TL
                     {
                         serialized_code
                             << "{"
+                            << comment("Full inlining of serialized path WITHOUT data environment")
                             << construct_body.prettyprint()
                             << "}"
                             ;
@@ -873,7 +887,7 @@ namespace TL
             }
             else
             {
-                if (!serialize_with_data_env)
+                if (!final_with_data_env)
                 {
                     task_queueing 
                         << "{"

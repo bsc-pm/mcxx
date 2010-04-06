@@ -42,7 +42,7 @@ namespace TL
             run_pretransform(true),
             allow_inlining_of_outlines(true),
             atomic_as_critical(false),
-            serialize_with_data_env(false)
+            final_with_data_env(false)
         {
             // Set phase info
             set_phase_name("Nanos 4 OpenMP implementation");
@@ -67,10 +67,10 @@ namespace TL
                     allow_inlining_of_outlines_str,
                     "1").connect(functor(&OpenMPTransform::set_allow_inlining_of_outlines, *this));
 
-            register_parameter("serialize_with_data_env", 
-                    "For serialized tasks, created them with data environment, otherwise ignore it",
-                    serialize_with_data_env_str,
-                    "0").connect(functor(&OpenMPTransform::set_serialize_with_data_env, *this));
+            register_parameter("final_with_data_env", 
+                    "For the final path of tasks, create them with data environment",
+                    final_with_data_env_str,
+                    "0").connect(functor(&OpenMPTransform::set_final_with_data_env, *this));
 
             C_LANGUAGE()
             {
@@ -238,13 +238,13 @@ namespace TL
                     /* Error message */ "Outlines will be inlined");
         }
 
-        void OpenMPTransform::set_serialize_with_data_env(const std::string& str)
+        void OpenMPTransform::set_final_with_data_env(const std::string& str)
         {
-            serialize_with_data_env = false;
-            parse_boolean_option(/* Parameter name */ "serialize_with_data_env",
+            final_with_data_env = false;
+            parse_boolean_option(/* Parameter name */ "final_with_data_env",
                     /* Given value */ str,
-                    /* Compiler bool */ serialize_with_data_env,
-                    /* Error message */ "Data environment will not be created for serialized tasks");
+                    /* Compiler bool */ final_with_data_env,
+                    /* Error message */ "Data environment will not be created for final task path");
         }
 
         bool OpenMPTransform::instrumentation_requested()
