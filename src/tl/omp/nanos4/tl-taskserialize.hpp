@@ -61,7 +61,9 @@ namespace TL
                 {
                     return is_pragma_custom("omp", a, _sl)
                         && !is_pragma_custom_construct("omp", "critical", a, _sl)
-                        && !is_pragma_custom_construct("omp", "atomic", a, _sl);
+                        && !is_pragma_custom_construct("omp", "atomic", a, _sl)
+                        // Do not remove tasks
+                        && !is_pragma_custom_construct("omp", "task", a, _sl);
                 }
         };
 
@@ -127,6 +129,28 @@ namespace TL
                         AST_t body = a.get_attribute(LANG_PRAGMA_CUSTOM_STATEMENT);
                         a.replace(body);
                     }
+                }
+        };
+
+        class FixTasks : public TraverseFunctor
+        {
+            public:
+                virtual void postorder(Context ctx, AST_t a)
+                {
+                    ScopeLink sl = ctx.scope_link;
+                    PragmaCustomConstruct task_construct(a, sl);
+
+                    AST_t pragma_line = task_construct.get_pragma_line();
+
+                    Source new_pragma_construct;
+                    new_pragma_construct
+                        << "#pragma omp " << pragma_line.prettyprint() << " __serialize" << "\n"
+                        << task_construct.get_statement().prettyprint()
+                        ;
+
+                    AST_t new_pragma = new_pragma_construct.parse_statement(a, ctx.scope_link);
+
+                    a.replace(new_pragma);
                 }
         };
 
