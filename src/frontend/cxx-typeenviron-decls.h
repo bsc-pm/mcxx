@@ -80,6 +80,11 @@ struct type_environment_tag
 
     _size_t sizeof_unsigned_long_long;
     _size_t alignof_unsigned_long_long;
+
+    // Let it empty if the environment does not support it
+    // half (float)
+    _size_t sizeof_half;
+    _size_t alignof_half;
     
     // float
     _size_t sizeof_float;
@@ -93,18 +98,22 @@ struct type_environment_tag
     _size_t sizeof_long_double;
     _size_t alignof_long_double;
 
-    // pointer
+    // pointer (to data)
     _size_t sizeof_pointer;
     _size_t alignof_pointer;
 
-    _size_t sizeof_pointer_to_data_member;
-    _size_t alignof_pointer_to_data_member;
+    // pointer (to function)
     // this one exists because a pointer to function
     // does not have to be compatible with a regular
     // pointer to data
     _size_t sizeof_function_pointer;
     _size_t alignof_function_pointer;
 
+    // pointer to data member
+    _size_t sizeof_pointer_to_data_member;
+    _size_t alignof_pointer_to_data_member;
+
+    // pointer to member function
     _size_t sizeof_pointer_to_member_function;
     _size_t alignof_pointer_to_member_function;
 
@@ -119,7 +128,7 @@ struct type_environment_tag
     // 'unsigned')
     type_t* (*char_type)(void);
 
-    // Special type for GCC
+    // Special type for GCC compatibility
     _size_t sizeof_builtin_va_list;
     _size_t alignof_builtin_va_list;
 };

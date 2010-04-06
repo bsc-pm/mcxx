@@ -864,6 +864,12 @@ dnl We try to figure a sensible default environment based on the configure envir
        ia64-*-linux*)
            default_type_environ="linux-ia64"
            ;;
+       sparc-sun-solaris*)
+            default_type_environ="solaris-sparcv9"
+            ;;
+       arm-*-linux-gnueabi)
+            default_type_environ="linux-arm"
+            ;;
        spu)
            default_type_environ="linux-spu"
            ;;

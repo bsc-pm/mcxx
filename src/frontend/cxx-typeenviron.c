@@ -1919,6 +1919,175 @@ static type_environment_t type_environment_linux_spu_ =
     .char_type = get_unsigned_char_type
 };
 
+// 
+
+// ****************
+// Solaris SPARCv9
+// ****************
+static type_environment_t type_environment_solaris_sparcv9_ = 
+{
+    .environ_id = "solaris-sparcv9",
+    .environ_name = "Solaris SPARCv9",
+
+    // '_Bool' in C99
+    // 'bool' in C++
+    .sizeof_bool = 1,
+    .alignof_bool = 1,
+
+    // ?? Check this one with itanium abi
+    .sizeof_wchar_t = 2,
+    .alignof_wchar_t = 2,
+
+    .sizeof_unsigned_short = 2,
+    .alignof_unsigned_short = 2,
+
+    .sizeof_signed_short = 2,
+    .alignof_signed_short = 2,
+
+    .sizeof_unsigned_int = 4,
+    .alignof_unsigned_int = 4,
+
+    .sizeof_signed_int = 4,
+    .alignof_signed_int = 4,
+
+    .sizeof_unsigned_long = 8,
+    .alignof_unsigned_long = 8,
+
+    .sizeof_signed_long = 8,
+    .alignof_signed_long = 8,
+
+    .sizeof_unsigned_long_long = 8,
+    .alignof_unsigned_long_long = 8,
+
+    .sizeof_signed_long_long = 8,
+    .alignof_signed_long_long = 8, 
+
+    .sizeof_float = 4,
+    .alignof_float = 4,
+
+    .sizeof_double = 8,
+    // Required 4, recommended 8
+    .alignof_double = 8,
+
+    .sizeof_long_double = 16,
+    // Required 4, recommended 16
+    .alignof_long_double = 16,
+
+    // Size of pointers
+    .sizeof_pointer = 8,
+    .alignof_pointer = 8,
+
+    // One 'ptrdiff_t'
+    .sizeof_pointer_to_data_member = 8,
+    .alignof_pointer_to_data_member = 8,
+
+    // Size of pointer to function
+    .sizeof_function_pointer = 8,
+    .alignof_function_pointer = 8,
+
+    // Two 'ptrdiff_t'
+    .sizeof_pointer_to_member_function = 16,
+    .alignof_pointer_to_member_function = 8,
+
+    // Valid both for C and C++
+    .compute_sizeof = generic_system_v_sizeof,
+
+    // In SparcV9 a size_t is an unsigned long 
+    .type_of_sizeof = get_unsigned_long_int_type,
+
+    // In SparcV9 'char' == 'signed char'
+    .char_type = get_signed_char_type,
+
+    // __builtin_va_list is lots of times a pointer
+    // (check this)
+    .sizeof_builtin_va_list = 8,
+    .alignof_builtin_va_list = 8,
+};
+
+// ****************
+// Linux ARM
+// ****************
+static type_environment_t type_environment_linux_arm_ = 
+{
+    .environ_id = "linux-arm",
+    .environ_name = "Linux ARM (GNUEABI)",
+
+    // '_Bool' in C99
+    // 'bool' in C++
+    .sizeof_bool = 1,
+    .alignof_bool = 1,
+
+    // According to CodeSourcery info, 
+    // a wchar_t is the same as an unsigned int
+    .sizeof_wchar_t = 4,
+    .alignof_wchar_t = 4,
+
+    .sizeof_unsigned_short = 2,
+    .alignof_unsigned_short = 2,
+
+    .sizeof_signed_short = 2,
+    .alignof_signed_short = 2,
+
+    .sizeof_unsigned_int = 4,
+    .alignof_unsigned_int = 4,
+
+    .sizeof_signed_int = 4,
+    .alignof_signed_int = 4,
+
+    .sizeof_unsigned_long = 4,
+    .alignof_unsigned_long = 4,
+
+    .sizeof_signed_long = 4,
+    .alignof_signed_long = 4,
+
+    .sizeof_unsigned_long_long = 8,
+    .alignof_unsigned_long_long = 8,
+
+    .sizeof_signed_long_long = 8,
+    .alignof_signed_long_long = 8, 
+
+    .sizeof_half = 2,
+    .alignof_half = 2,
+
+    .sizeof_float = 4,
+    .alignof_float = 4,
+
+    .sizeof_double = 8,
+    .alignof_double = 8,
+
+    .sizeof_long_double = 16,
+    .alignof_long_double = 16,
+
+    // Data pointer
+    .sizeof_pointer = 4,
+    .alignof_pointer = 4,
+
+    // Code pointer
+    .sizeof_function_pointer = 4,
+    .alignof_function_pointer = 4,
+
+    // One 'ptrdiff_t'
+    .sizeof_pointer_to_data_member = 4,
+    .alignof_pointer_to_data_member = 4,
+
+    // Two 'ptrdiff_t'
+    .sizeof_pointer_to_member_function = 8,
+    .alignof_pointer_to_member_function = 4,
+
+    // Valid both for C and C++
+    .compute_sizeof = generic_system_v_sizeof,
+
+    .type_of_sizeof = get_unsigned_int_type,
+
+    // In ARM 'char' == 'unsigned char'
+    // ?check this?
+    .char_type = get_unsigned_char_type,
+
+    // __builtin_va_list is a struct containing a void* in ARM
+    .sizeof_builtin_va_list = 4,
+    .alignof_builtin_va_list = 4,
+};
+
 /*
    NULL ended list of type environments
 
@@ -1931,6 +2100,8 @@ type_environment_t* type_environment_list[] = {
     &type_environment_linux_ppc64_,
     &type_environment_linux_amd64_,
     &type_environment_linux_spu_,
+    &type_environment_linux_arm_,
+    &type_environment_solaris_sparcv9_,
     NULL, /* last */
 };
 
