@@ -189,7 +189,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         if (!b)
             return false;
 
-        ObjectList<Expression> shape_list = shaped_expr.shape_list();
+        ObjectList<Expression> shape_list = expr.shape_list();
 
         Source factor;
         for (ObjectList<Expression>::iterator it = shape_list.begin();
@@ -201,14 +201,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
 
         size << "(" << arr_size << ") * " << factor;
 
-        if (!enclosing_is_array)
-        {
-            addr << "*" << arr_addr;
-        }
-        else
-        {
-            addr << arr_addr;
-        }
+        addr << arr_addr;
 
         return true;
     }
