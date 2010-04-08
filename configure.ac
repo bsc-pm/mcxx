@@ -1002,6 +1002,8 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium
            tests/config/mercurium-extensions
            tests/config/mercurium-omp
+           tests/config/mercurium-nanox
+           tests/config/mercurium-nanos4
            tests/config/mercurium-ss
            tests/config/mercurium-stm
            tests/05_torture_cxx_1.dg/mercurium
