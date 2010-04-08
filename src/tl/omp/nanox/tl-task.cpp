@@ -466,7 +466,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 Source expression_size, expression_address;
                 const char* array_name = fill_copy_data_info[j].array;
                 (*(fill_copy_data_info[j].source))
-                    << array_name << "[" << i << "].address = (uint64_t)(" << expression_address << ");"
+                    << array_name << "[" << i << "].address = (uintptr_t)(" << expression_address << ");"
                     << array_name << "[" << i << "].sharing = " << copy_sharing << ";"
                     << array_name << "[" << i << "].flags.input = " << copy_direction_in << ";"
                     << array_name << "[" << i << "].flags.output = " << copy_direction_out << ";"
