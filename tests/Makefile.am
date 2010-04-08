@@ -36,6 +36,8 @@ include ../config/Makefile.replace
 check-local: $(builddir)/config/bets
 	chmod +x config/mercurium-extensions
 	chmod +x config/mercurium-omp
+	chmod +x config/mercurium-nanos4
+	chmod +x config/mercurium-nanox
 	chmod +x config/mercurium-ss
 	chmod +x config/mercurium-stm
 	chmod +x */mercurium
