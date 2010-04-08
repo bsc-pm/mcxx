@@ -224,7 +224,7 @@ namespace TL
                     continue;
                 }
 
-                if (copy_direction == COPY_DIR_IN
+                if (copy_direction != COPY_DIR_IN
                         && ((attr & DS_PRIVATE) == DS_PRIVATE))
                 {
                     std::cerr << construct.get_ast().get_locus()
