@@ -80,7 +80,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         {
             addr << sym.get_qualified_name();
             t = t.points_to();
-            size << t.get_declaration(expr.get_scope(), "");
+            size << "sizeof(" << t.get_declaration(expr.get_scope(), "") << ")";
 
         }
         else 
@@ -175,6 +175,8 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                         enclosing_is_array);
             }
         }
+
+        return true;
     }
     else if (expr.is_shaping_expression())
     {
@@ -207,6 +209,8 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         {
             addr << arr_addr;
         }
+
+        return true;
     }
     else if(expr.is_member_access())
     {
@@ -238,6 +242,8 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
             size << "sizeof(" << t.get_declaration(expr.get_scope(), "") << ")";
             addr << obj_addr << "." << expr.get_accessed_member();
         }
+
+        return true;
     }
     return false;
 }
