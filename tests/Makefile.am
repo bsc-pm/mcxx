@@ -47,10 +47,7 @@ dist-hook:
 	for i in $(srcdir)/*.dg; \
 	do  \
 	    DIR=$$(basename $$i); \
-		mkdir -p $(distdir)/$${DIR} ; \
-		[ -e $(srcdir)/$${DIR}/config.mcxx ] && cp $(srcdir)/$${DIR}/config.mcxx $(distdir)/$${DIR} ; \
-		[ -e $(srcdir)/$${DIR}/mercurium.in ] && cp $(srcdir)/$${DIR}/mercurium.in $(distdir)/$${DIR} ; \
-        find $(srcdir)/$${DIR} "(" -name "*.c" -o -name "*.cpp" -o -name "*.C" -o -name "*.cc" ")" -exec cp {} $(distdir)/$${DIR} ';' ; \
+        cp -r $(srcdir)/$${DIR} $(distdir)/$${DIR}; \
 	done
 
 distclean-local:
