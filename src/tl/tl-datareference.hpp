@@ -57,7 +57,7 @@ namespace TL
               Not all expressions are data references, as defined by this class,
               use this function to check it
               */
-            bool is_valid();
+            bool is_valid() const;
 
             //! Gets the base symbol
             /*!
@@ -67,7 +67,7 @@ namespace TL
               Note for instance that a.b and a.c have the same base symbol, while
               the subobject being named is different.
               */
-            Symbol get_base_symbol();
+            Symbol get_base_symbol() const;
 
             //! Returns a way to obtain an address of the data reference
             /*!
@@ -75,14 +75,14 @@ namespace TL
               get its address. This function returns a Source with an
               expression which evaluates to the address of the data reference.
               */
-            Source get_address();
+            Source get_address() const;
 
             //! Returns the size of the data reference
             /*!
               This function returns an expression which evaluates to the known
               size of a data reference
               */
-            Source get_sizeof();
+            Source get_sizeof() const;
     };
 }
 

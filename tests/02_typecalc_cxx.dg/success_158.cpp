@@ -3,51 +3,24 @@
 test_generator=config/mercurium
 </testinfo>
 */
-/*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
-                          Centro Nacional de Supercomputacion
-  
-  This file is part of Mercurium C/C++ source-to-source compiler.
-  
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
-  License as published by the Free Software Foundation; either
-  version 3 of the License, or (at your option) any later version.
-  
-  Mercurium C/C++ source-to-source compiler is distributed in the hope
-  that it will be useful, but WITHOUT ANY WARRANTY; without even the
-  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-  PURPOSE.  See the GNU Lesser General Public License for more
-  details.
-  
-  You should have received a copy of the GNU Lesser General Public
-  License along with Mercurium C/C++ source-to-source compiler; if
-  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
-  Cambridge, MA 02139, USA.
---------------------------------------------------------------------*/
-template <typename _M>
-struct C
-{
-    typedef _M quux;
-};
-
-struct B
-{
-    template <typename _M>
-        struct foo
-        {
-            typedef _M baz;
-        };
-};
-
-
-template <typename _T, typename _S>
+template <typename _T>
 struct A
 {
-    typedef typename _T::template foo<_S>::baz moo;
-
-    typedef typename moo::quux bar;
 };
 
-typedef float *P;
-typedef A<B, C<float*> >::bar P;
+void f(A<int>* a)
+{
+    a->A<int>::~A();
+}
+
+void f2(A<int>& b)
+{
+    b.A<int>::~A();
+}
+
+void f3(A<int>& c)
+{
+    typedef A<int> T;
+
+    c.T::~A();
+}

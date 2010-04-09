@@ -41,7 +41,8 @@ namespace TL
             stm_global_lock_enabled(false),
             run_pretransform(true),
             allow_inlining_of_outlines(true),
-            atomic_as_critical(false)
+            atomic_as_critical(false),
+            final_with_data_env(false)
         {
             // Set phase info
             set_phase_name("Nanos 4 OpenMP implementation");
@@ -65,6 +66,11 @@ namespace TL
                     "Hints the backend compiler that the parallel outline can be inlined (if directly called)",
                     allow_inlining_of_outlines_str,
                     "1").connect(functor(&OpenMPTransform::set_allow_inlining_of_outlines, *this));
+
+            register_parameter("final_with_data_env", 
+                    "For the final path of tasks, create them with data environment",
+                    final_with_data_env_str,
+                    "0").connect(functor(&OpenMPTransform::set_final_with_data_env, *this));
 
             C_LANGUAGE()
             {
@@ -230,6 +236,15 @@ namespace TL
                     /* Given value */ str,
                     /* Compiler bool */ allow_inlining_of_outlines,
                     /* Error message */ "Outlines will be inlined");
+        }
+
+        void OpenMPTransform::set_final_with_data_env(const std::string& str)
+        {
+            final_with_data_env = false;
+            parse_boolean_option(/* Parameter name */ "final_with_data_env",
+                    /* Given value */ str,
+                    /* Compiler bool */ final_with_data_env,
+                    /* Error message */ "Data environment will not be created for final task path");
         }
 
         bool OpenMPTransform::instrumentation_requested()

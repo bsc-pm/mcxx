@@ -61,7 +61,9 @@ namespace TL
                 {
                     return is_pragma_custom("omp", a, _sl)
                         && !is_pragma_custom_construct("omp", "critical", a, _sl)
-                        && !is_pragma_custom_construct("omp", "atomic", a, _sl);
+                        && !is_pragma_custom_construct("omp", "atomic", a, _sl)
+                        // Do not remove tasks
+                        && !is_pragma_custom_construct("omp", "task", a, _sl);
                 }
         };
 
@@ -130,6 +132,28 @@ namespace TL
                 }
         };
 
+        class FixTasks : public TraverseFunctor
+        {
+            public:
+                virtual void postorder(Context ctx, AST_t a)
+                {
+                    ScopeLink sl = ctx.scope_link;
+                    PragmaCustomConstruct task_construct(a, sl);
+
+                    AST_t pragma_line = task_construct.get_pragma_line();
+
+                    Source new_pragma_construct;
+                    new_pragma_construct
+                        << "#pragma omp " << pragma_line.prettyprint() << " __serialize" << "\n"
+                        << task_construct.get_statement().prettyprint()
+                        ;
+
+                    AST_t new_pragma = new_pragma_construct.parse_statement(a, ctx.scope_link);
+
+                    a.replace(new_pragma);
+                }
+        };
+
         // This traverse functor fixes function calls
         class FixFunctionCalls : public TraverseFunctor
         {
@@ -157,6 +181,12 @@ namespace TL
                             src << "__serial_" << sym.get_name() << "_";
                             AST_t function_name = src.parse_expression(a, ctx.scope_link);
                             called_entity.get_ast().replace(function_name);
+                        }
+                        else if (sym.get_name() == "omp_in_final")
+                        {
+                            Source src("1");
+                            AST_t function_name = src.parse_expression(a, ctx.scope_link);
+                            funct_call.get_ast().replace(function_name);
                         }
                     }
                 }

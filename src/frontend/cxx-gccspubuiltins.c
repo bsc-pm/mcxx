@@ -356,10 +356,7 @@ static scope_entry_t* solve_spu_overload_name(scope_entry_t* overloaded_function
             all_arguments_matched = all_arguments_matched 
                 // We want vector types to be identic
                 && (equivalent_types(get_unqualified_type(argument_type),
-                            parameter_type)
-                        // But integers do not need be exactly the same
-                        || (is_integer_type(argument_type)
-                            && is_integer_type(parameter_type)));
+                            parameter_type));
         }
 
         if (all_arguments_matched)

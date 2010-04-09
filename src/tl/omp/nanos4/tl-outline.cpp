@@ -204,7 +204,6 @@ namespace TL
 
                     // Now add a casting
                     vla_castings
-                        // Ignore a pointer
                         << param_info.type_in_outline.get_declaration(
                                 function_definition.get_function_body().get_scope(),
                                 param_info.vla_cast_name)
@@ -336,91 +335,6 @@ namespace TL
                     ;
             }
 
-            // FIRSTPRIVATE
-            // for (ObjectList<Symbol>::iterator it = firstprivate_references.begin();
-            //         it != firstprivate_references.end();
-            //         it++)
-            // {
-            //     Symbol &sym(*it);
-            //     Type type = sym.get_type();
-
-            //     Source initializer_value;
-
-            //     if (parameter_info_list.contains(functor(&ParameterInfo::symbol), sym))
-            //     {
-            //         // If passed by parameter do nothing
-            //         continue;
-            //     }
-            //     else
-            //     {
-            //         initializer_value << sym.get_qualified_name(construct.get_scope());
-            //     }
-
-            //     private_declarations << 
-            //         comment("Firstprivate entity : 'p_" + sym.get_name() + "'");
-
-            //     if (type.is_array())
-            //     {
-            //         // Both in C and C++ the firstprivatized array must be properly copied
-            //         private_declarations 
-            //             << type.get_declaration(
-            //                     construct.get_scope(),
-            //                     "p_" + sym.get_name())
-            //             << ";"
-            //             ;
-
-            //         private_declarations 
-            //             << comment("This firstprivate entity is an array and must be initialized element-wise");
-
-            //         Source array_assignment = array_copy(type, "p_" + sym.get_name(),
-            //                 initializer_value.get_source(), 0);
-
-            //         private_declarations << array_assignment;
-            //     }
-            //     else
-            //     {
-            //         C_LANGUAGE()
-            //         {
-            //             // If it is not an array just assign
-            //             private_declarations 
-            //                 << type.get_declaration(
-            //                         construct.get_scope(),
-            //                         "p_" + sym.get_name())
-            //                 << ";"
-            //                 << comment("Using plain assignment to initialize firstprivate entity")
-            //                 << "p_" + sym.get_name() << "=" << initializer_value.get_source() << ";"
-            //                 ;
-            //         }
-            //         CXX_LANGUAGE()
-            //         {
-            //             // In C++ if this is a class we invoke the copy-constructor
-            //             if (type.is_class())
-            //             {
-            //                 private_declarations 
-            //                     << comment("Using copy constructor to initialize firstprivate entity")
-            //                     << type.get_declaration(
-            //                             construct.get_scope(),
-            //                             "p_" + sym.get_name())
-            //                     << "(" << initializer_value.get_source() << ")"
-            //                     << ";"
-            //                     ;
-            //             }
-            //             else
-            //             {
-            //                 // Otherwise simply assign
-            //                 private_declarations 
-            //                     << type.get_declaration(
-            //                             construct.get_scope(),
-            //                             "p_" + sym.get_name())
-            //                     << ";"
-            //                     << comment("Using assignment operator to initialize firstprivate entity")
-            //                     << "p_" + sym.get_name() << "=" << initializer_value.get_source() << ";"
-            //                     ;
-            //             }
-            //         }
-            //     }
-            // }
-
             // LASTPRIVATE
             for (ObjectList<Symbol>::iterator it = pruned_lastprivate_references.begin();
                     it != pruned_lastprivate_references.end();
@@ -446,11 +360,37 @@ namespace TL
                 Symbol sym = it->get_symbol();
                 Type type = sym.get_type();
 
-                bool is_variably_modified = false;
+                Source type_declaration, static_initializer, dynamic_initializer, secondary_decl;
 
-                if (type.is_variably_modified())
+                private_declarations
+                    << comment("Reduction private entity : 'rdp_" + sym.get_name() + "'")
+                    << type_declaration
+                    << static_initializer << ";"
+                    << dynamic_initializer
+                    << secondary_decl
+                    ;
+
+                bool is_variably_modified = type.is_variably_modified();
+
+                std::string name = "rdp_" + sym.get_name();
+                bool is_pointer = type.is_pointer();
+                if (is_pointer)
                 {
-                    is_variably_modified = true;
+                    name = "p_rdp_" + sym.get_name();
+                    type = type.points_to();
+                }
+                if (!it->is_array()
+                        || !is_variably_modified)
+                {
+                    type_declaration
+                        << type.get_declaration(
+                                construct.get_scope(),
+                                name)
+                        ;
+                }
+                else
+                {
+                    // This is a bit more involved
                     bool found = false;
                     for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
                             it != parameter_info_list.end();
@@ -460,53 +400,33 @@ namespace TL
                         {
                             // Use the parameter type instead, but ignore an
                             // additional pointer we added for proper casting
-                            type = it->type_in_outline.points_to();
+                            type = it->full_type_in_outline.points_to();
                             found = true;
                             break;
                         }
                     }
+
                     if (!found)
                     {
-                        internal_error("Missing VLA type in parameter info for symbol '%s'!", sym.get_name().c_str());
+                        internal_error("VLA info not found", 0);
                     }
-                }
 
-                Source static_initializer, dynamic_initializer;
-
-                Type sym_type = sym.get_type();
-
-                if (!it->is_array()
-                        || !sym_type.is_pointer())
-                {
-                    private_declarations
-                        << comment("Reduction private entity : 'rdp_" + sym.get_name() + "'")
+                    type_declaration
                         << type.get_declaration(
                                 construct.get_scope(),
-                                "rdp_" + sym.get_name())
-                        << static_initializer
-                        << ";"
-                        << dynamic_initializer
-                        ;
-                }
-                else // it->is_array() && sym_type.is_pointer()
-                {
-                    // Adjust pointers in array reductions
-                    sym_type = sym_type.points_to();
-                    private_declarations
-                        << comment("Reduction private entity : 'rdp_" + sym.get_name() + "'")
-                        << sym_type.get_declaration(
-                                construct.get_scope(),
-                                "p_rdp_" + sym.get_name())
-                        << static_initializer
-                        << ";"
-                        << type.get_declaration(
-                                construct.get_scope(),
-                                "rdp_" + sym.get_name())
-                        << " = &p_rdp_" << sym.get_name() << ";"
-                        << dynamic_initializer
+                                name);
                         ;
                 }
 
+                if (is_pointer)
+                {
+                    secondary_decl
+                        << type.get_pointer_to().get_declaration(
+                                construct.get_scope(),
+                                "rdp_" + sym.get_name()) << "= &" << name << ";";
+                }
+
+                // Fill the initializers
                 if (!it->neuter_is_empty())
                 {
                     if (!it->is_array())
@@ -530,7 +450,7 @@ namespace TL
                         {
                             // Prepend with the constructor name
                             element_level_initializer
-                                << sym_type.get_declaration(construct.get_scope(), "")
+                                << type.get_declaration(construct.get_scope(), "")
                                 << it->get_neuter();
                         }
                         else
@@ -538,10 +458,11 @@ namespace TL
                             element_level_initializer 
                                 << it->get_neuter();
                         }
+
                         if (!is_variably_modified)
                         {
                             ObjectList<int> dimension_sizes(it->num_dimensions(), 0);
-                            Type array_type = sym_type;
+                            Type array_type = type;
 
                             for (int i = 0; i < it->num_dimensions(); i++)
                             {
@@ -565,49 +486,13 @@ namespace TL
                         }
                         else
                         {
-                            std::string prefix = "rdp_";
-                            if (type.is_pointer())
-                            {
-                                prefix = "p_rdp_";
-                            }
-
-                            dynamic_initializer
-                                << comment("Initializing VLA '" + prefix + sym.get_name() + "'")
-                                ;
-                            generate_dynamic_array_initializer(
-                                    dynamic_initializer,
-                                    sym_type,
-                                    Source(prefix + sym.get_name()),
+                            generate_dynamic_array_initializer(dynamic_initializer,
+                                    type,
+                                    Source("rdp_" + sym.get_name()),
                                     element_level_initializer);
                         }
                     }
                 }
-
-                // if (!is_variably_modified)
-                // {
-                //     if (it->neuter_is_constructor())
-                //     {
-                //         static_initializer << it->get_neuter()
-                //             ;
-                //     }
-                //     else if (it->neuter_is_empty())
-                //     {
-                //         // Do nothing for empty initializers
-                //     }
-                //     else
-                //     {
-                //         static_initializer << " = " << it->get_neuter()
-                //             ;
-                //     }
-                // }
-                // else
-                // {
-                //     std::cerr << construct.get_ast().get_locus() << ": warning: reduction symbol '" 
-                //         << sym.get_name()
-                //         << "' of variable-modified type cannot be initialized yet" 
-                //         << std::endl;
-                // }
-
             }
 
             // COPYIN

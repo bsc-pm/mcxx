@@ -338,12 +338,14 @@ class ObjectList : public std::vector<T>, public TL::Object
         {
             ObjectList<T> result;
 
-            for (typename ObjectList<T>::const_iterator it = find(this->begin(), this->end(), t);
+            for (typename ObjectList<T>::const_iterator it = std::find(this->begin(), this->end(), t);
                     it != this->end();
                     it++)
             {
                 result.append(*it);
             }
+
+            return result;
         }
 
         //! Returns a list of elements that do not match a given one

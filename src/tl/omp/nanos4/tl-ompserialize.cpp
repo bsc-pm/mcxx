@@ -104,7 +104,6 @@ namespace TL
                             it != task_construct_list.end();
                             it++)
                     {
-                        // FIXME - This is pathetic :)
                         PragmaCustomConstruct task_construct(*it, scope_link);
                         Statement stmt = task_construct.get_statement();
 
@@ -125,7 +124,8 @@ namespace TL
 
                                 if (functions_defined.contains(sym))
                                 {
-                                    std::cerr << "INFO: Adding '" << sym.get_name() << "' to the list of OpenMP serializable" << std::endl;
+                                    std::cerr << id_expression.get_ast().get_locus() 
+                                        << ": info: adding '" << sym.get_name() << "' to the list of OpenMP serializable" << std::endl;
 
                                     // And insert it to the list of functions to serialize (this makes most of the magic
                                     // of this closure)
@@ -151,7 +151,11 @@ namespace TL
                         if (current_function_def.empty())
                         {
                             // Ignore not defined
-                            std::cerr << "WARNING: Function definition for '" << it.get_name() << "' not found" << std::endl;
+                            std::cerr << it.get_locus()
+                                << ": warning: function definition for '" 
+                                << it.get_name() 
+                                << "' not found and we wanted to serialize it" 
+                                << std::endl;
                             continue;
                         }
 
@@ -176,7 +180,8 @@ namespace TL
 
                                 if (functions_defined.contains(sym))
                                 {
-                                    std::cerr << "INFO: Adding '" << sym.get_name() << "' to the list of OpenMP serializable" << std::endl;
+                                    std::cerr << id_expression.get_ast().get_locus() 
+                                        << ": info: adding '" << sym.get_name() << "' to the list of OpenMP serializable" << std::endl;
 
                                     // And insert it to the list of functions to serialize (this makes most of the magic
                                     // of this closure)
@@ -229,7 +234,11 @@ namespace TL
                         if (current_function_def.empty())
                         {
                             // Ignore not defined
-                            std::cerr << "WARNING: Function definition for '" << it->get_name() << "' not found and we wanted to serialize it" << std::endl;
+                            std::cerr << it->get_locus() 
+                                << ": warning: function definition for '" 
+                                << it->get_name() 
+                                << "' not found and we wanted to serialize it" 
+                                << std::endl;
                             continue;
                         }
 
@@ -321,6 +330,11 @@ namespace TL
                             any_openmp_construct_pred(function_def.get_scope_link());
                         RemoveOpenMP remove_openmp_traverse_functor;
                         depth_traverse.add_predicate(any_openmp_construct_pred, remove_openmp_traverse_functor);
+
+                        // Fix task pragmas
+                        TaskConstructPred task_pred(function_def.get_scope_link());
+                        FixTasks fix_tasks_functor;
+                        depth_traverse.add_predicate(task_pred, fix_tasks_functor);
 
                         // Now fix function calls
                         PredicateAttr function_call_pred(LANG_IS_FUNCTION_CALL) ;

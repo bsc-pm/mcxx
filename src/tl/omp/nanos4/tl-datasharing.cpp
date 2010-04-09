@@ -195,11 +195,6 @@ namespace TL
                 Symbol symbol = reduction_symbol.get_symbol();
                 Type type = symbol.get_type();
 
-                if (it->is_array() && type.is_pointer())
-                {
-                    type = type.points_to();
-                }
-
                 Type pointer_type = type.get_pointer_to();
                 if (!disable_restrict_pointers)
                 {
@@ -208,7 +203,7 @@ namespace TL
 
                 ParameterInfo parameter("rdv_" + symbol.get_name(), 
                         "rdv_" + symbol.get_name(),
-                        symbol, pointer_type, ParameterInfo::BY_POINTER);
+                        symbol, pointer_type, ParameterInfo::BY_VALUE);
                 parameter_info.append(parameter);
 
                 result.add_replacement(symbol, "rdp_" + symbol.get_name(),
@@ -402,7 +397,11 @@ namespace TL
                 ParameterInfo& param_info(*it);
                 Symbol &symbol(param_info.symbol);
 
-                if (symbol.get_type().is_variably_modified())
+                // Note that here symbol.get_type() != type for reductions
+                // Do not use them interchangeably
+                Type type = param_info.type;
+
+                if (type.is_variably_modified())
                 {
                     ObjectList<Source> dim_decls;
                     ObjectList<Source> dim_names;
@@ -444,8 +443,8 @@ namespace TL
                             it++)
                     {
                         // Ignore first dimension
-                        if (it == dim_names.begin())
-                            continue;
+                        // if (it == dim_names.begin())
+                        //     continue;
 
                         Scope sc = sl.get_scope(enclosing_stmt_tree);
 
@@ -512,9 +511,11 @@ namespace TL
                         }
                     }
 
-                    Type new_type_outline = compute_replacemement_type_for_vla_in_outline(symbol.get_type(), dim_names.begin());
+                    Type full_type_outline = compute_replacemement_type_for_vla_in_outline(type, dim_names.begin());
                     // Ignore the array type
-                    new_type_outline = new_type_outline.array_element().get_pointer_to();
+                    Type new_type_outline = full_type_outline;
+                    if (full_type_outline.is_array())
+                        new_type_outline = full_type_outline.array_element().get_pointer_to();
                     if (!disable_restrict_pointers)
                     {
                         new_type_outline = new_type_outline.get_restrict_type();
@@ -525,6 +526,7 @@ namespace TL
                     param_info.is_variably_modified = true;
                     param_info.vla_cast_name = param_info.parameter_name;
                     param_info.parameter_name = "_vla_" + param_info.parameter_name;
+                    param_info.full_type_in_outline = full_type_outline;
                     param_info.type_in_outline = new_type_outline;
 
                     // Override the replacement only if it is not known to have a special name

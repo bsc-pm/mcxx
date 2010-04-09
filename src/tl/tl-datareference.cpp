@@ -18,22 +18,22 @@ DataReference::DataReference(Expression expr)
     _valid = gather_info_data_expr(*this, _base_symbol, _size, _addr);
 }
 
-bool DataReference::is_valid()
+bool DataReference::is_valid() const
 {
     return _valid;
 }
 
-Symbol DataReference::get_base_symbol()
+Symbol DataReference::get_base_symbol() const
 {
     return _base_symbol;
 }
 
-Source DataReference::get_address()
+Source DataReference::get_address() const
 {
     return _addr;
 }
 
-Source DataReference::get_sizeof()
+Source DataReference::get_sizeof() const
 {
     return _size;
 }
@@ -80,7 +80,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         {
             addr << sym.get_qualified_name();
             t = t.points_to();
-            size << t.get_declaration(expr.get_scope(), "");
+            size << "sizeof(" << t.get_declaration(expr.get_scope(), "") << ")";
 
         }
         else 
@@ -175,6 +175,8 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                         enclosing_is_array);
             }
         }
+
+        return true;
     }
     else if (expr.is_shaping_expression())
     {
@@ -187,7 +189,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         if (!b)
             return false;
 
-        ObjectList<Expression> shape_list = shaped_expr.shape_list();
+        ObjectList<Expression> shape_list = expr.shape_list();
 
         Source factor;
         for (ObjectList<Expression>::iterator it = shape_list.begin();
@@ -199,14 +201,9 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
 
         size << "(" << arr_size << ") * " << factor;
 
-        if (!enclosing_is_array)
-        {
-            addr << "*" << arr_addr;
-        }
-        else
-        {
-            addr << arr_addr;
-        }
+        addr << arr_addr;
+
+        return true;
     }
     else if(expr.is_member_access())
     {
@@ -238,6 +235,8 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
             size << "sizeof(" << t.get_declaration(expr.get_scope(), "") << ")";
             addr << obj_addr << "." << expr.get_accessed_member();
         }
+
+        return true;
     }
     return false;
 }

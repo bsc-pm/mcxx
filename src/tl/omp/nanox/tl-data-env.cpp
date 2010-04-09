@@ -548,12 +548,12 @@ namespace TL
                 if (type.is_array())
                 {
                     result << arg_var_accessor << field_name
-                        << "= " << sym.get_name() << ";";
+                        << "= " << sym.get_qualified_name() << ";";
                 }
                 else
                 {
                     result << arg_var_accessor << field_name
-                        << "= &(" << sym.get_name() << ");";
+                        << "= &(" << sym.get_qualified_name() << ");";
                 }
             }
             else
@@ -585,8 +585,8 @@ namespace TL
                     C_LANGUAGE()
                     {
                         result << "__builtin_memcpy(" << arg_var_accessor << field_name << ", "
-                            << sym.get_name() << ","
-                            << "sizeof(" << sym.get_name() << "));"
+                            << sym.get_qualified_name() << ","
+                            << "sizeof(" << sym.get_qualified_name() << "));"
                             ;
                     }
                     CXX_LANGUAGE()
@@ -600,7 +600,7 @@ namespace TL
                         result << "for (int _i = 0; _i < (" << type.array_dimension().prettyprint() << "); _i++)"
                             << "{"
                             << "new ( &((" << ptr_type_decl << ")" << field_name << ")[_i])"
-                            << type_decl << "(" << sym.get_name() << "[_i]);"
+                            << type_decl << "(" << sym.get_qualified_name() << "[_i]);"
                             << "}"
                             ;
                     }
@@ -612,12 +612,12 @@ namespace TL
                     {
                         result << "new (&" << arg_var_accessor << field_name << ")" 
                             << type.get_declaration(sym.get_scope(), "") 
-                            << "(" << sym.get_name() << ");";
+                            << "(" << sym.get_qualified_name() << ");";
                     }
                     else
                     {
                         result << arg_var_accessor << field_name
-                            << "= " << sym.get_name() << ";";
+                            << "= " << sym.get_qualified_name() << ";";
                     }
                 }
             }

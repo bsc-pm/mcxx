@@ -864,6 +864,12 @@ dnl We try to figure a sensible default environment based on the configure envir
        ia64-*-linux*)
            default_type_environ="linux-ia64"
            ;;
+       sparc-sun-solaris*)
+            default_type_environ="solaris-sparcv9"
+            ;;
+       arm-*-linux-gnueabi)
+            default_type_environ="linux-arm"
+            ;;
        spu)
            default_type_environ="linux-spu"
            ;;
@@ -996,6 +1002,8 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium
            tests/config/mercurium-extensions
            tests/config/mercurium-omp
+           tests/config/mercurium-nanox
+           tests/config/mercurium-nanos4
            tests/config/mercurium-ss
            tests/config/mercurium-stm
            tests/05_torture_cxx_1.dg/mercurium

@@ -113,6 +113,15 @@ namespace TL
             //! Gets the scope where this symbol is defined
             Scope get_scope() const;
 
+            //! Returns the location of the symbol
+            std::string get_locus() const;
+
+            //! Returns the filename where the symbol was declared
+            std::string get_filename() const;
+
+            //! Returns the line where the symbol was declared
+            int get_line() const;
+
             virtual ~Symbol()
             {
             }

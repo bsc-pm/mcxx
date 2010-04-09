@@ -215,22 +215,14 @@ namespace TL
                 DataSharingAttribute attr = data_sharing.get(sym);
 
                 if (warn_not_shared
+                        && (copy_direction != COPY_DIR_IN)
                         && ((attr & DS_SHARED) != DS_SHARED))
                 {
                     std::cerr << construct.get_ast().get_locus()
                         << ": warning: symbol '" << sym.get_name() 
-                        << "' is referenced in a copy clause but its data sharing attribute is not shared, skipping"
+                        << "' is referenced in a copy clause other than 'copy_in' but its data sharing attribute is not shared, skipping"
                         << std::endl;
                     continue;
-                }
-
-                if (copy_direction == COPY_DIR_IN
-                        && ((attr & DS_PRIVATE) == DS_PRIVATE))
-                {
-                    std::cerr << construct.get_ast().get_locus()
-                        << ": warning: symbol '" << sym.get_name() 
-                        << "' has a private data sharing but it appears in a copy clause other than 'copy_in'"
-                        << std::endl;
                 }
 
                 CopyItem copy_item(expr, copy_direction);

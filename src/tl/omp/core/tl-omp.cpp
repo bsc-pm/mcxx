@@ -169,7 +169,16 @@ namespace TL
 
         void DataSharingEnvironment::add_copy(const CopyItem& copy_item)
         {
-            _copy_items.append(copy_item);
+            if (!_copy_items.contains(copy_item))
+            {
+                _copy_items.append(copy_item);
+            }
+            else
+            {
+                ObjectList<CopyItem> item_list = _copy_items.find(copy_item);
+
+                item_list[0].update_kind(copy_item.get_kind());
+            }
         }
 
         void DataSharingEnvironment::get_all_copies(ObjectList<CopyItem>& copy_items)
@@ -734,6 +743,11 @@ namespace TL
         CopyDirection CopyItem::get_kind() const
         {
             return _kind;
+        }
+
+        void CopyItem::update_kind(CopyDirection kind)
+        {
+            _kind = (CopyDirection)(_kind | kind);
         }
 
         DataReference CopyItem::get_copy_expression() const
