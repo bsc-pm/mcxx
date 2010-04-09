@@ -18,22 +18,22 @@ DataReference::DataReference(Expression expr)
     _valid = gather_info_data_expr(*this, _base_symbol, _size, _addr);
 }
 
-bool DataReference::is_valid()
+bool DataReference::is_valid() const
 {
     return _valid;
 }
 
-Symbol DataReference::get_base_symbol()
+Symbol DataReference::get_base_symbol() const
 {
     return _base_symbol;
 }
 
-Source DataReference::get_address()
+Source DataReference::get_address() const
 {
     return _addr;
 }
 
-Source DataReference::get_sizeof()
+Source DataReference::get_sizeof() const
 {
     return _size;
 }
