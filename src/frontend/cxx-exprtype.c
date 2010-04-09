@@ -9189,6 +9189,31 @@ static char check_for_pseudo_destructor_call(AST expression, decl_context_t decl
         destructor_lookup = entry->decl_context;
     }
 
+    if (entry->kind == SK_TYPEDEF)
+    {
+        type_t* advanced_type = advance_over_typedefs(entry->type_information);
+
+        if (is_named_type(advanced_type))
+        {
+            entry = named_type_get_symbol(advanced_type);
+        }
+    }
+
+    // We'll want to find the injected class name for class names since it
+    // simplifies lots of things related with templates
+    if (entry->kind == SK_CLASS)
+    {
+        // But this requires an instantiated class
+        if (class_type_is_incomplete_independent(entry->type_information))
+        {
+            instantiate_template_class(entry, decl_context, 
+                    ASTFileName(pseudo_destructor_id_expression), 
+                    ASTLine(pseudo_destructor_id_expression));
+        }
+
+        destructor_lookup = class_type_get_inner_context(entry->type_information);
+    }
+
     if (ASTType(destructor_id) == AST_DESTRUCTOR_ID)
     {
         const char * type_name = ASTText(ASTSon0(destructor_id));
@@ -9207,6 +9232,12 @@ static char check_for_pseudo_destructor_call(AST expression, decl_context_t decl
         if (!equivalent_types(get_user_defined_type(new_name->entry), 
                     get_user_defined_type(entry)))
         {
+            fprintf(stderr, "new_name->entry->type_info == '%s'\n", 
+                    print_declarator(new_name->entry->type_information));
+
+            fprintf(stderr, "entry->type_info == '%s'\n", 
+                    print_declarator(entry->type_information));
+
             running_error("%s: error: pseudo-destructor '%s' does not match the type-name",
                     ast_location(pseudo_destructor_name),
                     prettyprint_in_buffer(pseudo_destructor_name));
