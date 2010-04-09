@@ -1,3 +1,8 @@
+/*
+<testinfo>
+test_generator=config/mercurium-nanos4
+</testinfo>
+*/
 template<typename T>
 struct A {
   T  t;
