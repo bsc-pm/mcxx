@@ -1979,6 +1979,8 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
 
     AST enum_name = ASTSon0(a);
 
+    scope_entry_t* new_entry;
+
     // If it has name, we register this type name in the symbol table
     // but only if it has not been declared previously
     if (enum_name != NULL)
@@ -1992,8 +1994,6 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
 
         scope_entry_list_t* enum_entry_list = query_in_scope_str(decl_context, enum_name_str);
 
-        scope_entry_t* new_entry;
-            
         if (enum_entry_list != NULL 
                 && enum_entry_list->entry->kind == SK_ENUM 
                 && enum_entry_list->next == NULL)
@@ -2019,20 +2019,29 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             new_entry->kind = SK_ENUM;
             new_entry->type_information = get_new_enum_type(decl_context);
         }
-
-        enum_type = new_entry->type_information;
-        new_entry->defined = 1;
-        // Since this type is not anonymous we'll want that type_info
-        // refers to this newly created type
-        *type_info = get_user_defined_type(new_entry);
-
-        ASTAttrSetValueType(a, LANG_ENUM_SPECIFIER_SYMBOL, tl_type_t, tl_symbol(new_entry));
     }
     else
     {
-        // This is anonymous, both resulting type and enum are the same
-        enum_type = *type_info = get_new_enum_type(decl_context);
+        // This one is anonymous, create a fake symbol 
+        // (not signed in any scope)
+        new_entry = counted_calloc(1, sizeof(*new_entry), &_bytes_used_buildscope);
+        new_entry->symbol_name = uniquestr("<<anonymous>>");
+        new_entry->decl_context = decl_context;
+        new_entry->line = ASTLine(a);
+        new_entry->file = ASTFileName(a);
+        new_entry->point_of_declaration = a;
+        new_entry->kind = SK_ENUM;
+        new_entry->type_information = get_new_enum_type(decl_context);
+        new_entry->extended_data = counted_calloc(1, sizeof(*(new_entry->extended_data)), &_bytes_used_buildscope);
     }
+
+    enum_type = new_entry->type_information;
+    new_entry->defined = 1;
+    // Since this type is not anonymous we'll want that type_info
+    // refers to this newly created type
+    *type_info = get_user_defined_type(new_entry);
+
+    ASTAttrSetValueType(a, LANG_ENUM_SPECIFIER_SYMBOL, tl_type_t, tl_symbol(new_entry));
 
     AST list, iter;
     list = ASTSon1(a);
@@ -3383,8 +3392,18 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     }
     else
     {
-        // Unnamed class
-        class_type = get_new_class_type(decl_context, class_kind);
+        // Unnamed class, create a fake symbol (not signed in any scope)
+        class_entry = counted_calloc(1, sizeof(*class_entry), &_bytes_used_buildscope);
+        class_entry->kind = SK_CLASS;
+        class_entry->decl_context = decl_context;
+        class_entry->symbol_name = uniquestr("<<anonymous>>");
+        class_entry->extended_data = counted_calloc(1, sizeof(*class_entry->extended_data), &_bytes_used_buildscope);
+        class_entry->point_of_declaration = get_enclosing_declaration(a);
+        class_entry->line = ASTLine(a);
+        class_entry->file = ASTFileName(a);
+        class_entry->type_information = get_new_class_type(decl_context, class_kind);
+
+        class_type = class_entry->type_information;
         inner_decl_context = new_class_context(decl_context,
                 qualification_name,
                 class_type);
@@ -3395,17 +3414,10 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             "The inner context was incorrectly set", 0);
     
     // Compute *type_info as it is needed by build_scope_member_specification
-    if (class_entry != NULL)
-    {
-        *type_info = get_user_defined_type(class_entry);
+    *type_info = get_user_defined_type(class_entry);
 
-        // Save the class symbol
-        ASTAttrSetValueType(a, LANG_CLASS_SPECIFIER_SYMBOL, tl_type_t, tl_symbol(class_entry));
-    }
-    else
-    {
-        *type_info = class_type;
-    }
+    // Save the class symbol
+    ASTAttrSetValueType(a, LANG_CLASS_SPECIFIER_SYMBOL, tl_type_t, tl_symbol(class_entry));
 
     // If the class is being declared in class-scope it means
     // it is a nested class
@@ -3447,19 +3459,15 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     // Inject the class symbol in the scope
     CXX_LANGUAGE()
     {
-        if (class_entry != NULL 
-                && class_entry->symbol_name != NULL)
-        {
-            scope_entry_t* injected_symbol = new_symbol(inner_decl_context, 
-                    inner_decl_context.current_scope, 
-                    class_entry->symbol_name);
+        scope_entry_t* injected_symbol = new_symbol(inner_decl_context, 
+                inner_decl_context.current_scope, 
+                class_entry->symbol_name);
 
-            *injected_symbol = *class_entry;
-            injected_symbol->do_not_print = 1;
+        *injected_symbol = *class_entry;
+        injected_symbol->do_not_print = 1;
 
-            injected_symbol->entity_specs.is_injected_class_name = 1;
-            injected_symbol->entity_specs.injected_class_referred_symbol = class_entry;
-        }
+        injected_symbol->entity_specs.is_injected_class_name = 1;
+        injected_symbol->entity_specs.injected_class_referred_symbol = class_entry;
     }
 
     access_specifier_t current_access;
@@ -3477,11 +3485,8 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     build_scope_member_specification(inner_decl_context, member_specification, 
             current_access, *type_info);
 
-    if (class_entry != NULL)
-    {
-        // If the class had a name, it is completely defined here
-        class_entry->defined = 1;
-    }
+    // If the class had a name, it is completely defined here
+    class_entry->defined = 1;
     
     class_type_set_instantiation_trees(class_type, member_specification, base_clause);
 
