@@ -118,6 +118,14 @@ namespace TL
 
                 CopyDirection get_kind() const;
                 DataReference get_copy_expression() const;
+
+                void update_kind(CopyDirection dir);
+
+                // Convenience operator
+                bool operator==(const CopyItem& c) const
+                {
+                    return _copy_expr.get_base_symbol() == c._copy_expr.get_base_symbol();
+                }
         };
 
         class LIBTL_CLASS UDRInfoItem : public TL::Object
