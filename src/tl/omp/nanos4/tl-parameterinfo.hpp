@@ -52,6 +52,8 @@ namespace TL
             // VLA support
             // {
             bool is_variably_modified;
+            Type full_type_in_outline;
+            // Like full_type_in_outline but first array has been removed
             Type type_in_outline;
             std::string vla_cast_name;
             // }
@@ -67,6 +69,7 @@ namespace TL
                 type(_type), 
                 kind(_kind),
                 is_variably_modified(false),
+                full_type_in_outline(NULL),
                 type_in_outline(NULL)
             {
             }

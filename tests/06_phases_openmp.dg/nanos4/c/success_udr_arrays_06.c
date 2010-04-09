@@ -11,8 +11,8 @@ void add_mat(int, int, float*, float*);
 
 #pragma omp declare reduction(add_mat : float) dimensions(2)
 
-#define VECTOR_SIZE (100)
-#define NUM_MATS (100)
+#define VECTOR_SIZE (10)
+#define NUM_MATS (10)
 
 void f2(float p_array_of_mat[NUM_MATS][VECTOR_SIZE][VECTOR_SIZE], 
         float p_mat_sum[VECTOR_SIZE][VECTOR_SIZE])
