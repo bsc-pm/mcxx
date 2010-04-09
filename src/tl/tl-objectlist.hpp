@@ -344,6 +344,8 @@ class ObjectList : public std::vector<T>, public TL::Object
             {
                 result.append(*it);
             }
+
+            return result;
         }
 
         //! Returns a list of elements that do not match a given one
