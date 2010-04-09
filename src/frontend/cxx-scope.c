@@ -2396,9 +2396,7 @@ static type_t* update_dependent_typename(
         return NULL;
     }
 
-    type_t* result_type = current_member->type_information;
-
-    return result_type;
+    return get_user_defined_type(current_member);
 }
 
 

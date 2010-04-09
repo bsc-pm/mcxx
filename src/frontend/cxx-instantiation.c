@@ -482,6 +482,16 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         context_of_being_instantiated,
                         filename, line);
 
+                if (is_named_class_type(new_member->type_information))
+                {
+                    fprintf(stderr, "This is a class '%s'\n", new_member->symbol_name);
+                    if (class_type_is_incomplete_independent(get_actual_class_type(new_member->type_information)))
+                    {
+                        scope_entry_t* class_entry = named_type_get_symbol(new_member->type_information);
+                        instantiate_template_class(class_entry, context_of_being_instantiated, filename, line);
+                    }
+                }
+
                 if (new_member->entity_specs.is_bitfield)
                 {
                     // Evaluate the bitfield expression
