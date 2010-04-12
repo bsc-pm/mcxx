@@ -247,42 +247,12 @@ namespace OpenMP
                 arg_clauses << " inout(" << inout_args << ")";
             }
 
-            Source firstprivate_args;
-
-            int i = 0;
             for (ObjectList<Expression>::iterator it2 = argument_list.begin();
                     it2 != argument_list.end();
                     it2++)
             {
                 Expression &current_expr(*it2);
-                Type real_type = current_expr.get_type();
-                if (real_type.is_array())
-                {
-                    real_type = real_type.array_element().get_pointer_to();
-                }
-                else if (real_type.is_function())
-                {
-                    real_type = real_type.get_pointer_to();
-                }
-
-                std::stringstream ss;
-                ss << "__tmp_" << i;
-
-                additional_decls
-                    << "#line " << it->get_line() << " \"" << it->get_file() << "\"\n"
-                    << real_type.get_declaration(it2->get_scope(), ss.str()) << " = " << current_expr << ";"
-                    ;
-
-                new_arguments.append_with_separator(ss.str(), ",");
-                firstprivate_args.append_with_separator(ss.str(), ",");
-
-                i++;
-            }
-
-            if (!firstprivate_args.empty())
-            {
-                arg_clauses << " firstprivate(" << firstprivate_args << ")"
-                    ;
+                new_arguments.append_with_separator(current_expr.prettyprint(), ",");
             }
 
             ObjectList<FunctionTaskInfo::implementation_pair_t> implemented_tasks = task_info.get_devices_with_implementation();
