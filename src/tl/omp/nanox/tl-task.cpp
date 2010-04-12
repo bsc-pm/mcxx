@@ -232,13 +232,10 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             dependency_flags << "}"
                     ;
 
-            Expression dependency_expression = it->get_dependency_expression();
-            Type size_type = it->get_dependency_expression().get_type();
+            DataReference dependency_expression = it->get_dependency_expression();
 
             Source dep_size;
-            dep_size
-                << "sizeof(" << size_type.get_declaration(ctr.get_scope(), "") << ")"
-                ;
+            dep_size << dependency_expression.get_sizeof();
 
             Source dependency_offset, imm_dependency_offset;
 
