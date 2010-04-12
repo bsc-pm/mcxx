@@ -141,6 +141,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
     }
     else if (expr.is_unary_operation())
     {
+        // Simplify &(*a)
         if (expr.get_operation_kind() == Expression::REFERENCE)
         {
             Expression ref_expr = expr.get_unary_operand();
@@ -154,6 +155,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                         enclosing_is_array);
             }
         }
+        // Simplify &(*a)
         else if (expr.get_operation_kind() == Expression::DERREFERENCE)
         {
             Expression ref_expr = expr.get_unary_operand();
@@ -176,7 +178,7 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
             }
         }
 
-        return true;
+        return false;
     }
     else if (expr.is_shaping_expression())
     {
