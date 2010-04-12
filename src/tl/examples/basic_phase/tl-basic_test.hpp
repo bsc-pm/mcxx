@@ -21,25 +21,22 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "tl-pragmasupport.hpp"
-#include "tl-traverse.hpp"
-#include "tl-langconstruct.hpp"
-#include "tl-ast.hpp"
+#ifndef TL_BASIC_TEST_HPP
+#define TL_BASIC_TEST_HPP
+
+#include "tl-compilerphase.hpp"
 
 namespace TL
 {
-    class TraverseDecls : public CompilerPhase
+    class BasicTestPhase : public TL::CompilerPhase
     {
+        private:
         public:
-            void pre_run(DTO& dto) { }
-
-            void run(DTO& dto)
-            {
-                AST_t ast = dto["translation_unit"];
-                ScopeLink scope_link = dto["scope_link"];
-
-            }
+            BasicTestPhase();
+            ~BasicTestPhase();
+            virtual void run(TL::DTO& dto);
+            virtual void pre_run(TL::DTO& dto);
     };
 }
 
-EXPORT_PHASE(TL::TraverseDecls);
+#endif // TL_BASIC_TEST_HPP

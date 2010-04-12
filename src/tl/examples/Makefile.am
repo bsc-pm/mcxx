@@ -23,12 +23,13 @@
 
 SUBDIRS = multifile_test
 
+EXTRA_DIST=README
+
 END=
 
 DIST_SUBDIRS = \
-               basic_test \
+               basic_phase \
                multifile_test \
                mypragma \
                decl_closure \
-               declarations \
                $(END)
