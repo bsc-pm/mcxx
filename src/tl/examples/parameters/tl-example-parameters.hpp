@@ -21,36 +21,26 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "tl-basic_test.hpp"
-#include "tl-ast.hpp"
-#include "tl-scopelink.hpp"
-#include "tl-source.hpp"
-#include <iostream>
+#ifndef TL_EXAMPLE_PARAMETERS_HPP
+#define TL_EXAMPLE_PARAMETERS_HPP
+
+#include "tl-compilerphase.hpp"
 
 namespace TL
 {
-    BasicTestPhase::BasicTestPhase()
+    class ExampleParameters : public TL::CompilerPhase
     {
-        set_phase_name("Basic Test");
-        set_phase_description("This is a basic phase test which does nothing but printing some messages");
+        private:
+            std::string _parameter_1_value;
+            std::string _parameter_2_value;
 
-        std::cerr << "Basic test phase created" << std::endl;
-    }
-
-    BasicTestPhase::~BasicTestPhase()
-    {
-        std::cerr << "Basic test phase destroyed" << std::endl;
-    }
-
-    void BasicTestPhase::pre_run(TL::DTO& dto)
-    {
-        std::cerr << "Basic test phase pre_run" << std::endl;
-    }
-
-    void BasicTestPhase::run(TL::DTO& dto)
-    {
-        std::cerr << "Basic test phase run" << std::endl;
-    }
+            void check_param2(const std::string& str);
+        public:
+            ExampleParameters();
+            ~ExampleParameters();
+            virtual void run(TL::DTO& dto);
+            virtual void pre_run(TL::DTO& dto);
+    };
 }
 
-EXPORT_PHASE(TL::BasicTestPhase);
+#endif // TL_EXAMPLE_PARAMETERS_HPP

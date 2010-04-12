@@ -1,10 +1,9 @@
 Basic Phase
 ===========
 
-NOTE: Examples are only built if the compiler is configured with --enable-tl-examples
-
 This example shows the skeleton of a phase. This phase does nothing but print
-messages when it is loaded, pre_run, run and unloaded.
+messages when it is loaded, pre_run, run and unloaded. It also describes itself
+as a 'Basic phase which does nothing'.
 
 This phase can be used as a starting point for a generic phase. Remember that
 any compiler phase must inherit from CompilerPhase and export the fully
@@ -50,6 +49,15 @@ name has been replaced by a '_').
 'Makefile.phases' is inside '$(top_srcdir)/src/tl'. It is ok to have a deeper nest
 of phases, just add more '../' to the 'include' line above.
 
+A phase can describe itself using set_phase_name and set_phase_description. This
+information is used by the driver when --help is requested. This must be done in the
+constructor of the phase.
+
+-- tl-basic_test.cpp --
+ set_phase_name("Basic Test");
+ set_phase_description("This is a basic phase test which does nothing but printing some messages");
+--
+
 Testing
 -------
 
@@ -60,8 +68,35 @@ for instance "plaincc" to include a line like
 
 And every time you run the compiler you should see the following messages
 
- $ ./plaincc -c prova.c
+--
+ $ plaincc -c test.c
  Basic test phase created
  Basic test phase pre_run
  Basic test phase run
  Basic test phase destroyed
+-- 
+
+If you run help you will see the following text at the end
+
+--
+ $ plaincc --help
+ [... Lots of help text ommitted...]
+ Basic test phase created
+ 
+ Loaded compiler phases in this profile (in the order they will be run)
+ 
+ Phase: Basic Test
+ 
+    This is a basic phase test which does nothing but printing some messages
+ 
+    No parameters registered by the phase
+--
+
+Note that the message 'Basic test phase created' appears in the middle of the
+help because our example phase prints such message when being loaded (yours will
+probably not do this)
+
+In the example 'parameters' you will see how to register parameters in the
+phase which can be passed as command line flags. This phase has none, as the
+help message states.
+

@@ -21,16 +21,21 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
+
 EXTRA_DIST=README
 
-END=
+include ../../Makefile.phases
 
-DIST_SUBDIRS = \
-               basic_phase \
-               parameters \
-               multifile_test \
-               mypragma \
-               decl_closure \
-               $(END)
+phases_LTLIBRARIES = libtl_example_parameters.la
 
-SUBDIRS = $(DIST_SUBDIRS)
+COMMON_CFLAGS= -Wall $(tl_cflags)
+
+libtl_example_parameters_la_CXXFLAGS = $(COMMON_CFLAGS)
+
+libtl_example_parameters_la_SOURCES = \
+						tl-example-parameters.hpp \
+						tl-example-parameters.cpp
+
+
+libtl_example_parameters_la_LIBADD = $(tl_libadd)
+libtl_example_parameters_la_LDFLAGS = $(tl_ldflags)
