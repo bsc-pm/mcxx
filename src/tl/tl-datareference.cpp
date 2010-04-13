@@ -234,8 +234,8 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                     type = type.array_element();
                 }
 
-                size << "sizeof(" << type.get_declaration(expr.get_scope(), "") << ")";
-                addr << "(" << expr << ")";
+                size << "sizeof(" << type.get_declaration(ref_expr.get_scope(), "") << ")";
+                addr << "(" << ref_expr << ")";
 
                 return true;
             }
