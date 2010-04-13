@@ -213,8 +213,8 @@ namespace TL
 
                     while (_data_env_items.contains(functor(&DataEnvironItem::get_field_name), ss.str()))
                     {
-                        ss.clear();
-                        ss  << sym.get_name() << "_" << n++;
+                        ss.str("");
+                        ss << sym.get_name() << "_" << n++;
                     }
 
                     return ss.str();
