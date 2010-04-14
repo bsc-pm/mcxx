@@ -67,8 +67,6 @@ static void do_smp_numa_outline_replacements(
         Symbol sym = data_ref.get_base_symbol();
         Type type = data_ref.get_data_type();
 
-        std::cerr << "TYPE->" <<  type.get_declaration(sc, "") << "<-" << std::endl;
-
         if (type.is_array())
         {
             type = type.array_element().get_pointer_to();
