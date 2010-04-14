@@ -939,6 +939,8 @@ dnl in the prettyprinter
 AC_CHECK_FUNC([open_memstream],
         AC_DEFINE([HAVE_OPEN_MEMSTREAM], 1, [Define to 1 if open_memstream is available]))
 
+AC_SEARCH_LIBS([mallinfo], [malloc], AC_DEFINE([HAVE_MALLINFO], 1, [Define to 1 if mallinfo is available]))
+
 dnl Versioning things
 build_version=""
 if test -d $srcdir/.git;

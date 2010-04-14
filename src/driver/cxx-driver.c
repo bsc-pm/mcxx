@@ -3140,7 +3140,7 @@ static void compute_tree_breakdown(AST a, int breakdown[MAX_AST_CHILDREN + 1], i
 
 static void print_memory_report(void)
 {
-#ifndef WIN32_BUILD
+#ifdef HAVE_MALLINFO
     char c[256];
 
     struct mallinfo mallinfo_report = mallinfo();
@@ -3295,7 +3295,7 @@ static void print_memory_report(void)
 
     fprintf(stderr, "\n");
 #else
-    fprintf(stderr, "Memory statistics are not implemented in Windows\n");
+    fprintf(stderr, "Memory statistics are not available in this environment\n");
 #endif
 }
 
