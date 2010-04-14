@@ -31,6 +31,7 @@
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
   #include <sys/wait.h>
   #include <libgen.h>
+  #include <limits.h>
 #else
   #include <windows.h>
 #endif
@@ -739,56 +740,26 @@ char move_file(const char* source, const char* dest)
 }
 
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
-// This function is Linux only!
-// Note: cygwin also provides a useful /proc (amazing!)
-static char* getexename(char* buf, size_t size)
+static const char* find_home_unix(const char* progname)
 {
-	char linkname[64]; /* /proc/<pid>/exe */
-	pid_t pid;
-	int ret;
-	
-	/* Get our PID and build the name of the link in /proc */
-	pid = getpid();
-	
-	if (snprintf(linkname, sizeof(linkname), "/proc/%i/exe", pid) < 0)
-		{
-		/* This should only happen on large word systems. I'm not sure
-		   what the proper response is here.
-		   Since it really is an assert-like condition, aborting the
-		   program seems to be in order. */
-		abort();
-		}
+    int path_max = 0;
+#ifdef PATH_MAX
+    path_max = PATH_MAX;
+#else
+    path_max = pathconf(path, _PC_PATH_MAX);
+    if (path_max <= 0)
+        path_max = 4096;
+#endif
 
-	
-	/* Now read the symbolic link */
-	ret = readlink(linkname, buf, size);
-	
-	/* In case of an error, leave the handling up to the caller */
-	if (ret == -1)
-		return NULL;
-	
-	/* Report insufficient buffer size */
-	if (ret >= size)
-		{
-		errno = ERANGE;
-		return NULL;
-		}
-	
-	/* Ensure proper NUL termination */
-	buf[ret] = 0;
-	
-	return buf;
-}
+    char* c = malloc(path_max * sizeof(char));
 
-static const char* find_home_linux(void)
-{
-    char c[1024];
-    if (getexename(c, sizeof(c)) == NULL)
-    {
-        internal_error("Error when running getexename = %s\n", strerror(errno));
-    }
+    realpath(progname, c);
 
-    return uniquestr(dirname(c));
+    const char* res = uniquestr(dirname(c));
+
+    free(c);
+
+    return res;
 }
 
 #else 
@@ -810,10 +781,10 @@ static const char* find_home_win32(void)
 }
 #endif
 
-const char* find_home(void)
+const char* find_home(const char* progname)
 {
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
-    return find_home_linux();
+    return find_home_unix(progname);
 #else
     return find_home_win32();
 #endif

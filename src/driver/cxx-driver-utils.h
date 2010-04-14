@@ -98,6 +98,6 @@ void mark_file_for_cleanup(const char* name);
 void mark_dir_for_cleanup(const char* name);
 
 // Find the path where the application runs
-const char* find_home(void);
+const char* find_home(const char* progname);
 
 #endif // CXX_DRIVERUTILS_H

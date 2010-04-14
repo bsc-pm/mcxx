@@ -461,7 +461,7 @@ static void driver_initialization(int argc, const char* argv[])
     compilation_process.exec_basename = give_basename(argv[0]);
 
     // Find my own directory
-    compilation_process.home_directory = find_home();
+    compilation_process.home_directory = find_home(argv[0]);
 }
 
 static void help_message(void)
@@ -3140,7 +3140,7 @@ static void compute_tree_breakdown(AST a, int breakdown[MAX_AST_CHILDREN + 1], i
 
 static void print_memory_report(void)
 {
-#ifndef WIN32_BUILD
+#ifdef HAVE_MALLINFO
     char c[256];
 
     struct mallinfo mallinfo_report = mallinfo();
@@ -3295,7 +3295,7 @@ static void print_memory_report(void)
 
     fprintf(stderr, "\n");
 #else
-    fprintf(stderr, "Memory statistics are not implemented in Windows\n");
+    fprintf(stderr, "Memory statistics are not available in this environment\n");
 #endif
 }
 
