@@ -3154,10 +3154,10 @@ static void print_memory_report(void)
     fprintf(stderr, " - Total size of memory allocated with sbrk: %s\n",
             c);
 
-    fprintf(stderr, " - Number of chunks not in use: %d\n",
-            mallinfo_report.ordblks);
-    fprintf(stderr, " - Number of chunks allocated with mmap: %d\n",
-            mallinfo_report.hblks);
+    fprintf(stderr, " - Number of chunks not in use: %lu\n",
+            (unsigned long)mallinfo_report.ordblks);
+    fprintf(stderr, " - Number of chunks allocated with mmap: %lu\n",
+            (unsigned long)mallinfo_report.hblks);
 
     print_human(c, mallinfo_report.hblkhd);
     fprintf(stderr, " - Total size allocated with mmap: %s\n",

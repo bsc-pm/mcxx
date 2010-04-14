@@ -603,9 +603,9 @@ void run_gdb(void)
     else if (son == 0)
     {
         char dump_name[256];
-        snprintf(dump_name, 255, "%s_%ld.backtrace.txt", 
+        snprintf(dump_name, 255, "%s_%lu.backtrace.txt", 
                 give_basename(compilation_process.argv[0]),
-                (long)getppid());
+                (unsigned long)getppid());
         dump_name[255] = '\0';
 
         FILE* output_dump = fopen(dump_name, "w");
@@ -627,7 +627,7 @@ void run_gdb(void)
             }
 
             char pid[16];
-            snprintf(pid, 15, "%ld", (long)getppid());
+            snprintf(pid, 15, "%lu", (unsigned long)getppid());
             pid[15] = '\0';
 
             char *program_path = strdup(compilation_process.argv[0]);
