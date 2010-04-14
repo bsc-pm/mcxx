@@ -742,6 +742,8 @@ char move_file(const char* source, const char* dest)
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
 static const char* find_home_unix(const char* progname)
 {
+    const char* res = NULL;
+
     int path_max = 0;
 #ifdef PATH_MAX
     path_max = PATH_MAX;
@@ -750,12 +752,44 @@ static const char* find_home_unix(const char* progname)
     if (path_max <= 0)
         path_max = 4096;
 #endif
-
     char* c = malloc(path_max * sizeof(char));
 
-    realpath(progname, c);
+    if (strchr(progname, '/') == NULL)
+    {
+        char found = 0;
+        // Use PATH to find ourselves
+        char* path_env = strdup(getenv("PATH"));
 
-    const char* res = uniquestr(dirname(c));
+        char *current_dir = strtok(path_env, ":");
+
+        while (current_dir != NULL)
+        {
+            snprintf(c, path_max - 1, "%s/%s", current_dir, progname);
+            c[path_max - 1] = '\0';
+            errno = 0;
+            struct stat buf;
+            if (stat(c, &buf) == 0)
+            {
+                found = 1;
+                break;
+            }
+
+            current_dir = strtok(NULL, ":");
+        }
+
+        free(path_env);
+
+        if (!found)
+        {
+            running_error("Could not find where '%s' is located\n", progname);
+        }
+    }
+    else
+    {
+        realpath(progname, c);
+    }
+
+    res = uniquestr(dirname(c));
 
     free(c);
 
