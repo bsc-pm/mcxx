@@ -461,7 +461,7 @@ static void driver_initialization(int argc, const char* argv[])
     compilation_process.exec_basename = give_basename(argv[0]);
 
     // Find my own directory
-    compilation_process.home_directory = find_home();
+    compilation_process.home_directory = find_home(argv[0]);
 }
 
 static void help_message(void)
