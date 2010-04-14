@@ -87,7 +87,7 @@ void FunctionExtension::do_extension()
         is_const_extension = _extension_amount != NULL && _extension_amount->is_constant();
         if (!is_const_extension)
         {
-            extended_args << Type::get_int_type().get_declaration(_function_symbol.get_scope(), "_N");
+            extended_args << Type::get_int_type().get_declaration(_function_symbol.get_scope(), "N_");
         }
         else
         {
@@ -109,11 +109,11 @@ void FunctionExtension::do_extension()
             AST_t placeholder;
             Source fake_context;
             fake_context
-                << "{ int _N; " << statement_placeholder(placeholder) << "}";
+                << "{ int N_; " << statement_placeholder(placeholder) << "}";
 
             fake_context.parse_statement(function_body.get_ast(), function_body.get_scope_link());
 
-            fake_dim_expr = new Expression(Source("_N").parse_expression(placeholder, function_body.get_scope_link()),
+            fake_dim_expr = new Expression(Source("N_").parse_expression(placeholder, function_body.get_scope_link()),
                     function_body.get_scope_link());
 
             fake_dim_expr_sc = function_body.get_scope_link().get_scope(placeholder);
@@ -157,7 +157,7 @@ void FunctionExtension::do_extension()
         }
         else
         {
-            upper_ext << "_N";
+            upper_ext << "N_";
         }
 
         Source replaced_body;
