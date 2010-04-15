@@ -132,6 +132,7 @@ namespace TL
             _already_registered = true;
         }
 
+#if 0
         void Core::get_clause_symbols(PragmaCustomClause clause, ObjectList<Symbol>& sym_list)
         {
             ObjectList<IdExpression> id_expr_list;
@@ -155,7 +156,36 @@ namespace TL
                 }
             }
         }
+#endif
 
+        void Core::get_clause_symbols(PragmaCustomClause clause, 
+                ObjectList<DataReference>& data_ref_list,
+                bool allow_extended_references)
+        {
+            ObjectList<Expression> expr_list;
+            if (clause.is_defined())
+            {
+                expr_list = clause.get_expression_list();
+
+                for (ObjectList<Expression>::iterator it = expr_list.begin();
+                        it != expr_list.end(); 
+                        it++)
+                {
+                    DataReference data_ref(*it);
+
+                    if (!data_ref.is_valid()
+                            || (!allow_extended_references && !it->is_id_expression()))
+                    {
+                        std::cerr << data_ref.get_ast().get_locus() << ": warning: '" << data_ref 
+                            << "' is not a valid name for data sharing" << std::endl;
+                    }
+                    else
+                    {
+                        data_ref_list.append(data_ref);
+                    }
+                }
+            }
+        }
 
         void Core::get_reduction_symbols(
                 PragmaCustomConstruct construct,
@@ -356,9 +386,18 @@ namespace TL
                     : _data_sharing(data_sharing),
                     _data_attrib(data_attrib) { }
 
-                void operator()(Symbol s)
+                void operator()(DataReference data_ref)
                 {
-                    _data_sharing.set(s, _data_attrib);
+                    Symbol sym = data_ref.get_base_symbol();
+
+                    if (data_ref.is_id_expression())
+                    {
+                        _data_sharing.set(sym, _data_attrib);
+                    }
+                    else
+                    {
+                        _data_sharing.set(sym, _data_attrib, data_ref);
+                    }
                 }
         };
 
@@ -382,22 +421,26 @@ namespace TL
         void Core::get_data_explicit_attributes(PragmaCustomConstruct construct, 
                 DataSharingEnvironment& data_sharing)
         {
-            ObjectList<Symbol> shared_references;
+            ObjectList<DataReference> shared_references;
             get_clause_symbols(construct.get_clause("shared"), shared_references);
             std::for_each(shared_references.begin(), shared_references.end(), 
                     DataSharingEnvironmentSetter(data_sharing, DS_SHARED));
 
-            ObjectList<Symbol> private_references;
+            ObjectList<DataReference> private_references;
             get_clause_symbols(construct.get_clause("private"), private_references);
             std::for_each(private_references.begin(), private_references.end(), 
                     DataSharingEnvironmentSetter(data_sharing, DS_PRIVATE));
 
-            ObjectList<Symbol> firstprivate_references;
-            get_clause_symbols(construct.get_clause("firstprivate"), firstprivate_references);
+            ObjectList<DataReference> firstprivate_references;
+            get_clause_symbols(construct.get_clause("firstprivate"), 
+                    firstprivate_references,
+                    // We allow extended references _ONLY_ for firstprivate at
+                    // the time being
+                    /* allow_extended_references */ true);
             std::for_each(firstprivate_references.begin(), firstprivate_references.end(), 
                     DataSharingEnvironmentSetter(data_sharing, DS_FIRSTPRIVATE));
 
-            ObjectList<Symbol> lastprivate_references;
+            ObjectList<DataReference> lastprivate_references;
             get_clause_symbols(construct.get_clause("lastprivate"), lastprivate_references);
             std::for_each(lastprivate_references.begin(), lastprivate_references.end(), 
                     DataSharingEnvironmentSetter(data_sharing, DS_LASTPRIVATE));
@@ -407,12 +450,12 @@ namespace TL
             std::for_each(reduction_references.begin(), reduction_references.end(), 
                     DataSharingEnvironmentSetterReduction(data_sharing, DS_REDUCTION));
 
-            ObjectList<Symbol> copyin_references;
+            ObjectList<DataReference> copyin_references;
             get_clause_symbols(construct.get_clause("copyin"), copyin_references);
             std::for_each(copyin_references.begin(), copyin_references.end(), 
                     DataSharingEnvironmentSetter(data_sharing, DS_COPYIN));
 
-            ObjectList<Symbol> copyprivate_references;
+            ObjectList<DataReference> copyprivate_references;
             get_clause_symbols(construct.get_clause("copyprivate"), copyprivate_references);
             std::for_each(copyprivate_references.begin(), copyprivate_references.end(), 
                     DataSharingEnvironmentSetter(data_sharing, DS_COPYPRIVATE));
