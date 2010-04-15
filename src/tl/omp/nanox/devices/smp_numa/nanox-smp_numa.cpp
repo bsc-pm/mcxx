@@ -65,7 +65,7 @@ static void do_smp_numa_outline_replacements(
     {
         DataReference data_ref = it->get_copy_expression();
         Symbol sym = data_ref.get_base_symbol();
-        Type type = data_ref.get_data_type();
+        Type type = sym.get_type();
 
         if (type.is_array())
         {
@@ -102,8 +102,7 @@ static void do_smp_numa_outline_replacements(
         replace_src.add_replacement(sym, "(*" + copy_name + ")");
 
         // No replacement for these cases
-        if (sym.get_type().is_pointer()
-                || sym.get_type().is_array())
+        if (sym.get_type().is_array())
         {
             replace_src.add_replacement(sym, copy_name);
         }
