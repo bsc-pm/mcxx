@@ -440,16 +440,15 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
             Source copy_sharing;
             bool is_shared = false;
-            if ((data_attr & OpenMP::DS_SHARED) == OpenMP::DS_SHARED)
+            if (it->get_kind() == OpenMP::COPY_DIR_IN)
+            {
+                copy_sharing << "NANOS_PRIVATE";
+            }
+            else 
             {
                 copy_sharing << "NANOS_SHARED";
                 is_shared = true;
             }
-            else if ((data_attr & OpenMP::DS_PRIVATE) == OpenMP::DS_PRIVATE)
-            {
-                copy_sharing << "NANOS_PRIVATE";
-            }
-            else internal_error("Unhandled data sharing", 0);
 
             struct {
                 Source *source;
