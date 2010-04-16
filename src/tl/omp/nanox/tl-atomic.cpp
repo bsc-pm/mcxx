@@ -103,8 +103,7 @@ static bool allowed_expressions_critical(Expression expr, bool &using_builtin)
             return false;
 
         using_builtin =
-            is_lvalue
-            && lhs_is_integral 
+            lhs_is_integral 
             && (op_kind == Expression::ADDITION // x += y
                     || op_kind == Expression::SUBSTRACTION  // x -= y
                     || op_kind == Expression::BITWISE_AND  // x &= y
@@ -315,8 +314,12 @@ static AST_t builtin_atomic_int_op(PragmaCustomConstruct atomic_construct, Expre
         }
 
         critical_source
+            << "{"
+            << expr.get_second_operand().get_type().get_declaration(expr.get_scope(), "__tmp") 
+            << "=" << expr.get_second_operand().prettyprint() << ";"
             << intrinsic_function_name 
-            << "(&(" << expr.get_first_operand() << ")," << expr.get_second_operand() << ");"
+            << "(&(" << expr.get_first_operand() << "), __tmp);"
+            << "}"
             ;
     }
 
