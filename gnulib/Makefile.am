@@ -21,8 +21,14 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = gnulib lib src config tests scripts
+EXTRA_DIST= tempname.c \
+     tempname.h \
+     mkdtemp.c \
+     $(END)
 
-DIST_SUBDIRS = $(SUBDIRS) doc
+noinst_LTLIBRARIES=libgnulib.la
 
-ACLOCAL_AMFLAGS=-I m4
+libgnulib_la_SOURCES = \
+                       dummy.c
+
+libgnulib_la_LIBADD=$(LTLIBOBJS)
