@@ -74,6 +74,7 @@ mcxx_SOURCES = \
   $(END)
 
 mcxx_LDADD = \
+   $(top_builddir)/gnulib/libgnulib.la \
    $(top_builddir)/lib/libmcxx-utils.la \
    $(top_builddir)/lib/libmcxx-extstruct.la \
    $(top_builddir)/src/frontend/libmcxx-process.la \
@@ -196,6 +197,7 @@ mcxx_embedder_SOURCES = \
                         $(END)
 
 mcxx_embedder_LDADD = \
+   $(top_builddir)/gnulib/libgnulib.la \
    $(top_builddir)/lib/libmcxx-utils.la \
    $(top_builddir)/src/frontend/libmcxx-process.la \
    $(END)

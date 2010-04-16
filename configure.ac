@@ -941,6 +941,18 @@ AC_CHECK_FUNC([open_memstream],
 
 AC_SEARCH_LIBS([mallinfo], [malloc], AC_DEFINE([HAVE_MALLINFO], 1, [Define to 1 if mallinfo is available]))
 
+AC_CONFIG_LIBOBJ_DIR([gnulib])
+
+AC_CHECK_FUNC([mkdtemp], 
+        [
+        AC_DEFINE([HAVE_MKDTEMP], 1, [Define to 1 if mkdtemp is available])
+        ],
+        [
+        AC_LIBOBJ([tempname])
+        AC_LIBOBJ([mkdtemp])
+        ]
+        )
+
 dnl Versioning things
 build_version=""
 if test -d $srcdir/.git;
@@ -970,6 +982,7 @@ AC_SUBST([INSTALL_CONFIG_FILES])
 
 dnl Write makefiles
 AC_CONFIG_FILES([Makefile 
+           gnulib/Makefile
            lib/Makefile
            src/Makefile 
            src/driver/Makefile 
