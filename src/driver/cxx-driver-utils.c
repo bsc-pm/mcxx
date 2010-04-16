@@ -43,6 +43,11 @@
 #include "uniquestr.h"
 #include "filename.h"
 
+#ifndef HAVE_MKDTEMP
+// For those systems lacking mkdtemp
+extern char* mkdtemp (char *xtemplate);
+#endif
+
 typedef struct temporal_file_list_tag
 {
     temporal_file_t info;

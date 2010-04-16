@@ -43,6 +43,7 @@
   #define DIR_CONFIG_RELATIVE_PATH DIR_SEPARATOR".."DIR_SEPARATOR".."DIR_SEPARATOR"share"DIR_SEPARATOR"mcxx"DIR_SEPARATOR"config.d"
 #endif
 
+
 // Temporal handling routines
 typedef struct 
 {
