@@ -532,9 +532,8 @@ namespace TL
                     return node;
                     break;
                 }
-            default:
-                return NULL;
         }
+        return NULL;
     }
 
 
