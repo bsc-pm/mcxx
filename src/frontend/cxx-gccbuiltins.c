@@ -2027,21 +2027,22 @@ static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overl
             type_t* argument_type = arguments[j];
             type_t* parameter_type = function_type_get_parameter_type_num(current_function_type, j);
 
-            standard_conversion_t scs;
-
-            if (all_arguments_matched)
+            if (is_pointer_type(argument_type)
+                    && is_pointer_type(parameter_type))
             {
-                if (is_pointer_type(argument_type)
-                        && is_pointer_type(parameter_type))
-                {
-                    // Do not rely on standard conversion between types because
-                    // it allows too many conversions in C
-                    all_arguments_matched = pointer_types_can_be_converted(argument_type, parameter_type);
-                }
-                else
-                {
-                    all_arguments_matched = standard_conversion_between_types(&scs, argument_type, parameter_type);
-                }
+                // Use sizes instead of types
+                argument_type = pointer_type_get_pointee_type(argument_type);
+                parameter_type = pointer_type_get_pointee_type(parameter_type);
+
+                all_arguments_matched = is_integral_type(argument_type)
+                    && is_integral_type(parameter_type)
+                    && (type_get_size(argument_type) == type_get_size(parameter_type));
+            }
+            else
+            {
+                // Allow conversions here
+                standard_conversion_t scs;
+                all_arguments_matched = standard_conversion_between_types(&scs, argument_type, parameter_type);
             }
         }
 
@@ -2055,6 +2056,15 @@ static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overl
             }
             result = current_entry;
             found_match = 1;
+        }
+        else
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "GCC-BUILTIN: Builtin '%s' of type '%s' DOES NOT match!\n",
+                        current_entry->symbol_name,
+                        print_declarator(current_function_type));
+            }
         }
 
         current_bit_size = 2*current_bit_size;
