@@ -21,18 +21,21 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
+
+EXTRA_DIST=README
+
 include ../../Makefile.phases
 
-phases_LTLIBRARIES = libtltraversedecls.la
+phases_LTLIBRARIES = libtl_example_parameters.la
 
-libtltraversedecls_la_SOURCES = \
-	tl-traversedecls.cpp
+COMMON_CFLAGS= -Wall $(tl_cflags)
 
-libtltraversedecls_la_LDFLAGS = $(tl_ldflags)
-libtltraversedecls_la_LIBADD = $(tl_libadd)
+libtl_example_parameters_la_CXXFLAGS = $(COMMON_CFLAGS)
 
-libtltraversedecls_la_CFLAGS = -Wall \
-                               $(tl_cflags)
+libtl_example_parameters_la_SOURCES = \
+						tl-example-parameters.hpp \
+						tl-example-parameters.cpp
 
-libtltraversedecls_la_CXXFLAGS = -Wall \
-                               $(tl_cxxflags)
+
+libtl_example_parameters_la_LIBADD = $(tl_libadd)
+libtl_example_parameters_la_LDFLAGS = $(tl_ldflags)

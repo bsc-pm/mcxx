@@ -31,22 +31,20 @@ namespace TL
 {
     BasicTestPhase::BasicTestPhase()
     {
+        set_phase_name("Basic Test");
+        set_phase_description("This is a basic phase test which does nothing but printing some messages");
+
         std::cerr << "Basic test phase created" << std::endl;
+    }
+
+    BasicTestPhase::~BasicTestPhase()
+    {
+        std::cerr << "Basic test phase destroyed" << std::endl;
     }
 
     void BasicTestPhase::pre_run(TL::DTO& dto)
     {
         std::cerr << "Basic test phase pre_run" << std::endl;
-
-        AST_t ast = dto["translation_unit"];
-        ScopeLink sl = dto["scope_link"];
-
-        Source src;
-
-        src << "extern void f(int n);"
-            ;
-
-        src.parse_global(ast, sl);
     }
 
     void BasicTestPhase::run(TL::DTO& dto)

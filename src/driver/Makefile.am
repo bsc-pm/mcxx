@@ -74,6 +74,7 @@ mcxx_SOURCES = \
   $(END)
 
 mcxx_LDADD = \
+   $(top_builddir)/gnulib/libgnulib.la \
    $(top_builddir)/lib/libmcxx-utils.la \
    $(top_builddir)/lib/libmcxx-extstruct.la \
    $(top_builddir)/src/frontend/libmcxx-process.la \
@@ -86,10 +87,10 @@ if WINDOWS_BUILD
 else
 # '$$ORIGIN' is a relocatable hint to GNU ld
 mcxx_LDFLAGS = \
-    -Wl,-rpath,$(libdir) \
-    -Wl,-rpath,$(pkglibdir) \
-    -Wl,-rpath,'$$ORIGIN'/../lib \
-    -Wl,-rpath,'$$ORIGIN'/../lib/mcxx \
+    -Wl,-R,$(libdir) \
+    -Wl,-R,$(pkglibdir) \
+    -Wl,-R,'$$ORIGIN'/../lib \
+    -Wl,-R,'$$ORIGIN'/../lib/mcxx \
     $(END)
 endif
 
@@ -196,10 +197,11 @@ mcxx_embedder_SOURCES = \
                         $(END)
 
 mcxx_embedder_LDADD = \
+   $(top_builddir)/gnulib/libgnulib.la \
    $(top_builddir)/lib/libmcxx-utils.la \
    $(top_builddir)/src/frontend/libmcxx-process.la \
    $(END)
 
 mcxx_embedder_LDFLAGS = \
-    -Wl,-rpath,'$$ORIGIN'/../lib \
+    -Wl,-R,'$$ORIGIN'/../lib \
     $(END)

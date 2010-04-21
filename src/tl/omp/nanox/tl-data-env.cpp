@@ -409,14 +409,14 @@ namespace TL
 
             data_env_info.add_copy_item(*it);
 
-            if (is_private && it->get_kind() != OpenMP::COPY_DIR_IN)
-            {
-                std::cerr 
-                    << expr.get_ast().get_locus()
-                    << ": warning: copy out of data-reference '" << expr.prettyprint() 
-                    << "' will have no effect since the related variable is private"
-                    << std::endl;
-            }
+            // if (is_private && it->get_kind() != OpenMP::COPY_DIR_IN)
+            // {
+            //     std::cerr 
+            //         << expr.get_ast().get_locus()
+            //         << ": warning: copy out of data-reference '" << expr.prettyprint() 
+            //         << "' will have no effect since the related variable is private"
+            //         << std::endl;
+            // }
         }
     }
 
@@ -483,7 +483,7 @@ namespace TL
             }
 
             struct_fields
-                << data_env_item.get_type().get_declaration(sc, data_env_item.get_field_name()) << ";"
+                << data_env_item.get_type().get_unqualified_type().get_declaration(sc, data_env_item.get_field_name()) << ";"
                 ;
         }
     }

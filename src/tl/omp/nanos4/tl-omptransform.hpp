@@ -284,6 +284,7 @@ namespace TL
                         );
 
                 AST_t get_outline_task(
+                        OpenMP::DataSharingEnvironment &data_sharing,
                         PragmaCustomConstruct &construct,
                         FunctionDefinition function_definition,
                         Source outlined_function_name,
@@ -456,6 +457,7 @@ namespace TL
 #endif
 
                 Source task_get_spawn_code(
+                        OpenMP::DataSharingEnvironment& data_sharing,
                         ObjectList<ParameterInfo> &parameter_info_list,
                         FunctionDefinition &function_definition,
                         PragmaCustomConstruct &task_construct,

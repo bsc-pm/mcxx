@@ -94,6 +94,9 @@ namespace TL
             if (task_construct.get_declaration().is_valid())
                 return;
 
+            OpenMP::DataSharingEnvironment &data_sharing 
+                = openmp_info->get_data_sharing(task_construct.get_ast());
+
             // Another parallel
             num_parallels++;
 
@@ -179,6 +182,20 @@ namespace TL
                     {
                         it->kind = ParameterInfo::BY_VALUE;
                     }
+
+                    if (data_sharing.is_extended_reference(it->symbol))
+                    {
+                        DataReference data_ref = data_sharing.get_extended_reference(it->symbol);
+
+                        if (data_ref.get_type().is_array())
+                        {
+                            it->type = data_ref.get_data_type();
+
+                            replace_references.add_replacement(it->symbol, it->parameter_name);
+                        }
+
+                        it->argument_name = data_ref.get_address();
+                    }
                 }
 
                 // Do not create outline if it is serialized
@@ -186,6 +203,7 @@ namespace TL
                 {
                     // Get the code of the outline
                     AST_t outline_code  = get_outline_task(
+                            data_sharing,
                             task_construct,
                             function_definition,
                             outlined_function_name, 
@@ -198,7 +216,9 @@ namespace TL
                     function_definition.get_ast().prepend_sibling_function(outline_code);
                 }
 
-                task_queueing = task_get_spawn_code(parameter_info_list,
+                task_queueing = task_get_spawn_code(
+                        data_sharing,
+                        parameter_info_list,
                         function_definition, 
                         task_construct,
                         construct_body,
@@ -219,6 +239,7 @@ namespace TL
         }
 
         Source OpenMPTransform::task_get_spawn_code(
+                OpenMP::DataSharingEnvironment &data_sharing,
                 ObjectList<ParameterInfo> &parameter_info_list,
                 FunctionDefinition &function_definition,
                 PragmaCustomConstruct &task_construct,
@@ -304,8 +325,21 @@ namespace TL
                 it->parameter_position = num_reference_args + num_value_args;
 
                 // Add the size in the vector
-                size_vector << ", sizeof(" << it->symbol.get_qualified_name(task_construct.get_scope()) << ")"
-                    ;
+                if (!data_sharing.is_extended_reference(it->symbol))
+                {
+                    size_vector << ", sizeof(" << it->symbol.get_qualified_name(task_construct.get_scope()) << ")"
+                        ;
+                }
+                else
+                {
+                    DataReference data_ref = data_sharing.get_extended_reference(it->symbol);
+                    size_vector << ", " << data_ref.get_sizeof()
+                        ;
+
+                    // Fix the argument name as set_replacements knows nothing
+                    // about DataReference
+                    it->argument_name = data_ref.get_address();
+                }
 
                 // A reference to the vector
                 Source vector_ref;
@@ -405,6 +439,16 @@ namespace TL
                     type = type.references_to();
                 }
 
+                bool mismatch_of_types = false;
+
+                if (data_sharing.is_extended_reference(sym))
+                {
+                    DataReference data_ref = data_sharing.get_extended_reference(sym);
+                    type = data_ref.get_type();
+
+                    mismatch_of_types = !data_ref.get_type().is_same_type(data_ref.get_data_type());
+                }
+
                 if (!type.is_array())
                 {
                     C_LANGUAGE()
@@ -461,19 +505,34 @@ namespace TL
                 }
                 else
                 {
-                    Source src_array_copy = array_copy(type, "cval_" + it->symbol.get_name(),
+                    std::string allocated_space_name = "cval_" + it->symbol.get_name();
+                    std::string data_name = allocated_space_name;
+                    Source additional_decl;
+                    if (mismatch_of_types)
+                    {
+                        allocated_space_name = "_cval_" + it->symbol.get_name();
+
+                        additional_decl
+                            << sym.get_type().get_declaration(task_construct.get_scope(), data_name) 
+                            << "= (" << sym.get_type().get_declaration(task_construct.get_scope(), "") << ") "<< allocated_space_name
+                            << ";"
+                            ;
+                    }
+
+                    Source src_array_copy = array_copy(type, allocated_space_name,
                             it->symbol.get_qualified_name(task_construct.get_scope()), 0);
 
                     fallback_capture_values
                         << type.get_declaration(task_construct.get_scope(),
-                                "cval_" + it->symbol.get_name())
+                                allocated_space_name)
                         << ";"
+                        << additional_decl
                         << src_array_copy
                         ;
-                    fallback_arguments.append_with_separator("cval_" + it->symbol.get_name(), ",");
+                    fallback_arguments.append_with_separator(data_name, ",");
                     serialized_arguments.append_with_separator(it->symbol.get_qualified_name(task_construct.get_scope()), ",");
 
-                    fallback_replacements.add_replacement(it->symbol, "cval_" + it->symbol.get_name());
+                    fallback_replacements.add_replacement(it->symbol, data_name);
                 }
             }
 
@@ -912,6 +971,7 @@ namespace TL
         }
 
         AST_t OpenMPTransform::get_outline_task(
+                OpenMP::DataSharingEnvironment &data_sharing,
                 PragmaCustomConstruct &construct,
                 FunctionDefinition function_definition,
                 Source outlined_function_name,

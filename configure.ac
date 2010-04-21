@@ -1,5 +1,5 @@
 dnl Package definition: name, version, mail
-AC_INIT([mcxx],[1.3.4],[rferrer@ac.upc.edu])
+AC_INIT([mcxx],[1.3.4.1],[rferrer@ac.upc.edu])
 
 dnl Where are we ?
 AC_CANONICAL_BUILD
@@ -705,7 +705,7 @@ then
      AC_MSG_NOTICE([You will need flex 2.5.4 or 2.5.3x if you intend to modify *.l files])
   else
     AC_MSG_CHECKING([flex version])
-    flex_ver=`$FLEX --version | head -n 1 | sed -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*\).*$/\1/'`
+    flex_ver=`$FLEX --version | head -n 1 | $SED -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*\).*$/\1/'`
     case x${flex_ver} in
       x2.5.4 | x2.5.3? )
        AC_MSG_RESULT([${flex_ver}, ok])
@@ -755,7 +755,7 @@ then
      AC_MSG_NOTICE([You will need bison-2.3-rofi if you intend to modify *.y and *.y.in files])
   else
     AC_MSG_CHECKING([bison version])
-    bison_ver=`$BISON --version | head -n 1 | sed -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*\(-rofi\)\?\).*$/\1/'`
+    bison_ver=`$BISON --version | head -n 1 | $SED -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*\(-rofi\)\?\).*$/\1/'`
     case x${bison_ver} in
        x2.@<:@0123@:>@-rofi)
           AC_MSG_RESULT([${bison_ver}, ok])
@@ -804,7 +804,7 @@ then
      AC_MSG_NOTICE([You will need gperf 3.0.x if you intend to modify *.gperf files])
   else
     AC_MSG_CHECKING([gperf version])
-    gperf_ver=`$GPERF --version | head -n 1 | sed -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*\).*$/\1/'`
+    gperf_ver=`$GPERF --version | head -n 1 | $SED -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*\).*$/\1/'`
     case x${gperf_ver} in
        x3.0.*)
        AC_MSG_RESULT(${gperf_ver}[, ok])
@@ -939,6 +939,20 @@ dnl in the prettyprinter
 AC_CHECK_FUNC([open_memstream],
         AC_DEFINE([HAVE_OPEN_MEMSTREAM], 1, [Define to 1 if open_memstream is available]))
 
+AC_SEARCH_LIBS([mallinfo], [malloc], AC_DEFINE([HAVE_MALLINFO], 1, [Define to 1 if mallinfo is available]))
+
+AC_CONFIG_LIBOBJ_DIR([gnulib])
+
+AC_CHECK_FUNC([mkdtemp], 
+        [
+        AC_DEFINE([HAVE_MKDTEMP], 1, [Define to 1 if mkdtemp is available])
+        ],
+        [
+        AC_LIBOBJ([tempname])
+        AC_LIBOBJ([mkdtemp])
+        ]
+        )
+
 dnl Versioning things
 build_version=""
 if test -d $srcdir/.git;
@@ -968,6 +982,7 @@ AC_SUBST([INSTALL_CONFIG_FILES])
 
 dnl Write makefiles
 AC_CONFIG_FILES([Makefile 
+           gnulib/Makefile
            lib/Makefile
            src/Makefile 
            src/driver/Makefile 
@@ -990,9 +1005,9 @@ AC_CONFIG_FILES([Makefile
            src/tl/testing/Makefile
            src/tl/testing/sizeof/Makefile
            src/tl/examples/Makefile
-           src/tl/examples/basic_test/Makefile
+           src/tl/examples/basic_phase/Makefile
+           src/tl/examples/parameters/Makefile
            src/tl/examples/mypragma/Makefile
-           src/tl/examples/declarations/Makefile
            src/tl/examples/decl_closure/Makefile
            src/tl/examples/multifile_test/Makefile
            src/tl/superscalar/Makefile

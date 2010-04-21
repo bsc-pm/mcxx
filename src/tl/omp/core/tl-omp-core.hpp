@@ -60,7 +60,9 @@ namespace TL
 
                 static bool _already_registered;
 
-                void get_clause_symbols(PragmaCustomClause clause, ObjectList<Symbol>& sym_list);
+                void get_clause_symbols(PragmaCustomClause clause, 
+                        ObjectList<DataReference>& sym_list, 
+                        bool allow_extended_references = false);
                 void get_reduction_symbols(PragmaCustomConstruct construct, 
                         PragmaCustomClause clause, ObjectList<ReductionSymbol>& sym_list);
                 void get_data_explicit_attributes(PragmaCustomConstruct construct, 

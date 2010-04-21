@@ -312,35 +312,34 @@ namespace OpenMP
                     target_clauses << "device(" << TL::concat_strings(device_list, ",") << ")";
                 }
 
-                if (target_info.has_copy_deps())
-                {
-                    target_clauses << "copy_deps";
-                }
-
                 ObjectList<CopyItem> copy_in = target_info.get_copy_in();
+                ObjectList<CopyItem> copy_out = target_info.get_copy_out();
+                ObjectList<CopyItem> copy_inout = target_info.get_copy_inout();
+
+                Source clause_in_args, clause_out_args, clause_inout_args;
 
                 struct
                 {
-                    ObjectList<CopyItem> (FunctionTaskTargetInfo::*pmf)() const;
+                    ObjectList<CopyItem> *list;
                     std::string clause_name;
+                    Source *clause_args;
                 } replace_copies[] = 
                 {
-                    { &FunctionTaskTargetInfo::get_copy_in,    "copy_in"    },
-                    { &FunctionTaskTargetInfo::get_copy_out,   "copy_out"   },
-                    { &FunctionTaskTargetInfo::get_copy_inout, "copy_inout" },
-                    NULL,
+                    { &copy_in,    "copy_in"    , &clause_in_args },
+                    { &copy_out,   "copy_out"   , &clause_out_args },
+                    { &copy_inout, "copy_inout" , &clause_inout_args },
+                    { NULL, "", NULL }
                 };
 
-                for (int i = 0; replace_copies[i].pmf != NULL; i++)
+                for (int i = 0; replace_copies[i].list != NULL; i++)
                 {
-                    ObjectList<CopyItem> copy_items = (target_info.*(replace_copies[i].pmf))();
+                    ObjectList<CopyItem> &copy_items = *(replace_copies[i].list);
 
                     if (copy_items.empty())
                         continue;
 
-                    Source clause, clause_args;
-
-                    clause << replace_copies[i].clause_name << "(" << clause_args << ")";
+                    Source clause;
+                    Source &clause_args(*(replace_copies[i].clause_args));
 
                     for (ObjectList<CopyItem>::iterator it = copy_items.begin();
                             it != copy_items.end();
@@ -348,8 +347,83 @@ namespace OpenMP
                     {
                         clause_args.append_with_separator(replace.replace(it->get_copy_expression()), ",");
                     }
+                }
 
-                    target_clauses << " " << clause;
+                if (target_info.has_copy_deps())
+                {
+                    // We need to manually rewrite the dependences as copies
+                    // but with the temporal names
+                    int i = 0;
+                    for (ObjectList<FunctionTaskDependency>::iterator it2 = task_params.begin();
+                            it2 != task_params.end();
+                            it2++)
+                    {
+                        Source *clause_args = NULL;
+                        switch (it2->get_direction())
+                        {
+                            case DEP_DIR_INPUT :
+                                {
+                                    clause_args = &clause_in_args;
+                                    break;
+                                }
+                            case DEP_DIR_OUTPUT :
+                                {
+                                    clause_args = &clause_out_args;
+                                    break;
+                                }
+                            case DEP_DIR_INOUT :
+                                {
+                                    clause_args = &clause_inout_args;
+                                    break;
+                                }
+                            default:
+                                {
+                                    internal_error("Code unreachable", 0);
+                                }
+                        }
+
+                        Expression expr = it2->get_expression();
+
+                        DataReference data_ref(expr);
+
+                        if (!data_ref.is_valid())
+                        {
+                            std::cerr << expr.get_ast().get_locus() 
+                                << ": warning: ignoring invalid data reference '" 
+                                << expr.prettyprint() 
+                                << "'" << std::endl;
+                        }
+
+                        Symbol sym = data_ref.get_base_symbol();
+
+                        if (sym.is_parameter())
+                        {
+                            ReplaceSrcIdExpression replace_copies(scope_link);
+
+                            Source src;
+                            src << "__tmp_" << sym.get_parameter_position();
+
+                            replace_copies.add_replacement(data_ref.get_base_symbol(), src.get_source());
+
+                            (*clause_args).append_with_separator(
+                                    replace_copies.replace(it2->get_expression()), 
+                                    ",");
+
+                        }
+                    }
+                }
+
+                if (!clause_in_args.empty())
+                {
+                    target_clauses << "copy_in(" << clause_in_args << ") ";
+                }
+                if (!clause_out_args.empty())
+                {
+                    target_clauses << "copy_out(" << clause_out_args << ") ";
+                }
+                if (!clause_inout_args.empty())
+                {
+                    target_clauses << "copy_inout(" << clause_inout_args << ") ";
                 }
             }
 

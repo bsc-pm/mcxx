@@ -232,13 +232,10 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             dependency_flags << "}"
                     ;
 
-            Expression dependency_expression = it->get_dependency_expression();
-            Type size_type = it->get_dependency_expression().get_type();
+            DataReference dependency_expression = it->get_dependency_expression();
 
             Source dep_size;
-            dep_size
-                << "sizeof(" << size_type.get_declaration(ctr.get_scope(), "") << ")"
-                ;
+            dep_size << dependency_expression.get_sizeof();
 
             Source dependency_offset, imm_dependency_offset;
 
@@ -442,22 +439,24 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             ERROR_CONDITION(data_attr == OpenMP::DS_UNDEFINED, "Invalid data sharing for copy", 0);
 
             Source copy_sharing;
-            if ((data_attr & OpenMP::DS_SHARED) == OpenMP::DS_SHARED)
-            {
-                copy_sharing << "NANOS_SHARED";
-            }
-            else if ((data_attr & OpenMP::DS_PRIVATE) == OpenMP::DS_PRIVATE)
+            bool is_shared = false;
+            if (it->get_kind() == OpenMP::COPY_DIR_IN)
             {
                 copy_sharing << "NANOS_PRIVATE";
             }
-            else internal_error("Unhandled data sharing", 0);
+            else 
+            {
+                copy_sharing << "NANOS_SHARED";
+                is_shared = true;
+            }
 
             struct {
                 Source *source;
                 const char* array;
+                const char* struct_name;
             } fill_copy_data_info[] = {
-                { &copy_items_src, "copy_data" },
-                { &copy_immediate_setup, "imm_copy_data" },
+                { &copy_items_src, "copy_data", "ol_args->" },
+                { &copy_immediate_setup, "imm_copy_data", "imm_args." },
                 { NULL, "" },
             };
 
@@ -475,7 +474,22 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
                 DataReference copy_expr = it->get_copy_expression();
 
-                expression_address << copy_expr.get_address();
+                if (is_shared)
+                {
+                    expression_address << copy_expr.get_address();
+                }
+                else
+                {
+                    DataEnvironItem data_env_item = data_environ_info.get_data_of_symbol(copy_expr.get_base_symbol());
+                    // We have to use the value of the argument structure if it
+                    // is private
+                    expression_address 
+                        << "&("
+                        << fill_copy_data_info[j].struct_name 
+                        << data_env_item.get_field_name()
+                        << ")"
+                        ;
+                }
                 expression_size << copy_expr.get_sizeof();
             }
 

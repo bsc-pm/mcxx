@@ -6214,6 +6214,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                             ast_location(called_expression), 
                             prettyprint_in_buffer(advanced_called_expression));
                 }
+                return 0;
             }
         }
         else if (!is_function_type(ASTExprType(called_expression))

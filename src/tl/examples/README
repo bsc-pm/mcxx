@@ -1,0 +1,5 @@
+Important
+---------
+
+Phases are only built from top-level directory if you ran configure with '--enable-tl-examples'. Nevertheless,
+you can build them discretionally if you explicitly run make inside 'examples' (or any of its subdirectories).

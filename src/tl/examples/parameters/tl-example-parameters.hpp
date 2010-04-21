@@ -21,25 +21,26 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "tl-pragmasupport.hpp"
-#include "tl-traverse.hpp"
-#include "tl-langconstruct.hpp"
-#include "tl-ast.hpp"
+#ifndef TL_EXAMPLE_PARAMETERS_HPP
+#define TL_EXAMPLE_PARAMETERS_HPP
+
+#include "tl-compilerphase.hpp"
 
 namespace TL
 {
-    class TraverseDecls : public CompilerPhase
+    class ExampleParameters : public TL::CompilerPhase
     {
+        private:
+            std::string _parameter_1_value;
+            std::string _parameter_2_value;
+
+            void check_param2(const std::string& str);
         public:
-            void pre_run(DTO& dto) { }
-
-            void run(DTO& dto)
-            {
-                AST_t ast = dto["translation_unit"];
-                ScopeLink scope_link = dto["scope_link"];
-
-            }
+            ExampleParameters();
+            ~ExampleParameters();
+            virtual void run(TL::DTO& dto);
+            virtual void pre_run(TL::DTO& dto);
     };
 }
 
-EXPORT_PHASE(TL::TraverseDecls);
+#endif // TL_EXAMPLE_PARAMETERS_HPP

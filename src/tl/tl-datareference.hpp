@@ -3,6 +3,7 @@
 
 #include "tl-langconstruct.hpp"
 #include "tl-source.hpp"
+#include "tl-type.hpp"
 
 namespace TL
 {
@@ -18,11 +19,12 @@ namespace TL
                 d[e1:e2]
                 d.id
                 [e1]...[eN] pd
-                *d
+                *pd
 
       Where 'd' is a data reference and 'pd' a data reference whose type is pointer
 
-      Note that silly expressions like &*d and *&d are assumed to be d
+      Note that convoluted expressions like '&*d' and '*&d' are accepted and
+      assumed to mean 'd'
     */
     class DataReference : public Expression
     {
@@ -37,12 +39,14 @@ namespace TL
                     Symbol &base_sym, 
                     Source &size, 
                     Source &addr, 
+                    Type& type,
                     bool enclosing_is_array);
 
             static bool gather_info_data_expr(Expression &expr, 
                     Symbol &base_sym, 
                     Source &size, 
-                    Source &addr);
+                    Source &addr,
+                    Type &type);
         public:
             DataReference(AST_t ast, ScopeLink scope_link);
             //! Constructors of a DataReference
@@ -83,6 +87,16 @@ namespace TL
               size of a data reference
               */
             Source get_sizeof() const;
+
+            //! Returns a type representing the data covered by the data reference
+            /*!
+              This function returns a type which represents the data covered
+              by the data reference.
+
+              \note The type returned may not be fully valid if it contains arrays
+              as this function uses Type::get_array_to(const std::string&)
+             */
+            Type get_data_type() const;
     };
 }
 

@@ -235,7 +235,7 @@ cxx-asttype.h : cxx-asttype.def
 	echo "/* This file has been generated. Every time you change $< it will be regenerated */" >> cxx-asttype.h
 	echo "enum node_type {" >> cxx-asttype.h
 	echo "AST_INVALID_NODE = 0,"  >> cxx-asttype.h
-	sed -e "/^[[:blank:]]*\(#.*\)\?$$/d" -e "s/$$/,/" < cxx-asttype.def >> cxx-asttype.h
+	$(SED) -e "/^[[:blank:]]*\(#.*\)\?$$/d" -e "s/$$/,/" < cxx-asttype.def >> cxx-asttype.h
 	echo "AST_LAST_NODE" >> cxx-asttype.h
 	echo "};" >> cxx-asttype.h
 	echo "LIBMCXX_EXTERN char* ast_node_names[];" >> cxx-asttype.h
@@ -249,7 +249,7 @@ cxx-asttype.c : cxx-asttype.def cxx-asttype.h
 	echo "#include \"cxx-asttype.h\"" >> cxx-asttype.c
 	echo "char* ast_node_names[] = {" >> cxx-asttype.c
 	echo "[AST_INVALID_NODE] = \"AST_INVALID_NODE\", " >> cxx-asttype.c
-	sed -e "/^[[:blank:]]*\(#.*\)\?$$/d" -e "s/^.*$$/[&] = \"&\",/" < cxx-asttype.def >> cxx-asttype.c
+	$(SED) -e "/^[[:blank:]]*\(#.*\)\?$$/d" -e "s/^.*$$/[&] = \"&\",/" < cxx-asttype.def >> cxx-asttype.c
 	echo "[AST_LAST_NODE] = \"AST_LAST_NODE\", " >> cxx-asttype.c
 	echo "};" >> cxx-asttype.c
 
@@ -265,7 +265,7 @@ cxx-attrnames.h : $(srcdir)/cxx-attrnames.def
 	echo "#include \"libmcxx-common.h\"" >> cxx-attrnames.h
 	echo "#include \"cxx-macros.h\"" >> cxx-attrnames.h
 	echo "MCXX_BEGIN_DECLS" >> cxx-attrnames.h
-	sed -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/LIBMCXX_EXTERN char \1[];/" < $< >> cxx-attrnames.h
+	$(SED) -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/LIBMCXX_EXTERN char \1[];/" < $< >> cxx-attrnames.h
 	echo "LIBMCXX_EXTERN void register_ast_extended_attributes(void);" >> cxx-attrnames.h
 	echo "MCXX_END_DECLS" >> cxx-attrnames.h
 	echo "#endif // CXX_ATTRNAMES_H" >> cxx-attrnames.h
@@ -276,12 +276,12 @@ cxx-attrnames.c : $(srcdir)/cxx-attrnames.def cxx-attrnames.h
 	echo "#include \"cxx-attrnames.h\"" >> cxx-attrnames.c
 	echo "#include \"cxx-ast.h\"" >> cxx-attrnames.c
 	echo "#include \"cxx-tltype.h\"" >> cxx-attrnames.c
-	sed -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/char \1[] = \"\2\";/" < $< >> cxx-attrnames.c
+	$(SED) -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/char \1[] = \"\2\";/" < $< >> cxx-attrnames.c
 	echo "/* AST attributes */" >> cxx-attrnames.c
 	echo "void register_ast_extended_attributes(void)" >> cxx-attrnames.c
 	echo "{" >> cxx-attrnames.c
 	echo "    extensible_schema_init(&ast_extensible_schema);" >> cxx-attrnames.c
-	sed -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/    extensible_schema_add_field(\&ast_extensible_schema, \1, sizeof(tl_type_t));/" < $< >> cxx-attrnames.c
+	$(SED) -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/    extensible_schema_add_field(\&ast_extensible_schema, \1, sizeof(tl_type_t));/" < $< >> cxx-attrnames.c
 	echo "}" >> cxx-attrnames.c
 
 if FLEX_BUILDING

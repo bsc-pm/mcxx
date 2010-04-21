@@ -21,6 +21,9 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
+
+EXTRA_DIST=README
+
 include ../../Makefile.phases
 
 phases_LTLIBRARIES = libtlbasic_test.la

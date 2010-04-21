@@ -1,6 +1,6 @@
 /*
 <testinfo>
-test_generator=mcc.hlt.basic.dg/mercurium
+test_generator=06_phases_hlt.dg/mercurium
 test_compile_fail=yes
 </testinfo>
 */

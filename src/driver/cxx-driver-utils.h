@@ -43,6 +43,7 @@
   #define DIR_CONFIG_RELATIVE_PATH DIR_SEPARATOR".."DIR_SEPARATOR".."DIR_SEPARATOR"share"DIR_SEPARATOR"mcxx"DIR_SEPARATOR"config.d"
 #endif
 
+
 // Temporal handling routines
 typedef struct 
 {
@@ -98,6 +99,6 @@ void mark_file_for_cleanup(const char* name);
 void mark_dir_for_cleanup(const char* name);
 
 // Find the path where the application runs
-const char* find_home(void);
+const char* find_home(const char* progname);
 
 #endif // CXX_DRIVERUTILS_H

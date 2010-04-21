@@ -386,7 +386,9 @@ namespace TL
             private:
                 int *_num_refs;
                 typedef std::map<Symbol, DataSharingAttribute> map_symbol_data_t;
+                typedef std::map<Symbol, DataReference> map_symbol_data_ref_t;
                 map_symbol_data_t  *_map;
+                map_symbol_data_ref_t  *_map_data_ref;
                 DataSharingEnvironment *_enclosing;
 
                 ObjectList<ReductionSymbol> _reduction_symbols;
@@ -417,6 +419,14 @@ namespace TL
                  */
                 void set(Symbol sym, DataSharingAttribute data_attr);
 
+                //! Sets a data sharing attribute of a symbol
+                /*!
+                 * \param sym The symbol to be set the data sharing attribute
+                 * \param data_attr The symbol to which the data sharing will be set
+                 * \param data_ref Extended reference of this symbol (other than a plain IdExpression)
+                 */
+                void set(Symbol sym, DataSharingAttribute data_attr, DataReference data_ref);
+
                 //! Adds a reduction symbol
                 /*!
                  * Reduction symbols are special, adding them sets their attribute
@@ -431,6 +441,12 @@ namespace TL
                  * \return The data sharing attribute or DS_UNDEFINED if no data sharing was set for it in this, and only this, DataSharingEnvironment
                  */
                 DataSharingAttribute get(Symbol sym, bool check_enclosing = true);
+
+                //! States whether the symbol has associated an extended reference
+                bool is_extended_reference(Symbol sym);
+
+                //! Returns the extended reference of a Symbol
+                DataReference get_extended_reference(Symbol sym, bool check_enclosing = true);
 
                 //! Returns the enclosing data sharing
                 DataSharingEnvironment* get_enclosing();

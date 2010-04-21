@@ -33,6 +33,7 @@ namespace TL
         private:
         public:
             BasicTestPhase();
+            ~BasicTestPhase();
             virtual void run(TL::DTO& dto);
             virtual void pre_run(TL::DTO& dto);
     };

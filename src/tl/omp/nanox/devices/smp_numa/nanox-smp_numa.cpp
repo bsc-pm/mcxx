@@ -67,13 +67,24 @@ static void do_smp_numa_outline_replacements(
         Symbol sym = data_ref.get_base_symbol();
         Type type = sym.get_type();
 
+        bool points_an_array = false;
+
         if (type.is_array())
         {
             type = type.array_element().get_pointer_to();
+            points_an_array = true;
         }
         else
         {
             type = type.get_pointer_to();
+        }
+
+        // Hack for shaping expressions
+        if (data_ref.get_type().is_array()
+                && data_ref.get_data_type().is_pointer())
+        {
+            type = data_ref.get_data_type();
+            points_an_array = true;
         }
 
         std::string copy_name = "_cp_" + sym.get_name();
@@ -101,7 +112,8 @@ static void do_smp_numa_outline_replacements(
 
         replace_src.add_replacement(sym, "(*" + copy_name + ")");
 
-        if (sym.get_type().is_array())
+        // No replacement for arrays
+        if (points_an_array)
         {
             replace_src.add_replacement(sym, copy_name);
         }

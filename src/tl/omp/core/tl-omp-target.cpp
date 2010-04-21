@@ -216,7 +216,8 @@ namespace TL
 
                 if (warn_not_shared
                         && (copy_direction != COPY_DIR_IN)
-                        && ((attr & DS_SHARED) != DS_SHARED))
+                        && ((attr & DS_SHARED) != DS_SHARED)
+                        && expr.is_id_expression())
                 {
                     std::cerr << construct.get_ast().get_locus()
                         << ": warning: symbol '" << sym.get_name() 

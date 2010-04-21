@@ -21,16 +21,14 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-EXTRA_DIST=README
+EXTRA_DIST= tempname.c \
+     tempname.h \
+     mkdtemp.c \
+     $(END)
 
-END=
+noinst_LTLIBRARIES=libgnulib.la
 
-DIST_SUBDIRS = \
-               basic_phase \
-               parameters \
-               multifile_test \
-               mypragma \
-               decl_closure \
-               $(END)
+libgnulib_la_SOURCES = \
+                       dummy.c
 
-SUBDIRS = $(DIST_SUBDIRS)
+libgnulib_la_LIBADD=$(LTLIBOBJS)

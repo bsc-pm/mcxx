@@ -112,9 +112,8 @@ namespace TL
 
                 
                 // Likewise for rhs
-                t = rhs.get_type(is_lvalue);
-                if (!is_lvalue
-                        || !(t.is_integral_type()
+                t = rhs.get_type();
+                if (!(t.is_integral_type()
                             || t.is_floating_type()))
                     return false;
 
@@ -322,8 +321,12 @@ namespace TL
                 }
 
                 critical_source
+                    << "{"
+                    << expr.get_second_operand().get_type().get_declaration(expr.get_scope(), "__tmp") 
+                    << "=" << expr.get_second_operand().prettyprint() << ";"
                     << intrinsic_function_name 
-                    << "(&(" << expr.get_first_operand() << ")," << expr.get_second_operand() << ");"
+                    << "(&(" << expr.get_first_operand() << "), __tmp);"
+                    << "}"
                     ;
             }
 
