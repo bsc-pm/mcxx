@@ -2483,7 +2483,7 @@ static type_t* update_type_aux_(type_t* orig_type,
                     && (argument->kind == SK_TEMPLATE
                         || argument->kind == SK_TEMPLATE_TEMPLATE_PARAMETER))
             {
-                return argument->type_information;
+                return get_user_defined_type(argument);
             }
             else
             {
