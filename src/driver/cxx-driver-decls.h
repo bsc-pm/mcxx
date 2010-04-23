@@ -69,7 +69,8 @@ typedef enum source_kind_tag
 {
     SOURCE_KIND_UNKNOWN = 0,
     SOURCE_KIND_NOT_PREPROCESSED,
-    SOURCE_KIND_PREPROCESSED
+    SOURCE_KIND_PREPROCESSED,
+    SOURCE_KIND_NOT_PARSED,
 } source_kind_t;
 
 typedef enum source_language_tag
@@ -77,8 +78,9 @@ typedef enum source_language_tag
     SOURCE_LANGUAGE_UNKNOWN = 0,
     SOURCE_LANGUAGE_C,
     SOURCE_LANGUAGE_CXX,
+    SOURCE_LANGUAGE_CUDA,
     SOURCE_LANGUAGE_ASSEMBLER,
-    SOURCE_LANGUAGE_LINKER_DATA
+    SOURCE_LANGUAGE_LINKER_DATA,
 } source_language_t;
 
 extern char* source_language_names[];
