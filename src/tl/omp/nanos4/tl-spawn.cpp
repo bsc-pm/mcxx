@@ -213,7 +213,7 @@ namespace TL
                     continue;
 
                 // Size and reference
-                size_vector << ", sizeof(" << it->symbol.get_qualified_name(scope) << ")";
+                size_vector << ", sizeof(" << it->symbol.get_type().get_declaration(scope, "") << ")";
 
                 referenced_parameters << ", &nth_sizes[" << (num_args_val + 1) << "], &" 
                     << it->symbol.get_qualified_name(scope);

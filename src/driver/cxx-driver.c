@@ -250,6 +250,7 @@ char* source_language_names[] =
     [SOURCE_LANGUAGE_UNKNOWN] = "unknown",
     [SOURCE_LANGUAGE_C] = "C",
     [SOURCE_LANGUAGE_CXX] = "C++",
+    [SOURCE_LANGUAGE_CUDA] = "CUDA C/C++",
     [SOURCE_LANGUAGE_ASSEMBLER] = "assembler",
 };
 
@@ -1866,7 +1867,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
         if (!CURRENT_CONFIGURATION->force_language
 				&& (current_extension->source_language != CURRENT_CONFIGURATION->source_language)
-                && (current_extension->source_language != SOURCE_LANGUAGE_ASSEMBLER))
+                && (current_extension->source_kind != SOURCE_KIND_NOT_PARSED))
         {
             fprintf(stderr, "%s was configured for %s language but file '%s' looks %s language (it will be compiled anyways)\n",
                     compilation_process.exec_basename, 
@@ -1907,7 +1908,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
         if (!CURRENT_CONFIGURATION->do_not_parse)
         {
             if (!CURRENT_CONFIGURATION->pass_through
-                    && (current_extension->source_language != SOURCE_LANGUAGE_ASSEMBLER))
+                    && (current_extension->source_kind != SOURCE_KIND_NOT_PARSED))
             {
                 // 0. Do this before open for scan since we might to internally parse some sources
                 mcxx_flex_debug = mc99_flex_debug = CURRENT_CONFIGURATION->debug_options.debug_lexer;
@@ -1981,7 +1982,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 }
             }
 
-            if (current_extension->source_language != SOURCE_LANGUAGE_ASSEMBLER)
+            if (current_extension->source_kind != SOURCE_KIND_NOT_PARSED)
             {
                 const char* prettyprinted_filename 
                     = prettyprint_translation_unit(translation_unit, parsed_filename);
@@ -1989,7 +1990,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
             }
             else
             {
-                // Keep the assembler!
+                // Do not parse
                 native_compilation(translation_unit, translation_unit->input_filename, /* remove_input */ false);
             }
         }
