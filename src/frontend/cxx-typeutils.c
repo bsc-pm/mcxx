@@ -1429,7 +1429,8 @@ char has_dependent_template_arguments(template_argument_list_t* template_argumen
         }
         else if (curr_argument->kind == TAK_TEMPLATE)
         {
-            if (named_type_get_symbol(curr_argument->type)->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+            if (is_named_type(curr_argument->type)
+                    && named_type_get_symbol(curr_argument->type)->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
             {
                 return 1;
             }
