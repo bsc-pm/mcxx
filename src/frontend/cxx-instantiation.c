@@ -484,7 +484,6 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                 if (is_named_class_type(new_member->type_information))
                 {
-                    fprintf(stderr, "This is a class '%s'\n", new_member->symbol_name);
                     if (class_type_is_incomplete_independent(get_actual_class_type(new_member->type_information)))
                     {
                         scope_entry_t* class_entry = named_type_get_symbol(new_member->type_information);
