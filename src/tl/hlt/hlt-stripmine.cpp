@@ -78,7 +78,7 @@ namespace TL
                 Source min_bound, min_a, min_b;
 
                 min_a << "(" << upper_bound << ")";
-                min_b << "(" << induction_var << "+" << step << "*((" << _amount << ") -1))";
+                min_b << "(" << new_var_name << "+" << step << "*((" << _amount << ") -1))";
 
                 min_bound
                     << "(" << min_a << "<" << min_b << "?" << min_a << ":" << min_b << ")"
