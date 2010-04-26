@@ -89,7 +89,7 @@ namespace TL
                 by_strip_loop_header 
                     << "for("
                     << induction_var_init << "=" << new_var_name << ";"
-                    << induction_var << operator_bound << min_bound
+                    << induction_var << operator_bound << min_bound << ";"
                     << induction_var << "+=" << step
                     << ")"
                     ;
