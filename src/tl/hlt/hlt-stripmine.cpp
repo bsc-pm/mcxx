@@ -117,7 +117,7 @@ namespace TL
         }
     }
 
-    HLT::StripMine HLT::strip_mine_loop(ForStatement for_stmt, Source amount)
+    HLT::StripMine HLT::stripmine_loop(ForStatement for_stmt, Source amount)
     {
         return HLT::StripMine(for_stmt, amount);
     }

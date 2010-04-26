@@ -53,7 +53,7 @@ namespace TL
           \param for_stmt Regular loop
           \param amount Strip mining amount
          */
-        LIBHLT_EXTERN StripMine strip_mine_loop(ForStatement for_stmt, Source amount);
+        LIBHLT_EXTERN StripMine stripmine_loop(ForStatement for_stmt, Source amount);
 
         //!* @}
     }

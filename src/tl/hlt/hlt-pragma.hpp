@@ -50,6 +50,12 @@ namespace TL
           \sa TL::HLT::LoopBlocking
 
           \code
+#pragma hlt stripmine amount(expr)
+  regular-for-loop
+          \endcode
+          \sa TL::HLT::StripMine
+
+          \code
 #pragma hlt distribute expand(var-list)
   regular-for-loop
           \endcode
@@ -93,6 +99,7 @@ namespace TL
             private:
                 void unroll_loop(PragmaCustomConstruct construct);
                 void block_loop(PragmaCustomConstruct construct);
+                void stripmine_loop(PragmaCustomConstruct construct);
                 void distribute_loop(PragmaCustomConstruct construct);
 
                 void pre_fuse_loops(PragmaCustomConstruct construct);
