@@ -60,8 +60,6 @@ TL::Source LoopBlocking::do_blocking()
         ForStatement& for_statement = nest_loops[current_nest];
         Expression& amount = _nest_factors[current_nest];
 
-        std::cerr << "Strip mining '" << for_statement.prettyprint() << "'" << std::endl;
-
         Source src = TL::HLT::stripmine_loop(for_statement, amount.prettyprint());
 
         TL::AST_t tree = src.parse_statement(for_statement.get_ast(), for_statement.get_scope_link());
