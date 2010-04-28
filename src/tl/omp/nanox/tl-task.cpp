@@ -85,7 +85,30 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         << "};"
         ;
 
+    // Check for __symbol clause, and if found, get the task function symbol
+    Symbol task_symbol = NULL;
+    PragmaCustomClause function_clause = ctr.get_clause("__symbol");
+
+    if (function_clause.is_defined())
+    {
+    	ObjectList<Expression> expr_list = function_clause.get_expression_list();
+
+    	if (expr_list.size() != 1)
+    	{
+    		running_error("%s: internal error: clause '__symbol' requires just one argument\n",
+    				ctr.get_ast().get_locus().c_str());
+    	}
+
+    	Expression &expr = expr_list[0];
+    	IdExpression id_expr = expr.get_id_expression();
+
+    	if (id_expr.get_computed_symbol().is_valid()) {
+    		task_symbol = id_expr.get_computed_symbol();
+    	}
+    }
+
     OutlineFlags outline_flags;
+    outline_flags.task_symbol = task_symbol;
 
     DeviceHandler &device_handler = DeviceHandler::get_device_handler();
 
