@@ -525,8 +525,9 @@ then
            ]
    )
  
-   TL_EXTENSIONS="${TL_EXTENSIONS} superscalar"
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.superscalar"
+   TL_EXTENSIONS="${TL_EXTENSIONS} superscalar ss_valgrind"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.superscalar config.ss_valgrind"
+   COMPILER_NAMES="${COMPILER_NAMES} ssvalgrindcc"
 fi
      
 SUPERSCALAR_INCLUDES="${superscalar_include}"
@@ -1011,6 +1012,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/examples/decl_closure/Makefile
            src/tl/examples/multifile_test/Makefile
            src/tl/superscalar/Makefile
+           src/tl/ss_valgrind/Makefile
            config/Makefile
            tests/Makefile
            tests/config/Makefile
