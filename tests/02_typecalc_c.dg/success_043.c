@@ -1,3 +1,8 @@
+/*
+<testinfo>
+test_generator=config/mercurium
+</testinfo>
+*/
 _Complex int i_a = 3i;
 _Complex int i_c = 3j;
 
