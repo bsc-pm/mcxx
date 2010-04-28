@@ -33,6 +33,7 @@
 #include "hlt-extension.hpp"
 #include "hlt-peeling.hpp"
 #include "hlt-task-aggregation.hpp"
+#include "hlt-stripmine.hpp"
 #include "hlt-exception.hpp"
 
 #include <algorithm>
@@ -62,6 +63,12 @@ HLTPragmaPhase::HLTPragmaPhase()
 
     register_construct("block");
     on_directive_post["block"].connect(functor(&HLTPragmaPhase::block_loop, *this));
+
+    register_construct("blocking");
+    on_directive_post["blocking"].connect(functor(&HLTPragmaPhase::block_loop, *this));
+
+    register_construct("stripmine");
+    on_directive_post["stripmine"].connect(functor(&HLTPragmaPhase::stripmine_loop, *this));
 
     register_construct("distribute");
     on_directive_post["distribute"].connect(functor(&HLTPragmaPhase::distribute_loop, *this));
@@ -300,6 +307,47 @@ void HLTPragmaPhase::block_loop(PragmaCustomConstruct construct)
     TL::ObjectList<TL::Expression> factors_list = factors_clause.get_expression_list();
     std::for_each(for_statement_list.begin(), for_statement_list.end(),
             std::bind2nd(std::ptr_fun(block_loop_fun), factors_list));
+
+    // Remove the pragma
+    construct.get_ast().replace(statement.get_ast());
+}
+
+static void stripmine_loop_fun(TL::ForStatement for_stmt,
+        TL::PragmaCustomClause amount_clause)
+{
+    TL::Source amount;
+    amount << amount_clause.get_arguments()[0];
+
+    TL::Source stripmined_loop_src = TL::HLT::stripmine_loop(for_stmt, amount).allow_identity(_allow_identity);
+
+    TL::AST_t stripmined_loop_tree = stripmined_loop_src.parse_statement(for_stmt.get_ast(),
+            for_stmt.get_scope_link());
+
+    for_stmt.get_ast().replace(stripmined_loop_tree);
+}
+
+
+void HLTPragmaPhase::stripmine_loop(PragmaCustomConstruct construct)
+{
+    Statement statement = construct.get_statement();
+
+    ObjectList<ForStatement> for_statement_list = get_all_sibling_for_statements(statement);
+
+    TL::PragmaCustomClause amount_clause = construct.get_clause("amount");
+
+    if (!amount_clause.is_defined())
+    {
+        throw HLTException(construct, "'#pragma hlt stripmine' requires a clause 'amount' with the amount of stripmining");
+    }
+
+    if (!_allow_identity
+                && for_statement_list.empty())
+    {
+        throw HLTException(construct, "not found any suitable construct for this pragma");
+    }
+
+    std::for_each(for_statement_list.begin(), for_statement_list.end(),
+            std::bind2nd(std::ptr_fun(stripmine_loop_fun), amount_clause));
 
     // Remove the pragma
     construct.get_ast().replace(statement.get_ast());

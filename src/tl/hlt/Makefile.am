@@ -62,6 +62,8 @@ libtl_hlt_la_SOURCES = \
       hlt-extension.cpp \
       hlt-peeling.hpp \
       hlt-peeling.cpp \
+      hlt-stripmine.cpp \
+      hlt-stripmine.hpp \
       hlt-common.hpp \
       hlt-task-aggregation.hpp \
       hlt-task-aggregation.cpp \

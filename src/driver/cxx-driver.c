@@ -1800,6 +1800,9 @@ static void enable_hlt_phase(void)
     // -hlt is like adding the compiler phase of hlt and registering '#pragma hlt'
     // Register '#pragma hlt'
     config_add_preprocessor_prefix(CURRENT_CONFIGURATION, /* index */ NULL, "hlt");
+
+    add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, "-D_MERCURIUM_HLT");
+
     // When loading the compiler phase a proper extension will be added
     const char* library_name = "libtl-hlt-pragma";
     P_LIST_ADD_PREPEND(CURRENT_CONFIGURATION->compiler_phases, 
