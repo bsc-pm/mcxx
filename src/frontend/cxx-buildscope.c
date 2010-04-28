@@ -1249,10 +1249,8 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
         case AST_VOID_TYPE :
             *simple_type_info = get_void_type();
             break;
-            // This is a GCC extension since in C99
-            // _Complex can't be used alone meaning '_Complex double'
         case AST_GCC_COMPLEX_TYPE :
-            *simple_type_info = get_double_type();
+            *simple_type_info = get_signed_int_type();
             gather_info->is_complex = 1;
             break;
         case AST_AMBIGUITY :

@@ -153,7 +153,16 @@ octaldigit      [0-7]
  /* A.2.22 */
 hexdigit        [a-fA-F0-9]
  /* A.2.23 includes GNU extension of long long */
-integersuffix   ({longsuffix}{unsignedsuffix}?|{unsignedsuffix}{longsuffix}?|{unsignedsuffix}{longlongsuffix}|{longlongsuffix}{unsignedsuffix}?)
+int_suffix_size ({longsuffix}|{longlongsuffix})
+int_suffix_sign ({unsignedsuffix})
+
+ /* GCC is very flexible with suffixes */
+integersuffix_1   ({int_suffix_size}(({int_suffix_sign}{complexsuffix}?)|({complexsuffix}{int_suffix_sign}?))?)
+integersuffix_2   ({int_suffix_sign}(({int_suffix_size}{complexsuffix}?)|({complexsuffix}{int_suffix_size}?))?)
+integersuffix_3   ({complexsuffix}(({int_suffix_size}{int_suffix_sign}?)|({int_suffix_sign}{int_suffix_size}?))?)
+
+integersuffix ({integersuffix_1}|{integersuffix_2}|{integersuffix_3})
+
  /* A.2.24 */
 unsignedsuffix  [uU]
  /* A.2.25 */
@@ -162,6 +171,8 @@ longsuffix  [lL]
  /* GNU Extension */
 longlongsuffix [lL][lL]
 
+ /* Complex GNU Extension */
+complexsuffix [ji]
 
  /* A.2.28 */
 cchar       ([^\\'\n]|{escape_seq}|(\\[']))
@@ -174,7 +185,9 @@ fractconst  (({digit}*\.{digit}+)|({digit}+(\.)?))
  /* A.2.35 */
 exponent    ([eE][+-]?{digit}+)
  /* A.2.38 */
-floatingsuffix  [flFL]
+floatingsuffix_std  [flFL]
+ /* GNU extension for complex floating suffix */
+floatingsuffix  ({floatingsuffix_std}|{floatingsuffix_std}{complexsuffix}|{complexsuffix}{floatingsuffix_std}|{complexsuffix})
  /* A.2.40 */
 schar       ([^\\"\n]|{escape_seq}|(\\["]))
 
