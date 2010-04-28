@@ -81,7 +81,8 @@ typedef
 enum simple_type_kind_tag
 {
     STK_UNDEFINED = 0, 
-    STK_BUILTIN_TYPE, // [1] int, float, char, wchar_t, bool, void {identifier};
+    STK_BUILTIN_TYPE, // [1] int, float, char, wchar_t, bool, void;
+    STK_COMPLEX,
     STK_CLASS, // [2] struct {identifier};
     STK_ENUM, // [3] enum {identifier}
     STK_TYPEDEF, // [4] typedef int {identifier};
@@ -274,10 +275,6 @@ struct simple_type_tag {
     // signed
     unsigned char is_signed:1;
 
-    // GCC extension
-    // __Complex float
-    unsigned char is_complex:1;
-
     // States whether this type is incomplete, by default all classes and enum
     // type are incomplete and they must be 
     unsigned char is_incomplete:1;
@@ -352,6 +349,8 @@ struct simple_type_tag {
     AST dependent_nested_name;
     AST dependent_unqualified_part;
 
+    // Complex types, base type of the complex type
+    type_t* complex_element;
 } simple_type_t;
 
 
@@ -1632,8 +1631,8 @@ type_t* get_complex_type(type_t* t)
     {
         result = get_simple_type();
 
-        *result->type = *t->type;
-        result->type->is_complex = 1;
+        result->type->kind = STK_COMPLEX;
+        result->type->complex_element = t;
         // FIXME - A complex is always twice its base type?
         result->size = 2 * t->size;
         result->alignment = t->alignment;
@@ -1643,6 +1642,12 @@ type_t* get_complex_type(type_t* t)
     }
 
     return result;
+}
+
+type_t* complex_type_get_base_type(type_t* t)
+{
+    ERROR_CONDITION(!is_complex_type(t), "This is not a complex type", 0);
+    return t->type->complex_element;
 }
 
 static Hash *_qualification[(CV_CONST | CV_VOLATILE | CV_RESTRICT) + 1];
@@ -3370,6 +3375,9 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2)
             // If both are __builtin_va_list, this is trivially true
             result = 1;
             break;
+        case STK_COMPLEX:
+            return equivalent_types(t1->complex_element, t2->complex_element);
+            break;
         default :
             internal_error("Unknown simple type kind (%d)", t1->kind);
             return 0;
@@ -3419,12 +3427,6 @@ char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2)
             return 0;
     }
 
-    // GCC extension for complex 
-    if (t1->is_complex != t2->is_complex)
-    {
-        return 0;
-    }
-    
     // Ok, nothing makes us think they might be different
     return 1;
 }
@@ -4007,8 +4009,7 @@ char is_signed_int_type(type_t *t)
             && (t->type->is_signed || !t->type->is_signed) 
             && !t->type->is_unsigned
             && !t->type->is_long
-            && !t->type->is_short
-            && !t->type->is_complex);
+            && !t->type->is_short);
 }
 
 char is_unsigned_int_type(type_t *t)
@@ -4022,8 +4023,7 @@ char is_unsigned_int_type(type_t *t)
             && !t->type->is_signed
             && t->type->is_unsigned
             && !t->type->is_long
-            && !t->type->is_short
-            && !t->type->is_complex);
+            && !t->type->is_short);
 }
 
 char is_signed_short_int_type(type_t *t)
@@ -4036,8 +4036,7 @@ char is_signed_short_int_type(type_t *t)
             && t->type->builtin_type == BT_INT
             && !t->type->is_unsigned
             && !t->type->is_long
-            && t->type->is_short
-            && !t->type->is_complex);
+            && t->type->is_short);
 }
 
 char is_unsigned_short_int_type(type_t *t)
@@ -4050,8 +4049,7 @@ char is_unsigned_short_int_type(type_t *t)
             && t->type->builtin_type == BT_INT
             && t->type->is_unsigned
             && !t->type->is_long
-            && t->type->is_short
-            && !t->type->is_complex);
+            && t->type->is_short);
 }
 
 char is_signed_long_int_type(type_t *t)
@@ -4064,8 +4062,7 @@ char is_signed_long_int_type(type_t *t)
             && t->type->builtin_type == BT_INT
             && !t->type->is_unsigned
             && (t->type->is_long == 1)
-            && !t->type->is_short
-            && !t->type->is_complex);
+            && !t->type->is_short);
 }
 
 char is_unsigned_long_int_type(type_t *t)
@@ -4078,8 +4075,7 @@ char is_unsigned_long_int_type(type_t *t)
             && t->type->builtin_type == BT_INT
             && t->type->is_unsigned
             && (t->type->is_long == 1)
-            && !t->type->is_short
-            && !t->type->is_complex);
+            && !t->type->is_short);
 }
 
 char is_signed_long_long_int_type(type_t *t)
@@ -4092,8 +4088,7 @@ char is_signed_long_long_int_type(type_t *t)
             && t->type->builtin_type == BT_INT
             && !t->type->is_unsigned
             && (t->type->is_long == 2)
-            && !t->type->is_short
-            && !t->type->is_complex);
+            && !t->type->is_short);
 }
 
 char is_unsigned_long_long_int_type(type_t *t)
@@ -4106,8 +4101,7 @@ char is_unsigned_long_long_int_type(type_t *t)
             && t->type->builtin_type == BT_INT
             && t->type->is_unsigned
             && (t->type->is_long == 2)
-            && !t->type->is_short
-            && !t->type->is_complex);
+            && !t->type->is_short);
 }
 
 char is_character_type(type_t* t)
@@ -4380,7 +4374,7 @@ char is_floating_type(type_t* t)
 
 char is_arithmetic_type(type_t* t)
 {
-    return is_integral_type(t) || is_floating_type(t);
+    return is_integral_type(t) || is_floating_type(t) || is_complex_type(t);
 }
 
 char is_int_or_floating_type(type_t* t)
@@ -4423,7 +4417,7 @@ char is_complex_type(type_t* t)
 
     return (t != NULL
             && is_non_derived_type(t)
-            && t->type->is_complex);
+            && t->type->kind == STK_COMPLEX);
 }
 
 type_t* reference_type_get_referenced_type(type_t* t1)
@@ -5229,6 +5223,10 @@ static char is_dependent_simple_type(type_t* type_info)
     {
         return 0;
     }
+    else if (is_complex_type(type_info))
+    {
+        return 0;
+    }
     else
     {
         internal_error("Invalid simple type", 0);
@@ -5459,11 +5457,6 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                     result = "signed ";
                 }
 
-                if (simple_type->is_complex)
-                {
-                    result = strappend(result, "_Complex ");
-                }
-
                 if (simple_type->is_long == 1)
                 {
                     result = strappend(result, "long ");
@@ -5529,6 +5522,13 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                     default :
                         break;
                 }
+                break;
+            }
+        case STK_COMPLEX:
+            {
+                result = strappend(result, "_Complex ");
+                result = strappend(result, 
+                        get_simple_type_name_string(decl_context, simple_type->complex_element));
                 break;
             }
         case STK_CLASS :
@@ -6150,11 +6150,6 @@ static const char* get_builtin_type_name(type_t* type_info)
         result = strappend(result, "signed ");
     }
 
-    if (simple_type_info->is_complex)
-    {
-        result = strappend(result, "_Complex ");
-    }
-
     switch (simple_type_info->kind)
     {
         case STK_BUILTIN_TYPE :
@@ -6187,6 +6182,12 @@ static const char* get_builtin_type_name(type_t* type_info)
                         result = strappend(result, "¿¿¿unknown builtin type???");
                         break;
                 }
+                break;
+            }
+        case STK_COMPLEX:
+            {
+                result = strappend(result, "_Complex ");
+                result = strappend(result, print_declarator(simple_type_info->complex_element));
                 break;
             }
         case STK_USER_DEFINED :
@@ -6843,6 +6844,20 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         }
         (*result).conv[0] = SCI_LVALUE_TO_RVALUE;
         orig = reference_type_get_referenced_type(orig);
+    }
+
+    // Lower complex types
+    // char dest_is_complex = 0;
+    if (is_complex_type(dest))
+    {
+        // dest_is_complex = 1;
+        dest = complex_type_get_base_type(dest);
+    }
+    // char orig_is_complex = 0;
+    if (is_complex_type(orig))
+    {
+        // orig_is_complex = 1;
+        orig = complex_type_get_base_type(orig);
     }
 
     // Second kind of conversion
