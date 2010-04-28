@@ -6,6 +6,10 @@ namespace TL
     SSValgrind::SSValgrind()
         : PragmaCustomCompilerPhase("css")
     {
+        register_directive("start");
+        register_directive("finish");
+        register_directive("barrier");
+
         on_directive_post["start"].connect(functor(&SSValgrind::pragma_start, *this));
         on_directive_post["finish"].connect(functor(&SSValgrind::pragma_finish, *this));
         on_directive_post["barrier"].connect(functor(&SSValgrind::pragma_barrier, *this));
@@ -43,13 +47,15 @@ namespace TL
             new_code
                 << "{"
                 << "start_task_valgrind(\"" << symbol.get_name() << "\");"
-                << function_call.prettyprint()
+                << function_call.prettyprint() << ";"
                 << "end_task_valgrind();"
                 << "}"
                 ;
 
+            Statement enclosing_statement = function_call.get_enclosing_statement();
+
             AST_t new_tree = new_code.parse_statement(function_call.get_ast(), function_call.get_scope_link());
-            function_call.get_ast().replace(new_tree);
+            enclosing_statement.get_ast().replace(new_tree);
         }
     }
 
