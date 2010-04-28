@@ -64,6 +64,9 @@ HLTPragmaPhase::HLTPragmaPhase()
     register_construct("block");
     on_directive_post["block"].connect(functor(&HLTPragmaPhase::block_loop, *this));
 
+    register_construct("blocking");
+    on_directive_post["blocking"].connect(functor(&HLTPragmaPhase::block_loop, *this));
+
     register_construct("stripmine");
     on_directive_post["stripmine"].connect(functor(&HLTPragmaPhase::stripmine_loop, *this));
 
