@@ -21,4 +21,21 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS=smp smp_numa gpu
+
+include ../../../../Makefile.phases
+
+END=
+
+phases_LTLIBRARIES=libtlnanox-gpu.la
+
+device_flags=$(tl_cflags) -I$(srcdir)/../.. -I$(srcdir)/../../../core
+
+libtlnanox_gpu_la_CFLAGS = $(device_flags)
+libtlnanox_gpu_la_CXXFLAGS = $(device_flags)
+
+libtlnanox_gpu_la_LDFLAGS = $(tl_ldflags)
+
+libtlnanox_gpu_la_SOURCES = \
+       nanox-gpu.hpp \
+       nanox-gpu.cpp \
+       $(END)

@@ -35,11 +35,13 @@ linker_name = gcc
 {openmp,nanox} compiler_phase = libtlomp-nanox.so
 {openmp,nanox} compiler_phase = libtlnanox-smp.so
 {openmp,nanox} compiler_phase = libtlnanox-smp_numa.so
+{openmp,nanox} compiler_phase = libtlnanox-gpu.so
 {openmp,openmpt,!nanox} compiler_phase = libtlomp-fun-tasks.so 
 {openmp,openmpt,!nanox} compiler_phase = libtlomp-core.so 
 {openmp,openmpt,!nanox} compiler_phase = libtlomp-nanox.so
 {openmp,openmpt,!nanox} compiler_phase = libtlnanox-smp.so
 {openmp,openmpt,!nanox} compiler_phase = libtlnanox-smp_numa.so
+{openmp,openmpt,!nanox} compiler_phase = libtlnanox-gpu.so
 
 [mcc : omp-base]
 language = C
