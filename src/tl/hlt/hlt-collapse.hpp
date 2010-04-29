@@ -47,6 +47,9 @@ namespace TL
                 ForNestInfo _for_nest_info;
 
                 int _nest_level;
+
+                bool _split_transform;
+                Source *_header;
             protected:
                 virtual Source get_source();
             public:
@@ -57,6 +60,8 @@ namespace TL
                 LoopCollapse(ForStatement for_stmt);
 
                 LoopCollapse& set_nesting_level(int n);
+
+                LoopCollapse& set_split_transform(Source &header);
         };
 
         //! Constructs a LoopCollapse object

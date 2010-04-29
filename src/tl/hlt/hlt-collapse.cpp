@@ -26,7 +26,10 @@
 using namespace TL::HLT;
 
 LoopCollapse::LoopCollapse(TL::ForStatement for_stmt)
-    : _for_nest_info(for_stmt), _nest_level(0)
+    : _for_nest_info(for_stmt), 
+    _nest_level(0), 
+    _split_transform(false), 
+    _header(NULL)
 {
     bool valid = true;
     if (!_for_nest_info.is_perfect())
@@ -50,17 +53,18 @@ LoopCollapse::LoopCollapse(TL::ForStatement for_stmt)
 TL::Source LoopCollapse::get_source()
 {
     ObjectList<ForStatement> for_nest_list = _for_nest_info.get_nest_list();
+
     // Fast path that it is not actually an error
-
-    if (_nest_level != 0)
-    {
-        for_nest_list.erase(for_nest_list.begin() + _nest_level + 1, 
-                for_nest_list.end());
-    }
-
     if (for_nest_list.size() == 1)
     {
         return for_nest_list[0].prettyprint();
+    }
+
+    if (_nest_level != 0
+            && _nest_level < for_nest_list.size())
+    {
+        for_nest_list.erase(for_nest_list.begin() + _nest_level, 
+                for_nest_list.end());
     }
 
     Source collapsed_loop, header, collapsed_for;
@@ -153,10 +157,14 @@ TL::Source LoopCollapse::get_source()
     }
 
     Source compute_nested_indexes, original_loop_body;
-    // FIXME - Use a proper type, not just _m
-    collapsed_for
+
+    header 
         // FIXME - We may want to change this name _m
+        // FIXME - Use a proper type, not just _m
         << "int _m;"
+        ;
+
+    collapsed_for
         << "for(_m = 0; _m < _total_iters; _m++)"
         << "{"
         <<  compute_nested_indexes
@@ -247,13 +255,27 @@ TL::Source LoopCollapse::get_source()
         << for_nest_list[for_nest_list.size() - 1].get_loop_body()
         ;
 
-    return collapsed_loop;
+    if (_split_transform)
+    {
+        (*_header) << header;
+        return collapsed_for;
+    }
+    else
+    {
+        return collapsed_loop;
+    }
 }
 
 LoopCollapse& LoopCollapse::set_nesting_level(int n)
 {
     _nest_level = n;
     return *this;
+}
+
+LoopCollapse& LoopCollapse::set_split_transform(Source& header)
+{
+    _header = &header;
+    _split_transform = true;
 }
 
 LoopCollapse TL::HLT::loop_collapse(ForStatement for_stmt)
