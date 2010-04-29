@@ -247,6 +247,9 @@ namespace OpenMP
                 arg_clauses << " inout(" << inout_args << ")";
             }
 
+            // Add the task symbol name to the clause
+            arg_clauses << " __symbol(" << sym.get_name() << ")";
+
             Source firstprivate_args;
 
             int i = 0;
