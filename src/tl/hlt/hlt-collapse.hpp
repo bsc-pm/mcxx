@@ -45,6 +45,8 @@ namespace TL
         {
             private:
                 ForNestInfo _for_nest_info;
+
+                int _nest_level;
             protected:
                 virtual Source get_source();
             public:
@@ -53,6 +55,8 @@ namespace TL
                   \param for_stmt Perfect loop nest
                   */
                 LoopCollapse(ForStatement for_stmt);
+
+                LoopCollapse& set_nesting_level(int n);
         };
 
         //! Constructs a LoopCollapse object

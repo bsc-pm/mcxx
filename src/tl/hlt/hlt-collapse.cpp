@@ -26,7 +26,7 @@
 using namespace TL::HLT;
 
 LoopCollapse::LoopCollapse(TL::ForStatement for_stmt)
-    : _for_nest_info(for_stmt)
+    : _for_nest_info(for_stmt), _nest_level(0)
 {
     bool valid = true;
     if (!_for_nest_info.is_perfect())
@@ -51,6 +51,12 @@ TL::Source LoopCollapse::get_source()
 {
     ObjectList<ForStatement> for_nest_list = _for_nest_info.get_nest_list();
     // Fast path that it is not actually an error
+
+    if (_nest_level != 0)
+    {
+        for_nest_list.erase(for_nest_list.begin() + _nest_level + 1, 
+                for_nest_list.end());
+    }
 
     if (for_nest_list.size() == 1)
     {
@@ -242,6 +248,12 @@ TL::Source LoopCollapse::get_source()
         ;
 
     return collapsed_loop;
+}
+
+LoopCollapse& LoopCollapse::set_nesting_level(int n)
+{
+    _nest_level = n;
+    return *this;
 }
 
 LoopCollapse TL::HLT::loop_collapse(ForStatement for_stmt)
