@@ -22,6 +22,8 @@
 --------------------------------------------------------------------*/
 
 #include "hlt-blocking.hpp"
+#include "hlt-stripmine.hpp"
+#include "hlt-interchange.hpp"
 #include "hlt-exception.hpp"
 #include <utility>
 
@@ -45,6 +47,46 @@ LoopBlocking::LoopBlocking(ForStatement for_stmt, ObjectList<Expression> block_f
     }
 }
 
+TL::Source LoopBlocking::do_blocking()
+{
+    ObjectList<ForStatement> nest_loops = _for_nest_info.get_nest_list();
+
+    _nesting = std::min(_nest_factors.size(), nest_loops.size());
+
+    for (int current_nest = _nesting - 1;
+            current_nest >= 0;
+            current_nest--)
+    {
+        ForStatement& for_statement = nest_loops[current_nest];
+        Expression& amount = _nest_factors[current_nest];
+
+        Source src = TL::HLT::stripmine_loop(for_statement, amount.prettyprint());
+
+        TL::AST_t tree = src.parse_statement(for_statement.get_ast(), for_statement.get_scope_link());
+
+        // This works because in the next iteration this tree will not be used anymore
+        for_statement.get_ast().replace(tree);
+    }
+
+    // Now perform interchange
+    // If the original nest was N long, the stripmined version will have 2*N
+    // loops, so the permutation is {1, i+2, i+4, ..., 2, i+2, i+2, .., 2*N}
+    // The following two loops create the permutation itself
+    ObjectList<int> permutation;
+    for (int i = 1; i <= _nesting; i++)
+    {
+        permutation.append(2*i-1);
+    }
+    for (int i = 1; i <= _nesting; i++)
+    {
+        permutation.append(2*i);
+    }
+
+    Source loop_interchange = TL::HLT::loop_interchange(nest_loops[0], permutation);
+    return loop_interchange;
+}
+
+#if 0
 TL::Source LoopBlocking::do_blocking()
 {
     Source result, block_loops;
@@ -134,6 +176,7 @@ TL::Source LoopBlocking::do_blocking()
 
     return result;
 }
+#endif
 
 bool LoopBlocking::check_nesting()
 {

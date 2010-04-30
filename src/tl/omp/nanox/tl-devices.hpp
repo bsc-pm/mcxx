@@ -27,9 +27,15 @@ namespace Nanox
           */
         bool leave_team;
 
+        /*!
+          This symbol represents the task function called from the outline.
+          */
+        Symbol task_symbol;
+
         OutlineFlags()
             : barrier_at_end(false),
-            leave_team(false)
+            leave_team(false),
+            task_symbol(NULL)
         {
         }
     };

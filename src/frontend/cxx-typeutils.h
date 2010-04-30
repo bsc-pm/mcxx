@@ -203,6 +203,9 @@ LIBMCXX_EXTERN char is_any_unsigned_int_type(struct type_tag* t);
 // Like the previous but only for signed
 LIBMCXX_EXTERN char is_any_signed_int_type(struct type_tag* t);
 
+// Returns the type on which this complex is based
+LIBMCXX_EXTERN struct type_tag* complex_type_get_base_type(struct type_tag* t);
+
 // char, wchar_t, bool and any integer
 LIBMCXX_EXTERN char is_integral_type(struct type_tag* t); 
 // A synonim in the standard

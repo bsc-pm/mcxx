@@ -1434,21 +1434,29 @@ type_t* decimal_literal_type(AST expr)
 
     char is_unsigned = 0;
     char is_long = 0;
+    char is_complex = 0;
 
+    // This loop goes backwards until the literal figures are found again
     while (toupper(*last) == 'L' 
-            || toupper(*last) == 'U')
+            || toupper(*last) == 'U'
+            // This is a GNU extension for complex
+            || toupper(*last) == 'I'
+            || toupper(*last) == 'J')
     {
-        switch (*last)
+        switch (toupper(*last))
         {
-            case 'l' :
             case 'L' :
                 is_long++;
                 break;
-            case 'u' :
             case 'U' :
                 is_unsigned = 1;
                 break;
+            case 'J':
+            case 'I':
+                is_complex = 1;
+                break;
             default:
+                internal_error("Code unreachable", 0);
                 break;
         }
         last--;
@@ -1472,6 +1480,11 @@ type_t* decimal_literal_type(AST expr)
                 result = ((is_unsigned == 0) ? get_signed_long_long_int_type() : get_unsigned_long_long_int_type());
                 break;
             }
+    }
+
+    if (is_complex)
+    {
+        result = get_complex_type(result);
     }
 
     // Special case for zero in C++
@@ -1513,19 +1526,25 @@ type_t *floating_literal_type(AST expr)
 
     char is_float = 0;
     char is_long_double = 0;
+    char is_complex = 0;
 
     while (toupper(*last) == 'F' 
-            || toupper(*last) == 'L')
+            || toupper(*last) == 'L'
+            // This is a GNU extension for complex
+            || toupper(*last) == 'I'
+            || toupper(*last) == 'J')
     {
-        switch (*last)
+        switch (toupper(*last))
         {
-            case 'l' :
             case 'L' :
                 is_long_double++;
                 break;
             case 'F' :
-            case 'f' :
                 is_float = 1;
+                break;
+            case 'I':
+            case 'J':
+                is_complex = 1;
                 break;
             default:
                 break;
@@ -1533,16 +1552,26 @@ type_t *floating_literal_type(AST expr)
         last--;
     }
 
+    type_t* result = NULL ;
     if (is_long_double)
     {
-        return get_long_double_type();
+        result = get_long_double_type();
     }
     else if (is_float)
     {
-        return get_float_type();
+        result = get_float_type();
     }
-    else 
-        return get_double_type();
+    else
+    {
+        result = get_double_type();
+    }
+
+    if (is_complex)
+    {
+        result = get_complex_type(result);
+    }
+
+    return result;
 }
 
 #define IS_OCTA_CHAR(_c) \
@@ -1854,22 +1883,44 @@ static type_t* usual_arithmetic_conversions(type_t* lhs_type, type_t* rhs_type)
             || !is_arithmetic_type(rhs_type),
             "Both should be arithmetic types", 0);
 
+    char is_complex = is_complex_type(lhs_type)
+       || is_complex_type(rhs_type); 
+
+    if (is_complex_type(lhs_type))
+    {
+        lhs_type = complex_type_get_base_type(lhs_type);
+    }
+    if (is_complex_type(rhs_type))
+    {
+        rhs_type = complex_type_get_base_type(rhs_type);
+    }
+
+    // Floating point case is easy
     if (is_floating_type(lhs_type)
             || is_floating_type(rhs_type))
     {
+        type_t* result = NULL;
         if (is_long_double_type(lhs_type)
                 || is_long_double_type(rhs_type))
         {
-            return get_long_double_type();
+            result = get_long_double_type();
         }
-
-        if (is_double_type(lhs_type)
+        else if (is_double_type(lhs_type)
                 || is_double_type(rhs_type))
         {
-            return get_double_type();
+            result = get_double_type();
+        }
+        else
+        {
+            result = get_float_type();
         }
 
-        return get_float_type();
+        if (is_complex)
+        {
+            result = get_complex_type(result);
+        }
+
+        return result;
     }
 
     // Perform integral promotions
@@ -1888,11 +1939,12 @@ static type_t* usual_arithmetic_conversions(type_t* lhs_type, type_t* rhs_type)
     ERROR_CONDITION(!is_any_int_type(lhs_type) || !is_any_int_type(rhs_type),
             "Error, the types are wrong, they should be either of integer nature at this point", 0);
 
+    type_t* result = NULL;
     // If either is unsigned long long, convert to unsigned long long
     if (is_unsigned_long_long_int_type(lhs_type)
             || is_unsigned_long_long_int_type(rhs_type))
     {
-        return get_unsigned_long_long_int_type();
+        result = get_unsigned_long_long_int_type();
     }
     // If one of the operands is 'signed long long' and the other one a
     // 'unsigned long', convert to 'signed long long' (if a 'signed long long'
@@ -1904,19 +1956,19 @@ static type_t* usual_arithmetic_conversions(type_t* lhs_type, type_t* rhs_type)
             || (is_signed_long_long_int_type(rhs_type)
                 && is_unsigned_long_int_type(lhs_type)))
     {
-        return get_signed_long_long_int_type();
+        result = get_signed_long_long_int_type();
     }
     // If either is signed long long, convert to signed long long
     else if (is_signed_long_long_int_type(lhs_type)
             || is_signed_long_long_int_type(rhs_type))
     {
-        return get_signed_long_long_int_type();
+        result = get_signed_long_long_int_type();
     }
     // If either is unsigned long convert to unsigned long
     else if (is_unsigned_long_int_type(lhs_type)
             || is_unsigned_long_int_type(rhs_type))
     {
-        return get_unsigned_long_int_type();
+        result = get_unsigned_long_int_type();
     }
     // If one operand is "signed long" and the other "unsigned int" convert to
     // "signed long" the "unsigned int" if a "signed long" can represent every
@@ -1928,19 +1980,19 @@ static type_t* usual_arithmetic_conversions(type_t* lhs_type, type_t* rhs_type)
             || (is_signed_long_int_type(rhs_type)
                 && is_unsigned_int_type(lhs_type)))
     {
-        return get_unsigned_int_type();
+        result = get_unsigned_int_type();
     }
     // If either is signed long, convert to signed long
     else if (is_signed_long_int_type(lhs_type)
             || is_signed_long_int_type(rhs_type))
     {
-        return get_signed_long_int_type();
+        result = get_signed_long_int_type();
     }
     // If either is unsigned int the the other should be
     else if (is_unsigned_int_type(lhs_type)
             || is_unsigned_int_type(rhs_type))
     {
-        return get_unsigned_int_type();
+        result = get_unsigned_int_type();
     }
     // both should be int here
     else if (!is_signed_int_type(lhs_type)
@@ -1949,7 +2001,14 @@ static type_t* usual_arithmetic_conversions(type_t* lhs_type, type_t* rhs_type)
         internal_error("Unreachable code", 0);
     }
 
-    return get_signed_int_type();
+    result = get_signed_int_type();
+
+    if (is_complex)
+    {
+        result = get_complex_type(result);
+    }
+
+    return result;
 }
 
 static

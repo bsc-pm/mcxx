@@ -78,7 +78,7 @@ namespace TL
                 Source min_bound, min_a, min_b;
 
                 min_a << "(" << upper_bound << ")";
-                min_b << "(" << induction_var << "+" << step << "*((" << _amount << ") -1))";
+                min_b << "(" << new_var_name << "+" << step << "*((" << _amount << ") -1))";
 
                 min_bound
                     << "(" << min_a << "<" << min_b << "?" << min_a << ":" << min_b << ")"
@@ -89,7 +89,7 @@ namespace TL
                 by_strip_loop_header 
                     << "for("
                     << induction_var_init << "=" << new_var_name << ";"
-                    << induction_var << operator_bound << min_bound
+                    << induction_var << operator_bound << min_bound << ";"
                     << induction_var << "+=" << step
                     << ")"
                     ;
@@ -117,7 +117,7 @@ namespace TL
         }
     }
 
-    HLT::StripMine HLT::strip_mine_loop(ForStatement for_stmt, Source amount)
+    HLT::StripMine HLT::stripmine_loop(ForStatement for_stmt, Source amount)
     {
         return HLT::StripMine(for_stmt, amount);
     }

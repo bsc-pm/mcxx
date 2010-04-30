@@ -51,11 +51,13 @@ preprocessor_name = c99
 preprocessor_options = -E -I@SUPERSCALAR_INCLUDES@
 {gcc} preprocessor_options = -include CellSS.h 
 {xlc} preprocessor_options = -qinclude=CellSS.h 
+{icc} preprocessor_options = -include CellSS.h 
 preprocessor_options = -D__STARSS=1 -D__STARSS_ABI_VERSION=@superscalar_version@ -D__STARSS_SMP=1
 
 compiler_name = c99
 {gcc} compiler_options = -g3
 {xlc} compiler_options = -g
+{icc} compiler_options = -g
 linker_name = g++
 linker_options = -g3 -L@SUPERSCALAR_LIBS@ -lSMPSS -lpthread
 compiler_phase = libtlsuperscalar-configurator.so
