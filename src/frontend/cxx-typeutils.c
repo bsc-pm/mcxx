@@ -1306,6 +1306,11 @@ char is_template_type(type_t* t)
 void template_type_set_related_symbol(type_t* t, scope_entry_t* entry)
 {
     ERROR_CONDITION(!is_template_type(t), "This is not a template type", 0);
+
+    ERROR_CONDITION(entry->kind != SK_TEMPLATE
+            && entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER,
+            "Invalid symbol for a template type", 0);
+
     t->type->related_template_symbol = entry;
 }
 
@@ -1507,8 +1512,7 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
 
     scope_entry_t* primary_symbol = named_type_get_symbol(t->type->primary_specialization);
 
-    if (primary_symbol->kind == SK_CLASS
-            || primary_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+    if (primary_symbol->kind == SK_CLASS)
     {
         if (specialized_type == NULL)
         {
@@ -1521,11 +1525,8 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
             specialized_type = _get_duplicated_class_type(specialized_type);
         }
 
-        if (primary_symbol->kind == SK_CLASS)
-        {
-            class_type_set_enclosing_class_type(specialized_type,
-                    class_type_get_enclosing_class_type(primary_symbol->type_information));
-        }
+        class_type_set_enclosing_class_type(specialized_type,
+                class_type_get_enclosing_class_type(primary_symbol->type_information));
     }
     else if (primary_symbol->kind == SK_FUNCTION)
     {
@@ -1556,7 +1557,8 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
     {
         type_t* enclosing_class_type = class_type_get_enclosing_class_type(specialized_type);
         if (has_dependent_temp_args
-                || primary_symbol->entity_specs.is_template_parameter
+                || (t->type->related_template_symbol != NULL
+                    && t->type->related_template_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
                 || (enclosing_class_type != NULL
                     && is_dependent_type(enclosing_class_type)))
         {
@@ -5628,10 +5630,6 @@ char is_value_dependent_expression(AST expression, decl_context_t decl_context)
         {
             fprintf(stderr, "TYPEUTILS: Tree contains attribute stating value dependency\n");
         }
-    }
-    else if (is_complex_type(type_info))
-    {
-        return 0;
     }
     else
     {

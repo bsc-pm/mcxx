@@ -530,6 +530,10 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 {
                     class_type_add_nonstatic_data_member(get_actual_class_type(being_instantiated), new_member);
                 }
+
+                fprintf(stderr, "INSTANTIATION: Member was a %s data member '%s'\n", 
+                        new_member->entity_specs.is_static ? "static" : "non-static",
+                        member_of_template->symbol_name);
                 break;
             }
         case SK_TYPEDEF:
@@ -1075,11 +1079,8 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     finish_class_type(get_actual_class_type(being_instantiated), being_instantiated, 
             named_class->decl_context, filename, line);
 
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "INSTANTIATION: End of instantiation of class '%s'\n", 
-                named_type_get_symbol(being_instantiated)->symbol_name);
-    }
+    fprintf(stderr, "INSTANTIATION: End of instantiation of class '%s'\n", 
+            print_declarator(being_instantiated));
 }
 
 static void instantiate_bases(
