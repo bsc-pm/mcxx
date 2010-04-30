@@ -3821,15 +3821,10 @@ static type_t* advance_dependent_typename_aux(
 
     scope_entry_t* dependent_entry = named_type_get_symbol(dependent_entry_type);
 
-    if (dependent_entry->kind == SK_TYPEDEF)
+    if (dependent_entry->kind == SK_TEMPLATE_TYPE_PARAMETER
+            || dependent_entry->kind == SK_TYPEDEF)
     {
-        dependent_entry_type = advance_over_typedefs(dependent_entry_type);
-        dependent_entry = named_type_get_symbol(dependent_entry_type);
-    }
-
-    if (dependent_entry->kind == SK_TEMPLATE_TYPE_PARAMETER)
-    {
-        // No way if this is a template type parameter
+        // No way if this is an involved dependent typename
         return original_type;
     }
 
