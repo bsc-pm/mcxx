@@ -606,6 +606,12 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
     type_t* left_type = ASTExprType(left_tree);
     type_t* right_type = ASTExprType(right_tree);
 
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "TYPEUNIF: left_type = %s\n", print_declarator(left_type));
+        fprintf(stderr, "TYPEUNIF: right_type = %s\n", print_declarator(right_type));
+    }
+
     if ((left_type != NULL && is_dependent_expr_type(left_type))
             || (right_type != NULL && is_dependent_expr_type(right_type)))
     {
@@ -846,8 +852,10 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
         case AST_QUALIFIED_ID :
             {
                 // Perform a query and compare their dependent types
-                scope_entry_list_t* result_left = query_id_expression(left_decl_context, left_tree);
-                scope_entry_list_t* result_right = query_id_expression(right_decl_context, right_tree);
+                scope_entry_list_t* result_left = query_id_expression_flags(left_decl_context, 
+                        left_tree, DF_DEPENDENT_TYPENAME);
+                scope_entry_list_t* result_right = query_id_expression_flags(right_decl_context, 
+                        right_tree, DF_DEPENDENT_TYPENAME);
 
                 if (result_left == NULL
                         || result_right == NULL)
