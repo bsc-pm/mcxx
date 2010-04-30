@@ -290,7 +290,7 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
     if (entry->kind == SK_TYPEDEF)
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1,  "Aliased type: %s\n",
-                print_declarator(typedef_type_get_aliased_type(entry->type_information)));
+                print_declarator(entry->type_information));
     }
 
     if (entry->kind == SK_GCC_BUILTIN_TYPE)

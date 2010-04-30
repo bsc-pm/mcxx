@@ -2056,7 +2056,7 @@ decl_context_t update_context_with_template_arguments(
                     // We use a typedef
                     param_symbol->kind = SK_TYPEDEF;
                     param_symbol->entity_specs.is_template_argument = 1;
-                    param_symbol->type_information = get_new_typedef(current_template_argument->type);
+                    param_symbol->type_information = current_template_argument->type;
 
                     break;
                 }
@@ -3149,7 +3149,7 @@ static void sign_in_template_name(template_argument_t* current_template_argument
                 // Sign in template parameter
                 param_symbol->kind = SK_TYPEDEF;
                 param_symbol->entity_specs.is_template_argument = 1;
-                param_symbol->type_information = get_new_typedef(current_template_argument->type);
+                param_symbol->type_information = current_template_argument->type;
                 break;
             }
         case TAK_TEMPLATE:

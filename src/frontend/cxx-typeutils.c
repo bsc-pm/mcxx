@@ -88,14 +88,13 @@ enum simple_type_kind_tag
     STK_COMPLEX,
     STK_CLASS, // [2] struct {identifier};
     STK_ENUM, // [3] enum {identifier}
-    STK_TYPEDEF, // [4] typedef int {identifier};
-    STK_USER_DEFINED, // [5] A {identifier};
-    STK_TEMPLATE_TYPE, // [6] a template type
+    STK_USER_DEFINED, // [4] A {identifier};
+    STK_TEMPLATE_TYPE, // [5] a template type
     // An unknown type
-    STK_TEMPLATE_DEPENDENT_TYPE, // [7]
+    STK_TEMPLATE_DEPENDENT_TYPE, // [6]
     // GCC Extensions
-    STK_VA_LIST, // [8] __builtin_va_list {identifier};
-    STK_TYPEOF  // [9] __typeof__(int) {identifier};
+    STK_VA_LIST, // [7] __builtin_va_list {identifier};
+    STK_TYPEOF  // [8] __typeof__(int) {identifier};
 } simple_type_kind_t;
 
 struct scope_entry_tag;
@@ -252,10 +251,6 @@ struct simple_type_tag {
     // and a 'b' symbol SK_VARIABLE with type STK_USER_DEFINED
     // pointing to 'A' symbol
     struct scope_entry_tag* user_defined_type;
-
-    // For typedefs (kind == STK_TYPEDEF)
-    // the aliased type
-    struct type_tag* aliased_type;
 
     // For enums (kind == STK_ENUM)
     enum_info_t* enum_info;
@@ -533,7 +528,6 @@ size_t get_type_t_size(void)
  * This file contains routines destined to work with types.  Comparing two
  * types, comparing function declarations and definitions, etc.
  */
-static type_t* get_aliased_type(type_t* t);
 static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2);
 static char equivalent_array_type(array_info_t* t1, array_info_t* t2);
 static char equivalent_function_type(type_t* t1, type_t* t2);
@@ -1720,30 +1714,6 @@ template_parameter_list_t* template_specialized_type_get_template_parameters(typ
             "This is not a template specialized type", 0);
 
     return t->template_parameters;
-}
-
-type_t* get_new_typedef(type_t* t)
-{
-    static Hash *_typedef_hash = NULL;
-
-    if (_typedef_hash == NULL)
-    {
-        _typedef_hash = hash_create(HASH_SIZE, HASHFUNC(pointer_hash), KEYCMPFUNC(integer_comp));
-    }
-
-    type_t* result = hash_get(_typedef_hash, t);
-
-    if (result == NULL)
-    {
-        result = get_simple_type();
-
-        result->type->kind = STK_TYPEDEF;
-        result->type->aliased_type = t;
-
-        hash_put(_typedef_hash, t, result);
-    }
-
-    return result;
 }
 
 type_t* get_complex_type(type_t* t)
@@ -3005,9 +2975,12 @@ type_t* advance_over_typedefs_with_cv_qualif(type_t* t1, cv_qualifier_t* cv_qual
         *cv_qualif = t1->cv_qualifier;
     }
     // Advance over typedefs
-    while (is_typedef_type(t1))
+    while (t1->kind == TK_DIRECT
+            && t1->type->kind == STK_USER_DEFINED
+            && t1->type->user_defined_type != NULL
+            && t1->type->user_defined_type->kind == SK_TYPEDEF)
     {
-        t1 = get_aliased_type(t1);
+        t1 = t1->type->user_defined_type->type_information;
         if (cv_qualif != NULL)
         {
             *cv_qualif |= t1->cv_qualifier;
@@ -3017,57 +2990,6 @@ type_t* advance_over_typedefs_with_cv_qualif(type_t* t1, cv_qualifier_t* cv_qual
     return t1;
 }
 
-char is_typedef_type(type_t* t1)
-{
-    if (t1 == NULL)
-        return 0;
-
-    if ((t1->kind == TK_DIRECT 
-            && t1->type->kind == STK_TYPEDEF))
-    {
-        return 1;
-    }
-
-    if (t1->kind == TK_DIRECT
-            && t1->type->kind == STK_USER_DEFINED)
-    {
-        scope_entry_t* user_defined_entry = t1->type->user_defined_type;
-        type_t* user_defined_type = user_defined_entry->type_information;
-
-        if (user_defined_type != NULL 
-                && user_defined_type->kind == TK_DIRECT 
-                && user_defined_type->type != NULL 
-                && user_defined_type->type->kind == STK_TYPEDEF)
-        {
-            return 1;
-        }
-    }
-
-    return 0;
-}
-
-static type_t* get_aliased_type(type_t* t1)
-{
-    if (!is_typedef_type(t1))
-        internal_error("This is not a 'typedef' type", 0);
-
-    if (t1->kind == TK_DIRECT && t1->type->kind == STK_TYPEDEF)
-    {
-        return (t1->type->aliased_type);
-    }
-    else
-    {
-        scope_entry_t* user_defined_entry = t1->type->user_defined_type;
-        type_t* user_defined_type = user_defined_entry->type_information;
-
-        return user_defined_type->type->aliased_type;
-    }
-}
-
-type_t* typedef_type_get_aliased_type(type_t* t1)
-{
-    return get_aliased_type(t1);
-}
 
 char function_type_get_lacking_prototype(type_t* function_type)
 {
@@ -4821,8 +4743,6 @@ char is_pointer_to_member_type(type_t* t)
 
 char is_named_type(type_t* t)
 {
-    t = advance_over_typedefs(t);
-
     return (t != NULL
             && t->kind == TK_DIRECT
             && t->type->kind == STK_USER_DEFINED
@@ -4831,7 +4751,6 @@ char is_named_type(type_t* t)
 
 scope_entry_t* named_type_get_symbol(type_t* t)
 {
-    t = advance_over_typedefs(t);
     if (is_named_type(t))
     {
         return t->type->user_defined_type;
@@ -5662,15 +5581,11 @@ static type_t* canonical_type(type_t* type)
     if (type == NULL)
         return NULL;
 
-    while (is_typedef_type(type)
-            || (is_named_type(type)
+    while ((is_named_type(type)
                 && named_type_get_symbol(type)->type_information != NULL))
 
     {
-        if (is_typedef_type(type))
-        {
-            type = advance_over_typedefs(type);
-        }
+        type = advance_over_typedefs(type);
         if (is_named_type(type)
                 && named_type_get_symbol(type)->type_information != NULL)
         {
@@ -5799,9 +5714,6 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
             {
                 // Fix this
                 scope_entry_t* entry = simple_type->user_defined_type;
-
-                ERROR_CONDITION(is_typedef_type(entry->type_information),
-                        "typedefs are not allowed in this function", 0);
 
                 char is_dependent = 0;
                 int max_level = 0;
@@ -6245,7 +6157,6 @@ static void get_type_name_str_internal(decl_context_t decl_context,
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
 
-    if (is_typedef_type(type_info))
     {
         cv_qualifier_t cv = CV_NONE;
         type_info = advance_over_typedefs_with_cv_qualif(type_info, &cv);
@@ -6733,9 +6644,6 @@ static const char* get_builtin_type_name(type_t* type_info)
                 result = strappend(result, c);
                 break;
             }
-        case STK_TYPEDEF :
-            result = strappend(result, print_declarator(advance_over_typedefs(simple_type_info->aliased_type)));
-            break;
         default :
             {
                 char c[50];
@@ -8447,27 +8355,7 @@ _size_t type_get_size(type_t* t)
     // Note that we are not advancing typedefs because of attributes affecting types!
     if (!t->info->valid_size)
     {
-        if (is_typedef_type(t))
-        {
-            type_t* alias_type = get_aliased_type(t);
-            // Ensure the aliased type has its size computed
-            // and copy it to the typedef
-            type_set_size(t, type_get_size(alias_type));
-            type_set_alignment(t, type_get_alignment(alias_type));
-
-            CXX_LANGUAGE()
-            {
-                type_set_data_size(t, type_get_data_size(alias_type));
-                class_type_set_non_virtual_size(t, 
-                        class_type_get_non_virtual_size(alias_type));
-                class_type_set_non_virtual_align(t, 
-                        class_type_get_non_virtual_align(alias_type));
-            }
-
-            // State it valid
-            type_set_valid_size(t, 1);
-        }
-        else if (is_named_type(t))
+        if (is_named_type(t))
         {
             type_t* alias_type = named_type_get_symbol(t)->type_information;
 

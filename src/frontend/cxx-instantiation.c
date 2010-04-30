@@ -542,12 +542,10 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         being_instantiated,
                         member_of_template);
 
-                new_member->type_information = get_new_typedef(
-                        update_type(
+                new_member->type_information = update_type(
                         new_member->type_information,
                         context_of_being_instantiated,
-                        filename, line)
-                        );
+                        filename, line);
                 class_type_add_typename(get_actual_class_type(being_instantiated), new_member);
 
                 break;
@@ -938,7 +936,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                         // We use a typedef
                         param_symbol->kind = SK_TYPEDEF;
                         param_symbol->entity_specs.is_template_argument = 1;
-                        param_symbol->type_information = get_new_typedef(current_deduction->deduced_parameters[0]->type);
+                        param_symbol->type_information = current_deduction->deduced_parameters[0]->type;
 
                         break;
                     }
@@ -1280,7 +1278,7 @@ void instantiate_template_function(scope_entry_t* entry,
 
                     injected_type->kind = SK_TYPEDEF;
                     injected_type->entity_specs.is_template_argument = 1;
-                    injected_type->type_information = get_new_typedef(template_argument->type);
+                    injected_type->type_information = template_argument->type;
                     break;
                 }
             case TPK_TEMPLATE:

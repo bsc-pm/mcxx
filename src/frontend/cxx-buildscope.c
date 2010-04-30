@@ -257,7 +257,7 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
     builtin_va_list = new_symbol(decl_context, decl_context.global_scope, "__builtin_va_list");
     builtin_va_list->kind = SK_TYPEDEF;
     builtin_va_list->defined = 1;
-    builtin_va_list->type_information = get_new_typedef(get_gcc_builtin_va_list_type());
+    builtin_va_list->type_information = get_gcc_builtin_va_list_type();
     builtin_va_list->do_not_print = 1;
     builtin_va_list->file = "(global scope)";
     builtin_va_list->entity_specs.is_builtin = 1;
@@ -4118,10 +4118,7 @@ static void set_function_parameter_clause(type_t** function_type,
         type_t* original_type = type_info;
         // If the original type is a typedef then we want to ignore
         // all the indirections
-        if (is_typedef_type(type_info))
-        {
-            type_info = advance_over_typedefs(type_info);
-        }
+        type_info = advance_over_typedefs(type_info);
 
         type_info = get_unqualified_type(type_info);
 
@@ -4986,7 +4983,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         scope_entry_t* named_type = NULL;
         if (is_named_type(declarator_type)
                 && ((named_type = named_type_get_symbol(declarator_type))->kind == SK_TYPEDEF)
-                && is_function_type(typedef_type_get_aliased_type(named_type->type_information)))
+                && is_function_type(named_type->type_information))
         {
             DEBUG_CODE()
             {
@@ -5044,7 +5041,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
     else
     {
         entry->kind = SK_TYPEDEF;
-        entry->type_information = get_new_typedef(declarator_type);
+        entry->type_information = declarator_type;
     }
 
     return entry;
@@ -7878,7 +7875,7 @@ decl_context_t replace_template_parameters_with_template_arguments(
             type_t* argument_type = 
                 template_arguments->argument_list[entry->entity_specs.template_parameter_position]->type;
 
-            new_entry->type_information = get_new_typedef(argument_type);
+            new_entry->type_information = argument_type;
 
             DEBUG_CODE()
             {

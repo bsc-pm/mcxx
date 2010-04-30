@@ -93,8 +93,6 @@ LIBMCXX_EXTERN struct type_tag* get_new_template_type(template_parameter_list_t*
 
 LIBMCXX_EXTERN struct type_tag* get_complex_type(struct type_tag* t);
 
-LIBMCXX_EXTERN struct type_tag* get_new_typedef(struct type_tag* t);
-
 LIBMCXX_EXTERN struct type_tag* get_unresolved_overloaded_type(struct scope_entry_list_tag* overload_set,
         template_argument_list_t* explicit_template_arguments);
 LIBMCXX_EXTERN template_argument_list_t* unresolved_overloaded_type_get_explicit_template_arguments(struct type_tag* t);
@@ -478,9 +476,6 @@ LIBMCXX_EXTERN char is_pointer_to_class_type(struct type_tag* t1);
 LIBMCXX_EXTERN char is_lvalue_reference_to_class_type(struct type_tag* t1);
 LIBMCXX_EXTERN char is_rvalue_reference_to_class_type(struct type_tag* t1);
 LIBMCXX_EXTERN char is_reference_to_class_type(struct type_tag* t1);
-LIBMCXX_EXTERN char is_typedef_type(struct type_tag* t1);
-
-LIBMCXX_EXTERN struct type_tag* typedef_type_get_aliased_type(struct type_tag* t);
 
 LIBMCXX_EXTERN struct scope_entry_tag* give_real_entry(struct scope_entry_tag* entry);
 
