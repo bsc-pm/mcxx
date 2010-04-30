@@ -367,10 +367,10 @@ static char is_less_or_equal_specialized_template_conversion_function(
     type_t* parameters[1];
 
     num_arguments = 1;
-    arguments[0] = function_type_get_return_type(f2);
+    arguments[0] = function_type_get_parameter_type_num(f2, 0);
 
     num_parameters = 1;
-    parameters[0] = function_type_get_return_type(f1);
+    parameters[0] = function_type_get_parameter_type_num(f1, 0);
 
     deduction_set_t* deduction_result = NULL;
     // Try to deduce types of template type F1 using F2
@@ -401,7 +401,7 @@ static char is_less_or_equal_specialized_template_conversion_function(
             deduced_template_argument_list);
 
     {
-        type_t* original_type = function_type_get_return_type(f1);
+        type_t* original_type = function_type_get_parameter_type_num(f1, 0);
         
         type_t* updated_type = update_type(original_type, 
                 updated_context,
@@ -427,7 +427,7 @@ static char is_less_or_equal_specialized_template_conversion_function(
             return 0;
         }
 
-        type_t* argument_type = function_type_get_return_type(f2);
+        type_t* argument_type = function_type_get_parameter_type_num(f2, 0);
 
         if (!equivalent_types(updated_type, argument_type))
         {

@@ -238,6 +238,8 @@ static type_t* determine_most_specialized_template_class(
     return current_most_specialized;
 }
 
+static type_t* extend_function_with_return_type(type_t* funct_type);
+
 static
 type_t* determine_most_specialized_template_function(int num_feasible_templates, 
         type_t** feasible_templates, decl_context_t decl_context,
@@ -275,6 +277,9 @@ type_t* determine_most_specialized_template_function(int num_feasible_templates,
             named_type_get_symbol(feasible_templates[i])->entity_specs.is_conversion;
         type_t* f = named_type_get_symbol(feasible_templates[i])->type_information;
         type_t* g = named_type_get_symbol(most_specialized)->type_information;
+
+        f = extend_function_with_return_type(f);
+        g = extend_function_with_return_type(g);
 
         if (!is_less_or_equal_specialized_template_function(
                     f,
@@ -323,6 +328,9 @@ type_t* determine_most_specialized_template_function(int num_feasible_templates,
             named_type_get_symbol(most_specialized)->entity_specs.is_conversion;
         type_t* f = named_type_get_symbol(most_specialized)->type_information;
         type_t* g = named_type_get_symbol(feasible_templates[i])->type_information;
+
+        f = extend_function_with_return_type(f);
+        g = extend_function_with_return_type(g);
 
         if (is_less_or_equal_specialized_template_function(
                     f,

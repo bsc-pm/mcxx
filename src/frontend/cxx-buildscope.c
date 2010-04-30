@@ -5192,13 +5192,13 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             new_entry = new_symbol(decl_context, decl_context.current_scope, function_name);
             new_entry->type_information = template_type;
 
-            template_type_set_related_symbol(template_type, new_entry);
-
             // This is a template, not a plain function
             new_entry->kind = SK_TEMPLATE;
             new_entry->line = ASTLine(declarator_id);
             new_entry->file = ASTFileName(declarator_id);
             new_entry->point_of_declaration = get_enclosing_declaration(declarator_id);
+
+            template_type_set_related_symbol(template_type, new_entry);
 
             // Now update the symbol, we are not working anymore on the
             // template type itself but on its main specialization (primary
