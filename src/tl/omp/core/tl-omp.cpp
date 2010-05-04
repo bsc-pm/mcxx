@@ -229,8 +229,8 @@ namespace TL
         {
             device_names = _device_list;
 
-            // Always ensure there is smp
-            if (!_device_list.contains("smp"))
+            // If empty, add smp
+            if (!_device_list.empty())
             {
                 device_names.append("smp");
             }
