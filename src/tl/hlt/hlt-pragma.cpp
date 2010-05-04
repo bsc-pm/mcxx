@@ -547,14 +547,22 @@ void HLTPragmaPhase::interchange_loops(PragmaCustomConstruct construct)
     construct.get_ast().replace(statement.get_ast());
 }
 
-void collapse_loop_fun(TL::ForStatement for_stmt)
+void collapse_loop_fun(TL::ForStatement for_stmt, int level)
 {
-    TL::Source collapsed_loop_src = TL::HLT::loop_collapse(for_stmt).allow_identity(_allow_identity);
+    TL::HLT::LoopCollapse loop_collapse = TL::HLT::loop_collapse(for_stmt);
+    loop_collapse.allow_identity(_allow_identity);
 
+    if (level != 0)
+    {
+        loop_collapse.set_nesting_level(level);
+    }
+
+    TL::Source collapsed_loop_src = loop_collapse;
     TL::AST_t collapsed_loop_tree = collapsed_loop_src.parse_statement(for_stmt.get_ast(),
             for_stmt.get_scope_link());
 
     for_stmt.get_ast().replace(collapsed_loop_tree);
+
 }
 
 void HLTPragmaPhase::collapse_loop(PragmaCustomConstruct construct)
@@ -569,8 +577,26 @@ void HLTPragmaPhase::collapse_loop(PragmaCustomConstruct construct)
         throw HLTException(construct, "not found any suitable construct for this pragma");
     }
 
+    int nest_level = 0;
+    PragmaCustomClause level = construct.get_clause("level");
+    if (level.is_defined())
+    {
+        ObjectList<Expression> expr_list = level.get_expression_list();
+        if (expr_list.size() != 1)
+        {
+            throw HLTException(construct, "clause 'level' requires only one argument");
+        }
+        bool valid = false;
+        nest_level = expr_list[0].evaluate_constant_int_expression(valid);
+
+        if (!valid)
+        {
+            throw HLTException(construct, "invalid value '" + expr_list[0].prettyprint() + "' for 'level' clause");
+        }
+    }
+
     std::for_each(for_statement_list.begin(), for_statement_list.end(),
-            std::ptr_fun(collapse_loop_fun));
+            std::bind2nd(std::ptr_fun(collapse_loop_fun), nest_level));
 
     construct.get_ast().replace(statement.get_ast());
 }
