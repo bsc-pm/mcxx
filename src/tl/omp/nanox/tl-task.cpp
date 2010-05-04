@@ -463,11 +463,11 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
             Source copy_sharing;
             bool is_shared = false;
-            if (it->get_kind() == OpenMP::COPY_DIR_IN)
-            {
-                copy_sharing << "NANOS_PRIVATE";
-            }
-            else 
+            // if (it->get_kind() == OpenMP::COPY_DIR_IN)
+            // {
+            //     copy_sharing << "NANOS_PRIVATE";
+            // }
+            // else 
             {
                 copy_sharing << "NANOS_SHARED";
                 is_shared = true;
