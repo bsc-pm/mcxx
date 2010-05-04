@@ -1,5 +1,7 @@
 #include "tl-devices.hpp"
 #include "nanox-gpu.hpp"
+#include "tl-declarationclosure.hpp"
+#include "tl-multifile.hpp"
 
 #include <iostream>
 #include <fstream>
@@ -135,9 +137,9 @@ DeviceGPU::DeviceGPU()
 {
     DeviceHandler &device_handler(DeviceHandler::get_device_handler());
 
-    device_handler.register_device("gpu", this);
+    device_handler.register_device("cuda", this);
 
-    set_phase_name("Nanox GPU support");
+    set_phase_name("Nanox GPU (CUDA) support");
     set_phase_description("This phase is used by Nanox phases to implement GPU (CUDA) device support");
 }
 
@@ -159,57 +161,93 @@ void DeviceGPU::create_outline(
     Source forward_declaration;
     Symbol function_symbol = enclosing_function.get_function_symbol();
 
-#if 0
-    if (!function_symbol.is_member())
-    {
-        Source template_header;
-
-        IdExpression function_name = enclosing_function.get_function_name();
-        Declaration point_of_decl = function_name.get_declaration();
-        DeclarationSpec decl_specs = point_of_decl.get_declaration_specifiers();
-        ObjectList<DeclaredEntity> declared_entities = point_of_decl.get_declared_entities();
-        DeclaredEntity declared_entity = *(declared_entities.begin());
-
-        forward_declaration 
-            << template_header
-            << decl_specs.prettyprint()
-            << " "
-            << declared_entity.prettyprint()
-            << ";";
-    }
-#endif
-
-
-    // TO DO: add the task fwd decl
-
     result
-        << forward_declaration
         << "void " << outline_name << "(" << parameter_list << ")"
         << "{"
         << body
         << "}"
         ;
 
-
-    if (outline_flags.task_symbol != NULL) {
-    	std::cout << "I got some task symbol" << std::endl;
-    	//forward_declaration << outline_flags.task_symbol.get_point_of_declaration().get_enclosing_function_definition(false).prettyprint_external();
-
-    	std::cout << "OUTLINE FLAGS SYMBOL = " << std::endl
-    			<< outline_flags.task_symbol.get_point_of_declaration().get_enclosing_function_definition(false).prettyprint_external()
-    			<< std::endl;
-    } else {
-    	std::cout << "No task symbol found" << std::endl;
-    }
-
     parameter_list
-        //<< struct_typename << "* _args"
 		<< "void * _args"
         ;
 
     outline_name
         << gpu_outline_name(task_name)
         ;
+
+
+    if (outline_flags.task_symbol != NULL)
+    {
+    	AST_t function_tree = outline_flags.task_symbol.get_point_of_declaration();
+
+    	// Get *.cu included files
+    	ObjectList<IncludeLine> lines = CurrentFile::get_top_level_included_files();
+    	std::string cuda_line (".cu\"");
+    	std::size_t cuda_size = cuda_line.size();
+
+    	for (ObjectList<IncludeLine>::iterator it = lines.begin(); it != lines.end(); it++)
+    	{
+    		std::string line = (*it).get_preprocessor_line();
+    		if (line.size() > cuda_size)
+    		{
+    			std::string matching = line.substr(line.size()-cuda_size,cuda_size);
+    			if (matching == cuda_line)
+    			{
+    				forward_declaration << line << "\n";
+    			}
+    		}
+    	}
+
+    	forward_declaration << "extern \"C\" {\n";
+
+    	// Get the definition of non local symbols
+    	LangConstruct construct (function_tree, sl);
+    	ObjectList<IdExpression> extern_occurrences = construct.non_local_symbol_occurrences();
+    	DeclarationClosure decl_closure (sl);
+    	std::set<Symbol> extern_symbols;
+
+    	for (ObjectList<IdExpression>::iterator it = extern_occurrences.begin();
+    			it != extern_occurrences.end();
+    			it++)
+    	{
+    		Symbol s = (*it).get_symbol();
+    		decl_closure.add(s);
+
+    		// TODO: check the symbol is not a global variable
+    		extern_symbols.insert(s);
+    	}
+
+    	forward_declaration << decl_closure.closure() << "\n";
+
+    	for (std::set<Symbol>::iterator it = extern_symbols.begin();
+    			it != extern_symbols.end(); it++)
+    	{
+    		forward_declaration << (*it).get_point_of_declaration().prettyprint_external() << "\n";
+    	}
+
+    	// Check if the task symbol has a function definition or declaration
+    	if (FunctionDefinition::predicate(function_tree))
+    	{
+    		forward_declaration << function_tree.get_enclosing_function_definition(false).prettyprint_external();
+    	}
+    	else
+    	{
+    		forward_declaration << function_tree.get_enclosing_global_tree().prettyprint_external();
+    	}
+
+    	// Remove the task body from the original source file and replace it for the outline declaration
+
+    	Source outline_decl;
+    	outline_decl << "void " << outline_name << "(" << parameter_list << ");";
+    	AST_t outline_decl_tree
+    	        = outline_decl.parse_declaration(outline_flags.task_symbol.get_point_of_declaration()/*function_tree.get_enclosing_function_definition(true)*/, sl);
+    	function_tree.get_enclosing_function_definition(true).replace_in_list(outline_decl_tree);
+
+    	// Close the extern \"C\" key
+    	forward_declaration << "}\n";
+
+    }
 
     Source private_vars, final_code;
 
@@ -271,9 +309,10 @@ void DeviceGPU::create_outline(
 
     std::ofstream cudaFile;
     cudaFile.open (file_name.c_str());
-    if (outline_flags.task_symbol != NULL)
-    	cudaFile << outline_flags.task_symbol.get_point_of_declaration().get_enclosing_function_definition(false).prettyprint_external();
-    cudaFile << outline_code_tree.prettyprint_external();
+    cudaFile << forward_declaration.get_source(false) << "\n";
+    cudaFile << "extern \"C\" {\n";
+    cudaFile << outline_code_tree.prettyprint_external() << "\n";
+    cudaFile << "}";
     cudaFile.close();
 
     // reference_tree.prepend_sibling_function(outline_code_tree);
