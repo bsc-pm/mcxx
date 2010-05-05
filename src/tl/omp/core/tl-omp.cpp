@@ -230,7 +230,7 @@ namespace TL
             device_names = _device_list;
 
             // If empty, add smp
-            if (!_device_list.empty())
+            if (_device_list.empty())
             {
                 device_names.append("smp");
             }
