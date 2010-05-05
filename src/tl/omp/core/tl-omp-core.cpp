@@ -379,16 +379,31 @@ namespace TL
         struct DataSharingEnvironmentSetter
         {
             private:
+                AST_t _ref_tree;
                 DataSharingEnvironment& _data_sharing;
                 DataSharingAttribute _data_attrib;
             public:
-                DataSharingEnvironmentSetter(DataSharingEnvironment& data_sharing, DataSharingAttribute data_attrib)
-                    : _data_sharing(data_sharing),
+                DataSharingEnvironmentSetter(
+                        AST_t ref_tree,
+                        DataSharingEnvironment& data_sharing, 
+                        DataSharingAttribute data_attrib)
+                    : _ref_tree(ref_tree),
+                    _data_sharing(data_sharing),
                     _data_attrib(data_attrib) { }
 
                 void operator()(DataReference data_ref)
                 {
                     Symbol sym = data_ref.get_base_symbol();
+
+                    if ((_data_sharing.get_data_sharing(sym, /* check_enclosing */ false)
+                            == DS_SHARED)
+                            && _data_attrib & DS_PRIVATE )
+                    {
+                        std::cerr << _ref_tree.get_locus() << ": warning: data sharing of '" 
+                            << data_ref.prettyprint() 
+                            << "' was shared but now it is being overriden as private" 
+                            << std::endl;
+                    }
 
                     if (data_ref.is_id_expression())
                     {
@@ -424,12 +439,12 @@ namespace TL
             ObjectList<DataReference> shared_references;
             get_clause_symbols(construct.get_clause("shared"), shared_references);
             std::for_each(shared_references.begin(), shared_references.end(), 
-                    DataSharingEnvironmentSetter(data_sharing, DS_SHARED));
+                    DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_SHARED));
 
             ObjectList<DataReference> private_references;
             get_clause_symbols(construct.get_clause("private"), private_references);
             std::for_each(private_references.begin(), private_references.end(), 
-                    DataSharingEnvironmentSetter(data_sharing, DS_PRIVATE));
+                    DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_PRIVATE));
 
             ObjectList<DataReference> firstprivate_references;
             get_clause_symbols(construct.get_clause("firstprivate"), 
@@ -438,12 +453,12 @@ namespace TL
                     // the time being
                     /* allow_extended_references */ true);
             std::for_each(firstprivate_references.begin(), firstprivate_references.end(), 
-                    DataSharingEnvironmentSetter(data_sharing, DS_FIRSTPRIVATE));
+                    DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_FIRSTPRIVATE));
 
             ObjectList<DataReference> lastprivate_references;
             get_clause_symbols(construct.get_clause("lastprivate"), lastprivate_references);
             std::for_each(lastprivate_references.begin(), lastprivate_references.end(), 
-                    DataSharingEnvironmentSetter(data_sharing, DS_LASTPRIVATE));
+                    DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_LASTPRIVATE));
 
             ObjectList<OpenMP::ReductionSymbol> reduction_references;
             get_reduction_symbols(construct, construct.get_clause("reduction"), reduction_references);
@@ -453,12 +468,12 @@ namespace TL
             ObjectList<DataReference> copyin_references;
             get_clause_symbols(construct.get_clause("copyin"), copyin_references);
             std::for_each(copyin_references.begin(), copyin_references.end(), 
-                    DataSharingEnvironmentSetter(data_sharing, DS_COPYIN));
+                    DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_COPYIN));
 
             ObjectList<DataReference> copyprivate_references;
             get_clause_symbols(construct.get_clause("copyprivate"), copyprivate_references);
             std::for_each(copyprivate_references.begin(), copyprivate_references.end(), 
-                    DataSharingEnvironmentSetter(data_sharing, DS_COPYPRIVATE));
+                    DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_COPYPRIVATE));
         }
 
         DataSharingAttribute Core::get_default_data_sharing(PragmaCustomConstruct construct,
@@ -553,14 +568,14 @@ namespace TL
         void Core::common_parallel_handler(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing)
         {
             data_sharing.set_is_parallel(true);
-            // Analyze things here
+
+            get_target_info(construct, data_sharing);
+
             get_data_explicit_attributes(construct, data_sharing);
 
             DataSharingAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DS_SHARED);
 
             get_data_implicit_attributes(construct, default_data_attr, data_sharing);
-
-            get_target_info(construct, data_sharing);
         }
 
         void Core::common_for_handler(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing)
@@ -590,13 +605,13 @@ namespace TL
 
         void Core::common_workshare_handler(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing)
         {
+            get_target_info(construct, data_sharing);
+
             get_data_explicit_attributes(construct, data_sharing);
 
             DataSharingAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DS_SHARED);
 
             get_data_implicit_attributes(construct, default_data_attr, data_sharing);
-
-            get_target_info(construct, data_sharing);
         }
 
         // Data sharing computation for tasks.
@@ -779,6 +794,9 @@ namespace TL
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
             _openmp_info->push_current_data_sharing(data_sharing);
 
+            // First get target info
+            get_target_info(construct, data_sharing);
+
             get_data_explicit_attributes(construct, data_sharing);
             DataSharingAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DS_UNDEFINED);
 
@@ -789,7 +807,6 @@ namespace TL
             }
             
             get_dependences_info(construct, data_sharing);
-            get_target_info(construct, data_sharing);
         }
 
         void Core::task_handler_post(PragmaCustomConstruct construct)
