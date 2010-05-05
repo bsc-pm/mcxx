@@ -69,7 +69,7 @@ namespace TL
             //! Lastprivate data sharing
             DS_LASTPRIVATE = BITMAP(4) | DS_PRIVATE,
             //! Both lastprivate and firstprivate
-            DA_FIRSTLASTPRIVATE = DS_FIRSTPRIVATE | DS_LASTPRIVATE,
+            DS_FIRSTLASTPRIVATE = DS_FIRSTPRIVATE | DS_LASTPRIVATE,
             //! Reduction data-sharing 
             DS_REDUCTION = BITMAP(5),
             //! Threadprivate data-sharing
