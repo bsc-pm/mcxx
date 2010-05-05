@@ -27,7 +27,7 @@ phases_LTLIBRARIES = libtlnanos4.la libtlomp-nanos4.la libtlomp-serialize.la
 
 
 END=
-tl_omp_flags = -Wall $(tl_cflags) -I $(srcdir)/../core
+tl_omp_flags = -Wall $(tl_cflags) -I $(srcdir)/../core -I $(srcdir)/../nanos-common
 
 #### libtl-nanos4.la
 
@@ -93,7 +93,7 @@ libtlomp_nanos4_la_CFLAGS = $(tl_omp_flags)
 libtlomp_nanos4_la_CXXFLAGS = $(tl_omp_flags)
 
 libtlomp_nanos4_la_LDFLAGS = $(tl_ldflags)
-libtlomp_nanos4_la_LIBADD = $(tl_libadd) ../core/libtlomp-core.la
+libtlomp_nanos4_la_LIBADD = $(tl_libadd) ../core/libtlomp-core.la ../nanos-common/libtlnanos-common.la
 
 #### libtl-omp-serialize.la
 

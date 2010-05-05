@@ -21,15 +21,6 @@
   Cambridge, MA 02139, USA.
   --------------------------------------------------------------------*/
 
-#include "tl-omp-nanox.hpp"
-
-#include "tl-nanos-atomic.hpp"
-
-using namespace TL;
-using namespace TL::Nanox;
-
-
-void OMPTransform::atomic_postorder(PragmaCustomConstruct atomic_construct)
-{
-    Nanos::common_atomic_postorder(atomic_construct);
-}
+namespace TL { namespace Nanos {
+    void common_atomic_postorder(PragmaCustomConstruct atomic_construct);
+} }
