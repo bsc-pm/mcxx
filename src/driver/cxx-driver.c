@@ -111,12 +111,15 @@
 "  --cc=<name>              Another name for --cxx=<name>\n" \
 "  --ld=<name>              Linker <name> will be used for linking\n" \
 "  --pp-stdout              Preprocessor uses stdout for output\n" \
-"  --Wp,<options>           Pass comma-separated <options> on to\n" \
-"                           the preprocessor\n" \
-"  --Wn,<options>           Pass comma-separated <options> on to\n" \
-"                           the native compiler\n" \
-"  --Wl,<options>           Pass comma-separated <options> on to\n" \
-"                           the linker\n" \
+"  --W<flags>,<options>     Pass comma-separated <options> on to\n" \
+"                           the several programs invoked by the driver\n" \
+"                           Flag list is a sequence of 'p', 'n' or 'l'\n" \
+"                              p: preprocessor\n"  \
+"                              n: native compiler\n" \
+"                              l: linker\n" \
+"  --Wx:<profile>:<flags>,options\n" \
+"                           Like --W<flags>,<options> but for\n" \
+"                           a specific compiler profile\n" \
 "  --no-openmp              Disables all OpenMP support\n" \
 "  --config-file=<file>     Uses <file> as config file.\n" \
 "                           Use --print-config-file to get the\n" \
@@ -1419,12 +1422,20 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
             }
         case '-' :
         {
-            if (argument[2] == 'W'
-                    && (strlen(argument) > strlen("--Wx,")))
+            if (argument[2] == 'W')
             {
-                if (!dry_run)
-                    parse_subcommand_arguments(&argument[3]);
-                (*should_advance)++;
+                // Check it is of the form -W*,
+                const char *p = strchr(&argument[2], ',');
+                if (p != NULL)
+                {
+                    // Check there is something after the first comma ','
+                    if (*(p+1) != '\0')
+                    {
+                        if (!dry_run)
+                            parse_subcommand_arguments(&argument[3]);
+                        (*should_advance)++;
+                    }
+                }
                 break;
             }
             else
@@ -1490,38 +1501,108 @@ void add_to_parameter_list(const char*** existing_options, const char **paramete
 
 static void parse_subcommand_arguments(const char* arguments)
 {
-    if ((strlen(arguments) <= 2)
-            || (arguments[1] != ',')
-            || (arguments[0] != 'n'
-                && arguments[0] != 'p'
-                && arguments[0] != 'l'))
+    char prepro_flag = 0;
+    char native_flag = 0;
+    char linker_flag = 0;
+
+    compilation_configuration_t* configuration = CURRENT_CONFIGURATION;
+
+    // We are understanding and we will assume --Wpp, is --Wp, 
+    // likewise with --Wpnp, will be like --Wpn
+    const char* p = arguments;
+
+    if (*p == 'x')
     {
-        options_error("Option --W is of the form --Wx, where 'x' can be 'n', 'p' or 'l'");
+        p++;
+        if (*p != ':')
+        {
+            options_error("Option --W is of the form --Wx, in this case the proper syntax is --Wx:profile-name:m,");
+        }
+
+#define MAX_PROFILE_NAME 256
+        char profile_name[MAX_PROFILE_NAME] = { 0 };
+        char* q = profile_name;
+
+        while (*p != ':'
+                && *p != '\0')
+        {
+            if ((q - profile_name) > MAX_PROFILE_NAME)
+            {
+                running_error("Profile name too long in option '--W%s'\n", arguments);
+            }
+
+            *q = *p;
+            q++;
+            p++;
+        }
+
+        if (*p != ':')
+        {
+            options_error("Option --W is of the form --Wx, in this case the proper syntax is --Wx:profile-name:m,");
+        }
+        *q = '\0';
+
+        configuration = get_compilation_configuration(profile_name);
+
+        if (configuration == NULL)
+        {
+            fprintf(stderr, "No compiler configuration '%s' has been loaded, parameter '--W%s' will be ignored\n",
+                    profile_name, arguments);
+            return;
+        }
+
+        // Advance over ':'
+        p++;
+    }
+
+    while (*p != '\0'
+            && *p != ',')
+    {
+        switch (*p)
+        {
+            case 'p' : 
+                prepro_flag = 1;
+                break;
+            case 'n' : 
+                native_flag = 1;
+                break;
+            case 'l' : 
+                linker_flag = 1;
+                break;
+            default:
+                fprintf(stderr, "Invalid flag character %c for --W option only 'p', 'n' or 'l' are allowed, ignoring\n",
+                        *p);
+                break;
+        }
+        p++;
+    }
+
+    if (p == arguments)
+    {
+        options_error("Option --W is of the form '--W,' or '--W' and must be '--Wm,x'");
+    }
+
+    if (*p == '\0' || 
+            *(p+1) == '\0')
+    {
+        options_error("Option --W is of the form '--Wm,' and must be '--Wm,x'");
     }
 
     int num_parameters = 0;
     const char** parameters = comma_separate_values(&arguments[2], &num_parameters);
 
-    const char*** existing_options = NULL;
-
-    switch (arguments[0])
-    {
-        case 'n' :
-            existing_options = &CURRENT_CONFIGURATION->native_compiler_options;
-            break;
-        case 'p' :
-            existing_options = &CURRENT_CONFIGURATION->preprocessor_options;
-            break;
-        case 'l' :
-            existing_options = &CURRENT_CONFIGURATION->linker_options;
-            break;
-        default:
-            {
-                internal_error("Unknown '%c' switch\n", arguments[0]);
-            }
-    }
-
-    add_to_parameter_list(existing_options, parameters, num_parameters);
+    if (prepro_flag)
+        add_to_parameter_list(
+                &configuration->preprocessor_options,
+                parameters, num_parameters);
+    if (native_flag)
+        add_to_parameter_list(
+                &configuration->native_compiler_options,
+                parameters, num_parameters);
+    if (linker_flag)
+        add_to_parameter_list(
+                &configuration->linker_options,
+                parameters, num_parameters);
 }
 
 static compilation_configuration_t minimal_default_configuration;
