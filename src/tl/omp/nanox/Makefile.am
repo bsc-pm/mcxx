@@ -50,6 +50,7 @@ libtlomp_nanox_la_SOURCES = \
      tl-threadprivate.cpp \
      tl-atomic.cpp \
      tl-barrier.cpp \
+     tl-flush.cpp \
      tl-target.cpp \
      tl-devices.hpp \
      tl-devices.cpp \
