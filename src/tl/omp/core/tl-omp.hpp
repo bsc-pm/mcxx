@@ -121,8 +121,6 @@ namespace TL
                 CopyDirection get_kind() const;
                 DataReference get_copy_expression() const;
 
-                void update_kind(CopyDirection dir);
-
                 bool is_shared() const
                 {
                     return _shared;

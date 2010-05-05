@@ -211,7 +211,7 @@ namespace TL
             {
                 ObjectList<CopyItem> item_list = _copy_items.find(copy_item);
 
-                item_list[0].update_kind(copy_item.get_kind());
+                item_list[0] = copy_item;
             }
         }
 
@@ -779,11 +779,6 @@ namespace TL
         CopyDirection CopyItem::get_kind() const
         {
             return _kind;
-        }
-
-        void CopyItem::update_kind(CopyDirection kind)
-        {
-            _kind = (CopyDirection)(_kind | kind);
         }
 
         DataReference CopyItem::get_copy_expression() const
