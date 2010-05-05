@@ -457,7 +457,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             }
 
             DataReference data_ref = it->get_copy_expression();
-            OpenMP::DataSharingAttribute data_attr = data_sharing.get(data_ref.get_base_symbol());
+            OpenMP::DataSharingAttribute data_attr = data_sharing.get_data_sharing(data_ref.get_base_symbol());
 
             ERROR_CONDITION(data_attr == OpenMP::DS_UNDEFINED, "Invalid data sharing for copy", 0);
 

@@ -1123,14 +1123,14 @@ namespace TL
                     {
                         // If we are passing an array section built after a pointer
                         // the pointer itself must be capturevalued.
-                        data_sharing.set(sym, OpenMP::DS_FIRSTPRIVATE); 
+                        data_sharing.set_data_sharing(sym, OpenMP::DS_FIRSTPRIVATE); 
                         captureprivate_references.insert(sym);
                     }
                     else
                     {
                         // Otherwise, capture its address (even if it is an
                         // array since they are already properly handled)
-                        data_sharing.set(sym, OpenMP::DS_SHARED);
+                        data_sharing.set_data_sharing(sym, OpenMP::DS_SHARED);
                         captureaddress_references.insert(sym);
                     }
 
@@ -1170,14 +1170,14 @@ namespace TL
                     {
                         // If we are passing an array section built after a pointer
                         // the pointer itself must be capturevalued.
-                        data_sharing.set(sym, OpenMP::DS_FIRSTPRIVATE);
+                        data_sharing.set_data_sharing(sym, OpenMP::DS_FIRSTPRIVATE);
                         captureprivate_references.insert(sym);
                     }
                     else
                     {
                         // Otherwise, capture its address (even if it is an
                         // array since they are already properly handled)
-                        data_sharing.set(sym, OpenMP::DS_SHARED);
+                        data_sharing.set_data_sharing(sym, OpenMP::DS_SHARED);
                         captureaddress_references.insert(sym);
                     }
 
@@ -1217,14 +1217,14 @@ namespace TL
                     {
                         // If we are passing an array section built after a pointer
                         // the pointer itself must be capturevalued.
-                        data_sharing.set(sym, OpenMP::DS_FIRSTPRIVATE);
+                        data_sharing.set_data_sharing(sym, OpenMP::DS_FIRSTPRIVATE);
                         captureprivate_references.insert(sym);
                     }
                     else
                     {
                         // Otherwise, capture its address (even if it is an
                         // array since they are already properly handled)
-                        data_sharing.set(sym, OpenMP::DS_SHARED);
+                        data_sharing.set_data_sharing(sym, OpenMP::DS_SHARED);
                         captureaddress_references.insert(sym);
                     }
 

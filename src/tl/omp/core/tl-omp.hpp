@@ -113,6 +113,8 @@ namespace TL
             private:
                 DataReference _copy_expr;
                 CopyDirection _kind;
+
+                bool _shared;
             public:
                 CopyItem(DataReference data_reference, CopyDirection direction);
 
@@ -120,6 +122,16 @@ namespace TL
                 DataReference get_copy_expression() const;
 
                 void update_kind(CopyDirection dir);
+
+                bool is_shared() const
+                {
+                    return _shared;
+                }
+
+                void set_is_shared(bool b)
+                {
+                    _shared = b;
+                }
 
                 // Convenience operator
                 bool operator==(const CopyItem& c) const
@@ -417,7 +429,7 @@ namespace TL
                  * \param sym The symbol to be set the data sharing attribute
                  * \param data_attr The symbol to which the data sharing will be set
                  */
-                void set(Symbol sym, DataSharingAttribute data_attr);
+                void set_data_sharing(Symbol sym, DataSharingAttribute data_attr);
 
                 //! Sets a data sharing attribute of a symbol
                 /*!
@@ -425,7 +437,7 @@ namespace TL
                  * \param data_attr The symbol to which the data sharing will be set
                  * \param data_ref Extended reference of this symbol (other than a plain IdExpression)
                  */
-                void set(Symbol sym, DataSharingAttribute data_attr, DataReference data_ref);
+                void set_data_sharing(Symbol sym, DataSharingAttribute data_attr, DataReference data_ref);
 
                 //! Adds a reduction symbol
                 /*!
@@ -440,7 +452,7 @@ namespace TL
                  * \param check_enclosing Checks enclosing data sharings
                  * \return The data sharing attribute or DS_UNDEFINED if no data sharing was set for it in this, and only this, DataSharingEnvironment
                  */
-                DataSharingAttribute get(Symbol sym, bool check_enclosing = true);
+                DataSharingAttribute get_data_sharing(Symbol sym, bool check_enclosing = true);
 
                 //! States whether the symbol has associated an extended reference
                 bool is_extended_reference(Symbol sym);

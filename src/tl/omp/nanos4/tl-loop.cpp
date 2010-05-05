@@ -106,7 +106,7 @@ namespace TL
 
             OpenMP::DataSharingEnvironment& data_sharing = openmp_info->get_data_sharing(for_construct.get_ast());
 
-            if ((data_sharing.get(induction_var.get_symbol()) & OpenMP::DS_PRIVATE) == OpenMP::DS_PRIVATE)
+            if ((data_sharing.get_data_sharing(induction_var.get_symbol()) & OpenMP::DS_PRIVATE) == OpenMP::DS_PRIVATE)
             {
                 induction_var_name << "p_" << induction_var.mangle_id_expression();
             }

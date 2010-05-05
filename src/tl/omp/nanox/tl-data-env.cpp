@@ -387,7 +387,7 @@ namespace TL
             DataReference expr = it->get_copy_expression();
             Symbol sym = expr.get_base_symbol();
 
-            OpenMP::DataSharingAttribute ds_attr = data_sharing.get(sym);
+            OpenMP::DataSharingAttribute ds_attr = data_sharing.get_data_sharing(sym);
             bool is_private = true;
             if (ds_attr == OpenMP::DS_UNDEFINED)
             {

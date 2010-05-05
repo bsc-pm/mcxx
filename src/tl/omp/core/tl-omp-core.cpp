@@ -392,11 +392,11 @@ namespace TL
 
                     if (data_ref.is_id_expression())
                     {
-                        _data_sharing.set(sym, _data_attrib);
+                        _data_sharing.set_data_sharing(sym, _data_attrib);
                     }
                     else
                     {
-                        _data_sharing.set(sym, _data_attrib, data_ref);
+                        _data_sharing.set_data_sharing(sym, _data_attrib, data_ref);
                     }
                 }
         };
@@ -522,7 +522,7 @@ namespace TL
                         || !sym.is_variable())
                     continue;
 
-                DataSharingAttribute data_attr = data_sharing.get(sym, /* check_enclosing */ false);
+                DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
 
                 if (data_attr == DS_UNDEFINED)
                 {
@@ -536,7 +536,7 @@ namespace TL
                                 << std::endl;
 
                             // Maybe we do not want to assume always shared?
-                            data_sharing.set(sym, DS_SHARED);
+                            data_sharing.set_data_sharing(sym, DS_SHARED);
 
                             already_nagged.append(sym);
                         }
@@ -544,7 +544,7 @@ namespace TL
                     else
                     {
                         // Set the symbol as having default data sharing
-                        data_sharing.set(sym, (DataSharingAttribute)(default_data_attr | DS_IMPLICIT));
+                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(default_data_attr | DS_IMPLICIT));
                     }
                 }
             }
@@ -579,7 +579,7 @@ namespace TL
             {
                 IdExpression id_expr = for_statement.get_induction_variable();
                 Symbol sym = id_expr.get_symbol();
-                data_sharing.set(sym, DS_PRIVATE);
+                data_sharing.set_data_sharing(sym, DS_PRIVATE);
             }
             else
             {
@@ -622,13 +622,13 @@ namespace TL
                         || !sym.is_variable())
                     continue;
 
-                DataSharingAttribute data_attr = data_sharing.get(sym);
+                DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
 
                 // Do nothing with threadprivates
                 if (data_attr == DS_THREADPRIVATE)
                     continue;
 
-                data_attr = data_sharing.get(sym, /* check_enclosing */ false);
+                data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
 
                 if (data_attr == DS_UNDEFINED)
                 {
@@ -641,7 +641,7 @@ namespace TL
                                 << "' does not have data sharing and 'default(none)' was specified. Assuming firstprivate "
                                 << std::endl;
 
-                            data_sharing.set(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT));
+                            data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT));
                             already_nagged.append(sym);
                         }
                     }
@@ -657,7 +657,8 @@ namespace TL
                         {
                             while ((enclosing != NULL) && is_shared)
                             {
-                                is_shared = is_shared && (enclosing->get(sym, /* check_enclosing */ false) == DS_SHARED);
+                                is_shared = is_shared && (enclosing->get_data_sharing(sym, 
+                                            /* check_enclosing */ false) == DS_SHARED);
                                 // Stop once we see the innermost parallel
                                 if (enclosing->get_is_parallel())
                                     break;
@@ -667,17 +668,17 @@ namespace TL
 
                         if (is_shared)
                         {
-                            data_sharing.set(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
+                            data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
                         }
                         else
                         {
-                            data_sharing.set(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT));
+                            data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_FIRSTPRIVATE | DS_IMPLICIT));
                         }
                     }
                     else
                     {
                         // Set the symbol as having the default data sharing
-                        data_sharing.set(sym, (DataSharingAttribute)(default_data_attr | DS_IMPLICIT));
+                        data_sharing.set_data_sharing(sym, (DataSharingAttribute)(default_data_attr | DS_IMPLICIT));
                     }
                 }
             }
@@ -761,7 +762,7 @@ namespace TL
                     IdExpression id_expr = expr.get_id_expression();
                     Symbol sym = id_expr.get_symbol();
 
-                    data_sharing.set(sym, DS_THREADPRIVATE);
+                    data_sharing.set_data_sharing(sym, DS_THREADPRIVATE);
                 }
             }
         }

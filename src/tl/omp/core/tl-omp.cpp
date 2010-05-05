@@ -115,14 +115,14 @@ namespace TL
             return _is_parallel;
         }
 
-        void DataSharingEnvironment::set(Symbol sym, DataSharingAttribute data_attr)
+        void DataSharingEnvironment::set_data_sharing(Symbol sym, DataSharingAttribute data_attr)
         {
             (_map->operator[](sym)) = data_attr;
         }
 
-        void DataSharingEnvironment::set(Symbol sym, DataSharingAttribute data_attr, DataReference data_ref)
+        void DataSharingEnvironment::set_data_sharing(Symbol sym, DataSharingAttribute data_attr, DataReference data_ref)
         {
-            set(sym, data_attr);
+            set_data_sharing(sym, data_attr);
             // (_map_data_ref->operator[](sym)) = data_ref;
             _map_data_ref->insert(std::make_pair(sym, data_ref));
         }
@@ -175,7 +175,7 @@ namespace TL
             }
         }
 
-        DataSharingAttribute DataSharingEnvironment::get(Symbol sym, bool check_enclosing)
+        DataSharingAttribute DataSharingEnvironment::get_data_sharing(Symbol sym, bool check_enclosing)
         {
             DataSharingAttribute result;
             result = get_internal(sym);
@@ -185,7 +185,7 @@ namespace TL
                     && check_enclosing
                     && ((enclosing = get_enclosing()) != NULL))
             {
-                return enclosing->get(sym, check_enclosing);
+                return enclosing->get_data_sharing(sym, check_enclosing);
             }
 
             return result;
@@ -770,8 +770,10 @@ namespace TL
         }
 
         CopyItem::CopyItem(DataReference copy_expr, CopyDirection direction)
-            : _copy_expr(copy_expr), _kind(direction)
+            : _copy_expr(copy_expr), _kind(direction), _shared(true)
         {
+            if (!_copy_expr.is_id_expression())
+                _shared = false;
         }
 
         CopyDirection CopyItem::get_kind() const
