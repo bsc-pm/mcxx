@@ -1749,6 +1749,9 @@ type_t* get_complex_type(type_t* t)
 type_t* complex_type_get_base_type(type_t* t)
 {
     ERROR_CONDITION(!is_complex_type(t), "This is not a complex type", 0);
+
+    t = advance_over_typedefs(t);
+
     return t->type->complex_element;
 }
 

@@ -1077,15 +1077,26 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 result = check_for_expression(ASTSon0(expression), decl_context);
                 if (result)
                 {
+                    // Be careful because gcc accepts lvalues and transfers the lvalueness
                     type_t* complex_type = ASTExprType(ASTSon0(expression));
 
                     // Minimal support for C99 complex types
                     if (complex_type != NULL
                             && is_complex_type(no_ref(complex_type)))
                     {
+                        type_t* real_part_type = complex_type_get_base_type(no_ref(complex_type));
+
+                        if (is_lvalue_reference_type(complex_type))
+                        {
+                            real_part_type = lvalue_ref(real_part_type);
+                            ast_set_expression_type(expression, real_part_type);
+                            ast_set_expression_is_lvalue(expression, 1);
+                        }
+                        else
+                        {
+                            ast_set_expression_type(expression, real_part_type);
+                        }
                         result = 1;
-                        ast_set_expression_type(expression, ASTExprType(ASTSon0(expression)));
-                        break;
                     }
                     else
                     {
@@ -7016,10 +7027,18 @@ static char check_for_function_call(AST expr, decl_context_t decl_context)
         function_type = pointer_type_get_pointee_type(no_ref(function_type));
 
     // 6. Get the return type and tag all the expression with it
-    ast_set_expression_type(expr, function_type_get_return_type(no_ref(function_type)));
+
+    type_t* return_type = function_type_get_return_type(no_ref(function_type));
+
+    ast_set_expression_type(expr, return_type);
     ast_set_expression_is_lvalue(expr, 0);
+
     CXX_LANGUAGE()
     {
+        if (is_dependent_type(return_type))
+        {
+            ast_set_expression_type(expr, get_dependent_expr_type());
+        }
         ast_set_expression_is_lvalue(expr, is_lvalue_reference_type(ASTExprType(expr)));
     }
 
