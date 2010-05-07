@@ -314,8 +314,10 @@ identifier {
 
 	char matched = 0;
 
-	// Ignore gcc
-	if (!matched && strcasecmp(yytext, "gcc") == 0)
+	// Ignore gcc and ident
+    if (!matched 
+            && ((strcasecmp(yytext, "gcc") == 0)
+                || (strcasecmp(yytext, "ident") == 0)))
 	{
         // All the whole line will be handled as an unknown pragma
 		BEGIN(unknown_pragma);
@@ -357,7 +359,7 @@ identifier {
 }
 
 <unknown_pragma>{
-  /* This will also catch #pragma gcc */
+  /* This will also catch #pragma gcc and #pragma ident */
 
 [^\n]* {
 	parse_token_text();

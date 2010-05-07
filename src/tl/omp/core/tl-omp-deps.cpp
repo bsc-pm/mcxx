@@ -85,7 +85,7 @@ namespace TL { namespace OpenMP {
             Symbol sym = expr.get_base_symbol();
             if (sym.is_valid())
             {
-                DataSharingAttribute attr = data_sharing.get(sym);
+                DataSharingAttribute attr = data_sharing.get_data_sharing(sym);
 
                 if (((attr & DS_PRIVATE) == DS_PRIVATE)
                         && ((attr & DS_IMPLICIT) != DS_IMPLICIT))
@@ -94,10 +94,10 @@ namespace TL { namespace OpenMP {
                         << ": warning: dependency expression '" 
                         << expr.prettyprint() << "' names a private variable, making it shared" << std::endl;
 
-                    data_sharing.set(sym, attr);
+                    data_sharing.set_data_sharing(sym, attr);
                 }
 
-                data_sharing.set(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
+                data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
             }
             else
             {

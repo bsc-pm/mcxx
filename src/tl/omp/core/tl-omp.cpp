@@ -115,14 +115,14 @@ namespace TL
             return _is_parallel;
         }
 
-        void DataSharingEnvironment::set(Symbol sym, DataSharingAttribute data_attr)
+        void DataSharingEnvironment::set_data_sharing(Symbol sym, DataSharingAttribute data_attr)
         {
             (_map->operator[](sym)) = data_attr;
         }
 
-        void DataSharingEnvironment::set(Symbol sym, DataSharingAttribute data_attr, DataReference data_ref)
+        void DataSharingEnvironment::set_data_sharing(Symbol sym, DataSharingAttribute data_attr, DataReference data_ref)
         {
-            set(sym, data_attr);
+            set_data_sharing(sym, data_attr);
             // (_map_data_ref->operator[](sym)) = data_ref;
             _map_data_ref->insert(std::make_pair(sym, data_ref));
         }
@@ -175,7 +175,7 @@ namespace TL
             }
         }
 
-        DataSharingAttribute DataSharingEnvironment::get(Symbol sym, bool check_enclosing)
+        DataSharingAttribute DataSharingEnvironment::get_data_sharing(Symbol sym, bool check_enclosing)
         {
             DataSharingAttribute result;
             result = get_internal(sym);
@@ -185,7 +185,7 @@ namespace TL
                     && check_enclosing
                     && ((enclosing = get_enclosing()) != NULL))
             {
-                return enclosing->get(sym, check_enclosing);
+                return enclosing->get_data_sharing(sym, check_enclosing);
             }
 
             return result;
@@ -211,7 +211,7 @@ namespace TL
             {
                 ObjectList<CopyItem> item_list = _copy_items.find(copy_item);
 
-                item_list[0].update_kind(copy_item.get_kind());
+                item_list[0] = copy_item;
             }
         }
 
@@ -229,8 +229,8 @@ namespace TL
         {
             device_names = _device_list;
 
-            // Always ensure there is smp
-            if (!_device_list.contains("smp"))
+            // If empty, add smp
+            if (_device_list.empty())
             {
                 device_names.append("smp");
             }
@@ -770,18 +770,17 @@ namespace TL
         }
 
         CopyItem::CopyItem(DataReference copy_expr, CopyDirection direction)
-            : _copy_expr(copy_expr), _kind(direction)
+            : _copy_expr(copy_expr), _kind(direction), _shared(false)
         {
+            if (!_copy_expr.is_id_expression())
+            {
+                _shared = true;
+            }
         }
 
         CopyDirection CopyItem::get_kind() const
         {
             return _kind;
-        }
-
-        void CopyItem::update_kind(CopyDirection kind)
-        {
-            _kind = (CopyDirection)(_kind | kind);
         }
 
         DataReference CopyItem::get_copy_expression() const
