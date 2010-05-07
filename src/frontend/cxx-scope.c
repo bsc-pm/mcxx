@@ -2175,9 +2175,11 @@ static type_t* update_dependent_typename(
 
     if (dependent_entry->kind == SK_TYPEDEF)
     {
-        type_t* named_type = dependent_entry->type_information;
-        ERROR_CONDITION(!is_named_class_type(named_type), "This is not a named type", 0);
-        dependent_entry = named_type_get_symbol(named_type);
+        type_t* advanced_type = advance_over_typedefs(dependent_entry->type_information);
+
+        ERROR_CONDITION(!is_named_type(advanced_type), "This is not a named type", 0);
+
+        dependent_entry = named_type_get_symbol(advanced_type);
     }
 
     ERROR_CONDITION(dependent_entry->kind != SK_CLASS, "Must be a class-name", 0);
@@ -2861,6 +2863,8 @@ static type_t* update_type_aux_(type_t* orig_type,
         scope_entry_t* dependent_entry = NULL;
         dependent_name_part_t* dependent_parts = NULL;
 
+        cv_qualifier_t cv_qualif = get_cv_qualifier(orig_type);
+
         dependent_typename_get_components(orig_type, 
                 &dependent_entry, &dependent_parts);
 
@@ -2923,6 +2927,8 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         type_t* updated_type =
             update_dependent_typename(fixed_type, dependent_parts, decl_context, filename, line);
+
+        updated_type = get_cv_qualified_type(updated_type, cv_qualif);
 
         return updated_type;
     }
