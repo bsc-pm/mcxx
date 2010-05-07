@@ -895,8 +895,6 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     template_parameters_context.decl_flags &= ~DF_TEMPLATE;
     template_parameters_context.decl_flags &= ~DF_EXPLICIT_SPECIALIZATION;
     template_parameters_context.template_nesting = 0;
-    // Forget existing template scope
-    template_parameters_context.template_scope->contained_in = NULL;
     // Empty template parameters
     template_parameters_context.template_parameters = calloc(1, sizeof(*template_parameters_context.template_parameters));
 
