@@ -2485,8 +2485,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                     type_t* member_actual_class_type = get_actual_class_type(member_class_type);
 
                     scope_entry_t* default_constructor 
-                        = class_type_get_default_constructor(
-                                get_actual_class_type(member_actual_class_type));
+                        = class_type_get_default_constructor(member_actual_class_type);
 
                     if (default_constructor != NULL)
                     {
@@ -2523,8 +2522,10 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 if (is_dependent)
                     continue;
 
+                type_t* base_class_type = get_actual_class_type(base_class->type_information);
+
                 const_parameter = const_parameter && 
-                    class_has_const_copy_constructor(base_class->type_information);
+                    class_has_const_copy_constructor(base_class_type);
             }
 
             // Now check my nonstatic members that are classes (or arrays to classes)
@@ -2547,7 +2548,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                     if (is_named_class_type(member_actual_class_type))
                     {
                         const_parameter = const_parameter &&
-                            class_has_const_copy_constructor(get_actual_class_type(member_actual_class_type));
+                            class_has_const_copy_constructor(member_actual_class_type);
                     }
                 }
             }
@@ -2702,9 +2703,11 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 if (is_dependent)
                     continue;
 
+                type_t* base_class_type = get_actual_class_type(base_class->type_information);
+
                 // Bases have always been instantiated
                 const_parameter = const_parameter && 
-                    class_has_const_copy_assignment_operator(base_class->type_information);
+                    class_has_const_copy_assignment_operator(base_class_type);
             }
 
             // Now check my nonstatic members that are classes (or arrays to classes)

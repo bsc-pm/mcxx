@@ -531,9 +531,10 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     class_type_add_nonstatic_data_member(get_actual_class_type(being_instantiated), new_member);
                 }
 
-                fprintf(stderr, "INSTANTIATION: Member was a %s data member '%s'\n", 
+                fprintf(stderr, "INSTANTIATION: Member '%s' is a %s data member with type '%s'\n", 
+                        new_member->symbol_name,
                         new_member->entity_specs.is_static ? "static" : "non-static",
-                        member_of_template->symbol_name);
+                        print_type_str(new_member->type_information, context_of_being_instantiated));
                 break;
             }
         case SK_TYPEDEF:
@@ -547,6 +548,10 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         context_of_being_instantiated,
                         filename, line);
                 class_type_add_typename(get_actual_class_type(being_instantiated), new_member);
+
+                fprintf(stderr, "INSTANTIATION: Member '%s' is a typedef. Instantiated type is '%s'\n",
+                        new_member->symbol_name,
+                        print_type_str(new_member->type_information, context_of_being_instantiated));
 
                 break;
             }

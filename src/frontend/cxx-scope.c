@@ -1597,7 +1597,7 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
         if (current_base_is_dependent)
             continue;
 
-        type_t* base_class_type = base_class_entry->type_information;
+        type_t* base_class_type = get_actual_class_type(base_class_entry->type_information);
         decl_context_t base_class_context = class_type_get_inner_context(base_class_type);
         scope_t* base_class_scope = base_class_context.current_scope;
 
@@ -2173,7 +2173,15 @@ static type_t* update_dependent_typename(
                 dependent_parts);
     }
 
+    if (dependent_entry->kind == SK_TYPEDEF)
+    {
+        type_t* named_type = dependent_entry->type_information;
+        ERROR_CONDITION(!is_named_class_type(named_type), "This is not a named type", 0);
+        dependent_entry = named_type_get_symbol(named_type);
+    }
+
     ERROR_CONDITION(dependent_entry->kind != SK_CLASS, "Must be a class-name", 0);
+
     ERROR_CONDITION(dependent_parts == NULL, "Dependent parts cannot be empty", 0);
 
     scope_entry_t* current_member = dependent_entry;
@@ -2659,9 +2667,17 @@ static type_t* update_type_aux_(type_t* orig_type,
 
             return updated_specialized;
         }
+        else if (entry->kind == SK_TYPEDEF)
+        {
+            return update_type_aux_(entry->type_information, decl_context, filename, line);
+        }
         else
         {
             // Return it unmodified
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Not updating type '%s'\n", print_declarator(orig_type));
+            }
             return orig_type;
         }
     }
@@ -2854,6 +2870,28 @@ static type_t* update_type_aux_(type_t* orig_type,
         type_t* fixed_type = NULL;
         fixed_type = update_type_aux_(get_user_defined_type(dependent_entry),
                 decl_context, filename, line);
+
+        while (is_dependent_typename_type(fixed_type))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Repeatedly update dependent entry\n");
+            }
+            type_t* new_fixed_type = update_type_aux_(fixed_type, decl_context,
+                filename, line);
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Repeated update done\n");
+            }
+
+            // Save ourselves of strange errors
+            if (new_fixed_type == NULL 
+                    || equivalent_types(new_fixed_type, fixed_type))
+                break;
+
+            fixed_type = new_fixed_type;
+        }
 
         if (fixed_type == NULL)
         {

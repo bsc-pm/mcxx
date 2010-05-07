@@ -1146,7 +1146,9 @@ type_t* get_new_class_type(decl_context_t decl_context, enum class_kind_t class_
 
 enum class_kind_t class_type_get_class_kind(type_t* t)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+
+    t = get_actual_class_type(t);
 
     return t->type->class_info->class_kind;
 }
