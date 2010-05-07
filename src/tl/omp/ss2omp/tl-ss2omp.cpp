@@ -41,9 +41,10 @@ namespace TL
 
         RefPtr<ParameterRegionList> parameter_region_list = augmented_sym.get_parameter_region_list();
 
-        Source new_pragma_construct_src, clauses;
+        Source new_pragma_construct_src, clauses, device_line;
         new_pragma_construct_src
             << "#line " << construct.get_ast().get_line() << " \"" << construct.get_ast().get_file() << "\"\n"
+            << device_line
             << "#pragma omp task " << clauses << "\n"
             << ";"
             ;
@@ -237,6 +238,31 @@ namespace TL
         {
             clauses << " inout(" << inout_clause_args << ")";
         }
+
+        PragmaCustomClause device_clause = construct.get_clause("device");
+        if (device_clause.is_defined())
+        {
+            Source device_list;
+            device_line
+                << "#pragma omp target device(" << device_list << ") copy_deps\n"
+                ;
+
+            ObjectList<std::string> arg_list = device_clause.get_arguments(ExpressionTokenizerTrim());
+
+            for (ObjectList<std::string>::iterator it = arg_list.begin();
+                    it != arg_list.end();
+                    it++)
+            {
+                if (*it == "ppu")
+                {
+                    device_list.append_with_separator("smp", ",");
+                }
+                else 
+                    device_list.append_with_separator(*it, ",");
+            }
+
+        }
+
 
         AST_t pragma_decl = construct.get_declaration();
 

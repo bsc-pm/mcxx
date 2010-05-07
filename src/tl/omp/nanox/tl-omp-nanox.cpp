@@ -48,6 +48,8 @@ OMPTransform::OMPTransform()
 
     on_directive_post["barrier"].connect(functor(&OMPTransform::barrier_postorder, *this));
 
+    on_directive_post["flush"].connect(functor(&OMPTransform::flush_postorder, *this));
+
     on_directive_post["target"].connect(functor(&OMPTransform::target_postorder, *this));
 
     register_parameter("instrument", 

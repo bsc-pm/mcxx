@@ -457,20 +457,18 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             }
 
             DataReference data_ref = it->get_copy_expression();
-            OpenMP::DataSharingAttribute data_attr = data_sharing.get(data_ref.get_base_symbol());
+            OpenMP::DataSharingAttribute data_attr = data_sharing.get_data_sharing(data_ref.get_base_symbol());
 
             ERROR_CONDITION(data_attr == OpenMP::DS_UNDEFINED, "Invalid data sharing for copy", 0);
 
             Source copy_sharing;
-            bool is_shared = false;
-            // if (it->get_kind() == OpenMP::COPY_DIR_IN)
-            // {
-            //     copy_sharing << "NANOS_PRIVATE";
-            // }
-            // else 
+            if (it->is_shared())
             {
                 copy_sharing << "NANOS_SHARED";
-                is_shared = true;
+            }
+            else
+            {
+                copy_sharing << "NANOS_PRIVATE";
             }
 
             struct {
@@ -497,7 +495,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
                 DataReference copy_expr = it->get_copy_expression();
 
-                if (is_shared)
+                if (it->is_shared())
                 {
                     expression_address << copy_expr.get_address();
                 }
