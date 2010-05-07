@@ -2669,7 +2669,10 @@ static type_t* update_type_aux_(type_t* orig_type,
         }
         else if (entry->kind == SK_TYPEDEF)
         {
-            return update_type_aux_(entry->type_information, decl_context, filename, line);
+            cv_qualifier_t cv_qualif = get_cv_qualifier(orig_type);
+            return get_cv_qualified_type(
+                    update_type_aux_(entry->type_information, decl_context, filename, line),
+                    cv_qualif);
         }
         else
         {
@@ -3799,19 +3802,18 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
     if (entry->entity_specs.is_member)
     {
         // We need the qualification of the class
-        if (is_named_class_type(entry->entity_specs.class_type))
-        {
-            scope_entry_t* class_symbol = named_type_get_symbol(entry->entity_specs.class_type);
+        ERROR_CONDITION(!is_named_class_type(entry->entity_specs.class_type), "The class of a member must be named", 0);
 
-            (*max_qualif_level)++;
+        scope_entry_t* class_symbol = named_type_get_symbol(entry->entity_specs.class_type);
 
-            const char* class_qualification = 
-                get_fully_qualified_symbol_name(class_symbol, decl_context, is_dependent, max_qualif_level);
+        (*max_qualif_level)++;
 
-            class_qualification = strappend(class_qualification, "::");
+        const char* class_qualification = 
+            get_fully_qualified_symbol_name(class_symbol, decl_context, is_dependent, max_qualif_level);
 
-            result = strappend(class_qualification, result);
-        }
+        class_qualification = strappend(class_qualification, "::");
+
+        result = strappend(class_qualification, result);
     } 
     else if (!entry->entity_specs.is_member)
     {
