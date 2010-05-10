@@ -1,3 +1,26 @@
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
 #include "cxx-multifile.h"
 #include "cxx-utils.h"
 #include "cxx-driver-utils.h"
@@ -28,12 +51,24 @@ char multifile_dir_exists(void)
     }
 }
 
-void multifile_wipe_dir(void)
+void multifile_init_dir(void)
 {
-    char c[256];
+    if (multifile_dir_exists())
+    {
+        multifile_remove_dir();
+    }
 
-    // This is a bit lame but it is easier than using nftw
+    mkdir(MULTIFILE_DIRECTORY, 0700);
+
+    // Mark the file for cleanup
+    mark_file_for_cleanup(MULTIFILE_DIRECTORY);
+}
+
+void multifile_remove_dir(void)
+{
+    // This is a bit lame but it is far easier than using nftw
 #ifndef WIN32_BUILD
+    char c[256];
     snprintf(c, 255, "rm -fr %s", MULTIFILE_DIRECTORY);
 
     if (system(c) != 0)
@@ -43,7 +78,6 @@ void multifile_wipe_dir(void)
 #else
   #error Uninmplemented function yet
 #endif
-    mkdir(MULTIFILE_DIRECTORY, 0700);
 }
 
 void multifile_extract_extended_info(const char* filename)
