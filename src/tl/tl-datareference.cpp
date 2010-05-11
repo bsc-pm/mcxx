@@ -197,6 +197,24 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
                         type,
                         enclosing_is_array);
             }
+            else if (ref_expr.is_array_subscript())
+            {
+                return gather_info_data_expr_rec(ref_expr.get_subscripted_expression(),
+                        base_sym,
+                        size,
+                        addr,
+                        type,
+                        enclosing_is_array);
+            }
+            else if (ref_expr.is_array_section())
+            {
+                return gather_info_data_expr_rec(ref_expr.array_section_item(),
+                        base_sym,
+                        size,
+                        addr,
+                        type,
+                        enclosing_is_array);
+            }
         }
         // Simplify *(&a)
         else if (expr.get_operation_kind() == Expression::DERREFERENCE)
