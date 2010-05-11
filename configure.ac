@@ -273,6 +273,7 @@ dnl --------------------- Shared between Nanox and Nanos4 ------------------
 if test x$is_enabled_tl_omp_nanos4 = xyes -o x$is_enabled_tl_omp_nanox = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.omp"
+   TL_EXTENSIONS="${TL_EXTENSIONS} omp"
 fi
 dnl --------------------- End of shared between Nanox and Nanos4 ------------------
 
