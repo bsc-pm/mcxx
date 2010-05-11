@@ -79,11 +79,21 @@ static void do_smp_numa_outline_replacements(
             type = type.get_pointer_to();
         }
 
-        // Hack for shaping expressions
+        // There are some problems with the typesystem currently
+        // that require these workarounds
         if (data_ref.get_type().is_array()
                 && data_ref.get_data_type().is_pointer())
         {
+            // Shaping expressions ([e] a)  have a type of array but we do not
+            // want the array but the related pointer
             type = data_ref.get_data_type();
+            points_an_array = true;
+        }
+        else if (data_ref.get_data_type().is_array())
+        {
+            // Array sections have a scalar type, but the data type will be array
+            // See ticket #290
+            type = data_ref.get_data_type().array_element().get_pointer_to();
             points_an_array = true;
         }
 
