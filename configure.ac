@@ -273,6 +273,7 @@ dnl --------------------- Shared between Nanox and Nanos4 ------------------
 if test x$is_enabled_tl_omp_nanos4 = xyes -o x$is_enabled_tl_omp_nanox = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.omp"
+   TL_EXTENSIONS="${TL_EXTENSIONS} omp"
 fi
 dnl --------------------- End of shared between Nanox and Nanos4 ------------------
 
@@ -844,6 +845,9 @@ AC_ARG_WITH([type-environment],
            fi
         ])
 
+RPATH_PARAMETER="-rpath"
+AC_SUBST([RPATH_PARAMETER])
+
 dnl Redundancy ahead
 if test x"$default_type_environ" = x;
 then
@@ -865,6 +869,7 @@ dnl We try to figure a sensible default environment based on the configure envir
            default_type_environ="linux-ia64"
            ;;
        sparc-sun-solaris*)
+            RPATH_PARAMETER="-R"
             default_type_environ="solaris-sparcv9"
             ;;
        arm-*-linux-gnueabi)

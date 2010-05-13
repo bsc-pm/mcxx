@@ -272,11 +272,17 @@ namespace TL
 
         ASTIterator iterator_list = new_pragma_tree_list.get_list_iterator();
 
-        AST_t new_pragma_tree = iterator_list.item();
-        // PragmaCustomConstruct new_pragma_construct(new_pragma_tree, construct.get_scope_link());
+        AST_t decl = iterator_list.item();
 
-        construct.get_ast().replace(new_pragma_tree);
-        construct.get_declaration().replace(pragma_decl);
+        construct.get_ast().replace(decl);
+
+        while (is_pragma_custom("omp", decl, construct.get_scope_link()))
+        {
+            PragmaCustomConstruct pragma(decl, construct.get_scope_link());
+            decl = pragma.get_declaration();
+        }
+
+        decl.replace(pragma_decl);
 
         // AST_t new_pragma_line = new_pragma_construct.get_pragma_line();
         // construct.get_pragma_line().replace(new_pragma_line);

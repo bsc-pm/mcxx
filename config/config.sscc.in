@@ -8,7 +8,7 @@ preprocessor_options =
 compiler_name = gcc
 compiler_options = -std=gnu99
 linker_name = gcc
-{openmp} linker_options = -L@NANOX_LIBS@ -Wl,-rpath,@NANOX_LIBS@
+{openmp} linker_options = -L@NANOX_LIBS@ -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@
 {openmp} linker_options = -lnanox-c -lnanox-ss
 compiler_phase = libtlsuperscalar-configurator.so
 # compiler_phase = libtlsuperscalar-preanalysis.so

@@ -2939,8 +2939,7 @@ static void do_combining(target_options_map_t* target_map,
 static void extract_files_and_sublink(const char** file_list, int num_files,
         compilation_configuration_t* target_configuration)
 {
-    // Purge multifile directory
-    multifile_wipe_dir();
+    multifile_init_dir();
 
     char no_multifile_info = 1;
 
