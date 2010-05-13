@@ -22,4 +22,5 @@ config_edit = \
      -e 's|@includedir[@]|$(includedir)|g' \
      -e 's|@libdir[@]|$(libdir)|g' \
      -e 's|@superscalar_version[@]|$(superscalar_version)|g' \
+     -e 's|@RPATH_PARAMETER[@]|$(RPATH_PARAMETER)|g' \
     $(END)
