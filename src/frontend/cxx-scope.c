@@ -704,7 +704,9 @@ scope_entry_list_t* filter_symbol_using_predicate(scope_entry_list_t* entry_list
     return result;
 }
 
-static scope_entry_list_t* query_unqualified_name(decl_context_t decl_context,
+static scope_entry_list_t* query_unqualified_name(
+        decl_context_t decl_context,
+        decl_context_t template_arg_ctx,
         AST unqualified_name);
 
 scope_entry_list_t* query_id_expression_flags(decl_context_t decl_context,
@@ -750,7 +752,7 @@ scope_entry_list_t* query_nested_name_flags(decl_context_t decl_context,
     if (is_unqualified)
     {
         decl_context.decl_flags |= DF_UNQUALIFIED_NAME;
-        return query_unqualified_name(decl_context, unqualified_name);
+        return query_unqualified_name(decl_context, decl_context, unqualified_name);
     }
     else
     {
@@ -774,7 +776,7 @@ scope_entry_list_t* query_in_scope_flags(decl_context_t decl_context,
     decl_context.decl_flags = DF_NONE;
     decl_context.decl_flags |= decl_flags;
     decl_context.decl_flags |= DF_ONLY_CURRENT_SCOPE;
-    return query_unqualified_name(decl_context, unqualified_name);
+    return query_unqualified_name(decl_context, decl_context, unqualified_name);
 }
 
 scope_entry_list_t* query_unqualified_name_str_flags(decl_context_t decl_context,
@@ -793,7 +795,9 @@ scope_entry_list_t* query_unqualified_name_str_flags(decl_context_t decl_context
     return name_lookup(decl_context, unqualified_name);
 }
 
-static scope_entry_list_t* query_unqualified_name(decl_context_t decl_context,
+static scope_entry_list_t* query_unqualified_name(
+        decl_context_t decl_context,
+        decl_context_t template_arg_ctx,
         AST unqualified_name)
 {
     // Adjust scopes
@@ -840,15 +844,7 @@ static scope_entry_list_t* query_unqualified_name(decl_context_t decl_context,
         case AST_TEMPLATE_ID:
         case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
             {
-                // Note that here we are assuming that A<e> both 'A' and 'e' will
-                // be found in the same context. This holds for simply unqualified
-                // searches but does not for qualified lookups
-                ERROR_CONDITION(
-                        BITMAP_TEST(decl_context.decl_flags, DF_QUALIFIED_NAME),
-                        "Do not use this function when solving a template-id in a qualified name. "
-                        "It is likely that the template-name and its arguments will not be in the same context", 
-                        0);
-                result = query_template_id(unqualified_name, decl_context, decl_context);
+                result = query_template_id(unqualified_name, decl_context, template_arg_ctx);
             }
             break;
         case AST_DESTRUCTOR_ID:
@@ -863,7 +859,7 @@ static scope_entry_list_t* query_unqualified_name(decl_context_t decl_context,
         case AST_CONVERSION_FUNCTION_ID:
             {
                 char* conversion_function_name = 
-                    get_conversion_function_name(decl_context, unqualified_name, /* result_type */ NULL);
+                    get_conversion_function_name(template_arg_ctx, unqualified_name, /* result_type */ NULL);
                 result = name_lookup(decl_context, conversion_function_name);
             }
             break;
@@ -979,6 +975,14 @@ static scope_entry_list_t* query_qualified_name(
         }
     }
 
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "SCOPE: Solving '%s' of '%s%s'\n", 
+                prettyprint_in_buffer(unqualified_name),
+                prettyprint_in_buffer(global_op),
+                prettyprint_in_buffer(nested_name));
+    }
+
     // Given the scope now we can lookup the symbol in it. Note that if some
     // scope was given we have to be able to find something there
     decl_context_t lookup_context = qualified_context;
@@ -987,7 +991,7 @@ static scope_entry_list_t* query_qualified_name(
     if (ASTType(unqualified_name) != AST_TEMPLATE_ID
             && ASTType(unqualified_name) != AST_OPERATOR_FUNCTION_ID_TEMPLATE)
     {
-        result = query_unqualified_name(lookup_context, unqualified_name);
+        result = query_unqualified_name(lookup_context, nested_name_context, unqualified_name);
     }
     else
     {
@@ -1084,7 +1088,7 @@ static decl_context_t lookup_qualification_scope(
         }
         else
         {
-            starting_symbol_list = query_unqualified_name(initial_nested_name_context, first_qualification);
+            starting_symbol_list = query_unqualified_name(initial_nested_name_context, original_context, first_qualification);
         }
     }
     // Filter found symbols
@@ -1193,7 +1197,7 @@ static decl_context_t lookup_qualification_scope_in_namespace(
     scope_entry_list_t* symbol_list = NULL;
     if (ASTType(current_name) != AST_TEMPLATE_ID)
     {
-        symbol_list = query_unqualified_name(decl_context, current_name);
+        symbol_list = query_unqualified_name(decl_context, nested_name_context, current_name);
     }
     else
     {
@@ -1420,14 +1424,15 @@ static decl_context_t lookup_qualification_scope_in_class(
     // Note, that once a class-name has been designed in a nested-name-spec only classes
     // can appear, since classes cannot have namespaces inside them
     scope_entry_list_t* symbol_list = NULL;
-    if (ASTType(current_name) != AST_TEMPLATE_ID)
+    if (ASTType(current_name) != AST_TEMPLATE_ID
+            && ASTType(current_name) != AST_OPERATOR_FUNCTION_ID_TEMPLATE)
     {
-        symbol_list = query_unqualified_name(class_context, current_name);
+        symbol_list = query_unqualified_name(class_context, original_context, current_name);
     }
     else
     {
         // FIXME - This might fail
-        symbol_list = query_template_id(current_name, class_context, nested_name_context);
+        symbol_list = query_template_id(current_name, class_context, original_context);
     }
 
     symbol_list = filter_symbol_kind_set(symbol_list, classes_or_namespaces_filter_num_elements, classes_or_namespaces_filter);
@@ -2940,7 +2945,10 @@ static type_t* update_type_aux_(type_t* orig_type,
         type_t* updated_type =
             update_dependent_typename(fixed_type, dependent_parts, decl_context, filename, line);
 
-        updated_type = get_cv_qualified_type(updated_type, cv_qualif);
+        if (updated_type != NULL)
+        {
+            updated_type = get_cv_qualified_type(updated_type, cv_qualif);
+        }
 
         return updated_type;
     }

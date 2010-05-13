@@ -8733,6 +8733,10 @@ type_t* get_foundation_type(struct type_tag* t)
     {
         return get_foundation_type(pointer_type_get_pointee_type(t));
     }
+    else if (is_pointer_to_member_type(t))
+    {
+        return get_foundation_type(pointer_type_get_pointee_type(t));
+    }
     else if (is_rvalue_reference_type(t)
             || is_lvalue_reference_type(t))
     {
