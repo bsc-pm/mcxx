@@ -1041,7 +1041,7 @@ static dependent_name_part_t* compute_dependent_parts(
     }
 }
 
-static dependent_name_part_t* copy_dependent_parts(
+dependent_name_part_t* copy_dependent_parts(
         dependent_name_part_t* dependent_part)
 {
     if (dependent_part == NULL)

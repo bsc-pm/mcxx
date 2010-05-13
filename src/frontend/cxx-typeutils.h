@@ -516,6 +516,9 @@ LIBMCXX_EXTERN char syntactic_comparison_of_nested_names(
         dependent_name_part_t* dependent_parts_1,
         dependent_name_part_t* dependent_parts_2);
 
+LIBMCXX_EXTERN dependent_name_part_t* copy_dependent_parts(
+        dependent_name_part_t* dependent_part);
+
 /* Debug purpose functions */
 LIBMCXX_EXTERN const char* print_declarator(struct type_tag* printed_declarator);
 LIBMCXX_EXTERN long long unsigned int type_system_used_memory(void);

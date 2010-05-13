@@ -2878,28 +2878,6 @@ static type_t* update_type_aux_(type_t* orig_type,
         fixed_type = update_type_aux_(get_user_defined_type(dependent_entry),
                 decl_context, filename, line);
 
-        while (is_dependent_typename_type(fixed_type))
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "SCOPE: Repeatedly update dependent entry\n");
-            }
-            type_t* new_fixed_type = update_type_aux_(fixed_type, decl_context,
-                filename, line);
-
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "SCOPE: Repeated update done\n");
-            }
-
-            // Save ourselves of strange errors
-            if (new_fixed_type == NULL 
-                    || equivalent_types(new_fixed_type, fixed_type))
-                break;
-
-            fixed_type = new_fixed_type;
-        }
-
         if (fixed_type == NULL)
         {
             DEBUG_CODE()
@@ -2909,7 +2887,41 @@ static type_t* update_type_aux_(type_t* orig_type,
             return NULL;
         }
 
-        if (!is_named_type(fixed_type))
+        if (is_dependent_typename_type(fixed_type))
+        {
+            cv_qualifier_t cv_qualif_dep = get_cv_qualifier(fixed_type);
+            // We are updating the base entry (T) of a dependent typename
+            // [T]::T1 with another dependent typename [S]::S2
+            // so the updated type should be [S]::S2::S1
+            DEBUG_CODE()
+             {
+                fprintf(stderr, "SCOPE: Entry of dependent type is being "
+                        "replaced by another dependent type, appending both\n");
+            }
+
+            scope_entry_t* fix_dependent_entry = NULL;
+            dependent_name_part_t* fix_dependent_parts = NULL;
+
+            dependent_typename_get_components(fixed_type, 
+                    &fix_dependent_entry, &fix_dependent_parts);
+
+            // Now append the dependent parts of this type 
+
+            dependent_name_part_t* updated_dependent_part = copy_dependent_parts(fix_dependent_parts);
+            dependent_name_part_t* appended_dependent_part = copy_dependent_parts(dependent_parts);
+
+            // Link both lists
+            dependent_name_part_t* it = updated_dependent_part;
+            while (it->next != NULL) 
+                it = it->next;
+            it->next = appended_dependent_part;
+
+            cv_qualif |= cv_qualif_dep;
+
+            fixed_type = get_user_defined_type(fix_dependent_entry);
+            dependent_parts = updated_dependent_part;
+        }
+        else if (!is_named_type(fixed_type))
         {
             DEBUG_CODE()
             {
