@@ -450,7 +450,7 @@ void Outline::compute_referenced_entities()
     ObjectList<Symbol> all_referenced_symbols;
 
     std::for_each(_outline_statements.begin(), _outline_statements.end(), 
-            std::bind2nd(ptr_fun(get_referenced_entities), &all_referenced_symbols));
+            std::bind2nd(std::ptr_fun(get_referenced_entities), &all_referenced_symbols));
 
     if (_use_nonlocal_scope)
     {
