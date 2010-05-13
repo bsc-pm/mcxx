@@ -1852,6 +1852,11 @@ static char check_for_declarator_rec(AST declarator, decl_context_t decl_context
                 return check_for_declarator_rec(ASTSon1(declarator), decl_context);
                 break;
             }
+        case AST_GCC_PTR_ABSTRACT_DECLARATOR:
+            {
+                return check_for_declarator_rec(ASTSon2(declarator), decl_context);
+                break;
+            }
         case AST_ABSTRACT_DECLARATOR_FUNC :
         case AST_DECLARATOR_FUNC :
             {
