@@ -24,6 +24,7 @@
 #include "hlt-transform.hpp"
 #include "hlt-exception.hpp"
 
+using namespace TL;
 using namespace TL::HLT;
 
 bool TL::HLT::enable_instrumentation = false;

@@ -209,7 +209,7 @@ static type_t* determine_most_specialized_template_class(
         if (current_most_specialized == matching_specializations[i])
             continue;
 
-        if (is_less_or_equal_specialized_template_class(
+        if (!is_less_or_equal_specialized_template_class(
                     matching_specializations[i],
                     current_most_specialized,
                     decl_context,
@@ -219,7 +219,7 @@ static type_t* determine_most_specialized_template_class(
             {
                 scope_entry_t* minimum = named_type_get_symbol(current_most_specialized);
                 scope_entry_t* current = named_type_get_symbol(matching_specializations[i]);
-                fprintf(stderr, "SOLVETEMPLATE: There is not a most specialized template since '%s:%d' is as "
+                fprintf(stderr, "SOLVETEMPLATE: There is not a most specialized template since '%s:%d' is not less "
                         "specialized as '%s:%d'\n", 
                         current->file, current->line,
                         minimum->file, minimum->line);
@@ -326,13 +326,13 @@ type_t* determine_most_specialized_template_function(int num_feasible_templates,
 
         char is_conversion = 
             named_type_get_symbol(most_specialized)->entity_specs.is_conversion;
-        type_t* f = named_type_get_symbol(most_specialized)->type_information;
-        type_t* g = named_type_get_symbol(feasible_templates[i])->type_information;
+        type_t* f = named_type_get_symbol(feasible_templates[i])->type_information;
+        type_t* g = named_type_get_symbol(most_specialized)->type_information;
 
         f = extend_function_with_return_type(f);
         g = extend_function_with_return_type(g);
 
-        if (is_less_or_equal_specialized_template_function(
+        if (!is_less_or_equal_specialized_template_function(
                     f,
                     g,
                     decl_context, 
@@ -344,7 +344,7 @@ type_t* determine_most_specialized_template_function(int num_feasible_templates,
             DEBUG_CODE()
             {
                 fprintf(stderr, "SOLVETEMPLATE: Found that '%s' at '%s:%d' is "
-                        "not the most specialized. It is as good as '%s' at '%s:%d'\n",
+                        "not the most specialized. '%s' at '%s:%d' is not less specialized\n",
                         named_type_get_symbol(most_specialized)->symbol_name,
                         named_type_get_symbol(most_specialized)->file,
                         named_type_get_symbol(most_specialized)->line,
