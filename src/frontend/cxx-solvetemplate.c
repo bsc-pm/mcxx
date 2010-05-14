@@ -210,8 +210,8 @@ static type_t* determine_most_specialized_template_class(
             continue;
 
         if (is_less_or_equal_specialized_template_class(
-                    current_most_specialized,
                     matching_specializations[i],
+                    current_most_specialized,
                     decl_context,
                     &deduce_result, filename, line))
         {
