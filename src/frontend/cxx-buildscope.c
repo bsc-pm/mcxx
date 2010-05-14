@@ -1954,6 +1954,11 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
         dependent_name_part_t* part = counted_calloc(1, sizeof(*part), &_bytes_used_buildscope);
         part->name = entry->symbol_name;
 
+        if (is_template_specialized_type(entry->type_information))
+        {
+            part->template_arguments = template_specialized_type_get_template_arguments(entry->type_information);
+        }
+
         (*type_info) = get_dependent_typename_type_from_parts(
                 named_type_get_symbol(entry->entity_specs.class_type), 
                 part);

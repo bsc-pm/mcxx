@@ -356,7 +356,7 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
                 case TPK_TYPE:
                     {
                         default_template_argument->kind = TAK_TYPE;
-                        default_template_argument->type = update_type(
+                        default_template_argument->type = update_type_for_instantiation(
                                 template_parameter->default_template_argument->type,
                                 context_of_being_instantiated,
                                 filename, line);
@@ -366,7 +366,7 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
                 case TPK_TEMPLATE:
                     {
                         default_template_argument->kind = TAK_TEMPLATE;
-                        default_template_argument->type = update_type(
+                        default_template_argument->type = update_type_for_instantiation(
                                 template_parameter->default_template_argument->type,
                                 context_of_being_instantiated,
                                 filename, line);
@@ -375,7 +375,7 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
                 case TPK_NONTYPE:
                     {
                         default_template_argument->kind = TAK_NONTYPE;
-                        default_template_argument->type = update_type(
+                        default_template_argument->type = update_type_for_instantiation(
                                 template_parameter->default_template_argument->type,
                                 context_of_being_instantiated,
                                 filename, line);
@@ -404,7 +404,7 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
     }
     else
     {
-        base_type = update_type(
+        base_type = update_type_for_instantiation(
                             member_of_template->type_information,
                             context_of_being_instantiated,
                             filename, line);
@@ -466,8 +466,10 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
         int *num_items_enum_map
         )
 {
-    fprintf(stderr, "INSTANTIATION: Instantiating member '%s'\n", 
-            member_of_template->symbol_name);
+    fprintf(stderr, "INSTANTIATION: Instantiating member '%s' at '%s:%d'\n", 
+            member_of_template->symbol_name,
+            member_of_template->file,
+            member_of_template->line);
 
     switch (member_of_template->kind)
     {
@@ -477,7 +479,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         being_instantiated,
                         member_of_template);
 
-                new_member->type_information = update_type(
+                new_member->type_information = update_type_for_instantiation(
                         new_member->type_information,
                         context_of_being_instantiated,
                         filename, line);
@@ -543,7 +545,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         being_instantiated,
                         member_of_template);
 
-                new_member->type_information = update_type(
+                new_member->type_information = update_type_for_instantiation(
                         new_member->type_information,
                         context_of_being_instantiated,
                         filename, line);
@@ -723,14 +725,14 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                 case TAK_TYPE:
                                 case TAK_TEMPLATE:
                                     {
-                                        new_template_arg->type = update_type(template_arg->type,
+                                        new_template_arg->type = update_type_for_instantiation(template_arg->type,
                                                 context_of_being_instantiated, 
                                                 filename, line);
                                         break;
                                     }
                                 case TAK_NONTYPE:
                                     {
-                                        new_template_arg->type = update_type(template_arg->type,
+                                        new_template_arg->type = update_type_for_instantiation(template_arg->type,
                                                 context_of_being_instantiated,
                                                 filename, line);
 
@@ -793,7 +795,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             member_of_template);
 
                     // FIXME - Maybe we should create also a 0-template like in classes?
-                    new_member->type_information = update_type(
+                    new_member->type_information = update_type_for_instantiation(
                             new_member->type_information,
                             context_of_being_instantiated,
                             filename, line);
@@ -1118,7 +1120,7 @@ static void instantiate_bases(
             base_class_named_type = get_user_defined_type(base_class_sym);
         }
 
-        type_t* upd_base_class_named_type = update_type(base_class_named_type,
+        type_t* upd_base_class_named_type = update_type_for_instantiation(base_class_named_type,
                 context_of_being_instantiated,
                 filename, line);
 

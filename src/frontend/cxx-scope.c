@@ -858,8 +858,11 @@ static scope_entry_list_t* query_unqualified_name(
             break;
         case AST_CONVERSION_FUNCTION_ID:
             {
+                decl_context_t modified_class_context = decl_context;
+                modified_class_context.template_scope = template_arg_ctx.template_scope;
+
                 char* conversion_function_name = 
-                    get_conversion_function_name(template_arg_ctx, unqualified_name, /* result_type */ NULL);
+                    get_conversion_function_name(modified_class_context, unqualified_name, /* result_type */ NULL);
                 result = name_lookup(decl_context, conversion_function_name);
             }
             break;
@@ -959,6 +962,13 @@ static scope_entry_list_t* query_qualified_name(
     {
         if (dependent_type != NULL)
         {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Returning a dependent entity for '%s%s%s'\n",
+                        prettyprint_in_buffer(global_op),
+                        prettyprint_in_buffer(nested_name),
+                        prettyprint_in_buffer(unqualified_name));
+            }
             // Create a SK_DEPENDENT_ENTITY just to acknowledge that this was
             // dependent
             scope_entry_t* dependent_entity = counted_calloc(1, sizeof(*dependent_entity), &_bytes_used_scopes);
@@ -2144,12 +2154,14 @@ static template_argument_list_t* duplicate_template_arguments(
 static template_argument_t* update_template_argument(
         template_argument_t* current_template_arg,
         decl_context_t template_arguments_context,
-        const char *filename, int line);
+        const char *filename, int line,
+        char overwrite_context);
 
 static template_argument_list_t* update_template_argument_list(
         template_argument_list_t* template_arguments,
         decl_context_t template_arguments_context,
-        const char *filename, int line)
+        const char *filename, int line,
+        char overwrite_context)
 {
     int i;
     for (i = 0; i < template_arguments->num_arguments; i++)
@@ -2158,7 +2170,8 @@ static template_argument_list_t* update_template_argument_list(
                 template_arguments->argument_list[i],
                 template_arguments_context, 
                 filename, 
-                line);
+                line, 
+                overwrite_context);
     }
 
     return template_arguments;
@@ -2168,7 +2181,8 @@ static type_t* update_dependent_typename(
         type_t* dependent_entry_type,
         dependent_name_part_t* dependent_parts,
         decl_context_t decl_context,
-        const char* filename, int line)
+        const char* filename, int line,
+        char instantiation_update)
 {
     scope_entry_t* dependent_entry = named_type_get_symbol(dependent_entry_type);
 
@@ -2317,7 +2331,8 @@ static type_t* update_dependent_typename(
                     filename, line);
 
             template_arguments = update_template_argument_list(template_arguments,
-                    decl_context, filename, line);
+                    decl_context, filename, line,
+                    /* overwrite_context */ instantiation_update);
 
             if (template_arguments->num_arguments != template_parameters->num_template_parameters)
             {
@@ -2448,7 +2463,7 @@ static type_t* update_dependent_typename(
                 filename, line);
 
         template_arguments = update_template_argument_list(template_arguments,
-                decl_context, filename, line);
+                decl_context, filename, line, /* overwrite_context */ instantiation_update);
 
         if (template_arguments->num_arguments != template_parameters->num_template_parameters)
         {
@@ -2490,7 +2505,8 @@ static type_t* update_dependent_typename(
 
 static type_t* update_type_aux_(type_t* orig_type, 
         decl_context_t decl_context,
-        const char* filename, int line)
+        const char* filename, int line,
+        char instantiation_update)
 {
     ERROR_CONDITION(orig_type == NULL, "Error, type is null", 0);
 
@@ -2636,11 +2652,12 @@ static type_t* update_type_aux_(type_t* orig_type,
             {
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "SCOPE: Updating template argument of specialized template class %d\n", i);
+                    fprintf(stderr, "SCOPE: Updating template argument %d of specialized template class\n", i);
                 }
                 template_argument_t* updated_argument = update_template_argument(
                         template_arguments->argument_list[i],
-                        decl_context, filename, line);
+                        decl_context, filename, line,
+                        /* overwrite_context */ instantiation_update);
 
                 P_LIST_ADD(updated_template_arguments->argument_list, updated_template_arguments->num_arguments, updated_argument);
             }
@@ -2678,7 +2695,9 @@ static type_t* update_type_aux_(type_t* orig_type,
         {
             cv_qualifier_t cv_qualif = get_cv_qualifier(orig_type);
             return get_cv_qualified_type(
-                    update_type_aux_(entry->type_information, decl_context, filename, line),
+                    update_type_aux_(entry->type_information, 
+                        decl_context, filename, line, 
+                        instantiation_update),
                     cv_qualif);
         }
         else
@@ -2695,7 +2714,7 @@ static type_t* update_type_aux_(type_t* orig_type,
     {
         type_t* referenced = reference_type_get_referenced_type(orig_type);
 
-        type_t* updated_referenced = update_type_aux_(referenced, decl_context, filename, line);
+        type_t* updated_referenced = update_type_aux_(referenced, decl_context, filename, line, instantiation_update);
 
         if (updated_referenced == NULL)
             return NULL;
@@ -2710,7 +2729,7 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         type_t* pointee = pointer_type_get_pointee_type(orig_type);
 
-        type_t* updated_pointee = update_type_aux_(pointee, decl_context, filename, line);
+        type_t* updated_pointee = update_type_aux_(pointee, decl_context, filename, line, instantiation_update);
 
         if (updated_pointee == NULL)
             return NULL;
@@ -2726,13 +2745,13 @@ static type_t* update_type_aux_(type_t* orig_type,
         cv_qualifier_t cv_qualifier = get_cv_qualifier(orig_type);
 
         type_t* pointee = pointer_type_get_pointee_type(orig_type);
-        type_t* updated_pointee = update_type_aux_(pointee, decl_context, filename, line);
+        type_t* updated_pointee = update_type_aux_(pointee, decl_context, filename, line, instantiation_update);
 
         if (updated_pointee == NULL)
             return NULL;
 
         type_t* pointee_class = pointer_to_member_type_get_class_type(orig_type);
-        pointee_class = update_type_aux_(pointee_class, decl_context, filename, line);
+        pointee_class = update_type_aux_(pointee_class, decl_context, filename, line, instantiation_update);
 
         // If it is not a named class type _and_ it is not a template type
         // parameter, then this is not a valid pointer to member type
@@ -2758,7 +2777,7 @@ static type_t* update_type_aux_(type_t* orig_type,
         type_t* return_type = function_type_get_return_type(orig_type);
         if (return_type != NULL)
         {
-            return_type = update_type_aux_(return_type, decl_context, filename, line);
+            return_type = update_type_aux_(return_type, decl_context, filename, line, instantiation_update);
             // Something went wrong here for the return type
             if (return_type == NULL)
                 return NULL;
@@ -2781,7 +2800,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             type_t* param_orig_type = function_type_get_parameter_type_num(orig_type, i);
 
             param_orig_type = update_type_aux_(param_orig_type, 
-                    decl_context, filename, line);
+                    decl_context, filename, line, instantiation_update);
 
             if (param_orig_type == NULL)
                 return NULL;
@@ -2852,7 +2871,7 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         type_t* element_type = array_type_get_element_type(orig_type);
         element_type = update_type_aux_(element_type,
-                decl_context, filename, line);
+                decl_context, filename, line, instantiation_update);
 
         if (element_type == NULL)
             return NULL;
@@ -2881,7 +2900,7 @@ static type_t* update_type_aux_(type_t* orig_type,
 
         type_t* fixed_type = NULL;
         fixed_type = update_type_aux_(get_user_defined_type(dependent_entry),
-                decl_context, filename, line);
+                decl_context, filename, line, instantiation_update);
 
         if (fixed_type == NULL)
         {
@@ -2943,7 +2962,7 @@ static type_t* update_type_aux_(type_t* orig_type,
         }
 
         type_t* updated_type =
-            update_dependent_typename(fixed_type, dependent_parts, decl_context, filename, line);
+            update_dependent_typename(fixed_type, dependent_parts, decl_context, filename, line, instantiation_update);
 
         if (updated_type != NULL)
         {
@@ -2976,7 +2995,7 @@ type_t* update_type(type_t* orig_type,
     }
 
     type_t* result = update_type_aux_(orig_type, decl_context,
-            filename, line);
+            filename, line, /* instantiation_update */ 0);
 
     DEBUG_CODE()
     {
@@ -2993,10 +3012,32 @@ type_t* update_type(type_t* orig_type,
     return result;
 }
 
+type_t* update_type_for_instantiation(type_t* orig_type,
+        decl_context_t context_of_being_instantiated,
+        const char* filename, int line)
+{
+    DEBUG_CODE()
+    {
+            fprintf(stderr, "SCOPE: While instantiating, updating type '%s'\n", print_declarator(orig_type));
+    }
+
+    type_t* result = update_type_aux_(orig_type, context_of_being_instantiated,
+            filename, line, /* instantiation_update */ 1);
+
+    ERROR_CONDITION(result == NULL, "Invalid type update of '%s' during instantiation", print_declarator(orig_type));
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "SCOPE: Type '%s' has been updated to '%s'\n", print_declarator(orig_type), print_declarator(result));
+    }
+
+    return result;
+}
+
 static template_argument_t* update_template_argument(
         template_argument_t* current_template_arg,
         decl_context_t decl_context,
-        const char *filename, int line)
+        const char *filename, int line,
+        char overwrite_context)
 {
     template_argument_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
     result->kind = current_template_arg->kind;
@@ -3031,10 +3072,17 @@ static template_argument_t* update_template_argument(
                 // want to overwrite it
                 result->expression =
                     ast_copy(current_template_arg->expression);
-                result->expression_context = current_template_arg->expression_context;
-
-                // Adjust the context to have current template environment
-                result->expression_context.template_scope = decl_context.template_scope;
+                if (!overwrite_context)
+                {
+                    // Use the new template scope
+                    result->expression_context = current_template_arg->expression_context;
+                    result->expression_context.template_scope = decl_context.template_scope;
+                }
+                else
+                {
+                    // Overwrite with the given context (used only during instantiation)
+                    result->expression_context = decl_context;
+                }
 
                 // Update type information 
                 if(!check_for_expression(result->expression, result->expression_context))
@@ -3354,7 +3402,8 @@ static template_argument_list_t* complete_arguments_of_template_id(
             template_argument_t* current_template_argument = update_template_argument(
                     original_default_arg, 
                     updated_decl_context, 
-                    filename, line);
+                    filename, line,
+                    /* overwrite_context */ 0);
 
             sign_in_template_name(current_template_argument, updated_decl_context);
 
