@@ -331,8 +331,6 @@ namespace TL { namespace Nanos {
 
     void common_atomic_postorder(PragmaCustomConstruct atomic_construct)
     {
-        Nanos::common_atomic_postorder(atomic_construct);
-
         Statement critical_body = atomic_construct.get_statement();
 
         bool atomic_as_critical = false;
