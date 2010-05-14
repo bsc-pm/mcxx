@@ -1152,7 +1152,7 @@ void instantiate_template_class(scope_entry_t* entry, decl_context_t decl_contex
     type_t* template_specialized_type = entry->type_information;
 
     fprintf(stderr, "INSTANTIATION: Instantiating class '%s' at '%s:%d'\n",
-            entry->symbol_name,
+            print_type_str(get_user_defined_type(entry), entry->decl_context),
             entry->file,
             entry->line);
 
