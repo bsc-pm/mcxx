@@ -87,10 +87,10 @@ if WINDOWS_BUILD
 else
 # '$$ORIGIN' is a relocatable hint to GNU ld
 mcxx_LDFLAGS = \
-    -Wl,-R,$(libdir) \
-    -Wl,-R,$(pkglibdir) \
-    -Wl,-R,'$$ORIGIN'/../lib \
-    -Wl,-R,'$$ORIGIN'/../lib/mcxx \
+    -Wl,@RPATH_PARAMETER@,$(libdir) \
+    -Wl,@RPATH_PARAMETER@,$(pkglibdir) \
+    -Wl,@RPATH_PARAMETER@,'$$ORIGIN'/../lib \
+    -Wl,@RPATH_PARAMETER@,'$$ORIGIN'/../lib/mcxx \
     $(END)
 endif
 
@@ -203,5 +203,5 @@ mcxx_embedder_LDADD = \
    $(END)
 
 mcxx_embedder_LDFLAGS = \
-    -Wl,-R,'$$ORIGIN'/../lib \
+    -Wl,@RPATH_PARAMETER@,'$$ORIGIN'/../lib \
     $(END)

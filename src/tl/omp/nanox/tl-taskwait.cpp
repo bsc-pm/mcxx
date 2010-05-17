@@ -56,42 +56,49 @@ namespace TL
                         it != dependences.end();
                         it++)
                 {
-                    Source dependency_name;
+                    Source dependency_name, dependency_offset;
 
                     dependency_name
                         << "dep_" << dep_num;
                     
+                    DataReference data_ref = it->get_dependency_expression();
 
-                    if (it->get_dependency_expression().get_type().is_array())
+                    if (data_ref.get_type().is_array())
                     {
-                        fake_struct_fields << it->get_dependency_expression()
+                        fake_struct_fields << data_ref
                             .get_type()
                             .array_element()
                             .get_pointer_to()
-                            .get_declaration(it->get_dependency_expression().get_scope(),
+                            .get_declaration(data_ref.get_scope(),
                                     dependency_name) << ";";
 
-                        dep_holder_init << it->get_dependency_expression() 
+                        dep_holder_init << data_ref 
                             ;
                     }
                     else
                     {
-                        fake_struct_fields << it->get_dependency_expression()
+                        fake_struct_fields << data_ref
                             .get_type()
                             .get_pointer_to()
-                            .get_declaration(it->get_dependency_expression().get_scope(),
+                            .get_declaration(data_ref.get_scope(),
                                     dependency_name) << ";";
 
-                        dep_holder_init << "&(" << it->get_dependency_expression() << ")"
+                        dep_holder_init << "&(" << data_ref << ")"
                             ;
                     }
 
                     dependency_defs_wait
                         << "{"
                         << "(void**)&_dep_holder." << dependency_name << ","
+                        << dependency_offset << ","
                         << "{1, 0, 0},"
-                        << "sizeof(" << it->get_dependency_expression() << ")"
+                        << "sizeof(" << data_ref << ")"
                         << "}"
+                        ;
+
+
+                    dependency_offset
+                        << "((char*)(" << data_ref.get_address() << ") - " << "(char*)_dep_holder." << dependency_name << ")"
                         ;
 
                     if ((it + 1) != dependences.end())
