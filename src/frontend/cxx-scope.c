@@ -3102,7 +3102,7 @@ static template_argument_t* update_template_argument(
                 // whose type was already computed in another context, and we do not
                 // want to overwrite it
                 result->expression =
-                    ast_copy(current_template_arg->expression);
+                    ast_copy_for_instantiation(current_template_arg->expression);
                 if (!overwrite_context)
                 {
                     // Use the new template scope
