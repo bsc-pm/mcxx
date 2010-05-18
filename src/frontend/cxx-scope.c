@@ -724,6 +724,7 @@ scope_entry_list_t* query_nested_name_flags(decl_context_t decl_context,
     }
     else
     {
+        decl_context.decl_flags &= ~DF_ONLY_CURRENT_SCOPE;
         decl_context.decl_flags |= DF_QUALIFIED_NAME;
         return query_qualified_name(decl_context, global_op, nested_name, unqualified_name);
     }
@@ -1354,16 +1355,17 @@ static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_c
     return lookup_qualification_scope_in_class(decl_context, symbol, next_nested_name_spec, unqualified_part, dependent_type);
 }
 
-static scope_entry_list_t* name_lookup_used_namespaces(decl_context_t decl_context, 
-        scope_t* current_scope, const char* name)
+static scope_entry_list_t* name_lookup_used_namespaces_rec(decl_context_t decl_context, 
+        scope_t* current_scope, const char* name, 
+        int num_seen_scopes, scope_t** seen_scopes)
 {
     ERROR_CONDITION(current_scope == NULL, "Current scope is null", 0);
     ERROR_CONDITION(name == NULL, "name is null", 0);
 
     scope_entry_list_t* result = NULL;
 
-    // Look up in directly used namespaces, this always has to be performed
     int i;
+    // Look up in directly used namespaces, this always has to be performed
     for (i = 0; i < current_scope->num_used_namespaces; i++)
     {
         scope_t* used_namespace = current_scope->use_namespace[i];
@@ -1381,13 +1383,42 @@ static scope_entry_list_t* name_lookup_used_namespaces(decl_context_t decl_conte
         for (i = 0; i < current_scope->num_used_namespaces; i++)
         {
             scope_t* used_namespace = current_scope->use_namespace[i];
-            scope_entry_list_t* recursed_search = name_lookup_used_namespaces(decl_context, used_namespace, name);
+
+            int j;
+            char already_looked_up = 0;
+            for (j = 0; (j < num_seen_scopes) && !already_looked_up; j++)
+            {
+                if (seen_scopes[j] == used_namespace)
+                    already_looked_up = 1;
+            }
+
+            if (already_looked_up)
+                continue;
+
+            scope_t* new_seen_scopes[num_seen_scopes + 1];
+            for (j = 0; j < num_seen_scopes; j++)
+            {
+                new_seen_scopes[j] = seen_scopes[j];
+            }
+            new_seen_scopes[num_seen_scopes] = used_namespace;
+
+            scope_entry_list_t* recursed_search = 
+                name_lookup_used_namespaces_rec(decl_context, used_namespace, name, 
+                        num_seen_scopes + 1, 
+                        new_seen_scopes);
 
             result = append_scope_entry_list(result, recursed_search);
         }
     }
 
     return result;
+}
+
+static scope_entry_list_t* name_lookup_used_namespaces(decl_context_t decl_context, 
+        scope_t* current_scope, const char* name)
+{
+    return name_lookup_used_namespaces_rec(decl_context,
+            current_scope, name, 0, NULL);
 }
 
 #define MAX_CLASS_PATH (32)
