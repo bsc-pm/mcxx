@@ -426,7 +426,10 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
     new_map.orig_type = template_type;
     new_map.new_type = new_member->type_information;
 
-    fprintf(stderr, "INSTANTIATION: Adding new template to template map\n");
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "INSTANTIATION: Adding new template to template map\n");
+    }
 
     P_LIST_ADD((*template_map), (*num_items_template_map), new_map);
 
@@ -473,10 +476,13 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
         int *num_items_enum_map
         )
 {
-    fprintf(stderr, "INSTANTIATION: Instantiating member '%s' at '%s:%d'\n", 
-            member_of_template->symbol_name,
-            member_of_template->file,
-            member_of_template->line);
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "INSTANTIATION: Instantiating member '%s' at '%s:%d'\n", 
+                member_of_template->symbol_name,
+                member_of_template->file,
+                member_of_template->line);
+    }
 
     switch (member_of_template->kind)
     {
@@ -540,10 +546,13 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     class_type_add_nonstatic_data_member(get_actual_class_type(being_instantiated), new_member);
                 }
 
-                fprintf(stderr, "INSTANTIATION: Member '%s' is a %s data member with type '%s'\n", 
-                        new_member->symbol_name,
-                        new_member->entity_specs.is_static ? "static" : "non-static",
-                        print_type_str(new_member->type_information, context_of_being_instantiated));
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "INSTANTIATION: Member '%s' is a %s data member with type '%s'\n", 
+                            new_member->symbol_name,
+                            new_member->entity_specs.is_static ? "static" : "non-static",
+                            print_type_str(new_member->type_information, context_of_being_instantiated));
+                }
                 break;
             }
         case SK_TYPEDEF:
@@ -558,9 +567,12 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         filename, line);
                 class_type_add_typename(get_actual_class_type(being_instantiated), new_member);
 
-                fprintf(stderr, "INSTANTIATION: Member '%s' is a typedef. Instantiated type is '%s'\n",
-                        new_member->symbol_name,
-                        print_type_str(new_member->type_information, context_of_being_instantiated));
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "INSTANTIATION: Member '%s' is a typedef. Instantiated type is '%s'\n",
+                            new_member->symbol_name,
+                            print_type_str(new_member->type_information, context_of_being_instantiated));
+                }
 
                 break;
             }
@@ -695,8 +707,11 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                         type_t* new_template_type = NULL;
                         // Search in the map
                         int i;
-                        fprintf(stderr, "INSTANTIATION: Searching in template map (num_elems = %d)\n",
-                                *num_items_template_map);
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "INSTANTIATION: Searching in template map (num_elems = %d)\n",
+                                    *num_items_template_map);
+                        }
 
                         for (i = 0; i < *num_items_template_map; i++)
                         {
@@ -809,14 +824,17 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                     class_type_add_member_function(get_actual_class_type(being_instantiated), new_member);
 
-                    char is_dependent = 0;
-                    int max_qualif = 0;
-                    fprintf(stderr, "INSTANTIATION: New member function '%s'\n",
-                            print_decl_type_str(new_member->type_information, 
-                                context_of_being_instantiated, 
-                                get_fully_qualified_symbol_name(new_member, 
+                    DEBUG_CODE()
+                    {
+                        char is_dependent = 0;
+                        int max_qualif = 0;
+                        fprintf(stderr, "INSTANTIATION: New member function '%s'\n",
+                                print_decl_type_str(new_member->type_information, 
                                     context_of_being_instantiated, 
-                                    &is_dependent, &max_qualif)));
+                                    get_fully_qualified_symbol_name(new_member, 
+                                        context_of_being_instantiated, 
+                                        &is_dependent, &max_qualif)));
+                    }
                 }
                 else
                 {
@@ -890,8 +908,11 @@ static void instantiate_specialized_template_class(type_t* selected_template,
         deduction_set_t* unification_set,
         const char *filename, int line)
 {
-    fprintf(stderr, "INSTANTIATION: Instantiating class '%s'\n", 
-            print_declarator(being_instantiated));
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "INSTANTIATION: Instantiating class '%s'\n", 
+                print_declarator(being_instantiated));
+    }
 
     ERROR_CONDITION(!is_named_class_type(being_instantiated), "Must be a named class", 0);
 
@@ -1077,7 +1098,10 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     type_map_t* enum_map = NULL;
     int num_items_enum_map = 0;
 
-    fprintf(stderr, "INSTANTIATION: Have to instantiate %d members\n", num_members);
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "INSTANTIATION: Have to instantiate %d members\n", num_members);
+    }
     for (i = 0; i < num_members; i++)
     {
         scope_entry_t* member = class_type_get_member_num(get_actual_class_type(selected_template), i);
@@ -1098,8 +1122,11 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     finish_class_type(get_actual_class_type(being_instantiated), being_instantiated, 
             named_class->decl_context, filename, line);
 
-    fprintf(stderr, "INSTANTIATION: End of instantiation of class '%s'\n", 
-            print_declarator(being_instantiated));
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "INSTANTIATION: End of instantiation of class '%s'\n", 
+                print_declarator(being_instantiated));
+    }
 }
 
 static void instantiate_bases(
@@ -1158,10 +1185,13 @@ void instantiate_template_class(scope_entry_t* entry, decl_context_t decl_contex
 
     type_t* template_specialized_type = entry->type_information;
 
-    fprintf(stderr, "INSTANTIATION: Instantiating class '%s' at '%s:%d'\n",
-            print_type_str(get_user_defined_type(entry), entry->decl_context),
-            entry->file,
-            entry->line);
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "INSTANTIATION: Instantiating class '%s' at '%s:%d'\n",
+                print_type_str(get_user_defined_type(entry), entry->decl_context),
+                entry->file,
+                entry->line);
+    }
 
 
     if (!is_template_specialized_type(template_specialized_type)
