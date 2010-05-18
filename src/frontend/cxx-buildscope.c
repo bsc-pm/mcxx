@@ -581,6 +581,8 @@ static void build_scope_explicit_instantiation(AST a, decl_context_t decl_contex
     // FIXME - We should instantiate here if no 'extern' is given
     if (declarator != NULL)
     {
+        decl_context.decl_flags |= DF_TEMPLATE;
+        decl_context.decl_flags |= DF_EXPLICIT_SPECIALIZATION;
         build_scope_declarator_name(declarator, declarator_type, &gather_info, decl_context);
     }
 }
