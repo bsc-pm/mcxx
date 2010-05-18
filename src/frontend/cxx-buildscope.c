@@ -5176,6 +5176,21 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
                 return NULL;
             }
 
+            // We can reach here if the explicit specialization is faulty
+            if (BITMAP_TEST(decl_context.decl_flags, DF_EXPLICIT_SPECIALIZATION))
+            {
+                running_error("%s: explicit specialization '%s' does not match any template '%s <>'\n", 
+                        ast_location(declarator_id),
+                        get_declaration_string_internal(declarator_type, 
+                            decl_context, /* symbol_name */ function_name, 
+                            /* initializer */ "", 
+                            /* semicolon */ 0,
+                            /* num_parameter_names */ NULL,
+                            /* parameter_names */ NULL,
+                            /* is_parameter */ 0),
+                        function_name);
+            }
+
             ERROR_CONDITION(decl_context.template_parameters == NULL,
                     "Error, there must be template parameters", 0);
 
