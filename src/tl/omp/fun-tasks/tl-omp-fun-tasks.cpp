@@ -401,7 +401,7 @@ namespace OpenMP
 
                         if (sym.is_parameter())
                         {
-                            ReplaceSrcIdExpression replace_copies(scope_link);
+                            ReplaceSrcIdExpression replace_copies(replace);
 
                             Source src;
                             src << "__tmp_" << sym.get_parameter_position();
