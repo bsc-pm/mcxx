@@ -436,6 +436,13 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
 
     named_type_get_symbol(new_primary_template)->decl_context = context_of_being_instantiated;
 
+    named_type_get_symbol(new_primary_template)->entity_specs = 
+        named_type_get_symbol(
+                template_type_get_primary_type(
+                    template_specialized_type_get_related_template_type(member_of_template->type_information)))->entity_specs;
+
+    named_type_get_symbol(new_primary_template)->entity_specs.class_type = being_instantiated;
+
     class_type_add_member(
             get_actual_class_type(being_instantiated),
             named_type_get_symbol(new_primary_template));
