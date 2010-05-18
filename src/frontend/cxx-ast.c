@@ -621,13 +621,9 @@ AST ast_copy_for_instantiation(const_AST a)
     // Children are special and will be properly copied by ast_set_child
     result->children = NULL;
 
-    // Remove dependent type information
-    if (result->expr_type != NULL
-            && is_dependent_expr_type(result->expr_type))
-    {
-        result->expr_type = NULL;
-        result->expr_is_lvalue = 0;
-    }
+    // Remove type information
+    result->expr_type = NULL;
+    result->expr_is_lvalue = 0;
 
     // Clear extended data since we will want to recheck this code
     result->extended_data = NULL;

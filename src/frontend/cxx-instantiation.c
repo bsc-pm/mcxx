@@ -29,6 +29,7 @@
 #include "cxx-prettyprint.h"
 #include "cxx-buildscope.h"
 #include "cxx-typeutils.h"
+#include "cxx-exprtype.h"
 #include "cxx-cexpr.h"
 #include "cxx-ambiguity.h"
 #include "cxx-scope.h"
@@ -544,6 +545,13 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 else
                 {
                     class_type_add_nonstatic_data_member(get_actual_class_type(being_instantiated), new_member);
+                }
+
+                if (member_of_template->expression_value != NULL)
+                {
+                    new_member->expression_value = ast_copy_for_instantiation(member_of_template->expression_value);
+
+                    check_for_expression(new_member->expression_value, context_of_being_instantiated);
                 }
 
                 DEBUG_CODE()
@@ -1137,6 +1145,11 @@ static void instantiate_bases(
 {
     int i, num_bases = class_type_get_num_bases(selected_class_type);
 
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "INSTANTIATION: Updating bases\n");
+    }
+
     for (i = 0; i < num_bases; i++)
     {
         char is_virtual = 0;
@@ -1154,6 +1167,12 @@ static void instantiate_bases(
             base_class_named_type = get_user_defined_type(base_class_sym);
         }
 
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "INSTANTIATION: Updating base class '%s'\n", 
+                    print_declarator(base_class_named_type));
+        }
+
         type_t* upd_base_class_named_type = update_type_for_instantiation(base_class_named_type,
                 context_of_being_instantiated,
                 filename, line);
@@ -1167,6 +1186,11 @@ static void instantiate_bases(
         }
 
         class_type_add_base_class(instantiated_class_type, upd_base_class_sym, is_virtual, /* is_dependent */ 0);
+    }
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "INSTANTIATION: Finished updating bases\n");
     }
 }
 
