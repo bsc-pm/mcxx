@@ -94,6 +94,18 @@ mcxx_LDFLAGS = \
     $(END)
 endif
 
+BISON_verbose = $(BISON_verbose_$(V))
+BISON_verbose_ = $(BISON_verbose_$(AM_DEFAULT_VERBOSITY))
+BISON_verbose_0 = @echo "  BISON " $@;
+
+FLEX_verbose = $(FLEX_verbose_$(V))
+FLEX_verbose_ = $(FLEX_verbose_$(AM_DEFAULT_VERBOSITY))
+FLEX_verbose_0 = @echo "  FLEX  " $@;
+
+GPERF_verbose = $(GPERF_verbose_$(V))
+GPERF_verbose_ = $(GPERF_verbose_$(AM_DEFAULT_VERBOSITY))
+GPERF_verbose_0 = @echo "  GPERF " $@;
+
 EXTRA_DIST += cxx-configoptions.gperf
 EXTRA_DIST += cxx-fileextensions.gperf
 EXTRA_DIST += cxx-debugflags.gperf
@@ -123,7 +135,7 @@ CLEANFILES += cxx-configfile-parser.output
 
 cxx-configoptions.c : $(srcdir)/cxx-configoptions.gperf $(top_srcdir)/src/driver/cxx-driver.h $(srcdir)/cxx-configfile.h
 if GPERF_BUILDING
-	$(GPERF) --language=ANSI-C --hash-function-name=configoptions_hash --struct-type \
+	$(GPERF_verbose)$(GPERF) --language=ANSI-C --hash-function-name=configoptions_hash --struct-type \
       --lookup-function-name=configoptions_lookup --output=cxx-configoptions.c \
       --initializer-suffix=,NULL $(srcdir)/cxx-configoptions.gperf
 else
@@ -133,7 +145,7 @@ endif
 
 cxx-fileextensions.c : $(srcdir)/cxx-fileextensions.gperf $(top_srcdir)/src/driver/cxx-driver.h
 if GPERF_BUILDING
-	$(GPERF) --language=ANSI-C --hash-function-name=fileextensions_hash --struct-type \
+	$(GPERF_verbose)$(GPERF) --language=ANSI-C --hash-function-name=fileextensions_hash --struct-type \
       --lookup-function-name=fileextensions_lookup --output=cxx-fileextensions.c \
       --initializer-suffix=,SOURCE_LANGUAGE_UNKNOWN,SOURCE_KIND_UNKNOWN $(srcdir)/cxx-fileextensions.gperf
 else
@@ -143,7 +155,7 @@ endif
 
 cxx-debugflags.c : $(srcdir)/cxx-debugflags.gperf $(top_srcdir)/src/driver/cxx-driver.h $(top_srcdir)/src/frontend/cxx-utils.h
 if GPERF_BUILDING
-	$(GPERF) --language=ANSI-C --hash-function-name=debugflags_hash --struct-type \
+	$(GPERF_verbose)$(GPERF) --language=ANSI-C --hash-function-name=debugflags_hash --struct-type \
       --lookup-function-name=debugflags_lookup --output=cxx-debugflags.c \
       --global-table --word-array-name=debugflags_list \
 	  "--initializer-suffix=,0,\"\"" $(srcdir)/cxx-debugflags.gperf
@@ -153,12 +165,12 @@ else
 endif
 
 cxx-configfile-lexer.c: $(srcdir)/cxx-configfile-lexer.l
-	$(FLEX) -Pconfigfile -d -ocxx-configfile-lexer.c -8 $(srcdir)/cxx-configfile-lexer.l
+	$(FLEX_verbose)$(FLEX) -Pconfigfile -d -ocxx-configfile-lexer.c -8 $(srcdir)/cxx-configfile-lexer.l
 
 cxx-configfile-parser-internal.h : cxx-configfile-parser.c
 
 cxx-configfile-parser.c: $(srcdir)/cxx-configfile-parser.y
-	$(BISON) -pconfigfile --debug --defines=cxx-configfile-parser-internal.h --report=all --output=cxx-configfile-parser.c $(srcdir)/cxx-configfile-parser.y
+	$(BISON_verbose)$(BISON) -pconfigfile --debug --defines=cxx-configfile-parser-internal.h --report=all --output=cxx-configfile-parser.c $(srcdir)/cxx-configfile-parser.y
 
 # Install hooks
 # installs "mcc" as a soft link of mcxx
