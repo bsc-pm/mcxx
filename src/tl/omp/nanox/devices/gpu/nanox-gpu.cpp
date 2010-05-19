@@ -299,8 +299,6 @@ void DeviceGPU::create_outline(
             ;
     }
 
-    final_code << "cudaThreadSynchronize();";
-
     // Parse it in a sibling function context
     AST_t outline_code_tree
         = result.parse_declaration(enclosing_function.get_ast(), sl);
