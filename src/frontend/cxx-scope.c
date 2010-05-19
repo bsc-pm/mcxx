@@ -1212,7 +1212,7 @@ static decl_context_t lookup_qualification_scope_in_namespace(
     }
     else
     {
-        symbol_list = query_template_id(current_name, decl_context, nested_name_context);
+        symbol_list = query_template_id(current_name, decl_context, original_context);
     }
 
     symbol_list = filter_symbol_kind_set(symbol_list, classes_or_namespaces_filter_num_elements, classes_or_namespaces_filter);
