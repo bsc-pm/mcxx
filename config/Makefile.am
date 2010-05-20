@@ -56,8 +56,7 @@ include ./Makefile.replace
 
 # This is valid in parallel make since we are generating one goal file at a time
 $(CONFIG_MCXX) $(CONFIG_FILES) : Makefile
-	$(config_edit) "$(srcdir)/$@.in" > "$@.tmp"
-	mv -f "$@.tmp" "$@"
+	$(AM_V_GEN)( $(config_edit) "$(srcdir)/$@.in" > "$@.tmp"; mv -f "$@.tmp" "$@" )
 
 # Where and what to install
 pkgdata_DATA = \

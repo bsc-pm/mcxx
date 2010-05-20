@@ -94,6 +94,8 @@ mcxx_LDFLAGS = \
     $(END)
 endif
 
+# Silent rules
+if SUPPORTED_SILENT_RULES
 BISON_verbose = $(BISON_verbose_$(V))
 BISON_verbose_ = $(BISON_verbose_$(AM_DEFAULT_VERBOSITY))
 BISON_verbose_0 = @echo "  BISON " $@;
@@ -105,6 +107,7 @@ FLEX_verbose_0 = @echo "  FLEX  " $@;
 GPERF_verbose = $(GPERF_verbose_$(V))
 GPERF_verbose_ = $(GPERF_verbose_$(AM_DEFAULT_VERBOSITY))
 GPERF_verbose_0 = @echo "  GPERF " $@;
+endif
 
 EXTRA_DIST += cxx-configoptions.gperf
 EXTRA_DIST += cxx-fileextensions.gperf
