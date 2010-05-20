@@ -226,6 +226,7 @@ cxx-ast.h : cxx-asttype.h
 TPP=$(top_builddir)/lib/tpp$(EXEEXT)
 
 # Silent rules
+if ENABLE_SILENT_RULES
 BISON_verbose = $(BISON_verbose_$(V))
 BISON_verbose_ = $(BISON_verbose_$(AM_DEFAULT_VERBOSITY))
 BISON_verbose_0 = @echo "  BISON " $@;
@@ -237,6 +238,7 @@ FLEX_verbose_0 = @echo "  FLEX  " $@;
 TPP_verbose = $(TPP_verbose_$(V))
 TPP_verbose_ = $(TPP_verbose_$(AM_DEFAULT_VERBOSITY))
 TPP_verbose_0 = @echo "  TPP   " $@;
+endif
 
 CLEANFILES += cxx-asttype.h
 cxx-asttype.h : cxx-asttype.def

@@ -15,7 +15,12 @@ dnl Initialization of Automake
 AM_INIT_AUTOMAKE([1.9 dist-bzip2])
 
 dnl Enable silent rules if available
-m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
+enable_silent_rules=1
+m4_ifdef([AM_SILENT_RULES], 
+        [AM_SILENT_RULES([yes])],
+        [enable_silent_rules=0])
+
+AM_CONDITIONAL([ENABLE_SILENT_RULES], test x$enable_silent_rules = x1)
 
 dnl Simple check of code existence
 AC_CONFIG_SRCDIR(src/frontend/cxx03.y.in)
