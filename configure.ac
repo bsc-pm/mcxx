@@ -12,7 +12,8 @@ AC_PREREQ(2.61)
 AC_CONFIG_MACRO_DIR([m4])
 
 dnl Initialization of Automake
-AM_INIT_AUTOMAKE([1.9 dist-bzip2])
+dnl We require at least 1.9 (next will be 1.11)
+AM_INIT_AUTOMAKE([1.9 dist-bzip2 -Wno-portability])
 
 dnl Enable silent rules if available
 supported_silent_rules=1
