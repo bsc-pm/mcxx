@@ -83,7 +83,8 @@ namespace TL { namespace OpenMP {
             DependencyItem dep_item(*it, attr);
 
             Symbol sym = expr.get_base_symbol();
-            if (sym.is_valid())
+            if (sym.is_valid()
+                    && expr.is_id_expression())
             {
                 DataSharingAttribute attr = data_sharing.get_data_sharing(sym);
 
