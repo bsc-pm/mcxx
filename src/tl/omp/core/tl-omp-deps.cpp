@@ -82,30 +82,21 @@ namespace TL { namespace OpenMP {
 
             DependencyItem dep_item(*it, attr);
 
-            Symbol sym = expr.get_base_symbol();
-            if (sym.is_valid()
-                    && expr.is_id_expression())
-            {
-                DataSharingAttribute attr = data_sharing.get_data_sharing(sym);
+            if (expr.is_id_expression())
+			{
+				Symbol sym = expr.get_id_expression().get_symbol();
+				DataSharingAttribute attr = data_sharing.get_data_sharing(sym);
 
-                if (((attr & DS_PRIVATE) == DS_PRIVATE)
-                        && ((attr & DS_IMPLICIT) != DS_IMPLICIT))
-                {
-                    std::cerr << expr.get_ast().get_locus()
-                        << ": warning: dependency expression '" 
-                        << expr.prettyprint() << "' names a private variable, making it shared" << std::endl;
+				if (((attr & DS_PRIVATE) == DS_PRIVATE)
+						&& ((attr & DS_IMPLICIT) != DS_IMPLICIT))
+				{
+					std::cerr << expr.get_ast().get_locus()
+						<< ": warning: dependency expression '" 
+						<< expr.prettyprint() << "' names a private variable, making it shared" << std::endl;
+				}
 
-                    data_sharing.set_data_sharing(sym, attr);
-                }
-
-                data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
-            }
-            else
-            {
-                std::cerr << expr.get_ast().get_locus() 
-                    << ": warning: skipping invalid dependency expression '" << expr.prettyprint() << "'" << std::endl;
-                continue;
-            }
+				data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
+			}
 
             data_sharing.add_dependence(dep_item);
         }
