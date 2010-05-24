@@ -2358,6 +2358,13 @@ type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int n
     //  Don't worry, this 'void' is just for the trie
     type_seq[0] = (t != NULL ? t : get_void_type());
 
+    char fun_type_is_dependent = 0;
+
+    if (t != NULL)
+    {
+        fun_type_is_dependent = is_dependent_type(t);
+    }
+
     int i;
     for (i = 0; i < num_parameters; i++)
     {
@@ -2371,6 +2378,10 @@ type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int n
             {
                 type_seq[i + 1] = parameter_info[i].type_info;
             }
+
+            fun_type_is_dependent = 
+                fun_type_is_dependent || 
+                is_dependent_type(parameter_info[i].type_info);
         }
         else
         {
@@ -2388,6 +2399,8 @@ type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int n
         type_t* new_funct_type = _get_new_function_type(t, parameter_info, num_parameters);
         insert_type_trie(used_trie, type_seq, num_parameters + 1, new_funct_type);
         function_type = new_funct_type;
+
+        set_is_dependent_type(function_type, fun_type_is_dependent);
     }
     
     return function_type;
