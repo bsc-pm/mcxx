@@ -5210,6 +5210,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
                 running_error("%s: error: explicit specialization '%s' does not match any template of '%s'\n",
                         ast_location(declarator_id),
                         print_decl_type_str(declarator_type, decl_context, function_name),
+                        function_name);
             }
 
             ERROR_CONDITION(decl_context.template_parameters == NULL,
