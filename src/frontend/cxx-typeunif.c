@@ -974,9 +974,12 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
             }
         case AST_SIZEOF_TYPEID :
             {
-                // We should unificate the types
-                internal_error("Unification of sizeof(type-id) not yet implemented\n", 0);
-                return 0;
+                type_t* sizeof_left_type = ASTExprType(ASTSon0(left_tree));
+                type_t* sizeof_right_type = ASTExprType(ASTSon0(right_tree));
+
+                // We do not unificate sizeofs (though we could), just assert
+                // if the sizeof'd type is the same
+                return equivalent_types(sizeof_left_type, sizeof_right_type);
             }
         case AST_EXPLICIT_TYPE_CONVERSION :
             {
