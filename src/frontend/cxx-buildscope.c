@@ -862,9 +862,8 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
                 {
                     CXX_LANGUAGE()
                     {
-                        if (is_named_class_type(declarator_type)
-                                && !is_dependent_type(declarator_type)
-                                && !named_type_get_symbol(declarator_type)->entity_specs.after_typedef)
+                        if (is_class_type(declarator_type)
+                                && !is_dependent_type(declarator_type))
                         {
                             check_zero_args_constructor(declarator_type, decl_context, declarator);
                         }
@@ -2396,8 +2395,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         }
 
         // Implicit default constructor
-        if (class_type_get_num_constructors(class_type) == 0
-                && is_named_class_type(type_info))
+        if (class_type_get_num_constructors(class_type) == 0)
         {
             type_t* default_constructor_type = get_new_function_type(
                     NULL, // Constructors do not return anything
@@ -2407,7 +2405,14 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             scope_t* sc = class_type_get_inner_context(class_type).current_scope;
 
             char constructor_name[256] = { 0 };
-            snprintf(constructor_name, 256, "constructor %s", named_type_get_symbol(type_info)->symbol_name);
+            if (is_named_class_type(type_info))
+            {
+                snprintf(constructor_name, 256, "constructor %s", named_type_get_symbol(type_info)->symbol_name);
+            }
+            else
+            {
+                snprintf(constructor_name, 256, "%s", "constructor ");
+            }
 
             scope_entry_t* implicit_default_constructor = new_symbol(class_type_get_inner_context(class_type), sc,
                     constructor_name);
@@ -2513,9 +2518,8 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             }
         }
 
-        // Copy constructors (only for named classes)
-        if (class_type_get_num_copy_constructors(class_type) == 0
-                && is_named_class_type(type_info))
+        // Copy constructors 
+        if (class_type_get_num_copy_constructors(class_type) == 0)
         {
             char const_parameter = 1; 
             // Now check bases for a const qualified version
@@ -2582,7 +2586,14 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
             scope_t* sc = class_type_get_inner_context(class_type).current_scope;
 
             char constructor_name[256] = { 0 };
-            snprintf(constructor_name, 256, "constructor %s", named_type_get_symbol(type_info)->symbol_name);
+            if (is_named_class_type(type_info))
+            {
+                snprintf(constructor_name, 256, "constructor %s", named_type_get_symbol(type_info)->symbol_name);
+            }
+            else
+            {
+                snprintf(constructor_name, 256, "%s", "constructor ");
+            }
 
             scope_entry_t* implicit_copy_constructor = new_symbol(class_type_get_inner_context(class_type), sc,
                     constructor_name);
@@ -2865,11 +2876,17 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         }
 
         // Implicit destructor
-        if (class_type_get_destructor(class_type) == NULL
-                && is_named_class_type(type_info))
+        if (class_type_get_destructor(class_type) == NULL)
         {
             char destructor_name[256] = { 0 };
-            snprintf(destructor_name, 255, "~%s", named_type_get_symbol(type_info)->symbol_name);
+            if (is_named_class_type(type_info))
+            {
+                snprintf(destructor_name, 255, "~%s", named_type_get_symbol(type_info)->symbol_name);
+            }
+            else
+            {
+                snprintf(destructor_name, 255, "%s", "~destructor");
+            }
             destructor_name[255] = '\0';
 
             scope_t* sc = class_type_get_inner_context(class_type).current_scope;
@@ -5193,7 +5210,6 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
                 running_error("%s: error: explicit specialization '%s' does not match any template of '%s'\n",
                         ast_location(declarator_id),
                         print_decl_type_str(declarator_type, decl_context, function_name),
-                        function_name);
             }
 
             ERROR_CONDITION(decl_context.template_parameters == NULL,

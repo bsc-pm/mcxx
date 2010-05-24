@@ -218,29 +218,35 @@ void DeviceSMP::create_outline(
 
     if (instrumentation_enabled())
     {
+        Source funct_id, funct_description;
         instrument_before
-            << "static volatile nanos_event_value_t nanos_funct_id = 0;"
-            << "static volatile int nanos_funct_id_init = 0;"
-            << "if (nanos_funct_id_init != 1)"
+            << "static int nanos_funct_id_init = 0;"
+            << "static int nanos_instr_user_fun_key = 0;"
+            << "static int nanos_instr_user_fun_value = 0;"
+            << "if (nanos_funct_id_init == 0)"
             << "{"
-            // 2 means 'busy'
-            <<     "if (__sync_bool_compare_and_swap(&nanos_funct_id_init, 0, 2))"
-            <<     "{"
-            <<         "nanos_funct_id = __sync_add_and_fetch(&nanos_global_funct_id_counter, 1);"
-            <<         "nanos_funct_id_init = 1;"
-            <<     "}"
-            <<     "while (nanos_funct_id_init != 1);"
-            // It could happen that nanos_funct_id_init is viewed as being 1
-            // before nanos_funct_id has been updated, so we issue here a
-            // synchronize to ensure all stores so far are visible by all
-            // threads
-            <<     "__sync_synchronize();"
+            <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct\", &nanos_instr_user_fun_key);"
+            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+            <<    "err = nanos_instrument_register_value ( &nanos_instr_user_fun_value, \"user-funct\","
+            <<               funct_id << "," << funct_description << ");"
+            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+            <<    "nanos_funct_id_init = 1;"
             << "}"
-            << "nanos_instrument_enter_burst(NANOS_INSTRUMENT_USER_FUNCT, nanos_funct_id);"
+            << "nanos_instrument_enter_burst(nanos_instr_user_fun_key, nanos_instr_user_fun_value);"
             ;
 
         instrument_after
-            << "nanos_instrument_leave_burst(NANOS_INSTRUMENT_USER_FUNCT, funct_id);"
+            << "nanos_instrument_leave_burst(nanos_instr_user_fun_key, nanos_instr_user_fun_value);"
+            ;
+
+        funct_id
+            << "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
+            ;
+
+        funct_description
+            << "\"Outline created after construct at '" 
+            << reference_tree.get_locus() 
+            << "' found in function '" << function_symbol.get_qualified_name() << "'\""
             ;
     }
 
