@@ -4112,6 +4112,9 @@ static type_t* compute_operator_reference_type(AST expression,
 
                 if (entry_list->entry->kind == SK_DEPENDENT_ENTITY)
                 {
+                    // Mark it as value dependent
+                    ASTAttrSetValueType(expression, LANG_EXPRESSION_IS_VALUE_DEPENDENT, tl_type_t, tl_bool(1));
+
                     ast_set_expression_type(expression, get_dependent_expr_type());
                     return ASTExprType(expression);
                 }
@@ -4393,6 +4396,8 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, decl_cont
             }
             else if (entry->kind == SK_TEMPLATE_PARAMETER)
             {
+                // Mark it as value dependent
+                ASTAttrSetValueType(expr, LANG_EXPRESSION_IS_VALUE_DEPENDENT, tl_type_t, tl_bool(1));
                 // Nontype template parameter
                 ast_set_expression_type(expr, get_user_defined_type(entry));
                 set_as_template_parameter_name(expr, entry);
@@ -4464,6 +4469,9 @@ char compute_qualified_id_type(AST expr, decl_context_t decl_context, decl_conte
         scope_entry_t* entry = result_list->entry;
         if (entry->kind == SK_DEPENDENT_ENTITY)
         {
+            // Mark it as value dependent
+            ASTAttrSetValueType(expr, LANG_EXPRESSION_IS_VALUE_DEPENDENT, tl_type_t, tl_bool(1));
+
             ast_set_expression_type(expr, get_dependent_expr_type());
             return 1;
         }
@@ -5249,6 +5257,9 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
     ASTAttrSetValueType(new_expr, LANG_NEW_INITIALIZER, tl_type_t,
             new_initializer != NULL ? tl_ast(ASTSon0(new_initializer)) : tl_ast(NULL));
 
+    if (!check_for_type_id_tree(new_type_id, decl_context))
+        return 0;
+
     if (new_placement != NULL)
     {
         AST expression_list = ASTSon0(new_placement);
@@ -5485,104 +5496,123 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
                 }
             }
 
-        }
 
-    }
-
-    // Solve constructor being invoked
-    if (!is_dependent_type(declarator_type)
-            && is_pointer_to_class_type(declarator_type))
-    {
-        type_t* class_type = pointer_type_get_pointee_type(declarator_type);
-
-        scope_entry_t* conversors[MAX_ARGUMENTS];
-        memset(conversors, 0, sizeof(conversors));
-
-        type_t* arguments[MAX_ARGUMENTS];
-        memset(arguments, 0, sizeof(arguments));
-
-        int num_arguments = 0;
-        char has_constructor_dep_args = 0;
-        
-        if (new_initializer != NULL)
-        {
-            AST expression_list = ASTSon0(new_initializer);
-
-            if (expression_list != NULL)
+            if (is_pointer_to_class_type(declarator_type))
             {
-                AST iter;
-                for_each_element(expression_list, iter)
+                type_t* class_type = pointer_type_get_pointee_type(declarator_type);
+
+                memset(conversors, 0, sizeof(conversors));
+                memset(arguments, 0, sizeof(arguments));
+
+                num_arguments = 0;
+                char has_constructor_dep_args = 0;
+
+                if (new_initializer != NULL)
                 {
-                    AST expr = ASTSon1(iter);
+                    AST expression_list = ASTSon0(new_initializer);
 
-                    arguments[num_arguments] = ast_get_expression_type(expr);
-
-                    if (is_dependent_expr_type(arguments[num_arguments]))
+                    if (expression_list != NULL)
                     {
-                        has_constructor_dep_args = 1;
-                    }
-
-                    num_arguments++;
-                }
-            }
-        }
-
-        if (!has_constructor_dep_args)
-        {
-            scope_entry_t* chosen_constructor = solve_constructor(class_type,
-                    arguments, num_arguments,
-                    /* is_explicit */ 1,
-                    decl_context,
-                    ASTFileName(new_expr), ASTLine(new_expr),
-                    conversors);
-
-            if (chosen_constructor == NULL)
-            {
-                if (!checking_ambiguity())
-                {
-                    fprintf(stderr, "%s: warning: no suitable constructor of type '%s' "
-                            "found for new-initializer '%s'\n",
-                            ast_location(new_expr),
-                            print_decl_type_str(class_type, decl_context, ""),
-                            prettyprint_in_buffer(new_initializer));
-                }
-
-                return 0;
-            }
-            
-            // FIXME - This does not belong to the expression!
-            ASTAttrSetValueType(new_type_id, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
-            ASTAttrSetValueType(new_type_id, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(chosen_constructor));
-
-            // Store conversions
-            if (new_initializer != NULL)
-            {
-                AST expression_list = ASTSon0(new_initializer);
-                AST iter;
-
-                int i = 0;
-                if (expression_list != NULL)
-                {
-                    for_each_element(expression_list, iter)
-                    {
-                        AST current_expr = ASTSon1(iter);
-
-                        if (conversors[i] != NULL)
+                        AST iter;
+                        for_each_element(expression_list, iter)
                         {
-                            ASTAttrSetValueType(current_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
-                            ASTAttrSetValueType(current_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[i]));
+                            AST expr = ASTSon1(iter);
+
+                            arguments[num_arguments] = ast_get_expression_type(expr);
+
+                            if (is_dependent_expr_type(arguments[num_arguments]))
+                            {
+                                has_constructor_dep_args = 1;
+                            }
+
+                            num_arguments++;
+                        }
+                    }
+                }
+
+                if (!has_constructor_dep_args)
+                {
+                    scope_entry_t* chosen_constructor = solve_constructor(class_type,
+                            arguments, num_arguments,
+                            /* is_explicit */ 1,
+                            decl_context,
+                            ASTFileName(new_expr), ASTLine(new_expr),
+                            conversors);
+
+                    if (chosen_constructor == NULL)
+                    {
+                        if (!checking_ambiguity())
+                        {
+                            fprintf(stderr, "%s: warning: no suitable constructor of type '%s' "
+                                    "found for new-initializer '%s'\n",
+                                    ast_location(new_expr),
+                                    print_decl_type_str(class_type, decl_context, ""),
+                                    prettyprint_in_buffer(new_initializer));
                         }
 
-                        i++;
+                        return 0;
+                    }
+
+                    // FIXME - This does not belong to the expression!
+                    ASTAttrSetValueType(new_type_id, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+                    ASTAttrSetValueType(new_type_id, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(chosen_constructor));
+
+                    // Store conversions
+                    if (new_initializer != NULL)
+                    {
+                        AST expression_list = ASTSon0(new_initializer);
+                        AST iter;
+
+                        i = 0;
+                        if (expression_list != NULL)
+                        {
+                            for_each_element(expression_list, iter)
+                            {
+                                AST current_expr = ASTSon1(iter);
+
+                                if (conversors[i] != NULL)
+                                {
+                                    ASTAttrSetValueType(current_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+                                    ASTAttrSetValueType(current_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[i]));
+                                }
+
+                                i++;
+                            }
+                        }
                     }
                 }
+                else 
+                {
+                    // Constructor args are dependent
+                    ast_set_expression_type(new_expr, get_dependent_expr_type());
+                    ast_set_expression_is_lvalue(new_expr, 0);
+                    return 1;
+                }
             }
+
+            ast_set_expression_type(new_expr, declarator_type);
+            ast_set_expression_is_lvalue(new_expr, 0);
+            return 1;
         }
+        else 
+        {
+            // Placement expression is dependent
+            ast_set_expression_type(new_expr, get_dependent_expr_type());
+            ast_set_expression_is_lvalue(new_expr, 0);
+            return 1;
+        }
+
+    }
+    else
+    {
+        // The new type is dependent
+        ast_set_expression_type(new_expr, get_dependent_expr_type());
+        ast_set_expression_is_lvalue(new_expr, 0);
+        return 1;
     }
 
-    ast_set_expression_type(new_expr, declarator_type);
-    ast_set_expression_is_lvalue(new_expr, 0);
-    return 1;
+    // Invalid
+    return 0;
 }
 
 static char check_for_new_type_id_expr(AST new_expr, decl_context_t decl_context)

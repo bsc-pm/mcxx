@@ -1825,6 +1825,7 @@ static char check_for_declarator_rec(AST declarator, decl_context_t decl_context
             }
         case AST_DECLARATOR_ARRAY :
         case AST_ABSTRACT_ARRAY :
+        case AST_DIRECT_NEW_DECLARATOR:
             {
                 if (ASTSon1(declarator) != NULL)
                 {
