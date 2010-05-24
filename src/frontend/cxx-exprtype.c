@@ -7089,7 +7089,14 @@ static char check_for_cast_expr(AST expr, AST type_id, AST casted_expression, de
         else
         {
             ast_set_expression_type(expr, declarator_type);
-            ast_set_expression_is_lvalue(expr, 0);
+
+            char is_lvalue = 0;
+            if (is_lvalue_reference_type(declarator_type))
+            {
+                is_lvalue = 1;
+            }
+
+            ast_set_expression_is_lvalue(expr, is_lvalue);
         }
         return 1;
     }
