@@ -711,7 +711,10 @@ char move_file(const char* source, const char* dest)
         FILE* dest_file = fopen(dest, "w");
 
         if (dest_file == NULL)
+        {
+            fclose(orig_file);
             return -1;
+        }
 
         // size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
         char c[1024];
@@ -722,6 +725,8 @@ char move_file(const char* source, const char* dest)
             int actually_written = fwrite(c, actually_read, 1, dest_file);
             if (actually_written < actually_read)
             {
+                fclose(dest_file);
+                fclose(orig_file);
                 return -1;
             }
             actually_read = fread(c, sizeof(c), 1, orig_file);
@@ -734,6 +739,8 @@ char move_file(const char* source, const char* dest)
         else if (ferror(orig_file))
         {
             // Something went wrong
+            fclose(dest_file);
+            fclose(orig_file);
             return -1;
         }
 
