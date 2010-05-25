@@ -97,6 +97,7 @@ libmcxx_la_SOURCES = \
   cxx-typededuc.h \
   cxx-cexpr.c \
   cxx-cexpr.h \
+  cxx-cexpr-decls.h \
   cxx-ambiguity.c \
   cxx-ambiguity.h \
   cxx-solvetemplate.h \
@@ -112,6 +113,7 @@ libmcxx_la_SOURCES = \
   cxx-scopelink.c \
   cxx-scopelink-decls.h \
   cxx-scopelink.h \
+  cxx-exprtype-decls.h \
   cxx-exprtype.h \
   cxx-exprtype.c \
   cxx-koenig.h \
