@@ -184,19 +184,13 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
 
     Source current_slicer;
     Source chunk_value;
-    chunk_value = Source("1");
-    current_slicer = Source("dynamic_for");
+    chunk_value = Source("0");
+    current_slicer = Source("static_for");
 
     PragmaCustomClause schedule_clause = ctr.get_clause("schedule");
     if (schedule_clause.is_defined())
     {
         ObjectList<std::string> args = schedule_clause.get_arguments(ExpressionTokenizerTrim());
-
-        if (args[0] == "static")
-        {
-            running_error("%s: error: 'static(schedule)' not implemented yet", 
-                    ctr.get_ast().get_locus().c_str());
-        }
 
         current_slicer = args[0] + "_for";
 
