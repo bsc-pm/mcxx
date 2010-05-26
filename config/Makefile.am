@@ -34,6 +34,7 @@ CONFIG_MCXX=\
 CONFIG_FILES =  \
        config.acotes \
        config.acotes-msf \
+       config.cuda \
        config.omp \
        config.sscc \
        config.plain \

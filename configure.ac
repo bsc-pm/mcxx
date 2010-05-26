@@ -189,6 +189,8 @@ then
    TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanox"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
+   
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.cuda"
 fi
 
 AC_SUBST([NANOX_INCLUDES])
