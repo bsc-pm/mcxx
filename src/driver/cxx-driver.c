@@ -2047,6 +2047,14 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 }
             }
 
+
+            const char* prettyprinted_filename = NULL;
+            if (current_extension->source_kind != SOURCE_KIND_NOT_PARSED)
+            {
+                prettyprinted_filename
+                    = prettyprint_translation_unit(translation_unit, parsed_filename);
+            }
+
             // Process secondary translation units
             if (file_process->num_secondary_translation_units != 0)
             {
@@ -2068,8 +2076,6 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
             if (current_extension->source_kind != SOURCE_KIND_NOT_PARSED)
             {
-                const char* prettyprinted_filename 
-                    = prettyprint_translation_unit(translation_unit, parsed_filename);
                 native_compilation(translation_unit, prettyprinted_filename, /* remove_input */ true);
             }
             else
