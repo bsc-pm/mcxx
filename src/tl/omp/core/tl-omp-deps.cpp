@@ -82,21 +82,18 @@ namespace TL { namespace OpenMP {
 
             DependencyItem dep_item(*it, attr);
 
-            if (expr.is_id_expression())
-			{
-				Symbol sym = expr.get_id_expression().get_symbol();
-				DataSharingAttribute attr = data_sharing.get_data_sharing(sym);
+            Symbol sym = expr.get_base_symbol();
+            DataSharingAttribute attr = data_sharing.get_data_sharing(sym);
 
-				if (((attr & DS_PRIVATE) == DS_PRIVATE)
-						&& ((attr & DS_IMPLICIT) != DS_IMPLICIT))
-				{
-					std::cerr << expr.get_ast().get_locus()
-						<< ": warning: dependency expression '" 
-						<< expr.prettyprint() << "' names a private variable, making it shared" << std::endl;
-				}
+            // if (((attr & DS_PRIVATE) == DS_PRIVATE)
+            //         && ((attr & DS_IMPLICIT) != DS_IMPLICIT))
+            // {
+            //     std::cerr << expr.get_ast().get_locus()
+            //         << ": warning: dependency expression '" 
+            //         << expr.prettyprint() << "' names a private variable, making it shared" << std::endl;
+            // }
 
-				data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
-			}
+            data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
 
             data_sharing.add_dependence(dep_item);
         }
@@ -145,29 +142,14 @@ namespace TL { namespace OpenMP {
 
     void Core::get_dependences_info(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing)
     {
-        if (!construct.get_clause("__function").is_defined())
-        {
-            PragmaCustomClause input_clause = construct.get_clause("input");
-            get_dependences_info_clause(input_clause, data_sharing, DEP_DIR_INPUT);
+        PragmaCustomClause input_clause = construct.get_clause("input");
+        get_dependences_info_clause(input_clause, data_sharing, DEP_DIR_INPUT);
 
-            PragmaCustomClause output_clause = construct.get_clause("output");
-            get_dependences_info_clause(output_clause, data_sharing, DEP_DIR_OUTPUT);
+        PragmaCustomClause output_clause = construct.get_clause("output");
+        get_dependences_info_clause(output_clause, data_sharing, DEP_DIR_OUTPUT);
 
-            PragmaCustomClause inout_clause = construct.get_clause("inout");
-            get_dependences_info_clause(inout_clause, data_sharing, DEP_DIR_INOUT);
-        }
-        else
-        {
-            ObjectList<Expression> input_expr_list, output_expr_list, inout_expr_list;
-            input_expr_list = get_expression_list_of_function_call_arguments("__input_args", construct, data_sharing);
-            add_data_sharings(input_expr_list, data_sharing, DEP_DIR_INPUT);
-
-            output_expr_list = get_expression_list_of_function_call_arguments("__output_args", construct, data_sharing);
-            add_data_sharings(output_expr_list, data_sharing, DEP_DIR_OUTPUT);
-
-            inout_expr_list = get_expression_list_of_function_call_arguments("__inout_args", construct, data_sharing);
-            add_data_sharings(inout_expr_list, data_sharing, DEP_DIR_INOUT);
-        }
+        PragmaCustomClause inout_clause = construct.get_clause("inout");
+        get_dependences_info_clause(inout_clause, data_sharing, DEP_DIR_INOUT);
     }
 
     void Core::get_dependences_info_clause(PragmaCustomClause clause,
