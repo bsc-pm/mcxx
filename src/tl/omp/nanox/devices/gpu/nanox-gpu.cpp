@@ -220,7 +220,18 @@ void DeviceGPU::create_outline(
 
     if (outline_flags.task_symbol != NULL)
     {
+    	// Remove the task body from the original source file and replace it for the outline declaration
     	AST_t function_tree = outline_flags.task_symbol.get_point_of_declaration();
+    	// Remove
+    	function_tree.remove_in_list();
+
+    	Source function_decl_src;
+    	function_decl_src << "void " << outline_name << "(" << struct_typename << "*);"
+    			;
+
+    	AST_t function_decl_tree = function_decl_src.parse_declaration(reference_tree, sl);
+    	reference_tree.prepend_sibling_function(function_decl_tree);
+    	// --
 
     	// Get *.cu included files
     	ObjectList<IncludeLine> lines = CurrentFile::get_top_level_included_files();
@@ -242,7 +253,7 @@ void DeviceGPU::create_outline(
 
     	forward_declaration << "extern \"C\" {\n";
 
-    	// Get the definition of non local symbols
+      	// Get the definition of non local symbols
     	LangConstruct construct (function_tree, sl);
     	ObjectList<IdExpression> extern_occurrences = construct.non_local_symbol_occurrences();
     	DeclarationClosure decl_closure (sl);
@@ -276,14 +287,6 @@ void DeviceGPU::create_outline(
     	{
     		forward_declaration << function_tree.get_enclosing_global_tree().prettyprint_external();
     	}
-
-    	// Remove the task body from the original source file and replace it for the outline declaration
-
-    	Source outline_decl;
-    	outline_decl << "void " << outline_name << "(" << parameter_list << ");";
-    	AST_t outline_decl_tree
-    	        = outline_decl.parse_declaration(outline_flags.task_symbol.get_point_of_declaration()/*function_tree.get_enclosing_function_definition(true)*/, sl);
-    	function_tree.get_enclosing_function_definition(true).replace_in_list(outline_decl_tree);
 
     	// Close the extern \"C\" key
     	forward_declaration << "}\n";
