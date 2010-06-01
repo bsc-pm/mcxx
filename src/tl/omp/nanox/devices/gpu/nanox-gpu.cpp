@@ -62,8 +62,26 @@ static void do_gpu_outline_replacements(
 
     bool err_declared = false;
 
-    ObjectList<OpenMP::CopyItem> copies = data_env_info.get_copy_items();
+    ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
+    for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
+            it != data_env_items.end();
+            it++)
+    {
+        DataEnvironItem& data_env_item(*it);
 
+        Symbol sym = data_env_item.get_symbol();
+        const std::string field_name = data_env_item.get_field_name();
+
+        if (data_env_item.is_private())
+            continue;
+
+        if (data_env_item.is_copy())
+        {
+        	replace_src.add_replacement(sym, "_args->" + field_name);
+        }
+    }
+
+    ObjectList<OpenMP::CopyItem> copies = data_env_info.get_copy_items();
     unsigned int j = 0;
     for (ObjectList<OpenMP::CopyItem>::iterator it = copies.begin();
             it != copies.end();
@@ -171,21 +189,34 @@ void DeviceGPU::create_outline(
     Source forward_declaration;
     Symbol function_symbol = enclosing_function.get_function_symbol();
 
+    Source arguments_struct_definition;
+
     result
+		<< arguments_struct_definition
         << "void " << outline_name << "(" << parameter_list << ")"
         << "{"
         << body
         << "}"
         ;
 
+    Scope sc = sl.get_scope(reference_tree);
+    Symbol struct_typename_sym = sc.get_symbol_from_name(struct_typename);
+
+    if (!struct_typename_sym.is_valid())
+    {
+    	running_error("Invalid typename for struct args", 0);
+    }
+
+    arguments_struct_definition <<
+        		struct_typename_sym.get_point_of_declaration().prettyprint();
+
     parameter_list
-		<< "void * _args"
+		<< struct_typename << "* _args"
         ;
 
     outline_name
         << gpu_outline_name(task_name)
         ;
-
 
     if (outline_flags.task_symbol != NULL)
     {
@@ -303,7 +334,7 @@ void DeviceGPU::create_outline(
     AST_t outline_code_tree
         = result.parse_declaration(enclosing_function.get_ast(), sl);
 
-    std::string file_name ("mcc____");
+    std::string file_name (CompilationConfiguration::get_current_configuration() + "_");
     file_name += CompilationProcess::get_current_file().get_filename(false);
     size_t file_extension = file_name.find_last_of(".");
     file_name.erase(file_extension, file_name.length());
