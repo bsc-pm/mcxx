@@ -28,12 +28,9 @@
 
 typedef struct const_value_tag
 {
+    char sign : 0;
     int num_bytes;
-    union
-    {
-        char raw[sizeof(uint64_t)];
-        uint64_t i;
-    } _val;
+    uint64_t value;
 } const_value_t;
 
 #endif // CXX_CEXPR_DECLS_H

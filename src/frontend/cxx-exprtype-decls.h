@@ -30,7 +30,7 @@
 typedef
 struct expression_info_tag
 {
-    char is_constant:1;
+    char is_lvalue:1;
     char is_value_dependent:1;
     int _reserved0;
 

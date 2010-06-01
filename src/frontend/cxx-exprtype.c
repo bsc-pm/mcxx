@@ -37,6 +37,7 @@
 #include "cxx-buildscope.h"
 #include "cxx-cexpr.h"
 #include "cxx-typeenviron.h"
+#include "cxx-exprtype.h"
 #include <ctype.h>
 #include <string.h>
 
@@ -54,6 +55,70 @@ unsigned long long exprtype_used_memory(void)
     return _bytes_used_expr_check;
 }
 
+static expression_info_t* expression_get_expression_info(AST expr)
+{
+    return ASTAttrValueType(expr, LANG_EXPRESSION_INFO, expression_info_t);
+}
+
+type_t* expression_get_type(AST expr)
+{
+    expression_info_t* expr_info = expression_get_expression_info(expr);
+    return expr_info->type_info;
+}
+
+void expression_set_type(AST expr, type_t* t)
+{
+    expression_info_t* expr_info = expression_get_expression_info(expr);
+    expr_info->type_info = t;
+}
+
+char expression_is_lvalue(AST expr)
+{
+    expression_info_t* expr_info = expression_get_expression_info(expr);
+    return expr_info->is_lvalue;
+}
+
+char expression_is_constant(AST expr)
+{
+    expression_info_t* expr_info = expression_get_expression_info(expr);
+    return (expr_info->const_val != NULL);
+}
+
+void expression_set_non_constant(AST expr)
+{
+    expression_info_t* expr_info = expression_get_expression_info(expr);
+    expr_info->const_val = NULL;
+}
+
+void expression_set_constant(AST expr, const_value_t* const_val)
+{
+    expression_info_t* expr_info = expression_get_expression_info(expr);
+    expr_info->const_val = const_val;
+}
+
+const_value_t* expression_get_constant(AST expr)
+{
+    expression_info_t* expr_info = expression_get_expression_info(expr);
+    return expr_info->const_val;
+}
+
+void expression_set_is_lvalue(AST expr, char is_lvalue)
+{
+    expression_info_t* expr_info = expression_get_expression_info(expr);
+    expr_info->is_lvalue = is_lvalue;
+}
+
+char expression_is_value_dependent(AST expr)
+{
+    expression_info_t* expr_info = expression_get_expression_info(expr);
+    return expr_info->is_value_dependent;
+}
+
+void expression_set_is_value_dependent(AST expr, char value_dependent)
+{
+    expression_info_t* expr_info = expression_get_expression_info(expr);
+    expr_info->is_value_dependent = value_dependent;
+}
 
 #define MAX_BUILTINS (256)
 typedef
@@ -514,7 +579,7 @@ char check_for_expression(AST expression, decl_context_t decl_context)
     char result = 0;
 
     // Shortcut
-    if (ASTExprType(expression) != NULL)
+    if (expression_get_type(expression) != NULL)
     {
         // This is the only point we allow returning
         return 1;
@@ -536,8 +601,10 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                     ASTAttrSetValueType(expression, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(ASTSon0(expression)));
 
-                    ast_set_expression_type(expression, ASTExprType(ASTSon0(expression)));
-                    ast_set_expression_is_lvalue(expression, ASTExprLvalue(ASTSon0(expression)));
+                    expression_set_type(expression, expression_get_type(ASTSon0(expression)));
+                    expression_set_is_lvalue(expression, expression_is_lvalue(ASTSon0(expression)));
+                    expression_set_constant(expression, expression_get_constant(ASTSon0(expression)));
+                    expression_set_is_value_dependent(expression, expression_is_value_dependent(ASTSon0(expression)));
                 }
 
                 break;
@@ -550,8 +617,8 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 ASTAttrSetValueType(expression, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(expression, LANG_IS_INTEGER_LITERAL, tl_type_t, tl_bool(1));
 
-                ast_set_expression_type(expression, decimal_literal_type(expression));
-                ast_set_expression_is_lvalue(expression, 0);
+                expression_set_type(expression, decimal_literal_type(expression));
+                expression_set_is_lvalue(expression, 0);
 
                 result = 1;
                 break;
@@ -561,8 +628,8 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 ASTAttrSetValueType(expression, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(expression, LANG_IS_FLOATING_LITERAL, tl_type_t, tl_bool(1));
 
-                ast_set_expression_type(expression, floating_literal_type(expression));
-                ast_set_expression_is_lvalue(expression, 0);
+                expression_set_type(expression, floating_literal_type(expression));
+                expression_set_is_lvalue(expression, 0);
 
                 result = 1;
                 break;
@@ -572,8 +639,8 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 ASTAttrSetValueType(expression, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(expression, LANG_IS_BOOLEAN_LITERAL, tl_type_t, tl_bool(1));
 
-                ast_set_expression_type(expression, get_bool_type());
-                ast_set_expression_is_lvalue(expression, 0);
+                expression_set_type(expression, get_bool_type());
+                expression_set_is_lvalue(expression, 0);
 
                 result = 1;
                 break;
@@ -583,8 +650,8 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 ASTAttrSetValueType(expression, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(expression, LANG_IS_CHARACTER_LITERAL, tl_type_t, tl_bool(1));
 
-                ast_set_expression_type(expression, character_literal_type(expression));
-                ast_set_expression_is_lvalue(expression, 0);
+                expression_set_type(expression, character_literal_type(expression));
+                expression_set_is_lvalue(expression, 0);
 
                 result = 1;
                 break;
@@ -594,9 +661,9 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 ASTAttrSetValueType(expression, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(expression, LANG_IS_STRING_LITERAL, tl_type_t, tl_bool(1));
 
-                ast_set_expression_type(expression, 
+                expression_set_type(expression, 
                         lvalue_ref(string_literal_type(expression)));
-                ast_set_expression_is_lvalue(expression, 1);
+                expression_set_is_lvalue(expression, 1);
 
                 result = 1;
                 break;
@@ -613,12 +680,12 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                     {
                         if (!is_dependent_type(entry->type_information))
                         {
-                            ast_set_expression_type(expression, get_lvalue_reference_type(entry->type_information));
-                            ast_set_expression_is_lvalue(expression, 1);
+                            expression_set_type(expression, get_lvalue_reference_type(entry->type_information));
+                            expression_set_is_lvalue(expression, 1);
                         }
                         else
                         {
-                            ast_set_expression_type(expression, get_dependent_expr_type());
+                            expression_set_type(expression, get_dependent_expr_type());
                         }
                         result = 1;
                     }
@@ -1047,7 +1114,7 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 }
                 if (result)
                 {
-                    ast_set_expression_type(expression, get_throw_expr_type());
+                    expression_set_type(expression, get_throw_expr_type());
                 }
                 break;
             }
@@ -1067,7 +1134,7 @@ char check_for_expression(AST expression, decl_context_t decl_context)
         case AST_GCC_LABEL_ADDR :
             {
                 // Let's assume this is correct and has type 'void*'
-                ast_set_expression_type(expression, get_pointer_type(get_void_type()));
+                expression_set_type(expression, get_pointer_type(get_void_type()));
                 result = 1;
                 break;
             }
@@ -1078,7 +1145,7 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 if (result)
                 {
                     // Be careful because gcc accepts lvalues and transfers the lvalueness
-                    type_t* complex_type = ASTExprType(ASTSon0(expression));
+                    type_t* complex_type = expression_get_type(ASTSon0(expression));
 
                     // Minimal support for C99 complex types
                     if (complex_type != NULL
@@ -1089,12 +1156,12 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                         if (is_lvalue_reference_type(complex_type))
                         {
                             real_part_type = lvalue_ref(real_part_type);
-                            ast_set_expression_type(expression, real_part_type);
-                            ast_set_expression_is_lvalue(expression, 1);
+                            expression_set_type(expression, real_part_type);
+                            expression_set_is_lvalue(expression, 1);
                         }
                         else
                         {
-                            ast_set_expression_type(expression, real_part_type);
+                            expression_set_type(expression, real_part_type);
                         }
                         result = 1;
                     }
@@ -1110,8 +1177,8 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 result = check_for_expression(ASTSon0(expression), decl_context);
                 if (result)
                 {
-                    ast_set_expression_type(expression, ASTExprType(ASTSon0(expression)));
-                    ast_set_expression_is_lvalue(expression, ASTExprLvalue(ASTSon0(expression)));
+                    expression_set_type(expression, expression_get_type(ASTSon0(expression)));
+                    expression_set_is_lvalue(expression, expression_is_lvalue(ASTSon0(expression)));
                 }
                 break;
             }
@@ -1158,7 +1225,7 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 // type, accept it in the club of expressions with a type of
                 // signed int and a non constant expression
                 result = 1;
-                ast_set_expression_type(expression, get_signed_int_type());
+                expression_set_type(expression, get_signed_int_type());
                 break;
             }
         case AST_GCC_POSTFIX_EXPRESSION :
@@ -1213,8 +1280,8 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                     }
                     else
                     {
-                        ast_set_expression_type(expression, declarator_type);
-                        ast_set_expression_is_lvalue(expression, 0);
+                        expression_set_type(expression, declarator_type);
+                        expression_set_is_lvalue(expression, 0);
                     }
                 }
                 break;
@@ -1259,7 +1326,7 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                             &gather_info, type_info, &declarator_type,
                             decl_context);
 
-                    ast_set_expression_type(expression, declarator_type);
+                    expression_set_type(expression, declarator_type);
                 }
                 break;
             }
@@ -1286,17 +1353,17 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 AST statement_seq = ASTSon0(compound_statement);
                 if (statement_seq == NULL)
                 {
-                    ast_set_expression_type(expression, get_void_type());
+                    expression_set_type(expression, get_void_type());
                     result = 1;
                 }
                 else
                 {
                     AST last_statement = ASTSon1(statement_seq);
 
-                    if (ASTExprType(last_statement) != NULL)
+                    if (expression_get_type(last_statement) != NULL)
                     {
-                        ast_set_expression_type(expression, ASTExprType(last_statement));
-                        ast_set_expression_is_lvalue(expression, ASTExprLvalue(last_statement));
+                        expression_set_type(expression, expression_get_type(last_statement));
+                        expression_set_is_lvalue(expression, expression_is_lvalue(last_statement));
                         result = 1;
                     }
                 }
@@ -1342,8 +1409,8 @@ char check_for_expression(AST expression, decl_context_t decl_context)
             {
                 result = 1;
                 // We do this to avoid later failures
-                ast_set_expression_type(expression, get_signed_int_type());
-                ast_set_expression_is_lvalue(expression, 0);
+                expression_set_type(expression, get_signed_int_type());
+                expression_set_is_lvalue(expression, 0);
                 break;
             }
         case AST_AMBIGUITY :
@@ -1370,7 +1437,7 @@ char check_for_expression(AST expression, decl_context_t decl_context)
     ASTAttrSetValueType(expression, LANG_IS_EXPRESSION_COMPONENT, tl_type_t, tl_bool(1));
 
     if (!result 
-            || (ASTExprType(expression) == NULL))
+            || (expression_get_type(expression) == NULL))
     {
         if (!checking_ambiguity() 
                 && CURRENT_CONFIGURATION->strict_typecheck)
@@ -1383,13 +1450,13 @@ char check_for_expression(AST expression, decl_context_t decl_context)
 
     DEBUG_CODE()
     {
-        if (ASTExprType(expression) != NULL)
+        if (expression_get_type(expression) != NULL)
         {
             fprintf(stderr, "EXPRTYPE: Expression '%s' at '%s' has as computed type '%s' and it is a '%s'\n",
                     prettyprint_in_buffer(expression),
                     ast_location(expression),
-                    print_declarator(ASTExprType(expression)),
-                    ASTExprLvalue(expression) ? "lvalue" : "rvalue");
+                    print_declarator(expression_get_type(expression)),
+                    expression_is_lvalue(expression) ? "lvalue" : "rvalue");
         }
     }
 
@@ -1402,19 +1469,19 @@ char check_for_expression(AST expression, decl_context_t decl_context)
     if (((t1) == NULL) \
         || ((t2) == NULL)) \
     { \
-       ast_set_expression_type(e, NULL); \
+       expression_set_type(e, NULL); \
        return NULL; \
     }\
     if (is_dependent_expr_type(t1) \
             || is_dependent_expr_type(t2)) \
     { \
-      ast_set_expression_type(e, get_dependent_expr_type()); \
+      expression_set_type(e, get_dependent_expr_type()); \
       DEBUG_CODE() \
         { \
             fprintf(stderr, "EXPRTYPE: Found expression '%s' to be dependent\n", \
                     prettyprint_in_buffer(e)); \
         } \
-      return ASTExprType(e); \
+      return expression_get_type(e); \
     } \
 }
 
@@ -1422,18 +1489,18 @@ char check_for_expression(AST expression, decl_context_t decl_context)
 { \
     if ((t1) == NULL) \
     { \
-       ast_set_expression_type(e, NULL); \
+       expression_set_type(e, NULL); \
        return NULL; \
     } \
     if (is_dependent_expr_type(t1)) \
     { \
-      ast_set_expression_type(e, get_dependent_expr_type()); \
+      expression_set_type(e, get_dependent_expr_type()); \
       DEBUG_CODE() \
         { \
             fprintf(stderr, "EXPRTYPE: Found expression '%s' to be dependent\n", \
                     prettyprint_in_buffer(e)); \
         } \
-      return ASTExprType(e); \
+      return expression_get_type(e); \
     } \
 }
 
@@ -2115,8 +2182,8 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
         decl_context_t decl_context,
         scope_entry_t** selected_operator)
 {
-    type_t* lhs_type = ASTExprType(lhs);
-    type_t* rhs_type = ASTExprType(rhs);
+    type_t* lhs_type = expression_get_type(lhs);
+    type_t* rhs_type = expression_get_type(rhs);
 
     if (is_class_type(no_ref(lhs_type)))
     {
@@ -2128,8 +2195,8 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
 
         if (overloaded_member_op_type != NULL)
         {
-            ast_set_expression_type(expr, function_type_get_return_type(overloaded_member_op_type));
-            ast_set_expression_is_lvalue(expr, is_lvalue_reference_type(ASTExprType(expr)));
+            expression_set_type(expr, function_type_get_return_type(overloaded_member_op_type));
+            expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
             return overloaded_member_op_type;
         }
     }
@@ -2177,8 +2244,8 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
 
         overloaded_type = overloaded_call->type_information;
 
-        ast_set_expression_type(expr, function_type_get_return_type(overloaded_type));
-        ast_set_expression_is_lvalue(expr, is_lvalue_reference_type(ASTExprType(expr)));
+        expression_set_type(expr, function_type_get_return_type(overloaded_type));
+        expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
     }
     return overloaded_type;
 }
@@ -2242,7 +2309,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
         decl_context_t decl_context,
         scope_entry_t** selected_operator)
 {
-    type_t* op_type = ASTExprType(op);
+    type_t* op_type = expression_get_type(op);
 
     if (is_class_type(op_type)
             || is_lvalue_reference_to_class_type(op_type))
@@ -2254,8 +2321,8 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
 
         if (overloaded_member_op_type != NULL)
         {
-            ast_set_expression_type(expr, function_type_get_return_type(overloaded_member_op_type));
-            ast_set_expression_is_lvalue(expr, is_lvalue_reference_type(ASTExprType(expr)));
+            expression_set_type(expr, function_type_get_return_type(overloaded_member_op_type));
+            expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
 
             return overloaded_member_op_type;
         }
@@ -2299,8 +2366,8 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
 
         overloaded_type = overloaded_call->type_information;
 
-        ast_set_expression_type(expr, function_type_get_return_type(overloaded_type));
-        ast_set_expression_is_lvalue(expr, is_lvalue_reference_type(ASTExprType(expr)));
+        expression_set_type(expr, function_type_get_return_type(overloaded_type));
+        expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
     }
     return overloaded_type;
 }
@@ -2358,8 +2425,8 @@ static type_t* operator_bin_plus_builtin_result(type_t** lhs, type_t** rhs)
 static
 type_t* compute_bin_operator_add_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context)
 {
-    type_t* lhs_type = ASTExprType(lhs);
-    type_t* rhs_type = ASTExprType(rhs);
+    type_t* lhs_type = expression_get_type(lhs);
+    type_t* rhs_type = expression_get_type(rhs);
 
     RETURN_IF_ERROR_OR_DEPENDENT_2(lhs_type, rhs_type, expr);
 
@@ -2387,8 +2454,8 @@ type_t* compute_bin_operator_add_type(AST expr, AST lhs, AST rhs, decl_context_t
             computed_type = lhs_type;
         }
 
-        ast_set_expression_type(expr, computed_type);
-        ast_set_expression_is_lvalue(expr, 0);
+        expression_set_type(expr, computed_type);
+        expression_set_is_lvalue(expr, 0);
 
         return computed_type;
     }
@@ -2437,8 +2504,8 @@ static type_t* operator_bin_only_arithmetic_result(type_t** lhs, type_t** rhs)
 static
 type_t* compute_bin_operator_only_arithmetic_types(AST expr, AST lhs, AST rhs, AST operator, decl_context_t decl_context)
 {
-    type_t* lhs_type = ASTExprType(lhs);
-    type_t* rhs_type = ASTExprType(rhs);
+    type_t* lhs_type = expression_get_type(lhs);
+    type_t* rhs_type = expression_get_type(rhs);
 
     RETURN_IF_ERROR_OR_DEPENDENT_2(lhs_type, rhs_type, expr);
 
@@ -2465,8 +2532,8 @@ type_t* compute_bin_operator_only_arithmetic_types(AST expr, AST lhs, AST rhs, A
             return NULL;
         }
 
-        ast_set_expression_type(expr, computed_type);
-        ast_set_expression_is_lvalue(expr, 0);
+        expression_set_type(expr, computed_type);
+        expression_set_is_lvalue(expr, 0);
 
         return computed_type;
     }
@@ -2534,8 +2601,8 @@ static type_t* operator_bin_only_integer_result(type_t** lhs, type_t** rhs)
 static 
 type_t* compute_bin_operator_only_integer_types(AST expr, AST lhs, AST rhs, AST operator, decl_context_t decl_context)
 {
-    type_t* lhs_type = ASTExprType(lhs);
-    type_t* rhs_type = ASTExprType(rhs);
+    type_t* lhs_type = expression_get_type(lhs);
+    type_t* rhs_type = expression_get_type(rhs);
 
     RETURN_IF_ERROR_OR_DEPENDENT_2(lhs_type, rhs_type, expr);
 
@@ -2556,8 +2623,8 @@ type_t* compute_bin_operator_only_integer_types(AST expr, AST lhs, AST rhs, AST 
         else
             return NULL;
 
-        ast_set_expression_type(expr, computed_type);
-        ast_set_expression_is_lvalue(expr, 0);
+        expression_set_type(expr, computed_type);
+        expression_set_is_lvalue(expr, 0);
 
         return computed_type;
     }
@@ -2633,8 +2700,8 @@ static type_t* operator_bin_sub_builtin_result(type_t** lhs, type_t** rhs)
 
 static type_t* compute_bin_operator_sub_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context)
 {
-    type_t* lhs_type = ASTExprType(lhs);
-    type_t* rhs_type = ASTExprType(rhs);
+    type_t* lhs_type = expression_get_type(lhs);
+    type_t* rhs_type = expression_get_type(rhs);
 
     RETURN_IF_ERROR_OR_DEPENDENT_2(lhs_type, rhs_type, expr);
 
@@ -2670,8 +2737,8 @@ static type_t* compute_bin_operator_sub_type(AST expr, AST lhs, AST rhs, decl_co
             return NULL;
         }
 
-        ast_set_expression_type(expr, computed_type);
-        ast_set_expression_is_lvalue(expr, 0);
+        expression_set_type(expr, computed_type);
+        expression_set_is_lvalue(expr, 0);
 
         return computed_type;
     }
@@ -2724,8 +2791,8 @@ static type_t* operator_bin_left_integral_result(type_t** lhs, type_t** rhs)
 static type_t* compute_bin_operator_only_integral_lhs_type(AST expr, AST lhs, AST rhs, AST operator,
         decl_context_t decl_context)
 {
-    type_t* lhs_type = ASTExprType(lhs);
-    type_t* rhs_type = ASTExprType(rhs);
+    type_t* lhs_type = expression_get_type(lhs);
+    type_t* rhs_type = expression_get_type(rhs);
 
     RETURN_IF_ERROR_OR_DEPENDENT_2(lhs_type, rhs_type, expr);
 
@@ -2745,8 +2812,8 @@ static type_t* compute_bin_operator_only_integral_lhs_type(AST expr, AST lhs, AS
             computed_type = no_ref(lhs_type);
         }
 
-        ast_set_expression_type(expr, computed_type);
-        ast_set_expression_is_lvalue(expr, 0);
+        expression_set_type(expr, computed_type);
+        expression_set_is_lvalue(expr, 0);
 
         return computed_type;
     }
@@ -2845,8 +2912,8 @@ static type_t* operator_bin_arithmetic_pointer_or_enum_result(type_t** lhs, type
 
 static type_t* compute_bin_operator_relational(AST expr, AST lhs, AST rhs, AST operator, decl_context_t decl_context)
 {
-    type_t* lhs_type = ASTExprType(lhs);
-    type_t* rhs_type = ASTExprType(rhs);
+    type_t* lhs_type = expression_get_type(lhs);
+    type_t* rhs_type = expression_get_type(rhs);
 
     RETURN_IF_ERROR_OR_DEPENDENT_2(lhs_type, rhs_type, expr);
 
@@ -2881,8 +2948,8 @@ static type_t* compute_bin_operator_relational(AST expr, AST lhs, AST rhs, AST o
             return NULL;
         }
 
-        ast_set_expression_type(expr, computed_type);
-        ast_set_expression_is_lvalue(expr, 0);
+        expression_set_type(expr, computed_type);
+        expression_set_is_lvalue(expr, 0);
 
         return computed_type;
     }
@@ -2997,8 +3064,8 @@ static type_t* compute_bin_logical_op_type(AST expr, AST lhs, AST rhs, AST opera
     standard_conversion_t lhs_to_bool;
     standard_conversion_t rhs_to_bool;
 
-    type_t* lhs_type = ASTExprType(lhs);
-    type_t* rhs_type = ASTExprType(rhs);
+    type_t* lhs_type = expression_get_type(lhs);
+    type_t* rhs_type = expression_get_type(rhs);
 
     RETURN_IF_ERROR_OR_DEPENDENT_2(lhs_type, rhs_type, expr);
 
@@ -3030,8 +3097,8 @@ static type_t* compute_bin_logical_op_type(AST expr, AST lhs, AST rhs, AST opera
             computed_type = get_bool_type();
         }
 
-        ast_set_expression_type(expr, computed_type);
-        ast_set_expression_is_lvalue(expr, 0);
+        expression_set_type(expr, computed_type);
+        expression_set_is_lvalue(expr, 0);
 
         return computed_type;
     }
@@ -3147,8 +3214,8 @@ static type_t* operator_bin_assign_only_integer_result(type_t** lhs, type_t** rh
 static type_t* compute_bin_operator_assig_only_integral_type(AST expr, AST lhs, AST rhs, AST operator,
         decl_context_t decl_context)
 {
-    type_t* lhs_type = ASTExprType(lhs);
-    type_t* rhs_type = ASTExprType(rhs);
+    type_t* lhs_type = expression_get_type(lhs);
+    type_t* rhs_type = expression_get_type(rhs);
 
     RETURN_IF_ERROR_OR_DEPENDENT_2(lhs_type, rhs_type, expr);
 
@@ -3162,7 +3229,7 @@ static type_t* compute_bin_operator_assig_only_integral_type(AST expr, AST lhs, 
     {
         C_LANGUAGE()
         {
-            if (!ASTExprLvalue(lhs))
+            if (!expression_is_lvalue(lhs))
                 return NULL;
         }
 
@@ -3178,8 +3245,8 @@ static type_t* compute_bin_operator_assig_only_integral_type(AST expr, AST lhs, 
             return NULL;
         }
 
-        ast_set_expression_type(expr, lhs_type);
-        ast_set_expression_is_lvalue(expr, 1);
+        expression_set_type(expr, lhs_type);
+        expression_set_is_lvalue(expr, 1);
         return lhs_type;
     }
 
@@ -3234,8 +3301,8 @@ static type_t* operator_bin_assign_arithmetic_or_pointer_result(type_t** lhs, ty
 static type_t* compute_bin_operator_assig_arithmetic_or_pointer_type(AST expr, AST lhs, AST rhs, AST operator,
         decl_context_t decl_context)
 {
-    type_t* lhs_type = ASTExprType(lhs);
-    type_t* rhs_type = ASTExprType(rhs);
+    type_t* lhs_type = expression_get_type(lhs);
+    type_t* rhs_type = expression_get_type(rhs);
 
     RETURN_IF_ERROR_OR_DEPENDENT_2(lhs_type, rhs_type, expr);
 
@@ -3249,7 +3316,7 @@ static type_t* compute_bin_operator_assig_arithmetic_or_pointer_type(AST expr, A
     {
         C_LANGUAGE()
         {
-            if (!ASTExprLvalue(lhs))
+            if (!expression_is_lvalue(lhs))
                 return NULL;
         }
 
@@ -3265,8 +3332,8 @@ static type_t* compute_bin_operator_assig_arithmetic_or_pointer_type(AST expr, A
                 || both_operands_are_vector_types(no_ref(lhs_type), 
                     no_ref(rhs_type)))
         {
-            ast_set_expression_type(expr, lhs_type);
-            ast_set_expression_is_lvalue(expr, 1);
+            expression_set_type(expr, lhs_type);
+            expression_set_is_lvalue(expr, 1);
             return lhs_type;
         }
 
@@ -3310,8 +3377,8 @@ static type_t* operator_bin_assign_only_arithmetic_result(type_t** lhs, type_t**
 static type_t* compute_bin_nonoperator_assig_only_arithmetic_type(AST expr, AST lhs, AST rhs, AST operator,
         decl_context_t decl_context)
 {
-    type_t* lhs_type = ASTExprType(lhs);
-    type_t* rhs_type = ASTExprType(rhs);
+    type_t* lhs_type = expression_get_type(lhs);
+    type_t* rhs_type = expression_get_type(rhs);
 
     RETURN_IF_ERROR_OR_DEPENDENT_2(lhs_type, rhs_type, expr);
 
@@ -3327,7 +3394,7 @@ static type_t* compute_bin_nonoperator_assig_only_arithmetic_type(AST expr, AST 
     {
         C_LANGUAGE()
         {
-            if (!ASTExprLvalue(lhs))
+            if (!expression_is_lvalue(lhs))
                 return NULL;
         }
 
@@ -3374,7 +3441,7 @@ static type_t* compute_bin_nonoperator_assig_only_arithmetic_type(AST expr, AST 
                                 solved_function->type_information,
                                 named_type_get_symbol(solved_function->entity_specs.class_type)));
                 }
-                ast_set_expression_type(rhs, rhs_type);
+                expression_set_type(rhs, rhs_type);
             }
         }
 
@@ -3384,8 +3451,8 @@ static type_t* compute_bin_nonoperator_assig_only_arithmetic_type(AST expr, AST 
             return NULL;
         }
 
-        ast_set_expression_type(expr, lvalue_ref(lhs_type));
-        ast_set_expression_is_lvalue(expr, 1);
+        expression_set_type(expr, lvalue_ref(lhs_type));
+        expression_set_is_lvalue(expr, 1);
         return lhs_type;
     }
 
@@ -3410,8 +3477,8 @@ static type_t* compute_bin_nonoperator_assig_only_arithmetic_type(AST expr, AST 
 static type_t* compute_bin_operator_assig_only_arithmetic_type(AST expr, AST lhs, AST rhs, AST operator,
         decl_context_t decl_context)
 {
-    type_t* lhs_type = ASTExprType(lhs);
-    type_t* rhs_type = ASTExprType(rhs);
+    type_t* lhs_type = expression_get_type(lhs);
+    type_t* rhs_type = expression_get_type(rhs);
 
     RETURN_IF_ERROR_OR_DEPENDENT_2(lhs_type, rhs_type, expr);
 
@@ -3425,7 +3492,7 @@ static type_t* compute_bin_operator_assig_only_arithmetic_type(AST expr, AST lhs
     {
         C_LANGUAGE()
         {
-            if (!ASTExprLvalue(lhs))
+            if (!expression_is_lvalue(lhs))
                 return NULL;
         }
 
@@ -3481,8 +3548,8 @@ static type_t* compute_bin_operator_assig_only_arithmetic_type(AST expr, AST lhs
             return NULL;
         }
 
-        ast_set_expression_type(expr, lvalue_ref(lhs_type));
-        ast_set_expression_is_lvalue(expr, 1);
+        expression_set_type(expr, lvalue_ref(lhs_type));
+        expression_set_is_lvalue(expr, 1);
         return lhs_type;
     }
 
@@ -3681,7 +3748,7 @@ static type_t* compute_operator_derreference_type(AST expression,
 {
     char requires_overload = 0;
 
-    type_t* op_type = ASTExprType(op);
+    type_t* op_type = expression_get_type(op);
 
     RETURN_IF_ERROR_OR_DEPENDENT_1(op_type, expression);
 
@@ -3696,31 +3763,31 @@ static type_t* compute_operator_derreference_type(AST expression,
         if (is_pointer_type(no_ref(op_type))
                 && !is_function_type(pointer_type_get_pointee_type(no_ref(op_type))))
         {
-            ast_set_expression_type(expression, lvalue_ref(pointer_type_get_pointee_type(no_ref(op_type))));
-            ast_set_expression_is_lvalue(expression, 1);
+            expression_set_type(expression, lvalue_ref(pointer_type_get_pointee_type(no_ref(op_type))));
+            expression_set_is_lvalue(expression, 1);
         }
         else if (is_pointer_type(no_ref(op_type))
                 && is_function_type(pointer_type_get_pointee_type(no_ref(op_type))))
         {
             // Bypass derreference of pointer to function type
-            ast_set_expression_type(expression, lvalue_ref(op_type));
-            ast_set_expression_is_lvalue(expression, 1);
+            expression_set_type(expression, lvalue_ref(op_type));
+            expression_set_is_lvalue(expression, 1);
         }
         else if (is_array_type(no_ref(op_type)))
         {
-            ast_set_expression_type(expression, lvalue_ref(array_type_get_element_type(no_ref(op_type))));
-            ast_set_expression_is_lvalue(expression, 1);
+            expression_set_type(expression, lvalue_ref(array_type_get_element_type(no_ref(op_type))));
+            expression_set_is_lvalue(expression, 1);
         }
         else if (is_function_type(no_ref(op_type)))
         {
             // Create a pointer type
-            ast_set_expression_type(expression, lvalue_ref(get_pointer_type(no_ref(op_type))));
-            ast_set_expression_is_lvalue(expression, 1);
+            expression_set_type(expression, lvalue_ref(get_pointer_type(no_ref(op_type))));
+            expression_set_is_lvalue(expression, 1);
         }
         else
             return NULL;
 
-        return ASTExprType(expression);
+        return expression_get_type(expression);
     }
 
     static AST operation_tree = NULL;
@@ -3782,7 +3849,7 @@ static type_t* compute_operator_plus_type(AST expression,
 {
     char requires_overload = 0;
 
-    type_t* op_type = ASTExprType(op);
+    type_t* op_type = expression_get_type(op);
 
     RETURN_IF_ERROR_OR_DEPENDENT_1(op_type, expression);
 
@@ -3797,8 +3864,8 @@ static type_t* compute_operator_plus_type(AST expression,
         if (is_pointer_type(no_ref(op_type)))
         {
             // Bypass
-            ast_set_expression_type(expression, no_ref(op_type));
-            ast_set_expression_is_lvalue(expression, 0);
+            expression_set_type(expression, no_ref(op_type));
+            expression_set_is_lvalue(expression, 0);
         }
         else if (is_arithmetic_type(no_ref(op_type)))
         {
@@ -3807,13 +3874,13 @@ static type_t* compute_operator_plus_type(AST expression,
                 op_type = promote_integral_type(no_ref(op_type));
             }
 
-            ast_set_expression_type(expression, no_ref(op_type));
-            ast_set_expression_is_lvalue(expression, 0);
+            expression_set_type(expression, no_ref(op_type));
+            expression_set_is_lvalue(expression, 0);
         }
         else
             return NULL;
 
-        return ASTExprType(expression);
+        return expression_get_type(expression);
     }
 
     static AST operation_tree = NULL;
@@ -3867,7 +3934,7 @@ static type_t* compute_operator_minus_type(AST expression,
 {
     char requires_overload = 0;
 
-    type_t* op_type = ASTExprType(op);
+    type_t* op_type = expression_get_type(op);
 
     RETURN_IF_ERROR_OR_DEPENDENT_1(op_type, expression);
 
@@ -3886,13 +3953,13 @@ static type_t* compute_operator_minus_type(AST expression,
                 op_type = promote_integral_type(no_ref(op_type));
             }
 
-            ast_set_expression_type(expression, no_ref(op_type));
-            ast_set_expression_is_lvalue(expression, 0);
+            expression_set_type(expression, no_ref(op_type));
+            expression_set_is_lvalue(expression, 0);
         }
         else
             return NULL;
 
-        return ASTExprType(expression);
+        return expression_get_type(expression);
     }
 
     static AST operation_tree = NULL;
@@ -3946,7 +4013,7 @@ static type_t* compute_operator_complement_type(AST expression,
 {
     char requires_overload = 0;
 
-    type_t* op_type = ASTExprType(op);
+    type_t* op_type = expression_get_type(op);
 
     RETURN_IF_ERROR_OR_DEPENDENT_1(op_type, expression);
 
@@ -3965,13 +4032,13 @@ static type_t* compute_operator_complement_type(AST expression,
                 op_type = promote_integral_type(no_ref(op_type));
             }
 
-            ast_set_expression_type(expression, no_ref(op_type));
-            ast_set_expression_is_lvalue(expression, 0);
+            expression_set_type(expression, no_ref(op_type));
+            expression_set_is_lvalue(expression, 0);
         }
         else
             return NULL;
 
-        return ASTExprType(expression);
+        return expression_get_type(expression);
     }
 
     static AST operation_tree = NULL;
@@ -4023,7 +4090,7 @@ static type_t* compute_operator_not_type(AST expression,
 {
     char requires_overload = 0;
 
-    type_t* op_type = ASTExprType(op);
+    type_t* op_type = expression_get_type(op);
 
     RETURN_IF_ERROR_OR_DEPENDENT_1(op_type, expression);
 
@@ -4042,18 +4109,18 @@ static type_t* compute_operator_not_type(AST expression,
         {
             C_LANGUAGE()
             {
-                ast_set_expression_type(expression, get_signed_int_type());
+                expression_set_type(expression, get_signed_int_type());
             }
             CXX_LANGUAGE()
             {
-                ast_set_expression_type(expression, get_bool_type());
+                expression_set_type(expression, get_bool_type());
             }
-            ast_set_expression_is_lvalue(expression, 0);
+            expression_set_is_lvalue(expression, 0);
         }
         else 
             return NULL;
 
-        return ASTExprType(expression);
+        return expression_get_type(expression);
     }
 
     static AST operation_tree = NULL;
@@ -4084,7 +4151,7 @@ static type_t* compute_operator_reference_type(AST expression,
 {
     // This is an easy operator since it can't be overloaded
     // but requires checking the syntax in C++
-    type_t* op_type = ASTExprType(op);
+    type_t* op_type = expression_get_type(op);
 
     RETURN_IF_ERROR_OR_DEPENDENT_1(op_type, expression);
 
@@ -4096,8 +4163,8 @@ static type_t* compute_operator_reference_type(AST expression,
             if (is_unresolved_overloaded_type(op_type))
             {
                 // This is an easy case
-                ast_set_expression_type(expression, op_type);
-                return ASTExprType(expression);
+                expression_set_type(expression, op_type);
+                return expression_get_type(expression);
             }
             else
             {
@@ -4115,8 +4182,8 @@ static type_t* compute_operator_reference_type(AST expression,
                     // Mark it as value dependent
                     ASTAttrSetValueType(expression, LANG_EXPRESSION_IS_VALUE_DEPENDENT, tl_type_t, tl_bool(1));
 
-                    ast_set_expression_type(expression, get_dependent_expr_type());
-                    return ASTExprType(expression);
+                    expression_set_type(expression, get_dependent_expr_type());
+                    return expression_get_type(expression);
                 }
 
                 if (entry_list->next != NULL)
@@ -4130,34 +4197,34 @@ static type_t* compute_operator_reference_type(AST expression,
                 if (!entry->entity_specs.is_member
                         || entry->entity_specs.is_static)
                 {
-                    ast_set_expression_type(expression, get_pointer_type(entry->type_information));
+                    expression_set_type(expression, get_pointer_type(entry->type_information));
                 }
                 else
                 {
-                    ast_set_expression_type(expression, get_pointer_to_member_type(entry->type_information,
+                    expression_set_type(expression, get_pointer_to_member_type(entry->type_information,
                                 named_type_get_symbol(entry->entity_specs.class_type)));
                 }
 
-                return ASTExprType(expression);
+                return expression_get_type(expression);
             }
         }
 
         if (is_dependent_expr_type(op_type))
         {
-            ast_set_expression_type(expression, get_dependent_expr_type());
-            return ASTExprType(expression);
+            expression_set_type(expression, get_dependent_expr_type());
+            return expression_get_type(expression);
         }
 
         if (is_unresolved_overloaded_type(op_type))
         {
             // Bypass the type for overload addresses
-            ast_set_expression_type(expression, op_type);
-            return ASTExprType(expression);
+            expression_set_type(expression, op_type);
+            return expression_get_type(expression);
         }
     }
     
     // We only can get the address of lvalues
-    if (!ASTExprLvalue(op))
+    if (!expression_is_lvalue(op))
     {
         return NULL;
     }
@@ -4168,16 +4235,16 @@ static type_t* compute_operator_reference_type(AST expression,
     // {
     //     type_t* ptr_type = get_pointer_type(array_type_get_element_type(no_ref(op_type)));
 
-    //     ast_set_expression_type(expression, ptr_type);
-    //     ast_set_expression_is_lvalue(expression, 0);
+    //     expression_set_type(expression, ptr_type);
+    //     expression_set_is_lvalue(expression, 0);
 
     //     return ptr_type;
     // }
     // else
     type_t* ptr_type = get_pointer_type(no_ref(op_type));
 
-    ast_set_expression_type(expression, ptr_type);
-    ast_set_expression_is_lvalue(expression, 0);
+    expression_set_type(expression, ptr_type);
+    expression_set_is_lvalue(expression, 0);
 
     return ptr_type;
 
@@ -4260,8 +4327,8 @@ static char check_for_binary_expression(AST expression, decl_context_t decl_cont
             fprintf(stderr, "%s: warning: binary %s cannot be applied to operands '%s' (of type '%s') and '%s' (of type '%s')\n",
                     ast_location(expression),
                     get_operation_function_name(expression), 
-                    prettyprint_in_buffer(lhs), print_type_str(ASTExprType(lhs), decl_context),
-                    prettyprint_in_buffer(rhs), print_type_str(ASTExprType(rhs), decl_context));
+                    prettyprint_in_buffer(lhs), print_type_str(expression_get_type(lhs), decl_context),
+                    prettyprint_in_buffer(rhs), print_type_str(expression_get_type(rhs), decl_context));
         }
 
         return (bin_type != NULL);
@@ -4284,7 +4351,7 @@ static char check_for_unary_expression(AST expression, decl_context_t decl_conte
             fprintf(stderr, "%s: warning: unary %s cannot be applied to operand '%s' (of type '%s')\n",
                     ast_location(expression),
                     get_operation_function_name(expression), 
-                    prettyprint_in_buffer(op), print_type_str(ASTExprType(op), decl_context));
+                    prettyprint_in_buffer(op), print_type_str(expression_get_type(op), decl_context));
         }
 
         return (unary_type != NULL);
@@ -4348,22 +4415,22 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, decl_cont
         {
             if (entry->kind == SK_ENUMERATOR)
             {
-                ast_set_expression_type(expr, entry->type_information);
-                ast_set_expression_is_lvalue(expr, 0);
+                expression_set_type(expr, entry->type_information);
+                expression_set_is_lvalue(expr, 0);
             }
             else if (entry->kind == SK_VARIABLE
                     || entry->kind == SK_FUNCTION)
             {
-                ast_set_expression_type(expr, entry->type_information);
-                ast_set_expression_is_lvalue(expr, 1);
+                expression_set_type(expr, entry->type_information);
+                expression_set_is_lvalue(expr, 1);
             }
         }
         CXX_LANGUAGE()
         {
             if (entry->kind == SK_ENUMERATOR)
             {
-                ast_set_expression_type(expr, entry->type_information);
-                ast_set_expression_is_lvalue(expr, 0);
+                expression_set_type(expr, entry->type_information);
+                expression_set_is_lvalue(expr, 0);
             }
             else if (entry->kind == SK_VARIABLE)
             {
@@ -4371,13 +4438,13 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, decl_cont
                 {
                     if (!entry->entity_specs.is_template_argument)
                     {
-                        ast_set_expression_type(expr, lvalue_ref(entry->type_information));
-                        ast_set_expression_is_lvalue(expr, 1);
+                        expression_set_type(expr, lvalue_ref(entry->type_information));
+                        expression_set_is_lvalue(expr, 1);
                     }
                     else
                     {
-                        ast_set_expression_type(expr, entry->type_information);
-                        ast_set_expression_is_lvalue(expr, 0);
+                        expression_set_type(expr, entry->type_information);
+                        expression_set_is_lvalue(expr, 0);
                     }
                 }
                 else
@@ -4387,24 +4454,24 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, decl_cont
                         fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be dependent\n",
                                 prettyprint_in_buffer(expr), ast_location(expr));
                     }
-                    ast_set_expression_type(expr, get_dependent_expr_type());
+                    expression_set_type(expr, get_dependent_expr_type());
                 }
             }
             else if (entry->kind == SK_FUNCTION)
             {
-                ast_set_expression_type(expr, get_unresolved_overloaded_type(result, /* template args */ NULL));
+                expression_set_type(expr, get_unresolved_overloaded_type(result, /* template args */ NULL));
             }
             else if (entry->kind == SK_TEMPLATE_PARAMETER)
             {
                 // Mark it as value dependent
                 ASTAttrSetValueType(expr, LANG_EXPRESSION_IS_VALUE_DEPENDENT, tl_type_t, tl_bool(1));
                 // Nontype template parameter
-                ast_set_expression_type(expr, get_user_defined_type(entry));
+                expression_set_type(expr, get_user_defined_type(entry));
                 set_as_template_parameter_name(expr, entry);
             }
             else if (entry->kind == SK_TEMPLATE)
             {
-                ast_set_expression_type(expr, get_unresolved_overloaded_type(result, /* template_args*/ NULL));
+                expression_set_type(expr, get_unresolved_overloaded_type(result, /* template_args*/ NULL));
             }
             else
             {
@@ -4416,7 +4483,7 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, decl_cont
         {
             fprintf(stderr, "EXPRTYPE: Symbol '%s' at '%s' has type '%s'\n",
                     prettyprint_in_buffer(expr), ast_location(expr),
-                    print_declarator(ASTExprType(expr)));
+                    print_declarator(expression_get_type(expr)));
         }
 
         *symbol_scope = entry->decl_context;
@@ -4432,7 +4499,7 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, decl_cont
         {
             // Do not know anything about this type so set to something that is
             // never considered an error (even in C)
-            ast_set_expression_type(expr, get_dependent_expr_type());
+            expression_set_type(expr, get_dependent_expr_type());
             return 1;
         }
     }
@@ -4472,7 +4539,7 @@ char compute_qualified_id_type(AST expr, decl_context_t decl_context, decl_conte
             // Mark it as value dependent
             ASTAttrSetValueType(expr, LANG_EXPRESSION_IS_VALUE_DEPENDENT, tl_type_t, tl_bool(1));
 
-            ast_set_expression_type(expr, get_dependent_expr_type());
+            expression_set_type(expr, get_dependent_expr_type());
             return 1;
         }
     }
@@ -4489,15 +4556,15 @@ char compute_qualified_id_type(AST expr, decl_context_t decl_context, decl_conte
 
             if (solved != NULL)
             {
-                ast_set_expression_type(expr, solved);
+                expression_set_type(expr, solved);
                 // This is arguable since this is unlikely to go at the left of any
                 // expression, but ok, lvalueness is such a mystic thing throughout the
                 // standard.
-                ast_set_expression_is_lvalue(expr, 1);
+                expression_set_is_lvalue(expr, 1);
             }
             else if (dependent_template_arguments)
             {
-                ast_set_expression_type(expr, get_dependent_expr_type());
+                expression_set_type(expr, get_dependent_expr_type());
             }
             else
             {
@@ -4524,22 +4591,22 @@ char compute_qualified_id_type(AST expr, decl_context_t decl_context, decl_conte
             {
                 if (!is_dependent_type(entry->type_information))
                 {
-                    ast_set_expression_type(expr, lvalue_ref(entry->type_information));
-                    ast_set_expression_is_lvalue(expr, 1);
+                    expression_set_type(expr, lvalue_ref(entry->type_information));
+                    expression_set_is_lvalue(expr, 1);
                 }
                 else
                 {
-                    ast_set_expression_type(expr, get_dependent_expr_type());
+                    expression_set_type(expr, get_dependent_expr_type());
                 }
             }
             else if (entry->kind == SK_ENUMERATOR)
             {
-                ast_set_expression_type(expr, entry->type_information);
-                ast_set_expression_is_lvalue(expr, 0);
+                expression_set_type(expr, entry->type_information);
+                expression_set_is_lvalue(expr, 0);
             }
             else if (entry->kind == SK_FUNCTION)
             {
-                ast_set_expression_type(expr, get_unresolved_overloaded_type(result_list, /* template_args */ NULL));
+                expression_set_type(expr, get_unresolved_overloaded_type(result_list, /* template_args */ NULL));
             }
             else if (entry->kind == SK_TEMPLATE)
             {
@@ -4549,7 +4616,7 @@ char compute_qualified_id_type(AST expr, decl_context_t decl_context, decl_conte
                 if (named_type->kind != SK_FUNCTION)
                     return 0;
 
-                ast_set_expression_type(expr, get_unresolved_overloaded_type(result_list, /* template_args */ NULL));
+                expression_set_type(expr, get_unresolved_overloaded_type(result_list, /* template_args */ NULL));
             }
 
             return 1;
@@ -4577,14 +4644,14 @@ static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context
     AST subscripted_expr = ASTSon0(expr);
     AST subscript_expr = ASTSon1(expr);
 
-    type_t* subscripted_type = ASTExprType(subscripted_expr);
-    type_t* subscript_type = ASTExprType(subscript_expr);
+    type_t* subscripted_type = expression_get_type(subscripted_expr);
+    type_t* subscript_type = expression_get_type(subscript_expr);
 
     // CXX_LANGUAGE()
     {
         if (is_dependent_expr_type(subscripted_type))
         {
-            ast_set_expression_type(expr, get_dependent_expr_type());
+            expression_set_type(expr, get_dependent_expr_type());
             return 1;
         }
     }
@@ -4592,14 +4659,14 @@ static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context
     // Builtin cases
     if (is_array_type(no_ref(subscripted_type)))
     {
-        ast_set_expression_type(expr, lvalue_ref(array_type_get_element_type(no_ref(subscripted_type))));
-        ast_set_expression_is_lvalue(expr, 1);
+        expression_set_type(expr, lvalue_ref(array_type_get_element_type(no_ref(subscripted_type))));
+        expression_set_is_lvalue(expr, 1);
         return 1;
     }
     else if (is_pointer_type(no_ref(subscripted_type)))
     {
-        ast_set_expression_type(expr, lvalue_ref(pointer_type_get_pointee_type(no_ref(subscripted_type))));
-        ast_set_expression_is_lvalue(expr, 1);
+        expression_set_type(expr, lvalue_ref(pointer_type_get_pointee_type(no_ref(subscripted_type))));
+        expression_set_is_lvalue(expr, 1);
         return 1;
     }
     else
@@ -4632,7 +4699,7 @@ static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context
 
         if (is_dependent_expr_type(subscript_type))
         {
-            ast_set_expression_type(expr, subscript_type);
+            expression_set_type(expr, subscript_type);
             return 1;
         }
         else
@@ -4660,8 +4727,8 @@ static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context
             ASTAttrSetValueType(expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(overloaded_call));
 
-            ast_set_expression_type(expr, function_type_get_return_type(overloaded_call->type_information));
-            ast_set_expression_is_lvalue(expr, is_lvalue_reference_type(ASTExprType(expr)));
+            expression_set_type(expr, function_type_get_return_type(overloaded_call->type_information));
+            expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
             return 1;
         }
     }
@@ -4693,7 +4760,7 @@ static char check_for_conversion_function_id_expression(AST expression, decl_con
 
     if (is_dependent_type(conversion_type))
     {
-        ast_set_expression_type(expression, get_dependent_expr_type());
+        expression_set_type(expression, get_dependent_expr_type());
         return 1;
     }
 
@@ -4721,8 +4788,8 @@ static char check_for_conversion_function_id_expression(AST expression, decl_con
         return 0;
     }
 
-    ast_set_expression_type(expression, entry_list->entry->type_information);
-    ast_set_expression_is_lvalue(expression, is_lvalue_reference_type(entry_list->entry->type_information));
+    expression_set_type(expression, entry_list->entry->type_information);
+    expression_set_is_lvalue(expression, is_lvalue_reference_type(entry_list->entry->type_information));
     return 1;
 }
 
@@ -4919,13 +4986,13 @@ static char check_for_conditional_expression_impl(AST expression, decl_context_t
     if (!result)
         return 0;
 
-    type_t* first_type = ASTExprType(ASTSon0(expression));
+    type_t* first_type = expression_get_type(ASTSon0(expression));
 
-    type_t* second_type = ASTExprType(ASTSon1(expression));
-    char second_is_lvalue = ASTExprLvalue(ASTSon1(expression));
+    type_t* second_type = expression_get_type(ASTSon1(expression));
+    char second_is_lvalue = expression_is_lvalue(ASTSon1(expression));
 
-    type_t* third_type = ASTExprType(ASTSon2(expression));
-    char third_is_lvalue = ASTExprLvalue(ASTSon2(expression));
+    type_t* third_type = expression_get_type(ASTSon2(expression));
+    char third_is_lvalue = expression_is_lvalue(ASTSon2(expression));
 
     if (first_type == NULL
             || second_type == NULL
@@ -4938,7 +5005,7 @@ static char check_for_conditional_expression_impl(AST expression, decl_context_t
             || is_dependent_expr_type(second_type)
             || is_dependent_expr_type(third_type))
     {
-        ast_set_expression_type(expression, get_dependent_expr_type());
+        expression_set_type(expression, get_dependent_expr_type());
         return 1;
     }
 
@@ -4955,7 +5022,7 @@ static char check_for_conditional_expression_impl(AST expression, decl_context_t
     }
 
     // In C++ this might be an lvalue, but it is not in C
-    ast_set_expression_is_lvalue(expression, 0);
+    expression_set_is_lvalue(expression, 0);
 
     CXX_LANGUAGE()
     {
@@ -5002,11 +5069,11 @@ static char check_for_conditional_expression_impl(AST expression, decl_context_t
                  */
                 if (is_throw_expr_type(operand_types[0]))
                 {
-                    ast_set_expression_type(expression, operand_types[1]);
+                    expression_set_type(expression, operand_types[1]);
                 }
                 else
                 {
-                    ast_set_expression_type(expression, operand_types[0]);
+                    expression_set_type(expression, operand_types[0]);
                 }
             }
             else
@@ -5015,7 +5082,7 @@ static char check_for_conditional_expression_impl(AST expression, decl_context_t
                  * b) Both the second and third operands have type void the result is of type void
                  * and is a rvalue
                  */
-                ast_set_expression_type(expression, get_void_type());
+                expression_set_type(expression, get_void_type());
             }
             
             // Nothing else has to be done for 'void' types
@@ -5139,7 +5206,7 @@ static char check_for_conditional_expression_impl(AST expression, decl_context_t
                 && third_is_lvalue
                 && equivalent_types(no_ref(second_type), no_ref(third_type)))
         {
-            ast_set_expression_is_lvalue(expression, 1);
+            expression_set_is_lvalue(expression, 1);
         }
     }
 
@@ -5209,15 +5276,15 @@ static char check_for_conditional_expression_impl(AST expression, decl_context_t
         // It could be that the final type is a reference
         // or the whole expression was already a lvalue. 
         // Keep in synch lvalueness with reference types
-        if (ASTExprLvalue(expression) ||
+        if (expression_is_lvalue(expression) ||
                 is_lvalue_reference_type(final_type))
         {
             final_type = lvalue_ref(final_type);
-            ast_set_expression_is_lvalue(expression, 1);
+            expression_set_is_lvalue(expression, 1);
         }
     }
 
-    ast_set_expression_type(expression, final_type);
+    expression_set_type(expression, final_type);
 
     return 1;
 }
@@ -5237,9 +5304,9 @@ static char check_for_conditional_expression(AST expression, decl_context_t decl
         fprintf(stderr, "%s: warning: ternary operand '?' cannot be applied to first operand '%s' (of type '%s'), "
                  "second operand '%s' (of type '%s') and third operand '%s' (of type '%s')\n",
                  ast_location(expression),
-                 prettyprint_in_buffer(first_op), print_type_str(ASTExprType(first_op), decl_context),
-                 prettyprint_in_buffer(second_op), print_type_str(ASTExprType(second_op), decl_context),
-                 prettyprint_in_buffer(third_op), print_type_str(ASTExprType(third_op), decl_context));
+                 prettyprint_in_buffer(first_op), print_type_str(expression_get_type(first_op), decl_context),
+                 prettyprint_in_buffer(second_op), print_type_str(expression_get_type(second_op), decl_context),
+                 prettyprint_in_buffer(third_op), print_type_str(expression_get_type(third_op), decl_context));
     }
 
     return result;
@@ -5346,7 +5413,7 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
             {
                 AST expr = ASTSon1(iter);
 
-                arguments[i] = ast_get_expression_type(expr);
+                arguments[i] = expression_get_type(expr);
 
                 if (is_dependent_expr_type(arguments[i]))
                 {
@@ -5518,7 +5585,7 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
                         {
                             AST expr = ASTSon1(iter);
 
-                            arguments[num_arguments] = ast_get_expression_type(expr);
+                            arguments[num_arguments] = expression_get_type(expr);
 
                             if (is_dependent_expr_type(arguments[num_arguments]))
                             {
@@ -5584,21 +5651,21 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
                 else 
                 {
                     // Constructor args are dependent
-                    ast_set_expression_type(new_expr, get_dependent_expr_type());
-                    ast_set_expression_is_lvalue(new_expr, 0);
+                    expression_set_type(new_expr, get_dependent_expr_type());
+                    expression_set_is_lvalue(new_expr, 0);
                     return 1;
                 }
             }
 
-            ast_set_expression_type(new_expr, declarator_type);
-            ast_set_expression_is_lvalue(new_expr, 0);
+            expression_set_type(new_expr, declarator_type);
+            expression_set_is_lvalue(new_expr, 0);
             return 1;
         }
         else 
         {
             // Placement expression is dependent
-            ast_set_expression_type(new_expr, get_dependent_expr_type());
-            ast_set_expression_is_lvalue(new_expr, 0);
+            expression_set_type(new_expr, get_dependent_expr_type());
+            expression_set_is_lvalue(new_expr, 0);
             return 1;
         }
 
@@ -5606,8 +5673,8 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
     else
     {
         // The new type is dependent
-        ast_set_expression_type(new_expr, get_dependent_expr_type());
-        ast_set_expression_is_lvalue(new_expr, 0);
+        expression_set_type(new_expr, get_dependent_expr_type());
+        expression_set_is_lvalue(new_expr, 0);
         return 1;
     }
 
@@ -5673,7 +5740,7 @@ static char check_for_delete_expression(AST expression, decl_context_t decl_cont
     if (!result)
         return 0;
 
-    type_t* deleted_expr_type = no_ref(ast_get_expression_type(deleted_expression));
+    type_t* deleted_expr_type = no_ref(expression_get_type(deleted_expression));
 
     if (!is_dependent_expr_type(deleted_expr_type)
             && (!is_pointer_type(deleted_expr_type)
@@ -5814,8 +5881,8 @@ static char check_for_delete_expression(AST expression, decl_context_t decl_cont
         }
     }
 
-    ast_set_expression_type(expression, get_void_type());
-    ast_set_expression_is_lvalue(expression, 0);
+    expression_set_type(expression, get_void_type());
+    expression_set_is_lvalue(expression, 0);
     return 1;
 }
 
@@ -5846,7 +5913,7 @@ static char check_for_explicit_type_conversion_common(type_t* type_info,
 
             if (check_for_expression(current_expression, decl_context))
             {
-                argument_types[num_arguments] = ast_get_expression_type(current_expression);
+                argument_types[num_arguments] = expression_get_type(current_expression);
 
                 if (is_dependent_expr_type(argument_types[num_arguments]))
                 {
@@ -5865,7 +5932,7 @@ static char check_for_explicit_type_conversion_common(type_t* type_info,
     if (is_dependent_type(type_info)
             || has_dependent_arguments)
     {
-        ast_set_expression_type(expr, get_dependent_expr_type());
+        expression_set_type(expr, get_dependent_expr_type());
     }
     else
     {
@@ -5916,8 +5983,8 @@ static char check_for_explicit_type_conversion_common(type_t* type_info,
             ASTAttrSetValueType(expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(constructor));
         }
 
-        ast_set_expression_type(expr, type_info);
-        ast_set_expression_is_lvalue(expr, 0);
+        expression_set_type(expr, type_info);
+        expression_set_is_lvalue(expr, 0);
     }
 
     return 1;
@@ -6106,12 +6173,12 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
         {
             AST argument_tree = ASTSon1(iter);
 
-            type_t* argument_type = ASTExprType(argument_tree);
+            type_t* argument_type = expression_get_type(argument_tree);
 
             if (is_dependent_expr_type(argument_type))
             {
                 // Everything turned out to be dependent
-                ast_set_expression_type(called_expression, get_dependent_expr_type());
+                expression_set_type(called_expression, get_dependent_expr_type());
                 return 1;
             }
             else if (is_unresolved_overloaded_type(argument_type))
@@ -6187,7 +6254,7 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
 
     if (entry_list != NULL)
     {
-        ast_set_expression_type(called_expression, get_unresolved_overloaded_type(entry_list, 
+        expression_set_type(called_expression, get_unresolved_overloaded_type(entry_list, 
                 /* explicit template arguments */ NULL));
         return 1;
     }
@@ -6256,7 +6323,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                 // Maybe it named a type
                 if (entry_list == NULL)
                 {
-                    ast_set_expression_type(called_expression, get_nonproto_function_type(get_signed_int_type(),
+                    expression_set_type(called_expression, get_nonproto_function_type(get_signed_int_type(),
                             num_explicit_arguments));
 
                     if (!names_a_builtin
@@ -6265,7 +6332,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                         fprintf(stderr, "%s: warning: function '%s' has not been declared, assuming it to be like '%s'\n", 
                                 ast_location(called_expression),
                                 prettyprint_in_buffer(called_expression),
-                                print_decl_type_str(ASTExprType(called_expression), decl_context, name));
+                                print_decl_type_str(expression_get_type(called_expression), decl_context, name));
                     }
                 }
                 else
@@ -6279,10 +6346,10 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                 return 0;
         }
 
-        if (is_computed_function_type(ASTExprType(called_expression)))
+        if (is_computed_function_type(expression_get_type(called_expression)))
         {
             computed_function_type_t compute_type_function = 
-                computed_function_type_get_computing_function(ASTExprType(called_expression));
+                computed_function_type_get_computing_function(expression_get_type(called_expression));
 
             scope_entry_list_t *entry_list = query_id_expression(decl_context, 
                     advanced_called_expression);
@@ -6297,14 +6364,14 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             for_each_element(arguments, iter)
             {
                 AST current_arg = ASTSon1(iter);
-                P_LIST_ADD(argument_list, num_arguments_tmp, ASTExprType(current_arg));
+                P_LIST_ADD(argument_list, num_arguments_tmp, expression_get_type(current_arg));
             }
 
             scope_entry_t* solved_function = compute_type_function(entry, argument_list, num_arguments_tmp);
 
             if (solved_function != NULL)
             {
-                ast_set_expression_type(called_expression, solved_function->type_information);
+                expression_set_type(called_expression, solved_function->type_information);
             }
             else
             {
@@ -6317,8 +6384,8 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                 return 0;
             }
         }
-        else if (!is_function_type(ASTExprType(called_expression))
-                && !is_pointer_to_function_type(ASTExprType(called_expression)))
+        else if (!is_function_type(expression_get_type(called_expression))
+                && !is_pointer_to_function_type(expression_get_type(called_expression)))
         {
             DEBUG_CODE()
             {
@@ -6329,19 +6396,19 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                 fprintf(stderr, "%s: warning: cannot call '%s' since its type '%s' is neither a function or a pointer to function\n",
                         ast_location(called_expression),
                         prettyprint_in_buffer(called_expression),
-                        print_type_str(ASTExprType(called_expression), decl_context));
+                        print_type_str(expression_get_type(called_expression), decl_context));
             }
             return 0;
         }
 
         // Do not allow invalid types from now
-        ERROR_CONDITION(!is_function_type(ASTExprType(called_expression))
-                && !is_pointer_to_function_type(ASTExprType(called_expression)),
-                "Invalid type for function call %s\n", print_declarator(ASTExprType(called_expression)));
+        ERROR_CONDITION(!is_function_type(expression_get_type(called_expression))
+                && !is_pointer_to_function_type(expression_get_type(called_expression)),
+                "Invalid type for function call %s\n", print_declarator(expression_get_type(called_expression)));
 
         // Check arguments, at the moment just check the number of arguments. 
         // Maybe we will be checking the types themselves one day
-        type_t* proper_function_type = ASTExprType(called_expression);
+        type_t* proper_function_type = expression_get_type(called_expression);
         if (is_pointer_to_function_type(proper_function_type))
         {
             proper_function_type = pointer_type_get_pointee_type(proper_function_type);
@@ -6417,12 +6484,12 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         {
             fprintf(stderr, "EXPRTYPE: Called expression '%s' has type '%s'\n",
                     prettyprint_in_buffer(called_expression), 
-                    print_declarator(ASTExprType(called_expression)));
+                    print_declarator(expression_get_type(called_expression)));
         }
     }
 
-    if (!is_unresolved_overloaded_type(ASTExprType(called_expression))
-            && !is_class_type(no_ref(ASTExprType(called_expression))))
+    if (!is_unresolved_overloaded_type(expression_get_type(called_expression))
+            && !is_class_type(no_ref(expression_get_type(called_expression))))
     {
         // Nothing else must be done
         DEBUG_CODE()
@@ -6450,11 +6517,11 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         {
             AST argument_tree = ASTSon1(iter);
 
-            type_t* argument_type = ASTExprType(argument_tree);
+            type_t* argument_type = expression_get_type(argument_tree);
 
             if (is_dependent_expr_type(argument_type))
             {
-                ast_set_expression_type(called_expression, get_dependent_expr_type());
+                expression_set_type(called_expression, get_dependent_expr_type());
                 return 1;
             }
 
@@ -6486,7 +6553,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
     }
 
     scope_entry_list_t *candidates = NULL;
-    if (is_unresolved_overloaded_type(ASTExprType(called_expression)))
+    if (is_unresolved_overloaded_type(expression_get_type(called_expression)))
     {
         DEBUG_CODE()
         {
@@ -6496,10 +6563,10 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         }
 
         template_argument_list_t* explicit_template_arguments = 
-            unresolved_overloaded_type_get_explicit_template_arguments(ASTExprType(called_expression));
+            unresolved_overloaded_type_get_explicit_template_arguments(expression_get_type(called_expression));
         
         // These might include template_types that we have to "unfold" properly
-        scope_entry_list_t* first_candidates = unresolved_overloaded_type_get_overload_set(ASTExprType(called_expression));
+        scope_entry_list_t* first_candidates = unresolved_overloaded_type_get_overload_set(expression_get_type(called_expression));
         candidates = unfold_and_mix_candidate_functions(first_candidates,
                 /* builtins */ NULL, &(argument_types[1]), num_arguments - 1,
                 decl_context,
@@ -6516,12 +6583,12 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                         prettyprint_in_buffer(called_expression),
                         prettyprint_in_buffer(ASTSon0(called_expression)));
             }
-            type_t* class_type = ASTExprType(ASTSon0(called_expression));
+            type_t* class_type = expression_get_type(ASTSon0(called_expression));
 
             if (is_dependent_type(class_type))
             {
                 // Nothing else to do this is a dependent call
-                ast_set_expression_type(called_expression, get_dependent_expr_type());
+                expression_set_type(called_expression, get_dependent_expr_type());
                 return 1;
             }
             else
@@ -6538,7 +6605,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                         prettyprint_in_buffer(called_expression),
                         prettyprint_in_buffer(ASTSon0(called_expression)));
             }
-            type_t* class_type = ASTExprType(ASTSon0(called_expression));
+            type_t* class_type = expression_get_type(ASTSon0(called_expression));
 
             if (!is_pointer_to_class_type(no_ref(class_type)))
             {
@@ -6550,7 +6617,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             if (is_dependent_type(class_type))
             {
                 // Nothing else to do this is a dependent call
-                ast_set_expression_type(called_expression, get_dependent_expr_type());
+                expression_set_type(called_expression, get_dependent_expr_type());
                 return 1;
             }
             else
@@ -6577,7 +6644,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
 
                 if (is_dependent_type(this_symbol->type_information))
                 {
-                    ast_set_expression_type(called_expression, get_dependent_expr_type());
+                    expression_set_type(called_expression, get_dependent_expr_type());
                     return 1;
                 }
                 else
@@ -6594,16 +6661,16 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             }
         }
     }
-    else if (is_class_type(no_ref(ASTExprType(called_expression))))
+    else if (is_class_type(no_ref(expression_get_type(called_expression))))
     {
         DEBUG_CODE()
         {
             fprintf(stderr, "EXPRTYPE: This is a call to an object, using operator() as the "
                     "candidate set\n");
         }
-        type_t* class_type = no_ref(ASTExprType(called_expression));
+        type_t* class_type = no_ref(expression_get_type(called_expression));
         // This is a call to a nonstatic member function
-        argument_types[0] = lvalue_ref_for_implicit_arg(ASTExprType(called_expression));
+        argument_types[0] = lvalue_ref_for_implicit_arg(expression_get_type(called_expression));
 
         static AST operator = NULL;
         if (operator == NULL)
@@ -6748,8 +6815,8 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         {
             fprintf(stderr, "EXPRTYPE: Overload resolution succeeded\n");
         }
-        ast_set_expression_type(called_expression, overloaded_call->type_information);
-        ast_set_expression_type(advanced_called_expression, overloaded_call->type_information);
+        expression_set_type(called_expression, overloaded_call->type_information);
+        expression_set_type(advanced_called_expression, overloaded_call->type_information);
         // Tag the node with symbol information (this is useful to know who is being called)
         ASTAttrSetValueType(advanced_called_expression, LANG_FUNCTION_SYMBOL, tl_type_t, tl_symbol(overloaded_call));
 
@@ -7027,14 +7094,14 @@ static char check_for_function_call(AST expr, decl_context_t decl_context)
         return 0;
     }
 
-    type_t* function_type = ASTExprType(called_expression);
+    type_t* function_type = expression_get_type(called_expression);
     // CXX_LANGUAGE()
     {
         // 3. If is a dependent expression nothing else has to be computed
         //    tag all the expression as dependent
         if (is_dependent_expr_type(function_type))
         {
-            ast_set_expression_type(expr, function_type);
+            expression_set_type(expr, function_type);
             return 1;
         }
     }
@@ -7060,16 +7127,16 @@ static char check_for_function_call(AST expr, decl_context_t decl_context)
 
     type_t* return_type = function_type_get_return_type(no_ref(function_type));
 
-    ast_set_expression_type(expr, return_type);
-    ast_set_expression_is_lvalue(expr, 0);
+    expression_set_type(expr, return_type);
+    expression_set_is_lvalue(expr, 0);
 
     CXX_LANGUAGE()
     {
         if (is_dependent_type(return_type))
         {
-            ast_set_expression_type(expr, get_dependent_expr_type());
+            expression_set_type(expr, get_dependent_expr_type());
         }
-        ast_set_expression_is_lvalue(expr, is_lvalue_reference_type(ASTExprType(expr)));
+        expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
     }
 
     return 1;
@@ -7114,11 +7181,11 @@ static char check_for_cast_expr(AST expr, AST type_id, AST casted_expression, de
 
         if (is_dependent_type(declarator_type))
         {
-            ast_set_expression_type(expr, get_dependent_expr_type());
+            expression_set_type(expr, get_dependent_expr_type());
         }
         else
         {
-            ast_set_expression_type(expr, declarator_type);
+            expression_set_type(expr, declarator_type);
 
             char is_lvalue = 0;
             if (is_lvalue_reference_type(declarator_type))
@@ -7126,7 +7193,7 @@ static char check_for_cast_expr(AST expr, AST type_id, AST casted_expression, de
                 is_lvalue = 1;
             }
 
-            ast_set_expression_is_lvalue(expr, is_lvalue);
+            expression_set_is_lvalue(expr, is_lvalue);
         }
         return 1;
     }
@@ -7145,8 +7212,8 @@ static char check_for_comma_operand(AST expression, decl_context_t decl_context)
     if (!result)
         return 0;
 
-    ast_set_expression_type(expression, ASTExprType(ASTSon1(expression)));
-    ast_set_expression_is_lvalue(expression, ASTExprLvalue(ASTSon1(expression)));
+    expression_set_type(expression, expression_get_type(ASTSon1(expression)));
+    expression_set_is_lvalue(expression, expression_is_lvalue(ASTSon1(expression)));
 
     return 1;
 }
@@ -7183,13 +7250,13 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
     if (!check_for_expression(class_expr, decl_context))
         return 0;
 
-    type_t* accessed_type = ASTExprType(class_expr);
+    type_t* accessed_type = expression_get_type(class_expr);
 
     CXX_LANGUAGE()
     {
         if (is_dependent_expr_type(accessed_type))
         {
-            ast_set_expression_type(member_access, accessed_type);
+            expression_set_type(member_access, accessed_type);
             return 1;
         }
     }
@@ -7249,7 +7316,7 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
 
         type_t* argument_types[1] = { 
             /* Note that we want the real original type since it might be a referenced type (¿?¿??) */
-            ASTExprType(class_expr) 
+            expression_get_type(class_expr) 
         };
 
         scope_entry_t* conversors[1] = { NULL };
@@ -7269,10 +7336,10 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
 
         // Now we update the class_expr with the resulting type, this is used later when solving
         // overload in calls made using this syntax.
-        ast_set_expression_type(class_expr, function_type_get_return_type(selected_operator_arrow->type_information));
+        expression_set_type(class_expr, function_type_get_return_type(selected_operator_arrow->type_information));
 
         // The accessed type is the pointed type
-        accessed_type = pointer_type_get_pointee_type(no_ref(ASTExprType(class_expr)));
+        accessed_type = pointer_type_get_pointee_type(no_ref(expression_get_type(class_expr)));
     }
 
     if (!is_class_type(no_ref(accessed_type)))
@@ -7303,7 +7370,7 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
         // If the computed type is dependent then all the expression is dependent
         if (is_dependent_type(conversion_type))
         {
-            ast_set_expression_type(member_access, get_dependent_expr_type());
+            expression_set_type(member_access, get_dependent_expr_type());
             return 1;
         }
     }
@@ -7380,12 +7447,12 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
 
             if (solved != NULL)
             {
-                ast_set_expression_type(member_access, solved);
+                expression_set_type(member_access, solved);
                 return 1;
             }
             else if (dependent_template_arguments)
             {
-                ast_set_expression_type(member_access, get_dependent_expr_type());
+                expression_set_type(member_access, get_dependent_expr_type());
                 return 1;
             }
             else
@@ -7400,8 +7467,8 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
     C_LANGUAGE()
     {
         // C only will have fields
-        ast_set_expression_type(member_access, entry->type_information);
-        ast_set_expression_is_lvalue(member_access, 1);
+        expression_set_type(member_access, entry->type_information);
+        expression_set_is_lvalue(member_access, 1);
         return 1;
     }
 
@@ -7412,13 +7479,13 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
             // This is a reference to the type
             if (!is_dependent_expr_type(entry->type_information))
             {
-                ast_set_expression_type(member_access, lvalue_ref(entry->type_information));
-                ast_set_expression_is_lvalue(member_access, 1);
+                expression_set_type(member_access, lvalue_ref(entry->type_information));
+                expression_set_is_lvalue(member_access, 1);
                 return 1;
             }
             else
             {
-                ast_set_expression_type(member_access, get_dependent_expr_type());
+                expression_set_type(member_access, get_dependent_expr_type());
                 return 1;
             }
         }
@@ -7426,7 +7493,7 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
         else if (entry->kind == SK_FUNCTION
                 || entry->kind == SK_TEMPLATE)
         {
-            ast_set_expression_type(member_access, get_unresolved_overloaded_type(entry_list, 
+            expression_set_type(member_access, get_unresolved_overloaded_type(entry_list, 
                         /* explicit_template_arguments */ NULL));
             return 1;
         }
@@ -7534,18 +7601,18 @@ static char check_for_template_id_expr(AST expr, decl_context_t decl_context)
 
     if (solved != NULL)
     {
-        ast_set_expression_type(expr, solved);
+        expression_set_type(expr, solved);
         // This is arguable since this is unlikely to go at the left of any
         // expression, but ok, lvalueness is such a mystic thing throughout the
         // standard.
-        ast_set_expression_is_lvalue(expr, 1);
+        expression_set_is_lvalue(expr, 1);
         return 1;
     } 
     else if (dependent_template_arguments)
     {
         // This might well be a function template name but with wrong template-parameters
         // because of type dependency. So give it a second chance
-        ast_set_expression_type(expr, get_dependent_expr_type());
+        expression_set_type(expr, get_dependent_expr_type());
         return 1;
     }
     else
@@ -7560,7 +7627,7 @@ static char check_for_postoperator_user_defined(AST expr, AST operator,
         decl_context_t decl_context,
         scope_entry_list_t* builtins)
 {
-    type_t* incremented_type = ASTExprType(postoperated_expr);
+    type_t* incremented_type = expression_get_type(postoperated_expr);
 
     if (is_class_type(no_ref(incremented_type)))
     {
@@ -7586,8 +7653,8 @@ static char check_for_postoperator_user_defined(AST expr, AST operator,
 
             if (overloaded_call != NULL)
             {
-                ast_set_expression_type(expr, function_type_get_return_type(overloaded_call->type_information));
-                ast_set_expression_is_lvalue(expr, is_lvalue_reference_type(ASTExprType(expr)));
+                expression_set_type(expr, function_type_get_return_type(overloaded_call->type_information));
+                expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
                 return 1;
             }
         }
@@ -7618,8 +7685,8 @@ static char check_for_postoperator_user_defined(AST expr, AST operator,
 
     if (overloaded_call != NULL)
     {
-        ast_set_expression_type(expr, function_type_get_return_type(overloaded_call->type_information));
-        ast_set_expression_is_lvalue(expr, is_lvalue_reference_type(ASTExprType(expr)));
+        expression_set_type(expr, function_type_get_return_type(overloaded_call->type_information));
+        expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
 
         if (conversors[1] != NULL)
         {
@@ -7638,7 +7705,7 @@ static char check_for_preoperator_user_defined(AST expr, AST operator,
         decl_context_t decl_context,
         scope_entry_list_t* builtins)
 {
-    type_t* incremented_type = ASTExprType(preoperated_expr);
+    type_t* incremented_type = expression_get_type(preoperated_expr);
 
     if (is_class_type(no_ref(incremented_type)))
     {
@@ -7660,8 +7727,8 @@ static char check_for_preoperator_user_defined(AST expr, AST operator,
 
             if (overloaded_call != NULL)
             {
-                ast_set_expression_type(expr, function_type_get_return_type(overloaded_call->type_information));
-                ast_set_expression_is_lvalue(expr, is_lvalue_reference_type(ASTExprType(expr)));
+                expression_set_type(expr, function_type_get_return_type(overloaded_call->type_information));
+                expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
                 return 1;
             }
         }
@@ -7693,8 +7760,8 @@ static char check_for_preoperator_user_defined(AST expr, AST operator,
 
     if (overloaded_call != NULL)
     {
-        ast_set_expression_type(expr, function_type_get_return_type(overloaded_call->type_information));
-        ast_set_expression_is_lvalue(expr, is_lvalue_reference_type(ASTExprType(expr)));
+        expression_set_type(expr, function_type_get_return_type(overloaded_call->type_information));
+        expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
 
         if (conversors[1] != NULL)
         {
@@ -7742,12 +7809,12 @@ static char check_for_postoperator(AST expr, AST operator, AST postoperated_expr
     if (!check_for_expression(postoperated_expr, decl_context))
         return 0;
 
-    type_t* operated_type = ASTExprType(postoperated_expr);
-    char is_lvalue = ASTExprLvalue(postoperated_expr);
+    type_t* operated_type = expression_get_type(postoperated_expr);
+    char is_lvalue = expression_is_lvalue(postoperated_expr);
 
     if (is_dependent_expr_type(operated_type))
     {
-        ast_set_expression_type(expr, get_dependent_expr_type());
+        expression_set_type(expr, get_dependent_expr_type());
         return 1;
     }
 
@@ -7778,8 +7845,8 @@ static char check_for_postoperator(AST expr, AST operator, AST postoperated_expr
                 operated_type = reference_type_get_referenced_type(operated_type);
             }
 
-            ast_set_expression_type(expr, lvalue_ref(get_unqualified_type(operated_type)));
-            ast_set_expression_is_lvalue(expr, 0);
+            expression_set_type(expr, lvalue_ref(get_unqualified_type(operated_type)));
+            expression_set_is_lvalue(expr, 0);
             return 1;
         }
         else
@@ -7845,12 +7912,12 @@ static char check_for_preoperator(AST expr, AST operator,
     if (!check_for_expression(preoperated_expr, decl_context))
         return 0;
 
-    type_t* operated_type = ASTExprType(preoperated_expr);
-    char is_lvalue = ASTExprLvalue(preoperated_expr);
+    type_t* operated_type = expression_get_type(preoperated_expr);
+    char is_lvalue = expression_is_lvalue(preoperated_expr);
 
     if (is_dependent_expr_type(operated_type))
     {
-        ast_set_expression_type(expr, get_dependent_expr_type());
+        expression_set_type(expr, get_dependent_expr_type());
         return 1;
     }
 
@@ -7870,8 +7937,8 @@ static char check_for_preoperator(AST expr, AST operator,
                 return 0;
         }
 
-        ast_set_expression_type(expr, operated_type);
-        ast_set_expression_is_lvalue(expr, 1);
+        expression_set_type(expr, operated_type);
+        expression_set_is_lvalue(expr, 1);
         return 1;
     }
     else
@@ -8024,8 +8091,8 @@ static char check_for_typeid_type(AST expr, decl_context_t decl_context)
     if (!result)
         return 0;
 
-    ast_set_expression_type(expr, get_typeid_type(decl_context, expr));
-    ast_set_expression_is_lvalue(expr, 0);
+    expression_set_type(expr, get_typeid_type(decl_context, expr));
+    expression_set_is_lvalue(expr, 0);
 
     return 1;
 }
@@ -8037,8 +8104,8 @@ static char check_for_typeid_expr(AST expr, decl_context_t decl_context)
     if (!result)
         return 0;
 
-    ast_set_expression_type(expr, get_typeid_type(decl_context, expr));
-    ast_set_expression_is_lvalue(expr, 0);
+    expression_set_type(expr, get_typeid_type(decl_context, expr));
+    expression_set_is_lvalue(expr, 0);
     return 1;
 }
 
@@ -8203,7 +8270,7 @@ char check_for_initializer_clause(AST initializer, decl_context_t decl_context, 
 
                     if (is_class_type(declared_type))
                     {
-                        ast_set_expression_type(initializer, declared_type);
+                        expression_set_type(initializer, declared_type);
                     }
                     else if (is_array_type(declared_type))
                     {
@@ -8224,7 +8291,7 @@ char check_for_initializer_clause(AST initializer, decl_context_t decl_context, 
                                 array_type_get_element_type(declared_type),
                                 length, decl_context);
 
-                        ast_set_expression_type(initializer, list_array);
+                        expression_set_type(initializer, list_array);
                     }
                 }
                 return 1;
@@ -8237,7 +8304,7 @@ char check_for_initializer_clause(AST initializer, decl_context_t decl_context, 
                 if (result)
                 {
                     type_t* declared_type_no_cv = get_unqualified_type(declared_type);
-                    type_t* initializer_expr_type = ASTExprType(expression);
+                    type_t* initializer_expr_type = expression_get_type(expression);
                     // Now we have to check whether this can be converted to the declared entity
                     char ambiguous_conversion = 0;
                     scope_entry_t* conversor = NULL;
@@ -8288,7 +8355,7 @@ char check_for_initializer_clause(AST initializer, decl_context_t decl_context, 
                     ASTAttrSetValueType(initializer, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(initializer, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(expression));
 
-                    ast_set_expression_type(initializer, initializer_expr_type);
+                    expression_set_type(initializer, initializer_expr_type);
                 }
 
                 return result;
@@ -8307,7 +8374,7 @@ char check_for_initializer_clause(AST initializer, decl_context_t decl_context, 
                 char result = check_for_initializer_clause(initializer_clause, decl_context, designated_type);
                 if (result)
                 {
-                    ast_set_expression_type(initializer, ast_get_expression_type(initializer_clause));
+                    expression_set_type(initializer, expression_get_type(initializer_clause));
                 }
                 return result;
                 break;
@@ -8326,7 +8393,7 @@ char check_for_initializer_clause(AST initializer, decl_context_t decl_context, 
                             member->entry->type_information);
                     if (result)
                     {
-                        ast_set_expression_type(initializer, ast_get_expression_type(initializer_clause));
+                        expression_set_type(initializer, expression_get_type(initializer_clause));
                     }
                 }
                 else
@@ -8403,8 +8470,8 @@ static char check_for_pointer_to_pointer_to_member(AST expression, decl_context_
         return 0;
     }
 
-    type_t* lhs_type = ASTExprType(lhs);
-    type_t* rhs_type = ASTExprType(rhs);
+    type_t* lhs_type = expression_get_type(lhs);
+    type_t* rhs_type = expression_get_type(rhs);
 
     if (lhs_type == NULL
             || rhs_type == NULL)
@@ -8415,7 +8482,7 @@ static char check_for_pointer_to_pointer_to_member(AST expression, decl_context_
     if (is_dependent_expr_type(lhs_type)
             || is_dependent_expr_type(rhs_type))
     {
-        ast_set_expression_type(expression, get_dependent_expr_type());
+        expression_set_type(expression, get_dependent_expr_type());
         return 1;
     }
 
@@ -8463,11 +8530,11 @@ static char check_for_pointer_to_pointer_to_member(AST expression, decl_context_
         cv_qualifier_t cv_qualif_pointer = CV_NONE;
         advance_over_typedefs_with_cv_qualif(no_ref(rhs_type), &cv_qualif_pointer);
 
-        ast_set_expression_type(expression, lvalue_ref(
+        expression_set_type(expression, lvalue_ref(
                 get_cv_qualified_type(
                     pm_pointed_type, 
                     cv_qualif_object | cv_qualif_pointer)));
-        ast_set_expression_is_lvalue(expression, 1);
+        expression_set_is_lvalue(expression, 1);
         return 1;
     }
 
@@ -8511,8 +8578,8 @@ static char check_for_pointer_to_member(AST expression, decl_context_t decl_cont
         return 0;
     }
 
-    type_t* lhs_type = no_ref(ASTExprType(lhs));
-    type_t* rhs_type = no_ref(ASTExprType(rhs));
+    type_t* lhs_type = no_ref(expression_get_type(lhs));
+    type_t* rhs_type = no_ref(expression_get_type(rhs));
 
     if (lhs_type == NULL
             || rhs_type == NULL)
@@ -8523,7 +8590,7 @@ static char check_for_pointer_to_member(AST expression, decl_context_t decl_cont
     if (is_dependent_expr_type(lhs_type)
             || is_dependent_expr_type(rhs_type))
     {
-        ast_set_expression_type(expression, get_dependent_expr_type());
+        expression_set_type(expression, get_dependent_expr_type());
         return 1;
     }
 
@@ -8550,10 +8617,10 @@ static char check_for_pointer_to_member(AST expression, decl_context_t decl_cont
     cv_qualifier_t cv_qualif_pointer = CV_NONE;
     advance_over_typedefs_with_cv_qualif(no_ref(rhs_type), &cv_qualif_pointer);
 
-    ast_set_expression_type(expression, lvalue_ref(
+    expression_set_type(expression, lvalue_ref(
             get_cv_qualified_type(pointer_type_get_pointee_type(no_ref(rhs_type)), 
                 cv_qualif_object | cv_qualif_pointer)));
-    ast_set_expression_is_lvalue(expression, 1);
+    expression_set_is_lvalue(expression, 1);
     return 1;
 }
 
@@ -8598,7 +8665,7 @@ static char check_for_parenthesized_initializer(AST initializer_list, decl_conte
             return 0;
         }
 
-        argument_types[initializer_num] = ASTExprType(initializer);
+        argument_types[initializer_num] = expression_get_type(initializer);
 
         if (is_dependent_expr_type(argument_types[initializer_num]))
         {
@@ -8697,8 +8764,8 @@ char check_for_initialization(AST initializer, decl_context_t decl_context, type
 
                 if (result)
                 {
-                    ast_set_expression_type(initializer, ast_get_expression_type(expression));
-                    ast_set_expression_is_lvalue(initializer, 0);
+                    expression_set_type(initializer, expression_get_type(expression));
+                    expression_set_is_lvalue(initializer, 0);
                 }
                 break;
             }
@@ -8709,8 +8776,8 @@ char check_for_initialization(AST initializer, decl_context_t decl_context, type
 
                 if (result)
                 {
-                    ast_set_expression_type(initializer, ast_get_expression_type(initializer_clause));
-                    ast_set_expression_is_lvalue(initializer, 0);
+                    expression_set_type(initializer, expression_get_type(initializer_clause));
+                    expression_set_is_lvalue(initializer, 0);
                 }
 
                 if (result 
@@ -8728,8 +8795,8 @@ char check_for_initialization(AST initializer, decl_context_t decl_context, type
 
                 if (result)
                 {
-                    ast_set_expression_type(initializer, ast_get_expression_type(parenthesized_initializer));
-                    ast_set_expression_is_lvalue(initializer, 0);
+                    expression_set_type(initializer, expression_get_type(parenthesized_initializer));
+                    expression_set_is_lvalue(initializer, 0);
                 }
                 break;
             }
@@ -8745,9 +8812,9 @@ char check_for_initialization(AST initializer, decl_context_t decl_context, type
         {
             fprintf(stderr, "EXPRTYPE: Initializer '%s' has type '%s'\n",
                     prettyprint_in_buffer(initializer),
-                    ast_get_expression_type(initializer) == NULL 
+                    expression_get_type(initializer) == NULL 
                     ? "<< no type >>" 
-                    : print_declarator(ast_get_expression_type(initializer)));
+                    : print_declarator(expression_get_type(initializer)));
         }
         else
         {
@@ -9181,7 +9248,7 @@ static char check_for_sizeof_expr(AST expr, decl_context_t decl_context)
     AST sizeof_expression = ASTSon0(expr);
     if (check_for_expression(sizeof_expression, decl_context))
     {
-        type_t* t = ASTExprType(sizeof_expression);
+        type_t* t = expression_get_type(sizeof_expression);
 
         if (!CURRENT_CONFIGURATION->disable_sizeof
                 && !is_dependent_expr_type(t)
@@ -9197,8 +9264,8 @@ static char check_for_sizeof_expr(AST expr, decl_context_t decl_context)
             }
         }
 
-        ast_set_expression_type(expr, get_size_t_type());
-        ast_set_expression_is_lvalue(expr, 0);
+        expression_set_type(expr, get_size_t_type());
+        expression_set_is_lvalue(expr, 0);
         return 1;
     }
 
@@ -9238,12 +9305,12 @@ static char check_for_sizeof_typeid(AST expr, decl_context_t decl_context)
                             type_size);
                 }
             }
-            ast_set_expression_type(type_id, declarator_type);
-            ast_set_expression_is_lvalue(type_id, 0);
+            expression_set_type(type_id, declarator_type);
+            expression_set_is_lvalue(type_id, 0);
         }
 
-        ast_set_expression_type(expr, get_size_t_type());
-        ast_set_expression_is_lvalue(expr, 0);
+        expression_set_type(expr, get_size_t_type());
+        expression_set_is_lvalue(expr, 0);
         return 1;
     }
     return 0;
@@ -9261,7 +9328,7 @@ static char check_for_pseudo_destructor_call(AST expression, decl_context_t decl
     
     char postfix_check = check_for_expression(postfix_expression, decl_context);
     if (!postfix_check
-            || ast_get_expression_type(postfix_expression) == NULL)
+            || expression_get_type(postfix_expression) == NULL)
     {
         DEBUG_CODE()
         {
@@ -9271,22 +9338,22 @@ static char check_for_pseudo_destructor_call(AST expression, decl_context_t decl
         return 0;
     }
 
-    type_t* considered_type = ASTExprType(postfix_expression);
+    type_t* considered_type = expression_get_type(postfix_expression);
 
     if (is_dependent_expr_type(no_ref(considered_type)))
     {
-        ast_set_expression_type(expression, get_dependent_expr_type());
+        expression_set_type(expression, get_dependent_expr_type());
         return 1;
     }
 
     if (is_arrow)
     {
-        if (!is_pointer_type(no_ref(ASTExprType(postfix_expression))))
+        if (!is_pointer_type(no_ref(expression_get_type(postfix_expression))))
         {
             return 0;
         }
 
-        considered_type = pointer_type_get_pointee_type(no_ref(ASTExprType(postfix_expression)));
+        considered_type = pointer_type_get_pointee_type(no_ref(expression_get_type(postfix_expression)));
     }
 
     if (!is_scalar_type(no_ref(considered_type)))
@@ -9427,7 +9494,7 @@ static char check_for_pseudo_destructor_call(AST expression, decl_context_t decl
     }
 
     // Everything seems right
-    ast_set_expression_type(expression, get_pseudo_destructor_call_type());
+    expression_set_type(expression, get_pseudo_destructor_call_type());
     return 1;
 }
 
@@ -9462,7 +9529,7 @@ static char check_for_gcc_builtin_offsetof(AST expression, decl_context_t decl_c
         }
     }
 
-    ast_set_expression_type(expression, get_size_t_type());
+    expression_set_type(expression, get_size_t_type());
     return 1;
 }
 
@@ -9500,8 +9567,8 @@ static char check_for_gcc_builtin_choose_expr(AST expression, decl_context_t dec
         selected_expr = second_expr;
     }
 
-    ast_set_expression_type(expression, ast_get_expression_type(selected_expr));
-    ast_set_expression_is_lvalue(expression, ast_get_expression_is_lvalue(selected_expr));
+    expression_set_type(expression, expression_get_type(selected_expr));
+    expression_set_is_lvalue(expression, expression_is_lvalue(selected_expr));
     return 1;
 }
 
@@ -9515,8 +9582,8 @@ static char check_for_gcc_builtin_types_compatible_p(AST expression, decl_contex
             || !check_for_type_id_tree(second_type, decl_context))
         return 0;
 
-    ast_set_expression_type(expression, get_signed_int_type());
-    ast_set_expression_is_lvalue(expression, 0);
+    expression_set_type(expression, get_signed_int_type());
+    expression_set_is_lvalue(expression, 0);
     return 1;
 }
 
@@ -9559,7 +9626,7 @@ static char check_for_array_section_expression(AST expression, decl_context_t de
             || !upper_bound_check)
         return 0;
     
-    type_t* indexed_type = no_ref(ASTExprType(postfix_expression));
+    type_t* indexed_type = no_ref(expression_get_type(postfix_expression));
 
     type_t* result_type = NULL;
 
@@ -9585,8 +9652,8 @@ static char check_for_array_section_expression(AST expression, decl_context_t de
     }
 
     // This should be deemed always as a lvalue
-    ast_set_expression_is_lvalue(expression, 1);
-    ast_set_expression_type(expression, result_type);
+    expression_set_is_lvalue(expression, 1);
+    expression_set_type(expression, result_type);
 
     return 1;
 }
@@ -9611,7 +9678,7 @@ static char check_for_shaping_expression(AST expression, decl_context_t decl_con
     for_each_element(shape_list, it)
     {
         AST current_expr = ASTSon1(it);
-        type_t *current_expr_type = ASTExprType(current_expr);
+        type_t *current_expr_type = expression_get_type(current_expr);
 
         standard_conversion_t scs;
         if (!standard_conversion_between_types(&scs, no_ref(current_expr_type), get_signed_int_type()))
@@ -9627,7 +9694,7 @@ static char check_for_shaping_expression(AST expression, decl_context_t decl_con
     }
 
     // Now check the shape makes sense
-    type_t* shaped_expr_type = ASTExprType(shaped_expr);
+    type_t* shaped_expr_type = expression_get_type(shaped_expr);
 
     if (!is_pointer_type(no_ref(shaped_expr_type)))
     {
@@ -9665,8 +9732,8 @@ static char check_for_shaping_expression(AST expression, decl_context_t decl_con
             it = ASTSon0(it);
         }
 
-        ast_set_expression_type(expression, result_type);
-        ast_set_expression_is_lvalue(expression, 1);
+        expression_set_type(expression, result_type);
+        expression_set_is_lvalue(expression, 1);
     }
 
     return result;
@@ -9689,8 +9756,8 @@ static char check_for_gxx_type_traits(AST expression, decl_context_t decl_contex
         return 0;
     }
 
-    ast_set_expression_type(expression, get_bool_type());
-    ast_set_expression_is_lvalue(expression, 0);
+    expression_set_type(expression, get_bool_type());
+    expression_set_is_lvalue(expression, 0);
 
     return 1;
 }

@@ -53,7 +53,7 @@ static void remove_computed_types(AST t)
         return;
 
     // Remove the computed type
-    ast_set_expression_type(t, NULL);
+    expression_set_type(t, NULL);
 
     int i;
     for (i = 0; i < ASTNumChildren(t); i++)

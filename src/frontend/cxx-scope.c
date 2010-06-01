@@ -2892,8 +2892,8 @@ static type_t* update_type_aux_(type_t* orig_type,
             }
 
             if (!is_value_dependent_expression(updated_expr, updated_expr_context)
-                    && (ASTExprType(updated_expr) == NULL
-                        || !is_unresolved_overloaded_type(ASTExprType(updated_expr))))
+                    && (expression_get_type(updated_expr) == NULL
+                        || !is_unresolved_overloaded_type(expression_get_type(updated_expr))))
             {
                 literal_value_t literal = evaluate_constant_expression(updated_expr, updated_expr_context);
                 updated_expr = tree_from_literal_value(literal);
@@ -3126,9 +3126,9 @@ static template_argument_t* update_template_argument(
                 // argument is OK (this is important for unresolved overloads)
                 // FIXME - We should check that a standard conversion
                 // (involving no user-defined conversions) is possible
-                ast_set_expression_type(result->expression, result->type);
+                expression_set_type(result->expression, result->type);
 
-                type_t* expr_type = ASTExprType(result->expression);
+                type_t* expr_type = expression_get_type(result->expression);
                 // Fold the argument if possible
                 if (expr_type != NULL
                         && !is_unresolved_overloaded_type(expr_type)
@@ -3185,7 +3185,7 @@ template_argument_list_t* get_template_arguments_from_syntax(
                     t_argument->expression = ASTSon0(template_argument);
                     t_argument->expression_context = template_arguments_context;
 
-                    type_t* expr_type = ASTExprType(t_argument->expression);
+                    type_t* expr_type = expression_get_type(t_argument->expression);
 
                     if (!is_value_dependent_expression(t_argument->expression, 
                                 t_argument->expression_context)
@@ -3261,9 +3261,9 @@ static void update_unresolved_overloaded_type(type_t* unresolved_type, type_t* s
 {
     if (tree != NULL)
     {
-        if (ASTExprType(tree) == unresolved_type)
+        if (expression_get_type(tree) == unresolved_type)
         {
-            ast_set_expression_type(tree, solved_type);
+            expression_set_type(tree, solved_type);
         }
 
         int i;
@@ -3382,14 +3382,14 @@ static template_argument_list_t* complete_arguments_of_template_id(
             /*
              * If the type is an address of function try to solve it
              */
-            if (ASTExprType(current_template_argument->expression) != NULL
-                    && is_unresolved_overloaded_type(ASTExprType(current_template_argument->expression)))
+            if (expression_get_type(current_template_argument->expression) != NULL
+                    && is_unresolved_overloaded_type(expression_get_type(current_template_argument->expression)))
             {
                 // Try to solve it
                 scope_entry_t* solved_function =
                     address_of_overloaded_function(
-                            unresolved_overloaded_type_get_overload_set(ASTExprType(current_template_argument->expression)),
-                            unresolved_overloaded_type_get_explicit_template_arguments(ASTExprType(current_template_argument->expression)),
+                            unresolved_overloaded_type_get_overload_set(expression_get_type(current_template_argument->expression)),
+                            unresolved_overloaded_type_get_explicit_template_arguments(expression_get_type(current_template_argument->expression)),
                             current_template_argument->type,
                             updated_decl_context,
                             filename,
@@ -3398,7 +3398,7 @@ static template_argument_list_t* complete_arguments_of_template_id(
                 if (solved_function != NULL)
                 {
                     // Update the type throughout the expression (this is needed when evaluating it)
-                    update_unresolved_overloaded_type(ASTExprType(current_template_argument->expression),
+                    update_unresolved_overloaded_type(expression_get_type(current_template_argument->expression),
                             solved_function->type_information,
                             current_template_argument->expression);
                 }

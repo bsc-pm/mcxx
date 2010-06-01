@@ -603,8 +603,8 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
         fprintf(stderr, "TYPEUNIF: Trying to match by means of plain constant evaluation\n");
     }
 
-    type_t* left_type = ASTExprType(left_tree);
-    type_t* right_type = ASTExprType(right_tree);
+    type_t* left_type = expression_get_type(left_tree);
+    type_t* right_type = expression_get_type(right_tree);
 
     DEBUG_CODE()
     {
@@ -664,7 +664,7 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
                 }
 
                 // If left part is a nontype template parameter, then try to unify
-                type_t* expr_type = ASTExprType(left_tree);
+                type_t* expr_type = expression_get_type(left_tree);
                 if (expr_type != NULL
                         && is_dependent_expr_type(expr_type)
                         && is_named_type(expr_type)
@@ -688,7 +688,7 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
 
                     // Fold if possible
                     {
-                        type_t* right_tree_type = ASTExprType(right_tree);
+                        type_t* right_tree_type = expression_get_type(right_tree);
                         if (!is_value_dependent_expression(right_tree, right_decl_context)
                                 && (right_tree_type == NULL
                                     || !is_unresolved_overloaded_type(right_tree_type)))
@@ -710,8 +710,8 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
                         deduced_parameter_t* previous_deduced_parameter = deduction->deduced_parameters[i];
 
                         AST previous_deduced_expression = previous_deduced_parameter->expression;
-                        type_t* previous_deduced_expr_type = ASTExprType(previous_deduced_expression);
-                        type_t* right_tree_type = ASTExprType(right_tree);
+                        type_t* previous_deduced_expr_type = expression_get_type(previous_deduced_expression);
+                        type_t* right_tree_type = expression_get_type(right_tree);
 
                         if (previous_deduced_expr_type != NULL
                                 && is_dependent_expr_type(previous_deduced_expr_type)
@@ -805,7 +805,7 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
                                 prettyprint_in_buffer(left_tree),
                                 prettyprint_in_buffer(right_tree));
                     }
-                    type_t* right_tree_type = ASTExprType(right_tree);
+                    type_t* right_tree_type = expression_get_type(right_tree);
 
                     if (right_tree_type != NULL
                             && is_dependent_expr_type(right_tree_type)
@@ -974,8 +974,8 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
             }
         case AST_SIZEOF_TYPEID :
             {
-                type_t* sizeof_left_type = ASTExprType(ASTSon0(left_tree));
-                type_t* sizeof_right_type = ASTExprType(ASTSon0(right_tree));
+                type_t* sizeof_left_type = expression_get_type(ASTSon0(left_tree));
+                type_t* sizeof_right_type = expression_get_type(ASTSon0(right_tree));
 
                 // We do not unificate sizeofs (though we could), just assert
                 // if the sizeof'd type is the same

@@ -26,6 +26,7 @@
 
 #include "libmcxx-common.h"
 #include "cxx-ast-decls.h"
+#include "cxx-exprtype-decls.h"
 #include "cxx-scope-decls.h"
 #include "cxx-buildscope-decls.h"
 #include "cxx-typeutils.h"
@@ -73,6 +74,25 @@ LIBMCXX_EXTERN scope_entry_list_t* unfold_and_mix_candidate_functions(
         template_argument_list_t *explicit_template_arguments
         );
 
+LIBMCXX_EXTERN type_t* expression_get_type(AST expr);
+
+LIBMCXX_EXTERN void expression_set_type(AST expr, type_t* t);
+
+LIBMCXX_EXTERN char expression_is_lvalue(AST expr);
+
+LIBMCXX_EXTERN char expression_is_constant(AST expr);
+
+LIBMCXX_EXTERN void expression_set_non_constant(AST expr);
+
+LIBMCXX_EXTERN void expression_set_constant(AST expr, const_value_t* const_val);
+
+LIBMCXX_EXTERN const_value_t* expression_get_constant(AST expr);
+
+LIBMCXX_EXTERN void expression_set_is_lvalue(AST expr, char is_lvalue);
+
+LIBMCXX_EXTERN char expression_is_value_dependent(AST expr);
+
+LIBMCXX_EXTERN void expression_set_is_value_dependent(AST expr, char value_dependent);
 
 MCXX_END_DECLS
 

@@ -845,8 +845,8 @@ namespace TL
         AST_t expr = this->_ref;
         AST expr_tree = expr._ast;
 
-        type_t* expression_type = ASTExprType(expr_tree);
-        is_lvalue = ASTExprLvalue(expr_tree);
+        type_t* expression_type = expression_get_type(expr_tree);
+        is_lvalue = expression_is_lvalue(expr_tree);
 
         Type result(expression_type);
         return result;

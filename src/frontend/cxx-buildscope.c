@@ -837,7 +837,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
                     // Update unbounded arrays, bounded by their initialization
                     if (init_check)
                     {
-                        type_t* initializer_type = ast_get_expression_type(initializer);
+                        type_t* initializer_type = expression_get_type(initializer);
 
                         if (is_array_type(declarator_type)
                                 && array_type_get_array_size_expr(declarator_type) == NULL
@@ -1267,11 +1267,11 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
 
                 // Compute the expression type and use it for the whole type
                 if (check_for_expression(expression, decl_context)
-                        && (ASTExprType(expression) != NULL))
+                        && (expression_get_type(expression) != NULL))
                 {
                     // Do not remove the reference here, we will do this later
                     // if mandated
-                    type_t* computed_type = ASTExprType(expression);
+                    type_t* computed_type = expression_get_type(expression);
 
                     if (is_unresolved_overloaded_type(computed_type))
                     {
@@ -1386,9 +1386,9 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
             {
                 // Compute the expression type and use it for the whole type
                 if (check_for_expression(ASTSon0(a), decl_context)
-                        && (ASTExprType(ASTSon0(a)) != NULL))
+                        && (expression_get_type(ASTSon0(a)) != NULL))
                 {
-                    type_t* computed_type = ASTExprType(ASTSon0(a));
+                    type_t* computed_type = expression_get_type(ASTSon0(a));
 
                     CXX_LANGUAGE()
                     {
@@ -8314,10 +8314,10 @@ static void build_scope_expression_statement(AST a,
                 ast_location(ASTSon0(a)));
     }
 
-    if (ASTExprType(expr) != NULL)
+    if (expression_get_type(expr) != NULL)
     {
-        ast_set_expression_type(a, ASTExprType(expr));
-        ast_set_expression_is_lvalue(a, ASTExprLvalue(a));
+        expression_set_type(a, expression_get_type(expr));
+        expression_set_is_lvalue(a, expression_is_lvalue(a));
     }
 
     ASTAttrSetValueType(a, LANG_IS_EXPRESSION_STATEMENT, tl_type_t, tl_bool(1));

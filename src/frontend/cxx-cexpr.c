@@ -26,6 +26,7 @@
 #include <ctype.h>
 #include <limits.h>
 #include "cxx-buildscope.h"
+#include "cxx-exprtype.h"
 #include "cxx-cexpr.h"
 #include "cxx-ast.h"
 #include "cxx-utils.h"
@@ -36,6 +37,102 @@
 #include "cxx-overload.h"
 #include "cxx-instantiation.h"
 #include "cxx-typeenviron.h"
+
+// We allow up to 16 bytes per integer
+#define MAX_NUM_BYTES (16)
+
+#define HASH_SIZE (37)
+
+typedef
+struct constant_value_hash_bucket_tag
+{
+    const_value_t* constant_value;
+    constant_value_hash_bucket_t *next;
+} constant_value_hash_bucket_t;
+
+typedef constant_value_hash_bucket_t* constant_value_hash_t[HASH_SIZE * 2];
+
+static const_value_hash_t _hash_pool[MAX_NUM_BYTES] = { { (const_value_hash_bucket_t*)0 } };
+
+static uint64_t value_mold(uint64_t value, int num_bytes)
+{
+    // Mold the integer to the number of bytes
+    uint64_t mask = ~0;
+    mask >>= (num_bytes * 8);
+    value &= mask;
+    return value;
+}
+
+static const_value_t* const_value_get(uint64_t value, int num_bytes, char sign)
+{
+    ERROR_CONDITION(num_bytes > MAX_NUM_BYTES
+            || num_bytes < 0, "Invalid num_bytes = %d\n", num_bytes);
+
+    const_value_hash_bucket_t* bucket = _hash_pool[2 * num_bytes + !!sign];
+
+    value = value_mold(value, num_bytes);
+
+    while (bucket != NULL)
+    {
+        if (bucket->constant_value->value == value)
+        {
+            break;
+        }
+        bucket = bucket->next;
+    }
+
+    if (bucket == NULL)
+    {
+        bucket = calloc(1, sizeof(*new_bucket));
+
+        bucket->next = _hash_pool[num_bytes];
+        _hash_pool[num_bytes] = bucket;
+    }
+
+    return bucket->constant_value;
+}
+
+const_value_t* const_value_get_zero(int num_bytes, char sign)
+{
+    return const_value_get(0, num_bytes, sign);
+}
+
+const_value_t* const_value_get_one(int num_bytes, char sign)
+{
+    return const_value_get(1, num_bytes, sign);
+}
+
+static void common_bytes(const_value_t* v1, const_value_t* v2, int *num_bytes, char *sign)
+{
+    if (v1->num_bytes == v2->num_bytes
+            && v1->sign == v2->sign)
+    {
+        *num_bytes = v1->num_bytes;
+        *sign = v1->sign;
+    }
+    else 
+    {
+        *num_bytes = (v1->num_bytes > v2->num_bytes) ? v1->num_bytes : v2->num_bytes;
+        *sign = v1->sign || v2->sign;
+    }
+}
+
+#define BINARY_OP(op_name, op) \
+const_value_t* const_value_##op_name(const_value_t* v1, const_value_t* v2) \
+{ \
+    char sign = 0; int num_bytes = 0; \
+    common_bytes(v1, v2, &num_bytes, &sign); \
+    if (sign) \
+    { \
+        return const_value_get((int64_t)v1->value op (int64_t)v2->value, num_bytes, sign); \
+    } \
+    else \
+    { \
+        return const_value_get(v1->value op v2->value, num_bytes, sign); \
+    } \
+}
+
+/* DEPRECATED CODE TO BE REMOVED */
 
 /*
  * This file implements an evaluator of constant expressions in C++
@@ -273,18 +370,18 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
                         }
                         else
                         {
-                            ERROR_CONDITION(ASTExprType(symbol) == NULL,
+                            ERROR_CONDITION(expression_get_type(symbol) == NULL,
                                     "This expression lacks a type", 0);
-                            ERROR_CONDITION(!is_unresolved_overloaded_type(ASTExprType(symbol))
-                                    && !is_function_type(ASTExprType(symbol))
-                                    && !is_pointer_to_function_type(ASTExprType(symbol)),
+                            ERROR_CONDITION(!is_unresolved_overloaded_type(expression_get_type(symbol))
+                                    && !is_function_type(expression_get_type(symbol))
+                                    && !is_pointer_to_function_type(expression_get_type(symbol)),
                                     "This expression has the wrong type", 0);
                             // This case can only be a template-argument
                             scope_entry_t* solved_function =
                                 address_of_overloaded_function(
                                         result,
                                         /* explicit_template_arguments */ NULL, // FIXME
-                                        ASTExprType(symbol),
+                                        expression_get_type(symbol),
                                         decl_context,
                                         ASTFileName(symbol),
                                         ASTLine(symbol));
@@ -1292,18 +1389,18 @@ static literal_value_t evaluate_symbol(AST symbol, decl_context_t decl_context)
         }
         else
         {
-            ERROR_CONDITION(ASTExprType(symbol) == NULL,
+            ERROR_CONDITION(expression_get_type(symbol) == NULL,
                     "This expression lacks a type", 0);
-            ERROR_CONDITION(!is_unresolved_overloaded_type(ASTExprType(symbol))
-                    && !is_function_type(ASTExprType(symbol))
-                    && !is_pointer_to_function_type(ASTExprType(symbol)),
+            ERROR_CONDITION(!is_unresolved_overloaded_type(expression_get_type(symbol))
+                    && !is_function_type(expression_get_type(symbol))
+                    && !is_pointer_to_function_type(expression_get_type(symbol)),
                     "This expression has the wrong type", 0);
             // This case can only be a template-argument
             scope_entry_t* solved_function =
                 address_of_overloaded_function(
                         result,
                         /* explicit_template_arguments */ NULL, // FIXME
-                        ASTExprType(symbol),
+                        expression_get_type(symbol),
                         decl_context,
                         ASTFileName(symbol),
                         ASTLine(symbol));
@@ -3364,24 +3461,24 @@ static literal_value_t evaluate_sizeof(AST sizeof_tree, decl_context_t decl_cont
         // Ensure we have something already computed here, it might happen
         // because of 'sizeof' nature that the argument of the sizeof does not
         // have any type but sizeof itself always has 'size_t' type
-        if (ASTExprType(sizeof_expression) == NULL)
+        if (expression_get_type(sizeof_expression) == NULL)
         {
             check_for_expression(sizeof_expression, decl_context);
         }
 
-        t = ASTExprType(sizeof_expression);
+        t = expression_get_type(sizeof_expression);
         if (is_dependent_expr_type(t))
         {
             // Reevaluate this expression
             AST copied_tree = ast_copy_for_instantiation(sizeof_expression);
             check_for_expression(copied_tree, decl_context);
-            t = ASTExprType(copied_tree);
+            t = expression_get_type(copied_tree);
         }
     }
     else if (ASTType(sizeof_tree) == AST_SIZEOF_TYPEID)
     {
         AST type_id = ASTSon0(sizeof_tree);
-        t = ast_get_expression_type(type_id);
+        t = expression_get_type(type_id);
 
         // Update this type because it could be dependent
         t = update_type(t, decl_context, ASTFileName(sizeof_tree), ASTLine(sizeof_tree));
@@ -3448,7 +3545,7 @@ static literal_value_t evaluate_alignof(AST alignof_tree, decl_context_t decl_co
         // have any type but alignof itself always has 'size_t' type
         check_for_expression(alignof_expression, decl_context);
 
-        t = ASTExprType(alignof_expression);
+        t = expression_get_type(alignof_expression);
     }
     else if (ASTType(alignof_tree) == AST_GCC_ALIGNOF_TYPE)
     {
