@@ -211,6 +211,32 @@ namespace TL
                 }
         };
 
+        static void dependence_list_check(const ObjectList<FunctionTaskDependency>& function_task_param_list)
+        {
+            // More things could be checked
+            for (ObjectList<FunctionTaskDependency>::const_iterator it = function_task_param_list.begin();
+                    it != function_task_param_list.end();
+                    it++)
+            {
+                DependencyDirection direction(it->get_direction());
+                Expression expr(it->get_expression());
+
+                if (expr.is_id_expression())
+                {
+                    Symbol sym = expr.get_id_expression().get_computed_symbol();
+                    if (sym.is_parameter()
+                            && !sym.get_type().is_reference())
+                    {
+                        // Copy semantics of values in C/C++ lead to this fact
+                        running_error("%s: error: dependence expression '%s' "
+                                "only names a parameter, which by itself never defines a dependence\n",
+                                expr.get_ast().get_locus().c_str(),
+                                expr.prettyprint().c_str());
+                    }
+                }
+            }
+        }
+
         void Core::task_function_handler_pre(PragmaCustomConstruct construct)
         {
             // Generic warning so nobody gets fooled by what the compiler will do
@@ -338,6 +364,8 @@ namespace TL
                             construct.get_scope_link())
                         )
                     );
+
+            dependence_list_check(parameter_list);
 
             FunctionTaskTargetInfo target_info;
             // Now gather task information

@@ -187,8 +187,14 @@ namespace OpenMP
                 {
                     if (current_sym.get_parameter_position() < argument_list.size())
                     {
+                        // replace.add_replacement(current_sym,
+                        //        "(" + argument_list[current_sym.get_parameter_position()].prettyprint() + ")");
+
+                    	std::stringstream ss;
+                    	ss << "__tmp_" << current_sym.get_parameter_position();
+
                         replace.add_replacement(current_sym, 
-                                "(" + argument_list[current_sym.get_parameter_position()].prettyprint() + ")");
+                                ss.str());
                     }
                     else
                     {

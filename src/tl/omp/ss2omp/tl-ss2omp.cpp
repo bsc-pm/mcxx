@@ -109,16 +109,12 @@ namespace TL
 
             if (region.get_dimension_count() == 0)
             {
+                // Two cases: a scalar or a pointer if it is a scalar there is
+                // no need to state anything
                 if (parameters[i].is_pointer())
                 {
                     clause_args->append_with_separator(
                             "*" + parameter_decls[i].get_name().prettyprint(),
-                            ",");
-                }
-                else
-                {
-                    clause_args->append_with_separator(
-                            parameter_decls[i].get_name().prettyprint(),
                             ",");
                 }
             }
