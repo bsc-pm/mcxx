@@ -4422,6 +4422,15 @@ char is_integral_type(type_t* t)
             || (is_enumerated_type(t) && IS_C_LANGUAGE));
 }
 
+char is_signed_integral_type(type_t* t)
+{
+    return is_signed_char_type(t)
+        || is_signed_short_int_type(t)
+        || is_signed_int_type(t)
+        || is_signed_long_int_type(t)
+        || is_signed_long_long_int_type(t);
+}
+
 char is_signed_int_type(type_t *t)
 {
     t = advance_over_typedefs(t);

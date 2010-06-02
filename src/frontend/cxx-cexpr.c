@@ -43,6 +43,14 @@
 
 #define CVAL_HASH_SIZE (37)
 
+struct const_value_tag
+{
+    char sign : 1;
+    int num_bytes;
+    AST tree;
+    uint64_t value;
+};
+
 typedef
 struct const_value_hash_bucket_tag
 {
@@ -75,12 +83,22 @@ const_value_t* const_value_get(uint64_t value, int num_bytes, char sign)
     if (bucket == NULL)
     {
         bucket = calloc(1, sizeof(*bucket));
+        
+        bucket->constant_value = calloc(1, sizeof(*bucket->constant_value));
+        bucket->constant_value->value = value;
+        bucket->constant_value->sign = sign;
 
         bucket->next = _hash_pool[num_bytes][bucket_index];
+
         _hash_pool[num_bytes][bucket_index] = bucket;
     }
 
     return bucket->constant_value;
+}
+
+const_value_t* const_value_cast_to_bytes(const_value_t* val, int bytes, char sign)
+{
+    return const_value_get(val->value, bytes, sign);
 }
 
 const_value_t* const_value_get_zero(int num_bytes, char sign)
@@ -136,6 +154,37 @@ uint16_t const_value_cast_to_2(const_value_t* val)
 uint8_t const_value_cast_to_1(const_value_t* val)
 {
     return (uint8_t)(val->value & 0xff);
+}
+
+AST const_value_to_tree(const_value_t* v)
+{
+    if (v->tree == NULL)
+    {
+        if (v->value == 0)
+        {
+            // 0 is special as it is an octal
+            v->tree = ASTLeaf(AST_OCTAL_LITERAL, NULL, 0, uniquestr("0"));
+        }
+        else
+        {
+            char c[64] = { 0 };
+
+            if (v->sign)
+            {
+                snprintf(c, 63, "%lldll", (signed long long)v->value);
+            }
+            else
+            {
+                snprintf(c, 63, "%llullu", (unsigned long long)v->value);
+            }
+
+            c[63] = '\0';
+
+            v->tree = ASTLeaf(AST_DECIMAL_LITERAL, NULL, 0, uniquestr(c));
+        }
+    }
+
+    return v->tree;
 }
 
 #define OP(_opname) const_value_##opname

@@ -44,6 +44,8 @@ LIBMCXX_EXTERN uint32_t const_value_cast_to_4(const_value_t* val);
 LIBMCXX_EXTERN uint16_t const_value_cast_to_2(const_value_t* val);
 LIBMCXX_EXTERN uint8_t const_value_cast_to_1(const_value_t* val);
 
+LIBMCXX_EXTERN const_value_t* const_value_cast_to_bytes(const_value_t* val, int bytes, char sign);
+
 LIBMCXX_EXTERN AST const_value_to_tree(const_value_t* v);
 
 #define BINOP_DECL(_opname, _binop) \

@@ -26,11 +26,6 @@
 
 #include <stdint.h>
 
-typedef struct const_value_tag
-{
-    char sign : 1;
-    int num_bytes;
-    uint64_t value;
-} const_value_t;
+typedef struct const_value_tag const_value_t;
 
 #endif // CXX_CEXPR_DECLS_H

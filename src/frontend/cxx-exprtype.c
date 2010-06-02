@@ -591,6 +591,8 @@ char check_for_expression(AST expression, decl_context_t decl_context)
         case AST_EXPRESSION :
         case AST_CONSTANT_EXPRESSION :
         case AST_PARENTHESIZED_EXPRESSION :
+            // GCC extensions
+        case AST_GCC_EXTENSION_EXPR : 
             {
                 result = check_for_expression(ASTSon0(expression), decl_context);
 
@@ -1026,6 +1028,9 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                     ASTAttrSetValueType(expression, LANG_UNARY_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
 
                     expression_set_constant(expression, val);
+
+                    expression_set_is_value_dependent(expression, 
+                            expression_is_value_dependent(ASTSon0(expression)));
                 }
 
                 break;
@@ -1088,6 +1093,10 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                     ASTAttrSetValueType(expression, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
                     ASTAttrSetValueType(expression, LANG_RHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expression)));
 
+                    expression_set_is_value_dependent(expression,
+                            expression_is_value_dependent(ASTSon0(expression))
+                            || expression_is_value_dependent(ASTSon1(expression)));
+
                     expression_set_constant(expression, val);
                 }
 
@@ -1105,6 +1114,11 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                     ASTAttrSetValueType(expression, LANG_CONDITIONAL_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
                     ASTAttrSetValueType(expression, LANG_CONDITIONAL_TRUE_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expression)));
                     ASTAttrSetValueType(expression, LANG_CONDITIONAL_FALSE_EXPRESSION, tl_type_t, tl_ast(ASTSon2(expression)));
+
+                    expression_set_is_value_dependent(expression,
+                            expression_is_value_dependent(ASTSon0(expression))
+                            || expression_is_value_dependent(ASTSon1(expression))
+                            || expression_is_value_dependent(ASTSon2(expression)));
                 }
 
                 break;
@@ -1129,6 +1143,10 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                     ASTAttrSetValueType(expression, assig_op_attr[ASTType(expression)], tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_LHS_ASSIGNMENT, tl_type_t, tl_ast(ASTSon0(expression)));
                     ASTAttrSetValueType(expression, LANG_RHS_ASSIGNMENT, tl_type_t, tl_ast(ASTSon1(expression)));
+
+                    expression_set_is_value_dependent(expression,
+                            expression_is_value_dependent(ASTSon0(expression))
+                            || expression_is_value_dependent(ASTSon1(expression)));
                 }
                 break;
             }
@@ -1154,6 +1172,9 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                     ASTAttrSetValueType(expression, LANG_IS_COMMA_OP, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
                     ASTAttrSetValueType(expression, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expression)));
+
+                    expression_set_is_value_dependent(expression,
+                            expression_is_value_dependent(ASTSon0(expression)));
                 }
                 break;
             }
@@ -1196,16 +1217,6 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                     {
                         result = 0;
                     }
-                }
-                break;
-            }
-        case AST_GCC_EXTENSION_EXPR : 
-            {
-                result = check_for_expression(ASTSon0(expression), decl_context);
-                if (result)
-                {
-                    expression_set_type(expression, expression_get_type(ASTSon0(expression)));
-                    expression_set_is_lvalue(expression, expression_is_lvalue(ASTSon0(expression)));
                 }
                 break;
             }
@@ -4839,6 +4850,10 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                 {
                     *val = expression_get_constant(entry->expression_value);
                 }
+                if (expression_is_value_dependent(entry->expression_value))
+                {
+                    expression_set_is_value_dependent(expr, 1);
+                }
             }
             else if (entry->kind == SK_VARIABLE
                     || entry->kind == SK_FUNCTION)
@@ -4885,14 +4900,17 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                         expression_set_is_lvalue(expr, 0);
                     }
 
-                    if (val != NULL
-                            && !entry->entity_specs.is_parameter
+                    if (!entry->entity_specs.is_parameter
                             && (is_const_qualified_type(entry->type_information)
                                 || entry->entity_specs.is_template_argument)
-                            && entry->expression_value != NULL
-                            && expression_is_constant(entry->expression_value))
+                            && entry->expression_value != NULL)
                     {
-                        *val = expression_get_constant(entry->expression_value);
+                        if (val != NULL
+                                && expression_is_constant(entry->expression_value))
+                            *val = expression_get_constant(entry->expression_value);
+
+                        if (expression_is_value_dependent(entry->expression_value))
+                            expression_set_is_value_dependent(expr, 1);
                     }
                 }
                 else
@@ -4911,12 +4929,26 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, const_val
             }
             else if (entry->kind == SK_TEMPLATE_PARAMETER)
             {
+                // Mark this in the tree for further queries
+                set_as_template_parameter_name(expr, entry);
+
+                // Nontype template parameter
                 // Mark it as value dependent
                 expression_set_is_value_dependent(expr, 1);
 
-                // Nontype template parameter
-                expression_set_type(expr, get_user_defined_type(entry));
-                set_as_template_parameter_name(expr, entry);
+                // Template parameters may have a dependent type
+
+                if (!is_dependent_type(entry->type_information))
+                {
+                    expression_set_type(expr, entry->type_information);
+                    // Although this expression has a non-dependent type
+                    // we need to know it is value dependent
+                    expression_set_is_value_dependent(expr, 1);
+                }
+                else
+                {
+                    expression_set_type(expr, get_dependent_expr_type());
+                }
             }
             else if (entry->kind == SK_TEMPLATE)
             {
@@ -5046,14 +5078,17 @@ static char compute_qualified_id_type(AST expr, decl_context_t decl_context, con
                     expression_set_type(expr, get_dependent_expr_type());
                 }
 
-                if (val != NULL
-                        && !entry->entity_specs.is_parameter
+                if (!entry->entity_specs.is_parameter
                         && (is_const_qualified_type(entry->type_information)
                             || entry->entity_specs.is_template_argument)
-                        && entry->expression_value != NULL
-                        && expression_is_constant(entry->expression_value))
+                        && entry->expression_value != NULL)
                 {
-                    *val = expression_get_constant(entry->expression_value);
+                    if (val != NULL
+                            && expression_is_constant(entry->expression_value))
+                        *val = expression_get_constant(entry->expression_value);
+
+                    if (expression_is_value_dependent(entry->expression_value))
+                        expression_set_is_value_dependent(expr, 1);
                 }
             }
             else if (entry->kind == SK_ENUMERATOR)
@@ -5065,6 +5100,11 @@ static char compute_qualified_id_type(AST expr, decl_context_t decl_context, con
                         && expression_is_constant(entry->expression_value))
                 {
                     *val = expression_get_constant(entry->expression_value);
+                }
+
+                if (expression_is_value_dependent(entry->expression_value))
+                {
+                    expression_set_is_value_dependent(expr, 1);
                 }
             }
             else if (entry->kind == SK_FUNCTION)
@@ -5771,6 +5811,22 @@ static char check_for_conditional_expression(AST expression, decl_context_t decl
                  prettyprint_in_buffer(second_op), print_type_str(expression_get_type(second_op), decl_context),
                  prettyprint_in_buffer(third_op), print_type_str(expression_get_type(third_op), decl_context));
     }
+    else
+    {
+        if (expression_is_constant(first_op)
+                && expression_is_constant(second_op)
+                && expression_is_constant(third_op))
+        {
+            if (const_value_is_nonzero(expression_get_constant(first_op)))
+            {
+                expression_set_constant(expression, expression_get_constant(second_op));
+            }
+            else
+            {
+                expression_set_constant(expression, expression_get_constant(third_op));
+            }
+        }
+    }
 
     return result;
 }
@@ -6448,6 +6504,18 @@ static char check_for_explicit_type_conversion_common(type_t* type_info,
 
         expression_set_type(expr, type_info);
         expression_set_is_lvalue(expr, 0);
+
+        if (num_arguments == 1
+                && expression_is_constant(ASTSon1(expression_list))
+                && is_integral_type(type_info))
+        {
+            expression_set_constant(
+                    expr,
+                    const_value_cast_to_bytes(
+                        expression_get_constant(ASTSon1(expression_list)),
+                            type_get_size(type_info),
+                            /* sign */ is_signed_integral_type(type_info)));
+        }
     }
 
     return 1;
@@ -7656,6 +7724,16 @@ static char check_for_cast_expr(AST expr, AST type_id, AST casted_expression, de
                 is_lvalue = 1;
             }
 
+            if (expression_is_constant(casted_expression)
+                    && is_integral_type(declarator_type))
+            {
+                expression_set_constant(expr, 
+                        const_value_cast_to_bytes(
+                            expression_get_constant(casted_expression),
+                            type_get_size(declarator_type), 
+                            /* sign */ is_signed_integral_type(declarator_type)));
+            }
+
             expression_set_is_lvalue(expr, is_lvalue);
         }
         return 1;
@@ -7669,14 +7747,19 @@ static char check_for_cast_expr(AST expr, AST type_id, AST casted_expression, de
 
 static char check_for_comma_operand(AST expression, decl_context_t decl_context)
 {
-    char result = check_for_expression(ASTSon0(expression), decl_context )
-        && check_for_expression(ASTSon1(expression), decl_context );
+    char result = check_for_expression(ASTSon0(expression), decl_context)
+        && check_for_expression(ASTSon1(expression), decl_context);
 
     if (!result)
         return 0;
 
     expression_set_type(expression, expression_get_type(ASTSon1(expression)));
     expression_set_is_lvalue(expression, expression_is_lvalue(ASTSon1(expression)));
+
+    if (expression_is_constant(ASTSon1(expression)))
+    {
+        expression_set_constant(expression, expression_get_constant(ASTSon1(expression)));
+    }
 
     return 1;
 }
@@ -9713,17 +9796,50 @@ static char check_for_sizeof_expr(AST expr, decl_context_t decl_context)
     {
         type_t* t = expression_get_type(sizeof_expression);
 
-        if (!CURRENT_CONFIGURATION->disable_sizeof
-                && !is_dependent_expr_type(t)
-                && !type_is_runtime_sized(t))
+        if (!CURRENT_CONFIGURATION->disable_sizeof)
         {
-            _size_t type_size = type_get_size(t);
-            DEBUG_SIZEOF_CODE()
+            if (!is_dependent_expr_type(t)
+                    && !type_is_runtime_sized(t))
             {
-                fprintf(stderr, "EXPRTYPE: %s: '%s' yields a value of %zu\n",
-                        ast_location(expr),
-                        prettyprint_in_buffer(expr),
-                        type_size);
+                char is_const_expr = 0;
+                _size_t type_size = 0;
+
+                switch (ASTType(expr))
+                {
+                    case AST_SIZEOF:
+                        {
+                            is_const_expr = 1;
+                            type_size = type_get_size(t);
+                            break;
+                        }
+                    case AST_GCC_ALIGNOF:
+                        {
+                            is_const_expr = 1;
+                            type_size = type_get_alignment(t);
+                            break;
+                        }
+                    default: 
+                        ;
+                }
+
+
+                if (is_const_expr)
+                {
+                    expression_set_constant(expr, 
+                            const_value_get(type_size, /*bytes*/ 8, /* sign*/ 0));
+                }
+
+                DEBUG_SIZEOF_CODE()
+                {
+                    fprintf(stderr, "EXPRTYPE: %s: '%s' yields a value of %zu\n",
+                            ast_location(expr),
+                            prettyprint_in_buffer(expr),
+                            type_size);
+                }
+            }
+            else if (is_dependent_expr_type(t))
+            {
+                expression_set_is_value_dependent(expr, 1);
             }
         }
 
@@ -9759,7 +9875,33 @@ static char check_for_sizeof_typeid(AST expr, decl_context_t decl_context)
             if (!is_dependent_type(declarator_type)
                     && !type_is_runtime_sized(declarator_type))
             {
-                _size_t type_size = type_get_size(declarator_type);
+                char is_const_expr = 0;
+                _size_t type_size;
+
+                switch (ASTType(expr))
+                {
+                    case AST_SIZEOF_TYPEID:
+                        {
+                            is_const_expr = 1;
+                            type_size = type_get_size(declarator_type);
+                            break;
+                        }
+                    case AST_GCC_ALIGNOF_TYPE:
+                        {
+                            is_const_expr = 1;
+                            type_size = type_get_alignment(declarator_type);
+                            break;
+                        }
+                     default:
+                        ;
+                }
+
+                if (is_const_expr)
+                {
+                    expression_set_constant(
+                            expr, const_value_get(type_size, /* bytes */ 8, 0));
+                }
+
                 DEBUG_SIZEOF_CODE()
                 {
                     fprintf(stderr, "EXPRTYPE: %s: '%s' yields a value of %zu\n",
@@ -9767,9 +9909,15 @@ static char check_for_sizeof_typeid(AST expr, decl_context_t decl_context)
                             prettyprint_in_buffer(expr),
                             type_size);
                 }
+
+                // Set the type of the type_id
+                expression_set_type(type_id, declarator_type);
+                expression_set_is_lvalue(type_id, 0);
             }
-            expression_set_type(type_id, declarator_type);
-            expression_set_is_lvalue(type_id, 0);
+            else if (is_dependent_type(declarator_type))
+            {
+                expression_set_is_value_dependent(expr, 1);
+            }
         }
 
         expression_set_type(expr, get_size_t_type());
@@ -10045,6 +10193,17 @@ static char check_for_gcc_builtin_types_compatible_p(AST expression, decl_contex
     if (!check_for_type_id_tree(first_type, decl_context)
             || !check_for_type_id_tree(second_type, decl_context))
         return 0;
+
+    if (!is_dependent_type(expression_get_type(first_type))
+            && !is_dependent_type(expression_get_type(second_type)))
+    {
+        expression_set_constant(
+                expression,
+                equivalent_types(expression_get_type(first_type), 
+                    expression_get_type(second_type)) ?  
+                const_value_get_one(/*bytes*/ 1, /*signed*/ 0) 
+                : const_value_get_zero(/*bytes*/ 1,  /*signed*/ 0));
+    }
 
     expression_set_type(expression, get_signed_int_type());
     expression_set_is_lvalue(expression, 0);

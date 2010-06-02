@@ -206,6 +206,7 @@ LIBMCXX_EXTERN struct type_tag* complex_type_get_base_type(struct type_tag* t);
 
 // char, wchar_t, bool and any integer
 LIBMCXX_EXTERN char is_integral_type(struct type_tag* t); 
+LIBMCXX_EXTERN char is_signed_integral_type(struct type_tag* t);
 // A synonim in the standard
 LIBMCXX_EXTERN char is_integer_type(struct type_tag* t); 
 LIBMCXX_EXTERN char is_enumerated_type(struct type_tag* t);
