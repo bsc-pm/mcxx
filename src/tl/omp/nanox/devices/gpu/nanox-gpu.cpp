@@ -91,16 +91,9 @@ static void do_gpu_outline_replacements(
         Symbol sym = data_ref.get_base_symbol();
         Type type = sym.get_type();
 
-        bool points_an_array = false;
-
         if (type.is_array())
         {
             type = type.array_element().get_pointer_to();
-            points_an_array = true;
-        }
-        else
-        {
-            type = type.get_pointer_to();
         }
 
         // There are some problems with the typesystem currently
@@ -111,14 +104,12 @@ static void do_gpu_outline_replacements(
             // Shaping expressions ([e] a)  have a type of array but we do not
             // want the array but the related pointer
             type = data_ref.get_data_type();
-            points_an_array = true;
         }
         else if (data_ref.get_data_type().is_array())
         {
             // Array sections have a scalar type, but the data type will be array
             // See ticket #290
             type = data_ref.get_data_type().array_element().get_pointer_to();
-            points_an_array = true;
         }
 
         std::string copy_name = "_cp_" + sym.get_name();
@@ -144,17 +135,7 @@ static void do_gpu_outline_replacements(
             << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
             ;
 
-        replace_src.add_replacement(sym, "(*" + copy_name + ")");
-
-        // No replacement for arrays
-        if (points_an_array)
-        {
-            replace_src.add_replacement(sym, copy_name);
-        }
-        else
-        {
-            replace_src.add_replacement(sym, "(*" + copy_name + ")");
-        }
+	replace_src.add_replacement(sym, copy_name);
     }
 
     replaced_outline << replace_src.replace(body);
