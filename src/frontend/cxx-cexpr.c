@@ -156,6 +156,11 @@ uint8_t const_value_cast_to_1(const_value_t* val)
     return (uint8_t)(val->value & 0xff);
 }
 
+char const_value_is_signed(const_value_t* val)
+{
+    return val->sign;
+}
+
 AST const_value_to_tree(const_value_t* v)
 {
     if (v->tree == NULL)

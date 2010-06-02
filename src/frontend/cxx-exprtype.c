@@ -1493,11 +1493,27 @@ char check_for_expression(AST expression, decl_context_t decl_context)
     {
         if (expression_get_type(expression) != NULL)
         {
-            fprintf(stderr, "EXPRTYPE: Expression '%s' at '%s' has as computed type '%s' and it is a '%s'\n",
+            fprintf(stderr, "EXPRTYPE: Expression '%s' at '%s' has as computed type '%s' and it is a '%s'",
                     prettyprint_in_buffer(expression),
                     ast_location(expression),
                     print_declarator(expression_get_type(expression)),
                     expression_is_lvalue(expression) ? "lvalue" : "rvalue");
+
+            if (expression_is_constant(expression))
+            {
+                const_value_t* v = expression_get_constant(expression);
+                fprintf(stderr, " with a constant value of ");
+                if (const_value_is_signed(v))
+                {
+                    fprintf(stderr, " '%lld'", (long long int)const_value_cast_to_8(v));
+                }
+                else
+                {
+                    fprintf(stderr, " '%llu'", (unsigned long long int)const_value_cast_to_8(v));
+                }
+            }
+
+            fprintf(stderr, "\n");
         }
     }
 
@@ -8905,6 +8921,8 @@ char check_for_initializer_clause(AST initializer, decl_context_t decl_context, 
                     ASTAttrSetValueType(initializer, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(expression));
 
                     expression_set_type(initializer, initializer_expr_type);
+
+                    expression_set_constant(initializer, expression_get_constant(expression));
                 }
 
                 return result;
@@ -9315,6 +9333,8 @@ char check_for_initialization(AST initializer, decl_context_t decl_context, type
                 {
                     expression_set_type(initializer, expression_get_type(expression));
                     expression_set_is_lvalue(initializer, 0);
+                    expression_set_constant(initializer, 
+                            expression_get_constant(expression));
                 }
                 break;
             }
@@ -9327,6 +9347,8 @@ char check_for_initialization(AST initializer, decl_context_t decl_context, type
                 {
                     expression_set_type(initializer, expression_get_type(initializer_clause));
                     expression_set_is_lvalue(initializer, 0);
+                    expression_set_constant(initializer, 
+                            expression_get_constant(initializer_clause));
                 }
 
                 if (result 
@@ -9346,6 +9368,9 @@ char check_for_initialization(AST initializer, decl_context_t decl_context, type
                 {
                     expression_set_type(initializer, expression_get_type(parenthesized_initializer));
                     expression_set_is_lvalue(initializer, 0);
+
+                    expression_set_constant(initializer,
+                            expression_get_constant(parenthesized_initializer));
                 }
                 break;
             }
@@ -9359,11 +9384,26 @@ char check_for_initialization(AST initializer, decl_context_t decl_context, type
     {
         if (result)
         {
-            fprintf(stderr, "EXPRTYPE: Initializer '%s' has type '%s'\n",
+            fprintf(stderr, "EXPRTYPE: Initializer '%s' has type '%s'",
                     prettyprint_in_buffer(initializer),
                     expression_get_type(initializer) == NULL 
                     ? "<< no type >>" 
                     : print_declarator(expression_get_type(initializer)));
+
+            if (expression_is_constant(initializer))
+            {
+                const_value_t* v = expression_get_constant(initializer);
+                fprintf(stderr, " with a constant value of ");
+                if (const_value_is_signed(v))
+                {
+                    fprintf(stderr, " '%lld'", (long long int)const_value_cast_to_8(v));
+                }
+                else
+                {
+                    fprintf(stderr, " '%llu'", (unsigned long long int)const_value_cast_to_8(v));
+                }
+            }
+            fprintf(stderr, "\n");
         }
         else
         {
