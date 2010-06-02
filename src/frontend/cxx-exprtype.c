@@ -856,6 +856,9 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                     ASTAttrSetValueType(expression, LANG_IS_ARRAY_SUBSCRIPT, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_SUBSCRIPTED_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
                     ASTAttrSetValueType(expression, LANG_SUBSCRIPT_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expression)));
+
+                    expression_set_is_value_dependent(expression,
+                            expression_is_value_dependent(ASTSon0(expression)));
                 }
                 break;
             }
