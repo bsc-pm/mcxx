@@ -25,6 +25,7 @@
 #include <string.h>
 #include "cxx-typeenviron.h"
 #include "cxx-typeutils.h"
+#include "cxx-exprtype.h"
 #include "cxx-cexpr.h"
 #include "cxx-utils.h"
 
@@ -70,30 +71,18 @@ static void system_v_array_sizeof(type_t* t)
 {
     type_t* element_type = array_type_get_element_type(t);
     AST expr = array_type_get_array_size_expr(t);
-    decl_context_t decl_context = array_type_get_array_size_expr_context(t);
 
     _size_t element_size = type_get_size(element_type);
     _size_t element_align = type_get_alignment(element_type);
 
     if (expr != NULL
-            && is_constant_expression(expr, decl_context))
+            && expression_is_constant(expr))
     {
-        literal_value_t l = evaluate_constant_expression(expr, decl_context);
-        char valid = 0;
+        int size = const_value_cast_to_4(expression_get_constant(expr));
 
-        int size = literal_value_to_uint(l, &valid);
-
-        if (valid)
-        {
-            type_set_size(t, size * element_size);
-            type_set_alignment(t, element_align);
-            type_set_valid_size(t, 1);
-            return;
-        }
-        else
-        {
-            internal_error("Cannot compute the size of the array type '%s'!", print_declarator(t));
-        }
+        type_set_size(t, size * element_size);
+        type_set_alignment(t, element_align);
+        type_set_valid_size(t, 1);
     }
     else if (expr == NULL)
     {
@@ -145,19 +134,9 @@ static void system_v_field_layout(scope_entry_t* field,
 
         // Bitfields are very special, otherwise all this stuff would be
         // extremely easy
-        unsigned int bitsize = 0;
-        {
-            literal_value_t literal = evaluate_constant_expression(
-                    field->entity_specs.bitfield_expr,
-                    field->entity_specs.bitfield_expr_context);
-
-            char valid = 0;
-            bitsize = literal_value_to_uint(literal, &valid);
-            if (!valid)
-            {
-                internal_error("Invalid bitfield expression", 0);
-            }
-        }
+        unsigned int bitsize = const_value_cast_to_4(
+                expression_get_constant(field->entity_specs.bitfield_expr)
+                );
 
         if (!(*previous_was_bitfield))
         {
@@ -396,26 +375,18 @@ static void cxx_abi_array_sizeof(type_t* t)
 {
     type_t* element_type = array_type_get_element_type(t);
     AST expr = array_type_get_array_size_expr(t);
-    decl_context_t decl_context = array_type_get_array_size_expr_context(t);
 
     _size_t element_size = type_get_size(element_type);
     _size_t element_align = type_get_alignment(element_type);
 
     if (expr != NULL
-            && is_constant_expression(expr, decl_context))
+            && expression_is_constant(expr))
     {
-        literal_value_t l = evaluate_constant_expression(expr, decl_context);
-        char valid = 0;
+        int size = const_value_cast_to_4(expression_get_constant(expr));
 
-        int size = literal_value_to_uint(l, &valid);
-
-        if (valid)
-        {
-            type_set_size(t, size * element_size);
-            type_set_alignment(t, element_align);
-            type_set_valid_size(t, 1);
-            return;
-        }
+        type_set_size(t, size * element_size);
+        type_set_alignment(t, element_align);
+        type_set_valid_size(t, 1);
     }
     internal_error("Cannot compute the size of the array type '%s'!", print_declarator(t));
 }
@@ -898,19 +869,8 @@ static void cxx_abi_lay_bitfield(type_t* t UNUSED_PARAMETER,
         scope_entry_t* member, 
         layout_info_t* layout_info)
 {
-    unsigned int bitsize = 0;
-    {
-        literal_value_t literal = evaluate_constant_expression(
-                member->entity_specs.bitfield_expr,
-                member->entity_specs.bitfield_expr_context);
-
-        char valid = 0;
-        bitsize = literal_value_to_uint(literal, &valid);
-        if (!valid)
-        {
-            internal_error("Invalid bitfield expression", 0);
-        }
-    }
+    unsigned int bitsize 
+        = const_value_cast_to_4(expression_get_constant(member->entity_specs.bitfield_expr));
 
     _size_t size_of_member = type_get_size(member->type_information);
     _size_t initial_bit = 0;

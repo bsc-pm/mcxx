@@ -510,24 +510,21 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 if (new_member->entity_specs.is_bitfield)
                 {
                     // Evaluate the bitfield expression
-                    if (is_constant_expression(new_member->entity_specs.bitfield_expr, context_of_being_instantiated))
+                    if (expression_is_constant(new_member->entity_specs.bitfield_expr))
                     {
-                        literal_value_t literal =
-                            evaluate_constant_expression(new_member->entity_specs.bitfield_expr,
-                                    context_of_being_instantiated);
-                        
-                        if (literal_value_is_zero(literal)
-                                || literal_value_is_negative(literal))
+                        if (const_value_is_zero(
+                                    const_value_gt(
+                                        expression_get_constant(new_member->entity_specs.bitfield_expr),
+                                        const_value_get_zero(/* bytes*/ 4, /* sign */ 1))))
                         {
-                            char valid = 0;
-                            int val = literal_value_to_int(literal, &valid);
-
                             running_error("%s:%d: error: invalid bitfield of size '%d'",
-                                new_member->file, new_member->line, val);
+                                    new_member->file, new_member->line, 
+                                    const_value_cast_to_4(
+                                        expression_get_constant(new_member->entity_specs.bitfield_expr)));
                         }
 
-                        new_member->entity_specs.bitfield_expr =
-                            tree_from_literal_value(literal);
+                        new_member->entity_specs.bitfield_expr = const_value_to_tree(
+                                expression_get_constant(new_member->entity_specs.bitfield_expr));
                         new_member->entity_specs.bitfield_expr_context =
                             context_of_being_instantiated;
                     }
@@ -769,11 +766,10 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                                         new_template_arg->expression = template_arg->expression;
 
-                                        if (is_constant_expression(template_arg->expression, context_of_being_instantiated))
+                                        if (expression_is_constant(template_arg->expression))
                                         {
-                                            literal_value_t literal_value = evaluate_constant_expression(template_arg->expression, 
-                                                    context_of_being_instantiated);
-                                            new_template_arg->expression = tree_from_literal_value(literal_value);
+                                            new_template_arg->expression = 
+                                                const_value_to_tree(expression_get_constant(template_arg->expression));
                                         }
 
                                         new_template_arg->expression_context = context_of_being_instantiated;
@@ -1008,12 +1004,9 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                         param_symbol->entity_specs.is_template_argument = 1;
                         param_symbol->type_information = current_deduction->deduced_parameters[0]->type;
 
-                        // Fold it, as makes things easier
-                        literal_value_t literal_value = evaluate_constant_expression(current_deduction->deduced_parameters[0]->expression,
-                                current_deduction->deduced_parameters[0]->decl_context);
-                        AST evaluated_tree = tree_from_literal_value(literal_value);
-                        AST fake_initializer = evaluated_tree;
-                        param_symbol->expression_value = fake_initializer;
+                        param_symbol->expression_value = 
+                            const_value_to_tree(
+                                    expression_get_constant(current_deduction->deduced_parameters[0]->expression));
                         break;
                     }
                 default:
@@ -1388,18 +1381,14 @@ void instantiate_template_function(scope_entry_t* entry,
                     injected_nontype->entity_specs.is_template_argument = 1;
                     injected_nontype->type_information = template_argument->type;
 
-
-                    // Fold it, as makes things easier
-                    literal_value_t literal_value = evaluate_constant_expression(template_argument->expression,
-                            template_argument->expression_context);
-                    AST evaluated_tree = tree_from_literal_value(literal_value);
-                    AST fake_initializer = evaluated_tree;
-                    injected_nontype->expression_value = fake_initializer;
+                    injected_nontype->expression_value =
+                        const_value_to_tree(
+                                expression_get_constant(template_argument->expression));
 
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "Injecting parameter '%s' with expression '%s'\n", injected_nontype->symbol_name, 
-                                prettyprint_in_buffer(fake_initializer));
+                                prettyprint_in_buffer(injected_nontype->expression_value));
                     }
                     break;
                 }

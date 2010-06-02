@@ -28,7 +28,7 @@
 
 typedef struct const_value_tag
 {
-    char sign : 0;
+    char sign : 1;
     int num_bytes;
     uint64_t value;
 } const_value_t;

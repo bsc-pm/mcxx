@@ -35,17 +35,7 @@ MCXX_BEGIN_DECLS
 
 /*
  * Computes the type of an expression
- *
- * Only implemented for C
- *
  */
-LIBMCXX_EXTERN struct type_tag* decimal_literal_type(AST expr);
-LIBMCXX_EXTERN struct type_tag* character_literal_type(AST expr);
-LIBMCXX_EXTERN struct type_tag* floating_literal_type(AST expr);
-LIBMCXX_EXTERN struct type_tag* string_literal_type(AST expr);
-
-LIBMCXX_EXTERN struct type_tag *compute_expression_type(AST expr, decl_context_t decl_context, 
-        char *is_lvalue) __attribute__((deprecated));
 
 LIBMCXX_EXTERN AST advance_expression_nest(AST expr);
 LIBMCXX_EXTERN AST advance_expression_nest_flags(AST expr, char advance_parentheses);

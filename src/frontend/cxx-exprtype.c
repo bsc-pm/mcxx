@@ -46,6 +46,7 @@
 // The policy in this file is avoiding (except for queries) to dynamically allocate things.
 // If needed raise the defined limits.
 
+
 static const char builtin_prefix[] = "__builtin_";
 
 static unsigned long long int _bytes_used_expr_check = 0;
@@ -162,13 +163,6 @@ scope_entry_list_t* get_entry_list_from_builtin_operator_set(builtin_operators_s
         return NULL;
     else 
         return (&(builtin_operators->entry_list[builtin_operators->num_builtins - 1]));
-}
-
-type_t *compute_expression_type(AST expr UNUSED_PARAMETER,
-        decl_context_t decl_context UNUSED_PARAMETER, 
-        char *is_lvalue UNUSED_PARAMETER)
-{
-    internal_error("Deprecated function, do not call it", 0);
 }
 
 static type_t* lvalue_ref(type_t* t)
@@ -481,10 +475,14 @@ scope_entry_list_t* get_member_function_of_class_type(type_t* class_type,
     }
 }
 
-// Typechecking function
-//
-static char check_for_qualified_id(AST expr, decl_context_t decl_context, decl_context_t* symbol_scope);
-static char check_for_symbol(AST expr, decl_context_t decl_context, decl_context_t* symbol_scope);
+static type_t* decimal_literal_type(AST expr, const_value_t** val);
+static type_t* character_literal_type(AST expr, const_value_t** val);
+static type_t* floating_literal_type(AST expr);
+static type_t* string_literal_type(AST expr);
+
+// Typechecking functions
+static char check_for_qualified_id(AST expr, decl_context_t decl_context, const_value_t** val);
+static char check_for_symbol(AST expr, decl_context_t decl_context, const_value_t** val);
 static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context);
 static char check_for_function_call(AST expr, decl_context_t decl_context);
 static char check_for_explicit_type_conversion(AST expr, decl_context_t decl_context);
@@ -499,8 +497,8 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context);
 static char check_for_new_type_id_expr(AST new_expr, decl_context_t decl_context);
 static char check_for_delete_expression(AST expression, decl_context_t decl_context);
 static char check_for_initializer_list(AST initializer_list, decl_context_t decl_context, type_t* declared_type);
-static char check_for_binary_expression(AST expression, decl_context_t decl_context);
-static char check_for_unary_expression(AST expression, decl_context_t decl_context);
+static char check_for_binary_expression(AST expression, decl_context_t decl_context, const_value_t** val);
+static char check_for_unary_expression(AST expression, decl_context_t decl_context, const_value_t** val);
 static char check_for_template_id_expr(AST expr, decl_context_t decl_context);
 static char check_for_templated_member_access(AST templated_member_access, decl_context_t decl_context, char is_arrow);
 static char check_for_postincrement(AST expr, decl_context_t decl_context);
@@ -617,7 +615,9 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 ASTAttrSetValueType(expression, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(expression, LANG_IS_INTEGER_LITERAL, tl_type_t, tl_bool(1));
 
-                expression_set_type(expression, decimal_literal_type(expression));
+                const_value_t* val = NULL;
+                expression_set_type(expression, decimal_literal_type(expression, &val));
+                expression_set_constant(expression, val);
                 expression_set_is_lvalue(expression, 0);
 
                 result = 1;
@@ -642,6 +642,20 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 expression_set_type(expression, get_bool_type());
                 expression_set_is_lvalue(expression, 0);
 
+                const char* literal = ASTText(expression);
+
+                const_value_t* val = NULL;
+                if (strcmp(literal, "true") == 0)
+                {
+                    val = const_value_get_one(type_get_size(get_bool_type()), 0);
+                }
+                else
+                {
+                    val = const_value_get_zero(type_get_size(get_bool_type()), 0);
+                }
+
+                expression_set_constant(expression, val);
+
                 result = 1;
                 break;
             }
@@ -650,8 +664,10 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 ASTAttrSetValueType(expression, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(expression, LANG_IS_CHARACTER_LITERAL, tl_type_t, tl_bool(1));
 
-                expression_set_type(expression, character_literal_type(expression));
+                const_value_t *val = NULL;
+                expression_set_type(expression, character_literal_type(expression, &val));
                 expression_set_is_lvalue(expression, 0);
+                expression_set_constant(expression, val);
 
                 result = 1;
                 break;
@@ -695,8 +711,8 @@ char check_for_expression(AST expression, decl_context_t decl_context)
             }
         case AST_QUALIFIED_ID :
             {
-                decl_context_t symbol_decl_context;
-                result = check_for_qualified_id(expression, decl_context, &symbol_decl_context);
+                const_value_t* val = NULL;
+                result = check_for_qualified_id(expression, decl_context, &val);
 
                 if (result)
                 {
@@ -718,6 +734,8 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                     }
 
                     ASTAttrSetValueType(expression, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(unqualified_id));
+
+                    expression_set_constant(expression, val);
                 }
 
                 break;
@@ -743,8 +761,8 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 //  by 'typename' keyword which syntactically disambiguates the
                 //  whole declaration
                 //
-                decl_context_t symbol_decl_context;
-                result = check_for_qualified_id(expression, decl_context, &symbol_decl_context);
+                const_value_t* val = NULL;
+                result = check_for_qualified_id(expression, decl_context, &val);
                 if (result)
                 {
                     AST global_qualif = ASTSon0(expression);
@@ -765,6 +783,8 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                     }
 
                     ASTAttrSetValueType(expression, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(unqualified_id));
+
+                    expression_set_constant(expression, val);
                 }
 
                 break;
@@ -772,14 +792,16 @@ char check_for_expression(AST expression, decl_context_t decl_context)
         case AST_SYMBOL :
         case AST_OPERATOR_FUNCTION_ID :
             {
-                decl_context_t symbol_decl_context;
-                result = check_for_symbol(expression, decl_context, &symbol_decl_context);
+                const_value_t* val = NULL;
+                result = check_for_symbol(expression, decl_context, &val);
 
                 if (result)
                 {
                     ASTAttrSetValueType(expression, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_IS_UNQUALIFIED_ID, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(expression));
+
+                    expression_set_constant(expression, val);
                 }
 
                 break;
@@ -787,9 +809,8 @@ char check_for_expression(AST expression, decl_context_t decl_context)
         case AST_DESTRUCTOR_ID :
         case AST_DESTRUCTOR_TEMPLATE_ID :
             {
-                decl_context_t symbol_decl_context;
                 AST symbol = ASTSon0(expression);
-                result = check_for_symbol(symbol, decl_context, &symbol_decl_context);
+                result = check_for_symbol(symbol, decl_context, NULL);
                 break;
             }
         case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
@@ -993,7 +1014,8 @@ char check_for_expression(AST expression, decl_context_t decl_context)
         case AST_NOT_OP :
         case AST_COMPLEMENT_OP :
             {
-                result = check_for_unary_expression(expression, decl_context);
+                const_value_t* val = NULL;
+                result = check_for_unary_expression(expression, decl_context, &val);
 
                 if (result)
                 {
@@ -1002,6 +1024,8 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                             unary_expression_attr[ASTType(expression)], tl_type_t, tl_bool(1));
 
                     ASTAttrSetValueType(expression, LANG_UNARY_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
+
+                    expression_set_constant(expression, val);
                 }
 
                 break;
@@ -1054,7 +1078,8 @@ char check_for_expression(AST expression, decl_context_t decl_context)
         case AST_LOGICAL_AND :
         case AST_LOGICAL_OR :
             {
-                result = check_for_binary_expression(expression, decl_context);
+                const_value_t* val = NULL;
+                result = check_for_binary_expression(expression, decl_context, &val);
 
                 if (result)
                 {
@@ -1062,6 +1087,8 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                     ASTAttrSetValueType(expression, binary_expression_attr[ASTType(expression)], tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
                     ASTAttrSetValueType(expression, LANG_RHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expression)));
+
+                    expression_set_constant(expression, val);
                 }
 
                 break;
@@ -1094,7 +1121,7 @@ char check_for_expression(AST expression, decl_context_t decl_context)
         case AST_XOR_ASSIGNMENT :
         case AST_MOD_ASSIGNMENT :
             {
-                result = check_for_binary_expression(expression, decl_context);
+                result = check_for_binary_expression(expression, decl_context, NULL);
 
                 if (result)
                 {
@@ -1505,7 +1532,7 @@ char check_for_expression(AST expression, decl_context_t decl_context)
 }
 
 // Given a decimal literal computes the type due to its lexic form
-type_t* decimal_literal_type(AST expr)
+static type_t* decimal_literal_type(AST expr, const_value_t** val)
 {
     const char *literal = ASTText(expr);
     const char *last = literal + strlen(literal) - 1;
@@ -1546,16 +1573,45 @@ type_t* decimal_literal_type(AST expr)
         case 0 :
             {
                 result = ((is_unsigned == 0 ) ? get_signed_int_type() : get_unsigned_int_type());
+
+                if (is_unsigned)
+                {
+                    result = get_unsigned_int_type();
+                    *val = const_value_get(strtoul(literal, NULL, 0), type_get_size(result), /*sign*/ 0);
+                }
+                else
+                {
+                    result = get_signed_int_type();
+                    *val = const_value_get(strtol(literal, NULL, 0), type_get_size(result), /* sign*/ 1);
+                }
                 break;
             }
         case 1 : 
             {
-                result = ((is_unsigned == 0) ? get_signed_long_int_type() : get_unsigned_long_int_type());
+                if (is_unsigned)
+                {
+                    result = get_unsigned_long_int_type();
+                    *val = const_value_get(strtoul(literal, NULL, 0), type_get_size(result), 0);
+                }
+                else
+                {
+                    result = get_signed_long_int_type();
+                    *val = const_value_get(strtol(literal, NULL, 0), type_get_size(result), 1);
+                }
                 break;
             }
         default :
             {
-                result = ((is_unsigned == 0) ? get_signed_long_long_int_type() : get_unsigned_long_long_int_type());
+                if (is_unsigned)
+                {
+                    result = get_unsigned_long_long_int_type();
+                    *val = const_value_get(strtoull(literal, NULL, 0), type_get_size(result), 0);
+                }
+                else
+                {
+                    result = get_signed_long_long_int_type();
+                    *val = const_value_get(strtoll(literal, NULL, 0), type_get_size(result), 1);
+                }
                 break;
             }
     }
@@ -1563,6 +1619,8 @@ type_t* decimal_literal_type(AST expr)
     if (is_complex)
     {
         result = get_complex_type(result);
+        // Not a constant, at the moment
+        *val = NULL;
     }
 
     // Special case for zero in C++
@@ -1579,7 +1637,7 @@ type_t* decimal_literal_type(AST expr)
 }
 
 // Given a character literal computes the type due to its lexic form
-type_t *character_literal_type(AST expr)
+static type_t *character_literal_type(AST expr, const_value_t** val)
 {
     const char *literal = ASTText(expr);
 
@@ -1587,17 +1645,100 @@ type_t *character_literal_type(AST expr)
     if (*literal != 'L')
     {
         result = get_char_type();
+
+        // literal[0] is the quote
+        uint64_t value = 0;
+        if (literal[1] != '\\')
+        {
+            value = literal[1];
+        }
+        else
+        {
+            switch (literal[2])
+            {
+                case '\'': { value = literal[2]; break; }
+                case 'a' : { value = '\a'; break; }
+                case 'b' : { value = '\b'; break; }
+                case 'e' : { value = '\e'; break; }
+                case 'f' : { value = '\f'; break; }
+                case 'n' : { value = '\n'; break; }
+                case 'r' : { value = '\r'; break; }
+                case 't' : { value = '\t'; break; }
+                case 'v' : { value = '\v'; break; }
+                case '\\': { value = '\\'; break; }
+                case 0: 
+                case 1: 
+                case 2: 
+                case 3: 
+                case 4: 
+                case 5: 
+                case 6: 
+                case 7: 
+                       {
+                           int i;
+                           char c[32] = { 0 };
+                           // Copy until the quote
+                           for (i = 2; literal[i] != '\'' && literal[i] != '\0' ; i++)
+                           {
+                               c[i - 2] = literal[i];
+                           }
+
+                           char *err = NULL;
+                           value = strtol(c, &err, 8);
+
+                           if (!(*c != '\0'
+                                       && *err == '\0'))
+                           {
+                               running_error("%s: error: %s does not seem a valid character literal\n", 
+                                       ast_location(expr),
+                                       prettyprint_in_buffer(expr));
+                           }
+                           break;
+                       }
+                case 'x':
+                        {
+                            int i;
+                            char c[32] = { 0 };
+                            // Copy until the quote
+                            // Note literal_value is '\x000' so the number
+                            // starts at literal_value[3]
+                            for (i = 3; literal[i] != '\'' && literal[i] != '\0' ; i++)
+                            {
+                                c[i - 3] = literal[i];
+                            }
+
+                            char * err = NULL;
+                            value = strtol(c, &err, 16);
+
+                            if (!(*c != '\0'
+                                        && *err == '\0'))
+                            {
+                                running_error("%s: error: %s does not seem a valid character literal\n", 
+                                        ast_location(expr),
+                                        prettyprint_in_buffer(expr));
+                            }
+                            break;
+                        }
+                default:
+                    internal_error("Unhandled char literal '%s'", literal);
+            }
+        }
+
+        // TODO - We need to know if char is signed or not
+        *val = const_value_get(value, type_get_size(get_char_type()), /* sign */ 0);
     }
     else
     {
         result = get_wchar_t_type();
+        // We do not evaluate wide chars as we need something more powerful
+        // here
     }
 
     return result;
 }
 
 // Given a floating literal computes the type due to its lexic form
-type_t *floating_literal_type(AST expr)
+static type_t *floating_literal_type(AST expr)
 {
     const char *literal = ASTText(expr);
     const char *last = literal + strlen(literal) - 1;
@@ -1837,7 +1978,7 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
     ERROR_CONDITION(num_of_strings_seen == 0, "Empty string literal '%s'\n", ASTText(expr));
 }
 
-type_t *string_literal_type(AST expr)
+static type_t *string_literal_type(AST expr)
 {
     char is_wchar = 0;
     int length = 0;
@@ -1859,12 +2000,12 @@ type_t *string_literal_type(AST expr)
 
 struct bin_operator_funct_type_t
 {
-    type_t* (*func)(AST expr, AST lhs, AST rhs, decl_context_t);
+    type_t* (*func)(AST expr, AST lhs, AST rhs, decl_context_t, const_value_t**);
 };
 
 struct unary_operator_funct_type_t
 {
-    type_t* (*func)(AST expr, AST operand, decl_context_t);
+    type_t* (*func)(AST expr, AST operand, decl_context_t, const_value_t**);
 };
 
 #define OPERATOR_FUNCT_INIT(_x) { .func = _x }
@@ -2423,7 +2564,7 @@ static type_t* operator_bin_plus_builtin_result(type_t** lhs, type_t** rhs)
 }
 
 static
-type_t* compute_bin_operator_add_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context)
+type_t* compute_bin_operator_add_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context, const_value_t** val)
 {
     type_t* lhs_type = expression_get_type(lhs);
     type_t* rhs_type = expression_get_type(rhs);
@@ -2443,6 +2584,16 @@ type_t* compute_bin_operator_add_type(AST expr, AST lhs, AST rhs, decl_context_t
         if (both_operands_are_arithmetic(no_ref(lhs_type), no_ref(rhs_type)))
         {
             computed_type = compute_arithmetic_builtin_bin_op(no_ref(lhs_type), no_ref(rhs_type));
+
+            if (val != NULL
+                    && computed_type != NULL
+                    && both_operands_are_integral(no_ref(lhs_type), no_ref(rhs_type))
+                    && expression_is_constant(lhs)
+                    && expression_is_constant(rhs))
+            {
+                *val = const_value_add(expression_get_constant(lhs),
+                        expression_get_constant(rhs));
+            }
         }
         else if (is_pointer_arithmetic(no_ref(lhs_type), no_ref(rhs_type)))
         {
@@ -2556,7 +2707,7 @@ type_t* compute_bin_operator_only_arithmetic_types(AST expr, AST lhs, AST rhs, A
 }
 
 static
-type_t* compute_bin_operator_mul_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context)
+type_t* compute_bin_operator_mul_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context, const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -2565,11 +2716,23 @@ type_t* compute_bin_operator_mul_type(AST expr, AST lhs, AST rhs, decl_context_t
                 ASTLeaf(AST_MULT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    return compute_bin_operator_only_arithmetic_types(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_only_arithmetic_types(expr, lhs, rhs, operation_tree, decl_context);
+
+    if (result != NULL
+            && val != NULL
+            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+                no_ref(expression_get_type(rhs)))
+            && expression_is_constant(lhs)
+            && expression_is_constant(rhs))
+    {
+        *val = const_value_mul(expression_get_constant(lhs), expression_get_constant(rhs));
+    }
+
+    return result;
 }
 
 static
-type_t* compute_bin_operator_div_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context)
+type_t* compute_bin_operator_div_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context, const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -2578,7 +2741,19 @@ type_t* compute_bin_operator_div_type(AST expr, AST lhs, AST rhs, decl_context_t
                 ASTLeaf(AST_DIV_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    return compute_bin_operator_only_arithmetic_types(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_only_arithmetic_types(expr, lhs, rhs, operation_tree, decl_context);
+
+    if (result != NULL
+            && val != NULL
+            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+                no_ref(expression_get_type(rhs)))
+            && expression_is_constant(lhs)
+            && expression_is_constant(rhs))
+    {
+        *val = const_value_div(expression_get_constant(lhs), expression_get_constant(rhs));
+    }
+
+    return result;
 }
 
 static char operator_bin_only_integer_pred(type_t* lhs, type_t* rhs)
@@ -2647,7 +2822,7 @@ type_t* compute_bin_operator_only_integer_types(AST expr, AST lhs, AST rhs, AST 
 }
 
 static
-type_t* compute_bin_operator_mod_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context)
+type_t* compute_bin_operator_mod_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context, const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -2656,7 +2831,18 @@ type_t* compute_bin_operator_mod_type(AST expr, AST lhs, AST rhs, decl_context_t
                 ASTLeaf(AST_MOD_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    return compute_bin_operator_only_integer_types(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_only_integer_types(expr, lhs, rhs, operation_tree, decl_context);
+
+    if (result != NULL
+            && val != NULL
+            && both_operands_are_integral(expression_get_type(lhs), expression_get_type(rhs))
+            && expression_is_constant(lhs)
+            && expression_is_constant(rhs))
+    {
+        *val = const_value_mod(expression_get_constant(lhs), expression_get_constant(rhs));
+    }
+
+    return result;
 }
 
 static char operator_bin_sub_builtin_pred(type_t* lhs, type_t* rhs)
@@ -2698,7 +2884,7 @@ static type_t* operator_bin_sub_builtin_result(type_t** lhs, type_t** rhs)
     return NULL;
 }
 
-static type_t* compute_bin_operator_sub_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context)
+static type_t* compute_bin_operator_sub_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context, const_value_t** val)
 {
     type_t* lhs_type = expression_get_type(lhs);
     type_t* rhs_type = expression_get_type(rhs);
@@ -2718,6 +2904,14 @@ static type_t* compute_bin_operator_sub_type(AST expr, AST lhs, AST rhs, decl_co
         if (both_operands_are_arithmetic(no_ref(lhs_type), no_ref(rhs_type)))
         {
             computed_type = compute_arithmetic_builtin_bin_op(no_ref(lhs_type), no_ref(rhs_type));
+            if (computed_type != NULL
+                    && val != NULL
+                    && both_operands_are_integral(no_ref(lhs_type), no_ref(rhs_type))
+                    && expression_is_constant(lhs)
+                    && expression_is_constant(rhs))
+            {
+                *val = const_value_sub(expression_get_constant(lhs), expression_get_constant(rhs));
+            }
         }
         else if (is_pointer_and_integral_type(no_ref(lhs_type), no_ref(rhs_type)))
         {
@@ -2834,7 +3028,7 @@ static type_t* compute_bin_operator_only_integral_lhs_type(AST expr, AST lhs, AS
             expr, lhs, rhs, builtins, decl_context, &selected_operator);
 }
 
-static type_t* compute_bin_operator_shl_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context)
+static type_t* compute_bin_operator_shl_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context, const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -2843,10 +3037,22 @@ static type_t* compute_bin_operator_shl_type(AST expr, AST lhs, AST rhs, decl_co
                 ASTLeaf(AST_LEFT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    return compute_bin_operator_only_integral_lhs_type(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_only_integral_lhs_type(expr, lhs, rhs, operation_tree, decl_context);
+
+    if (result != NULL
+            && val != NULL
+            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+                no_ref(expression_get_type(rhs)))
+            && expression_is_constant(lhs)
+            && expression_is_constant(rhs))
+    {
+        *val = const_value_shl(expression_get_constant(lhs), expression_get_constant(rhs));
+    }
+
+    return result;
 }
 
-static type_t* compute_bin_operator_shr_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context)
+static type_t* compute_bin_operator_shr_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context, const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -2855,7 +3061,19 @@ static type_t* compute_bin_operator_shr_type(AST expr, AST lhs, AST rhs, decl_co
                 ASTLeaf(AST_RIGHT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    return compute_bin_operator_only_integral_lhs_type(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_only_integral_lhs_type(expr, lhs, rhs, operation_tree, decl_context);
+
+    if (result != NULL
+            && val != NULL
+            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+                no_ref(expression_get_type(rhs)))
+            && expression_is_constant(lhs)
+            && expression_is_constant(rhs))
+    {
+        *val = const_value_shr(expression_get_constant(lhs), expression_get_constant(rhs));
+    }
+
+    return result;
 }
 
 static char operator_bin_arithmetic_pointer_or_enum_pred(type_t* lhs, type_t* rhs)
@@ -2970,7 +3188,8 @@ static type_t* compute_bin_operator_relational(AST expr, AST lhs, AST rhs, AST o
             expr, lhs, rhs, builtins, decl_context, &selected_operator);
 }
 
-static type_t* compute_bin_operator_lower_equal_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context)
+static type_t* compute_bin_operator_lower_equal_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context, 
+        const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -2979,10 +3198,22 @@ static type_t* compute_bin_operator_lower_equal_type(AST expr, AST lhs, AST rhs,
                 ASTLeaf(AST_LESS_OR_EQUAL_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    return compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context);
+
+    if (result != NULL
+            && val != NULL
+            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+                no_ref(expression_get_type(rhs)))
+            && expression_is_constant(lhs)
+            && expression_is_constant(rhs))
+    {
+        *val = const_value_lte(expression_get_constant(lhs), expression_get_constant(rhs));
+    }
+
+    return result;
 }
 
-static type_t* compute_bin_operator_lower_than_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context)
+static type_t* compute_bin_operator_lower_than_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context, const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -2991,10 +3222,22 @@ static type_t* compute_bin_operator_lower_than_type(AST expr, AST lhs, AST rhs, 
                 ASTLeaf(AST_LOWER_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    return compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context);
+
+    if (result != NULL
+            && val != NULL
+            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+                no_ref(expression_get_type(rhs)))
+            && expression_is_constant(lhs)
+            && expression_is_constant(rhs))
+    {
+        *val = const_value_lt(expression_get_constant(lhs), expression_get_constant(rhs));
+    }
+
+    return result;
 }
 
-static type_t* compute_bin_operator_greater_equal_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context)
+static type_t* compute_bin_operator_greater_equal_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context, const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -3003,10 +3246,22 @@ static type_t* compute_bin_operator_greater_equal_type(AST expr, AST lhs, AST rh
                 ASTLeaf(AST_GREATER_OR_EQUAL_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    return compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context);
+
+    if (result != NULL
+            && val != NULL
+            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+                no_ref(expression_get_type(rhs)))
+            && expression_is_constant(lhs)
+            && expression_is_constant(rhs))
+    {
+        *val = const_value_gte(expression_get_constant(lhs), expression_get_constant(rhs));
+    }
+
+    return result;
 }
 
-static type_t* compute_bin_operator_greater_than_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context)
+static type_t* compute_bin_operator_greater_than_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context, const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -3015,10 +3270,22 @@ static type_t* compute_bin_operator_greater_than_type(AST expr, AST lhs, AST rhs
                 ASTLeaf(AST_GREATER_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    return compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context);
+
+    if (result != NULL
+            && val != NULL
+            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+                no_ref(expression_get_type(rhs)))
+            && expression_is_constant(lhs)
+            && expression_is_constant(rhs))
+    {
+        *val = const_value_gte(expression_get_constant(lhs), expression_get_constant(rhs));
+    }
+
+    return result;
 }
 
-static type_t* compute_bin_operator_different_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context)
+static type_t* compute_bin_operator_different_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context, const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -3027,10 +3294,22 @@ static type_t* compute_bin_operator_different_type(AST expr, AST lhs, AST rhs, d
                 ASTLeaf(AST_DIFFERENT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    return compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context);
+
+    if (result != NULL
+            && val != NULL
+            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+                no_ref(expression_get_type(rhs)))
+            && expression_is_constant(lhs)
+            && expression_is_constant(rhs))
+    {
+        *val = const_value_neq(expression_get_constant(lhs), expression_get_constant(rhs));
+    }
+
+    return result;
 }
 
-static type_t* compute_bin_operator_equal_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context)
+static type_t* compute_bin_operator_equal_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context, const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -3039,7 +3318,19 @@ static type_t* compute_bin_operator_equal_type(AST expr, AST lhs, AST rhs, decl_
                 ASTLeaf(AST_EQUAL_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    return compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context);
+
+    if (result != NULL
+            && val != NULL
+            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+                no_ref(expression_get_type(rhs)))
+            && expression_is_constant(lhs)
+            && expression_is_constant(rhs))
+    {
+        *val = const_value_eq(expression_get_constant(lhs), expression_get_constant(rhs));
+    }
+
+    return result;
 }
 
 static char operator_bin_logical_types_pred(type_t* lhs, type_t* rhs)
@@ -3124,7 +3415,7 @@ static type_t* compute_bin_logical_op_type(AST expr, AST lhs, AST rhs, AST opera
             expr, lhs, rhs, builtins, decl_context, &selected_operator);
 }
 
-static type_t* compute_bin_operator_logical_or_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context)
+static type_t* compute_bin_operator_logical_or_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context, const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -3133,10 +3424,22 @@ static type_t* compute_bin_operator_logical_or_type(AST expr, AST lhs, AST rhs, 
                 ASTLeaf(AST_LOGICAL_OR_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    return compute_bin_logical_op_type(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_logical_op_type(expr, lhs, rhs, operation_tree, decl_context);
+
+    if (result != NULL
+            && val != NULL
+            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+                no_ref(expression_get_type(rhs)))
+            && expression_is_constant(lhs)
+            && expression_is_constant(rhs))
+    {
+        *val = const_value_or(expression_get_constant(lhs), expression_get_constant(rhs));
+    }
+
+    return result;
 }
 
-static type_t* compute_bin_operator_logical_and_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context)
+static type_t* compute_bin_operator_logical_and_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context, const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -3145,11 +3448,23 @@ static type_t* compute_bin_operator_logical_and_type(AST expr, AST lhs, AST rhs,
                 ASTLeaf(AST_LOGICAL_AND_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    return compute_bin_logical_op_type(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_logical_op_type(expr, lhs, rhs, operation_tree, decl_context);
+
+    if (result != NULL
+            && val != NULL
+            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+                no_ref(expression_get_type(rhs)))
+            && expression_is_constant(lhs)
+            && expression_is_constant(rhs))
+    {
+        *val = const_value_and(expression_get_constant(lhs), expression_get_constant(rhs));
+    }
+
+    return result;
 }
 
 static type_t* compute_bin_operator_bitwise_and_type(AST expr, AST lhs, AST rhs, 
-        decl_context_t decl_context)
+        decl_context_t decl_context, const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -3158,11 +3473,23 @@ static type_t* compute_bin_operator_bitwise_and_type(AST expr, AST lhs, AST rhs,
                 ASTLeaf(AST_BITWISE_AND_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    return compute_bin_operator_only_integer_types(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_only_integer_types(expr, lhs, rhs, operation_tree, decl_context);
+
+    if (result != NULL
+            && val != NULL
+            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+                no_ref(expression_get_type(rhs)))
+            && expression_is_constant(lhs)
+            && expression_is_constant(rhs))
+    {
+        *val = const_value_bitand(expression_get_constant(lhs), expression_get_constant(rhs));
+    }
+
+    return result;
 }
 
 static type_t* compute_bin_operator_bitwise_or_type(AST expr, AST lhs, AST rhs, 
-        decl_context_t decl_context)
+        decl_context_t decl_context, const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -3171,11 +3498,23 @@ static type_t* compute_bin_operator_bitwise_or_type(AST expr, AST lhs, AST rhs,
                 ASTLeaf(AST_BITWISE_OR_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    return compute_bin_operator_only_integer_types(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_only_integer_types(expr, lhs, rhs, operation_tree, decl_context);
+
+    if (result != NULL
+            && val != NULL
+            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+                no_ref(expression_get_type(rhs)))
+            && expression_is_constant(lhs)
+            && expression_is_constant(rhs))
+    {
+        *val = const_value_bitor(expression_get_constant(lhs), expression_get_constant(rhs));
+    }
+
+    return result;
 }
 
 static type_t* compute_bin_operator_bitwise_xor_type(AST expr, AST lhs, AST rhs, 
-        decl_context_t decl_context)
+        decl_context_t decl_context, const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -3184,7 +3523,19 @@ static type_t* compute_bin_operator_bitwise_xor_type(AST expr, AST lhs, AST rhs,
                 ASTLeaf(AST_BITWISE_XOR_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
-    return compute_bin_operator_only_integer_types(expr, lhs, rhs, operation_tree, decl_context);
+    type_t* result = compute_bin_operator_only_integer_types(expr, lhs, rhs, operation_tree, decl_context);
+
+    if (result != NULL
+            && val != NULL
+            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+                no_ref(expression_get_type(rhs)))
+            && expression_is_constant(lhs)
+            && expression_is_constant(rhs))
+    {
+        *val = const_value_bitxor(expression_get_constant(lhs), expression_get_constant(rhs));
+    }
+
+    return result;
 }
 
 static char operator_bin_assign_only_integer_pred(type_t* lhs, type_t* rhs)
@@ -3572,7 +3923,7 @@ static type_t* compute_bin_operator_assig_only_arithmetic_type(AST expr, AST lhs
 }
 
 static type_t* compute_bin_operator_mod_assig_type(AST expr, AST lhs, AST rhs,
-        decl_context_t decl_context)
+        decl_context_t decl_context, const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -3581,12 +3932,15 @@ static type_t* compute_bin_operator_mod_assig_type(AST expr, AST lhs, AST rhs,
                 ASTLeaf(AST_MOD_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
+    if (val != NULL)
+        *val = NULL;
+
     return compute_bin_operator_assig_only_integral_type(expr, lhs, rhs, 
             operation_tree, decl_context);
 }
 
 static type_t* compute_bin_operator_shl_assig_type(AST expr, AST lhs, AST rhs,
-        decl_context_t decl_context)
+        decl_context_t decl_context, const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -3595,12 +3949,15 @@ static type_t* compute_bin_operator_shl_assig_type(AST expr, AST lhs, AST rhs,
                 ASTLeaf(AST_LEFT_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
+    if (val != NULL)
+        *val = NULL;
+
     return compute_bin_operator_assig_only_integral_type(expr, lhs, rhs, 
             operation_tree, decl_context);
 }
 
 static type_t* compute_bin_operator_shr_assig_type(AST expr, AST lhs, AST rhs,
-        decl_context_t decl_context)
+        decl_context_t decl_context, const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -3609,12 +3966,15 @@ static type_t* compute_bin_operator_shr_assig_type(AST expr, AST lhs, AST rhs,
                 ASTLeaf(AST_RIGHT_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
+    if (val != NULL)
+        *val = NULL;
+
     return compute_bin_operator_assig_only_integral_type(expr, lhs, rhs, 
             operation_tree, decl_context);
 }
 
 static type_t* compute_bin_operator_bitwise_and_assig_type(AST expr, AST lhs, AST rhs,
-        decl_context_t decl_context)
+        decl_context_t decl_context, const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -3623,12 +3983,15 @@ static type_t* compute_bin_operator_bitwise_and_assig_type(AST expr, AST lhs, AS
                 ASTLeaf(AST_AND_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
+    if (val != NULL)
+        *val = NULL;
+
     return compute_bin_operator_assig_only_integral_type(expr, lhs, rhs, 
             operation_tree, decl_context);
 }
 
 static type_t* compute_bin_operator_bitwise_or_assig_type(AST expr, AST lhs, AST rhs,
-        decl_context_t decl_context)
+        decl_context_t decl_context, const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -3637,12 +4000,15 @@ static type_t* compute_bin_operator_bitwise_or_assig_type(AST expr, AST lhs, AST
                 ASTLeaf(AST_OR_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
+    if (val != NULL)
+        *val = NULL;
+
     return compute_bin_operator_assig_only_integral_type(expr, lhs, rhs, 
             operation_tree, decl_context);
 }
 
 static type_t* compute_bin_operator_bitwise_xor_assig_type(AST expr, AST lhs, AST rhs,
-        decl_context_t decl_context)
+        decl_context_t decl_context, const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -3651,12 +4017,15 @@ static type_t* compute_bin_operator_bitwise_xor_assig_type(AST expr, AST lhs, AS
                 ASTLeaf(AST_XOR_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
+    if (val != NULL)
+        *val = NULL;
+
     return compute_bin_operator_assig_only_integral_type(expr, lhs, rhs, 
             operation_tree, decl_context);
 }
 
 static type_t* compute_bin_operator_mul_assig_type(AST expr, AST lhs, AST rhs,
-        decl_context_t decl_context)
+        decl_context_t decl_context, const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -3665,12 +4034,15 @@ static type_t* compute_bin_operator_mul_assig_type(AST expr, AST lhs, AST rhs,
                 ASTLeaf(AST_MUL_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
+    if (val != NULL)
+        *val = NULL;
+
     return compute_bin_operator_assig_only_arithmetic_type(expr, lhs, rhs, 
             operation_tree, decl_context);
 }
 
 static type_t* compute_bin_operator_assig_type(AST expr, AST lhs, AST rhs,
-        decl_context_t decl_context)
+        decl_context_t decl_context, const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -3679,12 +4051,15 @@ static type_t* compute_bin_operator_assig_type(AST expr, AST lhs, AST rhs,
                 ASTLeaf(AST_ASSIGNMENT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
+    if (val != NULL)
+        *val = NULL;
+
     return compute_bin_nonoperator_assig_only_arithmetic_type(expr, lhs, rhs, 
             operation_tree, decl_context);
 }
 
 static type_t* compute_bin_operator_div_assig_type(AST expr, AST lhs, AST rhs,
-        decl_context_t decl_context)
+        decl_context_t decl_context, const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -3693,12 +4068,15 @@ static type_t* compute_bin_operator_div_assig_type(AST expr, AST lhs, AST rhs,
                 ASTLeaf(AST_DIV_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
+    if (val != NULL)
+        *val = NULL;
+
     return compute_bin_operator_assig_only_arithmetic_type(expr, lhs, rhs, 
             operation_tree, decl_context);
 }
 
 static type_t* compute_bin_operator_add_assig_type(AST expr, AST lhs, AST rhs,
-        decl_context_t decl_context)
+        decl_context_t decl_context, const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -3707,12 +4085,15 @@ static type_t* compute_bin_operator_add_assig_type(AST expr, AST lhs, AST rhs,
                 ASTLeaf(AST_ADD_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
+    if (val != NULL)
+        *val = NULL;
+
     return compute_bin_operator_assig_arithmetic_or_pointer_type(expr, lhs, rhs, 
             operation_tree, decl_context);
 }
 
 static type_t* compute_bin_operator_sub_assig_type(AST expr, AST lhs, AST rhs,
-        decl_context_t decl_context)
+        decl_context_t decl_context, const_value_t** val)
 {
     static AST operation_tree = NULL;
     if (operation_tree == NULL)
@@ -3720,6 +4101,9 @@ static type_t* compute_bin_operator_sub_assig_type(AST expr, AST lhs, AST rhs,
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
                 ASTLeaf(AST_SUB_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
+
+    if (val != NULL)
+        *val = NULL;
 
     return compute_bin_operator_assig_arithmetic_or_pointer_type(expr, lhs, rhs, 
             operation_tree, decl_context);
@@ -3744,13 +4128,16 @@ type_t* operator_unary_derref_result(type_t** op_type)
 }
 
 static type_t* compute_operator_derreference_type(AST expression,
-        AST op, decl_context_t decl_context)
+        AST op, decl_context_t decl_context, const_value_t** val)
 {
     char requires_overload = 0;
 
     type_t* op_type = expression_get_type(op);
 
     RETURN_IF_ERROR_OR_DEPENDENT_1(op_type, expression);
+
+    if (val != NULL)
+        *val = NULL;
 
     CXX_LANGUAGE()
     {
@@ -3845,7 +4232,7 @@ type_t* operator_unary_plus_result(type_t** op_type)
 }
 
 static type_t* compute_operator_plus_type(AST expression,
-        AST op, decl_context_t decl_context)
+        AST op, decl_context_t decl_context, const_value_t** val)
 {
     char requires_overload = 0;
 
@@ -3876,6 +4263,13 @@ static type_t* compute_operator_plus_type(AST expression,
 
             expression_set_type(expression, no_ref(op_type));
             expression_set_is_lvalue(expression, 0);
+
+            if (val != NULL
+                    && is_integral_type(no_ref(op_type))
+                    && expression_is_constant(op))
+            {
+                *val = const_value_plus(expression_get_constant(op));
+            }
         }
         else
             return NULL;
@@ -3930,7 +4324,7 @@ type_t* operator_unary_minus_result(type_t** op_type)
 }
 
 static type_t* compute_operator_minus_type(AST expression,
-        AST op, decl_context_t decl_context)
+        AST op, decl_context_t decl_context, const_value_t** val)
 {
     char requires_overload = 0;
 
@@ -3955,6 +4349,13 @@ static type_t* compute_operator_minus_type(AST expression,
 
             expression_set_type(expression, no_ref(op_type));
             expression_set_is_lvalue(expression, 0);
+
+            if (val != NULL
+                    && is_integral_type(no_ref(op_type))
+                    && expression_is_constant(op))
+            {
+                *val = const_value_neg(expression_get_constant(op));
+            }
         }
         else
             return NULL;
@@ -4009,7 +4410,7 @@ type_t* operator_unary_complement_result(type_t** op_type)
 }
 
 static type_t* compute_operator_complement_type(AST expression,
-        AST op, decl_context_t decl_context)
+        AST op, decl_context_t decl_context, const_value_t** val)
 {
     char requires_overload = 0;
 
@@ -4030,6 +4431,12 @@ static type_t* compute_operator_complement_type(AST expression,
             if (is_promoteable_integral_type(no_ref(op_type)))
             {
                 op_type = promote_integral_type(no_ref(op_type));
+            }
+
+            if (val != NULL
+                    && expression_is_constant(op))
+            {
+                *val = const_value_neg(expression_get_constant(op));
             }
 
             expression_set_type(expression, no_ref(op_type));
@@ -4086,7 +4493,7 @@ type_t* operator_unary_not_result(type_t** op_type)
 }
 
 static type_t* compute_operator_not_type(AST expression,
-        AST op, decl_context_t decl_context)
+        AST op, decl_context_t decl_context, const_value_t** val)
 {
     char requires_overload = 0;
 
@@ -4115,6 +4522,13 @@ static type_t* compute_operator_not_type(AST expression,
             {
                 expression_set_type(expression, get_bool_type());
             }
+
+            if (val != NULL
+                    && expression_is_constant(op))
+            {
+                *val = const_value_not(expression_get_constant(op));
+            }
+
             expression_set_is_lvalue(expression, 0);
         }
         else 
@@ -4147,13 +4561,15 @@ static type_t* compute_operator_not_type(AST expression,
 }
 
 static type_t* compute_operator_reference_type(AST expression, 
-        AST op, decl_context_t decl_context)
+        AST op, decl_context_t decl_context, const_value_t** val)
 {
     // This is an easy operator since it can't be overloaded
     // but requires checking the syntax in C++
     type_t* op_type = expression_get_type(op);
 
     RETURN_IF_ERROR_OR_DEPENDENT_1(op_type, expression);
+
+    *val = NULL;
 
     CXX_LANGUAGE()
     {
@@ -4180,7 +4596,7 @@ static type_t* compute_operator_reference_type(AST expression,
                 if (entry_list->entry->kind == SK_DEPENDENT_ENTITY)
                 {
                     // Mark it as value dependent
-                    ASTAttrSetValueType(expression, LANG_EXPRESSION_IS_VALUE_DEPENDENT, tl_type_t, tl_bool(1));
+                    expression_set_is_value_dependent(expression, 1);
 
                     expression_set_type(expression, get_dependent_expr_type());
                     return expression_get_type(expression);
@@ -4295,20 +4711,20 @@ static struct unary_operator_funct_type_t unary_expression_fun[] =
     [AST_COMPLEMENT_OP]         = OPERATOR_FUNCT_INIT(compute_operator_complement_type),
 };
 
-static type_t* get_binary_op_type(AST expr, decl_context_t decl_context)
+static type_t* get_binary_op_type(AST expr, decl_context_t decl_context, const_value_t** val)
 {
     return (binary_expression_fun[ASTType(expr)].func)(
             expr, ASTSon0(expr), ASTSon1(expr), 
-            decl_context);
+            decl_context, val);
 }
 
-static type_t* get_unary_op_type(AST expr, decl_context_t decl_context)
+static type_t* get_unary_op_type(AST expr, decl_context_t decl_context, const_value_t** val)
 {
     return (unary_expression_fun[ASTType(expr)].func)(
-            expr, ASTSon0(expr), decl_context);
+            expr, ASTSon0(expr), decl_context, val);
 }
 
-static char check_for_binary_expression(AST expression, decl_context_t decl_context)
+static char check_for_binary_expression(AST expression, decl_context_t decl_context, const_value_t** val)
 {
     AST lhs = ASTSon0(expression);
     AST rhs = ASTSon1(expression);
@@ -4319,7 +4735,7 @@ static char check_for_binary_expression(AST expression, decl_context_t decl_cont
     if (lhs_check
             && rhs_check)
     {
-        type_t* bin_type = get_binary_op_type(expression, decl_context);
+        type_t* bin_type = get_binary_op_type(expression, decl_context, val);
 
         if (bin_type == NULL
                 && !checking_ambiguity())
@@ -4337,13 +4753,13 @@ static char check_for_binary_expression(AST expression, decl_context_t decl_cont
     return 0;
 }
 
-static char check_for_unary_expression(AST expression, decl_context_t decl_context)
+static char check_for_unary_expression(AST expression, decl_context_t decl_context, const_value_t** val)
 {
     AST op = ASTSon0(expression);
 
     if (check_for_expression(op, decl_context))
     {
-        type_t* unary_type = get_unary_op_type(expression, decl_context);
+        type_t* unary_type = get_unary_op_type(expression, decl_context, val);
 
         if (unary_type == NULL
                 && !checking_ambiguity())
@@ -4361,7 +4777,7 @@ static char check_for_unary_expression(AST expression, decl_context_t decl_conte
 }
 
 
-static char compute_symbol_type(AST expr, decl_context_t decl_context, decl_context_t *symbol_scope)
+static char compute_symbol_type(AST expr, decl_context_t decl_context, const_value_t** val)
 {
     scope_entry_list_t* result = NULL;
     scope_entry_list_t _fake_list;
@@ -4417,12 +4833,28 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, decl_cont
             {
                 expression_set_type(expr, entry->type_information);
                 expression_set_is_lvalue(expr, 0);
+
+                if (val != NULL
+                        && expression_is_constant(entry->expression_value))
+                {
+                    *val = expression_get_constant(entry->expression_value);
+                }
             }
             else if (entry->kind == SK_VARIABLE
                     || entry->kind == SK_FUNCTION)
             {
                 expression_set_type(expr, entry->type_information);
                 expression_set_is_lvalue(expr, 1);
+
+                if (val != NULL
+                        && entry->kind == SK_VARIABLE
+                        && !entry->entity_specs.is_parameter
+                        && is_const_qualified_type(entry->type_information)
+                        && entry->expression_value != NULL
+                        && expression_is_constant(entry->expression_value))
+                {
+                    *val = expression_get_constant(entry->expression_value);
+                }
             }
         }
         CXX_LANGUAGE()
@@ -4431,6 +4863,12 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, decl_cont
             {
                 expression_set_type(expr, entry->type_information);
                 expression_set_is_lvalue(expr, 0);
+
+                if (val != NULL
+                        && expression_is_constant(entry->expression_value))
+                {
+                    *val = expression_get_constant(entry->expression_value);
+                }
             }
             else if (entry->kind == SK_VARIABLE)
             {
@@ -4445,6 +4883,16 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, decl_cont
                     {
                         expression_set_type(expr, entry->type_information);
                         expression_set_is_lvalue(expr, 0);
+                    }
+
+                    if (val != NULL
+                            && !entry->entity_specs.is_parameter
+                            && (is_const_qualified_type(entry->type_information)
+                                || entry->entity_specs.is_template_argument)
+                            && entry->expression_value != NULL
+                            && expression_is_constant(entry->expression_value))
+                    {
+                        *val = expression_get_constant(entry->expression_value);
                     }
                 }
                 else
@@ -4464,7 +4912,8 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, decl_cont
             else if (entry->kind == SK_TEMPLATE_PARAMETER)
             {
                 // Mark it as value dependent
-                ASTAttrSetValueType(expr, LANG_EXPRESSION_IS_VALUE_DEPENDENT, tl_type_t, tl_bool(1));
+                expression_set_is_value_dependent(expr, 1);
+
                 // Nontype template parameter
                 expression_set_type(expr, get_user_defined_type(entry));
                 set_as_template_parameter_name(expr, entry);
@@ -4486,7 +4935,6 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, decl_cont
                     print_declarator(expression_get_type(expr)));
         }
 
-        *symbol_scope = entry->decl_context;
         return 1;
     }
     else
@@ -4505,9 +4953,9 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, decl_cont
     }
 }
 
-static char check_for_symbol(AST expr, decl_context_t decl_context, decl_context_t* symbol_scope)
+static char check_for_symbol(AST expr, decl_context_t decl_context, const_value_t** val)
 {
-    char result = compute_symbol_type(expr, decl_context, symbol_scope);
+    char result = compute_symbol_type(expr, decl_context, val);
 
     if (!result 
             && !checking_ambiguity())
@@ -4520,7 +4968,7 @@ static char check_for_symbol(AST expr, decl_context_t decl_context, decl_context
 }
 
 
-char compute_qualified_id_type(AST expr, decl_context_t decl_context, decl_context_t *symbol_scope)
+static char compute_qualified_id_type(AST expr, decl_context_t decl_context, const_value_t** val)
 {
     // This function only can be called in C++ world
     AST global_scope = ASTSon0(expr);
@@ -4537,7 +4985,7 @@ char compute_qualified_id_type(AST expr, decl_context_t decl_context, decl_conte
         if (entry->kind == SK_DEPENDENT_ENTITY)
         {
             // Mark it as value dependent
-            ASTAttrSetValueType(expr, LANG_EXPRESSION_IS_VALUE_DEPENDENT, tl_type_t, tl_bool(1));
+            expression_set_is_value_dependent(expr, 1);
 
             expression_set_type(expr, get_dependent_expr_type());
             return 1;
@@ -4583,7 +5031,6 @@ char compute_qualified_id_type(AST expr, decl_context_t decl_context, decl_conte
                     || result_list->entry->kind == SK_TEMPLATE))
         {
             scope_entry_t* entry = result_list->entry;
-            *symbol_scope = entry->decl_context;
 
             ASTAttrSetValueType(expr, LANG_COMPUTED_SYMBOL, tl_type_t, tl_symbol(entry));
 
@@ -4598,11 +5045,27 @@ char compute_qualified_id_type(AST expr, decl_context_t decl_context, decl_conte
                 {
                     expression_set_type(expr, get_dependent_expr_type());
                 }
+
+                if (val != NULL
+                        && !entry->entity_specs.is_parameter
+                        && (is_const_qualified_type(entry->type_information)
+                            || entry->entity_specs.is_template_argument)
+                        && entry->expression_value != NULL
+                        && expression_is_constant(entry->expression_value))
+                {
+                    *val = expression_get_constant(entry->expression_value);
+                }
             }
             else if (entry->kind == SK_ENUMERATOR)
             {
                 expression_set_type(expr, entry->type_information);
                 expression_set_is_lvalue(expr, 0);
+
+                if (val != NULL
+                        && expression_is_constant(entry->expression_value))
+                {
+                    *val = expression_get_constant(entry->expression_value);
+                }
             }
             else if (entry->kind == SK_FUNCTION)
             {
@@ -7502,9 +7965,9 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
     return 0;
 }
 
-static char check_for_qualified_id(AST expr, decl_context_t decl_context, decl_context_t* symbol_scope)
+static char check_for_qualified_id(AST expr, decl_context_t decl_context, const_value_t** val)
 {
-    char result = compute_qualified_id_type(expr, decl_context, symbol_scope);
+    char result = compute_qualified_id_type(expr, decl_context, val);
 
     if (!result
             && !checking_ambiguity())
@@ -9548,11 +10011,11 @@ static char check_for_gcc_builtin_choose_expr(AST expression, decl_context_t dec
     if (!check_for_expression(selector_expr, decl_context))
         return 0;
 
-    literal_value_t selector_value = 
-        evaluate_constant_expression(selector_expr, decl_context);
+    if (!expression_is_constant(selector_expr))
+        return 0;
 
     AST selected_expr = NULL;
-    if (!literal_value_is_zero(selector_value))
+    if (const_value_is_nonzero(expression_get_constant(selector_expr)))
     {
         if (!check_for_expression(first_expr, decl_context))
             return 0;
@@ -9569,6 +10032,7 @@ static char check_for_gcc_builtin_choose_expr(AST expression, decl_context_t dec
 
     expression_set_type(expression, expression_get_type(selected_expr));
     expression_set_is_lvalue(expression, expression_is_lvalue(selected_expr));
+    expression_set_constant(expression, expression_get_constant(selected_expr));
     return 1;
 }
 

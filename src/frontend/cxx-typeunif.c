@@ -42,8 +42,7 @@ long long int typeunif_used_memory(void)
     return _bytes_typeunif;
 }
 
-static char equivalent_expression_trees(AST left_tree, decl_context_t left_decl_context, AST right_tree, 
-        decl_context_t right_decl_context);
+static char equivalent_expression_trees(AST left_tree, AST right_tree);
 
 static void unificate_unresolved_overloaded(type_t* t1, type_t* t2, 
         deduction_set_t** deduction_set, decl_context_t decl_context, 
@@ -622,7 +621,7 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
     }
     else
     {
-        if (equivalent_expression_trees(left_tree, left_decl_context, right_tree, right_decl_context))
+        if (equivalent_expression_trees(left_tree, right_tree))
         {
             DEBUG_CODE()
             {
@@ -687,16 +686,10 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
                     current_deduced_parameter.type = left_symbol->type_information;
 
                     // Fold if possible
+                    if (expression_is_constant(right_tree))
                     {
-                        type_t* right_tree_type = expression_get_type(right_tree);
-                        if (!is_value_dependent_expression(right_tree, right_decl_context)
-                                && (right_tree_type == NULL
-                                    || !is_unresolved_overloaded_type(right_tree_type)))
-                        {
-                            literal_value_t literal 
-                                = evaluate_constant_expression(right_tree, right_decl_context);
-                            current_deduced_parameter.expression = tree_from_literal_value(literal);
-                        }
+                        current_deduced_parameter.expression = 
+                            const_value_to_tree(expression_get_constant(right_tree));
                     }
 
                     char found = 0;
@@ -951,7 +944,7 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
         case AST_CHARACTER_LITERAL :
         case AST_BOOLEAN_LITERAL :
             // Check literal values
-            return equivalent_expression_trees(left_tree, left_decl_context, right_tree, right_decl_context);
+            return equivalent_expression_trees(left_tree, right_tree);
         case AST_PLUS_OP :
         case AST_NOT_OP :
         case AST_NEG_OP :
@@ -1045,13 +1038,12 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
     }
 }
 
-static char equivalent_expression_trees(AST left_tree, decl_context_t left_decl_context, AST right_tree, 
-        decl_context_t right_decl_context)
+static char equivalent_expression_trees(AST left_tree, AST right_tree)
 {
-    literal_value_t literal1 = evaluate_constant_expression(left_tree, left_decl_context);
-    literal_value_t literal2 = evaluate_constant_expression(right_tree, right_decl_context);
-
-    return equal_literal_values(literal1, literal2);
+    return const_value_is_nonzero(
+            const_value_eq(
+                expression_get_constant(left_tree),
+                expression_get_constant(right_tree)));
 }
 
 char same_functional_expression(AST left_tree, decl_context_t left_decl_context, AST right_tree, 

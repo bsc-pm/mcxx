@@ -26,69 +26,55 @@
 
 #include "libmcxx-common.h"
 #include "cxx-ast-decls.h"
+#include "cxx-cexpr-decls.h"
 #include "cxx-scope-decls.h"
 #include "cxx-buildscope-decls.h"
 #include "cxx-macros.h"
 
 MCXX_BEGIN_DECLS
 
-enum literal_value_kind_t
-{
-    LVK_INVALID = 0,
-    LVK_DEPENDENT_EXPR,
-    LVK_SIGNED_INT,
-    LVK_UNSIGNED_INT,
-    LVK_SIGNED_LONG,
-    LVK_UNSIGNED_LONG,
-    LVK_SIGNED_LONG_LONG,
-    LVK_UNSIGNED_LONG_LONG,
-    LVK_BOOL,
-    LVK_SIGNED_CHAR,
-    LVK_UNSIGNED_CHAR,
-    // TODO - Float values ?
-};
+LIBMCXX_EXTERN const_value_t* const_value_get(uint64_t value, int num_bytes, char sign);
+LIBMCXX_EXTERN const_value_t* const_value_get_zero(int num_bytes, char sign);
+LIBMCXX_EXTERN const_value_t* const_value_get_one(int num_bytes, char sign);
+LIBMCXX_EXTERN char const_value_is_nonzero(const_value_t* v);
+LIBMCXX_EXTERN char const_value_is_zero(const_value_t* v);
 
-typedef struct
-{
-    enum literal_value_kind_t kind;
+LIBMCXX_EXTERN uint64_t const_value_cast_to_8(const_value_t* val);
+LIBMCXX_EXTERN uint32_t const_value_cast_to_4(const_value_t* val);
+LIBMCXX_EXTERN uint16_t const_value_cast_to_2(const_value_t* val);
+LIBMCXX_EXTERN uint8_t const_value_cast_to_1(const_value_t* val);
 
-    char template_dependent;
+LIBMCXX_EXTERN AST const_value_to_tree(const_value_t* v);
 
-    union 
-    {
-        signed int signed_int;
-        unsigned int unsigned_int;
-        signed long int signed_long;
-        unsigned long int unsigned_long;
-        signed long long int signed_long_long;
-        unsigned long long int unsigned_long_long;
-        char boolean_value;
-        signed char signed_char;
-        unsigned char unsigned_char;
-        // TODO - Float values ?
-    } value;
-} literal_value_t;
+#define BINOP_DECL(_opname, _binop) \
+LIBMCXX_EXTERN const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2); \
 
-LIBMCXX_EXTERN literal_value_t evaluate_constant_expression(AST a, 
-        decl_context_t decl_context);
-LIBMCXX_EXTERN literal_value_t literal_value_false(void);
-LIBMCXX_EXTERN literal_value_t literal_value_true(void);
-LIBMCXX_EXTERN literal_value_t literal_value_zero(void);
-LIBMCXX_EXTERN literal_value_t literal_value_one(void);
-LIBMCXX_EXTERN literal_value_t literal_value_minus_one(void);
-LIBMCXX_EXTERN literal_value_t increment_literal_value(literal_value_t e);
-LIBMCXX_EXTERN AST tree_from_literal_value(literal_value_t e);
-LIBMCXX_EXTERN char equal_literal_values(literal_value_t v1, literal_value_t v2);
-LIBMCXX_EXTERN void gather_integer_literal_suffix(const char* text, char* is_long, char* is_unsigned);
-LIBMCXX_EXTERN void gather_float_literal_suffix(const char* text, char* is_float, char* is_long_double);
+BINOP_DECL(add, +)
+BINOP_DECL(sub, -)
+BINOP_DECL(mul, *)
+BINOP_DECL(div, /)
+BINOP_DECL(mod, %)
+BINOP_DECL(shr, >>)
+BINOP_DECL(shl, <<)
+BINOP_DECL(bitand, &)
+BINOP_DECL(bitor, |)
+BINOP_DECL(bitxor, ^)
+BINOP_DECL(and, &&)
+BINOP_DECL(or, ||)
+BINOP_DECL(lt, <)
+BINOP_DECL(lte, <=)
+BINOP_DECL(gt, >)
+BINOP_DECL(gte, >)
+BINOP_DECL(eq, ==)
+BINOP_DECL(neq, !=)
 
-LIBMCXX_EXTERN char literal_value_is_zero(literal_value_t e);
-LIBMCXX_EXTERN char literal_value_is_negative(literal_value_t e);
+#define UNOP_DECL(_opname, _unop) \
+LIBMCXX_EXTERN const_value_t* const_value_##_opname(const_value_t* v1);
 
-LIBMCXX_EXTERN unsigned int literal_value_to_uint(literal_value_t v, char *valid);
-LIBMCXX_EXTERN int literal_value_to_int(literal_value_t v, char *valid);
-
-LIBMCXX_EXTERN char is_constant_expression(AST a, decl_context_t decl_context);
+UNOP_DECL(plus, +)
+UNOP_DECL(neg, -)
+UNOP_DECL(bitnot, ~)
+UNOP_DECL(not, !)
 
 MCXX_END_DECLS
 

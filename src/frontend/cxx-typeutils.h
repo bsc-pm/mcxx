@@ -468,8 +468,6 @@ LIBMCXX_EXTERN struct type_tag* get_actual_class_type(struct type_tag* class_typ
 
 LIBMCXX_EXTERN struct type_tag* get_actual_enum_type(struct type_tag* enum_type);
 
-LIBMCXX_EXTERN char is_value_dependent_expression(struct AST_tag* expr, decl_context_t decl_context);
-
 LIBMCXX_EXTERN char is_pointer_to_member_type(struct type_tag* t);
 
 LIBMCXX_EXTERN char is_pointer_to_class_type(struct type_tag* t1);

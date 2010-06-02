@@ -27,6 +27,7 @@
 #include "cxx-typeunif.h"
 #include "cxx-utils.h"
 #include "cxx-cexpr.h"
+#include "cxx-exprtype.h"
 
 char is_sound_type(type_t* t, decl_context_t decl_context)
 {
@@ -46,17 +47,21 @@ char is_sound_type(type_t* t, decl_context_t decl_context)
             return 0;
         }
 
-        literal_value_t value = evaluate_constant_expression(array_type_get_array_size_expr(t),
-                array_type_get_array_size_expr_context(t));
+        AST expr_size = array_type_get_array_size_expr(t);
 
-        if (literal_value_is_zero(value)
-                || literal_value_is_negative(value))
+        if (expression_is_constant(expr_size))
         {
-            DEBUG_CODE()
+            if (const_value_is_zero(
+                        const_value_gt(
+                            expression_get_constant(expr_size),
+                            const_value_get_zero(/*bytes*/ 4, /* sign*/ 1))))
             {
-                fprintf(stderr, "TYPEORDER: Deduced type is not sound because it is an array of negative length\n");
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEORDER: Deduced type is not sound because it is an array of negative length\n");
+                }
+                return 0;
             }
-            return 0;
         }
 
         return is_sound_type(element_type, decl_context);

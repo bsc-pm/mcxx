@@ -136,30 +136,17 @@ static void gather_one_gcc_attribute(const char* attribute_name,
         AST argument = ASTSon1(expression_list);
         if (check_for_expression(argument, decl_context))
         {
-            if (!is_value_dependent_expression(argument, decl_context))
+            if (expression_is_constant(argument))
             {
-                if (is_constant_expression(argument, decl_context))
-                {
-                    literal_value_t literal_value = evaluate_constant_expression(argument, decl_context);
-                    char is_valid = 0;
-                    int vector_size = literal_value_to_uint(literal_value, &is_valid);
+                int vector_size = const_value_cast_to_4(expression_get_constant(argument));
 
-                    if (is_valid)
-                    {
-                        gather_info->vector_size = vector_size;
-                        gather_info->is_vector = 1;
-                    }
-                    else
-                    {
-                        // This is maybe overly defensive
-                        internal_error("unreachable code", 0);
-                    }
-                }
-                else
-                {
-                    fprintf(stderr, "%s: warning: ignoring attribute 'vector_size' since the expression is not constant\n",
-                            ast_location(expression_list));
-                }
+                gather_info->vector_size = vector_size;
+                gather_info->is_vector = 1;
+            }
+            else
+            {
+                fprintf(stderr, "%s: warning: ignoring attribute 'vector_size' since the expression is not constant\n",
+                        ast_location(expression_list));
             }
         }
         else

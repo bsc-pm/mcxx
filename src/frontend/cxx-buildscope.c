@@ -3945,9 +3945,9 @@ static void set_array_type(type_t** declarator_type,
                     prettyprint_in_buffer(constant_expr));
         }
 
-        if (!is_value_dependent_expression(constant_expr, decl_context))
+        if (!expression_is_value_dependent(constant_expr))
         {
-            if (!is_constant_expression(constant_expr, decl_context))
+            if (!expression_is_constant(constant_expr))
             {
                 if (decl_context.current_scope->kind == NAMESPACE_SCOPE
                         || decl_context.current_scope->kind == CLASS_SCOPE)

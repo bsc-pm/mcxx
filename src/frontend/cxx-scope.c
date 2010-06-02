@@ -2135,14 +2135,11 @@ decl_context_t update_context_with_template_arguments(
                     param_symbol->type_information = current_template_argument->type;
 
                     // Fold it, as makes things easier
-                    if (is_constant_expression(current_template_argument->expression,
-                                current_template_argument->expression_context))
+                    if (expression_is_constant(current_template_argument->expression))
                     {
-                        literal_value_t literal_value = evaluate_constant_expression(current_template_argument->expression,
-                                current_template_argument->expression_context);
-                        AST evaluated_tree = tree_from_literal_value(literal_value);
-                        AST fake_initializer = evaluated_tree;
-                        param_symbol->expression_value = fake_initializer;
+                        param_symbol->expression_value = const_value_to_tree(
+                                expression_get_constant(current_template_argument->expression)
+                                );
                     }
                     break;
                 }
@@ -2891,12 +2888,10 @@ static type_t* update_type_aux_(type_t* orig_type,
                         prettyprint_in_buffer(updated_expr));
             }
 
-            if (!is_value_dependent_expression(updated_expr, updated_expr_context)
-                    && (expression_get_type(updated_expr) == NULL
-                        || !is_unresolved_overloaded_type(expression_get_type(updated_expr))))
+            if (!expression_is_value_dependent(updated_expr)
+                    && expression_is_constant(updated_expr))
             {
-                literal_value_t literal = evaluate_constant_expression(updated_expr, updated_expr_context);
-                updated_expr = tree_from_literal_value(literal);
+                updated_expr = const_value_to_tree(expression_get_constant(updated_expr));
             }
         }
 
@@ -3131,13 +3126,9 @@ static template_argument_t* update_template_argument(
                 type_t* expr_type = expression_get_type(result->expression);
                 // Fold the argument if possible
                 if (expr_type != NULL
-                        && !is_unresolved_overloaded_type(expr_type)
-                        && is_constant_expression(result->expression, result->expression_context))
+                        && expression_is_constant(result->expression))
                 {
-                    literal_value_t literal 
-                        = evaluate_constant_expression(result->expression, result->expression_context);
-
-                    result->expression = tree_from_literal_value(literal);
+                    result->expression = const_value_to_tree(expression_get_constant(result->expression));
                 }
 
                 ERROR_CONDITION ((result->type == NULL), 
@@ -3187,14 +3178,9 @@ template_argument_list_t* get_template_arguments_from_syntax(
 
                     type_t* expr_type = expression_get_type(t_argument->expression);
 
-                    if (!is_value_dependent_expression(t_argument->expression, 
-                                t_argument->expression_context)
-                            && (expr_type == NULL 
-                                || !is_unresolved_overloaded_type(expr_type)))
+                    if (expression_is_constant(t_argument->expression))
                     {
-                        literal_value_t literal = evaluate_constant_expression(t_argument->expression,
-                                t_argument->expression_context);
-                        t_argument->expression = tree_from_literal_value(literal);
+                        t_argument->expression = const_value_to_tree(expression_get_constant(t_argument->expression));
                         t_argument->type = expr_type;
                     }
                     else
@@ -3330,12 +3316,10 @@ static void sign_in_template_name(template_argument_t* current_template_argument
                 param_symbol->entity_specs.is_template_argument = 1;
                 param_symbol->type_information = current_template_argument->type;
 
-                if (is_constant_expression(current_template_argument->expression, 
-                            current_template_argument->expression_context))
+                if (expression_is_constant(current_template_argument->expression))
                 {
-                    literal_value_t literal_value = evaluate_constant_expression(current_template_argument->expression,
-                            current_template_argument->expression_context);
-                    param_symbol->expression_value = tree_from_literal_value(literal_value);
+                    param_symbol->expression_value = const_value_to_tree(
+                            expression_get_constant(current_template_argument->expression));
                 }
 
                 break;

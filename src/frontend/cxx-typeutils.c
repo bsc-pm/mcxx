@@ -1438,8 +1438,7 @@ char has_dependent_template_arguments(template_argument_list_t* template_argumen
         }
         else if (curr_argument->kind == TAK_NONTYPE)
         {
-            if (is_value_dependent_expression(curr_argument->expression,
-                        curr_argument->expression_context))
+            if (expression_is_value_dependent(curr_argument->expression))
             {
                 return 1;
             }
@@ -2136,15 +2135,10 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
 
         if (!CURRENT_CONFIGURATION->disable_sizeof
                 && check_expr
-                && is_constant_expression(expression, decl_context))
+                && expression_is_constant(expression))
         {
-            char valid = 0;
-            literal_value_t literal_val 
-                = evaluate_constant_expression(expression, decl_context);
-            _size_t num_elements = literal_value_to_uint(literal_val, &valid);
-
-            if (!valid)
-                internal_error("Failed when evaluating constant expression of array!", 0);
+            _size_t num_elements = const_value_cast_to_8(
+                    expression_get_constant(expression));
 
             Hash* array_sized_hash = get_array_sized_hash(num_elements);
 
@@ -2159,7 +2153,8 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
                 result->array = counted_calloc(1, sizeof(*(result->array)), &_bytes_due_to_type_system);
                 result->array->element_type = element_type;
 
-                result->array->array_expr = tree_from_literal_value(literal_val);
+                result->array->array_expr = const_value_to_tree(
+                        const_value_get(num_elements, sizeof(num_elements), 1));
                 result->array->array_expr_decl_context = decl_context;
                 hash_put(array_sized_hash, element_type, result);
 
@@ -2525,8 +2520,7 @@ char class_type_is_empty(type_t* t)
         scope_entry_t* entry = class_type_get_nonstatic_data_member_num(class_type, i);
 
         if (!entry->entity_specs.is_bitfield
-                || !literal_value_is_zero(evaluate_constant_expression(entry->entity_specs.bitfield_expr, 
-                        entry->entity_specs.bitfield_expr_context)))
+                || const_value_is_nonzero(expression_get_constant(entry->entity_specs.bitfield_expr)))
         {
             num_of_non_empty_nonstatics_data_members++;
         }
@@ -2679,8 +2673,7 @@ char class_type_is_nearly_empty(type_t* t)
         scope_entry_t* entry = class_type_get_nonstatic_data_member_num(class_type, i);
 
         if (!entry->entity_specs.is_bitfield
-                || !literal_value_is_zero(evaluate_constant_expression(entry->entity_specs.bitfield_expr, 
-                        entry->entity_specs.bitfield_expr_context)))
+                || const_value_is_nonzero(expression_get_constant(entry->entity_specs.bitfield_expr)))
         {
             // If we are not empty, we are not nearly empty either
             return 0;
@@ -3575,18 +3568,14 @@ static char equivalent_array_type(array_info_t* t1, array_info_t* t2)
         }
         C_LANGUAGE()
         {
-            literal_value_t literal_1 
-                = evaluate_constant_expression(t1->array_expr, t1->array_expr_decl_context);
-            literal_value_t literal_2
-                = evaluate_constant_expression(t2->array_expr, t2->array_expr_decl_context);
-
-            if (literal_1.kind != LVK_DEPENDENT_EXPR
-                    && literal_1.kind != LVK_INVALID
-                    && literal_2.kind != LVK_DEPENDENT_EXPR
-                    && literal_2.kind != LVK_INVALID
-                    && !equal_literal_values(literal_1, literal_2))
+            if (expression_is_constant(t1->array_expr)
+                    && expression_is_constant(t2->array_expr))
             {
-                return 0;
+                if( const_value_is_zero(
+                            const_value_eq(
+                                expression_get_constant(t1->array_expr), 
+                                expression_get_constant(t2->array_expr))))
+                    return 0;
             }
             else
             {
@@ -5057,536 +5046,6 @@ cv_qualifier_t get_cv_qualifier(type_t* type_info)
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
     return type_info->cv_qualifier;
-}
-
-static char template_id_is_dependent(AST expression, AST template_id, decl_context_t decl_context)
-{
-    AST template_argument_list = ASTSon1(template_id);
-
-    if (template_argument_list != NULL)
-    {
-        AST list, iter;
-        list = template_argument_list;
-
-        for_each_element(list, iter)
-        {
-            AST template_argument = ASTSon1(iter);
-
-            switch (ASTType(template_argument))
-            {
-                case AST_TEMPLATE_EXPRESSION_ARGUMENT : 
-                    {
-                        AST template_argument_expression = ASTSon1(template_argument);
-                        if (is_value_dependent_expression(template_argument_expression, decl_context))
-                        {
-                            expression_set_type(expression, get_dependent_expr_type());
-                            return 1;
-                        }
-                        break;
-                    }
-                case AST_TEMPLATE_TYPE_ARGUMENT :
-                    {
-                        AST type_id = ASTSon0(template_argument);
-
-                        AST type_specifier = ASTSon0(type_id);
-
-                        gather_decl_spec_t gather_info;
-                        memset(&gather_info, 0, sizeof(gather_info));
-
-                        type_t* simple_type_info = NULL;
-                        // Fix this
-                        build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
-                                decl_context);
-                        if (is_dependent_type(simple_type_info))
-                        {
-                            expression_set_type(expression, get_dependent_expr_type());
-                            return 1;
-                        }
-
-                        break;
-                    }
-                default:
-                    break;
-            }
-        }
-    }
-
-    return 0;
-}
-
-static char is_dependent_type_id(AST type_id, decl_context_t decl_context)
-{
-    AST type_specifier = ASTSon0(type_id);
-    AST abstract_declarator = ASTSon1(type_id);
-
-    gather_decl_spec_t gather_info;
-    memset(&gather_info, 0, sizeof(gather_info));
-
-    type_t* simple_type_info = NULL;
-
-    build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
-            decl_context);
-
-    type_t* declarator_type = NULL;
-    compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
-            &declarator_type, decl_context);
-
-    return (is_dependent_type(simple_type_info));
-}
-
-
-static char is_value_dependent_expression_aux_(AST expression, decl_context_t decl_context)
-{
-    ERROR_CONDITION(expression == NULL, "This cannot be null", 0);
-
-    switch (ASTType(expression))
-    {
-        case AST_EXPRESSION : 
-        case AST_INITIALIZER :
-        case AST_INITIALIZER_EXPR :
-        case AST_CONSTANT_INITIALIZER : 
-        case AST_CONSTANT_EXPRESSION : 
-        case AST_PARENTHESIZED_EXPRESSION :
-            {
-                return is_value_dependent_expression(ASTSon0(expression), decl_context);
-            }
-        case AST_INITIALIZER_BRACES :
-            {
-                AST initializer_list = ASTSon0(expression);
-                AST iter;
-
-                for_each_element(initializer_list, iter)
-                {
-                    AST initializer = ASTSon1(iter);
-
-                    if (is_value_dependent_expression(initializer, decl_context))
-                    {
-                        expression_set_type(expression, get_dependent_expr_type());
-                        return 1;
-                    }
-                }
-                return 0;
-            }
-        case AST_DESIGNATED_INITIALIZER :
-            {
-                // [1][2] = 3
-                // a.b = 4
-                AST designation = ASTSon0(expression);
-                // AST initializer_clause = ASTSon1(expression);
-
-                // This is C only, in principle this cannot be dependent
-                return is_value_dependent_expression(designation, decl_context);
-                break;
-            }
-        case AST_DESIGNATION : 
-            {
-                // [1][2] {= 3}
-                // a.b {= 3}
-                AST designator_list = ASTSon0(expression);
-                AST iter;
-
-                for_each_element(designator_list, iter)
-                {
-                    AST designator = ASTSon1(iter);
-
-                    if (is_value_dependent_expression(designator, decl_context))
-                    {
-                        expression_set_type(expression, get_dependent_expr_type());
-                        return 1;
-                    }
-                }
-
-                return 0;
-                break;
-            }
-        case AST_INDEX_DESIGNATOR :
-            {
-                // [1]{[2] = 3}
-                return is_value_dependent_expression(ASTSon0(expression), decl_context);
-            }
-        case AST_FIELD_DESIGNATOR :
-            {
-                // a{.b = 3}
-                return 0;
-            }
-            // Primaries
-        case AST_DECIMAL_LITERAL :
-        case AST_OCTAL_LITERAL :
-        case AST_HEXADECIMAL_LITERAL :
-        case AST_FLOATING_LITERAL :
-        case AST_BOOLEAN_LITERAL :
-        case AST_CHARACTER_LITERAL :
-        case AST_STRING_LITERAL :
-            {
-                return 0;
-            }
-            // FIXME : 'this' depends exclusively on the current context
-        case AST_THIS_VARIABLE :
-            {
-                internal_error("Yet to implement", 0);
-                return 0;
-            }
-        case AST_TEMPLATE_ID :
-            {
-                // Template functions can be explicitly selected with template_id
-                // that might be dependent
-                if (template_id_is_dependent(expression, expression, decl_context))
-                {
-                    return 1;
-                }
-                return 0;
-                break;
-            }
-        case AST_SYMBOL :
-        case AST_QUALIFIED_ID :
-        case AST_QUALIFIED_TEMPLATE :
-            {
-                scope_entry_list_t _tpl_list;
-                scope_entry_list_t* entry_list = NULL;
-                memset(&_tpl_list, 0, sizeof(_tpl_list));
-                if (ASTType(expression) == AST_SYMBOL
-                        && is_template_parameter_name(expression))
-                {
-                    scope_entry_t* entry = lookup_template_parameter_name(decl_context, expression);
-                    if (entry != NULL)
-                    {
-                        _tpl_list.entry = entry;
-                        entry_list = &_tpl_list;
-                    }
-                }
-                else
-                {
-                    entry_list = query_id_expression_flags(decl_context, expression, DF_DEPENDENT_TYPENAME);
-                }
-
-                if (entry_list == NULL)
-                {
-                    internal_error("Symbol '%s' in '%s' not found\n", prettyprint_in_buffer(expression),
-                            ast_location(expression));
-                }
-
-                if (entry_list->entry->kind == SK_DEPENDENT_ENTITY)
-                {
-                    return 1;
-                }
-
-                // Check for additional template-id's
-                if ((ASTType(expression) == AST_QUALIFIED_ID
-                        || ASTType(expression) == AST_QUALIFIED_TEMPLATE)
-                        && ASTType(ASTSon2(expression)) == AST_TEMPLATE_ID)
-                {
-                    if (template_id_is_dependent(expression, ASTSon2(expression), decl_context))
-                        return 1;
-
-                    // No need to check anything else.
-                    //
-                    // A::f<int> can't be dependent because if 'A' was dependent we would
-                    // get a SK_DEPENDENT_ENTITY. Likewise for 'A<T>::f<int>'
-                    return 0;
-                }
-
-                scope_entry_t* entry = entry_list->entry;
-
-                if(entry->dependency_info == DI_UNKNOWN)
-                {
-                    // Maybe this is a const-variable initialized with a dependent expression
-                    char result = 0;
-                    // We already checked SK_DEPENDENT_ENTITY before
-                    if (entry->kind == SK_TEMPLATE_PARAMETER)
-                    {
-                        result = 1;
-                    }
-                    else if ((entry->kind == SK_VARIABLE
-                                || entry->kind == SK_ENUMERATOR))
-                    {
-                        if (entry->expression_value != NULL)
-                        {
-                            DEBUG_CODE()
-                            {
-                                fprintf(stderr, "TYPEUTILS: Computing initialization dependency of expression '%s'\n", 
-                                        prettyprint_in_buffer(entry->expression_value));
-                            }
-                            entry->dependency_info = DI_BUSY;
-                            result |= is_value_dependent_expression(entry->expression_value, entry->decl_context);
-                        }
-                    }
-                    else if (entry->kind == SK_TEMPLATE)
-                    {
-                        // This can reach here because of 'A::f' and
-                        // f is a template member function of 'A', so by itself
-                        // it is not dependent
-                        result = 0;
-                    }
-
-                    if (entry->type_information != NULL)
-                    {
-                        result |= is_dependent_type(entry->type_information);
-                    }
-
-                    entry->dependency_info = (result ? DI_DEPENDENT : DI_NOT_DEPENDENT);
-                }
-
-                return (entry->dependency_info == DI_DEPENDENT);
-            }
-            // Postfix expressions
-        case AST_ARRAY_SUBSCRIPT :
-            {
-                return is_value_dependent_expression(ASTSon0(expression), decl_context)
-                    || is_value_dependent_expression(ASTSon1(expression), decl_context);
-            }
-        case AST_FUNCTION_CALL :
-            {
-                char invoked_dependent = is_value_dependent_expression(ASTSon0(expression), decl_context);
-
-                if (invoked_dependent)
-                    return 1;
-
-                AST expression_list = ASTSon1(expression);
-
-                if (expression_list != NULL)
-                {
-                    AST iter;
-                    for_each_element(expression_list, iter)
-                    {
-                        AST current_expression = ASTSon1(iter);
-
-                        if (is_value_dependent_expression(current_expression, decl_context))
-                        {
-                            expression_set_type(expression, get_dependent_expr_type());
-                            return 1;
-                        }
-                    }
-                }
-
-                return 0;
-            }
-        case AST_EXPLICIT_TYPE_CONVERSION :
-            {
-                AST type_specifier = ast_copy_clearing_extended_data(ASTSon0(expression));
-
-                // Create a full-fledged type_specifier_seq
-                AST type_specifier_seq = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, 
-                        type_specifier, NULL, 
-                        ASTFileName(type_specifier), ASTLine(type_specifier), NULL);
-
-                gather_decl_spec_t gather_info;
-                memset(&gather_info, 0, sizeof(gather_info));
-
-                type_t* simple_type_info = NULL;
-
-                // Fix this
-                build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &simple_type_info, 
-                        decl_context);
-
-                if (is_dependent_type(simple_type_info))
-                {
-                    expression_set_type(expression, get_dependent_expr_type());
-                    return 1;
-                }
-
-                AST expression_list = ASTSon1(expression);
-
-                if (expression_list != NULL)
-                {
-                    AST iter;
-                    for_each_element(expression_list, iter)
-                    {
-                        AST current_expression = ASTSon1(iter);
-
-                        if (is_value_dependent_expression(current_expression, decl_context))
-                        {
-                            expression_set_type(expression, get_dependent_expr_type());
-                            return 1;
-                        }
-                    }
-                }
-
-                return 0;
-            }
-        case AST_VLA_EXPRESSION:
-            {
-                // This is pointless here since this function is meant for C++
-                // and this is a C99-only feature
-                return 0;
-            }
-        case AST_TYPENAME_EXPLICIT_TYPE_CONVERSION :
-            {
-                internal_error("Yet to implement", 0);
-                return 1;
-            }
-        case AST_TYPENAME_TEMPLATE_EXPLICIT_TYPE_CONVERSION :
-        case AST_TYPENAME_TEMPLATE_TEMPLATE_EXPLICIT_TYPE_CONVERSION :
-            {
-                internal_error("Yet to implement", 0);
-                return 1;
-            }
-        case AST_SIZEOF :
-            {
-                return is_value_dependent_expression(ASTSon0(expression), decl_context);
-            }
-        case AST_SIZEOF_TYPEID :
-            {
-                AST type_id = ASTSon0(expression);
-
-                type_t* t = expression_get_type(type_id);
-
-                ERROR_CONDITION(t == NULL, "The type cannot be NULL\n", 0);
-
-                // Update the type if needed
-                t = update_type(t, decl_context, ASTFileName(type_id), ASTLine(type_id));
-
-                return is_dependent_type(t);
-            }
-        case AST_DERREFERENCE :
-        case AST_REFERENCE :
-        case AST_PLUS_OP :
-        case AST_NEG_OP :
-        case AST_NOT_OP :
-        case AST_COMPLEMENT_OP :
-            {
-                return is_value_dependent_expression(ASTSon0(expression), decl_context);
-            }
-            // Cast expression
-        case AST_CAST_EXPRESSION :
-            // They share the same tree layout
-        case AST_STATIC_CAST :
-        case AST_DYNAMIC_CAST :
-        case AST_REINTERPRET_CAST :
-        case AST_CONST_CAST :
-            {
-                AST type_id = ASTSon0(expression);
-
-                AST type_specifier = ASTSon0(type_id);
-                AST abstract_declarator = ASTSon1(type_id);
-
-                gather_decl_spec_t gather_info;
-                memset(&gather_info, 0, sizeof(gather_info));
-
-                type_t* simple_type_info = NULL;
-                // Fix this
-                build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
-                        decl_context);
-
-                type_t* declarator_type = NULL;
-                compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
-                        &declarator_type, decl_context);
-
-                if (is_dependent_type(simple_type_info))
-                {
-                    expression_set_type(expression, get_dependent_expr_type());
-                    return 1;
-                }
-                else
-                {
-                    return is_value_dependent_expression(ASTSon1(expression), decl_context);
-                }
-            }
-        case AST_MULT_OP :
-        case AST_DIV_OP :
-        case AST_MOD_OP :
-        case AST_ADD_OP :
-        case AST_MINUS_OP :
-        case AST_SHL_OP :
-        case AST_SHR_OP :
-        case AST_LOWER_THAN :
-        case AST_GREATER_THAN :
-        case AST_GREATER_OR_EQUAL_THAN :
-        case AST_LOWER_OR_EQUAL_THAN :
-        case AST_EQUAL_OP :
-        case AST_DIFFERENT_OP :
-        case AST_BITWISE_AND :
-        case AST_BITWISE_XOR :
-        case AST_BITWISE_OR :
-        case AST_LOGICAL_AND :
-        case AST_LOGICAL_OR :
-            {
-                return is_value_dependent_expression(ASTSon0(expression), decl_context)
-                    || is_value_dependent_expression(ASTSon1(expression), decl_context);
-            }
-        case AST_CLASS_MEMBER_ACCESS :
-        case AST_POINTER_CLASS_MEMBER_ACCESS :
-            {
-                return is_value_dependent_expression(ASTSon0(expression), decl_context);
-            }
-        case AST_POINTER_TO_POINTER_MEMBER:
-        case AST_POINTER_TO_MEMBER:
-            {
-                return is_value_dependent_expression(ASTSon0(expression), decl_context)
-                    || is_value_dependent_expression(ASTSon1(expression), decl_context);
-            }
-        case AST_CONDITIONAL_EXPRESSION :
-            {
-                return is_value_dependent_expression(ASTSon0(expression), decl_context)
-                    || is_value_dependent_expression(ASTSon1(expression), decl_context)
-                    || is_value_dependent_expression(ASTSon2(expression), decl_context);
-            }
-        case AST_GXX_TYPE_TRAITS :
-            {
-                return (is_dependent_type_id(ASTSon0(expression), decl_context)
-                        || (ASTSon1(expression) != NULL 
-                            && is_dependent_type_id(ASTSon1(expression), decl_context)));
-            }
-        case AST_GCC_ALIGNOF:
-            {
-                return is_value_dependent_expression(ASTSon0(expression), decl_context);
-            }
-        case AST_GCC_ALIGNOF_TYPE:
-            {
-                return is_dependent_type_id(ASTSon0(expression), decl_context);
-            }
-        default :
-            {
-                internal_error("Unexpected node '%s' %s", ast_print_node_type(ASTType(expression)), 
-                        ast_location(expression));
-                break;
-            }
-            return 0;
-    }
-}
-
-char is_value_dependent_expression(AST expression, decl_context_t decl_context)
-{
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "TYPEUTILS: Checking whether '%s' expression is value dependent\n", 
-                prettyprint_in_buffer(expression));
-    }
-    
-    char result = 0;
-    void *data = ASTAttrValue(expression, LANG_EXPRESSION_IS_VALUE_DEPENDENT);
-    if (data != NULL)
-    {
-        tl_type_t v = *((tl_type_t*)data);
-        result = (v.data._boolean);
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "TYPEUTILS: Tree contains attribute stating value dependency\n");
-        }
-    }
-    else
-    {
-        result = is_value_dependent_expression_aux_(expression, decl_context);
-        ASTAttrSetValueType(expression, LANG_EXPRESSION_IS_VALUE_DEPENDENT, tl_type_t, tl_bool(result));
-    }
-
-    if (result)
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "TYPEUTILS: Expression '%s' IS value dependent\n", 
-                    prettyprint_in_buffer(expression));
-        }
-    }
-    else
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "TYPEUTILS: Expression '%s' is NOT value dependent\n",
-                    prettyprint_in_buffer(expression));
-        }
-    }
-
-    return result;
 }
 
 static type_t* canonical_type(type_t* type)
@@ -8247,18 +7706,13 @@ static char is_pod_type_aux(type_t* t, char allow_wide_bitfields)
                 if (!allow_wide_bitfields)
                 {
                     // Check whether this bitfield is wider than its type in bits
-                    literal_value_t literal =
-                        evaluate_constant_expression(data_member->entity_specs.bitfield_expr,
-                                data_member->entity_specs.bitfield_expr_context);
 
-                    char valid = 0;
+                    _size_t bits_of_bitfield = 
+                        const_value_cast_to_8(
+                                expression_get_constant(data_member->entity_specs.bitfield_expr)
+                                );
+
                     _size_t bits_of_base_type = type_get_size(data_member->type_information) * 8;
-                    _size_t bits_of_bitfield = literal_value_to_uint(literal, &valid);
-
-                    if (!valid)
-                    {
-                        internal_error("Cannot computed POD-ness of a type because of invalid bitfield!", 0);
-                    }
 
                     if (bits_of_bitfield > bits_of_base_type)
                         return 0;
