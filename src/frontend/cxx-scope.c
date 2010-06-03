@@ -2881,21 +2881,12 @@ static type_t* update_type_aux_(type_t* orig_type,
         decl_context_t updated_expr_context = expr_context;
         if (updated_expr != NULL)
         {
-            // updated_expr_context = replace_template_parameters_with_values(
-            //         
-            //         decl_context);
+            updated_expr = ast_copy_for_instantiation(updated_expr);
             updated_expr_context = decl_context;
-            // Update type info
             if (!check_for_expression(updated_expr, updated_expr_context))
             {
-                internal_error("Updated expression '%s' in array declaration could not be checked", 
-                        prettyprint_in_buffer(updated_expr));
-            }
-
-            if (!expression_is_value_dependent(updated_expr)
-                    && expression_is_constant(updated_expr))
-            {
-                updated_expr = const_value_to_tree(expression_get_constant(updated_expr));
+                running_error("%s: error: could not update array dimension",
+                        ast_location(expression));
             }
         }
 
