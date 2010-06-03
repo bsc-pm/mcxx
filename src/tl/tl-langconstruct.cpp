@@ -391,7 +391,7 @@ namespace TL
 
     Symbol IdExpression::get_computed_symbol() const
     {
-        TL::Symbol result = _ref.get_attribute(LANG_COMPUTED_SYMBOL);
+        TL::Symbol result = ::expression_get_symbol(this->_ref.get_internal_ast());
         return result;
     }
 

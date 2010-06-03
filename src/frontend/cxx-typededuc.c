@@ -1194,40 +1194,42 @@ template_argument_list_t* build_template_argument_list_from_deduction_set(
         {
             case TPK_TYPE:
                 {
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "TYPEDEDUC: Position '%d' and nesting '%d' type template parameter\n",
-                                argument->position,
-                                argument->nesting);
-                    }
                     argument->kind = TAK_TYPE;
                     argument->type = current_deduction->deduced_parameters[0]->type;
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "TYPEDEDUC: Position '%d' and nesting '%d' type template parameter updated to '%s'\n",
+                                argument->position,
+                                argument->nesting,
+                                print_declarator(argument->type));
+                    }
                 }
                 break;
             case TPK_TEMPLATE:
                 {
+                    argument->kind = TAK_TEMPLATE;
+                    argument->type = current_deduction->deduced_parameters[0]->type;
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "TYPEDEDUC: Position '%d' and nesting '%d' template template parameter\n",
                                 argument->position,
                                 argument->nesting);
                     }
-                    argument->kind = TAK_TEMPLATE;
-                    argument->type = current_deduction->deduced_parameters[0]->type;
                 }
                 break;
             case TPK_NONTYPE:
                 {
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "TYPEDEDUC: Position '%d' and nesting '%d' nontype template parameter\n",
-                                argument->position,
-                                argument->nesting);
-                    }
                     argument->kind = TAK_NONTYPE;
                     argument->expression = current_deduction->deduced_parameters[0]->expression;
                     argument->expression_context = current_deduction->deduced_parameters[0]->decl_context;
                     argument->type = current_deduction->deduced_parameters[0]->type;
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "TYPEDEDUC: Position '%d' and nesting '%d' nontype template parameter updated to '%s'\n",
+                                argument->position,
+                                argument->nesting,
+                                prettyprint_in_buffer(argument->expression));
+                    }
                 }
                 break;
             default:

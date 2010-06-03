@@ -417,7 +417,7 @@ namespace TL
 
             //! Debug function - Do not use 
             /*! Returns the wrapped tree */
-            AST get_internal_ast()
+            AST get_internal_ast() const
             {
                 return _ast;
             }

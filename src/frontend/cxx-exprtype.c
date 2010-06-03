@@ -43,9 +43,18 @@
 
 #define MAX_ARGUMENTS (256)
 
-// The policy in this file is avoiding (except for queries) to dynamically allocate things.
-// If needed raise the defined limits.
+typedef
+struct expression_info_tag
+{
+    char is_lvalue:1;
+    char is_value_dependent:1;
+    int _reserved0;
 
+    type_t* type_info;
+
+    const_value_t* const_val;
+    scope_entry_t* symbol;
+} expression_info_t;
 
 static const char builtin_prefix[] = "__builtin_";
 
@@ -54,6 +63,11 @@ static unsigned long long int _bytes_used_expr_check = 0;
 unsigned long long exprtype_used_memory(void)
 {
     return _bytes_used_expr_check;
+}
+
+unsigned long long expression_info_sizeof(void)
+{
+    return sizeof(expression_info_t);
 }
 
 static expression_info_t* expression_get_expression_info(AST expr)
@@ -65,6 +79,25 @@ type_t* expression_get_type(AST expr)
 {
     expression_info_t* expr_info = expression_get_expression_info(expr);
     return expr_info->type_info;
+}
+
+void expression_set_symbol(AST expr, scope_entry_t* entry)
+{
+    expression_info_t* expr_info = expression_get_expression_info(expr);
+    expr_info->symbol = entry;
+}
+
+scope_entry_t* expression_get_symbol(AST expr)
+{
+    expression_info_t* expr_info = expression_get_expression_info(expr);
+    return expr_info->symbol;
+}
+
+char expression_has_symbol(AST expr)
+{
+    printf("SIZE -> %zd\n", sizeof(expression_info_t));
+    expression_info_t* expr_info = expression_get_expression_info(expr);
+    return expr_info->symbol != NULL;
 }
 
 void expression_set_type(AST expr, type_t* t)
@@ -4644,6 +4677,8 @@ static type_t* compute_operator_reference_type(AST expression,
                         || entry->entity_specs.is_static)
                 {
                     expression_set_type(expression, get_pointer_type(entry->type_information));
+                    expression_set_constant(expression, 
+                            const_value_get((uint64_t)(entry), /* bytes */ 8, /* sign */ 0));
                 }
                 else
                 {
@@ -4675,18 +4710,24 @@ static type_t* compute_operator_reference_type(AST expression,
         return NULL;
     }
 
-    // Think about this
-    //
-    // if (is_array_type(no_ref(op_type)))
-    // {
-    //     type_t* ptr_type = get_pointer_type(array_type_get_element_type(no_ref(op_type)));
+    CXX_LANGUAGE()
+    {
+        if (expression_has_symbol(op))
+        {
+            scope_entry_t* symbol = expression_get_symbol(op);
 
-    //     expression_set_type(expression, ptr_type);
-    //     expression_set_is_lvalue(expression, 0);
+            if ((symbol->kind == SK_FUNCTION
+                        && (!symbol->entity_specs.is_member || symbol->entity_specs.is_static))
+                    || (symbol->kind == SK_VARIABLE
+                        && symbol->decl_context.current_scope->kind == NAMESPACE_SCOPE))
+            {
+                // This is sort of a constant expression in C++
+                expression_set_constant(expression, 
+                        const_value_get((uint64_t)(symbol), /* bytes */ 8, /* sign */ 0));
+            }
+        }
+    }
 
-    //     return ptr_type;
-    // }
-    // else
     type_t* ptr_type = get_pointer_type(no_ref(op_type));
 
     expression_set_type(expression, ptr_type);
@@ -4843,7 +4884,7 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, const_val
     {
         scope_entry_t* entry = result->entry;
 
-        ASTAttrSetValueType(expr, LANG_COMPUTED_SYMBOL, tl_type_t, tl_symbol(entry));
+        expression_set_symbol(expr, entry);
 
         if (entry->kind == SK_TEMPLATE)
         {
@@ -5083,7 +5124,7 @@ static char compute_qualified_id_type(AST expr, decl_context_t decl_context, con
         {
             scope_entry_t* entry = result_list->entry;
 
-            ASTAttrSetValueType(expr, LANG_COMPUTED_SYMBOL, tl_type_t, tl_symbol(entry));
+            expression_set_symbol(expr, entry);
 
             if (entry->kind == SK_VARIABLE)
             {

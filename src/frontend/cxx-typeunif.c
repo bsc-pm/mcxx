@@ -834,8 +834,8 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
                     fprintf(stderr, "TYPEUNIF: Left part '%s' is not a nontype template parameter\n", 
                             prettyprint_in_buffer(left_tree));
                 }
-                return 0;
 
+                return 0;
                 break;
             }
         case AST_QUALIFIED_ID :
@@ -1036,12 +1036,10 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
 
 static char equivalent_expression_trees(AST left_tree, AST right_tree)
 {
-    return expression_is_constant(left_tree)
-        && expression_is_constant(right_tree)
-        && const_value_is_nonzero(
-                const_value_eq(
-                    expression_get_constant(left_tree),
-                    expression_get_constant(right_tree)));
+    return const_value_is_nonzero(
+            const_value_eq(
+                expression_get_constant(left_tree),
+                expression_get_constant(right_tree)));
 }
 
 char same_functional_expression(AST left_tree, decl_context_t left_decl_context, AST right_tree, 

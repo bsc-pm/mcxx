@@ -24,19 +24,4 @@
 #ifndef CXX_EXPRTYPE_DECLS_H
 #define CXX_EXPRTYPE_DECLS_H
 
-#include "cxx-type-decls.h"
-#include "cxx-cexpr-decls.h"
-
-typedef
-struct expression_info_tag
-{
-    char is_lvalue:1;
-    char is_value_dependent:1;
-    int _reserved0;
-
-    type_t* type_info;
-
-    const_value_t* const_val;
-} expression_info_t;
-
 #endif // CXX_EXPRTYPE_DECLS_H

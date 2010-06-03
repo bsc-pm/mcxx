@@ -30,6 +30,7 @@
 #include "cxx-scope-decls.h"
 #include "cxx-buildscope-decls.h"
 #include "cxx-typeutils.h"
+#include "cxx-cexpr.h"
 
 MCXX_BEGIN_DECLS
 
@@ -83,6 +84,14 @@ LIBMCXX_EXTERN void expression_set_is_lvalue(AST expr, char is_lvalue);
 LIBMCXX_EXTERN char expression_is_value_dependent(AST expr);
 
 LIBMCXX_EXTERN void expression_set_is_value_dependent(AST expr, char value_dependent);
+
+LIBMCXX_EXTERN void expression_set_symbol(AST expr, scope_entry_t* entry);
+
+LIBMCXX_EXTERN scope_entry_t* expression_get_symbol(AST expr);
+
+LIBMCXX_EXTERN char expression_has_symbol(AST expr);
+
+LIBMCXX_EXTERN unsigned long long expression_info_sizeof(void);
 
 MCXX_END_DECLS
 

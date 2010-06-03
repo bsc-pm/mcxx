@@ -287,6 +287,7 @@ cxx-attrnames.h : $(srcdir)/cxx-attrnames.def
 	echo "#include \"libmcxx-common.h\"" >> cxx-attrnames.h; \
 	echo "#include \"cxx-macros.h\"" >> cxx-attrnames.h; \
 	echo "MCXX_BEGIN_DECLS" >> cxx-attrnames.h; \
+    echo "LIBMCXX_EXTERN char LANG_EXPRESSION_INFO[];" >> cxx-attrnames.h; \
 	$(SED) -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/LIBMCXX_EXTERN char \1[];/" < $< >> cxx-attrnames.h; \
 	echo "LIBMCXX_EXTERN void register_ast_extended_attributes(void);" >> cxx-attrnames.h; \
 	echo "MCXX_END_DECLS" >> cxx-attrnames.h; \
@@ -300,11 +301,14 @@ cxx-attrnames.c : $(srcdir)/cxx-attrnames.def cxx-attrnames.h
 	echo "#include \"cxx-attrnames.h\"" >> cxx-attrnames.c; \
 	echo "#include \"cxx-ast.h\"" >> cxx-attrnames.c; \
 	echo "#include \"cxx-tltype.h\"" >> cxx-attrnames.c; \
+	echo "#include \"cxx-exprtype.h\"" >> cxx-attrnames.c; \
+    echo "char LANG_EXPRESSION_INFO[] = \"lang.expression_info\";" >> cxx-attrnames.c; \
 	$(SED) -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/char \1[] = \"\2\";/" < $< >> cxx-attrnames.c; \
 	echo "/* AST attributes */" >> cxx-attrnames.c; \
 	echo "void register_ast_extended_attributes(void)" >> cxx-attrnames.c; \
 	echo "{" >> cxx-attrnames.c; \
 	echo "    extensible_schema_init(&ast_extensible_schema);" >> cxx-attrnames.c; \
+    echo "    extensible_schema_add_field(&ast_extensible_schema, LANG_EXPRESSION_INFO, expression_info_sizeof());" >> cxx-attrnames.c; \
 	$(SED) -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/    extensible_schema_add_field(\&ast_extensible_schema, \1, sizeof(tl_type_t));/" < $< >> cxx-attrnames.c; \
 	echo "}" >> cxx-attrnames.c; \
 	)
