@@ -295,6 +295,25 @@ scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
     return NULL;
 }
 
+static type_t* compute_type_for_type_id_tree(AST type_id, decl_context_t decl_context)
+{
+    AST type_specifier = ASTSon0(type_id);
+    AST abstract_declarator = ASTSon1(type_id);
+
+    gather_decl_spec_t gather_info;
+    memset(&gather_info, 0, sizeof(gather_info));
+
+    type_t* simple_type_info = NULL;
+    build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
+            decl_context);
+
+    type_t* declarator_type = simple_type_info;
+    compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
+            &declarator_type, decl_context);
+
+    return declarator_type;
+}
+
 scope_entry_list_t* unfold_and_mix_candidate_functions(
         scope_entry_list_t* result_from_lookup,
         scope_entry_list_t* builtin_list,
@@ -8718,6 +8737,12 @@ static char check_for_typeid_type(AST expr, decl_context_t decl_context)
     if (!result)
         return 0;
 
+    type_t* type = compute_type_for_type_id_tree(ASTSon0(expr), decl_context);
+    if (is_dependent_type(type))
+    {
+        expression_set_is_value_dependent(expr, 1);
+    }
+
     expression_set_type(expr, get_typeid_type(decl_context, expr));
     expression_set_is_lvalue(expr, 0);
 
@@ -8730,6 +8755,12 @@ static char check_for_typeid_expr(AST expr, decl_context_t decl_context)
 
     if (!result)
         return 0;
+
+    if (is_dependent_expr_type(expression_get_type(ASTSon0(expr)))
+            || expression_is_value_dependent(ASTSon0(expr)))
+    {
+        expression_set_is_value_dependent(expr, 1);
+    }
 
     expression_set_type(expr, get_typeid_type(decl_context, expr));
     expression_set_is_lvalue(expr, 0);
@@ -10299,25 +10330,32 @@ static char check_for_gcc_builtin_choose_expr(AST expression, decl_context_t dec
     return 1;
 }
 
+
 static char check_for_gcc_builtin_types_compatible_p(AST expression, decl_context_t decl_context)
 {
     // This builtin always returns an integer type
-    AST first_type = ASTSon0(expression);
-    AST second_type = ASTSon1(expression);
+    AST first_type_tree = ASTSon0(expression);
+    AST second_type_tree = ASTSon1(expression);
 
-    if (!check_for_type_id_tree(first_type, decl_context)
-            || !check_for_type_id_tree(second_type, decl_context))
+    if (!check_for_type_id_tree(first_type_tree, decl_context)
+            || !check_for_type_id_tree(second_type_tree, decl_context))
         return 0;
 
-    if (!is_dependent_type(expression_get_type(first_type))
-            && !is_dependent_type(expression_get_type(second_type)))
+    type_t* first_type = compute_type_for_type_id_tree(first_type_tree, decl_context);
+    type_t* second_type = compute_type_for_type_id_tree(second_type_tree, decl_context);
+
+    if (!is_dependent_type(first_type)
+            && !is_dependent_type(second_type))
     {
         expression_set_constant(
                 expression,
-                equivalent_types(expression_get_type(first_type), 
-                    expression_get_type(second_type)) ?  
+                equivalent_types(first_type, second_type) ?  
                 const_value_get_one(/*bytes*/ 1, /*signed*/ 0) 
                 : const_value_get_zero(/*bytes*/ 1,  /*signed*/ 0));
+    }
+    else
+    {
+        expression_set_is_value_dependent(expression, 1);
     }
 
     expression_set_type(expression, get_signed_int_type());
