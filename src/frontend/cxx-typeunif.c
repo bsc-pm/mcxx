@@ -1036,12 +1036,41 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
 
 static char equivalent_expression_trees(AST left_tree, AST right_tree)
 {
-    return expression_is_constant(left_tree)
-        && expression_is_constant(right_tree)
-        && const_value_is_nonzero(
+    if (expression_is_constant(left_tree)
+            && expression_is_constant(right_tree))
+    {
+        return const_value_is_nonzero(
                 const_value_eq(
                     expression_get_constant(left_tree),
                     expression_get_constant(right_tree)));
+    }
+#if 0
+    // some more attempts
+    else if (expression_has_symbol(left_tree)
+            && expression_has_symbol(right_tree))
+    {
+        return expression_get_symbol(left_tree) == expression_get_symbol(right_tree);
+    }
+    else if (is_unresolved_overloaded_type(expression_get_type(left_tree))
+            && is_unresolved_overloaded_type(expression_get_type(right_tree)))
+    {
+        // They mean the same overload if the first element of the list is the same
+        // Because of later declarations, the last elements could be different
+        scope_entry_list_t* left_list 
+            = unresolved_overloaded_type_get_overload_set(expression_get_type(left_tree));
+        scope_entry_list_t* right_list 
+            = unresolved_overloaded_type_get_overload_set(expression_get_type(right_tree));
+
+        while (left_list->next != NULL)
+            left_list = left_list->next;
+        while (right_list->next != NULL)
+            right_list = right_list->next;
+
+        return left_list->entry == right_list->entry;
+    }
+#endif
+
+    return 0;
 }
 
 char same_functional_expression(AST left_tree, decl_context_t left_decl_context, AST right_tree, 
