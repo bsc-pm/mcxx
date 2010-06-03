@@ -3097,9 +3097,6 @@ static template_argument_t* update_template_argument(
                 result->type = update_type(current_template_arg->type, 
                         decl_context, filename, line);
 
-                fprintf(stderr, "UPDATING with -> '%s'\n", 
-                        prettyprint_in_buffer(current_template_arg->expression));
-
                 // We really need to copy this tree because it comes from another tree
                 // whose type was already computed in another context, and we do not
                 // want to overwrite it
