@@ -1011,9 +1011,16 @@ static void instantiate_specialized_template_class(type_t* selected_template,
                         param_symbol->entity_specs.is_template_argument = 1;
                         param_symbol->type_information = current_deduction->deduced_parameters[0]->type;
 
-                        param_symbol->expression_value = 
-                            const_value_to_tree(
-                                    expression_get_constant(current_deduction->deduced_parameters[0]->expression));
+                        if (expression_is_constant(current_deduction->deduced_parameters[0]->expression))
+                        {
+                            param_symbol->expression_value = 
+                                const_value_to_tree(
+                                        expression_get_constant(current_deduction->deduced_parameters[0]->expression));
+                        }
+                        else
+                        {
+                            param_symbol->expression_value = current_deduction->deduced_parameters[0]->expression;
+                        }
                         break;
                     }
                 default:

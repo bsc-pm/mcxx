@@ -93,6 +93,8 @@ LIBMCXX_EXTERN char expression_has_symbol(AST expr);
 
 LIBMCXX_EXTERN unsigned long long expression_info_sizeof(void);
 
+LIBMCXX_EXTERN type_t* compute_type_for_type_id_tree(AST type_id, decl_context_t decl_context);
+
 MCXX_END_DECLS
 
 #endif

@@ -37,7 +37,7 @@
 #include "cxx-buildscope.h"
 #include "cxx-cexpr.h"
 #include "cxx-typeenviron.h"
-#include "cxx-exprtype.h"
+#include "cxx-gccsupport.h"
 #include <ctype.h>
 #include <string.h>
 
@@ -295,7 +295,7 @@ scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
     return NULL;
 }
 
-static type_t* compute_type_for_type_id_tree(AST type_id, decl_context_t decl_context)
+type_t* compute_type_for_type_id_tree(AST type_id, decl_context_t decl_context)
 {
     AST type_specifier = ASTSon0(type_id);
     AST abstract_declarator = ASTSon1(type_id);
@@ -576,8 +576,6 @@ static char check_for_shaping_expression(AST expression, decl_context_t decl_con
 static char check_for_gcc_builtin_offsetof(AST expression, decl_context_t decl_context);
 static char check_for_gcc_builtin_choose_expr(AST expression, decl_context_t decl_context);
 static char check_for_gcc_builtin_types_compatible_p(AST expression, decl_context_t decl_context);
-
-static char check_for_gxx_type_traits(AST expression, decl_context_t decl_context);
 
 static char* assig_op_attr[] =
 {
@@ -10515,28 +10513,6 @@ static char check_for_shaping_expression(AST expression, decl_context_t decl_con
     return result;
 }
 
-static char check_for_gxx_type_traits(AST expression, decl_context_t decl_context)
-{
-    AST first_type_id = ASTSon0(expression);
-
-    if (!check_for_type_id_tree(first_type_id, decl_context))
-    {
-        return 0;
-    }
-
-    AST second_type_id = ASTSon0(expression);
-
-    if (second_type_id != NULL
-            && !check_for_type_id_tree(second_type_id, decl_context))
-    {
-        return 0;
-    }
-
-    expression_set_type(expression, get_bool_type());
-    expression_set_is_lvalue(expression, 0);
-
-    return 1;
-}
 
 char check_for_expression_list(AST expression_list, decl_context_t decl_context)
 {

@@ -657,6 +657,33 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
                 // We can reach here with ASTType(left_tree) !=
                 // ASTType(right_tree) but ASTType(left_tree) is always an
                 // AST_SYMBOL. So, do not assume they are the same!
+                if (expression_has_symbol(left_tree)
+                        && expression_has_symbol(right_tree)
+                        && expression_get_symbol(left_tree) == expression_get_symbol(right_tree))
+                    return 1;
+
+                // Advance symbol values
+                if (expression_has_symbol(left_tree)
+                        && expression_get_symbol(left_tree)->expression_value != NULL)
+                {
+                    AST new_left_tree = expression_get_symbol(left_tree)->expression_value;
+                    decl_context_t new_left_decl_context = expression_get_symbol(left_tree)->decl_context;
+
+                    return equivalent_dependent_expressions(new_left_tree, new_left_decl_context, 
+                            right_tree, right_decl_context, unif_set, flags);
+                }
+
+                // Advance symbol values
+                if (expression_has_symbol(right_tree)
+                        && expression_get_symbol(right_tree)->expression_value != NULL)
+                {
+                    AST new_right_tree = expression_get_symbol(right_tree)->expression_value;
+                    decl_context_t new_right_decl_context = expression_get_symbol(right_tree)->decl_context;
+
+                    return equivalent_dependent_expressions(left_tree, left_decl_context, 
+                            new_right_tree, new_right_decl_context, unif_set, flags);
+                }
+
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "TYPEUNIF: Left part '%s' is a simple expression\n", prettyprint_in_buffer(left_tree));

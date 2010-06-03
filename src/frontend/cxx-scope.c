@@ -2133,40 +2133,22 @@ decl_context_t update_context_with_template_arguments(
                                 prettyprint_in_buffer(current_template_argument->expression));
                     }
 
-                    scope_entry_t* tpl_sym = NULL;
-                    if (is_template_parameter_name(current_template_argument->expression)
-                            && ((tpl_sym = lookup_template_parameter_name(
-                                        current_template_argument->expression_context,
-                                        current_template_argument->expression))
-                                != NULL)
-                            && tpl_sym->kind == SK_TEMPLATE_PARAMETER)
+                    scope_entry_t* param_symbol = new_symbol(updated_context,
+                            updated_context.template_scope, tpl_param_name);
+                    param_symbol->kind = SK_VARIABLE;
+                    param_symbol->entity_specs.is_template_argument = 1;
+                    param_symbol->type_information = current_template_argument->type;
+
+                    // Fold it, as makes things easier
+                    if (expression_is_constant(current_template_argument->expression))
                     {
-                        DEBUG_CODE()
-                        {
-                            fprintf(stderr, "SCOPE: Inserting '%s' as an alias to the original nontype template parameter\n",
-                                    prettyprint_in_buffer(current_template_argument->expression));
-                        }
-                        insert_alias(updated_context.template_scope, tpl_sym, tpl_param_name);
+                        param_symbol->expression_value = const_value_to_tree(
+                                expression_get_constant(current_template_argument->expression)
+                                );
                     }
                     else
                     {
-                        scope_entry_t* param_symbol = new_symbol(updated_context,
-                                updated_context.template_scope, tpl_param_name);
-                        param_symbol->kind = SK_VARIABLE;
-                        param_symbol->entity_specs.is_template_argument = 1;
-                        param_symbol->type_information = current_template_argument->type;
-
-                        // Fold it, as makes things easier
-                        if (expression_is_constant(current_template_argument->expression))
-                        {
-                            param_symbol->expression_value = const_value_to_tree(
-                                    expression_get_constant(current_template_argument->expression)
-                                    );
-                        }
-                        else
-                        {
-                            param_symbol->expression_value = current_template_argument->expression;
-                        }
+                        param_symbol->expression_value = current_template_argument->expression;
                     }
                     break;
                 }
@@ -3197,13 +3179,13 @@ template_argument_list_t* get_template_arguments_from_syntax(
                     if (expression_is_constant(t_argument->expression))
                     {
                         t_argument->expression = const_value_to_tree(expression_get_constant(t_argument->expression));
-                        t_argument->type = expr_type;
                     }
                     else
                     {
-                        // Do not clear extended data
-                        t_argument->expression = ast_copy(t_argument->expression);
+                        t_argument->expression = ast_copy_for_instantiation(t_argument->expression);
+                        check_for_expression(t_argument->expression, template_arguments_context);
                     }
+                    t_argument->type = expr_type;
                     break;
                 }
             case AST_TEMPLATE_TYPE_ARGUMENT :
