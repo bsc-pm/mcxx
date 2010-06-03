@@ -2086,13 +2086,13 @@ decl_context_t update_context_with_template_arguments(
         snprintf(tpl_param_name, 255, ".tpl_%d_%d",
                 current_template_argument->nesting,
                 current_template_argument->position);
-        scope_entry_t* param_symbol = new_symbol(updated_context,
-                updated_context.template_scope, tpl_param_name);
 
         switch (current_template_argument->kind)
         {
             case TAK_TYPE :
                 {
+                    scope_entry_t* param_symbol = new_symbol(updated_context,
+                            updated_context.template_scope, tpl_param_name);
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "SCOPE: Adding '%s' as a type template parameter to '%s'\n",
@@ -2108,6 +2108,8 @@ decl_context_t update_context_with_template_arguments(
                 }
             case TAK_TEMPLATE :
                 {
+                    scope_entry_t* param_symbol = new_symbol(updated_context,
+                            updated_context.template_scope, tpl_param_name);
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "SCOPE: Adding '%s' as a template template parameter to '%s'\n",
@@ -2130,20 +2132,41 @@ decl_context_t update_context_with_template_arguments(
                                 tpl_param_name,
                                 prettyprint_in_buffer(current_template_argument->expression));
                     }
-                    param_symbol->kind = SK_VARIABLE;
-                    param_symbol->entity_specs.is_template_argument = 1;
-                    param_symbol->type_information = current_template_argument->type;
 
-                    // Fold it, as makes things easier
-                    if (expression_is_constant(current_template_argument->expression))
+                    scope_entry_t* tpl_sym = NULL;
+                    if (is_template_parameter_name(current_template_argument->expression)
+                            && ((tpl_sym = lookup_template_parameter_name(
+                                        current_template_argument->expression_context,
+                                        current_template_argument->expression))
+                                != NULL)
+                            && tpl_sym->kind == SK_TEMPLATE_PARAMETER)
                     {
-                        param_symbol->expression_value = const_value_to_tree(
-                                expression_get_constant(current_template_argument->expression)
-                                );
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "SCOPE: Inserting '%s' as an alias to the original nontype template parameter\n",
+                                    prettyprint_in_buffer(current_template_argument->expression));
+                        }
+                        insert_alias(updated_context.template_scope, tpl_sym, tpl_param_name);
                     }
                     else
                     {
-                        param_symbol->expression_value = current_template_argument->expression;
+                        scope_entry_t* param_symbol = new_symbol(updated_context,
+                                updated_context.template_scope, tpl_param_name);
+                        param_symbol->kind = SK_VARIABLE;
+                        param_symbol->entity_specs.is_template_argument = 1;
+                        param_symbol->type_information = current_template_argument->type;
+
+                        // Fold it, as makes things easier
+                        if (expression_is_constant(current_template_argument->expression))
+                        {
+                            param_symbol->expression_value = const_value_to_tree(
+                                    expression_get_constant(current_template_argument->expression)
+                                    );
+                        }
+                        else
+                        {
+                            param_symbol->expression_value = current_template_argument->expression;
+                        }
                     }
                     break;
                 }
@@ -3112,19 +3135,17 @@ static template_argument_t* update_template_argument(
                             prettyprint_in_buffer(result->expression));
                 }
 
+                // Fold the argument if possible
+                if (expression_is_constant(result->expression))
+                {
+                    result->expression = const_value_to_tree(expression_get_constant(result->expression));
+                }
+
                 // Ensure the "destination" type of this nontype template
                 // argument is OK (this is important for unresolved overloads)
                 // FIXME - We should check that a standard conversion
                 // (involving no user-defined conversions) is possible
                 expression_set_type(result->expression, result->type);
-
-                type_t* expr_type = expression_get_type(result->expression);
-                // Fold the argument if possible
-                if (expr_type != NULL
-                        && expression_is_constant(result->expression))
-                {
-                    result->expression = const_value_to_tree(expression_get_constant(result->expression));
-                }
 
                 ERROR_CONDITION ((result->type == NULL), 
                         "nontype/template template could not be updated", 0);
