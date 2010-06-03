@@ -4677,8 +4677,7 @@ static type_t* compute_operator_reference_type(AST expression,
                         || entry->entity_specs.is_static)
                 {
                     expression_set_type(expression, get_pointer_type(entry->type_information));
-                    expression_set_constant(expression, 
-                            const_value_get((uint64_t)(entry), /* bytes */ 8, /* sign */ 0));
+                    *val = const_value_get((uint64_t)(entry), /* bytes */ 8, /* sign */ 0);
                 }
                 else
                 {
@@ -4714,6 +4713,7 @@ static type_t* compute_operator_reference_type(AST expression,
     {
         if (expression_has_symbol(op))
         {
+            fprintf(stderr, "LALA\n");
             scope_entry_t* symbol = expression_get_symbol(op);
 
             if ((symbol->kind == SK_FUNCTION
@@ -4722,8 +4722,7 @@ static type_t* compute_operator_reference_type(AST expression,
                         && symbol->decl_context.current_scope->kind == NAMESPACE_SCOPE))
             {
                 // This is sort of a constant expression in C++
-                expression_set_constant(expression, 
-                        const_value_get((uint64_t)(symbol), /* bytes */ 8, /* sign */ 0));
+                *val = const_value_get((uint64_t)(symbol), /* bytes */ 8, /* sign */ 0);
             }
         }
     }
@@ -4734,8 +4733,6 @@ static type_t* compute_operator_reference_type(AST expression,
     expression_set_is_lvalue(expression, 0);
 
     return ptr_type;
-
-    return NULL;
 }
 
 static struct bin_operator_funct_type_t binary_expression_fun[] =
