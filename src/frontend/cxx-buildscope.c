@@ -2081,11 +2081,6 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             AST enumeration_expr = ASTSon1(enumeration);
 
             // Note that enums do not define an additional scope
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "Registering enumerator '%s'\n", ASTText(enumeration_name));
-            }
-
             scope_entry_t* enumeration_item = new_symbol(enumerators_context, enumerators_context.current_scope, ASTText(enumeration_name));
             enumeration_item->line = ASTLine(enumeration_name);
             enumeration_item->file = ASTFileName(enumeration_name);
@@ -2117,17 +2112,42 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                 }
                 else
                 {
-                    char c[64];
-                    snprintf(c, 63, "%d", delta);
-                    c[63] = '\0';
 
-                    const char *source = strappend( strappend( strappend("(", prettyprint_in_buffer(base_enumerator)) , ") + "), c);
+                    if (expression_is_constant(base_enumerator))
+                    {
+                        const_value_t* val_plus_one = 
+                            const_value_add(
+                                    expression_get_constant(base_enumerator),
+                                    const_value_get(delta, /*bytes*/ 4, /*sign*/0));
 
-                    AST add_one = internal_expression_parse(source, decl_context);
+                        enumeration_item->expression_value = const_value_to_tree(val_plus_one);
+                    }
+                    else
+                    {
+                        char c[64];
+                        snprintf(c, 63, "%d", delta);
+                        c[63] = '\0';
 
-                    enumeration_item->expression_value = add_one;
+                        const char *source = strappend( strappend( strappend("(", prettyprint_in_buffer(base_enumerator)) , ") + "), c);
+                        AST add_one = internal_expression_parse(source, decl_context);
+                        enumeration_item->expression_value = add_one;
+                    }
 
                     delta++;
+                }
+            }
+
+            DEBUG_CODE()
+            {
+                if (expression_is_constant(enumeration_item->expression_value))
+                {
+                    fprintf(stderr, "Registering enumerator '%s' with constant value '%lld'\n", ASTText(enumeration_name),
+                            (long long int)const_value_cast_to_8(expression_get_constant(enumeration_item->expression_value)));
+                }
+                else
+                {
+                    fprintf(stderr, "Registering enumerator '%s' with value '%s'\n", ASTText(enumeration_name),
+                            prettyprint_in_buffer(enumeration_item->expression_value));
                 }
             }
 

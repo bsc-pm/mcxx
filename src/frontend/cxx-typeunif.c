@@ -664,17 +664,18 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
 
                 // If left part is a nontype template parameter, then try to unify
                 type_t* expr_type = expression_get_type(left_tree);
+
+                scope_entry_t* left_symbol = NULL;
                 if (expr_type != NULL
-                        && is_dependent_expr_type(expr_type)
-                        && is_named_type(expr_type)
-                        && named_type_get_symbol(expr_type)->kind == SK_TEMPLATE_PARAMETER)
+                        && is_template_parameter_name(left_tree)
+                        && ((left_symbol = lookup_template_parameter_name(left_decl_context, left_tree)) != NULL)
+                        && left_symbol->kind == SK_TEMPLATE_PARAMETER)
                 {
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "TYPEUNIF: Left part '%s' found to be a nontype template parameter\n", 
                                 prettyprint_in_buffer(left_tree));
                     }
-                    scope_entry_t* left_symbol = named_type_get_symbol(expr_type);
                     deduction_t* deduction = get_unification_item_template_parameter(unif_set,
                             left_symbol);
 
@@ -704,27 +705,26 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
 
                         AST previous_deduced_expression = previous_deduced_parameter->expression;
                         type_t* previous_deduced_expr_type = expression_get_type(previous_deduced_expression);
-                        type_t* right_tree_type = expression_get_type(right_tree);
 
+                        scope_entry_t* previous_unified_template_param = NULL;
+                        scope_entry_t* right_tree_symbol = NULL;
                         if (previous_deduced_expr_type != NULL
-                                && is_dependent_expr_type(previous_deduced_expr_type)
-                                && is_named_type(previous_deduced_expr_type)
-                                && named_type_get_symbol(previous_deduced_expr_type)->kind == SK_TEMPLATE_PARAMETER
+                                && is_template_parameter_name(previous_deduced_expression)
+                                && ((previous_unified_template_param = 
+                                        lookup_template_parameter_name(previous_deduced_parameter->decl_context,
+                                            previous_deduced_expression)) != NULL)
+                                && previous_unified_template_param->kind == SK_TEMPLATE_PARAMETER
 
-                                && right_tree_type != NULL
-                                && is_dependent_expr_type(right_tree_type)
-                                && is_named_type(right_tree_type)
-                                && named_type_get_symbol(right_tree_type)->kind == SK_TEMPLATE_PARAMETER)
+                                && is_template_parameter_name(right_tree)
+                                && ((right_tree_symbol = lookup_template_parameter_name(right_decl_context, 
+                                    right_tree)) != NULL)
+                                && right_tree_symbol->kind == SK_TEMPLATE_PARAMETER)
                         {
-                            scope_entry_t* previous_unified_template_param = 
-                                named_type_get_symbol(previous_deduced_expr_type);
                             int previous_unified_expr_parameter_position = 
                                 previous_unified_template_param->entity_specs.template_parameter_position;
                             int previous_unified_expr_parameter_nesting = 
                                 previous_unified_template_param->entity_specs.template_parameter_nesting;
 
-                            scope_entry_t* right_tree_symbol = 
-                                named_type_get_symbol(right_tree_type);
                             int currently_unified_template_param_position = 
                                 right_tree_symbol->entity_specs.template_parameter_position;
                             int currently_unified_template_param_nesting = 
@@ -798,15 +798,12 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
                                 prettyprint_in_buffer(left_tree),
                                 prettyprint_in_buffer(right_tree));
                     }
-                    type_t* right_tree_type = expression_get_type(right_tree);
 
-                    if (right_tree_type != NULL
-                            && is_dependent_expr_type(right_tree_type)
-                            && is_named_type(right_tree_type)
-                            && named_type_get_symbol(right_tree_type)->kind == SK_TEMPLATE_PARAMETER)
+                    scope_entry_t* right_symbol = NULL;
+                    if (is_template_parameter_name(right_tree)
+                            && ((right_symbol = lookup_template_parameter_name(right_decl_context, right_tree)) != NULL)
+                            && right_symbol->kind == SK_TEMPLATE_PARAMETER)
                     {
-                        scope_entry_t* right_symbol = named_type_get_symbol(right_tree_type);
-
                         if ((right_symbol->entity_specs.template_parameter_nesting 
                                     == left_symbol->entity_specs.template_parameter_nesting)
                                 && (right_symbol->entity_specs.template_parameter_position 
@@ -832,7 +829,6 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
                     return equivalent;
                 }
 
-                // If it had to much it would have done before
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "TYPEUNIF: Left part '%s' is not a nontype template parameter\n", 
@@ -1040,10 +1036,12 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
 
 static char equivalent_expression_trees(AST left_tree, AST right_tree)
 {
-    return const_value_is_nonzero(
-            const_value_eq(
-                expression_get_constant(left_tree),
-                expression_get_constant(right_tree)));
+    return expression_is_constant(left_tree)
+        && expression_is_constant(right_tree)
+        && const_value_is_nonzero(
+                const_value_eq(
+                    expression_get_constant(left_tree),
+                    expression_get_constant(right_tree)));
 }
 
 char same_functional_expression(AST left_tree, decl_context_t left_decl_context, AST right_tree, 

@@ -169,24 +169,39 @@ AST const_value_to_tree(const_value_t* v)
         {
             // 0 is special as it is an octal
             v->tree = ASTLeaf(AST_OCTAL_LITERAL, NULL, 0, uniquestr("0"));
+            CXX_LANGUAGE()
+            {
+                expression_set_type(v->tree, get_zero_type());
+            }
+            C_LANGUAGE()
+            {
+                expression_set_type(v->tree, get_signed_int_type());
+            }
         }
         else
         {
             char c[64] = { 0 };
+            type_t* t = NULL;
 
             if (v->sign)
             {
                 snprintf(c, 63, "%lldll", (signed long long)v->value);
+                t = get_signed_long_long_int_type();
             }
             else
             {
                 snprintf(c, 63, "%llullu", (unsigned long long)v->value);
+                t = get_unsigned_long_long_int_type();
             }
 
             c[63] = '\0';
 
             v->tree = ASTLeaf(AST_DECIMAL_LITERAL, NULL, 0, uniquestr(c));
+            expression_set_type(v->tree, t);
         }
+
+        // Set ourselves as a constant
+        expression_set_constant(v->tree, v);
     }
 
     return v->tree;

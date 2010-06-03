@@ -639,6 +639,13 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                 member_of_template->type_information = new_type;
 
+                ERROR_CONDITION(member_of_template->expression_value == NULL,
+                        "An enumerator always has a related expression", 0);
+
+                new_member->expression_value = ast_copy_for_instantiation(member_of_template->expression_value);
+
+                check_for_expression(new_member->expression_value, context_of_being_instantiated);
+
                 enum_type_add_enumerator(new_type, new_member);
 
                 break;
