@@ -61,7 +61,7 @@ void multifile_init_dir(void)
     mkdir(MULTIFILE_DIRECTORY, 0700);
 
     // Mark the file for cleanup
-    mark_file_for_cleanup(MULTIFILE_DIRECTORY);
+    mark_dir_for_cleanup(MULTIFILE_DIRECTORY);
 }
 
 void multifile_remove_dir(void)
