@@ -2105,7 +2105,9 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             {
                 if (num_enumerator == 0)
                 {
-                    AST zero_tree = internal_expression_parse("0", decl_context);
+                    const_value_t* zero = const_value_get_zero(/* bytes */ 4, /* sign */ 1);
+                    AST zero_tree = const_value_to_tree(zero);
+
                     enumeration_item->expression_value = zero_tree;
                     base_enumerator = zero_tree;
                     delta = 1;
