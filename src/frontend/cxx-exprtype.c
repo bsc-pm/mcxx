@@ -4963,10 +4963,6 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                     *val = expression_get_constant(entry->expression_value);
                 }
 
-                fprintf(stderr, "JARL -> %s - %d\n", 
-                        prettyprint_in_buffer(entry->expression_value),
-                        expression_is_value_dependent(entry->expression_value));
-
                 if (expression_is_value_dependent(entry->expression_value))
                 {
                     expression_set_is_value_dependent(expr, 1);
