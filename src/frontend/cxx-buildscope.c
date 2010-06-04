@@ -6823,15 +6823,6 @@ scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl_contex
     }
     ASTAttrSetValueType(a, LANG_FUNCTION_BODY, tl_type_t, tl_ast(statement));
 
-
-    if (BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
-    {
-        if (!BITMAP_TEST(decl_context.decl_flags, DF_EXPLICIT_SPECIALIZATION))
-        {
-            set_is_dependent_type(entry->type_information, /* is_dependent */ 1);
-        }
-    }
-
     return entry;
 }
 
