@@ -1263,6 +1263,8 @@ type_t* get_new_template_type(template_parameter_list_t* template_parameter_list
     }
     else
     {
+        // If it is zero this means it is a special uninstantiated
+        // (non-template) class member
         set_is_dependent_type(primary_type, 0);
     }
 
@@ -1562,6 +1564,17 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
         else
         {
             set_is_dependent_type(specialized_type, /* is_dependent */ 0);
+        }
+    }
+    else
+    {
+        if (has_dependent_temp_args)
+        {
+            set_is_dependent_type(specialized_type, /* is_dependent */ 1);
+        }
+        else
+        {
+            set_is_dependent_type(specialized_type, /* is_dependent */ 1);
         }
     }
 
@@ -2723,12 +2736,6 @@ char class_type_get_is_dependent(type_t* t)
 {
     ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);
     return t->info->is_dependent;
-}
-
-void class_type_set_is_dependent(type_t* t, char is_dependent)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);
-    t->info->is_dependent = is_dependent;
 }
 
 void class_type_set_enclosing_class_type(type_t* t, type_t* enclosing_class_type)
