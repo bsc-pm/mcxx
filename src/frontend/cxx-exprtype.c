@@ -2150,8 +2150,8 @@ static type_t* promote_integral_type(type_t* t)
 static 
 char both_operands_are_integral(type_t* lhs_type, type_t* rhs_type)
 {
-    return is_integral_type(lhs_type)
-        && is_integral_type(rhs_type);
+    return (is_integral_type(lhs_type) || is_enumerated_type(lhs_type))
+        && (is_integral_type(rhs_type) || is_enumerated_type(lhs_type));
 };
 
 static 
@@ -2468,11 +2468,11 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
 
         if (!overloaded_call->entity_specs.is_builtin)
         {
-            *selected_operator = overloaded_call;
-
             ASTAttrSetValueType(expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(overloaded_call));
         }
+
+        *selected_operator = overloaded_call;
 
         overloaded_type = overloaded_call->type_information;
 
@@ -2722,8 +2722,22 @@ type_t* compute_bin_operator_add_type(AST expr, AST lhs, AST rhs, decl_context_t
 
     scope_entry_t* selected_operator = NULL;
 
-    return compute_user_defined_bin_operator_type(operation_add_tree, 
+    type_t* result = compute_user_defined_bin_operator_type(operation_add_tree, 
             expr, lhs, rhs, builtins, decl_context, &selected_operator);
+
+    if (val != NULL
+            && result != NULL
+            && selected_operator != NULL
+            && selected_operator->entity_specs.is_builtin
+            && both_operands_are_integral(no_ref(lhs_type), no_ref(rhs_type))
+            && expression_is_constant(lhs)
+            && expression_is_constant(rhs))
+    {
+        *val = const_value_add(expression_get_constant(lhs),
+                expression_get_constant(rhs));
+    }
+
+    return result;
 }
 
 static char operator_bin_only_arithmetic_pred(type_t* lhs, type_t* rhs)
@@ -3047,8 +3061,22 @@ static type_t* compute_bin_operator_sub_type(AST expr, AST lhs, AST rhs, decl_co
 
     scope_entry_t* selected_operator = NULL;
 
-    return compute_user_defined_bin_operator_type(operator, 
+    type_t* result = compute_user_defined_bin_operator_type(operator, 
             expr, lhs, rhs, builtins, decl_context, &selected_operator);
+
+    if (val != NULL
+            && result != NULL
+            && selected_operator != NULL
+            && selected_operator->entity_specs.is_builtin
+            && both_operands_are_integral(no_ref(lhs_type), no_ref(rhs_type))
+            && expression_is_constant(lhs)
+            && expression_is_constant(rhs))
+    {
+        *val = const_value_sub(expression_get_constant(lhs),
+                expression_get_constant(rhs));
+    }
+
+    return result;
 }
 
 static char operator_bin_left_integral_right_integral_pred(type_t* lhs, type_t* rhs)
@@ -4387,8 +4415,18 @@ static type_t* compute_operator_plus_type(AST expression,
 
     scope_entry_t* selected_operator;
 
-    return compute_user_defined_unary_operator_type(operation_tree,
+    type_t* result = compute_user_defined_unary_operator_type(operation_tree,
             expression, op, builtins, decl_context, &selected_operator);
+
+    if (val != NULL
+            && is_integral_type(no_ref(result))
+            && is_integral_type(no_ref(op_type))
+            && expression_is_constant(op))
+    {
+        *val = const_value_plus(expression_get_constant(op));
+    }
+
+    return result;
 }
 
 char operator_unary_minus_pred(type_t* op_type)
@@ -4473,8 +4511,20 @@ static type_t* compute_operator_minus_type(AST expression,
 
     scope_entry_t* selected_operator = NULL;
 
-    return compute_user_defined_unary_operator_type(operation_tree,
+    type_t* result = compute_user_defined_unary_operator_type(operation_tree,
             expression, op, builtins, decl_context, &selected_operator);
+
+    if (val != NULL
+            && result != NULL
+            && selected_operator != NULL
+            && selected_operator->entity_specs.is_builtin
+            && (is_integral_type(no_ref(op_type)) || is_enumerated_type(no_ref(op_type)))
+            && expression_is_constant(op))
+    {
+        *val = const_value_neg(expression_get_constant(op));
+    }
+
+    return result;
 }
 
 char operator_unary_complement_pred(type_t* op_type)
@@ -4527,7 +4577,7 @@ static type_t* compute_operator_complement_type(AST expression,
             if (val != NULL
                     && expression_is_constant(op))
             {
-                *val = const_value_neg(expression_get_constant(op));
+                *val = const_value_bitnot(expression_get_constant(op));
             }
 
             expression_set_type(expression, no_ref(op_type));
@@ -4558,8 +4608,20 @@ static type_t* compute_operator_complement_type(AST expression,
 
     scope_entry_t* selected_operator = NULL;
 
-    return compute_user_defined_unary_operator_type(operation_tree,
+    type_t* result = compute_user_defined_unary_operator_type(operation_tree,
             expression, op, builtins, decl_context, &selected_operator);
+
+    if (val != NULL
+            && result != NULL
+            && selected_operator != NULL
+            && selected_operator->entity_specs.is_builtin
+            && (is_integral_type(no_ref(op_type)) || is_enumerated_type(no_ref(op_type)))
+            && expression_is_constant(op))
+    {
+        *val = const_value_bitnot(expression_get_constant(op));
+    }
+
+    return result;
 }
 
 char operator_unary_not_pred(type_t* op_type)
@@ -4647,8 +4709,20 @@ static type_t* compute_operator_not_type(AST expression,
 
     scope_entry_t* selected_operator = NULL;
 
-    return compute_user_defined_unary_operator_type(operation_tree,
+    type_t* result = compute_user_defined_unary_operator_type(operation_tree,
             expression, op, builtins, decl_context, &selected_operator);
+
+    if (val != NULL
+            && result != NULL
+            && selected_operator != NULL
+            && selected_operator->entity_specs.is_builtin
+            && (is_integral_type(no_ref(op_type)) || is_enumerated_type(no_ref(op_type)))
+            && expression_is_constant(op))
+    {
+        *val = const_value_not(expression_get_constant(op));
+    }
+
+    return result;
 }
 
 static type_t* compute_operator_reference_type(AST expression, 
