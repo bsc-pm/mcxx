@@ -593,7 +593,7 @@ if test x$is_enabled_tl_superscalar = xyes -a x$is_enabled_tl_omp_nanox = xyes -
       "(" x$use_tl_superscalar_version = x4 -o x$use_tl_superscalar_version = x5 ")" ;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.sscc"
-   COMPILER_NAMES="${COMPILER_NAMES} sscc"
+   COMPILER_NAMES="${COMPILER_NAMES} sscc sscxx"
 fi
 dnl ----------------------- End of Superscalar and Nanox --------------------------------------
 
