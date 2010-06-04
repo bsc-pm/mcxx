@@ -1574,7 +1574,7 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
         }
         else
         {
-            set_is_dependent_type(specialized_type, /* is_dependent */ 1);
+            set_is_dependent_type(specialized_type, /* is_dependent */ 0);
         }
     }
 
