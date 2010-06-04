@@ -1848,6 +1848,7 @@ static char check_for_declarator_rec(AST declarator, decl_context_t decl_context
                 return check_for_declarator_rec(ASTSon0(declarator), decl_context);
                 break;
             }
+        case AST_NEW_DECLARATOR:
         case AST_POINTER_DECL :
             {
                 return check_for_declarator_rec(ASTSon1(declarator), decl_context);
