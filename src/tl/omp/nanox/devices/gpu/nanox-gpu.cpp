@@ -205,8 +205,6 @@ void DeviceGPU::create_outline(
     		}
     	}
 
-    	//forward_declaration << "extern \"C\" {\n";
-
       	// Get the definition of non local symbols
     	function_tree = outline_flags.task_symbol.get_point_of_declaration();
     	LangConstruct construct (function_tree, sl);
@@ -242,19 +240,13 @@ void DeviceGPU::create_outline(
     	{
     		forward_declaration << function_tree.get_enclosing_global_tree().prettyprint_external();
     	}
-
-    	// Close the extern \"C\" key
-    	//forward_declaration << "}\n";
     }
 
 
     AST_t function_def_tree = reference_tree.get_enclosing_function_definition();
     FunctionDefinition enclosing_function(function_def_tree, sl);
 
-    Source result, body, outline_name, parameter_list;
-    //Symbol function_symbol = enclosing_function.get_function_symbol();
-
-    Source arguments_struct_definition;
+    Source result, arguments_struct_definition, outline_name, parameter_list, body;
 
     result
 		<< arguments_struct_definition
