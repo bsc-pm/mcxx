@@ -2191,7 +2191,7 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
 
             if (check_expr
                     && !result->info->is_dependent
-                    && is_dependent_expr_type(expression_get_type(expression)))
+                    && expression_is_value_dependent(expression))
             {
                 result->info->is_dependent = 1;
             }

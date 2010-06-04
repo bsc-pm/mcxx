@@ -926,15 +926,11 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
         case AST_REINTERPRET_CAST : 
         case AST_CONST_CAST : 
             {
-                // Let's assume they cast onto the same thing
-                // otherwise we should check it too ...
-                //
-                // AST type_id = ASTSon0(a);
-                // AST type_spec_seq = ASTSon0(type_id);
-                // AST type_spec = ASTSon1(type_spec_seq);
-                WARNING_MESSAGE("Currently casting not considered when unificating expressions '%s' and '%s'\n",
-                        prettyprint_in_buffer(left_tree),
-                        prettyprint_in_buffer(right_tree));
+                type_t* left_cast_type = compute_type_for_type_id_tree(ASTSon0(left_tree), left_decl_context);
+                type_t* right_cast_type = compute_type_for_type_id_tree(ASTSon0(right_tree), right_decl_context);
+
+                if (!equivalent_types(left_cast_type, right_cast_type))
+                    return 0;
 
                 AST left_cast = ASTSon1(left_tree);
                 AST right_cast = ASTSon1(right_tree);
