@@ -131,6 +131,16 @@ void mark_dir_for_cleanup(const char* name)
     add_to_list_of_temporal_files(name, /* is_temporary */ 0, /* is_dir */ 1);
 }
 
+void mark_file_as_temporary(const char* name)
+{
+    add_to_list_of_temporal_files(name, /* is_temporary */ 1, /* is_dir */ 0);
+}
+
+void mark_dir_as_temporary(const char* name)
+{
+    add_to_list_of_temporal_files(name, /* is_temporary */ 1, /* is_dir */ 1);
+}
+
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
 static temporal_file_t new_temporal_dir_unix(void)
 {
