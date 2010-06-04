@@ -259,7 +259,7 @@ const_value_t* const_value_##_opname(const_value_t* v1) \
     { \
         value = _unop v1->value; \
     } \
-    return const_value_get(v1->value, v1->num_bytes, v1->sign); \
+    return const_value_get(value, v1->num_bytes, v1->sign); \
 }
 
 UNOP_FUN(plus, +)
