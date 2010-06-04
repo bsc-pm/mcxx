@@ -10104,15 +10104,15 @@ static char check_for_sizeof_typeid(AST expr, decl_context_t decl_context)
                             prettyprint_in_buffer(expr),
                             type_size);
                 }
-
-                // Set the type of the type_id
-                expression_set_type(type_id, declarator_type);
-                expression_set_is_lvalue(type_id, 0);
             }
             else if (is_dependent_type(declarator_type))
             {
                 expression_set_is_value_dependent(expr, 1);
             }
+
+            // Set the type of the type_id
+            expression_set_type(type_id, declarator_type);
+            expression_set_is_lvalue(type_id, 0);
         }
 
         expression_set_type(expr, get_size_t_type());
