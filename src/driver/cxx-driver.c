@@ -415,15 +415,15 @@ static void driver_initialization(int argc, const char* argv[])
     // Define alternate stack
     stack_t alternate_stack;
 
-	// Allocate a maximum of 1 Mbyte or more if MINSIGSTKSZ was
-	// bigger than that (this is unlikely)
-	int allocated_size = 1024 * 1024;
-	if (MINSIGSTKSZ > 1024*1024)
-	{
-		allocated_size = MINSIGSTKSZ;
-	}
+    // Allocate a maximum of 1 Mbyte or more if MINSIGSTKSZ was
+    // bigger than that (this is unlikely)
+    int allocated_size = 1024 * 1024;
+    if (MINSIGSTKSZ > 1024*1024)
+    {
+        allocated_size = MINSIGSTKSZ;
+    }
 
-	_alternate_signal_stack = malloc(allocated_size);
+    _alternate_signal_stack = malloc(allocated_size);
 
     alternate_stack.ss_flags = 0;
     alternate_stack.ss_size = allocated_size;
@@ -433,7 +433,7 @@ static void driver_initialization(int argc, const char* argv[])
             || sigaltstack(&alternate_stack, /* oss */ NULL) != 0)
     {
         running_error("Setting alternate signal stack failed (%s)\n",
-				strerror(errno));
+                strerror(errno));
     }
 
     // Program signals
@@ -590,20 +590,14 @@ int parse_arguments(int argc, const char* argv[],
             {
                 // Be a bit smart here
                 const char* extension = get_extension_filename(parameter_info.argument);
-                struct extensions_table_t* current_extension = NULL;
                 if (extension == NULL 
-                        || ((current_extension =
-                                fileextensions_lookup(extension, strlen(extension))) == NULL)
-                        || (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA))
-                {
-                    if (current_extension == NULL)
-                    {
-                        fprintf(stderr, "File '%s' not recognized as a valid input. Passing verbatim on to the linker.\n", 
-                                parameter_info.argument);
-                    }
-                    add_to_parameter_list_str(&CURRENT_CONFIGURATION->linker_options, parameter_info.argument);
-                    linker_files_seen = 1;
-                }
+                        || (fileextensions_lookup(extension, strlen(extension))) == NULL)
+        {
+            fprintf(stderr, "File '%s' not recognized as a valid input. Passing verbatim on to the linker.\n", 
+                    parameter_info.argument);
+            add_to_parameter_list_str(&CURRENT_CONFIGURATION->linker_options, parameter_info.argument);
+            linker_files_seen = 1;
+        }
                 else
                 {
                     P_LIST_ADD(input_files, num_input_files, parameter_info.argument);
@@ -1955,8 +1949,15 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
         struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
 
+    // Linker data is not processed anymore
+    if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA)
+    {
+        file_process->already_compiled = 1;
+        continue;
+    }
+
         if (!CURRENT_CONFIGURATION->force_language
-				&& (current_extension->source_language != CURRENT_CONFIGURATION->source_language)
+                && (current_extension->source_language != CURRENT_CONFIGURATION->source_language)
                 && (current_extension->source_kind != SOURCE_KIND_NOT_PARSED))
         {
             fprintf(stderr, "%s was configured for %s language but file '%s' looks %s language (it will be compiled anyways)\n",
@@ -2193,7 +2194,7 @@ static void parse_translation_unit(translation_unit_t* translation_unit, const c
 
 static AST get_translation_unit_node(void)
 {
-	return ASTMake1(AST_TRANSLATION_UNIT, NULL, NULL, 0, NULL);
+    return ASTMake1(AST_TRANSLATION_UNIT, NULL, NULL, 0, NULL);
 }
 
 static void initialize_semantic_analysis(translation_unit_t* translation_unit, 
@@ -3047,7 +3048,19 @@ static void link_objects(void)
     int j;
     for (j = 0; j < compilation_process.num_translation_units; j++)
     {
-        file_list[j] = compilation_process.translation_units[j]->translation_unit->output_filename;
+        translation_unit_t* translation_unit = compilation_process.translation_units[j]->translation_unit;
+
+        const char* extension = get_extension_filename(translation_unit->input_filename);
+        struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
+
+        if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA)
+        {
+            file_list[j] = translation_unit->input_filename;
+        }
+        else
+        {
+            file_list[j] = translation_unit->output_filename;
+        }
     }
 
     extract_files_and_sublink(file_list, compilation_process.num_translation_units, CURRENT_CONFIGURATION);
