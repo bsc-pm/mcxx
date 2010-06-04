@@ -271,7 +271,8 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
             null_keyword = new_symbol(decl_context, decl_context.global_scope, "__null");
             null_keyword->kind = SK_VARIABLE;
             null_keyword->type_information = get_null_type();
-            null_keyword->expression_value = internal_expression_parse("0", decl_context);
+            const_value_t* val = const_value_get_zero(/*bytes*/ 4, /* signed */ 1);
+            null_keyword->expression_value = const_value_to_tree(val);
             null_keyword->defined = 1;
             null_keyword->do_not_print = 1;
             null_keyword->file = "(global scope)";
