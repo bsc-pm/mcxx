@@ -1513,11 +1513,14 @@ static void parse_subcommand_arguments(const char* arguments)
 
     if (*p == 'x')
     {
+        // Advance 'x'
         p++;
         if (*p != ':')
         {
             options_error("Option --W is of the form --Wx, in this case the proper syntax is --Wx:profile-name:m,");
         }
+        // Advance ':'
+        p++;
 
 #define MAX_PROFILE_NAME 256
         char profile_name[MAX_PROFILE_NAME] = { 0 };
@@ -1535,12 +1538,12 @@ static void parse_subcommand_arguments(const char* arguments)
             q++;
             p++;
         }
+        *q = '\0';
 
         if (*p != ':')
         {
             options_error("Option --W is of the form --Wx, in this case the proper syntax is --Wx:profile-name:m,");
         }
-        *q = '\0';
 
         configuration = get_compilation_configuration(profile_name);
 
@@ -1551,7 +1554,7 @@ static void parse_subcommand_arguments(const char* arguments)
             return;
         }
 
-        // Advance over ':'
+        // Advance ':'
         p++;
     }
 
@@ -1588,8 +1591,11 @@ static void parse_subcommand_arguments(const char* arguments)
         options_error("Option --W is of the form '--Wm,' and must be '--Wm,x'");
     }
 
+    // Advance ','
+    p++;
+
     int num_parameters = 0;
-    const char** parameters = comma_separate_values(&arguments[2], &num_parameters);
+    const char** parameters = comma_separate_values(p, &num_parameters);
 
     if (prepro_flag)
         add_to_parameter_list(
