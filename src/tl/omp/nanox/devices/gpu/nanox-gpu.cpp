@@ -142,7 +142,8 @@ static void do_gpu_outline_replacements(
 }
 
 DeviceGPU::DeviceGPU()
-    : DeviceProvider(/* needs_copies */ true)
+    : DeviceProvider(/* needs_copies */ true),
+      _cudaFilename("")
 {
     DeviceHandler &device_handler(DeviceHandler::get_device_handler());
 
@@ -162,58 +163,30 @@ void DeviceGPU::create_outline(
         Source initial_setup,
         Source outline_body)
 {
-    AST_t function_def_tree = reference_tree.get_enclosing_function_definition();
-    FunctionDefinition enclosing_function(function_def_tree, sl);
+	/***************** Write the CUDA file *****************/
 
-    Source result, body, outline_name, parameter_list;
+	// Check if the file has already been created (and written)
+	bool new_file = false;
 
-    Source forward_declaration;
-    Symbol function_symbol = enclosing_function.get_function_symbol();
+	if (_cudaFilename == "") {
+		// Set the file name
+		_cudaFilename = "cudacc_";
+		_cudaFilename += CompilationProcess::get_current_file().get_filename(false);
+	    size_t file_extension = _cudaFilename.find_last_of(".");
+	    _cudaFilename.erase(file_extension, _cudaFilename.length());
+	    _cudaFilename += ".cu";
+	    new_file = true;
+	}
 
-    Source arguments_struct_definition;
+	const std::string configuration_name = "cuda";
+    CompilationProcess::add_file(_cudaFilename, configuration_name, new_file);
 
-    result
-		<< arguments_struct_definition
-        << "void " << outline_name << "(" << parameter_list << ")"
-        << "{"
-        << body
-        << "}"
-        ;
-
-    Scope sc = sl.get_scope(reference_tree);
-    Symbol struct_typename_sym = sc.get_symbol_from_name(struct_typename);
-
-    if (!struct_typename_sym.is_valid())
-    {
-    	running_error("Invalid typename for struct args", 0);
-    }
-
-    arguments_struct_definition <<
-        		struct_typename_sym.get_point_of_declaration().prettyprint();
-
-    parameter_list
-		<< struct_typename << "* _args"
-        ;
-
-    outline_name
-        << gpu_outline_name(task_name)
-        ;
+    // Get all the needed symbols and CUDA included files
+    Source included_files, forward_declaration;
+    AST_t function_tree;
 
     if (outline_flags.task_symbol != NULL)
     {
-    	// Remove the task body from the original source file and replace it for the outline declaration
-    	AST_t function_tree = outline_flags.task_symbol.get_point_of_declaration();
-    	// Remove
-    	function_tree.remove_in_list();
-
-    	Source function_decl_src;
-    	function_decl_src << "void " << outline_name << "(" << struct_typename << "*);"
-    			;
-
-    	AST_t function_decl_tree = function_decl_src.parse_declaration(reference_tree, sl);
-    	reference_tree.prepend_sibling_function(function_decl_tree);
-    	// --
-
     	// Get *.cu included files
     	ObjectList<IncludeLine> lines = CurrentFile::get_top_level_included_files();
     	std::string cuda_line (".cu\"");
@@ -227,14 +200,15 @@ void DeviceGPU::create_outline(
     			std::string matching = line.substr(line.size()-cuda_size,cuda_size);
     			if (matching == cuda_line)
     			{
-    				forward_declaration << line << "\n";
+    				included_files << line << "\n";
     			}
     		}
     	}
 
-    	forward_declaration << "extern \"C\" {\n";
+    	//forward_declaration << "extern \"C\" {\n";
 
       	// Get the definition of non local symbols
+    	function_tree = outline_flags.task_symbol.get_point_of_declaration();
     	LangConstruct construct (function_tree, sl);
     	ObjectList<IdExpression> extern_occurrences = construct.non_local_symbol_occurrences();
     	DeclarationClosure decl_closure (sl);
@@ -270,10 +244,49 @@ void DeviceGPU::create_outline(
     	}
 
     	// Close the extern \"C\" key
-    	forward_declaration << "}\n";
-
+    	//forward_declaration << "}\n";
     }
 
+
+    AST_t function_def_tree = reference_tree.get_enclosing_function_definition();
+    FunctionDefinition enclosing_function(function_def_tree, sl);
+
+    Source result, body, outline_name, parameter_list;
+    //Symbol function_symbol = enclosing_function.get_function_symbol();
+
+    Source arguments_struct_definition;
+
+    result
+		<< arguments_struct_definition
+        << "void " << outline_name << "(" << parameter_list << ")"
+        << "{"
+        << body
+        << "}"
+        ;
+
+    // arguments_struct_definition
+    Scope sc = sl.get_scope(reference_tree);
+    Symbol struct_typename_sym = sc.get_symbol_from_name(struct_typename);
+
+    if (!struct_typename_sym.is_valid())
+    {
+    	running_error("Invalid typename for struct args", 0);
+    }
+
+    arguments_struct_definition <<
+        		struct_typename_sym.get_point_of_declaration().prettyprint();
+
+    // outline_name
+    outline_name
+        << gpu_outline_name(task_name)
+        ;
+
+    // parameter_list
+    parameter_list
+		<< struct_typename << "* _args"
+        ;
+
+    // body
     Source private_vars, final_code;
 
     body
@@ -283,6 +296,7 @@ void DeviceGPU::create_outline(
         << final_code
         ;
 
+    // private_vars
     ObjectList<DataEnvironItem> data_env_items = data_environ.get_items();
 
     for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
@@ -300,6 +314,7 @@ void DeviceGPU::create_outline(
             ;
     }
 
+    // final_code
     if (outline_flags.barrier_at_end)
     {
         final_code
@@ -318,25 +333,38 @@ void DeviceGPU::create_outline(
     AST_t outline_code_tree
         = result.parse_declaration(enclosing_function.get_ast(), sl);
 
-    std::string file_name (CompilationConfiguration::get_current_configuration() + "_");
-    file_name += CompilationProcess::get_current_file().get_filename(false);
-    size_t file_extension = file_name.find_last_of(".");
-    file_name.erase(file_extension, file_name.length());
-
-    file_name += ".cu";
-
-    const std::string configuration_name = "cuda";
-    bool new_file = true;
-
-    CompilationProcess::add_file(file_name, configuration_name, new_file);
-
     std::ofstream cudaFile;
-    cudaFile.open (file_name.c_str());
-    cudaFile << forward_declaration.get_source(false) << "\n";
+    if (new_file)
+    {
+    	cudaFile.open (_cudaFilename.c_str());
+    	cudaFile << included_files.get_source(false) << "\n";
+    }
+    else
+    {
+    	cudaFile.open (_cudaFilename.c_str(), std::ios_base::app);
+    }
+
     cudaFile << "extern \"C\" {\n";
+    cudaFile << forward_declaration.get_source(false) << "\n";
     cudaFile << outline_code_tree.prettyprint_external() << "\n";
-    cudaFile << "}";
+    cudaFile << "}\n";
     cudaFile.close();
+
+	/******************* Write the C file ******************/
+
+    if (outline_flags.task_symbol != NULL)
+    {
+    	// Remove the task body from the original source file ...
+    	function_tree.remove_in_list();
+
+    	// ...  and replace it for the outline declaration
+    	Source function_decl_src;
+    	function_decl_src << "void " << outline_name << "(" << struct_typename << "*);"
+    			;
+
+    	AST_t function_decl_tree = function_decl_src.parse_declaration(reference_tree, sl);
+    	reference_tree.prepend_sibling_function(function_decl_tree);
+    }
 
     // reference_tree.prepend_sibling_function(outline_code_tree);
 }
@@ -373,6 +401,11 @@ void DeviceGPU::do_replacements(DataEnvironInfo& data_environ,
             data_environ,
             initial_setup,
             replaced_src);
+}
+
+void DeviceGPU::phase_cleanup(DTO& data_flow)
+{
+	_cudaFilename = "";
 }
 
 EXPORT_PHASE(TL::Nanox::DeviceGPU);

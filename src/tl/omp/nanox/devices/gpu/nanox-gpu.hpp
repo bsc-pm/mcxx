@@ -12,6 +12,8 @@ namespace TL
 
         class DeviceGPU : public DeviceProvider
         {
+			private:
+				std::string _cudaFilename;
             public:
 
                 // This phase does nothing
@@ -42,6 +44,8 @@ namespace TL
                         const OutlineFlags& outline_flags,
                         Source &ancillary_device_description,
                         Source &device_descriptor);
+
+                virtual void phase_cleanup(DTO& data_flow);
         };
 
     }
