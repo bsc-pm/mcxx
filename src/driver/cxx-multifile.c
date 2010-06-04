@@ -60,8 +60,8 @@ void multifile_init_dir(void)
 
     mkdir(MULTIFILE_DIRECTORY, 0700);
 
-    // Mark the file for cleanup
-    mark_dir_for_cleanup(MULTIFILE_DIRECTORY);
+    // Remove it, even if we are passed -k (-K would keep it)
+    mark_dir_as_temporary(MULTIFILE_DIRECTORY);
 }
 
 void multifile_remove_dir(void)
@@ -69,7 +69,7 @@ void multifile_remove_dir(void)
     // This is a bit lame but it is far easier than using nftw
 #ifndef WIN32_BUILD
     char c[256];
-    snprintf(c, 255, "rm -fr %s", MULTIFILE_DIRECTORY);
+    snprintf(c, 255, "rm -r %s", MULTIFILE_DIRECTORY);
 
     if (system(c) != 0)
     {
