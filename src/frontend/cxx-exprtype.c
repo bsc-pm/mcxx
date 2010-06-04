@@ -4702,7 +4702,6 @@ static type_t* compute_operator_reference_type(AST expression,
                         || entry->entity_specs.is_static)
                 {
                     expression_set_type(expression, get_pointer_type(entry->type_information));
-                    *val = const_value_get((uint64_t)(entry), /* bytes */ 8, /* sign */ 0);
                 }
                 else
                 {
@@ -4732,24 +4731,6 @@ static type_t* compute_operator_reference_type(AST expression,
     if (!expression_is_lvalue(op))
     {
         return NULL;
-    }
-
-    CXX_LANGUAGE()
-    {
-        if (expression_has_symbol(op))
-        {
-            fprintf(stderr, "LALA\n");
-            scope_entry_t* symbol = expression_get_symbol(op);
-
-            if ((symbol->kind == SK_FUNCTION
-                        && (!symbol->entity_specs.is_member || symbol->entity_specs.is_static))
-                    || (symbol->kind == SK_VARIABLE
-                        && symbol->decl_context.current_scope->kind == NAMESPACE_SCOPE))
-            {
-                // This is sort of a constant expression in C++
-                *val = const_value_get((uint64_t)(symbol), /* bytes */ 8, /* sign */ 0);
-            }
-        }
     }
 
     type_t* ptr_type = get_pointer_type(no_ref(op_type));
