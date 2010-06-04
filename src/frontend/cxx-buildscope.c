@@ -3001,55 +3001,9 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
     }
 }
 
-static void insert_members_of_unnamed_nested(decl_context_t decl_context, scope_entry_t* field)
-{
-    int i;
-    type_t* class_type = field->type_information;
-    for (i = 0; i < class_type_get_num_nonstatic_data_members(get_actual_class_type(class_type)); i++)
-    {
-        scope_entry_t* current_field = class_type_get_nonstatic_data_member_num(get_actual_class_type(class_type), i);
-
-        if (current_field->entity_specs.is_nested_unnamed_struct)
-        {
-            insert_members_of_unnamed_nested(decl_context, current_field);
-        }
-        else
-        {
-            insert_entry(decl_context.current_scope, current_field);
-        }
-    }
-}
-
-static void finish_class_type_c(type_t* class_type, 
-        type_t* type_info UNUSED_PARAMETER, 
-        decl_context_t decl_context,
-        const char *filename UNUSED_PARAMETER, int line UNUSED_PARAMETER)
-{
-    // Only for non nested classes in C
-    if (decl_context.current_scope->contained_in == NULL)
-    {
-        decl_context_t inner_class_context = class_type_get_inner_context(get_actual_class_type(class_type));
-        // Bring in the scope of the class the members of inner fields which are unnamed nested
-        int i;
-        for (i = 0; i < class_type_get_num_nonstatic_data_members(get_actual_class_type(class_type)); i++)
-        {
-            scope_entry_t* field = class_type_get_nonstatic_data_member_num(get_actual_class_type(class_type), i);
-
-            if (field->entity_specs.is_nested_unnamed_struct)
-            {
-                insert_members_of_unnamed_nested(inner_class_context, field);
-            }
-        }
-    }
-}
-
 void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t decl_context,
         const char *filename, int line)
 {
-    C_LANGUAGE()
-    {
-        finish_class_type_c(class_type, type_info, decl_context, filename, line);
-    }
     CXX_LANGUAGE()
     {
         finish_class_type_cxx(class_type, type_info, decl_context, filename, line);
@@ -3193,6 +3147,8 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     enum class_kind_t class_kind = CK_INVALID;
     const char *class_kind_name = NULL;
 
+    char anonymous_class = 0;
+
     switch (ASTType(class_key))
     {
         case AST_CLASS_KEY_CLASS:
@@ -3211,6 +3167,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             {
                 class_kind = CK_UNION;
                 class_kind_name = "union ";
+
                 break;
             }
         default:
@@ -3456,6 +3413,18 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                 qualification_name,
                 class_type);
         class_type_set_inner_context(class_type, inner_decl_context);
+
+        C_LANGUAGE()
+        {
+            anonymous_class = (BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS)
+                    // Namespace scope is not allowed in C
+                    && decl_context.current_scope->kind != NAMESPACE_SCOPE);
+        }
+        CXX_LANGUAGE()
+        {
+            anonymous_class = (class_kind == CK_UNION
+                    && BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS));
+        }
     }
 
     ERROR_CONDITION(inner_decl_context.current_scope == NULL,
@@ -3530,8 +3499,28 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         current_access = AS_PUBLIC;
     }
 
-    build_scope_member_specification(inner_decl_context, member_specification, 
-            current_access, *type_info);
+    if (!anonymous_class)
+    {
+        build_scope_member_specification(inner_decl_context, member_specification, 
+                current_access, *type_info);
+    }
+    else
+    {
+        if (decl_context.current_scope->kind == CLASS_SCOPE)
+        {
+            type_t* enclosing_class_type = decl_context.current_scope->class_type;
+            build_scope_member_specification(decl_context, member_specification, 
+                    current_access, enclosing_class_type);
+        }
+        else
+        {
+            // There is no class to name, so it does not matter if we sign them
+            // in a fake class type
+            build_scope_member_specification(decl_context, member_specification, 
+                    current_access, *type_info);
+        }
+    }
+
 
     // If the class had a name, it is completely defined here
     class_entry->defined = 1;
