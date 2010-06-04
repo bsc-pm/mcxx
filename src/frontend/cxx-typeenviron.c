@@ -387,6 +387,8 @@ static void cxx_abi_array_sizeof(type_t* t)
         type_set_size(t, size * element_size);
         type_set_alignment(t, element_align);
         type_set_valid_size(t, 1);
+
+        return;
     }
     internal_error("Cannot compute the size of the array type '%s'!", print_declarator(t));
 }
