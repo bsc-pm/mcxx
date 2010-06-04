@@ -204,7 +204,6 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
         class_type_set_enclosing_class_type(get_actual_class_type(new_primary_template),
                 get_actual_class_type(being_instantiated));
 
-
         class_type_add_typename(
                 get_actual_class_type(being_instantiated),
                 named_type_get_symbol(new_primary_template));
@@ -614,6 +613,12 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             line,
                             template_map, 
                             num_items_template_map);
+
+                    new_member->defined = 0;
+
+                    // We work on the primary template
+                    type_t* primary_type = template_type_get_primary_type(new_member->type_information);
+                    new_member = named_type_get_symbol(primary_type);
                 }
 
                 // Functions are not defined yet
