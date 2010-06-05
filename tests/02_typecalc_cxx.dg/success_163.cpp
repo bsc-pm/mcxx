@@ -34,9 +34,12 @@ struct F
     }
 };
 
+void h(float *);
+
 void f(void)
 {
     F<3> g;
+    float m;
 
-    g[2.3f];
+    h( g[&m] );
 }
