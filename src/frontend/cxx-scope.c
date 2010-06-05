@@ -60,7 +60,8 @@ unsigned long long symbols_used_memory(void)
 }
 
 // Lookup of a simple name within a given declaration context
-static scope_entry_list_t* name_lookup(decl_context_t decl_context, const char* name);
+static scope_entry_list_t* name_lookup(decl_context_t decl_context, const char* name, 
+        const char* filename, int line);
 
 // Solve a template given a template-id, a list of found names for the template-id and the declaration context
 
@@ -793,7 +794,8 @@ scope_entry_list_t* query_unqualified_name_str_flags(decl_context_t decl_context
         decl_context.current_scope = decl_context.function_scope;
     }
 
-    return name_lookup(decl_context, unqualified_name);
+    // No line information here...
+    return name_lookup(decl_context, unqualified_name, "(null)", 0);
 }
 
 static scope_entry_list_t* query_unqualified_name(
@@ -829,7 +831,8 @@ static scope_entry_list_t* query_unqualified_name(
                 {
                     name = strprepend(name, "constructor ");
                 }
-                result = name_lookup(decl_context, name);
+                result = name_lookup(decl_context, name, 
+                        ASTFileName(unqualified_name), ASTLine(unqualified_name));
 
                 if (result != NULL
                         && result->next == NULL
@@ -854,7 +857,8 @@ static scope_entry_list_t* query_unqualified_name(
             {
                 AST symbol = ASTSon0(unqualified_name);
                 const char *name = ASTText(symbol);
-                result = name_lookup(decl_context, name);
+                result = name_lookup(decl_context, name, 
+                        ASTFileName(unqualified_name), ASTLine(unqualified_name));
             }
             break;
         case AST_CONVERSION_FUNCTION_ID:
@@ -864,13 +868,15 @@ static scope_entry_list_t* query_unqualified_name(
 
                 char* conversion_function_name = 
                     get_conversion_function_name(modified_class_context, unqualified_name, /* result_type */ NULL);
-                result = name_lookup(decl_context, conversion_function_name);
+                result = name_lookup(decl_context, conversion_function_name,
+                        ASTFileName(unqualified_name), ASTLine(unqualified_name));
             }
             break;
         case AST_OPERATOR_FUNCTION_ID :
             {
                 const char *operator_function_name = get_operator_function_name(unqualified_name);
-                result = name_lookup(decl_context, operator_function_name);
+                result = name_lookup(decl_context, operator_function_name,
+                        ASTFileName(unqualified_name), ASTLine(unqualified_name));
                 break;
             }
         default:
@@ -1973,7 +1979,8 @@ static scope_entry_list_t* filter_any_non_type(scope_entry_list_t* entry_list)
     return filter_symbol_kind_set(entry_list, STATIC_ARRAY_LENGTH(type_filter), type_filter);
 }
 
-static scope_entry_list_t* name_lookup(decl_context_t decl_context, const char* name)
+static scope_entry_list_t* name_lookup(decl_context_t decl_context, 
+        const char* name, const char* filename, int line)
 {
     ERROR_CONDITION(name == NULL, "Name cannot be null!", 0);
 
@@ -2029,32 +2036,45 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context, const char* 
             result = filter_any_non_type(result);
         }
 
-        // This object would hide any other in the enclosing scopes
-        if (result != NULL)
+        // Do not look anything else
+        if (BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE))
         {
             return result;
         }
         
-        // Do not look anything else
-        if (BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE))
-        {
-            return NULL;
-        }
-
         // Otherwise, if this is a NAMESPACE_SCOPE, lookup in the used namespaces
         // note that the objects there are not hidden, but added
         if (current_scope->num_used_namespaces > 0)
         {
-            result = name_lookup_used_namespaces(decl_context, current_scope, name);
+            scope_entry_list_t* used_result = name_lookup_used_namespaces(decl_context, current_scope, name);
             if (BITMAP_TEST(decl_context.decl_flags, DF_ELABORATED_NAME))
             {
-                result = filter_any_non_type(result);
+                used_result = filter_any_non_type(used_result);
             }
             // If this yields any result, return them, no more search needed
-            if (result != NULL)
+            if (result == NULL && used_result != NULL)
             {
-                return result;
+                return used_result;
             }
+            else if (result != NULL && used_result != NULL)
+            {
+                char is_dependent = 0;
+                int max_qualif_level = 0;
+                fprintf(stderr, "%s:%d: note: '%s' refers to '%s'\n", 
+                        filename, line, name,
+                        get_fully_qualified_symbol_name(result->entry, result->entry->decl_context, &is_dependent, &max_qualif_level));
+                fprintf(stderr, "%s:%d: note: '%s' refers to '%s'\n", 
+                        filename, line, name,
+                        get_fully_qualified_symbol_name(used_result->entry, used_result->entry->decl_context, &is_dependent, &max_qualif_level));
+                running_error("%s:%d: error: name is '%s' ambiguous\n", 
+                        filename, line, name);
+            }
+        }
+
+        // If the current scope had something return it now
+        if (result != NULL)
+        {
+            return result;
         }
 
         // If we are in a qualified lookup never lookup the enclosing one
@@ -3574,7 +3594,8 @@ static scope_entry_list_t* query_template_id(AST template_id,
     }
     else
     {
-        template_symbol_list = name_lookup(template_name_context, template_name);
+        template_symbol_list = name_lookup(template_name_context, template_name, 
+                ASTFileName(template_id), ASTLine(template_id));
 
         // Filter template-names
         enum cxx_symbol_kind template_name_filter[] = {

@@ -1505,8 +1505,25 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
 
     CXX_LANGUAGE()
     {
-        result_list = query_nested_name(decl_context, 
-                global_scope, nested_name_specifier, class_symbol);
+        if (BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS)
+                && !BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
+        {
+            if (global_scope == NULL
+                    && nested_name_specifier == NULL)
+            {
+                result_list = query_in_scope_flags(decl_context, class_symbol, decl_flags);
+            }
+            else
+            {
+                result_list = query_nested_name_flags(decl_context, 
+                        global_scope, nested_name_specifier, class_symbol, decl_flags);
+            };
+        }
+        else
+        {
+            result_list = query_nested_name_flags(decl_context, 
+                    global_scope, nested_name_specifier, class_symbol, decl_flags);
+        }
     }
 
     C_LANGUAGE()
@@ -1528,7 +1545,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
         // so, ignore this declaration
         return;
     }
-
 
     // Now look for a type
     enum cxx_symbol_kind filter_classes[] = 
@@ -1706,8 +1722,24 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type
 
     CXX_LANGUAGE()
     {
-        result_list = query_nested_name_flags(decl_context, global_scope, 
-                nested_name_specifier, symbol, decl_flags);
+        if (BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS))
+        {
+            if (global_scope == NULL
+                    && nested_name_specifier == NULL)
+            {
+                result_list = query_in_scope_flags(decl_context, symbol, decl_flags);
+            }
+            else
+            {
+                result_list = query_nested_name_flags(decl_context, 
+                        global_scope, nested_name_specifier, symbol, decl_flags);
+            };
+        }
+        else
+        {
+            result_list = query_nested_name_flags(decl_context, 
+                    global_scope, nested_name_specifier, symbol, decl_flags);
+        }
     }
 
     C_LANGUAGE()
@@ -1726,7 +1758,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type
         scope_entry_t *current_entry = result_list->entry;
         if (current_entry->kind != SK_ENUM)
         {
-            running_error("%s:%d: error: '%s' is not an enum-name\n", entry->file, entry->line, entry->symbol_name);
+            running_error("%s:%d: error: '%s' is not an enum-name\n", current_entry->file, current_entry->line, current_entry->symbol_name);
         }
         else
         {

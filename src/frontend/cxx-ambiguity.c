@@ -1415,11 +1415,11 @@ char solve_possibly_ambiguous_template_id(AST type_name, decl_context_t decl_con
                 {
                     if (feasible_list < 0)
                     {
-                        internal_error("Two feasible_list template argument lists!\n", 0);
+                        feasible_list = i;
                     }
                     else
                     {
-                        feasible_list = i;
+                        internal_error("Two feasible_list template argument lists!\n", 0);
                     }
                 }
             }
@@ -2339,12 +2339,12 @@ void solve_ambiguous_expression_list(AST expression_list, decl_context_t decl_co
 {
     int correct_choice = -1;
     int i;
-    char result = 1;
     for (i = 0; i < ast_get_num_ambiguities(expression_list); i++)
     {
         AST current_expression_list = ast_get_ambiguity(expression_list, i);
         AST iter;
 
+        char result = 1;
         for_each_element(current_expression_list, iter)
         {
             AST current_expression = ASTSon1(iter);
