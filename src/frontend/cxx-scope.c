@@ -1979,6 +1979,40 @@ static scope_entry_list_t* filter_any_non_type(scope_entry_list_t* entry_list)
     return filter_symbol_kind_set(entry_list, STATIC_ARRAY_LENGTH(type_filter), type_filter);
 }
 
+static char first_is_subset_of_second(scope_entry_list_t* entry_list_1, scope_entry_list_t* entry_list_2)
+{
+    ERROR_CONDITION(entry_list_1 == NULL
+            || entry_list_2 == NULL, "Error one list is NULL", 0);
+
+    while (entry_list_1 != NULL)
+    {
+        scope_entry_list_t* it = entry_list_2;
+
+        char found = 0;
+        while (it != NULL && !found)
+        {
+            found = (entry_list_1->entry == it->entry);
+            it = it->next;
+        }
+
+        if (!found)
+            return 0;
+
+        entry_list_1 = entry_list_1->next;
+    }
+
+    return 1;
+}
+
+static char different_symbols(scope_entry_list_t* entry_list_1, scope_entry_list_t* entry_list_2)
+{
+    ERROR_CONDITION(entry_list_1 == NULL
+            || entry_list_2 == NULL, "Error one list is NULL", 0);
+
+    return (!first_is_subset_of_second(entry_list_1, entry_list_2)
+            || !first_is_subset_of_second(entry_list_2, entry_list_1));
+}
+
 static scope_entry_list_t* name_lookup(decl_context_t decl_context, 
         const char* name, const char* filename, int line)
 {
@@ -2056,7 +2090,8 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
             {
                 return used_result;
             }
-            else if (result != NULL && used_result != NULL)
+            else if (result != NULL && used_result != NULL
+                    && different_symbols(result, used_result))
             {
                 char is_dependent = 0;
                 int max_qualif_level = 0;
