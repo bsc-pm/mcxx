@@ -5350,7 +5350,13 @@ static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context
 
             scope_entry_t* conversors[2] = {NULL, NULL};
 
-            scope_entry_t *overloaded_call = solve_overload(operator_subscript_list,
+            scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(operator_subscript_list,
+                    /* builtins */ NULL, &(argument_types[1]), num_arguments - 1,
+                    decl_context,
+                    ASTFileName(expr), ASTLine(expr),
+                    /* explicit_template_arguments */ NULL);
+
+            scope_entry_t *overloaded_call = solve_overload(overload_set,
                     argument_types, num_arguments, decl_context,
                     ASTFileName(expr), ASTLine(expr), conversors);
 
