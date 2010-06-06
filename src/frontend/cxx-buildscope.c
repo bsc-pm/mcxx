@@ -1836,6 +1836,11 @@ static void gather_type_spec_from_dependent_typename(AST a, type_t** type_info,
     // T::template A<B>
     while (nested_name_spec != NULL)
     {
+        if (ASTType(nested_name_spec) == AST_AMBIGUITY)
+        {
+            solve_ambiguous_nested_name_specifier(nested_name_spec, decl_context);
+        }
+
         AST class_name = ASTSon0(nested_name_spec);
 
         if (ASTType(class_name) == AST_TEMPLATE_ID

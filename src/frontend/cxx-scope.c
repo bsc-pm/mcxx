@@ -1989,6 +1989,21 @@ static scope_entry_list_t* filter_any_non_type(scope_entry_list_t* entry_list)
     return filter_symbol_kind_set(entry_list, STATIC_ARRAY_LENGTH(type_filter), type_filter);
 }
 
+static char name_same_overload(scope_entry_t* entry_1, scope_entry_t* entry_2)
+{
+    if (!(entry_1->kind == SK_FUNCTION
+                || (entry_1->kind == SK_TEMPLATE && 
+                    is_function_type(template_type_get_primary_type(entry_1->type_information)))))
+        return 0;
+
+    if (!(entry_2->kind == SK_FUNCTION
+                || (entry_2->kind == SK_TEMPLATE && 
+                    is_function_type(template_type_get_primary_type(entry_2->type_information)))))
+        return 0;
+
+    return (strcmp(entry_1->symbol_name, entry_2->symbol_name) == 0);
+}
+
 static char first_is_subset_of_second(scope_entry_list_t* entry_list_1, scope_entry_list_t* entry_list_2)
 {
     ERROR_CONDITION(entry_list_1 == NULL
@@ -2001,7 +2016,8 @@ static char first_is_subset_of_second(scope_entry_list_t* entry_list_1, scope_en
         char found = 0;
         while (it != NULL && !found)
         {
-            found = (entry_list_1->entry == it->entry);
+            found = (entry_list_1->entry == it->entry)
+                || name_same_overload(entry_list_1->entry, it->entry);
             it = it->next;
         }
 
@@ -2022,6 +2038,8 @@ static char different_symbols(scope_entry_list_t* entry_list_1, scope_entry_list
     return (!first_is_subset_of_second(entry_list_1, entry_list_2)
             || !first_is_subset_of_second(entry_list_2, entry_list_1));
 }
+
+static scope_entry_list_t* merge_scope_entry_list(scope_entry_list_t* list_1, scope_entry_list_t* list_2);
 
 static scope_entry_list_t* name_lookup(decl_context_t decl_context, 
         const char* name, const char* filename, int line)
@@ -2109,19 +2127,25 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
             {
                 return used_result;
             }
-            else if (result != NULL && used_result != NULL
-                    && different_symbols(result, used_result))
+            else if (result != NULL && used_result != NULL)
             {
-                char is_dependent = 0;
-                int max_qualif_level = 0;
-                fprintf(stderr, "%s:%d: note: '%s' refers to '%s'\n", 
-                        filename, line, name,
-                        get_fully_qualified_symbol_name(result->entry, result->entry->decl_context, &is_dependent, &max_qualif_level));
-                fprintf(stderr, "%s:%d: note: '%s' refers to '%s'\n", 
-                        filename, line, name,
-                        get_fully_qualified_symbol_name(used_result->entry, used_result->entry->decl_context, &is_dependent, &max_qualif_level));
-                running_error("%s:%d: error: name is '%s' ambiguous\n", 
-                        filename, line, name);
+                if (different_symbols(result, used_result))
+                {
+                    char is_dependent = 0;
+                    int max_qualif_level = 0;
+                    fprintf(stderr, "%s:%d: note: '%s' refers to '%s'\n", 
+                            filename, line, name,
+                            get_fully_qualified_symbol_name(result->entry, result->entry->decl_context, &is_dependent, &max_qualif_level));
+                    fprintf(stderr, "%s:%d: note: '%s' refers to '%s'\n", 
+                            filename, line, name,
+                            get_fully_qualified_symbol_name(used_result->entry, used_result->entry->decl_context, &is_dependent, &max_qualif_level));
+                    running_error("%s:%d: error: name is '%s' ambiguous\n", 
+                            filename, line, name);
+                }
+                else
+                {
+                    result = merge_scope_entry_list(used_result, result);
+                }
             }
         }
 
@@ -3791,6 +3815,62 @@ static scope_entry_list_t* append_scope_entry_list(scope_entry_list_t* orig, sco
     it->next = appended;
 
     return copy_orig;
+}
+
+// Like append but avoids repeated symbols
+static scope_entry_list_t* merge_scope_entry_list(scope_entry_list_t* list_1, scope_entry_list_t* list_2)
+{
+    // Some simple cases
+    if (list_1 == NULL)
+    {
+        return list_2;
+    }
+    else if (list_2 == NULL)
+    {
+        return list_1;
+    }
+    if (first_is_subset_of_second(list_1, list_2))
+    {
+        return list_2;
+    }
+    else if (first_is_subset_of_second(list_2, list_1))
+    {
+        return list_1;
+    }
+
+    // Full merge
+    // Copy list_1
+    scope_entry_list_t* result = copy_entry_list(list_1);
+
+    scope_entry_list_t* last = result;
+    while (last->next != NULL)
+        last = last->next;
+
+    scope_entry_list_t* it_list_2 = list_2;
+    while (it_list_2 != NULL)
+    {
+        char found = 0;
+        
+        scope_entry_list_t* it_res = result;
+        while (it_res != NULL && !found)
+        {
+            if (it_res->entry == it_list_2->entry)
+                found = 1;
+
+            it_res = it_res->next;
+        }
+
+        if (!found)
+        {
+            last->next = counted_calloc(1, sizeof(*last->next), &_bytes_used_scopes);
+            last->next->entry = it_list_2->entry;
+            last = last->next;
+        }
+
+        it_list_2 = it_list_2->next;
+    }
+
+    return result;
 }
 
 // Only for "simple" symbols, this is, that are not members and they are simply contained

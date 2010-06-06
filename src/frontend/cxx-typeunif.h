@@ -40,8 +40,6 @@ LIBMCXX_EXTERN void unificate_two_types(struct type_tag* t1, struct type_tag* t2
 LIBMCXX_EXTERN void unificate_two_expressions(deduction_set_t **unif_set, 
         struct AST_tag* left_tree, decl_context_t left_decl_context, 
         struct AST_tag* right_tree, decl_context_t right_decl_context, deduction_flags_t flags);
-LIBMCXX_EXTERN char equivalent_dependent_expressions(struct AST_tag* left_tree, decl_context_t left_decl_context, struct AST_tag*
-        right_tree, decl_context_t right_decl_context, deduction_set_t** unif_set, deduction_flags_t flags);
 LIBMCXX_EXTERN char same_functional_expression(struct AST_tag* left_tree, decl_context_t left_decl_context, struct AST_tag* right_tree, 
         decl_context_t right_decl_context, deduction_flags_t flags);
 

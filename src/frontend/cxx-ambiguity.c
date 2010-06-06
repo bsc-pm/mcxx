@@ -2820,3 +2820,70 @@ void build_solve_condition_ambiguity(AST a, decl_context_t decl_context)
         choose_option(a, correct_choice);
     }
 }
+
+static char solve_ambiguous_nested_name_specifier_rec(AST a, decl_context_t decl_context)
+{
+    ERROR_CONDITION(ASTType(a) != AST_AMBIGUITY,
+            "Must be ambiguous node", 0);
+
+    int correct_choice = -1;
+
+    int i;
+    for (i = 0; i < ast_get_num_ambiguities(a); i++)
+    {
+        char current_check = 1;
+        AST current = ast_get_ambiguity(a, i);
+
+        AST qualif_part = ASTSon0(current);
+        AST nested_name_part = ASTSon0(current);
+
+        if (ASTType(qualif_part) == AST_TEMPLATE_ID)
+        {
+            current_check = solve_possibly_ambiguous_template_id(qualif_part, decl_context);
+        }
+
+        if (current_check)
+        {
+            if (nested_name_part != NULL
+                    && ASTType(nested_name_part) == AST_AMBIGUITY)
+            {
+                current_check = solve_ambiguous_nested_name_specifier_rec(nested_name_part, decl_context);
+            }
+        }
+
+        if (current_check)
+        {
+            if (correct_choice < 0)
+            {
+                correct_choice = i;
+            }
+            else
+            {
+                AST first_option = ast_get_ambiguity(a, correct_choice);
+                AST second_option = current;
+                internal_error("More than one valid choices! '%s' vs '%s' %s", 
+                        ast_print_node_type(ASTType(first_option)),
+                        ast_print_node_type(ASTType(second_option)),
+                        ast_location(second_option));
+            }
+        }
+    }
+
+    if (correct_choice < 0)
+    {
+        return 0;
+    }
+    else
+    {
+        choose_option(a, correct_choice);
+        return 1;
+    }
+}
+
+void solve_ambiguous_nested_name_specifier(AST a, decl_context_t decl_context)
+{
+    if (!solve_ambiguous_nested_name_specifier_rec(a, decl_context))
+    {
+        internal_error("Ambiguity not solved '%s'", ast_location(a));
+    }
+}

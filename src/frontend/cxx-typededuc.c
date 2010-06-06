@@ -471,20 +471,19 @@ char deduce_template_arguments_common(
                         }
                     case TPK_NONTYPE:
                         {
-                            deduction_set_t* dummy = counted_calloc(1, sizeof(*dummy), &_bytes_typededuc);
 
-                            if (!equivalent_dependent_expressions(
+                            if (!same_functional_expression(
                                         result_deduced_parameter->expression,
                                         result_deduced_parameter->decl_context,
                                         current_deduced_parameter->expression,
                                         current_deduced_parameter->decl_context,
-                                        &dummy, flags)
-                                    || !equivalent_dependent_expressions(
+                                        flags)
+                                    || !same_functional_expression(
                                         current_deduced_parameter->expression,
                                         current_deduced_parameter->decl_context,
                                         result_deduced_parameter->expression,
                                         result_deduced_parameter->decl_context,
-                                        &dummy, flags))
+                                        flags))
                             {
                                 DEBUG_CODE()
                                 {
