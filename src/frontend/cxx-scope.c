@@ -1004,6 +1004,9 @@ static scope_entry_list_t* query_qualified_name(
     // scope was given we have to be able to find something there
     decl_context_t lookup_context = qualified_context;
     lookup_context.decl_flags |= nested_name_context.decl_flags;
+    // This disables the extra lookup in the used namespaces which could
+    // potentially fail as an ambiguous name
+    lookup_context.decl_flags |= DF_FIRST_OF_QUALIFIED;
 
     if (ASTType(unqualified_name) != AST_TEMPLATE_ID
             && ASTType(unqualified_name) != AST_OPERATOR_FUNCTION_ID_TEMPLATE)
@@ -1097,6 +1100,7 @@ static decl_context_t lookup_qualification_scope(
         // a dependent entity (like '_T' above)
         decl_context_t initial_nested_name_context = nested_name_context;
         initial_nested_name_context.decl_flags &= ~DF_QUALIFIED_NAME;
+        initial_nested_name_context.decl_flags |= DF_FIRST_OF_QUALIFIED;
 
         if (ASTType(first_qualification) == AST_TEMPLATE_ID)
         {
@@ -2072,6 +2076,15 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
 
         // Do not look anything else
         if (BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE))
+        {
+            return result;
+        }
+
+        // When looking up the first component of a qualified name, do not
+        // check used namespaces if something is already found in the current
+        // scope
+        if (result != NULL
+                && BITMAP_TEST(decl_context.decl_flags, DF_FIRST_OF_QUALIFIED))
         {
             return result;
         }

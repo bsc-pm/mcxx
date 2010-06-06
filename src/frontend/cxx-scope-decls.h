@@ -94,13 +94,15 @@ enum decl_flags_tag
     DF_NO_INJECTED_CLASS_NAME = BITMAP(13),
     // Updates template arguments for a given specialization, used
     // only when defining an already declared template specialization
-    // (since we want the names be updated)
+    // (since we want the names to be updated)
     DF_UPDATE_TEMPLATE_ARGUMENTS = BITMAP(14),
     // We are instantiating: some bits are skipped 
     DF_INSTANTIATING = BITMAP(15),
     // Relaxed typechecking, ambiguity decl-expr is solved always to expr if it
     // cannot be disambiguated
     DF_AMBIGUITY_FALLBACK_TO_EXPR = BITMAP(16),
+    // Initial lookup of a qualified name
+    DF_FIRST_OF_QUALIFIED = BITMAP(17)
 } decl_flags_t;
 
 #undef BITMAP
