@@ -1006,7 +1006,7 @@ static scope_entry_list_t* query_qualified_name(
     lookup_context.decl_flags |= nested_name_context.decl_flags;
     // This disables the extra lookup in the used namespaces which could
     // potentially fail as an ambiguous name
-    lookup_context.decl_flags |= DF_FIRST_OF_QUALIFIED;
+    lookup_context.decl_flags |= DF_NO_AMBIGUOUS_NAMESPACE;
 
     if (ASTType(unqualified_name) != AST_TEMPLATE_ID
             && ASTType(unqualified_name) != AST_OPERATOR_FUNCTION_ID_TEMPLATE)
@@ -1100,7 +1100,7 @@ static decl_context_t lookup_qualification_scope(
         // a dependent entity (like '_T' above)
         decl_context_t initial_nested_name_context = nested_name_context;
         initial_nested_name_context.decl_flags &= ~DF_QUALIFIED_NAME;
-        initial_nested_name_context.decl_flags |= DF_FIRST_OF_QUALIFIED;
+        initial_nested_name_context.decl_flags |= DF_NO_AMBIGUOUS_NAMESPACE;
 
         if (ASTType(first_qualification) == AST_TEMPLATE_ID)
         {
@@ -1215,14 +1215,17 @@ static decl_context_t lookup_qualification_scope_in_namespace(
         fprintf(stderr, "SCOPE: Solving component of nested-name '%s'\n", prettyprint_in_buffer(current_name));
     }
 
+    decl_context_t lookup_context = decl_context;
+    lookup_context.decl_flags |= DF_NO_AMBIGUOUS_NAMESPACE;
+
     scope_entry_list_t* symbol_list = NULL;
     if (ASTType(current_name) != AST_TEMPLATE_ID)
     {
-        symbol_list = query_unqualified_name(decl_context, nested_name_context, current_name);
+        symbol_list = query_unqualified_name(lookup_context, nested_name_context, current_name);
     }
     else
     {
-        symbol_list = query_template_id(current_name, decl_context, original_context);
+        symbol_list = query_template_id(current_name, lookup_context, original_context);
     }
 
     symbol_list = filter_symbol_kind_set(symbol_list, classes_or_namespaces_filter_num_elements, classes_or_namespaces_filter);
@@ -1437,6 +1440,9 @@ static decl_context_t lookup_qualification_scope_in_class(
     {
         return class_context;
     }
+
+    decl_context_t lookup_context = class_context;
+    lookup_context.decl_flags |= DF_NO_AMBIGUOUS_NAMESPACE;
 
     // Look up the next qualification item
     AST current_name = ASTSon0(nested_name_spec);
@@ -2084,7 +2090,7 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
         // check used namespaces if something is already found in the current
         // scope
         if (result != NULL
-                && BITMAP_TEST(decl_context.decl_flags, DF_FIRST_OF_QUALIFIED))
+                && BITMAP_TEST(decl_context.decl_flags, DF_NO_AMBIGUOUS_NAMESPACE))
         {
             return result;
         }

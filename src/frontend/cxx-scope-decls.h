@@ -101,8 +101,9 @@ enum decl_flags_tag
     // Relaxed typechecking, ambiguity decl-expr is solved always to expr if it
     // cannot be disambiguated
     DF_AMBIGUITY_FALLBACK_TO_EXPR = BITMAP(16),
-    // Initial lookup of a qualified name
-    DF_FIRST_OF_QUALIFIED = BITMAP(17)
+    // Does not check the used namespaces if the current scope
+    // already contains the name
+    DF_NO_AMBIGUOUS_NAMESPACE = BITMAP(17)
 } decl_flags_t;
 
 #undef BITMAP

@@ -6405,9 +6405,38 @@ static void build_scope_namespace_definition(AST a, decl_context_t decl_context)
     }
     else
     {
-        WARNING_MESSAGE("Unnamed namespace support is missing", 0);
-        build_scope_declaration_sequence(ASTSon1(a), decl_context);
-        // #warning Unnamed namespace support is missing
+        // Register this namespace if it does not exist in this scope
+        const char* unnamed_namespace = uniquestr("<unnamed>");
+        scope_entry_list_t* list = query_in_scope_str_flags(decl_context, unnamed_namespace, DF_ONLY_CURRENT_SCOPE);
+
+        decl_context_t namespace_context;
+        if (list != NULL && list->entry->kind == SK_NAMESPACE)
+        {
+            namespace_context = list->entry->namespace_decl_context;
+        }
+        else
+        {
+            namespace_context = new_namespace_context(decl_context, unnamed_namespace);
+
+            scope_entry_t* entry = new_symbol(decl_context, decl_context.current_scope, unnamed_namespace);
+            entry->line = ASTLine(a);
+            entry->file = ASTFileName(a);
+            entry->point_of_declaration = a;
+            entry->kind = SK_NAMESPACE;
+            entry->namespace_decl_context = namespace_context;
+
+            // Link the scope of this newly created namespace
+            scope_link_set(CURRENT_COMPILED_FILE->scope_link, a, namespace_context);
+
+            // And associate it to the current namespace
+            scope_t* namespace_scope = decl_context.current_scope;
+            
+            // Anonymous namespace is implemented as an associated namespace of the current scope
+            P_LIST_ADD_ONCE(namespace_scope->use_namespace, namespace_scope->num_used_namespaces, 
+                    entry->namespace_decl_context.current_scope);
+        }
+
+        build_scope_declaration_sequence(ASTSon1(a), namespace_context);
     }
 }
 
