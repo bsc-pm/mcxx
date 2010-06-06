@@ -1993,12 +1993,16 @@ static char name_same_overload(scope_entry_t* entry_1, scope_entry_t* entry_2)
 {
     if (!(entry_1->kind == SK_FUNCTION
                 || (entry_1->kind == SK_TEMPLATE && 
-                    is_function_type(template_type_get_primary_type(entry_1->type_information)))))
+                    is_function_type(named_type_get_symbol(
+                            template_type_get_primary_type(entry_1->type_information))
+                        ->type_information))))
         return 0;
 
     if (!(entry_2->kind == SK_FUNCTION
                 || (entry_2->kind == SK_TEMPLATE && 
-                    is_function_type(template_type_get_primary_type(entry_2->type_information)))))
+                    is_function_type(named_type_get_symbol(
+                            template_type_get_primary_type(entry_2->type_information))
+                    ->type_information))))
         return 0;
 
     return (strcmp(entry_1->symbol_name, entry_2->symbol_name) == 0);

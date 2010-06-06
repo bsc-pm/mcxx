@@ -7949,7 +7949,11 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
     }
 
     if (!check_for_expression(class_expr, decl_context))
+    {
+        // Best effort to remove ambiguities
+        query_id_expression(decl_context, id_expression);
         return 0;
+    }
 
     type_t* accessed_type = expression_get_type(class_expr);
 
@@ -7958,6 +7962,8 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
         if (is_dependent_expr_type(accessed_type))
         {
             expression_set_type(member_access, accessed_type);
+            // Best effort to remove ambiguities
+            query_id_expression(decl_context, id_expression);
             return 1;
         }
     }
@@ -7988,6 +7994,8 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
                         prettyprint_in_buffer(class_expr),
                         print_type_str(no_ref(accessed_type), decl_context));
             }
+            // Best effort to remove ambiguities
+            query_id_expression(decl_context, id_expression);
             return 0;
         }
     }
@@ -8013,7 +8021,11 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
                 arrow_operator_tree, decl_context);
 
         if (operator_arrow_list == NULL)
+        {
+            // Best effort to remove ambiguities
+            query_id_expression(decl_context, id_expression);
             return 0;
+        }
 
         type_t* argument_types[1] = { 
             /* Note that we want the real original type since it might be a referenced type (¿?¿??) */
@@ -8028,10 +8040,17 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
                 conversors);
 
         if (selected_operator_arrow == NULL)
+        {
+            // Best effort to remove ambiguities
+            query_id_expression(decl_context, id_expression);
             return 0;
+        }
+
 
         if (!is_pointer_to_class_type(function_type_get_return_type(selected_operator_arrow->type_information)))
         {
+            // Best effort to remove ambiguities
+            query_id_expression(decl_context, id_expression);
             return 0;
         }
 
@@ -8052,6 +8071,7 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
                     prettyprint_in_buffer(class_expr),
                     print_type_str(no_ref(accessed_type), decl_context));
         }
+        query_id_expression(decl_context, id_expression);
         return 0;
     }
     

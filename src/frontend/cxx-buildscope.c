@@ -3896,10 +3896,30 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
 
                     scope_entry_list_t* entry_list = NULL;
 
+                    AST nested_name_spec_ptr = ASTSon1(pointer_tree);
+
+                    // Remove any remaining ambiguity
+                    AST current_nest = nested_name_spec_ptr;
+                    while (current_nest != NULL)
+                    {
+                        if (ASTType(current_nest) == AST_AMBIGUITY)
+                        {
+                            solve_ambiguous_nested_name_specifier(current_nest, decl_context);
+                        }
+
+                        AST qualified = ASTSon0(current_nest);
+                        if (ASTType(qualified) == AST_TEMPLATE_ID)
+                        {
+                            solve_possibly_ambiguous_template_id(qualified, decl_context);
+                        }
+                        current_nest = ASTSon1(current_nest);
+                    }
+
+
                     AST global_op = ASTSon0(pointer_tree);
                     AST nested_name_spec = NULL;
                     AST unqualified_id = NULL;
-                    convert_tree_from_nested_name_to_qualified_id(ASTSon1(pointer_tree), 
+                    convert_tree_from_nested_name_to_qualified_id(nested_name_spec_ptr, 
                             &nested_name_spec, &unqualified_id);
 
                     entry_list = query_nested_name(decl_context, 
