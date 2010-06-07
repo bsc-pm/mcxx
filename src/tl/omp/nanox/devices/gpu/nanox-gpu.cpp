@@ -193,20 +193,15 @@ void DeviceGPU::create_outline(
     for (ObjectList<IncludeLine>::iterator it = lines.begin(); it != lines.end(); it++)
     {
     	std::string line = (*it).get_preprocessor_line();
-    	std::cout << "INC LINE: " << line;
     	if (line.size() > cuda_size)
     	{
     		std::string matching = line.substr(line.size()-cuda_size,cuda_size);
     		if (matching == cuda_line)
     		{
     			included_files << line << "\n";
-    			std::cout << "  --> INCLUDED IN .cu!!!" << std::endl;
     		}
-    		else std::cout << std::endl;
     	}
     }
-
-    std::cout << "TASK SYMBOL = " << (outline_flags.task_symbol == NULL ? "NULL" : outline_flags.task_symbol.get_name() )<< std::endl;
 
     // Check if the task is a function, or it is inlined
     if (outline_flags.task_symbol != NULL)
