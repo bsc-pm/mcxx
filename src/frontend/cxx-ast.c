@@ -38,15 +38,13 @@
 
 // We need this to fix nodes
 #include "cxx-tltype.h"
+#include "cxx-attrnames.h"
 
 // Definition of the type
 struct AST_tag
 {
     // Node type (1024 different node types)
     node_t node_type:10; 
-
-    // Only meaningful if expr_type != NULL
-    unsigned char expr_is_lvalue:1;
 
     unsigned int num_ambig:4;
     // This is a bitmap for the sons
@@ -73,10 +71,6 @@ struct AST_tag
 
     // Extensible information (created lazily)
     extensible_struct_t* extended_data;
-
-    // For nodes holding some kind of expression
-    // this should be the related type
-    struct type_tag* expr_type;
 };
 
 // Define the extensible schema of AST's
@@ -620,14 +614,6 @@ AST ast_copy_for_instantiation(const_AST a)
     // Children are special and will be properly copied by ast_set_child
     result->children = NULL;
 
-    // Remove dependent type information
-    if (result->expr_type != NULL
-            && is_dependent_expr_type(result->expr_type))
-    {
-        result->expr_type = NULL;
-        result->expr_is_lvalue = 0;
-    }
-
     // Clear extended data since we will want to recheck this code
     result->extended_data = NULL;
 
@@ -657,6 +643,15 @@ AST ast_copy_for_instantiation(const_AST a)
     result->parent = NULL;
 
     ast_fix_extended_data(result, a);
+
+    // Copy template parameter info (it is vital for proper resolution)
+    if (is_template_parameter_name((AST)a))
+    {
+         tl_type_t* tl_data = ASTAttrValue((AST)a, LANG_TEMPLATE_PARAMETER_NAME_SYMBOL);
+
+         ASTAttrSetValueType(result, LANG_IS_TEMPLATE_PARAMETER_NAME, tl_type_t, tl_bool(1));
+         ASTAttrSetValueType(result, LANG_TEMPLATE_PARAMETER_NAME_SYMBOL, tl_type_t, *tl_data);
+    }
 
     return result;
 }
@@ -982,27 +977,6 @@ const char *ast_get_filename(const_AST a)
 void ast_set_filename(AST a, const char* str)
 {
     a->filename = str;
-}
-
-char ast_get_expression_is_lvalue(const_AST a)
-{
-    return a->expr_is_lvalue;
-}
-
-void ast_set_expression_is_lvalue(AST a, char c)
-{
-    a->expr_is_lvalue = c;
-}
-
-
-struct type_tag* ast_get_expression_type(const_AST a)
-{
-    return a->expr_type;
-}
-
-void ast_set_expression_type(AST a, struct type_tag* type)
-{
-    a->expr_type = type;
 }
 
 extensible_struct_t* ast_get_extensible_struct(AST a)

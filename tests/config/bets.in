@@ -5,6 +5,8 @@ readonly bets_version=0.9
 
 #color constants
 
+machine_output=""
+
 define_colors()
 {
   if [ "$use_color" = "yes" ]; then
@@ -49,6 +51,8 @@ logcmd ()
 
 message ()
 {
+    [ -n "$machine_output" ] && return
+
     local n
     if [ "$1" = "-n" ]; then
       shift; n=-n
@@ -62,6 +66,10 @@ passfail ()
 {
    local reverse
    local ret=0
+
+   local full_test_name=$1
+   shift
+
    $* 1>> $logfile 2>> $logfile || ret=1
 
    if [ "$test_fail" ]; then
@@ -70,11 +78,13 @@ passfail ()
 
    if [ $reverse $ret -eq 0 ]; then
      message "${GREEN}passed${NORMAL}"
-     log "${GREEN}passed${NORMAL}"
+     [ -n "$machine_output" ] && echo "${full_test_name}:passed"
+     log "passed"
      let pass=pass+1
    else
      message "${RED}failed${NORMAL}!"
-     log "${RED}failed${NORMAL}!"
+     [ -n "$machine_output" ] && echo "${full_test_name}:failed"
+     log "failed!"
      let fail=fail+1
    fi
    return $ret
@@ -348,13 +358,14 @@ run_gen_test ()
    
    test_noexec=${test_noexec:-$test_nolink}
    if [ "$test_ignore" ]; then
-      echo -e "Test $name ${YELLOW}ignored${NORMAL}"
+      [ -n "$machine_output" ] && echo "${name}:ignored"
+      message "Test $name ${YELLOW}ignored${NORMAL}"
    else    
      for v in $all_compile_versions; do
         message -n "Compile test $name-$v "
         log "***Start compile test $name-$v"
         test_fail=$test_compile_fail
-        passfail compile_$type $v $source $name  
+        passfail "$name-$v" compile_$type $v $source $name  
         local ok=$?
 
         if [ "$ok" -eq "0" -a -z "$test_noexec" ]; then
@@ -363,7 +374,7 @@ run_gen_test ()
              message -n "Execute test $name-$v-$e "
              log "***Start execute test $name-$v-$e"
              test_fail=$test_exec_fail
-             passfail execute $e $name
+             passfail "$name-$v-$e" execute $e $name
              log "***End execute test $name-$v-$e"
           done
         fi
@@ -400,6 +411,7 @@ run_dir()
 
   debug "Testing $base"
   message "===Entering directory $base==="
+  [ -n "$machine_output" ] && echo "$base:dir>"
 
   #test subdirs
   local dirs=$(find . -maxdepth 1 -type d -path "./*" | cut -c3- | sort)
@@ -413,6 +425,8 @@ run_dir()
   for file in $(find . -maxdepth 1 -type f | sort ); do
      run_file $file
   done
+
+  [ -n "$machine_output" ] && echo "$base:dir<"
 }
 
 # mode functions
@@ -446,6 +460,7 @@ do_run ()
    declare -r tmpdir=$(mktemp -d)
    export TMPDIR=$tmpdir
    declare -r tmpfile=$(mktemp)
+   local old_dir=""
 
    if [ "${logfile:0:1}" != "/" ]; then
      logfile=$basedir/$logfile
@@ -459,9 +474,10 @@ do_run ()
    if [ "$#" -ge 1 ]; then
      for t in $*; do
         if [ -d $t ]; then
+          old_dir=$(pwd)
           cd $t
           run_dir $t
-          cd - > /dev/null
+          cd "$old_dir" 
         fi
         if [ -f $t ]; then
           run_file $t
@@ -490,6 +506,24 @@ do_run ()
    return $fail
 }
 
+do_list()
+{
+   local items=
+   #run tests
+   if [ "$#" -ge 1 ]; then
+     items=$1/*
+   else
+     items=*
+   fi
+
+   for t in ${items};
+   do
+      if [ -d $t ]; then
+        echo $t
+      fi
+   done
+}
+
 #default values
 
 declare -r basedir=$(pwd)
@@ -505,6 +539,13 @@ while [ -z $done ]; do
 case $1 in
     -h)
        mode=help; shift
+       ;;
+    --ants)
+       machine_output="1"; 
+       use_color=no; shift
+       ;;
+    --list)
+       mode=list; shift
        ;;
     -nocolor)
        use_color=no; shift

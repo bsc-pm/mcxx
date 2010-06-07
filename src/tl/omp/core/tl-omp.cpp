@@ -436,11 +436,11 @@ namespace TL
                             uniquestr(artificial_sym.get_name().c_str()), artificial_sym.get_scope().get_decl_context(), line, 
                             uniquestr(filename.c_str()));
 
+                    internal_sym->kind = SK_TEMPLATE;
                     internal_sym->type_information = new_templated_function_type;
 
                     ::template_type_set_related_symbol(new_templated_function_type, internal_sym);
 
-                    artificial_sym.get_internal_symbol()->kind = SK_TEMPLATE;
                 }
                 else
                 {

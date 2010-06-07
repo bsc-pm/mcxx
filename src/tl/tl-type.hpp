@@ -88,7 +88,7 @@ namespace TL
 
             bool is_faulty() const
             {
-                return is_faulty_type(_type_info);
+                return false;
             }
 
             virtual ~Type()
@@ -245,10 +245,6 @@ namespace TL
             Symbol get_symbol() const;
             //! States whether current type is named
             bool is_named() const;
-            //! States whether current type is a typedef
-            bool is_typedef() const;
-            //! For a typedef, it returns the aliased type
-            Type aliased_type() const;
 
             //! Advances over typedefs
             /*! 

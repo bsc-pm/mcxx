@@ -35,9 +35,6 @@ LIBMCXX_EXTERN void instantiate_template_class(struct scope_entry_tag* entry, de
 LIBMCXX_EXTERN void instantiate_template_function(scope_entry_t* entry, 
         decl_context_t decl_context, const char* filename, int line);
 
-LIBMCXX_EXTERN decl_context_t get_instantiation_context(scope_entry_t* entry, 
-        template_parameter_list_t* template_parameters);
-
 MCXX_END_DECLS
 
 #endif // CXX_INSTANTIATION_H

@@ -389,7 +389,11 @@ static void compute_set_of_associated_classes_scope_rec(type_t* type_info,
     int i;
     for (i = 0; i < class_type_get_num_bases(class_type); i++)
     {
-        scope_entry_t* base_symbol = class_type_get_base_num(class_type, i, NULL);
+        char is_dependent = 0;
+        scope_entry_t* base_symbol = class_type_get_base_num(class_type, i, NULL, &is_dependent);
+        if (is_dependent)
+            continue;
+
         type_t* base_type_info = base_symbol->type_information;
 
         compute_set_of_associated_classes_scope_rec(base_type_info, associated_scopes);

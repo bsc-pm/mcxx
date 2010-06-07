@@ -73,7 +73,7 @@ void upc_sign_in_builtins(decl_context_t decl_context)
     upc_lock_t = new_symbol(decl_context, decl_context.global_scope, "upc_lock_t");
     upc_lock_t->kind = SK_TYPEDEF;
     upc_lock_t->defined = 1;
-    upc_lock_t->type_information = get_new_typedef(get_void_type());
+    upc_lock_t->type_information = get_void_type();
     upc_lock_t->do_not_print = 1;
     upc_lock_t->file = "(global scope)";
     upc_lock_t->entity_specs.is_builtin = 1;

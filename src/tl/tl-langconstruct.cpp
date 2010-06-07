@@ -391,7 +391,7 @@ namespace TL
 
     Symbol IdExpression::get_computed_symbol() const
     {
-        TL::Symbol result = _ref.get_attribute(LANG_COMPUTED_SYMBOL);
+        TL::Symbol result = ::expression_get_symbol(this->_ref.get_internal_ast());
         return result;
     }
 
@@ -845,8 +845,8 @@ namespace TL
         AST_t expr = this->_ref;
         AST expr_tree = expr._ast;
 
-        type_t* expression_type = ASTExprType(expr_tree);
-        is_lvalue = ASTExprLvalue(expr_tree);
+        type_t* expression_type = expression_get_type(expr_tree);
+        is_lvalue = expression_is_lvalue(expr_tree);
 
         Type result(expression_type);
         return result;
@@ -957,24 +957,21 @@ namespace TL
     bool Expression::is_constant()
     {
         AST a = this->get_ast().get_internal_ast();
-
-        Scope sc = this->get_scope();
-
-        return ::is_constant_expression(a, sc.get_decl_context());
+        return ::expression_is_constant(a);
     }
 
     int Expression::evaluate_constant_int_expression(bool &valid)
     {
+        if (!this->is_constant())
+        {
+            valid = false;
+            return 0;
+        }
+
         AST a = this->get_ast().get_internal_ast();
-        Scope sc = this->get_scope();
 
-        literal_value_t v = evaluate_constant_expression(a, sc.get_decl_context());
-
-        char c_valid = 0;
-        int i = literal_value_to_int(v, &c_valid);
-
-        valid = c_valid;
-        return i;
+        return ::const_value_cast_to_4(
+                ::expression_get_constant(a));
     }
 
     // Do not use this one, instead use get_declared_symbol

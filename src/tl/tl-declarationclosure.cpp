@@ -123,8 +123,7 @@ namespace TL
                 symbols_seen.insert(named_type);
             }
 
-
-            if (!t.is_typedef())
+            if (!named_type.is_typedef())
             {
                 if (t.is_named_class())
                 {
@@ -145,13 +144,6 @@ namespace TL
                 {
                     // FIXME - We need the enumerators here
                 }
-            }
-            else
-            {
-                if (!add_type_rec(t.aliased_type(), named_type, symbols_seen))
-                    return false;
-
-                // Add as a dependency since this typedef will be actually used
             }
 
             _dependencies.add_symbol(named_type);

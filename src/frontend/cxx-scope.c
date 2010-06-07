@@ -37,6 +37,8 @@
 #include "cxx-exprtype.h"
 #include "cxx-buildscope.h"
 #include "cxx-overload.h"
+#include "cxx-tltype.h"
+#include "cxx-attrnames.h"
 #include "hash.h"
 #include "hash_iterator.h"
 
@@ -58,17 +60,36 @@ unsigned long long symbols_used_memory(void)
 }
 
 // Lookup of a simple name within a given declaration context
-static scope_entry_list_t* name_lookup(decl_context_t decl_context, const char* name);
+static scope_entry_list_t* name_lookup(decl_context_t decl_context, const char* name, 
+        const char* filename, int line);
 
 // Solve a template given a template-id, a list of found names for the template-id and the declaration context
 
 // Looks up the qualification scope for a nested-name-spec
-static scope_t* lookup_qualification_scope(decl_context_t decl_context, AST nested_name, AST unqualifed_part, type_t** dependent_type);
+static decl_context_t lookup_qualification_scope(
+        decl_context_t original_context,
+        decl_context_t decl_context, 
+        AST nested_name, 
+        AST unqualifed_part, 
+        type_t** dependent_type,
+        char *is_valid);
 
-static scope_t* lookup_qualification_scope_in_namespace(decl_context_t nested_name_context, scope_entry_t* namespace, 
-        AST nested_name_spec, AST unqualified_part, type_t **is_dependent);
-static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_context, scope_entry_t* class_name, 
-        AST nested_name_spec, AST unqualified_part, type_t **is_dependent);
+static decl_context_t lookup_qualification_scope_in_namespace(
+        decl_context_t original_context,
+        decl_context_t nested_name_context, 
+        scope_entry_t* namespace, 
+        AST nested_name_spec, 
+        AST unqualified_part, 
+        type_t **is_dependent, 
+        char *is_valid);
+static decl_context_t lookup_qualification_scope_in_class(
+        decl_context_t original_context,
+        decl_context_t nested_name_context, 
+        scope_entry_t* class_name, 
+        AST nested_name_spec, 
+        AST unqualified_part, 
+        type_t **is_dependent, 
+        char *is_valid);
 
 static scope_entry_list_t* query_template_id(AST template_id, 
         decl_context_t template_name_context,
@@ -375,6 +396,34 @@ decl_context_t new_template_context(decl_context_t enclosing_context)
     return result;
 }
 
+void insert_alias(scope_t* sc, scope_entry_t* entry, const char* name)
+{
+    ERROR_CONDITION(name == NULL ||
+            *name == '\0', "Insert alias called with an empty or NULL string", 0);
+
+    const char* symbol_name = uniquestr(name);
+
+    scope_entry_list_t* result_set = (scope_entry_list_t*) hash_get(sc->hash, symbol_name);
+
+    if (result_set != NULL)
+    {
+        scope_entry_list_t* new_set = (scope_entry_list_t*) counted_calloc(1, sizeof(*new_set), &_bytes_used_symbols);
+
+        // Put the new entry in front of the previous
+        *new_set = *result_set;
+
+        result_set->next = new_set;
+        result_set->entry = entry;
+    }
+    else
+    {
+        result_set = (scope_entry_list_t*) counted_calloc(1, sizeof(*result_set), &_bytes_used_symbols);
+        result_set->entry = entry;
+        result_set->next = NULL; // redundant, though
+
+        hash_put(sc->hash, symbol_name, result_set);
+    }
+}
 
 // Normally we work on decl_context.current_scope but for template parameters
 // sc != decl_context.current_scope so allow the user such freedom
@@ -382,8 +431,6 @@ scope_entry_t* new_symbol(decl_context_t decl_context, scope_t* sc, const char* 
 {
     ERROR_CONDITION(name == NULL ||
             *name == '\0', "New symbol called with an empty or NULL string", 0);
-
-    scope_entry_list_t* result_set = (scope_entry_list_t*) hash_get(sc->hash, name);
 
     scope_entry_t* result;
 
@@ -396,24 +443,7 @@ scope_entry_t* new_symbol(decl_context_t decl_context, scope_t* sc, const char* 
     result->extended_data = counted_calloc(1, sizeof(*(result->extended_data)), &_bytes_used_symbols);
     extensible_struct_init(result->extended_data, &scope_entry_extensible_schema);
 
-    if (result_set != NULL)
-    {
-        scope_entry_list_t* new_set = (scope_entry_list_t*) counted_calloc(1, sizeof(*new_set), &_bytes_used_symbols);
-
-        // Put the new entry in front of the previous
-        *new_set = *result_set;
-
-        result_set->next = new_set;
-        result_set->entry = result;
-    }
-    else
-    {
-        result_set = (scope_entry_list_t*) counted_calloc(1, sizeof(*result_set), &_bytes_used_symbols);
-        result_set->entry = result;
-        result_set->next = NULL; // redundant, though
-
-        hash_put(sc->hash, result->symbol_name, result_set);
-    }
+    insert_alias(sc, result, result->symbol_name);
 
     return result;
 }
@@ -497,6 +527,7 @@ void insert_entry(scope_t* sc, scope_entry_t* entry)
         hash_put(sc->hash, entry->symbol_name, result_set);
     }
 }
+
 
 
 void remove_entry(scope_t* sc, scope_entry_t* entry)
@@ -674,7 +705,9 @@ scope_entry_list_t* filter_symbol_using_predicate(scope_entry_list_t* entry_list
     return result;
 }
 
-static scope_entry_list_t* query_unqualified_name(decl_context_t decl_context,
+static scope_entry_list_t* query_unqualified_name(
+        decl_context_t decl_context,
+        decl_context_t template_arg_ctx,
         AST unqualified_name);
 
 scope_entry_list_t* query_id_expression_flags(decl_context_t decl_context,
@@ -720,7 +753,7 @@ scope_entry_list_t* query_nested_name_flags(decl_context_t decl_context,
     if (is_unqualified)
     {
         decl_context.decl_flags |= DF_UNQUALIFIED_NAME;
-        return query_unqualified_name(decl_context, unqualified_name);
+        return query_unqualified_name(decl_context, decl_context, unqualified_name);
     }
     else
     {
@@ -745,7 +778,7 @@ scope_entry_list_t* query_in_scope_flags(decl_context_t decl_context,
     decl_context.decl_flags = DF_NONE;
     decl_context.decl_flags |= decl_flags;
     decl_context.decl_flags |= DF_ONLY_CURRENT_SCOPE;
-    return query_unqualified_name(decl_context, unqualified_name);
+    return query_unqualified_name(decl_context, decl_context, unqualified_name);
 }
 
 scope_entry_list_t* query_unqualified_name_str_flags(decl_context_t decl_context,
@@ -761,10 +794,13 @@ scope_entry_list_t* query_unqualified_name_str_flags(decl_context_t decl_context
         decl_context.current_scope = decl_context.function_scope;
     }
 
-    return name_lookup(decl_context, unqualified_name);
+    // No line information here...
+    return name_lookup(decl_context, unqualified_name, "(null)", 0);
 }
 
-static scope_entry_list_t* query_unqualified_name(decl_context_t decl_context,
+static scope_entry_list_t* query_unqualified_name(
+        decl_context_t decl_context,
+        decl_context_t template_arg_ctx,
         AST unqualified_name)
 {
     // Adjust scopes
@@ -779,26 +815,40 @@ static scope_entry_list_t* query_unqualified_name(decl_context_t decl_context,
     {
         case AST_SYMBOL:
             {
+                if (is_template_parameter_name(unqualified_name))
+                {
+                    // Special lookup, it uses query_unqualified_name_str, so it is safe
+                    scope_entry_t* name = lookup_template_parameter_name(decl_context, 
+                            unqualified_name);
+                    if (name != NULL)
+                    {
+                        return create_list_from_entry(name);
+                    }
+                }
+
                 const char* name = uniquestr(ASTText(unqualified_name));
                 if (BITMAP_TEST(decl_context.decl_flags, DF_CONSTRUCTOR))
                 {
                     name = strprepend(name, "constructor ");
                 }
-                result = name_lookup(decl_context, name);
+                result = name_lookup(decl_context, name, 
+                        ASTFileName(unqualified_name), ASTLine(unqualified_name));
+
+                if (result != NULL
+                        && result->next == NULL
+                        && (result->entry->kind == SK_TEMPLATE_TYPE_PARAMETER
+                            || result->entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
+                            || result->entry->kind == SK_TEMPLATE_PARAMETER))
+                {
+                    // This is a template parameter, label it 
+                    set_as_template_parameter_name(unqualified_name, result->entry);
+                }
             }
             break;
         case AST_TEMPLATE_ID:
         case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
             {
-                // Note that here we are assuming that A<e> both 'A' and 'e' will
-                // be found in the same context. This holds for simply unqualified
-                // searches but does not for qualified lookups
-                ERROR_CONDITION(
-                        BITMAP_TEST(decl_context.decl_flags, DF_QUALIFIED_NAME),
-                        "Do not use this function when solving a template-id in a qualified name. "
-                        "It is likely that the template-name and its arguments will not be in the same context", 
-                        0);
-                result = query_template_id(unqualified_name, decl_context, decl_context);
+                result = query_template_id(unqualified_name, decl_context, template_arg_ctx);
             }
             break;
         case AST_DESTRUCTOR_ID:
@@ -807,20 +857,26 @@ static scope_entry_list_t* query_unqualified_name(decl_context_t decl_context,
             {
                 AST symbol = ASTSon0(unqualified_name);
                 const char *name = ASTText(symbol);
-                result = name_lookup(decl_context, name);
+                result = name_lookup(decl_context, name, 
+                        ASTFileName(unqualified_name), ASTLine(unqualified_name));
             }
             break;
         case AST_CONVERSION_FUNCTION_ID:
             {
+                decl_context_t modified_class_context = decl_context;
+                modified_class_context.template_scope = template_arg_ctx.template_scope;
+
                 char* conversion_function_name = 
-                    get_conversion_function_name(decl_context, unqualified_name, /* result_type */ NULL);
-                result = name_lookup(decl_context, conversion_function_name);
+                    get_conversion_function_name(modified_class_context, unqualified_name, /* result_type */ NULL);
+                result = name_lookup(decl_context, conversion_function_name,
+                        ASTFileName(unqualified_name), ASTLine(unqualified_name));
             }
             break;
         case AST_OPERATOR_FUNCTION_ID :
             {
                 const char *operator_function_name = get_operator_function_name(unqualified_name);
-                result = name_lookup(decl_context, operator_function_name);
+                result = name_lookup(decl_context, operator_function_name,
+                        ASTFileName(unqualified_name), ASTLine(unqualified_name));
                 break;
             }
         default:
@@ -832,8 +888,8 @@ static scope_entry_list_t* query_unqualified_name(decl_context_t decl_context,
     return result;
 }
 
-
-static scope_entry_list_t* query_qualified_name(decl_context_t nested_name_context,
+static scope_entry_list_t* query_qualified_name(
+        decl_context_t nested_name_context,
         AST global_op,
         AST nested_name,
         AST unqualified_name)
@@ -880,7 +936,7 @@ static scope_entry_list_t* query_qualified_name(decl_context_t nested_name_conte
         }
     }
 
-    scope_t* qualified_scope = NULL;
+    decl_context_t qualified_context;
     decl_context_t nested_part_context = nested_name_context;
     nested_part_context.decl_flags &= ~DF_CONSTRUCTOR;
 
@@ -890,21 +946,36 @@ static scope_entry_list_t* query_qualified_name(decl_context_t nested_name_conte
         nested_part_context.current_scope = nested_name_context.global_scope;
     }
 
-    qualified_scope = nested_part_context.current_scope;
+    qualified_context = nested_part_context;
 
     // Looking up a nested name has a twofold process.  First we determine the
     // looking up scope by resolving all but the 'unqualified name' part
     type_t* dependent_type = NULL;
 
+    char qualified_context_valid = 1;
+
     if (nested_name != NULL)
     {
-        qualified_scope = lookup_qualification_scope(nested_part_context, nested_name, unqualified_name, &dependent_type);
+        qualified_context = lookup_qualification_scope(
+                nested_name_context,
+                nested_part_context, 
+                nested_name, 
+                unqualified_name, 
+                &dependent_type, 
+                &qualified_context_valid);
     }
 
-    if (qualified_scope == NULL)
+    if (!qualified_context_valid)
     {
         if (dependent_type != NULL)
         {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Returning a dependent entity for '%s%s%s'\n",
+                        prettyprint_in_buffer(global_op),
+                        prettyprint_in_buffer(nested_name),
+                        prettyprint_in_buffer(unqualified_name));
+            }
             // Create a SK_DEPENDENT_ENTITY just to acknowledge that this was
             // dependent
             scope_entry_t* dependent_entity = counted_calloc(1, sizeof(*dependent_entity), &_bytes_used_scopes);
@@ -921,16 +992,26 @@ static scope_entry_list_t* query_qualified_name(decl_context_t nested_name_conte
         }
     }
 
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "SCOPE: Solving '%s' of '%s%s'\n", 
+                prettyprint_in_buffer(unqualified_name),
+                prettyprint_in_buffer(global_op),
+                prettyprint_in_buffer(nested_name));
+    }
+
     // Given the scope now we can lookup the symbol in it. Note that if some
     // scope was given we have to be able to find something there
-    decl_context_t lookup_context = nested_name_context;
-    lookup_context.current_scope = qualified_scope;
+    decl_context_t lookup_context = qualified_context;
     lookup_context.decl_flags |= nested_name_context.decl_flags;
+    // This disables the extra lookup in the used namespaces which could
+    // potentially fail as an ambiguous name
+    lookup_context.decl_flags |= DF_NO_AMBIGUOUS_NAMESPACE;
 
     if (ASTType(unqualified_name) != AST_TEMPLATE_ID
             && ASTType(unqualified_name) != AST_OPERATOR_FUNCTION_ID_TEMPLATE)
     {
-        result = query_unqualified_name(lookup_context, unqualified_name);
+        result = query_unqualified_name(lookup_context, nested_name_context, unqualified_name);
     }
     else
     {
@@ -956,8 +1037,13 @@ static enum cxx_symbol_kind classes_or_namespaces_filter[] = {
 
 static int classes_or_namespaces_filter_num_elements = STATIC_ARRAY_LENGTH(classes_or_namespaces_filter);
 
-static scope_t* lookup_qualification_scope(decl_context_t nested_name_context, 
-        AST nested_name_spec, AST unqualified_part, type_t** dependent_type)
+static decl_context_t lookup_qualification_scope(
+        decl_context_t original_context, 
+        decl_context_t nested_name_context, 
+        AST nested_name_spec, 
+        AST unqualified_part, 
+        type_t** dependent_type, 
+        char *is_valid)
 {
     /*
      * A nested-name-spec is of the form
@@ -986,7 +1072,8 @@ static scope_t* lookup_qualification_scope(decl_context_t nested_name_context,
     ERROR_CONDITION(dependent_type == NULL, "Invalid argument is_dependent", 0);
     *dependent_type = NULL;
     ERROR_CONDITION(nested_name_spec == NULL, "The first nested-name-spec is null", 0);
-    scope_t* result = NULL;
+    decl_context_t result;
+    memset(&result, 0, sizeof(result));
 
     DEBUG_CODE()
     {
@@ -1013,6 +1100,7 @@ static scope_t* lookup_qualification_scope(decl_context_t nested_name_context,
         // a dependent entity (like '_T' above)
         decl_context_t initial_nested_name_context = nested_name_context;
         initial_nested_name_context.decl_flags &= ~DF_QUALIFIED_NAME;
+        initial_nested_name_context.decl_flags |= DF_NO_AMBIGUOUS_NAMESPACE;
 
         if (ASTType(first_qualification) == AST_TEMPLATE_ID)
         {
@@ -1021,7 +1109,7 @@ static scope_t* lookup_qualification_scope(decl_context_t nested_name_context,
         }
         else
         {
-            starting_symbol_list = query_unqualified_name(initial_nested_name_context, first_qualification);
+            starting_symbol_list = query_unqualified_name(initial_nested_name_context, original_context, first_qualification);
         }
     }
     // Filter found symbols
@@ -1036,7 +1124,8 @@ static scope_t* lookup_qualification_scope(decl_context_t nested_name_context,
         {
             fprintf(stderr, "SCOPE: First component '%s' not found\n", prettyprint_in_buffer(first_qualification));
         }
-        return NULL;
+        *is_valid = 0;
+        return new_decl_context();
     }
 
     scope_entry_t* starting_symbol = starting_symbol_list->entry;
@@ -1051,7 +1140,8 @@ static scope_t* lookup_qualification_scope(decl_context_t nested_name_context,
         // Is this case possible ? 
         //
         internal_error("Verify this case", 0);
-        return NULL;
+        *is_valid = 0;
+        return new_decl_context();
     }
     else if (starting_symbol->kind == SK_NAMESPACE)
     {
@@ -1060,8 +1150,14 @@ static scope_t* lookup_qualification_scope(decl_context_t nested_name_context,
             fprintf(stderr, "SCOPE: Component '%s' found to be a namespace\n", prettyprint_in_buffer(first_qualification));
         }
         // If it is a namespace work on the namespace
-        result = lookup_qualification_scope_in_namespace(nested_name_context, starting_symbol, 
-                next_nested_name_spec, unqualified_part, dependent_type);
+        result = lookup_qualification_scope_in_namespace(
+                original_context, 
+                nested_name_context, 
+                starting_symbol, 
+                next_nested_name_spec, 
+                unqualified_part, 
+                dependent_type, 
+                is_valid);
     }
     else
     {
@@ -1070,26 +1166,38 @@ static scope_t* lookup_qualification_scope(decl_context_t nested_name_context,
             fprintf(stderr, "SCOPE: Component '%s' found to be a class-name\n", prettyprint_in_buffer(first_qualification));
         }
         // Otherwise deal with classes
-        result = lookup_qualification_scope_in_class(nested_name_context, starting_symbol, 
-                next_nested_name_spec, unqualified_part, dependent_type);
+        result = lookup_qualification_scope_in_class(
+                original_context, 
+                nested_name_context, 
+                starting_symbol, 
+                next_nested_name_spec, 
+                unqualified_part, 
+                dependent_type, 
+                is_valid);
     }
 
     return result;
 }
 
 // Lookup qualification within namespaces
-static scope_t* lookup_qualification_scope_in_namespace(decl_context_t nested_name_context, scope_entry_t* namespace, 
-        AST nested_name_spec, AST unqualified_part, type_t** dependent_type)
+static decl_context_t lookup_qualification_scope_in_namespace(
+        decl_context_t original_context,
+        decl_context_t nested_name_context, 
+        scope_entry_t* namespace, 
+        AST nested_name_spec, 
+        AST unqualified_part, 
+        type_t** dependent_type, 
+        char *is_valid)
 {
     // Lookup the name in the related scope of this namespace
-    scope_t* namespace_scope = namespace->namespace_decl_context.current_scope;
+    decl_context_t namespace_context = namespace->namespace_decl_context;
 
-    ERROR_CONDITION(namespace_scope->kind != NAMESPACE_SCOPE, 
+    ERROR_CONDITION(namespace_context.current_scope->kind != NAMESPACE_SCOPE, 
             "Scope is not a namespace one", 0);
 
     // No more nested-name-spec left
     if (nested_name_spec == NULL)
-        return namespace_scope;
+        return namespace_context;
 
     // Update the context
     decl_context_t decl_context = namespace->namespace_decl_context;
@@ -1107,14 +1215,17 @@ static scope_t* lookup_qualification_scope_in_namespace(decl_context_t nested_na
         fprintf(stderr, "SCOPE: Solving component of nested-name '%s'\n", prettyprint_in_buffer(current_name));
     }
 
+    decl_context_t lookup_context = decl_context;
+    lookup_context.decl_flags |= DF_NO_AMBIGUOUS_NAMESPACE;
+
     scope_entry_list_t* symbol_list = NULL;
     if (ASTType(current_name) != AST_TEMPLATE_ID)
     {
-        symbol_list = query_unqualified_name(decl_context, current_name);
+        symbol_list = query_unqualified_name(lookup_context, nested_name_context, current_name);
     }
     else
     {
-        symbol_list = query_template_id(current_name, decl_context, nested_name_context);
+        symbol_list = query_template_id(current_name, lookup_context, original_context);
     }
 
     symbol_list = filter_symbol_kind_set(symbol_list, classes_or_namespaces_filter_num_elements, classes_or_namespaces_filter);
@@ -1125,7 +1236,8 @@ static scope_t* lookup_qualification_scope_in_namespace(decl_context_t nested_na
         {
             fprintf(stderr, "SCOPE: Component '%s' not found\n", prettyprint_in_buffer(current_name));
         }
-        return NULL;
+        *is_valid = 0;
+        return new_decl_context();
     }
 
     scope_entry_t* symbol = symbol_list->entry;
@@ -1138,7 +1250,8 @@ static scope_t* lookup_qualification_scope_in_namespace(decl_context_t nested_na
             fprintf(stderr, "SCOPE: Component '%s' is a dependent entity\n", prettyprint_in_buffer(current_name));
         }
         internal_error("Verify this case, is it possible?", 0);
-        return NULL;
+        *is_valid = 0;
+        return new_decl_context();
     }
     else if (symbol->kind == SK_NAMESPACE)
     {
@@ -1146,8 +1259,14 @@ static scope_t* lookup_qualification_scope_in_namespace(decl_context_t nested_na
         {
             fprintf(stderr, "SCOPE: Component '%s' found to be a namespace\n", prettyprint_in_buffer(current_name));
         }
-        return lookup_qualification_scope_in_namespace(nested_name_context, symbol, 
-                next_nested_name_spec, unqualified_part, dependent_type);
+        return lookup_qualification_scope_in_namespace(
+                original_context,
+                nested_name_context, 
+                symbol, 
+                next_nested_name_spec, 
+                unqualified_part, 
+                dependent_type, 
+                is_valid);
     }
     else
     {
@@ -1155,13 +1274,25 @@ static scope_t* lookup_qualification_scope_in_namespace(decl_context_t nested_na
         {
             fprintf(stderr, "SCOPE: Component '%s' found to be a class-name\n", prettyprint_in_buffer(current_name));
         }
-        return lookup_qualification_scope_in_class(nested_name_context, symbol, 
-                next_nested_name_spec, unqualified_part, dependent_type);
+        return lookup_qualification_scope_in_class(
+                original_context,
+                nested_name_context, 
+                symbol, 
+                next_nested_name_spec, 
+                unqualified_part, 
+                dependent_type, 
+                is_valid);
     }
 }
 
-static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_context, scope_entry_t* class_name, 
-        AST nested_name_spec, AST unqualified_part, type_t** dependent_type)
+static decl_context_t lookup_qualification_scope_in_class(
+        decl_context_t original_context,
+        decl_context_t nested_name_context, 
+        scope_entry_t* class_name, 
+        AST nested_name_spec, 
+        AST unqualified_part, 
+        type_t** dependent_type, 
+        char *is_valid)
 {
     ERROR_CONDITION(class_name == NULL, "The class name cannot be null", 0);
 
@@ -1203,13 +1334,14 @@ static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_c
         }
         else
         {
-            // If it is not a named type thus it only can be (3)
+            // If it is not a named type then it can only be (3)
             if (is_dependent_typename_type(class_type))
             {
                 // This is dependent
                 *dependent_type = get_dependent_typename_type(class_name, 
                         nested_name_context, nested_name_spec, unqualified_part);
-                return NULL;
+                *is_valid = 0;
+                return new_decl_context();
             }
 
             internal_error("Invalid typedef", 0);
@@ -1247,8 +1379,6 @@ static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_c
         {
             if (class_type_is_incomplete_independent(class_type))
             {
-                // Bogus context
-                // FIXME - It is useful to know where a template was instantiated
                 instantiate_template_class(class_name, nested_name_context,
                         ASTFileName(unqualified_part), ASTLine(unqualified_part));
             }
@@ -1261,7 +1391,11 @@ static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_c
                 // and stating that it is dependent
                 *dependent_type = get_dependent_typename_type(class_name, 
                         nested_name_context, nested_name_spec, unqualified_part);
-                return NULL;
+                *is_valid = 0;
+
+                decl_context_t result;
+                memset(&result, 0, sizeof(result));
+                return result;
             }
         }
     }
@@ -1282,7 +1416,12 @@ static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_c
         // and stating that it is dependent
         *dependent_type = get_dependent_typename_type(class_name, 
                 nested_name_context, nested_name_spec, unqualified_part);
-        return NULL;
+
+        *is_valid = 0;
+
+        decl_context_t result;
+        memset(&result, 0, sizeof(result));
+        return result;
     }
     else
     {
@@ -1291,19 +1430,19 @@ static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_c
 
     ERROR_CONDITION(!is_class_type(class_type), "The class_type is not a class type actually", 0);
 
-    decl_context_t decl_context = class_type_get_inner_context(class_type);
-    decl_context.decl_flags |= nested_name_context.decl_flags;
-    scope_t* class_scope = NULL;
-    class_scope = decl_context.current_scope;
+    decl_context_t class_context = class_type_get_inner_context(class_type);
+    class_context.decl_flags |= nested_name_context.decl_flags;
 
-    ERROR_CONDITION((class_scope == NULL), "No class scope was in that class", 0);
-    ERROR_CONDITION((class_scope->kind != CLASS_SCOPE), "Class scope is not CLASS_SCOPE", 0);
+    ERROR_CONDITION((class_context.current_scope->kind != CLASS_SCOPE), "Class scope is not CLASS_SCOPE", 0);
 
     // Nothing else to be done
     if (nested_name_spec == NULL)
     {
-        return class_scope;
+        return class_context;
     }
+
+    decl_context_t lookup_context = class_context;
+    lookup_context.decl_flags |= DF_NO_AMBIGUOUS_NAMESPACE;
 
     // Look up the next qualification item
     AST current_name = ASTSon0(nested_name_spec);
@@ -1312,14 +1451,15 @@ static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_c
     // Note, that once a class-name has been designed in a nested-name-spec only classes
     // can appear, since classes cannot have namespaces inside them
     scope_entry_list_t* symbol_list = NULL;
-    if (ASTType(current_name) != AST_TEMPLATE_ID)
+    if (ASTType(current_name) != AST_TEMPLATE_ID
+            && ASTType(current_name) != AST_OPERATOR_FUNCTION_ID_TEMPLATE)
     {
-        symbol_list = query_unqualified_name(decl_context, current_name);
+        symbol_list = query_unqualified_name(class_context, original_context, current_name);
     }
     else
     {
         // FIXME - This might fail
-        symbol_list = query_template_id(current_name, decl_context, nested_name_context);
+        symbol_list = query_template_id(current_name, class_context, original_context);
     }
 
     symbol_list = filter_symbol_kind_set(symbol_list, classes_or_namespaces_filter_num_elements, classes_or_namespaces_filter);
@@ -1330,7 +1470,9 @@ static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_c
         {
             fprintf(stderr, "SCOPE: No class-name found for component '%s'\n", prettyprint_in_buffer(current_name));
         }
-        return NULL;
+
+        *is_valid = 0;
+        return new_decl_context();
     }
 
     ERROR_CONDITION(symbol_list->next != NULL, "More than one class found", 0);
@@ -1344,7 +1486,9 @@ static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_c
         {
             fprintf(stderr, "SCOPE: Component '%s' is a dependent entity\n", prettyprint_in_buffer(current_name));
         }
-        return NULL;
+
+        *is_valid = 0;
+        return new_decl_context();
     }
 
     DEBUG_CODE()
@@ -1352,7 +1496,14 @@ static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_c
         fprintf(stderr, "SCOPE: Component '%s' found to be a class-name\n", prettyprint_in_buffer(current_name));
     }
 
-    return lookup_qualification_scope_in_class(decl_context, symbol, next_nested_name_spec, unqualified_part, dependent_type);
+    return lookup_qualification_scope_in_class(
+            original_context,
+            class_context, 
+            symbol, 
+            next_nested_name_spec, 
+            unqualified_part, 
+            dependent_type, 
+            is_valid);
 }
 
 static scope_entry_list_t* name_lookup_used_namespaces_rec(decl_context_t decl_context, 
@@ -1500,8 +1651,15 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
     for (i = 0; i < num_bases; i++)
     {
         char current_base_is_virtual = 0;
-        scope_entry_t* base_class_entry = class_type_get_base_num(current_class_type, i, &current_base_is_virtual);
-        type_t* base_class_type = base_class_entry->type_information;
+        char current_base_is_dependent = 0;
+        scope_entry_t* base_class_entry = class_type_get_base_num(current_class_type, i, 
+                &current_base_is_virtual,
+                &current_base_is_dependent);
+
+        if (current_base_is_dependent)
+            continue;
+
+        type_t* base_class_type = get_actual_class_type(base_class_entry->type_information);
         decl_context_t base_class_context = class_type_get_inner_context(base_class_type);
         scope_t* base_class_scope = base_class_context.current_scope;
 
@@ -1831,7 +1989,64 @@ static scope_entry_list_t* filter_any_non_type(scope_entry_list_t* entry_list)
     return filter_symbol_kind_set(entry_list, STATIC_ARRAY_LENGTH(type_filter), type_filter);
 }
 
-static scope_entry_list_t* name_lookup(decl_context_t decl_context, const char* name)
+static char name_same_overload(scope_entry_t* entry_1, scope_entry_t* entry_2)
+{
+    if (!(entry_1->kind == SK_FUNCTION
+                || (entry_1->kind == SK_TEMPLATE && 
+                    is_function_type(named_type_get_symbol(
+                            template_type_get_primary_type(entry_1->type_information))
+                        ->type_information))))
+        return 0;
+
+    if (!(entry_2->kind == SK_FUNCTION
+                || (entry_2->kind == SK_TEMPLATE && 
+                    is_function_type(named_type_get_symbol(
+                            template_type_get_primary_type(entry_2->type_information))
+                    ->type_information))))
+        return 0;
+
+    return (strcmp(entry_1->symbol_name, entry_2->symbol_name) == 0);
+}
+
+static char first_is_subset_of_second(scope_entry_list_t* entry_list_1, scope_entry_list_t* entry_list_2)
+{
+    ERROR_CONDITION(entry_list_1 == NULL
+            || entry_list_2 == NULL, "Error one list is NULL", 0);
+
+    while (entry_list_1 != NULL)
+    {
+        scope_entry_list_t* it = entry_list_2;
+
+        char found = 0;
+        while (it != NULL && !found)
+        {
+            found = (entry_list_1->entry == it->entry)
+                || name_same_overload(entry_list_1->entry, it->entry);
+            it = it->next;
+        }
+
+        if (!found)
+            return 0;
+
+        entry_list_1 = entry_list_1->next;
+    }
+
+    return 1;
+}
+
+static char different_symbols(scope_entry_list_t* entry_list_1, scope_entry_list_t* entry_list_2)
+{
+    ERROR_CONDITION(entry_list_1 == NULL
+            || entry_list_2 == NULL, "Error one list is NULL", 0);
+
+    return (!first_is_subset_of_second(entry_list_1, entry_list_2)
+            || !first_is_subset_of_second(entry_list_2, entry_list_1));
+}
+
+static scope_entry_list_t* merge_scope_entry_list(scope_entry_list_t* list_1, scope_entry_list_t* list_2);
+
+static scope_entry_list_t* name_lookup(decl_context_t decl_context, 
+        const char* name, const char* filename, int line)
 {
     ERROR_CONDITION(name == NULL, "Name cannot be null!", 0);
 
@@ -1887,32 +2102,61 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context, const char* 
             result = filter_any_non_type(result);
         }
 
-        // This object would hide any other in the enclosing scopes
-        if (result != NULL)
+        // Do not look anything else
+        if (BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE))
+        {
+            return result;
+        }
+
+        // When looking up the first component of a qualified name, do not
+        // check used namespaces if something is already found in the current
+        // scope
+        if (result != NULL
+                && BITMAP_TEST(decl_context.decl_flags, DF_NO_AMBIGUOUS_NAMESPACE))
         {
             return result;
         }
         
-        // Do not look anything else
-        if (BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE))
-        {
-            return NULL;
-        }
-
         // Otherwise, if this is a NAMESPACE_SCOPE, lookup in the used namespaces
         // note that the objects there are not hidden, but added
         if (current_scope->num_used_namespaces > 0)
         {
-            result = name_lookup_used_namespaces(decl_context, current_scope, name);
+            scope_entry_list_t* used_result = name_lookup_used_namespaces(decl_context, current_scope, name);
             if (BITMAP_TEST(decl_context.decl_flags, DF_ELABORATED_NAME))
             {
-                result = filter_any_non_type(result);
+                used_result = filter_any_non_type(used_result);
             }
             // If this yields any result, return them, no more search needed
-            if (result != NULL)
+            if (result == NULL && used_result != NULL)
             {
-                return result;
+                return used_result;
             }
+            else if (result != NULL && used_result != NULL)
+            {
+                if (different_symbols(result, used_result))
+                {
+                    char is_dependent = 0;
+                    int max_qualif_level = 0;
+                    fprintf(stderr, "%s:%d: note: '%s' refers to '%s'\n", 
+                            filename, line, name,
+                            get_fully_qualified_symbol_name(result->entry, result->entry->decl_context, &is_dependent, &max_qualif_level));
+                    fprintf(stderr, "%s:%d: note: '%s' refers to '%s'\n", 
+                            filename, line, name,
+                            get_fully_qualified_symbol_name(used_result->entry, used_result->entry->decl_context, &is_dependent, &max_qualif_level));
+                    running_error("%s:%d: error: name is '%s' ambiguous\n", 
+                            filename, line, name);
+                }
+                else
+                {
+                    result = merge_scope_entry_list(used_result, result);
+                }
+            }
+        }
+
+        // If the current scope had something return it now
+        if (result != NULL)
+        {
+            return result;
         }
 
         // If we are in a qualified lookup never lookup the enclosing one
@@ -1929,187 +2173,479 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context, const char* 
     return result;
 }
 
-static template_argument_t* get_corresponding_template_argument(
-        template_argument_list_t* given_template_args,
-        int position,
-        int nesting)
+decl_context_t update_context_with_template_arguments(
+        decl_context_t context,
+        template_argument_list_t* given_template_args)
 {
+    decl_context_t updated_context = new_template_context(context);
+
     int i;
     for (i = 0; i < given_template_args->num_arguments; i++)
     {
-        template_argument_t* result = given_template_args->argument_list[i];
-        if (result->position == position
-                && result->nesting == nesting)
+        template_argument_t* current_template_argument = given_template_args->argument_list[i];
+        char tpl_param_name[256] = { 0 };
+
+        snprintf(tpl_param_name, 255, ".tpl_%d_%d",
+                current_template_argument->nesting,
+                current_template_argument->position);
+
+        switch (current_template_argument->kind)
         {
-            return result;
+            case TAK_TYPE :
+                {
+                    scope_entry_t* param_symbol = new_symbol(updated_context,
+                            updated_context.template_scope, tpl_param_name);
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "SCOPE: Adding '%s' as a type template parameter to '%s'\n",
+                                tpl_param_name,
+                                print_declarator(current_template_argument->type));
+                    }
+                    // We use a typedef
+                    param_symbol->kind = SK_TYPEDEF;
+                    param_symbol->entity_specs.is_template_argument = 1;
+                    param_symbol->type_information = current_template_argument->type;
+
+                    break;
+                }
+            case TAK_TEMPLATE :
+                {
+                    scope_entry_t* param_symbol = new_symbol(updated_context,
+                            updated_context.template_scope, tpl_param_name);
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "SCOPE: Adding '%s' as a template template parameter to '%s'\n",
+                                tpl_param_name,
+                                named_type_get_symbol(current_template_argument->type)->symbol_name);
+                    }
+                    // The template type has to be used here
+                    param_symbol->kind = SK_TEMPLATE;
+                    param_symbol->entity_specs.is_template_argument = 1;
+                    // These are always kept as named types in the compiler
+                    param_symbol->type_information = 
+                        named_type_get_symbol(current_template_argument->type)->type_information;
+                    break;
+                }
+            case TAK_NONTYPE :
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "SCOPE: Adding '%s' as a nontype template parameter to '%s'\n",
+                                tpl_param_name,
+                                prettyprint_in_buffer(current_template_argument->expression));
+                    }
+
+                    scope_entry_t* param_symbol = new_symbol(updated_context,
+                            updated_context.template_scope, tpl_param_name);
+                    param_symbol->kind = SK_VARIABLE;
+                    param_symbol->entity_specs.is_template_argument = 1;
+                    param_symbol->type_information = current_template_argument->type;
+
+                    // Fold it, as makes things easier
+                    if (expression_is_constant(current_template_argument->expression))
+                    {
+                        param_symbol->expression_value = const_value_to_tree(
+                                expression_get_constant(current_template_argument->expression)
+                                );
+                    }
+                    else
+                    {
+                        param_symbol->expression_value = current_template_argument->expression;
+                    }
+                    break;
+                }
+            default:
+                {
+                    internal_error("Invalid parameter kind", 0);
+                }
         }
     }
 
-    return NULL;
+    return updated_context;
 }
 
-// Replaces symbols of template parameters with template arguments seen so far
-//
-/*
- * template <int _N, int _M = _N + 1>
- * struct A
- * {
- * };
- *
- * A<5> // must be like A<5, 6>
- *
- * default_template_arguments_context is the context of '_N + 1' where '_N' and '_M' live
- * real_template_arguments_context is the context of '5'
- */
-static decl_context_t replace_template_parameters_with_values(
-        template_argument_list_t* given_template_args,
-        decl_context_t default_template_arguments_context,
-        decl_context_t real_template_arguments_context)
-{
-    // Do nothing
-    if (default_template_arguments_context.template_scope == NULL)
-        return real_template_arguments_context;
+static template_argument_list_t* complete_arguments_of_template_id(
+        decl_context_t template_name_context,
+        decl_context_t template_arguments_context,
+        template_parameter_list_t* template_parameters,
+        template_argument_list_t* template_arguments,
+        const char* filename,
+        int line);
 
-    // We are like 'patching' the real_template_arguments_context with those symbols
-    // in the default_template_arguments_context
-    decl_context_t fake_context = new_template_context(real_template_arguments_context);
+static template_argument_list_t* duplicate_template_arguments(
+        template_argument_list_t* orig_tpl_args)
+{
+    // Duplicate template arguments because we may have to modify them
+    template_argument_list_t* template_arguments = counted_calloc(1, sizeof(*template_arguments), &_bytes_used_scopes);
+    template_arguments->num_arguments = orig_tpl_args->num_arguments;
+
+    template_arguments->argument_list = counted_calloc(template_arguments->num_arguments, 
+            sizeof(*template_arguments->argument_list), &_bytes_used_scopes);
+    int i;
+    for (i = 0; i < template_arguments->num_arguments; i++)
+    {
+        template_arguments->argument_list[i] = orig_tpl_args->argument_list[i];
+    }
+
+    return template_arguments;
+}
+
+static template_argument_t* update_template_argument(
+        template_argument_t* current_template_arg,
+        decl_context_t template_arguments_context,
+        const char *filename, int line,
+        char overwrite_context);
+
+static template_argument_list_t* update_template_argument_list(
+        template_argument_list_t* template_arguments,
+        decl_context_t template_arguments_context,
+        const char *filename, int line,
+        char overwrite_context)
+{
+    int i;
+    for (i = 0; i < template_arguments->num_arguments; i++)
+    {
+        template_arguments->argument_list[i] = update_template_argument(
+                template_arguments->argument_list[i],
+                template_arguments_context, 
+                filename, 
+                line, 
+                overwrite_context);
+    }
+
+    return template_arguments;
+}
+
+static type_t* update_dependent_typename(
+        type_t* dependent_entry_type,
+        dependent_name_part_t* dependent_parts,
+        decl_context_t decl_context,
+        const char* filename, int line,
+        char instantiation_update)
+{
+    scope_entry_t* dependent_entry = named_type_get_symbol(dependent_entry_type);
+
+    if (is_dependent_type(dependent_entry_type))
+    {
+        return get_dependent_typename_type_from_parts(dependent_entry,
+                dependent_parts);
+    }
+
+    if (dependent_entry->kind == SK_TYPEDEF)
+    {
+        type_t* advanced_type = advance_over_typedefs(dependent_entry->type_information);
+
+        ERROR_CONDITION(!is_named_type(advanced_type), "This is not a named type", 0);
+
+        dependent_entry = named_type_get_symbol(advanced_type);
+    }
+
+    ERROR_CONDITION(dependent_entry->kind != SK_CLASS, "Must be a class-name", 0);
+
+    ERROR_CONDITION(dependent_parts == NULL, "Dependent parts cannot be empty", 0);
+
+    scope_entry_t* current_member = dependent_entry;
+
+    decl_context_t class_context = class_type_get_inner_context(current_member->type_information);
+
+    while (dependent_parts->next != NULL)
+    {
+        ERROR_CONDITION(dependent_parts->related_type != NULL, "Dependent part has a related type", 0);
+
+        if (is_dependent_type(get_user_defined_type(current_member)))
+        {
+            return get_dependent_typename_type_from_parts(current_member,
+                    dependent_parts);
+        }
+
+        if (class_type_is_incomplete_independent(get_actual_class_type(current_member->type_information)))
+        {
+            instantiate_template_class(current_member, class_context, filename, line);
+        }
+
+        class_context = class_type_get_inner_context(current_member->type_information);
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCOPE: Looking for dependent-part '%s'\n", dependent_parts->name);
+        }
+
+        scope_entry_list_t* member_list = query_in_scope_str(class_context, dependent_parts->name);
+
+        if (member_list == NULL)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Nothing was found for dependent-part '%s'\n", dependent_parts->name);
+            }
+            return NULL;
+        }
+
+        if (member_list->next != NULL)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Too many symbols where found for '%s'\n", dependent_parts->name);
+            }
+            return NULL;
+        }
+
+        scope_entry_t* member = member_list->entry;
+
+        if (member->kind == SK_TYPEDEF)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Got a typedef when looking up dependent-part '%s'\n", dependent_parts->name);
+            }
+            type_t* advanced_type = advance_over_typedefs(member->type_information);
+
+            if (is_named_class_type(advanced_type))
+            {
+                member = named_type_get_symbol(advanced_type);
+            }
+        }
+
+        if (member->kind == SK_CLASS)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Got a class when looking up dependent-part '%s'\n", dependent_parts->name);
+            }
+            if (dependent_parts->template_arguments != NULL)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "SCOPE: But this part has template arguments, so it is not valid\n");
+                }
+                return NULL;
+            }
+
+            current_member = member;
+        }
+        else if (member->kind == SK_TEMPLATE)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Got a template-name when looking up dependent-part '%s'\n", 
+                        dependent_parts->name);
+            }
+
+            if (dependent_parts->template_arguments == NULL)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "SCOPE: But this part does not have template arguments, so it is not valid\n");
+                }
+                return NULL;
+            }
+
+            // TEMPLATE RESOLUTION
+            type_t* template_type = member->type_information;
+
+            // Only template classes
+            if (named_type_get_symbol(template_type_get_primary_type(template_type))->kind == SK_FUNCTION)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "SCOPE: The named template is a template function, so it is not valid\n");
+                }
+                return NULL;
+            }
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Requesting specialization '%s'\n", 
+                        dependent_parts->name);
+            }
+
+            template_argument_list_t* template_arguments = duplicate_template_arguments(dependent_parts->template_arguments);
+            template_parameter_list_t *template_parameters = template_type_get_template_parameters(template_type);
+
+            template_arguments = complete_arguments_of_template_id(
+                    class_context,
+                    decl_context,
+                    template_parameters,
+                    template_arguments,
+                    filename, line);
+
+            template_arguments = update_template_argument_list(template_arguments,
+                    decl_context, filename, line,
+                    /* overwrite_context */ instantiation_update);
+
+            if (template_arguments->num_arguments != template_parameters->num_template_parameters)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "SCOPE: Template argument count does not match template parameter count\n");
+                }
+                return NULL;
+            }
+
+            type_t* specialized_type = template_type_get_specialized_type(
+                    template_type,
+                    template_arguments,
+                    template_type_get_template_parameters(template_type),
+                    class_context, line, filename);
+
+            current_member = named_type_get_symbol(specialized_type);
+        }
+        else 
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Unexpected symbol for part '%s'\n", dependent_parts->name);
+            }
+            return NULL;
+        }
+
+        dependent_parts = dependent_parts->next;
+    }
+
+    // Last part
+    if (is_dependent_type(get_user_defined_type(current_member)))
+    {
+        return get_dependent_typename_type_from_parts(current_member,
+                dependent_parts);
+    }
+
+    if (class_type_is_incomplete_independent(get_actual_class_type(current_member->type_information)))
+    {
+        instantiate_template_class(current_member, class_context, filename, line);
+    }
+
+    class_context = class_type_get_inner_context(current_member->type_information);
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "SCOPE: Replacing template parameters\n");
+        fprintf(stderr, "SCOPE: Looking for last dependent-part '%s'\n", dependent_parts->name);
     }
 
-    Iterator* it = (Iterator*) hash_iterator_create(
-            default_template_arguments_context.template_scope->hash);
-    for (iterator_first(it); !iterator_finished(it); iterator_next(it))
+    scope_entry_list_t* member_list = query_in_scope_str(class_context, dependent_parts->name);
+
+    if (member_list == NULL)
     {
-        scope_entry_list_t* entry_list = (scope_entry_list_t*) iterator_item(it);
-        scope_entry_t* entry = entry_list->entry;
-
-        template_argument_t *current_argument =
-            get_corresponding_template_argument(given_template_args,
-                    entry->entity_specs.template_parameter_position,
-                    entry->entity_specs.template_parameter_nesting);
-
-        if (current_argument == NULL)
-        {
-            // Maybe it has not been binded yet
-            continue;
-        }
-
-        if(entry->entity_specs.template_parameter_position != current_argument->position
-                || entry->entity_specs.template_parameter_nesting != current_argument->nesting)
-        {
-            continue;
-        }
-
         DEBUG_CODE()
         {
-            fprintf(stderr, "SCOPE:     Considering template parameter '%s'\n", entry->symbol_name);
+            fprintf(stderr, "SCOPE: Nothing was found for dependent-part '%s'\n", dependent_parts->name);
         }
-
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCOPE:     Creating interception symbol '%s' in fake context\n", entry->symbol_name);
-        }
-
-        // Create the new symbol in the interception context
-        scope_entry_t* new_entry = new_symbol(fake_context, fake_context.template_scope, entry->symbol_name);
-
-        // type template parameter
-        if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER)
-        {
-            // Create a typedef, 
-            new_entry->kind = SK_TYPEDEF;
-
-            type_t* argument_type = current_argument->type;
-
-            new_entry->entity_specs.is_template_argument = 1;
-            new_entry->type_information = get_new_typedef(argument_type);
-
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "SCOPE:     Making type template parameter '%s' of type '%s'\n", 
-                        new_entry->symbol_name,
-                        print_declarator(new_entry->type_information));
-            }
-        }
-        // non-type template parameter
-        else if (entry->kind == SK_TEMPLATE_PARAMETER)
-        {
-            type_t* expr_type = ASTExprType(current_argument->expression);
-            if (expr_type != NULL
-                    && is_dependent_expr_type(expr_type)
-                    && is_named_type(expr_type)
-                    && named_type_get_symbol(expr_type)->kind == SK_TEMPLATE_PARAMETER)
-            {
-                scope_entry_t* template_parameter = named_type_get_symbol(expr_type);
-                // Here we sign in a variable with a related expression
-                new_entry->kind = SK_TEMPLATE_PARAMETER;
-
-                new_entry->type_information = NULL;
-
-                new_entry->entity_specs.is_template_parameter = 1;
-                new_entry->entity_specs.template_parameter_position = 
-                    template_parameter->entity_specs.template_parameter_position;
-                new_entry->entity_specs.template_parameter_nesting = 
-                    template_parameter->entity_specs.template_parameter_nesting;
-            }
-            else
-            {
-                // Here we sign in a variable with a related expression
-                new_entry->kind = SK_VARIABLE;
-
-                AST constant_initializer = 
-                    ast_copy_for_instantiation(current_argument->expression);
-
-                new_entry->entity_specs.is_template_argument = 1;
-                new_entry->expression_value = constant_initializer;
-                new_entry->type_information = current_argument->type;
-                new_entry->decl_context = current_argument->expression_context;
-
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "SCOPE:     Making non-type template parameter '%s' to have value '%s'\n", 
-                            new_entry->symbol_name,
-                            prettyprint_in_buffer(constant_initializer));
-                }
-            }
-        }
-        // template template parameter
-        else if (entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
-        {
-            new_entry->kind = SK_TEMPLATE;
-            // type_t* template_argument_type = 
-            //     current_argument->type;
-
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "SCOPE:     Making template template parameter '%s' to be '%s'\n", 
-                        new_entry->symbol_name,
-                        print_declarator(new_entry->type_information));
-            }
-            internal_error("Not yet implemented", 0);
-        }
-        else
-        {
-            internal_error("Unexpected symbol kind '%d'\n", entry->kind);
-        }
-
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCOPE:\n");
-        }
+        return NULL;
     }
 
-    return fake_context;
+    if (member_list->next != NULL)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCOPE: Too many symbols where found for '%s'\n", dependent_parts->name);
+        }
+        return NULL;
+    }
+
+    scope_entry_t* member = member_list->entry;
+
+    if (member->kind == SK_CLASS
+            || member->kind == SK_TYPEDEF)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCOPE: Got a typename when looking up dependent-part '%s'\n", dependent_parts->name);
+        }
+        if (dependent_parts->template_arguments != NULL)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: But this part has template arguments, so it is not valid\n");
+            }
+            return NULL;
+        }
+
+        current_member = member;
+    }
+    else if (member->kind == SK_TEMPLATE)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCOPE: Got a template-name when looking up dependent-part '%s'\n", 
+                    dependent_parts->name);
+        }
+
+        if (dependent_parts->template_arguments == NULL)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: But this part does not have template arguments, so it is not valid\n");
+            }
+            return NULL;
+        }
+
+        // TEMPLATE RESOLUTION
+        type_t* template_type = member->type_information;
+
+        // Only template classes
+        if (named_type_get_symbol(template_type_get_primary_type(template_type))->kind == SK_FUNCTION)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: The named template is a template function, so it is not valid\n");
+            }
+            return NULL;
+        }
+
+        template_argument_list_t* template_arguments = duplicate_template_arguments(dependent_parts->template_arguments);
+        template_parameter_list_t *template_parameters = template_type_get_template_parameters(template_type);
+
+        template_arguments = complete_arguments_of_template_id(
+                class_context,
+                decl_context,
+                template_parameters,
+                template_arguments,
+                filename, line);
+
+        template_arguments = update_template_argument_list(template_arguments,
+                decl_context, filename, line, /* overwrite_context */ instantiation_update);
+
+        if (template_arguments->num_arguments != template_parameters->num_template_parameters)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Template argument count does not match template parameter count\n");
+            }
+            return NULL;
+        }
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCOPE: requesting specialization '%s'\n", 
+                    dependent_parts->name);
+        }
+
+        type_t* specialized_type = template_type_get_specialized_type(
+                template_type,
+                template_arguments,
+                template_type_get_template_parameters(template_type),
+                class_context, line, filename);
+
+        current_member = named_type_get_symbol(specialized_type);
+
+    }
+    else
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCOPE: Unexpected symbol for part '%s'\n", dependent_parts->name);
+        }
+
+        return NULL;
+    }
+
+    return get_user_defined_type(current_member);
 }
 
 
-type_t* update_type(template_argument_list_t* given_template_args,
-        type_t* orig_type, 
-        decl_context_t template_arguments_context,
-        const char* filename, int line)
+static type_t* update_type_aux_(type_t* orig_type, 
+        decl_context_t decl_context,
+        const char* filename, int line,
+        char instantiation_update)
 {
     ERROR_CONDITION(orig_type == NULL, "Error, type is null", 0);
 
@@ -2147,10 +2683,10 @@ type_t* update_type(template_argument_list_t* given_template_args,
         if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
                 || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
         {
-            template_argument_t* argument =
-                get_corresponding_template_argument(given_template_args, 
-                        entry->entity_specs.template_parameter_position,
-                        entry->entity_specs.template_parameter_nesting);
+            scope_entry_t* argument = lookup_of_template_parameter(
+                    decl_context,
+                    entry->entity_specs.template_parameter_nesting,
+                    entry->entity_specs.template_parameter_position);
 
             if (argument == NULL)
             {
@@ -2164,7 +2700,8 @@ type_t* update_type(template_argument_list_t* given_template_args,
             }
 
             if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
-                    && argument->kind == TAK_TYPE)
+                    && (argument->kind == SK_TYPEDEF
+                        || argument->kind == SK_TEMPLATE_TYPE_PARAMETER))
             {
                 // Sum the qualification
                 //
@@ -2175,14 +2712,21 @@ type_t* update_type(template_argument_list_t* given_template_args,
                 //
                 // "A<const int>" -> "A<const int, const volatile int>"
                 cv_qualifier_t cv_qualif = get_cv_qualifier(orig_type);
-                cv_qualif |= get_cv_qualifier(argument->type);
-
-                return get_cv_qualified_type(argument->type, cv_qualif);
+                if (argument->kind != SK_TEMPLATE_TYPE_PARAMETER)
+                {
+                    cv_qualif |= get_cv_qualifier(argument->type_information);
+                    return get_cv_qualified_type(argument->type_information, cv_qualif);
+                }
+                else
+                {
+                    return get_cv_qualified_type(get_user_defined_type(argument), cv_qualif);
+                }
             }
             else if (entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
-                    && argument->kind == TAK_TEMPLATE)
+                    && (argument->kind == SK_TEMPLATE
+                        || argument->kind == SK_TEMPLATE_TEMPLATE_PARAMETER))
             {
-                return argument->type;
+                return get_user_defined_type(argument);
             }
             else
             {
@@ -2209,18 +2753,21 @@ type_t* update_type(template_argument_list_t* given_template_args,
             scope_entry_t* template_related_symbol =
                 template_type_get_related_symbol(template_type);
 
-            if (template_related_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+            if (template_related_symbol != NULL
+                    && template_related_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
             {
                 // This specialized template type comes after a template template parameter,
                 // so we have to update it using the template arguments
                 // We need to update this template type too
-                template_argument_t* argument =
-                    get_corresponding_template_argument(given_template_args, 
-                            template_related_symbol->entity_specs.template_parameter_position,
-                            template_related_symbol->entity_specs.template_parameter_nesting);
+                scope_entry_t* argument = lookup_of_template_parameter(
+                        decl_context,
+                        template_related_symbol->entity_specs.template_parameter_nesting,
+                        template_related_symbol->entity_specs.template_parameter_position);
+
+                ERROR_CONDITION(entry == NULL, "This should not be NULL", 0);
 
                 // Now update the template_type with the new one
-                template_type = named_type_get_symbol(argument->type)->type_information;
+                template_type = argument->type_information;
             }
 
             cv_qualifier_t cv_qualif = CV_NONE;
@@ -2244,12 +2791,12 @@ type_t* update_type(template_argument_list_t* given_template_args,
             {
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "SCOPE: Updating template argument of specialized template class %d\n", i);
+                    fprintf(stderr, "SCOPE: Updating template argument %d of specialized template class\n", i);
                 }
                 template_argument_t* updated_argument = update_template_argument(
-                        given_template_args, 
                         template_arguments->argument_list[i],
-                        template_arguments_context, filename, line);
+                        decl_context, filename, line,
+                        /* overwrite_context */ instantiation_update);
 
                 P_LIST_ADD(updated_template_arguments->argument_list, updated_template_arguments->num_arguments, updated_argument);
             }
@@ -2264,7 +2811,7 @@ type_t* update_type(template_argument_list_t* given_template_args,
                 template_type_get_specialized_type(template_type, 
                         updated_template_arguments, 
                         template_parameters,
-                        template_arguments_context,
+                        decl_context,
                         line, filename);
             DEBUG_CODE()
             {
@@ -2283,9 +2830,22 @@ type_t* update_type(template_argument_list_t* given_template_args,
 
             return updated_specialized;
         }
+        else if (entry->kind == SK_TYPEDEF)
+        {
+            cv_qualifier_t cv_qualif = get_cv_qualifier(orig_type);
+            return get_cv_qualified_type(
+                    update_type_aux_(entry->type_information, 
+                        decl_context, filename, line, 
+                        instantiation_update),
+                    cv_qualif);
+        }
         else
         {
             // Return it unmodified
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Not updating type '%s'\n", print_declarator(orig_type));
+            }
             return orig_type;
         }
     }
@@ -2293,7 +2853,7 @@ type_t* update_type(template_argument_list_t* given_template_args,
     {
         type_t* referenced = reference_type_get_referenced_type(orig_type);
 
-        type_t* updated_referenced = update_type(given_template_args, referenced, template_arguments_context, filename, line);
+        type_t* updated_referenced = update_type_aux_(referenced, decl_context, filename, line, instantiation_update);
 
         if (updated_referenced == NULL)
             return NULL;
@@ -2308,7 +2868,7 @@ type_t* update_type(template_argument_list_t* given_template_args,
 
         type_t* pointee = pointer_type_get_pointee_type(orig_type);
 
-        type_t* updated_pointee = update_type(given_template_args, pointee, template_arguments_context, filename, line);
+        type_t* updated_pointee = update_type_aux_(pointee, decl_context, filename, line, instantiation_update);
 
         if (updated_pointee == NULL)
             return NULL;
@@ -2324,13 +2884,13 @@ type_t* update_type(template_argument_list_t* given_template_args,
         cv_qualifier_t cv_qualifier = get_cv_qualifier(orig_type);
 
         type_t* pointee = pointer_type_get_pointee_type(orig_type);
-        type_t* updated_pointee = update_type(given_template_args, pointee, template_arguments_context, filename, line);
+        type_t* updated_pointee = update_type_aux_(pointee, decl_context, filename, line, instantiation_update);
 
         if (updated_pointee == NULL)
             return NULL;
 
         type_t* pointee_class = pointer_to_member_type_get_class_type(orig_type);
-        pointee_class = update_type(given_template_args, pointee_class, template_arguments_context, filename, line);
+        pointee_class = update_type_aux_(pointee_class, decl_context, filename, line, instantiation_update);
 
         // If it is not a named class type _and_ it is not a template type
         // parameter, then this is not a valid pointer to member type
@@ -2356,7 +2916,7 @@ type_t* update_type(template_argument_list_t* given_template_args,
         type_t* return_type = function_type_get_return_type(orig_type);
         if (return_type != NULL)
         {
-            return_type = update_type(given_template_args, return_type, template_arguments_context, filename, line);
+            return_type = update_type_aux_(return_type, decl_context, filename, line, instantiation_update);
             // Something went wrong here for the return type
             if (return_type == NULL)
                 return NULL;
@@ -2378,8 +2938,8 @@ type_t* update_type(template_argument_list_t* given_template_args,
         {
             type_t* param_orig_type = function_type_get_parameter_type_num(orig_type, i);
 
-            param_orig_type = update_type(given_template_args, param_orig_type, 
-                    template_arguments_context, filename, line);
+            param_orig_type = update_type_aux_(param_orig_type, 
+                    decl_context, filename, line, instantiation_update);
 
             if (param_orig_type == NULL)
                 return NULL;
@@ -2424,33 +2984,22 @@ type_t* update_type(template_argument_list_t* given_template_args,
         AST expression = array_type_get_array_size_expr(orig_type);
         decl_context_t expr_context = array_type_get_array_size_expr_context(orig_type);
 
-        AST updated_expr = ast_copy_for_instantiation(expression);
+        AST updated_expr = expression;
         decl_context_t updated_expr_context = expr_context;
         if (updated_expr != NULL)
         {
-            updated_expr_context = replace_template_parameters_with_values(
-                    given_template_args, 
-                    expr_context, 
-                    template_arguments_context);
-            // Update type info
+            updated_expr = ast_copy_for_instantiation(updated_expr);
+            updated_expr_context = decl_context;
             if (!check_for_expression(updated_expr, updated_expr_context))
             {
-                internal_error("Updated expression '%s' in array declaration could not be checked", 
-                        prettyprint_in_buffer(updated_expr));
-            }
-
-            if (!is_dependent_expression(updated_expr, updated_expr_context)
-                    && (ASTExprType(updated_expr) == NULL
-                        || !is_unresolved_overloaded_type(ASTExprType(updated_expr))))
-            {
-                literal_value_t literal = evaluate_constant_expression(updated_expr, updated_expr_context);
-                updated_expr = tree_from_literal_value(literal);
+                running_error("%s: error: could not update array dimension",
+                        ast_location(expression));
             }
         }
 
         type_t* element_type = array_type_get_element_type(orig_type);
-        element_type = update_type(given_template_args, element_type,
-                template_arguments_context, filename, line);
+        element_type = update_type_aux_(element_type,
+                decl_context, filename, line, instantiation_update);
 
         if (element_type == NULL)
             return NULL;
@@ -2463,58 +3012,92 @@ type_t* update_type(template_argument_list_t* given_template_args,
     }
     else if (is_dependent_typename_type(orig_type))
     {
-        decl_context_t dependent_decl_context;
         scope_entry_t* dependent_entry = NULL;
-        AST nested_name = NULL;
-        AST unqualified_part = NULL;
+        dependent_name_part_t* dependent_parts = NULL;
+
+        cv_qualifier_t cv_qualif = get_cv_qualifier(orig_type);
 
         dependent_typename_get_components(orig_type, 
-                &dependent_entry, &dependent_decl_context, 
-                &nested_name, &unqualified_part);
+                &dependent_entry, &dependent_parts);
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCOPE: Updating typename '%s'\n",
+                    print_declarator(orig_type));
+        }
 
         type_t* fixed_type = NULL;
-        fixed_type = update_type(given_template_args, get_user_defined_type(dependent_entry),
-                template_arguments_context, filename, line);
+        fixed_type = update_type_aux_(get_user_defined_type(dependent_entry),
+                decl_context, filename, line, instantiation_update);
 
         if (fixed_type == NULL)
-            return NULL;
-
-        if (!is_named_class_type(fixed_type))
         {
-            return NULL;
-        }
-
-        // Now lookup again in this class
-        // Get the inner class
-        type_t* class_type = get_actual_class_type(fixed_type);
-
-        if (class_type_is_incomplete_independent(class_type))
-        {
-            instantiate_template_class(named_type_get_symbol(fixed_type),
-                    template_arguments_context, filename, line);
-        }
-        else if (class_type_is_incomplete_dependent(class_type)
-                || class_type_is_complete_dependent(class_type))
-        {
-            // Nothing can be done here
-            return orig_type;
-        }
-
-        decl_context_t inner_context = class_type_get_inner_context(class_type);
-
-        scope_entry_list_t* result_list = query_qualified_name(inner_context, 
-                NULL, nested_name, unqualified_part);
-
-        result_list = filter_any_non_type(result_list);
-
-        if (result_list == NULL)
-        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Dependent type could not be updated\n");
+            }
             return NULL;
         }
 
-        scope_entry_t* entry = result_list->entry;
+        if (is_dependent_typename_type(fixed_type))
+        {
+            cv_qualifier_t cv_qualif_dep = get_cv_qualifier(fixed_type);
+            // We are updating the base entry (T) of a dependent typename
+            // [T]::T1 with another dependent typename [S]::S2
+            // so the updated type should be [S]::S2::S1
+            DEBUG_CODE()
+             {
+                fprintf(stderr, "SCOPE: Entry of dependent type is being "
+                        "replaced by another dependent type, appending both\n");
+            }
 
-        return entry->type_information;
+            scope_entry_t* fix_dependent_entry = NULL;
+            dependent_name_part_t* fix_dependent_parts = NULL;
+
+            dependent_typename_get_components(fixed_type, 
+                    &fix_dependent_entry, &fix_dependent_parts);
+
+            // Now append the dependent parts of this type 
+
+            dependent_name_part_t* updated_dependent_part = copy_dependent_parts(fix_dependent_parts);
+            dependent_name_part_t* appended_dependent_part = copy_dependent_parts(dependent_parts);
+
+            // Link both lists
+            dependent_name_part_t* it = updated_dependent_part;
+            while (it->next != NULL) 
+                it = it->next;
+            it->next = appended_dependent_part;
+
+            cv_qualif |= cv_qualif_dep;
+
+            fixed_type = get_user_defined_type(fix_dependent_entry);
+            dependent_parts = updated_dependent_part;
+        }
+        else if (!is_named_type(fixed_type))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Dependent type '%s' is not a named type\n",
+                        print_declarator(fixed_type));
+            }
+            return NULL;
+        }
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCOPE: Dependent entity updated to '%s'\n",
+                    print_declarator(fixed_type));
+        }
+
+        type_t* updated_type =
+            update_dependent_typename(fixed_type, dependent_parts, decl_context, filename, line, instantiation_update);
+
+        if (updated_type != NULL)
+        {
+            updated_type = get_cv_qualified_type(updated_type, cv_qualif);
+        }
+
+        return updated_type;
     }
     else
     {
@@ -2530,10 +3113,59 @@ type_t* update_type(template_argument_list_t* given_template_args,
     return NULL;
 }
 
-template_argument_t* update_template_argument(template_argument_list_t* given_template_args,
+type_t* update_type(type_t* orig_type, 
+        decl_context_t decl_context,
+        const char* filename, int line)
+{
+    DEBUG_CODE()
+    {
+            fprintf(stderr, "SCOPE: Updating type '%s'\n", print_declarator(orig_type));
+    }
+
+    type_t* result = update_type_aux_(orig_type, decl_context,
+            filename, line, /* instantiation_update */ 0);
+
+    DEBUG_CODE()
+    {
+        if (result != NULL)
+        {
+            fprintf(stderr, "SCOPE: Type '%s' has been updated to '%s'\n", print_declarator(orig_type), print_declarator(result));
+        }
+        else
+        {
+            fprintf(stderr, "SCOPE: Type '%s' has been updated to '(null)'\n", print_declarator(orig_type));
+        }
+    }
+
+    return result;
+}
+
+type_t* update_type_for_instantiation(type_t* orig_type,
+        decl_context_t context_of_being_instantiated,
+        const char* filename, int line)
+{
+    DEBUG_CODE()
+    {
+            fprintf(stderr, "SCOPE: While instantiating, updating type '%s'\n", print_declarator(orig_type));
+    }
+
+    type_t* result = update_type_aux_(orig_type, context_of_being_instantiated,
+            filename, line, /* instantiation_update */ 1);
+
+    ERROR_CONDITION(result == NULL, "Invalid type update of '%s' during instantiation", print_declarator(orig_type));
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "SCOPE: Type '%s' has been updated to '%s'\n", print_declarator(orig_type), print_declarator(result));
+    }
+
+    return result;
+}
+
+static template_argument_t* update_template_argument(
         template_argument_t* current_template_arg,
-        decl_context_t template_arguments_context,
-        const char *filename, int line)
+        decl_context_t decl_context,
+        const char *filename, int line,
+        char overwrite_context)
 {
     template_argument_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
     result->kind = current_template_arg->kind;
@@ -2542,8 +3174,8 @@ template_argument_t* update_template_argument(template_argument_list_t* given_te
     {
         case TAK_TYPE:
             {
-                result->type = update_type(given_template_args, current_template_arg->type, 
-                        template_arguments_context, filename, line);
+                result->type = update_type(current_template_arg->type, 
+                        decl_context, filename, line);
 
                 ERROR_CONDITION ((result->type == NULL), 
                         "type template argument could not be updated", 0);
@@ -2551,9 +3183,8 @@ template_argument_t* update_template_argument(template_argument_list_t* given_te
             }
         case TAK_TEMPLATE:
             {
-                result->type = update_type(given_template_args, 
-                        current_template_arg->type, 
-                        template_arguments_context, filename, line);
+                result->type = update_type(current_template_arg->type, 
+                        decl_context, filename, line);
 
                 ERROR_CONDITION ((result->type == NULL), 
                         "template template argument could not be updated", 0);
@@ -2561,16 +3192,25 @@ template_argument_t* update_template_argument(template_argument_list_t* given_te
             }
         case TAK_NONTYPE:
             {
-                result->type = update_type(given_template_args, current_template_arg->type, 
-                        template_arguments_context, filename, line);
-                result->expression_context = replace_template_parameters_with_values(
-                        given_template_args, 
-                        current_template_arg->expression_context, 
-                        // We are updating a template argument
-                        current_template_arg->expression_context);
+                result->type = update_type(current_template_arg->type, 
+                        decl_context, filename, line);
 
-                // We do not want any residual type information here
-                result->expression = ast_copy_for_instantiation(current_template_arg->expression);
+                // We really need to copy this tree because it comes from another tree
+                // whose type was already computed in another context, and we do not
+                // want to overwrite it
+                result->expression =
+                    ast_copy_for_instantiation(current_template_arg->expression);
+                if (!overwrite_context)
+                {
+                    // Use the new template scope
+                    result->expression_context = current_template_arg->expression_context;
+                    result->expression_context.template_scope = decl_context.template_scope;
+                }
+                else
+                {
+                    // Overwrite with the given context (used only during instantiation)
+                    result->expression_context = decl_context;
+                }
 
                 // Update type information 
                 if(!check_for_expression(result->expression, result->expression_context))
@@ -2579,20 +3219,20 @@ template_argument_t* update_template_argument(template_argument_list_t* given_te
                             prettyprint_in_buffer(result->expression));
                 }
 
-                type_t* expr_type = ASTExprType(result->expression);
-                // Fold the argument
-                if (!is_dependent_expression(result->expression, result->expression_context)
-                        && (expr_type == NULL
-                            || !is_unresolved_overloaded_type(expr_type)))
+                // Fold the argument if possible
+                if (expression_is_constant(result->expression))
                 {
-                    literal_value_t literal 
-                        = evaluate_constant_expression(result->expression, result->expression_context);
-
-                    result->expression = tree_from_literal_value(literal);
+                    result->expression = const_value_to_tree(expression_get_constant(result->expression));
                 }
 
+                // Ensure the "destination" type of this nontype template
+                // argument is OK (this is important for unresolved overloads)
+                // FIXME - We should check that a standard conversion
+                // (involving no user-defined conversions) is possible
+                expression_set_type(result->expression, result->type);
+
                 ERROR_CONDITION ((result->type == NULL), 
-                        "type/template template could not be updated", 0);
+                        "nontype/template template could not be updated", 0);
 
                 break;
             }
@@ -2636,23 +3276,18 @@ template_argument_list_t* get_template_arguments_from_syntax(
                     t_argument->expression = ASTSon0(template_argument);
                     t_argument->expression_context = template_arguments_context;
 
-                    type_t* expr_type = ASTExprType(t_argument->expression);
+                    type_t* expr_type = expression_get_type(t_argument->expression);
 
-                    if (!is_dependent_expression(t_argument->expression, 
-                                t_argument->expression_context)
-                            && (expr_type == NULL 
-                                || !is_unresolved_overloaded_type(expr_type)))
+                    if (expression_is_constant(t_argument->expression))
                     {
-                        literal_value_t literal = evaluate_constant_expression(t_argument->expression,
-                                t_argument->expression_context);
-                        t_argument->expression = tree_from_literal_value(literal);
-                        t_argument->type = expr_type;
+                        t_argument->expression = const_value_to_tree(expression_get_constant(t_argument->expression));
                     }
                     else
                     {
-                        // Do not clear extended data
-                        t_argument->expression = ast_copy(t_argument->expression);
+                        t_argument->expression = ast_copy_for_instantiation(t_argument->expression);
+                        check_for_expression(t_argument->expression, template_arguments_context);
                     }
+                    t_argument->type = expr_type;
                     break;
                 }
             case AST_TEMPLATE_TYPE_ARGUMENT :
@@ -2712,9 +3347,9 @@ static void update_unresolved_overloaded_type(type_t* unresolved_type, type_t* s
 {
     if (tree != NULL)
     {
-        if (ASTExprType(tree) == unresolved_type)
+        if (expression_get_type(tree) == unresolved_type)
         {
-            ast_set_expression_type(tree, solved_type);
+            expression_set_type(tree, solved_type);
         }
 
         int i;
@@ -2725,9 +3360,184 @@ static void update_unresolved_overloaded_type(type_t* unresolved_type, type_t* s
     }
 }
 
-template_argument_list_t *get_template_arguments_of_template_id(
+static void sign_in_template_name(template_argument_t* current_template_argument,
+        decl_context_t updated_decl_context)
+{
+    char tpl_param_name[256] = { 0 };
+
+    snprintf(tpl_param_name, 255, ".tpl_%d_%d",
+            current_template_argument->nesting,
+            current_template_argument->position);
+    scope_entry_t* param_symbol = new_symbol(updated_decl_context,
+            updated_decl_context.template_scope, tpl_param_name);
+
+    switch (current_template_argument->kind)
+    {
+        case TAK_TYPE:
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "SCOPE: Signing in '%s' as a type template parameter to '%s'\n",
+                            tpl_param_name,
+                            print_declarator(current_template_argument->type));
+                }
+                // Sign in template parameter
+                param_symbol->kind = SK_TYPEDEF;
+                param_symbol->entity_specs.is_template_argument = 1;
+                param_symbol->type_information = current_template_argument->type;
+                break;
+            }
+        case TAK_TEMPLATE:
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "SCOPE: Signing in '%s' as a template template parameter to '%s'\n",
+                            tpl_param_name,
+                            named_type_get_symbol(current_template_argument->type)->symbol_name);
+                }
+                // Sign in template parameter
+                param_symbol->kind = SK_TEMPLATE;
+                param_symbol->entity_specs.is_template_argument = 1;
+                // These are always kept as named types in the compiler
+                param_symbol->type_information = 
+                    named_type_get_symbol(current_template_argument->type)->type_information;
+                break;
+            }
+        case TAK_NONTYPE:
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "SCOPE: Signing in '%s' as a nontype template parameter to '%s'\n",
+                            tpl_param_name,
+                            prettyprint_in_buffer(current_template_argument->expression));
+                }
+                // Sign in template parameter
+                param_symbol->kind = SK_VARIABLE;
+                param_symbol->entity_specs.is_template_argument = 1;
+                param_symbol->type_information = current_template_argument->type;
+
+                if (expression_is_constant(current_template_argument->expression))
+                {
+                    param_symbol->expression_value = const_value_to_tree(
+                            expression_get_constant(current_template_argument->expression));
+                }
+
+                break;
+            }
+        default:
+            {
+                internal_error("Invalid template argument kind", 0);
+            }
+            break;
+    }
+}
+
+static template_argument_list_t* complete_arguments_of_template_id(
+        decl_context_t template_name_context,
+        decl_context_t template_arguments_context,
+        template_parameter_list_t* template_parameters,
+        template_argument_list_t* template_arguments,
+        const char* filename,
+        int line)
+{
+    template_argument_list_t* result = template_arguments;
+
+    int num_argument;
+    decl_context_t updated_decl_context = new_template_context(template_name_context);
+
+    for (num_argument = 0; num_argument < result->num_arguments; num_argument++)
+    {
+        template_argument_t* current_template_argument = result->argument_list[num_argument];
+
+        if (current_template_argument->kind == TAK_NONTYPE)
+        {
+            current_template_argument->type = update_type(
+                    template_parameters->template_parameters[num_argument]->entry->type_information,
+                    updated_decl_context,
+                    filename, line);
+            current_template_argument->expression_context = template_arguments_context;
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Type of nontype template parameter updated to '%s'\n",
+                        print_declarator(current_template_argument->type));
+            }
+
+            /*
+             * If the type is an address of function try to solve it
+             */
+            if (expression_get_type(current_template_argument->expression) != NULL
+                    && is_unresolved_overloaded_type(expression_get_type(current_template_argument->expression)))
+            {
+                // Try to solve it
+                scope_entry_t* solved_function =
+                    address_of_overloaded_function(
+                            unresolved_overloaded_type_get_overload_set(expression_get_type(current_template_argument->expression)),
+                            unresolved_overloaded_type_get_explicit_template_arguments(expression_get_type(current_template_argument->expression)),
+                            current_template_argument->type,
+                            updated_decl_context,
+                            filename,
+                            line);
+
+                if (solved_function != NULL)
+                {
+                    // Update the type throughout the expression (this is needed when evaluating it)
+                    update_unresolved_overloaded_type(expression_get_type(current_template_argument->expression),
+                            solved_function->type_information,
+                            current_template_argument->expression);
+                }
+            }
+
+            ERROR_CONDITION(current_template_argument->type == NULL, "Could not update properly template argument", 0);
+        }
+
+        sign_in_template_name(current_template_argument, updated_decl_context);
+    }
+
+    if (num_argument < template_parameters->num_template_parameters)
+    {
+        // Complete with default template arguments
+        for (; num_argument < template_parameters->num_template_parameters; num_argument++)
+        {
+            template_parameter_t* template_parameter = 
+                template_parameters->template_parameters[num_argument];
+
+            ERROR_CONDITION(!template_parameter->has_default_argument,
+                    "Template parameter '%d' lacks a default argument",
+                    num_argument);
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Updating template argument %d\n", 
+                        num_argument);
+            }
+
+            template_argument_t* original_default_arg = template_parameter->default_template_argument;
+
+            template_argument_t* current_template_argument = update_template_argument(
+                    original_default_arg, 
+                    updated_decl_context, 
+                    filename, line,
+                    /* overwrite_context */ 0);
+
+            sign_in_template_name(current_template_argument, updated_decl_context);
+
+            P_LIST_ADD(result->argument_list, result->num_arguments, current_template_argument);
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Template argument updated\n");
+            }
+        }
+    }
+
+    return result;
+}
+
+static template_argument_list_t *get_template_arguments_of_template_id(
         AST template_id,
         type_t* template_type,
+        decl_context_t template_name_context,
         decl_context_t template_arguments_context,
         char *valid)
 {
@@ -2811,54 +3621,6 @@ template_argument_list_t *get_template_arguments_of_template_id(
                         *valid = 0;
                         return NULL;
                     }
-
-                    current_arg->type = update_type(result, 
-                            template_parameters->template_parameters[num_argument]->entry->type_information,
-                            template_arguments_context,
-                            ASTFileName(template_id), ASTLine(template_id));
-                    current_arg->expression_context = template_arguments_context;
-
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "SCOPE: Type of nontype template parameter updated to '%s'\n",
-                                print_declarator(current_arg->type));
-                    }
-
-                    /*
-                     * If the type is an address of function try to solve it
-                     */
-                    if (ASTExprType(current_arg->expression) != NULL
-                            && is_unresolved_overloaded_type(ASTExprType(current_arg->expression)))
-                    {
-                        // Try to solve it
-                        scope_entry_t* solved_function =
-                            address_of_overloaded_function(
-                                    unresolved_overloaded_type_get_overload_set(ASTExprType(current_arg->expression)),
-                                    unresolved_overloaded_type_get_explicit_template_arguments(ASTExprType(current_arg->expression)),
-                                    current_arg->type,
-                                    template_arguments_context,
-                                    ASTFileName(template_id),
-                                    ASTLine(template_id));
-
-                        if (solved_function != NULL)
-                        {
-                            // Update the type throughout the expression (this is needed when evaluating it)
-                            update_unresolved_overloaded_type(ASTExprType(current_arg->expression),
-                                    solved_function->type_information,
-                                    current_arg->expression);
-
-                            if (function_type_is_incomplete_independent(solved_function->type_information))
-                            {
-                                instantiate_template_function(solved_function,
-                                        template_arguments_context,
-                                        ASTFileName(template_id),
-                                        ASTLine(template_id));
-                            }
-                        }
-                    }
-
-
-                    ERROR_CONDITION(current_arg->type == NULL, "Could not update properly template argument", 0);
                     break;
                 }
             default:
@@ -2869,37 +3631,12 @@ template_argument_list_t *get_template_arguments_of_template_id(
         }
     }
 
-    // Complete with default template arguments
-    for (; num_argument < template_parameters->num_template_parameters; num_argument++)
-    {
-        template_parameter_t* template_parameter = 
-            template_parameters->template_parameters[num_argument];
-
-        ERROR_CONDITION(!template_parameter->has_default_argument,
-                "Template parameter '%d' lacks a default argument",
-                num_argument);
-
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCOPE: Updating template argument %d\n", 
-                    num_argument);
-        }
-
-        template_argument_t* original_default_arg = template_parameter->default_template_argument;
-
-        template_argument_t* updated_argument = update_template_argument(result, 
-                original_default_arg, template_arguments_context, 
-                ASTFileName(template_id), ASTLine(template_id));
-
-        P_LIST_ADD(result->argument_list, result->num_arguments, updated_argument);
-
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCOPE: Template argument updated\n");
-        }
-    }
-
-    return result;
+    return complete_arguments_of_template_id(
+            template_name_context,
+            template_arguments_context,
+            template_parameters,
+            result,
+            ASTFileName(template_id), ASTLine(template_id));
 }
 
 // This function never instantiates a template, it might create a specialization though
@@ -2930,28 +3667,39 @@ static scope_entry_list_t* query_template_id(AST template_id,
         template_name = get_operator_function_name(template_id);
     }
 
-    scope_entry_list_t* template_symbol_list = name_lookup(template_name_context, template_name);
+    scope_entry_t* template_symbol = NULL;
+    scope_entry_list_t* template_symbol_list = NULL;
 
-    // Filter template-names
-    enum cxx_symbol_kind template_name_filter[] = {
-        SK_TEMPLATE_TEMPLATE_PARAMETER,
-        SK_TEMPLATE,
-    };
-
-    template_symbol_list = filter_symbol_kind_set(template_symbol_list, 
-            STATIC_ARRAY_LENGTH(template_name_filter), 
-            template_name_filter);
-
-    if (template_symbol_list == NULL)
+    if (is_template_parameter_name(template_id))
     {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCOPE: No template-name '%s' was found in this scope\n", template_name);
-        }
-        return NULL;
+        template_symbol = lookup_template_parameter_name(template_name_context, template_id);
     }
+    else
+    {
+        template_symbol_list = name_lookup(template_name_context, template_name, 
+                ASTFileName(template_id), ASTLine(template_id));
 
-    scope_entry_t* template_symbol = template_symbol_list->entry;
+        // Filter template-names
+        enum cxx_symbol_kind template_name_filter[] = {
+            SK_TEMPLATE_TEMPLATE_PARAMETER,
+            SK_TEMPLATE,
+        };
+
+        template_symbol_list = filter_symbol_kind_set(template_symbol_list, 
+                STATIC_ARRAY_LENGTH(template_name_filter), 
+                template_name_filter);
+
+        if (template_symbol_list == NULL)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: No template-name '%s' was found in this scope\n", template_name);
+            }
+            return NULL;
+        }
+
+        template_symbol = template_symbol_list->entry;
+    }
 
     type_t* generic_type = template_symbol->type_information;
 
@@ -2968,8 +3716,12 @@ static scope_entry_list_t* query_template_id(AST template_id,
 
         // Now compute the type of the template arguments
         char is_valid = 0;
-        template_argument_list_t* template_arguments = get_template_arguments_of_template_id(template_id,
-                generic_type, template_arguments_context, &is_valid);
+        template_argument_list_t* template_arguments = get_template_arguments_of_template_id(
+                template_id,
+                generic_type, 
+                template_name_context, 
+                template_arguments_context, 
+                &is_valid);
 
         if (!is_valid)
         {
@@ -2993,9 +3745,7 @@ static scope_entry_list_t* query_template_id(AST template_id,
 
         if (template_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
         {
-            // The specialized type alwas has to be dependent to avoid
-            // instantiating it
-            class_type_set_incomplete_dependent(named_type_get_symbol(specialized_type)->type_information);
+            set_as_template_parameter_name(template_id, template_symbol);
         }
 
         ERROR_CONDITION(!is_named_type(specialized_type), "This should be a named type", 0);
@@ -3069,6 +3819,62 @@ static scope_entry_list_t* append_scope_entry_list(scope_entry_list_t* orig, sco
     it->next = appended;
 
     return copy_orig;
+}
+
+// Like append but avoids repeated symbols
+static scope_entry_list_t* merge_scope_entry_list(scope_entry_list_t* list_1, scope_entry_list_t* list_2)
+{
+    // Some simple cases
+    if (list_1 == NULL)
+    {
+        return list_2;
+    }
+    else if (list_2 == NULL)
+    {
+        return list_1;
+    }
+    if (first_is_subset_of_second(list_1, list_2))
+    {
+        return list_2;
+    }
+    else if (first_is_subset_of_second(list_2, list_1))
+    {
+        return list_1;
+    }
+
+    // Full merge
+    // Copy list_1
+    scope_entry_list_t* result = copy_entry_list(list_1);
+
+    scope_entry_list_t* last = result;
+    while (last->next != NULL)
+        last = last->next;
+
+    scope_entry_list_t* it_list_2 = list_2;
+    while (it_list_2 != NULL)
+    {
+        char found = 0;
+        
+        scope_entry_list_t* it_res = result;
+        while (it_res != NULL && !found)
+        {
+            if (it_res->entry == it_list_2->entry)
+                found = 1;
+
+            it_res = it_res->next;
+        }
+
+        if (!found)
+        {
+            last->next = counted_calloc(1, sizeof(*last->next), &_bytes_used_scopes);
+            last->next->entry = it_list_2->entry;
+            last = last->next;
+        }
+
+        it_list_2 = it_list_2->next;
+    }
+
+    return result;
 }
 
 // Only for "simple" symbols, this is, that are not members and they are simply contained
@@ -3234,7 +4040,9 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
     }
     else if (!no_templates
             && entry->type_information != NULL
-            && is_template_specialized_type(entry->type_information))
+            && is_template_specialized_type(entry->type_information)
+            && template_specialized_type_get_template_arguments(entry->type_information) != NULL
+            && template_specialized_type_get_template_arguments(entry->type_information)->num_arguments > 0)
     {
         const char *template_arguments = get_unqualified_template_symbol_name(entry, decl_context);
         result = strappend(result, template_arguments);
@@ -3244,19 +4052,18 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
     if (entry->entity_specs.is_member)
     {
         // We need the qualification of the class
-        if (is_named_class_type(entry->entity_specs.class_type))
-        {
-            scope_entry_t* class_symbol = named_type_get_symbol(entry->entity_specs.class_type);
+        ERROR_CONDITION(!is_named_class_type(entry->entity_specs.class_type), "The class of a member must be named", 0);
 
-            (*max_qualif_level)++;
+        scope_entry_t* class_symbol = named_type_get_symbol(entry->entity_specs.class_type);
 
-            const char* class_qualification = 
-                get_fully_qualified_symbol_name(class_symbol, decl_context, is_dependent, max_qualif_level);
+        (*max_qualif_level)++;
 
-            class_qualification = strappend(class_qualification, "::");
+        const char* class_qualification = 
+            get_fully_qualified_symbol_name(class_symbol, decl_context, is_dependent, max_qualif_level);
 
-            result = strappend(class_qualification, result);
-        }
+        class_qualification = strappend(class_qualification, "::");
+
+        result = strappend(class_qualification, result);
     } 
     else if (!entry->entity_specs.is_member)
     {
@@ -3346,4 +4153,38 @@ scope_entry_list_t* cascade_lookup(decl_context_t decl_context, const char* name
     }
 
     return result;
+}
+
+scope_entry_t* lookup_of_template_parameter(decl_context_t context, 
+        int template_parameter_nesting, 
+        int template_parameter_position)
+{
+    char tpl_param_name[256] = { 0 };
+
+    snprintf(tpl_param_name, 255, ".tpl_%d_%d",
+            template_parameter_nesting,
+            template_parameter_position);
+
+    scope_entry_list_t* entry_list = query_unqualified_name_str(context, tpl_param_name);
+
+    if (entry_list == NULL)
+        return NULL;
+    else
+        return entry_list->entry;
+}
+
+void set_as_template_parameter_name(AST a, scope_entry_t* template_param_sym)
+{
+    ERROR_CONDITION(template_param_sym == NULL, "template parameter symbol cannot be NULL", 0);
+
+    ASTAttrSetValueType(a, LANG_IS_TEMPLATE_PARAMETER_NAME, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_TEMPLATE_PARAMETER_NAME_SYMBOL, tl_type_t, tl_symbol(template_param_sym));
+}
+
+char is_template_parameter_name(AST a)
+{
+    tl_type_t* t = (tl_type_t*)(ASTAttrValue(a, LANG_IS_TEMPLATE_PARAMETER_NAME));
+    if (t == NULL)
+        return 0;
+    return t->data._boolean;
 }

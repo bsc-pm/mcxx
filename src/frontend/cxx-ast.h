@@ -106,20 +106,6 @@ LIBMCXX_EXTERN AST ast_list_head(AST list);
 // Concatenates two lists
 LIBMCXX_EXTERN AST ast_list_concat(AST before, AST after);
 
-// Returns the type we tagged this tree, NULL if the
-// tree was not tagged
-LIBMCXX_EXTERN struct type_tag* ast_get_expression_type(const_AST a);
-// Sets the value of the type expression
-LIBMCXX_EXTERN void ast_set_expression_type(AST a, struct type_tag*);
-
-// States if the expression is a Lvalue, only meaningful
-// if ast_expression_type returned something non NULL
-LIBMCXX_EXTERN char ast_get_expression_is_lvalue(const_AST a);
-// Sets the lvalueness of an expression
-LIBMCXX_EXTERN void ast_set_expression_is_lvalue(AST a, char c);
-// Do not use this one, it is here to implement ASTExprLvalue below
-// LIBMCXX_EXTERN char *ast_expression_is_lvalue_ref(AST a);
-
 // Returns the extensible struct of this AST
 LIBMCXX_EXTERN extensible_struct_t* ast_get_extensible_struct(AST a);
 
@@ -218,10 +204,6 @@ LIBMCXX_EXTERN AST ast_copy_with_scope_link(AST a, scope_link_t* sl);
 
 #define ASTListLeaf(a) ast_list_leaf(a)
 #define ASTList(list, element) ast_list(list,element)
-
-// Expression type
-#define ASTExprType(a) (ast_get_expression_type(a))
-#define ASTExprLvalue(a) (ast_get_expression_is_lvalue(a))
 
 // Extensible structure function
 #define ASTAttrValue(_a, _name) \

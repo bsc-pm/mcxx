@@ -23,6 +23,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "cxx-utils.h"
 #include "cxx-cexpr.h"
 #include "cxx-scope.h"
@@ -117,6 +118,25 @@ type_t* solve_class_template(decl_context_t decl_context,
         if (more_specialized == NULL)
             return NULL;
 
+        if (is_unresolved_overloaded_type(more_specialized))
+        {
+            fprintf(stderr, "%s:%d: note: template specialization candidate list\n", filename, line);
+
+            scope_entry_list_t* entry_list = unresolved_overloaded_type_get_overload_set(more_specialized);
+            while (entry_list != NULL)
+            {
+                fprintf(stderr, "%s:%d: note:   %s\n",
+                        entry_list->entry->file,
+                        entry_list->entry->line,
+                        print_type_str(get_user_defined_type(entry_list->entry), decl_context));
+
+                entry_list = entry_list->next;
+            }
+
+            running_error("%s:%d: error: ambiguous template type for '%s'\n", filename, line,
+                    print_type_str(specialized_type, decl_context));
+        }
+
         for (i = 0; i < num_matching_set; i++)
         {
             if (matching_set[i] == more_specialized)
@@ -208,9 +228,9 @@ static type_t* determine_most_specialized_template_class(
         if (current_most_specialized == matching_specializations[i])
             continue;
 
-        if (is_less_or_equal_specialized_template_class(
-                    current_most_specialized,
+        if (!is_less_or_equal_specialized_template_class(
                     matching_specializations[i],
+                    current_most_specialized,
                     decl_context,
                     &deduce_result, filename, line))
         {
@@ -218,12 +238,19 @@ static type_t* determine_most_specialized_template_class(
             {
                 scope_entry_t* minimum = named_type_get_symbol(current_most_specialized);
                 scope_entry_t* current = named_type_get_symbol(matching_specializations[i]);
-                fprintf(stderr, "SOLVETEMPLATE: There is not a most specialized template since '%s:%d' is as "
+                fprintf(stderr, "SOLVETEMPLATE: There is not a most specialized template since '%s:%d' is not less "
                         "specialized as '%s:%d'\n", 
                         current->file, current->line,
                         minimum->file, minimum->line);
             }
-            return NULL;
+            
+            // Return the ambiguity as a list
+            scope_entry_list_t* ambiguous_result = calloc(sizeof(*ambiguous_result), 2);
+            ambiguous_result->next = &ambiguous_result[1];
+            ambiguous_result->entry = named_type_get_symbol(current_most_specialized);
+            ambiguous_result[1].entry = named_type_get_symbol(matching_specializations[i]);
+
+            return get_unresolved_overloaded_type(ambiguous_result, NULL);
         }
     }
 
@@ -236,6 +263,8 @@ static type_t* determine_most_specialized_template_class(
 
     return current_most_specialized;
 }
+
+static type_t* extend_function_with_return_type(type_t* funct_type);
 
 static
 type_t* determine_most_specialized_template_function(int num_feasible_templates, 
@@ -274,6 +303,9 @@ type_t* determine_most_specialized_template_function(int num_feasible_templates,
             named_type_get_symbol(feasible_templates[i])->entity_specs.is_conversion;
         type_t* f = named_type_get_symbol(feasible_templates[i])->type_information;
         type_t* g = named_type_get_symbol(most_specialized)->type_information;
+
+        f = extend_function_with_return_type(f);
+        g = extend_function_with_return_type(g);
 
         if (!is_less_or_equal_specialized_template_function(
                     f,
@@ -320,10 +352,13 @@ type_t* determine_most_specialized_template_function(int num_feasible_templates,
 
         char is_conversion = 
             named_type_get_symbol(most_specialized)->entity_specs.is_conversion;
-        type_t* f = named_type_get_symbol(most_specialized)->type_information;
-        type_t* g = named_type_get_symbol(feasible_templates[i])->type_information;
+        type_t* f = named_type_get_symbol(feasible_templates[i])->type_information;
+        type_t* g = named_type_get_symbol(most_specialized)->type_information;
 
-        if (is_less_or_equal_specialized_template_function(
+        f = extend_function_with_return_type(f);
+        g = extend_function_with_return_type(g);
+
+        if (!is_less_or_equal_specialized_template_function(
                     f,
                     g,
                     decl_context, 
@@ -335,7 +370,7 @@ type_t* determine_most_specialized_template_function(int num_feasible_templates,
             DEBUG_CODE()
             {
                 fprintf(stderr, "SOLVETEMPLATE: Found that '%s' at '%s:%d' is "
-                        "not the most specialized. It is as good as '%s' at '%s:%d'\n",
+                        "not the most specialized. '%s' at '%s:%d' is not less specialized\n",
                         named_type_get_symbol(most_specialized)->symbol_name,
                         named_type_get_symbol(most_specialized)->file,
                         named_type_get_symbol(most_specialized)->line,
@@ -343,7 +378,14 @@ type_t* determine_most_specialized_template_function(int num_feasible_templates,
                         named_type_get_symbol(feasible_templates[i])->file,
                         named_type_get_symbol(feasible_templates[i])->line);
             }
-            return NULL;
+
+            // Return the ambiguity as a list
+            scope_entry_list_t* ambiguous_result = calloc(sizeof(*ambiguous_result), 2);
+            ambiguous_result->next = &ambiguous_result[1];
+            ambiguous_result->entry = named_type_get_symbol(most_specialized);
+            ambiguous_result[1].entry = named_type_get_symbol(feasible_templates[i]);
+
+            return get_unresolved_overloaded_type(ambiguous_result, NULL);
         }
     }
 
@@ -358,6 +400,63 @@ type_t* determine_most_specialized_template_function(int num_feasible_templates,
     return most_specialized;
 }
 
+static type_t* extend_function_with_return_type(type_t* funct_type)
+{
+    int num_params = function_type_get_num_parameters(funct_type);
+    parameter_info_t params[num_params + 1];
+    memset(params, 0, sizeof(params));
+
+    char has_ellipsis = function_type_get_has_ellipsis(funct_type);
+
+    if (has_ellipsis)
+        num_params--;
+
+    int i;
+    for (i = 0; i < num_params; i++)
+    {
+        params[i].type_info = function_type_get_parameter_type_num(funct_type, i);
+        params[i].nonadjusted_type_info = function_type_get_nonadjusted_parameter_type_num(funct_type, i);
+    }
+
+    params[i].type_info = function_type_get_return_type(funct_type);
+    params[i].nonadjusted_type_info = function_type_get_return_type(funct_type);
+
+    if (has_ellipsis)
+    {
+        i++;
+        params[i].is_ellipsis = 1;
+
+        num_params = function_type_get_num_parameters(funct_type);
+    }
+
+    type_t* result_type = get_new_function_type(get_void_type(), params, num_params + 1);
+
+    if (is_template_specialized_type(funct_type))
+    {
+        type_t* template_type = template_specialized_type_get_related_template_type(funct_type);
+        type_t* primary_type = template_type_get_primary_type(template_type);
+
+        type_t* new_template = get_new_template_type(
+                template_type_get_template_parameters(template_type),
+                result_type, 
+                named_type_get_symbol(primary_type)->symbol_name,
+                named_type_get_symbol(primary_type)->decl_context,
+                named_type_get_symbol(primary_type)->line,
+                named_type_get_symbol(primary_type)->file);
+
+        result_type = named_type_get_symbol(template_type_get_primary_type(new_template))->type_information;
+    }
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "SOLVETEMPLATE: Type has been extended from '%s' to '%s'\n", 
+                print_declarator(funct_type),
+                print_declarator(result_type));
+    }
+
+    return result_type;
+}
+
 scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
         template_argument_list_t* explicit_template_arguments,
         type_t* function_type, decl_context_t decl_context,
@@ -369,6 +468,8 @@ scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
     type_t* feasible_templates[MAX_FEASIBLE_SPECIALIZATIONS];
     deduction_set_t *feasible_deductions[MAX_FEASIBLE_SPECIALIZATIONS];
     int num_feasible_templates = 0;
+
+    type_t* extended_function_type = extend_function_with_return_type(function_type);
 
     while (it != NULL)
     {
@@ -384,10 +485,12 @@ scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
         scope_entry_t* primary_symbol = named_type_get_symbol(primary_named_type);
         type_t* primary_type = primary_symbol->type_information;
 
+        type_t* extended_primary_type = extend_function_with_return_type(primary_type);
+
         deduction_set_t *feasible_deduction = NULL;
         if (is_less_or_equal_specialized_template_function(
-                    primary_type,
-                    function_type,
+                    extended_primary_type,
+                    extended_function_type,
                     decl_context,
                     &feasible_deduction,
                     explicit_template_arguments,
@@ -409,6 +512,34 @@ scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
 
     if (result == NULL)
         return NULL;
+
+    if (is_unresolved_overloaded_type(result))
+    {
+        char is_dependent = 0;
+        int max_qualif = 0;
+
+        const char* full_name = get_fully_qualified_symbol_name(
+                template_set->entry,
+                decl_context, &is_dependent, &max_qualif);
+
+        scope_entry_list_t* entry_list = unresolved_overloaded_type_get_overload_set(result);
+
+        fprintf(stderr, "%s:%d: note: ambiguous template functions list\n", filename, line);
+        while (entry_list != NULL)
+        {
+            fprintf(stderr, "%s:%d: note:   %s\n",
+                    entry_list->entry->file,
+                    entry_list->entry->line,
+                    print_decl_type_str(entry_list->entry->type_information, decl_context, full_name));
+
+            entry_list = entry_list->next;
+        }
+
+        running_error("%s:%d: error: ambiguous template specialization '%s' for '%s'\n",
+                filename, line,
+                template_set->entry->symbol_name,
+                print_decl_type_str(function_type, decl_context, full_name));
+    }
 
     deduction_set_t* selected_deduction = NULL;
     // Now we have to find which one is the selected deduction

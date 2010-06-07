@@ -521,8 +521,16 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         if (is_named_class_type(class_type)
                 && class_type_is_incomplete_independent(get_actual_class_type(class_type)))
         {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "ICS: Instantiating destination type to get conversor constructors\n");
+            }
             scope_entry_t* symbol = named_type_get_symbol(class_type);
             instantiate_template_class(symbol, decl_context, filename, line);
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "ICS: Destination type instantiated\n");
+            }
         }
 
         int i;
@@ -591,7 +599,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                     build_template_argument_list_from_deduction_set(deduction_result);
 
                 type_t* template_type = template_specialized_type_get_related_template_type(constructor->type_information);
-
+ 
                 type_t* named_specialization_type = template_type_get_specialized_type(template_type,
                         template_arguments,
                         template_parameters,
@@ -2114,7 +2122,8 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                             parameter_types, 
                             decl_context,
                             &deduced_arguments, filename, line,
-                            explicit_template_arguments))
+                            explicit_template_arguments,
+                            deduction_flags_empty()))
                 {
                     DEBUG_CODE()
                     {
@@ -2312,11 +2321,16 @@ scope_entry_t* solve_constructor(type_t* class_type,
         constructor_list = new_entry_list;
     }
 
+    scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(constructor_list,
+            NULL, &(augmented_argument_types[1]), num_arguments,
+            decl_context,
+            filename, line, /* explicit_template_arguments */ NULL);
+
     scope_entry_t* augmented_conversors[MAX_ARGUMENTS];
     memset(augmented_conversors, 0, sizeof(augmented_conversors));
 
     // Now we have all the constructors, perform an overload resolution on them
-    scope_entry_t* overload_resolution = solve_overload(constructor_list, 
+    scope_entry_t* overload_resolution = solve_overload(overload_set, 
             augmented_argument_types, 
             /* solve_overload expects an implicit argument type */ num_arguments + 1, 
             decl_context, 

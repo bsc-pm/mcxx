@@ -53,7 +53,7 @@ static void remove_computed_types(AST t)
         return;
 
     // Remove the computed type
-    ast_set_expression_type(t, NULL);
+    expression_set_type(t, NULL);
 
     int i;
     for (i = 0; i < ASTNumChildren(t); i++)
@@ -1415,11 +1415,11 @@ char solve_possibly_ambiguous_template_id(AST type_name, decl_context_t decl_con
                 {
                     if (feasible_list < 0)
                     {
-                        internal_error("Two feasible_list template argument lists!\n", 0);
+                        feasible_list = i;
                     }
                     else
                     {
-                        feasible_list = i;
+                        internal_error("Two feasible_list template argument lists!\n", 0);
                     }
                 }
             }
@@ -1825,6 +1825,7 @@ static char check_for_declarator_rec(AST declarator, decl_context_t decl_context
             }
         case AST_DECLARATOR_ARRAY :
         case AST_ABSTRACT_ARRAY :
+        case AST_DIRECT_NEW_DECLARATOR:
             {
                 if (ASTSon1(declarator) != NULL)
                 {
@@ -1847,9 +1848,15 @@ static char check_for_declarator_rec(AST declarator, decl_context_t decl_context
                 return check_for_declarator_rec(ASTSon0(declarator), decl_context);
                 break;
             }
+        case AST_NEW_DECLARATOR:
         case AST_POINTER_DECL :
             {
                 return check_for_declarator_rec(ASTSon1(declarator), decl_context);
+                break;
+            }
+        case AST_GCC_PTR_ABSTRACT_DECLARATOR:
+            {
+                return check_for_declarator_rec(ASTSon2(declarator), decl_context);
                 break;
             }
         case AST_ABSTRACT_DECLARATOR_FUNC :
@@ -2332,12 +2339,12 @@ void solve_ambiguous_expression_list(AST expression_list, decl_context_t decl_co
 {
     int correct_choice = -1;
     int i;
-    char result = 1;
     for (i = 0; i < ast_get_num_ambiguities(expression_list); i++)
     {
         AST current_expression_list = ast_get_ambiguity(expression_list, i);
         AST iter;
 
+        char result = 1;
         for_each_element(current_expression_list, iter)
         {
             AST current_expression = ASTSon1(iter);
@@ -2811,5 +2818,72 @@ void build_solve_condition_ambiguity(AST a, decl_context_t decl_context)
     else
     {
         choose_option(a, correct_choice);
+    }
+}
+
+static char solve_ambiguous_nested_name_specifier_rec(AST a, decl_context_t decl_context)
+{
+    ERROR_CONDITION(ASTType(a) != AST_AMBIGUITY,
+            "Must be ambiguous node", 0);
+
+    int correct_choice = -1;
+
+    int i;
+    for (i = 0; i < ast_get_num_ambiguities(a); i++)
+    {
+        char current_check = 1;
+        AST current = ast_get_ambiguity(a, i);
+
+        AST qualif_part = ASTSon0(current);
+        AST nested_name_part = ASTSon0(current);
+
+        if (ASTType(qualif_part) == AST_TEMPLATE_ID)
+        {
+            current_check = solve_possibly_ambiguous_template_id(qualif_part, decl_context);
+        }
+
+        if (current_check)
+        {
+            if (nested_name_part != NULL
+                    && ASTType(nested_name_part) == AST_AMBIGUITY)
+            {
+                current_check = solve_ambiguous_nested_name_specifier_rec(nested_name_part, decl_context);
+            }
+        }
+
+        if (current_check)
+        {
+            if (correct_choice < 0)
+            {
+                correct_choice = i;
+            }
+            else
+            {
+                AST first_option = ast_get_ambiguity(a, correct_choice);
+                AST second_option = current;
+                internal_error("More than one valid choices! '%s' vs '%s' %s", 
+                        ast_print_node_type(ASTType(first_option)),
+                        ast_print_node_type(ASTType(second_option)),
+                        ast_location(second_option));
+            }
+        }
+    }
+
+    if (correct_choice < 0)
+    {
+        return 0;
+    }
+    else
+    {
+        choose_option(a, correct_choice);
+        return 1;
+    }
+}
+
+void solve_ambiguous_nested_name_specifier(AST a, decl_context_t decl_context)
+{
+    if (!solve_ambiguous_nested_name_specifier_rec(a, decl_context))
+    {
+        internal_error("Ambiguity not solved '%s'", ast_location(a));
     }
 }

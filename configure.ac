@@ -1,5 +1,5 @@
 dnl Package definition: name, version, mail
-AC_INIT([mcxx],[1.3.4.1],[rferrer@ac.upc.edu])
+AC_INIT([mcxx],[1.3.5],[rferrer@ac.upc.edu])
 
 dnl Where are we ?
 AC_CANONICAL_BUILD
@@ -12,7 +12,16 @@ AC_PREREQ(2.61)
 AC_CONFIG_MACRO_DIR([m4])
 
 dnl Initialization of Automake
-AM_INIT_AUTOMAKE([1.9 dist-bzip2])
+dnl We require at least 1.9 (next will be 1.11)
+AM_INIT_AUTOMAKE([1.9 dist-bzip2 -Wno-portability])
+
+dnl Enable silent rules if available
+supported_silent_rules=1
+m4_ifdef([AM_SILENT_RULES], 
+        [AM_SILENT_RULES([yes])],
+        [supported_silent_rules=0])
+
+AM_CONDITIONAL([SUPPORTED_SILENT_RULES], test x$supported_silent_rules = x1)
 
 dnl Simple check of code existence
 AC_CONFIG_SRCDIR(src/frontend/cxx03.y.in)
@@ -586,7 +595,7 @@ if test x$is_enabled_tl_superscalar = xyes -a x$is_enabled_tl_omp_nanox = xyes -
       "(" x$use_tl_superscalar_version = x4 -o x$use_tl_superscalar_version = x5 ")" ;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.sscc"
-   COMPILER_NAMES="${COMPILER_NAMES} sscc"
+   COMPILER_NAMES="${COMPILER_NAMES} sscc sscxx"
 fi
 dnl ----------------------- End of Superscalar and Nanox --------------------------------------
 

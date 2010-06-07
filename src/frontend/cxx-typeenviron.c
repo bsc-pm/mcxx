@@ -25,6 +25,7 @@
 #include <string.h>
 #include "cxx-typeenviron.h"
 #include "cxx-typeutils.h"
+#include "cxx-exprtype.h"
 #include "cxx-cexpr.h"
 #include "cxx-utils.h"
 
@@ -70,30 +71,18 @@ static void system_v_array_sizeof(type_t* t)
 {
     type_t* element_type = array_type_get_element_type(t);
     AST expr = array_type_get_array_size_expr(t);
-    decl_context_t decl_context = array_type_get_array_size_expr_context(t);
 
     _size_t element_size = type_get_size(element_type);
     _size_t element_align = type_get_alignment(element_type);
 
     if (expr != NULL
-            && is_constant_expression(expr, decl_context))
+            && expression_is_constant(expr))
     {
-        literal_value_t l = evaluate_constant_expression(expr, decl_context);
-        char valid = 0;
+        int size = const_value_cast_to_4(expression_get_constant(expr));
 
-        int size = literal_value_to_uint(l, &valid);
-
-        if (valid)
-        {
-            type_set_size(t, size * element_size);
-            type_set_alignment(t, element_align);
-            type_set_valid_size(t, 1);
-            return;
-        }
-        else
-        {
-            internal_error("Cannot compute the size of the array type '%s'!", print_declarator(t));
-        }
+        type_set_size(t, size * element_size);
+        type_set_alignment(t, element_align);
+        type_set_valid_size(t, 1);
     }
     else if (expr == NULL)
     {
@@ -145,19 +134,9 @@ static void system_v_field_layout(scope_entry_t* field,
 
         // Bitfields are very special, otherwise all this stuff would be
         // extremely easy
-        unsigned int bitsize = 0;
-        {
-            literal_value_t literal = evaluate_constant_expression(
-                    field->entity_specs.bitfield_expr,
-                    field->entity_specs.bitfield_expr_context);
-
-            char valid = 0;
-            bitsize = literal_value_to_uint(literal, &valid);
-            if (!valid)
-            {
-                internal_error("Invalid bitfield expression", 0);
-            }
-        }
+        unsigned int bitsize = const_value_cast_to_4(
+                expression_get_constant(field->entity_specs.bitfield_expr)
+                );
 
         if (!(*previous_was_bitfield))
         {
@@ -396,26 +375,20 @@ static void cxx_abi_array_sizeof(type_t* t)
 {
     type_t* element_type = array_type_get_element_type(t);
     AST expr = array_type_get_array_size_expr(t);
-    decl_context_t decl_context = array_type_get_array_size_expr_context(t);
 
     _size_t element_size = type_get_size(element_type);
     _size_t element_align = type_get_alignment(element_type);
 
     if (expr != NULL
-            && is_constant_expression(expr, decl_context))
+            && expression_is_constant(expr))
     {
-        literal_value_t l = evaluate_constant_expression(expr, decl_context);
-        char valid = 0;
+        int size = const_value_cast_to_4(expression_get_constant(expr));
 
-        int size = literal_value_to_uint(l, &valid);
+        type_set_size(t, size * element_size);
+        type_set_alignment(t, element_align);
+        type_set_valid_size(t, 1);
 
-        if (valid)
-        {
-            type_set_size(t, size * element_size);
-            type_set_alignment(t, element_align);
-            type_set_valid_size(t, 1);
-            return;
-        }
+        return;
     }
     internal_error("Cannot compute the size of the array type '%s'!", print_declarator(t));
 }
@@ -447,8 +420,12 @@ static void class_type_preorder_all_bases_rec(type_t* t,
     for (i = 0; i < num_bases; i++)
     {
         char is_virtual = 0;
+        char is_dependent = 0;
         scope_entry_t* current_base = 
-            class_type_get_base_num(class_type, i, &is_virtual);
+            class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+
+        if (is_dependent)
+            continue;
 
         char is_found = 0;
         int j;
@@ -554,8 +531,12 @@ static scope_entry_t* cxx_abi_class_type_get_primary_base_class(type_t* t, char 
     for (i = 0; i < num_direct_bases; i++)
     {
         char current_base_is_virtual = 0;
+        char current_base_is_dependent = 0;
         scope_entry_t* current_direct_base = class_type_get_base_num(class_type, i, 
-                &current_base_is_virtual);
+                &current_base_is_virtual, &current_base_is_dependent);
+
+        if (current_base_is_dependent)
+            continue;
 
         if (!current_base_is_virtual
                 && class_type_is_dynamic(current_direct_base->type_information))
@@ -726,7 +707,12 @@ static void cxx_abi_register_subobject_offset(layout_info_t* layout_info,
         for (i = 0; i < num_bases; i++)
         {
             char is_virtual;
-            scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
+            char is_dependent;
+            scope_entry_t* base_class = class_type_get_base_num(class_type, i, 
+                    &is_virtual, &is_dependent);
+
+            if (is_dependent)
+                continue;
 
             _size_t base_offset = 0;
             // Do not register virtual bases here, only nonvirtual bases
@@ -817,7 +803,12 @@ static char cxx_abi_conflicting_member(layout_info_t* layout_info,
         for (i = 0; i < num_bases; i++)
         {
             char is_virtual = 0;
-            scope_entry_t* base = class_type_get_base_num(class_type, i, &is_virtual);
+            char is_dependent = 0;
+            scope_entry_t* base = class_type_get_base_num(class_type, i, 
+                    &is_virtual, &is_dependent);
+
+            if (is_dependent)
+                continue;
 
             // Only non virtual classes are relevant here
             if (!is_virtual)
@@ -880,19 +871,8 @@ static void cxx_abi_lay_bitfield(type_t* t UNUSED_PARAMETER,
         scope_entry_t* member, 
         layout_info_t* layout_info)
 {
-    unsigned int bitsize = 0;
-    {
-        literal_value_t literal = evaluate_constant_expression(
-                member->entity_specs.bitfield_expr,
-                member->entity_specs.bitfield_expr_context);
-
-        char valid = 0;
-        bitsize = literal_value_to_uint(literal, &valid);
-        if (!valid)
-        {
-            internal_error("Invalid bitfield expression", 0);
-        }
-    }
+    unsigned int bitsize 
+        = const_value_cast_to_4(expression_get_constant(member->entity_specs.bitfield_expr));
 
     _size_t size_of_member = type_get_size(member->type_information);
     _size_t initial_bit = 0;
@@ -1236,7 +1216,9 @@ static void cxx_abi_class_sizeof(type_t* class_type)
         for (i = 0; i < num_bases; i++)
         {
             char is_virtual;
-            scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
+            char is_dependent;
+            scope_entry_t* base_class = class_type_get_base_num(class_type, i, 
+                    &is_virtual, &is_dependent);
 
             if (!is_virtual
                     && primary_base_class != base_class)

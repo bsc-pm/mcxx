@@ -1541,8 +1541,9 @@ namespace TL
                     Symbol sym(NULL);
 
                     // Now we have to "instantiate" the UDR
-                    Scope instantiation_scope = Scope::instantiation_scope(overload_sym, 
-                            item->get_template_scope().get_template_parameters());
+                    Scope instantiation_scope = overload_sym.get_scope();
+                    // Scope instantiation_scope = Scope::instantiation_scope(overload_sym, 
+                    //         item->get_template_scope().get_template_parameters());
 
                     // Now parse the id-expression in this context
                     // Source src = item->get_op_name();

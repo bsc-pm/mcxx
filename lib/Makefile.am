@@ -25,14 +25,20 @@ noinst_PROGRAMS = tpp
 
 CC_FOR_BUILD=@CC_FOR_BUILD@
 
+if SUPPORTED_SILENT_RULES
+CCHOST_verbose = $(CCHOST_verbose_$(V))
+CCHOST_verbose_ = $(CCHOST_verbose_$(AM_DEFAULT_VERBOSITY))
+CCHOST_verbose_0 = @echo "  CCHOST" $@;
+endif
+
 # tpp
 tpp_SOURCES = tpp.c
 
 tpp$(EXEEXT): tpp.o
-	$(CC_FOR_BUILD) -o $@ $+ 
+	$(CCHOST_verbose)$(CC_FOR_BUILD) -o $@ $+ 
 
 tpp.o : tpp.c
-	$(CC_FOR_BUILD) -c -o $@ $(srcdir)/tpp.c $(DEFAULT_INCLUDES) \
+	$(CCHOST_verbose)$(CC_FOR_BUILD) -c -o $@ $(srcdir)/tpp.c $(DEFAULT_INCLUDES) \
 	         -DPACKAGE=\"$(PACKAGE)\" -DVERSION=\"$(PACKAGE_VERSION)\"
 #end of tpp
 
