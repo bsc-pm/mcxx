@@ -10,6 +10,10 @@
 %type<ast> omp_udr_type_specifier
 %type<ast> omp_udr_declare_arg
 
+%token<token_atrib> SUBPARSE_OMP_UDR_IDENTITY "<subparse-omp-udr-identity>"
+%token<token_atrib> OMP_UDR_CONSTRUCTOR "constructor"
+
+%type<ast> omp_udr_identity
 /*!endif*/
 /*!if GRAMMAR_RULES*/
 
@@ -115,5 +119,32 @@ subparsing: SUBPARSE_OMP_UDR_DECLARE omp_udr_declare_arg
 {
     $$ = $2;
 }
+;
+
+subparsing: SUBPARSE_OMP_UDR_IDENTITY omp_udr_identity
+{
+    $$ = $2;
+}
+;
+
+omp_udr_identity: initializer_clause
+{
+    $$ = $1;
+}
+/*!if CPLUSPLUS*/
+| OMP_UDR_CONSTRUCTOR
+{
+    $$ = ASTMake1(AST_OMP_UDR_CONSTRUCTOR, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+| OMP_UDR_CONSTRUCTOR '(' ')'
+{
+    $$ = ASTMake1(AST_OMP_UDR_CONSTRUCTOR, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+| OMP_UDR_CONSTRUCTOR '(' expression_list ')'
+{
+    $$ = ASTMake1(AST_OMP_UDR_CONSTRUCTOR, $3, $1.token_file, $1.token_line, $1.token_text);
+}
+/*!endif*/
+;
 
 /*!endif*/

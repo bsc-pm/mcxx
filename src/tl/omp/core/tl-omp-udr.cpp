@@ -1017,6 +1017,18 @@ namespace TL
 
                     CXX_LANGUAGE()
                     {
+                        // Handle '.member' syntax
+                        if (op_name.prettyprint()[0] == '.')
+                        {
+                            Source src;
+
+                            src << reduction_type.get_declaration(construct.get_scope(), "") << "::" << 
+                                op_name.prettyprint().substr(1)
+                                ;
+
+                            op_name = src.parse_id_expression(construct.get_ast(), construct.get_scope_link());
+                        }
+
                         op_symbols = construct.get_scope().get_symbols_from_id_expr(op_name);
                         std::cerr << "FIXME - Not solving overload of UDR" << std::endl;
                     }

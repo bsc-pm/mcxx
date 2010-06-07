@@ -210,6 +210,7 @@ HANDLER_PROTOTYPE(custom_construct_parameter);
 
 // OpenMP
 HANDLER_PROTOTYPE(omp_udr_member_op_handler);
+HANDLER_PROTOTYPE(omp_udr_constructor_handler);
 
 // GCC Extensions
 HANDLER_PROTOTYPE(gcc_label_declaration_handler);
@@ -574,6 +575,7 @@ prettyprint_entry_t handlers_list[] =
     // OpenMP special nodes
     NODE_HANDLER(AST_OMP_UDR_BUILTIN_OP, simple_text_handler, NULL),
     NODE_HANDLER(AST_OMP_UDR_MEMBER_OP, omp_udr_member_op_handler, NULL),
+    NODE_HANDLER(AST_OMP_UDR_CONSTRUCTOR, omp_udr_constructor_handler, NULL),
     // GCC Extensions
     NODE_HANDLER(AST_GCC_EXTENSION, gcc_extension_prefix_handler, "__extension__ "),
     NODE_HANDLER(AST_GCC_EXTENSION_EXPR, prefix_with_token_text_then_son_handler, NULL),
@@ -3517,4 +3519,15 @@ static void omp_udr_member_op_handler(FILE* f, AST a, prettyprint_context_t* pt_
 {
     token_fprintf(f, a, pt_ctx, "%s", ".");
     prettyprint_level(f, ASTSon0(a), pt_ctx);
+}
+
+static void omp_udr_constructor_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    token_fprintf(f, a, pt_ctx, "%s", "constructor");
+    if (ASTSon0(a) != NULL)
+    {
+        token_fprintf(f, a, pt_ctx, "(");
+        list_handler(f, ASTSon0(a), pt_ctx);
+        token_fprintf(f, a, pt_ctx, ")");
+    }
 }

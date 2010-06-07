@@ -112,8 +112,11 @@ namespace TL
                 std::string get_symbol_name() const;
         };
 
+        // Functions used in tl-omp-core.cpp
+        // {
         void initialize_builtin_udr_reductions(Scope global_scope);
         bool udr_is_builtin_operator(const std::string &op_name);
+        // }
     }
 }
 

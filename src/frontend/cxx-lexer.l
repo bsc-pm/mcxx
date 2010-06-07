@@ -1065,6 +1065,8 @@ identifier {
 @TYPE-LIST@ { parse_token_text(); return SUBPARSE_TYPE_LIST; }
 @ID_EXPRESSION@ { parse_token_text(); return SUBPARSE_ID_EXPRESSION; }
 @OMP_UDR_DECLARE@ { parse_token_text(); return SUBPARSE_OMP_UDR_DECLARE; }
+@OMP_UDR_IDENTITY@ { parse_token_text(); return SUBPARSE_OMP_UDR_IDENTITY; }
+@OMP_UDR_CONSTRUCTOR@ { parse_token_text(); return OMP_UDR_CONSTRUCTOR; }
  /*!if CPLUSPLUS*/
 @MEMBER@ { parse_token_text(); return SUBPARSE_MEMBER; }
  /*!endif*/
