@@ -185,26 +185,32 @@ void DeviceGPU::create_outline(
     Source included_files, forward_declaration;
     AST_t function_tree;
 
+    // Get *.cu included files
+    ObjectList<IncludeLine> lines = CurrentFile::get_top_level_included_files();
+    std::string cuda_line (".cu\"");
+    std::size_t cuda_size = cuda_line.size();
+
+    for (ObjectList<IncludeLine>::iterator it = lines.begin(); it != lines.end(); it++)
+    {
+    	std::string line = (*it).get_preprocessor_line();
+    	std::cout << "INC LINE: " << line;
+    	if (line.size() > cuda_size)
+    	{
+    		std::string matching = line.substr(line.size()-cuda_size,cuda_size);
+    		if (matching == cuda_line)
+    		{
+    			included_files << line << "\n";
+    			std::cout << "  --> INCLUDED IN .cu!!!" << std::endl;
+    		}
+    		else std::cout << std::endl;
+    	}
+    }
+
+    std::cout << "TASK SYMBOL = " << (outline_flags.task_symbol == NULL ? "NULL" : outline_flags.task_symbol.get_name() )<< std::endl;
+
+    // Check if the task is a function, or it is inlined
     if (outline_flags.task_symbol != NULL)
     {
-    	// Get *.cu included files
-    	ObjectList<IncludeLine> lines = CurrentFile::get_top_level_included_files();
-    	std::string cuda_line (".cu\"");
-    	std::size_t cuda_size = cuda_line.size();
-
-    	for (ObjectList<IncludeLine>::iterator it = lines.begin(); it != lines.end(); it++)
-    	{
-    		std::string line = (*it).get_preprocessor_line();
-    		if (line.size() > cuda_size)
-    		{
-    			std::string matching = line.substr(line.size()-cuda_size,cuda_size);
-    			if (matching == cuda_line)
-    			{
-    				included_files << line << "\n";
-    			}
-    		}
-    	}
-
       	// Get the definition of non local symbols
     	function_tree = outline_flags.task_symbol.get_point_of_declaration();
     	LangConstruct construct (function_tree, sl);
@@ -241,7 +247,6 @@ void DeviceGPU::create_outline(
     		forward_declaration << function_tree.get_enclosing_global_tree().prettyprint_external();
     	}
     }
-
 
     AST_t function_def_tree = reference_tree.get_enclosing_function_definition();
     FunctionDefinition enclosing_function(function_def_tree, sl);
@@ -344,6 +349,7 @@ void DeviceGPU::create_outline(
 
 	/******************* Write the C file ******************/
 
+    // Check if the task is a function, or it is inlined
     if (outline_flags.task_symbol != NULL)
     {
     	// Remove the task body from the original source file ...
@@ -356,6 +362,14 @@ void DeviceGPU::create_outline(
 
     	AST_t function_decl_tree = function_decl_src.parse_declaration(reference_tree, sl);
     	reference_tree.prepend_sibling_function(function_decl_tree);
+    }
+    else
+    {
+    	// Forward declaration of the task outline
+    	Source outline_declaration_src;
+    	outline_declaration_src << "void " << outline_name << "(" << parameter_list << ");";
+    	AST_t outline_declaration_tree = outline_declaration_src.parse_declaration(reference_tree, sl);
+    	reference_tree.prepend_sibling_function(outline_declaration_tree);
     }
 
     // reference_tree.prepend_sibling_function(outline_code_tree);
