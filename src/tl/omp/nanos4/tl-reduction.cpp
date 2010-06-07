@@ -42,7 +42,7 @@ namespace TL
             }
 
             Source result;
-            OpenMP::UDRInfoItem2 udr = reduction_symbol.get_udr();
+            OpenMP::UDRInfoItem udr = reduction_symbol.get_udr();
 
             // Make sure this UDR item only has one symbol
             Symbol op_sym = udr.get_operator_symbols()[0];
@@ -82,7 +82,7 @@ namespace TL
         {
             Source result;
 
-            OpenMP::UDRInfoItem2 udr = reduction_symbol.get_udr();
+            OpenMP::UDRInfoItem udr = reduction_symbol.get_udr();
 
             Symbol op_sym = udr.get_operator_symbols()[0];
             Type op_type = op_sym.get_type();
@@ -126,7 +126,7 @@ namespace TL
                     }
                 }
 
-                if (udr.get_associativity() == OpenMP::UDRInfoItem2::LEFT)
+                if (udr.get_associativity() == OpenMP::UDRInfoItem::LEFT)
                 {
                     result
                         << reduction_arg << ", " << partial_reduction_arg 
@@ -169,7 +169,7 @@ namespace TL
             }
             else
             {
-                if (udr.get_associativity() == OpenMP::UDRInfoItem2::LEFT)
+                if (udr.get_associativity() == OpenMP::UDRInfoItem::LEFT)
                 {
                     result
                         << reduction_return << " = " << op_name << "(" << reduction_arg << ", " << partial_reduction_arg << ")"
@@ -203,7 +203,7 @@ namespace TL
                 }
             }
 
-            if (udr.get_associativity() == OpenMP::UDRInfoItem2::LEFT)
+            if (udr.get_associativity() == OpenMP::UDRInfoItem::LEFT)
             {
                 // reduction_index = 1;
                 // partial_reduction_index = 0;
@@ -295,14 +295,14 @@ namespace TL
                 Source reduction_var_name, 
                 Source partial_reduction)
         {
-            OpenMP::UDRInfoItem2 udr = reduction_symbol.get_udr();
+            OpenMP::UDRInfoItem udr = reduction_symbol.get_udr();
 
             if (udr.is_builtin_operator())
             {
                 Source result;
                 std::string op = udr.get_builtin_operator();
 
-                if (udr.get_associativity() == OpenMP::UDRInfoItem2::LEFT)
+                if (udr.get_associativity() == OpenMP::UDRInfoItem::LEFT)
                 {
                     result 
                         << reduction_var_name << " = " << reduction_var_name << op << partial_reduction << ";"
@@ -434,7 +434,7 @@ namespace TL
 
                     // get its type
                     Symbol reduction_symbol = it->get_symbol();
-                    OpenMP::UDRInfoItem2 udr = it->get_udr();
+                    OpenMP::UDRInfoItem udr = it->get_udr();
                     Type reduction_type = reduction_symbol.get_type();
 
                     if (udr.get_is_array_reduction() && reduction_type.is_pointer())
@@ -518,7 +518,7 @@ namespace TL
                     it != reduction_references.end();
                     it++)
             {
-                OpenMP::UDRInfoItem2 udr = it->get_udr();
+                OpenMP::UDRInfoItem udr = it->get_udr();
                 if (!udr.get_is_array_reduction())
                 {
                     reduction_update

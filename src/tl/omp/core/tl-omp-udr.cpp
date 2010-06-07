@@ -92,7 +92,7 @@ namespace TL
                 Type reduct_type,
                 ObjectList<udr_valid_array_prototypes_t>& valid_prototypes,
                 Symbol sym, 
-                OpenMP::UDRInfoItem2::Associativity &assoc,
+                OpenMP::UDRInfoItem::Associativity &assoc,
                 int num_dimensions)
         {
             if (!sym.is_function())
@@ -133,16 +133,16 @@ namespace TL
 
                 if (equivalent_array_types(parameter_types[parameter_types.size() - 2], reduct_type, num_dimensions)
                         && equivalent_array_types(parameter_types[parameter_types.size() - 1], reduct_type, num_dimensions)
-                        && ((assoc == UDRInfoItem2::UNDEFINED)
-                            || (assoc == UDRInfoItem2::RIGHT && it->allows_right)
-                            || (assoc == UDRInfoItem2::LEFT && it->allows_left)))
+                        && ((assoc == UDRInfoItem::UNDEFINED)
+                            || (assoc == UDRInfoItem::RIGHT && it->allows_right)
+                            || (assoc == UDRInfoItem::LEFT && it->allows_left)))
                 {
-                    if (assoc == UDRInfoItem2::UNDEFINED)
+                    if (assoc == UDRInfoItem::UNDEFINED)
                     {
                         if (it->allows_left)
-                            assoc = UDRInfoItem2::LEFT;
+                            assoc = UDRInfoItem::LEFT;
                         else
-                            assoc = UDRInfoItem2::RIGHT;
+                            assoc = UDRInfoItem::RIGHT;
                     }
                     return true;
                 }
@@ -170,16 +170,16 @@ namespace TL
 
                 if (equivalent_array_types(parameter_types[0], reduct_type, num_dimensions)
                         && equivalent_array_types(parameter_types[1], reduct_type, num_dimensions)
-                        && ((assoc == UDRInfoItem2::UNDEFINED)
-                            || (assoc == UDRInfoItem2::RIGHT && it->allows_right)
-                            || (assoc == UDRInfoItem2::LEFT && it->allows_left)))
+                        && ((assoc == UDRInfoItem::UNDEFINED)
+                            || (assoc == UDRInfoItem::RIGHT && it->allows_right)
+                            || (assoc == UDRInfoItem::LEFT && it->allows_left)))
                 {
-                    if (assoc == UDRInfoItem2::UNDEFINED)
+                    if (assoc == UDRInfoItem::UNDEFINED)
                     {
                         if (it->allows_left)
-                            assoc = UDRInfoItem2::LEFT;
+                            assoc = UDRInfoItem::LEFT;
                         else
-                            assoc = UDRInfoItem2::RIGHT;
+                            assoc = UDRInfoItem::RIGHT;
                     }
                     return true;
                 }
@@ -191,7 +191,7 @@ namespace TL
         static bool function_is_valid_udr_reductor_c(
                 ObjectList<udr_valid_prototypes_t>& valid_prototypes,
                 Symbol sym, 
-                OpenMP::UDRInfoItem2::Associativity &assoc)
+                OpenMP::UDRInfoItem::Associativity &assoc)
         {
             if (!sym.is_function())
                 return false;
@@ -221,16 +221,16 @@ namespace TL
                 if (return_type.is_same_type(it->return_type)
                         && parameter_types[0].is_same_type(it->first_arg)
                         && parameter_types[1].is_same_type(it->second_arg)
-                        && ((assoc == UDRInfoItem2::UNDEFINED)
-                            || (assoc == UDRInfoItem2::RIGHT && it->allows_right)
-                            || (assoc == UDRInfoItem2::LEFT && it->allows_left)))
+                        && ((assoc == UDRInfoItem::UNDEFINED)
+                            || (assoc == UDRInfoItem::RIGHT && it->allows_right)
+                            || (assoc == UDRInfoItem::LEFT && it->allows_left)))
                 {
-                    if (assoc == UDRInfoItem2::UNDEFINED)
+                    if (assoc == UDRInfoItem::UNDEFINED)
                     {
                         if (it->allows_left)
-                            assoc = UDRInfoItem2::LEFT;
+                            assoc = UDRInfoItem::LEFT;
                         else
-                            assoc = UDRInfoItem2::RIGHT;
+                            assoc = UDRInfoItem::RIGHT;
                     }
                     return true;
                 }
@@ -244,7 +244,7 @@ namespace TL
                 ObjectList<udr_valid_member_prototypes_t>& valid_member_prototypes,
                 Type reduct_type,
                 Symbol sym,
-                UDRInfoItem2::Associativity &assoc)
+                UDRInfoItem::Associativity &assoc)
         {
             if (!sym.is_function())
                 return false;
@@ -676,12 +676,12 @@ namespace TL
                 int j;
                 for (j = 0; builtin_arithmetic_operators[j].operator_name != NULL; j++)
                 {
-                    UDRInfoItem2 new_udr;
+                    UDRInfoItem new_udr;
 
                     new_udr.set_builtin_operator(
                             builtin_arithmetic_operators[j].operator_name);
                     new_udr.set_reduction_type(Type(type));
-                    new_udr.set_associativity(UDRInfoItem2::LEFT);
+                    new_udr.set_associativity(UDRInfoItem::LEFT);
                     new_udr.set_is_commutative(true);
 
                     new_udr.sign_in_scope(global_scope);
@@ -690,12 +690,12 @@ namespace TL
                 {
                     for (j = 0; builtin_logic_bit_operators[j].operator_name != NULL; j++)
                     {
-                        UDRInfoItem2 new_udr;
+                        UDRInfoItem new_udr;
 
                         new_udr.set_builtin_operator(
                                 builtin_arithmetic_operators[j].operator_name);
                         new_udr.set_reduction_type(Type(type));
-                        new_udr.set_associativity(UDRInfoItem2::LEFT);
+                        new_udr.set_associativity(UDRInfoItem::LEFT);
                         new_udr.set_is_commutative(true);
 
                         new_udr.sign_in_scope(global_scope);
@@ -880,18 +880,18 @@ namespace TL
 
             // Common properties
             PragmaCustomClause order_clause = construct.get_clause("order");
-            UDRInfoItem2::Associativity assoc = UDRInfoItem2::UNDEFINED;
+            UDRInfoItem::Associativity assoc = UDRInfoItem::UNDEFINED;
             if (order_clause.is_defined())
             {
                 std::string str = order_clause.get_arguments(ExpressionTokenizer())[0];
 
                 if (str == "right")
                 {
-                    assoc = UDRInfoItem2::RIGHT;
+                    assoc = UDRInfoItem::RIGHT;
                 }
                 else if (str == "left")
                 {
-                    assoc = UDRInfoItem2::LEFT;
+                    assoc = UDRInfoItem::LEFT;
                 }
                 else
                 {
@@ -959,7 +959,7 @@ namespace TL
                         op_it++)
                 {
                     // New udr being declared
-                    UDRInfoItem2 new_udr;
+                    UDRInfoItem new_udr;
 
                     new_udr.set_is_commutative(is_commutative);
                     new_udr.set_is_array_reduction(is_array);
@@ -1150,7 +1150,7 @@ namespace TL
             return result;
         }
 
-        UDRInfoItem2::UDRInfoItem2()
+        UDRInfoItem::UDRInfoItem()
             : _assoc(NONE), 
             _is_builtin(false), 
             _builtin_op(""), 
@@ -1166,93 +1166,93 @@ namespace TL
         {
         }
 
-        void UDRInfoItem2::set_associativity(Associativity assoc)
+        void UDRInfoItem::set_associativity(Associativity assoc)
         {
             _assoc = assoc;
         }
 
-        UDRInfoItem2::Associativity UDRInfoItem2::get_associativity() const
+        UDRInfoItem::Associativity UDRInfoItem::get_associativity() const
         {
             return _assoc;
         }
 
-        void UDRInfoItem2::set_builtin_operator(const std::string& str)
+        void UDRInfoItem::set_builtin_operator(const std::string& str)
         {
             _builtin_op = str;
             _is_builtin = true;
         }
 
-        bool UDRInfoItem2::is_builtin_operator() const
+        bool UDRInfoItem::is_builtin_operator() const
         {
             return _is_builtin;
         }
-        std::string UDRInfoItem2::get_builtin_operator() const
+        std::string UDRInfoItem::get_builtin_operator() const
         {
             return _builtin_op;
         }
 
-        void UDRInfoItem2::set_operator(IdExpression id_expr)
+        void UDRInfoItem::set_operator(IdExpression id_expr)
         {
             _op_expr = id_expr;
             _is_builtin = false;
         }
 
-        ObjectList<Symbol> UDRInfoItem2::get_operator_symbols() const
+        ObjectList<Symbol> UDRInfoItem::get_operator_symbols() const
         {
             return _op_symbols;
         }
 
-        void UDRInfoItem2::set_operator_symbols(const ObjectList<Symbol>& sym_list) 
+        void UDRInfoItem::set_operator_symbols(const ObjectList<Symbol>& sym_list) 
         {
             _op_symbols = sym_list;
         }
 
-        IdExpression UDRInfoItem2::get_operator() const
+        IdExpression UDRInfoItem::get_operator() const
         {
             return _op_expr;
         }
 
-        void UDRInfoItem2::set_reduction_type(Type t)
+        void UDRInfoItem::set_reduction_type(Type t)
         {
             _reduction_type = t;
         }
 
-        Type UDRInfoItem2::get_reduction_type() const
+        Type UDRInfoItem::get_reduction_type() const
         {
             return _reduction_type;
         }
 
-        void UDRInfoItem2::set_is_array_reduction(bool b)
+        void UDRInfoItem::set_is_array_reduction(bool b)
         {
             _is_array = b;
         }
 
-        bool UDRInfoItem2::get_is_array_reduction() const
+        bool UDRInfoItem::get_is_array_reduction() const
         {
             return _is_array;
         }
 
-        void UDRInfoItem2::set_num_dimensions(int n)
+        void UDRInfoItem::set_num_dimensions(int n)
         {
             _num_dimensions = n;
         }
 
-        int  UDRInfoItem2::get_num_dimensions() const
+        int  UDRInfoItem::get_num_dimensions() const
         {
             return _num_dimensions;
         }
 
-        void UDRInfoItem2::set_is_template_reduction(bool b)
+        void UDRInfoItem::set_is_template_reduction(bool b)
         {
             _is_template = b;
         }
 
-        bool UDRInfoItem2::get_is_template_reduction() const
+        bool UDRInfoItem::get_is_template_reduction() const
         {
             return _is_template;
         }
 
-        std::string UDRInfoItem2::get_symbol_name() const
+        std::string UDRInfoItem::get_symbol_name() const
         {
             if (_is_builtin)
             {
@@ -1264,23 +1264,23 @@ namespace TL
             }
         }
 
-        bool UDRInfoItem2::get_is_commutative() const
+        bool UDRInfoItem::get_is_commutative() const
         {
             return _is_commutative;
         }
 
-        void UDRInfoItem2::set_is_commutative(bool b)
+        void UDRInfoItem::set_is_commutative(bool b)
         {
             _is_commutative = b;
         }
 
-        UDRInfoItem2 UDRInfoItem2::lookup_udr(Scope sc, bool &found, ObjectList<Symbol> &all_viables, 
+        UDRInfoItem UDRInfoItem::lookup_udr(Scope sc, bool &found, ObjectList<Symbol> &all_viables, 
                 const std::string& filename, int line) const
         {
-            const UDRInfoItem2& current_udr = *this;
+            const UDRInfoItem& current_udr = *this;
 
             found = false;
-            UDRInfoItem2 empty_udr;
+            UDRInfoItem empty_udr;
 
             ObjectList<Symbol> lookup = sc.cascade_lookup(current_udr.get_symbol_name());
             if (lookup.empty())
@@ -1291,14 +1291,14 @@ namespace TL
             // Now filter the udr info item
             C_LANGUAGE()
             {
-                UDRInfoItem2 result;
+                UDRInfoItem result;
                 for (ObjectList<Symbol>::iterator it = lookup.begin();
                         it != lookup.end() && !found;
                         it++)
                 {
                     Symbol &sym(*it);
-                    RefPtr<UDRInfoItem2> obj = 
-                        RefPtr<UDRInfoItem2>::cast_dynamic(sym.get_attribute("udr_info"));
+                    RefPtr<UDRInfoItem> obj = 
+                        RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
 
                     // There is only one in C
                     Symbol op_sym = obj->get_operator_symbols()[0];
@@ -1325,7 +1325,7 @@ namespace TL
 
             // Construct the symbol list
             bool found_valid = false;
-            UDRInfoItem2 result;
+            UDRInfoItem result;
 
             ObjectList<udr_valid_prototypes_t> valid_prototypes = get_valid_prototypes_cxx(current_udr.get_reduction_type());
             ObjectList<udr_valid_member_prototypes_t> valid_member_prototypes 
@@ -1336,8 +1336,8 @@ namespace TL
                     it != lookup.end(); it++)
             {
                 Symbol &sym(*it);
-                RefPtr<UDRInfoItem2> obj = 
-                    RefPtr<UDRInfoItem2>::cast_dynamic(sym.get_attribute("udr_info"));
+                RefPtr<UDRInfoItem> obj = 
+                    RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
 
                 ObjectList<Symbol> operator_list;
                 operator_list.insert(obj->get_operator_symbols());
@@ -1436,11 +1436,11 @@ namespace TL
             }
         }
 
-        void UDRInfoItem2::sign_in_scope(Scope sc) const
+        void UDRInfoItem::sign_in_scope(Scope sc) const
         {
             Symbol sym = sc.new_artificial_symbol(this->get_symbol_name());
 
-            RefPtr<UDRInfoItem2> cp(new UDRInfoItem2(*this));
+            RefPtr<UDRInfoItem> cp(new UDRInfoItem(*this));
 
             sc.set_attribute("udr_info", cp);
         }

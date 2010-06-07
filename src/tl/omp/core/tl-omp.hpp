@@ -144,10 +144,10 @@ namespace TL
         {
             private:
                 Symbol _symbol;
-                UDRInfoItem2 _udr_item;
+                UDRInfoItem _udr_item;
             public:
                 ReductionSymbol(Symbol s, 
-                        const UDRInfoItem2& udr_info_item)
+                        const UDRInfoItem& udr_info_item)
                     : _symbol(s), _udr_item(udr_info_item)
                 {
                 }
@@ -162,7 +162,7 @@ namespace TL
                     return _symbol;
                 }
 
-                const UDRInfoItem2& get_udr() const
+                const UDRInfoItem& get_udr() const
                 {
                     return _udr_item;
                 }

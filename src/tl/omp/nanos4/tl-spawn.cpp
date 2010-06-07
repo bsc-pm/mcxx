@@ -143,7 +143,7 @@ namespace TL
                 // get its type
                 Symbol reduction_symbol = it->get_symbol();
                 Type reduction_type = reduction_symbol.get_type();
-                OpenMP::UDRInfoItem2 udr = it->get_udr();
+                OpenMP::UDRInfoItem udr = it->get_udr();
 
                 if (udr.get_is_array_reduction() && reduction_type.is_pointer())
                 {

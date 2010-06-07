@@ -358,7 +358,7 @@ namespace TL
                     it++)
             {
                 Symbol sym = it->get_symbol();
-                OpenMP::UDRInfoItem2 udr = it->get_udr();
+                OpenMP::UDRInfoItem udr = it->get_udr();
                 Type type = sym.get_type();
 
                 Source type_declaration, static_initializer, dynamic_initializer, secondary_decl;
@@ -660,7 +660,7 @@ namespace TL
             {
                 Symbol sym = it->get_symbol();
                 Type type = sym.get_type();
-                OpenMP::UDRInfoItem2 udr = it->get_udr();
+                OpenMP::UDRInfoItem udr = it->get_udr();
 
                 Source init;
 

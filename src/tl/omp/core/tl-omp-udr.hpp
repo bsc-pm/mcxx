@@ -32,7 +32,7 @@ namespace TL
 {
     namespace OpenMP
     {
-        class LIBTL_CLASS UDRInfoItem2 : public TL::Object
+        class LIBTL_CLASS UDRInfoItem : public TL::Object
         {
             public:
                 enum Associativity
@@ -65,7 +65,7 @@ namespace TL
                 bool _has_identity;
                 Expression _identity;
             public:
-                UDRInfoItem2();
+                UDRInfoItem();
 
                 void set_associativity(Associativity);
                 Associativity get_associativity() const;
@@ -104,7 +104,7 @@ namespace TL
 
                 // ----
                 // ObjectList<Symbol> lookup_udr(Scope sc);
-                UDRInfoItem2 lookup_udr(Scope sc, bool &found, 
+                UDRInfoItem lookup_udr(Scope sc, bool &found, 
                         ObjectList<Symbol> &all_viables, 
                         const std::string& filename, int line) const;
                 // ----

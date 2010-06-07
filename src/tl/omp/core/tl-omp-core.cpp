@@ -329,7 +329,7 @@ namespace TL
                     }
                     else
                     {
-                        UDRInfoItem2 udr;
+                        UDRInfoItem udr;
                         if (udr_is_builtin_operator(reductor_name))
                         {
                             udr.set_builtin_operator(reductor_name);
