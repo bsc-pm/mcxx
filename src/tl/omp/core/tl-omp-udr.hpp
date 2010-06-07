@@ -30,22 +30,91 @@
 
 namespace TL
 {
-    void initialize_builtin_udr_reductions(Scope global_scope);
-    bool udr_is_builtin_operator(const std::string &op_name);
+    namespace OpenMP
+    {
+        class LIBTL_CLASS UDRInfoItem2 : public TL::Object
+        {
+            public:
+                enum Associativity
+                {
+                    NONE = 0,
+                    LEFT,
+                    RIGHT,
+                    UNDEFINED,
+                };
 
-    Symbol solve_udr_name_cxx(LangConstruct construct,
-            Scope scope_of_clause,
-            AST_t op_name,
-            Type reduction_type,
-            OpenMP::UDRInfoItem::Associativity &assoc);
+            private:
+                Associativity _assoc;
 
-    OpenMP::UDRInfoItem udr_lookup_cxx(
-            const std::string& udr_name,
-            ObjectList<Symbol> udr_sym_list, 
-            Type type, 
-            ScopeLink scope_link,
-            Scope current_scope,
-            const std::string& filename, int line);
+                bool _is_builtin;
+                std::string _builtin_op;
+
+                IdExpression _op_expr;
+
+                ObjectList<Symbol> _op_symbols;
+
+                Type _reduction_type;
+
+                bool _is_template;
+
+                bool _is_array;
+                int _num_dimensions;
+
+                bool _is_commutative;
+
+                bool _has_identity;
+                Expression _identity;
+            public:
+                UDRInfoItem2();
+
+                void set_associativity(Associativity);
+                Associativity get_associativity() const;
+
+                void set_builtin_operator(const std::string& str);
+                bool is_builtin_operator() const;
+                std::string get_builtin_operator() const;
+
+                void set_operator(IdExpression id_expr);
+                IdExpression get_operator() const;
+
+                ObjectList<Symbol> get_operator_symbols() const;
+                void set_operator_symbols(const ObjectList<Symbol>& sym_list);
+
+                void set_reduction_type(Type t);
+                Type get_reduction_type() const;
+
+                void set_is_array_reduction(bool b);
+                bool get_is_array_reduction() const;
+
+                void set_num_dimensions(int n);
+                int get_num_dimensions() const;
+
+                void set_is_template_reduction(bool b);
+                bool get_is_template_reduction() const;
+
+                void set_has_identity(Expression expr);
+                bool has_identity() const; 
+                Expression get_identity() const;
+                bool identity_is_constructor() const;
+
+                bool get_is_commutative() const;
+                void set_is_commutative(bool b);
+
+                void sign_in_scope(Scope sc) const;
+
+                // ----
+                // ObjectList<Symbol> lookup_udr(Scope sc);
+                UDRInfoItem2 lookup_udr(Scope sc, bool &found, 
+                        ObjectList<Symbol> &all_viables, 
+                        const std::string& filename, int line) const;
+                // ----
+
+                std::string get_symbol_name() const;
+        };
+
+        void initialize_builtin_udr_reductions(Scope global_scope);
+        bool udr_is_builtin_operator(const std::string &op_name);
+    }
 }
 
 #endif // TL_OMP_UDR_HPP

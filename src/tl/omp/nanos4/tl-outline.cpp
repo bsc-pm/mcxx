@@ -358,6 +358,7 @@ namespace TL
                     it++)
             {
                 Symbol sym = it->get_symbol();
+                OpenMP::UDRInfoItem2 udr = it->get_udr();
                 Type type = sym.get_type();
 
                 Source type_declaration, static_initializer, dynamic_initializer, secondary_decl;
@@ -379,7 +380,7 @@ namespace TL
                     name = "p_rdp_" + sym.get_name();
                     type = type.points_to();
                 }
-                if (!it->is_array()
+                if (!udr.get_is_array_reduction()
                         || !is_variably_modified)
                 {
                     type_declaration
@@ -427,18 +428,18 @@ namespace TL
                 }
 
                 // Fill the initializers
-                if (!it->neuter_is_empty())
+                if (!udr.has_identity())
                 {
-                    if (!it->is_array())
+                    if (!udr.get_is_array_reduction())
                     {
-                        if (it->neuter_is_constructor())
+                        if (udr.identity_is_constructor())
                         {
-                            static_initializer << it->get_neuter()
+                            static_initializer << udr.get_identity()
                                 ;
                         }
                         else
                         {
-                            static_initializer << " = " << it->get_neuter()
+                            static_initializer << " = " << udr.get_identity()
                                 ;
                         }
                     }
@@ -446,25 +447,25 @@ namespace TL
                     {
                         Source element_level_initializer;
 
-                        if (it->neuter_is_constructor())
+                        if (udr.identity_is_constructor())
                         {
                             // Prepend with the constructor name
                             element_level_initializer
                                 << type.get_declaration(construct.get_scope(), "")
-                                << it->get_neuter();
+                                << udr.get_identity();
                         }
                         else
                         {
                             element_level_initializer 
-                                << it->get_neuter();
+                                << udr.get_identity();
                         }
 
                         if (!is_variably_modified)
                         {
-                            ObjectList<int> dimension_sizes(it->num_dimensions(), 0);
+                            ObjectList<int> dimension_sizes(udr.get_num_dimensions(), 0);
                             Type array_type = type;
 
-                            for (int i = 0; i < it->num_dimensions(); i++)
+                            for (int i = 0; i < udr.get_num_dimensions(); i++)
                             {
                                 Expression expr(array_type.array_dimension(),
                                         construct.get_scope_link());
@@ -659,6 +660,7 @@ namespace TL
             {
                 Symbol sym = it->get_symbol();
                 Type type = sym.get_type();
+                OpenMP::UDRInfoItem2 udr = it->get_udr();
 
                 Source init;
 
@@ -671,18 +673,18 @@ namespace TL
                     << ";"
                     ;
 
-                if (it->neuter_is_constructor())
+                if (udr.identity_is_constructor())
                 {
-                    init << it->get_neuter()
+                    init << udr.get_identity()
                         ;
                 }
-                else if (it->neuter_is_empty())
+                else if (udr.has_identity())
                 {
                     // Do nothing for empty initializers
                 }
                 else
                 {
-                    init << " = " << it->get_neuter()
+                    init << " = " << udr.get_identity()
                         ;
                 }
             }

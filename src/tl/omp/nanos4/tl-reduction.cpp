@@ -42,7 +42,10 @@ namespace TL
             }
 
             Source result;
-            Symbol op_sym = reduction_symbol.get_reductor_symbol();
+            OpenMP::UDRInfoItem2 udr = reduction_symbol.get_udr();
+
+            // Make sure this UDR item only has one symbol
+            Symbol op_sym = udr.get_operator_symbols()[0];
 
             Type op_type = op_sym.get_type();
             std::string op_name = op_sym.get_name();
@@ -79,7 +82,9 @@ namespace TL
         {
             Source result;
 
-            Symbol op_sym = reduction_symbol.get_reductor_symbol();
+            OpenMP::UDRInfoItem2 udr = reduction_symbol.get_udr();
+
+            Symbol op_sym = udr.get_operator_symbols()[0];
             Type op_type = op_sym.get_type();
             std::string op_name = op_sym.get_qualified_name( /* without_templates */ true);
 
@@ -96,7 +101,7 @@ namespace TL
                     ;
 
                 // Pass the dimensions at the beginning
-                if (reduction_symbol.is_array()
+                if (udr.get_is_array_reduction()
                         && op_type.parameters()[0].is_signed_int())
                 {
                     Type current_type = reduction_symbol.get_symbol().get_type();
@@ -104,7 +109,7 @@ namespace TL
                     if (current_type.is_pointer())
                         current_type = current_type.points_to();
                     // Arrays require more parameters
-                    for (int i = 0; i < reduction_symbol.num_dimensions(); i++)
+                    for (int i = 0; i < udr.get_num_dimensions(); i++)
                     {
                         if (!current_type.is_array()
                                 || !current_type.explicit_array_dimension())
@@ -121,7 +126,7 @@ namespace TL
                     }
                 }
 
-                if (reduction_symbol.reductor_is_left_associative())
+                if (udr.get_associativity() == OpenMP::UDRInfoItem2::LEFT)
                 {
                     result
                         << reduction_arg << ", " << partial_reduction_arg 
@@ -135,14 +140,14 @@ namespace TL
                 }
 
                 // Pass the dimensions at the end
-                if (reduction_symbol.is_array()
+                if (udr.get_is_array_reduction()
                         && op_type.parameters()[op_type.parameters().size() - 1].is_signed_int())
                 {
                     Type current_type = reduction_symbol.get_symbol().get_type();
                     if (current_type.is_pointer())
                         current_type = current_type.points_to();
                     // Arrays require more parameters
-                    for (int i = 0; i < reduction_symbol.num_dimensions(); i++)
+                    for (int i = 0; i < udr.get_num_dimensions(); i++)
                     {
                         if (!current_type.is_array()
                                 || !current_type.explicit_array_dimension())
@@ -164,7 +169,7 @@ namespace TL
             }
             else
             {
-                if (reduction_symbol.reductor_is_left_associative())
+                if (udr.get_associativity() == OpenMP::UDRInfoItem2::LEFT)
                 {
                     result
                         << reduction_return << " = " << op_name << "(" << reduction_arg << ", " << partial_reduction_arg << ")"
@@ -188,7 +193,7 @@ namespace TL
             int reduction_index = 0;
             int partial_reduction_index = 1;
 
-            if (reduction_symbol.is_array())
+            if (udr.get_is_array_reduction())
             {
                 // Adjust for array reductions where the ints are at the beginning
                 if (parameters[0].is_signed_int())
@@ -198,7 +203,7 @@ namespace TL
                 }
             }
 
-            if (!reduction_symbol.reductor_is_left_associative())
+            if (udr.get_associativity() == OpenMP::UDRInfoItem2::LEFT)
             {
                 // reduction_index = 1;
                 // partial_reduction_index = 0;
@@ -209,12 +214,12 @@ namespace TL
 
             // If the type related to the reduction var is pointer, pass an address
             if (parameters[reduction_index].is_pointer()
-                    && !reduction_symbol.is_array())
+                    && !udr.get_is_array_reduction())
             {
                 reduction_arg << "&" << reduction_var_name
                     ;
             }
-            else if (reduction_symbol.is_array())
+            else if (udr.get_is_array_reduction())
             {
                 Source reduction_accessor;
                 if (reduction_symbol.get_symbol().get_type().is_pointer())
@@ -229,7 +234,7 @@ namespace TL
                         && !parameters[reduction_index].points_to().is_array())
                 {
                     reduction_arg << "&" << reduction_accessor;
-                    for (int i = 0; i < reduction_symbol.num_dimensions(); i++)
+                    for (int i = 0; i < udr.get_num_dimensions(); i++)
                     {
                         reduction_arg << "[0]";
                     }
@@ -247,12 +252,12 @@ namespace TL
             }
 
             if (parameters[partial_reduction_index].is_pointer()
-                    && !reduction_symbol.is_array())
+                    && !udr.get_is_array_reduction())
             {
                 partial_reduction_arg << "&(" << partial_reduction << ")"
                     ;
             }
-            else if (reduction_symbol.is_array())
+            else if (udr.get_is_array_reduction())
             {
                 Source partial_reduction_access;
 
@@ -260,7 +265,7 @@ namespace TL
                         && !parameters[partial_reduction_index].points_to().is_array())
                 {
                     partial_reduction_arg << "&" << partial_reduction;
-                    for (int i = 0; i < reduction_symbol.num_dimensions(); i++)
+                    for (int i = 0; i < udr.get_num_dimensions(); i++)
                     {
                         partial_reduction_arg << "[0]";
                     }
@@ -290,12 +295,14 @@ namespace TL
                 Source reduction_var_name, 
                 Source partial_reduction)
         {
-            if (reduction_symbol.is_builtin_operator())
+            OpenMP::UDRInfoItem2 udr = reduction_symbol.get_udr();
+
+            if (udr.is_builtin_operator())
             {
                 Source result;
-                std::string op = reduction_symbol.get_operation();
+                std::string op = udr.get_builtin_operator();
 
-                if (reduction_symbol.reductor_is_left_associative())
+                if (udr.get_associativity() == OpenMP::UDRInfoItem2::LEFT)
                 {
                     result 
                         << reduction_var_name << " = " << reduction_var_name << op << partial_reduction << ";"
@@ -311,7 +318,8 @@ namespace TL
             }
             else
             {
-                if (!reduction_symbol.reductor_is_member())
+                Symbol sym = udr.get_operator_symbols()[0];
+                if (!sym.is_member())
                 {
                     return perform_reduction_symbol_(reduction_symbol,
                             reduction_var_name,
@@ -426,9 +434,10 @@ namespace TL
 
                     // get its type
                     Symbol reduction_symbol = it->get_symbol();
+                    OpenMP::UDRInfoItem2 udr = it->get_udr();
                     Type reduction_type = reduction_symbol.get_type();
 
-                    if (it->is_array() && reduction_type.is_pointer())
+                    if (udr.get_is_array_reduction() && reduction_type.is_pointer())
                     {
                         reduction_type = reduction_type.points_to();
                     }
@@ -509,7 +518,8 @@ namespace TL
                     it != reduction_references.end();
                     it++)
             {
-                if (!it->is_array())
+                OpenMP::UDRInfoItem2 udr = it->get_udr();
+                if (!udr.get_is_array_reduction())
                 {
                     reduction_update
                         << "rdv_" << it->get_symbol().get_name() << "[nth_thread_id] = "

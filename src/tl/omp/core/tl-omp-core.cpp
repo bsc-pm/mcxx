@@ -305,20 +305,12 @@ namespace TL
                         }
                     }
 
-                    std::string unqualified_reductor_name = reductor_name;
-
+                    IdExpression reductor_id_expr(NULL, ScopeLink());
                     if (!udr_is_builtin_operator(reductor_name))
                     {
                         AST_t reductor_name_tree 
                             = Source(reductor_name).parse_id_expression(construct.get_ast(), construct.get_scope_link());
-                        IdExpression reductor_id_expr(reductor_name_tree, clause.get_scope_link());
-                        unqualified_reductor_name = reductor_id_expr.get_unqualified_part();
-
-                        const std::string op_prefix = "operator ";
-                        if (unqualified_reductor_name.substr(0, op_prefix.size()) == op_prefix)
-                        {
-                            unqualified_reductor_name = unqualified_reductor_name.substr(op_prefix.size());
-                        }
+                        reductor_id_expr = IdExpression(reductor_name_tree, clause.get_scope_link());
                     }
 
                     // Adjust pointers to arrays
@@ -337,30 +329,40 @@ namespace TL
                     }
                     else
                     {
-                        UDRInfoScope udr_info_scope(construct.get_scope());
+                        UDRInfoItem2 udr;
+                        if (udr_is_builtin_operator(reductor_name))
+                        {
+                            udr.set_builtin_operator(reductor_name);
+                        }
+                        else
+                        {
+                            udr.set_operator(reductor_id_expr);
+                        }
+                        udr.set_reduction_type(var_type);
 
-                        UDRInfoItem udr_info_item = udr_info_scope.get_udr(
-                                unqualified_reductor_name,
-                                reductor_name, 
-                                var_type, 
-                                construct.get_scope_link(),
-                                construct.get_scope(),
-                                construct.get_ast().get_file(), 
+                        ObjectList<Symbol> all_viables;
+
+                        bool found = false;
+                        udr = udr.lookup_udr(construct.get_scope(), 
+                                found,
+                                all_viables, 
+                                construct.get_ast().get_file(),
                                 construct.get_ast().get_line());
 
-                        if (udr_info_item.is_valid())
+                        if (found)
                         {
-                            ReductionSymbol red_sym(var_sym, udr_info_item);
+                            ReductionSymbol red_sym(var_sym, udr);
                             sym_list.append(red_sym);
 
-                            if (!udr_info_item.is_builtin_op())
+                            if (!udr.is_builtin_operator())
                             {
-                                Symbol op_sym = udr_info_item.get_op_symbol();
+                                Symbol op_sym = udr.get_operator_symbols()[0];
                                 Type op_type = op_sym.get_type();
                                 std::cerr << construct.get_ast().get_locus() 
                                     << ": note: reduction of variable '" << var_sym.get_name() << "' solved to '" 
                                     << op_type.get_declaration(construct.get_scope(),
-                                            op_sym.get_qualified_name(construct.get_scope())) << "'" << std::endl;
+                                            op_sym.get_qualified_name(construct.get_scope())) << "'" 
+                                    << std::endl;
                             }
                         }
                         else
