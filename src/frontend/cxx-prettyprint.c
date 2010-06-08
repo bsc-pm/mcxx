@@ -3186,11 +3186,19 @@ static void gcc_using_directive_handler(FILE* f, AST a, prettyprint_context_t* p
 static void gcc_namespace_definition_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     indent_at_level(f, a, pt_ctx);
+    if (ASTSon3(a) != NULL)
+    {
+        token_fprintf(f, a, pt_ctx, "inline ");
+    }
     token_fprintf(f, a, pt_ctx, "namespace ");
     prettyprint_level(f, ASTSon0(a), pt_ctx);
     token_fprintf(f, a, pt_ctx, " ");
-    spaced_sequence_handler(f, ASTSon2(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, " {\n");
+    if (ASTSon2(a) != NULL)
+    {
+        spaced_sequence_handler(f, ASTSon2(a), pt_ctx);
+        token_fprintf(f, a, pt_ctx, " ");
+    }
+    token_fprintf(f, a, pt_ctx, "{\n");
 
     NEW_PT_CONTEXT(new_pt_ctx, increase_level);
     prettyprint_level(f, ASTSon1(a), new_pt_ctx);

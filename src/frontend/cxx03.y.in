@@ -241,6 +241,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> attribute
 %type<ast> attribute_list
 %type<ast> attributes
+%type<ast> attributes_opt
 %type<ast> attribute_value
 %type<ast> base_clause
 %type<ast> base_specifier
@@ -330,6 +331,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> mem_initializer_list
 %type<ast> multiplicative_expression
 %type<ast> named_namespace_definition
+%type<ast> namespace_inline
 %type<ast> namespace_alias_definition
 %type<ast> namespace_definition
 %type<ast> nested_name_specifier
@@ -514,6 +516,12 @@ namespace_definition : named_namespace_definition
 }
 ;
 
+namespace_inline : INLINE
+{
+    $$ = ASTLeaf(AST_INLINE_SPEC, $1.token_file, $1.token_line, $1.token_text);
+}
+;
+
 // extension_namespace_definition generates exactly the same
 // so it is not repeated
 named_namespace_definition : NAMESPACE IDENTIFIER '{' declaration_sequence '}'
@@ -529,17 +537,29 @@ named_namespace_definition : NAMESPACE IDENTIFIER '{' declaration_sequence '}'
 	$$ = ASTMake2(AST_NAMESPACE_DEFINITION, identif, NULL, $1.token_file, $1.token_line, NULL);
 }
 // GNU extensions
+| namespace_inline NAMESPACE IDENTIFIER attributes_opt '{' declaration_sequence '}'
+{
+	AST identif = ASTLeaf(AST_SYMBOL, $3.token_file, $3.token_line, $3.token_text);
+
+	$$ = ASTMake4(AST_GCC_NAMESPACE_DEFINITION, identif, $6, $4, $1, $2.token_file, $2.token_line, NULL);
+}
+| namespace_inline NAMESPACE IDENTIFIER attributes_opt '{' '}'
+{
+	AST identif = ASTLeaf(AST_SYMBOL, $3.token_file, $3.token_line, $3.token_text);
+
+	$$ = ASTMake4(AST_GCC_NAMESPACE_DEFINITION, identif, NULL, $4, $1, $2.token_file, $2.token_line, NULL);
+}
 | NAMESPACE IDENTIFIER attributes '{' declaration_sequence '}'
 {
 	AST identif = ASTLeaf(AST_SYMBOL, $2.token_file, $2.token_line, $2.token_text);
 
-	$$ = ASTMake3(AST_GCC_NAMESPACE_DEFINITION, identif, $5, $3, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake4(AST_GCC_NAMESPACE_DEFINITION, identif, $5, $3, NULL, $1.token_file, $1.token_line, NULL);
 }
 | NAMESPACE IDENTIFIER attributes '{' '}'
 {
 	AST identif = ASTLeaf(AST_SYMBOL, $2.token_file, $2.token_line, $2.token_text);
 
-	$$ = ASTMake3(AST_GCC_NAMESPACE_DEFINITION, identif, NULL, $3, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake4(AST_GCC_NAMESPACE_DEFINITION, identif, NULL, $3, NULL, $1.token_file, $1.token_line, NULL);
 }
 ;
 
@@ -625,6 +645,16 @@ attributes : attributes attribute
 | attribute
 {
 	$$ = ASTListLeaf($1);
+}
+;
+
+attributes_opt : attributes
+{
+    $$ = $1;
+}
+| 
+{
+    $$ = NULL;
 }
 ;
 
