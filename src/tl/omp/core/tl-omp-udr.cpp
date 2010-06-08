@@ -983,6 +983,94 @@ namespace TL
             free(str);
         }
 
+        static bool solve_overload_for_udr(ObjectList<Symbol> operator_list, Type reduction_type,
+                UDRInfoItem::Associativity assoc,
+                ObjectList<Symbol> &all_viables, const std::string& filename, int line)
+        {
+            bool found_valid = false;
+            ObjectList<udr_valid_prototypes_t> valid_prototypes = get_valid_prototypes_cxx(reduction_type);
+            ObjectList<udr_valid_member_prototypes_t> valid_member_prototypes 
+                = get_valid_member_prototypes_cxx(reduction_type);
+
+            ObjectList<Symbol> members_set = operator_list.filter(OnlyMembers());
+            ObjectList<Symbol> non_members_set = operator_list.filter(OnlyNonMembers());
+
+            ObjectList<Symbol> tentative_result;
+
+            // First the set of nonmembers
+            for (ObjectList<udr_valid_prototypes_t>::iterator it = valid_prototypes.begin();
+                    it != valid_prototypes.end();
+                    it++)
+            {
+                ObjectList<Type> arguments;
+                arguments.append(it->first_arg);
+                arguments.append(it->second_arg);
+
+                bool valid = false;
+                ObjectList<Symbol> argument_conversor;
+                ObjectList<Symbol> viable_functs;
+                Symbol solved_sym = Overload::solve(
+                        non_members_set,
+                        Type(NULL), // No implicit
+                        arguments,
+                        filename,
+                        line,
+                        valid,
+                        viable_functs,
+                        argument_conversor);
+
+                all_viables.insert(viable_functs);
+
+                if (valid 
+                        && function_is_valid_udr_reductor_cxx(valid_prototypes, 
+                            valid_member_prototypes, 
+                            reduction_type, 
+                            solved_sym,
+                            assoc))
+                {
+                    tentative_result.insert(solved_sym);
+                    found_valid = true;
+                }
+            }
+
+            if (!found_valid
+                    && reduction_type.is_named_class())
+            {
+                // Do likewise for members this time
+                for (ObjectList<udr_valid_member_prototypes_t>::iterator it = valid_member_prototypes.begin();
+                        it != valid_member_prototypes.end();
+                        it++)
+                {
+                    ObjectList<Type> arguments;
+                    arguments.append(it->first_arg);
+
+                    bool valid = false;
+                    ObjectList<Symbol> argument_conversor;
+                    ObjectList<Symbol> viable_functs;
+                    Symbol solved_sym = Overload::solve(
+                            members_set,
+                            reduction_type.get_reference_to(), // implicit argument (it must be a reference)
+                            arguments,
+                            filename,
+                            line,
+                            valid,
+                            viable_functs,
+                            argument_conversor);
+
+                    all_viables.insert(viable_functs);
+
+                    if (valid 
+                            && function_is_valid_udr_reductor_cxx(valid_prototypes, valid_member_prototypes, 
+                                reduction_type, 
+                                solved_sym, assoc))
+                    {
+                        tentative_result.insert(solved_sym);
+                    }
+                }
+            }
+
+            return (tentative_result.size() == 1);
+        }
 
         void Core::declare_reduction_handler_pre(PragmaCustomConstruct construct)
         {
@@ -1186,7 +1274,7 @@ namespace TL
                         ObjectList<Symbol> viable_operators;
                         if (!solve_overload_for_udr(op_symbols, reduction_type, assoc, 
                                     viable_operators, 
-                                    construct.get_ast().get_filename(),
+                                    construct.get_ast().get_file(),
                                     construct.get_ast().get_line()))
                         {
                             running_error("%s: error: cannot determine operator for UDR\n",
@@ -1462,94 +1550,6 @@ namespace TL
             _is_commutative = b;
         }
 
-        static bool solve_overload_for_udr(ObjectList<Symbol> operator_list, Type reduction_type,
-                UDRInfoItem::Associativity assoc,
-                ObjectList<Symbol> &all_viables, const std::string& filename, int line)
-        {
-            bool found_valid = false;
-            ObjectList<udr_valid_prototypes_t> valid_prototypes = get_valid_prototypes_cxx(reduction_type);
-            ObjectList<udr_valid_member_prototypes_t> valid_member_prototypes 
-                = get_valid_member_prototypes_cxx(reduction_type);
-
-            ObjectList<Symbol> members_set = operator_list.filter(OnlyMembers());
-            ObjectList<Symbol> non_members_set = operator_list.filter(OnlyNonMembers());
-
-            ObjectList<Symbol> tentative_result;
-
-            // First the set of nonmembers
-            for (ObjectList<udr_valid_prototypes_t>::iterator it = valid_prototypes.begin();
-                    it != valid_prototypes.end();
-                    it++)
-            {
-                ObjectList<Type> arguments;
-                arguments.append(it->first_arg);
-                arguments.append(it->second_arg);
-
-                bool valid = false;
-                ObjectList<Symbol> argument_conversor;
-                ObjectList<Symbol> viable_functs;
-                Symbol solved_sym = Overload::solve(
-                        non_members_set,
-                        Type(NULL), // No implicit
-                        arguments,
-                        filename,
-                        line,
-                        valid,
-                        viable_functs,
-                        argument_conversor);
-
-                all_viables.insert(viable_functs);
-
-                if (valid 
-                        && function_is_valid_udr_reductor_cxx(valid_prototypes, 
-                            valid_member_prototypes, 
-                            reduction_type, 
-                            solved_sym,
-                            assoc))
-                {
-                    tentative_result.insert(solved_sym);
-                    found_valid = true;
-                }
-            }
-
-            if (!found_valid
-                    && reduction_type.is_named_class())
-            {
-                // Do likewise for members this time
-                for (ObjectList<udr_valid_member_prototypes_t>::iterator it = valid_member_prototypes.begin();
-                        it != valid_member_prototypes.end();
-                        it++)
-                {
-                    ObjectList<Type> arguments;
-                    arguments.append(it->first_arg);
-
-                    bool valid = false;
-                    ObjectList<Symbol> argument_conversor;
-                    ObjectList<Symbol> viable_functs;
-                    Symbol solved_sym = Overload::solve(
-                            members_set,
-                            reduction_type.get_reference_to(), // implicit argument (it must be a reference)
-                            arguments,
-                            filename,
-                            line,
-                            valid,
-                            viable_functs,
-                            argument_conversor);
-
-                    all_viables.insert(viable_functs);
-
-                    if (valid 
-                            && function_is_valid_udr_reductor_cxx(valid_prototypes, valid_member_prototypes, 
-                                reduction_type, 
-                                solved_sym, assoc))
-                    {
-                        tentative_result.insert(solved_sym);
-                    }
-                }
-            }
-
-            return (tentative_result.size() == 1);
-        }
 
         UDRInfoItem UDRInfoItem::lookup_udr(Scope sc, bool &found, ObjectList<Symbol> &all_viables, 
                 const std::string& filename, int line) const
