@@ -368,7 +368,7 @@ namespace TL
                         else
                         {
                             // Make this a hard error, otherwise lots of false positives will slip in
-                            running_error("%s: error: no suitable reductor operator '%s' was found for reduced variable '%s'",
+                            running_error("%s: error: no suitable reductor operator '%s' was found for reduced variable '%s' of type '%s'",
                                     construct.get_ast().get_locus().c_str(),
                                     reductor_name.c_str(),
                                     var_tree.prettyprint().c_str());

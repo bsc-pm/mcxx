@@ -188,6 +188,48 @@ namespace TL
             return false;
         }
 
+        static std::string get_valid_zero_initializer(Type t)
+        {
+            if (t.is_array())
+            {
+                return "{" + get_valid_zero_initializer(t.array_element()) + "}";
+            }
+            else if (t.is_class())
+            {
+                ObjectList<Symbol> nonstatic_data = t.get_nonstatic_data_members();
+                if (nonstatic_data.empty())
+                {
+                    return "{ }";
+                }
+                else
+                {
+                    return "{" + get_valid_zero_initializer(t.get_nonstatic_data_members()[0].get_type()) + "}";
+                }
+            }
+            else
+            {
+                return "0";
+            }
+        }
+
+        static std::string get_valid_value_initializer(Type t)
+        {
+            if (t.is_dependent())
+                return "";
+
+            if (t.is_class())
+            {
+                if (!t.is_pod())
+                {
+                    // If it is not pod, default initialization should do the right thing
+                    return "constructor()";
+                }
+            }
+            // For most cases, get_valid_zero_initializer is enough
+            return get_valid_zero_initializer(t);
+        }
+
+
         static bool function_is_valid_udr_reductor_c(
                 ObjectList<udr_valid_prototypes_t>& valid_prototypes,
                 Symbol sym, 
@@ -677,7 +719,7 @@ namespace TL
 
             AST_t zero(internal_expression_parse("0", global_scope.get_decl_context()));
             AST_t one(internal_expression_parse("1", global_scope.get_decl_context()));
-            AST_t neg_zero(internal_expression_parse("~1", global_scope.get_decl_context()));
+            AST_t neg_zero(internal_expression_parse("~1u", global_scope.get_decl_context()));
 
             reduction_info_t builtin_arithmetic_operators[] =
             {
@@ -1132,13 +1174,45 @@ namespace TL
                         }
 
                         op_symbols = construct.get_scope().get_symbols_from_id_expr(op_name);
-                        std::cerr << "FIXME - Not solving overload of UDR" << std::endl;
+
+                        if (reduction_type.is_dependent()
+                                && !is_template)
+                        {
+                            running_error("%s: error dependent types are not (yet) supported "
+                                    "unless specified in a template user-defined-reduction\n",
+                                    construct.get_ast().get_locus().c_str());
+                        }
+
+                        ObjectList<Symbol> viable_operators;
+                        if (!solve_overload_for_udr(op_symbols, reduction_type, assoc, 
+                                    viable_operators, 
+                                    construct.get_ast().get_filename(),
+                                    construct.get_ast().get_line()))
+                        {
+                            running_error("%s: error: cannot determine operator for UDR\n",
+                                    construct.get_ast().get_locus().c_str());
+                        }
                     }
 
                     if (!identity_clause.is_defined())
                     {
-                        // FIXME!!
-                        std::cerr << "FIXME - Identity not implemented" << std::endl;
+                        std::string initializer;
+                        C_LANGUAGE()
+                        {
+                            initializer = get_valid_zero_initializer(reduction_type);
+                        }
+                        CXX_LANGUAGE()
+                        {
+                            initializer = get_valid_value_initializer(reduction_type);
+                        }
+
+                        AST_t default_identity_expr;
+                        parse_udr_identity(initializer, construct.get_ast(), default_identity_expr);
+                        new_udr.set_identity(default_identity_expr);
+                    }
+                    else
+                    {
+                        new_udr.set_identity(identity_expr);
                     }
 
                     new_udr.set_operator_symbols(op_symbols);
@@ -1386,6 +1460,95 @@ namespace TL
         void UDRInfoItem::set_is_commutative(bool b)
         {
             _is_commutative = b;
+        }
+
+        static bool solve_overload_for_udr(ObjectList<Symbol> operator_list, Type reduction_type,
+                UDRInfoItem::Associativity assoc,
+                ObjectList<Symbol> &all_viables, const std::string& filename, int line)
+        {
+            bool found_valid = false;
+            ObjectList<udr_valid_prototypes_t> valid_prototypes = get_valid_prototypes_cxx(reduction_type);
+            ObjectList<udr_valid_member_prototypes_t> valid_member_prototypes 
+                = get_valid_member_prototypes_cxx(reduction_type);
+
+            ObjectList<Symbol> members_set = operator_list.filter(OnlyMembers());
+            ObjectList<Symbol> non_members_set = operator_list.filter(OnlyNonMembers());
+
+            ObjectList<Symbol> tentative_result;
+
+            // First the set of nonmembers
+            for (ObjectList<udr_valid_prototypes_t>::iterator it = valid_prototypes.begin();
+                    it != valid_prototypes.end();
+                    it++)
+            {
+                ObjectList<Type> arguments;
+                arguments.append(it->first_arg);
+                arguments.append(it->second_arg);
+
+                bool valid = false;
+                ObjectList<Symbol> argument_conversor;
+                ObjectList<Symbol> viable_functs;
+                Symbol solved_sym = Overload::solve(
+                        non_members_set,
+                        Type(NULL), // No implicit
+                        arguments,
+                        filename,
+                        line,
+                        valid,
+                        viable_functs,
+                        argument_conversor);
+
+                all_viables.insert(viable_functs);
+
+                if (valid 
+                        && function_is_valid_udr_reductor_cxx(valid_prototypes, 
+                            valid_member_prototypes, 
+                            reduction_type, 
+                            solved_sym,
+                            assoc))
+                {
+                    tentative_result.insert(solved_sym);
+                    found_valid = true;
+                }
+            }
+
+            if (!found_valid
+                    && reduction_type.is_named_class())
+            {
+                // Do likewise for members this time
+                for (ObjectList<udr_valid_member_prototypes_t>::iterator it = valid_member_prototypes.begin();
+                        it != valid_member_prototypes.end();
+                        it++)
+                {
+                    ObjectList<Type> arguments;
+                    arguments.append(it->first_arg);
+
+                    bool valid = false;
+                    ObjectList<Symbol> argument_conversor;
+                    ObjectList<Symbol> viable_functs;
+                    Symbol solved_sym = Overload::solve(
+                            members_set,
+                            reduction_type.get_reference_to(), // implicit argument (it must be a reference)
+                            arguments,
+                            filename,
+                            line,
+                            valid,
+                            viable_functs,
+                            argument_conversor);
+
+                    all_viables.insert(viable_functs);
+
+                    if (valid 
+                            && function_is_valid_udr_reductor_cxx(valid_prototypes, valid_member_prototypes, 
+                                reduction_type, 
+                                solved_sym, assoc))
+                    {
+                        tentative_result.insert(solved_sym);
+                    }
+                }
+            }
+
+            return (tentative_result.size() == 1);
         }
 
         UDRInfoItem UDRInfoItem::lookup_udr(Scope sc, bool &found, ObjectList<Symbol> &all_viables, 
