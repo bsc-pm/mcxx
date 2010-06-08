@@ -3117,10 +3117,10 @@ static void explicit_instantiation_handler(FILE* f, AST a, prettyprint_context_t
     if (ASTSon1(a) != NULL)
     {
         prettyprint_level(f, ASTSon1(a), pt_ctx);
-        token_fprintf(f, a, pt_ctx, " ");
     }
     if (ASTSon2(a) != NULL)
     {
+        token_fprintf(f, a, pt_ctx, " ");
         prettyprint_level(f, ASTSon2(a), pt_ctx);
     }
     token_fprintf(f, a, pt_ctx, ";\n");

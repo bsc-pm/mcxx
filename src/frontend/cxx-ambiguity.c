@@ -197,6 +197,136 @@ void solve_parameter_declaration_vs_type_parameter_class(AST a, decl_context_t d
                 ast_location(a));
     }
 }
+static char check_for_decl_spec_seq_followed_by_declarator(AST decl_specifier_seq, AST declarator, decl_context_t decl_context)
+{
+    // A::f(c) has to be interpreted as A::f(c) and never as A   ::f(c)
+    // (if you want the latter you must use A(::f(c))
+    AST type_spec = ASTSon1(decl_specifier_seq);
+    if (type_spec != NULL
+            && ASTSon2(decl_specifier_seq) == NULL
+            && (ASTType(type_spec) == AST_SIMPLE_TYPE_SPECIFIER
+                || ASTType(type_spec) == AST_ELABORATED_TYPE_CLASS
+                || ASTType(type_spec) == AST_ELABORATED_TYPE_ENUM
+                || ASTType(type_spec) == AST_ELABORATED_TYPENAME
+                || ASTType(type_spec) == AST_ELABORATED_TYPENAME_TEMPLATE
+                || ASTType(type_spec) == AST_ELABORATED_TYPE_TEMPLATE_CLASS
+                || ASTType(type_spec) == AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS))
+    {
+        AST declarator_name = get_leftmost_declarator_name(declarator, decl_context);
+
+        if (declarator_name != NULL)
+        {
+            if (ASTType(declarator_name) == AST_QUALIFIED_ID)
+            {
+                AST global_op = ASTSon0(declarator_name);
+                if (global_op != NULL)
+                {
+                    if (ASTType(global_op) != AST_GLOBAL_SCOPE)
+                    {
+                        internal_error("Expecting a global scope operator\n", 0);
+                    }
+
+                    // At this point, this sequence of decl_spec and declarator looks like one of the following
+                    //
+                    //  [AST_SIMPLE_TYPE_SPECIFIER]
+                    //   A::B ::C;
+                    //   ::A::B ::C;
+                    //   A::B<int> ::C;
+                    //   ::A::B<int> ::C;
+                    //   A::template B<int> ::C;
+                    //   ::A::template B<int> ::C;
+                    //  [AST_ELABORATED_TYPE_CLASS]
+                    //   class A::B ::C;
+                    //   class ::A::B ::C;
+                    //  [AST_ELABORATED_TYPE_ENUM]
+                    //   enum A::B ::C;
+                    //   enum ::A::B ::C;
+                    //  [AST_ELABORATED_TYPENAME]
+                    //   typename A::B ::C;
+                    //   typename ::A::B ::C;
+                    //  [AST_ELABORATED_TYPENAME_TEMPLATE]
+                    //   typename A::B<int> ::C;
+                    //   typename ::A::B<int> ::C;
+                    //  [AST_ELABORATED_TYPE_TEMPLATE]
+                    //   class A::B<int> ::C;
+                    //   class ::A::B<int> ::C;
+                    //  [AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE]
+                    //   class template B<int> ::C;
+                    //   class A::template B<int> ::C;
+                    //
+                    // which it is not intended to be a correct
+                    // declaration because the nested name spec has to
+                    // be as long as possible
+                    return 0;
+                }
+            }
+        }
+    }
+
+    return 1;
+}
+
+static void solve_ambiguous_explicit_instantiation(AST a, decl_context_t decl_context)
+{
+    int correct_option = -1;
+    int i;
+    for (i = 0; i < ast_get_num_ambiguities(a); i++)
+    {
+        AST option = ast_get_ambiguity(a, i);
+
+        char valid = 1;
+        // AST storage_class_specifier = ASTSon0(option);
+        AST decl_specifier_seq = ASTSon1(option);
+        AST declarator = ASTSon2(option);
+
+        if (decl_specifier_seq != NULL
+                && ASTType(decl_specifier_seq) == AST_AMBIGUITY)
+        {
+            solve_ambiguous_decl_specifier_seq(decl_specifier_seq, decl_context);
+        }
+
+        if (decl_specifier_seq != NULL
+                && declarator != NULL)
+        {
+            valid = valid && check_for_declarator(declarator, decl_context);
+            valid = valid && check_for_decl_spec_seq_followed_by_declarator(decl_specifier_seq, declarator, decl_context);
+        }
+        else if (declarator != NULL)
+        {
+            valid = valid && check_for_typeless_declarator(declarator, decl_context);
+        }
+        else if (decl_specifier_seq != NULL)
+        {
+            AST type_specifier = ASTSon1(decl_specifier_seq);
+            valid = valid && check_for_type_specifier(type_specifier, decl_context);
+        }
+
+        if (valid)
+        {
+            if (correct_option < 0)
+            {
+                correct_option = i;
+            }
+            else
+            {
+                AST previous_option = ast_get_ambiguity(a, correct_option);
+                AST current_option = option;
+                internal_error("More than one correct_option alternative! %s vs %s\n", 
+                        ast_print_node_type(ASTType(previous_option)),
+                        ast_print_node_type(ASTType(current_option)));
+            }
+        }
+    }
+
+    if (correct_option < 0)
+    {
+        internal_error("Cannot solve ambiguity", 0);
+    }
+    else
+    {
+        choose_option(a, correct_option);
+    }
+}
 
 
 /*
@@ -360,6 +490,24 @@ void solve_ambiguous_declaration(AST a, decl_context_t decl_context)
     if (valid)
     {
         solve_ambiguous_simple_declaration(a, decl_context);
+        return;
+    }
+
+    // Explicit template specification
+    // 
+    // Ambiguity between
+    // 'template A::B' and 'template A  ::B'
+    valid = 1;
+    for (i = 0; (i < ast_get_num_ambiguities(a)) && valid; i++)
+    {
+        AST option = ast_get_ambiguity(a, i);
+
+        valid &= (ASTType(option) == AST_EXPLICIT_INSTANTIATION);
+    }
+
+    if (valid)
+    {
+        solve_ambiguous_explicit_instantiation(a, decl_context);
         return;
     }
 
@@ -808,74 +956,6 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
 }
 
 
-static char check_for_decl_spec_seq_followed_by_declarator(AST decl_specifier_seq, AST declarator, decl_context_t decl_context)
-{
-    // A::f(c) has to be interpreted as A::f(c) and never as A   ::f(c)
-    // (if you want the latest you must use A(::f(c))
-    AST type_spec = ASTSon1(decl_specifier_seq);
-    if (type_spec != NULL
-            && ASTSon2(decl_specifier_seq) == NULL
-            && (ASTType(type_spec) == AST_SIMPLE_TYPE_SPECIFIER
-                || ASTType(type_spec) == AST_ELABORATED_TYPE_CLASS
-                || ASTType(type_spec) == AST_ELABORATED_TYPE_ENUM
-                || ASTType(type_spec) == AST_ELABORATED_TYPENAME
-                || ASTType(type_spec) == AST_ELABORATED_TYPENAME_TEMPLATE
-                || ASTType(type_spec) == AST_ELABORATED_TYPE_TEMPLATE_CLASS
-                || ASTType(type_spec) == AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS))
-    {
-        AST declarator_name = get_leftmost_declarator_name(declarator, decl_context);
-
-        if (declarator_name != NULL)
-        {
-            if (ASTType(declarator_name) == AST_QUALIFIED_ID)
-            {
-                AST global_op = ASTSon0(declarator_name);
-                if (global_op != NULL)
-                {
-                    if (ASTType(global_op) != AST_GLOBAL_SCOPE)
-                    {
-                        internal_error("Expecting a global scope operator\n", 0);
-                    }
-
-                    // At this point, this sequence of decl_spec and declarator looks like one of the following
-                    //
-                    //  [AST_SIMPLE_TYPE_SPECIFIER]
-                    //   A::B ::C;
-                    //   ::A::B ::C;
-                    //   A::B<int> ::C;
-                    //   ::A::B<int> ::C;
-                    //   A::template B<int> ::C;
-                    //   ::A::template B<int> ::C;
-                    //  [AST_ELABORATED_TYPE_CLASS]
-                    //   class A::B ::C;
-                    //   class ::A::B ::C;
-                    //  [AST_ELABORATED_TYPE_ENUM]
-                    //   enum A::B ::C;
-                    //   enum ::A::B ::C;
-                    //  [AST_ELABORATED_TYPENAME]
-                    //   typename A::B ::C;
-                    //   typename ::A::B ::C;
-                    //  [AST_ELABORATED_TYPENAME_TEMPLATE]
-                    //   typename A::B<int> ::C;
-                    //   typename ::A::B<int> ::C;
-                    //  [AST_ELABORATED_TYPE_TEMPLATE]
-                    //   class A::B<int> ::C;
-                    //   class ::A::B<int> ::C;
-                    //  [AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE]
-                    //   class template B<int> ::C;
-                    //   class A::template B<int> ::C;
-                    //
-                    // which it is not intended to be a correct
-                    // declaration because the nested name spec has to
-                    // be as long as possible
-                    return 0;
-                }
-            }
-        }
-    }
-
-    return 1;
-}
 
 static char check_for_simple_declaration(AST a, decl_context_t decl_context)
 {
