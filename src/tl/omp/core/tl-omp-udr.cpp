@@ -610,6 +610,34 @@ namespace TL
             return ObjectList<udr_valid_member_prototypes_t>(valid_prototypes);
         }
 
+        // FIXME - This is awful
+        // This function creates a fake symbol which is not actually signed in any scope
+        // It is used just for builtin UDR which do not have a backing symbol actually
+        static scope_entry_t* new_udr_builtin_symbol(type_t* type, 
+                const std::string& str, 
+                decl_context_t decl_context)
+        {
+            scope_entry_t* result = (scope_entry_t*)calloc(1, sizeof(*result));
+            result->symbol_name = uniquestr(("operator " + str).c_str());
+            result->kind = SK_FUNCTION;
+
+            parameter_info_t parameter_info[2] = 
+            {
+                { 0, type, type },
+                { 0, type, type },
+            };
+
+            type_t* function_type_info = get_new_function_type(type,
+                    parameter_info, 2);
+
+            result->type_information = function_type_info;
+
+            result->decl_context = decl_context;
+            result->file = uniquestr("(global-scope)");
+            result->line = 0;
+
+            return result;
+        }
 
         void initialize_builtin_udr_reductions(Scope global_scope)
         {
@@ -686,6 +714,13 @@ namespace TL
                     new_udr.set_associativity(UDRInfoItem::LEFT);
                     new_udr.set_is_commutative(true);
 
+                    ObjectList<Symbol> op_symbols;
+                    op_symbols.append(Symbol(new_udr_builtin_symbol( 
+                                    type,
+                                    builtin_arithmetic_operators[j].operator_name,
+                                    global_scope.get_decl_context())));
+                    new_udr.set_operator_symbols(op_symbols);
+
                     new_udr.sign_in_scope(global_scope);
                 }
                 if (is_integral_type(type))
@@ -701,6 +736,13 @@ namespace TL
                         new_udr.set_reduction_type(Type(type));
                         new_udr.set_associativity(UDRInfoItem::LEFT);
                         new_udr.set_is_commutative(true);
+
+                        ObjectList<Symbol> op_symbols;
+                        op_symbols.append(Symbol(new_udr_builtin_symbol( 
+                                        type,
+                                        builtin_logic_bit_operators[j].operator_name,
+                                        global_scope.get_decl_context())));
+                        new_udr.set_operator_symbols(op_symbols);
 
                         new_udr.sign_in_scope(global_scope);
                     }
@@ -1372,11 +1414,11 @@ namespace TL
                     RefPtr<UDRInfoItem> obj = 
                         RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
 
-                    // There is only one in C
-                    Symbol op_sym = obj->get_operator_symbols()[0];
                     if (obj->get_reduction_type().is_same_type(current_udr.get_reduction_type()))
                     {
                         result = *obj;
+                        // There is only one in C
+                        Symbol op_sym = obj->get_operator_symbols()[0];
                         all_viables.insert(op_sym);
                     }
                 }
@@ -1514,7 +1556,7 @@ namespace TL
 
             RefPtr<UDRInfoItem> cp(new UDRInfoItem(*this));
 
-            sc.set_attribute("udr_info", cp);
+            sym.set_attribute("udr_info", cp);
         }
 
         bool UDRInfoItem::has_identity() const
