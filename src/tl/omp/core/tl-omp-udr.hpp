@@ -63,7 +63,7 @@ namespace TL
                 bool _is_commutative;
 
                 bool _has_identity;
-                Expression _identity;
+                AST_t _identity;
             public:
                 UDRInfoItem();
 
@@ -92,9 +92,9 @@ namespace TL
                 void set_is_template_reduction(bool b);
                 bool get_is_template_reduction() const;
 
-                void set_has_identity(Expression expr);
                 bool has_identity() const; 
-                Expression get_identity() const;
+                void set_identity(AST_t identity);
+                AST_t get_identity() const;
                 bool identity_is_constructor() const;
 
                 bool get_is_commutative() const;

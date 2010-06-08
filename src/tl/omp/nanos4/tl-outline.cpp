@@ -434,12 +434,12 @@ namespace TL
                     {
                         if (udr.identity_is_constructor())
                         {
-                            static_initializer << udr.get_identity()
+                            static_initializer << udr.get_identity().prettyprint()
                                 ;
                         }
                         else
                         {
-                            static_initializer << " = " << udr.get_identity()
+                            static_initializer << " = " << udr.get_identity().prettyprint()
                                 ;
                         }
                     }
@@ -452,12 +452,12 @@ namespace TL
                             // Prepend with the constructor name
                             element_level_initializer
                                 << type.get_declaration(construct.get_scope(), "")
-                                << udr.get_identity();
+                                << udr.get_identity().prettyprint();
                         }
                         else
                         {
                             element_level_initializer 
-                                << udr.get_identity();
+                                << udr.get_identity().prettyprint();
                         }
 
                         if (!is_variably_modified)
@@ -675,7 +675,7 @@ namespace TL
 
                 if (udr.identity_is_constructor())
                 {
-                    init << udr.get_identity()
+                    init << udr.get_identity().prettyprint()
                         ;
                 }
                 else if (udr.has_identity())
@@ -684,7 +684,7 @@ namespace TL
                 }
                 else
                 {
-                    init << " = " << udr.get_identity()
+                    init << " = " << udr.get_identity().prettyprint()
                         ;
                 }
             }

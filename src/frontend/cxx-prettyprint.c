@@ -211,6 +211,7 @@ HANDLER_PROTOTYPE(custom_construct_parameter);
 // OpenMP
 HANDLER_PROTOTYPE(omp_udr_member_op_handler);
 HANDLER_PROTOTYPE(omp_udr_constructor_handler);
+HANDLER_PROTOTYPE(omp_udr_constructor_arguments_handler);
 
 // GCC Extensions
 HANDLER_PROTOTYPE(gcc_label_declaration_handler);
@@ -576,6 +577,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_OMP_UDR_BUILTIN_OP, simple_text_handler, NULL),
     NODE_HANDLER(AST_OMP_UDR_MEMBER_OP, omp_udr_member_op_handler, NULL),
     NODE_HANDLER(AST_OMP_UDR_CONSTRUCTOR, omp_udr_constructor_handler, NULL),
+    NODE_HANDLER(AST_OMP_UDR_CONSTRUCTOR_ARGUMENTS, omp_udr_constructor_arguments_handler, NULL),
     // GCC Extensions
     NODE_HANDLER(AST_GCC_EXTENSION, gcc_extension_prefix_handler, "__extension__ "),
     NODE_HANDLER(AST_GCC_EXTENSION_EXPR, prefix_with_token_text_then_son_handler, NULL),
@@ -3227,164 +3229,6 @@ static void gcc_parenthesized_expression_handler(FILE* f, AST a, prettyprint_con
     token_fprintf(f, a, pt_ctx, "})");
 }
 
-// OpenMP 2.5
-
-// static void omp_generic_construct_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     prettyprint_level(f, ASTSon0(a), pt_ctx);
-//     prettyprint_level(f, ASTSon1(a), pt_ctx);
-// }
-// 
-// static void omp_custom_clause_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     token_fprintf(f, a, pt_ctx, "%s", ASTText(a));
-//     if (ASTSon0(a) != NULL)
-//     {
-//         token_fprintf(f, a, pt_ctx, "(");
-//         list_handler(f, ASTSon0(a), pt_ctx);
-//         token_fprintf(f, a, pt_ctx, ")");
-//     }
-// }
-// 
-// static void omp_custom_parameter_clause_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     token_fprintf(f, a, pt_ctx, "(");
-//     if (ASTSon0(a) != NULL)
-//     {
-//         list_handler(f, ASTSon0(a), pt_ctx);
-//     }
-//     token_fprintf(f, a, pt_ctx, ")");
-// }
-// 
-// static void omp_custom_directive_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     token_fprintf(f, a, pt_ctx, "#pragma omp %s", ASTText(a));
-//     if (ASTSon0(a) != NULL)
-//     {
-//         token_fprintf(f, a, pt_ctx, " ");
-//         spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
-//     }
-//     token_fprintf(f, a, pt_ctx, "\n");
-// }
-// 
-// static void omp_custom_construct_directive_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     token_fprintf(f, a, pt_ctx, "#pragma omp %s", ASTText(a));
-//     if (ASTSon0(a) != NULL)
-//     {
-//         token_fprintf(f, a, pt_ctx, " ");
-//         spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
-//     }
-//     token_fprintf(f, a, pt_ctx, "\n");
-// }
-// 
-// static void omp_generic_directive_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     token_fprintf(f, a, pt_ctx, "#pragma omp %s", HELPER_PARAMETER_STRING);
-//     if (ASTSon0(a) != NULL)
-//     {
-//         token_fprintf(f, a, pt_ctx, " ");
-//         spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
-//     }
-//     token_fprintf(f, a, pt_ctx, "\n");
-// }
-// 
-// static void omp_generic_clause_handler_with_argument(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     token_fprintf(f, a, pt_ctx, "%s", HELPER_PARAMETER_STRING);
-//     token_fprintf(f, a, pt_ctx, "(");
-//     prettyprint_level(f, ASTSon0(a), pt_ctx);
-//     token_fprintf(f, a, pt_ctx, ")");
-// }
-// 
-// static void omp_generic_clause_handler_with_optional_list(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     token_fprintf(f, a, pt_ctx, "%s", HELPER_PARAMETER_STRING);
-//     if (ASTSon0(a) != NULL)
-//     {
-//         token_fprintf(f, a, pt_ctx, "(");
-//         list_handler(f, ASTSon0(a), pt_ctx);
-//         token_fprintf(f, a, pt_ctx, ")");
-//     }
-// }
-// 
-// static void omp_generic_clause_handler_with_list(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     token_fprintf(f, a, pt_ctx, "%s", HELPER_PARAMETER_STRING);
-//     token_fprintf(f, a, pt_ctx, "(");
-//     list_handler(f, ASTSon0(a), pt_ctx);
-//     token_fprintf(f, a, pt_ctx, ")");
-// }
-// 
-// static void omp_schedule_clause_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     token_fprintf(f, a, pt_ctx, "schedule(");
-//     prettyprint_level(f, ASTSon0(a), pt_ctx);
-//     if (ASTSon1(a) != NULL)
-//     {
-//         token_fprintf(f, a, pt_ctx, ", ");
-//         prettyprint_level(f, ASTSon1(a), pt_ctx);
-//     }
-//     token_fprintf(f, a, pt_ctx, ")");
-// }
-// 
-// static void omp_critical_directive_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     token_fprintf(f, a, pt_ctx, "#pragma omp critical ");
-//     if (ASTSon0(a) != NULL)
-//     {
-//         token_fprintf(f, a, pt_ctx, "(");
-//         prettyprint_level(f, ASTSon0(a), pt_ctx);
-//         token_fprintf(f, a, pt_ctx, ")");
-//     }
-//     token_fprintf(f, a, pt_ctx, "\n");
-// }
-// 
-// static void omp_reduction_clause_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     token_fprintf(f, a, pt_ctx, "reduction");
-//     token_fprintf(f, a, pt_ctx, "(");
-//     prettyprint_level(f, ASTSon0(a), pt_ctx);
-//     token_fprintf(f, a, pt_ctx, ":");
-//     list_handler(f, ASTSon1(a), pt_ctx);
-//     token_fprintf(f, a, pt_ctx, ")");
-// }
-// 
-// static void omp_sections_construct_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     prettyprint_level(f, ASTSon0(a), pt_ctx);
-// 
-//     indent_at_level(f, a, pt_ctx);
-//     token_fprintf(f, a, pt_ctx, "{\n");
-//     NEW_PT_CONTEXT(new_pt_ctx, increase_level);
-//     prettyprint_level(f, ASTSon1(a), new_pt_ctx);
-//     indent_at_level(f, a, pt_ctx);
-//     token_fprintf(f, a, pt_ctx, "}\n");
-// }
-// 
-// static void omp_section_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     if (ASTSon0(a) != NULL)
-//     {
-//         prettyprint_level(f, ASTSon0(a), pt_ctx);
-//     }
-//     prettyprint_level(f, ASTSon1(a), pt_ctx);
-// }
-// 
-// static void omp_threadprivate_directive_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     token_fprintf(f, a, pt_ctx, "#pragma omp threadprivate");
-//     token_fprintf(f, a, pt_ctx, "(");
-//     list_handler(f, ASTSon0(a), pt_ctx);
-//     token_fprintf(f, a, pt_ctx, ")");
-//     token_fprintf(f, a, pt_ctx, "\n");
-// }
-// 
-// static void omp_default_custom_clause_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx UNUSED_PARAMETER)
-// {
-//     token_fprintf(f, a, pt_ctx, "default(%s)", ASTText(a));
-// }
-
 static void array_section_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     prettyprint_level(f, ASTSon0(a), pt_ctx);
@@ -3524,6 +3368,11 @@ static void omp_udr_member_op_handler(FILE* f, AST a, prettyprint_context_t* pt_
 static void omp_udr_constructor_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     token_fprintf(f, a, pt_ctx, "%s", "constructor");
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
+}
+
+static void omp_udr_constructor_arguments_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
     if (ASTSon0(a) != NULL)
     {
         token_fprintf(f, a, pt_ctx, "(");

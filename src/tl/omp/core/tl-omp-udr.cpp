@@ -644,19 +644,19 @@ namespace TL
             typedef struct 
             {
                 const char* operator_name;
-                const char* neuter_tree;
+                AST_t identity;
             } reduction_info_t; 
 
-            const char* zero = "0";
-            const char* one = "1";
-            const char* neg_zero = "~0";
+            AST_t zero(internal_expression_parse("0", global_scope.get_decl_context()));
+            AST_t one(internal_expression_parse("1", global_scope.get_decl_context()));
+            AST_t neg_zero(internal_expression_parse("~1", global_scope.get_decl_context()));
 
             reduction_info_t builtin_arithmetic_operators[] =
             {
                 {"+", zero}, 
                 {"-", zero}, 
                 {"*", one}, 
-                {NULL, NULL}
+                {NULL, AST_t(NULL)}
             };
 
             reduction_info_t builtin_logic_bit_operators[] =
@@ -666,7 +666,7 @@ namespace TL
                 {"^", zero}, 
                 {"&&", one}, 
                 {"||", zero}, 
-                {NULL, NULL}
+                {NULL, AST_t(NULL)}
             };
 
             int i;
@@ -680,6 +680,8 @@ namespace TL
 
                     new_udr.set_builtin_operator(
                             builtin_arithmetic_operators[j].operator_name);
+                    new_udr.set_identity(
+                            builtin_arithmetic_operators[j].identity);
                     new_udr.set_reduction_type(Type(type));
                     new_udr.set_associativity(UDRInfoItem::LEFT);
                     new_udr.set_is_commutative(true);
@@ -693,7 +695,9 @@ namespace TL
                         UDRInfoItem new_udr;
 
                         new_udr.set_builtin_operator(
-                                builtin_arithmetic_operators[j].operator_name);
+                                builtin_logic_bit_operators[j].operator_name);
+                        new_udr.set_identity(
+                                builtin_logic_bit_operators[j].identity);
                         new_udr.set_reduction_type(Type(type));
                         new_udr.set_associativity(UDRInfoItem::LEFT);
                         new_udr.set_is_commutative(true);
@@ -770,7 +774,7 @@ namespace TL
 
             if (parse_result != 0)
             {
-                running_error("Could not parse omp udr argument\n\n%s\n", 
+                running_error("Could not parse OpenMP user-defined reduction argument\n\n%s\n", 
                         TL::Source::format_source(mangled_str).c_str());
             }
 
@@ -842,6 +846,59 @@ namespace TL
             }
         }
 
+        static void parse_udr_identity(const std::string& omp_udr_identity,
+                AST_t reference_tree,
+                AST_t &parsed_tree)
+        {
+            std::string parsed_string = "@OMP_UDR_IDENTITY@ ";
+
+            std::string constructor_str = "constructor";
+
+            // Replace 'constructor' with a special token (otherwise
+            // 'constructor'syntax  would be seen as a plain function call)
+            if (omp_udr_identity.substr(0, constructor_str.size()) == constructor_str)
+            {
+                parsed_string += "@OMP_UDR_CONSTRUCTOR@" + omp_udr_identity.substr(constructor_str.size());
+            }
+            else
+            {
+                parsed_string += omp_udr_identity;
+            }
+
+            char *str = strdup(parsed_string.c_str());
+
+            C_LANGUAGE()
+            {
+                mc99_prepare_string_for_scanning(str);
+            }
+            CXX_LANGUAGE()
+            {
+                mcxx_prepare_string_for_scanning(str);
+            }
+
+            int parse_result = 0;
+            AST a;
+
+            CXX_LANGUAGE()
+            {
+                parse_result = mcxxparse(&a);
+            }
+            C_LANGUAGE()
+            {
+                parse_result = mc99parse(&a);
+            }
+
+            if (parse_result != 0)
+            {
+                running_error("Could not parse OpenMP user-defined reduction identity\n\n%s\n", 
+                        TL::Source::format_source(parsed_string).c_str());
+            }
+
+            parsed_tree = AST_t(a);
+
+            free(str);
+        }
+
 
         void Core::declare_reduction_handler_pre(PragmaCustomConstruct construct)
         {
@@ -901,10 +958,13 @@ namespace TL
                 }
             }
 
+            AST_t identity_expr(NULL);
             PragmaCustomClause identity_clause = construct.get_clause("identity");
             if (identity_clause.is_defined())
             {
-                internal_error("Not yet implemented", 0);
+                std::string identity_str = identity_clause.get_arguments(ExpressionTokenizerTrim())[0];
+
+                parse_udr_identity(identity_str, construct.get_ast(), identity_expr);
             }
 
             PragmaCustomClause commutative_clause = construct.get_clause("commutative");
@@ -1174,7 +1234,7 @@ namespace TL
             _num_dimensions(0),
             _is_commutative(false),
             _has_identity(false),
-            _identity(NULL, ScopeLink())
+            _identity(NULL)
         {
         }
 
@@ -1455,6 +1515,37 @@ namespace TL
             RefPtr<UDRInfoItem> cp(new UDRInfoItem(*this));
 
             sc.set_attribute("udr_info", cp);
+        }
+
+        bool UDRInfoItem::has_identity() const
+        {
+            return _has_identity;
+        }
+
+        void UDRInfoItem::set_identity(AST_t identity)
+        {
+            _identity = identity;
+            _has_identity = _identity.is_valid();
+        }
+
+        AST_t UDRInfoItem::get_identity() const
+        {
+            if (identity_is_constructor())
+            {
+                return _identity.children()[0];
+            }
+            else
+                return _identity;
+        }
+
+        bool UDRInfoItem::identity_is_constructor() const
+        {
+            if (_identity.is_valid())
+            {
+                return _identity.internal_ast_type_() == AST_OMP_UDR_CONSTRUCTOR;
+            }
+            else 
+                return false;
         }
     }
 }
