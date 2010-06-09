@@ -6458,11 +6458,27 @@ static char check_for_delete_expression(AST expression, decl_context_t decl_cont
         decl_context_t op_delete_context = decl_context;
 
         if (global_op == NULL
-                && is_pointer_to_class_type(deleted_expr_type)
-                && is_complete_type(get_actual_class_type(pointer_type_get_pointee_type(deleted_expr_type))))
+                && is_pointer_to_class_type(deleted_expr_type))
         {
-            op_delete_context = class_type_get_inner_context(
-                    get_actual_class_type(pointer_type_get_pointee_type(deleted_expr_type)));
+            type_t* class_type = pointer_type_get_pointee_type(deleted_expr_type);
+
+            if (class_type_is_incomplete_independent(get_actual_class_type(class_type)))
+            {
+                scope_entry_t* entry = named_type_get_symbol(class_type);
+                instantiate_template_class(entry, decl_context,
+                        ASTFileName(expression), ASTLine(expression));
+            }
+
+            if (is_complete_type(class_type))
+            {
+                op_delete_context = class_type_get_inner_context(
+                        get_actual_class_type(pointer_type_get_pointee_type(deleted_expr_type)));
+            }
+            else
+            {
+                running_error("%s: error: cannot delete an incomplete class type\n",
+                        ast_location(expression));
+            }
         }
         else
         {

@@ -348,6 +348,12 @@ typedef struct entity_specifiers_tag
     // arguments
     char is_template_argument:1;
 
+    // This is for specialized template types, it states that the symbol
+    // has also appeared in a declaration. Many specialized templates are
+    // created by the typesystem and do not have to be considered when
+    // solving templates
+    char template_is_declared:1;
+
     // Some bits have been moved here, they are repeated in comments below next
     // to their protecting fields
     char is_template_parameter:1;

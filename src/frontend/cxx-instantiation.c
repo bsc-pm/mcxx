@@ -997,16 +997,22 @@ void instantiate_template_class(scope_entry_t* entry, decl_context_t decl_contex
 
     if (selected_template != NULL)
     {
+        if (is_incomplete_type(selected_template))
+        {
+            running_error("%s:%d: instantiation of '%s' is not possible at this point since its most specialized template '%s' is incomplete\n", 
+                    filename, line, 
+                    print_type_str(get_user_defined_type(entry), decl_context),
+                    print_type_str(selected_template, decl_context));
+        }
+
         instantiate_specialized_template_class(selected_template, 
                 get_user_defined_type(entry),
                 unification_set, filename, line);
     }
     else
     {
-        internal_error("Could not instantiate template '%s' declared for first time in '%s:%d'", 
-                entry->symbol_name,
-                entry->file,
-                entry->line);
+        running_error("%s:%d: instantiation of '%s' is not possible at this point\n", 
+                filename, line, print_type_str(get_user_defined_type(entry), decl_context));
     }
 }
 

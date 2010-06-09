@@ -1719,6 +1719,9 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
     {
         // Only update this when the class has not already been defined
         template_specialized_type_update_template_parameters(class_type, decl_context.template_parameters);
+
+        // State this symbol has been created by the code and not by the type system
+        class_entry->entity_specs.template_is_declared = 1;
     }
 
     *type_info = get_user_defined_type(class_entry);
@@ -3613,6 +3616,9 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     if (is_template_specialized_type(class_type))
     {
         template_specialized_type_update_template_parameters(class_type, decl_context.template_parameters);
+
+        // State this symbol has been created by the code and not by the type system
+        class_entry->entity_specs.template_is_declared = 1;
     }
 
     ERROR_CONDITION(class_entry != NULL

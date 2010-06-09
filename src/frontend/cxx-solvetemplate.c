@@ -73,17 +73,25 @@ type_t* solve_class_template(decl_context_t decl_context,
         }
 
         // We do not want these for instantiation purposes
-        if (class_type_is_incomplete_independent(
-                    get_actual_class_type(current_specialized_type))
-                || class_type_is_incomplete_dependent(
-                    get_actual_class_type(current_specialized_type)))
+        if (!named_type_get_symbol(current_specialized_type)->entity_specs.template_is_declared)
+        // if (class_type_is_incomplete_independent(
+        //             get_actual_class_type(current_specialized_type))
+        //         || class_type_is_incomplete_dependent(
+        //             get_actual_class_type(current_specialized_type)))
         {
             DEBUG_CODE()
             {
                 scope_entry_t* entry = named_type_get_symbol(current_specialized_type);
-                fprintf(stderr, "SOLVETEMPLATE: Discarding '%s:%d' since it is incomplete\n",
+                fprintf(stderr, "SOLVETEMPLATE: Discarding '%s' (%s:%d) since it has been created by the typesystem\n",
+                        print_type_str(current_specialized_type, decl_context),
                         entry->file, entry->line);
             }
+            continue;
+        }
+
+        if (equivalent_types(current_specialized_type, specialized_type))
+        {
+            // Ourselves is not an option
             continue;
         }
 
