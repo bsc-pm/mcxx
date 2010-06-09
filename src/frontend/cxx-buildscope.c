@@ -280,7 +280,7 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
             null_keyword->entity_specs.is_builtin = 1;
         }
 
-        // There are two 'operator new' and one 'operator delete' at global scope
+        // There are two 'operator new' and two 'operator delete' at global scope
         {
             scope_entry_t* global_operator_new;
             global_operator_new = new_symbol(decl_context, decl_context.global_scope, "operator new");
@@ -324,6 +324,25 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
         {
             scope_entry_t* global_operator_delete;
             global_operator_delete = new_symbol(decl_context, decl_context.global_scope, "operator delete");
+            global_operator_delete->kind = SK_FUNCTION;
+            global_operator_delete->do_not_print = 1;
+
+            type_t* return_type = get_void_type();
+
+            parameter_info_t parameter_info[1] = { 
+                { .is_ellipsis = 0, .type_info = get_pointer_type(get_void_type()) } 
+            };
+            
+            global_operator_delete->type_information = get_new_function_type(return_type, parameter_info, 1);
+            global_operator_delete->entity_specs.num_parameters = 1;
+            global_operator_delete->entity_specs.default_argument_info
+                = empty_default_argument_info(/* num_parameters */ 1);
+
+            global_operator_delete->file = "(global scope)";
+        }
+        {
+            scope_entry_t* global_operator_delete;
+            global_operator_delete = new_symbol(decl_context, decl_context.global_scope, "operator delete[]");
             global_operator_delete->kind = SK_FUNCTION;
             global_operator_delete->do_not_print = 1;
 

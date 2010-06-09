@@ -6135,8 +6135,6 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
 
             scope_entry_list_t *operator_new_list = query_id_expression(op_new_context, called_operation_new_tree);
 
-            // ERROR_CONDITION(operator_new_list == NULL, "This cannot be empty, at least there should be the global scope one\n", 0);
-
             if (operator_new_list == NULL)
             {
                 if (!checking_ambiguity())
@@ -6478,8 +6476,8 @@ static char check_for_delete_expression(AST expression, decl_context_t decl_cont
         {
             if (!checking_ambiguity())
             {
-                fprintf(stderr, "warning: %s: no suitable '%s' has been found in the scope\n",
-                        ast_location(operation_delete_name),
+                fprintf(stderr, "%s: warning: no suitable '%s' has been found in the scope\n",
+                        ast_location(expression),
                         prettyprint_in_buffer(operation_delete_name));
             }
             return 0;
@@ -6509,12 +6507,11 @@ static char check_for_delete_expression(AST expression, decl_context_t decl_cont
 
         if (chosen == NULL)
         {
-            fprintf(stderr, "warning: %s: no suitable '%s' valid for deallocation of '%s' has been found in the scope\n",
+            fprintf(stderr, "%s: warning: no suitable '%s' valid for deallocation of '%s' has been found in the scope\n",
                     ast_location(expression),
                     prettyprint_in_buffer(operation_delete_name),
                     print_decl_type_str(pointer_type_get_pointee_type(deleted_expr_type), 
                         decl_context, ""));
-
 #if 0
             it = operator_delete_list;
             fprintf(stderr, "note: %s: all '%s' found were\n", 
