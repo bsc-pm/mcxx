@@ -192,6 +192,8 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
                 template_type_get_primary_type(
                     template_specialized_type_get_related_template_type(member_of_template->type_information)))->entity_specs;
 
+    named_type_get_symbol(new_primary_template)->entity_specs.template_is_declared = 1;
+
     named_type_get_symbol(new_primary_template)->entity_specs.class_type = being_instantiated;
 
     class_type_add_member(
@@ -413,7 +415,10 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             new_member->line, 
                             new_member->file);
 
-                    type_t* primary_specialization = named_type_get_symbol(template_type_get_primary_type(template_type))->type_information;
+                    scope_entry_t* primary_template = named_type_get_symbol(template_type_get_primary_type(template_type));
+                    primary_template->entity_specs.template_is_declared = 1;
+
+                    type_t* primary_specialization = primary_template->type_information;
 
                     // Fix some bits inherited from the original class type
                     class_type_set_enclosing_class_type(get_actual_class_type(primary_specialization),
@@ -548,6 +553,8 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                 context_of_being_instantiated,
                                 member_of_template->line, 
                                 member_of_template->file);
+
+                        named_type_get_symbol(new_template_specialized_type)->entity_specs.template_is_declared = 1;
 
                         class_type_add_member(
                                 get_actual_class_type(being_instantiated),

@@ -1479,7 +1479,7 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
         DEBUG_CODE()
         {
             fprintf(stderr, "TYPEUTILS: Checking with specialization '%s' (%p) at '%s:%d'\n",
-                    entry->symbol_name,
+                    print_type_str(specialization, decl_context),
                     entry->type_information,
                     entry->file,
                     entry->line);
@@ -1493,7 +1493,9 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
             DEBUG_CODE()
             {
                 fprintf(stderr, "TYPEUTILS: An existing specialization matches '%s'\n", print_declarator(entry->type_information));
-                fprintf(stderr, "TYPEUTILS: Returning template type %p\n", entry->type_information);
+                fprintf(stderr, "TYPEUTILS: Returning template %s %p\n", 
+                        print_type_str(specialization, decl_context),
+                        entry->type_information);
             }
 
             if (BITMAP_TEST(decl_context.decl_flags, DF_UPDATE_TEMPLATE_ARGUMENTS))
