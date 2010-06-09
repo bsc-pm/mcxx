@@ -6457,8 +6457,9 @@ static char check_for_delete_expression(AST expression, decl_context_t decl_cont
 
         decl_context_t op_delete_context = decl_context;
 
-        if (is_pointer_to_class_type(deleted_expr_type)
-                && global_op == NULL)
+        if (global_op == NULL
+                && is_pointer_to_class_type(deleted_expr_type)
+                && is_complete_type(get_actual_class_type(pointer_type_get_pointee_type(deleted_expr_type))))
         {
             op_delete_context = class_type_get_inner_context(
                     get_actual_class_type(pointer_type_get_pointee_type(deleted_expr_type)));
