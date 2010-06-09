@@ -8173,6 +8173,9 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
     scope_entry_t* entry = entry_list->entry;
     C_LANGUAGE()
     {
+        // Store the symbol found
+        expression_set_symbol(id_expression, entry);
+
         // C only will have fields
         expression_set_type(member_access, entry->type_information);
         expression_set_is_lvalue(member_access, 1);
@@ -8183,6 +8186,9 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
     {
         if (entry->kind == SK_VARIABLE)
         {
+            // Store the member found
+            expression_set_symbol(id_expression, entry);
+
             // This is a reference to the type
             if (!is_dependent_expr_type(entry->type_information))
             {
