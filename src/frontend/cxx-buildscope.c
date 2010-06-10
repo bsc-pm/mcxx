@@ -5129,6 +5129,9 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
     if (is_unnamed_class_type(declarator_type)
             || is_unnamed_enumerated_type(declarator_type))
     {
+        // All class and enum types are named at least with <<anonymous>>
+        internal_error("Code unreachable", 0);
+#if 0
         if (is_class_type(declarator_type))
         {
             entry->kind = SK_CLASS;
@@ -5156,11 +5159,20 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         // Remember this symbol has been created because of
         // a typedef against an unnamed struct/enum
         entry->entity_specs.after_typedef = 1;
+#endif
     }
     else
     {
         entry->kind = SK_TYPEDEF;
         entry->type_information = declarator_type;
+
+        // Update the name of an unnamed type
+        if (is_named_type(declarator_type)
+                && (strcmp(named_type_get_symbol(declarator_type)->symbol_name, "<<anonymous>>") == 0))
+        {
+            scope_entry_t* symbol_type = named_type_get_symbol(declarator_type);
+            symbol_type->symbol_name = entry->symbol_name;
+        }
     }
 
     return entry;
