@@ -83,21 +83,26 @@ namespace TL
         return result;
     }
 
-    ObjectList<Symbol> Scope::get_symbols_from_id_expr(TL::AST_t ast) const
+    ObjectList<Symbol> Scope::get_symbols_from_id_expr(TL::AST_t ast, bool examine_uninstantiated) const
     {
         ObjectList<Symbol> result;
         AST _ast = ast._ast;
 
-        scope_entry_list_t* entry_list = query_id_expression(_decl_context, _ast);
+        decl_flags_t flags = DF_NONE;
+
+        if (!examine_uninstantiated)
+            flags = DF_DEPENDENT_TYPENAME;
+
+        scope_entry_list_t* entry_list = query_id_expression_flags(_decl_context, _ast, flags);
 
         convert_to_vector(entry_list, result);
 
         return result;
     }
 
-    Symbol Scope::get_symbol_from_id_expr(TL::AST_t ast) const
+    Symbol Scope::get_symbol_from_id_expr(TL::AST_t ast, bool examine_uninstantiated) const
     {
-        ObjectList<Symbol> list = this->get_symbols_from_id_expr(ast);
+        ObjectList<Symbol> list = this->get_symbols_from_id_expr(ast, examine_uninstantiated);
 
         Symbol result(NULL);
         get_head(list, result);

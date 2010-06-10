@@ -214,8 +214,9 @@ namespace TL
 
         static std::string get_valid_value_initializer(Type t)
         {
+            // Fall back
             if (t.is_dependent())
-                return "";
+                return "constructor()";
 
             if (t.is_class())
             {
@@ -1194,6 +1195,7 @@ namespace TL
                     UDRInfoItem new_udr;
 
                     new_udr.set_is_commutative(is_commutative);
+
                     new_udr.set_is_array_reduction(is_array);
                     if (is_array)
                     {
@@ -1202,6 +1204,7 @@ namespace TL
                     new_udr.set_reduction_type(reduction_type);
 
                     AST_t& op_name(*op_it);
+
                     // Perform lookup and further checking
                     C_LANGUAGE()
                     {
@@ -1261,7 +1264,13 @@ namespace TL
                             op_name = src.parse_id_expression(construct.get_ast(), construct.get_scope_link());
                         }
 
-                        op_symbols = construct.get_scope().get_symbols_from_id_expr(op_name);
+                        if (is_template)
+                        {
+                            new_udr.set_is_template_reduction(is_template);
+                        }
+
+                        op_symbols = construct.get_scope().get_symbols_from_id_expr(op_name,
+                                /* examine_uninstantiated */ false);
 
                         if (reduction_type.is_dependent()
                                 && !is_template)
@@ -1271,14 +1280,38 @@ namespace TL
                                     construct.get_ast().get_locus().c_str());
                         }
 
-                        ObjectList<Symbol> viable_operators;
-                        if (!solve_overload_for_udr(op_symbols, reduction_type, assoc, 
-                                    viable_operators, 
-                                    construct.get_ast().get_file(),
-                                    construct.get_ast().get_line()))
+                        if (!op_symbols.empty()
+                                && !op_symbols[0].is_dependent_entity())
                         {
-                            running_error("%s: error: cannot determine operator for UDR\n",
-                                    construct.get_ast().get_locus().c_str());
+                            ObjectList<Symbol> viable_operators;
+                            if (!solve_overload_for_udr(op_symbols, reduction_type, assoc, 
+                                        viable_operators, 
+                                        construct.get_ast().get_file(),
+                                        construct.get_ast().get_line()))
+                            {
+                                if (!viable_operators.empty())
+                                {
+                                    std::cerr << construct.get_ast().get_locus() 
+                                        << ": note: more than one function matches the user-defined reduction" 
+                                        << std::endl;
+                                    std::cerr << construct.get_ast().get_locus() 
+                                        << ": note: candidates are"
+                                        << std::endl;
+                                    for (ObjectList<Symbol>::iterator it = viable_operators.begin();
+                                            it != viable_operators.end();
+                                            it++)
+                                    {
+                                        Symbol &sym(*it);
+                                        std::cerr << construct.get_ast().get_locus() << ": note:    " 
+                                            << sym.get_type().get_declaration(sym.get_scope(), sym.get_qualified_name())
+                                            << std::endl;
+                                    }
+                                }
+                                running_error("%s: error: cannot determine operator for user-defined reduction\n",
+                                        construct.get_ast().get_locus().c_str());
+                            }
+
+                            op_symbols = viable_operators;
                         }
                     }
 
@@ -1303,7 +1336,11 @@ namespace TL
                         new_udr.set_identity(identity_expr);
                     }
 
-                    new_udr.set_operator_symbols(op_symbols);
+                    if (!op_symbols.empty()
+                            && !op_symbols[0].is_dependent_entity())
+                    {
+                        new_udr.set_operator_symbols(op_symbols);
+                    }
                     new_udr.set_operator(IdExpression(op_name, construct.get_scope_link()));
 
                     bool found = false;
@@ -1359,73 +1396,6 @@ namespace TL
 
         void Core::declare_reduction_handler_post(PragmaCustomConstruct construct) { }
 
-        static std::string instantiate_identity(const std::string _identity,
-                ObjectList<TemplateParameter> template_params,
-                ObjectList<TemplateArgument> template_args,
-                Scope current_scope)
-        {
-            std::string identity(_identity);
-
-            if (template_params.empty()
-                    || identity == ""
-                    || identity == "constructor"
-                    || identity == "constructor()")
-                return identity;
-
-            bool is_construct = false;
-
-            const std::string constructor_pref = "constructor";
-            if (identity.substr(0, constructor_pref.size()) == constructor_pref)
-            {
-                is_construct = true;
-                identity = identity.substr(constructor_pref.size());
-            }
-
-            std::string parameters;
-
-            for (ObjectList<TemplateParameter>::iterator it_p = template_params.begin();
-                    it_p != template_params.end();
-                    it_p++)
-            {
-                TemplateParameter &tpl_param(*it_p);
-                for (ObjectList<TemplateArgument>::iterator it_a = template_args.begin();
-                        it_a != template_args.end();
-                        it_a++)
-                {
-                    TemplateArgument &tpl_arg(*it_a);
-                    if (tpl_param.get_position() == tpl_arg.get_position()
-                            && tpl_param.get_nesting() == tpl_arg.get_nesting())
-                    {
-                        if (tpl_param.get_kind() == TemplateParameter::TYPE)
-                        {
-                            parameters += "typedef " + tpl_arg.get_type().get_declaration(current_scope, tpl_param.get_name()) + ";\n";
-                        }
-                        else if (tpl_param.get_kind() == TemplateParameter::NONTYPE)
-                        {
-                            parameters += tpl_param.get_symbol().get_type().get_const_type().get_declaration(current_scope, tpl_param.get_name()) 
-                                + " = "
-                                + tpl_arg.get_expression().prettyprint()
-                                + ";\n";
-                        }
-                        else if (tpl_param.get_kind() == TemplateParameter::TEMPLATE)
-                        {
-                            internal_error("Template-template parameters not yet supported in UDRs", 0);
-                        }
-                        break;
-                    }
-                }
-            }
-
-            std::string result;
-            result = "({" + parameters + identity + ";})";
-
-            if (is_construct)
-            {
-                result = "constructor(" + result + ")";
-            }
-            return result;
-        }
-
         UDRInfoItem::UDRInfoItem()
             : _assoc(NONE), 
             _is_builtin(false), 
@@ -1438,7 +1408,8 @@ namespace TL
             _num_dimensions(0),
             _is_commutative(false),
             _has_identity(false),
-            _identity(NULL)
+            _identity(NULL),
+            _deduction_function(NULL)
         {
         }
 
@@ -1551,7 +1522,8 @@ namespace TL
         }
 
 
-        UDRInfoItem UDRInfoItem::lookup_udr(Scope sc, bool &found, ObjectList<Symbol> &all_viables, 
+        UDRInfoItem UDRInfoItem::lookup_udr(Scope sc, bool &found, 
+                ObjectList<Symbol> &all_viables, 
                 const std::string& filename, int line) const
         {
             const UDRInfoItem& current_udr = *this;
@@ -1559,29 +1531,41 @@ namespace TL
             found = false;
             UDRInfoItem empty_udr;
 
-            ObjectList<Symbol> lookup = sc.cascade_lookup(current_udr.get_symbol_name());
-            if (lookup.empty())
+            ObjectList<UDRInfoItem> udr_lookup;
             {
-                return empty_udr;
-            }
+                ObjectList<Symbol> lookup = sc.cascade_lookup(current_udr.get_symbol_name());
+                if (lookup.empty())
+                {
+                    return empty_udr;
+                }
 
-            // Now filter the udr info item
-            C_LANGUAGE()
-            {
-                UDRInfoItem result;
                 for (ObjectList<Symbol>::iterator it = lookup.begin();
-                        it != lookup.end() && !found;
+                        it != lookup.end();
                         it++)
                 {
                     Symbol &sym(*it);
                     RefPtr<UDRInfoItem> obj = 
                         RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
 
-                    if (obj->get_reduction_type().is_same_type(current_udr.get_reduction_type()))
+                    udr_lookup.append(*obj);
+                }
+            }
+
+            // Now filter the udr info item
+            C_LANGUAGE()
+            {
+                UDRInfoItem result;
+                for (ObjectList<UDRInfoItem>::iterator it = udr_lookup.begin();
+                        it != udr_lookup.end() && !found;
+                        it++)
+                {
+                    UDRInfoItem& obj(*it);
+
+                    if (obj.get_reduction_type().is_same_type(current_udr.get_reduction_type()))
                     {
-                        result = *obj;
+                        result = obj;
                         // There is only one in C
-                        Symbol op_sym = obj->get_operator_symbols()[0];
+                        Symbol op_sym = obj.get_operator_symbols()[0];
                         all_viables.insert(op_sym);
                     }
                 }
@@ -1599,6 +1583,75 @@ namespace TL
 
             // Only C++ here
             // FIXME - Template UDRs must be expanded first here
+            ObjectList<UDRInfoItem> templated_udrs;
+            ObjectList<UDRInfoItem> viable_udr;
+
+            for (ObjectList<UDRInfoItem>::iterator it = udr_lookup.begin();
+                    it != udr_lookup.end(); it++)
+            {
+                if (it->get_is_template_reduction())
+                {
+                    templated_udrs.append(*it);
+                }
+                else
+                {
+                    viable_udr.append(*it);
+                }
+            }
+
+            if (!templated_udrs.empty())
+            {
+                // Expand the templates
+                for (ObjectList<UDRInfoItem>::iterator it = templated_udrs.begin();
+                        it != templated_udrs.end(); 
+                        it++)
+                {
+                    UDRInfoItem& obj(*it);
+
+                    Symbol deduction_function = obj.get_deduction_function();
+                    ObjectList<Symbol> candidates;
+                    candidates.append(deduction_function);
+
+                    ObjectList<Type> arguments;
+                    arguments.append(current_udr.get_reduction_type());
+
+                    bool valid = false;
+                    ObjectList<Symbol> argument_conversor;
+                    ObjectList<Symbol> viable_functs;
+                    Symbol solved_sym = Overload::solve(
+                            candidates,
+                            Type(NULL), // No implicit
+                            arguments,
+                            filename,
+                            line,
+                            valid,
+                            viable_functs,
+                            argument_conversor);
+
+                    if (valid)
+                    {
+                        template_argument_list_t* template_arguments =
+                            template_specialized_type_get_template_arguments(solved_sym.get_type().get_internal_type());
+
+                        decl_context_t updated_context = update_context_with_template_arguments(
+                                sc.get_decl_context(),
+                                template_arguments);
+
+                        Scope updated_scope(updated_context);
+                        ObjectList<Symbol> sym_list = updated_scope.get_symbols_from_id_expr(obj.get_operator().get_ast());
+
+                        if (!sym_list.empty())
+                        {
+                            // Instantiate the UDR with this new info and add it to the viable_udr
+                            UDRInfoItem new_udr(obj);
+                            // Fix the operator symbols
+                            new_udr.set_operator_symbols(sym_list);
+
+                            viable_udr.append(new_udr);
+                        }
+                    }
+                }
+            }
 
             // Construct the symbol list
             bool found_valid = false;
@@ -1609,15 +1662,13 @@ namespace TL
                 = get_valid_member_prototypes_cxx(current_udr.get_reduction_type());
 
             ObjectList<Symbol> tentative_result;
-            for (ObjectList<Symbol>::iterator it = lookup.begin();
-                    it != lookup.end(); it++)
+            for (ObjectList<UDRInfoItem>::iterator it = viable_udr.begin();
+                    it != viable_udr.end(); it++)
             {
-                Symbol &sym(*it);
-                RefPtr<UDRInfoItem> obj = 
-                    RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
+                UDRInfoItem& obj(*it);
 
                 ObjectList<Symbol> operator_list;
-                operator_list.insert(obj->get_operator_symbols());
+                operator_list.insert(obj.get_operator_symbols());
 
                 ObjectList<Symbol> members_set = operator_list.filter(OnlyMembers());
                 ObjectList<Symbol> non_members_set = operator_list.filter(OnlyNonMembers());
@@ -1658,7 +1709,7 @@ namespace TL
                     {
                         tentative_result.insert(solved_sym);
                         found_valid = true;
-                        result = *obj;
+                        result = obj;
                     }
                 }
 
@@ -1696,7 +1747,7 @@ namespace TL
                                     solved_sym, assoc))
                         {
                             tentative_result.insert(solved_sym);
-                            result = *obj;
+                            result = obj;
                         }
                     }
                 }
@@ -1751,6 +1802,44 @@ namespace TL
             }
             else 
                 return false;
+        }
+
+        Symbol UDRInfoItem::get_deduction_function() 
+        {
+            if (!_is_template)
+                return Symbol(NULL);
+
+            if (!_deduction_function.is_valid())
+            {
+                type_t* reduction_type = _reduction_type.get_internal_type();
+                scope_entry_t* entry = (scope_entry_t*)calloc(1, sizeof(*entry));
+                entry->kind = SK_TEMPLATE;
+
+                parameter_info_t parameter_info[1] = 
+                {
+                    { /* .is_ellipsis */ 0, reduction_type, reduction_type }
+                };
+
+                type_t* primary_type = get_new_function_type(get_void_type(),
+                        parameter_info, 1);
+
+                entry->symbol_name = uniquestr(".udr_function");
+                entry->type_information =
+                    get_new_template_type(
+                            // template_specialized_type_get_template_parameters(get_actual_class_type(reduction_type)),
+                            named_type_get_symbol(reduction_type)->decl_context.template_parameters,
+                            primary_type,
+                            uniquestr(".udr_function"),
+                            // This will fail for non named types!
+                            named_type_get_symbol(reduction_type)->decl_context,
+                            0, uniquestr("(null)"));
+
+                entry->decl_context = named_type_get_symbol(reduction_type)->decl_context;
+
+                _deduction_function = Symbol(entry);
+            }
+
+            return _deduction_function;
         }
     }
 }

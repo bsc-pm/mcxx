@@ -126,11 +126,15 @@ namespace TL
             //! Get a list of symbols denoted by the id-expression in \a ast
             /*!
              * \param ast A tree representing an id-expression
+             * \param examine_uninstantiated Uninstantiated contexts will be examined. 
+                      If false any dependent context will return a dependent entity
              */
-            ObjectList<Symbol> get_symbols_from_id_expr(TL::AST_t ast) const;
+            ObjectList<Symbol> get_symbols_from_id_expr(TL::AST_t ast, 
+                    bool examine_uninstantiated = true) const;
 
             //! Convenience function where only one symbol is expected
-            Symbol get_symbol_from_id_expr(TL::AST_t ast) const;
+            Symbol get_symbol_from_id_expr(TL::AST_t ast, 
+                    bool examine_uninstantiated = true) const;
 
             //! Builds a fake temporal scope not related to any real code
             Scope temporal_scope() const;
