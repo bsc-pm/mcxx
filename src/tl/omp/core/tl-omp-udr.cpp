@@ -1080,9 +1080,14 @@ namespace TL
             return (tentative_result.size() == 1);
         }
 
-        static bool is_builtin_operator(AST_t a)
+        static bool is_operator_tree(AST_t a)
         {
             return (a.internal_ast_type_() == AST_OMP_UDR_BUILTIN_OP);
+        }
+
+        static bool is_member_tree(AST_t a)
+        {
+            return (a.internal_ast_type_() == AST_OMP_UDR_MEMBER_OP);
         }
 
         void Core::declare_reduction_handler_pre(PragmaCustomConstruct construct)
@@ -1150,7 +1155,7 @@ namespace TL
             {
                 std::string identity_str = identity_clause.get_arguments(ExpressionTokenizerTrim())[0];
 
-                parse_udr_identity(identity_str, construct.get_ast(), identity_expr);
+                parse_udr_identity(identity_str, ref_tree_of_clause, identity_expr);
             }
 
             PragmaCustomClause commutative_clause = construct.get_clause("commutative");
@@ -1274,7 +1279,7 @@ namespace TL
                                 op_name.prettyprint().substr(1)
                                 ;
 
-                            op_name = src.parse_id_expression(construct.get_ast(), construct.get_scope_link());
+                            op_name = src.parse_id_expression(ref_tree_of_clause, construct.get_scope_link());
                         }
 
                         if (is_template)
@@ -1282,7 +1287,7 @@ namespace TL
                             new_udr.set_is_template_reduction(is_template);
                         }
 
-                        if (is_builtin_operator(op_name))
+                        if (is_operator_tree(op_name))
                         {
                             // We must do two lookups actually
                             if (reduction_type.is_class()
@@ -1291,7 +1296,7 @@ namespace TL
                                 Source src;
                                 src << reduction_type.get_declaration(construct.get_scope(), "") << "::operator " << op_name.prettyprint();
 
-                                AST_t tree = src.parse_id_expression(construct.get_ast(), construct.get_scope_link());
+                                AST_t tree = src.parse_id_expression(ref_tree_of_clause, construct.get_scope_link());
 
                                 // Lookup first in the class
                                 op_symbols = construct.get_scope().get_symbols_from_id_expr(tree, /* examine_uninstantiated */ false);
@@ -1307,7 +1312,7 @@ namespace TL
                                 Source src;
                                 src << "operator " << op_name.prettyprint();
 
-                                AST_t tree = src.parse_id_expression(construct.get_ast(), construct.get_scope_link());
+                                AST_t tree = src.parse_id_expression(ref_tree_of_clause, construct.get_scope_link());
 
                                 // Lookup first in the class
                                 op_symbols = construct.get_scope().get_symbols_from_id_expr(tree, /* examine_uninstantiated */ false);
@@ -1362,7 +1367,10 @@ namespace TL
                         }
                     }
 
-                    std::cerr << "ASSOC (L=1, R=2, U=3) = " << assoc << std::endl;
+                    DEBUG_CODE()
+                    {
+                        std::cerr << "UDR: Associativity (L=1, R=2, U=3): " << assoc << std::endl;
+                    }
 
                     // Associativity is fully defined now after the lookups,
                     // this is so because it might be left undefined so it is
@@ -1382,7 +1390,7 @@ namespace TL
                         }
 
                         AST_t default_identity_expr;
-                        parse_udr_identity(initializer, construct.get_ast(), default_identity_expr);
+                        parse_udr_identity(initializer, ref_tree_of_clause, default_identity_expr);
                         new_udr.set_identity(default_identity_expr);
                     }
                     else
@@ -1399,10 +1407,12 @@ namespace TL
 
                     bool found = false;
                     ObjectList<Symbol> all_viables;
-                    new_udr.lookup_udr(construct.get_scope(), found, 
-                                all_viables, 
-                                construct.get_ast().get_file(),
-                                construct.get_ast().get_line());
+                    new_udr.lookup_udr(construct.get_scope(), 
+                            construct.get_scope_link(),
+                            found, 
+                            all_viables, 
+                            construct.get_ast().get_file(),
+                            construct.get_ast().get_line());
 
                     if (!found)
                     {
@@ -1559,6 +1569,14 @@ namespace TL
             {
                 return ".udr_" + _builtin_op;
             }
+            else if (is_operator_tree(_op_expr.get_ast()))
+            {
+                return ".udr_" + _op_expr.prettyprint();
+            }
+            else if (is_member_tree(_op_expr.get_ast()))
+            {
+                return ".udr_" + _op_expr.prettyprint();
+            }
             else
             {
                 return ".udr_" + _op_expr.get_unqualified_part();
@@ -1576,13 +1594,15 @@ namespace TL
         }
 
 
-        UDRInfoItem UDRInfoItem::lookup_udr(Scope sc, bool &found, 
+        UDRInfoItem UDRInfoItem::lookup_udr(Scope sc, 
+                ScopeLink sl,
+                bool &found, 
                 ObjectList<Symbol> &all_viables, 
                 const std::string& filename, int line) const
         {
             DEBUG_CODE()
             {
-                std::cerr << "LOOKUP UDR -> START" << std::endl;
+                std::cerr << "UDR: Lookup start" << std::endl;
             }
 
             const UDRInfoItem& current_udr = *this;
@@ -1696,7 +1716,45 @@ namespace TL
                                 template_arguments);
 
                         Scope updated_scope(updated_context);
-                        ObjectList<Symbol> sym_list = updated_scope.get_symbols_from_id_expr(obj.get_operator().get_ast());
+
+                        ObjectList<Symbol> sym_list;
+                        AST_t op_name = obj.get_operator().get_ast();
+                        if (is_operator_tree(op_name))
+                        {
+                            Type reduction_type = current_udr.get_reduction_type();
+                            if (reduction_type.is_class()
+                                    && !reduction_type.is_dependent())
+                            {
+                                Source src;
+                                src << reduction_type.get_declaration(sc, "") << "::operator " << op_name.prettyprint();
+
+                                AST_t tree = src.parse_id_expression(op_name, sl);
+
+                                // Lookup first in the class
+                                sym_list = sc.get_symbols_from_id_expr(tree, /* examine_uninstantiated */ false);
+
+                                if (!sym_list.empty()
+                                        && sym_list[0].is_dependent_entity())
+                                {
+                                    sym_list.clear();
+                                }
+                            }
+                            if (sym_list.empty())
+                            {
+                                Source src;
+                                src << "operator " << op_name.prettyprint();
+
+                                AST_t tree = src.parse_id_expression(op_name, sl);
+
+                                // Lookup first in the class
+                                sym_list = sc.get_symbols_from_id_expr(tree, /* examine_uninstantiated */ false);
+                            }
+
+                        }
+                        else
+                        {
+                            sym_list = updated_scope.get_symbols_from_id_expr(obj.get_operator().get_ast());
+                        }
 
                         if (!sym_list.empty())
                         {
@@ -1739,7 +1797,7 @@ namespace TL
                 {
                     DEBUG_CODE()
                     {
-                        std::cerr << "TESTING PROTOTYPE (" 
+                        std::cerr << "UDR: Testing prototype (" 
                             << it->first_arg.get_declaration(sc, "") << ", "
                             << it->second_arg.get_declaration(sc, "") << ")" << std::endl;
                     }
@@ -1794,7 +1852,7 @@ namespace TL
 
                         DEBUG_CODE()
                         {
-                            std::cerr << "TESTING PROTOTYPE (" 
+                            std::cerr << "UDR: Testing prototype (" 
                                 << it->first_arg.get_declaration(sc, "") << ")"
                                 << std::endl;
                         }
@@ -1834,8 +1892,8 @@ namespace TL
 
             DEBUG_CODE()
             {
-                std::cerr << "LOOKUP UDR -> END" << std::endl;
-                std::cerr << "CANDIDATE LIST -> " << tentative_result.size() << std::endl;
+                std::cerr << "UDR: Lookup end" << std::endl;
+                std::cerr << "UDR: Candidate num elements: " << tentative_result.size() << std::endl;
 
                 if (!tentative_result.empty())
                 {
@@ -1843,13 +1901,13 @@ namespace TL
                             it != tentative_result.end();
                             it++)
                     {
-                        std::cerr << " -> UDR CANDIDATE VALID : " 
+                        std::cerr << "UDR: Candidate: " 
                             << it->get_type().get_declaration(it->get_scope(), it->get_qualified_name()) << std::endl;
                     }
                 }
                 else
                 {
-                    std::cerr << "NO UDR CANDIDATES" << std::endl;
+                    std::cerr << "UDR: No candidates" << std::endl;
                 }
             }
 
@@ -1871,6 +1929,11 @@ namespace TL
             RefPtr<UDRInfoItem> cp(new UDRInfoItem(*this));
 
             sym.set_attribute("udr_info", cp);
+
+            DEBUG_CODE()
+            {
+                std::cerr << "UDR: Signing in " << this->get_symbol_name() << std::endl;
+            }
         }
 
         bool UDRInfoItem::has_identity() const

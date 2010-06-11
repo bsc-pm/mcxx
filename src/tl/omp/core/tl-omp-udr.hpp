@@ -107,8 +107,9 @@ namespace TL
 
                 // ----
                 // ObjectList<Symbol> lookup_udr(Scope sc);
-                UDRInfoItem lookup_udr(Scope sc, bool &found, 
-                        ObjectList<Symbol> &all_viables, 
+                UDRInfoItem lookup_udr(Scope sc, 
+                        ScopeLink scope_link,
+                        bool &found, ObjectList<Symbol> &all_viables, 
                         const std::string& filename, int line) const;
                 // ----
 

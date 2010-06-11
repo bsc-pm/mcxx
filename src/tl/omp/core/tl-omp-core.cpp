@@ -344,6 +344,7 @@ namespace TL
 
                         bool found = false;
                         udr = udr.lookup_udr(construct.get_scope(), 
+                                construct.get_scope_link(),
                                 found,
                                 all_viables, 
                                 construct.get_ast().get_file(),
