@@ -1023,6 +1023,7 @@ void instantiate_template_class(scope_entry_t* entry, decl_context_t decl_contex
     }
 }
 
+#if 0
 void instantiate_template_function(scope_entry_t* entry, 
         decl_context_t decl_context UNUSED_PARAMETER, 
         const char* filename UNUSED_PARAMETER, 
@@ -1207,5 +1208,6 @@ void instantiate_template_function(scope_entry_t* entry,
                 print_declarator(template_specialized_type));
     }
 }
+#endif
 
 
