@@ -322,6 +322,18 @@ namespace TL
                         var_type = var_type.points_to();
                     }
 
+                    // Lower array types
+                    int num_dimensions = 0;
+                    if (!var_sym.is_parameter()
+                            && var_type.is_array())
+                    {
+                        while (var_type.is_array())
+                        {
+                            var_type = var_type.array_element();
+                            num_dimensions++;
+                        }
+                    }
+
                     if (var_sym.is_dependent_entity())
                     {
                         std::cerr << construct.get_ast().get_locus() << ": warning: symbol "
@@ -339,6 +351,12 @@ namespace TL
                             udr.set_operator(reductor_id_expr);
                         }
                         udr.set_reduction_type(var_type);
+
+                        if (num_dimensions != 0)
+                        {
+                            udr.set_is_array_reduction(true);
+                            udr.set_num_dimensions(num_dimensions);
+                        }
 
                         ObjectList<Symbol> all_viables;
 

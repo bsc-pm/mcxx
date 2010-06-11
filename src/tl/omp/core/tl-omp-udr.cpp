@@ -1640,7 +1640,12 @@ namespace TL
                 {
                     UDRInfoItem& obj(*it);
 
-                    if (obj.get_reduction_type().is_same_type(current_udr.get_reduction_type()))
+                    // If they are array reductions their dimensions match
+                    if (obj.get_reduction_type().is_same_type(current_udr.get_reduction_type())
+                            && ((obj.get_is_array_reduction() 
+                                    == current_udr.get_is_array_reduction())
+                                && (!obj.get_is_array_reduction()
+                                    || (obj.get_num_dimensions() == current_udr.get_num_dimensions()))))
                     {
                         result = obj;
                         // There is only one in C
@@ -1671,7 +1676,12 @@ namespace TL
                 {
                     templated_udrs.append(*it);
                 }
-                else
+                // If they are array reductions their dimensions match
+                else if ((current_udr.get_is_array_reduction()
+                            == it->get_is_array_reduction())
+                        && (!it->get_is_array_reduction()
+                            || (it->get_num_dimensions() 
+                                == current_udr.get_num_dimensions())))
                 {
                     viable_udr.append(*it);
                 }
@@ -1763,7 +1773,14 @@ namespace TL
                             // Fix the operator symbols
                             new_udr.set_operator_symbols(sym_list);
 
-                            viable_udr.append(new_udr);
+                            if ((new_udr.get_is_array_reduction()
+                                        == current_udr.get_is_array_reduction())
+                                    && (!new_udr.get_is_array_reduction()
+                                        || (new_udr.get_num_dimensions() 
+                                            == current_udr.get_num_dimensions())))
+                            {
+                                viable_udr.append(new_udr);
+                            }
                         }
                     }
                 }
