@@ -968,8 +968,9 @@ namespace TL
             return 0;
         }
 
-        AST a = this->get_ast().get_internal_ast();
+        valid = true;
 
+        AST a = this->get_ast().get_internal_ast();
         return ::const_value_cast_to_4(
                 ::expression_get_constant(a));
     }

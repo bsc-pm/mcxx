@@ -203,14 +203,12 @@ namespace TL
                 }
             }
 
-            if (udr.get_associativity() == OpenMP::UDRInfoItem::LEFT)
+            if (udr.get_associativity() == OpenMP::UDRInfoItem::RIGHT)
             {
                 // reduction_index = 1;
                 // partial_reduction_index = 0;
                 std::swap(reduction_index, partial_reduction_index);
             }
-
-            // FIXME - Prototype for arrays and arithmetic
 
             // If the type related to the reduction var is pointer, pass an address
             if (parameters[reduction_index].is_pointer()

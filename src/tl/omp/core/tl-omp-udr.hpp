@@ -64,6 +64,8 @@ namespace TL
 
                 bool _has_identity;
                 AST_t _identity;
+
+                Symbol _deduction_function;
             public:
                 UDRInfoItem();
 
@@ -91,6 +93,7 @@ namespace TL
 
                 void set_is_template_reduction(bool b);
                 bool get_is_template_reduction() const;
+                Symbol get_deduction_function();
 
                 bool has_identity() const; 
                 void set_identity(AST_t identity);
@@ -104,8 +107,9 @@ namespace TL
 
                 // ----
                 // ObjectList<Symbol> lookup_udr(Scope sc);
-                UDRInfoItem lookup_udr(Scope sc, bool &found, 
-                        ObjectList<Symbol> &all_viables, 
+                UDRInfoItem lookup_udr(Scope sc, 
+                        ScopeLink scope_link,
+                        bool &found, ObjectList<Symbol> &all_viables, 
                         const std::string& filename, int line) const;
                 // ----
 

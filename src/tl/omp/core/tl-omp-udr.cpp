@@ -214,8 +214,9 @@ namespace TL
 
         static std::string get_valid_value_initializer(Type t)
         {
+            // Fall back
             if (t.is_dependent())
-                return "";
+                return "constructor()";
 
             if (t.is_class())
             {
@@ -323,6 +324,13 @@ namespace TL
                             && parameter_types[0].is_same_type(it->first_arg)
                             && parameter_types[1].is_same_type(it->second_arg))
                     {
+                        if (assoc == UDRInfoItem::UNDEFINED)
+                        {
+                            if (it->allows_left)
+                                assoc = UDRInfoItem::LEFT;
+                            else
+                                assoc = UDRInfoItem::RIGHT;
+                        }
                         return true;
                     }
                 }
@@ -984,7 +992,7 @@ namespace TL
         }
 
         static bool solve_overload_for_udr(ObjectList<Symbol> operator_list, Type reduction_type,
-                UDRInfoItem::Associativity assoc,
+                UDRInfoItem::Associativity &assoc,
                 ObjectList<Symbol> &all_viables, const std::string& filename, int line)
         {
             bool found_valid = false;
@@ -1072,6 +1080,16 @@ namespace TL
             return (tentative_result.size() == 1);
         }
 
+        static bool is_operator_tree(AST_t a)
+        {
+            return (a.internal_ast_type_() == AST_OMP_UDR_BUILTIN_OP);
+        }
+
+        static bool is_member_tree(AST_t a)
+        {
+            return (a.internal_ast_type_() == AST_OMP_UDR_MEMBER_OP);
+        }
+
         void Core::declare_reduction_handler_pre(PragmaCustomConstruct construct)
         {
             DEBUG_CODE()
@@ -1125,7 +1143,8 @@ namespace TL
                 else
                 {
                     std::cerr << construct.get_ast().get_locus() 
-                        << ": warning: ignoring invalid 'order' clause argument." 
+                        << ": warning: ignoring invalid 'order' clause argument '" 
+                        << str << "'"
                         << std::endl;
                 }
             }
@@ -1136,7 +1155,7 @@ namespace TL
             {
                 std::string identity_str = identity_clause.get_arguments(ExpressionTokenizerTrim())[0];
 
-                parse_udr_identity(identity_str, construct.get_ast(), identity_expr);
+                parse_udr_identity(identity_str, ref_tree_of_clause, identity_expr);
             }
 
             PragmaCustomClause commutative_clause = construct.get_clause("commutative");
@@ -1194,6 +1213,7 @@ namespace TL
                     UDRInfoItem new_udr;
 
                     new_udr.set_is_commutative(is_commutative);
+
                     new_udr.set_is_array_reduction(is_array);
                     if (is_array)
                     {
@@ -1202,6 +1222,7 @@ namespace TL
                     new_udr.set_reduction_type(reduction_type);
 
                     AST_t& op_name(*op_it);
+
                     // Perform lookup and further checking
                     C_LANGUAGE()
                     {
@@ -1258,10 +1279,50 @@ namespace TL
                                 op_name.prettyprint().substr(1)
                                 ;
 
-                            op_name = src.parse_id_expression(construct.get_ast(), construct.get_scope_link());
+                            op_name = src.parse_id_expression(ref_tree_of_clause, construct.get_scope_link());
                         }
 
-                        op_symbols = construct.get_scope().get_symbols_from_id_expr(op_name);
+                        if (is_template)
+                        {
+                            new_udr.set_is_template_reduction(is_template);
+                        }
+
+                        if (is_operator_tree(op_name))
+                        {
+                            // We must do two lookups actually
+                            if (reduction_type.is_class()
+                                    && !reduction_type.is_dependent())
+                            {
+                                Source src;
+                                src << reduction_type.get_declaration(construct.get_scope(), "") << "::operator " << op_name.prettyprint();
+
+                                AST_t tree = src.parse_id_expression(ref_tree_of_clause, construct.get_scope_link());
+
+                                // Lookup first in the class
+                                op_symbols = construct.get_scope().get_symbols_from_id_expr(tree, /* examine_uninstantiated */ false);
+
+                                if (!op_symbols.empty()
+                                        && op_symbols[0].is_dependent_entity())
+                                {
+                                    op_symbols.clear();
+                                }
+                            }
+                            if (op_symbols.empty())
+                            {
+                                Source src;
+                                src << "operator " << op_name.prettyprint();
+
+                                AST_t tree = src.parse_id_expression(ref_tree_of_clause, construct.get_scope_link());
+
+                                // Lookup first in the class
+                                op_symbols = construct.get_scope().get_symbols_from_id_expr(tree, /* examine_uninstantiated */ false);
+                            }
+                        }
+                        else
+                        {
+                            op_symbols = construct.get_scope().get_symbols_from_id_expr(op_name,
+                                    /* examine_uninstantiated */ false);
+                        }
 
                         if (reduction_type.is_dependent()
                                 && !is_template)
@@ -1271,16 +1332,50 @@ namespace TL
                                     construct.get_ast().get_locus().c_str());
                         }
 
-                        ObjectList<Symbol> viable_operators;
-                        if (!solve_overload_for_udr(op_symbols, reduction_type, assoc, 
-                                    viable_operators, 
-                                    construct.get_ast().get_file(),
-                                    construct.get_ast().get_line()))
+                        if (!op_symbols.empty()
+                                && !op_symbols[0].is_dependent_entity())
                         {
-                            running_error("%s: error: cannot determine operator for UDR\n",
-                                    construct.get_ast().get_locus().c_str());
+                            ObjectList<Symbol> viable_operators;
+                            if (!solve_overload_for_udr(op_symbols, reduction_type, assoc, 
+                                        viable_operators, 
+                                        construct.get_ast().get_file(),
+                                        construct.get_ast().get_line()))
+                            {
+                                if (!viable_operators.empty())
+                                {
+                                    std::cerr << construct.get_ast().get_locus() 
+                                        << ": note: more than one function matches the user-defined reduction" 
+                                        << std::endl;
+                                    std::cerr << construct.get_ast().get_locus() 
+                                        << ": note: candidates are"
+                                        << std::endl;
+                                    for (ObjectList<Symbol>::iterator it = viable_operators.begin();
+                                            it != viable_operators.end();
+                                            it++)
+                                    {
+                                        Symbol &sym(*it);
+                                        std::cerr << construct.get_ast().get_locus() << ": note:    " 
+                                            << sym.get_type().get_declaration(sym.get_scope(), sym.get_qualified_name())
+                                            << std::endl;
+                                    }
+                                }
+                                running_error("%s: error: cannot determine operator for user-defined reduction\n",
+                                        construct.get_ast().get_locus().c_str());
+                            }
+
+                            op_symbols = viable_operators;
                         }
                     }
+
+                    DEBUG_CODE()
+                    {
+                        std::cerr << "UDR: Associativity (L=1, R=2, U=3): " << assoc << std::endl;
+                    }
+
+                    // Associativity is fully defined now after the lookups,
+                    // this is so because it might be left undefined so it is
+                    // left up to the compiler to deduce it
+                    new_udr.set_associativity(assoc);
 
                     if (!identity_clause.is_defined())
                     {
@@ -1295,7 +1390,7 @@ namespace TL
                         }
 
                         AST_t default_identity_expr;
-                        parse_udr_identity(initializer, construct.get_ast(), default_identity_expr);
+                        parse_udr_identity(initializer, ref_tree_of_clause, default_identity_expr);
                         new_udr.set_identity(default_identity_expr);
                     }
                     else
@@ -1303,15 +1398,21 @@ namespace TL
                         new_udr.set_identity(identity_expr);
                     }
 
-                    new_udr.set_operator_symbols(op_symbols);
+                    if (!op_symbols.empty()
+                            && !op_symbols[0].is_dependent_entity())
+                    {
+                        new_udr.set_operator_symbols(op_symbols);
+                    }
                     new_udr.set_operator(IdExpression(op_name, construct.get_scope_link()));
 
                     bool found = false;
                     ObjectList<Symbol> all_viables;
-                    new_udr.lookup_udr(construct.get_scope(), found, 
-                                all_viables, 
-                                construct.get_ast().get_file(),
-                                construct.get_ast().get_line());
+                    new_udr.lookup_udr(construct.get_scope(), 
+                            construct.get_scope_link(),
+                            found, 
+                            all_viables, 
+                            construct.get_ast().get_file(),
+                            construct.get_ast().get_line());
 
                     if (!found)
                     {
@@ -1348,7 +1449,7 @@ namespace TL
                     }
                     else
                     {
-                        running_error("%s: error: user defined reduction for reduction_type '%s' and operator '%s' already defined",
+                        running_error("%s: error: user defined reduction for type '%s' and operator '%s' already defined",
                                 construct.get_ast().get_locus().c_str(),
                                 reduction_type.get_declaration(construct.get_scope_link().get_scope(construct.get_ast()), "").c_str(),
                                 op_name.prettyprint().c_str());
@@ -1358,73 +1459,6 @@ namespace TL
         }
 
         void Core::declare_reduction_handler_post(PragmaCustomConstruct construct) { }
-
-        static std::string instantiate_identity(const std::string _identity,
-                ObjectList<TemplateParameter> template_params,
-                ObjectList<TemplateArgument> template_args,
-                Scope current_scope)
-        {
-            std::string identity(_identity);
-
-            if (template_params.empty()
-                    || identity == ""
-                    || identity == "constructor"
-                    || identity == "constructor()")
-                return identity;
-
-            bool is_construct = false;
-
-            const std::string constructor_pref = "constructor";
-            if (identity.substr(0, constructor_pref.size()) == constructor_pref)
-            {
-                is_construct = true;
-                identity = identity.substr(constructor_pref.size());
-            }
-
-            std::string parameters;
-
-            for (ObjectList<TemplateParameter>::iterator it_p = template_params.begin();
-                    it_p != template_params.end();
-                    it_p++)
-            {
-                TemplateParameter &tpl_param(*it_p);
-                for (ObjectList<TemplateArgument>::iterator it_a = template_args.begin();
-                        it_a != template_args.end();
-                        it_a++)
-                {
-                    TemplateArgument &tpl_arg(*it_a);
-                    if (tpl_param.get_position() == tpl_arg.get_position()
-                            && tpl_param.get_nesting() == tpl_arg.get_nesting())
-                    {
-                        if (tpl_param.get_kind() == TemplateParameter::TYPE)
-                        {
-                            parameters += "typedef " + tpl_arg.get_type().get_declaration(current_scope, tpl_param.get_name()) + ";\n";
-                        }
-                        else if (tpl_param.get_kind() == TemplateParameter::NONTYPE)
-                        {
-                            parameters += tpl_param.get_symbol().get_type().get_const_type().get_declaration(current_scope, tpl_param.get_name()) 
-                                + " = "
-                                + tpl_arg.get_expression().prettyprint()
-                                + ";\n";
-                        }
-                        else if (tpl_param.get_kind() == TemplateParameter::TEMPLATE)
-                        {
-                            internal_error("Template-template parameters not yet supported in UDRs", 0);
-                        }
-                        break;
-                    }
-                }
-            }
-
-            std::string result;
-            result = "({" + parameters + identity + ";})";
-
-            if (is_construct)
-            {
-                result = "constructor(" + result + ")";
-            }
-            return result;
-        }
 
         UDRInfoItem::UDRInfoItem()
             : _assoc(NONE), 
@@ -1438,7 +1472,8 @@ namespace TL
             _num_dimensions(0),
             _is_commutative(false),
             _has_identity(false),
-            _identity(NULL)
+            _identity(NULL),
+            _deduction_function(NULL)
         {
         }
 
@@ -1534,6 +1569,14 @@ namespace TL
             {
                 return ".udr_" + _builtin_op;
             }
+            else if (is_operator_tree(_op_expr.get_ast()))
+            {
+                return ".udr_" + _op_expr.prettyprint();
+            }
+            else if (is_member_tree(_op_expr.get_ast()))
+            {
+                return ".udr_" + _op_expr.prettyprint();
+            }
             else
             {
                 return ".udr_" + _op_expr.get_unqualified_part();
@@ -1551,37 +1594,62 @@ namespace TL
         }
 
 
-        UDRInfoItem UDRInfoItem::lookup_udr(Scope sc, bool &found, ObjectList<Symbol> &all_viables, 
+        UDRInfoItem UDRInfoItem::lookup_udr(Scope sc, 
+                ScopeLink sl,
+                bool &found, 
+                ObjectList<Symbol> &all_viables, 
                 const std::string& filename, int line) const
         {
+            DEBUG_CODE()
+            {
+                std::cerr << "UDR: Lookup start" << std::endl;
+            }
+
             const UDRInfoItem& current_udr = *this;
 
             found = false;
             UDRInfoItem empty_udr;
 
-            ObjectList<Symbol> lookup = sc.cascade_lookup(current_udr.get_symbol_name());
-            if (lookup.empty())
+            ObjectList<UDRInfoItem> udr_lookup;
             {
-                return empty_udr;
-            }
+                ObjectList<Symbol> lookup = sc.cascade_lookup(current_udr.get_symbol_name());
+                if (lookup.empty())
+                {
+                    return empty_udr;
+                }
 
-            // Now filter the udr info item
-            C_LANGUAGE()
-            {
-                UDRInfoItem result;
                 for (ObjectList<Symbol>::iterator it = lookup.begin();
-                        it != lookup.end() && !found;
+                        it != lookup.end();
                         it++)
                 {
                     Symbol &sym(*it);
                     RefPtr<UDRInfoItem> obj = 
                         RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
 
-                    if (obj->get_reduction_type().is_same_type(current_udr.get_reduction_type()))
+                    udr_lookup.append(*obj);
+                }
+            }
+
+            // Now filter the udr info item
+            C_LANGUAGE()
+            {
+                UDRInfoItem result;
+                for (ObjectList<UDRInfoItem>::iterator it = udr_lookup.begin();
+                        it != udr_lookup.end() && !found;
+                        it++)
+                {
+                    UDRInfoItem& obj(*it);
+
+                    // If they are array reductions their dimensions match
+                    if (obj.get_reduction_type().is_same_type(current_udr.get_reduction_type())
+                            && ((obj.get_is_array_reduction() 
+                                    == current_udr.get_is_array_reduction())
+                                && (!obj.get_is_array_reduction()
+                                    || (obj.get_num_dimensions() == current_udr.get_num_dimensions()))))
                     {
-                        result = *obj;
+                        result = obj;
                         // There is only one in C
-                        Symbol op_sym = obj->get_operator_symbols()[0];
+                        Symbol op_sym = obj.get_operator_symbols()[0];
                         all_viables.insert(op_sym);
                     }
                 }
@@ -1598,7 +1666,125 @@ namespace TL
             }
 
             // Only C++ here
-            // FIXME - Template UDRs must be expanded first here
+            ObjectList<UDRInfoItem> templated_udrs;
+            ObjectList<UDRInfoItem> viable_udr;
+
+            for (ObjectList<UDRInfoItem>::iterator it = udr_lookup.begin();
+                    it != udr_lookup.end(); it++)
+            {
+                if (it->get_is_template_reduction())
+                {
+                    templated_udrs.append(*it);
+                }
+                // If they are array reductions their dimensions match
+                else if ((current_udr.get_is_array_reduction()
+                            == it->get_is_array_reduction())
+                        && (!it->get_is_array_reduction()
+                            || (it->get_num_dimensions() 
+                                == current_udr.get_num_dimensions())))
+                {
+                    viable_udr.append(*it);
+                }
+            }
+
+            if (!templated_udrs.empty())
+            {
+                // Expand the templates
+                for (ObjectList<UDRInfoItem>::iterator it = templated_udrs.begin();
+                        it != templated_udrs.end(); 
+                        it++)
+                {
+                    UDRInfoItem& obj(*it);
+
+                    Symbol deduction_function = obj.get_deduction_function();
+                    ObjectList<Symbol> candidates;
+                    candidates.append(deduction_function);
+
+                    ObjectList<Type> arguments;
+                    arguments.append(current_udr.get_reduction_type());
+
+                    bool valid = false;
+                    ObjectList<Symbol> argument_conversor;
+                    ObjectList<Symbol> viable_functs;
+                    Symbol solved_sym = Overload::solve(
+                            candidates,
+                            Type(NULL), // No implicit
+                            arguments,
+                            filename,
+                            line,
+                            valid,
+                            viable_functs,
+                            argument_conversor);
+
+                    if (valid)
+                    {
+                        template_argument_list_t* template_arguments =
+                            template_specialized_type_get_template_arguments(solved_sym.get_type().get_internal_type());
+
+                        decl_context_t updated_context = update_context_with_template_arguments(
+                                sc.get_decl_context(),
+                                template_arguments);
+
+                        Scope updated_scope(updated_context);
+
+                        ObjectList<Symbol> sym_list;
+                        AST_t op_name = obj.get_operator().get_ast();
+                        if (is_operator_tree(op_name))
+                        {
+                            Type reduction_type = current_udr.get_reduction_type();
+                            if (reduction_type.is_class()
+                                    && !reduction_type.is_dependent())
+                            {
+                                Source src;
+                                src << reduction_type.get_declaration(sc, "") << "::operator " << op_name.prettyprint();
+
+                                AST_t tree = src.parse_id_expression(op_name, sl);
+
+                                // Lookup first in the class
+                                sym_list = sc.get_symbols_from_id_expr(tree, /* examine_uninstantiated */ false);
+
+                                if (!sym_list.empty()
+                                        && sym_list[0].is_dependent_entity())
+                                {
+                                    sym_list.clear();
+                                }
+                            }
+                            if (sym_list.empty())
+                            {
+                                Source src;
+                                src << "operator " << op_name.prettyprint();
+
+                                AST_t tree = src.parse_id_expression(op_name, sl);
+
+                                // Lookup first in the class
+                                sym_list = sc.get_symbols_from_id_expr(tree, /* examine_uninstantiated */ false);
+                            }
+
+                        }
+                        else
+                        {
+                            sym_list = updated_scope.get_symbols_from_id_expr(obj.get_operator().get_ast());
+                        }
+
+                        if (!sym_list.empty())
+                        {
+                            // Instantiate the UDR with this new info and add it to the viable_udr
+                            UDRInfoItem new_udr(obj);
+                            // Fix the operator symbols
+                            new_udr.set_operator_symbols(sym_list);
+
+                            if ((new_udr.get_is_array_reduction()
+                                        == current_udr.get_is_array_reduction())
+                                    && (!new_udr.get_is_array_reduction()
+                                        || (new_udr.get_num_dimensions() 
+                                            == current_udr.get_num_dimensions())))
+                            {
+                                viable_udr.append(new_udr);
+                            }
+                        }
+                    }
+                }
+            }
 
             // Construct the symbol list
             bool found_valid = false;
@@ -1609,15 +1795,13 @@ namespace TL
                 = get_valid_member_prototypes_cxx(current_udr.get_reduction_type());
 
             ObjectList<Symbol> tentative_result;
-            for (ObjectList<Symbol>::iterator it = lookup.begin();
-                    it != lookup.end(); it++)
+            for (ObjectList<UDRInfoItem>::iterator it = viable_udr.begin();
+                    it != viable_udr.end(); it++)
             {
-                Symbol &sym(*it);
-                RefPtr<UDRInfoItem> obj = 
-                    RefPtr<UDRInfoItem>::cast_dynamic(sym.get_attribute("udr_info"));
+                UDRInfoItem& obj(*it);
 
                 ObjectList<Symbol> operator_list;
-                operator_list.insert(obj->get_operator_symbols());
+                operator_list.insert(obj.get_operator_symbols());
 
                 ObjectList<Symbol> members_set = operator_list.filter(OnlyMembers());
                 ObjectList<Symbol> non_members_set = operator_list.filter(OnlyNonMembers());
@@ -1628,6 +1812,12 @@ namespace TL
                         it != valid_prototypes.end();
                         it++)
                 {
+                    DEBUG_CODE()
+                    {
+                        std::cerr << "UDR: Testing prototype (" 
+                            << it->first_arg.get_declaration(sc, "") << ", "
+                            << it->second_arg.get_declaration(sc, "") << ")" << std::endl;
+                    }
                     ObjectList<Type> arguments;
                     arguments.append(it->first_arg);
                     arguments.append(it->second_arg);
@@ -1658,7 +1848,11 @@ namespace TL
                     {
                         tentative_result.insert(solved_sym);
                         found_valid = true;
-                        result = *obj;
+
+                        result = obj;
+                        ObjectList<Symbol> solved_syms;
+                        solved_syms.append(solved_sym);
+                        result.set_operator_symbols(solved_syms);
                     }
                 }
 
@@ -1672,6 +1866,13 @@ namespace TL
                     {
                         ObjectList<Type> arguments;
                         arguments.append(it->first_arg);
+
+                        DEBUG_CODE()
+                        {
+                            std::cerr << "UDR: Testing prototype (" 
+                                << it->first_arg.get_declaration(sc, "") << ")"
+                                << std::endl;
+                        }
 
                         bool valid = false;
                         ObjectList<Symbol> argument_conversor;
@@ -1696,9 +1897,34 @@ namespace TL
                                     solved_sym, assoc))
                         {
                             tentative_result.insert(solved_sym);
-                            result = *obj;
+
+                            result = obj;
+                            ObjectList<Symbol> solved_syms;
+                            solved_syms.append(solved_sym);
+                            result.set_operator_symbols(solved_syms);
                         }
                     }
+                }
+            }
+
+            DEBUG_CODE()
+            {
+                std::cerr << "UDR: Lookup end" << std::endl;
+                std::cerr << "UDR: Candidate num elements: " << tentative_result.size() << std::endl;
+
+                if (!tentative_result.empty())
+                {
+                    for (ObjectList<Symbol>::iterator it = tentative_result.begin();
+                            it != tentative_result.end();
+                            it++)
+                    {
+                        std::cerr << "UDR: Candidate: " 
+                            << it->get_type().get_declaration(it->get_scope(), it->get_qualified_name()) << std::endl;
+                    }
+                }
+                else
+                {
+                    std::cerr << "UDR: No candidates" << std::endl;
                 }
             }
 
@@ -1720,6 +1946,11 @@ namespace TL
             RefPtr<UDRInfoItem> cp(new UDRInfoItem(*this));
 
             sym.set_attribute("udr_info", cp);
+
+            DEBUG_CODE()
+            {
+                std::cerr << "UDR: Signing in " << this->get_symbol_name() << std::endl;
+            }
         }
 
         bool UDRInfoItem::has_identity() const
@@ -1751,6 +1982,44 @@ namespace TL
             }
             else 
                 return false;
+        }
+
+        Symbol UDRInfoItem::get_deduction_function() 
+        {
+            if (!_is_template)
+                return Symbol(NULL);
+
+            if (!_deduction_function.is_valid())
+            {
+                type_t* reduction_type = _reduction_type.get_internal_type();
+                scope_entry_t* entry = (scope_entry_t*)calloc(1, sizeof(*entry));
+                entry->kind = SK_TEMPLATE;
+
+                parameter_info_t parameter_info[1] = 
+                {
+                    { /* .is_ellipsis */ 0, reduction_type, reduction_type }
+                };
+
+                type_t* primary_type = get_new_function_type(get_void_type(),
+                        parameter_info, 1);
+
+                entry->symbol_name = uniquestr(".udr_function");
+                entry->type_information =
+                    get_new_template_type(
+                            // template_specialized_type_get_template_parameters(get_actual_class_type(reduction_type)),
+                            named_type_get_symbol(reduction_type)->decl_context.template_parameters,
+                            primary_type,
+                            uniquestr(".udr_function"),
+                            // This will fail for non named types!
+                            named_type_get_symbol(reduction_type)->decl_context,
+                            0, uniquestr("(null)"));
+
+                entry->decl_context = named_type_get_symbol(reduction_type)->decl_context;
+
+                _deduction_function = Symbol(entry);
+            }
+
+            return _deduction_function;
         }
     }
 }

@@ -1719,6 +1719,9 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
     {
         // Only update this when the class has not already been defined
         template_specialized_type_update_template_parameters(class_type, decl_context.template_parameters);
+
+        // State this symbol has been created by the code and not by the type system
+        class_entry->entity_specs.template_is_declared = 1;
     }
 
     *type_info = get_user_defined_type(class_entry);
@@ -3613,6 +3616,9 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     if (is_template_specialized_type(class_type))
     {
         template_specialized_type_update_template_parameters(class_type, decl_context.template_parameters);
+
+        // State this symbol has been created by the code and not by the type system
+        class_entry->entity_specs.template_is_declared = 1;
     }
 
     ERROR_CONDITION(class_entry != NULL
@@ -5123,6 +5129,9 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
     if (is_unnamed_class_type(declarator_type)
             || is_unnamed_enumerated_type(declarator_type))
     {
+        // All class and enum types are named at least with <<anonymous>>
+        internal_error("Code unreachable", 0);
+#if 0
         if (is_class_type(declarator_type))
         {
             entry->kind = SK_CLASS;
@@ -5150,11 +5159,20 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         // Remember this symbol has been created because of
         // a typedef against an unnamed struct/enum
         entry->entity_specs.after_typedef = 1;
+#endif
     }
     else
     {
         entry->kind = SK_TYPEDEF;
         entry->type_information = declarator_type;
+
+        // Update the name of an unnamed type
+        if (is_named_type(declarator_type)
+                && (strcmp(named_type_get_symbol(declarator_type)->symbol_name, "<<anonymous>>") == 0))
+        {
+            scope_entry_t* symbol_type = named_type_get_symbol(declarator_type);
+            symbol_type->symbol_name = entry->symbol_name;
+        }
     }
 
     return entry;

@@ -6,7 +6,10 @@ test_generator=config/mercurium
 namespace A
 {
     template <typename _T>
-        struct B { };
+        struct B { 
+            _T t;
+        };
+
 }
 
-extern template A::B<int>;
+template class A::B<int>;

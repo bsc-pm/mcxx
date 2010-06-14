@@ -322,6 +322,18 @@ namespace TL
                         var_type = var_type.points_to();
                     }
 
+                    // Lower array types
+                    int num_dimensions = 0;
+                    if (!var_sym.is_parameter()
+                            && var_type.is_array())
+                    {
+                        while (var_type.is_array())
+                        {
+                            var_type = var_type.array_element();
+                            num_dimensions++;
+                        }
+                    }
+
                     if (var_sym.is_dependent_entity())
                     {
                         std::cerr << construct.get_ast().get_locus() << ": warning: symbol "
@@ -340,10 +352,17 @@ namespace TL
                         }
                         udr.set_reduction_type(var_type);
 
+                        if (num_dimensions != 0)
+                        {
+                            udr.set_is_array_reduction(true);
+                            udr.set_num_dimensions(num_dimensions);
+                        }
+
                         ObjectList<Symbol> all_viables;
 
                         bool found = false;
                         udr = udr.lookup_udr(construct.get_scope(), 
+                                construct.get_scope_link(),
                                 found,
                                 all_viables, 
                                 construct.get_ast().get_file(),
@@ -371,7 +390,8 @@ namespace TL
                             running_error("%s: error: no suitable reductor operator '%s' was found for reduced variable '%s' of type '%s'",
                                     construct.get_ast().get_locus().c_str(),
                                     reductor_name.c_str(),
-                                    var_tree.prettyprint().c_str());
+                                    var_tree.prettyprint().c_str(),
+                                    var_sym.get_type().get_declaration(var_sym.get_scope(), "").c_str());
                         }
                     }
                 }

@@ -6457,11 +6457,28 @@ static char check_for_delete_expression(AST expression, decl_context_t decl_cont
 
         decl_context_t op_delete_context = decl_context;
 
-        if (is_pointer_to_class_type(deleted_expr_type)
-                && global_op == NULL)
+        if (global_op == NULL
+                && is_pointer_to_class_type(deleted_expr_type))
         {
-            op_delete_context = class_type_get_inner_context(
-                    get_actual_class_type(pointer_type_get_pointee_type(deleted_expr_type)));
+            type_t* class_type = pointer_type_get_pointee_type(deleted_expr_type);
+
+            if (class_type_is_incomplete_independent(get_actual_class_type(class_type)))
+            {
+                scope_entry_t* entry = named_type_get_symbol(class_type);
+                instantiate_template_class(entry, decl_context,
+                        ASTFileName(expression), ASTLine(expression));
+            }
+
+            if (is_complete_type(class_type))
+            {
+                op_delete_context = class_type_get_inner_context(
+                        get_actual_class_type(pointer_type_get_pointee_type(deleted_expr_type)));
+            }
+            else
+            {
+                running_error("%s: error: cannot delete an incomplete class type\n",
+                        ast_location(expression));
+            }
         }
         else
         {
@@ -8173,6 +8190,9 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
     scope_entry_t* entry = entry_list->entry;
     C_LANGUAGE()
     {
+        // Store the symbol found
+        expression_set_symbol(id_expression, entry);
+
         // C only will have fields
         expression_set_type(member_access, entry->type_information);
         expression_set_is_lvalue(member_access, 1);
@@ -8183,6 +8203,9 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
     {
         if (entry->kind == SK_VARIABLE)
         {
+            // Store the member found
+            expression_set_symbol(id_expression, entry);
+
             // This is a reference to the type
             if (!is_dependent_expr_type(entry->type_information))
             {

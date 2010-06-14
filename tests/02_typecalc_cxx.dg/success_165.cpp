@@ -25,7 +25,7 @@ test_generator=config/mercurium
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
-struct A;
+struct A { };
 
 void f(void)
 {
