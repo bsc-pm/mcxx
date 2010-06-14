@@ -114,6 +114,7 @@ namespace OpenMP
                             && expr.get_called_expression().is_id_expression())
                     {
                         Symbol sym = expr.get_called_expression().get_id_expression().get_computed_symbol();
+
                         if (sym.is_valid()
                                 && sym.is_function()
                                 && _function_task_set->is_function_task(sym))

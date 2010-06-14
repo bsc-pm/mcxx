@@ -7036,7 +7036,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                 {
                     scope_entry_t* entry = entry_list->entry;
                     // Tag the node with symbol information (this is useful to know who are you calling)
-                    ASTAttrSetValueType(advanced_called_expression, LANG_FUNCTION_SYMBOL, tl_type_t, tl_symbol(entry));
+                    expression_set_symbol(advanced_called_expression, entry);
                 }
             }
             else
@@ -7515,7 +7515,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         expression_set_type(called_expression, overloaded_call->type_information);
         expression_set_type(advanced_called_expression, overloaded_call->type_information);
         // Tag the node with symbol information (this is useful to know who is being called)
-        ASTAttrSetValueType(advanced_called_expression, LANG_FUNCTION_SYMBOL, tl_type_t, tl_symbol(overloaded_call));
+        expression_set_symbol(advanced_called_expression, overloaded_call);
 
         if (arguments != NULL)
         {
