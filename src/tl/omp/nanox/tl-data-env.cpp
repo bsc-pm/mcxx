@@ -223,6 +223,9 @@ namespace TL
             }
             else if (IS_CXX_LANGUAGE)
             {
+                if (type.is_reference())
+                    type = type.references_to();
+
                 if (type.is_array())
                 {
                     Type element_type = type.array_element();
@@ -302,6 +305,10 @@ namespace TL
             {
                 type = type.array_element().get_pointer_to().get_restrict_type();
             }
+            else if (type.is_reference())
+            {
+                type = type.references_to().get_pointer_to().get_restrict_type();
+            }
             else
             {
                 type = type.get_pointer_to().get_restrict_type();
@@ -325,6 +332,10 @@ namespace TL
                 ObjectList<Symbol>& converted_vlas)
         {
             Type type = sym.get_type();
+
+            if (type.is_reference())
+                type = type.references_to();
+
             DataEnvironItem data_env_item(sym, type, "");
 
             data_env_item.set_is_private(true);
@@ -482,8 +493,13 @@ namespace TL
                 }
             }
 
+            Type t = data_env_item.get_type();
+
+            if (t.is_reference())
+                t = t.references_to();
+
             struct_fields
-                << data_env_item.get_type().get_unqualified_type().get_declaration(sc, data_env_item.get_field_name()) << ";"
+                << t.get_unqualified_type().get_declaration(sc, data_env_item.get_field_name()) << ";"
                 ;
         }
     }
