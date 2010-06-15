@@ -1887,11 +1887,11 @@ abstract_declarator : ptr_operator
 // GNU extension
 | attributes ptr_operator
 {
-	$$ = ASTMake2(AST_GCC_PTR_ABSTRACT_DECLARATOR, $1, $2, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake3(AST_GCC_PTR_ABSTRACT_DECLARATOR, $1, $2, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
 | attributes ptr_operator abstract_declarator
 {
-	$$ = ASTMake2(AST_GCC_PTR_ABSTRACT_DECLARATOR, $1, $2, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake3(AST_GCC_PTR_ABSTRACT_DECLARATOR, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 | attributes abstract_direct_declarator
 {
