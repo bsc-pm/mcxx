@@ -1955,6 +1955,16 @@ static char check_for_declarator_rec(AST declarator, decl_context_t decl_context
     return 0;
 }
 
+static char is_abstract_declarator(AST a, decl_context_t decl_context)
+{
+    return get_declarator_id_expression(a, decl_context) == NULL;
+}
+
+static char is_non_abstract_declarator(AST a, decl_context_t decl_context)
+{
+    return !is_abstract_declarator(a, decl_context);
+}
+
 static char check_for_function_declarator_parameters(AST parameter_declaration_clause, decl_context_t decl_context)
 {
     AST list = parameter_declaration_clause;
@@ -2004,18 +2014,40 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
                     }
                     else
                     {
+                        // A parameter like type-name(type-name) must be
+                        // interpreted as an abstract declarator and not as a
+                        // redundantly parenthesized declarator introducing a
+                        // parameter called like the type-name
                         AST current_choice = parameter_decl;
                         AST previous_choice = ast_get_ambiguity(parameter, correct_choice);
-                        fprintf(stderr, "Previous choice\n");
-                        prettyprint(stderr, previous_choice);
-                        fprintf(stderr, "\n");
-                        fprintf(stderr, "Current choice\n");
-                        prettyprint(stderr, current_choice);
-                        fprintf(stderr, "\n");
-                        internal_error("More than one valid alternative '%s' vs '%s' %s", 
-                                ast_print_node_type(ASTType(previous_choice)),
-                                ast_print_node_type(ASTType(current_choice)),
-                                ast_location(previous_choice));
+                        if (ASTSon1(current_choice) != NULL
+                                && is_abstract_declarator(ASTSon1(current_choice), decl_context)
+                                &&  ASTSon1(previous_choice) != NULL
+                                && is_non_abstract_declarator(ASTSon1(previous_choice), decl_context))
+                        {
+                            // The current is the good one
+                            correct_choice = i;
+                        }
+                        else if (ASTSon1(previous_choice) != NULL
+                                && is_abstract_declarator(ASTSon1(previous_choice), decl_context)
+                                &&  ASTSon1(current_choice) != NULL
+                                && is_non_abstract_declarator(ASTSon1(current_choice), decl_context))
+                        {
+                            // The previous was the good one
+                        }
+                        else
+                        {
+                            fprintf(stderr, "Previous choice\n");
+                            prettyprint(stderr, previous_choice);
+                            fprintf(stderr, "\n");
+                            fprintf(stderr, "Current choice\n");
+                            prettyprint(stderr, current_choice);
+                            fprintf(stderr, "\n");
+                            internal_error("More than one valid alternative '%s' vs '%s' %s", 
+                                    ast_print_node_type(ASTType(previous_choice)),
+                                    ast_print_node_type(ASTType(current_choice)),
+                                    ast_location(previous_choice));
+                        }
                     }
                 }
             }
@@ -2071,15 +2103,6 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
     return 1;
 }
 
-static char is_abstract_declarator(AST a)
-{
-    internal_error("Not yet implemented %p", a);
-}
-
-static char is_non_abstract_declarator(AST a)
-{
-    internal_error("Not yet implemented %p", a);
-}
 
 void solve_ambiguous_parameter_decl(AST parameter_declaration, decl_context_t decl_context)
 {
@@ -2140,13 +2163,13 @@ void solve_ambiguous_parameter_decl(AST parameter_declaration, decl_context_t de
                 if (previous_declarator != NULL
                         && current_declarator != NULL)
                 {
-                    if (is_abstract_declarator(previous_declarator)
-                            && is_non_abstract_declarator(current_declarator))
+                    if (is_abstract_declarator(previous_declarator, decl_context)
+                            && is_non_abstract_declarator(current_declarator, decl_context))
                     {
                         solved_ambiguity = 1;
                     }
-                    else if (is_non_abstract_declarator(previous_declarator)
-                            && is_abstract_declarator(current_declarator))
+                    else if (is_non_abstract_declarator(previous_declarator, decl_context)
+                            && is_abstract_declarator(current_declarator, decl_context))
                     {
                         current_choice = i;
                         solved_ambiguity = 1;

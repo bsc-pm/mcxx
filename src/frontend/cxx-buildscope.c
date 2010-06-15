@@ -4444,6 +4444,7 @@ static void build_scope_declarator_rec(AST a, type_t** declarator_type,
     switch(ASTType(a))
     {
         case AST_DECLARATOR :
+        case AST_PARENTHESIZED_DECLARATOR :
             {
                 build_scope_declarator_rec(ASTSon0(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context); 
