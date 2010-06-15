@@ -221,14 +221,14 @@ void DeviceSMP::create_outline(
         Source funct_id, funct_description;
         instrument_before
             << "static int nanos_funct_id_init = 0;"
-            << "static int nanos_instr_user_fun_key = 0;"
-            << "static int nanos_instr_user_fun_value = 0;"
+            << "static nanos_event_key_t nanos_instr_user_fun_key = 0;"
+            << "static nanos_event_value_t nanos_instr_user_fun_value = 0;"
             << "if (nanos_funct_id_init == 0)"
             << "{"
             <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct\", &nanos_instr_user_fun_key);"
             <<    "if (err != NANOS_OK) nanos_handle_error(err);"
             <<    "err = nanos_instrument_register_value ( &nanos_instr_user_fun_value, \"user-funct\","
-            <<               funct_id << "," << funct_description << ");"
+            <<               funct_id << "," << funct_description << ", 0);"
             <<    "if (err != NANOS_OK) nanos_handle_error(err);"
             <<    "nanos_funct_id_init = 1;"
             << "}"
@@ -236,7 +236,7 @@ void DeviceSMP::create_outline(
             ;
 
         instrument_after
-            << "nanos_instrument_leave_burst(nanos_instr_user_fun_key, nanos_instr_user_fun_value);"
+            << "nanos_instrument_leave_burst(nanos_instr_user_fun_key);"
             ;
 
         funct_id
