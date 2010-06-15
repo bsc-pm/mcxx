@@ -1220,7 +1220,7 @@ static char check_for_typeless_declarator_rec(AST declarator, decl_context_t dec
                         decl_context, nfuncs);
                 break;
             }
-        case AST_POINTER_DECL :
+        case AST_POINTER_DECLARATOR :
         case AST_DECLARATOR_ARRAY : 
             {
                 // struct A
@@ -1898,14 +1898,7 @@ static char check_for_declarator_rec(AST declarator, decl_context_t decl_context
 
     switch (ASTType(declarator))
     {
-        case AST_ABSTRACT_DECLARATOR :
-            {
-                return check_for_declarator_rec(ASTSon1(declarator), decl_context);
-                break;
-            }
         case AST_DECLARATOR_ARRAY :
-        case AST_ABSTRACT_ARRAY :
-        case AST_DIRECT_NEW_DECLARATOR:
             {
                 if (ASTSon1(declarator) != NULL)
                 {
@@ -1921,25 +1914,17 @@ static char check_for_declarator_rec(AST declarator, decl_context_t decl_context
                 return check_for_declarator_rec(ASTSon0(declarator), decl_context);
                 return 1;
             }
-        case AST_PARENTHESIZED_ABSTRACT_DECLARATOR :
         case AST_PARENTHESIZED_DECLARATOR :
         case AST_DECLARATOR :
             {
                 return check_for_declarator_rec(ASTSon0(declarator), decl_context);
                 break;
             }
-        case AST_NEW_DECLARATOR:
-        case AST_POINTER_DECL :
+        case AST_POINTER_DECLARATOR :
             {
                 return check_for_declarator_rec(ASTSon1(declarator), decl_context);
                 break;
             }
-        case AST_GCC_PTR_ABSTRACT_DECLARATOR:
-            {
-                return check_for_declarator_rec(ASTSon2(declarator), decl_context);
-                break;
-            }
-        case AST_ABSTRACT_DECLARATOR_FUNC :
         case AST_DECLARATOR_FUNC :
             {
                 // Check for parameters here
@@ -2088,15 +2073,12 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
 
 static char is_abstract_declarator(AST a)
 {
-    return (ASTType(a) == AST_ABSTRACT_DECLARATOR
-            || ASTType(a) == AST_ABSTRACT_DECLARATOR_FUNC
-            || ASTType(a) == AST_ABSTRACT_ARRAY);
+    internal_error("Not yet implemented %p", a);
 }
 
 static char is_non_abstract_declarator(AST a)
 {
-    return (ASTType(a) == AST_DECLARATOR
-            || ASTType(a) == AST_POINTER_DECL);
+    internal_error("Not yet implemented %p", a);
 }
 
 void solve_ambiguous_parameter_decl(AST parameter_declaration, decl_context_t decl_context)
@@ -2217,8 +2199,7 @@ void solve_ambiguous_decl_specifier_seq(AST type_spec_seq,
     {
         AST type_specifier_seq = ast_get_ambiguity(type_spec_seq, i);
 
-        if (ASTType(type_specifier_seq) != AST_TYPE_SPECIFIER_SEQ
-                && ASTType(type_specifier_seq) != AST_DECL_SPECIFIER_SEQ)
+        if (ASTType(type_specifier_seq) != AST_TYPE_SPECIFIER_SEQ)
         {
             internal_error("Invalid node type '%s'\n", ast_print_node_type(ASTType(type_specifier_seq)));
         }
@@ -2777,7 +2758,7 @@ static char check_for_function_definition_declarator_rec(AST declarator,
             }
         case AST_PARENTHESIZED_DECLARATOR :
         case AST_DECLARATOR :
-        case AST_POINTER_DECL :
+        case AST_POINTER_DECLARATOR :
             {
                 return check_for_function_definition_declarator_rec(ASTSon0(declarator),
                         decl_context,

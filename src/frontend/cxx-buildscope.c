@@ -4340,66 +4340,25 @@ static void set_function_type(type_t** declarator_type,
 // places
 static void gather_gcc_attributes_spread(AST a, gather_decl_spec_t* gather_info, decl_context_t declarator_context)
 {
-    ERROR_CONDITION((a == NULL), "This function does not admit NULL trees", 0);
+    if (a == NULL)
+        return;
 
     switch(ASTType(a))
     {
         case AST_DECLARATOR :
-        case AST_PARENTHESIZED_ABSTRACT_DECLARATOR :
         case AST_PARENTHESIZED_DECLARATOR :
             {
                 gather_gcc_attributes_spread(ASTSon0(a), gather_info, declarator_context);
                 break;
             }
-        case AST_CONVERSION_DECLARATOR :
-        case AST_ABSTRACT_DECLARATOR :
-            {
-                if (ASTSon1(a) != NULL)
-                {
-                    gather_gcc_attributes_spread(ASTSon1(a), gather_info, declarator_context);
-                }
-                break;
-            }
-        case AST_POINTER_DECL :
+        case AST_POINTER_DECLARATOR :
             {
                 gather_gcc_attributes_spread(ASTSon1(a), gather_info, declarator_context);
-                break;
-            }
-        case AST_ABSTRACT_ARRAY :
-            {
-                if (ASTSon0(a) != NULL)
-                {
-                    gather_gcc_attributes_spread(ASTSon0(a), gather_info, declarator_context);
-                }
-                break;
-            }
-        case AST_DIRECT_NEW_DECLARATOR :
-            {
-                if (ASTSon0(a) != NULL)
-                {
-                    gather_gcc_attributes_spread(ASTSon0(a), gather_info, declarator_context);
-                }
-                break;
-            }
-        case AST_NEW_DECLARATOR :
-            {
-                if (ASTSon1(a) != NULL)
-                {
-                    gather_gcc_attributes_spread(ASTSon1(a), gather_info, declarator_context);
-                }
                 break;
             }
         case AST_DECLARATOR_ARRAY :
             {
                 gather_gcc_attributes_spread(ASTSon0(a), gather_info, declarator_context);
-                break;
-            }
-        case AST_ABSTRACT_DECLARATOR_FUNC :
-            {
-                if (ASTSon0(a) != NULL)
-                {
-                    gather_gcc_attributes_spread(ASTSon0(a), gather_info, declarator_context);
-                }
                 break;
             }
         case AST_DECLARATOR_FUNC :
@@ -4425,37 +4384,13 @@ static void gather_gcc_attributes_spread(AST a, gather_decl_spec_t* gather_info,
             }
             // attribute * declarator
             // attribute & declarator
-        case AST_GCC_POINTER_DECL :
+        case AST_GCC_POINTER_DECLARATOR :
             {
                 AST attribute_list = ASTSon0(a);
                 gather_gcc_attribute_list(attribute_list, gather_info, declarator_context);
 
                 gather_gcc_attributes_spread(ASTSon2(a), 
                         gather_info, declarator_context);
-                break;
-            }
-            // attribute abstract-declarator
-        case AST_GCC_ABSTRACT_DECLARATOR :
-            {
-                AST attribute_list = ASTSon0(a);
-                gather_gcc_attribute_list(attribute_list, gather_info, declarator_context);
-
-                gather_gcc_attributes_spread(ASTSon0(a), 
-                        gather_info, declarator_context); 
-                break;
-            }
-            // attribute * abstract-declarator
-            // attribute & abstract-declarator
-        case AST_GCC_PTR_ABSTRACT_DECLARATOR :
-            {
-                AST attribute_list = ASTSon0(a);
-                gather_gcc_attribute_list(attribute_list, gather_info, declarator_context);
-
-                if (ASTSon2(a) != NULL)
-                {
-                    gather_gcc_attributes_spread(ASTSon2(a), 
-                            gather_info, declarator_context);
-                }
                 break;
             }
             // functional-declarator attribute
@@ -4503,72 +4438,22 @@ static void build_scope_declarator_rec(AST a, type_t** declarator_type,
         // declarations or functional types
         decl_context_t *prototype_context)
 {
-    ERROR_CONDITION((a == NULL), "This function does not admit NULL trees", 0);
+    if (a == NULL)
+        return;
 
     switch(ASTType(a))
     {
         case AST_DECLARATOR :
-        case AST_PARENTHESIZED_ABSTRACT_DECLARATOR :
-        case AST_PARENTHESIZED_DECLARATOR :
             {
                 build_scope_declarator_rec(ASTSon0(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context); 
                 break;
             }
-        case AST_CONVERSION_DECLARATOR :
-        case AST_ABSTRACT_DECLARATOR :
-            {
-                set_pointer_type(declarator_type, ASTSon0(a), declarator_context);
-                if (ASTSon1(a) != NULL)
-                {
-                    build_scope_declarator_rec(ASTSon1(a), declarator_type, 
-                            gather_info, declarator_context, entity_context, prototype_context);
-                }
-                break;
-            }
-        case AST_POINTER_DECL :
+        case AST_POINTER_DECLARATOR :
             {
                 set_pointer_type(declarator_type, ASTSon0(a), declarator_context);
                 build_scope_declarator_rec(ASTSon1(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context);
-                break;
-            }
-        case AST_ABSTRACT_ARRAY :
-            {
-                set_array_type(declarator_type, 
-                        /* expr */ASTSon1(a), 
-                        /* (C99)static_qualif */ ASTSon3(a),
-                        /* (C99)cv_qualifier_seq */ ASTSon2(a),
-                        entity_context);
-                if (ASTSon0(a) != NULL)
-                {
-                    build_scope_declarator_rec(ASTSon0(a), declarator_type, 
-                            gather_info, declarator_context, entity_context, prototype_context);
-                }
-                break;
-            }
-        case AST_DIRECT_NEW_DECLARATOR :
-            {
-                set_array_type(declarator_type, 
-                        /* expr */ ASTSon1(a),
-                        /* N/A */ NULL,
-                        /* N/A */ NULL, 
-                        entity_context);
-                if (ASTSon0(a) != NULL)
-                {
-                    build_scope_declarator_rec(ASTSon0(a), declarator_type, 
-                            gather_info, declarator_context, entity_context, prototype_context);
-                }
-                break;
-            }
-        case AST_NEW_DECLARATOR :
-            {
-                set_pointer_type(declarator_type, ASTSon0(a), entity_context);
-                if (ASTSon1(a) != NULL)
-                {
-                    build_scope_declarator_rec(ASTSon1(a), declarator_type, 
-                            gather_info, declarator_context, entity_context, prototype_context);
-                }
                 break;
             }
         case AST_DECLARATOR_ARRAY :
@@ -4580,17 +4465,6 @@ static void build_scope_declarator_rec(AST a, type_t** declarator_type,
                         entity_context);
                 build_scope_declarator_rec(ASTSon0(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context);
-                break;
-            }
-        case AST_ABSTRACT_DECLARATOR_FUNC :
-            {
-                set_function_type(declarator_type, gather_info, ASTSon1(a), 
-                        ASTSon2(a), ASTSon3(a), entity_context, prototype_context);
-                if (ASTSon0(a) != NULL)
-                {
-                    build_scope_declarator_rec(ASTSon0(a), declarator_type, 
-                            gather_info, declarator_context, entity_context, prototype_context);
-                }
                 break;
             }
         case AST_DECLARATOR_FUNC :
@@ -4618,30 +4492,11 @@ static void build_scope_declarator_rec(AST a, type_t** declarator_type,
             }
             // attribute * declarator
             // attribute & declarator
-        case AST_GCC_POINTER_DECL :
+        case AST_GCC_POINTER_DECLARATOR :
             {
                 set_pointer_type(declarator_type, ASTSon1(a), declarator_context);
                 build_scope_declarator_rec(ASTSon2(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context);
-                break;
-            }
-            // attribute abstract-declarator
-        case AST_GCC_ABSTRACT_DECLARATOR :
-            {
-                build_scope_declarator_rec(ASTSon0(a), declarator_type, 
-                        gather_info, declarator_context, entity_context, prototype_context); 
-                break;
-            }
-            // attribute * abstract-declarator
-            // attribute & abstract-declarator
-        case AST_GCC_PTR_ABSTRACT_DECLARATOR :
-            {
-                set_pointer_type(declarator_type, ASTSon1(a), declarator_context);
-                if (ASTSon2(a) != NULL)
-                {
-                    build_scope_declarator_rec(ASTSon2(a), declarator_type, 
-                            gather_info, declarator_context, entity_context, prototype_context);
-                }
                 break;
             }
             // functional-declarator attribute
@@ -4700,8 +4555,8 @@ static char is_constructor_declarator_rec(AST a, char seen_decl_func)
                     }
                 }
             }
-        case AST_POINTER_DECL :
-        case AST_GCC_POINTER_DECL :
+        case AST_POINTER_DECLARATOR :
+        case AST_GCC_POINTER_DECLARATOR :
         case AST_DECLARATOR_ARRAY :
             {
                 return 0;
@@ -8933,7 +8788,7 @@ AST get_function_declarator_parameter_list(AST funct_declarator, decl_context_t 
                 return get_function_declarator_parameter_list(ASTSon0(funct_declarator), decl_context); 
                 break;
             }
-        case AST_POINTER_DECL :
+        case AST_POINTER_DECLARATOR :
             {
                 return get_function_declarator_parameter_list(ASTSon1(funct_declarator), decl_context);
                 break;
@@ -8949,7 +8804,7 @@ AST get_function_declarator_parameter_list(AST funct_declarator, decl_context_t 
                 return get_function_declarator_parameter_list(ASTSon1(funct_declarator), decl_context);
                 break;
             }
-        case AST_GCC_POINTER_DECL :
+        case AST_GCC_POINTER_DECLARATOR :
             {
                 return get_function_declarator_parameter_list(ASTSon2(funct_declarator), decl_context);
                 break;
@@ -8985,7 +8840,8 @@ AST get_declarator_name(AST a, decl_context_t decl_context)
 
 AST get_declarator_id_expression(AST a, decl_context_t decl_context)
 {
-    ERROR_CONDITION((a == NULL), "This function does not admit NULL trees", 0);
+    if (a == NULL)
+        return NULL;
 
     switch(ASTType(a))
     {
@@ -8998,7 +8854,7 @@ AST get_declarator_id_expression(AST a, decl_context_t decl_context)
                 return get_declarator_id_expression(ASTSon0(a), decl_context); 
                 break;
             }
-        case AST_POINTER_DECL :
+        case AST_POINTER_DECLARATOR :
             {
                 return get_declarator_id_expression(ASTSon1(a), decl_context);
                 break;
@@ -9023,7 +8879,7 @@ AST get_declarator_id_expression(AST a, decl_context_t decl_context)
                 return get_declarator_id_expression(ASTSon1(a), decl_context);
                 break;
             }
-        case AST_GCC_POINTER_DECL :
+        case AST_GCC_POINTER_DECLARATOR :
             {
                 return get_declarator_id_expression(ASTSon2(a), decl_context);
                 break;
@@ -9031,18 +8887,6 @@ AST get_declarator_id_expression(AST a, decl_context_t decl_context)
         case AST_GCC_FUNCTIONAL_DECLARATOR :
             {
                 return get_declarator_id_expression(ASTSon0(a), decl_context);
-            }
-        case AST_NEW_DECLARATOR :
-        case AST_DIRECT_NEW_DECLARATOR :
-        case AST_CONVERSION_DECLARATOR :
-        case AST_ABSTRACT_DECLARATOR :
-        case AST_GCC_ABSTRACT_DECLARATOR :
-        case AST_GCC_PTR_ABSTRACT_DECLARATOR :
-        case AST_PARENTHESIZED_ABSTRACT_DECLARATOR:
-        case AST_ABSTRACT_DECLARATOR_FUNC:
-        case AST_ABSTRACT_ARRAY :
-            {
-                return NULL;
             }
         case AST_AMBIGUITY :
             {
@@ -9092,7 +8936,8 @@ static AST advance_over_declarator_nests(AST a, decl_context_t decl_context)
 //   int a[10]; // Returns the tree holding 'a'
 AST get_leftmost_declarator_name(AST a, decl_context_t decl_context)
 {
-    ERROR_CONDITION((a == NULL), "This function does not admit NULL trees", 0);
+    if (a == NULL)
+        return NULL;
 
     switch(ASTType(a))
     {
@@ -9107,7 +8952,7 @@ AST get_leftmost_declarator_name(AST a, decl_context_t decl_context)
             {
                 return NULL;
             }
-        case AST_POINTER_DECL :
+        case AST_POINTER_DECLARATOR :
             {
                 return NULL;
             }
@@ -9126,17 +8971,8 @@ AST get_leftmost_declarator_name(AST a, decl_context_t decl_context)
                 return ASTSon0(a);
                 break;
             }
-        case AST_ABSTRACT_DECLARATOR :
-        case AST_GCC_ABSTRACT_DECLARATOR :
-        case AST_PARENTHESIZED_ABSTRACT_DECLARATOR:
-        case AST_ABSTRACT_DECLARATOR_FUNC:
-        case AST_ABSTRACT_ARRAY :
-            {
-                return NULL;
-            }
         case AST_AMBIGUITY :
             {
-                // A scope null is valid here since this is purely syntactic
                 solve_ambiguous_declarator(a, decl_context);
                 // Restart function
                 return get_leftmost_declarator_name(a, decl_context);

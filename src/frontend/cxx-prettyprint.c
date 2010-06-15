@@ -91,13 +91,12 @@ HANDLER_PROTOTYPE(null_handler);
 HANDLER_PROTOTYPE(parameter_decl_handler);
 HANDLER_PROTOTYPE(init_declarator_handler);
 HANDLER_PROTOTYPE(pointer_decl_handler);
-HANDLER_PROTOTYPE(abstract_declarator_handler);
 HANDLER_PROTOTYPE(type_id_handler);
 HANDLER_PROTOTYPE(prefix_with_parameter_then_son_handler);
 HANDLER_PROTOTYPE(prefix_with_token_text_then_son_handler);
 HANDLER_PROTOTYPE(braced_initializer_handler);
 HANDLER_PROTOTYPE(pointer_spec_handler);
-HANDLER_PROTOTYPE(decl_specifier_sequence);
+HANDLER_PROTOTYPE(type_specifier_sequence);
 HANDLER_PROTOTYPE(binary_operator_handler);
 HANDLER_PROTOTYPE(throw_expression_handler);
 HANDLER_PROTOTYPE(conditional_expression_handler);
@@ -121,7 +120,6 @@ HANDLER_PROTOTYPE(templated_cast_handler);
 HANDLER_PROTOTYPE(qualified_id_handler);
 HANDLER_PROTOTYPE(qualified_template_handler);
 HANDLER_PROTOTYPE(conversion_type_id_handler);
-HANDLER_PROTOTYPE(conversion_declarator_handler);
 HANDLER_PROTOTYPE(constructor_initializer_handler);
 HANDLER_PROTOTYPE(mem_initializer_handler);
 HANDLER_PROTOTYPE(mem_initializer_id_handler);
@@ -234,8 +232,6 @@ HANDLER_PROTOTYPE(gcc_declarator_handler);
 HANDLER_PROTOTYPE(gcc_pointer_declarator_handler);
 HANDLER_PROTOTYPE(gcc_reference_spec_handler);
 HANDLER_PROTOTYPE(gcc_enum_specifier_handler);
-HANDLER_PROTOTYPE(gcc_abstract_declarator_handler);
-HANDLER_PROTOTYPE(gcc_ptr_abstract_declarator_handler);
 HANDLER_PROTOTYPE(gcc_initializer_clause_handler);
 HANDLER_PROTOTYPE(gcc_class_head_handler);
 HANDLER_PROTOTYPE(gcc_member_declarator_handler);
@@ -283,7 +279,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_EMPTY_DECL, indented_simple_parameter_handler, ";\n"),
     NODE_HANDLER(AST_INIT_DECLARATOR, init_declarator_handler, NULL),
     NODE_HANDLER(AST_DECLARATOR, unary_container_handler, NULL),
-    NODE_HANDLER(AST_POINTER_DECL, pointer_decl_handler, NULL),
+    NODE_HANDLER(AST_POINTER_DECLARATOR, pointer_decl_handler, NULL),
     NODE_HANDLER(AST_PARENTHESIZED_DECLARATOR, parenthesized_son_handler, NULL),
     NODE_HANDLER(AST_DECLARATOR_ID_EXPR, unary_container_handler, NULL),
     NODE_HANDLER(AST_GLOBAL_SCOPE, double_colon_handler, NULL),
@@ -294,10 +290,6 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_TEMPLATE_EXPRESSION_ARGUMENT, unary_container_handler, NULL),
     NODE_HANDLER(AST_TEMPLATE_TYPE_ARGUMENT, unary_container_handler, NULL),
     NODE_HANDLER(AST_TYPE_ID, type_id_handler, NULL),
-    NODE_HANDLER(AST_ABSTRACT_DECLARATOR, abstract_declarator_handler, NULL),
-    NODE_HANDLER(AST_PARENTHESIZED_ABSTRACT_DECLARATOR, parenthesized_son_handler, NULL),
-    NODE_HANDLER(AST_ABSTRACT_ARRAY, abstract_array_declarator_handler, NULL),
-    NODE_HANDLER(AST_ABSTRACT_DECLARATOR_FUNC, abstract_declarator_function_handler, NULL),
     NODE_HANDLER(AST_VARIADIC_ARG, simple_parameter_handler, "..."),
     NODE_HANDLER(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, null_handler, NULL),
     NODE_HANDLER(AST_PARAMETER_DECL, parameter_decl_handler, NULL),
@@ -312,8 +304,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_VOLATILE_SPEC, simple_text_handler, NULL),
     NODE_HANDLER(AST_DECLARATOR_FUNC, abstract_declarator_function_handler, NULL),
     NODE_HANDLER(AST_DECLARATOR_ARRAY, abstract_array_declarator_handler, NULL),
-    NODE_HANDLER(AST_DECL_SPECIFIER_SEQ, decl_specifier_sequence, NULL),
-    NODE_HANDLER(AST_TYPE_SPECIFIER_SEQ, decl_specifier_sequence, NULL),
+    NODE_HANDLER(AST_TYPE_SPECIFIER_SEQ, type_specifier_sequence, NULL),
     NODE_HANDLER(AST_FRIEND_SPEC, simple_parameter_handler, "friend"),
     NODE_HANDLER(AST_TYPEDEF_SPEC, simple_parameter_handler, "typedef"),
     NODE_HANDLER(AST_SIGNED_TYPE, simple_parameter_handler, "signed"),
@@ -390,8 +381,6 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_NEW_EXPRESSION, new_expression_handler, NULL),
     NODE_HANDLER(AST_NEW_TYPE_ID, new_type_id_handler, NULL),
     NODE_HANDLER(AST_NEW_TYPE_ID_EXPR, new_type_id_expr_handler, NULL),
-    NODE_HANDLER(AST_NEW_DECLARATOR, new_type_id_handler, NULL),
-    NODE_HANDLER(AST_DIRECT_NEW_DECLARATOR, abstract_array_declarator_handler, NULL),
     NODE_HANDLER(AST_NEW_INITIALIZER, new_initializer_handler, NULL),
     NODE_HANDLER(AST_DELETE_EXPR, delete_expression_handler, NULL),
     NODE_HANDLER(AST_DELETE_ARRAY_EXPR, delete_expression_handler, NULL),
@@ -423,7 +412,6 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_DESTRUCTOR_TEMPLATE_ID, prefix_with_parameter_then_son_handler, "~"),
     NODE_HANDLER(AST_CONVERSION_FUNCTION_ID, prefix_with_parameter_then_son_handler, "operator "),
     NODE_HANDLER(AST_CONVERSION_TYPE_ID, conversion_type_id_handler, NULL),
-    NODE_HANDLER(AST_CONVERSION_DECLARATOR, conversion_declarator_handler, NULL),
     NODE_HANDLER(AST_CTOR_INITIALIZER, constructor_initializer_handler, NULL),
     NODE_HANDLER(AST_MEM_INITIALIZER, mem_initializer_handler, NULL),
     NODE_HANDLER(AST_MEM_INITIALIZER_ID, mem_initializer_id_handler, NULL),
@@ -606,11 +594,9 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_GCC_INIT_DECLARATOR, gcc_init_declarator_handler, NULL),
     NODE_HANDLER(AST_GCC_ASM_SPEC, gcc_asm_specification_handler, NULL),
     NODE_HANDLER(AST_GCC_DECLARATOR, gcc_declarator_handler, NULL),
-    NODE_HANDLER(AST_GCC_POINTER_DECL, gcc_pointer_declarator_handler, NULL),
+    NODE_HANDLER(AST_GCC_POINTER_DECLARATOR, gcc_pointer_declarator_handler, NULL),
     NODE_HANDLER(AST_GCC_REFERENCE_SPEC, gcc_reference_spec_handler, NULL),
     NODE_HANDLER(AST_GCC_ENUM_SPECIFIER, gcc_enum_specifier_handler, NULL),
-    NODE_HANDLER(AST_GCC_ABSTRACT_DECLARATOR, gcc_abstract_declarator_handler, NULL),
-    NODE_HANDLER(AST_GCC_PTR_ABSTRACT_DECLARATOR, gcc_ptr_abstract_declarator_handler, NULL),
     NODE_HANDLER(AST_GCC_INITIALIZER_CLAUSE, gcc_initializer_clause_handler, NULL),
     NODE_HANDLER(AST_GCC_CLASS_HEAD, gcc_class_head_handler, NULL),
     NODE_HANDLER(AST_GCC_MEMBER_DECLARATOR, gcc_member_declarator_handler, NULL),
@@ -1043,16 +1029,6 @@ static void type_id_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
     }
 }
 
-static void abstract_declarator_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-    }
-}
-
 static void abstract_declarator_function_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     if (ASTSon0(a) != NULL)
@@ -1203,7 +1179,7 @@ static void pointer_spec_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
     }
 }
 
-static void decl_specifier_sequence(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+static void type_specifier_sequence(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     if (ASTSon0(a) != NULL)
     {
@@ -1509,16 +1485,6 @@ static void conversion_type_id_handler(FILE* f, AST a, prettyprint_context_t* pt
     if (ASTSon1(a) != NULL)
     {
         token_fprintf(f, a, pt_ctx, " ");
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-    }
-}
-
-static void conversion_declarator_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-    
-    if (ASTSon1(a) != NULL)
-    {
         prettyprint_level(f, ASTSon1(a), pt_ctx);
     }
 }
@@ -2922,22 +2888,6 @@ static void gcc_enum_specifier_handler(FILE* f, AST a, prettyprint_context_t* pt
     token_fprintf(f, a, pt_ctx, "}");
 
     spaced_sequence_handler(f, ASTSon2(a), pt_ctx);
-}
-
-static void gcc_abstract_declarator_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
-}
-
-static void gcc_ptr_abstract_declarator_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
-    if (ASTSon2(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon2(a), pt_ctx);
-    }
 }
 
 static void gcc_initializer_clause_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
