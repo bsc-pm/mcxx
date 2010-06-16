@@ -1,4 +1,6 @@
 /*!if GRAMMAR_CODE*/
+#include "cxx-utils.h"
+
 static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1)
 {
 	AST son0 = x0.ast;
@@ -6,8 +8,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1)
 
 	if (son0 == son1) 
 	{
-		fprintf(stderr, "Ambiguity function received two trees that are the same!\n");
-		exit(EXIT_FAILURE);
+		internal_error("Ambiguity function received two trees that are the same!\n", 0);
 	}
 
     return ast_make_ambiguous(son0, son1);

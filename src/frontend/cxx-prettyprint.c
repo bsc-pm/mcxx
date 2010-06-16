@@ -1160,7 +1160,7 @@ static void pointer_spec_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
     
     if (ASTSon1(a) != NULL)
     {
-        spaced_sequence_handler(f, ASTSon2(a), pt_ctx);
+        spaced_sequence_handler(f, ASTSon1(a), pt_ctx);
     }
 }
 
