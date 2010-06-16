@@ -1339,11 +1339,10 @@ static void get_abstract_declarator(AST *abstract_decl,
         decl_context_t decl_context,
         const char* filename, int line)
 {
+    // FIXME - Parentheses may be needed for proper prettyprinting
     if (is_pointer_type(t)
             || is_pointer_to_member_type(t))
     {
-        get_abstract_declarator(abstract_decl, pointer_type_get_pointee_type(t), decl_context, filename, line);
-
         AST cv_seq = NULL;
 
         if (is_const_qualified_type(t))
@@ -1359,22 +1358,37 @@ static void get_abstract_declarator(AST *abstract_decl,
             cv_seq = ASTList(cv_seq, ASTLeaf(AST_GCC_RESTRICT_SPEC, filename, line, NULL));
         }
 
+        AST id_expr = NULL;
+
         if (is_pointer_to_member_type(t))
         {
-            internal_error("Not yet implemented this case", 0);
+            scope_entry_t* class = pointer_to_member_type_get_class(t);
+            id_expr = get_id_expression_for_entry(class, decl_context, filename, line);
         }
 
-        AST pointer_spec = ASTMake3(AST_POINTER_SPEC, NULL, NULL, cv_seq, filename, line, NULL);
+        AST pointer_spec = ASTMake2(AST_POINTER_SPEC, id_expr, cv_seq, filename, line, NULL);
         *abstract_decl = ASTMake2(AST_POINTER_DECLARATOR,
-                pointer_spec, *abstract_decl, filename, line, 0);
+                pointer_spec, NULL, filename, line, 0);
+
+        type_t* pointee = pointer_type_get_pointee_type(t);
+
+        char requires_parentheses = is_function_type(pointee) || is_array_type(pointee);
+
+        if (requires_parentheses)
+        {
+            *abstract_decl = ASTMake1(AST_PARENTHESIZED_DECLARATOR,
+                    *abstract_decl, filename, line, 0);
+        }
+
+        get_abstract_declarator(abstract_decl, pointer_type_get_pointee_type(t), decl_context, filename, line);
     }
     else if (is_array_type(t))
     {
-        get_abstract_declarator(abstract_decl, array_type_get_element_type(t), decl_context, filename, line);
-
         *abstract_decl = ASTMake2(AST_DECLARATOR_ARRAY, 
                 *abstract_decl,
                 array_type_get_array_size_expr(t), filename, line, 0);
+
+        get_abstract_declarator(abstract_decl, array_type_get_element_type(t), decl_context, filename, line);
     }
     else if (is_function_type(t))
     {
@@ -1420,7 +1434,7 @@ static void get_abstract_declarator(AST *abstract_decl,
             if (has_ellipsis)
             {
                 parameter_decl_clause = ASTList(parameter_decl_clause, 
-                        ASTLeaf(AST_VARIADIC_ARG, filename, line, /* grammar does this */ "..."));
+                        ASTLeaf(AST_VARIADIC_ARG, filename, line, "..."));
             }
         }
 
@@ -1430,7 +1444,15 @@ static void get_abstract_declarator(AST *abstract_decl,
                 cv_seq, 
                 NULL, 
                 filename, line, NULL);
+
+        if (function_type_get_return_type(t) != NULL)
+        {
+            get_abstract_declarator(abstract_decl, 
+                    function_type_get_return_type(t), 
+                    decl_context, filename, line);
+        }
     }
+    // Do nothing
 }
 
 static void get_type_id_tree_of_type_split(type_t* t, decl_context_t decl_context, 
@@ -1458,12 +1480,6 @@ static AST get_type_id_tree_of_type(type_t* t, decl_context_t decl_context, cons
             filename, line, NULL);
 }
 
-static AST get_tree_name_of_class(scope_entry_t* entry, decl_context_t decl_context, 
-        const char* filename, int line)
-{
-    internal_error("Not yet implemented", entry, &decl_context, filename, line);
-    return NULL;
-}
 
 static AST get_template_id_of_entry(scope_entry_t* entry, 
         template_argument_list_t* template_arguments,
@@ -1514,6 +1530,25 @@ static AST get_template_id_of_entry(scope_entry_t* entry,
                 filename, line, NULL);
 
     return template_id;
+}
+
+static AST get_tree_name_of_class(scope_entry_t* entry, decl_context_t decl_context, 
+        const char* filename, int line)
+{
+    type_t* type_info = entry->type_information;
+
+
+    if (!is_template_specialized_type(type_info))
+    {
+        AST name = ASTLeaf(AST_SYMBOL, filename, line, entry->symbol_name);
+        return name;
+    }
+    else
+    {
+        template_argument_list_t* template_args 
+            = template_specialized_type_get_template_arguments(entry->type_information);
+        return get_template_id_of_entry(entry, template_args, decl_context, filename, line);
+    }
 }
 
 static AST get_tree_name_of_symbol(scope_entry_t* entry, decl_context_t decl_context,
@@ -1577,6 +1612,233 @@ static AST get_id_expression_for_entry(scope_entry_t* entry, decl_context_t decl
     return qualified_id;
 }
 
+static AST get_innermost_nonnull_declarator(AST a, int *child_num)
+{
+    ERROR_CONDITION((a == NULL), "Tree cannot be null here", 0);
+
+    switch(ASTType(a))
+    {
+        case AST_INIT_DECLARATOR :
+        case AST_MEMBER_DECLARATOR :
+        case AST_GCC_MEMBER_DECLARATOR :
+        case AST_DECLARATOR :
+        case AST_PARENTHESIZED_DECLARATOR :
+        case AST_DECLARATOR_ARRAY :
+        case AST_DECLARATOR_FUNC :
+        case AST_GCC_FUNCTIONAL_DECLARATOR :
+            {
+                *child_num = 0;
+                if (ASTSon0(a) != NULL)
+                    return get_innermost_nonnull_declarator(ASTSon0(a), child_num); 
+                break;
+            }
+        case AST_POINTER_DECLARATOR :
+        case AST_GCC_DECLARATOR :
+            {
+                *child_num = 1;
+                if (ASTSon1(a) != NULL)
+                    return get_innermost_nonnull_declarator(ASTSon1(a), child_num);
+                break;
+            }
+        case AST_GCC_POINTER_DECLARATOR :
+            {
+                *child_num = 2;
+                if (ASTSon2(a) != NULL)
+                    return get_innermost_nonnull_declarator(ASTSon2(a), child_num);
+                break;
+            }
+        case AST_DECLARATOR_ID_EXPR :
+        case AST_AMBIGUITY :
+            {
+                internal_error("Invalid node here", 0);
+                break;
+            }
+        default:
+            {
+                internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(a)));
+            }
+    }
+
+    return a;
+}
+
+static void merge_type_specifier_seq(
+        AST declarative_tree, 
+        AST new_type_specifier_seq)
+{
+    // It is always the zeroth child, but check it anyways
+    AST orig_type_specifier_seq = ASTSon0(declarative_tree);
+    ERROR_CONDITION(ASTType(orig_type_specifier_seq) != AST_TYPE_SPECIFIER_SEQ, 
+            "Invalid tree, it is not a type-specifier-seq", 0);
+
+    // Replace the type_specifier
+    AST orig_type_spec = ASTSon1(orig_type_specifier_seq);
+    AST new_type_spec = ASTSon1(new_type_specifier_seq);
+
+    ast_replace(orig_type_spec, new_type_spec);
+
+    // Enlarge the first nontype specifiers
+    AST orig_nontype_spec = ASTSon0(orig_type_specifier_seq);
+    AST new_nontype_spec = ASTSon0(new_type_specifier_seq);
+
+    // Later on we will remove repeated cv-qualifiers
+    if (orig_nontype_spec != NULL)
+    {
+        while (ASTSon0(orig_nontype_spec) != NULL)
+        {
+            orig_nontype_spec = ASTSon0(orig_nontype_spec);
+        }
+
+        ast_set_child(orig_nontype_spec, 0, new_nontype_spec);
+    }
+    else
+    {
+        ast_set_child(orig_type_specifier_seq, 0, new_type_specifier_seq);
+    }
+
+    // Remove repeated cv-qualifiers (const, volatile, restrict)
+    char has_const = 0;
+    char has_volatile = 0;
+    char has_restrict = 0;
+
+    AST trees[] = { 
+        ASTSon0(orig_type_specifier_seq), 
+        ASTSon2(orig_type_specifier_seq), 
+        NULL };
+
+    int k;
+    for (k = 0; trees[k] != NULL; k++)
+    {
+        AST iter;
+        for_each_element(trees[k], iter)
+        {
+            AST item = ASTSon1(iter);
+
+            char* flag = NULL;
+
+            if (ASTType(item) == AST_CONST_SPEC)
+                flag = &has_const;
+
+            if (ASTType(item) == AST_VOLATILE_SPEC)
+                flag = &has_volatile;
+
+            if (ASTType(item) == AST_GCC_RESTRICT_SPEC)
+                flag = &has_restrict;
+
+            if (!(*flag))
+            {
+                *flag = 1;
+            }
+            else
+            {
+                // Remove it from the list (this is fine during iteration since we
+                // only check the parent of iter)
+                // To remove simply relink the parents children to ours 
+                AST parent = ASTParent(iter);
+                ast_set_child(parent, 0, ASTSon0(item));
+            }
+        }
+    }
+}
+
+static void merge_declarators(
+        AST declarative_tree, 
+        AST new_abstract_decl)
+{
+    AST old_declarator = ASTSon1(declarative_tree);
+
+    char old_declarator_is_ptr = (ASTType(old_declarator) == AST_POINTER_DECLARATOR
+            || ASTType(old_declarator) == AST_GCC_POINTER_DECLARATOR);
+
+    int child = -1;
+    AST innermost_decl = get_innermost_nonnull_declarator(new_abstract_decl, &child);
+
+    char innermost_is_ptr = (ASTType(innermost_decl) == AST_POINTER_DECLARATOR
+            || ASTType(innermost_decl) == AST_GCC_POINTER_DECLARATOR);
+
+    if (old_declarator_is_ptr
+            && !innermost_is_ptr)
+    {
+        old_declarator = ASTMake1(AST_PARENTHESIZED_DECLARATOR,
+                old_declarator, 
+                ASTFileName(old_declarator), ASTLine(old_declarator), NULL);
+    }
+
+    ast_set_child(innermost_decl, child, old_declarator);
+    ast_set_child(declarative_tree, 1, new_abstract_decl);
+}
+
+static void merge_declaration(
+        AST declarative_tree, 
+        AST new_type_specifier_seq, 
+        AST new_abstract_decl)
+{
+    // Mix first the type specifier seq
+    merge_type_specifier_seq(declarative_tree, new_type_specifier_seq);
+    merge_declarators(declarative_tree, new_abstract_decl);
+}
+
+static void update_type_tree(AST orig_tree, AST type_specifier_seq, AST abstract_decl)
+{
+    AST parent = ASTParent(orig_tree);
+    AST type_specifier = ASTSon1(type_specifier_seq);
+
+    switch (ASTType(parent))
+    {
+        case AST_SIMPLE_TYPE_SPECIFIER:
+            {
+                AST parent_parent = ASTParent(parent);
+                switch (ASTType(parent_parent))
+                {
+                    case AST_EXPLICIT_TYPE_CONVERSION:
+                        {
+                            if (abstract_decl != NULL)
+                            {
+                                running_error("%s: while instantiating, template argument '%s %s' is not valid\n",
+                                        ast_location(orig_tree),
+                                        prettyprint_in_buffer(type_specifier),
+                                        prettyprint_in_buffer(abstract_decl));
+                            }
+                            ast_replace(orig_tree, type_specifier);
+                            break;
+                        }
+                    case AST_TYPE_SPECIFIER_SEQ:
+                        {
+                            // type_specifier_seq declarator 
+                            // Declarator may be null
+                            AST declarative_tree = ASTParent(parent_parent);
+                            merge_declaration(declarative_tree, type_specifier_seq, abstract_decl);
+                            break;
+                        }
+                    default:
+                        {
+                            internal_error("Unhandled case", 0);
+                            break;
+                        }
+                }
+                break;
+            }
+        case AST_NESTED_NAME_SPECIFIER:
+            {
+                if (abstract_decl != NULL)
+                {
+                    running_error("%s: while instantiating, template argument '%s %s' is not valid\n",
+                            ast_location(orig_tree),
+                            prettyprint_in_buffer(type_specifier),
+                            prettyprint_in_buffer(abstract_decl));
+                }
+
+                ast_replace(orig_tree, type_specifier);
+                break;
+            }
+        default:
+            {
+                internal_error("Unhandled case", 0);
+                break;
+            }
+    }
+}
+
 static void instantiate_tree_rec(AST orig_tree, decl_context_t context_of_being_instantiated)
 {
     if (orig_tree == NULL)
@@ -1602,7 +1864,15 @@ static void instantiate_tree_rec(AST orig_tree, decl_context_t context_of_being_
                 }
             case SK_TYPEDEF:
                 {
-                    // This one is more involved :)
+                    AST type_specifier_seq = NULL;
+                    AST abstract_decl = NULL;
+                    get_type_id_tree_of_type_split(entry->type_information, 
+                            context_of_being_instantiated, 
+                            &type_specifier_seq,
+                            &abstract_decl,
+                            ASTFileName(orig_tree), ASTLine(orig_tree));
+
+                    update_type_tree(orig_tree, type_specifier_seq, abstract_decl);
                     break;
                 }
             case SK_TEMPLATE:
