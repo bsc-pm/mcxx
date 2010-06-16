@@ -2010,6 +2010,7 @@ type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
         pointer_to_member->info->valid_size = 1;
 
         pointer_to_member->info->is_dependent = is_dependent_type(t) 
+            || class_entry->kind == SK_TEMPLATE_TYPE_PARAMETER 
             || is_dependent_type(class_entry->type_information);
 
         hash_put(class_type_hash, t, pointer_to_member);

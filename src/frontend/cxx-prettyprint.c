@@ -152,9 +152,6 @@ HANDLER_PROTOTYPE(member_declarator_handler);
 HANDLER_PROTOTYPE(constant_initializer_handler);
 HANDLER_PROTOTYPE(base_clause_handler);
 HANDLER_PROTOTYPE(base_specifier_handler);
-HANDLER_PROTOTYPE(base_specifier_access_handler);
-HANDLER_PROTOTYPE(base_specifier_virtual_handler);
-HANDLER_PROTOTYPE(base_specifier_access_virtual_handler);
 HANDLER_PROTOTYPE(elaborated_type_class_handler);
 HANDLER_PROTOTYPE(elaborated_type_template_class_handler);
 HANDLER_PROTOTYPE(elaborated_type_template_template_class_handler);
@@ -460,14 +457,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_PROTECTED_SPEC, simple_parameter_handler, "protected"),
     NODE_HANDLER(AST_PUBLIC_SPEC, simple_parameter_handler, "public"),
     NODE_HANDLER(AST_BASE_CLAUSE, base_clause_handler, NULL),
-    NODE_HANDLER(AST_BASE_SPECIFIER, base_specifier_handler, NULL),
-    NODE_HANDLER(AST_BASE_SPECIFIER_TEMPLATE, base_specifier_handler, NULL),
-    NODE_HANDLER(AST_BASE_SPECIFIER_ACCESS, base_specifier_access_handler, NULL),
-    NODE_HANDLER(AST_BASE_SPECIFIER_ACCESS_TEMPLATE, base_specifier_access_handler, NULL),
-    NODE_HANDLER(AST_BASE_SPECIFIER_VIRTUAL, base_specifier_virtual_handler, NULL),
-    NODE_HANDLER(AST_BASE_SPECIFIER_VIRTUAL_TEMPLATE, base_specifier_virtual_handler, NULL),
-    NODE_HANDLER(AST_BASE_SPECIFIER_ACCESS_VIRTUAL, base_specifier_access_virtual_handler, NULL),
-    NODE_HANDLER(AST_BASE_SPECIFIER_ACCESS_VIRTUAL_TEMPLATE, base_specifier_access_virtual_handler, NULL),
+    NODE_HANDLER(AST_BASE_SPEC, base_specifier_handler, NULL),
     NODE_HANDLER(AST_ELABORATED_TYPE_CLASS, elaborated_type_class_handler, NULL),
     NODE_HANDLER(AST_ELABORATED_TYPE_TEMPLATE_CLASS, elaborated_type_template_class_handler, NULL),
     NODE_HANDLER(AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS, elaborated_type_template_template_class_handler, NULL),
@@ -1163,17 +1153,12 @@ static void pointer_spec_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
     if (ASTSon0(a) != NULL)
     {
         prettyprint_level(f, ASTSon0(a), pt_ctx);
+        token_fprintf(f, a, pt_ctx, "::");
     }
 
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-        token_fprintf(f, a, pt_ctx, " ");
-    }
-    
     token_fprintf(f, a, pt_ctx, "*");
     
-    if (ASTSon2(a) != NULL)
+    if (ASTSon1(a) != NULL)
     {
         spaced_sequence_handler(f, ASTSon2(a), pt_ctx);
     }
@@ -1932,95 +1917,16 @@ static void base_specifier_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx
     if (ASTSon0(a) != NULL)
     {
         prettyprint_level(f, ASTSon0(a), pt_ctx);
-    }
-
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-    }
-
-    if (ASTType(a) == AST_BASE_SPECIFIER_TEMPLATE)
-    {
-        token_fprintf(f, a, pt_ctx, "template ");
-    }
-
-    prettyprint_level(f, ASTSon2(a), pt_ctx);
-}
-
-static void base_specifier_access_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, " ");
-
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-    }
-
-    if (ASTSon2(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon2(a), pt_ctx);
-    }
-
-    if (ASTType(a) == AST_BASE_SPECIFIER_ACCESS_TEMPLATE)
-    {
-        token_fprintf(f, a, pt_ctx, "template ");
-    }
-
-    prettyprint_level(f, ASTSon3(a), pt_ctx);
-}
-
-static void base_specifier_virtual_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    token_fprintf(f, a, pt_ctx, "virtual ");
-
-    if (ASTSon0(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon0(a), pt_ctx);
         token_fprintf(f, a, pt_ctx, " ");
     }
 
     if (ASTSon1(a) != NULL)
     {
         prettyprint_level(f, ASTSon1(a), pt_ctx);
+        token_fprintf(f, a, pt_ctx, " ");
     }
 
-    if (ASTSon2(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon2(a), pt_ctx);
-    }
-
-    if (ASTType(a) == AST_BASE_SPECIFIER_VIRTUAL_TEMPLATE)
-    {
-        token_fprintf(f, a, pt_ctx, "template ");
-    }
-
-    prettyprint_level(f, ASTSon3(a), pt_ctx);
-}
-
-static void base_specifier_access_virtual_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, " ");
-
-    token_fprintf(f, a, pt_ctx, "virtual ");
-
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-    }
-
-    if (ASTSon2(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon2(a), pt_ctx);
-    }
-
-    if (ASTType(a) == AST_BASE_SPECIFIER_ACCESS_VIRTUAL_TEMPLATE)
-    {
-        token_fprintf(f, a, pt_ctx, "template ");
-    }
-
-    prettyprint_level(f, ASTSon3(a), pt_ctx);
+    prettyprint_level(f, ASTSon2(a), pt_ctx);
 }
 
 static void elaborated_type_class_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)

@@ -303,6 +303,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> handler
 %type<ast> handler_seq
 %type<ast> id_expression
+%type<ast> id_type_expr
 %type<ast> if_else_eligible_statements
 %type<ast> if_else_statement
 %type<ast> if_statement
@@ -359,6 +360,15 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> pseudo_destructor_name
 %type<ast> ptr_operator
 %type<ast> qualified_id
+%type<ast> qualified_id_globals
+%type<ast> qualified_id_globals_no_template
+%type<ast> qualified_id_globals_operator
+%type<ast> qualified_id_globals_template
+%type<ast> qualified_id_no_template
+%type<ast> qualified_id_template
+%type<ast> qualified_id_type_name
+%type<ast> unqualified_id_funct
+%type<ast> unqualified_id_type_name
 %type<ast> qualified_namespace_specifier
 %type<ast> relational_expression
 %type<ast> selection_statement
@@ -1610,31 +1620,19 @@ declarator : direct_declarator
 
 ptr_operator : '*'
 {
-	$$ = ASTMake3(AST_POINTER_SPEC, NULL, NULL, NULL, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_POINTER_SPEC, NULL, NULL, $1.token_file, $1.token_line, NULL);
 }
 | '*' cv_qualifier_seq
 {
-	$$ = ASTMake3(AST_POINTER_SPEC, NULL, NULL, $2, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_POINTER_SPEC, NULL, $2, $1.token_file, $1.token_line, NULL);
 }
-| nested_name_specifier '*'
+| id_type_expr TWO_COLONS '*'
 {
-	$$ = ASTMake3(AST_POINTER_SPEC, NULL, $1, NULL, $2.token_file, $2.token_line, NULL);
+	$$ = ASTMake2(AST_POINTER_SPEC, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-| nested_name_specifier '*' cv_qualifier_seq
+| id_type_expr TWO_COLONS '*' cv_qualifier_seq
 {
-	$$ = ASTMake3(AST_POINTER_SPEC, NULL, $1, $3, $2.token_file, $2.token_line, NULL);
-}
-| TWO_COLONS nested_name_specifier '*'
-{
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_file, $1.token_line, NULL);
-
-	$$ = ASTMake3(AST_POINTER_SPEC, global_op, $2, NULL, $3.token_file, $3.token_line, NULL);
-}
-| TWO_COLONS nested_name_specifier '*' cv_qualifier_seq
-{
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_file, $1.token_line, NULL);
-
-	$$ = ASTMake3(AST_POINTER_SPEC, global_op, $2, $4, $3.token_file, $3.token_line, NULL);
+	$$ = ASTMake2(AST_POINTER_SPEC, $1, $4, ASTFileName($1), ASTLine($1), NULL);
 }
 | '&'
 {
@@ -2578,159 +2576,32 @@ base_specifier_list : base_specifier
 }
 ;
 
-base_specifier : type_name
+base_specifier : id_type_expr
 // without access_specifier
 {
-	$$ = ASTMake3(AST_BASE_SPECIFIER, NULL, NULL, $1, ASTFileName($1), ASTLine($1), NULL);
-}
-| TWO_COLONS type_name
-{
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_file, $1.token_line, NULL);
-
-	$$ = ASTMake3(AST_BASE_SPECIFIER, global_op, NULL, $2, $1.token_file, $1.token_line, NULL);
-}
-| TWO_COLONS nested_name_specifier type_name
-{
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_file, $1.token_line, NULL);
-
-	$$ = ASTMake3(AST_BASE_SPECIFIER, global_op, $2, $3, $1.token_file, $1.token_line, NULL);
-}
-| TWO_COLONS nested_name_specifier TEMPLATE template_id
-{
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_file, $1.token_line, NULL);
-
-	$$ = ASTMake3(AST_BASE_SPECIFIER_TEMPLATE, global_op, $2, $4, $1.token_file, $1.token_line, NULL);
-}
-| nested_name_specifier type_name
-{
-	$$ = ASTMake3(AST_BASE_SPECIFIER, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
-}
-| nested_name_specifier TEMPLATE template_id
-{
-	$$ = ASTMake3(AST_BASE_SPECIFIER_TEMPLATE, NULL, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake3(AST_BASE_SPEC, NULL, NULL, $1, ASTFileName($1), ASTLine($1), NULL);
 }
 // without virtual but with access_specifier
-| access_specifier type_name
+| access_specifier id_type_expr
 {
-	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS, $1, NULL, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
-}
-| access_specifier TWO_COLONS type_name
-{
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_file, $2.token_line, NULL);
-
-	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS, $1, global_op, NULL, $3, ASTFileName($1), ASTLine($1), NULL);
-}
-| access_specifier nested_name_specifier type_name
-{
-	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS, $1, NULL, $2, $3, ASTFileName($1), ASTLine($1), NULL);
-}
-| access_specifier nested_name_specifier TEMPLATE template_id
-{
-	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS_TEMPLATE, $1, NULL, $2, $4, ASTFileName($1), ASTLine($1), NULL);
-}
-| access_specifier TWO_COLONS nested_name_specifier type_name
-{
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_file, $2.token_line, NULL);
-
-	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS, $1, global_op, $3, $4, ASTFileName($1), ASTLine($1), NULL);
-}
-| access_specifier TWO_COLONS nested_name_specifier TEMPLATE template_id
-{
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_file, $2.token_line, NULL);
-
-	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS, $1, global_op, $3, $5, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake3(AST_BASE_SPEC, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 // with virtual and optionally access_specifier
-| VIRTUAL type_name
+| VIRTUAL id_type_expr
 {
-	$$ = ASTMake4(AST_BASE_SPECIFIER_VIRTUAL, NULL, NULL, NULL, $2, $1.token_file, $1.token_line, NULL);
+    AST virtual_spec = ASTLeaf(AST_VIRTUAL_SPEC, $1.token_file, $1.token_line, $1.token_text);
+	$$ = ASTMake3(AST_BASE_SPEC, virtual_spec, NULL, $2, $1.token_file, $1.token_line, NULL);
 }
-| VIRTUAL access_specifier type_name
+| VIRTUAL access_specifier id_type_expr
 {
-	$$ = ASTMake4(AST_BASE_SPECIFIER_VIRTUAL, $2, NULL, NULL, $3, $1.token_file, $1.token_line, NULL);
-}
-| VIRTUAL TWO_COLONS type_name
-{
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_file, $2.token_line, NULL);
-
-	$$ = ASTMake4(AST_BASE_SPECIFIER_VIRTUAL, NULL, global_op, NULL, $3, $1.token_file, $1.token_line, NULL);
-}
-| VIRTUAL access_specifier TWO_COLONS type_name
-{
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_file, $3.token_line, NULL);
-
-	$$ = ASTMake4(AST_BASE_SPECIFIER_VIRTUAL, $2, global_op, NULL, $4, $1.token_file, $1.token_line, NULL);
-}
-| VIRTUAL nested_name_specifier type_name
-{
-	$$ = ASTMake4(AST_BASE_SPECIFIER_VIRTUAL, NULL, NULL, $2, $3, $1.token_file, $1.token_line, NULL);
-}
-| VIRTUAL nested_name_specifier TEMPLATE template_id
-{
-	$$ = ASTMake4(AST_BASE_SPECIFIER_VIRTUAL_TEMPLATE, NULL, NULL, $2, $4, $1.token_file, $1.token_line, NULL);
-}
-| VIRTUAL access_specifier nested_name_specifier type_name
-{
-	$$ = ASTMake4(AST_BASE_SPECIFIER_VIRTUAL, $2, NULL, $3, $4, $1.token_file, $1.token_line, NULL);
-}
-| VIRTUAL access_specifier nested_name_specifier TEMPLATE template_id
-{
-	$$ = ASTMake4(AST_BASE_SPECIFIER_VIRTUAL_TEMPLATE, $2, NULL, $3, $5, $1.token_file, $1.token_line, NULL);
-}
-| VIRTUAL TWO_COLONS nested_name_specifier type_name
-{
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_file, $2.token_line, NULL);
-
-	$$ = ASTMake4(AST_BASE_SPECIFIER_VIRTUAL, NULL, global_op, $3, $4, $1.token_file, $1.token_line, NULL);
-}
-| VIRTUAL TWO_COLONS nested_name_specifier TEMPLATE template_id
-{
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_file, $2.token_line, NULL);
-
-	$$ = ASTMake4(AST_BASE_SPECIFIER_VIRTUAL_TEMPLATE, NULL, global_op, $3, $5, $1.token_file, $1.token_line, NULL);
-}
-| VIRTUAL access_specifier TWO_COLONS nested_name_specifier type_name
-{
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_file, $3.token_line, NULL);
-
-	$$ = ASTMake4(AST_BASE_SPECIFIER_VIRTUAL, $2, global_op, $4, $5, $1.token_file, $1.token_line, NULL);
-}
-| VIRTUAL access_specifier TWO_COLONS nested_name_specifier TEMPLATE template_id
-{
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_file, $3.token_line, NULL);
-
-	$$ = ASTMake4(AST_BASE_SPECIFIER_VIRTUAL_TEMPLATE, $2, global_op, $4, $6, $1.token_file, $1.token_line, NULL);
+    AST virtual_spec = ASTLeaf(AST_VIRTUAL_SPEC, $1.token_file, $1.token_line, $1.token_text);
+	$$ = ASTMake3(AST_BASE_SPEC, virtual_spec, $2, $3, $1.token_file, $1.token_line, NULL);
 }
 // with access_specifier and then virtual
-| access_specifier VIRTUAL type_name
+| access_specifier VIRTUAL id_type_expr
 {
-	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS_VIRTUAL, $1, NULL, NULL, $3, ASTFileName($1), ASTLine($1), NULL);
-}
-| access_specifier VIRTUAL TWO_COLONS type_name
-{
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_file, $3.token_line, NULL);
-
-	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS_VIRTUAL, $1, global_op, NULL, $4, ASTFileName($1), ASTLine($1), NULL);
-}
-| access_specifier VIRTUAL nested_name_specifier type_name
-{
-	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS_VIRTUAL, $1, NULL, $3, $4, ASTFileName($1), ASTLine($1), NULL);
-}
-| access_specifier VIRTUAL nested_name_specifier TEMPLATE template_id
-{
-	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS_VIRTUAL_TEMPLATE, $1, NULL, $3, $5, ASTFileName($1), ASTLine($1), NULL);
-}
-| access_specifier VIRTUAL TWO_COLONS nested_name_specifier type_name
-{
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_file, $3.token_line, NULL);
-
-	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS_VIRTUAL, $1, global_op, $4, $5, ASTFileName($1), ASTLine($1), NULL);
-}
-| access_specifier VIRTUAL TWO_COLONS nested_name_specifier TEMPLATE template_id
-{
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_file, $3.token_line, NULL);
-
-	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS_VIRTUAL_TEMPLATE, $1, global_op, $4, $6, ASTFileName($1), ASTLine($1), NULL);
+    AST virtual_spec = ASTLeaf(AST_VIRTUAL_SPEC, $2.token_file, $2.token_line, $2.token_text);
+	$$ = ASTMake3(AST_BASE_SPEC, virtual_spec, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
@@ -3263,11 +3134,68 @@ id_expression : qualified_id
 }
 ;
 
-qualified_id : nested_name_specifier unqualified_id
+id_type_expr : qualified_id_type_name
 {
-	$$ = ASTMake3(AST_QUALIFIED_ID, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
+    $$ = $1;
 }
-| TWO_COLONS nested_name_specifier unqualified_id
+| unqualified_id_type_name
+{
+    $$ = $1;
+}
+| qualified_id_template
+{
+    $$ = $1;
+}
+;
+
+
+qualified_id : qualified_id_no_template
+{
+    $$ = $1;
+}
+| qualified_id_globals
+{
+    $$ = $1;
+}
+| qualified_id_template
+{
+    $$ = $1;
+}
+;
+
+qualified_id_globals : qualified_id_globals_no_template
+{
+    $$ = $1;
+}
+| qualified_id_globals_template
+{
+    $$ = $1;
+}
+| qualified_id_globals_operator
+{
+    $$ = $1;
+}
+| qualified_id_template
+{
+    $$ = $1;
+}
+| qualified_id_no_template
+{
+    $$ = $1;
+}
+;
+
+qualified_id_type_name : qualified_id_globals_no_template
+{
+    $$ = $1;
+}
+| qualified_id_no_template
+{
+    $$ = $1;
+}
+;
+
+qualified_id_globals_no_template : TWO_COLONS nested_name_specifier unqualified_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_file, $1.token_line, NULL);
 
@@ -3286,21 +3214,33 @@ qualified_id : nested_name_specifier unqualified_id
 
 	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, NULL, $2, $1.token_file, $1.token_line, NULL);
 }
-| nested_name_specifier TEMPLATE template_id
+;
+
+qualified_id_globals_operator : TWO_COLONS operator_function_id 
 {
-	$$ = ASTMake3(AST_QUALIFIED_TEMPLATE, NULL, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_file, $1.token_line, NULL);
+	
+	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, NULL, $2, $1.token_file, $1.token_line, NULL);
 }
-| TWO_COLONS nested_name_specifier TEMPLATE template_id
+;
+
+qualified_id_globals_template : TWO_COLONS nested_name_specifier TEMPLATE template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_file, $1.token_line, NULL);
 
 	$$ = ASTMake3(AST_QUALIFIED_TEMPLATE, global_op, $2, $4, $1.token_file, $1.token_line, NULL);
 }
-| TWO_COLONS operator_function_id 
+;
+
+qualified_id_no_template : nested_name_specifier unqualified_id
 {
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_file, $1.token_line, NULL);
-	
-	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, NULL, $2, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake3(AST_QUALIFIED_ID, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
+}
+;
+
+qualified_id_template : nested_name_specifier TEMPLATE template_id
+{
+	$$ = ASTMake3(AST_QUALIFIED_TEMPLATE, NULL, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
@@ -3328,11 +3268,27 @@ class_or_namespace_name : template_id
 }
 ;
 
-unqualified_id : IDENTIFIER
+unqualified_id : unqualified_id_type_name
+{
+    $$ = $1;
+}
+| unqualified_id_funct
+{
+    $$ = $1;
+}
+;
+
+unqualified_id_type_name : IDENTIFIER
 {
 	$$ = ASTLeaf(AST_SYMBOL, $1.token_file, $1.token_line, $1.token_text);
 }
-| operator_function_id
+| template_id
+{
+	$$ = $1;
+}
+;
+
+unqualified_id_funct : operator_function_id
 {
 	$$ = $1;
 }
@@ -3343,10 +3299,6 @@ unqualified_id : IDENTIFIER
 | destructor_id
 {
     $$ = $1;
-}
-| template_id
-{
-	$$ = $1;
 }
 ;
 

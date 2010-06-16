@@ -1210,4 +1210,429 @@ void instantiate_template_function(scope_entry_t* entry,
 }
 #endif
 
+static AST get_id_expression_for_entry(scope_entry_t* entry, decl_context_t decl_context,
+        const char* filename, int line);
+static void get_type_id_tree_of_type_split(type_t* t, decl_context_t decl_context, 
+        AST *type_specifier_seq, 
+        AST *abstract_decl, 
+        const char* filename, int line);
 
+static AST get_type_specifier_seq_of_type(type_t* t, decl_context_t decl_context UNUSED_PARAMETER, const char* filename, int line)
+{
+    t = get_foundation_type(t);
+
+    AST type_specifier = NULL;
+    AST nontype_specifier_seq = NULL;
+
+    if (is_any_int_type(t))
+    {
+        type_specifier = ASTLeaf(AST_INT_TYPE, filename, line, NULL);
+
+        if (is_unsigned_int_type(t)
+                || is_unsigned_long_int_type(t)
+                || is_unsigned_long_long_int_type(t))
+        {
+            nontype_specifier_seq = 
+                ASTList(nontype_specifier_seq,
+                        ASTLeaf(AST_UNSIGNED_TYPE, filename, line, NULL));
+        }
+        if (is_signed_long_int_type(t)
+                || is_unsigned_long_int_type(t))
+        {
+            nontype_specifier_seq = 
+                ASTList(nontype_specifier_seq,
+                        ASTLeaf(AST_LONG_TYPE, filename, line, NULL));
+        }
+        if (is_signed_long_long_int_type(t)
+                || is_unsigned_long_long_int_type(t))
+        {
+            nontype_specifier_seq = 
+                ASTList(nontype_specifier_seq,
+                        ASTLeaf(AST_LONG_TYPE, filename, line, NULL));
+            nontype_specifier_seq = 
+                ASTList(nontype_specifier_seq,
+                        ASTLeaf(AST_LONG_TYPE, filename, line, NULL));
+        }
+    }
+    else if (is_floating_type(t))
+    {
+        type_specifier = ASTLeaf(AST_FLOAT_TYPE, filename, line, NULL);
+    }
+    else if (is_double_type(t) 
+            || is_long_double_type(t))
+    {
+        type_specifier = ASTLeaf(AST_DOUBLE_TYPE, filename, line, NULL);
+
+        if (is_long_double_type(t))
+        {
+            nontype_specifier_seq = 
+                ASTList(nontype_specifier_seq,
+                        ASTLeaf(AST_LONG_TYPE, filename, line, NULL));
+        }
+    }
+    else if (is_char_type(t)
+            || is_unsigned_char_type(t)
+            || is_signed_char_type(t))
+    {
+        type_specifier = ASTLeaf(AST_CHAR_TYPE, filename, line, NULL);
+
+        if (is_unsigned_char_type(t))
+        {
+            nontype_specifier_seq =
+                ASTList(nontype_specifier_seq,
+                        ASTLeaf(AST_UNSIGNED_TYPE, filename, line, NULL));
+        }
+        else
+        {
+            nontype_specifier_seq =
+                ASTList(nontype_specifier_seq,
+                        ASTLeaf(AST_SIGNED_TYPE, filename, line, NULL));
+        }
+    }
+    else if (is_void_type(t))
+    {
+        type_specifier = ASTLeaf(AST_VOID_TYPE, filename, line, NULL);
+    }
+    else if (is_bool_type(t))
+    {
+        type_specifier = ASTLeaf(AST_BOOL_TYPE, filename, line, NULL);
+    }
+    else if (is_named_enumerated_type(t))
+    {
+        // scope_entry_t* entry = named_type_get_symbol(t);
+    }
+    else
+    {
+        internal_error("Unhandled type", 0);
+    }
+
+    if (is_const_qualified_type(t))
+    {
+        nontype_specifier_seq =
+            ASTList(nontype_specifier_seq, 
+                    ASTLeaf(AST_CONST_SPEC, filename, line, NULL));
+    }
+    if (is_volatile_qualified_type(t))
+    {
+        nontype_specifier_seq =
+            ASTList(nontype_specifier_seq, 
+                    ASTLeaf(AST_VOLATILE_SPEC, filename, line, NULL));
+    }
+    if (is_restrict_qualified_type(t))
+    {
+        nontype_specifier_seq =
+            ASTList(nontype_specifier_seq, 
+                    ASTLeaf(AST_GCC_RESTRICT_SPEC, filename, line, NULL));
+    }
+
+    AST type_specifier_seq = ASTMake3(AST_TYPE_SPECIFIER_SEQ, 
+            nontype_specifier_seq,
+            type_specifier,
+            NULL,
+            filename, line, NULL);
+
+    return type_specifier_seq;
+}
+
+static void get_abstract_declarator(AST *abstract_decl, 
+        type_t* t, 
+        decl_context_t decl_context,
+        const char* filename, int line)
+{
+    if (is_pointer_type(t)
+            || is_pointer_to_member_type(t))
+    {
+        get_abstract_declarator(abstract_decl, pointer_type_get_pointee_type(t), decl_context, filename, line);
+
+        AST cv_seq = NULL;
+
+        if (is_const_qualified_type(t))
+        {
+            cv_seq = ASTList(cv_seq, ASTLeaf(AST_CONST_SPEC, filename, line, NULL));
+        }
+        if (is_volatile_qualified_type(t))
+        {
+            cv_seq = ASTList(cv_seq, ASTLeaf(AST_VOLATILE_SPEC, filename, line, NULL));
+        }
+        if (is_restrict_qualified_type(t))
+        {
+            cv_seq = ASTList(cv_seq, ASTLeaf(AST_GCC_RESTRICT_SPEC, filename, line, NULL));
+        }
+
+        if (is_pointer_to_member_type(t))
+        {
+            internal_error("Not yet implemented this case", 0);
+        }
+
+        AST pointer_spec = ASTMake3(AST_POINTER_SPEC, NULL, NULL, cv_seq, filename, line, NULL);
+        *abstract_decl = ASTMake2(AST_POINTER_DECLARATOR,
+                pointer_spec, *abstract_decl, filename, line, 0);
+    }
+    else if (is_array_type(t))
+    {
+        get_abstract_declarator(abstract_decl, array_type_get_element_type(t), decl_context, filename, line);
+
+        *abstract_decl = ASTMake2(AST_DECLARATOR_ARRAY, 
+                *abstract_decl,
+                array_type_get_array_size_expr(t), filename, line, 0);
+    }
+    else if (is_function_type(t))
+    {
+        AST cv_seq = NULL;
+        if (is_const_qualified_type(t))
+        {
+            cv_seq = ASTList(cv_seq, ASTLeaf(AST_CONST_SPEC, filename, line, NULL));
+        }
+
+        AST parameter_decl_clause = NULL;
+
+        char has_ellipsis = function_type_get_has_ellipsis(t);
+        int num_parameters = function_type_get_num_parameters(t);
+        if (num_parameters == 0)
+        {
+            parameter_decl_clause = ASTLeaf(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, filename, line, NULL);
+        }
+        else
+        {
+            if (has_ellipsis)
+                num_parameters--;
+
+            int i;
+            for (i = 0; i < num_parameters; i++)
+            {
+                type_t* param_type = function_type_get_parameter_type_num(t, i);
+
+                AST param_type_spec = NULL, param_abstr_decl = NULL;
+
+                get_type_id_tree_of_type_split(param_type, decl_context, 
+                        &param_type_spec, 
+                        &param_abstr_decl, 
+                        filename, line);
+
+                AST parameter_decl = ASTMake3(AST_PARAMETER_DECL, 
+                        param_type_spec, param_abstr_decl, NULL,
+                        filename, line, NULL);
+
+                parameter_decl_clause = ASTList(parameter_decl_clause,
+                        parameter_decl);
+            }
+
+            if (has_ellipsis)
+            {
+                parameter_decl_clause = ASTList(parameter_decl_clause, 
+                        ASTLeaf(AST_VARIADIC_ARG, filename, line, /* grammar does this */ "..."));
+            }
+        }
+
+        *abstract_decl = ASTMake4(AST_DECLARATOR_FUNC, 
+                *abstract_decl, 
+                parameter_decl_clause, 
+                cv_seq, 
+                NULL, 
+                filename, line, NULL);
+    }
+}
+
+static void get_type_id_tree_of_type_split(type_t* t, decl_context_t decl_context, 
+        AST *type_specifier_seq, 
+        AST *abstract_decl, 
+        const char* filename, int line)
+{
+    *type_specifier_seq = get_type_specifier_seq_of_type(t, decl_context, filename, line);
+    get_abstract_declarator(abstract_decl, t, decl_context, filename, line);
+}
+
+static AST get_type_id_tree_of_type(type_t* t, decl_context_t decl_context, const char* filename, int line)
+{
+    AST type_specifier_seq = NULL;
+    AST abstract_decl = NULL;
+
+    get_type_id_tree_of_type_split(t, decl_context, 
+            &type_specifier_seq,
+            &abstract_decl,
+            filename, line);
+
+    return ASTMake2(AST_TYPE_ID,
+            type_specifier_seq,
+            abstract_decl,
+            filename, line, NULL);
+}
+
+static AST get_tree_name_of_class(scope_entry_t* entry, decl_context_t decl_context, 
+        const char* filename, int line)
+{
+    internal_error("Not yet implemented", entry, &decl_context, filename, line);
+    return NULL;
+}
+
+static AST get_template_id_of_entry(scope_entry_t* entry, 
+        template_argument_list_t* template_arguments,
+        decl_context_t decl_context,
+        const char* filename, int line)
+{
+    AST template_argument_list = NULL;
+
+    int i;
+    for (i = 0; i < template_arguments->num_arguments; i++)
+    {
+        template_argument_t* template_arg = template_arguments->argument_list[i];
+
+        switch (template_arg->kind)
+        {
+            case TAK_NONTYPE:
+                {
+                    AST arg = ASTMake1(AST_TEMPLATE_EXPRESSION_ARGUMENT, 
+                            ASTMake1(AST_EXPRESSION, template_arg->expression, filename, line, NULL),
+                            filename, line, NULL);
+
+                    template_argument_list = ASTList(template_argument_list, arg);
+                    break;
+                }
+            case TAK_TYPE:
+                {
+                    AST arg = ASTMake1(AST_TEMPLATE_TYPE_ARGUMENT, 
+                            get_type_id_tree_of_type(template_arg->type, decl_context, filename, line),
+                            filename, line, NULL);
+
+                    template_argument_list = ASTList(template_argument_list, arg);
+                    break;
+                }
+            case TAK_TEMPLATE:
+                {
+                    internal_error("Not yet implemented this case", 0);
+                    break;
+                }
+            default:
+                internal_error("Invalid template argument", 0);
+        }
+    }
+
+    AST template_id = 
+        ASTMake2(AST_TEMPLATE_ID, 
+                ASTLeaf(AST_SYMBOL, filename, line, entry->symbol_name),
+                template_argument_list,
+                filename, line, NULL);
+
+    return template_id;
+}
+
+static AST get_tree_name_of_symbol(scope_entry_t* entry, decl_context_t decl_context,
+        const char* filename, int line)
+{
+    if (entry->kind == SK_CLASS)
+    {
+        return get_tree_name_of_class(entry, decl_context, filename, line);
+    }
+    else if (entry->kind == SK_FUNCTION
+            && is_template_specialized_type(entry->type_information))
+    {
+        return get_template_id_of_entry(entry, 
+                template_specialized_type_get_template_arguments(entry->type_information),
+                decl_context, filename, line);
+    }
+    else
+    {
+        return ASTLeaf(AST_SYMBOL, filename, line, entry->symbol_name);
+    }
+}
+
+static AST get_id_expression_for_entry(scope_entry_t* entry, decl_context_t decl_context,
+        const char* filename, int line)
+{
+    AST global_scope = ASTLeaf(AST_GLOBAL_SCOPE, filename, line, NULL);
+
+    scope_t* current_scope = decl_context.current_scope;
+    scope_t* enclosing_scope = current_scope->contained_in;
+
+    AST qualification_nest = NULL;
+
+    while (enclosing_scope != NULL)
+    {
+        AST qualif_name = NULL;
+        if (enclosing_scope->kind == NAMESPACE_SCOPE)
+        {
+            qualif_name = ASTLeaf(AST_SYMBOL, filename, line, enclosing_scope->qualification_name);
+        }
+        else if (enclosing_scope->kind == CLASS_SCOPE)
+        {
+            qualif_name = get_tree_name_of_class(named_type_get_symbol(enclosing_scope->class_type), 
+                    decl_context, filename, line);
+        }
+        else
+        {
+            internal_error("Invalid namespace %d", enclosing_scope->kind);
+        }
+
+        qualification_nest = 
+            ASTMake2(AST_NESTED_NAME_SPECIFIER, qualif_name, qualification_nest, filename, line, NULL);
+
+        enclosing_scope = enclosing_scope->contained_in;
+    }
+
+    AST symbol_name = get_tree_name_of_symbol(entry, decl_context, filename, line);
+
+    AST qualified_id = ASTMake3(AST_QUALIFIED_ID, 
+            global_scope, qualification_nest, symbol_name, 
+            filename, line, NULL);
+    return qualified_id;
+}
+
+static void instantiate_tree_rec(AST orig_tree, decl_context_t context_of_being_instantiated)
+{
+    if (orig_tree == NULL)
+        return;
+
+    if (is_template_parameter_name(orig_tree))
+    {
+        scope_entry_t* entry = lookup_template_parameter_name(context_of_being_instantiated, orig_tree);
+
+        switch (entry->kind)
+        {
+            case SK_VARIABLE:
+                {
+                    AST copied_expr = 
+                        ASTMake1(AST_PARENTHESIZED_EXPRESSION,
+                                ast_copy_for_instantiation(entry->expression_value), 
+                                ASTFileName(orig_tree),
+                                ASTLine(orig_tree), 
+                                NULL);
+
+                    ast_replace(orig_tree, copied_expr);
+                    break;
+                }
+            case SK_TYPEDEF:
+                {
+                    // This one is more involved :)
+                    break;
+                }
+            case SK_TEMPLATE:
+                {
+                    AST full_name = get_id_expression_for_entry(entry, 
+                            context_of_being_instantiated, 
+                            ASTFileName(orig_tree), 
+                            ASTLine(orig_tree));
+                    ast_replace(orig_tree, full_name);
+                    break;
+                }
+            default:
+                internal_error("Invalid symbol kind '%d'\n", entry->kind);
+        }
+    }
+    else
+    {
+        int i;
+        for (i = 0; i < MAX_AST_CHILDREN; i++)
+        {
+            instantiate_tree_rec(ast_get_child(orig_tree, i), context_of_being_instantiated);
+        }
+    }
+}
+
+
+AST instantiate_tree(AST orig_tree, decl_context_t context_of_being_instantiated)
+{
+    AST result = ast_copy_for_instantiation(orig_tree);
+
+    instantiate_tree_rec(orig_tree, context_of_being_instantiated);
+    return result;
+}

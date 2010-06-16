@@ -2229,61 +2229,12 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
     {
         AST base_specifier = ASTSon1(iter);
 
-        AST access_spec = NULL;
-        AST global_op; 
-        AST nested_name_specifier; 
-        AST name;
+        AST virtual_spec = ASTSon0(base_specifier);
+        // AST access_spec = ASTSon1(base_specifier);
+        AST class_name = ASTSon2(base_specifier);
 
-        char is_virtual = 0;
+        char is_virtual = (virtual_spec != NULL);
         char is_dependent = 0;
-        char is_template_qualified = 0;
-
-        int base_specifier_kind = ASTType(base_specifier);
-        switch (base_specifier_kind)
-        {
-            case AST_BASE_SPECIFIER :
-            case AST_BASE_SPECIFIER_TEMPLATE :
-                {
-                    global_op = ASTSon0(base_specifier);
-                    nested_name_specifier = ASTSon1(base_specifier);
-                    name = ASTSon2(base_specifier);
-
-                    break;
-                }
-            case AST_BASE_SPECIFIER_VIRTUAL :
-            case AST_BASE_SPECIFIER_ACCESS_VIRTUAL :
-            case AST_BASE_SPECIFIER_VIRTUAL_TEMPLATE :
-            case AST_BASE_SPECIFIER_ACCESS_VIRTUAL_TEMPLATE :
-                {
-                    is_virtual = 1;
-                    /* Fall through */
-                }
-            case AST_BASE_SPECIFIER_ACCESS :
-            case AST_BASE_SPECIFIER_ACCESS_TEMPLATE :
-                {
-                    access_spec = ASTSon0(base_specifier);
-                    global_op = ASTSon1(base_specifier);
-                    nested_name_specifier = ASTSon2(base_specifier);
-                    name = ASTSon3(base_specifier);
-                    break;
-                }
-            default :
-                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(base_specifier)));
-        }
-
-        switch (base_specifier_kind)
-        {
-            case AST_BASE_SPECIFIER_TEMPLATE :
-            case AST_BASE_SPECIFIER_VIRTUAL_TEMPLATE :
-            case AST_BASE_SPECIFIER_ACCESS_TEMPLATE :
-            case AST_BASE_SPECIFIER_ACCESS_VIRTUAL_TEMPLATE :
-                {
-                    is_template_qualified = 1;
-                    break;
-                }
-            default:
-                break;
-        }
 
         enum cxx_symbol_kind filter[] =
         {
@@ -2295,13 +2246,18 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
         };
 
         // We do not want to examine uninstantiated typenames
-        scope_entry_list_t* result_list = query_nested_name_flags(decl_context, 
-                global_op, nested_name_specifier, name, DF_DEPENDENT_TYPENAME);
+        scope_entry_list_t* result_list = query_id_expression_flags(decl_context, 
+                class_name, DF_DEPENDENT_TYPENAME);
 
         result_list = filter_symbol_kind_set(result_list, STATIC_ARRAY_LENGTH(filter), filter);
 
-        ERROR_CONDITION((result_list == NULL), "Base class '%s' not found in '%s'!\n", prettyprint_in_buffer(base_specifier),
-                ast_location(base_specifier));
+        if (result_list == NULL)
+        {
+            running_error("%s: base class '%s' not found\n", 
+                    ast_location(class_name),
+                    prettyprint_in_buffer(class_name));
+        }
+
         scope_entry_t* result = result_list->entry;
 
         if (result->kind != SK_TEMPLATE_TYPE_PARAMETER
@@ -2346,7 +2302,9 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
         }
         else
         {
-            internal_error("Code unreachable", 0);
+            running_error("%s: error: invalid class name '%s'\n",
+                    ast_location(class_name),
+                    prettyprint_in_buffer(class_name));
         }
 
         // Add the base to the class type
@@ -3871,30 +3829,6 @@ static void build_scope_declarator_with_parameter_context(AST a,
 
 }
 
-static void convert_tree_from_nested_name_to_qualified_id(AST tree, 
-        AST* nested_name_spec, 
-        AST* unqualified_id)
-{
-    *nested_name_spec = ast_copy_clearing_extended_data(tree);
-
-    AST iter = *nested_name_spec;
-    while (ASTSon1(iter) != NULL)
-    {
-        iter = ASTSon1(iter);
-    }
-
-    if (iter == *nested_name_spec)
-    {
-        *nested_name_spec = NULL;
-    }
-    else
-    {
-        AST previous_nest = ASTParent(iter);
-        ast_set_child(previous_nest, 1, NULL);
-    }
-    *unqualified_id = ASTSon0(iter);
-}
-
 /*
  * This functions converts a type "T" to a "pointer to T"
  */
@@ -3907,8 +3841,7 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
     {
         case AST_POINTER_SPEC :
             {
-                if (ASTSon0(pointer_tree) == NULL
-                        && ASTSon1(pointer_tree) == NULL)
+                if (ASTSon0(pointer_tree) == NULL)
                 {
                     *declarator_type = get_pointer_type(pointee_type);
                 }
@@ -3921,36 +3854,10 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
 
                     scope_entry_list_t* entry_list = NULL;
 
-                    AST nested_name_spec_ptr = ASTSon1(pointer_tree);
-
-                    // Remove any remaining ambiguity
-                    AST current_nest = nested_name_spec_ptr;
-                    while (current_nest != NULL)
-                    {
-                        if (ASTType(current_nest) == AST_AMBIGUITY)
-                        {
-                            solve_ambiguous_nested_name_specifier(current_nest, decl_context);
-                        }
-
-                        AST qualified = ASTSon0(current_nest);
-                        if (ASTType(qualified) == AST_TEMPLATE_ID)
-                        {
-                            solve_possibly_ambiguous_template_id(qualified, decl_context);
-                        }
-                        current_nest = ASTSon1(current_nest);
-                    }
+                    AST id_type_expr = ASTSon0(pointer_tree);
 
 
-                    AST global_op = ASTSon0(pointer_tree);
-                    AST nested_name_spec = NULL;
-                    AST unqualified_id = NULL;
-                    convert_tree_from_nested_name_to_qualified_id(nested_name_spec_ptr, 
-                            &nested_name_spec, &unqualified_id);
-
-                    entry_list = query_nested_name(decl_context, 
-                            global_op, 
-                            nested_name_spec,
-                            unqualified_id);
+                    entry_list = query_id_expression(decl_context, id_type_expr);
 
                     if (entry_list != NULL)
                     {
@@ -3958,15 +3865,13 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
                     }
                     else
                     {
-                        running_error("%s: error: class-name '%s%s%s' not found\n", 
-                                ast_location(unqualified_id),
-                                prettyprint_in_buffer(global_op), 
-                                prettyprint_in_buffer(nested_name_spec),
-                                prettyprint_in_buffer(unqualified_id));
+                        running_error("%s: error: class-name '%s' not found\n", 
+                                ast_location(id_type_expr),
+                                prettyprint_in_buffer(id_type_expr));
                     }
                 }
                 *declarator_type = get_cv_qualified_type(*declarator_type, 
-                        compute_cv_qualifier(ASTSon2(pointer_tree)));
+                        compute_cv_qualifier(ASTSon1(pointer_tree)));
                 break;
             }
         case AST_REFERENCE_SPEC :
