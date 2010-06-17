@@ -153,6 +153,8 @@ LIBMCXX_EXTERN scope_entry_t* lookup_template_parameter_name(decl_context_t decl
 LIBMCXX_EXTERN scope_entry_t* lookup_of_template_parameter(decl_context_t context, 
         int template_parameter_nesting, int template_parameter_position);
 
+LIBMCXX_EXTERN char is_unqualified_id_expression(AST a);
+
 MCXX_END_DECLS
 
 #endif // CXX_SCOPE_H

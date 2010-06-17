@@ -1855,7 +1855,7 @@ static void update_type_tree(AST orig_tree, AST type_specifier_seq, AST abstract
 
     switch (ASTType(parent))
     {
-        case AST_SIMPLE_TYPE_SPECIFIER:
+        case AST_SIMPLE_TYPE_SPEC:
             {
                 AST parent_parent = ASTParent(parent);
                 switch (ASTType(parent_parent))

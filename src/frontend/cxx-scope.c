@@ -4188,3 +4188,15 @@ char is_template_parameter_name(AST a)
         return 0;
     return t->data._boolean;
 }
+
+char is_unqualified_id_expression(AST a)
+{
+    return a != NULL
+        && (ASTType(a) == AST_SYMBOL
+                || ASTType(a) == AST_TEMPLATE_ID
+                || ASTType(a) == AST_CONVERSION_FUNCTION_ID
+                || ASTType(a) == AST_DESTRUCTOR_ID
+                || ASTType(a) == AST_DESTRUCTOR_TEMPLATE_ID
+                || ASTType(a) == AST_OPERATOR_FUNCTION_ID
+                || ASTType(a) == AST_OPERATOR_FUNCTION_ID_TEMPLATE);
+}

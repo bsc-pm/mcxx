@@ -934,15 +934,8 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 result = check_for_explicit_type_conversion(expression, decl_context );
                 break;
             }
-        case AST_TYPENAME_EXPLICIT_TYPE_CONVERSION :
+        case AST_TYPENAME_EXPLICIT_TYPE_CONV :
             {
-                result = check_for_explicit_typename_type_conversion(expression, decl_context);
-                break;
-            }
-        case AST_TYPENAME_TEMPLATE_EXPLICIT_TYPE_CONVERSION :
-        case AST_TYPENAME_TEMPLATE_TEMPLATE_EXPLICIT_TYPE_CONVERSION :
-            {
-                // This is never a value
                 result = check_for_explicit_typename_type_conversion(expression, decl_context);
                 break;
             }
@@ -6691,12 +6684,9 @@ static char check_for_explicit_type_conversion_common(type_t* type_info,
 
 static char check_for_explicit_typename_type_conversion(AST expr, decl_context_t decl_context)
 {
-    AST global_op = ASTSon0(expr);
-    AST nested_name_spec = ASTSon1(expr);
-    AST symbol = ASTSon2(expr);
+    AST id_expression = ASTSon0(expr);
 
-    scope_entry_list_t* entry_list = 
-        query_nested_name(decl_context, global_op, nested_name_spec, symbol);
+    scope_entry_list_t* entry_list = query_id_expression(decl_context, id_expression);
 
     if (entry_list == NULL)
         return 0;

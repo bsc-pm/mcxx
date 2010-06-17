@@ -469,14 +469,14 @@ static void build_scope_declaration(AST a, decl_context_t decl_context)
                 build_scope_explicit_template_specialization(a, decl_context);
                 break;
             }
-        case AST_USING_DIRECTIVE :
+        case AST_USING_NAMESPACE_DIRECTIVE:
             {
                 // using namespace std;
                 build_scope_using_directive(a, decl_context);
                 break;
             }
-        case AST_USING_DECL :
-        case AST_USING_DECL_TYPENAME :
+        case AST_USING_DECLARATION :
+        case AST_USING_DECLARATION_TYPENAME :
             {
                 // using A::b;
                 build_scope_using_declaration(a, decl_context);
@@ -521,7 +521,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context)
                 build_scope_gcc_asm_definition(a, decl_context);
                 break;
             }
-        case AST_GCC_USING_DIRECTIVE :
+        case AST_GCC_USING_NAMESPACE_DIRECTIVE:
             {
                 build_scope_using_directive(a, decl_context);
                 break;
@@ -614,27 +614,23 @@ static void build_scope_explicit_instantiation(AST a, decl_context_t decl_contex
 static void build_scope_using_directive(AST a, decl_context_t decl_context)
 {
     // First get the involved namespace
-    AST global_op = ASTSon0(a);
-    AST nested_name = ASTSon1(a);
-    AST name = ASTSon2(a);
+    AST id_expression = ASTSon0(a);
 
-    scope_entry_list_t* result_list = query_nested_name(decl_context, 
-            global_op, nested_name, name);
+    scope_entry_list_t* result_list = query_id_expression(decl_context, 
+            id_expression);
         
     if (result_list == NULL)
     {
-        running_error("%s: error: unknown namespace '%s%s%s'\n",
+        running_error("%s: error: unknown namespace '%s'\n",
                 ast_location(a), 
-                prettyprint_in_buffer(global_op),
-                prettyprint_in_buffer(nested_name),
-                prettyprint_in_buffer(name));
+                prettyprint_in_buffer(id_expression));
     }
 
     if (result_list->next != NULL || result_list->entry->kind != SK_NAMESPACE)
     {
         running_error("%s: error: '%s' does not name a namespace\n",
                 ast_location(a), 
-                prettyprint_in_buffer(a));
+                prettyprint_in_buffer(id_expression));
     }
 
     scope_entry_t* entry = result_list->entry;
@@ -651,9 +647,7 @@ static void build_scope_using_directive(AST a, decl_context_t decl_context)
 
 static void build_scope_using_declaration(AST a, decl_context_t decl_context)
 {
-    AST global_op = ASTSon0(a);
-    AST nested_name_specifier = ASTSon1(a);
-    AST unqualified_id = ASTSon2(a);
+    AST id_expression = ASTSon0(a);
 
     if (decl_context.current_scope->kind != CLASS_SCOPE
             && decl_context.current_scope->kind != NAMESPACE_SCOPE
@@ -663,18 +657,14 @@ static void build_scope_using_declaration(AST a, decl_context_t decl_context)
                 ast_location(a));
     }
 
-    scope_entry_list_t* used_entity = query_nested_name(decl_context, 
-            global_op, 
-            nested_name_specifier, 
-            unqualified_id);
+    scope_entry_list_t* used_entity = query_id_expression(decl_context, 
+            id_expression);
 
     if (used_entity == NULL)
     {
-        running_error("%s: error: named entity '%s%s%s' in using-declaration is unknown",
+        running_error("%s: error: named entity '%s' in using-declaration is unknown",
                 ast_location(a),
-                prettyprint_in_buffer(global_op),
-                prettyprint_in_buffer(nested_name_specifier),
-                prettyprint_in_buffer(unqualified_id));
+                prettyprint_in_buffer(id_expression));
 
     }
 
@@ -1202,38 +1192,26 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
 {
     switch (ASTType(a))
     {
-        case AST_SIMPLE_TYPE_SPECIFIER :
+        case AST_SIMPLE_TYPE_SPEC :
             gather_type_spec_from_simple_type_specifier(a, simple_type_info, decl_context);
             break;
-        case AST_ELABORATED_TYPENAME : 
-        case AST_ELABORATED_TYPENAME_TEMPLATE : 
+        case AST_ELABORATED_TYPENAME_SPEC : 
             gather_type_spec_from_dependent_typename(a, simple_type_info, decl_context);
             break;
         case AST_ENUM_SPECIFIER :
+        case AST_GCC_ENUM_SPECIFIER :
             gather_type_spec_from_enum_specifier(a, simple_type_info, decl_context);
             break;
         case AST_CLASS_SPECIFIER :
             gather_type_spec_from_class_specifier(a, simple_type_info, decl_context);
             break;
-        case AST_ELABORATED_TYPE_ENUM :
+        case AST_ELABORATED_TYPE_ENUM_SPEC :
+        case AST_GCC_ELABORATED_TYPE_ENUM_SPEC :
             gather_type_spec_from_elaborated_enum_specifier(a, simple_type_info, decl_context);
             break;
-        case AST_GCC_ELABORATED_TYPE_ENUM :
-            gather_type_spec_from_elaborated_enum_specifier(a, simple_type_info, decl_context);
-            break;
-        case AST_ELABORATED_TYPE_CLASS :
+        case AST_ELABORATED_TYPE_CLASS_SPEC :
+        case AST_GCC_ELABORATED_TYPE_CLASS_SPEC :
             gather_type_spec_from_elaborated_class_specifier(a, simple_type_info, decl_context);
-            break;
-        case AST_GCC_ELABORATED_TYPE_CLASS :
-            gather_type_spec_from_elaborated_class_specifier(ASTSon1(a), simple_type_info, decl_context);
-            break;
-        case AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS :
-        case AST_ELABORATED_TYPE_TEMPLATE_CLASS :
-            gather_type_spec_from_elaborated_class_specifier(a, simple_type_info, decl_context);
-            break;
-        case AST_GCC_ELABORATED_TYPE_TEMPLATE_CLASS :
-        case AST_GCC_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS :
-            gather_type_spec_from_elaborated_class_specifier(ASTSon1(a), simple_type_info, decl_context);
             break;
         case AST_CHAR_TYPE :
             // It can be either signed or unsigned, so do not assume it is
@@ -1513,16 +1491,13 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
             internal_error("Code unreachable", 0);
     }
 
-    AST global_scope = ASTSon1(a);
-    AST nested_name_specifier = ASTSon2(a);
-    AST class_symbol = ASTSon3(a);
+    AST id_expression = ASTSon1(a);
 
     scope_entry_list_t* result_list = NULL;
 
     decl_flags_t decl_flags = DF_NONE;
 
-    if (global_scope == NULL
-            && nested_name_specifier == NULL)
+    if (is_unqualified_id_expression(id_expression))
     {
         decl_flags |= DF_ELABORATED_NAME;
     }
@@ -1532,27 +1507,25 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
         if (BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS)
                 && !BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
         {
-            if (global_scope == NULL
-                    && nested_name_specifier == NULL)
+            if (is_unqualified_id_expression(id_expression))
             {
-                result_list = query_in_scope_flags(decl_context, class_symbol, decl_flags);
+                result_list = query_in_scope_flags(decl_context, id_expression, decl_flags);
             }
             else
             {
-                result_list = query_nested_name_flags(decl_context, 
-                        global_scope, nested_name_specifier, class_symbol, decl_flags);
+                result_list = query_id_expression_flags(decl_context, id_expression, decl_flags);
             };
         }
         else
         {
-            result_list = query_nested_name_flags(decl_context, 
-                    global_scope, nested_name_specifier, class_symbol, decl_flags);
+            result_list = query_id_expression_flags(decl_context, 
+                    id_expression, decl_flags);
         }
     }
 
     C_LANGUAGE()
     {
-        const char* class_name = ASTText(class_symbol);
+        const char* class_name = ASTText(id_expression);
         class_name = strappend(class_kind_name, class_name);
 
         result_list = query_unqualified_name_str(decl_context, class_name);
@@ -1584,7 +1557,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
 
     // We want the primary template in this particular case
     if (entry != NULL
-            && ASTType(class_symbol) != AST_TEMPLATE_ID
+            /* && ASTType(class_symbol) != AST_TEMPLATE_ID */
             && entry->kind == SK_TEMPLATE)
     {
         template_type_update_template_parameters(entry->type_information,
@@ -1599,8 +1572,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
     {
         // The name was not found.
         // We will have to create a symbol (if unqualified, otherwise this is an error)
-        if (nested_name_specifier == NULL
-                && global_scope == NULL)
+        if (is_unqualified_id_expression(id_expression))
         {
             // This is an unqualified name
             //
@@ -1625,13 +1597,19 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
             }
 
             const char* class_name = NULL;
-            if (ASTType(class_symbol) == AST_SYMBOL)
+            if (ASTType(id_expression) == AST_SYMBOL)
             {
-                class_name = ASTText(class_symbol);
+                class_name = ASTText(id_expression);
             }
-            else // AST_TEMPLATE_ID
+            else if (ASTType(id_expression) == AST_TEMPLATE_ID)
             {
-                class_name = ASTText(ASTSon0(class_symbol));
+                class_name = ASTText(ASTSon0(id_expression));
+            }
+            else
+            {
+                running_error("%s: invalid class specifier '%s'\n",
+                        ast_location(id_expression),
+                        prettyprint_in_buffer(id_expression));
             }
 
             C_LANGUAGE()
@@ -1642,12 +1620,12 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
             scope_entry_t* new_class = NULL;
             new_class = new_symbol(decl_context, decl_context.current_scope, class_name);
 
-            new_class->line = ASTLine(class_symbol);
-            new_class->file = ASTFileName(class_symbol);
-            new_class->point_of_declaration = get_enclosing_declaration(class_symbol);
+            new_class->line = ASTLine(id_expression);
+            new_class->file = ASTFileName(id_expression);
+            new_class->point_of_declaration = get_enclosing_declaration(id_expression);
 
             if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE) 
-                    && ASTType(class_symbol) != AST_TEMPLATE_ID)
+                    && ASTType(id_expression) != AST_TEMPLATE_ID)
             {
 
                 DEBUG_CODE()
@@ -1664,21 +1642,21 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
                 class_entry = new_class;
                 class_type = class_entry->type_information;
             }
-            else // BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE) || ASTType(class_symbol) == AST_TEMPLATE_ID
+            else 
             {
-                if (ASTType(class_symbol) != AST_TEMPLATE_ID)
+                if (ASTType(id_expression) != AST_TEMPLATE_ID)
                 {
                     new_class->kind = SK_TEMPLATE;
                     new_class->type_information = get_new_template_type(decl_context.template_parameters, 
                             get_new_class_type(decl_context, class_kind),
-                            ASTText(class_symbol), decl_context,
-                            ASTLine(class_symbol),
-                            ASTFileName(class_symbol));
+                            ASTText(id_expression), decl_context,
+                            ASTLine(id_expression),
+                            ASTFileName(id_expression));
                     template_type_set_related_symbol(new_class->type_information, new_class);
 
                     new_class->line = ASTLine(a);
                     new_class->file = ASTFileName(a);
-                    new_class->point_of_declaration = get_enclosing_declaration(class_symbol);
+                    new_class->point_of_declaration = get_enclosing_declaration(id_expression);
 
                     // Get the primary class
                     class_entry = named_type_get_symbol(
@@ -1687,21 +1665,21 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
                     // Update some fields
                     class_entry->line = ASTLine(a);
                     class_entry->file = ASTFileName(a);
-                    class_entry->point_of_declaration = get_enclosing_declaration(class_symbol);
+                    class_entry->point_of_declaration = get_enclosing_declaration(id_expression);
 
                     class_type = class_entry->type_information;
                 }
                 else 
                 {
                     running_error("%s: error: invalid template-name '%s'\n", 
-                            ast_location(class_symbol),
-                            ASTText(class_symbol));
+                            ast_location(id_expression),
+                            ASTText(id_expression));
                 }
             }
         }
         else
         {
-            running_error("%s: error: class name '%s' not found", ast_location(a), prettyprint_in_buffer(a));
+            running_error("%s: error: class name '%s' not found", ast_location(id_expression), prettyprint_in_buffer(id_expression));
         }
     }
     else
@@ -1734,15 +1712,13 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
 
 static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type_info, decl_context_t decl_context)
 {
-    AST global_scope = ASTSon0(a);
-    AST nested_name_specifier = ASTSon1(a);
-    AST symbol = ASTSon2(a);
+    AST id_expression = ASTSon0(a);
 
     scope_entry_list_t* result_list = NULL;
 
     decl_flags_t decl_flags = DF_NONE;
 
-    if (global_scope == NULL && nested_name_specifier == NULL)
+    if (is_unqualified_id_expression(id_expression))
     {
         decl_flags |= DF_ELABORATED_NAME;
     }
@@ -1751,27 +1727,24 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type
     {
         if (BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS))
         {
-            if (global_scope == NULL
-                    && nested_name_specifier == NULL)
+            if (is_unqualified_id_expression(id_expression))
             {
-                result_list = query_in_scope_flags(decl_context, symbol, decl_flags);
+                result_list = query_in_scope_flags(decl_context, id_expression, decl_flags);
             }
             else
             {
-                result_list = query_nested_name_flags(decl_context, 
-                        global_scope, nested_name_specifier, symbol, decl_flags);
+                result_list = query_id_expression_flags(decl_context, id_expression, decl_flags);
             };
         }
         else
         {
-            result_list = query_nested_name_flags(decl_context, 
-                    global_scope, nested_name_specifier, symbol, decl_flags);
+            result_list = query_id_expression_flags(decl_context, id_expression, decl_flags);
         }
     }
 
     C_LANGUAGE()
     {
-        const char* enum_name = ASTText(symbol);
+        const char* enum_name = ASTText(id_expression);
 
         enum_name = strappend("enum ", enum_name);
         result_list = query_unqualified_name_str(decl_context, enum_name);
@@ -1797,8 +1770,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type
     if (entry == NULL)
     {
         // Create a stub but only if it is unqualified, otherwise it should exist elsewhere
-        if (nested_name_specifier == NULL
-                && global_scope == NULL
+        if (is_unqualified_id_expression(id_expression)
                 // If does not exist and there are no declarators
                 && BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS))
         {
@@ -1807,7 +1779,14 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type
                 fprintf(stderr, "Enum type not found, creating a stub for this scope\n");
             }
 
-            const char* enum_name = ASTText(symbol);
+            if (ASTType(id_expression) != AST_SYMBOL)
+            {
+                running_error("%s: invalid enum-name '%s'\n", 
+                        ast_location(id_expression),
+                        prettyprint_in_buffer(id_expression));
+            }
+
+            const char* enum_name = ASTText(id_expression);
 
             C_LANGUAGE()
             {
@@ -1823,9 +1802,9 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type
             }
 
             scope_entry_t* new_enum = new_symbol(new_decl_context, new_decl_context.current_scope, enum_name);
-            new_enum->line = ASTLine(symbol);
-            new_enum->file = ASTFileName(symbol);
-            new_enum->point_of_declaration = get_enclosing_declaration(symbol);
+            new_enum->line = ASTLine(id_expression);
+            new_enum->file = ASTFileName(id_expression);
+            new_enum->point_of_declaration = get_enclosing_declaration(id_expression);
             new_enum->kind = SK_ENUM;
             new_enum->type_information = get_new_enum_type(decl_context);
 
@@ -1855,45 +1834,8 @@ static void gather_type_spec_from_dependent_typename(AST a, type_t** type_info,
         fprintf(stderr, "BUILDSCOPE: Have to solve dependent typename '%s'\n",
                 prettyprint_in_buffer(a));
     }
-    AST global_scope = ASTSon0(a);
-    AST nested_name_spec = ASTSon1(a);
-    AST name = ASTSon2(a);
+    AST id_expression = ASTSon0(a);
 
-    // Remove additional ambiguities that might appear in things of the form 
-    // T::template A<B>
-    while (nested_name_spec != NULL)
-    {
-        if (ASTType(nested_name_spec) == AST_AMBIGUITY)
-        {
-            solve_ambiguous_nested_name_specifier(nested_name_spec, decl_context);
-        }
-
-        AST class_name = ASTSon0(nested_name_spec);
-
-        if (ASTType(class_name) == AST_TEMPLATE_ID
-                || ASTType(class_name) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
-        {
-            if (!solve_possibly_ambiguous_template_id(class_name, decl_context))
-            {
-                internal_error("Unresolved ambiguity '%s' at '%s'\n", 
-                        prettyprint_in_buffer(class_name),
-                        ast_location(class_name));
-            }
-        }
-
-        nested_name_spec = ASTSon1(nested_name_spec);
-    }
-
-    if (ASTType(name) == AST_TEMPLATE_ID
-            || ASTType(name) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
-    {
-        if (!solve_possibly_ambiguous_template_id(name, decl_context))
-        {
-                internal_error("Unresolved ambiguity '%s' at '%s'\n", 
-                        prettyprint_in_buffer(name),
-                        ast_location(name));
-        }
-    }
 
     DEBUG_CODE()
     {
@@ -1901,22 +1843,19 @@ static void gather_type_spec_from_dependent_typename(AST a, type_t** type_info,
                 prettyprint_in_buffer(a));
     }
 
-    global_scope = ASTSon0(a);
-    nested_name_spec = ASTSon1(a);
-    name = ASTSon2(a);
-
-
     scope_entry_list_t* result = NULL;
-    result = query_nested_name_flags(decl_context, 
-            global_scope, 
-            nested_name_spec, 
-            name, 
+    result = query_id_expression_flags(decl_context, 
+            id_expression,
             // We do not want to use uninstantiated 
             // templates when looking up
             DF_DEPENDENT_TYPENAME);
 
-    ERROR_CONDITION(result == NULL,
-            "This should not be null", 0);
+    if (result == NULL)
+    {
+        running_error("%s: typename '%s' not found\n", 
+                ast_location(id_expression),
+                prettyprint_in_buffer(id_expression));
+    }
 
     scope_entry_t* entry = result->entry;
 
@@ -1960,29 +1899,11 @@ static void gather_type_spec_from_dependent_typename(AST a, type_t** type_info,
 void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
         decl_context_t decl_context)
 {
-    AST global_op = ASTSon0(a);
-    AST nested_name_spec = ASTSon1(a);
-    AST type_name = (ASTSon2(a) != NULL) ? ASTSon2(a) : ASTSon3(a);
-
-    if (ASTType(type_name) == AST_TEMPLATE_ID
-            /* this can't appear here */
-            /* || ASTType(type_name) == AST_OPERATOR_FUNCTION_ID_TEMPLATE */)
-    {
-        if (!solve_possibly_ambiguous_template_id(type_name, decl_context))
-        {
-            internal_error("Unresolved ambiguity '%s' at '%s'\n", 
-                    prettyprint_in_buffer(type_name),
-                    ast_location(type_name));
-        }
-    }
+    AST id_expression = ASTSon0(a);
 
     decl_flags_t flags = DF_NONE;
-
-    scope_entry_list_t* entry_list = query_nested_name_flags(decl_context, 
-            global_op, 
-            nested_name_spec, 
-            type_name,
-            flags);
+    scope_entry_list_t* entry_list = query_id_expression_flags(decl_context, 
+            id_expression, flags);
 
     if (entry_list == NULL)
     {
@@ -1990,26 +1911,24 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
                 ast_location(a), prettyprint_in_buffer(a));
     }
 
+    scope_entry_list_t* it = entry_list;
+    while (it != NULL)
     {
-        scope_entry_list_t* it = entry_list;
-        while (it != NULL)
+        scope_entry_t* entry = it->entry;
+        if (entry->kind != SK_ENUM 
+                && entry->kind != SK_CLASS 
+                && entry->kind != SK_TYPEDEF 
+                && entry->kind != SK_TEMPLATE
+                && entry->kind != SK_TEMPLATE_TYPE_PARAMETER
+                && entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER
+                && entry->kind != SK_GCC_BUILTIN_TYPE)
         {
-            scope_entry_t* entry = it->entry;
-            if (entry->kind != SK_ENUM 
-                    && entry->kind != SK_CLASS 
-                    && entry->kind != SK_TYPEDEF 
-                    && entry->kind != SK_TEMPLATE
-                    && entry->kind != SK_TEMPLATE_TYPE_PARAMETER
-                    && entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER
-                    && entry->kind != SK_GCC_BUILTIN_TYPE)
-            {
-                running_error("%s: error: identifier '%s' does not name a type", 
-                        ast_location(a),
-                        prettyprint_in_buffer(a));
-            }
-
-            it = it->next;
+            running_error("%s: error: identifier '%s' does not name a type", 
+                    ast_location(a),
+                    prettyprint_in_buffer(a));
         }
+
+        it = it->next;
     }
 
     scope_entry_t* entry = entry_list->entry;
@@ -3152,19 +3071,12 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     /* --- */
 
     enter_class_specifier();
-    
+
     AST class_head = ASTSon0(a);
 
-    if (ASTType(class_head) == AST_GCC_CLASS_HEAD)
-    {
-        class_head = ASTSon1(class_head);
-    }
-
     AST class_key = ASTSon0(class_head);
-    AST base_clause = ASTSon3(class_head);
-
-    AST class_head_nested_name = ASTSon1(class_head);
-    AST class_head_identifier = ASTSon2(class_head);
+    AST class_id_expression = ASTSon1(class_head);
+    AST base_clause = ASTSon2(class_head);
 
     enum class_kind_t class_kind = CK_INVALID;
     const char *class_kind_name = NULL;
@@ -3197,224 +3109,213 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     }
 
     char* qualification_name = NULL;
-    if (class_head_identifier != NULL)
+    if (class_id_expression != NULL
+            && is_unqualified_id_expression(class_id_expression))
     {
-        qualification_name = prettyprint_in_buffer(class_head_identifier);
+        qualification_name = prettyprint_in_buffer(class_id_expression);
     }
 
     decl_context_t inner_decl_context;
     // Empty it
     memset(&inner_decl_context, 0, sizeof(inner_decl_context));
-    
-    if (class_head_identifier != NULL)
+
+    if (class_id_expression != NULL)
     {
         // If the class has name, register it in the symbol table but only if
         // it does not exist
-        if (ASTType(class_head_identifier) == AST_SYMBOL
-                || ASTType(class_head_identifier) == AST_TEMPLATE_ID)
+        scope_entry_list_t* class_entry_list = NULL;
+
+        // Look up the symbol
+        CXX_LANGUAGE()
         {
-            scope_entry_list_t* class_entry_list = NULL;
-            
-            // Look up the symbol
-            CXX_LANGUAGE()
+            if (is_unqualified_id_expression(class_id_expression))
             {
-                if (class_head_nested_name == NULL)
-                {
-                    class_entry_list = query_in_scope_flags(decl_context,
-                            class_head_identifier, DF_UPDATE_TEMPLATE_ARGUMENTS);
-                }
-                else
-                {
-                    // If the template specialization was already declared
-                    // we want to update its template arguments properly
-                    class_entry_list = query_nested_name_flags(decl_context,
-                            NULL,
-                            class_head_nested_name, 
-                            class_head_identifier,
-                            DF_UPDATE_TEMPLATE_ARGUMENTS);
-                }
-            }
-
-            C_LANGUAGE()
-            {
-                // This can only be an AST_SYMBOL in C
-                const char* class_name = ASTText(class_head_identifier);
-                class_name = strappend(class_kind_name, class_name);
-
-                class_entry_list = query_unqualified_name_str(decl_context, class_name);
-            }
-
-            enum cxx_symbol_kind filter_classes[] = 
-            {
-                SK_CLASS, 
-                SK_TEMPLATE, // For template-names
-            };
-
-            class_entry_list = filter_symbol_kind_set(class_entry_list, 
-                    STATIC_ARRAY_LENGTH(filter_classes), filter_classes);
-
-            if (class_entry_list != NULL)
-            {
-                // If a valid class was found
-                // Get the class entry
-                class_entry = class_entry_list->entry;
-                class_type = class_entry->type_information;
-
-                // If this is the primary template, we will get the template type.
-                // Ask for the real primary type
-                if (class_entry->kind == SK_TEMPLATE
-                        && ASTType(class_head_identifier) != AST_TEMPLATE_ID)
-                {
-                    template_type_update_template_parameters(class_entry->type_information,
-                            decl_context.template_parameters);
-                    
-                    // This is a named type
-                    type_t* primary_type = template_type_get_primary_type(class_entry->type_information);
-                    class_entry = named_type_get_symbol(primary_type);
-                    class_type = class_entry->type_information;
-
-                    ERROR_CONDITION((class_entry->kind != SK_CLASS
-                                && class_entry->kind != SK_FUNCTION), 
-                            "Invalid symbol type for a template entity\n", 0);
-
-                    if (class_entry->kind == SK_FUNCTION)
-                    {
-                        running_error("%s: error: invalid template-name redeclaration\n", 
-                                ast_location(class_head_identifier));
-                    }
-                    
-                    ERROR_CONDITION(!is_class_type(class_entry->type_information), "This must be a class type", 0);
-                }
-
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "Class '%s%s' already declared as %p in scope %p (%s:%d)\n", 
-                            prettyprint_in_buffer(class_head_nested_name),
-                            prettyprint_in_buffer(class_head_identifier),
-                            class_entry, 
-                            class_entry->decl_context.current_scope,
-                            class_entry->file,
-                            class_entry->line);
-                }
-
-                // Update the template_scope
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "Updating template scope\n");
-                }
-                class_entry->decl_context.template_scope = decl_context.template_scope;
-                class_entry->decl_context.template_nesting = decl_context.template_nesting;
-
-                // Update point of declaration
-                class_entry->point_of_declaration = get_enclosing_declaration(class_head_identifier);
-
-                inner_decl_context = new_class_context(class_entry->decl_context,
-                        qualification_name, 
-                        class_type);
-                class_type_set_inner_context(class_type, inner_decl_context);
-            }
-            else if (class_entry_list == NULL
-                    && class_head_nested_name == NULL)
-            {
-                // If no class found and no nested name, the symbol must be created
-                // here
-                if (ASTType(class_head_identifier) == AST_SYMBOL)
-                {
-                    C_LANGUAGE()
-                    {
-                        const char* class_name = ASTText(class_head_identifier);
-                        class_name = strappend(class_kind_name, class_name);
-
-                        class_entry = new_symbol(decl_context, 
-                                decl_context.current_scope, class_name);
-                    }
-
-                    CXX_LANGUAGE()
-                    {
-                        class_entry = new_symbol(decl_context, 
-                                decl_context.current_scope, 
-                                ASTText(class_head_identifier));
-                    }
-                }
-                else
-                {
-                    internal_error("Code unreachable", 0);
-                }
-
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "Registering class '");
-                    prettyprint(stderr, class_head_nested_name);
-                    prettyprint(stderr, class_head_identifier);
-                    fprintf(stderr, "' (%p) in scope %p\n", class_entry, decl_context.current_scope);
-                }
-
-                class_entry->line = ASTLine(class_head_identifier);
-                class_entry->file = ASTFileName(class_head_identifier);
-                class_entry->point_of_declaration = get_enclosing_declaration(class_head_identifier);
-
-                // Create the class type for this newly created class
-                if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
-                {
-                    // Normal, non-template class
-                    class_entry->kind = SK_CLASS;
-                    class_entry->type_information = get_new_class_type(decl_context, class_kind);
-                    class_type = class_entry->type_information;
-                }
-                else 
-                {
-                    if (ASTType(class_head_identifier) != AST_TEMPLATE_ID)
-                    {
-                        class_entry->kind = SK_TEMPLATE;
-                        class_entry->type_information = get_new_template_type(decl_context.template_parameters, 
-                                get_new_class_type(decl_context, class_kind),
-                                ASTText(class_head_identifier), decl_context,
-                                ASTLine(class_head_identifier), 
-                                ASTFileName(class_head_identifier));
-                        template_type_set_related_symbol(class_entry->type_information, class_entry);
-
-                        class_entry->file = ASTFileName(class_head_identifier);
-                        class_entry->line = ASTLine(class_head_identifier);
-                        class_entry->point_of_declaration = get_enclosing_declaration(class_head_identifier);
-
-                        // Now update class_entry to be a real class
-                        class_entry = named_type_get_symbol(
-                                template_type_get_primary_type(class_entry->type_information)
-                                );
-                        // Update some fields
-                        class_entry->file = ASTFileName(class_head_identifier);
-                        class_entry->line = ASTLine(class_head_identifier);
-                        class_entry->point_of_declaration = get_enclosing_declaration(class_head_identifier);
-
-                        class_type = class_entry->type_information;
-                    }
-                    else
-                    {
-                        running_error("%s: error: invalid template-name '%s'\n", 
-                                ast_location(ASTSon0(class_head_identifier)),
-                                prettyprint_in_buffer(ASTSon0(class_head_identifier)));
-                    }
-                }
-
-                inner_decl_context = new_class_context(decl_context,
-                        qualification_name,
-                        class_type);
-                class_type_set_inner_context(class_type, inner_decl_context);
+                class_entry_list = query_in_scope_flags(decl_context,
+                        class_id_expression, 
+                        DF_UPDATE_TEMPLATE_ARGUMENTS);
             }
             else
             {
-                // Other cases are error, not finding a nested class means that
-                // something was amiss
-                //
-                // struct A::B <-- if 'A::B' is not found it means that there is an error
-                // {
-                // };
-                internal_error("Unreachable code caused by '%s'", ast_location(a));
+                // If the template specialization was already declared
+                // we want to update its template arguments properly
+                class_entry_list = query_id_expression_flags(decl_context,
+                        class_id_expression,
+                        DF_UPDATE_TEMPLATE_ARGUMENTS);
             }
+        }
+
+        C_LANGUAGE()
+        {
+            // This can only be an AST_SYMBOL in C
+            const char* class_name = ASTText(class_id_expression);
+            class_name = strappend(class_kind_name, class_name);
+
+            class_entry_list = query_unqualified_name_str(decl_context, class_name);
+        }
+
+        enum cxx_symbol_kind filter_classes[] = 
+        {
+            SK_CLASS, 
+            SK_TEMPLATE, // For template-names
+        };
+
+        class_entry_list = filter_symbol_kind_set(class_entry_list, 
+                STATIC_ARRAY_LENGTH(filter_classes), filter_classes);
+
+        if (class_entry_list != NULL)
+        {
+            // If a valid class was found
+            // Get the class entry
+            class_entry = class_entry_list->entry;
+            class_type = class_entry->type_information;
+
+            // If this is the primary template, we will get the template type.
+            // Ask for the real primary type
+            if (class_entry->kind == SK_TEMPLATE
+                    && ASTType(class_id_expression) != AST_TEMPLATE_ID)
+            {
+                template_type_update_template_parameters(class_entry->type_information,
+                        decl_context.template_parameters);
+
+                // This is a named type
+                type_t* primary_type = template_type_get_primary_type(class_entry->type_information);
+                class_entry = named_type_get_symbol(primary_type);
+                class_type = class_entry->type_information;
+
+                ERROR_CONDITION((class_entry->kind != SK_CLASS
+                            && class_entry->kind != SK_FUNCTION), 
+                        "Invalid symbol type for a template entity\n", 0);
+
+                if (class_entry->kind == SK_FUNCTION)
+                {
+                    running_error("%s: error: invalid template-name redeclaration\n", 
+                            ast_location(class_id_expression));
+                }
+
+                ERROR_CONDITION(!is_class_type(class_entry->type_information), "This must be a class type", 0);
+            }
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "Class '%s' already declared as %p in scope %p (%s:%d)\n", 
+                        prettyprint_in_buffer(class_id_expression),
+                        class_entry, 
+                        class_entry->decl_context.current_scope,
+                        class_entry->file,
+                        class_entry->line);
+            }
+
+            // Update the template_scope
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "Updating template scope\n");
+            }
+            class_entry->decl_context.template_scope = decl_context.template_scope;
+            class_entry->decl_context.template_nesting = decl_context.template_nesting;
+
+            // Update point of declaration
+            class_entry->point_of_declaration = get_enclosing_declaration(class_id_expression);
+
+            inner_decl_context = new_class_context(class_entry->decl_context,
+                    qualification_name, 
+                    class_type);
+            class_type_set_inner_context(class_type, inner_decl_context);
+        }
+        else if (class_entry_list == NULL
+                && is_unqualified_id_expression(class_id_expression))
+        {
+            // If no class found and no nested name, the symbol must be created
+            // here
+            if (ASTType(class_id_expression) == AST_SYMBOL)
+            {
+                C_LANGUAGE()
+                {
+                    const char* class_name = ASTText(class_id_expression);
+                    class_name = strappend(class_kind_name, class_name);
+
+                    class_entry = new_symbol(decl_context, 
+                            decl_context.current_scope, class_name);
+                }
+
+                CXX_LANGUAGE()
+                {
+                    class_entry = new_symbol(decl_context, 
+                            decl_context.current_scope, 
+                            ASTText(class_id_expression));
+                }
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "Registering class '%s' (%p) in scope %p\n", 
+                        prettyprint_in_buffer(class_id_expression), class_entry, decl_context.current_scope);
+            }
+
+            class_entry->line = ASTLine(class_id_expression);
+            class_entry->file = ASTFileName(class_id_expression);
+            class_entry->point_of_declaration = get_enclosing_declaration(class_id_expression);
+
+            // Create the class type for this newly created class
+            if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
+            {
+                // Normal, non-template class
+                class_entry->kind = SK_CLASS;
+                class_entry->type_information = get_new_class_type(decl_context, class_kind);
+                class_type = class_entry->type_information;
+            }
+            else 
+            {
+                if (ASTType(class_id_expression) != AST_TEMPLATE_ID)
+                {
+                    class_entry->kind = SK_TEMPLATE;
+                    class_entry->type_information = get_new_template_type(decl_context.template_parameters, 
+                            get_new_class_type(decl_context, class_kind),
+                            ASTText(class_id_expression), decl_context,
+                            ASTLine(class_id_expression), 
+                            ASTFileName(class_id_expression));
+                    template_type_set_related_symbol(class_entry->type_information, class_entry);
+
+                    class_entry->file = ASTFileName(class_id_expression);
+                    class_entry->line = ASTLine(class_id_expression);
+                    class_entry->point_of_declaration = get_enclosing_declaration(class_id_expression);
+
+                    // Now update class_entry to be a real class
+                    class_entry = named_type_get_symbol(
+                            template_type_get_primary_type(class_entry->type_information)
+                            );
+                    // Update some fields
+                    class_entry->file = ASTFileName(class_id_expression);
+                    class_entry->line = ASTLine(class_id_expression);
+                    class_entry->point_of_declaration = get_enclosing_declaration(class_id_expression);
+
+                    class_type = class_entry->type_information;
+                }
+                else
+                {
+                    running_error("%s: error: invalid template-name '%s'\n", 
+                            ast_location(class_id_expression),
+                            prettyprint_in_buffer(class_id_expression));
+                }
+            }
+
+            inner_decl_context = new_class_context(decl_context,
+                    qualification_name,
+                    class_type);
+            class_type_set_inner_context(class_type, inner_decl_context);
         }
         else
         {
-            internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(class_head_identifier)));
+            // Other cases are error, not finding a nested class means that
+            // something was amiss
+            //
+            // struct A::B <-- if 'A::B' is not found it means that there is an error
+            // {
+            // };
+            internal_error("Unreachable code caused by '%s'", ast_location(a));
         }
     }
     else
@@ -6730,7 +6631,7 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
                 build_scope_member_template_declaration(inner_decl_context, a, current_access, class_info);
                 break;
             }
-        case AST_USING_DECL :
+        case AST_USING_DECLARATION :
             {
                 build_scope_using_declaration(a, inner_decl_context);
                 break;
@@ -7190,9 +7091,10 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
         {
             // Register the typename properly
             if (ASTType(type_specifier) == AST_CLASS_SPECIFIER
-                    || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_CLASS) && (ASTSon1(a) == NULL))
+                    || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_CLASS_SPEC) && (ASTSon1(a) == NULL))
                     || ASTType(type_specifier) == AST_ENUM_SPECIFIER
-                    || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_ENUM) && (ASTSon1(a) == NULL)))
+                    || ASTType(type_specifier) == AST_GCC_ENUM_SPECIFIER
+                    || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_ENUM_SPEC) && (ASTSon1(a) == NULL)))
             {
                 scope_entry_t* entry = named_type_get_symbol(member_type);
                 DEBUG_CODE()
@@ -7212,7 +7114,8 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
         }
 
         if (type_specifier != NULL
-                && ASTType(type_specifier) == AST_ENUM_SPECIFIER )
+                && (ASTType(type_specifier) == AST_ENUM_SPECIFIER 
+                    || ASTType(type_specifier) == AST_GCC_ENUM_SPECIFIER))
         {
             ERROR_CONDITION(!is_enumerated_type(member_type), 
                     "AST_ENUM_SPECIFIER did not compute an enumerator type", 0);

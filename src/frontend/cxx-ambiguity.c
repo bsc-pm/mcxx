@@ -204,13 +204,10 @@ static char check_for_decl_spec_seq_followed_by_declarator(AST decl_specifier_se
     AST type_spec = ASTSon1(decl_specifier_seq);
     if (type_spec != NULL
             && ASTSon2(decl_specifier_seq) == NULL
-            && (ASTType(type_spec) == AST_SIMPLE_TYPE_SPECIFIER
-                || ASTType(type_spec) == AST_ELABORATED_TYPE_CLASS
-                || ASTType(type_spec) == AST_ELABORATED_TYPE_ENUM
-                || ASTType(type_spec) == AST_ELABORATED_TYPENAME
-                || ASTType(type_spec) == AST_ELABORATED_TYPENAME_TEMPLATE
-                || ASTType(type_spec) == AST_ELABORATED_TYPE_TEMPLATE_CLASS
-                || ASTType(type_spec) == AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS))
+            && (ASTType(type_spec) == AST_SIMPLE_TYPE_SPEC
+                || ASTType(type_spec) == AST_ELABORATED_TYPE_CLASS_SPEC
+                || ASTType(type_spec) == AST_ELABORATED_TYPE_ENUM_SPEC
+                || ASTType(type_spec) == AST_ELABORATED_TYPENAME_SPEC))
     {
         AST declarator_name = get_leftmost_declarator_name(declarator, decl_context);
 
@@ -1073,14 +1070,11 @@ static char check_for_simple_declaration(AST a, decl_context_t decl_context)
                             || entry_list->entry->kind == SK_TEMPLATE_TYPE_PARAMETER))
                 {
                     // A is a simple type specifier
-                    if (ASTType(type_spec) == AST_SIMPLE_TYPE_SPECIFIER)
+                    if (ASTType(type_spec) == AST_SIMPLE_TYPE_SPEC)
                     {
-                        AST global_op = ASTSon0(type_spec);
-                        AST nested_name_spec = ASTSon1(type_spec);
-                        AST type_name = ASTSon2(type_spec);
+                        AST type_id_expr = ASTSon0(type_spec);
 
-                        entry_list = query_nested_name(decl_context, global_op, nested_name_spec, 
-                                type_name);
+                        entry_list = query_id_expression(decl_context, type_id_expr);
 
                         // A is of class nature
                         if (entry_list != NULL
@@ -1577,7 +1571,7 @@ char check_for_simple_type_spec(AST type_spec, decl_context_t decl_context, type
         *computed_type = NULL;
     }
 
-    if (ASTType(type_spec) != AST_SIMPLE_TYPE_SPECIFIER)
+    if (ASTType(type_spec) != AST_SIMPLE_TYPE_SPEC)
     {
         switch (ASTType(type_spec))
         {
@@ -1608,20 +1602,9 @@ char check_for_simple_type_spec(AST type_spec, decl_context_t decl_context, type
         }
     }
 
-    AST global_op = ASTSon0(type_spec);
-    AST nested_name_spec = ASTSon1(type_spec);
-    AST type_name = ASTSon2(type_spec) != NULL ? ASTSon2(type_spec) : ASTSon3(type_spec);
+    AST type_id_expr = ASTSon0(type_spec);
 
-    if (ASTType(type_name) == AST_TEMPLATE_ID)
-    {
-        if (!solve_possibly_ambiguous_template_id(type_name, decl_context))
-        {
-            return 0;
-        }
-    }
-
-    scope_entry_list_t* entry_list = query_nested_name(decl_context, global_op, nested_name_spec, 
-            type_name);
+    scope_entry_list_t* entry_list = query_id_expression(decl_context, type_id_expr);
 
     if (entry_list == NULL)
     {
@@ -1677,7 +1660,7 @@ static char check_for_type_specifier(AST type_id, decl_context_t decl_context)
 
     switch (ASTType(type_id))
     {
-        case AST_SIMPLE_TYPE_SPECIFIER :
+        case AST_SIMPLE_TYPE_SPEC :
             return check_for_simple_type_spec(type_id, decl_context, /* computed_type = */ NULL);
             break;
         case AST_CLASS_SPECIFIER :
@@ -1691,12 +1674,9 @@ static char check_for_type_specifier(AST type_id, decl_context_t decl_context)
                 gather_type_spec_information(type_id, &type_info, &gather_info, decl_context);
                 return 1;
             }
-        case AST_ELABORATED_TYPENAME :
-        case AST_ELABORATED_TYPENAME_TEMPLATE :
-        case AST_ELABORATED_TYPE_ENUM :
-        case AST_ELABORATED_TYPE_CLASS :
-        case AST_ELABORATED_TYPE_TEMPLATE_CLASS :
-        case AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS :
+        case AST_ELABORATED_TYPENAME_SPEC :
+        case AST_ELABORATED_TYPE_ENUM_SPEC :
+        case AST_ELABORATED_TYPE_CLASS_SPEC :
         case AST_CHAR_TYPE :
         case AST_WCHAR_TYPE :
         case AST_BOOL_TYPE :
