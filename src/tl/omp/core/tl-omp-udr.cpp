@@ -33,6 +33,7 @@
 #include "c99-parser.h"
 
 #include "cxx-exprtype.h"
+#include "cxx-instantiation.h"
 
 namespace TL
 {
@@ -841,7 +842,10 @@ namespace TL
                 Scope& scope_of_clause,
                 bool &is_template)
         {
-            std::string mangled_str = "@OMP_UDR_DECLARE@ " + omp_udr_str;
+            std::stringstream ss;
+            ss << "#line " << ref_tree.get_line() << " \"" << ref_tree.get_file() << "\"\n";
+
+            std::string mangled_str = ss.str() + "@OMP_UDR_DECLARE@ " + omp_udr_str;
             char *str = strdup(mangled_str.c_str());
             C_LANGUAGE()
             {
@@ -940,9 +944,14 @@ namespace TL
 
         static void parse_udr_identity(const std::string& omp_udr_identity,
                 AST_t reference_tree,
+                ScopeLink sl,
+                Type udr_type,
                 AST_t &parsed_tree)
         {
-            std::string parsed_string = "@OMP_UDR_IDENTITY@ ";
+            std::stringstream ss;
+            ss << "#line " << reference_tree.get_line() << " \"" << reference_tree.get_file() << "\"\n";
+
+            std::string parsed_string = ss.str() + "@OMP_UDR_IDENTITY@ ";
 
             std::string constructor_str = "constructor";
 
@@ -984,6 +993,24 @@ namespace TL
             {
                 running_error("Could not parse OpenMP user-defined reduction identity\n\n%s\n", 
                         TL::Source::format_source(parsed_string).c_str());
+            }
+
+            Scope sc = sl.get_scope(reference_tree);
+            decl_context_t decl_context = sc.get_decl_context();
+
+            if (ASTType(a) != AST_OMP_UDR_CONSTRUCTOR)
+            {
+                check_for_initializer_clause(a, decl_context, udr_type.get_internal_type());
+            }
+            else
+            {
+                AST omp_udr_args = ASTSon0(0);
+                AST expr_list = ASTSon0(omp_udr_args);
+
+                if (expr_list != NULL)
+                {
+                    check_for_expression_list(expr_list, decl_context);
+                }
             }
 
             parsed_tree = AST_t(a);
@@ -1149,14 +1176,6 @@ namespace TL
                 }
             }
 
-            AST_t identity_expr(NULL);
-            PragmaCustomClause identity_clause = construct.get_clause("identity");
-            if (identity_clause.is_defined())
-            {
-                std::string identity_str = identity_clause.get_arguments(ExpressionTokenizerTrim())[0];
-
-                parse_udr_identity(identity_str, ref_tree_of_clause, identity_expr);
-            }
 
             PragmaCustomClause commutative_clause = construct.get_clause("commutative");
             bool is_commutative = commutative_clause.is_defined();
@@ -1377,6 +1396,16 @@ namespace TL
                     // left up to the compiler to deduce it
                     new_udr.set_associativity(assoc);
 
+                    AST_t identity_expr(NULL);
+                    PragmaCustomClause identity_clause = construct.get_clause("identity");
+                    if (identity_clause.is_defined())
+                    {
+                        std::string identity_str = identity_clause.get_arguments(ExpressionTokenizerTrim())[0];
+
+                        parse_udr_identity(identity_str, ref_tree_of_clause, 
+                                construct.get_scope_link(), reduction_type, identity_expr);
+                    }
+
                     if (!identity_clause.is_defined())
                     {
                         std::string initializer;
@@ -1390,7 +1419,8 @@ namespace TL
                         }
 
                         AST_t default_identity_expr;
-                        parse_udr_identity(initializer, ref_tree_of_clause, default_identity_expr);
+                        parse_udr_identity(initializer, ref_tree_of_clause, 
+                                construct.get_scope_link(), reduction_type, default_identity_expr);
                         new_udr.set_identity(default_identity_expr);
                     }
                     else
@@ -1772,6 +1802,15 @@ namespace TL
                             UDRInfoItem new_udr(obj);
                             // Fix the operator symbols
                             new_udr.set_operator_symbols(sym_list);
+
+                            // EXPERIMENTAL CODE
+                            // "Instantiate" the identity
+                            if (obj.has_identity())
+                            {
+                                AST inst_tree = instantiate_tree(obj.get_identity().get_internal_ast(), 
+                                        updated_context);
+                                new_udr.set_identity(AST_t(inst_tree));
+                            }
 
                             if ((new_udr.get_is_array_reduction()
                                         == current_udr.get_is_array_reduction())
