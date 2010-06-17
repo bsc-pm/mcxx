@@ -164,7 +164,7 @@
 "                           --debug-flags\n" \
 "  --help-target-options    Shows valid target options for\n" \
 "                           'target_options' option of configuration\n" \
-"                           file." \
+"                           file.\n" \
 "  --instantiate            Instantiate explicitly templates. This is\n" \
 "                           an unsupported experimental feature\n" \
 "\n" \
