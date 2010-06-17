@@ -1004,7 +1004,7 @@ namespace TL
             }
             else
             {
-                AST omp_udr_args = ASTSon0(0);
+                AST omp_udr_args = ASTSon0(a);
                 AST expr_list = ASTSon0(omp_udr_args);
 
                 if (expr_list != NULL)
