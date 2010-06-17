@@ -61,6 +61,7 @@ typedef enum
     OPTION_ENABLE_UPC,
     OPTION_ENABLE_HLT,
     OPTION_DO_NOT_UNLOAD_PHASES,
+    OPTION_INSTANTIATE_TEMPLATES,
     OPTION_VERBOSE
 } COMMAND_LINE_OPTIONS;
 
@@ -332,6 +333,9 @@ typedef struct compilation_configuration_tag
 
     // Disable g++ 4.3 type traits
     char disable_gxx_type_traits;
+
+    // Enable explicit instantiation
+    char explicit_instantiation;
 
     // Disable 'sizeof' computation
     char disable_sizeof;

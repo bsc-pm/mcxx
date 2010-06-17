@@ -1349,7 +1349,6 @@ static void get_abstract_declarator(AST *abstract_decl,
         decl_context_t decl_context,
         const char* filename, int line)
 {
-    // FIXME - Parentheses may be needed for proper prettyprinting
     if (is_pointer_type(t)
             || is_pointer_to_member_type(t))
     {

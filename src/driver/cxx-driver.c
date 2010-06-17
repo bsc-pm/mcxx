@@ -165,6 +165,8 @@
 "  --help-target-options    Shows valid target options for\n" \
 "                           'target_options' option of configuration\n" \
 "                           file." \
+"  --instantiate            Instantiate explicitly templates. This is\n" \
+"                           an unsupported experimental feature\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -244,6 +246,7 @@ struct command_line_long_options command_line_long_options[] =
     {"upc", CLP_OPTIONAL_ARGUMENT, OPTION_ENABLE_UPC},
     {"hlt", CLP_NO_ARGUMENT, OPTION_ENABLE_HLT},
     {"do-not-unload-phases", CLP_NO_ARGUMENT, OPTION_DO_NOT_UNLOAD_PHASES},
+    {"instantiate", CLP_NO_ARGUMENT, OPTION_INSTANTIATE_TEMPLATES},
     // sentinel
     {NULL, 0, 0}
 };
@@ -968,6 +971,11 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_DO_NOT_UNLOAD_PHASES:
                     {
                         do_not_unload_phases = 1;
+                        break;
+                    }
+                case OPTION_INSTANTIATE_TEMPLATES:
+                    {
+                        CURRENT_CONFIGURATION->explicit_instantiation = 1;
                         break;
                     }
                 default:
