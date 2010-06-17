@@ -69,7 +69,9 @@ const_value_t* const_value_get(uint64_t value, int num_bytes, char sign)
 
     int bucket_index = value % CVAL_HASH_SIZE;
 
-    const_value_hash_bucket_t* bucket = _hash_pool[2 * num_bytes + !!sign][bucket_index];
+    int pool = 2 * num_bytes + !!sign;
+
+    const_value_hash_bucket_t* bucket = _hash_pool[pool][bucket_index];
 
     while (bucket != NULL)
     {
@@ -86,11 +88,12 @@ const_value_t* const_value_get(uint64_t value, int num_bytes, char sign)
         
         bucket->constant_value = calloc(1, sizeof(*bucket->constant_value));
         bucket->constant_value->value = value;
+        bucket->constant_value->num_bytes = num_bytes;
         bucket->constant_value->sign = sign;
 
-        bucket->next = _hash_pool[num_bytes][bucket_index];
+        bucket->next = _hash_pool[pool][bucket_index];
 
-        _hash_pool[num_bytes][bucket_index] = bucket;
+        _hash_pool[pool][bucket_index] = bucket;
     }
 
     return bucket->constant_value;
@@ -122,7 +125,25 @@ static void common_bytes(const_value_t* v1, const_value_t* v2, int *num_bytes, c
     else 
     {
         *num_bytes = (v1->num_bytes > v2->num_bytes) ? v1->num_bytes : v2->num_bytes;
-        *sign = v1->sign || v2->sign;
+        if (v1->sign != v2->sign)
+        {
+            if (v1->num_bytes == v2->num_bytes)
+            {
+                *sign = 1;
+            }
+            else if (v1->num_bytes > v2->num_bytes)
+            {
+                *sign = v1->sign;
+            }
+            else
+            {
+                *sign = v2->sign;
+            }
+        }
+        else
+        {
+            *sign = v1->sign;
+        }
     }
 }
 

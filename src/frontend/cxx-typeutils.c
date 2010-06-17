@@ -2168,7 +2168,7 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
                 result->array->element_type = element_type;
 
                 result->array->array_expr = const_value_to_tree(
-                        const_value_get(num_elements, sizeof(num_elements), 1));
+                        const_value_get(num_elements, sizeof(num_elements), 0));
                 result->array->array_expr_decl_context = decl_context;
                 hash_put(array_sized_hash, element_type, result);
 

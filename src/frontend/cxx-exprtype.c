@@ -2310,8 +2310,10 @@ static type_t* usual_arithmetic_conversions(type_t* lhs_type, type_t* rhs_type)
     {
         internal_error("Unreachable code", 0);
     }
-
-    result = get_signed_int_type();
+    else 
+    {
+        result = get_signed_int_type();
+    }
 
     if (is_complex)
     {
