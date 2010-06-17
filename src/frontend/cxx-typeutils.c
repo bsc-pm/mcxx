@@ -309,10 +309,6 @@ struct function_tag
     int num_parameters;
     parameter_info_t** parameter_list;
 
-
-    // Contains the function definition tree (if the function has been defined)
-    AST definition_tree;
-    
     // States if this function has been declared or defined without prototype.
     // This is only meaningful in C but not in C++ where all functions do have
     // prototype
@@ -4622,22 +4618,6 @@ type_t* function_type_get_return_type(type_t* t)
 
     return t->function->return_type;
 }
-
-AST function_type_get_function_definition_tree(struct type_tag* t)
-{
-    ERROR_CONDITION(!is_function_type(t), "This is not a function type", 0);
-    t = advance_over_typedefs(t);
-
-    return t->function->definition_tree;
-}
-
-void function_type_set_function_definition_tree(struct type_tag* t, AST tree)
-{
-    ERROR_CONDITION(!is_function_type(t), "This is not a function type", 0);
-    t = advance_over_typedefs(t);
-    t->function->definition_tree = tree;
-}
-
 
 // Can be used both for pointers and pointers to members
 type_t* pointer_type_get_pointee_type(type_t *t)

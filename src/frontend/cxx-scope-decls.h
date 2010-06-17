@@ -430,6 +430,9 @@ typedef struct entity_specifiers_tag
     // GCC attributes synthesized for this symbol coming from the syntax
     int num_gcc_attributes;
     gather_gcc_attribute_t gcc_attributes[MAX_GCC_ATTRIBUTES_PER_SYMBOL];
+
+    // For functions and classes
+    AST definition_tree;
 } entity_specifiers_t;
 
 // This is an entry in the scope

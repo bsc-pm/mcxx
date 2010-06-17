@@ -602,7 +602,12 @@ static void build_scope_explicit_instantiation(AST a, decl_context_t decl_contex
     {
         decl_context.decl_flags |= DF_TEMPLATE;
         decl_context.decl_flags |= DF_EXPLICIT_SPECIALIZATION;
-        build_scope_declarator_name(declarator, declarator_type, &gather_info, decl_context);
+        scope_entry_t *entry = build_scope_declarator_name(declarator, declarator_type, &gather_info, decl_context);
+
+        if (entry == NULL)
+        {
+            running_error("%s: invalid explicit instantiation\n", ast_location(a));
+        }
     }
 }
 
@@ -3569,6 +3574,9 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     //   };
     // };
     //
+
+    // Keep the definition tree
+    class_entry->entity_specs.definition_tree = a;
     
     // Save the template parameters
     if (is_template_specialized_type(class_type))
@@ -6564,15 +6572,8 @@ scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl_contex
     ASTAttrSetValueType(a, LANG_DECLARATION_DECLARATORS, tl_type_t, tl_ast(ASTSon1(a)));
     ASTAttrSetValueType(a, LANG_FUNCTION_SYMBOL, tl_type_t, tl_symbol(entry));
 
-    // This is used later for instantiation if this type is dependent
-    if (is_template_specialized_type(entry->type_information))
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "BUILDSCOPE: Keeping tree of function '%s' || %s\n", entry->symbol_name, print_declarator(entry->type_information));
-        }
-        function_type_set_function_definition_tree(entry->type_information, a);
-    }
+    // Keep the function definition, it may be needed later
+    entry->entity_specs.definition_tree = a;
 
     // Function_body
     AST function_body = ASTSon3(a);

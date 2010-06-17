@@ -36,6 +36,8 @@
 
 #include "cxx-printscope.h"
 
+AST instantiate_tree(AST orig_tree, decl_context_t context_of_being_instantiated);
+
 static scope_entry_t* add_duplicate_member_to_class(decl_context_t context_of_being_instantiated,
         type_t* being_instantiated,
         scope_entry_t* member_of_template)
@@ -1217,6 +1219,14 @@ static void get_type_id_tree_of_type_split(type_t* t, decl_context_t decl_contex
         AST *abstract_decl, 
         const char* filename, int line);
 
+static AST ast_append_to_list(AST list, AST new_item)
+{
+    if (list == NULL)
+        return ast_list_leaf(new_item);
+    else
+        return ast_list(list, new_item);
+}
+
 static AST get_type_specifier_seq_of_type(type_t* t, decl_context_t decl_context UNUSED_PARAMETER, const char* filename, int line)
 {
     t = get_foundation_type(t);
@@ -1233,24 +1243,24 @@ static AST get_type_specifier_seq_of_type(type_t* t, decl_context_t decl_context
                 || is_unsigned_long_long_int_type(t))
         {
             nontype_specifier_seq = 
-                ASTList(nontype_specifier_seq,
+                ast_append_to_list(nontype_specifier_seq,
                         ASTLeaf(AST_UNSIGNED_TYPE, filename, line, NULL));
         }
         if (is_signed_long_int_type(t)
                 || is_unsigned_long_int_type(t))
         {
             nontype_specifier_seq = 
-                ASTList(nontype_specifier_seq,
+                ast_append_to_list(nontype_specifier_seq,
                         ASTLeaf(AST_LONG_TYPE, filename, line, NULL));
         }
         if (is_signed_long_long_int_type(t)
                 || is_unsigned_long_long_int_type(t))
         {
             nontype_specifier_seq = 
-                ASTList(nontype_specifier_seq,
+                ast_append_to_list(nontype_specifier_seq,
                         ASTLeaf(AST_LONG_TYPE, filename, line, NULL));
             nontype_specifier_seq = 
-                ASTList(nontype_specifier_seq,
+                ast_append_to_list(nontype_specifier_seq,
                         ASTLeaf(AST_LONG_TYPE, filename, line, NULL));
         }
     }
@@ -1266,7 +1276,7 @@ static AST get_type_specifier_seq_of_type(type_t* t, decl_context_t decl_context
         if (is_long_double_type(t))
         {
             nontype_specifier_seq = 
-                ASTList(nontype_specifier_seq,
+                ast_append_to_list(nontype_specifier_seq,
                         ASTLeaf(AST_LONG_TYPE, filename, line, NULL));
         }
     }
@@ -1279,13 +1289,13 @@ static AST get_type_specifier_seq_of_type(type_t* t, decl_context_t decl_context
         if (is_unsigned_char_type(t))
         {
             nontype_specifier_seq =
-                ASTList(nontype_specifier_seq,
+                ast_append_to_list(nontype_specifier_seq,
                         ASTLeaf(AST_UNSIGNED_TYPE, filename, line, NULL));
         }
         else
         {
             nontype_specifier_seq =
-                ASTList(nontype_specifier_seq,
+                ast_append_to_list(nontype_specifier_seq,
                         ASTLeaf(AST_SIGNED_TYPE, filename, line, NULL));
         }
     }
@@ -1309,20 +1319,20 @@ static AST get_type_specifier_seq_of_type(type_t* t, decl_context_t decl_context
     if (is_const_qualified_type(t))
     {
         nontype_specifier_seq =
-            ASTList(nontype_specifier_seq, 
-                    ASTLeaf(AST_CONST_SPEC, filename, line, NULL));
+            ast_append_to_list(nontype_specifier_seq, 
+                    ASTLeaf(AST_CONST_SPEC, filename, line, "const"));
     }
     if (is_volatile_qualified_type(t))
     {
         nontype_specifier_seq =
-            ASTList(nontype_specifier_seq, 
-                    ASTLeaf(AST_VOLATILE_SPEC, filename, line, NULL));
+            ast_append_to_list(nontype_specifier_seq, 
+                    ASTLeaf(AST_VOLATILE_SPEC, filename, line, "volatile"));
     }
     if (is_restrict_qualified_type(t))
     {
         nontype_specifier_seq =
-            ASTList(nontype_specifier_seq, 
-                    ASTLeaf(AST_GCC_RESTRICT_SPEC, filename, line, NULL));
+            ast_append_to_list(nontype_specifier_seq, 
+                    ASTLeaf(AST_GCC_RESTRICT_SPEC, filename, line, "__restrict"));
     }
 
     AST type_specifier_seq = ASTMake3(AST_TYPE_SPECIFIER_SEQ, 
@@ -1347,15 +1357,15 @@ static void get_abstract_declarator(AST *abstract_decl,
 
         if (is_const_qualified_type(t))
         {
-            cv_seq = ASTList(cv_seq, ASTLeaf(AST_CONST_SPEC, filename, line, NULL));
+            cv_seq = ast_append_to_list(cv_seq, ASTLeaf(AST_CONST_SPEC, filename, line, NULL));
         }
         if (is_volatile_qualified_type(t))
         {
-            cv_seq = ASTList(cv_seq, ASTLeaf(AST_VOLATILE_SPEC, filename, line, NULL));
+            cv_seq = ast_append_to_list(cv_seq, ASTLeaf(AST_VOLATILE_SPEC, filename, line, NULL));
         }
         if (is_restrict_qualified_type(t))
         {
-            cv_seq = ASTList(cv_seq, ASTLeaf(AST_GCC_RESTRICT_SPEC, filename, line, NULL));
+            cv_seq = ast_append_to_list(cv_seq, ASTLeaf(AST_GCC_RESTRICT_SPEC, filename, line, NULL));
         }
 
         AST id_expr = NULL;
@@ -1395,7 +1405,7 @@ static void get_abstract_declarator(AST *abstract_decl,
         AST cv_seq = NULL;
         if (is_const_qualified_type(t))
         {
-            cv_seq = ASTList(cv_seq, ASTLeaf(AST_CONST_SPEC, filename, line, NULL));
+            cv_seq = ast_append_to_list(cv_seq, ASTLeaf(AST_CONST_SPEC, filename, line, "const"));
         }
 
         AST parameter_decl_clause = NULL;
@@ -1427,13 +1437,13 @@ static void get_abstract_declarator(AST *abstract_decl,
                         param_type_spec, param_abstr_decl, NULL,
                         filename, line, NULL);
 
-                parameter_decl_clause = ASTList(parameter_decl_clause,
+                parameter_decl_clause = ast_append_to_list(parameter_decl_clause,
                         parameter_decl);
             }
 
             if (has_ellipsis)
             {
-                parameter_decl_clause = ASTList(parameter_decl_clause, 
+                parameter_decl_clause = ast_append_to_list(parameter_decl_clause, 
                         ASTLeaf(AST_VARIADIC_ARG, filename, line, "..."));
             }
         }
@@ -1501,7 +1511,7 @@ static AST get_template_id_of_entry(scope_entry_t* entry,
                             ASTMake1(AST_EXPRESSION, template_arg->expression, filename, line, NULL),
                             filename, line, NULL);
 
-                    template_argument_list = ASTList(template_argument_list, arg);
+                    template_argument_list = ast_append_to_list(template_argument_list, arg);
                     break;
                 }
             case TAK_TYPE:
@@ -1510,7 +1520,7 @@ static AST get_template_id_of_entry(scope_entry_t* entry,
                             get_type_id_tree_of_type(template_arg->type, decl_context, filename, line),
                             filename, line, NULL);
 
-                    template_argument_list = ASTList(template_argument_list, arg);
+                    template_argument_list = ast_append_to_list(template_argument_list, arg);
                     break;
                 }
             case TAK_TEMPLATE:
@@ -1693,7 +1703,7 @@ static void merge_type_specifier_seq(
     }
     else
     {
-        ast_set_child(orig_type_specifier_seq, 0, new_type_specifier_seq);
+        ast_set_child(orig_type_specifier_seq, 0, new_nontype_spec);
     }
 
     // Remove repeated cv-qualifiers (const, volatile, restrict)
@@ -1707,8 +1717,11 @@ static void merge_type_specifier_seq(
         NULL };
 
     int k;
-    for (k = 0; trees[k] != NULL; k++)
+    for (k = 0; k < 2; k++)
     {
+        if (trees[k] == NULL)
+            continue;
+
         AST iter;
         for_each_element(trees[k], iter)
         {
@@ -1725,32 +1738,45 @@ static void merge_type_specifier_seq(
             if (ASTType(item) == AST_GCC_RESTRICT_SPEC)
                 flag = &has_restrict;
 
-            if (!(*flag))
+            if (flag != NULL)
             {
-                *flag = 1;
-            }
-            else
-            {
-                // Remove it from the list (this is fine during iteration since we
-                // only check the parent of iter)
-                // To remove simply relink the parents children to ours 
-                AST parent = ASTParent(iter);
-                ast_set_child(parent, 0, ASTSon0(item));
+                if (!(*flag))
+                {
+                    *flag = 1;
+                }
+                else
+                {
+                    // Remove it from the list (this is fine during iteration since we
+                    // only check the parent of iter)
+                    // To remove simply relink the parents children to ours 
+                    AST parent = ASTParent(iter);
+                    ast_set_child(parent, 0, ASTSon0(item));
+                }
             }
         }
     }
 }
 
-static void merge_declarators(
-        AST declarative_tree, 
+static void merge_declarators_aux(
+        AST old_declarator,
         AST new_abstract_decl)
 {
-    AST old_declarator = ASTSon1(declarative_tree);
-
     char old_declarator_is_ptr = (ASTType(old_declarator) == AST_POINTER_DECLARATOR
             || ASTType(old_declarator) == AST_GCC_POINTER_DECLARATOR);
 
     int child = -1;
+
+    // Chain with my parent
+    int i;
+    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    {
+        if (ast_get_child(ASTParent(old_declarator), i) == old_declarator)
+        {
+            ast_set_child(ASTParent(old_declarator), i, new_abstract_decl);
+            break;
+        }
+    }
+
     AST innermost_decl = get_innermost_nonnull_declarator(new_abstract_decl, &child);
 
     char innermost_is_ptr = (ASTType(innermost_decl) == AST_POINTER_DECLARATOR
@@ -1765,7 +1791,52 @@ static void merge_declarators(
     }
 
     ast_set_child(innermost_decl, child, old_declarator);
-    ast_set_child(declarative_tree, 1, new_abstract_decl);
+}
+
+
+static void merge_declarators(
+        AST declarative_tree, 
+        AST new_abstract_decl)
+{
+    // Nothing to do here
+    if (new_abstract_decl == NULL)
+        return;
+
+    if (ASTType(declarative_tree) == AST_SIMPLE_DECLARATION
+            || ASTType(declarative_tree) == AST_MEMBER_DECLARATION)
+    {
+        // These work on lists
+        AST list = ASTSon1(declarative_tree), iter;
+        if (list != NULL)
+        {
+            int i = 0;
+            for_each_element(list, iter)
+            {
+                AST item = ASTSon1(iter);
+
+                if (ASTType(item) == AST_BITFIELD_DECLARATOR)
+                    continue;
+
+                // The declarator is again always the zeroth child
+                if (i == 0)
+                {
+                    merge_declarators_aux(ASTSon0(item), new_abstract_decl);
+                }
+                else
+                {
+                    // After the first one we need to copy
+                    merge_declarators_aux(ASTSon0(item), 
+                            ast_copy_for_instantiation(new_abstract_decl));
+                }
+                i++;
+            }
+        }
+    }
+    else
+    {
+        AST old_declarator = ASTSon1(declarative_tree);
+        merge_declarators_aux(old_declarator, new_abstract_decl);
+    }
 }
 
 static void merge_declaration(
@@ -1903,6 +1974,6 @@ AST instantiate_tree(AST orig_tree, decl_context_t context_of_being_instantiated
 {
     AST result = ast_copy_for_instantiation(orig_tree);
 
-    instantiate_tree_rec(orig_tree, context_of_being_instantiated);
+    instantiate_tree_rec(result, context_of_being_instantiated);
     return result;
 }
