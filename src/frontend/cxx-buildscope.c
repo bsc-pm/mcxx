@@ -6193,15 +6193,17 @@ static void build_scope_ctor_initializer(AST ctor_initializer,
                     AST mem_initializer_id = ASTSon0(mem_initializer);
                     AST expression_list = ASTSon1(mem_initializer);
 
-                    AST global_op = ASTSon0(mem_initializer_id);
-                    AST nested_name_spec = ASTSon1(mem_initializer_id);
-                    AST symbol = ASTSon2(mem_initializer_id);
+                    AST id_expression = ASTSon0(mem_initializer_id);
 
                     scope_entry_list_t* result_list = NULL;
-                    result_list = query_nested_name(block_context, global_op, nested_name_spec, symbol);
+                    result_list = query_id_expression(block_context, id_expression);
 
-                    ERROR_CONDITION((result_list == NULL), "Initialized entity in constructor initializer not found (%s)", 
-                            ast_location(symbol));
+                    if (result_list == NULL)
+                    {
+                        running_error("%s: initialized entity '%s' not found\n", 
+                                ast_location(id_expression),
+                                prettyprint_in_buffer(id_expression));
+                    }
 
                     if (expression_list != NULL)
                     {

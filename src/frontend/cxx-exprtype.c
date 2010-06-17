@@ -6702,7 +6702,7 @@ static char check_for_explicit_typename_type_conversion(AST expr, decl_context_t
         return 0;
     }
 
-    AST expr_list = ASTSon3(expr);
+    AST expr_list = ASTSon1(expr);
 
     return check_for_explicit_type_conversion_common(get_user_defined_type(entry), expr, expr_list, decl_context);
 }

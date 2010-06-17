@@ -367,6 +367,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> qualified_id_no_template
 %type<ast> qualified_id_template
 %type<ast> qualified_id_type_name
+%type<ast> qualified_id_type_expr
 %type<ast> unqualified_id_funct
 %type<ast> unqualified_id_type_name
 %type<ast> relational_expression
@@ -1175,7 +1176,7 @@ elaborated_type_specifier : class_key id_type_expr
 {
 	$$ = ASTMake1(AST_ELABORATED_TYPE_ENUM_SPEC, $2, $1.token_file, $1.token_line, NULL);
 }
-| TYPENAME id_type_expr
+| TYPENAME qualified_id_type_expr
 {
 	$$ = ASTMake1(AST_ELABORATED_TYPENAME_SPEC, $2, $1.token_file, $1.token_line, NULL);
 }
@@ -2676,6 +2677,15 @@ id_type_expr : qualified_id_type_name
 }
 ;
 
+qualified_id_type_expr : qualified_id_type_name
+{
+    $$ = $1;
+}
+| qualified_id_template
+{
+    $$ = $1;
+}
+;
 
 qualified_id : qualified_id_no_template
 {
@@ -2875,11 +2885,11 @@ postfix_expression : primary_expression
 {
 	$$ = ASTMake2(AST_EXPLICIT_TYPE_CONVERSION, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| TYPENAME id_type_expr '(' ')'
+| TYPENAME qualified_id_type_expr '(' ')'
 {
 	$$ = ASTMake2(AST_TYPENAME_EXPLICIT_TYPE_CONV, $2, NULL, $1.token_file, $1.token_line, NULL);
 }
-| TYPENAME id_type_expr '(' expression_list ')'
+| TYPENAME qualified_id_type_expr '(' expression_list ')'
 {
 	$$ = ASTMake2(AST_TYPENAME_EXPLICIT_TYPE_CONV, $2, $4, $1.token_file, $1.token_line, NULL);
 }

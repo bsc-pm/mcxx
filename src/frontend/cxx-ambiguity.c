@@ -2523,6 +2523,11 @@ char check_nested_name_spec(AST nested_name_spec, decl_context_t decl_context)
     char result = 1;
     while (nested_name_spec != NULL)
     {
+        if (ASTType(nested_name_spec) == AST_AMBIGUITY)
+        {
+            solve_ambiguous_nested_name_specifier(nested_name_spec, decl_context);
+        }
+
         AST current_name = ASTSon0(nested_name_spec);
 
         if (ASTType(current_name) == AST_TEMPLATE_ID)
