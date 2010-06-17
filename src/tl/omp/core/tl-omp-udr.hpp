@@ -98,6 +98,7 @@ namespace TL
                 bool has_identity() const; 
                 void set_identity(AST_t identity);
                 AST_t get_identity() const;
+                AST_t get_raw_identity() const;
                 bool identity_is_constructor() const;
 
                 bool get_is_commutative() const;

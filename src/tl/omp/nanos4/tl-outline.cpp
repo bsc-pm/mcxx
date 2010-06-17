@@ -731,7 +731,6 @@ namespace TL
                 // Fill the initializers
                 if (udr.has_identity())
                 {
-                    std::cerr << "HAS IDENTITY" << std::endl;
                     if (!udr.get_is_array_reduction())
                     {
                         if (udr.identity_is_constructor())

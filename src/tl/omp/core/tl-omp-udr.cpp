@@ -1807,7 +1807,7 @@ namespace TL
                             // "Instantiate" the identity
                             if (obj.has_identity())
                             {
-                                AST inst_tree = instantiate_tree(obj.get_identity().get_internal_ast(), 
+                                AST inst_tree = instantiate_tree(obj.get_raw_identity().get_internal_ast(), 
                                         updated_context);
                                 new_udr.set_identity(AST_t(inst_tree));
                             }
@@ -2011,6 +2011,11 @@ namespace TL
             }
             else
                 return _identity;
+        }
+
+        AST_t UDRInfoItem::get_raw_identity() const
+        {
+            return _identity;
         }
 
         bool UDRInfoItem::identity_is_constructor() const
