@@ -271,11 +271,10 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 << "}"
                 ;
 
-            // Fix The expression first!
             Source dep_expr_addr = data_ref.get_address();
 
             dependency_offset
-                << "((char*)(" << dep_expr_addr << ") - " << "(char*)ol_args->" << dependency_field_name << ")"
+                << "((char*)(" << dep_expr_addr << ") - " << "*(char**)ol_args->" << dependency_field_name << ")"
                 ;
 
             if (!immediate_is_alloca)
@@ -290,7 +289,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     ;
 
                 imm_dependency_offset
-                    << "((char*)(" << dep_expr_addr << ") - " << "(char*)imm_args." << dependency_field_name << ")"
+                    << "((char*)(" << dep_expr_addr << ") - " << "*(char**)imm_args." << dependency_field_name << ")"
                     ;
             }
             else
@@ -305,7 +304,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     ;
 
                 imm_dependency_offset
-                    << "((char*)(" << dep_expr_addr << ") - " << "(char*)imm_args->" << dependency_field_name << ")"
+                    << "((char*)(" << dep_expr_addr << ") - " << "*(char**)imm_args->" << dependency_field_name << ")"
                     ;
             }
 
