@@ -827,12 +827,10 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
             if (initializer != NULL)
             {
                 if (current_gather_info.is_extern)
-                    running_error("%s: error: cannot initialize an 'extern' declaration '%s'\n", ast_location(a),
-                            init_declarator);
+                    running_error("%s: error: cannot initialize an 'extern' declaration\n", ast_location(a));
 
                 if (entry->kind == SK_TYPEDEF)
-                    running_error("%s: error: cannot initialize an typedef '%s'\n", ast_location(a),
-                            init_declarator);
+                    running_error("%s: error: cannot initialize an typedef\n", ast_location(a));
             }
 
             // Only variables can be initialized
@@ -1916,7 +1914,7 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
 
     if (entry_list == NULL)
     {
-        running_error("%s: error: type name '%s' has not been found in the current scope. Did you forget to declare it ?\n",
+        running_error("%s: error: type name '%s' has not been found in the current scope\n",
                 ast_location(a), prettyprint_in_buffer(a));
     }
 
@@ -3670,8 +3668,7 @@ static void build_scope_declarator_with_parameter_context(AST a,
 
                 if (symbols == NULL)
                 {
-                    fprintf(stderr, "%s: warning: context of the qualified declarator '%s' not found,"
-                            " falling back to the current one\n", 
+                    running_error("%s: error: qualified name '%s' not found",
                             ast_location(declarator_name),
                             prettyprint_in_buffer(declarator_name));
                 }
@@ -5198,10 +5195,14 @@ static scope_entry_t* find_function_declaration(AST declarator_id, type_t* decla
             continue;
         }
 
-        ERROR_CONDITION(entry->kind != SK_FUNCTION
+        if (entry->kind != SK_FUNCTION
                 && (entry->kind != SK_TEMPLATE
-                    || named_type_get_symbol(template_type_get_primary_type(entry->type_information))->kind != SK_FUNCTION),
-                "Found something that was not a function or template function when looking up functions", 0);
+                    || named_type_get_symbol(template_type_get_primary_type(entry->type_information))->kind != SK_FUNCTION))
+        {
+            running_error("%s: name '%s' has already been declared as a different entity kind",
+                    ast_location(declarator_id),
+                    prettyprint_in_buffer(declarator_id));
+        }
 
         scope_entry_t* considered_symbol = NULL;
         if (entry->kind == SK_TEMPLATE)
@@ -5840,7 +5841,14 @@ static void build_scope_template_template_parameter(AST a,
         };
         entry_list = filter_symbol_kind_set(entry_list, STATIC_ARRAY_LENGTH(valid_templates_arguments), valid_templates_arguments);
 
-        ERROR_CONDITION((entry_list == NULL), "No template-name was found", 0);
+        if (entry_list == NULL
+                || (entry_list->entry->kind == SK_TEMPLATE
+                    && named_type_get_symbol(template_type_get_primary_type(entry_list->entry->type_information))->kind != SK_CLASS))
+        {
+            running_error("%s: error: '%s' does not name a template class\n",
+                    ast_location(id_expr),
+                    prettyprint_in_buffer(id_expr));
+        }
 
         template_argument_t* default_template_argument = counted_calloc(1, sizeof(*default_template_argument), 
                 &_bytes_used_buildscope);
@@ -6075,24 +6083,26 @@ static void build_scope_nontype_template_parameter(AST a,
 
 static void build_scope_namespace_alias(AST a, decl_context_t decl_context)
 {
+    if (decl_context.current_scope->kind != NAMESPACE_SCOPE)
+    {
+        running_error("%s: error: namespace alias in a non namespace scope\n",
+                ast_location(a));
+    }
+
     AST alias_ident = ASTSon0(a);
-    AST qualified_name = ASTSon1(a);
+    AST id_expression = ASTSon1(a);
 
-    AST global_op = ASTSon0(qualified_name);
-    AST nested_name_spec = ASTSon1(qualified_name);
-    AST name = ASTSon2(qualified_name);
+    scope_entry_list_t* entry_list = query_id_expression(decl_context, id_expression);
 
-    scope_entry_list_t* entry_list = query_nested_name(decl_context, global_op, nested_name_spec, 
-            name);
-
-    ERROR_CONDITION((entry_list == NULL), "Namespace not found\n", 0);
+    if (entry_list == NULL
+            || entry_list->entry->kind != SK_NAMESPACE)
+    {
+        running_error("%s: error: '%s' does not name any namespace\n", 
+                ast_location(id_expression),
+                prettyprint_in_buffer(id_expression));
+    }
 
     scope_entry_t* entry = entry_list->entry;
-    
-    ERROR_CONDITION((entry->kind != SK_NAMESPACE), "The referred symbol is not a namespace\n", 0);
-
-    ERROR_CONDITION((decl_context.current_scope->kind != NAMESPACE_SCOPE),
-            "Current scope is not namespace scope", 0);
 
     const char* alias_name = ASTText(alias_ident);
 
@@ -6121,7 +6131,13 @@ static void build_scope_namespace_definition(AST a, decl_context_t decl_context)
         scope_entry_list_t* list = query_in_scope_str_flags(decl_context, ASTText(namespace_name), DF_ONLY_CURRENT_SCOPE);
 
         scope_entry_list_t* check_list = filter_symbol_non_kind(list, SK_NAMESPACE);
-        ERROR_CONDITION((check_list != NULL), "Identifier '%s' has already been declared as another symbol kind\n", ASTText(namespace_name));
+
+        if (check_list != NULL)
+        {
+            running_error("%s: error: '%s' has already been declared as another entity kind\n",
+                    ast_location(namespace_name),
+                    prettyprint_in_buffer(namespace_name));
+        }
 
         scope_entry_t* entry;
         decl_context_t namespace_context;
