@@ -672,7 +672,7 @@ static void build_scope_using_declaration(AST a, decl_context_t decl_context)
     char is_class_scope = 0;
     if (decl_context.current_scope->kind == CLASS_SCOPE)
     {
-        current_class_type = decl_context.current_scope->class_type;
+        current_class_type = decl_context.current_scope->class_entry->type_information;
         is_class_scope = 1;
     }
 
@@ -3218,7 +3218,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
             inner_decl_context = new_class_context(class_entry->decl_context,
                     qualification_name, 
-                    class_type);
+                    class_entry);
             class_type_set_inner_context(class_type, inner_decl_context);
         }
         else if (class_entry_list == NULL
@@ -3304,7 +3304,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
             inner_decl_context = new_class_context(decl_context,
                     qualification_name,
-                    class_type);
+                    class_entry);
             class_type_set_inner_context(class_type, inner_decl_context);
         }
         else
@@ -3334,7 +3334,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         class_type = class_entry->type_information;
         inner_decl_context = new_class_context(decl_context,
                 qualification_name,
-                class_type);
+                class_entry);
         class_type_set_inner_context(class_type, inner_decl_context);
 
         C_LANGUAGE()
@@ -3365,7 +3365,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     {
         // If the enclosing class is dependent, so is this one
         char c = is_dependent_type(class_type);
-        type_t* enclosing_class_type = decl_context.current_scope->class_type;
+        type_t* enclosing_class_type = decl_context.current_scope->class_entry->type_information;
         c = c || is_dependent_type(enclosing_class_type);
         set_is_dependent_type(class_type, c);
 
@@ -3431,7 +3431,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     {
         if (decl_context.current_scope->kind == CLASS_SCOPE)
         {
-            type_t* enclosing_class_type = decl_context.current_scope->class_type;
+            type_t* enclosing_class_type = decl_context.current_scope->class_entry->type_information;
             build_scope_member_specification(decl_context, member_specification, 
                     current_access, enclosing_class_type);
         }

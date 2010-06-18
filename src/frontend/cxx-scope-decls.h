@@ -543,7 +543,7 @@ struct scope_tag
     struct scope_tag** use_namespace;
 
     // Only valid for CLASS_SCOPE, the actual class related to this class scope
-    struct type_tag* class_type;
+    scope_entry_t* class_entry;
 
     // Only valid for BLOCK_SCOPE. The function definition
     // holding this BLOCK_SCOPE. Currently unused

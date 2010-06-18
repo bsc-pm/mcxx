@@ -712,7 +712,7 @@ static void instantiate_specialized_template_class(type_t* selected_template,
 
     decl_context_t inner_decl_context = new_class_context(template_parameters_context, 
             /* FIXME the qualification name should be more useful */named_class->symbol_name,
-            named_class->type_information);
+            named_class);
 
     class_type_set_inner_context(named_class->type_information, inner_decl_context);
 
@@ -898,6 +898,24 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     // Finish the class
     finish_class_type(get_actual_class_type(being_instantiated), being_instantiated, 
             named_class->decl_context, filename, line);
+
+    if (CURRENT_CONFIGURATION->explicit_instantiation)
+    {
+        // Caution this is experimental code not intended for production
+        // Caution 2, at the moment just print to stdout to see we are not going nuts with the tree
+
+        AST orig_definition_tree = named_type_get_symbol(selected_template)->entity_specs.definition_tree;
+
+        fprintf(stderr, "============== ORIGINAL DEFINITION TREE of '%s' =======================\n",
+                print_type_str(selected_template, inner_decl_context));
+        fprintf(stderr, "%s\n", prettyprint_in_buffer(orig_definition_tree));
+        fprintf(stderr, "============== INSTANTIATED DEFINITION TREE of '%s' ===================\n",
+                print_type_str(being_instantiated, inner_decl_context));
+        AST instantiated_definition_tree 
+            = instantiate_tree(orig_definition_tree, inner_decl_context);
+        fprintf(stderr, "%s\n", prettyprint_in_buffer(instantiated_definition_tree));
+        fprintf(stderr, "===============================================================\n");
+    }
 
     DEBUG_CODE()
     {
@@ -1307,9 +1325,14 @@ static AST get_type_specifier_seq_of_type(type_t* t, decl_context_t decl_context
     {
         type_specifier = ASTLeaf(AST_BOOL_TYPE, filename, line, NULL);
     }
-    else if (is_named_enumerated_type(t))
+    else if (is_named_enumerated_type(t)
+            || is_named_class_type(t))
     {
-        // scope_entry_t* entry = named_type_get_symbol(t);
+        scope_entry_t* entry = named_type_get_symbol(t);
+        type_specifier = 
+            ASTMake1(AST_SIMPLE_TYPE_SPEC, 
+                    get_id_expression_for_entry(entry, decl_context, filename, line),
+                    filename, line, NULL);
     }
     else
     {
@@ -1546,7 +1569,6 @@ static AST get_tree_name_of_class(scope_entry_t* entry, decl_context_t decl_cont
 {
     type_t* type_info = entry->type_information;
 
-
     if (!is_template_specialized_type(type_info))
     {
         AST name = ASTLeaf(AST_SYMBOL, filename, line, entry->symbol_name);
@@ -1585,12 +1607,15 @@ static AST get_id_expression_for_entry(scope_entry_t* entry, decl_context_t decl
 {
     AST global_scope = ASTLeaf(AST_GLOBAL_SCOPE, filename, line, NULL);
 
+    decl_context = entry->decl_context;
+
     scope_t* current_scope = decl_context.current_scope;
-    scope_t* enclosing_scope = current_scope->contained_in;
+    scope_t* enclosing_scope = current_scope;
 
     AST qualification_nest = NULL;
 
-    while (enclosing_scope != NULL)
+    while (enclosing_scope != NULL
+            && enclosing_scope != decl_context.global_scope)
     {
         AST qualif_name = NULL;
         if (enclosing_scope->kind == NAMESPACE_SCOPE)
@@ -1599,7 +1624,7 @@ static AST get_id_expression_for_entry(scope_entry_t* entry, decl_context_t decl
         }
         else if (enclosing_scope->kind == CLASS_SCOPE)
         {
-            qualif_name = get_tree_name_of_class(named_type_get_symbol(enclosing_scope->class_type), 
+            qualif_name = get_tree_name_of_class(enclosing_scope->class_entry, 
                     decl_context, filename, line);
         }
         else
@@ -1952,6 +1977,13 @@ static void instantiate_tree_rec(AST orig_tree, decl_context_t context_of_being_
                             ASTFileName(orig_tree), 
                             ASTLine(orig_tree));
                     ast_replace(orig_tree, full_name);
+                    break;
+                }
+            case SK_TEMPLATE_PARAMETER:
+            case SK_TEMPLATE_TEMPLATE_PARAMETER:
+            case SK_TEMPLATE_TYPE_PARAMETER:
+                {
+                    // Do nothing
                     break;
                 }
             default:

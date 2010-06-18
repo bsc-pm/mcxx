@@ -109,7 +109,7 @@ static scope_t* new_namespace_scope(scope_t* st, const char* qualification_name)
 static scope_t* new_prototype_scope(scope_t* st);
 static scope_t* new_block_scope(scope_t* enclosing_scope);
 static scope_t* new_class_scope(scope_t* enclosing_scope, 
-        const char* qualification_name, type_t* class_type);
+        const char* qualification_name, scope_entry_t* class_entry);
 static scope_t* new_template_scope(scope_t* enclosing_scope);
 
 static scope_entry_list_t* name_lookup_used_namespaces(decl_context_t decl_context, 
@@ -207,14 +207,14 @@ static scope_t* new_function_scope(void)
 
 // Creates a new class scope and optionally it is given a qualification name
 static scope_t* new_class_scope(scope_t* enclosing_scope, const char* qualification_name, 
-        type_t* class_type)
+        scope_entry_t* class_entry)
 {
     scope_t* result = new_scope();
 
     result->kind = CLASS_SCOPE;
     result->contained_in = enclosing_scope;
 
-    result->class_type = class_type;
+    result->class_entry = class_entry;
 
     if (qualification_name != NULL)
     {
@@ -343,7 +343,7 @@ decl_context_t new_function_context(decl_context_t enclosing_context)
 }
 
 decl_context_t new_class_context(decl_context_t enclosing_context, 
-        const char* qualification_name, type_t* class_type)
+        const char* qualification_name, scope_entry_t* class_entry)
 {
     ERROR_CONDITION(enclosing_context.current_scope->kind != NAMESPACE_SCOPE
             && enclosing_context.current_scope->kind != CLASS_SCOPE
@@ -351,13 +351,13 @@ decl_context_t new_class_context(decl_context_t enclosing_context,
             "Enclosing scope is neither namespace, class or local", 0
             );
 
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class", 0);
+    ERROR_CONDITION(class_entry->kind != SK_CLASS, "This is not a class", 0);
 
     // Inherit the scope
     decl_context_t result = enclosing_context;
 
     // Create new class scope
-    result.class_scope = new_class_scope(enclosing_context.current_scope, qualification_name, class_type);
+    result.class_scope = new_class_scope(enclosing_context.current_scope, qualification_name, class_entry);
 
     // And make it the current one
     result.current_scope = result.class_scope;
@@ -1630,7 +1630,7 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
 
     ERROR_CONDITION(current_class_scope->kind != CLASS_SCOPE, "Current scope is not class-scope", 0);
 
-    type_t* current_class_type = current_class_scope->class_type;
+    type_t* current_class_type = current_class_scope->class_entry->type_information;
 
     ERROR_CONDITION(current_class_type == NULL, "Class scope does not have a class-type", 0);
 
