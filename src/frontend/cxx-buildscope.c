@@ -1560,6 +1560,15 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
             /* && ASTType(class_symbol) != AST_TEMPLATE_ID */
             && entry->kind == SK_TEMPLATE)
     {
+        if (decl_context.template_parameters->num_template_parameters
+                != template_type_get_template_parameters(entry->type_information)->num_template_parameters)
+        {
+            running_error("%s: error: redeclaration with %d template parameters while previous declaration used %d\n",
+                    ast_location(id_expression),
+                    decl_context.template_parameters->num_template_parameters,
+                    template_type_get_template_parameters(entry->type_information)->num_template_parameters);
+        }
+
         template_type_update_template_parameters(entry->type_information,
                 decl_context.template_parameters);
 
@@ -3174,6 +3183,15 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             if (class_entry->kind == SK_TEMPLATE
                     && ASTType(class_id_expression) != AST_TEMPLATE_ID)
             {
+                if (decl_context.template_parameters->num_template_parameters
+                        != template_type_get_template_parameters(class_entry->type_information)->num_template_parameters)
+                {
+                    running_error("%s: error: redeclaration with %d template parameters while previous declaration used %d\n",
+                            ast_location(class_id_expression),
+                            decl_context.template_parameters->num_template_parameters,
+                            template_type_get_template_parameters(class_entry->type_information)->num_template_parameters);
+                }
+
                 template_type_update_template_parameters(class_entry->type_information,
                         decl_context.template_parameters);
 
