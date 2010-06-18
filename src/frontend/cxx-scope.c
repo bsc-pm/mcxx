@@ -3898,6 +3898,11 @@ static const char* get_fully_qualified_symbol_name_simple(decl_context_t decl_co
 
             current_scope = current_scope->contained_in;
         }
+
+        CXX_LANGUAGE()
+        {
+            result = strappend("::", result);
+        }
     }
 
     return result;
@@ -4047,7 +4052,6 @@ static const char* get_fully_qualified_symbol_name_ex(scope_entry_t* entry,
         const char *template_arguments = get_unqualified_template_symbol_name(entry, decl_context);
         result = strappend(result, template_arguments);
     }
-
 
     if (entry->entity_specs.is_member)
     {
