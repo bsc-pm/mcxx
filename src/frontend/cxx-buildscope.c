@@ -3260,6 +3260,12 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                             ASTText(class_id_expression));
                 }
             }
+            else if (ASTType(class_id_expression) == AST_TEMPLATE_ID)
+            {
+                running_error("%s: error: template class-name '%s' not found in the current scope\n",
+                        ast_location(class_id_expression),
+                        prettyprint_in_buffer(ASTSon0(class_id_expression)));
+            }
             else
             {
                 internal_error("Code unreachable", 0);
