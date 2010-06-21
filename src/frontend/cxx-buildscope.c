@@ -618,6 +618,26 @@ static void build_scope_using_directive(AST a, decl_context_t decl_context)
     // First get the involved namespace
     AST id_expression = ASTSon0(a);
 
+    char turn_into_inline = 0;
+
+    if (ASTType(a) == AST_GCC_USING_NAMESPACE_DIRECTIVE)
+    {
+        AST attr_list = ASTSon1(a);
+
+        if (attr_list != NULL)
+        {
+            gather_decl_spec_t gather_info;
+            memset(&gather_info, 0, sizeof(gather_info));
+
+            gather_gcc_attribute_list(attr_list, &gather_info, decl_context);
+
+            if (gather_info.is_inline)
+            {
+                turn_into_inline = 1;
+            }
+        }
+    }
+
     scope_entry_list_t* result_list = query_id_expression(decl_context, 
             id_expression);
         
@@ -636,6 +656,11 @@ static void build_scope_using_directive(AST a, decl_context_t decl_context)
     }
 
     scope_entry_t* entry = result_list->entry;
+
+    if (turn_into_inline)
+    {
+        entry->entity_specs.is_inline = 1;
+    }
 
     // Now add this namespace to the used namespaces of this scope
     scope_t* namespace_scope = decl_context.current_scope;
