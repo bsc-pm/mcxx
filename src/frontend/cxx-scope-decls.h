@@ -540,7 +540,7 @@ struct scope_tag
     // using namespace statements (using directives) will fill this
     // Only valid for BLOCK_SCOPE, CLASS_SCOPE and NAMESPACE_SCOPE
     int num_used_namespaces;
-    struct scope_tag** use_namespace;
+    struct scope_entry_tag** use_namespace;
 
     // Only valid for CLASS_SCOPE, the actual class related to this class scope
     scope_entry_t* class_entry;

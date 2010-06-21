@@ -641,8 +641,9 @@ static void build_scope_using_directive(AST a, decl_context_t decl_context)
     ERROR_CONDITION(entry->namespace_decl_context.current_scope->kind != NAMESPACE_SCOPE,
             "Error, related scope is not namespace scope", 0);
 
-    P_LIST_ADD_ONCE(namespace_scope->use_namespace, namespace_scope->num_used_namespaces, 
-            entry->namespace_decl_context.current_scope);
+    P_LIST_ADD_ONCE(namespace_scope->use_namespace, 
+            namespace_scope->num_used_namespaces, 
+            entry);
 }
 
 static void build_scope_using_declaration(AST a, decl_context_t decl_context)
@@ -6128,6 +6129,18 @@ static void build_scope_namespace_definition(AST a, decl_context_t decl_context)
 {
     AST namespace_name = ASTSon0(a);
 
+    char is_inline = 0; 
+    if (ASTType(a) == AST_GCC_NAMESPACE_DEFINITION)
+    {
+        // Technically this is not a gcc extension but c++0x
+        AST namespace_inline = ASTSon3(a);
+
+        ERROR_CONDITION(ASTType(namespace_inline) != AST_INLINE_SPEC,
+                "Invalid inline specifier tree", 0);
+
+        is_inline = 1;
+    }
+
     if (namespace_name != NULL)
     {
         ERROR_CONDITION((decl_context.current_scope->kind != NAMESPACE_SCOPE), 
@@ -6151,6 +6164,13 @@ static void build_scope_namespace_definition(AST a, decl_context_t decl_context)
         {
             entry = list->entry;
             namespace_context = entry->namespace_decl_context;
+
+            if (is_inline
+                    && !entry->entity_specs.is_inline)
+            {
+                running_error("%s: error: inline namespace extension of a non-inlined namespace\n",
+                        ast_location(a));
+            }
         }
         else
         {
@@ -6168,6 +6188,17 @@ static void build_scope_namespace_definition(AST a, decl_context_t decl_context)
 
             // Link the scope of this newly created namespace
             scope_link_set(CURRENT_COMPILED_FILE->scope_link, a, namespace_context);
+
+            if (is_inline)
+            {
+                entry->entity_specs.is_inline = 1;
+
+                // An inline namespace is an associated namespace of the current namespace
+                scope_t* namespace_scope = decl_context.current_scope;
+
+                P_LIST_ADD_ONCE(namespace_scope->use_namespace, namespace_scope->num_used_namespaces, 
+                        entry);
+            }
         }
 
         if (ASTSon1(a) != NULL)
@@ -6185,6 +6216,13 @@ static void build_scope_namespace_definition(AST a, decl_context_t decl_context)
         if (list != NULL && list->entry->kind == SK_NAMESPACE)
         {
             namespace_context = list->entry->namespace_decl_context;
+
+            if (is_inline
+                    && !list->entry->entity_specs.is_inline)
+            {
+                running_error("%s: error: inline namespace extension of a non-inlined namespace\n",
+                        ast_location(a));
+            }
         }
         else
         {
@@ -6205,7 +6243,7 @@ static void build_scope_namespace_definition(AST a, decl_context_t decl_context)
             
             // Anonymous namespace is implemented as an associated namespace of the current scope
             P_LIST_ADD_ONCE(namespace_scope->use_namespace, namespace_scope->num_used_namespaces, 
-                    entry->namespace_decl_context.current_scope);
+                    entry);
         }
 
         build_scope_declaration_sequence(ASTSon1(a), namespace_context);

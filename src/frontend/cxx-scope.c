@@ -1519,7 +1519,9 @@ static scope_entry_list_t* name_lookup_used_namespaces_rec(decl_context_t decl_c
     // Look up in directly used namespaces, this always has to be performed
     for (i = 0; i < current_scope->num_used_namespaces; i++)
     {
-        scope_t* used_namespace = current_scope->use_namespace[i];
+        scope_entry_t* used_namespace_sym = current_scope->use_namespace[i];
+        scope_t* used_namespace = used_namespace_sym->namespace_decl_context.current_scope;
+
         scope_entry_list_t* used_namespace_search = query_name_in_scope(used_namespace, name);
 
         result = append_scope_entry_list(result, used_namespace_search);
@@ -1533,7 +1535,8 @@ static scope_entry_list_t* name_lookup_used_namespaces_rec(decl_context_t decl_c
     {
         for (i = 0; i < current_scope->num_used_namespaces; i++)
         {
-            scope_t* used_namespace = current_scope->use_namespace[i];
+            scope_entry_t* used_namespace_sym = current_scope->use_namespace[i];
+            scope_t* used_namespace = used_namespace_sym->namespace_decl_context.current_scope;
 
             int j;
             char already_looked_up = 0;
