@@ -319,7 +319,7 @@ BINOP_FUN(or, ||)
 BINOP_FUN(lt, <)
 BINOP_FUN(lte, <=)
 BINOP_FUN(gt, >)
-BINOP_FUN(gte, >)
+BINOP_FUN(gte, >=)
 BINOP_FUN(eq, ==)
 BINOP_FUN(neq, !=)
 
