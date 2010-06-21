@@ -6130,10 +6130,13 @@ static void build_scope_namespace_definition(AST a, decl_context_t decl_context)
         // Technically this is not a gcc extension but c++0x
         AST namespace_inline = ASTSon3(a);
 
-        ERROR_CONDITION(ASTType(namespace_inline) != AST_INLINE_SPEC,
-                "Invalid inline specifier tree", 0);
+        if (namespace_inline != NULL)
+        {
+            ERROR_CONDITION(ASTType(namespace_inline) != AST_INLINE_SPEC,
+                    "Invalid inline specifier tree", 0);
 
-        is_inline = 1;
+            is_inline = 1;
+        }
     }
 
     if (namespace_name != NULL)
