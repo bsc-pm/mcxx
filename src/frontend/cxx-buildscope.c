@@ -1512,7 +1512,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
             }
             else
             {
-                result_list = query_id_expression_flags(decl_context, id_expression, decl_flags);
+                result_list = query_id_expression_flags(decl_context, id_expression, 
+                        decl_flags | DF_DO_NOT_CREATE_SPECIALIZATION);
             };
         }
         else
@@ -3148,7 +3149,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                 // we want to update its template arguments properly
                 class_entry_list = query_id_expression_flags(decl_context,
                         class_id_expression,
-                        DF_UPDATE_TEMPLATE_ARGUMENTS);
+                        DF_UPDATE_TEMPLATE_ARGUMENTS | DF_DO_NOT_CREATE_SPECIALIZATION);
             }
         }
 
@@ -3338,7 +3339,8 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             // struct A::B <-- if 'A::B' is not found it means that there is an error
             // {
             // };
-            internal_error("Unreachable code caused by '%s'", ast_location(a));
+            running_error("%s: error: class '%s' not found\n",
+                    ast_location(a), prettyprint_in_buffer(class_id_expression));
         }
     }
     else
@@ -4012,8 +4014,7 @@ static void set_function_parameter_clause(type_t** function_type,
 
         // Only check the expression if we are not in the middle
         // of an instantiation
-        if (default_argument != NULL
-                    && !BITMAP_TEST(decl_context.decl_flags, DF_INSTANTIATING))
+        if (default_argument != NULL)
         {
             if (!check_for_expression(default_argument, decl_context))
             {

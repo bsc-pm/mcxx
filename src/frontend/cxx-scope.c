@@ -113,7 +113,7 @@ static scope_t* new_class_scope(scope_t* enclosing_scope,
 static scope_t* new_template_scope(scope_t* enclosing_scope);
 
 static scope_entry_list_t* name_lookup_used_namespaces(decl_context_t decl_context, 
-        scope_t* current_scope, const char* name);
+        scope_t* current_scope, const char* name, char only_inline);
 
 /* Scope creation functions */
 /*
@@ -1508,7 +1508,7 @@ static decl_context_t lookup_qualification_scope_in_class(
 
 static scope_entry_list_t* name_lookup_used_namespaces_rec(decl_context_t decl_context, 
         scope_t* current_scope, const char* name, 
-        int num_seen_scopes, scope_t** seen_scopes)
+        int num_seen_scopes, scope_t** seen_scopes, char only_inline)
 {
     ERROR_CONDITION(current_scope == NULL, "Current scope is null", 0);
     ERROR_CONDITION(name == NULL, "name is null", 0);
@@ -1520,6 +1520,11 @@ static scope_entry_list_t* name_lookup_used_namespaces_rec(decl_context_t decl_c
     for (i = 0; i < current_scope->num_used_namespaces; i++)
     {
         scope_entry_t* used_namespace_sym = current_scope->use_namespace[i];
+
+        if (only_inline
+                && !used_namespace_sym->entity_specs.is_inline)
+            continue;
+
         scope_t* used_namespace = used_namespace_sym->namespace_decl_context.current_scope;
 
         scope_entry_list_t* used_namespace_search = query_name_in_scope(used_namespace, name);
@@ -1559,7 +1564,8 @@ static scope_entry_list_t* name_lookup_used_namespaces_rec(decl_context_t decl_c
             scope_entry_list_t* recursed_search = 
                 name_lookup_used_namespaces_rec(decl_context, used_namespace, name, 
                         num_seen_scopes + 1, 
-                        new_seen_scopes);
+                        new_seen_scopes,
+                        only_inline);
 
             result = append_scope_entry_list(result, recursed_search);
         }
@@ -1569,10 +1575,10 @@ static scope_entry_list_t* name_lookup_used_namespaces_rec(decl_context_t decl_c
 }
 
 static scope_entry_list_t* name_lookup_used_namespaces(decl_context_t decl_context, 
-        scope_t* current_scope, const char* name)
+        scope_t* current_scope, const char* name, char only_inline)
 {
     return name_lookup_used_namespaces_rec(decl_context,
-            current_scope, name, 0, NULL);
+            current_scope, name, 0, NULL, only_inline);
 }
 
 #define MAX_CLASS_PATH (32)
@@ -2106,7 +2112,8 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
         }
 
         // Do not look anything else
-        if (BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE))
+        if (result != NULL
+                && BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE))
         {
             return result;
         }
@@ -2124,7 +2131,9 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
         // note that the objects there are not hidden, but added
         if (current_scope->num_used_namespaces > 0)
         {
-            scope_entry_list_t* used_result = name_lookup_used_namespaces(decl_context, current_scope, name);
+            // If nothing has been found, check inline namespaces
+            scope_entry_list_t* used_result = name_lookup_used_namespaces(decl_context, current_scope, name,
+                    /* only_inline */ BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE));
             if (BITMAP_TEST(decl_context.decl_flags, DF_ELABORATED_NAME))
             {
                 used_result = filter_any_non_type(used_result);
@@ -3740,24 +3749,41 @@ static scope_entry_list_t* query_template_id(AST template_id,
         template_parameter_list_t* template_parameters =
             template_type_get_template_parameters(generic_type);
 
-        specialized_type = template_type_get_specialized_type(generic_type, 
-                template_arguments, 
-                template_parameters,
-                template_arguments_context, 
-                ASTLine(template_id), ASTFileName(template_id));
-
-        if (template_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+        if (BITMAP_TEST(template_arguments_context.decl_flags, DF_DO_NOT_CREATE_SPECIALIZATION))
         {
-            set_as_template_parameter_name(template_id, template_symbol);
+            specialized_type = template_type_get_matching_specialized_type(generic_type,
+                    template_arguments,
+                    template_arguments_context);
+        }
+        else
+        {
+            specialized_type = template_type_get_specialized_type(generic_type, 
+                    template_arguments, 
+                    template_parameters,
+                    template_arguments_context, 
+                    ASTLine(template_id), ASTFileName(template_id));
         }
 
-        ERROR_CONDITION(!is_named_type(specialized_type), "This should be a named type", 0);
+        if (specialized_type != NULL)
+        {
 
-        // Crappy
-        scope_entry_list_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
-        result->entry = named_type_get_symbol(specialized_type);
+            if (template_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+            {
+                set_as_template_parameter_name(template_id, template_symbol);
+            }
 
-        return result;
+            ERROR_CONDITION(!is_named_type(specialized_type), "This should be a named type", 0);
+
+            // Crappy
+            scope_entry_list_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
+            result->entry = named_type_get_symbol(specialized_type);
+
+            return result;
+        }
+        else
+        {
+            return NULL;
+        }
     }
     else if (is_function_type(primary_type))
     {
@@ -4153,7 +4179,10 @@ scope_entry_list_t* cascade_lookup(decl_context_t decl_context, const char* name
         // note that the objects there are not hidden, but added
         if (current_scope->num_used_namespaces > 0)
         {
-            result = append_scope_entry_list(result, name_lookup_used_namespaces(decl_context, current_scope, name));
+            result = append_scope_entry_list(result, name_lookup_used_namespaces(decl_context, 
+                        current_scope, 
+                        name, 
+                        /* only_inline */ false));
         }
 
         current_scope = current_scope->contained_in;

@@ -96,14 +96,15 @@ enum decl_flags_tag
     // only when defining an already declared template specialization
     // (since we want the names to be updated)
     DF_UPDATE_TEMPLATE_ARGUMENTS = BITMAP(14),
-    // We are instantiating: some bits are skipped 
-    DF_INSTANTIATING = BITMAP(15),
     // Relaxed typechecking, ambiguity decl-expr is solved always to expr if it
     // cannot be disambiguated
-    DF_AMBIGUITY_FALLBACK_TO_EXPR = BITMAP(16),
+    DF_AMBIGUITY_FALLBACK_TO_EXPR = BITMAP(15),
     // Does not check the used namespaces if the current scope
     // already contains the name
-    DF_NO_AMBIGUOUS_NAMESPACE = BITMAP(17)
+    DF_NO_AMBIGUOUS_NAMESPACE = BITMAP(16),
+    // Does not create a specialization if the lookup names a specialization
+    // not yet created
+    DF_DO_NOT_CREATE_SPECIALIZATION = BITMAP(17)
 } decl_flags_t;
 
 #undef BITMAP

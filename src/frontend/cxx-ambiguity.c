@@ -905,13 +905,6 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
     {
         char do_failure = true;
 
-        // We may have been requested not to fail and assume an expression
-        // instead
-        if (BITMAP_TEST(decl_context.decl_flags, DF_AMBIGUITY_FALLBACK_TO_EXPR))
-        {
-            do_failure = false;
-        }
-
         // Recheck the expression again
         for (i = 0; i < ast_get_num_ambiguities(a); i++)
         {
@@ -940,11 +933,8 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
             }
         }
 
-        if (do_failure)
-        {
-            running_error("%s: error: cannot continue due to serious semantic problems in '%s'",
-                    ast_location(a), prettyprint_in_buffer(a));
-        }
+        running_error("%s: error: cannot continue due to serious semantic problems in '%s'",
+                ast_location(a), prettyprint_in_buffer(a));
     }
     else
     {
