@@ -102,6 +102,8 @@ enum decl_flags_tag
     // Does not check the used namespaces if the current scope
     // already contains the name
     DF_NO_AMBIGUOUS_NAMESPACE = BITMAP(16),
+    // Explicit instantiation
+    DF_EXPLICIT_INSTANTIATION = BITMAP(17)
 } decl_flags_t;
 
 #undef BITMAP

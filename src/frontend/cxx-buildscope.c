@@ -592,7 +592,9 @@ static void build_scope_explicit_instantiation(AST a, decl_context_t decl_contex
 
     if (decl_specifier_seq != NULL)
     {
-        build_scope_decl_specifier_seq(decl_specifier_seq, &gather_info, &simple_type_info, decl_context);
+        decl_context_t new_decl_context = decl_context;
+        new_decl_context.decl_flags |= DF_EXPLICIT_INSTANTIATION;
+        build_scope_decl_specifier_seq(decl_specifier_seq, &gather_info, &simple_type_info, new_decl_context);
     }
 
     type_t* declarator_type = NULL;
@@ -1705,7 +1707,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
 
         // Check the enclosing namespace scope
         // This is only valid if the scope of the entry is an inlined namespace of the current one
-        if (is_template_specialized_type(class_entry->type_information)
+        if (!BITMAP_TEST(decl_context.decl_flags, DF_EXPLICIT_INSTANTIATION)
+                && is_template_specialized_type(class_entry->type_information)
                 && (class_entry->decl_context.namespace_scope != decl_context.namespace_scope)
                 && !is_inline_namespace_of(class_entry->decl_context, decl_context))
         {
