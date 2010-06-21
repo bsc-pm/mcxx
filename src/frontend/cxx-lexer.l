@@ -971,6 +971,7 @@ identifier {
  /* XL Compiler extensions */
  "_Builtin" { parse_token_text(); return XL_BUILTIN_SPEC; }
  /*!if CPLUSPLUS*/
+"static_assert" { parse_token_text(); return STATIC_ASSERT; }
  /* g++ 4.3 extensions */
 "__has_nothrow_assign" |
 "__has_nothrow_constructor" |

@@ -178,6 +178,7 @@ HANDLER_PROTOTYPE(index_designator_handler);
 HANDLER_PROTOTYPE(field_designator_handler);
 
 HANDLER_PROTOTYPE(decltype_handler);
+HANDLER_PROTOTYPE(static_assert_handler);
 
 HANDLER_PROTOTYPE(pp_comment_handler);
 HANDLER_PROTOTYPE(pp_prepro_token_handler);
@@ -524,6 +525,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_PP_TOKEN, pp_prepro_token_handler, NULL),
     NODE_HANDLER(AST_VERBATIM, verbatim_construct_handler, NULL),
     NODE_HANDLER(AST_DIMENSION_STR, simple_text_handler, NULL),
+    NODE_HANDLER(AST_STATIC_ASSERT, static_assert_handler, NULL),
     // Pragma custom
     NODE_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE, pragma_custom_directive_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, pragma_custom_construct_handler, NULL),
@@ -2080,6 +2082,16 @@ static void parenthesized_initializer_handler(FILE* f, AST a, prettyprint_contex
     token_fprintf(f, a, pt_ctx, "(");
     list_handler(f, ASTSon0(a), pt_ctx);
     token_fprintf(f, a, pt_ctx, ")");
+}
+
+static void static_assert_handler(FILE *f, AST a, prettyprint_context_t* pt_ctx)
+{
+    indent_at_level(f, a, pt_ctx);
+    token_fprintf(f, a, pt_ctx, "static_assert(");
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
+    token_fprintf(f, a, pt_ctx, ", ");
+    prettyprint_level(f, ASTSon1(a), pt_ctx);
+    token_fprintf(f, a, pt_ctx, ");\n");
 }
 
 static void kr_parameter_list_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)

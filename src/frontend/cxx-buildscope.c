@@ -139,6 +139,8 @@ static void build_scope_member_template_function_definition(decl_context_t decl_
 static void build_scope_member_template_simple_declaration(decl_context_t decl_context, AST a,
         access_specifier_t current_access, type_t* class_info);
 
+static void build_scope_static_assert(AST a, decl_context_t decl_context);
+
 static void build_scope_using_directive(AST a, decl_context_t decl_context);
 static void build_scope_using_declaration(AST a, decl_context_t decl_context);
 
@@ -482,6 +484,11 @@ static void build_scope_declaration(AST a, decl_context_t decl_context)
                 build_scope_using_declaration(a, decl_context);
                 break;
             }
+        case AST_STATIC_ASSERT:
+            {
+                build_scope_static_assert(a, decl_context);
+                break;
+            }
         case AST_AMBIGUITY :
             {
                 solve_ambiguous_declaration(a, decl_context);
@@ -741,6 +748,41 @@ static void build_scope_using_declaration(AST a, decl_context_t decl_context)
 
         used_entity = used_entity->next;
     }
+}
+
+static void build_scope_static_assert(AST a, decl_context_t decl_context)
+{
+    AST constant_expr = ASTSon0(a);
+    AST message = ASTSon1(a);
+
+    if (!check_for_expression(constant_expr, decl_context))
+    {
+        fprintf(stderr, "%s: warning: static_assert expression is invalid\n",
+                ast_location(a));
+    }
+
+    if (!expression_is_value_dependent(constant_expr))
+    {
+        if (!expression_is_constant(constant_expr))
+        {
+            fprintf(stderr, "%s: warning: static_assert expression is not constant\n",
+                    ast_location(a));
+        }
+        else
+        {
+            const_value_t * val = expression_get_constant(constant_expr);
+
+            if (const_value_is_zero(val))
+            {
+                running_error("%s: error: static_assert failed: %s\n",
+                        ast_location(a),
+                        prettyprint_in_buffer(message));
+            }
+        }
+    }
+
+    // FIXME - static_assert is not properly implemented for classes where they
+    // should be signed in as if they were members
 }
 
 // Builds scope for a simple declaration
@@ -6762,6 +6804,11 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
         case AST_USING_DECLARATION :
             {
                 build_scope_using_declaration(a, inner_decl_context);
+                break;
+            }
+        case AST_STATIC_ASSERT:
+            {
+                build_scope_static_assert(a, inner_decl_context);
                 break;
             }
         case AST_AMBIGUITY :
