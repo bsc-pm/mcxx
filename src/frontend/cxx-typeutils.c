@@ -1445,16 +1445,11 @@ char has_dependent_template_arguments(template_argument_list_t* template_argumen
     return 0;
 }
 
-type_t* template_type_get_specialized_type_after_type(type_t* t, 
+type_t* template_type_get_matching_specialized_type(type_t* t,
         template_argument_list_t* template_argument_list,
-        template_parameter_list_t *template_parameters, 
-        type_t* after_type,
-        decl_context_t decl_context, 
-        int line, const char* filename)
+        decl_context_t decl_context)
 {
     ERROR_CONDITION(!is_template_type(t), "This is not a template type", 0);
-
-    char has_dependent_temp_args = has_dependent_template_arguments(template_argument_list);
 
     // Search an existing specialization
     DEBUG_CODE()
@@ -1502,6 +1497,26 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
             return specialization;
         }
     }
+    return NULL;
+}
+
+type_t* template_type_get_specialized_type_after_type(type_t* t, 
+        template_argument_list_t* template_argument_list,
+        template_parameter_list_t *template_parameters, 
+        type_t* after_type,
+        decl_context_t decl_context, 
+        int line, const char* filename)
+{
+    type_t* existing_spec = template_type_get_matching_specialized_type(t, 
+            template_argument_list, 
+            decl_context);
+
+    if (existing_spec != NULL)
+    {
+        return existing_spec;
+    }
+
+    char has_dependent_temp_args = has_dependent_template_arguments(template_argument_list);
 
     type_t* specialized_type = after_type;
 

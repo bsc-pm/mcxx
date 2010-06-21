@@ -402,6 +402,9 @@ LIBMCXX_EXTERN struct scope_entry_tag* named_type_get_symbol(struct type_tag* t)
 LIBMCXX_EXTERN char pointer_types_are_similar(struct type_tag* t_orig, struct type_tag* t_dest);
 
 LIBMCXX_EXTERN struct type_tag* template_type_get_primary_type(struct type_tag* t);
+LIBMCXX_EXTERN type_t* template_type_get_matching_specialized_type(struct type_tag* t,
+        template_argument_list_t* template_argument_list,
+        decl_context_t decl_context);
 LIBMCXX_EXTERN struct type_tag* template_type_get_specialized_type(struct type_tag* t, 
         template_argument_list_t* template_argument_list,
         template_parameter_list_t *template_parameters, 
