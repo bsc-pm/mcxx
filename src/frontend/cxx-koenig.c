@@ -185,6 +185,13 @@ static void add_associated_scope(associated_scopes_t* associated_scopes, scope_t
 
     associated_scopes->associated_scopes[associated_scopes->num_associated_scopes] = sc;
     associated_scopes->num_associated_scopes++;
+
+    // If this scope is an inline one, add the enclosing scope as well
+    if (sc->related_entry != NULL
+            && sc->related_entry->entity_specs.is_inline)
+    {
+        add_associated_scope(associated_scopes, sc->contained_in);
+    }
 }
 
 static void compute_associated_scopes_rec(associated_scopes_t* associated_scopes, 

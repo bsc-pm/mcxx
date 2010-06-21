@@ -673,7 +673,7 @@ static void build_scope_using_declaration(AST a, decl_context_t decl_context)
     char is_class_scope = 0;
     if (decl_context.current_scope->kind == CLASS_SCOPE)
     {
-        current_class_type = decl_context.current_scope->class_entry->type_information;
+        current_class_type = decl_context.current_scope->related_entry->type_information;
         is_class_scope = 1;
     }
 
@@ -3234,9 +3234,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             // Update point of declaration
             class_entry->point_of_declaration = get_enclosing_declaration(class_id_expression);
 
-            inner_decl_context = new_class_context(class_entry->decl_context,
-                    qualification_name, 
-                    class_entry);
+            inner_decl_context = new_class_context(class_entry->decl_context, class_entry);
             class_type_set_inner_context(class_type, inner_decl_context);
         }
         else if (class_entry_list == NULL
@@ -3326,9 +3324,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                 }
             }
 
-            inner_decl_context = new_class_context(decl_context,
-                    qualification_name,
-                    class_entry);
+            inner_decl_context = new_class_context(decl_context, class_entry);
             class_type_set_inner_context(class_type, inner_decl_context);
         }
         else
@@ -3357,9 +3353,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         class_entry->type_information = get_new_class_type(decl_context, class_kind);
 
         class_type = class_entry->type_information;
-        inner_decl_context = new_class_context(decl_context,
-                qualification_name,
-                class_entry);
+        inner_decl_context = new_class_context(decl_context, class_entry);
         class_type_set_inner_context(class_type, inner_decl_context);
 
         C_LANGUAGE()
@@ -3390,7 +3384,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     {
         // If the enclosing class is dependent, so is this one
         char c = is_dependent_type(class_type);
-        type_t* enclosing_class_type = decl_context.current_scope->class_entry->type_information;
+        type_t* enclosing_class_type = decl_context.current_scope->related_entry->type_information;
         c = c || is_dependent_type(enclosing_class_type);
         set_is_dependent_type(class_type, c);
 
@@ -3456,7 +3450,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     {
         if (decl_context.current_scope->kind == CLASS_SCOPE)
         {
-            type_t* enclosing_class_type = decl_context.current_scope->class_entry->type_information;
+            type_t* enclosing_class_type = decl_context.current_scope->related_entry->type_information;
             build_scope_member_specification(decl_context, member_specification, 
                     current_access, enclosing_class_type);
         }
@@ -6175,12 +6169,9 @@ static void build_scope_namespace_definition(AST a, decl_context_t decl_context)
         }
         else
         {
-            // We register a symbol of type namespace and link to a newly created scope.
-            char* qualification_name = prettyprint_in_buffer(namespace_name);
-
-            namespace_context = new_namespace_context(decl_context, qualification_name);
-
             entry = new_symbol(decl_context, decl_context.current_scope, ASTText(namespace_name));
+            namespace_context = new_namespace_context(decl_context, entry);
+
             entry->line = ASTLine(namespace_name);
             entry->file = ASTFileName(namespace_name);
             entry->point_of_declaration = namespace_name;
@@ -6227,9 +6218,9 @@ static void build_scope_namespace_definition(AST a, decl_context_t decl_context)
         }
         else
         {
-            namespace_context = new_namespace_context(decl_context, unnamed_namespace);
-
             scope_entry_t* entry = new_symbol(decl_context, decl_context.current_scope, unnamed_namespace);
+            namespace_context = new_namespace_context(decl_context, entry);
+
             entry->line = ASTLine(a);
             entry->file = ASTFileName(a);
             entry->point_of_declaration = a;

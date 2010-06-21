@@ -711,7 +711,6 @@ static void instantiate_specialized_template_class(type_t* selected_template,
     template_parameters_context.template_parameters = calloc(1, sizeof(*template_parameters_context.template_parameters));
 
     decl_context_t inner_decl_context = new_class_context(template_parameters_context, 
-            /* FIXME the qualification name should be more useful */named_class->symbol_name,
             named_class);
 
     class_type_set_inner_context(named_class->type_information, inner_decl_context);
@@ -1620,11 +1619,11 @@ static AST get_id_expression_for_entry(scope_entry_t* entry, decl_context_t decl
         AST qualif_name = NULL;
         if (enclosing_scope->kind == NAMESPACE_SCOPE)
         {
-            qualif_name = ASTLeaf(AST_SYMBOL, filename, line, enclosing_scope->qualification_name);
+            qualif_name = ASTLeaf(AST_SYMBOL, filename, line, enclosing_scope->related_entry->symbol_name);
         }
         else if (enclosing_scope->kind == CLASS_SCOPE)
         {
-            qualif_name = get_tree_name_of_class(enclosing_scope->class_entry, 
+            qualif_name = get_tree_name_of_class(enclosing_scope->related_entry, 
                     decl_context, filename, line);
         }
         else

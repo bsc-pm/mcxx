@@ -35,12 +35,12 @@
 MCXX_BEGIN_DECLS
 
 LIBMCXX_EXTERN decl_context_t new_global_context(void);
-LIBMCXX_EXTERN decl_context_t new_namespace_context(decl_context_t enclosing_decl_context, const char* qualification_name);
+LIBMCXX_EXTERN decl_context_t new_namespace_context(decl_context_t enclosing_decl_context, scope_entry_t* namespace_symbol);
 LIBMCXX_EXTERN decl_context_t new_prototype_context(decl_context_t enclosing_decl_context);
 LIBMCXX_EXTERN decl_context_t new_block_context(decl_context_t enclosing_decl_context);
 LIBMCXX_EXTERN decl_context_t new_function_context(decl_context_t enclosing_decl_context);
 LIBMCXX_EXTERN decl_context_t new_class_context(decl_context_t enclosing_decl_context, 
-        const char* qualification_name, scope_entry_t* class_entry);
+        scope_entry_t* class_entry);
 LIBMCXX_EXTERN decl_context_t new_template_context(decl_context_t enclosing_decl_context);
 
 // Used only in TL

@@ -527,11 +527,6 @@ struct scope_tag
     // Hash of scope_entry_list
     Hash* hash;
 
-    // Qualification name of this scope this holds the name we have to prepend
-    // to an entity of this scope in order to qualify it in the enclosing
-    // scope.
-    const char* qualification_name;
-
     // Relationships with other scopes
     // Nesting relationship is expressed by "contained_in". This relationship is
     // valid in all kinds of scopes except for FUNCTION_SCOPE (where there is
@@ -543,12 +538,10 @@ struct scope_tag
     int num_used_namespaces;
     struct scope_entry_tag** use_namespace;
 
-    // Only valid for CLASS_SCOPE, the actual class related to this class scope
-    scope_entry_t* class_entry;
-
-    // Only valid for BLOCK_SCOPE. The function definition
-    // holding this BLOCK_SCOPE. Currently unused
-    struct scope_entry_tag* function_entry;
+    // Only valid for NAMESPACE_SCOPE, CLASS_SCOPE and BLOCK_SCOPE
+    // they contain the namespace symbol (if any), the class symbol
+    // and the function symbol (this last is unused)
+    scope_entry_t* related_entry;
 } scope_t;
 
 MCXX_END_DECLS
