@@ -1513,7 +1513,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
             else
             {
                 result_list = query_id_expression_flags(decl_context, id_expression, 
-                        decl_flags | DF_DO_NOT_CREATE_SPECIALIZATION);
+                        decl_flags);
             };
         }
         else
@@ -1682,7 +1682,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
                 {
                     running_error("%s: error: invalid template-name '%s'\n", 
                             ast_location(id_expression),
-                            ASTText(id_expression));
+                            prettyprint_in_buffer(id_expression));
                 }
             }
         }
@@ -1701,6 +1701,19 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
 
         class_entry = entry;
         class_type = class_entry->type_information;
+
+
+        // Check the enclosing namespace scope
+        // This is only valid if the scope of the entry is an inlined namespace of the current one
+        if (is_template_specialized_type(class_entry->type_information)
+                && (class_entry->decl_context.namespace_scope != decl_context.namespace_scope)
+                && !is_inline_namespace_of(class_entry->decl_context, decl_context))
+        {
+
+            running_error("%s: specialization of '%s' in different namespace from definition\n",
+                    ast_location(id_expression),
+                    prettyprint_in_buffer(id_expression));
+        }
     }
 
     ERROR_CONDITION(class_entry == NULL,
@@ -3149,7 +3162,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                 // we want to update its template arguments properly
                 class_entry_list = query_id_expression_flags(decl_context,
                         class_id_expression,
-                        DF_UPDATE_TEMPLATE_ARGUMENTS | DF_DO_NOT_CREATE_SPECIALIZATION);
+                        DF_UPDATE_TEMPLATE_ARGUMENTS);
             }
         }
 
@@ -3221,6 +3234,18 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                         class_entry->decl_context.current_scope,
                         class_entry->file,
                         class_entry->line);
+            }
+
+            // Check the enclosing namespace scope
+            // This is only valid if the scope of the entry is an inlined namespace of the current one
+            if (is_template_specialized_type(class_entry->type_information)
+                    && (class_entry->decl_context.namespace_scope != decl_context.namespace_scope)
+                    && !is_inline_namespace_of(class_entry->decl_context, decl_context))
+            {
+
+                running_error("%s: specialization of '%s' in different namespace from definition\n",
+                        ast_location(class_id_expression),
+                        prettyprint_in_buffer(class_id_expression));
             }
 
             // Update the template_scope

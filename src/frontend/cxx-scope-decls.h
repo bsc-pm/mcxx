@@ -102,9 +102,6 @@ enum decl_flags_tag
     // Does not check the used namespaces if the current scope
     // already contains the name
     DF_NO_AMBIGUOUS_NAMESPACE = BITMAP(16),
-    // Does not create a specialization if the lookup names a specialization
-    // not yet created
-    DF_DO_NOT_CREATE_SPECIALIZATION = BITMAP(17)
 } decl_flags_t;
 
 #undef BITMAP

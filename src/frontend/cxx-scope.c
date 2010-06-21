@@ -762,6 +762,7 @@ scope_entry_list_t* query_in_scope_str_flags(decl_context_t decl_context,
     decl_context.decl_flags = DF_NONE;
     decl_context.decl_flags |= decl_flags;
     decl_context.decl_flags |= DF_ONLY_CURRENT_SCOPE;
+    decl_context.decl_flags |= DF_UNQUALIFIED_NAME;
     return query_unqualified_name_str_flags(decl_context, name, decl_flags);
 }
 
@@ -771,6 +772,7 @@ scope_entry_list_t* query_in_scope_flags(decl_context_t decl_context,
     decl_context.decl_flags = DF_NONE;
     decl_context.decl_flags |= decl_flags;
     decl_context.decl_flags |= DF_ONLY_CURRENT_SCOPE;
+    decl_context.decl_flags |= DF_UNQUALIFIED_NAME;
     return query_unqualified_name(decl_context, decl_context, unqualified_name);
 }
 
@@ -778,6 +780,7 @@ scope_entry_list_t* query_unqualified_name_str_flags(decl_context_t decl_context
         const char* unqualified_name, decl_flags_t decl_flags)
 {
     decl_context.decl_flags = DF_NONE;
+    decl_context.decl_flags |= DF_UNQUALIFIED_NAME;
     decl_context.decl_flags |= decl_flags;
 
     // Adjust scopes
@@ -3748,20 +3751,11 @@ static scope_entry_list_t* query_template_id(AST template_id,
         template_parameter_list_t* template_parameters =
             template_type_get_template_parameters(generic_type);
 
-        if (BITMAP_TEST(template_arguments_context.decl_flags, DF_DO_NOT_CREATE_SPECIALIZATION))
-        {
-            specialized_type = template_type_get_matching_specialized_type(generic_type,
-                    template_arguments,
-                    template_arguments_context);
-        }
-        else
-        {
-            specialized_type = template_type_get_specialized_type(generic_type, 
-                    template_arguments, 
-                    template_parameters,
-                    template_arguments_context, 
-                    ASTLine(template_id), ASTFileName(template_id));
-        }
+        specialized_type = template_type_get_specialized_type(generic_type, 
+                template_arguments, 
+                template_parameters,
+                template_arguments_context, 
+                ASTLine(template_id), ASTFileName(template_id));
 
         if (specialized_type != NULL)
         {
@@ -4234,4 +4228,37 @@ char is_unqualified_id_expression(AST a)
                 || ASTType(a) == AST_DESTRUCTOR_TEMPLATE_ID
                 || ASTType(a) == AST_OPERATOR_FUNCTION_ID
                 || ASTType(a) == AST_OPERATOR_FUNCTION_ID_TEMPLATE);
+}
+
+static char is_inline_namespace_of_(scope_t* inner_namespace_scope, scope_t* outer_namespace_scope)
+{
+    if (inner_namespace_scope == NULL)
+        return 0;
+
+    scope_entry_t* inner_namespace_sym = inner_namespace_scope->related_entry;
+
+    if (inner_namespace_sym == NULL)
+        return 0;
+
+    scope_t* contained_in = inner_namespace_scope->contained_in;
+
+    if (inner_namespace_sym->entity_specs.is_inline
+                && (contained_in == outer_namespace_scope))
+    {
+        return 1;
+    }
+    else if (inner_namespace_sym->entity_specs.is_inline)
+    {
+        return is_inline_namespace_of_(contained_in, outer_namespace_scope);
+    }
+    else 
+    {
+        return 0;
+    }
+}
+
+char is_inline_namespace_of(decl_context_t inner_namespace_ctx, decl_context_t outer_namespace_ctx)
+{
+    return is_inline_namespace_of_(inner_namespace_ctx.namespace_scope, 
+            outer_namespace_ctx.namespace_scope);
 }
