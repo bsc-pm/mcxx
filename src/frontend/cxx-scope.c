@@ -2171,6 +2171,12 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
             return result;
         }
 
+        // If this is a "only this scope" lookup bail out
+        if (BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE))
+        {
+            return NULL;
+        }
+
         // If we are in a qualified lookup never lookup the enclosing one
         if (BITMAP_TEST(decl_context.decl_flags, DF_QUALIFIED_NAME))
         {

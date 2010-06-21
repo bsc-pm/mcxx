@@ -92,6 +92,11 @@ scope_entry_list_t* koenig_lookup(
         memset(&current_context, 0, sizeof(current_context));
         current_context.current_scope = current_scope;
         
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "KOENIG: Looking up in associated scope '%p'\n", current_scope);
+        }
+
         scope_entry_list_t* current_result = copy_entry_list(query_in_scope(current_context, id_expression));
 
         scope_entry_list_t* it = current_result;
