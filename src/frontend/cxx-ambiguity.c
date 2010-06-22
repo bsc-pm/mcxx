@@ -1808,34 +1808,12 @@ static char check_for_init_declarator(AST init_declarator, decl_context_t decl_c
         // Ambiguous cases are '= e' and '(e1, e2, .., e3)'
         switch (ASTType(initializer))
         {
-            case AST_CONSTANT_INITIALIZER :
+            // Plain expression
+            default:
                 {
-                    // This one might slip as well for members
-                    // ' = e'
                     enter_test_expression();
-                    result = check_for_expression(ASTSon0(initializer), decl_context);
+                    result = check_for_expression(initializer, decl_context);
                     leave_test_expression();
-                    break;
-                }
-            case AST_INITIALIZER :
-                {
-                    AST initializer_clause = ASTSon0(initializer);
-
-                    switch (ASTType(initializer_clause))
-                    {
-                        // ' = e'
-                        case AST_INITIALIZER_EXPR:
-                            {
-                                enter_test_expression();
-                                result = check_for_expression(ASTSon0(initializer_clause), decl_context);
-                                leave_test_expression();
-                            }
-                        default:
-                            {
-                                internal_error("Unexpected node '%s'\n", 
-                                        ast_print_node_type(ASTType(initializer_clause)));
-                            }
-                    }
                     break;
                 }
             case AST_PARENTHESIZED_INITIALIZER:
@@ -1848,8 +1826,6 @@ static char check_for_init_declarator(AST init_declarator, decl_context_t decl_c
                     leave_test_expression();
                     break;
                 }
-            default:
-                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(initializer)));
         }
     }
 

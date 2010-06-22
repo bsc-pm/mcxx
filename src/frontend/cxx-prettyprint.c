@@ -147,7 +147,6 @@ HANDLER_PROTOTYPE(member_declaration_handler);
 HANDLER_PROTOTYPE(selection_statement_handler);
 HANDLER_PROTOTYPE(catch_handler_handler);
 HANDLER_PROTOTYPE(member_declarator_handler);
-HANDLER_PROTOTYPE(constant_initializer_handler);
 HANDLER_PROTOTYPE(base_clause_handler);
 HANDLER_PROTOTYPE(base_specifier_handler);
 HANDLER_PROTOTYPE(elaborated_type_class_handler);
@@ -282,9 +281,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_VARIADIC_ARG, simple_parameter_handler, "..."),
     NODE_HANDLER(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, null_handler, NULL),
     NODE_HANDLER(AST_PARAMETER_DECL, parameter_decl_handler, NULL),
-    NODE_HANDLER(AST_INITIALIZER, prefix_with_parameter_then_son_handler, " = "),
     NODE_HANDLER(AST_PARENTHESIZED_INITIALIZER, parenthesized_initializer_handler, NULL),
-    NODE_HANDLER(AST_INITIALIZER_EXPR, unary_container_handler, NULL),
     NODE_HANDLER(AST_INITIALIZER_BRACES, braced_initializer_handler, NULL),
     NODE_HANDLER(AST_POINTER_SPEC, pointer_spec_handler, NULL),
     NODE_HANDLER(AST_REFERENCE_SPEC, simple_parameter_handler, "&"),
@@ -411,7 +408,6 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_MEMBER_DECLARATION_QUALIF, member_declaration_qualif_handler, NULL),
     NODE_HANDLER(AST_MEMBER_DECLARATION, member_declaration_handler, NULL),
     NODE_HANDLER(AST_MEMBER_DECLARATOR, member_declarator_handler, NULL),
-    NODE_HANDLER(AST_CONSTANT_INITIALIZER, constant_initializer_handler, NULL),
     NODE_HANDLER(AST_USING_DECLARATION, using_declaration_handler, NULL),
     NODE_HANDLER(AST_TEMPLATE_DECLARATION, template_declaration_handler, NULL),
     NODE_HANDLER(AST_EXPORT_TEMPLATE_DECLARATION, template_declaration_handler, NULL),
@@ -1574,12 +1570,6 @@ static void member_declarator_handler(FILE* f, AST a, prettyprint_context_t* pt_
         token_fprintf(f, a, pt_ctx, " ");
         prettyprint_level(f, ASTSon1(a), pt_ctx);
     }
-}
-
-static void constant_initializer_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    token_fprintf(f, a, pt_ctx, "= ");
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
 }
 
 static void function_definition_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)

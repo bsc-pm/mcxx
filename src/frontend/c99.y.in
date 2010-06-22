@@ -1413,13 +1413,13 @@ parameter_declaration : decl_specifier_seq declarator
 
 initializer : '=' initializer_clause
 {
-	$$ = ASTMake1(AST_INITIALIZER, $2, $1.token_file, $1.token_line, NULL);
+	$$ = $2;
 }
 ;
 
 initializer_clause : assignment_expression
 {
-	$$ = ASTMake1(AST_INITIALIZER_EXPR, $1, ASTFileName($1), ASTLine($1), NULL);
+	$$ = $1;
 }
 | '{' initializer_list '}'
 {
@@ -1682,7 +1682,7 @@ member_declarator : declarator
 
 constant_initializer : '=' constant_expression
 {
-	$$ = ASTMake1(AST_CONSTANT_INITIALIZER, $2, $1.token_file, $1.token_line, NULL);
+	$$ = $2;
 }
 ;
 

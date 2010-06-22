@@ -7658,20 +7658,17 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                 char wrong_initializer = 1;
                                 if (entry->entity_specs.is_virtual)
                                 {
-                                    if (ASTType(initializer) == AST_CONSTANT_INITIALIZER)
+                                    AST constant_expr = ASTSon0(initializer);
+                                    if (ASTType(constant_expr) == AST_CONSTANT_EXPRESSION)
                                     {
-                                        AST constant_expr = ASTSon0(initializer);
-                                        if (ASTType(constant_expr) == AST_CONSTANT_EXPRESSION)
+                                        AST octal_literal = ASTSon0(constant_expr);
+                                        if (ASTType(octal_literal) == AST_OCTAL_LITERAL)
                                         {
-                                            AST octal_literal = ASTSon0(constant_expr);
-                                            if (ASTType(octal_literal) == AST_OCTAL_LITERAL)
+                                            if (strcmp(ASTText(octal_literal), "0") == 0)
                                             {
-                                                if (strcmp(ASTText(octal_literal), "0") == 0)
-                                                {
-                                                    // It is pure and the initializer was fine
-                                                    entry->entity_specs.is_pure = 1;
-                                                    wrong_initializer = 0;
-                                                }
+                                                // It is pure and the initializer was fine
+                                                entry->entity_specs.is_pure = 1;
+                                                wrong_initializer = 0;
                                             }
                                         }
                                     }

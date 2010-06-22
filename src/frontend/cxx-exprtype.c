@@ -641,9 +641,6 @@ char check_for_expression(AST expression, decl_context_t decl_context)
 
     switch (ASTType(expression))
     {
-        case AST_INITIALIZER :
-        case AST_CONSTANT_INITIALIZER :
-        case AST_INITIALIZER_EXPR :
         case AST_EXPRESSION :
         case AST_CONSTANT_EXPRESSION :
         case AST_PARENTHESIZED_EXPRESSION :
@@ -8928,6 +8925,79 @@ char check_for_initializer_clause(AST initializer, decl_context_t decl_context, 
 {
     switch (ASTType(initializer))
     {
+        // A plain expression. I know it is unusual to have default here but
+        // this is the case for any kind of expression not of the special ones
+        // listed below
+        default: 
+            {
+                AST expression = initializer;
+                char result = check_for_expression(expression, decl_context);
+
+                if (result)
+                {
+                    type_t* declared_type_no_cv = get_unqualified_type(declared_type);
+                    type_t* initializer_expr_type = expression_get_type(expression);
+                    // Now we have to check whether this can be converted to the declared entity
+                    char ambiguous_conversion = 0;
+                    scope_entry_t* conversor = NULL;
+                    standard_conversion_t standard_conversion_sequence;
+                    if (!is_dependent_type(declared_type_no_cv)
+                            && !is_dependent_expr_type(initializer_expr_type)
+                            && !(IS_C_LANGUAGE
+                                && standard_conversion_between_types(
+                                    &standard_conversion_sequence,
+                                    initializer_expr_type,
+                                    declared_type_no_cv))
+                            && !(IS_CXX_LANGUAGE 
+                                && type_can_be_implicitly_converted_to(initializer_expr_type, 
+                                    declared_type_no_cv, 
+                                    decl_context, 
+                                    &ambiguous_conversion, 
+                                    &conversor))
+                            // A cv char[x] can be initialized with a string literal, we do not check the size
+                            && !(is_array_type(declared_type_no_cv)
+                                && is_char_type(array_type_get_element_type(declared_type_no_cv))
+                                && is_array_type(no_ref(initializer_expr_type))
+                                && is_char_type(array_type_get_element_type(no_ref(initializer_expr_type)))
+                                && is_literal_string_type(no_ref(initializer_expr_type))
+                                )
+                            // A wchar_t[x] can be initialized with a wide string literal, we do not check the size
+                            && !(is_array_type(declared_type_no_cv)
+                                && is_wchar_t_type(array_type_get_element_type(declared_type_no_cv))
+                                && is_array_type(no_ref(initializer_expr_type))
+                                && is_wchar_t_type(array_type_get_element_type(no_ref(initializer_expr_type)))
+                                && is_literal_string_type(no_ref(initializer_expr_type))
+                                )
+                       )
+                    {
+                        fprintf(stderr, "%s: warning: initializer expression '%s' has type '%s' not convertible to '%s'\n",
+                                ast_location(expression),
+                                prettyprint_in_buffer(expression),
+                                print_decl_type_str(initializer_expr_type, decl_context, ""),
+                                print_decl_type_str(declared_type, decl_context, ""));
+                        return 0;
+                    }
+
+                    if (conversor != NULL)
+                    {
+                        ASTAttrSetValueType(expression, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+                        ASTAttrSetValueType(expression, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversor));
+                    }
+
+                    ASTAttrSetValueType(initializer, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
+                    ASTAttrSetValueType(initializer, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(expression));
+
+                    expression_set_type(initializer, initializer_expr_type);
+
+                    expression_set_constant(initializer, expression_get_constant(expression));
+
+                    expression_set_is_value_dependent(initializer,
+                            expression_is_value_dependent(expression));
+                }
+
+                return result;
+                break;
+            }
         case AST_INITIALIZER_BRACES :
             {
                 // This is never ambiguous
@@ -9030,76 +9100,6 @@ char check_for_initializer_clause(AST initializer, decl_context_t decl_context, 
                 }
                 return 1;
             }
-        case AST_INITIALIZER_EXPR :
-            {
-                AST expression = ASTSon0(initializer);
-                char result = check_for_expression(expression, decl_context);
-
-                if (result)
-                {
-                    type_t* declared_type_no_cv = get_unqualified_type(declared_type);
-                    type_t* initializer_expr_type = expression_get_type(expression);
-                    // Now we have to check whether this can be converted to the declared entity
-                    char ambiguous_conversion = 0;
-                    scope_entry_t* conversor = NULL;
-                    standard_conversion_t standard_conversion_sequence;
-                    if (!is_dependent_type(declared_type_no_cv)
-                            && !is_dependent_expr_type(initializer_expr_type)
-                            && !(IS_C_LANGUAGE
-                                && standard_conversion_between_types(
-                                    &standard_conversion_sequence,
-                                    initializer_expr_type,
-                                    declared_type_no_cv))
-                            && !(IS_CXX_LANGUAGE 
-                                && type_can_be_implicitly_converted_to(initializer_expr_type, 
-                                    declared_type_no_cv, 
-                                    decl_context, 
-                                    &ambiguous_conversion, 
-                                    &conversor))
-                            // A cv char[x] can be initialized with a string literal, we do not check the size
-                            && !(is_array_type(declared_type_no_cv)
-                                && is_char_type(array_type_get_element_type(declared_type_no_cv))
-                                && is_array_type(no_ref(initializer_expr_type))
-                                && is_char_type(array_type_get_element_type(no_ref(initializer_expr_type)))
-                                && is_literal_string_type(no_ref(initializer_expr_type))
-                                )
-                            // A wchar_t[x] can be initialized with a wide string literal, we do not check the size
-                            && !(is_array_type(declared_type_no_cv)
-                                && is_wchar_t_type(array_type_get_element_type(declared_type_no_cv))
-                                && is_array_type(no_ref(initializer_expr_type))
-                                && is_wchar_t_type(array_type_get_element_type(no_ref(initializer_expr_type)))
-                                && is_literal_string_type(no_ref(initializer_expr_type))
-                                )
-                       )
-                    {
-                        fprintf(stderr, "%s: warning: initializer expression '%s' has type '%s' not convertible to '%s'\n",
-                                ast_location(expression),
-                                prettyprint_in_buffer(expression),
-                                print_decl_type_str(initializer_expr_type, decl_context, ""),
-                                print_decl_type_str(declared_type, decl_context, ""));
-                        return 0;
-                    }
-
-                    if (conversor != NULL)
-                    {
-                        ASTAttrSetValueType(expression, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
-                        ASTAttrSetValueType(expression, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversor));
-                    }
-
-                    ASTAttrSetValueType(initializer, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(initializer, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(expression));
-
-                    expression_set_type(initializer, initializer_expr_type);
-
-                    expression_set_constant(initializer, expression_get_constant(expression));
-
-                    expression_set_is_value_dependent(initializer,
-                            expression_is_value_dependent(expression));
-                }
-
-                return result;
-                break;
-            }
         case AST_DESIGNATED_INITIALIZER :
             {
                 AST designation = ASTSon0(initializer);
@@ -9143,10 +9143,6 @@ char check_for_initializer_clause(AST initializer, decl_context_t decl_context, 
 
                 return result;
                 break;
-            }
-        default :
-            {
-                internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTType(initializer)));
             }
     }
 
@@ -9496,9 +9492,9 @@ char check_for_initialization(AST initializer, decl_context_t decl_context, type
 
     switch (ASTType(initializer))
     {
-        case AST_CONSTANT_INITIALIZER :
+        default:
             {
-                AST expression = ASTSon0(initializer);
+                AST expression = initializer;
                 result = check_for_expression(expression, decl_context);
 
                 if (result)
@@ -9509,29 +9505,6 @@ char check_for_initialization(AST initializer, decl_context_t decl_context, type
                             expression_get_constant(expression));
                     expression_set_is_value_dependent(initializer,
                             expression_is_value_dependent(expression));
-                }
-                break;
-            }
-        case AST_INITIALIZER :
-            {
-                AST initializer_clause = ASTSon0(initializer);
-                result = check_for_initializer_clause(initializer_clause, decl_context, declared_type);
-
-                if (result)
-                {
-                    expression_set_type(initializer, expression_get_type(initializer_clause));
-                    expression_set_is_lvalue(initializer, 0);
-                    expression_set_constant(initializer, 
-                            expression_get_constant(initializer_clause));
-                    expression_set_is_value_dependent(initializer,
-                            expression_is_value_dependent(initializer_clause));
-                }
-
-                if (result 
-                        && ASTType(ASTSon0(initializer)) == AST_INITIALIZER_EXPR)
-                { 
-                    ASTAttrSetValueType(initializer, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(initializer, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(ASTSon0(initializer)));
                 }
                 break;
             }
@@ -9552,10 +9525,6 @@ char check_for_initialization(AST initializer, decl_context_t decl_context, type
                             expression_is_value_dependent(parenthesized_initializer));
                 }
                 break;
-            }
-        default :
-            {
-                internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTType(initializer)));
             }
     }
 
