@@ -264,7 +264,8 @@ AST const_value_to_tree(const_value_t* v)
 
             if (v->sign)
             {
-                snprintf(c, 63, "%lld%s", *(signed long long*)&(v->value), prefix);
+                signed long long *sll = (signed long long*)&v->value;
+                snprintf(c, 63, "%lld%s", *sll, prefix);
             }
             else
             {

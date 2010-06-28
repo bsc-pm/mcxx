@@ -10098,7 +10098,7 @@ static char check_for_sizeof_typeid(AST expr, decl_context_t decl_context)
                     && !type_is_runtime_sized(declarator_type))
             {
                 char is_const_expr = 0;
-                _size_t type_size;
+                _size_t type_size = 0;
 
                 switch (ASTType(expr))
                 {
