@@ -195,7 +195,7 @@ then
    NANOX_INCLUDES="${nanox_include}"
    NANOX_LIBS="${nanox_lib}"
 
-   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanox"
+   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos-common fun-tasks nanox"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
 fi
@@ -267,6 +267,11 @@ then
 
    NANOS4_INCLUDES="${nanos4_include}"
    NANOS4_LIBS="${nanos4_lib}"
+
+   if test ! x$is_enabled_tl_omp_nanox = xyes; 
+   then
+      TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos-common"
+   fi
 
    TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos4"
 # mcxx always gets installed
@@ -592,6 +597,7 @@ dnl ----------------------- Superscalar and Nanox allow SS2 --------------------
 if test x$is_enabled_tl_superscalar = xyes -a x$is_enabled_tl_omp_nanox = xyes -a \
       "(" x$use_tl_superscalar_version = x4 -o x$use_tl_superscalar_version = x5 ")" ;
 then
+   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} ss2omp"
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.sscc"
    COMPILER_NAMES="${COMPILER_NAMES} sscc sscxx"
 fi
