@@ -31,4 +31,5 @@ DIST_SUBDIRS=core\
              nanos4 \
              nanox \
              ss2omp \
+             profile \
              $(END)
