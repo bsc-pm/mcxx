@@ -122,7 +122,7 @@ namespace TL
                 << "static void gather_statistics(void)"
                 << "{"
                 <<     "TaskProfileInfo task_summary;"
-                <<     "memset(&task_summary, 0, sizeof(task_summary));"
+                <<     "__builtin_memset(&task_summary, 0, sizeof(task_summary));"
                 <<     "fprintf(stderr, \"%s\", \"Task statistics for file '" 
                 <<     CompilationProcess::get_current_file().get_filename()
                 <<     "'\\n\");"
@@ -258,19 +258,22 @@ namespace TL
 
 
         // At the moment only connect task
-        // on_directive_pre["task"].connect(functor(&OpenMPProfile::task_preorder, *this));
+        on_directive_pre["task"].connect(functor(&OpenMPProfile::task_preorder, *this));
         on_directive_post["task"].connect(functor(&OpenMPProfile::task_postorder, *this));
 
         // taskwait
         on_directive_post["taskwait"].connect(functor(&OpenMPProfile::taskwait_postorder, *this));
     }
 
-    // void OpenMPProfile::task_preorder(OpenMP::TaskConstruct task_construct)
-    // {
-    //     TaskProfileInfo &task_profile_info 
-    //         = task_construct.get_data<TaskProfileInfo>("task_profile");
-    //     memset(&task_profile_info, 0, sizeof(task_profile_info));
-    // }
+    void OpenMPProfile::task_preorder(PragmaCustomConstruct task_construct)
+    {
+        int& task_id = task_construct.get_data<int>("task_id");
+        task_id = _current_task_id++;
+
+        TaskProfileInfo &task_profile_info 
+            = task_construct.get_data<TaskProfileInfo>("task_profile");
+        memset(&task_profile_info, 0, sizeof(task_profile_info));
+    }
 
     void OpenMPProfile::task_postorder(PragmaCustomConstruct task_construct)
     {
@@ -321,7 +324,7 @@ namespace TL
                 <<    "current_task_info->num_childs++;"
                 <<    "TaskProfileInfo* previous_task = current_task_info;"
                 <<    "TaskProfileInfo local_task_info;"
-                <<    "memset(&local_task_info, 0, sizeof(local_task_info));"
+                <<    "__builtin_memset(&local_task_info, 0, sizeof(local_task_info));"
                 <<    "current_task_info = &local_task_info;"
                 <<    task_counters
                 <<    construct_body.prettyprint()
@@ -693,6 +696,7 @@ namespace TL
 
             Expression called = expr.get_called_expression();
 
+#if 0
             if (called.is_id_expression())
             {
                 IdExpression called_id = called.get_id_expression();
@@ -828,6 +832,7 @@ namespace TL
                 std::cerr << expr.get_ast().get_locus() << ": warning: indirect call '" 
                     << called.prettyprint() << "' cannot be profiled" << std::endl;
             }
+#endif
         }
         else if (expr.is_casting())
         {
