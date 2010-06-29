@@ -31,15 +31,15 @@ linker_name = gcc
 {openmp,nanox,!openmpt} linker_options = -lnanox-c -lnanox-omp
 {openmp,openmpt} linker_options = -lnanox-c -lnanox-ss
 {openmp,nanox} compiler_phase = libtlomp-fun-tasks.so 
-{openmp,nanox} compiler_phase = libtlomp-core.so 
-{openmp,nanox} compiler_phase = libtlomp-nanox.so
-{openmp,nanox} compiler_phase = libtlnanox-smp.so
-{openmp,nanox} compiler_phase = libtlnanox-smp_numa.so
+{openmp,nanox,!only-fun-tasks} compiler_phase = libtlomp-core.so 
+{openmp,nanox,!only-fun-tasks} compiler_phase = libtlomp-nanox.so
+{openmp,nanox,!only-fun-tasks} compiler_phase = libtlnanox-smp.so
+{openmp,nanox,!only-fun-tasks} compiler_phase = libtlnanox-smp_numa.so
 {openmp,openmpt,!nanox} compiler_phase = libtlomp-fun-tasks.so 
-{openmp,openmpt,!nanox} compiler_phase = libtlomp-core.so 
-{openmp,openmpt,!nanox} compiler_phase = libtlomp-nanox.so
-{openmp,openmpt,!nanox} compiler_phase = libtlnanox-smp.so
-{openmp,openmpt,!nanox} compiler_phase = libtlnanox-smp_numa.so
+{openmp,openmpt,!nanox,!only-fun-tasks} compiler_phase = libtlomp-core.so 
+{openmp,openmpt,!nanox,!only-fun-tasks} compiler_phase = libtlomp-nanox.so
+{openmp,openmpt,!nanox,!only-fun-tasks} compiler_phase = libtlnanox-smp.so
+{openmp,openmpt,!nanox,!only-fun-tasks} compiler_phase = libtlnanox-smp_numa.so
 
 [mcc : omp-base]
 language = C
