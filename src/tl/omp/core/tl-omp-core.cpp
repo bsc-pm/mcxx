@@ -470,10 +470,7 @@ namespace TL
 
             ObjectList<DataReference> firstprivate_references;
             get_clause_symbols(construct.get_clause("firstprivate"), 
-                    firstprivate_references,
-                    // We allow extended references _ONLY_ for firstprivate at
-                    // the time being
-                    /* allow_extended_references */ true);
+                    firstprivate_references);
             std::for_each(firstprivate_references.begin(), firstprivate_references.end(), 
                     DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_FIRSTPRIVATE));
 
@@ -496,6 +493,25 @@ namespace TL
             get_clause_symbols(construct.get_clause("copyprivate"), copyprivate_references);
             std::for_each(copyprivate_references.begin(), copyprivate_references.end(), 
                     DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_COPYPRIVATE));
+
+            // Internal clauses created by fun-tasks phase
+            ObjectList<DataReference> fp_input_references;
+            get_clause_symbols(construct.get_clause("__fp_input"), fp_input_references, 
+                    /* Allow extended references */ true);
+            std::for_each(fp_input_references.begin(), fp_input_references.end(), 
+                    DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_FIRSTPRIVATE));
+
+            ObjectList<DataReference> fp_output_references;
+            get_clause_symbols(construct.get_clause("__fp_output"), fp_output_references, 
+                    /* Allow extended references */ true);
+            std::for_each(fp_output_references.begin(), fp_output_references.end(), 
+                    DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_FIRSTPRIVATE));
+
+            ObjectList<DataReference> fp_inout_references;
+            get_clause_symbols(construct.get_clause("__fp_inout"), fp_inout_references, 
+                    /* Allow extended references */ true);
+            std::for_each(fp_inout_references.begin(), fp_inout_references.end(), 
+                    DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_FIRSTPRIVATE));
         }
 
         DataSharingAttribute Core::get_default_data_sharing(PragmaCustomConstruct construct,
