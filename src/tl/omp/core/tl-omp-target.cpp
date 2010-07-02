@@ -269,15 +269,15 @@ namespace TL
                         it++)
                 {
                     ObjectList<std::string>* p = NULL;
-                    if (it->get_kind() == DEP_DIR_INPUT)
+                    if ((it->get_kind() & DEP_DIR_INPUT) == DEP_DIR_INPUT)
                     {
                         p = &dep_list_in;
                     }
-                    else if (it->get_kind() == DEP_DIR_OUTPUT)
+                    else if ((it->get_kind() & DEP_DIR_OUTPUT) == DEP_DIR_OUTPUT)
                     {
                         p = &dep_list_out;
                     }
-                    else if (it->get_kind() == DEP_DIR_INOUT)
+                    else if ((it->get_kind() & DEP_DIR_INOUT) == DEP_DIR_INOUT)
                     {
                         p = &dep_list_inout;
                     }
