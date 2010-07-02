@@ -566,6 +566,12 @@ namespace TL
 
             Symbol sym = data_env_item.get_symbol();
             Type type = sym.get_type();
+
+            if (type.is_reference())
+            {
+                type = type.references_to();
+            }
+
             const std::string field_name = data_env_item.get_field_name();
 
             if (data_env_item.is_vla_type())
@@ -651,7 +657,7 @@ namespace TL
                     if (IS_CXX_LANGUAGE
                             && type.is_named_class())
                     {
-                        result << "new (&" << arg_var_accessor << field_name << ")" 
+                        result << "new (" << arg_var_accessor << field_name << ")" 
                             << type.get_declaration(sym.get_scope(), "") 
                             << "(" << sym.get_qualified_name() << ");";
                     }

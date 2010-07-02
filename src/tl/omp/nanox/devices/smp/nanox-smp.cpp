@@ -295,15 +295,35 @@ void DeviceSMP::create_outline(
             it != data_env_items.end();
             it++)
     {
-        if (!it->is_private())
-            continue;
+        if (it->is_private())
+        {
+            Symbol sym = it->get_symbol();
+            Type type = sym.get_type();
 
-        Symbol sym = it->get_symbol();
-        Type type = sym.get_type();
+            private_vars
+                << type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
+                ;
+        }
+        else if (it->is_raw_buffer())
+        {
+            Symbol sym = it->get_symbol();
+            Type type = sym.get_type();
+            std::string field_name = it->get_field_name();
 
-        private_vars
-            << type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
-            ;
+            if (type.is_reference())
+            {
+                type = type.references_to();
+            }
+
+            if (!type.is_named_class())
+            {
+                internal_error("invalid class type in field of raw buffer", 0);
+            }
+
+            final_code
+                << field_name << ".~" << type.get_symbol().get_name() << "();"
+                ;
+        }
     }
 
     if (outline_flags.barrier_at_end)
