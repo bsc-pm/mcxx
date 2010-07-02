@@ -345,6 +345,35 @@ namespace TL
 
     }
 
+    static void get_data_sharing_symbols(OpenMP::DataSharingEnvironment& data_sharing,
+            ObjectList<Symbol>& shared,
+            ObjectList<Symbol>& value,
+            ObjectList<Symbol>& private_symbols)
+    {
+        ObjectList<OpenMP::DependencyItem> dependences;
+        data_sharing.get_all_dependences(dependences);
+
+        data_sharing.get_all_symbols(OpenMP::DS_SHARED, shared);
+        data_sharing.get_all_symbols(OpenMP::DS_FIRSTPRIVATE, value);
+        data_sharing.get_all_symbols(OpenMP::DS_PRIVATE, private_symbols);
+
+        for (ObjectList<OpenMP::DependencyItem>::iterator 
+                it = dependences.begin();
+                it != dependences.end();
+                it++)
+        {
+            DataReference data_ref = it->get_dependency_expression();
+
+            if (((it->get_kind() & TL::OpenMP::DEP_DIR_OUTPUT) == TL::OpenMP::DEP_DIR_OUTPUT)
+                    && (value.contains(data_ref.get_base_symbol())))
+            {
+                // Remove it from value and add it to shared
+                value = value.not_find(data_ref.get_base_symbol());
+                shared.append(data_ref.get_base_symbol());
+            }
+        }
+    }
+
     void Nanox::compute_data_environment(
             OpenMP::DataSharingEnvironment &data_sharing,
             ScopeLink scope_link,
@@ -352,13 +381,9 @@ namespace TL
             ObjectList<Symbol>& converted_vlas)
     {
         ObjectList<Symbol> shared;
-        data_sharing.get_all_symbols(OpenMP::DS_SHARED, shared);
-
         ObjectList<Symbol> value;
-        data_sharing.get_all_symbols(OpenMP::DS_FIRSTPRIVATE, value);
-
         ObjectList<Symbol> private_symbols;
-        data_sharing.get_all_symbols(OpenMP::DS_PRIVATE, private_symbols);
+        get_data_sharing_symbols(data_sharing, shared, value, private_symbols);
 
         struct auxiliar_struct_t
         {
