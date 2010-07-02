@@ -208,6 +208,11 @@ namespace TL
 	ObjectList<Expression> SourceBits::get_array_subscript_list(Type type, AST_t ref_tree, ScopeLink scope_link)
 	{
 		ObjectList<Expression> _result;
+
+        if (type.is_reference())
+        {
+            type = type.references_to();
+        }
 		
 		if (type.is_array())
 		{
