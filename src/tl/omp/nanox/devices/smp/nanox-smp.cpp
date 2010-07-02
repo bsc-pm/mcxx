@@ -134,13 +134,35 @@ static void do_smp_outline_replacements(AST_t body,
                     CXX_LANGUAGE()
                     {
                         // Set up a reference to the raw buffer properly casted to the data type
-                        initial_code
-                            << type.get_reference_to().get_declaration(sym.get_scope(), field_name)
-                            << "(" 
-                            << "(" << type.get_pointer_to().get_declaration(sym.get_scope(), "") << ")"
-                            << "_args->" << field_name
-                            << ");"
-                            ;
+
+                        Type ref_type = type;
+                        Type ptr_type = type;
+
+                        if (!type.is_reference())
+                        {
+                            ref_type = type.get_reference_to();
+                            ptr_type = type.get_pointer_to();
+
+                            initial_code
+                                << ref_type.get_declaration(sym.get_scope(), field_name)
+                                << "(" 
+                                << "(" << ptr_type.get_declaration(sym.get_scope(), "") << ")"
+                                << "_args->" << field_name
+                                << ");"
+                                ;
+                        }
+                        else
+                        {
+                            ptr_type = ref_type.references_to().get_pointer_to();
+
+                            initial_code
+                                << ref_type.get_declaration(sym.get_scope(), field_name)
+                                << "(" 
+                                << "*(" << ptr_type.get_declaration(sym.get_scope(), "") << ")"
+                                << "_args->" << field_name
+                                << ");"
+                                ;
+                        }
 
                         // This is the neatest aspect of references
                         replace_src.add_replacement(sym, field_name);
