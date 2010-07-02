@@ -154,7 +154,7 @@ namespace OpenMP
                 << additional_decls
                 << "#line " << it->get_line() << " \"" << it->get_file() << "\"\n"
                 << target_line
-                << "#pragma omp task " << arg_clauses << "\n"
+                << "#pragma omp task default(firstprivate) " << arg_clauses << "\n"
                 << "{"
                 << "\n"
                 << "#line " << it->get_line() << " \"" << it->get_file() << "\"\n"
