@@ -85,7 +85,30 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         << "};"
         ;
 
+    // Check for __symbol clause, and if found, get the task function symbol
+    Symbol task_symbol = NULL;
+    PragmaCustomClause function_clause = ctr.get_clause("__symbol");
+
+    if (function_clause.is_defined())
+    {
+    	ObjectList<Expression> expr_list = function_clause.get_expression_list();
+
+    	if (expr_list.size() != 1)
+    	{
+    		running_error("%s: internal error: clause '__symbol' requires just one argument\n",
+    				ctr.get_ast().get_locus().c_str());
+    	}
+
+    	Expression &expr = expr_list[0];
+    	IdExpression id_expr = expr.get_id_expression();
+
+    	if (id_expr.get_computed_symbol().is_valid()) {
+    		task_symbol = id_expr.get_computed_symbol();
+    	}
+    }
+
     OutlineFlags outline_flags;
+    outline_flags.task_symbol = task_symbol;
 
     DeviceHandler &device_handler = DeviceHandler::get_device_handler();
 
@@ -248,7 +271,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 << "}"
                 ;
 
-            // Fix The expression first!
             Source dep_expr_addr = data_ref.get_address();
 
             dependency_offset
@@ -434,20 +456,18 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             }
 
             DataReference data_ref = it->get_copy_expression();
-            OpenMP::DataSharingAttribute data_attr = data_sharing.get(data_ref.get_base_symbol());
+            OpenMP::DataSharingAttribute data_attr = data_sharing.get_data_sharing(data_ref.get_base_symbol());
 
             ERROR_CONDITION(data_attr == OpenMP::DS_UNDEFINED, "Invalid data sharing for copy", 0);
 
             Source copy_sharing;
-            bool is_shared = false;
-            if (it->get_kind() == OpenMP::COPY_DIR_IN)
-            {
-                copy_sharing << "NANOS_PRIVATE";
-            }
-            else 
+            if (it->is_shared())
             {
                 copy_sharing << "NANOS_SHARED";
-                is_shared = true;
+            }
+            else
+            {
+                copy_sharing << "NANOS_PRIVATE";
             }
 
             struct {
@@ -474,7 +494,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
                 DataReference copy_expr = it->get_copy_expression();
 
-                if (is_shared)
+                if (it->is_shared())
                 {
                     expression_address << copy_expr.get_address();
                 }

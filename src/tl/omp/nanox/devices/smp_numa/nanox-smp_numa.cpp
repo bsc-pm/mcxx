@@ -56,8 +56,26 @@ static void do_smp_numa_outline_replacements(
 
     bool err_declared = false;
 
-    ObjectList<OpenMP::CopyItem> copies = data_env_info.get_copy_items();
+    ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
+    for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
+            it != data_env_items.end();
+            it++)
+    {
+        DataEnvironItem& data_env_item(*it);
 
+        Symbol sym = data_env_item.get_symbol();
+        const std::string field_name = data_env_item.get_field_name();
+
+        if (data_env_item.is_private())
+            continue;
+
+        if (data_env_item.is_copy())
+        {
+        	replace_src.add_replacement(sym, "_args->" + field_name);
+        }
+    }
+
+    ObjectList<OpenMP::CopyItem> copies = data_env_info.get_copy_items();
     unsigned int j = 0;
     for (ObjectList<OpenMP::CopyItem>::iterator it = copies.begin();
             it != copies.end();
@@ -67,24 +85,25 @@ static void do_smp_numa_outline_replacements(
         Symbol sym = data_ref.get_base_symbol();
         Type type = sym.get_type();
 
-        bool points_an_array = false;
-
         if (type.is_array())
         {
             type = type.array_element().get_pointer_to();
-            points_an_array = true;
-        }
-        else
-        {
-            type = type.get_pointer_to();
         }
 
-        // Hack for shaping expressions
+        // There are some problems with the typesystem currently
+        // that require these workarounds
         if (data_ref.get_type().is_array()
                 && data_ref.get_data_type().is_pointer())
         {
+            // Shaping expressions ([e] a)  have a type of array but we do not
+            // want the array but the related pointer
             type = data_ref.get_data_type();
-            points_an_array = true;
+        }
+        else if (data_ref.get_data_type().is_array())
+        {
+            // Array sections have a scalar type, but the data type will be array
+            // See ticket #290
+            type = data_ref.get_data_type().array_element().get_pointer_to();
         }
 
         std::string copy_name = "_cp_" + sym.get_name();
@@ -110,17 +129,7 @@ static void do_smp_numa_outline_replacements(
             << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
             ;
 
-        replace_src.add_replacement(sym, "(*" + copy_name + ")");
-
-        // No replacement for arrays
-        if (points_an_array)
-        {
-            replace_src.add_replacement(sym, copy_name);
-        }
-        else
-        {
-            replace_src.add_replacement(sym, "(*" + copy_name + ")");
-        }
+	replace_src.add_replacement(sym, copy_name);
     }
 
     replaced_outline << replace_src.replace(body);

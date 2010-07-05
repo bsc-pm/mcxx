@@ -21,9 +21,6 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-# Ugly, but necessary since normal YACC rules have been broken
-BISON = @BISON@
-
 include ../Makefile.phases
 
 AM_CXXFLAGS = -Wall $(tl_cxxflags)
@@ -41,6 +38,12 @@ phases_LTLIBRARIES = \
 	libtlsuperscalar-task-manifest.la
 
 
+if SUPPORTED_SILENT_RULES
+BISON_verbose = $(BISON_verbose_$(V))
+BISON_verbose_ = $(BISON_verbose_$(AM_DEFAULT_VERBOSITY))
+BISON_verbose_0 = @echo "  BISON " $@;
+endif
+
 if BISON_BUILDING
 CLEANFILES = \
 	calculator-parser.c
@@ -50,7 +53,7 @@ EXTRA_DIST = calculator-parser.y
 
 calculator-parser.c calculator-parser.output : calculator-parser.y
 if BISON_BUILDING
-	$(BISON) --output=calculator-parser.c $<
+	$(BISON_verbose)$(BISON) --output=calculator-parser.c $<
 else
 	@echo "*** ERROR: file" $< "was modified but no suitable bison-rofi was found during configure ***" && /bin/false
 endif

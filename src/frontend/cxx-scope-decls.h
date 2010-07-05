@@ -94,13 +94,16 @@ enum decl_flags_tag
     DF_NO_INJECTED_CLASS_NAME = BITMAP(13),
     // Updates template arguments for a given specialization, used
     // only when defining an already declared template specialization
-    // (since we want the names be updated)
+    // (since we want the names to be updated)
     DF_UPDATE_TEMPLATE_ARGUMENTS = BITMAP(14),
-    // We are instantiating: some bits are skipped 
-    DF_INSTANTIATING = BITMAP(15),
     // Relaxed typechecking, ambiguity decl-expr is solved always to expr if it
     // cannot be disambiguated
-    DF_AMBIGUITY_FALLBACK_TO_EXPR = BITMAP(16),
+    DF_AMBIGUITY_FALLBACK_TO_EXPR = BITMAP(15),
+    // Does not check the used namespaces if the current scope
+    // already contains the name
+    DF_NO_AMBIGUOUS_NAMESPACE = BITMAP(16),
+    // Explicit instantiation
+    DF_EXPLICIT_INSTANTIATION = BITMAP(17)
 } decl_flags_t;
 
 #undef BITMAP
@@ -324,8 +327,13 @@ typedef struct entity_specifiers_tag
     // Is a constructor
     char is_constructor:1;
     char is_default_constructor:1;
+    // Is a copy constructor
+    char is_copy_constructor:1;
     // Is a conversor one
     char is_conversor_constructor:1;
+
+    // Is an assignment operator
+    char is_assignment_operator:1;
 
     // Is destructor
     char is_destructor:1;
@@ -339,6 +347,12 @@ typedef struct entity_specifiers_tag
     // Template argument, we need this to properly evaluate nontype template
     // arguments
     char is_template_argument:1;
+
+    // This is for specialized template types, it states that the symbol
+    // has also appeared in a declaration. Many specialized templates are
+    // created by the typesystem and do not have to be considered when
+    // solving templates
+    char template_is_declared:1;
 
     // Some bits have been moved here, they are repeated in comments below next
     // to their protecting fields
@@ -416,6 +430,9 @@ typedef struct entity_specifiers_tag
     // GCC attributes synthesized for this symbol coming from the syntax
     int num_gcc_attributes;
     gather_gcc_attribute_t gcc_attributes[MAX_GCC_ATTRIBUTES_PER_SYMBOL];
+
+    // For functions and classes
+    AST definition_tree;
 } entity_specifiers_t;
 
 // This is an entry in the scope
@@ -509,11 +526,6 @@ struct scope_tag
     // Hash of scope_entry_list
     Hash* hash;
 
-    // Qualification name of this scope this holds the name we have to prepend
-    // to an entity of this scope in order to qualify it in the enclosing
-    // scope.
-    const char* qualification_name;
-
     // Relationships with other scopes
     // Nesting relationship is expressed by "contained_in". This relationship is
     // valid in all kinds of scopes except for FUNCTION_SCOPE (where there is
@@ -523,14 +535,12 @@ struct scope_tag
     // using namespace statements (using directives) will fill this
     // Only valid for BLOCK_SCOPE, CLASS_SCOPE and NAMESPACE_SCOPE
     int num_used_namespaces;
-    struct scope_tag** use_namespace;
+    struct scope_entry_tag** use_namespace;
 
-    // Only valid for CLASS_SCOPE, the actual class related to this class scope
-    struct type_tag* class_type;
-
-    // Only valid for BLOCK_SCOPE. The function definition
-    // holding this BLOCK_SCOPE. Currently unused
-    struct scope_entry_tag* function_entry;
+    // Only valid for NAMESPACE_SCOPE, CLASS_SCOPE and BLOCK_SCOPE
+    // they contain the namespace symbol (if any), the class symbol
+    // and the function symbol (this last is unused)
+    scope_entry_t* related_entry;
 } scope_t;
 
 MCXX_END_DECLS

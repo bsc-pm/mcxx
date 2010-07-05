@@ -131,6 +131,16 @@ void mark_dir_for_cleanup(const char* name)
     add_to_list_of_temporal_files(name, /* is_temporary */ 0, /* is_dir */ 1);
 }
 
+void mark_file_as_temporary(const char* name)
+{
+    add_to_list_of_temporal_files(name, /* is_temporary */ 1, /* is_dir */ 0);
+}
+
+void mark_dir_as_temporary(const char* name)
+{
+    add_to_list_of_temporal_files(name, /* is_temporary */ 1, /* is_dir */ 1);
+}
+
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
 static temporal_file_t new_temporal_dir_unix(void)
 {
@@ -711,7 +721,10 @@ char move_file(const char* source, const char* dest)
         FILE* dest_file = fopen(dest, "w");
 
         if (dest_file == NULL)
+        {
+            fclose(orig_file);
             return -1;
+        }
 
         // size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
         char c[1024];
@@ -722,6 +735,8 @@ char move_file(const char* source, const char* dest)
             int actually_written = fwrite(c, actually_read, 1, dest_file);
             if (actually_written < actually_read)
             {
+                fclose(dest_file);
+                fclose(orig_file);
                 return -1;
             }
             actually_read = fread(c, sizeof(c), 1, orig_file);
@@ -734,6 +749,8 @@ char move_file(const char* source, const char* dest)
         else if (ferror(orig_file))
         {
             // Something went wrong
+            fclose(dest_file);
+            fclose(orig_file);
             return -1;
         }
 

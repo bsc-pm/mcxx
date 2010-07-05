@@ -535,16 +535,6 @@ namespace TL
         return false;
     }
 
-    bool Type::is_typedef() const
-    {
-        return is_typedef_type(_type_info);
-    }
-
-    Type Type::aliased_type() const
-    {
-        return typedef_type_get_aliased_type(_type_info);
-    }
-
     bool Type::is_template_type() const
     {
         return (::is_template_type(_type_info));

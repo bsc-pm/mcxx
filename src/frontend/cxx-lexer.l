@@ -314,8 +314,10 @@ identifier {
 
 	char matched = 0;
 
-	// Ignore gcc
-	if (!matched && strcasecmp(yytext, "gcc") == 0)
+	// Ignore gcc and ident
+    if (!matched 
+            && ((strcasecmp(yytext, "gcc") == 0)
+                || (strcasecmp(yytext, "ident") == 0)))
 	{
         // All the whole line will be handled as an unknown pragma
 		BEGIN(unknown_pragma);
@@ -357,7 +359,7 @@ identifier {
 }
 
 <unknown_pragma>{
-  /* This will also catch #pragma gcc */
+  /* This will also catch #pragma gcc and #pragma ident */
 
 [^\n]* {
 	parse_token_text();
@@ -969,6 +971,7 @@ identifier {
  /* XL Compiler extensions */
  "_Builtin" { parse_token_text(); return XL_BUILTIN_SPEC; }
  /*!if CPLUSPLUS*/
+"static_assert" { parse_token_text(); return STATIC_ASSERT; }
  /* g++ 4.3 extensions */
 "__has_nothrow_assign" |
 "__has_nothrow_constructor" |
@@ -1063,6 +1066,8 @@ identifier {
 @TYPE-LIST@ { parse_token_text(); return SUBPARSE_TYPE_LIST; }
 @ID_EXPRESSION@ { parse_token_text(); return SUBPARSE_ID_EXPRESSION; }
 @OMP_UDR_DECLARE@ { parse_token_text(); return SUBPARSE_OMP_UDR_DECLARE; }
+@OMP_UDR_IDENTITY@ { parse_token_text(); return SUBPARSE_OMP_UDR_IDENTITY; }
+@OMP_UDR_CONSTRUCTOR@ { parse_token_text(); return OMP_UDR_CONSTRUCTOR; }
  /*!if CPLUSPLUS*/
 @MEMBER@ { parse_token_text(); return SUBPARSE_MEMBER; }
  /*!endif*/

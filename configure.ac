@@ -1,5 +1,5 @@
 dnl Package definition: name, version, mail
-AC_INIT([mcxx],[1.3.4.1],[rferrer@ac.upc.edu])
+AC_INIT([mcxx],[1.3.5.3],[rferrer@ac.upc.edu])
 
 dnl Where are we ?
 AC_CANONICAL_BUILD
@@ -12,7 +12,16 @@ AC_PREREQ(2.61)
 AC_CONFIG_MACRO_DIR([m4])
 
 dnl Initialization of Automake
-AM_INIT_AUTOMAKE([1.9 dist-bzip2])
+dnl We require at least 1.9 (next will be 1.11)
+AM_INIT_AUTOMAKE([1.9 dist-bzip2 -Wno-portability])
+
+dnl Enable silent rules if available
+supported_silent_rules=1
+m4_ifdef([AM_SILENT_RULES], 
+        [AM_SILENT_RULES([yes])],
+        [supported_silent_rules=0])
+
+AM_CONDITIONAL([SUPPORTED_SILENT_RULES], test x$supported_silent_rules = x1)
 
 dnl Simple check of code existence
 AC_CONFIG_SRCDIR(src/frontend/cxx03.y.in)
@@ -186,7 +195,7 @@ then
    NANOX_INCLUDES="${nanox_include}"
    NANOX_LIBS="${nanox_lib}"
 
-   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanox"
+   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos-common fun-tasks nanox"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
 fi
@@ -259,6 +268,11 @@ then
    NANOS4_INCLUDES="${nanos4_include}"
    NANOS4_LIBS="${nanos4_lib}"
 
+   if test ! x$is_enabled_tl_omp_nanox = xyes; 
+   then
+      TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos-common"
+   fi
+
    TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos4"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
@@ -273,6 +287,7 @@ dnl --------------------- Shared between Nanox and Nanos4 ------------------
 if test x$is_enabled_tl_omp_nanos4 = xyes -o x$is_enabled_tl_omp_nanox = xyes;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.omp"
+   TL_EXTENSIONS="${TL_EXTENSIONS} omp"
 fi
 dnl --------------------- End of shared between Nanox and Nanos4 ------------------
 
@@ -583,8 +598,9 @@ dnl ----------------------- Superscalar and Nanox allow SS2 --------------------
 if test x$is_enabled_tl_superscalar = xyes -a x$is_enabled_tl_omp_nanox = xyes -a \
       "(" x$use_tl_superscalar_version = x4 -o x$use_tl_superscalar_version = x5 ")" ;
 then
+   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} ss2omp"
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.sscc"
-   COMPILER_NAMES="${COMPILER_NAMES} sscc"
+   COMPILER_NAMES="${COMPILER_NAMES} sscc sscxx"
 fi
 dnl ----------------------- End of Superscalar and Nanox --------------------------------------
 
@@ -845,6 +861,9 @@ AC_ARG_WITH([type-environment],
            fi
         ])
 
+RPATH_PARAMETER="-rpath"
+AC_SUBST([RPATH_PARAMETER])
+
 dnl Redundancy ahead
 if test x"$default_type_environ" = x;
 then
@@ -866,6 +885,7 @@ dnl We try to figure a sensible default environment based on the configure envir
            default_type_environ="linux-ia64"
            ;;
        sparc-sun-solaris*)
+            RPATH_PARAMETER="-R"
             default_type_environ="solaris-sparcv9"
             ;;
        arm-*-linux-gnueabi)
@@ -994,7 +1014,9 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/Makefile 
            src/tl/omp/core/Makefile 
            src/tl/omp/fun-tasks/Makefile 
+           src/tl/omp/profile/Makefile 
            src/tl/omp/ss2omp/Makefile 
+           src/tl/omp/nanos-common/Makefile 
            src/tl/omp/nanox/Makefile 
            src/tl/omp/nanox/devices/Makefile 
            src/tl/omp/nanox/devices/smp/Makefile 

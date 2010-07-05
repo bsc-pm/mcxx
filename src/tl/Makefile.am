@@ -21,7 +21,7 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = . hlt omp @TL_EXTENSIONS@ 
+SUBDIRS = . hlt @TL_EXTENSIONS@ 
 
 END=
 

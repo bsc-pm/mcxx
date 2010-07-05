@@ -92,6 +92,11 @@ scope_entry_list_t* koenig_lookup(
         memset(&current_context, 0, sizeof(current_context));
         current_context.current_scope = current_scope;
         
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "KOENIG: Looking up in associated scope '%p'\n", current_scope);
+        }
+
         scope_entry_list_t* current_result = copy_entry_list(query_in_scope(current_context, id_expression));
 
         scope_entry_list_t* it = current_result;
@@ -180,6 +185,13 @@ static void add_associated_scope(associated_scopes_t* associated_scopes, scope_t
 
     associated_scopes->associated_scopes[associated_scopes->num_associated_scopes] = sc;
     associated_scopes->num_associated_scopes++;
+
+    // If this scope is an inline one, add the enclosing scope as well
+    if (sc->related_entry != NULL
+            && sc->related_entry->entity_specs.is_inline)
+    {
+        add_associated_scope(associated_scopes, sc->contained_in);
+    }
 }
 
 static void compute_associated_scopes_rec(associated_scopes_t* associated_scopes, 
@@ -389,7 +401,11 @@ static void compute_set_of_associated_classes_scope_rec(type_t* type_info,
     int i;
     for (i = 0; i < class_type_get_num_bases(class_type); i++)
     {
-        scope_entry_t* base_symbol = class_type_get_base_num(class_type, i, NULL);
+        char is_dependent = 0;
+        scope_entry_t* base_symbol = class_type_get_base_num(class_type, i, NULL, &is_dependent);
+        if (is_dependent)
+            continue;
+
         type_t* base_type_info = base_symbol->type_information;
 
         compute_set_of_associated_classes_scope_rec(base_type_info, associated_scopes);

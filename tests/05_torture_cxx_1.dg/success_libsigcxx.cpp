@@ -1,6 +1,6 @@
 /*
 <testinfo>
-test_generator=config/mercurium
+test_generator=05_torture_cxx_1.dg/mercurium
 </testinfo>
 */
 /*--------------------------------------------------------------------

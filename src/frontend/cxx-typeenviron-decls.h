@@ -28,12 +28,14 @@
 #include "config.h"
 #endif
 
-#include "cxx-type-decls.h"
+#include "cxx-macros.h"
 
 MCXX_BEGIN_DECLS
 
 #include <stdlib.h>
 typedef size_t _size_t;
+
+struct type_tag;
 
 /*
  * Typing environment
@@ -119,14 +121,14 @@ struct type_environment_tag
 
     // function that computes the size of a class type
     // this typically will follow some underlying ABI
-    void (*compute_sizeof)(type_t*);
+    void (*compute_sizeof)(struct type_tag*);
 
     // The type that matches the one of sizeof
-    type_t* (*type_of_sizeof)(void);
+    struct type_tag* (*type_of_sizeof)(void);
 
     // The exact 'char' type (depending on the environment it is 'signed' or
     // 'unsigned')
-    type_t* (*char_type)(void);
+    struct type_tag* (*char_type)(void);
 
     // Special type for GCC compatibility
     _size_t sizeof_builtin_va_list;

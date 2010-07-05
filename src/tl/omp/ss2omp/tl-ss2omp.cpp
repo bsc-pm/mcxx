@@ -41,9 +41,10 @@ namespace TL
 
         RefPtr<ParameterRegionList> parameter_region_list = augmented_sym.get_parameter_region_list();
 
-        Source new_pragma_construct_src, clauses;
+        Source new_pragma_construct_src, clauses, device_line;
         new_pragma_construct_src
             << "#line " << construct.get_ast().get_line() << " \"" << construct.get_ast().get_file() << "\"\n"
+            << device_line
             << "#pragma omp task " << clauses << "\n"
             << ";"
             ;
@@ -114,6 +115,12 @@ namespace TL
                 {
                     clause_args->append_with_separator(
                             "*" + parameter_decls[i].get_name().prettyprint(),
+                            ",");
+                }
+                else if (parameters[i].is_reference())
+                {
+                    clause_args->append_with_separator(
+                            parameter_decls[i].get_name().prettyprint(),
                             ",");
                 }
             }
@@ -238,6 +245,31 @@ namespace TL
             clauses << " inout(" << inout_clause_args << ")";
         }
 
+        PragmaCustomClause device_clause = construct.get_clause("device");
+        if (device_clause.is_defined())
+        {
+            Source device_list;
+            device_line
+                << "#pragma omp target device(" << device_list << ") copy_deps\n"
+                ;
+
+            ObjectList<std::string> arg_list = device_clause.get_arguments(ExpressionTokenizerTrim());
+
+            for (ObjectList<std::string>::iterator it = arg_list.begin();
+                    it != arg_list.end();
+                    it++)
+            {
+                if (*it == "ppu")
+                {
+                    device_list.append_with_separator("smp", ",");
+                }
+                else 
+                    device_list.append_with_separator(*it, ",");
+            }
+
+        }
+
+
         AST_t pragma_decl = construct.get_declaration();
 
         // std::cerr << new_pragma_construct_src.get_source() << std::endl;
@@ -246,11 +278,17 @@ namespace TL
 
         ASTIterator iterator_list = new_pragma_tree_list.get_list_iterator();
 
-        AST_t new_pragma_tree = iterator_list.item();
-        // PragmaCustomConstruct new_pragma_construct(new_pragma_tree, construct.get_scope_link());
+        AST_t decl = iterator_list.item();
 
-        construct.get_ast().replace(new_pragma_tree);
-        construct.get_declaration().replace(pragma_decl);
+        construct.get_ast().replace(decl);
+
+        while (is_pragma_custom("omp", decl, construct.get_scope_link()))
+        {
+            PragmaCustomConstruct pragma(decl, construct.get_scope_link());
+            decl = pragma.get_declaration();
+        }
+
+        decl.replace(pragma_decl);
 
         // AST_t new_pragma_line = new_pragma_construct.get_pragma_line();
         // construct.get_pragma_line().replace(new_pragma_line);

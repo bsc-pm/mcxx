@@ -97,6 +97,7 @@ libmcxx_la_SOURCES = \
   cxx-typededuc.h \
   cxx-cexpr.c \
   cxx-cexpr.h \
+  cxx-cexpr-decls.h \
   cxx-ambiguity.c \
   cxx-ambiguity.h \
   cxx-solvetemplate.h \
@@ -112,6 +113,7 @@ libmcxx_la_SOURCES = \
   cxx-scopelink.c \
   cxx-scopelink-decls.h \
   cxx-scopelink.h \
+  cxx-exprtype-decls.h \
   cxx-exprtype.h \
   cxx-exprtype.c \
   cxx-koenig.h \
@@ -225,64 +227,91 @@ cxx-ast.h : cxx-asttype.h
 
 TPP=$(top_builddir)/lib/tpp$(EXEEXT)
 
+# Silent rules
+if SUPPORTED_SILENT_RULES
+BISON_verbose = $(BISON_verbose_$(V))
+BISON_verbose_ = $(BISON_verbose_$(AM_DEFAULT_VERBOSITY))
+BISON_verbose_0 = @echo "  BISON " $@;
+
+FLEX_verbose = $(FLEX_verbose_$(V))
+FLEX_verbose_ = $(FLEX_verbose_$(AM_DEFAULT_VERBOSITY))
+FLEX_verbose_0 = @echo "  FLEX  " $@;
+
+TPP_verbose = $(TPP_verbose_$(V))
+TPP_verbose_ = $(TPP_verbose_$(AM_DEFAULT_VERBOSITY))
+TPP_verbose_0 = @echo "  TPP   " $@;
+endif
+
 CLEANFILES += cxx-asttype.h
 cxx-asttype.h : cxx-asttype.def
-	echo "#ifndef CXX_ASTTYPE_H" > cxx-asttype.h
-	echo "#define CXX_ASTTYPE_H" >> cxx-asttype.h
-	echo "#include \"libmcxx-common.h\"" >> cxx-asttype.h
-	echo "#include \"cxx-macros.h\"" >> cxx-asttype.h
-	echo "MCXX_BEGIN_DECLS" >> cxx-asttype.h
-	echo "/* This file has been generated. Every time you change $< it will be regenerated */" >> cxx-asttype.h
-	echo "enum node_type {" >> cxx-asttype.h
-	echo "AST_INVALID_NODE = 0,"  >> cxx-asttype.h
-	$(SED) -e "/^[[:blank:]]*\(#.*\)\?$$/d" -e "s/$$/,/" < cxx-asttype.def >> cxx-asttype.h
-	echo "AST_LAST_NODE" >> cxx-asttype.h
-	echo "};" >> cxx-asttype.h
-	echo "LIBMCXX_EXTERN char* ast_node_names[];" >> cxx-asttype.h
-	echo "typedef enum node_type node_t;" >> cxx-asttype.h
-	echo "MCXX_END_DECLS" >> cxx-asttype.h
-	echo "#endif // CXX_ASTTYPE_H" >> cxx-asttype.h
+	$(AM_V_GEN)( \
+	echo "#ifndef CXX_ASTTYPE_H" > cxx-asttype.h; \
+	echo "#define CXX_ASTTYPE_H" >> cxx-asttype.h; \
+	echo "#include \"libmcxx-common.h\"" >> cxx-asttype.h; \
+	echo "#include \"cxx-macros.h\"" >> cxx-asttype.h; \
+	echo "MCXX_BEGIN_DECLS" >> cxx-asttype.h; \
+	echo "/* This file has been generated. Every time you change $< it will be regenerated */" >> cxx-asttype.h; \
+	echo "enum node_type {" >> cxx-asttype.h; \
+	echo "AST_INVALID_NODE = 0,"  >> cxx-asttype.h; \
+	$(SED) -e "/^[[:blank:]]*\(#.*\)\?$$/d" -e "s/$$/,/" < cxx-asttype.def >> cxx-asttype.h; \
+	echo "AST_LAST_NODE" >> cxx-asttype.h; \
+	echo "};" >> cxx-asttype.h; \
+	echo "LIBMCXX_EXTERN char* ast_node_names[];" >> cxx-asttype.h; \
+	echo "typedef enum node_type node_t;" >> cxx-asttype.h; \
+	echo "MCXX_END_DECLS" >> cxx-asttype.h; \
+	echo "#endif // CXX_ASTTYPE_H" >> cxx-asttype.h; \
+    )
 
 CLEANFILES += cxx-asttype.c
 cxx-asttype.c : cxx-asttype.def cxx-asttype.h
-	echo "/* This file has been generated. Every time you change $< it will be regenerated */" > cxx-asttype.c
-	echo "#include \"cxx-asttype.h\"" >> cxx-asttype.c
-	echo "char* ast_node_names[] = {" >> cxx-asttype.c
-	echo "[AST_INVALID_NODE] = \"AST_INVALID_NODE\", " >> cxx-asttype.c
-	$(SED) -e "/^[[:blank:]]*\(#.*\)\?$$/d" -e "s/^.*$$/[&] = \"&\",/" < cxx-asttype.def >> cxx-asttype.c
-	echo "[AST_LAST_NODE] = \"AST_LAST_NODE\", " >> cxx-asttype.c
-	echo "};" >> cxx-asttype.c
+	$(AM_V_GEN)( \
+	echo "/* This file has been generated. Every time you change $< it will be regenerated */" > cxx-asttype.c; \
+	echo "#include \"cxx-asttype.h\"" >> cxx-asttype.c; \
+	echo "char* ast_node_names[] = {" >> cxx-asttype.c; \
+	echo "[AST_INVALID_NODE] = \"AST_INVALID_NODE\", " >> cxx-asttype.c; \
+	$(SED) -e "/^[[:blank:]]*\(#.*\)\?$$/d" -e "s/^.*$$/[&] = \"&\",/" < cxx-asttype.def >> cxx-asttype.c; \
+	echo "[AST_LAST_NODE] = \"AST_LAST_NODE\", " >> cxx-asttype.c; \
+	echo "};" >> cxx-asttype.c; \
+	)
 
 CLEANFILES += cxx-asttype.def
 cxx-asttype.def : $(addprefix $(srcdir)/, $(AST_NODE_TYPE_FILES))
-	$(TPP) -o cxx-asttype.def -I $(srcdir) $(srcdir)/cxx-asttype-all.def
+	$(TPP_verbose)$(TPP) -o cxx-asttype.def -I $(srcdir) $(srcdir)/cxx-asttype-all.def
 
 CLEANFILES += cxx-attrnames.h
 cxx-attrnames.h : $(srcdir)/cxx-attrnames.def
-	echo "/* This file has been generated. Every time you change $< it will be regenerated */" > cxx-attrnames.h
-	echo "#ifndef CXX_ATTRNAMES_H" > cxx-attrnames.h
-	echo "#define CXX_ATTRNAMES_H" >> cxx-attrnames.h
-	echo "#include \"libmcxx-common.h\"" >> cxx-attrnames.h
-	echo "#include \"cxx-macros.h\"" >> cxx-attrnames.h
-	echo "MCXX_BEGIN_DECLS" >> cxx-attrnames.h
-	$(SED) -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/LIBMCXX_EXTERN char \1[];/" < $< >> cxx-attrnames.h
-	echo "LIBMCXX_EXTERN void register_ast_extended_attributes(void);" >> cxx-attrnames.h
-	echo "MCXX_END_DECLS" >> cxx-attrnames.h
-	echo "#endif // CXX_ATTRNAMES_H" >> cxx-attrnames.h
+	$(AM_V_GEN)( \
+	echo "/* This file has been generated. Every time you change $< it will be regenerated */" > cxx-attrnames.h; \
+	echo "#ifndef CXX_ATTRNAMES_H" > cxx-attrnames.h; \
+	echo "#define CXX_ATTRNAMES_H" >> cxx-attrnames.h; \
+	echo "#include \"libmcxx-common.h\"" >> cxx-attrnames.h; \
+	echo "#include \"cxx-macros.h\"" >> cxx-attrnames.h; \
+	echo "MCXX_BEGIN_DECLS" >> cxx-attrnames.h; \
+    echo "LIBMCXX_EXTERN char LANG_EXPRESSION_INFO[];" >> cxx-attrnames.h; \
+	$(SED) -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/LIBMCXX_EXTERN char \1[];/" < $< >> cxx-attrnames.h; \
+	echo "LIBMCXX_EXTERN void register_ast_extended_attributes(void);" >> cxx-attrnames.h; \
+	echo "MCXX_END_DECLS" >> cxx-attrnames.h; \
+	echo "#endif // CXX_ATTRNAMES_H" >> cxx-attrnames.h; \
+    )
 
 CLEANFILES += cxx-attrnames.c
 cxx-attrnames.c : $(srcdir)/cxx-attrnames.def cxx-attrnames.h
-	echo "/* This file has been generated. Every time you change $< it will be regenerated */" > cxx-attrnames.c
-	echo "#include \"cxx-attrnames.h\"" >> cxx-attrnames.c
-	echo "#include \"cxx-ast.h\"" >> cxx-attrnames.c
-	echo "#include \"cxx-tltype.h\"" >> cxx-attrnames.c
-	$(SED) -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/char \1[] = \"\2\";/" < $< >> cxx-attrnames.c
-	echo "/* AST attributes */" >> cxx-attrnames.c
-	echo "void register_ast_extended_attributes(void)" >> cxx-attrnames.c
-	echo "{" >> cxx-attrnames.c
-	echo "    extensible_schema_init(&ast_extensible_schema);" >> cxx-attrnames.c
-	$(SED) -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/    extensible_schema_add_field(\&ast_extensible_schema, \1, sizeof(tl_type_t));/" < $< >> cxx-attrnames.c
-	echo "}" >> cxx-attrnames.c
+	$(AM_V_GEN)( \
+	echo "/* This file has been generated. Every time you change $< it will be regenerated */" > cxx-attrnames.c; \
+	echo "#include \"cxx-attrnames.h\"" >> cxx-attrnames.c; \
+	echo "#include \"cxx-ast.h\"" >> cxx-attrnames.c; \
+	echo "#include \"cxx-tltype.h\"" >> cxx-attrnames.c; \
+	echo "#include \"cxx-exprtype.h\"" >> cxx-attrnames.c; \
+    echo "char LANG_EXPRESSION_INFO[] = \"lang.expression_info\";" >> cxx-attrnames.c; \
+	$(SED) -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/char \1[] = \"\2\";/" < $< >> cxx-attrnames.c; \
+	echo "/* AST attributes */" >> cxx-attrnames.c; \
+	echo "void register_ast_extended_attributes(void)" >> cxx-attrnames.c; \
+	echo "{" >> cxx-attrnames.c; \
+	echo "    extensible_schema_init(&ast_extensible_schema);" >> cxx-attrnames.c; \
+    echo "    extensible_schema_add_field(&ast_extensible_schema, LANG_EXPRESSION_INFO, expression_info_sizeof());" >> cxx-attrnames.c; \
+	$(SED) -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/    extensible_schema_add_field(\&ast_extensible_schema, \1, sizeof(tl_type_t));/" < $< >> cxx-attrnames.c; \
+	echo "}" >> cxx-attrnames.c; \
+	)
 
 if FLEX_BUILDING
 CLEANFILES += cxx-scanner.c
@@ -291,14 +320,14 @@ endif
 
 cxx-scanner.c : cxx03.l cxx-parser.h
 if FLEX_BUILDING
-	$(FLEX) -Pmcxx -d -ocxx-scanner.c -8 cxx03.l
+	$(FLEX_verbose)$(FLEX) -Pmcxx -d -ocxx-scanner.c -8 cxx03.l
 else
 	@echo "*** ERROR: file cxx03.l was modified but no suitable flex was found during configure ***"
 	@exit 1
 endif
 
 cxx03.l : $(srcdir)/cxx-lexer.l 
-	$(TPP) -o cxx03.l -D CPLUSPLUS $(srcdir)/cxx-lexer.l
+	$(TPP_verbose)$(TPP) -o cxx03.l -D CPLUSPLUS $(srcdir)/cxx-lexer.l
 
 if BISON_BUILDING
 CLEANFILES += cxx-parser.c
@@ -308,11 +337,11 @@ CLEANFILES += cxx03.y
 endif
 
 cxx03.y : $(srcdir)/cxx03.y.in $(addprefix $(srcdir)/, $(ADDITIONAL_GRAMMARS)) 
-	$(TPP) -o cxx03.y -D CPLUSPLUS -I$(srcdir) $(srcdir)/cxx03.y.in
+	$(TPP_verbose)$(TPP) -o cxx03.y -D CPLUSPLUS -I$(srcdir) $(srcdir)/cxx03.y.in
 
 cxx-parser.c : cxx03.y
 if BISON_BUILDING
-	$(BISON) -pmcxx --debug --defines --report=all --output=cxx-parser.c cxx03.y
+	$(BISON_verbose)$(BISON) -pmcxx --debug --defines --report=all --output=cxx-parser.c cxx03.y
 else
 	@echo "*** ERROR: file cxx03.y was modified but no suitable bison-rofi was found during configure ***"
 	@exit 1
@@ -330,14 +359,14 @@ endif
 
 c99-scanner.c : c99.l c99-parser.h
 if FLEX_BUILDING
-	$(FLEX) -Pmc99 -d -oc99-scanner.c -8 c99.l
+	$(FLEX_verbose)$(FLEX) -Pmc99 -d -oc99-scanner.c -8 c99.l
 else
 	@echo "*** ERROR: file c99.l was modified but no suitable flex was found during configure ***"
 	@exit 1
 endif
 
 c99.l : $(srcdir)/cxx-lexer.l
-	$(TPP) -o c99.l -D C99 $(srcdir)/cxx-lexer.l
+	$(TPP_verbose)$(TPP) -o c99.l -D C99 $(srcdir)/cxx-lexer.l
 
 if BISON_BUILDING
 CLEANFILES += c99-parser.c
@@ -347,11 +376,11 @@ CLEANFILES += c99.y
 endif
 
 c99.y : $(srcdir)/c99.y.in $(addprefix $(srcdir)/, $(ADDITIONAL_GRAMMARS)) 
-	$(TPP) -o c99.y -D C99 -I$(srcdir) $(srcdir)/c99.y.in
+	$(TPP_verbose)$(TPP) -o c99.y -D C99 -I$(srcdir) $(srcdir)/c99.y.in
 
 c99-parser.c : c99.y
 if BISON_BUILDING
-	$(BISON) -pmc99 --debug --defines --report=all --output=c99-parser.c c99.y
+	$(BISON_verbose)$(BISON) -pmc99 --debug --defines --report=all --output=c99-parser.c c99.y
 else
 	@echo "*** ERROR: file c99.y was modified but no suitable bison-rofi was found during configure ***"
 	@exit 1

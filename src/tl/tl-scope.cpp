@@ -25,7 +25,6 @@
 #include "cxx-scope.h"
 #include "cxx-printscope.h"
 #include "cxx-utils.h"
-#include "cxx-instantiation.h"
 #include "hash_iterator.h"
 #include "uniquestr.h"
 
@@ -84,21 +83,26 @@ namespace TL
         return result;
     }
 
-    ObjectList<Symbol> Scope::get_symbols_from_id_expr(TL::AST_t ast) const
+    ObjectList<Symbol> Scope::get_symbols_from_id_expr(TL::AST_t ast, bool examine_uninstantiated) const
     {
         ObjectList<Symbol> result;
         AST _ast = ast._ast;
 
-        scope_entry_list_t* entry_list = query_id_expression(_decl_context, _ast);
+        decl_flags_t flags = DF_NONE;
+
+        if (!examine_uninstantiated)
+            flags = DF_DEPENDENT_TYPENAME;
+
+        scope_entry_list_t* entry_list = query_id_expression_flags(_decl_context, _ast, flags);
 
         convert_to_vector(entry_list, result);
 
         return result;
     }
 
-    Symbol Scope::get_symbol_from_id_expr(TL::AST_t ast) const
+    Symbol Scope::get_symbol_from_id_expr(TL::AST_t ast, bool examine_uninstantiated) const
     {
-        ObjectList<Symbol> list = this->get_symbols_from_id_expr(ast);
+        ObjectList<Symbol> list = this->get_symbols_from_id_expr(ast, examine_uninstantiated);
 
         Symbol result(NULL);
         get_head(list, result);
@@ -201,27 +205,6 @@ namespace TL
         ObjectList<Symbol> result;
         convert_to_vector(entry_list, result);
         return result;
-    }
-
-    Scope Scope::instantiation_scope(Symbol specialized_template_function)
-    {
-        return ::get_instantiation_context(specialized_template_function.get_internal_symbol(), NULL);
-    }
-
-    Scope Scope::instantiation_scope(Symbol specialized_template_function, ObjectList<TemplateParameter> template_parameter_list)
-    {
-        template_parameter_list_t tpl_list;
-        tpl_list.num_template_parameters = template_parameter_list.size();
-
-        template_parameter_t* _list[tpl_list.num_template_parameters];
-
-        tpl_list.template_parameters = _list;
-        for (int i = 0; i < tpl_list.num_template_parameters; i++)
-        {
-            _list[i] = template_parameter_list[i].get_internal_template_parameter();
-        }
-
-        return ::get_instantiation_context(specialized_template_function.get_internal_symbol(), &tpl_list);
     }
 
     ObjectList<TemplateParameter> Scope::get_template_parameters() const

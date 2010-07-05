@@ -53,7 +53,7 @@ static void remove_computed_types(AST t)
         return;
 
     // Remove the computed type
-    ast_set_expression_type(t, NULL);
+    expression_set_type(t, NULL);
 
     int i;
     for (i = 0; i < ASTNumChildren(t); i++)
@@ -195,6 +195,133 @@ void solve_parameter_declaration_vs_type_parameter_class(AST a, decl_context_t d
         solve_ambiguous_parameter_decl(a, decl_context);
         ERROR_CONDITION((ASTType(a) == AST_AMBIGUITY), "Ambiguity not solved %s", 
                 ast_location(a));
+    }
+}
+static char check_for_decl_spec_seq_followed_by_declarator(AST decl_specifier_seq, AST declarator, decl_context_t decl_context)
+{
+    // A::f(c) has to be interpreted as A::f(c) and never as A   ::f(c)
+    // (if you want the latter you must use A(::f(c))
+    AST type_spec = ASTSon1(decl_specifier_seq);
+    if (type_spec != NULL
+            && ASTSon2(decl_specifier_seq) == NULL
+            && (ASTType(type_spec) == AST_SIMPLE_TYPE_SPEC
+                || ASTType(type_spec) == AST_ELABORATED_TYPE_CLASS_SPEC
+                || ASTType(type_spec) == AST_ELABORATED_TYPE_ENUM_SPEC
+                || ASTType(type_spec) == AST_ELABORATED_TYPENAME_SPEC))
+    {
+        AST declarator_name = get_leftmost_declarator_name(declarator, decl_context);
+
+        if (declarator_name != NULL)
+        {
+            if (ASTType(declarator_name) == AST_QUALIFIED_ID)
+            {
+                AST global_op = ASTSon0(declarator_name);
+                if (global_op != NULL)
+                {
+                    if (ASTType(global_op) != AST_GLOBAL_SCOPE)
+                    {
+                        internal_error("Expecting a global scope operator\n", 0);
+                    }
+
+                    // At this point, this sequence of decl_spec and declarator looks like one of the following
+                    //
+                    //  [AST_SIMPLE_TYPE_SPECIFIER]
+                    //   A::B ::C;
+                    //   ::A::B ::C;
+                    //   A::B<int> ::C;
+                    //   ::A::B<int> ::C;
+                    //   A::template B<int> ::C;
+                    //   ::A::template B<int> ::C;
+                    //  [AST_ELABORATED_TYPE_CLASS]
+                    //   class A::B ::C;
+                    //   class ::A::B ::C;
+                    //  [AST_ELABORATED_TYPE_ENUM]
+                    //   enum A::B ::C;
+                    //   enum ::A::B ::C;
+                    //  [AST_ELABORATED_TYPENAME]
+                    //   typename A::B ::C;
+                    //   typename ::A::B ::C;
+                    //  [AST_ELABORATED_TYPENAME_TEMPLATE]
+                    //   typename A::B<int> ::C;
+                    //   typename ::A::B<int> ::C;
+                    //  [AST_ELABORATED_TYPE_TEMPLATE]
+                    //   class A::B<int> ::C;
+                    //   class ::A::B<int> ::C;
+                    //  [AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE]
+                    //   class template B<int> ::C;
+                    //   class A::template B<int> ::C;
+                    //
+                    // which it is not intended to be a correct
+                    // declaration because the nested name spec has to
+                    // be as long as possible
+                    return 0;
+                }
+            }
+        }
+    }
+
+    return 1;
+}
+
+static void solve_ambiguous_explicit_instantiation(AST a, decl_context_t decl_context)
+{
+    int correct_option = -1;
+    int i;
+    for (i = 0; i < ast_get_num_ambiguities(a); i++)
+    {
+        AST option = ast_get_ambiguity(a, i);
+
+        char valid = 1;
+        // AST storage_class_specifier = ASTSon0(option);
+        AST decl_specifier_seq = ASTSon1(option);
+        AST declarator = ASTSon2(option);
+
+        if (decl_specifier_seq != NULL
+                && ASTType(decl_specifier_seq) == AST_AMBIGUITY)
+        {
+            solve_ambiguous_decl_specifier_seq(decl_specifier_seq, decl_context);
+        }
+
+        if (decl_specifier_seq != NULL
+                && declarator != NULL)
+        {
+            valid = valid && check_for_declarator(declarator, decl_context);
+            valid = valid && check_for_decl_spec_seq_followed_by_declarator(decl_specifier_seq, declarator, decl_context);
+        }
+        else if (declarator != NULL)
+        {
+            valid = valid && check_for_typeless_declarator(declarator, decl_context);
+        }
+        else if (decl_specifier_seq != NULL)
+        {
+            AST type_specifier = ASTSon1(decl_specifier_seq);
+            valid = valid && check_for_type_specifier(type_specifier, decl_context);
+        }
+
+        if (valid)
+        {
+            if (correct_option < 0)
+            {
+                correct_option = i;
+            }
+            else
+            {
+                AST previous_option = ast_get_ambiguity(a, correct_option);
+                AST current_option = option;
+                internal_error("More than one correct_option alternative! %s vs %s\n", 
+                        ast_print_node_type(ASTType(previous_option)),
+                        ast_print_node_type(ASTType(current_option)));
+            }
+        }
+    }
+
+    if (correct_option < 0)
+    {
+        internal_error("Cannot solve ambiguity", 0);
+    }
+    else
+    {
+        choose_option(a, correct_option);
     }
 }
 
@@ -360,6 +487,24 @@ void solve_ambiguous_declaration(AST a, decl_context_t decl_context)
     if (valid)
     {
         solve_ambiguous_simple_declaration(a, decl_context);
+        return;
+    }
+
+    // Explicit template specification
+    // 
+    // Ambiguity between
+    // 'template A::B' and 'template A  ::B'
+    valid = 1;
+    for (i = 0; (i < ast_get_num_ambiguities(a)) && valid; i++)
+    {
+        AST option = ast_get_ambiguity(a, i);
+
+        valid &= (ASTType(option) == AST_EXPLICIT_INSTANTIATION);
+    }
+
+    if (valid)
+    {
+        solve_ambiguous_explicit_instantiation(a, decl_context);
         return;
     }
 
@@ -760,13 +905,6 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
     {
         char do_failure = true;
 
-        // We may have been requested not to fail and assume an expression
-        // instead
-        if (BITMAP_TEST(decl_context.decl_flags, DF_AMBIGUITY_FALLBACK_TO_EXPR))
-        {
-            do_failure = false;
-        }
-
         // Recheck the expression again
         for (i = 0; i < ast_get_num_ambiguities(a); i++)
         {
@@ -795,11 +933,8 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
             }
         }
 
-        if (do_failure)
-        {
-            running_error("%s: error: cannot continue due to serious semantic problems in '%s'",
-                    ast_location(a), prettyprint_in_buffer(a));
-        }
+        running_error("%s: error: cannot continue due to serious semantic problems in '%s'",
+                ast_location(a), prettyprint_in_buffer(a));
     }
     else
     {
@@ -808,74 +943,6 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
 }
 
 
-static char check_for_decl_spec_seq_followed_by_declarator(AST decl_specifier_seq, AST declarator, decl_context_t decl_context)
-{
-    // A::f(c) has to be interpreted as A::f(c) and never as A   ::f(c)
-    // (if you want the latest you must use A(::f(c))
-    AST type_spec = ASTSon1(decl_specifier_seq);
-    if (type_spec != NULL
-            && ASTSon2(decl_specifier_seq) == NULL
-            && (ASTType(type_spec) == AST_SIMPLE_TYPE_SPECIFIER
-                || ASTType(type_spec) == AST_ELABORATED_TYPE_CLASS
-                || ASTType(type_spec) == AST_ELABORATED_TYPE_ENUM
-                || ASTType(type_spec) == AST_ELABORATED_TYPENAME
-                || ASTType(type_spec) == AST_ELABORATED_TYPENAME_TEMPLATE
-                || ASTType(type_spec) == AST_ELABORATED_TYPE_TEMPLATE_CLASS
-                || ASTType(type_spec) == AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS))
-    {
-        AST declarator_name = get_leftmost_declarator_name(declarator, decl_context);
-
-        if (declarator_name != NULL)
-        {
-            if (ASTType(declarator_name) == AST_QUALIFIED_ID)
-            {
-                AST global_op = ASTSon0(declarator_name);
-                if (global_op != NULL)
-                {
-                    if (ASTType(global_op) != AST_GLOBAL_SCOPE)
-                    {
-                        internal_error("Expecting a global scope operator\n", 0);
-                    }
-
-                    // At this point, this sequence of decl_spec and declarator looks like one of the following
-                    //
-                    //  [AST_SIMPLE_TYPE_SPECIFIER]
-                    //   A::B ::C;
-                    //   ::A::B ::C;
-                    //   A::B<int> ::C;
-                    //   ::A::B<int> ::C;
-                    //   A::template B<int> ::C;
-                    //   ::A::template B<int> ::C;
-                    //  [AST_ELABORATED_TYPE_CLASS]
-                    //   class A::B ::C;
-                    //   class ::A::B ::C;
-                    //  [AST_ELABORATED_TYPE_ENUM]
-                    //   enum A::B ::C;
-                    //   enum ::A::B ::C;
-                    //  [AST_ELABORATED_TYPENAME]
-                    //   typename A::B ::C;
-                    //   typename ::A::B ::C;
-                    //  [AST_ELABORATED_TYPENAME_TEMPLATE]
-                    //   typename A::B<int> ::C;
-                    //   typename ::A::B<int> ::C;
-                    //  [AST_ELABORATED_TYPE_TEMPLATE]
-                    //   class A::B<int> ::C;
-                    //   class ::A::B<int> ::C;
-                    //  [AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE]
-                    //   class template B<int> ::C;
-                    //   class A::template B<int> ::C;
-                    //
-                    // which it is not intended to be a correct
-                    // declaration because the nested name spec has to
-                    // be as long as possible
-                    return 0;
-                }
-            }
-        }
-    }
-
-    return 1;
-}
 
 static char check_for_simple_declaration(AST a, decl_context_t decl_context)
 {
@@ -993,14 +1060,11 @@ static char check_for_simple_declaration(AST a, decl_context_t decl_context)
                             || entry_list->entry->kind == SK_TEMPLATE_TYPE_PARAMETER))
                 {
                     // A is a simple type specifier
-                    if (ASTType(type_spec) == AST_SIMPLE_TYPE_SPECIFIER)
+                    if (ASTType(type_spec) == AST_SIMPLE_TYPE_SPEC)
                     {
-                        AST global_op = ASTSon0(type_spec);
-                        AST nested_name_spec = ASTSon1(type_spec);
-                        AST type_name = ASTSon2(type_spec);
+                        AST type_id_expr = ASTSon0(type_spec);
 
-                        entry_list = query_nested_name(decl_context, global_op, nested_name_spec, 
-                                type_name);
+                        entry_list = query_id_expression(decl_context, type_id_expr);
 
                         // A is of class nature
                         if (entry_list != NULL
@@ -1140,7 +1204,7 @@ static char check_for_typeless_declarator_rec(AST declarator, decl_context_t dec
                         decl_context, nfuncs);
                 break;
             }
-        case AST_POINTER_DECL :
+        case AST_POINTER_DECLARATOR :
         case AST_DECLARATOR_ARRAY : 
             {
                 // struct A
@@ -1415,11 +1479,11 @@ char solve_possibly_ambiguous_template_id(AST type_name, decl_context_t decl_con
                 {
                     if (feasible_list < 0)
                     {
-                        internal_error("Two feasible_list template argument lists!\n", 0);
+                        feasible_list = i;
                     }
                     else
                     {
-                        feasible_list = i;
+                        internal_error("Two feasible_list template argument lists!\n", 0);
                     }
                 }
             }
@@ -1497,7 +1561,7 @@ char check_for_simple_type_spec(AST type_spec, decl_context_t decl_context, type
         *computed_type = NULL;
     }
 
-    if (ASTType(type_spec) != AST_SIMPLE_TYPE_SPECIFIER)
+    if (ASTType(type_spec) != AST_SIMPLE_TYPE_SPEC)
     {
         switch (ASTType(type_spec))
         {
@@ -1528,20 +1592,9 @@ char check_for_simple_type_spec(AST type_spec, decl_context_t decl_context, type
         }
     }
 
-    AST global_op = ASTSon0(type_spec);
-    AST nested_name_spec = ASTSon1(type_spec);
-    AST type_name = ASTSon2(type_spec) != NULL ? ASTSon2(type_spec) : ASTSon3(type_spec);
+    AST type_id_expr = ASTSon0(type_spec);
 
-    if (ASTType(type_name) == AST_TEMPLATE_ID)
-    {
-        if (!solve_possibly_ambiguous_template_id(type_name, decl_context))
-        {
-            return 0;
-        }
-    }
-
-    scope_entry_list_t* entry_list = query_nested_name(decl_context, global_op, nested_name_spec, 
-            type_name);
+    scope_entry_list_t* entry_list = query_id_expression(decl_context, type_id_expr);
 
     if (entry_list == NULL)
     {
@@ -1597,7 +1650,7 @@ static char check_for_type_specifier(AST type_id, decl_context_t decl_context)
 
     switch (ASTType(type_id))
     {
-        case AST_SIMPLE_TYPE_SPECIFIER :
+        case AST_SIMPLE_TYPE_SPEC :
             return check_for_simple_type_spec(type_id, decl_context, /* computed_type = */ NULL);
             break;
         case AST_CLASS_SPECIFIER :
@@ -1611,12 +1664,9 @@ static char check_for_type_specifier(AST type_id, decl_context_t decl_context)
                 gather_type_spec_information(type_id, &type_info, &gather_info, decl_context);
                 return 1;
             }
-        case AST_ELABORATED_TYPENAME :
-        case AST_ELABORATED_TYPENAME_TEMPLATE :
-        case AST_ELABORATED_TYPE_ENUM :
-        case AST_ELABORATED_TYPE_CLASS :
-        case AST_ELABORATED_TYPE_TEMPLATE_CLASS :
-        case AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS :
+        case AST_ELABORATED_TYPENAME_SPEC :
+        case AST_ELABORATED_TYPE_ENUM_SPEC :
+        case AST_ELABORATED_TYPE_CLASS_SPEC :
         case AST_CHAR_TYPE :
         case AST_WCHAR_TYPE :
         case AST_BOOL_TYPE :
@@ -1818,13 +1868,7 @@ static char check_for_declarator_rec(AST declarator, decl_context_t decl_context
 
     switch (ASTType(declarator))
     {
-        case AST_ABSTRACT_DECLARATOR :
-            {
-                return check_for_declarator_rec(ASTSon1(declarator), decl_context);
-                break;
-            }
         case AST_DECLARATOR_ARRAY :
-        case AST_ABSTRACT_ARRAY :
             {
                 if (ASTSon1(declarator) != NULL)
                 {
@@ -1840,19 +1884,17 @@ static char check_for_declarator_rec(AST declarator, decl_context_t decl_context
                 return check_for_declarator_rec(ASTSon0(declarator), decl_context);
                 return 1;
             }
-        case AST_PARENTHESIZED_ABSTRACT_DECLARATOR :
         case AST_PARENTHESIZED_DECLARATOR :
         case AST_DECLARATOR :
             {
                 return check_for_declarator_rec(ASTSon0(declarator), decl_context);
                 break;
             }
-        case AST_POINTER_DECL :
+        case AST_POINTER_DECLARATOR :
             {
                 return check_for_declarator_rec(ASTSon1(declarator), decl_context);
                 break;
             }
-        case AST_ABSTRACT_DECLARATOR_FUNC :
         case AST_DECLARATOR_FUNC :
             {
                 // Check for parameters here
@@ -1881,6 +1923,16 @@ static char check_for_declarator_rec(AST declarator, decl_context_t decl_context
     }
 
     return 0;
+}
+
+static char is_abstract_declarator(AST a, decl_context_t decl_context)
+{
+    return get_declarator_id_expression(a, decl_context) == NULL;
+}
+
+static char is_non_abstract_declarator(AST a, decl_context_t decl_context)
+{
+    return !is_abstract_declarator(a, decl_context);
 }
 
 static char check_for_function_declarator_parameters(AST parameter_declaration_clause, decl_context_t decl_context)
@@ -1932,18 +1984,40 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
                     }
                     else
                     {
+                        // A parameter like type-name(type-name) must be
+                        // interpreted as an abstract declarator and not as a
+                        // redundantly parenthesized declarator introducing a
+                        // parameter called like the type-name
                         AST current_choice = parameter_decl;
                         AST previous_choice = ast_get_ambiguity(parameter, correct_choice);
-                        fprintf(stderr, "Previous choice\n");
-                        prettyprint(stderr, previous_choice);
-                        fprintf(stderr, "\n");
-                        fprintf(stderr, "Current choice\n");
-                        prettyprint(stderr, current_choice);
-                        fprintf(stderr, "\n");
-                        internal_error("More than one valid alternative '%s' vs '%s' %s", 
-                                ast_print_node_type(ASTType(previous_choice)),
-                                ast_print_node_type(ASTType(current_choice)),
-                                ast_location(previous_choice));
+                        if (ASTSon1(current_choice) != NULL
+                                && is_abstract_declarator(ASTSon1(current_choice), decl_context)
+                                &&  ASTSon1(previous_choice) != NULL
+                                && is_non_abstract_declarator(ASTSon1(previous_choice), decl_context))
+                        {
+                            // The current is the good one
+                            correct_choice = i;
+                        }
+                        else if (ASTSon1(previous_choice) != NULL
+                                && is_abstract_declarator(ASTSon1(previous_choice), decl_context)
+                                &&  ASTSon1(current_choice) != NULL
+                                && is_non_abstract_declarator(ASTSon1(current_choice), decl_context))
+                        {
+                            // The previous was the good one
+                        }
+                        else
+                        {
+                            fprintf(stderr, "Previous choice\n");
+                            prettyprint(stderr, previous_choice);
+                            fprintf(stderr, "\n");
+                            fprintf(stderr, "Current choice\n");
+                            prettyprint(stderr, current_choice);
+                            fprintf(stderr, "\n");
+                            internal_error("More than one valid alternative '%s' vs '%s' %s", 
+                                    ast_print_node_type(ASTType(previous_choice)),
+                                    ast_print_node_type(ASTType(current_choice)),
+                                    ast_location(previous_choice));
+                        }
                     }
                 }
             }
@@ -1999,18 +2073,6 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
     return 1;
 }
 
-static char is_abstract_declarator(AST a)
-{
-    return (ASTType(a) == AST_ABSTRACT_DECLARATOR
-            || ASTType(a) == AST_ABSTRACT_DECLARATOR_FUNC
-            || ASTType(a) == AST_ABSTRACT_ARRAY);
-}
-
-static char is_non_abstract_declarator(AST a)
-{
-    return (ASTType(a) == AST_DECLARATOR
-            || ASTType(a) == AST_POINTER_DECL);
-}
 
 void solve_ambiguous_parameter_decl(AST parameter_declaration, decl_context_t decl_context)
 {
@@ -2071,13 +2133,13 @@ void solve_ambiguous_parameter_decl(AST parameter_declaration, decl_context_t de
                 if (previous_declarator != NULL
                         && current_declarator != NULL)
                 {
-                    if (is_abstract_declarator(previous_declarator)
-                            && is_non_abstract_declarator(current_declarator))
+                    if (is_abstract_declarator(previous_declarator, decl_context)
+                            && is_non_abstract_declarator(current_declarator, decl_context))
                     {
                         solved_ambiguity = 1;
                     }
-                    else if (is_non_abstract_declarator(previous_declarator)
-                            && is_abstract_declarator(current_declarator))
+                    else if (is_non_abstract_declarator(previous_declarator, decl_context)
+                            && is_abstract_declarator(current_declarator, decl_context))
                     {
                         current_choice = i;
                         solved_ambiguity = 1;
@@ -2130,8 +2192,7 @@ void solve_ambiguous_decl_specifier_seq(AST type_spec_seq,
     {
         AST type_specifier_seq = ast_get_ambiguity(type_spec_seq, i);
 
-        if (ASTType(type_specifier_seq) != AST_TYPE_SPECIFIER_SEQ
-                && ASTType(type_specifier_seq) != AST_DECL_SPECIFIER_SEQ)
+        if (ASTType(type_specifier_seq) != AST_TYPE_SPECIFIER_SEQ)
         {
             internal_error("Invalid node type '%s'\n", ast_print_node_type(ASTType(type_specifier_seq)));
         }
@@ -2332,12 +2393,12 @@ void solve_ambiguous_expression_list(AST expression_list, decl_context_t decl_co
 {
     int correct_choice = -1;
     int i;
-    char result = 1;
     for (i = 0; i < ast_get_num_ambiguities(expression_list); i++)
     {
         AST current_expression_list = ast_get_ambiguity(expression_list, i);
         AST iter;
 
+        char result = 1;
         for_each_element(current_expression_list, iter)
         {
             AST current_expression = ASTSon1(iter);
@@ -2452,6 +2513,11 @@ char check_nested_name_spec(AST nested_name_spec, decl_context_t decl_context)
     char result = 1;
     while (nested_name_spec != NULL)
     {
+        if (ASTType(nested_name_spec) == AST_AMBIGUITY)
+        {
+            solve_ambiguous_nested_name_specifier(nested_name_spec, decl_context);
+        }
+
         AST current_name = ASTSon0(nested_name_spec);
 
         if (ASTType(current_name) == AST_TEMPLATE_ID)
@@ -2690,7 +2756,7 @@ static char check_for_function_definition_declarator_rec(AST declarator,
             }
         case AST_PARENTHESIZED_DECLARATOR :
         case AST_DECLARATOR :
-        case AST_POINTER_DECL :
+        case AST_POINTER_DECLARATOR :
             {
                 return check_for_function_definition_declarator_rec(ASTSon0(declarator),
                         decl_context,
@@ -2811,5 +2877,72 @@ void build_solve_condition_ambiguity(AST a, decl_context_t decl_context)
     else
     {
         choose_option(a, correct_choice);
+    }
+}
+
+static char solve_ambiguous_nested_name_specifier_rec(AST a, decl_context_t decl_context)
+{
+    ERROR_CONDITION(ASTType(a) != AST_AMBIGUITY,
+            "Must be ambiguous node", 0);
+
+    int correct_choice = -1;
+
+    int i;
+    for (i = 0; i < ast_get_num_ambiguities(a); i++)
+    {
+        char current_check = 1;
+        AST current = ast_get_ambiguity(a, i);
+
+        AST qualif_part = ASTSon0(current);
+        AST nested_name_part = ASTSon0(current);
+
+        if (ASTType(qualif_part) == AST_TEMPLATE_ID)
+        {
+            current_check = solve_possibly_ambiguous_template_id(qualif_part, decl_context);
+        }
+
+        if (current_check)
+        {
+            if (nested_name_part != NULL
+                    && ASTType(nested_name_part) == AST_AMBIGUITY)
+            {
+                current_check = solve_ambiguous_nested_name_specifier_rec(nested_name_part, decl_context);
+            }
+        }
+
+        if (current_check)
+        {
+            if (correct_choice < 0)
+            {
+                correct_choice = i;
+            }
+            else
+            {
+                AST first_option = ast_get_ambiguity(a, correct_choice);
+                AST second_option = current;
+                internal_error("More than one valid choices! '%s' vs '%s' %s", 
+                        ast_print_node_type(ASTType(first_option)),
+                        ast_print_node_type(ASTType(second_option)),
+                        ast_location(second_option));
+            }
+        }
+    }
+
+    if (correct_choice < 0)
+    {
+        return 0;
+    }
+    else
+    {
+        choose_option(a, correct_choice);
+        return 1;
+    }
+}
+
+void solve_ambiguous_nested_name_specifier(AST a, decl_context_t decl_context)
+{
+    if (!solve_ambiguous_nested_name_specifier_rec(a, decl_context))
+    {
+        internal_error("Ambiguity not solved '%s'", ast_location(a));
     }
 }

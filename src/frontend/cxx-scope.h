@@ -35,12 +35,12 @@
 MCXX_BEGIN_DECLS
 
 LIBMCXX_EXTERN decl_context_t new_global_context(void);
-LIBMCXX_EXTERN decl_context_t new_namespace_context(decl_context_t enclosing_decl_context, const char* qualification_name);
+LIBMCXX_EXTERN decl_context_t new_namespace_context(decl_context_t enclosing_decl_context, scope_entry_t* namespace_symbol);
 LIBMCXX_EXTERN decl_context_t new_prototype_context(decl_context_t enclosing_decl_context);
 LIBMCXX_EXTERN decl_context_t new_block_context(decl_context_t enclosing_decl_context);
 LIBMCXX_EXTERN decl_context_t new_function_context(decl_context_t enclosing_decl_context);
 LIBMCXX_EXTERN decl_context_t new_class_context(decl_context_t enclosing_decl_context, 
-        const char* qualification_name, struct type_tag* class_type);
+        scope_entry_t* class_entry);
 LIBMCXX_EXTERN decl_context_t new_template_context(decl_context_t enclosing_decl_context);
 
 // Used only in TL
@@ -51,6 +51,7 @@ LIBMCXX_EXTERN struct scope_entry_tag* new_symbol(decl_context_t decl_context,
         struct scope_tag* st, const char* name);
 LIBMCXX_EXTERN void remove_entry(struct scope_tag* st, struct scope_entry_tag* entry);
 LIBMCXX_EXTERN void insert_entry(struct scope_tag* st, struct scope_entry_tag* entry);
+LIBMCXX_EXTERN void insert_alias(struct scope_tag* st, struct scope_entry_tag* entry, const char* alias_name);
 
 // Given a list of symbols, purge all those that are not of symbol_kind kind
 LIBMCXX_EXTERN struct scope_entry_list_tag* filter_symbol_kind(struct scope_entry_list_tag* entry_list, enum cxx_symbol_kind symbol_kind);
@@ -111,25 +112,28 @@ LIBMCXX_EXTERN const char* get_fully_qualified_symbol_name_without_template(stru
 // Class scopes
 LIBMCXX_EXTERN struct scope_entry_list_tag* class_context_lookup(decl_context_t decl_context, const char* name);
 
-LIBMCXX_EXTERN template_argument_list_t *get_template_arguments_of_template_id(
-        struct AST_tag* template_id,
-        struct type_tag* template_type,
-        decl_context_t template_arguments_context,
-        char *valid);
+// LIBMCXX_EXTERN template_argument_list_t *get_template_arguments_of_template_id(
+//         struct AST_tag* template_id,
+//         struct type_tag* template_type,
+//         decl_context_t template_arguments_context,
+//         char *valid);
 LIBMCXX_EXTERN template_argument_list_t* get_template_arguments_from_syntax(
         struct AST_tag* template_arguments_list,
         decl_context_t template_arguments_context,
         int nesting_level);
 
 // Template things, should be moved to typeutils
-LIBMCXX_EXTERN template_argument_t* update_template_argument(template_argument_list_t* given_template_args,
-        template_argument_t* current_template_arg,
-        decl_context_t template_arguments_context,
-        const char *filename, int line);
-LIBMCXX_EXTERN struct type_tag* update_type(template_argument_list_t* given_template_args,
-        struct type_tag* orig_type, 
+LIBMCXX_EXTERN type_t* update_type(type_t* orig_type, 
         decl_context_t template_arguments_context,
         const char* filename, int line);
+
+LIBMCXX_EXTERN type_t* update_type_for_instantiation(type_t* orig_type,
+        decl_context_t context_of_being_instantiated,
+        const char* filename, int line);
+
+LIBMCXX_EXTERN decl_context_t update_context_with_template_arguments(
+        decl_context_t context,
+        template_argument_list_t* given_template_args);
 
 // Other stuff
 LIBMCXX_EXTERN scope_entry_list_t* cascade_lookup(decl_context_t decl_context, const char* name);
@@ -140,6 +144,19 @@ LIBMCXX_EXTERN unsigned long long symbols_used_memory(void);
 LIBMCXX_EXTERN void scope_entry_dynamic_initializer(void);
 
 LIBMCXX_EXTERN extensible_schema_t scope_entry_extensible_schema;
+
+// Templates 
+LIBMCXX_EXTERN void set_as_template_parameter_name(AST a, scope_entry_t* template_param_sym);
+LIBMCXX_EXTERN char is_template_parameter_name(AST a);
+LIBMCXX_EXTERN scope_entry_t* lookup_template_parameter_name(decl_context_t decl_context, AST a);
+
+LIBMCXX_EXTERN scope_entry_t* lookup_of_template_parameter(decl_context_t context, 
+        int template_parameter_nesting, int template_parameter_position);
+
+LIBMCXX_EXTERN char is_unqualified_id_expression(AST a);
+
+LIBMCXX_EXTERN char is_inline_namespace_of(decl_context_t inner_namespace_ctx, 
+        decl_context_t outer_namespace_ctx);
 
 MCXX_END_DECLS
 

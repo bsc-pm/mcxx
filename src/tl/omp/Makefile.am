@@ -21,13 +21,15 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS = core fun-tasks ss2omp @TL_OMP_EXTENSIONS@ 
+SUBDIRS = core @TL_OMP_EXTENSIONS@ 
 
 END=
 
-DIST_SUBDIRS=core\
+DIST_SUBDIRS=core \
              fun-tasks \
+             nanos-common \
              nanos4 \
              nanox \
              ss2omp \
+             profile \
              $(END)

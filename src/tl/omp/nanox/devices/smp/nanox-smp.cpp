@@ -134,13 +134,35 @@ static void do_smp_outline_replacements(AST_t body,
                     CXX_LANGUAGE()
                     {
                         // Set up a reference to the raw buffer properly casted to the data type
-                        initial_code
-                            << type.get_reference_to().get_declaration(sym.get_scope(), field_name)
-                            << "(" 
-                            << "(" << type.get_pointer_to().get_declaration(sym.get_scope(), "") << ")"
-                            << "_args->" << field_name
-                            << ");"
-                            ;
+
+                        Type ref_type = type;
+                        Type ptr_type = type;
+
+                        if (!type.is_reference())
+                        {
+                            ref_type = type.get_reference_to();
+                            ptr_type = type.get_pointer_to();
+
+                            initial_code
+                                << ref_type.get_declaration(sym.get_scope(), field_name)
+                                << "(" 
+                                << "(" << ptr_type.get_declaration(sym.get_scope(), "") << ")"
+                                << "_args->" << field_name
+                                << ");"
+                                ;
+                        }
+                        else
+                        {
+                            ptr_type = ref_type.references_to().get_pointer_to();
+
+                            initial_code
+                                << ref_type.get_declaration(sym.get_scope(), field_name)
+                                << "(" 
+                                << "*(" << ptr_type.get_declaration(sym.get_scope(), "") << ")"
+                                << "_args->" << field_name
+                                << ");"
+                                ;
+                        }
 
                         // This is the neatest aspect of references
                         replace_src.add_replacement(sym, field_name);
@@ -218,29 +240,35 @@ void DeviceSMP::create_outline(
 
     if (instrumentation_enabled())
     {
+        Source funct_id, funct_description;
         instrument_before
-            << "static volatile nanos_event_value_t nanos_funct_id = 0;"
-            << "static volatile int nanos_funct_id_init = 0;"
-            << "if (nanos_funct_id_init != 1)"
+            << "static int nanos_funct_id_init = 0;"
+            << "static nanos_event_key_t nanos_instr_user_fun_key = 0;"
+            << "static nanos_event_value_t nanos_instr_user_fun_value = 0;"
+            << "if (nanos_funct_id_init == 0)"
             << "{"
-            // 2 means 'busy'
-            <<     "if (__sync_bool_compare_and_swap(&nanos_funct_id_init, 0, 2))"
-            <<     "{"
-            <<         "nanos_funct_id = __sync_add_and_fetch(&nanos_global_funct_id_counter, 1);"
-            <<         "nanos_funct_id_init = 1;"
-            <<     "}"
-            <<     "while (nanos_funct_id_init != 1);"
-            // It could happen that nanos_funct_id_init is viewed as being 1
-            // before nanos_funct_id has been updated, so we issue here a
-            // synchronize to ensure all stores so far are visible by all
-            // threads
-            <<     "__sync_synchronize();"
+            <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct\", &nanos_instr_user_fun_key);"
+            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+            <<    "err = nanos_instrument_register_value ( &nanos_instr_user_fun_value, \"user-funct\","
+            <<               funct_id << "," << funct_description << ", 0);"
+            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+            <<    "nanos_funct_id_init = 1;"
             << "}"
-            << "nanos_instrument_enter_burst(NANOS_INSTRUMENT_USER_FUNCT, nanos_funct_id);"
+            << "nanos_instrument_enter_burst(nanos_instr_user_fun_key, nanos_instr_user_fun_value);"
             ;
 
         instrument_after
-            << "nanos_instrument_leave_burst(NANOS_INSTRUMENT_USER_FUNCT, funct_id);"
+            << "nanos_instrument_leave_burst(nanos_instr_user_fun_key);"
+            ;
+
+        funct_id
+            << "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
+            ;
+
+        funct_description
+            << "\"Outline created after construct at '" 
+            << reference_tree.get_locus() 
+            << "' found in function '" << function_symbol.get_qualified_name() << "'\""
             ;
     }
 
@@ -267,15 +295,35 @@ void DeviceSMP::create_outline(
             it != data_env_items.end();
             it++)
     {
-        if (!it->is_private())
-            continue;
+        if (it->is_private())
+        {
+            Symbol sym = it->get_symbol();
+            Type type = sym.get_type();
 
-        Symbol sym = it->get_symbol();
-        Type type = sym.get_type();
+            private_vars
+                << type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
+                ;
+        }
+        else if (it->is_raw_buffer())
+        {
+            Symbol sym = it->get_symbol();
+            Type type = sym.get_type();
+            std::string field_name = it->get_field_name();
 
-        private_vars
-            << type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
-            ;
+            if (type.is_reference())
+            {
+                type = type.references_to();
+            }
+
+            if (!type.is_named_class())
+            {
+                internal_error("invalid class type in field of raw buffer", 0);
+            }
+
+            final_code
+                << field_name << ".~" << type.get_symbol().get_name() << "();"
+                ;
+        }
     }
 
     if (outline_flags.barrier_at_end)

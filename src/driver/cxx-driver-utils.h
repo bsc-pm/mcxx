@@ -97,6 +97,8 @@ char move_file(const char* source, const char* dest);
 // This function adds a file for cleanup for non temporary ones
 void mark_file_for_cleanup(const char* name);
 void mark_dir_for_cleanup(const char* name);
+void mark_file_as_temporary(const char* name);
+void mark_dir_as_temporary(const char* name);
 
 // Find the path where the application runs
 const char* find_home(const char* progname);

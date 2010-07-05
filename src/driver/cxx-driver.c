@@ -111,12 +111,15 @@
 "  --cc=<name>              Another name for --cxx=<name>\n" \
 "  --ld=<name>              Linker <name> will be used for linking\n" \
 "  --pp-stdout              Preprocessor uses stdout for output\n" \
-"  --Wp,<options>           Pass comma-separated <options> on to\n" \
-"                           the preprocessor\n" \
-"  --Wn,<options>           Pass comma-separated <options> on to\n" \
-"                           the native compiler\n" \
-"  --Wl,<options>           Pass comma-separated <options> on to\n" \
-"                           the linker\n" \
+"  --W<flags>,<options>     Pass comma-separated <options> on to\n" \
+"                           the several programs invoked by the driver\n" \
+"                           Flag list is a sequence of 'p', 'n' or 'l'\n" \
+"                              p: preprocessor\n"  \
+"                              n: native compiler\n" \
+"                              l: linker\n" \
+"  --Wx:<profile>:<flags>,options\n" \
+"                           Like --W<flags>,<options> but for\n" \
+"                           a specific compiler profile\n" \
 "  --no-openmp              Disables all OpenMP support\n" \
 "  --config-file=<file>     Uses <file> as config file.\n" \
 "                           Use --print-config-file to get the\n" \
@@ -161,7 +164,9 @@
 "                           --debug-flags\n" \
 "  --help-target-options    Shows valid target options for\n" \
 "                           'target_options' option of configuration\n" \
-"                           file." \
+"                           file.\n" \
+"  --instantiate            Instantiate explicitly templates. This is\n" \
+"                           an unsupported experimental feature\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -241,6 +246,7 @@ struct command_line_long_options command_line_long_options[] =
     {"upc", CLP_OPTIONAL_ARGUMENT, OPTION_ENABLE_UPC},
     {"hlt", CLP_NO_ARGUMENT, OPTION_ENABLE_HLT},
     {"do-not-unload-phases", CLP_NO_ARGUMENT, OPTION_DO_NOT_UNLOAD_PHASES},
+    {"instantiate", CLP_NO_ARGUMENT, OPTION_INSTANTIATE_TEMPLATES},
     // sentinel
     {NULL, 0, 0}
 };
@@ -412,15 +418,15 @@ static void driver_initialization(int argc, const char* argv[])
     // Define alternate stack
     stack_t alternate_stack;
 
-	// Allocate a maximum of 1 Mbyte or more if MINSIGSTKSZ was
-	// bigger than that (this is unlikely)
-	int allocated_size = 1024 * 1024;
-	if (MINSIGSTKSZ > 1024*1024)
-	{
-		allocated_size = MINSIGSTKSZ;
-	}
+    // Allocate a maximum of 1 Mbyte or more if MINSIGSTKSZ was
+    // bigger than that (this is unlikely)
+    int allocated_size = 1024 * 1024;
+    if (MINSIGSTKSZ > 1024*1024)
+    {
+        allocated_size = MINSIGSTKSZ;
+    }
 
-	_alternate_signal_stack = malloc(allocated_size);
+    _alternate_signal_stack = malloc(allocated_size);
 
     alternate_stack.ss_flags = 0;
     alternate_stack.ss_size = allocated_size;
@@ -430,7 +436,7 @@ static void driver_initialization(int argc, const char* argv[])
             || sigaltstack(&alternate_stack, /* oss */ NULL) != 0)
     {
         running_error("Setting alternate signal stack failed (%s)\n",
-				strerror(errno));
+                strerror(errno));
     }
 
     // Program signals
@@ -587,20 +593,14 @@ int parse_arguments(int argc, const char* argv[],
             {
                 // Be a bit smart here
                 const char* extension = get_extension_filename(parameter_info.argument);
-                struct extensions_table_t* current_extension = NULL;
                 if (extension == NULL 
-                        || ((current_extension =
-                                fileextensions_lookup(extension, strlen(extension))) == NULL)
-                        || (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA))
-                {
-                    if (current_extension == NULL)
-                    {
-                        fprintf(stderr, "File '%s' not recognized as a valid input. Passing verbatim on to the linker.\n", 
-                                parameter_info.argument);
-                    }
-                    add_to_parameter_list_str(&CURRENT_CONFIGURATION->linker_options, parameter_info.argument);
-                    linker_files_seen = 1;
-                }
+                        || (fileextensions_lookup(extension, strlen(extension))) == NULL)
+        {
+            fprintf(stderr, "File '%s' not recognized as a valid input. Passing verbatim on to the linker.\n", 
+                    parameter_info.argument);
+            add_to_parameter_list_str(&CURRENT_CONFIGURATION->linker_options, parameter_info.argument);
+            linker_files_seen = 1;
+        }
                 else
                 {
                     P_LIST_ADD(input_files, num_input_files, parameter_info.argument);
@@ -971,6 +971,11 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_DO_NOT_UNLOAD_PHASES:
                     {
                         do_not_unload_phases = 1;
+                        break;
+                    }
+                case OPTION_INSTANTIATE_TEMPLATES:
+                    {
+                        CURRENT_CONFIGURATION->explicit_instantiation = 1;
                         break;
                     }
                 default:
@@ -1419,12 +1424,20 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
             }
         case '-' :
         {
-            if (argument[2] == 'W'
-                    && (strlen(argument) > strlen("--Wx,")))
+            if (argument[2] == 'W')
             {
-                if (!dry_run)
-                    parse_subcommand_arguments(&argument[3]);
-                (*should_advance)++;
+                // Check it is of the form -W*,
+                const char *p = strchr(&argument[2], ',');
+                if (p != NULL)
+                {
+                    // Check there is something after the first comma ','
+                    if (*(p+1) != '\0')
+                    {
+                        if (!dry_run)
+                            parse_subcommand_arguments(&argument[3]);
+                        (*should_advance)++;
+                    }
+                }
                 break;
             }
             else
@@ -1490,38 +1503,114 @@ void add_to_parameter_list(const char*** existing_options, const char **paramete
 
 static void parse_subcommand_arguments(const char* arguments)
 {
-    if ((strlen(arguments) <= 2)
-            || (arguments[1] != ',')
-            || (arguments[0] != 'n'
-                && arguments[0] != 'p'
-                && arguments[0] != 'l'))
+    char prepro_flag = 0;
+    char native_flag = 0;
+    char linker_flag = 0;
+
+    compilation_configuration_t* configuration = CURRENT_CONFIGURATION;
+
+    // We are understanding and we will assume --Wpp, is --Wp, 
+    // likewise with --Wpnp, will be like --Wpn
+    const char* p = arguments;
+
+    if (*p == 'x')
     {
-        options_error("Option --W is of the form --Wx, where 'x' can be 'n', 'p' or 'l'");
+        // Advance 'x'
+        p++;
+        if (*p != ':')
+        {
+            options_error("Option --W is of the form --Wx, in this case the proper syntax is --Wx:profile-name:m,");
+        }
+        // Advance ':'
+        p++;
+
+#define MAX_PROFILE_NAME 256
+        char profile_name[MAX_PROFILE_NAME] = { 0 };
+        char* q = profile_name;
+
+        while (*p != ':'
+                && *p != '\0')
+        {
+            if ((q - profile_name) > MAX_PROFILE_NAME)
+            {
+                running_error("Profile name too long in option '--W%s'\n", arguments);
+            }
+
+            *q = *p;
+            q++;
+            p++;
+        }
+        *q = '\0';
+
+        if (*p != ':')
+        {
+            options_error("Option --W is of the form --Wx, in this case the proper syntax is --Wx:profile-name:m,");
+        }
+
+        configuration = get_compilation_configuration(profile_name);
+
+        if (configuration == NULL)
+        {
+            fprintf(stderr, "No compiler configuration '%s' has been loaded, parameter '--W%s' will be ignored\n",
+                    profile_name, arguments);
+            return;
+        }
+
+        // Advance ':'
+        p++;
     }
+
+    while (*p != '\0'
+            && *p != ',')
+    {
+        switch (*p)
+        {
+            case 'p' : 
+                prepro_flag = 1;
+                break;
+            case 'n' : 
+                native_flag = 1;
+                break;
+            case 'l' : 
+                linker_flag = 1;
+                break;
+            default:
+                fprintf(stderr, "Invalid flag character %c for --W option only 'p', 'n' or 'l' are allowed, ignoring\n",
+                        *p);
+                break;
+        }
+        p++;
+    }
+
+    if (p == arguments)
+    {
+        options_error("Option --W is of the form '--W,' or '--W' and must be '--Wm,x'");
+    }
+
+    if (*p == '\0' || 
+            *(p+1) == '\0')
+    {
+        options_error("Option --W is of the form '--Wm,' and must be '--Wm,x'");
+    }
+
+    // Advance ','
+    p++;
 
     int num_parameters = 0;
-    const char** parameters = comma_separate_values(&arguments[2], &num_parameters);
+    const char** parameters = comma_separate_values(p, &num_parameters);
 
-    const char*** existing_options = NULL;
-
-    switch (arguments[0])
-    {
-        case 'n' :
-            existing_options = &CURRENT_CONFIGURATION->native_compiler_options;
-            break;
-        case 'p' :
-            existing_options = &CURRENT_CONFIGURATION->preprocessor_options;
-            break;
-        case 'l' :
-            existing_options = &CURRENT_CONFIGURATION->linker_options;
-            break;
-        default:
-            {
-                internal_error("Unknown '%c' switch\n", arguments[0]);
-            }
-    }
-
-    add_to_parameter_list(existing_options, parameters, num_parameters);
+    if (prepro_flag)
+        add_to_parameter_list(
+                &configuration->preprocessor_options,
+                parameters, num_parameters);
+    if (native_flag)
+        add_to_parameter_list(
+                &configuration->native_compiler_options,
+                parameters, num_parameters);
+    if (linker_flag)
+        add_to_parameter_list(
+                &configuration->linker_options,
+                parameters, num_parameters);
 }
 
 static compilation_configuration_t minimal_default_configuration;
@@ -1868,8 +1957,15 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
         struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
 
+    // Linker data is not processed anymore
+    if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA)
+    {
+        file_process->already_compiled = 1;
+        continue;
+    }
+
         if (!CURRENT_CONFIGURATION->force_language
-				&& (current_extension->source_language != CURRENT_CONFIGURATION->source_language)
+                && (current_extension->source_language != CURRENT_CONFIGURATION->source_language)
                 && (current_extension->source_kind != SOURCE_KIND_NOT_PARSED))
         {
             fprintf(stderr, "%s was configured for %s language but file '%s' looks %s language (it will be compiled anyways)\n",
@@ -1966,6 +2062,14 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 }
             }
 
+
+            const char* prettyprinted_filename = NULL;
+            if (current_extension->source_kind != SOURCE_KIND_NOT_PARSED)
+            {
+                prettyprinted_filename
+                    = prettyprint_translation_unit(translation_unit, parsed_filename);
+            }
+
             // Process secondary translation units
             if (file_process->num_secondary_translation_units != 0)
             {
@@ -1987,8 +2091,6 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
             if (current_extension->source_kind != SOURCE_KIND_NOT_PARSED)
             {
-                const char* prettyprinted_filename 
-                    = prettyprint_translation_unit(translation_unit, parsed_filename);
                 native_compilation(translation_unit, prettyprinted_filename, /* remove_input */ true);
             }
             else
@@ -2100,7 +2202,7 @@ static void parse_translation_unit(translation_unit_t* translation_unit, const c
 
 static AST get_translation_unit_node(void)
 {
-	return ASTMake1(AST_TRANSLATION_UNIT, NULL, NULL, 0, NULL);
+    return ASTMake1(AST_TRANSLATION_UNIT, NULL, NULL, 0, NULL);
 }
 
 static void initialize_semantic_analysis(translation_unit_t* translation_unit, 
@@ -2858,8 +2960,7 @@ static void do_combining(target_options_map_t* target_map,
 static void extract_files_and_sublink(const char** file_list, int num_files,
         compilation_configuration_t* target_configuration)
 {
-    // Purge multifile directory
-    multifile_wipe_dir();
+    multifile_init_dir();
 
     char no_multifile_info = 1;
 
@@ -2955,7 +3056,19 @@ static void link_objects(void)
     int j;
     for (j = 0; j < compilation_process.num_translation_units; j++)
     {
-        file_list[j] = compilation_process.translation_units[j]->translation_unit->output_filename;
+        translation_unit_t* translation_unit = compilation_process.translation_units[j]->translation_unit;
+
+        const char* extension = get_extension_filename(translation_unit->input_filename);
+        struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
+
+        if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA)
+        {
+            file_list[j] = translation_unit->input_filename;
+        }
+        else
+        {
+            file_list[j] = translation_unit->output_filename;
+        }
     }
 
     extract_files_and_sublink(file_list, compilation_process.num_translation_units, CURRENT_CONFIGURATION);

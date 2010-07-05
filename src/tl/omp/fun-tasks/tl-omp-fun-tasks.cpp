@@ -114,6 +114,7 @@ namespace OpenMP
                             && expr.get_called_expression().is_id_expression())
                     {
                         Symbol sym = expr.get_called_expression().get_id_expression().get_computed_symbol();
+
                         if (sym.is_valid()
                                 && sym.is_function()
                                 && _function_task_set->is_function_task(sym))
@@ -153,7 +154,7 @@ namespace OpenMP
                 << additional_decls
                 << "#line " << it->get_line() << " \"" << it->get_file() << "\"\n"
                 << target_line
-                << "#pragma omp task " << arg_clauses << "\n"
+                << "#pragma omp task default(firstprivate) " << arg_clauses << "\n"
                 << "{"
                 << "\n"
                 << "#line " << it->get_line() << " \"" << it->get_file() << "\"\n"
@@ -187,8 +188,10 @@ namespace OpenMP
                 {
                     if (current_sym.get_parameter_position() < argument_list.size())
                     {
-                        replace.add_replacement(current_sym, 
-                                "(" + argument_list[current_sym.get_parameter_position()].prettyprint() + ")");
+                        Source src;
+                        src << "__tmp_" << current_sym.get_parameter_position();
+
+                        replace.add_replacement(current_sym, src.get_source());
                     }
                     else
                     {
@@ -236,18 +239,19 @@ namespace OpenMP
 
             if (!input_args.empty())
             {
-                arg_clauses << " input(" << input_args << ")";
+                arg_clauses << " __fp_input(" << input_args << ")";
             }
             if (!output_args.empty())
             {
-                arg_clauses << " output(" << output_args << ")";
+                arg_clauses << " __fp_output(" << output_args << ")";
             }
             if (!inout_args.empty())
             {
-                arg_clauses << " inout(" << inout_args << ")";
+                arg_clauses << " __fp_inout(" << inout_args << ")";
             }
 
-            Source firstprivate_args;
+            // Add the task symbol name to the clause
+            arg_clauses << " __symbol(" << sym.get_name() << ")";
 
             int i = 0;
             for (ObjectList<Expression>::iterator it2 = argument_list.begin();
@@ -274,15 +278,8 @@ namespace OpenMP
                     ;
 
                 new_arguments.append_with_separator(ss.str(), ",");
-                firstprivate_args.append_with_separator(ss.str(), ",");
 
                 i++;
-            }
-
-            if (!firstprivate_args.empty())
-            {
-                arg_clauses << " firstprivate(" << firstprivate_args << ")"
-                    ;
             }
 
             ObjectList<FunctionTaskInfo::implementation_pair_t> implemented_tasks = task_info.get_devices_with_implementation();
@@ -398,7 +395,7 @@ namespace OpenMP
 
                         if (sym.is_parameter())
                         {
-                            ReplaceSrcIdExpression replace_copies(scope_link);
+                            ReplaceSrcIdExpression replace_copies(replace);
 
                             Source src;
                             src << "__tmp_" << sym.get_parameter_position();

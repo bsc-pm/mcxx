@@ -7,7 +7,7 @@ preprocessor_options = -E -include pthread.h -include string.h -I @MINTAKA_INCLU
 compiler_name = gcc
 compiler_options =  -g -ggdb3  
 linker_name = gcc
-linker_options = -L @ACOLIB_LIBS@ -l acolib -Wl,-rpath,@ACOLIB_LIBS@ -l pthread -L @MINTAKA_LIBS@ -l mintaka -Wl,-rpath,@MINTAKA_LIBS@ -g -ggdb3
+linker_options = -L @ACOLIB_LIBS@ -l acolib -Wl,@RPATH_PARAMETER@,@ACOLIB_LIBS@ -l pthread -L @MINTAKA_LIBS@ -l mintaka -Wl,@RPATH_PARAMETER@,@MINTAKA_LIBS@ -g -ggdb3
 compiler_phase = libtlacotes.so
 pragma_prefix = acotes
 

@@ -25,7 +25,7 @@ SUBDIRS=. devices
 
 include ../../Makefile.phases
 
-tl_omp_flags = -Wall $(tl_cflags) -I $(srcdir)/../core
+tl_omp_flags = -Wall $(tl_cflags) -I $(srcdir)/../core -I $(srcdir)/../nanos-common
 END=
 
 phases_LTLIBRARIES = libtlomp-nanox.la
@@ -33,6 +33,7 @@ phases_LTLIBRARIES = libtlomp-nanox.la
 libtlomp_nanox_la_CFLAGS = $(tl_omp_flags)
 libtlomp_nanox_la_CXXFLAGS = $(tl_omp_flags)
 libtlomp_nanox_la_LDFLAGS = $(tl_ldflags)
+libtlomp_nanox_la_LIBADD = $(tl_libadd) ../core/libtlomp-core.la ../nanos-common/libtlnanos-common.la
 
 libtlomp_nanox_la_SOURCES = \
      tl-omp-nanox.cpp \
@@ -49,6 +50,7 @@ libtlomp_nanox_la_SOURCES = \
      tl-threadprivate.cpp \
      tl-atomic.cpp \
      tl-barrier.cpp \
+     tl-flush.cpp \
      tl-target.cpp \
      tl-devices.hpp \
      tl-devices.cpp \

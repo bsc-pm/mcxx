@@ -24,6 +24,7 @@
 #include "cxx-process.h"
 #include "cxx-utils.h"
 #include "uniquestr.h"
+#include "filename.h"
 
 #include <string.h>
 #include <stdarg.h>
