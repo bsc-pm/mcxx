@@ -195,7 +195,9 @@ namespace TL
                     it++)
             {
                 Source src;
-                src << *it;
+                src 
+                    << "#line " << construct.get_ast().get_line() << " \"" << construct.get_ast().get_file() << "\"\n"
+                    << *it;
 
                 AST_t ast = src.parse_expression(construct.get_ast(),
                         construct.get_scope_link());
