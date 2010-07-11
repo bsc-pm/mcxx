@@ -927,7 +927,6 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
                                 && is_array_type(initializer_type)
                                 && array_type_get_array_size_expr(initializer_type) != NULL)
                         {
-                            // FIXME, are we losing qualification info?
                             entry->type_information = initializer_type;
                         }
                     }
