@@ -1743,13 +1743,14 @@ static type_t *character_literal_type(AST expr, const_value_t** val)
                 case '\'': { value = literal[2]; break; }
                 case 'a' : { value = '\a'; break; }
                 case 'b' : { value = '\b'; break; }
-                case 'e' : { value = '\e'; break; }
+                case 'e' : { value = '\e'; break; } // This is a gcc extension
                 case 'f' : { value = '\f'; break; }
                 case 'n' : { value = '\n'; break; }
                 case 'r' : { value = '\r'; break; }
                 case 't' : { value = '\t'; break; }
                 case 'v' : { value = '\v'; break; }
                 case '\\': { value = '\\'; break; }
+                case '\"': { value = '\"'; break; }
                 case '0': 
                 case '1': 
                 case '2': 
