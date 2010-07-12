@@ -39,6 +39,7 @@
 #include "cxx-overload.h"
 #include "cxx-tltype.h"
 #include "cxx-attrnames.h"
+#include "cxx-printscope.h"
 #include "hash.h"
 #include "hash_iterator.h"
 
@@ -2274,6 +2275,10 @@ decl_context_t update_context_with_template_arguments(
                 }
         }
     }
+
+    fprintf(stderr, "####################################\n");
+    print_scope(updated_context);
+    fprintf(stderr, "#-##################################\n");
 
     return updated_context;
 }

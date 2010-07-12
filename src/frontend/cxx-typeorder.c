@@ -238,7 +238,8 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
     template_argument_list_t* deduced_template_argument_list = 
         build_template_argument_list_from_deduction_set(deduction_result);
 
-    decl_context_t updated_context = update_context_with_template_arguments(decl_context,
+    decl_context_t updated_context = update_context_with_template_arguments(
+            decl_context,
             deduced_template_argument_list);
 
     for (i = 0; i < num_arguments; i++)

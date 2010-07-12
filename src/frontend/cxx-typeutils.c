@@ -1541,7 +1541,7 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
     else if (primary_symbol->kind == SK_FUNCTION)
     {
         decl_context_t updated_context 
-            = update_context_with_template_arguments(decl_context, template_argument_list);
+            = update_context_with_template_arguments(primary_symbol->decl_context, template_argument_list);
         type_t* updated_function_type = update_type(primary_symbol->type_information, updated_context, filename, line);
 
         // This will give us a new function type

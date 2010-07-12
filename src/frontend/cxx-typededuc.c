@@ -97,7 +97,8 @@ char deduce_template_arguments_common(
     int num_deduction_slots = 0;
     if (explicit_template_arguments != NULL)
     {
-        updated_context = update_context_with_template_arguments(updated_context,
+        updated_context = update_context_with_template_arguments(
+                decl_context,
                 explicit_template_arguments);
 
         DEBUG_CODE()
@@ -680,7 +681,8 @@ char deduce_arguments_of_conversion(
     template_argument_list_t* deduced_template_argument_list = 
         build_template_argument_list_from_deduction_set(*deduction_result);
 
-    decl_context_t updated_context = update_context_with_template_arguments(decl_context,
+    decl_context_t updated_context = update_context_with_template_arguments(
+            specialized_symbol->decl_context,
             deduced_template_argument_list);
 
     type_t* original_parameter_type = (*parameter_types);
@@ -890,7 +892,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
         build_template_argument_list_from_deduction_set(*deduction_result);
 
     decl_context_t updated_context = update_context_with_template_arguments(
-            decl_context,
+            specialized_symbol->decl_context,
             deduced_template_argument_list);
 
     for (i = 0; i < relevant_arguments; i++)
