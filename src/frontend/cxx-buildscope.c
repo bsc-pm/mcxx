@@ -5767,8 +5767,15 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
         {
             if (initializer != NULL)
             {
+                // Here the template scope is the one of the template declaration, 
+                // not for the symbol
+
+                decl_context_t initializer_context = entry->decl_context;
+                initializer_context.template_scope = new_decl_context.template_scope;
+
                 check_for_initialization(initializer, 
-                        entry->decl_context, get_unqualified_type(declarator_type));
+                        initializer_context, 
+                        get_unqualified_type(declarator_type));
                 entry->expression_value = initializer;
             }
         }
