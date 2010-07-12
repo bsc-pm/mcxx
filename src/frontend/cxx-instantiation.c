@@ -590,18 +590,6 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             filename, line);
 
                     class_type_add_member_function(get_actual_class_type(being_instantiated), new_member);
-
-                    DEBUG_CODE()
-                    {
-                        char is_dependent = 0;
-                        int max_qualif = 0;
-                        fprintf(stderr, "INSTANTIATION: New member function '%s'\n",
-                                print_decl_type_str(new_member->type_information, 
-                                    context_of_being_instantiated, 
-                                    get_fully_qualified_symbol_name(new_member, 
-                                        context_of_being_instantiated, 
-                                        &is_dependent, &max_qualif)));
-                    }
                 }
                 else
                 {
@@ -628,6 +616,18 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     // We work on the primary template
                     type_t* primary_type = template_type_get_primary_type(new_member->type_information);
                     new_member = named_type_get_symbol(primary_type);
+                }
+
+                DEBUG_CODE()
+                {
+                    char is_dependent = 0;
+                    int max_qualif = 0;
+                    fprintf(stderr, "INSTANTIATION: New member function '%s'\n",
+                            print_decl_type_str(new_member->type_information, 
+                                context_of_being_instantiated, 
+                                get_fully_qualified_symbol_name(new_member, 
+                                    context_of_being_instantiated, 
+                                    &is_dependent, &max_qualif)));
                 }
 
                 // Functions are not defined yet
