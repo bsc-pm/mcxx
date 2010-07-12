@@ -6116,9 +6116,9 @@ static void build_scope_nontype_template_parameter(AST a,
     ASTAttrSetValueType(a, LANG_IS_TEMPLATE_PARAMETER, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_IS_NONTYPE_TEMPLATE_PARAMETER, tl_type_t, tl_bool(1));
 
-    if (parameter_declarator != NULL)
+    AST declarator_name = get_declarator_name(parameter_declarator, template_context);
+    if (declarator_name != NULL)
     {
-        AST declarator_name = get_declarator_name(parameter_declarator, template_context);
         char *declarator_name_str = prettyprint_in_buffer(declarator_name);
         DEBUG_CODE()
         {
