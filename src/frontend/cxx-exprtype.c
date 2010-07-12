@@ -2403,6 +2403,26 @@ static type_t* compute_member_user_defined_bin_operator_type(AST operator_name,
     return overloaded_type;
 }
 
+static char filter_only_nonmembers_or_static_members(scope_entry_t* e)
+{
+    if (e->kind != SK_FUNCTION 
+            && e->kind != SK_TEMPLATE)
+        return 0;
+
+    if (e->kind == SK_TEMPLATE)
+    {
+        e = named_type_get_symbol(template_type_get_primary_type(e->type_information));
+        if (e->kind != SK_FUNCTION)
+            return 0;
+    }
+
+    if (!e->entity_specs.is_member
+            || e->entity_specs.is_static)
+        return 1;
+
+    return 0;
+}
+
 static type_t* compute_user_defined_bin_operator_type(AST operator_name, 
         AST expr,
         AST lhs, AST rhs, 
@@ -2435,6 +2455,10 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
 
     scope_entry_list_t *entry_list = koenig_lookup(num_arguments - 1,
             &(argument_types[1]), decl_context, operator_name);
+    
+    // Normal lookup might find nonstatic member functions at this point,
+    // filter them out
+    entry_list = filter_symbol_using_predicate(entry_list, filter_only_nonmembers_or_static_members);
     
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(entry_list,
             builtins, &(argument_types[1]), num_arguments - 1,
@@ -2562,6 +2586,9 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
 
     scope_entry_list_t *entry_list = koenig_lookup(num_arguments - 1,
             &(argument_types[1]), decl_context, operator_name);
+
+    // Remove any member that might have slip in because of plain lookup
+    entry_list = filter_symbol_using_predicate(entry_list, filter_only_nonmembers_or_static_members);
     
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(
             entry_list, builtins, &(argument_types[1]), num_arguments - 1,
