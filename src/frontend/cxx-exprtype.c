@@ -5784,8 +5784,12 @@ static char check_for_conditional_expression_impl(AST expression, decl_context_t
          * we rely in overload mechanism
          */
         if (!equivalent_types(no_ref(second_type), no_ref(third_type))
-                && (is_class_type(no_ref(second_type))
-                        || is_class_type(no_ref(third_type))))
+                && ((is_class_type(no_ref(second_type))
+                        || is_class_type(no_ref(third_type)))
+                    || (is_enumerated_type(no_ref(second_type))
+                        || is_enumerated_type(no_ref(third_type)))
+                    )
+                )
         {
             builtin_operators_set_t builtin_set;
 
@@ -5802,15 +5806,16 @@ static char check_for_conditional_expression_impl(AST expression, decl_context_t
             scope_entry_list_t* builtins = 
                 get_entry_list_from_builtin_operator_set(&builtin_set);
 
-            int num_arguments = 3;
+            int num_arguments = 4;
 
-            type_t* argument_types[3] = {
+            type_t* argument_types[4] = {
                 NULL, // This operator is never a member
+                get_bool_type(),
                 second_type,
                 third_type,
             };
 
-            scope_entry_t* conversors[3] = { NULL, NULL, NULL };
+            scope_entry_t* conversors[4] = { NULL, NULL, NULL, NULL };
 
             scope_entry_t *overloaded_call = solve_overload(builtins,
                     argument_types, num_arguments, decl_context,
@@ -5823,7 +5828,7 @@ static char check_for_conditional_expression_impl(AST expression, decl_context_t
             }
 
             int k;
-            for (k = 0; k < 3; k++)
+            for (k = 0; k < 4; k++)
             {
                 if (conversors[k] != NULL)
                 {
