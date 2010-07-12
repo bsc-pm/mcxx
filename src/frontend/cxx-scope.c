@@ -2276,9 +2276,9 @@ decl_context_t update_context_with_template_arguments(
         }
     }
 
-    fprintf(stderr, "####################################\n");
-    print_scope(updated_context);
-    fprintf(stderr, "#-##################################\n");
+    // fprintf(stderr, "####################################\n");
+    // print_scope(updated_context);
+    // fprintf(stderr, "#-##################################\n");
 
     return updated_context;
 }
