@@ -32,7 +32,7 @@ struct B
 
 struct A
 {
-    bool operator==(const A& a1, const A& a2)
+    bool operator==(const A& a1)
     {
     }
 
