@@ -878,7 +878,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
 
     if (!deduce_template_arguments_common(template_parameters,
                 argument_types, relevant_arguments,
-                parameter_types, decl_context,
+                parameter_types, specialized_symbol->decl_context,
                 deduction_result, filename, line, 
                 explicit_template_arguments,
                 deduction_flags_empty()))

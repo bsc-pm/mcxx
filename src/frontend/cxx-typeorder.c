@@ -329,7 +329,8 @@ char is_less_or_equal_specialized_template_class(type_t* c1, type_t* c2, decl_co
             c2_parameters, 1);
 
     return is_less_or_equal_specialized_template_function_common_(faked_type_1, faked_type_2, 
-            decl_context, deduction_set, 
+            named_type_get_symbol(c1)->decl_context, 
+            deduction_set, 
             /* explicit_template_arguments */ NULL,
             filename, line,
             /* is_conversion */ 0,
