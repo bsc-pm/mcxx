@@ -1020,7 +1020,9 @@ namespace TL
 
         static bool solve_overload_for_udr(ObjectList<Symbol> operator_list, Type reduction_type,
                 UDRInfoItem::Associativity &assoc,
-                ObjectList<Symbol> &all_viables, const std::string& filename, int line)
+                ObjectList<Symbol> &all_viables, 
+                ObjectList<Symbol> &tentative_result,
+                const std::string& filename, int line)
         {
             bool found_valid = false;
             ObjectList<udr_valid_prototypes_t> valid_prototypes = get_valid_prototypes_cxx(reduction_type);
@@ -1029,8 +1031,6 @@ namespace TL
 
             ObjectList<Symbol> members_set = operator_list.filter(OnlyMembers());
             ObjectList<Symbol> non_members_set = operator_list.filter(OnlyNonMembers());
-
-            ObjectList<Symbol> tentative_result;
 
             // First the set of nonmembers
             for (ObjectList<udr_valid_prototypes_t>::iterator it = valid_prototypes.begin();
@@ -1355,16 +1355,27 @@ namespace TL
                                 && !op_symbols[0].is_dependent_entity())
                         {
                             ObjectList<Symbol> viable_operators;
+                            ObjectList<Symbol> tentative_result;
                             if (!solve_overload_for_udr(op_symbols, reduction_type, assoc, 
                                         viable_operators, 
+                                        tentative_result,
                                         construct.get_ast().get_file(),
                                         construct.get_ast().get_line()))
                             {
                                 if (!viable_operators.empty())
                                 {
-                                    std::cerr << construct.get_ast().get_locus() 
-                                        << ": note: more than one function matches the user-defined reduction" 
-                                        << std::endl;
+                                    if (!tentative_result.empty())
+                                    {
+                                        std::cerr << construct.get_ast().get_locus() 
+                                            << ": note: more than one function is valid for the user-defined reduction" 
+                                            << std::endl;
+                                    }
+                                    else
+                                    {
+                                        std::cerr << construct.get_ast().get_locus() 
+                                            << ": note: no function is valid for the user-defined reduction" 
+                                            << std::endl;
+                                    }
                                     std::cerr << construct.get_ast().get_locus() 
                                         << ": note: candidates are"
                                         << std::endl;
@@ -1382,7 +1393,7 @@ namespace TL
                                         construct.get_ast().get_locus().c_str());
                             }
 
-                            op_symbols = viable_operators;
+                            op_symbols = tentative_result;
                         }
                     }
 
