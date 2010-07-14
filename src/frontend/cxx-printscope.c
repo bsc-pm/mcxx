@@ -71,6 +71,7 @@ static char* symbol_kind_names[] =
     [SK_TEMPLATE_TEMPLATE_PARAMETER] = "SK_TEMPLATE_TEMPLATE_PARAMETER", 
     // GCC Extension for builtin types
     [SK_GCC_BUILTIN_TYPE] = "SK_GCC_BUILTIN_TYPE",
+    [SK_DEPENDENT_ENTITY] = "SK_DEPENDENT_ENTITY",
     // Artificial symbols
     [SK_OTHER] = "SK_OTHER"
 };
