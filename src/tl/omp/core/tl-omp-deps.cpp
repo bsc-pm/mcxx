@@ -66,7 +66,7 @@ namespace TL { namespace OpenMP {
 
     static void add_data_sharings(ObjectList<Expression> &expression_list, 
             DataSharingEnvironment& data_sharing, 
-            DependencyDirection attr)
+            DependencyDirection dep_attr)
     {
         for (ObjectList<Expression>::iterator it = expression_list.begin();
                 it != expression_list.end();
@@ -80,12 +80,12 @@ namespace TL { namespace OpenMP {
                 continue;
             }
 
-            DependencyItem dep_item(*it, attr);
+            DependencyItem dep_item(*it, dep_attr);
 
             Symbol sym = expr.get_base_symbol();
-            DataSharingAttribute attr = data_sharing.get_data_sharing(sym);
+            DataSharingAttribute ds_attr = data_sharing.get_data_sharing(sym);
 
-            if ((attr & DEP_FIRSTPRIVATE) != DEP_FIRSTPRIVATE)
+            if ((dep_attr & DEP_FIRSTPRIVATE) != DEP_FIRSTPRIVATE)
             {
                 data_sharing.set_data_sharing(sym, (DataSharingAttribute)(DS_SHARED | DS_IMPLICIT));
             }
