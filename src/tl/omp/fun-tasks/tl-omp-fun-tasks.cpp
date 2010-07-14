@@ -170,12 +170,9 @@ namespace OpenMP
             new_call << expr.get_called_expression() << "(" << new_arguments << ")"
                 ;
 
-            // Now replace the inputs and outputs
-            Source input_args;
-            Source output_args;
-            Source inout_args;
-
             ReplaceSrcIdExpression replace(scope_link);
+
+            ObjectList<int> parameters_as_dependences;
 
             ObjectList<Symbol> sym_list = task_info.get_involved_parameters();
             ObjectList<Expression> argument_list = expr.get_argument_list();
@@ -192,6 +189,8 @@ namespace OpenMP
                         src << "__tmp_" << current_sym.get_parameter_position();
 
                         replace.add_replacement(current_sym, src.get_source());
+
+                        parameters_as_dependences.insert(current_sym.get_parameter_position());
                     }
                     else
                     {
@@ -203,6 +202,10 @@ namespace OpenMP
                 }
             }
 
+            // Now replace the inputs and outputs
+            Source input_args;
+            Source output_args;
+            Source inout_args;
 
             for (ObjectList<FunctionTaskDependency>::iterator it2 = task_params.begin();
                     it2 != task_params.end();
@@ -237,6 +240,23 @@ namespace OpenMP
                         ",");
             }
 
+            // Now check parameters that do not appear in dependences since
+            // they must appear in firstprivate
+            Source firstprivate_args;
+            for (unsigned int i = 0; i < argument_list.size(); i++)
+            {
+                if (!parameters_as_dependences.contains(i))
+                {
+                    firstprivate_args.append_with_separator(
+                            Source("__tmp_") << i,
+                            ",");
+                }
+            }
+
+            if (!firstprivate_args.empty())
+            {
+                arg_clauses << " firstprivate(" << firstprivate_args << ")";
+            }
             if (!input_args.empty())
             {
                 arg_clauses << " __fp_input(" << input_args << ")";
