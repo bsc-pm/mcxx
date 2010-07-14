@@ -1368,8 +1368,9 @@ static void templated_cast_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx
 
 static void member_declaration_qualif_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
+    indent_at_level(f, a, pt_ctx);
     prettyprint_level(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, ";");
+    token_fprintf(f, a, pt_ctx, ";\n");
 }
 
 static void qualified_id_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)

@@ -662,6 +662,63 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                 break;
             }
+            // This is only possible because of using declarations / or qualified members
+            // which refer to dependent entities
+        case SK_DEPENDENT_ENTITY:
+            {
+                ERROR_CONDITION(member_of_template->expression_value == NULL,
+                        "Invalid expression for dependent entity", 0);
+
+                scope_entry_list_t *entry_list = query_id_expression(context_of_being_instantiated, member_of_template->expression_value);
+                
+                if (entry_list == NULL
+                        || !entry_list->entry->entity_specs.is_member)
+                {
+                    running_error("%s: invalid using declaration '%s' while instantiating\n", 
+                            ast_location(member_of_template->expression_value),
+                            prettyprint_in_buffer(member_of_template->expression_value));
+                }
+
+                if (!class_type_is_base(entry_list->entry->entity_specs.class_type, 
+                            get_actual_class_type(being_instantiated)))
+                {
+                    char is_dependent = 0;
+                    int max_qualif = 0;
+
+                    running_error("%s: entity '%s' is not a base of class '%s'\n",
+                            ast_location(member_of_template->expression_value),
+                            print_decl_type_str(entry_list->entry->type_information, 
+                                context_of_being_instantiated, 
+                                get_fully_qualified_symbol_name(entry_list->entry, 
+                                    context_of_being_instantiated, 
+                                    &is_dependent, &max_qualif)),
+                            print_decl_type_str(named_type_get_symbol(being_instantiated)->type_information,
+                                context_of_being_instantiated, 
+                                get_fully_qualified_symbol_name(named_type_get_symbol(being_instantiated), 
+                                    context_of_being_instantiated, 
+                                    &is_dependent, &max_qualif))
+                            );
+                }
+
+                scope_entry_list_t* it = entry_list;
+                while (it != NULL)
+                {
+                    class_type_add_member(get_actual_class_type(being_instantiated), it->entry);
+
+                    // Insert the symbol in the context
+                    insert_entry(context_of_being_instantiated.current_scope, it->entry);
+
+                    if (it->entry->kind == SK_FUNCTION
+                            && it->entry->entity_specs.is_conversion)
+                    {
+                        class_type_add_conversion_function(get_actual_class_type(being_instantiated), it->entry);
+                    }
+
+                    it = it->next;
+                }
+
+                break;
+            }
         default:
             {
                 internal_error("Unexpected member kind=%d\n", member_of_template->kind);

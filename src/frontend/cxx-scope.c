@@ -976,8 +976,36 @@ static scope_entry_list_t* query_qualified_name(
             // Create a SK_DEPENDENT_ENTITY just to acknowledge that this was
             // dependent
             scope_entry_t* dependent_entity = counted_calloc(1, sizeof(*dependent_entity), &_bytes_used_scopes);
+            if (ASTType(unqualified_name) == AST_SYMBOL)
+            {
+                dependent_entity->symbol_name = ASTText(unqualified_name);
+            }
+            else if (ASTType(unqualified_name) == AST_TEMPLATE_ID)
+            {
+                dependent_entity->symbol_name = ASTText(ASTSon0(unqualified_name));
+            }
+            else if (ASTType(unqualified_name) == AST_OPERATOR_FUNCTION_ID
+                    || ASTType(unqualified_name) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
+            {
+                dependent_entity->symbol_name = get_operator_function_name(unqualified_name);
+            }
+            else if (ASTType(unqualified_name) == AST_CONVERSION_FUNCTION_ID)
+            {
+                dependent_entity->symbol_name = get_conversion_function_name(nested_name_context, 
+                        unqualified_name, /* result_type */ NULL);
+            }
+            else
+            {
+                internal_error("unhandled dependent name '%s'\n", prettyprint_in_buffer(unqualified_name));
+            }
+
+            dependent_entity->decl_context = nested_name_context;
             dependent_entity->kind = SK_DEPENDENT_ENTITY;
             dependent_entity->type_information = dependent_type;
+            dependent_entity->expression_value = 
+                ASTMake3(AST_QUALIFIED_ID,
+                        global_op, nested_name, unqualified_name,
+                        ASTLine(unqualified_name), ASTFileName(unqualified_name), NULL);
 
             result = create_list_from_entry(dependent_entity);
             return result;

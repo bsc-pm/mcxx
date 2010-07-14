@@ -144,6 +144,8 @@ static void build_scope_static_assert(AST a, decl_context_t decl_context);
 static void build_scope_using_directive(AST a, decl_context_t decl_context);
 static void build_scope_using_declaration(AST a, decl_context_t decl_context);
 
+static void build_scope_member_declaration_qualified(AST a, decl_context_t decl_context);
+
 static void build_scope_template_function_definition(AST a, decl_context_t decl_context);
 
 static void build_scope_explicit_instantiation(AST a, decl_context_t decl_context);
@@ -680,27 +682,18 @@ static void build_scope_using_directive(AST a, decl_context_t decl_context)
             entry);
 }
 
-static void build_scope_using_declaration(AST a, decl_context_t decl_context)
+static void introduce_using_entity(AST id_expression, decl_context_t decl_context)
 {
-    AST id_expression = ASTSon0(a);
-
-    if (decl_context.current_scope->kind != CLASS_SCOPE
-            && decl_context.current_scope->kind != NAMESPACE_SCOPE
-            && decl_context.current_scope->kind != BLOCK_SCOPE)
-    {
-        running_error("%s: error: using-declaration not in a class, namespace or block scope",
-                ast_location(a));
-    }
-
-    scope_entry_list_t* used_entity = query_id_expression(decl_context, 
-            id_expression);
+    scope_entry_list_t* used_entity = query_id_expression_flags(decl_context, 
+            id_expression, 
+            // Do not examine uninstantiated templates
+            DF_DEPENDENT_TYPENAME);
 
     if (used_entity == NULL)
     {
         running_error("%s: error: named entity '%s' in using-declaration is unknown",
-                ast_location(a),
+                ast_location(id_expression),
                 prettyprint_in_buffer(id_expression));
-
     }
 
     type_t* current_class_type = NULL;
@@ -716,28 +709,26 @@ static void build_scope_using_declaration(AST a, decl_context_t decl_context)
         // Now add all the used entities to the current scope
         scope_entry_t* entry = used_entity->entry;
 
-        if (entry->kind != SK_DEPENDENT_ENTITY)
-        {
-            insert_entry(decl_context.current_scope, entry);
-        }
+        insert_entry(decl_context.current_scope, entry);
 
-        if (is_class_scope)
+        if (is_class_scope 
+                && entry->kind != SK_DEPENDENT_ENTITY)
         {
             if (entry->entity_specs.is_member
-                    && !is_dependent_type(entry->entity_specs.class_type))
+                    || !class_type_is_base(entry->entity_specs.class_type, current_class_type))
             {
-                if (!class_type_is_base(entry->entity_specs.class_type, current_class_type))
-                {
-                    char is_dependent = 0;
-                    int max_qualif = 0;
-                    fprintf(stderr, "%s: warning: '%s' is not a member of a base class\n",
-                            ast_location(a),
-                            get_fully_qualified_symbol_name(entry, 
-                                decl_context,
-                                &is_dependent, 
-                                &max_qualif));
-                }
+                char is_dependent = 0;
+                int max_qualif = 0;
+                running_error("%s: error: '%s' is not a member of a base class\n",
+                        ast_location(id_expression),
+                        get_fully_qualified_symbol_name(entry, 
+                            decl_context,
+                            &is_dependent, 
+                            &max_qualif));
+            }
 
+            if (entry->kind == SK_FUNCTION)
+            {
                 // If we are introducing special members, introduce also to current class type
                 if (entry->entity_specs.is_conversion)
                 {
@@ -745,9 +736,36 @@ static void build_scope_using_declaration(AST a, decl_context_t decl_context)
                 }
             }
         }
+        else
+        {
+            // We want it to be instantiated later Note that it is not added as
+            // a nonstatic data member so it should not affect data sizeof
+            class_type_add_member(current_class_type, entry);
+        }
 
         used_entity = used_entity->next;
     }
+}
+
+static void build_scope_using_declaration(AST a, decl_context_t decl_context)
+{
+    AST id_expression = ASTSon0(a);
+
+    if (decl_context.current_scope->kind != CLASS_SCOPE
+            && decl_context.current_scope->kind != NAMESPACE_SCOPE
+            && decl_context.current_scope->kind != BLOCK_SCOPE)
+    {
+        running_error("%s: error: using-declaration not in a class, namespace or block scope",
+                ast_location(a));
+    }
+
+    introduce_using_entity(id_expression, decl_context);
+}
+
+static void build_scope_member_declaration_qualified(AST a, decl_context_t decl_context)
+{
+    AST id_expression = ASTSon0(a);
+    introduce_using_entity(id_expression, decl_context);
 }
 
 static void build_scope_static_assert(AST a, decl_context_t decl_context)
@@ -6810,6 +6828,12 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
         case AST_USING_DECLARATION :
             {
                 build_scope_using_declaration(a, inner_decl_context);
+                break;
+            }
+        case AST_MEMBER_DECLARATION_QUALIF:
+            {
+                // This is a deprecated syntax meaning the same of AST_USING_DECLARATION
+                build_scope_member_declaration_qualified(a, inner_decl_context);
                 break;
             }
         case AST_STATIC_ASSERT:
