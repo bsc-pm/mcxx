@@ -356,22 +356,6 @@ namespace TL
         data_sharing.get_all_symbols(OpenMP::DS_SHARED, shared);
         data_sharing.get_all_symbols(OpenMP::DS_FIRSTPRIVATE, value);
         data_sharing.get_all_symbols(OpenMP::DS_PRIVATE, private_symbols);
-
-        for (ObjectList<OpenMP::DependencyItem>::iterator 
-                it = dependences.begin();
-                it != dependences.end();
-                it++)
-        {
-            DataReference data_ref = it->get_dependency_expression();
-
-            if (((it->get_kind() & TL::OpenMP::DEP_DIR_OUTPUT) == TL::OpenMP::DEP_DIR_OUTPUT)
-                    && (value.contains(data_ref.get_base_symbol())))
-            {
-                // Remove it from value and add it to shared
-                value = value.not_find(data_ref.get_base_symbol());
-                shared.append(data_ref.get_base_symbol());
-            }
-        }
     }
 
     void Nanox::compute_data_environment(
