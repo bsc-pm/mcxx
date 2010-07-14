@@ -832,9 +832,6 @@ namespace TL
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
             _openmp_info->push_current_data_sharing(data_sharing);
 
-            // First get target info
-            get_target_info(construct, data_sharing);
-
             get_data_explicit_attributes(construct, data_sharing);
             DataSharingAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DS_UNDEFINED);
 
@@ -845,6 +842,9 @@ namespace TL
             }
             
             get_dependences_info(construct, data_sharing);
+
+            // Target info applies after
+            get_target_info(construct, data_sharing);
         }
 
         void Core::task_handler_post(PragmaCustomConstruct construct)
