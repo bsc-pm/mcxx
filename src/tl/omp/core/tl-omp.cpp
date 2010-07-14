@@ -258,6 +258,11 @@ namespace TL
                 return;
             }
 
+            if (data_flow.get_keys().contains("openmp_task_info"))
+            {
+                function_task_set = RefPtr<FunctionTaskSet>::cast_static(data_flow["openmp_task_info"]);
+            }
+
             // Let the user register its slots
             this->init(data_flow);
 

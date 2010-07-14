@@ -153,7 +153,7 @@ namespace TL
                 Symbol function_sym = decl_entity.get_declared_symbol();
 
                 // Now lookup a FunctionTaskInfo
-                if (_function_task_set->is_function_task(target_ctx.implements))
+                if (!_function_task_set->is_function_task(target_ctx.implements))
                 {
                     std::cerr << ctr.get_ast().get_locus() << ": warning: '" 
                         << target_ctx.implements.get_qualified_name()
@@ -182,7 +182,11 @@ namespace TL
 
         void Core::target_handler_post(PragmaCustomConstruct ctr)
         {
-            _target_context.pop();
+            // It might be empty due to early exits in the preorder routine
+            if (!_target_context.empty())
+            {
+                _target_context.pop();
+            }
         }
 
         static void add_copy_items(PragmaCustomConstruct construct, 
