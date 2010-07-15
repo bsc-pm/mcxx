@@ -163,16 +163,21 @@ namespace TL
                 else
                 {
                     FunctionTaskInfo& function_task_info = _function_task_set->get_function_task(target_ctx.implements);
+                    ObjectList<FunctionTaskInfo::implementation_pair_t> devices_with_impl = 
+                        function_task_info.get_devices_with_implementation();
 
                     for (ObjectList<std::string>::iterator it = target_ctx.device_list.begin();
                             it != target_ctx.device_list.end();
                             it++)
                     {
-                        std::cerr << ctr.get_ast().get_locus() << 
-                            ": note: adding function '" << function_sym.get_qualified_name() << "'"
-                            << " as the implementation of '" << target_ctx.implements.get_qualified_name() << "'"
-                            << " for device '" << *it << "'" << std::endl;
-                        function_task_info.add_device_with_implementation(*it, function_sym);
+                        if (!devices_with_impl.contains(std::make_pair(*it, function_sym)))
+                        {
+                            std::cerr << ctr.get_ast().get_locus() << 
+                                ": note: adding function '" << function_sym.get_qualified_name() << "'"
+                                << " as the implementation of '" << target_ctx.implements.get_qualified_name() << "'"
+                                << " for device '" << *it << "'" << std::endl;
+                            function_task_info.add_device_with_implementation(*it, function_sym);
+                        }
                     }
                 }
             }

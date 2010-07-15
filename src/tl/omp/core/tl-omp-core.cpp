@@ -63,6 +63,10 @@ namespace TL
                 _function_task_set = RefPtr<OpenMP::FunctionTaskSet>(new OpenMP::FunctionTaskSet());
                 dto.set_object("openmp_task_info", _function_task_set);
             }
+            else
+            {
+                _function_task_set = RefPtr<FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
+            }
 
             if (!dto.get_keys().contains("openmp_core_should_run"))
             {
@@ -835,12 +839,6 @@ namespace TL
             get_data_explicit_attributes(construct, data_sharing);
             DataSharingAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DS_UNDEFINED);
 
-            // Do not get implicit attributes for transformed function tasks
-            if (!construct.get_clause("__function").is_defined())
-            {
-                get_data_implicit_attributes_task(construct, data_sharing, default_data_attr);
-            }
-            
             get_dependences_info(construct, data_sharing);
 
             // Target info applies after
