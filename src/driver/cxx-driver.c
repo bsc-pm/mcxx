@@ -2686,6 +2686,13 @@ static void embed_files(void)
         compilation_file_process_t** secondary_translation_units = 
             compilation_process.translation_units[i]->secondary_translation_units;
 
+        const char* extension = get_extension_filename(compilation_process.translation_units[i]->translation_unit->input_filename);
+        struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
+
+        // We do not have to embed linker data
+        if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA)
+            continue;
+
         const char *output_filename = compilation_process.translation_units[i]->translation_unit->output_filename;
 
         if (CURRENT_CONFIGURATION->verbose)

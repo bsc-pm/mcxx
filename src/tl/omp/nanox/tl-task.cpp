@@ -88,7 +88,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     // Check for __symbol clause, and if found, get the task function symbol
     Symbol task_symbol = NULL;
     PragmaCustomClause function_clause = ctr.get_clause("__symbol");
-
     if (function_clause.is_defined())
     {
     	ObjectList<Expression> expr_list = function_clause.get_expression_list();
@@ -154,6 +153,49 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
         some_device_needs_copies = some_device_needs_copies
             || device_provider->needs_copies();
+    }
+
+    // If this is a function coming from a task try to get its devices with an
+    // implementation already given
+    if (function_clause.is_defined())
+    {
+        if (!task_symbol.is_function())
+        {
+            internal_error("%s: invalid symbol for __function clause\n",
+                    ctr.get_ast().get_locus().c_str());
+        }
+
+        if (!function_task_set->is_function_task(task_symbol))
+        {
+            internal_error("%s: __function clause function is not task function\n",
+                    ctr.get_ast().get_locus().c_str());
+        }
+
+        OpenMP::FunctionTaskInfo& function_task_info 
+            = function_task_set->get_function_task(task_symbol);
+        ObjectList<OpenMP::FunctionTaskInfo::implementation_pair_t> implementation_list 
+            = function_task_info.get_devices_with_implementation();
+
+        for (ObjectList<OpenMP::FunctionTaskInfo::implementation_pair_t>::iterator it = implementation_list.begin();
+                it != implementation_list.end();
+                it++)
+        {
+            DeviceProvider* device_provider = device_handler.get_device(it->first);
+
+            if (device_provider == NULL)
+            {
+                internal_error("invalid device '%s' at '%s'\n",
+                        it->first.c_str(), ctr.get_ast().get_locus().c_str());
+            }
+
+            device_provider->get_device_descriptor(
+                    /* outline_name */
+                    it->second.get_qualified_name(),
+                    data_environ_info, 
+                    outline_flags,
+                    ancillary_device_description, 
+                    device_description_line);
+        }
     }
 
     num_devices << current_targets.size();

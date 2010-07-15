@@ -153,7 +153,7 @@ namespace TL
                 Symbol function_sym = decl_entity.get_declared_symbol();
 
                 // Now lookup a FunctionTaskInfo
-                if (_function_task_set->is_function_task(target_ctx.implements))
+                if (!_function_task_set->is_function_task(target_ctx.implements))
                 {
                     std::cerr << ctr.get_ast().get_locus() << ": warning: '" 
                         << target_ctx.implements.get_qualified_name()
@@ -163,16 +163,21 @@ namespace TL
                 else
                 {
                     FunctionTaskInfo& function_task_info = _function_task_set->get_function_task(target_ctx.implements);
+                    ObjectList<FunctionTaskInfo::implementation_pair_t> devices_with_impl = 
+                        function_task_info.get_devices_with_implementation();
 
                     for (ObjectList<std::string>::iterator it = target_ctx.device_list.begin();
                             it != target_ctx.device_list.end();
                             it++)
                     {
-                        std::cerr << ctr.get_ast().get_locus() << 
-                            ": note: adding function '" << function_sym.get_qualified_name() << "'"
-                            << " as the implementation of '" << target_ctx.implements.get_qualified_name() << "'"
-                            << " for device '" << *it << "'" << std::endl;
-                        function_task_info.add_device_with_implementation(*it, function_sym);
+                        if (!devices_with_impl.contains(std::make_pair(*it, function_sym)))
+                        {
+                            std::cerr << ctr.get_ast().get_locus() << 
+                                ": note: adding function '" << function_sym.get_qualified_name() << "'"
+                                << " as the implementation of '" << target_ctx.implements.get_qualified_name() << "'"
+                                << " for device '" << *it << "'" << std::endl;
+                            function_task_info.add_device_with_implementation(*it, function_sym);
+                        }
                     }
                 }
             }
@@ -182,7 +187,11 @@ namespace TL
 
         void Core::target_handler_post(PragmaCustomConstruct ctr)
         {
-            _target_context.pop();
+            // It might be empty due to early exits in the preorder routine
+            if (!_target_context.empty())
+            {
+                _target_context.pop();
+            }
         }
 
         static void add_copy_items(PragmaCustomConstruct construct, 

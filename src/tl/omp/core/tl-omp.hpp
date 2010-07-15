@@ -283,6 +283,97 @@ namespace TL
                 void reset();
         };
 
+        class LIBTL_CLASS FunctionTaskDependency
+        {
+            private:
+                DependencyDirection _direction;
+                Expression _expr;
+            public:
+                FunctionTaskDependency(Expression expr, DependencyDirection direction);
+                DependencyDirection get_direction() const; 
+                Expression get_expression() const;
+        };
+
+        class LIBTL_CLASS FunctionTaskTargetInfo
+        {
+            private:
+                ObjectList<CopyItem> _copy_in;
+                ObjectList<CopyItem> _copy_out;
+                ObjectList<CopyItem> _copy_inout;
+
+                ObjectList<std::string> _device_list;
+
+                bool _copy_deps;
+            public:
+
+                FunctionTaskTargetInfo();
+                bool can_be_ommitted();
+
+                void set_copy_in(const ObjectList<CopyItem>& copy_items);
+                void set_copy_out(const ObjectList<CopyItem>& copy_items);
+                void set_copy_inout(const ObjectList<CopyItem>& copy_items);
+
+                ObjectList<CopyItem> get_copy_in() const;
+                ObjectList<CopyItem> get_copy_out() const;
+                ObjectList<CopyItem> get_copy_inout() const;
+
+                void set_copy_deps(bool b);
+                bool has_copy_deps() const;
+
+                void set_device_list(const ObjectList<std::string>& device_list);
+
+                ObjectList<std::string> get_device_list() const;
+        };
+
+        class LIBTL_CLASS FunctionTaskInfo 
+        {
+            private:
+                Symbol _sym;
+                ObjectList<FunctionTaskDependency> _parameters;
+
+                typedef std::map<std::string, Symbol> implementation_table_t;
+                implementation_table_t _implementation_table;
+
+                FunctionTaskTargetInfo _target_info;
+            public:
+                FunctionTaskInfo(Symbol sym,
+                        ObjectList<FunctionTaskDependency> parameter_info,
+                        FunctionTaskTargetInfo target_info);
+
+                ObjectList<FunctionTaskDependency> get_parameter_info() const;
+
+                ObjectList<Symbol> get_involved_parameters() const;
+
+                FunctionTaskTargetInfo get_target_info() const;
+
+                void add_device(const std::string& device_name);
+                void add_device_with_implementation(
+                        const std::string& device_name,
+                        Symbol implementor_symbol);
+
+                ObjectList<std::string> get_all_devices();
+
+                typedef std::pair<std::string, Symbol> implementation_pair_t;
+
+                ObjectList<implementation_pair_t> get_devices_with_implementation();
+        };
+
+        class LIBTL_CLASS FunctionTaskSet : public TL::Object
+        {
+            private:
+                std::map<Symbol, FunctionTaskInfo> _map;
+            public:
+                FunctionTaskSet();
+
+                bool is_function_task(Symbol sym) const;
+
+                FunctionTaskInfo& get_function_task(Symbol sym);
+                const FunctionTaskInfo& get_function_task(Symbol sym) const;
+                bool add_function_task(Symbol sym, const FunctionTaskInfo&);
+
+                bool empty() const;
+        };
+
 
         //! Base class for any implementation of OpenMP in Mercurium
         /*!
@@ -298,6 +389,7 @@ namespace TL
                 bool _disable_clause_warnings;
 
                 RefPtr<OpenMP::Info> openmp_info;
+                RefPtr<OpenMP::FunctionTaskSet> function_task_set;
             public:
                 //! Pre entry
                 virtual void pre_run(DTO& data_flow);
