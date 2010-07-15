@@ -150,7 +150,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 ancillary_device_description, 
                 device_description_line);
 
-
         some_device_needs_copies = some_device_needs_copies
             || device_provider->needs_copies();
     }
@@ -176,6 +175,9 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         ObjectList<OpenMP::FunctionTaskInfo::implementation_pair_t> implementation_list 
             = function_task_info.get_devices_with_implementation();
 
+        OutlineFlags implements_outline_flags = outline_flags;
+        implements_outline_flags.implemented_outline = true;
+
         for (ObjectList<OpenMP::FunctionTaskInfo::implementation_pair_t>::iterator it = implementation_list.begin();
                 it != implementation_list.end();
                 it++)
@@ -192,7 +194,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     /* outline_name */
                     it->second.get_qualified_name(),
                     data_environ_info, 
-                    outline_flags,
+                    implements_outline_flags,
                     ancillary_device_description, 
                     device_description_line);
         }

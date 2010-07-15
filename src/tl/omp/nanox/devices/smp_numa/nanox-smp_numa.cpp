@@ -263,14 +263,21 @@ void DeviceSMP_NUMA::create_outline(
 
 void DeviceSMP_NUMA::get_device_descriptor(const std::string& task_name,
         DataEnvironInfo &data_environ,
-        const OutlineFlags&,
+        const OutlineFlags& outline_flags,
         Source &ancillary_device_description,
         Source &device_descriptor)
 {
     Source outline_name;
-    outline_name
-        << smp_outline_name(task_name);
+    if (!outline_flags.implemented_outline)
+    {
+        outline_name
+            << smp_outline_name(task_name);
         ;
+    }
+    else
+    {
+        outline_name << task_name;
+    }
 
     ancillary_device_description
         << comment("SMP device descriptor")
