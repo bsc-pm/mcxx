@@ -994,6 +994,13 @@ static scope_entry_list_t* query_qualified_name(
                 dependent_entity->symbol_name = get_conversion_function_name(nested_name_context, 
                         unqualified_name, /* result_type */ NULL);
             }
+            else if (ASTType(unqualified_name) == AST_DESTRUCTOR_ID
+                    || ASTType(unqualified_name) == AST_DESTRUCTOR_TEMPLATE_ID)
+            {
+                AST symbol = ASTSon0(unqualified_name);
+                const char *name = ASTText(symbol);
+                dependent_entity->symbol_name = name;
+            }
             else
             {
                 internal_error("unhandled dependent name '%s'\n", prettyprint_in_buffer(unqualified_name));

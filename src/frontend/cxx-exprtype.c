@@ -4976,6 +4976,7 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, const_val
 
     if (result != NULL 
             && (result->entry->kind == SK_VARIABLE
+                || result->entry->kind == SK_DEPENDENT_ENTITY
                 || result->entry->kind == SK_ENUMERATOR
                 || result->entry->kind == SK_FUNCTION
                 // template function names
@@ -5026,6 +5027,10 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                 {
                     *val = expression_get_constant(entry->expression_value);
                 }
+            }
+            else
+            {
+                internal_error("Invalid entry kind in an expression", 0);
             }
         }
         CXX_LANGUAGE()
@@ -5087,6 +5092,11 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, const_val
             else if (entry->kind == SK_FUNCTION)
             {
                 expression_set_type(expr, get_unresolved_overloaded_type(result, /* template args */ NULL));
+            }
+            else if (entry->kind == SK_DEPENDENT_ENTITY)
+            {
+                expression_set_is_value_dependent(expr, 1);
+                expression_set_dependent(expr);
             }
             else if (entry->kind == SK_TEMPLATE_PARAMETER)
             {
@@ -6810,6 +6820,7 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
         SK_VARIABLE,
         SK_FUNCTION,
         SK_TEMPLATE, 
+        SK_DEPENDENT_ENTITY
     };
 
     entry_list = filter_symbol_kind_set(entry_list,
@@ -6836,11 +6847,12 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
                     && (entry->kind != SK_TEMPLATE
                         || !is_function_type(
                             named_type_get_symbol(template_type_get_primary_type(type))
-                            ->type_information)))
+                            ->type_information))
+                    && (entry->kind != SK_DEPENDENT_ENTITY))
             {
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "EXPRTYPE: Symbol '%s' with type '%s' can't be called\n",
+                    fprintf(stderr, "EXPRTYPE: Symbol '%s' with type '%s' cannot be called\n",
                             entry->symbol_name,
                             entry->type_information != NULL ? print_declarator(entry->type_information)
                             : " <no type> ");
@@ -6849,7 +6861,9 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
             }
             else
             {
-                if (entry->entity_specs.is_member
+                // It can be a dependent entity because of a using of an undefined base
+                if (entry->kind == SK_DEPENDENT_ENTITY
+                        || entry->entity_specs.is_member
                         || (entry->kind == SK_VARIABLE
                             && (is_class_type(type)
                                 || is_pointer_to_function_type(type)
@@ -6876,7 +6890,8 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
             // No koenig needed
             DEBUG_CODE()
             {
-                fprintf(stderr, "EXPRTYPE: Not Koenig will be performed since we found something that is member or pointer to function type\n");
+                fprintf(stderr, "EXPRTYPE: Not Koenig will be performed since we found something that "
+                        "is member or pointer to function type or dependent entity\n");
             }
             return check_for_expression(called_expression, decl_context);
         }
