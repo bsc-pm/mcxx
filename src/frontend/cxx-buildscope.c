@@ -711,36 +711,38 @@ static void introduce_using_entity(AST id_expression, decl_context_t decl_contex
 
         insert_entry(decl_context.current_scope, entry);
 
-        if (is_class_scope 
-                && entry->kind != SK_DEPENDENT_ENTITY)
+        if (is_class_scope)
         {
-            if (entry->entity_specs.is_member
-                    || !class_type_is_base(entry->entity_specs.class_type, current_class_type))
+            if (entry->kind != SK_DEPENDENT_ENTITY)
             {
-                char is_dependent = 0;
-                int max_qualif = 0;
-                running_error("%s: error: '%s' is not a member of a base class\n",
-                        ast_location(id_expression),
-                        get_fully_qualified_symbol_name(entry, 
-                            decl_context,
-                            &is_dependent, 
-                            &max_qualif));
-            }
-
-            if (entry->kind == SK_FUNCTION)
-            {
-                // If we are introducing special members, introduce also to current class type
-                if (entry->entity_specs.is_conversion)
+                if (!entry->entity_specs.is_member
+                        || !class_type_is_base(entry->entity_specs.class_type, current_class_type))
                 {
-                    class_type_add_conversion_function(current_class_type, entry);
+                    char is_dependent = 0;
+                    int max_qualif = 0;
+                    running_error("%s: error: '%s' is not a member of a base class\n",
+                            ast_location(id_expression),
+                            get_fully_qualified_symbol_name(entry, 
+                                decl_context,
+                                &is_dependent, 
+                                &max_qualif));
+                }
+
+                if (entry->kind == SK_FUNCTION)
+                {
+                    // If we are introducing special members, introduce also to current class type
+                    if (entry->entity_specs.is_conversion)
+                    {
+                        class_type_add_conversion_function(current_class_type, entry);
+                    }
                 }
             }
-        }
-        else
-        {
-            // We want it to be instantiated later Note that it is not added as
-            // a nonstatic data member so it should not affect data sizeof
-            class_type_add_member(current_class_type, entry);
+            else
+            {
+                // We want it to be instantiated later Note that it is not added as
+                // a nonstatic data member so it should not affect data sizeof
+                class_type_add_member(current_class_type, entry);
+            }
         }
 
         used_entity = used_entity->next;
