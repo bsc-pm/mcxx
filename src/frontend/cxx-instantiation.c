@@ -685,18 +685,14 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     char is_dependent = 0;
                     int max_qualif = 0;
 
-                    running_error("%s: entity '%s' is not a base of class '%s'\n",
+                    running_error("%s: entity '%s' is not a member of a base of class '%s'\n",
                             ast_location(member_of_template->expression_value),
-                            print_decl_type_str(entry_list->entry->type_information, 
-                                context_of_being_instantiated, 
                                 get_fully_qualified_symbol_name(entry_list->entry, 
                                     context_of_being_instantiated, 
-                                    &is_dependent, &max_qualif)),
-                            print_decl_type_str(named_type_get_symbol(being_instantiated)->type_information,
-                                context_of_being_instantiated, 
+                                    &is_dependent, &max_qualif),
                                 get_fully_qualified_symbol_name(named_type_get_symbol(being_instantiated), 
                                     context_of_being_instantiated, 
-                                    &is_dependent, &max_qualif))
+                                    &is_dependent, &max_qualif)
                             );
                 }
 

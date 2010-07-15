@@ -1004,7 +1004,9 @@ static scope_entry_list_t* query_qualified_name(
             dependent_entity->type_information = dependent_type;
             dependent_entity->expression_value = 
                 ASTMake3(AST_QUALIFIED_ID,
-                        global_op, nested_name, unqualified_name,
+                        ast_copy(global_op), 
+                        ast_copy(nested_name), 
+                        ast_copy(unqualified_name),
                         ASTFileName(unqualified_name), ASTLine(unqualified_name), NULL);
 
             result = create_list_from_entry(dependent_entity);
