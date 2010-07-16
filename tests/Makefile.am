@@ -41,7 +41,7 @@ check-local: $(builddir)/config/bets
 	chmod +x config/mercurium-ss
 	chmod +x config/mercurium-stm
 	chmod +x */mercurium
-	$(builddir)/config/bets $(srcdir)
+	$(builddir)/config/bets $(BETS_OPTIONS) $(srcdir)
 
 dist-hook:
 	for i in $(srcdir)/*.dg; \
