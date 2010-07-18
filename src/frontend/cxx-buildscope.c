@@ -1703,6 +1703,10 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
                 class_name = strappend(class_kind_name, class_name);
             }
 
+            // From now DF_FRIEND is not needed anymore, remove it because it
+            // can cause problems later
+            decl_context.decl_flags &= ~DF_FRIEND;
+
             scope_entry_t* new_class = NULL;
             new_class = new_symbol(decl_context, decl_context.current_scope, class_name);
 
@@ -7148,6 +7152,8 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
 
     compute_declarator_type(ASTSon1(a), &gather_info, type_info, &declarator_type, decl_context);
     entry = build_scope_declarator_name(ASTSon1(a), declarator_type, &gather_info, decl_context);
+
+    ERROR_CONDITION(entry == NULL, "Invalid entry computed", 0);
 
     switch (ASTType(declarator_name))
     {
