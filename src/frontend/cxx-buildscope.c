@@ -7263,14 +7263,9 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
         class_type = named_type_get_symbol(class_info)->type_information;
         class_name = named_type_get_symbol(class_info)->symbol_name;
     }
-    else if (is_unnamed_class_type(class_info))
-    {
-        class_type = class_info;
-        // class_name remains empty 
-    }
     else
     {
-        internal_error("Type is not a class type", 0);
+        internal_error("Invalid class type", 0);
     }
 
     type_t* member_type = NULL;
@@ -7297,11 +7292,12 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                 && is_named_type(member_type))
         {
             // Register the typename properly
-            if (ASTType(type_specifier) == AST_CLASS_SPECIFIER
-                    || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_CLASS_SPEC) && (ASTSon1(a) == NULL))
-                    || ASTType(type_specifier) == AST_ENUM_SPECIFIER
-                    || ASTType(type_specifier) == AST_GCC_ENUM_SPECIFIER
-                    || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_ENUM_SPEC) && (ASTSon1(a) == NULL)))
+            if (type_specifier != NULL
+                    && (ASTType(type_specifier) == AST_CLASS_SPECIFIER
+                        || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_CLASS_SPEC) && (ASTSon1(a) == NULL))
+                        || ASTType(type_specifier) == AST_ENUM_SPECIFIER
+                        || ASTType(type_specifier) == AST_GCC_ENUM_SPECIFIER
+                        || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_ENUM_SPEC) && (ASTSon1(a) == NULL))))
             {
                 scope_entry_t* entry = named_type_get_symbol(member_type);
                 DEBUG_CODE()
@@ -7317,21 +7313,36 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                 // Register the typename
                 class_type_add_typename(get_actual_class_type(class_type), entry);
 
-            }
-        }
+                // Register enumerators as well
+                if ((ASTType(type_specifier) == AST_ENUM_SPECIFIER 
+                            || ASTType(type_specifier) == AST_GCC_ENUM_SPECIFIER))
+                {
+                    ERROR_CONDITION(!is_enumerated_type(member_type), 
+                            "AST_ENUM_SPECIFIER did not compute an enumerator type", 0);
 
-        if (type_specifier != NULL
-                && (ASTType(type_specifier) == AST_ENUM_SPECIFIER 
-                    || ASTType(type_specifier) == AST_GCC_ENUM_SPECIFIER))
-        {
-            ERROR_CONDITION(!is_enumerated_type(member_type), 
-                    "AST_ENUM_SPECIFIER did not compute an enumerator type", 0);
+                    int i, num_enums  = enum_type_get_num_enumerators(member_type);
+                    for (i = 0; i < num_enums; i++)
+                    {
+                        scope_entry_t* enumerator = enum_type_get_enumerator_num(member_type, i);
+                        class_type_add_member(get_actual_class_type(class_type), enumerator);
+                    }
+                }
 
-            int i, num_enums  = enum_type_get_num_enumerators(member_type);
-            for (i = 0; i < num_enums; i++)
-            {
-                scope_entry_t* enumerator = enum_type_get_enumerator_num(member_type, i);
-                class_type_add_member(get_actual_class_type(class_type), enumerator);
+                // Update the type specifier to be a dependent typename
+                if (is_dependent_type(class_type))
+                {
+                    dependent_name_part_t* part = counted_calloc(1, sizeof(*part), &_bytes_used_buildscope);
+                    part->name = entry->symbol_name;
+
+                    if (is_template_specialized_type(entry->type_information))
+                    {
+                        part->template_arguments = template_specialized_type_get_template_arguments(entry->type_information);
+                    }
+
+                    member_type = get_dependent_typename_type_from_parts(
+                            named_type_get_symbol(class_info), 
+                            part);
+                }
             }
         }
     }
