@@ -3564,9 +3564,9 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     {
         if (decl_context.current_scope->kind == CLASS_SCOPE)
         {
-            type_t* enclosing_class_type = decl_context.current_scope->related_entry->type_information;
+            scope_entry_t* enclosing_class_type = decl_context.current_scope->related_entry;
             build_scope_member_specification(decl_context, member_specification, 
-                    current_access, enclosing_class_type);
+                    current_access, get_user_defined_type(enclosing_class_type));
         }
         else
         {
