@@ -738,13 +738,6 @@ static void introduce_using_entity(AST id_expression, decl_context_t decl_contex
                         class_type_add_conversion_function(current_class_type, entry);
                     }
                 }
-
-                fprintf(stderr, "[BUILDSCOPE] %s: inserting  '%s' %p (member of class '%s') into scope of '%s'\n",
-                        ast_location(id_expression),
-                        entry->symbol_name,
-                        entry,
-                        print_declarator(entry->entity_specs.class_type),
-                        print_declarator(get_user_defined_type(decl_context.current_scope->related_entry)));
             }
             else
             {
