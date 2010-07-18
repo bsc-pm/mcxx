@@ -3314,14 +3314,25 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
                 ERROR_CONDITION(!is_class_type(class_entry->type_information), "This must be a class type", 0);
             }
-            else if (class_entry->kind != SK_TEMPLATE
-                    && BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
+            else if (class_entry->kind == SK_CLASS)
             {
-                    char is_dependent = 0;
-                    int max_qualif = 0;
-                    running_error("%s: error: '%s' is not a template type\n",
-                            ast_location(class_id_expression),
-                            get_fully_qualified_symbol_name(class_entry, decl_context, &is_dependent, &max_qualif));
+                if (is_template_specialized_type(class_entry->type_information)
+                        && !BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
+                {
+                    running_error("%s: class specifier is lacking template parameters\n",
+                            ast_location(class_id_expression));
+                }
+
+                if (!is_template_specialized_type(class_entry->type_information)
+                        && BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
+                {
+                    running_error("%s: non-template class specifier cannot have template parameters\n",
+                            ast_location(class_id_expression));
+                }
+            }
+            else 
+            {
+                internal_error("code unreachable", 0);
             }
 
             DEBUG_CODE()
