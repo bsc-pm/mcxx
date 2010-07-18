@@ -9715,23 +9715,26 @@ static void accessible_types_through_conversion(type_t* t, type_t ***result, int
         {
             scope_entry_t *conversion = it->entry;
 
-            type_t* destination_type = function_type_get_return_type(conversion->type_information);
-            
-            // The implicit parameter of this operator function is a reference
-            // to the class type, this will filter not eligible conversion functions
-            // (e.g. given a 'const T' we cannot call a non-const method)
-            type_t* implicit_parameter = conversion->entity_specs.class_type;
-            if (is_const_qualified_type(conversion->type_information))
+            if (!is_template_specialized_type(conversion->type_information))
             {
-                implicit_parameter = get_cv_qualified_type(implicit_parameter, CV_CONST);
-            }
-            implicit_parameter = get_lvalue_reference_type(implicit_parameter);
+                type_t* destination_type = function_type_get_return_type(conversion->type_information);
 
-            standard_conversion_t first_sc;
-            if (standard_conversion_between_types(&first_sc, get_lvalue_reference_type(t), 
-                        implicit_parameter))
-            {
-                P_LIST_ADD_ONCE(*result, *num_types, destination_type);
+                // The implicit parameter of this operator function is a reference
+                // to the class type, this will filter not eligible conversion functions
+                // (e.g. given a 'const T' we cannot call a non-const method)
+                type_t* implicit_parameter = conversion->entity_specs.class_type;
+                if (is_const_qualified_type(conversion->type_information))
+                {
+                    implicit_parameter = get_cv_qualified_type(implicit_parameter, CV_CONST);
+                }
+                implicit_parameter = get_lvalue_reference_type(implicit_parameter);
+
+                standard_conversion_t first_sc;
+                if (standard_conversion_between_types(&first_sc, get_lvalue_reference_type(t), 
+                            implicit_parameter))
+                {
+                    P_LIST_ADD_ONCE(*result, *num_types, destination_type);
+                }
             }
 
             it = it->next;
