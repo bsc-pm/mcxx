@@ -7302,6 +7302,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
         {
             // Register the typename properly
             if (type_specifier != NULL
+                    && !gather_info.is_friend
                     && (ASTType(type_specifier) == AST_CLASS_SPECIFIER
                         || ((ASTType(type_specifier) == AST_ELABORATED_TYPE_CLASS_SPEC) && (ASTSon1(a) == NULL))
                         || ASTType(type_specifier) == AST_ENUM_SPECIFIER
