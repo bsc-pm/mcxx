@@ -418,6 +418,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                     {
                         fprintf(stderr, "ICS: Deduced arguments for template conversion function failed, skipping\n");
                     }
+                    it = it->next;
                     continue;
                 }
 
