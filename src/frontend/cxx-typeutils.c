@@ -5413,6 +5413,11 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
 
                 break;
             }
+        case STK_TEMPLATE_TYPE:
+            {
+                result = get_simple_type_name_string(decl_context, simple_type->primary_specialization);
+                break;
+            }
         default:
             {
                 internal_error("Unknown simple type kind '%d'\n", simple_type->kind);
