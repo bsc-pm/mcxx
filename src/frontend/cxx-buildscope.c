@@ -1619,13 +1619,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
         result_list = query_unqualified_name_str(decl_context, class_name);
     }
 
-    if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
-    {
-        // We should do something but this poses a problem with templates
-        // so, ignore this declaration
-        return;
-    }
-
     // Now look for a type
     enum cxx_symbol_kind filter_classes[] = 
     {
@@ -1669,7 +1662,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
             // This is an unqualified name
             //
             // If the declaration has declarators
-            if (!BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS))
+            if (!BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS)
+                    || BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
             {
                 // Look for the smallest enclosing non-prototype
                 // non-function-prototype scope
@@ -1716,7 +1710,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
             new_class->file = ASTFileName(id_expression);
             new_class->point_of_declaration = get_enclosing_declaration(id_expression);
 
-            if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE) 
+            if ((!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE) 
+                        || !BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS))
                     && ASTType(id_expression) != AST_TEMPLATE_ID)
             {
 
@@ -1878,7 +1873,8 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type
         // Create a stub but only if it is unqualified, otherwise it should exist elsewhere
         if (is_unqualified_id_expression(id_expression)
                 // If does not exist and there are no declarators
-                && BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS))
+                && BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS)
+                && !BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
         {
             DEBUG_CODE()
             {
@@ -3280,6 +3276,15 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             if (class_entry->kind == SK_TEMPLATE
                     && ASTType(class_id_expression) != AST_TEMPLATE_ID)
             {
+                if (decl_context.template_parameters == NULL)
+                {
+                    char is_dependent = 0;
+                    int max_qualif = 0;
+                    running_error("%s: error: template parameters required for declaration of '%s'\n",
+                            ast_location(class_id_expression),
+                            get_fully_qualified_symbol_name(class_entry, decl_context, &is_dependent, &max_qualif));
+
+                }
                 if (decl_context.template_parameters->num_template_parameters
                         != template_type_get_template_parameters(class_entry->type_information)->num_template_parameters)
                 {
@@ -3308,6 +3313,15 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                 }
 
                 ERROR_CONDITION(!is_class_type(class_entry->type_information), "This must be a class type", 0);
+            }
+            else if (class_entry->kind != SK_TEMPLATE
+                    && BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
+            {
+                    char is_dependent = 0;
+                    int max_qualif = 0;
+                    running_error("%s: error: '%s' is not a template type\n",
+                            ast_location(class_id_expression),
+                            get_fully_qualified_symbol_name(class_entry, decl_context, &is_dependent, &max_qualif));
             }
 
             DEBUG_CODE()
@@ -4987,12 +5001,14 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
             || BITMAP_TEST(decl_context.decl_flags, DF_PARAMETER_DECLARATION))
     {
         decl_flags_t decl_flags = DF_NONE;
-        if (gather_info->is_friend)
-        {
-            decl_flags |= DF_FRIEND;
-        }
         // Check for existence of this symbol in this scope
         scope_entry_list_t* entry_list = query_in_scope_flags(decl_context, declarator_id, decl_flags);
+
+        if (gather_info->is_friend)
+        {
+            // Do not register
+            return NULL;
+        }
 
         scope_entry_list_t* check_list = filter_symbol_kind(entry_list, SK_VARIABLE);
 
@@ -5079,15 +5095,13 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
         if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
         {
-            // Create the symbol as a normal function type
             if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
             {
-                // We should sign them in but this poses a problem with
-                // templates since they have a wrong nesting for the template
-                // parameters. This is not necessary till access checking is
-                // done.
+                // Do not sign in
                 return NULL;
             }
+            
+            // Create the symbol as a normal function type
 
             new_entry = new_symbol(decl_context, decl_context.current_scope, function_name);
             new_entry->type_information = declarator_type;
