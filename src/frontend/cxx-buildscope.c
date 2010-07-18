@@ -1788,6 +1788,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
         // Check the enclosing namespace scope
         // This is only valid if the scope of the entry is an inlined namespace of the current one
         if (!BITMAP_TEST(decl_context.decl_flags, DF_EXPLICIT_INSTANTIATION)
+                && !BITMAP_TEST(decl_context.decl_flags, DF_FRIEND)
                 && is_template_specialized_type(class_entry->type_information)
                 && (class_entry->decl_context.namespace_scope != decl_context.namespace_scope)
                 && !is_inline_namespace_of(class_entry->decl_context, decl_context))
@@ -3318,26 +3319,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
                 ERROR_CONDITION(!is_class_type(class_entry->type_information), "This must be a class type", 0);
             }
-            else if (class_entry->kind == SK_CLASS)
-            {
-                if (is_template_specialized_type(class_entry->type_information)
-                        && !BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
-                {
-                    running_error("%s: class specifier is lacking template parameters\n",
-                            ast_location(class_id_expression));
-                }
-
-                if (!is_template_specialized_type(class_entry->type_information)
-                        && BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
-                {
-                    running_error("%s: non-template class specifier cannot have template parameters\n",
-                            ast_location(class_id_expression));
-                }
-            }
-            else 
-            {
-                internal_error("code unreachable", 0);
-            }
 
             DEBUG_CODE()
             {
@@ -3351,7 +3332,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
             // Check the enclosing namespace scope
             // This is only valid if the scope of the entry is an inlined namespace of the current one
-            if (is_template_specialized_type(class_entry->type_information)
+            if(is_template_specialized_type(class_entry->type_information)
                     && (class_entry->decl_context.namespace_scope != decl_context.namespace_scope)
                     && !is_inline_namespace_of(class_entry->decl_context, decl_context))
             {
