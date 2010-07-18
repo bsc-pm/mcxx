@@ -3867,6 +3867,58 @@ static type_t* operator_bin_assign_only_arithmetic_result(type_t** lhs, type_t**
     return *lhs;
 }
 
+static
+void build_binary_nonop_assign_builtin(type_t* lhs_type, 
+        builtin_operators_set_t *result,
+        AST operator)
+{
+    memset(result, 0, sizeof(*result));
+
+    if (!is_lvalue_reference_type(lhs_type)
+            || is_const_qualified_type(reference_type_get_referenced_type(lhs_type)))
+        return;
+
+    parameter_info_t parameters[2] =
+    {
+        { 
+            .is_ellipsis = 0,
+            .type_info = lhs_type,
+            .nonadjusted_type_info = NULL
+        },
+        {
+            .is_ellipsis = 0,
+            .type_info = get_lvalue_reference_type(
+                    get_const_qualified_type(
+                        reference_type_get_referenced_type(lhs_type))),
+            .nonadjusted_type_info = NULL
+        }
+    };
+
+    type_t* function_type = get_new_function_type(lhs_type, parameters, 2);
+
+    // Fill the minimum needed for this 'faked' function symbol
+    (*result).entry[(*result).num_builtins].kind = SK_FUNCTION;
+    (*result).entry[(*result).num_builtins].symbol_name = get_operator_function_name(operator);
+    (*result).entry[(*result).num_builtins].entity_specs.is_builtin = 1;
+    (*result).entry[(*result).num_builtins].type_information = function_type;
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "EXPRTYPE: Generated builtin '%s' for '%s'\n",
+                print_declarator((*result).entry[(*result).num_builtins].type_information),
+                (*result).entry[(*result).num_builtins].symbol_name);
+    }
+
+    // Add to the results and properly chain things
+    (*result).entry_list[(*result).num_builtins].entry = &((*result).entry[(*result).num_builtins]);
+    if ((*result).num_builtins > 0)
+    {
+        (*result).entry_list[(*result).num_builtins].next = 
+            &((*result).entry_list[(*result).num_builtins - 1]);
+    }
+    (*result).num_builtins++;
+}
+
 static type_t* compute_bin_nonoperator_assig_only_arithmetic_type(AST expr, AST lhs, AST rhs, AST operator,
         decl_context_t decl_context)
 {
@@ -3950,13 +4002,8 @@ static type_t* compute_bin_nonoperator_assig_only_arithmetic_type(AST expr, AST 
     }
 
     builtin_operators_set_t builtin_set; 
-    build_binary_builtin_operators(
-            // Note that the left is not removed its reference type
-            lhs_type, no_ref(rhs_type), 
-            &builtin_set,
-            decl_context, operator, 
-            operator_bin_assign_only_arithmetic_pred,
-            operator_bin_assign_only_arithmetic_result);
+    build_binary_nonop_assign_builtin(
+            lhs_type, &builtin_set, operator);
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
