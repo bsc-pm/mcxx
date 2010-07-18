@@ -1621,11 +1621,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
 
     if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
     {
-        if (!BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS))
-        {
-            running_error("%s: error: friend declaration at specifies declarators", 
-                    ast_location(a));
-        }
         // We should do something but this poses a problem with templates
         // so, ignore this declaration
         return;
