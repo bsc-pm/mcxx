@@ -1716,11 +1716,11 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
     DEBUG_CODE()
     {
         fprintf(stderr, "SCOPE: Looking in class scope '");
-        for (i = 0; i < derived->path_length; i++)
+        for (i = derived->path_length - 1; i >= 0; i--)
         {
             fprintf(stderr, "%s%s", 
                     class_type_get_inner_context(derived->path[i]).current_scope->related_entry->symbol_name,
-                    ((i+1) < derived->path_length) ? "::" : "");
+                    (i > 0) ? "::" : "");
         }
         fprintf(stderr, "'\n");
     }

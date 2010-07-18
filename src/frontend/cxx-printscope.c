@@ -358,7 +358,8 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
 
     if (entry->entity_specs.is_member)
     {
-        PRINT_INDENTED_LINE(stderr, global_indent+1, "Is member\n");
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "Is member of '%s'\n",
+                print_declarator(entry->entity_specs.class_type));
     }
 
     if (entry->entity_specs.is_conversion)

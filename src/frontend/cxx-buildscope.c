@@ -711,6 +711,7 @@ static void introduce_using_entity(AST id_expression, decl_context_t decl_contex
 
         insert_entry(decl_context.current_scope, entry);
 
+
         if (is_class_scope)
         {
             if (entry->kind != SK_DEPENDENT_ENTITY)
@@ -720,12 +721,13 @@ static void introduce_using_entity(AST id_expression, decl_context_t decl_contex
                 {
                     char is_dependent = 0;
                     int max_qualif = 0;
-                    running_error("%s: error: '%s' is not a member of a base class\n",
+                    running_error("%s: error: '%s' %p is not a member of a base class\n",
                             ast_location(id_expression),
                             get_fully_qualified_symbol_name(entry, 
                                 decl_context,
                                 &is_dependent, 
-                                &max_qualif));
+                                &max_qualif),
+                            entry);
                 }
 
                 if (entry->kind == SK_FUNCTION)
@@ -736,6 +738,13 @@ static void introduce_using_entity(AST id_expression, decl_context_t decl_contex
                         class_type_add_conversion_function(current_class_type, entry);
                     }
                 }
+
+                fprintf(stderr, "[BUILDSCOPE] %s: inserting  '%s' %p (member of class '%s') into scope of '%s'\n",
+                        ast_location(id_expression),
+                        entry->symbol_name,
+                        entry,
+                        print_declarator(entry->entity_specs.class_type),
+                        print_declarator(get_user_defined_type(decl_context.current_scope->related_entry)));
             }
             else
             {
@@ -1748,6 +1757,13 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
                     new_class->line = ASTLine(a);
                     new_class->file = ASTFileName(a);
                     new_class->point_of_declaration = get_enclosing_declaration(id_expression);
+
+                    if (decl_context.current_scope->kind == CLASS_SCOPE)
+                    {
+                        new_class->entity_specs.is_member = 1;
+                        new_class->entity_specs.class_type = 
+                            get_user_defined_type(decl_context.current_scope->related_entry);
+                    }
 
                     // Get the primary class
                     class_entry = named_type_get_symbol(
@@ -3423,6 +3439,14 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                     class_entry->file = ASTFileName(class_id_expression);
                     class_entry->line = ASTLine(class_id_expression);
                     class_entry->point_of_declaration = get_enclosing_declaration(class_id_expression);
+
+                    // Set it as a member if needed
+                    if (decl_context.current_scope->kind == CLASS_SCOPE)
+                    {
+                        class_entry->entity_specs.is_member = 1;
+                        class_entry->entity_specs.class_type = 
+                            get_user_defined_type(decl_context.current_scope->related_entry);
+                    }
 
                     // Now update class_entry to be a real class
                     class_entry = named_type_get_symbol(
@@ -5143,6 +5167,13 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             new_entry->file = ASTFileName(declarator_id);
             new_entry->point_of_declaration = get_enclosing_declaration(declarator_id);
 
+            if (decl_context.current_scope->kind == CLASS_SCOPE)
+            {
+                new_entry->entity_specs.is_member = 1;
+                new_entry->entity_specs.class_type = 
+                    get_user_defined_type(decl_context.current_scope->related_entry);
+            }
+
             template_type_set_related_symbol(template_type, new_entry);
 
             // Now update the symbol, we are not working anymore on the
@@ -5323,6 +5354,15 @@ static scope_entry_t* find_function_declaration(AST declarator_id, type_t* decla
             running_error("%s: name '%s' has already been declared as a different entity kind",
                     ast_location(declarator_id),
                     prettyprint_in_buffer(declarator_id));
+        }
+
+        if (entry->entity_specs.is_member
+                && decl_context.current_scope->kind == CLASS_SCOPE
+                && !equivalent_types(entry->entity_specs.class_type, 
+                    get_user_defined_type(decl_context.current_scope->related_entry)))
+        {
+            it = it->next;
+            continue;
         }
 
         scope_entry_t* considered_symbol = NULL;
