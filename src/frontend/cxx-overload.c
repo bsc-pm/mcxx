@@ -2314,6 +2314,13 @@ scope_entry_t* solve_constructor(type_t* class_type,
             continue;
         }
 
+        // For template specialized types, use the template symbol
+        if (is_template_specialized_type(constructor->type_information))
+        {
+            type_t* template_type = template_specialized_type_get_related_template_type(constructor->type_information);
+            constructor = template_type_get_related_symbol(template_type);
+        }
+
         scope_entry_list_t* new_entry_list = counted_calloc(1, sizeof(*new_entry_list), &_bytes_overload);
 
         new_entry_list->entry = constructor;
