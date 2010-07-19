@@ -437,7 +437,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context)
                 //   {
                 //     ...
                 //   }
-                build_scope_function_definition(a, decl_context);
+                build_scope_function_definition(a, /* previous_symbol */ NULL, decl_context);
                 break;
             }
         case AST_LINKAGE_SPEC :
@@ -1594,7 +1594,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
     CXX_LANGUAGE()
     {
         if (BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS)
-                && !BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
+                && !BITMAP_TEST(decl_context.decl_flags, DF_FRIEND)
+                && !BITMAP_TEST(decl_context.decl_flags, DF_PARAMETER_DECLARATION))
         {
             if (is_unqualified_id_expression(id_expression))
             {
@@ -1604,7 +1605,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
             {
                 result_list = query_id_expression_flags(decl_context, id_expression, 
                         decl_flags);
-            };
+            }
         }
         else
         {
@@ -1663,9 +1664,10 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
         {
             // This is an unqualified name
             //
-            // If the declaration has declarators
+            // If the declaration has declarators or is friend
             if (!BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS)
-                    || BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
+                    || BITMAP_TEST(decl_context.decl_flags, DF_FRIEND)
+                    || BITMAP_TEST(decl_context.decl_flags, DF_PARAMETER_DECLARATION))
             {
                 // Look for the smallest enclosing non-prototype
                 // non-function-prototype scope
@@ -1840,7 +1842,8 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type
 
     CXX_LANGUAGE()
     {
-        if (BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS))
+        if (BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS)
+                && !BITMAP_TEST(decl_context.decl_flags, DF_PARAMETER_DECLARATION))
         {
             if (is_unqualified_id_expression(id_expression))
             {
@@ -1888,7 +1891,8 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type
         if (is_unqualified_id_expression(id_expression)
                 // If does not exist and there are no declarators
                 && BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS)
-                && !BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
+                && !BITMAP_TEST(decl_context.decl_flags, DF_FRIEND)
+                && !BITMAP_TEST(decl_context.decl_flags, DF_PARAMETER_DECLARATION))
         {
             DEBUG_CODE()
             {
@@ -3071,6 +3075,7 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
 struct delayed_function_tag
 {
     AST function_def_tree;
+    scope_entry_t* entry;
     decl_context_t decl_context;
 };
 
@@ -3078,7 +3083,9 @@ struct delayed_function_tag
 static int _next_delayed_function = 0;
 static struct delayed_function_tag _max_delayed_functions[MAX_DELAYED_FUNCTIONS];
 
-static void build_scope_delayed_add_delayed_function_def(AST function_def_tree, decl_context_t decl_context)
+static void build_scope_delayed_add_delayed_function_def(AST function_def_tree, 
+        scope_entry_t* entry,
+        decl_context_t decl_context)
 {
     ERROR_CONDITION(_next_delayed_function == MAX_DELAYED_FUNCTIONS,
             "Too many delayed member functions!\n", 0);
@@ -3090,6 +3097,7 @@ static void build_scope_delayed_add_delayed_function_def(AST function_def_tree, 
     }
 
     _max_delayed_functions[_next_delayed_function].function_def_tree = function_def_tree;
+    _max_delayed_functions[_next_delayed_function].entry = entry;
     _max_delayed_functions[_next_delayed_function].decl_context = decl_context;
     _next_delayed_function++;
 }
@@ -3112,6 +3120,7 @@ static void build_scope_delayed_functions(void)
 
         AST function_def = current.function_def_tree;
         decl_context_t decl_context = current.decl_context;
+        scope_entry_t* previous_symbol = current.entry;
         
         DEBUG_CODE()
         {
@@ -3119,7 +3128,7 @@ static void build_scope_delayed_functions(void)
                     ast_location(function_def));
         }
 
-        build_scope_function_definition(function_def, decl_context);
+        build_scope_function_definition(function_def, previous_symbol, decl_context);
     }
     build_scope_delayed_clear_pending();
 }
@@ -3663,6 +3672,7 @@ void build_scope_member_specification_first_step(decl_context_t inner_decl_conte
     decl_context_t new_inner_decl_context = inner_decl_context;
 
     new_inner_decl_context.decl_flags &= ~DF_TEMPLATE;
+    new_inner_decl_context.decl_flags &= ~DF_NO_DECLARATORS;
     new_inner_decl_context.decl_flags &= ~DF_EXPLICIT_SPECIALIZATION;
 
     // Start afresh, no template parameters here (but template_scope is still available)
@@ -4163,7 +4173,7 @@ static void set_function_parameter_clause(type_t** function_type,
         param_decl_context.decl_flags |= DF_PARAMETER_DECLARATION;
 
         build_scope_decl_specifier_seq(parameter_decl_spec_seq, &param_decl_gather_info, &simple_type_info,
-                decl_context);
+                param_decl_context);
 
         if (ASTType(parameter_declaration) == AST_GCC_PARAMETER_DECL)
         {
@@ -5714,7 +5724,7 @@ static void build_scope_explicit_template_specialization(AST a, decl_context_t d
 
 static void build_scope_template_function_definition(AST a, decl_context_t decl_context)
 {
-    /* scope_entry_t* entry = */ build_scope_function_definition(a, decl_context);
+    /* scope_entry_t* entry = */ build_scope_function_definition(a, /* previous_symbol */ NULL, decl_context);
 }
 
 static void build_scope_template_simple_declaration(AST a, decl_context_t decl_context)
@@ -6532,8 +6542,10 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry UNUSED_P
 
 /*
  * This function builds symbol table information for a function definition
+ *  
+ * If previous_symbol != NULL, the found symbol should match
  */
-scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl_context)
+scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_symbol, decl_context_t decl_context)
 {
     DEBUG_CODE()
     {
@@ -6624,6 +6636,21 @@ scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl_contex
                 ast_location(a), 
                 print_decl_type_str(declarator_type, new_decl_context, 
                     prettyprint_in_buffer(get_declarator_name(ASTSon1(a), new_decl_context))));
+    }
+
+    if (previous_symbol != NULL
+            && previous_symbol != entry)
+    {
+        internal_error("inconsistent symbol created %s at '%s:%d' [%s] vs %s at '%s:%d' [%s] \n", 
+                previous_symbol->symbol_name,
+                previous_symbol->file,
+                previous_symbol->line,
+                print_declarator(previous_symbol->type_information),
+                entry->symbol_name,
+                entry->file,
+                entry->line,
+                print_declarator(entry->type_information)
+                );
     }
 
     if (entry->defined)
@@ -7280,7 +7307,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
     entry->entity_specs.class_type = class_info;
     class_type_add_member(get_actual_class_type(class_type), entry);
 
-    build_scope_delayed_add_delayed_function_def(a, decl_context);
+    build_scope_delayed_add_delayed_function_def(a, entry, decl_context);
 
     return entry;
 }
