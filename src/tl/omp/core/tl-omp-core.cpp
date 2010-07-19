@@ -575,6 +575,8 @@ namespace TL
             {
                 Symbol sym = it->get_symbol();
 
+                std::cerr << "-> SYM: " << sym.get_name() << std::endl;
+
                 if (!sym.is_valid()
                         || !sym.is_variable())
                     continue;
@@ -841,8 +843,11 @@ namespace TL
 
             get_dependences_info(construct, data_sharing);
 
+            get_data_implicit_attributes_task(construct, data_sharing, default_data_attr);
+
             // Target info applies after
             get_target_info(construct, data_sharing);
+
         }
 
         void Core::task_handler_post(PragmaCustomConstruct construct)
