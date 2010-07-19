@@ -140,51 +140,71 @@ static char_trie_element_t *lookup_element(const char_trie_t* char_trie, char en
     return lookup_element_rec(char_trie, entity, 0, char_trie->num_elements - 1);
 }
 
-static int elements_compare(const void* p1, const void* p2)
-{
-    char_trie_element_t* t1 = (char_trie_element_t*)p1;
-    char_trie_element_t* t2 = (char_trie_element_t*)p2;
-
-    char i1 = t1->elem;
-    char i2 = t2->elem;
-
-    if (i1 == i2)
-        return 0;
-    else if (i1 < i2)
-        return -1;
-    else 
-        return 1;
-}
-
 static const char* create_elements(char_trie_t* char_trie, const char* orig_str, const char* str, int length)
 {
     char_trie->num_elements++;
     char_trie->elements = realloc(char_trie->elements, 
             char_trie->num_elements * sizeof(*(char_trie->elements)));
+
+    // Locate place where the element would go
+    int lower = 0;
+    int upper = char_trie->num_elements - 2;
+
+    char i_entity = '\0';
+    if (length != 0)
+        i_entity = *str;
+
+    while (lower <= upper)
+    {
+        int middle = (lower + upper) / 2;
+        char i_middle = char_trie->elements[middle].elem;
+
+        if (i_entity < i_middle)
+        {
+            upper = middle - 1;
+        }
+        else if (i_middle < i_entity)
+        {
+            lower = middle + 1;
+        }
+        // This should never happen
+        else 
+        {
+            abort();
+        }
+    }
+
+    // lower contains the position where the element should go
+    // shift all elements rightwards one position
+    int i;
+    for (i = char_trie->num_elements - 1; i > lower; i--)
+    {
+        char_trie->elements[i] = char_trie->elements[i - 1];
+    }
+
     if (length == 0)
     {
-        char_trie->elements[char_trie->num_elements - 1].elem = 0;
+        char_trie->elements[lower].elem = 0;
         // No next after the "end of list"
-        char_trie->elements[char_trie->num_elements - 1].next = NULL;
+        char_trie->elements[lower].next = NULL;
         // Store the original string (this should be the unique strdup ever)
-        char_trie->elements[char_trie->num_elements - 1].str = strdup(orig_str);
+        const char* p = strdup(orig_str);
+        char_trie->elements[lower].str = p;
+
         _bytes_used_char_trie += (strlen(orig_str) + 1);
 
-        return char_trie->elements[char_trie->num_elements - 1].str;
+        return p;
     }
     else
     {
-        char_trie->elements[char_trie->num_elements - 1].elem = *str;
-        char_trie->elements[char_trie->num_elements - 1].next = calloc(1, sizeof(char_trie_t));
+        char_trie->elements[lower].elem = *str;
+        char_trie->elements[lower].next = calloc(1, sizeof(char_trie_t));
         _bytes_used_char_trie += sizeof(char_trie_t);
 
         const char* result =
-        create_elements(char_trie->elements[char_trie->num_elements - 1].next,
+        create_elements(char_trie->elements[lower].next,
                 orig_str,
                 str + 1, length - 1);
-
-        qsort(char_trie->elements, char_trie->num_elements, sizeof(*(char_trie->elements)), 
-                elements_compare);
 
         return result;
     }
