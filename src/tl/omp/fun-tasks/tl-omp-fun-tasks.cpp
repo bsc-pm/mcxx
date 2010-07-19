@@ -172,6 +172,8 @@ namespace OpenMP
 
             ReplaceSrcIdExpression replace(scope_link);
 
+            ObjectList<Type> parameter_types = sym.get_type().parameters();
+
             ObjectList<int> parameters_as_dependences;
 
             ObjectList<Symbol> sym_list = task_info.get_involved_parameters();
@@ -188,7 +190,7 @@ namespace OpenMP
                         Source src;
                         src << "__tmp_" << current_sym.get_parameter_position();
 
-                        if (current_sym.get_type().is_reference())
+                        if (parameter_types[current_sym.get_parameter_position()].is_reference())
                         {
                             replace.add_replacement(current_sym, "(*" + src.get_source() + ")");
                         }
@@ -288,7 +290,7 @@ namespace OpenMP
                 Source addr, derref;
                 Expression &current_expr(*it2);
                 Type real_type = current_expr.get_type();
-                if (real_type.is_reference())
+                if (parameter_types[i].is_reference())
                 {
                     real_type = real_type.references_to().get_pointer_to();
                     addr << "&";
