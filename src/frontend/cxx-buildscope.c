@@ -7392,6 +7392,9 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                     for (i = 0; i < num_enums; i++)
                     {
                         scope_entry_t* enumerator = enum_type_get_enumerator_num(member_type, i);
+
+                        enumerator->entity_specs.is_member = 1;
+                        enumerator->entity_specs.class_type  = class_info;
                         class_type_add_member(get_actual_class_type(class_type), enumerator);
                     }
                 }
