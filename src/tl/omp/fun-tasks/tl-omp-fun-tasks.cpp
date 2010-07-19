@@ -188,7 +188,14 @@ namespace OpenMP
                         Source src;
                         src << "__tmp_" << current_sym.get_parameter_position();
 
-                        replace.add_replacement(current_sym, src.get_source());
+                        if (current_sym.get_type().is_reference())
+                        {
+                            replace.add_replacement(current_sym, "(*" + src.get_source() + ")");
+                        }
+                        else
+                        {
+                            replace.add_replacement(current_sym, src.get_source());
+                        }
 
                         parameters_as_dependences.insert(current_sym.get_parameter_position());
                     }
@@ -278,8 +285,16 @@ namespace OpenMP
                     it2 != argument_list.end();
                     it2++)
             {
+                Source addr, derref;
                 Expression &current_expr(*it2);
                 Type real_type = current_expr.get_type();
+                if (real_type.is_reference())
+                {
+                    real_type = real_type.references_to().get_pointer_to();
+                    addr << "&";
+                    derref << "*";
+                }
+
                 if (real_type.is_array())
                 {
                     real_type = real_type.array_element().get_pointer_to();
@@ -289,15 +304,18 @@ namespace OpenMP
                     real_type = real_type.get_pointer_to();
                 }
 
-                std::stringstream ss;
-                ss << "__tmp_" << i;
+                std::stringstream var;
+                var << "__tmp_" << i;
 
                 additional_decls
                     << "#line " << it->get_line() << " \"" << it->get_file() << "\"\n"
-                    << real_type.get_declaration(it2->get_scope(), ss.str()) << " = " << current_expr << ";"
+                    << real_type.get_declaration(it2->get_scope(), var.str()) << " = " << addr << current_expr << ";"
                     ;
 
-                new_arguments.append_with_separator(ss.str(), ",");
+                std::stringstream arg;
+                arg << derref.get_source() << "__tmp_" << i;
+
+                new_arguments.append_with_separator(arg.str(), ",");
 
                 i++;
             }
