@@ -265,7 +265,7 @@ int prime_hash(const char* key, int hash_size)
     return (result % hash_size);
 }
 
-int integer_comp (void *key1, void *key2)
+int integer_comp (const void *key1, const void *key2)
 {
     intptr_t a = (intptr_t)(key1);
     intptr_t b = (intptr_t)(key2);

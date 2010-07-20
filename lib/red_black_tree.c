@@ -658,7 +658,7 @@ static void RBDeleteFixUp(rb_red_blk_tree* tree, rb_red_blk_node* x) {
 /*    The algorithm from this function is from _Introduction_To_Algorithms_ */
 /***********************************************************************/
 
-void rb_delete(rb_red_blk_tree* tree, rb_red_blk_node* z){
+void rb_tree_delete(rb_red_blk_tree* tree, rb_red_blk_node* z){
   rb_red_blk_node* y;
   rb_red_blk_node* x;
   rb_red_blk_node* nil=tree->nil;

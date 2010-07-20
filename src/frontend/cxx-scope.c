@@ -573,7 +573,7 @@ void remove_entry(scope_t* sc, scope_entry_t* entry)
             else
             {
                 // Delete the whole entry
-                rb_delete(sc->hash, n);
+                rb_tree_delete(sc->hash, n);
             }
             break;
         }
