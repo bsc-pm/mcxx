@@ -24,7 +24,7 @@
 #ifndef CXX_SCOPE_DECLS_H
 #define CXX_SCOPE_DECLS_H
 
-#include "hash.h"
+#include "red_black_tree.h"
 #include "libmcxx-common.h"
 #include "cxx-macros.h"
 #include "cxx-ast-decls.h"
@@ -524,7 +524,7 @@ struct scope_tag
     enum scope_kind kind;
 
     // Hash of scope_entry_list
-    Hash* hash;
+    rb_red_blk_tree *hash;
 
     // Relationships with other scopes
     // Nesting relationship is expressed by "contained_in". This relationship is

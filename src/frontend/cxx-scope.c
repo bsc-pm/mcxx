@@ -40,8 +40,7 @@
 #include "cxx-tltype.h"
 #include "cxx-attrnames.h"
 #include "cxx-printscope.h"
-#include "hash.h"
-#include "hash_iterator.h"
+#include "red_black_tree.h"
 
 
 static unsigned long long _bytes_used_scopes = 0;
@@ -122,12 +121,20 @@ static scope_entry_list_t* name_lookup_used_namespaces(decl_context_t decl_conte
  * to create them.
  */
 
+static int strcmp_vptr(const void* v1, const void *v2)
+{
+    return strcmp((const char*)v1, (const char*) v2);
+}
+
+static void null_dtor_func(const void *v UNUSED_PARAMETER) { }
+
 // Any new scope should be created using this one
 static scope_t* new_scope(void)
 {
     scope_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
 
-    result->hash = hash_create(HASH_SIZE, HASHFUNC(prime_hash), KEYCMPFUNC(strcmp));
+    result->hash =
+        rb_tree_create(strcmp_vptr, null_dtor_func, null_dtor_func);
 
     return result;
 }
@@ -397,7 +404,12 @@ void insert_alias(scope_t* sc, scope_entry_t* entry, const char* name)
 
     const char* symbol_name = uniquestr(name);
 
-    scope_entry_list_t* result_set = (scope_entry_list_t*) hash_get(sc->hash, symbol_name);
+    scope_entry_list_t* result_set = NULL;
+    rb_red_blk_node* n = rb_tree_query(sc->hash, symbol_name);
+    if (n != NULL)
+    {
+        result_set = (scope_entry_list_t*) rb_node_get_info(n);
+    }
 
     if (result_set != NULL)
     {
@@ -415,7 +427,7 @@ void insert_alias(scope_t* sc, scope_entry_t* entry, const char* name)
         result_set->entry = entry;
         result_set->next = NULL; // redundant, though
 
-        hash_put(sc->hash, symbol_name, result_set);
+        rb_tree_add(sc->hash, symbol_name, result_set);
     }
 }
 
@@ -475,7 +487,13 @@ static scope_entry_list_t* query_name_in_scope(scope_t* sc, const char* name)
                 sc, sc->hash);
         }
     }
-    scope_entry_list_t* result = (scope_entry_list_t*) hash_get(sc->hash, name);
+
+    scope_entry_list_t* result = NULL;
+    rb_red_blk_node *n = rb_tree_query(sc->hash, name);
+    if (n != NULL)
+    {
+        result = (scope_entry_list_t*) rb_node_get_info(n);
+    }
 
     DEBUG_CODE()
     {
@@ -499,8 +517,12 @@ void insert_entry(scope_t* sc, scope_entry_t* entry)
 {
     ERROR_CONDITION((entry->symbol_name == NULL), "Inserting a symbol entry without name!", 0);
     
-    scope_entry_list_t* result_set = (scope_entry_list_t*) hash_get(sc->hash, entry->symbol_name);
-
+    scope_entry_list_t* result_set = NULL;
+    rb_red_blk_node* n = rb_tree_query(sc->hash, entry->symbol_name);
+    if (n != NULL)
+    {
+        result_set = (scope_entry_list_t*)rb_node_get_info(n);
+    }
 
     if (result_set != NULL)
     {
@@ -518,7 +540,7 @@ void insert_entry(scope_t* sc, scope_entry_t* entry)
         result_set->entry = entry;
         result_set->next = NULL; // redundant, though
 
-        hash_put(sc->hash, entry->symbol_name, result_set);
+        rb_tree_add(sc->hash, entry->symbol_name, result_set);
     }
 }
 
@@ -528,7 +550,13 @@ void remove_entry(scope_t* sc, scope_entry_t* entry)
 {
     ERROR_CONDITION((entry->symbol_name == NULL), "Removing a symbol entry without name!", 0);
 
-    scope_entry_list_t* result_set = (scope_entry_list_t*) hash_get(sc->hash, entry->symbol_name);
+    scope_entry_list_t* result_set = NULL;
+
+    rb_red_blk_node* n = rb_tree_query(sc->hash, entry->symbol_name);
+    if (n != NULL)
+    {
+        result_set = (scope_entry_list_t*)rb_node_get_info(n);
+    }
 
     scope_entry_list_t* current = result_set;
     scope_entry_list_t* previous = NULL;
@@ -545,7 +573,7 @@ void remove_entry(scope_t* sc, scope_entry_t* entry)
             else
             {
                 // Delete the whole entry
-                hash_delete(sc->hash, entry->symbol_name);
+                rb_delete(sc->hash, n);
             }
             break;
         }
@@ -3937,30 +3965,46 @@ static const char* get_fully_qualified_symbol_name_simple(decl_context_t decl_co
     return result;
 }
 
+typedef
+struct find_template_parameter_data_tag
+{
+    char found;
+    scope_entry_t* template_param;
+    scope_entry_t* entry;
+} find_template_parameter_data_t;
+
+static void find_template_parameter_aux(const void* key UNUSED_PARAMETER, void* info, void* data)
+{
+    find_template_parameter_data_t* p_data = (find_template_parameter_data_t*)data;
+
+    if (p_data->found)
+        return;
+
+    scope_entry_list_t* entry_list = (scope_entry_list_t*) info;
+    scope_entry_t* entry = entry_list->entry;
+
+    if (entry->kind == p_data->template_param->kind
+            && (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
+                || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+            && (entry->entity_specs.template_parameter_position 
+                == p_data->template_param->entity_specs.template_parameter_position)
+            && (entry->entity_specs.template_parameter_nesting 
+                == p_data->template_param->entity_specs.template_parameter_nesting))
+    {
+        p_data->entry = entry;
+        p_data->found = 1;
+    }
+}
+
 static scope_entry_t* find_template_parameter(scope_t* st, scope_entry_t* template_param)
 {
-    Iterator* it = (Iterator*) hash_iterator_create(st->hash);
-    for ( iterator_first(it); 
-            !iterator_finished(it); 
-            iterator_next(it))
-    {
-        scope_entry_list_t* entry_list = (scope_entry_list_t*) iterator_item(it);
+    find_template_parameter_data_t data;
+    memset(&data, 0, sizeof(data));
+    data.template_param = template_param;
 
-        scope_entry_t* entry = entry_list->entry;
+    rb_tree_walk(st->hash, find_template_parameter_aux, &data);
 
-        if (entry->kind == template_param->kind
-                && (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
-                    || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
-                && (entry->entity_specs.template_parameter_position 
-                    == template_param->entity_specs.template_parameter_position)
-                && (entry->entity_specs.template_parameter_nesting 
-                    == template_param->entity_specs.template_parameter_nesting))
-        {
-            return entry;
-        }
-    }
-
-    return NULL;
+    return data.entry;
 }
 
 static const char* give_name_for_template_parameter(scope_entry_t* entry, decl_context_t decl_context)
