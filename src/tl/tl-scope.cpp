@@ -142,6 +142,7 @@ namespace TL
     {
         ObjectList<Symbol> result;
 
+#if 0
         // This should be a bit more encapsulated in cxx-scope.c
         Iterator *it;
 
@@ -169,6 +170,8 @@ namespace TL
             }
 
         }
+#endif
+#warning IMPLEMENT
 
         return result;
     }
