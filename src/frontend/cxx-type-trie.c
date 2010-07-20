@@ -26,7 +26,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include "cxx-typeutils.h"
-#include "heapsort.h"
 
 static unsigned long long int _bytes_used_type_trie = 0;
 
