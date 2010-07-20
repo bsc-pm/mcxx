@@ -24,11 +24,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "red_black_tree.h"
 #include "cxx-utils.h"
 #include "cxx-driver.h"
 #include "cxx-prettyprint.h"
 #include "cxx-printscope.h"
-#include "hash_iterator.h"
 #include "cxx-typeutils.h"
 
 /*
@@ -120,19 +120,16 @@ static void print_scope_full_context(decl_context_t decl_context, int global_ind
     }
 }
 
+static void print_scope_full_aux(const void* key UNUSED_PARAMETER, void* info, void* data)
+{
+    scope_entry_list_t* entry_list = (scope_entry_list_t*)info;
+
+    print_scope_entry_list(entry_list, *(int*)data);
+}
+
 static void print_scope_full(scope_t* st, int global_indent)
 {
-    Iterator *it;
-    
-    it = (Iterator*) hash_iterator_create(st->hash);
-    for ( iterator_first(it); 
-            !iterator_finished(it); 
-            iterator_next(it))
-    {
-        scope_entry_list_t* entry_list = (scope_entry_list_t*) iterator_item(it);
-
-        print_scope_entry_list(entry_list, global_indent);
-    }
+    rb_tree_walk(st->hash, print_scope_full_aux, &global_indent);
 }
 
 static void print_scope_entry_list(scope_entry_list_t* entry_list, int global_indent)

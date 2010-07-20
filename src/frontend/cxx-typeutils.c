@@ -34,9 +34,10 @@
 #include "cxx-prettyprint.h"
 #include "cxx-driver.h"
 #include "cxx-ambiguity.h"
-#include "hash.h"
 #include "cxx-tltype.h"
 #include "cxx-attrnames.h"
+
+#include "red_black_tree.h"
 
 /*
  * --
@@ -1745,16 +1746,30 @@ template_parameter_list_t* template_specialized_type_get_template_parameters(typ
     return t->template_parameters;
 }
 
+static void null_dtor(const void* v UNUSED_PARAMETER) { }
+
+static type_t* rb_tree_query_type(rb_red_blk_tree* tree, type_t* t)
+{
+    type_t* result = NULL;
+    rb_red_blk_node* n = rb_tree_query(tree, t);
+    if (n != NULL)
+    {
+        result = rb_node_get_info(n);
+    }
+
+    return result;
+}
+
 type_t* get_complex_type(type_t* t)
 {
-    static Hash *_complex_hash = NULL;
+    rb_red_blk_tree *_complex_hash = NULL;
 
     if (_complex_hash == NULL)
     {
-        _complex_hash = hash_create(HASH_SIZE, HASHFUNC(pointer_hash), KEYCMPFUNC(integer_comp));
+        _complex_hash = rb_tree_create(integer_comp, null_dtor, null_dtor);
     }
 
-    type_t* result = hash_get(_complex_hash, t);
+    type_t* result = rb_tree_query_type(_complex_hash, t);
 
     if (result == NULL)
     {
@@ -1767,7 +1782,7 @@ type_t* get_complex_type(type_t* t)
         result->info->alignment = t->info->alignment;
         result->info->valid_size = 1;
 
-        hash_put(_complex_hash, t, result);
+        rb_tree_add(_complex_hash, t, result);
     }
 
     return result;
@@ -1782,7 +1797,7 @@ type_t* complex_type_get_base_type(type_t* t)
     return t->type->complex_element;
 }
 
-static Hash *_qualification[(CV_CONST | CV_VOLATILE | CV_RESTRICT) + 1];
+static rb_red_blk_tree *_qualification[(CV_CONST | CV_VOLATILE | CV_RESTRICT) + 1];
 static void init_qualification_hash(void)
 {
     static char _qualif_hash_initialized = 0;
@@ -1790,9 +1805,11 @@ static void init_qualification_hash(void)
     if (!_qualif_hash_initialized)
     {
         int i;
-        for (i = 0; i < 8; i++)
+        for (i = 0; 
+                i < (int)((CV_CONST|CV_VOLATILE|CV_RESTRICT) + 1);
+                i++)
         {
-            _qualification[i] = hash_create(HASH_SIZE, HASHFUNC(pointer_hash), KEYCMPFUNC(integer_comp));
+            _qualification[i] = rb_tree_create(integer_comp, null_dtor, null_dtor);
         }
         _qualif_hash_initialized = 1;
     }
@@ -1820,7 +1837,7 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
     }
 
     // Lookup based on the unqualified type
-    type_t* qualified_type = (type_t*)hash_get(
+    type_t* qualified_type = (type_t*)rb_tree_query_type(
             _qualification[(int)(cv_qualification)], 
             original->unqualified_type);
 
@@ -1832,7 +1849,7 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
         qualified_type->cv_qualifier = cv_qualification;
         qualified_type->unqualified_type = original->unqualified_type;
 
-        hash_put(_qualification[(int)(cv_qualification)], 
+        rb_tree_add(_qualification[(int)(cv_qualification)], 
                 original->unqualified_type, 
                 qualified_type);
     }
@@ -1862,14 +1879,14 @@ type_t* get_restrict_qualified_type(type_t* t)
 
 type_t* get_pointer_type(type_t* t)
 {
-    static Hash *_pointer_types = NULL;
+    rb_red_blk_tree *_pointer_types = NULL;
 
     if (_pointer_types == NULL)
     {
-        _pointer_types = hash_create(HASH_SIZE, HASHFUNC(pointer_hash), KEYCMPFUNC(integer_comp));
+        _pointer_types = rb_tree_create(integer_comp, null_dtor, null_dtor);
     }
 
-    type_t* pointed_type = hash_get(_pointer_types, t);
+    type_t* pointed_type = rb_tree_query_type(_pointer_types, t);
 
     if (pointed_type == NULL)
     {
@@ -1895,14 +1912,14 @@ type_t* get_pointer_type(type_t* t)
 
         pointed_type->info->is_dependent = is_dependent_type(t);
 
-        hash_put(_pointer_types, t, pointed_type);
+        rb_tree_add(_pointer_types, t, pointed_type);
     }
 
     return pointed_type;
 }
 
-static Hash *_lvalue_reference_types = NULL;
-static Hash *_rvalue_reference_types = NULL;
+static rb_red_blk_tree *_lvalue_reference_types = NULL;
+static rb_red_blk_tree *_rvalue_reference_types = NULL;
 
 static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
 {
@@ -1920,7 +1937,7 @@ static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
     ERROR_CONDITION(t == NULL,
             "Trying to create a reference of a null type", 0);
 
-    Hash **_reference_types = NULL;
+    rb_red_blk_tree **_reference_types = NULL;
     if (is_rvalue_ref)
     {
         _reference_types = &_lvalue_reference_types;
@@ -1932,10 +1949,10 @@ static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
 
     if ((*_reference_types) == NULL)
     {
-        (*_reference_types) = hash_create(HASH_SIZE, HASHFUNC(pointer_hash), KEYCMPFUNC(integer_comp));
+        (*_reference_types) = rb_tree_create(integer_comp, null_dtor, null_dtor);
     }
 
-    type_t* referenced_type = hash_get((*_reference_types), t);
+    type_t* referenced_type = rb_tree_query_type((*_reference_types), t);
 
     if (referenced_type == NULL)
     {
@@ -1955,7 +1972,7 @@ static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
 
         referenced_type->info->is_dependent = is_dependent_type(t);
 
-        hash_put((*_reference_types), t, referenced_type);
+        rb_tree_add((*_reference_types), t, referenced_type);
     }
 
     return referenced_type;
@@ -1973,25 +1990,30 @@ type_t* get_rvalue_reference_type(type_t* t)
 
 type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
 {
-    static Hash *_class_types = NULL;
+    rb_red_blk_tree *_class_types = NULL;
 
     // First lookup using the class symbol
     if (_class_types == NULL)
     {
-        _class_types = hash_create(HASH_SIZE, HASHFUNC(pointer_hash), KEYCMPFUNC(integer_comp));
+        _class_types = rb_tree_create(integer_comp, null_dtor, null_dtor);
     }
 
     // First then lookup using the 
-    Hash* class_type_hash = hash_get(_class_types, class_entry);
+    rb_red_blk_tree * class_type_hash = NULL;
+    rb_red_blk_node * n = rb_tree_query(_class_types, class_entry);
+    if (n != NULL)
+    {
+        class_type_hash = rb_node_get_info(n);
+    }
 
     if (class_type_hash == NULL)
     {
-        class_type_hash = hash_create(HASH_SIZE, HASHFUNC(pointer_hash), KEYCMPFUNC(integer_comp));
+        class_type_hash = rb_tree_create(integer_comp, null_dtor, null_dtor);
 
-        hash_put(_class_types, class_entry, class_type_hash);
+        rb_tree_add(_class_types, class_entry, class_type_hash);
     }
 
-    type_t* pointer_to_member = hash_get(class_type_hash, t);
+    type_t* pointer_to_member = rb_tree_query_type(class_type_hash, t);
 
     if (pointer_to_member == NULL)
     {
@@ -2024,7 +2046,7 @@ type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
             || class_entry->kind == SK_TEMPLATE_TYPE_PARAMETER 
             || is_dependent_type(class_entry->type_information);
 
-        hash_put(class_type_hash, t, pointer_to_member);
+        rb_tree_add(class_type_hash, t, pointer_to_member);
     }
 
     return pointer_to_member;
@@ -2033,16 +2055,16 @@ type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
 typedef struct array_sized_hash
 {
     _size_t size;
-    Hash *element_hash;
+    rb_red_blk_tree *element_hash;
 } array_sized_hash_t;
 
 static array_sized_hash_t *_array_sized_hash = NULL;
 static int _array_sized_hash_size = 0;
 
-static Hash* _init_array_sized_hash(array_sized_hash_t *array_sized_hash_elem, _size_t size)
+static rb_red_blk_tree* _init_array_sized_hash(array_sized_hash_t *array_sized_hash_elem, _size_t size)
 {
     array_sized_hash_elem->size = size;
-    array_sized_hash_elem->element_hash = hash_create(HASH_SIZE, HASHFUNC(pointer_hash), KEYCMPFUNC(integer_comp));
+    array_sized_hash_elem->element_hash = rb_tree_create(integer_comp, null_dtor, null_dtor);
 
     return array_sized_hash_elem->element_hash;
 }
@@ -2066,7 +2088,7 @@ int array_hash_compar(const void* v1, const void* v2)
         return 0;
 }
 
-static Hash* get_array_sized_hash(_size_t size)
+static rb_red_blk_tree* get_array_sized_hash(_size_t size)
 {
     array_sized_hash_t key = { .size = size };
 
@@ -2079,7 +2101,7 @@ static Hash* get_array_sized_hash(_size_t size)
         _array_sized_hash_size++;
         _array_sized_hash = realloc(_array_sized_hash, _array_sized_hash_size * sizeof(array_sized_hash_t));
 
-        Hash* result = _init_array_sized_hash(&_array_sized_hash[_array_sized_hash_size - 1], size);
+        rb_red_blk_tree* result = _init_array_sized_hash(&_array_sized_hash[_array_sized_hash_size - 1], size);
 
         // So we can use bsearch again
         qsort(_array_sized_hash, _array_sized_hash_size, sizeof(array_sized_hash_t), array_hash_compar);
@@ -2128,14 +2150,14 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
     if (expression == NULL)
     {
         // Use the same strategy we use for pointers
-        static Hash *_undefined_array_types = NULL;
+        static rb_red_blk_tree *_undefined_array_types = NULL;
 
         if (_undefined_array_types == NULL)
         {
-            _undefined_array_types = hash_create(HASH_SIZE, HASHFUNC(pointer_hash), KEYCMPFUNC(integer_comp));
+            _undefined_array_types = rb_tree_create(integer_comp, null_dtor, null_dtor);
         }
 
-        type_t* undefined_array_type = hash_get(_undefined_array_types, element_type);
+        type_t* undefined_array_type = rb_tree_query_type(_undefined_array_types, element_type);
         if (undefined_array_type == NULL)
         {
             _array_type_counter++;
@@ -2151,7 +2173,7 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
 
             result->info->is_dependent = is_dependent_type(element_type);
 
-            hash_put(_undefined_array_types, element_type, result);
+            rb_tree_add(_undefined_array_types, element_type, result);
         }
         else
         {
@@ -2169,9 +2191,9 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
             _size_t num_elements = const_value_cast_to_8(
                     expression_get_constant(expression));
 
-            Hash* array_sized_hash = get_array_sized_hash(num_elements);
+            rb_red_blk_tree* array_sized_hash = get_array_sized_hash(num_elements);
 
-            type_t* array_type = hash_get(array_sized_hash, element_type);
+            type_t* array_type = rb_tree_query_type(array_sized_hash, element_type);
 
             if (array_type == NULL)
             {
@@ -2185,7 +2207,7 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
                 result->array->array_expr = const_value_to_tree(
                         const_value_get(num_elements, sizeof(num_elements), 0));
                 result->array->array_expr_decl_context = decl_context;
-                hash_put(array_sized_hash, element_type, result);
+                rb_tree_add(array_sized_hash, element_type, result);
 
                 result->info->is_dependent = is_dependent_type(element_type);
             }

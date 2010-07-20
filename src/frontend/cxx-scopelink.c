@@ -28,6 +28,7 @@
 #include "cxx-ast.h"
 #include "cxx-scope.h"
 #include "cxx-utils.h"
+#include "red_black_tree.h"
 
 static unsigned long long _bytes_scopelink = 0;
 
@@ -38,7 +39,7 @@ unsigned long long scopelink_used_memory(void)
 
 struct scope_link_tag
 {
-    Hash* h;
+    rb_red_blk_tree* h;
     decl_context_t global_decl_context;
 };
 
@@ -47,11 +48,13 @@ typedef struct scope_link_entry_tag
     decl_context_t decl_context;
 } scope_link_entry_t;
 
+static void null_dtor(const void* v UNUSED_PARAMETER) { }
+
 scope_link_t* scope_link_new(decl_context_t global_decl_context)
 {
     scope_link_t* result = counted_calloc(1, sizeof(*result), &_bytes_scopelink);
 
-    result->h = hash_create(HASH_SIZE, HASHFUNC(pointer_hash), KEYCMPFUNC(integer_comp));
+    result->h = rb_tree_create(integer_comp, null_dtor, null_dtor);
     result->global_decl_context = global_decl_context;
 
     return result;
@@ -78,14 +81,14 @@ void scope_link_set(scope_link_t* sl, AST a, decl_context_t decl_context)
 
     new_entry->decl_context = decl_context;
 
-    hash_put(sl->h, a, new_entry);
+    rb_tree_add(sl->h, a, new_entry);
 }
 
 void scope_link_unset(scope_link_t* sl, AST a)
 {
-    scope_link_entry_t* result = (scope_link_entry_t*)hash_get(sl->h, a);
-    if (result != NULL)
-        hash_delete(sl->h, a);
+    rb_red_blk_node *node = rb_tree_query(sl->h, a);
+    if (node != NULL)
+        rb_tree_delete(sl->h, node);
 }
 
 static scope_link_entry_t* scope_link_get(scope_link_t* sl, AST a)
@@ -94,7 +97,12 @@ static scope_link_entry_t* scope_link_get(scope_link_t* sl, AST a)
 
     while (a != NULL)
     {
-        scope_link_entry_t* entry = (scope_link_entry_t*)hash_get(sl->h, a);
+        scope_link_entry_t* entry = NULL;
+        rb_red_blk_node *node = rb_tree_query(sl->h, a);
+        if (node != NULL)
+        {
+            entry = rb_node_get_info(node);
+        }
 
         if (entry != NULL)
         {
@@ -120,7 +128,12 @@ decl_context_t scope_link_get_decl_context(scope_link_t* sl, AST a)
 
 char scope_link_direct_get_scope(scope_link_t* sl, AST a, decl_context_t *decl_result)
 {
-    scope_link_entry_t* result = (scope_link_entry_t*)hash_get(sl->h, a);
+    scope_link_entry_t* result = NULL;
+    rb_red_blk_node *node = rb_tree_query(sl->h, a);
+    if (node != NULL)
+    {
+        result = rb_node_get_info(node);
+    }
 
     if (result != NULL)
     {

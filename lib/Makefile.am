@@ -78,6 +78,8 @@ libmcxx_utils_la_SOURCES = \
                           filename.h \
                           string_utils.h \
                           string_utils.c \
+                          red_black_tree.c \
+                          red_black_tree.h \
                           $(END)
 
 libmcxx_utils_la_LDFLAGS= -avoid-version $(no_undefined)
