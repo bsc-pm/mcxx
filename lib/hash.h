@@ -91,7 +91,7 @@ LIBUTILS_EXTERN int pointer_hash(const void* key, int size);
 // Useful things for string hashes
 #define HASH_SIZE (23)
 
-LIBUTILS_EXTERN int integer_comp(void *, void*);
+LIBUTILS_EXTERN int integer_comp(const void *, const void*);
 
 LIBUTILS_EXTERN unsigned long long hash_used_memory(void);
 
