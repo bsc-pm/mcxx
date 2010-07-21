@@ -274,7 +274,9 @@ clean_test_vars ()
 {
    unset test_generator
    unset test_compile_fail
+   unset test_compile_faulty
    unset test_exec_fail
+   unset test_exec_faulty
    unset test_nolink
    unset test_noexec
    unset test_ignore

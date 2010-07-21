@@ -10,6 +10,7 @@ EOF
 fi
 
 cat <<EOF
+compile_versions=API_@superscalar_version@
 SS_LIBS=
 EOF
 
@@ -32,9 +33,11 @@ fi
 cat <<EOF
 MCC="@abs_top_builddir@/libtool --mode=execute \${SS_LIBS} @abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=smpss-cc --config-file=@abs_top_builddir@/config/config.superscalar --verbose"
 
-test_CC="\${MCC}"
+test_CC_API_3="\${MCC}"
+test_CC_API_4="\${MCC}"
+test_CC_API_5="\${MCC}"
 
-test_CFLAGS=
+test_CFLAGS=--gcc
 
 test_nolink=yes
 EOF
