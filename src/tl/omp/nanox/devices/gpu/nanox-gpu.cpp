@@ -247,14 +247,54 @@ void DeviceGPU::create_outline(
     FunctionDefinition enclosing_function(function_def_tree, sl);
 
     Source result, arguments_struct_definition, outline_name, parameter_list, body;
+    Source instrument_before, instrument_after;
 
     result
 		<< arguments_struct_definition
         << "void " << outline_name << "(" << parameter_list << ")"
         << "{"
+        << instrument_before
         << body
+        << instrument_after
         << "}"
         ;
+
+    // Add the tracing instrumentation if needed
+    if (instrumentation_enabled())
+    {
+        Source funct_id, funct_description;
+        Symbol function_symbol = enclosing_function.get_function_symbol();
+
+        instrument_before
+            << "static int nanos_funct_id_init = 0;"
+            << "static nanos_event_key_t nanos_instr_user_fun_key = 0;"
+            << "static nanos_event_value_t nanos_instr_user_fun_value = 0;"
+            << "if (nanos_funct_id_init == 0)"
+            << "{"
+            <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct\", &nanos_instr_user_fun_key);"
+            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+            <<    "err = nanos_instrument_register_value ( &nanos_instr_user_fun_value, \"user-funct\","
+            <<               funct_id << "," << funct_description << ", 0);"
+            <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+            <<    "nanos_funct_id_init = 1;"
+            << "}"
+            << "nanos_instrument_enter_burst(nanos_instr_user_fun_key, nanos_instr_user_fun_value);"
+            ;
+
+        instrument_after
+            << "nanos_instrument_leave_burst(nanos_instr_user_fun_key);"
+            ;
+
+        funct_id
+            << "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
+            ;
+
+        funct_description
+            << "\"Outline created after construct at '"
+            << reference_tree.get_locus()
+            << "' found in function '" << function_symbol.get_qualified_name() << "'\""
+            ;
+    }
 
     // arguments_struct_definition
     Scope sc = sl.get_scope(reference_tree);
