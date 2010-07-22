@@ -15,6 +15,7 @@ namespace TL
             void pragma_start(PragmaCustomConstruct ctr);
             void pragma_finish(PragmaCustomConstruct ctr);
             void pragma_barrier(PragmaCustomConstruct ctr);
+            void pragma_wait(PragmaCustomConstruct ctr);
     };
 }
 

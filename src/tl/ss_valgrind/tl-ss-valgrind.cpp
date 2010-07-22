@@ -10,10 +10,12 @@ namespace TL
         register_directive("start");
         register_directive("finish");
         register_directive("barrier");
+        register_directive("wait");
 
         on_directive_post["start"].connect(functor(&SSValgrind::pragma_start, *this));
         on_directive_post["finish"].connect(functor(&SSValgrind::pragma_finish, *this));
         on_directive_post["barrier"].connect(functor(&SSValgrind::pragma_barrier, *this));
+        on_directive_post["wait"].connect(functor(&SSValgrind::pragma_wait, *this));
     }
 
     void SSValgrind::run(DTO& dto)
@@ -244,6 +246,29 @@ namespace TL
 
         AST_t new_code = src.parse_statement(ctr.get_ast(), ctr.get_scope_link());
         ctr.get_ast().replace(new_code);
+    }
+
+    void SSValgrind::pragma_wait(PragmaCustomConstruct ctr)
+    {
+        PragmaCustomClause clause = ctr.get_clause("on");
+
+        if (clause.is_defined())
+        {
+            ObjectList<Expression> expression_list = clause.get_expression_list();
+
+            Source src;
+            for (ObjectList<Expression>::iterator it = expression_list.begin();
+                    it != expression_list.end();
+                    it++)
+            {
+                src
+                    << "wait_on_valgrind(" << *it << ");"
+                    ;
+            }
+
+            AST_t new_code = src.parse_statement(ctr.get_ast(), ctr.get_scope_link());
+            ctr.get_ast().replace(new_code);
+        }
     }
 }
 
