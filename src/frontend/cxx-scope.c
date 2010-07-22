@@ -1192,18 +1192,19 @@ static decl_context_t lookup_qualification_scope(
 
     scope_entry_t* starting_symbol = starting_symbol_list->entry;
 
-    if (starting_symbol->kind == SK_DEPENDENT_ENTITY)
+    // This is an already dependent name
+    if (starting_symbol->kind == SK_CLASS
+            && is_dependent_type(starting_symbol->type_information)
+            && BITMAP_TEST(nested_name_context.decl_flags, DF_DEPENDENT_TYPENAME))
     {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCOPE: Component '%s' is a dependent entity\n", prettyprint_in_buffer(first_qualification));
-        }
-        //
-        // Is this case possible ? 
-        //
-        internal_error("Verify this case", 0);
+        // We cannot do anything else here but returning NULL
+        // and stating that it is dependent
+        *dependent_type = get_dependent_typename_type(starting_symbol, 
+                nested_name_context, nested_name_spec, unqualified_part);
         *is_valid = 0;
-        return new_decl_context();
+
+        memset(&result, 0, sizeof(result));
+        return result;
     }
     else if (starting_symbol->kind == SK_NAMESPACE)
     {
