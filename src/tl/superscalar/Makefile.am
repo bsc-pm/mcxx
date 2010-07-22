@@ -79,14 +79,6 @@ libtlsuperscalar_function_router_la_SOURCES = \
 	tl-function-router.cpp
 
 libtlsuperscalar_transform_directives_la_SOURCES = 
-if USE_TL_SUPERSCALAR_V1
-libtlsuperscalar_transform_directives_la_SOURCES += \
-	tl-transform-directives.cpp
-endif
-if USE_TL_SUPERSCALAR_V2
-libtlsuperscalar_transform_directives_la_SOURCES += \
-	tl-transform-directives.cpp
-endif
 if USE_TL_SUPERSCALAR_V3
 libtlsuperscalar_transform_directives_la_SOURCES += \
 	tl-transform-directives-v3.cpp
@@ -101,14 +93,6 @@ libtlsuperscalar_transform_directives_la_SOURCES += \
 endif
 
 libtlsuperscalar_code_conversion_la_SOURCES = 
-if USE_TL_SUPERSCALAR_V1
-libtlsuperscalar_code_conversion_la_SOURCES += \
-	tl-code-conversion.cpp
-endif
-if USE_TL_SUPERSCALAR_V2
-libtlsuperscalar_code_conversion_la_SOURCES += \
-	tl-code-conversion-v2.cpp
-endif
 if USE_TL_SUPERSCALAR_V3
 libtlsuperscalar_code_conversion_la_SOURCES += \
 	tl-parameter-expression.cpp \
@@ -162,8 +146,6 @@ noinst_HEADERS = \
 	tl-function-router.hpp \
 	tl-transform-directives.hpp \
 	tl-transform-directives-v3.hpp \
-	tl-code-conversion.hpp \
-	tl-code-conversion-v2.hpp \
 	tl-code-conversion-v3.hpp \
 	tl-code-conversion-v4.hpp \
 	tl-code-conversion-v5.hpp \

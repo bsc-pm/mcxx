@@ -33,7 +33,7 @@ CLEANFILES=
 # Replacements are defined in this makefile
 include ../config/Makefile.replace
 
-check-local: $(builddir)/config/bets
+prepare-check: $(builddir)/config/bets
 	chmod +x config/mercurium-extensions
 	chmod +x config/mercurium-omp
 	chmod +x config/mercurium-nanos4
@@ -41,7 +41,11 @@ check-local: $(builddir)/config/bets
 	chmod +x config/mercurium-ss
 	chmod +x config/mercurium-stm
 	chmod +x */mercurium
-	$(builddir)/config/bets $(BETS_OPTIONS) $(srcdir)
+
+BETS_DIRS=$(srcdir)
+
+check-local: prepare-check
+	$(builddir)/config/bets $(BETS_OPTIONS) $(BETS_DIRS)
 
 dist-hook:
 	for i in $(srcdir)/*.dg; \
