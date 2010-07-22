@@ -146,8 +146,6 @@ noinst_HEADERS = \
 	tl-function-router.hpp \
 	tl-transform-directives.hpp \
 	tl-transform-directives-v3.hpp \
-	tl-code-conversion.hpp \
-	tl-code-conversion-v2.hpp \
 	tl-code-conversion-v3.hpp \
 	tl-code-conversion-v4.hpp \
 	tl-code-conversion-v5.hpp \
