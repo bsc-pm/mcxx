@@ -80,7 +80,7 @@ LIBMCXX_EXTERN void build_scope_member_specification_with_scope_link(
         access_specifier_t current_access,
         struct type_tag* simple_type_info);
 
-LIBMCXX_EXTERN scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl_context);
+LIBMCXX_EXTERN scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_symbol, decl_context_t decl_context);
 
 LIBMCXX_EXTERN void finish_class_type(struct type_tag* class_type, struct type_tag* type_info, decl_context_t decl_context,
         const char *filename, int line);

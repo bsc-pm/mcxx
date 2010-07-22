@@ -71,6 +71,7 @@ static char* symbol_kind_names[] =
     [SK_TEMPLATE_TEMPLATE_PARAMETER] = "SK_TEMPLATE_TEMPLATE_PARAMETER", 
     // GCC Extension for builtin types
     [SK_GCC_BUILTIN_TYPE] = "SK_GCC_BUILTIN_TYPE",
+    [SK_DEPENDENT_ENTITY] = "SK_DEPENDENT_ENTITY",
     // Artificial symbols
     [SK_OTHER] = "SK_OTHER"
 };
@@ -354,7 +355,8 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
 
     if (entry->entity_specs.is_member)
     {
-        PRINT_INDENTED_LINE(stderr, global_indent+1, "Is member\n");
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "Is member of '%s'\n",
+                print_declarator(entry->entity_specs.class_type));
     }
 
     if (entry->entity_specs.is_conversion)

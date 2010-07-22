@@ -3867,6 +3867,58 @@ static type_t* operator_bin_assign_only_arithmetic_result(type_t** lhs, type_t**
     return *lhs;
 }
 
+static
+void build_binary_nonop_assign_builtin(type_t* lhs_type, 
+        builtin_operators_set_t *result,
+        AST operator)
+{
+    memset(result, 0, sizeof(*result));
+
+    if (!is_lvalue_reference_type(lhs_type)
+            || is_const_qualified_type(reference_type_get_referenced_type(lhs_type)))
+        return;
+
+    parameter_info_t parameters[2] =
+    {
+        { 
+            .is_ellipsis = 0,
+            .type_info = lhs_type,
+            .nonadjusted_type_info = NULL
+        },
+        {
+            .is_ellipsis = 0,
+            .type_info = get_lvalue_reference_type(
+                    get_const_qualified_type(
+                        reference_type_get_referenced_type(lhs_type))),
+            .nonadjusted_type_info = NULL
+        }
+    };
+
+    type_t* function_type = get_new_function_type(lhs_type, parameters, 2);
+
+    // Fill the minimum needed for this 'faked' function symbol
+    (*result).entry[(*result).num_builtins].kind = SK_FUNCTION;
+    (*result).entry[(*result).num_builtins].symbol_name = get_operator_function_name(operator);
+    (*result).entry[(*result).num_builtins].entity_specs.is_builtin = 1;
+    (*result).entry[(*result).num_builtins].type_information = function_type;
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "EXPRTYPE: Generated builtin '%s' for '%s'\n",
+                print_declarator((*result).entry[(*result).num_builtins].type_information),
+                (*result).entry[(*result).num_builtins].symbol_name);
+    }
+
+    // Add to the results and properly chain things
+    (*result).entry_list[(*result).num_builtins].entry = &((*result).entry[(*result).num_builtins]);
+    if ((*result).num_builtins > 0)
+    {
+        (*result).entry_list[(*result).num_builtins].next = 
+            &((*result).entry_list[(*result).num_builtins - 1]);
+    }
+    (*result).num_builtins++;
+}
+
 static type_t* compute_bin_nonoperator_assig_only_arithmetic_type(AST expr, AST lhs, AST rhs, AST operator,
         decl_context_t decl_context)
 {
@@ -3950,13 +4002,8 @@ static type_t* compute_bin_nonoperator_assig_only_arithmetic_type(AST expr, AST 
     }
 
     builtin_operators_set_t builtin_set; 
-    build_binary_builtin_operators(
-            // Note that the left is not removed its reference type
-            lhs_type, no_ref(rhs_type), 
-            &builtin_set,
-            decl_context, operator, 
-            operator_bin_assign_only_arithmetic_pred,
-            operator_bin_assign_only_arithmetic_result);
+    build_binary_nonop_assign_builtin(
+            lhs_type, &builtin_set, operator);
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
@@ -4976,6 +5023,7 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, const_val
 
     if (result != NULL 
             && (result->entry->kind == SK_VARIABLE
+                || result->entry->kind == SK_DEPENDENT_ENTITY
                 || result->entry->kind == SK_ENUMERATOR
                 || result->entry->kind == SK_FUNCTION
                 // template function names
@@ -5026,6 +5074,10 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                 {
                     *val = expression_get_constant(entry->expression_value);
                 }
+            }
+            else
+            {
+                internal_error("Invalid entry kind in an expression", 0);
             }
         }
         CXX_LANGUAGE()
@@ -5087,6 +5139,11 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, const_val
             else if (entry->kind == SK_FUNCTION)
             {
                 expression_set_type(expr, get_unresolved_overloaded_type(result, /* template args */ NULL));
+            }
+            else if (entry->kind == SK_DEPENDENT_ENTITY)
+            {
+                expression_set_is_value_dependent(expr, 1);
+                expression_set_dependent(expr);
             }
             else if (entry->kind == SK_TEMPLATE_PARAMETER)
             {
@@ -6810,6 +6867,7 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
         SK_VARIABLE,
         SK_FUNCTION,
         SK_TEMPLATE, 
+        SK_DEPENDENT_ENTITY
     };
 
     entry_list = filter_symbol_kind_set(entry_list,
@@ -6836,11 +6894,12 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
                     && (entry->kind != SK_TEMPLATE
                         || !is_function_type(
                             named_type_get_symbol(template_type_get_primary_type(type))
-                            ->type_information)))
+                            ->type_information))
+                    && (entry->kind != SK_DEPENDENT_ENTITY))
             {
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "EXPRTYPE: Symbol '%s' with type '%s' can't be called\n",
+                    fprintf(stderr, "EXPRTYPE: Symbol '%s' with type '%s' cannot be called\n",
                             entry->symbol_name,
                             entry->type_information != NULL ? print_declarator(entry->type_information)
                             : " <no type> ");
@@ -6849,7 +6908,9 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
             }
             else
             {
-                if (entry->entity_specs.is_member
+                // It can be a dependent entity because of a using of an undefined base
+                if (entry->kind == SK_DEPENDENT_ENTITY
+                        || entry->entity_specs.is_member
                         || (entry->kind == SK_VARIABLE
                             && (is_class_type(type)
                                 || is_pointer_to_function_type(type)
@@ -6876,7 +6937,8 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
             // No koenig needed
             DEBUG_CODE()
             {
-                fprintf(stderr, "EXPRTYPE: Not Koenig will be performed since we found something that is member or pointer to function type\n");
+                fprintf(stderr, "EXPRTYPE: Not Koenig will be performed since we found something that "
+                        "is member or pointer to function type or dependent entity\n");
             }
             return check_for_expression(called_expression, decl_context);
         }
@@ -9700,23 +9762,26 @@ static void accessible_types_through_conversion(type_t* t, type_t ***result, int
         {
             scope_entry_t *conversion = it->entry;
 
-            type_t* destination_type = function_type_get_return_type(conversion->type_information);
-            
-            // The implicit parameter of this operator function is a reference
-            // to the class type, this will filter not eligible conversion functions
-            // (e.g. given a 'const T' we cannot call a non-const method)
-            type_t* implicit_parameter = conversion->entity_specs.class_type;
-            if (is_const_qualified_type(conversion->type_information))
+            if (!is_template_specialized_type(conversion->type_information))
             {
-                implicit_parameter = get_cv_qualified_type(implicit_parameter, CV_CONST);
-            }
-            implicit_parameter = get_lvalue_reference_type(implicit_parameter);
+                type_t* destination_type = function_type_get_return_type(conversion->type_information);
 
-            standard_conversion_t first_sc;
-            if (standard_conversion_between_types(&first_sc, get_lvalue_reference_type(t), 
-                        implicit_parameter))
-            {
-                P_LIST_ADD_ONCE(*result, *num_types, destination_type);
+                // The implicit parameter of this operator function is a reference
+                // to the class type, this will filter not eligible conversion functions
+                // (e.g. given a 'const T' we cannot call a non-const method)
+                type_t* implicit_parameter = conversion->entity_specs.class_type;
+                if (is_const_qualified_type(conversion->type_information))
+                {
+                    implicit_parameter = get_cv_qualified_type(implicit_parameter, CV_CONST);
+                }
+                implicit_parameter = get_lvalue_reference_type(implicit_parameter);
+
+                standard_conversion_t first_sc;
+                if (standard_conversion_between_types(&first_sc, get_lvalue_reference_type(t), 
+                            implicit_parameter))
+                {
+                    P_LIST_ADD_ONCE(*result, *num_types, destination_type);
+                }
             }
 
             it = it->next;
