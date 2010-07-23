@@ -134,13 +134,35 @@ static void do_smp_outline_replacements(AST_t body,
                     CXX_LANGUAGE()
                     {
                         // Set up a reference to the raw buffer properly casted to the data type
-                        initial_code
-                            << type.get_reference_to().get_declaration(sym.get_scope(), field_name)
-                            << "(" 
-                            << "(" << type.get_pointer_to().get_declaration(sym.get_scope(), "") << ")"
-                            << "_args->" << field_name
-                            << ");"
-                            ;
+
+                        Type ref_type = type;
+                        Type ptr_type = type;
+
+                        if (!type.is_reference())
+                        {
+                            ref_type = type.get_reference_to();
+                            ptr_type = type.get_pointer_to();
+
+                            initial_code
+                                << ref_type.get_declaration(sym.get_scope(), field_name)
+                                << "(" 
+                                << "(" << ptr_type.get_declaration(sym.get_scope(), "") << ")"
+                                << "_args->" << field_name
+                                << ");"
+                                ;
+                        }
+                        else
+                        {
+                            ptr_type = ref_type.references_to().get_pointer_to();
+
+                            initial_code
+                                << ref_type.get_declaration(sym.get_scope(), field_name)
+                                << "(" 
+                                << "*(" << ptr_type.get_declaration(sym.get_scope(), "") << ")"
+                                << "_args->" << field_name
+                                << ");"
+                                ;
+                        }
 
                         // This is the neatest aspect of references
                         replace_src.add_replacement(sym, field_name);
@@ -273,15 +295,35 @@ void DeviceSMP::create_outline(
             it != data_env_items.end();
             it++)
     {
-        if (!it->is_private())
-            continue;
+        if (it->is_private())
+        {
+            Symbol sym = it->get_symbol();
+            Type type = sym.get_type();
 
-        Symbol sym = it->get_symbol();
-        Type type = sym.get_type();
+            private_vars
+                << type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
+                ;
+        }
+        else if (it->is_raw_buffer())
+        {
+            Symbol sym = it->get_symbol();
+            Type type = sym.get_type();
+            std::string field_name = it->get_field_name();
 
-        private_vars
-            << type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
-            ;
+            if (type.is_reference())
+            {
+                type = type.references_to();
+            }
+
+            if (!type.is_named_class())
+            {
+                internal_error("invalid class type in field of raw buffer", 0);
+            }
+
+            final_code
+                << field_name << ".~" << type.get_symbol().get_name() << "();"
+                ;
+        }
     }
 
     if (outline_flags.barrier_at_end)

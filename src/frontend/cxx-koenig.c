@@ -92,6 +92,11 @@ scope_entry_list_t* koenig_lookup(
         memset(&current_context, 0, sizeof(current_context));
         current_context.current_scope = current_scope;
         
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "KOENIG: Looking up in associated scope '%p'\n", current_scope);
+        }
+
         scope_entry_list_t* current_result = copy_entry_list(query_in_scope(current_context, id_expression));
 
         scope_entry_list_t* it = current_result;
@@ -180,6 +185,13 @@ static void add_associated_scope(associated_scopes_t* associated_scopes, scope_t
 
     associated_scopes->associated_scopes[associated_scopes->num_associated_scopes] = sc;
     associated_scopes->num_associated_scopes++;
+
+    // If this scope is an inline one, add the enclosing scope as well
+    if (sc->related_entry != NULL
+            && sc->related_entry->entity_specs.is_inline)
+    {
+        add_associated_scope(associated_scopes, sc->contained_in);
+    }
 }
 
 static void compute_associated_scopes_rec(associated_scopes_t* associated_scopes, 

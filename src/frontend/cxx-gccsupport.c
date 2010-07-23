@@ -401,6 +401,10 @@ static void gather_one_gcc_attribute(const char* attribute_name,
                     ast_location(expression_list));
         }
     }
+    else if (strcmp(attribute_name, "__strong__") == 0)
+    {
+        gather_info->is_inline = 1;
+    }
 
     // Save it in the gather_info structure
     if (gather_info->num_gcc_attributes == MAX_GCC_ATTRIBUTES_PER_SYMBOL)

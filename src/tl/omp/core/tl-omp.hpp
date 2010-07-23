@@ -37,6 +37,7 @@
 #include "tl-dto.hpp"
 
 #include "tl-datareference.hpp"
+#include "tl-omp-udr.hpp"
 #include "tl-omp-deps.hpp"
 
 #include <map>
@@ -138,120 +139,8 @@ namespace TL
                 }
         };
 
-        class LIBTL_CLASS UDRInfoItem : public TL::Object
-        {
-            public:
-                enum Associativity
-                {
-                    NONE = 0,
-                    LEFT,
-                    RIGHT,
-                    UNDEFINED,
-                };
-            private:
-                bool _valid;
-                Type _type;
-                Symbol _op_symbol;
-                std::string _internal_name;
-                std::string _op_name;
-                std::string _identity;
-                Associativity _assoc;
-                bool _is_commutative;
-
-                bool _is_template;
-                Scope _template_scope;
-
-                bool _is_array;
-                int _num_dimensions;
-
-                UDRInfoItem(Type type, 
-                        Symbol op_symbol,
-                        const std::string& unqualified_name,
-                        const std::string& op_name,
-                        const std::string& identity,
-                        Associativity assoc,
-                        bool is_commutative,
-                        bool is_template,
-                        bool is_array,
-                        int num_dimensions);
-            public:
-                UDRInfoItem();
-
-                // Factories
-                // Builtin UDR
-                static UDRInfoItem get_builtin_udr(Type type,
-                        std::string op_name,
-                        const std::string& identity,
-                        Associativity assoc,
-                        bool is_commutative);
-
-                // Regular UDR
-                static UDRInfoItem get_udr(Type type,
-                        Symbol op_symbol,
-                        const std::string& identity,
-                        Associativity assoc,
-                        bool is_commutative);
-
-                // Array UDR
-                static UDRInfoItem get_array_udr(Type type,
-                        int num_dimensions,
-                        Symbol op_symbol,
-                        const std::string& identity,
-                        Associativity assoc,
-                        bool is_commutative);
-
-                // Template UDR
-                static UDRInfoItem get_template_udr(Type type,
-                        const std::string& unqualified_name,
-                        const std::string& op_name,
-                        const std::string& identity,
-                        Associativity assoc,
-                        bool is_commutative,
-                        Scope template_scope);
-
-                bool is_valid() const;
-
-                Type get_type() const;
-                Symbol get_op_symbol() const;
-                std::string get_internal_name() const;
-                std::string get_op_name() const;
-                std::string get_identity() const;
-                Associativity get_assoc() const;
-                bool is_commutative() const;
-                bool is_builtin_op() const;
-                bool is_member_op() const;
-                bool is_constructor_identity() const;
-
-                bool is_template() const;
-                Scope get_template_scope() const;
-
-                bool is_array() const;
-                int get_dimensions() const;
-        };
-
-        class LIBTL_CLASS UDRInfoScope
-        {
-            private:
-                Scope _scope;
-
-                std::string build_artificial_name(const UDRInfoItem&);
-                std::string build_artificial_name(const std::string& item);
-            public:
-                UDRInfoScope(Scope sc);
-
-                void add_udr(const UDRInfoItem& item, const std::string& str,
-                        int line);
-
-                UDRInfoItem get_udr(const std::string& udr_name, 
-                        const std::string& full_udr_name,
-                        Type udr_type,
-                        ScopeLink scope_link,
-                        Scope current_scope,
-                        const std::string& str, int line);
-        };
-
         //! Auxiliar class used in reduction clauses
-        class LIBTL_CLASS ReductionSymbol
+        class LIBTL_CLASS ReductionSymbol 
         {
             private:
                 Symbol _symbol;
@@ -268,126 +157,15 @@ namespace TL
                 {
                 }
 
-                ReductionSymbol& operator=(const ReductionSymbol& red_sym)
-                {
-                    if (this != &red_sym)
-                    {
-                        this->_symbol = red_sym._symbol;
-                        this->_udr_item = red_sym._udr_item;
-                    }
-                    return *this;
-                }
-
-                ~ReductionSymbol()
-                {
-                }
-
-                //! Returns the symbol of this reduction
-                Symbol get_symbol() const
+                Symbol get_symbol() const 
                 {
                     return _symbol;
                 }
 
-                //! States that the reduction is user defined
-                bool is_user_defined() const
+                const UDRInfoItem& get_udr() const
                 {
-                    return !_udr_item.is_builtin_op();
+                    return _udr_item;
                 }
-
-                //! States that the reduction uses a builtin operator
-                /*! This is the opposite of is_user_defined */
-                bool is_builtin_operator() const
-                {
-                    return !is_user_defined();
-                }
-
-                //! Returns a tree with an expression of the neuter value of the reduction
-                std::string get_neuter() const
-                {
-                    return _udr_item.get_identity();
-                }
-
-                bool neuter_is_constructor() const
-                {
-                    return _udr_item.is_constructor_identity();
-                }
-
-                bool neuter_is_empty() const
-                {
-                    return (_udr_item.get_identity() == "");
-                }
-
-                //! Gets the reduction operation
-                std::string get_operation() const
-                {
-                    return _udr_item.get_op_name();
-                }
-
-                //! Gets the reductor name
-                /*! This is a fancy alias for get_operation */
-                std::string get_reductor_name() const
-                {
-                    return get_operation();
-                }
-
-                Symbol get_reductor_symbol() const
-                {
-                    return _udr_item.get_op_symbol();
-                }
-
-                //! States whether this is a member specificication
-                bool reductor_is_member() const
-                {
-                    return _udr_item.is_member_op();
-                }
-
-                //! States whether the reductor is right associative
-                /*! \note Most of reductors are left associative */
-                bool reductor_is_right_associative() const
-                {
-                    return (_udr_item.get_assoc() == UDRInfoItem::RIGHT);
-                }
-
-                //! States whether the reductor is right associative
-                /*! \note Most of reductors are left associative */
-                bool reductor_is_left_associative() const
-                {
-                    return !reductor_is_right_associative();
-                }
-
-                //! States whether the reductor is flagged as being commutative
-                bool reductor_is_commutative() const
-                {
-                    return (_udr_item.is_commutative());
-                }
-
-                //! States whether the reduction is on array types
-                bool is_array() const
-                {
-                    return _udr_item.is_array();
-                }
-
-                //! Returns the number of dimensions of the array
-                int num_dimensions() const
-                {
-                    return _udr_item.get_dimensions();
-                }
-
-                //! States whether this reduction symbol is faulty
-                /*! A faulty reduction symbol means that no reductor
-                  was declared for it. Do not use it
-                  */
-                bool is_faulty() const
-                {
-                    return !is_valid();
-                }
-
-                //! Means that this ReductionSymbol is valid
-                bool is_valid() const
-                {
-                    return _udr_item.is_valid();
-                }
-
         };
 
         //! This class represents data sharing environment in a OpenMP construct
@@ -505,6 +283,97 @@ namespace TL
                 void reset();
         };
 
+        class LIBTL_CLASS FunctionTaskDependency
+        {
+            private:
+                DependencyDirection _direction;
+                Expression _expr;
+            public:
+                FunctionTaskDependency(Expression expr, DependencyDirection direction);
+                DependencyDirection get_direction() const; 
+                Expression get_expression() const;
+        };
+
+        class LIBTL_CLASS FunctionTaskTargetInfo
+        {
+            private:
+                ObjectList<CopyItem> _copy_in;
+                ObjectList<CopyItem> _copy_out;
+                ObjectList<CopyItem> _copy_inout;
+
+                ObjectList<std::string> _device_list;
+
+                bool _copy_deps;
+            public:
+
+                FunctionTaskTargetInfo();
+                bool can_be_ommitted();
+
+                void set_copy_in(const ObjectList<CopyItem>& copy_items);
+                void set_copy_out(const ObjectList<CopyItem>& copy_items);
+                void set_copy_inout(const ObjectList<CopyItem>& copy_items);
+
+                ObjectList<CopyItem> get_copy_in() const;
+                ObjectList<CopyItem> get_copy_out() const;
+                ObjectList<CopyItem> get_copy_inout() const;
+
+                void set_copy_deps(bool b);
+                bool has_copy_deps() const;
+
+                void set_device_list(const ObjectList<std::string>& device_list);
+
+                ObjectList<std::string> get_device_list() const;
+        };
+
+        class LIBTL_CLASS FunctionTaskInfo 
+        {
+            private:
+                Symbol _sym;
+                ObjectList<FunctionTaskDependency> _parameters;
+
+                typedef std::map<std::string, Symbol> implementation_table_t;
+                implementation_table_t _implementation_table;
+
+                FunctionTaskTargetInfo _target_info;
+            public:
+                FunctionTaskInfo(Symbol sym,
+                        ObjectList<FunctionTaskDependency> parameter_info,
+                        FunctionTaskTargetInfo target_info);
+
+                ObjectList<FunctionTaskDependency> get_parameter_info() const;
+
+                ObjectList<Symbol> get_involved_parameters() const;
+
+                FunctionTaskTargetInfo get_target_info() const;
+
+                void add_device(const std::string& device_name);
+                void add_device_with_implementation(
+                        const std::string& device_name,
+                        Symbol implementor_symbol);
+
+                ObjectList<std::string> get_all_devices();
+
+                typedef std::pair<std::string, Symbol> implementation_pair_t;
+
+                ObjectList<implementation_pair_t> get_devices_with_implementation();
+        };
+
+        class LIBTL_CLASS FunctionTaskSet : public TL::Object
+        {
+            private:
+                std::map<Symbol, FunctionTaskInfo> _map;
+            public:
+                FunctionTaskSet();
+
+                bool is_function_task(Symbol sym) const;
+
+                FunctionTaskInfo& get_function_task(Symbol sym);
+                const FunctionTaskInfo& get_function_task(Symbol sym) const;
+                bool add_function_task(Symbol sym, const FunctionTaskInfo&);
+
+                bool empty() const;
+        };
+
 
         //! Base class for any implementation of OpenMP in Mercurium
         /*!
@@ -520,6 +389,7 @@ namespace TL
                 bool _disable_clause_warnings;
 
                 RefPtr<OpenMP::Info> openmp_info;
+                RefPtr<OpenMP::FunctionTaskSet> function_task_set;
             public:
                 //! Pre entry
                 virtual void pre_run(DTO& data_flow);

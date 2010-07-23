@@ -69,7 +69,9 @@ const_value_t* const_value_get(uint64_t value, int num_bytes, char sign)
 
     int bucket_index = value % CVAL_HASH_SIZE;
 
-    const_value_hash_bucket_t* bucket = _hash_pool[2 * num_bytes + !!sign][bucket_index];
+    int pool = 2 * num_bytes + !!sign;
+
+    const_value_hash_bucket_t* bucket = _hash_pool[pool][bucket_index];
 
     while (bucket != NULL)
     {
@@ -86,11 +88,12 @@ const_value_t* const_value_get(uint64_t value, int num_bytes, char sign)
         
         bucket->constant_value = calloc(1, sizeof(*bucket->constant_value));
         bucket->constant_value->value = value;
+        bucket->constant_value->num_bytes = num_bytes;
         bucket->constant_value->sign = sign;
 
-        bucket->next = _hash_pool[num_bytes][bucket_index];
+        bucket->next = _hash_pool[pool][bucket_index];
 
-        _hash_pool[num_bytes][bucket_index] = bucket;
+        _hash_pool[pool][bucket_index] = bucket;
     }
 
     return bucket->constant_value;
@@ -122,7 +125,25 @@ static void common_bytes(const_value_t* v1, const_value_t* v2, int *num_bytes, c
     else 
     {
         *num_bytes = (v1->num_bytes > v2->num_bytes) ? v1->num_bytes : v2->num_bytes;
-        *sign = v1->sign || v2->sign;
+        if (v1->sign != v2->sign)
+        {
+            if (v1->num_bytes == v2->num_bytes)
+            {
+                *sign = 1;
+            }
+            else if (v1->num_bytes > v2->num_bytes)
+            {
+                *sign = v1->sign;
+            }
+            else
+            {
+                *sign = v2->sign;
+            }
+        }
+        else
+        {
+            *sign = v1->sign;
+        }
     }
 }
 
@@ -161,6 +182,61 @@ char const_value_is_signed(const_value_t* val)
     return val->sign;
 }
 
+static void get_proper_prefix(char is_signed, uint64_t value, const char** prefix, type_t** t)
+{
+    if (is_signed)
+    {
+        int int_bits = 8 * type_get_size(get_signed_int_type());
+        int long_int_bits = 8 * type_get_size(get_signed_long_int_type());
+        
+        uint64_t bitmask = ~(uint64_t)0;
+
+        if ((*(int64_t*)&value) < 0)
+        {
+            *((int64_t*)&value) = -(int64_t)value;
+        }
+
+        if (((bitmask << int_bits) & value) == 0)
+        {
+            *t = get_signed_int_type();
+            *prefix = uniquestr("");
+        }
+        else if (((bitmask << long_int_bits) & value) == 0)
+        {
+            *t = get_signed_long_int_type();
+            *prefix = uniquestr("l");
+        }
+        else
+        {
+            *t = get_signed_long_long_int_type();
+            *prefix = uniquestr("ll");
+        }
+    }
+    else
+    {
+        int int_bits = 8 * type_get_size(get_unsigned_int_type());
+        int long_int_bits = 8 * type_get_size(get_unsigned_long_int_type());
+
+        uint64_t bitmask = ~(uint64_t)0;
+
+        if (((bitmask << int_bits) & value) == 0)
+        {
+            *t = get_unsigned_int_type();
+            *prefix = uniquestr("u");
+        }
+        else if (((bitmask << long_int_bits) & value) == 0)
+        {
+            *t = get_unsigned_long_int_type();
+            *prefix = uniquestr("lu");
+        }
+        else
+        {
+            *t = get_unsigned_long_long_int_type();
+            *prefix = uniquestr("llu");
+        }
+    }
+}
+
 AST const_value_to_tree(const_value_t* v)
 {
     if (v->tree == NULL)
@@ -182,16 +258,18 @@ AST const_value_to_tree(const_value_t* v)
         {
             char c[64] = { 0 };
             type_t* t = NULL;
+            const char* prefix = NULL;
+
+            get_proper_prefix(v->sign, v->value, &prefix, &t);
 
             if (v->sign)
             {
-                snprintf(c, 63, "%lldll", (signed long long)v->value);
-                t = get_signed_long_long_int_type();
+                signed long long *sll = (signed long long*)&v->value;
+                snprintf(c, 63, "%lld%s", *sll, prefix);
             }
             else
             {
-                snprintf(c, 63, "%llullu", (unsigned long long)v->value);
-                t = get_unsigned_long_long_int_type();
+                snprintf(c, 63, "%llu%s", (unsigned long long)v->value, prefix);
             }
 
             c[63] = '\0';
@@ -218,7 +296,7 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
     uint64_t value = 0; \
     if (sign) \
     { \
-        value = (int64_t)v1->value _binop (int64_t)v2->value; \
+        *(int64_t*)&value = *(int64_t*)&(v1->value) _binop *(int64_t*)&(v2->value); \
     } \
     else \
     { \
@@ -242,7 +320,7 @@ BINOP_FUN(or, ||)
 BINOP_FUN(lt, <)
 BINOP_FUN(lte, <=)
 BINOP_FUN(gt, >)
-BINOP_FUN(gte, >)
+BINOP_FUN(gte, >=)
 BINOP_FUN(eq, ==)
 BINOP_FUN(neq, !=)
 

@@ -223,6 +223,9 @@ namespace TL
             }
             else if (IS_CXX_LANGUAGE)
             {
+                if (type.is_reference())
+                    type = type.references_to();
+
                 if (type.is_array())
                 {
                     Type element_type = type.array_element();
@@ -302,6 +305,10 @@ namespace TL
             {
                 type = type.array_element().get_pointer_to().get_restrict_type();
             }
+            else if (type.is_reference())
+            {
+                type = type.references_to().get_pointer_to().get_restrict_type();
+            }
             else
             {
                 type = type.get_pointer_to().get_restrict_type();
@@ -325,6 +332,10 @@ namespace TL
                 ObjectList<Symbol>& converted_vlas)
         {
             Type type = sym.get_type();
+
+            if (type.is_reference())
+                type = type.references_to();
+
             DataEnvironItem data_env_item(sym, type, "");
 
             data_env_item.set_is_private(true);
@@ -334,6 +345,19 @@ namespace TL
 
     }
 
+    static void get_data_sharing_symbols(OpenMP::DataSharingEnvironment& data_sharing,
+            ObjectList<Symbol>& shared,
+            ObjectList<Symbol>& value,
+            ObjectList<Symbol>& private_symbols)
+    {
+        ObjectList<OpenMP::DependencyItem> dependences;
+        data_sharing.get_all_dependences(dependences);
+
+        data_sharing.get_all_symbols(OpenMP::DS_SHARED, shared);
+        data_sharing.get_all_symbols(OpenMP::DS_FIRSTPRIVATE, value);
+        data_sharing.get_all_symbols(OpenMP::DS_PRIVATE, private_symbols);
+    }
+
     void Nanox::compute_data_environment(
             OpenMP::DataSharingEnvironment &data_sharing,
             ScopeLink scope_link,
@@ -341,13 +365,9 @@ namespace TL
             ObjectList<Symbol>& converted_vlas)
     {
         ObjectList<Symbol> shared;
-        data_sharing.get_all_symbols(OpenMP::DS_SHARED, shared);
-
         ObjectList<Symbol> value;
-        data_sharing.get_all_symbols(OpenMP::DS_FIRSTPRIVATE, value);
-
         ObjectList<Symbol> private_symbols;
-        data_sharing.get_all_symbols(OpenMP::DS_PRIVATE, private_symbols);
+        get_data_sharing_symbols(data_sharing, shared, value, private_symbols);
 
         struct auxiliar_struct_t
         {
@@ -482,8 +502,13 @@ namespace TL
                 }
             }
 
+            Type t = data_env_item.get_type();
+
+            if (t.is_reference())
+                t = t.references_to();
+
             struct_fields
-                << data_env_item.get_type().get_unqualified_type().get_declaration(sc, data_env_item.get_field_name()) << ";"
+                << t.get_unqualified_type().get_declaration(sc, data_env_item.get_field_name()) << ";"
                 ;
         }
     }
@@ -525,6 +550,12 @@ namespace TL
 
             Symbol sym = data_env_item.get_symbol();
             Type type = sym.get_type();
+
+            if (type.is_reference())
+            {
+                type = type.references_to();
+            }
+
             const std::string field_name = data_env_item.get_field_name();
 
             if (data_env_item.is_vla_type())
@@ -610,7 +641,7 @@ namespace TL
                     if (IS_CXX_LANGUAGE
                             && type.is_named_class())
                     {
-                        result << "new (&" << arg_var_accessor << field_name << ")" 
+                        result << "new (" << arg_var_accessor << field_name << ")" 
                             << type.get_declaration(sym.get_scope(), "") 
                             << "(" << sym.get_qualified_name() << ");";
                     }

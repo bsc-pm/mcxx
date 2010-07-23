@@ -3,16 +3,13 @@
 test_generator=config/mercurium
 </testinfo>
 */
-template <typename _Q>
-struct A
+namespace A
 {
     template <typename _T>
-    A(_T)
-    {
-    }
-};
+        struct B { 
+            _T t;
+        };
 
-void f()
-{
-    A<int> a(3);
 }
+
+template class A::B<int>;

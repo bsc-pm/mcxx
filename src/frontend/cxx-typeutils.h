@@ -333,9 +333,6 @@ LIBMCXX_EXTERN char function_type_get_lacking_prototype(struct type_tag* functio
 LIBMCXX_EXTERN char function_type_get_has_ellipsis(struct type_tag* function_type);
 LIBMCXX_EXTERN struct type_tag* function_type_get_return_type(struct type_tag* t);
 
-LIBMCXX_EXTERN AST function_type_get_function_definition_tree(struct type_tag* t);
-LIBMCXX_EXTERN void function_type_set_function_definition_tree(struct type_tag* t, AST);
-
 LIBMCXX_EXTERN char function_type_can_override(type_t* potential_overrider, type_t* function_type);
 
 LIBMCXX_EXTERN struct type_tag* pointer_type_get_pointee_type(type_t *t);
@@ -405,6 +402,9 @@ LIBMCXX_EXTERN struct scope_entry_tag* named_type_get_symbol(struct type_tag* t)
 LIBMCXX_EXTERN char pointer_types_are_similar(struct type_tag* t_orig, struct type_tag* t_dest);
 
 LIBMCXX_EXTERN struct type_tag* template_type_get_primary_type(struct type_tag* t);
+LIBMCXX_EXTERN type_t* template_type_get_matching_specialized_type(struct type_tag* t,
+        template_argument_list_t* template_argument_list,
+        decl_context_t decl_context);
 LIBMCXX_EXTERN struct type_tag* template_type_get_specialized_type(struct type_tag* t, 
         template_argument_list_t* template_argument_list,
         template_parameter_list_t *template_parameters, 

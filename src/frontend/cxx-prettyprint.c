@@ -91,13 +91,12 @@ HANDLER_PROTOTYPE(null_handler);
 HANDLER_PROTOTYPE(parameter_decl_handler);
 HANDLER_PROTOTYPE(init_declarator_handler);
 HANDLER_PROTOTYPE(pointer_decl_handler);
-HANDLER_PROTOTYPE(abstract_declarator_handler);
 HANDLER_PROTOTYPE(type_id_handler);
 HANDLER_PROTOTYPE(prefix_with_parameter_then_son_handler);
 HANDLER_PROTOTYPE(prefix_with_token_text_then_son_handler);
 HANDLER_PROTOTYPE(braced_initializer_handler);
 HANDLER_PROTOTYPE(pointer_spec_handler);
-HANDLER_PROTOTYPE(decl_specifier_sequence);
+HANDLER_PROTOTYPE(type_specifier_sequence);
 HANDLER_PROTOTYPE(binary_operator_handler);
 HANDLER_PROTOTYPE(throw_expression_handler);
 HANDLER_PROTOTYPE(conditional_expression_handler);
@@ -112,16 +111,14 @@ HANDLER_PROTOTYPE(array_subscript_handler);
 HANDLER_PROTOTYPE(function_call_handler);
 HANDLER_PROTOTYPE(function_call_handler);
 HANDLER_PROTOTYPE(typename_explicit_type_conversion);
-HANDLER_PROTOTYPE(typename_template_explicit_type_conversion_handler);
-HANDLER_PROTOTYPE(typename_template_template_explicit_type_conversion_handler);
 HANDLER_PROTOTYPE(infix_parameter_handler);
 HANDLER_PROTOTYPE(template_member_access);
 HANDLER_PROTOTYPE(son_handler_then_suffix_parameter);
 HANDLER_PROTOTYPE(templated_cast_handler);
 HANDLER_PROTOTYPE(qualified_id_handler);
+HANDLER_PROTOTYPE(member_declaration_qualif_handler);
 HANDLER_PROTOTYPE(qualified_template_handler);
 HANDLER_PROTOTYPE(conversion_type_id_handler);
-HANDLER_PROTOTYPE(conversion_declarator_handler);
 HANDLER_PROTOTYPE(constructor_initializer_handler);
 HANDLER_PROTOTYPE(mem_initializer_handler);
 HANDLER_PROTOTYPE(mem_initializer_id_handler);
@@ -133,7 +130,6 @@ HANDLER_PROTOTYPE(template_declaration_handler);
 HANDLER_PROTOTYPE(type_parameter_class_or_typename_handler);
 HANDLER_PROTOTYPE(type_parameter_template_handler);
 HANDLER_PROTOTYPE(function_definition_handler);
-HANDLER_PROTOTYPE(simple_type_specifier_handler);
 HANDLER_PROTOTYPE(compound_statement_handler);
 HANDLER_PROTOTYPE(labeled_statement_handler);
 HANDLER_PROTOTYPE(default_statement_handler);
@@ -154,15 +150,9 @@ HANDLER_PROTOTYPE(member_declarator_handler);
 HANDLER_PROTOTYPE(constant_initializer_handler);
 HANDLER_PROTOTYPE(base_clause_handler);
 HANDLER_PROTOTYPE(base_specifier_handler);
-HANDLER_PROTOTYPE(base_specifier_access_handler);
-HANDLER_PROTOTYPE(base_specifier_virtual_handler);
-HANDLER_PROTOTYPE(base_specifier_access_virtual_handler);
 HANDLER_PROTOTYPE(elaborated_type_class_handler);
-HANDLER_PROTOTYPE(elaborated_type_template_class_handler);
-HANDLER_PROTOTYPE(elaborated_type_template_template_class_handler);
 HANDLER_PROTOTYPE(elaborated_type_enum_handler);
 HANDLER_PROTOTYPE(elaborated_typename_handler);
-HANDLER_PROTOTYPE(elaborated_typename_template_handler);
 HANDLER_PROTOTYPE(if_else_statement_handler);
 HANDLER_PROTOTYPE(exception_specification_handler);
 HANDLER_PROTOTYPE(operator_function_id_handler);
@@ -175,7 +165,6 @@ HANDLER_PROTOTYPE(explicit_specialization_handler);
 HANDLER_PROTOTYPE(linkage_specification_handler);
 HANDLER_PROTOTYPE(linkage_specification_decl_handler);
 HANDLER_PROTOTYPE(namespace_alias_definition_handler);
-HANDLER_PROTOTYPE(qualified_namespace_spec_handler);
 HANDLER_PROTOTYPE(using_directive_handler);
 HANDLER_PROTOTYPE(namespace_definition_handler);
 HANDLER_PROTOTYPE(pseudo_destructor_name_handler);
@@ -189,6 +178,7 @@ HANDLER_PROTOTYPE(index_designator_handler);
 HANDLER_PROTOTYPE(field_designator_handler);
 
 HANDLER_PROTOTYPE(decltype_handler);
+HANDLER_PROTOTYPE(static_assert_handler);
 
 HANDLER_PROTOTYPE(pp_comment_handler);
 HANDLER_PROTOTYPE(pp_prepro_token_handler);
@@ -210,6 +200,8 @@ HANDLER_PROTOTYPE(custom_construct_parameter);
 
 // OpenMP
 HANDLER_PROTOTYPE(omp_udr_member_op_handler);
+HANDLER_PROTOTYPE(omp_udr_constructor_handler);
+HANDLER_PROTOTYPE(omp_udr_constructor_arguments_handler);
 
 // GCC Extensions
 HANDLER_PROTOTYPE(gcc_label_declaration_handler);
@@ -218,13 +210,10 @@ HANDLER_PROTOTYPE(gcc_attribute_value_handler);
 HANDLER_PROTOTYPE(gcc_asm_definition_handler);
 HANDLER_PROTOTYPE(gcc_asm_def_parameters);
 HANDLER_PROTOTYPE(gcc_asm_operand_handler);
-HANDLER_PROTOTYPE(gcc_type_spec_sequence_handler);
 HANDLER_PROTOTYPE(gcc_typeof_handler);
 HANDLER_PROTOTYPE(gcc_typeof_expr_handler);
 HANDLER_PROTOTYPE(gcc_alignof_type_handler);
 HANDLER_PROTOTYPE(gcc_elaborated_type_class_handler);
-HANDLER_PROTOTYPE(gcc_elaborated_type_template_handler);
-HANDLER_PROTOTYPE(gcc_elaborated_type_template_template_handler);
 HANDLER_PROTOTYPE(gcc_elaborated_type_enum_handler);
 HANDLER_PROTOTYPE(gcc_init_declarator_handler);
 HANDLER_PROTOTYPE(gcc_asm_specification_handler);
@@ -232,8 +221,6 @@ HANDLER_PROTOTYPE(gcc_declarator_handler);
 HANDLER_PROTOTYPE(gcc_pointer_declarator_handler);
 HANDLER_PROTOTYPE(gcc_reference_spec_handler);
 HANDLER_PROTOTYPE(gcc_enum_specifier_handler);
-HANDLER_PROTOTYPE(gcc_abstract_declarator_handler);
-HANDLER_PROTOTYPE(gcc_ptr_abstract_declarator_handler);
 HANDLER_PROTOTYPE(gcc_initializer_clause_handler);
 HANDLER_PROTOTYPE(gcc_class_head_handler);
 HANDLER_PROTOTYPE(gcc_member_declarator_handler);
@@ -281,7 +268,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_EMPTY_DECL, indented_simple_parameter_handler, ";\n"),
     NODE_HANDLER(AST_INIT_DECLARATOR, init_declarator_handler, NULL),
     NODE_HANDLER(AST_DECLARATOR, unary_container_handler, NULL),
-    NODE_HANDLER(AST_POINTER_DECL, pointer_decl_handler, NULL),
+    NODE_HANDLER(AST_POINTER_DECLARATOR, pointer_decl_handler, NULL),
     NODE_HANDLER(AST_PARENTHESIZED_DECLARATOR, parenthesized_son_handler, NULL),
     NODE_HANDLER(AST_DECLARATOR_ID_EXPR, unary_container_handler, NULL),
     NODE_HANDLER(AST_GLOBAL_SCOPE, double_colon_handler, NULL),
@@ -292,10 +279,6 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_TEMPLATE_EXPRESSION_ARGUMENT, unary_container_handler, NULL),
     NODE_HANDLER(AST_TEMPLATE_TYPE_ARGUMENT, unary_container_handler, NULL),
     NODE_HANDLER(AST_TYPE_ID, type_id_handler, NULL),
-    NODE_HANDLER(AST_ABSTRACT_DECLARATOR, abstract_declarator_handler, NULL),
-    NODE_HANDLER(AST_PARENTHESIZED_ABSTRACT_DECLARATOR, parenthesized_son_handler, NULL),
-    NODE_HANDLER(AST_ABSTRACT_ARRAY, abstract_array_declarator_handler, NULL),
-    NODE_HANDLER(AST_ABSTRACT_DECLARATOR_FUNC, abstract_declarator_function_handler, NULL),
     NODE_HANDLER(AST_VARIADIC_ARG, simple_parameter_handler, "..."),
     NODE_HANDLER(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, null_handler, NULL),
     NODE_HANDLER(AST_PARAMETER_DECL, parameter_decl_handler, NULL),
@@ -310,8 +293,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_VOLATILE_SPEC, simple_text_handler, NULL),
     NODE_HANDLER(AST_DECLARATOR_FUNC, abstract_declarator_function_handler, NULL),
     NODE_HANDLER(AST_DECLARATOR_ARRAY, abstract_array_declarator_handler, NULL),
-    NODE_HANDLER(AST_DECL_SPECIFIER_SEQ, decl_specifier_sequence, NULL),
-    NODE_HANDLER(AST_TYPE_SPECIFIER_SEQ, decl_specifier_sequence, NULL),
+    NODE_HANDLER(AST_TYPE_SPECIFIER_SEQ, type_specifier_sequence, NULL),
     NODE_HANDLER(AST_FRIEND_SPEC, simple_parameter_handler, "friend"),
     NODE_HANDLER(AST_TYPEDEF_SPEC, simple_parameter_handler, "typedef"),
     NODE_HANDLER(AST_SIGNED_TYPE, simple_parameter_handler, "signed"),
@@ -388,17 +370,13 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_NEW_EXPRESSION, new_expression_handler, NULL),
     NODE_HANDLER(AST_NEW_TYPE_ID, new_type_id_handler, NULL),
     NODE_HANDLER(AST_NEW_TYPE_ID_EXPR, new_type_id_expr_handler, NULL),
-    NODE_HANDLER(AST_NEW_DECLARATOR, new_type_id_handler, NULL),
-    NODE_HANDLER(AST_DIRECT_NEW_DECLARATOR, abstract_array_declarator_handler, NULL),
     NODE_HANDLER(AST_NEW_INITIALIZER, new_initializer_handler, NULL),
     NODE_HANDLER(AST_DELETE_EXPR, delete_expression_handler, NULL),
     NODE_HANDLER(AST_DELETE_ARRAY_EXPR, delete_expression_handler, NULL),
     NODE_HANDLER(AST_ARRAY_SUBSCRIPT, array_subscript_handler, NULL),
     NODE_HANDLER(AST_FUNCTION_CALL, function_call_handler, NULL),
     NODE_HANDLER(AST_EXPLICIT_TYPE_CONVERSION, function_call_handler, NULL),
-    NODE_HANDLER(AST_TYPENAME_EXPLICIT_TYPE_CONVERSION, typename_explicit_type_conversion, NULL),
-    NODE_HANDLER(AST_TYPENAME_TEMPLATE_EXPLICIT_TYPE_CONVERSION, typename_template_explicit_type_conversion_handler, NULL),
-    NODE_HANDLER(AST_TYPENAME_TEMPLATE_TEMPLATE_EXPLICIT_TYPE_CONVERSION, typename_template_template_explicit_type_conversion_handler, NULL),
+    NODE_HANDLER(AST_TYPENAME_EXPLICIT_TYPE_CONV, typename_explicit_type_conversion, NULL),
     NODE_HANDLER(AST_CLASS_MEMBER_ACCESS, infix_parameter_handler, "."),
     NODE_HANDLER(AST_POINTER_CLASS_MEMBER_ACCESS, infix_parameter_handler, "->"),
     NODE_HANDLER(AST_CLASS_TEMPLATE_MEMBER_ACCESS, template_member_access, "."),
@@ -421,7 +399,6 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_DESTRUCTOR_TEMPLATE_ID, prefix_with_parameter_then_son_handler, "~"),
     NODE_HANDLER(AST_CONVERSION_FUNCTION_ID, prefix_with_parameter_then_son_handler, "operator "),
     NODE_HANDLER(AST_CONVERSION_TYPE_ID, conversion_type_id_handler, NULL),
-    NODE_HANDLER(AST_CONVERSION_DECLARATOR, conversion_declarator_handler, NULL),
     NODE_HANDLER(AST_CTOR_INITIALIZER, constructor_initializer_handler, NULL),
     NODE_HANDLER(AST_MEM_INITIALIZER, mem_initializer_handler, NULL),
     NODE_HANDLER(AST_MEM_INITIALIZER_ID, mem_initializer_id_handler, NULL),
@@ -429,21 +406,19 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_CLASS_KEY_CLASS, simple_parameter_handler, "class"),
     NODE_HANDLER(AST_CLASS_KEY_STRUCT, simple_parameter_handler, "struct"),
     NODE_HANDLER(AST_CLASS_KEY_UNION, simple_parameter_handler, "union"),
-    NODE_HANDLER(AST_CLASS_HEAD, class_head_handler, NULL),
+    NODE_HANDLER(AST_CLASS_HEAD_SPEC, class_head_handler, NULL),
     NODE_HANDLER(AST_MEMBER_ACCESS_SPEC, member_access_specifier_handler, NULL),
-    NODE_HANDLER(AST_MEMBER_DECLARATION_QUALIFIED, qualified_id_handler, NULL),
-    NODE_HANDLER(AST_MEMBER_DECLARATION_TEMPLATE, qualified_template_handler, NULL),
+    NODE_HANDLER(AST_MEMBER_DECLARATION_QUALIF, member_declaration_qualif_handler, NULL),
     NODE_HANDLER(AST_MEMBER_DECLARATION, member_declaration_handler, NULL),
     NODE_HANDLER(AST_MEMBER_DECLARATOR, member_declarator_handler, NULL),
     NODE_HANDLER(AST_CONSTANT_INITIALIZER, constant_initializer_handler, NULL),
-    NODE_HANDLER(AST_USING_DECL, using_declaration_handler, NULL),
-    NODE_HANDLER(AST_USING_DECL_TYPENAME, using_declaration_handler, NULL),
+    NODE_HANDLER(AST_USING_DECLARATION, using_declaration_handler, NULL),
     NODE_HANDLER(AST_TEMPLATE_DECLARATION, template_declaration_handler, NULL),
     NODE_HANDLER(AST_EXPORT_TEMPLATE_DECLARATION, template_declaration_handler, NULL),
     NODE_HANDLER(AST_TYPE_PARAMETER_CLASS, type_parameter_class_or_typename_handler, "class"),
     NODE_HANDLER(AST_TYPE_PARAMETER_TYPENAME, type_parameter_class_or_typename_handler, "typename"),
     NODE_HANDLER(AST_TYPE_PARAMETER_TEMPLATE, type_parameter_template_handler, NULL),
-    NODE_HANDLER(AST_SIMPLE_TYPE_SPECIFIER, simple_type_specifier_handler, NULL),
+    NODE_HANDLER(AST_SIMPLE_TYPE_SPEC, unary_container_handler, NULL),
     NODE_HANDLER(AST_FUNCTION_DEFINITION, function_definition_handler, NULL),
     NODE_HANDLER(AST_COMPOUND_STATEMENT, compound_statement_handler, NULL),
     NODE_HANDLER(AST_FUNCTION_BODY, unary_container_handler, NULL),
@@ -470,20 +445,10 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_PROTECTED_SPEC, simple_parameter_handler, "protected"),
     NODE_HANDLER(AST_PUBLIC_SPEC, simple_parameter_handler, "public"),
     NODE_HANDLER(AST_BASE_CLAUSE, base_clause_handler, NULL),
-    NODE_HANDLER(AST_BASE_SPECIFIER, base_specifier_handler, NULL),
-    NODE_HANDLER(AST_BASE_SPECIFIER_TEMPLATE, base_specifier_handler, NULL),
-    NODE_HANDLER(AST_BASE_SPECIFIER_ACCESS, base_specifier_access_handler, NULL),
-    NODE_HANDLER(AST_BASE_SPECIFIER_ACCESS_TEMPLATE, base_specifier_access_handler, NULL),
-    NODE_HANDLER(AST_BASE_SPECIFIER_VIRTUAL, base_specifier_virtual_handler, NULL),
-    NODE_HANDLER(AST_BASE_SPECIFIER_VIRTUAL_TEMPLATE, base_specifier_virtual_handler, NULL),
-    NODE_HANDLER(AST_BASE_SPECIFIER_ACCESS_VIRTUAL, base_specifier_access_virtual_handler, NULL),
-    NODE_HANDLER(AST_BASE_SPECIFIER_ACCESS_VIRTUAL_TEMPLATE, base_specifier_access_virtual_handler, NULL),
-    NODE_HANDLER(AST_ELABORATED_TYPE_CLASS, elaborated_type_class_handler, NULL),
-    NODE_HANDLER(AST_ELABORATED_TYPE_TEMPLATE_CLASS, elaborated_type_template_class_handler, NULL),
-    NODE_HANDLER(AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS, elaborated_type_template_template_class_handler, NULL),
-    NODE_HANDLER(AST_ELABORATED_TYPE_ENUM, elaborated_type_enum_handler, NULL),
-    NODE_HANDLER(AST_ELABORATED_TYPENAME, elaborated_typename_handler, NULL),
-    NODE_HANDLER(AST_ELABORATED_TYPENAME_TEMPLATE, elaborated_typename_template_handler, NULL),
+    NODE_HANDLER(AST_BASE_SPEC, base_specifier_handler, NULL),
+    NODE_HANDLER(AST_ELABORATED_TYPE_CLASS_SPEC, elaborated_type_class_handler, NULL),
+    NODE_HANDLER(AST_ELABORATED_TYPE_ENUM_SPEC, elaborated_type_enum_handler, NULL),
+    NODE_HANDLER(AST_ELABORATED_TYPENAME_SPEC, elaborated_typename_handler, NULL),
     NODE_HANDLER(AST_STATIC_SPEC, simple_parameter_handler, "static"),
     NODE_HANDLER(AST_IF_ELSE_STATEMENT, if_else_statement_handler, NULL),
     NODE_HANDLER(AST_EXCEPTION_SPECIFICATION, exception_specification_handler, NULL),
@@ -545,8 +510,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_LINKAGE_SPEC, linkage_specification_handler, NULL),
     NODE_HANDLER(AST_LINKAGE_SPEC_DECL, linkage_specification_decl_handler, NULL),
     NODE_HANDLER(AST_NAMESPACE_ALIAS, namespace_alias_definition_handler, NULL),
-    NODE_HANDLER(AST_QUALIFIED_NAMESPACE_SPEC, qualified_namespace_spec_handler, NULL),
-    NODE_HANDLER(AST_USING_DIRECTIVE, using_directive_handler, NULL),
+    NODE_HANDLER(AST_USING_NAMESPACE_DIRECTIVE, using_directive_handler, NULL),
     NODE_HANDLER(AST_NAMESPACE_DEFINITION, namespace_definition_handler, NULL),
     NODE_HANDLER(AST_NEW_PLACEMENT, parenthesized_son_handler, NULL),
     NODE_HANDLER(AST_PSEUDO_DESTRUCTOR_NAME, pseudo_destructor_name_handler, NULL),
@@ -561,6 +525,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_PP_TOKEN, pp_prepro_token_handler, NULL),
     NODE_HANDLER(AST_VERBATIM, verbatim_construct_handler, NULL),
     NODE_HANDLER(AST_DIMENSION_STR, simple_text_handler, NULL),
+    NODE_HANDLER(AST_STATIC_ASSERT, static_assert_handler, NULL),
     // Pragma custom
     NODE_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE, pragma_custom_directive_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, pragma_custom_construct_handler, NULL),
@@ -574,6 +539,8 @@ prettyprint_entry_t handlers_list[] =
     // OpenMP special nodes
     NODE_HANDLER(AST_OMP_UDR_BUILTIN_OP, simple_text_handler, NULL),
     NODE_HANDLER(AST_OMP_UDR_MEMBER_OP, omp_udr_member_op_handler, NULL),
+    NODE_HANDLER(AST_OMP_UDR_CONSTRUCTOR, omp_udr_constructor_handler, NULL),
+    NODE_HANDLER(AST_OMP_UDR_CONSTRUCTOR_ARGUMENTS, omp_udr_constructor_arguments_handler, NULL),
     // GCC Extensions
     NODE_HANDLER(AST_GCC_EXTENSION, gcc_extension_prefix_handler, "__extension__ "),
     NODE_HANDLER(AST_GCC_EXTENSION_EXPR, prefix_with_token_text_then_son_handler, NULL),
@@ -585,7 +552,6 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_GCC_ASM_OPERAND, gcc_asm_operand_handler, NULL),
     NODE_HANDLER(AST_GCC_COMPLEX_TYPE, simple_text_handler, NULL),
     NODE_HANDLER(AST_GCC_IMAGINARY_TYPE, simple_text_handler, NULL),
-    NODE_HANDLER(AST_GCC_TYPE_SPECIFIER_SEQ, gcc_type_spec_sequence_handler, NULL),
     NODE_HANDLER(AST_GCC_TYPEOF, gcc_typeof_handler, NULL),
     NODE_HANDLER(AST_GCC_TYPEOF_EXPR, gcc_typeof_expr_handler, NULL),
     NODE_HANDLER(AST_GCC_RESTRICT_SPEC, simple_text_handler, NULL),
@@ -595,20 +561,16 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_GCC_ALIGNOF, prefix_with_token_text_then_son_handler, NULL),
     NODE_HANDLER(AST_GCC_ALIGNOF_TYPE, gcc_alignof_type_handler, NULL),
     NODE_HANDLER(AST_GCC_LABEL_ADDR, prefix_with_parameter_then_son_handler, "&&"),
-    NODE_HANDLER(AST_GCC_ELABORATED_TYPE_CLASS, gcc_elaborated_type_class_handler, NULL),
-    NODE_HANDLER(AST_GCC_ELABORATED_TYPE_TEMPLATE_CLASS, gcc_elaborated_type_template_handler, NULL),
-    NODE_HANDLER(AST_GCC_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS, gcc_elaborated_type_template_template_handler, NULL),
-    NODE_HANDLER(AST_GCC_ELABORATED_TYPE_ENUM, gcc_elaborated_type_enum_handler, NULL),
+    NODE_HANDLER(AST_GCC_ELABORATED_TYPE_CLASS_SPEC, gcc_elaborated_type_class_handler, NULL),
+    NODE_HANDLER(AST_GCC_ELABORATED_TYPE_ENUM_SPEC, gcc_elaborated_type_enum_handler, NULL),
     NODE_HANDLER(AST_GCC_INIT_DECLARATOR, gcc_init_declarator_handler, NULL),
     NODE_HANDLER(AST_GCC_ASM_SPEC, gcc_asm_specification_handler, NULL),
     NODE_HANDLER(AST_GCC_DECLARATOR, gcc_declarator_handler, NULL),
-    NODE_HANDLER(AST_GCC_POINTER_DECL, gcc_pointer_declarator_handler, NULL),
+    NODE_HANDLER(AST_GCC_POINTER_DECLARATOR, gcc_pointer_declarator_handler, NULL),
     NODE_HANDLER(AST_GCC_REFERENCE_SPEC, gcc_reference_spec_handler, NULL),
-    NODE_HANDLER(AST_GCC_ENUM_SPECIFIER, gcc_enum_specifier_handler, NULL),
-    NODE_HANDLER(AST_GCC_ABSTRACT_DECLARATOR, gcc_abstract_declarator_handler, NULL),
-    NODE_HANDLER(AST_GCC_PTR_ABSTRACT_DECLARATOR, gcc_ptr_abstract_declarator_handler, NULL),
     NODE_HANDLER(AST_GCC_INITIALIZER_CLAUSE, gcc_initializer_clause_handler, NULL),
-    NODE_HANDLER(AST_GCC_CLASS_HEAD, gcc_class_head_handler, NULL),
+    NODE_HANDLER(AST_GCC_CLASS_HEAD_SPEC, gcc_class_head_handler, NULL),
+    NODE_HANDLER(AST_GCC_ENUM_SPECIFIER, gcc_enum_specifier_handler, NULL),
     NODE_HANDLER(AST_GCC_MEMBER_DECLARATOR, gcc_member_declarator_handler, NULL),
     NODE_HANDLER(AST_GCC_BITFIELD_DECLARATOR, gcc_bitfield_declarator_handler, NULL),
     NODE_HANDLER(AST_GCC_CASE_STATEMENT, gcc_case_statement_handler, NULL),
@@ -623,7 +585,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_GCC_POSTFIX_EXPRESSION, gcc_postfix_expression, NULL),
     NODE_HANDLER(AST_GCC_CONDITIONAL_EXPRESSION, gcc_conditional_expression, NULL),
     NODE_HANDLER(AST_GCC_PARAMETER_DECL, gcc_parameter_decl_handler, NULL),
-    NODE_HANDLER(AST_GCC_USING_DIRECTIVE, gcc_using_directive_handler, NULL),
+    NODE_HANDLER(AST_GCC_USING_NAMESPACE_DIRECTIVE, gcc_using_directive_handler, NULL),
     NODE_HANDLER(AST_GCC_NAMESPACE_DEFINITION, gcc_namespace_definition_handler, NULL),
     NODE_HANDLER(AST_GCC_FUNCTIONAL_DECLARATOR, gcc_functional_declarator_handler, NULL), 
     NODE_HANDLER(AST_GXX_TYPE_TRAITS, gxx_type_traits, NULL),
@@ -1039,16 +1001,6 @@ static void type_id_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
     }
 }
 
-static void abstract_declarator_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-    }
-}
-
 static void abstract_declarator_function_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     if (ASTSon0(a) != NULL)
@@ -1174,7 +1126,7 @@ static void braced_initializer_handler(FILE* f, AST a, prettyprint_context_t* pt
 static void pointer_decl_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     prettyprint_level(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, " ");
+    // token_fprintf(f, a, pt_ctx, " ");
     prettyprint_level(f, ASTSon1(a), pt_ctx);
 }
 
@@ -1183,23 +1135,19 @@ static void pointer_spec_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
     if (ASTSon0(a) != NULL)
     {
         prettyprint_level(f, ASTSon0(a), pt_ctx);
+        token_fprintf(f, a, pt_ctx, "::");
     }
 
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-        token_fprintf(f, a, pt_ctx, " ");
-    }
-    
     token_fprintf(f, a, pt_ctx, "*");
     
-    if (ASTSon2(a) != NULL)
+    if (ASTSon1(a) != NULL)
     {
-        spaced_sequence_handler(f, ASTSon2(a), pt_ctx);
+        spaced_sequence_handler(f, ASTSon1(a), pt_ctx);
+        token_fprintf(f, a, pt_ctx, " ");
     }
 }
 
-static void decl_specifier_sequence(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+static void type_specifier_sequence(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     if (ASTSon0(a) != NULL)
     {
@@ -1378,65 +1326,12 @@ static void typename_explicit_type_conversion(FILE* f, AST a, prettyprint_contex
 {
     token_fprintf(f, a, pt_ctx, "typename ");
 
-    if (ASTSon0(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon0(a), pt_ctx);
-    }
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
 
+    token_fprintf(f, a, pt_ctx, "(");
     if (ASTSon1(a) != NULL)
     {
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-    }
-
-    prettyprint_level(f, ASTSon2(a), pt_ctx);
-
-    token_fprintf(f, a, pt_ctx, "(");
-    if (ASTSon3(a) != NULL)
-    {
-        list_handler(f, ASTSon3(a), pt_ctx);
-    }
-    token_fprintf(f, a, pt_ctx, ")");
-}
-
-static void typename_template_explicit_type_conversion_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    token_fprintf(f, a, pt_ctx, "typename ");
-
-    if (ASTSon0(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon0(a), pt_ctx);
-    }
-
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
-
-    prettyprint_level(f, ASTSon2(a), pt_ctx);
-
-    token_fprintf(f, a, pt_ctx, "(");
-    if (ASTSon3(a) != NULL)
-    {
-        list_handler(f, ASTSon3(a), pt_ctx);
-    }
-    token_fprintf(f, a, pt_ctx, ")");
-}
-
-static void typename_template_template_explicit_type_conversion_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    token_fprintf(f, a, pt_ctx, "typename ");
-
-    if (ASTSon0(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon0(a), pt_ctx);
-    }
-
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
-
-    token_fprintf(f, a, pt_ctx, "template ");
-    prettyprint_level(f, ASTSon2(a), pt_ctx);
-
-    token_fprintf(f, a, pt_ctx, "(");
-    if (ASTSon3(a) != NULL)
-    {
-        list_handler(f, ASTSon3(a), pt_ctx);
+        list_handler(f, ASTSon1(a), pt_ctx);
     }
     token_fprintf(f, a, pt_ctx, ")");
 }
@@ -1469,6 +1364,12 @@ static void templated_cast_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx
     token_fprintf(f, a, pt_ctx, "(");
     prettyprint_level(f, ASTSon1(a), pt_ctx);
     token_fprintf(f, a, pt_ctx, ")");
+}
+
+static void member_declaration_qualif_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
+    token_fprintf(f, a, pt_ctx, ";");
 }
 
 static void qualified_id_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
@@ -1505,16 +1406,6 @@ static void conversion_type_id_handler(FILE* f, AST a, prettyprint_context_t* pt
     if (ASTSon1(a) != NULL)
     {
         token_fprintf(f, a, pt_ctx, " ");
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-    }
-}
-
-static void conversion_declarator_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-    
-    if (ASTSon1(a) != NULL)
-    {
         prettyprint_level(f, ASTSon1(a), pt_ctx);
     }
 }
@@ -1583,11 +1474,6 @@ static void class_head_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
     {
         prettyprint_level(f, ASTSon2(a), pt_ctx);
     }
-
-    if (ASTSon3(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon3(a), pt_ctx);
-    }
 }
 
 static void member_access_specifier_handler(FILE *f, AST a, prettyprint_context_t* pt_ctx)
@@ -1605,22 +1491,12 @@ static void using_declaration_handler(FILE* f, AST a, prettyprint_context_t* pt_
     indent_at_level(f, a, pt_ctx);
     token_fprintf(f, a, pt_ctx, "using ");
 
-    if (ASTType(a) == AST_USING_DECL_TYPENAME)
+    if (ASTType(a) == AST_USING_DECLARATION_TYPENAME)
     {
         token_fprintf(f, a, pt_ctx, "typename ");
     }
     
-    if (ASTSon0(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon0(a), pt_ctx);
-    }
-
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-    }
-
-    prettyprint_level(f, ASTSon2(a), pt_ctx);
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
 
     token_fprintf(f, a, pt_ctx, ";\n");
 }
@@ -1667,29 +1543,6 @@ static void type_parameter_template_handler(FILE* f, AST a, prettyprint_context_
     {
         token_fprintf(f, a, pt_ctx, " = ");
         prettyprint_level(f, ASTSon2(a), pt_ctx);
-    }
-}
-
-static void simple_type_specifier_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    if (ASTSon0(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon0(a), pt_ctx);
-    }
-
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-    }
-
-    if (ASTSon2(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon2(a), pt_ctx);
-    }
-    else if (ASTSon3(a) != NULL)
-    {
-        token_fprintf(f, a, pt_ctx, "template ");
-        prettyprint_level(f, ASTSon3(a), pt_ctx);
     }
 }
 
@@ -1962,95 +1815,16 @@ static void base_specifier_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx
     if (ASTSon0(a) != NULL)
     {
         prettyprint_level(f, ASTSon0(a), pt_ctx);
-    }
-
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-    }
-
-    if (ASTType(a) == AST_BASE_SPECIFIER_TEMPLATE)
-    {
-        token_fprintf(f, a, pt_ctx, "template ");
-    }
-
-    prettyprint_level(f, ASTSon2(a), pt_ctx);
-}
-
-static void base_specifier_access_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, " ");
-
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-    }
-
-    if (ASTSon2(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon2(a), pt_ctx);
-    }
-
-    if (ASTType(a) == AST_BASE_SPECIFIER_ACCESS_TEMPLATE)
-    {
-        token_fprintf(f, a, pt_ctx, "template ");
-    }
-
-    prettyprint_level(f, ASTSon3(a), pt_ctx);
-}
-
-static void base_specifier_virtual_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    token_fprintf(f, a, pt_ctx, "virtual ");
-
-    if (ASTSon0(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon0(a), pt_ctx);
         token_fprintf(f, a, pt_ctx, " ");
     }
 
     if (ASTSon1(a) != NULL)
     {
         prettyprint_level(f, ASTSon1(a), pt_ctx);
+        token_fprintf(f, a, pt_ctx, " ");
     }
 
-    if (ASTSon2(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon2(a), pt_ctx);
-    }
-
-    if (ASTType(a) == AST_BASE_SPECIFIER_VIRTUAL_TEMPLATE)
-    {
-        token_fprintf(f, a, pt_ctx, "template ");
-    }
-
-    prettyprint_level(f, ASTSon3(a), pt_ctx);
-}
-
-static void base_specifier_access_virtual_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, " ");
-
-    token_fprintf(f, a, pt_ctx, "virtual ");
-
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-    }
-
-    if (ASTSon2(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon2(a), pt_ctx);
-    }
-
-    if (ASTType(a) == AST_BASE_SPECIFIER_ACCESS_VIRTUAL_TEMPLATE)
-    {
-        token_fprintf(f, a, pt_ctx, "template ");
-    }
-
-    prettyprint_level(f, ASTSon3(a), pt_ctx);
+    prettyprint_level(f, ASTSon2(a), pt_ctx);
 }
 
 static void elaborated_type_class_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
@@ -2058,106 +1832,21 @@ static void elaborated_type_class_handler(FILE* f, AST a, prettyprint_context_t*
     prettyprint_level(f, ASTSon0(a), pt_ctx);
     token_fprintf(f, a, pt_ctx, " ");
 
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-    }
-
-    if (ASTSon2(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon2(a), pt_ctx);
-    }
-
-    prettyprint_level(f, ASTSon3(a), pt_ctx);
-}
-
-static void elaborated_type_template_class_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, " ");
-
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-    }
-
-    if (ASTSon2(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon2(a), pt_ctx);
-    }
-
-    prettyprint_level(f, ASTSon3(a), pt_ctx);
-}
-
-static void elaborated_type_template_template_class_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, " ");
-
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-    }
-
-    if (ASTSon2(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon2(a), pt_ctx);
-    }
-
-    token_fprintf(f, a, pt_ctx, "template ");
-    prettyprint_level(f, ASTSon3(a), pt_ctx);
+    prettyprint_level(f, ASTSon1(a), pt_ctx);
 }
 
 static void elaborated_type_enum_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     token_fprintf(f, a, pt_ctx, "enum ");
 
-    if (ASTSon0(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon0(a), pt_ctx);
-    }
-
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-    }
-
-    prettyprint_level(f, ASTSon2(a), pt_ctx);
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
 }
 
 static void elaborated_typename_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     token_fprintf(f, a, pt_ctx, "typename ");
 
-    if (ASTSon0(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon0(a), pt_ctx);
-    }
-
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-    }
-
-    prettyprint_level(f, ASTSon2(a), pt_ctx);
-}
-
-static void elaborated_typename_template_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    token_fprintf(f, a, pt_ctx, "typename ");
-
-    if (ASTSon0(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon0(a), pt_ctx);
-    }
-
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-    }
-
-    token_fprintf(f, a, pt_ctx, "template ");
-    prettyprint_level(f, ASTSon2(a), pt_ctx);
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
 }
 
 static void if_else_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
@@ -2258,6 +1947,32 @@ static void enum_specifier_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx
     token_fprintf(f, a, pt_ctx, "}");
 }
 
+static void gcc_enum_specifier_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    token_fprintf(f, a, pt_ctx, "enum ");
+
+    spaced_sequence_handler(f, ASTSon2(a), pt_ctx);
+    token_fprintf(f, a, pt_ctx, " ");
+
+    if (ASTSon0(a) != NULL)
+    {
+        prettyprint_level(f, ASTSon0(a), pt_ctx);
+    }
+    token_fprintf(f, a, pt_ctx, "\n");
+    indent_at_level(f, a, pt_ctx);
+    token_fprintf(f, a, pt_ctx, "{");
+
+    NEW_PT_CONTEXT(new_pt_ctx, increase_level);
+
+    if (ASTSon1(a) != NULL)
+    {
+        list_handler(f, ASTSon1(a), new_pt_ctx);
+    }
+    token_fprintf(f, a, pt_ctx, "\n");
+    indent_at_level(f, a, pt_ctx);
+    token_fprintf(f, a, pt_ctx, "}");
+}
+
 static void enum_def_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     token_fprintf(f, a, pt_ctx, "\n");
@@ -2322,37 +2037,13 @@ static void namespace_alias_definition_handler(FILE* f, AST a, prettyprint_conte
     token_fprintf(f, a, pt_ctx, ";\n");
 }
 
-static void qualified_namespace_spec_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    if (ASTSon0(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon0(a), pt_ctx);
-    }
-
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-    }
-
-    prettyprint_level(f, ASTSon2(a), pt_ctx);
-}
-
 static void using_directive_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     indent_at_level(f, a, pt_ctx);
     token_fprintf(f, a, pt_ctx, "using namespace ");
 
-    if (ASTSon0(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon0(a), pt_ctx);
-    }
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
 
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-    }
-
-    prettyprint_level(f, ASTSon2(a), pt_ctx);
     token_fprintf(f, a, pt_ctx, ";\n");
 }
 
@@ -2391,6 +2082,16 @@ static void parenthesized_initializer_handler(FILE* f, AST a, prettyprint_contex
     token_fprintf(f, a, pt_ctx, "(");
     list_handler(f, ASTSon0(a), pt_ctx);
     token_fprintf(f, a, pt_ctx, ")");
+}
+
+static void static_assert_handler(FILE *f, AST a, prettyprint_context_t* pt_ctx)
+{
+    indent_at_level(f, a, pt_ctx);
+    token_fprintf(f, a, pt_ctx, "static_assert(");
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
+    token_fprintf(f, a, pt_ctx, ", ");
+    prettyprint_level(f, ASTSon1(a), pt_ctx);
+    token_fprintf(f, a, pt_ctx, ");\n");
 }
 
 static void kr_parameter_list_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
@@ -2721,13 +2422,6 @@ static void gcc_asm_operand_handler(FILE* f, AST a, prettyprint_context_t* pt_ct
     token_fprintf(f, a, pt_ctx, ")");
 }
 
-static void gcc_type_spec_sequence_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, " ");
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
-}
-
 static void gcc_typeof_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     token_fprintf(f, a, pt_ctx, ASTText(a));
@@ -2757,93 +2451,20 @@ static void gcc_typeof_expr_handler(FILE* f, AST a, prettyprint_context_t* pt_ct
 static void gcc_elaborated_type_enum_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     token_fprintf(f, a, pt_ctx, "enum ");
-    spaced_sequence_handler(f, ASTSon3(a), pt_ctx);
+    spaced_sequence_handler(f, ASTSon1(a), pt_ctx);
 
-    if (ASTSon0(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon0(a), pt_ctx);
-    }
-
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-    }
-
-    prettyprint_level(f, ASTSon2(a), pt_ctx);
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
 }
 
 static void gcc_elaborated_type_class_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
-    AST elaborated = ASTSon1(a);
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
 
-    if (ASTSon0(elaborated) != NULL)
-    {
-        prettyprint_level(f, ASTSon0(elaborated), pt_ctx);
-    }
+    spaced_sequence_handler(f, ASTSon2(a), pt_ctx);
 
-    spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
-
-    if (ASTSon1(elaborated) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(elaborated), pt_ctx);
-    }
-
-    if (ASTSon2(elaborated) != NULL)
-    {
-        prettyprint_level(f, ASTSon2(elaborated), pt_ctx);
-    }
-
-    prettyprint_level(f, ASTSon3(elaborated), pt_ctx);
+    prettyprint_level(f, ASTSon1(a), pt_ctx);
 }
 
-static void gcc_elaborated_type_template_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    AST elaborated = ASTSon1(a);
-
-    if (ASTSon0(elaborated) != NULL)
-    {
-        prettyprint_level(f, ASTSon0(elaborated), pt_ctx);
-    }
-
-    spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
-
-    if (ASTSon1(elaborated) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(elaborated), pt_ctx);
-    }
-
-    if (ASTSon2(elaborated) != NULL)
-    {
-        prettyprint_level(f, ASTSon2(elaborated), pt_ctx);
-    }
-
-    prettyprint_level(f, ASTSon3(elaborated), pt_ctx);
-}
-
-static void gcc_elaborated_type_template_template_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    AST elaborated = ASTSon1(a);
-
-    if (ASTSon0(elaborated) != NULL)
-    {
-        prettyprint_level(f, ASTSon0(elaborated), pt_ctx);
-    }
-
-    spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
-
-    if (ASTSon1(elaborated) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(elaborated), pt_ctx);
-    }
-
-    if (ASTSon2(elaborated) != NULL)
-    {
-        prettyprint_level(f, ASTSon2(elaborated), pt_ctx);
-    }
-
-    token_fprintf(f, a, pt_ctx, "template ");
-    prettyprint_level(f, ASTSon3(elaborated), pt_ctx);
-}
 
 static void gcc_init_declarator_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
@@ -2896,46 +2517,6 @@ static void gcc_reference_spec_handler(FILE* f, AST a, prettyprint_context_t* pt
     spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
 }
 
-static void gcc_enum_specifier_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    token_fprintf(f, a, pt_ctx, "enum ");
-    if (ASTSon0(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon0(a), pt_ctx);
-    }
-    token_fprintf(f, a, pt_ctx, "\n");
-    indent_at_level(f, a, pt_ctx);
-    token_fprintf(f, a, pt_ctx, "{");
-
-    NEW_PT_CONTEXT(new_pt_ctx, increase_level);
-
-    if (ASTSon1(a) != NULL)
-    {
-        list_handler(f, ASTSon1(a), new_pt_ctx);
-    }
-    token_fprintf(f, a, pt_ctx, "\n");
-    indent_at_level(f, a, pt_ctx);
-    token_fprintf(f, a, pt_ctx, "}");
-
-    spaced_sequence_handler(f, ASTSon2(a), pt_ctx);
-}
-
-static void gcc_abstract_declarator_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
-}
-
-static void gcc_ptr_abstract_declarator_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
-    if (ASTSon2(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon2(a), pt_ctx);
-    }
-}
-
 static void gcc_initializer_clause_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     prettyprint_level(f, ASTSon0(a), pt_ctx);
@@ -2945,27 +2526,23 @@ static void gcc_initializer_clause_handler(FILE* f, AST a, prettyprint_context_t
 
 static void gcc_class_head_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
-    AST class_head = ASTSon1(a);
-
-    prettyprint_level(f, ASTSon0(class_head), pt_ctx);
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
 
     token_fprintf(f, a, pt_ctx, " ");
 
-    if (ASTSon1(class_head) != NULL)
+    spaced_sequence_handler(f, ASTSon3(a), pt_ctx);
+
+    token_fprintf(f, a, pt_ctx, " ");
+
+    if (ASTSon1(a) != NULL)
     {
-        prettyprint_level(f, ASTSon1(class_head), pt_ctx);
+        prettyprint_level(f, ASTSon1(a), pt_ctx);
+        token_fprintf(f, a, pt_ctx, " ");
     }
 
-    spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
-
-    if (ASTSon2(class_head) != NULL)
+    if (ASTSon2(a) != NULL)
     {
-        prettyprint_level(f, ASTSon2(class_head), pt_ctx);
-    }
-
-    if (ASTSon3(class_head) != NULL)
-    {
-        prettyprint_level(f, ASTSon3(class_head), pt_ctx);
+        prettyprint_level(f, ASTSon2(a), pt_ctx);
     }
 }
 
@@ -3113,10 +2690,10 @@ static void explicit_instantiation_handler(FILE* f, AST a, prettyprint_context_t
     if (ASTSon1(a) != NULL)
     {
         prettyprint_level(f, ASTSon1(a), pt_ctx);
-        token_fprintf(f, a, pt_ctx, " ");
     }
     if (ASTSon2(a) != NULL)
     {
+        token_fprintf(f, a, pt_ctx, " ");
         prettyprint_level(f, ASTSon2(a), pt_ctx);
     }
     token_fprintf(f, a, pt_ctx, ";\n");
@@ -3163,30 +2740,28 @@ static void gcc_using_directive_handler(FILE* f, AST a, prettyprint_context_t* p
     indent_at_level(f, a, pt_ctx);
     token_fprintf(f, a, pt_ctx, "using namespace ");
 
-    if (ASTSon0(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon0(a), pt_ctx);
-    }
-
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-    }
-
-    prettyprint_level(f, ASTSon2(a), pt_ctx);
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
     token_fprintf(f, a, pt_ctx, " ");
-    spaced_sequence_handler(f, ASTSon3(a), pt_ctx);
+    spaced_sequence_handler(f, ASTSon1(a), pt_ctx);
     token_fprintf(f, a, pt_ctx, ";\n");
 }
 
 static void gcc_namespace_definition_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     indent_at_level(f, a, pt_ctx);
+    if (ASTSon3(a) != NULL)
+    {
+        token_fprintf(f, a, pt_ctx, "inline ");
+    }
     token_fprintf(f, a, pt_ctx, "namespace ");
     prettyprint_level(f, ASTSon0(a), pt_ctx);
     token_fprintf(f, a, pt_ctx, " ");
-    spaced_sequence_handler(f, ASTSon2(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, " {\n");
+    if (ASTSon2(a) != NULL)
+    {
+        spaced_sequence_handler(f, ASTSon2(a), pt_ctx);
+        token_fprintf(f, a, pt_ctx, " ");
+    }
+    token_fprintf(f, a, pt_ctx, "{\n");
 
     NEW_PT_CONTEXT(new_pt_ctx, increase_level);
     prettyprint_level(f, ASTSon1(a), new_pt_ctx);
@@ -3224,164 +2799,6 @@ static void gcc_parenthesized_expression_handler(FILE* f, AST a, prettyprint_con
     indent_at_level(f, a, pt_ctx);
     token_fprintf(f, a, pt_ctx, "})");
 }
-
-// OpenMP 2.5
-
-// static void omp_generic_construct_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     prettyprint_level(f, ASTSon0(a), pt_ctx);
-//     prettyprint_level(f, ASTSon1(a), pt_ctx);
-// }
-// 
-// static void omp_custom_clause_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     token_fprintf(f, a, pt_ctx, "%s", ASTText(a));
-//     if (ASTSon0(a) != NULL)
-//     {
-//         token_fprintf(f, a, pt_ctx, "(");
-//         list_handler(f, ASTSon0(a), pt_ctx);
-//         token_fprintf(f, a, pt_ctx, ")");
-//     }
-// }
-// 
-// static void omp_custom_parameter_clause_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     token_fprintf(f, a, pt_ctx, "(");
-//     if (ASTSon0(a) != NULL)
-//     {
-//         list_handler(f, ASTSon0(a), pt_ctx);
-//     }
-//     token_fprintf(f, a, pt_ctx, ")");
-// }
-// 
-// static void omp_custom_directive_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     token_fprintf(f, a, pt_ctx, "#pragma omp %s", ASTText(a));
-//     if (ASTSon0(a) != NULL)
-//     {
-//         token_fprintf(f, a, pt_ctx, " ");
-//         spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
-//     }
-//     token_fprintf(f, a, pt_ctx, "\n");
-// }
-// 
-// static void omp_custom_construct_directive_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     token_fprintf(f, a, pt_ctx, "#pragma omp %s", ASTText(a));
-//     if (ASTSon0(a) != NULL)
-//     {
-//         token_fprintf(f, a, pt_ctx, " ");
-//         spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
-//     }
-//     token_fprintf(f, a, pt_ctx, "\n");
-// }
-// 
-// static void omp_generic_directive_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     token_fprintf(f, a, pt_ctx, "#pragma omp %s", HELPER_PARAMETER_STRING);
-//     if (ASTSon0(a) != NULL)
-//     {
-//         token_fprintf(f, a, pt_ctx, " ");
-//         spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
-//     }
-//     token_fprintf(f, a, pt_ctx, "\n");
-// }
-// 
-// static void omp_generic_clause_handler_with_argument(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     token_fprintf(f, a, pt_ctx, "%s", HELPER_PARAMETER_STRING);
-//     token_fprintf(f, a, pt_ctx, "(");
-//     prettyprint_level(f, ASTSon0(a), pt_ctx);
-//     token_fprintf(f, a, pt_ctx, ")");
-// }
-// 
-// static void omp_generic_clause_handler_with_optional_list(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     token_fprintf(f, a, pt_ctx, "%s", HELPER_PARAMETER_STRING);
-//     if (ASTSon0(a) != NULL)
-//     {
-//         token_fprintf(f, a, pt_ctx, "(");
-//         list_handler(f, ASTSon0(a), pt_ctx);
-//         token_fprintf(f, a, pt_ctx, ")");
-//     }
-// }
-// 
-// static void omp_generic_clause_handler_with_list(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     token_fprintf(f, a, pt_ctx, "%s", HELPER_PARAMETER_STRING);
-//     token_fprintf(f, a, pt_ctx, "(");
-//     list_handler(f, ASTSon0(a), pt_ctx);
-//     token_fprintf(f, a, pt_ctx, ")");
-// }
-// 
-// static void omp_schedule_clause_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     token_fprintf(f, a, pt_ctx, "schedule(");
-//     prettyprint_level(f, ASTSon0(a), pt_ctx);
-//     if (ASTSon1(a) != NULL)
-//     {
-//         token_fprintf(f, a, pt_ctx, ", ");
-//         prettyprint_level(f, ASTSon1(a), pt_ctx);
-//     }
-//     token_fprintf(f, a, pt_ctx, ")");
-// }
-// 
-// static void omp_critical_directive_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     token_fprintf(f, a, pt_ctx, "#pragma omp critical ");
-//     if (ASTSon0(a) != NULL)
-//     {
-//         token_fprintf(f, a, pt_ctx, "(");
-//         prettyprint_level(f, ASTSon0(a), pt_ctx);
-//         token_fprintf(f, a, pt_ctx, ")");
-//     }
-//     token_fprintf(f, a, pt_ctx, "\n");
-// }
-// 
-// static void omp_reduction_clause_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     token_fprintf(f, a, pt_ctx, "reduction");
-//     token_fprintf(f, a, pt_ctx, "(");
-//     prettyprint_level(f, ASTSon0(a), pt_ctx);
-//     token_fprintf(f, a, pt_ctx, ":");
-//     list_handler(f, ASTSon1(a), pt_ctx);
-//     token_fprintf(f, a, pt_ctx, ")");
-// }
-// 
-// static void omp_sections_construct_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     prettyprint_level(f, ASTSon0(a), pt_ctx);
-// 
-//     indent_at_level(f, a, pt_ctx);
-//     token_fprintf(f, a, pt_ctx, "{\n");
-//     NEW_PT_CONTEXT(new_pt_ctx, increase_level);
-//     prettyprint_level(f, ASTSon1(a), new_pt_ctx);
-//     indent_at_level(f, a, pt_ctx);
-//     token_fprintf(f, a, pt_ctx, "}\n");
-// }
-// 
-// static void omp_section_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     if (ASTSon0(a) != NULL)
-//     {
-//         prettyprint_level(f, ASTSon0(a), pt_ctx);
-//     }
-//     prettyprint_level(f, ASTSon1(a), pt_ctx);
-// }
-// 
-// static void omp_threadprivate_directive_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     token_fprintf(f, a, pt_ctx, "#pragma omp threadprivate");
-//     token_fprintf(f, a, pt_ctx, "(");
-//     list_handler(f, ASTSon0(a), pt_ctx);
-//     token_fprintf(f, a, pt_ctx, ")");
-//     token_fprintf(f, a, pt_ctx, "\n");
-// }
-// 
-// static void omp_default_custom_clause_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx UNUSED_PARAMETER)
-// {
-//     token_fprintf(f, a, pt_ctx, "default(%s)", ASTText(a));
-// }
 
 static void array_section_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
@@ -3517,4 +2934,20 @@ static void omp_udr_member_op_handler(FILE* f, AST a, prettyprint_context_t* pt_
 {
     token_fprintf(f, a, pt_ctx, "%s", ".");
     prettyprint_level(f, ASTSon0(a), pt_ctx);
+}
+
+static void omp_udr_constructor_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    token_fprintf(f, a, pt_ctx, "%s", "constructor");
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
+}
+
+static void omp_udr_constructor_arguments_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    if (ASTSon0(a) != NULL)
+    {
+        token_fprintf(f, a, pt_ctx, "(");
+        list_handler(f, ASTSon0(a), pt_ctx);
+        token_fprintf(f, a, pt_ctx, ")");
+    }
 }

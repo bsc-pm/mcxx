@@ -309,10 +309,6 @@ struct function_tag
     int num_parameters;
     parameter_info_t** parameter_list;
 
-
-    // Contains the function definition tree (if the function has been defined)
-    AST definition_tree;
-    
     // States if this function has been declared or defined without prototype.
     // This is only meaningful in C but not in C++ where all functions do have
     // prototype
@@ -1449,16 +1445,11 @@ char has_dependent_template_arguments(template_argument_list_t* template_argumen
     return 0;
 }
 
-type_t* template_type_get_specialized_type_after_type(type_t* t, 
+type_t* template_type_get_matching_specialized_type(type_t* t,
         template_argument_list_t* template_argument_list,
-        template_parameter_list_t *template_parameters, 
-        type_t* after_type,
-        decl_context_t decl_context, 
-        int line, const char* filename)
+        decl_context_t decl_context)
 {
     ERROR_CONDITION(!is_template_type(t), "This is not a template type", 0);
-
-    char has_dependent_temp_args = has_dependent_template_arguments(template_argument_list);
 
     // Search an existing specialization
     DEBUG_CODE()
@@ -1479,7 +1470,7 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
         DEBUG_CODE()
         {
             fprintf(stderr, "TYPEUTILS: Checking with specialization '%s' (%p) at '%s:%d'\n",
-                    entry->symbol_name,
+                    print_type_str(specialization, decl_context),
                     entry->type_information,
                     entry->file,
                     entry->line);
@@ -1493,7 +1484,9 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
             DEBUG_CODE()
             {
                 fprintf(stderr, "TYPEUTILS: An existing specialization matches '%s'\n", print_declarator(entry->type_information));
-                fprintf(stderr, "TYPEUTILS: Returning template type %p\n", entry->type_information);
+                fprintf(stderr, "TYPEUTILS: Returning template %s %p\n", 
+                        print_type_str(specialization, decl_context),
+                        entry->type_information);
             }
 
             if (BITMAP_TEST(decl_context.decl_flags, DF_UPDATE_TEMPLATE_ARGUMENTS))
@@ -1504,6 +1497,26 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
             return specialization;
         }
     }
+    return NULL;
+}
+
+type_t* template_type_get_specialized_type_after_type(type_t* t, 
+        template_argument_list_t* template_argument_list,
+        template_parameter_list_t *template_parameters, 
+        type_t* after_type,
+        decl_context_t decl_context, 
+        int line, const char* filename)
+{
+    type_t* existing_spec = template_type_get_matching_specialized_type(t, 
+            template_argument_list, 
+            decl_context);
+
+    if (existing_spec != NULL)
+    {
+        return existing_spec;
+    }
+
+    char has_dependent_temp_args = has_dependent_template_arguments(template_argument_list);
 
     type_t* specialized_type = after_type;
 
@@ -1528,7 +1541,7 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
     else if (primary_symbol->kind == SK_FUNCTION)
     {
         decl_context_t updated_context 
-            = update_context_with_template_arguments(decl_context, template_argument_list);
+            = update_context_with_template_arguments(primary_symbol->decl_context, template_argument_list);
         type_t* updated_function_type = update_type(primary_symbol->type_information, updated_context, filename, line);
 
         // This will give us a new function type
@@ -1590,8 +1603,10 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
     specialized_symbol->file = filename;
     specialized_symbol->point_of_declaration = primary_symbol->point_of_declaration;
 
-    // Keep information of the entity
+    // Keep information of the entity except for template_is_declared which
+    // must be cleared at this point
     specialized_symbol->entity_specs = primary_symbol->entity_specs;
+    specialized_symbol->entity_specs.template_is_declared = 0;
     
     // Remove the extra template-scope we got from the primary one
     // specialized_symbol->decl_context.template_scope = 
@@ -2006,6 +2021,7 @@ type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
         pointer_to_member->info->valid_size = 1;
 
         pointer_to_member->info->is_dependent = is_dependent_type(t) 
+            || class_entry->kind == SK_TEMPLATE_TYPE_PARAMETER 
             || is_dependent_type(class_entry->type_information);
 
         hash_put(class_type_hash, t, pointer_to_member);
@@ -2167,7 +2183,7 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
                 result->array->element_type = element_type;
 
                 result->array->array_expr = const_value_to_tree(
-                        const_value_get(num_elements, sizeof(num_elements), 1));
+                        const_value_get(num_elements, sizeof(num_elements), 0));
                 result->array->array_expr_decl_context = decl_context;
                 hash_put(array_sized_hash, element_type, result);
 
@@ -4617,22 +4633,6 @@ type_t* function_type_get_return_type(type_t* t)
 
     return t->function->return_type;
 }
-
-AST function_type_get_function_definition_tree(struct type_tag* t)
-{
-    ERROR_CONDITION(!is_function_type(t), "This is not a function type", 0);
-    t = advance_over_typedefs(t);
-
-    return t->function->definition_tree;
-}
-
-void function_type_set_function_definition_tree(struct type_tag* t, AST tree)
-{
-    ERROR_CONDITION(!is_function_type(t), "This is not a function type", 0);
-    t = advance_over_typedefs(t);
-    t->function->definition_tree = tree;
-}
-
 
 // Can be used both for pointers and pointers to members
 type_t* pointer_type_get_pointee_type(type_t *t)

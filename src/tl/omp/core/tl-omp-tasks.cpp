@@ -22,12 +22,80 @@
 --------------------------------------------------------------------*/
 
 #include "tl-omp-core.hpp"
-#include "tl-omp-tasks.hpp"
 
 namespace TL
 {
     namespace OpenMP
     {
+        FunctionTaskTargetInfo::FunctionTaskTargetInfo()
+            : _copy_in(),
+            _copy_out(),
+            _copy_inout(),
+            _device_list(),
+            _copy_deps()
+        {
+        }
+
+        bool FunctionTaskTargetInfo::can_be_ommitted()
+        {
+            return _copy_in.empty()
+                && _copy_out.empty()
+                && _copy_inout.empty()
+                && (_device_list.empty()
+                        || ((_device_list.size() == 1)
+                            && (_device_list[0] == "smp")));
+        }
+
+        void FunctionTaskTargetInfo::set_copy_in(const ObjectList<CopyItem>& copy_items)
+        {
+            _copy_in = copy_items;
+        }
+
+        void FunctionTaskTargetInfo::set_copy_out(const ObjectList<CopyItem>& copy_items)
+        {
+            _copy_out = copy_items;
+        }
+
+        void FunctionTaskTargetInfo::set_copy_inout(const ObjectList<CopyItem>& copy_items)
+        {
+            _copy_inout = copy_items;
+        }
+
+        ObjectList<CopyItem> FunctionTaskTargetInfo::get_copy_in() const
+        {
+            return _copy_in;
+        }
+
+        ObjectList<CopyItem> FunctionTaskTargetInfo::get_copy_out() const
+        {
+            return _copy_out;
+        }
+
+        ObjectList<CopyItem> FunctionTaskTargetInfo::get_copy_inout() const
+        {
+            return _copy_inout;
+        }
+
+        void FunctionTaskTargetInfo::set_copy_deps(bool b)
+        {
+            _copy_deps = b;
+        }
+
+        bool FunctionTaskTargetInfo::has_copy_deps() const
+        {
+            return _copy_deps;
+        }
+
+        void FunctionTaskTargetInfo::set_device_list(const ObjectList<std::string>& device_list)
+        {
+            _device_list = device_list;
+        }
+
+        ObjectList<std::string> FunctionTaskTargetInfo::get_device_list() const
+        {
+            return _device_list;
+        }
+
         FunctionTaskDependency::FunctionTaskDependency(Expression expr,
                 DependencyDirection direction)
             : _direction(direction), _expr(expr)

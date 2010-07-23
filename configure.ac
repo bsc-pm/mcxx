@@ -1,5 +1,5 @@
 dnl Package definition: name, version, mail
-AC_INIT([mcxx],[1.3.5],[rferrer@ac.upc.edu])
+AC_INIT([mcxx],[1.3.5.4],[rferrer@ac.upc.edu])
 
 dnl Where are we ?
 AC_CANONICAL_BUILD
@@ -195,7 +195,7 @@ then
    NANOX_INCLUDES="${nanox_include}"
    NANOX_LIBS="${nanox_lib}"
 
-   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanox"
+   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos-common fun-tasks nanox"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
    
@@ -269,6 +269,11 @@ then
 
    NANOS4_INCLUDES="${nanos4_include}"
    NANOS4_LIBS="${nanos4_lib}"
+
+   if test ! x$is_enabled_tl_omp_nanox = xyes; 
+   then
+      TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos-common"
+   fi
 
    TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos4"
 # mcxx always gets installed
@@ -488,11 +493,11 @@ AC_ARG_WITH([superscalar-runtime-api-version],
     [
         if test $is_enabled_tl_superscalar = "yes" ; then
             case $withval in
-            1|2|3|4|5)
+            3|4|5)
                 use_tl_superscalar_version=$withval
                 ;;
             *)
-                AC_MSG_ERROR([Invalid Cell/SMP superscalar version specified. Available versions are 1, 2, 3, 4 and 5.])
+                AC_MSG_ERROR([Invalid Cell/SMP superscalar version specified. Available versions are 3, 4 and 5.])
                 ;;
             esac
         else
@@ -537,15 +542,14 @@ then
            ]
    )
  
-   TL_EXTENSIONS="${TL_EXTENSIONS} superscalar"
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.superscalar"
+   TL_EXTENSIONS="${TL_EXTENSIONS} superscalar ss_valgrind"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.superscalar config.ss_valgrind"
+   COMPILER_NAMES="${COMPILER_NAMES} ssvalgrindcc"
 fi
      
 SUPERSCALAR_INCLUDES="${superscalar_include}"
 SUPERSCALAR_LIBS="${superscalar_lib}"
  
-AM_CONDITIONAL(USE_TL_SUPERSCALAR_V1, test x"$use_tl_superscalar_version" = x"1")
-AM_CONDITIONAL(USE_TL_SUPERSCALAR_V2, test x"$use_tl_superscalar_version" = x"2")
 AM_CONDITIONAL(USE_TL_SUPERSCALAR_V3, test x"$use_tl_superscalar_version" = x"3")
 AM_CONDITIONAL(USE_TL_SUPERSCALAR_V4, test x"$use_tl_superscalar_version" = x"4")
 AM_CONDITIONAL(USE_TL_SUPERSCALAR_V5, test x"$use_tl_superscalar_version" = x"5")
@@ -594,6 +598,7 @@ dnl ----------------------- Superscalar and Nanox allow SS2 --------------------
 if test x$is_enabled_tl_superscalar = xyes -a x$is_enabled_tl_omp_nanox = xyes -a \
       "(" x$use_tl_superscalar_version = x4 -o x$use_tl_superscalar_version = x5 ")" ;
 then
+   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} ss2omp"
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.sscc"
    COMPILER_NAMES="${COMPILER_NAMES} sscc sscxx"
 fi
@@ -1009,6 +1014,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/Makefile 
            src/tl/omp/core/Makefile 
            src/tl/omp/fun-tasks/Makefile 
+           src/tl/omp/profile/Makefile 
            src/tl/omp/ss2omp/Makefile 
            src/tl/omp/nanos-common/Makefile 
            src/tl/omp/nanox/Makefile 
@@ -1029,6 +1035,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/examples/decl_closure/Makefile
            src/tl/examples/multifile_test/Makefile
            src/tl/superscalar/Makefile
+           src/tl/ss_valgrind/Makefile
            config/Makefile
            tests/Makefile
            tests/config/Makefile

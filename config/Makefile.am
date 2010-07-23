@@ -40,6 +40,7 @@ CONFIG_FILES =  \
        config.plain \
        config.stm_nebelung \
        config.superscalar \
+       config.ss_valgrind \
 	   $(END)
 
 INSTALL_CONFIG_FILES = @INSTALL_CONFIG_FILES@

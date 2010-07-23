@@ -93,13 +93,6 @@ void print_scope(decl_context_t decl_context)
 
 static void print_scope_full_context(decl_context_t decl_context, int global_indent)
 {
-    scope_t* st = decl_context.current_scope;
-
-    if (st == NULL)
-        return;
-
-    print_scope_full(st, global_indent);
-
     scope_t* template_scope = decl_context.template_scope;
     int k = 0;
     while (template_scope != NULL)
@@ -111,6 +104,13 @@ static void print_scope_full_context(decl_context_t decl_context, int global_ind
         ++k;
         template_scope = template_scope->contained_in;
     }
+
+    scope_t* st = decl_context.current_scope;
+    if (st == NULL)
+        return;
+
+    print_scope_full(st, global_indent);
+
     if (decl_context.function_scope != NULL)
     {
         PRINT_INDENTED_LINE(stderr, global_indent + 1, "[FUNCTION_SCOPE - %p]\n", 

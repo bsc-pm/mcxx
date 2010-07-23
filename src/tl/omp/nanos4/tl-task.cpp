@@ -685,7 +685,7 @@ namespace TL
                 if (instrumentation_requested())
                 {
                     else_instrument
-                        << "nth_cutoff = 5;";
+                        << "nth_cutoff = (nth_cutoff_res_t)5;";
                 }
             }
             else

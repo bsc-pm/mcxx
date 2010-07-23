@@ -35,12 +35,12 @@
 MCXX_BEGIN_DECLS
 
 LIBMCXX_EXTERN decl_context_t new_global_context(void);
-LIBMCXX_EXTERN decl_context_t new_namespace_context(decl_context_t enclosing_decl_context, const char* qualification_name);
+LIBMCXX_EXTERN decl_context_t new_namespace_context(decl_context_t enclosing_decl_context, scope_entry_t* namespace_symbol);
 LIBMCXX_EXTERN decl_context_t new_prototype_context(decl_context_t enclosing_decl_context);
 LIBMCXX_EXTERN decl_context_t new_block_context(decl_context_t enclosing_decl_context);
 LIBMCXX_EXTERN decl_context_t new_function_context(decl_context_t enclosing_decl_context);
 LIBMCXX_EXTERN decl_context_t new_class_context(decl_context_t enclosing_decl_context, 
-        const char* qualification_name, struct type_tag* class_type);
+        scope_entry_t* class_entry);
 LIBMCXX_EXTERN decl_context_t new_template_context(decl_context_t enclosing_decl_context);
 
 // Used only in TL
@@ -152,6 +152,11 @@ LIBMCXX_EXTERN scope_entry_t* lookup_template_parameter_name(decl_context_t decl
 
 LIBMCXX_EXTERN scope_entry_t* lookup_of_template_parameter(decl_context_t context, 
         int template_parameter_nesting, int template_parameter_position);
+
+LIBMCXX_EXTERN char is_unqualified_id_expression(AST a);
+
+LIBMCXX_EXTERN char is_inline_namespace_of(decl_context_t inner_namespace_ctx, 
+        decl_context_t outer_namespace_ctx);
 
 MCXX_END_DECLS
 

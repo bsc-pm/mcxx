@@ -63,6 +63,10 @@ namespace TL
                 _function_task_set = RefPtr<OpenMP::FunctionTaskSet>(new OpenMP::FunctionTaskSet());
                 dto.set_object("openmp_task_info", _function_task_set);
             }
+            else
+            {
+                _function_task_set = RefPtr<FunctionTaskSet>::cast_static(dto["openmp_task_info"]);
+            }
 
             if (!dto.get_keys().contains("openmp_core_should_run"))
             {
@@ -305,20 +309,12 @@ namespace TL
                         }
                     }
 
-                    std::string unqualified_reductor_name = reductor_name;
-
+                    IdExpression reductor_id_expr(NULL, ScopeLink());
                     if (!udr_is_builtin_operator(reductor_name))
                     {
                         AST_t reductor_name_tree 
                             = Source(reductor_name).parse_id_expression(construct.get_ast(), construct.get_scope_link());
-                        IdExpression reductor_id_expr(reductor_name_tree, clause.get_scope_link());
-                        unqualified_reductor_name = reductor_id_expr.get_unqualified_part();
-
-                        const std::string op_prefix = "operator ";
-                        if (unqualified_reductor_name.substr(0, op_prefix.size()) == op_prefix)
-                        {
-                            unqualified_reductor_name = unqualified_reductor_name.substr(op_prefix.size());
-                        }
+                        reductor_id_expr = IdExpression(reductor_name_tree, clause.get_scope_link());
                     }
 
                     // Adjust pointers to arrays
@@ -330,6 +326,18 @@ namespace TL
                         var_type = var_type.points_to();
                     }
 
+                    // Lower array types
+                    int num_dimensions = 0;
+                    if (!var_sym.is_parameter()
+                            && var_type.is_array())
+                    {
+                        while (var_type.is_array())
+                        {
+                            var_type = var_type.array_element();
+                            num_dimensions++;
+                        }
+                    }
+
                     if (var_sym.is_dependent_entity())
                     {
                         std::cerr << construct.get_ast().get_locus() << ": warning: symbol "
@@ -337,39 +345,57 @@ namespace TL
                     }
                     else
                     {
-                        UDRInfoScope udr_info_scope(construct.get_scope());
+                        UDRInfoItem udr;
+                        if (udr_is_builtin_operator(reductor_name))
+                        {
+                            udr.set_builtin_operator(reductor_name);
+                        }
+                        else
+                        {
+                            udr.set_operator(reductor_id_expr);
+                        }
+                        udr.set_reduction_type(var_type);
 
-                        UDRInfoItem udr_info_item = udr_info_scope.get_udr(
-                                unqualified_reductor_name,
-                                reductor_name, 
-                                var_type, 
+                        if (num_dimensions != 0)
+                        {
+                            udr.set_is_array_reduction(true);
+                            udr.set_num_dimensions(num_dimensions);
+                        }
+
+                        ObjectList<Symbol> all_viables;
+
+                        bool found = false;
+                        udr = udr.lookup_udr(construct.get_scope(), 
                                 construct.get_scope_link(),
-                                construct.get_scope(),
-                                construct.get_ast().get_file(), 
+                                found,
+                                all_viables, 
+                                construct.get_ast().get_file(),
                                 construct.get_ast().get_line());
 
-                        if (udr_info_item.is_valid())
+                        if (found)
                         {
-                            ReductionSymbol red_sym(var_sym, udr_info_item);
+                            ReductionSymbol red_sym(var_sym, udr);
                             sym_list.append(red_sym);
 
-                            if (!udr_info_item.is_builtin_op())
+                            if (!udr.is_builtin_operator())
                             {
-                                Symbol op_sym = udr_info_item.get_op_symbol();
+                                Symbol op_sym = udr.get_operator_symbols()[0];
                                 Type op_type = op_sym.get_type();
                                 std::cerr << construct.get_ast().get_locus() 
                                     << ": note: reduction of variable '" << var_sym.get_name() << "' solved to '" 
                                     << op_type.get_declaration(construct.get_scope(),
-                                            op_sym.get_qualified_name(construct.get_scope())) << "'" << std::endl;
+                                            op_sym.get_qualified_name(construct.get_scope())) << "'" 
+                                    << std::endl;
                             }
                         }
                         else
                         {
                             // Make this a hard error, otherwise lots of false positives will slip in
-                            running_error("%s: error: no suitable reductor operator '%s' was found for reduced variable '%s'",
+                            running_error("%s: error: no suitable reductor operator '%s' was found for reduced variable '%s' of type '%s'",
                                     construct.get_ast().get_locus().c_str(),
                                     reductor_name.c_str(),
-                                    var_tree.prettyprint().c_str());
+                                    var_tree.prettyprint().c_str(),
+                                    var_sym.get_type().get_declaration(var_sym.get_scope(), "").c_str());
                         }
                     }
                 }
@@ -448,10 +474,7 @@ namespace TL
 
             ObjectList<DataReference> firstprivate_references;
             get_clause_symbols(construct.get_clause("firstprivate"), 
-                    firstprivate_references,
-                    // We allow extended references _ONLY_ for firstprivate at
-                    // the time being
-                    /* allow_extended_references */ true);
+                    firstprivate_references);
             std::for_each(firstprivate_references.begin(), firstprivate_references.end(), 
                     DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_FIRSTPRIVATE));
 
@@ -474,6 +497,25 @@ namespace TL
             get_clause_symbols(construct.get_clause("copyprivate"), copyprivate_references);
             std::for_each(copyprivate_references.begin(), copyprivate_references.end(), 
                     DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_COPYPRIVATE));
+
+            // Internal clauses created by fun-tasks phase
+            ObjectList<DataReference> fp_input_references;
+            get_clause_symbols(construct.get_clause("__fp_input"), fp_input_references, 
+                    /* Allow extended references */ true);
+            std::for_each(fp_input_references.begin(), fp_input_references.end(), 
+                    DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_FIRSTPRIVATE));
+
+            ObjectList<DataReference> fp_output_references;
+            get_clause_symbols(construct.get_clause("__fp_output"), fp_output_references, 
+                    /* Allow extended references */ true);
+            std::for_each(fp_output_references.begin(), fp_output_references.end(), 
+                    DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_FIRSTPRIVATE));
+
+            ObjectList<DataReference> fp_inout_references;
+            get_clause_symbols(construct.get_clause("__fp_inout"), fp_inout_references, 
+                    /* Allow extended references */ true);
+            std::for_each(fp_inout_references.begin(), fp_inout_references.end(), 
+                    DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_FIRSTPRIVATE));
         }
 
         DataSharingAttribute Core::get_default_data_sharing(PragmaCustomConstruct construct,
@@ -532,6 +574,8 @@ namespace TL
                     it++)
             {
                 Symbol sym = it->get_symbol();
+
+                std::cerr << "-> SYM: " << sym.get_name() << std::endl;
 
                 if (!sym.is_valid()
                         || !sym.is_variable())
@@ -794,19 +838,16 @@ namespace TL
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
             _openmp_info->push_current_data_sharing(data_sharing);
 
-            // First get target info
-            get_target_info(construct, data_sharing);
-
             get_data_explicit_attributes(construct, data_sharing);
             DataSharingAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DS_UNDEFINED);
 
-            // Do not get implicit attributes for transformed function tasks
-            if (!construct.get_clause("__function").is_defined())
-            {
-                get_data_implicit_attributes_task(construct, data_sharing, default_data_attr);
-            }
-            
             get_dependences_info(construct, data_sharing);
+
+            get_data_implicit_attributes_task(construct, data_sharing, default_data_attr);
+
+            // Target info applies after
+            get_target_info(construct, data_sharing);
+
         }
 
         void Core::task_handler_post(PragmaCustomConstruct construct)

@@ -146,45 +146,70 @@ static type_trie_element_t *lookup_element(const type_trie_t* type_trie, const t
     return lookup_element_rec(type_trie, *type_seq, 0, type_trie->num_elements - 1);
 }
 
-static int elements_compare_qsort(const void* p1, const void* p2)
-{
-    type_trie_element_t* t1 = (type_trie_element_t*)p1;
-    type_trie_element_t* t2 = (type_trie_element_t*)p2;
-
-    const type_t *i1 = t1->elem;
-    const type_t *i2 = t2->elem;
-
-    return elements_compare_fun(i1, i2);
-}
-
 static const type_t* create_elements(type_trie_t* type_trie, const type_t** type_seq, const type_t* function_type, int length)
 {
     type_trie->num_elements++;
     type_trie->elements = realloc(type_trie->elements, 
             type_trie->num_elements * sizeof(*(type_trie->elements)));
+
+    // Locate place where the element would go
+    int lower = 0;
+    int upper = type_trie->num_elements - 2;
+
+    const type_t* i_entity = NULL;
+
+    if (length != 0)
+        i_entity = *type_seq;
+
+    while (lower <= upper)
+    {
+        int middle = (lower + upper) / 2;
+        const type_t* i_middle = type_trie->elements[middle].elem;
+
+        int cmp = elements_compare_fun(i_entity, i_middle);
+        if (cmp < 0)
+        {
+            upper = middle - 1;
+        }
+        else if (0 < cmp)
+        {
+            lower = middle + 1;
+        }
+        // This should never happen
+        else 
+        {
+            abort();
+        }
+    }
+
+    // lower contains the position where the element should go
+    // shift all elements rightwards one position
+    int i;
+    for (i = type_trie->num_elements - 1; i > lower; i--)
+    {
+        type_trie->elements[i] = type_trie->elements[i - 1];
+    }
+
     if (length == 0)
     {
-        type_trie->elements[type_trie->num_elements - 1].elem = 0;
+        type_trie->elements[lower].elem = 0;
         // No next after the "end of list"
-        type_trie->elements[type_trie->num_elements - 1].next = NULL;
+        type_trie->elements[lower].next = NULL;
         // Create the type itself
-        type_trie->elements[type_trie->num_elements - 1].function_type = function_type;
-
-        return type_trie->elements[type_trie->num_elements - 1].function_type;
+        type_trie->elements[lower].function_type = function_type;
+        
+        return type_trie->elements[lower].function_type;
     }
     else
     {
-        type_trie->elements[type_trie->num_elements - 1].elem = *type_seq;
-        type_trie->elements[type_trie->num_elements - 1].next = calloc(1, sizeof(type_trie_t));
+        type_trie->elements[lower].elem = *type_seq;
+        type_trie->elements[lower].next = calloc(1, sizeof(type_trie_t));
         _bytes_used_type_trie += sizeof(type_trie_t);
 
         const type_t* result =
-        create_elements(type_trie->elements[type_trie->num_elements - 1].next,
+        create_elements(type_trie->elements[lower].next,
                 type_seq + 1,
                 function_type, length - 1);
-
-        qsort(type_trie->elements, type_trie->num_elements, sizeof(*(type_trie->elements)), 
-                elements_compare_qsort);
 
         return result;
     }

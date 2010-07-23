@@ -5,7 +5,7 @@ options =
 {instrument,!debug} options = --variable=instrument:1
 preprocessor_name = gcc
 preprocessor_options = -E
-{instrument,!debug} preprocessor_options = -I@MINTAKA_INCLUDES@ -include mintaka.h
+{instrument,!debug,!openmpt,!nanox} preprocessor_options = -I@MINTAKA_INCLUDES@ -include mintaka.h
 compiler_name = gcc
 compiler_options = 
 linker_name = gcc
@@ -31,17 +31,16 @@ linker_name = gcc
 {openmp,nanox,!openmpt} linker_options = -lnanox-c -lnanox-omp
 {openmp,openmpt} linker_options = -lnanox-c -lnanox-ss
 {openmp,nanox} compiler_phase = libtlomp-fun-tasks.so 
-{openmp,nanox} compiler_phase = libtlomp-core.so 
-{openmp,nanox} compiler_phase = libtlomp-nanox.so
-{openmp,nanox} compiler_phase = libtlnanox-smp.so
-{openmp,nanox} compiler_phase = libtlnanox-smp_numa.so
-{openmp,nanox} compiler_phase = libtlnanox-gpu.so
+{openmp,nanox,!only-fun-tasks} compiler_phase = libtlomp-core.so 
+{openmp,nanox,!only-fun-tasks} compiler_phase = libtlomp-nanox.so
+{openmp,nanox,!only-fun-tasks} compiler_phase = libtlnanox-smp.so
+{openmp,nanox,!only-fun-tasks} compiler_phase = libtlnanox-smp_numa.so
 {openmp,openmpt,!nanox} compiler_phase = libtlomp-fun-tasks.so 
-{openmp,openmpt,!nanox} compiler_phase = libtlomp-core.so 
-{openmp,openmpt,!nanox} compiler_phase = libtlomp-nanox.so
-{openmp,openmpt,!nanox} compiler_phase = libtlnanox-smp.so
-{openmp,openmpt,!nanox} compiler_phase = libtlnanox-smp_numa.so
-{openmp,openmpt,!nanox} compiler_phase = libtlnanox-gpu.so
+{openmp,openmpt,!nanox,!only-fun-tasks} compiler_phase = libtlomp-core.so 
+{openmp,openmpt,!nanox,!only-fun-tasks} compiler_phase = libtlomp-nanox.so
+{openmp,openmpt,!nanox,!only-fun-tasks} compiler_phase = libtlnanox-smp.so
+{openmp,openmpt,!nanox,!only-fun-tasks} compiler_phase = libtlnanox-smp_numa.so
+{openmp,openmpt,!nanox,!only-fun-tasks} compiler_phase = libtlnanox-gpu.so
 
 [mcc : omp-base]
 language = C

@@ -934,15 +934,8 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 result = check_for_explicit_type_conversion(expression, decl_context );
                 break;
             }
-        case AST_TYPENAME_EXPLICIT_TYPE_CONVERSION :
+        case AST_TYPENAME_EXPLICIT_TYPE_CONV :
             {
-                result = check_for_explicit_typename_type_conversion(expression, decl_context);
-                break;
-            }
-        case AST_TYPENAME_TEMPLATE_EXPLICIT_TYPE_CONVERSION :
-        case AST_TYPENAME_TEMPLATE_TEMPLATE_EXPLICIT_TYPE_CONVERSION :
-            {
-                // This is never a value
                 result = check_for_explicit_typename_type_conversion(expression, decl_context);
                 break;
             }
@@ -1750,13 +1743,14 @@ static type_t *character_literal_type(AST expr, const_value_t** val)
                 case '\'': { value = literal[2]; break; }
                 case 'a' : { value = '\a'; break; }
                 case 'b' : { value = '\b'; break; }
-                case 'e' : { value = '\e'; break; }
+                case 'e' : { value = '\e'; break; } // This is a gcc extension
                 case 'f' : { value = '\f'; break; }
                 case 'n' : { value = '\n'; break; }
                 case 'r' : { value = '\r'; break; }
                 case 't' : { value = '\t'; break; }
                 case 'v' : { value = '\v'; break; }
                 case '\\': { value = '\\'; break; }
+                case '\"': { value = '\"'; break; }
                 case '0': 
                 case '1': 
                 case '2': 
@@ -2310,8 +2304,10 @@ static type_t* usual_arithmetic_conversions(type_t* lhs_type, type_t* rhs_type)
     {
         internal_error("Unreachable code", 0);
     }
-
-    result = get_signed_int_type();
+    else 
+    {
+        result = get_signed_int_type();
+    }
 
     if (is_complex)
     {
@@ -2407,6 +2403,26 @@ static type_t* compute_member_user_defined_bin_operator_type(AST operator_name,
     return overloaded_type;
 }
 
+static char filter_only_nonmembers_or_static_members(scope_entry_t* e)
+{
+    if (e->kind != SK_FUNCTION 
+            && e->kind != SK_TEMPLATE)
+        return 0;
+
+    if (e->kind == SK_TEMPLATE)
+    {
+        e = named_type_get_symbol(template_type_get_primary_type(e->type_information));
+        if (e->kind != SK_FUNCTION)
+            return 0;
+    }
+
+    if (!e->entity_specs.is_member
+            || e->entity_specs.is_static)
+        return 1;
+
+    return 0;
+}
+
 static type_t* compute_user_defined_bin_operator_type(AST operator_name, 
         AST expr,
         AST lhs, AST rhs, 
@@ -2439,6 +2455,10 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
 
     scope_entry_list_t *entry_list = koenig_lookup(num_arguments - 1,
             &(argument_types[1]), decl_context, operator_name);
+    
+    // Normal lookup might find nonstatic member functions at this point,
+    // filter them out
+    entry_list = filter_symbol_using_predicate(entry_list, filter_only_nonmembers_or_static_members);
     
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(entry_list,
             builtins, &(argument_types[1]), num_arguments - 1,
@@ -2566,6 +2586,9 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
 
     scope_entry_list_t *entry_list = koenig_lookup(num_arguments - 1,
             &(argument_types[1]), decl_context, operator_name);
+
+    // Remove any member that might have slip in because of plain lookup
+    entry_list = filter_symbol_using_predicate(entry_list, filter_only_nonmembers_or_static_members);
     
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(
             entry_list, builtins, &(argument_types[1]), num_arguments - 1,
@@ -5789,8 +5812,12 @@ static char check_for_conditional_expression_impl(AST expression, decl_context_t
          * we rely in overload mechanism
          */
         if (!equivalent_types(no_ref(second_type), no_ref(third_type))
-                && (is_class_type(no_ref(second_type))
-                        || is_class_type(no_ref(third_type))))
+                && ((is_class_type(no_ref(second_type))
+                        || is_class_type(no_ref(third_type)))
+                    || (is_enumerated_type(no_ref(second_type))
+                        || is_enumerated_type(no_ref(third_type)))
+                    )
+                )
         {
             builtin_operators_set_t builtin_set;
 
@@ -5807,15 +5834,16 @@ static char check_for_conditional_expression_impl(AST expression, decl_context_t
             scope_entry_list_t* builtins = 
                 get_entry_list_from_builtin_operator_set(&builtin_set);
 
-            int num_arguments = 3;
+            int num_arguments = 4;
 
-            type_t* argument_types[3] = {
+            type_t* argument_types[4] = {
                 NULL, // This operator is never a member
+                get_bool_type(),
                 second_type,
                 third_type,
             };
 
-            scope_entry_t* conversors[3] = { NULL, NULL, NULL };
+            scope_entry_t* conversors[4] = { NULL, NULL, NULL, NULL };
 
             scope_entry_t *overloaded_call = solve_overload(builtins,
                     argument_types, num_arguments, decl_context,
@@ -5828,7 +5856,7 @@ static char check_for_conditional_expression_impl(AST expression, decl_context_t
             }
 
             int k;
-            for (k = 0; k < 3; k++)
+            for (k = 0; k < 4; k++)
             {
                 if (conversors[k] != NULL)
                 {
@@ -6134,8 +6162,6 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
             }
 
             scope_entry_list_t *operator_new_list = query_id_expression(op_new_context, called_operation_new_tree);
-
-            // ERROR_CONDITION(operator_new_list == NULL, "This cannot be empty, at least there should be the global scope one\n", 0);
 
             if (operator_new_list == NULL)
             {
@@ -6459,11 +6485,28 @@ static char check_for_delete_expression(AST expression, decl_context_t decl_cont
 
         decl_context_t op_delete_context = decl_context;
 
-        if (is_pointer_to_class_type(deleted_expr_type)
-                && global_op == NULL)
+        if (global_op == NULL
+                && is_pointer_to_class_type(deleted_expr_type))
         {
-            op_delete_context = class_type_get_inner_context(
-                    get_actual_class_type(pointer_type_get_pointee_type(deleted_expr_type)));
+            type_t* class_type = pointer_type_get_pointee_type(deleted_expr_type);
+
+            if (class_type_is_incomplete_independent(get_actual_class_type(class_type)))
+            {
+                scope_entry_t* entry = named_type_get_symbol(class_type);
+                instantiate_template_class(entry, decl_context,
+                        ASTFileName(expression), ASTLine(expression));
+            }
+
+            if (is_complete_type(class_type))
+            {
+                op_delete_context = class_type_get_inner_context(
+                        get_actual_class_type(pointer_type_get_pointee_type(deleted_expr_type)));
+            }
+            else
+            {
+                running_error("%s: error: cannot delete an incomplete class type\n",
+                        ast_location(expression));
+            }
         }
         else
         {
@@ -6478,8 +6521,8 @@ static char check_for_delete_expression(AST expression, decl_context_t decl_cont
         {
             if (!checking_ambiguity())
             {
-                fprintf(stderr, "warning: %s: no suitable '%s' has been found in the scope\n",
-                        ast_location(operation_delete_name),
+                fprintf(stderr, "%s: warning: no suitable '%s' has been found in the scope\n",
+                        ast_location(expression),
                         prettyprint_in_buffer(operation_delete_name));
             }
             return 0;
@@ -6509,12 +6552,11 @@ static char check_for_delete_expression(AST expression, decl_context_t decl_cont
 
         if (chosen == NULL)
         {
-            fprintf(stderr, "warning: %s: no suitable '%s' valid for deallocation of '%s' has been found in the scope\n",
+            fprintf(stderr, "%s: warning: no suitable '%s' valid for deallocation of '%s' has been found in the scope\n",
                     ast_location(expression),
                     prettyprint_in_buffer(operation_delete_name),
                     print_decl_type_str(pointer_type_get_pointee_type(deleted_expr_type), 
                         decl_context, ""));
-
 #if 0
             it = operator_delete_list;
             fprintf(stderr, "note: %s: all '%s' found were\n", 
@@ -6675,12 +6717,9 @@ static char check_for_explicit_type_conversion_common(type_t* type_info,
 
 static char check_for_explicit_typename_type_conversion(AST expr, decl_context_t decl_context)
 {
-    AST global_op = ASTSon0(expr);
-    AST nested_name_spec = ASTSon1(expr);
-    AST symbol = ASTSon2(expr);
+    AST id_expression = ASTSon0(expr);
 
-    scope_entry_list_t* entry_list = 
-        query_nested_name(decl_context, global_op, nested_name_spec, symbol);
+    scope_entry_list_t* entry_list = query_id_expression(decl_context, id_expression);
 
     if (entry_list == NULL)
         return 0;
@@ -6696,7 +6735,7 @@ static char check_for_explicit_typename_type_conversion(AST expr, decl_context_t
         return 0;
     }
 
-    AST expr_list = ASTSon3(expr);
+    AST expr_list = ASTSon1(expr);
 
     return check_for_explicit_type_conversion_common(get_user_defined_type(entry), expr, expr_list, decl_context);
 }
@@ -7022,7 +7061,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                 {
                     scope_entry_t* entry = entry_list->entry;
                     // Tag the node with symbol information (this is useful to know who are you calling)
-                    ASTAttrSetValueType(advanced_called_expression, LANG_FUNCTION_SYMBOL, tl_type_t, tl_symbol(entry));
+                    expression_set_symbol(advanced_called_expression, entry);
                 }
             }
             else
@@ -7501,7 +7540,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         expression_set_type(called_expression, overloaded_call->type_information);
         expression_set_type(advanced_called_expression, overloaded_call->type_information);
         // Tag the node with symbol information (this is useful to know who is being called)
-        ASTAttrSetValueType(advanced_called_expression, LANG_FUNCTION_SYMBOL, tl_type_t, tl_symbol(overloaded_call));
+        expression_set_symbol(advanced_called_expression, overloaded_call);
 
         if (arguments != NULL)
         {
@@ -8176,6 +8215,9 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
     scope_entry_t* entry = entry_list->entry;
     C_LANGUAGE()
     {
+        // Store the symbol found
+        expression_set_symbol(id_expression, entry);
+
         // C only will have fields
         expression_set_type(member_access, entry->type_information);
         expression_set_is_lvalue(member_access, 1);
@@ -8186,6 +8228,9 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
     {
         if (entry->kind == SK_VARIABLE)
         {
+            // Store the member found
+            expression_set_symbol(id_expression, entry);
+
             // This is a reference to the type
             if (!is_dependent_expr_type(entry->type_information))
             {
@@ -10086,7 +10131,7 @@ static char check_for_sizeof_typeid(AST expr, decl_context_t decl_context)
                     && !type_is_runtime_sized(declarator_type))
             {
                 char is_const_expr = 0;
-                _size_t type_size;
+                _size_t type_size = 0;
 
                 switch (ASTType(expr))
                 {

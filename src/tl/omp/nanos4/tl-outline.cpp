@@ -358,6 +358,7 @@ namespace TL
                     it++)
             {
                 Symbol sym = it->get_symbol();
+                OpenMP::UDRInfoItem udr = it->get_udr();
                 Type type = sym.get_type();
 
                 Source type_declaration, static_initializer, dynamic_initializer, secondary_decl;
@@ -379,7 +380,7 @@ namespace TL
                     name = "p_rdp_" + sym.get_name();
                     type = type.points_to();
                 }
-                if (!it->is_array()
+                if (!udr.get_is_array_reduction()
                         || !is_variably_modified)
                 {
                     type_declaration
@@ -427,18 +428,18 @@ namespace TL
                 }
 
                 // Fill the initializers
-                if (!it->neuter_is_empty())
+                if (udr.has_identity())
                 {
-                    if (!it->is_array())
+                    if (!udr.get_is_array_reduction())
                     {
-                        if (it->neuter_is_constructor())
+                        if (udr.identity_is_constructor())
                         {
-                            static_initializer << it->get_neuter()
+                            static_initializer << udr.get_identity().prettyprint()
                                 ;
                         }
                         else
                         {
-                            static_initializer << " = " << it->get_neuter()
+                            static_initializer << " = " << udr.get_identity().prettyprint()
                                 ;
                         }
                     }
@@ -446,25 +447,25 @@ namespace TL
                     {
                         Source element_level_initializer;
 
-                        if (it->neuter_is_constructor())
+                        if (udr.identity_is_constructor())
                         {
                             // Prepend with the constructor name
                             element_level_initializer
                                 << type.get_declaration(construct.get_scope(), "")
-                                << it->get_neuter();
+                                << udr.get_identity().prettyprint();
                         }
                         else
                         {
                             element_level_initializer 
-                                << it->get_neuter();
+                                << udr.get_identity().prettyprint();
                         }
 
                         if (!is_variably_modified)
                         {
-                            ObjectList<int> dimension_sizes(it->num_dimensions(), 0);
+                            ObjectList<int> dimension_sizes(udr.get_num_dimensions(), 0);
                             Type array_type = type;
 
-                            for (int i = 0; i < it->num_dimensions(); i++)
+                            for (int i = 0; i < udr.get_num_dimensions(); i++)
                             {
                                 Expression expr(array_type.array_dimension(),
                                         construct.get_scope_link());
@@ -658,32 +659,145 @@ namespace TL
                     it++)
             {
                 Symbol sym = it->get_symbol();
+                OpenMP::UDRInfoItem udr = it->get_udr();
                 Type type = sym.get_type();
 
-                Source init;
+                Source type_declaration, static_initializer, dynamic_initializer, secondary_decl;
 
                 private_declarations
                     << comment("Reduction private entity : 'rdp_" + sym.get_name() + "'")
-                    << type.get_declaration(
-                            construct.get_scope(),
-                            "rdp_" + sym.get_name())
-                    << init
-                    << ";"
+                    << type_declaration
+                    << static_initializer << ";"
+                    << dynamic_initializer
+                    << secondary_decl
                     ;
 
-                if (it->neuter_is_constructor())
+                bool is_variably_modified = type.is_variably_modified();
+
+                std::string name = "rdp_" + sym.get_name();
+                bool is_pointer = type.is_pointer();
+                if (is_pointer)
                 {
-                    init << it->get_neuter()
-                        ;
+                    name = "p_rdp_" + sym.get_name();
+                    type = type.points_to();
                 }
-                else if (it->neuter_is_empty())
+                if (!udr.get_is_array_reduction()
+                        || !is_variably_modified)
                 {
-                    // Do nothing for empty initializers
+                    type_declaration
+                        << type.get_declaration(
+                                construct.get_scope(),
+                                name)
+                        ;
                 }
                 else
                 {
-                    init << " = " << it->get_neuter()
+                    // // This is a bit more involved
+                    // bool found = false;
+                    // for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
+                    //         it != parameter_info_list.end();
+                    //         it++)
+                    // {
+                    //     if (it->symbol == sym)
+                    //     {
+                    //         // Use the parameter type instead, but ignore an
+                    //         // additional pointer we added for proper casting
+                    //         type = it->full_type_in_outline.points_to();
+                    //         found = true;
+                    //         break;
+                    //     }
+                    // }
+
+                    // if (!found)
+                    {
+                        internal_error("VLA info not found", 0);
+                    }
+
+                    type_declaration
+                        << type.get_declaration(
+                                construct.get_scope(),
+                                name);
                         ;
+                }
+
+                if (is_pointer)
+                {
+                    secondary_decl
+                        << type.get_pointer_to().get_declaration(
+                                construct.get_scope(),
+                                "rdp_" + sym.get_name()) << "= &" << name << ";";
+                }
+
+                // Fill the initializers
+                if (udr.has_identity())
+                {
+                    if (!udr.get_is_array_reduction())
+                    {
+                        if (udr.identity_is_constructor())
+                        {
+                            static_initializer << udr.get_identity().prettyprint()
+                                ;
+                        }
+                        else
+                        {
+                            static_initializer << " = " << udr.get_identity().prettyprint()
+                                ;
+                        }
+                    }
+                    else // is array
+                    {
+                        Source element_level_initializer;
+
+                        if (udr.identity_is_constructor())
+                        {
+                            // Prepend with the constructor name
+                            element_level_initializer
+                                << type.get_declaration(construct.get_scope(), "")
+                                << udr.get_identity().prettyprint();
+                        }
+                        else
+                        {
+                            element_level_initializer 
+                                << udr.get_identity().prettyprint();
+                        }
+
+                        if (!is_variably_modified)
+                        {
+                            ObjectList<int> dimension_sizes(udr.get_num_dimensions(), 0);
+                            Type array_type = type;
+
+                            for (int i = 0; i < udr.get_num_dimensions(); i++)
+                            {
+                                Expression expr(array_type.array_dimension(),
+                                        construct.get_scope_link());
+                                bool valid;
+                                dimension_sizes[i] = expr.evaluate_constant_int_expression(valid);
+                                if (!valid)
+                                {
+                                    internal_error("Error when evaluating constant expression '%s' of non vla array!\n", 
+                                            expr.prettyprint().c_str());
+                                }
+                            }
+
+                            static_initializer << " = ";
+
+                            generate_static_array_initializer(static_initializer, 
+                                    dimension_sizes.begin(), 
+                                    dimension_sizes.end(), 
+                                    element_level_initializer);
+                        }
+                        else
+                        {
+                            generate_dynamic_array_initializer(dynamic_initializer,
+                                    type,
+                                    Source("rdp_" + sym.get_name()),
+                                    element_level_initializer);
+                        }
+                    }
+                }
+                else
+                {
+                    std::cerr << "NO IDENTITY" << std::endl;
                 }
             }
 

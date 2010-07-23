@@ -99,7 +99,12 @@ void temporal_files_cleanup(void)
             char rm_fr[256];
             snprintf(rm_fr, 255, "rm -fr \"%s\"", iter->info->name);
             rm_fr[255] = '\0';
-            system(rm_fr);
+            int ret = system(rm_fr);
+
+            if (ret == -1)
+            {
+                running_error("Execution of 'rm -fr' failed\n", 0);
+            }
         }
     }
 
@@ -821,7 +826,12 @@ static const char* find_home_unix(const char* progname)
     }
     else
     {
-        realpath(progname, c);
+        char* ret = realpath(progname, c);
+
+        if (ret == NULL)
+        {
+            running_error("relpath failed when solving '%s'\n", progname);
+        }
     }
 
     res = uniquestr(dirname(c));

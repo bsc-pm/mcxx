@@ -28,6 +28,13 @@ namespace Nanox
         bool leave_team;
 
         /*!
+          If this flag is true, the device provider should not try to create a name
+          after the outline one. Just use it as is. This is needed for targets
+          whose code is already implemented
+          */
+        bool implemented_outline;
+
+        /*!
           This symbol represents the task function called from the outline.
           */
         Symbol task_symbol;
@@ -35,6 +42,7 @@ namespace Nanox
         OutlineFlags()
             : barrier_at_end(false),
             leave_team(false),
+            implemented_outline(false),
             task_symbol(NULL)
         {
         }
