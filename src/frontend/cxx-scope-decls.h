@@ -344,6 +344,9 @@ typedef struct entity_specifiers_tag
     // Is a surrogate fake symbol
     char is_surrogate_function:1;
 
+    // Is an anonymous entity
+    char is_anonymous:1;
+
     // Template argument, we need this to properly evaluate nontype template
     // arguments
     char is_template_argument:1;
