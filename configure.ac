@@ -198,6 +198,8 @@ then
    TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos-common fun-tasks nanox"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
+   
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.cuda"
 fi
 
 AC_SUBST([NANOX_INCLUDES])
@@ -1019,6 +1021,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/nanox/devices/Makefile 
            src/tl/omp/nanox/devices/smp/Makefile 
            src/tl/omp/nanox/devices/smp_numa/Makefile 
+           src/tl/omp/nanox/devices/gpu/Makefile 
            src/tl/omp/nanos4/Makefile 
            src/tl/instr/Makefile 
            src/tl/instr_pthreads/Makefile 

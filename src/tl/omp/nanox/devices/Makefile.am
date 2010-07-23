@@ -21,4 +21,4 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-SUBDIRS=smp smp_numa
+SUBDIRS=smp smp_numa gpu
