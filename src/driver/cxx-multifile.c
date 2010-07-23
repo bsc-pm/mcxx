@@ -301,7 +301,8 @@ void multifile_get_profile_file_list(const char* profile_name,
             {
                 if (dir_entry->d_name[0] != '.')
                 {
-                    const char* profile_name = uniquestr(dir_entry->d_name);
+                    const char* profile_name = strappend(profile_dir, 
+                            strappend(DIR_SEPARATOR, dir_entry->d_name));
                     P_LIST_ADD(*multifile_file_list, *num_multifile_files, profile_name);
                 }
             }

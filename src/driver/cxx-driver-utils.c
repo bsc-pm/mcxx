@@ -714,10 +714,19 @@ char move_file(const char* source, const char* dest)
 
     if (source_fs == dest_fs)
     {
+        if (CURRENT_CONFIGURATION->verbose)
+        {
+            fprintf(stderr, "Moving file through rename '%s' -> '%s'\n", source, dest);
+        }
         return rename(source, dest);
     }
     else
     {
+        if (CURRENT_CONFIGURATION->verbose)
+        {
+            fprintf(stderr, "Moving file through copy '%s' -> '%s'\n", source, dest);
+        }
+
         // Plain old copy
         FILE* orig_file = fopen(source, "r");
         if (orig_file == NULL)
@@ -732,20 +741,22 @@ char move_file(const char* source, const char* dest)
         }
 
         // size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
-        char c[1024];
-        int actually_read = fread(c, sizeof(c), 1, orig_file);
+#define BLOCK_SIZE 1024
+        char c[BLOCK_SIZE];
+        int actually_read = fread(c, sizeof(char), BLOCK_SIZE, orig_file);
 
         while (actually_read != 0)
         {
-            int actually_written = fwrite(c, actually_read, 1, dest_file);
+            int actually_written = fwrite(c, sizeof(char), actually_read, dest_file);
             if (actually_written < actually_read)
             {
                 fclose(dest_file);
                 fclose(orig_file);
                 return -1;
             }
-            actually_read = fread(c, sizeof(c), 1, orig_file);
+            actually_read = fread(c, sizeof(char), BLOCK_SIZE, orig_file);
         }
+#undef BLOCK_SIZE
         if (feof(orig_file))
         {
             // Everything is OK
@@ -761,6 +772,8 @@ char move_file(const char* source, const char* dest)
 
         fclose(orig_file);
         fclose(dest_file);
+
+        return remove(source);
     }
     // Everything ok
     return 0;

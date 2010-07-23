@@ -27,6 +27,9 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <time.h>
+#include "cxx-process.h"
+
+MCXX_BEGIN_DECLS
 
 // Cygwin is so unix...
 #if defined(WIN32_BUILD) && !defined(__CYGWIN__)
@@ -102,5 +105,7 @@ void mark_dir_as_temporary(const char* name);
 
 // Find the path where the application runs
 const char* find_home(const char* progname);
+
+MCXX_END_DECLS
 
 #endif // CXX_DRIVERUTILS_H
