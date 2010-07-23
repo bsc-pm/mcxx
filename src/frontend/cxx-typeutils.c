@@ -960,7 +960,8 @@ type_t* get_user_defined_type(scope_entry_t* entry)
 
 static dependent_name_part_t* get_dependent_nested_part(
         decl_context_t decl_context,
-        AST nested_part)
+        AST nested_part,
+        int *nesting_level)
 {
     ERROR_CONDITION(nested_part == NULL, "This tree cannot be NULL", 0);
 
@@ -979,7 +980,8 @@ static dependent_name_part_t* get_dependent_nested_part(
         result->template_arguments = get_template_arguments_from_syntax(
                 ASTSon1(nested_part),
                 decl_context,
-                /* nesting level */ 0);
+                *nesting_level);
+        (*nesting_level)++;
     }
     else if (ASTType(nested_part) == AST_OPERATOR_FUNCTION_ID
             || ASTType(nested_part) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
@@ -991,7 +993,8 @@ static dependent_name_part_t* get_dependent_nested_part(
             result->template_arguments = get_template_arguments_from_syntax(
                     ASTSon1(nested_part),
                     decl_context,
-                    /* nesting_level */ 0);
+                    *nesting_level);
+            (*nesting_level)++;
         }
     }
     else if (ASTType(nested_part) == AST_CONVERSION_FUNCTION_ID)
@@ -1001,7 +1004,9 @@ static dependent_name_part_t* get_dependent_nested_part(
     }
     else if (ASTType(nested_part) == AST_DESTRUCTOR_ID)
     {
-        return get_dependent_nested_part(decl_context, ASTSon0(nested_part));
+        return get_dependent_nested_part(decl_context, 
+                ASTSon0(nested_part), 
+                nesting_level);
     }
     else
     {
@@ -1011,8 +1016,10 @@ static dependent_name_part_t* get_dependent_nested_part(
     return result;
 }
 
+#if 0
 static dependent_name_part_t* compute_dependent_parts_of_dependent_symbol_aux_(
-        scope_entry_t* entry, scope_entry_t** enclosing_dependent_entity)
+        scope_entry_t* entry, scope_entry_t** enclosing_dependent_entity,
+        int *nesting_level)
 {
     dependent_name_part_t* result = NULL;
 
@@ -1025,7 +1032,8 @@ static dependent_name_part_t* compute_dependent_parts_of_dependent_symbol_aux_(
     {
         enclosing = compute_dependent_parts_of_dependent_symbol_aux_(
                 entry->decl_context.current_scope->related_entry,
-                enclosing_dependent_entity);
+                enclosing_dependent_entity,
+                nesting_level);
 
         result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
         result->name = entry->symbol_name;
@@ -1033,13 +1041,14 @@ static dependent_name_part_t* compute_dependent_parts_of_dependent_symbol_aux_(
         if (is_template_specialized_type(entry->type_information))
         {
             result->template_arguments = template_specialized_type_get_template_arguments(entry->type_information);
+            (*nesting_level)++;
         }
 
-        if (enclosing != NULL)
+        if (enclosing != null)
         {
             dependent_name_part_t* tmp = enclosing;
 
-            while (tmp->next != NULL) 
+            while (tmp->next != null) 
                 tmp = tmp->next;
             tmp->next = result;
 
@@ -1052,7 +1061,9 @@ static dependent_name_part_t* compute_dependent_parts_of_dependent_symbol_aux_(
 }
 
 static dependent_name_part_t* compute_dependent_parts_of_dependent_symbol(
-        scope_entry_t* entry, scope_entry_t** enclosing_dependent_entity)
+        scope_entry_t* entry, 
+        scope_entry_t** enclosing_dependent_entity,
+        int *nesting_level)
 {
     dependent_name_part_t* result = NULL;
     if (entry->kind == SK_CLASS
@@ -1060,7 +1071,61 @@ static dependent_name_part_t* compute_dependent_parts_of_dependent_symbol(
             && is_dependent_type(entry->decl_context.current_scope->related_entry->type_information))
     {
         result = compute_dependent_parts_of_dependent_symbol_aux_(entry->decl_context.current_scope->related_entry,
-                enclosing_dependent_entity);
+                enclosing_dependent_entity, nesting_level);
+    }
+
+    return result;
+}
+#endif
+
+static dependent_name_part_t* compute_dependent_parts_of_dependent_symbol(
+        scope_entry_t* entry, 
+        scope_entry_t** enclosing_dependent_entity,
+        int *nesting_level)
+{
+    dependent_name_part_t* result = NULL;
+    dependent_name_part_t* enclosing = NULL;
+    if (entry->decl_context.current_scope->kind == CLASS_SCOPE
+            && entry->decl_context.current_scope->related_entry->kind == SK_CLASS)
+    {
+        enclosing = compute_dependent_parts_of_dependent_symbol(
+                entry->decl_context.current_scope->related_entry,
+                enclosing_dependent_entity,
+                nesting_level);
+    }
+
+    if (is_template_specialized_type(entry->type_information))
+    {
+        (*nesting_level)++;
+    }
+
+    if (is_dependent_type(entry->type_information))
+    {
+        if (*enclosing_dependent_entity == NULL)
+        {
+            *enclosing_dependent_entity = entry;
+        }
+        else
+        {
+            result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
+            result->name = entry->symbol_name;
+
+            if (is_template_specialized_type(entry->type_information))
+            {
+                result->template_arguments = template_specialized_type_get_template_arguments(entry->type_information);
+            }
+
+            if (enclosing != NULL)
+            {
+                dependent_name_part_t* tmp = enclosing;
+
+                while (tmp->next != NULL) 
+                    tmp = tmp->next;
+                tmp->next = result;
+
+                result = enclosing;
+            }
+        }
     }
 
     return result;
@@ -1069,11 +1134,14 @@ static dependent_name_part_t* compute_dependent_parts_of_dependent_symbol(
 static dependent_name_part_t* compute_dependent_parts(
         decl_context_t decl_context,
         AST nested_name,
-        AST unqualified_part)
+        AST unqualified_part,
+        int *nesting_level)
 {
     if (nested_name == NULL)
     {
-        return get_dependent_nested_part(decl_context, unqualified_part);
+        return get_dependent_nested_part(decl_context, 
+                unqualified_part,
+                nesting_level);
     }
     else
     {
@@ -1082,10 +1150,12 @@ static dependent_name_part_t* compute_dependent_parts(
         dependent_name_part_t* next = compute_dependent_parts(
                 decl_context,
                 next_part,
-                unqualified_part);
+                unqualified_part, 
+                nesting_level);
 
         dependent_name_part_t* current = get_dependent_nested_part(
-                decl_context, ASTSon0(nested_name));
+                decl_context, ASTSon0(nested_name), 
+                nesting_level);
 
         current->next = next;
 
@@ -1115,6 +1185,23 @@ dependent_name_part_t* copy_dependent_parts(
 type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entity, 
         dependent_name_part_t* dependent_parts)
 {
+
+    scope_entry_t* most_enclosing_dependent_entity = NULL;
+
+    int nesting_level = 1;
+
+    dependent_name_part_t* dependent_parts_enclosing =
+        compute_dependent_parts_of_dependent_symbol(dependent_entity,
+                &most_enclosing_dependent_entity,
+                &nesting_level);
+
+    if (most_enclosing_dependent_entity != NULL)
+        dependent_entity = most_enclosing_dependent_entity;
+
+    if (dependent_parts_enclosing == NULL
+            && dependent_parts == NULL)
+        return get_user_defined_type(dependent_entity);
+
     type_t* type_info = get_simple_type();
 
     type_info->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
@@ -1124,6 +1211,17 @@ type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entity,
             && dependent_entity->kind != SK_CLASS
             && dependent_entity->kind != SK_TYPEDEF, 
             "Invalid dependent entity of kind '%d'", dependent_entity->kind);
+
+    if (dependent_parts_enclosing != NULL)
+    {
+        dependent_name_part_t* tmp = dependent_parts_enclosing;
+
+        while (tmp->next != NULL)
+            tmp = tmp->next;
+        tmp->next = dependent_parts;
+
+        dependent_parts = dependent_parts_enclosing;
+    }
 
     type_info->type->dependent_parts = dependent_parts;
 
@@ -1142,9 +1240,12 @@ type_t* get_dependent_typename_type(scope_entry_t* dependent_entity,
 
     scope_entry_t* most_enclosing_dependent_entity = NULL;
 
+    int nesting_level = 1;
+
     dependent_name_part_t* dependent_parts_enclosing =
         compute_dependent_parts_of_dependent_symbol(dependent_entity,
-                &most_enclosing_dependent_entity);
+                &most_enclosing_dependent_entity,
+                &nesting_level);
 
     if (most_enclosing_dependent_entity != NULL)
         dependent_entity = most_enclosing_dependent_entity;
@@ -1152,7 +1253,8 @@ type_t* get_dependent_typename_type(scope_entry_t* dependent_entity,
     dependent_name_part_t* dependent_parts = compute_dependent_parts(
             decl_context,
             nested_name,
-            unqualified_part);
+            unqualified_part,
+            &nesting_level);
 
     if (dependent_parts_enclosing != NULL)
     {

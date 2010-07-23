@@ -1193,14 +1193,15 @@ static decl_context_t lookup_qualification_scope(
     scope_entry_t* starting_symbol = starting_symbol_list->entry;
 
     // This is an already dependent name
-    if (starting_symbol->kind == SK_CLASS
-            && is_dependent_type(starting_symbol->type_information)
-            && BITMAP_TEST(nested_name_context.decl_flags, DF_DEPENDENT_TYPENAME))
+    if (BITMAP_TEST(nested_name_context.decl_flags, DF_DEPENDENT_TYPENAME)
+            && starting_symbol->kind == SK_CLASS
+            && starting_symbol->decl_context.current_scope->kind == CLASS_SCOPE
+            && is_dependent_type(starting_symbol->decl_context.current_scope->related_entry->type_information))
     {
         // We cannot do anything else here but returning NULL
         // and stating that it is dependent
         *dependent_type = get_dependent_typename_type(starting_symbol, 
-                nested_name_context, nested_name_spec, unqualified_part);
+                nested_name_context, next_nested_name_spec, unqualified_part);
         *is_valid = 0;
 
         memset(&result, 0, sizeof(result));
@@ -2631,7 +2632,8 @@ static type_t* update_dependent_typename(
     scope_entry_t* member = member_list->entry;
 
     if (member->kind == SK_CLASS
-            || member->kind == SK_TYPEDEF)
+            || member->kind == SK_TYPEDEF
+            || member->kind == SK_ENUM)
     {
         DEBUG_CODE()
         {
