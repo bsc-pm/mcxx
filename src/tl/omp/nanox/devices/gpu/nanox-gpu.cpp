@@ -6,6 +6,8 @@
 #include <iostream>
 #include <fstream>
 
+#include "cxx-driver-utils.h"
+
 using namespace TL;
 using namespace TL::Nanox;
 
@@ -176,6 +178,9 @@ void DeviceGPU::create_outline(
 	    _cudaFilename.erase(file_extension, _cudaFilename.length());
 	    _cudaFilename += ".cu";
 	    new_file = true;
+
+	    // Remove the intermediate source file
+	    mark_file_as_temporary( _cudaFilename.c_str() );
 	}
 
 	const std::string configuration_name = "cuda";
