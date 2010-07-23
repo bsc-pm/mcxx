@@ -1929,6 +1929,12 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type
             new_enum->type_information = get_new_enum_type(decl_context);
 
             *type_info = get_user_defined_type(new_enum);
+
+            if (decl_context.current_scope->kind == CLASS_SCOPE
+                    && is_dependent_type(decl_context.current_scope->related_entry->type_information))
+            {
+                set_is_dependent_type(new_enum->type_information, 1);
+            }
         }
         else
         {
@@ -2053,20 +2059,9 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
 
     scope_entry_t* entry = entry_list->entry;
 
-    if (entry->entity_specs.is_member
-            && is_dependent_type(entry->entity_specs.class_type))
+    if (is_dependent_type(entry->type_information))
     {
-        dependent_name_part_t* part = counted_calloc(1, sizeof(*part), &_bytes_used_buildscope);
-        part->name = entry->symbol_name;
-
-        if (is_template_specialized_type(entry->type_information))
-        {
-            part->template_arguments = template_specialized_type_get_template_arguments(entry->type_information);
-        }
-
-        (*type_info) = get_dependent_typename_type_from_parts(
-                named_type_get_symbol(entry->entity_specs.class_type), 
-                part);
+        (*type_info) = get_dependent_typename_type_from_parts(entry, NULL);
     }
     else
     {
@@ -2130,17 +2125,25 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
     }
     else
     {
-        // This one is anonymous, create a fake symbol 
-        // (not signed in any scope)
-        new_entry = counted_calloc(1, sizeof(*new_entry), &_bytes_used_buildscope);
-        new_entry->symbol_name = uniquestr("<<anonymous>>");
-        new_entry->decl_context = decl_context;
+        // Give it a fake name
+        static int anonymous_enums = 0;
+        char c[256];
+        snprintf(c, 255, "<<anonymous-enum-%d>>", anonymous_enums);
+        c[255] = '\0';
+        anonymous_enums++;
+
+        new_entry = new_symbol(decl_context, decl_context.current_scope, uniquestr(c));
         new_entry->line = ASTLine(a);
         new_entry->file = ASTFileName(a);
         new_entry->point_of_declaration = a;
         new_entry->kind = SK_ENUM;
         new_entry->type_information = get_new_enum_type(decl_context);
-        new_entry->extended_data = counted_calloc(1, sizeof(*(new_entry->extended_data)), &_bytes_used_buildscope);
+    }
+
+    if (decl_context.current_scope->kind == CLASS_SCOPE
+            && is_dependent_type(decl_context.current_scope->related_entry->type_information))
+    {
+        set_is_dependent_type(new_entry->type_information, 1);
     }
 
     enum_type = new_entry->type_information;
@@ -3486,16 +3489,24 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     }
     else
     {
-        // Unnamed class, create a fake symbol (not signed in any scope)
-        class_entry = counted_calloc(1, sizeof(*class_entry), &_bytes_used_buildscope);
+        // Give it a fake name
+        static int anonymous_classes = 0;
+        char c[256];
+        snprintf(c, 255, "<<anonymous-class-%d>>", anonymous_classes);
+        c[255] = '\0';
+        anonymous_classes++;
+
+        class_entry = new_symbol(decl_context, 
+                decl_context.current_scope, 
+                uniquestr(c));
+
         class_entry->kind = SK_CLASS;
-        class_entry->decl_context = decl_context;
-        class_entry->symbol_name = uniquestr("<<anonymous>>");
-        class_entry->extended_data = counted_calloc(1, sizeof(*class_entry->extended_data), &_bytes_used_buildscope);
+        class_entry->type_information = get_new_class_type(decl_context, class_kind);
+        class_type = class_entry->type_information;
+
         class_entry->point_of_declaration = get_enclosing_declaration(a);
         class_entry->line = ASTLine(a);
         class_entry->file = ASTFileName(a);
-        class_entry->type_information = get_new_class_type(decl_context, class_kind);
 
         class_type = class_entry->type_information;
         inner_decl_context = new_class_context(decl_context, class_entry);
@@ -3569,6 +3580,9 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
         *injected_symbol = *class_entry;
         injected_symbol->do_not_print = 1;
+
+        injected_symbol->entity_specs.is_member = 1;
+        injected_symbol->entity_specs.class_type = get_user_defined_type(class_entry);
 
         injected_symbol->entity_specs.is_injected_class_name = 1;
         injected_symbol->entity_specs.injected_class_referred_symbol = class_entry;
@@ -7402,17 +7416,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                 // Update the type specifier to be a dependent typename
                 if (is_dependent_type(class_type))
                 {
-                    dependent_name_part_t* part = counted_calloc(1, sizeof(*part), &_bytes_used_buildscope);
-                    part->name = entry->symbol_name;
-
-                    if (is_template_specialized_type(entry->type_information))
-                    {
-                        part->template_arguments = template_specialized_type_get_template_arguments(entry->type_information);
-                    }
-
-                    member_type = get_dependent_typename_type_from_parts(
-                            named_type_get_symbol(class_info), 
-                            part);
+                    member_type = get_dependent_typename_type_from_parts(entry, NULL);
                 }
             }
         }
