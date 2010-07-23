@@ -2138,6 +2138,8 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         new_entry->point_of_declaration = a;
         new_entry->kind = SK_ENUM;
         new_entry->type_information = get_new_enum_type(decl_context);
+
+        new_entry->entity_specs.is_anonymous = 1;
     }
 
     if (decl_context.current_scope->kind == CLASS_SCOPE
@@ -3507,6 +3509,8 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         class_entry->point_of_declaration = get_enclosing_declaration(a);
         class_entry->line = ASTLine(a);
         class_entry->file = ASTFileName(a);
+
+        class_entry->entity_specs.is_anonymous = 1;
 
         class_type = class_entry->type_information;
         inner_decl_context = new_class_context(decl_context, class_entry);
@@ -4973,53 +4977,14 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         }
     }
 
-    if (is_unnamed_class_type(declarator_type)
-            || is_unnamed_enumerated_type(declarator_type))
+    entry->kind = SK_TYPEDEF;
+    entry->type_information = declarator_type;
+
+    if ((is_named_class_type(declarator_type)
+            || is_named_enumerated_type(declarator_type))
+            && (named_type_get_symbol(declarator_type)->entity_specs.is_anonymous))
     {
-        // All class and enum types are named at least with <<anonymous>>
-        internal_error("Code unreachable", 0);
-#if 0
-        if (is_class_type(declarator_type))
-        {
-            entry->kind = SK_CLASS;
-        }
-        else if (is_enumerated_type(declarator_type))
-        {
-            entry->kind = SK_ENUM;
-        }
-        else
-        {
-            internal_error("This is not a class or enum type", 0);
-        }
-        //
-        // This actually makes a copy of 'declarator_type' into 'previous_unnamed_type'
-        type_t* previous_unnamed_type = unnamed_class_enum_type_set_name(declarator_type, entry);
-        entry->type_information = previous_unnamed_type;
-
-        if (entry->kind == SK_CLASS)
-        {
-            // Update the class_type otherwise class lookups will fail later
-            decl_context_t inner_class = class_type_get_inner_context(get_actual_class_type(entry->type_information));
-            inner_class.current_scope->class_type = get_actual_class_type(entry->type_information);
-        }
-
-        // Remember this symbol has been created because of
-        // a typedef against an unnamed struct/enum
-        entry->entity_specs.after_typedef = 1;
-#endif
-    }
-    else
-    {
-        entry->kind = SK_TYPEDEF;
-        entry->type_information = declarator_type;
-
-        // Update the name of an unnamed type
-        if (is_named_type(declarator_type)
-                && (strcmp(named_type_get_symbol(declarator_type)->symbol_name, "<<anonymous>>") == 0))
-        {
-            scope_entry_t* symbol_type = named_type_get_symbol(declarator_type);
-            symbol_type->symbol_name = entry->symbol_name;
-        }
+        named_type_get_symbol(declarator_type)->symbol_name = entry->symbol_name;
     }
 
     return entry;
