@@ -5084,15 +5084,26 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, const_val
         {
             if (entry->kind == SK_ENUMERATOR)
             {
-                expression_set_type(expr, entry->type_information);
-                expression_set_is_lvalue(expr, 0);
-
-                if (val != NULL
-                        && expression_is_constant(entry->expression_value))
+                if (is_dependent_type(entry->type_information))
                 {
-                    *val = expression_get_constant(entry->expression_value);
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "EXPRTYPE: Found '%s' at '%s' to be dependent\n",
+                                prettyprint_in_buffer(expr), ast_location(expr));
+                    }
+                    expression_set_dependent(expr);
                 }
+                else
+                {
+                    expression_set_type(expr, entry->type_information);
+                    expression_set_is_lvalue(expr, 0);
 
+                    if (val != NULL
+                            && expression_is_constant(entry->expression_value))
+                    {
+                        *val = expression_get_constant(entry->expression_value);
+                    }
+                }
                 if (expression_is_value_dependent(entry->expression_value))
                 {
                     expression_set_is_value_dependent(expr, 1);

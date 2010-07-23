@@ -3550,6 +3550,15 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
         class_type_set_enclosing_class_type(class_type, enclosing_class_type);
     }
+    else if (decl_context.current_scope->kind == BLOCK_SCOPE)
+    {
+        // This is a local class
+        scope_entry_t* enclosing_function = decl_context.current_scope->related_entry;
+        if (is_dependent_type(enclosing_function->type_information))
+        {
+            set_is_dependent_type(class_type, 1);
+        }
+    }
 
     // The inner scope is properly adjusted here thus we can link it with the AST
     scope_link_set(CURRENT_COMPILED_FILE->scope_link, a, inner_decl_context);
@@ -6616,6 +6625,9 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
                 print_decl_type_str(declarator_type, new_decl_context, 
                     prettyprint_in_buffer(get_declarator_name(ASTSon1(a), new_decl_context))));
     }
+
+    // Set the related entry
+    block_context.current_scope->related_entry = entry;
 
     if (previous_symbol != NULL
             && previous_symbol != entry)
