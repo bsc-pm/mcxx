@@ -4489,7 +4489,6 @@ static char syntactic_comparison_of_dependent_parts(
                 }
                 return 0;
             }
-            return 0;
         }
 
         dependent_parts_1 = dependent_parts_1->next;
@@ -6152,6 +6151,13 @@ static const char* get_template_arguments_list_str(template_argument_list_t* tem
         template_argument_t* template_argument = 
             template_arguments->argument_list[i];
 
+        char c[256];
+        snprintf(c, 255, "[[%d, %d]] ", 
+                template_argument->nesting,
+                template_argument->position);
+
+        result = strappend(result, uniquestr(c));
+
         switch (template_argument->kind)
         {
             case TAK_TYPE:
@@ -6474,6 +6480,13 @@ const char* print_declarator(type_t* printed_declarator)
                             template_argument_t* template_argument = 
                                 printed_declarator->template_arguments->argument_list[i];
 
+                            char c[256];
+                            snprintf(c, 255, "[[%d, %d]] ", 
+                                    template_argument->nesting,
+                                    template_argument->position);
+
+                            tmp_result = strappend(tmp_result, uniquestr(c));
+
                             switch (template_argument->kind)
                             {
                                 case TAK_TYPE:
@@ -6481,6 +6494,7 @@ const char* print_declarator(type_t* printed_declarator)
                                     {
                                         tmp_result = strappend(tmp_result, 
                                                 print_declarator(template_argument->type));
+
                                         break;
                                     }
                                 case TAK_NONTYPE:
