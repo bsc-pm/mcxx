@@ -40,6 +40,7 @@ linker_name = gcc
 {openmp,openmpt,!nanox,!only-fun-tasks} compiler_phase = libtlomp-nanox.so
 {openmp,openmpt,!nanox,!only-fun-tasks} compiler_phase = libtlnanox-smp.so
 {openmp,openmpt,!nanox,!only-fun-tasks} compiler_phase = libtlnanox-smp_numa.so
+{openmp,openmpt,!nanox,!only-fun-tasks} compiler_phase = libtlnanox-gpu.so
 
 [mcc : omp-base]
 language = C
