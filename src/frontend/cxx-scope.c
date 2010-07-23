@@ -328,6 +328,12 @@ decl_context_t new_block_context(decl_context_t enclosing_context)
     // And update the current scope
     result.current_scope = result.block_scope;
 
+    // Update the related entry if any
+    if (enclosing_context.current_scope->kind == BLOCK_SCOPE)
+    {
+        result.current_scope->related_entry = enclosing_context.current_scope->related_entry;
+    }
+
     return result;
 }
 
@@ -3167,6 +3173,16 @@ static type_t* update_type_aux_(type_t* orig_type,
             DEBUG_CODE()
             {
                 fprintf(stderr, "SCOPE: Dependent type '%s' is not a named type\n",
+                        print_declarator(fixed_type));
+            }
+            return NULL;
+        }
+
+        if (is_named_enumerated_type(fixed_type))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Dependent type '%s' is an enumerator\n", 
                         print_declarator(fixed_type));
             }
             return NULL;
