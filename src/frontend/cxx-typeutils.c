@@ -148,6 +148,9 @@ struct class_information_tag {
     // Currently unused
     unsigned char is_local_class:1;
 
+    // Is abstract class
+    unsigned char is_abstract:1;
+
     // Enclosing class type
     struct type_tag* enclosing_class_type;
 
@@ -191,6 +194,10 @@ struct class_information_tag {
     // Static data members
     int num_static_data_members;
     struct scope_entry_tag** static_data_members;
+
+    // Virtual functions
+    int num_virtual_functions;
+    struct scope_entry_tag** virtual_functions;
 
     // Typenames (either typedefs, enums or inner classes)
     int num_typenames;
@@ -2780,16 +2787,30 @@ char class_type_is_empty(type_t* t)
             && !has_nonempty_bases);
 }
 
+char class_type_is_abstract(type_t* class_type)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type!", 0);
+
+    return class_type->type->class_info->is_abstract;
+}
+
+void class_type_set_is_abstract(type_t* class_type, char is_abstract)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type!", 0);
+
+    class_type->type->class_info->is_abstract = is_abstract;
+}
+
 char class_type_is_dynamic(type_t* t)
 {
     ERROR_CONDITION(!is_class_type(t), "This is not a class type!", 0);
 
     type_t* class_type = get_actual_class_type(t);
 
-    scope_entry_list_t* virtual_functions = class_type_get_all_virtual_functions(class_type);
+    int num_virtuals = class_type_get_num_virtual_functions(class_type);
 
     // If we have virtual functions we are dynamic
-    if (virtual_functions != NULL)
+    if (num_virtuals != 0)
         return 1;
 
     // If our destructor is dynamic, we are dynamic
@@ -2799,20 +2820,9 @@ char class_type_is_dynamic(type_t* t)
             && destructor->entity_specs.is_virtual)
         return 1;
 
-    // If any of our conversion functions is virtual, we are dynamic
-    int num_conversions = class_type_get_num_conversions(class_type);
-    int i;
-
-    for (i = 0; i < num_conversions; i++)
-    {
-        scope_entry_t* conversion_function = class_type_get_conversion_num(class_type, i);
-
-        if (conversion_function->entity_specs.is_virtual)
-            return 1;
-    }
-
     // If any of our bases is dynamic or a virtual base, we are dynamic
     int num_bases = class_type_get_num_bases(class_type);
+    int i;
     for (i = 0; i < num_bases; i++)
     {
         char is_virtual = 0;
@@ -6017,7 +6027,11 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                     }
                 }
                 prototype = strappend(prototype, ")");
-                prototype = strappend(prototype, get_cv_qualifier_string(type_info));
+                if (get_cv_qualifier(type_info) != CV_NONE)
+                {
+                    prototype = strappend(prototype, " ");
+                    prototype = strappend(prototype, get_cv_qualifier_string(type_info));
+                }
 
                 (*right) = strappend((*right), prototype);
                 break;
@@ -7806,6 +7820,7 @@ char function_type_can_override(type_t* potential_overrider, type_t* function_ty
         && covariant_return(potential_overrider, function_type);
 }
 
+#if 0
 static char has_overrider(scope_entry_t* entry, scope_entry_list_t* list)
 {
     char result = 0;
@@ -7824,72 +7839,27 @@ static char has_overrider(scope_entry_t* entry, scope_entry_list_t* list)
 
     return result;
 }
+#endif
 
-static void class_type_get_all_virtual_functions_rec(type_t* class_type, 
-        scope_entry_list_t** current_overriders)
+void class_type_add_virtual_function(type_t* class_type, scope_entry_t* entry)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), 
-            "This is not a class type", 0);
-    // Starting from the most derived class one we gather all member functions
-    // that we know they are virtual. 
-    //
-    // Note: when signing in member functions we have ensured that they are
-    // marked virtual (even if not done explicitly in the declaration).
-    //
-    // Note: This algorithm does not take into account more than one overrider
-    // (that would be ill-formed).
-    //
-    int i;
-    for (i = 0; i < class_type_get_num_member_functions(class_type); i++)
-    {
-        scope_entry_t* entry = class_type_get_member_function_num(class_type, i);
-
-        if (!entry->entity_specs.is_static
-                && entry->entity_specs.is_virtual)
-        {
-            // Check that it has not been overrided
-            if (!has_overrider(entry, *current_overriders))
-            {
-                // This means that this function is a final overrider
-                // Add to the list
-
-                scope_entry_list_t* new_overrider = counted_calloc(1, sizeof(*new_overrider), &_bytes_due_to_type_system);
-
-                new_overrider->entry = entry;
-                new_overrider->next = *current_overriders;
-
-                *current_overriders = new_overrider;
-            }
-        }
-    }
-
-    // Now for every base gather the list of virtuals
-    for (i = 0; i < class_type_get_num_bases(class_type); i++)
-    {
-        char is_virtual = 0;
-        char is_dependent = 0;
-        scope_entry_t* base_class = class_type_get_base_num(class_type, i, 
-                &is_virtual, &is_dependent);
-
-        if (is_dependent)
-            continue;
-
-        type_t* base_class_type = get_actual_class_type(base_class->type_information);
-
-        class_type_get_all_virtual_functions_rec(base_class_type, current_overriders);
-    }
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "Invalid class type", 0);
+    P_LIST_ADD_ONCE(class_type->type->class_info->virtual_functions,
+            class_type->type->class_info->num_virtual_functions,
+            entry);
 }
 
-scope_entry_list_t* class_type_get_all_virtual_functions(type_t* class_type)
+int class_type_get_num_virtual_functions(type_t* class_type)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), 
-            "This is not a class type", 0);
-    
-    scope_entry_list_t* result = NULL;
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "Invalid class type", 0);
+    return class_type->type->class_info->num_virtual_functions;
+}
 
-    class_type_get_all_virtual_functions_rec(class_type, &result);
+scope_entry_t* class_type_get_virtual_function_num(type_t* class_type, int i)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "Invalid class type", 0);
 
-    return result;
+    return class_type->type->class_info->virtual_functions[i];
 }
 
 type_t* lvalue_ref_for_implicit_arg(type_t* t)
