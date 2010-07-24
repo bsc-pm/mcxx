@@ -1054,6 +1054,8 @@ void build_scope_decl_specifier_seq(AST a, gather_decl_spec_t* gather_info,
             new_decl_context.decl_flags &= (~DF_FRIEND);
         }
 
+        new_decl_context.decl_flags &= ~DF_PARAMETER_DECLARATION;
+
         gather_type_spec_information(ASTSon1(a), type_info, gather_info, new_decl_context);
         
         // Now update the type_spec with type information that was caught in the decl_specifier_seq
