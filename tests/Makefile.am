@@ -51,7 +51,7 @@ dist-hook:
 	for i in $(srcdir)/*.dg; \
 	do  \
 	    DIR=$$(basename $$i); \
-        cp -r $(srcdir)/$${DIR} $(distdir)/$${DIR}; \
+        cp -vr $(srcdir)/$${DIR} $(distdir); \
 	done
 
 distclean-local:
