@@ -180,7 +180,7 @@ void DeviceGPU::create_outline(
 	    new_file = true;
 
 	    // Remove the intermediate source file
-	    mark_file_as_temporary( _cudaFilename.c_str() );
+	    mark_file_for_cleanup( _cudaFilename.c_str() );
 	}
 
 	const std::string configuration_name = "cuda";
