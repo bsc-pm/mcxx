@@ -14,4 +14,4 @@ bets: $(srcdir)/bets.in
 	cp $< $@
 	chmod +x $@
 
-CLEANFILES=bets
+CLEANFILES+=bets
