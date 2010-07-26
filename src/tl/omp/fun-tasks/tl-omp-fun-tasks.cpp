@@ -190,7 +190,10 @@ namespace OpenMP
                         Source src;
                         src << "__tmp_" << current_sym.get_parameter_position();
 
-                        if (parameter_types[current_sym.get_parameter_position()].is_reference())
+                        Type param_type = 
+                            parameter_types[current_sym.get_parameter_position()];
+
+                        if (param_type.is_reference())
                         {
                             replace.add_replacement(current_sym, "(*" + src.get_source() + ")");
                         }
@@ -199,7 +202,12 @@ namespace OpenMP
                             replace.add_replacement(current_sym, src.get_source());
                         }
 
-                        parameters_as_dependences.insert(current_sym.get_parameter_position());
+                        if (param_type.is_pointer()
+                                || param_type.is_array()
+                                || param_type.is_reference())
+                        {
+                            parameters_as_dependences.insert(current_sym.get_parameter_position());
+                        }
                     }
                     else
                     {
