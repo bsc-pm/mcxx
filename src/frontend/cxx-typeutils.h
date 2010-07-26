@@ -376,8 +376,6 @@ LIBMCXX_EXTERN struct scope_entry_tag* class_type_get_typename_num(struct type_t
 LIBMCXX_EXTERN int class_type_get_num_members(struct type_tag* t);
 LIBMCXX_EXTERN struct scope_entry_tag* class_type_get_member_num(struct type_tag* t, int num);
 
-LIBMCXX_EXTERN scope_entry_list_t* class_type_get_all_virtual_functions(type_t* class_type);
-
 LIBMCXX_EXTERN computed_function_type_t computed_function_type_get_computing_function(type_t* t);
 
 // Gives all the conversions related to a class
@@ -394,6 +392,10 @@ LIBMCXX_EXTERN struct scope_entry_tag* class_type_get_destructor(struct type_tag
 LIBMCXX_EXTERN decl_context_t class_type_get_context(struct type_tag* t);
 LIBMCXX_EXTERN void class_type_get_instantiation_trees(struct type_tag* t, struct AST_tag* *body, struct AST_tag* *base_clause);
 LIBMCXX_EXTERN decl_context_t class_type_get_inner_context(struct type_tag* class_type);
+
+LIBMCXX_EXTERN void class_type_add_virtual_function(struct type_tag* class_type, scope_entry_t* entry);
+LIBMCXX_EXTERN scope_entry_t* class_type_get_virtual_function_num(struct type_tag* class_type, int i);
+LIBMCXX_EXTERN int class_type_get_num_virtual_functions(struct type_tag* class_type);
 
 LIBMCXX_EXTERN decl_context_t enum_type_get_context(struct type_tag* t);
 
@@ -457,6 +459,9 @@ LIBMCXX_EXTERN char pointer_to_class_type_is_derived(struct type_tag* possible_p
 LIBMCXX_EXTERN char class_type_is_empty(type_t* t);
 LIBMCXX_EXTERN char class_type_is_nearly_empty(type_t* t);
 LIBMCXX_EXTERN char class_type_is_dynamic(type_t* t);
+
+LIBMCXX_EXTERN char class_type_is_abstract(type_t* class_type);
+LIBMCXX_EXTERN void class_type_set_is_abstract(type_t* class_type, char is_abstract);
 
 LIBMCXX_EXTERN struct type_tag* advance_over_typedefs(struct type_tag* t);
 LIBMCXX_EXTERN struct type_tag* advance_over_typedefs_with_cv_qualif(struct type_tag* t1, cv_qualifier_t* cv_qualif);

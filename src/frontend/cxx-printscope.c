@@ -24,11 +24,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "red_black_tree.h"
 #include "cxx-utils.h"
 #include "cxx-driver.h"
 #include "cxx-prettyprint.h"
 #include "cxx-printscope.h"
-#include "hash_iterator.h"
 #include "cxx-typeutils.h"
 
 /*
@@ -71,6 +71,7 @@ static char* symbol_kind_names[] =
     [SK_TEMPLATE_TEMPLATE_PARAMETER] = "SK_TEMPLATE_TEMPLATE_PARAMETER", 
     // GCC Extension for builtin types
     [SK_GCC_BUILTIN_TYPE] = "SK_GCC_BUILTIN_TYPE",
+    [SK_DEPENDENT_ENTITY] = "SK_DEPENDENT_ENTITY",
     // Artificial symbols
     [SK_OTHER] = "SK_OTHER"
 };
@@ -119,19 +120,16 @@ static void print_scope_full_context(decl_context_t decl_context, int global_ind
     }
 }
 
+static void print_scope_full_aux(const void* key UNUSED_PARAMETER, void* info, void* data)
+{
+    scope_entry_list_t* entry_list = (scope_entry_list_t*)info;
+
+    print_scope_entry_list(entry_list, *(int*)data);
+}
+
 static void print_scope_full(scope_t* st, int global_indent)
 {
-    Iterator *it;
-    
-    it = (Iterator*) hash_iterator_create(st->hash);
-    for ( iterator_first(it); 
-            !iterator_finished(it); 
-            iterator_next(it))
-    {
-        scope_entry_list_t* entry_list = (scope_entry_list_t*) iterator_item(it);
-
-        print_scope_entry_list(entry_list, global_indent);
-    }
+    rb_tree_walk(st->hash, print_scope_full_aux, &global_indent);
 }
 
 static void print_scope_entry_list(scope_entry_list_t* entry_list, int global_indent)
@@ -357,7 +355,8 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
 
     if (entry->entity_specs.is_member)
     {
-        PRINT_INDENTED_LINE(stderr, global_indent+1, "Is member\n");
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "Is member of '%s'\n",
+                print_declarator(entry->entity_specs.class_type));
     }
 
     if (entry->entity_specs.is_conversion)
