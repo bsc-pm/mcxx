@@ -30,6 +30,8 @@ ADDITIONAL_TESTS=@ADDITIONAL_TESTSUITES@
 END=
 CLEANFILES=
 
+CLEANFILES=test.log
+
 # Replacements are defined in this makefile
 include ../config/Makefile.replace
 

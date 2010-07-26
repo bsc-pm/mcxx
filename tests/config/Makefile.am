@@ -13,3 +13,5 @@ BUILT_SOURCES=bets
 bets: $(srcdir)/bets.in
 	cp $< $@
 	chmod +x $@
+
+CLEANFILES=bets
