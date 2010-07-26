@@ -298,7 +298,8 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
     return 1;
 }
 
-char is_less_or_equal_specialized_template_class(type_t* c1, type_t* c2, decl_context_t decl_context,
+char is_less_or_equal_specialized_template_class(type_t* c1, type_t* c2, 
+        decl_context_t decl_context UNUSED_PARAMETER,
         deduction_set_t** deduction_set, const char *filename, int line)
 {
     ERROR_CONDITION(!is_named_class_type(c1)

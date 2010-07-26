@@ -34,9 +34,10 @@
 #include "cxx-prettyprint.h"
 #include "cxx-driver.h"
 #include "cxx-ambiguity.h"
-#include "hash.h"
 #include "cxx-tltype.h"
 #include "cxx-attrnames.h"
+
+#include "red_black_tree.h"
 
 /*
  * --
@@ -147,6 +148,9 @@ struct class_information_tag {
     // Currently unused
     unsigned char is_local_class:1;
 
+    // Is abstract class
+    unsigned char is_abstract:1;
+
     // Enclosing class type
     struct type_tag* enclosing_class_type;
 
@@ -190,6 +194,10 @@ struct class_information_tag {
     // Static data members
     int num_static_data_members;
     struct scope_entry_tag** static_data_members;
+
+    // Virtual functions
+    int num_virtual_functions;
+    struct scope_entry_tag** virtual_functions;
 
     // Typenames (either typedefs, enums or inner classes)
     int num_typenames;
@@ -959,7 +967,8 @@ type_t* get_user_defined_type(scope_entry_t* entry)
 
 static dependent_name_part_t* get_dependent_nested_part(
         decl_context_t decl_context,
-        AST nested_part)
+        AST nested_part,
+        int *nesting_level)
 {
     ERROR_CONDITION(nested_part == NULL, "This tree cannot be NULL", 0);
 
@@ -978,7 +987,8 @@ static dependent_name_part_t* get_dependent_nested_part(
         result->template_arguments = get_template_arguments_from_syntax(
                 ASTSon1(nested_part),
                 decl_context,
-                /* nesting level */ 0);
+                *nesting_level);
+        (*nesting_level)++;
     }
     else if (ASTType(nested_part) == AST_OPERATOR_FUNCTION_ID
             || ASTType(nested_part) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
@@ -990,7 +1000,8 @@ static dependent_name_part_t* get_dependent_nested_part(
             result->template_arguments = get_template_arguments_from_syntax(
                     ASTSon1(nested_part),
                     decl_context,
-                    /* nesting_level */ 0);
+                    *nesting_level);
+            (*nesting_level)++;
         }
     }
     else if (ASTType(nested_part) == AST_CONVERSION_FUNCTION_ID)
@@ -1000,7 +1011,9 @@ static dependent_name_part_t* get_dependent_nested_part(
     }
     else if (ASTType(nested_part) == AST_DESTRUCTOR_ID)
     {
-        return get_dependent_nested_part(decl_context, ASTSon0(nested_part));
+        return get_dependent_nested_part(decl_context, 
+                ASTSon0(nested_part), 
+                nesting_level);
     }
     else
     {
@@ -1010,14 +1023,132 @@ static dependent_name_part_t* get_dependent_nested_part(
     return result;
 }
 
+#if 0
+static dependent_name_part_t* compute_dependent_parts_of_dependent_symbol_aux_(
+        scope_entry_t* entry, scope_entry_t** enclosing_dependent_entity,
+        int *nesting_level)
+{
+    dependent_name_part_t* result = NULL;
+
+    *enclosing_dependent_entity = entry;
+
+    dependent_name_part_t* enclosing = NULL;
+    if (entry->kind == SK_CLASS
+            && entry->decl_context.current_scope->kind == CLASS_SCOPE
+            && is_dependent_type(entry->decl_context.current_scope->related_entry->type_information))
+    {
+        enclosing = compute_dependent_parts_of_dependent_symbol_aux_(
+                entry->decl_context.current_scope->related_entry,
+                enclosing_dependent_entity,
+                nesting_level);
+
+        result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
+        result->name = entry->symbol_name;
+
+        if (is_template_specialized_type(entry->type_information))
+        {
+            result->template_arguments = template_specialized_type_get_template_arguments(entry->type_information);
+            (*nesting_level)++;
+        }
+
+        if (enclosing != null)
+        {
+            dependent_name_part_t* tmp = enclosing;
+
+            while (tmp->next != null) 
+                tmp = tmp->next;
+            tmp->next = result;
+
+            result = enclosing;
+        }
+    }
+
+
+    return result;
+}
+
+static dependent_name_part_t* compute_dependent_parts_of_dependent_symbol(
+        scope_entry_t* entry, 
+        scope_entry_t** enclosing_dependent_entity,
+        int *nesting_level)
+{
+    dependent_name_part_t* result = NULL;
+    if (entry->kind == SK_CLASS
+            && entry->decl_context.current_scope->kind == CLASS_SCOPE
+            && is_dependent_type(entry->decl_context.current_scope->related_entry->type_information))
+    {
+        result = compute_dependent_parts_of_dependent_symbol_aux_(entry->decl_context.current_scope->related_entry,
+                enclosing_dependent_entity, nesting_level);
+    }
+
+    return result;
+}
+#endif
+
+static dependent_name_part_t* compute_dependent_parts_of_dependent_symbol(
+        scope_entry_t* entry, 
+        scope_entry_t** enclosing_dependent_entity,
+        int *nesting_level)
+{
+    dependent_name_part_t* result = NULL;
+    dependent_name_part_t* enclosing = NULL;
+    if (entry->decl_context.current_scope->kind == CLASS_SCOPE
+            && entry->decl_context.current_scope->related_entry->kind == SK_CLASS)
+    {
+        enclosing = compute_dependent_parts_of_dependent_symbol(
+                entry->decl_context.current_scope->related_entry,
+                enclosing_dependent_entity,
+                nesting_level);
+    }
+
+    if (is_template_specialized_type(entry->type_information))
+    {
+        (*nesting_level)++;
+    }
+
+    if (is_dependent_type(entry->type_information))
+    {
+        if (*enclosing_dependent_entity == NULL)
+        {
+            *enclosing_dependent_entity = entry;
+        }
+        else
+        {
+            result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
+            result->name = entry->symbol_name;
+
+            if (is_template_specialized_type(entry->type_information))
+            {
+                result->template_arguments = template_specialized_type_get_template_arguments(entry->type_information);
+            }
+
+            if (enclosing != NULL)
+            {
+                dependent_name_part_t* tmp = enclosing;
+
+                while (tmp->next != NULL) 
+                    tmp = tmp->next;
+                tmp->next = result;
+
+                result = enclosing;
+            }
+        }
+    }
+
+    return result;
+}
+
 static dependent_name_part_t* compute_dependent_parts(
         decl_context_t decl_context,
         AST nested_name,
-        AST unqualified_part)
+        AST unqualified_part,
+        int *nesting_level)
 {
     if (nested_name == NULL)
     {
-        return get_dependent_nested_part(decl_context, unqualified_part);
+        return get_dependent_nested_part(decl_context, 
+                unqualified_part,
+                nesting_level);
     }
     else
     {
@@ -1026,10 +1157,12 @@ static dependent_name_part_t* compute_dependent_parts(
         dependent_name_part_t* next = compute_dependent_parts(
                 decl_context,
                 next_part,
-                unqualified_part);
+                unqualified_part, 
+                nesting_level);
 
         dependent_name_part_t* current = get_dependent_nested_part(
-                decl_context, ASTSon0(nested_name));
+                decl_context, ASTSon0(nested_name), 
+                nesting_level);
 
         current->next = next;
 
@@ -1059,6 +1192,23 @@ dependent_name_part_t* copy_dependent_parts(
 type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entity, 
         dependent_name_part_t* dependent_parts)
 {
+
+    scope_entry_t* most_enclosing_dependent_entity = NULL;
+
+    int nesting_level = 1;
+
+    dependent_name_part_t* dependent_parts_enclosing =
+        compute_dependent_parts_of_dependent_symbol(dependent_entity,
+                &most_enclosing_dependent_entity,
+                &nesting_level);
+
+    if (most_enclosing_dependent_entity != NULL)
+        dependent_entity = most_enclosing_dependent_entity;
+
+    if (dependent_parts_enclosing == NULL
+            && dependent_parts == NULL)
+        return get_user_defined_type(dependent_entity);
+
     type_t* type_info = get_simple_type();
 
     type_info->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
@@ -1068,6 +1218,17 @@ type_t* get_dependent_typename_type_from_parts(scope_entry_t* dependent_entity,
             && dependent_entity->kind != SK_CLASS
             && dependent_entity->kind != SK_TYPEDEF, 
             "Invalid dependent entity of kind '%d'", dependent_entity->kind);
+
+    if (dependent_parts_enclosing != NULL)
+    {
+        dependent_name_part_t* tmp = dependent_parts_enclosing;
+
+        while (tmp->next != NULL)
+            tmp = tmp->next;
+        tmp->next = dependent_parts;
+
+        dependent_parts = dependent_parts_enclosing;
+    }
 
     type_info->type->dependent_parts = dependent_parts;
 
@@ -1081,10 +1242,37 @@ type_t* get_dependent_typename_type(scope_entry_t* dependent_entity,
         AST nested_name, 
         AST unqualified_part)
 {
+    // Sometimes we need to add more dependent types because the referenced
+    // dependent entity is actually nested inside dependent parts
+
+    scope_entry_t* most_enclosing_dependent_entity = NULL;
+
+    int nesting_level = 1;
+
+    dependent_name_part_t* dependent_parts_enclosing =
+        compute_dependent_parts_of_dependent_symbol(dependent_entity,
+                &most_enclosing_dependent_entity,
+                &nesting_level);
+
+    if (most_enclosing_dependent_entity != NULL)
+        dependent_entity = most_enclosing_dependent_entity;
+
     dependent_name_part_t* dependent_parts = compute_dependent_parts(
             decl_context,
             nested_name,
-            unqualified_part);
+            unqualified_part,
+            &nesting_level);
+
+    if (dependent_parts_enclosing != NULL)
+    {
+        dependent_name_part_t* tmp = dependent_parts_enclosing;
+
+        while (tmp->next != NULL)
+            tmp = tmp->next;
+        tmp->next = dependent_parts;
+
+        dependent_parts = dependent_parts_enclosing;
+    }
 
     return get_dependent_typename_type_from_parts(dependent_entity, 
             dependent_parts);
@@ -1745,16 +1933,30 @@ template_parameter_list_t* template_specialized_type_get_template_parameters(typ
     return t->template_parameters;
 }
 
+static void null_dtor(const void* v UNUSED_PARAMETER) { }
+
+static type_t* rb_tree_query_type(rb_red_blk_tree* tree, type_t* t)
+{
+    type_t* result = NULL;
+    rb_red_blk_node* n = rb_tree_query(tree, t);
+    if (n != NULL)
+    {
+        result = rb_node_get_info(n);
+    }
+
+    return result;
+}
+
 type_t* get_complex_type(type_t* t)
 {
-    static Hash *_complex_hash = NULL;
+    rb_red_blk_tree *_complex_hash = NULL;
 
     if (_complex_hash == NULL)
     {
-        _complex_hash = hash_create(HASH_SIZE, HASHFUNC(pointer_hash), KEYCMPFUNC(integer_comp));
+        _complex_hash = rb_tree_create(integer_comp, null_dtor, null_dtor);
     }
 
-    type_t* result = hash_get(_complex_hash, t);
+    type_t* result = rb_tree_query_type(_complex_hash, t);
 
     if (result == NULL)
     {
@@ -1767,7 +1969,7 @@ type_t* get_complex_type(type_t* t)
         result->info->alignment = t->info->alignment;
         result->info->valid_size = 1;
 
-        hash_put(_complex_hash, t, result);
+        rb_tree_add(_complex_hash, t, result);
     }
 
     return result;
@@ -1782,7 +1984,7 @@ type_t* complex_type_get_base_type(type_t* t)
     return t->type->complex_element;
 }
 
-static Hash *_qualification[(CV_CONST | CV_VOLATILE | CV_RESTRICT) + 1];
+static rb_red_blk_tree *_qualification[(CV_CONST | CV_VOLATILE | CV_RESTRICT) + 1];
 static void init_qualification_hash(void)
 {
     static char _qualif_hash_initialized = 0;
@@ -1790,9 +1992,11 @@ static void init_qualification_hash(void)
     if (!_qualif_hash_initialized)
     {
         int i;
-        for (i = 0; i < 8; i++)
+        for (i = 0; 
+                i < (int)((CV_CONST|CV_VOLATILE|CV_RESTRICT) + 1);
+                i++)
         {
-            _qualification[i] = hash_create(HASH_SIZE, HASHFUNC(pointer_hash), KEYCMPFUNC(integer_comp));
+            _qualification[i] = rb_tree_create(integer_comp, null_dtor, null_dtor);
         }
         _qualif_hash_initialized = 1;
     }
@@ -1820,7 +2024,7 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
     }
 
     // Lookup based on the unqualified type
-    type_t* qualified_type = (type_t*)hash_get(
+    type_t* qualified_type = (type_t*)rb_tree_query_type(
             _qualification[(int)(cv_qualification)], 
             original->unqualified_type);
 
@@ -1832,7 +2036,7 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
         qualified_type->cv_qualifier = cv_qualification;
         qualified_type->unqualified_type = original->unqualified_type;
 
-        hash_put(_qualification[(int)(cv_qualification)], 
+        rb_tree_add(_qualification[(int)(cv_qualification)], 
                 original->unqualified_type, 
                 qualified_type);
     }
@@ -1862,14 +2066,14 @@ type_t* get_restrict_qualified_type(type_t* t)
 
 type_t* get_pointer_type(type_t* t)
 {
-    static Hash *_pointer_types = NULL;
+    rb_red_blk_tree *_pointer_types = NULL;
 
     if (_pointer_types == NULL)
     {
-        _pointer_types = hash_create(HASH_SIZE, HASHFUNC(pointer_hash), KEYCMPFUNC(integer_comp));
+        _pointer_types = rb_tree_create(integer_comp, null_dtor, null_dtor);
     }
 
-    type_t* pointed_type = hash_get(_pointer_types, t);
+    type_t* pointed_type = rb_tree_query_type(_pointer_types, t);
 
     if (pointed_type == NULL)
     {
@@ -1895,14 +2099,14 @@ type_t* get_pointer_type(type_t* t)
 
         pointed_type->info->is_dependent = is_dependent_type(t);
 
-        hash_put(_pointer_types, t, pointed_type);
+        rb_tree_add(_pointer_types, t, pointed_type);
     }
 
     return pointed_type;
 }
 
-static Hash *_lvalue_reference_types = NULL;
-static Hash *_rvalue_reference_types = NULL;
+static rb_red_blk_tree *_lvalue_reference_types = NULL;
+static rb_red_blk_tree *_rvalue_reference_types = NULL;
 
 static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
 {
@@ -1920,7 +2124,7 @@ static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
     ERROR_CONDITION(t == NULL,
             "Trying to create a reference of a null type", 0);
 
-    Hash **_reference_types = NULL;
+    rb_red_blk_tree **_reference_types = NULL;
     if (is_rvalue_ref)
     {
         _reference_types = &_lvalue_reference_types;
@@ -1932,10 +2136,10 @@ static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
 
     if ((*_reference_types) == NULL)
     {
-        (*_reference_types) = hash_create(HASH_SIZE, HASHFUNC(pointer_hash), KEYCMPFUNC(integer_comp));
+        (*_reference_types) = rb_tree_create(integer_comp, null_dtor, null_dtor);
     }
 
-    type_t* referenced_type = hash_get((*_reference_types), t);
+    type_t* referenced_type = rb_tree_query_type((*_reference_types), t);
 
     if (referenced_type == NULL)
     {
@@ -1955,7 +2159,7 @@ static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
 
         referenced_type->info->is_dependent = is_dependent_type(t);
 
-        hash_put((*_reference_types), t, referenced_type);
+        rb_tree_add((*_reference_types), t, referenced_type);
     }
 
     return referenced_type;
@@ -1973,25 +2177,30 @@ type_t* get_rvalue_reference_type(type_t* t)
 
 type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
 {
-    static Hash *_class_types = NULL;
+    rb_red_blk_tree *_class_types = NULL;
 
     // First lookup using the class symbol
     if (_class_types == NULL)
     {
-        _class_types = hash_create(HASH_SIZE, HASHFUNC(pointer_hash), KEYCMPFUNC(integer_comp));
+        _class_types = rb_tree_create(integer_comp, null_dtor, null_dtor);
     }
 
     // First then lookup using the 
-    Hash* class_type_hash = hash_get(_class_types, class_entry);
+    rb_red_blk_tree * class_type_hash = NULL;
+    rb_red_blk_node * n = rb_tree_query(_class_types, class_entry);
+    if (n != NULL)
+    {
+        class_type_hash = rb_node_get_info(n);
+    }
 
     if (class_type_hash == NULL)
     {
-        class_type_hash = hash_create(HASH_SIZE, HASHFUNC(pointer_hash), KEYCMPFUNC(integer_comp));
+        class_type_hash = rb_tree_create(integer_comp, null_dtor, null_dtor);
 
-        hash_put(_class_types, class_entry, class_type_hash);
+        rb_tree_add(_class_types, class_entry, class_type_hash);
     }
 
-    type_t* pointer_to_member = hash_get(class_type_hash, t);
+    type_t* pointer_to_member = rb_tree_query_type(class_type_hash, t);
 
     if (pointer_to_member == NULL)
     {
@@ -2024,7 +2233,7 @@ type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
             || class_entry->kind == SK_TEMPLATE_TYPE_PARAMETER 
             || is_dependent_type(class_entry->type_information);
 
-        hash_put(class_type_hash, t, pointer_to_member);
+        rb_tree_add(class_type_hash, t, pointer_to_member);
     }
 
     return pointer_to_member;
@@ -2033,16 +2242,16 @@ type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
 typedef struct array_sized_hash
 {
     _size_t size;
-    Hash *element_hash;
+    rb_red_blk_tree *element_hash;
 } array_sized_hash_t;
 
 static array_sized_hash_t *_array_sized_hash = NULL;
 static int _array_sized_hash_size = 0;
 
-static Hash* _init_array_sized_hash(array_sized_hash_t *array_sized_hash_elem, _size_t size)
+static rb_red_blk_tree* _init_array_sized_hash(array_sized_hash_t *array_sized_hash_elem, _size_t size)
 {
     array_sized_hash_elem->size = size;
-    array_sized_hash_elem->element_hash = hash_create(HASH_SIZE, HASHFUNC(pointer_hash), KEYCMPFUNC(integer_comp));
+    array_sized_hash_elem->element_hash = rb_tree_create(integer_comp, null_dtor, null_dtor);
 
     return array_sized_hash_elem->element_hash;
 }
@@ -2066,7 +2275,7 @@ int array_hash_compar(const void* v1, const void* v2)
         return 0;
 }
 
-static Hash* get_array_sized_hash(_size_t size)
+static rb_red_blk_tree* get_array_sized_hash(_size_t size)
 {
     array_sized_hash_t key = { .size = size };
 
@@ -2079,7 +2288,7 @@ static Hash* get_array_sized_hash(_size_t size)
         _array_sized_hash_size++;
         _array_sized_hash = realloc(_array_sized_hash, _array_sized_hash_size * sizeof(array_sized_hash_t));
 
-        Hash* result = _init_array_sized_hash(&_array_sized_hash[_array_sized_hash_size - 1], size);
+        rb_red_blk_tree* result = _init_array_sized_hash(&_array_sized_hash[_array_sized_hash_size - 1], size);
 
         // So we can use bsearch again
         qsort(_array_sized_hash, _array_sized_hash_size, sizeof(array_sized_hash_t), array_hash_compar);
@@ -2128,14 +2337,14 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
     if (expression == NULL)
     {
         // Use the same strategy we use for pointers
-        static Hash *_undefined_array_types = NULL;
+        static rb_red_blk_tree *_undefined_array_types = NULL;
 
         if (_undefined_array_types == NULL)
         {
-            _undefined_array_types = hash_create(HASH_SIZE, HASHFUNC(pointer_hash), KEYCMPFUNC(integer_comp));
+            _undefined_array_types = rb_tree_create(integer_comp, null_dtor, null_dtor);
         }
 
-        type_t* undefined_array_type = hash_get(_undefined_array_types, element_type);
+        type_t* undefined_array_type = rb_tree_query_type(_undefined_array_types, element_type);
         if (undefined_array_type == NULL)
         {
             _array_type_counter++;
@@ -2151,7 +2360,7 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
 
             result->info->is_dependent = is_dependent_type(element_type);
 
-            hash_put(_undefined_array_types, element_type, result);
+            rb_tree_add(_undefined_array_types, element_type, result);
         }
         else
         {
@@ -2169,9 +2378,9 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
             _size_t num_elements = const_value_cast_to_8(
                     expression_get_constant(expression));
 
-            Hash* array_sized_hash = get_array_sized_hash(num_elements);
+            rb_red_blk_tree* array_sized_hash = get_array_sized_hash(num_elements);
 
-            type_t* array_type = hash_get(array_sized_hash, element_type);
+            type_t* array_type = rb_tree_query_type(array_sized_hash, element_type);
 
             if (array_type == NULL)
             {
@@ -2185,7 +2394,7 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
                 result->array->array_expr = const_value_to_tree(
                         const_value_get(num_elements, sizeof(num_elements), 0));
                 result->array->array_expr_decl_context = decl_context;
-                hash_put(array_sized_hash, element_type, result);
+                rb_tree_add(array_sized_hash, element_type, result);
 
                 result->info->is_dependent = is_dependent_type(element_type);
             }
@@ -2578,16 +2787,30 @@ char class_type_is_empty(type_t* t)
             && !has_nonempty_bases);
 }
 
+char class_type_is_abstract(type_t* class_type)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type!", 0);
+
+    return class_type->type->class_info->is_abstract;
+}
+
+void class_type_set_is_abstract(type_t* class_type, char is_abstract)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type!", 0);
+
+    class_type->type->class_info->is_abstract = is_abstract;
+}
+
 char class_type_is_dynamic(type_t* t)
 {
     ERROR_CONDITION(!is_class_type(t), "This is not a class type!", 0);
 
     type_t* class_type = get_actual_class_type(t);
 
-    scope_entry_list_t* virtual_functions = class_type_get_all_virtual_functions(class_type);
+    int num_virtuals = class_type_get_num_virtual_functions(class_type);
 
     // If we have virtual functions we are dynamic
-    if (virtual_functions != NULL)
+    if (num_virtuals != 0)
         return 1;
 
     // If our destructor is dynamic, we are dynamic
@@ -2597,20 +2820,9 @@ char class_type_is_dynamic(type_t* t)
             && destructor->entity_specs.is_virtual)
         return 1;
 
-    // If any of our conversion functions is virtual, we are dynamic
-    int num_conversions = class_type_get_num_conversions(class_type);
-    int i;
-
-    for (i = 0; i < num_conversions; i++)
-    {
-        scope_entry_t* conversion_function = class_type_get_conversion_num(class_type, i);
-
-        if (conversion_function->entity_specs.is_virtual)
-            return 1;
-    }
-
     // If any of our bases is dynamic or a virtual base, we are dynamic
     int num_bases = class_type_get_num_bases(class_type);
+    int i;
     for (i = 0; i < num_bases; i++)
     {
         char is_virtual = 0;
@@ -4287,7 +4499,6 @@ static char syntactic_comparison_of_dependent_parts(
                 }
                 return 0;
             }
-            return 0;
         }
 
         dependent_parts_1 = dependent_parts_1->next;
@@ -5391,6 +5602,11 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
 
                 break;
             }
+        case STK_TEMPLATE_TYPE:
+            {
+                result = get_simple_type_name_string(decl_context, simple_type->primary_specialization);
+                break;
+            }
         default:
             {
                 internal_error("Unknown simple type kind '%d'\n", simple_type->kind);
@@ -5811,7 +6027,11 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                     }
                 }
                 prototype = strappend(prototype, ")");
-                prototype = strappend(prototype, get_cv_qualifier_string(type_info));
+                if (get_cv_qualifier(type_info) != CV_NONE)
+                {
+                    prototype = strappend(prototype, " ");
+                    prototype = strappend(prototype, get_cv_qualifier_string(type_info));
+                }
 
                 (*right) = strappend((*right), prototype);
                 break;
@@ -5944,6 +6164,13 @@ static const char* get_template_arguments_list_str(template_argument_list_t* tem
     {
         template_argument_t* template_argument = 
             template_arguments->argument_list[i];
+
+        char c[256];
+        snprintf(c, 255, "[[%d, %d]] ", 
+                template_argument->nesting,
+                template_argument->position);
+
+        result = strappend(result, uniquestr(c));
 
         switch (template_argument->kind)
         {
@@ -6267,6 +6494,13 @@ const char* print_declarator(type_t* printed_declarator)
                             template_argument_t* template_argument = 
                                 printed_declarator->template_arguments->argument_list[i];
 
+                            char c[256];
+                            snprintf(c, 255, "[[%d, %d]] ", 
+                                    template_argument->nesting,
+                                    template_argument->position);
+
+                            tmp_result = strappend(tmp_result, uniquestr(c));
+
                             switch (template_argument->kind)
                             {
                                 case TAK_TYPE:
@@ -6274,6 +6508,7 @@ const char* print_declarator(type_t* printed_declarator)
                                     {
                                         tmp_result = strappend(tmp_result, 
                                                 print_declarator(template_argument->type));
+
                                         break;
                                     }
                                 case TAK_NONTYPE:
@@ -7585,6 +7820,7 @@ char function_type_can_override(type_t* potential_overrider, type_t* function_ty
         && covariant_return(potential_overrider, function_type);
 }
 
+#if 0
 static char has_overrider(scope_entry_t* entry, scope_entry_list_t* list)
 {
     char result = 0;
@@ -7603,72 +7839,27 @@ static char has_overrider(scope_entry_t* entry, scope_entry_list_t* list)
 
     return result;
 }
+#endif
 
-static void class_type_get_all_virtual_functions_rec(type_t* class_type, 
-        scope_entry_list_t** current_overriders)
+void class_type_add_virtual_function(type_t* class_type, scope_entry_t* entry)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), 
-            "This is not a class type", 0);
-    // Starting from the most derived class one we gather all member functions
-    // that we know they are virtual. 
-    //
-    // Note: when signing in member functions we have ensured that they are
-    // marked virtual (even if not done explicitly in the declaration).
-    //
-    // Note: This algorithm does not take into account more than one overrider
-    // (that would be ill-formed).
-    //
-    int i;
-    for (i = 0; i < class_type_get_num_member_functions(class_type); i++)
-    {
-        scope_entry_t* entry = class_type_get_member_function_num(class_type, i);
-
-        if (!entry->entity_specs.is_static
-                && entry->entity_specs.is_virtual)
-        {
-            // Check that it has not been overrided
-            if (!has_overrider(entry, *current_overriders))
-            {
-                // This means that this function is a final overrider
-                // Add to the list
-
-                scope_entry_list_t* new_overrider = counted_calloc(1, sizeof(*new_overrider), &_bytes_due_to_type_system);
-
-                new_overrider->entry = entry;
-                new_overrider->next = *current_overriders;
-
-                *current_overriders = new_overrider;
-            }
-        }
-    }
-
-    // Now for every base gather the list of virtuals
-    for (i = 0; i < class_type_get_num_bases(class_type); i++)
-    {
-        char is_virtual = 0;
-        char is_dependent = 0;
-        scope_entry_t* base_class = class_type_get_base_num(class_type, i, 
-                &is_virtual, &is_dependent);
-
-        if (is_dependent)
-            continue;
-
-        type_t* base_class_type = get_actual_class_type(base_class->type_information);
-
-        class_type_get_all_virtual_functions_rec(base_class_type, current_overriders);
-    }
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "Invalid class type", 0);
+    P_LIST_ADD_ONCE(class_type->type->class_info->virtual_functions,
+            class_type->type->class_info->num_virtual_functions,
+            entry);
 }
 
-scope_entry_list_t* class_type_get_all_virtual_functions(type_t* class_type)
+int class_type_get_num_virtual_functions(type_t* class_type)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), 
-            "This is not a class type", 0);
-    
-    scope_entry_list_t* result = NULL;
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "Invalid class type", 0);
+    return class_type->type->class_info->num_virtual_functions;
+}
 
-    class_type_get_all_virtual_functions_rec(class_type, &result);
+scope_entry_t* class_type_get_virtual_function_num(type_t* class_type, int i)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "Invalid class type", 0);
 
-    return result;
+    return class_type->type->class_info->virtual_functions[i];
 }
 
 type_t* lvalue_ref_for_implicit_arg(type_t* t)

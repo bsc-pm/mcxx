@@ -221,7 +221,7 @@ static void TreeInsertHelp(rb_red_blk_tree* tree, rb_red_blk_node* z) {
   x=tree->root->left;
   while( x != nil) {
     y=x;
-    if (1 == tree->comp_func(x->key,z->key)) { /* x.key > z.key */
+    if (tree->comp_func(x->key,z->key) > 0) { /* x.key > z.key */
       x=x->left;
     } else { /* x,key <= z.key */
       x=x->right;
@@ -229,7 +229,7 @@ static void TreeInsertHelp(rb_red_blk_tree* tree, rb_red_blk_node* z) {
   }
   z->parent=y;
   if ( (y == tree->root) ||
-       (1 == tree->comp_func(y->key,z->key))) { /* y.key > z.key */
+       (tree->comp_func(y->key,z->key) > 0)) { /* y.key > z.key */
     y->left=z;
   } else {
     y->right=z;
@@ -551,7 +551,7 @@ rb_red_blk_node* rb_tree_query(rb_red_blk_tree* tree, const void* q) {
   if (x == nil) return(0);
   compVal=tree->comp_func(x->key,q);
   while(0 != compVal) {/*assignemnt*/
-    if (1 == compVal) { /* x->key > q */
+    if (compVal > 0) { /* x->key > q */
       x=x->left;
     } else {
       x=x->right;
@@ -658,7 +658,7 @@ static void RBDeleteFixUp(rb_red_blk_tree* tree, rb_red_blk_node* x) {
 /*    The algorithm from this function is from _Introduction_To_Algorithms_ */
 /***********************************************************************/
 
-void rb_delete(rb_red_blk_tree* tree, rb_red_blk_node* z){
+void rb_tree_delete(rb_red_blk_tree* tree, rb_red_blk_node* z){
   rb_red_blk_node* y;
   rb_red_blk_node* x;
   rb_red_blk_node* nil=tree->nil;

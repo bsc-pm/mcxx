@@ -40,8 +40,7 @@
 #include "cxx-tltype.h"
 #include "cxx-attrnames.h"
 #include "cxx-printscope.h"
-#include "hash.h"
-#include "hash_iterator.h"
+#include "red_black_tree.h"
 
 
 static unsigned long long _bytes_used_scopes = 0;
@@ -122,12 +121,20 @@ static scope_entry_list_t* name_lookup_used_namespaces(decl_context_t decl_conte
  * to create them.
  */
 
+static int strcmp_vptr(const void* v1, const void *v2)
+{
+    return strcmp((const char*)v1, (const char*) v2);
+}
+
+static void null_dtor_func(const void *v UNUSED_PARAMETER) { }
+
 // Any new scope should be created using this one
 static scope_t* new_scope(void)
 {
     scope_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
 
-    result->hash = hash_create(HASH_SIZE, HASHFUNC(prime_hash), KEYCMPFUNC(strcmp));
+    result->hash =
+        rb_tree_create(strcmp_vptr, null_dtor_func, null_dtor_func);
 
     return result;
 }
@@ -321,6 +328,12 @@ decl_context_t new_block_context(decl_context_t enclosing_context)
     // And update the current scope
     result.current_scope = result.block_scope;
 
+    // Update the related entry if any
+    if (enclosing_context.current_scope->kind == BLOCK_SCOPE)
+    {
+        result.current_scope->related_entry = enclosing_context.current_scope->related_entry;
+    }
+
     return result;
 }
 
@@ -397,7 +410,12 @@ void insert_alias(scope_t* sc, scope_entry_t* entry, const char* name)
 
     const char* symbol_name = uniquestr(name);
 
-    scope_entry_list_t* result_set = (scope_entry_list_t*) hash_get(sc->hash, symbol_name);
+    scope_entry_list_t* result_set = NULL;
+    rb_red_blk_node* n = rb_tree_query(sc->hash, symbol_name);
+    if (n != NULL)
+    {
+        result_set = (scope_entry_list_t*) rb_node_get_info(n);
+    }
 
     if (result_set != NULL)
     {
@@ -415,7 +433,7 @@ void insert_alias(scope_t* sc, scope_entry_t* entry, const char* name)
         result_set->entry = entry;
         result_set->next = NULL; // redundant, though
 
-        hash_put(sc->hash, symbol_name, result_set);
+        rb_tree_add(sc->hash, symbol_name, result_set);
     }
 }
 
@@ -475,7 +493,13 @@ static scope_entry_list_t* query_name_in_scope(scope_t* sc, const char* name)
                 sc, sc->hash);
         }
     }
-    scope_entry_list_t* result = (scope_entry_list_t*) hash_get(sc->hash, name);
+
+    scope_entry_list_t* result = NULL;
+    rb_red_blk_node *n = rb_tree_query(sc->hash, name);
+    if (n != NULL)
+    {
+        result = (scope_entry_list_t*) rb_node_get_info(n);
+    }
 
     DEBUG_CODE()
     {
@@ -499,8 +523,12 @@ void insert_entry(scope_t* sc, scope_entry_t* entry)
 {
     ERROR_CONDITION((entry->symbol_name == NULL), "Inserting a symbol entry without name!", 0);
     
-    scope_entry_list_t* result_set = (scope_entry_list_t*) hash_get(sc->hash, entry->symbol_name);
-
+    scope_entry_list_t* result_set = NULL;
+    rb_red_blk_node* n = rb_tree_query(sc->hash, entry->symbol_name);
+    if (n != NULL)
+    {
+        result_set = (scope_entry_list_t*)rb_node_get_info(n);
+    }
 
     if (result_set != NULL)
     {
@@ -518,7 +546,7 @@ void insert_entry(scope_t* sc, scope_entry_t* entry)
         result_set->entry = entry;
         result_set->next = NULL; // redundant, though
 
-        hash_put(sc->hash, entry->symbol_name, result_set);
+        rb_tree_add(sc->hash, entry->symbol_name, result_set);
     }
 }
 
@@ -528,7 +556,13 @@ void remove_entry(scope_t* sc, scope_entry_t* entry)
 {
     ERROR_CONDITION((entry->symbol_name == NULL), "Removing a symbol entry without name!", 0);
 
-    scope_entry_list_t* result_set = (scope_entry_list_t*) hash_get(sc->hash, entry->symbol_name);
+    scope_entry_list_t* result_set = NULL;
+
+    rb_red_blk_node* n = rb_tree_query(sc->hash, entry->symbol_name);
+    if (n != NULL)
+    {
+        result_set = (scope_entry_list_t*)rb_node_get_info(n);
+    }
 
     scope_entry_list_t* current = result_set;
     scope_entry_list_t* previous = NULL;
@@ -545,7 +579,7 @@ void remove_entry(scope_t* sc, scope_entry_t* entry)
             else
             {
                 // Delete the whole entry
-                hash_delete(sc->hash, entry->symbol_name);
+                rb_tree_delete(sc->hash, n);
             }
             break;
         }
@@ -976,8 +1010,45 @@ static scope_entry_list_t* query_qualified_name(
             // Create a SK_DEPENDENT_ENTITY just to acknowledge that this was
             // dependent
             scope_entry_t* dependent_entity = counted_calloc(1, sizeof(*dependent_entity), &_bytes_used_scopes);
+            if (ASTType(unqualified_name) == AST_SYMBOL)
+            {
+                dependent_entity->symbol_name = ASTText(unqualified_name);
+            }
+            else if (ASTType(unqualified_name) == AST_TEMPLATE_ID)
+            {
+                dependent_entity->symbol_name = ASTText(ASTSon0(unqualified_name));
+            }
+            else if (ASTType(unqualified_name) == AST_OPERATOR_FUNCTION_ID
+                    || ASTType(unqualified_name) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
+            {
+                dependent_entity->symbol_name = get_operator_function_name(unqualified_name);
+            }
+            else if (ASTType(unqualified_name) == AST_CONVERSION_FUNCTION_ID)
+            {
+                dependent_entity->symbol_name = get_conversion_function_name(nested_name_context, 
+                        unqualified_name, /* result_type */ NULL);
+            }
+            else if (ASTType(unqualified_name) == AST_DESTRUCTOR_ID
+                    || ASTType(unqualified_name) == AST_DESTRUCTOR_TEMPLATE_ID)
+            {
+                AST symbol = ASTSon0(unqualified_name);
+                const char *name = ASTText(symbol);
+                dependent_entity->symbol_name = name;
+            }
+            else
+            {
+                internal_error("unhandled dependent name '%s'\n", prettyprint_in_buffer(unqualified_name));
+            }
+
+            dependent_entity->decl_context = nested_name_context;
             dependent_entity->kind = SK_DEPENDENT_ENTITY;
             dependent_entity->type_information = dependent_type;
+            dependent_entity->expression_value = 
+                ASTMake3(AST_QUALIFIED_ID,
+                        ast_copy(global_op), 
+                        ast_copy(nested_name), 
+                        ast_copy(unqualified_name),
+                        ASTFileName(unqualified_name), ASTLine(unqualified_name), NULL);
 
             result = create_list_from_entry(dependent_entity);
             return result;
@@ -1127,18 +1198,20 @@ static decl_context_t lookup_qualification_scope(
 
     scope_entry_t* starting_symbol = starting_symbol_list->entry;
 
-    if (starting_symbol->kind == SK_DEPENDENT_ENTITY)
+    // This is an already dependent name
+    if (BITMAP_TEST(nested_name_context.decl_flags, DF_DEPENDENT_TYPENAME)
+            && starting_symbol->kind == SK_CLASS
+            && starting_symbol->decl_context.current_scope->kind == CLASS_SCOPE
+            && is_dependent_type(starting_symbol->decl_context.current_scope->related_entry->type_information))
     {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCOPE: Component '%s' is a dependent entity\n", prettyprint_in_buffer(first_qualification));
-        }
-        //
-        // Is this case possible ? 
-        //
-        internal_error("Verify this case", 0);
+        // We cannot do anything else here but returning NULL
+        // and stating that it is dependent
+        *dependent_type = get_dependent_typename_type(starting_symbol, 
+                nested_name_context, next_nested_name_spec, unqualified_part);
         *is_valid = 0;
-        return new_decl_context();
+
+        memset(&result, 0, sizeof(result));
+        return result;
     }
     else if (starting_symbol->kind == SK_NAMESPACE)
     {
@@ -1679,11 +1752,11 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
     DEBUG_CODE()
     {
         fprintf(stderr, "SCOPE: Looking in class scope '");
-        for (i = 0; i < derived->path_length; i++)
+        for (i = derived->path_length - 1; i >= 0; i--)
         {
             fprintf(stderr, "%s%s", 
                     class_type_get_inner_context(derived->path[i]).current_scope->related_entry->symbol_name,
-                    ((i+1) < derived->path_length) ? "::" : "");
+                    (i > 0) ? "::" : "");
         }
         fprintf(stderr, "'\n");
     }
@@ -2565,7 +2638,8 @@ static type_t* update_dependent_typename(
     scope_entry_t* member = member_list->entry;
 
     if (member->kind == SK_CLASS
-            || member->kind == SK_TYPEDEF)
+            || member->kind == SK_TYPEDEF
+            || member->kind == SK_ENUM)
     {
         DEBUG_CODE()
         {
@@ -3099,6 +3173,16 @@ static type_t* update_type_aux_(type_t* orig_type,
             DEBUG_CODE()
             {
                 fprintf(stderr, "SCOPE: Dependent type '%s' is not a named type\n",
+                        print_declarator(fixed_type));
+            }
+            return NULL;
+        }
+
+        if (is_named_enumerated_type(fixed_type))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCOPE: Dependent type '%s' is an enumerator\n", 
                         print_declarator(fixed_type));
             }
             return NULL;
@@ -3937,30 +4021,46 @@ static const char* get_fully_qualified_symbol_name_simple(decl_context_t decl_co
     return result;
 }
 
+typedef
+struct find_template_parameter_data_tag
+{
+    char found;
+    scope_entry_t* template_param;
+    scope_entry_t* entry;
+} find_template_parameter_data_t;
+
+static void find_template_parameter_aux(const void* key UNUSED_PARAMETER, void* info, void* data)
+{
+    find_template_parameter_data_t* p_data = (find_template_parameter_data_t*)data;
+
+    if (p_data->found)
+        return;
+
+    scope_entry_list_t* entry_list = (scope_entry_list_t*) info;
+    scope_entry_t* entry = entry_list->entry;
+
+    if (entry->kind == p_data->template_param->kind
+            && (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
+                || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+            && (entry->entity_specs.template_parameter_position 
+                == p_data->template_param->entity_specs.template_parameter_position)
+            && (entry->entity_specs.template_parameter_nesting 
+                == p_data->template_param->entity_specs.template_parameter_nesting))
+    {
+        p_data->entry = entry;
+        p_data->found = 1;
+    }
+}
+
 static scope_entry_t* find_template_parameter(scope_t* st, scope_entry_t* template_param)
 {
-    Iterator* it = (Iterator*) hash_iterator_create(st->hash);
-    for ( iterator_first(it); 
-            !iterator_finished(it); 
-            iterator_next(it))
-    {
-        scope_entry_list_t* entry_list = (scope_entry_list_t*) iterator_item(it);
+    find_template_parameter_data_t data;
+    memset(&data, 0, sizeof(data));
+    data.template_param = template_param;
 
-        scope_entry_t* entry = entry_list->entry;
+    rb_tree_walk(st->hash, find_template_parameter_aux, &data);
 
-        if (entry->kind == template_param->kind
-                && (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
-                    || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
-                && (entry->entity_specs.template_parameter_position 
-                    == template_param->entity_specs.template_parameter_position)
-                && (entry->entity_specs.template_parameter_nesting 
-                    == template_param->entity_specs.template_parameter_nesting))
-        {
-            return entry;
-        }
-    }
-
-    return NULL;
+    return data.entry;
 }
 
 static const char* give_name_for_template_parameter(scope_entry_t* entry, decl_context_t decl_context)

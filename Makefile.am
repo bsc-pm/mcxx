@@ -26,3 +26,9 @@ SUBDIRS = gnulib lib src config tests scripts
 DIST_SUBDIRS = $(SUBDIRS) doc
 
 ACLOCAL_AMFLAGS=-I m4
+
+
+SUPERSCALAR_DISTCHECK_CONFIGURE_FLAGS = --with-superscalar-runtime-api-version=@superscalar_version@
+
+DISTCHECK_CONFIGURE_FLAGS = $(SUPERSCALAR_DISTCHECK_CONFIGURE_FLAGS)
+

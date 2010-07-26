@@ -575,8 +575,6 @@ namespace TL
             {
                 Symbol sym = it->get_symbol();
 
-                std::cerr << "-> SYM: " << sym.get_name() << std::endl;
-
                 if (!sym.is_valid()
                         || !sym.is_variable())
                     continue;
