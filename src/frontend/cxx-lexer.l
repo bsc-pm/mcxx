@@ -258,11 +258,6 @@ type {
     return '(';
 }
 
-[,] {
-    parse_token_text();
-    return ',';
-}
-
 [)] {
     parse_token_text();
     BEGIN(verbatim_clauses);
@@ -271,7 +266,7 @@ type {
 
 [ \t] { }
 
-identifier { 
+{identifier} { 
     parse_token_text();
     return IDENTIFIER;
 }
