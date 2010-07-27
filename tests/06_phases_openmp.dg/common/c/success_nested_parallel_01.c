@@ -26,7 +26,7 @@ test_generator=config/mercurium-omp
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-void g(void)
+int main(int argc, char* argv[])
 {
     int k = 1;
 #pragma omp parallel private(k)
@@ -37,4 +37,6 @@ void g(void)
             k = 2;
         }
     }
+
+    return 0;
 }

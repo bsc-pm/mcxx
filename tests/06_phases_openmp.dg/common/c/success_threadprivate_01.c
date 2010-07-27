@@ -26,11 +26,22 @@ test_generator=config/mercurium-omp
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-int a;
+#include <stdlib.h>
 
+int a;
 #pragma omp threadprivate(a)
 
-void f(void)
+int main(int argc, char *argv[])
 {
-    a = 3;
+#pragma omp parallel
+    {
+        a = omp_get_thread_num();
+    }
+#pragma omp parallel
+    {
+        if (a != omp_get_thread_num())
+            abort();
+    }
+
+    return 0;
 }

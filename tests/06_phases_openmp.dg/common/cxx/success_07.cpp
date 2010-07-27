@@ -28,6 +28,8 @@ test_compile_faulty_nanox_plain=yes
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include <stdlib.h>
+
 struct A
 {
     template <typename _T>
@@ -38,8 +40,23 @@ struct A
 template <typename _Q>
 void A::f(_Q q)
 {
+    q = 1;
 #pragma omp parallel
     {
-        q = 3;
+        q = 0;
     }
+
+    if (q != 0)
+        abort();
+}
+
+int main(int argc, char *argv[])
+{
+    A<int> a;
+    a.f(0);
+
+    A<float> b;
+    b.f(0);
+
+    return 0;
 }

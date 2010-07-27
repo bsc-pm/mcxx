@@ -26,12 +26,47 @@ test_generator=config/mercurium-omp
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-void f(void)
+#include <stdlib.h>
+#define NUM_ELEMS 100
+
+int main(int argc, char* argv[])
 {
+    int a = 0;
 #pragma omp parallel
+#pragma omp single
     {
 #pragma omp task
         {
+            a = 1;
         }
     }
+
+    if (a != 1)
+        abort();
+
+    int c[NUM_ELEMS];
+
+#pragma omp parallel
+#pragma omp single
+    {
+        int i;
+        for (i = 0; i < NUM_ELEMS; i++)
+        {
+            int *p = &(c[i]);
+
+#pragma omp task firstprivate(p, i)
+            {
+                *p = i;
+            }
+        }
+    }
+
+    int i;
+    for (i = 0; i < NUM_ELEMS; i++)
+    {
+        if (c[i] != i)
+            abort();
+    }
+
+    return 0;
 }

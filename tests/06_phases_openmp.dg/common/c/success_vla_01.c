@@ -26,12 +26,15 @@ test_generator=config/mercurium-omp
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include <stdlib.h>
+
 void f(int n, int m, int v[n + 1][m * 2])
 {
 #pragma omp task shared(v)
     {
-        v[n-1][m-1] = 3;
+        v[n-1][m-1] = 4;
     }
+#pragma omp taskwait
 }
 
 void g(int n, int m, int v[n + 1][m * 2])
@@ -40,4 +43,21 @@ void g(int n, int m, int v[n + 1][m * 2])
     {
         v[n-1][m-1] = 3;
     }
+}
+
+int main(int argc, char *argv[])
+{
+    int c[2+1][3*2];
+
+    g(2, 3, c);
+
+    if (c[1][2] != 3)
+        abort();
+
+    f(2, 3, c);
+
+    if (c[1][2] != 4)
+        abort();
+
+    return 0;
 }

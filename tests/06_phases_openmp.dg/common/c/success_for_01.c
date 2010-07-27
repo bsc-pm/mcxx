@@ -26,11 +26,29 @@ test_generator=config/mercurium-omp
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-void f(void)
+#include <stdlib.h>
+#include <string.h>
+
+#define MAX_ELEMS 100
+
+int main(int argc, char *argv[])
 {
+    int c[MAX_ELEMS];
     int i;
+
+    memset(c, 0, sizeof(c));
+
 #pragma omp for
-    for (i = 0; i < 100; i++)
+    for (i = 0; i < MAX_ELEMS; i++)
     {
+        c[i] = i;
     }
+
+    for (i = 0; i < MAX_ELEMS; i++)
+    {
+        if (c[i] != i)
+            abort();
+    }
+
+    return 0;
 }

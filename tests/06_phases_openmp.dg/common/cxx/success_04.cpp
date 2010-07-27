@@ -28,11 +28,28 @@ test_compile_faulty_nanox_plain=yes
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include <stdlib.h>
+
 template <typename _T>
 void f(_T t)
 {
+    t = 1;
 #pragma omp parallel
     {
-        t = 3;
+        t = 0;
     }
+
+    if (t != 0)
+        abort();
+}
+
+int main(int argc, char *argv[])
+{
+    int a;
+    f(a);
+
+    float b;
+    f(b);
+
+    return 0;
 }

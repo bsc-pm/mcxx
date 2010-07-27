@@ -26,15 +26,46 @@ test_generator=config/mercurium-omp
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include <stdlib.h>
 
 int fib(int a)
 {
-    int n1 = 0, n2 = 0;
-#pragma omp task if (a > 50)
+    if (a == 0)
     {
+        return 1;
+    }
+    else
+    {
+        int n1 = 0, n2 = 0;
+#pragma omp task firstprivate(a) shared(n1)
         n1 = fib(a - 1);
+#pragma omp task firstprivate(a) shared(n2)
         n2 = fib(a - 2);
+#pragma omp taskwait
+        return n1 + n2;
+    }
+}
+
+int fibo_seq[] = { 1, 1, 2, 3, 5, 8, 21, 34, 55, 89, 144, -1 };
+
+int main(int argc, char *argv[])
+{
+    int i;
+
+    while (fibo_seq[i] > 0)
+    {
+        int c;
+#pragma omp parallel
+#pragma omp single
+        {
+            c = fib(i);
+        }
+
+        if (c != fibo_seq[i])
+            abort();
+
+        i++;
     }
 
-    return n1;
+    return 0;
 }

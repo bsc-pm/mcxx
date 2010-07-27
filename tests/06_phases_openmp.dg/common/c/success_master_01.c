@@ -28,9 +28,25 @@ test_compile_faulty_nanox_plain=yes
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-void f(void)
+#include <stdlib.h>
+#include "omp.h"
+
+int main(int argc, char* argv[])
 {
-#pragma omp master
+    int people = 0;
+#pragma omp parallel
     {
+#pragma omp master
+        {
+            if (omp_get_thread_num() != 0)
+                abort();
+            people++;
+        }
+#pragma omp barrier
     }
+
+    if (people != 1)
+        abort();
+
+    return 0;
 }
