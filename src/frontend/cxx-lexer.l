@@ -24,10 +24,10 @@
 #include "cxx-lexer.h"
 #include "cxx-ast.h"
 /*!if C99*/
-#include "c99-parser.h"
+#include "c99-parser-internal.h"
 /*!endif*/
 /*!if CPLUSPLUS*/
-#include "cxx-parser.h"
+#include "cxx-parser-internal.h"
 /*!endif*/
 
 /*!if CPLUSPLUS*/

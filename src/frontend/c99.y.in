@@ -8,29 +8,14 @@
    Ask for it at <rferrer@ac.upc.edu>
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
-#include "cxx-macros.h"
-#include "cxx-lexer.h"
 #include "cxx-ast.h"
+#include "cxx-lexer.h"
 #include "cxx-utils.h"
 
 #define YYDEBUG 1
 #define YYERROR_VERBOSE 1
 // Sometimes we need lots of memory
 #define YYMAXDEPTH (10000000)
-
-MCXX_BEGIN_DECLS
-
-LIBMCXX_EXTERN int mc99parse(AST* parsed_tree);
-
-void yyerror(AST* parsed_tree, const char* c);
-
-extern int yylex(void);
-
-MCXX_END_DECLS
 
 %}
 
@@ -50,7 +35,9 @@ MCXX_END_DECLS
 %parse-param {AST* parsed_tree}
 
 %{
+extern int yylex(void);
 static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
+void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %}
 
 // C++ tokens
