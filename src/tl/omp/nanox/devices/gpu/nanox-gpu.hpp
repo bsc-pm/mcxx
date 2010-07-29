@@ -7,48 +7,52 @@
 namespace TL
 {
 
-    namespace Nanox
-    {
+namespace Nanox
+{
 
-        class DeviceGPU : public DeviceProvider
-        {
-			private:
-				std::string _cudaFilename;
-            public:
+class DeviceGPU : public DeviceProvider
+{
+	private:
+		std::string _cudaFilename;
+		AST_t _root;
+		std::set<std::string> _taskSymbols;
 
-                // This phase does nothing
-                virtual void run(DTO& dto) { }
+	public:
 
-                DeviceGPU();
+		// This phase does nothing
+		virtual void pre_run(DTO& dto);
+		virtual void run(DTO& dto) { }
 
-                virtual ~DeviceGPU() { }
+		DeviceGPU();
 
-                virtual void create_outline(
-                        const std::string& task_name,
-                        const std::string& struct_typename,
-                        DataEnvironInfo &data_environ,
-                        const OutlineFlags& outline_flags,
-                        AST_t reference_tree,
-                        ScopeLink sl,
-                        Source initial_setup,
-                        Source outline_body);
+		virtual ~DeviceGPU() { }
 
-                virtual void do_replacements(DataEnvironInfo& data_environ,
-                        AST_t body,
-                        ScopeLink scope_link,
-                        Source &initial_setup,
-                        Source &replace_src);
+		virtual void create_outline(
+				const std::string& task_name,
+				const std::string& struct_typename,
+				DataEnvironInfo &data_environ,
+				const OutlineFlags& outline_flags,
+				AST_t reference_tree,
+				ScopeLink sl,
+				Source initial_setup,
+				Source outline_body);
 
-                virtual void get_device_descriptor(const std::string& task_name,
-                        DataEnvironInfo &data_environ,
-                        const OutlineFlags& outline_flags,
-                        Source &ancillary_device_description,
-                        Source &device_descriptor);
+		virtual void do_replacements(DataEnvironInfo& data_environ,
+				AST_t body,
+				ScopeLink scope_link,
+				Source &initial_setup,
+				Source &replace_src);
 
-                virtual void phase_cleanup(DTO& data_flow);
-        };
+		virtual void get_device_descriptor(const std::string& task_name,
+				DataEnvironInfo &data_environ,
+				const OutlineFlags& outline_flags,
+				Source &ancillary_device_description,
+				Source &device_descriptor);
 
-    }
+		virtual void phase_cleanup(DTO& data_flow);
+};
+
+}
 
 }
 
