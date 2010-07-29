@@ -46,13 +46,9 @@ prepare-check: ./config/bets
 
 BETS_DIRS=$(srcdir)
 
-check-local:
-	@echo 
-	@echo "Please, run 'make test' instead"
-	@echo 
-
-.PHONY: test
-test: prepare-check
+check-local: prepare-check
+	$(MAKE) -C config
+	$(MAKE) -C .
 	./config/bets $(BETS_OPTIONS) $(BETS_DIRS)
 
 dist-hook:
