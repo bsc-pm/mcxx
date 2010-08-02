@@ -25,14 +25,17 @@
 #define CXX_OVERLOAD_H
 
 #include "libmcxx-common.h"
-#include "cxx-type-decls.h"
-#include "cxx-scope-decls.h"
+#include "cxx-overload-decls.h"
 #include "cxx-buildscope-decls.h"
 
 MCXX_BEGIN_DECLS
 
-LIBMCXX_EXTERN struct scope_entry_tag* solve_overload(struct scope_entry_list_tag* candidate_functions, 
-        struct type_tag **argument_types, int num_arguments,
+LIBMCXX_EXTERN candidate_t* add_to_candidate_set(candidate_t* candidate_set,
+        scope_entry_t* entry,
+        int num_args,
+        type_t** args);
+
+LIBMCXX_EXTERN struct scope_entry_tag* solve_overload(candidate_t* candidate_set,
         decl_context_t decl_context,
         const char* filename, int line,
         scope_entry_t** conversor_per_argument);
@@ -48,7 +51,7 @@ LIBMCXX_EXTERN struct scope_entry_tag* address_of_overloaded_function(struct sco
         int line);
 
 LIBMCXX_EXTERN scope_entry_t* solve_constructor(type_t* class_type, 
-        type_t** arguments, 
+        type_t** argument_types, 
         int num_arguments,
         char is_explicit, 
         decl_context_t decl_context,

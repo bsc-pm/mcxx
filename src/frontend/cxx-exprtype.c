@@ -2350,60 +2350,7 @@ static type_t* compute_pointer_arithmetic_type(type_t* lhs_type, type_t* rhs_typ
     return return_type;
 }
 
-static type_t* compute_member_user_defined_bin_operator_type(AST operator_name, 
-        AST expr, AST lhs UNUSED_PARAMETER, AST rhs,
-        type_t* lhs_type, type_t* rhs_type, decl_context_t decl_context,
-        const char* filename, int line,
-        scope_entry_t** selected_operator)
-{
-    ERROR_CONDITION(!is_class_type(no_ref(lhs_type)) , "This must be a class type", 0);
-
-    scope_entry_list_t* operator_entry_list = get_member_function_of_class_type(no_ref(lhs_type), 
-            operator_name, decl_context);
-
-    if (operator_entry_list == NULL)
-    {
-        return NULL;
-    }
-
-    // Now create the argument list for the overloading
-    lhs_type = lvalue_ref_for_implicit_arg(lhs_type);
-
-    type_t* argument_types[2] = { lhs_type, rhs_type };
-    int num_arguments = 2;
-
-    scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(operator_entry_list,
-            /* builtins */ NULL, &(argument_types[1]), num_arguments - 1, 
-            decl_context,
-            filename, line, /* explicit template arguments */ NULL);
-
-    scope_entry_t* conversors[2] = { NULL, NULL };
-
-    scope_entry_t *overloaded_call = solve_overload(overload_set,
-            argument_types, num_arguments, decl_context, filename, line,
-            conversors);
-
-    type_t* overloaded_type = NULL;
-
-    if (overloaded_call != NULL)
-    {
-        overloaded_type = overloaded_call->type_information;
-        *selected_operator = overloaded_call;
-
-        ASTAttrSetValueType(expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
-        ASTAttrSetValueType(expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(overloaded_call));
-
-        if (conversors[1] != NULL)
-        {
-            ASTAttrSetValueType(rhs, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
-            ASTAttrSetValueType(rhs, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[1]));
-        }
-    }
-
-    return overloaded_type;
-}
-
-static char filter_only_nonmembers_or_static_members(scope_entry_t* e)
+static char filter_only_nonmembers(scope_entry_t* e)
 {
     if (e->kind != SK_FUNCTION 
             && e->kind != SK_TEMPLATE)
@@ -2416,11 +2363,40 @@ static char filter_only_nonmembers_or_static_members(scope_entry_t* e)
             return 0;
     }
 
-    if (!e->entity_specs.is_member
-            || e->entity_specs.is_static)
+    if (!e->entity_specs.is_member)
         return 1;
 
     return 0;
+}
+
+static void error_message_overload_failed(decl_context_t decl_context, AST expr, candidate_t* candidates)
+{
+    fprintf(stderr, "%s: warning: overload call to '%s' failed\n",
+            ast_location(expr),
+            prettyprint_in_buffer(expr));
+
+    if (candidates != NULL)
+    {
+        fprintf(stderr, "%s: note: candidates are\n", ast_location(expr));
+
+        candidate_t* it = candidates;
+        while (it != NULL)
+        {
+            int max_level = 0;
+            char is_dependent = 0;
+
+            scope_entry_t* entry = it->entry;
+            fprintf(stderr, "%s: note:    %s\n",
+                    ast_location(expr),
+                    print_decl_type_str(entry->type_information, decl_context, 
+                        get_fully_qualified_symbol_name(entry, decl_context, &is_dependent, &max_level)));
+            it = it->next;
+        }
+    }
+    else
+    {
+        fprintf(stderr, "%s: note: no candidate functions\n", ast_location(expr));
+    }
 }
 
 static type_t* compute_user_defined_bin_operator_type(AST operator_name, 
@@ -2433,57 +2409,68 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
     type_t* lhs_type = expression_get_type(lhs);
     type_t* rhs_type = expression_get_type(rhs);
 
+    type_t* argument_types[2] = { lhs_type, rhs_type };
+    int num_arguments = 2;
+
+    candidate_t* candidate_set = NULL;
+
     if (is_class_type(no_ref(lhs_type)))
     {
-        // Try to make a member operator lookup
-        type_t* overloaded_member_op_type =
-            compute_member_user_defined_bin_operator_type(operator_name, 
-                    expr, lhs, rhs, lhs_type, rhs_type, decl_context, ASTFileName(expr),
-                    ASTLine(expr), selected_operator);
+        scope_entry_list_t* operator_entry_list = get_member_function_of_class_type(no_ref(lhs_type), 
+                operator_name, decl_context);
 
-        if (overloaded_member_op_type != NULL)
+        scope_entry_list_t* it = operator_entry_list;
+        while (it != NULL)
         {
-            expression_set_type(expr, function_type_get_return_type(overloaded_member_op_type));
-            expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
-            return overloaded_member_op_type;
+            candidate_set = add_to_candidate_set(candidate_set,
+                    it->entry,
+                    num_arguments,
+                    argument_types);
+            it = it->next;
         }
     }
 
     // This uses Koenig, otherwise some operators might not be found
-    type_t* argument_types[3] = { NULL, lhs_type, rhs_type };
-    int num_arguments = 3;
-
-    scope_entry_list_t *entry_list = koenig_lookup(num_arguments - 1,
-            &(argument_types[1]), decl_context, operator_name);
+    scope_entry_list_t *entry_list = koenig_lookup(num_arguments,
+            argument_types, decl_context, operator_name);
     
-    // Normal lookup might find nonstatic member functions at this point,
-    // filter them out
-    entry_list = filter_symbol_using_predicate(entry_list, filter_only_nonmembers_or_static_members);
+    // Normal lookup might find member functions at this point, filter them
+    entry_list = filter_symbol_using_predicate(entry_list, filter_only_nonmembers);
     
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(entry_list,
-            builtins, &(argument_types[1]), num_arguments - 1,
+            builtins, argument_types, num_arguments,
             decl_context,
             ASTFileName(expr), ASTLine(expr),
             /* explicit template arguments */ NULL);
 
-    scope_entry_t* conversors[3] = { NULL, NULL, NULL };
+    scope_entry_list_t* it = overload_set;
+    while (it != NULL)
+    {
+        candidate_set = add_to_candidate_set(candidate_set,
+                it->entry,
+                num_arguments,
+                argument_types);
+        it = it->next;
+    }
 
-    scope_entry_t *overloaded_call = solve_overload(overload_set,
-            argument_types, num_arguments, decl_context,
+    scope_entry_t* conversors[2] = { NULL, NULL };
+
+    scope_entry_t *overloaded_call = solve_overload(candidate_set,
+            decl_context,
             ASTFileName(expr), ASTLine(expr), conversors);
 
     type_t* overloaded_type = NULL;
     if (overloaded_call != NULL)
     {
-        if (conversors[1] != NULL)
+        if (conversors[0] != NULL)
         {
             ASTAttrSetValueType(lhs, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
-            ASTAttrSetValueType(lhs, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[1]));
+            ASTAttrSetValueType(lhs, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[0]));
         }
-        if (conversors[2] != NULL)
+        if (conversors[1] != NULL)
         {
             ASTAttrSetValueType(rhs, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
-            ASTAttrSetValueType(rhs, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[2]));
+            ASTAttrSetValueType(rhs, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[1]));
         }
 
         if (!overloaded_call->entity_specs.is_builtin)
@@ -2499,60 +2486,13 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
         expression_set_type(expr, function_type_get_return_type(overloaded_type));
         expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
     }
+    else if (!checking_ambiguity())
+    {
+        error_message_overload_failed(decl_context, expr, candidate_set);
+    }
     return overloaded_type;
 }
 
-
-static type_t* compute_member_user_defined_unary_operator_type(AST operator_name, 
-        AST expr,
-        AST operand UNUSED_PARAMETER,
-        type_t* op, decl_context_t decl_context,
-        const char* filename, int line,
-        scope_entry_t** selected_operator)
-{
-    ERROR_CONDITION(!is_class_type(no_ref(op)), "This must be a class type", 0);
-
-    scope_entry_list_t* operator_entry_list = get_member_function_of_class_type(no_ref(op), 
-            operator_name,
-            decl_context);
-
-    if (operator_entry_list == NULL)
-    {
-        return NULL;
-    }
-
-    op = lvalue_ref(op);
-    
-    // Now create the argument list for the overloading
-    type_t* argument_types[1] = { lvalue_ref_for_implicit_arg(op) };
-    int num_arguments = 1;
-    
-    scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(operator_entry_list,
-            /* builtins */ NULL, &(argument_types[1]), num_arguments - 1,
-            decl_context,
-            filename, line,
-            /* explicit_template_arguments */ NULL);
-
-    scope_entry_t *conversors[1] = { NULL };
-
-    scope_entry_t *overloaded_call = solve_overload(overload_set,
-            argument_types, num_arguments, decl_context,
-            filename, line, conversors);
-
-    type_t* overloaded_type = NULL;
-
-    if (overloaded_call != NULL)
-    {
-        *selected_operator = overloaded_call;
-
-        ASTAttrSetValueType(expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
-        ASTAttrSetValueType(expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(overloaded_call));
-
-        overloaded_type = overloaded_call->type_information;
-    }
-
-    return overloaded_type;
-}
 
 static type_t* compute_user_defined_unary_operator_type(AST operator_name, 
         AST expr,
@@ -2563,44 +2503,55 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
 {
     type_t* op_type = expression_get_type(op);
 
-    if (is_class_type(op_type)
-            || is_lvalue_reference_to_class_type(op_type))
+    type_t* argument_types[1] = { op_type };
+    int num_arguments = 1;
+
+    candidate_t* candidate_set = NULL;
+
+    if (is_class_type(no_ref(op_type)))
     {
-        // Try to make a member operator lookup
-        type_t* overloaded_member_op_type = compute_member_user_defined_unary_operator_type(
-                operator_name, expr, op, op_type, decl_context,
-                ASTFileName(expr), ASTLine(expr), selected_operator);
+        scope_entry_list_t* operator_entry_list = get_member_function_of_class_type(no_ref(op_type), 
+                operator_name, decl_context);
 
-        if (overloaded_member_op_type != NULL)
+        scope_entry_list_t* it = operator_entry_list;
+        while (it != NULL)
         {
-            expression_set_type(expr, function_type_get_return_type(overloaded_member_op_type));
-            expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
-
-            return overloaded_member_op_type;
+            candidate_set = add_to_candidate_set(candidate_set,
+                    it->entry,
+                    num_arguments,
+                    argument_types);
+            it = it->next;
         }
     }
 
-    // This uses Koenig, otherwise some operators might not be found
-    type_t* argument_types[2] = { NULL, op_type };
-    int num_arguments = 2;
-
-    scope_entry_list_t *entry_list = koenig_lookup(num_arguments - 1,
-            &(argument_types[1]), decl_context, operator_name);
+    scope_entry_list_t *entry_list = koenig_lookup(num_arguments,
+            argument_types, decl_context, operator_name);
 
     // Remove any member that might have slip in because of plain lookup
-    entry_list = filter_symbol_using_predicate(entry_list, filter_only_nonmembers_or_static_members);
+    entry_list = filter_symbol_using_predicate(entry_list, filter_only_nonmembers);
     
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(
-            entry_list, builtins, &(argument_types[1]), num_arguments - 1,
+            entry_list, builtins, argument_types, num_arguments,
             decl_context,
             ASTFileName(expr), ASTLine(expr),
             /* explicit_template_arguments */ NULL);
 
-    scope_entry_t* conversors[2] = { NULL, NULL };
+    scope_entry_list_t* it = overload_set;
+    while (it != NULL)
+    {
+        candidate_set = add_to_candidate_set(candidate_set,
+                it->entry,
+                num_arguments,
+                argument_types);
+        it = it->next;
+    }
+
+    scope_entry_t* conversors[1] = { NULL };
     
-    scope_entry_t *overloaded_call = solve_overload(overload_set,
-            argument_types, num_arguments, decl_context,
-            ASTFileName(expr), ASTLine(expr), conversors);
+    scope_entry_t *overloaded_call = solve_overload(candidate_set,
+            decl_context, 
+            ASTFileName(expr), ASTLine(expr), 
+            conversors);
 
     type_t* overloaded_type = NULL;
     if (overloaded_call != NULL)
@@ -2613,16 +2564,20 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
             ASTAttrSetValueType(expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(overloaded_call));
         }
 
-        if (conversors[1] != NULL)
+        if (conversors[0] != NULL)
         {
             ASTAttrSetValueType(op, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
-            ASTAttrSetValueType(op, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[1]));
+            ASTAttrSetValueType(op, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[0]));
         }
 
         overloaded_type = overloaded_call->type_information;
 
         expression_set_type(expr, function_type_get_return_type(overloaded_type));
         expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
+    }
+    else if (!checking_ambiguity())
+    {
+        error_message_overload_failed(decl_context, expr, candidate_set);
     }
     return overloaded_type;
 }
@@ -5434,25 +5389,40 @@ static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context
         }
         else
         {
-            // Solve operator[]. It is always a member operator, so no strange
-            // juggling must be done
+            // Solve operator[]. It is always a member operator
             int num_arguments = 2;
             type_t* argument_types[2] = { lvalue_ref_for_implicit_arg(subscripted_type), subscript_type };
 
             scope_entry_t* conversors[2] = {NULL, NULL};
 
             scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(operator_subscript_list,
-                    /* builtins */ NULL, &(argument_types[1]), num_arguments - 1,
+                    /* builtins */ NULL, argument_types, num_arguments,
                     decl_context,
                     ASTFileName(expr), ASTLine(expr),
                     /* explicit_template_arguments */ NULL);
 
-            scope_entry_t *overloaded_call = solve_overload(overload_set,
-                    argument_types, num_arguments, decl_context,
-                    ASTFileName(expr), ASTLine(expr), conversors);
+            candidate_t* candidate_set = NULL;
+            scope_entry_list_t* it = overload_set;
+            while (it != NULL)
+            {
+                candidate_set = add_to_candidate_set(candidate_set,
+                        it->entry,
+                        num_arguments,
+                        argument_types);
+                it = it->next;
+            }
+
+            scope_entry_t *overloaded_call = solve_overload(candidate_set,
+                    decl_context, ASTFileName(expr), ASTLine(expr), conversors);
 
             if (overloaded_call == NULL)
+            {
+                if (!checking_ambiguity())
+                {
+                    error_message_overload_failed(decl_context, expr, candidate_set);
+                }
                 return 0;
+            }
 
             if (conversors[1] != NULL)
             {
@@ -5902,29 +5872,42 @@ static char check_for_conditional_expression_impl(AST expression, decl_context_t
             scope_entry_list_t* builtins = 
                 get_entry_list_from_builtin_operator_set(&builtin_set);
 
-            int num_arguments = 4;
+            int num_arguments = 3;
 
-            type_t* argument_types[4] = {
-                NULL, // This operator is never a member
+            type_t* argument_types[3] = {
                 get_bool_type(),
                 second_type,
                 third_type,
             };
 
-            scope_entry_t* conversors[4] = { NULL, NULL, NULL, NULL };
 
-            scope_entry_t *overloaded_call = solve_overload(builtins,
-                    argument_types, num_arguments, decl_context,
-                    ASTFileName(expression), ASTLine(expression), 
+            candidate_t* candidate_set = NULL;
+            scope_entry_list_t* it = builtins;
+            while (it != NULL)
+            {
+                candidate_set = add_to_candidate_set(candidate_set,
+                        it->entry,
+                        num_arguments,
+                        argument_types);
+                it = it->next;
+            }
+
+            scope_entry_t* conversors[3] = { NULL, NULL, NULL };
+            scope_entry_t *overloaded_call = solve_overload(candidate_set,
+                    decl_context, ASTFileName(expression), ASTLine(expression), 
                     conversors);
 
             if (overloaded_call == NULL)
             {
+                if (!checking_ambiguity())
+                {
+                    error_message_overload_failed(decl_context, expression, candidate_set);
+                }
                 return 0;
             }
 
             int k;
-            for (k = 0; k < 4; k++)
+            for (k = 0; k < 3; k++)
             {
                 if (conversors[k] != NULL)
                 {
@@ -6152,10 +6135,11 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
         type_t* arguments[MAX_ARGUMENTS];
         memset(arguments, 0, sizeof(arguments));
 
-        // At least the size_t parameter (+1 because of ubiquitous implicit)
+        // At least the size_t parameter (+1 because we may need an implicit)
         int num_arguments = 2;
 
-        // 'operator new' is always static if it is a member function
+        // Note: arguments[0] will be left as NULL since 'operator new' is
+        // always static if it is a member function
         arguments[1] = get_size_t_type();
 
         char has_dependent_placement_args = 0;
@@ -6242,51 +6226,72 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
                 return 0;
             }
 
-            scope_entry_t* chosen_operator_new = solve_overload(operator_new_list, 
-                    arguments, num_arguments, 
-                    decl_context,
-                    ASTFileName(new_expr), ASTLine(new_expr), 
+            candidate_t* candidate_set = NULL;
+            scope_entry_list_t* it = operator_new_list;
+            while (it != NULL)
+            {
+                if (it->entry->entity_specs.is_member)
+                {
+                    candidate_set = add_to_candidate_set(candidate_set,
+                            it->entry,
+                            num_arguments,
+                            arguments);
+                }
+                else
+                {
+                    candidate_set = add_to_candidate_set(candidate_set,
+                            it->entry,
+                            num_arguments - 1,
+                            arguments + 1);
+                }
+                it = it->next;
+            }
+
+            scope_entry_t* chosen_operator_new = solve_overload(candidate_set, 
+                    decl_context, ASTFileName(new_expr), ASTLine(new_expr), 
                     conversors);
 
             if (chosen_operator_new == NULL)
             {
-                const char* argument_call = uniquestr("");
-
-                argument_call = strappend(argument_call, "operator new");
-                if (new_array)
+                if (!checking_ambiguity())
                 {
-                    argument_call = strappend(argument_call, "[]");
-                }
-                argument_call = strappend(argument_call, "(");
+                    const char* argument_call = uniquestr("");
 
-                for (i = 1; i < num_arguments; i++)
-                {
-                    argument_call = strappend(argument_call, print_type_str(arguments[i], decl_context));
-                    if ((i + 1) < num_arguments)
+                    argument_call = strappend(argument_call, "operator new");
+                    if (new_array)
                     {
-                        argument_call = strappend(argument_call, ", ");
+                        argument_call = strappend(argument_call, "[]");
+                    }
+                    argument_call = strappend(argument_call, "(");
+
+                    for (i = 1; i < num_arguments; i++)
+                    {
+                        argument_call = strappend(argument_call, print_type_str(arguments[i], decl_context));
+                        if ((i + 1) < num_arguments)
+                        {
+                            argument_call = strappend(argument_call, ", ");
+                        }
+                    }
+                    argument_call = strappend(argument_call, ")");
+
+                    fprintf(stderr, "%s: warning: no suitable '%s' found for new-expression '%s'\n",
+                            ast_location(new_expr),
+                            argument_call,
+                            prettyprint_in_buffer(new_expr));
+                    fprintf(stderr, "%s: note: candidates are:\n", ast_location(new_expr));
+                    it = operator_new_list;
+                    while (it != NULL)
+                    {
+                        int max_level = 0;
+                        char is_dependent = 0;
+
+                        scope_entry_t* candidate_op = it->entry;
+                        fprintf(stderr, "%s: note:    %s\n", ast_location(new_expr),
+                                print_decl_type_str(candidate_op->type_information, decl_context, 
+                                    get_fully_qualified_symbol_name(candidate_op, decl_context, &is_dependent, &max_level)));
+                        it = it->next;
                     }
                 }
-                argument_call = strappend(argument_call, ")");
-
-                fprintf(stderr, "%s: warning: no suitable '%s' found for new-expression '%s'\n",
-                        ast_location(new_expr),
-                        argument_call,
-                        prettyprint_in_buffer(new_expr));
-                fprintf(stderr, "%s: note: candidates are:\n", ast_location(new_expr));
-                scope_entry_list_t* it = operator_new_list;
-                while (it != NULL)
-                {
-                    int max_level = 0;
-                    char is_dependent = 0;
-
-                    scope_entry_t* candidate_op = it->entry;
-                    fprintf(stderr, "%s: note:    %s\n", ast_location(new_expr),
-                            print_decl_type_str(candidate_op->type_information, decl_context, 
-                                get_fully_qualified_symbol_name(candidate_op, decl_context, &is_dependent, &max_level)));
-                    it = it->next;
-                }
-
                 return 0;
             }
 
@@ -7363,7 +7368,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         // These might include template_types that we have to "unfold" properly
         scope_entry_list_t* first_candidates = unresolved_overloaded_type_get_overload_set(expression_get_type(called_expression));
         candidates = unfold_and_mix_candidate_functions(first_candidates,
-                /* builtins */ NULL, &(argument_types[1]), num_arguments - 1,
+                /* builtins */ NULL, argument_types + 1, num_arguments - 1,
                 decl_context,
                 ASTFileName(whole_function_call), ASTLine(whole_function_call),
                 explicit_template_arguments);
@@ -7476,7 +7481,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
 
         candidates = get_member_function_of_class_type(class_type, operator, decl_context);
         candidates = unfold_and_mix_candidate_functions(candidates,
-                /* builtins */ NULL, &(argument_types[1]), num_arguments,
+                /* builtins */ NULL, argument_types + 1, num_arguments - 1,
                 decl_context,
                 ASTFileName(whole_function_call), ASTLine(whole_function_call),
                 /* explicit_template_arguments */ NULL);
@@ -7597,8 +7602,29 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
     scope_entry_t* conversors[MAX_ARGUMENTS];
     memset(conversors, 0, sizeof(conversors));
 
-    scope_entry_t* overloaded_call = solve_overload(candidates,
-            argument_types, num_arguments, decl_context,
+    candidate_t* candidate_set = NULL;
+    scope_entry_list_t* it = candidates;
+    while (it != NULL)
+    {
+        if (it->entry->entity_specs.is_member)
+        {
+            candidate_set = add_to_candidate_set(candidate_set,
+                    it->entry,
+                    num_arguments,
+                    argument_types);
+        }
+        else
+        {
+            candidate_set = add_to_candidate_set(candidate_set,
+                    it->entry,
+                    num_arguments - 1,
+                    argument_types + 1);
+        }
+        it = it->next;
+    }
+
+    scope_entry_t* overloaded_call = solve_overload(candidate_set,
+            decl_context,
             ASTFileName(whole_function_call),
             ASTLine(whole_function_call),
             conversors);
@@ -7654,62 +7680,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
 
         if (!checking_ambiguity())
         {
-            // Build an informational message
-            const char *argument_call = "";
-
-            // Implicit type
-            if (argument_types[0] != NULL)
-            {
-                argument_call = strappend(argument_call, print_type_str(no_ref(argument_types[0]), decl_context));
-                argument_call = strappend(argument_call, "::");
-            }
-
-            const char* called_entity_name = "";
-            if (ASTType(called_expression) == AST_POINTER_CLASS_MEMBER_ACCESS
-                    || ASTType(called_expression) == AST_CLASS_MEMBER_ACCESS)
-            {
-                called_entity_name = prettyprint_in_buffer(ASTSon1(called_expression));
-            }
-            else
-            {
-                called_entity_name = prettyprint_in_buffer(called_expression);
-            }
-
-            argument_call = strappend(argument_call, called_entity_name);
-            argument_call = strappend(argument_call, "(");
-            int i;
-
-            for (i = 1; i < num_arguments; i++)
-            {
-                argument_call = strappend(argument_call, print_type_str(argument_types[i], decl_context));
-                if ((i + 1) < num_arguments)
-                {
-                    argument_call = strappend(argument_call, ", ");
-                }
-            }
-            argument_call = strappend(argument_call, ")");
-
-            fprintf(stderr, "%s: warning: overload call to '%s' failed\n",
-                    ast_location(whole_function_call), argument_call);
-            if (candidates != NULL)
-            {
-                fprintf(stderr, "%s: note: candidates are\n", ast_location(whole_function_call));
-
-                scope_entry_list_t* it = candidates;
-
-                while (it != NULL)
-                {
-                    int max_level = 0;
-                    char is_dependent = 0;
-
-                    scope_entry_t* entry = it->entry;
-                    fprintf(stderr, "%s: note:    %s\n",
-                            ast_location(whole_function_call),
-                            print_decl_type_str(entry->type_information, decl_context, 
-                                get_fully_qualified_symbol_name(entry, decl_context, &is_dependent, &max_level)));
-                    it = it->next;
-                }
-            }
+            error_message_overload_failed(decl_context, whole_function_call, candidate_set);
         }
 
         return 0;
@@ -8138,18 +8109,31 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
             expression_get_type(class_expr) 
         };
 
+        candidate_t* candidate_set = NULL;
+        scope_entry_list_t* it = operator_arrow_list;
+        while (it != NULL)
+        {
+            candidate_set = add_to_candidate_set(candidate_set,
+                    it->entry,
+                    /* num_arguments */ 1,
+                    argument_types);
+            it = it->next;
+        }
+
         scope_entry_t* conversors[1] = { NULL };
 
-        scope_entry_t* selected_operator_arrow = solve_overload(operator_arrow_list,
-                argument_types, /* num_arguments = */ 1, decl_context, 
-                ASTFileName(member_access), ASTLine(member_access),
+        scope_entry_t* selected_operator_arrow = solve_overload(candidate_set,
+                decl_context, ASTFileName(member_access), ASTLine(member_access),
                 conversors);
 
         if (selected_operator_arrow == NULL)
         {
+            if (!checking_ambiguity())
+            {
+                error_message_overload_failed(decl_context, member_access, candidate_set);
+            }
             return 0;
         }
-
 
         if (!is_pointer_to_class_type(function_type_get_return_type(selected_operator_arrow->type_information)))
         {
@@ -8457,72 +8441,75 @@ static char check_for_postoperator_user_defined(AST expr, AST operator,
 {
     type_t* incremented_type = expression_get_type(postoperated_expr);
 
-    if (is_class_type(no_ref(incremented_type)))
-    {
-        // First lookup member operator if feasible
-        type_t* class_type = no_ref(incremented_type);
-
-        scope_entry_list_t *entry_list = get_member_function_of_class_type(class_type,
-                operator, decl_context);
-
-        if (entry_list != NULL)
-        {
-            type_t* argument_types[2] = {
-                lvalue_ref_for_implicit_arg(incremented_type), // Member argument (always a lvalue)
-                get_zero_type() // Postoperation
-            };
-            int num_arguments = 2;
-
-            scope_entry_t* conversors[2] = { NULL, NULL };
-
-            scope_entry_t* overloaded_call = solve_overload(entry_list,
-                    argument_types, num_arguments, decl_context,
-                    ASTFileName(expr), ASTLine(expr), conversors);
-
-            if (overloaded_call != NULL)
-            {
-                expression_set_type(expr, function_type_get_return_type(overloaded_call->type_information));
-                expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
-                return 1;
-            }
-        }
-    }
-
-    type_t* argument_types[3] = {
-        NULL, // Non-member
+    type_t* argument_types[2] = {
         incremented_type, // Member argument
         get_zero_type() // Postoperation
     };
-    int num_arguments = 3;
+    int num_arguments = 2;
+
+    candidate_t* candidate_set = NULL;
+
+    if (is_class_type(no_ref(incremented_type)))
+    {
+        scope_entry_list_t *entry_list = get_member_function_of_class_type(no_ref(incremented_type),
+                operator, decl_context);
+
+        scope_entry_list_t* it = entry_list;
+        while (it != NULL)
+        {
+            candidate_set = add_to_candidate_set(candidate_set,
+                    it->entry,
+                    num_arguments,
+                    argument_types);
+            it = it->next;
+        }
+    }
 
     // We need to do koenig lookup for non-members
     // otherwise some overloads might not be found
-    scope_entry_list_t *entry_list = koenig_lookup(num_arguments - 1,
-            &(argument_types[1]), decl_context, operator);
+    scope_entry_list_t *entry_list = koenig_lookup(num_arguments,
+            argument_types, decl_context, operator);
 
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(entry_list,
-            builtins, &(argument_types[1]), num_arguments - 1,
+            builtins, argument_types, num_arguments,
             decl_context,
             ASTFileName(expr), ASTLine(expr), /* explicit_template_arguments */ NULL);
 
-    scope_entry_t* conversors[3] = { NULL, NULL, NULL };
+    scope_entry_t* conversors[1] = { NULL };
 
-    scope_entry_t* overloaded_call = solve_overload(overload_set,
-            argument_types, num_arguments, decl_context,
-            ASTFileName(expr), ASTLine(expr), conversors);
+    scope_entry_list_t* it = overload_set;
+    while (it != NULL)
+    {
+        candidate_set = add_to_candidate_set(candidate_set,
+                it->entry,
+                num_arguments,
+                argument_types);
+        it = it->next;
+    }
+
+    scope_entry_t* overloaded_call = solve_overload(candidate_set,
+            decl_context, ASTFileName(expr), ASTLine(expr), 
+            conversors);
 
     if (overloaded_call != NULL)
     {
         expression_set_type(expr, function_type_get_return_type(overloaded_call->type_information));
         expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
 
-        if (conversors[1] != NULL)
+        if (conversors[0] != NULL)
         {
             ASTAttrSetValueType(postoperated_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
-            ASTAttrSetValueType(postoperated_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[1]));
+            ASTAttrSetValueType(postoperated_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[0]));
         }
 
         return 1;
+    }
+    else
+    {
+        if (!checking_ambiguity())
+        {
+            error_message_overload_failed(decl_context, expr, candidate_set);
+        }
     }
 
     return 0;
@@ -8535,69 +8522,75 @@ static char check_for_preoperator_user_defined(AST expr, AST operator,
 {
     type_t* incremented_type = expression_get_type(preoperated_expr);
 
+    type_t* argument_types[1] = {
+        incremented_type, 
+    };
+    int num_arguments = 1;
+
+    candidate_t* candidate_set;
+
     if (is_class_type(no_ref(incremented_type)))
     {
         scope_entry_list_t *entry_list = get_member_function_of_class_type(no_ref(incremented_type),
                 operator, decl_context);
 
-        if (entry_list != NULL)
+        scope_entry_list_t* it = entry_list;
+        while (it != NULL)
         {
-            type_t* argument_types[1] = {
-                lvalue_ref_for_implicit_arg(incremented_type), // Member argument (always a lvalue)
-            };
-            int num_arguments = 1;
-
-            scope_entry_t* conversors[1] = { NULL };
-
-            scope_entry_t* overloaded_call = solve_overload(entry_list,
-                    argument_types, num_arguments, decl_context,
-                    ASTFileName(expr), ASTLine(expr), conversors);
-
-            if (overloaded_call != NULL)
-            {
-                expression_set_type(expr, function_type_get_return_type(overloaded_call->type_information));
-                expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
-                return 1;
-            }
+            candidate_set = add_to_candidate_set(candidate_set,
+                    it->entry,
+                    num_arguments,
+                    argument_types);
+            it = it->next;
         }
     }
-
-    type_t* argument_types[2] = {
-        NULL, // Non member
-        incremented_type, 
-    };
-    int num_arguments = 2;
 
     // Otherwise lookup in non-member operator
     decl_context_t outer_namespace_scope = decl_context;
     outer_namespace_scope.current_scope = outer_namespace_scope.namespace_scope;
 
-    scope_entry_list_t *entry_list = koenig_lookup(num_arguments - 1,
-            &(argument_types[1]), decl_context, operator);
+    scope_entry_list_t *entry_list = koenig_lookup(num_arguments,
+            argument_types, decl_context, operator);
 
-    scope_entry_list_t* overloaded_set = unfold_and_mix_candidate_functions(
-            entry_list, builtins, &(argument_types[1]), num_arguments - 1,
+    scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(
+            entry_list, builtins, argument_types, num_arguments,
             decl_context,
             ASTFileName(expr), ASTLine(expr), /* explicit_template_arguments */ NULL);
 
-    scope_entry_t* conversors[2] = { NULL, NULL };
+    scope_entry_t* conversors[1] = { NULL };
 
-    scope_entry_t* overloaded_call = solve_overload(overloaded_set,
-            argument_types, num_arguments, decl_context,
-            ASTFileName(expr), ASTLine(expr), conversors);
+    scope_entry_list_t* it = overload_set;
+    while (it != NULL)
+    {
+        candidate_set = add_to_candidate_set(candidate_set,
+                it->entry,
+                num_arguments,
+                argument_types);
+        it = it->next;
+    }
+
+    scope_entry_t* overloaded_call = solve_overload(candidate_set,
+            decl_context, ASTFileName(expr), ASTLine(expr), conversors);
 
     if (overloaded_call != NULL)
     {
         expression_set_type(expr, function_type_get_return_type(overloaded_call->type_information));
         expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
 
-        if (conversors[1] != NULL)
+        if (conversors[0] != NULL)
         {
             ASTAttrSetValueType(preoperated_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
-            ASTAttrSetValueType(preoperated_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[1]));
+            ASTAttrSetValueType(preoperated_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[0]));
         }
 
         return 1;
+    }
+    else
+    {
+        if (!checking_ambiguity())
+        {
+            error_message_overload_failed(decl_context, expr, candidate_set);
+        }
     }
 
     return 0;
