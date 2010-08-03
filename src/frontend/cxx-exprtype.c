@@ -7606,7 +7606,8 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
     scope_entry_list_t* it = candidates;
     while (it != NULL)
     {
-        if (it->entry->entity_specs.is_member)
+        if (it->entry->entity_specs.is_member
+                || it->entry->entity_specs.is_surrogate_function)
         {
             candidate_set = add_to_candidate_set(candidate_set,
                     it->entry,
@@ -7700,25 +7701,6 @@ char can_be_called_with_number_of_arguments(scope_entry_t *entry, int num_argume
     // but only in the type system
     if (function_type_get_has_ellipsis(function_type))
         num_parameters--;
-
-    if (entry->entity_specs.is_surrogate_function)
-    {
-        // This is something of the form
-        //
-        // struct A
-        // {
-        //   operator float (*)(int)();
-        // };
-        //
-        // A a;
-        // float *pf;
-        //
-        // pf = a(3);
-        //
-        // The surrogated generated function has prototype 'float ()(float(*)(int), int)', so it has
-        // one more parameter than arguments, simply fake the call having this additional argument
-        num_arguments++;
-    }
 
     // Simple case everybody considers
     if (num_parameters == num_arguments)
