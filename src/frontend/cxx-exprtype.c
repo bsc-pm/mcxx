@@ -8509,7 +8509,7 @@ static char check_for_preoperator_user_defined(AST expr, AST operator,
     };
     int num_arguments = 1;
 
-    candidate_t* candidate_set;
+    candidate_t* candidate_set = NULL;
 
     if (is_class_type(no_ref(incremented_type)))
     {
