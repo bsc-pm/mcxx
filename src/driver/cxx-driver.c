@@ -2181,12 +2181,9 @@ static void parse_translation_unit(translation_unit_t* translation_unit, const c
         running_error("Compilation failed for file '%s'\n", translation_unit->input_filename);
     }
 
-    // --
-    // Concatenate trees
-    AST existing_list_of_decls = ASTSon0(translation_unit->parsed_tree);
-    AST concatenated = ast_list_concat(existing_list_of_decls, parsed_tree);
-    ast_set_child(translation_unit->parsed_tree, 0, concatenated);
-    // --
+    // Store the parsed tree as the unique child of AST_TRANSLATION_UNIT
+    // initialized in function initialize_semantic_analysis
+    ast_set_child(translation_unit->parsed_tree, 0, parsed_tree);
 
     timing_end(&timing_parsing);
 
