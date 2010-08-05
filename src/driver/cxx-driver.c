@@ -1049,7 +1049,6 @@ int parse_arguments(int argc, const char* argv[],
         CURRENT_CONFIGURATION->do_not_parse = 1;
         CURRENT_CONFIGURATION->do_not_compile = 1;
         CURRENT_CONFIGURATION->do_not_prettyprint = 1;
-        CURRENT_CONFIGURATION->do_not_prettyprint = 1;
 
         CURRENT_CONFIGURATION->do_not_link = 0;
         num_input_files = 0;
