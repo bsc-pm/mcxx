@@ -65,6 +65,8 @@ libtl_hlt_la_SOURCES = \
       hlt-stripmine.cpp \
       hlt-stripmine.hpp \
       hlt-common.hpp \
+      hlt-inline.hpp \
+      hlt-inline.cpp \
       hlt-task-aggregation.hpp \
       hlt-task-aggregation.cpp \
       hlt-task-aggregation-common.hpp \
