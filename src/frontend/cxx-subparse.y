@@ -64,6 +64,27 @@ subparsing : SUBPARSE_EXPRESSION expression
 }
 ;
 
+/*!if CPLUSPLUS*/
+subparse_type_list : type_specifier_seq_0
+{
+    $$ = ASTListLeaf($1);
+}
+| type_specifier_seq_ended_with_named_type_spec
+{
+    $$ = ASTListLeaf($1);
+}
+| subparse_type_list ',' type_specifier_seq_ended_with_named_type_spec
+{
+    $$ = ASTList($1, $3);
+}
+| subparse_type_list ',' type_specifier_seq_0
+{
+    $$ = ASTList($1, $3);
+}
+;
+/*!endif*/
+
+/*!if C99*/
 subparse_type_list : type_specifier_seq
 {
     $$ = ASTListLeaf($1);
@@ -73,6 +94,6 @@ subparse_type_list : type_specifier_seq
     $$ = ASTList($1, $3);
 }
 ;
-
+/*!endif*/
 
 /*!endif*/
