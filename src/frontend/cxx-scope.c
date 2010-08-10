@@ -267,12 +267,19 @@ decl_context_t new_global_context(void)
 {
     decl_context_t result = new_decl_context();
 
+    scope_entry_t* global_scope_namespace 
+        = counted_calloc(1, sizeof(*global_scope_namespace), &_bytes_used_scopes);
+    global_scope_namespace->kind = SK_NAMESPACE;
+
     // Create global scope
-    result.namespace_scope = new_namespace_scope(NULL, NULL);
+    result.namespace_scope = new_namespace_scope(NULL, global_scope_namespace);
+
     // Make it the global one
     result.global_scope = result.namespace_scope;
     // and the current one
     result.current_scope = result.namespace_scope;
+
+    global_scope_namespace->namespace_decl_context = result;
 
     return result;
 }
@@ -1185,7 +1192,7 @@ static scope_entry_list_t* query_qualified_name(
     decl_context_t lookup_context = qualified_context;
     lookup_context.decl_flags |= nested_name_context.decl_flags;
 
-    result = query_final_part_of_qualified(lookup_context, nested_name_context, unqualified_name);
+    result = query_final_part_of_qualified(nested_name_context, lookup_context, unqualified_name);
     return result;
 }
 
@@ -4106,7 +4113,8 @@ static const char* get_fully_qualified_symbol_name_simple(decl_context_t decl_co
     {
         while (current_scope != NULL)
         {
-            if (current_scope->related_entry != NULL)
+            if (current_scope->related_entry != NULL
+                    && current_scope->related_entry->symbol_name != NULL)
             {
                 const char* nested_name = strappend(current_scope->related_entry->symbol_name, "::");
                 result = strappend(nested_name, result);
