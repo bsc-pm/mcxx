@@ -111,8 +111,10 @@ static scope_t* new_block_scope(scope_t* enclosing_scope);
 static scope_t* new_class_scope(scope_t* enclosing_scope, scope_entry_t* class_entry);
 static scope_t* new_template_scope(scope_t* enclosing_scope);
 
+#if 0
 static scope_entry_list_t* name_lookup_used_namespaces(decl_context_t decl_context, 
         scope_t* current_scope, const char* name, char only_inline);
+#endif
 
 /* Scope creation functions */
 /*
@@ -786,7 +788,6 @@ scope_entry_list_t* query_nested_name_flags(decl_context_t decl_context,
     else
     {
         decl_context.decl_flags &= ~DF_ONLY_CURRENT_SCOPE;
-        decl_context.decl_flags |= DF_QUALIFIED_NAME;
         return query_qualified_name(decl_context, global_op, nested_name, unqualified_name);
     }
 }
@@ -1072,9 +1073,6 @@ static scope_entry_list_t* query_qualified_name(
     // scope was given we have to be able to find something there
     decl_context_t lookup_context = qualified_context;
     lookup_context.decl_flags |= nested_name_context.decl_flags;
-    // This disables the extra lookup in the used namespaces which could
-    // potentially fail as an ambiguous name
-    lookup_context.decl_flags |= DF_NO_AMBIGUOUS_NAMESPACE;
 
     if (ASTType(unqualified_name) != AST_TEMPLATE_ID
             && ASTType(unqualified_name) != AST_OPERATOR_FUNCTION_ID_TEMPLATE)
@@ -1167,8 +1165,6 @@ static decl_context_t lookup_qualification_scope(
         // The first is solved as an unqualified entity, taking into account that it might be
         // a dependent entity (like '_T' above)
         decl_context_t initial_nested_name_context = nested_name_context;
-        initial_nested_name_context.decl_flags &= ~DF_QUALIFIED_NAME;
-        initial_nested_name_context.decl_flags |= DF_NO_AMBIGUOUS_NAMESPACE;
 
         if (ASTType(first_qualification) == AST_TEMPLATE_ID)
         {
@@ -1286,7 +1282,6 @@ static decl_context_t lookup_qualification_scope_in_namespace(
     }
 
     decl_context_t lookup_context = decl_context;
-    lookup_context.decl_flags |= DF_NO_AMBIGUOUS_NAMESPACE;
 
     scope_entry_list_t* symbol_list = NULL;
     if (ASTType(current_name) != AST_TEMPLATE_ID)
@@ -1512,7 +1507,6 @@ static decl_context_t lookup_qualification_scope_in_class(
     }
 
     decl_context_t lookup_context = class_context;
-    lookup_context.decl_flags |= DF_NO_AMBIGUOUS_NAMESPACE;
 
     // Look up the next qualification item
     AST current_name = ASTSon0(nested_name_spec);
@@ -1576,6 +1570,7 @@ static decl_context_t lookup_qualification_scope_in_class(
             is_valid);
 }
 
+#if 0
 static scope_entry_list_t* name_lookup_used_namespaces_rec(decl_context_t decl_context, 
         scope_t* current_scope, const char* name, 
         int num_seen_scopes, scope_t** seen_scopes, char only_inline)
@@ -1650,8 +1645,9 @@ static scope_entry_list_t* name_lookup_used_namespaces(decl_context_t decl_conte
     return name_lookup_used_namespaces_rec(decl_context,
             current_scope, name, 0, NULL, only_inline);
 }
+#endif 
 
-#define MAX_CLASS_PATH (32)
+#define MAX_CLASS_PATH (64)
 
 typedef
 struct class_scope_lookup_tag
@@ -1720,7 +1716,7 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
     derived->path[derived->path_length - 1] = current_class_type;
     derived->is_virtual[derived->path_length - 1] = is_virtual;
 
-#define MAX_BASES (32)
+#define MAX_BASES (64)
     class_scope_lookup_t bases_lookup[MAX_BASES];
     memset(bases_lookup, 0, sizeof(bases_lookup));
 
@@ -2124,6 +2120,160 @@ static char different_symbols(scope_entry_list_t* entry_list_1, scope_entry_list
 
 static scope_entry_list_t* merge_scope_entry_list(scope_entry_list_t* list_1, scope_entry_list_t* list_2);
 
+#define MAX_ASSOCIATED_NAMESPACES (64)
+
+static scope_entry_list_t* query_in_associated_namespaces_rec(
+        const char* name, 
+        int idx_associated_namespaces, 
+        int num_associated_namespaces, 
+        scope_entry_t** associated_namespaces, 
+        decl_flags_t decl_flags)
+{
+    scope_entry_list_t* grand_result = NULL;
+
+    int i;
+    for (i = idx_associated_namespaces; 
+            i < num_associated_namespaces; 
+            i++)
+    {
+        int new_num_associated_namespaces = num_associated_namespaces;
+        scope_entry_t* associated_namespace = associated_namespaces[i];
+        scope_t* current_scope = associated_namespace->namespace_decl_context.current_scope;
+
+        // This namespace may have additional used namespaces which we will add to the list of namespaces 
+        // if and only if they are not already there
+        int k;
+        for (k = 0; k < current_scope->num_used_namespaces; k++)
+        {
+            int j;
+            char found = 0;
+            for (j = 0; j < new_num_associated_namespaces && !found; j++)
+            {
+                found = (associated_namespaces[j] == current_scope->use_namespace[k]);
+            }
+            if (!found)
+            {
+                if ((idx_associated_namespaces + new_num_associated_namespaces) == MAX_ASSOCIATED_NAMESPACES)
+                    running_error("Too many associated scopes > %d", MAX_ASSOCIATED_NAMESPACES);
+                associated_namespaces[idx_associated_namespaces + new_num_associated_namespaces] = current_scope->use_namespace[k];
+                new_num_associated_namespaces++;
+            }
+        }
+
+        scope_entry_list_t* result = query_name_in_scope(current_scope, name);
+
+        if (result == NULL)
+        {
+            result = query_in_associated_namespaces_rec(name, 
+                    num_associated_namespaces, 
+                    new_num_associated_namespaces,
+                    associated_namespaces,
+                    decl_flags);
+        }
+
+        grand_result = merge_scope_entry_list(grand_result, result);
+    }
+
+    return grand_result;
+}
+
+static scope_entry_list_t* name_lookup(decl_context_t decl_context, 
+        const char* name, const char* filename, int line)
+{
+    ERROR_CONDITION(name == NULL, "Name cannot be null!", 0);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "SCOPE: Name lookup of '%s'\n", name);
+    }
+
+    if (BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE))
+    {
+        return query_name_in_scope(decl_context.current_scope, name);
+    }
+
+    // TEMPLATE_SCOPE is specially handled always
+    scope_t* template_scope = decl_context.template_scope;
+    while (template_scope != NULL)
+    {
+        ERROR_CONDITION((template_scope->kind != TEMPLATE_SCOPE), "This is not a template scope!", 0);
+
+        scope_entry_list_t *template_query = query_name_in_scope(template_scope, name);
+
+        // If something is found in template query
+        // it has higher priority
+        if (template_query != NULL)
+        {
+            return template_query;
+        }
+
+        // If nothing was found, look up in the enclosing template_scope
+        // (they form a stack of template_scopes)
+        template_scope = template_scope->contained_in;
+    }
+
+    scope_entry_list_t* result = NULL;
+
+    int num_associated_namespaces = 0;
+    scope_entry_t* associated_namespaces[MAX_ASSOCIATED_NAMESPACES] = { 0 };
+
+    scope_t* current_scope = decl_context.current_scope;
+
+    while (result == NULL
+            && current_scope != NULL)
+    {
+        // If this scope has associated ones, add them to the associated scopes
+        int i;
+        for (i = 0; i < current_scope->num_used_namespaces; i++)
+        {
+            int j;
+            char found = 0;
+            for (j = 0; j < num_associated_namespaces && !found; j++)
+            {
+                found = (associated_namespaces[j] == current_scope->use_namespace[i]);
+            }
+            if (!found)
+            {
+                if (num_associated_namespaces == MAX_ASSOCIATED_NAMESPACES)
+                    running_error("Too many associated scopes > %d", MAX_ASSOCIATED_NAMESPACES);
+                associated_namespaces[num_associated_namespaces] = current_scope->use_namespace[i];
+                num_associated_namespaces++;
+            }
+        }
+
+        if (current_scope->kind == CLASS_SCOPE)
+        {
+            result = class_scope_lookup(current_scope, name, decl_context.decl_flags);
+        }
+        else if (current_scope->kind == NAMESPACE_SCOPE)
+        {
+            result = query_name_in_scope(current_scope, name);
+            if (result == NULL)
+            {
+                result = query_in_associated_namespaces_rec(name, 
+                        0, num_associated_namespaces, 
+                        associated_namespaces, 
+                        decl_context.decl_flags);
+                num_associated_namespaces = 0;
+            }
+        }
+        else // BLOCK_SCOPE || PROTOTYPE_SCOPE || FUNCTION_SCOPE (although its contains should be NULL)
+        {
+            result = query_name_in_scope(current_scope, name);
+        }
+
+        if (BITMAP_TEST(decl_context.decl_flags, DF_ELABORATED_NAME))
+        {
+            result = filter_any_non_type(result);
+        }
+
+        current_scope = current_scope->contained_in;
+    }
+
+    return result;
+}
+
+#if 0
 static scope_entry_list_t* name_lookup(decl_context_t decl_context, 
         const char* name, const char* filename, int line)
 {
@@ -2260,6 +2410,7 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
 
     return result;
 }
+#endif 
 
 decl_context_t update_context_with_template_arguments(
         decl_context_t context,
@@ -4236,59 +4387,8 @@ decl_context_t decl_context_empty()
 
 scope_entry_list_t* cascade_lookup(decl_context_t decl_context, const char* name)
 {
-    // This function is a simplified version of name_lookup, it turns that
-    // name_lookup is complex enough to avoid touching it unless needed
-
-    ERROR_CONDITION(name == NULL, "Name cannot be null!", 0);
-
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "SCOPE: Cascade lookup of '%s'\n", name);
-    }
-
-    scope_entry_list_t *result = NULL;
-
-    // This one has higher priority
-    scope_t* template_scope = decl_context.template_scope;
-    // The frontend should keep the template scope always up to date
-    while (template_scope != NULL)
-    {
-        ERROR_CONDITION((template_scope->kind != TEMPLATE_SCOPE), "This is not a template scope!", 0);
-
-        result = append_scope_entry_list(result, query_name_in_scope(template_scope, name));
-
-        // If nothing was found, look up in the enclosing template_scope
-        // (they form a stack of template_scopes)
-        template_scope = template_scope->contained_in;
-    }
-
-    scope_t* current_scope = decl_context.current_scope;
-    while (current_scope != NULL)
-    {
-        if (current_scope->kind != CLASS_SCOPE)
-        {
-            result = append_scope_entry_list(result, query_name_in_scope(current_scope, name));
-        }
-        else
-        {
-            // Class scopes require slightly different strategy
-            result = append_scope_entry_list(result, class_scope_lookup(current_scope, name, decl_context.decl_flags));
-        }
-
-        // Otherwise, if this is a NAMESPACE_SCOPE, lookup in the used namespaces
-        // note that the objects there are not hidden, but added
-        if (current_scope->num_used_namespaces > 0)
-        {
-            result = append_scope_entry_list(result, name_lookup_used_namespaces(decl_context, 
-                        current_scope, 
-                        name, 
-                        /* only_inline */ false));
-        }
-
-        current_scope = current_scope->contained_in;
-    }
-
-    return result;
+    internal_error("Not implemented", 0);
+    return NULL;
 }
 
 scope_entry_t* lookup_of_template_parameter(decl_context_t context, 
