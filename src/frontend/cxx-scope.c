@@ -2302,6 +2302,9 @@ static void error_ambiguity(scope_entry_list_t* entry_list, const char* filename
                     it->entry->decl_context, &is_dependent, &max_qualif_level));
         it = it->next;
     }
+
+    running_error("%s:%d: error: lookup failed due to ambiguous reference '%s'\n", 
+            filename, line, entry_list->entry->symbol_name);
 }
 
 
@@ -2449,11 +2452,6 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
         fprintf(stderr, "SCOPE: Name lookup of '%s'\n", name);
     }
 
-    if (BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE))
-    {
-        return query_name_in_scope(decl_context.current_scope, name);
-    }
-
     // TEMPLATE_SCOPE is specially handled always
     scope_t* template_scope = decl_context.template_scope;
     while (template_scope != NULL)
@@ -2525,6 +2523,11 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
         if (BITMAP_TEST(decl_context.decl_flags, DF_ELABORATED_NAME))
         {
             result = filter_any_non_type(result);
+        }
+
+        if (BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE))
+        {
+            return result;
         }
 
         current_scope = current_scope->contained_in;
