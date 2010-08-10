@@ -2325,21 +2325,18 @@ static void check_for_naming_ambiguity(scope_entry_list_t* entry_list, const cha
                     || it->entry->kind == SK_ENUMERATOR))
         {
             hiding_name = it->entry;
-            continue;
         }
         else if (it->entry->kind == SK_FUNCTION
                 || (it->entry->kind == SK_TEMPLATE
                     && named_type_get_symbol(template_type_get_primary_type(it->entry->type_information))->kind == SK_FUNCTION))
         {
             hiding_name = it->entry;
-            continue;
         }
         else if ((it->entry->kind == SK_CLASS
                     || it->entry->kind == SK_ENUM)
                 && (hiding_name != NULL
                     && hiding_name->decl_context.current_scope == it->entry->decl_context.current_scope))
         {
-            continue;
         }
         else
         {
@@ -2488,6 +2485,13 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
         {
             int j;
             char found = 0;
+
+            // Inlines are the only ones considered when doing a "only current
+            // scope" lookup
+            if (BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE)
+                        && !current_scope->use_namespace[i]->entity_specs.is_inline)
+                continue;
+
             for (j = 0; j < num_associated_namespaces && !found; j++)
             {
                 found = (associated_namespaces[j] == current_scope->use_namespace[i]);
@@ -2501,7 +2505,8 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
             }
         }
 
-        if (current_scope->kind == CLASS_SCOPE)
+        if (current_scope->kind == CLASS_SCOPE
+                && !BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE))
         {
             result = query_in_class(current_scope, name, decl_context.decl_flags, 
                     filename, line);
