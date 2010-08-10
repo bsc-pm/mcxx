@@ -961,8 +961,8 @@ static scope_entry_list_t* query_final_template_id(decl_context_t lookup_context
 
 static scope_entry_list_t* query_template_id_in_class(decl_context_t lookup_context,
         const char* template_name,
-        const char* filename UNUSED_PARAMETER,
-        int line UNUSED_PARAMETER)
+        const char* filename,
+        int line)
 {
     scope_entry_list_t* result = NULL;
 
@@ -1015,28 +1015,99 @@ static scope_entry_list_t* query_final_part_of_qualified(
 
     scope_entry_list_t* result = NULL;
 
-    if (ASTType(unqualified_name) == AST_SYMBOL)
+    switch (ASTType(unqualified_name))
     {
-        const char* name = ASTText(unqualified_name);
-        if (lookup_context.current_scope->kind == NAMESPACE_SCOPE)
-        {
-            result = query_in_namespace(lookup_context.current_scope->related_entry, name,
-                    lookup_context.decl_flags,
-                    ASTFileName(unqualified_name), ASTLine(unqualified_name));
-        }
-        else if (lookup_context.current_scope->kind == CLASS_SCOPE)
-        {
-            result = query_in_class(lookup_context.current_scope, name, lookup_context.decl_flags,
-                    ASTFileName(unqualified_name), ASTLine(unqualified_name));
-        }
-    }
-    else if (ASTType(unqualified_name) == AST_TEMPLATE_ID
-            || ASTType(unqualified_name) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
-    {
-        result = query_template_id_aux(unqualified_name,
-                lookup_context,
-                nested_name_context,
-                query_final_template_id);
+        case AST_SYMBOL:
+            {
+                const char* name = uniquestr(ASTText(unqualified_name));
+                if (BITMAP_TEST(lookup_context.decl_flags, DF_CONSTRUCTOR))
+                {
+                    name = strprepend(name, "constructor ");
+                }
+
+                if (lookup_context.current_scope->kind == NAMESPACE_SCOPE)
+                {
+                    result = query_in_namespace(lookup_context.current_scope->related_entry, name,
+                            lookup_context.decl_flags,
+                            ASTFileName(unqualified_name), ASTLine(unqualified_name));
+                }
+                else if (lookup_context.current_scope->kind == CLASS_SCOPE)
+                {
+                    result = query_in_class(lookup_context.current_scope, name, lookup_context.decl_flags,
+                            ASTFileName(unqualified_name), ASTLine(unqualified_name));
+                }
+            }
+            break;
+        case AST_TEMPLATE_ID:
+        case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
+            {
+                result = query_template_id_aux(unqualified_name,
+                        lookup_context,
+                        nested_name_context,
+                        query_final_template_id);
+            }
+            break;
+        case AST_DESTRUCTOR_ID:
+        case AST_DESTRUCTOR_TEMPLATE_ID:
+            // They have as a name ~name
+            {
+                AST symbol = ASTSon0(unqualified_name);
+                const char *name = ASTText(symbol);
+                if (lookup_context.current_scope->kind == CLASS_SCOPE)
+                {
+                    result = query_in_class(lookup_context.current_scope, name, lookup_context.decl_flags,
+                            ASTFileName(unqualified_name), ASTLine(unqualified_name));
+                }
+                else
+                {
+                    running_error("%s:%d: error: invalid destructor-id in non class-scope\n",
+                            ASTFileName(unqualified_name), ASTLine(unqualified_name));
+                }
+            }
+            break;
+        case AST_CONVERSION_FUNCTION_ID:
+            {
+                decl_context_t modified_class_context = lookup_context;
+                modified_class_context.template_scope = nested_name_context.template_scope;
+
+                char* conversion_function_name = 
+                    get_conversion_function_name(modified_class_context, unqualified_name, /* result_type */ NULL);
+
+                if (lookup_context.current_scope->kind == CLASS_SCOPE)
+                {
+                    result = query_in_class(lookup_context.current_scope, conversion_function_name, lookup_context.decl_flags,
+                            ASTFileName(unqualified_name), ASTLine(unqualified_name));
+                }
+                else
+                {
+                    running_error("%s:%d: error: invalid conversion-id in non class-scope\n",
+                            ASTFileName(unqualified_name), ASTLine(unqualified_name));
+                }
+            }
+            break;
+        case AST_OPERATOR_FUNCTION_ID :
+            {
+                const char *operator_function_name = get_operator_function_name(unqualified_name);
+                if (lookup_context.current_scope->kind == NAMESPACE_SCOPE)
+                {
+                    result = query_in_namespace(lookup_context.current_scope->related_entry, 
+                            operator_function_name,
+                            lookup_context.decl_flags,
+                            ASTFileName(unqualified_name), ASTLine(unqualified_name));
+                }
+                else if (lookup_context.current_scope->kind == CLASS_SCOPE)
+                {
+                    result = query_in_class(lookup_context.current_scope, 
+                            operator_function_name,
+                            lookup_context.decl_flags,
+                            ASTFileName(unqualified_name), ASTLine(unqualified_name));
+                }
+                break;
+            }
+        default:
+            {
+                internal_error("Invalid node type '%s'\n", ast_print_node_type(ASTType(unqualified_name)));
+            }
     }
 
     return result;
