@@ -4412,10 +4412,69 @@ decl_context_t decl_context_empty()
     return result;
 }
 
-scope_entry_list_t* cascade_lookup(decl_context_t decl_context UNUSED_PARAMETER, const char* name UNUSED_PARAMETER)
+// FIXME - This function should be removed some day. It exists solely for UDR
+// lookups...
+//
+// It is a simplified clone of name lookup but checks enclosing LEXICAL scopes
+// even if we have found something in the current one
+//
+// Note that cascade lookup DOES NOT take into account used namespaces or
+// template scopes
+scope_entry_list_t* cascade_lookup(decl_context_t decl_context, const char* name, 
+        const char* filename, int line)
 {
-    internal_error("Not implemented", 0);
-    return NULL;
+    ERROR_CONDITION(name == NULL, "Name cannot be null!", 0);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "SCOPE: Name lookup of '%s'\n", name);
+    }
+
+    scope_entry_list_t* result = NULL;
+
+    int num_associated_namespaces = 0;
+    scope_entry_t* associated_namespaces[MAX_ASSOCIATED_NAMESPACES] = { 0 };
+
+    scope_t* current_scope = decl_context.current_scope;
+
+    while (current_scope != NULL)
+    {
+        if (current_scope->kind == CLASS_SCOPE
+                && !BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE))
+        {
+            result = merge_scope_entry_list(result, 
+                    query_in_class(current_scope, name, decl_context.decl_flags, 
+                        filename, line));
+        }
+        else if (current_scope->kind == NAMESPACE_SCOPE)
+        {
+            result = merge_scope_entry_list(result,
+                    query_in_namespace_and_associates(
+                        current_scope->related_entry,
+                        name, 0, num_associated_namespaces,
+                        associated_namespaces, decl_context.decl_flags,
+                        filename, line));
+            num_associated_namespaces = 0;
+        }
+        else // BLOCK_SCOPE || PROTOTYPE_SCOPE || FUNCTION_SCOPE (although its contains should be NULL)
+        {
+            result = merge_scope_entry_list(result, query_name_in_scope(current_scope, name));
+        }
+
+        if (BITMAP_TEST(decl_context.decl_flags, DF_ELABORATED_NAME))
+        {
+            result = filter_any_non_type(result);
+        }
+
+        if (BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE))
+        {
+            return result;
+        }
+
+        current_scope = current_scope->contained_in;
+    }
+
+    return result;
 }
 
 scope_entry_t* lookup_of_template_parameter(decl_context_t context, 

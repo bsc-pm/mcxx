@@ -136,7 +136,8 @@ LIBMCXX_EXTERN decl_context_t update_context_with_template_arguments(
         template_argument_list_t* given_template_args);
 
 // Other stuff
-LIBMCXX_EXTERN scope_entry_list_t* cascade_lookup(decl_context_t decl_context, const char* name);
+LIBMCXX_EXTERN scope_entry_list_t* cascade_lookup(decl_context_t decl_context, const char* name, 
+        const char* filename, int line);
 
 LIBMCXX_EXTERN unsigned long long scope_used_memory(void);
 LIBMCXX_EXTERN unsigned long long symbols_used_memory(void);
