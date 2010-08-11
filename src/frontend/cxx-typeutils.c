@@ -105,6 +105,7 @@ typedef
 struct enum_information_tag {
     int num_enumeration; // Number of enumerations declared for this enum
     struct scope_entry_tag** enumeration_list; // The symtab entry of the enum
+    type_t* underlying_type; // The underlying type of this enum type
 } enum_info_t;
 
 struct simple_type_tag;
@@ -1302,11 +1303,6 @@ type_t* get_new_enum_type(decl_context_t decl_context)
 
     // This is incomplete by default
     type_info->info->is_incomplete = 1;
-
-    // FIXME - In the size of an enum depends of the range of enumerators
-    type_info->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_signed_int;
-    type_info->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_signed_int;
-    type_info->info->valid_size = 1;
 
     return type_info;
 }
@@ -3191,6 +3187,26 @@ int enum_type_get_num_enumerators(struct type_tag* t)
     return enum_type->enum_info->num_enumeration;
 }
 
+type_t* enum_type_get_underlying_type(struct type_tag* t)
+{
+    ERROR_CONDITION(!is_enumerated_type(t), "This is not an enum type", 0);
+
+    t = get_actual_enum_type(t);
+    simple_type_t* enum_type = t->type;
+
+    return enum_type->enum_info->underlying_type;
+}
+
+void enum_type_set_underlying_type(struct type_tag* t, struct type_tag* underlying_type)
+{
+    ERROR_CONDITION(!is_enumerated_type(t), "This is not an enum type", 0);
+
+    t = get_actual_enum_type(t);
+    simple_type_t* enum_type = t->type;
+
+    enum_type->enum_info->underlying_type = underlying_type;
+}
+
 // This function returns a copy of the old type
 type_t* unnamed_class_enum_type_set_name(type_t* t, scope_entry_t* entry)
 {
@@ -3209,7 +3225,7 @@ type_t* unnamed_class_enum_type_set_name(type_t* t, scope_entry_t* entry)
 
     return new_type;
 }
-// ---
+
 
 type_t* advance_over_typedefs_with_cv_qualif(type_t* t1, cv_qualifier_t* cv_qualif)
 {
@@ -7463,6 +7479,11 @@ type_t* get_null_type(void)
         {
             // Set 'long'
             _null_type->type->is_long = 1;
+        }
+        else if (_null_type->info->size == CURRENT_CONFIGURATION->type_environment->sizeof_signed_long_long)
+        {
+            // Set 'long'
+            _null_type->type->is_long = 2;
         }
     }
 

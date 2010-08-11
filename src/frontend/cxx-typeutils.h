@@ -174,6 +174,7 @@ LIBMCXX_EXTERN void class_type_add_typename(struct type_tag* t, struct scope_ent
 LIBMCXX_EXTERN void class_type_add_member(struct type_tag* t, struct scope_entry_tag* member);
 
 LIBMCXX_EXTERN void enum_type_add_enumerator(struct type_tag* t, struct scope_entry_tag* entry);
+LIBMCXX_EXTERN void enum_type_set_underlying_type(struct type_tag* t, struct type_tag* underlying_type);
 
 LIBMCXX_EXTERN void set_is_incomplete_type(type_t* t, char is_incomplete);
 LIBMCXX_EXTERN void set_is_complete_type(type_t* t, char is_complete);
@@ -348,6 +349,8 @@ LIBMCXX_EXTERN char array_type_is_vla(struct type_tag* t);
 
 LIBMCXX_EXTERN int enum_type_get_num_enumerators(struct type_tag* t);
 LIBMCXX_EXTERN scope_entry_t* enum_type_get_enumerator_num(struct type_tag* t, int n);
+
+LIBMCXX_EXTERN struct type_tag* enum_type_get_underlying_type(struct type_tag* t);
 
 LIBMCXX_EXTERN enum class_kind_t class_type_get_class_kind(type_t* t);
 LIBMCXX_EXTERN int class_type_get_num_bases(struct type_tag* class_type);
