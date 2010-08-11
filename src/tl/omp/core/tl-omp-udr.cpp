@@ -717,6 +717,9 @@ namespace TL
                 get_float_type(),
                 get_double_type(),
                 get_long_double_type(),
+                get_complex_type(get_float_type()),
+                get_complex_type(get_double_type()),
+                get_complex_type(get_long_double_type()),
                 NULL,
             };
 
