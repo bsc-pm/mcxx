@@ -1653,7 +1653,7 @@ namespace TL
 
             ObjectList<UDRInfoItem> udr_lookup;
             {
-                ObjectList<Symbol> lookup = sc.cascade_lookup(current_udr.get_symbol_name());
+                ObjectList<Symbol> lookup = sc.cascade_lookup(current_udr.get_symbol_name(), filename, line);
                 if (lookup.empty())
                 {
                     return empty_udr;
