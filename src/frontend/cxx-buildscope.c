@@ -2151,10 +2151,18 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
     }
 
     enum_type = new_entry->type_information;
+
+    // FIXME - See ticket #345
+    // We are doing this so early otherwise any expression inside the enum
+    // would we checked with an unset type and fail. This is particularly
+    // serious for C++. For C, enumerators have type int.
+    enum_type_set_underlying_type(enum_type, get_signed_int_type());
+
     new_entry->defined = 1;
     // Since this type is not anonymous we'll want that type_info
     // refers to this newly created type
     *type_info = get_user_defined_type(new_entry);
+
 
     ASTAttrSetValueType(a, LANG_ENUM_SPECIFIER_SYMBOL, tl_type_t, tl_symbol(new_entry));
 
@@ -2197,7 +2205,15 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             enumeration_item->file = ASTFileName(enumeration_name);
             enumeration_item->point_of_declaration = get_enclosing_declaration(enumeration_name);
             enumeration_item->kind = SK_ENUMERATOR;
-            enumeration_item->type_information = *type_info;
+            C_LANGUAGE()
+            {
+            enumeration_item->type_information = get_signed_int_type();
+            }
+            CXX_LANGUAGE()
+            {
+                // FIXME - Check this for C++
+                enumeration_item->type_information = *type_info;
+            }
 
             if (enumeration_expr != NULL)
             {
@@ -2270,9 +2286,6 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             num_enumerator++;
         }
     }
-
-    //  FIXME - See ticket #345
-    enum_type_set_underlying_type(enum_type, get_signed_int_type());
 
     set_is_complete_type(enum_type, /* is_complete */ 1);
 }
