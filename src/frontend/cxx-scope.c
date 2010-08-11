@@ -108,11 +108,6 @@ static scope_t* new_block_scope(scope_t* enclosing_scope);
 static scope_t* new_class_scope(scope_t* enclosing_scope, scope_entry_t* class_entry);
 static scope_t* new_template_scope(scope_t* enclosing_scope);
 
-#if 0
-static scope_entry_list_t* name_lookup_used_namespaces(decl_context_t decl_context, 
-        scope_t* current_scope, const char* name, char only_inline);
-#endif
-
 /* Scope creation functions */
 /*
  * There was a time when the compiler worked directly with scopes instead
@@ -1760,83 +1755,6 @@ static decl_context_t lookup_qualification_scope_in_class(
             is_valid);
 }
 
-#if 0
-static scope_entry_list_t* name_lookup_used_namespaces_rec(decl_context_t decl_context, 
-        scope_t* current_scope, const char* name, 
-        int num_seen_scopes, scope_t** seen_scopes, char only_inline)
-{
-    ERROR_CONDITION(current_scope == NULL, "Current scope is null", 0);
-    ERROR_CONDITION(name == NULL, "name is null", 0);
-
-    scope_entry_list_t* result = NULL;
-
-    int i;
-    // Look up in directly used namespaces, this always has to be performed
-    for (i = 0; i < current_scope->num_used_namespaces; i++)
-    {
-        scope_entry_t* used_namespace_sym = current_scope->use_namespace[i];
-
-        if (only_inline
-                && !used_namespace_sym->entity_specs.is_inline)
-            continue;
-
-        scope_t* used_namespace = used_namespace_sym->namespace_decl_context.current_scope;
-
-        scope_entry_list_t* used_namespace_search = query_name_in_scope(used_namespace, name);
-
-        result = append_scope_entry_list(result, used_namespace_search);
-    }
-
-    // Lookup to indirectly used namespaces is only performed if unqualified
-    // name or if qualified name but nothing was found in the directly used namespaces
-    if (BITMAP_TEST(decl_context.decl_flags, DF_UNQUALIFIED_NAME)
-            || (BITMAP_TEST(decl_context.decl_flags, DF_QUALIFIED_NAME)
-                && result == NULL))
-    {
-        for (i = 0; i < current_scope->num_used_namespaces; i++)
-        {
-            scope_entry_t* used_namespace_sym = current_scope->use_namespace[i];
-            scope_t* used_namespace = used_namespace_sym->namespace_decl_context.current_scope;
-
-            int j;
-            char already_looked_up = 0;
-            for (j = 0; (j < num_seen_scopes) && !already_looked_up; j++)
-            {
-                if (seen_scopes[j] == used_namespace)
-                    already_looked_up = 1;
-            }
-
-            if (already_looked_up)
-                continue;
-
-            scope_t* new_seen_scopes[num_seen_scopes + 1];
-            for (j = 0; j < num_seen_scopes; j++)
-            {
-                new_seen_scopes[j] = seen_scopes[j];
-            }
-            new_seen_scopes[num_seen_scopes] = used_namespace;
-
-            scope_entry_list_t* recursed_search = 
-                name_lookup_used_namespaces_rec(decl_context, used_namespace, name, 
-                        num_seen_scopes + 1, 
-                        new_seen_scopes,
-                        only_inline);
-
-            result = append_scope_entry_list(result, recursed_search);
-        }
-    }
-
-    return result;
-}
-
-static scope_entry_list_t* name_lookup_used_namespaces(decl_context_t decl_context, 
-        scope_t* current_scope, const char* name, char only_inline)
-{
-    return name_lookup_used_namespaces_rec(decl_context,
-            current_scope, name, 0, NULL, only_inline);
-}
-#endif 
-
 #define MAX_CLASS_PATH (64)
 
 typedef
@@ -2628,12 +2546,6 @@ decl_context_t update_context_with_template_arguments(
                 }
         }
     }
-
-#if 0
-    fprintf(stderr, "####################################\n");
-    print_scope(updated_context);
-    fprintf(stderr, "#-##################################\n");
-#endif
 
     return updated_context;
 }
