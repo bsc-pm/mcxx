@@ -375,7 +375,7 @@ static void system_v_generic_sizeof(type_t* t)
     {
         system_v_struct_sizeof(t);
     }
-    else if (is_enumerated_type(t))
+    else if (is_enum_type(t))
     {
         c_or_cxx_enum_sizeof(t);
     }
@@ -1423,7 +1423,7 @@ static void cxx_abi_generic_sizeof(type_t* t)
     {
         cxx_abi_class_sizeof(t);
     }
-    else if (is_enumerated_type(t))
+    else if (is_enum_type(t))
     {
         c_or_cxx_enum_sizeof(t);
     }

@@ -2216,6 +2216,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             {
                 if (num_enumerator == 0)
                 {
+                    // FIXME - We should be using the size in bytes of signed int
                     const_value_t* zero = const_value_get_zero(/* bytes */ 4, /* sign */ 1);
                     AST zero_tree = const_value_to_tree(zero);
 
@@ -2231,6 +2232,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                         const_value_t* val_plus_one = 
                             const_value_add(
                                     expression_get_constant(base_enumerator),
+                                    // FIXME - We should be using the size in bytes of signed int
                                     const_value_get(delta, /*bytes*/ 4, /*sign*/0));
 
                         enumeration_item->expression_value = const_value_to_tree(val_plus_one);
@@ -2268,6 +2270,9 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             num_enumerator++;
         }
     }
+
+    //  FIXME - See ticket #345
+    enum_type_set_underlying_type(enum_type, get_signed_int_type());
 
     set_is_complete_type(enum_type, /* is_complete */ 1);
 }
@@ -7449,7 +7454,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                 if ((ASTType(type_specifier) == AST_ENUM_SPECIFIER 
                             || ASTType(type_specifier) == AST_GCC_ENUM_SPECIFIER))
                 {
-                    ERROR_CONDITION(!is_enumerated_type(member_type), 
+                    ERROR_CONDITION(!is_enum_type(member_type), 
                             "AST_ENUM_SPECIFIER did not compute an enumerator type", 0);
 
                     int i, num_enums  = enum_type_get_num_enumerators(member_type);

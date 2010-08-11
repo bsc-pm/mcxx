@@ -3124,7 +3124,7 @@ void class_type_get_instantiation_trees(type_t* t, AST *body, AST *base_clause)
     *base_clause = t->type->template_class_base_clause;
 }
 
-char is_enumerated_type(type_t* t)
+char is_enum_type(type_t* t)
 {
     return is_unnamed_enumerated_type(t)
         || is_named_enumerated_type(t);
@@ -3157,7 +3157,7 @@ type_t* get_actual_enum_type(struct type_tag* t)
 
 void enum_type_add_enumerator(struct type_tag* t, scope_entry_t* enumeration_item)
 {
-    ERROR_CONDITION(!is_enumerated_type(t), "This is not an enum type", 0);
+    ERROR_CONDITION(!is_enum_type(t), "This is not an enum type", 0);
 
     t = get_actual_enum_type(t);
 
@@ -3169,7 +3169,7 @@ void enum_type_add_enumerator(struct type_tag* t, scope_entry_t* enumeration_ite
 
 scope_entry_t* enum_type_get_enumerator_num(struct type_tag* t, int n)
 {
-    ERROR_CONDITION(!is_enumerated_type(t), "This is not an enum type", 0);
+    ERROR_CONDITION(!is_enum_type(t), "This is not an enum type", 0);
 
     t = get_actual_enum_type(t);
 
@@ -3179,7 +3179,7 @@ scope_entry_t* enum_type_get_enumerator_num(struct type_tag* t, int n)
 
 int enum_type_get_num_enumerators(struct type_tag* t)
 {
-    ERROR_CONDITION(!is_enumerated_type(t), "This is not an enum type", 0);
+    ERROR_CONDITION(!is_enum_type(t), "This is not an enum type", 0);
     t = get_actual_enum_type(t);
 
     simple_type_t* enum_type = t->type;
@@ -3189,7 +3189,7 @@ int enum_type_get_num_enumerators(struct type_tag* t)
 
 type_t* enum_type_get_underlying_type(struct type_tag* t)
 {
-    ERROR_CONDITION(!is_enumerated_type(t), "This is not an enum type", 0);
+    ERROR_CONDITION(!is_enum_type(t), "This is not an enum type", 0);
 
     t = get_actual_enum_type(t);
     simple_type_t* enum_type = t->type;
@@ -3199,7 +3199,7 @@ type_t* enum_type_get_underlying_type(struct type_tag* t)
 
 void enum_type_set_underlying_type(struct type_tag* t, struct type_tag* underlying_type)
 {
-    ERROR_CONDITION(!is_enumerated_type(t), "This is not an enum type", 0);
+    ERROR_CONDITION(!is_enum_type(t), "This is not an enum type", 0);
 
     t = get_actual_enum_type(t);
     simple_type_t* enum_type = t->type;
@@ -4669,7 +4669,7 @@ char is_integral_type(type_t* t)
             || is_character_type(t)
             || is_wchar_t_type(t)
             // In C, enumerated types are integral types
-            || (is_enumerated_type(t) && IS_C_LANGUAGE));
+            || (is_enum_type(t) && IS_C_LANGUAGE));
 }
 
 char is_signed_integral_type(type_t* t)
@@ -5107,7 +5107,7 @@ char is_rvalue_reference_type(type_t* t1)
 
 decl_context_t enum_type_get_context(type_t* t)
 {
-    ERROR_CONDITION(!is_enumerated_type(t), "This is not an enumerated type", 0);
+    ERROR_CONDITION(!is_enum_type(t), "This is not an enumerated type", 0);
     t = advance_over_typedefs(t);
     if (is_named_type(t))
     {
@@ -6988,7 +6988,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                     || is_signed_short_int_type(orig)
                     || is_unsigned_short_int_type(orig)
                     || is_wchar_t_type(orig)
-                    || is_enumerated_type(orig)
+                    || is_enum_type(orig)
                     || is_bool_type(orig)))
         {
             DEBUG_CODE()
@@ -7015,7 +7015,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         }
         else if (is_integer_type(dest)
                 && (is_integer_type(orig) 
-                    || is_enumerated_type(orig))
+                    || is_enum_type(orig))
                 && !is_bool_type(dest)
                 && !is_bool_type(orig)
                 && !equivalent_types(dest, orig))
@@ -7198,7 +7198,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         else if (is_bool_type(dest)
                 && !is_bool_type(orig)
                 && (is_integral_type(orig)
-                    || is_enumerated_type(orig)
+                    || is_enum_type(orig)
                     || is_pointer_type(orig)
                     || is_pointer_to_member_type(orig)))
         {
@@ -7903,7 +7903,7 @@ type_t* lvalue_ref_for_implicit_arg(type_t* t)
 static char is_pod_type_aux(type_t* t, char allow_wide_bitfields)
 {
     if (is_integral_type(t)
-            || is_enumerated_type(t)
+            || is_enum_type(t)
             || is_floating_type(t))
         return 1;
 
