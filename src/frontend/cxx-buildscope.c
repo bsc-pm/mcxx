@@ -2071,6 +2071,88 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
     }
 }
 
+static type_t* compute_underlying_type_enum(const_value_t* min_value, 
+        const_value_t* max_value, 
+        type_t* underlying_type,
+        char short_enums)
+{
+    if (is_dependent_expr_type(underlying_type))
+        return underlying_type;
+
+
+    type_t* signed_types[] =
+    {
+        get_signed_char_type(),
+        get_signed_short_int_type(),
+        get_signed_int_type(),
+        get_signed_long_int_type(),
+        get_signed_long_long_int_type(),
+        NULL,
+    };
+
+    type_t* unsigned_types[] =
+    {
+        get_unsigned_char_type(),
+        get_unsigned_short_int_type(),
+        get_unsigned_int_type(),
+        get_unsigned_long_int_type(),
+        get_unsigned_long_long_int_type(),
+        NULL,
+    };
+
+    char there_are_negatives = 0;
+#define B_(x) const_value_is_nonzero(x)
+    there_are_negatives = B_(const_value_lt(min_value, const_value_get_zero(/*bytes*/ 4, 0)));
+
+    type_t** result = NULL;
+    if (!short_enums)
+    { 
+        if (there_are_negatives)
+        {
+            result = &(signed_types[2]); // get_signed_int_type()
+        }
+        else
+        {
+            result = &(unsigned_types[2]); // get_unsigned_int_type()
+        }
+    }
+    else
+    {
+        if (there_are_negatives)
+        {
+            result = signed_types;
+        }
+        else
+        {
+            result = unsigned_types;
+        }
+    }
+
+    while (*result != NULL)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "[BUILDSCOPE] Checking enum values range '%s..%s' with range '%s..%s' of %s\n",
+                    prettyprint_in_buffer(const_value_to_tree(min_value)),
+                    prettyprint_in_buffer(const_value_to_tree(max_value)),
+                    prettyprint_in_buffer(const_value_to_tree(integer_type_get_minimum(*result))),
+                    prettyprint_in_buffer(const_value_to_tree(integer_type_get_maximum(*result))),
+                    print_declarator(*result));
+        }
+
+        if (B_(const_value_lte(integer_type_get_minimum(*result), min_value))
+                && B_(const_value_lte(max_value, integer_type_get_maximum(*result))))
+        {
+            return *result;
+        }
+        result++;
+    }
+#undef B_
+    internal_error("Cannot come up with a wide enough integer type for range %s..%s\n",
+            prettyprint_in_buffer(const_value_to_tree(min_value)),
+            prettyprint_in_buffer(const_value_to_tree(max_value)));
+}
+
 /*
  * This function is called for enum specifiers. It saves all enumerated values
  * and if it has been given a name, it is registered in the scope.
@@ -2152,17 +2234,13 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
 
     enum_type = new_entry->type_information;
 
-    // FIXME - See ticket #345
-    // We are doing this so early otherwise any expression inside the enum
-    // would we checked with an unset type and fail. This is particularly
-    // serious for C++. For C, enumerators have type int.
-    enum_type_set_underlying_type(enum_type, get_signed_int_type());
+    char short_enums = CURRENT_CONFIGURATION->code_shape.short_enums;
+    type_t* underlying_type = get_signed_int_type();
 
     new_entry->defined = 1;
     // Since this type is not anonymous we'll want that type_info
     // refers to this newly created type
     *type_info = get_user_defined_type(new_entry);
-
 
     ASTAttrSetValueType(a, LANG_ENUM_SPECIFIER_SYMBOL, tl_type_t, tl_symbol(new_entry));
 
@@ -2186,11 +2264,13 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
 
         int num_enumerator = 0;
 
-
         // Delta respect the previous to latest
         int delta = 0;
         // Latest known base enumerator
         AST base_enumerator = NULL;
+
+        const_value_t* min_value = NULL;
+        const_value_t* max_value = NULL;
 
         // For every enumeration, sign them up in the symbol table
         for_each_element(list, iter)
@@ -2207,12 +2287,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             enumeration_item->kind = SK_ENUMERATOR;
             C_LANGUAGE()
             {
-            enumeration_item->type_information = get_signed_int_type();
-            }
-            CXX_LANGUAGE()
-            {
-                // FIXME - Check this for C++
-                enumeration_item->type_information = *type_info;
+                enumeration_item->type_information = get_signed_int_type();
             }
 
             if (enumeration_expr != NULL)
@@ -2222,6 +2297,26 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                     fprintf(stderr, "%s: warning: could not check enumerator initializer '%s'\n",
                             ast_location(enumeration_expr),
                             prettyprint_in_buffer(enumeration_expr));
+                }
+                else
+                {
+                    if (!expression_is_constant(enumeration_expr))
+                    {
+                        C_LANGUAGE()
+                        {
+                            fprintf(stderr, "%s: warning: expression '%s' is not constant\n",
+                                    ast_location(enumeration_expr),
+                                    prettyprint_in_buffer(enumeration_expr));
+                        }
+                        CXX_LANGUAGE()
+                        {
+                            underlying_type = get_dependent_expr_type();
+                        }
+                    }
+                    CXX_LANGUAGE()
+                    {
+                        enumeration_item->type_information = expression_get_type(enumeration_expr);
+                    }
                 }
 
                 enumeration_item->expression_value = enumeration_expr;
@@ -2236,13 +2331,16 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                     const_value_t* zero = const_value_get_zero(/* bytes */ 4, /* sign */ 1);
                     AST zero_tree = const_value_to_tree(zero);
 
+                    CXX_LANGUAGE()
+                    {
+                        enumeration_item->type_information = get_signed_int_type();
+                    }
                     enumeration_item->expression_value = zero_tree;
                     base_enumerator = zero_tree;
                     delta = 1;
                 }
                 else
                 {
-
                     if (expression_is_constant(base_enumerator))
                     {
                         const_value_t* val_plus_one = 
@@ -2252,6 +2350,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                                     const_value_get(delta, /*bytes*/ 4, /*sign*/0));
 
                         enumeration_item->expression_value = const_value_to_tree(val_plus_one);
+                        enumeration_item->type_information = expression_get_type(enumeration_item->expression_value);
                     }
                     else
                     {
@@ -2262,6 +2361,12 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                         const char *source = strappend( strappend( strappend("(", prettyprint_in_buffer(base_enumerator)) , ") + "), c);
                         AST add_one = internal_expression_parse(source, decl_context);
                         enumeration_item->expression_value = add_one;
+
+                        CXX_LANGUAGE()
+                        {
+                            enumeration_item->type_information = get_dependent_expr_type();
+                        }
+                        underlying_type = get_dependent_expr_type();
                     }
 
                     delta++;
@@ -2272,18 +2377,66 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             {
                 if (expression_is_constant(enumeration_item->expression_value))
                 {
-                    fprintf(stderr, "Registering enumerator '%s' with constant value '%lld'\n", ASTText(enumeration_name),
-                            (long long int)const_value_cast_to_8(expression_get_constant(enumeration_item->expression_value)));
+                    fprintf(stderr, "Registering enumerator '%s' with constant value '%lld' and type '%s'\n", ASTText(enumeration_name),
+                            (long long int)const_value_cast_to_8(expression_get_constant(enumeration_item->expression_value)),
+                            print_declarator(enumeration_item->type_information));
                 }
                 else
                 {
-                    fprintf(stderr, "Registering enumerator '%s' with value '%s'\n", ASTText(enumeration_name),
-                            prettyprint_in_buffer(enumeration_item->expression_value));
+                    fprintf(stderr, "Registering enumerator '%s' with value '%s' and type '%s'\n", ASTText(enumeration_name),
+                            prettyprint_in_buffer(enumeration_item->expression_value),
+                            print_declarator(enumeration_item->type_information));
                 }
             }
 
             enum_type_add_enumerator(enum_type, enumeration_item);
             num_enumerator++;
+
+#define B_(x) const_value_is_nonzero(x)
+            if (expression_is_constant(enumeration_item->expression_value)
+                    && !is_dependent_expr_type(underlying_type))
+            {
+                const_value_t* current_value = expression_get_constant(enumeration_item->expression_value);
+
+                if (min_value == NULL
+                        || B_(const_value_lt(current_value, min_value)))
+                {
+                    min_value = current_value;
+                }
+                if (max_value == NULL
+                        || B_(const_value_lt(max_value, current_value)))
+                {
+                    max_value = current_value;
+                }
+            }
+#undef B_
+        }
+
+        if (min_value == NULL)
+            min_value = const_value_get_zero(4, 0);
+        if (max_value == NULL)
+            max_value = const_value_get_zero(4, 0);
+
+        underlying_type = compute_underlying_type_enum(min_value, max_value, underlying_type, short_enums);
+        enum_type_set_underlying_type(enum_type, underlying_type);
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "[BUILDSCOPE] Underlying type for '%s' computed to '%s'\n", 
+                    print_declarator(enum_type),
+                    print_declarator(underlying_type));
+        }
+
+        CXX_LANGUAGE()
+        {
+            // Now set the type of all the enumerators to be of the enumerator
+            // type
+            int i;
+            for (i = 0; i < enum_type_get_num_enumerators(enum_type); i++)
+            {
+                scope_entry_t* enumerator = enum_type_get_enumerator_num(enum_type, i);
+                enumerator->type_information = *type_info;
+            }
         }
     }
 

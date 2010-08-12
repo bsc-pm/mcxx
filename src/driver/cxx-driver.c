@@ -1220,6 +1220,13 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
         case 'm':
             {
                 add_parameter_all_toolchain(argument, dry_run);
+                if (!dry_run)
+                {
+                    if (strcmp(argument, "-fshort-enums") == 0)
+                    {
+                        CURRENT_CONFIGURATION->code_shape.short_enums = 1;
+                    }
+                }
                 (*should_advance)++;
                 break;
             }

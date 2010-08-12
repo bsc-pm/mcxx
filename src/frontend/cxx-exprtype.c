@@ -10764,8 +10764,6 @@ char check_zero_args_constructor(type_t* class_type, decl_context_t decl_context
 
     if (chosen_constructor == NULL)
     {
-        // FIXME - There are classes with no constructors, they should have one
-        // otherwise some problems will arise with C++
         if (class_type_get_num_constructors(get_actual_class_type(class_type)) != 0)
         {
             fprintf(stderr, "%s: warning: no default constructor for '%s' type\n",

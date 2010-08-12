@@ -182,58 +182,149 @@ char const_value_is_signed(const_value_t* val)
     return val->sign;
 }
 
-static void get_proper_prefix(char is_signed, uint64_t value, const char** prefix, type_t** t)
+static type_t* get_minimal_integer_for_value(char is_signed, uint64_t value)
 {
-    if (is_signed)
+    if (!is_signed)
     {
-        int int_bits = 8 * type_get_size(get_signed_int_type());
-        int long_int_bits = 8 * type_get_size(get_signed_long_int_type());
-        
         uint64_t bitmask = ~(uint64_t)0;
 
-        if ((*(int64_t*)&value) < 0)
+        struct type_mask_tag
         {
-            *((int64_t*)&value) = -(int64_t)value;
-        }
+            type_t* type;
+            uint64_t mask;
+        } type_mask[] =
+        {
+            { get_unsigned_char_type(),          bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_unsigned_char_type())         ) },
+            { get_unsigned_short_int_type(),     bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_unsigned_short_int_type())    ) },
+            { get_unsigned_int_type(),           bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_unsigned_int_type())          ) },
+            { get_unsigned_long_int_type(),      bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_unsigned_long_int_type())     ) },
+            { get_unsigned_long_long_int_type(), 0 },
+            // Sentinel
+            { NULL, 0 },
+        };
 
-        if (((bitmask << int_bits) & value) == 0)
+        int i;
+        for (i = 0; type_mask[i].type != NULL; i++)
         {
-            *t = get_signed_int_type();
-            *prefix = uniquestr("");
+            if ((value & type_mask[i].mask) == 0)
+            {
+                return type_mask[i].type;
+            }
         }
-        else if (((bitmask << long_int_bits) & value) == 0)
-        {
-            *t = get_signed_long_int_type();
-            *prefix = uniquestr("l");
-        }
-        else
-        {
-            *t = get_signed_long_long_int_type();
-            *prefix = uniquestr("ll");
-        }
+        internal_error("Value '%llu' does not have any suitable integer type", value);
     }
     else
     {
-        int int_bits = 8 * type_get_size(get_unsigned_int_type());
-        int long_int_bits = 8 * type_get_size(get_unsigned_long_int_type());
+        char is_negative = (value & ((uint64_t)1 << 63)) >> 63;
 
-        uint64_t bitmask = ~(uint64_t)0;
+        if (!is_negative)
+        {
+            uint64_t bitmask = ~(uint64_t)0;
 
-        if (((bitmask << int_bits) & value) == 0)
-        {
-            *t = get_unsigned_int_type();
-            *prefix = uniquestr("u");
-        }
-        else if (((bitmask << long_int_bits) & value) == 0)
-        {
-            *t = get_unsigned_long_int_type();
-            *prefix = uniquestr("lu");
+            struct type_mask_tag
+            {
+                type_t* type;
+                uint64_t mask;
+            } type_mask[] =
+            {
+                // Like above but one bit less now
+                { get_signed_char_type(),          bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_char_type())          - 1) },
+                { get_signed_short_int_type(),     bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_short_int_type())     - 1) },
+                { get_signed_int_type(),           bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_int_type())           - 1) },
+                { get_signed_long_int_type(),      bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_long_int_type())      - 1) },
+                { get_signed_long_long_int_type(), bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_long_long_int_type()) - 1) },
+                // Sentinel
+                { NULL, 0 },
+            };
+
+            int i;
+            for (i = 0; type_mask[i].type != NULL; i++)
+            {
+                if ((value & type_mask[i].mask) == 0)
+                {
+                    return type_mask[i].type;
+                }
+            }
+            internal_error("Value '%lld' does not have any suitable integer type", (int64_t)value);
         }
         else
         {
-            *t = get_unsigned_long_long_int_type();
-            *prefix = uniquestr("llu");
+            uint64_t bitmask = ~(uint64_t)0;
+            uint64_t remove_sign = (~(uint64_t)0) >> 1;
+
+            struct type_mask_tag
+            {
+                type_t* type;
+                uint64_t mask;
+            } type_mask[] =
+            {
+                { get_signed_char_type(),          remove_sign & (bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_char_type())     )) },
+                { get_signed_short_int_type(),     remove_sign & (bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_short_int_type()))) },
+                { get_signed_int_type(),           remove_sign & (bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_int_type())      )) },
+                { get_signed_long_int_type(),      remove_sign & (bitmask << ((uint64_t)8 * (uint64_t)type_get_size(get_signed_long_int_type()) )) },
+                { get_signed_long_long_int_type(), 0 },
+                // Sentinel
+                { NULL, 0 },
+            };
+
+            int i;
+            for (i = 0; type_mask[i].type != NULL; i++)
+            {
+                // Like above but we check for the existence of a 0 instead of 1
+                if (((~value) & type_mask[i].mask) == 0)
+                {
+                    return type_mask[i].type;
+                }
+            }
+            internal_error("Value '%lld' does not have any suitable integer type", (int64_t)value);
         }
+    }
+
+    internal_error("Code unreachable", 0);
+    return NULL;
+}
+
+type_t* const_value_get_minimal_integer_type(const_value_t* val)
+{
+    return get_minimal_integer_for_value(val->sign, val->value);
+}
+
+
+static void get_proper_suffix(char is_signed, uint64_t value, const char** suffix, type_t** t)
+{
+    *t = get_minimal_integer_for_value(is_signed, value);
+
+    if (is_signed_char_type(*t)
+            || is_signed_short_int_type(*t)
+            || is_signed_int_type(*t))
+    {
+        *suffix = uniquestr("");
+    }
+    else if (is_unsigned_char_type(*t)
+            || is_unsigned_short_int_type(*t)
+            || is_unsigned_int_type(*t))
+    {
+        *suffix = uniquestr("u");
+    }
+    else if (is_signed_long_int_type(*t))
+    {
+        *suffix = uniquestr("l");
+    }
+    else if (is_unsigned_long_int_type(*t))
+    {
+        *suffix = uniquestr("ul");
+    }
+    else if (is_signed_long_long_int_type(*t))
+    {
+        *suffix = uniquestr("ll");
+    }
+    else if (is_unsigned_long_long_int_type(*t))
+    {
+        *suffix = uniquestr("ull");
+    }
+    else
+    {
+        internal_error("Invalid type", 0);
     }
 }
 
@@ -258,18 +349,18 @@ AST const_value_to_tree(const_value_t* v)
         {
             char c[64] = { 0 };
             type_t* t = NULL;
-            const char* prefix = NULL;
+            const char* suffix = NULL;
 
-            get_proper_prefix(v->sign, v->value, &prefix, &t);
+            get_proper_suffix(v->sign, v->value, &suffix, &t);
 
             if (v->sign)
             {
                 signed long long *sll = (signed long long*)&v->value;
-                snprintf(c, 63, "%lld%s", *sll, prefix);
+                snprintf(c, 63, "%lld%s", *sll, suffix);
             }
             else
             {
-                snprintf(c, 63, "%llu%s", (unsigned long long)v->value, prefix);
+                snprintf(c, 63, "%llu%s", (unsigned long long)v->value, suffix);
             }
 
             c[63] = '\0';
@@ -283,6 +374,63 @@ AST const_value_to_tree(const_value_t* v)
     }
 
     return v->tree;
+}
+
+const_value_t* integer_type_get_minimum(type_t* t)
+{
+    if (is_unsigned_char_type(t)
+            || is_unsigned_short_int_type(t)
+            || is_unsigned_long_int_type(t)
+            || is_unsigned_long_long_int_type(t)
+            || is_unsigned_int_type(t))
+    {
+        return const_value_get_zero(type_get_size(t), /* sign */ 0);
+    }
+    else if (is_signed_char_type(t)
+            || is_signed_short_int_type(t)
+            || is_signed_long_int_type(t)
+            || is_signed_long_long_int_type(t)
+            || is_signed_int_type(t))
+    {
+        uint64_t mask = ~(uint64_t)0;
+        mask >>= (64 - type_get_size(t)*8 + 1);
+        return const_value_get(~mask, type_get_size(t), /* sign */ 1);
+    }
+
+    internal_error("Invalid type", 0);
+    return NULL;
+}
+
+const_value_t* integer_type_get_maximum(type_t* t)
+{
+    if (is_unsigned_char_type(t)
+            || is_unsigned_short_int_type(t)
+            || is_unsigned_long_int_type(t)
+            || is_unsigned_long_long_int_type(t)
+            || is_unsigned_int_type(t))
+    {
+        uint64_t mask = ~(uint64_t)0;
+
+        if (type_get_size(t) < 8)
+        {
+            mask &= ~(~(uint64_t)0 << (type_get_size(t) * 8));
+        }
+
+        return const_value_get(mask, type_get_size(t), /* sign */ 0);
+    }
+    else if (is_signed_char_type(t)
+            || is_signed_short_int_type(t)
+            || is_signed_long_int_type(t)
+            || is_signed_long_long_int_type(t)
+            || is_signed_int_type(t))
+    {
+        uint64_t mask = ~(uint64_t)0;
+        mask >>= (64 - type_get_size(t)*8 + 1);
+        return const_value_get(mask, type_get_size(t), /* sign */ 1);
+    }
+
+    internal_error("Invalid type", 0);
+    return NULL;
 }
 
 #define OP(_opname) const_value_##opname

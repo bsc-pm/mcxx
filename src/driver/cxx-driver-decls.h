@@ -263,6 +263,11 @@ typedef struct target_options_map_tag
     } combining_mode;
 } target_options_map_t;
 
+typedef struct code_shape_tag
+{
+    char short_enums;
+} code_shape_t;
+
 typedef struct compilation_configuration_tag
 {
     const char *configuration_name;
@@ -346,6 +351,9 @@ typedef struct compilation_configuration_tag
     // Type environment
     struct type_environment_tag* type_environment;
 
+    // Flags affecting some bits of the language
+    code_shape_t code_shape;
+
     // Unified Parallel C (UPC)
     char enable_upc;
     // If this is not null, this should be a constant expression
@@ -353,16 +361,6 @@ typedef struct compilation_configuration_tag
 
     // Enable HLT
     char enable_hlt;
-
-#if 0
-    // Embedder map
-    int num_embed_maps;
-    embed_map_t** embed_maps;
-
-    // Identifier map
-    int num_identifier_maps;
-    identifier_map_t** identifier_maps;
-#endif
 
     // Target options
     int num_target_option_maps;
