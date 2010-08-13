@@ -1049,7 +1049,6 @@ int parse_arguments(int argc, const char* argv[],
         CURRENT_CONFIGURATION->do_not_parse = 1;
         CURRENT_CONFIGURATION->do_not_compile = 1;
         CURRENT_CONFIGURATION->do_not_prettyprint = 1;
-        CURRENT_CONFIGURATION->do_not_prettyprint = 1;
 
         CURRENT_CONFIGURATION->do_not_link = 0;
         num_input_files = 0;
@@ -1221,6 +1220,13 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
         case 'm':
             {
                 add_parameter_all_toolchain(argument, dry_run);
+                if (!dry_run)
+                {
+                    if (strcmp(argument, "-fshort-enums") == 0)
+                    {
+                        CURRENT_CONFIGURATION->code_shape.short_enums = 1;
+                    }
+                }
                 (*should_advance)++;
                 break;
             }
@@ -2181,12 +2187,9 @@ static void parse_translation_unit(translation_unit_t* translation_unit, const c
         running_error("Compilation failed for file '%s'\n", translation_unit->input_filename);
     }
 
-    // --
-    // Concatenate trees
-    AST existing_list_of_decls = ASTSon0(translation_unit->parsed_tree);
-    AST concatenated = ast_list_concat(existing_list_of_decls, parsed_tree);
-    ast_set_child(translation_unit->parsed_tree, 0, concatenated);
-    // --
+    // Store the parsed tree as the unique child of AST_TRANSLATION_UNIT
+    // initialized in function initialize_semantic_analysis
+    ast_set_child(translation_unit->parsed_tree, 0, parsed_tree);
 
     timing_end(&timing_parsing);
 

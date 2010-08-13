@@ -166,12 +166,13 @@ namespace TL
               lookup. This is why this function simply receives
               a string.
 
-              The order of the symbols goes from the innermost scope
-              to the outermost scope. So checking each symbol sequentially
-              will give you the expected semantics of checking from inner
-              to outer.
+              The order of the symbols goes from the innermost scope to the
+              outermost LEXICAL scope. So checking each symbol sequentially
+              will give you the expected semantics of checking from inner to
+              outer.
               */
-            ObjectList<Symbol> cascade_lookup(const std::string& name);
+            ObjectList<Symbol> cascade_lookup(const std::string& name, 
+                    const std::string& filename, int line);
 
             //! This function inserts a symbol using its name in the current scope
             /*! Use this function to bring the information of one symbol into another scope

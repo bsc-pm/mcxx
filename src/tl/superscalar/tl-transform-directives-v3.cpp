@@ -254,7 +254,7 @@ namespace TL
 		for (ObjectList<std::string>::const_iterator it = clauses.begin(); it != clauses.end(); it++)
 		{
 			std::string const &clause = *it;
-			if (!value_in_list(clause, "input", "output", "inout", "highpriority", "blocking", "reduction"))
+			if (!value_in_list(clause, "input", "output", "inout", "highpriority", "target", "reduction"))
 			{
 				std::cerr << construct.get_ast().get_locus() << " Error: invalid clause '" << clause << "' used in 'task' construct." << std::endl;
 				TransformDirectives::fail();

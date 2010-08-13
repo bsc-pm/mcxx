@@ -717,6 +717,9 @@ namespace TL
                 get_float_type(),
                 get_double_type(),
                 get_long_double_type(),
+                get_complex_type(get_float_type()),
+                get_complex_type(get_double_type()),
+                get_complex_type(get_long_double_type()),
                 NULL,
             };
 
@@ -1653,7 +1656,7 @@ namespace TL
 
             ObjectList<UDRInfoItem> udr_lookup;
             {
-                ObjectList<Symbol> lookup = sc.cascade_lookup(current_udr.get_symbol_name());
+                ObjectList<Symbol> lookup = sc.cascade_lookup(current_udr.get_symbol_name(), filename, line);
                 if (lookup.empty())
                 {
                     return empty_udr;

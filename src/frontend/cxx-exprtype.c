@@ -2098,7 +2098,7 @@ struct unary_operator_funct_type_t
 static 
 char operand_is_class_or_enum(type_t* op_type)
 {
-    return (is_enumerated_type(op_type)
+    return (is_enum_type(op_type)
             || is_class_type(op_type));
 }
 
@@ -2116,7 +2116,7 @@ static char is_promoteable_integral_type(type_t* t)
             || is_signed_short_int_type(t)
             || is_unsigned_short_int_type(t)
             || is_bool_type(t)
-            || is_enumerated_type(t)
+            || is_enum_type(t)
             || is_wchar_t_type(t));
 }
 
@@ -2125,14 +2125,13 @@ static type_t* promote_integral_type(type_t* t)
     ERROR_CONDITION(!is_promoteable_integral_type(t), 
             "This type cannot be promoted!", 0);
 
-    if (is_enumerated_type(t))
+    if (is_enum_type(t))
     {
-        // We sould get the underlying int type of the enumerator
-        return get_signed_int_type();
+        return enum_type_get_underlying_type(t);
     }
     else if (is_wchar_t_type(t))
     {
-        // FIXME - We sould get the underlying enumerator type
+        // FIXME - We sould get the underlying wchar type
         return get_signed_int_type();
     }
     else // char, bool or short
@@ -2144,8 +2143,8 @@ static type_t* promote_integral_type(type_t* t)
 static 
 char both_operands_are_integral(type_t* lhs_type, type_t* rhs_type)
 {
-    return (is_integral_type(lhs_type) || is_enumerated_type(lhs_type))
-        && (is_integral_type(rhs_type) || is_enumerated_type(lhs_type));
+    return (is_integral_type(lhs_type) || is_enum_type(lhs_type))
+        && (is_integral_type(rhs_type) || is_enum_type(lhs_type));
 };
 
 static 
@@ -2179,6 +2178,62 @@ char is_pointer_arithmetic(type_t* lhs_type, type_t* rhs_type)
 {
     return is_pointer_and_integral_type(lhs_type, rhs_type)
         || is_pointer_and_integral_type(rhs_type, lhs_type);
+}
+
+static char long_int_can_represent_unsigned_int(void)
+{
+    static char result = 2;
+
+    if (result == 2)
+    {
+        const_value_t* min_signed_long_int = integer_type_get_minimum(get_signed_long_int_type());
+        const_value_t* max_signed_long_int = integer_type_get_maximum(get_signed_long_int_type());
+
+        const_value_t* min_unsigned_int = integer_type_get_minimum(get_unsigned_int_type());
+        const_value_t* max_unsigned_int = integer_type_get_maximum(get_unsigned_int_type());
+
+#define B_(x) const_value_is_nonzero(x)
+        if (B_(const_value_lte(min_signed_long_int, min_unsigned_int))
+                && B_(const_value_lte(max_unsigned_int, max_signed_long_int)))
+        {
+            result = 1;
+        }
+        else
+        {
+            result = 0;
+        }
+#undef B_
+    }
+
+    return result;
+}
+
+static char long_long_int_can_represent_unsigned_long_int(void)
+{
+    static char result = 2;
+
+    if (result == 2)
+    {
+        const_value_t* min_signed_long_long_int = integer_type_get_minimum(get_signed_long_long_int_type());
+        const_value_t* max_signed_long_long_int = integer_type_get_maximum(get_signed_long_long_int_type());
+
+        const_value_t* min_unsigned_long_int = integer_type_get_minimum(get_unsigned_long_int_type());
+        const_value_t* max_unsigned_long_int = integer_type_get_maximum(get_unsigned_long_int_type());
+
+#define B_(x) const_value_is_nonzero(x)
+        if (B_(const_value_lte(min_signed_long_long_int, min_unsigned_long_int))
+                && B_(const_value_lte(max_unsigned_long_int, max_signed_long_long_int)))
+        {
+            result = 1;
+        }
+        else
+        {
+            result = 0;
+        }
+#undef B_
+    }
+
+    return result;
 }
 
 static type_t* usual_arithmetic_conversions(type_t* lhs_type, type_t* rhs_type)
@@ -2250,17 +2305,23 @@ static type_t* usual_arithmetic_conversions(type_t* lhs_type, type_t* rhs_type)
     {
         result = get_unsigned_long_long_int_type();
     }
-    // If one of the operands is 'signed long long' and the other one a
-    // 'unsigned long', convert to 'signed long long' (if a 'signed long long'
-    // cannot hold all 'unsigned long' values we should use an 'unsigned long
-    // long' instead, as it happens in 64-bit)
-    // FIXME: make a flag for such things
+    // If one operand is a long long int and the other unsigned long int, then
+    // if a long long int can represent all the values of an unsigned long int,
+    // the unsigned long int shall be converted to a long long int; otherwise
+    // both operands shall be converted to unsigned long long int.
     else if ((is_signed_long_long_int_type(lhs_type)
                 && is_unsigned_long_int_type(rhs_type))
             || (is_signed_long_long_int_type(rhs_type)
                 && is_unsigned_long_int_type(lhs_type)))
     {
-        result = get_signed_long_long_int_type();
+        if (long_long_int_can_represent_unsigned_long_int())
+        {
+            result = get_signed_long_long_int_type();
+        }
+        else
+        {
+            result = get_unsigned_long_long_int_type();
+        }
     }
     // If either is signed long long, convert to signed long long
     else if (is_signed_long_long_int_type(lhs_type)
@@ -2274,17 +2335,23 @@ static type_t* usual_arithmetic_conversions(type_t* lhs_type, type_t* rhs_type)
     {
         result = get_unsigned_long_int_type();
     }
-    // If one operand is "signed long" and the other "unsigned int" convert to
-    // "signed long" the "unsigned int" if a "signed long" can represent every
-    // value of a "signed long", otherwise convert the "signed long" to a
-    // "unsigned long"
-    // FIXME: make a flag for such things
+    // If one operand is a long int and the other unsigned int, then if a long
+    // int can represent all the values of an unsigned int, the unsigned int
+    // shall be converted to a long int; otherwise both operands shall be
+    // converted to unsigned long int.
     else if ((is_signed_long_int_type(lhs_type)
                 && is_unsigned_int_type(rhs_type))
             || (is_signed_long_int_type(rhs_type)
                 && is_unsigned_int_type(lhs_type)))
     {
-        result = get_unsigned_int_type();
+        if (long_int_can_represent_unsigned_int())
+        {
+            result = get_signed_long_int_type();
+        }
+        else
+        {
+            result = get_unsigned_long_int_type();
+        }
     }
     // If either is signed long, convert to signed long
     else if (is_signed_long_int_type(lhs_type)
@@ -3183,8 +3250,8 @@ static char operator_bin_arithmetic_pointer_or_enum_pred(type_t* lhs, type_t* rh
                 && (is_pointer_type(rhs) || is_array_type(lhs))
                 && equivalent_types(lhs, rhs))
             // enum E < enum E
-            || (is_enumerated_type(lhs)
-                && is_enumerated_type(rhs)
+            || (is_enum_type(lhs)
+                && is_enum_type(rhs)
                 && equivalent_types(lhs, rhs)));
 }
 
@@ -3216,8 +3283,8 @@ static type_t* operator_bin_arithmetic_pointer_or_enum_result(type_t** lhs, type
 
         return get_bool_type();
     }
-    else if (is_enumerated_type(*lhs)
-            && is_enumerated_type(*rhs)
+    else if (is_enum_type(*lhs)
+            && is_enum_type(*rhs)
             && equivalent_types(*lhs, *rhs))
     {
         return get_bool_type();
@@ -4543,7 +4610,7 @@ static type_t* compute_operator_minus_type(AST expression,
             && result != NULL
             && selected_operator != NULL
             && selected_operator->entity_specs.is_builtin
-            && (is_integral_type(no_ref(op_type)) || is_enumerated_type(no_ref(op_type)))
+            && (is_integral_type(no_ref(op_type)) || is_enum_type(no_ref(op_type)))
             && expression_is_constant(op))
     {
         *val = const_value_neg(expression_get_constant(op));
@@ -4640,7 +4707,7 @@ static type_t* compute_operator_complement_type(AST expression,
             && result != NULL
             && selected_operator != NULL
             && selected_operator->entity_specs.is_builtin
-            && (is_integral_type(no_ref(op_type)) || is_enumerated_type(no_ref(op_type)))
+            && (is_integral_type(no_ref(op_type)) || is_enum_type(no_ref(op_type)))
             && expression_is_constant(op))
     {
         *val = const_value_bitnot(expression_get_constant(op));
@@ -4741,7 +4808,7 @@ static type_t* compute_operator_not_type(AST expression,
             && result != NULL
             && selected_operator != NULL
             && selected_operator->entity_specs.is_builtin
-            && (is_integral_type(no_ref(op_type)) || is_enumerated_type(no_ref(op_type)))
+            && (is_integral_type(no_ref(op_type)) || is_enum_type(no_ref(op_type)))
             && expression_is_constant(op))
     {
         *val = const_value_not(expression_get_constant(op));
@@ -5852,8 +5919,8 @@ static char check_for_conditional_expression_impl(AST expression, decl_context_t
         if (!equivalent_types(no_ref(second_type), no_ref(third_type))
                 && ((is_class_type(no_ref(second_type))
                         || is_class_type(no_ref(third_type)))
-                    || (is_enumerated_type(no_ref(second_type))
-                        || is_enumerated_type(no_ref(third_type)))
+                    || (is_enum_type(no_ref(second_type))
+                        || is_enum_type(no_ref(third_type)))
                     )
                 )
         {
@@ -8626,7 +8693,7 @@ static char check_for_postoperator(AST expr, AST operator, AST postoperated_expr
     CXX_LANGUAGE()
     {
         requires_overload = is_class_type(no_ref(operated_type))
-            || is_enumerated_type(no_ref(operated_type));
+            || is_enum_type(no_ref(operated_type));
     }
 
     if (!requires_overload)
@@ -9731,10 +9798,9 @@ static void accessible_types_through_conversion(type_t* t, type_t ***result, int
     ERROR_CONDITION(is_lvalue_reference_type(t), "Reference types should have been removed here", 0);
 
 
-    if (is_enumerated_type(t))
+    if (is_enum_type(t))
     {
-        // FIXME - Should use the underlying integer type
-        P_LIST_ADD(*result, *num_types, get_signed_int_type());
+        P_LIST_ADD(*result, *num_types, enum_type_get_underlying_type(t));
         return;
     }
     else if (is_class_type(t))
@@ -10741,8 +10807,6 @@ char check_zero_args_constructor(type_t* class_type, decl_context_t decl_context
 
     if (chosen_constructor == NULL)
     {
-        // FIXME - There are classes with no constructors, they should have one
-        // otherwise some problems will arise with C++
         if (class_type_get_num_constructors(get_actual_class_type(class_type)) != 0)
         {
             fprintf(stderr, "%s: warning: no default constructor for '%s' type\n",
