@@ -1019,15 +1019,17 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
             // }
             //
             else if (is_lvalue_reference_type(original_parameter)
-                    && is_more_or_equal_cv_qualified_type(updated_type,
-                        argument_types[i]))
+                    && equivalent_types(
+                        get_unqualified_type(no_ref(updated_type)), 
+                        get_unqualified_type(no_ref(argument_types[i])))
+                    && is_more_or_equal_cv_qualified_type(updated_type, argument_types[i]))
             {
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "TYPEDEDUC: But original parameter type is reference and"
                             " deduced parameter type '%s' is more qualified than argument type '%s'\n",
-                            print_declarator(updated_type),
-                            print_declarator(argument_types[i]));
+                            print_type_str(updated_type, decl_context),
+                            print_type_str(argument_types[i], decl_context));
                 }
                 ok = 1;
             }

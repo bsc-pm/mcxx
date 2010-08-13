@@ -133,8 +133,6 @@ LIBMCXX_EXTERN struct type_tag* get_pointer_to_member_type(struct type_tag*, str
 LIBMCXX_EXTERN struct type_tag* get_lvalue_reference_type(struct type_tag* t);
 LIBMCXX_EXTERN struct type_tag* get_rvalue_reference_type(struct type_tag* t);
 
-LIBMCXX_EXTERN struct type_tag* lvalue_ref_for_implicit_arg(struct type_tag* t);
-
 LIBMCXX_EXTERN struct type_tag* get_array_type(struct type_tag*, struct AST_tag* expression, decl_context_t decl_context);
 
 LIBMCXX_EXTERN struct type_tag* get_array_type_str(struct type_tag*, const char* dim);
