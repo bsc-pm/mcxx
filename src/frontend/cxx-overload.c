@@ -1385,15 +1385,13 @@ char is_better_function_flags(overload_entry_list_t* ovl_f,
     //
     DEBUG_CODE()
     {
-        fprintf(stderr, "OVERLOAD: Checking if [%s, %s:%d, %s] is better than [%s, %s:%d, %s]\n",
-                f->symbol_name,
+        fprintf(stderr, "OVERLOAD: Checking if [%s, %s:%d] is better than [%s, %s:%d]\n",
+                print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
                 f->file,
                 f->line,
-                print_declarator(f->type_information),
-                g->symbol_name,
+                print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
                 g->file,
-                g->line,
-                print_declarator(g->type_information));
+                g->line);
     }
 
     int first_type = 0;
@@ -1411,121 +1409,126 @@ char is_better_function_flags(overload_entry_list_t* ovl_f,
     char some_is_better = 0;
     char some_is_worse = 0;
     int i;
-    for (i = first_type; i < ovl_f->candidate->num_args; i++)
+    for (i = first_type; i < ovl_f->candidate->num_args && !some_is_worse; i++)
     {
         implicit_conversion_sequence_t ics_to_f = ovl_f->ics_arguments[i];
         implicit_conversion_sequence_t ics_to_g = ovl_g->ics_arguments[i];
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "OVERLOAD: Comparing ICSs of argument %d\n", i);
+        }
 
         if (better_ics(ics_to_f, ics_to_g))
         {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "OVERLOAD: ICS %d of first function is better than second\n", i);
+            }
             some_is_better = 1;
         }
         else if (better_ics(ics_to_g, ics_to_f))
         {
-            // It turned out that this one is actualy worse, so 'f' is not better than 'g'
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "OVERLOAD: ICS %d of first function is worse than second\n", i);
+            }
+            // It turned out that this one is actually worse, so 'f' is not better than 'g'
             some_is_worse = 1;
         }
     }
 
-    // If we saw that some argument ICS was really better, then it is better
-    if (some_is_better
-            && !some_is_worse)
+    // If we saw that some argument ICS was really better and none was worse,
+    // then it is better
+    if (!some_is_worse)
     {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "OVERLOAD: Found that [%s, %s:%d, %s] IS better"
-                    " than [%s, %s:%d, %s] because some argument in the first"
-                    " function has a better ICS than the respective one in the second\n",
-                    f->symbol_name,
-                    f->file,
-                    f->line,
-                    print_declarator(f->type_information),
-                    g->symbol_name,
-                    g->file,
-                    g->line,
-                    print_declarator(g->type_information));
-        }
-        return 1;
-    }
-
-    // or if not that, non-template functions are preferred over template
-    // functions
-    if (!is_template_specialized_type(f->type_information)
-            && is_template_specialized_type(g->type_information))
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "OVERLOAD: Found that [%s, %s:%d, %s] IS better than [%s, %s:%d, %s] because "
-                    "the first is not a template-specialization and the second is\n",
-                    f->symbol_name,
-                    f->file,
-                    f->line,
-                    print_declarator(f->type_information),
-                    g->symbol_name,
-                    g->file,
-                    g->line,
-                    print_declarator(g->type_information));
-        }
-        return 1;
-    }
-    
-    if (is_template_specialized_type(f->type_information)
-            && is_template_specialized_type(g->type_information))
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "OVERLOAD: Found that [%s, %s:%d, %s] and [%s, %s:%d, %s] are template functions "
-                    "so we have to check which one is more specialized\n",
-                    f->symbol_name,
-                    f->file,
-                    f->line,
-                    print_declarator(f->type_information),
-                    g->symbol_name,
-                    g->file,
-                    g->line,
-                    print_declarator(g->type_information));
-        }
-        // if ¬(f <= g) then f > g
-        deduction_set_t* deduction_set = NULL;
-        if (!is_less_or_equal_specialized_template_function(
-                    // Why is it so convoluted to get the type of the primary specialization ?
-                    named_type_get_symbol(template_type_get_primary_type(
-                        template_specialized_type_get_related_template_type(f->type_information)))->type_information,
-                    named_type_get_symbol(template_type_get_primary_type(
-                            template_specialized_type_get_related_template_type(g->type_information)))->type_information, 
-                    decl_context, &deduction_set, 
-                    /* explicit_template_arguments */ NULL,
-                    filename, line, /* is_conversion */ 0))
+        if (some_is_better)
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "OVERLOAD: Found that template-function [%s, %s:%d, %s] is more "
-                        "specialized than template-function [%s, %s:%d, %s]\n",
-                        f->symbol_name,
+                fprintf(stderr, "OVERLOAD: Found that [%s, %s:%d] IS better"
+                        " than [%s, %s:%d] because some argument in the first"
+                        " function has a better ICS than the respective one in the second\n",
+                        print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
                         f->file,
                         f->line,
-                        print_declarator(f->type_information),
-                        g->symbol_name,
+                        print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
                         g->file,
-                        g->line,
-                        print_declarator(g->type_information));
+                        g->line);
             }
             return 1;
+        }
+
+        // or if not that, non-template functions are preferred over template
+        // functions
+        if (!is_template_specialized_type(f->type_information)
+                && is_template_specialized_type(g->type_information))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "OVERLOAD: Found that [%s, %s:%d] IS better than [%s, %s:%d] because "
+                        "the first is not a template-specialization and the second is\n",
+                        print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
+                        f->file,
+                        f->line,
+                        print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
+                        g->file,
+                        g->line);
+            }
+            return 1;
+        }
+
+        if (is_template_specialized_type(f->type_information)
+                && is_template_specialized_type(g->type_information))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "OVERLOAD: Found that [%s, %s:%d] and [%s, %s:%d] are template functions "
+                        "so we have to check which one is more specialized\n",
+                        print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
+                        f->file,
+                        f->line,
+                        print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
+                        g->file,
+                        g->line);
+            }
+            // if ¬(f <= g) then f > g
+            deduction_set_t* deduction_set = NULL;
+            if (!is_less_or_equal_specialized_template_function(
+                        // Why is it so convoluted to get the type of the primary specialization ?
+                        named_type_get_symbol(template_type_get_primary_type(
+                                template_specialized_type_get_related_template_type(f->type_information)))->type_information,
+                        named_type_get_symbol(template_type_get_primary_type(
+                                template_specialized_type_get_related_template_type(g->type_information)))->type_information, 
+                        decl_context, &deduction_set, 
+                        /* explicit_template_arguments */ NULL,
+                        filename, line, /* is_conversion */ 0))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "OVERLOAD: Found that template-function [%s, %s:%d] is more "
+                            "specialized than template-function [%s, %s:%d]\n",
+                            print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
+                            f->file,
+                            f->line,
+                            print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
+                            g->file,
+                            g->line);
+                }
+                return 1;
+            }
         }
     }
     
     // It is not better (it might be equally good, though)
     DEBUG_CODE()
     {
-        fprintf(stderr, "OVERLOAD: Found that [%s, %s:%d, %s] is NOT better than [%s, %s:%d, %s]\n",
-                f->symbol_name,
+        fprintf(stderr, "OVERLOAD: Found that [%s, %s:%d] is NOT better than [%s, %s:%d]\n",
+                print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
                 f->file,
                 f->line,
-                print_declarator(f->type_information),
-                g->symbol_name,
+                print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
                 g->file,
-                g->line,
-                print_declarator(g->type_information));
+                g->line);
     }
     return 0;
 }
@@ -1662,11 +1665,13 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
             overload_entry_list_t *it = viable_functions;
             while (it != NULL)
             {
-                fprintf(stderr, "OVERLOAD:    %s, %s:%d [%s]\n",
-                        it->candidate->entry->symbol_name,
+                fprintf(stderr, "OVERLOAD:    %s:%d: %s\n",
                         it->candidate->entry->file,
                         it->candidate->entry->line,
-                        print_declarator(it->candidate->entry->type_information));
+                        print_decl_type_str(
+                            it->candidate->entry->type_information,
+                            it->candidate->entry->decl_context,
+                            it->candidate->entry->symbol_name));
 
                 it = it->next;
             }
@@ -1679,9 +1684,7 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
     // First tournament
     while (it != NULL)
     {
-        overload_entry_list_t* current = it;
-
-        if (is_better_function(current, best_viable,
+        if (is_better_function(it, best_viable,
                     decl_context, filename, line))
         {
             best_viable = it;

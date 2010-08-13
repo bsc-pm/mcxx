@@ -2158,7 +2158,7 @@ static char both_operands_are_vector_types(type_t* lhs_type, type_t* rhs_type)
 {
     return is_vector_type(lhs_type)
         && is_vector_type(rhs_type)
-        && equivalent_types(lhs_type, rhs_type);
+        && equivalent_types(get_unqualified_type(lhs_type), get_unqualified_type(rhs_type));
 }
 
 static char is_pointer_and_integral_type(type_t* lhs_type, type_t* rhs_type)
@@ -2453,10 +2453,20 @@ static void error_message_overload_failed(decl_context_t decl_context, AST expr,
             char is_dependent = 0;
 
             scope_entry_t* entry = it->entry;
-            fprintf(stderr, "%s: note:    %s\n",
-                    ast_location(expr),
+
+            const char* file = entry->file != NULL ? entry->file : ASTFileName(expr);
+            int line = entry->file != NULL ? (unsigned)entry->line : (unsigned)ASTLine(expr);
+
+            fprintf(stderr, "%s:%d: note:    %s",
+                    file, line,
                     print_decl_type_str(entry->type_information, decl_context, 
                         get_fully_qualified_symbol_name(entry, decl_context, &is_dependent, &max_level)));
+
+            if (entry->entity_specs.is_builtin)
+            {
+                fprintf(stderr, " [built-in]");
+            }
+            fprintf(stderr, "\n");
             it = it->next;
         }
     }
@@ -2481,26 +2491,23 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
 
     candidate_t* candidate_set = NULL;
 
+    scope_entry_list_t* operator_overload_set = NULL;
     if (is_class_type(no_ref(lhs_type)))
     {
         scope_entry_list_t* operator_entry_list = get_member_function_of_class_type(no_ref(lhs_type), 
                 operator_name, decl_context);
 
-        scope_entry_list_t* it = operator_entry_list;
-        while (it != NULL)
-        {
-            candidate_set = add_to_candidate_set(candidate_set,
-                    it->entry,
-                    num_arguments,
-                    argument_types);
-            it = it->next;
-        }
+        operator_overload_set = unfold_and_mix_candidate_functions(operator_entry_list,
+                NULL, argument_types + 1, num_arguments - 1,
+                decl_context,
+                ASTFileName(expr), ASTLine(expr),
+                /* explicit template arguments */ NULL);
     }
 
     // This uses Koenig, otherwise some operators might not be found
     scope_entry_list_t *entry_list = koenig_lookup(num_arguments,
             argument_types, decl_context, operator_name);
-    
+
     // Normal lookup might find member functions at this point, filter them
     entry_list = filter_symbol_using_predicate(entry_list, filter_only_nonmembers);
     
@@ -2509,6 +2516,8 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
             decl_context,
             ASTFileName(expr), ASTLine(expr),
             /* explicit template arguments */ NULL);
+
+    overload_set = merge_scope_entry_list(overload_set, operator_overload_set);
 
     scope_entry_list_t* it = overload_set;
     while (it != NULL)
@@ -2583,10 +2592,15 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
         scope_entry_list_t* it = operator_entry_list;
         while (it != NULL)
         {
-            candidate_set = add_to_candidate_set(candidate_set,
-                    it->entry,
-                    num_arguments,
-                    argument_types);
+            // It is impossible to deduce anything since a unary overloaded
+            // operator has zero parameters, so discard templates at this point
+            if (it->entry->kind != SK_TEMPLATE)
+            {
+                candidate_set = add_to_candidate_set(candidate_set,
+                        it->entry,
+                        num_arguments,
+                        argument_types);
+            }
             it = it->next;
         }
     }
@@ -3248,11 +3262,11 @@ static char operator_bin_arithmetic_pointer_or_enum_pred(type_t* lhs, type_t* rh
             // T* < T*
             || ((is_pointer_type(lhs) || is_array_type(lhs))
                 && (is_pointer_type(rhs) || is_array_type(lhs))
-                && equivalent_types(lhs, rhs))
+                && equivalent_types(get_unqualified_type(lhs), get_unqualified_type(rhs)))
             // enum E < enum E
-            || (is_enum_type(lhs)
-                && is_enum_type(rhs)
-                && equivalent_types(lhs, rhs)));
+            || (is_enum_type(no_ref(lhs))
+                && is_enum_type(no_ref(rhs))
+                && equivalent_types(get_unqualified_type(no_ref(lhs)), get_unqualified_type(no_ref(rhs)))));
 }
 
 static type_t* operator_bin_arithmetic_pointer_or_enum_result(type_t** lhs, type_t** rhs)
@@ -3269,7 +3283,7 @@ static type_t* operator_bin_arithmetic_pointer_or_enum_result(type_t** lhs, type
     }
     else if ((is_pointer_type(*lhs) || is_array_type(*lhs))
             && (is_pointer_type(*rhs) || is_array_type(*rhs))
-            && equivalent_types(*lhs, *rhs))
+            && equivalent_types(get_unqualified_type(*lhs), get_unqualified_type(*rhs)))
     {
         if (is_array_type(*lhs))
         {
@@ -3283,9 +3297,9 @@ static type_t* operator_bin_arithmetic_pointer_or_enum_result(type_t** lhs, type
 
         return get_bool_type();
     }
-    else if (is_enum_type(*lhs)
-            && is_enum_type(*rhs)
-            && equivalent_types(*lhs, *rhs))
+    else if (is_enum_type(no_ref(*lhs))
+            && is_enum_type(no_ref(*rhs))
+            && equivalent_types(get_unqualified_type(no_ref(*lhs)), get_unqualified_type(no_ref(*rhs))))
     {
         return get_bool_type();
     }
@@ -3338,7 +3352,7 @@ static type_t* compute_bin_operator_relational(AST expr, AST lhs, AST rhs, AST o
 
     builtin_operators_set_t builtin_set;
     build_binary_builtin_operators(
-            no_ref(lhs_type), no_ref(rhs_type), 
+            lhs_type, rhs_type, 
             &builtin_set,
             decl_context, operator, 
             operator_bin_arithmetic_pointer_or_enum_pred,
@@ -3892,12 +3906,16 @@ static type_t* operator_bin_assign_only_arithmetic_result(type_t** lhs, type_t**
 static
 void build_binary_nonop_assign_builtin(type_t* lhs_type, 
         builtin_operators_set_t *result,
-        AST operator)
+        AST operator, decl_context_t decl_context)
 {
     memset(result, 0, sizeof(*result));
 
     if (!is_lvalue_reference_type(lhs_type)
             || is_const_qualified_type(reference_type_get_referenced_type(lhs_type)))
+        return;
+
+    // Classes have their own operators
+    if (is_class_type(no_ref(lhs_type)))
         return;
 
     parameter_info_t parameters[2] =
@@ -3923,6 +3941,7 @@ void build_binary_nonop_assign_builtin(type_t* lhs_type,
     (*result).entry[(*result).num_builtins].symbol_name = get_operator_function_name(operator);
     (*result).entry[(*result).num_builtins].entity_specs.is_builtin = 1;
     (*result).entry[(*result).num_builtins].type_information = function_type;
+    (*result).entry[(*result).num_builtins].decl_context = decl_context;
 
     DEBUG_CODE()
     {
@@ -4025,7 +4044,7 @@ static type_t* compute_bin_nonoperator_assig_only_arithmetic_type(AST expr, AST 
 
     builtin_operators_set_t builtin_set; 
     build_binary_nonop_assign_builtin(
-            lhs_type, &builtin_set, operator);
+            lhs_type, &builtin_set, operator, decl_context);
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
@@ -5463,7 +5482,7 @@ static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context
             scope_entry_t* conversors[2] = {NULL, NULL};
 
             scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(operator_subscript_list,
-                    /* builtins */ NULL, argument_types, num_arguments,
+                    /* builtins */ NULL, argument_types + 1, num_arguments - 1,
                     decl_context,
                     ASTFileName(expr), ASTLine(expr),
                     /* explicit_template_arguments */ NULL);
@@ -5625,13 +5644,17 @@ static char ternary_operator_property(type_t* t1, type_t* t2, type_t* t3)
         }
         else if (is_pointer_type(no_ref(t2))
                 && is_pointer_type(no_ref(t3))
-                && equivalent_types(no_ref(t2), no_ref(t3)))
+                && equivalent_types(
+                    get_unqualified_type(no_ref(t2)), 
+                    get_unqualified_type(no_ref(t3))))
         {
             return 1;
         }
         else if (is_pointer_to_member_type(no_ref(t2))
                 && is_pointer_to_member_type(no_ref(t3))
-                && equivalent_types(no_ref(t2), no_ref(t3)))
+                && equivalent_types(
+                    get_unqualified_type(no_ref(t2)), 
+                    get_unqualified_type(no_ref(t3))))
         {
             return 1;
         }
@@ -7492,8 +7515,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                 argument_types[0] = lvalue_ref_for_implicit_arg(class_type);
             }
         }
-        else if (any_is_member_function(candidates)
-                && (decl_context.class_scope != NULL))
+        else if (any_is_member_function(candidates))
         {
             DEBUG_CODE()
             {
@@ -7523,8 +7545,8 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             }
             else
             {
-                // This will fail later on if we are calling a nonstatic member
-                // function
+                // FIXME - See ticket #337
+                argument_types[0] = lvalue_ref_for_implicit_arg(candidates->entry->entity_specs.class_type);
             }
         }
     }
@@ -9797,7 +9819,6 @@ static void accessible_types_through_conversion(type_t* t, type_t ***result, int
 
     ERROR_CONDITION(is_lvalue_reference_type(t), "Reference types should have been removed here", 0);
 
-
     if (is_enum_type(t))
     {
         P_LIST_ADD(*result, *num_types, enum_type_get_underlying_type(t));
@@ -9907,6 +9928,7 @@ void build_unary_builtin_operators(type_t* t1,
                 (*result).entry[(*result).num_builtins].symbol_name = get_operator_function_name(operator);
                 (*result).entry[(*result).num_builtins].entity_specs.is_builtin = 1;
                 (*result).entry[(*result).num_builtins].type_information = function_type;
+                (*result).entry[(*result).num_builtins].decl_context = decl_context;
 
                 // Add to the results and properly chain things
                 (*result).entry_list[(*result).num_builtins].entry = &((*result).entry[(*result).num_builtins]);
@@ -10006,6 +10028,7 @@ void build_binary_builtin_operators(type_t* t1,
                     (*result).entry[(*result).num_builtins].symbol_name = get_operator_function_name(operator);
                     (*result).entry[(*result).num_builtins].entity_specs.is_builtin = 1;
                     (*result).entry[(*result).num_builtins].type_information = function_type;
+                    (*result).entry[(*result).num_builtins].decl_context = decl_context;
 
                     DEBUG_CODE()
                     {

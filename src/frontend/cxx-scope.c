@@ -2200,8 +2200,6 @@ static char first_is_subset_of_second(scope_entry_list_t* entry_list_1, scope_en
     return 1;
 }
 
-static scope_entry_list_t* merge_scope_entry_list(scope_entry_list_t* list_1, scope_entry_list_t* list_2);
-
 static void error_ambiguity(scope_entry_list_t* entry_list, const char* filename, int line)
 {
     scope_entry_list_t* it = entry_list;
@@ -4112,7 +4110,7 @@ scope_entry_list_t *copy_entry_list(scope_entry_list_t* orig)
 }
 
 // Like append but avoids repeated symbols
-static scope_entry_list_t* merge_scope_entry_list(scope_entry_list_t* list_1, scope_entry_list_t* list_2)
+scope_entry_list_t* merge_scope_entry_list(scope_entry_list_t* list_1, scope_entry_list_t* list_2)
 {
     // Some simple cases
     if (list_1 == NULL)
