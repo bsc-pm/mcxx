@@ -2180,6 +2180,62 @@ char is_pointer_arithmetic(type_t* lhs_type, type_t* rhs_type)
         || is_pointer_and_integral_type(rhs_type, lhs_type);
 }
 
+static char long_int_can_represent_unsigned_int(void)
+{
+    static char result = 2;
+
+    if (result == 2)
+    {
+        const_value_t* min_signed_long_int = integer_type_get_minimum(get_signed_long_int_type());
+        const_value_t* max_signed_long_int = integer_type_get_maximum(get_signed_long_int_type());
+
+        const_value_t* min_unsigned_int = integer_type_get_minimum(get_unsigned_int_type());
+        const_value_t* max_unsigned_int = integer_type_get_maximum(get_unsigned_int_type());
+
+#define B_(x) const_value_is_nonzero(x)
+        if (B_(const_value_lte(min_signed_long_int, min_unsigned_int))
+                && B_(const_value_lte(max_unsigned_int, max_signed_long_int)))
+        {
+            result = 1;
+        }
+        else
+        {
+            result = 0;
+        }
+#undef B_
+    }
+
+    return result;
+}
+
+static char long_long_int_can_represent_unsigned_long_int(void)
+{
+    static char result = 2;
+
+    if (result == 2)
+    {
+        const_value_t* min_signed_long_long_int = integer_type_get_minimum(get_signed_long_long_int_type());
+        const_value_t* max_signed_long_long_int = integer_type_get_maximum(get_signed_long_long_int_type());
+
+        const_value_t* min_unsigned_long_int = integer_type_get_minimum(get_unsigned_long_int_type());
+        const_value_t* max_unsigned_long_int = integer_type_get_maximum(get_unsigned_long_int_type());
+
+#define B_(x) const_value_is_nonzero(x)
+        if (B_(const_value_lte(min_signed_long_long_int, min_unsigned_long_int))
+                && B_(const_value_lte(max_unsigned_long_int, max_signed_long_long_int)))
+        {
+            result = 1;
+        }
+        else
+        {
+            result = 0;
+        }
+#undef B_
+    }
+
+    return result;
+}
+
 static type_t* usual_arithmetic_conversions(type_t* lhs_type, type_t* rhs_type)
 {
     ERROR_CONDITION(!is_arithmetic_type(lhs_type)
@@ -2249,17 +2305,23 @@ static type_t* usual_arithmetic_conversions(type_t* lhs_type, type_t* rhs_type)
     {
         result = get_unsigned_long_long_int_type();
     }
-    // If one of the operands is 'signed long long' and the other one a
-    // 'unsigned long', convert to 'signed long long' (if a 'signed long long'
-    // cannot hold all 'unsigned long' values we should use an 'unsigned long
-    // long' instead, as it happens in 64-bit)
-    // FIXME: make a flag for such things
+    // If one operand is a long long int and the other unsigned long int, then
+    // if a long long int can represent all the values of an unsigned long int,
+    // the unsigned long int shall be converted to a long long int; otherwise
+    // both operands shall be converted to unsigned long long int.
     else if ((is_signed_long_long_int_type(lhs_type)
                 && is_unsigned_long_int_type(rhs_type))
             || (is_signed_long_long_int_type(rhs_type)
                 && is_unsigned_long_int_type(lhs_type)))
     {
-        result = get_signed_long_long_int_type();
+        if (long_long_int_can_represent_unsigned_long_int())
+        {
+            result = get_signed_long_long_int_type();
+        }
+        else
+        {
+            result = get_unsigned_long_long_int_type();
+        }
     }
     // If either is signed long long, convert to signed long long
     else if (is_signed_long_long_int_type(lhs_type)
@@ -2273,17 +2335,23 @@ static type_t* usual_arithmetic_conversions(type_t* lhs_type, type_t* rhs_type)
     {
         result = get_unsigned_long_int_type();
     }
-    // If one operand is "signed long" and the other "unsigned int" convert to
-    // "signed long" the "unsigned int" if a "signed long" can represent every
-    // value of a "signed long", otherwise convert the "signed long" to a
-    // "unsigned long"
-    // FIXME: make a flag for such things
+    // If one operand is a long int and the other unsigned int, then if a long
+    // int can represent all the values of an unsigned int, the unsigned int
+    // shall be converted to a long int; otherwise both operands shall be
+    // converted to unsigned long int.
     else if ((is_signed_long_int_type(lhs_type)
                 && is_unsigned_int_type(rhs_type))
             || (is_signed_long_int_type(rhs_type)
                 && is_unsigned_int_type(lhs_type)))
     {
-        result = get_unsigned_int_type();
+        if (long_int_can_represent_unsigned_int())
+        {
+            result = get_signed_long_int_type();
+        }
+        else
+        {
+            result = get_unsigned_long_int_type();
+        }
     }
     // If either is signed long, convert to signed long
     else if (is_signed_long_int_type(lhs_type)
