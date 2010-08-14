@@ -446,9 +446,7 @@ LIBMCXX_EXTERN struct type_tag* vector_type_get_element_type(struct type_tag*);
 
 /* Query functions: Miscelaneous stuff not classified otherwise */
 LIBMCXX_EXTERN char class_type_is_base(struct type_tag* possible_base, struct type_tag* possible_derived);
-LIBMCXX_EXTERN char class_type_is_derived(struct type_tag* possible_base, struct type_tag* possible_derived);
-// char class_type_is_directly_derived(struct type_tag* possible_base, struct type_tag* possible_derived);
-// char class_type_is_indirectly_derived(struct type_tag* possible_base, struct type_tag* possible_derived);
+LIBMCXX_EXTERN char class_type_is_derived(struct type_tag* possible_derived, struct type_tag* possible_base);
 LIBMCXX_EXTERN char is_pointer_to_void_type(struct type_tag* t);
 LIBMCXX_EXTERN char is_pointer_to_function_type(struct type_tag* t1);
 

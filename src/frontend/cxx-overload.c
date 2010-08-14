@@ -366,10 +366,34 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
     {
         // An implicit argument of rvalue type C can be bound to the implicit
         // argument parameter of type C
-        if (equivalent_types(no_ref(orig), no_ref(dest)))
+        if (is_named_class_type(no_ref(orig))
+                && class_type_is_incomplete_independent(get_actual_class_type(no_ref(orig))))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "ICS: Instantiating destination type know if it is derived or not\n");
+            }
+            scope_entry_t* symbol = named_type_get_symbol(no_ref(orig));
+            instantiate_template_class(symbol, decl_context, filename, line);
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "ICS: Destination type instantiated\n");
+            }
+        }
+
+        if ((equivalent_types(no_ref(orig), no_ref(dest))
+                    || (is_class_type(no_ref(orig))
+                            && is_class_type(no_ref(dest))
+                            && class_type_is_base(no_ref(dest), no_ref(orig))))
+                && (!is_const_qualified_type(no_ref(orig))
+                    || is_const_qualified_type(no_ref(dest))))
         {
             result->kind = ICSK_STANDARD;
+            result->first_sc.orig = no_ref(orig);
+            result->first_sc.dest = dest;
             result->first_sc.conv[0] = SCI_IDENTITY;
+            result->first_sc.conv[1] = SCI_NO_CONVERSION;
+            result->first_sc.conv[2] = SCI_NO_CONVERSION;
 
             DEBUG_CODE()
             {
@@ -1329,7 +1353,7 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
                             member_object_type,
                             decl_context, 
                             &ics_to_candidate,
-                            /* no_user_defined_conversions */ 0,
+                            /* no_user_defined_conversions */ 1,
                             /* is_implicit_argument */ 1,
                             filename, line);
                 }

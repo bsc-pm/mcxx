@@ -32,6 +32,7 @@
 #include "cxx-prettyprint.h"
 #include "cxx-overload.h"
 #include "cxx-cexpr.h"
+#include "cxx-instantiation.h"
 
 unsigned long long int _bytes_typededuc = 0;
 
@@ -1124,8 +1125,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
              */
             else if (is_named_class_type(updated_type)
                     && is_template_specialized_type(get_actual_class_type(updated_type))
-                    && is_named_class_type(argument_types[i])
-                    && class_type_is_base(updated_type, argument_types[i]))
+                    && is_named_class_type(argument_types[i]))
             {
                 DEBUG_CODE()
                 {
@@ -1134,7 +1134,21 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                             print_declarator(argument_types[i]),
                             print_declarator(updated_type));
                 }
-                ok = 1;
+                if (is_named_class_type(no_ref(argument_types[i]))
+                        && class_type_is_incomplete_independent(get_actual_class_type(no_ref(argument_types[i]))))
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "TYPEDEDUC: Instantiating argument type know if it is derived or not\n");
+                    }
+                    scope_entry_t* symbol = named_type_get_symbol(no_ref(argument_types[i]));
+                    instantiate_template_class(symbol, decl_context, filename, line);
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "TYPEDEDUC: Argument type instantiated\n");
+                    }
+                }
+                ok = class_type_is_base(updated_type, argument_types[i]);
             }
 
             if (!ok)
