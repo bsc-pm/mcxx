@@ -533,6 +533,16 @@ void insert_entry(scope_t* sc, scope_entry_t* entry)
 
     if (result_set != NULL)
     {
+        // Do not add it twice
+        scope_entry_list_t* it = result_set;
+        while (it != NULL)
+        {
+            if (it->entry == entry)
+                return;
+
+            it = it->next;
+        }
+
         scope_entry_list_t* new_set = (scope_entry_list_t*) counted_calloc(1, sizeof(*new_set), &_bytes_used_scopes);
 
         // Put the new entry in front of the previous
