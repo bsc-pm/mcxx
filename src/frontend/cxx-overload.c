@@ -258,7 +258,9 @@ static char is_better_initialization_ics(
 }
 
 static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_context, 
-        implicit_conversion_sequence_t *result, char no_user_defined_conversions,
+        implicit_conversion_sequence_t *result, 
+        char no_user_defined_conversions,
+        char is_implicit_argument,
         const char* filename, int line)
 {
     DEBUG_CODE()
@@ -357,6 +359,49 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         result->first_sc = standard_conv;
 
         // No need to check anything else
+        return;
+    }
+
+    if (is_implicit_argument)
+    {
+        // An implicit argument of rvalue type C can be bound to the implicit
+        // argument parameter of type C
+        if (is_named_class_type(no_ref(orig))
+                && class_type_is_incomplete_independent(get_actual_class_type(no_ref(orig))))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "ICS: Instantiating destination type know if it is derived or not\n");
+            }
+            scope_entry_t* symbol = named_type_get_symbol(no_ref(orig));
+            instantiate_template_class(symbol, decl_context, filename, line);
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "ICS: Destination type instantiated\n");
+            }
+        }
+
+        if ((equivalent_types(no_ref(orig), no_ref(dest))
+                    || (is_class_type(no_ref(orig))
+                            && is_class_type(no_ref(dest))
+                            && class_type_is_base(no_ref(dest), no_ref(orig))))
+                && (!is_const_qualified_type(no_ref(orig))
+                    || is_const_qualified_type(no_ref(dest))))
+        {
+            result->kind = ICSK_STANDARD;
+            result->first_sc.orig = no_ref(orig);
+            result->first_sc.dest = dest;
+            result->first_sc.conv[0] = SCI_IDENTITY;
+            result->first_sc.conv[1] = SCI_NO_CONVERSION;
+            result->first_sc.conv[2] = SCI_NO_CONVERSION;
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "ICS: We allow binding the implicit argument of type '%s' to the implicit parameter type '%s'\n",
+                        print_type_str(orig, decl_context),
+                        print_type_str(dest, decl_context));
+            }
+        }
         return;
     }
 
@@ -488,14 +533,18 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
 
             standard_conversion_t first_sc;
             standard_conversion_t second_sc;
-            if (standard_conversion_between_types(&first_sc, 
-                        // Note that this is like calling a function so we have to give a special
-                        // lvalue reference for the implicit argument like we normally do in 
-                        // overloads
-                        lvalue_ref_for_implicit_arg(orig), 
-                        implicit_parameter)
-                    && standard_conversion_between_types(&second_sc, converted_type, 
-                        dest))
+
+            implicit_conversion_sequence_t ics_call;
+            memset(&ics_call, 0, sizeof(ics_call));
+            compute_ics_flags(orig, implicit_parameter, 
+                    decl_context, &ics_call,
+                    /* no_user_defined_conversions */ 1,
+                    /* is_implicit_argument */ 1,
+                    filename, line);
+            first_sc = ics_call.first_sc;
+
+            if (ics_call.kind == ICSK_STANDARD 
+                && standard_conversion_between_types(&second_sc, converted_type, dest))
             {
                 implicit_conversion_sequence_t *current = &(user_defined_conversions[num_user_defined_conversions]);
                 num_user_defined_conversions++;
@@ -762,6 +811,7 @@ static void compute_ics(type_t* orig, type_t* dest, decl_context_t decl_context,
 {
     return compute_ics_flags(orig, dest, decl_context, result, 
             /* no_user_defined_conversions = */ 0,
+            /* is_implicit_argument */ 0,
             filename, line);
 }
 
@@ -1289,8 +1339,6 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
             {
                 int argument_number = i;
 
-                // FIXME - TODO - Surrogates!!!
-
                 implicit_conversion_sequence_t ics_to_candidate;
                 if (i == 0
                         && candidate->entity_specs.is_member
@@ -1301,10 +1349,13 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
                             get_cv_qualifier(candidate->type_information));
                     member_object_type = get_lvalue_reference_type(member_object_type);
 
-                    compute_ics(argument_types[i], 
+                    compute_ics_flags(argument_types[i], 
                             member_object_type,
                             decl_context, 
-                            &ics_to_candidate, filename, line);
+                            &ics_to_candidate,
+                            /* no_user_defined_conversions */ 1,
+                            /* is_implicit_argument */ 1,
+                            filename, line);
                 }
                 else
                 {

@@ -133,8 +133,6 @@ LIBMCXX_EXTERN struct type_tag* get_pointer_to_member_type(struct type_tag*, str
 LIBMCXX_EXTERN struct type_tag* get_lvalue_reference_type(struct type_tag* t);
 LIBMCXX_EXTERN struct type_tag* get_rvalue_reference_type(struct type_tag* t);
 
-LIBMCXX_EXTERN struct type_tag* lvalue_ref_for_implicit_arg(struct type_tag* t);
-
 LIBMCXX_EXTERN struct type_tag* get_array_type(struct type_tag*, struct AST_tag* expression, decl_context_t decl_context);
 
 LIBMCXX_EXTERN struct type_tag* get_array_type_str(struct type_tag*, const char* dim);
@@ -448,9 +446,7 @@ LIBMCXX_EXTERN struct type_tag* vector_type_get_element_type(struct type_tag*);
 
 /* Query functions: Miscelaneous stuff not classified otherwise */
 LIBMCXX_EXTERN char class_type_is_base(struct type_tag* possible_base, struct type_tag* possible_derived);
-LIBMCXX_EXTERN char class_type_is_derived(struct type_tag* possible_base, struct type_tag* possible_derived);
-// char class_type_is_directly_derived(struct type_tag* possible_base, struct type_tag* possible_derived);
-// char class_type_is_indirectly_derived(struct type_tag* possible_base, struct type_tag* possible_derived);
+LIBMCXX_EXTERN char class_type_is_derived(struct type_tag* possible_derived, struct type_tag* possible_base);
 LIBMCXX_EXTERN char is_pointer_to_void_type(struct type_tag* t);
 LIBMCXX_EXTERN char is_pointer_to_function_type(struct type_tag* t1);
 

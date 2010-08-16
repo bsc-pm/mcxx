@@ -7883,23 +7883,6 @@ scope_entry_t* class_type_get_virtual_function_num(type_t* class_type, int i)
     return class_type->type->class_info->virtual_functions[i];
 }
 
-type_t* lvalue_ref_for_implicit_arg(type_t* t)
-{
-    CXX_LANGUAGE()
-    {
-        // If it is not a reference at all return a lvalue-reference
-        if (!is_lvalue_reference_type(t)
-                && !is_rvalue_reference_type(t))
-            return get_lvalue_reference_type(t);
-        // If it is a rvalue-reference, get a lvalue-reference for it
-        else if (is_rvalue_reference_type(t))
-            return get_lvalue_reference_type(
-                    reference_type_get_referenced_type(t));
-        // Otherwise it is already a lvalue-reference
-    }
-    return t;
-}
-
 static char is_pod_type_aux(type_t* t, char allow_wide_bitfields)
 {
     if (is_integral_type(t)

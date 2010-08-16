@@ -5477,7 +5477,7 @@ static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context
         {
             // Solve operator[]. It is always a member operator
             int num_arguments = 2;
-            type_t* argument_types[2] = { lvalue_ref_for_implicit_arg(subscripted_type), subscript_type };
+            type_t* argument_types[2] = { subscripted_type, subscript_type };
 
             scope_entry_t* conversors[2] = {NULL, NULL};
 
@@ -7483,7 +7483,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             }
             else
             {
-                argument_types[0] = lvalue_ref_for_implicit_arg(class_type);
+                argument_types[0] = class_type;
             }
         }
         else if (ASTType(called_expression) == AST_POINTER_CLASS_MEMBER_ACCESS)
@@ -7512,7 +7512,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             }
             else
             {
-                argument_types[0] = lvalue_ref_for_implicit_arg(class_type);
+                argument_types[0] = class_type;
             }
         }
         else if (any_is_member_function(candidates))
@@ -7540,13 +7540,13 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                 {
                     type_t* class_type = this_symbol->type_information;
                     class_type = pointer_type_get_pointee_type(class_type);
-                    argument_types[0] = lvalue_ref_for_implicit_arg(class_type);
+                    argument_types[0] = class_type;
                 }
             }
             else
             {
                 // FIXME - See ticket #337
-                argument_types[0] = lvalue_ref_for_implicit_arg(candidates->entry->entity_specs.class_type);
+                argument_types[0] = candidates->entry->entity_specs.class_type;
             }
         }
     }
@@ -7559,7 +7559,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         }
         type_t* class_type = no_ref(expression_get_type(called_expression));
         // This is a call to a nonstatic member function
-        argument_types[0] = lvalue_ref_for_implicit_arg(expression_get_type(called_expression));
+        argument_types[0] = expression_get_type(called_expression);
 
         static AST operator = NULL;
         if (operator == NULL)
