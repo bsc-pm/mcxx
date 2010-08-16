@@ -125,6 +125,9 @@ namespace TL
              */
             Type basic_type() const;
 
+            //! Returns the canonical unqualified type
+            Type get_canonical_type();
+
             //! Returns a pointer to the current type
             Type get_pointer_to();
             //! Returns an array to the current type
@@ -510,6 +513,7 @@ namespace TL
 
             //! Convenience function that returns a wrapped 'signed int'
             static Type get_int_type(void);
+
     };
     
     //! @}

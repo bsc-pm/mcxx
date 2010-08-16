@@ -91,6 +91,10 @@ namespace TL
 
                 // This member function is implemented in tl-omp-tasks.cpp
                 void task_function_handler_pre(PragmaCustomConstruct construct);
+
+                // Temporary hack
+                void declare_reduction_handler_pre_2(PragmaCustomConstruct construct);
+                void declare_reduction_handler_post_2(PragmaCustomConstruct construct);
             public:
                 Core();
 

@@ -44,6 +44,8 @@ libtlomp_core_la_SOURCES = \
    tl-omp.hpp \
    tl-omp-udr.hpp \
    tl-omp-udr.cpp \
+   tl-omp-udr_2.hpp \
+   tl-omp-udr_2.cpp \
    tl-omp-deps.hpp \
    tl-omp-deps.cpp \
    tl-omp-tasks.hpp \
