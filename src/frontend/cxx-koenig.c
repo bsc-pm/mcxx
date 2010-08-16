@@ -273,7 +273,7 @@ static void compute_associated_scopes_rec(associated_scopes_t* associated_scopes
      * is defined. If it is a class member, its associated class is the member's class, else
      * it has no associated class.
      */
-    if (is_enumerated_type(argument_type))
+    if (is_enum_type(argument_type))
     {
         decl_context_t type_decl_context = enum_type_get_context(argument_type);
         scope_t* outer_namespace = type_decl_context.namespace_scope;

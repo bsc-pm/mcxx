@@ -846,7 +846,7 @@ static char eval_type_trait__is_empty(type_t* first_type,
 */
 static char eval_type_trait__is_enum(type_t* first_type, type_t* second_type UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
 {
-    return (is_enumerated_type(first_type));
+    return (is_enum_type(first_type));
 }
 
 /*

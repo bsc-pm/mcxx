@@ -76,34 +76,27 @@ enum decl_flags_tag
     // Allows redefinition of an identifier already defined, used in compiler
     // phases since they might need to redeclare something
     DF_ALLOW_REDEFINITION = BITMAP(5),
-    // Lookup is being performed on a unqualified name
-    DF_UNQUALIFIED_NAME = BITMAP(6), 
-    // Lookup is being performed on a qualified name
-    DF_QUALIFIED_NAME = BITMAP(7), 
     // We are looking up a label
-    DF_LABEL = BITMAP(8), 
+    DF_LABEL = BITMAP(6), 
     // Lookup will consider only the current scope
-    DF_ONLY_CURRENT_SCOPE = BITMAP(9),
+    DF_ONLY_CURRENT_SCOPE = BITMAP(7),
     // Disables examining dependent types (used for dependent typenames)
-    DF_DEPENDENT_TYPENAME = BITMAP(10),
+    DF_DEPENDENT_TYPENAME = BITMAP(8),
     // Enables weird lookup for 'struct X'/'union X'/'enum X'
-    DF_ELABORATED_NAME = BITMAP(11),
+    DF_ELABORATED_NAME = BITMAP(9),
     // States that we are under parameter declaration
-    DF_PARAMETER_DECLARATION = BITMAP(12),
+    DF_PARAMETER_DECLARATION = BITMAP(10),
     // States that the lookup should ignore injected class-names
-    DF_NO_INJECTED_CLASS_NAME = BITMAP(13),
+    DF_NO_INJECTED_CLASS_NAME = BITMAP(11),
     // Updates template arguments for a given specialization, used
     // only when defining an already declared template specialization
     // (since we want the names to be updated)
-    DF_UPDATE_TEMPLATE_ARGUMENTS = BITMAP(14),
+    DF_UPDATE_TEMPLATE_ARGUMENTS = BITMAP(12),
     // Relaxed typechecking, ambiguity decl-expr is solved always to expr if it
     // cannot be disambiguated
-    DF_AMBIGUITY_FALLBACK_TO_EXPR = BITMAP(15),
-    // Does not check the used namespaces if the current scope
-    // already contains the name
-    DF_NO_AMBIGUOUS_NAMESPACE = BITMAP(16),
+    DF_AMBIGUITY_FALLBACK_TO_EXPR = BITMAP(13),
     // Explicit instantiation
-    DF_EXPLICIT_INSTANTIATION = BITMAP(17)
+    DF_EXPLICIT_INSTANTIATION = BITMAP(14)
 } decl_flags_t;
 
 #undef BITMAP
