@@ -1488,76 +1488,17 @@ char is_better_function_flags(overload_entry_list_t* ovl_f,
         }
     }
 
-    // If we saw that some argument ICS was really better and none was worse,
-    // then it is better
-    if (!some_is_worse
-            && some_is_better)
+    if (!some_is_worse)
     {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "OVERLOAD: Found that [%s, %s:%d] IS better"
-                    " than [%s, %s:%d] because some argument in the first"
-                    " function has a better ICS than the respective one in the second\n",
-                    print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
-                    f->file,
-                    f->line,
-                    print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
-                    g->file,
-                    g->line);
-        }
-        return 1;
-    }
-
-
-    // or if not that, non-template functions are preferred over template
-    // functions
-    if (!is_template_specialized_type(f->type_information)
-            && is_template_specialized_type(g->type_information))
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "OVERLOAD: Found that [%s, %s:%d] IS better than [%s, %s:%d] because "
-                    "the first is not a template-specialization and the second is\n",
-                    print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
-                    f->file,
-                    f->line,
-                    print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
-                    g->file,
-                    g->line);
-        }
-        return 1;
-    }
-
-    if (is_template_specialized_type(f->type_information)
-            && is_template_specialized_type(g->type_information))
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "OVERLOAD: Found that [%s, %s:%d] and [%s, %s:%d] are template functions "
-                    "so we have to check which one is more specialized\n",
-                    print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
-                    f->file,
-                    f->line,
-                    print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
-                    g->file,
-                    g->line);
-        }
-        // if ¬(f <= g) then f > g
-        deduction_set_t* deduction_set = NULL;
-        if (!is_less_or_equal_specialized_template_function(
-                    // Why is it so convoluted to get the type of the primary specialization ?
-                    named_type_get_symbol(template_type_get_primary_type(
-                            template_specialized_type_get_related_template_type(f->type_information)))->type_information,
-                    named_type_get_symbol(template_type_get_primary_type(
-                            template_specialized_type_get_related_template_type(g->type_information)))->type_information, 
-                    decl_context, &deduction_set, 
-                    /* explicit_template_arguments */ NULL,
-                    filename, line, /* is_conversion */ 0))
+        // If we saw that some argument ICS was really better and none was worse,
+        // then it is better
+        if (some_is_better)
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "OVERLOAD: Found that template-function [%s, %s:%d] is more "
-                        "specialized than template-function [%s, %s:%d]\n",
+                fprintf(stderr, "OVERLOAD: Found that [%s, %s:%d] IS better"
+                        " than [%s, %s:%d] because some argument in the first"
+                        " function has a better ICS than the respective one in the second\n",
                         print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
                         f->file,
                         f->line,
@@ -1566,6 +1507,67 @@ char is_better_function_flags(overload_entry_list_t* ovl_f,
                         g->line);
             }
             return 1;
+        }
+
+
+        // or if not that, non-template functions are preferred over template
+        // functions
+        if (!is_template_specialized_type(f->type_information)
+                && is_template_specialized_type(g->type_information))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "OVERLOAD: Found that [%s, %s:%d] IS better than [%s, %s:%d] because "
+                        "the first is not a template-specialization and the second is\n",
+                        print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
+                        f->file,
+                        f->line,
+                        print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
+                        g->file,
+                        g->line);
+            }
+            return 1;
+        }
+
+        if (is_template_specialized_type(f->type_information)
+                && is_template_specialized_type(g->type_information))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "OVERLOAD: Found that [%s, %s:%d] and [%s, %s:%d] are template functions "
+                        "so we have to check which one is more specialized\n",
+                        print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
+                        f->file,
+                        f->line,
+                        print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
+                        g->file,
+                        g->line);
+            }
+            // if ¬(f <= g) then f > g
+            deduction_set_t* deduction_set = NULL;
+            if (!is_less_or_equal_specialized_template_function(
+                        // Why is it so convoluted to get the type of the primary specialization ?
+                        named_type_get_symbol(template_type_get_primary_type(
+                                template_specialized_type_get_related_template_type(f->type_information)))->type_information,
+                        named_type_get_symbol(template_type_get_primary_type(
+                                template_specialized_type_get_related_template_type(g->type_information)))->type_information, 
+                        decl_context, &deduction_set, 
+                        /* explicit_template_arguments */ NULL,
+                        filename, line, /* is_conversion */ 0))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "OVERLOAD: Found that template-function [%s, %s:%d] is more "
+                            "specialized than template-function [%s, %s:%d]\n",
+                            print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
+                            f->file,
+                            f->line,
+                            print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
+                            g->file,
+                            g->line);
+                }
+                return 1;
+            }
         }
     }
 
