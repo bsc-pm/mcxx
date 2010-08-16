@@ -30,7 +30,7 @@ ADDITIONAL_TESTS=@ADDITIONAL_TESTSUITES@
 END=
 CLEANFILES=
 
-CLEANFILES=test.log
+CLEANFILES+=test.log
 
 # Replacements are defined in this makefile
 include ../config/Makefile.replace
@@ -47,6 +47,8 @@ prepare-check: ./config/bets
 BETS_DIRS=$(srcdir)
 
 check-local: prepare-check
+	$(MAKE) -C config
+	$(MAKE) -C .
 	./config/bets $(BETS_OPTIONS) $(BETS_DIRS)
 
 dist-hook:
