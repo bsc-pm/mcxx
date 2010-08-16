@@ -56,7 +56,6 @@ int main(int argc, char *argv[])
     }
 #pragma omp taskwait
 
-    int i;
     for (i = 0; i < NUM_ELEMS; i++)
     {
         if (c[i] != i)

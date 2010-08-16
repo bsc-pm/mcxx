@@ -26,7 +26,7 @@ test_generator=config/mercurium-omp
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include <stdlib>
+#include <stdlib.h>
 
 namespace A
 {
