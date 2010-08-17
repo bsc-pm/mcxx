@@ -52,11 +52,11 @@ void A::f(_Q q)
 
 int main(int argc, char *argv[])
 {
-    A<int> a;
-    a.f(0);
+    A a;
+    a.f(3);
 
-    A<float> b;
-    b.f(0);
+    A b;
+    b.f(3.2f);
 
     return 0;
 }
