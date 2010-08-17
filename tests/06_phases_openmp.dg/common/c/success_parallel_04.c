@@ -29,7 +29,7 @@ test_generator=config/mercurium-omp
 #include <stdlib.h>
 
 int a;
-void f(void)
+int main(int argc, char *argv[])
 {
     int b;
 

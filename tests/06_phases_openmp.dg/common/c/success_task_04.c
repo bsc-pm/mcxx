@@ -26,11 +26,12 @@ test_generator=config/mercurium-omp
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include <stdio.h>
 #include <stdlib.h>
 
 int fib(int a)
 {
-    if (a == 0)
+    if (a == 0 || a == 1)
     {
         return 1;
     }
@@ -46,14 +47,16 @@ int fib(int a)
     }
 }
 
-int fibo_seq[] = { 1, 1, 2, 3, 5, 8, 21, 34, 55, 89, 144, -1 };
+int fibo_seq[] = { 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, -1 };
 
 int main(int argc, char *argv[])
 {
-    int i;
+    int i = 0;
 
     while (fibo_seq[i] > 0)
     {
+        fprintf(stderr, "Computing fibonacci %d\n", i);
+
         int c;
 #pragma omp parallel
 #pragma omp single
@@ -62,7 +65,10 @@ int main(int argc, char *argv[])
         }
 
         if (c != fibo_seq[i])
+        {
+            fprintf(stderr, "fib(%d) == %d != %d\n", i, c, fibo_seq[i]);
             abort();
+        }
 
         i++;
     }

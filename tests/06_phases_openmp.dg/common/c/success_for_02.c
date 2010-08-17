@@ -28,7 +28,7 @@ test_generator=config/mercurium-omp
 
 #define MAX_ELEMS 100
 
-void f(void)
+int main(int argc, char* argv[])
 {
     int c[MAX_ELEMS];
 

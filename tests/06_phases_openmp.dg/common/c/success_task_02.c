@@ -1,6 +1,9 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
+
+test_exec_fail_nanox_plain_default=yes
+test_exec_faulty_nanox_plain_default=yes
 </testinfo>
 */
 /*--------------------------------------------------------------------
@@ -27,22 +30,28 @@ test_generator=config/mercurium-omp
 --------------------------------------------------------------------*/
 
 #include <stdlib.h>
+#include <stdio.h>
 #define NUM_ELEMS 100
 
 int main(int argc, char* argv[])
 {
     int a = 0;
 #pragma omp parallel
-#pragma omp single
     {
-#pragma omp task
+#pragma omp single
         {
-            a = 1;
+#pragma omp task
+            {
+                a = 1;
+            }
         }
     }
 
     if (a != 1)
+    {
+        fprintf(stderr ,"a == %d != 1\n", a);
         abort();
+    }
 
     int c[NUM_ELEMS];
 
@@ -65,7 +74,10 @@ int main(int argc, char* argv[])
     for (i = 0; i < NUM_ELEMS; i++)
     {
         if (c[i] != i)
+        {
+            fprintf(stderr, "c[%d] == %d != %d\n", i, c[i], i);
             abort();
+        }
     }
 
     return 0;

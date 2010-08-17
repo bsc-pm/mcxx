@@ -28,6 +28,7 @@ test_compile_faulty_nanox_plain=yes
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include <stdlib.h>
 #include <stdio.h>
 
 #define NUM_ELEMS 100
@@ -44,7 +45,10 @@ int main(int argc, char *argv[])
     }
 
     if (s != ((NUM_ELEMS - 1) * NUM_ELEMS)/2)
+    {
+        fprintf(stderr, "s == %d != %d\n", s, ((NUM_ELEMS - 1) * NUM_ELEMS)/2);
         abort();
+    }
 
     return 0;
 }
