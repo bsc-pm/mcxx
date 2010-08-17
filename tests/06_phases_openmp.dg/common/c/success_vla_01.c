@@ -1,6 +1,9 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
+
+test_exec_fail_nanox_plain_default=yes
+test_exec_faulty_nanox_plain_default=yes
 </testinfo>
 */
 /*--------------------------------------------------------------------
@@ -26,6 +29,7 @@ test_generator=config/mercurium-omp
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include <stdio.h>
 #include <stdlib.h>
 
 void f(int n, int m, int v[n + 1][m * 2])
@@ -52,12 +56,18 @@ int main(int argc, char *argv[])
     g(2, 3, c);
 
     if (c[1][2] != 3)
+    {
+        fprintf(stderr, "c[1][2] != 3\n");
         abort();
+    }
 
     f(2, 3, c);
 
     if (c[1][2] != 4)
+    {
+        fprintf(stderr, "c[1][2] != 3\n");
         abort();
+    }
 
     return 0;
 }

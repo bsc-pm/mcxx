@@ -1,6 +1,9 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
+
+test_exec_fail_nanox_plain_default=yes
+test_exec_faulty_nanox_plain_default=yes
 </testinfo>
 */
 /*--------------------------------------------------------------------
@@ -27,6 +30,7 @@ test_generator=config/mercurium-omp
 --------------------------------------------------------------------*/
 
 #include <stdlib.h>
+#include <stdio.h>
 
 void f(void)
 {
@@ -40,7 +44,10 @@ void f(void)
 #pragma omp taskwait
     
     if (v[9][19] != 3)
+    {
+        fprintf(stderr, "v[9][19] != 3\n");
         abort();
+    }
 }
 
 void g(void)
@@ -54,7 +61,10 @@ void g(void)
     }
 
     if (v[9][19] != 4)
+    {
+        fprintf(stderr, "v[9][19] != 4\n");
         abort();
+    }
 }
 
 int main(int argc, char *argv[])
