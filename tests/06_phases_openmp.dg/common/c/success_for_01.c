@@ -26,6 +26,7 @@ test_generator=config/mercurium-omp
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -47,7 +48,10 @@ int main(int argc, char *argv[])
     for (i = 0; i < MAX_ELEMS; i++)
     {
         if (c[i] != i)
+        {
+            fprintf(stderr, "c[%d] == %d != %d\n", i, c[i], i);
             abort();
+        }
     }
 
     return 0;

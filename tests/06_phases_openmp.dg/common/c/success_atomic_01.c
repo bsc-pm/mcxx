@@ -1,6 +1,9 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
+
+test_exec_fail_nanox_plain_default=yes
+test_exec_faulty_nanox_plain_default=yes
 </testinfo>
 */
 /*--------------------------------------------------------------------
@@ -49,8 +52,11 @@ int main(int argc, char* argv[])
         }
     }
 
-    if (i != (3*NUM_ITERS*num_threads))
+    if (i != (3*NUM_ITERS*num_threads+3))
+    {
+        fprintf(stderr, "%d != %d\n", i, (3*NUM_ITERS*num_threads+3));
         abort();
+    }
 
     return 0;
 }

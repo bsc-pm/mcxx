@@ -38,10 +38,10 @@ int main(int argc, char *argv[])
             abort();
 
         int j;
-        for (j = 0; j < 100000; j++)
+        for (j = 0; j < 100; j++)
         {
             int k;
-            for (k = 0; k < 100000; k++)
+            for (k = 0; k < 100; k++)
             {
                 if (i != 0)
                     abort();
@@ -50,4 +50,6 @@ int main(int argc, char *argv[])
 #pragma omp barrier
         i = 1;
     }
+
+    return 0;
 }

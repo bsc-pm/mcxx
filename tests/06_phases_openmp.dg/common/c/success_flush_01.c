@@ -37,9 +37,9 @@ int main(int argc, char *argv[])
 #pragma omp master
         {
             int i, j;
-            for (i = 0; i < 100000; i++)
+            for (i = 0; i < 100; i++)
             {
-                for (j = 0; j < 100000; j++)
+                for (j = 0; j < 100; j++)
                 {
                 }
             }

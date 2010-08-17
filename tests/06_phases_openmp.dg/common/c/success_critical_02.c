@@ -37,10 +37,10 @@ int main(int argc, char *argv[])
 #pragma omp parallel shared(flagA, flagB)
     {
         int i;
-        for (i = 0; i < 100000; i++)
+        for (i = 0; i < 100; i++)
         {
             int j;
-            for (j = 0; j < 100000; j++)
+            for (j = 0; j < 100; j++)
             {
 #pragma omp critical(A)
                 {
