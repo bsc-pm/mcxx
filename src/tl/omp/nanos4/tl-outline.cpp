@@ -401,7 +401,7 @@ namespace TL
                         {
                             // Use the parameter type instead, but ignore an
                             // additional pointer we added for proper casting
-                            type = it->full_type_in_outline.points_to();
+                            type = it->full_type_in_outline;
                             found = true;
                             break;
                         }
