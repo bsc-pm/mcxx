@@ -132,6 +132,7 @@ libmcxx_la_SOURCES = \
   cxx-typeorder.h \
   cxx-typeorder.c \
   cxx-overload.c \
+  cxx-overload-decls.h \
   cxx-overload.h \
   libmcxx-common.h \
   $(END)

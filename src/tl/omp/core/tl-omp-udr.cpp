@@ -717,6 +717,9 @@ namespace TL
                 get_float_type(),
                 get_double_type(),
                 get_long_double_type(),
+                get_complex_type(get_float_type()),
+                get_complex_type(get_double_type()),
+                get_complex_type(get_long_double_type()),
                 NULL,
             };
 
@@ -1084,7 +1087,7 @@ namespace TL
                     ObjectList<Symbol> viable_functs;
                     Symbol solved_sym = Overload::solve(
                             members_set,
-                            reduction_type.get_reference_to(), // implicit argument (it must be a reference)
+                            reduction_type, // implicit 
                             arguments,
                             filename,
                             line,
@@ -1326,16 +1329,14 @@ namespace TL
                                     op_symbols.clear();
                                 }
                             }
-                            if (op_symbols.empty())
-                            {
-                                Source src;
-                                src << "operator " << op_name.prettyprint();
+                            //
+                            // FIXME - We should do Koenig lookup here
+                            Source src;
+                            src << "operator " << op_name.prettyprint();
 
-                                AST_t tree = src.parse_id_expression(ref_tree_of_clause, construct.get_scope_link());
+                            AST_t tree = src.parse_id_expression(ref_tree_of_clause, construct.get_scope_link());
 
-                                // Lookup first in the class
-                                op_symbols = construct.get_scope().get_symbols_from_id_expr(tree, /* examine_uninstantiated */ false);
-                            }
+                            op_symbols.insert(construct.get_scope().get_symbols_from_id_expr(tree, /* examine_uninstantiated */ false));
                         }
                         else
                         {
@@ -1653,7 +1654,7 @@ namespace TL
 
             ObjectList<UDRInfoItem> udr_lookup;
             {
-                ObjectList<Symbol> lookup = sc.cascade_lookup(current_udr.get_symbol_name());
+                ObjectList<Symbol> lookup = sc.cascade_lookup(current_udr.get_symbol_name(), filename, line);
                 if (lookup.empty())
                 {
                     return empty_udr;

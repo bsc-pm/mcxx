@@ -264,10 +264,14 @@ clean_exec_vars()
 
 clean_exec_version_vars()
 {
-   unset test_ENV_$1
-   unset test_ARGS_$1
-   unset test_exec_fail_$1
-   unset test_exec_faulty_$1
+   local v=$1
+   local e=$2
+   unset test_ENV_$e
+   unset test_ARGS_$e
+   unset test_exec_fail_$e
+   unset test_exec_faulty_$e
+   unset test_exec_fail_${v}_${e}
+   unset test_exec_faulty_${v}_${e}
 }
 
 clean_test_vars ()
@@ -355,8 +359,10 @@ run_gen_test ()
                 merge_exec_vars $v $v1 $v2
              done
           done
-          for v in $all_exec_versions $exec_versions; do
-             clean_exec_version_vars $v
+          for v in $all_compile_versions $compile_versions; do
+            for e in $all_exec_versions $exec_versions; do
+               clean_exec_version_vars $v $e
+            done
           done
           all_exec_versions=$tmp
         else
@@ -393,10 +399,12 @@ run_gen_test ()
           for e in $all_exec_versions; do
              message -n "Execute test $name-$v-$e "
              log "***Start execute test $name-$v-$e"
-             eval test_fail=\${test_exec_fail_$e}
+             eval test_fail=\${test_exec_fail_${v}_${e}}
+             eval test_fail=\${test_fail:-\$test_exec_fail_${e}}
              test_fail=${test_fail:-$test_exec_fail}
-             eval test_faulty=\${test_execute_faulty_$e}
-             test_faulty=${test_faulty:-$test_execute_faulty}
+             eval test_faulty=\${test_exec_faulty_${v}_${e}}
+             eval test_faulty=\${test_faulty:-\$test_exec_faulty_${e}}
+             test_faulty=${test_faulty:-$test_exec_faulty}
              passfail "$name-$v-$e" execute $e $name
              log "***End execute test $name-$v-$e"
           done
@@ -409,8 +417,10 @@ run_gen_test ()
    for v in $all_compile_versions; do
       clean_${type}_compile_version_vars $v
    done
-   for e in $all_exec_versions; do
-      clean_exec_version_vars $e
+   for v in $all_compile_versions; do
+     for e in $all_exec_versions; do
+        clean_exec_version_vars $v $e
+     done
    done
 }
 
@@ -422,7 +432,7 @@ run_file()
      c)
        run_gen_test $file c
        ;;
-    cpp) 
+    cpp|cu) 
        run_gen_test $file cpp
        ;;
    esac

@@ -27,14 +27,29 @@ test_compile_faulty_nanox_plain=yes
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+#include <stdlib.h>
+#define NUM_ELEMS 100
 
-void f(void)
+int main(int argc, char* argv[])
 {
+    int i;
+    int c[NUM_ELEMS];
+
 #pragma omp parallel for
-    for (int i = 0; i < 10; i++)
+    for (i = 0; i < NUM_ELEMS; i++)
     {
-#pragma omp task
+        int *p = &(c[i]);
+#pragma omp task firstprivate(p, i)
         {
+            *p = i;
         }
     }
+
+    for (i = 0; i < NUM_ELEMS; i++)
+    {
+        if (c[i] != i)
+            abort();
+    }
+
+    return 0;
 }

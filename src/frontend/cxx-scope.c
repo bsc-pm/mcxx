@@ -100,9 +100,6 @@ static scope_entry_list_t* query_qualified_name(decl_context_t decl_context,
         AST nested_name,
         AST unqualified_name);
 
-// Appends scope entry lists
-static scope_entry_list_t* append_scope_entry_list(scope_entry_list_t* orig, scope_entry_list_t* appended);
-
 // Scope creation functions
 static scope_t* new_scope(void);
 static scope_t* new_namespace_scope(scope_t* st, scope_entry_t* related_entry);
@@ -110,9 +107,6 @@ static scope_t* new_prototype_scope(scope_t* st);
 static scope_t* new_block_scope(scope_t* enclosing_scope);
 static scope_t* new_class_scope(scope_t* enclosing_scope, scope_entry_t* class_entry);
 static scope_t* new_template_scope(scope_t* enclosing_scope);
-
-static scope_entry_list_t* name_lookup_used_namespaces(decl_context_t decl_context, 
-        scope_t* current_scope, const char* name, char only_inline);
 
 /* Scope creation functions */
 /*
@@ -268,12 +262,19 @@ decl_context_t new_global_context(void)
 {
     decl_context_t result = new_decl_context();
 
+    scope_entry_t* global_scope_namespace 
+        = counted_calloc(1, sizeof(*global_scope_namespace), &_bytes_used_scopes);
+    global_scope_namespace->kind = SK_NAMESPACE;
+
     // Create global scope
-    result.namespace_scope = new_namespace_scope(NULL, NULL);
+    result.namespace_scope = new_namespace_scope(NULL, global_scope_namespace);
+
     // Make it the global one
     result.global_scope = result.namespace_scope;
     // and the current one
     result.current_scope = result.namespace_scope;
+
+    global_scope_namespace->namespace_decl_context = result;
 
     return result;
 }
@@ -532,6 +533,16 @@ void insert_entry(scope_t* sc, scope_entry_t* entry)
 
     if (result_set != NULL)
     {
+        // Do not add it twice
+        scope_entry_list_t* it = result_set;
+        while (it != NULL)
+        {
+            if (it->entry == entry)
+                return;
+
+            it = it->next;
+        }
+
         scope_entry_list_t* new_set = (scope_entry_list_t*) counted_calloc(1, sizeof(*new_set), &_bytes_used_scopes);
 
         // Put the new entry in front of the previous
@@ -780,13 +791,11 @@ scope_entry_list_t* query_nested_name_flags(decl_context_t decl_context,
 
     if (is_unqualified)
     {
-        decl_context.decl_flags |= DF_UNQUALIFIED_NAME;
         return query_unqualified_name(decl_context, decl_context, unqualified_name);
     }
     else
     {
         decl_context.decl_flags &= ~DF_ONLY_CURRENT_SCOPE;
-        decl_context.decl_flags |= DF_QUALIFIED_NAME;
         return query_qualified_name(decl_context, global_op, nested_name, unqualified_name);
     }
 }
@@ -797,7 +806,6 @@ scope_entry_list_t* query_in_scope_str_flags(decl_context_t decl_context,
     decl_context.decl_flags = DF_NONE;
     decl_context.decl_flags |= decl_flags;
     decl_context.decl_flags |= DF_ONLY_CURRENT_SCOPE;
-    decl_context.decl_flags |= DF_UNQUALIFIED_NAME;
     return query_unqualified_name_str_flags(decl_context, name, decl_flags);
 }
 
@@ -807,7 +815,6 @@ scope_entry_list_t* query_in_scope_flags(decl_context_t decl_context,
     decl_context.decl_flags = DF_NONE;
     decl_context.decl_flags |= decl_flags;
     decl_context.decl_flags |= DF_ONLY_CURRENT_SCOPE;
-    decl_context.decl_flags |= DF_UNQUALIFIED_NAME;
     return query_unqualified_name(decl_context, decl_context, unqualified_name);
 }
 
@@ -815,7 +822,6 @@ scope_entry_list_t* query_unqualified_name_str_flags(decl_context_t decl_context
         const char* unqualified_name, decl_flags_t decl_flags)
 {
     decl_context.decl_flags = DF_NONE;
-    decl_context.decl_flags |= DF_UNQUALIFIED_NAME;
     decl_context.decl_flags |= decl_flags;
 
     // Adjust scopes
@@ -908,6 +914,199 @@ static scope_entry_list_t* query_unqualified_name(
                 const char *operator_function_name = get_operator_function_name(unqualified_name);
                 result = name_lookup(decl_context, operator_function_name,
                         ASTFileName(unqualified_name), ASTLine(unqualified_name));
+                break;
+            }
+        default:
+            {
+                internal_error("Invalid node type '%s'\n", ast_print_node_type(ASTType(unqualified_name)));
+            }
+    }
+
+    return result;
+}
+
+static scope_entry_list_t* query_in_namespace(scope_entry_t* namespace, 
+        const char* name, decl_flags_t decl_flags,
+        const char* filename, int line);
+static scope_entry_list_t* query_in_class(scope_t* current_class_scope, 
+        const char* name, decl_flags_t decl_flags,
+        const char* filename, int line);
+static scope_entry_list_t* query_template_id_aux(AST template_id, 
+        decl_context_t template_name_context,
+        decl_context_t template_arguments_context,
+        scope_entry_list_t* (*query_function)(decl_context_t, const char*, const char*, int));
+
+static scope_entry_list_t* query_final_template_id(decl_context_t lookup_context,
+        const char* template_name,
+        const char* filename,
+        int line)
+{
+    scope_entry_list_t* result = NULL;
+
+    if (lookup_context.current_scope->kind == NAMESPACE_SCOPE)
+    {
+        result = query_in_namespace(lookup_context.current_scope->related_entry, 
+                template_name, 
+                lookup_context.decl_flags, filename, line);
+    }
+    else if (lookup_context.current_scope->kind == CLASS_SCOPE)
+    {
+        result = query_in_class(lookup_context.current_scope, 
+                template_name, 
+                lookup_context.decl_flags,
+                filename, line);
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+
+    return result;
+}
+
+static scope_entry_list_t* query_template_id_in_class(decl_context_t lookup_context,
+        const char* template_name,
+        const char* filename,
+        int line)
+{
+    scope_entry_list_t* result = NULL;
+
+    if (lookup_context.current_scope->kind == CLASS_SCOPE)
+    {
+        result = query_in_class(lookup_context.current_scope, 
+                template_name, 
+                lookup_context.decl_flags,
+                filename, line);
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+
+    return result;
+}
+
+static scope_entry_list_t* query_template_id_in_namespace(decl_context_t lookup_context,
+        const char* template_name,
+        const char* filename,
+        int line)
+{
+    scope_entry_list_t* result = NULL;
+
+    if (lookup_context.current_scope->kind == NAMESPACE_SCOPE)
+    {
+        result = query_in_namespace(lookup_context.current_scope->related_entry, 
+                template_name, 
+                lookup_context.decl_flags,
+                filename,
+                line);
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+
+    return result;
+}
+
+static scope_entry_list_t* query_final_part_of_qualified(
+        decl_context_t nested_name_context,
+        decl_context_t lookup_context,
+        AST unqualified_name)
+{
+    ERROR_CONDITION(lookup_context.current_scope->kind != CLASS_SCOPE
+            && lookup_context.current_scope->kind != NAMESPACE_SCOPE,
+            "Invalid scope found", 0);
+
+    scope_entry_list_t* result = NULL;
+
+    switch (ASTType(unqualified_name))
+    {
+        case AST_SYMBOL:
+            {
+                const char* name = uniquestr(ASTText(unqualified_name));
+                if (BITMAP_TEST(lookup_context.decl_flags, DF_CONSTRUCTOR))
+                {
+                    name = strprepend(name, "constructor ");
+                }
+
+                if (lookup_context.current_scope->kind == NAMESPACE_SCOPE)
+                {
+                    result = query_in_namespace(lookup_context.current_scope->related_entry, name,
+                            lookup_context.decl_flags,
+                            ASTFileName(unqualified_name), ASTLine(unqualified_name));
+                }
+                else if (lookup_context.current_scope->kind == CLASS_SCOPE)
+                {
+                    result = query_in_class(lookup_context.current_scope, name, lookup_context.decl_flags,
+                            ASTFileName(unqualified_name), ASTLine(unqualified_name));
+                }
+            }
+            break;
+        case AST_TEMPLATE_ID:
+        case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
+            {
+                result = query_template_id_aux(unqualified_name,
+                        lookup_context,
+                        nested_name_context,
+                        query_final_template_id);
+            }
+            break;
+        case AST_DESTRUCTOR_ID:
+        case AST_DESTRUCTOR_TEMPLATE_ID:
+            // They have as a name ~name
+            {
+                AST symbol = ASTSon0(unqualified_name);
+                const char *name = ASTText(symbol);
+                if (lookup_context.current_scope->kind == CLASS_SCOPE)
+                {
+                    result = query_in_class(lookup_context.current_scope, name, lookup_context.decl_flags,
+                            ASTFileName(unqualified_name), ASTLine(unqualified_name));
+                }
+                else
+                {
+                    running_error("%s:%d: error: invalid destructor-id in non class-scope\n",
+                            ASTFileName(unqualified_name), ASTLine(unqualified_name));
+                }
+            }
+            break;
+        case AST_CONVERSION_FUNCTION_ID:
+            {
+                decl_context_t modified_class_context = lookup_context;
+                modified_class_context.template_scope = nested_name_context.template_scope;
+
+                char* conversion_function_name = 
+                    get_conversion_function_name(modified_class_context, unqualified_name, /* result_type */ NULL);
+
+                if (lookup_context.current_scope->kind == CLASS_SCOPE)
+                {
+                    result = query_in_class(lookup_context.current_scope, conversion_function_name, lookup_context.decl_flags,
+                            ASTFileName(unqualified_name), ASTLine(unqualified_name));
+                }
+                else
+                {
+                    running_error("%s:%d: error: invalid conversion-id in non class-scope\n",
+                            ASTFileName(unqualified_name), ASTLine(unqualified_name));
+                }
+            }
+            break;
+        case AST_OPERATOR_FUNCTION_ID :
+            {
+                const char *operator_function_name = get_operator_function_name(unqualified_name);
+                if (lookup_context.current_scope->kind == NAMESPACE_SCOPE)
+                {
+                    result = query_in_namespace(lookup_context.current_scope->related_entry, 
+                            operator_function_name,
+                            lookup_context.decl_flags,
+                            ASTFileName(unqualified_name), ASTLine(unqualified_name));
+                }
+                else if (lookup_context.current_scope->kind == CLASS_SCOPE)
+                {
+                    result = query_in_class(lookup_context.current_scope, 
+                            operator_function_name,
+                            lookup_context.decl_flags,
+                            ASTFileName(unqualified_name), ASTLine(unqualified_name));
+                }
                 break;
             }
         default:
@@ -1072,20 +1271,8 @@ static scope_entry_list_t* query_qualified_name(
     // scope was given we have to be able to find something there
     decl_context_t lookup_context = qualified_context;
     lookup_context.decl_flags |= nested_name_context.decl_flags;
-    // This disables the extra lookup in the used namespaces which could
-    // potentially fail as an ambiguous name
-    lookup_context.decl_flags |= DF_NO_AMBIGUOUS_NAMESPACE;
 
-    if (ASTType(unqualified_name) != AST_TEMPLATE_ID
-            && ASTType(unqualified_name) != AST_OPERATOR_FUNCTION_ID_TEMPLATE)
-    {
-        result = query_unqualified_name(lookup_context, nested_name_context, unqualified_name);
-    }
-    else
-    {
-        result = query_template_id(unqualified_name, lookup_context, nested_name_context);
-    }
-
+    result = query_final_part_of_qualified(nested_name_context, lookup_context, unqualified_name);
     return result;
 }
 
@@ -1167,8 +1354,6 @@ static decl_context_t lookup_qualification_scope(
         // The first is solved as an unqualified entity, taking into account that it might be
         // a dependent entity (like '_T' above)
         decl_context_t initial_nested_name_context = nested_name_context;
-        initial_nested_name_context.decl_flags &= ~DF_QUALIFIED_NAME;
-        initial_nested_name_context.decl_flags |= DF_NO_AMBIGUOUS_NAMESPACE;
 
         if (ASTType(first_qualification) == AST_TEMPLATE_ID)
         {
@@ -1183,7 +1368,6 @@ static decl_context_t lookup_qualification_scope(
     // Filter found symbols
     starting_symbol_list = filter_symbol_kind_set(starting_symbol_list, 
             classes_or_namespaces_filter_num_elements, classes_or_namespaces_filter);
-
 
     // Nothing was found
     if (starting_symbol_list == NULL)
@@ -1286,16 +1470,19 @@ static decl_context_t lookup_qualification_scope_in_namespace(
     }
 
     decl_context_t lookup_context = decl_context;
-    lookup_context.decl_flags |= DF_NO_AMBIGUOUS_NAMESPACE;
 
     scope_entry_list_t* symbol_list = NULL;
     if (ASTType(current_name) != AST_TEMPLATE_ID)
     {
-        symbol_list = query_unqualified_name(lookup_context, nested_name_context, current_name);
+        symbol_list = query_in_namespace(lookup_context.current_scope->related_entry, 
+                ASTText(current_name),
+                lookup_context.decl_flags,
+                ASTFileName(current_name),
+                ASTLine(current_name));
     }
     else
     {
-        symbol_list = query_template_id(current_name, lookup_context, original_context);
+        symbol_list = query_template_id_aux(current_name, lookup_context, original_context, query_template_id_in_namespace);
     }
 
     symbol_list = filter_symbol_kind_set(symbol_list, classes_or_namespaces_filter_num_elements, classes_or_namespaces_filter);
@@ -1511,9 +1698,6 @@ static decl_context_t lookup_qualification_scope_in_class(
         return class_context;
     }
 
-    decl_context_t lookup_context = class_context;
-    lookup_context.decl_flags |= DF_NO_AMBIGUOUS_NAMESPACE;
-
     // Look up the next qualification item
     AST current_name = ASTSon0(nested_name_spec);
     AST next_nested_name_spec = ASTSon1(nested_name_spec);
@@ -1524,12 +1708,17 @@ static decl_context_t lookup_qualification_scope_in_class(
     if (ASTType(current_name) != AST_TEMPLATE_ID
             && ASTType(current_name) != AST_OPERATOR_FUNCTION_ID_TEMPLATE)
     {
-        symbol_list = query_unqualified_name(class_context, original_context, current_name);
+        symbol_list = query_in_class(class_context.current_scope, 
+                ASTText(current_name), 
+                class_context.decl_flags,
+                ASTFileName(current_name), 
+                ASTLine(current_name));
     }
     else
     {
-        // FIXME - This might fail
-        symbol_list = query_template_id(current_name, class_context, original_context);
+        symbol_list = query_template_id_aux(current_name, 
+                class_context, 
+                original_context, query_template_id_in_class);
     }
 
     symbol_list = filter_symbol_kind_set(symbol_list, classes_or_namespaces_filter_num_elements, classes_or_namespaces_filter);
@@ -1576,82 +1765,7 @@ static decl_context_t lookup_qualification_scope_in_class(
             is_valid);
 }
 
-static scope_entry_list_t* name_lookup_used_namespaces_rec(decl_context_t decl_context, 
-        scope_t* current_scope, const char* name, 
-        int num_seen_scopes, scope_t** seen_scopes, char only_inline)
-{
-    ERROR_CONDITION(current_scope == NULL, "Current scope is null", 0);
-    ERROR_CONDITION(name == NULL, "name is null", 0);
-
-    scope_entry_list_t* result = NULL;
-
-    int i;
-    // Look up in directly used namespaces, this always has to be performed
-    for (i = 0; i < current_scope->num_used_namespaces; i++)
-    {
-        scope_entry_t* used_namespace_sym = current_scope->use_namespace[i];
-
-        if (only_inline
-                && !used_namespace_sym->entity_specs.is_inline)
-            continue;
-
-        scope_t* used_namespace = used_namespace_sym->namespace_decl_context.current_scope;
-
-        scope_entry_list_t* used_namespace_search = query_name_in_scope(used_namespace, name);
-
-        result = append_scope_entry_list(result, used_namespace_search);
-    }
-
-    // Lookup to indirectly used namespaces is only performed if unqualified
-    // name or if qualified name but nothing was found in the directly used namespaces
-    if (BITMAP_TEST(decl_context.decl_flags, DF_UNQUALIFIED_NAME)
-            || (BITMAP_TEST(decl_context.decl_flags, DF_QUALIFIED_NAME)
-                && result == NULL))
-    {
-        for (i = 0; i < current_scope->num_used_namespaces; i++)
-        {
-            scope_entry_t* used_namespace_sym = current_scope->use_namespace[i];
-            scope_t* used_namespace = used_namespace_sym->namespace_decl_context.current_scope;
-
-            int j;
-            char already_looked_up = 0;
-            for (j = 0; (j < num_seen_scopes) && !already_looked_up; j++)
-            {
-                if (seen_scopes[j] == used_namespace)
-                    already_looked_up = 1;
-            }
-
-            if (already_looked_up)
-                continue;
-
-            scope_t* new_seen_scopes[num_seen_scopes + 1];
-            for (j = 0; j < num_seen_scopes; j++)
-            {
-                new_seen_scopes[j] = seen_scopes[j];
-            }
-            new_seen_scopes[num_seen_scopes] = used_namespace;
-
-            scope_entry_list_t* recursed_search = 
-                name_lookup_used_namespaces_rec(decl_context, used_namespace, name, 
-                        num_seen_scopes + 1, 
-                        new_seen_scopes,
-                        only_inline);
-
-            result = append_scope_entry_list(result, recursed_search);
-        }
-    }
-
-    return result;
-}
-
-static scope_entry_list_t* name_lookup_used_namespaces(decl_context_t decl_context, 
-        scope_t* current_scope, const char* name, char only_inline)
-{
-    return name_lookup_used_namespaces_rec(decl_context,
-            current_scope, name, 0, NULL, only_inline);
-}
-
-#define MAX_CLASS_PATH (32)
+#define MAX_CLASS_PATH (64)
 
 typedef
 struct class_scope_lookup_tag
@@ -1703,7 +1817,8 @@ static scope_entry_list_t* filter_injected_class_name(scope_entry_list_t* list)
 }
 
 void class_scope_lookup_rec(scope_t* current_class_scope, const char* name, 
-        class_scope_lookup_t* derived, char is_virtual, char initial_lookup, decl_flags_t decl_flags)
+        class_scope_lookup_t* derived, char is_virtual, char initial_lookup, decl_flags_t decl_flags,
+        const char* filename, int line)
 {
     int i;
 
@@ -1720,7 +1835,7 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
     derived->path[derived->path_length - 1] = current_class_type;
     derived->is_virtual[derived->path_length - 1] = is_virtual;
 
-#define MAX_BASES (32)
+#define MAX_BASES (64)
     class_scope_lookup_t bases_lookup[MAX_BASES];
     memset(bases_lookup, 0, sizeof(bases_lookup));
 
@@ -1746,7 +1861,8 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
         bases_lookup[i] = *derived;
 
         class_scope_lookup_rec(base_class_scope, name, &(bases_lookup[i]), 
-                current_base_is_virtual, /* initial_lookup */ 0, decl_flags);
+                current_base_is_virtual, /* initial_lookup */ 0, decl_flags,
+                filename, line);
     }
 
     DEBUG_CODE()
@@ -2007,14 +2123,15 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
     }
 }
 
-static scope_entry_list_t* class_scope_lookup(scope_t* current_class_scope, const char* name, 
-        decl_flags_t decl_flags)
+static scope_entry_list_t* query_in_class(scope_t* current_class_scope, const char* name, 
+        decl_flags_t decl_flags,
+        const char* filename, int line)
 {
     class_scope_lookup_t result;
 
     memset(&result, 0, sizeof(result));
 
-    class_scope_lookup_rec(current_class_scope, name, &result, 0, /* initial_lookup */ 1, decl_flags);
+    class_scope_lookup_rec(current_class_scope, name, &result, 0, /* initial_lookup */ 1, decl_flags, filename, line);
 
     if (result.entry_list != NULL)
     {
@@ -2049,7 +2166,7 @@ scope_entry_list_t* class_context_lookup(decl_context_t decl_context, const char
 {
     ERROR_CONDITION(decl_context.current_scope->kind != CLASS_SCOPE, "This is not a class scope", 0);
 
-    return class_scope_lookup(decl_context.current_scope, name, decl_context.decl_flags);
+    return query_in_class(decl_context.current_scope, name, decl_context.decl_flags, "(null)", 0);
 }
 
 static scope_entry_list_t* filter_any_non_type(scope_entry_list_t* entry_list)
@@ -2068,25 +2185,6 @@ static scope_entry_list_t* filter_any_non_type(scope_entry_list_t* entry_list)
     return filter_symbol_kind_set(entry_list, STATIC_ARRAY_LENGTH(type_filter), type_filter);
 }
 
-static char name_same_overload(scope_entry_t* entry_1, scope_entry_t* entry_2)
-{
-    if (!(entry_1->kind == SK_FUNCTION
-                || (entry_1->kind == SK_TEMPLATE && 
-                    is_function_type(named_type_get_symbol(
-                            template_type_get_primary_type(entry_1->type_information))
-                        ->type_information))))
-        return 0;
-
-    if (!(entry_2->kind == SK_FUNCTION
-                || (entry_2->kind == SK_TEMPLATE && 
-                    is_function_type(named_type_get_symbol(
-                            template_type_get_primary_type(entry_2->type_information))
-                    ->type_information))))
-        return 0;
-
-    return (strcmp(entry_1->symbol_name, entry_2->symbol_name) == 0);
-}
-
 static char first_is_subset_of_second(scope_entry_list_t* entry_list_1, scope_entry_list_t* entry_list_2)
 {
     ERROR_CONDITION(entry_list_1 == NULL
@@ -2099,8 +2197,7 @@ static char first_is_subset_of_second(scope_entry_list_t* entry_list_1, scope_en
         char found = 0;
         while (it != NULL && !found)
         {
-            found = (entry_list_1->entry == it->entry)
-                || name_same_overload(entry_list_1->entry, it->entry);
+            found = (entry_list_1->entry == it->entry);
             it = it->next;
         }
 
@@ -2113,19 +2210,163 @@ static char first_is_subset_of_second(scope_entry_list_t* entry_list_1, scope_en
     return 1;
 }
 
-static char different_symbols(scope_entry_list_t* entry_list_1, scope_entry_list_t* entry_list_2)
+static void error_ambiguity(scope_entry_list_t* entry_list, const char* filename, int line)
 {
-    ERROR_CONDITION(entry_list_1 == NULL
-            || entry_list_2 == NULL, "Error one list is NULL", 0);
+    scope_entry_list_t* it = entry_list;
 
-    return (!first_is_subset_of_second(entry_list_1, entry_list_2)
-            || !first_is_subset_of_second(entry_list_2, entry_list_1));
+    fprintf(stderr, "%s:%d: error: ambiguity in reference to '%s'\n", filename, line, entry_list->entry->symbol_name);
+    fprintf(stderr, "%s:%d: info: candidates are\n", filename, line);
+    while (it != NULL)
+    {
+        int max_qualif_level = 0;
+        char is_dependent = 0;
+
+        fprintf(stderr, "%s:%d: info:    %s\n", 
+                it->entry->file,
+                it->entry->line,
+                get_fully_qualified_symbol_name(it->entry,
+                    it->entry->decl_context, &is_dependent, &max_qualif_level));
+        it = it->next;
+    }
+
+    running_error("%s:%d: error: lookup failed due to ambiguous reference '%s'\n", 
+            filename, line, entry_list->entry->symbol_name);
 }
 
-static scope_entry_list_t* merge_scope_entry_list(scope_entry_list_t* list_1, scope_entry_list_t* list_2);
+
+static void check_for_naming_ambiguity(scope_entry_list_t* entry_list, const char* filename, int line)
+{
+    if (entry_list == NULL
+            || entry_list->next == NULL)
+        return;
+
+    scope_entry_list_t* it = entry_list;
+
+    scope_entry_t* hiding_name = NULL;
+
+    while (it != NULL)
+    {
+        if (hiding_name == NULL
+                && (it->entry->kind == SK_VARIABLE
+                    || it->entry->kind == SK_ENUMERATOR))
+        {
+            hiding_name = it->entry;
+        }
+        else if (it->entry->kind == SK_FUNCTION
+                || (it->entry->kind == SK_TEMPLATE
+                    && named_type_get_symbol(template_type_get_primary_type(it->entry->type_information))->kind == SK_FUNCTION))
+        {
+            hiding_name = it->entry;
+        }
+        else if ((it->entry->kind == SK_CLASS
+                    || it->entry->kind == SK_ENUM)
+                && (hiding_name != NULL
+                    && hiding_name->decl_context.current_scope == it->entry->decl_context.current_scope))
+        {
+        }
+        else
+        {
+            error_ambiguity(entry_list, filename, line);
+        }
+        it = it->next;
+    }
+}
+
+#define MAX_ASSOCIATED_NAMESPACES (64)
+
+static scope_entry_list_t* query_in_namespace_and_associates(
+        scope_entry_t* namespace,
+        const char* name, 
+        int idx_associated_namespaces, 
+        int num_associated_namespaces, 
+        scope_entry_t** associated_namespaces, 
+        decl_flags_t decl_flags,
+        const char* filename,
+        int line)
+{
+    ERROR_CONDITION(namespace->kind != SK_NAMESPACE, "Invalid symbol", 0);
+    scope_entry_list_t* grand_result 
+        = query_name_in_scope(namespace->namespace_decl_context.current_scope, name);
+
+    if (grand_result != NULL)
+        return grand_result;
+
+    int i;
+    for (i = idx_associated_namespaces; 
+            i < num_associated_namespaces; 
+            i++)
+    {
+        int new_num_associated_namespaces = num_associated_namespaces;
+        scope_entry_t* associated_namespace = associated_namespaces[i];
+        scope_t* current_scope = associated_namespace->namespace_decl_context.current_scope;
+
+        // This namespace may have additional used namespaces which we will add to the list of namespaces 
+        // if and only if they are not already there
+        int k;
+        for (k = 0; k < current_scope->num_used_namespaces; k++)
+        {
+            int j;
+            char found = 0;
+            for (j = 0; j < new_num_associated_namespaces && !found; j++)
+            {
+                found = (associated_namespaces[j] == current_scope->use_namespace[k]);
+            }
+            if (!found)
+            {
+                if ((idx_associated_namespaces + new_num_associated_namespaces) == MAX_ASSOCIATED_NAMESPACES)
+                    running_error("Too many associated namespaces > %d", MAX_ASSOCIATED_NAMESPACES);
+                associated_namespaces[idx_associated_namespaces + new_num_associated_namespaces] = current_scope->use_namespace[k];
+                new_num_associated_namespaces++;
+            }
+        }
+
+        scope_entry_list_t* result = query_in_namespace_and_associates(
+                associated_namespace,
+                name, 
+                num_associated_namespaces, 
+                new_num_associated_namespaces,
+                associated_namespaces,
+                decl_flags,
+                filename, 
+                line
+                );
+
+        grand_result = merge_scope_entry_list(grand_result, result);
+        
+        check_for_naming_ambiguity(grand_result, filename, line);
+    }
+
+    return grand_result;
+}
+
+static scope_entry_list_t* query_in_namespace(scope_entry_t* namespace, 
+        const char* name, decl_flags_t decl_flags,
+        const char* filename, int line)
+{
+    ERROR_CONDITION(namespace->kind != SK_NAMESPACE, "Invalid symbol", 0);
+
+    scope_t* current_scope = namespace->namespace_decl_context.current_scope;
+
+    scope_entry_t* associated_namespaces[MAX_ASSOCIATED_NAMESPACES];
+
+    int i;
+    for (i = 0; i < current_scope->num_used_namespaces; i++)
+    {
+        if (i == MAX_ASSOCIATED_NAMESPACES)
+            running_error("Too many associated namespaces > %d", MAX_ASSOCIATED_NAMESPACES);
+        associated_namespaces[i] = current_scope->use_namespace[i];
+    }
+
+    return query_in_namespace_and_associates(namespace, name, 
+            0, current_scope->num_used_namespaces, 
+            associated_namespaces, decl_flags,
+            filename, line); 
+}
 
 static scope_entry_list_t* name_lookup(decl_context_t decl_context, 
-        const char* name, const char* filename, int line)
+        const char* name, 
+        const char* filename, 
+        int line)
 {
     ERROR_CONDITION(name == NULL, "Name cannot be null!", 0);
 
@@ -2134,46 +2375,80 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
         fprintf(stderr, "SCOPE: Name lookup of '%s'\n", name);
     }
 
-    scope_entry_list_t *result = NULL;
-
-    if (!BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE))
+    // TEMPLATE_SCOPE is specially handled always
+    scope_t* template_scope = decl_context.template_scope;
+    while (template_scope != NULL)
     {
-        // This one has higher priority
-        scope_t* template_scope = decl_context.template_scope;
-        // The frontend should keep the template scope always up to date
-        while (template_scope != NULL)
+        ERROR_CONDITION((template_scope->kind != TEMPLATE_SCOPE), "This is not a template scope!", 0);
+
+        scope_entry_list_t *template_query = query_name_in_scope(template_scope, name);
+
+        // If something is found in template query
+        // it has higher priority
+        if (template_query != NULL)
         {
-            ERROR_CONDITION((template_scope->kind != TEMPLATE_SCOPE), "This is not a template scope!", 0);
-
-            scope_entry_list_t *template_query = query_name_in_scope(template_scope, name);
-
-            // If something is found in template query
-            // it has higher priority
-            if (template_query != NULL)
-            {
-                return template_query;
-            }
-
-            // If nothing was found, look up in the enclosing template_scope
-            // (they form a stack of template_scopes)
-            template_scope = template_scope->contained_in;
+            return template_query;
         }
+
+        // If nothing was found, look up in the enclosing template_scope
+        // (they form a stack of template_scopes)
+        template_scope = template_scope->contained_in;
     }
-    // Otherwise continue with normal lookup
-    ERROR_CONDITION((result != NULL), "The symbols found here should be NULL!", 0);
+
+    scope_entry_list_t* result = NULL;
+
+    int num_associated_namespaces = 0;
+    scope_entry_t* associated_namespaces[MAX_ASSOCIATED_NAMESPACES] = { 0 };
 
     scope_t* current_scope = decl_context.current_scope;
-    while (current_scope != NULL)
+
+    while (result == NULL
+            && current_scope != NULL)
     {
-        if (current_scope->kind != CLASS_SCOPE
-                || BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE))
+        // If this scope has associated ones, add them to the associated scopes
+        int i;
+        for (i = 0; i < current_scope->num_used_namespaces; i++)
+        {
+            int j;
+            char found = 0;
+
+            // Inlines are the only ones considered when doing a "only current
+            // scope" lookup
+            if (BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE)
+                        && !current_scope->use_namespace[i]->entity_specs.is_inline)
+                continue;
+
+            for (j = 0; j < num_associated_namespaces && !found; j++)
+            {
+                found = (associated_namespaces[j] == current_scope->use_namespace[i]);
+            }
+            if (!found)
+            {
+                if (num_associated_namespaces == MAX_ASSOCIATED_NAMESPACES)
+                    running_error("Too many associated scopes > %d", MAX_ASSOCIATED_NAMESPACES);
+                associated_namespaces[num_associated_namespaces] = current_scope->use_namespace[i];
+                num_associated_namespaces++;
+            }
+        }
+
+        if (current_scope->kind == CLASS_SCOPE
+                && !BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE))
+        {
+            result = query_in_class(current_scope, name, decl_context.decl_flags, 
+                    filename, line);
+        }
+        else if (current_scope->kind == NAMESPACE_SCOPE)
+        {
+            result = query_in_namespace_and_associates(
+                    current_scope->related_entry,
+                    name, 0, num_associated_namespaces,
+                    associated_namespaces, decl_context.decl_flags,
+                    filename, line);
+            num_associated_namespaces = 0;
+        }
+        else // BLOCK_SCOPE || PROTOTYPE_SCOPE || FUNCTION_SCOPE (although its contains should be NULL)
         {
             result = query_name_in_scope(current_scope, name);
-        }
-        else
-        {
-            // Class scopes require slightly different strategy
-            result = class_scope_lookup(current_scope, name, decl_context.decl_flags);
         }
 
         if (BITMAP_TEST(decl_context.decl_flags, DF_ELABORATED_NAME))
@@ -2181,79 +2456,10 @@ static scope_entry_list_t* name_lookup(decl_context_t decl_context,
             result = filter_any_non_type(result);
         }
 
-        // Do not look anything else
-        if (result != NULL
-                && BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE))
-        {
-            return result;
-        }
-
-        // When looking up the first component of a qualified name, do not
-        // check used namespaces if something is already found in the current
-        // scope
-        if (result != NULL
-                && BITMAP_TEST(decl_context.decl_flags, DF_NO_AMBIGUOUS_NAMESPACE))
-        {
-            return result;
-        }
-        
-        // Otherwise, if this is a NAMESPACE_SCOPE, lookup in the used namespaces
-        // note that the objects there are not hidden, but added
-        if (current_scope->num_used_namespaces > 0)
-        {
-            // If nothing has been found, check inline namespaces
-            scope_entry_list_t* used_result = name_lookup_used_namespaces(decl_context, current_scope, name,
-                    /* only_inline */ BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE));
-            if (BITMAP_TEST(decl_context.decl_flags, DF_ELABORATED_NAME))
-            {
-                used_result = filter_any_non_type(used_result);
-            }
-            // If this yields any result, return them, no more search needed
-            if (result == NULL && used_result != NULL)
-            {
-                return used_result;
-            }
-            else if (result != NULL && used_result != NULL)
-            {
-                if (different_symbols(result, used_result))
-                {
-                    char is_dependent = 0;
-                    int max_qualif_level = 0;
-                    fprintf(stderr, "%s:%d: note: '%s' refers to '%s'\n", 
-                            filename, line, name,
-                            get_fully_qualified_symbol_name(result->entry, result->entry->decl_context, &is_dependent, &max_qualif_level));
-                    fprintf(stderr, "%s:%d: note: '%s' refers to '%s'\n", 
-                            filename, line, name,
-                            get_fully_qualified_symbol_name(used_result->entry, used_result->entry->decl_context, &is_dependent, &max_qualif_level));
-                    running_error("%s:%d: error: name is '%s' ambiguous\n", 
-                            filename, line, name);
-                }
-                else
-                {
-                    result = merge_scope_entry_list(used_result, result);
-                }
-            }
-        }
-
-        // If the current scope had something return it now
-        if (result != NULL)
-        {
-            return result;
-        }
-
-        // If this is a "only this scope" lookup bail out
         if (BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE))
         {
-            return NULL;
+            return result;
         }
-
-        // If we are in a qualified lookup never lookup the enclosing one
-        if (BITMAP_TEST(decl_context.decl_flags, DF_QUALIFIED_NAME))
-        {
-            return NULL;
-        }
-
-        ERROR_CONDITION((result != NULL), "The symbols found here should be NULL!", 0);
 
         current_scope = current_scope->contained_in;
     }
@@ -2348,12 +2554,6 @@ decl_context_t update_context_with_template_arguments(
                 }
         }
     }
-
-#if 0
-    fprintf(stderr, "####################################\n");
-    print_scope(updated_context);
-    fprintf(stderr, "#-##################################\n");
-#endif
 
     return updated_context;
 }
@@ -3745,9 +3945,10 @@ static template_argument_list_t *get_template_arguments_of_template_id(
 }
 
 // This function never instantiates a template, it might create a specialization though
-static scope_entry_list_t* query_template_id(AST template_id, 
+static scope_entry_list_t* query_template_id_aux(AST template_id, 
         decl_context_t template_name_context,
-        decl_context_t template_arguments_context)
+        decl_context_t template_arguments_context,
+        scope_entry_list_t* (*query_function)(decl_context_t, const char*, const char*, int))
 {
     ERROR_CONDITION(ASTType(template_id) != AST_TEMPLATE_ID
             && ASTType(template_id) != AST_OPERATOR_FUNCTION_ID_TEMPLATE, 
@@ -3781,7 +3982,7 @@ static scope_entry_list_t* query_template_id(AST template_id,
     }
     else
     {
-        template_symbol_list = name_lookup(template_name_context, template_name, 
+        template_symbol_list = query_function(template_name_context, template_name, 
                 ASTFileName(template_id), ASTLine(template_id));
 
         // Filter template-names
@@ -3894,6 +4095,16 @@ static scope_entry_list_t* query_template_id(AST template_id,
     return NULL;
 }
 
+static scope_entry_list_t* query_template_id(AST template_id, 
+        decl_context_t template_name_context,
+        decl_context_t template_arguments_context)
+{
+    return query_template_id_aux(template_id,
+            template_name_context,
+            template_arguments_context,
+            name_lookup);
+}
+
 scope_entry_list_t *copy_entry_list(scope_entry_list_t* orig)
 {
     scope_entry_list_t* result = NULL;
@@ -3908,34 +4119,8 @@ scope_entry_list_t *copy_entry_list(scope_entry_list_t* orig)
     return result;
 }
 
-static scope_entry_list_t* append_scope_entry_list(scope_entry_list_t* orig, scope_entry_list_t* appended)
-{
-    // This avoids some copies
-    if (orig == NULL)
-    {
-        return appended;
-    }
-    if (appended == NULL)
-    {
-        return orig;
-    }
-
-    // We have to copy the list to avoid modifying the orig one
-    // that might be referenced in the scopes
-    scope_entry_list_t* copy_orig = copy_entry_list(orig);
-    scope_entry_list_t* it = copy_orig;
-    while (it->next != NULL)
-    {
-        it = it->next;
-    }
-
-    it->next = appended;
-
-    return copy_orig;
-}
-
 // Like append but avoids repeated symbols
-static scope_entry_list_t* merge_scope_entry_list(scope_entry_list_t* list_1, scope_entry_list_t* list_2)
+scope_entry_list_t* merge_scope_entry_list(scope_entry_list_t* list_1, scope_entry_list_t* list_2)
 {
     // Some simple cases
     if (list_1 == NULL)
@@ -4003,7 +4188,8 @@ static const char* get_fully_qualified_symbol_name_simple(decl_context_t decl_co
     {
         while (current_scope != NULL)
         {
-            if (current_scope->related_entry != NULL)
+            if (current_scope->related_entry != NULL
+                    && current_scope->related_entry->symbol_name != NULL)
             {
                 const char* nested_name = strappend(current_scope->related_entry->symbol_name, "::");
                 result = strappend(nested_name, result);
@@ -4234,55 +4420,63 @@ decl_context_t decl_context_empty()
     return result;
 }
 
-scope_entry_list_t* cascade_lookup(decl_context_t decl_context, const char* name)
+// FIXME - This function should be removed some day. It exists solely for UDR
+// lookups...
+//
+// It is a simplified clone of name lookup but checks enclosing LEXICAL scopes
+// even if we have found something in the current one
+//
+// Note that cascade lookup DOES NOT take into account used namespaces or
+// template scopes
+scope_entry_list_t* cascade_lookup(decl_context_t decl_context, const char* name, 
+        const char* filename, int line)
 {
-    // This function is a simplified version of name_lookup, it turns that
-    // name_lookup is complex enough to avoid touching it unless needed
-
     ERROR_CONDITION(name == NULL, "Name cannot be null!", 0);
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "SCOPE: Cascade lookup of '%s'\n", name);
+        fprintf(stderr, "SCOPE: Name lookup of '%s'\n", name);
     }
 
-    scope_entry_list_t *result = NULL;
+    scope_entry_list_t* result = NULL;
 
-    // This one has higher priority
-    scope_t* template_scope = decl_context.template_scope;
-    // The frontend should keep the template scope always up to date
-    while (template_scope != NULL)
-    {
-        ERROR_CONDITION((template_scope->kind != TEMPLATE_SCOPE), "This is not a template scope!", 0);
-
-        result = append_scope_entry_list(result, query_name_in_scope(template_scope, name));
-
-        // If nothing was found, look up in the enclosing template_scope
-        // (they form a stack of template_scopes)
-        template_scope = template_scope->contained_in;
-    }
+    int num_associated_namespaces = 0;
+    scope_entry_t* associated_namespaces[MAX_ASSOCIATED_NAMESPACES] = { 0 };
 
     scope_t* current_scope = decl_context.current_scope;
+
     while (current_scope != NULL)
     {
-        if (current_scope->kind != CLASS_SCOPE)
+        if (current_scope->kind == CLASS_SCOPE
+                && !BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE))
         {
-            result = append_scope_entry_list(result, query_name_in_scope(current_scope, name));
+            result = merge_scope_entry_list(result, 
+                    query_in_class(current_scope, name, decl_context.decl_flags, 
+                        filename, line));
         }
-        else
+        else if (current_scope->kind == NAMESPACE_SCOPE)
         {
-            // Class scopes require slightly different strategy
-            result = append_scope_entry_list(result, class_scope_lookup(current_scope, name, decl_context.decl_flags));
+            result = merge_scope_entry_list(result,
+                    query_in_namespace_and_associates(
+                        current_scope->related_entry,
+                        name, 0, num_associated_namespaces,
+                        associated_namespaces, decl_context.decl_flags,
+                        filename, line));
+            num_associated_namespaces = 0;
+        }
+        else // BLOCK_SCOPE || PROTOTYPE_SCOPE || FUNCTION_SCOPE (although its contains should be NULL)
+        {
+            result = merge_scope_entry_list(result, query_name_in_scope(current_scope, name));
         }
 
-        // Otherwise, if this is a NAMESPACE_SCOPE, lookup in the used namespaces
-        // note that the objects there are not hidden, but added
-        if (current_scope->num_used_namespaces > 0)
+        if (BITMAP_TEST(decl_context.decl_flags, DF_ELABORATED_NAME))
         {
-            result = append_scope_entry_list(result, name_lookup_used_namespaces(decl_context, 
-                        current_scope, 
-                        name, 
-                        /* only_inline */ false));
+            result = filter_any_non_type(result);
+        }
+
+        if (BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE))
+        {
+            return result;
         }
 
         current_scope = current_scope->contained_in;

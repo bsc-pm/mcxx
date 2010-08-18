@@ -714,8 +714,10 @@ namespace TL
                         {
                             while ((enclosing != NULL) && is_shared)
                             {
-                                is_shared = is_shared && (enclosing->get_data_sharing(sym, 
-                                            /* check_enclosing */ false) == DS_SHARED);
+                                DataSharingAttribute ds = enclosing->get_data_sharing(sym, /* check_enclosing */ false);
+                                ds = (DataSharingAttribute)(ds & ~DS_IMPLICIT);
+                                is_shared = (is_shared && (ds == DS_SHARED));
+
                                 // Stop once we see the innermost parallel
                                 if (enclosing->get_is_parallel())
                                     break;

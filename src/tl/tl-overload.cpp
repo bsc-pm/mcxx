@@ -112,13 +112,35 @@ namespace TL
             }
         }
 
+        candidate_t* candidate_set = NULL;
+
+        scope_entry_list_t* it = candidate_list;
+        while (it != NULL)
+        {
+            if (it->entry->entity_specs.is_member)
+            {
+                candidate_set = add_to_candidate_set(candidate_set,
+                        it->entry,
+                        argument_types.size() + 1,
+                        argument_types_array);
+            }
+            else
+            {
+                candidate_set = add_to_candidate_set(candidate_set,
+                        it->entry,
+                        argument_types.size(),
+                        argument_types_array + 1);
+            }
+
+            it = it->next;
+        }
+
         // We also need a scope_entry_t** for holding the conversor argument
         scope_entry_t** conversor_per_argument = new scope_entry_t*[argument_types.size() + 1];
 
         // Now invoke all the machinery
         scope_entry_t* entry_result =
-        solve_overload(candidate_list, 
-                argument_types_array, /* Number of arguments */ argument_types.size() + 1,
+        solve_overload(candidate_set,
                 decl_context,
                 uniquestr(filename.c_str()), line,
                 conversor_per_argument);

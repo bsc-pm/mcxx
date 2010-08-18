@@ -26,9 +26,58 @@ test_generator=config/mercurium-omp
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-void f(void)
+#include <stdio.h>
+#include <stdlib.h>
+
+#define NUM_ELEMS 100
+
+int main(int argc, char *argv[])
 {
-#pragma omp task
+    int a = 0;
+#pragma omp task 
     {
+        a = 1;
     }
+#pragma omp taskwait
+    if (a != 0)
+    {
+        fprintf(stderr, "a == %d != 0\n", a);
+        abort();
+    }
+
+#pragma omp task shared(a)
+    {
+        a = 1;
+    }
+#pragma omp taskwait
+    if (a != 1)
+    {
+        fprintf(stderr, "a = %d != 1\n", a);
+        abort();
+    }
+
+    int c[NUM_ELEMS];
+
+    int i;
+    for (i = 0; i < NUM_ELEMS; i++)
+    {
+        int *p = &(c[i]);
+
+#pragma omp task firstprivate(p)
+        {
+            *p = i;
+        }
+    }
+#pragma omp taskwait
+
+    for (i = 0; i < NUM_ELEMS; i++)
+    {
+        if (c[i] != i)
+        {
+            fprintf(stderr, "c[%d] == %d != %d\n", i, c[i], i);
+            abort();
+        }
+    }
+
+    return 0;
 }

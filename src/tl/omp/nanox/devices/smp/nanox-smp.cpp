@@ -230,7 +230,7 @@ void DeviceSMP::create_outline(
 
     result
         << forward_declaration
-        << "void " << outline_name << "(" << parameter_list << ")"
+        << "static void " << outline_name << "(" << parameter_list << ")"
         << "{"
         << instrument_before
         << body

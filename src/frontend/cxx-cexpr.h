@@ -30,6 +30,7 @@
 #include "cxx-scope-decls.h"
 #include "cxx-buildscope-decls.h"
 #include "cxx-macros.h"
+#include "cxx-typeutils.h"
 
 MCXX_BEGIN_DECLS
 
@@ -48,6 +49,11 @@ LIBMCXX_EXTERN uint8_t const_value_cast_to_1(const_value_t* val);
 LIBMCXX_EXTERN const_value_t* const_value_cast_to_bytes(const_value_t* val, int bytes, char sign);
 
 LIBMCXX_EXTERN AST const_value_to_tree(const_value_t* v);
+
+LIBMCXX_EXTERN type_t* const_value_get_minimal_integer_type(const_value_t* val);
+
+LIBMCXX_EXTERN const_value_t* integer_type_get_maximum(type_t* t);
+LIBMCXX_EXTERN const_value_t* integer_type_get_minimum(type_t* t);
 
 #define BINOP_DECL(_opname, _binop) \
 LIBMCXX_EXTERN const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2); \

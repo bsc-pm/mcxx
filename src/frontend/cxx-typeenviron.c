@@ -345,6 +345,19 @@ static void system_v_struct_sizeof(type_t* class_type)
     type_set_valid_size(class_type, 1);
 }
 
+static void c_or_cxx_enum_sizeof(type_t* t)
+{
+    type_t* underlying = enum_type_get_underlying_type(t);
+
+    type_set_size(t, type_get_size(underlying));
+    CXX_LANGUAGE()
+    {
+        type_set_data_size(t, type_get_size(underlying));
+    }
+    type_set_alignment(t, type_get_alignment(underlying));
+    type_set_valid_size(t, 1);
+}
+
 static void system_v_generic_sizeof(type_t* t)
 {
     // FIXME - Named types like in the case below are not well handled
@@ -361,6 +374,10 @@ static void system_v_generic_sizeof(type_t* t)
     else if (is_unnamed_class_type(t))
     {
         system_v_struct_sizeof(t);
+    }
+    else if (is_enum_type(t))
+    {
+        c_or_cxx_enum_sizeof(t);
     }
     else
     {
@@ -1405,6 +1422,10 @@ static void cxx_abi_generic_sizeof(type_t* t)
     else if (is_class_type(t))
     {
         cxx_abi_class_sizeof(t);
+    }
+    else if (is_enum_type(t))
+    {
+        c_or_cxx_enum_sizeof(t);
     }
     else
     {

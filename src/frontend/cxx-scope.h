@@ -136,7 +136,8 @@ LIBMCXX_EXTERN decl_context_t update_context_with_template_arguments(
         template_argument_list_t* given_template_args);
 
 // Other stuff
-LIBMCXX_EXTERN scope_entry_list_t* cascade_lookup(decl_context_t decl_context, const char* name);
+LIBMCXX_EXTERN scope_entry_list_t* cascade_lookup(decl_context_t decl_context, const char* name, 
+        const char* filename, int line);
 
 LIBMCXX_EXTERN unsigned long long scope_used_memory(void);
 LIBMCXX_EXTERN unsigned long long symbols_used_memory(void);
@@ -157,6 +158,9 @@ LIBMCXX_EXTERN char is_unqualified_id_expression(AST a);
 
 LIBMCXX_EXTERN char is_inline_namespace_of(decl_context_t inner_namespace_ctx, 
         decl_context_t outer_namespace_ctx);
+
+LIBMCXX_EXTERN scope_entry_list_t* merge_scope_entry_list(scope_entry_list_t* list_1, 
+        scope_entry_list_t* list_2);
 
 MCXX_END_DECLS
 
