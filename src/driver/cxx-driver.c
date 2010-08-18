@@ -3078,6 +3078,7 @@ static void link_objects(void)
         else
         {
             file_list[j] = translation_unit->output_filename;
+            mark_file_as_temporary(file_list[j]);
         }
     }
 
