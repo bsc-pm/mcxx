@@ -1155,6 +1155,7 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 break;
             }
         case AST_CONDITIONAL_EXPRESSION :
+        case AST_GCC_CONDITIONAL_EXPRESSION :
             {
                 result = check_for_conditional_expression(expression, decl_context);
 
@@ -1163,14 +1164,27 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                     ASTAttrSetValueType(expression, LANG_IS_CONDITIONAL_EXPRESSION,
                             tl_type_t, tl_bool(1));
 
-                    ASTAttrSetValueType(expression, LANG_CONDITIONAL_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
-                    ASTAttrSetValueType(expression, LANG_CONDITIONAL_TRUE_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expression)));
-                    ASTAttrSetValueType(expression, LANG_CONDITIONAL_FALSE_EXPRESSION, tl_type_t, tl_ast(ASTSon2(expression)));
+                    if (ASTType(expression) == AST_CONDITIONAL_EXPRESSION)
+                    {
+                        ASTAttrSetValueType(expression, LANG_CONDITIONAL_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
+                        ASTAttrSetValueType(expression, LANG_CONDITIONAL_TRUE_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expression)));
+                        ASTAttrSetValueType(expression, LANG_CONDITIONAL_FALSE_EXPRESSION, tl_type_t, tl_ast(ASTSon2(expression)));
 
-                    expression_set_is_value_dependent(expression,
-                            expression_is_value_dependent(ASTSon0(expression))
-                            || expression_is_value_dependent(ASTSon1(expression))
-                            || expression_is_value_dependent(ASTSon2(expression)));
+                        expression_set_is_value_dependent(expression,
+                                expression_is_value_dependent(ASTSon0(expression))
+                                || expression_is_value_dependent(ASTSon1(expression))
+                                || expression_is_value_dependent(ASTSon2(expression)));
+                    }
+                    else
+                    {
+                        ASTAttrSetValueType(expression, LANG_CONDITIONAL_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
+                        ASTAttrSetValueType(expression, LANG_CONDITIONAL_TRUE_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
+                        ASTAttrSetValueType(expression, LANG_CONDITIONAL_FALSE_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expression)));
+
+                        expression_set_is_value_dependent(expression,
+                                expression_is_value_dependent(ASTSon0(expression))
+                                || expression_is_value_dependent(ASTSon1(expression)));
+                    }
                 }
 
                 break;
@@ -5770,25 +5784,26 @@ static type_t* composite_pointer(type_t* p1, type_t* p2)
     return result;
 }
 
-static char check_for_conditional_expression_impl(AST expression, decl_context_t decl_context)
+static char check_for_conditional_expression_impl(AST expression, 
+        AST first_op, AST second_op, AST third_op, decl_context_t decl_context)
 {
     /*
      * This is more complex that it might seem at first ...
      */
-    char result = check_for_expression(ASTSon0(expression), decl_context )
-        && check_for_expression(ASTSon1(expression), decl_context )
-        && check_for_expression(ASTSon2(expression), decl_context );
+    char result = check_for_expression(first_op, decl_context )
+        && check_for_expression(second_op, decl_context )
+        && check_for_expression(third_op, decl_context );
 
     if (!result)
         return 0;
 
-    type_t* first_type = expression_get_type(ASTSon0(expression));
+    type_t* first_type = expression_get_type(first_op);
 
-    type_t* second_type = expression_get_type(ASTSon1(expression));
-    char second_is_lvalue = expression_is_lvalue(ASTSon1(expression));
+    type_t* second_type = expression_get_type(second_op);
+    char second_is_lvalue = expression_is_lvalue(second_op);
 
-    type_t* third_type = expression_get_type(ASTSon2(expression));
-    char third_is_lvalue = expression_is_lvalue(ASTSon2(expression));
+    type_t* third_type = expression_get_type(third_op);
+    char third_is_lvalue = expression_is_lvalue(third_op);
 
     if (first_type == NULL
             || second_type == NULL
@@ -5996,14 +6011,18 @@ static char check_for_conditional_expression_impl(AST expression, decl_context_t
                 return 0;
             }
 
+            // Note that for AST_GCC_CONDITIONAL_EXPRESSION first_op == second_op
+            // but writing it twice in the loop should be harmless
+            AST ops[] = { first_op, second_op, third_op };
+
             int k;
             for (k = 0; k < 3; k++)
             {
                 if (conversors[k] != NULL)
                 {
-                    ASTAttrSetValueType(ASTChild(expression, k), 
+                    ASTAttrSetValueType(ops[k], 
                             LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(ASTChild(expression, k), 
+                    ASTAttrSetValueType(ops[k],
                             LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[k]));
                 }
             }
@@ -6106,11 +6125,26 @@ static char check_for_conditional_expression_impl(AST expression, decl_context_t
 
 static char check_for_conditional_expression(AST expression, decl_context_t decl_context)
 {
-    char result = check_for_conditional_expression_impl(expression, decl_context);
-
     AST first_op = ASTSon0(expression);
-    AST second_op = ASTSon1(expression);
-    AST third_op = ASTSon2(expression);
+    AST second_op = NULL, third_op = NULL;
+
+    if (ASTType(expression) == AST_CONDITIONAL_EXPRESSION)
+    {
+        second_op = ASTSon1(expression);
+        third_op = ASTSon2(expression);
+    }
+    else if (ASTType(expression) == AST_GCC_CONDITIONAL_EXPRESSION)
+    {
+        second_op = first_op;
+        third_op = ASTSon1(expression);
+    }
+    else
+    {
+        internal_error("Invalid node '%s'\n", ast_print_node_type(ASTType(expression)));
+    }
+
+    char result = check_for_conditional_expression_impl(expression, 
+            first_op, second_op, third_op, decl_context);
 
     if (!result
             && !checking_ambiguity())
