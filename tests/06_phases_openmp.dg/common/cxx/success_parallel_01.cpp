@@ -29,7 +29,7 @@ test_generator=config/mercurium-omp
 #include <stdlib.h>
 #include "omp.h"
 
-void fib(int x)
+int main(int argc, char* argv[])
 {
     int a = 3;
 #pragma omp parallel if (a > 50)

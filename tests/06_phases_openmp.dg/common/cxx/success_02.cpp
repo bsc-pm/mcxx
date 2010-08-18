@@ -40,6 +40,8 @@ struct A
     A() : b(0) { }
 };
 
+int A::c;
+
 void A::f(void)
 {
 #pragma omp parallel
