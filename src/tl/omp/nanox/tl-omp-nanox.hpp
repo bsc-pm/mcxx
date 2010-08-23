@@ -34,6 +34,7 @@ namespace Nanox
     {
         public:
             OMPTransform();
+            virtual void phase_cleanup(DTO& data_flow);
 
         private:
             void parallel_postorder(PragmaCustomConstruct ctr);
@@ -48,16 +49,18 @@ namespace Nanox
             void critical_postorder(PragmaCustomConstruct ctr);
 
             void target_postorder(PragmaCustomConstruct ctr);
-
             std::map<std::string, bool> _registered_slicer;
 
-            ObjectList<Symbol> _converted_vlas;
+            void unimplemented_yet(PragmaCustomConstruct construct);
 
+            // Phase data
             bool _enable_instrumentation;
             std::string _enable_instrumentation_str;
             void set_instrumentation(const std::string& str);
 
-            void unimplemented_yet(PragmaCustomConstruct construct);
+            // Data that does not last between files
+            ObjectList<Symbol> _converted_vlas;
+            std::set<std::string> _lock_names;
     };
 
     const std::string NANOX_OUTLINE_COUNTER("nanox_outline_counter");

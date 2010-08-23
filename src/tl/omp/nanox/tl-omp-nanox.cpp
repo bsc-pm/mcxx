@@ -85,4 +85,10 @@ void OMPTransform::set_instrumentation(const std::string& str)
             /* Error message */  "Instrumentation disabled");
 }
 
+void OMPTransform::phase_cleanup(DTO& data_flow)
+{
+    _lock_names.clear();
+    _converted_vlas.clear();
+}
+
 EXPORT_PHASE(TL::Nanox::OMPTransform)
