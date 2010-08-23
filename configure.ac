@@ -863,6 +863,8 @@ AC_ARG_WITH([type-environment],
 
 RPATH_PARAMETER="-rpath"
 AC_SUBST([RPATH_PARAMETER])
+NANOS4_32_BIT_COMPAT=""
+AC_SUBST([NANOS4_32_BIT_COMPAT])
 
 dnl Redundancy ahead
 if test x"$default_type_environ" = x;
@@ -880,6 +882,7 @@ dnl We try to figure a sensible default environment based on the configure envir
            ;;
        x86_64-*-linux*)
            default_type_environ="linux-x86_64"
+           NANOS4_32_BIT_COMPAT="-m32"
            ;;
        ia64-*-linux*)
            default_type_environ="linux-ia64"
