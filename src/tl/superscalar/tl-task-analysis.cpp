@@ -253,27 +253,17 @@ namespace TL
 			TaskAnalysis::fail();
 		}
 		
-		bool is_blocking = construct.get_clause("target").is_defined();
+		bool is_blocking = construct.get_clause("blocking").is_defined();
 		
-		if (is_blocking)
+		if (is_blocking && !construct.get_clause("blocking").get_arguments().empty())
 		{
-			ObjectList< std::string > args = construct.get_clause("target").get_arguments(ExpressionTokenizerTrim());
-			if ( args.size() != 1 )
-			{
-				std::cerr << context_ast.get_locus() << " Error: the 'target' clause needs one and just one parameter for this version." << std::endl;
-				TaskAnalysis::fail();
-			}
-
-			if ( (*args.begin()) != std::string("comm_thread") )
-			{
-				std::cerr << context_ast.get_locus() << " Error: the 'target' only accepts the 'comm_thread' argument for this version." << std::endl;
-				TaskAnalysis::fail();
-			}
+			std::cerr << context_ast.get_locus() << " Error: the 'blocking' clause does not accept any parameter." << std::endl;
+			TaskAnalysis::fail();
 		}
-
+		
 		if (has_high_priority && is_blocking)
 		{
-			std::cerr << context_ast.get_locus() << " Warning: ignoring 'highpriority' clause used together with target(comm_thread) task." << std::endl;
+			std::cerr << context_ast.get_locus() << " Warning: ignoring 'highpriority' clause in blocking task." << std::endl;
 		}
 		
 		std::map<Symbol, RegionList> parameter_region_lists;
@@ -391,7 +381,10 @@ namespace TL
 		for (std::map<Symbol, RegionList>::iterator it = parameter_region_lists.begin(); it != parameter_region_lists.end(); it++)
 		{
 			Symbol const &parameter_symbol = it->first;
-			if (!parameter_symbol.get_type().is_pointer() && !parameter_symbol.get_type().is_array())
+			if (!parameter_symbol.get_type().is_pointer() 
+                    && !parameter_symbol.get_type().is_array()
+                    // Allow references for C++
+                    && !parameter_symbol.get_type().is_reference())
 			{
 				RegionList const &region_list = it->second;
 				for (RegionList::const_iterator it2 = region_list.begin(); it2 != region_list.end(); it2++)
