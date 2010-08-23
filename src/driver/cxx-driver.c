@@ -2270,18 +2270,14 @@ static const char* prettyprint_translation_unit(translation_unit_t* translation_
         output_filename_basename = strappend(preffix,
                 input_filename_basename);
 
-        if (CURRENT_CONFIGURATION->output_directory == NULL)
-        {
-            const char* input_filename_dirname = give_dirname(translation_unit->input_filename);
-            input_filename_dirname = strappend(input_filename_dirname, "/");
-
-            output_filename = strappend(input_filename_dirname,
-                    output_filename_basename);
-        }
-        else
+        if (CURRENT_CONFIGURATION->output_directory != NULL)
         {
             output_filename = strappend(CURRENT_CONFIGURATION->output_directory, "/");
             output_filename = strappend(output_filename, output_filename_basename);
+        }
+        else
+        {
+            output_filename = output_filename_basename;
         }
     }
 
@@ -2598,13 +2594,13 @@ static void native_compilation(translation_unit_t* translation_unit,
         mark_file_for_cleanup(prettyprinted_filename);
     }
 
-    const char* output_object_filename;
+    const char* output_object_filename = NULL;
 
     if (translation_unit->output_filename == NULL
             || !CURRENT_CONFIGURATION->do_not_link)
     {
         char temp[256];
-        strncpy(temp, translation_unit->input_filename, 255);
+        strncpy(temp, give_basename(translation_unit->input_filename), 255);
         temp[255] = '\0';
         char* p = strrchr(temp, '.');
         if (p != NULL)
