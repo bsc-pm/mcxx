@@ -141,7 +141,7 @@ namespace TL
             if (allow_inlining_of_outlines)
             {
                 inline_attribute
-                    << " __inline__ "
+                    << "extern __inline__ "
                     ;
             }
 
