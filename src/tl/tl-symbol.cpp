@@ -316,6 +316,11 @@ namespace TL
     {
         return _symbol->entity_specs.after_typedef;
     }
+
+    AST_t Symbol::get_definition_tree() const
+    {
+        return _symbol->entity_specs.definition_tree;
+    }
     
     bool Symbol::has_gcc_attribute(const std::string &str) const
     {

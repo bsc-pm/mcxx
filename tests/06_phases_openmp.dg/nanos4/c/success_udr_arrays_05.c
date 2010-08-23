@@ -1,6 +1,7 @@
 /*
 <testinfo>
 test_generator=config/mercurium-nanos4
+test_ignore=yes
 </testinfo>
 */
 #include <string.h>

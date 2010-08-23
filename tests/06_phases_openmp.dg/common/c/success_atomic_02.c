@@ -26,9 +26,21 @@ test_generator=config/mercurium-omp
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-void f(void)
+#include <stdlib.h>
+#include "omp.h"
+
+int main(int argc, char* argv[])
 {
-#pragma omp parallel single
-    {
-    }
+    int i = 3;
+
+#pragma omp atomic
+    i += 2;
+
+#pragma omp atomic
+    i++;
+
+    if (i != 6)
+        abort();
+
+    return 0;
 }

@@ -28,13 +28,22 @@ test_compile_faulty_nanox_plain=yes
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-void f(void)
+#include <stdlib.h>
+
+#define NUM_ELEMS 100
+
+int main(int argc, char* argv[])
 {
     int i;
     int s = 0;
 #pragma omp for reduction(+:s)
-    for (i = 0; i < 10; i++)
+    for (i = 0; i < NUM_ELEMS; i++)
     {
-        s = s + 1;
+        s = s + i;
     }
+
+    if (s != (((NUM_ELEMS - 1) * NUM_ELEMS) / 2))
+        abort();
+
+    return 0;
 }

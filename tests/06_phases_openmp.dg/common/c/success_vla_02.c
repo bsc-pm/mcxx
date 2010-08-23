@@ -26,6 +26,9 @@ test_generator=config/mercurium-omp
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include <stdlib.h>
+#include <stdio.h>
+
 void f(void)
 {
     int n = 10, m = 20;
@@ -34,6 +37,13 @@ void f(void)
 #pragma omp task shared(v)
     {
         v[n-1][m-1] = 3;
+    }
+#pragma omp taskwait
+    
+    if (v[9][19] != 3)
+    {
+        fprintf(stderr, "v[9][19] != 3\n");
+        abort();
     }
 }
 
@@ -44,6 +54,20 @@ void g(void)
 
 #pragma omp parallel shared(v) firstprivate(n, m)
     {
-        v[n-1][m-1] = 3;
+        v[n-1][m-1] = 4;
     }
+
+    if (v[9][19] != 4)
+    {
+        fprintf(stderr, "v[9][19] != 4\n");
+        abort();
+    }
+}
+
+int main(int argc, char *argv[])
+{
+    f();
+    g();
+
+    return 0;
 }

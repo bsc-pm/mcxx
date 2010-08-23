@@ -1,6 +1,12 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
+
+test_exec_fail_nanos4_plain_default=yes
+test_exec_fail_nanos4_instrument_default=yes
+test_exec_faulty_nanos4_plain_default=yes
+test_exec_faulty_nanos4_instrument_default=yes
+
 test_compile_fail_nanox_plain=yes
 test_compile_faulty_nanox_plain=yes
 </testinfo>
@@ -30,15 +36,25 @@ test_compile_faulty_nanox_plain=yes
 
 int a;
 
-void f(void)
+int main(int argc, char *argv[])
 {
     int b;
     int i;
 
+    a = 3;
+    b = 4;
+
 #pragma omp for firstprivate(a, b) lastprivate(a, b)
     for (i = 0; i < 10; i++)
     {
-        a = a + 3;
-        b = b + 4;
+        a++;
+        b++;
     }
+
+    if (a != 13)
+        abort();
+    if (b != 14)
+        abort();
+
+    return 0;
 }

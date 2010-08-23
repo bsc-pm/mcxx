@@ -1,5 +1,5 @@
 dnl Package definition: name, version, mail
-AC_INIT([mcxx],[1.3.5.5],[rferrer@ac.upc.edu])
+AC_INIT([mcxx],[1.3.5.6],[rferrer@ac.upc.edu])
 
 dnl Where are we ?
 AC_CANONICAL_BUILD
@@ -684,7 +684,7 @@ AC_ARG_ENABLE([file-regeneration],
 
 # Make these variables precious
 AC_ARG_VAR([FLEX], [GNU Flex command])
-AC_ARG_VAR([BISON], [rofi-bison command])
+AC_ARG_VAR([BISON], [bison command])
 AC_ARG_VAR([GPERF], [GNU gperf command])
 
 force_flex=no
@@ -769,12 +769,12 @@ then
   AC_CHECK_PROG(BISON, bison, bison, no)
   if test x$BISON = xno;
   then
-     AC_MSG_NOTICE([You will need bison-2.3-rofi if you intend to modify *.y and *.y.in files])
+     AC_MSG_NOTICE([You will need GNU bison 2.3 or 2.4 if you intend to modify *.y and *.y.in files])
   else
     AC_MSG_CHECKING([bison version])
-    bison_ver=`$BISON --version | head -n 1 | $SED -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*\(-rofi\)\?\).*$/\1/'`
+    bison_ver=`$BISON --version | head -n 1 | $SED -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*.*\?\).*$/\1/'`
     case x${bison_ver} in
-       x2.@<:@0123@:>@-rofi)
+       x2.@<:@34@:>@*)
           AC_MSG_RESULT([${bison_ver}, ok])
           bison_good=yes
           ;;

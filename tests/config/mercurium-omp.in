@@ -47,8 +47,8 @@ cat <<EOF
 test_CC_nanos4_plain="\${MCC}"
 test_CXX_nanos4_plain="\${MCXX}"
 
-test_CFLAGS_nanos4_plain=
-test_CXXFLAGS_nanos4_plain=
+test_CFLAGS_nanos4_plain=-m32
+test_CXXFLAGS_nanos4_plain=-m32
 EOF
 
 if [ ! -z "@MINTAKA_INCLUDES@" ];
@@ -83,6 +83,6 @@ EOF
 
 fi
 
-cat <<EOF
-test_nolink=yes
-EOF
+# cat <<EOF
+# test_nolink=yes
+# EOF

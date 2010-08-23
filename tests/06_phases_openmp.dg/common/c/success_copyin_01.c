@@ -3,24 +3,48 @@
 test_generator=config/mercurium-omp
 </testinfo>
 */
+#include <stdlib.h>
+#include "omp.h"
+
 int d;
 #pragma omp threadprivate(d)
 
 void f1(void)
 {
-#pragma omp parallel copyin(d)
+    d = 10;
+    int *p = &d;
+#pragma omp parallel copyin(d) firstprivate(p)
     {
-        d = d + 3;
+        if (p == &d
+                && omp_get_thread_num() != 0)
+            abort();
+
+        if (d != 10)
+            abort();
     }
 }
 
-int c[1];
+int c[2];
 #pragma omp threadprivate(c)
 
 void f2(void)
 {
-#pragma omp parallel copyin(c)
+    int *p = c;
+    c[1] = 10;
+#pragma omp parallel copyin(c) firstprivate(p)
     {
-        c[0] = c[0] + 3;
+        if (p == c
+                && omp_get_thread_num() != 0)
+            abort();
+
+        if (c[1] != 10)
+            abort();
     }
+}
+
+int main(int argc, char *argv[])
+{
+    f1();
+    f2();
+    return 0;
 }

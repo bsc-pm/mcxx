@@ -26,13 +26,26 @@ test_generator=config/mercurium-omp
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include <stdlib.h>
+
 int a;
-void f(void)
+int main(int argc, char *argv[])
 {
     int b;
+
+    a = 20;
+    b = 30;
 #pragma omp parallel shared(a, b)
     {
         a = a + 3;
         b = b + 4;
     }
+
+    if (a != 23)
+        abort();
+
+    if (b != 34)
+        abort();
+
+    return 0;
 }

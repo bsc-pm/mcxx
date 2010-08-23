@@ -45,6 +45,7 @@ namespace Nanox
             void threadprivate_postorder(PragmaCustomConstruct ctr);
             void barrier_postorder(PragmaCustomConstruct ctr);
             void flush_postorder(PragmaCustomConstruct ctr);
+            void critical_postorder(PragmaCustomConstruct ctr);
 
             void target_postorder(PragmaCustomConstruct ctr);
 
