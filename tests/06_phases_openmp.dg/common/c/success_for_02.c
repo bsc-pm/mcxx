@@ -26,6 +26,8 @@ test_generator=config/mercurium-omp
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include <string.h>
+
 #define MAX_ELEMS 100
 
 int main(int argc, char* argv[])
