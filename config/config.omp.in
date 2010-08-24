@@ -70,12 +70,11 @@ linker_name = icpc
 
 [omp-profcc : omp-prof-common]
 language = C
+options = -std=gnu99
 preprocessor_name = gcc
 preprocessor_options = -E
 compiler_name = gcc
-compiler_options = -std=gnu99
 linker_name = gcc
-linker_options =
 
 [omp-profcxx : omp-prof-common]
 language = C++
