@@ -3339,7 +3339,7 @@ static type_t* update_type_aux_(type_t* orig_type,
             cv_qualifier_t cv_qualif_dep = get_cv_qualifier(fixed_type);
             // We are updating the base entry (T) of a dependent typename
             // [T]::T1 with another dependent typename [S]::S2
-            // so the updated type should be [S]::S2::S1
+            // so the updated type should be [S]::S2::T1
             DEBUG_CODE()
              {
                 fprintf(stderr, "SCOPE: Entry of dependent type is being "
@@ -3456,6 +3456,12 @@ type_t* update_type_for_instantiation(type_t* orig_type,
 
     type_t* result = update_type_aux_(orig_type, context_of_being_instantiated,
             filename, line, /* instantiation_update */ 1);
+
+    if (result == NULL)
+    {
+        running_error("%s:%d: error: type '%s' rendered invalid during instantiation\n",
+                filename, line, print_type_str(orig_type, context_of_being_instantiated));
+    }
 
     ERROR_CONDITION(result == NULL, "Invalid type update of '%s' during instantiation", print_declarator(orig_type));
     DEBUG_CODE()
