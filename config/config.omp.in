@@ -64,6 +64,7 @@ linker_name = icpc
 
 # Profile mode
 [omp-prof-common]
+{openmp} preprocessor_options = -D_OPENMP=200805
 {openmp} compiler_phase = libtlomp-core.so
 {openmp} compiler_phase = libtlomp-profile.so
 
