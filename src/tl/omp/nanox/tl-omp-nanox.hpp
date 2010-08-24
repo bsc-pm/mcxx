@@ -49,6 +49,12 @@ namespace Nanox
             void critical_postorder(PragmaCustomConstruct ctr);
             void master_postorder(PragmaCustomConstruct ctr);
 
+            void sections_preorder(PragmaCustomConstruct ctr);
+            void sections_postorder(PragmaCustomConstruct ctr);
+
+            void section_preorder(PragmaCustomConstruct ctr);
+            void section_postorder(PragmaCustomConstruct ctr);
+
             void target_postorder(PragmaCustomConstruct ctr);
             std::map<std::string, bool> _registered_slicer;
 

@@ -53,6 +53,8 @@ libtlomp_nanox_la_SOURCES = \
      tl-flush.cpp \
      tl-critical.cpp \
      tl-master.cpp \
+     tl-sections.cpp \
+     tl-section.cpp \
      tl-target.cpp \
      tl-devices.hpp \
      tl-devices.cpp \
