@@ -879,6 +879,7 @@ namespace TL
         {
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
             _openmp_info->push_current_data_sharing(data_sharing);
+
             common_workshare_handler(construct, data_sharing);
         }
 
@@ -887,11 +888,24 @@ namespace TL
             _openmp_info->pop_current_data_sharing();
         }
 
+        void Core::section_handler_pre(PragmaCustomConstruct construct)
+        {
+            // We do nothing since sections themselves do not introduce any
+            // data sharing, but we want it to be retrievable using this
+            // construct
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+            _openmp_info->push_current_data_sharing(data_sharing);
+        }
+
+        void Core::section_handler_post(PragmaCustomConstruct construct)
+        {
+            _openmp_info->pop_current_data_sharing();
+        }
+
 #define EMPTY_HANDLERS(_name) \
         void Core::_name##_handler_pre(PragmaCustomConstruct) { } \
         void Core::_name##_handler_post(PragmaCustomConstruct) { }
 
-        EMPTY_HANDLERS(section)
         EMPTY_HANDLERS(barrier)
         EMPTY_HANDLERS(atomic)
         EMPTY_HANDLERS(master)
