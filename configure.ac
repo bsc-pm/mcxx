@@ -285,8 +285,39 @@ AC_SUBST([NANOS4_LIBS])
 
 dnl --------------------- End Support for OpenMP Nanos4 ---------------------
 
+dnl --------------------- OpenMP profile mode ---------------------
+
+is_enabled_tl_omp_profile="no"
+
+AC_MSG_CHECKING([if enabled OpenMP profile mode])
+AC_ARG_ENABLE([tl-openmp-profile],
+  AS_HELP_STRING([--enable-tl-openmp-profile], [Enables support of OpenMP profile mode]),
+  [
+    if test x$enableval = xyes -o x$enableval = x;
+    then
+        is_enabled_tl_omp_profile="yes"
+        AC_MSG_RESULT([yes])
+    else if test x$enableval = xno;
+         then
+            AC_MSG_RESULT([no])
+            is_enabled_tl_omp_profile="no"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ]
+)
+
+if test x$is_enabled_tl_omp_profile = xyes ;
+then
+   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} profile"
+   COMPILER_NAMES="${COMPILER_NAMES} omp-profcc omp-profcxx"
+fi
+
 dnl --------------------- Shared between Nanox and Nanos4 ------------------
-if test x$is_enabled_tl_omp_nanos4 = xyes -o x$is_enabled_tl_omp_nanox = xyes;
+if test x$is_enabled_tl_omp_nanos4 = xyes \
+      -o x$is_enabled_tl_omp_nanox = xyes \
+      -o x$is_enabled_tl_omp_profile = xyes ;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.omp"
    TL_EXTENSIONS="${TL_EXTENSIONS} omp"
@@ -1079,6 +1110,8 @@ then
   echo "   Nanos 4 includes :" $nanos4_include
   echo "   Nanos 4 libraries:" $nanos4_lib
 fi
+echo ""
+echo " * OpenMP static profile mode: " $is_enabled_tl_omp_profile
 echo ""
 echo " * Mintaka :" $is_enabled_tl_instr
 if test x$is_enabled_tl_instr = xyes;

@@ -61,3 +61,25 @@ preprocessor_name = icpc
 compiler_name = icpc
 linker_name = icpc
 
+# Profile mode
+[omp-prof-common]
+{openmp} compiler_phase = libtlomp-core.so
+{openmp} compiler_phase = libtlomp-profile.so
+
+[omp-profcc : omp-prof-common]
+language = C
+preprocessor_name = gcc
+preprocessor_options = -E
+compiler_name = gcc
+compiler_options = -std=gnu99
+linker_name = gcc
+linker_options =
+
+[omp-profcxx : omp-prof-common]
+language = C++
+preprocessor_name = g++
+preprocessor_options = -E
+compiler_name = g++
+compiler_options =
+linker_name = g++
+linker_options =
