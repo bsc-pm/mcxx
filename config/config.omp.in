@@ -44,6 +44,7 @@ linker_name = gcc
 
 [mcc : omp-base]
 language = C
+options = -std=gnu99
 
 [mcxx : omp-base]
 language = C++
