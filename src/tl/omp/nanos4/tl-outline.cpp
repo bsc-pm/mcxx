@@ -138,14 +138,20 @@ namespace TL
                 << "}"
                 ;
 
+            Symbol function_symbol = function_definition.get_ast().get_attribute(LANG_FUNCTION_SYMBOL);
+
             if (allow_inlining_of_outlines)
             {
+                if (!function_symbol.is_member())
+                {
+                    inline_attribute
+                        << "extern "
+                        ;
+                }
                 inline_attribute
-                    << "extern __inline__ "
+                    << "__inline__ "
                     ;
             }
-
-            Symbol function_symbol = function_definition.get_ast().get_attribute(LANG_FUNCTION_SYMBOL);
 
             if (function_definition.is_templated())
             {
