@@ -58,13 +58,13 @@ OMPTransform::OMPTransform()
             "0").connect(functor(&OMPTransform::set_instrumentation, *this));
 
     on_directive_post["critical"].connect(functor(&OMPTransform::critical_postorder, *this));
+    on_directive_post["master"].connect(functor(&OMPTransform::master_postorder, *this));
     
     // Not yet implemented
     on_directive_post["parallel|for"].connect(functor(&OMPTransform::unimplemented_yet, *this));
     on_directive_post["parallel|sections"].connect(functor(&OMPTransform::unimplemented_yet, *this));
     on_directive_post["sections"].connect(functor(&OMPTransform::unimplemented_yet, *this));
     on_directive_post["section"].connect(functor(&OMPTransform::unimplemented_yet, *this));
-    on_directive_post["master"].connect(functor(&OMPTransform::unimplemented_yet, *this));
     on_directive_post["flush"].connect(functor(&OMPTransform::unimplemented_yet, *this));
     on_directive_post["ordered"].connect(functor(&OMPTransform::unimplemented_yet, *this));
     on_directive_post["declare|reduction"].connect(functor(&OMPTransform::unimplemented_yet, *this));

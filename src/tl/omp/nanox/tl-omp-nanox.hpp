@@ -47,6 +47,7 @@ namespace Nanox
             void barrier_postorder(PragmaCustomConstruct ctr);
             void flush_postorder(PragmaCustomConstruct ctr);
             void critical_postorder(PragmaCustomConstruct ctr);
+            void master_postorder(PragmaCustomConstruct ctr);
 
             void target_postorder(PragmaCustomConstruct ctr);
             std::map<std::string, bool> _registered_slicer;
