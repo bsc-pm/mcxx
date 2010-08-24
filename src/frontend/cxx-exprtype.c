@@ -8090,18 +8090,70 @@ static char check_for_cast_expr(AST expr, AST type_id, AST casted_expression, de
 
 static char check_for_comma_operand(AST expression, decl_context_t decl_context)
 {
-    char result = check_for_expression(ASTSon0(expression), decl_context)
-        && check_for_expression(ASTSon1(expression), decl_context);
+    static AST operation_comma_tree = NULL;
+    if (operation_comma_tree == NULL)
+    {
+        operation_comma_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
+                ASTLeaf(AST_COMMA_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+    }
+
+
+    AST lhs = ASTSon0(expression);
+    AST rhs = ASTSon1(expression);
+
+    char result = check_for_expression(lhs, decl_context)
+        && check_for_expression(rhs, decl_context);
 
     if (!result)
         return 0;
 
-    expression_set_type(expression, expression_get_type(ASTSon1(expression)));
-    expression_set_is_lvalue(expression, expression_is_lvalue(ASTSon1(expression)));
+    type_t* lhs_type = expression_get_type(lhs);
+    type_t* rhs_type = expression_get_type(rhs);
 
-    if (expression_is_constant(ASTSon1(expression)))
+    if (is_dependent_expr_type(lhs_type)
+            || is_dependent_expr_type(rhs_type))
     {
-        expression_set_constant(expression, expression_get_constant(ASTSon1(expression)));
+        expression_set_dependent(expression);
+        return 1;
+    }
+
+    char requires_overload = 0;
+
+    CXX_LANGUAGE()
+    {
+        requires_overload = any_operand_is_class_or_enum(no_ref(lhs_type), no_ref(rhs_type));
+    }
+
+    if (requires_overload)
+    {
+        // For comma it is empty
+        scope_entry_list_t* builtins = NULL;
+
+        scope_entry_t* selected_operator = NULL;
+
+        // We do not want a warning if no overloads are available
+        enter_test_expression();
+        type_t* computed_type = compute_user_defined_bin_operator_type(operation_comma_tree,
+                expression,
+                lhs,
+                rhs,
+                builtins,
+                decl_context,
+                &selected_operator);
+        leave_test_expression();
+
+        // We will fall-through if no overload exists
+        if (computed_type != NULL)
+            return 1;
+    }
+
+    // Fall-through if no overload exists for comma
+    expression_set_type(expression, expression_get_type(rhs));
+    expression_set_is_lvalue(expression, expression_is_lvalue(rhs));
+
+    if (expression_is_constant(rhs))
+    {
+        expression_set_constant(expression, expression_get_constant(rhs));
     }
 
     return 1;
