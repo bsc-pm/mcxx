@@ -1,9 +1,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
-
-test_compile_fail_nanox_plain=yes
-test_compile_faulty_nanox_plain=yes
 </testinfo>
 */
 /*--------------------------------------------------------------------
@@ -29,6 +26,7 @@ test_compile_faulty_nanox_plain=yes
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include <stdio.h>
 #include <stdlib.h>
 
 int main(int argc, char *argv[])
@@ -36,7 +34,7 @@ int main(int argc, char *argv[])
     char a1 = 0;
     char a2 = 0;
 
-#pragma omp sections shared(a1)
+#pragma omp sections shared(a1, a2)
     {
 #pragma omp section
         {

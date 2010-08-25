@@ -68,6 +68,16 @@ namespace Nanox
             // Data that does not last between files
             ObjectList<Symbol> _converted_vlas;
             std::set<std::string> _lock_names;
+            
+            // Temporary data during traversal
+            struct SectionInfo
+            {
+                AST_t placeholder;
+                SectionInfo() : placeholder(NULL) { }
+            };
+            typedef ObjectList<SectionInfo> SectionInfoList;
+
+            ObjectList<SectionInfoList> _section_info;
     };
 
     const std::string NANOX_OUTLINE_COUNTER("nanox_outline_counter");
