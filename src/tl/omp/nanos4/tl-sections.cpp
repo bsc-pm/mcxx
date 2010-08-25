@@ -90,12 +90,10 @@ namespace TL
             ObjectList<Symbol>& copyprivate_references = 
                 sections_construct.get_data<ObjectList<Symbol> >("copyprivate_references");
 
-            ObjectList<ParameterInfo> parameter_info_list;
-
             ObjectList<OpenMP::ReductionSymbol> reduction_empty;
 
             ReplaceIdExpression replace_references = 
-                set_replacements(function_definition,
+                set_replacements_inline(function_definition,
                         construct_body,
                         shared_references,
                         private_references,
@@ -104,8 +102,7 @@ namespace TL
                         reduction_references,
                         reduction_empty,
                         copyin_references,
-                        copyprivate_references,
-                        parameter_info_list);
+                        copyprivate_references);
 
             int num_sections = num_sections_stack.top();
 
@@ -114,10 +111,6 @@ namespace TL
             loop_distribution_code = get_loop_distribution_in_sections(num_sections,
                     construct_body,
                     replace_references);
-
-            // In fact we are not passing anything by parameters since
-            // there is no outline here
-            parameter_info_list.clear();
 
             Source private_declarations = get_privatized_declarations_inline(
                     sections_construct,
