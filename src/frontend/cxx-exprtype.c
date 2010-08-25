@@ -10621,6 +10621,137 @@ static char check_for_gcc_builtin_offsetof(AST expression, decl_context_t decl_c
         }
     }
 
+    // We need to compute the size of the type, get the member and then retrieve its offset
+    type_t* type = compute_type_for_type_id_tree(type_id, decl_context);
+    ERROR_CONDITION(type == NULL, "Invalid type computed for '%s'", 
+            prettyprint_in_buffer(type_id));
+
+    if (!is_dependent_type(type))
+    {
+        // Compute its size (this will compute the layout)
+        type_get_size(type);
+
+        // The tree of offsetof is a bit awkward, let's make our life easier
+#define MAX_DESIGNATORS 64
+        int num_designators = 0;
+        AST designators[MAX_DESIGNATORS];
+
+        // Initial identifier
+        designators[num_designators] = ASTSon0(member_designator);
+        num_designators++;
+        if (designator_list != NULL)
+        {
+            AST iter;
+            for_each_element(designator_list, iter)
+            {
+                if (num_designators == MAX_DESIGNATORS)
+                {
+                    internal_error("Too many designators", 0);
+                }
+                designators[num_designators] = ASTSon1(iter);
+                num_designators++;
+            }
+        }
+#undef MAX_DESIGNATORS
+
+        _size_t computed_offset = 0;
+
+        type_t* current_type = type;
+        int i;
+        for (i = 0; i < num_designators; i++)
+        {
+            if (is_dependent_type(type))
+            {
+                // Give up
+                expression_set_is_value_dependent(expression, 1);
+                break;
+            }
+
+            AST name = designators[i];
+            if (ASTType(name) == AST_SYMBOL)
+            {
+                // Do nothing
+            }
+            else if (ASTType(name) == AST_FIELD_DESIGNATOR)
+            {
+                // This is .name
+                name = ASTSon0(name);
+            }
+            else if (ASTType(name) == AST_INDEX_DESIGNATOR)
+            {
+                // This is [constant-expression]
+                // No lookup for this type, just check that this is an array
+                if (!is_array_type(current_type))
+                {
+                    running_error("%s: error: invalid designator '%s' for non-array type '%s'\n",
+                            ast_location(expression),
+                            prettyprint_in_buffer(name),
+                            print_type_str(current_type, decl_context));
+                }
+
+                AST const_expr = ASTSon0(name);
+                if (expression_is_value_dependent(const_expr))
+                {
+                    // Give up
+                    expression_set_is_value_dependent(expression, 1);
+                    break;
+                }
+
+                if (!expression_is_constant(const_expr))
+                {
+                    running_error("%s: error: expression '%s' should be constant\n",
+                            ast_location(const_expr),
+                            prettyprint_in_buffer(const_expr));
+                }
+
+                current_type = array_type_get_element_type(current_type);
+                computed_offset += const_value_cast_to_8(expression_get_constant(const_expr)) * type_get_size(current_type);
+                continue;
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+
+            if (!is_class_type(current_type))
+            {
+                running_error("%s: error: __builtin_offsetof applied to '%s' which is not struct/class/union\n",
+                        ast_location(expression),
+                        print_type_str(current_type, decl_context));
+            }
+
+            scope_entry_list_t* member_list = get_member_of_class_type(current_type, name, decl_context);
+            if (member_list == NULL)
+            {
+                running_error("%s: error: '%s' is not a member of type '%s'\n",
+                        ast_location(expression),
+                        prettyprint_in_buffer(name),
+                        print_type_str(current_type, decl_context));
+            }
+
+            scope_entry_t* member = member_list->entry;
+            if (member_list->next != NULL
+                    || member->kind != SK_VARIABLE)
+            {
+                running_error("%s: error: '%s' is not a valid member for __builtin_offsetof\n", 
+                        ast_location(expression),
+                        prettyprint_in_buffer(name));
+            }
+
+            computed_offset += member->entity_specs.field_offset;
+            current_type = member->type_information;
+        }
+
+        expression_set_constant(expression, 
+                const_value_get(computed_offset, type_get_size(get_size_t_type()), /* signed */ 0));
+    }
+    else
+    {
+        // If the type is dependent, any offset should be considered as value
+        // dependent even if the type of the whole expression is size_t
+        expression_set_is_value_dependent(expression, 1);
+    }
+
     expression_set_type(expression, get_size_t_type());
     return 1;
 }
