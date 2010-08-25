@@ -795,6 +795,13 @@ namespace TL
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
             _openmp_info->push_current_data_sharing(data_sharing);
             common_parallel_handler(construct, data_sharing);
+
+            Statement stmt = construct.get_statement();
+            if (!stmt.is_compound_statement())
+            {
+                running_error("%s: #pragma omp parallel sections must be followed by a compound statement\n",
+                        construct.get_ast().get_locus().c_str());
+            }
         }
         void Core::parallel_sections_handler_post(PragmaCustomConstruct construct)
         {
@@ -881,6 +888,13 @@ namespace TL
             _openmp_info->push_current_data_sharing(data_sharing);
 
             common_workshare_handler(construct, data_sharing);
+
+            Statement stmt = construct.get_statement();
+            if (!stmt.is_compound_statement())
+            {
+                running_error("%s: #pragma omp sections must be followed by a compound statement\n",
+                        construct.get_ast().get_locus().c_str());
+            }
         }
 
         void Core::sections_handler_post(PragmaCustomConstruct construct)
