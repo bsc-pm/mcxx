@@ -91,6 +91,9 @@ namespace TL
 
                 // This member function is implemented in tl-omp-tasks.cpp
                 void task_function_handler_pre(PragmaCustomConstruct construct);
+
+                void common_sections_handler(PragmaCustomConstruct construct, const std::string& pragma_name);
+                void fix_first_section(PragmaCustomConstruct construct);
             public:
                 Core();
 

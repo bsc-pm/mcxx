@@ -620,6 +620,53 @@ namespace TL
             get_data_implicit_attributes(construct, default_data_attr, data_sharing);
         }
 
+        void Core::common_sections_handler(PragmaCustomConstruct construct, const std::string& pragma_name)
+        {
+            Statement stmt = construct.get_statement();
+            if (!stmt.is_compound_statement())
+            {
+                running_error("%s: error: '#pragma omp %s' must be followed by a compound statement\n",
+                        construct.get_ast().get_locus().c_str(),
+                        pragma_name.c_str());
+            }
+
+            ObjectList<Statement> inner_stmt = stmt.get_inner_statements();
+
+            if (inner_stmt.size() > 1)
+            {
+                if (!is_pragma_custom_construct("omp", "section", 
+                            inner_stmt[0].get_ast(), construct.get_scope_link())
+                        && !is_pragma_custom_construct("omp", "section", 
+                            inner_stmt[1].get_ast(), construct.get_scope_link()))
+                {
+                    running_error("%s: error: only the first structured-block can have '#pragma omp section' ommitted\n",
+                            inner_stmt[1].get_ast().get_locus().c_str());
+                }
+            }
+        }
+
+        void Core::fix_first_section(PragmaCustomConstruct construct)
+        {
+            Statement stmt = construct.get_statement();
+            ERROR_CONDITION(!stmt.is_compound_statement(), "It must be a compound statement", 0);
+
+            ObjectList<Statement> inner_stmt = stmt.get_inner_statements();
+
+            if (!inner_stmt.empty()
+                    && !is_pragma_custom_construct("omp", "section", 
+                        inner_stmt[0].get_ast(), construct.get_scope_link()))
+            {
+                Source add_section_src;
+                add_section_src
+                    << "#pragma omp section\n"
+                    <<  inner_stmt[0].prettyprint()
+                    ;
+
+                AST_t add_section_tree = add_section_src.parse_statement(inner_stmt[0].get_ast(), construct.get_scope_link());
+                inner_stmt[0].get_ast().replace(add_section_tree);
+            }
+        }
+
         void Core::common_for_handler(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing)
         {
             Statement stmt = construct.get_statement();
@@ -796,15 +843,12 @@ namespace TL
             _openmp_info->push_current_data_sharing(data_sharing);
             common_parallel_handler(construct, data_sharing);
 
-            Statement stmt = construct.get_statement();
-            if (!stmt.is_compound_statement())
-            {
-                running_error("%s: #pragma omp parallel sections must be followed by a compound statement\n",
-                        construct.get_ast().get_locus().c_str());
-            }
+            common_sections_handler(construct, "parallel sections");
         }
+
         void Core::parallel_sections_handler_post(PragmaCustomConstruct construct)
         {
+            fix_first_section(construct);
             _openmp_info->pop_current_data_sharing();
         }
 
@@ -889,30 +933,12 @@ namespace TL
 
             common_workshare_handler(construct, data_sharing);
 
-            Statement stmt = construct.get_statement();
-            if (!stmt.is_compound_statement())
-            {
-                running_error("%s: #pragma omp sections must be followed by a compound statement\n",
-                        construct.get_ast().get_locus().c_str());
-            }
+            common_sections_handler(construct, "sections");
         }
 
         void Core::sections_handler_post(PragmaCustomConstruct construct)
         {
-            _openmp_info->pop_current_data_sharing();
-        }
-
-        void Core::section_handler_pre(PragmaCustomConstruct construct)
-        {
-            // We do nothing since sections themselves do not introduce any
-            // data sharing, but we want it to be retrievable using this
-            // construct
-            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
-            _openmp_info->push_current_data_sharing(data_sharing);
-        }
-
-        void Core::section_handler_post(PragmaCustomConstruct construct)
-        {
+            fix_first_section(construct);
             _openmp_info->pop_current_data_sharing();
         }
 
@@ -920,6 +946,7 @@ namespace TL
         void Core::_name##_handler_pre(PragmaCustomConstruct) { } \
         void Core::_name##_handler_post(PragmaCustomConstruct) { }
 
+        EMPTY_HANDLERS(section)
         EMPTY_HANDLERS(barrier)
         EMPTY_HANDLERS(atomic)
         EMPTY_HANDLERS(master)
