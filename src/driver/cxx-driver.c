@@ -2661,6 +2661,9 @@ static void native_compilation(translation_unit_t* translation_unit,
 
 static void embed_files(void)
 {
+    if (CURRENT_CONFIGURATION->do_not_compile)
+        return;
+
     char there_are_secondary_files = 0;
     int i;
     for (i = 0; i < compilation_process.num_translation_units; i++)
