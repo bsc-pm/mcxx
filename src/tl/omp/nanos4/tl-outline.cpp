@@ -574,6 +574,8 @@ namespace TL
                 Symbol &sym(*it);
                 Type type = sym.get_type();
 
+                type = type.get_unqualified_type();
+
                 Source initializer_value;
                 initializer_value << sym.get_qualified_name(construct.get_scope());
 
