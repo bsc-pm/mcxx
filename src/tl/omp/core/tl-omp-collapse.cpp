@@ -23,12 +23,27 @@
 
 #include "tl-omp-core.hpp"
 #include "hlt-collapse.hpp"
+#include "tl-ast.hpp"
 
 namespace TL
 {
     namespace OpenMP
     {
-        void collapse_loop_first(PragmaCustomConstruct& construct)
+        AST_t::callback_result remove_collapse_clause(AST_t& a)
+        {
+            // Filter collapse clauses
+            if ((a.internal_ast_type_() == AST_PRAGMA_CUSTOM_CLAUSE)
+                    && a.get_text() == "collapse")
+            {
+                return AST_t::callback_result(true, "");
+            }
+            else
+            {
+                return AST_t::callback_result(false, "");
+            }
+        }
+
+        void Core::collapse_loop_first(PragmaCustomConstruct& construct)
         {
             PragmaCustomClause collapse = construct.get_clause("collapse");
 
@@ -96,11 +111,11 @@ namespace TL
             Source pragma_line;
             Source omp_part_src;
             omp_part_src
-                << pragma_line 
+                << "#pragma omp " << pragma_line << "\n"
                 << collapsed_for
                 ;
 
-            pragma_line << construct.get_pragma_line().prettyprint();
+            pragma_line << construct.get_pragma_line().prettyprint_with_callback(functor(remove_collapse_clause));
 
             AST_t omp_part_tree = omp_part_src.parse_statement(pragma_placeholder, 
                     construct.get_scope_link());
@@ -111,8 +126,13 @@ namespace TL
             // Replace the whole construct
             construct.get_ast().replace(tree);
 
+            std::cerr << "---PRAGMA THINGY--" << std::endl;
+            std::cerr << pragma_placeholder.prettyprint() << std::endl;
+            std::cerr << "---------------" << std::endl;
+
             // Now overwrite the old construct with this new one
             construct = PragmaCustomConstruct(pragma_placeholder, construct.get_scope_link());
+
         }
     }
 }

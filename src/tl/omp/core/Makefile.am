@@ -29,7 +29,7 @@ libtlomp_core_la_CFLAGS = $(tl_cflags)
 libtlomp_core_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../hlt
 
 libtlomp_core_la_LDFLAGS = $(tl_ldflags)
-libtlomp_core_la_LIBADD = $(tl_libadd)
+libtlomp_core_la_LIBADD = $(tl_libadd) ../../hlt/libtl-hlt.la
 
 END=
 
