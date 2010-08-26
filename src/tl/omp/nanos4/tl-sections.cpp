@@ -145,7 +145,7 @@ namespace TL
             bool orphaned = (parallel_nesting == 0);
             if (orphaned)
             {
-                reduction_code = get_critical_reduction_code(reduction_references);
+                reduction_code = get_critical_reduction_code(reduction_references, sections_construct.get_scope_link());
             }
             else
             {

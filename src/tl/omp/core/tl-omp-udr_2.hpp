@@ -34,92 +34,69 @@ namespace TL
     {
         class LIBTL_CLASS UDRInfoItem2 : public TL::Object
         {
-            public:
-                enum Associativity
-                {
-                    NONE = 0,
-                    LEFT,
-                    RIGHT,
-                    UNDEFINED,
-                };
 
             private:
-                Associativity _assoc;
+                std::string _name;
+			    Type _type;
+			    AST_t _combine_expression;
+			    Symbol _in_symbol;
+			    Symbol _out_symbol;
 
                 bool _is_builtin;
-                std::string _builtin_op;
-
-                IdExpression _op_expr;
-
-                ObjectList<Symbol> _op_symbols;
-
-                Type _reduction_type;
-
-                bool _is_template;
-
-                bool _is_array;
-                int _num_dimensions;
-
-                bool _is_commutative;
 
                 bool _has_identity;
                 AST_t _identity;
 
-                Symbol _deduction_function;
+                std::string _function_name;
+
             public:
+                // Constructor
                 UDRInfoItem2();
 
-                void set_associativity(Associativity);
-                Associativity get_associativity() const;
+                // Methods
+                void sign_in_scope(Scope sc, Type types) const;
 
-                void set_builtin_operator(const std::string& str);
+                UDRInfoItem2 lookup_udr(Scope sc,
+                        bool &found,
+                        Type udr_type) const;
+                UDRInfoItem2 lookup_udr_2(Scope sc,
+                        bool &found,
+                        Type udr_type) const;
+
+                std::string get_symbol_name(Type t) const;
+
+                // Getters, setters and consults
+                std::string get_name() const;
+                void set_name(const std::string& str);
+
+                Type get_type() const;
+                void set_type(Type t);
+
+                AST_t get_combine_expr() const;
+                void set_combine_expr(AST_t combine_expr);
+
+                Symbol get_in_symbol() const;
+                void set_in_symbol(Symbol s);
+                Symbol get_out_symbol() const;
+                void set_out_symbol(Symbol s);
+
                 bool is_builtin_operator() const;
-                std::string get_builtin_operator() const;
-
-                void set_operator(IdExpression id_expr);
-                IdExpression get_operator() const;
-
-                ObjectList<Symbol> get_operator_symbols() const;
-                void set_operator_symbols(const ObjectList<Symbol>& sym_list);
-
-                void set_reduction_type(Type t);
-                Type get_reduction_type() const;
-
-                void set_is_array_reduction(bool b);
-                bool get_is_array_reduction() const;
-
-                void set_num_dimensions(int n);
-                int get_num_dimensions() const;
-
-                void set_is_template_reduction(bool b);
-                bool get_is_template_reduction() const;
-                Symbol get_deduction_function();
+                void set_is_builtin_operator(bool is_builtin);
+                bool udr_is_builtin_operator_2(const std::string& op_name);
 
                 bool has_identity() const; 
-                void set_identity(AST_t identity);
                 AST_t get_identity() const;
                 AST_t get_raw_identity() const;
+                void set_identity(AST_t identity);
                 bool identity_is_constructor() const;
 
-                bool get_is_commutative() const;
-                void set_is_commutative(bool b);
-
-                void sign_in_scope(Scope sc) const;
-
-                // ----
-                // ObjectList<Symbol> lookup_udr(Scope sc);
-                UDRInfoItem2 lookup_udr(Scope sc, 
-                        ScopeLink scope_link,
-                        bool &found, ObjectList<Symbol> &all_viables, 
-                        const std::string& filename, int line) const;
-                // ----
-
-                std::string get_symbol_name() const;
+                std::string get_function_name() const;
+                void set_function_name(const std::string& str);
         };
 
         // Functions used in tl-omp-core.cpp
         // {
-        void initialize_builtin_udr_reductions_2(Scope global_scope);
+        void initialize_builtin_udr_reductions_2(AST_t translation_unit, ScopeLink scope_link);
         bool udr_is_builtin_operator_2(const std::string &op_name);
         // }
     }

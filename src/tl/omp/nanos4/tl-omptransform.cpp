@@ -34,6 +34,8 @@ namespace TL
             parallel_nesting(0),
             transaction_nesting(0),
             stm_log_file_opened(false),
+            _new_udr_str(""), 
+            _new_udr(true),
             enable_mintaka_instr(false), 
             enable_nth_create(true), 
             disable_restrict_pointers(false),
@@ -127,6 +129,9 @@ namespace TL
                     stm_wrap_functions_mode,
                     "normal");
 
+            register_parameter("new_udr", "Alternative implementation for UDRs",
+                    _new_udr_str, "1").connect(functor(&OpenMPTransform::parse_new_udr,*this));
+
             // Register callbacks for constructs and directives
 #define OMP_CONSTRUCT(_name, _construct_name) \
               on_directive_pre[_name].connect(functor(&OpenMPTransform::_construct_name##_preorder, *this)); \
@@ -164,6 +169,11 @@ namespace TL
             on_directive_pre["adf"].connect(functor(&OpenMPTransform::adf_task_preorder, *this));
             on_directive_post["adf"].connect(functor(&OpenMPTransform::adf_task_postorder, *this));
             // --- End of transactional world --
+        }
+
+        void OpenMPTransform::parse_new_udr(const std::string& str)
+        {
+            parse_boolean_option("new_udr", str, _new_udr, "Assuming false.");
         }
 
         void OpenMPTransform::set_disable_restrict_pointers(const std::string& str)

@@ -38,6 +38,7 @@
 
 #include "tl-datareference.hpp"
 #include "tl-omp-udr.hpp"
+#include "tl-omp-udr_2.hpp"
 #include "tl-omp-deps.hpp"
 
 #include <map>
@@ -145,6 +146,8 @@ namespace TL
             private:
                 Symbol _symbol;
                 UDRInfoItem _udr_item;
+                UDRInfoItem2 _udr_item_2;
+
             public:
                 ReductionSymbol(Symbol s, 
                         const UDRInfoItem& udr_info_item)
@@ -152,8 +155,14 @@ namespace TL
                 {
                 }
 
+                ReductionSymbol(Symbol s, 
+                        const UDRInfoItem2& udr_info_item_2)
+                    : _symbol(s), _udr_item_2(udr_info_item_2)
+                {
+                }
+
                 ReductionSymbol(const ReductionSymbol& red_sym)
-                    : _symbol(red_sym._symbol), _udr_item(red_sym._udr_item)
+                    : _symbol(red_sym._symbol), _udr_item(red_sym._udr_item), _udr_item_2(red_sym._udr_item_2)
                 {
                 }
 
@@ -165,6 +174,11 @@ namespace TL
                 const UDRInfoItem& get_udr() const
                 {
                     return _udr_item;
+                }
+
+                const UDRInfoItem2& get_udr_2() const
+                {
+                    return _udr_item_2;
                 }
         };
 
@@ -264,6 +278,7 @@ namespace TL
                 DataSharingEnvironment* _current_data_sharing;
                 std::map<AST_t, DataSharingEnvironment*> _map_data_sharing;
                 std::stack<DataSharingEnvironment*> _stack_data_sharing;
+                std::map<AST_t, ObjectList<UDRInfoItem2> > _map_udr_info;
 
             public:
                 Info(DataSharingEnvironment* root_data_sharing)
@@ -271,11 +286,13 @@ namespace TL
                     _current_data_sharing(root_data_sharing) { }
 
                 DataSharingEnvironment& get_new_data_sharing(AST_t);
-
                 DataSharingEnvironment& get_data_sharing(AST_t);
 
                 DataSharingEnvironment& get_current_data_sharing();
                 DataSharingEnvironment& get_root_data_sharing();
+
+                ObjectList<UDRInfoItem2> get_udr_list(AST_t a);
+                void set_udr_list(AST_t expr, ObjectList<UDRInfoItem2> udr_list);
 
                 void push_current_data_sharing(DataSharingEnvironment&);
                 void pop_current_data_sharing();

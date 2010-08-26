@@ -1,14 +1,17 @@
 /*!if GRAMMAR_PROLOGUE*/
 
 %token<token_atrib> SUBPARSE_OMP_UDR_DECLARE "<subparse-omp-udr-declare>"
+%token<token_atrib> SUBPARSE_OMP_UDR_DECLARE_2 "<subparse-omp-udr-declare-2>"
 
 %type<ast> omp_udr_operator_list
 %type<ast> omp_udr_operator
-/*!if CPLUSPLUS*/
+%type<ast> omp_udr_operator_2
 %type<ast> omp_udr_builtin_op
-/*!endif*/
 %type<ast> omp_udr_type_specifier
+%type<ast> omp_udr_type_specifier_2
 %type<ast> omp_udr_declare_arg
+%type<ast> omp_udr_declare_arg_2
+%type<ast> omp_udr_expression
 
 %token<token_atrib> SUBPARSE_OMP_UDR_IDENTITY "<subparse-omp-udr-identity>"
 %token<token_atrib> OMP_UDR_CONSTRUCTOR "constructor"
@@ -33,6 +36,13 @@ omp_udr_declare_arg : omp_udr_operator_list ':' omp_udr_type_specifier
 /*!endif*/
 ;
 
+
+omp_udr_declare_arg_2 : omp_udr_operator_2 ':' omp_udr_type_specifier_2 ':' omp_udr_expression
+{
+    $$ = ASTMake3(AST_OMP_UDR_DECLARE_ARG_2, $1, $3, $5, ASTFileName($1), ASTLine($1), NULL);
+}
+;
+
 /*!if C99*/
 omp_udr_type_specifier: type_id
 {
@@ -51,6 +61,32 @@ omp_udr_type_specifier: type_id
 }
 ;
 /*!endif*/
+
+omp_udr_type_specifier_2: type_id
+{
+    $$ = ASTListLeaf($1);
+}
+| omp_udr_type_specifier_2 ',' type_id
+{
+    $$ = ASTList($1, $3);
+}
+
+
+omp_udr_operator_2:  IDENTIFIER
+{
+    $$ = ASTLeaf(AST_SYMBOL, $1.token_file, $1.token_line, $1.token_text);
+}
+| omp_udr_builtin_op
+{
+	$$ = $1;
+}
+;
+
+omp_udr_expression: expression
+{
+    $$ = $1;
+}
+;
 
 
 omp_udr_operator_list : omp_udr_operator
@@ -79,7 +115,6 @@ omp_udr_operator : id_expression
 /*!endif*/
 ;
 
-/*!if CPLUSPLUS*/
 omp_udr_builtin_op : '+'
 {
     $$ = ASTLeaf(AST_OMP_UDR_BUILTIN_OP, $1.token_file, $1.token_line, $1.token_text);
@@ -117,9 +152,14 @@ omp_udr_builtin_op : '+'
     $$ = ASTLeaf(AST_OMP_UDR_BUILTIN_OP, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
-/*!endif*/
 
 subparsing: SUBPARSE_OMP_UDR_DECLARE omp_udr_declare_arg
+{
+    $$ = $2;
+}
+;
+
+subparsing: SUBPARSE_OMP_UDR_DECLARE_2 omp_udr_declare_arg_2
 {
     $$ = $2;
 }

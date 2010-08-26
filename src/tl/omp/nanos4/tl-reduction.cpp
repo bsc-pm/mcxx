@@ -9,7 +9,6 @@
   License as published by the Free Software Foundation; either
   version 3 of the License, or (at your option) any later version.
   
-  Mercurium C/C++ source-to-source compiler is distributed in the hope
   that it will be useful, but WITHOUT ANY WARRANTY; without even the
   implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
   PURPOSE.  See the GNU Lesser General Public License for more
@@ -78,262 +77,328 @@ namespace TL
         static Source perform_reduction_symbol_(
                 const OpenMP::ReductionSymbol& reduction_symbol,
                 Source reduction_var_name, 
-                Source partial_reduction)
+                Source partial_reduction,
+                bool new_udr)
         {
             Source result;
 
-            OpenMP::UDRInfoItem udr = reduction_symbol.get_udr();
-
-            Symbol op_sym = udr.get_operator_symbols()[0];
-            Type op_type = op_sym.get_type();
-            std::string op_name = op_sym.get_qualified_name( /* without_templates */ true);
-
-            if (!op_type.is_function())
+            if (!new_udr)
             {
-                internal_error("This is not a function type!\n", 0);
-            }
+                OpenMP::UDRInfoItem udr = reduction_symbol.get_udr();
 
-            Source reduction_arg, partial_reduction_arg, reduction_return;
-            if (op_type.returns().is_void())
-            {
-                result
-                    << op_name << "("
-                    ;
+                Symbol op_sym = udr.get_operator_symbols()[0];
+                Type op_type = op_sym.get_type();
+                std::string op_name = op_sym.get_qualified_name( /* without_templates */ true);
 
-                // Pass the dimensions at the beginning
-                if (udr.get_is_array_reduction()
-                        && op_type.parameters()[0].is_signed_int())
+                if (!op_type.is_function())
                 {
-                    Type current_type = reduction_symbol.get_symbol().get_type();
-                    // Adjust for pointer to array
-                    if (current_type.is_pointer())
-                        current_type = current_type.points_to();
-                    // Arrays require more parameters
-                    for (int i = 0; i < udr.get_num_dimensions(); i++)
+                    internal_error("This is not a function type!\n", 0);
+                }
+
+                Source reduction_arg, partial_reduction_arg, reduction_return;
+                if (op_type.returns().is_void())
+                {
+                    result
+                        << op_name << "("
+                        ;
+
+                    // Pass the dimensions at the beginning
+                    if (udr.get_is_array_reduction()
+                            && op_type.parameters()[0].is_signed_int())
                     {
-                        if (!current_type.is_array()
-                                || !current_type.explicit_array_dimension())
+                        Type current_type = reduction_symbol.get_symbol().get_type();
+                        // Adjust for pointer to array
+                        if (current_type.is_pointer())
+                            current_type = current_type.points_to();
+                        // Arrays require more parameters
+                        for (int i = 0; i < udr.get_num_dimensions(); i++)
                         {
-                            internal_error("We expected an array type here but we got '%s'", 
+                            if (!current_type.is_array()
+                                    || !current_type.explicit_array_dimension())
+                            {    
+                                internal_error("We expected an array type here but we got '%s'", 
+                                        print_declarator(current_type.get_internal_type()));
+                            }
+                            else
+                            {
+                                result << current_type.array_dimension().prettyprint() << ","
+                                    ;
+                            }
+                            current_type = current_type.array_element();
+                        }
+                    }
+
+                    if (udr.get_associativity() == OpenMP::UDRInfoItem::LEFT)
+                    {
+                        result
+                            << reduction_arg << ", " << partial_reduction_arg 
+                            ;
+                    }
+                    else
+                    {
+                        result
+                            << partial_reduction_arg << "," << reduction_arg
+                            ;
+                    }
+
+                    // Pass the dimensions at the end
+                    if (udr.get_is_array_reduction()
+                            && op_type.parameters()[op_type.parameters().size() - 1].is_signed_int())
+                    {
+                        Type current_type = reduction_symbol.get_symbol().get_type();
+                        if (current_type.is_pointer())
+                            current_type = current_type.points_to();
+                        // Arrays require more parameters
+                        for (int i = 0; i < udr.get_num_dimensions(); i++)
+                        {
+                            if (!current_type.is_array()
+                                    || !current_type.explicit_array_dimension())
+                            {
+                                internal_error("We expected an array type here but we got '%s'", 
                                     print_declarator(current_type.get_internal_type()));
+                            }
+                            else
+                            {
+                                result << "," << current_type.array_dimension().prettyprint()
+                                    ;
+                            }
+                            current_type = current_type.array_element();
                         }
-                        else
-                        {
-                            result << current_type.array_dimension().prettyprint() << ","
-                                ;
-                        }
-                        current_type = current_type.array_element();
+                    }
+
+                    result << ")"
+                        ;
+                }
+                else
+                {
+                    if (udr.get_associativity() == OpenMP::UDRInfoItem::LEFT)
+                    {
+                        result
+                            << reduction_return << " = " << op_name << "(" << reduction_arg << ", " << partial_reduction_arg << ")"
+                            ;
+                    }
+                    else
+                    {
+                        result
+                            << reduction_return << " = " << op_name << "(" << partial_reduction_arg << ", " << reduction_arg << ")"
+                            ;
                     }
                 }
 
-                if (udr.get_associativity() == OpenMP::UDRInfoItem::LEFT)
-                {
-                    result
-                        << reduction_arg << ", " << partial_reduction_arg 
-                        ;
-                }
-                else
-                {
-                    result
-                        << partial_reduction_arg << "," << reduction_arg
-                        ;
-                }
+                // This could be different if we allowed returning types other than
+                // T, but this is not the case so this is always the reduced entity
+                reduction_return << reduction_var_name;
 
-                // Pass the dimensions at the end
-                if (udr.get_is_array_reduction()
-                        && op_type.parameters()[op_type.parameters().size() - 1].is_signed_int())
+                TL::ObjectList<TL::Type> parameters = op_type.parameters();
+
+                // Indexes in the argument, by default this is the left associativity
+                int reduction_index = 0;
+                int partial_reduction_index = 1;
+
+                if (udr.get_is_array_reduction())
                 {
-                    Type current_type = reduction_symbol.get_symbol().get_type();
-                    if (current_type.is_pointer())
-                        current_type = current_type.points_to();
-                    // Arrays require more parameters
-                    for (int i = 0; i < udr.get_num_dimensions(); i++)
+                    // Adjust for array reductions where the ints are at the beginning
+                    if (parameters[0].is_signed_int())
                     {
-                        if (!current_type.is_array()
-                                || !current_type.explicit_array_dimension())
-                        {
-                            internal_error("We expected an array type here but we got '%s'", 
-                                    print_declarator(current_type.get_internal_type()));
-                        }
-                        else
-                        {
-                            result << "," << current_type.array_dimension().prettyprint()
-                                ;
-                        }
-                        current_type = current_type.array_element();
+                        reduction_index = parameters.size() - 2;
+                        partial_reduction_index = parameters.size() - 1;
                     }
                 }
 
-                result << ")"
-                    ;
-            }
-            else
-            {
-                if (udr.get_associativity() == OpenMP::UDRInfoItem::LEFT)
+                if (udr.get_associativity() == OpenMP::UDRInfoItem::RIGHT)
                 {
-                    result
-                        << reduction_return << " = " << op_name << "(" << reduction_arg << ", " << partial_reduction_arg << ")"
-                        ;
+                    // reduction_index = 1;
+                    // partial_reduction_index = 0;
+                    std::swap(reduction_index, partial_reduction_index);
                 }
-                else
-                {
-                    result
-                        << reduction_return << " = " << op_name << "(" << partial_reduction_arg << ", " << reduction_arg << ")"
-                        ;
-                }
-            }
 
-            // This could be different if we allowed returning types other than
-            // T, but this is not the case so this is always the reduced entity
-            reduction_return << reduction_var_name;
-
-            TL::ObjectList<TL::Type> parameters = op_type.parameters();
-
-            // Indexes in the argument, by default this is the left associativity
-            int reduction_index = 0;
-            int partial_reduction_index = 1;
-
-            if (udr.get_is_array_reduction())
-            {
-                // Adjust for array reductions where the ints are at the beginning
-                if (parameters[0].is_signed_int())
-                {
-                    reduction_index = parameters.size() - 2;
-                    partial_reduction_index = parameters.size() - 1;
-                }
-            }
-
-            if (udr.get_associativity() == OpenMP::UDRInfoItem::RIGHT)
-            {
-                // reduction_index = 1;
-                // partial_reduction_index = 0;
-                std::swap(reduction_index, partial_reduction_index);
-            }
-
-            // If the type related to the reduction var is pointer, pass an address
-            if (parameters[reduction_index].is_pointer()
-                    && !udr.get_is_array_reduction())
-            {
-                reduction_arg << "&" << reduction_var_name
-                    ;
-            }
-            else if (udr.get_is_array_reduction())
-            {
-                Source reduction_accessor;
-                if (reduction_symbol.get_symbol().get_type().is_pointer())
-                {
-                    reduction_accessor << "(*(" << reduction_var_name << "))";
-                }
-                else
-                {
-                    reduction_accessor << reduction_var_name;
-                }
+                // If the type related to the reduction var is pointer, pass an address
                 if (parameters[reduction_index].is_pointer()
-                        && !parameters[reduction_index].points_to().is_array())
+                        && !udr.get_is_array_reduction())
                 {
-                    reduction_arg << "&" << reduction_accessor;
-                    for (int i = 0; i < udr.get_num_dimensions(); i++)
-                    {
-                        reduction_arg << "[0]";
-                    }
-                }
-                else
-                {
-                    reduction_arg << reduction_accessor
+                    reduction_arg << "&" << reduction_var_name
                         ;
                 }
-            }
-            else 
-            {
-                reduction_arg << reduction_var_name
-                    ;
-            }
+		        else if (udr.get_is_array_reduction())
+		        {
+		            Source reduction_accessor;
+		            if (reduction_symbol.get_symbol().get_type().is_pointer())
+		            {
+		                reduction_accessor << "(*(" << reduction_var_name << "))";
+		            }
+		            else
+		            {
+		                reduction_accessor << reduction_var_name;
+		            }
+		            if (parameters[reduction_index].is_pointer()
+		                    && !parameters[reduction_index].points_to().is_array())
+		            {
+		                reduction_arg << "&" << reduction_accessor;
+		                for (int i = 0; i < udr.get_num_dimensions(); i++)
+		                {
+		                    reduction_arg << "[0]";
+		                }
+		            }
+		            else
+		            {
+		                reduction_arg << reduction_accessor
+		                    ;
+		            }
+		        }
+		        else 
+		        {
+		            reduction_arg << reduction_var_name
+		                ;
+		        }
 
-            if (parameters[partial_reduction_index].is_pointer()
-                    && !udr.get_is_array_reduction())
-            {
-                partial_reduction_arg << "&(" << partial_reduction << ")"
-                    ;
-            }
-            else if (udr.get_is_array_reduction())
-            {
-                Source partial_reduction_access;
+		        if (parameters[partial_reduction_index].is_pointer()
+		                && !udr.get_is_array_reduction())
+		        {
+		            partial_reduction_arg << "&(" << partial_reduction << ")"
+		                ;
+		        }
+		        else if (udr.get_is_array_reduction())
+		        {
+		            Source partial_reduction_access;
 
-                if (parameters[partial_reduction_index].is_pointer()
-                        && !parameters[partial_reduction_index].points_to().is_array())
-                {
-                    partial_reduction_arg << "&" << partial_reduction;
-                    for (int i = 0; i < udr.get_num_dimensions(); i++)
-                    {
-                        partial_reduction_arg << "[0]";
-                    }
-                }
-                else
-                {
-                    partial_reduction_arg << partial_reduction
-                        ;
-                }
+		            if (parameters[partial_reduction_index].is_pointer()
+		                    && !parameters[partial_reduction_index].points_to().is_array())
+		            {
+		                partial_reduction_arg << "&" << partial_reduction;
+		                for (int i = 0; i < udr.get_num_dimensions(); i++)
+		                {
+		                    partial_reduction_arg << "[0]";
+		                }
+		            }
+		            else
+		            {
+		                partial_reduction_arg << partial_reduction
+		                    ;
+		            }
+		        }
+		        else
+		        {
+		            partial_reduction_arg << partial_reduction
+		                ;
+		        }
+
+		        // Add trailing ';'
+		        result
+		            << ";"
+		            ;
             }
             else
             {
-                partial_reduction_arg << partial_reduction
-                    ;
+                OpenMP::UDRInfoItem2 udr2 = reduction_symbol.get_udr_2();
+
+                C_LANGUAGE()
+                {
+		            result
+		                << udr2.get_function_name()
+		                << "( "
+                        << "&" << reduction_var_name
+		                << ", "
+		                << "&" << partial_reduction
+		                << " )"
+		                << ";"
+		            ;
+                }
+                CXX_LANGUAGE()
+                {
+		            result
+		                << udr2.get_function_name()
+		                << "( "
+		                << "*" << reduction_var_name
+		                << ", "
+		                << "*" << partial_reduction
+		                << " )"
+		                << ";"
+		            ;
+                }
             }
-
-            // Add trailing ';'
-            result
-                << ";"
-                ;
-
             return result;
         }
 
         static Source perform_reduction_symbol(
                 const OpenMP::ReductionSymbol& reduction_symbol,
                 Source reduction_var_name, 
-                Source partial_reduction)
+                Source partial_reduction,
+                bool new_udr,
+                ScopeLink sl)
         {
-            OpenMP::UDRInfoItem udr = reduction_symbol.get_udr();
-
-            if (udr.is_builtin_operator())
+            if(!new_udr)
             {
-                Source result;
-                std::string op = udr.get_builtin_operator();
+                OpenMP::UDRInfoItem udr = reduction_symbol.get_udr();
 
-                if (udr.get_associativity() == OpenMP::UDRInfoItem::LEFT)
+                if (udr.is_builtin_operator())
                 {
-                    result 
-                        << reduction_var_name << " = " << reduction_var_name << op << partial_reduction << ";"
-                        ;
+                    Source result;
+                    std::string op = udr.get_builtin_operator();
+
+                    if (udr.get_associativity() == OpenMP::UDRInfoItem::LEFT)
+                    {
+                        result 
+                            << reduction_var_name << " = " << reduction_var_name << op << partial_reduction << ";"
+                            ;
+                    }
+                    else
+                    {
+                        result 
+                            << reduction_var_name << " = " << partial_reduction << op << reduction_var_name << ";"
+                            ;
+                    }
+                    return result;
                 }
                 else
                 {
-                    result 
-                        << reduction_var_name << " = " << partial_reduction << op << reduction_var_name << ";"
-                        ;
+                    Symbol sym = udr.get_operator_symbols()[0];
+                    if (!sym.is_member())
+                    {
+                        return perform_reduction_symbol_(reduction_symbol,
+                                reduction_var_name,
+                                partial_reduction,
+                                new_udr);    
+                    }
+                    else
+                    {
+                        return perform_reduction_symbol_member_(reduction_symbol,
+                                reduction_var_name,
+                                partial_reduction);
+                    }
                 }
-                return result;
             }
             else
             {
-                Symbol sym = udr.get_operator_symbols()[0];
-                if (!sym.is_member())
+                OpenMP::UDRInfoItem2 udr2 = reduction_symbol.get_udr_2();
+                if (udr2.is_builtin_operator())
                 {
-                    return perform_reduction_symbol_(reduction_symbol,
-                            reduction_var_name,
-                            partial_reduction);
+                    Source result;
+                    std::string op = udr2.get_name();
+
+	                ReplaceSrcIdExpression replace_udr_builtin(sl);
+		            replace_udr_builtin.add_replacement(udr2.get_out_symbol(), reduction_var_name);
+		            replace_udr_builtin.add_replacement(udr2.get_in_symbol(), partial_reduction);
+
+                    result 
+                        << replace_udr_builtin.replace(udr2.get_combine_expr())
+                        << ";"
+                        ;
+                    return result;
                 }
                 else
                 {
-                    return perform_reduction_symbol_member_(reduction_symbol,
+                    return perform_reduction_symbol_(reduction_symbol,
                             reduction_var_name,
-                            partial_reduction);
+                            partial_reduction,
+                            new_udr);
                 }
             }
         }
 
-        Source OpenMPTransform::get_critical_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references)
+        Source OpenMPTransform::get_critical_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references, ScopeLink sl)
         {
+std::cerr << "This is a critical reduction" << std::endl;
+
             Source reduction_code;
 
             if (reduction_references.empty())
@@ -368,7 +433,9 @@ namespace TL
                 reduction_gathering
                     << perform_reduction_symbol(*it,
                             reduction_var_name,
-                            partial_reduction)
+                            partial_reduction,
+                            _new_udr,
+                            sl)
                     ;
 
             }
@@ -377,8 +444,9 @@ namespace TL
         }
 
 
-        Source OpenMPTransform::get_noncritical_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references)
+        Source OpenMPTransform::get_noncritical_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references, ScopeLink sl)
         {
+std::cerr << "This is a noncritical reduction" << std::endl;
             Source reduction_code;
 
             if (reduction_references.empty())
@@ -400,7 +468,7 @@ namespace TL
 
             Source reduction_gethering;
 
-            reduction_gathering = get_reduction_gathering(reduction_references);
+            reduction_gathering = get_reduction_gathering(reduction_references, sl);
 
             return reduction_code;
         }
@@ -409,6 +477,7 @@ namespace TL
                 ObjectList<OpenMP::ReductionSymbol> reduction_references,
                 Statement inner_statement)
         {
+std::cerr << "This is a noncritical inlined reduction" << std::endl;
             Source reduction_code;
 
             if (reduction_references.empty())
@@ -484,7 +553,7 @@ namespace TL
                 ;
 
             reduction_update = get_reduction_update(reduction_references);
-            reduction_gathering = get_reduction_gathering(reduction_references);
+            reduction_gathering = get_reduction_gathering(reduction_references, inner_statement.get_scope_link());
 
             // We push them onto the stack of inner_reductions because this
             // functions is only called when this for is not orphaned
@@ -542,7 +611,7 @@ namespace TL
             return reduction_update;
         }
 
-        Source OpenMPTransform::get_reduction_gathering(ObjectList<OpenMP::ReductionSymbol> reduction_references)
+        Source OpenMPTransform::get_reduction_gathering(ObjectList<OpenMP::ReductionSymbol> reduction_references, ScopeLink sl)
         {
             Source reduction_gathering;
 
@@ -563,10 +632,13 @@ namespace TL
                 partial_reduction
                     << partial_reduction_vector_name << "[rdv_i]"
                     ;
+
                 reduction_gathering
                     << perform_reduction_symbol(*it, 
                             reduction_var_name, 
-                            partial_reduction)
+                            partial_reduction,
+                            _new_udr,
+                            sl)
                     ;
             }
 

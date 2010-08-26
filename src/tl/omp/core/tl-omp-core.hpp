@@ -38,9 +38,25 @@ namespace TL
 {
     namespace OpenMP
     {
+    	struct UDRParsedInfo 
+		{
+			Type type;
+			AST_t combine_expression;
+			Symbol in_symbol;
+			Symbol out_symbol;
+
+            UDRParsedInfo() : type(NULL), combine_expression(NULL), in_symbol(NULL), out_symbol(NULL) {}
+		};
+
         class Core : public TL::PragmaCustomCompilerPhase
         {
             private:
+
+                std::string _new_udr_str;
+                bool _new_udr;
+                void parse_new_udr(const std::string& str);
+
+
                 void register_omp_constructs();
 
                 // Handler functions
@@ -98,7 +114,8 @@ namespace TL
 
                 // Temporary hack
                 void declare_reduction_handler_pre_2(PragmaCustomConstruct construct);
-                void declare_reduction_handler_post_2(PragmaCustomConstruct construct);
+                void declare_reduction_handler_post_2(PragmaCustomConstruct construct);           
+
             public:
                 Core();
 
