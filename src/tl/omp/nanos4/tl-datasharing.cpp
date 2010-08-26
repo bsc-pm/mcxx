@@ -203,7 +203,7 @@ namespace TL
 
                 ParameterInfo parameter("rdv_" + symbol.get_name(), 
                         "rdv_" + symbol.get_name(),
-                        symbol, pointer_type, ParameterInfo::BY_VALUE);
+                        symbol, pointer_type, ParameterInfo::BY_POINTER);
                 parameter_info.append(parameter);
 
                 result.add_replacement(symbol, "rdp_" + symbol.get_name(),
