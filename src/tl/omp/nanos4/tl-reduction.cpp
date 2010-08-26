@@ -397,8 +397,6 @@ namespace TL
 
         Source OpenMPTransform::get_critical_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references, ScopeLink sl)
         {
-std::cerr << "This is a critical reduction" << std::endl;
-
             Source reduction_code;
 
             if (reduction_references.empty())
@@ -446,7 +444,6 @@ std::cerr << "This is a critical reduction" << std::endl;
 
         Source OpenMPTransform::get_noncritical_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references, ScopeLink sl)
         {
-std::cerr << "This is a noncritical reduction" << std::endl;
             Source reduction_code;
 
             if (reduction_references.empty())
@@ -477,7 +474,6 @@ std::cerr << "This is a noncritical reduction" << std::endl;
                 ObjectList<OpenMP::ReductionSymbol> reduction_references,
                 Statement inner_statement)
         {
-std::cerr << "This is a noncritical inlined reduction" << std::endl;
             Source reduction_code;
 
             if (reduction_references.empty())

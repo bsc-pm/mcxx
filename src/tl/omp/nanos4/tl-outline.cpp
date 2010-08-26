@@ -368,7 +368,36 @@ namespace TL
                 std::string name = "rdp_" + sym.get_name();
 	            Type type = sym.get_type();
 
-                if (!_new_udr)
+                if (_new_udr)
+                {
+		            OpenMP::UDRInfoItem2 udr2 = it->get_udr_2();
+
+		            private_declarations
+		                << comment("Reduction private entity : 'rdp_" + sym.get_name() + "'")
+		                << type_declaration
+		                << static_initializer << ";"
+                    ;
+
+	                type_declaration
+	                    << type.get_declaration(
+	                            construct.get_scope(),
+	                            name)
+	                    ;
+
+                    CXX_LANGUAGE()
+                    {
+                        static_initializer << " = (" << udr2.get_identity().prettyprint() << ")";
+                    }
+
+                    C_LANGUAGE()
+                    {
+                        static_initializer << " = " << udr2.get_identity().prettyprint();
+                    }
+
+                    std::cerr << "Outline for the new_udr '" << private_declarations.get_source() << "'" << std::endl;
+
+                }
+                else
                 {
 		            OpenMP::UDRInfoItem udr = it->get_udr();
 
@@ -503,35 +532,6 @@ namespace TL
 		                    }
 		                }
 		            }
-                }
-                else
-                {
-		            OpenMP::UDRInfoItem2 udr2 = it->get_udr_2();
-
-		            private_declarations
-		                << comment("Reduction private entity : 'rdp_" + sym.get_name() + "'")
-		                << type_declaration
-		                << static_initializer << ";"
-                    ;
-
-	                type_declaration
-	                    << type.get_declaration(
-	                            construct.get_scope(),
-	                            name)
-	                    ;
-
-                    CXX_LANGUAGE()
-                    {
-                        static_initializer << " = (" << udr2.get_identity().prettyprint() << ")";
-                    }
-
-                    C_LANGUAGE()
-                    {
-                        static_initializer << " = " << udr2.get_identity().prettyprint();
-                    }
-
-                    std::cerr << "Outline for the new_udr '" << private_declarations.get_source() << "'" << std::endl;
-
                 }
             }
 
@@ -704,7 +704,7 @@ namespace TL
                 Type type = sym.get_type();
                 Source type_declaration, static_initializer, dynamic_initializer, secondary_decl;
 
-                if (!_new_udr)
+                if (_new_udr)
                 {
 		            OpenMP::UDRInfoItem2 udr2 = it->get_udr_2();
 
