@@ -269,6 +269,15 @@ scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
                 argument_list, template_parameters,
                 decl_context, line, filename);
 
+        if (named_specialization_type == NULL)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: Got failure when coming up with a specialization\n");
+            }
+            return NULL;
+        }
+
         scope_entry_t* specialized_symbol = named_type_get_symbol(named_specialization_type);
 
         DEBUG_CODE()

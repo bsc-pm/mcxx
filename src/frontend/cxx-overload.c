@@ -501,6 +501,13 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                         template_parameters,
                         decl_context, line, filename);
 
+                if (named_specialization_type == NULL)
+                {
+                    fprintf(stderr, "ICS: Cannot specialize conversion function\n");
+                    it = it->next;
+                    continue;
+                }
+
                 // Now update the symbol
                 conv_funct = named_type_get_symbol(named_specialization_type);
 
@@ -671,6 +678,15 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                         template_arguments,
                         template_parameters,
                         decl_context, line, filename); 
+
+                if (named_specialization_type == NULL)
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "ICS: Cannot specialize conversor constructor\n");
+                    }
+                    continue;
+                }
 
                 // Now update the symbol
                 constructor = named_type_get_symbol(named_specialization_type);
@@ -2076,24 +2092,27 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                             argument_list, template_parameters,
                             decl_context, line, filename);
 
-                    scope_entry_t* named_symbol = named_type_get_symbol(named_specialization_type);
-
-                    DEBUG_CODE()
+                    if (named_specialization_type != NULL)
                     {
-                        fprintf(stderr, "OVERLOAD: When solving address of overload function: "
-                                "template function-name specialization "
-                                "'%s' at ('%s:%d') is a matching specialization with type '%s'\n",
-                                named_symbol->symbol_name,
-                                named_symbol->file,
-                                named_symbol->line,
-                                print_declarator(named_symbol->type_information));
-                    }
+                        scope_entry_t* named_symbol = named_type_get_symbol(named_specialization_type);
 
-                    scope_entry_list_t* new_viable_fun 
-                        = counted_calloc(1, sizeof(*viable_functions), &_bytes_overload);
-                    new_viable_fun->entry = named_symbol;
-                    new_viable_fun->next = viable_functions;
-                    viable_functions = new_viable_fun;
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "OVERLOAD: When solving address of overload function: "
+                                    "template function-name specialization "
+                                    "'%s' at ('%s:%d') is a matching specialization with type '%s'\n",
+                                    named_symbol->symbol_name,
+                                    named_symbol->file,
+                                    named_symbol->line,
+                                    print_declarator(named_symbol->type_information));
+                        }
+
+                        scope_entry_list_t* new_viable_fun 
+                            = counted_calloc(1, sizeof(*viable_functions), &_bytes_overload);
+                        new_viable_fun->entry = named_symbol;
+                        new_viable_fun->next = viable_functions;
+                        viable_functions = new_viable_fun;
+                    }
                 }
             }
         }
