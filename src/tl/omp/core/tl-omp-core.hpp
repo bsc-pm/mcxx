@@ -94,6 +94,8 @@ namespace TL
 
                 void common_sections_handler(PragmaCustomConstruct construct, const std::string& pragma_name);
                 void fix_first_section(PragmaCustomConstruct construct);
+
+                void collapse_loop_first(PragmaCustomConstruct& construct);
             public:
                 Core();
 

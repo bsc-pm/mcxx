@@ -26,7 +26,7 @@ include ../../Makefile.phases
 phases_LTLIBRARIES = libtlomp-core.la
 
 libtlomp_core_la_CFLAGS = $(tl_cflags)
-libtlomp_core_la_CXXFLAGS = $(tl_cflags)
+libtlomp_core_la_CXXFLAGS = $(tl_cflags) -I $(srcdir)/../../hlt
 
 libtlomp_core_la_LDFLAGS = $(tl_ldflags)
 libtlomp_core_la_LIBADD = $(tl_libadd)
@@ -50,4 +50,5 @@ libtlomp_core_la_SOURCES = \
    tl-omp-tasks.cpp \
    tl-omp-target.hpp \
    tl-omp-target.cpp \
+   tl-omp-collapse.cpp \
    $(END)

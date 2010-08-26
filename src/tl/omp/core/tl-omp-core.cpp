@@ -136,32 +136,6 @@ namespace TL
             _already_registered = true;
         }
 
-#if 0
-        void Core::get_clause_symbols(PragmaCustomClause clause, ObjectList<Symbol>& sym_list)
-        {
-            ObjectList<IdExpression> id_expr_list;
-            if (clause.is_defined())
-            {
-                id_expr_list = clause.id_expressions();
-
-                for (ObjectList<IdExpression>::iterator it = id_expr_list.begin();
-                        it != id_expr_list.end(); 
-                        it++)
-                {
-                    Symbol sym = it->get_symbol();
-                    if (sym.is_valid())
-                    {
-                        sym_list.append(sym);
-                    }
-                    else
-                    {
-                        std::cerr << it->get_ast().get_locus() << ": warning: identifier '" << (*it) << "' is unknown" << std::endl;
-                    }
-                }
-            }
-        }
-#endif
-
         void Core::get_clause_symbols(PragmaCustomClause clause, 
                 ObjectList<DataReference>& data_ref_list,
                 bool allow_extended_references)
@@ -804,7 +778,14 @@ namespace TL
 
         void Core::parallel_for_handler_pre(PragmaCustomConstruct construct)
         {
+            if (construct.get_clause("collapse").is_defined())
+            {
+                // This function _modifies_ construct to reflect the new reality!
+                collapse_loop_first(construct);
+            }
+
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+
             _openmp_info->push_current_data_sharing(data_sharing);
             common_parallel_handler(construct, data_sharing);
             common_for_handler(construct, data_sharing);
@@ -817,6 +798,13 @@ namespace TL
         void Core::for_handler_pre(PragmaCustomConstruct construct)
         {
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+
+            if (construct.get_clause("collapse").is_defined())
+            {
+                // This will replace the tree
+                collapse_loop_first(construct);
+            }
+
             _openmp_info->push_current_data_sharing(data_sharing);
             common_workshare_handler(construct, data_sharing);
             common_for_handler(construct, data_sharing);
