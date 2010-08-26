@@ -442,10 +442,6 @@ namespace TL
                             it != dim_names.end();
                             it++)
                     {
-                        // Ignore first dimension
-                        // if (it == dim_names.begin())
-                        //     continue;
-
                         Scope sc = sl.get_scope(enclosing_stmt_tree);
 
                         Symbol new_sym = sc.get_symbol_from_name(it->get_source());
@@ -511,7 +507,7 @@ namespace TL
                         }
                     }
 
-                    Type full_type_outline = compute_replacemement_type_for_vla_in_outline(type, dim_names.begin());
+                    Type full_type_outline = compute_replacemement_type_for_vla_in_outline(symbol.get_type(), dim_names.begin());
                     // Ignore the array type
                     Type new_type_outline = full_type_outline;
                     if (full_type_outline.is_array())
@@ -555,10 +551,10 @@ namespace TL
                     ;
                 vla_counter++;
 
-                dimensional_replacements_of_variable_type_aux(t.array_element(), sym, dim_names, dim_decls);
-
                 dim_names.append(dim_name);
                 dim_decls.append(Source("") << "int " << dim_name << " = " << t.array_dimension().prettyprint());
+
+                dimensional_replacements_of_variable_type_aux(t.array_element(), sym, dim_names, dim_decls);
             }
             else if (t.is_pointer())
             {

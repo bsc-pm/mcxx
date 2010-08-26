@@ -1,6 +1,7 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
+
 test_compile_fail_nanox_plain=yes
 test_compile_faulty_nanox_plain=yes
 </testinfo>
@@ -28,7 +29,28 @@ test_compile_faulty_nanox_plain=yes
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-void f(void)
+// This test might hang
+int main(int argc, char *argv[])
 {
+    unsigned char gate = 0;
+#pragma omp parallel shared(gate)
+    {
+#pragma omp master
+        {
+            int i, j;
+            for (i = 0; i < 100; i++)
+            {
+                for (j = 0; j < 100; j++)
+                {
+                }
+            }
+            gate = 1;
 #pragma omp flush
+        }
+
+        // Make all threads busy wait here
+        while (gate == 0);
+    }
+
+    return 0;
 }

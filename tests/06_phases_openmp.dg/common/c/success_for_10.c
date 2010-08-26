@@ -1,6 +1,14 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
+
+test_exec_fail_nanos4_plain_1thread=yes
+test_exec_faulty_nanos4_plain_1thread=yes
+test_exec_fail_nanos4_plain_2thread=yes
+test_exec_faulty_nanos4_plain_2thread=yes
+test_exec_fail_nanos4_plain_4thread=yes
+test_exec_faulty_nanos4_plain_4thread=yes
+
 test_compile_fail_nanox_plain=yes
 test_compile_faulty_nanox_plain=yes
 </testinfo>
@@ -28,17 +36,35 @@ test_compile_faulty_nanox_plain=yes
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include <stdlib.h>
+
 int a[10];
 
-void f(void)
+int main(int argc, char *argv[])
 {
     int b[10];
     int i;
 
+    a[1] = 3;
+    a[2] = 2;
+    b[4] = 4;
+    b[5] = 5;
+
 #pragma omp for firstprivate(a, b) lastprivate(a, b)
     for (i = 0; i < 10; i++)
     {
-        a[1] = a[2] + 3;
-        b[4] = b[5] + 6;
+        a[1] = a[2];
+        b[4] = b[5];
     }
+
+    if (a[1] != 23) 
+        abort();
+    if (a[2] != 2) 
+        abort();
+    if (b[4] != 54) 
+        abort();
+    if (b[5] != 5) 
+        abort();
+
+    return 0;
 }

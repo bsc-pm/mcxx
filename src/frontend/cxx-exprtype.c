@@ -269,6 +269,15 @@ scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
                 argument_list, template_parameters,
                 decl_context, line, filename);
 
+        if (named_specialization_type == NULL)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "EXPRTYPE: Got failure when coming up with a specialization\n");
+            }
+            return NULL;
+        }
+
         scope_entry_t* specialized_symbol = named_type_get_symbol(named_specialization_type);
 
         DEBUG_CODE()
@@ -1155,6 +1164,7 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 break;
             }
         case AST_CONDITIONAL_EXPRESSION :
+        case AST_GCC_CONDITIONAL_EXPRESSION :
             {
                 result = check_for_conditional_expression(expression, decl_context);
 
@@ -1163,14 +1173,27 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                     ASTAttrSetValueType(expression, LANG_IS_CONDITIONAL_EXPRESSION,
                             tl_type_t, tl_bool(1));
 
-                    ASTAttrSetValueType(expression, LANG_CONDITIONAL_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
-                    ASTAttrSetValueType(expression, LANG_CONDITIONAL_TRUE_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expression)));
-                    ASTAttrSetValueType(expression, LANG_CONDITIONAL_FALSE_EXPRESSION, tl_type_t, tl_ast(ASTSon2(expression)));
+                    if (ASTType(expression) == AST_CONDITIONAL_EXPRESSION)
+                    {
+                        ASTAttrSetValueType(expression, LANG_CONDITIONAL_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
+                        ASTAttrSetValueType(expression, LANG_CONDITIONAL_TRUE_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expression)));
+                        ASTAttrSetValueType(expression, LANG_CONDITIONAL_FALSE_EXPRESSION, tl_type_t, tl_ast(ASTSon2(expression)));
 
-                    expression_set_is_value_dependent(expression,
-                            expression_is_value_dependent(ASTSon0(expression))
-                            || expression_is_value_dependent(ASTSon1(expression))
-                            || expression_is_value_dependent(ASTSon2(expression)));
+                        expression_set_is_value_dependent(expression,
+                                expression_is_value_dependent(ASTSon0(expression))
+                                || expression_is_value_dependent(ASTSon1(expression))
+                                || expression_is_value_dependent(ASTSon2(expression)));
+                    }
+                    else
+                    {
+                        ASTAttrSetValueType(expression, LANG_CONDITIONAL_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
+                        ASTAttrSetValueType(expression, LANG_CONDITIONAL_TRUE_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
+                        ASTAttrSetValueType(expression, LANG_CONDITIONAL_FALSE_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expression)));
+
+                        expression_set_is_value_dependent(expression,
+                                expression_is_value_dependent(ASTSon0(expression))
+                                || expression_is_value_dependent(ASTSon1(expression)));
+                    }
                 }
 
                 break;
@@ -5770,25 +5793,26 @@ static type_t* composite_pointer(type_t* p1, type_t* p2)
     return result;
 }
 
-static char check_for_conditional_expression_impl(AST expression, decl_context_t decl_context)
+static char check_for_conditional_expression_impl(AST expression, 
+        AST first_op, AST second_op, AST third_op, decl_context_t decl_context)
 {
     /*
      * This is more complex that it might seem at first ...
      */
-    char result = check_for_expression(ASTSon0(expression), decl_context )
-        && check_for_expression(ASTSon1(expression), decl_context )
-        && check_for_expression(ASTSon2(expression), decl_context );
+    char result = check_for_expression(first_op, decl_context )
+        && check_for_expression(second_op, decl_context )
+        && check_for_expression(third_op, decl_context );
 
     if (!result)
         return 0;
 
-    type_t* first_type = expression_get_type(ASTSon0(expression));
+    type_t* first_type = expression_get_type(first_op);
 
-    type_t* second_type = expression_get_type(ASTSon1(expression));
-    char second_is_lvalue = expression_is_lvalue(ASTSon1(expression));
+    type_t* second_type = expression_get_type(second_op);
+    char second_is_lvalue = expression_is_lvalue(second_op);
 
-    type_t* third_type = expression_get_type(ASTSon2(expression));
-    char third_is_lvalue = expression_is_lvalue(ASTSon2(expression));
+    type_t* third_type = expression_get_type(third_op);
+    char third_is_lvalue = expression_is_lvalue(third_op);
 
     if (first_type == NULL
             || second_type == NULL
@@ -5996,14 +6020,18 @@ static char check_for_conditional_expression_impl(AST expression, decl_context_t
                 return 0;
             }
 
+            // Note that for AST_GCC_CONDITIONAL_EXPRESSION first_op == second_op
+            // but writing it twice in the loop should be harmless
+            AST ops[] = { first_op, second_op, third_op };
+
             int k;
             for (k = 0; k < 3; k++)
             {
                 if (conversors[k] != NULL)
                 {
-                    ASTAttrSetValueType(ASTChild(expression, k), 
+                    ASTAttrSetValueType(ops[k], 
                             LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(ASTChild(expression, k), 
+                    ASTAttrSetValueType(ops[k],
                             LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[k]));
                 }
             }
@@ -6106,11 +6134,26 @@ static char check_for_conditional_expression_impl(AST expression, decl_context_t
 
 static char check_for_conditional_expression(AST expression, decl_context_t decl_context)
 {
-    char result = check_for_conditional_expression_impl(expression, decl_context);
-
     AST first_op = ASTSon0(expression);
-    AST second_op = ASTSon1(expression);
-    AST third_op = ASTSon2(expression);
+    AST second_op = NULL, third_op = NULL;
+
+    if (ASTType(expression) == AST_CONDITIONAL_EXPRESSION)
+    {
+        second_op = ASTSon1(expression);
+        third_op = ASTSon2(expression);
+    }
+    else if (ASTType(expression) == AST_GCC_CONDITIONAL_EXPRESSION)
+    {
+        second_op = first_op;
+        third_op = ASTSon1(expression);
+    }
+    else
+    {
+        internal_error("Invalid node '%s'\n", ast_print_node_type(ASTType(expression)));
+    }
+
+    char result = check_for_conditional_expression_impl(expression, 
+            first_op, second_op, third_op, decl_context);
 
     if (!result
             && !checking_ambiguity())
@@ -8056,18 +8099,70 @@ static char check_for_cast_expr(AST expr, AST type_id, AST casted_expression, de
 
 static char check_for_comma_operand(AST expression, decl_context_t decl_context)
 {
-    char result = check_for_expression(ASTSon0(expression), decl_context)
-        && check_for_expression(ASTSon1(expression), decl_context);
+    static AST operation_comma_tree = NULL;
+    if (operation_comma_tree == NULL)
+    {
+        operation_comma_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
+                ASTLeaf(AST_COMMA_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+    }
+
+
+    AST lhs = ASTSon0(expression);
+    AST rhs = ASTSon1(expression);
+
+    char result = check_for_expression(lhs, decl_context)
+        && check_for_expression(rhs, decl_context);
 
     if (!result)
         return 0;
 
-    expression_set_type(expression, expression_get_type(ASTSon1(expression)));
-    expression_set_is_lvalue(expression, expression_is_lvalue(ASTSon1(expression)));
+    type_t* lhs_type = expression_get_type(lhs);
+    type_t* rhs_type = expression_get_type(rhs);
 
-    if (expression_is_constant(ASTSon1(expression)))
+    if (is_dependent_expr_type(lhs_type)
+            || is_dependent_expr_type(rhs_type))
     {
-        expression_set_constant(expression, expression_get_constant(ASTSon1(expression)));
+        expression_set_dependent(expression);
+        return 1;
+    }
+
+    char requires_overload = 0;
+
+    CXX_LANGUAGE()
+    {
+        requires_overload = any_operand_is_class_or_enum(no_ref(lhs_type), no_ref(rhs_type));
+    }
+
+    if (requires_overload)
+    {
+        // For comma it is empty
+        scope_entry_list_t* builtins = NULL;
+
+        scope_entry_t* selected_operator = NULL;
+
+        // We do not want a warning if no overloads are available
+        enter_test_expression();
+        type_t* computed_type = compute_user_defined_bin_operator_type(operation_comma_tree,
+                expression,
+                lhs,
+                rhs,
+                builtins,
+                decl_context,
+                &selected_operator);
+        leave_test_expression();
+
+        // We will fall-through if no overload exists
+        if (computed_type != NULL)
+            return 1;
+    }
+
+    // Fall-through if no overload exists for comma
+    expression_set_type(expression, expression_get_type(rhs));
+    expression_set_is_lvalue(expression, expression_is_lvalue(rhs));
+
+    if (expression_is_constant(rhs))
+    {
+        expression_set_constant(expression, expression_get_constant(rhs));
     }
 
     return 1;
@@ -10533,6 +10628,137 @@ static char check_for_gcc_builtin_offsetof(AST expression, decl_context_t decl_c
                 }
             }
         }
+    }
+
+    // We need to compute the size of the type, get the member and then retrieve its offset
+    type_t* type = compute_type_for_type_id_tree(type_id, decl_context);
+    ERROR_CONDITION(type == NULL, "Invalid type computed for '%s'", 
+            prettyprint_in_buffer(type_id));
+
+    if (!is_dependent_type(type))
+    {
+        // Compute its size (this will compute the layout)
+        type_get_size(type);
+
+        // The tree of offsetof is a bit awkward, let's make our life easier
+#define MAX_DESIGNATORS 64
+        int num_designators = 0;
+        AST designators[MAX_DESIGNATORS];
+
+        // Initial identifier
+        designators[num_designators] = ASTSon0(member_designator);
+        num_designators++;
+        if (designator_list != NULL)
+        {
+            AST iter;
+            for_each_element(designator_list, iter)
+            {
+                if (num_designators == MAX_DESIGNATORS)
+                {
+                    internal_error("Too many designators", 0);
+                }
+                designators[num_designators] = ASTSon1(iter);
+                num_designators++;
+            }
+        }
+#undef MAX_DESIGNATORS
+
+        _size_t computed_offset = 0;
+
+        type_t* current_type = type;
+        int i;
+        for (i = 0; i < num_designators; i++)
+        {
+            if (is_dependent_type(type))
+            {
+                // Give up
+                expression_set_is_value_dependent(expression, 1);
+                break;
+            }
+
+            AST name = designators[i];
+            if (ASTType(name) == AST_SYMBOL)
+            {
+                // Do nothing
+            }
+            else if (ASTType(name) == AST_FIELD_DESIGNATOR)
+            {
+                // This is .name
+                name = ASTSon0(name);
+            }
+            else if (ASTType(name) == AST_INDEX_DESIGNATOR)
+            {
+                // This is [constant-expression]
+                // No lookup for this type, just check that this is an array
+                if (!is_array_type(current_type))
+                {
+                    running_error("%s: error: invalid designator '%s' for non-array type '%s'\n",
+                            ast_location(expression),
+                            prettyprint_in_buffer(name),
+                            print_type_str(current_type, decl_context));
+                }
+
+                AST const_expr = ASTSon0(name);
+                if (expression_is_value_dependent(const_expr))
+                {
+                    // Give up
+                    expression_set_is_value_dependent(expression, 1);
+                    break;
+                }
+
+                if (!expression_is_constant(const_expr))
+                {
+                    running_error("%s: error: expression '%s' should be constant\n",
+                            ast_location(const_expr),
+                            prettyprint_in_buffer(const_expr));
+                }
+
+                current_type = array_type_get_element_type(current_type);
+                computed_offset += const_value_cast_to_8(expression_get_constant(const_expr)) * type_get_size(current_type);
+                continue;
+            }
+            else
+            {
+                internal_error("Code unreachable", 0);
+            }
+
+            if (!is_class_type(current_type))
+            {
+                running_error("%s: error: __builtin_offsetof applied to '%s' which is not struct/class/union\n",
+                        ast_location(expression),
+                        print_type_str(current_type, decl_context));
+            }
+
+            scope_entry_list_t* member_list = get_member_of_class_type(current_type, name, decl_context);
+            if (member_list == NULL)
+            {
+                running_error("%s: error: '%s' is not a member of type '%s'\n",
+                        ast_location(expression),
+                        prettyprint_in_buffer(name),
+                        print_type_str(current_type, decl_context));
+            }
+
+            scope_entry_t* member = member_list->entry;
+            if (member_list->next != NULL
+                    || member->kind != SK_VARIABLE)
+            {
+                running_error("%s: error: '%s' is not a valid member for __builtin_offsetof\n", 
+                        ast_location(expression),
+                        prettyprint_in_buffer(name));
+            }
+
+            computed_offset += member->entity_specs.field_offset;
+            current_type = member->type_information;
+        }
+
+        expression_set_constant(expression, 
+                const_value_get(computed_offset, type_get_size(get_size_t_type()), /* signed */ 0));
+    }
+    else
+    {
+        // If the type is dependent, any offset should be considered as value
+        // dependent even if the type of the whole expression is size_t
+        expression_set_is_value_dependent(expression, 1);
     }
 
     expression_set_type(expression, get_size_t_type());

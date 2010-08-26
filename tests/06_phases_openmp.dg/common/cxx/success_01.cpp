@@ -26,17 +26,29 @@ test_generator=config/mercurium-omp
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include <stdlib.h>
+
 namespace A
 {
     int a;
     int b;
 };
 
-void f(void)
+int main(int argc, char* argv[])
 {
+    A::a = 4;
+    A::b = 3;
 #pragma omp parallel firstprivate(A::a) shared(A::b)
     {
-        A::a = 4;
-        A::b = 3;
+        A::a = 1;
+        A::b = 2;
     }
+
+    if (A::a != 4)
+        abort();
+
+    if (A::b != 2)
+        abort();
+
+    return 0;
 }

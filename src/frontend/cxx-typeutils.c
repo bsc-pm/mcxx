@@ -1728,6 +1728,10 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
             = update_context_with_template_arguments(primary_symbol->decl_context, template_argument_list);
         type_t* updated_function_type = update_type(primary_symbol->type_information, updated_context, filename, line);
 
+        // If we cannot update the type, give up, as probably this is SFINAE 
+        if (updated_function_type == NULL)
+            return NULL;
+
         // This will give us a new function type
         if (specialized_type == NULL)
         {

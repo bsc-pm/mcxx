@@ -89,8 +89,12 @@ namespace TL
                 void common_for_handler(PragmaCustomConstruct ctr, DataSharingEnvironment& data_sharing);
                 void common_workshare_handler(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing);
 
-                // This member function is implemented in tl-omp-tasks.cpp
                 void task_function_handler_pre(PragmaCustomConstruct construct);
+
+                void common_sections_handler(PragmaCustomConstruct construct, const std::string& pragma_name);
+                void fix_first_section(PragmaCustomConstruct construct);
+
+                void collapse_loop_first(PragmaCustomConstruct& construct);
 
                 // Temporary hack
                 void declare_reduction_handler_pre_2(PragmaCustomConstruct construct);

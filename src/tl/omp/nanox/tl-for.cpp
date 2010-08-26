@@ -59,7 +59,16 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             struct_arg_type_name, 
             ObjectList<OpenMP::DependencyItem>()); // empty dependences
 
+    Source newly_generated_code;
+    newly_generated_code
+        << struct_arg_type_decl_src
+        ;
+    
     FunctionDefinition funct_def = ctr.get_enclosing_function();
+    AST_t outline_code_tree
+        = newly_generated_code.parse_declaration(funct_def.get_ast(), ctr.get_scope_link());
+    ctr.get_ast().prepend_sibling_function(outline_code_tree);
+
     Symbol function_symbol = funct_def.get_function_symbol();
 
     int outline_num = TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER);
@@ -84,6 +93,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     if (!ctr.get_clause("nowait").is_defined())
     {
         final_barrier
+            << "nanos_wg_wait_completion(nanos_current_wd());"
             << "nanos_team_barrier();"
             ;
     }
@@ -103,15 +113,6 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         << device_description_line
         << "};"
         ;
-
-    Source newly_generated_code;
-    newly_generated_code
-        << struct_arg_type_decl_src
-        ;
-    
-    AST_t outline_code_tree
-        = newly_generated_code.parse_declaration(funct_def.get_ast(), ctr.get_scope_link());
-    ctr.get_ast().prepend_sibling_function(outline_code_tree);
 
     OutlineFlags outline_flags;
 
@@ -169,19 +170,6 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     
     num_devices << current_targets.size();
 
-    Source num_threads;
-
-    PragmaCustomClause num_threads_clause = ctr.get_clause("num_threads");
-    if (num_threads_clause.is_defined())
-    {
-        num_threads << num_threads_clause.get_expression_list()[0];
-    }
-    else
-    {
-        // Do not know how to request the default parallel team thread number
-        num_threads << "0";
-    }
-
     Source current_slicer;
     Source chunk_value;
     chunk_value = Source("0");
@@ -199,18 +187,6 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             chunk_value = Source(args[1]);
         }
     }
-
-    // if (!_registered_slicer[current_slicer.get_source()])
-    // {
-    //     Source register_slicer;
-    //     register_slicer
-    //         << "__attribute__((weak)) nanos_slicer_t " << current_slicer.get_source() << " = (nanos_slicer_t)0;"
-    //         ;
-    //     AST_t global_tree = ctr.get_ast().get_enclosing_global_tree();
-    //     AST_t slicer_decl = register_slicer.parse_declaration(global_tree, ctr.get_scope_link());
-    //     global_tree.prepend(slicer_decl);
-    //     _registered_slicer[current_slicer.get_source()] = true;
-    // }
 
     // FIXME - Move this to a tl-workshare.cpp
     Source spawn_source;

@@ -26,12 +26,15 @@ test_generator=config/mercurium-omp
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include <stdio.h>
+#include <stdlib.h>
+#include "omp.h"
 
-void fib(int a)
+int main(int argc, char* argv[])
 {
+    int a = 3;
 #pragma omp parallel if (a > 50)
     {
-        printf("Lalala\n");
+        if (omp_get_thread_num() != 0)
+            abort();
     }
 }

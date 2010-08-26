@@ -1,6 +1,6 @@
 /*
 <testinfo>
-test_generator=config/mercurium-omp
+test_generator=config/mercurium
 </testinfo>
 */
 /*--------------------------------------------------------------------
@@ -26,9 +26,7 @@ test_generator=config/mercurium-omp
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-void f(void)
-{
-#pragma omp parallel single
-    {
-    }
+void f(void) {
+        int i = 0;
+        i = (i) ? : 42;
 }

@@ -136,32 +136,6 @@ namespace TL
             _already_registered = true;
         }
 
-#if 0
-        void Core::get_clause_symbols(PragmaCustomClause clause, ObjectList<Symbol>& sym_list)
-        {
-            ObjectList<IdExpression> id_expr_list;
-            if (clause.is_defined())
-            {
-                id_expr_list = clause.id_expressions();
-
-                for (ObjectList<IdExpression>::iterator it = id_expr_list.begin();
-                        it != id_expr_list.end(); 
-                        it++)
-                {
-                    Symbol sym = it->get_symbol();
-                    if (sym.is_valid())
-                    {
-                        sym_list.append(sym);
-                    }
-                    else
-                    {
-                        std::cerr << it->get_ast().get_locus() << ": warning: identifier '" << (*it) << "' is unknown" << std::endl;
-                    }
-                }
-            }
-        }
-#endif
-
         void Core::get_clause_symbols(PragmaCustomClause clause, 
                 ObjectList<DataReference>& data_ref_list,
                 bool allow_extended_references)
@@ -620,6 +594,53 @@ namespace TL
             get_data_implicit_attributes(construct, default_data_attr, data_sharing);
         }
 
+        void Core::common_sections_handler(PragmaCustomConstruct construct, const std::string& pragma_name)
+        {
+            Statement stmt = construct.get_statement();
+            if (!stmt.is_compound_statement())
+            {
+                running_error("%s: error: '#pragma omp %s' must be followed by a compound statement\n",
+                        construct.get_ast().get_locus().c_str(),
+                        pragma_name.c_str());
+            }
+
+            ObjectList<Statement> inner_stmt = stmt.get_inner_statements();
+
+            if (inner_stmt.size() > 1)
+            {
+                if (!is_pragma_custom_construct("omp", "section", 
+                            inner_stmt[0].get_ast(), construct.get_scope_link())
+                        && !is_pragma_custom_construct("omp", "section", 
+                            inner_stmt[1].get_ast(), construct.get_scope_link()))
+                {
+                    running_error("%s: error: only the first structured-block can have '#pragma omp section' ommitted\n",
+                            inner_stmt[1].get_ast().get_locus().c_str());
+                }
+            }
+        }
+
+        void Core::fix_first_section(PragmaCustomConstruct construct)
+        {
+            Statement stmt = construct.get_statement();
+            ERROR_CONDITION(!stmt.is_compound_statement(), "It must be a compound statement", 0);
+
+            ObjectList<Statement> inner_stmt = stmt.get_inner_statements();
+
+            if (!inner_stmt.empty()
+                    && !is_pragma_custom_construct("omp", "section", 
+                        inner_stmt[0].get_ast(), construct.get_scope_link()))
+            {
+                Source add_section_src;
+                add_section_src
+                    << "#pragma omp section\n"
+                    <<  inner_stmt[0].prettyprint()
+                    ;
+
+                AST_t add_section_tree = add_section_src.parse_statement(inner_stmt[0].get_ast(), construct.get_scope_link());
+                inner_stmt[0].get_ast().replace(add_section_tree);
+            }
+        }
+
         void Core::common_for_handler(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing)
         {
             Statement stmt = construct.get_statement();
@@ -714,8 +735,10 @@ namespace TL
                         {
                             while ((enclosing != NULL) && is_shared)
                             {
-                                is_shared = is_shared && (enclosing->get_data_sharing(sym, 
-                                            /* check_enclosing */ false) == DS_SHARED);
+                                DataSharingAttribute ds = enclosing->get_data_sharing(sym, /* check_enclosing */ false);
+                                ds = (DataSharingAttribute)(ds & ~DS_IMPLICIT);
+                                is_shared = (is_shared && (ds == DS_SHARED));
+
                                 // Stop once we see the innermost parallel
                                 if (enclosing->get_is_parallel())
                                     break;
@@ -755,7 +778,14 @@ namespace TL
 
         void Core::parallel_for_handler_pre(PragmaCustomConstruct construct)
         {
+            if (construct.get_clause("collapse").is_defined())
+            {
+                // This function _modifies_ construct to reflect the new reality!
+                collapse_loop_first(construct);
+            }
+
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+
             _openmp_info->push_current_data_sharing(data_sharing);
             common_parallel_handler(construct, data_sharing);
             common_for_handler(construct, data_sharing);
@@ -768,6 +798,13 @@ namespace TL
         void Core::for_handler_pre(PragmaCustomConstruct construct)
         {
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+
+            if (construct.get_clause("collapse").is_defined())
+            {
+                // This will replace the tree
+                collapse_loop_first(construct);
+            }
+
             _openmp_info->push_current_data_sharing(data_sharing);
             common_workshare_handler(construct, data_sharing);
             common_for_handler(construct, data_sharing);
@@ -793,9 +830,13 @@ namespace TL
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
             _openmp_info->push_current_data_sharing(data_sharing);
             common_parallel_handler(construct, data_sharing);
+
+            common_sections_handler(construct, "parallel sections");
         }
+
         void Core::parallel_sections_handler_post(PragmaCustomConstruct construct)
         {
+            fix_first_section(construct);
             _openmp_info->pop_current_data_sharing();
         }
 
@@ -873,11 +914,26 @@ namespace TL
             _openmp_info->pop_current_data_sharing();
         }
 
+        void Core::sections_handler_pre(PragmaCustomConstruct construct)
+        {
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+            _openmp_info->push_current_data_sharing(data_sharing);
+
+            common_workshare_handler(construct, data_sharing);
+
+            common_sections_handler(construct, "sections");
+        }
+
+        void Core::sections_handler_post(PragmaCustomConstruct construct)
+        {
+            fix_first_section(construct);
+            _openmp_info->pop_current_data_sharing();
+        }
+
 #define EMPTY_HANDLERS(_name) \
         void Core::_name##_handler_pre(PragmaCustomConstruct) { } \
         void Core::_name##_handler_post(PragmaCustomConstruct) { }
 
-        EMPTY_HANDLERS(sections)
         EMPTY_HANDLERS(section)
         EMPTY_HANDLERS(barrier)
         EMPTY_HANDLERS(atomic)

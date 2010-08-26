@@ -78,9 +78,10 @@ namespace TL
     {
         private:
             ScopeLink _sl;
+            PredicateAttr _pred_pragma;
         public:
             ExpressionNotNestedTaskPred(ScopeLink sl)
-                  : _sl(sl)
+                  : _sl(sl), _pred_pragma(LANG_IS_PRAGMA_CUSTOM_LINE)
             {
             }
 
@@ -97,9 +98,11 @@ namespace TL
                     return ast_traversal_result_helper(/* match */ false,
                             /* recurse */ false);
                 }
-                else if (is_pragma_custom_directive("omp", "task", a, _sl))
+                // Ignore pragmas, nothing can be expanded there
+                else if (_pred_pragma(a))
                 {
-                    return ast_traversal_result_helper(/* match */ false, /* recurse */ false);
+                    return ast_traversal_result_helper(/* match */ false,
+                            /* recurse */ false);
                 }
                 else
                 {

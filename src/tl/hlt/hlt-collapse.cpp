@@ -28,8 +28,11 @@ using namespace TL::HLT;
 LoopCollapse::LoopCollapse(TL::ForStatement for_stmt)
     : _for_nest_info(for_stmt), 
     _nest_level(0), 
+    _induction_private(false),
     _split_transform(false), 
-    _header(NULL)
+    _header(NULL),
+    _keep_ancillary_names(false),
+    _ancillary_names(NULL)
 {
     bool valid = true;
     if (!_for_nest_info.is_perfect())
@@ -109,6 +112,11 @@ TL::Source LoopCollapse::get_source()
                  "+(" << it->get_step() << ") - 1) / (" << it->get_step() << ");"
                 ;
             total_iters_init.append_with_separator(var_name , "*");
+
+            if (_keep_ancillary_names)
+            {
+                _ancillary_names->append(var_name);
+            }
         }
 
         // Lower
@@ -119,6 +127,11 @@ TL::Source LoopCollapse::get_source()
             iter_count_list
                 << "const int " << var_name << " = " << it->get_lower_bound() << ";"
                 ;
+
+            if (_keep_ancillary_names)
+            {
+                _ancillary_names->append(var_name);
+            }
         }
 
         // Step
@@ -129,6 +142,11 @@ TL::Source LoopCollapse::get_source()
             iter_count_list
                 << "const int " << var_name << " = " << it->get_step() << ";"
                 ;
+
+            if (_keep_ancillary_names)
+            {
+                _ancillary_names->append(var_name);
+            }
         }
     }
 
@@ -149,6 +167,11 @@ TL::Source LoopCollapse::get_source()
             header << "const int " << var_name << " = " << current_count_value << ";"
                 ;
 
+            if (_keep_ancillary_names)
+            {
+                _ancillary_names->append(var_name);
+            }
+
             for (int i = loop_n; i < for_nest_list.size(); i++)
             {
                 current_count_value.append_with_separator(Source("_iteration_count_") << i, "*");
@@ -160,8 +183,8 @@ TL::Source LoopCollapse::get_source()
 
     header 
         // FIXME - We may want to change this name _m
-        // FIXME - Use a proper type, not just _m
-        << "int _m;"
+        // FIXME - Use a proper type, not just long
+        << "long _m;"
         ;
 
     collapsed_for
@@ -210,11 +233,11 @@ TL::Source LoopCollapse::get_source()
         // original for, since its scope is just the loop, otherwise keep using
         // the original variable
         Source initialization;
-        if (Declaration::predicate(for_stmt.get_iterating_init()))
+        if (Declaration::predicate(for_stmt.get_iterating_init())
+                || _induction_private)
         {
             Symbol induction_var_symbol = for_stmt.get_induction_variable().get_symbol();
             Type induction_var_type = induction_var_symbol.get_type();
-
 
             compute_nested_indexes
                 << induction_var_type.get_declaration(induction_var_symbol.get_scope(),
@@ -276,6 +299,21 @@ LoopCollapse& LoopCollapse::set_split_transform(Source& header)
 {
     _header = &header;
     _split_transform = true;
+    return *this;
+}
+
+LoopCollapse& LoopCollapse::set_induction_private(bool b)
+{
+    _induction_private = b;
+    return *this;
+}
+
+LoopCollapse& LoopCollapse::keep_ancillary_names(ObjectList<std::string>& ancillary_names)
+{
+    _keep_ancillary_names = true;
+    _ancillary_names = &ancillary_names;
+
+    return *this;
 }
 
 LoopCollapse TL::HLT::loop_collapse(ForStatement for_stmt)
