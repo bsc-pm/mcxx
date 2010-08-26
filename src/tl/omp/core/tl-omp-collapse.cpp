@@ -60,7 +60,7 @@ namespace TL
             Expression &expr = expr_list.front();
             if (!expr.is_constant())
             {
-                running_error("%s: error: '%s' is not a constant expression\n",
+                running_error("%s: error: 'collapse' clause argument '%s' is not a constant expression\n",
                         expr.get_ast().get_locus().c_str(),
                         expr.prettyprint().c_str());
             }
@@ -69,7 +69,7 @@ namespace TL
             int nest_level = expr.evaluate_constant_int_expression(valid);
             if (!valid)
             {
-                running_error("%s: error: '%s' is not a constant expression\n",
+                running_error("%s: error: 'collapse' clause argument '%s' is not a constant expression\n",
                         expr.get_ast().get_locus().c_str(),
                         expr.prettyprint().c_str());
             }
@@ -82,7 +82,7 @@ namespace TL
 
             if (!ForStatement::predicate(construct.get_statement().get_ast()))
             {
-                running_error("%s: collapsed '#pragma omp for' or '#pragma omp parallel for' require a for-statement\n",
+                running_error("%s: error: collapsed '#pragma omp for' or '#pragma omp parallel for' require a for-statement\n",
                         construct.get_statement().get_ast().get_locus().c_str());
             }
 
@@ -90,10 +90,14 @@ namespace TL
                     construct.get_scope_link());
             HLT::LoopCollapse loop_collapse(for_stmt);
 
+            ObjectList<std::string> ancillary_names;
+
             Source header;
             loop_collapse
                 .set_nesting_level(nest_level)
-                .set_split_transform(header);
+                .set_split_transform(header)
+                .set_induction_private(true)
+                .keep_ancillary_names(ancillary_names);
 
             Source collapsed_for = loop_collapse;
 
@@ -108,12 +112,15 @@ namespace TL
 
             AST_t tree = transformed_code.parse_statement(construct.get_ast(), construct.get_scope_link());
 
+            Source new_firstprivate_entities;
             Source pragma_line;
             Source omp_part_src;
             omp_part_src
-                << "#pragma omp " << pragma_line << "\n"
+                << "#pragma omp " << pragma_line << new_firstprivate_entities << "\n"
                 << collapsed_for
                 ;
+
+            new_firstprivate_entities << "firstprivate(" << concat_strings(ancillary_names, ",") << ")";
 
             pragma_line << construct.get_pragma_line().prettyprint_with_callback(functor(remove_collapse_clause));
 
@@ -126,13 +133,8 @@ namespace TL
             // Replace the whole construct
             construct.get_ast().replace(tree);
 
-            std::cerr << "---PRAGMA THINGY--" << std::endl;
-            std::cerr << pragma_placeholder.prettyprint() << std::endl;
-            std::cerr << "---------------" << std::endl;
-
             // Now overwrite the old construct with this new one
             construct = PragmaCustomConstruct(pragma_placeholder, construct.get_scope_link());
-
         }
     }
 }
