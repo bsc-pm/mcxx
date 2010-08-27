@@ -35,12 +35,6 @@
 #include "cxx-exprtype.h"
 #include "cxx-instantiation.h"
 
-#define integer_types "_Bool, signed char, char, short int, int, long int, " \
-                      "unsigned char, unsigned short, unsigned int, unsigned long, long long int, " \
-                      "unsigned long long int"
-#define complex_types "float _Complex, double _Complex, long double _Complex"
-#define real_types    "float, double, long double, " complex_types
-#define scalar_types  integer_types ", " real_types
 
 namespace TL
 {
@@ -145,24 +139,41 @@ namespace TL
             AST_t real_one(internal_expression_parse("1.0", global_scope.get_decl_context()));
             AST_t neg_zero(internal_expression_parse("~0", global_scope.get_decl_context()));
 
+            const std::string complex_types = "float _Complex, double _Complex, long double _Complex ";
+            const std::string real_types = "float, double, long double, " + complex_types;
+
+            std::string integer_types = "";
+			CXX_LANGUAGE()
+            {
+                integer_types = "bool, ";
+            }
+            C_LANGUAGE()
+            {
+                integer_types = "_Bool, "; 
+            }
+			integer_types += "signed char, char, short int, int, long int, " \
+                      "unsigned char, unsigned short, unsigned int, unsigned long, long long int, " \
+                      "unsigned long long int";
+            const std::string scalar_types = integer_types + ", " + real_types;
+
             reduction_info_t builtin_arithmetic_operators[] =
             {
-                {"+: " integer_types ": _out += _in", zero},
-                {"+: " real_types ": _out += _in", real_zero},
-                {"-: " real_types ": _out -= _in", zero},
-                {"-: " real_types ": _out -= _in", real_zero}, 
-                {"*: " integer_types ": _out *= _in", one}, 
-                {"*: " real_types ": _out *= _in", real_one},
+                {"+: " + integer_types + ": _out += _in", zero},
+                {"+: " + real_types + ": _out += _in", real_zero},
+                {"-: " + real_types + ": _out -= _in", zero},
+                {"-: " + real_types + ": _out -= _in", real_zero}, 
+                {"*: " + integer_types + ": _out *= _in", one}, 
+                {"*: " + real_types + ": _out *= _in", real_one},
                 {"", AST_t(NULL)}
             };
 
             reduction_info_t builtin_logic_bit_operators[] =
             {
-                {"&: " integer_types ": _out &= _in", neg_zero}, 
-                {"|: " integer_types ": _out |= _in", zero}, 
-                {"^: " integer_types ": _out ^= _in", zero}, 
-                {"&&: " scalar_types ": _out = _out && _in", one}, 
-                {"||: " scalar_types ": _out = _out || _in", zero}, 
+                {"&: " + integer_types + ": _out &= _in", neg_zero}, 
+                {"|: " + integer_types + ": _out |= _in", zero}, 
+                {"^: " + integer_types + ": _out ^= _in", zero}, 
+                {"&&: " + scalar_types + ": _out = _out && _in", one}, 
+                {"||: " + scalar_types + ": _out = _out || _in", zero}, 
                 {"", AST_t(NULL)}
             };
 
