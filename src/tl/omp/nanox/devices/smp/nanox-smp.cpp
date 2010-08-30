@@ -208,9 +208,16 @@ void DeviceSMP::create_outline(
     Source forward_declaration;
     Symbol function_symbol = enclosing_function.get_function_symbol();
 
+    Source template_header;
     if (!function_symbol.is_member())
     {
-        Source template_header;
+
+        if (enclosing_function.is_templated())
+        {
+            template_header
+                << concat_strings(enclosing_function.get_template_header(), "")
+                ;
+        }
 
         IdExpression function_name = enclosing_function.get_function_name();
         Declaration point_of_decl = function_name.get_declaration();
@@ -230,6 +237,7 @@ void DeviceSMP::create_outline(
 
     result
         << forward_declaration
+        << template_header
         << "static void " << outline_name << "(" << parameter_list << ")"
         << "{"
         << instrument_before
@@ -349,17 +357,42 @@ void DeviceSMP::create_outline(
 void DeviceSMP::get_device_descriptor(const std::string& task_name,
         DataEnvironInfo &data_environ,
         const OutlineFlags&,
+        AST_t reference_tree,
+        ScopeLink sl,
         Source &ancillary_device_description,
         Source &device_descriptor)
 {
     Source outline_name;
     outline_name
-        << smp_outline_name(task_name);
+        << smp_outline_name(task_name)
         ;
+
+    Source template_args;
+    FunctionDefinition enclosing_function_def(reference_tree.get_enclosing_function_definition(), sl);
+
+    if (enclosing_function_def.is_templated())
+    {
+        Source template_args_list;
+        template_args
+            << "<" << template_args_list << ">";
+        ObjectList<TemplateHeader> template_header_list = enclosing_function_def.get_template_header();
+        for (ObjectList<TemplateHeader>::iterator it = template_header_list.begin();
+                it != template_header_list.end();
+                it++)
+        {
+            ObjectList<TemplateParameterConstruct> tpl_params = it->get_parameters();
+            for (ObjectList<TemplateParameterConstruct>::iterator it2 = tpl_params.begin();
+                    it2 != tpl_params.end();
+                    it2++)
+            {
+                template_args_list.append_with_separator(it2->get_name(), ",");
+            }
+        }
+    }
 
     ancillary_device_description
         << comment("SMP device descriptor")
-        << "nanos_smp_args_t " << task_name << "_smp_args = { (void(*)(void*))" << outline_name << "};"
+        << "nanos_smp_args_t " << task_name << "_smp_args = { (void(*)(void*))" << outline_name << template_args << "};"
         ;
 
     device_descriptor

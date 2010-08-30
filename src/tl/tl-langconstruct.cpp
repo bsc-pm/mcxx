@@ -237,7 +237,6 @@ namespace TL
     ObjectList<TemplateHeader> Declaration::get_template_header()
     {
         TL::AST_t start = _ref.get_attribute(LANG_TEMPLATE_HEADER);
-
         PredicateAttr template_header_pred(LANG_IS_TEMPLATE_HEADER);
 
         ObjectList<AST_t> trees = start.depth_subtrees(template_header_pred);
@@ -1331,7 +1330,7 @@ namespace TL
         return NULL;
     }
 
-    ObjectList<TemplateParameterConstruct> TemplateHeader::get_parameters()
+    ObjectList<TemplateParameterConstruct> TemplateHeader::get_parameters() const
     {
         ObjectList<TemplateParameterConstruct> result;
         ASTIterator it = _ref.get_list_iterator();
@@ -1344,6 +1343,17 @@ namespace TL
         }
 
         return result;
+    }
+
+    std::string TemplateHeader::prettyprint() const
+    {
+        ObjectList<TemplateParameterConstruct> list = this->get_parameters();
+
+        std::string res = "template<";
+        res += concat_strings(list, ",");
+        res += ">";
+
+        return res;
     }
 
     bool TemplateParameterConstruct::is_named()
