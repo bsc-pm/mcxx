@@ -209,16 +209,29 @@ void DeviceSMP::create_outline(
     Symbol function_symbol = enclosing_function.get_function_symbol();
 
     Source template_header;
+    if (enclosing_function.is_templated())
+    {
+        Source template_params;
+        template_header
+            << "template <" << template_params << ">"
+            ;
+        ObjectList<TemplateHeader> template_header_list = enclosing_function.get_template_header();
+        for (ObjectList<TemplateHeader>::iterator it = template_header_list.begin();
+                it != template_header_list.end();
+                it++)
+        {
+            ObjectList<TemplateParameterConstruct> tpl_params = it->get_parameters();
+            for (ObjectList<TemplateParameterConstruct>::iterator it2 = tpl_params.begin();
+                    it2 != tpl_params.end();
+                    it2++)
+            {
+                template_params.append_with_separator(it2->prettyprint(), ",");
+            }
+        }
+    }
+
     if (!function_symbol.is_member())
     {
-
-        if (enclosing_function.is_templated())
-        {
-            template_header
-                << concat_strings(enclosing_function.get_template_header(), "")
-                ;
-        }
-
         IdExpression function_name = enclosing_function.get_function_name();
         Declaration point_of_decl = function_name.get_declaration();
         DeclarationSpec decl_specs = point_of_decl.get_declaration_specifiers();
@@ -370,6 +383,7 @@ void DeviceSMP::get_device_descriptor(const std::string& task_name,
     Source template_args;
     FunctionDefinition enclosing_function_def(reference_tree.get_enclosing_function_definition(), sl);
 
+    Source additional_casting;
     if (enclosing_function_def.is_templated())
     {
         Source template_args_list;
@@ -388,11 +402,34 @@ void DeviceSMP::get_device_descriptor(const std::string& task_name,
                 template_args_list.append_with_separator(it2->get_name(), ",");
             }
         }
+        outline_name << template_args;
+
+        // Because of a bug in g++ (solved in 4.5) we need an additional casting
+        AST_t id_expr = outline_name.parse_id_expression(reference_tree, sl);
+        Scope sc = sl.get_scope(reference_tree);
+        ObjectList<Symbol> sym_list = sc.get_symbols_from_id_expr(id_expr);
+        if (!sym_list.empty()
+                && sym_list[0].is_template_function_name())
+        {
+            Type t = sym_list[0].get_type()
+                // This symbol is a template, get the primary one
+                // This is safe since we know there will be only one template
+                // function under this name
+                .get_primary_template()
+                // Primary template type is a named type, get its symbol
+                .get_symbol()
+                // Is type is a function type
+                .get_type()
+                // A function type is not directly useable, get a pointer to
+                .get_pointer_to();
+            additional_casting << "(" << t.get_declaration(sym_list[0].get_scope(), "") << ")";
+        }
+        // Let it fail
     }
 
     ancillary_device_description
         << comment("SMP device descriptor")
-        << "nanos_smp_args_t " << task_name << "_smp_args = { (void(*)(void*))" << outline_name << template_args << "};"
+        << "nanos_smp_args_t " << task_name << "_smp_args = { (void(*)(void*))" << additional_casting << outline_name << "};"
         ;
 
     device_descriptor
