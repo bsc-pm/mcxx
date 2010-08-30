@@ -99,15 +99,14 @@ static void do_smp_numa_outline_replacements(
 
         // There are some problems with the typesystem currently
         // that require these workarounds
-        if (data_ref.get_type().is_array()
-                && data_ref.get_data_type().is_pointer())
+        if (data_ref.is_shaping_expression())
         {
             // Shaping expressions ([e] a)  have a type of array but we do not
             // want the array but the related pointer
             type = data_ref.get_data_type();
             requires_indirect = false;
         }
-        else if (data_ref.get_data_type().is_array())
+        else if (data_ref.is_array_section())
         {
             // Array sections have a scalar type, but the data type will be array
             // See ticket #290
