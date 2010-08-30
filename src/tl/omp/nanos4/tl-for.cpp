@@ -163,7 +163,7 @@ namespace TL
 
             if (orphaned)
             {
-                reduction_code = get_critical_reduction_code(reduction_references);
+                reduction_code = get_critical_reduction_code(reduction_references, for_construct.get_scope_link());
             }
             else
             {

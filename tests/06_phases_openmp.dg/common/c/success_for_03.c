@@ -27,6 +27,7 @@ test_generator=config/mercurium-omp
 --------------------------------------------------------------------*/
 
 #include <stdlib.h>
+#include <stdio.h>
 
 int a;
 
@@ -46,10 +47,16 @@ int main(int argc, char *argv[])
     }
 
     if (a != 3)
+    {
+        fprintf(stderr, "%d != 3\n", a);
         abort();
+    }
 
     if (b != 4)
+    {
+        fprintf(stderr, "%d != 4\n", b);
         abort();
+    }
 
     return 0;
 }

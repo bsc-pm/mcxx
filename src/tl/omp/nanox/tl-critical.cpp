@@ -29,12 +29,9 @@
 using namespace TL;
 using namespace TL::Nanox;
 
-static std::set<std::string> _lock_names;
-
 // This is so crude
 static std::string macro_expanded_handling(const std::string& str)
 {
-    std::cerr << "->" << str << "<-" << std::endl;
     return std::string(str.begin() + 1, str.end() - 1);
 }
 
@@ -43,7 +40,7 @@ void OMPTransform::critical_postorder(PragmaCustomConstruct critical_construct)
     std::string lock_name;
     if (critical_construct.is_parameterized())
     {
-        lock_name = critical_construct.get_parameter_arguments()[0];
+        lock_name = "_nx_u_" + critical_construct.get_parameter_arguments()[0] + "_critical_lock";
     }
     else
     {
@@ -77,9 +74,9 @@ void OMPTransform::critical_postorder(PragmaCustomConstruct critical_construct)
     Source critical_postorder_src;
     critical_postorder_src
         << "{"
-        <<    "nanos_set_lock(" << lock_name << ");"
+        <<    "nanos_set_lock(&" << lock_name << ");"
         <<    critical_construct.get_statement()
-        <<    "nanos_unset_lock(" << lock_name << ");"
+        <<    "nanos_unset_lock(&" << lock_name << ");"
         << "}"
         ;
 

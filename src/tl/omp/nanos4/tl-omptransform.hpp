@@ -77,6 +77,9 @@ namespace TL
                 std::fstream stm_log_file;
                 bool stm_log_file_opened;
 
+                std::string _new_udr_str;
+                bool _new_udr;
+
                 // -- End of Transactional world
 
                 /*
@@ -96,6 +99,8 @@ namespace TL
                 std::string stm_wrap_functions_file;
                 std::string stm_wrap_functions_mode;
                 std::string stm_global_lock_enabled_str;
+
+                void parse_new_udr(const std::string& str);
 
                 /* Parameter set_XXX functions */
                 void set_instrumentation(const std::string& str);
@@ -236,13 +241,13 @@ namespace TL
                         ObjectList<ParameterInfo>& parameter_info_list,
                         bool team_parameter);
 
-                Source get_critical_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references);
-                Source get_noncritical_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references);
+                Source get_critical_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references, ScopeLink sl);
+                Source get_noncritical_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references, ScopeLink sl);
                 Source get_noncritical_inlined_reduction_code(
                         ObjectList<OpenMP::ReductionSymbol> reduction_references,
                         Statement inner_statement);
                 Source get_reduction_update(ObjectList<OpenMP::ReductionSymbol> reduction_references);
-                Source get_reduction_gathering(ObjectList<OpenMP::ReductionSymbol> reduction_references);
+                Source get_reduction_gathering(ObjectList<OpenMP::ReductionSymbol> reduction_references, ScopeLink sl);
 
                 Source get_member_function_declaration(
                         FunctionDefinition function_definition,

@@ -633,6 +633,11 @@ namespace TL
         }
     }
 
+    Type Type::get_canonical_type()
+    {
+        return this->advance_over_typedefs().get_unqualified_type();
+    }
+
     bool Type::is_incomplete() const
     {
         return is_incomplete_type(_type_info);

@@ -48,8 +48,13 @@ namespace TL
 
                 int _nest_level;
 
+                bool _induction_private;
+
                 bool _split_transform;
                 Source *_header;
+
+                bool _keep_ancillary_names;
+                ObjectList<std::string> *_ancillary_names;
             protected:
                 virtual Source get_source();
             public:
@@ -62,6 +67,10 @@ namespace TL
                 LoopCollapse& set_nesting_level(int n);
 
                 LoopCollapse& set_split_transform(Source &header);
+
+                LoopCollapse& set_induction_private(bool b);
+
+                LoopCollapse& keep_ancillary_names(ObjectList<std::string>& ancillary_names);
         };
 
         //! Constructs a LoopCollapse object

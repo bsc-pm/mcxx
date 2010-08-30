@@ -1816,7 +1816,7 @@ static type_environment_t type_environment_linux_amd64_ =
     .alignof_float = 4,
 
     .sizeof_double = 8,
-    .alignof_double = 4,
+    .alignof_double = 8,
 
     .sizeof_long_double = 16,
     .alignof_long_double = 16,

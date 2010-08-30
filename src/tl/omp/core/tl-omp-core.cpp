@@ -25,6 +25,7 @@
 #include "tl-langconstruct.hpp"
 #include "tl-source.hpp"
 #include "tl-omp-udr.hpp"
+#include "tl-omp-udr_2.hpp"
 
 #include <algorithm>
 
@@ -35,13 +36,22 @@ namespace TL
         bool Core::_already_registered(false);
 
         Core::Core()
-            : PragmaCustomCompilerPhase("omp")
+            : PragmaCustomCompilerPhase("omp"), _new_udr_str(""), _new_udr(true)
         {
             set_phase_name("OpenMP Core Analysis");
             set_phase_description("This phase is required for any other phase implementing OpenMP. "
                     "It performs the common analysis part required by OpenMP");
             register_omp_constructs();
+            register_parameter("new_udr", "Alternative implementation for UDRs",
+                    _new_udr_str, "1").connect(functor(&Core::parse_new_udr,*this));
         }
+
+
+        void Core::parse_new_udr(const std::string& str)
+        {
+            parse_boolean_option("new_udr", str, _new_udr, "Assuming true.");
+        }
+
 
         void Core::pre_run(TL::DTO& dto)
         {
@@ -105,7 +115,14 @@ namespace TL
 
             Scope global_scope = scope_link.get_scope(translation_unit);
 
-            initialize_builtin_udr_reductions(global_scope);
+            if (_new_udr) 
+            {
+                initialize_builtin_udr_reductions_2(translation_unit, scope_link);
+            }
+            else 
+            {
+                initialize_builtin_udr_reductions(global_scope);
+            }
 
             PragmaCustomCompilerPhase::run(dto);
         }
@@ -135,32 +152,6 @@ namespace TL
 #undef OMP_CONSTRUCT
             _already_registered = true;
         }
-
-#if 0
-        void Core::get_clause_symbols(PragmaCustomClause clause, ObjectList<Symbol>& sym_list)
-        {
-            ObjectList<IdExpression> id_expr_list;
-            if (clause.is_defined())
-            {
-                id_expr_list = clause.id_expressions();
-
-                for (ObjectList<IdExpression>::iterator it = id_expr_list.begin();
-                        it != id_expr_list.end(); 
-                        it++)
-                {
-                    Symbol sym = it->get_symbol();
-                    if (sym.is_valid())
-                    {
-                        sym_list.append(sym);
-                    }
-                    else
-                    {
-                        std::cerr << it->get_ast().get_locus() << ": warning: identifier '" << (*it) << "' is unknown" << std::endl;
-                    }
-                }
-            }
-        }
-#endif
 
         void Core::get_clause_symbols(PragmaCustomClause clause, 
                 ObjectList<DataReference>& data_ref_list,
@@ -345,57 +336,93 @@ namespace TL
                     }
                     else
                     {
-                        UDRInfoItem udr;
-                        if (udr_is_builtin_operator(reductor_name))
+                        if (_new_udr)
                         {
-                            udr.set_builtin_operator(reductor_name);
-                        }
-                        else
-                        {
-                            udr.set_operator(reductor_id_expr);
-                        }
-                        udr.set_reduction_type(var_type);
+                            bool found = false;
 
-                        if (num_dimensions != 0)
-                        {
-                            udr.set_is_array_reduction(true);
-                            udr.set_num_dimensions(num_dimensions);
-                        }
+                            UDRInfoItem2 udr2;
+                            udr2.set_name(reductor_name);
+                            udr2.set_type(var_type);
+                            udr2 = udr2.lookup_udr_2(construct.get_scope(),
+                                    found,
+                                    var_type);
 
-                        ObjectList<Symbol> all_viables;
-
-                        bool found = false;
-                        udr = udr.lookup_udr(construct.get_scope(), 
-                                construct.get_scope_link(),
-                                found,
-                                all_viables, 
-                                construct.get_ast().get_file(),
-                                construct.get_ast().get_line());
-
-                        if (found)
-                        {
-                            ReductionSymbol red_sym(var_sym, udr);
-                            sym_list.append(red_sym);
-
-                            if (!udr.is_builtin_operator())
+                            if (found)
                             {
-                                Symbol op_sym = udr.get_operator_symbols()[0];
-                                Type op_type = op_sym.get_type();
-                                std::cerr << construct.get_ast().get_locus() 
-                                    << ": note: reduction of variable '" << var_sym.get_name() << "' solved to '" 
-                                    << op_type.get_declaration(construct.get_scope(),
-                                            op_sym.get_qualified_name(construct.get_scope())) << "'" 
-                                    << std::endl;
+                                ReductionSymbol red_sym(var_sym, udr2);
+                                sym_list.append(red_sym);
+                                if (!udr2.is_builtin_operator())
+                                {
+                                    std::cerr << construct.get_ast().get_locus() 
+                                        << ": note: reduction of variable '" << var_sym.get_name() << "' solved to '" 
+                                        << var_type.get_declaration(construct.get_scope(), reductor_name) << "'" 
+                                        << std::endl;
+                                }
+                            }
+                            else
+                            {
+                                // Make this a hard error, otherwise lots of false positives will slip in
+                                running_error("%s: error: no suitable reductor operator '%s' was found for reduced variable '%s' of type '%s'",
+                                        construct.get_ast().get_locus().c_str(),
+                                        reductor_name.c_str(),
+                                        var_tree.prettyprint().c_str(),
+                                        var_sym.get_type().get_declaration(var_sym.get_scope(), "").c_str());
                             }
                         }
                         else
                         {
-                            // Make this a hard error, otherwise lots of false positives will slip in
-                            running_error("%s: error: no suitable reductor operator '%s' was found for reduced variable '%s' of type '%s'",
-                                    construct.get_ast().get_locus().c_str(),
-                                    reductor_name.c_str(),
-                                    var_tree.prettyprint().c_str(),
-                                    var_sym.get_type().get_declaration(var_sym.get_scope(), "").c_str());
+                            UDRInfoItem udr;
+                            if (udr_is_builtin_operator(reductor_name))
+                            {
+                                udr.set_builtin_operator(reductor_name);
+                            }
+                            else
+                            {
+                                udr.set_operator(reductor_id_expr);
+                            }
+                            udr.set_reduction_type(var_type);
+
+                            if (num_dimensions != 0)
+                            {
+                                udr.set_is_array_reduction(true);
+                                udr.set_num_dimensions(num_dimensions);
+                            }
+
+                            ObjectList<Symbol> all_viables;
+
+                            bool found = false;
+                            udr = udr.lookup_udr(construct.get_scope(), 
+                                    construct.get_scope_link(),
+                                    found,
+                                    all_viables, 
+                                    construct.get_ast().get_file(),
+                                    construct.get_ast().get_line());
+
+                            if (found)
+                            {
+                                ReductionSymbol red_sym(var_sym, udr);
+                                sym_list.append(red_sym);
+
+                                if (!udr.is_builtin_operator())
+                                {
+                                    Symbol op_sym = udr.get_operator_symbols()[0];
+                                    Type op_type = op_sym.get_type();
+                                    std::cerr << construct.get_ast().get_locus() 
+                                        << ": note: reduction of variable '" << var_sym.get_name() << "' solved to '" 
+                                        << op_type.get_declaration(construct.get_scope(),
+                                                op_sym.get_qualified_name(construct.get_scope())) << "'" 
+                                        << std::endl;
+                                }
+                            }
+                            else
+                            {
+                                // Make this a hard error, otherwise lots of false positives will slip in
+                                running_error("%s: error: no suitable reductor operator '%s' was found for reduced variable '%s' of type '%s'",
+                                        construct.get_ast().get_locus().c_str(),
+                                        reductor_name.c_str(),
+                                        var_tree.prettyprint().c_str(),
+                                        var_sym.get_type().get_declaration(var_sym.get_scope(), "").c_str());
+                            }
                         }
                     }
                 }
@@ -620,6 +647,53 @@ namespace TL
             get_data_implicit_attributes(construct, default_data_attr, data_sharing);
         }
 
+        void Core::common_sections_handler(PragmaCustomConstruct construct, const std::string& pragma_name)
+        {
+            Statement stmt = construct.get_statement();
+            if (!stmt.is_compound_statement())
+            {
+                running_error("%s: error: '#pragma omp %s' must be followed by a compound statement\n",
+                        construct.get_ast().get_locus().c_str(),
+                        pragma_name.c_str());
+            }
+
+            ObjectList<Statement> inner_stmt = stmt.get_inner_statements();
+
+            if (inner_stmt.size() > 1)
+            {
+                if (!is_pragma_custom_construct("omp", "section", 
+                            inner_stmt[0].get_ast(), construct.get_scope_link())
+                        && !is_pragma_custom_construct("omp", "section", 
+                            inner_stmt[1].get_ast(), construct.get_scope_link()))
+                {
+                    running_error("%s: error: only the first structured-block can have '#pragma omp section' ommitted\n",
+                            inner_stmt[1].get_ast().get_locus().c_str());
+                }
+            }
+        }
+
+        void Core::fix_first_section(PragmaCustomConstruct construct)
+        {
+            Statement stmt = construct.get_statement();
+            ERROR_CONDITION(!stmt.is_compound_statement(), "It must be a compound statement", 0);
+
+            ObjectList<Statement> inner_stmt = stmt.get_inner_statements();
+
+            if (!inner_stmt.empty()
+                    && !is_pragma_custom_construct("omp", "section", 
+                        inner_stmt[0].get_ast(), construct.get_scope_link()))
+            {
+                Source add_section_src;
+                add_section_src
+                    << "#pragma omp section\n"
+                    <<  inner_stmt[0].prettyprint()
+                    ;
+
+                AST_t add_section_tree = add_section_src.parse_statement(inner_stmt[0].get_ast(), construct.get_scope_link());
+                inner_stmt[0].get_ast().replace(add_section_tree);
+            }
+        }
+
         void Core::common_for_handler(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing)
         {
             Statement stmt = construct.get_statement();
@@ -757,7 +831,14 @@ namespace TL
 
         void Core::parallel_for_handler_pre(PragmaCustomConstruct construct)
         {
+            if (construct.get_clause("collapse").is_defined())
+            {
+                // This function _modifies_ construct to reflect the new reality!
+                collapse_loop_first(construct);
+            }
+
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+
             _openmp_info->push_current_data_sharing(data_sharing);
             common_parallel_handler(construct, data_sharing);
             common_for_handler(construct, data_sharing);
@@ -770,6 +851,13 @@ namespace TL
         void Core::for_handler_pre(PragmaCustomConstruct construct)
         {
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+
+            if (construct.get_clause("collapse").is_defined())
+            {
+                // This will replace the tree
+                collapse_loop_first(construct);
+            }
+
             _openmp_info->push_current_data_sharing(data_sharing);
             common_workshare_handler(construct, data_sharing);
             common_for_handler(construct, data_sharing);
@@ -795,9 +883,13 @@ namespace TL
             DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
             _openmp_info->push_current_data_sharing(data_sharing);
             common_parallel_handler(construct, data_sharing);
+
+            common_sections_handler(construct, "parallel sections");
         }
+
         void Core::parallel_sections_handler_post(PragmaCustomConstruct construct)
         {
+            fix_first_section(construct);
             _openmp_info->pop_current_data_sharing();
         }
 
@@ -875,11 +967,26 @@ namespace TL
             _openmp_info->pop_current_data_sharing();
         }
 
+        void Core::sections_handler_pre(PragmaCustomConstruct construct)
+        {
+            DataSharingEnvironment& data_sharing = _openmp_info->get_new_data_sharing(construct.get_ast());
+            _openmp_info->push_current_data_sharing(data_sharing);
+
+            common_workshare_handler(construct, data_sharing);
+
+            common_sections_handler(construct, "sections");
+        }
+
+        void Core::sections_handler_post(PragmaCustomConstruct construct)
+        {
+            fix_first_section(construct);
+            _openmp_info->pop_current_data_sharing();
+        }
+
 #define EMPTY_HANDLERS(_name) \
         void Core::_name##_handler_pre(PragmaCustomConstruct) { } \
         void Core::_name##_handler_post(PragmaCustomConstruct) { }
 
-        EMPTY_HANDLERS(sections)
         EMPTY_HANDLERS(section)
         EMPTY_HANDLERS(barrier)
         EMPTY_HANDLERS(atomic)

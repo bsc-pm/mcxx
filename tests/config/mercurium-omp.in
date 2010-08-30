@@ -47,8 +47,8 @@ cat <<EOF
 test_CC_nanos4_plain="\${MCC}"
 test_CXX_nanos4_plain="\${MCXX}"
 
-test_CFLAGS_nanos4_plain=-m32
-test_CXXFLAGS_nanos4_plain=-m32
+test_CFLAGS_nanos4_plain="@NANOS4_32_BIT_COMPAT@ -std=gnu99"
+test_CXXFLAGS_nanos4_plain="@NANOS4_32_BIT_COMPAT@"
 EOF
 
 if [ ! -z "@MINTAKA_INCLUDES@" ];
@@ -77,8 +77,17 @@ compile_versions="\${compile_versions} nanox_plain"
 test_CC_nanox_plain="\${MCC}"
 test_CXX_nanox_plain="\${MCXX}"
 
-test_CFLAGS_nanox_plain="--nanox"
+test_CFLAGS_nanox_plain="--nanox -std=gnu99"
 test_CXXFLAGS_nanox_plain="--nanox"
+
+EOF
+
+cat <<EOF
+exec_versions="1thread 2thread 4thread"
+
+test_ENV_ever_1thread="OMP_NUM_THREADS='1'"
+test_ENV_ever_2thread="OMP_NUM_THREADS='2'"
+test_ENV_ever_4thread="OMP_NUM_THREADS='4'"
 EOF
 
 fi

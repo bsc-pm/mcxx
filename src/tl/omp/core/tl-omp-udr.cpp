@@ -731,7 +731,7 @@ namespace TL
 
             AST_t zero(internal_expression_parse("0", global_scope.get_decl_context()));
             AST_t one(internal_expression_parse("1", global_scope.get_decl_context()));
-            AST_t neg_zero(internal_expression_parse("~1u", global_scope.get_decl_context()));
+            AST_t neg_zero(internal_expression_parse("~0", global_scope.get_decl_context()));
 
             reduction_info_t builtin_arithmetic_operators[] =
             {
@@ -888,6 +888,9 @@ namespace TL
             AST template_header = ASTSon0(a);
             AST id_expr_list = ASTSon1(a);
             AST type_spec_list = ASTSon2(a);
+            std::cerr << std::endl << "AFTER PARSING" << std::endl;
+            std::cerr << " - id_expr '" << AST_t(id_expr_list).prettyprint() << "'" << std::endl;
+            std::cerr << " - type_expr '" << AST_t(type_spec_list).prettyprint() << "'" << std::endl;
 
             CXX_LANGUAGE()
             {
@@ -934,6 +937,10 @@ namespace TL
                 AST type_specifier_seq = ASTSon0(type_id);
                 AST abstract_decl = ASTSon1(type_id);
 
+                std::cerr << std::endl << "BEFORE 'build_scope_decl_specifier_seq'" << std::endl;
+                std::cerr << " - type_id '" << AST_t(type_id).prettyprint() << "'" << std::endl;
+                std::cerr << " - type_specifier_seq '" << AST_t(type_specifier_seq).prettyprint() << "'" << std::endl;
+                std::cerr << " - abstract_decl '" << AST_t(abstract_decl).prettyprint() << "'" << std::endl;
                 build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
                         decl_context);
 
@@ -1122,6 +1129,12 @@ namespace TL
 
         void Core::declare_reduction_handler_pre(PragmaCustomConstruct construct)
         {
+            if (_new_udr)
+            {
+                declare_reduction_handler_pre_2(construct);
+                return;
+            }
+
             DEBUG_CODE()
             {
                 std::cerr << "=== Declare reduction [" << construct.get_ast().get_locus() << "]===" << std::endl;
