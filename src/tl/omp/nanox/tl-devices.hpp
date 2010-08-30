@@ -159,6 +159,8 @@ namespace Nanox
             virtual void get_device_descriptor(const std::string& task_name,
                     DataEnvironInfo &data_environ,
                     const OutlineFlags& outline_flags,
+                    AST_t reference_tree,
+                    ScopeLink sl,
                     Source &ancillary_device_description,
                     Source &device_descriptor) = 0;
 

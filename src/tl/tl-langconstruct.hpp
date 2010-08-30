@@ -86,7 +86,7 @@ namespace TL
              * This function just calls AST_t::prettyprint(bool) on the underlying
              * tree
              */
-            std::string prettyprint() const;
+            virtual std::string prettyprint() const;
 
             //! Convenience function that just calls prettyprint()
             operator std::string() const;
@@ -780,7 +780,8 @@ namespace TL
             {
             }
 
-            ObjectList<TemplateParameterConstruct> get_parameters();
+            ObjectList<TemplateParameterConstruct> get_parameters() const;
+            virtual std::string prettyprint() const;
     };
 
     //! This class wraps a particular attribute in a GCCAttributeSpecifier

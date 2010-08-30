@@ -1,8 +1,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
-test_compile_fail_nanox_plain=yes
-test_compile_faulty_nanox_plain=yes
 </testinfo>
 */
 /*--------------------------------------------------------------------

@@ -905,6 +905,12 @@ namespace TL
         return _ast;
     }
 
+    ASTIterator AST_t::get_list_iterator() const
+    {
+        ASTIterator iterator(_ast);
+        return _ast;
+    }
+
     ASTIterator::ASTIterator(AST ast)
         : _ast(ast), _current(ast)
     {

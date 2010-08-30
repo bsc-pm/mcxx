@@ -53,94 +53,93 @@ static void do_gpu_outline_replacements(
 		Source &replaced_outline)
 {
 
-	Source copy_setup;
-	Scope sc = scope_link.get_scope(body);
+    Source copy_setup;
+    Scope sc = scope_link.get_scope(body);
 
-	initial_code
-		<< copy_setup
-		;
+    initial_code
+        << copy_setup
+        ;
 
-	ReplaceSrcIdExpression replace_src(scope_link);
+    ReplaceSrcIdExpression replace_src(scope_link);
 
-	bool err_declared = false;
+    bool err_declared = false;
 
-	ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
-	for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
-			it != data_env_items.end();
-			it++)
-	{
-		DataEnvironItem& data_env_item(*it);
+    ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
+    for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
+            it != data_env_items.end();
+            it++)
+    {
+        DataEnvironItem& data_env_item(*it);
 
-		Symbol sym = data_env_item.get_symbol();
-		const std::string field_name = data_env_item.get_field_name();
+        Symbol sym = data_env_item.get_symbol();
+        const std::string field_name = data_env_item.get_field_name();
 
-		if (data_env_item.is_private())
-			continue;
+        if (data_env_item.is_private())
+            continue;
 
-		if (data_env_item.is_copy())
-		{
-			replace_src.add_replacement(sym, "_args->" + field_name);
-		}
-	}
+        if (data_env_item.is_copy())
+        {
+        	replace_src.add_replacement(sym, "_args->" + field_name);
+        }
+    }
 
-	ObjectList<OpenMP::CopyItem> copies = data_env_info.get_copy_items();
-	unsigned int j = 0;
-	for (ObjectList<OpenMP::CopyItem>::iterator it = copies.begin();
-			it != copies.end();
-			it++, j++)
-	{
-		DataReference data_ref = it->get_copy_expression();
-		Symbol sym = data_ref.get_base_symbol();
-		Type type = sym.get_type();
+    ObjectList<OpenMP::CopyItem> copies = data_env_info.get_copy_items();
+    unsigned int j = 0;
+    for (ObjectList<OpenMP::CopyItem>::iterator it = copies.begin();
+            it != copies.end();
+            it++, j++)
+    {
+        DataReference data_ref = it->get_copy_expression();
+        Symbol sym = data_ref.get_base_symbol();
+        Type type = sym.get_type();
 
-		if (type.is_array())
-		{
-			type = type.array_element().get_pointer_to();
-		}
+        if (type.is_array())
+        {
+            type = type.array_element().get_pointer_to();
+        }
 
-		// There are some problems with the typesystem currently
-		// that require these workarounds
-		if (data_ref.get_type().is_array()
-				&& data_ref.get_data_type().is_pointer())
-		{
-			// Shaping expressions ([e] a)  have a type of array but we do not
-			// want the array but the related pointer
-			type = data_ref.get_data_type();
-		}
-		else if (data_ref.get_data_type().is_array())
-		{
-			// Array sections have a scalar type, but the data type will be array
-			// See ticket #290
-			type = data_ref.get_data_type().array_element().get_pointer_to();
-		}
+        // There are some problems with the typesystem currently
+        // that require these workarounds
+        if (data_ref.is_shaping_expression())
+        {
+            // Shaping expressions ([e] a)  have a type of array but we do not
+            // want the array but the related pointer
+            type = data_ref.get_data_type();
+        }
+        else if (data_ref.is_array_section())
+        {
+            // Array sections have a scalar type, but the data type will be array
+            // See ticket #290
+            type = data_ref.get_data_type().array_element().get_pointer_to();
+        }
 
-		std::string copy_name = "_cp_" + sym.get_name();
+        std::string copy_name = "_cp_" + sym.get_name();
 
-		if (!err_declared)
-		{
-			copy_setup
-				<< "nanos_err_t cp_err;"
-				;
-			err_declared = true;
-		}
+        if (!err_declared)
+        {
+            copy_setup
+                << "nanos_err_t cp_err;"
+                ;
+            err_declared = true;
+        }
 
-		DataEnvironItem data_env_item = data_env_info.get_data_of_symbol(sym);
+        DataEnvironItem data_env_item = data_env_info.get_data_of_symbol(sym);
 
-		ERROR_CONDITION(!data_env_item.get_symbol().is_valid(),
-				"Invalid data for copy symbol", 0);
+        ERROR_CONDITION(!data_env_item.get_symbol().is_valid(),
+                "Invalid data for copy symbol", 0);
 
-		std::string field_addr = "_args->" + data_env_item.get_field_name();
+        std::string field_addr = "_args->" + data_env_item.get_field_name();
 
-		copy_setup
-			<< type.get_declaration(sc, copy_name) << ";"
-			<< "cp_err = nanos_get_addr(" << j << ", (void**)&" << copy_name << ");"
-			<< "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
-			;
+        copy_setup
+            << type.get_declaration(sc, copy_name) << ";"
+            << "cp_err = nanos_get_addr(" << j << ", (void**)&" << copy_name << ");"
+            << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
+            ;
 
-		replace_src.add_replacement(sym, copy_name);
-	}
+	replace_src.add_replacement(sym, copy_name);
+    }
 
-	replaced_outline << replace_src.replace(body);
+    replaced_outline << replace_src.replace(body);
 }
 
 DeviceGPU::DeviceGPU()
@@ -469,10 +468,12 @@ void DeviceGPU::create_outline(
 }
 
 void DeviceGPU::get_device_descriptor(const std::string& task_name,
-		DataEnvironInfo &data_environ,
-		const OutlineFlags& outline_flags,
-		Source &ancillary_device_description,
-		Source &device_descriptor)
+        DataEnvironInfo &data_environ,
+        const OutlineFlags& outline_flags,
+        AST_t reference_tree,
+        ScopeLink sl,
+        Source &ancillary_device_description,
+        Source &device_descriptor)
 {
 	Source outline_name;
 	if (!outline_flags.implemented_outline)

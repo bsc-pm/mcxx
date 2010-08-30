@@ -147,6 +147,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         device_provider->get_device_descriptor(outline_name, 
                 data_environ_info, 
                 outline_flags,
+                ctr.get_statement().get_ast(),
+                ctr.get_scope_link(),
                 ancillary_device_description, 
                 device_description_line);
 
@@ -195,6 +197,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     it->second.get_qualified_name(),
                     data_environ_info, 
                     implements_outline_flags,
+                    ctr.get_statement().get_ast(),
+                    ctr.get_scope_link(),
                     ancillary_device_description, 
                     device_description_line);
         }

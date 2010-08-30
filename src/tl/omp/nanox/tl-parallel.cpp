@@ -52,15 +52,44 @@ void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
             ObjectList<OpenMP::DependencyItem>()); // empty dependences
 
     FunctionDefinition funct_def = ctr.get_enclosing_function();
+    // This one will be the same as funct_def.get_ast() if there are no templates
+    AST_t funct_def_tree = ctr.get_ast().get_enclosing_function_definition(/*jump_templates*/true);
     Symbol function_symbol = funct_def.get_function_symbol();
+
+    Source template_header;
+    if (funct_def.is_templated())
+    {
+        Source template_params;
+        template_header
+            << "template <" << template_params << ">"
+            ;
+        Source template_args;
+        ObjectList<TemplateHeader> template_header_list = funct_def.get_template_header();
+        for (ObjectList<TemplateHeader>::iterator it = template_header_list.begin();
+                it != template_header_list.end();
+                it++)
+        {
+            ObjectList<TemplateParameterConstruct> tpl_params = it->get_parameters();
+            for (ObjectList<TemplateParameterConstruct>::iterator it2 = tpl_params.begin();
+                    it2 != tpl_params.end();
+                    it2++)
+            {
+                template_params.append_with_separator(it2->prettyprint(), ",");
+                template_args.append_with_separator(it2->get_name(), ",");
+            }
+        }
+
+        struct_arg_type_name += "<" + std::string(template_args) + ">";
+    }
 
     Source newly_generated_code;
     newly_generated_code
+        << template_header
         << struct_arg_type_decl_src
         ;
 
     AST_t outline_code_tree
-        = newly_generated_code.parse_declaration(funct_def.get_ast(), ctr.get_scope_link());
+        = newly_generated_code.parse_declaration(funct_def_tree, ctr.get_scope_link());
     ctr.get_ast().prepend_sibling_function(outline_code_tree);
 
     int outline_num = TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER);

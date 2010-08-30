@@ -35,7 +35,6 @@ namespace TL
 
         const std::string OMP_NANOX_VLA_DIMS = "omp.nanox.vla_dims";
 
-
 #if 0
         static void print_list(ObjectList<Source> src)
         {

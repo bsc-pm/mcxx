@@ -1,8 +1,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
-test_compile_fail_nanox_plain=yes
-test_compile_faulty_nanox_plain=yes
 </testinfo>
 */
 /*--------------------------------------------------------------------
@@ -27,6 +25,8 @@ test_compile_faulty_nanox_plain=yes
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+#include <stdlib.h>
 
 template <typename _S>
 struct A
