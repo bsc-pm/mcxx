@@ -264,18 +264,18 @@ namespace TL
 
     bool Type::is_enum() const
     {
-        return (is_enumerated_type(_type_info));
+        return (::is_enum_type(_type_info));
     }
 
     bool Type::is_unnamed_enum() const
     {
-        return (is_enumerated_type(_type_info)
+        return (::is_enum_type(_type_info)
                 && !is_named_type(_type_info));
     }
 
     bool Type::is_named_enum() const
     {
-        return (is_enumerated_type(_type_info)
+        return (::is_enum_type(_type_info)
                 && is_named_type(_type_info));
     }
 
@@ -631,6 +631,11 @@ namespace TL
         {
             return *this;
         }
+    }
+
+    Type Type::get_canonical_type()
+    {
+        return this->advance_over_typedefs().get_unqualified_type();
     }
 
     bool Type::is_incomplete() const

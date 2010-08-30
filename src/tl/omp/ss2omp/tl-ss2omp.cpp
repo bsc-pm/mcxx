@@ -117,6 +117,12 @@ namespace TL
                             "*" + parameter_decls[i].get_name().prettyprint(),
                             ",");
                 }
+                else if (parameters[i].is_reference())
+                {
+                    clause_args->append_with_separator(
+                            parameter_decls[i].get_name().prettyprint(),
+                            ",");
+                }
             }
             else
             {

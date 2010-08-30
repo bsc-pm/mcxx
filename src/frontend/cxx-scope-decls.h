@@ -24,7 +24,7 @@
 #ifndef CXX_SCOPE_DECLS_H
 #define CXX_SCOPE_DECLS_H
 
-#include "hash.h"
+#include "red_black_tree.h"
 #include "libmcxx-common.h"
 #include "cxx-macros.h"
 #include "cxx-ast-decls.h"
@@ -76,34 +76,27 @@ enum decl_flags_tag
     // Allows redefinition of an identifier already defined, used in compiler
     // phases since they might need to redeclare something
     DF_ALLOW_REDEFINITION = BITMAP(5),
-    // Lookup is being performed on a unqualified name
-    DF_UNQUALIFIED_NAME = BITMAP(6), 
-    // Lookup is being performed on a qualified name
-    DF_QUALIFIED_NAME = BITMAP(7), 
     // We are looking up a label
-    DF_LABEL = BITMAP(8), 
+    DF_LABEL = BITMAP(6), 
     // Lookup will consider only the current scope
-    DF_ONLY_CURRENT_SCOPE = BITMAP(9),
+    DF_ONLY_CURRENT_SCOPE = BITMAP(7),
     // Disables examining dependent types (used for dependent typenames)
-    DF_DEPENDENT_TYPENAME = BITMAP(10),
+    DF_DEPENDENT_TYPENAME = BITMAP(8),
     // Enables weird lookup for 'struct X'/'union X'/'enum X'
-    DF_ELABORATED_NAME = BITMAP(11),
+    DF_ELABORATED_NAME = BITMAP(9),
     // States that we are under parameter declaration
-    DF_PARAMETER_DECLARATION = BITMAP(12),
+    DF_PARAMETER_DECLARATION = BITMAP(10),
     // States that the lookup should ignore injected class-names
-    DF_NO_INJECTED_CLASS_NAME = BITMAP(13),
+    DF_NO_INJECTED_CLASS_NAME = BITMAP(11),
     // Updates template arguments for a given specialization, used
     // only when defining an already declared template specialization
     // (since we want the names to be updated)
-    DF_UPDATE_TEMPLATE_ARGUMENTS = BITMAP(14),
+    DF_UPDATE_TEMPLATE_ARGUMENTS = BITMAP(12),
     // Relaxed typechecking, ambiguity decl-expr is solved always to expr if it
     // cannot be disambiguated
-    DF_AMBIGUITY_FALLBACK_TO_EXPR = BITMAP(15),
-    // Does not check the used namespaces if the current scope
-    // already contains the name
-    DF_NO_AMBIGUOUS_NAMESPACE = BITMAP(16),
+    DF_AMBIGUITY_FALLBACK_TO_EXPR = BITMAP(13),
     // Explicit instantiation
-    DF_EXPLICIT_INSTANTIATION = BITMAP(17)
+    DF_EXPLICIT_INSTANTIATION = BITMAP(14)
 } decl_flags_t;
 
 #undef BITMAP
@@ -344,15 +337,16 @@ typedef struct entity_specifiers_tag
     // Is a surrogate fake symbol
     char is_surrogate_function:1;
 
+    // Is an anonymous entity
+    char is_anonymous:1;
+
     // Template argument, we need this to properly evaluate nontype template
     // arguments
     char is_template_argument:1;
 
-    // This is for specialized template types, it states that the symbol
-    // has also appeared in a declaration. Many specialized templates are
-    // created by the typesystem and do not have to be considered when
-    // solving templates
-    char template_is_declared:1;
+    // The entity has really been declared by the code. Only template-names
+    // and constructors have this flag enabled (at the moment)
+    char is_user_declared:1;
 
     // Some bits have been moved here, they are repeated in comments below next
     // to their protecting fields
@@ -383,6 +377,9 @@ typedef struct entity_specifiers_tag
     char after_typedef:1;
 
     // -- End of bits, move all bits before this point
+
+    // Accessibility: public, private, protected
+    access_specifier_t access : 2;
     
     // States if the symbol is a template parameter name and its nesting and
     // position
@@ -524,7 +521,7 @@ struct scope_tag
     enum scope_kind kind;
 
     // Hash of scope_entry_list
-    Hash* hash;
+    rb_red_blk_tree *hash;
 
     // Relationships with other scopes
     // Nesting relationship is expressed by "contained_in". This relationship is

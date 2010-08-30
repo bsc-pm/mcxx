@@ -134,13 +134,35 @@ static void do_smp_outline_replacements(AST_t body,
                     CXX_LANGUAGE()
                     {
                         // Set up a reference to the raw buffer properly casted to the data type
-                        initial_code
-                            << type.get_reference_to().get_declaration(sym.get_scope(), field_name)
-                            << "(" 
-                            << "(" << type.get_pointer_to().get_declaration(sym.get_scope(), "") << ")"
-                            << "_args->" << field_name
-                            << ");"
-                            ;
+
+                        Type ref_type = type;
+                        Type ptr_type = type;
+
+                        if (!type.is_reference())
+                        {
+                            ref_type = type.get_reference_to();
+                            ptr_type = type.get_pointer_to();
+
+                            initial_code
+                                << ref_type.get_declaration(sym.get_scope(), field_name)
+                                << "(" 
+                                << "(" << ptr_type.get_declaration(sym.get_scope(), "") << ")"
+                                << "_args->" << field_name
+                                << ");"
+                                ;
+                        }
+                        else
+                        {
+                            ptr_type = ref_type.references_to().get_pointer_to();
+
+                            initial_code
+                                << ref_type.get_declaration(sym.get_scope(), field_name)
+                                << "(" 
+                                << "*(" << ptr_type.get_declaration(sym.get_scope(), "") << ")"
+                                << "_args->" << field_name
+                                << ");"
+                                ;
+                        }
 
                         // This is the neatest aspect of references
                         replace_src.add_replacement(sym, field_name);
@@ -186,10 +208,30 @@ void DeviceSMP::create_outline(
     Source forward_declaration;
     Symbol function_symbol = enclosing_function.get_function_symbol();
 
+    Source template_header;
+    if (enclosing_function.is_templated())
+    {
+        Source template_params;
+        template_header
+            << "template <" << template_params << ">"
+            ;
+        ObjectList<TemplateHeader> template_header_list = enclosing_function.get_template_header();
+        for (ObjectList<TemplateHeader>::iterator it = template_header_list.begin();
+                it != template_header_list.end();
+                it++)
+        {
+            ObjectList<TemplateParameterConstruct> tpl_params = it->get_parameters();
+            for (ObjectList<TemplateParameterConstruct>::iterator it2 = tpl_params.begin();
+                    it2 != tpl_params.end();
+                    it2++)
+            {
+                template_params.append_with_separator(it2->prettyprint(), ",");
+            }
+        }
+    }
+
     if (!function_symbol.is_member())
     {
-        Source template_header;
-
         IdExpression function_name = enclosing_function.get_function_name();
         Declaration point_of_decl = function_name.get_declaration();
         DeclarationSpec decl_specs = point_of_decl.get_declaration_specifiers();
@@ -208,7 +250,8 @@ void DeviceSMP::create_outline(
 
     result
         << forward_declaration
-        << "void " << outline_name << "(" << parameter_list << ")"
+        << template_header
+        << "static void " << outline_name << "(" << parameter_list << ")"
         << "{"
         << instrument_before
         << body
@@ -273,15 +316,35 @@ void DeviceSMP::create_outline(
             it != data_env_items.end();
             it++)
     {
-        if (!it->is_private())
-            continue;
+        if (it->is_private())
+        {
+            Symbol sym = it->get_symbol();
+            Type type = sym.get_type();
 
-        Symbol sym = it->get_symbol();
-        Type type = sym.get_type();
+            private_vars
+                << type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
+                ;
+        }
+        else if (it->is_raw_buffer())
+        {
+            Symbol sym = it->get_symbol();
+            Type type = sym.get_type();
+            std::string field_name = it->get_field_name();
 
-        private_vars
-            << type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
-            ;
+            if (type.is_reference())
+            {
+                type = type.references_to();
+            }
+
+            if (!type.is_named_class())
+            {
+                internal_error("invalid class type in field of raw buffer", 0);
+            }
+
+            final_code
+                << field_name << ".~" << type.get_symbol().get_name() << "();"
+                ;
+        }
     }
 
     if (outline_flags.barrier_at_end)
@@ -307,17 +370,66 @@ void DeviceSMP::create_outline(
 void DeviceSMP::get_device_descriptor(const std::string& task_name,
         DataEnvironInfo &data_environ,
         const OutlineFlags&,
+        AST_t reference_tree,
+        ScopeLink sl,
         Source &ancillary_device_description,
         Source &device_descriptor)
 {
     Source outline_name;
     outline_name
-        << smp_outline_name(task_name);
+        << smp_outline_name(task_name)
         ;
+
+    Source template_args;
+    FunctionDefinition enclosing_function_def(reference_tree.get_enclosing_function_definition(), sl);
+
+    Source additional_casting;
+    if (enclosing_function_def.is_templated())
+    {
+        Source template_args_list;
+        template_args
+            << "<" << template_args_list << ">";
+        ObjectList<TemplateHeader> template_header_list = enclosing_function_def.get_template_header();
+        for (ObjectList<TemplateHeader>::iterator it = template_header_list.begin();
+                it != template_header_list.end();
+                it++)
+        {
+            ObjectList<TemplateParameterConstruct> tpl_params = it->get_parameters();
+            for (ObjectList<TemplateParameterConstruct>::iterator it2 = tpl_params.begin();
+                    it2 != tpl_params.end();
+                    it2++)
+            {
+                template_args_list.append_with_separator(it2->get_name(), ",");
+            }
+        }
+        outline_name << template_args;
+
+        // Because of a bug in g++ (solved in 4.5) we need an additional casting
+        AST_t id_expr = outline_name.parse_id_expression(reference_tree, sl);
+        Scope sc = sl.get_scope(reference_tree);
+        ObjectList<Symbol> sym_list = sc.get_symbols_from_id_expr(id_expr);
+        if (!sym_list.empty()
+                && sym_list[0].is_template_function_name())
+        {
+            Type t = sym_list[0].get_type()
+                // This symbol is a template, get the primary one
+                // This is safe since we know there will be only one template
+                // function under this name
+                .get_primary_template()
+                // Primary template type is a named type, get its symbol
+                .get_symbol()
+                // Is type is a function type
+                .get_type()
+                // A function type is not directly useable, get a pointer to
+                .get_pointer_to();
+            additional_casting << "(" << t.get_declaration(sym_list[0].get_scope(), "") << ")";
+        }
+        // Let it fail
+    }
 
     ancillary_device_description
         << comment("SMP device descriptor")
-        << "nanos_smp_args_t " << task_name << "_smp_args = { (void(*)(void*))" << outline_name << "};"
+        << "nanos_smp_args_t " << task_name << "_smp_args = { (void(*)(void*))" << additional_casting << outline_name << "};"
         ;
 
     device_descriptor

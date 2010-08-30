@@ -8,29 +8,14 @@
    Ask for it at <rferrer@ac.upc.edu>
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
-#include "cxx-macros.h"
-#include "cxx-lexer.h"
 #include "cxx-ast.h"
+#include "cxx-lexer.h"
 #include "cxx-utils.h"
 
 #define YYDEBUG 1
 #define YYERROR_VERBOSE 1
 // Sometimes we need lots of memory
 #define YYMAXDEPTH (10000000)
-
-MCXX_BEGIN_DECLS
-
-LIBMCXX_EXTERN int mc99parse(AST* parsed_tree);
-
-void yyerror(AST* parsed_tree, const char* c);
-
-extern int yylex(void);
-
-MCXX_END_DECLS
 
 %}
 
@@ -45,12 +30,14 @@ MCXX_END_DECLS
 
 
 // This is a specific feature of rofi-bison 2.1
-%default-merge <ambiguityHandler>
+// %default-merge <ambiguityHandler>
 
 %parse-param {AST* parsed_tree}
 
 %{
+extern int yylex(void);
 static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
+void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %}
 
 // C++ tokens
@@ -542,15 +529,15 @@ asm_operand : string_literal '(' expression ')'
 /* End of GNU extensions */
 
 
-simple_declaration : decl_specifier_seq init_declarator_list ';' 
+simple_declaration : decl_specifier_seq init_declarator_list ';'  %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_SIMPLE_DECLARATION, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
-| decl_specifier_alone_seq ';' 
+| decl_specifier_alone_seq ';' %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_SIMPLE_DECLARATION, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-| init_declarator_list ';' 
+| init_declarator_list ';'  %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_SIMPLE_DECLARATION, NULL, $1, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -600,23 +587,23 @@ nontype_specifier_without_attribute_seq : nontype_specifier_without_attribute
 }
 ;
 
-decl_specifier_seq : nontype_specifier_seq type_specifier nontype_specifier_no_end_attrib_seq
+decl_specifier_seq : nontype_specifier_seq type_specifier nontype_specifier_no_end_attrib_seq %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| nontype_specifier_seq type_specifier
+| nontype_specifier_seq type_specifier %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-| type_specifier nontype_specifier_no_end_attrib_seq
+| type_specifier nontype_specifier_no_end_attrib_seq %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
-| type_specifier 
+| type_specifier %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-| nontype_specifier_no_end_attrib_seq
+| nontype_specifier_no_end_attrib_seq %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -777,23 +764,23 @@ type_specifier_alone : class_specifier
 }
 ;
 
-type_specifier_seq : nontype_specifier_seq type_specifier nontype_specifier_no_end_attrib_seq
+type_specifier_seq : nontype_specifier_seq type_specifier nontype_specifier_no_end_attrib_seq %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| nontype_specifier_seq type_specifier
+| nontype_specifier_seq type_specifier %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-| type_specifier nontype_specifier_no_end_attrib_seq
+| type_specifier nontype_specifier_no_end_attrib_seq %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
-| type_specifier
+| type_specifier %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-| nontype_specifier_no_end_attrib_seq
+| nontype_specifier_no_end_attrib_seq %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -808,11 +795,11 @@ simple_type_specifier : type_name
 	$$ = $1;
 }
 // GNU Extension. Somebody decided that this had to be different in gcc and g++
-| TYPEOF '(' expression ')'
+| TYPEOF '(' expression ')' %merge<ambiguityHandler>
 {
 	$$ = ASTMake1(AST_GCC_TYPEOF_EXPR, $3, $1.token_file, $1.token_line, $1.token_text);
 }
-| TYPEOF '(' type_id ')'
+| TYPEOF '(' type_id ')' %merge<ambiguityHandler>
 {
 	$$ = ASTMake1(AST_GCC_TYPEOF, $3, $1.token_file, $1.token_line, $1.token_text);
 }
@@ -1012,11 +999,11 @@ functional_direct_declarator : functional_declarator_id
 
 	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, empty_parameter, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-| functional_direct_declarator '(' parameter_type_list ')'
+| functional_direct_declarator '(' parameter_type_list ')' %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-| functional_direct_declarator '(' identifier_list ')'
+| functional_direct_declarator '(' identifier_list ')' %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -1086,11 +1073,11 @@ optional_array_expression : /* empty */
 }
 ;
 
-functional_declarator_id : final_declarator_id '(' parameter_type_list ')'
+functional_declarator_id : final_declarator_id '(' parameter_type_list ')' %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-| final_declarator_id '(' identifier_list ')' 
+| final_declarator_id '(' identifier_list ')' %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -1149,11 +1136,11 @@ direct_declarator : declarator_id
 
 	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, empty_parameter, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-| direct_declarator '(' identifier_list ')' 
+| direct_declarator '(' identifier_list ')' %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-| direct_declarator '(' parameter_type_list ')'
+| direct_declarator '(' parameter_type_list ')' %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -1302,11 +1289,11 @@ abstract_direct_declarator : '(' abstract_declarator ')'
 {
 	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, $1.token_file, $1.token_line, NULL);
 }
-| '(' parameter_type_list ')'
+| '(' parameter_type_list ')' %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_DECLARATOR_FUNC, NULL, $2, NULL, NULL, $1.token_file, $1.token_line, NULL);
 }
-| abstract_direct_declarator '(' parameter_type_list ')'
+| abstract_direct_declarator '(' parameter_type_list ')' %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -1388,24 +1375,24 @@ parameter_declaration_list : parameter_declaration
 }
 ;
 
-parameter_declaration : decl_specifier_seq declarator 
+parameter_declaration : decl_specifier_seq declarator %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_PARAMETER_DECL, $1, $2, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-| decl_specifier_seq 
+| decl_specifier_seq %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_PARAMETER_DECL, $1, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-| decl_specifier_seq abstract_declarator 
+| decl_specifier_seq abstract_declarator %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_PARAMETER_DECL, $1, $2, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
 // GCC Extension
-| decl_specifier_seq declarator attributes
+| decl_specifier_seq declarator attributes %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_GCC_PARAMETER_DECL, $1, $2, NULL, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| decl_specifier_seq abstract_declarator attributes
+| decl_specifier_seq abstract_declarator attributes %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_GCC_PARAMETER_DECL, $1, $2, NULL, $3, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -1413,7 +1400,7 @@ parameter_declaration : decl_specifier_seq declarator
 
 initializer : '=' initializer_clause
 {
-	$$ = $2;
+	$$ = ASTMake1(AST_EQUAL_INITIALIZER, $2, $1.token_file, $1.token_line, NULL);
 }
 ;
 
@@ -1502,20 +1489,20 @@ designator : '[' constant_expression ']'
 }
 ;
 
-function_definition : decl_specifier_seq functional_declarator function_body 
+function_definition : decl_specifier_seq functional_declarator function_body %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, $2, NULL, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| decl_specifier_seq functional_declarator old_style_parameter_list function_body 
+| decl_specifier_seq functional_declarator old_style_parameter_list function_body %merge<ambiguityHandler>
 {
 	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, $2, $3, $4, ASTFileName($1), ASTLine($1), NULL);
 }
 /* This is an ugly heritage from C90 */
-| functional_declarator function_body
+| functional_declarator function_body %merge<ambiguityHandler>
 {
     $$ = ASTMake4(AST_FUNCTION_DEFINITION, NULL, $1, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
 }
-| functional_declarator old_style_parameter_list function_body
+| functional_declarator old_style_parameter_list function_body %merge<ambiguityHandler>
 {
     $$ = ASTMake4(AST_FUNCTION_DEFINITION, NULL, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -1599,11 +1586,11 @@ member_specification_seq : member_declaration
 }
 ;
 
-member_declaration : decl_specifier_seq member_declarator_list ';'  
+member_declaration : decl_specifier_seq member_declarator_list ';'  %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_MEMBER_DECLARATION, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
-| decl_specifier_alone_seq ';' 
+| decl_specifier_alone_seq ';' %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_MEMBER_DECLARATION, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -1641,10 +1628,6 @@ member_declarator : declarator
 {
 	$$ = ASTMake2(AST_MEMBER_DECLARATOR, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
-// We will subsume it with a constant_initializer
-// | declarator pure_specifier
-// {
-// }
 | ':' constant_expression
 {
 	$$ = ASTMake2(AST_BITFIELD_DECLARATOR, NULL, $2, $1.token_file, $1.token_line, NULL);
@@ -1661,9 +1644,6 @@ member_declarator : declarator
 {
 	$$ = ASTMake3(AST_GCC_MEMBER_DECLARATOR, $1, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
 }
-// We will subsume it with a constant_initializer
-// | declarator attributes pure_specifier
-// }
 | declarator attributes constant_initializer
 {
 	$$ = ASTMake3(AST_GCC_MEMBER_DECLARATOR, $1, $3, $2, ASTFileName($1), ASTLine($1), NULL);
@@ -1694,11 +1674,11 @@ statement : no_if_statement
 {
 	$$ = $1;
 }
-| if_statement
+| if_statement %dprec 2
 {
 	$$ = $1;
 }
-| if_else_statement
+| if_else_statement %dprec 1
 {
 	$$ = $1;
 }
@@ -1708,7 +1688,7 @@ no_if_statement : labeled_statement
 {
 	$$ = $1;
 }
-| expression_statement 
+| expression_statement %merge<ambiguityHandler>
 {
 	$$ = $1;
 }
@@ -1728,7 +1708,7 @@ no_if_statement : labeled_statement
 {
 	$$ = $1;
 }
-| declaration_statement  
+| declaration_statement %merge<ambiguityHandler>
 {
 	$$ = $1;
 }
@@ -1880,11 +1860,11 @@ iteration_statement : WHILE '(' condition ')' statement
 }
 ;
 
-for_init_statement : expression_statement
+for_init_statement : expression_statement %merge<ambiguityHandler>
 {
 	$$ = $1;
 }
-| simple_declaration
+| simple_declaration %merge<ambiguityHandler>
 {
 	$$ = $1;
 }
@@ -2077,11 +2057,11 @@ unary_expression : postfix_expression
 {
 	$$ = ASTMake1($1, $2, ASTFileName($2), ASTLine($2), NULL);
 }
-| SIZEOF unary_expression  
+| SIZEOF unary_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake1(AST_SIZEOF, $2, $1.token_file, $1.token_line, NULL);
 }
-| SIZEOF '(' type_id ')' 
+| SIZEOF '(' type_id ')' %merge<ambiguityHandler>
 {
 	$$ = ASTMake1(AST_SIZEOF_TYPEID, $3, $1.token_file, $1.token_line, NULL);
 }
@@ -2090,11 +2070,11 @@ unary_expression : postfix_expression
 {
 	$$ = ASTMake1(AST_GCC_EXTENSION_EXPR, $2, $1.token_file, $1.token_line, $1.token_text);
 }
-| ALIGNOF unary_expression
+| ALIGNOF unary_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake1(AST_GCC_ALIGNOF, $2, $1.token_file, $1.token_line, $1.token_text);
 }
-| ALIGNOF '(' type_id ')'
+| ALIGNOF '(' type_id ')' %merge<ambiguityHandler>
 {
 	$$ = ASTMake1(AST_GCC_ALIGNOF_TYPE, $3, $1.token_file, $1.token_line, $1.token_text);
 }
@@ -2140,178 +2120,178 @@ unary_operator : '*'
 }
 ;
 
-cast_expression : unary_expression
+cast_expression : unary_expression %merge<ambiguityHandler>
 {
 	$$ = $1;
 }
-| '(' type_id ')' cast_expression
+| '(' type_id ')' cast_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_CAST_EXPRESSION, $2, $4, $1.token_file, $1.token_line, NULL);
 }
 ;
 
-multiplicative_expression : cast_expression
+multiplicative_expression : cast_expression %merge<ambiguityHandler>
 {
 	$$ = $1;
 }
-| multiplicative_expression '*' cast_expression
+| multiplicative_expression '*' cast_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_MULT_OP, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| multiplicative_expression '/' cast_expression
+| multiplicative_expression '/' cast_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_DIV_OP, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| multiplicative_expression '%' cast_expression
+| multiplicative_expression '%' cast_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_MOD_OP, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
-additive_expression : multiplicative_expression
+additive_expression : multiplicative_expression %merge<ambiguityHandler>
 {
 	$$ = $1;
 }
-| additive_expression '+' multiplicative_expression
+| additive_expression '+' multiplicative_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_ADD_OP, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| additive_expression '-' multiplicative_expression
+| additive_expression '-' multiplicative_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_MINUS_OP, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
-shift_expression : additive_expression
+shift_expression : additive_expression %merge<ambiguityHandler>
 {
 	$$ = $1;
 }
-| shift_expression LEFT additive_expression
+| shift_expression LEFT additive_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_SHL_OP, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| shift_expression RIGHT additive_expression
+| shift_expression RIGHT additive_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_SHR_OP, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
-relational_expression : shift_expression
+relational_expression : shift_expression %merge<ambiguityHandler>
 {
 	$$ = $1;
 }
-| relational_expression '<' shift_expression
+| relational_expression '<' shift_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_LOWER_THAN, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| relational_expression '>' shift_expression
+| relational_expression '>' shift_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_GREATER_THAN, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| relational_expression GREATER_OR_EQUAL shift_expression
+| relational_expression GREATER_OR_EQUAL shift_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_GREATER_OR_EQUAL_THAN, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| relational_expression LESS_OR_EQUAL shift_expression
+| relational_expression LESS_OR_EQUAL shift_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_LOWER_OR_EQUAL_THAN, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
-equality_expression : relational_expression
+equality_expression : relational_expression %merge<ambiguityHandler>
 {
 	$$ = $1;
 }
-| equality_expression EQUAL relational_expression
+| equality_expression EQUAL relational_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_EQUAL_OP, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| equality_expression NOT_EQUAL relational_expression
+| equality_expression NOT_EQUAL relational_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_DIFFERENT_OP, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
-and_expression : equality_expression
+and_expression : equality_expression %merge<ambiguityHandler>
 {
 	$$ = $1;
 }
-| and_expression '&' equality_expression
+| and_expression '&' equality_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_BITWISE_AND, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
-exclusive_or_expression : and_expression
+exclusive_or_expression : and_expression %merge<ambiguityHandler>
 {
 	$$ = $1;
 }
-| exclusive_or_expression '^' and_expression
+| exclusive_or_expression '^' and_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_BITWISE_XOR, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
-inclusive_or_expression : exclusive_or_expression
+inclusive_or_expression : exclusive_or_expression %merge<ambiguityHandler>
 {
 	$$ = $1;
 }
-| inclusive_or_expression '|' exclusive_or_expression
+| inclusive_or_expression '|' exclusive_or_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_BITWISE_OR, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
-logical_and_expression : inclusive_or_expression
+logical_and_expression : inclusive_or_expression %merge<ambiguityHandler>
 {
 	$$ = $1;
 }
-| logical_and_expression ANDAND inclusive_or_expression
+| logical_and_expression ANDAND inclusive_or_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_LOGICAL_AND, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
-logical_or_expression : logical_and_expression
+logical_or_expression : logical_and_expression %merge<ambiguityHandler>
 {
 	$$ = $1;
 }
-| logical_or_expression OROR logical_and_expression
+| logical_or_expression OROR logical_and_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_LOGICAL_OR, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
-conditional_expression : logical_or_expression
+conditional_expression : logical_or_expression %merge<ambiguityHandler>
 {
 	$$ = $1;
 }
-| logical_or_expression '?' expression ':' assignment_expression
+| logical_or_expression '?' expression ':' assignment_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_CONDITIONAL_EXPRESSION, $1, $3, $5, ASTFileName($1), ASTLine($1), NULL);
 }
 // GNU Extension
-| logical_or_expression '?' ':' assignment_expression
+| logical_or_expression '?' ':' assignment_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_GCC_CONDITIONAL_EXPRESSION, $1, $4, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
-assignment_expression : conditional_expression
+assignment_expression : conditional_expression %merge<ambiguityHandler>
 {
 	$$ = $1;
 }
-| logical_or_expression assignment_operator assignment_expression
+| logical_or_expression assignment_operator assignment_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake2($2, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
-expression : assignment_expression
+expression : assignment_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake1(AST_EXPRESSION, $1, ASTFileName($1), ASTLine($1), NULL);
 }
-| expression ',' assignment_expression
+| expression ',' assignment_expression %merge<ambiguityHandler>
 {
 	AST comma_expression = ASTMake2(AST_COMMA_OP, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 

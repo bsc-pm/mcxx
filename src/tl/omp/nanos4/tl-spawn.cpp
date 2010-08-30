@@ -143,11 +143,14 @@ namespace TL
                 // get its type
                 Symbol reduction_symbol = it->get_symbol();
                 Type reduction_type = reduction_symbol.get_type();
-                OpenMP::UDRInfoItem udr = it->get_udr();
-
-                if (udr.get_is_array_reduction() && reduction_type.is_pointer())
+                if (!_new_udr)
                 {
-                    reduction_type = reduction_type.points_to();
+                    OpenMP::UDRInfoItem udr = it->get_udr();
+
+                    if (udr.get_is_array_reduction() && reduction_type.is_pointer())
+                    {
+                        reduction_type = reduction_type.points_to();
+                    }
                 }
 
                 // create a tree of expression 128
@@ -343,7 +346,7 @@ namespace TL
             // Reduction code
             //
             // If there is any reduction reference
-            reduction_code = get_noncritical_reduction_code(reduction_references);
+            reduction_code = get_noncritical_reduction_code(reduction_references, scope_link);
 
             // std::cerr << "SPAWN CODE" << std::endl;
             // std::cerr << spawn_code.get_source(true) << std::endl;

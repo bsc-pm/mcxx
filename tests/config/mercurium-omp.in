@@ -20,7 +20,7 @@ CACHE_OMP_LIBRARIES_LT="@abs_builddir@/omp-libraries-libtool"
 if [ ! -e ${CACHE_OMP_LIBRARIES_LT} -a -e "@abs_top_builddir@/config/config.omp" ];
 then
 
-grep -o "compiler_phase\s*=\s*[^# ]*" @abs_top_builddir@/config/config.omp | sed -e 's/compiler_phase\s*=\(.*\).so\s*/\1.la/g' | sort -u | xargs -I{} find @abs_top_builddir@ -iname "{}" -not -path "*/.libs/*" | sed -e 's/^.*$/MERCURIUM_LIBS="${MERCURIUM_LIBS} -dlopen &"/g' > ${CACHE_OMP_LIBRARIES_LT}
+grep -o "compiler_phase[[:blank:]]*=[[:blank:]]*[^# ]*" @abs_top_builddir@/config/config.omp | sed -e 's/compiler_phase[[:blank:]]*=\(.*\).so[[:blank:]]*/\1.la/g' | sort -u | xargs -I{} find @abs_top_builddir@ -iname "{}" -not -path "*/.libs/*" | sed -e 's/^.*$/MERCURIUM_LIBS="${MERCURIUM_LIBS} -dlopen &"/g' > ${CACHE_OMP_LIBRARIES_LT}
 
 fi
 
@@ -47,8 +47,8 @@ cat <<EOF
 test_CC_nanos4_plain="\${MCC}"
 test_CXX_nanos4_plain="\${MCXX}"
 
-test_CFLAGS_nanos4_plain=
-test_CXXFLAGS_nanos4_plain=
+test_CFLAGS_nanos4_plain="@NANOS4_32_BIT_COMPAT@ -std=gnu99"
+test_CXXFLAGS_nanos4_plain="@NANOS4_32_BIT_COMPAT@"
 EOF
 
 if [ ! -z "@MINTAKA_INCLUDES@" ];
@@ -77,12 +77,21 @@ compile_versions="\${compile_versions} nanox_plain"
 test_CC_nanox_plain="\${MCC}"
 test_CXX_nanox_plain="\${MCXX}"
 
-test_CFLAGS_nanox_plain="--nanox"
+test_CFLAGS_nanox_plain="--nanox -std=gnu99"
 test_CXXFLAGS_nanox_plain="--nanox"
+
+EOF
+
+cat <<EOF
+exec_versions="1thread 2thread 4thread"
+
+test_ENV_ever_1thread="OMP_NUM_THREADS='1'"
+test_ENV_ever_2thread="OMP_NUM_THREADS='2'"
+test_ENV_ever_4thread="OMP_NUM_THREADS='4'"
 EOF
 
 fi
 
-cat <<EOF
-test_nolink=yes
-EOF
+# cat <<EOF
+# test_nolink=yes
+# EOF

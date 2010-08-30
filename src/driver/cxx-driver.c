@@ -1049,7 +1049,6 @@ int parse_arguments(int argc, const char* argv[],
         CURRENT_CONFIGURATION->do_not_parse = 1;
         CURRENT_CONFIGURATION->do_not_compile = 1;
         CURRENT_CONFIGURATION->do_not_prettyprint = 1;
-        CURRENT_CONFIGURATION->do_not_prettyprint = 1;
 
         CURRENT_CONFIGURATION->do_not_link = 0;
         num_input_files = 0;
@@ -1221,6 +1220,13 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
         case 'm':
             {
                 add_parameter_all_toolchain(argument, dry_run);
+                if (!dry_run)
+                {
+                    if (strcmp(argument, "-fshort-enums") == 0)
+                    {
+                        CURRENT_CONFIGURATION->code_shape.short_enums = 1;
+                    }
+                }
                 (*should_advance)++;
                 break;
             }
@@ -2181,12 +2187,9 @@ static void parse_translation_unit(translation_unit_t* translation_unit, const c
         running_error("Compilation failed for file '%s'\n", translation_unit->input_filename);
     }
 
-    // --
-    // Concatenate trees
-    AST existing_list_of_decls = ASTSon0(translation_unit->parsed_tree);
-    AST concatenated = ast_list_concat(existing_list_of_decls, parsed_tree);
-    ast_set_child(translation_unit->parsed_tree, 0, concatenated);
-    // --
+    // Store the parsed tree as the unique child of AST_TRANSLATION_UNIT
+    // initialized in function initialize_semantic_analysis
+    ast_set_child(translation_unit->parsed_tree, 0, parsed_tree);
 
     timing_end(&timing_parsing);
 
@@ -2267,18 +2270,14 @@ static const char* prettyprint_translation_unit(translation_unit_t* translation_
         output_filename_basename = strappend(preffix,
                 input_filename_basename);
 
-        if (CURRENT_CONFIGURATION->output_directory == NULL)
-        {
-            const char* input_filename_dirname = give_dirname(translation_unit->input_filename);
-            input_filename_dirname = strappend(input_filename_dirname, "/");
-
-            output_filename = strappend(input_filename_dirname,
-                    output_filename_basename);
-        }
-        else
+        if (CURRENT_CONFIGURATION->output_directory != NULL)
         {
             output_filename = strappend(CURRENT_CONFIGURATION->output_directory, "/");
             output_filename = strappend(output_filename, output_filename_basename);
+        }
+        else
+        {
+            output_filename = output_filename_basename;
         }
     }
 
@@ -2595,13 +2594,13 @@ static void native_compilation(translation_unit_t* translation_unit,
         mark_file_for_cleanup(prettyprinted_filename);
     }
 
-    const char* output_object_filename;
+    const char* output_object_filename = NULL;
 
     if (translation_unit->output_filename == NULL
             || !CURRENT_CONFIGURATION->do_not_link)
     {
         char temp[256];
-        strncpy(temp, translation_unit->input_filename, 255);
+        strncpy(temp, give_basename(translation_unit->input_filename), 255);
         temp[255] = '\0';
         char* p = strrchr(temp, '.');
         if (p != NULL)
@@ -2662,6 +2661,9 @@ static void native_compilation(translation_unit_t* translation_unit,
 
 static void embed_files(void)
 {
+    if (CURRENT_CONFIGURATION->do_not_compile)
+        return;
+
     char there_are_secondary_files = 0;
     int i;
     for (i = 0; i < compilation_process.num_translation_units; i++)
@@ -2685,6 +2687,13 @@ static void embed_files(void)
             compilation_process.translation_units[i]->num_secondary_translation_units;
         compilation_file_process_t** secondary_translation_units = 
             compilation_process.translation_units[i]->secondary_translation_units;
+
+        const char* extension = get_extension_filename(compilation_process.translation_units[i]->translation_unit->input_filename);
+        struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
+
+        // We do not have to embed linker data
+        if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA)
+            continue;
 
         const char *output_filename = compilation_process.translation_units[i]->translation_unit->output_filename;
 
@@ -3068,6 +3077,7 @@ static void link_objects(void)
         else
         {
             file_list[j] = translation_unit->output_filename;
+            mark_file_as_temporary(file_list[j]);
         }
     }
 

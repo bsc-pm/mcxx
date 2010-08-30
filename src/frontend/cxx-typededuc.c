@@ -32,6 +32,7 @@
 #include "cxx-prettyprint.h"
 #include "cxx-overload.h"
 #include "cxx-cexpr.h"
+#include "cxx-instantiation.h"
 
 unsigned long long int _bytes_typededuc = 0;
 
@@ -97,7 +98,8 @@ char deduce_template_arguments_common(
     int num_deduction_slots = 0;
     if (explicit_template_arguments != NULL)
     {
-        updated_context = update_context_with_template_arguments(updated_context,
+        updated_context = update_context_with_template_arguments(
+                decl_context,
                 explicit_template_arguments);
 
         DEBUG_CODE()
@@ -680,7 +682,8 @@ char deduce_arguments_of_conversion(
     template_argument_list_t* deduced_template_argument_list = 
         build_template_argument_list_from_deduction_set(*deduction_result);
 
-    decl_context_t updated_context = update_context_with_template_arguments(decl_context,
+    decl_context_t updated_context = update_context_with_template_arguments(
+            specialized_symbol->decl_context,
             deduced_template_argument_list);
 
     type_t* original_parameter_type = (*parameter_types);
@@ -876,7 +879,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
 
     if (!deduce_template_arguments_common(template_parameters,
                 argument_types, relevant_arguments,
-                parameter_types, decl_context,
+                parameter_types, specialized_symbol->decl_context,
                 deduction_result, filename, line, 
                 explicit_template_arguments,
                 deduction_flags_empty()))
@@ -890,7 +893,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
         build_template_argument_list_from_deduction_set(*deduction_result);
 
     decl_context_t updated_context = update_context_with_template_arguments(
-            decl_context,
+            specialized_symbol->decl_context,
             deduced_template_argument_list);
 
     for (i = 0; i < relevant_arguments; i++)
@@ -1017,15 +1020,17 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
             // }
             //
             else if (is_lvalue_reference_type(original_parameter)
-                    && is_more_or_equal_cv_qualified_type(updated_type,
-                        argument_types[i]))
+                    && equivalent_types(
+                        get_unqualified_type(no_ref(updated_type)), 
+                        get_unqualified_type(no_ref(argument_types[i])))
+                    && is_more_or_equal_cv_qualified_type(updated_type, argument_types[i]))
             {
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "TYPEDEDUC: But original parameter type is reference and"
                             " deduced parameter type '%s' is more qualified than argument type '%s'\n",
-                            print_declarator(updated_type),
-                            print_declarator(argument_types[i]));
+                            print_type_str(updated_type, decl_context),
+                            print_type_str(argument_types[i], decl_context));
                 }
                 ok = 1;
             }
@@ -1120,8 +1125,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
              */
             else if (is_named_class_type(updated_type)
                     && is_template_specialized_type(get_actual_class_type(updated_type))
-                    && is_named_class_type(argument_types[i])
-                    && class_type_is_base(updated_type, argument_types[i]))
+                    && is_named_class_type(argument_types[i]))
             {
                 DEBUG_CODE()
                 {
@@ -1130,7 +1134,21 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                             print_declarator(argument_types[i]),
                             print_declarator(updated_type));
                 }
-                ok = 1;
+                if (is_named_class_type(no_ref(argument_types[i]))
+                        && class_type_is_incomplete_independent(get_actual_class_type(no_ref(argument_types[i]))))
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "TYPEDEDUC: Instantiating argument type know if it is derived or not\n");
+                    }
+                    scope_entry_t* symbol = named_type_get_symbol(no_ref(argument_types[i]));
+                    instantiate_template_class(symbol, decl_context, filename, line);
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "TYPEDEDUC: Argument type instantiated\n");
+                    }
+                }
+                ok = class_type_is_base(updated_type, argument_types[i]);
             }
 
             if (!ok)

@@ -113,6 +113,8 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
         device_provider->get_device_descriptor(outline_name, 
                 data_environ_info, 
                 outline_flags,
+                parallel_code,
+                sl,
                 ancillary_device_description, 
                 device_description_line);
     }

@@ -255,6 +255,17 @@ namespace TL
              */
             bool is_created_after_typedef() const;
 
+            //! Returns the definition tree
+            /*! 
+              This is only valid for functions and class symbols.  It will be
+              an invalid tree if the function has not been defined or if it is
+              an incomplete class type symbol name
+
+              For functions it returns the function definition. For classes the
+              class specifier.
+             */
+            AST_t get_definition_tree() const;
+
             //! States whether the symbol has a given gcc attribute
             bool has_gcc_attribute(const std::string &str) const;
             

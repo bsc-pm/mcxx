@@ -26,19 +26,23 @@ test_generator=config/mercurium-omp
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
- int
-main (int argc, char *argv[])
+#include <stdlib.h>
+
+int main (int argc, char *argv[])
 {
-  int a, b;
+    int a = 0, b = 0;
 
 #pragma omp parallel
 #pragma omp sections
-{
+    {
 #pragma omp section
-   a = 0;
+        a = 1;
 #pragma omp section
-   b = 0;
-}
+        b = 2;
+    }
 
-   return 0;
+    if (!a || !b)
+        abort();
+
+    return 0;
 }

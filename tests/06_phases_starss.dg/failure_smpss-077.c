@@ -1,7 +1,9 @@
 /*
 <testinfo>
 test_generator=config/mercurium-ss
-test_compile_fail=yes
+
+# Missing expression comparator
+test_compile_faulty=yes
 </testinfo>
 */
 /*--------------------------------------------------------------------

@@ -26,6 +26,8 @@ test_generator=config/mercurium-omp
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include <stdlib.h>
+
 int a;
 
 struct A
@@ -34,14 +36,37 @@ struct A
     static int c;
 
     void f(void);
+
+    A() : b(0) { }
 };
+
+int A::c;
 
 void A::f(void)
 {
 #pragma omp parallel
     {
         a = 3;
-        b = 3;
-        c = 3;
+        b = 4;
+        c = 5;
     }
+}
+
+int main(int argc, char *argv[])
+{
+    A obj_a;
+
+    a = 0;
+    A::c = 0;
+
+    obj_a.f();
+
+    if (a != 3)
+        abort();
+    if (obj_a.b != 4)
+        abort();
+    if (A::c != 5)
+        abort();
+
+    return 0;
 }

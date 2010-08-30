@@ -34,11 +34,13 @@ CONFIG_MCXX=\
 CONFIG_FILES =  \
        config.acotes \
        config.acotes-msf \
+       config.cuda \
        config.omp \
        config.sscc \
        config.plain \
        config.stm_nebelung \
        config.superscalar \
+       config.ss_valgrind \
 	   $(END)
 
 INSTALL_CONFIG_FILES = @INSTALL_CONFIG_FILES@

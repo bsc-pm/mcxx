@@ -325,6 +325,64 @@ static void solve_ambiguous_explicit_instantiation(AST a, decl_context_t decl_co
     }
 }
 
+void solve_ambiguous_qualified_member_declaration(AST a, decl_context_t decl_context)
+{
+    int correct_option = -1;
+    int i;
+    for (i = 0; i < ast_get_num_ambiguities(a); i++)
+    {
+        AST option = ast_get_ambiguity(a, i);
+
+        char valid = 0;
+
+        switch (ASTType(option))
+        {
+            case AST_MEMBER_DECLARATION:
+                {
+                    valid = check_for_simple_declaration(option, decl_context);
+                    break;
+                }
+            case AST_MEMBER_DECLARATION_QUALIF:
+                {
+                    // Check the expression to see whether it is feasible
+                    AST id_expression = ASTSon0(option);
+                    valid = check_for_expression(id_expression, decl_context);
+                    break;
+                }
+            default:
+                {
+                    internal_error("Unexpected node kind '%s'\n", ast_print_node_type(ASTType(option)));
+                    break;
+                }
+        }
+
+        if (valid)
+        {
+            if (correct_option < 0)
+            {
+                correct_option = i;
+            }
+            else
+            {
+                AST previous_option = ast_get_ambiguity(a, correct_option);
+                AST current_option = option;
+                internal_error("More than one correct_option alternative! %s vs %s\n", 
+                        ast_print_node_type(ASTType(previous_option)),
+                        ast_print_node_type(ASTType(current_option)));
+            }
+        }
+    }
+
+    if (correct_option < 0)
+    {
+        internal_error("Cannot solve ambiguity", 0);
+    }
+    else
+    {
+        choose_option(a, correct_option);
+    }
+}
+
 
 /*
  * Ambiguity in a high order declaration
@@ -505,6 +563,37 @@ void solve_ambiguous_declaration(AST a, decl_context_t decl_context)
     if (valid)
     {
         solve_ambiguous_explicit_instantiation(a, decl_context);
+        return;
+    }
+
+    // Qualified member declaration
+    // Ambiguity between
+    // This one only happens in classes
+    // struct A : Base
+    // {
+    //     Base::c; /* vs */ Base   ::c;
+    // };
+
+    valid = 1;
+    char seen_member_declaration_qualif = 0;
+    for (i = 0; (i < ast_get_num_ambiguities(a)) && valid; i++)
+    {
+        AST option = ast_get_ambiguity(a, i);
+
+        seen_member_declaration_qualif |= 
+            (ASTType(option) == AST_MEMBER_DECLARATION_QUALIF);
+        valid &= (ASTType(option) == AST_MEMBER_DECLARATION
+                || ASTType(option) == AST_MEMBER_DECLARATION_QUALIF);
+    }
+
+    if (!seen_member_declaration_qualif)
+    {
+        valid = 0;
+    }
+
+    if (valid)
+    {
+        solve_ambiguous_qualified_member_declaration(a, decl_context);
         return;
     }
 

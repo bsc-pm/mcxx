@@ -1,6 +1,13 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
+
+test_exec_fail_nanox_plain_1thread=yes
+test_exec_faulty_nanox_plain_1thread=yes
+test_exec_fail_nanox_plain_2thread=yes
+test_exec_faulty_nanox_plain_2thread=yes
+test_exec_fail_nanox_plain_4thread=yes
+test_exec_faulty_nanox_plain_4thread=yes
 </testinfo>
 */
 /*--------------------------------------------------------------------
@@ -26,14 +33,34 @@ test_generator=config/mercurium-omp
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-void f(void)
+#include <stdlib.h>
+#include "omp.h"
+
+#define NUM_ITERS 1000
+
+int main(int argc, char* argv[])
 {
+    int num_threads = omp_get_max_threads();
+
     int i = 3;
+#pragma omp parallel
+    {
+        int j;
+        for (j = 0; j < NUM_ITERS; j++)
+        {
+#pragma omp atomic
+            i += 2;
 
 #pragma omp atomic
-    i += 2;
+            i ++;
+        }
+    }
 
-#pragma omp atomic
-    i ++;
+    if (i != (3*NUM_ITERS*num_threads+3))
+    {
+        fprintf(stderr, "%d != %d\n", i, (3*NUM_ITERS*num_threads+3));
+        abort();
+    }
 
+    return 0;
 }

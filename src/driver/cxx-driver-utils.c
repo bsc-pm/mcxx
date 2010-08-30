@@ -99,7 +99,12 @@ void temporal_files_cleanup(void)
             char rm_fr[256];
             snprintf(rm_fr, 255, "rm -fr \"%s\"", iter->info->name);
             rm_fr[255] = '\0';
-            system(rm_fr);
+            int ret = system(rm_fr);
+
+            if (ret == -1)
+            {
+                running_error("Execution of 'rm -fr' failed\n", 0);
+            }
         }
     }
 
@@ -709,10 +714,19 @@ char move_file(const char* source, const char* dest)
 
     if (source_fs == dest_fs)
     {
+        if (CURRENT_CONFIGURATION->verbose)
+        {
+            fprintf(stderr, "Moving file through rename '%s' -> '%s'\n", source, dest);
+        }
         return rename(source, dest);
     }
     else
     {
+        if (CURRENT_CONFIGURATION->verbose)
+        {
+            fprintf(stderr, "Moving file through copy '%s' -> '%s'\n", source, dest);
+        }
+
         // Plain old copy
         FILE* orig_file = fopen(source, "r");
         if (orig_file == NULL)
@@ -727,20 +741,22 @@ char move_file(const char* source, const char* dest)
         }
 
         // size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
-        char c[1024];
-        int actually_read = fread(c, sizeof(c), 1, orig_file);
+#define BLOCK_SIZE 1024
+        char c[BLOCK_SIZE];
+        int actually_read = fread(c, sizeof(char), BLOCK_SIZE, orig_file);
 
         while (actually_read != 0)
         {
-            int actually_written = fwrite(c, actually_read, 1, dest_file);
+            int actually_written = fwrite(c, sizeof(char), actually_read, dest_file);
             if (actually_written < actually_read)
             {
                 fclose(dest_file);
                 fclose(orig_file);
                 return -1;
             }
-            actually_read = fread(c, sizeof(c), 1, orig_file);
+            actually_read = fread(c, sizeof(char), BLOCK_SIZE, orig_file);
         }
+#undef BLOCK_SIZE
         if (feof(orig_file))
         {
             // Everything is OK
@@ -756,6 +772,8 @@ char move_file(const char* source, const char* dest)
 
         fclose(orig_file);
         fclose(dest_file);
+
+        return remove(source);
     }
     // Everything ok
     return 0;
@@ -808,7 +826,12 @@ static const char* find_home_unix(const char* progname)
     }
     else
     {
-        realpath(progname, c);
+        char* ret = realpath(progname, c);
+
+        if (ret == NULL)
+        {
+            running_error("relpath failed when solving '%s'\n", progname);
+        }
     }
 
     res = uniquestr(dirname(c));

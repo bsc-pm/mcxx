@@ -238,7 +238,8 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
     template_argument_list_t* deduced_template_argument_list = 
         build_template_argument_list_from_deduction_set(deduction_result);
 
-    decl_context_t updated_context = update_context_with_template_arguments(decl_context,
+    decl_context_t updated_context = update_context_with_template_arguments(
+            decl_context,
             deduced_template_argument_list);
 
     for (i = 0; i < num_arguments; i++)
@@ -297,7 +298,8 @@ static char is_less_or_equal_specialized_template_function_common_(type_t* f1, t
     return 1;
 }
 
-char is_less_or_equal_specialized_template_class(type_t* c1, type_t* c2, decl_context_t decl_context,
+char is_less_or_equal_specialized_template_class(type_t* c1, type_t* c2, 
+        decl_context_t decl_context UNUSED_PARAMETER,
         deduction_set_t** deduction_set, const char *filename, int line)
 {
     ERROR_CONDITION(!is_named_class_type(c1)
@@ -328,7 +330,8 @@ char is_less_or_equal_specialized_template_class(type_t* c1, type_t* c2, decl_co
             c2_parameters, 1);
 
     return is_less_or_equal_specialized_template_function_common_(faked_type_1, faked_type_2, 
-            decl_context, deduction_set, 
+            named_type_get_symbol(c1)->decl_context, 
+            deduction_set, 
             /* explicit_template_arguments */ NULL,
             filename, line,
             /* is_conversion */ 0,

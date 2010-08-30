@@ -138,37 +138,47 @@ namespace TL
         return !(this->operator==(sc));
     }
 
+    struct walk_scope_data_t
+    {
+        ObjectList<Symbol> &result;
+        bool include_hidden;
+
+        walk_scope_data_t(ObjectList<Symbol>& result_,
+                bool include_hidden_)
+            : result(result_), 
+            include_hidden(include_hidden_) { }
+    };
+
+    static void walk_scope(const void* key, void* info, void* data)
+    {
+        // This should be a bit more encapsulated
+        walk_scope_data_t* walk_data = (walk_scope_data_t*)(data);
+
+        scope_entry_list_t* entry_list = (scope_entry_list_t*) info;
+        scope_entry_list_t* it = entry_list;
+
+        while (it != NULL)
+        {
+            scope_entry_t* entry = it->entry;
+
+            // Well, do_not_print is what we use to hide symbols :)
+            if (!entry->do_not_print
+                    || walk_data->include_hidden)
+            {
+                Symbol sym(entry);
+                walk_data->result.append(sym);
+            }
+
+            it = it->next;
+        }
+    }
+
     ObjectList<Symbol> Scope::get_all_symbols(bool include_hidden)
     {
         ObjectList<Symbol> result;
 
-        // This should be a bit more encapsulated in cxx-scope.c
-        Iterator *it;
-
-        it = (Iterator*) hash_iterator_create(_decl_context.current_scope->hash);
-        for ( iterator_first(it); 
-                !iterator_finished(it); 
-                iterator_next(it))
-        {
-            scope_entry_list_t* entry_list = (scope_entry_list_t*) iterator_item(it);
-            scope_entry_list_t* it = entry_list;
-
-            while (it != NULL)
-            {
-                scope_entry_t* entry = it->entry;
-
-                // Well, do_not_print is what we use to hide symbols :)
-                if (!entry->do_not_print
-                        || include_hidden)
-                {
-                    Symbol sym(entry);
-                    result.append(sym);
-                }
-
-                it = it->next;
-            }
-
-        }
+        walk_scope_data_t walk_data(result, include_hidden);
+        rb_tree_walk(_decl_context.current_scope->hash, walk_scope, &walk_data);
 
         return result;
     }
@@ -199,9 +209,9 @@ namespace TL
         insert_entry(_decl_context.current_scope, sym.get_internal_symbol());
     }
 
-    ObjectList<Symbol> Scope::cascade_lookup(const std::string& str)
+    ObjectList<Symbol> Scope::cascade_lookup(const std::string& str, const std::string& filename, int line)
     {
-        scope_entry_list_t* entry_list = ::cascade_lookup(_decl_context, str.c_str());
+        scope_entry_list_t* entry_list = ::cascade_lookup(_decl_context, str.c_str(), filename.c_str(), line);
         ObjectList<Symbol> result;
         convert_to_vector(entry_list, result);
         return result;

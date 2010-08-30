@@ -282,6 +282,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, null_handler, NULL),
     NODE_HANDLER(AST_PARAMETER_DECL, parameter_decl_handler, NULL),
     NODE_HANDLER(AST_PARENTHESIZED_INITIALIZER, parenthesized_initializer_handler, NULL),
+    NODE_HANDLER(AST_EQUAL_INITIALIZER, prefix_with_parameter_then_son_handler, " = "),
     NODE_HANDLER(AST_INITIALIZER_BRACES, braced_initializer_handler, NULL),
     NODE_HANDLER(AST_POINTER_SPEC, pointer_spec_handler, NULL),
     NODE_HANDLER(AST_REFERENCE_SPEC, simple_parameter_handler, "&"),
@@ -1364,8 +1365,9 @@ static void templated_cast_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx
 
 static void member_declaration_qualif_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
+    indent_at_level(f, a, pt_ctx);
     prettyprint_level(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, ";");
+    token_fprintf(f, a, pt_ctx, ";\n");
 }
 
 static void qualified_id_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)

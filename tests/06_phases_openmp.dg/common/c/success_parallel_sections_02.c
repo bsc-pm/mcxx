@@ -1,6 +1,9 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
+
+test_compile_fail_nanox_plain=yes
+test_compile_faulty_nanox_plain=yes
 </testinfo>
 */
 /*--------------------------------------------------------------------
@@ -26,7 +29,9 @@ test_generator=config/mercurium-omp
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-void f(void)
+#include <stdlib.h>
+
+int main(int argc, char *argv[])
 {
     int s = 0;
 
@@ -45,4 +50,9 @@ void f(void)
             s = s + 1;
         }
     }
+
+    if (s != 3)
+        abort();
+
+    return 0;
 }

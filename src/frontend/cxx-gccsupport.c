@@ -759,18 +759,7 @@ static char eval_type_trait__is_abstract(type_t* first_type UNUSED_PARAMETER,
     if (is_class_type(first_type))
     {
         type_t* class_type = get_actual_class_type(first_type);
-
-        scope_entry_list_t* virtual_functions = class_type_get_all_virtual_functions(class_type);
-
-        while (virtual_functions != NULL)
-        {
-            scope_entry_t* current_virtual = virtual_functions->entry;
-
-            if (current_virtual->entity_specs.is_pure)
-                return 1;
-
-            virtual_functions = virtual_functions->next;
-        }
+        return class_type_is_abstract(class_type);
     }
 
     return 0;
@@ -857,7 +846,7 @@ static char eval_type_trait__is_empty(type_t* first_type,
 */
 static char eval_type_trait__is_enum(type_t* first_type, type_t* second_type UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
 {
-    return (is_enumerated_type(first_type));
+    return (is_enum_type(first_type));
 }
 
 /*
@@ -889,10 +878,7 @@ static char eval_type_trait__is_polymorphic(type_t* first_type,
     if (is_class_type(first_type))
     {
         type_t* class_type = get_actual_class_type(first_type);
-
-        scope_entry_list_t* virtual_functions = class_type_get_all_virtual_functions(class_type);
-
-        return (virtual_functions != NULL);
+        return (class_type_get_num_virtual_functions(class_type) != 0);
     }
 
     return 0;

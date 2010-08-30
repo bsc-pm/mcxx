@@ -1,6 +1,9 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
+
+test_compile_fail_nanox_plain=yes
+test_compile_faulty_nanox_plain=yes
 </testinfo>
 */
 /*--------------------------------------------------------------------
@@ -26,10 +29,27 @@ test_generator=config/mercurium-omp
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-void f(void)
+#include <stdio.h>
+
+#define NUM_ELEMS 1000
+
+int main(int argc, char *argv[])
 {
+    int c[NUM_ELEMS];
 #pragma omp parallel for
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < NUM_ELEMS; i++)
     {
+        c[i] = i;
     }
+
+    {
+        int i;
+        for (i = 0; i < NUM_ELEMS; i++)
+        {
+            if (c[i] != i)
+                abort();
+        }
+    }
+
+    return 0;
 }

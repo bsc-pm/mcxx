@@ -717,6 +717,9 @@ namespace TL
                 get_float_type(),
                 get_double_type(),
                 get_long_double_type(),
+                get_complex_type(get_float_type()),
+                get_complex_type(get_double_type()),
+                get_complex_type(get_long_double_type()),
                 NULL,
             };
 
@@ -728,7 +731,7 @@ namespace TL
 
             AST_t zero(internal_expression_parse("0", global_scope.get_decl_context()));
             AST_t one(internal_expression_parse("1", global_scope.get_decl_context()));
-            AST_t neg_zero(internal_expression_parse("~1u", global_scope.get_decl_context()));
+            AST_t neg_zero(internal_expression_parse("~0", global_scope.get_decl_context()));
 
             reduction_info_t builtin_arithmetic_operators[] =
             {
@@ -885,6 +888,9 @@ namespace TL
             AST template_header = ASTSon0(a);
             AST id_expr_list = ASTSon1(a);
             AST type_spec_list = ASTSon2(a);
+            std::cerr << std::endl << "AFTER PARSING" << std::endl;
+            std::cerr << " - id_expr '" << AST_t(id_expr_list).prettyprint() << "'" << std::endl;
+            std::cerr << " - type_expr '" << AST_t(type_spec_list).prettyprint() << "'" << std::endl;
 
             CXX_LANGUAGE()
             {
@@ -931,6 +937,10 @@ namespace TL
                 AST type_specifier_seq = ASTSon0(type_id);
                 AST abstract_decl = ASTSon1(type_id);
 
+                std::cerr << std::endl << "BEFORE 'build_scope_decl_specifier_seq'" << std::endl;
+                std::cerr << " - type_id '" << AST_t(type_id).prettyprint() << "'" << std::endl;
+                std::cerr << " - type_specifier_seq '" << AST_t(type_specifier_seq).prettyprint() << "'" << std::endl;
+                std::cerr << " - abstract_decl '" << AST_t(abstract_decl).prettyprint() << "'" << std::endl;
                 build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
                         decl_context);
 
@@ -1020,7 +1030,9 @@ namespace TL
 
         static bool solve_overload_for_udr(ObjectList<Symbol> operator_list, Type reduction_type,
                 UDRInfoItem::Associativity &assoc,
-                ObjectList<Symbol> &all_viables, const std::string& filename, int line)
+                ObjectList<Symbol> &all_viables, 
+                ObjectList<Symbol> &tentative_result,
+                const std::string& filename, int line)
         {
             bool found_valid = false;
             ObjectList<udr_valid_prototypes_t> valid_prototypes = get_valid_prototypes_cxx(reduction_type);
@@ -1029,8 +1041,6 @@ namespace TL
 
             ObjectList<Symbol> members_set = operator_list.filter(OnlyMembers());
             ObjectList<Symbol> non_members_set = operator_list.filter(OnlyNonMembers());
-
-            ObjectList<Symbol> tentative_result;
 
             // First the set of nonmembers
             for (ObjectList<udr_valid_prototypes_t>::iterator it = valid_prototypes.begin();
@@ -1084,7 +1094,7 @@ namespace TL
                     ObjectList<Symbol> viable_functs;
                     Symbol solved_sym = Overload::solve(
                             members_set,
-                            reduction_type.get_reference_to(), // implicit argument (it must be a reference)
+                            reduction_type, // implicit 
                             arguments,
                             filename,
                             line,
@@ -1119,6 +1129,12 @@ namespace TL
 
         void Core::declare_reduction_handler_pre(PragmaCustomConstruct construct)
         {
+            if (_new_udr)
+            {
+                declare_reduction_handler_pre_2(construct);
+                return;
+            }
+
             DEBUG_CODE()
             {
                 std::cerr << "=== Declare reduction [" << construct.get_ast().get_locus() << "]===" << std::endl;
@@ -1326,16 +1342,14 @@ namespace TL
                                     op_symbols.clear();
                                 }
                             }
-                            if (op_symbols.empty())
-                            {
-                                Source src;
-                                src << "operator " << op_name.prettyprint();
+                            //
+                            // FIXME - We should do Koenig lookup here
+                            Source src;
+                            src << "operator " << op_name.prettyprint();
 
-                                AST_t tree = src.parse_id_expression(ref_tree_of_clause, construct.get_scope_link());
+                            AST_t tree = src.parse_id_expression(ref_tree_of_clause, construct.get_scope_link());
 
-                                // Lookup first in the class
-                                op_symbols = construct.get_scope().get_symbols_from_id_expr(tree, /* examine_uninstantiated */ false);
-                            }
+                            op_symbols.insert(construct.get_scope().get_symbols_from_id_expr(tree, /* examine_uninstantiated */ false));
                         }
                         else
                         {
@@ -1355,16 +1369,27 @@ namespace TL
                                 && !op_symbols[0].is_dependent_entity())
                         {
                             ObjectList<Symbol> viable_operators;
+                            ObjectList<Symbol> tentative_result;
                             if (!solve_overload_for_udr(op_symbols, reduction_type, assoc, 
                                         viable_operators, 
+                                        tentative_result,
                                         construct.get_ast().get_file(),
                                         construct.get_ast().get_line()))
                             {
                                 if (!viable_operators.empty())
                                 {
-                                    std::cerr << construct.get_ast().get_locus() 
-                                        << ": note: more than one function matches the user-defined reduction" 
-                                        << std::endl;
+                                    if (!tentative_result.empty())
+                                    {
+                                        std::cerr << construct.get_ast().get_locus() 
+                                            << ": note: more than one function is valid for the user-defined reduction" 
+                                            << std::endl;
+                                    }
+                                    else
+                                    {
+                                        std::cerr << construct.get_ast().get_locus() 
+                                            << ": note: no function is valid for the user-defined reduction" 
+                                            << std::endl;
+                                    }
                                     std::cerr << construct.get_ast().get_locus() 
                                         << ": note: candidates are"
                                         << std::endl;
@@ -1382,7 +1407,7 @@ namespace TL
                                         construct.get_ast().get_locus().c_str());
                             }
 
-                            op_symbols = viable_operators;
+                            op_symbols = tentative_result;
                         }
                     }
 
@@ -1642,7 +1667,7 @@ namespace TL
 
             ObjectList<UDRInfoItem> udr_lookup;
             {
-                ObjectList<Symbol> lookup = sc.cascade_lookup(current_udr.get_symbol_name());
+                ObjectList<Symbol> lookup = sc.cascade_lookup(current_udr.get_symbol_name(), filename, line);
                 if (lookup.empty())
                 {
                     return empty_udr;

@@ -35,7 +35,6 @@ namespace TL
 
         const std::string OMP_NANOX_VLA_DIMS = "omp.nanox.vla_dims";
 
-
 #if 0
         static void print_list(ObjectList<Source> src)
         {
@@ -345,6 +344,19 @@ namespace TL
 
     }
 
+    static void get_data_sharing_symbols(OpenMP::DataSharingEnvironment& data_sharing,
+            ObjectList<Symbol>& shared,
+            ObjectList<Symbol>& value,
+            ObjectList<Symbol>& private_symbols)
+    {
+        ObjectList<OpenMP::DependencyItem> dependences;
+        data_sharing.get_all_dependences(dependences);
+
+        data_sharing.get_all_symbols(OpenMP::DS_SHARED, shared);
+        data_sharing.get_all_symbols(OpenMP::DS_FIRSTPRIVATE, value);
+        data_sharing.get_all_symbols(OpenMP::DS_PRIVATE, private_symbols);
+    }
+
     void Nanox::compute_data_environment(
             OpenMP::DataSharingEnvironment &data_sharing,
             ScopeLink scope_link,
@@ -352,13 +364,9 @@ namespace TL
             ObjectList<Symbol>& converted_vlas)
     {
         ObjectList<Symbol> shared;
-        data_sharing.get_all_symbols(OpenMP::DS_SHARED, shared);
-
         ObjectList<Symbol> value;
-        data_sharing.get_all_symbols(OpenMP::DS_FIRSTPRIVATE, value);
-
         ObjectList<Symbol> private_symbols;
-        data_sharing.get_all_symbols(OpenMP::DS_PRIVATE, private_symbols);
+        get_data_sharing_symbols(data_sharing, shared, value, private_symbols);
 
         struct auxiliar_struct_t
         {
@@ -541,6 +549,12 @@ namespace TL
 
             Symbol sym = data_env_item.get_symbol();
             Type type = sym.get_type();
+
+            if (type.is_reference())
+            {
+                type = type.references_to();
+            }
+
             const std::string field_name = data_env_item.get_field_name();
 
             if (data_env_item.is_vla_type())
@@ -626,7 +640,7 @@ namespace TL
                     if (IS_CXX_LANGUAGE
                             && type.is_named_class())
                     {
-                        result << "new (&" << arg_var_accessor << field_name << ")" 
+                        result << "new (" << arg_var_accessor << field_name << ")" 
                             << type.get_declaration(sym.get_scope(), "") 
                             << "(" << sym.get_qualified_name() << ");";
                     }

@@ -30,10 +30,12 @@ ADDITIONAL_TESTS=@ADDITIONAL_TESTSUITES@
 END=
 CLEANFILES=
 
+CLEANFILES+=test.log
+
 # Replacements are defined in this makefile
 include ../config/Makefile.replace
 
-check-local: $(builddir)/config/bets
+prepare-check: ./config/bets
 	chmod +x config/mercurium-extensions
 	chmod +x config/mercurium-omp
 	chmod +x config/mercurium-nanos4
@@ -41,13 +43,19 @@ check-local: $(builddir)/config/bets
 	chmod +x config/mercurium-ss
 	chmod +x config/mercurium-stm
 	chmod +x */mercurium
-	$(builddir)/config/bets $(srcdir)
+
+BETS_DIRS=$(srcdir)
+
+check-local: prepare-check
+	$(MAKE) -C config
+	$(MAKE) -C .
+	./config/bets $(BETS_OPTIONS) $(BETS_DIRS)
 
 dist-hook:
 	for i in $(srcdir)/*.dg; \
 	do  \
 	    DIR=$$(basename $$i); \
-        cp -r $(srcdir)/$${DIR} $(distdir)/$${DIR}; \
+        cp -vr $(srcdir)/$${DIR} $(distdir); \
 	done
 
 distclean-local:

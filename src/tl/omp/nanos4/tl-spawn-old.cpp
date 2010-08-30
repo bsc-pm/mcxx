@@ -285,7 +285,7 @@ namespace TL
             // Reduction code
             //
             // If there is any reduction reference
-            reduction_code = get_noncritical_reduction_code(reduction_references);
+            reduction_code = get_noncritical_reduction_code(reduction_references, scope_link);
 
             // std::cerr << "SPAWN CODE" << std::endl;
             // std::cerr << spawn_code.get_source(true) << std::endl;

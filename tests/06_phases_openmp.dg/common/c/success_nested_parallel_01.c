@@ -1,6 +1,13 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
+
+test_exec_fail_nanox_plain_1thread=yes
+test_exec_faulty_nanox_plain_1thread=yes
+test_exec_fail_nanox_plain_2thread=yes
+test_exec_faulty_nanox_plain_2thread=yes
+test_exec_fail_nanox_plain_4thread=yes
+test_exec_faulty_nanox_plain_4thread=yes
 </testinfo>
 */
 /*--------------------------------------------------------------------
@@ -26,7 +33,7 @@ test_generator=config/mercurium-omp
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-void g(void)
+int main(int argc, char* argv[])
 {
     int k = 1;
 #pragma omp parallel private(k)
@@ -37,4 +44,6 @@ void g(void)
             k = 2;
         }
     }
+
+    return 0;
 }

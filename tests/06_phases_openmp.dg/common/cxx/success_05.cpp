@@ -26,6 +26,8 @@ test_generator=config/mercurium-omp
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include <stdlib.h>
+
 template <typename _T>
 struct A
 {
@@ -33,10 +35,25 @@ struct A
 };
 
 template <typename _Q>
-void f(_Q q)
+void A<_Q>::f(_Q q)
 {
+    q = 1;
 #pragma omp parallel
     {
-        q = 3;
+        q = 0;
     }
+
+    if (q != 0)
+        abort();
+}
+
+int main(int argc, char *argv[])
+{
+    A<int> a;
+    a.f(3);
+
+    A<float> b;
+    b.f(3.2f);
+
+    return 0;
 }

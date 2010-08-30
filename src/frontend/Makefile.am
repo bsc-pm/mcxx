@@ -63,10 +63,12 @@ libmcxx_la_SOURCES = \
   cxx-ast-decls.h \
   cxx-lexer.h \
   cxx-parser.h \
+  cxx-parser-internal.h \
   cxx-parser.c \
   cxx-scanner.c \
   c99-scanner.c \
   c99-parser.h \
+  c99-parser-internal.h \
   c99-parser.c \
   cxx-graphviz.h \
   cxx-graphviz.c \
@@ -130,6 +132,7 @@ libmcxx_la_SOURCES = \
   cxx-typeorder.h \
   cxx-typeorder.c \
   cxx-overload.c \
+  cxx-overload-decls.h \
   cxx-overload.h \
   libmcxx-common.h \
   $(END)
@@ -331,7 +334,7 @@ cxx03.l : $(srcdir)/cxx-lexer.l
 
 if BISON_BUILDING
 CLEANFILES += cxx-parser.c
-CLEANFILES += cxx-parser.h
+CLEANFILES += cxx-parser-internal.h
 CLEANFILES += cxx-parser.output
 CLEANFILES += cxx03.y
 endif
@@ -341,7 +344,7 @@ cxx03.y : $(srcdir)/cxx03.y.in $(addprefix $(srcdir)/, $(ADDITIONAL_GRAMMARS))
 
 cxx-parser.c : cxx03.y
 if BISON_BUILDING
-	$(BISON_verbose)$(BISON) -pmcxx --debug --defines --report=all --output=cxx-parser.c cxx03.y
+	$(BISON_verbose)$(BISON) -pmcxx --debug --defines=cxx-parser-internal.h --report=all --output=cxx-parser.c cxx03.y
 else
 	@echo "*** ERROR: file cxx03.y was modified but no suitable bison-rofi was found during configure ***"
 	@exit 1
@@ -370,7 +373,7 @@ c99.l : $(srcdir)/cxx-lexer.l
 
 if BISON_BUILDING
 CLEANFILES += c99-parser.c
-CLEANFILES += c99-parser.h
+CLEANFILES += c99-parser-internal.h
 CLEANFILES += c99-parser.output
 CLEANFILES += c99.y
 endif
@@ -380,7 +383,7 @@ c99.y : $(srcdir)/c99.y.in $(addprefix $(srcdir)/, $(ADDITIONAL_GRAMMARS))
 
 c99-parser.c : c99.y
 if BISON_BUILDING
-	$(BISON_verbose)$(BISON) -pmc99 --debug --defines --report=all --output=c99-parser.c c99.y
+	$(BISON_verbose)$(BISON) -pmc99 --debug --defines=c99-parser-internal.h --report=all --output=c99-parser.c c99.y
 else
 	@echo "*** ERROR: file c99.y was modified but no suitable bison-rofi was found during configure ***"
 	@exit 1

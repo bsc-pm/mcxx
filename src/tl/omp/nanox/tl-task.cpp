@@ -88,7 +88,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     // Check for __symbol clause, and if found, get the task function symbol
     Symbol task_symbol = NULL;
     PragmaCustomClause function_clause = ctr.get_clause("__symbol");
-
     if (function_clause.is_defined())
     {
     	ObjectList<Expression> expr_list = function_clause.get_expression_list();
@@ -148,12 +147,61 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         device_provider->get_device_descriptor(outline_name, 
                 data_environ_info, 
                 outline_flags,
+                ctr.get_statement().get_ast(),
+                ctr.get_scope_link(),
                 ancillary_device_description, 
                 device_description_line);
 
-
         some_device_needs_copies = some_device_needs_copies
             || device_provider->needs_copies();
+    }
+
+    // If this is a function coming from a task try to get its devices with an
+    // implementation already given
+    if (function_clause.is_defined())
+    {
+        if (!task_symbol.is_function())
+        {
+            internal_error("%s: invalid symbol for __function clause\n",
+                    ctr.get_ast().get_locus().c_str());
+        }
+
+        if (!function_task_set->is_function_task(task_symbol))
+        {
+            internal_error("%s: __function clause function is not task function\n",
+                    ctr.get_ast().get_locus().c_str());
+        }
+
+        OpenMP::FunctionTaskInfo& function_task_info 
+            = function_task_set->get_function_task(task_symbol);
+        ObjectList<OpenMP::FunctionTaskInfo::implementation_pair_t> implementation_list 
+            = function_task_info.get_devices_with_implementation();
+
+        OutlineFlags implements_outline_flags = outline_flags;
+        implements_outline_flags.implemented_outline = true;
+
+        for (ObjectList<OpenMP::FunctionTaskInfo::implementation_pair_t>::iterator it = implementation_list.begin();
+                it != implementation_list.end();
+                it++)
+        {
+            DeviceProvider* device_provider = device_handler.get_device(it->first);
+
+            if (device_provider == NULL)
+            {
+                internal_error("invalid device '%s' at '%s'\n",
+                        it->first.c_str(), ctr.get_ast().get_locus().c_str());
+            }
+
+            device_provider->get_device_descriptor(
+                    /* outline_name */
+                    it->second.get_qualified_name(),
+                    data_environ_info, 
+                    implements_outline_flags,
+                    ctr.get_statement().get_ast(),
+                    ctr.get_scope_link(),
+                    ancillary_device_description, 
+                    device_description_line);
+        }
     }
 
     num_devices << current_targets.size();
@@ -274,7 +322,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             Source dep_expr_addr = data_ref.get_address();
 
             dependency_offset
-                << "((char*)(" << dep_expr_addr << ") - " << "*(char**)ol_args->" << dependency_field_name << ")"
+                << "((char*)(" << dep_expr_addr << ") - " << "(char*)ol_args->" << dependency_field_name << ")"
                 ;
 
             if (!immediate_is_alloca)
@@ -289,7 +337,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     ;
 
                 imm_dependency_offset
-                    << "((char*)(" << dep_expr_addr << ") - " << "*(char**)imm_args." << dependency_field_name << ")"
+                    << "((char*)(" << dep_expr_addr << ") - " << "(char*)imm_args." << dependency_field_name << ")"
                     ;
             }
             else
@@ -304,7 +352,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                     ;
 
                 imm_dependency_offset
-                    << "((char*)(" << dep_expr_addr << ") - " << "*(char**)imm_args->" << dependency_field_name << ")"
+                    << "((char*)(" << dep_expr_addr << ") - " << "(char*)imm_args->" << dependency_field_name << ")"
                     ;
             }
 
@@ -517,6 +565,20 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         }
     }
 
+    // Disallow GPU tasks to be executed at the time they are created
+    // TODO: Implement the corresponding part in the runtime in order to allow create_wd_and_run
+    // function work properly
+    Source mandatory_creation;
+
+    if ( current_targets.contains( "cuda" ) )
+    {
+    	mandatory_creation << "\n" << ".mandatory_creation = 1" << "\n";
+    }
+    else
+    {
+    	mandatory_creation << " 0 ";
+    }
+
     spawn_code
         << "{"
         // Devices related to this task
@@ -524,7 +586,9 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<     struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
         <<     struct_runtime_size
         <<     "nanos_wd_t wd = (nanos_wd_t)0;"
-        <<     "nanos_wd_props_t props = { 0 };"
+        <<     "nanos_wd_props_t props = {"
+        <<		mandatory_creation
+        <<		"};"
         <<     priority
         <<     tiedness
         <<     copy_decl

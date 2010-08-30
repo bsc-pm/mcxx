@@ -16,7 +16,9 @@ enum DependencyDirection
     // Output dependence
     DEP_DIR_OUTPUT = BITMAP(2),
     // Inout dependence
-    DEP_DIR_INOUT = DEP_DIR_INPUT | DEP_DIR_OUTPUT
+    DEP_DIR_INOUT = DEP_DIR_INPUT | DEP_DIR_OUTPUT,
+    // Firstprivatized dependence
+    DEP_FIRSTPRIVATE = BITMAP(3),
 };
 
 } }

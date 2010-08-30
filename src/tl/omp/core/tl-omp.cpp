@@ -249,13 +249,18 @@ namespace TL
 
             if (data_flow.get_keys().contains("openmp_info"))
             {
-                openmp_info = RefPtr<OpenMP::Info>::cast_static(data_flow["openmp_info"]);
+                openmp_info = RefPtr<Info>::cast_static(data_flow["openmp_info"]);
             }
             else
             {
                 std::cerr << "No OpenMP info was found" << std::endl;
                 set_phase_status(PHASE_STATUS_ERROR);
                 return;
+            }
+
+            if (data_flow.get_keys().contains("openmp_task_info"))
+            {
+                function_task_set = RefPtr<FunctionTaskSet>::cast_static(data_flow["openmp_task_info"]);
             }
 
             // Let the user register its slots
@@ -308,6 +313,24 @@ namespace TL
             return *_current_data_sharing;
         }
 
+        ObjectList<UDRInfoItem2> Info::get_udr_list(AST_t a)
+        {
+            if (_map_udr_info.find(a) == _map_udr_info.end())
+            {
+                ObjectList<UDRInfoItem2> empty_udr_list;
+                return empty_udr_list;
+            }
+            else
+            {
+                return _map_udr_info[a];
+            }
+        }
+
+        void Info::set_udr_list(AST_t a, ObjectList<UDRInfoItem2> udr_list)
+        {
+            _map_udr_info[a] = udr_list;
+        }
+
         void Info::push_current_data_sharing(DataSharingEnvironment& data_sharing)
         {
             _stack_data_sharing.push(_current_data_sharing);
@@ -328,6 +351,7 @@ namespace TL
             }
             _current_data_sharing = _root_data_sharing = new DataSharingEnvironment(NULL);
             _map_data_sharing.clear();
+            _map_udr_info.clear();
             // Why stack is so special?
             _stack_data_sharing = std::stack<DataSharingEnvironment*>();
         }

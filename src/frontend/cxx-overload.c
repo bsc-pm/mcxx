@@ -71,7 +71,7 @@ implicit_conversion_sequence_t invalid_ics = { .kind = ICSK_INVALID, .is_ambiguo
 typedef
 struct overload_entry_list_tag
 {
-    scope_entry_t* entry;
+    candidate_t* candidate;
     struct overload_entry_list_tag* next;
 
     implicit_conversion_sequence_t ics_arguments[MAX_ARGUMENTS];
@@ -86,12 +86,9 @@ char standard_conversion_is_better(standard_conversion_t scs1,
         standard_conversion_t scs2);
 
 static
-char is_better_function_flags(scope_entry_t* f,
-        scope_entry_t* g,
+char is_better_function_flags(overload_entry_list_t* f,
+        overload_entry_list_t* g,
         decl_context_t decl_context,
-        type_t **argument_types,
-        int num_types,
-        char no_standard_conversions,
         const char *filename,
         int line);
 
@@ -164,12 +161,35 @@ static char is_better_initialization_ics(
                 ics_2.conversor->line);
     }
 
-    if (is_better_function_flags(ics_1.conversor,
-                ics_2.conversor,
+    // Build proper arguments for is_better_function_flags
+    candidate_t candidate_1;
+    memset(&candidate_1, 0, sizeof(candidate_1));
+
+    candidate_1.entry = ics_1.conversor;
+    candidate_1.num_args = 0;
+    candidate_1.args = NULL;
+
+    overload_entry_list_t ovl_entry_1;
+    memset(&ovl_entry_1, 0, sizeof(ovl_entry_1));
+
+    ovl_entry_1.candidate = &candidate_1;
+
+    // Candidate 2
+    candidate_t candidate_2;
+    memset(&candidate_2, 0, sizeof(candidate_2));
+
+    candidate_2.entry = ics_2.conversor;
+    candidate_2.num_args = 0;
+    candidate_2.args = NULL;
+
+    overload_entry_list_t ovl_entry_2;
+    memset(&ovl_entry_2, 0, sizeof(ovl_entry_2));
+
+    ovl_entry_2.candidate = &candidate_2;
+
+    if (is_better_function_flags(&ovl_entry_1,
+                &ovl_entry_2,
                 decl_context, 
-                /* argument_types */ NULL, 
-                /* num_argument_types */ 0,
-                /* no_user_defined_conversions */ 1,
                 filename, line))
     {
         DEBUG_CODE()
@@ -186,12 +206,9 @@ static char is_better_initialization_ics(
     }
 
     // Maybe they are equally good, so we have to check the conversion destination type
-    if (!is_better_function_flags(ics_2.conversor,
-                ics_1.conversor,
+    if (!is_better_function_flags(&ovl_entry_2,
+                &ovl_entry_1,
                 decl_context, 
-                /* argument_types */ NULL, 
-                /* num_argument_types */ 0,
-                /* no_user_defined_conversions */ 1,
                 filename, line))
     {
         // Get the converted type after the conversion
@@ -241,7 +258,9 @@ static char is_better_initialization_ics(
 }
 
 static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_context, 
-        implicit_conversion_sequence_t *result, char no_user_defined_conversions,
+        implicit_conversion_sequence_t *result, 
+        char no_user_defined_conversions,
+        char is_implicit_argument,
         const char* filename, int line)
 {
     DEBUG_CODE()
@@ -343,6 +362,49 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         return;
     }
 
+    if (is_implicit_argument)
+    {
+        // An implicit argument of rvalue type C can be bound to the implicit
+        // argument parameter of type C
+        if (is_named_class_type(no_ref(orig))
+                && class_type_is_incomplete_independent(get_actual_class_type(no_ref(orig))))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "ICS: Instantiating destination type know if it is derived or not\n");
+            }
+            scope_entry_t* symbol = named_type_get_symbol(no_ref(orig));
+            instantiate_template_class(symbol, decl_context, filename, line);
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "ICS: Destination type instantiated\n");
+            }
+        }
+
+        if ((equivalent_types(no_ref(orig), no_ref(dest))
+                    || (is_class_type(no_ref(orig))
+                            && is_class_type(no_ref(dest))
+                            && class_type_is_base(no_ref(dest), no_ref(orig))))
+                && (!is_const_qualified_type(no_ref(orig))
+                    || is_const_qualified_type(no_ref(dest))))
+        {
+            result->kind = ICSK_STANDARD;
+            result->first_sc.orig = no_ref(orig);
+            result->first_sc.dest = dest;
+            result->first_sc.conv[0] = SCI_IDENTITY;
+            result->first_sc.conv[1] = SCI_NO_CONVERSION;
+            result->first_sc.conv[2] = SCI_NO_CONVERSION;
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "ICS: We allow binding the implicit argument of type '%s' to the implicit parameter type '%s'\n",
+                        print_type_str(orig, decl_context),
+                        print_type_str(dest, decl_context));
+            }
+        }
+        return;
+    }
+
     // Nothing else to do
     if (no_user_defined_conversions)
         return;
@@ -418,6 +480,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                     {
                         fprintf(stderr, "ICS: Deduced arguments for template conversion function failed, skipping\n");
                     }
+                    it = it->next;
                     continue;
                 }
 
@@ -437,6 +500,13 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                         template_arguments,
                         template_parameters,
                         decl_context, line, filename);
+
+                if (named_specialization_type == NULL)
+                {
+                    fprintf(stderr, "ICS: Cannot specialize conversion function\n");
+                    it = it->next;
+                    continue;
+                }
 
                 // Now update the symbol
                 conv_funct = named_type_get_symbol(named_specialization_type);
@@ -470,14 +540,18 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
 
             standard_conversion_t first_sc;
             standard_conversion_t second_sc;
-            if (standard_conversion_between_types(&first_sc, 
-                        // Note that this is like calling a function so we have to give a special
-                        // lvalue reference for the implicit argument like we normally do in 
-                        // overloads
-                        lvalue_ref_for_implicit_arg(orig), 
-                        implicit_parameter)
-                    && standard_conversion_between_types(&second_sc, converted_type, 
-                        dest))
+
+            implicit_conversion_sequence_t ics_call;
+            memset(&ics_call, 0, sizeof(ics_call));
+            compute_ics_flags(orig, implicit_parameter, 
+                    decl_context, &ics_call,
+                    /* no_user_defined_conversions */ 1,
+                    /* is_implicit_argument */ 1,
+                    filename, line);
+            first_sc = ics_call.first_sc;
+
+            if (ics_call.kind == ICSK_STANDARD 
+                && standard_conversion_between_types(&second_sc, converted_type, dest))
             {
                 implicit_conversion_sequence_t *current = &(user_defined_conversions[num_user_defined_conversions]);
                 num_user_defined_conversions++;
@@ -604,6 +678,15 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                         template_arguments,
                         template_parameters,
                         decl_context, line, filename); 
+
+                if (named_specialization_type == NULL)
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "ICS: Cannot specialize conversor constructor\n");
+                    }
+                    continue;
+                }
 
                 // Now update the symbol
                 constructor = named_type_get_symbol(named_specialization_type);
@@ -744,6 +827,7 @@ static void compute_ics(type_t* orig, type_t* dest, decl_context_t decl_context,
 {
     return compute_ics_flags(orig, dest, decl_context, result, 
             /* no_user_defined_conversions = */ 0,
+            /* is_implicit_argument */ 0,
             filename, line);
 }
 
@@ -1223,14 +1307,21 @@ static char better_ics(implicit_conversion_sequence_t ics1,
     return 0;
 }
 
-static overload_entry_list_t* compute_viable_functions(scope_entry_list_t* candidate_functions,
-        type_t** argument_types, int num_types, decl_context_t decl_context,
+static char can_be_called_with_number_of_arguments_ovl(scope_entry_t* entry, int num_arguments)
+{
+    if (entry->entity_specs.is_member
+            && !entry->entity_specs.is_constructor)
+        num_arguments--;
+    return can_be_called_with_number_of_arguments(entry, num_arguments);
+}
+
+static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_functions,
+        decl_context_t decl_context,
         const char *filename, int line)
 {
     overload_entry_list_t *result = NULL;
-    scope_entry_list_t *it = candidate_functions;
+    candidate_t *it = candidate_functions;
 
-    // There is always one more type, than argument types
     while (it != NULL)
     {
         scope_entry_t* candidate = it->entry;
@@ -1238,9 +1329,10 @@ static overload_entry_list_t* compute_viable_functions(scope_entry_list_t* candi
         ERROR_CONDITION(!is_function_type(candidate->type_information),
                 "This is not a function", 0);
 
-        int num_arguments = num_types - 1;
+        int num_arguments = it->num_args;
+        type_t** argument_types = it->args;
 
-        if (can_be_called_with_number_of_arguments(candidate, num_arguments))
+        if (can_be_called_with_number_of_arguments_ovl(candidate, num_arguments))
         {
             implicit_conversion_sequence_t ics_arguments[MAX_ARGUMENTS];
             {
@@ -1251,16 +1343,6 @@ static overload_entry_list_t* compute_viable_functions(scope_entry_list_t* candi
                 }
             }
 
-            // We have to check every argument type
-            int first_type = 0;
-            if ((!candidate->entity_specs.is_member
-                    || candidate->entity_specs.is_static
-                    || candidate->entity_specs.is_constructor)
-                    && !candidate->entity_specs.is_surrogate_function)
-            {
-                first_type = 1;
-            }
-
             int num_parameters = 
                 function_type_get_num_parameters(candidate->type_information);
             if (function_type_get_has_ellipsis(candidate->type_information))
@@ -1269,87 +1351,35 @@ static overload_entry_list_t* compute_viable_functions(scope_entry_list_t* candi
             char still_viable = 1;
             int i;
             char requires_ambiguous_conversion = 0;
-            for (i = first_type; (i < num_types) && still_viable; i++)
+            for (i = 0; (i < num_arguments) && still_viable; i++)
             {
                 int argument_number = i;
-                // For normal calls it holds the following map
-                //
-                //   implicit
-                //   argument0, argument1,  ..., argumentN
-                //                 ^                ^
-                //              parameter0, ..., parameterM
-                //
-                // since argument0 is the implicit argument type for member function calls
-                // and its corresponding 'parameter type' is obtained from the member function itself.
-                //
-                // This does not apply to surrogate function calls, where the following schema applies
-
-                //   argument0,  argument1,  ..., argumentN
-                //     ^             ^               ^
-                //   parameter0, parameter1, ..., parameterM
-                //
-                // since argument0 is still the implicit object argument but parameter0 is a faked
-                // type required by the standard: the destination type of the conversion. The remaining
-                // parameters match with that of the actuall object call.
-                //
-                // To put this in an example
-                //
-                //     struct A
-                //     {
-                //       void f(char);
-                //       operator float (*)(int)();
-                //     };
-                //
-                //     A a;
-                //
-                //     a.f('a'); // (1)
-                //
-                // has as arguments and parameters
-                //
-                //   argument0: 'A&' (note: this is a special 'A&')
-                //   argument1: char
-                //
-                //   <implicit parameter>: A&
-                //   parameter0: char
-                //
-                //     a(3); // (2)
-                //
-                // has as arguments
-                //
-                //   argument0: 'A&' (note: this is a special 'A&')
-                //   argument1: 'int'
-                //
-                //   parameter0: float (*)(int)
-                //   parameter1: int
-                //
-                // Thus, only skew the argument number on non surrogate functions
-                if (!candidate->entity_specs.is_surrogate_function)
-                {
-                    argument_number = i - 1;
-                }
 
                 implicit_conversion_sequence_t ics_to_candidate;
-                if (i == 0 
-                        // Surrogate functions have a first parameter that must
-                        // be checked against the implicit argument normally,
-                        // see the long comment above
-                        && !candidate->entity_specs.is_surrogate_function)
+                if (i == 0
+                        && candidate->entity_specs.is_member
+                        && !candidate->entity_specs.is_constructor)
                 {
-                    ERROR_CONDITION(!candidate->entity_specs.is_member, "Should be member!", 0);
-                    ERROR_CONDITION(argument_types[0] == NULL, "No implicit object given and this is a nonstatic member function", 0);
-
                     type_t* member_object_type = candidate->entity_specs.class_type;
                     member_object_type = get_cv_qualified_type(member_object_type, 
                             get_cv_qualifier(candidate->type_information));
                     member_object_type = get_lvalue_reference_type(member_object_type);
 
-                    compute_ics(argument_types[i], 
+                    compute_ics_flags(argument_types[i], 
                             member_object_type,
                             decl_context, 
-                            &ics_to_candidate, filename, line);
+                            &ics_to_candidate,
+                            /* no_user_defined_conversions */ 1,
+                            /* is_implicit_argument */ 1,
+                            filename, line);
                 }
                 else
                 {
+                    // The implicit is not counted in the function type, so skew it
+                    if (candidate->entity_specs.is_member
+                            && !candidate->entity_specs.is_constructor)
+                        argument_number--;
+
                     type_t* parameter_type = NULL;
                     if (argument_number >= num_parameters)
                     {
@@ -1386,7 +1416,7 @@ static overload_entry_list_t* compute_viable_functions(scope_entry_list_t* candi
             if (still_viable)
             {
                 overload_entry_list_t* new_result = counted_calloc(1, sizeof(*new_result), &_bytes_overload);
-                new_result->entry = candidate;
+                new_result->candidate = it;
                 new_result->next = result;
                 new_result->requires_ambiguous_ics = requires_ambiguous_conversion;
                 result = new_result;
@@ -1408,314 +1438,235 @@ static overload_entry_list_t* compute_viable_functions(scope_entry_list_t* candi
 
 // States whether f is better than g
 static
-char is_better_function_flags(scope_entry_t* f,
-        scope_entry_t* g,
+char is_better_function_flags(overload_entry_list_t* ovl_f,
+        overload_entry_list_t* ovl_g,
         decl_context_t decl_context,
-        type_t **argument_types,
-        int num_types,
-        char no_user_defined_conversions,
         const char *filename,
         int line)
 {
+    scope_entry_t* f = ovl_f->candidate->entry;
+    scope_entry_t* g = ovl_g->candidate->entry;
+
     // A function is better if all ICS are equal or best, so if any is not
     // better or equal, then it is not better
     //
     DEBUG_CODE()
     {
-        fprintf(stderr, "OVERLOAD: Checking if [%s, %s:%d, %s] is better than [%s, %s:%d, %s]\n",
-                f->symbol_name,
+        fprintf(stderr, "OVERLOAD: Checking if [%s, %s:%d] is better than [%s, %s:%d]\n",
+                print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
                 f->file,
                 f->line,
-                print_declarator(f->type_information),
-                g->symbol_name,
+                print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
                 g->file,
-                g->line,
-                print_declarator(g->type_information));
+                g->line);
     }
 
     int first_type = 0;
 
-    if ((f->entity_specs.is_static
-                || !f->entity_specs.is_member
-                || f->entity_specs.is_constructor
-                || g->entity_specs.is_static
-                || !g->entity_specs.is_member
-                || g->entity_specs.is_constructor)
-            && (!f->entity_specs.is_surrogate_function
-                || !g->entity_specs.is_surrogate_function))
+    if (f->entity_specs.is_member
+            && g->entity_specs.is_member
+            && f->entity_specs.is_static)
     {
         first_type = 1;
     }
 
+    ERROR_CONDITION(ovl_f->candidate->num_args != ovl_g->candidate->num_args, 
+            "Mismatch in number of arguments", 0);
+
     char some_is_better = 0;
     char some_is_worse = 0;
     int i;
-    for (i = first_type; i < num_types; i++)
+    for (i = first_type; i < ovl_f->candidate->num_args && !some_is_worse; i++)
     {
-        implicit_conversion_sequence_t ics_to_f;
-        implicit_conversion_sequence_t ics_to_g;
-
-        int argument_number = i;
-
-        // Do not skew argument number if both are surrogate
-        if (!f->entity_specs.is_surrogate_function
-                || !g->entity_specs.is_surrogate_function)
+        implicit_conversion_sequence_t ics_to_f = ovl_f->ics_arguments[i];
+        implicit_conversion_sequence_t ics_to_g = ovl_g->ics_arguments[i];
+        DEBUG_CODE()
         {
-            argument_number = i - 1;
-        }
-
-        if (i == 0
-                // If both are surrogate this check is performed normally
-                && (!f->entity_specs.is_surrogate_function
-                    || !g->entity_specs.is_surrogate_function))
-        {
-            type_t* member_object_type = NULL;
-
-            ERROR_CONDITION(!f->entity_specs.is_member, "Should be member!", 0);
-            member_object_type = f->entity_specs.class_type;
-            member_object_type = get_cv_qualified_type(member_object_type, 
-                    get_cv_qualifier(f->type_information));
-            member_object_type = get_lvalue_reference_type(member_object_type);
-
-            compute_ics_flags(argument_types[i], member_object_type, decl_context, 
-                    &ics_to_f, no_user_defined_conversions, filename, line);
-
-            ERROR_CONDITION(!g->entity_specs.is_member, "Should be member!", 0);
-            member_object_type = g->entity_specs.class_type;
-            member_object_type = get_cv_qualified_type(member_object_type, 
-                    get_cv_qualifier(g->type_information));
-            member_object_type = get_lvalue_reference_type(member_object_type);
-
-            compute_ics_flags(argument_types[i], member_object_type, decl_context, 
-                    &ics_to_g, no_user_defined_conversions, filename, line);
-        }
-        else
-        {
-            {
-                int num_parameters_f = function_type_get_num_parameters(f->type_information);
-                if (function_type_get_has_ellipsis(f->type_information))
-                    num_parameters_f--;
-
-                type_t* parameter_type_f = NULL;
-                if (argument_number >= num_parameters_f)
-                {
-                    parameter_type_f = get_ellipsis_type();
-                }
-                else
-                {
-                    parameter_type_f = function_type_get_parameter_type_num(
-                            f->type_information, 
-                            argument_number);
-                }
-
-                compute_ics_flags(argument_types[i], 
-                        parameter_type_f,
-                        decl_context, &ics_to_f, 
-                        no_user_defined_conversions, filename, line);
-            }
-            {
-                int num_parameters_g = function_type_get_num_parameters(g->type_information);
-                if (function_type_get_has_ellipsis(g->type_information))
-                    num_parameters_g--;
-
-                type_t* parameter_type_g = NULL;
-                if (argument_number >= num_parameters_g)
-                {
-                    parameter_type_g = get_ellipsis_type();
-                }
-                else
-                {
-                    parameter_type_g = function_type_get_parameter_type_num(
-                            g->type_information, 
-                            argument_number);
-                }
-
-                compute_ics_flags(argument_types[i], 
-                        parameter_type_g,
-                        decl_context, &ics_to_g, 
-                        no_user_defined_conversions, filename, line);
-            }
+            fprintf(stderr, "OVERLOAD: Comparing ICSs of argument %d\n", i);
         }
 
         if (better_ics(ics_to_f, ics_to_g))
         {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "OVERLOAD: ICS %d of first function is better than second\n", i);
+            }
             some_is_better = 1;
         }
         else if (better_ics(ics_to_g, ics_to_f))
         {
-            // It turned out that this one is actualy worse, so 'f' is not better than 'g'
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "OVERLOAD: ICS %d of first function is worse than second\n", i);
+            }
+            // It turned out that this one is actually worse, so 'f' is not better than 'g'
             some_is_worse = 1;
         }
     }
 
-    // If we saw that some argument ICS was really better, then it is better
-    if (some_is_better
-            && !some_is_worse)
+    if (!some_is_worse)
     {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "OVERLOAD: Found that [%s, %s:%d, %s] IS better"
-                    " than [%s, %s:%d, %s] because some argument in the first"
-                    " function has a better ICS than the respective one in the second\n",
-                    f->symbol_name,
-                    f->file,
-                    f->line,
-                    print_declarator(f->type_information),
-                    g->symbol_name,
-                    g->file,
-                    g->line,
-                    print_declarator(g->type_information));
-        }
-        return 1;
-    }
-
-    // or if not that, non-template functions are preferred over template
-    // functions
-    if (!is_template_specialized_type(f->type_information)
-            && is_template_specialized_type(g->type_information))
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "OVERLOAD: Found that [%s, %s:%d, %s] IS better than [%s, %s:%d, %s] because "
-                    "the first is not a template-specialization and the second is\n",
-                    f->symbol_name,
-                    f->file,
-                    f->line,
-                    print_declarator(f->type_information),
-                    g->symbol_name,
-                    g->file,
-                    g->line,
-                    print_declarator(g->type_information));
-        }
-        return 1;
-    }
-    
-    if (is_template_specialized_type(f->type_information)
-            && is_template_specialized_type(g->type_information))
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "OVERLOAD: Found that [%s, %s:%d, %s] and [%s, %s:%d, %s] are template functions "
-                    "so we have to check which one is more specialized\n",
-                    f->symbol_name,
-                    f->file,
-                    f->line,
-                    print_declarator(f->type_information),
-                    g->symbol_name,
-                    g->file,
-                    g->line,
-                    print_declarator(g->type_information));
-        }
-        // if ¬(f <= g) then f > g
-        deduction_set_t* deduction_set = NULL;
-        if (!is_less_or_equal_specialized_template_function(
-                    // Why is it so convoluted to get the type of the primary specialization ?
-                    named_type_get_symbol(template_type_get_primary_type(
-                        template_specialized_type_get_related_template_type(f->type_information)))->type_information,
-                    named_type_get_symbol(template_type_get_primary_type(
-                            template_specialized_type_get_related_template_type(g->type_information)))->type_information, 
-                    decl_context, &deduction_set, 
-                    /* explicit_template_arguments */ NULL,
-                    filename, line, /* is_conversion */ 0))
+        // If we saw that some argument ICS was really better and none was worse,
+        // then it is better
+        if (some_is_better)
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "OVERLOAD: Found that template-function [%s, %s:%d, %s] is more "
-                        "specialized than template-function [%s, %s:%d, %s]\n",
-                        f->symbol_name,
+                fprintf(stderr, "OVERLOAD: Found that [%s, %s:%d] IS better"
+                        " than [%s, %s:%d] because some argument in the first"
+                        " function has a better ICS than the respective one in the second\n",
+                        print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
                         f->file,
                         f->line,
-                        print_declarator(f->type_information),
-                        g->symbol_name,
+                        print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
                         g->file,
-                        g->line,
-                        print_declarator(g->type_information));
+                        g->line);
             }
             return 1;
         }
+
+
+        // or if not that, non-template functions are preferred over template
+        // functions
+        if (!is_template_specialized_type(f->type_information)
+                && is_template_specialized_type(g->type_information))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "OVERLOAD: Found that [%s, %s:%d] IS better than [%s, %s:%d] because "
+                        "the first is not a template-specialization and the second is\n",
+                        print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
+                        f->file,
+                        f->line,
+                        print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
+                        g->file,
+                        g->line);
+            }
+            return 1;
+        }
+
+        if (is_template_specialized_type(f->type_information)
+                && is_template_specialized_type(g->type_information))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "OVERLOAD: Found that [%s, %s:%d] and [%s, %s:%d] are template functions "
+                        "so we have to check which one is more specialized\n",
+                        print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
+                        f->file,
+                        f->line,
+                        print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
+                        g->file,
+                        g->line);
+            }
+            // if ¬(f <= g) then f > g
+            deduction_set_t* deduction_set = NULL;
+            if (!is_less_or_equal_specialized_template_function(
+                        // Why is it so convoluted to get the type of the primary specialization ?
+                        named_type_get_symbol(template_type_get_primary_type(
+                                template_specialized_type_get_related_template_type(f->type_information)))->type_information,
+                        named_type_get_symbol(template_type_get_primary_type(
+                                template_specialized_type_get_related_template_type(g->type_information)))->type_information, 
+                        decl_context, &deduction_set, 
+                        /* explicit_template_arguments */ NULL,
+                        filename, line, /* is_conversion */ 0))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "OVERLOAD: Found that template-function [%s, %s:%d] is more "
+                            "specialized than template-function [%s, %s:%d]\n",
+                            print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
+                            f->file,
+                            f->line,
+                            print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
+                            g->file,
+                            g->line);
+                }
+                return 1;
+            }
+        }
     }
-    
+
     // It is not better (it might be equally good, though)
     DEBUG_CODE()
     {
-        fprintf(stderr, "OVERLOAD: Found that [%s, %s:%d, %s] is NOT better than [%s, %s:%d, %s]\n",
-                f->symbol_name,
+        fprintf(stderr, "OVERLOAD: Found that [%s, %s:%d] is NOT better than [%s, %s:%d]\n",
+                print_decl_type_str(f->type_information, f->decl_context, f->symbol_name),
                 f->file,
                 f->line,
-                print_declarator(f->type_information),
-                g->symbol_name,
+                print_decl_type_str(g->type_information, g->decl_context, g->symbol_name),
                 g->file,
-                g->line,
-                print_declarator(g->type_information));
+                g->line);
     }
     return 0;
 }
 
 static
-char is_better_function(scope_entry_t* f,
-        scope_entry_t* g,
+char is_better_function(overload_entry_list_t* f,
+        overload_entry_list_t* g,
         decl_context_t decl_context,
-        type_t **argument_types,
-        int num_types,
         const char *filename,
         int line)
 {
-    return is_better_function_flags(f, g, decl_context, argument_types, num_types,
-            /* no_standard_conversions = */ 0, filename, line);
+    return is_better_function_flags(f, g, decl_context, filename, line);
 }
 
 
 /*
  * num_arguments includes the implicit argument so it should never be zero, at least 1
  */
-scope_entry_t* solve_overload(scope_entry_list_t* candidate_functions, 
-        type_t **argument_types, int num_arguments,
+scope_entry_t* solve_overload(candidate_t* candidate_set,
         decl_context_t decl_context,
         const char *filename, int line,
         scope_entry_t** conversors)
 {
     DEBUG_CODE()
     {
-        fprintf(stderr, "OVERLOAD: Have to solve overload of an invocation with types\n");
 
-        if (num_arguments > 0)
+        fprintf(stderr, "OVERLOAD: Have to solve overload of functions\n");
+        if (candidate_set != NULL)
         {
-            int i;
-            for (i  = 0; i < num_arguments; i++)
-            {
-                if (argument_types[i] == NULL
-                        && i == 0)
-                {
-                    fprintf(stderr, "OVERLOAD:    [0] <No implicit argument considered>\n");
-                }
-                else
-                {
-                    fprintf(stderr, "OVERLOAD:    [%d] %s", i, print_declarator(argument_types[i]));
-                    if (i == 0)
-                    {
-                        fprintf(stderr, " <implicit argument type>");
-                    }
-                    fprintf(stderr, "\n");
-                }
-            }
-        }
-        else
-        {
-            fprintf(stderr, "OVERLOAD:    No arguments\n");
-        }
-        fprintf(stderr, "OVERLOAD: using one of these overloaded functions\n");
-        if (candidate_functions != NULL)
-        {
-            scope_entry_list_t *it = candidate_functions;
+            int i = 0;
+            candidate_t *it = candidate_set;
             while (it != NULL)
             {
-                fprintf(stderr, "OVERLOAD:    %s, %s:%d [%s] %s\n",
+                fprintf(stderr, "OVERLOAD: Candidate %d: %s, %s:%d [%s] %s\n",
+                        i,
                         it->entry->symbol_name,
                         it->entry->file,
                         it->entry->line,
                         print_declarator(it->entry->type_information),
                         (it->entry->entity_specs.is_builtin ? "<builtin function>" : ""));
 
+                fprintf(stderr, "OVERLOAD: Candidate %d: called with (", i);
+                if (it->num_args == 0)
+                {
+                    fprintf(stderr, "<<no arguments>>");
+                }
+                else
+                {
+                    int j;
+                    for (j = 0; j < it->num_args; j++)
+                    {
+                        if (j == 0 
+                                && it->entry->entity_specs.is_member
+                                && !it->entry->entity_specs.is_constructor)
+                        {
+                            fprintf(stderr, "[[implicit argument]] ");
+                        }
+                        ERROR_CONDITION(it->args[j] == NULL, "Invalid argument %d type!\n", j);
+
+                        fprintf(stderr, "%s", print_declarator(it->args[j]) );
+
+                        if ((j + 1) != it->num_args)
+                        {
+                            fprintf(stderr, ", ");
+                        }
+                    }
+                }
+                fprintf(stderr, ")\n");
+
+                i++;
                 it = it->next;
             }
         }
@@ -1726,22 +1677,22 @@ scope_entry_t* solve_overload(scope_entry_list_t* candidate_functions,
     }
 
     // Special case for overloaded builtins of gcc
-    if (candidate_functions != NULL
-            && candidate_functions->next == NULL
-            && is_computed_function_type(candidate_functions->entry->type_information))
+    if (candidate_set != NULL
+            && candidate_set->next == NULL
+            && is_computed_function_type(candidate_set->entry->type_information))
     {
         // Use this function removing all lvalues that might have arosen
         int i;
-        for (i = 1; i < num_arguments; i++)
+        for (i = 1; i < candidate_set->num_args; i++)
         {
-            argument_types[i] = no_ref(argument_types[i]);
+            candidate_set->args[i] = no_ref(candidate_set->args[i]);
         }
 
         computed_function_type_t compute_type_function = 
-            computed_function_type_get_computing_function(candidate_functions->entry->type_information);
+            computed_function_type_get_computing_function(candidate_set->entry->type_information);
 
-        scope_entry_t* solved_function = compute_type_function(candidate_functions->entry, 
-                &argument_types[1], num_arguments - 1);
+        scope_entry_t* solved_function = compute_type_function(candidate_set->entry, 
+                candidate_set->args, candidate_set->num_args);
 
         return solved_function;
     }
@@ -1749,7 +1700,7 @@ scope_entry_t* solve_overload(scope_entry_list_t* candidate_functions,
     // Additional safety check to avoid mixing computed function types with
     // normal (overloaded) C++ functions
     {
-        scope_entry_list_t *it = candidate_functions;
+        candidate_t *it = candidate_set;
         while (it != NULL)
         {
             scope_entry_t* entry = it->entry;
@@ -1763,8 +1714,8 @@ scope_entry_t* solve_overload(scope_entry_list_t* candidate_functions,
     }
     
     // First get the viable functions
-    overload_entry_list_t *viable_functions = compute_viable_functions(candidate_functions, 
-            argument_types, num_arguments, decl_context, filename, line);
+    overload_entry_list_t *viable_functions = compute_viable_functions(candidate_set, 
+            decl_context, filename, line);
 
     if (viable_functions == NULL)
     {
@@ -1782,11 +1733,13 @@ scope_entry_t* solve_overload(scope_entry_list_t* candidate_functions,
             overload_entry_list_t *it = viable_functions;
             while (it != NULL)
             {
-                fprintf(stderr, "OVERLOAD:    %s, %s:%d [%s]\n",
-                        it->entry->symbol_name,
-                        it->entry->file,
-                        it->entry->line,
-                        print_declarator(it->entry->type_information));
+                fprintf(stderr, "OVERLOAD:    %s:%d: %s\n",
+                        it->candidate->entry->file,
+                        it->candidate->entry->line,
+                        print_decl_type_str(
+                            it->candidate->entry->type_information,
+                            it->candidate->entry->decl_context,
+                            it->candidate->entry->symbol_name));
 
                 it = it->next;
             }
@@ -1794,22 +1747,23 @@ scope_entry_t* solve_overload(scope_entry_list_t* candidate_functions,
     }
 
     overload_entry_list_t* best_viable = viable_functions;
-
     overload_entry_list_t* it = viable_functions->next;
 
     // First tournament
     while (it != NULL)
     {
-        scope_entry_t* current = it->entry;
-
-        if (is_better_function(current, best_viable->entry,
-                    decl_context, argument_types, num_arguments,
-                    filename, line))
+        if (is_better_function(it, best_viable,
+                    decl_context, filename, line))
         {
             best_viable = it;
         }
 
         it = it->next;
+    }
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "OVERLOAD: Second tournament, ensuring the best viable so far is really the best\n");
     }
 
     // Second tournament, now we have to ensure that the best_viable we have
@@ -1819,20 +1773,19 @@ scope_entry_t* solve_overload(scope_entry_list_t* candidate_functions,
     while ((it != NULL) 
             && (best_viable != NULL))
     {
-        scope_entry_t* current = it->entry;
+        overload_entry_list_t* current = it;
         // Do not compare to ourselves
-        if (current != best_viable->entry)
+        if (current != best_viable)
         {
-            if (!is_better_function(best_viable->entry, current, 
-                        decl_context, argument_types, num_arguments,
-                        filename, line))
+            if (!is_better_function(best_viable, current, 
+                        decl_context, filename, line))
             {
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "Ambiguous call to '%s'\n",
-                            get_declaration_string_internal(current->type_information,
-                                current->decl_context,
-                                current->symbol_name, 
+                            get_declaration_string_internal(current->candidate->entry->type_information,
+                                current->candidate->entry->decl_context,
+                                current->candidate->entry->symbol_name, 
                                 "", // initializer
                                 0, // semicolon
                                 NULL, // num_parameter_names
@@ -1853,9 +1806,9 @@ scope_entry_t* solve_overload(scope_entry_list_t* candidate_functions,
         DEBUG_CODE()
         {
             fprintf(stderr, "Ambiguous call to '%s'\n",
-                    get_declaration_string_internal(best_viable->entry->type_information,
-                        best_viable->entry->decl_context,
-                        best_viable->entry->symbol_name, 
+                    get_declaration_string_internal(best_viable->candidate->entry->type_information,
+                        best_viable->candidate->entry->decl_context,
+                        best_viable->candidate->entry->symbol_name, 
                         "", // initializer
                         0, // semicolon
                         NULL, // num_parameter_names
@@ -1873,9 +1826,9 @@ scope_entry_t* solve_overload(scope_entry_list_t* candidate_functions,
             DEBUG_CODE()
             {
                 fprintf(stderr, "Call to '%s' requires ambiguous conversion\n",
-                        get_declaration_string_internal(best_viable->entry->type_information,
-                            best_viable->entry->decl_context,
-                            best_viable->entry->symbol_name, 
+                        get_declaration_string_internal(best_viable->candidate->entry->type_information,
+                            best_viable->candidate->entry->decl_context,
+                            best_viable->candidate->entry->symbol_name, 
                             "", // initializer
                             0, // semicolon
                             NULL, // num_parameter_names
@@ -1891,8 +1844,8 @@ scope_entry_t* solve_overload(scope_entry_list_t* candidate_functions,
     DEBUG_CODE()
     {
         fprintf(stderr, "OVERLOAD: Best viable function is [%s, %s]\n", 
-                best_viable->entry->symbol_name,
-                print_declarator(best_viable->entry->type_information));
+                best_viable->candidate->entry->symbol_name,
+                print_declarator(best_viable->candidate->entry->type_information));
 
         if (conversors != NULL)
         {
@@ -1901,7 +1854,7 @@ scope_entry_t* solve_overload(scope_entry_list_t* candidate_functions,
                 fprintf(stderr, "OVERLOAD: List of called conversors\n");
             }
             int i;
-            for (i = 0; i < num_arguments; i++)
+            for (i = 0; i < best_viable->candidate->num_args; i++)
             {
                 if (best_viable->ics_arguments[i].kind == ICSK_USER_DEFINED)
                 {
@@ -1932,7 +1885,7 @@ scope_entry_t* solve_overload(scope_entry_list_t* candidate_functions,
             }
         }
     }
-    return best_viable->entry;
+    return best_viable->candidate->entry;
 }
 
 scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set, 
@@ -2139,24 +2092,27 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                             argument_list, template_parameters,
                             decl_context, line, filename);
 
-                    scope_entry_t* named_symbol = named_type_get_symbol(named_specialization_type);
-
-                    DEBUG_CODE()
+                    if (named_specialization_type != NULL)
                     {
-                        fprintf(stderr, "OVERLOAD: When solving address of overload function: "
-                                "template function-name specialization "
-                                "'%s' at ('%s:%d') is a matching specialization with type '%s'\n",
-                                named_symbol->symbol_name,
-                                named_symbol->file,
-                                named_symbol->line,
-                                print_declarator(named_symbol->type_information));
-                    }
+                        scope_entry_t* named_symbol = named_type_get_symbol(named_specialization_type);
 
-                    scope_entry_list_t* new_viable_fun 
-                        = counted_calloc(1, sizeof(*viable_functions), &_bytes_overload);
-                    new_viable_fun->entry = named_symbol;
-                    new_viable_fun->next = viable_functions;
-                    viable_functions = new_viable_fun;
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "OVERLOAD: When solving address of overload function: "
+                                    "template function-name specialization "
+                                    "'%s' at ('%s:%d') is a matching specialization with type '%s'\n",
+                                    named_symbol->symbol_name,
+                                    named_symbol->file,
+                                    named_symbol->line,
+                                    print_declarator(named_symbol->type_information));
+                        }
+
+                        scope_entry_list_t* new_viable_fun 
+                            = counted_calloc(1, sizeof(*viable_functions), &_bytes_overload);
+                        new_viable_fun->entry = named_symbol;
+                        new_viable_fun->next = viable_functions;
+                        viable_functions = new_viable_fun;
+                    }
                 }
             }
         }
@@ -2291,17 +2247,7 @@ scope_entry_t* solve_constructor(type_t* class_type,
 
     scope_entry_list_t* constructor_list = NULL;
 
-    type_t* augmented_argument_types[MAX_ARGUMENTS];
-    memset(augmented_argument_types, 0, sizeof(augmented_argument_types));
-
     int i;
-
-    // solve-overload always expects an implicit argument type
-    for (i = 0; i < num_arguments; i++)
-    {
-        augmented_argument_types[i+1] = argument_types[i];
-    }
-
     for (i = 0; i < class_type_get_num_constructors(get_actual_class_type(class_type)); i++)
     {
         scope_entry_t* constructor 
@@ -2314,6 +2260,13 @@ scope_entry_t* solve_constructor(type_t* class_type,
             continue;
         }
 
+        // For template specialized types, use the template symbol
+        if (is_template_specialized_type(constructor->type_information))
+        {
+            type_t* template_type = template_specialized_type_get_related_template_type(constructor->type_information);
+            constructor = template_type_get_related_symbol(template_type);
+        }
+
         scope_entry_list_t* new_entry_list = counted_calloc(1, sizeof(*new_entry_list), &_bytes_overload);
 
         new_entry_list->entry = constructor;
@@ -2322,17 +2275,27 @@ scope_entry_t* solve_constructor(type_t* class_type,
     }
 
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(constructor_list,
-            NULL, &(augmented_argument_types[1]), num_arguments,
+            NULL, argument_types, num_arguments,
             decl_context,
             filename, line, /* explicit_template_arguments */ NULL);
 
     scope_entry_t* augmented_conversors[MAX_ARGUMENTS];
     memset(augmented_conversors, 0, sizeof(augmented_conversors));
 
+    candidate_t* candidate_set = NULL;
+    scope_entry_list_t* it = overload_set;
+    while (it != NULL)
+    {
+        candidate_set = add_to_candidate_set(candidate_set,
+                it->entry,
+                num_arguments,
+                argument_types);
+
+        it = it->next;
+    }
+
     // Now we have all the constructors, perform an overload resolution on them
-    scope_entry_t* overload_resolution = solve_overload(overload_set, 
-            augmented_argument_types, 
-            /* solve_overload expects an implicit argument type */ num_arguments + 1, 
+    scope_entry_t* overload_resolution = solve_overload(candidate_set, 
             decl_context, 
             filename, line, 
             augmented_conversors);
@@ -2343,4 +2306,28 @@ scope_entry_t* solve_constructor(type_t* class_type,
     }
 
     return overload_resolution;
+}
+
+candidate_t* add_to_candidate_set(candidate_t* candidate_set,
+        scope_entry_t* entry,
+        int num_args,
+        type_t** args)
+{
+    candidate_t* result = counted_calloc(1, sizeof(*result), &_bytes_overload);
+
+    result->next = candidate_set;
+
+    result->entry = entry;
+
+    result->num_args = num_args;
+    result->args = args;
+
+    // Sanity check
+    int i;
+    for (i = 0; i < result->num_args; i++)
+    {
+        ERROR_CONDITION(result->args[i] == NULL, "An argument type cannot be NULL", 0);
+    }
+
+    return result;
 }

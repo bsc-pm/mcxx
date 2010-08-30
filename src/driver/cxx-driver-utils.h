@@ -27,6 +27,9 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <time.h>
+#include "cxx-process.h"
+
+MCXX_BEGIN_DECLS
 
 // Cygwin is so unix...
 #if defined(WIN32_BUILD) && !defined(__CYGWIN__)
@@ -94,13 +97,24 @@ void run_gdb(void);
 // Like rename but works accross filesystems
 char move_file(const char* source, const char* dest);
 
-// This function adds a file for cleanup for non temporary ones
+// These four functions add files or directories for deletion at the end of the
+// compilation process
+//
+// These two first mark files to be removed always except when -k or -K is
+// passed. Use them for files that represent intermediate steps of the
+// compilation
 void mark_file_for_cleanup(const char* name);
 void mark_dir_for_cleanup(const char* name);
+//
+// These two second mark files to be removed always except when -K is passed.
+// Use them for auxiliar files that are needed for some process but are not
+// actually meant to be examined by the user
 void mark_file_as_temporary(const char* name);
 void mark_dir_as_temporary(const char* name);
 
 // Find the path where the application runs
 const char* find_home(const char* progname);
+
+MCXX_END_DECLS
 
 #endif // CXX_DRIVERUTILS_H

@@ -73,7 +73,7 @@ type_t* solve_class_template(decl_context_t decl_context,
         }
 
         // We do not want these for instantiation purposes
-        if (!named_type_get_symbol(current_specialized_type)->entity_specs.template_is_declared)
+        if (!named_type_get_symbol(current_specialized_type)->entity_specs.is_user_declared)
         // if (class_type_is_incomplete_independent(
         //             get_actual_class_type(current_specialized_type))
         //         || class_type_is_incomplete_dependent(

@@ -26,9 +26,11 @@ test_generator=config/mercurium-omp
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-void f(void)
+#include <stdlib.h>
+
+int main(int argc, char* argv[])
 {
-    int x, k;
+    int x, k = 0;
 #pragma omp parallel private(x)
     {
 #pragma omp for
@@ -37,4 +39,9 @@ void f(void)
             k = 3;
         }
     }
+
+    if (k != 3)
+        abort();
+
+    return 0;
 }

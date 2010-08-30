@@ -1,5 +1,5 @@
 dnl Package definition: name, version, mail
-AC_INIT([mcxx],[1.3.5.3],[rferrer@ac.upc.edu])
+AC_INIT([mcxx],[1.3.5.6],[rferrer@ac.upc.edu])
 
 dnl Where are we ?
 AC_CANONICAL_BUILD
@@ -195,9 +195,11 @@ then
    NANOX_INCLUDES="${nanox_include}"
    NANOX_LIBS="${nanox_lib}"
 
-   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanox"
+   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos-common fun-tasks nanox"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
+   
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.cuda"
 fi
 
 AC_SUBST([NANOX_INCLUDES])
@@ -268,6 +270,11 @@ then
    NANOS4_INCLUDES="${nanos4_include}"
    NANOS4_LIBS="${nanos4_lib}"
 
+   if test ! x$is_enabled_tl_omp_nanox = xyes; 
+   then
+      TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos-common"
+   fi
+
    TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} nanos4"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
@@ -278,8 +285,39 @@ AC_SUBST([NANOS4_LIBS])
 
 dnl --------------------- End Support for OpenMP Nanos4 ---------------------
 
+dnl --------------------- OpenMP profile mode ---------------------
+
+is_enabled_tl_omp_profile="no"
+
+AC_MSG_CHECKING([if enabled OpenMP profile mode])
+AC_ARG_ENABLE([tl-openmp-profile],
+  AS_HELP_STRING([--enable-tl-openmp-profile], [Enables support of OpenMP profile mode]),
+  [
+    if test x$enableval = xyes -o x$enableval = x;
+    then
+        is_enabled_tl_omp_profile="yes"
+        AC_MSG_RESULT([yes])
+    else if test x$enableval = xno;
+         then
+            AC_MSG_RESULT([no])
+            is_enabled_tl_omp_profile="no"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ]
+)
+
+if test x$is_enabled_tl_omp_profile = xyes ;
+then
+   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} profile"
+   COMPILER_NAMES="${COMPILER_NAMES} omp-profcc omp-profcxx"
+fi
+
 dnl --------------------- Shared between Nanox and Nanos4 ------------------
-if test x$is_enabled_tl_omp_nanos4 = xyes -o x$is_enabled_tl_omp_nanox = xyes;
+if test x$is_enabled_tl_omp_nanos4 = xyes \
+      -o x$is_enabled_tl_omp_nanox = xyes \
+      -o x$is_enabled_tl_omp_profile = xyes ;
 then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.omp"
    TL_EXTENSIONS="${TL_EXTENSIONS} omp"
@@ -486,11 +524,11 @@ AC_ARG_WITH([superscalar-runtime-api-version],
     [
         if test $is_enabled_tl_superscalar = "yes" ; then
             case $withval in
-            1|2|3|4|5)
+            3|4|5)
                 use_tl_superscalar_version=$withval
                 ;;
             *)
-                AC_MSG_ERROR([Invalid Cell/SMP superscalar version specified. Available versions are 1, 2, 3, 4 and 5.])
+                AC_MSG_ERROR([Invalid Cell/SMP superscalar version specified. Available versions are 3, 4 and 5.])
                 ;;
             esac
         else
@@ -535,15 +573,14 @@ then
            ]
    )
  
-   TL_EXTENSIONS="${TL_EXTENSIONS} superscalar"
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.superscalar"
+   TL_EXTENSIONS="${TL_EXTENSIONS} superscalar ss_valgrind"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.superscalar config.ss_valgrind"
+   COMPILER_NAMES="${COMPILER_NAMES} ssvalgrindcc"
 fi
      
 SUPERSCALAR_INCLUDES="${superscalar_include}"
 SUPERSCALAR_LIBS="${superscalar_lib}"
  
-AM_CONDITIONAL(USE_TL_SUPERSCALAR_V1, test x"$use_tl_superscalar_version" = x"1")
-AM_CONDITIONAL(USE_TL_SUPERSCALAR_V2, test x"$use_tl_superscalar_version" = x"2")
 AM_CONDITIONAL(USE_TL_SUPERSCALAR_V3, test x"$use_tl_superscalar_version" = x"3")
 AM_CONDITIONAL(USE_TL_SUPERSCALAR_V4, test x"$use_tl_superscalar_version" = x"4")
 AM_CONDITIONAL(USE_TL_SUPERSCALAR_V5, test x"$use_tl_superscalar_version" = x"5")
@@ -592,6 +629,7 @@ dnl ----------------------- Superscalar and Nanox allow SS2 --------------------
 if test x$is_enabled_tl_superscalar = xyes -a x$is_enabled_tl_omp_nanox = xyes -a \
       "(" x$use_tl_superscalar_version = x4 -o x$use_tl_superscalar_version = x5 ")" ;
 then
+   TL_OMP_EXTENSIONS="${TL_OMP_EXTENSIONS} ss2omp"
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.sscc"
    COMPILER_NAMES="${COMPILER_NAMES} sscc sscxx"
 fi
@@ -677,7 +715,7 @@ AC_ARG_ENABLE([file-regeneration],
 
 # Make these variables precious
 AC_ARG_VAR([FLEX], [GNU Flex command])
-AC_ARG_VAR([BISON], [rofi-bison command])
+AC_ARG_VAR([BISON], [bison command])
 AC_ARG_VAR([GPERF], [GNU gperf command])
 
 force_flex=no
@@ -762,12 +800,12 @@ then
   AC_CHECK_PROG(BISON, bison, bison, no)
   if test x$BISON = xno;
   then
-     AC_MSG_NOTICE([You will need bison-2.3-rofi if you intend to modify *.y and *.y.in files])
+     AC_MSG_NOTICE([You will need GNU bison 2.3 or 2.4 if you intend to modify *.y and *.y.in files])
   else
     AC_MSG_CHECKING([bison version])
-    bison_ver=`$BISON --version | head -n 1 | $SED -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*\(-rofi\)\?\).*$/\1/'`
+    bison_ver=`$BISON --version | head -n 1 | $SED -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*.*\?\).*$/\1/'`
     case x${bison_ver} in
-       x2.@<:@0123@:>@-rofi)
+       x2.@<:@34@:>@*)
           AC_MSG_RESULT([${bison_ver}, ok])
           bison_good=yes
           ;;
@@ -856,6 +894,8 @@ AC_ARG_WITH([type-environment],
 
 RPATH_PARAMETER="-rpath"
 AC_SUBST([RPATH_PARAMETER])
+NANOS4_32_BIT_COMPAT=""
+AC_SUBST([NANOS4_32_BIT_COMPAT])
 
 dnl Redundancy ahead
 if test x"$default_type_environ" = x;
@@ -873,6 +913,7 @@ dnl We try to figure a sensible default environment based on the configure envir
            ;;
        x86_64-*-linux*)
            default_type_environ="linux-x86_64"
+           NANOS4_32_BIT_COMPAT="-m32"
            ;;
        ia64-*-linux*)
            default_type_environ="linux-ia64"
@@ -1007,12 +1048,14 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/Makefile 
            src/tl/omp/core/Makefile 
            src/tl/omp/fun-tasks/Makefile 
+           src/tl/omp/profile/Makefile 
            src/tl/omp/ss2omp/Makefile 
            src/tl/omp/nanos-common/Makefile 
            src/tl/omp/nanox/Makefile 
            src/tl/omp/nanox/devices/Makefile 
            src/tl/omp/nanox/devices/smp/Makefile 
            src/tl/omp/nanox/devices/smp_numa/Makefile 
+           src/tl/omp/nanox/devices/gpu/Makefile 
            src/tl/omp/nanos4/Makefile 
            src/tl/instr/Makefile 
            src/tl/instr_pthreads/Makefile 
@@ -1026,6 +1069,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/examples/decl_closure/Makefile
            src/tl/examples/multifile_test/Makefile
            src/tl/superscalar/Makefile
+           src/tl/ss_valgrind/Makefile
            config/Makefile
            tests/Makefile
            tests/config/Makefile
@@ -1066,6 +1110,8 @@ then
   echo "   Nanos 4 includes :" $nanos4_include
   echo "   Nanos 4 libraries:" $nanos4_lib
 fi
+echo ""
+echo " * OpenMP static profile mode: " $is_enabled_tl_omp_profile
 echo ""
 echo " * Mintaka :" $is_enabled_tl_instr
 if test x$is_enabled_tl_instr = xyes;

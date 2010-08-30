@@ -56,8 +56,26 @@ static void do_smp_numa_outline_replacements(
 
     bool err_declared = false;
 
-    ObjectList<OpenMP::CopyItem> copies = data_env_info.get_copy_items();
+    ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
+    for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
+            it != data_env_items.end();
+            it++)
+    {
+        DataEnvironItem& data_env_item(*it);
 
+        Symbol sym = data_env_item.get_symbol();
+        const std::string field_name = data_env_item.get_field_name();
+
+        if (data_env_item.is_private())
+            continue;
+
+        if (data_env_item.is_copy())
+        {
+        	replace_src.add_replacement(sym, "_args->" + field_name);
+        }
+    }
+
+    ObjectList<OpenMP::CopyItem> copies = data_env_info.get_copy_items();
     unsigned int j = 0;
     for (ObjectList<OpenMP::CopyItem>::iterator it = copies.begin();
             it != copies.end();
@@ -67,34 +85,33 @@ static void do_smp_numa_outline_replacements(
         Symbol sym = data_ref.get_base_symbol();
         Type type = sym.get_type();
 
-        bool points_an_array = false;
+        bool requires_indirect = false;
 
         if (type.is_array())
         {
             type = type.array_element().get_pointer_to();
-            points_an_array = true;
         }
         else
         {
+            requires_indirect = true;
             type = type.get_pointer_to();
         }
 
         // There are some problems with the typesystem currently
         // that require these workarounds
-        if (data_ref.get_type().is_array()
-                && data_ref.get_data_type().is_pointer())
+        if (data_ref.is_shaping_expression())
         {
             // Shaping expressions ([e] a)  have a type of array but we do not
             // want the array but the related pointer
             type = data_ref.get_data_type();
-            points_an_array = true;
+            requires_indirect = false;
         }
-        else if (data_ref.get_data_type().is_array())
+        else if (data_ref.is_array_section())
         {
             // Array sections have a scalar type, but the data type will be array
             // See ticket #290
             type = data_ref.get_data_type().array_element().get_pointer_to();
-            points_an_array = true;
+            requires_indirect = false;
         }
 
         std::string copy_name = "_cp_" + sym.get_name();
@@ -120,10 +137,7 @@ static void do_smp_numa_outline_replacements(
             << "if (cp_err != NANOS_OK) nanos_handle_error(cp_err);"
             ;
 
-        replace_src.add_replacement(sym, "(*" + copy_name + ")");
-
-        // No replacement for arrays
-        if (points_an_array)
+        if (!requires_indirect)
         {
             replace_src.add_replacement(sym, copy_name);
         }
@@ -186,7 +200,7 @@ void DeviceSMP_NUMA::create_outline(
 
     result
         << forward_declaration
-        << "void " << outline_name << "(" << parameter_list << ")"
+        << "static void " << outline_name << "(" << parameter_list << ")"
         << "{"
         << body
         << "}"
@@ -248,14 +262,23 @@ void DeviceSMP_NUMA::create_outline(
 
 void DeviceSMP_NUMA::get_device_descriptor(const std::string& task_name,
         DataEnvironInfo &data_environ,
-        const OutlineFlags&,
+        const OutlineFlags& outline_flags,
+        AST_t reference_tree,
+        ScopeLink sl,
         Source &ancillary_device_description,
         Source &device_descriptor)
 {
     Source outline_name;
-    outline_name
-        << smp_outline_name(task_name);
+    if (!outline_flags.implemented_outline)
+    {
+        outline_name
+            << smp_outline_name(task_name);
         ;
+    }
+    else
+    {
+        outline_name << task_name;
+    }
 
     ancillary_device_description
         << comment("SMP device descriptor")
