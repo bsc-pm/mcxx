@@ -227,12 +227,12 @@ namespace TL
                 ParameterInfo reduction_vector_parameter("rdv_" + symbol.get_name(), 
                         "rdv_" + symbol.get_name(),
                         symbol, pointer_type, ParameterInfo::BY_POINTER);
-
                 parameter_info.append(reduction_vector_parameter);
 
-                ParameterInfo parameter(symbol.get_name(), 
-                        "&" + symbol.get_name(),
-                        symbol, pointer_type, ParameterInfo::BY_POINTER);
+                // ParameterInfo parameter(symbol.get_name(), 
+                //         "&" + symbol.get_name(),
+                //         symbol, pointer_type, ParameterInfo::BY_POINTER);
+                // parameter_info.append(parameter);
             }
 
             // COPYIN references

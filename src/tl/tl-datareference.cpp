@@ -286,7 +286,13 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
 
         size << "(" << arr_size << ") * " << factor;
 
-        addr << arr_addr;
+        Source proper_cast;
+
+        Type cast_type = expr.get_type().array_element().get_pointer_to();
+
+        proper_cast << "(" << cast_type.get_declaration(expr.get_scope(), "") << ")";
+
+        addr << "(" << proper_cast << "(" << arr_addr << "))";
 
         return true;
     }

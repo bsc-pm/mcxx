@@ -291,6 +291,7 @@ namespace TL
             bool is_list() const;
             //! Returns an ASTIterator of this list
             ASTIterator get_list_iterator();
+            ASTIterator get_list_iterator() const;
 
             //! States whether the node is in a list
             bool is_in_a_list();

@@ -35,7 +35,6 @@ namespace TL
 
         const std::string OMP_NANOX_VLA_DIMS = "omp.nanox.vla_dims";
 
-
 #if 0
         static void print_list(ObjectList<Source> src)
         {
@@ -148,11 +147,18 @@ namespace TL
                 Type new_type_spawn = compute_replacement_type_for_vla(sym.get_type(), dim_names.begin(), dim_names.end());
 
                 // Now redeclare
-                Source redeclaration;
+                Source redeclaration, initializer;
                 redeclaration
                     << new_type_spawn.get_declaration(sym.get_scope(), sym.get_name())
+                    << initializer
                     << ";"
                     ;
+
+                if (sym.has_initialization()) 
+                {
+                    initializer << sym.get_initialization().prettyprint()
+                        ;
+                }
 
                 AST_t redeclaration_tree = redeclaration.parse_statement(enclosing_stmt_tree,
                         sl, Source::ALLOW_REDECLARATION);

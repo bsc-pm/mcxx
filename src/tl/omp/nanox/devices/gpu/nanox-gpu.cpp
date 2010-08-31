@@ -100,14 +100,13 @@ static void do_gpu_outline_replacements(
 
         // There are some problems with the typesystem currently
         // that require these workarounds
-        if (data_ref.get_type().is_array()
-                && data_ref.get_data_type().is_pointer())
+        if (data_ref.is_shaping_expression())
         {
             // Shaping expressions ([e] a)  have a type of array but we do not
             // want the array but the related pointer
             type = data_ref.get_data_type();
         }
-        else if (data_ref.get_data_type().is_array())
+        else if (data_ref.is_array_section())
         {
             // Array sections have a scalar type, but the data type will be array
             // See ticket #290
@@ -418,6 +417,8 @@ void DeviceGPU::create_outline(
 void DeviceGPU::get_device_descriptor(const std::string& task_name,
         DataEnvironInfo &data_environ,
         const OutlineFlags&,
+        AST_t reference_tree,
+        ScopeLink sl,
         Source &ancillary_device_description,
         Source &device_descriptor)
 {
