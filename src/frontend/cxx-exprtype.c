@@ -9191,103 +9191,147 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
     ERROR_CONDITION (ASTType(initializer) != AST_INITIALIZER_BRACES, "Invalid node", 0);
 
     AST expression_list = ASTSon0(initializer);
-    if (expression_list != NULL)
+    if ((is_class_type(declared_type)
+                || is_array_type(declared_type)
+                || is_vector_type(declared_type))
+            && is_aggregate_type(declared_type))
     {
-        if (!is_array_type(declared_type)
-                && !is_class_type(declared_type)
-                && !is_vector_type(declared_type)
-                && !is_dependent_type(declared_type))
+        if (expression_list != NULL)
         {
-            fprintf(stderr, "%s: warning: brace initialization can only be used with\n",
-                    ast_location(initializer));
-            fprintf(stderr, "%s: warning: array types, struct, class, union or vector types\n",
-                    ast_location(initializer));
-        }
-
-        char faulty = 0;
-        int initializer_num = 0;
-        AST iter;
-        for_each_element(expression_list, iter)
-        {
-            AST initializer_clause = ASTSon1(iter);
-
-            type_t* type_in_context = declared_type;
-
-            // If the initializer is not a designated one, the type in context
-            // is the subtype of the aggregated one
-            if (ASTType(initializer_clause) != AST_DESIGNATED_INITIALIZER
-                    // This is the gcc-esque way of a designated
-                    // initializer, used when C99 is not available
-                    && ASTType(initializer_clause) != AST_GCC_INITIALIZER_CLAUSE)
+            if (!is_array_type(declared_type)
+                    && !is_class_type(declared_type)
+                    && !is_vector_type(declared_type)
+                    && !is_dependent_type(declared_type))
             {
-                if (is_class_type(declared_type))
+                fprintf(stderr, "%s: warning: brace initialization can only be used with\n",
+                        ast_location(initializer));
+                fprintf(stderr, "%s: warning: array types, struct, class, union or vector types\n",
+                        ast_location(initializer));
+            }
+
+            char faulty = 0;
+            int initializer_num = 0;
+            AST iter;
+            for_each_element(expression_list, iter)
+            {
+                AST initializer_clause = ASTSon1(iter);
+
+                type_t* type_in_context = declared_type;
+
+                // If the initializer is not a designated one, the type in context
+                // is the subtype of the aggregated one
+                if (ASTType(initializer_clause) != AST_DESIGNATED_INITIALIZER
+                        // This is the gcc-esque way of a designated
+                        // initializer, used when C99 is not available
+                        && ASTType(initializer_clause) != AST_GCC_INITIALIZER_CLAUSE)
                 {
-                    type_t* actual_class_type = get_actual_class_type(declared_type);
-
-                    if (initializer_num >= class_type_get_num_nonstatic_data_members(actual_class_type))
+                    if (is_class_type(declared_type))
                     {
-                        fprintf(stderr, "%s: warning: too many initializers for aggregated data type\n",
-                                ast_location(initializer_clause));
+                        type_t* actual_class_type = get_actual_class_type(declared_type);
 
-                        type_in_context = get_signed_int_type();
+                        if (initializer_num >= class_type_get_num_nonstatic_data_members(actual_class_type))
+                        {
+                            fprintf(stderr, "%s: warning: too many initializers for aggregated data type\n",
+                                    ast_location(initializer_clause));
+
+                            type_in_context = get_signed_int_type();
+                        }
+                        else
+                        {
+                            scope_entry_t* data_member = class_type_get_nonstatic_data_member_num(actual_class_type, initializer_num);
+                            type_in_context = data_member->type_information;
+                        }
+                    }
+                    else if (is_array_type(declared_type))
+                    {
+                        type_in_context = array_type_get_element_type(declared_type);
+                    }
+                    else if (is_vector_type(declared_type))
+                    {
+                        type_in_context = vector_type_get_element_type(declared_type);
                     }
                     else
                     {
-                        scope_entry_t* data_member = class_type_get_nonstatic_data_member_num(actual_class_type, initializer_num);
-                        type_in_context = data_member->type_information;
+                        internal_error("Invalid aggregated type '%s'",
+                                print_decl_type_str(declared_type, decl_context, ""));
                     }
                 }
-                else if (is_array_type(declared_type))
-                {
-                    type_in_context = array_type_get_element_type(declared_type);
-                }
-                else if (is_vector_type(declared_type))
-                {
-                    type_in_context = vector_type_get_element_type(declared_type);
-                }
-                else
-                {
-                    internal_error("Invalid aggregated type '%s'",
-                            print_decl_type_str(declared_type, decl_context, ""));
-                }
+
+                if (!check_for_initializer_clause(initializer_clause, decl_context, type_in_context))
+                    faulty = 1;
+
+                initializer_num++;
             }
 
-            if (!check_for_initializer_clause(initializer_clause, decl_context, type_in_context))
-                faulty = 1;
+            if (faulty)
+                return 0;
 
-            initializer_num++;
-        }
-
-        if (faulty)
-            return 0;
-
-        if (is_class_type(declared_type))
-        {
-            expression_set_type(initializer, declared_type);
-        }
-        else if (is_array_type(declared_type))
-        {
-            char c[64];
-            snprintf(c, 63, "%d", initializer_num);
-            c[63] = '\0';
-            AST length = 
-                ASTMake1(AST_EXPRESSION,
-                        ASTLeaf(AST_DECIMAL_LITERAL, 
+            if (is_class_type(declared_type))
+            {
+                expression_set_type(initializer, declared_type);
+            }
+            else if (is_array_type(declared_type))
+            {
+                char c[64];
+                snprintf(c, 63, "%d", initializer_num);
+                c[63] = '\0';
+                AST length = 
+                    ASTMake1(AST_EXPRESSION,
+                            ASTLeaf(AST_DECIMAL_LITERAL, 
+                                ast_get_filename(initializer),
+                                ast_get_line(initializer),
+                                c),
                             ast_get_filename(initializer),
                             ast_get_line(initializer),
-                            c),
-                        ast_get_filename(initializer),
-                        ast_get_line(initializer),
-                        NULL);
+                            NULL);
 
-            type_t *list_array = get_array_type(
-                    array_type_get_element_type(declared_type),
-                    length, decl_context);
+                type_t *list_array = get_array_type(
+                        array_type_get_element_type(declared_type),
+                        length, decl_context);
 
-            expression_set_type(initializer, list_array);
+                expression_set_type(initializer, list_array);
+            }
+        }
+        return 1;
+    }
+    // Not an aggregate class
+    else if (is_class_type(declared_type)
+            && !is_aggregate_type(declared_type))
+    {
+        // This one is the toughest :)
+    }
+    // Not an aggregate of any kind
+    else 
+    {
+        if (expression_list != NULL)
+        {
+            AST prev = ASTSon0(expression_list);
+
+            if (prev != NULL)
+            {
+                fprintf(stderr, "%s: warning: brace initialization with more than one element is not valid here\n",
+                        ast_location(initializer));
+                return 0;
+            }
+
+            AST initializer_clause = ASTSon1(expression_list);
+            if (check_for_initializer_clause(initializer_clause, decl_context, declared_type))
+            {
+                expression_set_type(expression_list, expression_get_type(initializer_clause));
+                expression_set_constant(expression_list, expression_get_constant(initializer_clause));
+                return 1;
+            }
+        }
+        else
+        {
+            // Empty is OK
+            // FIXME: We should compute the constant value
+            expression_set_type(expression_list, declared_type);
+            return 1;
         }
     }
-    return 1;
+
+    return 0;
 }
 
 char check_for_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type)
@@ -9349,8 +9393,6 @@ char check_for_initializer_clause(AST initializer, decl_context_t decl_context, 
                         ASTAttrSetValueType(initializer, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                         ASTAttrSetValueType(initializer, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversor));
                     }
-
-                    expression_set_type(initializer, initializer_expr_type);
                 }
 
                 return result;
