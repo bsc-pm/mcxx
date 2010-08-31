@@ -25,7 +25,7 @@ namespace TL
                 register_directive("barrier");
                 register_directive("wait");
                 register_directive("restart");
-                // register_directive("mutex");
+                register_directive("mutex");
 
                 on_directive_post["start"].connect(functor(&SS2OpenMP::remove_directive, *this));
                 on_directive_post["finish"].connect(functor(&SS2OpenMP::on_post_finish, *this));
