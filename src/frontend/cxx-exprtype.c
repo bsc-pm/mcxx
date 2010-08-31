@@ -9038,34 +9038,88 @@ static char check_for_predecrement(AST expr, decl_context_t decl_context)
 static type_t* get_typeid_type(decl_context_t decl_context, AST expr)
 {
     // Lookup for 'std::type_info'
-    decl_context_t global_context = decl_context;
-    global_context.current_scope = global_context.global_scope;
+    static scope_entry_t* typeid_sym = NULL;
 
-    scope_entry_list_t* entry_list = query_in_scope_str(global_context, "std");
-
-    if (entry_list == NULL 
-            || entry_list->entry->kind != SK_NAMESPACE)
+    // FIXME: This will last accross files
+    if (typeid_sym == NULL)
     {
-        running_error("%s: error: namespace 'std' not found when looking up 'std::type_info' (because of '%s'). \n"
-                "Maybe you need '#include <typeinfo>'",
-                ast_location(expr),
-                prettyprint_in_buffer(expr));
+        decl_context_t global_context = decl_context;
+        global_context.current_scope = global_context.global_scope;
+
+        scope_entry_list_t* entry_list = query_in_scope_str(global_context, "std");
+
+        if (entry_list == NULL 
+                || entry_list->entry->kind != SK_NAMESPACE)
+        {
+            running_error("%s: error: namespace 'std' not found when looking up 'std::type_info' (because of '%s'). \n"
+                    "Maybe you need '#include <typeinfo>'",
+                    ast_location(expr),
+                    prettyprint_in_buffer(expr));
+        }
+
+        decl_context_t std_context = entry_list->entry->namespace_decl_context;
+        entry_list = query_in_scope_str(std_context, "type_info");
+
+        if (entry_list == NULL
+                && entry_list->entry->kind != SK_CLASS
+                && entry_list->entry->kind != SK_TYPEDEF)
+        {
+            running_error("%s: error: typename 'type_info' not found when looking up 'std::type_info' (because of '%s')\n"
+                    "Maybe you need '#include <typeinfo>'",
+                    ast_location(expr),
+                    prettyprint_in_buffer(expr));
+        }
+
+        typeid_sym = entry_list->entry;
     }
 
-    decl_context_t std_context = entry_list->entry->namespace_decl_context;
-    entry_list = query_in_scope_str(std_context, "type_info");
+    return get_user_defined_type(typeid_sym);
+}
 
-    if (entry_list == NULL
-            && entry_list->entry->kind != SK_CLASS
-            && entry_list->entry->kind != SK_TYPEDEF)
+static type_t* get_initializer_list_type(decl_context_t decl_context, AST expr, char mandatory)
+{
+    // Lookup for 'std::initializer_list'
+    static scope_entry_t* initializer_list_sym = NULL;
+
+    // FIXME: This will last accross files
+    if (initializer_list_sym == NULL)
     {
-        running_error("%s: error: typename 'type_info' not found when looking up 'std::type_info' (because of '%s')\n"
-                "Maybe you need '#include <typeinfo>'",
-                ast_location(expr),
-                prettyprint_in_buffer(expr));
+        decl_context_t global_context = decl_context;
+        global_context.current_scope = global_context.global_scope;
+
+        scope_entry_list_t* entry_list = query_in_scope_str(global_context, "std");
+
+        if (entry_list == NULL 
+                || entry_list->entry->kind != SK_NAMESPACE)
+        {
+            if (!mandatory)
+                return NULL;
+
+            running_error("%s: error: namespace 'std' not found when looking up 'std::type_info' (because of '%s'). \n"
+                    "Maybe you need '#include <initializer_list>'",
+                    ast_location(expr),
+                    prettyprint_in_buffer(expr));
+        }
+
+        decl_context_t std_context = entry_list->entry->namespace_decl_context;
+        entry_list = query_in_scope_str(std_context, "initializer_list");
+
+        if (entry_list == NULL
+                && entry_list->entry->kind != SK_TEMPLATE)
+        {
+            if (!mandatory)
+                return NULL;
+
+            running_error("%s: error: template-nam 'initializer_list' not found when looking up 'std::initializer_list' (because of '%s')\n"
+                    "Maybe you need '#include <initializer_list>'",
+                    ast_location(expr),
+                    prettyprint_in_buffer(expr));
+        }
+
+        initializer_list_sym = entry_list->entry;
     }
 
-    return get_user_defined_type(entry_list->entry);
+    return get_user_defined_type(initializer_list_sym);
 }
 
 static char check_for_typeid_type(AST expr, decl_context_t decl_context)
@@ -9299,6 +9353,164 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
             && !is_aggregate_type(declared_type))
     {
         // This one is the toughest :)
+        type_t* arg_list[MAX_ARGUMENTS];
+        memset(arg_list, 0, sizeof(arg_list));
+
+        char any_is_dependent = 0;
+
+        int num_args = 0;
+        AST iter;
+        for_each_element(expression_list, iter)
+        {
+            AST expr = ASTSon1(iter);
+
+            if (num_args == MAX_ARGUMENTS)
+            {
+                running_error("%s: error: too many elements in initializer-list\n",
+                        ast_location(expr));
+            }
+
+            if (!check_for_expression(expr, decl_context))
+            {
+                return 0;
+            }
+
+            arg_list[num_args] = expression_get_type(expr);
+
+            if (is_dependent_expr_type(arg_list[num_args]))
+                any_is_dependent = 1;
+            num_args++;
+        }
+
+        any_is_dependent = any_is_dependent || is_dependent_type(declared_type);
+        if (any_is_dependent)
+            return 1;
+
+        // Now construct the candidates for overloading among the constructors
+        int num_ctors = class_type_get_num_constructors(declared_type);
+
+        type_t* std_initializer_list_type = get_initializer_list_type(decl_context, initializer, /* mandatory */ 0);
+
+        char has_initializer_list_ctor = 0;
+
+        // If std::initializer_list is not available there is no need to check
+        // this because it would have failed before
+        if (std_initializer_list_type != NULL)
+        {
+            int i;
+            for (i = 0; i < num_ctors && !has_initializer_list_ctor; i++)
+            {
+                scope_entry_t* entry = class_type_get_constructors_num(declared_type, i);
+
+                int num_parameters = function_type_get_num_parameters(entry->type_information);
+                // Number of real parameters, ellipsis are counted as parameters
+                // but only in the type system
+                if (function_type_get_has_ellipsis(entry->type_information))
+                    num_parameters--;
+
+                if (num_parameters > 0)
+                {
+                    type_t* first_param = function_type_get_parameter_type_num(entry->type_information, 0);
+
+                    // Remove unnecessary info
+                    first_param = get_unqualified_type(no_ref(first_param));
+
+                    if (is_template_specialized_type(first_param)
+                            && equivalent_types(template_specialized_type_get_related_template_type(first_param), 
+                                std_initializer_list_type))
+                    {
+                        has_initializer_list_ctor = 1;
+                    }
+                }
+            }
+        }
+
+        if (!has_initializer_list_ctor)
+        {
+            // Plain constructor resolution should be enough here
+            scope_entry_t* conversors[MAX_ARGUMENTS] = { 0 };
+            scope_entry_t* constructor = solve_constructor(declared_type,
+                    arg_list,
+                    num_args,
+                    /* is_explicit */ 0,
+                    decl_context,
+                    ASTFileName(initializer), ASTLine(initializer),
+                    conversors);
+
+            if (constructor == NULL)
+            {
+                // FIXME: Issue some message here
+                return 0;
+            }
+            else
+            {
+                return 1;
+            }
+        }
+        else
+        {
+            type_t* initializer_list_type = NULL;
+
+            // Try to come up with a common type (FIXME: not sure whether this
+            // is correct or not)
+            int i;
+            for (i = 0; i < num_args; i++)
+            {
+                if (initializer_list_type == NULL)
+                {
+                    initializer_list_type = arg_list[i];
+                }
+                else if (!equivalent_types(initializer_list_type, arg_list[i]))
+                {
+                    initializer_list_type = NULL;
+                }
+            }
+
+            if (initializer_list_type == NULL)
+            {
+                // FIXME: Issue some message here
+                return 0;
+            }
+
+            scope_entry_t* conversors[MAX_ARGUMENTS] = { 0 };
+
+            template_parameter_list_t* template_parameters = 
+                template_specialized_type_get_template_parameters(std_initializer_list_type);
+
+            template_argument_list_t *argument_list = counted_calloc(1, sizeof(*argument_list), &_bytes_used_expr_check);
+            template_argument_t *argument = counted_calloc(1, sizeof(*argument), &_bytes_used_expr_check);
+            argument->kind = TAK_TYPE;
+            argument->type = initializer_list_type;
+
+            P_LIST_ADD(argument_list->argument_list, argument_list->num_arguments, argument);
+
+            type_t* specialized_std_initializer = 
+                template_type_get_specialized_type(std_initializer_list_type,
+                        argument_list, template_parameters,
+                        decl_context, ASTLine(initializer), ASTFileName(initializer));
+
+            // Should it be a const T&  ?
+            arg_list[0] = specialized_std_initializer;
+            num_args = 1;
+
+            scope_entry_t* constructor = solve_constructor(declared_type,
+                    arg_list,
+                    num_args,
+                    /* is_explicit */ 0,
+                    decl_context,
+                    ASTFileName(initializer), ASTLine(initializer),
+                    conversors);
+
+            if (constructor == NULL)
+            {
+                // FIXME: Issue some message here
+                return 0;
+            }
+            else
+            {
+                return 1;
+            }
+        }
     }
     // Not an aggregate of any kind
     else 
