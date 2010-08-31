@@ -650,9 +650,18 @@ namespace TL
 
                     CXX_LANGUAGE()
                     {
-			            TL::AST_t pragma_functions_tree = pragma_functions.parse_declaration(ctr.get_ast(),
-			                    ctr.get_scope_link());
-			            ctr.get_ast().replace(pragma_functions_tree);
+                        TL::AST_t pragma_functions_tree;
+                        if (ctr.get_scope().is_class_scope())
+                        {
+					        pragma_functions_tree = pragma_functions.parse_member_declaration(ctr.get_ast(),
+					                ctr.get_scope_link());
+                        }
+                        else
+                        {
+					        pragma_functions_tree = pragma_functions.parse_declaration(ctr.get_ast(),
+					                ctr.get_scope_link());
+                        }
+				        ctr.get_ast().replace(pragma_functions_tree);
 
                         FunctionDefinition function_def(pragma_functions_tree, ctr.get_scope_link());
 						function_sym = function_def.get_function_symbol();
