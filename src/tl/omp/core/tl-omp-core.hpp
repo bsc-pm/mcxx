@@ -54,6 +54,7 @@ namespace TL
 
                 std::string _new_udr_str;
                 bool _new_udr;
+                int _udr_sym_counter;
                 void parse_new_udr(const std::string& str);
 
 
@@ -114,7 +115,7 @@ namespace TL
 
                 // Temporary hack
                 void declare_reduction_handler_pre_2(PragmaCustomConstruct construct);
-                void declare_reduction_handler_post_2(PragmaCustomConstruct construct);           
+                void declare_reduction_handler_post_2(PragmaCustomConstruct construct);
 
             public:
                 Core();

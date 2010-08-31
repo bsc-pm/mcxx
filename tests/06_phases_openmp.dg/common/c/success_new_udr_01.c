@@ -27,4 +27,5 @@ int main (int argc, char **argv)
    }
 
    if ( x != 0 ) abort();
+   return 0;
 }

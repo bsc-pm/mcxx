@@ -210,11 +210,12 @@ namespace TL
                     builtin_udr.set_is_builtin_operator(true);
 		            builtin_udr.set_in_symbol((*it).in_symbol);
 		            builtin_udr.set_out_symbol((*it).out_symbol);
+                    builtin_udr.set_udr_counter(0);
                     AST_t identity_expr(NULL);
                     parse_udr_identity(builtin_arithmetic_operators[i].identity.prettyprint(), ref_tree_of_clause,
                                 scope_link, (*it).type, identity_expr);
                     builtin_udr.set_identity(identity_expr);
-                    builtin_udr.set_function_name("");    // Builtin UDRs don't need a function name
+                    builtin_udr.set_function_definition_symbol(NULL);    // Builtin UDRs don't have a function definition
 
                     builtin_udr.sign_in_scope(global_scope, (*it).type);
                 }
@@ -505,7 +506,7 @@ namespace TL
                 new_udr.set_combine_expr((*it).combine_expression);
                 new_udr.set_in_symbol((*it).in_symbol);
                 new_udr.set_out_symbol((*it).out_symbol);
-
+                new_udr.set_udr_counter(_udr_sym_counter);
                 new_udr.lookup_udr(construct.get_scope(), 
                         found,
                         (*it).type);
@@ -543,7 +544,6 @@ namespace TL
 
                     std::string function_name = new_udr.get_symbol_name((*it).type);
 		            function_name = function_name.substr(1, function_name.size());   // symbol name without initial dot
-                    new_udr.set_function_name(function_name);
 
                     new_udr.sign_in_scope(construct.get_scope(), (*it).type);
 
@@ -553,6 +553,8 @@ namespace TL
                             << name << "' and type '"
                             << ((*it).type).get_declaration(scope_of_clause, "") << "'"
                             << std::endl;
+
+                    _udr_sym_counter++;
                 }
                 else
                 {
@@ -566,11 +568,116 @@ namespace TL
             _openmp_info->set_udr_list(construct.get_ast(), udrs);
         }
 
-        void Core::declare_reduction_handler_post_2(PragmaCustomConstruct construct) { }
+        void Core::declare_reduction_handler_post_2(PragmaCustomConstruct ctr) 
+        {
+		    if (_new_udr)
+	        {
+	            ObjectList<OpenMP::UDRInfoItem2> udr_list = _openmp_info->get_udr_list(ctr.get_ast());
+                ObjectList<Symbol> udr_symbol_list;
+	            for(ObjectList<OpenMP::UDRInfoItem2>::iterator it = udr_list.begin();
+	                    it != udr_list.end(); 
+	                    it++)
+	            {
+	                Source pragma_functions;
+			        OpenMP::UDRInfoItem2 udr2 = (*it);
+			        Type udr_type = udr2.get_type();
+
+			        Symbol out = udr2.get_out_symbol();
+			        Symbol in = udr2.get_in_symbol();
+			        std::string function_name = udr2.get_symbol_name(udr_type);
+                    function_name = function_name.substr(1, function_name.size());
+
+
+			        pragma_functions
+			            << "static void " << function_name
+			            << " ("
+			        ;
+
+			        C_LANGUAGE()
+			        {
+	                    Source combine_expr_replace;
+			            pragma_functions
+			                << out.get_type().get_pointer_to().get_declaration(out.get_scope(), out.get_name()) 
+			                << ", " 
+			                << in.get_type().get_pointer_to().get_declaration(in.get_scope(), in.get_name())
+			                << ")"
+			                << "{ " 
+			                << combine_expr_replace << ";"
+			                << "}"
+			            ;
+
+			            ReplaceSrcIdExpression replace_udr_sym(ctr.get_scope_link());
+			            replace_udr_sym.add_replacement(in, "(*" + in.get_name() + ")");
+			            replace_udr_sym.add_replacement(out, "(*" + out.get_name() + ")");
+			            combine_expr_replace << replace_udr_sym.replace(udr2.get_combine_expr());
+			        }
+
+			        CXX_LANGUAGE()
+			        {
+			            pragma_functions
+			                << out.get_type().get_reference_to().get_declaration(out.get_scope(), out.get_name())
+			                << ", " 
+			                << in.get_type().get_reference_to().get_declaration(in.get_scope(), in.get_name())
+			                << ")"
+			                << "{ " 
+			                << udr2.get_combine_expr().prettyprint() << ";"
+			                << "}"
+			            ;
+			        }
+
+                    Symbol function_sym;
+                    C_LANGUAGE()
+                    {
+		                if (!ctr.get_ast().get_enclosing_function_definition().is_valid())
+		                {
+			                TL::AST_t pragma_functions_tree = pragma_functions.parse_declaration(ctr.get_ast(),
+			                        ctr.get_scope_link());
+			                ctr.get_ast().prepend(pragma_functions_tree);
+
+                            FunctionDefinition function_def(pragma_functions_tree, ctr.get_scope_link());
+							function_sym = function_def.get_function_symbol();
+                        }
+		                else 
+		                {
+							TL::AST_t ref_tree = ctr.get_ast().get_enclosing_function_definition(true);
+			                TL::AST_t pragma_functions_tree = pragma_functions.parse_declaration(ref_tree, ctr.get_scope_link());
+			                ref_tree.prepend(pragma_functions_tree);
+
+                            FunctionDefinition function_def(pragma_functions_tree, ctr.get_scope_link());
+							function_sym = function_def.get_function_symbol();
+                        }
+                    }
+
+                    CXX_LANGUAGE()
+                    {
+			            TL::AST_t pragma_functions_tree = pragma_functions.parse_declaration(ctr.get_ast(),
+			                    ctr.get_scope_link());
+			            ctr.get_ast().replace(pragma_functions_tree);
+
+                        FunctionDefinition function_def(pragma_functions_tree, ctr.get_scope_link());
+						function_sym = function_def.get_function_symbol();
+                    }
+
+					udr_symbol_list.append(function_sym);
+
+                    // Add the symbol to the UDR info
+                    (*it).set_function_definition_symbol(function_sym);
+                     RefPtr<UDRInfoItem2> cp(new UDRInfoItem2(*it));
+                    ctr.get_scope().get_symbol_from_name(udr2.get_symbol_name(udr_type)).set_attribute("udr_info", cp);
+	            }
+                ctr.get_ast().remove_in_list();
+	        }
+	        else
+	        {
+	            // Do nothing but remove the directive
+	            ctr.get_ast().remove_in_list();
+	        }
+		}
 
 
         UDRInfoItem2::UDRInfoItem2(): 
             _name(""),
+            _udr_counter(0),
             _type(NULL),
             _combine_expression(NULL),
             _in_symbol(NULL),
@@ -578,18 +685,18 @@ namespace TL
             _is_builtin(false),
             _has_identity(false),
             _identity(NULL),
-            _function_name("")
+            _function_definition_symbol(NULL)
         {
         }
 
         // UDRInfoItem2 Methods
         std::string UDRInfoItem2::get_symbol_name(Type t) const
         {
-		    Type canonic_type = t;
-		    canonic_type = canonic_type.get_canonical_type();
+		    Type canonic_type = t.get_unqualified_type().get_canonical_type();
 
 			std::stringstream ss;
 			ss << canonic_type.get_internal_type();
+            ss << "_" << _udr_counter;
 
 		    return (".udr_" + _name + "_" + ss.str());
         }
@@ -597,15 +704,15 @@ namespace TL
 
         void UDRInfoItem2::sign_in_scope(Scope sc, Type type) const
         {
-            Symbol sym = sc.new_artificial_symbol(this->get_symbol_name(type));
+            std::string sym_name = this->get_symbol_name(type);
+            Symbol sym = sc.new_artificial_symbol(sym_name);
 
             RefPtr<UDRInfoItem2> cp(new UDRInfoItem2(*this));
-
             sym.set_attribute("udr_info", cp);
 
-            DEBUG_CODE()
-            {             
-                    std::cerr << "UDR: Signing in " << this->get_symbol_name(type) << std::endl;
+            //DEBUG_CODE()
+            {             if (!type.get_declaration(sc, "").compare("int"))
+                    std::cerr << "UDR: Signing in " << sym_name << "    type " << type.get_declaration(sc, "") << std::endl;
             }
         }
 
@@ -633,25 +740,35 @@ namespace TL
 
         UDRInfoItem2 UDRInfoItem2::lookup_udr_2(Scope sc,
                 bool &found,
-                Type type) const
+                Type type,
+                int udr_counter) const
         {
-            DEBUG_CODE()
-            {
-                std::cerr << "UDR: Lookup start" << std::endl;
-            }
 
             found = false;
 
             UDRInfoItem2 new_udr;
-            ObjectList<Symbol> lookup = sc.get_symbols_from_name(this->get_symbol_name(type));
-            if (!lookup.empty())
+            std::string sym_base_name = this->get_symbol_name(type);
+            DEBUG_CODE()
             {
-                found = true;
-                RefPtr<UDRInfoItem2> obj = 
-                    RefPtr<UDRInfoItem2>::cast_dynamic(lookup.at(0).get_attribute("udr_info"));
-                new_udr = (*obj); 
+                std::cerr << "UDR: Lookup start"  << sym_base_name << std::endl;
             }
-
+            for (int i=0; !found, i<=udr_counter; i++)
+            {
+		        ObjectList<Symbol> lookup = sc.get_symbols_from_name(sym_base_name);
+		        if (!lookup.empty())
+		        {
+		            found = true;
+		            RefPtr<UDRInfoItem2> obj = 
+		                RefPtr<UDRInfoItem2>::cast_dynamic(lookup.at(0).get_attribute("udr_info"));
+		            new_udr = (*obj);
+                    break;
+		        }
+                else
+                {
+                    std::stringstream ss; ss << i+1;
+                    sym_base_name.replace(sym_base_name.size()-1, 1, ss.str());
+                }
+            }
             return new_udr;
         }
 
@@ -664,6 +781,16 @@ namespace TL
         void UDRInfoItem2::set_name(const std::string& str)
         {
             _name = str;
+        }
+
+        int UDRInfoItem2::get_udr_counter() const
+        {
+            return _udr_counter;
+        }
+ 
+        void UDRInfoItem2::set_udr_counter(int c)
+        {
+            _udr_counter = c;
         }
 
         Type UDRInfoItem2::get_type() const
@@ -765,14 +892,14 @@ namespace TL
                 return false;
         }
 
-        std::string UDRInfoItem2::get_function_name() const
+        Symbol UDRInfoItem2::get_function_definition_symbol() const
         {
-            return _function_name;
+            return _function_definition_symbol;
         }
 
-        void UDRInfoItem2::set_function_name(const std::string& str)
+        void UDRInfoItem2::set_function_definition_symbol(Symbol sym)
         {
-            _function_name = str;
+            _function_definition_symbol = sym;
         }
 
     }

@@ -293,6 +293,7 @@ namespace TL
 
                 ObjectList<UDRInfoItem2> get_udr_list(AST_t a);
                 void set_udr_list(AST_t expr, ObjectList<UDRInfoItem2> udr_list);
+                void set_udr_symbols(AST_t a, ObjectList<Symbol>);
 
                 void push_current_data_sharing(DataSharingEnvironment&);
                 void pop_current_data_sharing();

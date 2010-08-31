@@ -393,9 +393,6 @@ namespace TL
                     {
                         static_initializer << " = " << udr2.get_identity().prettyprint();
                     }
-
-                    std::cerr << "Outline for the new_udr '" << private_declarations.get_source() << "'" << std::endl;
-
                 }
                 else
                 {

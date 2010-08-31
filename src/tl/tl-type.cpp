@@ -635,7 +635,7 @@ namespace TL
 
     Type Type::get_canonical_type()
     {
-        return this->advance_over_typedefs().get_unqualified_type();
+         return ::canonical_type(this->_type_info);
     }
 
     bool Type::is_incomplete() const
