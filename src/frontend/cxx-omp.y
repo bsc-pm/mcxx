@@ -79,6 +79,34 @@ omp_udr_operator_2:  IDENTIFIER
 | omp_udr_builtin_op
 {
 	$$ = $1;
+	struct { const char *op; const char *name; } map[] =
+    { 
+        { "+", "_plus_"},
+        { "-", "_minus_"},
+        { "*", "_mult_"},
+        { "/", "_div_"},
+        { "&", "_and_"},
+        { "|", "_or_"},
+        { "^", "_exp_"},
+        { "&&", "_andand_"},
+        { "||", "_oror_"},
+        { NULL, NULL }
+    };
+
+	int i; 
+	char found = 0;
+	for (i = 0; map[i].op != NULL && !found; i++)
+	{
+		if ((found = (strcmp(ast_get_text($$), map[i].op) == 0)))
+        {
+            ast_set_text($$, map[i].name);
+		    break;
+        }
+	}
+	if (!found)
+    {
+		internal_error("Unhandled operator '%s'", ast_get_text($$));
+    }
 }
 ;
 

@@ -290,11 +290,12 @@ namespace TL
             else
             {
                 OpenMP::UDRInfoItem2 udr2 = reduction_symbol.get_udr_2();
+                std::string func_name = udr2.get_function_definition_symbol().get_qualified_name();
 
                 C_LANGUAGE()
                 {
 		            result
-		                << udr2.get_function_name()
+		                << func_name
 		                << "( "
                         << "&" << reduction_var_name
 		                << ", "
@@ -306,11 +307,11 @@ namespace TL
                 CXX_LANGUAGE()
                 {
 		            result
-		                << udr2.get_function_name()
+		                << func_name
 		                << "( "
-		                << "*" << reduction_var_name
+		                << reduction_var_name
 		                << ", "
-		                << "*" << partial_reduction
+		                << partial_reduction
 		                << " )"
 		                << ";"
 		            ;
@@ -334,7 +335,7 @@ namespace TL
                 {
                     Source result;
                     std::string op = udr.get_builtin_operator();
-
+ 
                     if (udr.get_associativity() == OpenMP::UDRInfoItem::LEFT)
                     {
                         result 
@@ -369,7 +370,9 @@ namespace TL
             }
             else
             {
+
                 OpenMP::UDRInfoItem2 udr2 = reduction_symbol.get_udr_2();
+
                 if (udr2.is_builtin_operator())
                 {
                     Source result;

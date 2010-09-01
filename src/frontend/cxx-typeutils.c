@@ -5295,7 +5295,7 @@ cv_qualifier_t get_cv_qualifier(type_t* type_info)
     return type_info->cv_qualifier;
 }
 
-static type_t* canonical_type(type_t* type)
+type_t* canonical_type(type_t* type)
 {
     if (type == NULL)
         return NULL;

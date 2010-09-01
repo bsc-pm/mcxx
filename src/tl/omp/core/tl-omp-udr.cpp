@@ -1513,7 +1513,11 @@ namespace TL
             }
         }
 
-        void Core::declare_reduction_handler_post(PragmaCustomConstruct construct) { }
+        void Core::declare_reduction_handler_post(PragmaCustomConstruct construct) 
+		{
+			if (_new_udr)
+				declare_reduction_handler_post_2(construct); 
+		}
 
         UDRInfoItem::UDRInfoItem()
             : _assoc(NONE), 

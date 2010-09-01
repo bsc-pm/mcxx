@@ -46,7 +46,7 @@ void A<_F>::f(_Q q)
         q = 0;
     }
     if (q != 0)
-        abort();
+    abort();
 }
 
 int main(int argc, char *argv[])

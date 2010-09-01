@@ -6,26 +6,35 @@ test_compile_fail_nanox_plain=yes
 test_compile_faulty_nanox_plain=yes
 </testinfo>
 */
+
 #include <stdio.h>
 #include <stdlib.h>
 
-#pragma omp declare reduction(min:int: _out = _out > _in ? _in : _out ) identity(2147483647)
-
 #define N 100
+
+struct myInt {
+   int x;
+};
+
+#pragma omp declare reduction(+:struct myInt: _out.x += _in.x)
 
 int main (int argc, char **argv)
 {
-   int i,x = 0;
+   int i,s=0;
    int a[N];
+   struct myInt x = {0};
 
-   for ( i = 0; i < N ; i++ ) a[i] = i;
-
-   #pragma omp parallel for reduction(min:x)
-   for ( i = 0; i < N ; i++ )
-   {
-        x = a[i] < x ? a[i] : x;
+   for ( i = 0; i < N ; i++ ) {
+       a[i] = i;
+       s += i;
    }
 
-   if ( x != 0 ) abort();
+   #pragma omp parallel for reduction(+:x)
+   for ( i = 0; i < N ; i++ )
+   {
+        x.x += a[i];
+   }
+
+   if ( x.x != s ) abort();
    return 0;
 }

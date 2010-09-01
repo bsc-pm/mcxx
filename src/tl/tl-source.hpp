@@ -290,6 +290,14 @@ namespace TL
              */
             AST_t parse_id_expression(Scope scope, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
 
+            //! Parses an id-expression without checking the expression
+            /*!
+             * \param scope Scope used to parse this code
+             * \param scope_link Scope link used to get the scope of \a ref_tree
+             * \param parse_flags Parsing flags
+             */
+            AST_t parse_id_expression_wo_check(Scope scope, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
+
             //! Parses a declaration
             /*!
              * \param ref_tree Reference tree used when parsing this code

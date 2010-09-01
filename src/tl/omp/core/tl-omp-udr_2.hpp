@@ -37,6 +37,7 @@ namespace TL
 
             private:
                 std::string _name;
+                int _udr_counter;
 			    Type _type;
 			    AST_t _combine_expression;
 			    Symbol _in_symbol;
@@ -47,7 +48,7 @@ namespace TL
                 bool _has_identity;
                 AST_t _identity;
 
-                std::string _function_name;
+                Symbol _function_definition_symbol;
 
             public:
                 // Constructor
@@ -61,13 +62,17 @@ namespace TL
                         Type udr_type) const;
                 UDRInfoItem2 lookup_udr_2(Scope sc,
                         bool &found,
-                        Type udr_type) const;
+                        Type udr_type,
+                        int udr_counter) const;
 
                 std::string get_symbol_name(Type t) const;
 
                 // Getters, setters and consults
                 std::string get_name() const;
                 void set_name(const std::string& str);
+
+                int get_udr_counter() const;
+                void set_udr_counter(int c);
 
                 Type get_type() const;
                 void set_type(Type t);
@@ -90,8 +95,8 @@ namespace TL
                 void set_identity(AST_t identity);
                 bool identity_is_constructor() const;
 
-                std::string get_function_name() const;
-                void set_function_name(const std::string& str);
+                Symbol get_function_definition_symbol() const;
+                void set_function_definition_symbol(Symbol sym);
         };
 
         // Functions used in tl-omp-core.cpp
