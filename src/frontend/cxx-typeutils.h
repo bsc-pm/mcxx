@@ -450,6 +450,7 @@ LIBMCXX_EXTERN struct type_tag* vector_type_get_element_type(struct type_tag*);
 
 LIBMCXX_EXTERN struct type_tag* braced_list_type_get_type_num(struct type_tag* t, int num);
 LIBMCXX_EXTERN int braced_list_type_get_num_types(struct type_tag* t);
+LIBMCXX_EXTERN struct type_tag** braced_list_type_get_types(struct type_tag* t);
 
 /* Query functions: Miscelaneous stuff not classified otherwise */
 LIBMCXX_EXTERN char class_type_is_base(struct type_tag* possible_base, struct type_tag* possible_derived);

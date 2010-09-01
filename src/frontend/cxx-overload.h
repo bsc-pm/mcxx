@@ -50,13 +50,25 @@ LIBMCXX_EXTERN struct scope_entry_tag* address_of_overloaded_function(struct sco
         const char *filename,
         int line);
 
-LIBMCXX_EXTERN scope_entry_t* solve_constructor(type_t* class_type, 
+LIBMCXX_EXTERN scope_entry_t* solve_constructor(
+        type_t* class_type, 
         type_t** argument_types, 
         int num_arguments,
         char is_explicit, 
         decl_context_t decl_context,
         const char* filename, int line,
-        scope_entry_t** conversors);
+        scope_entry_t** conversors,
+        scope_entry_list_t** candidates);
+
+LIBMCXX_EXTERN scope_entry_t* solve_init_list_constructor(
+        type_t* class_type, 
+        type_t** argument_types, 
+        int num_arguments,
+        char is_explicit, 
+        decl_context_t decl_context,
+        const char* filename, int line,
+        scope_entry_t** conversors,
+        scope_entry_list_t** candidates);
 
 LIBMCXX_EXTERN unsigned long long overload_used_memory(void);
 

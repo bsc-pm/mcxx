@@ -261,6 +261,104 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         implicit_conversion_sequence_t *result, 
         char no_user_defined_conversions,
         char is_implicit_argument,
+        const char* filename, int line);
+
+static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t decl_context, 
+        implicit_conversion_sequence_t *result, 
+        char no_user_defined_conversions,
+        char is_implicit_argument,
+        const char* filename, int line)
+{
+
+    fprintf(stderr, "ICS FOR BRACED LISTS: orig_type = %s\n",
+            print_declarator(orig));
+    fprintf(stderr, "ICS FOR BRACED LISTS: dest_type = %s\n",
+            print_declarator(dest));
+
+    scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, 
+            NULL, 
+            /* mandatory */ 0);
+
+    *result = invalid_ics;
+
+    if (std_initializer_list_template != NULL)
+    {
+        if (is_template_specialized_type(dest)
+                && equivalent_types(template_specialized_type_get_related_template_type(dest), 
+                    std_initializer_list_template->type_information))
+        {
+            template_argument_list_t* template_arguments = template_specialized_type_get_template_arguments(dest);
+
+            ERROR_CONDITION( (template_arguments->num_arguments == 0), 
+                    "Invalid template argument for std::init_list", 0);
+            type_t* new_dest = template_arguments->argument_list[0]->type;
+
+
+            int i;
+            int num_types = braced_list_type_get_num_types(orig);
+            for (i = 0; i < num_types; i++)
+            {
+                implicit_conversion_sequence_t current;
+
+                compute_ics_flags(braced_list_type_get_type_num(orig, i), 
+                        new_dest, decl_context,
+                        &current,
+                        no_user_defined_conversions,
+                        is_implicit_argument,
+                        filename, line);
+
+                if (current.kind == ICSK_INVALID)
+                {
+                    *result = current;
+                    return;
+                }
+                if (result->kind == ICSK_INVALID
+                        || better_ics(*result, current))
+                {
+                    *result = current;
+                }
+            }
+        }
+    }
+    else if (is_class_type(dest)
+            && !is_aggregate_type(dest))
+    {
+        scope_entry_list_t* candidates = NULL;
+        scope_entry_t* conversors[MAX_ARGUMENTS];
+
+        type_t* arguments[MAX_ARGUMENTS] = { orig };
+
+        scope_entry_t* constructor = solve_init_list_constructor(
+                dest,
+                arguments, 1,
+                /* is_explicit */ 0,
+                decl_context,
+                filename, line,
+                conversors,
+                &candidates);
+                
+        if (constructor != NULL)
+        {
+            result->kind = ICSK_USER_DEFINED;
+            standard_conversion_between_types(&result->first_sc, dest, dest);
+            result->conversor = constructor;
+            // FIXME: This should be the "real" dest
+            standard_conversion_between_types(&result->second_sc, dest, dest);
+        }
+    }
+    else if (is_class_type(dest)
+            && is_aggregate_type(dest))
+    {
+    }
+    else
+    {
+    }
+}
+
+static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_context, 
+        implicit_conversion_sequence_t *result, 
+        char no_user_defined_conversions,
+        char is_implicit_argument,
         const char* filename, int line)
 {
     DEBUG_CODE()
@@ -280,6 +378,15 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
     {
         result->kind = ICSK_ELLIPSIS;
         // No need to check anything else
+        return;
+    }
+
+    if (is_braced_list_type(orig))
+    {
+        compute_ics_braced_list(orig, dest, decl_context, result, 
+                no_user_defined_conversions, 
+                is_implicit_argument, 
+                filename, line);
         return;
     }
 
@@ -2230,13 +2337,17 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
     return NULL;
 }
 
-scope_entry_t* solve_constructor(type_t* class_type, 
+
+static scope_entry_t* solve_constructor_(type_t* class_type, 
         type_t** argument_types, 
         int num_arguments,
         char is_explicit, 
         decl_context_t decl_context,
         const char* filename, int line,
-        scope_entry_t** conversors)
+        scope_entry_t** conversors,
+        // Output arguments
+        scope_entry_list_t** candidates,
+        char init_constructors_only)
 {
     ERROR_CONDITION(!is_named_class_type(class_type), "This is not a named class type", 0);
 
@@ -2258,6 +2369,38 @@ scope_entry_t* solve_constructor(type_t* class_type,
                 && constructor->entity_specs.is_explicit)
         {
             continue;
+        }
+
+        // Filter init constructors only
+        if (init_constructors_only)
+        {
+            scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, NULL, /* mandatory */ 1);
+
+            int num_parameters = function_type_get_num_parameters(constructor->type_information);
+            // Number of real parameters, ellipsis are counted as parameters
+            // but only in the type system
+            if (function_type_get_has_ellipsis(constructor->type_information))
+                num_parameters--;
+
+            char is_initializer_list_ctor = 0;
+            if (num_parameters > 0
+                    && can_be_called_with_number_of_arguments(constructor, 1))
+            {
+                type_t* first_param = function_type_get_parameter_type_num(constructor->type_information, 0);
+
+                if (is_class_type(first_param))
+                    first_param = get_actual_class_type(first_param);
+
+                if (is_template_specialized_type(first_param)
+                        && equivalent_types(template_specialized_type_get_related_template_type(first_param), 
+                            std_initializer_list_template->type_information))
+                {
+                    is_initializer_list_ctor = 1;
+                }
+            }
+
+            if (!is_initializer_list_ctor)
+                continue;
         }
 
         // For template specialized types, use the template symbol
@@ -2294,6 +2437,9 @@ scope_entry_t* solve_constructor(type_t* class_type,
         it = it->next;
     }
 
+    // Store the candidates here
+    *candidates = overload_set;
+
     // Now we have all the constructors, perform an overload resolution on them
     scope_entry_t* overload_resolution = solve_overload(candidate_set, 
             decl_context, 
@@ -2306,6 +2452,102 @@ scope_entry_t* solve_constructor(type_t* class_type,
     }
 
     return overload_resolution;
+}
+
+scope_entry_t* solve_constructor(
+        type_t* class_type, 
+        type_t** argument_types, 
+        int num_arguments,
+        char is_explicit, 
+        decl_context_t decl_context,
+        const char* filename, int line,
+        scope_entry_t** conversors,
+        scope_entry_list_t** candidates)
+{
+    return solve_constructor_(class_type,
+            argument_types,
+            num_arguments,
+            is_explicit,
+            decl_context,
+            filename, line,
+            conversors,
+            candidates,
+            /* init_constructors_only */ 0);
+}
+
+scope_entry_t* solve_init_list_constructor(
+        type_t* class_type, 
+        type_t** argument_types, 
+        int num_arguments,
+        char is_explicit, 
+        decl_context_t decl_context,
+        const char* filename, int line,
+        scope_entry_t** conversors,
+        scope_entry_list_t** candidates)
+{
+    ERROR_CONDITION(num_arguments != 1, "This function expects a single argument type", 0);
+    ERROR_CONDITION(!is_braced_list_type(argument_types[0]), 
+            "This function expects a single argument of type braced initializer list", 0);
+
+    scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, NULL, /* mandatory */ 1);
+
+    char has_initializer_list_ctor = 0;
+    if (std_initializer_list_template != NULL)
+    {
+        int i;
+        int num_ctors = class_type_get_num_constructors(get_actual_class_type(class_type));
+        for (i = 0; i < num_ctors && !has_initializer_list_ctor; i++)
+        {
+            scope_entry_t* entry = class_type_get_constructors_num(get_actual_class_type(class_type), i);
+
+            int num_parameters = function_type_get_num_parameters(entry->type_information);
+            // Number of real parameters, ellipsis are counted as parameters
+            // but only in the type system
+            if (function_type_get_has_ellipsis(entry->type_information))
+                num_parameters--;
+
+            if (num_parameters > 0
+                    && can_be_called_with_number_of_arguments(entry, 1))
+            {
+                type_t* first_param = function_type_get_parameter_type_num(entry->type_information, 0);
+
+                if (is_class_type(first_param))
+                    first_param = get_actual_class_type(first_param);
+
+                if (is_template_specialized_type(first_param)
+                        && equivalent_types(template_specialized_type_get_related_template_type(first_param), 
+                            std_initializer_list_template->type_information))
+                {
+                    has_initializer_list_ctor = 1;
+                }
+            }
+        }
+    }
+
+    if (has_initializer_list_ctor)
+    {
+        return solve_constructor_(class_type,
+                argument_types,
+                num_arguments,
+                is_explicit,
+                decl_context,
+                filename, line,
+                conversors,
+                candidates,
+                /* init_constructors_only */ 1);
+    }
+    else
+    {
+        return solve_constructor_(class_type,
+                braced_list_type_get_types(argument_types[0]),
+                braced_list_type_get_num_types(argument_types[0]),
+                is_explicit,
+                decl_context,
+                filename, line,
+                conversors,
+                candidates,
+                /* init_constructors_only */ 0);
+    }
 }
 
 candidate_t* add_to_candidate_set(candidate_t* candidate_set,

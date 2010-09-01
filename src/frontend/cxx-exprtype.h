@@ -95,7 +95,7 @@ LIBMCXX_EXTERN unsigned long long expression_info_sizeof(void);
 
 LIBMCXX_EXTERN type_t* compute_type_for_type_id_tree(AST type_id, decl_context_t decl_context);
 
-LIBMCXX_EXTERN scope_entry_t* get_initializer_list_template(decl_context_t decl_context, AST expr, char mandatory);
+LIBMCXX_EXTERN scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, AST expr, char mandatory);
 
 MCXX_END_DECLS
 

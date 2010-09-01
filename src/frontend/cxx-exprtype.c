@@ -6489,12 +6489,14 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
 
                 if (!has_constructor_dep_args)
                 {
+                    scope_entry_list_t* candidates = NULL;
                     scope_entry_t* chosen_constructor = solve_constructor(class_type,
                             arguments, num_arguments,
                             /* is_explicit */ 1,
                             decl_context,
                             ASTFileName(new_expr), ASTLine(new_expr),
-                            conversors);
+                            conversors,
+                            &candidates);
 
                     if (chosen_constructor == NULL)
                     {
@@ -6850,6 +6852,7 @@ static char check_for_explicit_type_conversion_common(type_t* type_info,
     {
         if (is_class_type(type_info))
         {
+            scope_entry_list_t* candidates = NULL;
             scope_entry_t* constructor = 
                 solve_constructor(type_info,
                         argument_types,
@@ -6857,7 +6860,8 @@ static char check_for_explicit_type_conversion_common(type_t* type_info,
                         /* is_explicit */ 1,
                         decl_context,
                         ASTFileName(expr), ASTLine(expr),
-                        conversors);
+                        conversors,
+                        &candidates);
 
             if (constructor == NULL)
             {
@@ -9076,7 +9080,7 @@ static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, AST expr)
     return typeid_sym;
 }
 
-scope_entry_t* get_initializer_list_template(decl_context_t decl_context, AST expr, char mandatory)
+scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, AST expr, char mandatory)
 {
     // Lookup for 'std::initializer_list'
     static scope_entry_t* initializer_list_sym = NULL;
@@ -9391,7 +9395,7 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
         // Now construct the candidates for overloading among the constructors
         int num_ctors = class_type_get_num_constructors(get_actual_class_type(declared_type));
 
-        scope_entry_t* std_initializer_list_template = get_initializer_list_template(decl_context, initializer, /* mandatory */ 0);
+        scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, initializer, /* mandatory */ 0);
 
         char has_initializer_list_ctor = 0;
 
@@ -9410,10 +9414,10 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
                 if (function_type_get_has_ellipsis(entry->type_information))
                     num_parameters--;
 
-                if (num_parameters > 0)
+                if (num_parameters > 0
+                        && can_be_called_with_number_of_arguments(entry, 1))
                 {
-                    type_t* first_param = advance_over_typedefs(
-                            function_type_get_parameter_type_num(entry->type_information, 0));
+                    type_t* first_param = function_type_get_parameter_type_num(entry->type_information, 0);
 
                     if (is_class_type(first_param))
                         first_param = get_actual_class_type(first_param);
@@ -9432,13 +9436,15 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
         {
             // Plain constructor resolution should be enough here
             scope_entry_t* conversors[MAX_ARGUMENTS] = { 0 };
+            scope_entry_list_t* candidates = NULL;
             scope_entry_t* constructor = solve_constructor(declared_type,
                     arg_list,
                     num_args,
                     /* is_explicit */ 0,
                     decl_context,
                     ASTFileName(initializer), ASTLine(initializer),
-                    conversors);
+                    conversors,
+                    &candidates);
 
             if (constructor == NULL)
             {
@@ -9488,13 +9494,15 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
             arg_list[0] = specialized_std_initializer;
             num_args = 1;
 
+            scope_entry_list_t* candidates = NULL;
             scope_entry_t* constructor = solve_constructor(declared_type,
                     arg_list,
                     num_args,
                     /* is_explicit */ 0,
                     decl_context,
                     ASTFileName(initializer), ASTLine(initializer),
-                    conversors);
+                    conversors,
+                    &candidates);
 
             if (constructor == NULL)
             {
@@ -9959,13 +9967,15 @@ static char check_for_parenthesized_initializer(AST initializer_list, decl_conte
         scope_entry_t* conversors[MAX_ARGUMENTS];
         memset(conversors, 0, sizeof(conversors));
 
+        scope_entry_list_t* candidates = NULL;
         scope_entry_t* constructor = solve_constructor(declared_type,
                 argument_types,
                 initializer_num,
                 /* is_explicit */ 1,
                 decl_context,
                 ASTFileName(initializer_list), ASTLine(initializer_list),
-                conversors);
+                conversors,
+                &candidates);
 
         if (constructor == NULL)
         {
@@ -11276,12 +11286,14 @@ char check_zero_args_constructor(type_t* class_type, decl_context_t decl_context
     int num_arguments = 0;
     type_t** arguments = NULL;
 
+    scope_entry_list_t* candidates = NULL;
     scope_entry_t* chosen_constructor = solve_constructor(class_type,
             arguments, num_arguments,
             /* is_explicit */ 1,
             decl_context,
             ASTFileName(declarator), ASTLine(declarator),
-            /* conversors */ NULL);
+            /* conversors */ NULL,
+            &candidates);
 
     if (chosen_constructor == NULL)
     {

@@ -6499,7 +6499,19 @@ const char* print_declarator(type_t* printed_declarator)
                 break;
             case TK_BRACED_LIST:
                 {
-                    tmp_result = strappend(tmp_result, " <braced initializer list type> ");
+                    tmp_result = strappend(tmp_result, " <braced-list-type>{ ");
+                    int i;
+                    for (i = 0; i < braced_list_type_get_num_types(printed_declarator); i++)
+                    {
+                        if (i != 0)
+                        {
+                            strappend(tmp_result, ", ");
+                        }
+
+                        strappend(tmp_result, 
+                                print_declarator(braced_list_type_get_type_num(printed_declarator, i)));
+                    }
+                    tmp_result = strappend(tmp_result, " } ");
                 }
                 printed_declarator = NULL;
                 break;
@@ -7663,6 +7675,12 @@ int braced_list_type_get_num_types(type_t* t)
 {
     ERROR_CONDITION (!is_braced_list_type(t), "This is not a braced list type", 0);
     return t->braced_type->num_types;
+}
+
+type_t** braced_list_type_get_types(type_t* t)
+{
+    ERROR_CONDITION (!is_braced_list_type(t), "This is not a braced list type", 0);
+    return t->braced_type->type_list;
 }
 
 type_t* braced_list_type_get_type_num(type_t* t, int num)
