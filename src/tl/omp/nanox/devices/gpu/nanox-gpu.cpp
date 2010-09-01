@@ -282,7 +282,8 @@ void DeviceGPU::create_outline(
 			if (funct_def_list.size() == 1)
 			{
 				// Check if we have already printed the function definition in the CUDA file
-				if (_taskSymbols.count(outline_flags.task_symbol.get_name()) == 0) {
+				if (_taskSymbols.count(outline_flags.task_symbol.get_name()) == 0)
+				{
 					forward_declaration << funct_def_list[0].get_enclosing_function_definition(false).prettyprint_external();
 
 					// Keep record of which tasks have been printed to the CUDA file
@@ -292,6 +293,11 @@ void DeviceGPU::create_outline(
 
 				// Remove the function definition from the original source code
 				funct_def_list[0].remove_in_list();
+			}
+			else if (funct_def_list.size() == 0
+					&& _taskSymbols.count(outline_flags.task_symbol.get_name()) > 0)
+			{
+				// We have already removed it and printed it in the CUDA file, do nothing
 			}
 			else
 			{
