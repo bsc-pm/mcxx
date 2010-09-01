@@ -448,6 +448,9 @@ LIBMCXX_EXTERN void dependent_typename_get_components(type_t* t,
 LIBMCXX_EXTERN int vector_type_get_vector_size(struct type_tag*);
 LIBMCXX_EXTERN struct type_tag* vector_type_get_element_type(struct type_tag*);
 
+LIBMCXX_EXTERN struct type_tag* braced_list_type_get_type_num(struct type_tag* t, int num);
+LIBMCXX_EXTERN int braced_list_type_get_num_types(struct type_tag* t);
+
 /* Query functions: Miscelaneous stuff not classified otherwise */
 LIBMCXX_EXTERN char class_type_is_base(struct type_tag* possible_base, struct type_tag* possible_derived);
 LIBMCXX_EXTERN char class_type_is_derived(struct type_tag* possible_derived, struct type_tag* possible_base);
@@ -516,6 +519,9 @@ LIBMCXX_EXTERN const char* get_named_type_name(struct scope_entry_tag* entry);
 
 LIBMCXX_EXTERN struct type_tag* get_ellipsis_type(void);
 LIBMCXX_EXTERN char is_ellipsis_type(struct type_tag* t);
+
+LIBMCXX_EXTERN struct type_tag* get_braced_list_type(int num_types, struct type_tag** arg_list);
+LIBMCXX_EXTERN char is_braced_list_type(struct type_tag* t);
 
 LIBMCXX_EXTERN char has_dependent_template_arguments(template_argument_list_t* template_arguments);
 

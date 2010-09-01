@@ -78,6 +78,21 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
         return;
     }
 
+    // No unification is ever possible for this type
+    if (is_braced_list_type(t2))
+    {
+        // Unificate with each of the types of the braced list type
+        int i, num_types = braced_list_type_get_num_types(t2);
+        for (i = 0; i < num_types; i++)
+        {
+            unificate_two_types(t1, braced_list_type_get_type_num(t2, i), 
+                    deduction_set, decl_context, filename, line, flags);
+        }
+
+        // Nothing else remains
+        return;
+    }
+
     // 1. If it is a template parameter (or a user defined type pointing to it)
     // then save a deduction
     if (is_named_type(t1) 

@@ -65,6 +65,7 @@ enum type_kind
     TK_VECTOR,             // 9
     TK_ELLIPSIS,           // 10
     TK_COMPUTED,           // 11
+    TK_BRACED_LIST,        // 12
 };
 
 // For simple_type_t
@@ -363,6 +364,13 @@ typedef struct vector_tag
 } vector_info_t;
 
 typedef
+struct braced_list_info_tag
+{
+    int num_types;
+    type_t** type_list;
+} braced_list_info_t;
+
+typedef
 struct common_type_info_tag
 {
     // See below for more detailed descriptions
@@ -418,6 +426,9 @@ struct type_tag
     // (kind == TK_OVERLOAD)
     scope_entry_list_t* overload_set;
     template_argument_list_t* explicit_template_argument_list;
+
+    // Braced list type
+    braced_list_info_t* braced_type;
 
     // Vector Type
     // (kind == TK_VECTOR)
@@ -6486,6 +6497,12 @@ const char* print_declarator(type_t* printed_declarator)
                 }
                 printed_declarator = NULL;
                 break;
+            case TK_BRACED_LIST:
+                {
+                    tmp_result = strappend(tmp_result, " <braced initializer list type> ");
+                }
+                printed_declarator = NULL;
+                break;
             case TK_POINTER :
                 tmp_result = strappend(tmp_result, "pointer to ");
                 printed_declarator = printed_declarator->pointer->pointee;
@@ -7621,10 +7638,43 @@ type_t* get_ellipsis_type(void)
     return _ellipsis_type;
 }
 
+
 char is_ellipsis_type(type_t* t)
 {
     return ((_ellipsis_type != NULL)
             && (t == _ellipsis_type));
+}
+
+type_t* get_braced_list_type(int num_types, type_t** type_list)
+{
+    type_t* result = new_empty_type();
+
+    result->kind = TK_BRACED_LIST;
+
+    result->braced_type = counted_calloc(1, sizeof(*result->braced_type), &_bytes_due_to_type_system);
+
+    result->braced_type->num_types = num_types;
+    result->braced_type->type_list = type_list;
+
+    return result;
+}
+
+int braced_list_type_get_num_types(type_t* t)
+{
+    ERROR_CONDITION (!is_braced_list_type(t), "This is not a braced list type", 0);
+    return t->braced_type->num_types;
+}
+
+type_t* braced_list_type_get_type_num(type_t* t, int num)
+{
+    ERROR_CONDITION (!is_braced_list_type(t), "This is not a braced list type", 0);
+    return t->braced_type->type_list[num];
+}
+
+char is_braced_list_type(type_t* t)
+{
+    return ((t != NULL)
+            && (t->kind == TK_BRACED_LIST));
 }
 
 static type_t* _throw_expr_type = NULL;
@@ -8400,6 +8450,10 @@ const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const ch
         {
             return uniquestr("<unresolved overload>");
         }
+    }
+    else if (is_braced_list_type(t))
+    {
+        return uniquestr("<brace-enclosed initializer list>");
     }
     else
     {

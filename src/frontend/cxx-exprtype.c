@@ -9035,7 +9035,7 @@ static char check_for_predecrement(AST expr, decl_context_t decl_context)
             decl_context, /* is_decr */ 1);
 }
 
-static type_t* get_typeid_type(decl_context_t decl_context, AST expr)
+static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, AST expr)
 {
     // Lookup for 'std::type_info'
     static scope_entry_t* typeid_sym = NULL;
@@ -9073,10 +9073,10 @@ static type_t* get_typeid_type(decl_context_t decl_context, AST expr)
         typeid_sym = entry_list->entry;
     }
 
-    return get_user_defined_type(typeid_sym);
+    return typeid_sym;
 }
 
-static type_t* get_initializer_list_type(decl_context_t decl_context, AST expr, char mandatory)
+scope_entry_t* get_initializer_list_template(decl_context_t decl_context, AST expr, char mandatory)
 {
     // Lookup for 'std::initializer_list'
     static scope_entry_t* initializer_list_sym = NULL;
@@ -9119,7 +9119,7 @@ static type_t* get_initializer_list_type(decl_context_t decl_context, AST expr, 
         initializer_list_sym = entry_list->entry;
     }
 
-    return get_user_defined_type(initializer_list_sym);
+    return initializer_list_sym;
 }
 
 static char check_for_typeid_type(AST expr, decl_context_t decl_context)
@@ -9135,7 +9135,8 @@ static char check_for_typeid_type(AST expr, decl_context_t decl_context)
         expression_set_is_value_dependent(expr, 1);
     }
 
-    expression_set_type(expr, get_typeid_type(decl_context, expr));
+    expression_set_type(expr, 
+            get_user_defined_type(get_typeid_symbol(decl_context, expr)));
     expression_set_is_lvalue(expr, 0);
 
     return 1;
@@ -9154,7 +9155,8 @@ static char check_for_typeid_expr(AST expr, decl_context_t decl_context)
         expression_set_is_value_dependent(expr, 1);
     }
 
-    expression_set_type(expr, get_typeid_type(decl_context, expr));
+    expression_set_type(expr, 
+            get_user_defined_type(get_typeid_symbol(decl_context, expr)));
     expression_set_is_lvalue(expr, 0);
     return 1;
 }
@@ -9352,7 +9354,7 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
     else if (is_class_type(declared_type)
             && !is_aggregate_type(declared_type))
     {
-        // This one is the toughest :)
+        // This one is the toughest
         type_t* arg_list[MAX_ARGUMENTS];
         memset(arg_list, 0, sizeof(arg_list));
 
@@ -9387,20 +9389,20 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
             return 1;
 
         // Now construct the candidates for overloading among the constructors
-        int num_ctors = class_type_get_num_constructors(declared_type);
+        int num_ctors = class_type_get_num_constructors(get_actual_class_type(declared_type));
 
-        type_t* std_initializer_list_type = get_initializer_list_type(decl_context, initializer, /* mandatory */ 0);
+        scope_entry_t* std_initializer_list_template = get_initializer_list_template(decl_context, initializer, /* mandatory */ 0);
 
         char has_initializer_list_ctor = 0;
 
         // If std::initializer_list is not available there is no need to check
         // this because it would have failed before
-        if (std_initializer_list_type != NULL)
+        if (std_initializer_list_template != NULL)
         {
             int i;
             for (i = 0; i < num_ctors && !has_initializer_list_ctor; i++)
             {
-                scope_entry_t* entry = class_type_get_constructors_num(declared_type, i);
+                scope_entry_t* entry = class_type_get_constructors_num(get_actual_class_type(declared_type), i);
 
                 int num_parameters = function_type_get_num_parameters(entry->type_information);
                 // Number of real parameters, ellipsis are counted as parameters
@@ -9410,14 +9412,15 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
 
                 if (num_parameters > 0)
                 {
-                    type_t* first_param = function_type_get_parameter_type_num(entry->type_information, 0);
+                    type_t* first_param = advance_over_typedefs(
+                            function_type_get_parameter_type_num(entry->type_information, 0));
 
-                    // Remove unnecessary info
-                    first_param = get_unqualified_type(no_ref(first_param));
+                    if (is_class_type(first_param))
+                        first_param = get_actual_class_type(first_param);
 
                     if (is_template_specialized_type(first_param)
                             && equivalent_types(template_specialized_type_get_related_template_type(first_param), 
-                                std_initializer_list_type))
+                                std_initializer_list_template->type_information))
                     {
                         has_initializer_list_ctor = 1;
                     }
@@ -9439,7 +9442,12 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
 
             if (constructor == NULL)
             {
-                // FIXME: Issue some message here
+                if (!checking_ambiguity())
+                {
+                    fprintf(stderr, "%s: warning: invalid initializer for type '%s'\n", 
+                            ast_location(initializer),
+                            print_type_str(declared_type, decl_context));
+                }
                 return 0;
             }
             else
@@ -9451,31 +9459,18 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
         {
             type_t* initializer_list_type = NULL;
 
-            // Try to come up with a common type (FIXME: not sure whether this
-            // is correct or not)
-            int i;
-            for (i = 0; i < num_args; i++)
-            {
-                if (initializer_list_type == NULL)
-                {
-                    initializer_list_type = arg_list[i];
-                }
-                else if (!equivalent_types(initializer_list_type, arg_list[i]))
-                {
-                    initializer_list_type = NULL;
-                }
-            }
+            initializer_list_type = get_braced_list_type(num_args, arg_list);
 
-            if (initializer_list_type == NULL)
+            DEBUG_CODE()
             {
-                // FIXME: Issue some message here
-                return 0;
+                fprintf(stderr, "EXPRTYPE: For initializer list '%s', common type is '%s'\n", prettyprint_in_buffer(initializer), 
+                        print_type_str(initializer_list_type, decl_context));
             }
 
             scope_entry_t* conversors[MAX_ARGUMENTS] = { 0 };
 
             template_parameter_list_t* template_parameters = 
-                template_specialized_type_get_template_parameters(std_initializer_list_type);
+                template_type_get_template_parameters(std_initializer_list_template->type_information);
 
             template_argument_list_t *argument_list = counted_calloc(1, sizeof(*argument_list), &_bytes_used_expr_check);
             template_argument_t *argument = counted_calloc(1, sizeof(*argument), &_bytes_used_expr_check);
@@ -9485,7 +9480,7 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
             P_LIST_ADD(argument_list->argument_list, argument_list->num_arguments, argument);
 
             type_t* specialized_std_initializer = 
-                template_type_get_specialized_type(std_initializer_list_type,
+                template_type_get_specialized_type(std_initializer_list_template->type_information,
                         argument_list, template_parameters,
                         decl_context, ASTLine(initializer), ASTFileName(initializer));
 
@@ -9504,6 +9499,12 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
             if (constructor == NULL)
             {
                 // FIXME: Issue some message here
+                if (!checking_ambiguity())
+                {
+                    fprintf(stderr, "%s: warning: invalid initializer for type '%s'\n", 
+                            ast_location(initializer),
+                            print_type_str(declared_type, decl_context));
+                }
                 return 0;
             }
             else
