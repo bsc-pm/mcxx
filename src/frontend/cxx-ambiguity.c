@@ -1173,6 +1173,12 @@ static char check_for_simple_declaration(AST a, decl_context_t decl_context)
                         }
                     }
                 }
+                // Something is wrong here
+                if (entry_list == NULL
+                        && ASTType(id_expression) == AST_QUALIFIED_ID)
+                {
+                    return 0;
+                }
             }
         }
     }
