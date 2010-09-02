@@ -1402,7 +1402,7 @@ static void qualified_template_handler(FILE* f, AST a, prettyprint_context_t* pt
 
 static void conversion_type_id_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
-    spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
     
     if (ASTSon1(a) != NULL)
     {
