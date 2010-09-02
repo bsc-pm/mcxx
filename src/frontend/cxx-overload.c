@@ -340,18 +340,86 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
         if (constructor != NULL)
         {
             result->kind = ICSK_USER_DEFINED;
+            // Silly way of getting the identity
             standard_conversion_between_types(&result->first_sc, dest, dest);
             result->conversor = constructor;
-            // FIXME: This should be the "real" dest
+            // FIXME: This should be the "real" dest (including
+            // cv-qualification, rvalue refs, etc)
             standard_conversion_between_types(&result->second_sc, dest, dest);
         }
     }
     else if (is_class_type(dest)
             && is_aggregate_type(dest))
     {
+        // Just check that each of the types can be used to initialize the
+        // nonstatic data members
+        int num_nonstatic_data_members = class_type_get_num_nonstatic_data_members(dest);
+
+        if (num_nonstatic_data_members != braced_list_type_get_num_types(orig))
+            return;
+
+        int i;
+        for (i = 0; i < num_nonstatic_data_members; i++)
+        {
+            implicit_conversion_sequence_t init_ics = invalid_ics;
+            scope_entry_t* member = class_type_get_nonstatic_data_member_num(dest, i);
+
+            compute_ics_flags(braced_list_type_get_type_num(orig, i),
+                    member->type_information,
+                    decl_context,
+                    &init_ics,
+                    /* no_user_defined_conversions */ 0,
+                    /* is_implicit_argument */ 0,
+                    filename, line);
+            
+            if (init_ics.kind == ICSK_INVALID)
+                return;
+        }
+
+        result->kind = ICSK_USER_DEFINED;
+        // Silly way of getting the identity
+        standard_conversion_between_types(&result->first_sc, dest, dest);
+        // FIXME: Which constructor??? Do aggregates have a special constructor???
+        result->conversor = NULL;
+        // FIXME: This should be the "real" dest (including
+        // cv-qualification, rvalue refs, etc)
+        standard_conversion_between_types(&result->second_sc, dest, dest);
     }
-    else
+    else if (is_array_type(dest))
     {
+        type_t* element_type = array_type_get_element_type(dest);
+
+        int i, num_elems = braced_list_type_get_num_types(orig);
+        for (i = 0; i < num_elems; i++)
+        {
+            implicit_conversion_sequence_t init_ics = invalid_ics;
+
+            compute_ics_flags(braced_list_type_get_type_num(orig, i),
+                    element_type,
+                    decl_context,
+                    &init_ics,
+                    /* no_user_defined_conversions */ 0,
+                    /* is_implicit_argument */ 0,
+                    filename, line);
+
+            if (init_ics.kind == ICSK_INVALID)
+                return;
+        }
+
+        result->kind = ICSK_USER_DEFINED;
+        // Silly way of getting the identity
+        standard_conversion_between_types(&result->first_sc, dest, dest);
+        // FIXME: Which constructor??? Do aggregates have a special constructor???
+        result->conversor = NULL;
+        // FIXME: This should be the "real" dest (including
+        // cv-qualification, rvalue refs, etc)
+        standard_conversion_between_types(&result->second_sc, dest, dest);
+    }
+    else if (!is_class_type(dest))
+    {
+        if (braced_list_type_get_num_types(orig) == 1)
+        {
+        }
     }
 }
 
