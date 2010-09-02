@@ -89,6 +89,18 @@ namespace TL
                 return _decl_context.current_scope != NULL;
             }
 
+            bool inside_class_scope() const
+            {
+                return (_decl_context.class_scope != NULL);
+            }
+
+            Symbol get_class_of_scope();
+
+            bool inside_block_scope() const
+            {
+                return (_decl_context.block_scope != NULL);
+            }
+
             //! Creates a scope after a reference to Object
             Scope(RefPtr<Object> obj)
             {

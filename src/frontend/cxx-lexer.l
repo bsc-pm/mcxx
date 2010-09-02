@@ -1060,6 +1060,7 @@ type {
 @TYPE@ { parse_token_text(); return SUBPARSE_TYPE; }
 @TYPE-LIST@ { parse_token_text(); return SUBPARSE_TYPE_LIST; }
 @ID_EXPRESSION@ { parse_token_text(); return SUBPARSE_ID_EXPRESSION; }
+@OMP_OPERATOR_NAME@ { parse_token_text(); return SUBPARSE_OMP_OPERATOR_NAME; }
 @OMP_UDR_DECLARE@ { parse_token_text(); return SUBPARSE_OMP_UDR_DECLARE; }
 @OMP_UDR_DECLARE_2@ { parse_token_text(); return SUBPARSE_OMP_UDR_DECLARE_2; }
 @OMP_UDR_IDENTITY@ { parse_token_text(); return SUBPARSE_OMP_UDR_IDENTITY; }

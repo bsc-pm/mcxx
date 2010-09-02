@@ -44,9 +44,6 @@ MCXX_BEGIN_DECLS
 // The extensible schema of AST's
 LIBMCXX_EXTERN extensible_schema_t ast_extensible_schema;
 
-// Returns the type of the node
-LIBMCXX_EXTERN node_t ast_get_type(const_AST a);
-
 // Returns the parent node or NULL if none
 LIBMCXX_EXTERN AST ast_get_parent(const_AST a);
 
@@ -60,8 +57,14 @@ LIBMCXX_EXTERN unsigned int ast_get_line(const_AST a);
 // Returns the related bit of text of the node
 LIBMCXX_EXTERN const char* ast_get_text(const_AST a);
 
+// Returns the related bit of text of the node
+LIBMCXX_EXTERN node_t ast_get_type(const_AST a);
+
 // Sets the related text
 LIBMCXX_EXTERN void ast_set_text(AST a, const char* str);
+
+// Sets the related type
+LIBMCXX_EXTERN void ast_set_type(AST a, node_t node_type);
 
 // Returns the children 'num_child'. Might be
 // NULL
