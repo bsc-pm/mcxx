@@ -74,8 +74,11 @@ namespace TL
             // Create versioning symbols
             Source versioning_symbols;
 
-std::cerr << "Version::family " << Version::family << std::endl;
-std::cerr << "Version::version " << Version::version << std::endl;
+            DEBUG_CODE()
+            {
+                std::cerr << "Version::family '" << Version::family << "'" << std::endl;
+                std::cerr << "Version::version '" << Version::version << "'" << std::endl;
+            }
 
             CXX_LANGUAGE()
             {
