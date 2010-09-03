@@ -44,7 +44,7 @@ namespace TL
                 ScopeLink sl, std::string &udr_name, ObjectList<UDRParsedInfo>& udr_parsed_info_list,
                 AST_t &ref_tree_of_clause, Scope& scope_of_clause);
         static void parse_udr_identity(const std::string& omp_udr_identity, AST_t reference_tree,
-                ScopeLink sl, Type udr_type, AST_t &parsed_tree);
+                ScopeLink sl, Type udr_type, AST_t &parsed_tree, bool& is_constructor, bool& need_equal_initializer);
 
         static std::string get_valid_zero_initializer(Type t)
         {
@@ -74,49 +74,19 @@ namespace TL
         {
             // Fall back
             if (t.is_dependent())
-                return "constructor()";
+                return "";
 
             if (t.is_class())
             {
                 if (!t.is_pod())
                 {
                     // If it is not pod, default initialization should do the right thing
-                    return "constructor()";
+                    return "";
                 }
             }
             // For most cases, get_valid_zero_initializer is enough
             return get_valid_zero_initializer(t);
         }
-
-        // FIXME - This is awful
-        // This function creates a fake symbol which is not actually signed in any scope
-        // It is used just for builtin UDR which do not have a backing symbol actually
-        static scope_entry_t* new_udr_builtin_symbol(type_t* type, 
-                const std::string& str, 
-                decl_context_t decl_context)
-        {
-            scope_entry_t* result = (scope_entry_t*)calloc(1, sizeof(*result));
-            result->symbol_name = uniquestr(("operator " + str).c_str());
-            result->kind = SK_FUNCTION;
-
-            parameter_info_t parameter_info[2] = 
-            {
-                { 0, type, type },
-                { 0, type, type },
-            };
-
-            type_t* function_type_info = get_new_function_type(type,
-                    parameter_info, 2);
-
-            result->type_information = function_type_info;
-
-            result->decl_context = decl_context;
-            result->file = uniquestr("(global-scope)");
-            result->line = 0;
-
-            return result;
-        }
-
 
         void initialize_builtin_udr_reductions_2(AST_t translation_unit, ScopeLink scope_link)
         {
@@ -210,11 +180,13 @@ namespace TL
                     builtin_udr.set_is_builtin_operator(true);
 		            builtin_udr.set_in_symbol((*it).in_symbol);
 		            builtin_udr.set_out_symbol((*it).out_symbol);
-                    builtin_udr.set_udr_counter(0);
                     AST_t identity_expr(NULL);
+                    bool is_constructor, need_equal_initializer;
                     parse_udr_identity(builtin_arithmetic_operators[i].identity.prettyprint(), ref_tree_of_clause,
-                                scope_link, (*it).type, identity_expr);
+                                scope_link, (*it).type, identity_expr, is_constructor, need_equal_initializer);
                     builtin_udr.set_identity(identity_expr);
+                    builtin_udr.set_is_constructor(false);
+                    builtin_udr.set_need_equal_initializer(false);
                     builtin_udr.set_function_definition_symbol(NULL);    // Builtin UDRs don't have a function definition
 
                     builtin_udr.sign_in_scope(global_scope, (*it).type);
@@ -245,6 +217,57 @@ namespace TL
                 return !OnlyMembers()(sym);
             }
         };
+
+
+        AST_t UDRInfoItem2::parse_omp_udr_operator_name(const std::string &omp_udr_oper_name, 
+                AST_t ref_tree,
+                ScopeLink sl)
+        {
+		    std::string mangled_str = "@OMP_OPERATOR_NAME@ " + omp_udr_oper_name;
+		    char* str = strdup(mangled_str.c_str());
+
+		    C_LANGUAGE()
+		    {
+		        mc99_prepare_string_for_scanning(str);
+		    }
+		    CXX_LANGUAGE()
+		    {
+		        mcxx_prepare_string_for_scanning(str);
+		    }
+
+		    int parse_result = 0;
+		    AST a;
+
+		    C_LANGUAGE()
+		    {
+		        parse_result = mc99parse(&a);
+		    }
+		    CXX_LANGUAGE()
+		    {
+		        parse_result = mcxxparse(&a);
+		    }
+
+		    if (parse_result != 0)
+		    {
+		        running_error("Could not parse OpenMP user-defined reduction operator name\n\n%s\n", 
+		                TL::Source::format_source(mangled_str).c_str());
+		    }
+		    
+		    // Get the scope and declarating context of the reference tree
+            Scope sc = sl.get_scope(ref_tree);
+            decl_context_t decl_context = sc.get_decl_context();
+
+		    /*enter_test_expression();
+		    check_for_expression(a, decl_context);
+		    leave_test_expression();*/
+
+		    // Set properly the context of the reference tree
+            scope_link_t* _scope_link = sl.get_internal_scope_link();
+            scope_link_set(_scope_link, a, decl_context);
+
+		    AST_t result(a);
+		    return result;
+        }
 
         // omp_udr_declare_arg_2 : omp_udr_operator_2 ':' omp_udr_type_specifier ':' omp_udr_expression
         // {
@@ -370,7 +393,9 @@ namespace TL
                 AST_t reference_tree,
                 ScopeLink sl,
                 Type udr_type,
-                AST_t &parsed_tree)
+                AST_t &parsed_tree,
+                bool& is_constructor,
+                bool& need_equal)
         {
             std::stringstream ss;
             ss << "#line " << reference_tree.get_line() << " \"" << reference_tree.get_file() << "\"\n";
@@ -424,10 +449,12 @@ namespace TL
 
             if (ASTType(a) != AST_OMP_UDR_CONSTRUCTOR)
             {
+                is_constructor = false;
                 check_for_initializer_clause(a, decl_context, udr_type.get_internal_type());
             }
             else
             {
+                is_constructor = true;
                 AST omp_udr_args = ASTSon0(a);
                 AST expr_list = ASTSon0(omp_udr_args);
 
@@ -438,6 +465,15 @@ namespace TL
             }
 
             parsed_tree = AST_t(a);
+
+            if (ast_get_type(a)==AST_INITIALIZER_BRACES)
+            {
+                need_equal = true;
+            }
+            else
+            {
+                need_equal = false;
+            }
 
             free(str);
         }
@@ -506,7 +542,6 @@ namespace TL
                 new_udr.set_combine_expr((*it).combine_expression);
                 new_udr.set_in_symbol((*it).in_symbol);
                 new_udr.set_out_symbol((*it).out_symbol);
-                new_udr.set_udr_counter(_udr_sym_counter);
                 new_udr.lookup_udr(construct.get_scope(), 
                         found,
                         (*it).type);
@@ -516,13 +551,16 @@ namespace TL
                     // Identity treatment
                     AST_t identity_expr(NULL);
                     PragmaCustomClause identity_clause = construct.get_clause("identity");
+                    bool is_constructor, need_equal;
                     if (identity_clause.is_defined())
                     {
                         std::string identity_str = identity_clause.get_arguments(ExpressionTokenizerTrim())[0];
 
                         parse_udr_identity(identity_str, ref_tree_of_clause,
-                                construct.get_scope_link(), (*it).type, identity_expr);
+                                construct.get_scope_link(), (*it).type, identity_expr, is_constructor, need_equal);
                         new_udr.set_identity(identity_expr);
+                        new_udr.set_is_constructor(is_constructor);
+                        new_udr.set_need_equal_initializer(need_equal);
                     }
                     else
                     {
@@ -535,14 +573,20 @@ namespace TL
                         {
                             initializer = get_valid_value_initializer((*it).type);
                         }
-
-                        AST_t default_identity_expr;
-                        parse_udr_identity(initializer, ref_tree_of_clause, 
-                                construct.get_scope_link(), (*it).type, default_identity_expr);
-                        new_udr.set_identity(default_identity_expr);
+                        if (initializer != "")
+                        {
+		                    AST_t default_identity_expr;
+		                    parse_udr_identity(initializer, ref_tree_of_clause, 
+		                            construct.get_scope_link(), (*it).type, default_identity_expr, is_constructor, need_equal);
+		                    new_udr.set_identity(default_identity_expr);
+		                    new_udr.set_is_constructor(false);
+		                    new_udr.set_need_equal_initializer(true);
+                        }
                     }
 
-                    std::string function_name = new_udr.get_symbol_name((*it).type);
+                    std::stringstream ss;
+                    ss << _udr_counter;
+                    std::string function_name = new_udr.get_symbol_name((*it).type) + "_" + ss.str();
 		            function_name = function_name.substr(1, function_name.size());   // symbol name without initial dot
 
                     new_udr.sign_in_scope(construct.get_scope(), (*it).type);
@@ -554,7 +598,7 @@ namespace TL
                             << ((*it).type).get_declaration(scope_of_clause, "") << "'"
                             << std::endl;
 
-                    _udr_sym_counter++;
+                    _udr_counter++;
                 }
                 else
                 {
@@ -626,46 +670,61 @@ namespace TL
 			        }
 
                     Symbol function_sym;
+                    TL::AST_t pragma_functions_tree;
                     C_LANGUAGE()
                     {
-		                if (!ctr.get_ast().get_enclosing_function_definition().is_valid())
+		                if (ctr.get_ast().get_enclosing_function_definition().is_valid())
 		                {
-			                TL::AST_t pragma_functions_tree = pragma_functions.parse_declaration(ctr.get_ast(),
-			                        ctr.get_scope_link());
-			                ctr.get_ast().prepend(pragma_functions_tree);
-
-                            FunctionDefinition function_def(pragma_functions_tree, ctr.get_scope_link());
-							function_sym = function_def.get_function_symbol();
+							TL::AST_t ref_tree = ctr.get_ast().get_enclosing_function_definition(true);
+			                pragma_functions_tree = pragma_functions.parse_declaration(ref_tree, ctr.get_scope_link());
+			                ref_tree.prepend(pragma_functions_tree);
                         }
 		                else 
 		                {
-							TL::AST_t ref_tree = ctr.get_ast().get_enclosing_function_definition(true);
-			                TL::AST_t pragma_functions_tree = pragma_functions.parse_declaration(ref_tree, ctr.get_scope_link());
-			                ref_tree.prepend(pragma_functions_tree);
-
-                            FunctionDefinition function_def(pragma_functions_tree, ctr.get_scope_link());
-							function_sym = function_def.get_function_symbol();
+			                pragma_functions_tree = pragma_functions.parse_declaration(ctr.get_ast(),
+			                        ctr.get_scope_link());
+			                ctr.get_ast().prepend(pragma_functions_tree);
                         }
                     }
 
                     CXX_LANGUAGE()
                     {
-                        TL::AST_t pragma_functions_tree;
-                        /*if (ctr.get_scope().is_class_scope())
+                        if (ctr.get_scope().inside_class_scope())
                         {
-					        pragma_functions_tree = pragma_functions.parse_member(ctr.get_ast(),
-					                ctr.get_scope_link(), );
+                            if (ctr.get_scope().inside_block_scope())
+                            {
+				                FunctionDefinition func_def(ctr.get_ast().get_enclosing_function_definition(), ctr.get_scope_link());
+				                IdExpression func_id = func_def.get_function_name();
+		                        if (func_id.is_unqualified())
+		                        {
+									pragma_functions_tree = pragma_functions.parse_member(ctr.get_ast(),
+									        ctr.get_scope_link(), ctr.get_scope().get_class_of_scope());
+		                        }
+		                        else
+		                        {
+		                            pragma_functions_tree = pragma_functions.parse_declaration(ctr.get_ast(),
+							                ctr.get_scope_link());
+		                        }
+                                TL::AST_t ref_tree = ctr.get_ast().get_enclosing_function_definition(true);
+                                ref_tree.prepend(pragma_functions_tree);
+                            }
+                            else
+                            {
+		                         pragma_functions_tree = pragma_functions.parse_member(ctr.get_ast(),
+									        ctr.get_scope_link(), ctr.get_scope().get_class_of_scope());
+                                 ctr.get_ast().prepend(pragma_functions_tree);
+                            }
                         }
                         else
-                        {*/
+                        {
 					        pragma_functions_tree = pragma_functions.parse_declaration(ctr.get_ast(),
 					                ctr.get_scope_link());
-                        //}
-				        ctr.get_ast().replace(pragma_functions_tree);
-
-                        FunctionDefinition function_def(pragma_functions_tree, ctr.get_scope_link());
-						function_sym = function_def.get_function_symbol();
+                            ctr.get_ast().prepend(pragma_functions_tree);
+                        }
                     }
+
+                    FunctionDefinition function_def(pragma_functions_tree, ctr.get_scope_link());
+					function_sym = function_def.get_function_symbol();
 
 					udr_symbol_list.append(function_sym);
 
@@ -686,7 +745,6 @@ namespace TL
 
         UDRInfoItem2::UDRInfoItem2(): 
             _name(""),
-            _udr_counter(0),
             _type(NULL),
             _combine_expression(NULL),
             _in_symbol(NULL),
@@ -705,7 +763,6 @@ namespace TL
 
 			std::stringstream ss;
 			ss << canonic_type.get_internal_type();
-            ss << "_" << _udr_counter;
 
 		    return (".udr_" + _name + "_" + ss.str());
         }
@@ -719,8 +776,8 @@ namespace TL
             RefPtr<UDRInfoItem2> cp(new UDRInfoItem2(*this));
             sym.set_attribute("udr_info", cp);
 
-            //DEBUG_CODE()
-            {             if (!type.get_declaration(sc, "").compare("int"))
+            DEBUG_CODE()
+            {
                     std::cerr << "UDR: Signing in " << sym_name << "    type " << type.get_declaration(sc, "") << std::endl;
             }
         }
@@ -792,16 +849,6 @@ namespace TL
             _name = str;
         }
 
-        int UDRInfoItem2::get_udr_counter() const
-        {
-            return _udr_counter;
-        }
- 
-        void UDRInfoItem2::set_udr_counter(int c)
-        {
-            _udr_counter = c;
-        }
-
         Type UDRInfoItem2::get_type() const
         {
             return _type;
@@ -863,6 +910,26 @@ namespace TL
         void UDRInfoItem2::set_is_builtin_operator(bool is_builtin)
         {
             _is_builtin = is_builtin;
+        }
+
+        bool UDRInfoItem2::get_is_constructor() const
+        {
+            return _is_constructor;
+        }
+
+        void UDRInfoItem2::set_is_constructor(bool constructor)
+        {
+            _is_constructor = constructor;
+        }
+
+        bool UDRInfoItem2::get_need_equal_initializer() const
+        {
+            return _need_equal_initializer;
+        }
+
+        void UDRInfoItem2::set_need_equal_initializer(bool need_equal_init)
+        {
+            _need_equal_initializer = need_equal_init;
         }
 
         bool UDRInfoItem2::has_identity() const

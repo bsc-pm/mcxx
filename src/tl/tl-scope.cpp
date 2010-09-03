@@ -233,4 +233,9 @@ namespace TL
 
         return result;
     }
+
+    Symbol Scope::get_class_of_scope()
+    {
+        return _decl_context.class_scope->related_entry;
+    }
 }

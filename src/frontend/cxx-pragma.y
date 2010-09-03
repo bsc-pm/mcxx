@@ -20,6 +20,7 @@
 %type<ast> pragma_custom_line_construct
 %type<ast> pragma_custom_construct_statement
 %type<ast> pragma_custom_construct_declaration
+%type<ast> pragma_custom_construct_member_declaration
 %type<ast> pragma_custom_clause
 %type<ast> pragma_custom_clause_seq
 %type<ast> pragma_custom_clause_opt_seq
@@ -57,6 +58,16 @@ declaration : pragma_custom_construct_declaration
 }
 ;
 
+member_declaration : pragma_custom_construct_member_declaration
+{
+    $$ = $1;
+}
+| pragma_custom_directive
+{
+    $$ = $1;
+}
+;
+
 // Pragma custom
 
 pragma_custom_directive : PRAGMA_CUSTOM pragma_custom_line_directive
@@ -66,6 +77,12 @@ pragma_custom_directive : PRAGMA_CUSTOM pragma_custom_line_directive
 ;
 
 pragma_custom_construct_declaration : PRAGMA_CUSTOM pragma_custom_line_construct declaration
+{
+	$$ = ASTMake2(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, $1.token_file, $1.token_line, $1.token_text);
+}
+;
+
+pragma_custom_construct_member_declaration : PRAGMA_CUSTOM pragma_custom_line_construct member_declaration
 {
 	$$ = ASTMake2(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, $1.token_file, $1.token_line, $1.token_text);
 }

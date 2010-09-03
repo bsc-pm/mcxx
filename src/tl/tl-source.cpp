@@ -440,6 +440,13 @@ namespace TL
         return result;
     }
 
+    AST_t Source::parse_member(AST_t ref_tree, TL::ScopeLink scope_link, Symbol class_symb)
+    {
+        type_t* t = get_user_defined_type(class_symb.get_internal_symbol());
+
+        return parse_member(ref_tree, scope_link, t);
+    }
+
     AST_t Source::parse_member(AST_t /* ref_tree */, TL::ScopeLink scope_link, Type class_type)
     {
         std::string mangled_text = "@MEMBER@ " + this->get_source(true);

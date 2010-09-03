@@ -594,7 +594,8 @@ void Outline::declare_members(Source template_headers)
 
     AST_t member_tree = member_decl.parse_member(
             point_of_decl, _sl,
-            class_type);
+            // class_type is a named type, get the type of its symbol
+            class_type.get_symbol());
 
     point_of_decl.append(member_tree);
 }
@@ -627,7 +628,7 @@ void Outline::embed_outline()
     {
         // This requires a different function
         outline_tree = _outlined_source.parse_member(_function_def->get_point_of_declaration(),
-                _sl, _enclosing_function.get_class_type());
+                _sl, _enclosing_function.get_class_type().get_symbol());
 
     }
     _function_def->get_ast().prepend_sibling_function(outline_tree);

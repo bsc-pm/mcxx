@@ -36,7 +36,7 @@ namespace TL
         bool Core::_already_registered(false);
 
         Core::Core()
-            : PragmaCustomCompilerPhase("omp"), _new_udr_str(""), _new_udr(true), _udr_sym_counter(0)
+            : PragmaCustomCompilerPhase("omp"), _new_udr_str(""), _new_udr(true), _udr_counter(0)
         {
             set_phase_name("OpenMP Core Analysis");
             set_phase_description("This phase is required for any other phase implementing OpenMP. "
@@ -266,7 +266,6 @@ namespace TL
 
                     AST_t var_tree = src.parse_id_expression(clause.get_ast(), clause.get_scope_link());
                     IdExpression var_id_expr(var_tree, clause.get_scope_link());
-
                     Symbol var_sym = var_id_expr.get_symbol();
 
                     if (!var_sym.is_valid())
@@ -300,15 +299,6 @@ namespace TL
                         }
                     }
 
-                    AST_t reductor_name_tree;
-                    IdExpression reductor_id_expr(NULL, ScopeLink());
-                    if (!udr_is_builtin_operator(reductor_name))
-                    {
-                        reductor_name_tree
-                            = Source(reductor_name).parse_id_expression(construct.get_ast(), construct.get_scope_link());
-                        reductor_id_expr = IdExpression(reductor_name_tree, clause.get_scope_link());
-                    }
-
                     if (var_sym.is_dependent_entity())
                     {
                         std::cerr << construct.get_ast().get_locus() << ": warning: symbol "
@@ -316,22 +306,35 @@ namespace TL
                     }
                     else
                     {
+		                AST_t reductor_name_tree;
+		                IdExpression reductor_id_expr(NULL, ScopeLink());
+
                         if (_new_udr)
                         {
                             bool found = false;
                             UDRInfoItem2 udr2;
                             udr2.set_type(var_type);
-                            if (!udr_is_builtin_operator(reductor_name) && reductor_name_tree.internal_ast_type_() == AST_QUALIFIED_ID)
-                            {	
-                                AST_t reductor_name_tree_aux = 
+
+				            if (var_type.is_class())
+				            {
+				                reductor_name_tree
+				                        = udr2.parse_omp_udr_operator_name(reductor_name, construct.get_ast(), construct.get_scope_link());
+				                reductor_id_expr = IdExpression(reductor_name_tree, clause.get_scope_link());
+				            }
+                            else if (!udr_is_builtin_operator(reductor_name))
+                            {
+                                reductor_name_tree = 
                                         Source(reductor_name).parse_id_expression_wo_check(construct.get_scope(), 
                                         construct.get_scope_link());
-                                udr2.set_name(reductor_name_tree_aux.children()[2].prettyprint());
+                            }
+                            if (!udr_is_builtin_operator(reductor_name) && reductor_name_tree.internal_ast_type_() == AST_QUALIFIED_ID)
+                            {	
+                                udr2.set_name(reductor_name_tree.children()[2].prettyprint());
                                 std::string symbol_name = udr2.get_symbol_name(var_type);
 
                                 // Change the third son 'name' -> '.udr_name_0xXXXXXXX'
-                                reductor_name_tree_aux.children()[2].replace_text(symbol_name);
-                                IdExpression reductor_expression(reductor_name_tree_aux, construct.get_scope_link());
+                                reductor_name_tree.children()[2].replace_text(symbol_name);
+                                IdExpression reductor_expression(reductor_name_tree, construct.get_scope_link());
                                 Symbol reductor_sym = reductor_expression.get_symbol();
                                 if (reductor_sym.is_symbol()) found = true;
                                 
@@ -342,24 +345,21 @@ namespace TL
                             }
                             else
                             {
-                                if (_new_udr)
-                                {
-		                            if (!reductor_name.compare("+")) reductor_name = "_plus_";
-		                            else if (!reductor_name.compare("-")) reductor_name = "_minus_";
-		                            else if (!reductor_name.compare("*")) reductor_name = "_mult_";
-		                            else if (!reductor_name.compare("/")) reductor_name = "_div_";
-		                            else if (!reductor_name.compare("&")) reductor_name = "_and_";
-		                            else if (!reductor_name.compare("|")) reductor_name = "_or_";
-		                            else if (!reductor_name.compare("^")) reductor_name = "_exp_";
-		                            else if (!reductor_name.compare("&&")) reductor_name = "_andand_";
-		                            else if (!reductor_name.compare("||")) reductor_name = "_oror_";
-                                }
+		                        if (!reductor_name.compare("+")) reductor_name = "_plus_";
+		                        else if (!reductor_name.compare("-")) reductor_name = "_minus_";
+		                        else if (!reductor_name.compare("*")) reductor_name = "_mult_";
+		                        else if (!reductor_name.compare("/")) reductor_name = "_div_";
+		                        else if (!reductor_name.compare("&")) reductor_name = "_and_";
+		                        else if (!reductor_name.compare("|")) reductor_name = "_or_";
+		                        else if (!reductor_name.compare("^")) reductor_name = "_exp_";
+		                        else if (!reductor_name.compare("&&")) reductor_name = "_andand_";
+		                        else if (!reductor_name.compare("||")) reductor_name = "_oror_";
 
                                 udr2.set_name(reductor_name);
 		                        udr2 = udr2.lookup_udr_2(construct.get_scope(),
 		                                found,
 		                                var_type,
-                                        _udr_sym_counter);
+                                        _udr_counter);
                             }
 
                             if (found)
@@ -370,7 +370,6 @@ namespace TL
                                 {
                                     std::cerr << construct.get_ast().get_locus() 
                                         << ": note: reduction of variable '" << var_sym.get_name() << "' solved to '" 
-                                        //<< var_type.get_declaration(construct.get_scope(), reductor_name) << "'" 
                                         << reductor_name << "'"
                                         << std::endl;
                                 }
@@ -387,6 +386,12 @@ namespace TL
                         }
                         else
                         {
+				            if (!udr_is_builtin_operator(reductor_name))
+				            {
+				                reductor_name_tree
+				                    = Source(reductor_name).parse_id_expression(construct.get_ast(), construct.get_scope_link());
+				                reductor_id_expr = IdExpression(reductor_name_tree, clause.get_scope_link());
+				            }
 
 				            // Adjust pointers to arrays
 				            if (!var_sym.is_parameter()

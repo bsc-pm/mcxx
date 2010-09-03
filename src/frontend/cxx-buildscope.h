@@ -88,8 +88,6 @@ LIBMCXX_EXTERN void finish_class_type(struct type_tag* class_type, struct type_t
 LIBMCXX_EXTERN void gather_type_spec_information(struct AST_tag* a, struct type_tag** type_info, 
         gather_decl_spec_t *gather_info, decl_context_t dctx);
 
-LIBMCXX_EXTERN void build_scope_delayed_clear_pending(void);
-
 LIBMCXX_EXTERN void enter_class_specifier(void);
 LIBMCXX_EXTERN void leave_class_specifier(void);
 

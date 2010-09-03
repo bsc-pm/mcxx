@@ -37,7 +37,6 @@ namespace TL
 
             private:
                 std::string _name;
-                int _udr_counter;
 			    Type _type;
 			    AST_t _combine_expression;
 			    Symbol _in_symbol;
@@ -47,6 +46,8 @@ namespace TL
 
                 bool _has_identity;
                 AST_t _identity;
+                bool _need_equal_initializer;
+                bool _is_constructor;
 
                 Symbol _function_definition_symbol;
 
@@ -67,12 +68,13 @@ namespace TL
 
                 std::string get_symbol_name(Type t) const;
 
+                AST_t parse_omp_udr_operator_name(const std::string &omp_udr_oper_name, 
+                        AST_t ref_tree,
+                        ScopeLink sl);
+
                 // Getters, setters and consults
                 std::string get_name() const;
                 void set_name(const std::string& str);
-
-                int get_udr_counter() const;
-                void set_udr_counter(int c);
 
                 Type get_type() const;
                 void set_type(Type t);
@@ -89,6 +91,10 @@ namespace TL
                 void set_is_builtin_operator(bool is_builtin);
                 bool udr_is_builtin_operator_2(const std::string& op_name);
 
+                bool get_is_constructor() const;
+                void set_is_constructor(bool constructor);
+                bool get_need_equal_initializer() const;
+                void set_need_equal_initializer(bool need_equal_init);
                 bool has_identity() const; 
                 AST_t get_identity() const;
                 AST_t get_raw_identity() const;
