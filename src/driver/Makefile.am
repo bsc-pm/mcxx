@@ -178,19 +178,6 @@ cxx-configfile-parser.c: $(srcdir)/cxx-configfile-parser.y
 
 # Install hooks
 # installs "mcc" as a soft link of mcxx
-
-        @list='$(mcxxexec_PROGRAMS)'; for p in $$list; do \
-          p1=`echo $$p|sed 's/$(EXEEXT)$$//'`; \
-          if test -f $$p \
-             || test -f $$p1 \
-          ; then \
-            f=`echo "$$p1" | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'`; \
-           echo " $(INSTALL_PROGRAM_ENV) $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=install $(mcxxexecPROGRAMS_INSTALL) '$$p' '$(DESTDIR)$(mcxxexecdir)/$$f'"; \
-           $(INSTALL_PROGRAM_ENV) $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=install $(mcxxexecPROGRAMS_INSTALL) "$$p" "$(DESTDIR)$(mcxxexecdir)/$$f" || exit 1; \
-          else :; fi; \
-        done
-
-
 install-exec-hook: 
 	real_mcxx_name=`echo mcxx | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
 	for compiler_name in @COMPILER_NAMES@; \
