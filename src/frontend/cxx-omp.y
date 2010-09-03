@@ -51,14 +51,14 @@ omp_udr_declare_arg_2 : omp_udr_unqualified_operator ':' omp_udr_type_specifier_
 ;
 
 /*!if C99*/
-omp_udr_type_specifier: type_id
+omp_udr_type_specifier : type_id
 {
     $$ = ASTListLeaf($1);
 }
 ;
 /*!endif*/
 /*!if CPLUSPLUS*/
-omp_udr_type_specifier: type_id
+omp_udr_type_specifier : type_id
 {
     $$ = ASTListLeaf($1);
 }
@@ -69,7 +69,7 @@ omp_udr_type_specifier: type_id
 ;
 /*!endif*/
 
-omp_udr_type_specifier_2: type_id
+omp_udr_type_specifier_2 : type_id
 {
     $$ = ASTListLeaf($1);
 }
@@ -79,7 +79,7 @@ omp_udr_type_specifier_2: type_id
 }
 
 
-omp_udr_unqualified_operator:  IDENTIFIER
+omp_udr_unqualified_operator :  IDENTIFIER
 {
     $$ = ASTLeaf(AST_SYMBOL, $1.token_file, $1.token_line, $1.token_text);
 }
@@ -118,7 +118,7 @@ omp_udr_unqualified_operator:  IDENTIFIER
 }
 ;
 
-omp_udr_expression: expression
+omp_udr_expression : expression
 {
     $$ = $1;
 }
@@ -214,31 +214,31 @@ omp_udr_builtin_op : '+'
 }
 ;
 
-subparsing: SUBPARSE_OMP_UDR_DECLARE omp_udr_declare_arg
+subparsing : SUBPARSE_OMP_UDR_DECLARE omp_udr_declare_arg
 {
     $$ = $2;
 }
 ;
 
-subparsing: SUBPARSE_OMP_UDR_DECLARE_2 omp_udr_declare_arg_2
+subparsing : SUBPARSE_OMP_UDR_DECLARE_2 omp_udr_declare_arg_2
 {
     $$ = $2;
 }
 ;
 
-subparsing: SUBPARSE_OMP_UDR_IDENTITY omp_udr_identity
+subparsing : SUBPARSE_OMP_UDR_IDENTITY omp_udr_identity
 {
     $$ = $2;
 }
 ;
 
-subparsing: SUBPARSE_OMP_OPERATOR_NAME omp_udr_operator_2
+subparsing : SUBPARSE_OMP_OPERATOR_NAME omp_udr_operator_2
 {
     $$ = $2;
 }
 ;
 
-omp_udr_identity: initializer_clause
+omp_udr_identity : initializer_clause
 {
     $$ = $1;
 }

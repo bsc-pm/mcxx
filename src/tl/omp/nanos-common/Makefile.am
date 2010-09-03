@@ -21,11 +21,28 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-noinst_LTLIBRARIES=libtlnanos-common.la
-
-END=
+noinst_LTLIBRARIES = libtlnanos-common.la
 
 include ../../Makefile.phases
+
+phases_LTLIBRARIES = libtlnanos-version.la
+
+END =
+
+#### libtl-nanos4.la
+
+libtlnanos_version_la_SOURCES = \
+	tl-nanos.hpp \
+	tl-nanos.cpp \
+	$(END)
+
+libtlnanos_version_la_CFLAGS = $(tl_cflags)
+libtlnanos_version_la_CXXFLAGS = $(tl_cxxflags)
+
+libtlnanos_version_la_LDFLAGS = $(tl_ldflags)
+libtlnanos_version_la_LIBADD = $(tl_libadd)
+
+#### libtl-nanos-common.la
 
 libtlnanos_common_la_CXXFLAGS=$(tl_cxxflags)
 
