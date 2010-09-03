@@ -177,9 +177,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         ObjectList<OpenMP::FunctionTaskInfo::implementation_pair_t> implementation_list 
             = function_task_info.get_devices_with_implementation();
 
-        OutlineFlags implements_outline_flags = outline_flags;
-        implements_outline_flags.implemented_outline = true;
-
         for (ObjectList<OpenMP::FunctionTaskInfo::implementation_pair_t>::iterator it = implementation_list.begin();
                 it != implementation_list.end();
                 it++)
@@ -192,15 +189,48 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                         it->first.c_str(), ctr.get_ast().get_locus().c_str());
             }
 
+            Source replaced_call;
+            ReplaceSrcIdExpression replace_call(ctr.get_scope_link());
+            replace_call.add_replacement(task_symbol, it->second.get_qualified_name());
+            replaced_call << replace_call.replace(ctr.get_statement());
+
+            AST_t new_code = replaced_call.parse_statement(ctr.get_ast(), ctr.get_scope_link());
+
+	    std::stringstream ss;
+	    ss << "_ol_" << it->second.get_name() << "_" << outline_num;
+	    std::string implemented_outline_name = ss.str();
+
+            Source initial_setup, replaced_body;
+
+            device_provider->do_replacements(data_environ_info,
+                            new_code,
+                            ctr.get_scope_link(),
+                            initial_setup,
+                            replaced_body);
+
+	    OutlineFlags implemented_outline_flags;
+	    implemented_outline_flags.task_symbol = it->second;
+
+            device_provider->create_outline(implemented_outline_name,
+                            struct_arg_type_name,
+                            data_environ_info,
+                            implemented_outline_flags,
+                            ctr.get_ast(),
+                            ctr.get_scope_link(),
+                            initial_setup,
+                            replaced_body);
+
             device_provider->get_device_descriptor(
-                    /* outline_name */
-                    it->second.get_qualified_name(),
+                    implemented_outline_name,
                     data_environ_info, 
-                    implements_outline_flags,
+                    implemented_outline_flags,
                     ctr.get_statement().get_ast(),
                     ctr.get_scope_link(),
                     ancillary_device_description, 
                     device_description_line);
+
+            some_device_needs_copies = some_device_needs_copies
+                    || device_provider->needs_copies();
         }
     }
 
