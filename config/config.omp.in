@@ -10,6 +10,8 @@ compiler_name = gcc
 compiler_options = 
 linker_name = gcc
 {openmp} compiler_phase = libtlomp-core.so
+{openmp} pragma_prefix = nanos
+{openmp} compiler_phase = libtlnanos-version.so
 # nanos4
 {openmp,!openmpt,!nanox} preprocessor_options = -I@NANOS4_INCLUDES@ -D_OPENMP=200505 -include nth_mcc.h
 {openmp,!openmpt,!nanox} linker_options = -L@NANOS4_LIBS@ -Wl,@RPATH_PARAMETER@,@NANOS4_LIBS@
@@ -17,8 +19,6 @@ linker_name = gcc
 {openmp,!openmpt,!nanox,nanos-dev,!debug,!instrument} linker_options = -lnthreads-dev 
 {openmp,!openmpt,!nanox,instrument,!debug} linker_options = -lnthreads-prv -L @MINTAKA_LIBS@ -Wl,@RPATH_PARAMETER@,@MINTAKA_LIBS@ -lmintaka
 {openmp,!openmpt,!nanox,debug} linker_options = -g -lnthreads-dbg
-{openmp,!openmpt,!nanox} pragma_prefix = nanos
-{openmp,!openmpt,!nanox} compiler_phase = libtlnanos4.so
 {openmp,!openmpt,!nanox,instrument,!debug} @INSTRUMENTATION_PHASE@
 {openmp,!openmpt,!nanox,serialize} compiler_phase = libtlomp-serialize.so
 {openmp,!openmpt,!nanox,serialize} compiler_phase = libtlomp-core.so  # Rerun core after serialization

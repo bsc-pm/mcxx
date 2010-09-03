@@ -146,7 +146,7 @@ static void do_smp_outline_replacements(AST_t body,
                             initial_code
                                 << ref_type.get_declaration(sym.get_scope(), field_name)
                                 << "(" 
-                                << "(" << ptr_type.get_declaration(sym.get_scope(), "") << ")"
+                                << "*(" << ptr_type.get_declaration(sym.get_scope(), "") << ")"
                                 << "_args->" << field_name
                                 << ");"
                                 ;

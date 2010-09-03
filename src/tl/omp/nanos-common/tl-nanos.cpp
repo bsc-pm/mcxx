@@ -31,7 +31,7 @@
 
 namespace TL
 {
-    namespace Nanos4
+    namespace Nanos
     {
         // Definition of static members
         const int Version::DEFAULT_VERSION = 399;
@@ -73,6 +73,12 @@ namespace TL
             
             // Create versioning symbols
             Source versioning_symbols;
+
+            DEBUG_CODE()
+            {
+                std::cerr << "Version::family '" << Version::family << "'" << std::endl;
+                std::cerr << "Version::version '" << Version::version << "'" << std::endl;
+            }
 
             CXX_LANGUAGE()
             {
@@ -133,4 +139,4 @@ namespace TL
     }
 }
 
-EXPORT_PHASE(TL::Nanos4::Interface);
+EXPORT_PHASE(TL::Nanos::Interface);

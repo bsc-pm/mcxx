@@ -30,7 +30,7 @@
 
 namespace TL
 {
-    namespace Nanos4
+    namespace Nanos
     {
         class Version
         {
