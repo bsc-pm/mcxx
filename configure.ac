@@ -928,27 +928,19 @@ dnl We try to figure a sensible default environment based on the configure envir
        spu)
            default_type_environ="linux-spu"
            ;;
+       *)
+           default_type_environ=""
+           ;;
     esac
 fi
 
-case "$default_type_environ" in \
-  linux-i386   | \
-  linux-ppc32  | \
-  linux-ppc64  | \
-  linux-x86_64 | \
-  linux-ia64   | \
-  linux-spu)
-       AC_MSG_RESULT([$default_type_environ])
-      ;;
-   "")
+if test x$default_type_environ = x;
+then
     AC_MSG_WARN([Uknown environment, default set to linux-i386. Use --with-type-environment to override automatic detection])
     default_type_environ="linux-i386"
-    ;;
-   "*")
-    AC_MSG_WARN([Invalid environment, default set to linux-i386. Use --help to see which type environments are valid])
-    default_type_environ="linux-i386"
-     ;;
-esac
+else
+    AC_MSG_RESULT([$default_type_environ])
+fi
 
 AC_DEFINE_UNQUOTED([DEFAULT_TYPE_ENVIRONMENT], ["$default_type_environ"], [Default type environment])
 
