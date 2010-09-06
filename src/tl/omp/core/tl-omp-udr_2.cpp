@@ -544,7 +544,8 @@ namespace TL
                 new_udr.set_out_symbol((*it).out_symbol);
                 new_udr.lookup_udr(construct.get_scope(), 
                         found,
-                        (*it).type);
+                        (*it).type,
+                        -1);
 
                 if (!found)
                 {
@@ -782,7 +783,7 @@ namespace TL
             }
         }
 
-        UDRInfoItem2 UDRInfoItem2::lookup_udr(Scope sc,
+        /*UDRInfoItem2 UDRInfoItem2::lookup_udr(Scope sc,
                 bool &found,
                 Type type) const
         {
@@ -801,40 +802,55 @@ namespace TL
             }
 
             return current_udr;
-        }
+        }*/
 
 
-        UDRInfoItem2 UDRInfoItem2::lookup_udr_2(Scope sc,
+        UDRInfoItem2 UDRInfoItem2::lookup_udr(Scope sc,
                 bool &found,
                 Type type,
                 int udr_counter) const
         {
-
             found = false;
 
             UDRInfoItem2 new_udr;
-            std::string sym_base_name = this->get_symbol_name(type);
+            std::string sym_name = this->get_symbol_name(type);
+
             DEBUG_CODE()
             {
-                std::cerr << "UDR: Lookup start"  << sym_base_name << std::endl;
+                std::cerr << "UDR: Lookup start"  << sym_name << std::endl;
             }
-            for (int i=0; !found, i<=udr_counter; i++)
+
+            if (udr_counter==-1)
             {
-		        ObjectList<Symbol> lookup = sc.get_symbols_from_name(sym_base_name);
+                new_udr = *this;
+                ObjectList<Symbol> lookup = sc.get_symbols_from_name(new_udr.get_symbol_name(type));
 		        if (!lookup.empty())
 		        {
 		            found = true;
-		            RefPtr<UDRInfoItem2> obj = 
-		                RefPtr<UDRInfoItem2>::cast_dynamic(lookup.at(0).get_attribute("udr_info"));
-		            new_udr = (*obj);
-                    break;
 		        }
-                else
-                {
-                    std::stringstream ss; ss << i+1;
-                    sym_base_name.replace(sym_base_name.size()-1, 1, ss.str());
-                }
             }
+            else
+            {
+		        for (int i=0; !found, i<=udr_counter; i++)
+		        {
+				    ObjectList<Symbol> lookup = sc.get_symbols_from_name(sym_name);
+
+				    if (!lookup.empty())
+				    {
+				        found = true;
+					    RefPtr<UDRInfoItem2> obj = 
+					        RefPtr<UDRInfoItem2>::cast_dynamic(lookup.at(0).get_attribute("udr_info"));
+					    new_udr = (*obj);
+		                break;
+				    }
+		            else
+		            {
+		                std::stringstream ss; ss << i+1;
+		                sym_name.replace(sym_name.size()-1, 1, ss.str());
+		            }
+		        }
+            }
+
             return new_udr;
         }
 
