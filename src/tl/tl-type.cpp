@@ -470,6 +470,11 @@ namespace TL
                 (cv_qualifier_t)(get_cv_qualifier(this->_type_info) | CV_RESTRICT));
     }
 
+    int Type::get_alignment_of()
+    {
+        return type_get_alignment(this->get_internal_type());
+    }
+
     bool Type::is_const() const
     {
         return is_const_qualified_type(_type_info);

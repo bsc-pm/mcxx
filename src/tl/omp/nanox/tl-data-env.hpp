@@ -45,8 +45,8 @@ namespace TL
                 bool _is_raw_buffer;
                 bool _is_vla_type;
                 bool _is_private;
-
                 ObjectList<Source> _vla_dim_list;
+                Type _alignment;
 
             public:
                 DataEnvironItem() 
@@ -57,7 +57,8 @@ namespace TL
                     _is_raw_buffer(false),
                     _is_vla_type(false),
                     _is_private(false),
-                    _vla_dim_list()
+                    _vla_dim_list(),
+                    _alignment(NULL)
                 { }
 
                 //! Creates a data environment item after a symbol, type and name
@@ -75,7 +76,8 @@ namespace TL
                     _is_raw_buffer(false),
                     _is_vla_type(false),
                     _is_private(false),
-                    _vla_dim_list()
+                    _vla_dim_list(),
+                    _alignment(NULL)
                 {
                 }
 
@@ -159,6 +161,18 @@ namespace TL
                 bool is_private() const
                 {
                     return _is_private;
+                }
+
+                //! Sets the item alignment
+                void set_alignment(Type t)
+                {
+                    _alignment = t;
+                }
+
+                //! States if the item is private or not
+                Type get_alignment() const
+                {
+                    return _alignment;
                 }
         };
 
@@ -309,7 +323,8 @@ namespace TL
                 Source &struct_decl,
                 Source &struct_fields,
                 std::string& struct_arg_type_name,
-                ObjectList<OpenMP::DependencyItem> dependencies);
+                ObjectList<OpenMP::DependencyItem> dependencies,
+                bool compiler_alignment);
 
         // This one is not to be exported
         void fill_data_args(
