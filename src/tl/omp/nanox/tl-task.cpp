@@ -50,7 +50,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             struct_arg_type_decl_src,
             struct_fields,
             struct_arg_type_name, 
-            dependences);
+            dependences,
+            _compiler_alignment);
 
     FunctionDefinition funct_def = ctr.get_enclosing_function();
     Symbol function_symbol = funct_def.get_function_symbol();

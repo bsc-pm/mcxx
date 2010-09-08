@@ -356,7 +356,7 @@ namespace TL
 		                        else if (!reductor_name.compare("||")) reductor_name = "_oror_";
 
                                 udr2.set_name(reductor_name);
-		                        udr2 = udr2.lookup_udr_2(construct.get_scope(),
+		                        udr2 = udr2.lookup_udr(construct.get_scope(),
 		                                found,
 		                                var_type,
                                         _udr_counter);

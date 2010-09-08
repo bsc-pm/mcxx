@@ -155,6 +155,8 @@ namespace TL
             //! Gets a reference (C++) to the current type
             Type get_reference_to();
 
+            int get_alignment_of();
+
             bool operator==(Type t) const;
             bool operator!=(Type t) const;
             Type& operator=(Type t);

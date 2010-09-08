@@ -60,9 +60,6 @@ namespace TL
 
                 UDRInfoItem2 lookup_udr(Scope sc,
                         bool &found,
-                        Type udr_type) const;
-                UDRInfoItem2 lookup_udr_2(Scope sc,
-                        bool &found,
                         Type udr_type,
                         int udr_counter) const;
 

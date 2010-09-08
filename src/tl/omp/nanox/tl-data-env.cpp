@@ -209,6 +209,11 @@ namespace TL
 
             Type type = sym.get_type();
 
+            std::string field_name = data_env_info.get_field_name_for_symbol(sym);
+            DataEnvironItem data_env_item(sym, type, field_name);
+
+            data_env_item.set_alignment(type);
+
             if (IS_C_LANGUAGE
                     && type.is_variably_modified())
             {
@@ -236,6 +241,8 @@ namespace TL
                 {
                     Type element_type = type.array_element();
                     // This is the "easiest" way to build a type
+                    data_env_item.set_alignment(element_type);
+
                     Source src;
                     src
                         << "char [(" 
@@ -261,9 +268,6 @@ namespace TL
                 }
             }
 
-            std::string field_name = data_env_info.get_field_name_for_symbol(sym);
-
-            DataEnvironItem data_env_item(sym, type, field_name);
             C_LANGUAGE()
             {
                 data_env_item.set_is_vla_type(is_vla_type);
@@ -289,6 +293,7 @@ namespace TL
             ObjectList<Source> dim_list;
 
             Type type = sym.get_type();
+
             if (IS_C_LANGUAGE
                     && type.is_variably_modified())
             {
@@ -328,6 +333,7 @@ namespace TL
                 data_env_item.set_is_vla_type(is_vla_type);
                 data_env_item.set_vla_dimensions(dim_list);
             }
+            data_env_item.set_alignment(type);
 
             data_env_info.add_item(data_env_item);
         }
@@ -345,6 +351,8 @@ namespace TL
             DataEnvironItem data_env_item(sym, type, "");
 
             data_env_item.set_is_private(true);
+
+            data_env_item.set_alignment(type);
 
             data_env_info.add_item(data_env_item);
         }
@@ -452,7 +460,8 @@ namespace TL
             Source &struct_decl,
             Source &struct_fields,
             std::string& struct_name,
-            ObjectList<OpenMP::DependencyItem> dependencies)
+            ObjectList<OpenMP::DependencyItem> dependencies,
+            bool compiler_alignment)
     {
 
         std::stringstream ss;
@@ -513,9 +522,25 @@ namespace TL
             if (t.is_reference())
                 t = t.references_to();
 
+            Source alignment;
+
             struct_fields
-                << t.get_unqualified_type().get_declaration(sc, data_env_item.get_field_name()) << ";"
-                ;
+                << t.get_unqualified_type().get_declaration(sc, data_env_item.get_field_name()) 
+                << alignment
+                << ";"
+            ;
+
+            if (data_env_item.is_raw_buffer())
+            {
+		        if (compiler_alignment)
+		        {
+		            alignment << " __attribute__((aligned(" << t.get_alignment_of() << ")))";
+		        }
+		        else
+		        {
+		            alignment << " __attribute__((aligned(" << data_env_item.get_alignment().get_alignment_of() << ")))";
+		        }
+            }
         }
     }
 

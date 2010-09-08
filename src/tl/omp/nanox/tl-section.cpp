@@ -73,7 +73,8 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
             struct_arg_type_decl_src,
             struct_fields,
             struct_arg_type_name, 
-            ObjectList<OpenMP::DependencyItem>()); // empty dependences
+            ObjectList<OpenMP::DependencyItem>(),  // empty dependences
+            _compiler_alignment);
 
     Source newly_generated_code;
     newly_generated_code
