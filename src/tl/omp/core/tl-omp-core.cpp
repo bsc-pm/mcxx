@@ -360,6 +360,25 @@ namespace TL
 		                                found,
 		                                var_type,
                                         _udr_counter);
+                                if (!found)
+                                {
+
+                                    ObjectList<Symbol> bases_symbol = var_type.get_bases_class_symbol_list();
+                                    ObjectList<Type> bases_type = var_type.get_bases_class_type_list();
+                                    if (!bases_symbol.empty())
+                                    {
+				                        int i = 0;
+				                        while (!found && i<bases_symbol.size())
+				                        {
+                                            udr2.set_name(reductor_name);
+				                            udr2 = udr2.lookup_udr(bases_symbol[i].get_scope(),
+						                            found,
+						                            bases_type[i],
+				                                    _udr_counter);
+				                            ++i;
+				                        }
+                                    }
+                                }
                             }
 
                             if (found)

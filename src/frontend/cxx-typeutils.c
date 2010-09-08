@@ -2987,6 +2987,49 @@ type_t* class_type_get_enclosing_class_type(type_t* t)
     return t->type->class_info->enclosing_class_type;
 }
 
+scope_entry_t** class_type_get_bases_class_symbol(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+
+    t = get_actual_class_type(t);
+
+    scope_entry_t* base_scope_entry_list[t->type->class_info->num_bases];
+    int num_scope_entry = t->type->class_info->num_bases;
+    int i = 0;
+    for (i=0; i<num_scope_entry; i++)
+    {
+        base_scope_entry_list[i] = t->type->class_info->base_classes_list[i]->class_symbol;
+    }
+   
+    return base_scope_entry_list;
+}
+
+type_t** class_type_get_bases_class_type(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+
+    t = get_actual_class_type(t);
+
+    type_t* base_type_list[t->type->class_info->num_bases];
+    int num_scope_entry = t->type->class_info->num_bases;
+    int i = 0;
+    for (i=0; i<num_scope_entry; i++)
+    {
+        base_type_list[i] = t->type->class_info->base_classes_list[i]->class_type;
+    }
+   
+    return base_type_list;
+}
+
+int class_type_num_bases_class_type(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+
+    t = get_actual_class_type(t);
+
+    return t->type->class_info->num_bases;
+}
+
 void class_type_add_constructor(type_t* class_type, scope_entry_t* entry)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
