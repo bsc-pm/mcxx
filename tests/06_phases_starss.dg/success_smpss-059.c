@@ -26,6 +26,6 @@ test_generator=config/mercurium-ss
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#pragma css task input(a) target(comm_thread) highpriority
+#pragma css task input(a) target device(comm_thread) highpriority
 void task1(int a);
 
