@@ -2893,14 +2893,15 @@ condition : expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_CONDITION, NULL, NULL, $1, ASTFileName($1), ASTLine($1), NULL);
 }
-| type_specifier_seq_0 declarator '=' assignment_expression %merge<ambiguityHandler>
+| type_specifier_seq_0 declarator '=' template_assignment_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_CONDITION, $1, $2, $4, ASTFileName($1), ASTLine($1), NULL);
 }
-| type_specifier_seq_ended_with_named_type_spec nonglobal_declarator '=' assignment_expression %merge<ambiguityHandler>
+| type_specifier_seq_ended_with_named_type_spec nonglobal_declarator '=' template_assignment_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_CONDITION, $1, $2, $4, ASTFileName($1), ASTLine($1), NULL);
 }
+
 // GNU Extension
 | type_specifier_seq_0 declarator asm_specification attributes '=' assignment_expression %merge<ambiguityHandler>
 {
