@@ -321,7 +321,11 @@ namespace TL
 						{
 							direction_source = Source("CSS_IN_SCALAR_DIR");
 						}
-
+						else
+						{
+							can_be_reshaped = true;
+						}
+						
 						dimensions_source
 							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].size = sizeof(void *);"
 							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].lower_bound = 0;"
@@ -335,6 +339,7 @@ namespace TL
 					}
 					else if (argument.is_literal())
 					{
+						can_be_reshaped = true;
 						if (region.get_direction() == Region::INPUT_DIR)
 						{
 							direction_source = Source("CSS_IN_SCALAR_DIR");
@@ -366,6 +371,8 @@ namespace TL
 					else
 					{
 						// A struct
+						can_be_reshaped = true;
+						
 						dimensions_source
 							<< parameter_name << "_parameter_region_" << region_index << "_dimensions__cssgenerated[0].size = "
 								<< "sizeof("
@@ -382,7 +389,7 @@ namespace TL
 				else if (parameter_type.is_non_derived_type())
 				{
 					// A scalar
-					can_be_reshaped = false;
+					can_be_reshaped = true;
 					
 					if (region.get_direction() != Region::INPUT_DIR) {
 						std::cerr << "Internal compiler error at " << __FILE__ << ":" << __LINE__ << std::endl;
