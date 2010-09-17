@@ -327,8 +327,9 @@ namespace TL
                                         Source(reductor_name).parse_id_expression_wo_check(construct.get_scope(), 
                                         construct.get_scope_link());
                             }
+
                             if (!udr_is_builtin_operator(reductor_name) && reductor_name_tree.internal_ast_type_() == AST_QUALIFIED_ID)
-                            {	
+                            {
                                 udr2.set_name(reductor_name_tree.children()[2].prettyprint());
                                 std::string symbol_name = udr2.get_symbol_name(var_type);
 
@@ -359,26 +360,8 @@ namespace TL
 		                        udr2 = udr2.lookup_udr(construct.get_scope(),
 		                                found,
 		                                var_type,
-                                        _udr_counter);
-                                if (!found)
-                                {
-
-                                    ObjectList<Symbol> bases_symbol = var_type.get_bases_class_symbol_list();
-                                    ObjectList<Type> bases_type = var_type.get_bases_class_type_list();
-                                    if (!bases_symbol.empty())
-                                    {
-				                        int i = 0;
-				                        while (!found && i<bases_symbol.size())
-				                        {
-                                            udr2.set_name(reductor_name);
-				                            udr2 = udr2.lookup_udr(bases_symbol[i].get_scope(),
-						                            found,
-						                            bases_type[i],
-				                                    _udr_counter);
-				                            ++i;
-				                        }
-                                    }
-                                }
+                                        reductor_name_tree,
+                                        _udr_counter);         
                             }
 
                             if (found)

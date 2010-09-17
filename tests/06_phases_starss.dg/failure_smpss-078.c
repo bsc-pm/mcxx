@@ -27,6 +27,6 @@ test_compile_fail=yes
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#pragma css task input(a) target(patata)
+#pragma css task input(a) target device
 void task2(int a);
 

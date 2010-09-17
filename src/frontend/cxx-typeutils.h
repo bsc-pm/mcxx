@@ -361,11 +361,6 @@ LIBMCXX_EXTERN struct scope_entry_tag* class_type_get_constructors_num(struct ty
 
 LIBMCXX_EXTERN struct type_tag* class_type_get_enclosing_class_type(struct type_tag* t);
 
-LIBMCXX_EXTERN struct scope_entry_tag** class_type_get_bases_class_symbol(struct type_tag* t);
-LIBMCXX_EXTERN struct type_tag** class_type_get_bases_class_type(struct type_tag* t);
-
-LIBMCXX_EXTERN int class_type_num_bases_class_type(struct type_tag* t);
-
 LIBMCXX_EXTERN int class_type_get_num_nonstatic_data_members(struct type_tag* class_type);
 LIBMCXX_EXTERN struct scope_entry_tag* class_type_get_nonstatic_data_member_num(struct type_tag* class_type, int i);
 

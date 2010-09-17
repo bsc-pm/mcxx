@@ -27,13 +27,13 @@
 
 #include "tl-source.hpp"
 
-#include "cxx-utils.h"
-
 #include "cxx-parser.h"
 #include "c99-parser.h"
 
 #include "cxx-exprtype.h"
+#include "cxx-koenig.h"
 #include "cxx-instantiation.h"
+#include "cxx-utils.h"
 
 
 namespace TL
@@ -545,6 +545,7 @@ namespace TL
                 new_udr.lookup_udr(construct.get_scope(), 
                         found,
                         (*it).type,
+                        NULL, /* tree for koenig lookup */
                         -1);
 
                 if (!found)
@@ -779,79 +780,94 @@ namespace TL
 
             DEBUG_CODE()
             {
-                    std::cerr << "UDR: Signing in " << sym_name << "    type " << type.get_declaration(sc, "") << std::endl;
+                    std::cerr << "UDR: Signing in '" << sym_name << "'" << std::endl;
             }
         }
-
-        /*UDRInfoItem2 UDRInfoItem2::lookup_udr(Scope sc,
-                bool &found,
-                Type type) const
-        {
-            DEBUG_CODE()
-            {
-                std::cerr << "UDR: Lookup start" << std::endl;
-            }
-
-            const UDRInfoItem2& current_udr = *this;
-
-            found = false;
-            ObjectList<Symbol> lookup = sc.get_symbols_from_name(current_udr.get_symbol_name(type));
-            if (!lookup.empty())
-            {
-                found = true;
-            }
-
-            return current_udr;
-        }*/
-
 
         UDRInfoItem2 UDRInfoItem2::lookup_udr(Scope sc,
                 bool &found,
                 Type type,
+                AST_t reductor_tree,
                 int udr_counter) const
         {
             found = false;
-
-            UDRInfoItem2 new_udr;
             std::string sym_name = this->get_symbol_name(type);
 
             DEBUG_CODE()
             {
-                std::cerr << "UDR: Lookup start"  << sym_name << std::endl;
+                std::cerr << "UDR: Lookup start '"  << sym_name << "'" << std::endl;
             }
 
             if (udr_counter==-1)
             {
-                new_udr = *this;
-                ObjectList<Symbol> lookup = sc.get_symbols_from_name(new_udr.get_symbol_name(type));
+                ObjectList<Symbol> lookup = sc.get_symbols_from_name(sym_name);
 		        if (!lookup.empty())
 		        {
 		            found = true;
 		        }
+                return *this;
             }
             else
             {
-		        for (int i=0; !found, i<=udr_counter; i++)
-		        {
-				    ObjectList<Symbol> lookup = sc.get_symbols_from_name(sym_name);
+                // Lookup in actual scope
+			    ObjectList<Symbol> lookup = sc.get_symbols_from_name(sym_name);
+			    if (!lookup.empty())
+			    {
+			        found = true;
+				    RefPtr<UDRInfoItem2> obj = 
+				            RefPtr<UDRInfoItem2>::cast_dynamic(lookup.at(0).get_attribute("udr_info"));
+				    return (*obj);
+			    }
 
-				    if (!lookup.empty())
-				    {
-				        found = true;
-					    RefPtr<UDRInfoItem2> obj = 
-					        RefPtr<UDRInfoItem2>::cast_dynamic(lookup.at(0).get_attribute("udr_info"));
-					    new_udr = (*obj);
-		                break;
-				    }
-		            else
-		            {
-		                std::stringstream ss; ss << i+1;
-		                sym_name.replace(sym_name.size()-1, 1, ss.str());
-		            }
-		        }
+                // Lookup in basis
+                ObjectList<Symbol> bases_symbol = type.get_bases_class_symbol_list();
+                if (!bases_symbol.empty())
+                {
+                    int i = 0;
+                    while (!found && i<bases_symbol.size())
+                    {
+                        sym_name = this->get_symbol_name(bases_symbol[i].get_type());
+				        ObjectList<Symbol> lookup = bases_symbol[i].get_scope().get_symbols_from_name(sym_name);
+						if (!lookup.empty())
+						{
+						    found = true;
+							RefPtr<UDRInfoItem2> obj = 
+								    RefPtr<UDRInfoItem2>::cast_dynamic(lookup.at(0).get_attribute("udr_info"));
+							return (*obj);
+						}
+                        i++;
+                    }
+                }
+
+                // Koenig lookup
+                type_t* expr_type = type.get_internal_type();
+                int num_arguments = 1;
+                type_t* argument_types[1] = { expr_type };
+                decl_context_t decl_context = type.get_symbol().get_scope().get_decl_context();
+                reductor_tree.replace_text(sym_name);
+                scope_entry_list_t *entry_list = koenig_lookup(num_arguments,
+                        argument_types, decl_context, reductor_tree.get_internal_ast());
+
+                // If 'entry_list' is not empty, it contains only one element
+                ObjectList<Symbol> koenigs_symbol;
+                scope_entry_list_t* it = entry_list;
+				while (it != NULL)
+				{
+					scope_entry_t* entry = it->entry;
+					koenigs_symbol.append(Symbol(entry));
+					it = it->next;
+				}
+                if (!koenigs_symbol.empty())
+                {
+                    ObjectList<Symbol> lookup = koenigs_symbol[0].get_scope().get_symbols_from_name(sym_name);
+				    found = true;
+					RefPtr<UDRInfoItem2> obj = 
+						    RefPtr<UDRInfoItem2>::cast_dynamic(lookup.at(0).get_attribute("udr_info"));
+					return (*obj);
+                }
+
+                return *this;
             }
-
-            return new_udr;
         }
 
         // UDRInfoItem2 Getters, setters and consults
