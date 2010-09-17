@@ -666,6 +666,22 @@ namespace TL
         return Type(get_cv_qualified_type(type, cv));
     }
 
+    ObjectList<Symbol> Type::get_bases_class_symbol_list()
+    {
+        ObjectList<Symbol> base_symbol_list;
+
+        scope_entry_list_t* all_bases = class_type_get_all_bases(_type_info, 0);
+        scope_entry_list_t* it = all_bases;
+        while (it != NULL)
+        {
+            scope_entry_t* entry = it->entry;
+            base_symbol_list.append(Symbol(entry));
+            it = it->next;
+        }
+
+        return base_symbol_list;
+    }
+
     bool Type::is_pod()
     {
         return ::is_pod_type(_type_info);

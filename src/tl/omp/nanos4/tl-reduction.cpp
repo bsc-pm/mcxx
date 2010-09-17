@@ -290,7 +290,7 @@ namespace TL
             else
             {
                 OpenMP::UDRInfoItem2 udr2 = reduction_symbol.get_udr_2();
-                std::string func_name = udr2.get_function_definition_symbol().get_qualified_name();
+                std::string func_name = udr2.get_function_definition_symbol().get_qualified_name(true);
 
                 C_LANGUAGE()
                 {

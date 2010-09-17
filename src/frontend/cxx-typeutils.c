@@ -2987,6 +2987,15 @@ type_t* class_type_get_enclosing_class_type(type_t* t)
     return t->type->class_info->enclosing_class_type;
 }
 
+int class_type_get_num_bases(type_t* class_type)
+{
+    ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
+    class_type = get_actual_class_type(class_type);
+    class_info_t* class_info = class_type->type->class_info;
+
+    return class_info->num_bases;
+}
+
 void class_type_add_constructor(type_t* class_type, scope_entry_t* entry)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
@@ -3311,14 +3320,6 @@ decl_context_t class_type_get_inner_context(type_t* class_type)
     return class_type->type->class_info->inner_decl_context;
 }
 
-int class_type_get_num_bases(type_t* class_type)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
-    class_info_t* class_info = class_type->type->class_info;
-
-    return class_info->num_bases;
-}
-
 int class_type_get_num_nonstatic_data_members(type_t* class_type)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
@@ -3366,7 +3367,8 @@ struct scope_entry_tag* class_type_get_member_function_num(struct type_tag* clas
 
 scope_entry_t* class_type_get_base_num(type_t* class_type, int num, char *is_virtual, char *is_dependent)
 {
-    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+    ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
+    class_type = get_actual_class_type(class_type);
 
     class_info_t* class_info = class_type->type->class_info;
 

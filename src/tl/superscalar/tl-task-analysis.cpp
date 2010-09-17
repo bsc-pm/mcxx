@@ -253,12 +253,34 @@ namespace TL
 			TaskAnalysis::fail();
 		}
 		
-		bool is_blocking = construct.get_clause("blocking").is_defined();
-		
-		if (is_blocking && !construct.get_clause("blocking").get_arguments().empty())
-		{
-			std::cerr << context_ast.get_locus() << " Error: the 'blocking' clause does not accept any parameter." << std::endl;
-			TaskAnalysis::fail();
+		bool is_blocking = false;
+
+		if (construct.get_clause("target").is_defined()) {
+			if (construct.get_clause("device").is_defined()) {
+				ObjectList< std::string > args = construct.get_clause("device").get_arguments(ExpressionTokenizerTrim());
+				ObjectList< std::string >::iterator it = args.begin();
+				if ( it == args.end() ) {
+					std::cerr << context_ast.get_locus() << " Error: the you must specify something inside the device clause." << std::endl;
+					TaskAnalysis::fail();
+				}
+				for ( ; it != args.end(); it++) {
+					if ( *it == std::string("comm_thread")) {
+						if ( is_blocking ) {
+							std::cerr << context_ast.get_locus() << " Warning: the 'comm_thread' target was already defined"<< std::endl;
+							break;
+						}
+						is_blocking = true;
+					}
+				}
+			} else {
+				std::cerr << context_ast.get_locus() << " Error: the 'target' clause needs the 'device' clause to be specified." << std::endl;
+				TaskAnalysis::fail();
+			}
+		} else {
+			if (construct.get_clause("device").is_defined()) {
+				std::cerr << context_ast.get_locus() << " Error: the 'device' clause needs the 'target' clause to be specified." << std::endl;
+				TaskAnalysis::fail();
+			}
 		}
 		
 		if (has_high_priority && is_blocking)

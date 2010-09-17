@@ -64,6 +64,12 @@ namespace TL
 		return value_in_list(value, elem1, elem2, elem3) || value_in_list(value, elem4, elem5, elem6);
 	}
 	
+	template<typename V, typename E>
+	static bool inline value_in_list(V value, E elem1, E elem2, E elem3, E elem4, E elem5, E elem6, E elem7)
+	{
+		return value_in_list(value, elem1, elem2, elem3) || value_in_list(value, elem4, elem5, elem6, elem7);
+	}
+	
 	
 	
 	CompilerPhase::PhaseStatus TransformDirectives::_status;
@@ -254,7 +260,7 @@ namespace TL
 		for (ObjectList<std::string>::const_iterator it = clauses.begin(); it != clauses.end(); it++)
 		{
 			std::string const &clause = *it;
-			if (!value_in_list(clause, "input", "output", "inout", "highpriority", "blocking", "reduction"))
+			if (!value_in_list(clause, "input", "output", "inout", "highpriority", "target", "reduction", "device"))
 			{
 				std::cerr << construct.get_ast().get_locus() << " Error: invalid clause '" << clause << "' used in 'task' construct." << std::endl;
 				TransformDirectives::fail();

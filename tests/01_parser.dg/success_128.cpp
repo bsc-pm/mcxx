@@ -1,6 +1,6 @@
 /*
 <testinfo>
-test_generator=config/mercurium-ss
+test_generator=config/mercurium
 </testinfo>
 */
 /*--------------------------------------------------------------------
@@ -26,6 +26,31 @@ test_generator=config/mercurium-ss
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#pragma css task input(a) target device(comm_thread) highpriority
-void task1(int a);
+template<class Ch>
+class xml_node
+{
+  public:
+    xml_node() { }
+};
+
+template<class Ch>
+class xml_document: public xml_node<Ch>
+{
+	template<int Flags>
+	xml_node<Ch> *parse_node_1(char text) { }
+
+	template<int Flags>
+	xml_node<Ch> *parse_node_2() { }
+
+	xml_node<Ch> *parse_node_3() { }
+
+    int bar() {}
+
+    template<int Flags>
+    int foo()
+    {
+       char text = 'a';
+       if (xml_node<Ch> *a = parse_node_1<Flags>(text));
+    }
+};
 
