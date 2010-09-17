@@ -280,8 +280,6 @@ namespace TL
 
             //! Get the symbol list of classes which are base of the type
             ObjectList<Symbol> get_bases_class_symbol_list();
-            //! Get the type list of classes which are bases of the type
-            ObjectList<Type> get_bases_class_type_list();
 
 
             //! States whether current type type is a function-type
