@@ -72,6 +72,8 @@ libmcxx_la_SOURCES = \
   c99-parser.c \
   cxx-graphviz.h \
   cxx-graphviz.c \
+  cxx-html.h \
+  cxx-html.c \
   cxx-prettyprint.c \
   cxx-prettyprint.h \
   cxx-utils.c \

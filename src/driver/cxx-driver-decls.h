@@ -140,7 +140,8 @@ typedef struct debug_options_tag
     char enable_debug_code;
     char debug_lexer;
     char debug_parser;
-    char print_ast;
+    char print_ast_graphviz;
+    char print_ast_html;
     char print_memory_report;
     char print_memory_report_in_bytes;
     char debug_sizeof;
