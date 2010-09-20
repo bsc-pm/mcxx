@@ -159,7 +159,7 @@ NANOX_LIBS=""
 
 if test x$is_enabled_openmpt = xyes;
 then
-    nanox_include="${prefix}/include"
+    nanox_include="${prefix}/include/nanox"
     nanox_lib="${prefix}/lib"
 fi
 
@@ -168,7 +168,7 @@ then
    AC_ARG_WITH([nanox],
            AS_HELP_STRING([--with-nanox=dir], [Directory of Nanos++ installation]),
            [
-            nanox_include="${withval}/include"
+            nanox_include="${withval}/include/nanox"
             nanox_lib="${withval}/lib"
            ]
    )
