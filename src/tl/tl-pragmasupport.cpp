@@ -263,7 +263,15 @@ namespace TL
     {
         AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);
         PragmaCustomClause result(name, pragma_line, this->get_scope_link());
+
+        _referenced_clauses.insert(name);
         return result;
+    }
+
+    ObjectList<std::string> PragmaCustomConstruct::unreferenced_clause_names()
+    {
+        ObjectList<std::string> all_clauses = get_clause_names();
+        return all_clauses.filter(not_in_set(_referenced_clauses));
     }
 
     bool PragmaCustomConstruct::is_function_definition()
