@@ -1001,11 +1001,11 @@ AC_CHECK_FUNC([mkdtemp],
         )
 
 dnl Versioning things
-build_version=""
+build_version="unknown revision"
 if test -d $srcdir/.git;
 then
    AC_PATH_PROG([gitpath], [git], [])
-   AC_MSG_CHECKING([git build release])
+   AC_MSG_CHECKING([revision of git repository])
    run_git=""
    if test x"$gitpath" != x;
    then
@@ -1019,6 +1019,11 @@ then
        build_version="\"unknown git commit\""
    fi
    AC_MSG_RESULT($build_version)
+elif test -e $srcdir/DIST_REVISION;
+then
+     AC_MSG_CHECKING([revision of distributed release])
+     build_version=`cat $srcdir/DIST_REVISION`
+     AC_MSG_RESULT($build_version)
 fi
 AC_DEFINE_UNQUOTED([MCXX_BUILD_VERSION], $build_version, [Build version])
 

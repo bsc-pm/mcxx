@@ -30,3 +30,14 @@ ACLOCAL_AMFLAGS=-I m4
 SUPERSCALAR_DISTCHECK_CONFIGURE_FLAGS = --with-superscalar-runtime-api-version=@superscalar_version@
 
 DISTCHECK_CONFIGURE_FLAGS = $(SUPERSCALAR_DISTCHECK_CONFIGURE_FLAGS)
+
+dist-hook:
+	if [ -n "$(gitpath)" ]; \
+	then \
+	    run_gitversion=`"$(gitpath)" --git-dir=$(srcdir)/.git show "--pretty=format:%h %ci" HEAD | head -n 1`; \ 
+	    build_version="\"git $${run_gitversion} distributed version\""; \
+	    echo $${build_version} > $(distdir)/DIST_REVISION; \
+	elif [ -e $(srcdir)/DIST_REVISION ]; \
+	then \
+	    cp $(srcdir)/DIST_REVISION $(distdir)/DIST_REVISION; \
+	fi
