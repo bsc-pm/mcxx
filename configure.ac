@@ -1001,7 +1001,8 @@ AC_CHECK_FUNC([mkdtemp],
         )
 
 dnl Versioning things
-build_version="unknown revision"
+dnl Make sure build_version is double-quoted!
+build_version="\"unknown revision\""
 if test -d $srcdir/.git;
 then
    AC_PATH_PROG([gitpath], [git], [])
@@ -1022,7 +1023,8 @@ then
 elif test -e $srcdir/DIST_REVISION;
 then
      AC_MSG_CHECKING([revision of distributed release])
-     build_version=`cat $srcdir/DIST_REVISION`
+     run_gitversion=`cat $srcdir/DIST_REVISION`
+      build_version="\"$run_gitversion\""
      AC_MSG_RESULT($build_version)
 fi
 AC_DEFINE_UNQUOTED([MCXX_BUILD_VERSION], $build_version, [Build version])
