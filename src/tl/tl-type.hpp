@@ -128,6 +128,9 @@ namespace TL
             //! Returns the canonical unqualified type
             Type get_canonical_type();
 
+            //! Returns the underlying type of an enumeration
+            Type get_enum_underlying_type();
+
             //! Returns a pointer to the current type
             Type get_pointer_to();
             //! Returns an array to the current type

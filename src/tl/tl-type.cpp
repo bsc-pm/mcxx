@@ -643,6 +643,11 @@ namespace TL
          return ::canonical_type(this->_type_info);
     }
 
+    Type Type::get_enum_underlying_type()
+    {
+        return ::enum_type_get_underlying_type(this->_type_info);
+    }
+
     bool Type::is_incomplete() const
     {
         return is_incomplete_type(_type_info);

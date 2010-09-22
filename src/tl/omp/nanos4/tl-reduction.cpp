@@ -466,8 +466,6 @@ namespace TL
                 << "}"
                 ;
 
-            Source reduction_gethering;
-
             reduction_gathering = get_reduction_gathering(reduction_references, sl);
 
             return reduction_code;
