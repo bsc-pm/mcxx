@@ -50,6 +50,7 @@
 #include "cxx-driver-utils.h"
 #include "cxx-ast.h"
 #include "cxx-graphviz.h"
+#include "cxx-html.h"
 #include "cxx-prettyprint.h"
 #include "cxx-scope.h"
 #include "cxx-buildscope.h"
@@ -2052,11 +2053,16 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 compiler_phases_execution(CURRENT_CONFIGURATION, translation_unit, parsed_filename);
 
                 // 7. print ast if requested
-                if (CURRENT_CONFIGURATION->debug_options.print_ast)
+                if (CURRENT_CONFIGURATION->debug_options.print_ast_graphviz)
                 {
                     fprintf(stderr, "Printing AST in graphviz format\n");
 
                     ast_dump_graphviz(translation_unit->parsed_tree, stdout);
+                }
+                else if (CURRENT_CONFIGURATION->debug_options.print_ast_html)
+                {
+                    fprintf(stderr, "Printing AST in HTML format\n");
+                    ast_dump_html(translation_unit->parsed_tree, stdout);
                 }
 
                 // 8. print symbol table if requested

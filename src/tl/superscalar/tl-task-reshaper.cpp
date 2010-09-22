@@ -155,6 +155,7 @@ namespace TL
 			
 			RefPtr<ParameterRegionList> parameter_region_list = symbol.get_parameter_region_list();
 			RefPtr<AccessBoundsList> access_bounds_list = symbol.get_parameter_access_bounds_list();
+			RefPtr<AccessBoundsList> min_index_list = symbol.get_parameter_min_index_list();
 			for (unsigned int index = 0; index < parameter_region_list->size(); index++)
 			{
 				// Type parameter_type = parameter_declarations[index].get_type();
@@ -171,6 +172,7 @@ namespace TL
 					
 					// Calculate the shape of the array (if needed)
 					AccessBounds const &access_bounds = (*access_bounds_list)[index];
+					AccessBounds const &min_index = (*min_index_list)[index];
 					ObjectList<Expression> dimension_sizes = TypeUtils::get_array_dimensions(parameter_type, scope_link);
 					
 					shaper_datastructure_filling
@@ -180,12 +182,15 @@ namespace TL
 					{
 						shaper_datastructure_filling
 							<< "dimensions[" << index << "][0].original_size = (" << dimension_sizes[0] << ")*" << "sizeof(" << parameter_basic_type.get_declaration(parameter_scope, "") << ")" << ";"
-							<< "dimensions[" << index << "][0].reshaped_size = (" << access_bounds[0] << ")*" << "sizeof(" << parameter_basic_type.get_declaration(parameter_scope, "") << ")" << ";";
+							<< "dimensions[" << index << "][0].reshaped_size = (" << access_bounds[0] << ")*" << "sizeof(" << parameter_basic_type.get_declaration(parameter_scope, "") << ")" << ";"
+							<< "dimensions[" << index << "][0].first_index = (" << min_index[0] << ")*" << "sizeof(" << parameter_basic_type.get_declaration(parameter_scope, "") << ")" << ";";
+							
 					}
 					for (unsigned int dimension=1; dimension < access_bounds.size(); dimension++) {
 						shaper_datastructure_filling
 							<< "dimensions[" << index << "][" << dimension << "].original_size = " << dimension_sizes[dimension] << ";"
-							<< "dimensions[" << index << "][" << dimension << "].reshaped_size = " << access_bounds[dimension] << ";";
+							<< "dimensions[" << index << "][" << dimension << "].reshaped_size = " << access_bounds[dimension] << ";"
+							<< "dimensions[" << index << "][" << dimension << "].first_index = " << min_index[dimension] << ";";
 					}
 					shaper_datastructure_filling
 						<< "}";
@@ -203,6 +208,16 @@ namespace TL
 						<< "(" << parameter_type.get_declaration(global_scope, "") << ")" << "parameter_data[" << index << "]";
 					shaper_parameters
 						<< parameter_type.get_declaration_with_initializer(parameter_scope, parameter_symbol.get_name(), shaper_parameter_initializer) << ";";
+						
+					shaper_datastructure_filling
+						<< "if (dimensions[" << index << "] != 0) {";
+					Type parameter_basic_type = parameter_type.points_to();
+					shaper_datastructure_filling
+						<< "dimensions[" << index << "][0].original_size = (" << 1 << ")*" << "sizeof(" << parameter_basic_type.get_declaration(parameter_scope, "") << ")" << ";"
+						<< "dimensions[" << index << "][0].reshaped_size = (" << 1 << ")*" << "sizeof(" << parameter_basic_type.get_declaration(parameter_scope, "") << ")" << ";"
+						<< "dimensions[" << index << "][0].first_index = (" << 0 << ")*" << "sizeof(" << parameter_basic_type.get_declaration(parameter_scope, "") << ")" << ";";
+					shaper_datastructure_filling
+						<< "}";
 				}
 				else
 				{

@@ -159,7 +159,7 @@ NANOX_LIBS=""
 
 if test x$is_enabled_openmpt = xyes;
 then
-    nanox_include="${prefix}/include"
+    nanox_include="${prefix}/include/nanox"
     nanox_lib="${prefix}/lib"
 fi
 
@@ -168,7 +168,7 @@ then
    AC_ARG_WITH([nanox],
            AS_HELP_STRING([--with-nanox=dir], [Directory of Nanos++ installation]),
            [
-            nanox_include="${withval}/include"
+            nanox_include="${withval}/include/nanox"
             nanox_lib="${withval}/lib"
            ]
    )
@@ -1001,11 +1001,12 @@ AC_CHECK_FUNC([mkdtemp],
         )
 
 dnl Versioning things
-build_version=""
+dnl Make sure build_version is double-quoted!
+build_version="\"unknown revision\""
 if test -d $srcdir/.git;
 then
    AC_PATH_PROG([gitpath], [git], [])
-   AC_MSG_CHECKING([git build release])
+   AC_MSG_CHECKING([revision of git repository])
    run_git=""
    if test x"$gitpath" != x;
    then
@@ -1019,6 +1020,12 @@ then
        build_version="\"unknown git commit\""
    fi
    AC_MSG_RESULT($build_version)
+elif test -e $srcdir/DIST_REVISION;
+then
+     AC_MSG_CHECKING([revision of distributed release])
+     run_gitversion=`cat $srcdir/DIST_REVISION`
+      build_version="\"$run_gitversion\""
+     AC_MSG_RESULT($build_version)
 fi
 AC_DEFINE_UNQUOTED([MCXX_BUILD_VERSION], $build_version, [Build version])
 

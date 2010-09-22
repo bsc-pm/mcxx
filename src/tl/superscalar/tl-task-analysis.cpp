@@ -257,7 +257,7 @@ namespace TL
 
 		if (construct.get_clause("target").is_defined()) {
 			if (construct.get_clause("device").is_defined()) {
-				ObjectList< std::string > args = construct.get_clause("target").get_arguments(ExpressionTokenizerTrim());
+				ObjectList< std::string > args = construct.get_clause("device").get_arguments(ExpressionTokenizerTrim());
 				ObjectList< std::string >::iterator it = args.begin();
 				if ( it == args.end() ) {
 					std::cerr << context_ast.get_locus() << " Error: the you must specify something inside the device clause." << std::endl;
