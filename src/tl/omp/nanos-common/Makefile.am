@@ -49,4 +49,6 @@ libtlnanos_common_la_CXXFLAGS=$(tl_cxxflags)
 libtlnanos_common_la_SOURCES=\
            tl-nanos-atomic.hpp \
            tl-nanos-atomic.cpp \
+           tl-nanos-threadprivate.hpp \
+           tl-nanos-threadprivate.cpp \
            $(END)
