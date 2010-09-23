@@ -1053,7 +1053,7 @@ namespace TL
         return ASTText(_ast) != NULL;
     }
 
-    std::string AST_t::get_text()
+    std::string AST_t::get_text() const
     {
         return ASTText(_ast);
     }

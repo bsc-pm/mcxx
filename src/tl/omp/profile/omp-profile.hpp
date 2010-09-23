@@ -54,7 +54,7 @@ namespace TL
             {
             }
 
-            virtual bool do_(AST_t& a) const
+            virtual bool do_(SpecificFunctionDef::ArgType a) const
             {
                 if (FunctionDefinition::predicate(a))
                 {
@@ -85,7 +85,7 @@ namespace TL
             {
             }
 
-            ASTTraversalResult do_(AST_t& a) const
+            ASTTraversalResult do_(ExpressionNotNestedTaskPred::ArgType a) const
             {
                 if (Expression::predicate(a))
                 {

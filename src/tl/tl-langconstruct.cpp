@@ -1105,7 +1105,7 @@ namespace TL
             {
             }
 
-            ASTTraversalResult do_(AST_t& a) const
+            ASTTraversalResult do_(TraverseParameters::ArgType a) const
             {
                 bool match = _pred(a);
                 bool recurse = !match;
@@ -1356,37 +1356,37 @@ namespace TL
         return res;
     }
 
-    bool TemplateParameterConstruct::is_named()
+    bool TemplateParameterConstruct::is_named() const
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_NAMED_TEMPLATE_PARAMETER);
         return b;
     }
 
-    std::string TemplateParameterConstruct::get_name()
+    std::string TemplateParameterConstruct::get_name() const
     {
         TL::AST_t a = _ref.get_attribute(LANG_TEMPLATE_PARAMETER_NAME);
         return a.prettyprint();
     }
 
-    bool TemplateParameterConstruct::is_type()
+    bool TemplateParameterConstruct::is_type() const
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_TYPE_TEMPLATE_PARAMETER);
         return b;
     }
 
-    bool TemplateParameterConstruct::is_nontype()
+    bool TemplateParameterConstruct::is_nontype() const
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_NONTYPE_TEMPLATE_PARAMETER);
         return b;
     }
 
-    bool TemplateParameterConstruct::is_template()
+    bool TemplateParameterConstruct::is_template() const
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_TEMPLATE_TEMPLATE_PARAMETER);
         return b;
     }
 
-    Symbol TemplateParameterConstruct::get_symbol()
+    Symbol TemplateParameterConstruct::get_symbol() const
     {
         TL::Symbol sym = _ref.get_attribute(LANG_TEMPLATE_PARAMETER_SYMBOL);
         return sym;

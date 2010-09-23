@@ -762,14 +762,14 @@ namespace TL
             {
             }
 
-            bool is_named();
-            std::string get_name();
+            bool is_named() const;
+            std::string get_name() const;
 
-            bool is_type();
-            bool is_nontype();
-            bool is_template();
+            bool is_type() const ;
+            bool is_nontype() const;
+            bool is_template() const;
 
-            Symbol get_symbol();
+            Symbol get_symbol() const;
     };
 
     class LIBTL_CLASS TemplateHeader : public LangConstruct

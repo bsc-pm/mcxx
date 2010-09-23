@@ -39,7 +39,7 @@ struct IfZeroTaskGenerator : public TL::Functor<TL::AST_t::callback_result, TL::
 
         }
 
-        virtual TL::AST_t::callback_result do_(TL::AST_t& a) const
+        virtual TL::AST_t::callback_result do_(IfZeroTaskGenerator::ArgType a) const
         {
 			TL::AST_t::callback_result result;
 

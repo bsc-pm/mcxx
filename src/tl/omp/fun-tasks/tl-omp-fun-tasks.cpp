@@ -101,7 +101,7 @@ namespace OpenMP
             IsFunctionCall(ScopeLink sl, RefPtr<FunctionTaskSet> function_task_set)
                 : _sl(sl), _function_task_set(function_task_set) { }
 
-            bool do_(AST_t& a) const
+            bool do_(IsFunctionCall::ArgType a) const
             {
                 bool result = false;
                 if (Expression::predicate(a))

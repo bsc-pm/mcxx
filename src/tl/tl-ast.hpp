@@ -511,7 +511,7 @@ namespace TL
             bool has_text() const;
 
             //! Returns the text of this tree
-            std::string get_text();
+            std::string get_text() const;
             
             //! Replaces the text item of the tree.
             void replace_text(const std::string& str);
@@ -558,7 +558,7 @@ namespace TL
             }
 
             //! Function imiting the behaviour of deprecated traversals with Predicate<AST_t>
-            virtual ASTTraversalResult do_(AST_t& node) const
+            virtual ASTTraversalResult do_(ArgType node) const
             {
                 bool matches = _pred(node);
                 bool recurse = false;
@@ -623,7 +623,7 @@ namespace TL
             {
             }
 
-            virtual bool do_(AST_t& ast) const
+            virtual bool do_(ArgType ast) const
             {
                 if (!ast.is_valid())
                     return false;

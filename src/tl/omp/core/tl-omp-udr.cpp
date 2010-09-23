@@ -806,7 +806,7 @@ namespace TL
 
         struct OnlyMembers : Predicate<Symbol>
         {
-            virtual bool do_(Symbol& sym) const
+            virtual bool do_(OnlyMembers::ArgType sym) const
             {
                 // Well, it turns that the frontend is not properly labelling template names
                 // as being members
@@ -822,7 +822,7 @@ namespace TL
 
         struct OnlyNonMembers : Predicate<Symbol>
         {
-            virtual bool do_(Symbol& sym) const
+            virtual bool do_(OnlyNonMembers::ArgType sym) const
             {
                 return !OnlyMembers()(sym);
             }
