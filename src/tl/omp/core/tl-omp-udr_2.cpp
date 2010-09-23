@@ -48,11 +48,7 @@ namespace TL
 
         static std::string get_valid_zero_initializer(Type t)
         {
-            if (t.is_array())
-            {
-                return "{" + get_valid_zero_initializer(t.array_element()) + "}";
-            }
-            else if (t.is_class())
+            if (t.is_class())
             {
                 ObjectList<Symbol> nonstatic_data = t.get_nonstatic_data_members();
                 if (nonstatic_data.empty())
@@ -126,38 +122,34 @@ namespace TL
                       "unsigned long long int";
             const std::string scalar_types = integer_types + ", " + real_types;
 
-            reduction_info_t builtin_arithmetic_operators[] =
+            reduction_info_t builtin_operators[] =
             {
+                // arithmetic operators
                 {"+: " + integer_types + ": _out += _in", zero},
                 {"+: " + real_types + ": _out += _in", real_zero},
-                {"-: " + real_types + ": _out -= _in", zero},
+                {"-: " + integer_types + ": _out -= _in", zero},
                 {"-: " + real_types + ": _out -= _in", real_zero}, 
                 {"*: " + integer_types + ": _out *= _in", one}, 
                 {"*: " + real_types + ": _out *= _in", real_one},
-                {"", AST_t(NULL)}
-            };
-
-            reduction_info_t builtin_logic_bit_operators[] =
-            {
+                // logic bit operators
                 {"&: " + integer_types + ": _out &= _in", neg_zero}, 
                 {"|: " + integer_types + ": _out |= _in", zero}, 
                 {"^: " + integer_types + ": _out ^= _in", zero}, 
                 {"&&: " + scalar_types + ": _out = _out && _in", one}, 
-                {"||: " + scalar_types + ": _out = _out || _in", zero}, 
+                {"||: " + scalar_types + ": _out = _out || _in", zero},
                 {"", AST_t(NULL)}
             };
 
-
             // call 'parse_omp_udr_declare_arguments_2' to create one UDRInfoItem2 for each builtin case  
             int i = 0;
-            for(i; builtin_arithmetic_operators[i].udr_specifier != ""; i++)
+            for(i; builtin_operators[i].udr_specifier != ""; i++)
             {
 			    std::string name;
                 ObjectList<UDRParsedInfo> parsed_info_list;
                 Scope scope_of_clause;
                 AST_t ref_tree_of_clause(NULL);
 
-                parse_omp_udr_declare_arguments_2(builtin_arithmetic_operators[i].udr_specifier, 
+                parse_omp_udr_declare_arguments_2(builtin_operators[i].udr_specifier, 
                         translation_unit, 
                         scope_link,
                         name,
@@ -165,7 +157,6 @@ namespace TL
                         ref_tree_of_clause,
                         scope_of_clause);
 
-                ObjectList<UDRInfoItem2> udrs;
 		        // Declare a new UDR for each type
 		        for (ObjectList<UDRParsedInfo>::iterator it = parsed_info_list.begin();
 		                it != parsed_info_list.end();
@@ -182,7 +173,7 @@ namespace TL
 		            builtin_udr.set_out_symbol((*it).out_symbol);
                     AST_t identity_expr(NULL);
                     bool is_constructor, need_equal_initializer;
-                    parse_udr_identity(builtin_arithmetic_operators[i].identity.prettyprint(), ref_tree_of_clause,
+                    parse_udr_identity(builtin_operators[i].identity.prettyprint(), ref_tree_of_clause,
                                 scope_link, (*it).type, identity_expr, is_constructor, need_equal_initializer);
                     builtin_udr.set_identity(identity_expr);
                     builtin_udr.set_is_constructor(false);
@@ -926,7 +917,7 @@ namespace TL
             return _is_builtin;
         }
 
-        bool UDRInfoItem2::udr_is_builtin_operator_2(const std::string& op_name)
+        bool udr_is_builtin_operator_2(const std::string& op_name)
         {
             return (op_name == "+"
                     || op_name == "-"

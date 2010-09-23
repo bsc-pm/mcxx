@@ -346,6 +346,14 @@ namespace TL
                             }
                             else
                             {
+                                CXX_LANGUAGE()
+                                {
+                                    if (udr_is_builtin_operator_2(reductor_name) && var_type.is_enum())
+                                    {
+                                        var_type = var_type.get_enum_underlying_type();
+                                    }
+                                }
+
 		                        if (!reductor_name.compare("+")) reductor_name = "_plus_";
 		                        else if (!reductor_name.compare("-")) reductor_name = "_minus_";
 		                        else if (!reductor_name.compare("*")) reductor_name = "_mult_";
@@ -361,7 +369,7 @@ namespace TL
 		                                found,
 		                                var_type,
                                         reductor_name_tree,
-                                        _udr_counter);         
+                                        _udr_counter);
                             }
 
                             if (found)

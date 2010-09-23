@@ -87,7 +87,6 @@ namespace TL
 
                 bool is_builtin_operator() const;
                 void set_is_builtin_operator(bool is_builtin);
-                bool udr_is_builtin_operator_2(const std::string& op_name);
 
                 bool get_is_constructor() const;
                 void set_is_constructor(bool constructor);
