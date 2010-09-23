@@ -187,6 +187,18 @@ namespace TL
         return AST_t(_symbol->point_of_declaration);
     }
 
+    AST_t Symbol::get_point_of_definition() const
+    {
+        if (is_defined())
+        {
+            return AST_t(_symbol->point_of_definition);
+        }
+        else
+        {
+            return AST_t(NULL);
+        }
+    }
+
     bool Symbol::is_parameter() const
     {
         return (_symbol->entity_specs.is_parameter);

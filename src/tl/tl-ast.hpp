@@ -197,7 +197,7 @@ namespace TL
             AST _ast;
 
             //! Helper function for traversing the tree
-            static void tree_iterator(AST_t& a, const TraverseASTFunctor& functor, 
+            static void tree_iterator(const AST_t& a, const TraverseASTFunctor& functor, 
                     ObjectList<AST_t>& result);
 
             //! Implements the access to extended attributes of an AST_t
@@ -290,13 +290,12 @@ namespace TL
             //! States whether the tree is a list
             bool is_list() const;
             //! Returns an ASTIterator of this list
-            ASTIterator get_list_iterator();
             ASTIterator get_list_iterator() const;
 
             //! States whether the node is in a list
-            bool is_in_a_list();
+            bool is_in_a_list() const;
             //! Returns an iterator to the enclosing list
-            ASTIterator get_enclosing_list();
+            ASTIterator get_enclosing_list() const;
 
             bool operator<(AST_t n) const;
             bool operator==(AST_t n) const;
@@ -392,14 +391,14 @@ namespace TL
              * \param recursive_flag Specifies how the recursive traverse is performed depending on the result of pred
              * \return A list of visited trees that matched the predicate
              */
-            ObjectList<AST_t> depth_subtrees(const Predicate<AST_t>& pred = AlwaysTrue<AST_t>(), RecursiveFlag recursive_flag = RECURSIVE);
+            ObjectList<AST_t> depth_subtrees(const Predicate<AST_t>& pred = AlwaysTrue<AST_t>(), RecursiveFlag recursive_flag = RECURSIVE) const;
 
             //! Returns a list of visited trees that matched the traverse functor
             /*!
              * \param functor A traverse functor specifying the visited nodes and whose ones match
              * \return A list of visited trees that matched the predicate
              */
-            ObjectList<AST_t> depth_subtrees(const TraverseASTFunctor& functor);
+            ObjectList<AST_t> depth_subtrees(const TraverseASTFunctor& functor) const;
 
             //! Returns a list of children
             /*!
@@ -439,7 +438,7 @@ namespace TL
             }
 
             //! Returns the translation unit tree
-            AST_t get_translation_unit();
+            AST_t get_translation_unit() const;
 
             //! Prepends a tree as a sibling of the current enclosing function
             void prepend_sibling_function(AST_t t);
@@ -471,13 +470,13 @@ namespace TL
             void prepend(AST_t t);
 
             //! Returns the innermost enclosing block (compound statement) of this tree
-            AST_t get_enclosing_block();
+            AST_t get_enclosing_block() const;
 
             //! Returns the enclosing function definition tree
             /*!
              * \param jump_templates Tells whether template headers of this function definition must be skipped too
              */
-            AST_t get_enclosing_function_definition(bool jump_templates = false);
+            AST_t get_enclosing_function_definition(bool jump_templates = false) const;
 
             //! Returns the point where the function definition begins its whole declaration
             /*!
@@ -486,26 +485,26 @@ namespace TL
              * a.get_enclosing_function_definition(true).get_parent();
              * @endcode
              */
-            AST_t get_enclosing_function_definition_declaration();
+            AST_t get_enclosing_function_definition_declaration() const;
 
             //! Returns the enclosing class specifier
             /*!
              * \param jump_templates Tells whether template headers of this class specifier must be skipped too
              */
-            AST_t get_enclosing_class_specifier(bool jump_templates = false);
+            AST_t get_enclosing_class_specifier(bool jump_templates = false) const;
 
             //! Returns the enclosing namespace definition
-            AST_t get_enclosing_namespace_definition();
+            AST_t get_enclosing_namespace_definition() const;
 
             //! Returns the enclosing statement
-            AST_t get_enclosing_statement();
+            AST_t get_enclosing_statement() const;
 
             //! Returns a reference tree that is in global scope
             /*! 
               This is the same tree used by prepend_sibling_global to prepend
               an element
               */
-            AST_t get_enclosing_global_tree();
+            AST_t get_enclosing_global_tree() const;
 
             //! States whether this tree has a related text
             bool has_text() const;

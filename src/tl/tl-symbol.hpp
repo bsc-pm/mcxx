@@ -171,6 +171,15 @@ namespace TL
             //! Returns the point where this symbol was declared
             AST_t get_point_of_declaration() const;
 
+            //! Returns the point where this symbol was declared
+            /*!
+              If is_defined returns false this function will return an invalid tree.
+              If is_defined returns ture, this function might or might not return a valid tree.
+              If a tree is returned it always will be the enclosing declaration where the
+              symbol was defined, so it can be safely wrapped into a Declaration
+             */
+            AST_t get_point_of_definition() const;
+
             //! States whether this symbol has been initialized
             bool has_initialization() const;
             //! Returns the initialization tree

@@ -240,7 +240,7 @@ namespace TL
         return result;
     }
 
-    void AST_t::tree_iterator(AST_t& a, const TraverseASTFunctor& functor, 
+    void AST_t::tree_iterator(const AST_t& a, const TraverseASTFunctor& functor, 
             ObjectList<AST_t>& result)
     {
         AST tree = a._ast;
@@ -266,7 +266,7 @@ namespace TL
         }
     }
 
-    ObjectList<AST_t> AST_t::depth_subtrees(const Predicate<AST_t>& pred, RecursiveFlag recursive_flag)
+    ObjectList<AST_t> AST_t::depth_subtrees(const Predicate<AST_t>& pred, RecursiveFlag recursive_flag) const
     {
         ObjectList<AST_t> result;
 
@@ -278,7 +278,7 @@ namespace TL
         return result;
     }
 
-    ObjectList<AST_t> AST_t::depth_subtrees(const TraverseASTFunctor& functor)
+    ObjectList<AST_t> AST_t::depth_subtrees(const TraverseASTFunctor& functor) const
     {
         ObjectList<AST_t> result;
 
@@ -460,7 +460,7 @@ namespace TL
     //     return this->get_translation_unit(this->_ast);
     // }
 
-    AST_t AST_t::get_translation_unit()
+    AST_t AST_t::get_translation_unit() const
     {
         return get_translation_unit(this->_ast);
     }
@@ -479,7 +479,7 @@ namespace TL
         return node;
     }
 
-    AST_t AST_t::get_enclosing_block()
+    AST_t AST_t::get_enclosing_block() const
     {
         AST node = _ast;
         while (!is_extensible_block(node))
@@ -597,13 +597,13 @@ namespace TL
         prepend_list(enclosing_list, prepended_list);
     }
 
-    AST_t AST_t::get_enclosing_function_definition_declaration()
+    AST_t AST_t::get_enclosing_function_definition_declaration() const
     {
         AST_t result = get_enclosing_function_definition( /* jump_templates = */ true).get_parent();
         return result;
     }
 
-    AST_t AST_t::get_enclosing_class_specifier(bool jump_templates)
+    AST_t AST_t::get_enclosing_class_specifier(bool jump_templates) const
     {
         AST node = _ast;
 
@@ -627,7 +627,7 @@ namespace TL
         return node;
     }
 
-    AST_t AST_t::get_enclosing_namespace_definition()
+    AST_t AST_t::get_enclosing_namespace_definition() const
     {
         AST node = _ast;
 
@@ -643,7 +643,7 @@ namespace TL
     }
 
     //! Returns the enclosing statement
-    AST_t AST_t::get_enclosing_statement()
+    AST_t AST_t::get_enclosing_statement() const
     {
         AST_t a = *this;
         while (a.is_valid()
@@ -655,7 +655,7 @@ namespace TL
         return a;
     }
 
-    AST_t AST_t::get_enclosing_function_definition(bool jump_templates)
+    AST_t AST_t::get_enclosing_function_definition(bool jump_templates) const
     {
         AST node = _ast;
 
@@ -824,7 +824,7 @@ namespace TL
         return enclosing_global_tree;
     }
 
-    AST_t AST_t::get_enclosing_global_tree()
+    AST_t AST_t::get_enclosing_global_tree() const
     {
         return get_enclosing_global_tree_(*this);
     }
@@ -897,12 +897,6 @@ namespace TL
     {
         return is_valid()
             && ASTType(_ast) == AST_NODE_LIST;
-    }
-
-    ASTIterator AST_t::get_list_iterator()
-    {
-        ASTIterator iterator(_ast);
-        return _ast;
     }
 
     ASTIterator AST_t::get_list_iterator() const
@@ -1063,14 +1057,14 @@ namespace TL
         return ASTParent(this->_ast);
     }
 
-    bool AST_t::is_in_a_list()
+    bool AST_t::is_in_a_list() const
     {
         AST_t parent = get_parent();
 
         return (parent.is_list());
     }
 
-    ASTIterator AST_t::get_enclosing_list()
+    ASTIterator AST_t::get_enclosing_list() const
     {
         ASTIterator ast_iterator(get_parent()._ast);
         return ast_iterator;

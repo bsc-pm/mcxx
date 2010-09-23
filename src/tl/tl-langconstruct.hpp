@@ -98,32 +98,32 @@ namespace TL
             }
 
             //! Returns the scope link of this LangConstruct
-            ScopeLink get_scope_link()
+            ScopeLink get_scope_link() const
             {
                 return _scope_link;
             }
 
             //! Returns the scope of this LangConstruct
-            Scope get_scope()
+            Scope get_scope() const
             {
                 return _scope_link.get_scope(_ref);
             }
 
             //! Returns the enclosing function definition
-            FunctionDefinition get_enclosing_function();
+            FunctionDefinition get_enclosing_function() const;
 
             //! Returns the enclosing statement of this lang construct, if any
-            Statement get_enclosing_statement();
+            Statement get_enclosing_statement() const;
 
             //! Returns a list of all symbolic occurrences
-            ObjectList<IdExpression> all_symbol_occurrences(SymbolsWanted symbols = ALL_SYMBOLS);
+            ObjectList<IdExpression> all_symbol_occurrences(SymbolsWanted symbols = ALL_SYMBOLS) const;
             //! Returns a list of all symbolic occurrences that are not defined
             //within this construction
-            ObjectList<IdExpression> non_local_symbol_occurrences(SymbolsWanted symbols = ALL_SYMBOLS);
+            ObjectList<IdExpression> non_local_symbol_occurrences(SymbolsWanted symbols = ALL_SYMBOLS) const;
             /*!
              * \bug Not implemented
              */
-            ObjectList<IdExpression> local_symbol_occurrences();
+            ObjectList<IdExpression> local_symbol_occurrences() const;
 
             //! Common predicate to all LangConstruct
             /*!
@@ -271,13 +271,13 @@ namespace TL
             /*!
              * \bug This function uses get_symbol
              */
-            Declaration get_declaration();
+            Declaration get_declaration() const;
 
             //! Predicate for an IdExpression
             static const PredicateAttr predicate;
 
             //! Returns a full fledged Expression after this IdExpression
-            Expression get_expression();
+            Expression get_expression() const;
     };
 
     class TemplateHeader;
@@ -314,28 +314,28 @@ namespace TL
             /*!
              * Member functions defined outside the class will return a qualified id-expression
              */
-            IdExpression get_function_name();
+            IdExpression get_function_name() const;
 
             //! Returns the function body
-            Statement get_function_body();
+            Statement get_function_body() const;
 
             //! States whether this function definition is templated
             bool is_templated() const;
             //! Returns a list of templated headers for this template declaration
-            ObjectList<TemplateHeader> get_template_header();
+            ObjectList<TemplateHeader> get_template_header() const;
 
             //! Returns the declared entity of this function definition.
             /*!
              * This is the function name itself
              */
-            DeclaredEntity get_declared_entity();
+            DeclaredEntity get_declared_entity() const;
 
             //! Returns the declared function symbol
             /*! This is a synonym of get_declared_entity().get_declared_symbol() */
-            Symbol get_function_symbol();
+            Symbol get_function_symbol() const;
 
             //! Returns the point of declaration
-            AST_t get_point_of_declaration();
+            AST_t get_point_of_declaration() const;
 
             static const PredicateAttr predicate;
     };
@@ -416,12 +416,12 @@ namespace TL
             };
 
             //! Computes the type of the expression
-            Type get_type();
+            Type get_type() const;
             //! Computes the type of the expression
             /*!
              * \param is_lvalue Will hold whether this is a lvalue
              */
-            Type get_type(bool &is_lvalue);
+            Type get_type(bool &is_lvalue) const;
 
             Expression(AST_t ref, ScopeLink scope_link)
                 : LangConstruct(ref, scope_link)
@@ -602,12 +602,12 @@ namespace TL
             }
 
             //! States whether the parameter is named
-            bool is_named();
+            bool is_named() const;
             //! Returns an id-expression for the name
-            IdExpression get_name();
+            IdExpression get_name() const;
 
             // Returns the type of the parameter declaration
-            Type get_type()
+            Type get_type() const
             {
                 return _type;
             }
@@ -632,32 +632,32 @@ namespace TL
              * Do not use this function as it does not work for declarations involving typenames
              * like typedefs.
              */
-            IdExpression get_declared_entity() DEPRECATED;
+            IdExpression get_declared_entity() const DEPRECATED;
 
             //! Returns the declared symbol in this declaration
-            Symbol get_declared_symbol();
+            Symbol get_declared_symbol() const;
 
             //! Returns the declaration tree
-            AST_t get_declared_tree();
+            AST_t get_declared_tree() const;
 
             //! States whether this declaration has initializer
-            bool has_initializer();
+            bool has_initializer() const;
             //! Returns an expression with the initializer itself
-            Expression get_initializer();
+            Expression get_initializer() const;
 
             //! States whether this declaration is a functional one
-            bool is_functional_declaration();
+            bool is_functional_declaration() const;
             //! Returns all the parameter declarations
-            ObjectList<ParameterDeclaration> get_parameter_declarations();
+            ObjectList<ParameterDeclaration> get_parameter_declarations() const;
             //! Returns all the parameter declarations
             /*!
              * \param has_ellipsis Will be set to true if the function receives an ellipsis
              */
-            ObjectList<ParameterDeclaration> get_parameter_declarations(bool &has_ellipsis);
+            ObjectList<ParameterDeclaration> get_parameter_declarations(bool &has_ellipsis) const;
 
             //! States whether the functional declaration does not have
             // a prototype
-            bool functional_declaration_lacks_prototype();
+            bool functional_declaration_lacks_prototype() const;
 
             static const PredicateAttr predicate;
     };
@@ -672,17 +672,17 @@ namespace TL
             }
 
             //! States whether this type-specifier defines a class
-            bool is_class_specifier();
+            bool is_class_specifier() const;
             //! Returns the class symbol defined in the class-specifier
             /*!
              * This function can only be used when is_class_specifier returned true
              */
-            Symbol get_class_symbol();
+            Symbol get_class_symbol() const;
 
             //! States whether this type-specifier defines an enumerator
-            bool is_enum_specifier();
+            bool is_enum_specifier() const;
             //! Returns the enym symbol defined in the enum-specifier
-            Symbol get_enum_symbol();
+            Symbol get_enum_symbol() const;
     };
 
     //! This class wraps a declaration-specifier sequence
@@ -696,7 +696,7 @@ namespace TL
             }
 
             //! Returns the type-specifier in the declaration-specifier sequence
-            TypeSpec get_type_spec();
+            TypeSpec get_type_spec() const;
     };
 
     //! This class wraps a whole declaration
@@ -734,21 +734,20 @@ namespace TL
             }
 
             //! Returns the list of declared entities in this declaration
-            ObjectList<DeclaredEntity> get_declared_entities();
+            ObjectList<DeclaredEntity> get_declared_entities() const;
             //! Returns the declaration-specifier sequence of the declaration
-            DeclarationSpec get_declaration_specifiers();
+            DeclarationSpec get_declaration_specifiers() const;
 
             //! States whether this declaration is templated
-            bool is_templated();
+            bool is_templated() const;
             //! Returns a list of template-haders
-            ObjectList<TemplateHeader> get_template_header();
+            ObjectList<TemplateHeader> get_template_header() const;
 
-            //! Returns the point where all the declaration
-            //started
+            //! Returns the point where all the declaration started
             /*!
              * This function only is useful when is_templated returned true
              */
-            AST_t get_point_of_declaration();
+            AST_t get_point_of_declaration() const;
 
             // Fix the predicate
             static const PredicateAttr predicate;
@@ -805,13 +804,13 @@ namespace TL
             }
 
             //! Returns the name of the attribute
-            std::string get_name();
+            std::string get_name() const;
 
             //! States whether it has a list of expressions related to it
             bool has_argument_list() const;
 
             //! Returns the attribute argument list
-            ObjectList<Expression> get_argument_list();
+            ObjectList<Expression> get_argument_list() const;
     };
 
     //! This class wraps a gcc attribute specifier
@@ -835,7 +834,7 @@ namespace TL
 
             //! Returns the list of attributes specified in this
             //attribute-specifier
-            ObjectList<GCCAttribute> get_gcc_attribute_list();
+            ObjectList<GCCAttribute> get_gcc_attribute_list() const;
 
             static const PredicateAttr predicate;
     };
@@ -907,7 +906,7 @@ namespace TL
             /*
              * \param sym The symbol for which we request whether there is a replacement
              */
-            bool has_replacement(Symbol sym);
+            bool has_replacement(Symbol sym) const;
 
             //! Replaces all non local symbols with the given replacements
             /*
@@ -917,7 +916,7 @@ namespace TL
              * are Statement and Expression.
              */
             template <class T>
-            T replace(T orig_stmt)
+            T replace(T orig_stmt) const
             {
                 std::pair<AST_t, ScopeLink> modified_statement = 
                     orig_stmt.get_ast().duplicate_with_scope(orig_stmt.get_scope_link());
@@ -938,7 +937,7 @@ namespace TL
 
                         // This way of duplicating a tree is always safer
                         Source src;
-                        src << _repl_map[sym]
+                        src << _repl_map.find(sym)->second
                             ;
 
                         AST_t repl_ast = src.parse_expression(orig_ast, 
@@ -996,10 +995,10 @@ namespace TL
             void add_replacement(Symbol sym, std::string str);
 
             //! Perform the replacement returning a prettyprinted coe
-            Source replace(AST_t a);
+            Source replace(AST_t a) const;
 
             //! Perform the replacement returning a prettyprinted code
-            Source replace(LangConstruct a);
+            Source replace(LangConstruct a) const;
 
             void set_replace_declarators(bool b);
 
