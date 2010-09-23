@@ -2206,7 +2206,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             new_entry = new_symbol(decl_context, decl_context.current_scope, enum_name_str);
             new_entry->line = ASTLine(enum_name);
             new_entry->file = ASTFileName(enum_name);
-            new_entry->point_of_declaration = enum_name;
+            new_entry->point_of_declaration = get_enclosing_declaration(a);
             new_entry->kind = SK_ENUM;
             new_entry->type_information = get_new_enum_type(decl_context);
         }
@@ -2223,7 +2223,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         new_entry = new_symbol(decl_context, decl_context.current_scope, uniquestr(c));
         new_entry->line = ASTLine(a);
         new_entry->file = ASTFileName(a);
-        new_entry->point_of_declaration = a;
+        new_entry->point_of_declaration = get_enclosing_declaration(a);
         new_entry->kind = SK_ENUM;
         new_entry->type_information = get_new_enum_type(decl_context);
 
@@ -2242,6 +2242,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
     type_t* underlying_type = get_signed_int_type();
 
     new_entry->defined = 1;
+    new_entry->point_of_definition = get_enclosing_declaration(a);
     // Since this type is not anonymous we'll want that type_info
     // refers to this newly created type
     *type_info = get_user_defined_type(new_entry);
@@ -3898,6 +3899,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
     // If the class had a name, it is completely defined here
     class_entry->defined = 1;
+    class_entry->point_of_definition = get_enclosing_declaration(a);
     
     class_type_set_instantiation_trees(class_type, member_specification, base_clause);
 
@@ -5043,7 +5045,18 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                     ERROR_CONDITION((entry_list == NULL), "Qualified id '%s' name not found (%s)", 
                             prettyprint_in_buffer(declarator_id), ast_location(declarator_id));
 
-                    return entry_list->entry;
+                    scope_entry_t* entry = entry_list->entry;
+
+                    if (entry->kind == SK_VARIABLE
+                            && entry->entity_specs.is_member
+                            && entry->entity_specs.is_static
+                            && decl_context.current_scope->kind == NAMESPACE_SCOPE)
+                    {
+                        entry->defined = 1;
+                        entry->point_of_definition = get_enclosing_declaration(declarator_name);
+                    }
+
+                    return entry;
                 }
                 else
                 {
@@ -5328,9 +5341,11 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
         entry->entity_specs.is_extern = gather_info->is_extern;
         entry->entity_specs.is_register = gather_info->is_register;
 
-        if (!entry->entity_specs.is_extern)
+        if ((entry->entity_specs.is_member && !entry->entity_specs.is_static)
+                || (!entry->entity_specs.is_member && !entry->entity_specs.is_extern))
         {
             entry->defined = 1;
+            entry->point_of_definition = get_enclosing_declaration(declarator_id);
         }
 
         // Copy gcc attributes
@@ -6927,6 +6942,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     // Set defined now, otherwise some infinite recursion may happen when
     // instantiating template functions
     entry->defined = 1;
+    entry->point_of_definition = get_enclosing_declaration(a);
     
     {
         // Function declaration name
@@ -7804,19 +7820,10 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                             if (ASTType(too_much_qualified_declarator_name) == AST_QUALIFIED_ID
                                 || ASTType(too_much_qualified_declarator_name) == AST_QUALIFIED_TEMPLATE)
                             {
-                                // Let's fix the tree for the user message
-                                AST fixed_declarator = ast_copy_clearing_extended_data(declarator);
-                                AST fixed_declarator_name = get_declarator_name(fixed_declarator, decl_context);
-
-                                // AST fixed_unqualified_id = ASTSon2(fixed_declarator_name);
-
-                                // Fix this :)
-                                // *fixed_declarator_name = *fixed_unqualified_id;
-
                                 running_error("%s: error: extra qualification of member declaration is not allowed: '%s'. Did you mean '%s'?", 
                                         ast_location(too_much_qualified_declarator_name),
                                         prettyprint_in_buffer(declarator),
-                                        prettyprint_in_buffer(fixed_declarator_name)
+                                        prettyprint_in_buffer(ASTSon2(too_much_qualified_declarator_name))
                                         );
                             }
                         }
