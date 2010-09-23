@@ -966,6 +966,12 @@ namespace TL
                     IdExpression id_expr = expr.get_id_expression();
                     Symbol sym = id_expr.get_symbol();
 
+                    if (sym.is_member()
+                            && !sym.is_static())
+                    {
+                        std::cerr << expr.get_ast().get_locus() << ": warning: '" << expr << "' is a nonstatic-member, skipping" << std::endl;
+                    }
+
                     data_sharing.set_data_sharing(sym, DS_THREADPRIVATE);
                 }
             }
