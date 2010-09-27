@@ -189,7 +189,6 @@ LIBMCXX_EXTERN char is_builtin_type(struct type_tag* t);
 LIBMCXX_EXTERN char is_fundamental_type(struct type_tag* t);
 
 LIBMCXX_EXTERN char is_pod_type(type_t* t);
-LIBMCXX_EXTERN char is_pod_type_layout(type_t* t);
 
 LIBMCXX_EXTERN char is_trivially_copiable_type(type_t* t);
 LIBMCXX_EXTERN char is_standard_layout_type(type_t* t);

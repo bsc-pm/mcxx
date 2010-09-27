@@ -8256,12 +8256,6 @@ char is_pod_type(type_t* t)
     return closure_of_simple_properties(t, class_type_is_pod);
 }
 
-char is_pod_type_layout(type_t* t)
-{
-    // FIXME: Check this with the g++ ABI!
-    return is_pod_type(t);
-}
-
 char is_trivially_copiable_type(type_t* t)
 {
     return closure_of_simple_properties(t, class_type_is_trivially_copiable);
