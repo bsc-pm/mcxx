@@ -2709,7 +2709,6 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                     {
                         entry->entity_specs.is_virtual = 1;
                         class_type_add_virtual_function(class_type, entry);
-                        set_is_aggregate_type(class_type, 0);
 
                         found_virtual = 1;
 
@@ -2761,7 +2760,6 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
                 if (!has_overrider)
                 {
                     class_type_add_virtual_function(class_type, inherited_virtual);
-                    set_is_aggregate_type(class_type, 0);
                     if (inherited_virtual->entity_specs.is_pure)
                     {
                         class_type_set_is_abstract(class_type, 1);
@@ -3263,7 +3261,6 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         {
             implicit_destructor->entity_specs.is_virtual = 1;
             class_type_add_virtual_function(class_type, implicit_destructor);
-            set_is_aggregate_type(class_type, 0);
         }
 
         class_type_set_destructor(class_type, implicit_destructor);
@@ -3841,8 +3838,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         build_scope_base_clause(base_clause, 
                 class_type, 
                 inner_decl_context);
-
-        set_is_aggregate_type(get_actual_class_type(class_type), 0);
 
         DEBUG_CODE()
         {
@@ -7468,8 +7463,6 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
                     entry->entity_specs.is_constructor = 1;
                     entry->entity_specs.is_user_declared = 1;
 
-                    set_is_aggregate_type(class_type, 0);
-
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "BUILDSCOPE: Symbol '%s' at '%s:%d' is a constructor\n", 
@@ -7510,7 +7503,6 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
                     if (entry->entity_specs.is_virtual)
                     {
                         class_type_add_virtual_function(get_actual_class_type(class_type), entry);
-                        set_is_aggregate_type(get_actual_class_type(class_type), 0);
                     }
                 }
 
@@ -7526,7 +7518,6 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
                 {
                     entry->entity_specs.is_virtual = 1;
                     class_type_add_virtual_function(get_actual_class_type(class_type), entry);
-                    set_is_aggregate_type(get_actual_class_type(class_type), 0);
                 }
                 entry->entity_specs.is_destructor = 1;
                 class_type_set_destructor(get_actual_class_type(class_type), entry);
@@ -7551,7 +7542,6 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
                 else if (entry->entity_specs.is_virtual)
                 {
                     class_type_add_virtual_function(get_actual_class_type(class_type), entry);
-                    set_is_aggregate_type(get_actual_class_type(class_type), 0);
                 }
                 break;
             }
@@ -7565,7 +7555,6 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
                 if (entry->entity_specs.is_virtual)
                 {
                     class_type_add_virtual_function(get_actual_class_type(class_type), entry);
-                    set_is_aggregate_type(get_actual_class_type(class_type), 0);
                 }
                 break;
             }
@@ -7893,8 +7882,6 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                             entry->entity_specs.is_constructor = 1;
                                             entry->entity_specs.is_user_declared = 1;
 
-                                            set_is_aggregate_type(class_type, 0);
-
                                             DEBUG_CODE()
                                             {
                                                 fprintf(stderr, "BUILDSCOPE: Symbol '%s' at '%s:%d' is a constructor\n", 
@@ -7934,7 +7921,6 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                             if (entry->entity_specs.is_virtual)
                                             {
                                                 class_type_add_virtual_function(class_type, entry);
-                                                set_is_aggregate_type(class_type, 0);
                                             }
                                             class_type_add_member_function(class_type, entry);
                                         }
@@ -7950,7 +7936,6 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                         {
                                             entry->entity_specs.is_virtual = 1;
                                             class_type_add_virtual_function(get_actual_class_type(class_type), entry);
-                                            set_is_aggregate_type(get_actual_class_type(class_type), 0);
                                         }
                                         class_type_set_destructor(get_actual_class_type(class_type), entry);
                                         break;
@@ -7974,7 +7959,6 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                         else if (entry->entity_specs.is_virtual)
                                         {
                                             class_type_add_virtual_function(get_actual_class_type(class_type), entry);
-                                            set_is_aggregate_type(get_actual_class_type(class_type), 0);
                                         }
                                         break;
                                     }
@@ -7990,7 +7974,6 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                         if (entry->entity_specs.is_virtual)
                                         {
                                             class_type_add_virtual_function(get_actual_class_type(class_type), entry);
-                                            set_is_aggregate_type(get_actual_class_type(class_type), 0);
                                         }
                                         break;
                                     }
@@ -8018,12 +8001,6 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                 }
                                 // This is a nonstatic data member
                                 class_type_add_nonstatic_data_member(get_actual_class_type(class_type), entry);
-
-                                if (entry->expression_value != NULL
-                                         || current_access != AS_PUBLIC)
-                                {
-                                    set_is_aggregate_type(get_actual_class_type(class_type), 0);
-                                }
                             }
                             else
                             {

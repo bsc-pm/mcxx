@@ -180,8 +180,6 @@ LIBMCXX_EXTERN void set_is_incomplete_type(type_t* t, char is_incomplete);
 LIBMCXX_EXTERN void set_is_complete_type(type_t* t, char is_complete);
 LIBMCXX_EXTERN void set_is_dependent_type(struct type_tag* t, char is_dependent);
 
-LIBMCXX_EXTERN void set_is_aggregate_type(type_t* type, char is_aggregate);
-
 LIBMCXX_EXTERN struct type_tag* unnamed_class_enum_type_set_name(struct type_tag* t, struct scope_entry_tag* entry);
 
 LIBMCXX_EXTERN void template_type_set_related_symbol(struct type_tag* t, struct scope_entry_tag*);

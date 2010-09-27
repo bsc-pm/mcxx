@@ -419,6 +419,13 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
     {
         if (braced_list_type_get_num_types(orig) == 1)
         {
+            compute_ics_flags(braced_list_type_get_type_num(orig, 0),
+                    dest,
+                    decl_context,
+                    result,
+                    /* no_user_defined_conversions */ 1,
+                    /* is_implicit_argument */ 0,
+                    filename, line);
         }
     }
 }

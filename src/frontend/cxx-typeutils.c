@@ -379,7 +379,6 @@ struct common_type_info_tag
 
     unsigned char is_dependent:1;
     unsigned char is_incomplete:1;
-    unsigned char is_aggregate:1;
 
     // The sizeof and alignment of the type
     // They are only valid once 'valid_size' is true
@@ -583,7 +582,6 @@ type_t* get_char_type(void)
         _type->info->size = 1;
         _type->info->alignment = 1;
         _type->info->valid_size = 1;
-        _type->info->is_aggregate = 1;
     }
 
     return _type;
@@ -602,7 +600,6 @@ type_t* get_signed_char_type(void)
         _type->info->size = 1;
         _type->info->alignment = 1;
         _type->info->valid_size = 1;
-        _type->info->is_aggregate = 1;
     }
 
     return _type;
@@ -621,7 +618,6 @@ type_t* get_unsigned_char_type(void)
         _type->info->size = 1;
         _type->info->alignment = 1;
         _type->info->valid_size = 1;
-        _type->info->is_aggregate = 1;
     }
 
     return _type;
@@ -641,7 +637,6 @@ type_t* get_wchar_t_type(void)
             _type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_wchar_t;
             _type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_wchar_t;
             _type->info->valid_size = 1;
-            _type->info->is_aggregate = 1;
         }
         // In C there is no wchar_t type, use 'int'
         C_LANGUAGE()
@@ -665,7 +660,6 @@ type_t* get_bool_type(void)
         _type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_bool;
         _type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_bool;
         _type->info->valid_size = 1;
-        _type->info->is_aggregate = 1;
     }
 
     return _type;
@@ -683,7 +677,6 @@ type_t* get_signed_int_type(void)
         _type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_signed_int;
         _type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_signed_int;
         _type->info->valid_size = 1;
-        _type->info->is_aggregate = 1;
     }
 
     return _type;
@@ -702,7 +695,6 @@ type_t* get_signed_short_int_type(void)
         _type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_signed_short;
         _type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_signed_short;
         _type->info->valid_size = 1;
-        _type->info->is_aggregate = 1;
     }
 
     return _type;
@@ -721,7 +713,6 @@ type_t* get_signed_long_int_type(void)
         _type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_signed_long;
         _type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_signed_long;
         _type->info->valid_size = 1;
-        _type->info->is_aggregate = 1;
     }
 
     return _type;
@@ -740,7 +731,6 @@ type_t* get_signed_long_long_int_type(void)
         _type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_signed_long_long;
         _type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_signed_long_long;
         _type->info->valid_size = 1;
-        _type->info->is_aggregate = 1;
     }
 
     return _type;
@@ -760,7 +750,6 @@ type_t* get_unsigned_int_type(void)
         _type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_unsigned_int;
         _type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_unsigned_int;
         _type->info->valid_size = 1;
-        _type->info->is_aggregate = 1;
     }
 
     return _type;
@@ -792,7 +781,6 @@ type_t* get_unsigned_short_int_type(void)
         _type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_unsigned_short;
         _type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_unsigned_short;
         _type->info->valid_size = 1;
-        _type->info->is_aggregate = 1;
     }
 
     return _type;
@@ -812,7 +800,6 @@ type_t* get_unsigned_long_int_type(void)
         _type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_unsigned_long;
         _type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_unsigned_long;
         _type->info->valid_size = 1;
-        _type->info->is_aggregate = 1;
     }
 
     return _type;
@@ -832,7 +819,6 @@ type_t* get_unsigned_long_long_int_type(void)
         _type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_unsigned_long_long;
         _type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_unsigned_long_long;
         _type->info->valid_size = 1;
-        _type->info->is_aggregate = 1;
     }
 
     return _type;
@@ -850,7 +836,6 @@ type_t* get_float_type(void)
         _type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_float;
         _type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_float;
         _type->info->valid_size = 1;
-        _type->info->is_aggregate = 1;
     }
 
     return _type;
@@ -868,7 +853,6 @@ type_t* get_double_type(void)
         _type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_double;
         _type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_double;
         _type->info->valid_size = 1;
-        _type->info->is_aggregate = 1;
     }
 
     return _type;
@@ -887,7 +871,6 @@ type_t* get_long_double_type(void)
         _type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_long_double;
         _type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_long_double;
         _type->info->valid_size = 1;
-        _type->info->is_aggregate = 1;
     }
 
     return _type;
@@ -1349,7 +1332,6 @@ type_t* get_new_class_type(decl_context_t decl_context, enum class_kind_t class_
     type_info->info->is_incomplete = 1;
 
     // Initially assume it is an aggregate
-    type_info->info->is_aggregate = 1;
 
     return type_info;
 }
@@ -2428,7 +2410,6 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
 
                 result->info->is_dependent = is_dependent_type(element_type);
 
-                result->info->is_aggregate = is_aggregate_type(element_type);
             }
             else
             {
@@ -2446,7 +2427,6 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
             result->array->array_expr = expression;
             result->array->array_expr_decl_context = decl_context;
 
-            result->info->is_aggregate = is_aggregate_type(element_type);
 
             C_LANGUAGE()
             {
@@ -2487,7 +2467,6 @@ type_t* get_vector_type(type_t* element_type, unsigned int vector_size)
     result->vector->vector_size = vector_size;
 
     result->info->is_dependent = is_dependent_type(element_type);
-    result->info->is_aggregate = is_aggregate_type(element_type);
 
     return result;
 }
@@ -7517,7 +7496,6 @@ type_t* get_null_type(void)
         _null_type->info->size = CURRENT_CONFIGURATION->type_environment->sizeof_pointer;
         _null_type->info->alignment = CURRENT_CONFIGURATION->type_environment->alignof_pointer;
         _null_type->info->valid_size = 1;
-        _null_type->info->is_aggregate = 1;
 
         // Fix the underlying integer type
         // The two first are highly unlikely out of the embedded world
@@ -7982,6 +7960,70 @@ scope_entry_t* class_type_get_virtual_function_num(type_t* class_type, int i)
     return class_type->type->class_info->virtual_functions[i];
 }
 
+char is_aggregate_type(type_t* t)
+{
+    /*
+       An aggregate is an array or a class (Clause 9) with no user-provided
+       constructors (12.1), no brace-or-equal initializers for non-static data
+       members (9.2), no private or protected non-static data members (Clause
+       11), no base classes (Clause 10), and no virtual functions (10.3).
+     */
+    if (is_array_type(t))
+        return 1;
+
+    if (is_class_type(t))
+    {
+        type_t* class_type = get_actual_class_type(t);
+
+        // No user provided constructors
+        int i;
+        for (i = 0; 
+                i < class_type_get_num_constructors(class_type);
+                i++)
+        {
+            scope_entry_t* entry = class_type_get_constructors_num(class_type, i);
+
+            if (entry->entity_specs.is_user_declared)
+                return 0;
+        }
+
+        for (i = 0;
+                i < class_type_get_num_nonstatic_data_members(class_type);
+                i++)
+        {
+            scope_entry_t* entry = class_type_get_nonstatic_data_member_num(class_type, i);
+
+            // No initializer for nonstatic data member
+            if (entry->expression_value != NULL)
+                return 0;
+
+            // No private or protected non-static data members
+            if (entry->entity_specs.access == AS_PRIVATE
+                    || entry->entity_specs.access == AS_PROTECTED)
+                return 0;
+        }
+
+        // No base classes
+        if (class_type_get_num_bases(class_type) != 0)
+            return 0;
+
+        for (i = 0; 
+                i < class_type_get_num_member_functions(class_type);
+                i++)
+        {
+            scope_entry_t* entry = class_type_get_member_function_num(class_type, i);
+
+            // No virtual functions
+            if (entry->entity_specs.is_virtual)
+                return 0;
+        }
+
+        return 1;
+    }
+
+    return 0;
+}
+
 static char is_pod_type_aux(type_t* t, char allow_wide_bitfields)
 {
     if (is_integral_type(t)
@@ -8004,7 +8046,11 @@ static char is_pod_type_aux(type_t* t, char allow_wide_bitfields)
 
     if (is_class_type(t))
     {
-        // All nonstatic member functions must be POD
+        // It must be an aggregate type
+        if (!is_aggregate_type(t))
+            return 0;
+
+        // All nonstatic data members must be POD
         type_t* class_type = get_actual_class_type(t);
         int i;
         for (i = 0; i < class_type_get_num_nonstatic_data_members(class_type); i++)
@@ -8033,29 +8079,6 @@ static char is_pod_type_aux(type_t* t, char allow_wide_bitfields)
                 return 0;
         }
 
-        // Default constructor, copy-constructor, copy-assignment and destructors must be trivial
-        scope_entry_t* default_constructor = class_type_get_default_constructor(class_type);
-
-        // Default constructor, if any, should be trivial
-        if (default_constructor != NULL
-                && !default_constructor->entity_specs.is_trivial)
-            return 0;
-
-        // It could happen that there is not any default constructor
-        // So we have to check whether there are not any user defined constructors
-        if (default_constructor == NULL
-                && class_type_get_num_constructors(class_type) != 0)
-            return 0;
-
-        // Copy constructors (if any) must be trivial
-        for (i = 0; i < class_type_get_num_copy_constructors(class_type); i++)
-        {
-            scope_entry_t* copy_constructor = class_type_get_copy_constructor_num(class_type, i);
-
-            if (!copy_constructor->entity_specs.is_trivial)
-                return 0;
-        }
-        
         // Copy assignments (if any) must be trivial
         for (i = 0; i < class_type_get_num_copy_assignment_operators(class_type); i++)
         {
@@ -8065,11 +8088,12 @@ static char is_pod_type_aux(type_t* t, char allow_wide_bitfields)
                 return 0;
         }
 
-        // Destructor, if any, must be trivial
+        // Destructor (if any) must be trivial
         scope_entry_t* destructor = class_type_get_destructor(class_type);
 
         if (destructor != NULL
-                && !destructor->entity_specs.is_trivial)
+                && (!destructor->entity_specs.is_trivial 
+                    || !destructor->entity_specs.is_virtual))
             return 0;
 
         return 1;
@@ -8536,18 +8560,4 @@ type_t* get_foundation_type(struct type_tag* t)
         return t;
     }
     internal_error("Cannot get foundation type of type '%s'", print_declarator(t));
-}
-
-char is_aggregate_type(type_t* type)
-{
-    if (type == NULL)
-        return 0;
-    type = canonical_type(type);
-    return type->info->is_aggregate;
-}
-
-void set_is_aggregate_type(type_t* type, char c)
-{
-    type = canonical_type(type);
-    type->info->is_aggregate = c;
 }

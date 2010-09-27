@@ -53,22 +53,6 @@ static scope_entry_t* add_duplicate_member_to_class(decl_context_t context_of_be
 
     class_type_add_member(get_actual_class_type(being_instantiated), new_member);
 
-    if (new_member->kind == SK_VARIABLE
-            && !new_member->entity_specs.is_static
-            && ((new_member->expression_value != NULL
-                    || new_member->entity_specs.access != AS_PUBLIC)))
-    {
-        set_is_aggregate_type(get_actual_class_type(being_instantiated), 0);
-    }
-
-    if (new_member->kind == SK_FUNCTION
-            && ((new_member->entity_specs.is_constructor 
-                && new_member->entity_specs.is_user_declared)
-                || new_member->entity_specs.is_virtual))
-    {
-        set_is_aggregate_type(get_actual_class_type(being_instantiated), 0);
-    }
-
     return new_member;
 }
 
