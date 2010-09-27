@@ -470,6 +470,11 @@ namespace TL
                 (cv_qualifier_t)(get_cv_qualifier(this->_type_info) | CV_RESTRICT));
     }
 
+    int Type::get_alignment_of()
+    {
+        return type_get_alignment(this->get_internal_type());
+    }
+
     bool Type::is_const() const
     {
         return is_const_qualified_type(_type_info);
@@ -635,7 +640,12 @@ namespace TL
 
     Type Type::get_canonical_type()
     {
-        return this->advance_over_typedefs().get_unqualified_type();
+         return ::canonical_type(this->_type_info);
+    }
+
+    Type Type::get_enum_underlying_type()
+    {
+        return ::enum_type_get_underlying_type(this->_type_info);
     }
 
     bool Type::is_incomplete() const
@@ -659,6 +669,22 @@ namespace TL
         type_t* type = ::advance_over_typedefs_with_cv_qualif(_type_info, &cv);
 
         return Type(get_cv_qualified_type(type, cv));
+    }
+
+    ObjectList<Symbol> Type::get_bases_class_symbol_list()
+    {
+        ObjectList<Symbol> base_symbol_list;
+
+        scope_entry_list_t* all_bases = class_type_get_all_bases(_type_info, 0);
+        scope_entry_list_t* it = all_bases;
+        while (it != NULL)
+        {
+            scope_entry_t* entry = it->entry;
+            base_symbol_list.append(Symbol(entry));
+            it = it->next;
+        }
+
+        return base_symbol_list;
     }
 
     bool Type::is_pod()

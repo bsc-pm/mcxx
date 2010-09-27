@@ -43,7 +43,7 @@ namespace TL
                 AnyOpenMPConstruct(ScopeLink sl)
                     : _sl(sl) { }
 
-                virtual bool do_(AST_t& a) const
+                virtual bool do_(AnyOpenMPConstruct::ArgType a) const
                 {
                     return is_pragma_custom("omp", a, _sl);
                 }
@@ -57,7 +57,7 @@ namespace TL
                 AnyOpenMPConstructButSynchronizations(ScopeLink sl)
                     : _sl(sl) { }
 
-                virtual bool do_(AST_t& a) const
+                virtual bool do_(AnyOpenMPConstructButSynchronizations::ArgType a) const
                 {
                     return is_pragma_custom("omp", a, _sl)
                         && !is_pragma_custom_construct("omp", "critical", a, _sl)
@@ -75,7 +75,7 @@ namespace TL
                 TaskConstructPred(ScopeLink sl)
                     : _sl(sl) { }
 
-                virtual bool do_(AST_t& a) const
+                virtual bool do_(TaskConstructPred::ArgType a) const
                 {
                     return is_pragma_custom_construct("omp", "task", a, _sl);
                 }
@@ -92,7 +92,7 @@ namespace TL
                 {
                 }
 
-                virtual bool do_(AST_t& a) const
+                virtual bool do_(SpecificFunctionDef::ArgType a) const
                 {
                     if (FunctionDefinition::predicate(a))
                     {

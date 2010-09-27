@@ -102,6 +102,8 @@ LIBMCXX_EXTERN scope_entry_t* unresolved_overloaded_type_simplify(struct type_ta
 
 LIBMCXX_EXTERN struct type_tag* get_dependent_expr_type(void);
 
+LIBMCXX_EXTERN type_t* canonical_type(struct type_tag* type);
+
 // States that this is a variably modified type
 LIBMCXX_EXTERN char is_variably_modified_type(struct type_tag* t);
 

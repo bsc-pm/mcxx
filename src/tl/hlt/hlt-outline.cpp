@@ -293,7 +293,7 @@ struct GetFieldDeclarations : public GetDeclarationInScope
         }
 };
 
-static bool is_local_or_nonstatic_member(TL::Symbol& sym)
+static bool is_local_or_nonstatic_member(const TL::Symbol& sym)
 {
     return sym.has_local_scope()
         || (sym.is_member() && !sym.is_static());
@@ -439,7 +439,7 @@ struct DoNotPass : public TL::Predicate<TL::Symbol>
         {
         }
 
-        virtual bool do_(TL::Symbol& sym) const
+        virtual bool do_(DoNotPass::ArgType sym) const
         {
             return (_outline.get_parameter_passing(sym) != Outline::DO_NOT_PASS);
         }
@@ -594,7 +594,8 @@ void Outline::declare_members(Source template_headers)
 
     AST_t member_tree = member_decl.parse_member(
             point_of_decl, _sl,
-            class_type);
+            // class_type is a named type, get the type of its symbol
+            class_type.get_symbol());
 
     point_of_decl.append(member_tree);
 }
@@ -627,7 +628,7 @@ void Outline::embed_outline()
     {
         // This requires a different function
         outline_tree = _outlined_source.parse_member(_function_def->get_point_of_declaration(),
-                _sl, _enclosing_function.get_class_type());
+                _sl, _enclosing_function.get_class_type().get_symbol());
 
     }
     _function_def->get_ast().prepend_sibling_function(outline_tree);

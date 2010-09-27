@@ -2911,9 +2911,12 @@ void build_solve_condition_ambiguity(AST a, decl_context_t decl_context)
 
             AST type_specifier = ASTSon1(type_specifier_seq);
 
-            current_check = (check_for_type_specifier(type_specifier, decl_context)
-                    && check_for_declarator(declarator, decl_context)
-                    && check_for_expression(expr, decl_context));
+            current_check = check_for_type_specifier(type_specifier, decl_context)
+                && check_for_declarator(declarator, decl_context);
+
+            enter_test_expression();
+            current_check = current_check && check_for_expression(expr, decl_context);
+            leave_test_expression();
         }
 
         if (current_check)

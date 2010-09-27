@@ -128,6 +128,9 @@ namespace TL
             //! Returns the canonical unqualified type
             Type get_canonical_type();
 
+            //! Returns the underlying type of an enumeration
+            Type get_enum_underlying_type();
+
             //! Returns a pointer to the current type
             Type get_pointer_to();
             //! Returns an array to the current type
@@ -154,6 +157,8 @@ namespace TL
 
             //! Gets a reference (C++) to the current type
             Type get_reference_to();
+
+            int get_alignment_of();
 
             bool operator==(Type t) const;
             bool operator!=(Type t) const;
@@ -275,6 +280,10 @@ namespace TL
               \see advance_over_typedefs
              */
             Type advance_over_typedefs_cv();
+
+            //! Get the symbol list of classes which are base of the type
+            ObjectList<Symbol> get_bases_class_symbol_list();
+
 
             //! States whether current type type is a function-type
             bool is_function() const;

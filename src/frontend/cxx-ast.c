@@ -160,11 +160,6 @@ AST ast_make(node_t type, int num_children UNUSED_PARAMETER,
     return result;
 }
 
-node_t ast_get_type(const_AST a)
-{
-    return a->node_type;
-}
-
 AST ast_get_parent(const_AST a)
 {
     return a->parent;
@@ -180,9 +175,19 @@ const char* ast_get_text(const_AST a)
     return a->text;
 }
 
+node_t ast_get_type(const_AST a)
+{
+    return a->node_type;
+}
+
 void ast_set_text(AST a, const char* str)
 {
     a->text = uniquestr(str);
+}
+
+void ast_set_type(AST a, node_t node_type)
+{
+    a->node_type = node_type;
 }
 
 AST ast_get_child(const_AST a, int num_child)

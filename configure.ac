@@ -159,7 +159,7 @@ NANOX_LIBS=""
 
 if test x$is_enabled_openmpt = xyes;
 then
-    nanox_include="${prefix}/include"
+    nanox_include="${prefix}/include/nanox"
     nanox_lib="${prefix}/lib"
 fi
 
@@ -168,7 +168,7 @@ then
    AC_ARG_WITH([nanox],
            AS_HELP_STRING([--with-nanox=dir], [Directory of Nanos++ installation]),
            [
-            nanox_include="${withval}/include"
+            nanox_include="${withval}/include/nanox"
             nanox_lib="${withval}/lib"
            ]
    )
@@ -901,7 +901,7 @@ dnl Redundancy ahead
 if test x"$default_type_environ" = x;
 then
 dnl We try to figure a sensible default environment based on the configure environment
-    case "$host" in
+    case "$target" in
        i?86-*-linux*)
            default_type_environ="linux-i386"
            ;;
@@ -928,27 +928,19 @@ dnl We try to figure a sensible default environment based on the configure envir
        spu)
            default_type_environ="linux-spu"
            ;;
+       *)
+           default_type_environ=""
+           ;;
     esac
 fi
 
-case "$default_type_environ" in \
-  linux-i386   | \
-  linux-ppc32  | \
-  linux-ppc64  | \
-  linux-x86_64 | \
-  linux-ia64   | \
-  linux-spu)
-       AC_MSG_RESULT([$default_type_environ])
-      ;;
-   "")
+if test x$default_type_environ = x;
+then
     AC_MSG_WARN([Uknown environment, default set to linux-i386. Use --with-type-environment to override automatic detection])
     default_type_environ="linux-i386"
-    ;;
-   "*")
-    AC_MSG_WARN([Invalid environment, default set to linux-i386. Use --help to see which type environments are valid])
-    default_type_environ="linux-i386"
-     ;;
-esac
+else
+    AC_MSG_RESULT([$default_type_environ])
+fi
 
 AC_DEFINE_UNQUOTED([DEFAULT_TYPE_ENVIRONMENT], ["$default_type_environ"], [Default type environment])
 
@@ -1009,11 +1001,12 @@ AC_CHECK_FUNC([mkdtemp],
         )
 
 dnl Versioning things
-build_version=""
+dnl Make sure build_version is double-quoted!
+build_version="\"unknown revision\""
 if test -d $srcdir/.git;
 then
    AC_PATH_PROG([gitpath], [git], [])
-   AC_MSG_CHECKING([git build release])
+   AC_MSG_CHECKING([revision of git repository])
    run_git=""
    if test x"$gitpath" != x;
    then
@@ -1027,6 +1020,12 @@ then
        build_version="\"unknown git commit\""
    fi
    AC_MSG_RESULT($build_version)
+elif test -e $srcdir/DIST_REVISION;
+then
+     AC_MSG_CHECKING([revision of distributed release])
+     run_gitversion=`cat $srcdir/DIST_REVISION`
+      build_version="\"$run_gitversion\""
+     AC_MSG_RESULT($build_version)
 fi
 AC_DEFINE_UNQUOTED([MCXX_BUILD_VERSION], $build_version, [Build version])
 

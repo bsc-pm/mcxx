@@ -179,16 +179,21 @@ cxx-configfile-parser.c: $(srcdir)/cxx-configfile-parser.y
 # Install hooks
 # installs "mcc" as a soft link of mcxx
 install-exec-hook: 
+	real_mcxx_name=`echo mcxx | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
 	for compiler_name in @COMPILER_NAMES@; \
 		do \
-			(cd $(DESTDIR)/$(mcxxexecdir); test -e $${compiler_name}$(EXEEXT) || $(LN_S) mcxx$(EXEEXT) $${compiler_name}$(EXEEXT)) ; \
+			real_compiler_name=`echo $${compiler_name} | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
+			(cd $(DESTDIR)/$(mcxxexecdir); test -e $${real_compiler_name} || $(LN_S) $${real_mcxx_name} $${real_compiler_name}) ; \
 		done
-	(cd $(DESTDIR)/$(mcxxexecdir); test -e mcc-embedder$(EXEEXT) || $(LN_S) mcxx-embedder$(EXEEXT) mcc-embedder$(EXEEXT) ) 
+	real_mcxx_embedder_name=`echo mcxx-embedder | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
+	real_mcc_embedder_name=`echo mcxx-embedder | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
+	(cd $(DESTDIR)/$(mcxxexecdir); test -e $${real_mcc_embedder_name} || $(LN_S) $${real_mcxx_embedder_name} $${real_mcc_embedder_name} ) 
 	
 uninstall-local:
 	for compiler_name in @COMPILER_NAMES@; \
 		do \
-			rm -f $(DESTDIR)/$(mcxxexecdir)/$${compiler_name} ; \
+			real_compiler_name=`echo $${compiler_name} | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'` ; \
+			rm -f $(DESTDIR)/$(mcxxexecdir)/$${real_compiler_name} ; \
 		done
 
 

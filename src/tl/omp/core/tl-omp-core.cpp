@@ -36,7 +36,7 @@ namespace TL
         bool Core::_already_registered(false);
 
         Core::Core()
-            : PragmaCustomCompilerPhase("omp"), _new_udr_str(""), _new_udr(true)
+            : PragmaCustomCompilerPhase("omp"), _new_udr_str(""), _new_udr(true), _udr_counter(0)
         {
             set_phase_name("OpenMP Core Analysis");
             set_phase_description("This phase is required for any other phase implementing OpenMP. "
@@ -266,7 +266,6 @@ namespace TL
 
                     AST_t var_tree = src.parse_id_expression(clause.get_ast(), clause.get_scope_link());
                     IdExpression var_id_expr(var_tree, clause.get_scope_link());
-
                     Symbol var_sym = var_id_expr.get_symbol();
 
                     if (!var_sym.is_valid())
@@ -300,35 +299,6 @@ namespace TL
                         }
                     }
 
-                    IdExpression reductor_id_expr(NULL, ScopeLink());
-                    if (!udr_is_builtin_operator(reductor_name))
-                    {
-                        AST_t reductor_name_tree 
-                            = Source(reductor_name).parse_id_expression(construct.get_ast(), construct.get_scope_link());
-                        reductor_id_expr = IdExpression(reductor_name_tree, clause.get_scope_link());
-                    }
-
-                    // Adjust pointers to arrays
-                    if (!var_sym.is_parameter()
-                            && var_type.is_pointer()
-                            && var_type.points_to().is_array())
-                    {
-                        // Ignore the additional pointer
-                        var_type = var_type.points_to();
-                    }
-
-                    // Lower array types
-                    int num_dimensions = 0;
-                    if (!var_sym.is_parameter()
-                            && var_type.is_array())
-                    {
-                        while (var_type.is_array())
-                        {
-                            var_type = var_type.array_element();
-                            num_dimensions++;
-                        }
-                    }
-
                     if (var_sym.is_dependent_entity())
                     {
                         std::cerr << construct.get_ast().get_locus() << ": warning: symbol "
@@ -336,16 +306,71 @@ namespace TL
                     }
                     else
                     {
+		                AST_t reductor_name_tree;
+		                IdExpression reductor_id_expr(NULL, ScopeLink());
+
                         if (_new_udr)
                         {
                             bool found = false;
-
                             UDRInfoItem2 udr2;
-                            udr2.set_name(reductor_name);
                             udr2.set_type(var_type);
-                            udr2 = udr2.lookup_udr_2(construct.get_scope(),
-                                    found,
-                                    var_type);
+
+				            if (var_type.is_class())
+				            {
+				                reductor_name_tree
+				                        = udr2.parse_omp_udr_operator_name(reductor_name, construct.get_ast(), construct.get_scope_link());
+				                reductor_id_expr = IdExpression(reductor_name_tree, clause.get_scope_link());
+				            }
+                            else if (!udr_is_builtin_operator(reductor_name))
+                            {
+                                reductor_name_tree = 
+                                        Source(reductor_name).parse_id_expression_wo_check(construct.get_scope(), 
+                                        construct.get_scope_link());
+                            }
+
+                            if (!udr_is_builtin_operator(reductor_name) && reductor_name_tree.internal_ast_type_() == AST_QUALIFIED_ID)
+                            {
+                                udr2.set_name(reductor_name_tree.children()[2].prettyprint());
+                                std::string symbol_name = udr2.get_symbol_name(var_type);
+
+                                // Change the third son 'name' -> '.udr_name_0xXXXXXXX'
+                                reductor_name_tree.children()[2].replace_text(symbol_name);
+                                IdExpression reductor_expression(reductor_name_tree, construct.get_scope_link());
+                                Symbol reductor_sym = reductor_expression.get_symbol();
+                                if (reductor_sym.is_symbol()) found = true;
+                                
+                                // Fill UDR info
+                                RefPtr<UDRInfoItem2> obj = 
+                                        RefPtr<UDRInfoItem2>::cast_dynamic(reductor_sym.get_attribute("udr_info"));
+                                udr2 = (*obj);
+                            }
+                            else
+                            {
+                                CXX_LANGUAGE()
+                                {
+                                    if (udr_is_builtin_operator_2(reductor_name) && var_type.is_enum())
+                                    {
+                                        var_type = var_type.get_enum_underlying_type();
+                                    }
+                                }
+
+		                        if (!reductor_name.compare("+")) reductor_name = "_plus_";
+		                        else if (!reductor_name.compare("-")) reductor_name = "_minus_";
+		                        else if (!reductor_name.compare("*")) reductor_name = "_mult_";
+		                        else if (!reductor_name.compare("/")) reductor_name = "_div_";
+		                        else if (!reductor_name.compare("&")) reductor_name = "_and_";
+		                        else if (!reductor_name.compare("|")) reductor_name = "_or_";
+		                        else if (!reductor_name.compare("^")) reductor_name = "_exp_";
+		                        else if (!reductor_name.compare("&&")) reductor_name = "_andand_";
+		                        else if (!reductor_name.compare("||")) reductor_name = "_oror_";
+
+                                udr2.set_name(reductor_name);
+		                        udr2 = udr2.lookup_udr(construct.get_scope(),
+		                                found,
+		                                var_type,
+                                        reductor_name_tree,
+                                        _udr_counter);
+                            }
 
                             if (found)
                             {
@@ -355,7 +380,7 @@ namespace TL
                                 {
                                     std::cerr << construct.get_ast().get_locus() 
                                         << ": note: reduction of variable '" << var_sym.get_name() << "' solved to '" 
-                                        << var_type.get_declaration(construct.get_scope(), reductor_name) << "'" 
+                                        << reductor_name << "'"
                                         << std::endl;
                                 }
                             }
@@ -371,6 +396,34 @@ namespace TL
                         }
                         else
                         {
+				            if (!udr_is_builtin_operator(reductor_name))
+				            {
+				                reductor_name_tree
+				                    = Source(reductor_name).parse_id_expression(construct.get_ast(), construct.get_scope_link());
+				                reductor_id_expr = IdExpression(reductor_name_tree, clause.get_scope_link());
+				            }
+
+				            // Adjust pointers to arrays
+				            if (!var_sym.is_parameter()
+				                    && var_type.is_pointer()
+				                    && var_type.points_to().is_array())
+				            {
+				                // Ignore the additional pointer
+				                var_type = var_type.points_to();
+				            }
+
+				            // Lower array types
+				            int num_dimensions = 0;
+				            if (!var_sym.is_parameter()
+				                    && var_type.is_array())
+				            {
+				                while (var_type.is_array())
+				                {
+				                    var_type = var_type.array_element();
+				                    num_dimensions++;
+				                }
+				            }
+
                             UDRInfoItem udr;
                             if (udr_is_builtin_operator(reductor_name))
                             {
@@ -606,7 +659,13 @@ namespace TL
                         || !sym.is_variable())
                     continue;
 
-                DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
+                DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
+
+                // Do nothing with threadprivates
+                if ((data_attr & DS_THREADPRIVATE) == DS_THREADPRIVATE)
+                    continue;
+
+                data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
 
                 if (data_attr == DS_UNDEFINED)
                 {
@@ -756,7 +815,7 @@ namespace TL
                 DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
 
                 // Do nothing with threadprivates
-                if (data_attr == DS_THREADPRIVATE)
+                if ((data_attr & DS_THREADPRIVATE) == DS_THREADPRIVATE)
                     continue;
 
                 data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
@@ -913,6 +972,12 @@ namespace TL
                     IdExpression id_expr = expr.get_id_expression();
                     Symbol sym = id_expr.get_symbol();
 
+                    if (sym.is_member()
+                            && !sym.is_static())
+                    {
+                        std::cerr << expr.get_ast().get_locus() << ": warning: '" << expr << "' is a nonstatic-member, skipping" << std::endl;
+                    }
+
                     data_sharing.set_data_sharing(sym, DS_THREADPRIVATE);
                 }
             }
@@ -1001,6 +1066,7 @@ namespace TL
             TL::Bool openmp_core_should_run = dto["openmp_core_should_run"];
             openmp_core_should_run = true;
         }
+
     }
 }
 

@@ -46,8 +46,10 @@ namespace TL
 
                 bool _has_identity;
                 AST_t _identity;
+                bool _need_equal_initializer;
+                bool _is_constructor;
 
-                std::string _function_name;
+                Symbol _function_definition_symbol;
 
             public:
                 // Constructor
@@ -58,12 +60,15 @@ namespace TL
 
                 UDRInfoItem2 lookup_udr(Scope sc,
                         bool &found,
-                        Type udr_type) const;
-                UDRInfoItem2 lookup_udr_2(Scope sc,
-                        bool &found,
-                        Type udr_type) const;
+                        Type udr_type,
+                        AST_t reductor_tree,
+                        int udr_counter) const;
 
                 std::string get_symbol_name(Type t) const;
+
+                AST_t parse_omp_udr_operator_name(const std::string &omp_udr_oper_name, 
+                        AST_t ref_tree,
+                        ScopeLink sl);
 
                 // Getters, setters and consults
                 std::string get_name() const;
@@ -82,16 +87,19 @@ namespace TL
 
                 bool is_builtin_operator() const;
                 void set_is_builtin_operator(bool is_builtin);
-                bool udr_is_builtin_operator_2(const std::string& op_name);
 
+                bool get_is_constructor() const;
+                void set_is_constructor(bool constructor);
+                bool get_need_equal_initializer() const;
+                void set_need_equal_initializer(bool need_equal_init);
                 bool has_identity() const; 
                 AST_t get_identity() const;
                 AST_t get_raw_identity() const;
                 void set_identity(AST_t identity);
                 bool identity_is_constructor() const;
 
-                std::string get_function_name() const;
-                void set_function_name(const std::string& str);
+                Symbol get_function_definition_symbol() const;
+                void set_function_definition_symbol(Symbol sym);
         };
 
         // Functions used in tl-omp-core.cpp

@@ -32,6 +32,7 @@ MCXX_BEGIN_DECLS
 
 #define SYMBOL_SUPERSCALAR_PARAMETER_REGION_LIST "symbol.superscalar.parameter_region_list"
 #define SYMBOL_SUPERSCALAR_PARAMETER_ACCESS_BOUNDS_LIST "symbol.superscalar.parameter_access_bounds_list"
+#define SYMBOL_SUPERSCALAR_PARAMETER_MIN_INDEX_LIST "symbol.superscalar.parameter_min_index_list"
 #define SYMBOL_SUPERSCALAR_IS_TASK "symbol.superscalar.is_task"
 #define SYMBOL_SUPERSCALAR_HAS_HIGH_PRIORITY "symbol.superscalar.has_high_priority"
 #define SYMBOL_SUPERSCALAR_IS_BLOCKING "symbol.superscalar.is_blocking"

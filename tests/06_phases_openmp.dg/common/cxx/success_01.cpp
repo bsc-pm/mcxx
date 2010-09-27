@@ -48,7 +48,7 @@ int main(int argc, char* argv[])
         abort();
 
     if (A::b != 2)
-        abort();
+    abort();
 
     return 0;
 }

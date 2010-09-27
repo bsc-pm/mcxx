@@ -49,7 +49,8 @@ void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
             struct_arg_type_decl_src,
             struct_fields,
             struct_arg_type_name, 
-            ObjectList<OpenMP::DependencyItem>()); // empty dependences
+            ObjectList<OpenMP::DependencyItem>(),  // empty dependences
+            _compiler_alignment);
 
     FunctionDefinition funct_def = ctr.get_enclosing_function();
     // This one will be the same as funct_def.get_ast() if there are no templates

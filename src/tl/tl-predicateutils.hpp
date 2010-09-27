@@ -37,7 +37,7 @@ namespace TL
     {
         private:
         public:
-            virtual bool do_(T&) const
+            virtual bool do_(typename AlwaysTrue::ArgType t) const
             {
                 return true;
             }
@@ -49,7 +49,7 @@ namespace TL
     {
         private:
         public:
-            virtual bool do_(T&) const
+            virtual bool do_(typename AlwaysFalse::ArgType t) const
             {
                 return false;
             }
@@ -57,69 +57,133 @@ namespace TL
 
     //! Builds a predicate after a function
     template <class T>
-    class FunctionPredicate : public Predicate<T>
+    class FunctionPredicateVal : public Predicate<T>
     {
         private:
-            FunctionAdapter<bool, T> _funct_adapter;
+            FunctionAdapterVal<bool, T> _funct_adapter;
         public:
-            FunctionPredicate(bool (*pf)(T&))
+            FunctionPredicateVal(bool (*pf)(T))
                 : _funct_adapter(pf)
             {
             }
 
-            virtual bool do_(T& t) const
+            virtual bool do_(typename FunctionPredicateVal::ArgType t) const
             {
                 return _funct_adapter(t);
             }
 
-            ~FunctionPredicate()
+            ~FunctionPredicateVal()
             {
             }
     };
 
     template <class T>
-    class FunctionConstPredicate : public Predicate<T>
+    class FunctionPredicateRef : public Predicate<T&>
     {
         private:
-            FunctionConstAdapter<bool, T> _funct_adapter;
+            FunctionAdapterRef<bool, T> _funct_adapter;
         public:
-            FunctionConstPredicate(bool (*pf)(const T&))
+            FunctionPredicateRef(bool (*pf)(T&))
                 : _funct_adapter(pf)
             {
             }
 
-            virtual bool do_(T& t) const
+            virtual bool do_(typename FunctionPredicateRef::ArgType t) const
             {
                 return _funct_adapter(t);
             }
 
-            ~FunctionConstPredicate()
+            ~FunctionPredicateRef()
+            {
+            }
+    };
+
+    template <class T>
+    class FunctionPredicateConstRef : public Predicate<T>
+    {
+        private:
+            FunctionAdapterConstRef<bool, T> _funct_adapter;
+        public:
+            FunctionPredicateConstRef(bool (*pf)(const T&))
+                : _funct_adapter(pf)
+            {
+            }
+
+            virtual bool do_(typename FunctionPredicateConstRef::ArgType t) const
+            {
+                return _funct_adapter(t);
+            }
+
+            ~FunctionPredicateConstRef()
             {
             }
     };
 
     //! Builds a predicate after a member function
     template <class T, class Q>
-    class MemberFunctionPredicate : public Predicate<T>
+    class MemberFunctionPredicateVal : public Predicate<T>
     {
         private:
             MemberFunctionAdapterVal<bool, T, Q> mem_funct_adapter;
         public:
-            MemberFunctionPredicate(bool (Q::*pmf)(T& t), Q& q)
+            MemberFunctionPredicateVal(bool (Q::*pmf)(T t), Q& q)
                 : mem_funct_adapter(pmf, q)
             {
             }
 
-            virtual bool do_(T& t) const
+            virtual bool do_(typename MemberFunctionPredicateVal::ArgType t) const
             {
                 return mem_funct_adapter(t);
             }
 
-            ~MemberFunctionPredicate()
+            ~MemberFunctionPredicateVal()
             {
             }
     };
 
+    //! Builds a predicate after a member function
+    template <class T, class Q>
+    class MemberFunctionPredicateRef : public Predicate<T&>
+    {
+        private:
+            MemberFunctionAdapterRef<bool, T, Q> mem_funct_adapter;
+        public:
+            MemberFunctionPredicateRef(bool (Q::*pmf)(T &t), Q& q)
+                : mem_funct_adapter(pmf, q)
+            {
+            }
+
+            virtual bool do_(typename MemberFunctionPredicateRef::ArgType t) const
+            {
+                return mem_funct_adapter(t);
+            }
+
+            ~MemberFunctionPredicateRef()
+            {
+            }
+    };
+
+    //! Builds a predicate after a member function
+    template <class T, class Q>
+    class MemberFunctionPredicateConstRef : public Predicate<T>
+    {
+        private:
+            MemberFunctionAdapterConstRef<bool, T, Q> mem_funct_adapter;
+        public:
+            MemberFunctionPredicateConstRef(bool (Q::*pmf)(T &t), Q& q)
+                : mem_funct_adapter(pmf, q)
+            {
+            }
+
+            virtual bool do_(typename MemberFunctionPredicateConstRef::ArgType t) const
+            {
+                return mem_funct_adapter(t);
+            }
+
+            ~MemberFunctionPredicateConstRef()
+            {
+            }
+    };
 
     //! Builds a predicate after a member function of this class
     template <class T>
@@ -133,7 +197,7 @@ namespace TL
             {
             }
 
-            virtual bool do_(T& t) const
+            virtual bool do_(typename ThisMemberFunctionPredicate::ArgType t) const
             {
                 return this_mem_funct_adapter(t);
             }
@@ -155,7 +219,7 @@ namespace TL
             {
             }
 
-            virtual bool do_(T& t) const
+            virtual bool do_(typename ThisMemberFunctionConstPredicate::ArgType t) const
             {
                 return this_mem_funct_adapter(t);
             }
@@ -167,28 +231,40 @@ namespace TL
 
     //! Adaptor function to create predicates after a non-member function returning bool
     template <class T>
-    FunctionPredicate<T> predicate(bool (*pf)(T&))
+    FunctionPredicateVal<T> predicate(bool (*pf)(T))
     {
-        return FunctionPredicate<T>(pf);
+        return FunctionPredicateVal<T>(pf);
     }
 
     template <class T>
-    FunctionConstPredicate<T> predicate(bool (*pf)(const T&))
+    FunctionPredicateRef<T> predicate(bool (*pf)(T&))
     {
-        return FunctionConstPredicate<T>(pf);
+        return FunctionPredicateRef<T>(pf);
+    }
+
+    template <class T>
+    FunctionPredicateConstRef<T> predicate(bool (*pf)(const T&))
+    {
+        return FunctionPredicateConstRef<T>(pf);
     }
 
     //! Adaptor function to create predicates after a member function of a given object returning bool
     template <class T, class Q>
-    MemberFunctionPredicate<T, Q> predicate(bool (Q::* pf)(T& t), Q& q)
+    MemberFunctionPredicateVal<T, Q> predicate(bool (Q::* pf)(T t), Q& q)
     {
-        return MemberFunctionPredicate<T, Q>(pf, q);
+        return MemberFunctionPredicateVal<T, Q>(pf, q);
     }
 
     template <class T, class Q>
-    MemberFunctionPredicate<T, Q> predicate(bool (Q::* pf)(const T& t), Q& q)
+    MemberFunctionPredicateRef<T, Q> predicate(bool (Q::* pf)(T& t), Q& q)
     {
-        return MemberFunctionPredicate<T, Q>(pf, q);
+        return MemberFunctionPredicateRef<T, Q>(pf, q);
+    }
+
+    template <class T, class Q>
+    MemberFunctionPredicateConstRef<T, Q> predicate(bool (Q::* pf)(const T& t), Q& q)
+    {
+        return MemberFunctionPredicateConstRef<T, Q>(pf, q);
     }
 
     //! Adaptor function to create predicates after a member function of a given object returning bool
@@ -222,7 +298,7 @@ namespace TL
             }
 
             //! States whether the given element is in the set used to create the predicate
-            virtual bool do_(T& t) const
+            virtual bool do_(typename InSetPredicate::ArgType t) const
             {
                 return (find(_list.begin(), _list.end(), t) != _list.end());
             }
@@ -253,7 +329,7 @@ namespace TL
              * Functor \a f will be applied to \a t and the resulting value used
              * for comparison.
              */
-            virtual bool do_(T& t) const
+            virtual bool do_(typename InSetPredicateFunctor::ArgType t) const
             {
                 return (find(_list.begin(), _list.end(), _f(t)) != _list.end());
             }
@@ -269,7 +345,7 @@ namespace TL
             {
             }
 
-            virtual bool do_(T& t) const
+            virtual bool do_(typename NotInSetPredicate::ArgType t) const
             {
                 return !(InSetPredicate<T>::do_(t));
             }
@@ -285,7 +361,7 @@ namespace TL
             {
             }
 
-            virtual bool do_(T& t) const
+            virtual bool do_(typename NotInSetPredicateFunctor::ArgType t) const
             {
                 return !(InSetPredicateFunctor<T, Q>::do_(t));
             }
@@ -347,7 +423,7 @@ namespace TL
             {
             }
 
-            virtual bool do_(T& t) const
+            virtual bool do_(typename NotPredicate::ArgType t) const
             {
                 return !(_pred(t));
             }

@@ -23,24 +23,11 @@
 
 include ../../Makefile.phases
 
-phases_LTLIBRARIES = libtlnanos4.la libtlomp-nanos4.la libtlomp-serialize.la 
+phases_LTLIBRARIES = libtlomp-nanos4.la libtlomp-serialize.la 
 
 
 END=
 tl_omp_flags = -Wall $(tl_cflags) -I $(srcdir)/../core -I $(srcdir)/../nanos-common
-
-#### libtl-nanos4.la
-
-libtlnanos4_la_CFLAGS = $(tl_cflags)
-libtlnanos4_la_CXXFLAGS = $(tl_cxxflags)
-
-libtlnanos4_la_LDFLAGS = $(tl_ldflags)
-libtlnanos4_la_LIBADD = $(tl_libadd)
-
-libtlnanos4_la_SOURCES = \
-	tl-nanos.hpp \
-	tl-nanos.cpp \
-	$(END)
 
 #### libtl-omp-nanos4.la
 

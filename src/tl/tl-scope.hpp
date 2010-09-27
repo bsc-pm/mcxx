@@ -89,6 +89,78 @@ namespace TL
                 return _decl_context.current_scope != NULL;
             }
 
+            //! States if the current scope is either a class scope or a scope within a class scope
+            bool inside_class_scope() const
+            {
+                return (_decl_context.class_scope != NULL);
+            }
+
+            //! Returns the related class symbol
+            /*!
+              When inside_class_scope or is_class_scope return true, this function can be used
+              to retrieve the related class symbol
+              */
+            Symbol get_class_of_scope();
+
+            //! States if the current scope is either a block scope or a scope within a block scope
+            bool inside_block_scope() const
+            {
+                return (_decl_context.block_scope != NULL);
+            }
+
+            //! States if the current scope is function scope
+            /*!
+              Function scope is the scope of labels and spans a whole function
+              definition
+              */
+            bool is_function_scope() const
+            {
+                return _decl_context.current_scope->kind == FUNCTION_SCOPE;
+            }
+
+            //! States if the current scope is block scope
+            bool is_block_scope() const
+            {
+                return _decl_context.current_scope->kind == BLOCK_SCOPE;
+            }
+
+            //! States if the current scope is class scope
+            bool is_class_scope() const
+            {
+                return _decl_context.current_scope->kind == CLASS_SCOPE;
+            }
+
+            //! States if the current scope is namespace scope
+            /*!
+              Global scope is also a namespace scope
+              */
+            bool is_namespace_scope() const
+            {
+                return _decl_context.current_scope->kind == NAMESPACE_SCOPE;
+            }
+
+            //! States if the current scope is prototype scope
+            /*!
+              Prototype scope only exists for parameters in function-type
+              declarators. In function definitions, parameters are signed in in
+              the outermost block scope
+              */
+            bool is_prototype_scope() const
+            {
+                return _decl_context.current_scope->kind == PROTOTYPE_SCOPE;
+            }
+
+            //! States if the current scope is template scope
+            /*!
+              Template scope is where template parameters are signed in.
+              It is an aside scope which has more priority than any other
+              scope and where template parameter names are stored.
+              */
+            bool is_template_scope() const
+            {
+                return _decl_context.current_scope->kind == TEMPLATE_SCOPE;
+            }
+
             //! Creates a scope after a reference to Object
             Scope(RefPtr<Object> obj)
             {

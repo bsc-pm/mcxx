@@ -313,7 +313,7 @@ struct GuardTaskGeneratorBundled : Functor<TL::AST_t::callback_result, TL::AST_t
 			delete _task_num;
 		}
 
-        virtual AST_t::callback_result do_(TL::AST_t& a) const
+        virtual AST_t::callback_result do_(GuardTaskGeneratorBundled::ArgType a) const
         {
             if (is_pragma_custom_construct("omp", "task", a, _sl))
             {

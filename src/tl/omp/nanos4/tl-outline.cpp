@@ -378,6 +378,8 @@ namespace TL
 		                << static_initializer << ";"
                     ;
 
+
+
 	                type_declaration
 	                    << type.get_declaration(
 	                            construct.get_scope(),
@@ -386,16 +388,30 @@ namespace TL
 
                     CXX_LANGUAGE()
                     {
-                        static_initializer << " = (" << udr2.get_identity().prettyprint() << ")";
+                        if (udr2.has_identity())
+                        {
+                            if (udr2.get_need_equal_initializer())
+                            {
+                                static_initializer << " = " << udr2.get_identity().prettyprint();
+                            }
+                            else
+                            {
+                                if (udr2.get_is_constructor())
+                                {
+                                    static_initializer << udr2.get_identity().prettyprint();
+                                }
+                                else if (!type.is_enum())
+                                {
+                                    static_initializer << " (" << udr2.get_identity().prettyprint() << ")";
+                                }
+                            }
+                        }
                     }
 
                     C_LANGUAGE()
                     {
                         static_initializer << " = " << udr2.get_identity().prettyprint();
                     }
-
-                    std::cerr << "Outline for the new_udr '" << private_declarations.get_source() << "'" << std::endl;
-
                 }
                 else
                 {
@@ -701,7 +717,7 @@ namespace TL
             {
                 Symbol sym = it->get_symbol();
                 std::string name = "rdp_" + sym.get_name();
-                Type type = sym.get_type();
+                Type type = sym.get_type();	
                 Source type_declaration, static_initializer, dynamic_initializer, secondary_decl;
 
                 if (_new_udr)
@@ -722,7 +738,24 @@ namespace TL
 
                     CXX_LANGUAGE()
                     {
-                        static_initializer << " = (" << udr2.get_identity().prettyprint() << ")";
+                        if (udr2.has_identity())
+                        {
+                            if (udr2.get_need_equal_initializer())
+                            {
+                                static_initializer << " = " << udr2.get_identity().prettyprint();
+                            }
+                            else
+                            {
+                                if (udr2.get_is_constructor())
+                                {
+                                    static_initializer << udr2.get_identity().prettyprint();
+                                }
+                                else if (!type.is_enum())
+                                {
+                                    static_initializer << " (" << udr2.get_identity().prettyprint() << ")";
+                                }
+                            }
+                        }
                     }
 
                     C_LANGUAGE()
@@ -1311,7 +1344,7 @@ namespace TL
                         team_parameter);
 
                 AST_t member_decl_tree = member_declaration.parse_member(decl.get_point_of_declaration(), 
-                        decl.get_scope_link(), class_type);
+                        decl.get_scope_link(), class_type.get_symbol());
 
                 decl.get_ast().append(member_decl_tree);
             }

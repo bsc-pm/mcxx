@@ -142,6 +142,14 @@ namespace TL
 
             bool all_blanks() const;
 
+            //! Parses a member declaration
+            /*!
+             * \param ref_tree Reference tree used when parsing this code
+             * \param scope_link Scope link used to get the scope of \a ref_tree
+             * \param class_type Class type where this member should belong to. Make sure this is a named type!
+             */
+            AST_t parse_member(AST_t ref_tree, TL::ScopeLink scope_link, Type class_type);
+
         public:
             //! Constructor
             /*!
@@ -290,6 +298,14 @@ namespace TL
              */
             AST_t parse_id_expression(Scope scope, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
 
+            //! Parses an id-expression without checking the expression
+            /*!
+             * \param scope Scope used to parse this code
+             * \param scope_link Scope link used to get the scope of \a ref_tree
+             * \param parse_flags Parsing flags
+             */
+            AST_t parse_id_expression_wo_check(Scope scope, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
+
             //! Parses a declaration
             /*!
              * \param ref_tree Reference tree used when parsing this code
@@ -297,13 +313,14 @@ namespace TL
              * \param parse_flags Parsing flags
              */
             AST_t parse_declaration(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
+
             //! Parses a member declaration
             /*!
              * \param ref_tree Reference tree used when parsing this code
              * \param scope_link Scope link used to get the scope of \a ref_tree
-             * \param class_type Class type where this member should belong to
+             * \param class_symbol Class symbol where this member should belong to
              */
-            AST_t parse_member(AST_t ref_tree, TL::ScopeLink scope_link, Type class_type);
+            AST_t parse_member(AST_t ref_tree, TL::ScopeLink scope_link, Symbol class_symbol);
             //! Convenience function to parse a type and synthesize it
             /*!
              * \param ref_tree Reference tree used when parsing this code

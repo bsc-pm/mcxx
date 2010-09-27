@@ -440,6 +440,13 @@ namespace TL
         return result;
     }
 
+    AST_t Source::parse_member(AST_t ref_tree, TL::ScopeLink scope_link, Symbol class_symb)
+    {
+        type_t* t = get_user_defined_type(class_symb.get_internal_symbol());
+
+        return parse_member(ref_tree, scope_link, t);
+    }
+
     AST_t Source::parse_member(AST_t /* ref_tree */, TL::ScopeLink scope_link, Type class_type)
     {
         std::string mangled_text = "@MEMBER@ " + this->get_source(true);
@@ -466,6 +473,48 @@ namespace TL
         scope_link_set(scope_link._scope_link, a, decl_context);
 
         return AST_t(a);
+    }
+
+    AST_t Source::parse_id_expression_wo_check(Scope scope, TL::ScopeLink scope_link, ParseFlags parse_flags)
+    {
+        std::string mangled_text = "@ID_EXPRESSION@ " + this->get_source(true);
+        char* str = strdup(mangled_text.c_str());
+
+        CXX_LANGUAGE()
+        {
+            mcxx_prepare_string_for_scanning(str);
+        }
+        C_LANGUAGE()
+        {
+            mc99_prepare_string_for_scanning(str);
+        }
+
+        int parse_result = 0;
+        AST a;
+
+        CXX_LANGUAGE()
+        {
+            parse_result = mcxxparse(&a);
+        }
+        C_LANGUAGE()
+        {
+            parse_result = mc99parse(&a);
+        }
+
+        if (parse_result != 0)
+        {
+            running_error("Could not parse id-expression\n\n%s\n", 
+                    format_source(this->get_source(true)).c_str());
+        }
+        
+        // Get the scope and declarating context of the reference tree
+        decl_context_t decl_context = scope.get_decl_context();
+
+        // Set properly the context of the reference tree
+        scope_link_set(scope_link._scope_link, a, decl_context);
+
+        AST_t result(a);
+        return result;
     }
 
     AST_t Source::parse_id_expression(Scope scope, TL::ScopeLink scope_link, ParseFlags parse_flags)

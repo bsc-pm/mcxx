@@ -174,6 +174,10 @@ static AST get_enclosing_declaration(AST point_of_declarator);
 
 static void build_scope_pragma_custom_directive(AST a, decl_context_t decl_context, char* _dummy);
 static void build_scope_pragma_custom_construct_declaration(AST a, decl_context_t decl_context, char* attr_name);
+static void build_scope_pragma_custom_construct_member_declaration(AST a, 
+        decl_context_t decl_context, 
+        access_specifier_t current_access,
+        type_t* class_info);
 
 // Current linkage, by default C++
 static const char* current_linkage = "\"C++\"";
@@ -2202,7 +2206,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             new_entry = new_symbol(decl_context, decl_context.current_scope, enum_name_str);
             new_entry->line = ASTLine(enum_name);
             new_entry->file = ASTFileName(enum_name);
-            new_entry->point_of_declaration = enum_name;
+            new_entry->point_of_declaration = get_enclosing_declaration(a);
             new_entry->kind = SK_ENUM;
             new_entry->type_information = get_new_enum_type(decl_context);
         }
@@ -2219,7 +2223,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         new_entry = new_symbol(decl_context, decl_context.current_scope, uniquestr(c));
         new_entry->line = ASTLine(a);
         new_entry->file = ASTFileName(a);
-        new_entry->point_of_declaration = a;
+        new_entry->point_of_declaration = get_enclosing_declaration(a);
         new_entry->kind = SK_ENUM;
         new_entry->type_information = get_new_enum_type(decl_context);
 
@@ -2238,6 +2242,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
     type_t* underlying_type = get_signed_int_type();
 
     new_entry->defined = 1;
+    new_entry->point_of_definition = get_enclosing_declaration(a);
     // Since this type is not anonymous we'll want that type_info
     // refers to this newly created type
     *type_info = get_user_defined_type(new_entry);
@@ -3366,7 +3371,7 @@ static void build_scope_delayed_add_delayed_function_def(AST function_def_tree,
     _next_delayed_function++;
 }
 
-void build_scope_delayed_clear_pending(void)
+static void build_scope_delayed_clear_pending(void)
 {
     DEBUG_CODE()
     {
@@ -3899,6 +3904,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
     // If the class had a name, it is completely defined here
     class_entry->defined = 1;
+    class_entry->point_of_definition = get_enclosing_declaration(a);
     
     class_type_set_instantiation_trees(class_type, member_specification, base_clause);
 
@@ -5044,7 +5050,18 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                     ERROR_CONDITION((entry_list == NULL), "Qualified id '%s' name not found (%s)", 
                             prettyprint_in_buffer(declarator_id), ast_location(declarator_id));
 
-                    return entry_list->entry;
+                    scope_entry_t* entry = entry_list->entry;
+
+                    if (entry->kind == SK_VARIABLE
+                            && entry->entity_specs.is_member
+                            && entry->entity_specs.is_static
+                            && decl_context.current_scope->kind == NAMESPACE_SCOPE)
+                    {
+                        entry->defined = 1;
+                        entry->point_of_definition = get_enclosing_declaration(declarator_name);
+                    }
+
+                    return entry;
                 }
                 else
                 {
@@ -5329,9 +5346,11 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
         entry->entity_specs.is_extern = gather_info->is_extern;
         entry->entity_specs.is_register = gather_info->is_register;
 
-        if (!entry->entity_specs.is_extern)
+        if ((entry->entity_specs.is_member && !entry->entity_specs.is_static)
+                || (!entry->entity_specs.is_member && !entry->entity_specs.is_extern))
         {
             entry->defined = 1;
+            entry->point_of_definition = get_enclosing_declaration(declarator_id);
         }
 
         // Copy gcc attributes
@@ -5610,8 +5629,8 @@ static scope_entry_t* find_function_declaration(AST declarator_id, type_t* decla
 
         if (entry->entity_specs.is_member
                 && decl_context.current_scope->kind == CLASS_SCOPE
-                && !equivalent_types(entry->entity_specs.class_type, 
-                    get_user_defined_type(decl_context.current_scope->related_entry)))
+                && !equivalent_types(get_actual_class_type(entry->entity_specs.class_type), 
+                    get_actual_class_type(decl_context.current_scope->related_entry->type_information)))
         {
             it = it->next;
             continue;
@@ -6928,6 +6947,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
     // Set defined now, otherwise some infinite recursion may happen when
     // instantiating template functions
     entry->defined = 1;
+    entry->point_of_definition = get_enclosing_declaration(a);
     
     {
         // Function declaration name
@@ -7092,7 +7112,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
             build_scope_statement_seq(list, block_context);
         }
-		ASTAttrSetValueType(statement, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
+        ASTAttrSetValueType(statement, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
         ASTAttrSetValueType(statement, LANG_COMPOUND_STATEMENT_LIST, tl_type_t, tl_ast(list));
     }
     else
@@ -7174,6 +7194,16 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
         case AST_UNKNOWN_PRAGMA :
         case AST_VERBATIM :
             {
+                break;
+            }
+        case AST_PRAGMA_CUSTOM_DIRECTIVE :
+            {
+                build_scope_pragma_custom_directive(a, inner_decl_context, NULL);
+                break;
+            }
+        case AST_PRAGMA_CUSTOM_CONSTRUCT: 
+            {
+                build_scope_pragma_custom_construct_member_declaration(a, inner_decl_context, current_access, class_info);
                 break;
             }
         default:
@@ -7804,19 +7834,10 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                             if (ASTType(too_much_qualified_declarator_name) == AST_QUALIFIED_ID
                                 || ASTType(too_much_qualified_declarator_name) == AST_QUALIFIED_TEMPLATE)
                             {
-                                // Let's fix the tree for the user message
-                                AST fixed_declarator = ast_copy_clearing_extended_data(declarator);
-                                AST fixed_declarator_name = get_declarator_name(fixed_declarator, decl_context);
-
-                                // AST fixed_unqualified_id = ASTSon2(fixed_declarator_name);
-
-                                // Fix this :)
-                                // *fixed_declarator_name = *fixed_unqualified_id;
-
                                 running_error("%s: error: extra qualification of member declaration is not allowed: '%s'. Did you mean '%s'?", 
                                         ast_location(too_much_qualified_declarator_name),
                                         prettyprint_in_buffer(declarator),
-                                        prettyprint_in_buffer(fixed_declarator_name)
+                                        prettyprint_in_buffer(ASTSon2(too_much_qualified_declarator_name))
                                         );
                             }
                         }
@@ -8930,6 +8951,20 @@ static void build_scope_pragma_custom_construct_declaration(AST a,
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_DECLARATION, tl_type_t, tl_ast(ASTSon1(a)));
 }
 
+static void build_scope_pragma_custom_construct_member_declaration(AST a, 
+        decl_context_t decl_context, 
+        access_specifier_t current_access,
+        type_t* class_info)
+{
+    build_scope_pragma_custom_line(ASTSon0(a), decl_context, LANG_IS_PRAGMA_CUSTOM_LINE);
+    build_scope_member_declaration(decl_context, ASTSon1(a), current_access, class_info);
+
+    ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CONSTRUCT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM, tl_type_t, tl_string(ASTText(a)));
+    ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_LINE, tl_type_t, tl_ast(ASTSon0(a)));
+    ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_DECLARATION, tl_type_t, tl_ast(ASTSon1(a)));
+}
+
 static void build_scope_custom_construct_statement(AST a, 
         decl_context_t decl_context, 
         char *attr_name UNUSED_PARAMETER)
@@ -9076,6 +9111,7 @@ void build_scope_member_specification_with_scope_link(
 
     build_scope_member_specification(class_context, member_specification_tree, 
             current_access, simple_type_info);
+    build_scope_delayed_functions();
 
     CURRENT_COMPILED_FILE->scope_link = old_scope_link;
 }

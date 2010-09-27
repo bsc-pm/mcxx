@@ -165,6 +165,29 @@ namespace TL {
 					<< "(" << first_source << ">" << other_source << "?" << first_source << ":" << other_source << ")";
 			}
 			
+			void generate_minimum_source(/* INOUT */ std::set<std::string> &values, /* INOUT */ Source &source)
+			{
+				std::set<std::string>::iterator first = values.begin();
+				Source first_source;
+				first_source
+					<< *first;
+				values.erase(first);
+				
+				// Base case
+				if (values.empty())
+				{
+					source << first_source;
+					return;
+				}
+				
+				// Recursive case
+				Source other_source;
+				generate_minimum_source(/* INOUT */ values, /* INOUT */ other_source);
+				
+				source
+					<< "(" << first_source << "<" << other_source << "?" << first_source << ":" << other_source << ")";
+			}
+			
 			
 		public:
 			typedef SymbolList::iterator call_iterator;
@@ -256,6 +279,68 @@ namespace TL {
 				
 				set_attribute(SYMBOL_SUPERSCALAR_PARAMETER_ACCESS_BOUNDS_LIST, access_bounds_list);
 				return access_bounds_list;
+			}
+			
+			RefPtr<AccessBoundsList> get_parameter_min_index_list()
+			{
+				RefPtr<Object> object( get_attribute(SYMBOL_SUPERSCALAR_PARAMETER_MIN_INDEX_LIST) );
+				if (typeid(*object.get_pointer()) == typeid(AccessBoundsList))
+				{
+					return RefPtr<AccessBoundsList>::cast_dynamic(object);
+				}
+				
+				// Lazy creation
+				ObjectList<Type> parameter_types = get_type().nonadjusted_parameters();
+				RefPtr<ParameterRegionList> parameter_region_lists = get_parameter_region_list();
+				
+				if (parameter_types.size() != parameter_region_lists->size())
+				{
+					std::cerr << __FILE__ << ":" << __LINE__ << ": " << "Internal compiler error" << std::endl;
+					throw FatalException();
+				}
+				int parameter_count = parameter_types.size();
+				
+				RefPtr<AccessBoundsList> min_index_list(new AccessBoundsList());
+				for (int parameter_index = 0; parameter_index < parameter_count; parameter_index++)
+				{
+					RegionList &regionList = (*parameter_region_lists)[parameter_index];
+					int region_count = regionList.size();
+					Type const &parameter_type = parameter_types[parameter_index];
+					
+					min_index_list->add(AccessBounds());
+					
+					if (!parameter_type.is_array())
+					{
+						continue;
+					}
+					
+					AccessBounds &access_bounds = (*min_index_list)[parameter_index];
+					int dimension_count = regionList[0].get_dimension_count();
+					std::set<std::string> candidate_bounds[dimension_count];
+					
+					for (int dimension_index=0; dimension_index < dimension_count; dimension_index++)
+					{
+						for (int region_index=0; region_index < region_count; region_index++)
+						{
+							// NOTE: Hopefully, the same expression will be prettyprinted identically
+							candidate_bounds[dimension_index].insert(regionList[region_index][dimension_index].get_dimension_start().prettyprint());
+						}
+					}
+					
+					AST_t a_ref_ast = regionList[0][0].get_dimension_start().get_ast();
+					ScopeLink a_scope_link = regionList[0][0].get_dimension_start().get_scope_link();
+					for (int dimension_index=0; dimension_index < dimension_count; dimension_index++)
+					{
+						Source min_index_source;
+						generate_minimum_source(candidate_bounds[dimension_index], min_index_source);
+						AST_t min_index_ast = min_index_source.parse_expression(a_ref_ast, a_scope_link);
+						Expression min_index(min_index_ast, a_scope_link);
+						access_bounds.add(min_index);
+					}
+				} // For each parameter
+				
+				set_attribute(SYMBOL_SUPERSCALAR_PARAMETER_MIN_INDEX_LIST, min_index_list);
+				return min_index_list;
 			}
 			
 			Bool is_task() const

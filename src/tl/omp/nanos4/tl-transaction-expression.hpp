@@ -80,7 +80,7 @@ namespace TL
                 {
                 }
 
-                ASTTraversalResult do_(AST_t& a) const
+                ASTTraversalResult do_(IgnorePreserveFunctor::ArgType a) const
                 {
                     bool match = _pred(a);
                     // Do not recurse if we match

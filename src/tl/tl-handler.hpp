@@ -44,6 +44,25 @@ namespace TL
         private:
             typedef typename std::vector<Functor<void, Param1>* > handlers_type;
             typedef typename handlers_type::iterator handlers_iterator;
+
+
+            template <typename T>
+                struct AdjustParam
+                {
+                    typedef const T& type;
+                };
+
+            template <typename T>
+                struct AdjustParam<const T&>
+                {
+                    typedef const T& type;
+                };
+
+            template <typename T>
+                struct AdjustParam<T&>
+                {
+                    typedef T& type;
+                };
     
             handlers_type _handlers;
         public:
@@ -57,7 +76,7 @@ namespace TL
                 }
     
             //! Signals all the connected functors with given parameter
-            void signal(Param1 p1)
+            void signal(typename AdjustParam<Param1>::type p1)
             {
                 handlers_iterator it;
                 for (it = _handlers.begin(); it != _handlers.end(); it++)
@@ -67,11 +86,13 @@ namespace TL
             }
     
             // Destructor
-            /*!
-             * \bug We should free the list of handlers
-             */
             ~Signal1()
             {
+                handlers_iterator it;
+                for (it = _handlers.begin(); it != _handlers.end(); it++)
+                {
+                    delete (*it);
+                }
             }
     };
     

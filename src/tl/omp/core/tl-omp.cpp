@@ -326,6 +326,21 @@ namespace TL
             }
         }
 
+        void Info::set_udr_symbols(AST_t a, ObjectList<Symbol> sym_list)
+        {
+            if (_map_udr_info.find(a) != _map_udr_info.end())
+            {
+                int i=0;
+                for(ObjectList<UDRInfoItem2>::iterator it = _map_udr_info[a].begin();
+                        it != _map_udr_info[a].end();
+                        it++)
+                {
+                    (*it).set_function_definition_symbol(sym_list[i]);
+                    i++;
+                }
+            }
+        }
+
         void Info::set_udr_list(AST_t a, ObjectList<UDRInfoItem2> udr_list)
         {
             _map_udr_info[a] = udr_list;

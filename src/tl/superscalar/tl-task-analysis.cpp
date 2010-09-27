@@ -253,24 +253,36 @@ namespace TL
 			TaskAnalysis::fail();
 		}
 		
-		bool is_blocking = construct.get_clause("target").is_defined();
-		
-		if (is_blocking)
-		{
-			ObjectList< std::string > args = construct.get_clause("target").get_arguments(ExpressionTokenizerTrim());
-			if ( args.size() != 1 )
-			{
-				std::cerr << context_ast.get_locus() << " Error: the 'target' clause needs one and just one parameter for this version." << std::endl;
+		bool is_blocking = false;
+
+		if (construct.get_clause("target").is_defined()) {
+			if (construct.get_clause("device").is_defined()) {
+				ObjectList< std::string > args = construct.get_clause("device").get_arguments(ExpressionTokenizerTrim());
+				ObjectList< std::string >::iterator it = args.begin();
+				if ( it == args.end() ) {
+					std::cerr << context_ast.get_locus() << " Error: the you must specify something inside the device clause." << std::endl;
+					TaskAnalysis::fail();
+				}
+				for ( ; it != args.end(); it++) {
+					if ( *it == std::string("comm_thread")) {
+						if ( is_blocking ) {
+							std::cerr << context_ast.get_locus() << " Warning: the 'comm_thread' target was already defined"<< std::endl;
+							break;
+						}
+						is_blocking = true;
+					}
+				}
+			} else {
+				std::cerr << context_ast.get_locus() << " Error: the 'target' clause needs the 'device' clause to be specified." << std::endl;
 				TaskAnalysis::fail();
 			}
-
-			if ( (*args.begin()) != std::string("comm_thread") )
-			{
-				std::cerr << context_ast.get_locus() << " Error: the 'target' only accepts the 'comm_thread' argument for this version." << std::endl;
+		} else {
+			if (construct.get_clause("device").is_defined()) {
+				std::cerr << context_ast.get_locus() << " Error: the 'device' clause needs the 'target' clause to be specified." << std::endl;
 				TaskAnalysis::fail();
 			}
 		}
-
+		
 		if (has_high_priority && is_blocking)
 		{
 			std::cerr << context_ast.get_locus() << " Warning: ignoring 'highpriority' clause used together with target(comm_thread) task." << std::endl;
