@@ -21,17 +21,15 @@
   Cambridge, MA 02139, USA.
   --------------------------------------------------------------------*/
 
-#include "tl-objectlist.hpp"
-#include "tl-pragmasupport.hpp"
-#include "tl-langconstruct.hpp"
-
+#include "tl-nanos-threadprivate.hpp"
 #include "cxx-utils.h"
 
-namespace TL { namespace Nanos {
+namespace TL
+{
 
 static void add_thread_to_declarations_in_tree(const ObjectList<Symbol> &symbol_list, const Declaration &decl)
 {
-    bool decl_is_in_class_scope = false;
+    bool decl_is_in_class_scope = decl.get_scope().is_class_scope();
 
     ObjectList<DeclaredEntity> entities = decl.get_declared_entities();
 
@@ -50,7 +48,16 @@ static void add_thread_to_declarations_in_tree(const ObjectList<Symbol> &symbol_
             remade_declaration << " __thread";
         }
 
-        remade_declaration << " " << it->prettyprint() << ";\n";
+        remade_declaration << " " << it->prettyprint();
+
+        if (it->has_initializer())
+        {
+            // This .original_tree is to work around a quirk of TL::Expression
+            // (as it skips the '=' in an initializer of the form '= e')
+            remade_declaration << it->get_initializer().original_tree().prettyprint();
+        }
+
+        remade_declaration << ";\n";
     }
 
     AST_t tree(NULL);
@@ -62,15 +69,16 @@ static void add_thread_to_declarations_in_tree(const ObjectList<Symbol> &symbol_
     }
     else
     {
-        internal_error("Not yet implemented", 0);
-        //tree = remade_declaration.parse_member(decl.get_ast(),
-        //        decl.get_scope_link(), );
+        Symbol sym = decl.get_scope().get_class_of_scope();
+        tree = remade_declaration.parse_member(decl.get_ast(),
+                decl.get_scope_link(),
+                sym);
     }
 
     decl.get_ast().replace(tree);
 }
 
-void add_thread_to_declarations(const ObjectList<Symbol> &symbol_list, ScopeLink sl)
+void Nanos::add_thread_to_declarations(const ObjectList<Symbol> &symbol_list, ScopeLink sl)
 {
     ObjectList<AST_t> decl_list;
     decl_list.insert(symbol_list.map(functor(&Symbol::get_point_of_declaration)));
@@ -100,4 +108,4 @@ void add_thread_to_declarations(const ObjectList<Symbol> &symbol_list, ScopeLink
     }
 }
 
-} }
+}
