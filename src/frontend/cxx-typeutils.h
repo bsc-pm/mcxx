@@ -191,6 +191,9 @@ LIBMCXX_EXTERN char is_fundamental_type(struct type_tag* t);
 LIBMCXX_EXTERN char is_pod_type(type_t* t);
 LIBMCXX_EXTERN char is_pod_type_layout(type_t* t);
 
+LIBMCXX_EXTERN char is_trivially_copiable_type(type_t* t);
+LIBMCXX_EXTERN char is_standard_layout_type(type_t* t);
+
 // States whether a type is faulty
 LIBMCXX_EXTERN char is_faulty_type(type_t*);
 
@@ -453,6 +456,10 @@ LIBMCXX_EXTERN int braced_list_type_get_num_types(struct type_tag* t);
 LIBMCXX_EXTERN struct type_tag** braced_list_type_get_types(struct type_tag* t);
 
 /* Query functions: Miscelaneous stuff not classified otherwise */
+LIBMCXX_EXTERN char class_type_is_trivial(type_t* t);
+LIBMCXX_EXTERN char class_type_is_trivially_copiable(type_t* t);
+LIBMCXX_EXTERN char class_type_is_standard_layout(type_t* t);
+
 LIBMCXX_EXTERN char class_type_is_base(struct type_tag* possible_base, struct type_tag* possible_derived);
 LIBMCXX_EXTERN char class_type_is_derived(struct type_tag* possible_derived, struct type_tag* possible_base);
 LIBMCXX_EXTERN char is_pointer_to_void_type(struct type_tag* t);

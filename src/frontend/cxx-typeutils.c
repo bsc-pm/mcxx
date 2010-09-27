@@ -7960,6 +7960,200 @@ scope_entry_t* class_type_get_virtual_function_num(type_t* class_type, int i)
     return class_type->type->class_info->virtual_functions[i];
 }
 
+char class_type_is_trivially_copiable(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "It must be a class type", 0);
+    type_t* class_type = get_actual_class_type(t);
+
+    /*
+       A trivially copyable class is a class that:
+       - has no non-trivial copy constructors (12.8),
+       - has no non-trivial move constructors (12.8),
+       - has no non-trivial copy assignment operators (13.5.3, 12.8),
+       - has no non-trivial move assignment operators (13.5.3, 12.8), and
+       - has a trivial destructor (12.4).
+     */
+
+    int i;
+    for (i = 0; i < class_type_get_num_copy_constructors(class_type); i++)
+    {
+        scope_entry_t* entry = class_type_get_copy_constructor_num(class_type, i);
+
+        if (!entry->entity_specs.is_trivial)
+            return 0;
+    }
+
+#if 0
+    for (i = 0; i < class_type_get_num_move_constructors(class_type, i); i++)
+    {
+        scope_entry_t* entry = class_type_get_move_constructor_num(class_type, i);
+
+        if (!entry->entity_specs.is_trivial)
+            return 0;
+    }
+#endif
+
+    for (i = 0; i < class_type_get_num_copy_assignment_operators(class_type); i++)
+    {
+        scope_entry_t* entry = class_type_get_copy_assignment_operator_num(class_type, i);
+
+        if (!entry->entity_specs.is_trivial)
+            return 0;
+    }
+
+#if 0
+    for (i = 0; i < class_type_get_num_move_assignment_operators(class_type, i); i++)
+    {
+        scope_entry_t* entry = class_type_get_move_assignment_operator_num(class_type, i);
+
+        if (!entry->entity_specs.is_trivial)
+            return 0;
+    }
+#endif
+
+    scope_entry_t* destructor = class_type_get_destructor(class_type);
+
+    if (destructor != NULL
+            && !destructor->entity_specs.is_trivial)
+        return 0;
+
+    return 1;
+}
+
+char class_type_is_trivial(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "It must be a class type", 0);
+    type_t* class_type = get_actual_class_type(t);
+
+    scope_entry_t* default_ctr = class_type_get_default_constructor(class_type);
+
+    if (!default_ctr->entity_specs.is_trivial)
+        return 0;
+
+    if (!class_type_is_trivially_copiable(t))
+        return 0;
+
+    return 1;
+}
+
+char class_type_is_standard_layout(type_t* t)
+{
+    /*
+       A standard-layout class is a class that:
+       - has no non-static data members of type non-standard-layout class (or array of such types) or reference,
+       - has no virtual functions (10.3) and no virtual base classes (10.1),
+       - has the same access control (Clause 11) for all non-static data members,
+       - has no non-standard-layout base classes,
+       - either has no non-static data members in the most-derived class and at most one base class with
+       non-static data members, or has no base classes with non-static data members, and
+       - has no base classes of the same type as the first non-static data member.10
+     */
+    ERROR_CONDITION(!is_class_type(t), "It must be a class type", 0);
+    type_t* class_type = get_actual_class_type(t);
+
+    int i;
+    for (i = 0; i < class_type_get_num_nonstatic_data_members(class_type); i++)
+    {
+        scope_entry_t* data_member = class_type_get_nonstatic_data_member_num(class_type, i);
+
+        type_t* data_member_type = data_member->type_information;
+
+        if (is_lvalue_reference_type(data_member_type)
+                || is_rvalue_reference_type(data_member_type))
+            return 0;
+
+        if (is_array_type(data_member_type))
+            data_member_type = array_type_get_element_type(data_member_type);
+        
+        if (is_class_type(data_member_type)
+                && !class_type_is_standard_layout(data_member_type))
+            return 0;
+    }
+
+    for (i = 0; i < class_type_get_num_member_functions(class_type); i++)
+    {
+        scope_entry_t* member_function = class_type_get_member_function_num(class_type, i);
+
+        if (member_function->entity_specs.is_virtual)
+            return 0;
+    }
+
+    for (i = 0 ; i < class_type_get_num_bases(class_type); i++)
+    {
+        char is_virtual = 0, is_dependent = 0;
+        /* scope_entry_t* base = */ class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+
+        if (is_virtual)
+            return 0;
+    }
+
+    access_specifier_t access = AS_UNKNOWN;
+
+    for (i = 0; i < class_type_get_num_nonstatic_data_members(class_type); i++)
+    {
+        scope_entry_t* data_member = class_type_get_nonstatic_data_member_num(class_type, i);
+
+        if (access == AS_UNKNOWN)
+        {
+            access = data_member->entity_specs.access;
+        }
+        else if (access != data_member->entity_specs.access)
+        {
+            return 0;
+        }
+    }
+
+    for (i = 0 ; i < class_type_get_num_bases(class_type); i++)
+    {
+        char is_virtual = 0, is_dependent = 0;
+        scope_entry_t* base = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+
+        if (!class_type_is_standard_layout(base->type_information))
+            return 0;
+    }
+
+    if (class_type_get_num_nonstatic_data_members(class_type) == 0)
+    {
+        int nonempty = 0;
+        for (i = 0 ; i < class_type_get_num_bases(class_type); i++)
+        {
+            char is_virtual = 0, is_dependent = 0;
+            scope_entry_t* base = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+
+            nonempty += (class_type_get_num_nonstatic_data_members(base->type_information) != 0);
+        }
+
+        if (nonempty > 1)
+            return 0;
+    }
+    else
+    {
+        for (i = 0 ; i < class_type_get_num_bases(class_type); i++)
+        {
+            char is_virtual = 0, is_dependent = 0;
+            scope_entry_t* base = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+
+            if (class_type_get_num_nonstatic_data_members(base->type_information) != 0)
+            {
+                return 0;
+            }
+        }
+
+        scope_entry_t* first_nonstatic = class_type_get_nonstatic_data_member_num(class_type, 0);
+
+        for (i = 0 ; i < class_type_get_num_bases(class_type); i++)
+        {
+            char is_virtual = 0, is_dependent = 0;
+            scope_entry_t* base = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+
+            if (equivalent_types(first_nonstatic->type_information, base->type_information))
+                return 0;
+        }
+    }
+
+    return 1;
+}
+
 char is_aggregate_type(type_t* t)
 {
     /*
@@ -8024,7 +8218,14 @@ char is_aggregate_type(type_t* t)
     return 0;
 }
 
-static char is_pod_type_aux(type_t* t, char allow_wide_bitfields)
+char class_type_is_pod(type_t* t)
+{
+    ERROR_CONDITION(is_class_type(t), "It must be a class type", 0);
+    return class_type_is_trivial(t)
+        && class_type_is_standard_layout(t);
+}
+
+static char closure_of_simple_properties(type_t* t, char (*class_prop)(type_t*))
 {
     if (is_integral_type(t)
             || is_enum_type(t)
@@ -8042,74 +8243,33 @@ static char is_pod_type_aux(type_t* t, char allow_wide_bitfields)
         return 0;
 
     if (is_array_type(t))
-        return is_pod_type_aux(array_type_get_element_type(t), allow_wide_bitfields);
+        return closure_of_simple_properties(array_type_get_element_type(t), class_prop);
 
     if (is_class_type(t))
-    {
-        // It must be an aggregate type
-        if (!is_aggregate_type(t))
-            return 0;
-
-        // All nonstatic data members must be POD
-        type_t* class_type = get_actual_class_type(t);
-        int i;
-        for (i = 0; i < class_type_get_num_nonstatic_data_members(class_type); i++)
-        {
-            scope_entry_t* data_member = class_type_get_nonstatic_data_member_num(class_type, i);
-
-            if (data_member->entity_specs.is_bitfield)
-            {
-                if (!allow_wide_bitfields)
-                {
-                    // Check whether this bitfield is wider than its type in bits
-
-                    _size_t bits_of_bitfield = 
-                        const_value_cast_to_8(
-                                expression_get_constant(data_member->entity_specs.bitfield_expr)
-                                );
-
-                    _size_t bits_of_base_type = type_get_size(data_member->type_information) * 8;
-
-                    if (bits_of_bitfield > bits_of_base_type)
-                        return 0;
-                }
-            }
-
-            if (!is_pod_type_aux(data_member->type_information, allow_wide_bitfields))
-                return 0;
-        }
-
-        // Copy assignments (if any) must be trivial
-        for (i = 0; i < class_type_get_num_copy_assignment_operators(class_type); i++)
-        {
-            scope_entry_t* copy_assignment = class_type_get_copy_assignment_operator_num(class_type, i);
-
-            if (!copy_assignment->entity_specs.is_trivial)
-                return 0;
-        }
-
-        // Destructor (if any) must be trivial
-        scope_entry_t* destructor = class_type_get_destructor(class_type);
-
-        if (destructor != NULL
-                && (!destructor->entity_specs.is_trivial 
-                    || !destructor->entity_specs.is_virtual))
-            return 0;
-
-        return 1;
-    }
+        return class_prop(t);
 
     internal_error("Unhandled type", 0);
 }
 
 char is_pod_type(type_t* t)
 {
-    return is_pod_type_aux(t, /* allow wide bitfields */ 1);
+    return closure_of_simple_properties(t, class_type_is_pod);
 }
 
 char is_pod_type_layout(type_t* t)
 {
-    return is_pod_type_aux(t, /* allow wide bitfields */ 0);
+    // FIXME: Check this with the g++ ABI!
+    return is_pod_type(t);
+}
+
+char is_trivially_copiable_type(type_t* t)
+{
+    return closure_of_simple_properties(t, class_type_is_trivially_copiable);
+}
+
+char is_standard_layout_type(type_t* t)
+{
+    return closure_of_simple_properties(t, class_type_is_standard_layout);
 }
 
 char type_is_runtime_sized(type_t* t)
