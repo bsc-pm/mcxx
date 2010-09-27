@@ -659,7 +659,13 @@ namespace TL
                         || !sym.is_variable())
                     continue;
 
-                DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
+                DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
+
+                // Do nothing with threadprivates
+                if ((data_attr & DS_THREADPRIVATE) == DS_THREADPRIVATE)
+                    continue;
+
+                data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
 
                 if (data_attr == DS_UNDEFINED)
                 {
@@ -809,7 +815,7 @@ namespace TL
                 DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
 
                 // Do nothing with threadprivates
-                if (data_attr == DS_THREADPRIVATE)
+                if ((data_attr & DS_THREADPRIVATE) == DS_THREADPRIVATE)
                     continue;
 
                 data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
