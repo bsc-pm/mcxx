@@ -1199,15 +1199,18 @@ static char is_pod_type_layout(type_t* t)
         {
             scope_entry_t* data_member = class_type_get_nonstatic_data_member_num(class_type, i);
 
-            _size_t bits_of_bitfield = 
-                const_value_cast_to_8(
-                        expression_get_constant(data_member->entity_specs.bitfield_expr)
-                        );
+            if (data_member->entity_specs.is_bitfield)
+            {
+                _size_t bits_of_bitfield = 
+                    const_value_cast_to_8(
+                            expression_get_constant(data_member->entity_specs.bitfield_expr)
+                            );
 
-            _size_t bits_of_base_type = type_get_size(data_member->type_information) * 8;
+                _size_t bits_of_base_type = type_get_size(data_member->type_information) * 8;
 
-            if (bits_of_bitfield > bits_of_base_type)
-                return 0;
+                if (bits_of_bitfield > bits_of_base_type)
+                    return 0;
+            }
         }
 
         return 1;
