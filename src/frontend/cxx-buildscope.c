@@ -7330,10 +7330,30 @@ static char is_copy_assignment_operator(scope_entry_t* entry, type_t* class_type
     return 0;
 }
 
+static char is_move_assignment_operator(scope_entry_t* entry, type_t* class_type)
+{
+    // Remember copy assignment operators
+    if ((strcmp(entry->symbol_name, STR_OPERATOR_ASSIGNMENT) == 0)
+            && (function_type_get_num_parameters(entry->type_information) == 1))
+    {
+        type_t* first_parameter = function_type_get_parameter_type_num(entry->type_information, 0);
+
+        // Check that its form is either
+        //
+        //  operator=(cv T&&)
+        if (is_rvalue_reference_to_class_type(first_parameter)
+                    && equivalent_types(get_actual_class_type(class_type),
+                        get_actual_class_type(get_unqualified_type(reference_type_get_referenced_type(first_parameter)))))
+        {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static char is_copy_constructor(scope_entry_t* entry, type_t* class_type)
 {
     if (entry->entity_specs.is_constructor
-            && !entry->entity_specs.is_explicit
             && can_be_called_with_number_of_arguments(entry, 1)
             // It might be callable with one parameter because of A(...) 
             // [but note that A(const A&, ...) is a valid copy constructor]
@@ -7347,6 +7367,31 @@ static char is_copy_constructor(scope_entry_t* entry, type_t* class_type)
         // A(A&, X = x);
 
         if (is_lvalue_reference_to_class_type(first_parameter)
+                    && equivalent_types(get_actual_class_type(class_type),
+                        get_actual_class_type(get_unqualified_type(reference_type_get_referenced_type(first_parameter)))))
+        {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static char is_move_constructor(scope_entry_t* entry, type_t* class_type)
+{
+    if (entry->entity_specs.is_constructor
+            && can_be_called_with_number_of_arguments(entry, 1)
+            // It might be callable with one parameter because of A(...) 
+            // [but note that A(const A&, ...) is a valid copy constructor]
+            && !(function_type_get_has_ellipsis(entry->type_information)
+                && function_type_get_num_parameters(entry->type_information) == 1))
+    {
+        type_t* first_parameter = function_type_get_parameter_type_num(entry->type_information, 0);
+        // Check that its form is either
+        //
+        // A(const A&&, X = x);
+        // A(A&&, X = x);
+
+        if (is_rvalue_reference_to_class_type(first_parameter)
                     && equivalent_types(get_actual_class_type(class_type),
                         get_actual_class_type(get_unqualified_type(reference_type_get_referenced_type(first_parameter)))))
         {
@@ -7496,6 +7541,12 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
                         entry->entity_specs.is_copy_constructor = 1;
                         class_type_add_copy_constructor(class_type, entry);
                     }
+
+                    if (is_move_constructor(entry, class_type))
+                    {
+                        entry->entity_specs.is_move_constructor = 1;
+                        class_type_add_move_constructor(class_type, entry);
+                    }
                 }
                 else
                 {
@@ -7529,8 +7580,14 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
                 class_type_add_member_function(class_type, entry);
                 if (is_copy_assignment_operator(entry, class_type))
                 {
-                    entry->entity_specs.is_assignment_operator = 1;
+                    entry->entity_specs.is_copy_assignment_operator = 1;
                     class_type_add_copy_assignment_operator(get_actual_class_type(class_type), entry);
+                }
+
+                if (is_move_assignment_operator(entry, class_type))
+                {
+                    entry->entity_specs.is_move_assignment_operator = 1;
+                    class_type_add_move_assignment_operator(get_actual_class_type(class_type), entry);
                 }
 
                 // These are always static
@@ -7915,6 +7972,12 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                                 entry->entity_specs.is_copy_constructor = 1;
                                                 class_type_add_copy_constructor(class_type, entry);
                                             }
+
+                                            if (is_move_constructor(entry, class_type))
+                                            {
+                                                entry->entity_specs.is_move_constructor = 1;
+                                                class_type_add_move_constructor(class_type, entry);
+                                            }
                                         }
                                         else
                                         {
@@ -7946,8 +8009,14 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                         class_type_add_member_function(class_type, entry);
                                         if (is_copy_assignment_operator(entry, class_type))
                                         {
-                                            entry->entity_specs.is_assignment_operator = 1;
+                                            entry->entity_specs.is_copy_assignment_operator = 1;
                                             class_type_add_copy_assignment_operator(get_actual_class_type(class_type), entry);
+                                        }
+
+                                        if (is_move_assignment_operator(entry, class_type))
+                                        {
+                                            entry->entity_specs.is_move_assignment_operator = 1;
+                                            class_type_add_move_assignment_operator(get_actual_class_type(class_type), entry);
                                         }
 
                                         // These are always static
@@ -8021,14 +8090,16 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                         if (initializer != NULL)
                         {
-                            check_for_initialization(initializer,
-                                    entry->decl_context,
-                                    get_unqualified_type(entry->type_information));
+                            if (entry->kind == SK_VARIABLE)
+                            {
+                                check_for_initialization(initializer,
+                                        entry->decl_context,
+                                        get_unqualified_type(entry->type_information));
 
-                            entry->expression_value = initializer;
-
+                                entry->expression_value = initializer;
+                            }
                             // Special initializer for functions
-                            if (entry->kind == SK_FUNCTION)
+                            else if (entry->kind == SK_FUNCTION)
                             {
                                 // Check that it is '= 0'
                                 char wrong_initializer = 1;
@@ -8058,6 +8129,11 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                             prettyprint_in_buffer(declarator),
                                             prettyprint_in_buffer(initializer));
                                 }
+                            }
+                            else
+                            {
+                                running_error("%s: error: no initializer allowed in current member declaration",
+                                        ast_location(initializer));
                             }
                         }
                         break;

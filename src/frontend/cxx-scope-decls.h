@@ -322,11 +322,16 @@ typedef struct entity_specifiers_tag
     char is_default_constructor:1;
     // Is a copy constructor
     char is_copy_constructor:1;
+    // Is a move constructor
+    char is_move_constructor:1;
     // Is a conversor one
     char is_conversor_constructor:1;
 
-    // Is an assignment operator
-    char is_assignment_operator:1;
+    // Is a copy assignment operator
+    char is_copy_assignment_operator:1;
+
+    // Is a copy assignment operator
+    char is_move_assignment_operator:1;
 
     // Is destructor
     char is_destructor:1;

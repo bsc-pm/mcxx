@@ -647,6 +647,11 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     {
                         class_type_add_copy_constructor(get_actual_class_type(being_instantiated), new_member);
                     }
+
+                    if (member_of_template->entity_specs.is_move_constructor)
+                    {
+                        class_type_add_move_constructor(get_actual_class_type(being_instantiated), new_member);
+                    }
                 }
                 if (member_of_template->entity_specs.is_destructor)
                 {
@@ -656,9 +661,13 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 {
                     class_type_add_conversion_function(get_actual_class_type(being_instantiated), new_member);
                 }
-                if (member_of_template->entity_specs.is_assignment_operator)
+                if (member_of_template->entity_specs.is_copy_assignment_operator)
                 {
                     class_type_add_copy_assignment_operator(get_actual_class_type(being_instantiated), new_member);
+                }
+                if (member_of_template->entity_specs.is_move_assignment_operator)
+                {
+                    class_type_add_move_assignment_operator(get_actual_class_type(being_instantiated), new_member);
                 }
                 if (member_of_template->entity_specs.is_virtual)
                 {

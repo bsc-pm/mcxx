@@ -158,7 +158,9 @@ LIBMCXX_EXTERN void class_type_set_inner_context(struct type_tag* class_type, de
 LIBMCXX_EXTERN void class_type_add_constructor(struct type_tag* class_type, struct scope_entry_tag* entry);
 LIBMCXX_EXTERN void class_type_set_destructor(struct type_tag* class_type, struct scope_entry_tag* entry);
 LIBMCXX_EXTERN void class_type_add_copy_assignment_operator(struct type_tag* class_type, struct scope_entry_tag* entry);
+LIBMCXX_EXTERN void class_type_add_move_assignment_operator(struct type_tag* class_type, struct scope_entry_tag* entry);
 LIBMCXX_EXTERN void class_type_add_copy_constructor(struct type_tag* class_type, struct scope_entry_tag* entry);
+LIBMCXX_EXTERN void class_type_add_move_constructor(struct type_tag* class_type, struct scope_entry_tag* entry);
 LIBMCXX_EXTERN void class_type_add_conversion_function(struct type_tag* class_type, struct scope_entry_tag* entry);
 LIBMCXX_EXTERN void class_type_add_nonstatic_data_member(struct type_tag* class_type, struct scope_entry_tag* entry);
 LIBMCXX_EXTERN void class_type_add_static_data_member(struct type_tag* class_type, struct scope_entry_tag* entry);
@@ -391,8 +393,12 @@ LIBMCXX_EXTERN struct scope_entry_list_tag* class_type_get_all_conversions(struc
 
 LIBMCXX_EXTERN int class_type_get_num_copy_assignment_operators(struct type_tag* t);
 LIBMCXX_EXTERN struct scope_entry_tag* class_type_get_copy_assignment_operator_num(struct type_tag* t, int num);
+LIBMCXX_EXTERN int class_type_get_num_move_assignment_operators(struct type_tag* t);
+LIBMCXX_EXTERN struct scope_entry_tag* class_type_get_move_assignment_operator_num(struct type_tag* t, int num);
 LIBMCXX_EXTERN int class_type_get_num_copy_constructors(struct type_tag* t);
 LIBMCXX_EXTERN struct scope_entry_tag* class_type_get_copy_constructor_num(struct type_tag* t, int num);
+LIBMCXX_EXTERN int class_type_get_num_move_constructors(struct type_tag* t);
+LIBMCXX_EXTERN struct scope_entry_tag* class_type_get_move_constructor_num(struct type_tag* t, int num);
 LIBMCXX_EXTERN struct scope_entry_tag* class_type_get_default_constructor(struct type_tag* t);
 
 LIBMCXX_EXTERN struct scope_entry_tag* class_type_get_destructor(struct type_tag* t);
