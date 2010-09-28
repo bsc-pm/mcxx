@@ -7574,6 +7574,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
                     class_type_add_virtual_function(get_actual_class_type(class_type), entry);
                 }
                 entry->entity_specs.is_destructor = 1;
+                entry->entity_specs.is_user_declared = 1;
                 class_type_set_destructor(get_actual_class_type(class_type), entry);
                 break;
             }
@@ -7584,6 +7585,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
                 if (is_copy_assignment_operator(entry, class_type))
                 {
                     entry->entity_specs.is_copy_assignment_operator = 1;
+                    entry->entity_specs.is_user_declared = 1;
                     class_type_add_copy_assignment_operator(get_actual_class_type(class_type), entry);
                 }
 
@@ -8009,6 +8011,8 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                             entry->entity_specs.is_virtual = 1;
                                             class_type_add_virtual_function(get_actual_class_type(class_type), entry);
                                         }
+                                        entry->entity_specs.is_destructor = 1;
+                                        entry->entity_specs.is_user_declared = 1;
                                         class_type_set_destructor(get_actual_class_type(class_type), entry);
                                         break;
                                     }
@@ -8019,6 +8023,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                         if (is_copy_assignment_operator(entry, class_type))
                                         {
                                             entry->entity_specs.is_copy_assignment_operator = 1;
+                                            entry->entity_specs.is_user_declared = 1;
                                             class_type_add_copy_assignment_operator(get_actual_class_type(class_type), entry);
                                         }
 
