@@ -1096,26 +1096,35 @@ static void braced_initializer_handler(FILE* f, AST a, prettyprint_context_t* pt
     token_fprintf(f, a, pt_ctx, "{");
     if (ASTSon0(a) != NULL)
     {
-        token_fprintf(f, a, pt_ctx, "\n");
         AST init_list = ASTSon0(a), it;
 
-        NEW_PT_CONTEXT(new_ctx, increase_level);
-
-        for_each_element(init_list, it)
+        if (ASTSon0(init_list) != NULL)
         {
-            indent_at_level(f, a, new_ctx);
+            token_fprintf(f, a, pt_ctx, "\n");
 
-            AST initializer = ASTSon1(it);
-            prettyprint_level(f, initializer, new_ctx);
+            NEW_PT_CONTEXT(new_ctx, increase_level);
 
-            if (it != init_list)
+            for_each_element(init_list, it)
             {
-                token_fprintf(f, initializer, pt_ctx, ",");
-            }
-            token_fprintf(f, initializer, pt_ctx, "\n");
-        }
+                indent_at_level(f, a, new_ctx);
 
-        indent_at_level(f, a, pt_ctx);
+                AST initializer = ASTSon1(it);
+                prettyprint_level(f, initializer, new_ctx);
+
+                if (it != init_list)
+                {
+                    token_fprintf(f, initializer, pt_ctx, ",");
+                }
+                token_fprintf(f, initializer, pt_ctx, "\n");
+            }
+            indent_at_level(f, a, pt_ctx);
+        }
+        // Aesthetic case for int a{3} and int a[] = {3};
+        else
+        {
+            AST item = ASTSon1(init_list);
+            prettyprint_level(f, item, pt_ctx);
+        }
     }
     token_fprintf(f, a, pt_ctx, "}");
 }
