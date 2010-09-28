@@ -8206,8 +8206,24 @@ char is_aggregate_type(type_t* t)
 char class_type_is_pod(type_t* t)
 {
     ERROR_CONDITION(!is_class_type(t), "It must be a class type", 0);
-    return class_type_is_trivial(t)
-        && class_type_is_standard_layout(t);
+    if (!class_type_is_trivial(t)
+            || !class_type_is_standard_layout(t))
+        return 0;
+
+    type_t* class_type = get_actual_class_type(t);
+
+    int i;
+    for (i = 0;
+            i < class_type_get_num_nonstatic_data_members(class_type);
+            i++)
+    {
+        scope_entry_t* entry = class_type_get_nonstatic_data_member_num(class_type, i);
+
+        if (!is_pod_type(entry->type_information))
+            return 0;
+    }
+
+    return 1;
 }
 
 static char closure_of_simple_properties(type_t* t, char (*class_prop)(type_t*))
