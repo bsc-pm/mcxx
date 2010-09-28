@@ -39,9 +39,12 @@ MCXX_BEGIN_DECLS
 #define NOT_DEBUG_CODE() if (!CURRENT_CONFIGURATION->debug_options.enable_debug_code)
 
 #define IS_CXX_LANGUAGE (CURRENT_CONFIGURATION->source_language == SOURCE_LANGUAGE_CXX)
-#define IS_C_LANGUAGE (CURRENT_CONFIGURATION->source_language == SOURCE_LANGUAGE_C)
-
 #define CXX_LANGUAGE() if (IS_CXX_LANGUAGE)
+
+#define IS_CXX1X_LANGUAGE (IS_CXX_LANGUAGE && CURRENT_CONFIGURATION->enable_cxx1x)
+#define CXX1X_LANGUAGE() if (IS_CXX1X_LANGUAGE)
+
+#define IS_C_LANGUAGE (CURRENT_CONFIGURATION->source_language == SOURCE_LANGUAGE_C)
 #define C_LANGUAGE() if (IS_C_LANGUAGE)
 
 #define STATIC_ARRAY_LENGTH(_v) (sizeof(_v)/sizeof(_v[0]))
