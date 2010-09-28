@@ -30,10 +30,10 @@ doxygen : doxygen_tl
 
 doxygen-trac: doxygen_tl
 	cp -f doxygen_tl doxygen_trac
-	cat /dev/null > empty.html
-	$(SED) -i -e 's/^\s*\(HTML_OUTPUT\s*=\).*$$/\1 html_trac/' doxygen_trac
-	$(SED) -i -e 's/^\s*\(HTML_HEADER\s*=\).*$$/\1 empty.html/' doxygen_trac
-	$(SED) -i -e 's/^\s*\(HTML_FOOTER\s*=\).*$$/\1 empty.html/' doxygen_trac
+	echo "<!-- empty html -->" > empty.html
+	$(SED) -i -e 's@^\s*\(HTML_OUTPUT\s*=\).*$$@\1 html_trac@' doxygen_trac
+	$(SED) -i -e 's@^\s*\(HTML_HEADER\s*=\).*$$@\1 $(PWD)/empty.html@' doxygen_trac
+	$(SED) -i -e 's@^\s*\(HTML_FOOTER\s*=\).*$$@\1 $(PWD)/empty.html@' doxygen_trac
 	doxygen doxygen_trac
 
 CLEANFILES=
