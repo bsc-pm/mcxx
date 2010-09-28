@@ -8172,9 +8172,12 @@ char is_aggregate_type(type_t* t)
         {
             scope_entry_t* entry = class_type_get_nonstatic_data_member_num(class_type, i);
 
-            // No initializer for nonstatic data member
-            if (entry->expression_value != NULL)
-                return 0;
+            CXX1X_LANGUAGE()
+            {
+                // No initializer for nonstatic data member
+                if (entry->expression_value != NULL)
+                    return 0;
+            }
 
             // No private or protected non-static data members
             if (entry->entity_specs.access == AS_PRIVATE
@@ -8206,21 +8209,70 @@ char is_aggregate_type(type_t* t)
 char class_type_is_pod(type_t* t)
 {
     ERROR_CONDITION(!is_class_type(t), "It must be a class type", 0);
-    if (!class_type_is_trivial(t)
-            || !class_type_is_standard_layout(t))
-        return 0;
 
-    type_t* class_type = get_actual_class_type(t);
-
-    int i;
-    for (i = 0;
-            i < class_type_get_num_nonstatic_data_members(class_type);
-            i++)
+    C_LANGUAGE()
     {
-        scope_entry_t* entry = class_type_get_nonstatic_data_member_num(class_type, i);
+        // Nobody should be calling this, but if so, yes, in C this is a POD
+        return 1;
+    }
 
-        if (!is_pod_type(entry->type_information))
+    CXX03_LANGUAGE()
+    {
+        /*
+           A POD-struct is an aggregate class that has no non-static data members of type non-POD-struct,
+           non-POD-union (or array of such types) or reference, and has no user-defined copy assignment operator
+           and no user-defined destructor. Similarly, a POD-union is an aggregate union that has no non-static data
+           members of type non-POD-struct, non-POD-union (or array of such types) or reference, and has no userdefined
+           copy assignment operator and no user-defined destructor. A POD class is a class that is either a
+           POD-struct or a POD-union
+         */
+        if (!is_aggregate_type(t))
             return 0;
+
+        type_t* class_type = get_actual_class_type(t);
+
+        int i;
+        for (i = 0;
+                i < class_type_get_num_nonstatic_data_members(class_type);
+                i++)
+        {
+            scope_entry_t* entry = class_type_get_nonstatic_data_member_num(class_type, i);
+
+            if (!is_pod_type(entry->type_information))
+                return 0;
+        }
+
+        for (i = 0; i < class_type_get_num_copy_assignment_operators(class_type); i++)
+        {
+            scope_entry_t* entry = class_type_get_copy_assignment_operator_num(class_type, i);
+
+            if (entry->entity_specs.is_user_declared)
+                return 0;
+        }
+
+        scope_entry_t* destructor = class_type_get_destructor(class_type);
+        if (destructor != NULL && destructor->entity_specs.is_user_declared)
+            return 0;
+    }
+
+    CXX1X_LANGUAGE()
+    {
+        if (!class_type_is_trivial(t)
+                || !class_type_is_standard_layout(t))
+            return 0;
+
+        type_t* class_type = get_actual_class_type(t);
+
+        int i;
+        for (i = 0;
+                i < class_type_get_num_nonstatic_data_members(class_type);
+                i++)
+        {
+            scope_entry_t* entry = class_type_get_nonstatic_data_member_num(class_type, i);
+
+            if (!is_pod_type(entry->type_information))
+                return 0;
+        }
     }
 
     return 1;

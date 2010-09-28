@@ -7542,10 +7542,13 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
                         class_type_add_copy_constructor(class_type, entry);
                     }
 
-                    if (is_move_constructor(entry, class_type))
+                    CXX1X_LANGUAGE()
                     {
-                        entry->entity_specs.is_move_constructor = 1;
-                        class_type_add_move_constructor(class_type, entry);
+                        if (is_move_constructor(entry, class_type))
+                        {
+                            entry->entity_specs.is_move_constructor = 1;
+                            class_type_add_move_constructor(class_type, entry);
+                        }
                     }
                 }
                 else
@@ -7584,10 +7587,13 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
                     class_type_add_copy_assignment_operator(get_actual_class_type(class_type), entry);
                 }
 
-                if (is_move_assignment_operator(entry, class_type))
+                CXX1X_LANGUAGE()
                 {
-                    entry->entity_specs.is_move_assignment_operator = 1;
-                    class_type_add_move_assignment_operator(get_actual_class_type(class_type), entry);
+                    if (is_move_assignment_operator(entry, class_type))
+                    {
+                        entry->entity_specs.is_move_assignment_operator = 1;
+                        class_type_add_move_assignment_operator(get_actual_class_type(class_type), entry);
+                    }
                 }
 
                 // These are always static
@@ -7973,10 +7979,13 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                                 class_type_add_copy_constructor(class_type, entry);
                                             }
 
-                                            if (is_move_constructor(entry, class_type))
+                                            CXX1X_LANGUAGE()
                                             {
-                                                entry->entity_specs.is_move_constructor = 1;
-                                                class_type_add_move_constructor(class_type, entry);
+                                                if (is_move_constructor(entry, class_type))
+                                                {
+                                                    entry->entity_specs.is_move_constructor = 1;
+                                                    class_type_add_move_constructor(class_type, entry);
+                                                }
                                             }
                                         }
                                         else
@@ -8013,10 +8022,13 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                             class_type_add_copy_assignment_operator(get_actual_class_type(class_type), entry);
                                         }
 
-                                        if (is_move_assignment_operator(entry, class_type))
+                                        CXX1X_LANGUAGE()
                                         {
-                                            entry->entity_specs.is_move_assignment_operator = 1;
-                                            class_type_add_move_assignment_operator(get_actual_class_type(class_type), entry);
+                                            if (is_move_assignment_operator(entry, class_type))
+                                            {
+                                                entry->entity_specs.is_move_assignment_operator = 1;
+                                                class_type_add_move_assignment_operator(get_actual_class_type(class_type), entry);
+                                            }
                                         }
 
                                         // These are always static
