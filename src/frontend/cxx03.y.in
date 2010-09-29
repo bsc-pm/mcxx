@@ -253,6 +253,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> conversion_function_id
 %type<ast> conversion_type_id
 %type<ast> ctor_initializer
+%type<ast> ctor_initializer_opt
 %type<ast> cv_qualifier
 %type<ast> cv_qualifier_seq
 %type<ast> declaration
@@ -294,6 +295,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> functional_final_declarator_id
 %type<ast> functional_direct_declarator
 %type<ast> function_body
+%type<ast3> function_definition_header
 %type<ast> function_definition
 %type<ast> function_specifier
 %type<ast> handler
@@ -2420,68 +2422,94 @@ designator : '[' constant_expression ']'
 }
 ;
 
-function_definition : functional_declarator function_body %merge<ambiguityHandler>
+function_definition_header : functional_declarator
 {
-	$$ = ASTMake4(AST_FUNCTION_DEFINITION, NULL, $1, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
+    $$[0] = NULL;
+    $$[1] = $1;
+    $$[2] = NULL;
 }
-| functional_declarator ctor_initializer function_body %merge<ambiguityHandler>
+| decl_specifier_seq_0 functional_declarator
 {
-	$$ = ASTMake4(AST_FUNCTION_DEFINITION, NULL, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
+    $$[0] = $1;
+    $$[1] = $2;
+    $$[2] = NULL;
 }
-| decl_specifier_seq_0 functional_declarator function_body %merge<ambiguityHandler>
+| decl_specifier_seq_ended_with_named_type_spec nonglobal_functional_declarator
 {
-	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, $2, NULL, $3, ASTFileName($1), ASTLine($1), NULL);
+    $$[0] = $1;
+    $$[1] = $2;
+    $$[2] = NULL;
 }
-| decl_specifier_seq_ended_with_named_type_spec nonglobal_functional_declarator function_body %merge<ambiguityHandler> 
+/* GCC */
+| functional_declarator attributes
 {
-	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, $2, NULL, $3, ASTFileName($1), ASTLine($1), NULL);
+    $$[0] = NULL;
+    $$[1] = $1;
+    $$[2] = $2;
 }
-| decl_specifier_seq_0 functional_declarator ctor_initializer function_body %merge<ambiguityHandler> 
+| decl_specifier_seq_0 functional_declarator attributes
 {
-	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, $2, $3, $4, ASTFileName($1), ASTLine($1), NULL);
+    $$[0] = $1;
+    $$[1] = $2;
+    $$[2] = $3;
 }
-| decl_specifier_seq_ended_with_named_type_spec nonglobal_functional_declarator ctor_initializer function_body %merge<ambiguityHandler> 
+| decl_specifier_seq_ended_with_named_type_spec nonglobal_functional_declarator attributes
 {
-	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, $2, $3, $4, ASTFileName($1), ASTLine($1), NULL);
+    $$[0] = $1;
+    $$[1] = $2;
+    $$[2] = $3;
 }
-// GNU extensions
-// Technically only inline member function definitions are allowed this kind 
-// of attributes within g++
-| functional_declarator attributes function_body %merge<ambiguityHandler>
-{
-    AST functional_decl = ASTMake2(AST_GCC_FUNCTIONAL_DECLARATOR, $1, $2, ASTFileName($1), ASTLine($1), NULL);
+;
 
-	$$ = ASTMake4(AST_FUNCTION_DEFINITION, NULL, functional_decl, NULL, $3, ASTFileName($1), ASTLine($1), NULL);
-}
-| functional_declarator attributes ctor_initializer function_body %merge<ambiguityHandler>
+ctor_initializer_opt : /* empty */
 {
-    AST functional_decl = ASTMake2(AST_GCC_FUNCTIONAL_DECLARATOR, $1, $2, ASTFileName($1), ASTLine($1), NULL);
-
-	$$ = ASTMake4(AST_FUNCTION_DEFINITION, NULL, functional_decl, $3, $4, ASTFileName($1), ASTLine($1), NULL);
+    $$ = NULL;
 }
-| decl_specifier_seq_0 functional_declarator attributes function_body %merge<ambiguityHandler> 
+| ctor_initializer
 {
-    AST functional_decl = ASTMake2(AST_GCC_FUNCTIONAL_DECLARATOR, $2, $3, ASTFileName($1), ASTLine($1), NULL);
+    $$ = $1;
+};
 
-	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, functional_decl, NULL, $4, ASTFileName($1), ASTLine($1), NULL);
-}
-| decl_specifier_seq_ended_with_named_type_spec nonglobal_functional_declarator attributes function_body %merge<ambiguityHandler> 
+function_definition : function_definition_header ctor_initializer_opt function_body 
 {
-    AST functional_decl = ASTMake2(AST_GCC_FUNCTIONAL_DECLARATOR, $2, $3, ASTFileName($1), ASTLine($1), NULL);
+    const char* filename = NULL;
+    int line = 0;
+    if ($1[0] != NULL)
+    {
+        filename = ASTFileName($1[0]);
+        line = ASTLine($1[0]);
+    }
+    else if ($1[1] != NULL)
+    {
+        filename = ASTFileName($1[1]);
+        line = ASTLine($1[1]);
+    }
+    else if ($1[2] != NULL)
+    {
+        filename = ASTFileName($1[2]);
+        line = ASTLine($1[2]);
+    }
+    else if ($2 != NULL)
+    {
+        filename = ASTFileName($2);
+        line = ASTLine($2);
+    }
+    else
+    {
+        filename = ASTFileName($3);
+        line = ASTLine($3);
+    }
 
-	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, functional_decl, NULL, $4, ASTFileName($1), ASTLine($1), NULL);
-}
-| decl_specifier_seq_0 functional_declarator attributes ctor_initializer function_body %merge<ambiguityHandler> 
-{
-    AST functional_decl = ASTMake2(AST_GCC_FUNCTIONAL_DECLARATOR, $2, $3, ASTFileName($1), ASTLine($1), NULL);
-
-	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, functional_decl, $4, $5, ASTFileName($1), ASTLine($1), NULL);
-}
-| decl_specifier_seq_ended_with_named_type_spec nonglobal_functional_declarator attributes ctor_initializer function_body %merge<ambiguityHandler> 
-{
-    AST functional_decl = ASTMake2(AST_GCC_FUNCTIONAL_DECLARATOR, $2, $3, ASTFileName($1), ASTLine($1), NULL);
-
-	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, functional_decl, $4, $5, ASTFileName($1), ASTLine($1), NULL);
+    if ($1[2] == NULL)
+    {
+        $$ = ASTMake4(AST_FUNCTION_DEFINITION, $1[0], $1[1], $2, $3, filename, line, NULL);
+    }
+    else
+    {
+        // GCC
+        AST functional_decl = ASTMake2(AST_GCC_FUNCTIONAL_DECLARATOR, $1[1], $1[2], filename, line, NULL);
+        $$ = ASTMake4(AST_FUNCTION_DEFINITION, $1[0], functional_decl, $2, $3, filename, line, NULL);
+    }
 }
 | EXTENSION function_definition
 {
