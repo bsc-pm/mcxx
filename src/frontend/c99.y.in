@@ -1463,20 +1463,20 @@ designator : '[' constant_expression ']'
 }
 ;
 
-function_definition : decl_specifier_seq functional_declarator function_body %merge<ambiguityHandler>
+function_definition : decl_specifier_seq functional_declarator function_body
 {
 	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, $2, NULL, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| decl_specifier_seq functional_declarator old_style_parameter_list function_body %merge<ambiguityHandler>
+| decl_specifier_seq functional_declarator old_style_parameter_list function_body
 {
 	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, $2, $3, $4, ASTFileName($1), ASTLine($1), NULL);
 }
 /* This is an ugly heritage from C90 */
-| functional_declarator function_body %merge<ambiguityHandler>
+| functional_declarator function_body 
 {
     $$ = ASTMake4(AST_FUNCTION_DEFINITION, NULL, $1, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
 }
-| functional_declarator old_style_parameter_list function_body %merge<ambiguityHandler>
+| functional_declarator old_style_parameter_list function_body 
 {
     $$ = ASTMake4(AST_FUNCTION_DEFINITION, NULL, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
