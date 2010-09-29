@@ -1292,7 +1292,7 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                         && argument[4] == '=') 
                 { 
                     if (strcmp(&argument[5], "c++0x") == 0
-                            || strcmp(&argument[5], "g++0x") == 0)
+                            || strcmp(&argument[5], "gnu++0x") == 0)
                     {
                         CURRENT_CONFIGURATION->enable_cxx1x = 1;
                     }
