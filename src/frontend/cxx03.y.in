@@ -24,6 +24,9 @@
 %union {
 	token_atrib_t token_atrib;
 	AST ast;
+	AST ast2[2];
+	AST ast3[3];
+	AST ast4[4];
 	node_t node_type;
     const char *text;
 };
