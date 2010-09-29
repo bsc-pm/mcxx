@@ -760,8 +760,11 @@ static int character_level_vfprintf(FILE* stream, prettyprint_context_t *pt_ctx,
 
     fprintf(stream, "%s", c);
 
-    pt_ctx->last_is_left_angle = (c[result - 1] == '<');
-    pt_ctx->last_is_right_angle = (c[result - 1] == '>');
+    if (result > 0)
+    {
+        pt_ctx->last_is_left_angle = (c[result - 1] == '<');
+        pt_ctx->last_is_right_angle = (c[result - 1] == '>');
+    }
 
     free(c);
 
