@@ -2590,8 +2590,6 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
 
         if (!overloaded_call->entity_specs.is_builtin)
         {
-            ensure_not_deleted(decl_context, expr, conversors[2]);
-
             ASTAttrSetValueType(expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(overloaded_call));
         }
