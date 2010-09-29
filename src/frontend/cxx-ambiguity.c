@@ -602,11 +602,20 @@ void solve_ambiguous_declaration(AST a, decl_context_t decl_context)
 
 static void solve_ambiguous_simple_declaration(AST a, decl_context_t decl_context)
 {
+    int option_lacking_decl_spec = -1;
     int correct_option = -1;
     int i;
     for (i = 0; i < ast_get_num_ambiguities(a); i++)
     {
         AST option = ast_get_ambiguity(a, i);
+
+        C_LANGUAGE()
+        {
+            if (ASTSon0(option) == NULL)
+            {
+                option_lacking_decl_spec = i;
+            }
+        }
 
         if (check_for_simple_declaration(option, decl_context))
         {
@@ -627,6 +636,16 @@ static void solve_ambiguous_simple_declaration(AST a, decl_context_t decl_contex
 
     if (correct_option < 0)
     {
+        // Silly case for a declaration like 'f(a);' in K&R C
+        C_LANGUAGE()
+        {
+            if (option_lacking_decl_spec >= 0)
+            {
+                choose_option(a, option_lacking_decl_spec);
+                return;
+            }
+        }
+
         internal_error("Ambiguity not solved %s", ast_location(a));
     }
     else
