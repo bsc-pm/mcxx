@@ -993,32 +993,6 @@ functional_direct_declarator : functional_declarator_id
 {
 	$$ = $1;
 }
-| functional_direct_declarator '(' ')'
-{
-	AST empty_parameter = ASTLeaf(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, NULL, 0, NULL);
-
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, empty_parameter, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
-}
-| functional_direct_declarator '(' parameter_type_list ')' %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
-}
-| functional_direct_declarator '(' identifier_list ')' %merge<ambiguityHandler>
-{
-	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
-}
-| functional_direct_declarator '[' optional_array_expression ']'
-{
-	$$ = ASTMake4(AST_DECLARATOR_ARRAY, $1, $3, NULL, NULL,  ASTFileName($1), ASTLine($1), NULL);
-}
-| functional_direct_declarator '[' array_cv_qualifier_seq optional_array_static_qualif optional_array_expression ']'
-{
-	$$ = ASTMake4(AST_DECLARATOR_ARRAY, $1, $5, $3, $4,  ASTFileName($1), ASTLine($1), NULL);
-}
-| functional_direct_declarator '[' array_static_qualif optional_array_cv_qualifier_seq optional_array_expression ']'
-{
-	$$ = ASTMake4(AST_DECLARATOR_ARRAY, $1, $5, $4, $3,  ASTFileName($1), ASTLine($1), NULL);
-}
 | '(' functional_declarator ')'
 {
 	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, $1.token_file, $1.token_line, NULL);
