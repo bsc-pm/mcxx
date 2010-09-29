@@ -621,14 +621,11 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                 DEBUG_CODE()
                 {
-                    char is_dependent = 0;
-                    int max_qualif = 0;
                     fprintf(stderr, "INSTANTIATION: New member function '%s'\n",
                             print_decl_type_str(new_member->type_information, 
                                 context_of_being_instantiated, 
-                                get_fully_qualified_symbol_name(new_member, 
-                                    context_of_being_instantiated, 
-                                    &is_dependent, &max_qualif)));
+                                get_qualified_symbol_name(new_member, 
+                                    context_of_being_instantiated)));
                 }
 
                 // Functions are not defined yet
@@ -702,17 +699,12 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 if (!class_type_is_base(entry_list->entry->entity_specs.class_type, 
                             get_actual_class_type(being_instantiated)))
                 {
-                    char is_dependent = 0;
-                    int max_qualif = 0;
-
                     running_error("%s: entity '%s' is not a member of a base of class '%s'\n",
                             ast_location(member_of_template->expression_value),
-                                get_fully_qualified_symbol_name(entry_list->entry, 
-                                    context_of_being_instantiated, 
-                                    &is_dependent, &max_qualif),
-                                get_fully_qualified_symbol_name(named_type_get_symbol(being_instantiated), 
-                                    context_of_being_instantiated, 
-                                    &is_dependent, &max_qualif)
+                                get_qualified_symbol_name(entry_list->entry, 
+                                    context_of_being_instantiated),
+                                get_qualified_symbol_name(named_type_get_symbol(being_instantiated), 
+                                    context_of_being_instantiated)
                             );
                 }
 

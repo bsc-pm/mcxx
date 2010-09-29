@@ -77,6 +77,8 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
         AST a, access_specifier_t current_access, type_t* class_info);
 static scope_entry_t* build_scope_member_function_definition(decl_context_t decl_context,
         AST a, access_specifier_t current_access, type_t* class_info);
+static void build_scope_default_or_delete_member_function_definition(decl_context_t decl_context, 
+        AST a, access_specifier_t current_access, type_t* class_info);
 static void build_scope_member_simple_declaration(decl_context_t decl_context, AST a, 
         access_specifier_t current_access, type_t* class_info);
 
@@ -140,6 +142,9 @@ static void build_scope_member_template_simple_declaration(decl_context_t decl_c
         access_specifier_t current_access, type_t* class_info);
 
 static void build_scope_static_assert(AST a, decl_context_t decl_context);
+
+static void build_scope_defaulted_function_definition(AST a, decl_context_t decl_context);
+static void build_scope_deleted_function_definition(AST a, decl_context_t decl_context);
 
 static void build_scope_using_directive(AST a, decl_context_t decl_context);
 static void build_scope_using_declaration(AST a, decl_context_t decl_context);
@@ -444,6 +449,16 @@ static void build_scope_declaration(AST a, decl_context_t decl_context)
                 build_scope_function_definition(a, /* previous_symbol */ NULL, decl_context);
                 break;
             }
+        case AST_DELETED_FUNCTION_DEFINITION :
+            {
+                build_scope_deleted_function_definition(a, decl_context);
+                break;
+            }
+        case AST_DEFAULTED_FUNCTION_DEFINITION :
+            {
+                build_scope_defaulted_function_definition(a, decl_context);
+                break;
+            }
         case AST_LINKAGE_SPEC :
             {
                 // extern "C" { ... }
@@ -723,15 +738,10 @@ static void introduce_using_entity(AST id_expression, decl_context_t decl_contex
                 if (!entry->entity_specs.is_member
                         || !class_type_is_base(entry->entity_specs.class_type, current_class_type))
                 {
-                    char is_dependent = 0;
-                    int max_qualif = 0;
-                    running_error("%s: error: '%s' %p is not a member of a base class\n",
+                    running_error("%s: error: '%s' is not a member of a base class\n",
                             ast_location(id_expression),
-                            get_fully_qualified_symbol_name(entry, 
-                                decl_context,
-                                &is_dependent, 
-                                &max_qualif),
-                            entry);
+                            get_qualified_symbol_name(entry, 
+                                decl_context));
                 }
 
                 if (entry->kind == SK_FUNCTION)
@@ -1762,6 +1772,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
                     if (decl_context.current_scope->kind == CLASS_SCOPE)
                     {
                         new_class->entity_specs.is_member = 1;
+                        // FIXME!
+                        // new_class->entity_specs.access = current_access;
                         new_class->entity_specs.class_type = 
                             get_user_defined_type(decl_context.current_scope->related_entry);
                     }
@@ -2796,6 +2808,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
         implicit_default_constructor->kind = SK_FUNCTION;
         implicit_default_constructor->entity_specs.is_member = 1;
+        implicit_default_constructor->entity_specs.access = AS_PUBLIC;
         implicit_default_constructor->entity_specs.class_type = type_info;
         implicit_default_constructor->entity_specs.is_constructor = 1;
         implicit_default_constructor->entity_specs.is_default_constructor = 1;
@@ -2968,6 +2981,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
         implicit_copy_constructor->kind = SK_FUNCTION;
         implicit_copy_constructor->entity_specs.is_member = 1;
+        implicit_copy_constructor->entity_specs.access = AS_PUBLIC;
         implicit_copy_constructor->entity_specs.class_type = type_info;
         implicit_copy_constructor->entity_specs.is_constructor = 1;
         implicit_copy_constructor->entity_specs.is_conversor_constructor = 1;
@@ -3134,6 +3148,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
 
         implicit_copy_assignment_function->kind = SK_FUNCTION;
         implicit_copy_assignment_function->entity_specs.is_member = 1;
+        implicit_copy_assignment_function->entity_specs.access = AS_PUBLIC;
         implicit_copy_assignment_function->entity_specs.class_type = type_info;
 
         implicit_copy_assignment_function->type_information = copy_assignment_type;
@@ -3251,6 +3266,7 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         implicit_destructor->kind = SK_FUNCTION;
         implicit_destructor->type_information = destructor_type;
         implicit_destructor->entity_specs.is_member = 1;
+        implicit_destructor->entity_specs.access = AS_PUBLIC;
         implicit_destructor->entity_specs.is_destructor = 1;
         implicit_destructor->entity_specs.class_type = type_info;
         implicit_destructor->defined = 1;
@@ -3567,11 +3583,9 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             {
                 if (decl_context.template_parameters == NULL)
                 {
-                    char is_dependent = 0;
-                    int max_qualif = 0;
                     running_error("%s: error: template parameters required for declaration of '%s'\n",
                             ast_location(class_id_expression),
-                            get_fully_qualified_symbol_name(class_entry, decl_context, &is_dependent, &max_qualif));
+                            get_qualified_symbol_name(class_entry, decl_context));
 
                 }
                 if (decl_context.template_parameters->num_template_parameters
@@ -3712,6 +3726,8 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                     if (decl_context.current_scope->kind == CLASS_SCOPE)
                     {
                         class_entry->entity_specs.is_member = 1;
+                        // FIXME
+                        // class_entry->entity_specs.access = current_access;
                         class_entry->entity_specs.class_type = 
                             get_user_defined_type(decl_context.current_scope->related_entry);
                     }
@@ -3856,6 +3872,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         injected_symbol->do_not_print = 1;
 
         injected_symbol->entity_specs.is_member = 1;
+        injected_symbol->entity_specs.access = AS_PUBLIC;
         injected_symbol->entity_specs.class_type = get_user_defined_type(class_entry);
 
         injected_symbol->entity_specs.is_injected_class_name = 1;
@@ -5436,6 +5453,8 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             if (decl_context.current_scope->kind == CLASS_SCOPE)
             {
                 new_entry->entity_specs.is_member = 1;
+                // FIXME
+                // new_entry->entity_specs.access = AS_PUBLIC;
                 new_entry->entity_specs.class_type = 
                     get_user_defined_type(decl_context.current_scope->related_entry);
             }
@@ -6803,6 +6822,103 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry UNUSED_P
     }
 }
 
+static void common_defaulted_or_deleted(AST a, decl_context_t decl_context, 
+        void (*check)(AST, scope_entry_t*, decl_context_t),
+        void (*set)(AST, scope_entry_t*, decl_context_t))
+{
+    AST decl_spec_seq = ASTSon0(a);
+    AST declarator = ASTSon1(a);
+    /* AST attributes = ASTSon2(a); */
+
+    gather_decl_spec_t gather_info;
+    memset(&gather_info, 0, sizeof(gather_info));
+    type_t* type_info = NULL;
+
+    char is_constructor = 0;
+
+    if (decl_spec_seq != NULL)
+    {
+        build_scope_decl_specifier_seq(decl_spec_seq, &gather_info, &type_info, decl_context);
+    }
+    else
+    {
+        if (is_constructor_declarator(ASTSon1(a)))
+        {
+            is_constructor = 1;
+        }
+    }
+
+    // declarator
+    type_t* declarator_type = NULL;
+    scope_entry_t* entry = NULL;
+
+    decl_context_t new_decl_context = decl_context;
+    if (is_constructor)
+    {
+        new_decl_context.decl_flags |= DF_CONSTRUCTOR;
+    }
+
+    compute_declarator_type(declarator, &gather_info, type_info, &declarator_type, new_decl_context);
+    entry = build_scope_declarator_name(ASTSon1(a), declarator_type, &gather_info, new_decl_context);
+
+    if (check)
+        check(a, entry, decl_context);
+
+    if (entry->defined)
+    {
+        running_error("%s: function already defined at '%s'\n",
+                ast_location(a),
+                entry->file,
+                entry->line);
+    }
+    entry->defined = 1;
+
+    set(a, entry, decl_context);
+}
+
+static void set_deleted(AST a UNUSED_PARAMETER, scope_entry_t* entry, decl_context_t decl_context UNUSED_PARAMETER)
+{
+    entry->entity_specs.is_deleted = 1;
+}
+
+static void build_scope_deleted_function_definition(AST a, decl_context_t decl_context)
+{
+    common_defaulted_or_deleted(a, decl_context, /* check */ NULL, set_deleted);
+}
+
+static void check_defaulted(AST a, 
+        scope_entry_t* entry, 
+        decl_context_t decl_context) 
+{ 
+    if (!entry->entity_specs.is_default_constructor
+            && !entry->entity_specs.is_copy_constructor
+            && !entry->entity_specs.is_move_constructor
+            && !entry->entity_specs.is_copy_assignment_operator
+            && !entry->entity_specs.is_move_assignment_operator
+            && !entry->entity_specs.is_destructor)
+    {
+        const char* qualified_name = get_qualified_symbol_name(entry, decl_context);
+
+        running_error("%s: function '%s' cannot be defaulted\n",
+                ast_location(a),
+                print_decl_type_str(entry->type_information, 
+                    decl_context,
+                    qualified_name));
+    }
+}
+
+static void set_defaulted(AST a UNUSED_PARAMETER, 
+        scope_entry_t* entry, 
+        decl_context_t decl_context UNUSED_PARAMETER)
+{
+    entry->entity_specs.is_defaulted = 1;
+}
+
+static void build_scope_defaulted_function_definition(AST a, decl_context_t decl_context)
+{
+    common_defaulted_or_deleted(a, decl_context, check_defaulted, set_defaulted);
+}
+
 /*
  * This function builds symbol table information for a function definition
  *  
@@ -6924,9 +7040,7 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         const char *funct_name = entry->symbol_name;
         CXX_LANGUAGE()
         {
-            char is_dependent = 0;
-            int max_qualif = 0;
-            const char* qualified_name = get_fully_qualified_symbol_name(entry, decl_context, &is_dependent, &max_qualif);
+            const char* qualified_name = get_qualified_symbol_name(entry, decl_context);
 
             funct_name = get_declaration_string_internal(entry->type_information,
                     decl_context,
@@ -7147,6 +7261,12 @@ static void build_scope_member_declaration(decl_context_t inner_decl_context,
         case AST_FUNCTION_DEFINITION :
             {
                 build_scope_member_function_definition(inner_decl_context, a, current_access, class_info);
+                break;
+            }
+        case AST_DEFAULTED_FUNCTION_DEFINITION:
+        case AST_DELETED_FUNCTION_DEFINITION:
+            {
+                build_scope_default_or_delete_member_function_definition(inner_decl_context, a, current_access, class_info);
                 break;
             }
         case AST_GCC_EXTENSION :
@@ -7426,11 +7546,158 @@ static char is_virtual_destructor(type_t* class_type)
     return 0;
 }
 
+static void update_member_function_info(AST declarator_name, 
+        char is_constructor, 
+        scope_entry_t* entry, 
+        type_t* class_type)
+{
+    // Update information in the class about this member function
+    switch (ASTType(declarator_name))
+    {
+        case AST_SYMBOL :
+            {
+                if (is_constructor)
+                {
+                    // This is a constructor
+                    class_type_add_constructor(class_type, entry);
+                    entry->entity_specs.is_constructor = 1;
+                    entry->entity_specs.is_user_declared = 1;
+
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "BUILDSCOPE: Symbol '%s' at '%s:%d' is a constructor\n", 
+                                entry->symbol_name,
+                                entry->file,
+                                entry->line);
+                    }
+
+                    if (!entry->entity_specs.is_explicit
+                            && can_be_called_with_number_of_arguments(entry, 1))
+                    {
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "BUILDSCOPE: Symbol '%s' at '%s:%d' is a conversor constructor\n", 
+                                    entry->symbol_name,
+                                    entry->file,
+                                    entry->line);
+                        }
+                        entry->entity_specs.is_conversor_constructor = 1;
+                    }
+
+                    if (!entry->entity_specs.is_explicit
+                            && can_be_called_with_number_of_arguments(entry, 0))
+                    {
+                        entry->entity_specs.is_default_constructor = 1;
+                        class_type_set_default_constructor(class_type, entry);
+                    }
+
+                    if (is_copy_constructor(entry, class_type))
+                    {
+                        entry->entity_specs.is_copy_constructor = 1;
+                        class_type_add_copy_constructor(class_type, entry);
+                    }
+
+                    CXX1X_LANGUAGE()
+                    {
+                        if (is_move_constructor(entry, class_type))
+                        {
+                            entry->entity_specs.is_move_constructor = 1;
+                            class_type_add_move_constructor(class_type, entry);
+                        }
+                    }
+                }
+                else
+                {
+                    if (entry->entity_specs.is_virtual)
+                    {
+                        class_type_add_virtual_function(class_type, entry);
+                    }
+                    class_type_add_member_function(class_type, entry);
+                }
+                break;
+            }
+            // Special members
+        case AST_DESTRUCTOR_TEMPLATE_ID : // This can appear here
+        case AST_DESTRUCTOR_ID :
+            {
+                // This is the destructor
+                if (entry->entity_specs.is_virtual
+                        || is_virtual_destructor(class_type))
+                {
+                    entry->entity_specs.is_virtual = 1;
+                    class_type_add_virtual_function(get_actual_class_type(class_type), entry);
+                }
+                entry->entity_specs.is_destructor = 1;
+                entry->entity_specs.is_user_declared = 1;
+                class_type_set_destructor(get_actual_class_type(class_type), entry);
+                break;
+            }
+        case AST_OPERATOR_FUNCTION_ID :
+        case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
+            {
+                class_type_add_member_function(class_type, entry);
+                if (is_copy_assignment_operator(entry, class_type))
+                {
+                    entry->entity_specs.is_copy_assignment_operator = 1;
+                    entry->entity_specs.is_user_declared = 1;
+                    class_type_add_copy_assignment_operator(get_actual_class_type(class_type), entry);
+                }
+
+                CXX1X_LANGUAGE()
+                {
+                    if (is_move_assignment_operator(entry, class_type))
+                    {
+                        entry->entity_specs.is_move_assignment_operator = 1;
+                        class_type_add_move_assignment_operator(get_actual_class_type(class_type), entry);
+                    }
+                }
+
+                // These are always static
+                if (ASTType(ASTSon0(declarator_name)) == AST_NEW_OPERATOR
+                        || ASTType(ASTSon0(declarator_name)) == AST_DELETE_OPERATOR)
+                {
+                    entry->entity_specs.is_static = 1;
+                }
+                else if (entry->entity_specs.is_virtual)
+                {
+                    class_type_add_virtual_function(get_actual_class_type(class_type), entry);
+                }
+                break;
+            }
+        case AST_CONVERSION_FUNCTION_ID :
+            {
+                class_type_add_member_function(class_type, entry);
+
+                entry->entity_specs.is_conversion = 1;
+
+                // This function checks for repeated symbols
+                class_type_add_conversion_function(get_actual_class_type(class_type), entry);
+
+                if (entry->entity_specs.is_virtual)
+                {
+                    class_type_add_virtual_function(get_actual_class_type(class_type), entry);
+                }
+                break;
+            }
+        case AST_QUALIFIED_ID :
+        case AST_TEMPLATE_ID :
+            {
+                internal_error("Unreachable code", 0);
+                break;
+            }
+        default :
+            {
+                internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(declarator_name)));
+                break;
+            }
+    }
+}
+
 /*
  * This is a function definition inlined in a class
  */
 static scope_entry_t* build_scope_member_function_definition(decl_context_t decl_context, AST a, 
-        access_specifier_t current_access UNUSED_PARAMETER, 
+        access_specifier_t current_access, 
         type_t* class_info)
 {
     type_t* class_type = NULL;
@@ -7497,138 +7764,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
 
     entry->entity_specs.access = current_access;
 
-    switch (ASTType(declarator_name))
-    {
-        case AST_SYMBOL :
-            {
-                if (is_constructor)
-                {
-                    // This is a constructor
-                    class_type_add_constructor(class_type, entry);
-                    entry->entity_specs.is_constructor = 1;
-                    entry->entity_specs.is_user_declared = 1;
-
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "BUILDSCOPE: Symbol '%s' at '%s:%d' is a constructor\n", 
-                                entry->symbol_name,
-                                entry->file,
-                                entry->line);
-                    }
-
-                    if (!entry->entity_specs.is_explicit
-                            && can_be_called_with_number_of_arguments(entry, 1))
-                    {
-                        DEBUG_CODE()
-                        {
-                            fprintf(stderr, "BUILDSCOPE: Symbol '%s' at '%s:%d' is a conversor constructor\n", 
-                                    entry->symbol_name,
-                                    entry->file,
-                                    entry->line);
-                        }
-                        entry->entity_specs.is_conversor_constructor = 1;
-                    }
-
-                    if (!entry->entity_specs.is_explicit
-                            && can_be_called_with_number_of_arguments(entry, 0))
-                    {
-                        entry->entity_specs.is_default_constructor = 1;
-                        class_type_set_default_constructor(class_type, entry);
-                    }
-
-                    if (is_copy_constructor(entry, class_type))
-                    {
-                        entry->entity_specs.is_copy_constructor = 1;
-                        class_type_add_copy_constructor(class_type, entry);
-                    }
-
-                    CXX1X_LANGUAGE()
-                    {
-                        if (is_move_constructor(entry, class_type))
-                        {
-                            entry->entity_specs.is_move_constructor = 1;
-                            class_type_add_move_constructor(class_type, entry);
-                        }
-                    }
-                }
-                else
-                {
-                    class_type_add_member_function(class_type, entry);
-                    if (entry->entity_specs.is_virtual)
-                    {
-                        class_type_add_virtual_function(get_actual_class_type(class_type), entry);
-                    }
-                }
-
-                break;
-            }
-            // This should not appear here
-            // case AST_DESTRUCTOR_TEMPLATE_ID : 
-        case AST_DESTRUCTOR_ID :
-            {
-                // This is the destructor
-                if (entry->entity_specs.is_virtual
-                        || is_virtual_destructor(class_type))
-                {
-                    entry->entity_specs.is_virtual = 1;
-                    class_type_add_virtual_function(get_actual_class_type(class_type), entry);
-                }
-                entry->entity_specs.is_destructor = 1;
-                entry->entity_specs.is_user_declared = 1;
-                class_type_set_destructor(get_actual_class_type(class_type), entry);
-                break;
-            }
-        case AST_OPERATOR_FUNCTION_ID :
-        case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
-            {
-                class_type_add_member_function(class_type, entry);
-                if (is_copy_assignment_operator(entry, class_type))
-                {
-                    entry->entity_specs.is_copy_assignment_operator = 1;
-                    entry->entity_specs.is_user_declared = 1;
-                    class_type_add_copy_assignment_operator(get_actual_class_type(class_type), entry);
-                }
-
-                CXX1X_LANGUAGE()
-                {
-                    if (is_move_assignment_operator(entry, class_type))
-                    {
-                        entry->entity_specs.is_move_assignment_operator = 1;
-                        class_type_add_move_assignment_operator(get_actual_class_type(class_type), entry);
-                    }
-                }
-
-                // These are always static
-                if (ASTType(ASTSon0(declarator_name)) == AST_NEW_OPERATOR
-                        || ASTType(ASTSon0(declarator_name)) == AST_DELETE_OPERATOR)
-                {
-                    entry->entity_specs.is_static = 1;
-                }
-                else if (entry->entity_specs.is_virtual)
-                {
-                    class_type_add_virtual_function(get_actual_class_type(class_type), entry);
-                }
-                break;
-            }
-        case AST_CONVERSION_FUNCTION_ID :
-            {
-                class_type_add_member_function(class_type, entry);
-                entry->entity_specs.is_conversion = 1;
-                // This function checks for repeated symbols
-                class_type_add_conversion_function(get_actual_class_type(class_type), entry);
-
-                if (entry->entity_specs.is_virtual)
-                {
-                    class_type_add_virtual_function(get_actual_class_type(class_type), entry);
-                }
-                break;
-            }
-        default :
-            {
-                internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(declarator_name)));
-                break;
-            }
-    }
+    update_member_function_info(declarator_name, is_constructor, entry, class_type);
 
     DEBUG_CODE()
     {
@@ -7637,12 +7773,90 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
                 entry->symbol_name); 
     }
     entry->entity_specs.is_member = 1;
+    entry->entity_specs.access = current_access;
     entry->entity_specs.class_type = class_info;
     class_type_add_member(get_actual_class_type(class_type), entry);
 
     build_scope_delayed_add_delayed_function_def(a, entry, decl_context);
 
     return entry;
+}
+
+
+static void build_scope_default_or_delete_member_function_definition(decl_context_t decl_context, AST a,
+        access_specifier_t current_access, type_t* class_info)
+{
+    gather_decl_spec_t gather_info;
+    memset(&gather_info, 0, sizeof(gather_info));
+
+    type_t* class_type = get_actual_class_type(class_info);
+    const char* class_name = named_type_get_symbol(class_info)->symbol_name;
+
+    AST decl_spec_seq = ASTSon0(a);
+    AST declarator = ASTSon1(a);
+
+    // AST attributes = ASTSon2(a);
+    type_t* member_type = NULL;
+
+    decl_context_t new_decl_context = decl_context;
+
+    if (decl_spec_seq != NULL)
+    {
+        build_scope_decl_specifier_seq(decl_spec_seq, &gather_info,
+                &member_type, new_decl_context);
+    }
+
+    AST declarator_name = get_declarator_name(declarator, decl_context);
+    char is_constructor = 0;
+    if (is_constructor_declarator(declarator))
+    {
+        if (strcmp(class_name, ASTText(declarator_name)) == 0)
+        {
+            is_constructor = 1;
+        }
+    }
+
+    if (is_constructor)
+    {
+        new_decl_context.decl_flags |= DF_CONSTRUCTOR;
+    }
+
+    type_t* declarator_type = NULL;
+
+    compute_declarator_type(declarator, &gather_info, 
+            member_type, &declarator_type, 
+            new_decl_context);
+    scope_entry_t *entry =
+        build_scope_declarator_name(declarator,
+                declarator_type, &gather_info,
+                new_decl_context);
+
+    ERROR_CONDITION(entry == NULL, "Invalid entry computed", 0);
+
+    entry->entity_specs.access = current_access;
+
+    ERROR_CONDITION(entry->kind != SK_FUNCTION, "Invalid symbol for default/delete", 0);
+
+    update_member_function_info(declarator_name, is_constructor, entry, class_type);
+
+    switch (ASTType(a))
+    {
+        case AST_DEFAULTED_FUNCTION_DEFINITION :
+            {
+                check_defaulted(a, entry, decl_context);
+                set_defaulted(a, entry, decl_context);
+                break;
+            }
+        case AST_DELETED_FUNCTION_DEFINITION :
+            {
+                set_deleted(a, entry, decl_context);
+                break;
+            }
+        default:
+            {
+                internal_error("Code unreachable", 0);
+            }
+    }
 }
 
 
@@ -7660,7 +7874,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
     const char* class_name = "";
     if (is_named_type(class_info))
     {
-        class_type = named_type_get_symbol(class_info)->type_information;
+        class_type = get_actual_class_type(class_info);
         class_name = named_type_get_symbol(class_info)->symbol_name;
     }
     else
@@ -7708,6 +7922,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                 }
 
                 entry->entity_specs.is_member = 1;
+                entry->entity_specs.access = current_access;
                 entry->entity_specs.class_type = class_info;
                 class_type_add_member(get_actual_class_type(class_type), entry);
 
@@ -7727,6 +7942,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         scope_entry_t* enumerator = enum_type_get_enumerator_num(member_type, i);
 
                         enumerator->entity_specs.is_member = 1;
+                        enumerator->entity_specs.access = current_access;
                         enumerator->entity_specs.class_type  = class_info;
                         class_type_add_member(get_actual_class_type(class_type), enumerator);
                     }
@@ -7781,6 +7997,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         compute_declarator_type(identifier, &gather_info, 
                                 member_type, &declarator_type, 
                                 decl_context);
+
                         if (identifier != NULL)
                         {
                             bitfield_symbol = build_scope_declarator_name(identifier, declarator_type, &gather_info, decl_context);
@@ -7801,6 +8018,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                             bitfield_symbol->entity_specs.is_unnamed_bitfield = 1;
                         }
 
+                        bitfield_symbol->entity_specs.access = current_access;
                         bitfield_symbol->entity_specs.is_member = 1;
                         bitfield_symbol->entity_specs.class_type = class_info;
                         class_type_add_member(get_actual_class_type(class_type), bitfield_symbol);
@@ -7930,151 +8148,13 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                     class_name);
                         }
                         entry->entity_specs.is_member = 1;
+                        entry->entity_specs.access = current_access;
                         entry->entity_specs.class_type = class_info;
                         class_type_add_member(get_actual_class_type(class_type), entry);
 
                         if (entry->kind == SK_FUNCTION)
                         {
-                            // Update information in the class about this member function
-                            switch (ASTType(declarator_name))
-                            {
-                                case AST_SYMBOL :
-                                    {
-                                        if (is_constructor)
-                                        {
-                                            // This is a constructor
-                                            class_type_add_constructor(class_type, entry);
-                                            entry->entity_specs.is_constructor = 1;
-                                            entry->entity_specs.is_user_declared = 1;
-
-                                            DEBUG_CODE()
-                                            {
-                                                fprintf(stderr, "BUILDSCOPE: Symbol '%s' at '%s:%d' is a constructor\n", 
-                                                        entry->symbol_name,
-                                                        entry->file,
-                                                        entry->line);
-                                            }
-
-                                            if (!entry->entity_specs.is_explicit
-                                                    && can_be_called_with_number_of_arguments(entry, 1))
-                                            {
-                                                DEBUG_CODE()
-                                                {
-                                                    fprintf(stderr, "BUILDSCOPE: Symbol '%s' at '%s:%d' is a conversor constructor\n", 
-                                                            entry->symbol_name,
-                                                            entry->file,
-                                                            entry->line);
-                                                }
-                                                entry->entity_specs.is_conversor_constructor = 1;
-                                            }
-
-                                            if (!entry->entity_specs.is_explicit
-                                                    && can_be_called_with_number_of_arguments(entry, 0))
-                                            {
-                                                entry->entity_specs.is_default_constructor = 1;
-                                                class_type_set_default_constructor(class_type, entry);
-                                            }
-
-                                            if (is_copy_constructor(entry, class_type))
-                                            {
-                                                entry->entity_specs.is_copy_constructor = 1;
-                                                class_type_add_copy_constructor(class_type, entry);
-                                            }
-
-                                            CXX1X_LANGUAGE()
-                                            {
-                                                if (is_move_constructor(entry, class_type))
-                                                {
-                                                    entry->entity_specs.is_move_constructor = 1;
-                                                    class_type_add_move_constructor(class_type, entry);
-                                                }
-                                            }
-                                        }
-                                        else
-                                        {
-                                            if (entry->entity_specs.is_virtual)
-                                            {
-                                                class_type_add_virtual_function(class_type, entry);
-                                            }
-                                            class_type_add_member_function(class_type, entry);
-                                        }
-                                        break;
-                                    }
-                                    // Special members
-                                case AST_DESTRUCTOR_TEMPLATE_ID : // This can appear here
-                                case AST_DESTRUCTOR_ID :
-                                    {
-                                        // This is the destructor
-                                        if (entry->entity_specs.is_virtual
-                                                || is_virtual_destructor(class_type))
-                                        {
-                                            entry->entity_specs.is_virtual = 1;
-                                            class_type_add_virtual_function(get_actual_class_type(class_type), entry);
-                                        }
-                                        entry->entity_specs.is_destructor = 1;
-                                        entry->entity_specs.is_user_declared = 1;
-                                        class_type_set_destructor(get_actual_class_type(class_type), entry);
-                                        break;
-                                    }
-                                case AST_OPERATOR_FUNCTION_ID :
-                                case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
-                                    {
-                                        class_type_add_member_function(class_type, entry);
-                                        if (is_copy_assignment_operator(entry, class_type))
-                                        {
-                                            entry->entity_specs.is_copy_assignment_operator = 1;
-                                            entry->entity_specs.is_user_declared = 1;
-                                            class_type_add_copy_assignment_operator(get_actual_class_type(class_type), entry);
-                                        }
-
-                                        CXX1X_LANGUAGE()
-                                        {
-                                            if (is_move_assignment_operator(entry, class_type))
-                                            {
-                                                entry->entity_specs.is_move_assignment_operator = 1;
-                                                class_type_add_move_assignment_operator(get_actual_class_type(class_type), entry);
-                                            }
-                                        }
-
-                                        // These are always static
-                                        if (ASTType(ASTSon0(declarator_name)) == AST_NEW_OPERATOR
-                                                || ASTType(ASTSon0(declarator_name)) == AST_DELETE_OPERATOR)
-                                        {
-                                            entry->entity_specs.is_static = 1;
-                                        }
-                                        else if (entry->entity_specs.is_virtual)
-                                        {
-                                            class_type_add_virtual_function(get_actual_class_type(class_type), entry);
-                                        }
-                                        break;
-                                    }
-                                case AST_CONVERSION_FUNCTION_ID :
-                                    {
-                                        class_type_add_member_function(class_type, entry);
-
-                                        entry->entity_specs.is_conversion = 1;
-
-                                        // This function checks for repeated symbols
-                                        class_type_add_conversion_function(get_actual_class_type(class_type), entry);
-
-                                        if (entry->entity_specs.is_virtual)
-                                        {
-                                            class_type_add_virtual_function(get_actual_class_type(class_type), entry);
-                                        }
-                                        break;
-                                    }
-                                case AST_QUALIFIED_ID :
-                                case AST_TEMPLATE_ID :
-                                    {
-                                        internal_error("Unreachable code", 0);
-                                        break;
-                                    }
-                                default :
-                                    {
-                                        internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(declarator_name)));
-                                        break;
-                                    }
-                            }
+                            update_member_function_info(declarator_name, is_constructor, entry, class_type);
                         }
                         else if (entry->kind == SK_VARIABLE)
                         {
@@ -9493,6 +9573,8 @@ static AST get_enclosing_declaration(AST point_of_declarator)
             && ASTType(point) != AST_SIMPLE_DECLARATION
             && ASTType(point) != AST_MEMBER_DECLARATION
             && ASTType(point) != AST_FUNCTION_DEFINITION
+            && ASTType(point) != AST_DELETED_FUNCTION_DEFINITION
+            && ASTType(point) != AST_DEFAULTED_FUNCTION_DEFINITION
             && ASTType(point) != AST_PARAMETER_DECL
             && ASTType(point) != AST_EXPLICIT_INSTANTIATION
             && ASTType(point) != AST_TYPE_ID)

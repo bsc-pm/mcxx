@@ -2456,6 +2456,22 @@ static char filter_only_nonmembers(scope_entry_t* e)
     return 0;
 }
 
+static void error_message_delete_call(decl_context_t decl_context, AST expr, scope_entry_t* entry)
+{
+    running_error("%s: error: call to deleted function '%s'\n",
+            ast_location(expr),
+            print_decl_type_str(entry->type_information, decl_context,
+                get_qualified_symbol_name(entry, decl_context)));
+}
+
+static void ensure_not_deleted(decl_context_t decl_context, AST expr, scope_entry_t* entry)
+{
+    if (entry->entity_specs.is_deleted)
+    {
+        error_message_delete_call(decl_context, expr, entry);
+    }
+}
+
 static void error_message_overload_failed(decl_context_t decl_context, AST expr, candidate_t* candidates)
 {
     fprintf(stderr, "%s: warning: overload call to '%s' failed\n",
@@ -2469,9 +2485,6 @@ static void error_message_overload_failed(decl_context_t decl_context, AST expr,
         candidate_t* it = candidates;
         while (it != NULL)
         {
-            int max_level = 0;
-            char is_dependent = 0;
-
             scope_entry_t* entry = it->entry;
 
             const char* file = entry->file != NULL ? entry->file : ASTFileName(expr);
@@ -2480,7 +2493,7 @@ static void error_message_overload_failed(decl_context_t decl_context, AST expr,
             fprintf(stderr, "%s:%d: note:    %s",
                     file, line,
                     print_decl_type_str(entry->type_information, decl_context, 
-                        get_fully_qualified_symbol_name(entry, decl_context, &is_dependent, &max_level)));
+                        get_qualified_symbol_name(entry, decl_context)));
 
             if (entry->entity_specs.is_builtin)
             {
@@ -2558,19 +2571,27 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
     type_t* overloaded_type = NULL;
     if (overloaded_call != NULL)
     {
+        ensure_not_deleted(decl_context, expr, overloaded_call);
+
         if (conversors[0] != NULL)
         {
+            ensure_not_deleted(decl_context, expr, conversors[0]);
+
             ASTAttrSetValueType(lhs, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(lhs, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[0]));
         }
         if (conversors[1] != NULL)
         {
+            ensure_not_deleted(decl_context, expr, conversors[1]);
+
             ASTAttrSetValueType(rhs, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(rhs, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[1]));
         }
 
         if (!overloaded_call->entity_specs.is_builtin)
         {
+            ensure_not_deleted(decl_context, expr, conversors[2]);
+
             ASTAttrSetValueType(expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(overloaded_call));
         }
@@ -2657,6 +2678,8 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
     type_t* overloaded_type = NULL;
     if (overloaded_call != NULL)
     {
+        ensure_not_deleted(decl_context, expr, overloaded_call);
+
         if (!overloaded_call->entity_specs.is_builtin)
         {
             *selected_operator = overloaded_call;
@@ -2667,6 +2690,8 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
 
         if (conversors[0] != NULL)
         {
+            ensure_not_deleted(decl_context, expr, conversors[0]);
+
             ASTAttrSetValueType(op, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(op, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[0]));
         }
@@ -5530,8 +5555,12 @@ static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context
                 return 0;
             }
 
+            ensure_not_deleted(decl_context, expr, overloaded_call);
+
             if (conversors[1] != NULL)
             {
+                ensure_not_deleted(decl_context, expr, conversors[1]);
+
                 ASTAttrSetValueType(subscript_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(subscript_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[1]));
             }
@@ -6017,6 +6046,8 @@ static char check_for_conditional_expression_impl(AST expression,
                 return 0;
             }
 
+            ensure_not_deleted(decl_context, expression, overloaded_call);
+
             // Note that for AST_GCC_CONDITIONAL_EXPRESSION first_op == second_op
             // but writing it twice in the loop should be harmless
             AST ops[] = { first_op, second_op, third_op };
@@ -6026,6 +6057,8 @@ static char check_for_conditional_expression_impl(AST expression,
             {
                 if (conversors[k] != NULL)
                 {
+                    ensure_not_deleted(decl_context, expression, conversors[k]);
+
                     ASTAttrSetValueType(ops[k], 
                             LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(ops[k],
@@ -6412,18 +6445,17 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
                     it = operator_new_list;
                     while (it != NULL)
                     {
-                        int max_level = 0;
-                        char is_dependent = 0;
-
                         scope_entry_t* candidate_op = it->entry;
                         fprintf(stderr, "%s: note:    %s\n", ast_location(new_expr),
                                 print_decl_type_str(candidate_op->type_information, decl_context, 
-                                    get_fully_qualified_symbol_name(candidate_op, decl_context, &is_dependent, &max_level)));
+                                    get_qualified_symbol_name(candidate_op, decl_context)));
                         it = it->next;
                     }
                 }
                 return 0;
             }
+
+            ensure_not_deleted(decl_context, new_expr, chosen_operator_new);
 
             ASTAttrSetValueType(new_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(new_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(chosen_operator_new));
@@ -6444,6 +6476,8 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
 
                         if (conversors[i] != NULL)
                         {
+                            ensure_not_deleted(decl_context, new_expr, conversors[i]);
+
                             ASTAttrSetValueType(current_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                             ASTAttrSetValueType(current_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[i]));
                         }
@@ -6512,6 +6546,8 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
                         return 0;
                     }
 
+                    ensure_not_deleted(decl_context, new_expr, chosen_constructor);
+
                     // FIXME - This does not belong to the expression!
                     ASTAttrSetValueType(new_type_id, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(new_type_id, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(chosen_constructor));
@@ -6531,6 +6567,8 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
 
                                 if (conversors[i] != NULL)
                                 {
+                                    ensure_not_deleted(decl_context, new_expr, conversors[i]);
+
                                     ASTAttrSetValueType(current_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                                     ASTAttrSetValueType(current_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[i]));
                                 }
@@ -6875,9 +6913,9 @@ static char check_for_explicit_type_conversion_common(type_t* type_info,
                 return 0;
             }
 
+            ensure_not_deleted(decl_context, expr, constructor);
 
             int k = 0;
-
             if (expression_list != NULL)
             {
                 AST iter;
@@ -6887,6 +6925,8 @@ static char check_for_explicit_type_conversion_common(type_t* type_info,
 
                     if (conversors[k] != NULL)
                     {
+                        ensure_not_deleted(decl_context, expr, conversors[k]);
+
                         ASTAttrSetValueType(expression, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                         ASTAttrSetValueType(expression, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[k]));
                     }
@@ -7765,6 +7805,8 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
 
     if (overloaded_call != NULL)
     {
+        ensure_not_deleted(decl_context, whole_function_call, overloaded_call);
+
         // Update the unresolved call
         DEBUG_CODE()
         {
@@ -7779,13 +7821,15 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         {
             // Set conversors of arguments if needed
             AST iter;
-            int arg_i = 1;
+            int arg_i = 0;
             for_each_element(arguments, iter)
             {
                 AST argument = ASTSon1(iter);
 
                 if (conversors[arg_i] != NULL)
                 {
+                    ensure_not_deleted(decl_context, argument, conversors[arg_i]);
+
                     ASTAttrSetValueType(argument, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(argument, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[arg_i]));
                 }
@@ -8302,6 +8346,8 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
             return 0;
         }
 
+        ensure_not_deleted(decl_context, member_access, selected_operator_arrow);
+
         if (!is_pointer_to_class_type(function_type_get_return_type(selected_operator_arrow->type_information)))
         {
             return 0;
@@ -8660,11 +8706,14 @@ static char check_for_postoperator_user_defined(AST expr, AST operator,
 
     if (overloaded_call != NULL)
     {
+        ensure_not_deleted(decl_context, expr, overloaded_call);
+
         expression_set_type(expr, function_type_get_return_type(overloaded_call->type_information));
         expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
 
         if (conversors[0] != NULL)
         {
+            ensure_not_deleted(decl_context, expr, conversors[0]);
             ASTAttrSetValueType(postoperated_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(postoperated_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[0]));
         }
@@ -8741,11 +8790,14 @@ static char check_for_preoperator_user_defined(AST expr, AST operator,
 
     if (overloaded_call != NULL)
     {
+        ensure_not_deleted(decl_context, expr, overloaded_call);
+
         expression_set_type(expr, function_type_get_return_type(overloaded_call->type_information));
         expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
 
         if (conversors[0] != NULL)
         {
+            ensure_not_deleted(decl_context, expr, conversors[0]);
             ASTAttrSetValueType(preoperated_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(preoperated_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[0]));
         }
@@ -9458,6 +9510,15 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
             }
             else
             {
+                ensure_not_deleted(decl_context, initializer, constructor);
+                int i;
+                for (i = 0; i < num_args; i++)
+                {
+                    if (conversors[i] != NULL)
+                    {
+                        ensure_not_deleted(decl_context, initializer, conversors[i]);
+                    }
+                }
                 return 1;
             }
         }
@@ -9506,7 +9567,6 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
 
             if (constructor == NULL)
             {
-                // FIXME: Issue some message here
                 if (!checking_ambiguity())
                 {
                     fprintf(stderr, "%s: warning: invalid initializer for type '%s'\n", 
@@ -9517,6 +9577,15 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
             }
             else
             {
+                ensure_not_deleted(decl_context, initializer, constructor);
+                int i = 0;
+                for (i = 0; i < num_args; i++)
+                {
+                    if (conversors[i] != NULL)
+                    {
+                        ensure_not_deleted(decl_context, initializer, conversors[i]);
+                    }
+                }
                 return 1;
             }
         }
@@ -9988,13 +10057,17 @@ static char check_for_parenthesized_initializer(AST initializer_list, decl_conte
             return 0;
         }
 
-        int k = 1;
+        ensure_not_deleted(decl_context, initializer_list, constructor);
+
+        int k = 0;
         for_each_element(initializer_list, iterator)
         {
             AST initializer = ASTSon1(iterator);
 
             if (conversors[k] != NULL)
             {
+                ensure_not_deleted(decl_context, initializer, conversors[k]);
+
                 ASTAttrSetValueType(initializer, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(initializer, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[k]));
             }
@@ -11307,6 +11380,8 @@ char check_zero_args_constructor(type_t* class_type, decl_context_t decl_context
     }
     else
     {
+        ensure_not_deleted(decl_context, declarator, chosen_constructor);
+
         ASTAttrSetValueType(declarator, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
         ASTAttrSetValueType(declarator, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(chosen_constructor));
     }

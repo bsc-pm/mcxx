@@ -523,12 +523,9 @@ scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
 
     if (is_unresolved_overloaded_type(result))
     {
-        char is_dependent = 0;
-        int max_qualif = 0;
-
-        const char* full_name = get_fully_qualified_symbol_name(
+        const char* full_name = get_qualified_symbol_name(
                 template_set->entry,
-                decl_context, &is_dependent, &max_qualif);
+                decl_context);
 
         scope_entry_list_t* entry_list = unresolved_overloaded_type_get_overload_set(result);
 

@@ -5436,7 +5436,6 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
     {
         case STK_USER_DEFINED :
             {
-                // Fix this
                 scope_entry_t* entry = simple_type->user_defined_type;
 
                 char is_dependent = 0;
@@ -5560,10 +5559,8 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
         case STK_TEMPLATE_DEPENDENT_TYPE :
             {
                 // result = prettyprint_in_buffer(simple_type->typeof_expr);
-                char is_dependent = 0;
-                int max_level = 0;
-                result = get_fully_qualified_symbol_name(simple_type->dependent_entry,
-                        decl_context, &is_dependent, &max_level);
+                result = get_qualified_symbol_name(simple_type->dependent_entry,
+                        decl_context);
 
                 dependent_name_part_t* parts = simple_type->dependent_parts;
                 while (parts != NULL)
@@ -5596,10 +5593,9 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                                     }
                                 case TAK_TEMPLATE:
                                     {
-                                        char is_dep = 0; int max_lev = 0;
                                         result = strappend(result,
-                                                get_fully_qualified_symbol_name(named_type_get_symbol(template_arg->type),
-                                                    decl_context, &is_dep, &max_lev));
+                                                get_qualified_symbol_name(named_type_get_symbol(template_arg->type), 
+                                                    decl_context));
                                         break;
                                     }
                                 default:
@@ -6105,23 +6101,16 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
     {
         case SK_ENUM :
             {
-                int max_level = 0;
-                char is_dependent = 0;
                 snprintf(user_defined_str, MAX_LENGTH, "enum %s {%s:%d}", 
-                        get_fully_qualified_symbol_name(user_defined_type, user_defined_type->decl_context, 
-                            &is_dependent, &max_level),
+                        get_qualified_symbol_name(user_defined_type, user_defined_type->decl_context),
                         user_defined_type->file,
                         user_defined_type->line);
                 break;
             }
         case SK_CLASS :
             {
-                int max_level = 0;
-                char is_dependent = 0;
-
                 snprintf(user_defined_str, MAX_LENGTH, "class %s {%s:%d}", 
-                        get_fully_qualified_symbol_name(user_defined_type, user_defined_type->decl_context,
-                            &is_dependent, &max_level),
+                        get_qualified_symbol_name(user_defined_type, user_defined_type->decl_context),
                         user_defined_type->file,
                         user_defined_type->line);
                 break;

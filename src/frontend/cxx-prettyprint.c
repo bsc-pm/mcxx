@@ -186,6 +186,8 @@ HANDLER_PROTOTYPE(verbatim_construct_handler);
 
 HANDLER_PROTOTYPE(double_colon_handler);
 
+HANDLER_PROTOTYPE(defaulted_or_deleted_function_def);
+
 // Pragma custom support
 HANDLER_PROTOTYPE(pragma_custom_directive_handler);
 HANDLER_PROTOTYPE(pragma_custom_construct_handler);
@@ -523,6 +525,8 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_VERBATIM, verbatim_construct_handler, NULL),
     NODE_HANDLER(AST_DIMENSION_STR, simple_text_handler, NULL),
     NODE_HANDLER(AST_STATIC_ASSERT, static_assert_handler, NULL),
+    NODE_HANDLER(AST_DEFAULTED_FUNCTION_DEFINITION, defaulted_or_deleted_function_def, NULL),
+    NODE_HANDLER(AST_DELETED_FUNCTION_DEFINITION, defaulted_or_deleted_function_def, NULL),
     // Pragma custom
     NODE_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE, pragma_custom_directive_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, pragma_custom_construct_handler, NULL),
@@ -1622,6 +1626,28 @@ static void function_definition_handler(FILE* f, AST a, prettyprint_context_t* p
     }
 
     prettyprint_level(f, ASTSon3(a), pt_ctx);
+}
+
+static void defaulted_or_deleted_function_def(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    indent_at_level(f, a, pt_ctx);
+
+    if (ASTSon0(a) != NULL)
+    {
+        prettyprint_level(f, ASTSon0(a), pt_ctx);
+        token_fprintf(f, a, pt_ctx, " ");
+    }
+
+    prettyprint_level(f, ASTSon1(a), pt_ctx);
+    token_fprintf(f, a, pt_ctx, " ");
+
+    if (ASTSon2(a) != NULL)
+    {
+        prettyprint_level(f, ASTSon2(a), pt_ctx);
+        token_fprintf(f, a, pt_ctx, " ");
+    }
+
+    token_fprintf(f, a, pt_ctx, "= %s;\n", ASTText(a));
 }
 
 static void compound_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)

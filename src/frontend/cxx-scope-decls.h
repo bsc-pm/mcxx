@@ -310,6 +310,12 @@ typedef struct entity_specifiers_tag
     // Builtin symbol
     char is_builtin:1;
 
+    // Is deleted
+    char is_deleted:1;
+
+    // Is defaulted
+    char is_defaulted:1;
+
     // Is a conversion function
     char is_conversion:1;
 

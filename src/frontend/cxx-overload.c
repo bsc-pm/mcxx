@@ -2028,45 +2028,46 @@ scope_entry_t* solve_overload(candidate_t* candidate_set,
         fprintf(stderr, "OVERLOAD: Best viable function is [%s, %s]\n", 
                 best_viable->candidate->entry->symbol_name,
                 print_declarator(best_viable->candidate->entry->type_information));
+    }
 
-        if (conversors != NULL)
+    if (conversors != NULL)
+    {
+        DEBUG_CODE()
         {
-            DEBUG_CODE()
+            fprintf(stderr, "OVERLOAD: List of called conversors\n");
+        }
+        int i;
+        for (i = 0; i < best_viable->candidate->num_args; i++)
+        {
+            if (best_viable->ics_arguments[i].kind == ICSK_USER_DEFINED)
             {
-                fprintf(stderr, "OVERLOAD: List of called conversors\n");
-            }
-            int i;
-            for (i = 0; i < best_viable->candidate->num_args; i++)
-            {
-                if (best_viable->ics_arguments[i].kind == ICSK_USER_DEFINED)
+                conversors[i] = best_viable->ics_arguments[i].conversor;
+                DEBUG_CODE()
                 {
-                    conversors[i] = best_viable->ics_arguments[i].conversor;
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "OVERLOAD:    Argument %d: '%s' at %s:%d\n",
-                                i,
-                                conversors[i]->symbol_name,
-                                conversors[i]->file,
-                                conversors[i]->line);
-                    }
-                }
-                else
-                {
-                    conversors[i] = NULL;
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "OVERLOAD:    Argument %d: <no conversor called>\n",
-                                i);
-                    }
+                    fprintf(stderr, "OVERLOAD:    Argument %d: '%s' at %s:%d\n",
+                            i,
+                            conversors[i]->symbol_name,
+                            conversors[i]->file,
+                            conversors[i]->line);
                 }
             }
-
-            DEBUG_CODE()
+            else
             {
-                fprintf(stderr, "OVERLOAD: End of list of called conversors\n");
+                conversors[i] = NULL;
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "OVERLOAD:    Argument %d: <no conversor called>\n",
+                            i);
+                }
             }
         }
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "OVERLOAD: End of list of called conversors\n");
+        }
     }
+
     return best_viable->candidate->entry;
 }
 

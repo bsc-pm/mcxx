@@ -693,12 +693,9 @@ static void cxx_abi_print_layout(layout_info_t* layout_info)
         {
             scope_entry_t* entry = subobjects->entry;
 
-            char is_dependent = 0;
-            int max_qualif_level = 0;
             fprintf(stderr, "@%04zu:", current_offset->offset);
-
-            fprintf(stderr, " %s\n", get_fully_qualified_symbol_name(entry, 
-                        entry->decl_context, &is_dependent, &max_qualif_level));
+            fprintf(stderr, " %s\n", get_qualified_symbol_name(entry, 
+                        entry->decl_context));
 
             subobjects = subobjects->next;
         }
@@ -995,9 +992,6 @@ static void cxx_abi_lay_member_out(type_t* t,
         char is_base_class,
         char is_virtual_base_class)
 {
-    char is_dependent = 0;
-    int max_qualif_level = 0;
-
     if (member->entity_specs.is_bitfield)
     {
         cxx_abi_lay_bitfield(t, member, layout_info);
@@ -1062,10 +1056,7 @@ static void cxx_abi_lay_member_out(type_t* t,
             DEBUG_SIZEOF_CODE()
             {
                 fprintf(stderr, "Laying out base class '%s' at offset %zu\n",
-                        get_fully_qualified_symbol_name(member, 
-                            member->decl_context,
-                            &is_dependent,
-                            &max_qualif_level),
+                        get_qualified_symbol_name(member, member->decl_context), 
                         offset);
             }
         }
@@ -1123,10 +1114,7 @@ static void cxx_abi_lay_member_out(type_t* t,
                 DEBUG_SIZEOF_CODE()
                 {
                     fprintf(stderr, "Laying out base class '%s' at offset %zu\n",
-                            get_fully_qualified_symbol_name(member, 
-                                member->decl_context,
-                                &is_dependent,
-                                &max_qualif_level),
+                            get_qualified_symbol_name(member, member->decl_context),
                             offset);
                 }
             }
@@ -1147,10 +1135,7 @@ static void cxx_abi_lay_member_out(type_t* t,
                 DEBUG_SIZEOF_CODE()
                 {
                     fprintf(stderr, "Laying out member '%s' at offset %zu\n",
-                            get_fully_qualified_symbol_name(member, 
-                                member->decl_context,
-                                &is_dependent,
-                                &max_qualif_level),
+                            get_qualified_symbol_name(member, member->decl_context),
                             offset);
                 }
             }

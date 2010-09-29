@@ -2498,6 +2498,42 @@ function_definition : function_definition_header ctor_initializer_opt function_b
         $$ = ASTMake4(AST_FUNCTION_DEFINITION, $1[0], functional_decl, $2, $3, filename, line, NULL);
     }
 }
+| function_definition_header '=' TOKEN_DELETE ';'
+{
+    const char* filename = NULL;
+    int line = 0;
+    // This is a bit crude but effective
+    AST trees[] = { $1[0], $1[1], $1[2] };
+    int num_trees = sizeof(trees) / sizeof(trees[0]);
+    int i;
+    for (i = 0; i < num_trees; i++)
+    {
+        if (trees[i] != NULL)
+        {
+            filename = ASTFileName(trees[i]);
+            line = ASTLine(trees[i]);
+        }
+    }
+    $$ = ASTMake3(AST_DELETED_FUNCTION_DEFINITION, $1[0], $1[1], $1[2], filename, line, $3.token_text);
+}
+| function_definition_header '=' DEFAULT ';'
+{
+    const char* filename = NULL;
+    int line = 0;
+    // This is a bit crude but effective
+    AST trees[] = { $1[0], $1[1], $1[2] };
+    int num_trees = sizeof(trees) / sizeof(trees[0]);
+    int i;
+    for (i = 0; i < num_trees; i++)
+    {
+        if (trees[i] != NULL)
+        {
+            filename = ASTFileName(trees[i]);
+            line = ASTLine(trees[i]);
+        }
+    }
+    $$ = ASTMake3(AST_DEFAULTED_FUNCTION_DEFINITION, $1[0], $1[1], $1[2], filename, line, $3.token_text);
+}
 | EXTENSION function_definition
 {
 	$$ = ASTMake1(AST_GCC_EXTENSION, $2, $1.token_file, $1.token_line, $1.token_text);
