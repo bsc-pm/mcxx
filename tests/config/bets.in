@@ -6,6 +6,7 @@ readonly bets_version=0.9
 #color constants
 
 machine_output=""
+output_filter=""
 
 define_colors()
 {
@@ -50,6 +51,21 @@ logcmd ()
     $* 
 }
 
+buffer=
+filtered_message ()
+{
+    [ -n "$machine_output" ] && return
+
+    local n
+    if [ "$1" = "-n" ]; then
+      shift; n=-n
+      buffer="$buffer $*"
+    else
+      echo -e $buffer "$*" | grep -e "$output_filter"
+      buffer=""
+    fi
+}
+
 message ()
 {
     [ -n "$machine_output" ] && return
@@ -57,8 +73,11 @@ message ()
     local n
     if [ "$1" = "-n" ]; then
       shift; n=-n
+      buffer="$buffer $*"
+    else
+      echo -e $buffer "$*" 
+      buffer=""
     fi
-    echo -e $n "$*"
 }
 
 # action functions
@@ -80,18 +99,18 @@ passfail ()
    if [ $reverse $ret -eq 0 ]; then
      if [ ! "$test_faulty" ];
      then
-       message "${GREEN}passed${NORMAL}"
+       filtered_message "${GREEN}passed${NORMAL}"
        [ -n "$machine_output" ] && echo "${full_test_name}:passed"
        log "passed"
      else
-       message "${YELLOW}passed (faulty)${NORMAL}"
+       filtered_message "${YELLOW}passed (faulty)${NORMAL}"
        [ -n "$machine_output" ] && echo "${full_test_name}:passed (faulty)"
        log "passed (faulty)"
        let faulty=faulty+1
      fi
      let pass=pass+1
    else
-     message "${RED}failed${NORMAL}!"
+     filtered_message "${RED}failed${NORMAL}!"
      [ -n "$machine_output" ] && echo "${full_test_name}:failed"
      log "failed!"
      let fail=fail+1
@@ -382,10 +401,10 @@ run_gen_test ()
    test_noexec=${test_noexec:-$test_nolink}
    if [ "$test_ignore" ]; then
       [ -n "$machine_output" ] && echo "${name}:ignored"
-      message "Test $name ${YELLOW}ignored${NORMAL}"
+      filtered_message "Test $name ${YELLOW}ignored${NORMAL}"
    else    
      for v in $all_compile_versions; do
-        message -n "Compile test $name-$v "
+        filtered_message -n "Compile test $name-$v "
         log "***Start compile test $name-$v"
         eval test_fail=\${test_compile_fail_$v}
         test_fail=${test_fail:-$test_compile_fail}
@@ -397,7 +416,7 @@ run_gen_test ()
         if [ "$ok" -eq "0" -a -z "$test_noexec" ]; then
           log "***End compile test $name-$v"
           for e in $all_exec_versions; do
-             message -n "Execute test $name-$v-$e "
+             filtered_message -n "Execute test $name-$v-$e "
              log "***Start execute test $name-$v-$e"
              eval test_fail=\${test_exec_fail_${v}_${e}}
              eval test_fail=\${test_fail:-\$test_exec_fail_${e}}
@@ -513,7 +532,10 @@ do_run ()
           cd "$old_dir" 
         fi
         if [ -f $t ]; then
-          run_file $t
+          old_dir=$(pwd)
+          cd $(dirname $t)
+          run_file $(basename $t)
+          cd "$old_dir"
         fi
      done
    else
@@ -593,6 +615,10 @@ case $1 in
        shift
        logfile=$1; 
        shift
+       ;;
+    -only-fails)
+       output_filter="failed";
+       shift;
        ;;
     -run) 
        mode=run; shift
