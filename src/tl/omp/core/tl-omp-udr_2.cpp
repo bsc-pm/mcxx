@@ -179,7 +179,7 @@ namespace TL
                     builtin_udr.set_need_equal_initializer(false);
                     builtin_udr.set_function_definition_symbol(NULL);    // Builtin UDRs don't have a function definition
 
-                    //builtin_udr.sign_in_scope(global_scope, (*it).type);
+                    builtin_udr.sign_in_scope(global_scope, (*it).type);
                 }
             }
         }
@@ -833,7 +833,6 @@ namespace TL
 	            }
 	            else if (candidate_bases.size()==1)
 	            {
-std::cerr << "Bases lookup find solution" << std::endl;
 					found = true;
 					RefPtr<UDRInfoItem2> obj = 
 							RefPtr<UDRInfoItem2>::cast_dynamic(candidate_bases[0].get_attribute("udr_info"));
@@ -942,22 +941,18 @@ std::cerr << "Bases lookup find solution" << std::endl;
                     }
                 }
   
-                // Normal lookup qualified types, extension in bases for classe types
-                if (type.get_unqualified_type() != type)
+                // Normal lookup and in bases for classe types
+                ObjectList<Symbol> lookup = sc.get_symbols_from_name(sym_name);
+                if (!lookup.empty())
                 {
-                    ObjectList<Symbol> lookup = sc.get_symbols_from_name(sym_name);
-                    if (!lookup.empty())
-                    {
-std::cerr << "Normal lookup find solution" << std::endl;
-                        found = true;
-						RefPtr<UDRInfoItem2> obj = 
-								RefPtr<UDRInfoItem2>::cast_dynamic(lookup.at(0).get_attribute("udr_info"));
-						return (*obj);
-                    }
-                    if (type.is_class())
-                    {
-                        return bases_lookup(type, reductor_tree, found);
-                    }
+                    found = true;
+					RefPtr<UDRInfoItem2> obj = 
+							RefPtr<UDRInfoItem2>::cast_dynamic(lookup.at(0).get_attribute("udr_info"));
+					return (*obj);
+                }
+                if (type.is_class())
+                {
+                    return bases_lookup(type, reductor_tree, found);
                 }
             }
 
