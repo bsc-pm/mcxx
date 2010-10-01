@@ -27,6 +27,7 @@
 #include "cxx-utils.h"
 #include "hash_iterator.h"
 #include "uniquestr.h"
+#include "cxx-koenig.h"
 
 namespace TL
 {
@@ -237,5 +238,30 @@ namespace TL
     Symbol Scope::get_class_of_scope()
     {
         return _decl_context.class_scope->related_entry;
+    }
+
+    ObjectList<Symbol> Scope::koenig_lookup(ObjectList<Type> arguments, AST_t id_expr)
+    {
+        int num_args = arguments.size();
+        type_t** argument_list = new type_t*[arguments.size()];
+
+        int i = 0;
+        for (ObjectList<Type>::iterator it = arguments.begin(); it != arguments.end(); it++, i++)
+        {
+            argument_list[i] = it->get_internal_type();
+        }
+
+        scope_entry_list_t* entry_list = ::koenig_lookup(num_args, argument_list, _decl_context, id_expr.get_internal_ast());
+
+        ObjectList<Symbol> result;
+        while (entry_list != NULL)
+        {
+            result.append(entry_list->entry);
+            entry_list = entry_list->next;
+        }
+
+        delete[] argument_list;
+
+        return result;
     }
 }

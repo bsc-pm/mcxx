@@ -75,11 +75,11 @@ namespace TL
             {
             }
 
-			//! Do not use this one unless directed to do so
-			decl_context_t get_decl_context()
-			{
-				return _decl_context;
-			}
+            //! Do not use this one unless directed to do so
+            decl_context_t get_decl_context()
+            {
+                return _decl_context;
+            }
 
             //! States whether the scope is valid
             bool is_valid() const
@@ -267,6 +267,17 @@ namespace TL
               in this scope, it will not be created twice.
               */
             Symbol new_artificial_symbol(const std::string& artificial_name, bool reuse_symbol=false);
+
+            //! Do Koenig lookup of a name using the current Scope and a list of argument types
+            /*!
+                This function performs a Koenig lookup. Koenig lookup is similar to a plain lookup of \a id_expr
+                but additional scopes may be considered depending on the exact types in \a arguments list
+
+                \param arguments List of arguments that may cause additional scopes be examined
+                \param id_expr AST_t actually looked up. Most of the times this 
+                 should be an unqualified id-expression though the implementation does not enforce this
+            */
+            ObjectList<Symbol> koenig_lookup(ObjectList<Type> arguments, AST_t id_expr);
 
             //! States that this is a scope
             virtual bool is_scope() const
