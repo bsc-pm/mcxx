@@ -285,6 +285,14 @@ namespace TL
                 return true;
             }
 
+            //! Convenience functions when it is not possible to create a symbol tree by other means
+			/*!
+				This function returns an AST_t of an unqualified symbol whose text is 'str'. Use this
+				function when syntactically it is impossible to create a symbol with that name but it is
+				used for lookups.
+			*/
+			static AST_t wrap_symbol_name(const std::string& str);
+
             Scope& operator=(Scope sc);
             bool operator<(Scope sc) const;
             bool operator==(Scope sc) const;
@@ -295,6 +303,8 @@ namespace TL
             friend class Source;
             friend class Expression;
     };
+
+
     
     //! @}
 }

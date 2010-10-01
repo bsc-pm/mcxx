@@ -24,7 +24,6 @@
 #include "tl-omp-core.hpp"
 #include "tl-omp-udr_2.hpp"
 #include "tl-overload.hpp"
-
 #include "tl-source.hpp"
 
 #include "cxx-parser.h"
@@ -180,7 +179,7 @@ namespace TL
                     builtin_udr.set_need_equal_initializer(false);
                     builtin_udr.set_function_definition_symbol(NULL);    // Builtin UDRs don't have a function definition
 
-                    builtin_udr.sign_in_scope(global_scope, (*it).type);
+                    //builtin_udr.sign_in_scope(global_scope, (*it).type);
                 }
             }
         }
@@ -622,8 +621,9 @@ namespace TL
 			        Symbol out = udr2.get_out_symbol();
 			        Symbol in = udr2.get_in_symbol();
 			        std::string function_name = udr2.get_symbol_name(udr_type);
-                    function_name = function_name.substr(1, function_name.size());
 
+					// Remove initial period 
+                    function_name = function_name.substr(1, function_name.size());
 
 			        pragma_functions
 			            << "static void " << function_name
@@ -771,8 +771,125 @@ namespace TL
 
             DEBUG_CODE()
             {
-                    std::cerr << "UDR: Signing in '" << sym_name << "'" << std::endl;
+                    std::cerr << "UDR: Signing in '" << sym_name << std::endl;
             }
+        }
+
+        static void find_bases(Type t, ObjectList<Symbol> &bases)
+        {
+            ObjectList<Symbol> actual_bases = t.get_bases_class_symbol_list();
+            if (actual_bases.empty())
+            {
+                return;
+            }
+
+            // Append the founded bases if needed
+            for(ObjectList<Symbol>::iterator it=actual_bases.begin();
+                    it != actual_bases.end();
+                    it++)
+            {
+                if (!bases.contains(*it)) bases.append(*it);
+            }
+
+            // Recursive call for each base
+            for(ObjectList<Symbol>::iterator it=actual_bases.begin();
+                    it != actual_bases.end();
+                    it++)
+            {
+                if (it->get_type().is_class())
+                {
+                    find_bases(it->get_type(), bases);
+                }
+            }
+        }
+
+        UDRInfoItem2 UDRInfoItem2::bases_lookup(Type type,
+                AST_t reductor_tree,
+                bool &found) const
+        {
+            UDRInfoItem2 udr2;
+	        ObjectList<Symbol> bases;
+	        find_bases(type, bases);
+            ObjectList<Symbol> candidate_bases;
+            for (int i=0; i<bases.size(); i++)
+			{
+	            if (bases[i].get_type().is_class())
+	            {
+	                std::string sym_name = this->get_symbol_name(bases[i].get_type());
+					ObjectList<Symbol> lookup = bases[i].get_scope().get_symbols_from_name(sym_name);
+					if (!lookup.empty())
+					{
+                        candidate_bases.append(lookup);
+					}
+	            }
+			}
+            if (!candidate_bases.empty())
+            {
+	            if (candidate_bases.size()>1)
+	            {
+			        running_error("%s: error: 'ambiguous definition for reduction variable '%s'\n",
+			                reductor_tree.get_locus().c_str(),
+			                this->get_symbol_name(type).c_str());
+	            }
+	            else if (candidate_bases.size()==1)
+	            {
+std::cerr << "Bases lookup find solution" << std::endl;
+					found = true;
+					RefPtr<UDRInfoItem2> obj = 
+							RefPtr<UDRInfoItem2>::cast_dynamic(candidate_bases[0].get_attribute("udr_info"));
+					udr2 = (*obj);
+	            }
+            }
+            return udr2;
+        }
+
+        UDRInfoItem2 UDRInfoItem2::argument_dependent_lookup(Type type,
+                AST_t reductor_tree,
+                bool &found,
+                Scope sc) const
+        {
+            UDRInfoItem2 udr2;
+
+            ObjectList<Symbol> bases;
+            bases.append(type.get_symbol());
+            find_bases(type, bases);
+
+     		ObjectList<Type> arg_list;
+			arg_list.append(type);
+
+			ObjectList<Symbol> koenig_symbols;
+            int candidate_type = -1;
+	    	for (int it = 0; it != bases.size(); it++)
+		    {
+		        std::string sym_name = this->get_symbol_name(bases[it].get_type());
+                ObjectList<Symbol> actual_koenig_symbols = sc.koenig_lookup(arg_list, Scope::wrap_symbol_name(sym_name));
+                if (!actual_koenig_symbols.empty()) 
+                {
+                    candidate_type = it;
+                    koenig_symbols.append(actual_koenig_symbols);
+                }
+		    }
+
+			if (!koenig_symbols.empty())
+			{
+		        if (koenig_symbols.size()>1)
+		        {
+		            running_error("%s: error: ambiguous user defined reduction with identifier '%s'\n",
+		                    reductor_tree.get_locus().c_str(),
+		                    _name.c_str());
+		        }
+		        else
+		        {
+                    std::string sym_name = this->get_symbol_name(bases[candidate_type].get_type());
+					ObjectList<Symbol> lookup = koenig_symbols[0].get_scope().get_symbols_from_name(sym_name);
+					found = true;
+					RefPtr<UDRInfoItem2> obj = 
+							RefPtr<UDRInfoItem2>::cast_dynamic(lookup.at(0).get_attribute("udr_info"));
+					udr2 = (*obj);
+		        }
+			}
+
+            return udr2;
         }
 
         UDRInfoItem2 UDRInfoItem2::lookup_udr(Scope sc,
@@ -789,76 +906,62 @@ namespace TL
                 std::cerr << "UDR: Lookup start '"  << sym_name << "'" << std::endl;
             }
 
-            if (udr_counter==-1)
+            C_LANGUAGE()
             {
                 ObjectList<Symbol> lookup = sc.get_symbols_from_name(sym_name);
 		        if (!lookup.empty())
 		        {
 		            found = true;
+				    RefPtr<UDRInfoItem2> obj = 
+                            RefPtr<UDRInfoItem2>::cast_dynamic(lookup.at(0).get_attribute("udr_info"));
+  				    return (*obj);
 		        }
                 return *this;
             }
-            else
-            {
-                // Lookup in actual scope
-			    ObjectList<Symbol> lookup = sc.get_symbols_from_name(sym_name);
-			    if (!lookup.empty())
-			    {
-			        found = true;
-				    RefPtr<UDRInfoItem2> obj = 
-				            RefPtr<UDRInfoItem2>::cast_dynamic(lookup.at(0).get_attribute("udr_info"));
-				    return (*obj);
-			    }
 
-                // Lookup in basis
-                ObjectList<Symbol> bases_symbol = type.get_bases_class_symbol_list();
-                if (!bases_symbol.empty())
+            CXX_LANGUAGE()
+            {
+                // Simple lookup for declarations
+                if (udr_counter==-1)
                 {
-                    int i = 0;
-                    while (!found && i<bases_symbol.size())
+		            ObjectList<Symbol> lookup = sc.get_symbols_from_name(sym_name);
+		            if (!lookup.empty())
+		            {
+		                found = true;
+		            }
+                    return *this;            
+                }
+
+                // Koenig lookup and koenig in bases for unqualified types
+                if (type.get_unqualified_type() == type && type.is_named())
+                {
+                    UDRInfoItem2 koenig_udr = argument_dependent_lookup(type, reductor_tree, found, sc);
+                    if (found)
                     {
-                        sym_name = this->get_symbol_name(bases_symbol[i].get_type());
-				        ObjectList<Symbol> lookup = bases_symbol[i].get_scope().get_symbols_from_name(sym_name);
-						if (!lookup.empty())
-						{
-						    found = true;
-							RefPtr<UDRInfoItem2> obj = 
-								    RefPtr<UDRInfoItem2>::cast_dynamic(lookup.at(0).get_attribute("udr_info"));
-							return (*obj);
-						}
-                        i++;
+                        return koenig_udr;
                     }
                 }
-
-                // Koenig lookup
-                type_t* expr_type = type.get_internal_type();
-                int num_arguments = 1;
-                type_t* argument_types[1] = { expr_type };
-                decl_context_t decl_context = type.get_symbol().get_scope().get_decl_context();
-                reductor_tree.replace_text(sym_name);
-                scope_entry_list_t *entry_list = koenig_lookup(num_arguments,
-                        argument_types, decl_context, reductor_tree.get_internal_ast());
-
-                // If 'entry_list' is not empty, it contains only one element
-                ObjectList<Symbol> koenigs_symbol;
-                scope_entry_list_t* it = entry_list;
-				while (it != NULL)
-				{
-					scope_entry_t* entry = it->entry;
-					koenigs_symbol.append(Symbol(entry));
-					it = it->next;
-				}
-                if (!koenigs_symbol.empty())
+  
+                // Normal lookup qualified types, extension in bases for classe types
+                if (type.get_unqualified_type() != type)
                 {
-                    ObjectList<Symbol> lookup = koenigs_symbol[0].get_scope().get_symbols_from_name(sym_name);
-				    found = true;
-					RefPtr<UDRInfoItem2> obj = 
-						    RefPtr<UDRInfoItem2>::cast_dynamic(lookup.at(0).get_attribute("udr_info"));
-					return (*obj);
+                    ObjectList<Symbol> lookup = sc.get_symbols_from_name(sym_name);
+                    if (!lookup.empty())
+                    {
+std::cerr << "Normal lookup find solution" << std::endl;
+                        found = true;
+						RefPtr<UDRInfoItem2> obj = 
+								RefPtr<UDRInfoItem2>::cast_dynamic(lookup.at(0).get_attribute("udr_info"));
+						return (*obj);
+                    }
+                    if (type.is_class())
+                    {
+                        return bases_lookup(type, reductor_tree, found);
+                    }
                 }
-
-                return *this;
             }
+
+            return *this;
         }
 
         // UDRInfoItem2 Getters, setters and consults

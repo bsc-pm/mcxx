@@ -58,6 +58,14 @@ namespace TL
                 // Methods
                 void sign_in_scope(Scope sc, Type types) const;
 
+                UDRInfoItem2 bases_lookup(Type type,
+                        AST_t reductor_tree,
+                        bool &found) const;
+
+                UDRInfoItem2 argument_dependent_lookup(Type type,
+                        AST_t reductor_tree,
+                        bool &found, Scope sc) const;
+
                 UDRInfoItem2 lookup_udr(Scope sc,
                         bool &found,
                         Type udr_type,
