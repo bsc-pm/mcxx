@@ -276,15 +276,23 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
 
         ObjectList<Expression> shape_list = expr.shape_list();
 
-        Source factor;
-        for (ObjectList<Expression>::iterator it = shape_list.begin();
-                it != shape_list.end();
-                it++)
+        if (!enclosing_is_array)
         {
-            factor.append_with_separator("(" + it->prettyprint() + ")", "*");
-        }
+            Source factor;
 
-        size << "(" << arr_size << ") * " << factor;
+            for (ObjectList<Expression>::iterator it = shape_list.begin();
+                    it != shape_list.end();
+                    it++)
+            {
+                factor.append_with_separator("(" + it->prettyprint() + ")", "*");
+            }
+            size << "(" << arr_size << ") * " << factor;
+        }
+        else
+        {
+            Type t = type.points_to();
+            size << "sizeof(" << t.get_declaration(expr.get_scope(), "") << ")";
+        }
 
         Source proper_cast;
 
