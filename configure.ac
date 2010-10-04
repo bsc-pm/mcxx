@@ -1000,6 +1000,16 @@ AC_CHECK_FUNC([mkdtemp],
         ]
         )
 
+AC_CHECK_FUNC([strsignal], 
+        [
+        AC_DEFINE([HAVE_STRSIGNAL], 1, [Define to 1 if strsignal is available])
+        ],
+        [
+        AC_LIBOBJ([tempname])
+        AC_LIBOBJ([mkdtemp])
+        ]
+        )
+
 dnl Versioning things
 dnl Make sure build_version is double-quoted!
 build_version="\"unknown revision\""

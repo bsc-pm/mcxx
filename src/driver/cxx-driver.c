@@ -3103,7 +3103,7 @@ static void link_objects(void)
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
 static void terminating_signal_handler(int sig)
 {
-    fprintf(stderr, "Signal handler called (signal=%d). Exiting.\n", sig);
+    fprintf(stderr, "Signal handler called (signal=%s). Exiting.\n", strsignal(sig));
 
     if (CURRENT_CONFIGURATION != NULL
             && !CURRENT_CONFIGURATION->debug_options.do_not_run_gdb
