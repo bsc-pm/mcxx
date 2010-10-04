@@ -310,6 +310,12 @@ typedef struct entity_specifiers_tag
     // Builtin symbol
     char is_builtin:1;
 
+    // Is deleted
+    char is_deleted:1;
+
+    // Is defaulted
+    char is_defaulted:1;
+
     // Is a conversion function
     char is_conversion:1;
 
@@ -322,11 +328,16 @@ typedef struct entity_specifiers_tag
     char is_default_constructor:1;
     // Is a copy constructor
     char is_copy_constructor:1;
+    // Is a move constructor
+    char is_move_constructor:1;
     // Is a conversor one
     char is_conversor_constructor:1;
 
-    // Is an assignment operator
-    char is_assignment_operator:1;
+    // Is a copy assignment operator
+    char is_copy_assignment_operator:1;
+
+    // Is a copy assignment operator
+    char is_move_assignment_operator:1;
 
     // Is destructor
     char is_destructor:1;
@@ -344,11 +355,9 @@ typedef struct entity_specifiers_tag
     // arguments
     char is_template_argument:1;
 
-    // This is for specialized template types, it states that the symbol
-    // has also appeared in a declaration. Many specialized templates are
-    // created by the typesystem and do not have to be considered when
-    // solving templates
-    char template_is_declared:1;
+    // The entity has really been declared by the code. Only template-names
+    // and constructors have this flag enabled (at the moment)
+    char is_user_declared:1;
 
     // Some bits have been moved here, they are repeated in comments below next
     // to their protecting fields
@@ -379,6 +388,9 @@ typedef struct entity_specifiers_tag
     char after_typedef:1;
 
     // -- End of bits, move all bits before this point
+
+    // Accessibility: public, private, protected
+    access_specifier_t access : 2;
     
     // States if the symbol is a template parameter name and its nesting and
     // position
@@ -472,10 +484,16 @@ struct scope_entry_tag
     // All entity specifiers are in this structure
     entity_specifiers_t entity_specs;
 
-    // Point in the struct AST_tag* where this was declared. This is approximate, just to
+    // Point in the AST where this symbol was declared. This is approximate, just to
     // find the simple_declaration, member_declaration or function_definition
     // holding this one
     struct AST_tag* point_of_declaration;
+
+    // Point in the AST where this symbol was defined. This is approximate,
+    // just to find the simple_declaration, member_declaration or
+    // function_definition holding this one. Even if defined is true, it might
+    // be NULL since builtins do not have any related AST
+    struct AST_tag* point_of_definition;
 
     // Dependency info. It states if this symbol has a template-dependent nature
     // A value of DI_UNKNOWN means this has not been already computed

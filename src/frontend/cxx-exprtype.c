@@ -650,9 +650,6 @@ char check_for_expression(AST expression, decl_context_t decl_context)
 
     switch (ASTType(expression))
     {
-        case AST_INITIALIZER :
-        case AST_CONSTANT_INITIALIZER :
-        case AST_INITIALIZER_EXPR :
         case AST_EXPRESSION :
         case AST_CONSTANT_EXPRESSION :
         case AST_PARENTHESIZED_EXPRESSION :
@@ -2459,6 +2456,22 @@ static char filter_only_nonmembers(scope_entry_t* e)
     return 0;
 }
 
+static void error_message_delete_call(decl_context_t decl_context, AST expr, scope_entry_t* entry)
+{
+    running_error("%s: error: call to deleted function '%s'\n",
+            ast_location(expr),
+            print_decl_type_str(entry->type_information, decl_context,
+                get_qualified_symbol_name(entry, decl_context)));
+}
+
+static void ensure_not_deleted(decl_context_t decl_context, AST expr, scope_entry_t* entry)
+{
+    if (entry->entity_specs.is_deleted)
+    {
+        error_message_delete_call(decl_context, expr, entry);
+    }
+}
+
 static void error_message_overload_failed(decl_context_t decl_context, AST expr, candidate_t* candidates)
 {
     fprintf(stderr, "%s: warning: overload call to '%s' failed\n",
@@ -2472,9 +2485,6 @@ static void error_message_overload_failed(decl_context_t decl_context, AST expr,
         candidate_t* it = candidates;
         while (it != NULL)
         {
-            int max_level = 0;
-            char is_dependent = 0;
-
             scope_entry_t* entry = it->entry;
 
             const char* file = entry->file != NULL ? entry->file : ASTFileName(expr);
@@ -2483,7 +2493,7 @@ static void error_message_overload_failed(decl_context_t decl_context, AST expr,
             fprintf(stderr, "%s:%d: note:    %s",
                     file, line,
                     print_decl_type_str(entry->type_information, decl_context, 
-                        get_fully_qualified_symbol_name(entry, decl_context, &is_dependent, &max_level)));
+                        get_qualified_symbol_name(entry, decl_context)));
 
             if (entry->entity_specs.is_builtin)
             {
@@ -2561,13 +2571,19 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
     type_t* overloaded_type = NULL;
     if (overloaded_call != NULL)
     {
+        ensure_not_deleted(decl_context, expr, overloaded_call);
+
         if (conversors[0] != NULL)
         {
+            ensure_not_deleted(decl_context, expr, conversors[0]);
+
             ASTAttrSetValueType(lhs, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(lhs, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[0]));
         }
         if (conversors[1] != NULL)
         {
+            ensure_not_deleted(decl_context, expr, conversors[1]);
+
             ASTAttrSetValueType(rhs, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(rhs, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[1]));
         }
@@ -2660,6 +2676,8 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
     type_t* overloaded_type = NULL;
     if (overloaded_call != NULL)
     {
+        ensure_not_deleted(decl_context, expr, overloaded_call);
+
         if (!overloaded_call->entity_specs.is_builtin)
         {
             *selected_operator = overloaded_call;
@@ -2670,6 +2688,8 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
 
         if (conversors[0] != NULL)
         {
+            ensure_not_deleted(decl_context, expr, conversors[0]);
+
             ASTAttrSetValueType(op, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(op, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[0]));
         }
@@ -5533,8 +5553,12 @@ static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context
                 return 0;
             }
 
+            ensure_not_deleted(decl_context, expr, overloaded_call);
+
             if (conversors[1] != NULL)
             {
+                ensure_not_deleted(decl_context, expr, conversors[1]);
+
                 ASTAttrSetValueType(subscript_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(subscript_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[1]));
             }
@@ -6020,6 +6044,8 @@ static char check_for_conditional_expression_impl(AST expression,
                 return 0;
             }
 
+            ensure_not_deleted(decl_context, expression, overloaded_call);
+
             // Note that for AST_GCC_CONDITIONAL_EXPRESSION first_op == second_op
             // but writing it twice in the loop should be harmless
             AST ops[] = { first_op, second_op, third_op };
@@ -6029,6 +6055,8 @@ static char check_for_conditional_expression_impl(AST expression,
             {
                 if (conversors[k] != NULL)
                 {
+                    ensure_not_deleted(decl_context, expression, conversors[k]);
+
                     ASTAttrSetValueType(ops[k], 
                             LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(ops[k],
@@ -6415,18 +6443,17 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
                     it = operator_new_list;
                     while (it != NULL)
                     {
-                        int max_level = 0;
-                        char is_dependent = 0;
-
                         scope_entry_t* candidate_op = it->entry;
                         fprintf(stderr, "%s: note:    %s\n", ast_location(new_expr),
                                 print_decl_type_str(candidate_op->type_information, decl_context, 
-                                    get_fully_qualified_symbol_name(candidate_op, decl_context, &is_dependent, &max_level)));
+                                    get_qualified_symbol_name(candidate_op, decl_context)));
                         it = it->next;
                     }
                 }
                 return 0;
             }
+
+            ensure_not_deleted(decl_context, new_expr, chosen_operator_new);
 
             ASTAttrSetValueType(new_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(new_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(chosen_operator_new));
@@ -6447,6 +6474,8 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
 
                         if (conversors[i] != NULL)
                         {
+                            ensure_not_deleted(decl_context, new_expr, conversors[i]);
+
                             ASTAttrSetValueType(current_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                             ASTAttrSetValueType(current_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[i]));
                         }
@@ -6492,12 +6521,14 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
 
                 if (!has_constructor_dep_args)
                 {
+                    scope_entry_list_t* candidates = NULL;
                     scope_entry_t* chosen_constructor = solve_constructor(class_type,
                             arguments, num_arguments,
                             /* is_explicit */ 1,
                             decl_context,
                             ASTFileName(new_expr), ASTLine(new_expr),
-                            conversors);
+                            conversors,
+                            &candidates);
 
                     if (chosen_constructor == NULL)
                     {
@@ -6512,6 +6543,8 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
 
                         return 0;
                     }
+
+                    ensure_not_deleted(decl_context, new_expr, chosen_constructor);
 
                     // FIXME - This does not belong to the expression!
                     ASTAttrSetValueType(new_type_id, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
@@ -6532,6 +6565,8 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
 
                                 if (conversors[i] != NULL)
                                 {
+                                    ensure_not_deleted(decl_context, new_expr, conversors[i]);
+
                                     ASTAttrSetValueType(current_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                                     ASTAttrSetValueType(current_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[i]));
                                 }
@@ -6853,6 +6888,7 @@ static char check_for_explicit_type_conversion_common(type_t* type_info,
     {
         if (is_class_type(type_info))
         {
+            scope_entry_list_t* candidates = NULL;
             scope_entry_t* constructor = 
                 solve_constructor(type_info,
                         argument_types,
@@ -6860,7 +6896,8 @@ static char check_for_explicit_type_conversion_common(type_t* type_info,
                         /* is_explicit */ 1,
                         decl_context,
                         ASTFileName(expr), ASTLine(expr),
-                        conversors);
+                        conversors,
+                        &candidates);
 
             if (constructor == NULL)
             {
@@ -6874,9 +6911,9 @@ static char check_for_explicit_type_conversion_common(type_t* type_info,
                 return 0;
             }
 
+            ensure_not_deleted(decl_context, expr, constructor);
 
             int k = 0;
-
             if (expression_list != NULL)
             {
                 AST iter;
@@ -6886,6 +6923,8 @@ static char check_for_explicit_type_conversion_common(type_t* type_info,
 
                     if (conversors[k] != NULL)
                     {
+                        ensure_not_deleted(decl_context, expr, conversors[k]);
+
                         ASTAttrSetValueType(expression, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                         ASTAttrSetValueType(expression, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[k]));
                     }
@@ -7764,6 +7803,8 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
 
     if (overloaded_call != NULL)
     {
+        ensure_not_deleted(decl_context, whole_function_call, overloaded_call);
+
         // Update the unresolved call
         DEBUG_CODE()
         {
@@ -7778,13 +7819,15 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         {
             // Set conversors of arguments if needed
             AST iter;
-            int arg_i = 1;
+            int arg_i = 0;
             for_each_element(arguments, iter)
             {
                 AST argument = ASTSon1(iter);
 
                 if (conversors[arg_i] != NULL)
                 {
+                    ensure_not_deleted(decl_context, argument, conversors[arg_i]);
+
                     ASTAttrSetValueType(argument, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(argument, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[arg_i]));
                 }
@@ -8301,6 +8344,8 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
             return 0;
         }
 
+        ensure_not_deleted(decl_context, member_access, selected_operator_arrow);
+
         if (!is_pointer_to_class_type(function_type_get_return_type(selected_operator_arrow->type_information)))
         {
             return 0;
@@ -8659,11 +8704,14 @@ static char check_for_postoperator_user_defined(AST expr, AST operator,
 
     if (overloaded_call != NULL)
     {
+        ensure_not_deleted(decl_context, expr, overloaded_call);
+
         expression_set_type(expr, function_type_get_return_type(overloaded_call->type_information));
         expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
 
         if (conversors[0] != NULL)
         {
+            ensure_not_deleted(decl_context, expr, conversors[0]);
             ASTAttrSetValueType(postoperated_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(postoperated_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[0]));
         }
@@ -8740,11 +8788,14 @@ static char check_for_preoperator_user_defined(AST expr, AST operator,
 
     if (overloaded_call != NULL)
     {
+        ensure_not_deleted(decl_context, expr, overloaded_call);
+
         expression_set_type(expr, function_type_get_return_type(overloaded_call->type_information));
         expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
 
         if (conversors[0] != NULL)
         {
+            ensure_not_deleted(decl_context, expr, conversors[0]);
             ASTAttrSetValueType(preoperated_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(preoperated_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[0]));
         }
@@ -9038,37 +9089,91 @@ static char check_for_predecrement(AST expr, decl_context_t decl_context)
             decl_context, /* is_decr */ 1);
 }
 
-static type_t* get_typeid_type(decl_context_t decl_context, AST expr)
+static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, AST expr)
 {
     // Lookup for 'std::type_info'
-    decl_context_t global_context = decl_context;
-    global_context.current_scope = global_context.global_scope;
+    static scope_entry_t* typeid_sym = NULL;
 
-    scope_entry_list_t* entry_list = query_in_scope_str(global_context, "std");
-
-    if (entry_list == NULL 
-            || entry_list->entry->kind != SK_NAMESPACE)
+    // FIXME: This will last accross files
+    if (typeid_sym == NULL)
     {
-        running_error("%s: error: namespace 'std' not found when looking up 'std::type_info' (because of '%s'). \n"
-                "Maybe you need '#include <typeinfo>'",
-                ast_location(expr),
-                prettyprint_in_buffer(expr));
+        decl_context_t global_context = decl_context;
+        global_context.current_scope = global_context.global_scope;
+
+        scope_entry_list_t* entry_list = query_in_scope_str(global_context, "std");
+
+        if (entry_list == NULL 
+                || entry_list->entry->kind != SK_NAMESPACE)
+        {
+            running_error("%s: error: namespace 'std' not found when looking up 'std::type_info' (because of '%s'). \n"
+                    "Maybe you need '#include <typeinfo>'",
+                    ast_location(expr),
+                    prettyprint_in_buffer(expr));
+        }
+
+        decl_context_t std_context = entry_list->entry->namespace_decl_context;
+        entry_list = query_in_scope_str(std_context, "type_info");
+
+        if (entry_list == NULL
+                && entry_list->entry->kind != SK_CLASS
+                && entry_list->entry->kind != SK_TYPEDEF)
+        {
+            running_error("%s: error: typename 'type_info' not found when looking up 'std::type_info' (because of '%s')\n"
+                    "Maybe you need '#include <typeinfo>'",
+                    ast_location(expr),
+                    prettyprint_in_buffer(expr));
+        }
+
+        typeid_sym = entry_list->entry;
     }
 
-    decl_context_t std_context = entry_list->entry->namespace_decl_context;
-    entry_list = query_in_scope_str(std_context, "type_info");
+    return typeid_sym;
+}
 
-    if (entry_list == NULL
-            && entry_list->entry->kind != SK_CLASS
-            && entry_list->entry->kind != SK_TYPEDEF)
+scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, AST expr, char mandatory)
+{
+    // Lookup for 'std::initializer_list'
+    static scope_entry_t* initializer_list_sym = NULL;
+
+    // FIXME: This will last accross files
+    if (initializer_list_sym == NULL)
     {
-        running_error("%s: error: typename 'type_info' not found when looking up 'std::type_info' (because of '%s')\n"
-                "Maybe you need '#include <typeinfo>'",
-                ast_location(expr),
-                prettyprint_in_buffer(expr));
+        decl_context_t global_context = decl_context;
+        global_context.current_scope = global_context.global_scope;
+
+        scope_entry_list_t* entry_list = query_in_scope_str(global_context, "std");
+
+        if (entry_list == NULL 
+                || entry_list->entry->kind != SK_NAMESPACE)
+        {
+            if (!mandatory)
+                return NULL;
+
+            running_error("%s: error: namespace 'std' not found when looking up 'std::type_info' (because of '%s'). \n"
+                    "Maybe you need '#include <initializer_list>'",
+                    ast_location(expr),
+                    prettyprint_in_buffer(expr));
+        }
+
+        decl_context_t std_context = entry_list->entry->namespace_decl_context;
+        entry_list = query_in_scope_str(std_context, "initializer_list");
+
+        if (entry_list == NULL
+                && entry_list->entry->kind != SK_TEMPLATE)
+        {
+            if (!mandatory)
+                return NULL;
+
+            running_error("%s: error: template-nam 'initializer_list' not found when looking up 'std::initializer_list' (because of '%s')\n"
+                    "Maybe you need '#include <initializer_list>'",
+                    ast_location(expr),
+                    prettyprint_in_buffer(expr));
+        }
+
+        initializer_list_sym = entry_list->entry;
     }
 
-    return get_user_defined_type(entry_list->entry);
+    return initializer_list_sym;
 }
 
 static char check_for_typeid_type(AST expr, decl_context_t decl_context)
@@ -9084,7 +9189,8 @@ static char check_for_typeid_type(AST expr, decl_context_t decl_context)
         expression_set_is_value_dependent(expr, 1);
     }
 
-    expression_set_type(expr, get_typeid_type(decl_context, expr));
+    expression_set_type(expr, 
+            get_user_defined_type(get_typeid_symbol(decl_context, expr)));
     expression_set_is_lvalue(expr, 0);
 
     return 1;
@@ -9103,7 +9209,8 @@ static char check_for_typeid_expr(AST expr, decl_context_t decl_context)
         expression_set_is_value_dependent(expr, 1);
     }
 
-    expression_set_type(expr, get_typeid_type(decl_context, expr));
+    expression_set_type(expr, 
+            get_user_defined_type(get_typeid_symbol(decl_context, expr)));
     expression_set_is_lvalue(expr, 0);
     return 1;
 }
@@ -9189,121 +9296,345 @@ type_t* get_designated_type(AST designation, decl_context_t decl_context, type_t
     return designated_type;
 }
 
-char check_for_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type)
+static char check_for_braced_initializer_list(AST initializer, decl_context_t decl_context, type_t* declared_type)
 {
-    switch (ASTType(initializer))
+    ERROR_CONDITION (ASTType(initializer) != AST_INITIALIZER_BRACES, "Invalid node", 0);
+
+    AST expression_list = ASTSon0(initializer);
+    if ((is_class_type(declared_type)
+                || is_array_type(declared_type)
+                || is_vector_type(declared_type))
+            && is_aggregate_type(declared_type))
     {
-        case AST_INITIALIZER_BRACES :
+        if (expression_list != NULL)
+        {
+            if (!is_array_type(declared_type)
+                    && !is_class_type(declared_type)
+                    && !is_vector_type(declared_type)
+                    && !is_dependent_type(declared_type))
             {
-                // This is never ambiguous
-                AST expression_list = ASTSon0(initializer);
-                if (expression_list != NULL)
+                fprintf(stderr, "%s: warning: brace initialization can only be used with\n",
+                        ast_location(initializer));
+                fprintf(stderr, "%s: warning: array types, struct, class, union or vector types\n",
+                        ast_location(initializer));
+            }
+
+            char faulty = 0;
+            int initializer_num = 0;
+            AST iter;
+            for_each_element(expression_list, iter)
+            {
+                AST initializer_clause = ASTSon1(iter);
+
+                type_t* type_in_context = declared_type;
+
+                // If the initializer is not a designated one, the type in context
+                // is the subtype of the aggregated one
+                if (ASTType(initializer_clause) != AST_DESIGNATED_INITIALIZER
+                        // This is the gcc-esque way of a designated
+                        // initializer, used when C99 is not available
+                        && ASTType(initializer_clause) != AST_GCC_INITIALIZER_CLAUSE)
                 {
-                    if (!is_array_type(declared_type)
-                            && !is_class_type(declared_type)
-                            && !is_vector_type(declared_type)
-                            && !is_dependent_type(declared_type))
-                    {
-                        fprintf(stderr, "%s: warning: brace initialization can only be used with\n",
-                                ast_location(initializer));
-                        fprintf(stderr, "%s: warning: array types, struct, class, union or vector types\n",
-                                ast_location(initializer));
-                    }
-
-                    char faulty = 0;
-                    int initializer_num = 0;
-                    AST iter;
-                    for_each_element(expression_list, iter)
-                    {
-                        AST initializer_clause = ASTSon1(iter);
-
-                        type_t* type_in_context = declared_type;
-
-                        // If the initializer is not a designated one, the type in context
-                        // is the subtype of the aggregated one
-                        if (ASTType(initializer_clause) != AST_DESIGNATED_INITIALIZER
-                                // This is the gcc-esque way of a designated
-                                // initializer, used when C99 is not available
-                                && ASTType(initializer_clause) != AST_GCC_INITIALIZER_CLAUSE)
-                        {
-                            if (is_class_type(declared_type))
-                            {
-                                type_t* actual_class_type = get_actual_class_type(declared_type);
-
-                                if (initializer_num >= class_type_get_num_nonstatic_data_members(actual_class_type))
-                                {
-                                    fprintf(stderr, "%s: warning: too many initializers for aggregated data type\n",
-                                            ast_location(initializer_clause));
-
-                                    type_in_context = get_signed_int_type();
-                                }
-                                else
-                                {
-                                    scope_entry_t* data_member = class_type_get_nonstatic_data_member_num(actual_class_type, initializer_num);
-                                    type_in_context = data_member->type_information;
-                                }
-                            }
-                            else if (is_array_type(declared_type))
-                            {
-                                type_in_context = array_type_get_element_type(declared_type);
-                            }
-                            else if (is_vector_type(declared_type))
-                            {
-                                type_in_context = vector_type_get_element_type(declared_type);
-                            }
-                            else
-                            {
-                                internal_error("Invalid aggregated type '%s'",
-                                        print_decl_type_str(declared_type, decl_context, ""));
-                            }
-                        }
-
-                        if (!check_for_initializer_clause(initializer_clause, decl_context, type_in_context))
-                            faulty = 1;
-
-                        initializer_num++;
-                    }
-
-                    if (faulty)
-                        return 0;
-
                     if (is_class_type(declared_type))
                     {
-                        expression_set_type(initializer, declared_type);
+                        type_t* actual_class_type = get_actual_class_type(declared_type);
+
+                        if (initializer_num >= class_type_get_num_nonstatic_data_members(actual_class_type))
+                        {
+                            fprintf(stderr, "%s: warning: too many initializers for aggregated data type\n",
+                                    ast_location(initializer_clause));
+
+                            type_in_context = get_signed_int_type();
+                        }
+                        else
+                        {
+                            scope_entry_t* data_member = class_type_get_nonstatic_data_member_num(actual_class_type, initializer_num);
+                            type_in_context = data_member->type_information;
+                        }
                     }
                     else if (is_array_type(declared_type))
                     {
-                        char c[64];
-                        snprintf(c, 63, "%d", initializer_num);
-                        c[63] = '\0';
-                        AST length = 
-                            ASTMake1(AST_EXPRESSION,
-                                    ASTLeaf(AST_DECIMAL_LITERAL, 
-                                        ast_get_filename(initializer),
-                                        ast_get_line(initializer),
-                                        c),
-                                    ast_get_filename(initializer),
-                                    ast_get_line(initializer),
-                                    NULL);
+                        type_in_context = array_type_get_element_type(declared_type);
+                    }
+                    else if (is_vector_type(declared_type))
+                    {
+                        type_in_context = vector_type_get_element_type(declared_type);
+                    }
+                    else
+                    {
+                        internal_error("Invalid aggregated type '%s'",
+                                print_decl_type_str(declared_type, decl_context, ""));
+                    }
+                }
 
-                        type_t *list_array = get_array_type(
-                                array_type_get_element_type(declared_type),
-                                length, decl_context);
+                if (!check_for_initializer_clause(initializer_clause, decl_context, type_in_context))
+                    faulty = 1;
 
-                        expression_set_type(initializer, list_array);
+                initializer_num++;
+            }
+
+            if (faulty)
+                return 0;
+
+            if (is_class_type(declared_type))
+            {
+                expression_set_type(initializer, declared_type);
+            }
+            else if (is_array_type(declared_type))
+            {
+                char c[64];
+                snprintf(c, 63, "%d", initializer_num);
+                c[63] = '\0';
+                AST length = 
+                    ASTMake1(AST_EXPRESSION,
+                            ASTLeaf(AST_DECIMAL_LITERAL, 
+                                ast_get_filename(initializer),
+                                ast_get_line(initializer),
+                                c),
+                            ast_get_filename(initializer),
+                            ast_get_line(initializer),
+                            NULL);
+
+                type_t *list_array = get_array_type(
+                        array_type_get_element_type(declared_type),
+                        length, decl_context);
+
+                expression_set_type(initializer, list_array);
+            }
+        }
+        return 1;
+    }
+    // Not an aggregate class
+    else if (is_class_type(declared_type)
+            && !is_aggregate_type(declared_type))
+    {
+        // This one is the toughest
+        type_t* arg_list[MAX_ARGUMENTS];
+        memset(arg_list, 0, sizeof(arg_list));
+
+        char any_is_dependent = 0;
+
+        int num_args = 0;
+        AST iter;
+        for_each_element(expression_list, iter)
+        {
+            AST expr = ASTSon1(iter);
+
+            if (num_args == MAX_ARGUMENTS)
+            {
+                running_error("%s: error: too many elements in initializer-list\n",
+                        ast_location(expr));
+            }
+
+            if (!check_for_expression(expr, decl_context))
+            {
+                return 0;
+            }
+
+            arg_list[num_args] = expression_get_type(expr);
+
+            if (is_dependent_expr_type(arg_list[num_args]))
+                any_is_dependent = 1;
+            num_args++;
+        }
+
+        any_is_dependent = any_is_dependent || is_dependent_type(declared_type);
+        if (any_is_dependent)
+            return 1;
+
+        // Now construct the candidates for overloading among the constructors
+        int num_ctors = class_type_get_num_constructors(get_actual_class_type(declared_type));
+
+        scope_entry_t* std_initializer_list_template = get_std_initializer_list_template(decl_context, initializer, /* mandatory */ 0);
+
+        char has_initializer_list_ctor = 0;
+
+        // If std::initializer_list is not available there is no need to check
+        // this because it would have failed before
+        if (std_initializer_list_template != NULL)
+        {
+            int i;
+            for (i = 0; i < num_ctors && !has_initializer_list_ctor; i++)
+            {
+                scope_entry_t* entry = class_type_get_constructors_num(get_actual_class_type(declared_type), i);
+
+                int num_parameters = function_type_get_num_parameters(entry->type_information);
+                // Number of real parameters, ellipsis are counted as parameters
+                // but only in the type system
+                if (function_type_get_has_ellipsis(entry->type_information))
+                    num_parameters--;
+
+                if (num_parameters > 0
+                        && can_be_called_with_number_of_arguments(entry, 1))
+                {
+                    type_t* first_param = function_type_get_parameter_type_num(entry->type_information, 0);
+
+                    if (is_class_type(first_param))
+                        first_param = get_actual_class_type(first_param);
+
+                    if (is_template_specialized_type(first_param)
+                            && equivalent_types(template_specialized_type_get_related_template_type(first_param), 
+                                std_initializer_list_template->type_information))
+                    {
+                        has_initializer_list_ctor = 1;
+                    }
+                }
+            }
+        }
+
+        if (!has_initializer_list_ctor)
+        {
+            // Plain constructor resolution should be enough here
+            scope_entry_t* conversors[MAX_ARGUMENTS] = { 0 };
+            scope_entry_list_t* candidates = NULL;
+            scope_entry_t* constructor = solve_constructor(declared_type,
+                    arg_list,
+                    num_args,
+                    /* is_explicit */ 0,
+                    decl_context,
+                    ASTFileName(initializer), ASTLine(initializer),
+                    conversors,
+                    &candidates);
+
+            if (constructor == NULL)
+            {
+                if (!checking_ambiguity())
+                {
+                    fprintf(stderr, "%s: warning: invalid initializer for type '%s'\n", 
+                            ast_location(initializer),
+                            print_type_str(declared_type, decl_context));
+                }
+                return 0;
+            }
+            else
+            {
+                ensure_not_deleted(decl_context, initializer, constructor);
+                int i;
+                for (i = 0; i < num_args; i++)
+                {
+                    if (conversors[i] != NULL)
+                    {
+                        ensure_not_deleted(decl_context, initializer, conversors[i]);
                     }
                 }
                 return 1;
             }
-        case AST_INITIALIZER_EXPR :
+        }
+        else
+        {
+            type_t* initializer_list_type = NULL;
+
+            initializer_list_type = get_braced_list_type(num_args, arg_list);
+
+            DEBUG_CODE()
             {
-                AST expression = ASTSon0(initializer);
-                char result = check_for_expression(expression, decl_context);
+                fprintf(stderr, "EXPRTYPE: For initializer list '%s', common type is '%s'\n", prettyprint_in_buffer(initializer), 
+                        print_type_str(initializer_list_type, decl_context));
+            }
+
+            scope_entry_t* conversors[MAX_ARGUMENTS] = { 0 };
+
+            template_parameter_list_t* template_parameters = 
+                template_type_get_template_parameters(std_initializer_list_template->type_information);
+
+            template_argument_list_t *argument_list = counted_calloc(1, sizeof(*argument_list), &_bytes_used_expr_check);
+            template_argument_t *argument = counted_calloc(1, sizeof(*argument), &_bytes_used_expr_check);
+            argument->kind = TAK_TYPE;
+            argument->type = initializer_list_type;
+
+            P_LIST_ADD(argument_list->argument_list, argument_list->num_arguments, argument);
+
+            type_t* specialized_std_initializer = 
+                template_type_get_specialized_type(std_initializer_list_template->type_information,
+                        argument_list, template_parameters,
+                        decl_context, ASTLine(initializer), ASTFileName(initializer));
+
+            // Should it be a const T&  ?
+            arg_list[0] = specialized_std_initializer;
+            num_args = 1;
+
+            scope_entry_list_t* candidates = NULL;
+            scope_entry_t* constructor = solve_constructor(declared_type,
+                    arg_list,
+                    num_args,
+                    /* is_explicit */ 0,
+                    decl_context,
+                    ASTFileName(initializer), ASTLine(initializer),
+                    conversors,
+                    &candidates);
+
+            if (constructor == NULL)
+            {
+                if (!checking_ambiguity())
+                {
+                    fprintf(stderr, "%s: warning: invalid initializer for type '%s'\n", 
+                            ast_location(initializer),
+                            print_type_str(declared_type, decl_context));
+                }
+                return 0;
+            }
+            else
+            {
+                ensure_not_deleted(decl_context, initializer, constructor);
+                int i = 0;
+                for (i = 0; i < num_args; i++)
+                {
+                    if (conversors[i] != NULL)
+                    {
+                        ensure_not_deleted(decl_context, initializer, conversors[i]);
+                    }
+                }
+                return 1;
+            }
+        }
+    }
+    // Not an aggregate of any kind
+    else 
+    {
+        if (expression_list != NULL)
+        {
+            AST prev = ASTSon0(expression_list);
+
+            if (prev != NULL)
+            {
+                fprintf(stderr, "%s: warning: brace initialization with more than one element is not valid here\n",
+                        ast_location(initializer));
+                return 0;
+            }
+
+            AST initializer_clause = ASTSon1(expression_list);
+            if (check_for_initializer_clause(initializer_clause, decl_context, declared_type))
+            {
+                expression_set_type(expression_list, expression_get_type(initializer_clause));
+                expression_set_constant(expression_list, expression_get_constant(initializer_clause));
+                return 1;
+            }
+        }
+        else
+        {
+            // Empty is OK
+            // FIXME: We should compute the constant value
+            expression_set_type(expression_list, declared_type);
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+char check_for_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type)
+{
+    switch (ASTType(initializer))
+    {
+        // Default is an expression
+        default:
+            {
+                char result = check_for_expression(initializer, decl_context);
 
                 if (result)
                 {
                     type_t* declared_type_no_cv = get_unqualified_type(declared_type);
-                    type_t* initializer_expr_type = expression_get_type(expression);
+                    type_t* initializer_expr_type = expression_get_type(initializer);
                     // Now we have to check whether this can be converted to the declared entity
                     char ambiguous_conversion = 0;
                     scope_entry_t* conversor = NULL;
@@ -9330,40 +9661,34 @@ char check_for_initializer_clause(AST initializer, decl_context_t decl_context, 
                                 )
                             // A wchar_t[x] can be initialized with a wide string literal, we do not check the size
                             && !(is_array_type(declared_type_no_cv)
-                                && is_wchar_t_type(array_type_get_element_type(declared_type_no_cv))
-                                && is_array_type(no_ref(initializer_expr_type))
-                                && is_wchar_t_type(array_type_get_element_type(no_ref(initializer_expr_type)))
-                                && is_literal_string_type(no_ref(initializer_expr_type))
+                                    && is_wchar_t_type(array_type_get_element_type(declared_type_no_cv))
+                                    && is_array_type(no_ref(initializer_expr_type))
+                                    && is_wchar_t_type(array_type_get_element_type(no_ref(initializer_expr_type)))
+                                    && is_literal_string_type(no_ref(initializer_expr_type))
                                 )
-                       )
-                    {
-                        fprintf(stderr, "%s: warning: initializer expression '%s' has type '%s' not convertible to '%s'\n",
-                                ast_location(expression),
-                                prettyprint_in_buffer(expression),
-                                print_decl_type_str(initializer_expr_type, decl_context, ""),
-                                print_decl_type_str(declared_type, decl_context, ""));
-                        return 0;
-                    }
+                            )
+                            {
+                                fprintf(stderr, "%s: warning: initializer initializer '%s' has type '%s' not convertible to '%s'\n",
+                                        ast_location(initializer),
+                                        prettyprint_in_buffer(initializer),
+                                        print_decl_type_str(initializer_expr_type, decl_context, ""),
+                                        print_decl_type_str(declared_type, decl_context, ""));
+                                return 0;
+                            }
 
                     if (conversor != NULL)
                     {
-                        ASTAttrSetValueType(expression, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
-                        ASTAttrSetValueType(expression, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversor));
+                        ASTAttrSetValueType(initializer, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+                        ASTAttrSetValueType(initializer, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversor));
                     }
-
-                    ASTAttrSetValueType(initializer, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(initializer, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(expression));
-
-                    expression_set_type(initializer, initializer_expr_type);
-
-                    expression_set_constant(initializer, expression_get_constant(expression));
-
-                    expression_set_is_value_dependent(initializer,
-                            expression_is_value_dependent(expression));
                 }
 
                 return result;
                 break;
+            }
+        case AST_INITIALIZER_BRACES:
+            {
+                return check_for_braced_initializer_list(initializer, decl_context, declared_type);
             }
         case AST_DESIGNATED_INITIALIZER :
             {
@@ -9408,10 +9733,6 @@ char check_for_initializer_clause(AST initializer, decl_context_t decl_context, 
 
                 return result;
                 break;
-            }
-        default :
-            {
-                internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTType(initializer)));
             }
     }
 
@@ -9713,13 +10034,15 @@ static char check_for_parenthesized_initializer(AST initializer_list, decl_conte
         scope_entry_t* conversors[MAX_ARGUMENTS];
         memset(conversors, 0, sizeof(conversors));
 
+        scope_entry_list_t* candidates = NULL;
         scope_entry_t* constructor = solve_constructor(declared_type,
                 argument_types,
                 initializer_num,
                 /* is_explicit */ 1,
                 decl_context,
                 ASTFileName(initializer_list), ASTLine(initializer_list),
-                conversors);
+                conversors,
+                &candidates);
 
         if (constructor == NULL)
         {
@@ -9732,13 +10055,17 @@ static char check_for_parenthesized_initializer(AST initializer_list, decl_conte
             return 0;
         }
 
-        int k = 1;
+        ensure_not_deleted(decl_context, initializer_list, constructor);
+
+        int k = 0;
         for_each_element(initializer_list, iterator)
         {
             AST initializer = ASTSon1(iterator);
 
             if (conversors[k] != NULL)
             {
+                ensure_not_deleted(decl_context, initializer, conversors[k]);
+
                 ASTAttrSetValueType(initializer, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(initializer, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[k]));
             }
@@ -9761,44 +10088,27 @@ char check_for_initialization(AST initializer, decl_context_t decl_context, type
 
     switch (ASTType(initializer))
     {
-        case AST_CONSTANT_INITIALIZER :
-            {
-                AST expression = ASTSon0(initializer);
-                result = check_for_expression(expression, decl_context);
-
-                if (result)
-                {
-                    expression_set_type(initializer, expression_get_type(expression));
-                    expression_set_is_lvalue(initializer, 0);
-                    expression_set_constant(initializer, 
-                            expression_get_constant(expression));
-                    expression_set_is_value_dependent(initializer,
-                            expression_is_value_dependent(expression));
-                }
-                break;
-            }
-        case AST_INITIALIZER :
+        case AST_EQUAL_INITIALIZER:
             {
                 AST initializer_clause = ASTSon0(initializer);
                 result = check_for_initializer_clause(initializer_clause, decl_context, declared_type);
 
                 if (result)
                 {
-                    expression_set_type(initializer, expression_get_type(initializer_clause));
-                    expression_set_is_lvalue(initializer, 0);
-                    expression_set_constant(initializer, 
-                            expression_get_constant(initializer_clause));
-                    expression_set_is_value_dependent(initializer,
-                            expression_is_value_dependent(initializer_clause));
-                }
-
-                if (result 
-                        && ASTType(ASTSon0(initializer)) == AST_INITIALIZER_EXPR)
-                { 
                     ASTAttrSetValueType(initializer, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(initializer, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(ASTSon0(initializer)));
+                    ASTAttrSetValueType(initializer, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(initializer_clause));
+
+                    expression_set_type(initializer, expression_get_type(initializer_clause));
+
+                    expression_set_constant(initializer, expression_get_constant(initializer_clause));
+
+                    expression_set_is_value_dependent(initializer, expression_is_value_dependent(initializer_clause));
                 }
                 break;
+            }
+        case AST_INITIALIZER_BRACES:
+            {
+                return check_for_braced_initializer_list(initializer, decl_context, declared_type);
             }
         case AST_PARENTHESIZED_INITIALIZER :
             {
@@ -9818,9 +10128,9 @@ char check_for_initialization(AST initializer, decl_context_t decl_context, type
                 }
                 break;
             }
-        default :
+        default:
             {
-                internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTType(initializer)));
+                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(initializer)));
             }
     }
 
@@ -11047,12 +11357,14 @@ char check_zero_args_constructor(type_t* class_type, decl_context_t decl_context
     int num_arguments = 0;
     type_t** arguments = NULL;
 
+    scope_entry_list_t* candidates = NULL;
     scope_entry_t* chosen_constructor = solve_constructor(class_type,
             arguments, num_arguments,
             /* is_explicit */ 1,
             decl_context,
             ASTFileName(declarator), ASTLine(declarator),
-            /* conversors */ NULL);
+            /* conversors */ NULL,
+            &candidates);
 
     if (chosen_constructor == NULL)
     {
@@ -11066,6 +11378,8 @@ char check_zero_args_constructor(type_t* class_type, decl_context_t decl_context
     }
     else
     {
+        ensure_not_deleted(decl_context, declarator, chosen_constructor);
+
         ASTAttrSetValueType(declarator, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
         ASTAttrSetValueType(declarator, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(chosen_constructor));
     }

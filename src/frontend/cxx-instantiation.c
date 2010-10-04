@@ -52,6 +52,7 @@ static scope_entry_t* add_duplicate_member_to_class(decl_context_t context_of_be
     new_member->entity_specs.class_type = being_instantiated;
 
     class_type_add_member(get_actual_class_type(being_instantiated), new_member);
+
     return new_member;
 }
 
@@ -194,7 +195,7 @@ static scope_entry_t* instantiate_template_type_member(type_t* template_type,
                 template_type_get_primary_type(
                     template_specialized_type_get_related_template_type(member_of_template->type_information)))->entity_specs;
 
-    named_type_get_symbol(new_primary_template)->entity_specs.template_is_declared = 1;
+    named_type_get_symbol(new_primary_template)->entity_specs.is_user_declared = 1;
 
     named_type_get_symbol(new_primary_template)->entity_specs.class_type = being_instantiated;
 
@@ -418,7 +419,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                             new_member->file);
 
                     scope_entry_t* primary_template = named_type_get_symbol(template_type_get_primary_type(template_type));
-                    primary_template->entity_specs.template_is_declared = 1;
+                    primary_template->entity_specs.is_user_declared = 1;
 
                     type_t* primary_specialization = primary_template->type_information;
 
@@ -556,7 +557,7 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                                 member_of_template->line, 
                                 member_of_template->file);
 
-                        named_type_get_symbol(new_template_specialized_type)->entity_specs.template_is_declared = 1;
+                        named_type_get_symbol(new_template_specialized_type)->entity_specs.is_user_declared = 1;
 
                         class_type_add_member(
                                 get_actual_class_type(being_instantiated),
@@ -620,14 +621,11 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
 
                 DEBUG_CODE()
                 {
-                    char is_dependent = 0;
-                    int max_qualif = 0;
                     fprintf(stderr, "INSTANTIATION: New member function '%s'\n",
                             print_decl_type_str(new_member->type_information, 
                                 context_of_being_instantiated, 
-                                get_fully_qualified_symbol_name(new_member, 
-                                    context_of_being_instantiated, 
-                                    &is_dependent, &max_qualif)));
+                                get_qualified_symbol_name(new_member, 
+                                    context_of_being_instantiated)));
                 }
 
                 // Functions are not defined yet
@@ -646,6 +644,14 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     {
                         class_type_add_copy_constructor(get_actual_class_type(being_instantiated), new_member);
                     }
+
+                    CXX1X_LANGUAGE()
+                    {
+                        if (member_of_template->entity_specs.is_move_constructor)
+                        {
+                            class_type_add_move_constructor(get_actual_class_type(being_instantiated), new_member);
+                        }
+                    }
                 }
                 if (member_of_template->entity_specs.is_destructor)
                 {
@@ -655,9 +661,20 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 {
                     class_type_add_conversion_function(get_actual_class_type(being_instantiated), new_member);
                 }
-                if (member_of_template->entity_specs.is_assignment_operator)
+                if (member_of_template->entity_specs.is_copy_assignment_operator)
                 {
                     class_type_add_copy_assignment_operator(get_actual_class_type(being_instantiated), new_member);
+                }
+                CXX1X_LANGUAGE()
+                {
+                    if (member_of_template->entity_specs.is_move_assignment_operator)
+                    {
+                        class_type_add_move_assignment_operator(get_actual_class_type(being_instantiated), new_member);
+                    }
+                }
+                if (member_of_template->entity_specs.is_virtual)
+                {
+                    class_type_add_virtual_function(get_actual_class_type(being_instantiated), new_member);
                 }
 
                 break;
@@ -682,17 +699,12 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 if (!class_type_is_base(entry_list->entry->entity_specs.class_type, 
                             get_actual_class_type(being_instantiated)))
                 {
-                    char is_dependent = 0;
-                    int max_qualif = 0;
-
                     running_error("%s: entity '%s' is not a member of a base of class '%s'\n",
                             ast_location(member_of_template->expression_value),
-                                get_fully_qualified_symbol_name(entry_list->entry, 
-                                    context_of_being_instantiated, 
-                                    &is_dependent, &max_qualif),
-                                get_fully_qualified_symbol_name(named_type_get_symbol(being_instantiated), 
-                                    context_of_being_instantiated, 
-                                    &is_dependent, &max_qualif)
+                                get_qualified_symbol_name(entry_list->entry, 
+                                    context_of_being_instantiated),
+                                get_qualified_symbol_name(named_type_get_symbol(being_instantiated), 
+                                    context_of_being_instantiated)
                             );
                 }
 

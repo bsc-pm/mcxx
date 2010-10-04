@@ -49,7 +49,7 @@ struct GuardTaskGenerator : Functor<TL::AST_t::callback_result, TL::AST_t>
         {
         }
 
-        virtual AST_t::callback_result do_(TL::AST_t& a) const
+        virtual AST_t::callback_result do_(GuardTaskGenerator::ArgType a) const
         {
             if (is_pragma_custom_construct("omp", "task", a, _sl))
             {

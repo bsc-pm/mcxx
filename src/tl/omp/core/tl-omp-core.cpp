@@ -346,6 +346,14 @@ namespace TL
                             }
                             else
                             {
+                                CXX_LANGUAGE()
+                                {
+                                    if (udr_is_builtin_operator_2(reductor_name) && var_type.is_enum())
+                                    {
+                                        var_type = var_type.get_enum_underlying_type();
+                                    }
+                                }
+
 		                        if (!reductor_name.compare("+")) reductor_name = "_plus_";
 		                        else if (!reductor_name.compare("-")) reductor_name = "_minus_";
 		                        else if (!reductor_name.compare("*")) reductor_name = "_mult_";
@@ -361,7 +369,7 @@ namespace TL
 		                                found,
 		                                var_type,
                                         reductor_name_tree,
-                                        _udr_counter);         
+                                        _udr_counter);
                             }
 
                             if (found)
@@ -651,7 +659,13 @@ namespace TL
                         || !sym.is_variable())
                     continue;
 
-                DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
+                DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
+
+                // Do nothing with threadprivates
+                if ((data_attr & DS_THREADPRIVATE) == DS_THREADPRIVATE)
+                    continue;
+
+                data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
 
                 if (data_attr == DS_UNDEFINED)
                 {
@@ -801,7 +815,7 @@ namespace TL
                 DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
 
                 // Do nothing with threadprivates
-                if (data_attr == DS_THREADPRIVATE)
+                if ((data_attr & DS_THREADPRIVATE) == DS_THREADPRIVATE)
                     continue;
 
                 data_attr = data_sharing.get_data_sharing(sym, /* check_enclosing */ false);
@@ -957,6 +971,12 @@ namespace TL
                 {
                     IdExpression id_expr = expr.get_id_expression();
                     Symbol sym = id_expr.get_symbol();
+
+                    if (sym.is_member()
+                            && !sym.is_static())
+                    {
+                        std::cerr << expr.get_ast().get_locus() << ": warning: '" << expr << "' is a nonstatic-member, skipping" << std::endl;
+                    }
 
                     data_sharing.set_data_sharing(sym, DS_THREADPRIVATE);
                 }

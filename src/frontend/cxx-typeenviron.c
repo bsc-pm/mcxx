@@ -693,12 +693,9 @@ static void cxx_abi_print_layout(layout_info_t* layout_info)
         {
             scope_entry_t* entry = subobjects->entry;
 
-            char is_dependent = 0;
-            int max_qualif_level = 0;
             fprintf(stderr, "@%04zu:", current_offset->offset);
-
-            fprintf(stderr, " %s\n", get_fully_qualified_symbol_name(entry, 
-                        entry->decl_context, &is_dependent, &max_qualif_level));
+            fprintf(stderr, " %s\n", get_qualified_symbol_name(entry, 
+                        entry->decl_context));
 
             subobjects = subobjects->next;
         }
@@ -995,9 +992,6 @@ static void cxx_abi_lay_member_out(type_t* t,
         char is_base_class,
         char is_virtual_base_class)
 {
-    char is_dependent = 0;
-    int max_qualif_level = 0;
-
     if (member->entity_specs.is_bitfield)
     {
         cxx_abi_lay_bitfield(t, member, layout_info);
@@ -1062,10 +1056,7 @@ static void cxx_abi_lay_member_out(type_t* t,
             DEBUG_SIZEOF_CODE()
             {
                 fprintf(stderr, "Laying out base class '%s' at offset %zu\n",
-                        get_fully_qualified_symbol_name(member, 
-                            member->decl_context,
-                            &is_dependent,
-                            &max_qualif_level),
+                        get_qualified_symbol_name(member, member->decl_context), 
                         offset);
             }
         }
@@ -1123,10 +1114,7 @@ static void cxx_abi_lay_member_out(type_t* t,
                 DEBUG_SIZEOF_CODE()
                 {
                     fprintf(stderr, "Laying out base class '%s' at offset %zu\n",
-                            get_fully_qualified_symbol_name(member, 
-                                member->decl_context,
-                                &is_dependent,
-                                &max_qualif_level),
+                            get_qualified_symbol_name(member, member->decl_context),
                             offset);
                 }
             }
@@ -1147,10 +1135,7 @@ static void cxx_abi_lay_member_out(type_t* t,
                 DEBUG_SIZEOF_CODE()
                 {
                     fprintf(stderr, "Laying out member '%s' at offset %zu\n",
-                            get_fully_qualified_symbol_name(member, 
-                                member->decl_context,
-                                &is_dependent,
-                                &max_qualif_level),
+                            get_qualified_symbol_name(member, member->decl_context),
                             offset);
                 }
             }
@@ -1163,6 +1148,60 @@ static void cxx_abi_lay_member_out(type_t* t,
     // This is needed for bitfields
     layout_info->previous_was_base = is_base_class;
     layout_info->previous_base = is_base_class ? member : NULL;
+}
+
+static char is_pod_type_layout(type_t* t)
+{
+    /*
+       POD for the purpose of layout
+
+       In general, a type is considered a POD for the purposes of layout if it is
+       a POD type (in the sense of ISO C++ [basic.types]). However, a POD-struct
+       or POD-union (in the sense of ISO C++ [class]) with a bitfield member whose
+       declared width is wider than the declared type of the bitfield is not a POD
+       for the purpose of layout. Similarly, an array type is not a POD for the
+       purpose of layout if the element type of the array is not a POD for the
+       purpose of layout. 
+
+     */
+    if (!is_class_type(t)
+            && !is_array_type(t))
+    {
+        return is_pod_type(t);
+    }
+    else if (is_array_type(t))
+    {
+        return is_pod_type_layout(array_type_get_element_type(t));
+    }
+    else if (is_class_type(t))
+    {
+        if (!is_pod_type(t))
+            return 0;
+
+        type_t* class_type = get_actual_class_type(t);
+        int i;
+        for (i = 0; i < class_type_get_num_nonstatic_data_members(class_type); i++)
+        {
+            scope_entry_t* data_member = class_type_get_nonstatic_data_member_num(class_type, i);
+
+            if (data_member->entity_specs.is_bitfield)
+            {
+                _size_t bits_of_bitfield = 
+                    const_value_cast_to_8(
+                            expression_get_constant(data_member->entity_specs.bitfield_expr)
+                            );
+
+                _size_t bits_of_base_type = type_get_size(data_member->type_information) * 8;
+
+                if (bits_of_bitfield > bits_of_base_type)
+                    return 0;
+            }
+        }
+
+        return 1;
+    }
+
+    internal_error("Unhandled type", 0);
 }
 
 static void cxx_abi_class_sizeof(type_t* class_type)

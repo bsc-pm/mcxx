@@ -34,45 +34,45 @@ namespace TL
     const PredicateAttr ReturnStatement::predicate(LANG_IS_RETURN_STATEMENT);
     const PredicateAttr GotoStatement::predicate(LANG_IS_GOTO_STATEMENT);
 
-    bool Condition::is_expression()
+    bool Condition::is_expression() const
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_CONDITION_EXPRESSION);
         return b;
     }
 
-    bool Condition::is_declaration()
+    bool Condition::is_declaration() const
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_CONDITION_DECLARATION);
         return b;
     }
 
-    Expression Condition::get_expression()
+    Expression Condition::get_expression() const
     {
         TL::AST_t ast = _ref.get_attribute(LANG_EXPRESSION_NESTED);
         Expression expr(ast, _scope_link);
         return expr;
     }
 
-    Declaration Condition::get_declaration()
+    Declaration Condition::get_declaration() const
     {
         Declaration decl(_ref, _scope_link);
         return decl;
     }
 
-    ObjectList<Symbol> Statement::non_local_symbols()
+    ObjectList<Symbol> Statement::non_local_symbols() const
     {
         ObjectList<IdExpression> id_expressions  = non_local_symbol_occurrences();
         ObjectList<Symbol> result = id_expressions.map(functor(&IdExpression::get_symbol));
         return result;
     }
 
-    bool Statement::is_compound_statement()
+    bool Statement::is_compound_statement() const
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_COMPOUND_STATEMENT);
         return b;
     }
 
-    ObjectList<Statement> Statement::get_inner_statements()
+    ObjectList<Statement> Statement::get_inner_statements() const
     {
         ObjectList<Statement> result;
 
@@ -317,12 +317,12 @@ namespace TL
     }
 
 
-    bool ForStatement::regular_loop()
+    bool ForStatement::regular_loop() const
     {
         return is_regular_loop();
     }
 
-    bool ForStatement::is_regular_loop()
+    bool ForStatement::is_regular_loop() const
     {
         return (_induction_variable.is_valid()
                 && _lower_bound.is_valid() 
@@ -330,7 +330,7 @@ namespace TL
                 && _step.is_valid());
     }
 
-    Source ForStatement::get_bound_operator()
+    Source ForStatement::get_bound_operator() const
     {
         return _operator_bound;
     }
@@ -341,25 +341,25 @@ namespace TL
         return result;
     }
 
-    Expression ForStatement::get_lower_bound()
+    Expression ForStatement::get_lower_bound() const
     {
         Expression result(_lower_bound, _scope_link);
         return result;
     }
 
-    Expression ForStatement::get_upper_bound()
+    Expression ForStatement::get_upper_bound() const
     {
         Expression result(_upper_bound, _scope_link);
         return result;
     }
 
-    Expression ForStatement::get_step()
+    Expression ForStatement::get_step() const
     {
         Expression result(_step, _scope_link);
         return result;
     }
 
-    Statement ForStatement::get_loop_body()
+    Statement ForStatement::get_loop_body() const
     {
         AST_t loop_body = _ref.get_attribute(LANG_FOR_BODY_STATEMENT);
         Statement result(loop_body, _scope_link);
@@ -368,45 +368,45 @@ namespace TL
     }
 
 
-    AST_t ForStatement::get_iterating_init()
+    AST_t ForStatement::get_iterating_init() const
     {
         AST_t result = _ref.get_attribute(LANG_FOR_INIT_CONSTRUCT);
         return result;
     }
 
-    Expression ForStatement::get_iterating_condition()
+    Expression ForStatement::get_iterating_condition() const
     {
         Expression result(_ref.get_attribute(LANG_FOR_CONDITION),
                 _scope_link);
         return result;
     }
 
-    Expression ForStatement::get_iterating_expression()
+    Expression ForStatement::get_iterating_expression() const
     {
         Expression result(_ref.get_attribute(LANG_FOR_ITERATION_EXPRESSION),
                 _scope_link);
         return result;
     }
 
-    bool Statement::is_expression()
+    bool Statement::is_expression() const
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_EXPRESSION_STATEMENT);
         return b;
     }
 
-    Expression Statement::get_expression()
+    Expression Statement::get_expression() const
     {
         // It turns that expression statements can be safely wrapped in Expression already
         return Expression(_ref, _scope_link);
     }
 
-    bool Statement::is_labeled()
+    bool Statement::is_labeled() const
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_LABELED_STATEMENT);
         return b;
     }
 
-    std::string Statement::get_label()
+    std::string Statement::get_label() const
     {
         std::string result = "";
 
@@ -419,7 +419,7 @@ namespace TL
         return result;
     }
 
-    bool Statement::is_in_compound_statement()
+    bool Statement::is_in_compound_statement() const
     {
         if (_ref.is_in_a_list())
         {
@@ -433,7 +433,7 @@ namespace TL
         return false;
     }
 
-    bool Statement::is_first()
+    bool Statement::is_first() const
     {
         if (!is_in_compound_statement())
             return true;
@@ -442,7 +442,7 @@ namespace TL
         return list.is_first();
     }
 
-    bool Statement::is_last()
+    bool Statement::is_last() const
     {
         if (!is_in_compound_statement())
             return true;
@@ -451,7 +451,7 @@ namespace TL
         return list.is_last();
     }
 
-    Statement Statement::next()
+    Statement Statement::next() const
     {
         ASTIterator list = _ref.get_enclosing_list();
         list.next();
@@ -461,7 +461,7 @@ namespace TL
         return Statement(item, _scope_link);
     }
 
-    Statement Statement::previous()
+    Statement Statement::previous() const
     {
         ASTIterator list = _ref.get_enclosing_list();
         list.previous();
@@ -471,68 +471,68 @@ namespace TL
         return Statement(item, _scope_link);
     }
 
-    Statement WhileStatement::get_body()
+    Statement WhileStatement::get_body() const
     {
         TL::AST_t body_tree = _ref.get_attribute(LANG_WHILE_STATEMENT_BODY);
 
         return Statement(body_tree, _scope_link);
     }
 
-    Condition WhileStatement::get_condition()
+    Condition WhileStatement::get_condition() const
     {
         TL::AST_t condition_tree = _ref.get_attribute(LANG_WHILE_STATEMENT_CONDITION);
         return Condition(condition_tree, _scope_link);
     }
 
-    Condition IfStatement::get_condition()
+    Condition IfStatement::get_condition() const
     {
         TL::AST_t condition_tree = _ref.get_attribute(LANG_IF_STATEMENT_CONDITION);
         return Condition(condition_tree, _scope_link);
     }
 
-    Statement IfStatement::get_then_body()
+    Statement IfStatement::get_then_body() const
     {
         TL::AST_t then_tree = _ref.get_attribute(LANG_IF_STATEMENT_THEN_BODY);
         return Statement(then_tree, _scope_link);
     }
 
-    bool IfStatement::has_else()
+    bool IfStatement::has_else() const
     {
         TL::AST_t else_tree = _ref.get_attribute(LANG_IF_STATEMENT_ELSE_BODY);
         return else_tree.is_valid();
     }
 
-    Statement IfStatement::get_else_body()
+    Statement IfStatement::get_else_body() const
     {
         TL::AST_t else_tree = _ref.get_attribute(LANG_IF_STATEMENT_ELSE_BODY);
         return Statement(else_tree, _scope_link);
     }
 
-    Statement DoWhileStatement::get_body()
+    Statement DoWhileStatement::get_body() const
     {
         TL::AST_t do_while_body = _ref.get_attribute(LANG_DO_STATEMENT_BODY);
         return Statement(do_while_body, _scope_link);
     }
 
-    Expression DoWhileStatement::get_expression()
+    Expression DoWhileStatement::get_expression() const
     {
         TL::AST_t do_while_body = _ref.get_attribute(LANG_DO_STATEMENT_EXPRESSION);
         return Expression(do_while_body, _scope_link);
     }
 
-    Condition SwitchStatement::get_condition()
+    Condition SwitchStatement::get_condition() const
     {
         TL::AST_t condition_tree = _ref.get_attribute(LANG_SWITCH_STATEMENT_CONDITION);
         return Condition(condition_tree, _scope_link);
     }
 
-    Expression CaseStatement::get_case_expression()
+    Expression CaseStatement::get_case_expression() const
     {
         TL::AST_t case_expression = _ref.get_attribute(LANG_CASE_EXPRESSION);
         return Expression(case_expression, _scope_link);
     }
 
-    Statement CaseStatement::get_statement()
+    Statement CaseStatement::get_statement() const
     {
         TL::AST_t case_statement_body = _ref.get_attribute(LANG_CASE_STATEMENT_BODY);
         return Statement(case_statement_body, _scope_link);
@@ -561,13 +561,13 @@ namespace TL
         }
     }
 
-    bool Statement::is_declaration()
+    bool Statement::is_declaration() const
     {
         PredicateAttr is_decl_stmt(LANG_IS_DECLARATION_STATEMENT);
         return is_decl_stmt(_ref);
     }
 
-    bool Statement::is_simple_declaration()
+    bool Statement::is_simple_declaration() const
     {
         if (is_declaration())
         {
@@ -582,7 +582,7 @@ namespace TL
         return false;
     }
 
-    Declaration Statement::get_simple_declaration()
+    Declaration Statement::get_simple_declaration() const
     {
         // Check son 0 is a declaration
         AST_t first_son = _ref.children()[0];
@@ -592,7 +592,7 @@ namespace TL
         return decl;
     }
 
-    ObjectList<CaseStatement> SwitchStatement::get_cases()
+    ObjectList<CaseStatement> SwitchStatement::get_cases() const
     {
         TL::AST_t case_statement_body = _ref.get_attribute(LANG_CASE_STATEMENT_BODY);
 
@@ -613,19 +613,19 @@ namespace TL
         return result;
     }
 
-    bool ReturnStatement::has_return_expression()
+    bool ReturnStatement::has_return_expression() const
     {
         return TL::Bool(_ref.get_attribute(LANG_RETURN_STATEMENT_HAS_EXPRESSION));
     }
 
-    Expression ReturnStatement::get_return_expression()
+    Expression ReturnStatement::get_return_expression() const
     {
         AST_t tree = _ref.get_attribute(LANG_RETURN_EXPRESSION);
         Expression expr(tree, _scope_link);
         return expr;
     }
 
-    std::string GotoStatement::get_label()
+    std::string GotoStatement::get_label() const
     {
         AST_t tree = _ref.get_attribute(LANG_GOTO_STATEMENT_LABEL);
         return tree.prettyprint();

@@ -65,6 +65,7 @@ enum type_kind
     TK_VECTOR,             // 9
     TK_ELLIPSIS,           // 10
     TK_COMPUTED,           // 11
+    TK_BRACED_LIST,        // 12
 };
 
 // For simple_type_t
@@ -173,9 +174,13 @@ struct class_information_tag {
     int num_conversion_functions;
     struct scope_entry_tag** conversion_functions;
 
-    // Operator function info
+    // Copy assignment function info
     int num_copy_assignment_operator_functions;
     struct scope_entry_tag** copy_assignment_operator_function_list;
+
+    // Move assignment function info
+    int num_move_assignment_operator_functions;
+    struct scope_entry_tag** move_assignment_operator_function_list;
 
     // Class constructors info
     int num_constructors;
@@ -187,6 +192,10 @@ struct class_information_tag {
     // Copy constructors
     int num_copy_constructors;
     struct scope_entry_tag** copy_constructor_list;
+
+    // Move constructors
+    int num_move_constructors;
+    struct scope_entry_tag** move_constructor_list;
 
     // Nonstatic data members
     int num_nonstatic_data_members;
@@ -363,6 +372,13 @@ typedef struct vector_tag
 } vector_info_t;
 
 typedef
+struct braced_list_info_tag
+{
+    int num_types;
+    type_t** type_list;
+} braced_list_info_t;
+
+typedef
 struct common_type_info_tag
 {
     // See below for more detailed descriptions
@@ -417,6 +433,9 @@ struct type_tag
     // (kind == TK_OVERLOAD)
     scope_entry_list_t* overload_set;
     template_argument_list_t* explicit_template_argument_list;
+
+    // Braced list type
+    braced_list_info_t* braced_type;
 
     // Vector Type
     // (kind == TK_VECTOR)
@@ -952,7 +971,6 @@ type_t* get_user_defined_type(scope_entry_t* entry)
         ERROR_CONDITION(entry->type_information->unqualified_type == NULL, "This cannot be null", 0);
     }
 
-
     if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
             || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
     {
@@ -1023,68 +1041,6 @@ static dependent_name_part_t* get_dependent_nested_part(
 
     return result;
 }
-
-#if 0
-static dependent_name_part_t* compute_dependent_parts_of_dependent_symbol_aux_(
-        scope_entry_t* entry, scope_entry_t** enclosing_dependent_entity,
-        int *nesting_level)
-{
-    dependent_name_part_t* result = NULL;
-
-    *enclosing_dependent_entity = entry;
-
-    dependent_name_part_t* enclosing = NULL;
-    if (entry->kind == SK_CLASS
-            && entry->decl_context.current_scope->kind == CLASS_SCOPE
-            && is_dependent_type(entry->decl_context.current_scope->related_entry->type_information))
-    {
-        enclosing = compute_dependent_parts_of_dependent_symbol_aux_(
-                entry->decl_context.current_scope->related_entry,
-                enclosing_dependent_entity,
-                nesting_level);
-
-        result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
-        result->name = entry->symbol_name;
-
-        if (is_template_specialized_type(entry->type_information))
-        {
-            result->template_arguments = template_specialized_type_get_template_arguments(entry->type_information);
-            (*nesting_level)++;
-        }
-
-        if (enclosing != null)
-        {
-            dependent_name_part_t* tmp = enclosing;
-
-            while (tmp->next != null) 
-                tmp = tmp->next;
-            tmp->next = result;
-
-            result = enclosing;
-        }
-    }
-
-
-    return result;
-}
-
-static dependent_name_part_t* compute_dependent_parts_of_dependent_symbol(
-        scope_entry_t* entry, 
-        scope_entry_t** enclosing_dependent_entity,
-        int *nesting_level)
-{
-    dependent_name_part_t* result = NULL;
-    if (entry->kind == SK_CLASS
-            && entry->decl_context.current_scope->kind == CLASS_SCOPE
-            && is_dependent_type(entry->decl_context.current_scope->related_entry->type_information))
-    {
-        result = compute_dependent_parts_of_dependent_symbol_aux_(entry->decl_context.current_scope->related_entry,
-                enclosing_dependent_entity, nesting_level);
-    }
-
-    return result;
-}
-#endif
 
 static dependent_name_part_t* compute_dependent_parts_of_dependent_symbol(
         scope_entry_t* entry, 
@@ -1320,6 +1276,8 @@ type_t* get_new_class_type(decl_context_t decl_context, enum class_kind_t class_
 
     // This is incomplete by default
     type_info->info->is_incomplete = 1;
+
+    // Initially assume it is an aggregate
 
     return type_info;
 }
@@ -1794,7 +1752,7 @@ type_t* template_type_get_specialized_type_after_type(type_t* t,
     // Keep information of the entity except for template_is_declared which
     // must be cleared at this point
     specialized_symbol->entity_specs = primary_symbol->entity_specs;
-    specialized_symbol->entity_specs.template_is_declared = 0;
+    specialized_symbol->entity_specs.is_user_declared = 0;
     
     // Remove the extra template-scope we got from the primary one
     // specialized_symbol->decl_context.template_scope = 
@@ -2397,6 +2355,7 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
                 rb_tree_add(array_sized_hash, element_type, result);
 
                 result->info->is_dependent = is_dependent_type(element_type);
+
             }
             else
             {
@@ -2413,6 +2372,7 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
             result->array->element_type = element_type;
             result->array->array_expr = expression;
             result->array->array_expr_decl_context = decl_context;
+
 
             C_LANGUAGE()
             {
@@ -3047,6 +3007,27 @@ void class_type_add_copy_assignment_operator(type_t* class_type, scope_entry_t* 
             class_type->type->class_info->num_copy_assignment_operator_functions, entry);
 }
 
+int class_type_get_num_move_assignment_operators(type_t* class_type)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+
+    return class_type->type->class_info->num_move_assignment_operator_functions;
+}
+
+scope_entry_t* class_type_get_move_assignment_operator_num(type_t* class_type, int num)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+
+    return class_type->type->class_info->move_assignment_operator_function_list[num];
+}
+
+void class_type_add_move_assignment_operator(type_t* class_type, scope_entry_t* entry)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+    P_LIST_ADD_ONCE(class_type->type->class_info->move_assignment_operator_function_list, 
+            class_type->type->class_info->num_move_assignment_operator_functions, entry);
+}
+
 void class_type_add_copy_constructor(type_t* class_type, scope_entry_t* entry)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
@@ -3067,6 +3048,28 @@ scope_entry_t* class_type_get_copy_constructor_num(type_t* class_type, int num)
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
 
     return class_type->type->class_info->copy_constructor_list[num];
+}
+
+void class_type_add_move_constructor(type_t* class_type, scope_entry_t* entry)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+
+    P_LIST_ADD_ONCE(class_type->type->class_info->move_constructor_list,
+            class_type->type->class_info->num_move_constructors, entry);
+}
+
+int class_type_get_num_move_constructors(type_t* class_type)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+
+    return class_type->type->class_info->num_move_constructors;
+}
+
+scope_entry_t* class_type_get_move_constructor_num(type_t* class_type, int num)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+
+    return class_type->type->class_info->move_constructor_list[num];
 }
 
 void class_type_add_conversion_function(type_t* class_type, scope_entry_t* entry)
@@ -5433,7 +5436,6 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
     {
         case STK_USER_DEFINED :
             {
-                // Fix this
                 scope_entry_t* entry = simple_type->user_defined_type;
 
                 char is_dependent = 0;
@@ -5557,10 +5559,8 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
         case STK_TEMPLATE_DEPENDENT_TYPE :
             {
                 // result = prettyprint_in_buffer(simple_type->typeof_expr);
-                char is_dependent = 0;
-                int max_level = 0;
-                result = get_fully_qualified_symbol_name(simple_type->dependent_entry,
-                        decl_context, &is_dependent, &max_level);
+                result = get_qualified_symbol_name(simple_type->dependent_entry,
+                        decl_context);
 
                 dependent_name_part_t* parts = simple_type->dependent_parts;
                 while (parts != NULL)
@@ -5593,10 +5593,9 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                                     }
                                 case TAK_TEMPLATE:
                                     {
-                                        char is_dep = 0; int max_lev = 0;
                                         result = strappend(result,
-                                                get_fully_qualified_symbol_name(named_type_get_symbol(template_arg->type),
-                                                    decl_context, &is_dep, &max_lev));
+                                                get_qualified_symbol_name(named_type_get_symbol(template_arg->type), 
+                                                    decl_context));
                                         break;
                                     }
                                 default:
@@ -6102,23 +6101,16 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
     {
         case SK_ENUM :
             {
-                int max_level = 0;
-                char is_dependent = 0;
                 snprintf(user_defined_str, MAX_LENGTH, "enum %s {%s:%d}", 
-                        get_fully_qualified_symbol_name(user_defined_type, user_defined_type->decl_context, 
-                            &is_dependent, &max_level),
+                        get_qualified_symbol_name(user_defined_type, user_defined_type->decl_context),
                         user_defined_type->file,
                         user_defined_type->line);
                 break;
             }
         case SK_CLASS :
             {
-                int max_level = 0;
-                char is_dependent = 0;
-
                 snprintf(user_defined_str, MAX_LENGTH, "class %s {%s:%d}", 
-                        get_fully_qualified_symbol_name(user_defined_type, user_defined_type->decl_context,
-                            &is_dependent, &max_level),
+                        get_qualified_symbol_name(user_defined_type, user_defined_type->decl_context),
                         user_defined_type->file,
                         user_defined_type->line);
                 break;
@@ -6461,6 +6453,24 @@ const char* print_declarator(type_t* printed_declarator)
             case TK_OVERLOAD :
                 {
                     tmp_result = strappend(tmp_result, " <unresolved overload function type> ");
+                }
+                printed_declarator = NULL;
+                break;
+            case TK_BRACED_LIST:
+                {
+                    tmp_result = strappend(tmp_result, " <braced-list-type>{ ");
+                    int i;
+                    for (i = 0; i < braced_list_type_get_num_types(printed_declarator); i++)
+                    {
+                        if (i != 0)
+                        {
+                            strappend(tmp_result, ", ");
+                        }
+
+                        strappend(tmp_result, 
+                                print_declarator(braced_list_type_get_type_num(printed_declarator, i)));
+                    }
+                    tmp_result = strappend(tmp_result, " } ");
                 }
                 printed_declarator = NULL;
                 break;
@@ -7598,10 +7608,49 @@ type_t* get_ellipsis_type(void)
     return _ellipsis_type;
 }
 
+
 char is_ellipsis_type(type_t* t)
 {
     return ((_ellipsis_type != NULL)
             && (t == _ellipsis_type));
+}
+
+type_t* get_braced_list_type(int num_types, type_t** type_list)
+{
+    type_t* result = new_empty_type();
+
+    result->kind = TK_BRACED_LIST;
+
+    result->braced_type = counted_calloc(1, sizeof(*result->braced_type), &_bytes_due_to_type_system);
+
+    result->braced_type->num_types = num_types;
+    result->braced_type->type_list = type_list;
+
+    return result;
+}
+
+int braced_list_type_get_num_types(type_t* t)
+{
+    ERROR_CONDITION (!is_braced_list_type(t), "This is not a braced list type", 0);
+    return t->braced_type->num_types;
+}
+
+type_t** braced_list_type_get_types(type_t* t)
+{
+    ERROR_CONDITION (!is_braced_list_type(t), "This is not a braced list type", 0);
+    return t->braced_type->type_list;
+}
+
+type_t* braced_list_type_get_type_num(type_t* t, int num)
+{
+    ERROR_CONDITION (!is_braced_list_type(t), "This is not a braced list type", 0);
+    return t->braced_type->type_list[num];
+}
+
+char is_braced_list_type(type_t* t)
+{
+    return ((t != NULL)
+            && (t->kind == TK_BRACED_LIST));
 }
 
 static type_t* _throw_expr_type = NULL;
@@ -7889,7 +7938,336 @@ scope_entry_t* class_type_get_virtual_function_num(type_t* class_type, int i)
     return class_type->type->class_info->virtual_functions[i];
 }
 
-static char is_pod_type_aux(type_t* t, char allow_wide_bitfields)
+char class_type_is_trivially_copiable(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "It must be a class type", 0);
+    type_t* class_type = get_actual_class_type(t);
+
+    /*
+       A trivially copyable class is a class that:
+       - has no non-trivial copy constructors (12.8),
+       - has no non-trivial move constructors (12.8),
+       - has no non-trivial copy assignment operators (13.5.3, 12.8),
+       - has no non-trivial move assignment operators (13.5.3, 12.8), and
+       - has a trivial destructor (12.4).
+     */
+
+    int i;
+    for (i = 0; i < class_type_get_num_copy_constructors(class_type); i++)
+    {
+        scope_entry_t* entry = class_type_get_copy_constructor_num(class_type, i);
+
+        if (!entry->entity_specs.is_trivial)
+            return 0;
+    }
+
+    for (i = 0; i < class_type_get_num_move_constructors(class_type); i++)
+    {
+        scope_entry_t* entry = class_type_get_move_constructor_num(class_type, i);
+
+        if (!entry->entity_specs.is_trivial)
+            return 0;
+    }
+
+    for (i = 0; i < class_type_get_num_copy_assignment_operators(class_type); i++)
+    {
+        scope_entry_t* entry = class_type_get_copy_assignment_operator_num(class_type, i);
+
+        if (!entry->entity_specs.is_trivial)
+            return 0;
+    }
+
+    for (i = 0; i < class_type_get_num_move_assignment_operators(class_type); i++)
+    {
+        scope_entry_t* entry = class_type_get_move_assignment_operator_num(class_type, i);
+
+        if (!entry->entity_specs.is_trivial)
+            return 0;
+    }
+
+    scope_entry_t* destructor = class_type_get_destructor(class_type);
+
+    if (destructor != NULL
+            && !destructor->entity_specs.is_trivial)
+        return 0;
+
+    return 1;
+}
+
+char class_type_is_trivial(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "It must be a class type", 0);
+    type_t* class_type = get_actual_class_type(t);
+
+    scope_entry_t* default_ctr = class_type_get_default_constructor(class_type);
+
+    if (default_ctr != NULL && !default_ctr->entity_specs.is_trivial)
+        return 0;
+
+    if (!class_type_is_trivially_copiable(t))
+        return 0;
+
+    return 1;
+}
+
+char class_type_is_standard_layout(type_t* t)
+{
+    /*
+       A standard-layout class is a class that:
+       - has no non-static data members of type non-standard-layout class (or array of such types) or reference,
+       - has no virtual functions (10.3) and no virtual base classes (10.1),
+       - has the same access control (Clause 11) for all non-static data members,
+       - has no non-standard-layout base classes,
+       - either has no non-static data members in the most-derived class and at most one base class with
+       non-static data members, or has no base classes with non-static data members, and
+       - has no base classes of the same type as the first non-static data member.10
+     */
+    ERROR_CONDITION(!is_class_type(t), "It must be a class type", 0);
+    type_t* class_type = get_actual_class_type(t);
+
+    int i;
+    for (i = 0; i < class_type_get_num_nonstatic_data_members(class_type); i++)
+    {
+        scope_entry_t* data_member = class_type_get_nonstatic_data_member_num(class_type, i);
+
+        type_t* data_member_type = data_member->type_information;
+
+        if (is_lvalue_reference_type(data_member_type)
+                || is_rvalue_reference_type(data_member_type))
+            return 0;
+
+        if (is_array_type(data_member_type))
+            data_member_type = array_type_get_element_type(data_member_type);
+        
+        if (is_class_type(data_member_type)
+                && !class_type_is_standard_layout(data_member_type))
+            return 0;
+    }
+
+    for (i = 0; i < class_type_get_num_member_functions(class_type); i++)
+    {
+        scope_entry_t* member_function = class_type_get_member_function_num(class_type, i);
+
+        if (member_function->entity_specs.is_virtual)
+            return 0;
+    }
+
+    for (i = 0 ; i < class_type_get_num_bases(class_type); i++)
+    {
+        char is_virtual = 0, is_dependent = 0;
+        /* scope_entry_t* base = */ class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+
+        if (is_virtual)
+            return 0;
+    }
+
+    access_specifier_t access = AS_UNKNOWN;
+
+    for (i = 0; i < class_type_get_num_nonstatic_data_members(class_type); i++)
+    {
+        scope_entry_t* data_member = class_type_get_nonstatic_data_member_num(class_type, i);
+
+        if (access == AS_UNKNOWN)
+        {
+            access = data_member->entity_specs.access;
+        }
+        else if (access != data_member->entity_specs.access)
+        {
+            return 0;
+        }
+    }
+
+    for (i = 0 ; i < class_type_get_num_bases(class_type); i++)
+    {
+        char is_virtual = 0, is_dependent = 0;
+        scope_entry_t* base = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+
+        if (!class_type_is_standard_layout(base->type_information))
+            return 0;
+    }
+
+    if (class_type_get_num_nonstatic_data_members(class_type) == 0)
+    {
+        int nonempty = 0;
+        for (i = 0 ; i < class_type_get_num_bases(class_type); i++)
+        {
+            char is_virtual = 0, is_dependent = 0;
+            scope_entry_t* base = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+
+            nonempty += (class_type_get_num_nonstatic_data_members(base->type_information) != 0);
+        }
+
+        if (nonempty > 1)
+            return 0;
+    }
+    else
+    {
+        for (i = 0 ; i < class_type_get_num_bases(class_type); i++)
+        {
+            char is_virtual = 0, is_dependent = 0;
+            scope_entry_t* base = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+
+            if (class_type_get_num_nonstatic_data_members(base->type_information) != 0)
+            {
+                return 0;
+            }
+        }
+
+        scope_entry_t* first_nonstatic = class_type_get_nonstatic_data_member_num(class_type, 0);
+
+        for (i = 0 ; i < class_type_get_num_bases(class_type); i++)
+        {
+            char is_virtual = 0, is_dependent = 0;
+            scope_entry_t* base = class_type_get_base_num(class_type, i, &is_virtual, &is_dependent);
+
+            if (equivalent_types(first_nonstatic->type_information, base->type_information))
+                return 0;
+        }
+    }
+
+    return 1;
+}
+
+char is_aggregate_type(type_t* t)
+{
+    /*
+       An aggregate is an array or a class (Clause 9) with no user-provided
+       constructors (12.1), no brace-or-equal initializers for non-static data
+       members (9.2), no private or protected non-static data members (Clause
+       11), no base classes (Clause 10), and no virtual functions (10.3).
+     */
+    if (is_array_type(t))
+        return 1;
+
+    if (is_class_type(t))
+    {
+        type_t* class_type = get_actual_class_type(t);
+
+        // No user provided constructors
+        int i;
+        for (i = 0; 
+                i < class_type_get_num_constructors(class_type);
+                i++)
+        {
+            scope_entry_t* entry = class_type_get_constructors_num(class_type, i);
+
+            if (entry->entity_specs.is_user_declared)
+                return 0;
+        }
+
+        for (i = 0;
+                i < class_type_get_num_nonstatic_data_members(class_type);
+                i++)
+        {
+            scope_entry_t* entry = class_type_get_nonstatic_data_member_num(class_type, i);
+
+            CXX1X_LANGUAGE()
+            {
+                // No initializer for nonstatic data member
+                if (entry->expression_value != NULL)
+                    return 0;
+            }
+
+            // No private or protected non-static data members
+            if (entry->entity_specs.access == AS_PRIVATE
+                    || entry->entity_specs.access == AS_PROTECTED)
+                return 0;
+        }
+
+        // No base classes
+        if (class_type_get_num_bases(class_type) != 0)
+            return 0;
+
+        for (i = 0; 
+                i < class_type_get_num_member_functions(class_type);
+                i++)
+        {
+            scope_entry_t* entry = class_type_get_member_function_num(class_type, i);
+
+            // No virtual functions
+            if (entry->entity_specs.is_virtual)
+                return 0;
+        }
+
+        return 1;
+    }
+
+    return 0;
+}
+
+char class_type_is_pod(type_t* t)
+{
+    ERROR_CONDITION(!is_class_type(t), "It must be a class type", 0);
+
+    C_LANGUAGE()
+    {
+        // Nobody should be calling this, but if so, yes, in C this is a POD
+        return 1;
+    }
+
+    CXX03_LANGUAGE()
+    {
+        /*
+           A POD-struct is an aggregate class that has no non-static data members of type non-POD-struct,
+           non-POD-union (or array of such types) or reference, and has no user-defined copy assignment operator
+           and no user-defined destructor. Similarly, a POD-union is an aggregate union that has no non-static data
+           members of type non-POD-struct, non-POD-union (or array of such types) or reference, and has no userdefined
+           copy assignment operator and no user-defined destructor. A POD class is a class that is either a
+           POD-struct or a POD-union
+         */
+        if (!is_aggregate_type(t))
+            return 0;
+
+        type_t* class_type = get_actual_class_type(t);
+
+        int i;
+        for (i = 0;
+                i < class_type_get_num_nonstatic_data_members(class_type);
+                i++)
+        {
+            scope_entry_t* entry = class_type_get_nonstatic_data_member_num(class_type, i);
+
+            if (!is_pod_type(entry->type_information))
+                return 0;
+        }
+
+        for (i = 0; i < class_type_get_num_copy_assignment_operators(class_type); i++)
+        {
+            scope_entry_t* entry = class_type_get_copy_assignment_operator_num(class_type, i);
+
+            if (entry->entity_specs.is_user_declared)
+                return 0;
+        }
+
+        scope_entry_t* destructor = class_type_get_destructor(class_type);
+        if (destructor != NULL && destructor->entity_specs.is_user_declared)
+            return 0;
+    }
+
+    CXX1X_LANGUAGE()
+    {
+        if (!class_type_is_trivial(t)
+                || !class_type_is_standard_layout(t))
+            return 0;
+
+        type_t* class_type = get_actual_class_type(t);
+
+        int i;
+        for (i = 0;
+                i < class_type_get_num_nonstatic_data_members(class_type);
+                i++)
+        {
+            scope_entry_t* entry = class_type_get_nonstatic_data_member_num(class_type, i);
+
+            if (!is_pod_type(entry->type_information))
+                return 0;
+        }
+    }
+
+    return 1;
+}
+
+static char closure_of_simple_properties(type_t* t, char (*class_prop)(type_t*))
 {
     if (is_integral_type(t)
             || is_enum_type(t)
@@ -7907,92 +8285,27 @@ static char is_pod_type_aux(type_t* t, char allow_wide_bitfields)
         return 0;
 
     if (is_array_type(t))
-        return is_pod_type_aux(array_type_get_element_type(t), allow_wide_bitfields);
+        return closure_of_simple_properties(array_type_get_element_type(t), class_prop);
 
     if (is_class_type(t))
-    {
-        // All nonstatic member functions must be POD
-        type_t* class_type = get_actual_class_type(t);
-        int i;
-        for (i = 0; i < class_type_get_num_nonstatic_data_members(class_type); i++)
-        {
-            scope_entry_t* data_member = class_type_get_nonstatic_data_member_num(class_type, i);
-
-            if (data_member->entity_specs.is_bitfield)
-            {
-                if (!allow_wide_bitfields)
-                {
-                    // Check whether this bitfield is wider than its type in bits
-
-                    _size_t bits_of_bitfield = 
-                        const_value_cast_to_8(
-                                expression_get_constant(data_member->entity_specs.bitfield_expr)
-                                );
-
-                    _size_t bits_of_base_type = type_get_size(data_member->type_information) * 8;
-
-                    if (bits_of_bitfield > bits_of_base_type)
-                        return 0;
-                }
-            }
-
-            if (!is_pod_type_aux(data_member->type_information, allow_wide_bitfields))
-                return 0;
-        }
-
-        // Default constructor, copy-constructor, copy-assignment and destructors must be trivial
-        scope_entry_t* default_constructor = class_type_get_default_constructor(class_type);
-
-        // Default constructor, if any, should be trivial
-        if (default_constructor != NULL
-                && !default_constructor->entity_specs.is_trivial)
-            return 0;
-
-        // It could happen that there is not any default constructor
-        // So we have to check whether there are not any user defined constructors
-        if (default_constructor == NULL
-                && class_type_get_num_constructors(class_type) != 0)
-            return 0;
-
-        // Copy constructors (if any) must be trivial
-        for (i = 0; i < class_type_get_num_copy_constructors(class_type); i++)
-        {
-            scope_entry_t* copy_constructor = class_type_get_copy_constructor_num(class_type, i);
-
-            if (!copy_constructor->entity_specs.is_trivial)
-                return 0;
-        }
-        
-        // Copy assignments (if any) must be trivial
-        for (i = 0; i < class_type_get_num_copy_assignment_operators(class_type); i++)
-        {
-            scope_entry_t* copy_assignment = class_type_get_copy_assignment_operator_num(class_type, i);
-
-            if (!copy_assignment->entity_specs.is_trivial)
-                return 0;
-        }
-
-        // Destructor, if any, must be trivial
-        scope_entry_t* destructor = class_type_get_destructor(class_type);
-
-        if (destructor != NULL
-                && !destructor->entity_specs.is_trivial)
-            return 0;
-
-        return 1;
-    }
+        return class_prop(t);
 
     internal_error("Unhandled type", 0);
 }
 
 char is_pod_type(type_t* t)
 {
-    return is_pod_type_aux(t, /* allow wide bitfields */ 1);
+    return closure_of_simple_properties(t, class_type_is_pod);
 }
 
-char is_pod_type_layout(type_t* t)
+char is_trivially_copiable_type(type_t* t)
 {
-    return is_pod_type_aux(t, /* allow wide bitfields */ 0);
+    return closure_of_simple_properties(t, class_type_is_trivially_copiable);
+}
+
+char is_standard_layout_type(type_t* t)
+{
+    return closure_of_simple_properties(t, class_type_is_standard_layout);
 }
 
 char type_is_runtime_sized(type_t* t)
@@ -8377,6 +8690,10 @@ const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const ch
         {
             return uniquestr("<unresolved overload>");
         }
+    }
+    else if (is_braced_list_type(t))
+    {
+        return uniquestr("<brace-enclosed initializer list>");
     }
     else
     {

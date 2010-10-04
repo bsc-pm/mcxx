@@ -147,7 +147,6 @@ HANDLER_PROTOTYPE(member_declaration_handler);
 HANDLER_PROTOTYPE(selection_statement_handler);
 HANDLER_PROTOTYPE(catch_handler_handler);
 HANDLER_PROTOTYPE(member_declarator_handler);
-HANDLER_PROTOTYPE(constant_initializer_handler);
 HANDLER_PROTOTYPE(base_clause_handler);
 HANDLER_PROTOTYPE(base_specifier_handler);
 HANDLER_PROTOTYPE(elaborated_type_class_handler);
@@ -186,6 +185,8 @@ HANDLER_PROTOTYPE(pp_prepro_token_handler);
 HANDLER_PROTOTYPE(verbatim_construct_handler);
 
 HANDLER_PROTOTYPE(double_colon_handler);
+
+HANDLER_PROTOTYPE(defaulted_or_deleted_function_def);
 
 // Pragma custom support
 HANDLER_PROTOTYPE(pragma_custom_directive_handler);
@@ -282,9 +283,8 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_VARIADIC_ARG, simple_parameter_handler, "..."),
     NODE_HANDLER(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, null_handler, NULL),
     NODE_HANDLER(AST_PARAMETER_DECL, parameter_decl_handler, NULL),
-    NODE_HANDLER(AST_INITIALIZER, prefix_with_parameter_then_son_handler, " = "),
     NODE_HANDLER(AST_PARENTHESIZED_INITIALIZER, parenthesized_initializer_handler, NULL),
-    NODE_HANDLER(AST_INITIALIZER_EXPR, unary_container_handler, NULL),
+    NODE_HANDLER(AST_EQUAL_INITIALIZER, prefix_with_parameter_then_son_handler, " = "),
     NODE_HANDLER(AST_INITIALIZER_BRACES, braced_initializer_handler, NULL),
     NODE_HANDLER(AST_POINTER_SPEC, pointer_spec_handler, NULL),
     NODE_HANDLER(AST_REFERENCE_SPEC, simple_parameter_handler, "&"),
@@ -411,7 +411,6 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_MEMBER_DECLARATION_QUALIF, member_declaration_qualif_handler, NULL),
     NODE_HANDLER(AST_MEMBER_DECLARATION, member_declaration_handler, NULL),
     NODE_HANDLER(AST_MEMBER_DECLARATOR, member_declarator_handler, NULL),
-    NODE_HANDLER(AST_CONSTANT_INITIALIZER, constant_initializer_handler, NULL),
     NODE_HANDLER(AST_USING_DECLARATION, using_declaration_handler, NULL),
     NODE_HANDLER(AST_TEMPLATE_DECLARATION, template_declaration_handler, NULL),
     NODE_HANDLER(AST_EXPORT_TEMPLATE_DECLARATION, template_declaration_handler, NULL),
@@ -526,6 +525,8 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_VERBATIM, verbatim_construct_handler, NULL),
     NODE_HANDLER(AST_DIMENSION_STR, simple_text_handler, NULL),
     NODE_HANDLER(AST_STATIC_ASSERT, static_assert_handler, NULL),
+    NODE_HANDLER(AST_DEFAULTED_FUNCTION_DEFINITION, defaulted_or_deleted_function_def, NULL),
+    NODE_HANDLER(AST_DELETED_FUNCTION_DEFINITION, defaulted_or_deleted_function_def, NULL),
     // Pragma custom
     NODE_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE, pragma_custom_directive_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, pragma_custom_construct_handler, NULL),
@@ -759,8 +760,11 @@ static int character_level_vfprintf(FILE* stream, prettyprint_context_t *pt_ctx,
 
     fprintf(stream, "%s", c);
 
-    pt_ctx->last_is_left_angle = (c[result - 1] == '<');
-    pt_ctx->last_is_right_angle = (c[result - 1] == '>');
+    if (result > 0)
+    {
+        pt_ctx->last_is_left_angle = (c[result - 1] == '<');
+        pt_ctx->last_is_right_angle = (c[result - 1] == '>');
+    }
 
     free(c);
 
@@ -1099,26 +1103,35 @@ static void braced_initializer_handler(FILE* f, AST a, prettyprint_context_t* pt
     token_fprintf(f, a, pt_ctx, "{");
     if (ASTSon0(a) != NULL)
     {
-        token_fprintf(f, a, pt_ctx, "\n");
         AST init_list = ASTSon0(a), it;
 
-        NEW_PT_CONTEXT(new_ctx, increase_level);
-
-        for_each_element(init_list, it)
+        if (ASTSon0(init_list) != NULL)
         {
-            indent_at_level(f, a, new_ctx);
+            token_fprintf(f, a, pt_ctx, "\n");
 
-            AST initializer = ASTSon1(it);
-            prettyprint_level(f, initializer, new_ctx);
+            NEW_PT_CONTEXT(new_ctx, increase_level);
 
-            if (it != init_list)
+            for_each_element(init_list, it)
             {
-                token_fprintf(f, initializer, pt_ctx, ",");
-            }
-            token_fprintf(f, initializer, pt_ctx, "\n");
-        }
+                indent_at_level(f, a, new_ctx);
 
-        indent_at_level(f, a, pt_ctx);
+                AST initializer = ASTSon1(it);
+                prettyprint_level(f, initializer, new_ctx);
+
+                if (it != init_list)
+                {
+                    token_fprintf(f, initializer, pt_ctx, ",");
+                }
+                token_fprintf(f, initializer, pt_ctx, "\n");
+            }
+            indent_at_level(f, a, pt_ctx);
+        }
+        // Aesthetic case for int a{3} and int a[] = {3};
+        else
+        {
+            AST item = ASTSon1(init_list);
+            prettyprint_level(f, item, pt_ctx);
+        }
     }
     token_fprintf(f, a, pt_ctx, "}");
 }
@@ -1577,12 +1590,6 @@ static void member_declarator_handler(FILE* f, AST a, prettyprint_context_t* pt_
     }
 }
 
-static void constant_initializer_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    token_fprintf(f, a, pt_ctx, "= ");
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-}
-
 static void function_definition_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     indent_at_level(f, a, pt_ctx);
@@ -1622,6 +1629,28 @@ static void function_definition_handler(FILE* f, AST a, prettyprint_context_t* p
     }
 
     prettyprint_level(f, ASTSon3(a), pt_ctx);
+}
+
+static void defaulted_or_deleted_function_def(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    indent_at_level(f, a, pt_ctx);
+
+    if (ASTSon0(a) != NULL)
+    {
+        prettyprint_level(f, ASTSon0(a), pt_ctx);
+        token_fprintf(f, a, pt_ctx, " ");
+    }
+
+    prettyprint_level(f, ASTSon1(a), pt_ctx);
+    token_fprintf(f, a, pt_ctx, " ");
+
+    if (ASTSon2(a) != NULL)
+    {
+        prettyprint_level(f, ASTSon2(a), pt_ctx);
+        token_fprintf(f, a, pt_ctx, " ");
+    }
+
+    token_fprintf(f, a, pt_ctx, "= %s;\n", ASTText(a));
 }
 
 static void compound_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)

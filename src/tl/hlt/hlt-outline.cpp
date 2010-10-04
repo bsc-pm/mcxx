@@ -293,7 +293,7 @@ struct GetFieldDeclarations : public GetDeclarationInScope
         }
 };
 
-static bool is_local_or_nonstatic_member(TL::Symbol& sym)
+static bool is_local_or_nonstatic_member(const TL::Symbol& sym)
 {
     return sym.has_local_scope()
         || (sym.is_member() && !sym.is_static());
@@ -439,7 +439,7 @@ struct DoNotPass : public TL::Predicate<TL::Symbol>
         {
         }
 
-        virtual bool do_(TL::Symbol& sym) const
+        virtual bool do_(DoNotPass::ArgType sym) const
         {
             return (_outline.get_parameter_passing(sym) != Outline::DO_NOT_PASS);
         }

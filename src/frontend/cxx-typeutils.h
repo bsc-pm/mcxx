@@ -158,7 +158,9 @@ LIBMCXX_EXTERN void class_type_set_inner_context(struct type_tag* class_type, de
 LIBMCXX_EXTERN void class_type_add_constructor(struct type_tag* class_type, struct scope_entry_tag* entry);
 LIBMCXX_EXTERN void class_type_set_destructor(struct type_tag* class_type, struct scope_entry_tag* entry);
 LIBMCXX_EXTERN void class_type_add_copy_assignment_operator(struct type_tag* class_type, struct scope_entry_tag* entry);
+LIBMCXX_EXTERN void class_type_add_move_assignment_operator(struct type_tag* class_type, struct scope_entry_tag* entry);
 LIBMCXX_EXTERN void class_type_add_copy_constructor(struct type_tag* class_type, struct scope_entry_tag* entry);
+LIBMCXX_EXTERN void class_type_add_move_constructor(struct type_tag* class_type, struct scope_entry_tag* entry);
 LIBMCXX_EXTERN void class_type_add_conversion_function(struct type_tag* class_type, struct scope_entry_tag* entry);
 LIBMCXX_EXTERN void class_type_add_nonstatic_data_member(struct type_tag* class_type, struct scope_entry_tag* entry);
 LIBMCXX_EXTERN void class_type_add_static_data_member(struct type_tag* class_type, struct scope_entry_tag* entry);
@@ -189,7 +191,9 @@ LIBMCXX_EXTERN char is_builtin_type(struct type_tag* t);
 LIBMCXX_EXTERN char is_fundamental_type(struct type_tag* t);
 
 LIBMCXX_EXTERN char is_pod_type(type_t* t);
-LIBMCXX_EXTERN char is_pod_type_layout(type_t* t);
+
+LIBMCXX_EXTERN char is_trivially_copiable_type(type_t* t);
+LIBMCXX_EXTERN char is_standard_layout_type(type_t* t);
 
 // States whether a type is faulty
 LIBMCXX_EXTERN char is_faulty_type(type_t*);
@@ -272,6 +276,8 @@ LIBMCXX_EXTERN char is_bool_type(struct type_tag* t1);
 LIBMCXX_EXTERN char is_non_derived_type(struct type_tag* t);
 
 LIBMCXX_EXTERN char is_dependent_type(struct type_tag* type);
+
+LIBMCXX_EXTERN char is_aggregate_type(struct type_tag* t);
 
 LIBMCXX_EXTERN char is_dependent_typename_type(struct type_tag* t);
 
@@ -387,8 +393,12 @@ LIBMCXX_EXTERN struct scope_entry_list_tag* class_type_get_all_conversions(struc
 
 LIBMCXX_EXTERN int class_type_get_num_copy_assignment_operators(struct type_tag* t);
 LIBMCXX_EXTERN struct scope_entry_tag* class_type_get_copy_assignment_operator_num(struct type_tag* t, int num);
+LIBMCXX_EXTERN int class_type_get_num_move_assignment_operators(struct type_tag* t);
+LIBMCXX_EXTERN struct scope_entry_tag* class_type_get_move_assignment_operator_num(struct type_tag* t, int num);
 LIBMCXX_EXTERN int class_type_get_num_copy_constructors(struct type_tag* t);
 LIBMCXX_EXTERN struct scope_entry_tag* class_type_get_copy_constructor_num(struct type_tag* t, int num);
+LIBMCXX_EXTERN int class_type_get_num_move_constructors(struct type_tag* t);
+LIBMCXX_EXTERN struct scope_entry_tag* class_type_get_move_constructor_num(struct type_tag* t, int num);
 LIBMCXX_EXTERN struct scope_entry_tag* class_type_get_default_constructor(struct type_tag* t);
 
 LIBMCXX_EXTERN struct scope_entry_tag* class_type_get_destructor(struct type_tag* t);
@@ -446,7 +456,15 @@ LIBMCXX_EXTERN void dependent_typename_get_components(type_t* t,
 LIBMCXX_EXTERN int vector_type_get_vector_size(struct type_tag*);
 LIBMCXX_EXTERN struct type_tag* vector_type_get_element_type(struct type_tag*);
 
+LIBMCXX_EXTERN struct type_tag* braced_list_type_get_type_num(struct type_tag* t, int num);
+LIBMCXX_EXTERN int braced_list_type_get_num_types(struct type_tag* t);
+LIBMCXX_EXTERN struct type_tag** braced_list_type_get_types(struct type_tag* t);
+
 /* Query functions: Miscelaneous stuff not classified otherwise */
+LIBMCXX_EXTERN char class_type_is_trivial(type_t* t);
+LIBMCXX_EXTERN char class_type_is_trivially_copiable(type_t* t);
+LIBMCXX_EXTERN char class_type_is_standard_layout(type_t* t);
+
 LIBMCXX_EXTERN char class_type_is_base(struct type_tag* possible_base, struct type_tag* possible_derived);
 LIBMCXX_EXTERN char class_type_is_derived(struct type_tag* possible_derived, struct type_tag* possible_base);
 LIBMCXX_EXTERN char is_pointer_to_void_type(struct type_tag* t);
@@ -514,6 +532,9 @@ LIBMCXX_EXTERN const char* get_named_type_name(struct scope_entry_tag* entry);
 
 LIBMCXX_EXTERN struct type_tag* get_ellipsis_type(void);
 LIBMCXX_EXTERN char is_ellipsis_type(struct type_tag* t);
+
+LIBMCXX_EXTERN struct type_tag* get_braced_list_type(int num_types, struct type_tag** arg_list);
+LIBMCXX_EXTERN char is_braced_list_type(struct type_tag* t);
 
 LIBMCXX_EXTERN char has_dependent_template_arguments(template_argument_list_t* template_arguments);
 

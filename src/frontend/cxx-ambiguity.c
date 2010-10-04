@@ -602,11 +602,20 @@ void solve_ambiguous_declaration(AST a, decl_context_t decl_context)
 
 static void solve_ambiguous_simple_declaration(AST a, decl_context_t decl_context)
 {
+    int option_lacking_decl_spec = -1;
     int correct_option = -1;
     int i;
     for (i = 0; i < ast_get_num_ambiguities(a); i++)
     {
         AST option = ast_get_ambiguity(a, i);
+
+        C_LANGUAGE()
+        {
+            if (ASTSon0(option) == NULL)
+            {
+                option_lacking_decl_spec = i;
+            }
+        }
 
         if (check_for_simple_declaration(option, decl_context))
         {
@@ -627,6 +636,16 @@ static void solve_ambiguous_simple_declaration(AST a, decl_context_t decl_contex
 
     if (correct_option < 0)
     {
+        // Silly case for a declaration like 'f(a);' in K&R C
+        C_LANGUAGE()
+        {
+            if (option_lacking_decl_spec >= 0)
+            {
+                choose_option(a, option_lacking_decl_spec);
+                return;
+            }
+        }
+
         internal_error("Ambiguity not solved %s", ast_location(a));
     }
     else
@@ -1903,34 +1922,12 @@ static char check_for_init_declarator(AST init_declarator, decl_context_t decl_c
         // Ambiguous cases are '= e' and '(e1, e2, .., e3)'
         switch (ASTType(initializer))
         {
-            case AST_CONSTANT_INITIALIZER :
+            // Plain expression
+            default:
                 {
-                    // This one might slip as well for members
-                    // ' = e'
                     enter_test_expression();
-                    result = check_for_expression(ASTSon0(initializer), decl_context);
+                    result = check_for_expression(initializer, decl_context);
                     leave_test_expression();
-                    break;
-                }
-            case AST_INITIALIZER :
-                {
-                    AST initializer_clause = ASTSon0(initializer);
-
-                    switch (ASTType(initializer_clause))
-                    {
-                        // ' = e'
-                        case AST_INITIALIZER_EXPR:
-                            {
-                                enter_test_expression();
-                                result = check_for_expression(ASTSon0(initializer_clause), decl_context);
-                                leave_test_expression();
-                            }
-                        default:
-                            {
-                                internal_error("Unexpected node '%s'\n", 
-                                        ast_print_node_type(ASTType(initializer_clause)));
-                            }
-                    }
                     break;
                 }
             case AST_PARENTHESIZED_INITIALIZER:
@@ -1943,8 +1940,6 @@ static char check_for_init_declarator(AST init_declarator, decl_context_t decl_c
                     leave_test_expression();
                     break;
                 }
-            default:
-                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(initializer)));
         }
     }
 

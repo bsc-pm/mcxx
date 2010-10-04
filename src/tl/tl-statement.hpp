@@ -47,16 +47,16 @@ namespace TL
             }
 
             //! States whether the condition is an expression
-            bool is_expression();
+            bool is_expression() const; 
             
             //! Returns the related expression of this condition (if any)
-            Expression get_expression();
+            Expression get_expression() const;
             
             //! States whether the condition is a declaration
-            bool is_declaration();
+            bool is_declaration() const;
 
             //! Returns the related declaration of this condition (if any)
-            Declaration get_declaration();
+            Declaration get_declaration() const;
     };
 
     //! LangConstruct that wraps a statement in the code
@@ -71,47 +71,47 @@ namespace TL
 
             //! Returns all non local referenced symbols
             //in the statement
-            ObjectList<Symbol> non_local_symbols();
+            ObjectList<Symbol> non_local_symbols() const;
 
             //! States whether this statement is labeled
-            bool is_labeled();
+            bool is_labeled() const;
 
             //! Returns the label of the statement, if any
-            std::string get_label();
+            std::string get_label() const;
 
             //! States whether this Statement is actually a compound statement
-            bool is_compound_statement();
+            bool is_compound_statement() const;
             //! Returns a list of inner statements
             /*! This function is only valid if is_compound_statement returned true
              */
-            ObjectList<Statement> get_inner_statements();
+            ObjectList<Statement> get_inner_statements() const;
 
             //! States whether this Statement is enclosed in a compound statement
-            bool is_in_compound_statement();
+            bool is_in_compound_statement() const;
 
             /*!
              * If is_last returns false, this function returns the statement
              * following the current one.
              */
-            Statement next();
+            Statement next() const;
 
             /*!
              * If is_first returns false, this function returns the statement
              * following the current one.
              */
-            Statement previous();
+            Statement previous() const;
 
             /*! 
              * States whether this is the first statement of a compound statement.
              * If no compound statement is enclosing this statement it returns true.
              */
-            bool is_first();
+            bool is_first() const;
 
             /*! 
              * States whether this is the last statement of a compound statement.
              * If no compound statement is enclosing this statement it returns true.
              */
-            bool is_last();
+            bool is_last() const;
 
             const static PredicateAttr predicate;
 
@@ -126,22 +126,22 @@ namespace TL
               but does not say anything about its exact kind. For simple
               declarations, use is_simple_declaration and get_simple_declaration
               */
-            bool is_declaration();
+            bool is_declaration() const;
 
             //! It is a simple declaration
-            bool is_simple_declaration();
+            bool is_simple_declaration() const;
             //! Get the declaration of this simple declaration
             /*!
               If is_simple_declaration returns true you can use
               this function to retrieve the underlying declaration
               */
-            Declaration get_simple_declaration();
+            Declaration get_simple_declaration() const;
 
             //! It states this is a expression-statement
-            bool is_expression();
+            bool is_expression() const;
 
             //! Returns the related expression of this expression-statement
-            Expression get_expression();
+            Expression get_expression() const;
     };
     
     //! This LangConstruct wraps a for-statement in the code
@@ -189,33 +189,33 @@ namespace TL
             IdExpression get_induction_variable();
             
             //! Returns a computed lower bound of a regular loop
-            Expression get_lower_bound();
+            Expression get_lower_bound() const;
             
             //! Returns a computed upper bound of a regular loop
-            Expression get_upper_bound();
+            Expression get_upper_bound() const;
             
             //! Returns a computed step of a regular loop
-            Expression get_step();
+            Expression get_step() const;
 
             //! Returns the related bounding operator of a regular loop
             /*! Result can be either <= or >= depending on the original loop operator */
-            Source get_bound_operator();
+            Source get_bound_operator() const;
 
             //! Returns the loop body
-            Statement get_loop_body();
+            Statement get_loop_body() const;
 
             //! States whether this loop is a regular one
             /*!
              * \deprecated Do not use it, instead use is_regular_loop
              */
-            bool regular_loop();
+            bool regular_loop() const;
 
             //! States whether this loop is a regular one
             /*!
              * A regular loop is that where computing the lower and upper
              * bounds and its step is easy after the syntax.
              */
-            bool is_regular_loop();
+            bool is_regular_loop() const;
 
             //! Returns the iterating initialization
             /*!
@@ -236,7 +236,7 @@ namespace TL
              *
              * respectively
              */
-            AST_t get_iterating_init();
+            AST_t get_iterating_init() const;
 
             //! Returns the iterating condition
             /*!
@@ -246,7 +246,7 @@ namespace TL
              *
              * this function will return 'i < 10'
              */
-            Expression get_iterating_condition();
+            Expression get_iterating_condition() const;
             //! Returns the iterating expression
             /*!
              * Given loop
@@ -255,7 +255,7 @@ namespace TL
              *
              * this function will return 'i++'
              */
-            Expression get_iterating_expression();
+            Expression get_iterating_expression() const;
 
             const static PredicateAttr predicate;
     };
@@ -271,10 +271,10 @@ namespace TL
             }
 
             //! Returns the while iterating condition
-            Condition get_condition();
+            Condition get_condition() const;
 
             //! Returns the body of the while statement
-            Statement get_body();
+            Statement get_body() const;
 
             const static PredicateAttr predicate;
     };
@@ -289,16 +289,16 @@ namespace TL
             }
 
             //! Returns the if condition
-            Condition get_condition();
+            Condition get_condition() const;
 
             //! Returns the body of "then" 
-            Statement get_then_body();
+            Statement get_then_body() const;
 
             //! States whether this if has an "else" branch
-            bool has_else();
+            bool has_else() const;
 
             //! Returns the body of "else"
-            Statement get_else_body();
+            Statement get_else_body() const;
 
             const static PredicateAttr predicate;
     };
@@ -313,10 +313,10 @@ namespace TL
             }
 
             //! Returns the body of the do-while
-            Statement get_body();
+            Statement get_body() const;
 
             //! Returns the iterating expression
-            Expression get_expression();
+            Expression get_expression() const;
 
             const static PredicateAttr predicate;
     };
@@ -331,10 +331,10 @@ namespace TL
             }
 
             //! Returns the expression of this case statement
-            Expression get_case_expression();
+            Expression get_case_expression() const;
             
             //! Returns the statement of this case 
-            Statement get_statement();
+            Statement get_statement() const;
     };
 
     //! This class wraps a switch-statement
@@ -347,10 +347,10 @@ namespace TL
             }
 
             //! Returns the switch statement condition
-            Condition get_condition();
+            Condition get_condition() const;
 
             //! Returns a list of case statements
-            ObjectList<CaseStatement> get_cases();
+            ObjectList<CaseStatement> get_cases() const;
 
             const static PredicateAttr predicate;
     };
@@ -365,10 +365,10 @@ namespace TL
             }
 
             //! States whether this return statement has a related expression
-            bool has_return_expression();
+            bool has_return_expression() const;
 
             //! Returns the returned expression
-            Expression get_return_expression();
+            Expression get_return_expression() const;
 
             const static PredicateAttr predicate;
     };
@@ -383,7 +383,7 @@ namespace TL
             }
 
             //! Returns the label of this goto-statement
-            std::string get_label();
+            std::string get_label() const;
 
             const static PredicateAttr predicate;
     };

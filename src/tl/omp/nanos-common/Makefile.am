@@ -29,7 +29,7 @@ phases_LTLIBRARIES = libtlnanos-version.la
 
 END =
 
-#### libtl-nanos4.la
+#### libtlnanos-version.la
 
 libtlnanos_version_la_SOURCES = \
 	tl-nanos.hpp \
@@ -42,11 +42,13 @@ libtlnanos_version_la_CXXFLAGS = $(tl_cxxflags)
 libtlnanos_version_la_LDFLAGS = $(tl_ldflags)
 libtlnanos_version_la_LIBADD = $(tl_libadd)
 
-#### libtl-nanos-common.la
+#### libtlnanos-common.la
 
 libtlnanos_common_la_CXXFLAGS=$(tl_cxxflags)
 
 libtlnanos_common_la_SOURCES=\
            tl-nanos-atomic.hpp \
            tl-nanos-atomic.cpp \
+           tl-nanos-threadprivate.hpp \
+           tl-nanos-threadprivate.cpp \
            $(END)

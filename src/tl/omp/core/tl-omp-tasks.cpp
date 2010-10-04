@@ -236,7 +236,7 @@ namespace TL
                 {
                 }
 
-                FunctionTaskDependency do_(std::string& str) const
+                FunctionTaskDependency do_(FunctionTaskDependencyGenerator::ArgType str) const
                 {
                     Source src;
                     src
@@ -264,7 +264,7 @@ namespace TL
                 {
                 }
 
-                CopyItem do_(std::string& str) const
+                CopyItem do_(FunctionCopyItemGenerator::ArgType str) const
                 {
                     Source src;
                     src

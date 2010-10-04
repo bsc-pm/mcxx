@@ -1,3 +1,8 @@
+/*
+<testinfo>
+test_generator=config/mercurium-omp
+</testinfo>
+*/
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2009 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
@@ -21,40 +26,35 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef CXX_UTILS_H
-#define CXX_UTILS_H
-
 #include <stdlib.h>
-#include <stdio.h>
-#include <signal.h>
+#include "omp.h"
 
-#include "cxx-driver.h"
-#include "cxx-macros.h"
-#include "uniquestr.h"
-#include "string_utils.h"
+struct A
+{
+    static int x;
+#pragma omp threadprivate(x)
+};
 
-MCXX_BEGIN_DECLS
+int A::x = 9;
 
-#define DEBUG_CODE() if (CURRENT_CONFIGURATION->debug_options.enable_debug_code)
-#define NOT_DEBUG_CODE() if (!CURRENT_CONFIGURATION->debug_options.enable_debug_code)
+int main(int argc, char *argv[])
+{
+    if (A::x != 9)
+        abort();
 
-#define IS_CXX_LANGUAGE (CURRENT_CONFIGURATION->source_language == SOURCE_LANGUAGE_CXX)
-#define CXX_LANGUAGE() if (IS_CXX_LANGUAGE)
+#pragma omp parallel default(none) 
+    {
+        if (A::x != 9)
+            abort();
 
-#define IS_CXX03_LANGUAGE (IS_CXX_LANGUAGE && !CURRENT_CONFIGURATION->enable_cxx1x)
-#define CXX03_LANGUAGE() if (IS_CXX03_LANGUAGE)
+        A::x = omp_get_thread_num();
+    }
 
-#define IS_CXX1X_LANGUAGE (IS_CXX_LANGUAGE && CURRENT_CONFIGURATION->enable_cxx1x)
-#define CXX1X_LANGUAGE() if (IS_CXX1X_LANGUAGE)
+#pragma omp parallel default(none) 
+    {
+        if (A::x != omp_get_thread_num())
+            abort();
+    }
 
-#define IS_C_LANGUAGE (CURRENT_CONFIGURATION->source_language == SOURCE_LANGUAGE_C)
-#define C_LANGUAGE() if (IS_C_LANGUAGE)
-
-#define STATIC_ARRAY_LENGTH(_v) (sizeof(_v)/sizeof(_v[0]))
-
-// Special calloc that counts
-LIBMCXX_EXTERN void *counted_calloc(size_t nmemb, size_t size, unsigned long long *counter);
-
-MCXX_END_DECLS
-
-#endif // CXX_UTILS_H
+    return 0;
+}

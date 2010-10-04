@@ -127,6 +127,40 @@ namespace TL
             }
     };
 
+    //! This class wraps a clause in a PragmaCustomConstruct
+    /*!
+      This class allows a clause to be named several times, thus
+
+         #pragma prefix name clause(a) clause(b)
+
+      will be equivalent as if the user had written
+
+         #pragma prefix name clause(a, b)
+
+      There is no way to tell apart these two cases, except for using
+      PragmaCustomClause::get_arguments_unflattened, see below.
+
+      Pragma clauses are pretty flexible on what they allow as arguments. Free,
+      well parenthesized, text is allowed in clauses. Thus forwarding the
+      responsability of giving a syntactic validity and semantic meaning to
+      PragmaCustomCompilerPhase classes.
+
+      Since the raw string is most of the time of little use, the class can cook
+      some usual cases:
+
+        When the clause should contain a list of expressions, use
+        PragmaCustomClause::get_expression_list
+
+        When the clause should contain a list of variable-names (but not
+        general expressions), use PragmaCustomClause::get_id_expressions
+      
+      You can always get raw versions of the clause content (in case you have
+      very special syntax in it requiring special parsing) using
+      PragmaCustomClause::get_arguments and
+      PragmaCustomClause::get_arguments_unflattened. The second version returns
+      a list of lists of strings, one list per occurrence of the clause while
+      the first flats them in a single list.
+    */
     class LIBTL_CLASS PragmaCustomClause : public LangConstruct
     {
         private:
@@ -140,63 +174,171 @@ namespace TL
             {
             }
 
-            // Convenience function, it returns all the arguments parsed as expressions
+            //! Returns the name of the current clause
+            std::string get_clause_name() { return _clause_name; }
+
+            //! States whether the clause was actually in the pragma
+            /*!
+              Since PragmaCustomConstruct always returns a PragmaCustomClause
+              use this function to know whether the clause was actually in the
+              pragma line. No other function of PragmaCustomClause should be
+              used if this function returns false
+              */
+            bool is_defined();
+
+            //! Convenience function, it returns all the arguments of the clause parsed as expressions
             ObjectList<Expression> get_expression_list();
 
-            ObjectList<IdExpression> id_expressions(IdExpressionCriteria criteria = VALID_SYMBOLS);
-            
-            // Convenience function, it returns all the id-expressions of the arguments when 
-            // parsed as expressions
+            //! Convenience function, it returns all arguments of the clause parsed as id-expressions
             ObjectList<IdExpression> get_id_expressions(IdExpressionCriteria criteria = VALID_SYMBOLS);
 
-            // Raw clause arguments for custom parsing
+            //! Do not use this one, its name is deprecated, use get_id_expressions instead
+            ObjectList<IdExpression> id_expressions(IdExpressionCriteria criteria = VALID_SYMBOLS);
+
+            //! Returns the string contents of the clause arguments
+            /*!
+              This function actually returns a list of a single element
+              */
             ObjectList<std::string> get_arguments();
 
-            // Raw clause arguments for custom parsing with a given tokenizer
+            //! Returns the string contents of the clause arguments but using a tokenizer
+            /*!
+              The tokenizer can further split the text in additional substrings
+              */
             ObjectList<std::string> get_arguments(const ClauseTokenizer&);
 
-            // Raw clause arguments for even more custom parsing
+            //! Returns the string contents of the clause arguments but using a tokenizer
+            /*!
+              This function is similar to get_arguments but does not combine them in a single list.
+              There is a list per each clause occurrence in the pragma
+            */
             ObjectList<ObjectList<std::string> > get_arguments_unflattened();
 
-            // Raw clause arguments tree for custom parsing
+            //! This is like get_arguments but at tree level. This function is of little use
+            /*!
+              It is highly unlikely that you need this function. Check the others
+             */
             ObjectList<AST_t> get_arguments_tree();
-
-            // States whether the clause was in the pragma
-            bool is_defined();
-            
-            // return the name of the current clause
-            std::string get_clause_name() { return _clause_name; }
     };
 
     class LIBTL_CLASS PragmaCustomConstruct : public LangConstruct, public LinkData
     {
+        private:
+            ObjectList<std::string> _referenced_clauses;
         public:
             PragmaCustomConstruct(AST_t ref, ScopeLink scope_link)
                 : LangConstruct(ref, scope_link)
             {
             }
 
+            //! Returns the name of the pragma prefix
             std::string get_pragma();
+
+            //! Returns the name of the pragma directive
             std::string get_directive();
 
+            //! States if this is a directive
+            /*!
+              When this function is true it means that the pragma itself is a sole entity
+             */
             bool is_directive();
+
+            //! States if this is a construct
+            /*!
+              When this function is true it means that the pragma acts as a header of another
+              language construct. Functions get_statement and get_declaration can then, be used to
+              retrieve that language construct.
+
+              For pragma constructs at block-scope only get_statement should be
+              used, otherwise use get_declaration as the nested construct can
+              be a declaration or a function definition (or even something else)
+             */
             bool is_construct();
 
+            //! Returns the statement associated to this pragma construct
+            /*!
+              Using this function is only valid when the pragma is in block-scope
+              and function is_construct returned true
+              */
             Statement get_statement();
+
+            //! Returns the tree associated to this pragma construct
+            /*!
+              Using this function is only valid when the pragma is in a scope
+              other than block and function is_construct returned true
+
+              This tree can be a Declaration, FunctionDefinition or some other
+              tree not wrapped yet in a LangConstruct (e.g. a Namespace
+              definition)
+              */
             AST_t get_declaration();
 
+            //! This function returns the tree related to the pragma itself
+            /*!
+              This function is rarely needed, only when a change of the pragma itself is required
+              */
             AST_t get_pragma_line();
 
+            //! States if the pragma encloses a function definition
+            /*!
+              This is useful when using get_declaration, to quickly know if we can use a FunctionDefinition
+              or we should use a Declaration instead
+              */
             bool is_function_definition();
 
+            //! States if the pragma is followed by a first clause-alike parenthesis pair
+            /*!
+                #pragma prefix directive(a,b)
+
+                'a,b' is sort of an unnamed clause which is called the parameter of the pragma
+
+                This function states if this pragma has this syntax
+            */
             bool is_parameterized();
+
+            //! Returns a list of IdExpression's found in the parameter of the pragma
             ObjectList<IdExpression> get_parameter_id_expressions(IdExpressionCriteria criteria = VALID_SYMBOLS);
+
+            //! Returns a list of Expressions in the parameter of the pragma
+            /*!
+              Parameters allow well-parenthesized free text. This function interprets the content of the parameter
+              as a list of comma-separated expressions, parses them at this moment (if not parsed already)
+              and returns it as a list
+              */
             ObjectList<Expression> get_parameter_expressions();
+
+            //! Returns the string of the parameter of the pragma
+            /*!
+              Parameters allow well-parenthesized free text. This function returns the whole text with no tokenization.
+              This function will always return one element, but for parallelism with the equivalent function of PragmaCustomClause
+              it returns a list (that will contain a single element)
+              */
             ObjectList<std::string> get_parameter_arguments();
+
+            //! Returns the string of the parameter of the pragma using a tokenizer
+            /*!
+              This function is identical to get_parameter_arguments() but uses \a tokenizer to
+              split the contents of the string.
+              */
             ObjectList<std::string> get_parameter_arguments(const ClauseTokenizer& tokenizer);
 
+            //! This function returns all the clauses of this pragma
             ObjectList<std::string> get_clause_names();
+
+            //! This function returns a PragmaCustomClause object for a named clause
+            /*!
+              Note that this function always returns a PragmaCustomClause
+              object even if no clause with the given /a name exists. Use
+              PragmaCustomClause::is_defined to check its existence.
+              */
             PragmaCustomClause get_clause(const std::string& name);
+
+            //! This function returns a list of clauses which have not been called on
+            /*!
+              Use this function for issuing warnings or errors for unused clauses, likely to be an error
+              on semantics (they do not cause a syntax error though)
+              */
+            ObjectList<std::string> unreferenced_clause_names();
     };
 
     LIBTL_EXTERN bool is_pragma_custom(const std::string& pragma_preffix, 

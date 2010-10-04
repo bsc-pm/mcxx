@@ -29,7 +29,7 @@ namespace TL
 {
     namespace OpenMP
     {
-        AST_t::callback_result remove_collapse_clause(AST_t& a)
+        AST_t::callback_result remove_collapse_clause(const AST_t& a)
         {
             // Filter collapse clauses
             if ((a.internal_ast_type_() == AST_PRAGMA_CUSTOM_CLAUSE)

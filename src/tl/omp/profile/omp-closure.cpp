@@ -15,7 +15,7 @@ namespace TL
             {
             }
 
-            ASTTraversalResult do_(AST_t& a) const
+            ASTTraversalResult do_(FunctionCallPredicate::ArgType a) const
             {
                 if (_function_call(a))
                 {

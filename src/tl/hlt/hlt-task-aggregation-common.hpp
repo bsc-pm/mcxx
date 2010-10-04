@@ -113,7 +113,7 @@ struct GuardTaskInfo
 					{
 					}
 
-				bool do_(AST_t& a) const
+				bool do_(IsOmpTask::ArgType a) const
 				{
 					return is_pragma_custom_construct("omp", "task", a, _sl);
 				}

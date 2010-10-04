@@ -58,7 +58,7 @@ namespace TL
         return (o << lang_construct.prettyprint());
     }
 
-    ObjectList<IdExpression> LangConstruct::all_symbol_occurrences(SymbolsWanted symbol_filter)
+    ObjectList<IdExpression> LangConstruct::all_symbol_occurrences(SymbolsWanted symbol_filter) const
     {
         PredicateAttr id_expr_pred(LANG_IS_ID_EXPRESSION);
         PredicateAttr member_access(LANG_IS_ACCESSED_MEMBER);
@@ -102,7 +102,7 @@ namespace TL
         return result;
     }
 
-    ObjectList<IdExpression> LangConstruct::non_local_symbol_occurrences(SymbolsWanted symbol_filter)
+    ObjectList<IdExpression> LangConstruct::non_local_symbol_occurrences(SymbolsWanted symbol_filter) const
     {
         PredicateAttr id_expr_pred(LANG_IS_ID_EXPRESSION);
         PredicateAttr member_access(LANG_IS_ACCESSED_MEMBER);
@@ -153,7 +153,7 @@ namespace TL
         return result;
     }
 
-    FunctionDefinition LangConstruct::get_enclosing_function()
+    FunctionDefinition LangConstruct::get_enclosing_function() const
     {
         AST_t enclosing_function = _ref.get_enclosing_function_definition();
         FunctionDefinition result(enclosing_function, _scope_link);
@@ -161,7 +161,7 @@ namespace TL
         return result;
     }
 
-    Statement LangConstruct::get_enclosing_statement()
+    Statement LangConstruct::get_enclosing_statement() const
     {
         AST_t enclosing_statement = _ref.get_enclosing_statement();
 
@@ -173,19 +173,19 @@ namespace TL
         _ref.prepend_sibling_function(ast);
     }
 
-    IdExpression FunctionDefinition::get_function_name()
+    IdExpression FunctionDefinition::get_function_name() const
     {
         TL::AST_t ast = _ref.get_attribute(LANG_FUNCTION_NAME);
 
         return IdExpression(ast, _scope_link);
     }
 
-    Symbol FunctionDefinition::get_function_symbol()
+    Symbol FunctionDefinition::get_function_symbol() const
     {
         return get_declared_entity().get_declared_symbol();
     }
 
-    Statement FunctionDefinition::get_function_body()
+    Statement FunctionDefinition::get_function_body() const
     {
         TL::AST_t ast = _ref.get_attribute(LANG_FUNCTION_BODY);
 
@@ -198,7 +198,7 @@ namespace TL
         return result;
     }
 
-    ObjectList<TemplateHeader> FunctionDefinition::get_template_header()
+    ObjectList<TemplateHeader> FunctionDefinition::get_template_header() const
     {
         TL::AST_t start = _ref.get_attribute(LANG_TEMPLATE_HEADER);
 
@@ -217,24 +217,24 @@ namespace TL
         return result;
     }
 
-    AST_t FunctionDefinition::get_point_of_declaration()
+    AST_t FunctionDefinition::get_point_of_declaration() const
     {
         return _ref.get_enclosing_function_definition_declaration();
     }
 
-    DeclaredEntity FunctionDefinition::get_declared_entity()
+    DeclaredEntity FunctionDefinition::get_declared_entity() const
     {
         AST_t declarator = _ref.get_attribute(LANG_FUNCTION_DECLARATOR);
         return DeclaredEntity(declarator, _scope_link);
     }
 
-    bool Declaration::is_templated()
+    bool Declaration::is_templated() const
     {
         TL::Bool result = _ref.get_attribute(LANG_IS_TEMPLATED_DECLARATION);
         return result;
     }
 
-    ObjectList<TemplateHeader> Declaration::get_template_header()
+    ObjectList<TemplateHeader> Declaration::get_template_header() const
     {
         TL::AST_t start = _ref.get_attribute(LANG_TEMPLATE_HEADER);
         PredicateAttr template_header_pred(LANG_IS_TEMPLATE_HEADER);
@@ -252,7 +252,7 @@ namespace TL
         return result;
     }
 
-    AST_t Declaration::get_point_of_declaration()
+    AST_t Declaration::get_point_of_declaration() const
     {
         if (is_templated())
         {
@@ -286,7 +286,7 @@ namespace TL
         return id_expr_str;
     }
 
-    Declaration IdExpression::get_declaration()
+    Declaration IdExpression::get_declaration() const
     {
         AST_t point_of_declaration = this->get_symbol().get_point_of_declaration();
 
@@ -419,7 +419,7 @@ namespace TL
         add_replacement(sym, src.get_source());
     }
 
-    bool ReplaceIdExpression::has_replacement(Symbol sym)
+    bool ReplaceIdExpression::has_replacement(Symbol sym) const
     {
         return (_repl_map.find(sym) != _repl_map.end());
     }
@@ -832,13 +832,13 @@ namespace TL
         return Expression(condition_expr, this->get_scope_link());
     }
 
-    Type Expression::get_type()
+    Type Expression::get_type() const
     {
         bool _dummy;
         return get_type(_dummy);
     }
 
-    Type Expression::get_type(bool &is_lvalue)
+    Type Expression::get_type(bool &is_lvalue) const
     {
         // We need access to the inner representation of the tree
         AST_t expr = this->_ref;
@@ -976,7 +976,7 @@ namespace TL
 
     // Do not use this one, instead use get_declared_symbol
     // since this one will not work for type-names
-    IdExpression DeclaredEntity::get_declared_entity()
+    IdExpression DeclaredEntity::get_declared_entity() const
     {
         AST_t declared_name = _ref.get_attribute(LANG_DECLARED_NAME);
 
@@ -991,13 +991,13 @@ namespace TL
         return expression.get_id_expression();
     }
 
-    AST_t DeclaredEntity::get_declared_tree()
+    AST_t DeclaredEntity::get_declared_tree() const
     {
         AST_t declared_name = _ref.get_attribute(LANG_DECLARED_NAME);
         return declared_name;
     }
 
-    Symbol DeclaredEntity::get_declared_symbol()
+    Symbol DeclaredEntity::get_declared_symbol() const
     {
         AST_t declared_name = _ref.get_attribute(LANG_DECLARED_NAME);
         TL::Symbol sym = declared_name.get_attribute(LANG_DECLARED_SYMBOL);
@@ -1012,7 +1012,7 @@ namespace TL
         return sym;
     }
 
-    DeclarationSpec Declaration::get_declaration_specifiers()
+    DeclarationSpec Declaration::get_declaration_specifiers() const
     {
         AST_t declaration_specifiers = _ref.get_attribute(LANG_DECLARATION_SPECIFIERS);
 
@@ -1021,50 +1021,50 @@ namespace TL
         return result;
     }
 
-    TypeSpec DeclarationSpec::get_type_spec()
+    TypeSpec DeclarationSpec::get_type_spec() const
     {
         AST_t tree = _ref.get_attribute(LANG_TYPE_SPECIFIER);
 
         return TypeSpec(tree, this->_scope_link);
     }
    
-    bool TypeSpec::is_class_specifier()
+    bool TypeSpec::is_class_specifier() const
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_CLASS_SPECIFIER);
         return b;
     }
 
-    Symbol TypeSpec::get_class_symbol()
+    Symbol TypeSpec::get_class_symbol() const
     {
         TL::Symbol sym = _ref.get_attribute(LANG_CLASS_SPECIFIER_SYMBOL);
         return sym;
     }
 
-    bool TypeSpec::is_enum_specifier()
+    bool TypeSpec::is_enum_specifier() const
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_ENUM_SPECIFIER);
         return b;
     }
 
-    Symbol TypeSpec::get_enum_symbol()
+    Symbol TypeSpec::get_enum_symbol() const
     {
         TL::Symbol sym = _ref.get_attribute(LANG_ENUM_SPECIFIER_SYMBOL);
         return sym;
     }
 
-    bool DeclaredEntity::has_initializer()
+    bool DeclaredEntity::has_initializer() const
     {
         AST_t initializer = _ref.get_attribute(LANG_INITIALIZER);
         return initializer.is_valid();
     }
 
-    Expression DeclaredEntity::get_initializer()
+    Expression DeclaredEntity::get_initializer() const
     {
         AST_t initializer = _ref.get_attribute(LANG_INITIALIZER);
         return Expression(initializer, this->_scope_link);
     }
 
-    ObjectList<DeclaredEntity> Declaration::get_declared_entities()
+    ObjectList<DeclaredEntity> Declaration::get_declared_entities() const
     {
         PredicateAttr lang_declared_name_pred(LANG_IS_DECLARED_NAME);
 
@@ -1086,7 +1086,7 @@ namespace TL
         return result;
     }
 
-    bool DeclaredEntity::is_functional_declaration()
+    bool DeclaredEntity::is_functional_declaration() const
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_FUNCTIONAL_DECLARATOR);
         return b;
@@ -1105,7 +1105,7 @@ namespace TL
             {
             }
 
-            ASTTraversalResult do_(AST_t& a) const
+            ASTTraversalResult do_(TraverseParameters::ArgType a) const
             {
                 bool match = _pred(a);
                 bool recurse = !match;
@@ -1114,7 +1114,7 @@ namespace TL
             }
     };
 
-    bool DeclaredEntity::functional_declaration_lacks_prototype()
+    bool DeclaredEntity::functional_declaration_lacks_prototype() const
     {
         C_LANGUAGE()
         {
@@ -1127,13 +1127,13 @@ namespace TL
         return false;
     }
 
-    ObjectList<ParameterDeclaration> DeclaredEntity::get_parameter_declarations()
+    ObjectList<ParameterDeclaration> DeclaredEntity::get_parameter_declarations() const
     {
         bool _dummy;
         return get_parameter_declarations(_dummy);
     }
 
-    ObjectList<ParameterDeclaration> DeclaredEntity::get_parameter_declarations(bool &has_ellipsis)
+    ObjectList<ParameterDeclaration> DeclaredEntity::get_parameter_declarations(bool &has_ellipsis) const
     {
         ObjectList<ParameterDeclaration> result;
 
@@ -1175,24 +1175,24 @@ namespace TL
         return result;
     }
 
-    bool ParameterDeclaration::is_named()
+    bool ParameterDeclaration::is_named() const
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_NAMED_PARAMETER_DECLARATION);
         return b;
     }
 
-    IdExpression ParameterDeclaration::get_name()
+    IdExpression ParameterDeclaration::get_name() const
     {
         AST_t declaration = _ref.get_attribute(LANG_PARAMETER_DECLARATION_NAME);
         return IdExpression(declaration, _scope_link);
     }
 
-    Expression IdExpression::get_expression()
+    Expression IdExpression::get_expression() const
     {
         return Expression(get_ast(), get_scope_link());
     }
 
-    ObjectList<GCCAttribute> GCCAttributeSpecifier::get_gcc_attribute_list()
+    ObjectList<GCCAttribute> GCCAttributeSpecifier::get_gcc_attribute_list() const
     {
         ObjectList<GCCAttribute> result;
 
@@ -1215,7 +1215,7 @@ namespace TL
         return result;
     }
 
-    std::string GCCAttribute::get_name()
+    std::string GCCAttribute::get_name() const
     {
         AST_t tree = _ref.get_attribute(LANG_GCC_ATTRIBUTE_VALUE_NAME);
         return tree.get_text();
@@ -1228,7 +1228,7 @@ namespace TL
         return tree.is_valid();
     }
 
-    ObjectList<Expression> GCCAttribute::get_argument_list()
+    ObjectList<Expression> GCCAttribute::get_argument_list() const
     {
         ObjectList<Expression> result;
         AST_t tree = _ref.get_attribute(LANG_GCC_ATTRIBUTE_VALUE_ARGS);
@@ -1262,7 +1262,7 @@ namespace TL
         _repl_map[sym] = str;
     }
 
-    Source ReplaceSrcIdExpression::replace(AST_t a)
+    Source ReplaceSrcIdExpression::replace(AST_t a) const
     {
         Source result;
 
@@ -1281,7 +1281,7 @@ namespace TL
         return result;
     }
 
-    Source ReplaceSrcIdExpression::replace(LangConstruct a)
+    Source ReplaceSrcIdExpression::replace(LangConstruct a) const
     {
         return this->replace(a.get_ast());
     }
@@ -1356,37 +1356,37 @@ namespace TL
         return res;
     }
 
-    bool TemplateParameterConstruct::is_named()
+    bool TemplateParameterConstruct::is_named() const
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_NAMED_TEMPLATE_PARAMETER);
         return b;
     }
 
-    std::string TemplateParameterConstruct::get_name()
+    std::string TemplateParameterConstruct::get_name() const
     {
         TL::AST_t a = _ref.get_attribute(LANG_TEMPLATE_PARAMETER_NAME);
         return a.prettyprint();
     }
 
-    bool TemplateParameterConstruct::is_type()
+    bool TemplateParameterConstruct::is_type() const
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_TYPE_TEMPLATE_PARAMETER);
         return b;
     }
 
-    bool TemplateParameterConstruct::is_nontype()
+    bool TemplateParameterConstruct::is_nontype() const
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_NONTYPE_TEMPLATE_PARAMETER);
         return b;
     }
 
-    bool TemplateParameterConstruct::is_template()
+    bool TemplateParameterConstruct::is_template() const
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_TEMPLATE_TEMPLATE_PARAMETER);
         return b;
     }
 
-    Symbol TemplateParameterConstruct::get_symbol()
+    Symbol TemplateParameterConstruct::get_symbol() const
     {
         TL::Symbol sym = _ref.get_attribute(LANG_TEMPLATE_PARAMETER_SYMBOL);
         return sym;

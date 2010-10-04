@@ -74,7 +74,7 @@ namespace TL
                 public:
                     MainPredicate(ScopeLink& sl);
 
-                    virtual bool do_(AST_t& t) const;
+                    virtual bool do_(const AST_t& t) const;
                     virtual ~MainPredicate() { }
             };
 
@@ -87,7 +87,7 @@ namespace TL
                     public:
                         PthreadFunctionPred(ScopeLink& sl, InstrumentFilterFile& pthread_functions);
 
-                        virtual bool do_(AST_t& t) const;
+                        virtual bool do_(const AST_t& t) const;
                         virtual ~PthreadFunctionPred() { }
             };
 

@@ -2218,14 +2218,10 @@ static void error_ambiguity(scope_entry_list_t* entry_list, const char* filename
     fprintf(stderr, "%s:%d: info: candidates are\n", filename, line);
     while (it != NULL)
     {
-        int max_qualif_level = 0;
-        char is_dependent = 0;
-
         fprintf(stderr, "%s:%d: info:    %s\n", 
                 it->entry->file,
                 it->entry->line,
-                get_fully_qualified_symbol_name(it->entry,
-                    it->entry->decl_context, &is_dependent, &max_qualif_level));
+                get_qualified_symbol_name(it->entry, it->entry->decl_context));
         it = it->next;
     }
 
@@ -4411,6 +4407,14 @@ const char* get_fully_qualified_symbol_name_without_template(scope_entry_t* entr
 {
     return get_fully_qualified_symbol_name_ex(entry,
             decl_context, is_dependent, max_qualif_level, /* no_templates */ 1);
+}
+
+const char* get_qualified_symbol_name(scope_entry_t* entry, decl_context_t decl_context)
+{
+    int max_qualif_level = 0;
+    char is_dependent = 0;
+
+    return get_fully_qualified_symbol_name(entry, decl_context, &is_dependent, &max_qualif_level);
 }
 
 void scope_entry_dynamic_initializer(void)

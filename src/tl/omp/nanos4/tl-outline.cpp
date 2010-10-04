@@ -400,7 +400,7 @@ namespace TL
                                 {
                                     static_initializer << udr2.get_identity().prettyprint();
                                 }
-                                else
+                                else if (!type.is_enum())
                                 {
                                     static_initializer << " (" << udr2.get_identity().prettyprint() << ")";
                                 }
@@ -717,7 +717,7 @@ namespace TL
             {
                 Symbol sym = it->get_symbol();
                 std::string name = "rdp_" + sym.get_name();
-                Type type = sym.get_type();
+                Type type = sym.get_type();	
                 Source type_declaration, static_initializer, dynamic_initializer, secondary_decl;
 
                 if (_new_udr)
@@ -750,7 +750,7 @@ namespace TL
                                 {
                                     static_initializer << udr2.get_identity().prettyprint();
                                 }
-                                else
+                                else if (!type.is_enum())
                                 {
                                     static_initializer << " (" << udr2.get_identity().prettyprint() << ")";
                                 }
