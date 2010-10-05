@@ -1005,8 +1005,7 @@ AC_CHECK_FUNC([strsignal],
         AC_DEFINE([HAVE_STRSIGNAL], 1, [Define to 1 if strsignal is available])
         ],
         [
-        AC_LIBOBJ([tempname])
-        AC_LIBOBJ([mkdtemp])
+        AC_LIBOBJ([strsignal])
         ]
         )
 
