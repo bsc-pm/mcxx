@@ -263,7 +263,7 @@ void DeviceGPU::create_outline(
 					FilterFunctionDef(Symbol sym, ScopeLink sl)
 					: _sym(sym), _sl(sl) { }
 
-					virtual bool do_(AST_t& a) const
+					virtual bool do_(const AST_t& a) const
 					{
 						if (!FunctionDefinition::predicate(a))
 							return false;
