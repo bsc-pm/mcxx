@@ -414,6 +414,9 @@ namespace TL
             //! Returns a list with the static data members of a class-type
             ObjectList<Symbol> get_static_data_members() const;
 
+            //! Returns all the data members, either static or non-static
+            ObjectList<Symbol> get_all_data_members() const;
+
             //! States whether any nonstatic member of class-type is defined as mutable
             bool some_member_is_mutable() const;
 
