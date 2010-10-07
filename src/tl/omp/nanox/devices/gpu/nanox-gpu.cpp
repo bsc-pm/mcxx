@@ -16,7 +16,7 @@ static std::string gpu_outline_name(const std::string &task_name)
     return "_gpu_" + task_name;
 }
 
-static Type compute_replacement_type_for_vla(Type type, 
+static Type compute_replacement_type_for_vla(Type type,
         ObjectList<Source>::iterator dim_names_begin,
         ObjectList<Source>::iterator dim_names_end)
 {
@@ -382,7 +382,8 @@ void DeviceGPU::create_outline(
 
     cudaFile << "extern \"C\" {\n";
     cudaFile << forward_declaration.get_source(false) << "\n";
-    cudaFile << outline_code_tree.prettyprint_external() << "\n";
+    // cudaFile << outline_code_tree.prettyprint_external() << "\n";
+    cudaFile << outline_code_tree.prettyprint() << "\n";
     cudaFile << "}\n";
     cudaFile.close();
 
@@ -391,24 +392,56 @@ void DeviceGPU::create_outline(
     // Check if the task is a function, or it is inlined
     if (outline_flags.task_symbol != NULL)
     {
-    	// Remove the task body from the original source file ...
-    	function_tree.remove_in_list();
+        // Remove the task body from the original source file ...
+        function_tree.remove_in_list();
 
-    	// ...  and replace it for the outline declaration
-    	Source function_decl_src;
-    	function_decl_src << "void " << outline_name << "(" << struct_typename << "*);"
-    			;
+        // ...  and replace it for the outline declaration
+        Source function_decl_src;
+        CXX_LANGUAGE()
+        {
+            function_decl_src
+                << "extern \"C\" { "
+                ;
+        }
 
-    	AST_t function_decl_tree = function_decl_src.parse_declaration(reference_tree, sl);
-    	reference_tree.prepend_sibling_function(function_decl_tree);
+        function_decl_src
+            << "void " << outline_name << "(" << struct_typename << "*);"
+            ;
+
+        CXX_LANGUAGE()
+        {
+            function_decl_src
+                << "}"
+                ;
+        }
+
+        AST_t function_decl_tree = function_decl_src.parse_declaration(reference_tree, sl);
+        reference_tree.prepend_sibling_function(function_decl_tree);
     }
     else
     {
-    	// Forward declaration of the task outline
-    	Source outline_declaration_src;
-    	outline_declaration_src << "void " << outline_name << "(" << parameter_list << ");";
-    	AST_t outline_declaration_tree = outline_declaration_src.parse_declaration(reference_tree, sl);
-    	reference_tree.prepend_sibling_function(outline_declaration_tree);
+        // Forward declaration of the task outline
+        Source outline_declaration_src;
+
+        CXX_LANGUAGE()
+        {
+            outline_declaration_src
+                << "extern \"C\" { "
+                ;
+        }
+
+        outline_declaration_src
+            << "void " << outline_name << "(" << parameter_list << ");"
+            ;
+
+        CXX_LANGUAGE()
+        {
+            outline_declaration_src
+                << "}"
+                ;
+        }
+        AST_t outline_declaration_tree = outline_declaration_src.parse_declaration(reference_tree, sl);
+        reference_tree.prepend_sibling_function(outline_declaration_tree);
     }
 
     // reference_tree.prepend_sibling_function(outline_code_tree);
