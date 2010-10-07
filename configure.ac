@@ -1000,6 +1000,15 @@ AC_CHECK_FUNC([mkdtemp],
         ]
         )
 
+AC_CHECK_FUNC([strsignal], 
+        [
+        AC_DEFINE([HAVE_STRSIGNAL], 1, [Define to 1 if strsignal is available])
+        ],
+        [
+        AC_LIBOBJ([strsignal])
+        ]
+        )
+
 dnl Versioning things
 dnl Make sure build_version is double-quoted!
 build_version="\"unknown revision\""
@@ -1078,6 +1087,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-nanox
            tests/config/mercurium-nanos4
            tests/config/mercurium-ss
+           tests/config/mercurium-ss2omp
            tests/config/mercurium-stm
            tests/05_torture_cxx_1.dg/mercurium
            tests/05_torture_cxx_2.dg/mercurium

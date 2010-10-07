@@ -521,6 +521,13 @@ namespace TL
         return result;
     }
 
+    ObjectList<Symbol> Type::get_all_data_members() const
+    {
+        ObjectList<Symbol> result = get_nonstatic_data_members();
+        result.append(get_static_data_members());
+        return result;
+    }
+
     bool Type::some_member_is_mutable() const
     {
         ObjectList<Symbol> nonstatic_data_members = get_nonstatic_data_members();

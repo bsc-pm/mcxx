@@ -89,11 +89,9 @@ void OMPTransform::sections_postorder(PragmaCustomConstruct ctr)
     Source compound_wd_src;
     compound_wd_src
         << "{"
-        <<    "nanos_wd_props_t props = {"
-        <<    "    .mandatory_creation = 1,"
-        <<    "    .tied = 0,"
-        <<    "    .tie_to = 0"
-        <<    "};"
+        <<    "nanos_wd_props_t props;"
+        <<    "__builtin_memset(&props, 0, sizeof(props));"
+        <<    "props.mandatory_creation = 1;"
 
         <<    "nanos_err_t err;"
         <<    "nanos_slicer_t compound_slicer = nanos_find_slicer(\"compound_wd\");"

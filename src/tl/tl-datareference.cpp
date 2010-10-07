@@ -1,5 +1,6 @@
 #include "tl-datareference.hpp"
 #include "tl-symbol.hpp"
+#include "cxx-utils.h"
 
 using namespace TL;
 
@@ -276,15 +277,23 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
 
         ObjectList<Expression> shape_list = expr.shape_list();
 
-        Source factor;
-        for (ObjectList<Expression>::iterator it = shape_list.begin();
-                it != shape_list.end();
-                it++)
+        if (!enclosing_is_array)
         {
-            factor.append_with_separator("(" + it->prettyprint() + ")", "*");
-        }
+            Source factor;
 
-        size << "(" << arr_size << ") * " << factor;
+            for (ObjectList<Expression>::iterator it = shape_list.begin();
+                    it != shape_list.end();
+                    it++)
+            {
+                factor.append_with_separator("(" + it->prettyprint() + ")", "*");
+            }
+            size << "(" << arr_size << ") * " << factor;
+        }
+        else
+        {
+            Type t = type.points_to();
+            size << "sizeof(" << t.get_declaration(expr.get_scope(), "") << ")";
+        }
 
         Source proper_cast;
 
@@ -310,23 +319,29 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         if (!b)
             return false;
 
-        Type t = obj_expr.get_type();
+        Symbol member = expr.get_accessed_member().get_computed_symbol();
+        if (!member.is_valid())
+            return false;
 
-        if (t.is_reference())
-            t = t.references_to();
+        Type t = member.get_type();
+
+        CXX_LANGUAGE()
+        {
+            t = t.get_reference_to();
+        }
 
         type = t;
 
         if (!enclosing_is_array)
         {
+            addr << "&(" << obj_expr << "." << expr.get_accessed_member() << ")";
             size << "sizeof(" << t.get_declaration(expr.get_scope(), "") << ")";
-            addr << "&" << obj_addr << "." << expr.get_accessed_member();
         }
         else
         {
+            addr << obj_expr << "." << expr.get_accessed_member();
             t = t.basic_type();
             size << "sizeof(" << t.get_declaration(expr.get_scope(), "") << ")";
-            addr << obj_addr << "." << expr.get_accessed_member();
         }
 
         return true;

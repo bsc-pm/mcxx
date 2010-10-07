@@ -210,9 +210,8 @@ namespace TL
             Type type = sym.get_type();
 
             std::string field_name = data_env_info.get_field_name_for_symbol(sym);
-            DataEnvironItem data_env_item(sym, type, field_name);
 
-            data_env_item.set_alignment(type);
+            Type alignment_type = type;
 
             if (IS_C_LANGUAGE
                     && type.is_variably_modified())
@@ -241,7 +240,7 @@ namespace TL
                 {
                     Type element_type = type.array_element();
                     // This is the "easiest" way to build a type
-                    data_env_item.set_alignment(element_type);
+                    alignment_type = element_type;
 
                     Source src;
                     src
@@ -267,6 +266,9 @@ namespace TL
                     is_raw_buffer = true;
                 }
             }
+
+            DataEnvironItem data_env_item(sym, type, field_name);
+            data_env_item.set_alignment(alignment_type);
 
             C_LANGUAGE()
             {

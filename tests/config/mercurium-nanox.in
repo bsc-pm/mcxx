@@ -46,7 +46,7 @@ test_CC_nanox_plain="\${MCC}"
 test_CXX_nanox_plain="\${MCXX}"
 
 test_CFLAGS_nanox_plain="--nanox"
-test_CXX_nanox_plain="--nanox"
+test_CXXFLAGS_nanox_plain="--nanox"
 EOF
 
 fi

@@ -58,8 +58,8 @@ namespace TL
         Interface::Interface()
             : PragmaCustomCompilerPhase("nanos")
         {
-            set_phase_name("Nanos 4 Runtime Source-Compiler Interface");
-            set_phase_description("This phase enables support for '#pragma nanos', the interface runtime source-compiler for Nanos");
+            set_phase_name("Nanos Runtime Source-Compiler Versioning Interface");
+            set_phase_description("This phase enables support for '#pragma nanos', the interface for versioning runtime and compiler for Nanos");
 
             register_directive("interface");
             on_directive_pre["interface"].connect(functor(&Interface::interface_preorder, *this));
