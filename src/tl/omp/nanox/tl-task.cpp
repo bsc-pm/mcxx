@@ -599,14 +599,10 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     // TODO: Implement the corresponding part in the runtime in order to allow create_wd_and_run
     // function work properly
     Source mandatory_creation;
-
     if ( current_targets.contains( "cuda" ) )
     {
-    	mandatory_creation << "\n" << ".mandatory_creation = 1" << "\n";
-    }
-    else
-    {
-    	mandatory_creation << " 0 ";
+    	mandatory_creation << "props.mandatory_creation = 1;"
+            ;
     }
 
     spawn_code
@@ -616,9 +612,9 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<     struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
         <<     struct_runtime_size
         <<     "nanos_wd_t wd = (nanos_wd_t)0;"
-        <<     "nanos_wd_props_t props = {"
-        <<		mandatory_creation
-        <<		"};"
+        <<     "nanos_wd_props_t props;"
+        <<     "__builtin_memset(&props, 0, sizeof(props));"
+        <<     mandatory_creation
         <<     priority
         <<     tiedness
         <<     copy_decl
