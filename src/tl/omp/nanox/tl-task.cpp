@@ -628,7 +628,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     // Disallow GPU tasks to be executed at the time they are created
     // TODO: Implement the corresponding part in the runtime in order to allow create_wd_and_run
     // function work properly
-<<<<<<< HEAD
     Source creation;
 
     if ( current_targets.contains( "cuda" ) )
