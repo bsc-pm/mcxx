@@ -174,16 +174,17 @@ class ObjectList : public std::vector<T>, public TL::Object
         /*!
          * \param t Adds a copy of t at the end of the list
          */
-        void append(const T& t)
+        ObjectList<T>& append(const T& t)
         {
             this->push_back(t);
+            return *this;
         }
 
         //! Appends a whole list onto the list
         /*!
          * \param t Appends all elements of t at the end of the list
          */
-        void append(const ObjectList<T>& t)
+        ObjectList<T>& append(const ObjectList<T>& t)
         {
             for (typename ObjectList<T>::const_iterator it = t.begin();
                     it != t.end();
@@ -191,18 +192,20 @@ class ObjectList : public std::vector<T>, public TL::Object
             {
                 this->append(*it);
             }
+            return *this;
         }
 
         //! Inserts element if it was not already in
         /*!
          * \param t Element to be inserted once
          */
-        void insert(const T& t)
+        ObjectList<T>& insert(const T& t)
         {
             if (!contains(t))
             {
                 this->push_back(t);
             }
+            return *this;
         }
 
         //! Inserts elements of another list
@@ -212,7 +215,7 @@ class ObjectList : public std::vector<T>, public TL::Object
          * If any of the elements of list \a t was already in the current list, it will
          * not be inserted again
          */
-        void insert(const ObjectList<T>& t)
+        ObjectList<T>& insert(const ObjectList<T>& t)
         {
             for (typename ObjectList<T>::const_iterator it = t.begin();
                     it != t.end();
@@ -220,6 +223,7 @@ class ObjectList : public std::vector<T>, public TL::Object
             {
                 this->insert(*it);
             }
+            return *this;
         }
 
         //! Inserts element with a specified comparator
@@ -232,12 +236,13 @@ class ObjectList : public std::vector<T>, public TL::Object
          * Functor \a f gets an S value after a T value.
          */
         template <class S>
-        void insert(const T& t, const Functor<S, T>& f)
+        ObjectList<T>& insert(const T& t, const Functor<S, T>& f)
         {
             if (!contains(t, f))
             {
                 this->push_back(t);
             }
+            return *this;
         }
 
         //! Inserts elements of another list with a specified comparator
@@ -253,7 +258,7 @@ class ObjectList : public std::vector<T>, public TL::Object
          * already present in the current list.
          */
         template <class S>
-        void insert(const ObjectList<T>& t, const Functor<S, T>& f)
+        ObjectList<T>& insert(const ObjectList<T>& t, const Functor<S, T>& f)
         {
             for (typename ObjectList<T>::const_iterator it = t.begin();
                     it != t.end();
@@ -261,6 +266,7 @@ class ObjectList : public std::vector<T>, public TL::Object
             {
                 this->insert(*it, f);
             }
+            return *this;
         }
         
         //! States whether an element is already in the list

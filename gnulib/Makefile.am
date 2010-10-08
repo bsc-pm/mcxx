@@ -24,6 +24,8 @@
 EXTRA_DIST= tempname.c \
      tempname.h \
      mkdtemp.c \
+     siglist.h \
+     strsignal.c \
      $(END)
 
 noinst_LTLIBRARIES=libgnulib.la

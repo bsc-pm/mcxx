@@ -62,6 +62,18 @@ preprocessor_name = icpc
 compiler_name = icpc
 linker_name = icpc
 
+[xlmcc : mcc]
+preprocessor_name = gxlc
+preprocessor_uses_stdout = yes
+compiler_name = gxlc
+linker_name = gxlc
+
+[xlmcxx : mcxx]
+preprocessor_name = gxlc++
+preprocessor_uses_stdout = yes
+compiler_name = gxlc++
+linker_name = gxlc++
+
 # Profile mode
 [omp-prof-common]
 {openmp} preprocessor_options = -D_OPENMP=200805

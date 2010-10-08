@@ -179,7 +179,8 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
 
         <<   struct_runtime_size
 
-        <<   "nanos_wd_props_t props = { 0 };"
+        <<   "nanos_wd_props_t props;"
+        <<   "__builtin_memset(&props, 0, sizeof(props));"
         <<   "props.mandatory_creation = 1;"
         <<   "int _i;"
         <<   "for (_i = 1; _i < _nanos_num_threads; _i++)"

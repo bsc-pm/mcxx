@@ -305,6 +305,11 @@ namespace OpenMP
                     derref << "*";
                 }
 
+                if (real_type.is_reference())
+                {
+                    real_type = real_type.references_to();
+                }
+
                 if (real_type.is_array())
                 {
                     real_type = real_type.array_element().get_pointer_to();
