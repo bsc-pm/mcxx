@@ -28,6 +28,7 @@
 #include <string>
 #include <stack>
 #include <algorithm>
+#include "tl-clauses-info.hpp"
 #include "tl-compilerphase.hpp"
 #include "tl-langconstruct.hpp"
 #include "tl-handler.hpp"
@@ -165,7 +166,6 @@ namespace TL
     {
         private:
             std::string _clause_name;
-
             ObjectList<AST_t> filter_pragma_clause();
 
         public:
@@ -224,24 +224,26 @@ namespace TL
     class LIBTL_CLASS PragmaCustomConstruct : public LangConstruct, public LinkData
     {
         private:
-            ObjectList<std::string> _referenced_clauses;
+            DTO* _dto;
+
         public:
             PragmaCustomConstruct(AST_t ref, ScopeLink scope_link)
-                : LangConstruct(ref, scope_link)
+                : LangConstruct(ref, scope_link),
+                  _dto(NULL)
             {
             }
 
             //! Returns the name of the pragma prefix
-            std::string get_pragma();
+            std::string get_pragma() const;
 
             //! Returns the name of the pragma directive
-            std::string get_directive();
+            std::string get_directive() const;
 
             //! States if this is a directive
             /*!
               When this function is true it means that the pragma itself is a sole entity
              */
-            bool is_directive();
+            bool is_directive() const;
 
             //! States if this is a construct
             /*!
@@ -253,14 +255,14 @@ namespace TL
               used, otherwise use get_declaration as the nested construct can
               be a declaration or a function definition (or even something else)
              */
-            bool is_construct();
+            bool is_construct() const;
 
             //! Returns the statement associated to this pragma construct
             /*!
               Using this function is only valid when the pragma is in block-scope
               and function is_construct returned true
               */
-            Statement get_statement();
+            Statement get_statement() const;
 
             //! Returns the tree associated to this pragma construct
             /*!
@@ -271,20 +273,20 @@ namespace TL
               tree not wrapped yet in a LangConstruct (e.g. a Namespace
               definition)
               */
-            AST_t get_declaration();
+            AST_t get_declaration() const;
 
             //! This function returns the tree related to the pragma itself
             /*!
               This function is rarely needed, only when a change of the pragma itself is required
               */
-            AST_t get_pragma_line();
+            AST_t get_pragma_line() const;
 
             //! States if the pragma encloses a function definition
             /*!
               This is useful when using get_declaration, to quickly know if we can use a FunctionDefinition
               or we should use a Declaration instead
               */
-            bool is_function_definition();
+            bool is_function_definition() const;
 
             //! States if the pragma is followed by a first clause-alike parenthesis pair
             /*!
@@ -294,10 +296,10 @@ namespace TL
 
                 This function states if this pragma has this syntax
             */
-            bool is_parameterized();
+            bool is_parameterized() const;
 
             //! Returns a list of IdExpression's found in the parameter of the pragma
-            ObjectList<IdExpression> get_parameter_id_expressions(IdExpressionCriteria criteria = VALID_SYMBOLS);
+            ObjectList<IdExpression> get_parameter_id_expressions(IdExpressionCriteria criteria = VALID_SYMBOLS) const;
 
             //! Returns a list of Expressions in the parameter of the pragma
             /*!
@@ -305,7 +307,7 @@ namespace TL
               as a list of comma-separated expressions, parses them at this moment (if not parsed already)
               and returns it as a list
               */
-            ObjectList<Expression> get_parameter_expressions();
+            ObjectList<Expression> get_parameter_expressions() const;
 
             //! Returns the string of the parameter of the pragma
             /*!
@@ -313,32 +315,29 @@ namespace TL
               This function will always return one element, but for parallelism with the equivalent function of PragmaCustomClause
               it returns a list (that will contain a single element)
               */
-            ObjectList<std::string> get_parameter_arguments();
+            ObjectList<std::string> get_parameter_arguments() const;
 
             //! Returns the string of the parameter of the pragma using a tokenizer
             /*!
               This function is identical to get_parameter_arguments() but uses \a tokenizer to
               split the contents of the string.
               */
-            ObjectList<std::string> get_parameter_arguments(const ClauseTokenizer& tokenizer);
+            ObjectList<std::string> get_parameter_arguments(const ClauseTokenizer& tokenizer) const;
 
             //! This function returns all the clauses of this pragma
-            ObjectList<std::string> get_clause_names();
+            ObjectList<std::string> get_clause_names() const;
 
             //! This function returns a PragmaCustomClause object for a named clause
             /*!
               Note that this function always returns a PragmaCustomClause
               object even if no clause with the given /a name exists. Use
               PragmaCustomClause::is_defined to check its existence.
+              Adds to the DTO of PragmaCustomCompilerPhase the clause only if /a name exists.
               */
-            PragmaCustomClause get_clause(const std::string& name);
+            PragmaCustomClause get_clause(const std::string& name) const;
 
-            //! This function returns a list of clauses which have not been called on
-            /*!
-              Use this function for issuing warnings or errors for unused clauses, likely to be an error
-              on semantics (they do not cause a syntax error though)
-              */
-            ObjectList<std::string> unreferenced_clause_names();
+            //! This function set to the object _dto the dto get from de compiler phase
+            void set_dto(DTO* dto);
     };
 
     LIBTL_EXTERN bool is_pragma_custom(const std::string& pragma_preffix, 
@@ -363,6 +362,8 @@ namespace TL
             std::string _pragma_handled;
             CustomFunctorMap& _pre_map;
             CustomFunctorMap& _post_map;
+			DTO* _dto;
+            bool _warning_clauses;
 
             std::stack<PragmaCustomConstruct*> _construct_stack;
 
@@ -370,10 +371,13 @@ namespace TL
         public:
             PragmaCustomDispatcher(const std::string& pragma_handled, 
                     CustomFunctorMap& pre_map,
-                    CustomFunctorMap& post_map);
+                    CustomFunctorMap& post_map,
+                    bool warning_clauses);
 
             virtual void preorder(Context ctx, AST_t node);
             virtual void postorder(Context ctx, AST_t node);
+            void set_dto(DTO* dto);
+            void set_warning_clauses(bool warning);
     };
 
     //! Base class for all compiler phases working on user defined pragma lines
@@ -420,6 +424,12 @@ namespace TL
              * This is required for successful parsing of construct
              */
             void register_construct(const std::string& name);
+
+            //! Function to activate a flag in order to warning about all the unused clauses of a pragma
+            /*!
+             * Each fase must activate this flag if wants to show the warnings
+             */
+            void warning_pragma_unused_clauses(bool warning);
     };
 }
 
