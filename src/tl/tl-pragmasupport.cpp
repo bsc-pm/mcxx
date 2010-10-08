@@ -21,9 +21,10 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include "tl-pragmasupport.hpp"
+#include <typeinfo>
 
 #include "cxx-utils.h"
+#include "tl-pragmasupport.hpp"
 
 namespace TL
 {
@@ -136,15 +137,20 @@ namespace TL
     }
 
     PragmaCustomDispatcher::PragmaCustomDispatcher(const std::string& pragma_handled, 
-            CustomFunctorMap& pre_map, CustomFunctorMap& post_map)
-        : _pragma_handled(pragma_handled), _pre_map(pre_map), _post_map(post_map)
-    {
+            CustomFunctorMap& pre_map, CustomFunctorMap& post_map, bool warning_clauses)
+        : _pragma_handled(pragma_handled), 
+          _pre_map(pre_map), 
+          _post_map(post_map),
+		  _dto(NULL),
+          _warning_clauses(warning_clauses)
+    { 
     }
 
     void PragmaCustomDispatcher::preorder(Context ctx, AST_t node)
     {
         // Create it here
         PragmaCustomConstruct* pragma_custom_construct = new PragmaCustomConstruct(node, ctx.scope_link);
+        pragma_custom_construct->set_dto(_dto);
         _construct_stack.push(pragma_custom_construct);
 
         dispatch_pragma_construct(_pre_map, *pragma_custom_construct);
@@ -152,10 +158,24 @@ namespace TL
 
     void PragmaCustomDispatcher::postorder(Context ctx, AST_t node)
     {
-        PragmaCustomConstruct* pragma_custom_construct = _construct_stack.top(); 
+        PragmaCustomConstruct* pragma_custom_construct = _construct_stack.top();
         _construct_stack.pop();
 
         dispatch_pragma_construct(_post_map, *pragma_custom_construct);
+
+        RefPtr<ClausesInfo> clauses_info = RefPtr<ClausesInfo>::cast_dynamic((*_dto)["clauses"]);
+        ObjectList<std::string> unreferenced_clauses = clauses_info->get_unreferenced_clauses(pragma_custom_construct->get_ast());
+        if (_warning_clauses)
+        {
+		    for(ObjectList<std::string>::iterator it = unreferenced_clauses.begin(); it != unreferenced_clauses.end(); it++)
+		    {
+		        std::cerr << clauses_info->get_locus_info(pragma_custom_construct->get_ast())
+		                << ": warning: unused clause '" << *it << "'"
+		                << " for '#pragma "
+	                    << clauses_info->get_pragma(pragma_custom_construct->get_ast()) << "'"
+		                << std::endl;
+		    }
+        }
 
         // Destroy it here
         delete pragma_custom_construct;
@@ -175,13 +195,23 @@ namespace TL
         }
     }
 
-    std::string PragmaCustomConstruct::get_pragma() 
+    void PragmaCustomDispatcher::set_dto(DTO* dto)
+    {
+        _dto = dto;
+    }
+
+    void PragmaCustomDispatcher::set_warning_clauses(bool warning)
+    {
+        _warning_clauses = warning;
+    }
+
+    std::string PragmaCustomConstruct::get_pragma() const
     {
         TL::String result = this->get_ast().get_attribute(LANG_PRAGMA_CUSTOM);
         return result;
     }
 
-    std::string PragmaCustomConstruct::get_directive() 
+    std::string PragmaCustomConstruct::get_directive() const
     {
         TL::AST_t pragma_line = this->get_ast().get_attribute(LANG_PRAGMA_CUSTOM_LINE);
 
@@ -190,14 +220,14 @@ namespace TL
         return result;
     }
 
-    bool PragmaCustomConstruct::is_directive()
+    bool PragmaCustomConstruct::is_directive() const
     {
         TL::Bool is_directive = this->get_ast().get_attribute(LANG_IS_PRAGMA_CUSTOM_DIRECTIVE);
 
         return is_directive;
     }
 
-    AST_t PragmaCustomConstruct::get_declaration()
+    AST_t PragmaCustomConstruct::get_declaration() const
     {
         // The user will put it into a FunctionDefinition or a Declaration
         // depending on his needs
@@ -220,20 +250,20 @@ namespace TL
         return declaration;
     }
 
-    AST_t PragmaCustomConstruct::get_pragma_line()
+    AST_t PragmaCustomConstruct::get_pragma_line() const
     {
         TL::AST_t declaration = this->get_ast().get_attribute(LANG_PRAGMA_CUSTOM_LINE);
         return declaration;
     }
 
-    bool PragmaCustomConstruct::is_construct()
+    bool PragmaCustomConstruct::is_construct() const
     {
         TL::Bool is_construct = this->get_ast().get_attribute(LANG_IS_PRAGMA_CUSTOM_CONSTRUCT);
 
         return is_construct;
     }
 
-    Statement PragmaCustomConstruct::get_statement()
+    Statement PragmaCustomConstruct::get_statement() const
     {
         AST_t tree = this->get_ast().get_attribute(LANG_PRAGMA_CUSTOM_STATEMENT);
         Statement result(tree, this->get_scope_link());
@@ -241,7 +271,7 @@ namespace TL
         return result;
     }
 
-    ObjectList<std::string> PragmaCustomConstruct::get_clause_names()
+    ObjectList<std::string> PragmaCustomConstruct::get_clause_names() const
     {
         ObjectList<std::string> result;
         AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);
@@ -259,22 +289,30 @@ namespace TL
         return result;
     }
 
-    PragmaCustomClause PragmaCustomConstruct::get_clause(const std::string& name)
+    PragmaCustomClause PragmaCustomConstruct::get_clause(const std::string& name) const
     {
         AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);
         PragmaCustomClause result(name, pragma_line, this->get_scope_link());
+        if (_dto!=NULL)
+        {
+		    RefPtr<ClausesInfo> clauses_info = RefPtr<ClausesInfo>::cast_dynamic((*_dto)["clauses"]);
+		    if (clauses_info->directive_already_defined(this->get_ast()))
+		    {
+		        clauses_info->add_referenced_clause(this->get_ast(), name);
+		    }
+		    else
+		    {
+		        clauses_info->set_all_clauses(this->get_ast(), this->get_clause_names());
+		        clauses_info->add_referenced_clause(this->get_ast(), name);
+		        clauses_info->set_locus_info(this->get_ast());
+		        clauses_info->set_pragma(*this);
+		    }
+        }
 
-        _referenced_clauses.insert(name);
         return result;
     }
 
-    ObjectList<std::string> PragmaCustomConstruct::unreferenced_clause_names()
-    {
-        ObjectList<std::string> all_clauses = get_clause_names();
-        return all_clauses.filter(not_in_set(_referenced_clauses));
-    }
-
-    bool PragmaCustomConstruct::is_function_definition()
+    bool PragmaCustomConstruct::is_function_definition() const
     {
         AST_t declaration = get_declaration();
         if (declaration.is_valid())
@@ -285,7 +323,7 @@ namespace TL
         else return false;
     }
 
-    bool PragmaCustomConstruct::is_parameterized()
+    bool PragmaCustomConstruct::is_parameterized() const
     {
         AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);
         TL::Bool b = pragma_line.get_attribute(LANG_PRAGMA_CUSTOM_LINE_IS_PARAMETERIZED);
@@ -293,7 +331,7 @@ namespace TL
         return b;
     }
 
-    ObjectList<Expression> PragmaCustomConstruct::get_parameter_expressions()
+    ObjectList<Expression> PragmaCustomConstruct::get_parameter_expressions() const
     {
         ObjectList<Expression> result;
         AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);
@@ -307,7 +345,7 @@ namespace TL
         return result;
     }
 
-    ObjectList<IdExpression> PragmaCustomConstruct::get_parameter_id_expressions(IdExpressionCriteria criteria)
+    ObjectList<IdExpression> PragmaCustomConstruct::get_parameter_id_expressions(IdExpressionCriteria criteria) const
     {
         ObjectList<IdExpression> result;
         ObjectList<Expression> expr_list = get_parameter_expressions();
@@ -352,12 +390,12 @@ namespace TL
         return result;
     }
 
-    ObjectList<std::string> PragmaCustomConstruct::get_parameter_arguments()
+    ObjectList<std::string> PragmaCustomConstruct::get_parameter_arguments() const
     {
         return get_parameter_arguments(NullClauseTokenizer());
     }
 
-    ObjectList<std::string> PragmaCustomConstruct::get_parameter_arguments(const ClauseTokenizer& tokenizer)
+    ObjectList<std::string> PragmaCustomConstruct::get_parameter_arguments(const ClauseTokenizer& tokenizer) const
     {
         ObjectList<std::string> result;
         AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);
@@ -377,8 +415,16 @@ namespace TL
         return result;
     }
 
+    void PragmaCustomConstruct::set_dto(DTO* dto)
+    {
+        _dto = dto;
+    }
+
+
+// Initialize here the warnings to the dispatcher
     PragmaCustomCompilerPhase::PragmaCustomCompilerPhase(const std::string& pragma_handled)
-        : _pragma_handled(pragma_handled), _pragma_dispatcher(pragma_handled, on_directive_pre, on_directive_post)
+        : _pragma_handled(pragma_handled), 
+         _pragma_dispatcher(pragma_handled, on_directive_pre, on_directive_post, false)
     {
     }
 
@@ -405,7 +451,14 @@ namespace TL
         depth_traverse.add_predicate(pragma_custom_directive_pred, _pragma_dispatcher);
         depth_traverse.add_predicate(pragma_custom_construct_pred, _pragma_dispatcher);
 
+        if (!data_flow.get_keys().contains("clauses"))
+        {
+		    RefPtr<ClausesInfo> clauses_info_ptr(new ClausesInfo());
+		    data_flow.set_object("clauses", clauses_info_ptr);
+        }
+		_pragma_dispatcher.set_dto(&data_flow);
         depth_traverse.traverse(translation_unit, scope_link);
+		_pragma_dispatcher.set_dto(NULL);
     }
 
     void PragmaCustomCompilerPhase::register_directive(const std::string& str)
@@ -417,7 +470,12 @@ namespace TL
     {
         register_new_directive(_pragma_handled.c_str(), str.c_str(), 1);
     }
-   
+
+    void PragmaCustomCompilerPhase::warning_pragma_unused_clauses(bool warning)
+    {
+        _pragma_dispatcher.set_warning_clauses(warning);
+    }
+
     ObjectList<Expression> PragmaCustomClause::get_expression_list()
     {
         return parse_as_expression_list(filter_pragma_clause(), this->_ref, this->_scope_link);
