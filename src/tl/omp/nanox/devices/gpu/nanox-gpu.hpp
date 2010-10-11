@@ -12,11 +12,14 @@ namespace TL
 
         class DeviceGPU : public DeviceProvider
         {
-			private:
-				std::string _cudaFilename;
+            private:
+                std::string _cudaFilename;
+                AST_t _root;
+                std::set<std::string> _taskSymbols;
             public:
 
                 // This phase does nothing
+                virtual void pre_run(DTO& dto);
                 virtual void run(DTO& dto) { }
 
                 DeviceGPU();

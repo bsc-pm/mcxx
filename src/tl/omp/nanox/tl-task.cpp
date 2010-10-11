@@ -207,9 +207,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         ObjectList<OpenMP::FunctionTaskInfo::implementation_pair_t> implementation_list 
             = function_task_info.get_devices_with_implementation();
 
-        OutlineFlags implements_outline_flags = outline_flags;
-        implements_outline_flags.implemented_outline = true;
-
         for (ObjectList<OpenMP::FunctionTaskInfo::implementation_pair_t>::iterator it = implementation_list.begin();
                 it != implementation_list.end();
                 it++)
@@ -222,15 +219,48 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                         it->first.c_str(), ctr.get_ast().get_locus().c_str());
             }
 
+            Source replaced_call;
+            ReplaceSrcIdExpression replace_call(ctr.get_scope_link());
+            replace_call.add_replacement(task_symbol, it->second.get_qualified_name());
+            replaced_call << replace_call.replace(ctr.get_statement());
+
+            AST_t new_code = replaced_call.parse_statement(ctr.get_ast(), ctr.get_scope_link());
+
+	    std::stringstream ss;
+	    ss << "_ol_" << it->second.get_name() << "_" << outline_num;
+	    std::string implemented_outline_name = ss.str();
+
+            Source initial_setup, replaced_body;
+
+            device_provider->do_replacements(data_environ_info,
+                            new_code,
+                            ctr.get_scope_link(),
+                            initial_setup,
+                            replaced_body);
+
+	    OutlineFlags implemented_outline_flags;
+	    implemented_outline_flags.task_symbol = it->second;
+
+            device_provider->create_outline(implemented_outline_name,
+                            struct_arg_type_name,
+                            data_environ_info,
+                            implemented_outline_flags,
+                            ctr.get_ast(),
+                            ctr.get_scope_link(),
+                            initial_setup,
+                            replaced_body);
+
             device_provider->get_device_descriptor(
-                    /* outline_name */
-                    it->second.get_qualified_name(),
+                    implemented_outline_name,
                     data_environ_info, 
-                    implements_outline_flags,
+                    implemented_outline_flags,
                     ctr.get_statement().get_ast(),
                     ctr.get_scope_link(),
                     ancillary_device_description, 
                     device_description_line);
+
+            some_device_needs_copies = some_device_needs_copies
+                    || device_provider->needs_copies();
         }
     }
 
@@ -598,10 +628,11 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     // Disallow GPU tasks to be executed at the time they are created
     // TODO: Implement the corresponding part in the runtime in order to allow create_wd_and_run
     // function work properly
-    Source mandatory_creation;
+    Source creation;
+
     if ( current_targets.contains( "cuda" ) )
     {
-    	mandatory_creation << "props.mandatory_creation = 1;"
+    	creation << "props.mandatory_creation = 1;"
             ;
     }
 
@@ -614,7 +645,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         <<     "nanos_wd_t wd = (nanos_wd_t)0;"
         <<     "nanos_wd_props_t props;"
         <<     "__builtin_memset(&props, 0, sizeof(props));"
-        <<     mandatory_creation
+        <<     creation
         <<     priority
         <<     tiedness
         <<     copy_decl

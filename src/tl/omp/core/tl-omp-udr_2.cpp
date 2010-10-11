@@ -827,9 +827,9 @@ namespace TL
             {
 	            if (candidate_bases.size()>1)
 	            {
-			        running_error("%s: error: 'ambiguous definition for reduction variable '%s'\n",
+			        running_error("%s: error: ambiguous user defined reduction with identifier '%s'\n",
 			                reductor_tree.get_locus().c_str(),
-			                this->get_symbol_name(type).c_str());
+			                _name.c_str());
 	            }
 	            else if (candidate_bases.size()==1)
 	            {

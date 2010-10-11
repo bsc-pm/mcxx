@@ -1,0 +1,67 @@
+#!/bin/bash
+
+if [ -z "@NANOX_INCLUDES@" -o "@gpu_valid@" = no ];
+then
+
+cat <<EOF
+test_ignore=yes
+EOF
+  
+exit
+
+fi
+
+cat <<EOF
+MERCURIUM_LIBS=
+EOF
+
+CACHE_OMP_LIBRARIES_LT="@abs_builddir@/omp-libraries-libtool"
+
+if [ ! -e ${CACHE_OMP_LIBRARIES_LT} \
+       -a -e "@abs_top_builddir@/config/config.omp" \
+       -a -e "@abs_top_builddir@/config/config.cuda" \
+       -a -e "@abs_top_builddir@/config/config.sscc" ];
+then
+
+grep -o "compiler_phase[[:blank:]]*=[[:blank:]]*[^# ]*" @abs_top_builddir@/config/config.{omp,cuda,sscc} | sed -e 's/compiler_phase[[:blank:]]*=\(.*\).so[[:blank:]]*/\1.la/g' | sort -u | xargs -I{} find @abs_top_builddir@ -iname "{}" -not -path "*/.libs/*" | sed -e 's/^.*$/MERCURIUM_LIBS="${MERCURIUM_LIBS} -dlopen &"/g' > ${CACHE_OMP_LIBRARIES_LT}
+
+fi
+
+if [ -e ${CACHE_OMP_LIBRARIES_LT} ];
+then
+
+cat ${CACHE_OMP_LIBRARIES_LT}
+
+fi
+
+cat <<EOF
+MCC="@abs_top_builddir@/libtool --mode=execute \${MERCURIUM_LIBS} @abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=mcc --config-file=@abs_top_builddir@/config/config.omp --config-file=@abs_top_builddir@/config/config.cuda --verbose"
+MCXX="@abs_top_builddir@/libtool --mode=execute \${MERCURIUM_LIBS} @abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=mcxx --config-file=@abs_top_builddir@/config/config.omp --config-file=@abs_top_builddir@/config/config.cuda --verbose"
+SSCC="@abs_top_builddir@/libtool --mode=execute \${MERCURIUM_LIBS} @abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=sscc --config-file=@abs_top_builddir@/config/config.sscc --config-file=@abs_top_builddir@/config/config.cuda --verbose"
+SSCXX="@abs_top_builddir@/libtool --mode=execute \${MERCURIUM_LIBS} @abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=sscxx --config-file=@abs_top_builddir@/config/config.sscc --config-file=@abs_top_builddir@/config/config.cuda --verbose"
+EOF
+
+if [ ! -z "@NANOX_INCLUDES@" ];
+then
+
+# compile_versions="\${compile_versions} nanox_cuda"
+cat <<EOF
+
+test_CC_cuda_omp="\${MCC}"
+test_CXX_cuda_omp="\${MCXX}"
+
+test_CFLAGS_cuda_omp="--openmpt"
+test_CXXFLAGS_cuda_omp="--openmpt"
+
+test_CC_cuda_sscc="\${SSCC}"
+test_CXX_cuda_sscc="\${SSCXX}"
+
+test_CFLAGS_cuda_sscc=""
+test_CXXFLAGS_cuda_sscc=""
+EOF
+
+fi
+
+cat <<EOF
+test_nolink=yes
+EOF

@@ -169,6 +169,8 @@ namespace TL
             on_directive_pre["adf"].connect(functor(&OpenMPTransform::adf_task_preorder, *this));
             on_directive_post["adf"].connect(functor(&OpenMPTransform::adf_task_postorder, *this));
             // --- End of transactional world --
+
+            PragmaCustomCompilerPhase::warning_pragma_unused_clauses(true);
         }
 
         void OpenMPTransform::parse_new_udr(const std::string& str)

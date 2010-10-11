@@ -41,9 +41,7 @@ namespace TL
             return _copy_in.empty()
                 && _copy_out.empty()
                 && _copy_inout.empty()
-                && (_device_list.empty()
-                        || ((_device_list.size() == 1)
-                            && (_device_list[0] == "smp")));
+                && _device_list.empty();
         }
 
         void FunctionTaskTargetInfo::set_copy_in(const ObjectList<CopyItem>& copy_items)

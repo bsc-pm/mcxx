@@ -357,7 +357,6 @@ namespace TL
 		                        if (!reductor_name.compare("+")) reductor_name = "_plus_";
 		                        else if (!reductor_name.compare("-")) reductor_name = "_minus_";
 		                        else if (!reductor_name.compare("*")) reductor_name = "_mult_";
-		                        else if (!reductor_name.compare("/")) reductor_name = "_div_";
 		                        else if (!reductor_name.compare("&")) reductor_name = "_and_";
 		                        else if (!reductor_name.compare("|")) reductor_name = "_or_";
 		                        else if (!reductor_name.compare("^")) reductor_name = "_exp_";

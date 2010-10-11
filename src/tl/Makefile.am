@@ -118,6 +118,8 @@ libtl_la_SOURCES = \
     tl-templates.cpp \
     tl-datareference.hpp \
     tl-datareference.cpp \
+    tl-clauses-info.hpp \
+    tl-clauses-info.cpp \
 	$(END)
 
 if WINDOWS_BUILD
