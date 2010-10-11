@@ -7,4 +7,5 @@
 /*!include cxx-asttype-superscalar.def*/
 /*!include cxx-asttype-omp.def*/
 /*!include cxx-asttype-upc.def*/
+/*!include cxx-asttype-cuda.def*/
 /*!include cxx-asttype-xl.def*/

@@ -156,6 +156,7 @@
 "  --upc[=THREADS]          Enables UPC 1.2 syntactic support.\n" \
 "                           Optionally you can define a static \n" \
 "                           number of THREADS.\n" \
+"  --cuda                   Enables experimental support for CUDA\n" \
 "  --hlt                    Enable High Level Transformations\n" \
 "                           This enables '#pragma hlt'\n" \
 "  --do-not-unload-phases   If the compiler crashes when unloading\n" \
@@ -245,6 +246,7 @@ struct command_line_long_options command_line_long_options[] =
     {"print-config-file", CLP_NO_ARGUMENT, OPTION_PRINT_CONFIG_FILE},
     {"print-config-dir", CLP_NO_ARGUMENT, OPTION_PRINT_CONFIG_DIR},
     {"upc", CLP_OPTIONAL_ARGUMENT, OPTION_ENABLE_UPC},
+    {"cuda", CLP_NO_ARGUMENT, OPTION_ENABLE_CUDA},
     {"hlt", CLP_NO_ARGUMENT, OPTION_ENABLE_HLT},
     {"do-not-unload-phases", CLP_NO_ARGUMENT, OPTION_DO_NOT_UNLOAD_PHASES},
     {"instantiate", CLP_NO_ARGUMENT, OPTION_INSTANTIATE_TEMPLATES},
@@ -967,6 +969,11 @@ int parse_arguments(int argc, const char* argv[],
                             fprintf(stderr, "UPC static THREADS=%s\n", parameter_info.argument);
                             CURRENT_CONFIGURATION->upc_threads = uniquestr(parameter_info.argument);
                         }
+                        break;
+                    }
+                case OPTION_ENABLE_CUDA:
+                    {
+                        CURRENT_CONFIGURATION->enable_cuda = 1;
                         break;
                     }
                 case OPTION_DO_NOT_UNLOAD_PHASES:
@@ -1968,28 +1975,40 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
         // Ensure phases are loaded for current profile
         load_compiler_phases(CURRENT_CONFIGURATION);
-        
+
         // First check the file type
         const char* extension = get_extension_filename(translation_unit->input_filename);
 
         struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
 
-    // Linker data is not processed anymore
-    if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA)
-    {
-        file_process->already_compiled = 1;
-        continue;
-    }
+        // Linker data is not processed anymore
+        if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA)
+        {
+            file_process->already_compiled = 1;
+            continue;
+        }
 
         if (!CURRENT_CONFIGURATION->force_language
                 && (current_extension->source_language != CURRENT_CONFIGURATION->source_language)
                 && (current_extension->source_kind != SOURCE_KIND_NOT_PARSED))
         {
-            fprintf(stderr, "%s was configured for %s language but file '%s' looks %s language (it will be compiled anyways)\n",
+            fprintf(stderr, "%s was configured for '%s' language but file '%s' looks %s language (it will be compiled anyways)\n",
                     compilation_process.exec_basename, 
                     source_language_names[CURRENT_CONFIGURATION->source_language],
                     translation_unit->input_filename,
                     source_language_names[current_extension->source_language]);
+        }
+
+        char old_cuda_flag = CURRENT_CONFIGURATION->enable_cuda;
+        // For cuda enable CUDA
+        if (current_extension->source_language == SOURCE_LANGUAGE_CUDA)
+        {
+            if (!old_cuda_flag)
+            {
+                fprintf(stderr, "%s: warning: enabling CUDA support\n",
+                        translation_unit->input_filename);
+                CURRENT_CONFIGURATION->enable_cuda = 1;
+            }
         }
 
         if (CURRENT_CONFIGURATION->verbose)
@@ -2121,6 +2140,9 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 native_compilation(translation_unit, translation_unit->input_filename, /* remove_input */ false);
             }
         }
+
+        // Restore CUDA flag
+        CURRENT_CONFIGURATION->enable_cuda = old_cuda_flag;
 
         file_process->already_compiled = 1;
     }

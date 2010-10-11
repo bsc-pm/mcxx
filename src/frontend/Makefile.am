@@ -177,6 +177,7 @@ AST_NODE_TYPE_FILES += cxx-asttype-pragma.def
 AST_NODE_TYPE_FILES += cxx-asttype-superscalar.def
 AST_NODE_TYPE_FILES += cxx-asttype-upc.def
 AST_NODE_TYPE_FILES += cxx-asttype-omp.def
+AST_NODE_TYPE_FILES += cxx-asttype-cuda.def
 AST_NODE_TYPE_FILES += cxx-asttype-xl.def
 
 EXTRA_DIST += $(AST_NODE_TYPE_FILES)
@@ -202,6 +203,7 @@ ADDITIONAL_GRAMMARS += cxx-superscalar.y
 ADDITIONAL_GRAMMARS += cxx-ambig-handler.y
 ADDITIONAL_GRAMMARS += cxx-placeholders.y
 ADDITIONAL_GRAMMARS += c99-upc.y
+ADDITIONAL_GRAMMARS += cxx-cuda.y
 ADDITIONAL_GRAMMARS += cxx-xl.y
 ADDITIONAL_GRAMMARS += cxx-extensions.y
 

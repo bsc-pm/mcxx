@@ -1248,11 +1248,11 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
             // UPC extensions
         case AST_UPC_SHARED :
             {
-                gather_info->is_upc_shared = 1;
-                gather_info->upc_shared_layout = ASTSon0(a);
-                if (gather_info->upc_shared_layout != NULL)
+                gather_info->upc.is_shared = 1;
+                gather_info->upc.shared_layout = ASTSon0(a);
+                if (gather_info->upc.shared_layout != NULL)
                 {
-                    AST list = gather_info->upc_shared_layout;
+                    AST list = gather_info->upc.shared_layout;
                     AST iter;
 
                     for_each_element(list, iter)
@@ -1270,10 +1270,23 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
                 break;
             }
         case AST_UPC_RELAXED :
-            gather_info->is_upc_relaxed = 1;
+            gather_info->upc.is_relaxed = 1;
             break;
         case AST_UPC_STRICT :
-            gather_info->is_upc_strict = 1;
+            gather_info->upc.is_strict = 1;
+            break;
+            // CUDA stuff
+        case AST_CUDA_GLOBAL:
+            gather_info->cuda.is_global = 1;
+            break;
+        case AST_CUDA_DEVICE:
+            gather_info->cuda.is_device = 1;
+            break;
+        case AST_CUDA_SHARED:
+            gather_info->cuda.is_shared = 1;
+            break;
+        case AST_CUDA_CONSTANT:
+            gather_info->cuda.is_constant = 1;
             break;
         case AST_XL_BUILTIN_SPEC :
             // Do nothing at the moment
@@ -6914,6 +6927,42 @@ static void set_defaulted(AST a UNUSED_PARAMETER,
     entry->entity_specs.is_defaulted = 1;
 }
 
+static type_t* cuda_get_named_type(const char* name, decl_context_t decl_context)
+{
+    scope_entry_list_t* entry_list = query_unqualified_name_str(decl_context, name);
+    ERROR_CONDITION(entry_list == NULL, "Invalid '%s' lookup", name);
+
+    scope_entry_t* entry = entry_list->entry;
+
+    if (entry->kind != SK_CLASS
+            && entry->kind != SK_TYPEDEF)
+    {
+        ERROR_CONDITION(entry_list == NULL, "'%s' is not a valid typename", name);
+    }
+
+    return get_user_defined_type(entry);
+}
+
+static type_t* cuda_get_dim3_type(decl_context_t decl_context)
+{
+    static type_t* dim3_type = NULL;
+    if (dim3_type == NULL)
+    {
+        dim3_type = cuda_get_named_type("dim3", decl_context);
+    }
+    return dim3_type;
+}
+
+static type_t* cuda_get_uint3_type(decl_context_t decl_context)
+{
+    static type_t* uint3_type = NULL;
+    if (uint3_type == NULL)
+    {
+        uint3_type = cuda_get_named_type("uint3", decl_context);
+    }
+    return uint3_type;
+}
+
 static void build_scope_defaulted_function_definition(AST a, decl_context_t decl_context)
 {
     common_defaulted_or_deleted(a, decl_context, check_defaulted, set_defaulted);
@@ -7168,6 +7217,52 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         if (ctor_initializer != NULL)
         {
             build_scope_ctor_initializer(ctor_initializer, entry, block_context);
+        }
+    }
+
+    // FIXME - Think how to make this better maintained
+    if (CURRENT_CONFIGURATION->enable_cuda)
+    {
+        // FIXME - We should keep an attribute for this in the symbol otherwise
+        // we force the user to specify __global__ and __device__ in the
+        // function definition again (regardless of the function declarator)
+        if (gather_info.cuda.is_global
+                || gather_info.cuda.is_device)
+        {
+            type_t* uint3_type = cuda_get_uint3_type(decl_context);
+            type_t* dim3_type = cuda_get_dim3_type(decl_context);
+            struct symbol_builtin_info_tag
+            {
+                const char* name;
+                type_t* type;
+            } cuda_builtins[] =
+            {
+                { "gridDim", dim3_type },
+                { "blockIdx", uint3_type },
+                { "blockDim", dim3_type },
+                { "threadIdx", uint3_type },
+                { "warpSize", get_signed_int_type() },
+                // Sentinel
+                { NULL, NULL },
+            };
+
+            int i = 0;
+            while (cuda_builtins[i].name != NULL)
+            {
+                scope_entry_t* cuda_sym = new_symbol(block_context, 
+                        block_context.current_scope, 
+                        cuda_builtins[i].name);
+
+                cuda_sym->line = ASTLine(function_body);
+                cuda_sym->file = ASTFileName(function_body);
+
+                cuda_sym->point_of_declaration = function_body;
+                cuda_sym->kind = SK_VARIABLE;
+                cuda_sym->type_information = cuda_builtins[i].type;
+                cuda_sym->defined = 1;
+
+                i++;
+            }
         }
     }
 

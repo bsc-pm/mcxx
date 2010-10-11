@@ -260,6 +260,10 @@ HANDLER_PROTOTYPE(upc_sizeof_expr);
 HANDLER_PROTOTYPE(upc_sizeof_type);
 HANDLER_PROTOTYPE(upc_synch_statement);
 
+// CUDA
+HANDLER_PROTOTYPE(cuda_kernel_call_handler);
+HANDLER_PROTOTYPE(cuda_kernel_arguments_handler);
+
 prettyprint_entry_t handlers_list[] =
 {
     NODE_HANDLER(AST_TRANSLATION_UNIT, unary_container_handler, NULL),
@@ -612,6 +616,14 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_UPC_CONTINUE, simple_text_handler, "continue"),
     NODE_HANDLER(AST_UPC_FORALL, upc_iteration_statement, NULL),
     NODE_HANDLER(AST_UPC_FORALL_HEADER, upc_forall_header, NULL),
+    // CUDA
+    NODE_HANDLER(AST_CUDA_DEVICE, simple_text_handler, "__device__"),
+    NODE_HANDLER(AST_CUDA_GLOBAL, simple_text_handler, "__global__"),
+    NODE_HANDLER(AST_CUDA_HOST, simple_text_handler, "__host__"),
+    NODE_HANDLER(AST_CUDA_CONSTANT, simple_text_handler, "__constant__"),
+    NODE_HANDLER(AST_CUDA_SHARED, simple_text_handler, "__shared__"),
+    NODE_HANDLER(AST_CUDA_KERNEL_CALL, cuda_kernel_call_handler, NULL),
+    NODE_HANDLER(AST_CUDA_KERNEL_ARGUMENTS, cuda_kernel_arguments_handler, NULL),
     // IBM XL
     NODE_HANDLER(AST_XL_BUILTIN_SPEC, simple_text_handler, "_Builtin"),
 };
@@ -2980,4 +2992,37 @@ static void omp_udr_constructor_arguments_handler(FILE* f, AST a, prettyprint_co
         list_handler(f, ASTSon0(a), pt_ctx);
         token_fprintf(f, a, pt_ctx, ")");
     }
+}
+
+static void cuda_kernel_call_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
+
+    prettyprint_level(f, ASTSon1(a), pt_ctx);
+
+    token_fprintf(f, a, pt_ctx, "(");
+    prettyprint_level(f, ASTSon2(a), pt_ctx);
+    token_fprintf(f, a, pt_ctx, ")");
+}
+
+static void cuda_kernel_arguments_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    token_fprintf(f, a, pt_ctx, "<<<");
+
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
+    token_fprintf(f, a, pt_ctx, ", ");
+    prettyprint_level(f, ASTSon1(a), pt_ctx);
+
+    if (ASTSon2(a) != NULL)
+    {
+        token_fprintf(f, a, pt_ctx, ", ");
+        prettyprint_level(f, ASTSon2(a), pt_ctx);
+    }
+    if (ASTSon3(a) != NULL)
+    {
+        token_fprintf(f, a, pt_ctx, ", ");
+        prettyprint_level(f, ASTSon3(a), pt_ctx);
+    }
+
+    token_fprintf(f, a, pt_ctx, ">>>");
 }

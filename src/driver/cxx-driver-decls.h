@@ -59,6 +59,7 @@ typedef enum
     OPTION_PRINT_CONFIG_FILE,
     OPTION_PRINT_CONFIG_DIR,
     OPTION_ENABLE_UPC,
+    OPTION_ENABLE_CUDA,
     OPTION_ENABLE_HLT,
     OPTION_DO_NOT_UNLOAD_PHASES,
     OPTION_INSTANTIATE_TEMPLATES,
@@ -365,6 +366,9 @@ typedef struct compilation_configuration_tag
 
     // Enable C++1x
     char enable_cxx1x;
+
+    // Enable CUDA
+    char enable_cuda;
 
     // Target options
     int num_target_option_maps;
