@@ -248,13 +248,8 @@ struct simple_type_tag {
     // signed
     unsigned char is_signed:1;
 
-    // States whether this type is incomplete, by default all classes and enum
-    // type are incomplete and they must be 
-    unsigned char is_incomplete:1;
-
     // For typeof and template dependent types
     // (kind == STK_TYPEOF)
-    // (kind == STK_TEMPLATE_DEPENDENT_TYPE)
     unsigned char typeof_is_expr:1;
 
     // This type exists after another symbol, for
@@ -291,7 +286,6 @@ struct simple_type_tag {
 
     // For typeof and template dependent types
     // (kind == STK_TYPEOF)
-    // (kind == STK_TEMPLATE_DEPENDENT_TYPE)
     AST typeof_expr;
     decl_context_t typeof_decl_context;
 
@@ -3223,26 +3217,6 @@ void enum_type_set_underlying_type(struct type_tag* t, struct type_tag* underlyi
     enum_type->enum_info->underlying_type = underlying_type;
 }
 
-// This function returns a copy of the old type
-type_t* unnamed_class_enum_type_set_name(type_t* t, scope_entry_t* entry)
-{
-    ERROR_CONDITION (!is_unnamed_class_type(t)
-            && !is_unnamed_enumerated_type(t),
-            "This should be an unnamed enum or class\n", 0);
-
-    _enum_type_counter++;
-
-    type_t* new_type = new_empty_type();
-
-    // Wild copy
-    *new_type = *t;
-
-    *t = *(get_user_defined_type(entry));
-
-    return new_type;
-}
-
-
 type_t* advance_over_typedefs_with_cv_qualif(type_t* t1, cv_qualifier_t* cv_qualif)
 {
     if (t1 == NULL)
@@ -3862,43 +3836,6 @@ static char equivalent_array_type(array_info_t* t1, array_info_t* t2)
     }
     
     return 1;
-}
-
-cv_qualifier_t* get_innermost_cv_qualifier(type_t* t)
-{
-    // For types that do not have a cv qualifier on their own
-    static cv_qualifier_t dummy_cv_qualif = CV_NONE;
-
-    // This will avoid accidental modifications from outside
-    dummy_cv_qualif = CV_NONE;
-
-    switch (t->kind)
-    {
-        case TK_DIRECT :
-            {
-                return &(t->cv_qualifier);
-                break;
-            }
-        case TK_ARRAY :
-            {
-                return get_innermost_cv_qualifier(t->array->element_type);
-            }
-        case TK_POINTER :
-        case TK_POINTER_TO_MEMBER :
-        case TK_LVALUE_REFERENCE :
-        case TK_RVALUE_REFERENCE :
-            {
-                return get_innermost_cv_qualifier(t->pointer->pointee);
-            }
-        case TK_FUNCTION :
-            {
-                return get_innermost_cv_qualifier(t->function->return_type);
-            }
-        default:
-            {
-                internal_error("Unexpected node type %d\n", t->kind);
-            }
-    }
 }
 
 #if 0
@@ -5334,38 +5271,6 @@ void set_is_dependent_type(struct type_tag* t, char is_dependent)
 {
     t = canonical_type(t);
     t->info->is_dependent = is_dependent;
-}
-
-// This jumps over user defined types and typedefs
-scope_entry_t* give_real_entry(scope_entry_t* entry)
-{
-    scope_entry_t* result = entry;
-
-    type_t* t = entry->type_information;
-
-    if (t != NULL)
-    {
-        t = advance_over_typedefs(t);
-    }
-
-    while (t != NULL 
-            && t->kind == TK_DIRECT
-            && t->type->kind == STK_USER_DEFINED)
-    {
-        result = t->type->user_defined_type;
-        t = result->type_information;
-        if (t != NULL)
-        {
-            t = advance_over_typedefs(t);
-        }
-    }
-
-    if (result->entity_specs.is_injected_class_name)
-    {
-        result = result->entity_specs.injected_class_referred_symbol;
-    }
-
-    return result;
 }
 
 static const char* get_cv_qualifier_string(type_t* type_info)
