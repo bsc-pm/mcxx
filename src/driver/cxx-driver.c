@@ -1714,8 +1714,13 @@ static void load_configuration(void)
         if (strncmp(compilation_process.argv[i], 
                     "--config-file=", strlen("--config-file=")) == 0)
         {
-            compilation_process.config_file = 
+            const char *config_file = NULL;
+            config_file = compilation_process.config_file = 
                 uniquestr(&(compilation_process.argv[i][strlen("--config-file=") ]));
+
+            // Load the configuration file at this point should the user have
+            // specified more than one config file
+            load_configuration_file(config_file);
         }
         else if (strncmp(compilation_process.argv[i], 
                     "--config-dir=", strlen("--config-dir=")) == 0)
@@ -1732,8 +1737,6 @@ static void load_configuration(void)
                 uniquestr(&(compilation_process.argv[i][strlen("--profile=") ]));
         }
     }
-
-    load_configuration_file(compilation_process.config_file);
 
     // Now load all files in the config_dir
     DIR* config_dir = opendir(compilation_process.config_dir);
