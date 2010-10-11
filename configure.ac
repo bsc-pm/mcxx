@@ -207,6 +207,70 @@ AC_SUBST([NANOX_LIBS])
 
 dnl --------------------- End of Support for OpenMP Nanox -------------------------------
 
+dnl --------------------- Support for GPU tests in Nanox --------------------------------
+# Check if it has nVidia GPUs / CUDA is installed
+gpu_valid=no
+gpu_disabled=no
+CUDA=""
+
+AC_MSG_CHECKING([if the use of GPU devices was disabled])
+AC_ARG_ENABLE([nanox-gpu-device],
+  AS_HELP_STRING([--disable-nanox-gpu-device], [Disables the use of GPU devices]),
+  [
+    gpu_valid="no"
+    gpu_disabled="yes"
+    AC_MSG_RESULT([yes])
+  ],
+  [
+    AC_MSG_RESULT([no])
+  ]
+)
+
+AC_ARG_WITH([cuda],
+AS_HELP_STRING([--with-cuda=dir], [Directory of CUDA installation]),
+	[
+		CUDA="${withval}"
+	],
+	[
+		CUDA="/usr/local/cuda"
+	])
+
+if test x$gpu_disabled = xno ; then
+    if test -d "$CUDA" ; 
+    then
+        AC_ARG_VAR([NVCC],[CUDA compiler])
+        NVCC="nvcc"
+        AC_CHECK_PROG( [NVCC], ["CUDA compiler"], nvcc, no)
+        if test x$NVCC = xno ; then
+            AC_MSG_WARN([nvcc not found. Disabling GPU support])
+            gpu_valid=no
+        else
+            CUDA_INC="$CUDA/include"
+            CUDA_LIB="$CUDA/lib"
+            if test -d "$CUDA/lib64" ; 
+            then
+                CUDA_LIB="$CUDA/lib64"
+            fi
+
+            AC_SUBST([CUDA_INC])
+            AC_SUBST([CUDA_LIB])
+
+            gpu_valid=yes
+        fi
+    else
+         AC_MSG_WARN([Directory "$CUDA" does not exist. Disabling GPU Support])
+	 gpu_valid=no
+    fi
+fi
+
+# Use this if we want to conditionally disable compilation of GPU
+# DeviceProvider
+AM_CONDITIONAL(NANOX_GPU_SUPPORT, test x$gpu_valid = xyes)
+
+AC_SUBST([gpu_valid])
+
+dnl --------------------- End of Support for GPU tests in Nanox --------------------------------
+
 dnl --------------------- Support for OpenMP Nanos4 (to extinguish) ---------------------
 
 is_enabled_tl_omp_nanos4="no"
@@ -1086,6 +1150,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-omp
            tests/config/mercurium-nanox
            tests/config/mercurium-nanos4
+           tests/config/mercurium-cuda
            tests/config/mercurium-ss
            tests/config/mercurium-ss2omp
            tests/config/mercurium-stm
@@ -1112,6 +1177,7 @@ then
   echo "   Nanos++ includes :" $nanox_include
   echo "   Nanos++ libraries:" $nanox_lib
 fi
+echo "   GPU testing enabled:" $gpu_valid
 echo ""
 echo " * Nanos 4 OpenMP :" $is_enabled_tl_omp_nanos4
 if test x$is_enabled_tl_omp_nanos4 = xyes;
