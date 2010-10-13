@@ -131,6 +131,8 @@ libmcxx_la_SOURCES = \
   cxx-gccspubuiltins.c \
   cxx-upc.c \
   cxx-upc.h \
+  cxx-cuda.c \
+  cxx-cuda.h \
   cxx-typeorder.h \
   cxx-typeorder.c \
   cxx-overload.c \
