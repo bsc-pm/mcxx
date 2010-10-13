@@ -63,7 +63,7 @@ cuda_kernel_call : postfix_expression cuda_kernel_arguments '(' ')'
 
 cuda_kernel_arguments : cuda_kernel_config_left cuda_kernel_config_list cuda_kernel_config_right
 {
-    $$ = ASTMake1(AST_CUDA_KERNEL_ARGUMENTS, $2, $1.token_file, $1.token_line, NULL);
+    $$ = $2;
 }
 ;
 

@@ -32,5 +32,6 @@ void cuda_kernel_symbols_for_function_body(
         decl_context_t decl_context,
         decl_context_t block_context);
 
+char cuda_kernel_call_check(AST expression, decl_context_t decl_context);
 
 #endif // CXX_CUDA_H

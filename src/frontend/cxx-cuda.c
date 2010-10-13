@@ -1,7 +1,11 @@
 #include "cxx-cuda.h"
+#include "cxx-exprtype.h"
+#include "cxx-overload.h"
 #include "cxx-typeutils.h"
 #include "cxx-scope.h"
 #include "cxx-utils.h"
+#include "cxx-ambiguity.h"
+#include "cxx-prettyprint.h"
 
 static type_t* cuda_get_named_type(const char* name, decl_context_t decl_context)
 {
@@ -37,6 +41,16 @@ static type_t* cuda_get_uint3_type(decl_context_t decl_context)
         uint3_type = cuda_get_named_type("uint3", decl_context);
     }
     return uint3_type;
+}
+
+static type_t* cuda_get_cudaStream_t_type(decl_context_t decl_context)
+{
+    static type_t* cudaStream_t_type = NULL;
+    if (cudaStream_t_type == NULL)
+    {
+        cudaStream_t_type = cuda_get_named_type("cudaStream_t", decl_context);
+    }
+    return cudaStream_t_type;
 }
 
 void cuda_kernel_symbols_for_function_body(
@@ -86,4 +100,96 @@ void cuda_kernel_symbols_for_function_body(
             i++;
         }
     }
+}
+
+char cuda_kernel_call_check(AST expression, decl_context_t decl_context)
+{
+    AST postfix_expr = ASTSon0(expression);
+    if (!check_for_expression(postfix_expr, decl_context))
+        return 0;
+
+    // FIXME - What about Koenig in C++!!!
+    AST cuda_kernel_args = ASTSon1(expression);
+
+    AST arg_0 = ASTSon0(cuda_kernel_args);
+    if (!check_for_expression(arg_0, decl_context))
+        return 0;
+
+    AST arg_1 = ASTSon1(cuda_kernel_args);
+    if (!check_for_expression(arg_1, decl_context))
+        return 0;
+
+    AST arg_2 = ASTSon2(cuda_kernel_args);
+    if (arg_2 != NULL
+            && !check_for_expression(arg_2, decl_context))
+        return 0;
+
+    AST arg_3 = ASTSon3(cuda_kernel_args);
+    if (arg_3 != NULL
+            && !check_for_expression(arg_3, decl_context))
+        return 0;
+
+    AST expr_list = ASTSon2(expression);
+    if (expr_list != NULL 
+            && !check_for_expression_list(expr_list, decl_context))
+        return 0;
+
+    type_t* dim3_type = cuda_get_dim3_type(decl_context);
+    type_t* cudaStream_t_type = cuda_get_cudaStream_t_type(decl_context);
+
+    struct kernel_arg_item
+    {
+        AST tree;
+        const char* position;
+        type_t* expected_type;
+    } kernel_args[] = 
+    {
+        { arg_0, "first", dim3_type },
+        { arg_1, "second", dim3_type },
+        { arg_2, "third", get_size_t_type() },
+        { arg_3, "fourth", cudaStream_t_type },
+    };
+
+    int i = 0;
+    while (kernel_args[i].tree != NULL)
+    {
+        char is_convertible = 1;
+
+        AST tree = kernel_args[i].tree;
+        type_t* dest_type = kernel_args[i].expected_type;
+
+        C_LANGUAGE()
+        {
+            standard_conversion_t result;
+            is_convertible = standard_conversion_between_types(&result, 
+                    expression_get_type(tree), dest_type);
+
+        }
+
+        CXX_LANGUAGE()
+        {
+            char ambiguous_conversion = 0;
+            scope_entry_t* conversor = NULL;
+            is_convertible = (!type_can_be_implicitly_converted_to(
+                        expression_get_type(tree), dest_type, decl_context, 
+                        &ambiguous_conversion, &conversor)
+                    && !ambiguous_conversion);
+        }
+
+        if (!is_convertible 
+                && !checking_ambiguity())
+        {
+            fprintf(stderr, "%s: warning: %s argument '%s' for kernel call cannot be converted to type '%s'\n",
+                    ast_location(tree),
+                    kernel_args[i].position,
+                    prettyprint_in_buffer(tree),
+                    print_type_str(dest_type, decl_context));
+        }
+        i++;
+    }
+
+    // A CUDA kernel should return void
+    expression_set_type(expression, get_void_type());
+
+    return true;
 }

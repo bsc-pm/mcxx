@@ -1523,6 +1523,11 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 expression_set_is_lvalue(expression, 0);
                 break;
             }
+            // CUDA
+        case AST_CUDA_KERNEL_CALL:
+            {
+                return cuda_kernel_call_check(expression, decl_context);
+            }
         case AST_AMBIGUITY :
             {
                 if (!solve_ambiguous_expression(expression, decl_context))
