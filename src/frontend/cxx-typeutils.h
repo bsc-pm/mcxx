@@ -165,8 +165,6 @@ LIBMCXX_EXTERN void class_type_add_conversion_function(struct type_tag* class_ty
 LIBMCXX_EXTERN void class_type_add_nonstatic_data_member(struct type_tag* class_type, struct scope_entry_tag* entry);
 LIBMCXX_EXTERN void class_type_add_static_data_member(struct type_tag* class_type, struct scope_entry_tag* entry);
 LIBMCXX_EXTERN void class_type_set_instantiation_trees(struct type_tag* t, struct AST_tag* body, struct AST_tag* base_clause);
-LIBMCXX_EXTERN void class_type_add_constructor(struct type_tag* t, struct scope_entry_tag* entry);
-LIBMCXX_EXTERN void class_type_set_destructor(struct type_tag* t, struct scope_entry_tag* entry);
 LIBMCXX_EXTERN void class_type_set_default_constructor(struct type_tag* t, struct scope_entry_tag* entry);
 LIBMCXX_EXTERN void class_type_add_member_function(struct type_tag* t, struct scope_entry_tag* entry);
 LIBMCXX_EXTERN void class_type_set_enclosing_class_type(struct type_tag* t, struct type_tag* class_type);
@@ -181,8 +179,6 @@ LIBMCXX_EXTERN void enum_type_set_underlying_type(struct type_tag* t, struct typ
 LIBMCXX_EXTERN void set_is_incomplete_type(type_t* t, char is_incomplete);
 LIBMCXX_EXTERN void set_is_complete_type(type_t* t, char is_complete);
 LIBMCXX_EXTERN void set_is_dependent_type(struct type_tag* t, char is_dependent);
-
-LIBMCXX_EXTERN struct type_tag* unnamed_class_enum_type_set_name(struct type_tag* t, struct scope_entry_tag* entry);
 
 LIBMCXX_EXTERN void template_type_set_related_symbol(struct type_tag* t, struct scope_entry_tag*);
 
@@ -355,7 +351,6 @@ LIBMCXX_EXTERN char array_type_is_vla(struct type_tag* t);
 
 LIBMCXX_EXTERN int enum_type_get_num_enumerators(struct type_tag* t);
 LIBMCXX_EXTERN scope_entry_t* enum_type_get_enumerator_num(struct type_tag* t, int n);
-
 LIBMCXX_EXTERN struct type_tag* enum_type_get_underlying_type(struct type_tag* t);
 
 LIBMCXX_EXTERN enum class_kind_t class_type_get_class_kind(type_t* t);
@@ -467,6 +462,7 @@ LIBMCXX_EXTERN char class_type_is_standard_layout(type_t* t);
 
 LIBMCXX_EXTERN char class_type_is_base(struct type_tag* possible_base, struct type_tag* possible_derived);
 LIBMCXX_EXTERN char class_type_is_derived(struct type_tag* possible_derived, struct type_tag* possible_base);
+
 LIBMCXX_EXTERN char is_pointer_to_void_type(struct type_tag* t);
 LIBMCXX_EXTERN char is_pointer_to_function_type(struct type_tag* t1);
 
@@ -499,10 +495,6 @@ LIBMCXX_EXTERN char is_pointer_to_class_type(struct type_tag* t1);
 LIBMCXX_EXTERN char is_lvalue_reference_to_class_type(struct type_tag* t1);
 LIBMCXX_EXTERN char is_rvalue_reference_to_class_type(struct type_tag* t1);
 LIBMCXX_EXTERN char is_reference_to_class_type(struct type_tag* t1);
-
-LIBMCXX_EXTERN struct scope_entry_tag* give_real_entry(struct scope_entry_tag* entry);
-
-LIBMCXX_EXTERN cv_qualifier_t* get_innermost_cv_qualifier(struct type_tag* t);
 
 LIBMCXX_EXTERN char class_type_is_incomplete_dependent(struct type_tag* t);
 LIBMCXX_EXTERN char class_type_is_complete_dependent(struct type_tag* t);

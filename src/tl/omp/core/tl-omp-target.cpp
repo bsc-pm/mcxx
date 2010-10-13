@@ -181,6 +181,41 @@ namespace TL
                     }
                 }
             }
+            else
+            {
+                // Check it precedes a function declaration/definition or a task 
+                DeclaredEntity decl_entity(AST_t(), ctr.get_scope_link());
+                bool valid_target = false;
+                if (Declaration::predicate(ctr.get_declaration()))
+                {
+                    Declaration decl(ctr.get_declaration(), ctr.get_scope_link());
+                    ObjectList<DeclaredEntity> declared_entities = decl.get_declared_entities();
+
+                    if (declared_entities.size() == 1
+                            && declared_entities[0].is_functional_declaration())
+                    {
+                        valid_target = true;
+                    }
+                }
+                else if (FunctionDefinition::predicate(ctr.get_declaration()))
+                {
+                    valid_target = true;
+                }
+                else if (is_pragma_custom_construct("omp", "task", ctr.get_declaration(), ctr.get_scope_link()))
+                {
+                    valid_target = true;
+                }
+
+                if (!valid_target)
+                {
+                    std::cerr << ctr.get_ast().get_locus() 
+                        << ": warning: '#pragma omp target' must "
+                        "precede a function declaration, a function definition or a '#pragma omp task'"
+                        << std::endl;
+                    std::cerr << ctr.get_ast().get_locus() << ": warning: skipping the whole '#pragma omp target'" << std::endl;
+                    return;
+                }
+            }
 
             _target_context.push(target_ctx);
         }
