@@ -152,8 +152,8 @@ namespace OpenMP
             new_stmt_src
                 << "{"
                 << additional_decls
-                << "#line " << it->get_line() << " \"" << it->get_file() << "\"\n"
                 << target_line
+                << "#line " << it->get_line() << " \"" << it->get_file() << "\"\n"
                 << "#pragma omp task default(none) " << arg_clauses << "\n"
                 << "{"
                 << "\n"
