@@ -356,11 +356,22 @@ void DeviceGPU::create_outline(
 			<< "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
 			;
 
-		funct_description
-			<< "\"Outline created after construct at '"
-			<< reference_tree.get_locus()
-			<< "' found in function '" << function_symbol.get_qualified_name() << "'\""
-			;
+		if (outline_flags.task_symbol != NULL)
+		{
+			funct_description
+				<< "\"Task '" << outline_flags.task_symbol.get_name()
+				<< "' invoked from function '" << function_symbol.get_qualified_name() << "'"
+				<< " in construct at '"	<< reference_tree.get_locus() << "'\""
+				;
+		}
+		else
+		{
+			funct_description
+				<< "\"Outline created after construct at '"
+				<< reference_tree.get_locus()
+				<< "' found in function '" << function_symbol.get_qualified_name() << "'\""
+				;
+		}
 	}
 
 	// arguments_struct_definition

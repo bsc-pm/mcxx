@@ -201,7 +201,13 @@ namespace TL
                 {
                     valid_target = true;
                 }
+		// FIXME - Two cases one for "declaration scope" task
                 else if (is_pragma_custom_construct("omp", "task", ctr.get_declaration(), ctr.get_scope_link()))
+                {
+                    valid_target = true;
+                }
+		// FIXME - and another one for statement scope task
+                else if (is_pragma_custom_construct("omp", "task", ctr.get_statement().get_ast(), ctr.get_scope_link()))
                 {
                     valid_target = true;
                 }
