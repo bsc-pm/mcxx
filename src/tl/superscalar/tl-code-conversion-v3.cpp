@@ -170,6 +170,7 @@ namespace TL
 					direction_source << "CSS_INOUT_DIR";
 					break;
 				case Region::UNKNOWN_DIR:
+				case Region::UNSPECIFIED_DIR:
 					std::cerr << __FILE__ << ":" << __LINE__ << "Internal compiler error." << std::cerr;
 					throw FatalException();
 			}

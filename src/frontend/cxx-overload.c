@@ -1531,9 +1531,17 @@ static overload_entry_list_t* compute_viable_functions(candidate_t* candidate_fu
                 num_parameters--;
 
             char still_viable = 1;
-            int i;
+            int i = 0;
             char requires_ambiguous_conversion = 0;
-            for (i = 0; (i < num_arguments) && still_viable; i++)
+
+            // Static members have their implicit argument simply ignored
+            if (candidate->entity_specs.is_member
+                    && candidate->entity_specs.is_static)
+            {
+                i = 1;
+            }
+
+            for (; (i < num_arguments) && still_viable; i++)
             {
                 int argument_number = i;
 

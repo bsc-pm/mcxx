@@ -4119,11 +4119,11 @@ relational_expression : shift_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_GREATER_THAN, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| relational_expression greater_equal_token shift_expression 
+| relational_expression greater_equal_token shift_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_GREATER_OR_EQUAL_THAN, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| relational_expression LESS_OR_EQUAL shift_expression 
+| relational_expression LESS_OR_EQUAL shift_expression %merge<ambiguityHandler>
 {
 	$$ = ASTMake2(AST_LOWER_OR_EQUAL_THAN, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }

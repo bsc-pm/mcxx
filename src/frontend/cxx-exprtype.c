@@ -7391,16 +7391,79 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             proper_function_type = pointer_type_get_pointee_type(proper_function_type);
         }
 
-        if (!((num_explicit_arguments == function_type_get_num_parameters(proper_function_type))
-                    || ((num_explicit_arguments >= (function_type_get_num_parameters(proper_function_type) - 1))
-                        && function_type_get_has_ellipsis(proper_function_type))))
+        int max_args_to_check = num_explicit_arguments;
+        if (!function_type_get_has_ellipsis(proper_function_type))
         {
-            fprintf(stderr, "%s: warning: number of arguments of call '%s' is not valid for function type '%s'\n",
-                    ast_location(called_expression),
-                    prettyprint_in_buffer(whole_function_call),
-                    print_type_str(proper_function_type, decl_context));
+            if (num_explicit_arguments != function_type_get_num_parameters(proper_function_type))
+            {
+                if (!checking_ambiguity())
+                {
+                    fprintf(stderr, "%s: warning: call with %d arguments for a function with %d parameters\n",
+                            ast_location(whole_function_call),
+                            num_explicit_arguments,
+                            function_type_get_num_parameters(proper_function_type));
+                }
+                if (CURRENT_CONFIGURATION->strict_typecheck)
+                    return 0;
+
+                if (function_type_get_num_parameters(proper_function_type) < max_args_to_check)
+                    max_args_to_check = function_type_get_num_parameters(proper_function_type);
+            }
+        }
+        else
+        {
+            int min_arguments = function_type_get_num_parameters(proper_function_type) - 1;
+            max_args_to_check = min_arguments;
+
+            if (num_explicit_arguments < min_arguments)
+            {
+                if (!checking_ambiguity())
+                {
+                    fprintf(stderr, "%s: warning: call with %d arguments for a function with at least %d parameters\n",
+                            ast_location(whole_function_call),
+                            num_explicit_arguments,
+                            min_arguments);
+                }
+                if (CURRENT_CONFIGURATION->strict_typecheck)
+                    return 0;
+            }
         }
 
+        int i = 0;
+
+        if (arguments != NULL)
+        {
+            AST iter;
+            for_each_element(arguments, iter)
+            {
+                // Ellipsis is not to be checked
+                if (i >= max_args_to_check)
+                    break;
+
+                AST arg = ASTSon1(iter);
+
+                type_t* arg_type = expression_get_type(arg);
+                type_t* param_type = function_type_get_parameter_type_num(proper_function_type, i);
+
+                standard_conversion_t result;
+                if (!standard_conversion_between_types(&result, arg_type, param_type))
+                {
+                    if (!checking_ambiguity())
+                    {
+                        fprintf(stderr, "%s: warning: argument %d of type '%s' cannot be "
+                                "converted to type '%s' of parameter\n",
+                                ast_location(arg),
+                                i,
+                                print_type_str(arg_type, decl_context),
+                                print_type_str(param_type, decl_context));
+                    }
+                    if (CURRENT_CONFIGURATION->strict_typecheck)
+                        return 0;
+                }
+
+                i++;
+            }
+        }
 
         DEBUG_CODE()
         {
@@ -8665,20 +8728,17 @@ static char check_for_postoperator_user_defined(AST expr, AST operator,
 
     candidate_t* candidate_set = NULL;
 
+    scope_entry_list_t* operator_overload_set = NULL;
     if (is_class_type(no_ref(incremented_type)))
     {
-        scope_entry_list_t *entry_list = get_member_function_of_class_type(no_ref(incremented_type),
+        scope_entry_list_t *operator_entry_list = get_member_function_of_class_type(no_ref(incremented_type),
                 operator, decl_context);
 
-        scope_entry_list_t* it = entry_list;
-        while (it != NULL)
-        {
-            candidate_set = add_to_candidate_set(candidate_set,
-                    it->entry,
-                    num_arguments,
-                    argument_types);
-            it = it->next;
-        }
+        operator_overload_set = unfold_and_mix_candidate_functions(operator_entry_list,
+                NULL, argument_types + 1, num_arguments - 1,
+                decl_context,
+                ASTFileName(expr), ASTLine(expr),
+                /* explicit_template_arguments */ NULL);
     }
 
     // We need to do koenig lookup for non-members
@@ -8690,6 +8750,8 @@ static char check_for_postoperator_user_defined(AST expr, AST operator,
             builtins, argument_types, num_arguments,
             decl_context,
             ASTFileName(expr), ASTLine(expr), /* explicit_template_arguments */ NULL);
+
+    overload_set = merge_scope_entry_list(overload_set, operator_overload_set);
 
     scope_entry_t* conversors[1] = { NULL };
 
@@ -8748,20 +8810,17 @@ static char check_for_preoperator_user_defined(AST expr, AST operator,
 
     candidate_t* candidate_set = NULL;
 
+    scope_entry_list_t* operator_overload_set = NULL;
     if (is_class_type(no_ref(incremented_type)))
     {
-        scope_entry_list_t *entry_list = get_member_function_of_class_type(no_ref(incremented_type),
+        scope_entry_list_t *operator_entry_list = get_member_function_of_class_type(no_ref(incremented_type),
                 operator, decl_context);
 
-        scope_entry_list_t* it = entry_list;
-        while (it != NULL)
-        {
-            candidate_set = add_to_candidate_set(candidate_set,
-                    it->entry,
-                    num_arguments,
-                    argument_types);
-            it = it->next;
-        }
+        operator_overload_set = unfold_and_mix_candidate_functions(operator_entry_list,
+                NULL, argument_types + 1, num_arguments - 1,
+                decl_context,
+                ASTFileName(expr), ASTLine(expr),
+                /* explicit_template_arguments */ NULL);
     }
 
     // Otherwise lookup in non-member operator
@@ -8775,6 +8834,8 @@ static char check_for_preoperator_user_defined(AST expr, AST operator,
             entry_list, builtins, argument_types, num_arguments,
             decl_context,
             ASTFileName(expr), ASTLine(expr), /* explicit_template_arguments */ NULL);
+
+    overload_set = merge_scope_entry_list(overload_set, operator_overload_set);
 
     scope_entry_t* conversors[1] = { NULL };
 

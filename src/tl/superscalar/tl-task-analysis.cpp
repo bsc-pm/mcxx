@@ -131,7 +131,6 @@ namespace TL
 		return direction_name;
 	}
 	
-	
 	Region TL::TaskAnalysis::handle_parameter(AST_t construct_ast, AST_t context_ast, ScopeLink scope_link, std::string const &parameter_specification, std::string const &line_annotation, Region::Direction direction, Region::Reduction reduction, AugmentedSymbol &parameter_symbol)
 	{
 		std::string const direction_name = direction_to_name(direction);
@@ -389,8 +388,16 @@ namespace TL
 			Symbol parameter_symbol = parameter_declaration.get_name().get_symbol();
 			if (parameter_region_lists.find(parameter_symbol) == parameter_region_lists.end())
 			{
-				std::cerr << parameter_declaration.get_ast().get_locus() << " Error: parameter '" << parameter_symbol.get_qualified_name() << "' does not appear in any directionality clause." << std::endl;
-				TaskAnalysis::fail();
+				if (!_allow_undefined_parameters)
+				{
+					std::cerr << parameter_declaration.get_ast().get_locus() << " Error: parameter '" << parameter_symbol.get_qualified_name() << "' does not appear in any directionality clause." << std::endl;
+					TaskAnalysis::fail();
+				}
+				else
+				{
+					Region region = Region::get_undefined_region();
+					parameter_region_lists[parameter_symbol].add(region);
+				}
 			}
 		}
 		
