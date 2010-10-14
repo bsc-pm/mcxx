@@ -40,6 +40,8 @@ namespace TL
 	{
 		private:
 			static PhaseStatus _status;
+			std::string _allow_undefined_str;
+			bool _allow_undefined_parameters;
 			
 			static void fail()
 			{
@@ -58,6 +60,15 @@ namespace TL
 			void process_target(PragmaCustomConstruct construct);
 			void process_target_on_definition(PragmaCustomConstruct construct);
 			void process_target_on_declaration(PragmaCustomConstruct construct);
+
+			void set_allow_undefined(const std::string& str)
+			{
+				_allow_undefined_parameters = false;
+				parse_boolean_option("allow_undefined_directionality",
+						str,
+						_allow_undefined_parameters,
+						"Invalid value for 'allow_undefined_directionality'. Assuming '0'");
+			}
 			
 		public:
 			TaskAnalysis() : PragmaCustomCompilerPhase("css")
@@ -66,8 +77,13 @@ namespace TL
 				register_construct("target");
 				on_directive_post["task"].connect(functor(&TaskAnalysis::process_task, *this));
 				on_directive_post["target"].connect(functor(&TaskAnalysis::process_target, *this));
+
+				register_parameter("allow_undefined_directionality", 
+						"If set to 1, it allows undefined directionality for parameters",
+						_allow_undefined_str,
+						"0").connect(functor(&TaskAnalysis::set_allow_undefined, *this));
 			}
-			
+
 			virtual void run(DTO& data_flow)
 			{
 				_status = PHASE_STATUS_OK;

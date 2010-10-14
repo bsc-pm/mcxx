@@ -39,7 +39,8 @@ namespace TL {
 				UNKNOWN_DIR=0,
 				INPUT_DIR=1,
 				OUTPUT_DIR=2,
-				INOUT_DIR=3
+				INOUT_DIR=3,
+				UNSPECIFIED_DIR=4
 			};
 			
 			enum Reduction {
@@ -86,7 +87,7 @@ namespace TL {
 			
 		public:
 			Region()
-				: _direction(UNKNOWN_DIR), _dimensions()
+				: _direction(UNKNOWN_DIR), _reduction(UNKNOWN_RED), _dimensions()
 			{
 			}
 			
@@ -109,6 +110,14 @@ namespace TL {
 					_reduction = UNKNOWN_RED;
 					_dimensions.clear();
 				}
+			}
+
+			static Region get_undefined_region()
+			{
+				Region r;
+				r._direction = UNSPECIFIED_DIR;
+
+				return r;
 			}
 			
 			Region(Direction direction, Reduction reduction, ObjectList<Expression> dimension_list, AST_t ast, AST_t ref_ast, ScopeLink scope_link);
