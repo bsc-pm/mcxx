@@ -97,6 +97,10 @@ LIBMCXX_EXTERN type_t* compute_type_for_type_id_tree(AST type_id, decl_context_t
 
 LIBMCXX_EXTERN scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, AST expr, char mandatory);
 
+// Internal function for the frontend only
+char _check_for_functional_expression(AST whole_function_call, AST called_expression, 
+        AST arguments, decl_context_t decl_context, char might_require_koenig);
+
 MCXX_END_DECLS
 
 #endif

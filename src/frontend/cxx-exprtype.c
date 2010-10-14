@@ -7258,7 +7258,7 @@ static char any_is_member_function(scope_entry_list_t* candidates)
  * This function performs the dirty job when computing the type of a functional call.
  * Note that in this code we already know that this sentence is a feasible type
  */
-static char check_for_functional_expression(AST whole_function_call, AST called_expression, 
+char _check_for_functional_expression(AST whole_function_call, AST called_expression, 
         AST arguments, decl_context_t decl_context, char might_require_koenig)
 {
     // 1. If function arguments did not yield a valid expression ignore them
@@ -8074,7 +8074,7 @@ static char check_for_function_call(AST expr, decl_context_t decl_context)
     // 2. Now perform the actual check. If this function succeeds
     //    'called_expression' node will have a functional type
     //    a pointer to function or a dependent type
-    if (!check_for_functional_expression(expr, called_expression, arguments, 
+    if (!_check_for_functional_expression(expr, called_expression, arguments, 
             decl_context, might_require_koenig))
     {
         DEBUG_CODE()

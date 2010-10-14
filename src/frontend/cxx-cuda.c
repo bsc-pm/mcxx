@@ -105,11 +105,8 @@ void cuda_kernel_symbols_for_function_body(
 char cuda_kernel_call_check(AST expression, decl_context_t decl_context)
 {
     AST postfix_expr = ASTSon0(expression);
-    if (!check_for_expression(postfix_expr, decl_context))
-        return 0;
-
-    // FIXME - What about Koenig in C++!!!
     AST cuda_kernel_args = ASTSon1(expression);
+    AST call_args = ASTSon2(expression);
 
     AST arg_0 = ASTSon0(cuda_kernel_args);
     if (!check_for_expression(arg_0, decl_context))
@@ -127,11 +124,6 @@ char cuda_kernel_call_check(AST expression, decl_context_t decl_context)
     AST arg_3 = ASTSon3(cuda_kernel_args);
     if (arg_3 != NULL
             && !check_for_expression(arg_3, decl_context))
-        return 0;
-
-    AST expr_list = ASTSon2(expression);
-    if (expr_list != NULL 
-            && !check_for_expression_list(expr_list, decl_context))
         return 0;
 
     type_t* dim3_type = cuda_get_dim3_type(decl_context);
@@ -170,26 +162,45 @@ char cuda_kernel_call_check(AST expression, decl_context_t decl_context)
         {
             char ambiguous_conversion = 0;
             scope_entry_t* conversor = NULL;
-            is_convertible = (!type_can_be_implicitly_converted_to(
-                        expression_get_type(tree), dest_type, decl_context, 
+            is_convertible = (type_can_be_implicitly_converted_to(
+                        expression_get_type(tree), 
+                        get_lvalue_reference_type(get_const_qualified_type(dest_type)), 
+                        decl_context, 
                         &ambiguous_conversion, &conversor)
                     && !ambiguous_conversion);
         }
 
-        if (!is_convertible 
-                && !checking_ambiguity())
+        if (!is_convertible)
         {
-            fprintf(stderr, "%s: warning: %s argument '%s' for kernel call cannot be converted to type '%s'\n",
-                    ast_location(tree),
-                    kernel_args[i].position,
-                    prettyprint_in_buffer(tree),
-                    print_type_str(dest_type, decl_context));
+            if (!checking_ambiguity())
+            {
+                fprintf(stderr, "%s: warning: %s argument '%s' for kernel call cannot be converted to type '%s'\n",
+                        ast_location(tree),
+                        kernel_args[i].position,
+                        prettyprint_in_buffer(tree),
+                        print_type_str(dest_type, decl_context));
+            }
+            return 0;
         }
         i++;
+    }
+
+    // 1. Check if we might require Koenig lookup
+    char might_require_koenig = 0;
+    CXX_LANGUAGE()
+    {
+        might_require_koenig = (ASTType(postfix_expr) == AST_SYMBOL
+                || ASTType(postfix_expr) == AST_CONVERSION_FUNCTION_ID
+                || ASTType(postfix_expr) == AST_OPERATOR_FUNCTION_ID);
+    }
+
+    if (!_check_for_functional_expression(expression, postfix_expr, call_args, decl_context, might_require_koenig))
+    {
+        return 0;
     }
 
     // A CUDA kernel should return void
     expression_set_type(expression, get_void_type());
 
-    return true;
+    return 1;
 }
