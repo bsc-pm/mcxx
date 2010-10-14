@@ -349,7 +349,8 @@ void DeviceGPU::create_outline(
 			;
 
 		instrument_after
-			<< "nanos_instrument_leave_burst(nanos_instr_user_fun_key);"
+			//<< "nanos_instrument_leave_burst(nanos_instr_user_fun_key);"
+			<< "nanos_instrument_set_user_fun_key(nanos_instr_user_fun_key);"
 			;
 
 		funct_id
