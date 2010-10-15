@@ -1,12 +1,12 @@
 [ssvalgrindcc]
 language = C
 options = --variable=generate-non-task-side:yes --variable=generate-task-side:yes --variable=generate-task-ids:yes --variable=generate-task-adapters:yes --variable=align-memory:yes
-preprocessor_name = gcc
+preprocessor_name = mpicc
 preprocessor_options = -std=gnu99 -E
 preprocessor_options = 
-compiler_name = gcc
+compiler_name = mpicc
 compiler_options = -std=gnu99
-linker_name = gcc
+linker_name = mpicc
 compiler_phase = libtlsuperscalar-configurator.so
 compiler_phase = libtlsuperscalar-task-analysis.so
 compiler_phase = libtl-ss-valgrind.so

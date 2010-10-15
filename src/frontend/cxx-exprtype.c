@@ -7284,34 +7284,19 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                 scope_entry_list_t *entry_list = query_id_expression(decl_context, 
                         advanced_called_expression);
 
-                char names_a_builtin = 0;
                 const char *name = ASTText(advanced_called_expression);
-
-                if (name != NULL
-                        && strncmp(name, builtin_prefix, strlen(builtin_prefix)) == 0)
-                {
-                    names_a_builtin = 1;
-                }
                 // Maybe it named a type
                 if (entry_list == NULL)
                 {
                     expression_set_type(called_expression, get_nonproto_function_type(get_signed_int_type(),
-                            num_explicit_arguments));
-
-                    if (!names_a_builtin
-                            && !checking_ambiguity())
+                                num_explicit_arguments));
+                    if (!checking_ambiguity())
                     {
                         fprintf(stderr, "%s: warning: function '%s' has not been declared, assuming it to be like '%s'\n", 
                                 ast_location(called_expression),
                                 prettyprint_in_buffer(called_expression),
                                 print_decl_type_str(expression_get_type(called_expression), decl_context, name));
                     }
-                }
-                else
-                {
-                    scope_entry_t* entry = entry_list->entry;
-                    // Tag the node with symbol information (this is useful to know who are you calling)
-                    expression_set_symbol(advanced_called_expression, entry);
                 }
             }
             else
@@ -7371,6 +7356,14 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                         print_type_str(expression_get_type(called_expression), decl_context));
             }
             return 0;
+        }
+        else if (!is_dependent_expr_type(expression_get_type(called_expression)))
+        {
+            // A word on this: This only happens when the user calls a __builtin_XXX in C
+            // In C there are no dependent expression types but the named
+            // entity must be handled somehow without error. This is the place to do it
+            expression_set_type(called_expression, get_nonproto_function_type(get_signed_int_type(),
+                        num_explicit_arguments));
         }
 
         // Do not allow invalid types from now

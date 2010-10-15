@@ -45,6 +45,10 @@ namespace TL
 
             AugmentedSymbol symbol = function_called_expresion.get_id_expression().get_symbol();
 
+            // This is a CSS task
+            if (!symbol.is_task())
+                continue;
+
             AST_t decl_tree = symbol.get_point_of_declaration();
 
             ObjectList<ParameterDeclaration> parameter_decls;
@@ -71,15 +75,12 @@ namespace TL
                         "(" + arguments[i].prettyprint() + ")");
             }
 
-            // This is a CSS task
-            if (!symbol.is_task())
-                continue;
-
             Source new_code, data_info;
 
             new_code
                 << "{"
-                << "start_task_valgrind(\"" << symbol.get_name() << "\");"
+                << "int temp_sp_ssvalgrind;"
+                << "start_task_valgrind(&temp_sp_ssvalgrind, \"" << symbol.get_name() << "\");"
                 << data_info
                 << function_call.prettyprint() << ";"
                 << "end_task_valgrind();"
@@ -89,10 +90,11 @@ namespace TL
             ObjectList<Type> parameters = symbol.get_type().nonadjusted_parameters();
             RefPtr<ParameterRegionList> parameter_region_list = symbol.get_parameter_region_list();
 
+            ObjectList<ParameterDeclaration>::iterator param_decl_it2 = parameter_decls.begin();
             i = 0;
             for (ObjectList<RegionList>::iterator region_list_it = parameter_region_list->begin();
                     region_list_it != parameter_region_list->end();
-                    region_list_it++, i++)
+                    region_list_it++, i++, param_decl_it2++)
             {
                 Type base_type = parameters[i];
 
@@ -117,11 +119,12 @@ namespace TL
                         reg_it++)
                 {
                     Region &region(*reg_it);
-                    Source register_data, addr, base_type_size, span, called_function;
+                    Source register_data, addr, base_type_size, span, called_function, decl_name;
 
                     register_data
-                        << called_function << "(" << addr << ", " << base_type_size << "," << span << ");" 
+                        << called_function << "(\n" << decl_name << "\n," << addr << ", " << base_type_size << "," << span << ");"
                         ;
+                    decl_name << "\"" << param_decl_it2->get_name() << "\"";
 
                     switch ((int)reg_it->get_direction())
                     {
@@ -140,6 +143,11 @@ namespace TL
                                 called_function << "task_inout_valgrind";
                                 break;
                             }
+                        case Region::UNSPECIFIED_DIR:
+                            {
+                                called_function << "task_unspecified_dir_valgrind";
+                                break;
+                            }
                         case Region::UNKNOWN_DIR:
                             {
                                 internal_error("Invalid directionality", 0);
@@ -153,21 +161,21 @@ namespace TL
                         if (parameters[i].is_pointer())
                         {
                             addr << arguments[i];
-                            base_type_size 
+                            base_type_size
                                 << "sizeof(" << base_type.get_declaration(sc, "") << ")";
                         }
                         else if (parameters[i].is_reference())
                         {
                             addr << "&" << arguments[i];
-                            base_type_size 
+                            base_type_size
                                 << "sizeof(" << base_type.get_declaration(sc, "") << ")";
                         }
                         else
                         {
                             // This is an awkward case
                             called_function = Source("task_input_value_valgrind");
-                            addr << arguments[i];
-                            base_type_size 
+                            addr << "0";
+                            base_type_size
                                 << "sizeof(" << base_type.get_declaration(sc, "") << ")";
                         }
                         span << 1;
@@ -184,7 +192,7 @@ namespace TL
 
                             DEBUG_CODE()
                             {
-                                std::cerr 
+                                std::cerr
                                     << "Region: #" << j << std::endl
                                     << " dimension_start: "  << dim_spec.get_dimension_start() << std::endl
                                     << " accessed_length: "  << dim_spec.get_accessed_length() << std::endl
@@ -197,9 +205,9 @@ namespace TL
                                     replace_parameters.replace(dim_spec.get_accessed_length()),
                                     "*");
                         }
-                        base_type_size 
+                        base_type_size
                             << "sizeof(" << base_type.get_declaration(sc, "") << ")";
-                        addr << "&(" << arguments[i] << dim_spec_src << ")";
+                        addr << "&((" << arguments[i] << ")" << dim_spec_src << ")";
                     }
 
                     data_info
