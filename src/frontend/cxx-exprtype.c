@@ -7341,6 +7341,25 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                 return 0;
             }
         }
+        else if (is_dependent_expr_type(expression_get_type(called_expression)))
+        {
+            // A word on this: C does not have dependent expressions. But when
+            // calling a __builtin_XXX which is unknown it turns that we need
+            // to shut up the compiler typecheck. Dependent expressions are not
+            // silently ignored so we use them, even in C.  We overwrite the
+            // dependent expression type with a nonprotoized function type
+            // which will not be checked anyway
+
+            // Why we are not doing this in called_expression? Well, we do not
+            // actually know there whether it will be a call or not (it will be
+            // a plain symbol check). We actually know that the callee is an
+            // unknown builtin when checking a function call
+
+            // Side effect: If the user writes (__builtin_foo + 1); this will
+            // be silently ignored as well
+            expression_set_type(called_expression, get_nonproto_function_type(get_signed_int_type(),
+                        num_explicit_arguments));
+        }
         else if (!is_function_type(expression_get_type(called_expression))
                 && !is_pointer_to_function_type(expression_get_type(called_expression)))
         {
@@ -7356,14 +7375,6 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                         print_type_str(expression_get_type(called_expression), decl_context));
             }
             return 0;
-        }
-        else if (!is_dependent_expr_type(expression_get_type(called_expression)))
-        {
-            // A word on this: This only happens when the user calls a __builtin_XXX in C
-            // In C there are no dependent expression types but the named
-            // entity must be handled somehow without error. This is the place to do it
-            expression_set_type(called_expression, get_nonproto_function_type(get_signed_int_type(),
-                        num_explicit_arguments));
         }
 
         // Do not allow invalid types from now
