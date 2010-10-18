@@ -38,6 +38,7 @@
 #include "cxx-cexpr.h"
 #include "cxx-typeenviron.h"
 #include "cxx-gccsupport.h"
+#include "cxx-cuda.h"
 #include <ctype.h>
 #include <string.h>
 
