@@ -87,16 +87,6 @@ static lexer_keyword_t upc_keywords[] =
 };
 /*!endif*/
 
-static lexer_keyword_t cuda_keywords[] =
-{
-    {"__device__", CUDA_DEVICE},
-    {"__global__", CUDA_GLOBAL},
-    {"__host__", CUDA_HOST},
-    {"__constant__", CUDA_CONSTANT},
-    {"__shared__", CUDA_SHARED},
-    {NULL, 0},
-};
-
 static int yywrap(void);
 
 static void parse_token_text(void);
@@ -1014,15 +1004,6 @@ type {
     return lookup_keyword_in_table(upc_keywords, yytext, CURRENT_CONFIGURATION->enable_upc);
 }
  /*!endif */
-
- /* CUDA stuff */
-"__device__" |
-"__global__" |
-"__host__" |
-"__constant__" |
-"__shared__" { 
-    return lookup_keyword_in_table(cuda_keywords, yytext, CURRENT_CONFIGURATION->enable_cuda);
-}
 
  /* mcxx extensions */
 "__construct__" { parse_token_text(); return CONSTRUCT; }
