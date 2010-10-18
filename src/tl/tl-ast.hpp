@@ -476,13 +476,13 @@ namespace TL
             /*!
              * \param jump_templates Tells whether template headers of this function definition must be skipped too
              */
-            AST_t get_enclosing_function_definition(bool jump_templates = false) const;
+            AST_t get_enclosing_function_definition(bool jump_templates = false, bool jump_external_decl = false) const;
 
             //! Returns the point where the function definition begins its whole declaration
             /*!
              * This is equivalent to call
              * @code
-             * a.get_enclosing_function_definition(true).get_parent();
+             * a.get_enclosing_function_definition(true, true).get_parent();
              * @endcode
              */
             AST_t get_enclosing_function_definition_declaration() const;

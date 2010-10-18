@@ -599,7 +599,8 @@ namespace TL
 
     AST_t AST_t::get_enclosing_function_definition_declaration() const
     {
-        AST_t result = get_enclosing_function_definition( /* jump_templates = */ true).get_parent();
+        AST_t result = get_enclosing_function_definition(/* jump_templates = */ true, 
+                /* jump_external_decl = */ true).get_parent();
         return result;
     }
 
@@ -655,7 +656,7 @@ namespace TL
         return a;
     }
 
-    AST_t AST_t::get_enclosing_function_definition(bool jump_templates) const
+    AST_t AST_t::get_enclosing_function_definition(bool jump_templates, bool jump_external_decl) const
     {
         AST node = _ast;
 
@@ -672,6 +673,17 @@ namespace TL
             while (node != NULL 
                     && ASTParent(node) != NULL
                     && ASTType(ASTParent(node)) == AST_TEMPLATE_DECLARATION)
+            {
+                node = ASTParent(node);
+            }
+        }
+
+        // Extern declarations pose a problem, let's jump them as well
+        if (jump_external_decl)
+        {
+            while (node != NULL
+                    && ASTParent(node) != NULL
+                    && ASTType(ASTParent(node)) == AST_LINKAGE_SPEC_DECL)
             {
                 node = ASTParent(node);
             }
@@ -783,7 +795,9 @@ namespace TL
             return;
         }
 
-        AST_t enclosing_function = this->get_enclosing_function_definition(/*jump_templates*/true);
+        AST_t enclosing_function = this->
+            get_enclosing_function_definition(/*jump_templates*/true, 
+                    /*jump_external_decl*/true);
 
         AST list = ASTParent(enclosing_function._ast);
         AST prepended_list = get_list_of_extensible_block(t._ast);
@@ -798,7 +812,9 @@ namespace TL
     AST_t AST_t::get_enclosing_global_tree_(AST_t t)
     {
         AST_t enclosing_global_tree = t;
-        AST_t enclosing_function = enclosing_global_tree.get_enclosing_function_definition(/*jump_templates*/true);
+        AST_t enclosing_function = enclosing_global_tree
+            .get_enclosing_function_definition(/*jump_templates*/true, 
+                    /*jump_external_decl*/true);
 
         if (enclosing_function.is_valid())
         {
