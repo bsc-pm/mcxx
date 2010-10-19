@@ -202,7 +202,7 @@ typedef struct compilation_process_tag
 
     // The set of flags as defined implicitly in the configuration file
     int num_parameter_flags;
-    struct parameter_flags_tag **parameter_flags;
+    parameter_flags_t **parameter_flags;
 
     // The compiler will switch these because compilation is always serialized (never nest it!)
     struct compilation_file_process_tag* current_file_process;
@@ -215,14 +215,15 @@ typedef struct compilation_configuration_conditional_flags
     char value;
 } compilation_configuration_conditional_flags_t;
 
+typedef struct flag_expr_tag flag_expr_t;
+
 typedef struct compilation_configuration_line
 {
     const char *name;
     const char *index;
     const char *value;
 
-    int num_flags;
-    struct compilation_configuration_conditional_flags *flags;
+    flag_expr_t* flag_expr;
 } compilation_configuration_line_t;
 
 #if 0

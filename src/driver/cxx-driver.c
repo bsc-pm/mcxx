@@ -560,7 +560,9 @@ int parse_arguments(int argc, const char* argv[],
             if (!used_flag
                     && parse_implicits_only)
             {
-                fprintf(stderr, "Warning: Parameter '%s' skipped.\n", argv[parameter_index]);
+                fprintf(stderr, "%s: parameter '%s' ignored\n", 
+                        compilation_process.exec_basename,
+                        argv[parameter_index]);
                 // Advance one parameter if we do not know anything
                 parameter_index++;
             }
@@ -583,8 +585,9 @@ int parse_arguments(int argc, const char* argv[],
 
             if (!from_command_line)
             {
-                fprintf(stderr, "Invalid non-option bound argument '%s'"
+                fprintf(stderr, "%s: invalid non-option bound argument '%s'"
                         " specified in the configuration file\n",
+                        compilation_process.exec_basename,
                         parameter_info.argument);
                 continue;
             }
@@ -597,7 +600,8 @@ int parse_arguments(int argc, const char* argv[],
                 if (extension == NULL 
                         || (fileextensions_lookup(extension, strlen(extension))) == NULL)
         {
-            fprintf(stderr, "File '%s' not recognized as a valid input. Passing verbatim on to the linker.\n", 
+            fprintf(stderr, "%s: file '%s' not recognized as a valid input. Passing verbatim on to the linker.\n", 
+                    compilation_process.exec_basename,
                     parameter_info.argument);
             add_to_parameter_list_str(&CURRENT_CONFIGURATION->linker_options, parameter_info.argument);
             linker_files_seen = 1;
@@ -710,7 +714,8 @@ int parse_arguments(int argc, const char* argv[],
                     {
                         if (y_specified || E_specified)
                         {
-                            fprintf(stderr, "Parameter -c cannot be used together with -E or -y\n");
+                            fprintf(stderr, "%s: parameter -c cannot be used together with -E or -y\n",
+                                    compilation_process.exec_basename);
                             return 1;
                         }
 
@@ -723,7 +728,8 @@ int parse_arguments(int argc, const char* argv[],
                     {
                         if (c_specified || y_specified)
                         {
-                            fprintf(stderr, "Parameter -E cannot be used together with -c or -y\n");
+                            fprintf(stderr, "%s: parameter -E cannot be used together with -c or -y\n",
+                                    compilation_process.exec_basename);
                             return 1;
                         }
 
@@ -738,7 +744,8 @@ int parse_arguments(int argc, const char* argv[],
                     {
                         if (c_specified || E_specified)
                         {
-                            fprintf(stderr, "Parameter -y cannot be used together with -c or -E\n");
+                            fprintf(stderr, "%s: parameter -y cannot be used together with -c or -E\n",
+                                    compilation_process.exec_basename);
                             return 1;
                         }
 
@@ -764,7 +771,8 @@ int parse_arguments(int argc, const char* argv[],
                     {
                         if (output_file != NULL)
                         {
-                            fprintf(stderr, "Output file specified twice\n");
+                            fprintf(stderr, "%s: output file specified twice\n",
+                                    compilation_process.exec_basename);
                             return 1;
                         }
                         else
@@ -772,7 +780,8 @@ int parse_arguments(int argc, const char* argv[],
                             if ((num_input_files > 1) 
                                     && c_specified)
                             {
-                                fprintf(stderr, "Cannot specify -o when -c once given more than one file");
+                                fprintf(stderr, "%s: cannot specify -o when -c once given more than one file",
+                                        compilation_process.exec_basename);
                                 return 1;
                             }
                             output_file = uniquestr(parameter_info.argument);
@@ -826,7 +835,8 @@ int parse_arguments(int argc, const char* argv[],
                         }
                         else
                         {
-                            fprintf(stderr, "Invalid language specification in -x, valid options are 'C' or 'C++'. Ignoring\n");
+                            fprintf(stderr, "%s: invalid language specification in -x, valid options are 'C' or 'C++'. Ignoring\n",
+                                    compilation_process.exec_basename);
                         }
 
                         break;
@@ -876,7 +886,8 @@ int parse_arguments(int argc, const char* argv[],
                     {
                         if (strchr(parameter_info.argument, ':') == NULL)
                         {
-                            fprintf(stderr, "External variable '%s' definition is missing a colon. It will be ignored\n",
+                            fprintf(stderr, "%s: external variable '%s' definition is missing a colon. It will be ignored\n",
+                                    compilation_process.exec_basename,
                                     parameter_info.argument);
                             break;
                         }
@@ -925,7 +936,8 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_DISABLE_SIZEOF:
                     {
                         CURRENT_CONFIGURATION->disable_sizeof = 1;
-                        fprintf(stderr, "Option '--disable-sizeof' should be used only to work around problems. Please, report a bug.\n");
+                        fprintf(stderr, "%s: option '--disable-sizeof' should be used only to work around problems. Please, report a bug.\n",
+                                compilation_process.exec_basename);
                         break;
                     }
                 case OPTION_SET_ENVIRONMENT:
@@ -964,7 +976,9 @@ int parse_arguments(int argc, const char* argv[],
                         CURRENT_CONFIGURATION->enable_upc = 1;
                         if (parameter_info.argument != NULL)
                         {
-                            fprintf(stderr, "UPC static THREADS=%s\n", parameter_info.argument);
+                            fprintf(stderr, "%s: UPC static THREADS=%s\n", 
+                                    compilation_process.exec_basename,
+                                    parameter_info.argument);
                             CURRENT_CONFIGURATION->upc_threads = uniquestr(parameter_info.argument);
                         }
                         break;
@@ -999,7 +1013,7 @@ int parse_arguments(int argc, const char* argv[],
             && !native_verbose
             && !CURRENT_CONFIGURATION->do_not_process_files)
     {
-        fprintf(stderr, "You must specify an input file\n");
+        fprintf(stderr, "%s: you must specify an input file\n", compilation_process.exec_basename);
         return 1;
     }
 
@@ -1020,7 +1034,7 @@ int parse_arguments(int argc, const char* argv[],
             && !y_specified
             && !CURRENT_CONFIGURATION->do_not_process_files)
     {
-        fprintf(stderr, "Specifying stdout by means of '-o -' is only valid with -y or -E\n");
+        fprintf(stderr, "%s: specifying stdout by means of '-o -' is only valid with -y or -E\n", compilation_process.exec_basename);
         return 1;
     }
 
@@ -1030,7 +1044,7 @@ int parse_arguments(int argc, const char* argv[],
             && !CURRENT_CONFIGURATION->do_not_process_files)
                         // Do not process anything
     {
-        fprintf(stderr, "Assuming stdout as default output since -E has been specified\n");
+        fprintf(stderr, "%s: assuming stdout as default output since -E has been specified\n", compilation_process.exec_basename);
         output_file = uniquestr("-");
     }
 
@@ -1039,7 +1053,8 @@ int parse_arguments(int argc, const char* argv[],
             && c_specified
             && (num_input_files > 1))
     {
-        fprintf(stderr, "Cannot specify -o and -c with multiple files (second file '%s')", 
+        fprintf(stderr, "%s: cannot specify -o and -c with multiple files (second file '%s')", 
+                compilation_process.exec_basename,
                 argv[(parameter_index - 1)]);
         return 1;
     }
@@ -1490,7 +1505,9 @@ static void enable_debug_flag(const char* flags)
         }
         else
         {
-            fprintf(stderr, "Debug flag '%s' unknown. Ignoring it\n", flag);
+            fprintf(stderr, "%s: debug flag '%s' unknown. Ignoring it\n", 
+                    compilation_process.exec_basename,
+                    flag);
         }
     }
 }
@@ -1565,7 +1582,8 @@ static void parse_subcommand_arguments(const char* arguments)
 
         if (configuration == NULL)
         {
-            fprintf(stderr, "No compiler configuration '%s' has been loaded, parameter '--W%s' will be ignored\n",
+            fprintf(stderr, "%s: no compiler configuration '%s' has been loaded, parameter '--W%s' will be ignored\n",
+                    compilation_process.exec_basename,
                     profile_name, arguments);
             return;
         }
@@ -1589,7 +1607,8 @@ static void parse_subcommand_arguments(const char* arguments)
                 linker_flag = 1;
                 break;
             default:
-                fprintf(stderr, "Invalid flag character %c for --W option only 'p', 'n' or 'l' are allowed, ignoring\n",
+                fprintf(stderr, "%s: invalid flag character %c for --W option only 'p', 'n' or 'l' are allowed, ignoring\n",
+                        compilation_process.exec_basename,
                         *p);
                 break;
         }
@@ -1745,7 +1764,8 @@ static void load_configuration(void)
         if (errno != ENOENT)
         {
             // Only give an error if it does exist
-            fprintf(stderr, "Could not open configuration directory (%s)\n", 
+            fprintf(stderr, "%s: could not open configuration directory (%s)\n", 
+                    compilation_process.exec_basename,
                     strerror(errno));
         }
     }
@@ -1791,7 +1811,8 @@ static void load_configuration(void)
 
     if (CURRENT_CONFIGURATION == NULL)
     {
-        fprintf(stderr, "No suitable configuration defined for %s. Setting to C++ built-in configuration\n",
+        fprintf(stderr, "%s: no suitable configuration defined for %s. Setting to C++ built-in configuration\n",
+               compilation_process.exec_basename,
                compilation_process.exec_basename);
         SET_CURRENT_CONFIGURATION(&minimal_default_configuration);
     }
@@ -1823,42 +1844,15 @@ static void commit_configuration(void)
 
             if (config_directive == NULL)
             {
-                fprintf(stderr, "Configuration directive '%s' skipped since it is unknown\n", configuration_line->name);
+                fprintf(stderr, "%s: configuration directive '%s' skipped since it is unknown\n", 
+                        compilation_process.exec_basename,
+                        configuration_line->name);
                 continue;
             }
 
             // Check the value of flags before processing this configuration line
-            char can_be_committed = 1;
-
-            {
-                // This is an ugly and stupid O(n^2) algorithm
-                int k;
-                // For every flag of this configuration line
-                for (k = 0; can_be_committed && (k < configuration_line->num_flags); k++)
-                {
-                    // Check it against every seen parameter flag
-                    int q;
-                    char found = 0;
-                    for (q = 0; can_be_committed && (q < compilation_process.num_parameter_flags); q++)
-                    {
-                        struct parameter_flags_tag *parameter_flag = compilation_process.parameter_flags[q];
-
-                        if (strcmp(parameter_flag->name, configuration_line->flags[k].flag) == 0)
-                        {
-                            found = 1;
-                            can_be_committed = can_be_committed && 
-                                (parameter_flag->value == configuration_line->flags[k].value);
-                        }
-                    }
-
-                    if (!found)
-                    {
-                        // If not found, then this is an error, so do not commit
-                        WARNING_MESSAGE("Not found an implicit flag '%s'", configuration_line->flags[k].flag);
-                        can_be_committed = 0;
-                    }
-                }
-            }
+            char can_be_committed = (configuration_line->flag_expr == NULL)
+                || (flag_expr_eval(configuration_line->flag_expr));
 
             if (can_be_committed)
             {
@@ -1985,7 +1979,8 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 && (current_extension->source_language != CURRENT_CONFIGURATION->source_language)
                 && (current_extension->source_kind != SOURCE_KIND_NOT_PARSED))
         {
-            fprintf(stderr, "%s was configured for %s language but file '%s' looks %s language (it will be compiled anyways)\n",
+            fprintf(stderr, "%s: %s was configured for %s language but file '%s' looks %s language (it will be compiled anyways)\n",
+                    compilation_process.exec_basename,
                     compilation_process.exec_basename, 
                     source_language_names[CURRENT_CONFIGURATION->source_language],
                     translation_unit->input_filename,

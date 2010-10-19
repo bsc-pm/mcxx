@@ -38,16 +38,18 @@ typedef struct profile_option_name_tag
     const char* option_index;
 } profile_option_name_t;
 
-#define MAX_FLAGS 16
-
-typedef struct profile_flaglist_tag
+enum flag_op
 {
-    int num_flags;
-    const char* flags[MAX_FLAGS];
-} profile_flaglist_t;
+    FLAG_OP_INVALID = 0,
+    FLAG_OP_OR,
+    FLAG_OP_AND,
+    FLAG_OP_NOT,
+    FLAG_OP_NAME,
+};
+
+
 
 typedef struct compilation_configuration_line* p_compilation_configuration_line;
-
 
 typedef struct option_list_tag
 {

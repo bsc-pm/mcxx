@@ -8,15 +8,27 @@
 #include "cxx-utils.h"
 #include "cxx-typeenviron.h"
 
-static void new_flag_list(profile_flaglist_t* flaglist);
-static void add_to_flag_list(profile_flaglist_t*, const char* flag);
 static void new_option_list(option_list_t* list);
 static void add_to_option_list(option_list_t* list, p_compilation_configuration_line);
 
 static p_compilation_configuration_line process_option_line(
-        profile_flaglist_t* flaglist,
+        flag_expr_t* flag_expr,
         profile_option_name_t* name, 
         const char* option_value);
+
+struct flag_expr_tag
+{
+    enum flag_op kind;
+    struct flag_expr_tag* op[2];
+    const char* text;
+};
+
+static flag_expr_t* flag_name(const char* name);
+static flag_expr_t* flag_not(flag_expr_t* op);
+static flag_expr_t* flag_and(flag_expr_t* op1, flag_expr_t* op2);
+static flag_expr_t* flag_or(flag_expr_t* op1, flag_expr_t* op2);
+
+static void register_implicit_names(flag_expr_t* flag_expr);
 
 %}
 
@@ -24,7 +36,7 @@ static p_compilation_configuration_line process_option_line(
     profile_header_t profile_header;
     p_compilation_configuration_line profile_option;
     profile_option_name_t profile_option_name;
-    profile_flaglist_t profile_flaglist;
+    struct flag_expr_tag* flag;
     const char* str;
     option_list_t option_list;
 }
@@ -35,6 +47,10 @@ static p_compilation_configuration_line process_option_line(
 %token<str> ':'
 %token<str> '>'
 %token<str> ','
+%token<str> '('
+%token<str> ')'
+%token<str> '&'
+%token<str> '|'
 %token<str> CONFIGFILE_NAME "identifier"
 %token<str> CONFIGFILE_OPTION_VALUE "option-value"
 %token<str> EOL "end-of-line"
@@ -45,14 +61,16 @@ static p_compilation_configuration_line process_option_line(
 
 %type<profile_option_name> option_name
 
-%type<profile_flaglist> flaglist_opt
-%type<profile_flaglist> flaglist
+%type<flag> flag_spec
+%type<flag> flag_expr
+%type<flag> flag_not
+%type<flag> flag_and
+%type<flag> flag_or
+%type<flag> flag_atom
 
 %type<option_list> profile_body
 %type<option_list> option_line_seq
 %type<str> option_value
-
-%type<str> flag
 
 %start config_file
 
@@ -162,16 +180,12 @@ option_line_seq : option_line_seq option_line
 ;
 
 // We need a lexical tie in since we allow free text after the '=' 
-option_line : flaglist_opt option_name '=' option_value EOL
+option_line : flag_spec option_name '=' option_value EOL
 {
-    $$ = process_option_line(&$1, &$2, $4);
+    $$ = process_option_line($1, &$2, $4);
 }
 // Degenerated cases. Do nothing with them
-| '{' flaglist '}' EOL
-{
-    $$ = NULL;
-}
-| '{' '}' EOL
+| flag_spec EOL
 {
     $$ = NULL;
 }
@@ -199,60 +213,73 @@ option_name : CONFIGFILE_NAME
 }
 ;
 
-flaglist_opt : '{' flaglist '}'
+flag_spec : '{' flag_expr '}'
 {
     $$ = $2;
 }
 // This may be useful sometimes
 | '{' '}'
 {
-    new_flag_list(&$$);
+    $$ = NULL;
 }
 // It can be empty
 | 
 {
-    new_flag_list(&$$);
+    $$ = NULL;
 }
 ;
 
-flaglist : flaglist ',' flag
+flag_expr : flag_or
 {
     $$ = $1;
-    add_to_flag_list(&$$, $3);
-}
-| flag
-{
-    new_flag_list(&$$);
-    add_to_flag_list(&$$, $1);
 }
 ;
 
-flag : CONFIGFILE_NAME
+flag_or : flag_or '|' flag_and
+{
+    $$ = flag_or($1, $3);
+}
+| flag_and
 {
     $$ = $1;
 }
-| '!' CONFIGFILE_NAME
+;
+
+flag_and : flag_and ',' flag_not
 {
-    $$ = strappend("!", $2);
+    $$ = flag_and($1, $3);
+}
+| flag_and '&' flag_not
+{
+    $$ = flag_and($1, $3);
+}
+| flag_not
+{
+    $$ = $1;
+}
+;
+
+flag_not : '!' flag_atom
+{
+    $$ = flag_not($2);
+}
+| flag_atom
+{
+    $$ = $1;
+}
+;
+
+flag_atom : CONFIGFILE_NAME
+{
+    $$ = flag_name($1);
+}
+| '(' flag_expr ')'
+{
+    $$ = $2;
 }
 ;
 
 %%
-
-static void new_flag_list(profile_flaglist_t* flaglist)
-{
-    memset(flaglist, 0, sizeof(*flaglist));
-}
-
-static void add_to_flag_list(profile_flaglist_t* flaglist, const char* flag)
-{
-    if (flaglist->num_flags == MAX_FLAGS)
-    {
-        running_error("Too many flags (%d) in option line\n", MAX_FLAGS);
-    }
-    flaglist->flags[flaglist->num_flags] = flag;
-    flaglist->num_flags++;
-}
 
 static void new_option_list(option_list_t* list)
 {
@@ -269,8 +296,80 @@ void yyerror(const char *c)
     fprintf(stderr, "warning: error encountered when parsing configuration file: %s\n", c);
 }
 
+static void register_implicit_names(flag_expr_t* flag_expr)
+{
+    if (flag_expr != NULL)
+    {
+        if (flag_expr->kind == FLAG_OP_NAME)
+        {
+            struct parameter_flags_tag *new_parameter_flag = calloc(1, sizeof(*new_parameter_flag));
+
+            new_parameter_flag->name = flag_expr->text;
+            // This is redundant because of calloc, but make it explicit here anyway
+            new_parameter_flag->value = 0;
+
+            P_LIST_ADD(compilation_process.parameter_flags, 
+                    compilation_process.num_parameter_flags,
+                    new_parameter_flag);
+        }
+        else 
+        {
+            register_implicit_names(flag_expr->op[0]);
+            register_implicit_names(flag_expr->op[1]);
+        }
+    }
+}
+
+static flag_expr_t* new_flag(void)
+{
+    flag_expr_t* result = calloc(1, sizeof(*result));
+    return result;
+}
+
+static flag_expr_t* flag_name(const char* name)
+{
+    flag_expr_t* result = new_flag();
+
+    result->kind = FLAG_OP_NAME;
+    result->text = name;
+
+    return result;
+}
+
+static flag_expr_t* flag_not(flag_expr_t* op)
+{
+    flag_expr_t* result = new_flag();
+
+    result->kind = FLAG_OP_NOT;
+    result->op[0] = op;
+
+    return result;
+}
+
+static flag_expr_t* flag_and(flag_expr_t* op1, flag_expr_t* op2)
+{
+    flag_expr_t* result = new_flag();
+
+    result->kind = FLAG_OP_AND;
+    result->op[0] = op1;
+    result->op[1] = op2;
+
+    return result;
+}
+
+static flag_expr_t* flag_or(flag_expr_t* op1, flag_expr_t* op2)
+{
+    flag_expr_t* result = new_flag();
+
+    result->kind = FLAG_OP_OR;
+    result->op[0] = op1;
+    result->op[1] = op2;
+
+    return result;
+}
+
 static p_compilation_configuration_line process_option_line(
-        profile_flaglist_t* flaglist,
+        flag_expr_t* flag_expr,
         profile_option_name_t* name, 
         const char* option_value)
 {
@@ -299,58 +398,51 @@ static p_compilation_configuration_line process_option_line(
 
     free(option_value_tmp);
 
-    result->num_flags = flaglist->num_flags;
-    result->flags = calloc(result->num_flags, sizeof(*result->flags)); 
+    result->flag_expr = flag_expr;
 
-    int i;
-    for (i = 0; i < flaglist->num_flags; i++)
-    {
-        const char *current_flag = NULL;
-        char is_negative = 0;
-
-        // fprintf(stderr, "-->   Flag: '%s'\n", flaglist->flags[i]);
-
-        // If the flag is '!flag'
-        if (flaglist->flags[i][0] == '!')
-        {
-            // Do not copy '!'
-            current_flag = uniquestr(&(flaglist->flags[i][1]));
-            // And state it is negative
-            is_negative = 1;
-        }
-        else
-        {
-            // Otherwise just keep the flag
-            current_flag = uniquestr(flaglist->flags[i]);
-        }
-
-        result->flags[i].flag = current_flag;
-        result->flags[i].value = !is_negative;
-
-        {
-            // Now register in compilation process as valid flag
-            char found = 0;
-            int j;
-            for (j = 0; !found && (j < compilation_process.num_parameter_flags); j++)
-            {
-                found |= (strcmp(current_flag, compilation_process.parameter_flags[j]->name) == 0);
-            }
-
-            if (!found)
-            {
-                struct parameter_flags_tag *new_parameter_flag = calloc(1, sizeof(*new_parameter_flag));
-
-                new_parameter_flag->name = current_flag;
-                // This is redundant because of calloc, but make it explicit here anyway
-                new_parameter_flag->value = 0;
-
-                P_LIST_ADD(compilation_process.parameter_flags, 
-                        compilation_process.num_parameter_flags,
-                        new_parameter_flag);
-            }
-        }
-
-    }
+    register_implicit_names(flag_expr);
 
     return result;
+}
+
+char flag_expr_eval(flag_expr_t* flag_expr)
+{
+    switch (flag_expr->kind)
+    {
+        case FLAG_OP_NAME:
+            {
+                // Ugly and inefficient lookup
+                char found = 0;
+                char value_of_flag = 0;
+                int q;
+                for (q = 0; !found && q < compilation_process.num_parameter_flags; q++)
+                {
+                    struct parameter_flags_tag *parameter_flag = compilation_process.parameter_flags[q];
+                    found = (strcmp(parameter_flag->name, flag_expr->text) == 0);
+                    value_of_flag = parameter_flag->value;
+                }
+
+                if (found)
+                    return !!value_of_flag;
+            }
+        case FLAG_OP_NOT:
+            {
+                return !flag_expr_eval(flag_expr->op[0]);
+            }
+        case FLAG_OP_OR:
+            {
+                return flag_expr_eval(flag_expr->op[0]) || flag_expr_eval(flag_expr->op[1]);
+            }
+        case FLAG_OP_AND:
+            {
+                return flag_expr_eval(flag_expr->op[0]) && flag_expr_eval(flag_expr->op[1]);
+            }
+        default:
+            {
+                internal_error("Invalid flag expr", 0);
+                return 0;
+            }
+    }
+
+    return 0;
 }
