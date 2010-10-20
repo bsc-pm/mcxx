@@ -16,7 +16,7 @@ int main (int argc, char **argv)
 {
    #pragma omp declare reduction(min:int: _out = _out > _in ? _in : _out ) identity(2147483647)
 
-   int i,x;
+   int i,x = N + 1;
    float a[N];
 
    for ( i = 0; i < N ; i++ ) a[i] = i;

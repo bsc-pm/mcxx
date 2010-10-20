@@ -15,7 +15,7 @@ test_compile_faulty_nanox_plain=yes
 
 int main (int argc, char **argv)
 {
-   int i,x = 0;
+   int i,x = N+1;
    int a[N];
 
    for ( i = 0; i < N ; i++ ) a[i] = i;

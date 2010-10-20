@@ -18,7 +18,7 @@ typedef int Myint;
 
 int main (int argc, char **argv)
 {
-   int i,x;
+   int i,x = N+1;
    int a[N];
 
    for ( i = 0; i < N ; i++ ) a[i] = i;

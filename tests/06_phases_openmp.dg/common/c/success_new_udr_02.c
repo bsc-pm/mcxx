@@ -4,6 +4,7 @@ test_generator=config/mercurium-omp
 
 test_compile_fail_nanox_plain=yes
 test_compile_faulty_nanox_plain=yes
+
 </testinfo>
 */
 
@@ -17,7 +18,7 @@ test_compile_faulty_nanox_plain=yes
 
 int main (int argc, char **argv)
 {
-   int i,x;
+   int i,x = N + 1;
    float a[N];
 
    for ( i = 0; i < N ; i++ ) a[i] = i;
@@ -28,6 +29,8 @@ int main (int argc, char **argv)
         x = a[i] < x ? a[i] : x;
    }
 
-   if ( x != 0 ) abort();
+   if ( x != 0 ) {
+       fprintf(stderr, " x = %d\n", x);
+   }
    return 0;
 }
