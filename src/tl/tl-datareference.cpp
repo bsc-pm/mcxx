@@ -124,6 +124,14 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
             addr << arr_addr << "[" << expr.get_subscript_expression() << "]";
         }
 
+        CXX_LANGUAGE()
+        {
+            if (type.is_reference())
+            {
+                type = type.references_to();
+            }
+        }
+
         if (type.is_array())
         {
             type = type.array_element();
@@ -160,6 +168,14 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         else
         {
             addr << arr_addr << "[" << expr.array_section_lower() << "]";
+        }
+
+        CXX_LANGUAGE()
+        {
+            if (type.is_reference())
+            {
+                type = type.references_to();
+            }
         }
 
         if (type.is_pointer())
@@ -271,6 +287,14 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         bool b = gather_info_data_expr_rec(shaped_expr, base_sym, 
                 arr_size, arr_addr, 
                 type, /* enclosing_is_array */ true);
+
+        CXX_LANGUAGE()
+        {
+            type = type.references_to();
+        }
+
+        if (!type.is_pointer())
+            return false;
 
         if (!b)
             return false;
