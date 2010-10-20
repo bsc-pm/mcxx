@@ -95,11 +95,34 @@ INSTALL_CONFIG_FILES="config.plain"
 
 COMPILER_NAMES="plaincxx plaincc"
 
-dnl --------------------- Support for OpenMPT ------------------------------------------
+dnl --------------------- Support for OMPSS ------------------------------------------
 is_enabled_openmpt="no"
+dnl Legacy name of openmpt
 AC_MSG_CHECKING([if enabled OpenMPT (ENCORE) support in the compiler])
 AC_ARG_ENABLE([openmpt],
-    AS_HELP_STRING([--enable-openmpt], [Enables support of OpenMPT (ENCORE)]),
+    AS_HELP_STRING([--enable-openmpt], [Enables support of OpenMPT (ENCORE). This is an alias for --enable-ompss]),
+    [
+      if test x$enableval = xyes -o x$enableval = x;
+      then
+         is_enabled_openmpt="yes"
+         AC_MSG_RESULT([yes])
+      else if test x$enableval = xno;
+           then
+              is_enabled_openmpt="no"
+              AC_MSG_RESULT([no])
+           else
+              AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+           fi
+      fi
+    ],
+    [
+       AC_MSG_RESULT([no])
+    ]
+)
+
+AC_MSG_CHECKING([if enabled OpenMPSs (ENCORE) support in the compiler])
+AC_ARG_ENABLE([ompss],
+    AS_HELP_STRING([--enable-ompss], [Enables support of OpenMPSs (ENCORE)]),
     [
       if test x$enableval = xyes -o x$enableval = x;
       then
