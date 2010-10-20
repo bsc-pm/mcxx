@@ -240,7 +240,7 @@ void DeviceGPU::create_outline(
 		{
 			// Check if we have already printed the function definition in the CUDA file
 			if (_taskSymbols.count(outline_flags.task_symbol.get_name()) == 0) {
-				forward_declaration << function_tree.get_enclosing_function_definition(false).prettyprint_external();
+				forward_declaration << function_tree.get_enclosing_function_definition().prettyprint_external();
 
 				// Keep record of which tasks have been printed to the CUDA file
 				// in order to avoid repeating them
@@ -284,7 +284,7 @@ void DeviceGPU::create_outline(
 				// Check if we have already printed the function definition in the CUDA file
 				if (_taskSymbols.count(outline_flags.task_symbol.get_name()) == 0)
 				{
-					forward_declaration << funct_def_list[0].get_enclosing_function_definition(false).prettyprint_external();
+					forward_declaration << funct_def_list[0].get_enclosing_function_definition().prettyprint_external();
 
 					// Keep record of which tasks have been printed to the CUDA file
 					// in order to avoid repeating them

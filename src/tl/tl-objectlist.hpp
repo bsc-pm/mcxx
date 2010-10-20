@@ -195,6 +195,17 @@ class ObjectList : public std::vector<T>, public TL::Object
             return *this;
         }
 
+        //! Prepends an element onto the list
+        /*!
+         * \param t Adds a copy of t at the beginning of the list
+         * \bug The implementation of this function is inefficient
+         */
+        ObjectList<T>& prepend(const T& t)
+        {
+            this->std::vector<T>::insert(this->begin(), t);
+            return *this;
+        }
+
         //! Inserts element if it was not already in
         /*!
          * \param t Element to be inserted once

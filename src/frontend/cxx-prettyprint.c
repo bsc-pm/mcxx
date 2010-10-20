@@ -2053,8 +2053,6 @@ static void linkage_specification_decl_handler(FILE* f, AST a, prettyprint_conte
 
     token_fprintf(f, a, pt_ctx, "\n");
     prettyprint_level(f, ASTSon1(a), pt_ctx);
-
-    token_fprintf(f, a, pt_ctx, "\n");
 }
 
 static void namespace_alias_definition_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)

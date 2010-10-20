@@ -208,7 +208,7 @@ void DeviceSMP::create_outline(
     Source forward_declaration;
     Symbol function_symbol = enclosing_function.get_function_symbol();
 
-    Source template_header;
+    Source template_header, linkage_specifiers;
     if (enclosing_function.is_templated())
     {
         Source template_params;
@@ -229,6 +229,10 @@ void DeviceSMP::create_outline(
             }
         }
     }
+    else if (enclosing_function.has_linkage_specifier())
+    {
+        linkage_specifiers << concat_strings(enclosing_function.get_linkage_specifier(), " ");
+    }
 
     if (!function_symbol.is_member())
     {
@@ -239,6 +243,7 @@ void DeviceSMP::create_outline(
         DeclaredEntity declared_entity = *(declared_entities.begin());
 
         forward_declaration 
+            << linkage_specifiers
             << template_header
             << decl_specs.prettyprint()
             << " "
@@ -435,7 +440,6 @@ void DeviceSMP::get_device_descriptor(const std::string& task_name,
                 .get_pointer_to();
             additional_casting << "(" << t.get_declaration(sym_list[0].get_scope(), "") << ")";
         }
-        // Let it fail
     }
 
     ancillary_device_description

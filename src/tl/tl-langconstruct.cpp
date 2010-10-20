@@ -217,9 +217,39 @@ namespace TL
         return result;
     }
 
+    bool FunctionDefinition::has_linkage_specifier() const
+    {
+        TL::Bool result = _ref.get_attribute(LANG_HAS_LINKAGE_SPECIFIER);
+        return result;
+    }
+
+    std::string LinkageSpecifier::prettyprint() const
+    {
+        return "extern " + _ref.prettyprint();
+    }
+
+    ObjectList<LinkageSpecifier> FunctionDefinition::get_linkage_specifier() const
+    {
+        TL::AST_t start = _ref.get_attribute(LANG_LINKAGE_SPECIFIER_HEADER);
+
+        PredicateAttr template_header_pred(LANG_IS_LINKAGE_SPECIFIER);
+
+        ObjectList<AST_t> trees = start.depth_subtrees(template_header_pred);
+        ObjectList<LinkageSpecifier> result;
+
+        for (ObjectList<AST_t>::iterator it = trees.begin();
+                it != trees.end();
+                it++)
+        {
+            result.append(LinkageSpecifier(*it, _scope_link));
+        }
+
+        return result;
+    }
+
     AST_t FunctionDefinition::get_point_of_declaration() const
     {
-        return _ref.get_enclosing_function_definition_declaration();
+        return _ref.get_enclosing_function_definition_declaration().get_parent();
     }
 
     DeclaredEntity FunctionDefinition::get_declared_entity() const
@@ -231,6 +261,31 @@ namespace TL
     bool Declaration::is_templated() const
     {
         TL::Bool result = _ref.get_attribute(LANG_IS_TEMPLATED_DECLARATION);
+        return result;
+    }
+
+    bool Declaration::has_linkage_specifier() const
+    {
+        TL::Bool result = _ref.get_attribute(LANG_HAS_LINKAGE_SPECIFIER);
+        return result;
+    }
+
+    ObjectList<LinkageSpecifier> Declaration::get_linkage_specifier() const
+    {
+        TL::AST_t start = _ref.get_attribute(LANG_LINKAGE_SPECIFIER_HEADER);
+
+        PredicateAttr template_header_pred(LANG_IS_LINKAGE_SPECIFIER);
+
+        ObjectList<AST_t> trees = start.depth_subtrees(template_header_pred);
+        ObjectList<LinkageSpecifier> result;
+
+        for (ObjectList<AST_t>::iterator it = trees.begin();
+                it != trees.end();
+                it++)
+        {
+            result.append(LinkageSpecifier(*it, _scope_link));
+        }
+
         return result;
     }
 
@@ -260,6 +315,15 @@ namespace TL
             TL::AST_t start = _ref.get_attribute(LANG_TEMPLATE_HEADER);
             AST inner_tree = start.get_internal_ast();
             return ASTParent(inner_tree);
+        }
+        else if (has_linkage_specifier())
+        {
+            AST_t tree = _ref;
+            while (TL::Bool b = tree.get_attribute(LANG_HAS_LINKAGE_SPECIFIER))
+            {
+                tree = tree.get_parent();
+            }
+            return tree;
         }
         else
         {

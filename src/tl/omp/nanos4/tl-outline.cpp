@@ -109,6 +109,7 @@ namespace TL
             Source formal_parameters, 
                 static_qualifier, 
                 forward_declaration, 
+                linkage_specifiers,
                 inline_attribute, 
                 template_header;
 
@@ -166,6 +167,10 @@ namespace TL
                     template_header << "template <" << concat_strings(template_parameters, ",") << ">";
                 }
             }
+            else if (function_definition.has_linkage_specifier())
+            {
+                linkage_specifiers << concat_strings(function_definition.get_linkage_specifier(), " ");
+            }
 
             // If the function is a member and is not qualified we need an additional
             // static here
@@ -190,6 +195,7 @@ namespace TL
                 DeclaredEntity declared_entity = *(declared_entities.begin());
 
                 forward_declaration 
+                    << linkage_specifiers
                     << template_header
                     << decl_specs.prettyprint()
                     << " "

@@ -97,7 +97,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     AST_t outline_code_tree
         = newly_generated_code.parse_declaration(
-                ctr.get_ast().get_enclosing_function_definition(/*jump_templates*/ true), 
+                ctr.get_ast().get_enclosing_function_definition_declaration(),
                 ctr.get_scope_link());
     ctr.get_ast().prepend_sibling_function(outline_code_tree);
 

@@ -185,6 +185,7 @@ void Outline::compute_outline_name(Source &template_headers_fwd,
     }
 
     _is_templated = _function_def->is_templated();
+    _has_linkage_specifier = _function_def->has_linkage_specifier();
     if (_is_templated)
     {
         _template_header = _function_def->get_template_header();
@@ -213,6 +214,11 @@ void Outline::compute_outline_name(Source &template_headers_fwd,
                 template_headers_fwd << template_headers;
             }
         }
+    }
+    else if (_has_linkage_specifier)
+    {
+        ObjectList<LinkageSpecifier> linkage_specifiers = _function_def->get_linkage_specifier();
+        template_headers_fwd << concat_strings(linkage_specifiers, " ");
     }
 
     if (!_overriden_outline_name)

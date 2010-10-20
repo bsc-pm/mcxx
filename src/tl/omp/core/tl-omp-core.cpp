@@ -995,10 +995,10 @@ namespace TL
             _openmp_info->push_current_data_sharing(data_sharing);
 
             get_data_explicit_attributes(construct, data_sharing);
-            DataSharingAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DS_UNDEFINED);
 
             get_dependences_info(construct, data_sharing);
 
+            DataSharingAttribute default_data_attr = get_default_data_sharing(construct, /* fallback */ DS_UNDEFINED);
             get_data_implicit_attributes_task(construct, data_sharing, default_data_attr);
 
             // Target info applies after

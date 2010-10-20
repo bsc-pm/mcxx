@@ -668,7 +668,7 @@ namespace TL
                     {
 		                if (ctr.get_ast().get_enclosing_function_definition().is_valid())
 		                {
-							TL::AST_t ref_tree = ctr.get_ast().get_enclosing_function_definition(true);
+							TL::AST_t ref_tree = ctr.get_ast().get_enclosing_function_definition_declaration();
 			                pragma_functions_tree = pragma_functions.parse_declaration(ref_tree, ctr.get_scope_link());
 			                ref_tree.prepend(pragma_functions_tree);
                         }
@@ -698,7 +698,7 @@ namespace TL
 		                            pragma_functions_tree = pragma_functions.parse_declaration(ctr.get_ast(),
 							                ctr.get_scope_link());
 		                        }
-                                TL::AST_t ref_tree = ctr.get_ast().get_enclosing_function_definition(true);
+                                TL::AST_t ref_tree = ctr.get_ast().get_enclosing_function_definition_declaration();
                                 ref_tree.prepend(pragma_functions_tree);
                             }
                             else

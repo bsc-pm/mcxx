@@ -110,7 +110,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
         gather_decl_spec_t* gather_info, decl_context_t decl_context);
 
 static void build_scope_linkage_specifier(AST a, decl_context_t decl_context);
-static void build_scope_linkage_specifier_declaration(AST a, decl_context_t decl_context);
+static void build_scope_linkage_specifier_declaration(AST a, AST top_linkage_decl, decl_context_t decl_context);
 
 static void build_scope_template_declaration(AST a, AST top_template_decl, decl_context_t decl_context);
 static void build_scope_explicit_template_specialization(AST a, decl_context_t decl_context);
@@ -468,7 +468,7 @@ static void build_scope_declaration(AST a, decl_context_t decl_context)
         case AST_LINKAGE_SPEC_DECL :
             {
                 // extern "C" int a;
-                build_scope_linkage_specifier_declaration(a, decl_context);
+                build_scope_linkage_specifier_declaration(a, a, decl_context);
                 break;
             }
         case AST_EXPORT_TEMPLATE_DECLARATION :
@@ -5788,7 +5788,7 @@ static void build_scope_linkage_specifier(AST a, decl_context_t decl_context)
 /*
  * Similar to build_scope_linkage_specifier but for just one declaration
  */
-static void build_scope_linkage_specifier_declaration(AST a, decl_context_t decl_context)
+static void build_scope_linkage_specifier_declaration(AST a, AST top_linkage_decl, decl_context_t decl_context)
 {
     AST declaration = ASTSon1(a);
 
@@ -5797,7 +5797,18 @@ static void build_scope_linkage_specifier_declaration(AST a, decl_context_t decl
     AST linkage_spec = ASTSon0(a);
     current_linkage = ASTText(linkage_spec);
 
-    build_scope_declaration(declaration, decl_context);
+    if (ASTType(declaration)  == AST_LINKAGE_SPEC_DECL)
+    {
+        build_scope_linkage_specifier_declaration(declaration, top_linkage_decl, decl_context);
+    }
+    else
+    {
+        build_scope_declaration(declaration, decl_context);
+    }
+
+    ASTAttrSetValueType(declaration, LANG_HAS_LINKAGE_SPECIFIER, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(declaration, LANG_LINKAGE_SPECIFIER_HEADER, tl_type_t, tl_ast(top_linkage_decl));
+    ASTAttrSetValueType(linkage_spec, LANG_IS_LINKAGE_SPECIFIER, tl_type_t, tl_bool(1));
 
     current_linkage = previous_linkage;
 }

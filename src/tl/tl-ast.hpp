@@ -482,7 +482,7 @@ namespace TL
             /*!
              * This is equivalent to call
              * @code
-             * a.get_enclosing_function_definition(true, true).get_parent();
+             * a.get_enclosing_function_definition(true, true);
              * @endcode
              */
             AST_t get_enclosing_function_definition_declaration() const;

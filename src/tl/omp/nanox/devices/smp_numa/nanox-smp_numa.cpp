@@ -179,9 +179,35 @@ void DeviceSMP_NUMA::create_outline(
     Source forward_declaration;
     Symbol function_symbol = enclosing_function.get_function_symbol();
 
+    Source template_header, linkage_specifiers;
+    if (enclosing_function.is_templated())
+    {
+        Source template_params;
+        template_header
+            << "template <" << template_params << ">"
+            ;
+        ObjectList<TemplateHeader> template_header_list = enclosing_function.get_template_header();
+        for (ObjectList<TemplateHeader>::iterator it = template_header_list.begin();
+                it != template_header_list.end();
+                it++)
+        {
+            ObjectList<TemplateParameterConstruct> tpl_params = it->get_parameters();
+            for (ObjectList<TemplateParameterConstruct>::iterator it2 = tpl_params.begin();
+                    it2 != tpl_params.end();
+                    it2++)
+            {
+                template_params.append_with_separator(it2->prettyprint(), ",");
+            }
+        }
+    }
+    else if (enclosing_function.has_linkage_specifier())
+    {
+        linkage_specifiers << concat_strings(enclosing_function.get_linkage_specifier(), " ");
+    }
+
     if (!function_symbol.is_member())
     {
-        Source template_header;
+        Source template_header, linkage_specifiers;
 
         IdExpression function_name = enclosing_function.get_function_name();
         Declaration point_of_decl = function_name.get_declaration();
@@ -190,6 +216,7 @@ void DeviceSMP_NUMA::create_outline(
         DeclaredEntity declared_entity = *(declared_entities.begin());
 
         forward_declaration 
+            << linkage_specifiers
             << template_header
             << decl_specs.prettyprint()
             << " "

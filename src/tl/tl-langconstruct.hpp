@@ -281,6 +281,7 @@ namespace TL
     };
 
     class TemplateHeader;
+    class LinkageSpecifier;
     class TemplateParameterConstruct;
     class DeclaredEntity;
     //! This function wraps a whole function definition
@@ -323,6 +324,12 @@ namespace TL
             bool is_templated() const;
             //! Returns a list of templated headers for this template declaration
             ObjectList<TemplateHeader> get_template_header() const;
+
+            //! States whether this function definition has a linkage specified
+            bool has_linkage_specifier() const;
+
+            //! Returns a list of LinkageSpecifiers enclosing thins declaration
+            ObjectList<LinkageSpecifier> get_linkage_specifier() const;
 
             //! Returns the declared entity of this function definition.
             /*!
@@ -738,6 +745,12 @@ namespace TL
             //! Returns the declaration-specifier sequence of the declaration
             DeclarationSpec get_declaration_specifiers() const;
 
+            //! States whether this declaration has explicit linkage specifier "X"
+            bool has_linkage_specifier() const;
+
+            //! Returns a list of LinkageSpecifiers enclosing thins declaration
+            ObjectList<LinkageSpecifier> get_linkage_specifier() const;
+
             //! States whether this declaration is templated
             bool is_templated() const;
             //! Returns a list of template-haders
@@ -780,6 +793,17 @@ namespace TL
             }
 
             ObjectList<TemplateParameterConstruct> get_parameters() const;
+            virtual std::string prettyprint() const;
+    };
+
+    class LIBTL_CLASS LinkageSpecifier : public LangConstruct
+    {
+        public:
+            LinkageSpecifier(AST_t ast, ScopeLink scope_link)
+                : LangConstruct(ast, scope_link)
+            {
+            }
+
             virtual std::string prettyprint() const;
     };
 

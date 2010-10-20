@@ -599,9 +599,8 @@ namespace TL
 
     AST_t AST_t::get_enclosing_function_definition_declaration() const
     {
-        AST_t result = get_enclosing_function_definition(/* jump_templates = */ true, 
-                /* jump_external_decl = */ true).get_parent();
-        return result;
+        return get_enclosing_function_definition(/* jump_templates = */ true, 
+                /* jump_external_decl = */ true);
     }
 
     AST_t AST_t::get_enclosing_class_specifier(bool jump_templates) const

@@ -53,8 +53,8 @@ void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
             _compiler_alignment);
 
     FunctionDefinition funct_def = ctr.get_enclosing_function();
-    // This one will be the same as funct_def.get_ast() if there are no templates
-    AST_t funct_def_tree = ctr.get_ast().get_enclosing_function_definition(/*jump_templates*/true);
+    // This one will be the same as funct_def.get_ast() if there are no templates or linkage specifiers
+    AST_t funct_def_tree = ctr.get_ast().get_enclosing_function_definition_declaration();
     Symbol function_symbol = funct_def.get_function_symbol();
 
     Source template_header;

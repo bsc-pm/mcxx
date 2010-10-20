@@ -93,6 +93,7 @@ namespace TL
                 bool _is_member;
                 bool _is_inlined_member;
                 bool _is_templated;
+                bool _has_linkage_specifier;
                 ObjectList<TemplateHeader> _template_header;
 
                 ObjectList<Symbol> _replaced_symbols;
