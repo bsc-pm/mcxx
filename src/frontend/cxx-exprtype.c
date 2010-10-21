@@ -9798,7 +9798,7 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
                                     &conversor))
                             // A cv char[x] can be initialized with a string literal, we do not check the size
                             && !(is_array_type(declared_type_no_cv)
-                                && is_char_type(array_type_get_element_type(declared_type_no_cv))
+                                && is_character_type(array_type_get_element_type(declared_type_no_cv))
                                 && is_array_type(no_ref(initializer_expr_type))
                                 && is_char_type(array_type_get_element_type(no_ref(initializer_expr_type)))
                                 && is_literal_string_type(no_ref(initializer_expr_type))
