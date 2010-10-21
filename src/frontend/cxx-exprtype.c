@@ -9409,8 +9409,6 @@ type_t* get_designated_type(AST designation, decl_context_t decl_context, type_t
     return designated_type;
 }
 
-static char check_for_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type);
-
 static char check_for_braced_initializer_list(AST initializer, decl_context_t decl_context, type_t* declared_type)
 {
     ERROR_CONDITION (ASTType(initializer) != AST_INITIALIZER_BRACES, "Invalid node", 0);
@@ -9766,7 +9764,7 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
     return 0;
 }
 
-static char check_for_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type)
+char check_for_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type)
 {
     switch (ASTType(initializer))
     {
