@@ -3356,18 +3356,38 @@ static type_t* compute_bin_operator_relational(AST expr, AST lhs, AST rhs, AST o
 
     RETURN_IF_ERROR_OR_DEPENDENT_2(lhs_type, rhs_type, expr);
 
+    type_t* no_ref_lhs_type = no_ref(lhs_type);
+    type_t* no_ref_rhs_type = no_ref(rhs_type);
+
     char requires_overload = 0;
+
     CXX_LANGUAGE()
     {
-        requires_overload = any_operand_is_class_or_enum(no_ref(lhs_type), no_ref(rhs_type));
+        // Try to simplify unresolved overloads
+        type_t** op_types[] = { &no_ref_lhs_type, &no_ref_rhs_type, NULL };
+        int i;
+        for (i = 0; op_types[i] != NULL; i++)
+        {
+            if (is_unresolved_overloaded_type(*(op_types[i])))
+            {
+                scope_entry_t* function = unresolved_overloaded_type_simplify(*(op_types[i]),
+                        decl_context, ASTLine(lhs), ASTFileName(lhs));
+                if (function != NULL)
+                {
+                    *(op_types[i]) = get_pointer_type(function->type_information);
+                }
+            }
+        }
+
+        requires_overload = any_operand_is_class_or_enum(no_ref_lhs_type, no_ref_rhs_type);
     }
 
     if (!requires_overload)
     {
         type_t* computed_type = NULL;
 
-        if (both_operands_are_arithmetic(no_ref(lhs_type), no_ref(rhs_type))
-                || pointer_types_are_similar(no_ref(lhs_type), no_ref(rhs_type)))
+        if (both_operands_are_arithmetic(no_ref_lhs_type, no_ref_rhs_type)
+                || pointer_types_are_similar(no_ref_lhs_type, no_ref_rhs_type))
         {
             C_LANGUAGE()
             {
@@ -3378,7 +3398,7 @@ static type_t* compute_bin_operator_relational(AST expr, AST lhs, AST rhs, AST o
                 computed_type = get_bool_type();
             }
         }
-        else if (both_operands_are_vector_types(no_ref(lhs_type), no_ref(rhs_type)))
+        else if (both_operands_are_vector_types(no_ref_lhs_type, no_ref_rhs_type))
         {
             computed_type = lhs_type;
         }
@@ -4802,14 +4822,24 @@ type_t* operator_unary_not_result(type_t** op_type)
 static type_t* compute_operator_not_type(AST expression,
         AST op, decl_context_t decl_context, const_value_t** val)
 {
-    char requires_overload = 0;
-
     type_t* op_type = expression_get_type(op);
 
     RETURN_IF_ERROR_OR_DEPENDENT_1(op_type, expression);
 
+    char requires_overload = 0;
     CXX_LANGUAGE()
     {
+        // Try to simplify unresolved overloads
+        if (is_unresolved_overloaded_type(no_ref(op_type)))
+        {
+            scope_entry_t* function = unresolved_overloaded_type_simplify(no_ref(op_type),
+                    decl_context, ASTLine(op), ASTFileName(op));
+            if (function != NULL)
+            {
+                op_type = get_pointer_type(function->type_information);
+            }
+        }
+
         if (operand_is_class_or_enum(no_ref(op_type)))
             requires_overload = 1;
     }
