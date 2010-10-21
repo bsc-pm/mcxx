@@ -1246,6 +1246,25 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                 (*should_advance)++;
                 break;
             }
+        case 'd':
+            {
+                if (strcmp(argument, "-dumpspecs") == 0
+                        || strcmp(argument, "-dumpversion") == 0
+                        || strcmp(argument, "-dumpmachine") == 0)
+                {
+                    if (!dry_run)
+                    {
+                        CURRENT_CONFIGURATION->do_not_process_files = 1;
+                        add_parameter_all_toolchain(argument, dry_run);
+                    }
+                    (*should_advance)++;
+                }
+                else
+                {
+                    failure = 1;
+                }
+                break;
+            }
         case 'M' :
             {
                 if ((argument[2] == '\0') // -M
@@ -1387,14 +1406,24 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                 if (strcmp(argument, "-pthread") == 0)
                 {
                 }
-                else if (strcmp(argument, "-print-search-dirs") == 0)
+                else if ((strcmp(argument, "-print-search-dirs") == 0)
+                        || (strcmp(argument, "-print-libgcc-file-name") == 0)
+                        || (strcmp(argument, "-print-multi-directory") == 0)
+                        || (strcmp(argument, "-print-multi-lib") == 0)
+                        || (strcmp(argument, "-print-multi-os-directory") == 0)
+                        || (strcmp(argument, "-print-multi-os-directory") == 0)
+                        || (strcmp(argument, "-print-sysroot") == 0)
+                        || (strcmp(argument, "-print-sysroot-headers-suffix") == 0)
+                        )
                 {
                     // Do not process anything
                     if (!dry_run)
                         CURRENT_CONFIGURATION->do_not_process_files = 1;
                 }
-                else if (strprefix(argument, "-print-prog-name"))
+                else if (strprefix(argument, "-print-prog-name")
+                        || strprefix(argument, "-print-file-name"))
                 {
+                    // KLUDGE: -print-prog-name and -print-file-name have the same length
                     const char *p = argument + strlen("-print-prog-name");
 
                     if (*p == '=' 
