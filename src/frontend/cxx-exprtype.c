@@ -9409,6 +9409,8 @@ type_t* get_designated_type(AST designation, decl_context_t decl_context, type_t
     return designated_type;
 }
 
+static char check_for_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type);
+
 static char check_for_braced_initializer_list(AST initializer, decl_context_t decl_context, type_t* declared_type)
 {
     ERROR_CONDITION (ASTType(initializer) != AST_INITIALIZER_BRACES, "Invalid node", 0);
@@ -9430,6 +9432,35 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
                         ast_location(initializer));
                 fprintf(stderr, "%s: warning: array types, struct, class, union or vector types\n",
                         ast_location(initializer));
+            }
+
+            // Special case for this sort of initializations
+            /*
+               char a[] = { "hello" };
+             */
+
+            // The expression list has only one element of kind expression
+            if (ASTSon0(expression_list) == NULL
+                    && ASTType(ASTSon1(expression_list)) != AST_INITIALIZER_BRACES
+                    && ASTType(ASTSon1(expression_list)) != AST_DESIGNATED_INITIALIZER
+                    && ASTType(ASTSon1(expression_list)) != AST_GCC_INITIALIZER_CLAUSE)
+            {
+                // Attempt an interpretation like char a[] = "hello";
+                // This will shut up the compiler if it is a failed attempt
+                enter_test_expression();
+                char result = check_for_initializer_clause(ASTSon1(expression_list), decl_context, declared_type);
+                leave_test_expression();
+
+                if (result)
+                {
+                    type_t* t = expression_get_type(ASTSon1(expression_list));
+                    if (!is_dependent_expr_type(t))
+                    {
+                        expression_set_type(initializer, expression_get_type(ASTSon1(expression_list)));
+                        // Do nothing else
+                        return 1;
+                    }
+                }
             }
 
             char faulty = 0;
@@ -9735,7 +9766,7 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
     return 0;
 }
 
-char check_for_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type)
+static char check_for_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type)
 {
     switch (ASTType(initializer))
     {
@@ -9781,11 +9812,14 @@ char check_for_initializer_clause(AST initializer, decl_context_t decl_context, 
                                 )
                             )
                             {
-                                fprintf(stderr, "%s: warning: initializer initializer '%s' has type '%s' not convertible to '%s'\n",
-                                        ast_location(initializer),
-                                        prettyprint_in_buffer(initializer),
-                                        print_decl_type_str(initializer_expr_type, decl_context, ""),
-                                        print_decl_type_str(declared_type, decl_context, ""));
+                                if (!checking_ambiguity())
+                                {
+                                    fprintf(stderr, "%s: warning: initializer initializer '%s' has type '%s' not convertible to '%s'\n",
+                                            ast_location(initializer),
+                                            prettyprint_in_buffer(initializer),
+                                            print_decl_type_str(initializer_expr_type, decl_context, ""),
+                                            print_decl_type_str(declared_type, decl_context, ""));
+                                }
                                 return 0;
                             }
 
@@ -9840,8 +9874,11 @@ char check_for_initializer_clause(AST initializer, decl_context_t decl_context, 
                 }
                 else
                 {
-                    fprintf(stderr, "%s: warning: gcc-style initializer clause but type is not a struct/union/class\n",
-                            ast_location(initializer));
+                    if (!checking_ambiguity())
+                    {
+                        fprintf(stderr, "%s: warning: gcc-style initializer clause but type is not a struct/union/class\n",
+                                ast_location(initializer));
+                    }
                 }
 
                 return result;
@@ -10088,7 +10125,8 @@ static char check_for_parenthesized_initializer(AST initializer_list, decl_conte
     {
         ERROR_CONDITION(initializer_num >= 256, "Too many arguments\n", 0);
 
-        if (!is_class 
+        if (!checking_ambiguity()
+                && !is_class 
                 && !is_dependent_type(declared_type) 
                 && (initializer_num > 0))
         {
@@ -10128,11 +10166,14 @@ static char check_for_parenthesized_initializer(AST initializer_list, decl_conte
                 && !type_can_be_implicitly_converted_to(argument_types[0], declared_type, decl_context, 
                     &ambiguous_conversion, &conversor))
         {
-            fprintf(stderr, "%s: warning: parenthesized initializer '%s' has type '%s' not convertible to '%s'\n",
-                    ast_location(single_initializer_expr),
-                    prettyprint_in_buffer(single_initializer_expr),
-                    print_decl_type_str(argument_types[0], decl_context, ""),
-                    print_decl_type_str(declared_type, decl_context, ""));
+            if (!checking_ambiguity())
+            {
+                fprintf(stderr, "%s: warning: parenthesized initializer '%s' has type '%s' not convertible to '%s'\n",
+                        ast_location(single_initializer_expr),
+                        prettyprint_in_buffer(single_initializer_expr),
+                        print_decl_type_str(argument_types[0], decl_context, ""),
+                        print_decl_type_str(declared_type, decl_context, ""));
+            }
             return 0;
         }
 
