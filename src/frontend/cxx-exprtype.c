@@ -3304,8 +3304,11 @@ static char operator_bin_arithmetic_pointer_or_enum_pred(type_t* lhs, type_t* rh
                 && is_arithmetic_type(rhs))
             // T* < T*
             || ((is_pointer_type(lhs) || is_array_type(lhs))
-                && (is_pointer_type(rhs) || is_array_type(lhs))
+                && (is_pointer_type(rhs) || is_array_type(rhs))
                 && equivalent_types(get_unqualified_type(lhs), get_unqualified_type(rhs)))
+            // Silly case for zero_type
+            || (is_pointer_type(lhs) && is_zero_type(rhs))
+            || (is_zero_type(lhs) && is_pointer_type(rhs))
             // enum E < enum E
             || (is_enum_type(lhs)
                 && is_enum_type(rhs)
@@ -3336,6 +3339,21 @@ static type_t* operator_bin_arithmetic_pointer_or_enum_result(type_t** lhs, type
         if (is_array_type(*rhs))
         {
             *rhs = get_pointer_type(array_type_get_element_type(*rhs));
+        }
+
+        return get_bool_type();
+    }
+    else if ((is_zero_type(*lhs) && is_pointer_type(*rhs))
+            || (is_pointer_type(*lhs) && is_zero_type(*rhs)))
+    {
+        // Convert the zero type to the other pointer type
+        if (is_zero_type(*lhs))
+        {
+            *lhs = *rhs;
+        }
+        if (is_zero_type(*rhs))
+        {
+            *rhs = *lhs;
         }
 
         return get_bool_type();
