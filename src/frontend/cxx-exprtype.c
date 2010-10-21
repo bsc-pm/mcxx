@@ -3299,7 +3299,7 @@ static type_t* compute_bin_operator_shr_type(AST expr, AST lhs, AST rhs, decl_co
 
 static char operator_bin_arithmetic_pointer_or_enum_pred(type_t* lhs, type_t* rhs)
 {
-    // Two arithmetics
+    // Two arithmetics or enum or pointer
     return ((is_arithmetic_type(lhs)
                 && is_arithmetic_type(rhs))
             // T* < T*
@@ -3307,9 +3307,9 @@ static char operator_bin_arithmetic_pointer_or_enum_pred(type_t* lhs, type_t* rh
                 && (is_pointer_type(rhs) || is_array_type(lhs))
                 && equivalent_types(get_unqualified_type(lhs), get_unqualified_type(rhs)))
             // enum E < enum E
-            || (is_enum_type(no_ref(lhs))
-                && is_enum_type(no_ref(rhs))
-                && equivalent_types(get_unqualified_type(no_ref(lhs)), get_unqualified_type(no_ref(rhs)))));
+            || (is_enum_type(lhs)
+                && is_enum_type(rhs)
+                && equivalent_types(get_unqualified_type(lhs), get_unqualified_type(rhs))));
 }
 
 static type_t* operator_bin_arithmetic_pointer_or_enum_result(type_t** lhs, type_t** rhs)
@@ -3415,7 +3415,7 @@ static type_t* compute_bin_operator_relational(AST expr, AST lhs, AST rhs, AST o
 
     builtin_operators_set_t builtin_set;
     build_binary_builtin_operators(
-            lhs_type, rhs_type, 
+            no_ref_lhs_type, no_ref_rhs_type, 
             &builtin_set,
             decl_context, operator, 
             operator_bin_arithmetic_pointer_or_enum_pred,
