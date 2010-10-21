@@ -99,6 +99,7 @@ namespace TL
 		Source parameter_initializers_source;
 		Source constant_redirection_source;
 		Source add_task_code;
+		Source scalar_count_code;
 		
 		source
 			<< "{"
@@ -128,7 +129,10 @@ namespace TL
 				<< function_name << "_task_id__cssgenerated" << ", "
 				<< flag_code << ", "
 				<< (*parameter_region_list).size() << ", "
+				<< scalar_count_code << ","
 				<< "parameters__cssgenerated" << ");";
+
+		unsigned int scalar_count=0;
 		
 		for (unsigned int index = 0; index < arguments.size(); index++)
 		{
@@ -303,6 +307,7 @@ namespace TL
 				if (region.get_direction() == Region::INPUT_DIR)
 				{
 					direction_source = Source("CSS_IN_SCALAR_DIR");
+					scalar_count++;
 				}
 				size_source
 					<< "sizeof("
@@ -336,6 +341,8 @@ namespace TL
 				throw FatalException();
 			}
 		}
+
+		scalar_count_code << scalar_count;
 		
 		AST_t tree = source.parse_statement(node, ctx.scope_link);
 		// The replacement must be performed on the statement expression, since the replacement is a statement
