@@ -39,7 +39,6 @@
 MCXX_BEGIN_DECLS
 
 #define MAX_AST_CHILDREN (4)
-#define MAX_AST_AMBIGUITIES (15)
 
 // The extensible schema of AST's
 LIBMCXX_EXTERN extensible_schema_t ast_extensible_schema;

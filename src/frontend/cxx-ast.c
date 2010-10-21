@@ -46,9 +46,11 @@ struct AST_tag
     // Node type (1024 different node types)
     node_t node_type:10; 
 
-    unsigned int num_ambig:4;
     // This is a bitmap for the sons
     unsigned int bitmap_sons:MAX_AST_CHILDREN;
+
+    // Number of ambiguities of this node
+    int num_ambig;
 
     // Parent node
     struct AST_tag* parent; 
@@ -799,12 +801,6 @@ AST ast_make_ambiguous(AST son0, AST son1)
         {
             int original_son0 = son0->num_ambig;
 
-            if ((son0->num_ambig + son1->num_ambig) > MAX_AST_AMBIGUITIES)
-            {
-                internal_error("Too many ambiguities for the tree (%d, max=%d)\n",
-                        son0->num_ambig + son1->num_ambig, MAX_AST_AMBIGUITIES);
-            }
-
             son0->num_ambig += son1->num_ambig;
             son0->ambig = (AST*) realloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
 
@@ -818,12 +814,6 @@ AST ast_make_ambiguous(AST son0, AST son1)
         }
         else
         {
-            if (son0->num_ambig == MAX_AST_AMBIGUITIES)
-            {
-                internal_error("Too many ambiguities for the tree (%d, max=%d)\n",
-                        son0->num_ambig, MAX_AST_AMBIGUITIES);
-            }
-
             son0->num_ambig++;
             son0->ambig = (AST*) realloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
             son0->ambig[son0->num_ambig-1] = ast_copy(son1);
@@ -833,12 +823,6 @@ AST ast_make_ambiguous(AST son0, AST son1)
     }
     else if (ASTType(son1) == AST_AMBIGUITY)
     {
-        if (son1->num_ambig == MAX_AST_AMBIGUITIES)
-        {
-            internal_error("Too many ambiguities for the tree (%d, max=%d)\n",
-                    son1->num_ambig, MAX_AST_AMBIGUITIES);
-        }
-
         son1->num_ambig++;
         son1->ambig = (AST*) realloc(son1->ambig, sizeof(*(son1->ambig)) * son1->num_ambig);
         son1->ambig[son1->num_ambig-1] = ast_copy(son0);
