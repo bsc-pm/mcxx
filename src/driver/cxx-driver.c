@@ -406,6 +406,8 @@ static volatile char in_cleanup_routine = 0;
 static void cleanup_routine(void)
 {
     in_cleanup_routine = 1;
+    // Switch to the command_line_configuration so we honour command line flags
+    SET_CURRENT_CONFIGURATION(compilation_process.command_line_configuration);
     temporal_files_cleanup();
     in_cleanup_routine = 0;
 }
@@ -1833,10 +1835,7 @@ static void load_configuration(void)
     
     // Now set the configuration as stated by the basename
     SET_CURRENT_CONFIGURATION(NULL);
-    for (i = 0; i < compilation_process.num_configurations; i++)
-    {
-        SET_CURRENT_CONFIGURATION(get_compilation_configuration(compilation_process.exec_basename));
-    }
+    SET_CURRENT_CONFIGURATION(get_compilation_configuration(compilation_process.exec_basename));
 
     if (CURRENT_CONFIGURATION == NULL)
     {
@@ -1846,6 +1845,7 @@ static void load_configuration(void)
         SET_CURRENT_CONFIGURATION(&minimal_default_configuration);
     }
     
+    compilation_process.command_line_configuration = CURRENT_CONFIGURATION;
 }
 
 
@@ -3131,6 +3131,9 @@ static void link_objects(void)
 static void terminating_signal_handler(int sig)
 {
     fprintf(stderr, "Signal handler called (signal=%s). Exiting.\n", strsignal(sig));
+
+    // Switch to the command_line_configuration so we honour command line flags
+    SET_CURRENT_CONFIGURATION(compilation_process.command_line_configuration);
 
     if (CURRENT_CONFIGURATION != NULL
             && !CURRENT_CONFIGURATION->debug_options.do_not_run_gdb

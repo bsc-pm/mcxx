@@ -204,6 +204,9 @@ typedef struct compilation_process_tag
     int num_parameter_flags;
     parameter_flags_t **parameter_flags;
 
+    // The configuration chosen at command line
+    struct compilation_configuration_tag *command_line_configuration;
+
     // The compiler will switch these because compilation is always serialized (never nest it!)
     struct compilation_file_process_tag* current_file_process;
     struct compilation_configuration_tag *current_compilation_configuration;
