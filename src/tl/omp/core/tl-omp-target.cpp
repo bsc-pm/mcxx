@@ -281,6 +281,8 @@ namespace TL
             }
         }
 
+
+		// XXX - Fixme, maybe is not necessary ask about 
         void Core::get_target_info(PragmaCustomConstruct construct, DataSharingEnvironment& data_sharing)
         {
             if (_target_context.empty())
@@ -355,6 +357,47 @@ namespace TL
                         dep_list_inout,
                         COPY_DIR_INOUT);
             }
+
+			// For Cuda and SMP-NUMA, is forbiddent to use a global variables inside a pragma construct without copying it
+			// If there is no copy defined by the user we assume the variable is shared, so we copy_inout the variable
+			ObjectList<std::string> shared_to_inout;
+			ObjectList<Symbol> ds_syms;
+			data_sharing.get_all_symbols(DS_SHARED, ds_syms);
+			for(ObjectList<Symbol>::iterator io_it = ds_syms.begin(); 
+					io_it != ds_syms.end(); 
+					io_it++)
+			{
+				std::string sym_name;
+				if (io_it->is_member())
+				{
+					sym_name = io_it->get_qualified_name(io_it->get_scope());
+					if (!io_it->is_static()) 
+					{
+		                std::cerr << construct.get_ast().get_locus() 
+		                    << ": warning: the fully qualified name of the symbol '" << sym_name 
+		                    << "' cannot be used in this context of a non static member."
+		                    << std::endl;
+					}
+				}
+				else 
+				{
+					sym_name = io_it->get_name();
+				}
+
+				if (!target_ctx.copy_in.contains(sym_name) && 
+					!target_ctx.copy_out.contains(sym_name) && 
+					!target_ctx.copy_inout.contains(sym_name))
+				{
+                    std::cerr << construct.get_ast().get_locus() 
+                        << ": warning: symbol '" << sym_name 
+                        << "' does not have copy directionality. Assuming copy_inout. "
+                        << std::endl;
+					shared_to_inout.append(sym_name);
+				}
+			}
+		    add_copy_items(construct, data_sharing,
+		            shared_to_inout,
+		            COPY_DIR_INOUT);
         }
     }
 }
