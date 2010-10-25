@@ -358,8 +358,10 @@ namespace TL
                         COPY_DIR_INOUT);
             }
 
-			// For Cuda and SMP-NUMA, is forbiddent to use a global variables inside a pragma construct without copying it
-			// If there is no copy defined by the user we assume the variable is shared, so we copy_inout the variable
+            // In devices with disjoint memory, it is forbidden to use a global
+            // variables inside a pragma task without copying it
+            // If there is no copy defined by the user, we will assume the
+            // variable is shared and then we will copy_inout it
 			ObjectList<std::string> shared_to_inout;
 			ObjectList<Symbol> ds_syms;
 			data_sharing.get_all_symbols(DS_SHARED, ds_syms);
