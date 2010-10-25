@@ -570,6 +570,7 @@ LIBMCXX_EXTERN void class_type_get_virtual_base_with_offset_num(type_t* t, int n
 LIBMCXX_EXTERN unsigned int get_array_type_counter(void);
 LIBMCXX_EXTERN unsigned int get_class_type_counter(void);
 LIBMCXX_EXTERN unsigned int get_function_type_counter(void);
+LIBMCXX_EXTERN unsigned int get_function_type_reused(void);
 LIBMCXX_EXTERN unsigned int get_pointer_type_counter(void);
 LIBMCXX_EXTERN unsigned int get_pointer_to_member_type_counter(void);
 LIBMCXX_EXTERN unsigned int get_qualified_type_counter(void);

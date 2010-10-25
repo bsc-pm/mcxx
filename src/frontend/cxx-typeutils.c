@@ -474,6 +474,7 @@ const standard_conversion_t no_scs_conversion = {
 
 
 static unsigned int _function_type_counter = 0;
+static unsigned int _function_type_reused = 0;
 static unsigned int _class_type_counter = 0;
 static unsigned int _array_type_counter = 0;
 static unsigned int _pointer_type_counter = 0;
@@ -487,6 +488,11 @@ static unsigned int _enum_type_counter = 0;
 unsigned int get_function_type_counter(void)
 {
     return _function_type_counter;
+}
+
+unsigned int get_function_type_reused(void)
+{
+    return _function_type_reused;
 }
 
 unsigned int get_class_type_counter(void)
@@ -953,26 +959,66 @@ char is_gcc_builtin_va_list(type_t *t)
             && t->type->kind == STK_VA_LIST);
 }
 
+static void null_dtor(const void* v UNUSED_PARAMETER) { }
+
+static type_t* rb_tree_query_type(rb_red_blk_tree* tree, type_t* t)
+{
+    type_t* result = NULL;
+    rb_red_blk_node* n = rb_tree_query(tree, t);
+    if (n != NULL)
+    {
+        result = (type_t*)rb_node_get_info(n);
+    }
+
+    return result;
+}
+
+static type_t* rb_tree_query_symbol(rb_red_blk_tree* tree, scope_entry_t* sym)
+{
+    type_t* result = NULL;
+    rb_red_blk_node* n = rb_tree_query(tree, sym);
+    if (n != NULL)
+    {
+        result = (type_t*)rb_node_get_info(n);
+    }
+
+    return result;
+}
+
 type_t* get_user_defined_type(scope_entry_t* entry)
 {
-    type_t* type_info = get_simple_type();
+    static rb_red_blk_tree *_user_defined_types = NULL;
 
-    type_info->type->kind = STK_USER_DEFINED;
-    type_info->type->user_defined_type = entry;
-
-    if (entry->type_information != NULL)
+    if (_user_defined_types == NULL)
     {
-        ERROR_CONDITION(entry->type_information->unqualified_type == NULL, "This cannot be null", 0);
+        _user_defined_types = rb_tree_create(integer_comp, null_dtor, null_dtor);
     }
+    
+    type_t* type_info = rb_tree_query_symbol(_user_defined_types, entry);
 
-    if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
-            || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+    if (type_info == NULL)
     {
-        type_info->info->is_dependent = 1;
-    }
-    else if (entry->type_information != NULL)
-    {
-        type_info->info->is_dependent = is_dependent_type(entry->type_information);
+        type_info = get_simple_type();
+
+        type_info->type->kind = STK_USER_DEFINED;
+        type_info->type->user_defined_type = entry;
+
+        if (entry->type_information != NULL)
+        {
+            ERROR_CONDITION(entry->type_information->unqualified_type == NULL, "This cannot be null", 0);
+        }
+
+        if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
+                || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+        {
+            type_info->info->is_dependent = 1;
+        }
+        else if (entry->type_information != NULL)
+        {
+            type_info->info->is_dependent = is_dependent_type(entry->type_information);
+        }
+
+        rb_tree_add(_user_defined_types, entry, type_info);
     }
 
     return type_info;
@@ -1885,23 +1931,9 @@ template_parameter_list_t* template_specialized_type_get_template_parameters(typ
     return t->template_parameters;
 }
 
-static void null_dtor(const void* v UNUSED_PARAMETER) { }
-
-static type_t* rb_tree_query_type(rb_red_blk_tree* tree, type_t* t)
-{
-    type_t* result = NULL;
-    rb_red_blk_node* n = rb_tree_query(tree, t);
-    if (n != NULL)
-    {
-        result = rb_node_get_info(n);
-    }
-
-    return result;
-}
-
 type_t* get_complex_type(type_t* t)
 {
-    rb_red_blk_tree *_complex_hash = NULL;
+    static rb_red_blk_tree *_complex_hash = NULL;
 
     if (_complex_hash == NULL)
     {
@@ -2018,7 +2050,7 @@ type_t* get_restrict_qualified_type(type_t* t)
 
 type_t* get_pointer_type(type_t* t)
 {
-    rb_red_blk_tree *_pointer_types = NULL;
+    static rb_red_blk_tree *_pointer_types = NULL;
 
     if (_pointer_types == NULL)
     {
@@ -2076,22 +2108,22 @@ static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
     ERROR_CONDITION(t == NULL,
             "Trying to create a reference of a null type", 0);
 
-    rb_red_blk_tree **_reference_types = NULL;
+    rb_red_blk_tree **reference_types = NULL;
     if (is_rvalue_ref)
     {
-        _reference_types = &_lvalue_reference_types;
+        reference_types = &_lvalue_reference_types;
     }
     else
     {
-        _reference_types = &_rvalue_reference_types;
+        reference_types = &_rvalue_reference_types;
     }
 
-    if ((*_reference_types) == NULL)
+    if ((*reference_types) == NULL)
     {
-        (*_reference_types) = rb_tree_create(integer_comp, null_dtor, null_dtor);
+        (*reference_types) = rb_tree_create(integer_comp, null_dtor, null_dtor);
     }
 
-    type_t* referenced_type = rb_tree_query_type((*_reference_types), t);
+    type_t* referenced_type = rb_tree_query_type((*reference_types), t);
 
     if (referenced_type == NULL)
     {
@@ -2111,7 +2143,7 @@ static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
 
         referenced_type->info->is_dependent = is_dependent_type(t);
 
-        rb_tree_add((*_reference_types), t, referenced_type);
+        rb_tree_add((*reference_types), t, referenced_type);
     }
 
     return referenced_type;
@@ -2129,15 +2161,14 @@ type_t* get_rvalue_reference_type(type_t* t)
 
 type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
 {
-    rb_red_blk_tree *_class_types = NULL;
+    static rb_red_blk_tree *_class_types = NULL;
 
-    // First lookup using the class symbol
     if (_class_types == NULL)
     {
         _class_types = rb_tree_create(integer_comp, null_dtor, null_dtor);
     }
 
-    // First then lookup using the 
+    // First lookup using the class symbol
     rb_red_blk_tree * class_type_hash = NULL;
     rb_red_blk_node * n = rb_tree_query(_class_types, class_entry);
     if (n != NULL)
@@ -2588,6 +2619,10 @@ type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int n
         function_type = new_funct_type;
 
         set_is_dependent_type(function_type, fun_type_is_dependent);
+    }
+    else
+    {
+        _function_type_reused++;
     }
     
     return function_type;
@@ -5244,7 +5279,6 @@ type_t* canonical_type(type_t* type)
 
     while ((is_named_type(type)
                 && named_type_get_symbol(type)->type_information != NULL))
-
     {
         type = advance_over_typedefs(type);
         if (is_named_type(type)
