@@ -33,6 +33,7 @@
 #include "cxx-cexpr.h"
 #include "cxx-ambiguity.h"
 #include "cxx-scope.h"
+#include "cxx-entrylist.h"
 
 #include "cxx-printscope.h"
 
@@ -689,41 +690,44 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                 scope_entry_list_t *entry_list = query_id_expression(context_of_being_instantiated, member_of_template->expression_value);
                 
                 if (entry_list == NULL
-                        || !entry_list->entry->entity_specs.is_member)
+                        || !entry_list_head(entry_list)->entity_specs.is_member)
                 {
                     running_error("%s: invalid using declaration '%s' while instantiating\n", 
                             ast_location(member_of_template->expression_value),
                             prettyprint_in_buffer(member_of_template->expression_value));
                 }
 
-                if (!class_type_is_base(entry_list->entry->entity_specs.class_type, 
+                scope_entry_t* entry = entry_list_head(entry_list);
+                if (!class_type_is_base(entry->entity_specs.class_type, 
                             get_actual_class_type(being_instantiated)))
                 {
                     running_error("%s: entity '%s' is not a member of a base of class '%s'\n",
                             ast_location(member_of_template->expression_value),
-                                get_qualified_symbol_name(entry_list->entry, 
+                                get_qualified_symbol_name(entry,
                                     context_of_being_instantiated),
                                 get_qualified_symbol_name(named_type_get_symbol(being_instantiated), 
                                     context_of_being_instantiated)
                             );
                 }
 
-                scope_entry_list_t* it = entry_list;
-                while (it != NULL)
+                scope_entry_list_iterator_t* it = NULL;
+                for (it = entry_list_iterator_begin(entry_list);
+                        !entry_list_iterator_end(it);
+                        entry_list_iterator_next(it))
                 {
-                    class_type_add_member(get_actual_class_type(being_instantiated), it->entry);
+                    entry = entry_list_iterator_current(it);
+                    class_type_add_member(get_actual_class_type(being_instantiated), entry);
 
                     // Insert the symbol in the context
-                    insert_entry(context_of_being_instantiated.current_scope, it->entry);
+                    insert_entry(context_of_being_instantiated.current_scope, entry);
 
-                    if (it->entry->kind == SK_FUNCTION
-                            && it->entry->entity_specs.is_conversion)
+                    if (entry->kind == SK_FUNCTION
+                            && entry->entity_specs.is_conversion)
                     {
-                        class_type_add_conversion_function(get_actual_class_type(being_instantiated), it->entry);
+                        class_type_add_conversion_function(get_actual_class_type(being_instantiated), entry);
                     }
-
-                    it = it->next;
                 }
+                entry_list_iterator_free(it);
 
                 break;
             }

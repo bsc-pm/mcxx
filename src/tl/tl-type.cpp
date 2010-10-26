@@ -684,12 +684,8 @@ namespace TL
 
         scope_entry_list_t* all_bases = class_type_get_all_bases(_type_info, 0);
         scope_entry_list_t* it = all_bases;
-        while (it != NULL)
-        {
-            scope_entry_t* entry = it->entry;
-            base_symbol_list.append(Symbol(entry));
-            it = it->next;
-        }
+
+        Scope::convert_to_vector(it, base_symbol_list);
 
         return base_symbol_list;
     }
@@ -709,11 +705,7 @@ namespace TL
         ObjectList<Symbol> result;
         scope_entry_list_t* entry_list = ::unresolved_overloaded_type_get_overload_set(_type_info);
 
-        while (entry_list != NULL)
-        {
-            result.append(Symbol(entry_list->entry));
-            entry_list = entry_list->next;
-        }
+        Scope::convert_to_vector(entry_list, result);
 
         return result;
     }

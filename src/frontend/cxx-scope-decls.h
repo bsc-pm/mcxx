@@ -31,6 +31,7 @@
 #include "cxx-buildscope-decls.h"
 #include "cxx-gccsupport-decls.h"
 #include "cxx-typeenviron-decls.h"
+#include "cxx-entrylist-decls.h"
 
 // Extensible schema
 #include "extstruct.h"
@@ -507,16 +508,6 @@ struct scope_entry_tag
     // Extensible information of a symbol
     extensible_struct_t* extended_data;
 } scope_entry_t;
-
-// This is what the scope returns a list of symbols due to function overloading
-// and template class specialization
-typedef struct scope_entry_list_tag
-{
-    // The current entry
-    struct scope_entry_tag* entry;
-    // Next entry under this name (NULL if last)
-    struct scope_entry_list_tag* next;
-} scope_entry_list_t;
 
 // Scope kind
 enum scope_kind

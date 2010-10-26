@@ -38,6 +38,7 @@
 #include "cxx-cexpr.h"
 #include "cxx-typeenviron.h"
 #include "cxx-gccsupport.h"
+#include "cxx-entrylist.h"
 #include <ctype.h>
 #include <string.h>
 
@@ -164,7 +165,7 @@ static void expression_set_dependent(AST expr)
 typedef
 struct builtin_operators_set_tag
 {
-    scope_entry_list_t entry_list[MAX_BUILTINS];
+    scope_entry_list_t *entry_list;
     scope_entry_t entry[MAX_BUILTINS];
     int num_builtins;
 } builtin_operators_set_t;
@@ -201,7 +202,7 @@ scope_entry_list_t* get_entry_list_from_builtin_operator_set(builtin_operators_s
     if (builtin_operators->num_builtins == 0)
         return NULL;
     else 
-        return (&(builtin_operators->entry_list[builtin_operators->num_builtins - 1]));
+        return (builtin_operators->entry_list);
 }
 
 static type_t* lvalue_ref(type_t* t)
@@ -334,12 +335,14 @@ scope_entry_list_t* unfold_and_mix_candidate_functions(
         template_argument_list_t *explicit_template_arguments
         )
 {
-    scope_entry_list_t* it = result_from_lookup;
     scope_entry_list_t* overload_set = NULL;
 
-    while (it != NULL)
+    scope_entry_list_iterator_t *it = NULL;
+    for (it = entry_list_iterator_begin(result_from_lookup);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        scope_entry_t* entry = it->entry;
+        scope_entry_t* entry = entry_list_iterator_current(it);
 
         if (entry->kind == SK_TEMPLATE)
         {
@@ -349,84 +352,41 @@ scope_entry_list_t* unfold_and_mix_candidate_functions(
 
             if (specialized_symbol != NULL)
             {
-                scope_entry_list_t* new_candidate = counted_calloc(1, sizeof(*new_candidate), &_bytes_used_expr_check);
-                new_candidate->entry = specialized_symbol;
-                new_candidate->next = overload_set;
-                overload_set = new_candidate;
+                overload_set = entry_list_add(overload_set, specialized_symbol);
             }
         }
         else if (entry->kind == SK_FUNCTION)
         {
-            scope_entry_list_t* new_candidate = counted_calloc(1, sizeof(*new_candidate), &_bytes_used_expr_check);
-            new_candidate->entry = entry;
-            new_candidate->next = overload_set;
-            overload_set = new_candidate;
+            overload_set = entry_list_add(overload_set, entry);
         }
-        it = it->next;
     }
+    entry_list_iterator_free(it);
     
-    // Remove from builtin_list those that have the same signature as
-    // any of overload_set. 
-    //
-    // Note that builtin_list is statically allocated so we can change links
-    // without leaking anything. 
-    //
-    // This is an utterly inefficient O(n^2) algorithm that removes entries
-    // from builtin_list if they have the same type of any in overload_set
-    it = overload_set;
-
-    while ((it != NULL) && 
-            (builtin_list != NULL))
+    // Add builtins but only if their signature is not already in the overload
+    // set
+    for (it = entry_list_iterator_begin(builtin_list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        // Points to the previous entry to it2. If null we are in the head
-        scope_entry_list_t* it2_prev = NULL;
-
-        scope_entry_list_t* it2 = builtin_list;
-        while (it2 != NULL)
+        scope_entry_t* builtin = entry_list_iterator_current(it);
+        scope_entry_list_iterator_t* it2 = NULL;
+        char found = 0;
+        for (it2 = entry_list_iterator_begin(overload_set);
+                !entry_list_iterator_end(it2) && !found;
+                entry_list_iterator_next(it2))
         {
-            scope_entry_t *e1 = it->entry;
-            scope_entry_t *e2 = it2->entry;
+            scope_entry_t* ovl = entry_list_iterator_current(it2);
 
-            if (equivalent_types(e1->type_information, e2->type_information))
-            {
-                // it2_prev does not change if e1 and e2 have the same type
-                if (it2_prev == NULL)
-                {
-                    // Update the head
-                    builtin_list = it2->next;
-                }
-                else
-                {
-                    it2_prev->next = it2->next;
-                }
-                it2 = it2->next;
-            }
-            else
-            {
-                // Save the previous one
-                it2_prev = it2;
-                it2 = it2->next;
-            }
+            found = equivalent_types(ovl->type_information, builtin->type_information);
         }
-        it = it->next;
-    }
+        entry_list_iterator_free(it2);
 
-    if (builtin_list != NULL)
-    {
-        scope_entry_list_t* last = overload_set;
-        if (last == NULL)
+        if (!found)
         {
-            overload_set = builtin_list;
-        }
-        else
-        {
-            while (last->next != NULL)
-            {
-                last = last->next;
-            }
-            last->next = builtin_list;
+            overload_set = entry_list_add(overload_set, builtin);
         }
     }
+    entry_list_iterator_free(it);
 
     return overload_set;
 }
@@ -754,7 +714,7 @@ char check_for_expression(AST expression, decl_context_t decl_context)
 
                 if (entry_list != NULL)
                 {
-                    scope_entry_t *entry = entry_list->entry;
+                    scope_entry_t *entry = entry_list_head(entry_list);
 
                     if (is_pointer_to_class_type(entry->type_information))
                     {
@@ -2550,17 +2510,19 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
             ASTFileName(expr), ASTLine(expr),
             /* explicit template arguments */ NULL);
 
-    overload_set = merge_scope_entry_list(overload_set, operator_overload_set);
+    overload_set = entry_list_merge(overload_set, operator_overload_set);
 
-    scope_entry_list_t* it = overload_set;
-    while (it != NULL)
+    scope_entry_list_iterator_t *it = NULL;
+    for (it = entry_list_iterator_begin(overload_set);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
         candidate_set = add_to_candidate_set(candidate_set,
-                it->entry,
+                entry_list_iterator_current(it),
                 num_arguments,
                 argument_types);
-        it = it->next;
     }
+    entry_list_iterator_free(it);
 
     scope_entry_t* conversors[2] = { NULL, NULL };
 
@@ -2628,20 +2590,23 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
         scope_entry_list_t* operator_entry_list = get_member_function_of_class_type(no_ref(op_type), 
                 operator_name, decl_context);
 
-        scope_entry_list_t* it = operator_entry_list;
-        while (it != NULL)
+        scope_entry_list_iterator_t *it = NULL;
+        for (it = entry_list_iterator_begin(operator_entry_list);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
+            scope_entry_t* entry = entry_list_iterator_current(it);
             // It is impossible to deduce anything since a unary overloaded
             // operator has zero parameters, so discard templates at this point
-            if (it->entry->kind != SK_TEMPLATE)
+            if (entry->kind != SK_TEMPLATE)
             {
                 candidate_set = add_to_candidate_set(candidate_set,
-                        it->entry,
+                        entry,
                         num_arguments,
                         argument_types);
             }
-            it = it->next;
         }
+        entry_list_iterator_free(it);
     }
 
     scope_entry_list_t *entry_list = koenig_lookup(num_arguments,
@@ -2656,15 +2621,17 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
             ASTFileName(expr), ASTLine(expr),
             /* explicit_template_arguments */ NULL);
 
-    scope_entry_list_t* it = overload_set;
-    while (it != NULL)
+    scope_entry_list_iterator_t *it = NULL;
+    for (it = entry_list_iterator_begin(overload_set);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
         candidate_set = add_to_candidate_set(candidate_set,
-                it->entry,
+                entry_list_iterator_current(it),
                 num_arguments,
                 argument_types);
-        it = it->next;
     }
+    entry_list_iterator_free(it);
 
     scope_entry_t* conversors[1] = { NULL };
     
@@ -4032,12 +3999,7 @@ void build_binary_nonop_assign_builtin(type_t* lhs_type,
     }
 
     // Add to the results and properly chain things
-    (*result).entry_list[(*result).num_builtins].entry = &((*result).entry[(*result).num_builtins]);
-    if ((*result).num_builtins > 0)
-    {
-        (*result).entry_list[(*result).num_builtins].next = 
-            &((*result).entry_list[(*result).num_builtins - 1]);
-    }
+    (*result).entry_list = entry_list_add((*result).entry_list, &((*result).entry[(*result).num_builtins]));
     (*result).num_builtins++;
 }
 
@@ -4960,19 +4922,19 @@ static type_t* compute_operator_reference_type(AST expression,
                     return NULL;
                 }
 
-                if (entry_list->entry->kind == SK_DEPENDENT_ENTITY)
+                if (entry_list_head(entry_list)->kind == SK_DEPENDENT_ENTITY)
                 {
                     expression_set_dependent(expression);
                     return expression_get_type(expression);
                 }
 
-                if (entry_list->next != NULL)
+                if (entry_list_size(entry_list) > 1)
                 {
                     // This can't happen with data members
                     return NULL;
                 }
 
-                scope_entry_t* entry = entry_list->entry;
+                scope_entry_t* entry = entry_list_head(entry_list);
 
                 if (!entry->entity_specs.is_member
                         || entry->entity_specs.is_static)
@@ -5130,14 +5092,10 @@ static char check_for_unary_expression(AST expression, decl_context_t decl_conte
 static char compute_symbol_type(AST expr, decl_context_t decl_context, const_value_t** val)
 {
     scope_entry_list_t* result = NULL;
-    scope_entry_list_t _fake_list;
-    memset(&_fake_list, 0, sizeof(_fake_list));
 
     if (is_template_parameter_name(expr))
     {
-        _fake_list.entry = lookup_template_parameter_name(decl_context, expr);
-        _fake_list.next = NULL;
-        result = &_fake_list;
+        result = entry_list_new(lookup_template_parameter_name(decl_context, expr));
     }
     else
     {
@@ -5154,15 +5112,15 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, const_val
     }
 
     if (result != NULL 
-            && (result->entry->kind == SK_VARIABLE
-                || result->entry->kind == SK_DEPENDENT_ENTITY
-                || result->entry->kind == SK_ENUMERATOR
-                || result->entry->kind == SK_FUNCTION
+            && (entry_list_head(result)->kind == SK_VARIABLE
+                || entry_list_head(result)->kind == SK_DEPENDENT_ENTITY
+                || entry_list_head(result)->kind == SK_ENUMERATOR
+                || entry_list_head(result)->kind == SK_FUNCTION
                 // template function names
-                || result->entry->kind == SK_TEMPLATE
-                || result->entry->kind == SK_TEMPLATE_PARAMETER))
+                || entry_list_head(result)->kind == SK_TEMPLATE
+                || entry_list_head(result)->kind == SK_TEMPLATE_PARAMETER))
     {
-        scope_entry_t* entry = result->entry;
+        scope_entry_t* entry = entry_list_head(result);
 
         expression_set_symbol(expr, entry);
 
@@ -5372,9 +5330,9 @@ static char compute_qualified_id_type(AST expr, decl_context_t decl_context, con
             unqualified_object, DF_DEPENDENT_TYPENAME);
 
     if (result_list != NULL
-            && result_list->next == NULL)
+            && entry_list_size(result_list) == 1)
     {
-        scope_entry_t* entry = result_list->entry;
+        scope_entry_t* entry = entry_list_head(result_list);
         if (entry->kind == SK_DEPENDENT_ENTITY)
         {
             expression_set_dependent(expr);
@@ -5415,12 +5373,12 @@ static char compute_qualified_id_type(AST expr, decl_context_t decl_context, con
     else
     {
         if (result_list != NULL
-                && (result_list->entry->kind == SK_VARIABLE
-                    || result_list->entry->kind == SK_ENUMERATOR
-                    || result_list->entry->kind == SK_FUNCTION
-                    || result_list->entry->kind == SK_TEMPLATE))
+                && (entry_list_head(result_list)->kind == SK_VARIABLE
+                    || entry_list_head(result_list)->kind == SK_ENUMERATOR
+                    || entry_list_head(result_list)->kind == SK_FUNCTION
+                    || entry_list_head(result_list)->kind == SK_TEMPLATE))
         {
-            scope_entry_t* entry = result_list->entry;
+            scope_entry_t* entry = entry_list_head(result_list);
 
             expression_set_symbol(expr, entry);
 
@@ -5579,15 +5537,17 @@ static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context
                     /* explicit_template_arguments */ NULL);
 
             candidate_t* candidate_set = NULL;
-            scope_entry_list_t* it = overload_set;
-            while (it != NULL)
+            scope_entry_list_iterator_t* it = NULL;
+            for (it = entry_list_iterator_begin(overload_set);
+                    !entry_list_iterator_end(it);
+                    entry_list_iterator_next(it))
             {
                 candidate_set = add_to_candidate_set(candidate_set,
-                        it->entry,
+                        entry_list_iterator_current(it),
                         num_arguments,
                         argument_types);
-                it = it->next;
             }
+            entry_list_iterator_free(it);
 
             scope_entry_t *overloaded_call = solve_overload(candidate_set,
                     decl_context, ASTFileName(expr), ASTLine(expr), conversors);
@@ -5651,32 +5611,33 @@ static char check_for_conversion_function_id_expression(AST expression, decl_con
         return 1;
     }
 
-    scope_entry_list_t* it = entry_list;
-
     char found = 0;
-    while ((it != NULL) && !found)
+    scope_entry_t* found_entry = NULL;
+
+    scope_entry_list_iterator_t *it = NULL;
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it) && !found;
+            entry_list_iterator_next(it))
     {
-        scope_entry_t* entry = it->entry;
+        scope_entry_t* entry = entry_list_iterator_current(it);
         type_t* current_conversion_type 
             = function_type_get_return_type(entry->type_information);
 
         if (equivalent_types(current_conversion_type, conversion_type))
         {
-            it->next = NULL;
-            entry_list = it;
             found = 1;
+            found_entry = entry;
         }
-
-        it = it->next;
     }
+    entry_list_iterator_free(it);
 
     if (!found)
     {
         return 0;
     }
 
-    expression_set_type(expression, entry_list->entry->type_information);
-    expression_set_is_lvalue(expression, is_lvalue_reference_type(entry_list->entry->type_information));
+    expression_set_type(expression, found_entry->type_information);
+    expression_set_is_lvalue(expression, is_lvalue_reference_type(found_entry->type_information));
     return 1;
 }
 
@@ -6068,15 +6029,17 @@ static char check_for_conditional_expression_impl(AST expression,
 
 
             candidate_t* candidate_set = NULL;
-            scope_entry_list_t* it = builtins;
-            while (it != NULL)
+            scope_entry_list_iterator_t *it = NULL;
+            for (it = entry_list_iterator_begin(builtins);
+                    !entry_list_iterator_end(it);
+                    entry_list_iterator_next(it))
             {
                 candidate_set = add_to_candidate_set(candidate_set,
-                        it->entry,
+                        entry_list_iterator_current(it),
                         num_arguments,
                         argument_types);
-                it = it->next;
             }
+            entry_list_iterator_free(it);
 
             scope_entry_t* conversors[3] = { NULL, NULL, NULL };
             scope_entry_t *overloaded_call = solve_overload(candidate_set,
@@ -6436,25 +6399,28 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
             }
 
             candidate_t* candidate_set = NULL;
-            scope_entry_list_t* it = operator_new_list;
-            while (it != NULL)
+            scope_entry_list_iterator_t *it = NULL;
+            for (it = entry_list_iterator_begin(operator_new_list);
+                    !entry_list_iterator_end(it);
+                    entry_list_iterator_next(it))
             {
-                if (it->entry->entity_specs.is_member)
+                scope_entry_t* entry = entry_list_iterator_current(it);
+                if (entry->entity_specs.is_member)
                 {
                     candidate_set = add_to_candidate_set(candidate_set,
-                            it->entry,
+                            entry,
                             num_arguments,
                             arguments);
                 }
                 else
                 {
                     candidate_set = add_to_candidate_set(candidate_set,
-                            it->entry,
+                            entry,
                             num_arguments - 1,
                             arguments + 1);
                 }
-                it = it->next;
             }
+            entry_list_iterator_free(it);
 
             scope_entry_t* chosen_operator_new = solve_overload(candidate_set, 
                     decl_context, ASTFileName(new_expr), ASTLine(new_expr), 
@@ -6488,15 +6454,16 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
                             argument_call,
                             prettyprint_in_buffer(new_expr));
                     fprintf(stderr, "%s: note: candidates are:\n", ast_location(new_expr));
-                    it = operator_new_list;
-                    while (it != NULL)
+                    for (it = entry_list_iterator_begin(operator_new_list);
+                            !entry_list_iterator_end(it);
+                            entry_list_iterator_next(it))
                     {
-                        scope_entry_t* candidate_op = it->entry;
+                        scope_entry_t* candidate_op = entry_list_iterator_current(it);
                         fprintf(stderr, "%s: note:    %s\n", ast_location(new_expr),
                                 print_decl_type_str(candidate_op->type_information, decl_context, 
                                     get_qualified_symbol_name(candidate_op, decl_context)));
-                        it = it->next;
                     }
+                    entry_list_iterator_free(it);
                 }
                 return 0;
             }
@@ -6818,13 +6785,14 @@ static char check_for_delete_expression(AST expression, decl_context_t decl_cont
         }
 
         // If more than one, select the one with only one parameter
-        scope_entry_list_t *it = operator_delete_list;
-
         scope_entry_t* chosen = NULL;
 
-        while (it != NULL)
+        scope_entry_list_iterator_t *it = NULL;
+        for (it = entry_list_iterator_begin(operator_delete_list);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* operator_delete = it->entry;
+            scope_entry_t* operator_delete = entry_list_iterator_current(it);
 
             if (is_deallocation_function(operator_delete))
             {
@@ -6835,9 +6803,8 @@ static char check_for_delete_expression(AST expression, decl_context_t decl_cont
                     chosen = operator_delete;
                 }
             }
-
-            it = it->next;
         }
+        entry_list_iterator_free(it);
 
         if (chosen == NULL)
         {
@@ -7017,7 +6984,7 @@ static char check_for_explicit_typename_type_conversion(AST expr, decl_context_t
     if (entry_list == NULL)
         return 0;
 
-    scope_entry_t* entry = entry_list->entry;
+    scope_entry_t* entry = entry_list_head(entry_list);
 
     if (entry->kind != SK_TYPEDEF
             && entry->kind != SK_ENUM
@@ -7114,13 +7081,15 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
     if (entry_list != NULL)
     {
         // If no member is found we still have to perform member
-        scope_entry_list_t* it = entry_list;
 
         char invalid = 0;
 
-        while (it != NULL && !invalid)
+        scope_entry_list_iterator_t *it = NULL;
+        for (it = entry_list_iterator_begin(entry_list);
+                !entry_list_iterator_end(it) && !invalid;
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* entry = it->entry;
+            scope_entry_t* entry = entry_list_iterator_current(it);
             type_t* type = no_ref(advance_over_typedefs(entry->type_information));
             if (entry->kind != SK_FUNCTION
                     && (entry->kind != SK_VARIABLE
@@ -7155,8 +7124,8 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
                     still_requires_koenig = 0;
                 }
             }
-            it = it->next;
         }
+        entry_list_iterator_free(it);
 
         // This cannot be called at all
         if (invalid)
@@ -7241,10 +7210,12 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
     if (entry_list != NULL)
     {
         // If no member is found we still have to perform member
-        scope_entry_list_t* it = entry_list;
-        while (it != NULL)
+        scope_entry_list_iterator_t *it = NULL;
+        for (it = entry_list_iterator_begin(entry_list);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* entry = it->entry;
+            scope_entry_t* entry = entry_list_iterator_current(it);
             type_t* type = no_ref(advance_over_typedefs(entry->type_information));
             if (entry->kind != SK_FUNCTION
                     && (entry->kind != SK_VARIABLE
@@ -7263,8 +7234,8 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
                 }
                 return 0;
             }
-            it = it->next;
         }
+        entry_list_iterator_free(it);
     }
 
     // Set these attributes
@@ -7286,13 +7257,14 @@ static char any_is_member_function(scope_entry_list_t* candidates)
 {
     char is_member = 0;
 
-    while (!is_member
-            && candidates != NULL)
+    scope_entry_list_iterator_t *it = NULL;
+    for (it = entry_list_iterator_begin(candidates);
+            !entry_list_iterator_end(it) && !is_member;
+            entry_list_iterator_next(it))
     {
-        is_member |= candidates->entry->entity_specs.is_member;
-
-        candidates = candidates->next;
+        is_member |= entry_list_iterator_current(it)->entity_specs.is_member;
     }
+    entry_list_iterator_free(it);
 
     return is_member;
 }
@@ -7359,7 +7331,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             scope_entry_list_t *entry_list = query_id_expression(decl_context, 
                     advanced_called_expression);
 
-            scope_entry_t *entry = entry_list->entry;
+            scope_entry_t *entry = entry_list_head(entry_list);
 
             type_t** argument_list = NULL;
             int num_arguments_tmp = 0;
@@ -7726,7 +7698,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
 
             if (this_symbol_list != NULL)
             {
-                scope_entry_t* this_symbol = this_symbol_list->entry;
+                scope_entry_t* this_symbol = entry_list_head(this_symbol_list);
 
                 if (is_dependent_type(this_symbol->type_information))
                 {
@@ -7743,7 +7715,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             else
             {
                 // FIXME - See ticket #337
-                argument_types[0] = candidates->entry->entity_specs.class_type;
+                argument_types[0] = entry_list_head(candidates)->entity_specs.class_type;
             }
         }
     }
@@ -7778,11 +7750,13 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         type_t* actual_class_type = get_actual_class_type(class_type);
 
         scope_entry_list_t* conversion_list = class_type_get_all_conversions(actual_class_type, decl_context);
-        scope_entry_list_t* it = conversion_list;
 
-        while (it != NULL)
+        scope_entry_list_iterator_t *it = NULL;
+        for (it = entry_list_iterator_begin(conversion_list);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* conversion = it->entry;
+            scope_entry_t* conversion = entry_list_iterator_current(it);
 
             type_t* destination_type = function_type_get_return_type(conversion->type_information);
 
@@ -7796,14 +7770,8 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                 scope_entry_t* surrogate_symbol =
                     counted_calloc(1, sizeof(*surrogate_symbol), &_bytes_used_expr_check);
 
-                scope_entry_list_t* surrogate_symbol_list 
-                    = counted_calloc(1, sizeof(*surrogate_symbol_list), &_bytes_used_expr_check);
-
                 // Add to candidates
-                surrogate_symbol_list->entry = surrogate_symbol;
-                surrogate_symbol_list->next = candidates;
-
-                candidates = surrogate_symbol_list;
+                candidates = entry_list_add(candidates, surrogate_symbol);
 
                 surrogate_symbol->kind = SK_FUNCTION;
                 {
@@ -7876,8 +7844,8 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
 
                 num_surrogate_functions++;
             }
-            it = it->next;
         }
+        entry_list_iterator_free(it);
     }
 
     DEBUG_CODE()
@@ -7889,26 +7857,30 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
     memset(conversors, 0, sizeof(conversors));
 
     candidate_t* candidate_set = NULL;
-    scope_entry_list_t* it = candidates;
-    while (it != NULL)
+    scope_entry_list_iterator_t *it = NULL;
+    for (it = entry_list_iterator_begin(candidates);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        if (it->entry->entity_specs.is_member
-                || it->entry->entity_specs.is_surrogate_function)
+        scope_entry_t* entry = entry_list_iterator_current(it);
+
+        if (entry->entity_specs.is_member
+                || entry->entity_specs.is_surrogate_function)
         {
             candidate_set = add_to_candidate_set(candidate_set,
-                    it->entry,
+                    entry,
                     num_arguments,
                     argument_types);
         }
         else
         {
             candidate_set = add_to_candidate_set(candidate_set,
-                    it->entry,
+                    entry,
                     num_arguments - 1,
                     argument_types + 1);
         }
-        it = it->next;
     }
+    entry_list_iterator_free(it);
 
     scope_entry_t* overloaded_call = solve_overload(candidate_set,
             decl_context,
@@ -8434,15 +8406,18 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
         };
 
         candidate_t* candidate_set = NULL;
-        scope_entry_list_t* it = operator_arrow_list;
-        while (it != NULL)
+        scope_entry_list_iterator_t *it = NULL;
+        for (it = entry_list_iterator_begin(operator_arrow_list);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
+            scope_entry_t* entry = entry_list_iterator_current(it);
             candidate_set = add_to_candidate_set(candidate_set,
-                    it->entry,
+                    entry,
                     /* num_arguments */ 1,
                     argument_types);
-            it = it->next;
         }
+        entry_list_iterator_free(it);
 
         scope_entry_t* conversors[1] = { NULL };
 
@@ -8534,28 +8509,26 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
                     "No type was computed for this conversion!", 0);
             // Get one that matches the type (we previously already checked 
             // it was not dependent)
-            scope_entry_list_t* it = entry_list;
-
             char found = 0;
 
             // FIXME - This might be template!
-
-            while ((it != NULL) && !found)
+            scope_entry_list_iterator_t *it = NULL;
+            for (it = entry_list_iterator_begin(entry_list);
+                    !entry_list_iterator_end(it) && !found;
+                    entry_list_iterator_next(it))
             {
-                scope_entry_t* entry = it->entry;
+                scope_entry_t* entry = entry_list_iterator_current(it);
+
                 type_t* current_conversion_type 
                     = function_type_get_return_type(entry->type_information);
 
                 if (equivalent_types(conversion_type, current_conversion_type))
                 {
-                    // Truncate the list
-                    entry_list = it;
-                    it->next = NULL;
+                    entry_list = entry_list_new(entry);
                     found = 1;
                 }
-
-                it = it->next;
             }
+            entry_list_iterator_free(it);
 
             if (!found)
             {
@@ -8595,7 +8568,7 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
         }
     }
 
-    scope_entry_t* entry = entry_list->entry;
+    scope_entry_t* entry = entry_list_head(entry_list);
     C_LANGUAGE()
     {
         // Store the symbol found
@@ -8670,10 +8643,12 @@ static type_t* check_template_function(scope_entry_list_t* entry_list,
     // entry_list is a list of SK_TEMPLATE (that we expect them to be
     // function templates, actually)
 
+    scope_entry_t* entry = entry_list_head(entry_list);
+
     // Basic check to disambiguate against class templates
-    if (!is_template_type(entry_list->entry->type_information)
+    if (!is_template_type(entry->type_information)
             || named_type_get_symbol(
-                template_type_get_primary_type(entry_list->entry->type_information)
+                template_type_get_primary_type(entry->type_information)
                 )->kind != SK_FUNCTION)
     {
         return NULL;
@@ -8684,23 +8659,26 @@ static type_t* check_template_function(scope_entry_list_t* entry_list,
         return NULL;
     }
 
-    int nesting_level = template_type_get_nesting_level(entry_list->entry->type_information);
+    int nesting_level = template_type_get_nesting_level(
+            entry->type_information);
 
     // Sanity check
     {
-        scope_entry_list_t* it = entry_list;
-        it = it->next;
-        while (it != NULL)
+        scope_entry_list_iterator_t *it = NULL;
+        for (it = entry_list_iterator_begin(entry_list);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
+            scope_entry_t* current_entry = entry_list_iterator_current(it);
             ERROR_CONDITION(
-                    template_type_get_nesting_level(it->entry->type_information) != nesting_level, 
+                    template_type_get_nesting_level(current_entry->type_information) != nesting_level, 
                     "Nesting level of all specializations do not match!!\n", 0);
-            it = it->next;
         }
+        entry_list_iterator_free(it);
     }
 
     scope_entry_t* primary_symbol = 
-        named_type_get_symbol(template_type_get_primary_type(entry_list->entry->type_information));
+        named_type_get_symbol(template_type_get_primary_type(entry->type_information));
 
     if (primary_symbol->entity_specs.is_member
             && is_dependent_type(primary_symbol->entity_specs.class_type))
@@ -8798,19 +8776,21 @@ static char check_for_postoperator_user_defined(AST expr, AST operator,
             decl_context,
             ASTFileName(expr), ASTLine(expr), /* explicit_template_arguments */ NULL);
 
-    overload_set = merge_scope_entry_list(overload_set, operator_overload_set);
+    overload_set = entry_list_merge(overload_set, operator_overload_set);
 
     scope_entry_t* conversors[1] = { NULL };
 
-    scope_entry_list_t* it = overload_set;
-    while (it != NULL)
+    scope_entry_list_iterator_t *it = NULL;
+    for (it = entry_list_iterator_begin(overload_set);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
         candidate_set = add_to_candidate_set(candidate_set,
-                it->entry,
+                entry_list_iterator_current(it),
                 num_arguments,
                 argument_types);
-        it = it->next;
     }
+    entry_list_iterator_free(it);
 
     scope_entry_t* overloaded_call = solve_overload(candidate_set,
             decl_context, ASTFileName(expr), ASTLine(expr), 
@@ -8882,19 +8862,21 @@ static char check_for_preoperator_user_defined(AST expr, AST operator,
             decl_context,
             ASTFileName(expr), ASTLine(expr), /* explicit_template_arguments */ NULL);
 
-    overload_set = merge_scope_entry_list(overload_set, operator_overload_set);
+    overload_set = entry_list_merge(overload_set, operator_overload_set);
 
     scope_entry_t* conversors[1] = { NULL };
 
-    scope_entry_list_t* it = overload_set;
-    while (it != NULL)
+    scope_entry_list_iterator_t *it = NULL;
+    for (it = entry_list_iterator_begin(overload_set);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
         candidate_set = add_to_candidate_set(candidate_set,
-                it->entry,
+                entry_list_iterator_current(it),
                 num_arguments,
                 argument_types);
-        it = it->next;
     }
+    entry_list_iterator_free(it);
 
     scope_entry_t* overloaded_call = solve_overload(candidate_set,
             decl_context, ASTFileName(expr), ASTLine(expr), conversors);
@@ -9216,7 +9198,7 @@ static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, AST expr)
         scope_entry_list_t* entry_list = query_in_scope_str(global_context, "std");
 
         if (entry_list == NULL 
-                || entry_list->entry->kind != SK_NAMESPACE)
+                || entry_list_head(entry_list)->kind != SK_NAMESPACE)
         {
             running_error("%s: error: namespace 'std' not found when looking up 'std::type_info' (because of '%s'). \n"
                     "Maybe you need '#include <typeinfo>'",
@@ -9224,12 +9206,12 @@ static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, AST expr)
                     prettyprint_in_buffer(expr));
         }
 
-        decl_context_t std_context = entry_list->entry->namespace_decl_context;
+        decl_context_t std_context = entry_list_head(entry_list)->namespace_decl_context;
         entry_list = query_in_scope_str(std_context, "type_info");
 
         if (entry_list == NULL
-                && entry_list->entry->kind != SK_CLASS
-                && entry_list->entry->kind != SK_TYPEDEF)
+                && entry_list_head(entry_list)->kind != SK_CLASS
+                && entry_list_head(entry_list)->kind != SK_TYPEDEF)
         {
             running_error("%s: error: typename 'type_info' not found when looking up 'std::type_info' (because of '%s')\n"
                     "Maybe you need '#include <typeinfo>'",
@@ -9237,7 +9219,7 @@ static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, AST expr)
                     prettyprint_in_buffer(expr));
         }
 
-        typeid_sym = entry_list->entry;
+        typeid_sym = entry_list_head(entry_list);
     }
 
     return typeid_sym;
@@ -9257,7 +9239,7 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, AS
         scope_entry_list_t* entry_list = query_in_scope_str(global_context, "std");
 
         if (entry_list == NULL 
-                || entry_list->entry->kind != SK_NAMESPACE)
+                || entry_list_head(entry_list)->kind != SK_NAMESPACE)
         {
             if (!mandatory)
                 return NULL;
@@ -9268,11 +9250,11 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, AS
                     prettyprint_in_buffer(expr));
         }
 
-        decl_context_t std_context = entry_list->entry->namespace_decl_context;
+        decl_context_t std_context = entry_list_head(entry_list)->namespace_decl_context;
         entry_list = query_in_scope_str(std_context, "initializer_list");
 
         if (entry_list == NULL
-                && entry_list->entry->kind != SK_TEMPLATE)
+                && entry_list_head(entry_list)->kind != SK_TEMPLATE)
         {
             if (!mandatory)
                 return NULL;
@@ -9283,7 +9265,7 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, AS
                     prettyprint_in_buffer(expr));
         }
 
-        initializer_list_sym = entry_list->entry;
+        initializer_list_sym = entry_list_head(entry_list);
     }
 
     return initializer_list_sym;
@@ -9370,9 +9352,9 @@ type_t* get_designated_type(AST designation, decl_context_t decl_context, type_t
                         scope_entry_list_t* member = get_member_of_class_type(designated_type, symbol, decl_context);
 
                         if (member != NULL
-                                && member->entry->kind == SK_VARIABLE)
+                                && entry_list_head(member)->kind == SK_VARIABLE)
                         {
-                            designated_type = member->entry->type_information;
+                            designated_type = entry_list_head(member)->type_information;
                         }
                         else
                         {
@@ -9864,7 +9846,7 @@ char check_for_initializer_clause(AST initializer, decl_context_t decl_context, 
                     scope_entry_list_t* member = get_member_of_class_type(declared_type, symbol, decl_context);
 
                     result = check_for_initializer_clause(initializer_clause, decl_context, 
-                            member->entry->type_information);
+                            entry_list_head(member)->type_information);
                     if (result)
                     {
                         expression_set_type(initializer, expression_get_type(initializer_clause));
@@ -10386,11 +10368,13 @@ static void accessible_types_through_conversion(type_t* t, type_t ***result, int
         type_t* class_type = get_actual_class_type(t);
 
         scope_entry_list_t* conversion_list = class_type_get_all_conversions(class_type, decl_context);
-        scope_entry_list_t* it = conversion_list;
 
-        while (it != NULL)
+        scope_entry_list_iterator_t *it = NULL;
+        for (it = entry_list_iterator_begin(conversion_list);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t *conversion = it->entry;
+            scope_entry_t *conversion = entry_list_iterator_current(it);
 
             if (!is_template_specialized_type(conversion->type_information))
             {
@@ -10413,9 +10397,8 @@ static void accessible_types_through_conversion(type_t* t, type_t ***result, int
                     P_LIST_ADD_ONCE(*result, *num_types, destination_type);
                 }
             }
-
-            it = it->next;
         }
+        entry_list_iterator_free(it);
     }
 }
 
@@ -10488,12 +10471,7 @@ void build_unary_builtin_operators(type_t* t1,
                 (*result).entry[(*result).num_builtins].decl_context = decl_context;
 
                 // Add to the results and properly chain things
-                (*result).entry_list[(*result).num_builtins].entry = &((*result).entry[(*result).num_builtins]);
-                if ((*result).num_builtins > 0)
-                {
-                    (*result).entry_list[(*result).num_builtins].next = 
-                        &((*result).entry_list[(*result).num_builtins - 1]);
-                }
+                (*result).entry_list = entry_list_add((*result).entry_list, &((*result).entry[(*result).num_builtins]));
                 (*result).num_builtins++;
             }
         }
@@ -10595,12 +10573,7 @@ void build_binary_builtin_operators(type_t* t1,
                     }
 
                     // Add to the results and properly chain things
-                    (*result).entry_list[(*result).num_builtins].entry = &((*result).entry[(*result).num_builtins]);
-                    if ((*result).num_builtins > 0)
-                    {
-                        (*result).entry_list[(*result).num_builtins].next = 
-                            &((*result).entry_list[(*result).num_builtins - 1]);
-                    }
+                    (*result).entry_list = entry_list_add((*result).entry_list, &((*result).entry[(*result).num_builtins]) );
                     (*result).num_builtins++;
                 }
             }
@@ -10727,12 +10700,7 @@ void build_ternary_builtin_operators(type_t* t1,
                         }
 
                         // Add to the results and properly chain things
-                        (*result).entry_list[(*result).num_builtins].entry = &((*result).entry[(*result).num_builtins]);
-                        if ((*result).num_builtins > 0)
-                        {
-                            (*result).entry_list[(*result).num_builtins].next = 
-                                &((*result).entry_list[(*result).num_builtins - 1]);
-                        }
+                        (*result).entry_list = entry_list_add((*result).entry_list, &((*result).entry[(*result).num_builtins]));
                         (*result).num_builtins++;
                     }
                 }
@@ -10938,10 +10906,12 @@ static char check_for_pseudo_destructor_call(AST expression, decl_context_t decl
                 prettyprint_in_buffer(pseudo_destructor_name));
     }
 
-    scope_entry_list_t* it = entry_list;
-    while (it != NULL)
+    scope_entry_list_iterator_t *it = NULL;
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        scope_entry_t* entry = it->entry;
+        scope_entry_t* entry = entry_list_iterator_current(it);
         if (entry->kind != SK_ENUM 
                 && entry->kind != SK_CLASS 
                 && entry->kind != SK_TYPEDEF 
@@ -10954,11 +10924,10 @@ static char check_for_pseudo_destructor_call(AST expression, decl_context_t decl
                     ast_location(pseudo_destructor_name),
                     prettyprint_in_buffer(pseudo_destructor_name));
         }
-
-        it = it->next;
     }
+    entry_list_iterator_free(it);
 
-    scope_entry_t * entry = entry_list->entry;
+    scope_entry_t * entry = entry_list_head(entry_list);
 
     // Checking that both T's are the same entity in '{[nested-name-specifier] T}::~T'
 
@@ -11011,15 +10980,11 @@ static char check_for_pseudo_destructor_call(AST expression, decl_context_t decl
                     prettyprint_in_buffer(pseudo_destructor_name));
         }
 
-        if (!equivalent_types(get_user_defined_type(new_name->entry), 
+        scope_entry_t* new_name_entry = entry_list_head(new_name);
+
+        if (!equivalent_types(get_user_defined_type(new_name_entry), 
                     get_user_defined_type(entry)))
         {
-            fprintf(stderr, "new_name->entry->type_info == '%s'\n", 
-                    print_declarator(new_name->entry->type_information));
-
-            fprintf(stderr, "entry->type_info == '%s'\n", 
-                    print_declarator(entry->type_information));
-
             running_error("%s: error: pseudo-destructor '%s' does not match the type-name",
                     ast_location(pseudo_destructor_name),
                     prettyprint_in_buffer(pseudo_destructor_name));
@@ -11047,8 +11012,9 @@ static char check_for_pseudo_destructor_call(AST expression, decl_context_t decl
                     prettyprint_in_buffer(pseudo_destructor_name));
         }
 
-        if (!equivalent_types(get_user_defined_type(new_name->entry), 
-                    get_user_defined_type(entry)))
+        scope_entry_t* new_name_entry = entry_list_head(new_name);
+        if (!equivalent_types(get_user_defined_type(entry), 
+                    get_user_defined_type(new_name_entry)))
         {
             running_error("%s: error: pseudo-destructor template-id '%s' does not match the type-name",
                     ast_location(pseudo_destructor_name),
@@ -11200,8 +11166,8 @@ static char check_for_gcc_builtin_offsetof(AST expression, decl_context_t decl_c
                         print_type_str(current_type, decl_context));
             }
 
-            scope_entry_t* member = member_list->entry;
-            if (member_list->next != NULL
+            scope_entry_t* member = entry_list_head(member_list);
+            if (entry_list_size(member_list) > 1
                     || member->kind != SK_VARIABLE)
             {
                 running_error("%s: error: '%s' is not a valid member for __builtin_offsetof\n", 

@@ -35,6 +35,7 @@
 #include "cxx-tltype.h"
 #include "cxx-exprtype.h"
 #include "cxx-cexpr.h"
+#include "cxx-entrylist.h"
 #include "cxx-overload.h"
 
 /*
@@ -819,14 +820,18 @@ static char check_for_kr_parameter_list(AST parameters_kr, decl_context_t decl_c
 
         scope_entry_list_t* entry_list = query_unqualified_name_str(decl_context, ASTText(identifier));
 
-        if (entry_list != NULL)
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(entry_list);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* entry = entry_list->entry;
+            scope_entry_t* entry = entry_list_iterator_current(it);
             if (entry->kind == SK_TYPEDEF)
             {
                 return 0;
             }
         }
+        entry_list_iterator_free(it);
     }
 
     return 1;
@@ -1161,33 +1166,35 @@ static char check_for_simple_declaration(AST a, decl_context_t decl_context)
                 scope_entry_list_t* entry_list = query_id_expression(decl_context, id_expression);
 
                 // T names a type
-                if (entry_list != NULL 
-                        && (entry_list->entry->kind == SK_TYPEDEF
-                            || entry_list->entry->kind == SK_ENUM
-                            || entry_list->entry->kind == SK_CLASS
-                            || entry_list->entry->kind == SK_TEMPLATE_TYPE_PARAMETER))
+                if (entry_list != NULL)
                 {
-                    // A is a simple type specifier
-                    if (ASTType(type_spec) == AST_SIMPLE_TYPE_SPEC)
+                    scope_entry_t* entry = entry_list_head(entry_list);
+                    if (entry->kind == SK_TYPEDEF
+                            || entry->kind == SK_ENUM
+                            || entry->kind == SK_CLASS
+                            || entry->kind == SK_TEMPLATE_TYPE_PARAMETER)
                     {
-                        AST type_id_expr = ASTSon0(type_spec);
-
-                        entry_list = query_id_expression(decl_context, type_id_expr);
-
-                        // A is of class nature
-                        if (entry_list != NULL
-                                && (entry_list->entry->kind == SK_CLASS))
+                        // A is a simple type specifier
+                        if (ASTType(type_spec) == AST_SIMPLE_TYPE_SPEC)
                         {
-                            scope_entry_t* entry = entry_list->entry;
-                            
-                            // The related scope of A is the same as the
-                            // current scope
-                            // Should check this is the injected class name
-                            if (entry->entity_specs.is_injected_class_name)
+                            AST type_id_expr = ASTSon0(type_spec);
+
+                            scope_entry_list_t* type_id_list = query_id_expression(decl_context, type_id_expr);
+
+                            // A is of class nature
+                            if (type_id_list != NULL
+                                    && (entry_list_head(type_id_list)->kind == SK_CLASS))
                             {
-                                // In this case, and only in this case, this is
-                                // not a data member declaration
-                                return 0;
+                                scope_entry_t* type_sym = entry_list_head(type_id_list);
+                                // The related scope of A is the same as the
+                                // current scope
+                                // Should check this is the injected class name
+                                if (type_sym->entity_specs.is_injected_class_name)
+                                {
+                                    // In this case, and only in this case, this is
+                                    // not a data member declaration
+                                    return 0;
+                                }
                             }
                         }
                     }
@@ -1427,7 +1434,7 @@ static char check_for_typeless_declarator_rec(AST declarator, decl_context_t dec
                 scope_entry_list_t* result = query_in_scope_str(decl_context, class_name);
 
                 if (result == NULL
-                        || (result->entry->kind != SK_CLASS))
+                        || (entry_list_head(result)->kind != SK_CLASS))
                 {
                     // This is not a class name
                     return 0;
@@ -1715,15 +1722,23 @@ char check_for_simple_type_spec(AST type_spec, decl_context_t decl_context, type
         return 0;
     }
 
-    scope_entry_t* entry = entry_list->entry;
-    if (entry->kind == SK_TYPEDEF
-            || entry->kind == SK_ENUM
-            || entry->kind == SK_CLASS
-            // We allow this because templates are like types
-            || entry->kind == SK_TEMPLATE
-            || entry->kind == SK_TEMPLATE_TYPE_PARAMETER
-            || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+    scope_entry_list_iterator_t* it = NULL;
+
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
+        scope_entry_t* entry = entry_list_iterator_current(it);
+        if (entry->kind != SK_TYPEDEF
+                && entry->kind != SK_ENUM
+                && entry->kind != SK_CLASS
+                // We allow this because templates are like types
+                && entry->kind != SK_TEMPLATE
+                && entry->kind != SK_TEMPLATE_TYPE_PARAMETER
+                && entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER)
+        {
+            return 0;
+        }
         if (entry->kind == SK_TEMPLATE)
         {
             // Check that the template-name is actually a template class name
@@ -1734,17 +1749,15 @@ char check_for_simple_type_spec(AST type_spec, decl_context_t decl_context, type
                 return 0;
             }
         }
+    }
+    entry_list_iterator_free(it);
 
-        if (computed_type != NULL)
-        {
-            *computed_type = get_user_defined_type(entry);
-        }
-        return 1;
-    }
-    else
+    if (computed_type != NULL)
     {
-        return 0;
+        *computed_type = get_user_defined_type(entry_list_head(entry_list));
     }
+
+    return 1;
 }
 
 

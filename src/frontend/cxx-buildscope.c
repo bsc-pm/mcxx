@@ -45,6 +45,7 @@
 #include "cxx-gccbuiltins.h"
 #include "cxx-gccspubuiltins.h"
 #include "cxx-upc.h"
+#include "cxx-entrylist.h"
 #include "cxx-lexer.h"
 #include "cxx-parser.h"
 #include "c99-parser.h"
@@ -676,14 +677,15 @@ static void build_scope_using_directive(AST a, decl_context_t decl_context)
                 prettyprint_in_buffer(id_expression));
     }
 
-    if (result_list->next != NULL || result_list->entry->kind != SK_NAMESPACE)
+    if (entry_list_size(result_list) > 1
+            || entry_list_head(result_list)->kind != SK_NAMESPACE)
     {
         running_error("%s: error: '%s' does not name a namespace\n",
                 ast_location(a), 
                 prettyprint_in_buffer(id_expression));
     }
 
-    scope_entry_t* entry = result_list->entry;
+    scope_entry_t* entry = entry_list_head(result_list);
 
     if (turn_into_inline)
     {
@@ -723,13 +725,15 @@ static void introduce_using_entity(AST id_expression, decl_context_t decl_contex
         is_class_scope = 1;
     }
 
-    while (used_entity != NULL)
+    // Now add all the used entities to the current scope
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(used_entity);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        // Now add all the used entities to the current scope
-        scope_entry_t* entry = used_entity->entry;
+        scope_entry_t* entry = entry_list_iterator_current(it);
 
         insert_entry(decl_context.current_scope, entry);
-
 
         if (is_class_scope)
         {
@@ -760,9 +764,8 @@ static void introduce_using_entity(AST id_expression, decl_context_t decl_contex
                 class_type_add_member(current_class_type, entry);
             }
         }
-
-        used_entity = used_entity->next;
     }
+    entry_list_iterator_free(it);
 }
 
 static void build_scope_using_declaration(AST a, decl_context_t decl_context)
@@ -1386,23 +1389,25 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                         scope_entry_list_t* entry_list = 
                             unresolved_overloaded_type_get_overload_set(computed_type);
 
-                        if (entry_list->next != NULL)
+                        if (entry_list_size(entry_list) > 1)
                         { 
                             running_error("%s: error: '%s' yields an unresolved overload type",
                                     ast_location(a), 
                                     prettyprint_in_buffer(a));
                         }
 
-                        if (!entry_list->entry->entity_specs.is_member
-                                || entry_list->entry->entity_specs.is_static)
+                        scope_entry_t* entry = entry_list_head(entry_list);
+
+                        if (!entry->entity_specs.is_member
+                                || entry->entity_specs.is_static)
                         {
-                            computed_type = entry_list->entry->type_information;
+                            computed_type = entry->type_information;
                         }
                         else
                         {
                             computed_type = get_pointer_to_member_type(
-                                    entry_list->entry->type_information, 
-                                    entry_list->entry);
+                                    entry->type_information,
+                                    entry);
                         }
                     }
 
@@ -1508,23 +1513,25 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                             scope_entry_list_t* entry_list = 
                                 unresolved_overloaded_type_get_overload_set(computed_type);
 
-                            if (entry_list->next != NULL)
+                            if (entry_list_size(entry_list) > 1)
                             {
                                 running_error("%s: error: '%s' yields an unresolved overload type",
                                         ast_location(a), 
                                         prettyprint_in_buffer(a));
                             }
 
-                            if (!entry_list->entry->entity_specs.is_member
-                                    || entry_list->entry->entity_specs.is_static)
+                            scope_entry_t* entry = entry_list_head(entry_list);
+
+                            if (!entry->entity_specs.is_member
+                                    || entry->entity_specs.is_static)
                             {
-                                computed_type = entry_list->entry->type_information;
+                                computed_type = entry->type_information;
                             }
                             else
                             {
                                 computed_type = get_pointer_to_member_type(
-                                        entry_list->entry->type_information, 
-                                        entry_list->entry);
+                                        entry->type_information, 
+                                        entry);
                             }
                         }
                         else if (is_dependent_expr_type(computed_type))
@@ -1648,7 +1655,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
     scope_entry_list_t* entry_list = filter_symbol_kind_set(result_list, 
             STATIC_ARRAY_LENGTH(filter_classes), filter_classes);
 
-    scope_entry_t* entry = (entry_list != NULL) ? entry_list->entry : NULL;
+    scope_entry_t* entry = (entry_list != NULL) ? entry_list_head(entry_list) : NULL;
 
     // We want the primary template in this particular case
     if (entry != NULL
@@ -1889,9 +1896,12 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type
     // Look for an enum name
     scope_entry_t* entry = NULL;
 
-    while (result_list != NULL)
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(result_list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        scope_entry_t *current_entry = result_list->entry;
+        scope_entry_t *current_entry = entry_list_iterator_current(it);
         if (current_entry->kind != SK_ENUM)
         {
             running_error("%s:%d: error: '%s' is not an enum-name\n", current_entry->file, current_entry->line, current_entry->symbol_name);
@@ -1900,8 +1910,8 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type
         {
             entry = current_entry;
         }
-        result_list = result_list->next;
     }
+    entry_list_iterator_free(it);
 
     if (entry == NULL)
     {
@@ -2001,13 +2011,12 @@ static void gather_type_spec_from_dependent_typename(AST a, type_t** type_info,
                 prettyprint_in_buffer(id_expression));
     }
 
-    scope_entry_t* entry = result->entry;
-
+    scope_entry_t* entry = entry_list_head(result);
     if (entry->kind != SK_DEPENDENT_ENTITY)
     {
         if (entry->kind != SK_TYPEDEF)
         {
-            *type_info = get_user_defined_type(result->entry);
+            *type_info = get_user_defined_type(entry);
         }
         else
         {
@@ -2055,10 +2064,12 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
                 ast_location(a), prettyprint_in_buffer(a));
     }
 
-    scope_entry_list_t* it = entry_list;
-    while (it != NULL)
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        scope_entry_t* entry = it->entry;
+        scope_entry_t* entry = entry_list_iterator_current(it);
         if (entry->kind != SK_ENUM 
                 && entry->kind != SK_CLASS 
                 && entry->kind != SK_TYPEDEF 
@@ -2071,11 +2082,10 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
                     ast_location(a),
                     prettyprint_in_buffer(a));
         }
-
-        it = it->next;
     }
+    entry_list_iterator_free(it);
 
-    scope_entry_t* entry = entry_list->entry;
+    scope_entry_t* entry = entry_list_head(entry_list);
 
     if (is_dependent_type(entry->type_information))
     {
@@ -2198,15 +2208,15 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         scope_entry_list_t* enum_entry_list = query_in_scope_str(decl_context, enum_name_str);
 
         if (enum_entry_list != NULL 
-                && enum_entry_list->entry->kind == SK_ENUM 
-                && enum_entry_list->next == NULL)
+                && entry_list_size(enum_entry_list) == 1
+                && entry_list_head(enum_entry_list)->kind == SK_ENUM)
         {
             DEBUG_CODE()
             {
                 fprintf(stderr, "Enum '%s' already declared\n", enum_name_str);
             }
 
-            new_entry = enum_entry_list->entry;
+            new_entry = entry_list_head(enum_entry_list);
         }
         else
         {
@@ -2497,7 +2507,7 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
                     prettyprint_in_buffer(class_name));
         }
 
-        scope_entry_t* result = result_list->entry;
+        scope_entry_t* result = entry_list_head(result_list);
 
         if (result->kind != SK_TEMPLATE_TYPE_PARAMETER
                 && result->kind != SK_TEMPLATE_TEMPLATE_PARAMETER
@@ -3573,7 +3583,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         {
             // If a valid class was found
             // Get the class entry
-            class_entry = class_entry_list->entry;
+            class_entry = entry_list_head(class_entry_list);
             class_type = class_entry->type_information;
 
             // If this is the primary template, we will get the template type.
@@ -4131,14 +4141,14 @@ static void build_scope_declarator_with_parameter_context(AST a,
                 {
                     // Update the entity context, inheriting the template_scope
                     scope_t* template_scope = decl_context.template_scope;
-                    entity_context = symbols->entry->decl_context;
+                    entity_context = entry_list_head(symbols)->decl_context;
                     entity_context.template_scope = template_scope;
 
                     if (prototype_context != NULL)
                     {
-                        prototype_context->current_scope->contained_in = symbols->entry->decl_context.current_scope;
-                        prototype_context->namespace_scope = symbols->entry->decl_context.namespace_scope;
-                        prototype_context->class_scope = symbols->entry->decl_context.class_scope;
+                        prototype_context->current_scope->contained_in = entry_list_head(symbols)->decl_context.current_scope;
+                        prototype_context->namespace_scope = entry_list_head(symbols)->decl_context.namespace_scope;
+                        prototype_context->class_scope = entry_list_head(symbols)->decl_context.class_scope;
                     }
                 }
             }
@@ -4235,12 +4245,12 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
 
                     AST id_type_expr = ASTSon0(pointer_tree);
 
-
                     entry_list = query_id_expression(decl_context, id_type_expr);
 
                     if (entry_list != NULL)
                     {
-                        *declarator_type = get_pointer_to_member_type(pointee_type, entry_list->entry);
+                        *declarator_type = get_pointer_to_member_type(pointee_type, 
+                                entry_list_head(entry_list));
                     }
                     else
                     {
@@ -4982,7 +4992,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                     ERROR_CONDITION((entry_list == NULL), "Qualified id '%s' name not found (%s)", 
                             prettyprint_in_buffer(declarator_id), ast_location(declarator_id));
 
-                    return entry_list->entry;
+                    return entry_list_head(entry_list);
                 }
                 else
                 {
@@ -5062,7 +5072,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                     ERROR_CONDITION((entry_list == NULL), "Qualified id '%s' name not found (%s)", 
                             prettyprint_in_buffer(declarator_id), ast_location(declarator_id));
 
-                    scope_entry_t* entry = entry_list->entry;
+                    scope_entry_t* entry = entry_list_head(entry_list);
 
                     if (entry->kind == SK_VARIABLE
                             && entry->entity_specs.is_member
@@ -5121,26 +5131,27 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
     // Only enum or classes can exist, otherwise this is an error
     if (list != NULL)
     {
+        // Check that the symbol is eligible for "typedeffing"
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(list);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            // Check that the symbol is eligible for "typedeffing"
-            scope_entry_list_t* iter = list;
-            while (iter != NULL)
+            scope_entry_t* entry = entry_list_iterator_current(it);
+            if (entry->kind != SK_ENUM 
+                    && entry->kind != SK_CLASS
+                    && entry->kind != SK_TYPEDEF)
             {
-                scope_entry_t* entry = iter->entry;
-                if (entry->kind != SK_ENUM 
-                        && entry->kind != SK_CLASS
-                        && entry->kind != SK_TYPEDEF)
-                {
-                    running_error("%s: error: symbol '%s' has been redeclared as a different symbol kind (look at '%s:%d').", 
-                            ast_location(declarator_id), 
-                            prettyprint_in_buffer(declarator_id), 
-                            entry->file,
-                            entry->line);
-                }
-                iter = iter->next;
+                running_error("%s: error: symbol '%s' has been redeclared as a different symbol kind (look at '%s:%d').", 
+                        ast_location(declarator_id), 
+                        prettyprint_in_buffer(declarator_id), 
+                        entry->file,
+                        entry->line);
             }
         }
-        scope_entry_t* entry = list->entry;
+        entry_list_iterator_free(it);
+
+        scope_entry_t* entry = entry_list_head(list);
 
         // We have to allow 
         // typedef struct A { .. } A;
@@ -5316,7 +5327,7 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
         // Return the found symbol
         if (check_list != NULL)
         {
-            scope_entry_t* entry = check_list->entry;
+            scope_entry_t* entry = entry_list_head(check_list);
             
             // Always use the latest one, unfortunately a variable can be
             // declared several times by means of "extern" keyword
@@ -5332,11 +5343,12 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
 
         if (check_list != NULL)
         {
+            scope_entry_t* entry = entry_list_head(check_list);
             running_error("%s: error: incompatible redeclaration of '%s' (look at '%s:%d')\n",
                     ast_location(declarator_id),
                     prettyprint_in_buffer(declarator_id),
-                    check_list->entry->file,
-                    check_list->entry->line);
+                    entry->file,
+                    entry->line);
         }
 
         DEBUG_CODE()
@@ -5613,12 +5625,14 @@ static scope_entry_t* find_function_declaration(AST declarator_id, type_t* decla
 
     char templates_available = 0;
 
-    scope_entry_list_t *it = entry_list;
     // First attempt an exact match against either SK_FUNCTION or
     // the primary of every SK_TEMPLATE
-    while (it != NULL && !found_equal)
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it) && !found_equal;
+            entry_list_iterator_next(it))
     {
-        scope_entry_t* entry = it->entry;
+        scope_entry_t* entry = entry_list_iterator_current(it);
 
         // No way if we got this
         if (entry->kind == SK_DEPENDENT_ENTITY)
@@ -5627,10 +5641,7 @@ static scope_entry_t* find_function_declaration(AST declarator_id, type_t* decla
         // This is so C90's ;)
         if (entry->kind == SK_CLASS
                 || entry->kind == SK_ENUM)
-        {
-            it = it->next;
             continue;
-        }
 
         if (entry->kind != SK_FUNCTION
                 && (entry->kind != SK_TEMPLATE
@@ -5645,10 +5656,7 @@ static scope_entry_t* find_function_declaration(AST declarator_id, type_t* decla
                 && decl_context.current_scope->kind == CLASS_SCOPE
                 && !equivalent_types(get_actual_class_type(entry->entity_specs.class_type), 
                     get_actual_class_type(decl_context.current_scope->related_entry->type_information)))
-        {
-            it = it->next;
             continue;
-        }
 
         scope_entry_t* considered_symbol = NULL;
         if (entry->kind == SK_TEMPLATE)
@@ -5712,9 +5720,8 @@ static scope_entry_t* find_function_declaration(AST declarator_id, type_t* decla
                 found_equal = 1;
             }
         }
-
-        it = it->next;
     }
+    entry_list_iterator_free(it);
 
     // Second attempt, match a specialization of a template function
     if (templates_available
@@ -6305,9 +6312,15 @@ static void build_scope_template_template_parameter(AST a,
         };
         entry_list = filter_symbol_kind_set(entry_list, STATIC_ARRAY_LENGTH(valid_templates_arguments), valid_templates_arguments);
 
-        if (entry_list == NULL
-                || (entry_list->entry->kind == SK_TEMPLATE
-                    && named_type_get_symbol(template_type_get_primary_type(entry_list->entry->type_information))->kind != SK_CLASS))
+        if (entry_list == NULL)
+            running_error("%s: error: '%s' does not name a template class\n",
+                    ast_location(id_expr),
+                    prettyprint_in_buffer(id_expr));
+
+
+        scope_entry_t* entry = entry_list_head(entry_list);
+        if (entry->kind == SK_TEMPLATE
+                    && named_type_get_symbol(template_type_get_primary_type(entry->type_information))->kind != SK_CLASS)
         {
             running_error("%s: error: '%s' does not name a template class\n",
                     ast_location(id_expr),
@@ -6319,7 +6332,7 @@ static void build_scope_template_template_parameter(AST a,
 
         default_template_argument->kind = TAK_TEMPLATE;
         // We need a named type
-        default_template_argument->type = get_user_defined_type(entry_list->entry);
+        default_template_argument->type = get_user_defined_type(entry);
 
         default_template_argument->position = new_entry->entity_specs.template_parameter_position;
         default_template_argument->nesting = new_entry->entity_specs.template_parameter_nesting;
@@ -6559,14 +6572,14 @@ static void build_scope_namespace_alias(AST a, decl_context_t decl_context)
     scope_entry_list_t* entry_list = query_id_expression(decl_context, id_expression);
 
     if (entry_list == NULL
-            || entry_list->entry->kind != SK_NAMESPACE)
+            || entry_list_head(entry_list)->kind != SK_NAMESPACE)
     {
         running_error("%s: error: '%s' does not name any namespace\n", 
                 ast_location(id_expression),
                 prettyprint_in_buffer(id_expression));
     }
 
-    scope_entry_t* entry = entry_list->entry;
+    scope_entry_t* entry = entry_list_head(entry_list);
 
     const char* alias_name = ASTText(alias_ident);
 
@@ -6618,11 +6631,12 @@ static void build_scope_namespace_definition(AST a, decl_context_t decl_context)
                     prettyprint_in_buffer(namespace_name));
         }
 
-        scope_entry_t* entry;
+        scope_entry_t* entry = NULL;
         decl_context_t namespace_context;
-        if (list != NULL && list->entry->kind == SK_NAMESPACE)
+        if (list != NULL && 
+                entry_list_head(list)->kind == SK_NAMESPACE)
         {
-            entry = list->entry;
+            entry = entry_list_head(list);
             namespace_context = entry->namespace_decl_context;
 
             if (is_inline
@@ -6670,12 +6684,14 @@ static void build_scope_namespace_definition(AST a, decl_context_t decl_context)
         scope_entry_list_t* list = query_in_scope_str_flags(decl_context, unnamed_namespace, DF_ONLY_CURRENT_SCOPE);
 
         decl_context_t namespace_context;
-        if (list != NULL && list->entry->kind == SK_NAMESPACE)
+        if (list != NULL && 
+                entry_list_head(list)->kind == SK_NAMESPACE)
         {
-            namespace_context = list->entry->namespace_decl_context;
+            scope_entry_t* entry = entry_list_head(list);
+            namespace_context = entry->namespace_decl_context;
 
             if (is_inline
-                    && !list->entry->entity_specs.is_inline)
+                    && !entry->entity_specs.is_inline)
             {
                 running_error("%s: error: inline namespace extension of a non-inlined namespace\n",
                         ast_location(a));
@@ -6822,7 +6838,7 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry UNUSED_P
             }
             else
             {
-                entry = entry_list->entry;
+                entry = entry_list_head(entry_list);
             }
 
             entry->entity_specs.is_parameter = 1;

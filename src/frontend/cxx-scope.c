@@ -40,8 +40,8 @@
 #include "cxx-tltype.h"
 #include "cxx-attrnames.h"
 #include "cxx-printscope.h"
+#include "cxx-entrylist.h"
 #include "red_black_tree.h"
-
 
 static unsigned long long _bytes_used_scopes = 0;
 
@@ -420,20 +420,12 @@ void insert_alias(scope_t* sc, scope_entry_t* entry, const char* name)
 
     if (result_set != NULL)
     {
-        scope_entry_list_t* new_set = (scope_entry_list_t*) counted_calloc(1, sizeof(*new_set), &_bytes_used_symbols);
-
-        // Put the new entry in front of the previous
-        *new_set = *result_set;
-
-        result_set->next = new_set;
-        result_set->entry = entry;
+        entry_list_add(result_set, entry);
     }
     else
     {
-        result_set = (scope_entry_list_t*) counted_calloc(1, sizeof(*result_set), &_bytes_used_symbols);
-        result_set->entry = entry;
-        result_set->next = NULL; // redundant, though
-
+        result_set = entry_list_new(entry);
+        entry_list_pin(result_set);
         rb_tree_add(sc->hash, symbol_name, result_set);
     }
 }
@@ -533,38 +525,37 @@ void insert_entry(scope_t* sc, scope_entry_t* entry)
 
     if (result_set != NULL)
     {
-        // Do not add it twice
-        scope_entry_list_t* it = result_set;
-        while (it != NULL)
+        // FIXME - Do not add it twice. Improve it
+        char do_not_add = 0;
+        scope_entry_list_iterator_t* it = entry_list_iterator_begin(result_set);
+        while (!entry_list_iterator_end(it) && !do_not_add)
         {
-            if (it->entry == entry)
-                return;
+            if (entry_list_iterator_current(it) == entry)
+            {
+                do_not_add = 1;
+            }
 
-            it = it->next;
+            entry_list_iterator_next(it);
         }
+        entry_list_iterator_free(it);
 
-        scope_entry_list_t* new_set = (scope_entry_list_t*) counted_calloc(1, sizeof(*new_set), &_bytes_used_scopes);
-
-        // Put the new entry in front of the previous
-        *new_set = *result_set;
-
-        result_set->next = new_set;
-        result_set->entry = entry;
+        if (!do_not_add)
+        {
+            entry_list_add(result_set, entry);
+        }
     }
     else
     {
-        result_set = (scope_entry_list_t*) counted_calloc(1, sizeof(*result_set), &_bytes_used_scopes);
-        result_set->entry = entry;
-        result_set->next = NULL; // redundant, though
-
+        result_set = entry_list_new(entry);
+        entry_list_pin(result_set);
         rb_tree_add(sc->hash, entry->symbol_name, result_set);
     }
 }
 
-
-
-void remove_entry(scope_t* sc, scope_entry_t* entry)
+void remove_entry(scope_t* sc UNUSED_PARAMETER, scope_entry_t* entry UNUSED_PARAMETER)
 {
+    internal_error("Not yet implemented", 0);
+#if 0
     ERROR_CONDITION((entry->symbol_name == NULL), "Removing a symbol entry without name!", 0);
 
     scope_entry_list_t* result_set = NULL;
@@ -598,40 +589,32 @@ void remove_entry(scope_t* sc, scope_entry_t* entry)
         previous = current;
         current = current->next;
     }
-}
-
-scope_entry_list_t* create_list_from_entry(scope_entry_t* entry)
-{
-    scope_entry_list_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
-    result->entry = entry;
-    result->next = NULL;
-
-    return result;
+#endif
 }
 
 scope_entry_list_t* filter_symbol_kind_set(scope_entry_list_t* entry_list, int num_kinds, enum cxx_symbol_kind* symbol_kind_set)
 {
     scope_entry_list_t* result = NULL;
-    scope_entry_list_t* iter = entry_list;
-    
-    while (iter != NULL)
+
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
+        scope_entry_t* entry = entry_list_iterator_current(it);
+
         int i;
         char found = 0;
         for (i = 0; (i < num_kinds) && !found; i++)
         {
-            if (iter->entry->kind == symbol_kind_set[i])
+            if (entry->kind == symbol_kind_set[i])
             {
-                scope_entry_list_t* new_item = counted_calloc(1, sizeof(*new_item), &_bytes_used_scopes);
-                new_item->entry = iter->entry;
-                new_item->next = result;
-                result = new_item;
+                result = entry_list_add(result, entry);
                 found = 1;
             }
         }
-
-        iter = iter->next;
     }
+    entry_list_iterator_free(it);
 
     return result;
 }
@@ -649,15 +632,19 @@ scope_entry_list_t* filter_symbol_kind(scope_entry_list_t* entry_list, enum cxx_
 scope_entry_list_t* filter_symbol_non_kind_set(scope_entry_list_t* entry_list, int num_kinds, enum cxx_symbol_kind* symbol_kind_set)
 {
     scope_entry_list_t* result = NULL;
-    scope_entry_list_t* iter = entry_list;
-    
-    while (iter != NULL)
+
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
+        scope_entry_t* entry = entry_list_iterator_current(it);
+
         int i;
         char found = 0;
         for (i = 0; (i < num_kinds) && !found; i++)
         {
-            if (iter->entry->kind == symbol_kind_set[i])
+            if (entry->kind == symbol_kind_set[i])
             {
                 found = 1;
             }
@@ -665,14 +652,10 @@ scope_entry_list_t* filter_symbol_non_kind_set(scope_entry_list_t* entry_list, i
 
         if (!found)
         {
-            scope_entry_list_t* new_item = counted_calloc(1, sizeof(*new_item), &_bytes_used_scopes);
-            new_item->entry = iter->entry;
-            new_item->next = result;
-            result = new_item;
+            result = entry_list_add(result, entry);
         }
-
-        iter = iter->next;
     }
+    entry_list_iterator_free(it);
 
     return result;
 }
@@ -688,58 +671,21 @@ scope_entry_list_t* filter_symbol_non_kind(scope_entry_list_t* entry_list, enum 
 
 scope_entry_list_t* filter_symbol_using_predicate(scope_entry_list_t* entry_list, char (*f)(scope_entry_t*))
 {
-    // Tries to avoid some copies by implementing a rough copy-on-write
-    char nothing_filtered = 1;
-    scope_entry_list_t* result = entry_list;
+    scope_entry_list_t* result = NULL;
 
-    scope_entry_list_t* iter = entry_list;
-    
-    while (iter != NULL)
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        if (!nothing_filtered)
+        scope_entry_t* entry = entry_list_iterator_current(it);
+
+        if (f(entry))
         {
-            if (f(iter->entry))
-            {
-                scope_entry_list_t* new_item = counted_calloc(1, sizeof(*new_item), &_bytes_used_scopes);
-                new_item->entry = iter->entry;
-                new_item->next = result;
-                result = new_item;
-            }
-            else
-            {
-                // Do nothing
-            }
+            result = entry_list_add(result, entry);
         }
-        else
-        {
-            if (f(iter->entry))
-            {
-                // Do nothing
-            }
-            else
-            {
-                // Copy the original list into result
-                // and update nothing_filtered
-                scope_entry_list_t *iter_copy = entry_list;
-
-                result = NULL;
-
-                while (iter_copy != iter)
-                {
-                    scope_entry_list_t* new_item = counted_calloc(1, sizeof(*new_item), &_bytes_used_scopes);
-                    new_item->entry = iter_copy->entry;
-                    new_item->next = result;
-                    result = new_item;
-
-                    iter_copy = iter_copy->next;
-                }
-
-                nothing_filtered = 0;
-            }
-        }
-
-        iter = iter->next;
     }
+    entry_list_iterator_free(it);
 
     return result;
 }
@@ -859,7 +805,7 @@ static scope_entry_list_t* query_unqualified_name(
                             unqualified_name);
                     if (name != NULL)
                     {
-                        return create_list_from_entry(name);
+                        return entry_list_new(name);
                     }
                 }
 
@@ -872,13 +818,16 @@ static scope_entry_list_t* query_unqualified_name(
                         ASTFileName(unqualified_name), ASTLine(unqualified_name));
 
                 if (result != NULL
-                        && result->next == NULL
-                        && (result->entry->kind == SK_TEMPLATE_TYPE_PARAMETER
-                            || result->entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
-                            || result->entry->kind == SK_TEMPLATE_PARAMETER))
+                        && entry_list_size(result) == 1)
                 {
-                    // This is a template parameter, label it 
-                    set_as_template_parameter_name(unqualified_name, result->entry);
+                    scope_entry_t* entry = entry_list_head(result);
+                    if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
+                            || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
+                            || entry->kind == SK_TEMPLATE_PARAMETER)
+                    {
+                        // This is a template parameter, label it 
+                        set_as_template_parameter_name(unqualified_name, entry);
+                    }
                 }
             }
             break;
@@ -1249,7 +1198,7 @@ static scope_entry_list_t* query_qualified_name(
                         ast_copy(unqualified_name),
                         ASTFileName(unqualified_name), ASTLine(unqualified_name), NULL);
 
-            result = create_list_from_entry(dependent_entity);
+            result = entry_list_new(dependent_entity);
             return result;
         }
         else
@@ -1380,7 +1329,7 @@ static decl_context_t lookup_qualification_scope(
         return new_decl_context();
     }
 
-    scope_entry_t* starting_symbol = starting_symbol_list->entry;
+    scope_entry_t* starting_symbol = entry_list_head(starting_symbol_list);
 
     // This is an already dependent name
     if (BITMAP_TEST(nested_name_context.decl_flags, DF_DEPENDENT_TYPENAME)
@@ -1497,7 +1446,7 @@ static decl_context_t lookup_qualification_scope_in_namespace(
         return new_decl_context();
     }
 
-    scope_entry_t* symbol = symbol_list->entry;
+    scope_entry_t* symbol = entry_list_head(symbol_list);
 
     if (symbol->kind == SK_DEPENDENT_ENTITY)
     {
@@ -1734,9 +1683,9 @@ static decl_context_t lookup_qualification_scope_in_class(
         return new_decl_context();
     }
 
-    ERROR_CONDITION(symbol_list->next != NULL, "More than one class found", 0);
+    ERROR_CONDITION(entry_list_size(symbol_list) != 1, "More than one class found", 0);
 
-    scope_entry_t* symbol = symbol_list->entry;
+    scope_entry_t* symbol = entry_list_head(symbol_list);
 
     if (symbol->kind == SK_DEPENDENT_ENTITY)
     {
@@ -2089,12 +2038,12 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
             {
                 if (several_subobjects)
                 {
-                    // Ensure that all data members or member functions
-                    // are static
-                    scope_entry_list_t* it = derived->entry_list;
-                    while ((it != NULL) && valid)
+                    scope_entry_list_iterator_t* it = NULL; 
+                    for (it = entry_list_iterator_begin(derived->entry_list);
+                            !entry_list_iterator_end(it);
+                            entry_list_iterator_next(it))
                     {
-                        scope_entry_t* entry = it->entry;
+                        scope_entry_t* entry = entry_list_iterator_current(it);
                         if (entry->kind == SK_VARIABLE
                                 || entry->kind == SK_FUNCTION
                                 /* || entry->kind == SK_TEMPLATE_FUNCTION */)
@@ -2109,9 +2058,8 @@ void class_scope_lookup_rec(scope_t* current_class_scope, const char* name,
                                 }
                             }
                         }
-
-                        it = it->next;
                     }
+                    entry_list_iterator_free(it);
                 }
             }
 
@@ -2185,87 +2133,69 @@ static scope_entry_list_t* filter_any_non_type(scope_entry_list_t* entry_list)
     return filter_symbol_kind_set(entry_list, STATIC_ARRAY_LENGTH(type_filter), type_filter);
 }
 
-static char first_is_subset_of_second(scope_entry_list_t* entry_list_1, scope_entry_list_t* entry_list_2)
-{
-    ERROR_CONDITION(entry_list_1 == NULL
-            || entry_list_2 == NULL, "Error one list is NULL", 0);
-
-    while (entry_list_1 != NULL)
-    {
-        scope_entry_list_t* it = entry_list_2;
-
-        char found = 0;
-        while (it != NULL && !found)
-        {
-            found = (entry_list_1->entry == it->entry);
-            it = it->next;
-        }
-
-        if (!found)
-            return 0;
-
-        entry_list_1 = entry_list_1->next;
-    }
-
-    return 1;
-}
-
 static void error_ambiguity(scope_entry_list_t* entry_list, const char* filename, int line)
 {
-    scope_entry_list_t* it = entry_list;
-
-    fprintf(stderr, "%s:%d: error: ambiguity in reference to '%s'\n", filename, line, entry_list->entry->symbol_name);
+    fprintf(stderr, "%s:%d: error: ambiguity in reference to '%s'\n", filename, line, 
+            entry_list_head(entry_list)->symbol_name);
     fprintf(stderr, "%s:%d: info: candidates are\n", filename, line);
-    while (it != NULL)
+
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
+        scope_entry_t* entry = entry_list_iterator_current(it);
         fprintf(stderr, "%s:%d: info:    %s\n", 
-                it->entry->file,
-                it->entry->line,
-                get_qualified_symbol_name(it->entry, it->entry->decl_context));
-        it = it->next;
+                entry->file,
+                entry->line,
+                get_qualified_symbol_name(entry, entry->decl_context));
     }
+    entry_list_iterator_free(it);
 
     running_error("%s:%d: error: lookup failed due to ambiguous reference '%s'\n", 
-            filename, line, entry_list->entry->symbol_name);
+            filename, line, entry_list_head(entry_list)->symbol_name);
 }
 
 
 static void check_for_naming_ambiguity(scope_entry_list_t* entry_list, const char* filename, int line)
 {
     if (entry_list == NULL
-            || entry_list->next == NULL)
+            || entry_list_size(entry_list) == 1)
         return;
-
-    scope_entry_list_t* it = entry_list;
 
     scope_entry_t* hiding_name = NULL;
 
-    while (it != NULL)
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
+        scope_entry_t* entry = entry_list_iterator_current(it);
+
         if (hiding_name == NULL
-                && (it->entry->kind == SK_VARIABLE
-                    || it->entry->kind == SK_ENUMERATOR))
+                && (entry->kind == SK_VARIABLE
+                    || entry->kind == SK_ENUMERATOR))
         {
-            hiding_name = it->entry;
+            hiding_name = entry;
         }
-        else if (it->entry->kind == SK_FUNCTION
-                || (it->entry->kind == SK_TEMPLATE
-                    && named_type_get_symbol(template_type_get_primary_type(it->entry->type_information))->kind == SK_FUNCTION))
+        else if (entry->kind == SK_FUNCTION
+                || (entry->kind == SK_TEMPLATE
+                    && named_type_get_symbol(template_type_get_primary_type(entry->type_information))->kind == SK_FUNCTION))
         {
-            hiding_name = it->entry;
+            hiding_name = entry;
         }
-        else if ((it->entry->kind == SK_CLASS
-                    || it->entry->kind == SK_ENUM)
+        else if ((entry->kind == SK_CLASS
+                    || entry->kind == SK_ENUM)
                 && (hiding_name != NULL
-                    && hiding_name->decl_context.current_scope == it->entry->decl_context.current_scope))
+                    && hiding_name->decl_context.current_scope == entry->decl_context.current_scope))
         {
         }
         else
         {
             error_ambiguity(entry_list, filename, line);
         }
-        it = it->next;
     }
+    entry_list_iterator_free(it);
 }
 
 #define MAX_ASSOCIATED_NAMESPACES (64)
@@ -2327,7 +2257,7 @@ static scope_entry_list_t* query_in_namespace_and_associates(
                 line
                 );
 
-        grand_result = merge_scope_entry_list(grand_result, result);
+        grand_result = entry_list_merge(grand_result, result);
         
         check_for_naming_ambiguity(grand_result, filename, line);
     }
@@ -2671,7 +2601,7 @@ static type_t* update_dependent_typename(
             return NULL;
         }
 
-        if (member_list->next != NULL)
+        if (entry_list_size(member_list) > 1)
         {
             DEBUG_CODE()
             {
@@ -2680,7 +2610,7 @@ static type_t* update_dependent_typename(
             return NULL;
         }
 
-        scope_entry_t* member = member_list->entry;
+        scope_entry_t* member = entry_list_head(member_list);
 
         if (member->kind == SK_TYPEDEF)
         {
@@ -2822,7 +2752,7 @@ static type_t* update_dependent_typename(
         return NULL;
     }
 
-    if (member_list->next != NULL)
+    if (entry_list_size(member_list) > 1)
     {
         DEBUG_CODE()
         {
@@ -2831,7 +2761,7 @@ static type_t* update_dependent_typename(
         return NULL;
     }
 
-    scope_entry_t* member = member_list->entry;
+    scope_entry_t* member = entry_list_head(member_list);
 
     if (member->kind == SK_CLASS
             || member->kind == SK_TYPEDEF
@@ -4006,7 +3936,7 @@ static scope_entry_list_t* query_template_id_aux(AST template_id,
             return NULL;
         }
 
-        template_symbol = template_symbol_list->entry;
+        template_symbol = entry_list_head(template_symbol_list);
     }
 
     type_t* generic_type = template_symbol->type_information;
@@ -4062,9 +3992,7 @@ static scope_entry_list_t* query_template_id_aux(AST template_id,
             ERROR_CONDITION(!is_named_type(specialized_type), "This should be a named type", 0);
 
             // Crappy
-            scope_entry_list_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
-            result->entry = named_type_get_symbol(specialized_type);
-
+            scope_entry_list_t* result = entry_list_new(named_type_get_symbol(specialized_type));
             return result;
         }
         else
@@ -4105,76 +4033,6 @@ static scope_entry_list_t* query_template_id(AST template_id,
             template_name_context,
             template_arguments_context,
             name_lookup);
-}
-
-scope_entry_list_t *copy_entry_list(scope_entry_list_t* orig)
-{
-    scope_entry_list_t* result = NULL;
-    if (orig == NULL)
-        return result;
-
-    result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
-
-    result->entry = orig->entry;
-    result->next = copy_entry_list(orig->next);
-
-    return result;
-}
-
-// Like append but avoids repeated symbols
-scope_entry_list_t* merge_scope_entry_list(scope_entry_list_t* list_1, scope_entry_list_t* list_2)
-{
-    // Some simple cases
-    if (list_1 == NULL)
-    {
-        return list_2;
-    }
-    else if (list_2 == NULL)
-    {
-        return list_1;
-    }
-    if (first_is_subset_of_second(list_1, list_2))
-    {
-        return list_2;
-    }
-    else if (first_is_subset_of_second(list_2, list_1))
-    {
-        return list_1;
-    }
-
-    // Full merge
-    // Copy list_1
-    scope_entry_list_t* result = copy_entry_list(list_1);
-
-    scope_entry_list_t* last = result;
-    while (last->next != NULL)
-        last = last->next;
-
-    scope_entry_list_t* it_list_2 = list_2;
-    while (it_list_2 != NULL)
-    {
-        char found = 0;
-        
-        scope_entry_list_t* it_res = result;
-        while (it_res != NULL && !found)
-        {
-            if (it_res->entry == it_list_2->entry)
-                found = 1;
-
-            it_res = it_res->next;
-        }
-
-        if (!found)
-        {
-            last->next = counted_calloc(1, sizeof(*last->next), &_bytes_used_scopes);
-            last->next->entry = it_list_2->entry;
-            last = last->next;
-        }
-
-        it_list_2 = it_list_2->next;
-    }
-
-    return result;
 }
 
 // Only for "simple" symbols, this is, that are not members and they are simply contained
@@ -4225,7 +4083,7 @@ static void find_template_parameter_aux(const void* key UNUSED_PARAMETER, void* 
         return;
 
     scope_entry_list_t* entry_list = (scope_entry_list_t*) info;
-    scope_entry_t* entry = entry_list->entry;
+    scope_entry_t* entry = entry_list_head(entry_list);
 
     if (entry->kind == p_data->template_param->kind
             && (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
@@ -4460,13 +4318,13 @@ scope_entry_list_t* cascade_lookup(decl_context_t decl_context, const char* name
         if (current_scope->kind == CLASS_SCOPE
                 && !BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE))
         {
-            result = merge_scope_entry_list(result, 
+            result = entry_list_merge(result, 
                     query_in_class(current_scope, name, decl_context.decl_flags, 
                         filename, line));
         }
         else if (current_scope->kind == NAMESPACE_SCOPE)
         {
-            result = merge_scope_entry_list(result,
+            result = entry_list_merge(result,
                     query_in_namespace_and_associates(
                         current_scope->related_entry,
                         name, 0, num_associated_namespaces,
@@ -4476,7 +4334,7 @@ scope_entry_list_t* cascade_lookup(decl_context_t decl_context, const char* name
         }
         else // BLOCK_SCOPE || PROTOTYPE_SCOPE || FUNCTION_SCOPE (although its contains should be NULL)
         {
-            result = merge_scope_entry_list(result, query_name_in_scope(current_scope, name));
+            result = entry_list_merge(result, query_name_in_scope(current_scope, name));
         }
 
         if (BITMAP_TEST(decl_context.decl_flags, DF_ELABORATED_NAME))
@@ -4510,7 +4368,7 @@ scope_entry_t* lookup_of_template_parameter(decl_context_t context,
     if (entry_list == NULL)
         return NULL;
     else
-        return entry_list->entry;
+        return entry_list_head(entry_list);
 }
 
 void set_as_template_parameter_name(AST a, scope_entry_t* template_param_sym)

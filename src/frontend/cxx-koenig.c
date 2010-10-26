@@ -29,6 +29,7 @@
 #include "cxx-koenig.h"
 #include "cxx-typeutils.h"
 #include "cxx-utils.h"
+#include "cxx-entrylist.h"
 
 #define MAX_ASSOCIATED_SCOPES (256)
 
@@ -97,37 +98,9 @@ scope_entry_list_t* koenig_lookup(
             fprintf(stderr, "KOENIG: Looking up in associated scope '%p'\n", current_scope);
         }
 
-        scope_entry_list_t* current_result = copy_entry_list(query_in_scope(current_context, id_expression));
+        scope_entry_list_t* current_result = query_in_scope(current_context, id_expression);
 
-        scope_entry_list_t* it = current_result;
-        while (it != NULL)
-        {
-            char found = 0;
-            // This is very inefficient
-            scope_entry_list_t* it2 = result;
-            while ((it2 != NULL) && (!found))
-            {
-                if (it2->entry == it->entry)
-                {
-                    found = 1;
-                }
-                it2 = it2->next;
-            }
-
-            if (!found)
-            {
-                scope_entry_list_t* current = it;
-                it = it->next;
-
-                // Add to the result
-                current->next = result;
-                result = current;
-            }
-            else
-            {
-                it = it->next;
-            }
-        }
+        result = entry_list_merge(result, current_result);
     }
 
     DEBUG_CODE()

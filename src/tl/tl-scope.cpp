@@ -25,6 +25,7 @@
 #include "cxx-scope.h"
 #include "cxx-printscope.h"
 #include "cxx-utils.h"
+#include "cxx-entrylist.h"
 #include "hash_iterator.h"
 #include "uniquestr.h"
 #include "cxx-koenig.h"
@@ -38,12 +39,15 @@ namespace TL
 
     void Scope::convert_to_vector(scope_entry_list_t* entry_list, ObjectList<Symbol>& out)
     {
-        while (entry_list != NULL)
+        scope_entry_list_iterator_t *it = NULL;
+        for (it = entry_list_iterator_begin(entry_list);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            Symbol s(entry_list->entry);
+            Symbol s(entry_list_iterator_current(it));
             out.push_back(s);
-            entry_list = entry_list->next;
         }
+        entry_list_iterator_free(it);
     }
 
     void Scope::get_head(const ObjectList<Symbol>& in, Symbol& out)
@@ -156,11 +160,13 @@ namespace TL
         walk_scope_data_t* walk_data = (walk_scope_data_t*)(data);
 
         scope_entry_list_t* entry_list = (scope_entry_list_t*) info;
-        scope_entry_list_t* it = entry_list;
+        scope_entry_list_iterator_t* it = NULL;
 
-        while (it != NULL)
+        for (it = entry_list_iterator_begin(entry_list);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* entry = it->entry;
+            scope_entry_t* entry = entry_list_iterator_current(it);
 
             // Well, do_not_print is what we use to hide symbols :)
             if (!entry->do_not_print
@@ -169,9 +175,8 @@ namespace TL
                 Symbol sym(entry);
                 walk_data->result.append(sym);
             }
-
-            it = it->next;
         }
+        entry_list_iterator_free(it);
     }
 
     ObjectList<Symbol> Scope::get_all_symbols(bool include_hidden)
@@ -193,7 +198,7 @@ namespace TL
 
             if (sym_res_list != NULL)
             {
-                sym_res = sym_res_list->entry;
+                sym_res = entry_list_head(sym_res_list);
                 return Symbol(sym_res);
             }
         }
@@ -254,11 +259,7 @@ namespace TL
         scope_entry_list_t* entry_list = ::koenig_lookup(num_args, argument_list, _decl_context, id_expr.get_internal_ast());
 
         ObjectList<Symbol> result;
-        while (entry_list != NULL)
-        {
-            result.append(entry_list->entry);
-            entry_list = entry_list->next;
-        }
+        convert_to_vector(entry_list, result);
 
         delete[] argument_list;
 

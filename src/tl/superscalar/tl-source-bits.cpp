@@ -27,6 +27,7 @@
 #include "cxx-attrnames.h"
 #include "cxx-buildscope.h"
 #include "cxx-scope.h"
+#include "cxx-entrylist.h"
 #include "cxx-utils.h"
 #include "cxx-parser.h"
 #include "c99-parser.h"
@@ -86,13 +87,13 @@ namespace TL
 		{
 			throw UnknownParameterException();
 		}
-		else if (entry_list->next != NULL)
+		else if (entry_list_size(entry_list) > 1)
 		{
 			throw AmbiguousParameterException();
 		}
 		
 		// Get the original symbol in order to get its type and to enrichen it
-		scope_entry_t* entry = entry_list->entry;
+		scope_entry_t* entry = entry_list_head(entry_list);
 		original_symbol = Symbol(entry);
 		
 		// Create a new variable inside the "virtual" scope, with both, the old type and the declarator part

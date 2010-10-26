@@ -29,6 +29,7 @@
 #include "cxx-driver.h"
 #include "cxx-prettyprint.h"
 #include "cxx-printscope.h"
+#include "cxx-entrylist.h"
 #include "cxx-typeutils.h"
 
 /*
@@ -134,18 +135,19 @@ static void print_scope_full(scope_t* st, int global_indent)
 
 static void print_scope_entry_list(scope_entry_list_t* entry_list, int global_indent)
 {
-    while (entry_list != NULL)
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(entry_list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        if (entry_list->entry->do_not_print)
+        scope_entry_t* entry = entry_list_iterator_current(it);
+        if (entry->do_not_print)
         {
-            entry_list = entry_list->next;
             continue;
         }
-        scope_entry_t* entry = entry_list->entry;
         print_scope_entry(entry, global_indent);
-
-        entry_list = entry_list->next;
     }
+    entry_list_iterator_free(it);
 }
 
 

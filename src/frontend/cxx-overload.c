@@ -29,6 +29,7 @@
 #include "cxx-instantiation.h"
 #include "cxx-utils.h"
 #include "cxx-scope.h"
+#include "cxx-entrylist.h"
 #include "cxx-exprtype.h"
 
 #include <string.h>
@@ -620,11 +621,13 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         // convertible to dest
         scope_entry_list_t* conversion_list = class_type_get_all_conversions(
                 get_actual_class_type(class_type), decl_context);
-        scope_entry_list_t* it = conversion_list;
 
-        while (it != NULL)
+        scope_entry_list_iterator_t *it = NULL;
+        for (it = entry_list_iterator_begin(conversion_list);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
-            scope_entry_t* conv_funct = it->entry;
+            scope_entry_t* conv_funct = entry_list_iterator_current(it);
 
             DEBUG_CODE()
             {
@@ -662,7 +665,6 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                     {
                         fprintf(stderr, "ICS: Deduced arguments for template conversion function failed, skipping\n");
                     }
-                    it = it->next;
                     continue;
                 }
 
@@ -686,7 +688,6 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                 if (named_specialization_type == NULL)
                 {
                     fprintf(stderr, "ICS: Cannot specialize conversion function\n");
-                    it = it->next;
                     continue;
                 }
 
@@ -733,7 +734,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             first_sc = ics_call.first_sc;
 
             if (ics_call.kind == ICSK_STANDARD 
-                && standard_conversion_between_types(&second_sc, converted_type, dest))
+                    && standard_conversion_between_types(&second_sc, converted_type, dest))
             {
                 implicit_conversion_sequence_t *current = &(user_defined_conversions[num_user_defined_conversions]);
                 num_user_defined_conversions++;
@@ -758,9 +759,8 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                             print_declarator(current->second_sc.dest));
                 }
             }
-
-            it = it->next;
         }
+        entry_list_iterator_free(it);
     }
 
     // Compute user defined conversions by means of constructors
@@ -2090,7 +2090,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
     {
         fprintf(stderr, "OVERLOAD: Solving the address of overload function-name '%s' at '%s:%d'\n",
                 /* use the first in the set */
-                overload_set != NULL ? overload_set->entry->symbol_name : "<overload set empty>",
+                overload_set != NULL ? entry_list_head(overload_set)->symbol_name : "<overload set empty>",
                 filename, line);
     }
     // Check sanity of the target type
@@ -2129,16 +2129,17 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
     }
 
     // We can proceed now
-    scope_entry_list_t* it = overload_set;
-
     scope_entry_list_t* viable_functions = NULL;
 
     char num_nonspecialized = 0;
     scope_entry_t* non_specialized = NULL;
 
-    while (it != NULL)
+    scope_entry_list_iterator_t *it = NULL;
+    for (it = entry_list_iterator_begin(overload_set);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        scope_entry_t* current_fun = it->entry;
+        scope_entry_t* current_fun = entry_list_iterator_current(it);
 
         if (current_fun->kind == SK_FUNCTION)
         {
@@ -2186,10 +2187,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                             current_fun->file,
                             current_fun->line);
                 }
-                scope_entry_list_t* new_viable_fun = counted_calloc(1, sizeof(*viable_functions), &_bytes_overload);
-                new_viable_fun->entry = current_fun;
-                new_viable_fun->next = viable_functions;
-                viable_functions = new_viable_fun;
+                viable_functions = entry_list_add(viable_functions, current_fun);
 
                 num_nonspecialized++;
                 // This makes sense only when (num_nonspecialized == 1)
@@ -2298,11 +2296,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                                     print_declarator(named_symbol->type_information));
                         }
 
-                        scope_entry_list_t* new_viable_fun 
-                            = counted_calloc(1, sizeof(*viable_functions), &_bytes_overload);
-                        new_viable_fun->entry = named_symbol;
-                        new_viable_fun->next = viable_functions;
-                        viable_functions = new_viable_fun;
+                        viable_functions = entry_list_add(viable_functions, named_symbol);
                     }
                 }
             }
@@ -2312,8 +2306,8 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
             internal_error("Unreachable code", 0);
         }
 
-        it = it->next;
     }
+    entry_list_iterator_free(it);
 
     if (viable_functions == NULL)
     {
@@ -2354,13 +2348,13 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
         // Now we need the more specialized one
         // we will do a two scans algorithm
 
-        scope_entry_list_t* it2 = viable_functions;
-        scope_entry_t* most_specialized = it2->entry;
-        it2 = it2->next;
+        scope_entry_list_iterator_t* it2 = entry_list_iterator_begin(viable_functions);
+        scope_entry_t* most_specialized = entry_list_iterator_current(it2);
+        entry_list_iterator_next(it2);
 
-        while (it2 != NULL)
+        while (!entry_list_iterator_end(it2))
         {
-            scope_entry_t* current = it2->entry;
+            scope_entry_t* current = entry_list_iterator_current(it2);
             deduction_set_t* deduction_set = NULL;
             if (!is_less_or_equal_specialized_template_function(
                         current->type_information,
@@ -2373,18 +2367,17 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                 // if (!(a<=b)) it2 means that a > b
                 most_specialized = current;
             }
-
-            it2 = it2->next;
+            entry_list_iterator_next(it2);
         }
+        entry_list_iterator_free(it2);
 
         // Now check it2 is actually the most specialized one
-        it2 = viable_functions;
-
-        while (it2 != NULL)
+        it2 = entry_list_iterator_begin(viable_functions);
+        while (!entry_list_iterator_end(it2))
         {
-            if (it2->entry != most_specialized)
+            scope_entry_t* current = entry_list_iterator_current(it2);
+            if (current != most_specialized)
             {
-                scope_entry_t* current = it2->entry;
                 deduction_set_t* deduction_set = NULL;
                 if (is_less_or_equal_specialized_template_function(
                             most_specialized->type_information,
@@ -2402,8 +2395,9 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                     return NULL;
                 }
             }
-            it2 = it2->next;
+            entry_list_iterator_next(it2);
         }
+        entry_list_iterator_free(it2);
 
         DEBUG_CODE()
         {
@@ -2494,11 +2488,7 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
             constructor = template_type_get_related_symbol(template_type);
         }
 
-        scope_entry_list_t* new_entry_list = counted_calloc(1, sizeof(*new_entry_list), &_bytes_overload);
-
-        new_entry_list->entry = constructor;
-        new_entry_list->next = constructor_list;
-        constructor_list = new_entry_list;
+        constructor_list = entry_list_add(constructor_list, constructor);
     }
 
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(constructor_list,
@@ -2510,16 +2500,17 @@ static scope_entry_t* solve_constructor_(type_t* class_type,
     memset(augmented_conversors, 0, sizeof(augmented_conversors));
 
     candidate_t* candidate_set = NULL;
-    scope_entry_list_t* it = overload_set;
-    while (it != NULL)
+    scope_entry_list_iterator_t *it = NULL;
+    for (it = entry_list_iterator_begin(overload_set);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
         candidate_set = add_to_candidate_set(candidate_set,
-                it->entry,
+                entry_list_iterator_current(it),
                 num_arguments,
                 argument_types);
-
-        it = it->next;
     }
+    entry_list_iterator_free(it);
 
     // Store the candidates here
     *candidates = overload_set;

@@ -55,7 +55,6 @@ namespace TL
         private:
             bool _valid;
             decl_context_t _decl_context;
-            static void convert_to_vector(scope_entry_list_t* entry_list, ObjectList<Symbol>& out);
             static void get_head(const ObjectList<Symbol>& in, Symbol& out);
         protected:
             virtual tl_type_t* get_extended_attribute(const std::string& str) const;
@@ -292,6 +291,9 @@ namespace TL
 				used for lookups.
 			*/
 			static AST_t wrap_symbol_name(const std::string& str);
+
+            //! Convenience function
+            static void convert_to_vector(scope_entry_list_t* entry_list, ObjectList<Symbol>& out);
 
             Scope& operator=(Scope sc);
             bool operator<(Scope sc) const;

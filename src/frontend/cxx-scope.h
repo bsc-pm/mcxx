@@ -96,10 +96,6 @@ LIBMCXX_EXTERN struct scope_entry_list_tag* query_id_expression_flags(decl_conte
 #define query_id_expression(_decl_context, _id_expression) \
     query_id_expression_flags(_decl_context, _id_expression, DF_NONE)
 
-// Manipulators
-LIBMCXX_EXTERN struct scope_entry_list_tag* create_list_from_entry(struct scope_entry_tag* entry);
-LIBMCXX_EXTERN struct scope_entry_list_tag *copy_entry_list(scope_entry_list_t* orig);
-
 // Get the fully qualified symbol name in the scope of the ocurrence
 LIBMCXX_EXTERN const char* get_fully_qualified_symbol_name(struct
         scope_entry_tag* entry, decl_context_t decl_context, char*
@@ -161,9 +157,6 @@ LIBMCXX_EXTERN char is_unqualified_id_expression(AST a);
 
 LIBMCXX_EXTERN char is_inline_namespace_of(decl_context_t inner_namespace_ctx, 
         decl_context_t outer_namespace_ctx);
-
-LIBMCXX_EXTERN scope_entry_list_t* merge_scope_entry_list(scope_entry_list_t* list_1, 
-        scope_entry_list_t* list_2);
 
 MCXX_END_DECLS
 

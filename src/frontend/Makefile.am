@@ -80,6 +80,9 @@ libmcxx_la_SOURCES = \
   cxx-utils.h \
   cxx-scope.c \
   cxx-scope.h \
+  cxx-entrylist-decls.h \
+  cxx-entrylist.c \
+  cxx-entrylist.h \
   cxx-scope-decls.h \
   cxx-attrnames.h \
   cxx-attrnames.c \

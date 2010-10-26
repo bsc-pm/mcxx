@@ -36,6 +36,7 @@
 #include "cxx-ambiguity.h"
 #include "cxx-tltype.h"
 #include "cxx-attrnames.h"
+#include "cxx-entrylist.h"
 
 #include "red_black_tree.h"
 
@@ -3503,19 +3504,7 @@ scope_entry_list_t* class_type_get_all_conversions(type_t* class_type, decl_cont
 
         scope_entry_list_t* base_conversors = class_type_get_all_conversions(base_class_type, decl_context);
 
-        // Append
-        if (base_result == NULL)
-        {
-            base_result = base_conversors;
-        }
-        else
-        {
-            scope_entry_list_t* last = base_result;
-            while (last->next != NULL)
-                last = last->next;
-            
-            last->next = base_conversors;
-        }
+        base_result = entry_list_merge(base_result, base_conversors);
     }
 
     // Now for every conversor of this class, remove it from 'result'
@@ -3524,62 +3513,35 @@ scope_entry_list_t* class_type_get_all_conversions(type_t* class_type, decl_cont
     for (i = 0; i < num_conversors; i++)
     {
         scope_entry_t* entry = class_type_get_conversion_num(class_type, i);
-
-        scope_entry_list_t* prev_it = NULL;
-        scope_entry_list_t* it = base_result;
-
-        while (it != NULL)
-        {
-            scope_entry_t* current = it->entry;
-
-            if (equivalent_types(current->type_information, entry->type_information))
-            {
-                // Remove 'it' from the list
-                if (prev_it == NULL)
-                {
-                    // Update the head
-                    base_result = it->next;
-                }
-                else
-                {
-                    prev_it->next = it->next;
-                }
-                it = it->next;
-            }
-            else
-            {
-                prev_it = it;
-                it = it->next;
-            }
-        }
-
         // At the same time build the conversor list of this class
-        {
-            scope_entry_list_t* new_item = counted_calloc(1, sizeof(*new_item), &_bytes_due_to_type_system);
-            new_item->entry = entry;
-            new_item->next = this_class_conversors;
-
-            this_class_conversors = new_item;
-        }
+        this_class_conversors = entry_list_add(this_class_conversors, entry);
     }
 
-    // Now append the filtered one to the result
-    //
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(base_result);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
     {
-        scope_entry_list_t* last = this_class_conversors;
+        scope_entry_t* entry = entry_list_iterator_current(it);
 
-        if (this_class_conversors == NULL)
+        char found = 0;
+        scope_entry_list_iterator_t* it2 = NULL;
+        for (it2 = entry_list_iterator_begin(base_result);
+                !entry_list_iterator_end(it2) && !found;
+                entry_list_iterator_next(it2))
         {
-            this_class_conversors = base_result;
+            scope_entry_t* entry2 = entry_list_iterator_current(it2);
+
+            found = equivalent_types(entry->type_information, entry2->type_information);
         }
-        else
-        {
-            while (last->next != NULL)
-                last = last->next;
+        entry_list_iterator_free(it2);
 
-            last->next = base_result;
+        if (!found)
+        {
+            this_class_conversors = entry_list_add(this_class_conversors, entry);
         }
     }
+    entry_list_iterator_free(it);
 
     return this_class_conversors;
 }
@@ -4098,7 +4060,7 @@ static type_t* advance_dependent_typename_aux(
                     copy_dependent_parts(dependent_parts));
         }
 
-        if (member_list->next != NULL)
+        if (entry_list_size(member_list) > 1)
         {
             DEBUG_CODE()
             {
@@ -4108,7 +4070,7 @@ static type_t* advance_dependent_typename_aux(
                     copy_dependent_parts(dependent_parts));
         }
 
-        scope_entry_t* member = member_list->entry;
+        scope_entry_t* member = entry_list_head(member_list);
 
         if (member->kind == SK_TYPEDEF)
         {
@@ -4235,7 +4197,7 @@ static type_t* advance_dependent_typename_aux(
                 copy_dependent_parts(dependent_parts));
     }
 
-    if (member_list->next != NULL)
+    if (entry_list_size(member_list) > 1)
     {
         DEBUG_CODE()
         {
@@ -4245,7 +4207,7 @@ static type_t* advance_dependent_typename_aux(
                 copy_dependent_parts(dependent_parts));
     }
 
-    scope_entry_t* member = member_list->entry;
+    scope_entry_t* member = entry_list_head(member_list);
 
     if (member->kind == SK_CLASS
             || member->kind == SK_TYPEDEF)
@@ -7324,10 +7286,10 @@ scope_entry_t* unresolved_overloaded_type_simplify(struct type_tag* t, decl_cont
 {
     ERROR_CONDITION(!is_unresolved_overloaded_type(t), "This is not an unresolved overloaded type", 0);
 
-    if (t->overload_set->next != NULL)
+    if (entry_list_size(t->overload_set) > 1)
         return NULL;
 
-    scope_entry_t* entry = t->overload_set->entry;
+    scope_entry_t* entry = entry_list_head(t->overload_set);
     template_argument_list_t *argument_list = t->explicit_template_argument_list;
 
     if (entry->kind != SK_TEMPLATE)
@@ -7712,90 +7674,62 @@ scope_entry_list_t* class_type_get_all_bases(type_t *t, char include_dependent)
             continue;
 
         // Add the current class if it is not already in the result
-        scope_entry_list_t* it_result = result;
 
         char found = 0;
 
-        while (it_result != NULL)
+        scope_entry_list_iterator_t* it = NULL;
+        for (it = entry_list_iterator_begin(result);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
+            scope_entry_t* entry = entry_list_iterator_current(it);
             if (equivalent_types(base_class->type_information, 
-                        it_result->entry->type_information))
+                        entry->type_information))
             {
                 found = 1;
                 break;
             }
-            it_result = it_result->next;
         }
+        entry_list_iterator_free(it);
 
         if (!found)
         {
-            scope_entry_list_t* new_entry 
-                = counted_calloc(1, sizeof(*new_entry), &_bytes_due_to_type_system);
-            new_entry->entry = base_class;
-            new_entry->next = NULL;
-
-            if (result == NULL)
-            {
-                result = new_entry;
-            }
-            else
-            {
-                it_result = result;
-                while (it_result->next != NULL)
-                {
-                    it_result = it_result->next;
-                }
-
-                it_result->next = new_entry;
-            }
+            result = entry_list_add(result, base_class);
         }
 
         // Now recursively get all the bases of this base
         scope_entry_list_t* base_list = class_type_get_all_bases(base_class->type_information, 
                 /* include_dependent */ 0);
 
-        // Append those that are not already in the result
-        scope_entry_list_t* it_base = base_list;
-        while (it_base != NULL)
+        // Add those that are not already in the result
+        for (it = entry_list_iterator_begin(base_list);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
         {
+            scope_entry_t* entry = entry_list_iterator_current(it);
+
             found = 0;
-            it_result = result;
-            while (it_result != NULL)
+            scope_entry_list_iterator_t* it2 = NULL;
+            for (it2 = entry_list_iterator_begin(result);
+                    !entry_list_iterator_end(it2);
+                    entry_list_iterator_next(it2))
             {
-                if (equivalent_types(it_base->entry->type_information, 
-                            it_result->entry->type_information))
+                scope_entry_t* entry2 = entry_list_iterator_current(it2);
+                if (equivalent_types(entry->type_information, 
+                            entry2->type_information))
                 {
                     found = 1;
                     break;
                 }
-                it_result = it_result->next;
             }
+            entry_list_iterator_free(it2);
 
             if (!found)
             {
-                scope_entry_list_t* new_entry 
-                    = counted_calloc(1, sizeof(*new_entry), &_bytes_due_to_type_system);
-                new_entry->entry = it_base->entry;
-                new_entry->next = NULL;
-
-                if (result == NULL)
-                {
-                    result = new_entry;
-                }
-                else
-                {
-                    it_result = result;
-                    while (it_result->next != NULL)
-                    {
-                        it_result = it_result->next;
-                    }
-
-                    it_result->next = new_entry;
-                }
+                result = entry_list_add(result, entry); 
             }
-
-            it_base = it_base->next;
         }
+        entry_list_iterator_free(it);
     }
 
     return result;
@@ -8621,9 +8555,9 @@ const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const ch
     else if (is_unresolved_overloaded_type(t))
     {
         scope_entry_list_t* overload_set = unresolved_overloaded_type_get_overload_set(t);
-        if (overload_set->next == NULL)
+        if (entry_list_size(overload_set) == 1)
         {
-            return print_decl_type_str(overload_set->entry->type_information, decl_context, name);
+            return print_decl_type_str(entry_list_head(overload_set)->type_information, decl_context, name);
         }
         else
         {

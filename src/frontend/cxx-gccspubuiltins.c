@@ -27,6 +27,7 @@
 #include "cxx-utils.h"
 #include "cxx-typeutils.h"
 #include "cxx-scope.h"
+#include "cxx-entrylist.h"
 
 // Bits of this code come from GCC
 //
@@ -295,7 +296,7 @@ static scope_entry_t* solve_spu_overload_name(scope_entry_t* overloaded_function
             break;
         }
 
-        scope_entry_t* current_entry = entry_list->entry;
+        scope_entry_t* current_entry = entry_list_head(entry_list);
 
         type_t* current_function_type = current_entry->type_information;
 
