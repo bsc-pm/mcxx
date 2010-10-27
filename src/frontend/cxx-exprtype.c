@@ -730,6 +730,7 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                         result = 1;
                     }
                 }
+                entry_list_free(entry_list);
 
                 break;
             }
@@ -2495,6 +2496,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
                 decl_context,
                 ASTFileName(expr), ASTLine(expr),
                 /* explicit template arguments */ NULL);
+        entry_list_free(operator_entry_list);
     }
 
     // This uses Koenig, otherwise some operators might not be found
@@ -2502,15 +2504,20 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
             argument_types, decl_context, operator_name);
 
     // Normal lookup might find member functions at this point, filter them
-    entry_list = filter_symbol_using_predicate(entry_list, filter_only_nonmembers);
+    scope_entry_list_t* nonmember_entry_list = filter_symbol_using_predicate(entry_list, filter_only_nonmembers);
+    entry_list_free(entry_list);
     
-    scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(entry_list,
+    scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(nonmember_entry_list,
             builtins, argument_types, num_arguments,
             decl_context,
             ASTFileName(expr), ASTLine(expr),
             /* explicit template arguments */ NULL);
+    entry_list_free(nonmember_entry_list);
 
-    overload_set = entry_list_merge(overload_set, operator_overload_set);
+    scope_entry_list_t* old_overload_set = overload_set;
+    overload_set = entry_list_merge(old_overload_set, operator_overload_set);
+    entry_list_free(old_overload_set);
+    entry_list_free(operator_overload_set);
 
     scope_entry_list_iterator_t *it = NULL;
     for (it = entry_list_iterator_begin(overload_set);
@@ -2523,6 +2530,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
                 argument_types);
     }
     entry_list_iterator_free(it);
+    entry_list_free(overload_set);
 
     scope_entry_t* conversors[2] = { NULL, NULL };
 
@@ -2607,19 +2615,22 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
             }
         }
         entry_list_iterator_free(it);
+        entry_list_free(operator_entry_list);
     }
 
     scope_entry_list_t *entry_list = koenig_lookup(num_arguments,
             argument_types, decl_context, operator_name);
 
     // Remove any member that might have slip in because of plain lookup
-    entry_list = filter_symbol_using_predicate(entry_list, filter_only_nonmembers);
+    scope_entry_list_t* nonmember_entry_list = filter_symbol_using_predicate(entry_list, filter_only_nonmembers);
+    entry_list_free(entry_list);
     
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(
-            entry_list, builtins, argument_types, num_arguments,
+            nonmember_entry_list, builtins, argument_types, num_arguments,
             decl_context,
             ASTFileName(expr), ASTLine(expr),
             /* explicit_template_arguments */ NULL);
+    entry_list_free(nonmember_entry_list);
 
     scope_entry_list_iterator_t *it = NULL;
     for (it = entry_list_iterator_begin(overload_set);
@@ -2632,6 +2643,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
                 argument_types);
     }
     entry_list_iterator_free(it);
+    entry_list_free(overload_set);
 
     scope_entry_t* conversors[1] = { NULL };
     
@@ -2794,6 +2806,8 @@ type_t* compute_bin_operator_add_type(AST expr, AST lhs, AST rhs, decl_context_t
     type_t* result = compute_user_defined_bin_operator_type(operation_add_tree, 
             expr, lhs, rhs, builtins, decl_context, &selected_operator);
 
+    entry_list_free(builtins);
+
     if (val != NULL
             && result != NULL
             && selected_operator != NULL
@@ -2876,8 +2890,12 @@ type_t* compute_bin_operator_only_arithmetic_types(AST expr, AST lhs, AST rhs, A
     scope_entry_t* selected_operator = NULL;
 
     // Now in C++ we have to rely on overloading for operators
-    return compute_user_defined_bin_operator_type(operator, 
+    type_t* result = compute_user_defined_bin_operator_type(operator, 
             expr, lhs, rhs, builtins, decl_context, &selected_operator);
+
+    entry_list_free(builtins);
+
+    return result;
 }
 
 static
@@ -2991,8 +3009,12 @@ type_t* compute_bin_operator_only_integer_types(AST expr, AST lhs, AST rhs, AST 
     scope_entry_t* selected_operator = NULL;
 
     // Now in C++ we have to rely on overloading for operators
-    return compute_user_defined_bin_operator_type(operator, 
+    type_t* result = compute_user_defined_bin_operator_type(operator, 
             expr, lhs, rhs, builtins, decl_context, &selected_operator);
+
+    entry_list_free(builtins);
+
+    return result;
 }
 
 static
@@ -3133,6 +3155,8 @@ static type_t* compute_bin_operator_sub_type(AST expr, AST lhs, AST rhs, decl_co
     type_t* result = compute_user_defined_bin_operator_type(operator, 
             expr, lhs, rhs, builtins, decl_context, &selected_operator);
 
+    entry_list_free(builtins);
+
     if (val != NULL
             && result != NULL
             && selected_operator != NULL
@@ -3212,8 +3236,12 @@ static type_t* compute_bin_operator_only_integral_lhs_type(AST expr, AST lhs, AS
 
     scope_entry_t* selected_operator = NULL;
 
-    return compute_user_defined_bin_operator_type(operator, 
+    type_t* result = compute_user_defined_bin_operator_type(operator, 
             expr, lhs, rhs, builtins, decl_context, &selected_operator);
+
+    entry_list_free(builtins);
+
+    return result;
 }
 
 static type_t* compute_bin_operator_shl_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context, const_value_t** val)
@@ -3410,8 +3438,12 @@ static type_t* compute_bin_operator_relational(AST expr, AST lhs, AST rhs, AST o
 
     scope_entry_t* selected_operator = NULL;
 
-    return compute_user_defined_bin_operator_type(operator, 
+    type_t* result = compute_user_defined_bin_operator_type(operator, 
             expr, lhs, rhs, builtins, decl_context, &selected_operator);
+
+    entry_list_free(builtins);
+
+    return result;
 }
 
 static type_t* compute_bin_operator_lower_equal_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context, 
@@ -3637,8 +3669,12 @@ static type_t* compute_bin_logical_op_type(AST expr, AST lhs, AST rhs, AST opera
 
     scope_entry_t* selected_operator = NULL;
 
-    return compute_user_defined_bin_operator_type(operator, 
+    type_t* result = compute_user_defined_bin_operator_type(operator, 
             expr, lhs, rhs, builtins, decl_context, &selected_operator);
+
+    entry_list_free(builtins);
+
+    return result;
 }
 
 static type_t* compute_bin_operator_logical_or_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context, const_value_t** val)
@@ -3841,8 +3877,12 @@ static type_t* compute_bin_operator_assig_only_integral_type(AST expr, AST lhs, 
     scope_entry_t* selected_operator = NULL;
 
     // We need to do overload
-    return compute_user_defined_bin_operator_type(operator, 
+    type_t* result = compute_user_defined_bin_operator_type(operator, 
             expr, lhs, rhs, builtins, decl_context, &selected_operator);
+
+    entry_list_free(builtins);
+
+    return result;
 }
 
 static char operator_bin_assign_arithmetic_or_pointer_pred(type_t* lhs, type_t* rhs)
@@ -3931,8 +3971,12 @@ static type_t* compute_bin_operator_assig_arithmetic_or_pointer_type(AST expr, A
     scope_entry_t* selected_operator = NULL;
 
     // We need to do overload
-    return compute_user_defined_bin_operator_type(operator, 
+    type_t* result = compute_user_defined_bin_operator_type(operator, 
             expr, lhs, rhs, builtins, decl_context, &selected_operator);
+
+    entry_list_free(builtins);
+
+    return result;
 }
 
 static char operator_bin_assign_only_arithmetic_pred(type_t* lhs, type_t* rhs)
@@ -4037,13 +4081,15 @@ static type_t* compute_bin_nonoperator_assig_only_arithmetic_type(AST expr, AST 
             // to solve it here using lhs_type
             if (is_unresolved_overloaded_type(no_ref(rhs_type)))
             {
+                scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(rhs_type);
                 scope_entry_t* solved_function = address_of_overloaded_function(
-                        unresolved_overloaded_type_get_overload_set(rhs_type),
+                        unresolved_set,
                         unresolved_overloaded_type_get_explicit_template_arguments(rhs_type),
                         no_ref(lhs_type), 
                         decl_context,
                         ASTFileName(lhs),
                         ASTLine(lhs));
+                entry_list_free(unresolved_set);
 
                 if (solved_function == NULL)
                 {
@@ -4094,8 +4140,12 @@ static type_t* compute_bin_nonoperator_assig_only_arithmetic_type(AST expr, AST 
     scope_entry_t* selected_operator = NULL;
 
     // We need to do overload
-    return compute_user_defined_bin_operator_type(operator, 
+    type_t* result = compute_user_defined_bin_operator_type(operator, 
             expr, lhs, rhs, builtins, decl_context, &selected_operator);
+
+    entry_list_free(builtins);
+
+    return result;
 }
 
 static type_t* compute_bin_operator_assig_only_arithmetic_type(AST expr, AST lhs, AST rhs, AST operator,
@@ -4130,13 +4180,15 @@ static type_t* compute_bin_operator_assig_only_arithmetic_type(AST expr, AST lhs
             // to solve it here using lhs_type
             if (is_unresolved_overloaded_type(no_ref(rhs_type)))
             {
+                scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(rhs_type);
                 scope_entry_t* solved_function = address_of_overloaded_function(
-                        unresolved_overloaded_type_get_overload_set(rhs_type),
+                        unresolved_set,
                         unresolved_overloaded_type_get_explicit_template_arguments(rhs_type),
                         no_ref(lhs_type), 
                         decl_context,
                         ASTFileName(lhs),
                         ASTLine(lhs));
+                entry_list_free(unresolved_set);
 
                 if (solved_function == NULL)
                 {
@@ -4191,8 +4243,12 @@ static type_t* compute_bin_operator_assig_only_arithmetic_type(AST expr, AST lhs
     scope_entry_t* selected_operator = NULL;
 
     // We need to do overload
-    return compute_user_defined_bin_operator_type(operator, 
+    type_t* result = compute_user_defined_bin_operator_type(operator, 
             expr, lhs, rhs, builtins, decl_context, &selected_operator);
+
+    entry_list_free(builtins);
+
+    return result;
 }
 
 static type_t* compute_bin_operator_mod_assig_type(AST expr, AST lhs, AST rhs,
@@ -4469,8 +4525,12 @@ static type_t* compute_operator_derreference_type(AST expression,
 
     scope_entry_t* selected_operator = NULL;
 
-    return compute_user_defined_unary_operator_type(operation_tree,
+    type_t* result = compute_user_defined_unary_operator_type(operation_tree,
             expression, op, builtins, decl_context, &selected_operator);
+
+    entry_list_free(builtins);
+
+    return result;
 }
 
 char operator_unary_plus_pred(type_t* op_type)
@@ -4572,6 +4632,8 @@ static type_t* compute_operator_plus_type(AST expression,
     type_t* result = compute_user_defined_unary_operator_type(operation_tree,
             expression, op, builtins, decl_context, &selected_operator);
 
+    entry_list_free(builtins);
+
     if (val != NULL
             && is_integral_type(no_ref(result))
             && is_integral_type(no_ref(op_type))
@@ -4667,6 +4729,8 @@ static type_t* compute_operator_minus_type(AST expression,
 
     type_t* result = compute_user_defined_unary_operator_type(operation_tree,
             expression, op, builtins, decl_context, &selected_operator);
+
+    entry_list_free(builtins);
 
     if (val != NULL
             && result != NULL
@@ -4764,6 +4828,8 @@ static type_t* compute_operator_complement_type(AST expression,
 
     type_t* result = compute_user_defined_unary_operator_type(operation_tree,
             expression, op, builtins, decl_context, &selected_operator);
+
+    entry_list_free(builtins);
 
     if (val != NULL
             && result != NULL
@@ -4876,6 +4942,8 @@ static type_t* compute_operator_not_type(AST expression,
     type_t* result = compute_user_defined_unary_operator_type(operation_tree,
             expression, op, builtins, decl_context, &selected_operator);
 
+    entry_list_free(builtins);
+
     if (val != NULL
             && result != NULL
             && selected_operator != NULL
@@ -4922,19 +4990,21 @@ static type_t* compute_operator_reference_type(AST expression,
                     return NULL;
                 }
 
-                if (entry_list_head(entry_list)->kind == SK_DEPENDENT_ENTITY)
-                {
-                    expression_set_dependent(expression);
-                    return expression_get_type(expression);
-                }
-
                 if (entry_list_size(entry_list) > 1)
                 {
                     // This can't happen with data members
+                    entry_list_free(entry_list);
                     return NULL;
                 }
 
                 scope_entry_t* entry = entry_list_head(entry_list);
+                entry_list_free(entry_list);
+
+                if (entry->kind == SK_DEPENDENT_ENTITY)
+                {
+                    expression_set_dependent(expression);
+                    return expression_get_type(expression);
+                }
 
                 if (!entry->entity_specs.is_member
                         || entry->entity_specs.is_static)
@@ -5111,17 +5181,31 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, const_val
         names_a_builtin = 1;
     }
 
-    if (result != NULL 
-            && (entry_list_head(result)->kind == SK_VARIABLE
-                || entry_list_head(result)->kind == SK_DEPENDENT_ENTITY
-                || entry_list_head(result)->kind == SK_ENUMERATOR
-                || entry_list_head(result)->kind == SK_FUNCTION
-                // template function names
-                || entry_list_head(result)->kind == SK_TEMPLATE
-                || entry_list_head(result)->kind == SK_TEMPLATE_PARAMETER))
+    if (result == NULL)
     {
-        scope_entry_t* entry = entry_list_head(result);
+        if (!names_a_builtin)
+        {
+            return 0;
+        }
+        else
+        {
+            // Do not know anything about this type so set to something that is
+            // never considered an error (even in C)
+            expression_set_type(expr, get_dependent_expr_type());
+            return 1;
+        }
+    }
 
+    scope_entry_t* entry = entry_list_head(result);
+
+    if (entry->kind == SK_VARIABLE
+            || entry->kind == SK_DEPENDENT_ENTITY
+            || entry->kind == SK_ENUMERATOR
+            || entry->kind == SK_FUNCTION
+            // template function names
+            || entry->kind == SK_TEMPLATE
+            || entry->kind == SK_TEMPLATE_PARAMETER)
+    {
         expression_set_symbol(expr, entry);
 
         if (entry->kind == SK_TEMPLATE)
@@ -5132,6 +5216,7 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, const_val
             // Only template-function-names are allowed here
             if (!is_function_type(function_specialization))
             {
+                entry_list_free(result);
                 return 0;
             }
         }
@@ -5285,23 +5370,11 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                     prettyprint_in_buffer(expr), ast_location(expr),
                     print_declarator(expression_get_type(expr)));
         }
+    }
 
-        return 1;
-    }
-    else
-    {
-        if (!names_a_builtin)
-        {
-            return 0;
-        }
-        else
-        {
-            // Do not know anything about this type so set to something that is
-            // never considered an error (even in C)
-            expression_set_type(expr, get_dependent_expr_type());
-            return 1;
-        }
-    }
+    entry_list_free(result);
+
+    return 1;
 }
 
 static char check_for_symbol(AST expr, decl_context_t decl_context, const_value_t** val)
@@ -5336,6 +5409,7 @@ static char compute_qualified_id_type(AST expr, decl_context_t decl_context, con
         if (entry->kind == SK_DEPENDENT_ENTITY)
         {
             expression_set_dependent(expr);
+            entry_list_free(result_list);
             return 1;
         }
     }
@@ -5349,6 +5423,7 @@ static char compute_qualified_id_type(AST expr, decl_context_t decl_context, con
             type_t* solved = check_template_function(result_list, 
                     unqualified_object, decl_context, 
                     &dependent_template_arguments);
+            entry_list_free(result_list);
 
             if (solved != NULL)
             {
@@ -5372,80 +5447,83 @@ static char compute_qualified_id_type(AST expr, decl_context_t decl_context, con
     }
     else
     {
-        if (result_list != NULL
-                && (entry_list_head(result_list)->kind == SK_VARIABLE
-                    || entry_list_head(result_list)->kind == SK_ENUMERATOR
-                    || entry_list_head(result_list)->kind == SK_FUNCTION
-                    || entry_list_head(result_list)->kind == SK_TEMPLATE))
+        if (result_list == NULL)
+            return 0;
+
+        scope_entry_t* entry = entry_list_head(result_list);
+        if (entry->kind != SK_VARIABLE
+                && entry->kind != SK_ENUMERATOR
+                && entry->kind != SK_FUNCTION
+                && entry->kind != SK_TEMPLATE)
         {
-            scope_entry_t* entry = entry_list_head(result_list);
-
-            expression_set_symbol(expr, entry);
-
-            if (entry->kind == SK_VARIABLE)
-            {
-                if (!is_dependent_type(entry->type_information))
-                {
-                    expression_set_type(expr, lvalue_ref(entry->type_information));
-                    expression_set_is_lvalue(expr, 1);
-                }
-                else
-                {
-                    expression_set_dependent(expr);
-                }
-
-                if (!entry->entity_specs.is_parameter
-                        && (is_const_qualified_type(entry->type_information)
-                            || entry->entity_specs.is_template_argument)
-                        && entry->expression_value != NULL)
-                {
-                    if (val != NULL
-                            && expression_is_constant(entry->expression_value))
-                        *val = expression_get_constant(entry->expression_value);
-
-                    if (expression_is_value_dependent(entry->expression_value))
-                        expression_set_is_value_dependent(expr, 1);
-                }
-            }
-            else if (entry->kind == SK_ENUMERATOR)
-            {
-                expression_set_type(expr, entry->type_information);
-                expression_set_is_lvalue(expr, 0);
-
-                if (val != NULL
-                        && expression_is_constant(entry->expression_value))
-                {
-                    *val = expression_get_constant(entry->expression_value);
-                }
-
-                if (expression_is_value_dependent(entry->expression_value))
-                {
-                    expression_set_is_value_dependent(expr, 1);
-                }
-            }
-            else if (entry->kind == SK_FUNCTION)
-            {
-                expression_set_type(expr, get_unresolved_overloaded_type(result_list, /* template_args */ NULL));
-            }
-            else if (entry->kind == SK_TEMPLATE)
-            {
-                type_t* primary_named_type = template_type_get_primary_type(entry->type_information);
-                scope_entry_t* named_type = named_type_get_symbol(primary_named_type);
-
-                if (named_type->kind != SK_FUNCTION)
-                    return 0;
-
-                expression_set_type(expr, get_unresolved_overloaded_type(result_list, /* template_args */ NULL));
-            }
-
-            return 1;
-        }
-        else
-        {
+            entry_list_free(result_list);
             return 0;
         }
-    }
 
+        expression_set_symbol(expr, entry);
+
+        if (entry->kind == SK_VARIABLE)
+        {
+            if (!is_dependent_type(entry->type_information))
+            {
+                expression_set_type(expr, lvalue_ref(entry->type_information));
+                expression_set_is_lvalue(expr, 1);
+            }
+            else
+            {
+                expression_set_dependent(expr);
+            }
+
+            if (!entry->entity_specs.is_parameter
+                    && (is_const_qualified_type(entry->type_information)
+                        || entry->entity_specs.is_template_argument)
+                    && entry->expression_value != NULL)
+            {
+                if (val != NULL
+                        && expression_is_constant(entry->expression_value))
+                    *val = expression_get_constant(entry->expression_value);
+
+                if (expression_is_value_dependent(entry->expression_value))
+                    expression_set_is_value_dependent(expr, 1);
+            }
+        }
+        else if (entry->kind == SK_ENUMERATOR)
+        {
+            expression_set_type(expr, entry->type_information);
+            expression_set_is_lvalue(expr, 0);
+
+            if (val != NULL
+                    && expression_is_constant(entry->expression_value))
+            {
+                *val = expression_get_constant(entry->expression_value);
+            }
+
+            if (expression_is_value_dependent(entry->expression_value))
+            {
+                expression_set_is_value_dependent(expr, 1);
+            }
+        }
+        else if (entry->kind == SK_FUNCTION)
+        {
+            expression_set_type(expr, get_unresolved_overloaded_type(result_list, /* template_args */ NULL));
+        }
+        else if (entry->kind == SK_TEMPLATE)
+        {
+            type_t* primary_named_type = template_type_get_primary_type(entry->type_information);
+            scope_entry_t* named_type = named_type_get_symbol(primary_named_type);
+
+            if (named_type->kind != SK_FUNCTION)
+            {
+                entry_list_free(result_list);
+                return 0;
+            }
+
+            expression_set_type(expr, get_unresolved_overloaded_type(result_list, /* template_args */ NULL));
+        }
+
+        entry_list_free(result_list);
+        return 1;
+    }
 }
 
 static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context)
@@ -5512,10 +5590,6 @@ static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context
                     ASTLeaf(AST_SUBSCRIPT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
         }
 
-        scope_entry_list_t* operator_subscript_list = get_member_function_of_class_type(
-                no_ref(subscripted_type),
-                operator_subscript_tree,
-                decl_context);
 
         if (is_dependent_expr_type(subscript_type))
         {
@@ -5524,6 +5598,11 @@ static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context
         }
         else
         {
+            scope_entry_list_t* operator_subscript_list = get_member_function_of_class_type(
+                    no_ref(subscripted_type),
+                    operator_subscript_tree,
+                    decl_context);
+
             // Solve operator[]. It is always a member operator
             int num_arguments = 2;
             type_t* argument_types[2] = { subscripted_type, subscript_type };
@@ -5535,6 +5614,7 @@ static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context
                     decl_context,
                     ASTFileName(expr), ASTLine(expr),
                     /* explicit_template_arguments */ NULL);
+            entry_list_free(operator_subscript_list);
 
             candidate_t* candidate_set = NULL;
             scope_entry_list_iterator_t* it = NULL;
@@ -5548,6 +5628,7 @@ static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context
                         argument_types);
             }
             entry_list_iterator_free(it);
+            entry_list_free(overload_set);
 
             scope_entry_t *overloaded_call = solve_overload(candidate_set,
                     decl_context, ASTFileName(expr), ASTLine(expr), conversors);
@@ -5630,6 +5711,7 @@ static char check_for_conversion_function_id_expression(AST expression, decl_con
         }
     }
     entry_list_iterator_free(it);
+    entry_list_free(entry_list);
 
     if (!found)
     {
@@ -6027,7 +6109,6 @@ static char check_for_conditional_expression_impl(AST expression,
                 third_type,
             };
 
-
             candidate_t* candidate_set = NULL;
             scope_entry_list_iterator_t *it = NULL;
             for (it = entry_list_iterator_begin(builtins);
@@ -6040,6 +6121,7 @@ static char check_for_conditional_expression_impl(AST expression,
                         argument_types);
             }
             entry_list_iterator_free(it);
+            entry_list_free(builtins);
 
             scope_entry_t* conversors[3] = { NULL, NULL, NULL };
             scope_entry_t *overloaded_call = solve_overload(candidate_set,
@@ -6464,6 +6546,7 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
                                     get_qualified_symbol_name(candidate_op, decl_context)));
                     }
                     entry_list_iterator_free(it);
+                    entry_list_free(operator_new_list);
                 }
                 return 0;
             }
@@ -6544,6 +6627,7 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
                             ASTFileName(new_expr), ASTLine(new_expr),
                             conversors,
                             &candidates);
+                    entry_list_free(candidates);
 
                     if (chosen_constructor == NULL)
                     {
@@ -6805,6 +6889,7 @@ static char check_for_delete_expression(AST expression, decl_context_t decl_cont
             }
         }
         entry_list_iterator_free(it);
+        entry_list_free(operator_delete_list);
 
         if (chosen == NULL)
         {
@@ -6813,24 +6898,6 @@ static char check_for_delete_expression(AST expression, decl_context_t decl_cont
                     prettyprint_in_buffer(operation_delete_name),
                     print_decl_type_str(pointer_type_get_pointee_type(deleted_expr_type), 
                         decl_context, ""));
-#if 0
-            it = operator_delete_list;
-            fprintf(stderr, "note: %s: all '%s' found were\n", 
-                    ast_location(expression),
-                    prettyprint_in_buffer(operation_delete_name));
-
-            while (it != NULL)
-            {
-                scope_entry_t* operator_delete = it->entry;
-
-                fprintf(stderr, "note: %s:    %s\n",
-                        ast_location(expression),
-                        print_decl_type_str(operator_delete->type_information, 
-                            decl_context, operator_delete->symbol_name));
-
-                it = it->next;
-            }
-#endif 
             return 0;
         }
         else
@@ -6913,6 +6980,7 @@ static char check_for_explicit_type_conversion_common(type_t* type_info,
                         ASTFileName(expr), ASTLine(expr),
                         conversors,
                         &candidates);
+            entry_list_free(candidates);
 
             if (constructor == NULL)
             {
@@ -6985,6 +7053,7 @@ static char check_for_explicit_typename_type_conversion(AST expr, decl_context_t
         return 0;
 
     scope_entry_t* entry = entry_list_head(entry_list);
+    entry_list_free(entry_list);
 
     if (entry->kind != SK_TYPEDEF
             && entry->kind != SK_ENUM
@@ -7073,8 +7142,10 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
         SK_DEPENDENT_ENTITY
     };
 
-    entry_list = filter_symbol_kind_set(entry_list,
+    scope_entry_list_t* old_entry_list = entry_list;
+    entry_list = filter_symbol_kind_set(old_entry_list,
             STATIC_ARRAY_LENGTH(filter_function_names), filter_function_names);
+    entry_list_free(old_entry_list);
 
     char still_requires_koenig = 1;
 
@@ -7197,14 +7268,17 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
         }
     }
 
+    entry_list_free(entry_list);
     entry_list = koenig_lookup(
             num_arguments,
             argument_types,
             decl_context,
             called_expression);
 
-    entry_list = filter_symbol_kind_set(entry_list,
+    old_entry_list = entry_list;
+    entry_list = filter_symbol_kind_set(old_entry_list,
             STATIC_ARRAY_LENGTH(filter_function_names), filter_function_names);
+    entry_list_free(old_entry_list);
 
     // Filter the list again
     if (entry_list != NULL)
@@ -7318,6 +7392,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                                 print_decl_type_str(expression_get_type(called_expression), decl_context, name));
                     }
                 }
+                entry_list_free(entry_list);
             }
             else
                 return 0;
@@ -7332,6 +7407,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                     advanced_called_expression);
 
             scope_entry_t *entry = entry_list_head(entry_list);
+            entry_list_free(entry_list);
 
             type_t** argument_list = NULL;
             int num_arguments_tmp = 0;
@@ -7631,6 +7707,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                 decl_context,
                 ASTFileName(whole_function_call), ASTLine(whole_function_call),
                 explicit_template_arguments);
+        entry_list_free(first_candidates);
 
         // Now check the form of the call in order to fill the implicit argument type
         if (ASTType(called_expression) == AST_CLASS_MEMBER_ACCESS)
@@ -7647,6 +7724,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             if (is_dependent_type(class_type))
             {
                 // Nothing else to do this is a dependent call
+                entry_list_free(candidates);
                 expression_set_dependent(called_expression);
                 return 1;
             }
@@ -7668,6 +7746,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
 
             if (!is_pointer_to_class_type(no_ref(class_type)))
             {
+                entry_list_free(candidates);
                 return 0;
             }
 
@@ -7676,6 +7755,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             if (is_dependent_type(class_type))
             {
                 // Nothing else to do this is a dependent call
+                entry_list_free(candidates);
                 expression_set_dependent(called_expression);
                 return 1;
             }
@@ -7702,6 +7782,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
 
                 if (is_dependent_type(this_symbol->type_information))
                 {
+                    entry_list_free(candidates);
                     expression_set_dependent(called_expression);
                     return 1;
                 }
@@ -7737,12 +7818,13 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                     ASTLeaf(AST_FUNCTION_CALL_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
         }
 
-        candidates = get_member_function_of_class_type(class_type, operator, decl_context);
-        candidates = unfold_and_mix_candidate_functions(candidates,
+        scope_entry_list_t* first_set_candidates = get_member_function_of_class_type(class_type, operator, decl_context);
+        candidates = unfold_and_mix_candidate_functions(first_set_candidates,
                 /* builtins */ NULL, argument_types + 1, num_arguments - 1,
                 decl_context,
                 ASTFileName(whole_function_call), ASTLine(whole_function_call),
                 /* explicit_template_arguments */ NULL);
+        entry_list_free(first_set_candidates);
 
 #define MAX_SURROGATE_FUNCTIONS (64)
         int num_surrogate_functions = 0;
@@ -7846,6 +7928,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             }
         }
         entry_list_iterator_free(it);
+        entry_list_free(conversion_list);
     }
 
     DEBUG_CODE()
@@ -7881,6 +7964,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         }
     }
     entry_list_iterator_free(it);
+    entry_list_free(candidates);
 
     scope_entry_t* overloaded_call = solve_overload(candidate_set,
             decl_context,
@@ -8418,6 +8502,7 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
                     argument_types);
         }
         entry_list_iterator_free(it);
+        entry_list_free(operator_arrow_list);
 
         scope_entry_t* conversors[1] = { NULL };
 
@@ -8524,6 +8609,7 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
 
                 if (equivalent_types(conversion_type, current_conversion_type))
                 {
+                    entry_list_free(entry_list);
                     entry_list = entry_list_new(entry);
                     found = 1;
                 }
@@ -8568,6 +8654,7 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
         }
     }
 
+    char ok = 0;
     scope_entry_t* entry = entry_list_head(entry_list);
     C_LANGUAGE()
     {
@@ -8577,7 +8664,7 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
         // C only will have fields
         expression_set_type(member_access, entry->type_information);
         expression_set_is_lvalue(member_access, 1);
-        return 1;
+        ok = 1;
     }
 
     CXX_LANGUAGE()
@@ -8592,12 +8679,12 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
             {
                 expression_set_type(member_access, lvalue_ref(entry->type_information));
                 expression_set_is_lvalue(member_access, 1);
-                return 1;
+                ok = 1;
             }
             else
             {
                 expression_set_dependent(member_access);
-                return 1;
+                ok = 1;
             }
         }
         // In C++ if we have overload remember it
@@ -8606,11 +8693,13 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
         {
             expression_set_type(member_access, get_unresolved_overloaded_type(entry_list, 
                         /* explicit_template_arguments */ NULL));
-            return 1;
+            ok = 1;
         }
     }
 
-    return 0;
+    entry_list_free(entry_list);
+
+    return ok;
 }
 
 static char check_for_qualified_id(AST expr, decl_context_t decl_context, const_value_t** val)
@@ -8715,6 +8804,7 @@ static char check_for_template_id_expr(AST expr, decl_context_t decl_context)
     type_t* solved = check_template_function(entry_list, expr, decl_context,
             &dependent_template_arguments);
 
+    char ok = 0;
     if (solved != NULL)
     {
         expression_set_type(expr, solved);
@@ -8722,20 +8812,19 @@ static char check_for_template_id_expr(AST expr, decl_context_t decl_context)
         // expression, but ok, lvalueness is such a mystic thing throughout the
         // standard.
         expression_set_is_lvalue(expr, 1);
-        return 1;
+        ok = 1;
     } 
     else if (dependent_template_arguments)
     {
         // This might well be a function template name but with wrong template-parameters
         // because of type dependency. So give it a second chance
         expression_set_dependent(expr);
-        return 1;
+        ok = 1;
     }
-    else
-    {
-        // solved == NULL && !dependent_template_arguments 
-        return 0;
-    }
+
+    entry_list_free(entry_list);
+
+    return ok;
 }
 
 static char check_for_postoperator_user_defined(AST expr, AST operator, 
@@ -8764,6 +8853,7 @@ static char check_for_postoperator_user_defined(AST expr, AST operator,
                 decl_context,
                 ASTFileName(expr), ASTLine(expr),
                 /* explicit_template_arguments */ NULL);
+        entry_list_free(operator_entry_list);
     }
 
     // We need to do koenig lookup for non-members
@@ -8775,8 +8865,12 @@ static char check_for_postoperator_user_defined(AST expr, AST operator,
             builtins, argument_types, num_arguments,
             decl_context,
             ASTFileName(expr), ASTLine(expr), /* explicit_template_arguments */ NULL);
+    entry_list_free(entry_list);
 
-    overload_set = entry_list_merge(overload_set, operator_overload_set);
+    scope_entry_list_t* old_overload_set = overload_set;
+    overload_set = entry_list_merge(old_overload_set, operator_overload_set);
+    entry_list_free(old_overload_set);
+    entry_list_free(operator_overload_set);
 
     scope_entry_t* conversors[1] = { NULL };
 
@@ -8848,6 +8942,7 @@ static char check_for_preoperator_user_defined(AST expr, AST operator,
                 decl_context,
                 ASTFileName(expr), ASTLine(expr),
                 /* explicit_template_arguments */ NULL);
+        entry_list_free(operator_entry_list);
     }
 
     // Otherwise lookup in non-member operator
@@ -8861,8 +8956,12 @@ static char check_for_preoperator_user_defined(AST expr, AST operator,
             entry_list, builtins, argument_types, num_arguments,
             decl_context,
             ASTFileName(expr), ASTLine(expr), /* explicit_template_arguments */ NULL);
+    entry_list_free(entry_list);
 
-    overload_set = entry_list_merge(overload_set, operator_overload_set);
+    scope_entry_list_t* old_overload_set = overload_set;
+    overload_set = entry_list_merge(old_overload_set, operator_overload_set);
+    entry_list_free(old_overload_set);
+    entry_list_free(operator_overload_set);
 
     scope_entry_t* conversors[1] = { NULL };
 
@@ -8877,6 +8976,7 @@ static char check_for_preoperator_user_defined(AST expr, AST operator,
                 argument_types);
     }
     entry_list_iterator_free(it);
+    entry_list_free(overload_set);
 
     scope_entry_t* overloaded_call = solve_overload(candidate_set,
             decl_context, ASTFileName(expr), ASTLine(expr), conversors);
@@ -9012,8 +9112,12 @@ static char check_for_postoperator(AST expr, AST operator, AST postoperated_expr
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
     
     // Only C++ after this point
-    return check_for_postoperator_user_defined(expr, operator, 
+    char result = check_for_postoperator_user_defined(expr, operator, 
             postoperated_expr, decl_context, builtins);
+
+    entry_list_free(builtins);
+
+    return result;
 }
 
 static char preoperator_incr_pred(type_t* lhs)
@@ -9104,8 +9208,12 @@ static char check_for_preoperator(AST expr, AST operator,
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
     // Only C++ after this point
-    return check_for_preoperator_user_defined(expr, operator, 
+    char result = check_for_preoperator_user_defined(expr, operator, 
             preoperated_expr, decl_context, builtins);
+
+    entry_list_free(builtins);
+
+    return result;
 }
 
 static char check_for_postincrement(AST expr, decl_context_t decl_context)
@@ -9207,6 +9315,7 @@ static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, AST expr)
         }
 
         decl_context_t std_context = entry_list_head(entry_list)->namespace_decl_context;
+        entry_list_free(entry_list);
         entry_list = query_in_scope_str(std_context, "type_info");
 
         if (entry_list == NULL
@@ -9220,6 +9329,7 @@ static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, AST expr)
         }
 
         typeid_sym = entry_list_head(entry_list);
+        entry_list_free(entry_list);
     }
 
     return typeid_sym;
@@ -9241,6 +9351,7 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, AS
         if (entry_list == NULL 
                 || entry_list_head(entry_list)->kind != SK_NAMESPACE)
         {
+            entry_list_free(entry_list);
             if (!mandatory)
                 return NULL;
 
@@ -9251,21 +9362,25 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, AS
         }
 
         decl_context_t std_context = entry_list_head(entry_list)->namespace_decl_context;
+        entry_list_free(entry_list);
+
         entry_list = query_in_scope_str(std_context, "initializer_list");
 
         if (entry_list == NULL
                 && entry_list_head(entry_list)->kind != SK_TEMPLATE)
         {
+            entry_list_free(entry_list);
             if (!mandatory)
                 return NULL;
 
-            running_error("%s: error: template-nam 'initializer_list' not found when looking up 'std::initializer_list' (because of '%s')\n"
+            running_error("%s: error: template-name 'initializer_list' not found when looking up 'std::initializer_list' (because of '%s')\n"
                     "Maybe you need '#include <initializer_list>'",
                     ast_location(expr),
                     prettyprint_in_buffer(expr));
         }
 
         initializer_list_sym = entry_list_head(entry_list);
+        entry_list_free(entry_list);
     }
 
     return initializer_list_sym;
@@ -9349,20 +9464,35 @@ type_t* get_designated_type(AST designation, decl_context_t decl_context, type_t
                     AST symbol = ASTSon0(current_designator);
                     if (is_class_type(designated_type))
                     {
-                        scope_entry_list_t* member = get_member_of_class_type(designated_type, symbol, decl_context);
+                        scope_entry_list_t* member_list = get_member_of_class_type(designated_type, symbol, decl_context);
 
-                        if (member != NULL
-                                && entry_list_head(member)->kind == SK_VARIABLE)
+                        char ok = 1;
+                        if (member_list != NULL)
                         {
-                            designated_type = entry_list_head(member)->type_information;
+                            ok = 0;
                         }
                         else
+                        {
+                            scope_entry_t* member = entry_list_head(member_list);
+                            entry_list_free(member_list);
+
+                            if (member->kind == SK_VARIABLE)
+                            {
+                                designated_type = member->type_information;
+                            }
+                            else
+                            {
+                                ok = 0;
+                            }
+                        }
+
+                        if (!ok)
                         {
                             fprintf(stderr, "%s: warning: designator '%s' of type '%s' is not valid\n",
                                 ast_location(current_designator),
                                 prettyprint_in_buffer(current_designator),
                                 print_decl_type_str(designated_type, decl_context, ""));
-                            return get_signed_int_type();
+                            designated_type = get_signed_int_type();
                         }
                     }
                     break;
@@ -9619,6 +9749,7 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
                     ASTFileName(initializer), ASTLine(initializer),
                     conversors,
                     &candidates);
+            entry_list_free(candidates);
 
             if (constructor == NULL)
             {
@@ -9686,6 +9817,7 @@ static char check_for_braced_initializer_list(AST initializer, decl_context_t de
                     ASTFileName(initializer), ASTLine(initializer),
                     conversors,
                     &candidates);
+            entry_list_free(candidates);
 
             if (constructor == NULL)
             {
@@ -9847,6 +9979,8 @@ char check_for_initializer_clause(AST initializer, decl_context_t decl_context, 
 
                     result = check_for_initializer_clause(initializer_clause, decl_context, 
                             entry_list_head(member)->type_information);
+                    entry_list_free(member);
+
                     if (result)
                     {
                         expression_set_type(initializer, expression_get_type(initializer_clause));
@@ -10016,6 +10150,8 @@ static char check_for_pointer_to_pointer_to_member(AST expression, decl_context_
     type_t* computed_type = compute_user_defined_bin_operator_type(operation_tree, 
             expression, lhs, rhs, builtins, decl_context, &selected_operator);
 
+    entry_list_free(builtins);
+
     if (computed_type != NULL)
         return 1;
 
@@ -10177,6 +10313,7 @@ static char check_for_parenthesized_initializer(AST initializer_list, decl_conte
                 ASTFileName(initializer_list), ASTLine(initializer_list),
                 conversors,
                 &candidates);
+        entry_list_free(candidates);
 
         if (constructor == NULL)
         {
@@ -10399,6 +10536,7 @@ static void accessible_types_through_conversion(type_t* t, type_t ***result, int
             }
         }
         entry_list_iterator_free(it);
+        entry_list_free(conversion_list);
     }
 }
 
@@ -10928,6 +11066,7 @@ static char check_for_pseudo_destructor_call(AST expression, decl_context_t decl
     entry_list_iterator_free(it);
 
     scope_entry_t * entry = entry_list_head(entry_list);
+    entry_list_free(entry_list);
 
     // Checking that both T's are the same entity in '{[nested-name-specifier] T}::~T'
 
@@ -10981,6 +11120,7 @@ static char check_for_pseudo_destructor_call(AST expression, decl_context_t decl
         }
 
         scope_entry_t* new_name_entry = entry_list_head(new_name);
+        entry_list_free(new_name);
 
         if (!equivalent_types(get_user_defined_type(new_name_entry), 
                     get_user_defined_type(entry)))
@@ -11013,6 +11153,8 @@ static char check_for_pseudo_destructor_call(AST expression, decl_context_t decl
         }
 
         scope_entry_t* new_name_entry = entry_list_head(new_name);
+        entry_list_free(new_name);
+
         if (!equivalent_types(get_user_defined_type(entry), 
                     get_user_defined_type(new_name_entry)))
         {
@@ -11174,6 +11316,8 @@ static char check_for_gcc_builtin_offsetof(AST expression, decl_context_t decl_c
                         ast_location(expression),
                         prettyprint_in_buffer(name));
             }
+
+            entry_list_free(member_list);
 
             computed_offset += member->entity_specs.field_offset;
             current_type = member->type_information;
@@ -11483,6 +11627,7 @@ char check_zero_args_constructor(type_t* class_type, decl_context_t decl_context
             ASTFileName(declarator), ASTLine(declarator),
             /* conversors */ NULL,
             &candidates);
+    entry_list_free(candidates);
 
     if (chosen_constructor == NULL)
     {

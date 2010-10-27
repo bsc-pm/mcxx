@@ -931,12 +931,16 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
             if (is_pointer_type(argument_types[i]))
                 unresolved_type = pointer_type_get_pointee_type(argument_types[i]);
 
+            scope_entry_list_t* unresolved_set = 
+                    unresolved_overloaded_type_get_overload_set(unresolved_type);
+
             scope_entry_t* solved_function = solved_function = address_of_overloaded_function(
-                    unresolved_overloaded_type_get_overload_set(unresolved_type),
+                    unresolved_set,
                     unresolved_overloaded_type_get_explicit_template_arguments(unresolved_type),
                     updated_type,
                     updated_context,
                     filename, line);
+            entry_list_free(unresolved_set);
 
             if (solved_function != NULL)
             {

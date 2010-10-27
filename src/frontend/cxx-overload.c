@@ -337,6 +337,7 @@ static void compute_ics_braced_list(type_t* orig, type_t* dest, decl_context_t d
                 filename, line,
                 conversors,
                 &candidates);
+        entry_list_free(candidates);
                 
         if (constructor != NULL)
         {
@@ -475,13 +476,15 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
     // if it can't be solved, there is no ICS, it is not an error
     if (is_unresolved_overloaded_type(orig))
     {
+        scope_entry_list_t* unresolved_set = unresolved_overloaded_type_get_overload_set(orig);
         scope_entry_t* solved_function = address_of_overloaded_function(
-                unresolved_overloaded_type_get_overload_set(orig),
+                unresolved_set,
                 unresolved_overloaded_type_get_explicit_template_arguments(orig),
                 dest,
                 decl_context,
                 filename,
                 line);
+        entry_list_free(unresolved_set);
 
         if (solved_function != NULL)
         {
@@ -761,6 +764,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             }
         }
         entry_list_iterator_free(it);
+        entry_list_free(conversion_list);
     }
 
     // Compute user defined conversions by means of constructors
