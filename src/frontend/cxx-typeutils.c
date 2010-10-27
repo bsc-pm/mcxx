@@ -7248,7 +7248,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     return valid_conversion;
 }
 
-type_t* get_unresolved_overloaded_type(scope_entry_list_t* overload_set,
+type_t* get_unresolved_overloaded_type(const scope_entry_list_t* overload_set,
         template_argument_list_t* explicit_template_arguments)
 {
     type_t* result = new_empty_type();
@@ -7256,7 +7256,8 @@ type_t* get_unresolved_overloaded_type(scope_entry_list_t* overload_set,
     result->kind = TK_OVERLOAD;
 
     result->unqualified_type = result;
-    result->overload_set = overload_set;
+    // Use a smarter approach for this one
+    result->overload_set = entry_list_copy(overload_set);
     result->explicit_template_argument_list = explicit_template_arguments;
 
     return result;
@@ -7272,7 +7273,7 @@ scope_entry_list_t *unresolved_overloaded_type_get_overload_set(type_t* t)
 {
     ERROR_CONDITION(!is_unresolved_overloaded_type(t), "This is not an unresolved overloaded type", 0);
 
-    return t->overload_set;
+    return entry_list_copy(t->overload_set);
 }
 
 template_argument_list_t* unresolved_overloaded_type_get_explicit_template_arguments(type_t* t)
@@ -8563,6 +8564,7 @@ const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const ch
         {
             return uniquestr("<unresolved overload>");
         }
+        entry_list_free(overload_set);
     }
     else if (is_braced_list_type(t))
     {

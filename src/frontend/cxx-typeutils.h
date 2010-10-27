@@ -93,7 +93,7 @@ LIBMCXX_EXTERN struct type_tag* get_new_template_type(template_parameter_list_t*
 
 LIBMCXX_EXTERN struct type_tag* get_complex_type(struct type_tag* t);
 
-LIBMCXX_EXTERN struct type_tag* get_unresolved_overloaded_type(struct scope_entry_list_tag* overload_set,
+LIBMCXX_EXTERN struct type_tag* get_unresolved_overloaded_type(const struct scope_entry_list_tag* overload_set,
         template_argument_list_t* explicit_template_arguments);
 LIBMCXX_EXTERN template_argument_list_t* unresolved_overloaded_type_get_explicit_template_arguments(struct type_tag* t);
 
