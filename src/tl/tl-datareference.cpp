@@ -290,7 +290,10 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
 
         CXX_LANGUAGE()
         {
-            type = type.references_to();
+            if (type.is_reference())
+            {
+                type = type.references_to();
+            }
         }
 
         if (!type.is_pointer())
