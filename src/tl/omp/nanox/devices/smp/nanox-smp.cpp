@@ -38,6 +38,12 @@ static Type compute_replacement_type_for_vla(Type type,
     return new_type;
 }
 
+static bool is_nonstatic_member_symbol(Symbol s)
+{
+    return s.is_member()
+        && !s.is_static();
+}
+
 static void do_smp_outline_replacements(AST_t body,
         ScopeLink scope_link,
         const DataEnvironInfo& data_env_info,
@@ -176,6 +182,18 @@ static void do_smp_outline_replacements(AST_t body,
         }
     }
 
+    // Nonstatic members have a special replacement (this may override some symbols!)
+    ObjectList<Symbol> nonstatic_members; 
+    nonstatic_members.insert(Statement(body, scope_link)
+        .non_local_symbol_occurrences().map(functor(&IdExpression::get_symbol))
+        .filter(predicate(is_nonstatic_member_symbol)));
+    for (ObjectList<Symbol>::iterator it = nonstatic_members.begin();
+            it != nonstatic_members.end();
+            it++)
+    {
+        replace_src.add_replacement(*it, "(_args->_this->" + it->get_name() + ")");
+    }
+
     replaced_outline << replace_src.replace(body);
 }
 
@@ -203,23 +221,23 @@ void DeviceSMP::create_outline(
     AST_t function_def_tree = reference_tree.get_enclosing_function_definition();
     FunctionDefinition enclosing_function(function_def_tree, sl);
 
-    Source result, body, outline_name, parameter_list;
+    Source result, body, outline_name, full_outline_name, parameter_list;
 
     Source forward_declaration;
     Symbol function_symbol = enclosing_function.get_function_symbol();
 
-    Source template_header, linkage_specifiers;
+    Source template_header, member_template_header, linkage_specifiers;
     if (enclosing_function.is_templated())
     {
-        Source template_params;
-        template_header
-            << "template <" << template_params << ">"
-            ;
         ObjectList<TemplateHeader> template_header_list = enclosing_function.get_template_header();
         for (ObjectList<TemplateHeader>::iterator it = template_header_list.begin();
                 it != template_header_list.end();
                 it++)
         {
+            Source template_params;
+            template_header
+                << "template <" << template_params << ">"
+                ;
             ObjectList<TemplateParameterConstruct> tpl_params = it->get_parameters();
             for (ObjectList<TemplateParameterConstruct>::iterator it2 = tpl_params.begin();
                     it2 != tpl_params.end();
@@ -233,6 +251,9 @@ void DeviceSMP::create_outline(
     {
         linkage_specifiers << concat_strings(enclosing_function.get_linkage_specifier(), " ");
     }
+
+    bool is_inline_member_function = false;
+    Source member_declaration, static_specifier, member_parameter_list;
 
     if (!function_symbol.is_member())
     {
@@ -249,6 +270,40 @@ void DeviceSMP::create_outline(
             << " "
             << declared_entity.prettyprint()
             << ";";
+
+        static_specifier
+            << " static "
+            ;
+    }
+    else
+    {
+        member_declaration
+            << member_template_header
+            << "static void " << outline_name << "(" << member_parameter_list << ");" 
+            ;
+
+        if (function_symbol.get_type().is_template_specialized_type())
+        {
+            Declaration decl(function_symbol.get_point_of_declaration(), sl);
+
+            ObjectList<TemplateHeader> template_header_list = decl.get_template_header();
+            member_template_header
+                << "template <" << concat_strings(template_header_list.back().get_parameters(), ",") << "> "
+                ;
+        }
+
+        // This is a bit crude but allows knowing if the function is inline or not
+        is_inline_member_function = reference_tree.get_enclosing_class_specifier().is_valid();
+
+        if (!is_inline_member_function)
+        {
+            full_outline_name 
+                << function_symbol.get_class_type().get_symbol().get_qualified_name(sl.get_scope(reference_tree)) << "::" ;
+        }
+        else
+        {
+            static_specifier << " static ";
+        }
     }
 
     Source instrument_before, instrument_after;
@@ -256,7 +311,8 @@ void DeviceSMP::create_outline(
     result
         << forward_declaration
         << template_header
-        << "static void " << outline_name << "(" << parameter_list << ")"
+        << static_specifier
+        << "void " << full_outline_name << "(" << parameter_list << ")"
         << "{"
         << instrument_before
         << body
@@ -315,6 +371,10 @@ void DeviceSMP::create_outline(
 
     outline_name
         << smp_outline_name(task_name)
+        ;
+
+    full_outline_name
+        << outline_name
         ;
 
     Source private_vars, final_code;
@@ -377,10 +437,50 @@ void DeviceSMP::create_outline(
             ;
     }
 
-    // Parse it in a sibling function context
-    AST_t outline_code_tree
-        = result.parse_declaration(enclosing_function.get_ast(), sl);
-    reference_tree.prepend_sibling_function(outline_code_tree);
+    if (!is_inline_member_function)
+    {
+        if (function_symbol.is_member())
+        {
+            AST_t decl_point = function_symbol.get_point_of_declaration();
+
+            AST_t ref_tree;
+            if (FunctionDefinition::predicate(decl_point))
+            {
+                FunctionDefinition funct_def(decl_point, sl);
+                ref_tree = funct_def.get_point_of_declaration();
+            }
+            else 
+            {
+                Declaration decl(decl_point, sl);
+                ref_tree = decl.get_point_of_declaration();
+            }
+
+            Type t = Source(struct_typename).parse_type(reference_tree, sl);
+
+            member_parameter_list << t.get_pointer_to().get_declaration(sl.get_scope(decl_point), "args");
+
+            AST_t member_decl_tree = 
+                member_declaration.parse_member(decl_point,
+                        sl,
+                        function_symbol.get_class_type().get_symbol());
+
+            decl_point.prepend(member_decl_tree);
+        }
+
+        // Parse it in a sibling function context
+        AST_t outline_code_tree
+            = result.parse_declaration(reference_tree.get_enclosing_function_definition_declaration().get_parent(), 
+                    sl);
+        reference_tree.prepend_sibling_function(outline_code_tree);
+    }
+    else
+    {
+        AST_t outline_code_tree
+            = result.parse_member(reference_tree.get_enclosing_function_definition_declaration().get_parent(),
+                    sl, 
+                    function_symbol.get_class_type().get_symbol());
+        reference_tree.prepend_sibling_function(outline_code_tree);
+    }
 }
 
 void DeviceSMP::get_device_descriptor(const std::string& task_name,
@@ -398,25 +498,23 @@ void DeviceSMP::get_device_descriptor(const std::string& task_name,
 
     Source template_args;
     FunctionDefinition enclosing_function_def(reference_tree.get_enclosing_function_definition(), sl);
+    Symbol function_symbol = enclosing_function_def.get_function_symbol();
 
     Source additional_casting;
-    if (enclosing_function_def.is_templated())
+    if (enclosing_function_def.is_templated()
+            && function_symbol.get_type().is_template_specialized_type())
     {
         Source template_args_list;
         template_args
             << "<" << template_args_list << ">";
         ObjectList<TemplateHeader> template_header_list = enclosing_function_def.get_template_header();
-        for (ObjectList<TemplateHeader>::iterator it = template_header_list.begin();
-                it != template_header_list.end();
-                it++)
+
+        ObjectList<TemplateParameterConstruct> tpl_params = template_header_list.back().get_parameters();
+        for (ObjectList<TemplateParameterConstruct>::iterator it2 = tpl_params.begin();
+                it2 != tpl_params.end();
+                it2++)
         {
-            ObjectList<TemplateParameterConstruct> tpl_params = it->get_parameters();
-            for (ObjectList<TemplateParameterConstruct>::iterator it2 = tpl_params.begin();
-                    it2 != tpl_params.end();
-                    it2++)
-            {
-                template_args_list.append_with_separator(it2->get_name(), ",");
-            }
+            template_args_list.append_with_separator(it2->get_name(), ",");
         }
         outline_name << template_args;
 
@@ -438,7 +536,7 @@ void DeviceSMP::get_device_descriptor(const std::string& task_name,
                 .get_type()
                 // A function type is not directly useable, get a pointer to
                 .get_pointer_to();
-            additional_casting << "(" << t.get_declaration(sym_list[0].get_scope(), "") << ")";
+            additional_casting << "(" << t.get_declaration(sl.get_scope(reference_tree), "") << ")";
         }
     }
 

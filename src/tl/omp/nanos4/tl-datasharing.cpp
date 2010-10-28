@@ -41,6 +41,12 @@ namespace TL
                 const ObjectList<Symbol>& firstprivate_references,
                 const ObjectList<OpenMP::ReductionSymbol>& reduction_references);
 
+        static bool is_nonstatic_member_symbol(Symbol sym)
+        {
+            return sym.is_member()
+                && !sym.is_static();
+        }
+
         ReplaceIdExpression OpenMPTransform::set_replacements(FunctionDefinition function_definition,
                 Statement construct_body,
                 ObjectList<Symbol>& shared_references,
@@ -114,15 +120,6 @@ namespace TL
                                 symbol, pointer_type, ParameterInfo::BY_POINTER);
                         parameter_info.append(parameter);
                         result.add_replacement(symbol, "(*" + symbol.get_name() + ")", 
-                                construct_body.get_ast(), construct_body.get_scope_link());
-                    }
-                }
-                else
-                {
-                    // Only if this function is a nonstatic one we need _this access
-                    if (is_nonstatic_member_function(function_definition))
-                    {
-                        result.add_replacement(symbol, "_this->" + symbol.get_name(), 
                                 construct_body.get_ast(), construct_body.get_scope_link());
                     }
                 }
@@ -275,24 +272,17 @@ namespace TL
                 parameter_info.append(parameter);
             }
 
-            if (is_nonstatic_member_function(function_definition))
+            // Nonstatic members have a special replacement (this may override some symbols!)
+            ObjectList<Symbol> nonstatic_members; 
+            nonstatic_members.insert(construct_body
+                    .non_local_symbol_occurrences().map(functor(&IdExpression::get_symbol))
+                    .filter(predicate(is_nonstatic_member_symbol)));
+            for (ObjectList<Symbol>::iterator it = nonstatic_members.begin();
+                    it != nonstatic_members.end();
+                    it++)
             {
-                // Calls to nonstatic member functions within the body of the construct
-                // of a nonstatic member function
-                ObjectList<Symbol> function_references = 
-                    construct_body.non_local_symbol_occurrences(Statement::ONLY_FUNCTIONS)
-                    .map(functor(&IdExpression::get_symbol));
-                for (ObjectList<Symbol>::iterator it = function_references.begin();
-                        it != function_references.end();
-                        it++)
-                {
-                    if (is_unqualified_member_symbol(*it, function_definition))
-                    {
-                        Symbol &symbol(*it);
-                        result.add_replacement(symbol, "_this->" + symbol.get_name(),
-                                construct_body.get_ast(), construct_body.get_scope_link());
-                    }
-                }
+                result.add_replacement(*it, "_this->" + it->get_name(), 
+                        construct_body.get_ast(), construct_body.get_scope_link());
             }
 
             C_LANGUAGE()

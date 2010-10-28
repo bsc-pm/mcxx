@@ -176,6 +176,15 @@ namespace TL
                     }
                     else
                     {
+                        Symbol base_sym = data_ref.get_base_symbol();
+
+                        if (base_sym.is_member()
+                                && !base_sym.is_static())
+                        {
+                            std::cerr << data_ref.get_ast().get_locus() << ": ignoring: '" << data_ref 
+                                << "' since nonstatic data members cannot appear un data-sharing clauses" << std::endl;
+                        }
+
                         data_ref_list.append(data_ref);
                     }
                 }
@@ -656,6 +665,12 @@ namespace TL
 
                 if (!sym.is_valid()
                         || !sym.is_variable())
+                    continue;
+
+                // We should ignore these ones lest they slipped in because
+                // being named in an unqualified manner
+                if (sym.is_member()
+                        && !sym.is_static())
                     continue;
 
                 DataSharingAttribute data_attr = data_sharing.get_data_sharing(sym);
