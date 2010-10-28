@@ -41,10 +41,20 @@ void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
             data_environ_info,
             _converted_vlas);
 
+    FunctionDefinition funct_def = ctr.get_enclosing_function();
+    Symbol function_symbol = funct_def.get_function_symbol();
+
+    Scope scope_of_struct = ctr.get_scope();
+    if (function_symbol.is_member())
+    {
+        // Fix the scope because it will end inside the class
+        scope_of_struct = function_symbol.get_scope();
+    }
+
     Source struct_arg_type_decl_src, struct_fields;
     std::string struct_arg_type_name;
     fill_data_environment_structure(
-            ctr.get_scope(),
+            scope_of_struct,
             data_environ_info,
             struct_arg_type_decl_src,
             struct_fields,
@@ -52,32 +62,46 @@ void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
             ObjectList<OpenMP::DependencyItem>(),  // empty dependences
             _compiler_alignment);
 
-    FunctionDefinition funct_def = ctr.get_enclosing_function();
     // This one will be the same as funct_def.get_ast() if there are no templates or linkage specifiers
     AST_t funct_def_tree = ctr.get_ast().get_enclosing_function_definition_declaration();
-    Symbol function_symbol = funct_def.get_function_symbol();
 
     Source template_header;
-    if (funct_def.is_templated())
+    if (funct_def.is_templated()
+            && function_symbol.get_type().is_template_specialized_type())
     {
         Source template_params;
         template_header
             << "template <" << template_params << ">"
             ;
         Source template_args;
-        ObjectList<TemplateHeader> template_header_list = funct_def.get_template_header();
-        for (ObjectList<TemplateHeader>::iterator it = template_header_list.begin();
-                it != template_header_list.end();
-                it++)
+        ObjectList<TemplateHeader> template_header_list;
+            
+        if (!function_symbol.is_member())
         {
-            ObjectList<TemplateParameterConstruct> tpl_params = it->get_parameters();
-            for (ObjectList<TemplateParameterConstruct>::iterator it2 = tpl_params.begin();
-                    it2 != tpl_params.end();
-                    it2++)
-            {
-                template_params.append_with_separator(it2->prettyprint(), ",");
-                template_args.append_with_separator(it2->get_name(), ",");
-            }
+            template_header_list = funct_def.get_template_header();
+        }
+        else
+        {
+            template_header_list = 
+                Declaration(function_symbol.get_point_of_declaration(), ctr.get_scope_link()).get_template_header();
+        }
+
+
+        ObjectList<TemplateParameterConstruct> tpl_params = template_header_list.back().get_parameters();
+        for (ObjectList<TemplateParameterConstruct>::iterator it2 = tpl_params.begin();
+                it2 != tpl_params.end();
+                it2++)
+        {
+            template_params.append_with_separator(it2->prettyprint(), ",");
+        }
+
+        template_header_list = funct_def.get_template_header();
+        tpl_params = template_header_list.back().get_parameters();
+        for (ObjectList<TemplateParameterConstruct>::iterator it2 = tpl_params.begin();
+                it2 != tpl_params.end();
+                it2++)
+        {   
+            template_args.append_with_separator(it2->get_name(), ",");
         }
 
         struct_arg_type_name += "<" + std::string(template_args) + ">";
@@ -89,9 +113,54 @@ void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
         << struct_arg_type_decl_src
         ;
 
-    AST_t outline_code_tree
-        = newly_generated_code.parse_declaration(funct_def_tree, ctr.get_scope_link());
-    ctr.get_ast().prepend_sibling_function(outline_code_tree);
+    if (!function_symbol.is_member())
+    {
+        AST_t outline_code_tree
+            = newly_generated_code.parse_declaration(
+                    ctr.get_ast().get_enclosing_function_definition_declaration(),
+                    ctr.get_scope_link());
+        ctr.get_ast().prepend_sibling_function(outline_code_tree);
+    }
+    else
+    {
+        if (!function_symbol.is_static())
+        {
+            Type this_pointer = function_symbol.get_class_type();
+
+            if (function_symbol.get_type().is_const())
+            {
+                this_pointer = this_pointer.get_const_type();
+            }
+
+            this_pointer = this_pointer.get_pointer_to();
+
+            struct_fields
+                << this_pointer.get_declaration(scope_of_struct, "_this") << ";"
+                ;
+        }
+
+        AST_t decl_point = function_symbol.get_point_of_declaration();
+
+        AST_t ref_tree;
+        if (FunctionDefinition::predicate(decl_point))
+        {
+            FunctionDefinition funct_def(decl_point, ctr.get_scope_link());
+            ref_tree = funct_def.get_point_of_declaration();
+        }
+        else 
+        {
+            Declaration decl(decl_point, ctr.get_scope_link());
+            ref_tree = decl.get_point_of_declaration();
+        }
+
+        AST_t outline_code_tree
+            = newly_generated_code.parse_member(
+                    decl_point,
+                    ctr.get_scope_link(),
+                    function_symbol.get_class_type().get_symbol());
+
+        decl_point.prepend(outline_code_tree);
+    }
 
     int outline_num = TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER);
     TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER)++;
