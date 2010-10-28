@@ -447,7 +447,6 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                 unificate_two_types(t1, get_user_defined_type(entry), deduction_set, decl_context, filename, line, flags);
             }
             entry_list_iterator_free(it);
-            entry_list_free(all_bases);
 
             DEBUG_CODE()
             {
@@ -919,9 +918,6 @@ static char equivalent_dependent_expressions(AST left_tree, decl_context_t left_
                 type_t* dependent_type_left = entry_list_head(result_left)->type_information;
                 type_t* dependent_type_right = entry_list_head(result_right)->type_information;
 
-                entry_list_free(result_left);
-                entry_list_free(result_right);
-
                 return equivalent_types(dependent_type_left, dependent_type_right);
                 break;
             }
@@ -1075,12 +1071,7 @@ static char equivalent_dependent_expressions(AST left_tree, decl_context_t left_
                         return 0;
                     }
 
-                    char result = (entry_list_head(left_result_list) == entry_list_head(right_result_list));
-
-                    entry_list_free(left_result_list);
-                    entry_list_free(right_result_list);
-
-                    return result;
+                    return (entry_list_head(left_result_list) == entry_list_head(right_result_list));
                 }
             }
         case AST_GXX_TYPE_TRAITS:
@@ -1232,7 +1223,6 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
         unificate_two_types(t1, function_type, deduction_set, decl_context, filename, line, flags);
     }
     entry_list_iterator_free(it);
-    entry_list_free(overloaded_set);
 
     DEBUG_CODE()
     {
