@@ -8315,15 +8315,6 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
     AST class_expr = ASTSon0(member_access);
     AST id_expression = ASTSon1(member_access);
 
-    // This could slip here in 'id_expression' because of following syntax
-    //
-    //   a.~A
-    //   a->~A
-    //
-    // but these are not member accesses actually but destructor
-    // invocations
-    //
-
     if (ASTType(id_expression) == AST_TEMPLATE_ID
             || ASTType(id_expression) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
     {

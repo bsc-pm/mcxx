@@ -4172,40 +4172,49 @@ static void build_scope_declarator_with_parameter_context(AST a,
         {
             // Special case for conversion function ids
             // We fix the return type according to the standard
-            if (is_function_type(*declarator_type)
-                    && function_type_get_return_type(*declarator_type) == NULL)
+            if (is_function_type(*declarator_type))
             {
-                AST id_expression = declarator_name;
-
-                AST conversion_function_id = NULL;
-                if (ASTType(id_expression) == AST_QUALIFIED_ID)
+                if (function_type_get_return_type(*declarator_type) == NULL)
                 {
-                    if (ASTType(ASTSon2(id_expression)) == AST_CONVERSION_FUNCTION_ID)
+                    AST id_expression = declarator_name;
+
+                    AST conversion_function_id = NULL;
+                    if (ASTType(id_expression) == AST_QUALIFIED_ID)
                     {
-                        conversion_function_id = ASTSon2(id_expression);
+                        if (ASTType(ASTSon2(id_expression)) == AST_CONVERSION_FUNCTION_ID)
+                        {
+                            conversion_function_id = ASTSon2(id_expression);
+                        }
+                    }
+
+                    if (ASTType(id_expression) == AST_CONVERSION_FUNCTION_ID)
+                    {
+                        conversion_function_id = id_expression;
+                    }
+
+                    if (conversion_function_id != NULL)
+                    {
+                        // Conversion functions do not haver parameters and just return their conversion
+                        cv_qualifier_t cv_qualif = get_cv_qualifier(*declarator_type);
+
+                        type_t* conversion_function_type;
+                        get_conversion_function_name(entity_context, conversion_function_id, &conversion_function_type);
+                        *declarator_type = get_new_function_type(conversion_function_type, 
+                                /*parameter_info*/ NULL, /*num_parameters=*/0);
+
+                        // Keep the const-qualification in the crafted type
+                        if ((cv_qualif & CV_CONST) == CV_CONST)
+                        {
+                            *declarator_type = get_const_qualified_type(*declarator_type);
+                        }
                     }
                 }
-
-                if (ASTType(id_expression) == AST_CONVERSION_FUNCTION_ID)
+                else if (ASTType(declarator_name) == AST_DESTRUCTOR_ID
+                        || ASTType(declarator_name) == AST_DESTRUCTOR_TEMPLATE_ID)
                 {
-                    conversion_function_id = id_expression;
-                }
-
-                if (conversion_function_id != NULL)
-                {
-                    // Conversion functions do not haver parameters and just return their conversion
-                    cv_qualifier_t cv_qualif = get_cv_qualifier(*declarator_type);
-
-                    type_t* conversion_function_type;
-                    get_conversion_function_name(entity_context, conversion_function_id, &conversion_function_type);
-                    *declarator_type = get_new_function_type(conversion_function_type, 
-                            /*parameter_info*/ NULL, /*num_parameters=*/0);
-
-                    // Keep the const-qualification in the crafted type
-                    if ((cv_qualif & CV_CONST) == CV_CONST)
-                    {
-                        *declarator_type = get_const_qualified_type(*declarator_type);
-                    }
+                    // Patch the type of the function of a destructor so it
+                    // works for const objects as well
+                    *declarator_type = get_const_qualified_type(*declarator_type);
                 }
             }
         }
@@ -4979,7 +4988,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 // 'name' should be a class in this scope
                 AST destructor_id = ASTSon0(declarator_id);
                 // Adjust to 'function () returning void'
-                declarator_type = get_new_function_type(get_void_type(), NULL, 0);
+                declarator_type = get_const_qualified_type(get_new_function_type(get_void_type(), NULL, 0));
                 return register_new_variable_name(destructor_id, declarator_type, gather_info, decl_context);
                 break;
             }
@@ -5094,8 +5103,8 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                     if (ASTType(ASTSon2(declarator_id)) == AST_DESTRUCTOR_ID
                             || ASTType(ASTSon2(declarator_id)) == AST_DESTRUCTOR_TEMPLATE_ID)
                     {
-                        // Adjust the type to 'function () returning void'
-                        declarator_type = get_new_function_type(get_void_type(), NULL, 0);
+                        // Adjust the type to 'const function () returning void'
+                        declarator_type = get_const_qualified_type(get_new_function_type(get_void_type(), NULL, 0));
                     }
 
                     entry = find_function_declaration(declarator_id, declarator_type, decl_context);
@@ -7158,8 +7167,11 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         {
             // The class we belong to
             type_t* pointed_this = entry->entity_specs.class_type;
-            // Qualify likewise the function
-            pointed_this = get_cv_qualified_type(pointed_this, get_cv_qualifier(entry->type_information));
+            // Qualify likewise the function unless it is a destructor
+            if (!entry->entity_specs.is_destructor)
+            {
+                pointed_this = get_cv_qualified_type(pointed_this, get_cv_qualifier(entry->type_information));
+            }
 
             type_t* this_type = get_pointer_type(pointed_this);
             // It is a constant pointer, so qualify like it is
@@ -7656,9 +7668,6 @@ static void update_member_function_info(AST declarator_name,
                     entry->entity_specs.is_virtual = 1;
                     class_type_add_virtual_function(get_actual_class_type(class_type), entry);
                 }
-                // Fix type function to be const
-                entry->type_information =
-                    get_const_qualified_type(entry->type_information);
                 entry->entity_specs.is_destructor = 1;
                 entry->entity_specs.is_user_declared = 1;
                 class_type_set_destructor(get_actual_class_type(class_type), entry);
