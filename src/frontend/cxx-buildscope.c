@@ -3269,9 +3269,11 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         scope_entry_t* implicit_destructor = new_symbol(class_type_get_inner_context(class_type), sc,
                 destructor_name);
 
-        type_t* destructor_type = get_new_function_type(
-                /* returns void */ get_void_type(), 
-                NULL, 0);
+        type_t* destructor_type = get_const_qualified_type(
+                get_new_function_type(
+                    /* returns void */ get_void_type(), 
+                    NULL, 0)
+                );
 
         implicit_destructor->kind = SK_FUNCTION;
         implicit_destructor->type_information = destructor_type;
@@ -7654,6 +7656,9 @@ static void update_member_function_info(AST declarator_name,
                     entry->entity_specs.is_virtual = 1;
                     class_type_add_virtual_function(get_actual_class_type(class_type), entry);
                 }
+                // Fix type function to be const
+                entry->type_information =
+                    get_const_qualified_type(entry->type_information);
                 entry->entity_specs.is_destructor = 1;
                 entry->entity_specs.is_user_declared = 1;
                 class_type_set_destructor(get_actual_class_type(class_type), entry);
