@@ -728,6 +728,9 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                             expression_set_dependent(expression);
                         }
                         result = 1;
+
+                        ASTAttrSetValueType(expression, LANG_IS_THIS_VARIABLE, tl_type_t, tl_bool(1));
+                        expression_set_symbol(expression, entry);
                     }
                 }
 

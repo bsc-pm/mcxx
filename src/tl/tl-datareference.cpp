@@ -51,9 +51,19 @@ bool DataReference::gather_info_data_expr_rec(Expression expr,
         Type &type,
         bool enclosing_is_array)
 {
-    if (expr.is_id_expression())
+    if (expr.is_id_expression()
+            || expr.is_this_variable())
     {
-        Symbol sym = expr.get_id_expression().get_computed_symbol();
+        Symbol sym(NULL);
+
+        if (expr.is_this_variable())
+        {
+            sym = expr.get_this_symbol();
+        } 
+        else
+        {
+            sym = expr.get_id_expression().get_computed_symbol();
+        }
 
         if (!sym.is_valid())
             return false;

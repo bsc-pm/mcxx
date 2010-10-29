@@ -39,6 +39,8 @@ template <typename _T>
 struct A
 {
     void f(_T t);
+
+    void g() { }
 };
 
 template <typename _Q>
@@ -47,6 +49,7 @@ void A<_Q>::f(_Q q)
     q = 1;
 #pragma omp parallel
     {
+        g();
         q = 0;
     }
 

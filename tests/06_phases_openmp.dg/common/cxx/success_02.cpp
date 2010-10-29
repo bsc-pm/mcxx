@@ -44,6 +44,8 @@ struct A
 
     void f(void);
 
+    void g() { }
+
     A() : b(0) { }
 };
 
@@ -53,6 +55,7 @@ void A::f(void)
 {
 #pragma omp parallel
     {
+        g();
         a = 3;
         b = 4;
         c = 5;
