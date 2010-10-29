@@ -145,7 +145,6 @@ type_t* solve_class_template(decl_context_t decl_context,
                         print_type_str(get_user_defined_type(entry), decl_context));
             }
             entry_list_iterator_free(it);
-            entry_list_free(entry_list);
 
             running_error("%s:%d: error: ambiguous template type for '%s'\n", filename, line,
                     print_type_str(specialized_type, decl_context));
@@ -545,7 +544,6 @@ scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
                     print_decl_type_str(current_entry->type_information, decl_context, full_name));
         }
         entry_list_iterator_free(it);
-        entry_list_free(entry_list);
 
         running_error("%s:%d: error: ambiguous template specialization '%s' for '%s'\n",
                 filename, line,

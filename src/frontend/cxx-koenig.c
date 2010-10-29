@@ -37,7 +37,7 @@ typedef
 struct associated_scopes_tag
 {
     int num_associated_scopes;
-    scope_t* associated_scopes[MAX_ASSOCIATED_SCOPES];
+    scope_t* associated_scopes[256];
 } associated_scopes_t;
 
 static associated_scopes_t compute_associated_scopes(int num_arguments, type_t** argument_type_list);
@@ -100,10 +100,7 @@ scope_entry_list_t* koenig_lookup(
 
         scope_entry_list_t* current_result = query_in_scope(current_context, id_expression);
 
-        scope_entry_list_t* old_result = result;
-        result = entry_list_merge(old_result, current_result);
-        entry_list_free(old_result);
-        entry_list_free(current_result);
+        result = entry_list_merge(result, current_result);
     }
 
     DEBUG_CODE()

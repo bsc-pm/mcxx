@@ -2216,8 +2216,6 @@ static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overl
         }
 
         scope_entry_t* current_entry = entry_list_head(entry_list);
-        entry_list_free(entry_list);
-
         type_t* current_function_type = current_entry->type_information;
 
         DEBUG_CODE()

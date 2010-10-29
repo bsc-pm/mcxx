@@ -728,7 +728,6 @@ static void instantiate_member(type_t* selected_template UNUSED_PARAMETER,
                     }
                 }
                 entry_list_iterator_free(it);
-                entry_list_free(entry_list);
 
                 break;
             }
