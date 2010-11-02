@@ -39,5 +39,5 @@ struct M
 	typedef typename V<T>::P K;
 };
 
-M<int>::K k;
-M<int> m;
+typedef M<int>::K S;
+typedef int S;
