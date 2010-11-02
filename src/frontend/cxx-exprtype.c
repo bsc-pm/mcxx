@@ -5373,11 +5373,15 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, const_val
                     prettyprint_in_buffer(expr), ast_location(expr),
                     print_declarator(expression_get_type(expr)));
         }
+
+        entry_list_free(result);
+        return 1;
     }
-
-    entry_list_free(result);
-
-    return 1;
+    else
+    {
+        entry_list_free(result);
+        return 0;
+    }
 }
 
 static char check_for_symbol(AST expr, decl_context_t decl_context, const_value_t** val)
