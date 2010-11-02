@@ -499,6 +499,12 @@ namespace TL
              */
             Expression get_subscripted_expression();
 
+            //! States whether this is a 'this' reference
+            bool is_this_variable();
+
+            //! Returns the symbol expressed by a 'this' expression
+            Symbol get_this_symbol();
+
             //! States whether this is a member access expression
             /*!
              * \return True if the expression is of the form 'a.b'
@@ -592,6 +598,12 @@ namespace TL
             {
                 return _orig;
             }
+
+            //! States if the frontend tagged this expression with a related symbol
+            bool has_symbol();
+
+            //! Returns the symbol with which the frontend tagged this expression
+            Symbol get_symbol();
 
             /*! States whether this expression is a top level one */
             bool is_top_level_expression();

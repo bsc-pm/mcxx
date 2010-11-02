@@ -728,6 +728,9 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                             expression_set_dependent(expression);
                         }
                         result = 1;
+
+                        ASTAttrSetValueType(expression, LANG_IS_THIS_VARIABLE, tl_type_t, tl_bool(1));
+                        expression_set_symbol(expression, entry);
                     }
                 }
                 entry_list_free(entry_list);
@@ -8395,15 +8398,6 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
 
     AST class_expr = ASTSon0(member_access);
     AST id_expression = ASTSon1(member_access);
-
-    // This could slip here in 'id_expression' because of following syntax
-    //
-    //   a.~A
-    //   a->~A
-    //
-    // but these are not member accesses actually but destructor
-    // invocations
-    //
 
     if (ASTType(id_expression) == AST_TEMPLATE_ID
             || ASTType(id_expression) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)

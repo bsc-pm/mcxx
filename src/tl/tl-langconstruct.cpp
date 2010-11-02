@@ -704,6 +704,17 @@ namespace TL
         return b;
     }
 
+    bool Expression::is_this_variable()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_THIS_VARIABLE);
+        return b;
+    }
+
+    Symbol Expression::get_this_symbol()
+    {
+        return this->get_symbol();
+    }
+
     bool Expression::is_pointer_member_access()
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_POINTER_MEMBER_ACCESS);
@@ -1036,6 +1047,18 @@ namespace TL
         AST a = this->get_ast().get_internal_ast();
         return ::const_value_cast_to_4(
                 ::expression_get_constant(a));
+    }
+
+    //! States if the frontend tagged this expression with a related symbol
+    bool Expression::has_symbol()
+    {
+        return ::expression_has_symbol(this->get_ast().get_internal_ast());
+    }
+
+    //! Returns the symbol with which the frontend tagged this expression
+    Symbol Expression::get_symbol()
+    {
+        return ::expression_get_symbol(this->get_ast().get_internal_ast());
     }
 
     // Do not use this one, instead use get_declared_symbol

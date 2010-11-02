@@ -1,13 +1,6 @@
 /*
 <testinfo>
-test_generator=config/mercurium-omp
-
-test_exec_fail_nanox_plain_1thread=yes
-test_exec_faulty_nanox_plain_1thread=yes
-test_exec_fail_nanox_plain_2thread=yes
-test_exec_faulty_nanox_plain_2thread=yes
-test_exec_fail_nanox_plain_4thread=yes
-test_exec_faulty_nanox_plain_4thread=yes
+test_generator=config/mercurium
 </testinfo>
 */
 /*--------------------------------------------------------------------
@@ -33,50 +26,12 @@ test_exec_faulty_nanox_plain_4thread=yes
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include <stdlib.h>
-
-int a;
-
 struct A
 {
-    int b;
-    static int c;
-
-    void f(void);
-
-    void g() { }
-
-    A() : b(0) { }
+    int a;
 };
 
-int A::c;
-
-void A::f(void)
+void f(const A &a)
 {
-#pragma omp parallel
-    {
-        g();
-        a = 3;
-        b = 4;
-        c = 5;
-    }
-}
-
-int main(int argc, char *argv[])
-{
-    A obj_a;
-
-    a = 0;
-    A::c = 0;
-
-    obj_a.f();
-
-    if (a != 3)
-        abort();
-    if (obj_a.b != 4)
-        abort();
-    if (A::c != 5)
-        abort();
-
-    return 0;
+    a.~A();
 }

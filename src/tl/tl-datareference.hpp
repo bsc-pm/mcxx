@@ -20,6 +20,7 @@ namespace TL
                 d.id
                 [e1]...[eN] pd
                 *pd
+                this            [C++]
 
       Where 'd' is a data reference and 'pd' a data reference whose type is pointer
 
