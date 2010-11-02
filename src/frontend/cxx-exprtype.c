@@ -10627,7 +10627,7 @@ void build_ternary_builtin_operators(type_t* t1,
             int k;
             for (k = 0; k < num_accessibles_3; k++)
             {
-                type_t* accessible_from_t3 = accessibles_3[j];
+                type_t* accessible_from_t3 = accessibles_3[k];
 
                 if (property(accessible_from_t1, 
                             accessible_from_t2, 
