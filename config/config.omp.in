@@ -30,6 +30,7 @@ linker_name = gcc
 {openmp,nanox,!(openmpt|ompss)} linker_options = -lnanox-c -lnanox-omp
 {openmp,!nanox,(openmpt|ompss)} linker_options = -lnanox-c -lnanox-ss
 {openmp,(nanox|openmpt|ompss)} compiler_phase = libtlomp-fun-tasks.so 
+{openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_dto = show_warnings:bool:0
 {openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_phase = libtlomp-core.so 
 {openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_phase = libtlomp-nanox.so
 {openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_phase = libtlnanox-smp.so

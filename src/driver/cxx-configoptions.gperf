@@ -40,4 +40,6 @@ pragma_prefix, config_add_preprocessor_prefix
 environment, config_set_environment
 environ, config_set_environment
 target_options, config_set_target_options
+compiler_dto, config_set_compiler_dto
 %%
+

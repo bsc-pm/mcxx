@@ -103,20 +103,24 @@ namespace TL
                 //! Something failed and compiler pipeline must stop after this one
                 PHASE_STATUS_ERROR
             };
-        private :
+
+        protected:
             //! The name of the phase
             std::string _phase_name;
             //! Description of the phase
             std::string _phase_description;
-            //! Status result of the phase
-            PhaseStatus _phase_status;
-            //! List of phase parameters
-            std::vector<CompilerPhaseParameter*> _parameters;
-        protected:
+
             virtual tl_type_t* get_extended_attribute(const std::string&) const
             {
                 return NULL;
             }
+
+        private :
+            //! Status result of the phase
+            PhaseStatus _phase_status;
+            //! List of phase parameters
+            std::vector<CompilerPhaseParameter*> _parameters;
+
         public:
             //! Constructor of the phase
             /*!

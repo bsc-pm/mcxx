@@ -373,12 +373,15 @@ namespace TL
 				if (io_it->is_member())
 				{
 					sym_name = io_it->get_qualified_name(io_it->get_scope());
-					if (!io_it->is_static()) 
+					if (construct.get_show_warnings())
 					{
-		                std::cerr << construct.get_ast().get_locus() 
-		                    << ": warning: the fully qualified name of the symbol '" << sym_name 
-		                    << "' cannot be used in this context of a non static member."
-		                    << std::endl;
+						if (!io_it->is_static())
+						{
+				            std::cerr << construct.get_ast().get_locus() 
+				                << ": warning: the fully qualified name of the symbol '" << sym_name 
+				                << "' cannot be used in this context of a non static member."
+				                << std::endl;
+						}
 					}
 				}
 				else 
@@ -390,10 +393,13 @@ namespace TL
 					!target_ctx.copy_out.contains(sym_name) && 
 					!target_ctx.copy_inout.contains(sym_name))
 				{
-                    std::cerr << construct.get_ast().get_locus() 
-                        << ": warning: symbol '" << sym_name 
-                        << "' does not have copy directionality. Assuming copy_inout. "
-                        << std::endl;
+					if (construct.get_show_warnings())
+					{
+		                std::cerr << construct.get_ast().get_locus() 
+		                    << ": warning: symbol '" << sym_name 
+		                    << "' does not have copy directionality. Assuming copy_inout. "
+		                    << std::endl;
+					}
 					shared_to_inout.append(sym_name);
 				}
 			}

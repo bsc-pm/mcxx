@@ -21,35 +21,39 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef CXX_COMPILERPHASES
-#define CXX_COMPILERPHASES
+#ifndef TL_SETDTO_COMPILER_PHASE_HPP
+#define TL_SETDTO_COMPILER_PHASE_HPP
 
-#ifdef __cplusplus
-extern "C"
+#include "tl-compilerphase.hpp"
+#include "tl-type.hpp"
+
+namespace TL
 {
-#endif
+    //! Base class for any compiler phase
+    class LIBTL_CLASS SetDTOCompilerPhase : public CompilerPhase
+    {
+		private:
+			ObjectList<std::string> _variable;
+			ObjectList<std::string> _type;
+			ObjectList<std::string> _value;
 
-#ifdef _WIN32
-   #ifdef LIBMCXXTL_DLL_EXPORT
-       #define LIBMCXXTL_EXTERN extern __declspec(dllexport)
-   #else
-       #define LIBMCXXTL_EXTERN extern __declspec(dllimport)
-   #endif
-#else
-   #define LIBMCXXTL_EXTERN extern
-#endif
+		public:
+            //! Constructor of the phase
+			SetDTOCompilerPhase();
 
-LIBMCXXTL_EXTERN void load_compiler_phases_cxx(compilation_configuration_t* config);
-LIBMCXXTL_EXTERN void start_compiler_phase_pre_execution(compilation_configuration_t* config, translation_unit_t* translation_unit);
-LIBMCXXTL_EXTERN void start_compiler_phase_execution(compilation_configuration_t* config, translation_unit_t* translation_unit);
-LIBMCXXTL_EXTERN void phases_help(compilation_configuration_t* config);
-LIBMCXXTL_EXTERN void unload_compiler_phases(void);
+            //! Entry point of the phase
+            /*!
+             * This function set some dto features read from the Phase
+             */
+			virtual void run(TL :: DTO& dto);
 
-LIBMCXXTL_EXTERN void compiler_set_dto(compilation_configuration_t* config, const char* data);
-LIBMCXXTL_EXTERN void compiler_phase_loader(compilation_configuration_t* config, const char* data);
-
-#ifdef __cplusplus
+            //! Modification to do in the DTO
+            /*!
+             * This function stores the modifications that will be set in the DTO
+			 * when the phase runs
+             */
+			int set_dto(const char* data);
+	};
 }
-#endif
 
-#endif // CXX_COMPILERPHASES
+#endif // TL_SETDTO_COMPILER_PHASE_HPP

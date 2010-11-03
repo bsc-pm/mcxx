@@ -92,6 +92,23 @@ namespace TL
 
                 return result;
             }
+
+            //! Returns a reference to a named object
+            /*!
+             * \param str The name to retrieve the object.
+             *
+             * This function can only be used to get data
+             * previously registered in the DTO using
+             * set_object.
+             */
+            void set_value(const std::string& str, RefPtr<Object> obj)
+			{
+				DTO_inner::iterator it = _dto.find(str);
+				if (it != _dto.end())
+				{
+					it->second = obj;
+				}
+			}
     };
 }
 

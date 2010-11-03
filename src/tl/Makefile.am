@@ -120,6 +120,8 @@ libtl_la_SOURCES = \
     tl-datareference.cpp \
     tl-clauses-info.hpp \
     tl-clauses-info.cpp \
+    tl-setdto-phase.hpp \
+    tl-setdto-phase.cpp \
 	$(END)
 
 if WINDOWS_BUILD

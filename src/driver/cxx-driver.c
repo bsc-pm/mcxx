@@ -1934,9 +1934,16 @@ static void enable_hlt_phase(void)
 
     // When loading the compiler phase a proper extension will be added
     const char* library_name = "libtl-hlt-pragma";
-    P_LIST_ADD_PREPEND(CURRENT_CONFIGURATION->compiler_phases, 
+	compiler_phase_loader_t* cl = calloc(1, sizeof(*cl));
+	cl->func = compiler_phase_loader;
+	cl->data = (void*)uniquestr(library_name);
+    P_LIST_ADD_PREPEND(CURRENT_CONFIGURATION->phase_loader, 
+            CURRENT_CONFIGURATION->num_compiler_phases,
+			cl);
+
+    /*P_LIST_ADD_PREPEND(CURRENT_CONFIGURATION->compiler_phases, 
             CURRENT_CONFIGURATION->num_compiler_phases, 
-            library_name);
+            library_name);*/
 }
 
 // FIXME: This should be in cxx-upc.c, but that file belongs to the frontend
