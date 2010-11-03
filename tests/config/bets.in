@@ -311,7 +311,17 @@ run_gen_test ()
 {
    local source=$1
    local type=$2
+   local compressed=$3
    local name=$(basename ${source%.*})
+
+   if [ "$compressed" = compressed ];
+   then
+       local uncompressed_name=${source%.*}
+       log "***Uncompressing file '$source' to '$uncompressed_name'"
+       bzip2 -c -d $source > $uncompressed_name
+       source=${uncompressed_name}
+       name=$(basename ${uncompressed_name%.*})
+   fi
 
    debug "Starting $name test"
 
@@ -441,18 +451,26 @@ run_gen_test ()
         clean_exec_version_vars $v $e
      done
    done
+
+   if [ "$compressed" = compressed ];
+   then
+       log "***Removing uncompressed file $uncompressed_name"
+       rm -f $uncompressed_name
+   fi
 }
 
 run_file()
 {
    local file=$1
-   local ext=${file##*.}
-   case $ext in 
-     c)
-       run_gen_test $file c
+   case $file in 
+     *.c)
+       run_gen_test $file c 
        ;;
-    cpp|cu) 
-       run_gen_test $file cpp
+    *.cpp|*.cu) 
+       run_gen_test $file cpp 
+       ;;
+    *.cpp.bz2)
+       run_gen_test $file cpp compressed
        ;;
    esac
 }
