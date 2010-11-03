@@ -5690,9 +5690,9 @@ static scope_entry_t* find_function_declaration(AST declarator_id, type_t* decla
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
 
-        // No way if we got this
+        // Ignore this case
         if (entry->kind == SK_DEPENDENT_ENTITY)
-            return NULL;
+            continue;
 
         // This is so C90's ;)
         if (entry->kind == SK_CLASS
