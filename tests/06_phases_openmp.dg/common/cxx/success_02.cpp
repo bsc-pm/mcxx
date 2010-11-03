@@ -56,8 +56,9 @@ void A::f(void)
 #pragma omp parallel
     {
         g();
+        this->b = 2;
         a = 3;
-        b = 4;
+        b+=2;
         c = 5;
     }
 }

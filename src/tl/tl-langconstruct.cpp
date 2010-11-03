@@ -458,7 +458,22 @@ namespace TL
         return result;
     }
 
-    void ReplaceIdExpression::add_replacement(Symbol sym, std::string str)
+    void ReplaceIdExpression::add_this_replacement(const std::string& str)
+    {
+        _repl_this = str;
+    }
+
+    void ReplaceIdExpression::add_this_replacement(Source src)
+    {
+        add_this_replacement(src.get_source());
+    }
+
+    void ReplaceIdExpression::add_this_replacement(AST_t ast)
+    {
+        add_this_replacement(ast.prettyprint());
+    }
+
+    void ReplaceIdExpression::add_replacement(Symbol sym, const std::string& str)
     {
         _repl_map[sym] = str;
     }
@@ -473,7 +488,7 @@ namespace TL
         add_replacement(sym, ast.prettyprint());
     }
 
-    void ReplaceIdExpression::add_replacement(Symbol sym, std::string str, AST_t ref_tree, ScopeLink scope_link)
+    void ReplaceIdExpression::add_replacement(Symbol sym, const std::string& str, AST_t ref_tree, ScopeLink scope_link)
     {
         add_replacement(sym, str);
     }
@@ -1344,7 +1359,7 @@ namespace TL
         _ignore_pragmas = b;
     }
 
-    void ReplaceSrcIdExpression::add_replacement(Symbol sym, std::string str)
+    void ReplaceSrcIdExpression::add_replacement(Symbol sym, const std::string& str)
     {
         _repl_map[sym] = str;
     }
@@ -1401,6 +1416,11 @@ namespace TL
                 return result;
             }
         }
+        else if ((_this->_repl_this != "")
+                && PredicateAttr(LANG_IS_THIS_VARIABLE)(wrapped_tree))
+        {
+            return _this->_repl_this.c_str();
+        }
         else if (!_this->_do_not_replace_declarators)
         {
             Symbol sym = wrapped_tree.get_attribute(LANG_DECLARED_SYMBOL);
@@ -1415,6 +1435,11 @@ namespace TL
         }
 
         return NULL;
+    }
+
+    void ReplaceSrcIdExpression::add_this_replacement(const std::string& str)
+    {
+        _repl_this = str;
     }
 
     ObjectList<TemplateParameterConstruct> TemplateHeader::get_parameters() const
