@@ -687,6 +687,8 @@ static void build_scope_using_directive(AST a, decl_context_t decl_context)
 
     scope_entry_t* entry = entry_list_head(result_list);
 
+    entry_list_free(result_list);
+
     if (turn_into_inline)
     {
         entry->entity_specs.is_inline = 1;
@@ -766,6 +768,7 @@ static void introduce_using_entity(AST id_expression, decl_context_t decl_contex
         }
     }
     entry_list_iterator_free(it);
+    entry_list_free(used_entity);
 }
 
 static void build_scope_using_declaration(AST a, decl_context_t decl_context)
@@ -1397,6 +1400,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                         }
 
                         scope_entry_t* entry = entry_list_head(entry_list);
+                        entry_list_free(entry_list);
 
                         if (!entry->entity_specs.is_member
                                 || entry->entity_specs.is_static)
@@ -1521,6 +1525,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                             }
 
                             scope_entry_t* entry = entry_list_head(entry_list);
+                            entry_list_free(entry_list);
 
                             if (!entry->entity_specs.is_member
                                     || entry->entity_specs.is_static)
@@ -1655,7 +1660,11 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
     scope_entry_list_t* entry_list = filter_symbol_kind_set(result_list, 
             STATIC_ARRAY_LENGTH(filter_classes), filter_classes);
 
+    entry_list_free(result_list);
+
     scope_entry_t* entry = (entry_list != NULL) ? entry_list_head(entry_list) : NULL;
+
+    entry_list_free(entry_list);
 
     // We want the primary template in this particular case
     if (entry != NULL
@@ -1913,6 +1922,8 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type
     }
     entry_list_iterator_free(it);
 
+    entry_list_free(result_list);
+
     if (entry == NULL)
     {
         // Create a stub but only if it is unqualified, otherwise it should exist elsewhere
@@ -2012,6 +2023,9 @@ static void gather_type_spec_from_dependent_typename(AST a, type_t** type_info,
     }
 
     scope_entry_t* entry = entry_list_head(result);
+
+    entry_list_free(result);
+
     if (entry->kind != SK_DEPENDENT_ENTITY)
     {
         if (entry->kind != SK_TYPEDEF)
@@ -2086,6 +2100,8 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
     entry_list_iterator_free(it);
 
     scope_entry_t* entry = entry_list_head(entry_list);
+
+    entry_list_free(entry_list);
 
     if (is_dependent_type(entry->type_information))
     {
@@ -2217,6 +2233,8 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             }
 
             new_entry = entry_list_head(enum_entry_list);
+
+            entry_list_free(enum_entry_list);
         }
         else
         {
@@ -2498,16 +2516,20 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
         scope_entry_list_t* result_list = query_id_expression_flags(decl_context, 
                 class_name, DF_DEPENDENT_TYPENAME);
 
-        result_list = filter_symbol_kind_set(result_list, STATIC_ARRAY_LENGTH(filter), filter);
+        scope_entry_list_t* filtered_result_list = filter_symbol_kind_set(result_list, STATIC_ARRAY_LENGTH(filter), filter);
 
-        if (result_list == NULL)
+        entry_list_free(result_list);
+
+        if (filtered_result_list == NULL)
         {
             running_error("%s: base class '%s' not found\n", 
                     ast_location(class_name),
                     prettyprint_in_buffer(class_name));
         }
 
-        scope_entry_t* result = entry_list_head(result_list);
+        scope_entry_t* result = entry_list_head(filtered_result_list);
+
+        entry_list_free(filtered_result_list);
 
         if (result->kind != SK_TEMPLATE_TYPE_PARAMETER
                 && result->kind != SK_TEMPLATE_TEMPLATE_PARAMETER
@@ -3269,9 +3291,11 @@ static void finish_class_type_cxx(type_t* class_type, type_t* type_info, decl_co
         scope_entry_t* implicit_destructor = new_symbol(class_type_get_inner_context(class_type), sc,
                 destructor_name);
 
-        type_t* destructor_type = get_new_function_type(
-                /* returns void */ get_void_type(), 
-                NULL, 0);
+        type_t* destructor_type = get_const_qualified_type(
+                get_new_function_type(
+                    /* returns void */ get_void_type(), 
+                    NULL, 0)
+                );
 
         implicit_destructor->kind = SK_FUNCTION;
         implicit_destructor->type_information = destructor_type;
@@ -3576,14 +3600,19 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             SK_TEMPLATE, // For template-names
         };
 
-        class_entry_list = filter_symbol_kind_set(class_entry_list, 
+        scope_entry_list_t* filtered_class_entry_list = filter_symbol_kind_set(class_entry_list, 
                 STATIC_ARRAY_LENGTH(filter_classes), filter_classes);
 
-        if (class_entry_list != NULL)
+        entry_list_free(class_entry_list);
+
+        if (filtered_class_entry_list != NULL)
         {
             // If a valid class was found
             // Get the class entry
-            class_entry = entry_list_head(class_entry_list);
+            class_entry = entry_list_head(filtered_class_entry_list);
+
+            entry_list_free(filtered_class_entry_list);
+
             class_type = class_entry->type_information;
 
             // If this is the primary template, we will get the template type.
@@ -3664,7 +3693,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             inner_decl_context = new_class_context(class_entry->decl_context, class_entry);
             class_type_set_inner_context(class_type, inner_decl_context);
         }
-        else if (class_entry_list == NULL
+        else if (filtered_class_entry_list == NULL
                 && is_unqualified_id_expression(class_id_expression))
         {
             // If no class found and no nested name, the symbol must be created
@@ -4151,6 +4180,8 @@ static void build_scope_declarator_with_parameter_context(AST a,
                         prototype_context->class_scope = entry_list_head(symbols)->decl_context.class_scope;
                     }
                 }
+
+                entry_list_free(symbols);
             }
 
             {
@@ -4170,40 +4201,49 @@ static void build_scope_declarator_with_parameter_context(AST a,
         {
             // Special case for conversion function ids
             // We fix the return type according to the standard
-            if (is_function_type(*declarator_type)
-                    && function_type_get_return_type(*declarator_type) == NULL)
+            if (is_function_type(*declarator_type))
             {
-                AST id_expression = declarator_name;
-
-                AST conversion_function_id = NULL;
-                if (ASTType(id_expression) == AST_QUALIFIED_ID)
+                if (function_type_get_return_type(*declarator_type) == NULL)
                 {
-                    if (ASTType(ASTSon2(id_expression)) == AST_CONVERSION_FUNCTION_ID)
+                    AST id_expression = declarator_name;
+
+                    AST conversion_function_id = NULL;
+                    if (ASTType(id_expression) == AST_QUALIFIED_ID)
                     {
-                        conversion_function_id = ASTSon2(id_expression);
+                        if (ASTType(ASTSon2(id_expression)) == AST_CONVERSION_FUNCTION_ID)
+                        {
+                            conversion_function_id = ASTSon2(id_expression);
+                        }
+                    }
+
+                    if (ASTType(id_expression) == AST_CONVERSION_FUNCTION_ID)
+                    {
+                        conversion_function_id = id_expression;
+                    }
+
+                    if (conversion_function_id != NULL)
+                    {
+                        // Conversion functions do not haver parameters and just return their conversion
+                        cv_qualifier_t cv_qualif = get_cv_qualifier(*declarator_type);
+
+                        type_t* conversion_function_type;
+                        get_conversion_function_name(entity_context, conversion_function_id, &conversion_function_type);
+                        *declarator_type = get_new_function_type(conversion_function_type, 
+                                /*parameter_info*/ NULL, /*num_parameters=*/0);
+
+                        // Keep the const-qualification in the crafted type
+                        if ((cv_qualif & CV_CONST) == CV_CONST)
+                        {
+                            *declarator_type = get_const_qualified_type(*declarator_type);
+                        }
                     }
                 }
-
-                if (ASTType(id_expression) == AST_CONVERSION_FUNCTION_ID)
+                else if (ASTType(declarator_name) == AST_DESTRUCTOR_ID
+                        || ASTType(declarator_name) == AST_DESTRUCTOR_TEMPLATE_ID)
                 {
-                    conversion_function_id = id_expression;
-                }
-
-                if (conversion_function_id != NULL)
-                {
-                    // Conversion functions do not haver parameters and just return their conversion
-                    cv_qualifier_t cv_qualif = get_cv_qualifier(*declarator_type);
-
-                    type_t* conversion_function_type;
-                    get_conversion_function_name(entity_context, conversion_function_id, &conversion_function_type);
-                    *declarator_type = get_new_function_type(conversion_function_type, 
-                            /*parameter_info*/ NULL, /*num_parameters=*/0);
-
-                    // Keep the const-qualification in the crafted type
-                    if ((cv_qualif & CV_CONST) == CV_CONST)
-                    {
-                        *declarator_type = get_const_qualified_type(*declarator_type);
-                    }
+                    // Patch the type of the function of a destructor so it
+                    // works for const objects as well
+                    *declarator_type = get_const_qualified_type(*declarator_type);
                 }
             }
         }
@@ -4258,6 +4298,8 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
                                 ast_location(id_type_expr),
                                 prettyprint_in_buffer(id_type_expr));
                     }
+
+                    entry_list_free(entry_list);
                 }
                 *declarator_type = get_cv_qualified_type(*declarator_type, 
                         compute_cv_qualifier(ASTSon1(pointer_tree)));
@@ -4977,7 +5019,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 // 'name' should be a class in this scope
                 AST destructor_id = ASTSon0(declarator_id);
                 // Adjust to 'function () returning void'
-                declarator_type = get_new_function_type(get_void_type(), NULL, 0);
+                declarator_type = get_const_qualified_type(get_new_function_type(get_void_type(), NULL, 0));
                 return register_new_variable_name(destructor_id, declarator_type, gather_info, decl_context);
                 break;
             }
@@ -4992,7 +5034,11 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                     ERROR_CONDITION((entry_list == NULL), "Qualified id '%s' name not found (%s)", 
                             prettyprint_in_buffer(declarator_id), ast_location(declarator_id));
 
-                    return entry_list_head(entry_list);
+                    scope_entry_t* result = entry_list_head(entry_list);
+
+                    entry_list_free(entry_list);
+
+                    return result;
                 }
                 else
                 {
@@ -5074,6 +5120,8 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 
                     scope_entry_t* entry = entry_list_head(entry_list);
 
+                    entry_list_free(entry_list);
+
                     if (entry->kind == SK_VARIABLE
                             && entry->entity_specs.is_member
                             && entry->entity_specs.is_static
@@ -5092,8 +5140,8 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                     if (ASTType(ASTSon2(declarator_id)) == AST_DESTRUCTOR_ID
                             || ASTType(ASTSon2(declarator_id)) == AST_DESTRUCTOR_TEMPLATE_ID)
                     {
-                        // Adjust the type to 'function () returning void'
-                        declarator_type = get_new_function_type(get_void_type(), NULL, 0);
+                        // Adjust the type to 'const function () returning void'
+                        declarator_type = get_const_qualified_type(get_new_function_type(get_void_type(), NULL, 0));
                     }
 
                     entry = find_function_declaration(declarator_id, declarator_type, decl_context);
@@ -5152,6 +5200,8 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         entry_list_iterator_free(it);
 
         scope_entry_t* entry = entry_list_head(list);
+
+        entry_list_free(list);
 
         // We have to allow 
         // typedef struct A { .. } A;
@@ -5335,11 +5385,15 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
             return entry;
         }
 
+        entry_list_free(check_list);
+
         enum cxx_symbol_kind valid_symbols[] = {
             SK_CLASS, 
             SK_ENUM
         };
         check_list = filter_symbol_non_kind_set(entry_list, STATIC_ARRAY_LENGTH(valid_symbols), valid_symbols);
+
+        entry_list_free(entry_list);
 
         if (check_list != NULL)
         {
@@ -5350,6 +5404,8 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
                     entry->file,
                     entry->line);
         }
+
+        entry_list_free(check_list);
 
         DEBUG_CODE()
         {
@@ -5634,9 +5690,9 @@ static scope_entry_t* find_function_declaration(AST declarator_id, type_t* decla
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
 
-        // No way if we got this
+        // Ignore this case
         if (entry->kind == SK_DEPENDENT_ENTITY)
-            return NULL;
+            continue;
 
         // This is so C90's ;)
         if (entry->kind == SK_CLASS
@@ -5761,6 +5817,8 @@ static scope_entry_t* find_function_declaration(AST declarator_id, type_t* decla
             equal_entry = result;
         }
     }
+
+    entry_list_free(entry_list);
 
     if (!found_equal)
     {
@@ -6303,22 +6361,24 @@ static void build_scope_template_template_parameter(AST a,
 
         scope_entry_list_t* entry_list = query_id_expression(template_context, id_expr);
 
-        // ERROR_CONDITION((entry_list == NULL), "Default argument expression id not found\n", 0);
-
         enum cxx_symbol_kind valid_templates_arguments[] = 
         { 
             SK_TEMPLATE,
             SK_TEMPLATE_TEMPLATE_PARAMETER
         };
-        entry_list = filter_symbol_kind_set(entry_list, STATIC_ARRAY_LENGTH(valid_templates_arguments), valid_templates_arguments);
 
-        if (entry_list == NULL)
+        scope_entry_list_t* filtered_entry_list = 
+            filter_symbol_kind_set(entry_list, STATIC_ARRAY_LENGTH(valid_templates_arguments), valid_templates_arguments);
+        entry_list_free(entry_list);
+
+        if (filtered_entry_list == NULL)
             running_error("%s: error: '%s' does not name a template class\n",
                     ast_location(id_expr),
                     prettyprint_in_buffer(id_expr));
 
+        scope_entry_t* entry = entry_list_head(filtered_entry_list);
+        entry_list_free(filtered_entry_list);
 
-        scope_entry_t* entry = entry_list_head(entry_list);
         if (entry->kind == SK_TEMPLATE
                     && named_type_get_symbol(template_type_get_primary_type(entry->type_information))->kind != SK_CLASS)
         {
@@ -6580,6 +6640,7 @@ static void build_scope_namespace_alias(AST a, decl_context_t decl_context)
     }
 
     scope_entry_t* entry = entry_list_head(entry_list);
+    entry_list_free(entry_list);
 
     const char* alias_name = ASTText(alias_ident);
 
@@ -6630,6 +6691,7 @@ static void build_scope_namespace_definition(AST a, decl_context_t decl_context)
                     ast_location(namespace_name),
                     prettyprint_in_buffer(namespace_name));
         }
+        entry_list_free(check_list);
 
         scope_entry_t* entry = NULL;
         decl_context_t namespace_context;
@@ -6672,6 +6734,8 @@ static void build_scope_namespace_definition(AST a, decl_context_t decl_context)
             }
         }
 
+        entry_list_free(list);
+
         if (ASTSon1(a) != NULL)
         {
             build_scope_declaration_sequence(ASTSon1(a), namespace_context);
@@ -6688,6 +6752,9 @@ static void build_scope_namespace_definition(AST a, decl_context_t decl_context)
                 entry_list_head(list)->kind == SK_NAMESPACE)
         {
             scope_entry_t* entry = entry_list_head(list);
+
+            entry_list_free(list);
+
             namespace_context = entry->namespace_decl_context;
 
             if (is_inline
@@ -6755,6 +6822,8 @@ static void build_scope_ctor_initializer(AST ctor_initializer,
                                 ast_location(id_expression),
                                 prettyprint_in_buffer(id_expression));
                     }
+
+                    entry_list_free(result_list);
 
                     if (expression_list != NULL)
                     {
@@ -6840,6 +6909,7 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry UNUSED_P
             {
                 entry = entry_list_head(entry_list);
             }
+            entry_list_free(entry_list);
 
             entry->entity_specs.is_parameter = 1;
             entry->entity_specs.parameter_position = i;
@@ -7156,8 +7226,11 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
         {
             // The class we belong to
             type_t* pointed_this = entry->entity_specs.class_type;
-            // Qualify likewise the function
-            pointed_this = get_cv_qualified_type(pointed_this, get_cv_qualifier(entry->type_information));
+            // Qualify likewise the function unless it is a destructor
+            if (!entry->entity_specs.is_destructor)
+            {
+                pointed_this = get_cv_qualified_type(pointed_this, get_cv_qualifier(entry->type_information));
+            }
 
             type_t* this_type = get_pointer_type(pointed_this);
             // It is a constant pointer, so qualify like it is
@@ -8876,6 +8949,8 @@ static void add_label_if_not_found(AST label, decl_context_t decl_context)
         new_label->line = ASTLine(label);
         new_label->file = ASTFileName(label);
     }
+
+    entry_list_free(entry_list);
 }
 static void build_scope_goto_statement(AST a, 
         decl_context_t decl_context, 

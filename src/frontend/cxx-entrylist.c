@@ -9,13 +9,6 @@ unsigned long long _bytes_entry_lists;
 
 struct scope_entry_list_tag
 {
-    union {
-        struct
-        {
-            char pinned:1;
-        };
-        unsigned short reserved0;
-    };
     unsigned short num_items_list;
     scope_entry_t* list[NUM_IMMEDIATE];
     scope_entry_list_t* next;
@@ -71,38 +64,44 @@ scope_entry_list_t* entry_list_add(scope_entry_list_t* list,
     return list;
 }
 
+scope_entry_list_t* entry_list_copy(const scope_entry_list_t* list)
+{
+    scope_entry_list_t* result = NULL;
+
+    scope_entry_list_iterator_t* it = NULL;
+    for (it = entry_list_iterator_begin(list);
+            !entry_list_iterator_end(it);
+            entry_list_iterator_next(it))
+    {
+        result = entry_list_add(result, entry_list_iterator_current(it));
+    }
+    entry_list_iterator_free(it);
+
+    return result;
+}
+
 void entry_list_free(scope_entry_list_t* list)
 {
     if (list == NULL)
         return;
-    if (list->pinned)
-        return;
-    if (list->next != NULL)
-        entry_list_free(list->next);
+
+    entry_list_free(list->next);
 
     memset(list, 0, sizeof(*list));
+    // Magic number to quickly pinpoint double freed lists
+    list->num_items_list = 0xCEBA;
 
     free(list);
 }
 
-void entry_list_pin(scope_entry_list_t* list)
-{
-    list->pinned = 1;
-}
-
-void entry_list_unpin(scope_entry_list_t* list)
-{
-    list->pinned = 0;
-}
-
 // -
 
-unsigned int entry_list_size(scope_entry_list_t* list)
+unsigned int entry_list_size(const scope_entry_list_t* list)
 {
     return list->num_items_list;
 }
 
-scope_entry_t* entry_list_head(scope_entry_list_t* list)
+scope_entry_t* entry_list_head(const scope_entry_list_t* list)
 {
     return list->list[0];
 }
@@ -113,8 +112,8 @@ struct scope_entry_list_iterator_tag
 {
     int current_pos;
     int total_pos;
-    scope_entry_list_t* current_list;
-    scope_entry_list_t* first_list;
+    const scope_entry_list_t* current_list;
+    const scope_entry_list_t* first_list;
 };
 
 static scope_entry_list_iterator_t* entry_list_iterator_allocate(void)
@@ -122,7 +121,7 @@ static scope_entry_list_iterator_t* entry_list_iterator_allocate(void)
     return counted_calloc(1, sizeof(scope_entry_list_iterator_t), &_bytes_entry_lists);
 }
 
-scope_entry_list_iterator_t* entry_list_iterator_begin(scope_entry_list_t* list)
+scope_entry_list_iterator_t* entry_list_iterator_begin(const scope_entry_list_t* list)
 {
     scope_entry_list_iterator_t* result = entry_list_iterator_allocate();
     result->current_list = list;
@@ -177,8 +176,8 @@ static int ptr_comp(const void* p1, const void* p2)
         return 0;
 }
 
-scope_entry_list_t* entry_list_merge(scope_entry_list_t* list1, 
-        scope_entry_list_t* list2)
+scope_entry_list_t* entry_list_merge(const scope_entry_list_t* list1, 
+        const scope_entry_list_t* list2)
 {
     int size1 = (list1 != NULL ? entry_list_size(list1) : 0);
     scope_entry_t* elems1[size1 + 1];

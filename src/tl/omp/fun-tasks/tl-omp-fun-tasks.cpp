@@ -110,10 +110,11 @@ namespace OpenMP
                     // We want a function call
                     if (expr.is_top_level_expression()
                             && expr.is_function_call()
-                            // To an entity
-                            && expr.get_called_expression().is_id_expression())
+                            // To a known entity
+                            && expr.get_called_expression().has_symbol())
                     {
-                        Symbol sym = expr.get_called_expression().get_id_expression().get_computed_symbol();
+                        Expression callee = expr.get_called_expression();
+                        Symbol sym = callee.get_symbol();
 
                         if (sym.is_valid()
                                 && sym.is_function()
@@ -136,7 +137,7 @@ namespace OpenMP
                 it++)
         {
             Expression expr(*it, scope_link);
-            Symbol sym = expr.get_called_expression().get_id_expression().get_computed_symbol();
+            Symbol sym = expr.get_called_expression().get_symbol();
 
             FunctionTaskInfo& task_info = _function_task_set->get_function_task(sym);
 
@@ -166,8 +167,8 @@ namespace OpenMP
             ObjectList<FunctionTaskDependency> task_params = task_info.get_parameter_info();
 
             // Create new call
-            Source new_arguments;
-            new_call << expr.get_called_expression() << "(" << new_arguments << ")"
+            Source new_arguments, new_callee;
+            new_call << new_callee << "(" << new_arguments << ")"
                 ;
 
             ReplaceSrcIdExpression replace(scope_link);
@@ -214,7 +215,6 @@ namespace OpenMP
                         running_error("Invalid argument position %d >= %d",
                                 current_sym.get_parameter_position(),
                                 argument_list.size());
-
                     }
                 }
             }
@@ -257,38 +257,74 @@ namespace OpenMP
                         ",");
             }
 
-            // Now check parameters that do not appear in dependences since
-            // they must appear in firstprivate
-            Source firstprivate_args;
-            for (unsigned int i = 0; i < argument_list.size(); i++)
+            Expression callee = expr.get_called_expression();
+            if (sym.is_member()
+                    && !sym.is_static())
             {
-                if (!parameters_as_dependences.contains(i))
+                Type called_object_type(NULL);
+
+                Source init_this;
+
+                if (callee.is_member_access())
                 {
-                    firstprivate_args.append_with_separator(
-                            Source("__tmp_") << i,
-                            ",");
+                    called_object_type = callee.get_accessed_entity().get_type();
+
+                    new_callee << "__tmp_this." << callee.get_accessed_member();
+
+                    init_this << callee.get_accessed_entity();
                 }
-            }
+                else if (callee.is_pointer_member_access())
+                {
+                    called_object_type = callee.get_accessed_entity().get_type();
 
-            if (!firstprivate_args.empty())
-            {
-                arg_clauses << " firstprivate(" << firstprivate_args << ")";
-            }
-            if (!input_args.empty())
-            {
-                arg_clauses << " __fp_input(" << input_args << ")";
-            }
-            if (!output_args.empty())
-            {
-                arg_clauses << " __fp_output(" << output_args << ")";
-            }
-            if (!inout_args.empty())
-            {
-                arg_clauses << " __fp_inout(" << inout_args << ")";
-            }
+                    if (called_object_type.is_reference())
+                        called_object_type = called_object_type.references_to();
 
-            // Add the task symbol name to the clause
-            arg_clauses << " __symbol(" << sym.get_name() << ")";
+                    called_object_type = called_object_type.points_to().get_reference_to();
+
+                    new_callee << "__tmp_this." << callee.get_accessed_member();
+
+                    init_this << "*" << callee.get_accessed_entity();
+                }
+                else if (callee.is_id_expression())
+                {
+                    Symbol this_sym = expr.get_scope().get_symbol_from_name("this");
+                    if (this_sym.is_invalid())
+                    {
+                        running_error("%s: error: invalid nonstatic member call\n",
+                                expr.get_ast().get_locus().c_str());
+                    }
+                    called_object_type = this_sym.get_type().points_to().get_reference_to();
+
+                    new_callee << "__tmp_this." << callee
+                        ;
+
+                    init_this << "*this";
+                }
+                else
+                {
+                    running_error("%s: error: invalid nonstatic member call\n",
+                            expr.get_ast().get_locus().c_str());
+                }
+
+                if (sym.get_type().is_const())
+                {
+                    input_args.append_with_separator("__tmp_this", ",");
+                }
+                else
+                {
+                    inout_args.append_with_separator("__tmp_this", ",");
+                }
+
+                additional_decls
+                    << "#line " << expr.get_ast().get_line() << " \"" << expr.get_ast().get_file() << "\"\n" 
+                    << called_object_type.get_declaration(callee.get_scope(), "__tmp_this") << "(" << init_this << ");"
+                    ;
+            }
+            else
+            {
+                new_callee << callee;
+            }
 
             int i = 0;
             for (ObjectList<Expression>::iterator it2 = argument_list.begin();
@@ -334,6 +370,40 @@ namespace OpenMP
 
                 i++;
             }
+
+            // Now check parameters that do not appear in dependences since
+            // they must appear in firstprivate
+            Source firstprivate_args;
+            for (unsigned int i = 0; i < argument_list.size(); i++)
+            {
+                if (!parameters_as_dependences.contains(i))
+                {
+                    firstprivate_args.append_with_separator(
+                            Source("__tmp_") << i,
+                            ",");
+                }
+            }
+
+            if (!firstprivate_args.empty())
+            {
+                arg_clauses << " firstprivate(" << firstprivate_args << ")";
+            }
+            if (!input_args.empty())
+            {
+                arg_clauses << " __fp_input(" << input_args << ")";
+            }
+            if (!output_args.empty())
+            {
+                arg_clauses << " __fp_output(" << output_args << ")";
+            }
+            if (!inout_args.empty())
+            {
+                arg_clauses << " __fp_inout(" << inout_args << ")";
+            }
+
+            // Add the task symbol name to the clause
+            arg_clauses << " __symbol(" << sym.get_qualified_name(expr.get_scope()) << ")";
+
 
             ObjectList<FunctionTaskInfo::implementation_pair_t> implemented_tasks = task_info.get_devices_with_implementation();
 

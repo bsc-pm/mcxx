@@ -75,6 +75,8 @@ namespace TL
 
         convert_to_vector(entry_list, result);
 
+        entry_list_free(entry_list);
+
         return result;
     }
 
@@ -101,6 +103,8 @@ namespace TL
         scope_entry_list_t* entry_list = query_id_expression_flags(_decl_context, _ast, flags);
 
         convert_to_vector(entry_list, result);
+
+        entry_list_free(entry_list);
 
         return result;
     }
@@ -220,6 +224,8 @@ namespace TL
         scope_entry_list_t* entry_list = ::cascade_lookup(_decl_context, str.c_str(), filename.c_str(), line);
         ObjectList<Symbol> result;
         convert_to_vector(entry_list, result);
+        entry_list_free(entry_list);
+
         return result;
     }
 
@@ -260,6 +266,7 @@ namespace TL
 
         ObjectList<Symbol> result;
         convert_to_vector(entry_list, result);
+        entry_list_free(entry_list);
 
         delete[] argument_list;
 

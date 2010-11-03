@@ -44,10 +44,13 @@ struct A
 
     A() : b(0) { }
 
+    void g() { }
+
     void f(void)
     {
 #pragma omp parallel
         {
+            g();
             a = 3;
             b = 4;
             c = 5;

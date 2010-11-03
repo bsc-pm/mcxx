@@ -814,6 +814,8 @@ static char check_for_kr_parameter_list(AST parameters_kr, decl_context_t decl_c
     AST identifier_list = ASTSon0(parameters_kr);
     AST iter;
 
+    char ok = 1;
+
     for_each_element(identifier_list, iter)
     {
         AST identifier = ASTSon1(iter);
@@ -822,19 +824,24 @@ static char check_for_kr_parameter_list(AST parameters_kr, decl_context_t decl_c
 
         scope_entry_list_iterator_t* it = NULL;
         for (it = entry_list_iterator_begin(entry_list);
-                !entry_list_iterator_end(it);
+                !entry_list_iterator_end(it) && ok;
                 entry_list_iterator_next(it))
         {
             scope_entry_t* entry = entry_list_iterator_current(it);
             if (entry->kind == SK_TYPEDEF)
             {
-                return 0;
+                ok = 0;
             }
         }
+
         entry_list_iterator_free(it);
+        entry_list_free(entry_list);
+
+        if (!ok)
+            break;
     }
 
-    return 1;
+    return ok;
 }
 
 /*
@@ -1169,6 +1176,8 @@ static char check_for_simple_declaration(AST a, decl_context_t decl_context)
                 if (entry_list != NULL)
                 {
                     scope_entry_t* entry = entry_list_head(entry_list);
+                    entry_list_free(entry_list);
+
                     if (entry->kind == SK_TYPEDEF
                             || entry->kind == SK_ENUM
                             || entry->kind == SK_CLASS
@@ -1181,15 +1190,16 @@ static char check_for_simple_declaration(AST a, decl_context_t decl_context)
 
                             scope_entry_list_t* type_id_list = query_id_expression(decl_context, type_id_expr);
 
-                            // A is of class nature
-                            if (type_id_list != NULL
-                                    && (entry_list_head(type_id_list)->kind == SK_CLASS))
+                            if (type_id_list != NULL)
                             {
                                 scope_entry_t* type_sym = entry_list_head(type_id_list);
+                                entry_list_free(type_id_list);
+
+                                // A is of class nature
                                 // The related scope of A is the same as the
                                 // current scope
-                                // Should check this is the injected class name
-                                if (type_sym->entity_specs.is_injected_class_name)
+                                if (type_sym->kind == SK_CLASS
+                                        && type_sym->entity_specs.is_injected_class_name)
                                 {
                                     // In this case, and only in this case, this is
                                     // not a data member declaration
@@ -1394,12 +1404,15 @@ static char check_for_typeless_declarator_rec(AST declarator, decl_context_t dec
                 };
 
                 scope_entry_list_t* classes_list = filter_symbol_kind_set(result_list, STATIC_ARRAY_LENGTH(filter_classes), filter_classes);
+                entry_list_free(result_list);
 
                 if (classes_list == NULL)
                 {
                     // This is not a class name
                     return 0;
                 }
+
+                entry_list_free(classes_list);
 
                 // It looks sane here
                 return 1;
@@ -1436,8 +1449,14 @@ static char check_for_typeless_declarator_rec(AST declarator, decl_context_t dec
                 if (result == NULL
                         || (entry_list_head(result)->kind != SK_CLASS))
                 {
-                    // This is not a class name
-                    return 0;
+                    scope_entry_t* entry = entry_list_head(result);
+                    entry_list_free(result);
+
+                    if (entry->kind != SK_CLASS)
+                    {
+                        // This is not a class name
+                        return 0;
+                    }
                 }
 
                 // It looks sane here
@@ -1724,8 +1743,9 @@ char check_for_simple_type_spec(AST type_spec, decl_context_t decl_context, type
 
     scope_entry_list_iterator_t* it = NULL;
 
+    char ok = 1;
     for (it = entry_list_iterator_begin(entry_list);
-            !entry_list_iterator_end(it);
+            !entry_list_iterator_end(it) && ok;
             entry_list_iterator_next(it))
     {
         scope_entry_t* entry = entry_list_iterator_current(it);
@@ -1737,7 +1757,7 @@ char check_for_simple_type_spec(AST type_spec, decl_context_t decl_context, type
                 && entry->kind != SK_TEMPLATE_TYPE_PARAMETER
                 && entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER)
         {
-            return 0;
+            ok = 0;
         }
         if (entry->kind == SK_TEMPLATE)
         {
@@ -1746,18 +1766,21 @@ char check_for_simple_type_spec(AST type_spec, decl_context_t decl_context, type
             type_t* primary = template_type_get_primary_type(entry->type_information);
             if (!is_named_class_type(primary))
             {
-                return 0;
+                ok = 0;
             }
         }
     }
     entry_list_iterator_free(it);
 
-    if (computed_type != NULL)
+    scope_entry_t* entry = entry_list_head(entry_list);
+    entry_list_free(entry_list);
+
+    if (ok && computed_type != NULL)
     {
-        *computed_type = get_user_defined_type(entry_list_head(entry_list));
+        *computed_type = get_user_defined_type(entry);
     }
 
-    return 1;
+    return ok;
 }
 
 

@@ -103,6 +103,7 @@ LANG_IS_IF_STATEMENT lang.is_if_statement
 LANG_IS_IMPLICIT_CALL lang.is_implicit_call
 LANG_IS_INTEGER_LITERAL lang.is_integer_literal
 LANG_IS_LABELED_STATEMENT lang.is_labeled_statement
+LANG_IS_LINKAGE_SPECIFIER lang.is_linkage_specifier
 LANG_IS_LITERAL lang.is_literal
 LANG_IS_LOGICAL_AND_OP lang.is_logical_and_op
 LANG_IS_LOGICAL_OR_OP lang.is_logical_or_op
@@ -152,6 +153,7 @@ LANG_IS_TEMPLATE_ID lang.is_template_id
 LANG_IS_TEMPLATE_PARAMETER lang.is_template_parameter
 LANG_IS_TEMPLATE_PARAMETER_NAME lang.is_template_parameter_name
 LANG_IS_TEMPLATE_TEMPLATE_PARAMETER lang.is_template_template_parameter
+LANG_IS_THIS_VARIABLE lang.is_this_variable
 LANG_IS_TRY_BLOCK lang.is_try_block
 LANG_IS_TYPE_TEMPLATE_PARAMETER lang.is_type_template_parameter
 LANG_IS_UNARY_OPERATION lang.is_unary_operation
@@ -207,4 +209,3 @@ UPC_IS_FORALL_STATEMENT upc.is_forall_statement
 UPC_IS_NOTIFY_STATEMENT upc.is_notify_statement
 UPC_IS_WAIT_STATEMENT upc.is_wait_statement
 UPC_SYNC_STMT_ARGUMENT upc.sync_stmt_argument
-LANG_IS_LINKAGE_SPECIFIER lang.is_linkage_specifier

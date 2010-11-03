@@ -26,18 +26,12 @@ test_generator=config/mercurium
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-template <typename T>
 struct A
 {
-	typedef T P;
+    int a;
 };
 
-template <typename T, 
-    template<typename Q> class V = A>
-struct M
+void f(const A &a)
 {
-	typedef typename V<T>::P K;
-};
-
-typedef M<int>::K S;
-typedef int S;
+    a.~A();
+}

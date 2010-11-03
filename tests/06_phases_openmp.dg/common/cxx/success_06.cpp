@@ -43,11 +43,13 @@ struct A
         t = 1;
 #pragma omp parallel
         {
+            g();
             t = 0;
         }
         if (t != 0)
             abort();
     }
+    void g() { }
 };
 
 int main(int argc, char *argv[])
