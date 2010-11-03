@@ -33,6 +33,7 @@
 #include "cxx-overload.h"
 #include "cxx-cexpr.h"
 #include "cxx-instantiation.h"
+#include "cxx-entrylist.h"
 
 unsigned long long int _bytes_typededuc = 0;
 
