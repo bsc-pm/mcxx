@@ -613,6 +613,12 @@ namespace TL
             node = ASTParent(node);
         }
 
+        while (node != NULL
+                && ASTType(node) != AST_SIMPLE_DECLARATION)
+        {
+            node = ASTParent(node);
+        }
+
         if (jump_templates)
         {
             while (node != NULL
