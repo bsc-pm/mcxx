@@ -200,18 +200,16 @@ namespace TL
 
     ObjectList<TemplateHeader> FunctionDefinition::get_template_header() const
     {
-        TL::AST_t start = _ref.get_attribute(LANG_TEMPLATE_HEADER);
+        // FIXME - Improve this
+        AST_t start_t = _ref.get_attribute(LANG_TEMPLATE_HEADER);
+        AST a = start_t.get_internal_ast();
 
-        PredicateAttr template_header_pred(LANG_IS_TEMPLATE_HEADER);
-
-        ObjectList<AST_t> trees = start.depth_subtrees(template_header_pred);
         ObjectList<TemplateHeader> result;
 
-        for (ObjectList<AST_t>::iterator it = trees.begin();
-                it != trees.end();
-                it++)
+        while (ASTType(a) == AST_TEMPLATE_DECLARATION)
         {
-            result.append(TemplateHeader(*it, _scope_link));
+            result.append(TemplateHeader(ASTSon0(a), get_scope_link()));
+            a = ASTSon1(a);
         }
 
         return result;
@@ -291,17 +289,16 @@ namespace TL
 
     ObjectList<TemplateHeader> Declaration::get_template_header() const
     {
-        TL::AST_t start = _ref.get_attribute(LANG_TEMPLATE_HEADER);
-        PredicateAttr template_header_pred(LANG_IS_TEMPLATE_HEADER);
+        // FIXME - Improve this
+        AST_t start_t = _ref.get_attribute(LANG_TEMPLATE_HEADER);
+        AST a = start_t.get_internal_ast();
 
-        ObjectList<AST_t> trees = start.depth_subtrees(template_header_pred);
         ObjectList<TemplateHeader> result;
 
-        for (ObjectList<AST_t>::iterator it = trees.begin();
-                it != trees.end();
-                it++)
+        while (ASTType(a) == AST_TEMPLATE_DECLARATION)
         {
-            result.append(TemplateHeader(*it, _scope_link));
+            result.append(TemplateHeader(ASTSon0(a), get_scope_link()));
+            a = ASTSon1(a);
         }
 
         return result;
