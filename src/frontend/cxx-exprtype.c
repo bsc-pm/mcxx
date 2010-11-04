@@ -10857,6 +10857,17 @@ static char check_for_sizeof_expr(AST expr, decl_context_t decl_context)
             if (!is_dependent_expr_type(t)
                     && !type_is_runtime_sized(t))
             {
+                CXX_LANGUAGE()
+                {
+                    if (is_named_class_type(t)
+                            && class_type_is_incomplete_independent(get_actual_class_type(t)))
+                    {
+                        scope_entry_t* symbol = named_type_get_symbol(t);
+                        instantiate_template_class(symbol, decl_context, 
+                                ASTFileName(sizeof_expression), ASTLine(sizeof_expression));
+                    }
+                }
+
                 if (is_incomplete_type(t))
                 {
                     running_error("%s: error: sizeof of incomplete type '%s'\n", 
@@ -10938,6 +10949,17 @@ static char check_for_sizeof_typeid(AST expr, decl_context_t decl_context)
             if (!is_dependent_type(declarator_type)
                     && !type_is_runtime_sized(declarator_type))
             {
+                CXX_LANGUAGE()
+                {
+                    if (is_named_class_type(declarator_type)
+                            && class_type_is_incomplete_independent(get_actual_class_type(declarator_type)))
+                    {
+                        scope_entry_t* symbol = named_type_get_symbol(declarator_type);
+                        instantiate_template_class(symbol, decl_context, 
+                                ASTFileName(type_id), ASTLine(type_id));
+                    }
+                }
+
                 if (is_incomplete_type(declarator_type))
                 {
                     running_error("%s: error: sizeof of incomplete type '%s'\n", 
