@@ -90,6 +90,7 @@
 "  -l <name>                Adds lib<name> into the final link\n" \
 "  -g                       Enables debug for the native compilation\n" \
 "  -D<macro>                Passes <macro> to the preprocessor\n" \
+"  -U<macro>                Undefines <macro> to the preprocessor\n" \
 "  -O -O0 -O1 -O2 -O3       Sets optimization level to the\n" \
 "                           preprocessor and native compiler\n" \
 "  -y                       File will be parsed but it will not be\n" \
@@ -205,7 +206,7 @@ static char *_alternate_signal_stack;
 #endif
 
 // It mimics getopt
-#define SHORT_OPTIONS_STRING "vkKacho:EyI:L:l:gD:x:"
+#define SHORT_OPTIONS_STRING "vkKacho:EyI:L:l:gD:U:x:"
 // This one mimics getopt_long but with one less field (the third one is not given)
 struct command_line_long_options command_line_long_options[] =
 {
@@ -815,6 +816,13 @@ int parse_arguments(int argc, const char* argv[],
                     {
                         char temp[256] = { 0 };
                         snprintf(temp, 255, "-D%s", parameter_info.argument);
+                        add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, temp);
+                        break;
+                    }
+                case 'U' :
+                    {
+                        char temp[256] = { 0 };
+                        snprintf(temp, 255, "-U%s", parameter_info.argument);
                         add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, temp);
                         break;
                     }
