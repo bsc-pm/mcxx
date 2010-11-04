@@ -10857,6 +10857,13 @@ static char check_for_sizeof_expr(AST expr, decl_context_t decl_context)
             if (!is_dependent_expr_type(t)
                     && !type_is_runtime_sized(t))
             {
+                if (is_incomplete_type(t))
+                {
+                    running_error("%s: error: sizeof of incomplete type '%s'\n", 
+                            ast_location(sizeof_expression),
+                            print_type_str(t, decl_context));
+                }
+
                 char is_const_expr = 0;
                 _size_t type_size = 0;
 
@@ -10931,6 +10938,13 @@ static char check_for_sizeof_typeid(AST expr, decl_context_t decl_context)
             if (!is_dependent_type(declarator_type)
                     && !type_is_runtime_sized(declarator_type))
             {
+                if (is_incomplete_type(declarator_type))
+                {
+                    running_error("%s: error: sizeof of incomplete type '%s'\n", 
+                            ast_location(type_id),
+                            print_type_str(declarator_type, decl_context));
+                }
+
                 char is_const_expr = 0;
                 _size_t type_size = 0;
 

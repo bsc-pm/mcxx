@@ -8222,6 +8222,8 @@ _size_t type_get_size(type_t* t)
         ERROR_CONDITION(is_dependent_type(t), "Dependent type '%s' has got its size requested!\n",
                 print_declarator(t));
     }
+    ERROR_CONDITION(is_incomplete_type(t), "Incomplete type '%s' got its size requested!\n",
+            print_declarator(t));
 
     // Note that we are not advancing typedefs because of attributes affecting types!
     if (!t->info->valid_size)
