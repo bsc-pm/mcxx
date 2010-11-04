@@ -5,7 +5,7 @@ options =
 {instrument,!debug} options = --variable=instrument:1
 preprocessor_name = gcc
 preprocessor_options = -E
-{instrument,!(debug|openmpt|nanox)} preprocessor_options = -I@MINTAKA_INCLUDES@ -include mintaka.h
+{instrument,!(debug|openmpt|ompss|nanox)} preprocessor_options = -I@MINTAKA_INCLUDES@ -include mintaka.h
 compiler_name = gcc
 compiler_options = 
 linker_name = gcc
