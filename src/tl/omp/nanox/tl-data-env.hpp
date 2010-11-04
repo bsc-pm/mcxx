@@ -321,6 +321,8 @@ namespace TL
                 Scope sc,
                 DataEnvironInfo &data_env_info,
                 Source &struct_decl,
+                Source &struct_def,
+                Source &struct_name_qualifier,
                 Source &struct_fields,
                 std::string& struct_arg_type_name,
                 ObjectList<OpenMP::DependencyItem> dependencies,

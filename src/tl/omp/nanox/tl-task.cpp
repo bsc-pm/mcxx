@@ -52,12 +52,14 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
         scope_of_struct = function_symbol.get_scope();
     }
 
-    Source struct_arg_type_decl_src, struct_fields;
+    Source struct_arg_type_decl, struct_arg_type_def, struct_arg_type_qualif, struct_fields;
     std::string struct_arg_type_name;
     fill_data_environment_structure(
             scope_of_struct,
             data_environ_info,
-            struct_arg_type_decl_src,
+            struct_arg_type_decl,
+            struct_arg_type_def,
+            struct_arg_type_qualif,
             struct_fields,
             struct_arg_type_name, 
             dependences,
@@ -114,18 +116,10 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     Source newly_generated_code;
     newly_generated_code
         << template_header
-        << struct_arg_type_decl_src
+        << struct_arg_type_def
         ;
 
-    if (!function_symbol.is_member())
-    {
-        AST_t outline_code_tree
-            = newly_generated_code.parse_declaration(
-                    ctr.get_ast().get_enclosing_function_definition_declaration(),
-                    ctr.get_scope_link());
-        ctr.get_ast().prepend_sibling_function(outline_code_tree);
-    }
-    else
+    if (function_symbol.is_member())
     {
         if (!function_symbol.is_static())
         {
@@ -157,13 +151,92 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             ref_tree = decl.get_point_of_declaration();
         }
 
-        AST_t outline_code_tree
-            = newly_generated_code.parse_member(
-                    decl_point,
-                    ctr.get_scope_link(),
-                    function_symbol.get_class_type().get_symbol());
+        // This is a bit crude but allows knowing if the function is defined
+        // inside the class or not
+        bool is_inline_member_function = ctr.get_statement().get_ast().get_enclosing_class_specifier().is_valid();
 
-        decl_point.prepend(outline_code_tree);
+        if (!is_inline_member_function)
+        {
+            Source in_class_declaration;
+            Source template_header_class;
+            in_class_declaration 
+                << template_header
+                << struct_arg_type_decl;
+
+            Declaration class_decl(function_symbol
+                    .get_point_of_declaration()
+                    .get_enclosing_class_specifier(),
+                    ctr.get_scope_link());
+            if (class_decl.is_templated())
+            {
+                ObjectList<TemplateHeader> template_header_list = class_decl.get_template_header();
+
+                for (ObjectList<TemplateHeader>::iterator it = template_header_list.begin();
+                        it != template_header_list.end();
+                        it++)
+                {
+                    Source template_params;
+                    template_header_class << "template<" << template_params << ">";
+                    ObjectList<TemplateParameterConstruct> tpl_params = it->get_parameters();
+                    for (ObjectList<TemplateParameterConstruct>::iterator it2 = tpl_params.begin();
+                            it2 != tpl_params.end();
+                            it2++)
+                    {
+                        template_params.append_with_separator(it2->prettyprint(), ",");
+                    }
+                }
+            }
+
+            AST_t in_class_declaration_tree
+                = in_class_declaration.parse_member(
+                        decl_point,
+                        ctr.get_scope_link(),
+                        function_symbol.get_class_type().get_symbol());
+            decl_point.prepend(in_class_declaration_tree);
+
+            std::string globally_qualified 
+                = function_symbol.get_class_type().get_declaration(ctr.get_scope_link().get_scope(decl_point), "") + "::";
+            // It is not valid to write 'struct ::A::B { }' but it is OK to do 'struct A::B { }'
+
+            std::string::iterator it = globally_qualified.begin();
+            // Skip blanks if any (there should not be any, lest there were)
+            while (it != globally_qualified.end() && *it == ' ') it++; 
+            // Skip first colon
+            if (it != globally_qualified.end() && *it == ':') it++;
+            // Skip second colon
+            if (it != globally_qualified.end() && *it == ':') it++;
+
+            struct_arg_type_qualif << std::string(it, globally_qualified.end());
+
+            Source fixed_newly_generated_code;
+            fixed_newly_generated_code
+                << template_header_class
+                << newly_generated_code
+                ;
+
+            AST_t outline_code_tree
+                = fixed_newly_generated_code.parse_declaration(
+                        ctr.get_ast().get_enclosing_function_definition_declaration(),
+                        ctr.get_scope_link());
+            ctr.get_ast().prepend_sibling_function(outline_code_tree);
+        }
+        else
+        {
+            AST_t outline_code_tree
+                = newly_generated_code.parse_member(
+                        ctr.get_ast().get_enclosing_function_definition_declaration(),
+                        ctr.get_scope_link(),
+                        function_symbol.get_class_type().get_symbol());
+            ctr.get_ast().prepend_sibling_function(outline_code_tree);
+        }
+    }
+    else
+    {
+        AST_t outline_code_tree
+            = newly_generated_code.parse_declaration(
+                    ctr.get_ast().get_enclosing_function_definition_declaration(),
+                    ctr.get_scope_link());
+        ctr.get_ast().prepend_sibling_function(outline_code_tree);
     }
 
     Source device_descriptor, 

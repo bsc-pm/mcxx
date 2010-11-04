@@ -460,12 +460,13 @@ namespace TL
             Scope sc,
             DataEnvironInfo &data_env_info,
             Source &struct_decl,
+            Source &struct_def,
+            Source &struct_name_qualifier,
             Source &struct_fields,
             std::string& struct_name,
             ObjectList<OpenMP::DependencyItem> dependencies,
             bool compiler_alignment)
     {
-
         std::stringstream ss;
 
         int data_env_struct = TL::CounterManager::get_counter(DATA_ENV_ARG_TYPE_COUNTER);
@@ -476,7 +477,7 @@ namespace TL
 
         C_LANGUAGE()
         {
-            struct_decl
+            struct_def
                 << "typedef "
                 << "struct " << struct_name << "_tag {"
                 << struct_fields
@@ -487,7 +488,10 @@ namespace TL
         CXX_LANGUAGE()
         {
             struct_decl
-                << "struct " << struct_name << " {"
+                << "struct " << struct_name << ";"
+                ;
+            struct_def
+                << "struct " << struct_name_qualifier << struct_name << " {"
                 << struct_fields
                 << "};"
                 ;

@@ -65,12 +65,14 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
 
     Source struct_fields;
 
-    Source struct_arg_type_decl_src;
+    Source struct_arg_type_decl, struct_arg_type_def, struct_arg_type_qualif;
     std::string struct_arg_type_name;
     fill_data_environment_structure(
             ctr.get_scope(),
             data_environ_info,
-            struct_arg_type_decl_src,
+            struct_arg_type_decl,
+            struct_arg_type_def,
+            struct_arg_type_qualif,
             struct_fields,
             struct_arg_type_name, 
             ObjectList<OpenMP::DependencyItem>(),  // empty dependences
@@ -78,7 +80,7 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
 
     Source newly_generated_code;
     newly_generated_code
-        << struct_arg_type_decl_src
+        << struct_arg_type_def
         ;
     
     FunctionDefinition funct_def = ctr.get_enclosing_function();

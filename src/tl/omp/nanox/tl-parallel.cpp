@@ -51,12 +51,15 @@ void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
         scope_of_struct = function_symbol.get_scope();
     }
 
-    Source struct_arg_type_decl_src, struct_fields;
+    Source struct_arg_type_decl, struct_arg_type_def, struct_fields,
+           struct_arg_type_qualif;
     std::string struct_arg_type_name;
     fill_data_environment_structure(
             scope_of_struct,
             data_environ_info,
-            struct_arg_type_decl_src,
+            struct_arg_type_decl,
+            struct_arg_type_def,
+            struct_arg_type_qualif,
             struct_fields,
             struct_arg_type_name, 
             ObjectList<OpenMP::DependencyItem>(),  // empty dependences
@@ -110,7 +113,7 @@ void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
     Source newly_generated_code;
     newly_generated_code
         << template_header
-        << struct_arg_type_decl_src
+        << struct_arg_type_def
         ;
 
     if (!function_symbol.is_member())
