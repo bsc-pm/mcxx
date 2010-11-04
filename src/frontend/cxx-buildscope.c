@@ -1817,6 +1817,28 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
         {
             running_error("%s: error: class name '%s' not found", ast_location(id_expression), prettyprint_in_buffer(id_expression));
         }
+
+        // If the class is being declared in class-scope it means
+        // it is a nested class
+        if (decl_context.current_scope->kind == CLASS_SCOPE)
+        {
+            // If the enclosing class is dependent, so is this one
+            char c = is_dependent_type(class_entry->type_information);
+            type_t* enclosing_class_type = decl_context.current_scope->related_entry->type_information;
+            c = c || is_dependent_type(enclosing_class_type);
+            set_is_dependent_type(class_entry->type_information, c);
+
+            class_type_set_enclosing_class_type(class_entry->type_information, enclosing_class_type);
+        }
+        else if (decl_context.current_scope->kind == BLOCK_SCOPE)
+        {
+            // This is a local class
+            scope_entry_t* enclosing_function = decl_context.current_scope->related_entry;
+            if (is_dependent_type(enclosing_function->type_information))
+            {
+                set_is_dependent_type(class_entry->type_information, 1);
+            }
+        }
     }
     else
     {
@@ -5923,8 +5945,8 @@ static void build_scope_template_declaration(AST a, AST top_template_decl, decl_
         solve_ambiguous_declaration(templated_decl, template_context);
     }
 
-    // Link the AST with the scope
-    scope_link_set(CURRENT_COMPILED_FILE->scope_link, a, template_context);
+    // Link the AST with the scope in the templated declaration
+    scope_link_set(CURRENT_COMPILED_FILE->scope_link, templated_decl, template_context);
 
     switch (ASTType(templated_decl))
     {
