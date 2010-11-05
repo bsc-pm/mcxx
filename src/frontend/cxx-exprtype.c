@@ -9353,7 +9353,7 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, AS
             if (!mandatory)
                 return NULL;
 
-            running_error("%s: error: namespace 'std' not found when looking up 'std::type_info' (because of '%s'). \n"
+            running_error("%s: error: namespace 'std' not found when looking up 'std::initializer_list' (because of '%s'). \n"
                     "Maybe you need '#include <initializer_list>'",
                     ast_location(expr),
                     prettyprint_in_buffer(expr));
