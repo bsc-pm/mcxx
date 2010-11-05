@@ -9303,7 +9303,7 @@ static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, AST expr)
 
         scope_entry_list_t* entry_list = query_in_scope_str(global_context, "std");
 
-        if (entry_list != NULL 
+        if (entry_list == NULL 
                 || entry_list_head(entry_list)->kind != SK_NAMESPACE)
         {
             running_error("%s: error: namespace 'std' not found when looking up 'std::type_info' (because of '%s'). \n"
@@ -9346,7 +9346,7 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, AS
 
         scope_entry_list_t* entry_list = query_in_scope_str(global_context, "std");
 
-        if (entry_list != NULL 
+        if (entry_list == NULL 
                 || entry_list_head(entry_list)->kind != SK_NAMESPACE)
         {
             entry_list_free(entry_list);
