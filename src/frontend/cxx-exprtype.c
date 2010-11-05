@@ -9306,6 +9306,9 @@ static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, AST expr)
         if (entry_list == NULL 
                 || entry_list_head(entry_list)->kind != SK_NAMESPACE)
         {
+            if (entry_list != NULL)
+                entry_list_free(entry_list);
+
             running_error("%s: error: namespace 'std' not found when looking up 'std::type_info' (because of '%s'). \n"
                     "Maybe you need '#include <typeinfo>'",
                     ast_location(expr),
@@ -9317,9 +9320,12 @@ static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, AST expr)
         entry_list = query_in_scope_str(std_context, "type_info");
 
         if (entry_list == NULL
-                && entry_list_head(entry_list)->kind != SK_CLASS
-                && entry_list_head(entry_list)->kind != SK_TYPEDEF)
+                || (entry_list_head(entry_list)->kind != SK_CLASS
+                    && entry_list_head(entry_list)->kind != SK_TYPEDEF))
         {
+            if (entry_list != NULL)
+                entry_list_free(entry_list);
+
             running_error("%s: error: typename 'type_info' not found when looking up 'std::type_info' (because of '%s')\n"
                     "Maybe you need '#include <typeinfo>'",
                     ast_location(expr),
@@ -9349,7 +9355,8 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, AS
         if (entry_list == NULL 
                 || entry_list_head(entry_list)->kind != SK_NAMESPACE)
         {
-            entry_list_free(entry_list);
+            if (entry_list != NULL)
+                entry_list_free(entry_list);
             if (!mandatory)
                 return NULL;
 
@@ -9365,9 +9372,10 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, AS
         entry_list = query_in_scope_str(std_context, "initializer_list");
 
         if (entry_list == NULL
-                && entry_list_head(entry_list)->kind != SK_TEMPLATE)
+                || entry_list_head(entry_list)->kind != SK_TEMPLATE)
         {
-            entry_list_free(entry_list);
+            if (entry_list != NULL)
+                entry_list_free(entry_list);
             if (!mandatory)
                 return NULL;
 
