@@ -53,6 +53,8 @@ static void do_smp_outline_replacements(AST_t body,
     ReplaceSrcIdExpression replace_src(scope_link);
     ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
 
+    replace_src.add_this_replacement("_args->_this");
+
     // First set up all replacements and needed castings
     for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
             it != data_env_items.end();

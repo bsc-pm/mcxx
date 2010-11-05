@@ -37,8 +37,8 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     OpenMP::DataSharingEnvironment& data_sharing = openmp_info->get_data_sharing(ctr.get_ast());
 
     // FIXME - Reductions!!
-    Source struct_fields;
-    struct_fields
+    Source loop_info_field;
+    loop_info_field
         << "nanos_loop_info_t loop_info;"
         ;
 
@@ -49,27 +49,11 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             data_environ_info,
             _converted_vlas);
 
-    Source struct_arg_type_decl_src;
     std::string struct_arg_type_name;
-    fill_data_environment_structure(
-            ctr.get_scope(),
-            data_environ_info,
-            struct_arg_type_decl_src,
-            struct_fields,
-            struct_arg_type_name, 
-            ObjectList<OpenMP::DependencyItem>(), // empty dependences
-            _compiler_alignment);
+    define_arguments_structure(ctr, struct_arg_type_name, data_environ_info, 
+            ObjectList<OpenMP::DependencyItem>(), loop_info_field);
 
-    Source newly_generated_code;
-    newly_generated_code
-        << struct_arg_type_decl_src
-        ;
-    
     FunctionDefinition funct_def = ctr.get_enclosing_function();
-    AST_t outline_code_tree
-        = newly_generated_code.parse_declaration(funct_def.get_ast(), ctr.get_scope_link());
-    ctr.get_ast().prepend_sibling_function(outline_code_tree);
-
     Symbol function_symbol = funct_def.get_function_symbol();
 
     int outline_num = TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER);

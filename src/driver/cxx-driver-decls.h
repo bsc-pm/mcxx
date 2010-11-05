@@ -273,6 +273,11 @@ typedef struct code_shape_tag
     char short_enums;
 } code_shape_t;
 
+
+// Compiler phases: 
+// the ones that are loaded from files and the one that modifies the dto
+typedef struct compiler_phase_loader_tag compiler_phase_loader_t;
+
 typedef struct compilation_configuration_tag
 {
     const char *configuration_name;
@@ -323,7 +328,7 @@ typedef struct compilation_configuration_tag
     const char* output_directory;
 
     int num_compiler_phases;
-    const char** compiler_phases;
+	compiler_phase_loader_t** phase_loader;
 
     // States whether the phases of this compiler were loaded
     char phases_loaded;
@@ -375,6 +380,11 @@ typedef struct compilation_configuration_tag
     target_options_map_t** target_options_maps;
 } compilation_configuration_t;
 
+struct compiler_phase_loader_tag
+{
+    void (*func)(compilation_configuration_t* compilation_configuration, const char* data);
+    const char* data;
+};
 
 typedef struct compilation_file_process_tag
 {

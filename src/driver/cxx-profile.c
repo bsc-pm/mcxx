@@ -88,9 +88,9 @@ static element_type** _fun_name(element_type** orig, int num_elems) \
     return result; \
 }
 
-DEF_COPY_ARRAY(copy_const_char_array, const char)
 DEF_COPY_ARRAY(copy_external_vars, external_var_t)
 DEF_COPY_ARRAY(copy_pragma_directive_set, pragma_directive_set_t)
+DEF_COPY_ARRAY(copy_compiler_phase_loader, compiler_phase_loader_t)
 
 static void initialize_with_base_config(compilation_configuration_t* dst, 
         compilation_configuration_t const * base)
@@ -116,7 +116,7 @@ static void initialize_with_base_config(compilation_configuration_t* dst,
 
     // Note, fields with the length of the arrays have been copied in the
     // bitwise copy so there is no need to set them again
-    dst->compiler_phases = copy_const_char_array(base->compiler_phases, 
+    dst->phase_loader = copy_compiler_phase_loader(base->phase_loader, 
             base->num_compiler_phases);
     dst->external_vars = copy_external_vars(base->external_vars, 
             base->num_external_vars);

@@ -895,6 +895,7 @@ namespace TL
     {
         protected:
             std::map<Symbol, std::string> _repl_map;
+            std::string _repl_this;
         public:
             ReplaceIdExpression()
             {
@@ -912,7 +913,7 @@ namespace TL
              * \param sym The symbol to be replaced
              * \param str A string containing the expression used for the replacement
              */
-            void add_replacement(Symbol sym, std::string str);
+            void add_replacement(Symbol sym, const std::string& str);
             
             //! Sets a replacement for the symbol with a tree
             /*!
@@ -927,16 +928,36 @@ namespace TL
              * \param str A string containing the expression used for the replacement
              * \param ref_tree Reference tree to perform the parsing of \a str
              * \param scope_link The ScopeLink used to parse the expression \a str
+             * \deprecated
              */
-            void add_replacement(Symbol sym, std::string str, AST_t ref_tree, ScopeLink scope_link);
+            void add_replacement(Symbol sym, const std::string& str, AST_t ref_tree, ScopeLink scope_link) DEPRECATED;
             //! Sets a replacement for the symbol with a tree
             /*!
              * \param sym The symbol to be replaced
              * \param src A Source containing an expression
              * \param ref_tree Reference tree to perform the parsing of \a src
              * \param scope_link The ScopeLink used to parse the Source \a src
+             * \deprecated
              */
-            void add_replacement(Symbol sym, Source src, AST_t ref_tree, ScopeLink scope_link);
+            void add_replacement(Symbol sym, Source src, AST_t ref_tree, ScopeLink scope_link) DEPRECATED;
+
+            //! Sets a replacement for 'this'
+            /*! 
+               \param str A string containing the expression used for the replacement
+             */
+            void add_this_replacement(const std::string& str);
+
+            //! Sets a replacement for 'this'
+            /*! 
+             * \param src A Source containing an expression
+             */
+            void add_this_replacement(Source src);
+
+            //! Sets a replacement for 'this'
+            /*! 
+             * \param ast The expression tree used for the replacement
+             */
+            void add_this_replacement(AST_t ast);
 
             //! States whether a replacement for a given symbol has been set
             /*
@@ -984,6 +1005,28 @@ namespace TL
                     }
                 }
 
+                if (_repl_this != "")
+                {
+                    ObjectList<AST_t> this_references = result.get_ast().depth_subtrees(PredicateAttr(LANG_IS_THIS_VARIABLE));
+
+                    for (ObjectList<AST_t>::iterator it = this_references.begin();
+                            it != this_references.end();
+                            it++)
+                    {
+                        AST_t &orig_ast(*it);
+
+                        Source src;
+                        src << _repl_this
+                            ;
+
+                        AST_t repl_ast = src.parse_expression(orig_ast, 
+                                orig_stmt.get_scope_link(),
+                                Source::DO_NOT_CHECK_EXPRESSION);
+
+                        orig_ast.replace(repl_ast);
+                    }
+                }
+
                 return result;
             }
     };
@@ -1014,6 +1057,8 @@ namespace TL
             static const char* prettyprint_callback(AST a, void* data);
 
             std::map<Symbol, std::string> _repl_map;
+            std::string _repl_this;
+
             ScopeLink _sl;
             bool _do_not_replace_declarators;
             bool _ignore_pragmas;
@@ -1028,7 +1073,13 @@ namespace TL
              * \param sym The symbol to be replaced
              * \param str A string containing the expression used for the replacement
              */
-            void add_replacement(Symbol sym, std::string str);
+            void add_replacement(Symbol sym, const std::string& str);
+
+            //! Sets a replacement for this
+            /*!
+             * \param str A string containing the expression used for the replacement
+             */
+            void add_this_replacement(const std::string& str);
 
             //! Perform the replacement returning a prettyprinted coe
             Source replace(AST_t a) const;

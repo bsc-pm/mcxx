@@ -107,6 +107,11 @@ namespace TL
                 should_run = false;
             }
 
+			if (dto.get_keys().contains("show_warnings"))
+			{
+				dto.set_value("show_warnings", RefPtr<Integer>(new Integer(1)));
+			}
+
             // Reset any data computed so far
             _openmp_info->reset();
 

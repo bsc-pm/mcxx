@@ -200,18 +200,16 @@ namespace TL
 
     ObjectList<TemplateHeader> FunctionDefinition::get_template_header() const
     {
-        TL::AST_t start = _ref.get_attribute(LANG_TEMPLATE_HEADER);
+        // FIXME - Improve this
+        AST_t start_t = _ref.get_attribute(LANG_TEMPLATE_HEADER);
+        AST a = start_t.get_internal_ast();
 
-        PredicateAttr template_header_pred(LANG_IS_TEMPLATE_HEADER);
-
-        ObjectList<AST_t> trees = start.depth_subtrees(template_header_pred);
         ObjectList<TemplateHeader> result;
 
-        for (ObjectList<AST_t>::iterator it = trees.begin();
-                it != trees.end();
-                it++)
+        while (ASTType(a) == AST_TEMPLATE_DECLARATION)
         {
-            result.append(TemplateHeader(*it, _scope_link));
+            result.append(TemplateHeader(ASTSon0(a), get_scope_link()));
+            a = ASTSon1(a);
         }
 
         return result;
@@ -291,17 +289,16 @@ namespace TL
 
     ObjectList<TemplateHeader> Declaration::get_template_header() const
     {
-        TL::AST_t start = _ref.get_attribute(LANG_TEMPLATE_HEADER);
-        PredicateAttr template_header_pred(LANG_IS_TEMPLATE_HEADER);
+        // FIXME - Improve this
+        AST_t start_t = _ref.get_attribute(LANG_TEMPLATE_HEADER);
+        AST a = start_t.get_internal_ast();
 
-        ObjectList<AST_t> trees = start.depth_subtrees(template_header_pred);
         ObjectList<TemplateHeader> result;
 
-        for (ObjectList<AST_t>::iterator it = trees.begin();
-                it != trees.end();
-                it++)
+        while (ASTType(a) == AST_TEMPLATE_DECLARATION)
         {
-            result.append(TemplateHeader(*it, _scope_link));
+            result.append(TemplateHeader(ASTSon0(a), get_scope_link()));
+            a = ASTSon1(a);
         }
 
         return result;
@@ -458,7 +455,22 @@ namespace TL
         return result;
     }
 
-    void ReplaceIdExpression::add_replacement(Symbol sym, std::string str)
+    void ReplaceIdExpression::add_this_replacement(const std::string& str)
+    {
+        _repl_this = str;
+    }
+
+    void ReplaceIdExpression::add_this_replacement(Source src)
+    {
+        add_this_replacement(src.get_source());
+    }
+
+    void ReplaceIdExpression::add_this_replacement(AST_t ast)
+    {
+        add_this_replacement(ast.prettyprint());
+    }
+
+    void ReplaceIdExpression::add_replacement(Symbol sym, const std::string& str)
     {
         _repl_map[sym] = str;
     }
@@ -473,7 +485,7 @@ namespace TL
         add_replacement(sym, ast.prettyprint());
     }
 
-    void ReplaceIdExpression::add_replacement(Symbol sym, std::string str, AST_t ref_tree, ScopeLink scope_link)
+    void ReplaceIdExpression::add_replacement(Symbol sym, const std::string& str, AST_t ref_tree, ScopeLink scope_link)
     {
         add_replacement(sym, str);
     }
@@ -1344,7 +1356,7 @@ namespace TL
         _ignore_pragmas = b;
     }
 
-    void ReplaceSrcIdExpression::add_replacement(Symbol sym, std::string str)
+    void ReplaceSrcIdExpression::add_replacement(Symbol sym, const std::string& str)
     {
         _repl_map[sym] = str;
     }
@@ -1401,6 +1413,11 @@ namespace TL
                 return result;
             }
         }
+        else if ((_this->_repl_this != "")
+                && PredicateAttr(LANG_IS_THIS_VARIABLE)(wrapped_tree))
+        {
+            return _this->_repl_this.c_str();
+        }
         else if (!_this->_do_not_replace_declarators)
         {
             Symbol sym = wrapped_tree.get_attribute(LANG_DECLARED_SYMBOL);
@@ -1415,6 +1432,11 @@ namespace TL
         }
 
         return NULL;
+    }
+
+    void ReplaceSrcIdExpression::add_this_replacement(const std::string& str)
+    {
+        _repl_this = str;
     }
 
     ObjectList<TemplateParameterConstruct> TemplateHeader::get_parameters() const

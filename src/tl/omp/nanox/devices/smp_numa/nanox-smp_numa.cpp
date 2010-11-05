@@ -54,6 +54,8 @@ static void do_smp_numa_outline_replacements(
 
     ReplaceSrcIdExpression replace_src(scope_link);
 
+    replace_src.add_this_replacement("_args->_this");
+
     bool err_declared = false;
 
     ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();

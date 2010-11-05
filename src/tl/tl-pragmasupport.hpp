@@ -338,6 +338,9 @@ namespace TL
 
             //! This function set to the object _dto the dto get from de compiler phase
             void set_dto(DTO* dto);
+
+            //! This function returns a boolean that show if some warnings must be printed out
+			bool get_show_warnings();
     };
 
     LIBTL_EXTERN bool is_pragma_custom(const std::string& pragma_preffix, 

@@ -64,6 +64,8 @@ namespace TL
             Scope function_scope = function_definition.get_scope();
             ReplaceIdExpression result;
 
+            result.add_this_replacement("_this");
+
             ObjectList<Symbol> actually_shared = shared_references;
             // lastprivate references require sharing the target variable
             actually_shared.insert(lastprivate_references);
@@ -119,8 +121,7 @@ namespace TL
                                 "&" + symbol.get_qualified_name(construct_body.get_scope()), 
                                 symbol, pointer_type, ParameterInfo::BY_POINTER);
                         parameter_info.append(parameter);
-                        result.add_replacement(symbol, "(*" + symbol.get_name() + ")", 
-                                construct_body.get_ast(), construct_body.get_scope_link());
+                        result.add_replacement(symbol, "(*" + symbol.get_name() + ")");
                     }
                 }
             }
@@ -133,8 +134,7 @@ namespace TL
                 Symbol &symbol(*it);
                 Type type = symbol.get_type();
 
-                result.add_replacement(symbol, "p_" + symbol.get_name(),
-                        construct_body.get_ast(), construct_body.get_scope_link());
+                result.add_replacement(symbol, "p_" + symbol.get_name());
             }
 
             // FIRSTPRIVATE references
@@ -161,8 +161,7 @@ namespace TL
                             symbol, pointer_type, param_kind);
                     parameter_info.append(parameter);
 
-                    result.add_replacement(symbol, "flp_" + symbol.get_name(),
-                            construct_body.get_ast(), construct_body.get_scope_link());
+                    result.add_replacement(symbol, "flp_" + symbol.get_name());
                 }
                 else
                 {
@@ -177,8 +176,7 @@ namespace TL
                             symbol, pointer_type, param_kind);
                     parameter_info.append(parameter);
 
-                    result.add_replacement(symbol, "(*flp_" + symbol.get_name() + ")",
-                            construct_body.get_ast(), construct_body.get_scope_link());
+                    result.add_replacement(symbol, "(*flp_" + symbol.get_name() + ")");
                 }
 
             }
@@ -203,8 +201,7 @@ namespace TL
                         symbol, pointer_type, ParameterInfo::BY_POINTER);
                 parameter_info.append(parameter);
 
-                result.add_replacement(symbol, "rdp_" + symbol.get_name(),
-                        construct_body.get_ast(), construct_body.get_scope_link());
+                result.add_replacement(symbol, "rdp_" + symbol.get_name());
             }
 
             // Inner REDUCTION references (those coming from lexical enclosed DO's inner to this PARALLEL)
@@ -281,8 +278,7 @@ namespace TL
                     it != nonstatic_members.end();
                     it++)
             {
-                result.add_replacement(*it, "_this->" + it->get_name(), 
-                        construct_body.get_ast(), construct_body.get_scope_link());
+                result.add_replacement(*it, "_this->" + it->get_name());
             }
 
             C_LANGUAGE()
@@ -321,8 +317,7 @@ namespace TL
             {
                 Symbol &symbol(*it);
 
-                result.add_replacement(symbol, "p_" + symbol.get_name(),
-                        construct_body.get_ast(), construct_body.get_scope_link());
+                result.add_replacement(symbol, "p_" + symbol.get_name());
             }
 
             // FIRSTPRIVATE references
@@ -333,8 +328,7 @@ namespace TL
             {
                 Symbol &symbol(*it);
 
-                result.add_replacement(symbol, "p_" + symbol.get_name(),
-                        construct_body.get_ast(), construct_body.get_scope_link());
+                result.add_replacement(symbol, "p_" + symbol.get_name());
             }
 
             // LASTPRIVATE
@@ -351,8 +345,7 @@ namespace TL
                 {
                     Symbol &symbol(*it);
 
-                    result.add_replacement(symbol, "p_" + symbol.get_name(),
-                            construct_body.get_ast(), construct_body.get_scope_link());
+                    result.add_replacement(symbol, "p_" + symbol.get_name());
                 }
             }
 
@@ -364,8 +357,7 @@ namespace TL
                 OpenMP::ReductionSymbol &reduction_symbol(*it);
                 Symbol symbol = reduction_symbol.get_symbol();
 
-                result.add_replacement(symbol, "rdp_" + symbol.get_name(),
-                        construct_body.get_ast(), construct_body.get_scope_link());
+                result.add_replacement(symbol, "rdp_" + symbol.get_name());
             }
 
             return result;
@@ -520,8 +512,7 @@ namespace TL
                     if (!reduction_references.contains(functor(&OpenMP::ReductionSymbol::get_symbol), param_info.symbol)
                             && !firstprivate_references.contains(param_info.symbol))
                     {
-                        result.add_replacement(param_info.symbol, param_info.symbol.get_name(), 
-                                point_of_decl, sl);
+                        result.add_replacement(param_info.symbol, param_info.symbol.get_name());
                     }
                 }
             }

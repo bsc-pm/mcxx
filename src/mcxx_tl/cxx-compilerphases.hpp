@@ -45,6 +45,9 @@ LIBMCXXTL_EXTERN void start_compiler_phase_execution(compilation_configuration_t
 LIBMCXXTL_EXTERN void phases_help(compilation_configuration_t* config);
 LIBMCXXTL_EXTERN void unload_compiler_phases(void);
 
+LIBMCXXTL_EXTERN void compiler_set_dto(compilation_configuration_t* config, const char* data);
+LIBMCXXTL_EXTERN void compiler_phase_loader(compilation_configuration_t* config, const char* data);
+
 #ifdef __cplusplus
 }
 #endif

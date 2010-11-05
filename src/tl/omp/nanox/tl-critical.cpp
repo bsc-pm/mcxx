@@ -61,9 +61,19 @@ void OMPTransform::critical_postorder(PragmaCustomConstruct critical_construct)
         Source global_lock_decl;
 
         // We need to make it weak
-        global_lock_decl
-            << "__attribute__((weak)) nanos_lock_t " << lock_name << " = " << initializer << ";"
-            ;
+        C_LANGUAGE()
+        {
+            global_lock_decl
+                << "__attribute__((weak)) nanos_lock_t " << lock_name << " = " << initializer << ";"
+                ;
+        }
+        CXX_LANGUAGE()
+        {
+            // There is a nice constructor doing what NANOS_INIT_LOCK_FREE does
+            global_lock_decl
+                << "__attribute__((weak)) nanos_lock_t " << lock_name << ";"
+                ;
+        }
 
         AST_t tree = global_lock_decl.parse_global(critical_construct.get_ast(), 
                 critical_construct.get_scope_link());

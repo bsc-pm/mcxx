@@ -28,6 +28,7 @@
 #include "cxx-driver-utils.h"
 #include "cxx-configfile-lexer.h"
 #include "cxx-configfile-parser.h"
+#include "cxx-compilerphases.hpp"
 #include <stdio.h>
 #include <string.h>
 
@@ -190,10 +191,13 @@ int config_set_linker_options(struct compilation_configuration_tag* config, cons
 
 int config_add_compiler_phase(struct compilation_configuration_tag* config, const char* index, const char* value)
 {
-    const char* library_name = uniquestr(value);
-    P_LIST_ADD(config->compiler_phases, 
-            config->num_compiler_phases, 
-            library_name);
+	compiler_phase_loader_t* cl = calloc(1, sizeof(*cl));
+	cl->func = compiler_phase_loader;
+	cl->data = (void*)uniquestr(value);
+
+    P_LIST_ADD(config->phase_loader, 
+            config->num_compiler_phases,
+			cl);
 
     return 0;
 }
@@ -468,6 +472,19 @@ int config_set_target_options(struct compilation_configuration_tag* config, cons
     return 0;
 }
 
+int config_set_compiler_dto(struct compilation_configuration_tag* config, const char* index, const char* value)
+{
+	compiler_phase_loader_t* cl = calloc(1, sizeof(*cl));
+	cl->func = compiler_set_dto;
+	cl->data = (void*)uniquestr(value);
+
+    P_LIST_ADD(config->phase_loader, 
+            config->num_compiler_phases,
+			cl);
+
+    return 0;
+}
+
 char config_file_parse(const char *filename)
 {
     if (open_configuration_file_for_scan(filename))
@@ -483,4 +500,3 @@ char config_file_parse(const char *filename)
     }
     return 0;
 }
-

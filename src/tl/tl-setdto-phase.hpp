@@ -1,15 +1,3 @@
-/*
-<testinfo>
-test_generator=config/mercurium-omp
-
-test_exec_fail_nanox_plain_1thread=yes
-test_exec_faulty_nanox_plain_1thread=yes
-test_exec_fail_nanox_plain_2thread=yes
-test_exec_faulty_nanox_plain_2thread=yes
-test_exec_fail_nanox_plain_4thread=yes
-test_exec_faulty_nanox_plain_4thread=yes
-</testinfo>
-*/
 /*--------------------------------------------------------------------
   (C) Copyright 2006-2009 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
@@ -33,51 +21,39 @@ test_exec_faulty_nanox_plain_4thread=yes
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#include <stdlib.h>
+#ifndef TL_SETDTO_COMPILER_PHASE_HPP
+#define TL_SETDTO_COMPILER_PHASE_HPP
 
-int a;
+#include "tl-compilerphase.hpp"
+#include "tl-type.hpp"
 
-struct A
+namespace TL
 {
-    int b;
-    static int c;
-
-    void f(void);
-
-    void g() { }
-
-    A() : b(0) { }
-};
-
-int A::c;
-
-void A::f(void)
-{
-#pragma omp parallel
+    //! Base class for any compiler phase
+    class LIBTL_CLASS SetDTOCompilerPhase : public CompilerPhase
     {
-        g();
-        this->b = 2;
-        a = 3;
-        b+=2;
-        c = 5;
-    }
+		private:
+			ObjectList<std::string> _variable;
+			ObjectList<std::string> _type;
+			ObjectList<std::string> _value;
+
+		public:
+            //! Constructor of the phase
+			SetDTOCompilerPhase();
+
+            //! Entry point of the phase
+            /*!
+             * This function set some dto features read from the Phase
+             */
+			virtual void run(TL :: DTO& dto);
+
+            //! Modification to do in the DTO
+            /*!
+             * This function stores the modifications that will be set in the DTO
+			 * when the phase runs
+             */
+			int set_dto(const char* data);
+	};
 }
 
-int main(int argc, char *argv[])
-{
-    A obj_a;
-
-    a = 0;
-    A::c = 0;
-
-    obj_a.f();
-
-    if (a != 3)
-        abort();
-    if (obj_a.b != 4)
-        abort();
-    if (A::c != 5)
-        abort();
-
-    return 0;
-}
+#endif // TL_SETDTO_COMPILER_PHASE_HPP

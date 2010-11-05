@@ -9306,6 +9306,9 @@ static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, AST expr)
         if (entry_list == NULL 
                 || entry_list_head(entry_list)->kind != SK_NAMESPACE)
         {
+            if (entry_list != NULL)
+                entry_list_free(entry_list);
+
             running_error("%s: error: namespace 'std' not found when looking up 'std::type_info' (because of '%s'). \n"
                     "Maybe you need '#include <typeinfo>'",
                     ast_location(expr),
@@ -9317,9 +9320,12 @@ static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, AST expr)
         entry_list = query_in_scope_str(std_context, "type_info");
 
         if (entry_list == NULL
-                && entry_list_head(entry_list)->kind != SK_CLASS
-                && entry_list_head(entry_list)->kind != SK_TYPEDEF)
+                || (entry_list_head(entry_list)->kind != SK_CLASS
+                    && entry_list_head(entry_list)->kind != SK_TYPEDEF))
         {
+            if (entry_list != NULL)
+                entry_list_free(entry_list);
+
             running_error("%s: error: typename 'type_info' not found when looking up 'std::type_info' (because of '%s')\n"
                     "Maybe you need '#include <typeinfo>'",
                     ast_location(expr),
@@ -9349,11 +9355,12 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, AS
         if (entry_list == NULL 
                 || entry_list_head(entry_list)->kind != SK_NAMESPACE)
         {
-            entry_list_free(entry_list);
+            if (entry_list != NULL)
+                entry_list_free(entry_list);
             if (!mandatory)
                 return NULL;
 
-            running_error("%s: error: namespace 'std' not found when looking up 'std::type_info' (because of '%s'). \n"
+            running_error("%s: error: namespace 'std' not found when looking up 'std::initializer_list' (because of '%s'). \n"
                     "Maybe you need '#include <initializer_list>'",
                     ast_location(expr),
                     prettyprint_in_buffer(expr));
@@ -9365,9 +9372,10 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, AS
         entry_list = query_in_scope_str(std_context, "initializer_list");
 
         if (entry_list == NULL
-                && entry_list_head(entry_list)->kind != SK_TEMPLATE)
+                || entry_list_head(entry_list)->kind != SK_TEMPLATE)
         {
-            entry_list_free(entry_list);
+            if (entry_list != NULL)
+                entry_list_free(entry_list);
             if (!mandatory)
                 return NULL;
 
@@ -10857,6 +10865,24 @@ static char check_for_sizeof_expr(AST expr, decl_context_t decl_context)
             if (!is_dependent_expr_type(t)
                     && !type_is_runtime_sized(t))
             {
+                CXX_LANGUAGE()
+                {
+                    if (is_named_class_type(t)
+                            && class_type_is_incomplete_independent(get_actual_class_type(t)))
+                    {
+                        scope_entry_t* symbol = named_type_get_symbol(t);
+                        instantiate_template_class(symbol, decl_context, 
+                                ASTFileName(sizeof_expression), ASTLine(sizeof_expression));
+                    }
+                }
+
+                if (is_incomplete_type(t))
+                {
+                    running_error("%s: error: sizeof of incomplete type '%s'\n", 
+                            ast_location(sizeof_expression),
+                            print_type_str(t, decl_context));
+                }
+
                 char is_const_expr = 0;
                 _size_t type_size = 0;
 
@@ -10931,6 +10957,24 @@ static char check_for_sizeof_typeid(AST expr, decl_context_t decl_context)
             if (!is_dependent_type(declarator_type)
                     && !type_is_runtime_sized(declarator_type))
             {
+                CXX_LANGUAGE()
+                {
+                    if (is_named_class_type(declarator_type)
+                            && class_type_is_incomplete_independent(get_actual_class_type(declarator_type)))
+                    {
+                        scope_entry_t* symbol = named_type_get_symbol(declarator_type);
+                        instantiate_template_class(symbol, decl_context, 
+                                ASTFileName(type_id), ASTLine(type_id));
+                    }
+                }
+
+                if (is_incomplete_type(declarator_type))
+                {
+                    running_error("%s: error: sizeof of incomplete type '%s'\n", 
+                            ast_location(type_id),
+                            print_type_str(declarator_type, decl_context));
+                }
+
                 char is_const_expr = 0;
                 _size_t type_size = 0;
 

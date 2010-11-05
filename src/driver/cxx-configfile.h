@@ -52,6 +52,7 @@ option_function_t config_set_embedder;
 option_function_t config_set_identifier;
 #endif
 option_function_t config_set_target_options;
+option_function_t config_set_compiler_dto;
 
 void print_help_target_options(void);
 

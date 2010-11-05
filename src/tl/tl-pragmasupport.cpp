@@ -420,6 +420,15 @@ namespace TL
         _dto = dto;
     }
 
+	bool PragmaCustomConstruct::get_show_warnings()
+	{
+        if(_dto->get_keys().contains("show_warnings")) 
+        {
+            RefPtr<Bool> sw = RefPtr<Bool>::cast_static((*_dto)["show_warnings"]);
+            return true;
+        }
+        return false;
+	}
 
 // Initialize here the warnings to the dispatcher
     PragmaCustomCompilerPhase::PragmaCustomCompilerPhase(const std::string& pragma_handled)

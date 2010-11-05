@@ -5,7 +5,7 @@ options =
 {instrument,!debug} options = --variable=instrument:1
 preprocessor_name = gcc
 preprocessor_options = -E
-{instrument,!(debug|openmpt|nanox)} preprocessor_options = -I@MINTAKA_INCLUDES@ -include mintaka.h
+{instrument,!(debug|openmpt|ompss|nanox)} preprocessor_options = -I@MINTAKA_INCLUDES@ -include mintaka.h
 compiler_name = gcc
 compiler_options = 
 linker_name = gcc
@@ -30,6 +30,7 @@ linker_name = gcc
 {openmp,nanox,!(openmpt|ompss)} linker_options = -lnanox-c -lnanox-omp
 {openmp,!nanox,(openmpt|ompss)} linker_options = -lnanox-c -lnanox-ss
 {openmp,(nanox|openmpt|ompss)} compiler_phase = libtlomp-fun-tasks.so 
+{openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_dto = show_warnings:bool:0
 {openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_phase = libtlomp-core.so 
 {openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_phase = libtlomp-nanox.so
 {openmp,(nanox|openmpt|ompss),!only-fun-tasks} compiler_phase = libtlnanox-smp.so
