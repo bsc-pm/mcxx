@@ -46,7 +46,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     Symbol function_symbol = funct_def.get_function_symbol();
 
     std::string struct_arg_type_name;
-    define_arguments_structure(ctr, struct_arg_type_name, data_environ_info, dependences);
+    define_arguments_structure(ctr, struct_arg_type_name, data_environ_info, 
+            dependences, Source());
 
     int outline_num = TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER);
     TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER)++;

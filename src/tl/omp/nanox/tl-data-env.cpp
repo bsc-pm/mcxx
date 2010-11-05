@@ -710,7 +710,9 @@ namespace TL
             const LangConstruct& ctr,
             std::string& struct_arg_type_name,
             DataEnvironInfo& data_environ_info,
-            const ObjectList<OpenMP::DependencyItem>& dependences)
+            const ObjectList<OpenMP::DependencyItem>& dependences,
+            Source additional_fields
+            )
     {
         FunctionDefinition funct_def = ctr.get_enclosing_function();
         Symbol function_symbol = funct_def.get_function_symbol();
@@ -724,6 +726,10 @@ namespace TL
         }
 
         Source struct_arg_type_decl, struct_arg_type_def, struct_arg_type_qualif, struct_fields;
+
+        struct_fields
+            << additional_fields;
+
         fill_data_environment_structure(
                 scope_of_struct,
                 data_environ_info,

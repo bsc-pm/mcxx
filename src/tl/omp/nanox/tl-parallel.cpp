@@ -53,7 +53,7 @@ void OMPTransform::parallel_postorder(PragmaCustomConstruct ctr)
 
     std::string struct_arg_type_name;
     define_arguments_structure(ctr, struct_arg_type_name, data_environ_info, 
-            ObjectList<OpenMP::DependencyItem>());
+            ObjectList<OpenMP::DependencyItem>(), Source());
 
     int outline_num = TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER);
     TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER)++;

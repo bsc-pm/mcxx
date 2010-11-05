@@ -37,8 +37,8 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     OpenMP::DataSharingEnvironment& data_sharing = openmp_info->get_data_sharing(ctr.get_ast());
 
     // FIXME - Reductions!!
-    Source struct_fields;
-    struct_fields
+    Source loop_info_field;
+    loop_info_field
         << "nanos_loop_info_t loop_info;"
         ;
 
@@ -51,7 +51,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
 
     std::string struct_arg_type_name;
     define_arguments_structure(ctr, struct_arg_type_name, data_environ_info, 
-            ObjectList<OpenMP::DependencyItem>());
+            ObjectList<OpenMP::DependencyItem>(), loop_info_field);
 
     FunctionDefinition funct_def = ctr.get_enclosing_function();
     Symbol function_symbol = funct_def.get_function_symbol();

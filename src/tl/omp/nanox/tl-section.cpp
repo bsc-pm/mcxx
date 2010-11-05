@@ -69,7 +69,8 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
     define_arguments_structure(ctr,
             struct_arg_type_name,
             data_environ_info,
-            ObjectList<OpenMP::DependencyItem>());
+            ObjectList<OpenMP::DependencyItem>(),
+            Source());
     
     FunctionDefinition funct_def = ctr.get_enclosing_function();
     Symbol function_symbol = funct_def.get_function_symbol();

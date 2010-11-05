@@ -328,7 +328,8 @@ namespace TL
                 const LangConstruct& ctr,
                 std::string& struct_arg_type_name,
                 DataEnvironInfo& data_environ_info,
-                const ObjectList<OpenMP::DependencyItem>& dependences);
+                const ObjectList<OpenMP::DependencyItem>& dependences,
+                Source additional_fields);
 
         //! \endcond
     }
