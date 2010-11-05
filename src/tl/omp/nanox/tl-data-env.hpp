@@ -317,24 +317,18 @@ namespace TL
                 ObjectList<Symbol>& converted_vlas);
 
         // This one is not to be exported
-        void fill_data_environment_structure(
-                Scope sc,
-                DataEnvironInfo &data_env_info,
-                Source &struct_decl,
-                Source &struct_def,
-                Source &struct_name_qualifier,
-                Source &struct_fields,
-                std::string& struct_arg_type_name,
-                ObjectList<OpenMP::DependencyItem> dependencies,
-                bool compiler_alignment);
-
-        // This one is not to be exported
         void fill_data_args(
                 const std::string& arg_var_name,
                 const DataEnvironInfo& data_env, 
                 ObjectList<OpenMP::DependencyItem> dependencies,
                 bool is_pointer_struct,
                 Source& result);
+
+        void define_arguments_structure(
+                const LangConstruct& ctr,
+                std::string& struct_arg_type_name,
+                DataEnvironInfo& data_environ_info,
+                const ObjectList<OpenMP::DependencyItem>& dependences);
 
         //! \endcond
     }

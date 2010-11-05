@@ -63,32 +63,15 @@ void OMPTransform::section_postorder(PragmaCustomConstruct ctr)
             data_environ_info,
             _converted_vlas);
 
-    Source struct_fields;
 
-    Source struct_arg_type_decl, struct_arg_type_def, struct_arg_type_qualif;
     std::string struct_arg_type_name;
-    fill_data_environment_structure(
-            ctr.get_scope(),
-            data_environ_info,
-            struct_arg_type_decl,
-            struct_arg_type_def,
-            struct_arg_type_qualif,
-            struct_fields,
-            struct_arg_type_name, 
-            ObjectList<OpenMP::DependencyItem>(),  // empty dependences
-            _compiler_alignment);
 
-    Source newly_generated_code;
-    newly_generated_code
-        << struct_arg_type_def
-        ;
+    define_arguments_structure(ctr,
+            struct_arg_type_name,
+            data_environ_info,
+            ObjectList<OpenMP::DependencyItem>());
     
     FunctionDefinition funct_def = ctr.get_enclosing_function();
-
-    AST_t outline_code_tree
-        = newly_generated_code.parse_declaration(funct_def.get_ast(), ctr.get_scope_link());
-    ctr.get_ast().prepend_sibling_function(outline_code_tree);
-
     Symbol function_symbol = funct_def.get_function_symbol();
 
     int outline_num = TL::CounterManager::get_counter(NANOX_OUTLINE_COUNTER);
