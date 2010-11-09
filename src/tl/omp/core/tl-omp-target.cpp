@@ -358,49 +358,35 @@ namespace TL
                         COPY_DIR_INOUT);
             }
 
+            ObjectList<CopyItem> all_copies;
+            data_sharing.get_all_copies(all_copies);
+
+            ObjectList<Symbol> all_copied_syms = all_copies
+                .map(functor(&CopyItem::get_copy_expression))
+                .map(functor(&DataReference::get_base_symbol));
+
             // In devices with disjoint memory, it is forbidden to use a global
             // variables inside a pragma task without copying it
             // If there is no copy defined by the user, we will assume the
             // variable is shared and then we will copy_inout it
-			ObjectList<std::string> shared_to_inout;
 			ObjectList<Symbol> ds_syms;
 			data_sharing.get_all_symbols(DS_SHARED, ds_syms);
+
+            ObjectList<std::string> shared_to_inout;
 			for(ObjectList<Symbol>::iterator io_it = ds_syms.begin(); 
 					io_it != ds_syms.end(); 
 					io_it++)
 			{
-				std::string sym_name;
-				if (io_it->is_member())
-				{
-					sym_name = io_it->get_qualified_name(io_it->get_scope());
-					if (construct.get_show_warnings())
-					{
-						if (!io_it->is_static())
-						{
-				            std::cerr << construct.get_ast().get_locus() 
-				                << ": warning: the fully qualified name of the symbol '" << sym_name 
-				                << "' cannot be used in this context of a non static member."
-				                << std::endl;
-						}
-					}
-				}
-				else 
-				{
-					sym_name = io_it->get_name();
-				}
-
-				if (!target_ctx.copy_in.contains(sym_name) && 
-					!target_ctx.copy_out.contains(sym_name) && 
-					!target_ctx.copy_inout.contains(sym_name))
+				if (!all_copied_syms.contains(*io_it))
 				{
 					if (construct.get_show_warnings())
 					{
 		                std::cerr << construct.get_ast().get_locus() 
-		                    << ": warning: symbol '" << sym_name 
+		                    << ": warning: symbol '" << io_it->get_qualified_name(construct.get_scope())
 		                    << "' does not have copy directionality. Assuming copy_inout. "
 		                    << std::endl;
 					}
-					shared_to_inout.append(sym_name);
+					shared_to_inout.append(io_it->get_qualified_name(construct.get_scope()));
 				}
 			}
 		    add_copy_items(construct, data_sharing,
