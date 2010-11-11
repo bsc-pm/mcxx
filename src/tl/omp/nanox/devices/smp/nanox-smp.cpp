@@ -49,7 +49,7 @@ static void do_smp_outline_replacements(AST_t body,
         const DataEnvironInfo& data_env_info,
         Source &initial_code,
         Source &replaced_outline)
-{
+{   
     ReplaceSrcIdExpression replace_src(scope_link);
     ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
 
@@ -110,33 +110,43 @@ static void do_smp_outline_replacements(AST_t body,
         }
         else
         {
+            // If this is not a copy this corresponds to a SHARED entity
             if (!data_env_item.is_copy())
             {
                 if (type.is_array())
                 {
                     // Just replace a[i] by (_args->a), no need to derreferentiate
-                    replace_src.add_replacement(sym, "(_args->" + field_name + ")");
+                    Type array_elem_type = type.array_element();
+                    // Set up a casting pointer
+                    initial_code
+                            << array_elem_type.get_pointer_to().get_declaration(sym.get_scope(), field_name) 
+                            << "="
+                            << "("
+                            << array_elem_type.get_pointer_to().get_declaration(sym.get_scope(), "")
+                            << ") (_args->" << field_name << ");"
+                            ;
+                    replace_src.add_replacement(sym, field_name);
                 }
                 else
                 {
-                    replace_src.add_replacement(sym, "(*_args->" + field_name + ")");
+                    // Set up a casting pointer
+                    initial_code
+                            << type.get_pointer_to().get_declaration(sym.get_scope(), field_name) 
+                            << "="
+                            << "("
+                            << type.get_pointer_to().get_declaration(sym.get_scope(), "")
+                            << ") (_args->" << field_name << ");"
+                            ;
+                    replace_src.add_replacement(sym, "(*" + field_name + ")");
                 }
             }
+            // This is a copy, so it corresponds to a FIRSTPRIVATE entity (or something to be copied)
             else
             {
                 if (data_env_item.is_raw_buffer())
                 {
                     C_LANGUAGE()
                     {
-                        // Set up a casting pointer
-                        initial_code
-                            << type.get_pointer_to().get_declaration(sym.get_scope(), field_name) 
-                            << "="
-                            << "("
-                            << type.get_pointer_to().get_declaration(sym.get_scope(), "")
-                            << ") _args->" << field_name << ";"
-                            ;
-
                         replace_src.add_replacement(sym, "(*" + field_name + ")");
                     }
                     CXX_LANGUAGE()
