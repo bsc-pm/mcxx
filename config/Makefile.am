@@ -56,8 +56,10 @@ CLEANFILES += $(CONFIG_FILES) $(CONFIG_MCXX)
 # Replacements are defined in this file
 include ./Makefile.replace
 
+BUILT_SOURCES=$(CONFIG_MCXX) $(CONFIG_FILES)
+
 # This is valid in parallel make since we are generating one goal file at a time
-$(CONFIG_MCXX) $(CONFIG_FILES) : Makefile
+config.% : config.%.in
 	$(AM_V_GEN)( $(config_edit) "$(srcdir)/$@.in" > "$@.tmp"; mv -f "$@.tmp" "$@" )
 
 # Where and what to install
