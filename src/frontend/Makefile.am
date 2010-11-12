@@ -23,6 +23,8 @@
 
 lib_LTLIBRARIES = libmcxx-process.la libmcxx.la
 
+DIST_SUBDIRS=fortran
+
 END=
 
 EXTRA_DIST =
@@ -46,6 +48,7 @@ libmcxx_process_la_CFLAGS=-DLIBPROCESS_DLL_EXPORT \
                           -I$(top_builddir)/src/frontend \
                           -I$(top_builddir)/src/mcxx_tl \
                           $(END)
+
 libmcxx_process_la_LDFLAGS=-avoid-version $(no_undefined)
 libmcxx_process_la_LIBADD=$(top_builddir)/lib/libmcxx-utils.la
 libmcxx_process_la_SOURCES = \
@@ -230,9 +233,6 @@ BUILT_SOURCES += cxx03.y
 BUILT_SOURCES += cxx-parser.h
 BUILT_SOURCES += c99-parser.h
 
-# Manual targets
-cxx-ast.h : cxx-asttype.h
-
 TPP=$(top_builddir)/lib/tpp$(EXEEXT)
 
 # Silent rules
@@ -351,7 +351,7 @@ cxx-parser.c : cxx03.y
 if BISON_BUILDING
 	$(BISON_verbose)$(BISON) -pmcxx --debug --defines=cxx-parser-internal.h --report=all --output=cxx-parser.c cxx03.y
 else
-	@echo "*** ERROR: file cxx03.y was modified but no suitable bison-rofi was found during configure ***"
+	@echo "*** ERROR: file cxx03.y was modified but no suitable bison was found during configure ***"
 	@exit 1
 endif
 

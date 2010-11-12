@@ -1,0 +1,5737 @@
+%{
+/**
+   Bison grammar for mf03
+*/
+#ifdef HAVE_CONFIG_H
+  #include "config.h"
+#endif
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <limits.h>
+	
+#ifdef HAVE_STDINT_H
+  #include <stdint.h>
+#else
+  // This is the most common workaround
+  #define SIZE_MAX ((size_t)-1)
+#endif
+
+#include "cxx-ast.h"
+#include "cxx-utils.h"
+
+#include "cxx-driver.h"
+
+#include "fortran03-lexer.h"
+// Enable debugging support
+
+#define YYDEBUG 1
+#define YYERROR_VERBOSE 1
+
+// Parser memory
+#define YYMAXDEPTH (INT_MAX)
+
+// This is mandatory for GNU Bison
+void yyerror(AST* parsed_tree, const char* c);
+
+#define yylex mf03lex
+#define yytext mf03text
+extern int yylex(void);
+
+%}
+
+// Enable debug
+%debug 
+
+// We want a GLR parser
+%glr-parser
+
+// This is a parameter for yyparse
+// where AST will be stored
+%parse-param {AST* parsed_tree}
+
+
+%union {
+	token_atrib_t token_atrib;
+	AST ast;
+	AST ast2[2];
+	AST ast3[3];
+	AST ast4[4];
+	node_t node_type;
+    const char *text;
+};
+
+%{
+
+static AST ambig_fun_array_ctor(YYSTYPE x0 UNUSED_PARAMETER, YYSTYPE x1 UNUSED_PARAMETER)
+{
+    return NULL;
+}
+
+static AST ambig_io_control_spec(YYSTYPE x0 UNUSED_PARAMETER, YYSTYPE x1 UNUSED_PARAMETER)
+{
+    return NULL;
+}
+
+%}
+
+// Rules
+%type<ast> data_stmt_set
+%type<ast> extended_intrinsic_op
+%type<ast> common_stmt
+%type<ast> constant_expr
+%type<ast> prefix
+%type<ast> function_stmt
+%type<ast> allocate_object
+%type<ast> specification_part
+%type<ast> critical_construct
+%type<ast> open_stmt
+%type<ast> program
+%type<ast> data_i_do_object
+%type<ast> dealloc_opt
+%type<ast> flush_spec
+%type<ast> equivalence_stmt
+%type<ast> endfile_stmt
+%type<ast> implicit_part_stmts
+%type<ast> type_bound_procedure_part
+%type<ast> end_if_stmt
+%type<ast> inquire_spec
+%type<ast> defined_operator
+%type<ast> default_char_constant_expr
+%type<ast> explicit_shape_spec
+%type<ast> level_2_expr
+%type<ast> procedure_designator
+%type<ast> case_value_range
+%type<ast> use_stmt
+%type<ast> logical_literal_constant
+%type<ast> function_subprogram
+%type<ast> complex_part
+%type<ast> sign
+%type<ast> private_or_sequence
+%type<ast> case_stmt
+%type<ast> digit_string
+%type<ast> optional_stmt
+%type<ast> prefix_spec
+%type<ast> io_implied_do
+%type<ast> component_attr_spec
+%type<ast> upper_bound_expr
+%type<ast> wait_stmt
+%type<ast> contains_stmt
+%type<ast> import_stmt
+%type<ast> io_unit
+%type<ast> allstop_stmt
+%type<ast> where_stmt
+%type<ast> procedure_declaration_stmt
+%type<ast> array_name_dim_spec
+%type<ast> real_literal_constant
+%type<ast> forall_construct_stmt
+%type<ast> ac_spec
+%type<ast> pointer_stmt
+%type<ast> enumerator_def_stmt
+%type<ast> data_component_def_stmt
+%type<ast> component_decl
+%type<ast> main_program
+%type<ast> subscript_triplet
+%type<ast> forall_assignment_stmts
+%type<ast> end_enum_stmt
+%type<ast> if_construct
+%type<ast> implicit_part
+%type<ast> type_bound_proc_binding
+%type<ast> interface_block
+%type<ast> print_stmt
+%type<ast> case_part
+%type<ast> internal_subprogram
+%type<ast> proc_language_binding_spec
+%type<ast> do_variable
+%type<ast> namelist_stmt
+%type<ast> sync_images_stmt
+%type<ast> nonlabel_do_stmt
+%type<ast> actual_arg
+%type<ast> id_variable
+%type<ast> end_where_stmt
+%type<ast> power_op
+%type<ast> elsewhere_stmt
+%type<ast> array_spec
+%type<ast> array_constructor
+%type<ast> add_operand
+%type<ast> proc_component_attr_spec
+%type<ast> execution_part_construct
+%type<ast> derived_type_def
+%type<ast> component_array_spec
+%type<ast> equiv_operand
+%type<ast> level_4_expr
+%type<ast> forall_stmt
+%type<ast> forall_limit
+%type<ast> end_block_data_stmt
+%type<ast> data_stmt
+%type<ast> attr_spec
+%type<ast> end_critical_stmt
+%type<ast> implied_shape_spec
+%type<ast> data_i_do_variable
+%type<ast> ac_implied_do
+%type<ast> sync_stat
+%type<ast> interface_stmt
+%type<ast> proc_pointer_init
+%type<ast> end_associate_stmt
+%type<ast> actual_arg_spec
+%type<ast> codimension_decl
+%type<ast> alloc_opt
+%type<ast> lock_stmt
+%type<ast> stop_stmt
+%type<ast> final_procedure_stmt
+%type<ast> kind_selector
+%type<ast> protected_stmt
+%type<ast> sequence_stmt
+%type<ast> end_do_stmt
+%type<ast> access_spec
+%type<ast> association
+%type<ast> defined_io_generic_spec
+%type<ast> mult_op
+%type<ast> type_param_value
+%type<ast> name
+%type<ast> generic_spec
+%type<ast> executable_construct
+%type<ast> not_op
+%type<ast> rel_op
+%type<ast> file_name_expr
+%type<ast> binary_constant
+%type<ast> default_char_expr
+%type<ast> assumed_shape_spec
+%type<ast> volatile_stmt
+%type<ast> submodule_stmt
+%type<ast> saved_entity
+%type<ast> component_initialization
+%type<ast> block_stmt
+%type<ast> deferred_coshape_spec
+%type<ast> subroutine_subprogram
+%type<ast> function_reference
+%type<ast> where_assignment_stmt
+%type<ast> component_spec
+%type<ast> cosubscript
+%type<ast> proc_decl
+%type<ast> data_stmt_value
+%type<ast> interface_specification
+%type<ast> upper_bound
+%type<ast> interface_body
+%type<ast> structure_constructor
+%type<ast> stride
+%type<ast> namelist_item
+%type<ast> forall_header
+%type<ast> suffix
+%type<ast> logical_variable
+%type<ast> primary
+%type<ast> allocate_coarray_spec
+%type<ast> dimension_stmt
+%type<ast> logical_expr
+%type<ast> letter_spec
+%type<ast> named_constant
+%type<ast> end_type_stmt
+%type<ast> module_nature
+%type<ast> common_block_object
+%type<ast> and_op
+%type<ast> kind_param
+%type<ast> write_stmt
+%type<ast> parameter_stmt
+%type<ast> type_param_def_stmt
+%type<ast> selector
+%type<ast> module
+%type<ast> type_guard_stmt
+%type<ast> select_type_stmt
+%type<ast> image_set
+%type<ast> expr
+%type<ast> data_ref
+%type<ast> data_ref_no_array
+%type<ast> if_then_stmt
+%type<ast> lock_variable
+%type<ast> case_expr
+%type<ast> mult_operand
+%type<ast> loop_control
+%type<ast> allocate_coshape_spec
+%type<ast> assumed_size_spec
+%type<ast> data_implied_do
+%type<ast> char_literal_constant
+%type<ast> associate_construct
+%type<ast> arithmetic_if_stmt
+%type<ast> section_subscript
+%type<ast> derived_type_stmt
+%type<ast> octal_constant
+%type<ast> lbracket
+%type<ast> type_guard_part
+%type<ast> component_def_stmts
+%type<ast> subroutine_stmt
+%type<ast> allocatable_decl
+%type<ast> access_id
+%type<ast> entity_decl
+%type<ast> block_data
+%type<ast> io_implied_do_object
+%type<ast> level_5_expr
+%type<ast> declaration_type_spec
+%type<ast> vectorial_type
+%type<ast> type_bound_generic_stmt
+%type<ast> else_stmt
+%type<ast> image_selector
+%type<ast> io_implied_do_control
+%type<ast> char_length
+%type<ast> int_literal_constant
+%type<ast> char_selector
+%type<ast> initial_proc_target
+%type<ast> external_stmt
+%type<ast> forall_triplet_spec
+%type<ast> cobound_pair
+%type<ast> only
+%type<ast> assignment_stmt
+%type<ast> connect_spec
+%type<ast> other_specification_stmts
+%type<ast> masked_elsewhere_stmt
+%type<ast> rewind_stmt
+%type<ast> action_stmts
+%type<ast> end_program_stmt
+%type<ast> local_defined_operator
+%type<ast> lower_bound
+%type<ast> associate_stmt
+%type<ast> proc_target
+%type<ast> external_subprogram
+%type<ast> sync_all_stmt
+%type<ast> intrinsic_operator
+%type<ast> pointer_assignment_stmt
+%type<ast> or_op
+%type<ast> access_stmt
+%type<ast> value_stmt
+%type<ast> mask_expr
+%type<ast> source_expr
+%type<ast> close_spec
+%type<ast> select_type_construct
+%type<ast> case_selector
+%type<ast> else_if_part
+%type<ast> label
+%type<ast> end_select_stmt
+%type<ast> pointer_object
+%type<ast> subscript
+%type<ast> deferred_shape_spec
+%type<ast> specification_expr
+%type<ast> lower_bound_expr
+%type<ast> block_data_stmt
+%type<ast> continue_stmt
+%type<ast> execution_part
+%type<ast> else_if_stmt
+%type<ast> format
+%type<ast> end_module_stmt
+%type<ast> return_stmt
+%type<ast> level_3_expr
+%type<ast> lock_stat
+%type<ast> bind_entity
+%type<ast> case_construct
+%type<ast> dummy_arg
+%type<ast> default_char_variable
+%type<ast> implicit_stmt
+%type<ast> or_operand
+%type<ast> type_spec
+%type<ast> boz_literal_constant
+%type<ast> do_construct
+%type<ast> call_stmt
+%type<ast> label_do_stmt
+%type<ast> backspace_stmt
+%type<ast> allocate_stmt
+%type<ast> where_construct
+%type<ast> end_subroutine_stmt
+%type<ast> type_param_attr_spec
+%type<ast> module_subprogram
+%type<ast> save_stmt
+%type<ast> ac_value
+%type<ast> stop_code
+%type<ast> allocatable_stmt
+%type<ast> iomsg_variable
+%type<ast> goto_stmt
+%type<ast> end_interface_stmt
+%type<ast> rename
+%type<ast> concat_op
+%type<ast> common_block_item
+%type<ast> asynchronous_stmt
+%type<ast> type_bound_proc_decl
+%type<ast> equiv_op
+%type<ast> io_control_spec
+%type<ast> proc_interface
+%type<ast> flush_stmt
+%type<ast> length_selector
+%type<ast> exit_stmt
+%type<ast> initialization
+%type<ast> deallocate_stmt
+%type<ast> allocation
+%type<ast> ac_do_variable
+%type<ast> coarray_spec
+%type<ast> level_0_expr
+%type<ast> level_1_expr
+%type<ast> derived_type_spec
+%type<ast> cycle_stmt
+%type<ast> select_case_stmt
+%type<ast> component_part
+%type<ast> pointer_decl
+%type<ast> type_attr_spec
+%type<ast> namelist_group_object
+%type<ast> target_stmt
+%type<ast> end_select_type_stmt
+%type<ast> submodule
+%type<ast> intrinsic_stmt
+%type<ast> forall_construct
+%type<ast> enumerator
+%type<ast> module_subprogram_part
+%type<ast> complex_literal_constant
+%type<ast> type_param_spec
+%type<ast> where_construct_stmt
+%type<ast> program_stmt
+%type<ast> user_defined_op
+%type<ast> explicit_coshape_spec
+%type<ast> if_stmt
+%type<ast> critical_stmt
+%type<ast> inquire_stmt
+%type<ast> component_data_source
+%type<ast> computed_goto_stmt
+%type<ast> target_decl
+%type<ast> unlock_stmt
+%type<ast> read_stmt
+%type<ast> nullify_stmt
+%type<ast> language_binding_spec
+%type<ast> initial_data_target
+%type<ast> named_constant_def
+%type<ast> sync_memory_stmt
+%type<ast> mask_elsewhere_part
+%type<ast> int_expr
+%type<ast> binding_attr
+%type<ast> proc_component_def_stmt
+%type<ast> forall_body_construct
+%type<ast> close_stmt
+%type<ast> declaration_construct
+%type<ast> end_mp_subprogram_stmt
+%type<ast> wait_spec
+%type<ast> entry_stmt
+%type<ast> internal_subprogram_part
+%type<ast> use_defined_operator
+%type<ast> parent_identifier
+%type<ast> separate_module_subprogram
+%type<ast> hex_constant
+%type<ast> end_function_stmt
+%type<ast> enum_def
+%type<ast> rbracket
+%type<ast> block
+%type<ast> intent_stmt
+%type<ast> case_value
+%type<ast> and_operand
+%type<ast> where_body_construct
+%type<ast> int_variable
+%type<ast> data_stmt_object
+%type<ast> enum_def_stmt
+%type<ast> input_output_item
+%type<ast> type_declaration_stmt
+%type<ast> stat_variable
+%type<ast> type_param_decl
+%type<ast> null_init
+%type<ast> codimension_stmt
+%type<ast> int_constant_expr
+%type<ast> equivalence_set
+%type<ast> add_op
+%type<ast> end_block_stmt
+%type<ast> upper_cobound
+%type<ast> alt_return_spec
+%type<ast> equivalence_object
+%type<ast> mp_subprogram_stmt
+%type<ast> block_construct
+%type<ast> intent_spec
+%type<ast> position_spec
+%type<ast> module_stmt
+%type<ast> proc_attr_spec
+%type<ast> implicit_spec
+%type<ast> numeric_expr
+%type<ast> end_forall_stmt
+%type<ast> stmt_function_stmt
+%type<ast> proc_pointer_object
+%type<ast> file_unit_number
+%type<ast> intrinsic_type_spec
+%type<ast> end_submodule_stmt
+%type<ast> program_unit
+%type<ast> variable
+%type<ast> bind_stmt
+%type<ast> ac_implied_do_control
+%type<ast> type_bound_procedure_stmt
+%type<ast> errmsg_variable
+%type<ast> eos
+%type<ast> forall_step
+%type<ast> format_stmt
+%type<ast> procedure_stmt
+%type<ast> lower_cobound
+%type<ast> where_body_construct_seq
+%type<ast> use_stmt_seq
+%type<ast> mask_elsewhere_part_seq
+%type<ast> private_or_sequence_seq
+%type<ast> import_stmt_seq
+%type<ast> execution_part_construct_seq
+%type<ast> prefix_spec_seq
+%type<ast> case_part_seq
+%type<ast> forall_body_construct_seq
+%type<ast> type_bound_proc_binding_seq
+%type<ast> implicit_part_stmts_seq
+%type<ast> else_if_part_seq
+%type<ast> type_param_def_stmt_seq
+%type<ast> program_unit_seq
+%type<ast> declaration_construct_seq
+%type<ast> type_guard_part_seq
+%type<ast> component_def_stmts_seq
+%type<ast> module_subprogram_seq
+%type<ast> interface_specification_seq
+%type<ast> internal_subprogram_seq
+%type<ast> enumerator_def_stmt_seq
+%type<ast> data_stmt_set_list
+%type<ast> position_spec_list
+%type<ast> type_param_name_list
+%type<ast> external_name_list
+%type<ast> equivalence_set_list
+%type<ast> entity_name_list
+%type<ast> binding_name_list
+%type<ast> assumed_shape_spec_list
+%type<ast> implied_shape_spec_list
+%type<ast> lock_stat_list
+%type<ast> close_spec_list
+%type<ast> type_attr_spec_list
+%type<ast> io_implied_do_object_list
+%type<ast> case_value_range_list
+%type<ast> namelist_group_object_list
+%type<ast> sync_stat_list
+%type<ast> implicit_spec_list
+%type<ast> letter_spec_list
+%type<ast> data_stmt_object_list
+%type<ast> component_decl_list
+%type<ast> label_list
+%type<ast> named_constant_def_list
+%type<ast> bind_entity_list
+%type<ast> flush_spec_list
+%type<ast> io_control_spec_list
+%type<ast> proc_component_attr_spec_list
+%type<ast> saved_entity_list
+%type<ast> input_output_item_list
+%type<ast> common_block_object_list
+%type<ast> codimension_decl_list
+%type<ast> component_spec_list
+%type<ast> only_list
+%type<ast> binding_attr_list
+%type<ast> forall_triplet_spec_list
+%type<ast> cobound_pair_list
+%type<ast> object_name_list
+%type<ast> alloc_opt_list
+%type<ast> pointer_object_list
+%type<ast> type_param_decl_list
+%type<ast> allocate_coshape_spec_list
+%type<ast> connect_spec_list
+%type<ast> section_subscript_list
+%type<ast> deferred_shape_spec_list
+%type<ast> pointer_decl_list
+%type<ast> component_attr_spec_list
+%type<ast> final_subroutine_name_list
+%type<ast> procedure_name_list
+%type<ast> enumerator_list
+%type<ast> data_i_do_object_list
+%type<ast> type_bound_proc_decl_list
+%type<ast> deferred_coshape_spec_list
+%type<ast> wait_spec_list
+%type<ast> cosubscript_list
+%type<ast> intrinsic_procedure_name_list
+%type<ast> type_param_spec_list
+%type<ast> allocation_list
+%type<ast> allocate_object_list
+%type<ast> dummy_arg_name_list
+%type<ast> proc_attr_spec_list
+%type<ast> proc_decl_list
+%type<ast> data_stmt_value_list
+%type<ast> ac_value_list
+%type<ast> association_list
+%type<ast> dummy_arg_list
+%type<ast> explicit_shape_spec_list
+%type<ast> equivalence_object_list
+%type<ast> allocatable_decl_list
+%type<ast> import_name_list
+%type<ast> inquire_spec_list
+%type<ast> common_block_item_list
+%type<ast> dealloc_opt_list
+%type<ast> actual_arg_spec_list
+%type<ast> rename_list
+%type<ast> attr_spec_list
+%type<ast> target_decl_list
+%type<ast> access_id_list
+%type<ast> array_name_dim_spec_list
+%type<ast> entity_decl_list
+%type<ast> namelist_item_list
+%type<ast> a_list_of_names
+// Tokens
+%token<token_atrib> TOK_FORMAT "FORMAT"
+%token<token_atrib> TOK_GENERIC "GENERIC"
+%token<token_atrib> TOK_VOLATILE "VOLATILE"
+%token<token_atrib> TOK_EQUIVALENCE "EQUIVALENCE"
+%token<token_atrib> TOK_EOR "EOR"
+%token<token_atrib> TOK_PROTECTED "PROTECTED"
+%token<token_atrib> TOK_PAD "PAD"
+%token<token_atrib> TOK_FILE "FILE"
+%token<token_atrib> TOK_UNFORMATTED "UNFORMATTED"
+%token<token_atrib> TOK_NAMED "NAMED"
+%token<token_atrib> TOK_SUBROUTINE "SUBROUTINE"
+%token<token_atrib> TOK_OPENED "OPENED"
+%token<token_atrib> TOK_DELIM "DELIM"
+%token<token_atrib> TOK_SOURCE "SOURCE"
+%token<token_atrib> TOK_CRITICAL "CRITICAL"
+%token<token_atrib> TOK_ACTION "ACTION"
+%token<token_atrib> TOK_IMPORT "IMPORT"
+%token<token_atrib> TOK_BLOCK "BLOCK"
+%token<token_atrib> TOK_ENUM "ENUM"
+%token<token_atrib> TOK_OVERRIDABLE "OVERRIDABLE"
+%token<token_atrib> TOK_MODULE "MODULE"
+%token<token_atrib> TOK_SIGN "SIGN"
+%token<token_atrib> TOK_EXTENDS "EXTENDS"
+%token<token_atrib> TOK_PASS "PASS"
+%token<token_atrib> TOK_GO "GO"
+%token<token_atrib> TOK_ENTRY "ENTRY"
+%token<token_atrib> TOK_WHERE "WHERE"
+%token<token_atrib> TOK_PROCEDURE "PROCEDURE"
+%token<token_atrib> TOK_NAME "NAME"
+%token<token_atrib> TOK_DOUBLE "DOUBLE"
+%token<token_atrib> TOK_CONTAINS "CONTAINS"
+%token<token_atrib> TOK_LOGICAL "LOGICAL"
+%token<token_atrib> TOK_NEWUNIT "NEWUNIT"
+%token<token_atrib> TOK_NULLIFY "NULLIFY"
+%token<token_atrib> TOK_DEFERRED "DEFERRED"
+%token<token_atrib> TOK_ONLY "ONLY"
+%token<token_atrib> TOK_EXIST "EXIST"
+%token<token_atrib> TOK_INTERFACE "INTERFACE"
+%token<token_atrib> TOK_SAVE "SAVE"
+%token<token_atrib> TOK_ADVANCE "ADVANCE"
+%token<token_atrib> TOK_STAT "STAT"
+%token<token_atrib> TOK_RETURN "RETURN"
+%token<token_atrib> TOK_READWRITE "READWRITE"
+%token<token_atrib> TOK_ASSIGNMENT "ASSIGNMENT"
+%token<token_atrib> TOK_PRINT "PRINT"
+%token<token_atrib> TOK_IOSTAT "IOSTAT"
+%token<token_atrib> TOK_SYNC "SYNC"
+%token<token_atrib> TOK_COMPLEX "COMPLEX"
+%token<token_atrib> TOK_ASYNCHRONOUS "ASYNCHRONOUS"
+%token<token_atrib> TOK_IMAGES "IMAGES"
+%token<token_atrib> TOK_END "END"
+%token<token_atrib> TOK_FINAL "FINAL"
+%token<token_atrib> TOK_INOUT "INOUT"
+%token<token_atrib> TOK_NEXTREC "NEXTREC"
+%token<token_atrib> TOK_KIND "KIND"
+%token<token_atrib> TOK_COMMON "COMMON"
+%token<token_atrib> TOK_BLANK "BLANK"
+%token<token_atrib> TOK_IOLENGTH "IOLENGTH"
+%token<token_atrib> TOK_INTEGER "INTEGER"
+%token<token_atrib> TOK_DEALLOCATE "DEALLOCATE"
+%token<token_atrib> TOK_FUNCTION "FUNCTION"
+%token<token_atrib> TOK_C "C"
+%token<token_atrib> TOK_ENUMERATOR "ENUMERATOR"
+%token<token_atrib> TOK_RECURSIVE "RECURSIVE"
+%token<token_atrib> TOK_SEQUENCE "SEQUENCE"
+%token<token_atrib> TOK_INQUIRE "INQUIRE"
+%token<token_atrib> TOK_FLUSH "FLUSH"
+%token<token_atrib> TOK_ELSE "ELSE"
+%token<token_atrib> TOK_INTENT "INTENT"
+%token<token_atrib> TOK_EXTERNAL "EXTERNAL"
+%token<token_atrib> TOK_OPERATOR "OPERATOR"
+%token<token_atrib> TOK_OPTIONAL "OPTIONAL"
+%token<token_atrib> TOK_UNIT "UNIT"
+%token<token_atrib> TOK_SIZE "SIZE"
+%token<token_atrib> TOK_NOPASS "NOPASS"
+%token<token_atrib> TOK_TYPE "TYPE"
+%token<token_atrib> TOK_MOLD "MOLD"
+%token<token_atrib> TOK_PRECISION "PRECISION"
+%token<token_atrib> TOK_PENDING "PENDING"
+%token<token_atrib> TOK_CONTINUE "CONTINUE"
+%token<token_atrib> TOK_RESULT "RESULT"
+%token<token_atrib> TOK_REAL "REAL"
+%token<token_atrib> TOK_THEN "THEN"
+%token<token_atrib> TOK_STREAM "STREAM"
+%token<token_atrib> TOK_DO "DO"
+%token<token_atrib> TOK_DEFAULT "DEFAULT"
+%token<token_atrib> TOK_CONTIGUOUS "CONTIGUOUS"
+%token<token_atrib> TOK_STOP "STOP"
+%token<token_atrib> TOK_WHILE "WHILE"
+%token<token_atrib> TOK_PROGRAM "PROGRAM"
+%token<token_atrib> TOK_REC "REC"
+%token<token_atrib> TOK_OPEN "OPEN"
+%token<token_atrib> TOK_CASE "CASE"
+%token<token_atrib> TOK_RECL "RECL"
+%token<token_atrib> TOK_DIMENSION "DIMENSION"
+%token<token_atrib> TOK_ELEMENTAL "ELEMENTAL"
+%token<token_atrib> TOK_FORALL "FORALL"
+%token<token_atrib> TOK_POSITION "POSITION"
+%token<token_atrib> TOK_FMT "FMT"
+%token<token_atrib> TOK_READ "READ"
+%token<token_atrib> TOK_OUT "OUT"
+%token<token_atrib> TOK_LOCK "LOCK"
+%token<token_atrib> TOK_DECIMAL "DECIMAL"
+%token<token_atrib> TOK_SELECT "SELECT"
+%token<token_atrib> TOK_DIRECT "DIRECT"
+%token<token_atrib> TOK_WRITE "WRITE"
+%token<token_atrib> TOK_CODIMENSION "CODIMENSION"
+%token<token_atrib> TOK_CLOSE "CLOSE"
+%token<token_atrib> TOK_ID "ID"
+%token<token_atrib> TOK_WAIT "WAIT"
+%token<token_atrib> TOK_ALL "ALL"
+%token<token_atrib> TOK_ELSEWHERE "ELSEWHERE"
+%token<token_atrib> TOK_LEN "LEN"
+%token<token_atrib> TOK_IMPURE "IMPURE"
+%token<token_atrib> TOK_EXIT "EXIT"
+%token<token_atrib> TOK_REWIND "REWIND"
+%token<token_atrib> TOK_BACKSPACE "BACKSPACE"
+%token<token_atrib> TOK_NML "NML"
+%token<token_atrib> TOK_INTRINSIC "INTRINSIC"
+%token<token_atrib> TOK_PUBLIC "PUBLIC"
+%token<token_atrib> TOK_ERRMSG "ERRMSG"
+%token<token_atrib> TOK_NAMELIST "NAMELIST"
+%token<token_atrib> TOK_USE "USE"
+%token<token_atrib> TOK_SUBMODULE "SUBMODULE"
+%token<token_atrib> TOK_ERR "ERR"
+%token<token_atrib> TOK_ENCODING "ENCODING"
+%token<token_atrib> TOK_ACQUIRED "ACQUIRED"
+%token<token_atrib> TOK_ABSTRACT "ABSTRACT"
+%token<token_atrib> TOK_CHARACTER "CHARACTER"
+%token<token_atrib> TOK_NUMBER "NUMBER"
+%token<token_atrib> TOK_CONCURRENT "CONCURRENT"
+%token<token_atrib> TOK_ENDFILE "ENDFILE"
+%token<token_atrib> TOK_PARAMETER "PARAMETER"
+%token<token_atrib> TOK_DATA "DATA"
+%token<token_atrib> TOK_POS "POS"
+%token<token_atrib> TOK_PRIVATE "PRIVATE"
+%token<token_atrib> TOK_ROUND "ROUND"
+%token<token_atrib> TOK_TO "TO"
+%token<token_atrib> TOK_SEQUENTIAL "SEQUENTIAL"
+%token<token_atrib> TOK_ALLOCATE "ALLOCATE"
+%token<token_atrib> TOK_TARGET "TARGET"
+%token<token_atrib> TOK_CLASS "CLASS"
+%token<token_atrib> TOK_CYCLE "CYCLE"
+%token<token_atrib> TOK_STATUS "STATUS"
+%token<token_atrib> TOK_IOMSG "IOMSG"
+%token<token_atrib> TOK_FORM "FORM"
+%token<token_atrib> TOK_IS "IS"
+%token<token_atrib> TOK_NONE "NONE"
+%token<token_atrib> TOK_VALUE "VALUE"
+%token<token_atrib> TOK_UNLOCK "UNLOCK"
+%token<token_atrib> TOK_FORMATTED "FORMATTED"
+%token<token_atrib> TOK_IN "IN"
+%token<token_atrib> TOK_IMPLICIT "IMPLICIT"
+%token<token_atrib> TOK_IF "IF"
+%token<token_atrib> TOK_ASSOCIATE "ASSOCIATE"
+%token<token_atrib> TOK_BIND "BIND"
+%token<token_atrib> TOK_ALLOCATABLE "ALLOCATABLE"
+%token<token_atrib> TOK_ACCESS "ACCESS"
+%token<token_atrib> TOK_CALL "CALL"
+%token<token_atrib> TOK_PURE "PURE"
+%token<token_atrib> TOK_MEMORY "MEMORY"
+%token<token_atrib> TOK_POINTER "POINTER"
+%token<token_atrib> TOK_VECTOR "VECTOR"
+%token<token_atrib> TOK_PIXEL "PIXEL"
+%token<token_atrib> TOK_NON_OVERRIDABLE "NON_OVERRIDABLE"
+%token<token_atrib> TOK_NON_INTRINSIC "NON_INTRINSIC"
+// Combined keywords
+%token<token_atrib> TOK_ALLSTOP "ALLSTOP"
+%token<token_atrib> TOK_ENDDO "ENDDO"
+%token<token_atrib> TOK_ENDIF "ENDIF"
+%token<token_atrib> TOK_ENDFUNCTION "ENDFUNCTION"
+%token<token_atrib> TOK_BLOCKDATA "BLOCKDATA" 
+%token<token_atrib> TOK_ENDMODULE "ENDMODULE"
+%token<token_atrib> TOK_DOUBLEPRECISION "DOUBLEPRECISION" 
+%token<token_atrib> TOK_ENDINTERFACE "ENDINTERFACE"
+%token<token_atrib> TOK_ELSEIF "ELSEIF" 
+%token<token_atrib> TOK_ENDPROCEDURE "ENDPROCEDURE"
+%token<token_atrib> TOK_ENDPROGRAM "ENDPROGRAM"
+%token<token_atrib> TOK_ENDASSOCIATE "ENDASSOCIATE"
+%token<token_atrib> TOK_ENDSELECT "ENDSELECT"
+%token<token_atrib> TOK_ENDBLOCK "ENDBLOCK"
+%token<token_atrib> TOK_ENDSUBMODULE "ENDSUBMODULE"
+%token<token_atrib> TOK_ENDBLOCKDATA "ENDBLOCKDATA"
+%token<token_atrib> TOK_ENDSUBROUTINE "ENDSUBROUTINE"
+%token<token_atrib> TOK_ENDCRITICAL "ENDCRITICAL"
+%token<token_atrib> TOK_ENDTYPE "ENDTYPE"
+%token<token_atrib> TOK_DOUBLECOMPLEX "DOUBLECOMPLEX"
+%token<token_atrib> TOK_GOTO "GOTO"
+%token<token_atrib> '-'
+%token<token_atrib> TOK_LOGICAL_NOT_EQUIVALENT ".NEQV."
+%token<token_atrib> '%'
+%token<token_atrib> TOK_POINTER_ACCESS "=>"
+%token<token_atrib> TOK_GREATER_THAN ">"
+%token<token_atrib> ','
+%token<token_atrib> TOK_EQUAL "=="
+%token<token_atrib> '('
+%token<token_atrib> '*'
+%token<token_atrib> '='
+%token<token_atrib> TOK_LOGICAL_AND ".AND."
+%token<token_atrib> TOK_LOWER_THAN "<"
+%token<token_atrib> TOK_LOGICAL_NOT ".NOT."
+%token<token_atrib> ':'
+%token<token_atrib> TOK_LOGICAL_EQUIVALENT ".EQV."
+%token<token_atrib> TOK_GREATER_OR_EQUAL_THAN ">="
+%token<token_atrib> TOK_LOGICAL_OR ".OR".
+%token<token_atrib> TOK_LOWER_OR_EQUAL_THAN "<="
+%token<token_atrib> TOK_NOT_EQUAL "/="
+%token<token_atrib> ')'
+%token<token_atrib> TOK_RAISE "**"
+%token<token_atrib> '/'
+%token<token_atrib> '+'
+%token<token_atrib> TOK_TRUE ".TRUE."
+%token<token_atrib> TOK_FALSE ".FALSE."
+%token<token_atrib> DECIMAL_LITERAL "decimal literal"
+%token<token_atrib> FORMAT_SPEC "format-specifier"
+%token<token_atrib> IDENTIFIER "identifier"
+%token<token_atrib> EOS "end of statement"
+%token<token_atrib> BINARY_LITERAL "binary literal"
+%token<token_atrib> OCTAL_LITERAL "octal literal"
+%token<token_atrib> REAL_LITERAL "real literal"
+%token<token_atrib> CHAR_LITERAL "character literal"
+%token<token_atrib> HEX_LITERAL "hexadecimal literal"
+%token<token_atrib> USER_DEFINED_OPERATOR "user-defined operator"
+
+
+// FIXME
+%token OMP_SENTINEL
+%token PRAGMA_CUSTOM
+%token PRAGMA_CUSTOM_DIRECTIVE
+%token PRAGMA_CUSTOM_CONSTRUCT
+%token PRAGMA_CUSTOM_CLAUSE
+%token PRAGMA_CLAUSE_ARG_TEXT
+%token UNKNOWN_PRAGMA
+%token CSS_START
+%token CSS_FINISH
+%token CSS_WAITON
+%token CSS_BARRIER
+%token CSS_TASK
+%token SUBPARSE_PROGRAM_UNIT
+%token SUBPARSE_EXPRESSION
+%token SUBPARSE_STATEMENT
+%token ONERROR
+
+%start program
+
+%%
+
+program : program_unit_seq
+{
+}
+;
+program_unit : main_program
+{
+}
+| external_subprogram
+{
+}
+| module
+{
+}
+| submodule
+{
+}
+| block_data
+{
+}
+;
+external_subprogram : function_subprogram
+{
+}
+| subroutine_subprogram
+{
+}
+;
+specification_part : use_stmt_seq import_stmt_seq implicit_part declaration_construct_seq
+{
+}
+| import_stmt_seq implicit_part declaration_construct_seq
+{
+}
+| use_stmt_seq implicit_part declaration_construct_seq
+{
+}
+| use_stmt_seq import_stmt_seq declaration_construct_seq
+{
+}
+| use_stmt_seq import_stmt_seq implicit_part
+{
+}
+| use_stmt_seq import_stmt_seq
+{
+}
+| use_stmt_seq declaration_construct_seq
+{
+}
+| use_stmt_seq implicit_part
+{
+}
+| use_stmt_seq
+{
+}
+| implicit_part declaration_construct_seq
+{
+}
+| import_stmt_seq declaration_construct_seq
+{
+}
+| import_stmt_seq implicit_part
+{
+}
+| import_stmt_seq
+{
+}
+| declaration_construct_seq
+{
+}
+| implicit_part
+{
+}
+;
+implicit_part : implicit_part_stmts_seq implicit_stmt
+{
+}
+| implicit_stmt
+{
+}
+;
+implicit_part_stmts : implicit_stmt
+{
+}
+| parameter_stmt
+{
+}
+| format_stmt
+{
+}
+| entry_stmt
+{
+}
+;
+declaration_construct : derived_type_def
+{
+}
+| entry_stmt
+{
+}
+| enum_def
+{
+}
+| format_stmt
+{
+}
+| interface_block
+{
+}
+| parameter_stmt
+{
+}
+| procedure_declaration_stmt
+{
+}
+| other_specification_stmts
+{
+}
+| type_declaration_stmt
+{
+}
+| stmt_function_stmt
+{
+}
+;
+execution_part : executable_construct execution_part_construct_seq
+{
+}
+| executable_construct
+{
+}
+;
+execution_part_construct : executable_construct
+{
+}
+| format_stmt
+{
+}
+| entry_stmt
+{
+}
+| data_stmt
+{
+}
+;
+internal_subprogram_part : contains_stmt internal_subprogram_seq
+{
+}
+| contains_stmt
+{
+}
+;
+internal_subprogram : function_subprogram
+{
+}
+| subroutine_subprogram
+{
+}
+;
+other_specification_stmts : access_stmt
+{
+}
+| allocatable_stmt
+{
+}
+| asynchronous_stmt
+{
+}
+| bind_stmt
+{
+}
+| codimension_stmt
+{
+}
+| common_stmt
+{
+}
+| data_stmt
+{
+}
+| dimension_stmt
+{
+}
+| equivalence_stmt
+{
+}
+| external_stmt
+{
+}
+| intent_stmt
+{
+}
+| intrinsic_stmt
+{
+}
+| namelist_stmt
+{
+}
+| optional_stmt
+{
+}
+| pointer_stmt
+{
+}
+| protected_stmt
+{
+}
+| save_stmt
+{
+}
+| target_stmt
+{
+}
+| volatile_stmt
+{
+}
+| value_stmt
+{
+}
+;
+executable_construct : action_stmts
+{
+}
+| associate_construct
+{
+}
+| block_construct
+{
+}
+| case_construct
+{
+}
+| critical_construct
+{
+}
+| do_construct
+{
+}
+| forall_construct
+{
+}
+| if_construct
+{
+}
+| select_type_construct
+{
+}
+| where_construct
+{
+}
+;
+action_stmts : allocate_stmt
+{
+}
+| allstop_stmt
+{
+}
+| assignment_stmt
+{
+}
+| backspace_stmt
+{
+}
+| call_stmt
+{
+}
+| close_stmt
+{
+}
+| continue_stmt
+{
+}
+| cycle_stmt
+{
+}
+| deallocate_stmt
+{
+}
+| endfile_stmt
+{
+}
+| exit_stmt
+{
+}
+| flush_stmt
+{
+}
+| forall_stmt
+{
+}
+| goto_stmt
+{
+}
+| if_stmt
+{
+}
+| inquire_stmt
+{
+}
+| lock_stmt
+{
+}
+| nullify_stmt
+{
+}
+| open_stmt
+{
+}
+| pointer_assignment_stmt
+{
+}
+| print_stmt
+{
+}
+| read_stmt
+{
+}
+| return_stmt
+{
+}
+| rewind_stmt
+{
+}
+| stop_stmt
+{
+}
+| sync_all_stmt
+{
+}
+| sync_images_stmt
+{
+}
+| sync_memory_stmt
+{
+}
+| unlock_stmt
+{
+}
+| wait_stmt
+{
+}
+| where_stmt
+{
+}
+| write_stmt
+{
+}
+| arithmetic_if_stmt
+{
+}
+| computed_goto_stmt
+{
+}
+;
+name : IDENTIFIER
+{
+}
+| keyword
+{
+}
+;
+name_not_keyword : IDENTIFIER
+{
+}
+;
+
+unsigned_arithmetic_literal_constant : int_literal_constant
+{
+}
+| real_literal_constant
+{
+}
+| complex_literal_constant
+{
+}
+;
+named_constant : name
+{
+}
+;
+intrinsic_operator : power_op
+{
+}
+| mult_op
+{
+}
+| add_op
+{
+}
+| concat_op
+{
+}
+| rel_op
+{
+}
+| not_op
+{
+}
+| and_op
+{
+}
+| or_op
+{
+}
+| equiv_op
+{
+}
+;
+defined_operator : user_defined_op
+{
+}
+| extended_intrinsic_op
+{
+}
+;
+extended_intrinsic_op : intrinsic_operator
+{
+}
+;
+label : DECIMAL_LITERAL
+{
+}
+;
+type_param_value : int_expr
+{
+}
+| '*'
+{
+}
+| ':'
+{
+}
+;
+type_spec : intrinsic_type_spec
+{
+}
+| derived_type_spec
+{
+}
+;
+declaration_type_spec : intrinsic_type_spec
+{
+}
+| TOK_TYPE '(' intrinsic_type_spec ')'
+{
+}
+| TOK_TYPE '(' derived_type_spec ')'
+{
+}
+| TOK_CLASS '(' derived_type_spec ')'
+{
+}
+| TOK_CLASS '(' '*' ')'
+{
+}
+;
+intrinsic_type_spec : TOK_INTEGER kind_selector
+{
+}
+| TOK_INTEGER
+{
+}
+| TOK_REAL kind_selector
+{
+}
+| TOK_REAL
+{
+}
+| TOK_DOUBLE TOK_PRECISION
+{
+}
+| TOK_DOUBLEPRECISION
+{
+}
+| TOK_COMPLEX kind_selector
+{
+}
+| TOK_COMPLEX
+{
+}
+| TOK_CHARACTER char_selector
+{
+}
+| TOK_CHARACTER
+{
+}
+| TOK_LOGICAL kind_selector
+{
+}
+| TOK_LOGICAL
+{
+}
+| TOK_DOUBLECOMPLEX
+{
+}
+| TOK_DOUBLE TOK_COMPLEX
+{
+}
+| TOK_INTEGER '*' DECIMAL_LITERAL
+{
+}
+| TOK_REAL '*' DECIMAL_LITERAL
+{
+}
+| TOK_COMPLEX '*' DECIMAL_LITERAL
+{
+}
+| TOK_DOUBLEPRECISION '*' DECIMAL_LITERAL
+{
+}
+| TOK_DOUBLE TOK_PRECISION '*' DECIMAL_LITERAL
+{
+}
+| TOK_LOGICAL '*' DECIMAL_LITERAL
+{
+}
+| TOK_VECTOR '(' vectorial_type ')'
+{
+}
+;
+vectorial_type : TOK_PIXEL 
+{
+}
+| TOK_INTEGER kind_selector
+{
+}
+| TOK_REAL kind_selector
+{
+}
+| TOK_INTEGER '*' DECIMAL_LITERAL
+{
+}
+| TOK_REAL '*' DECIMAL_LITERAL
+{
+}
+| TOK_INTEGER
+{
+}
+| TOK_REAL
+{
+}
+;
+kind_selector : '(' TOK_KIND '=' int_constant_expr ')'
+{
+}
+| '(' int_constant_expr ')'
+{
+}
+;
+int_literal_constant : digit_string kind_param
+{
+}
+| digit_string
+{
+}
+;
+kind_param : digit_string
+{
+}
+| name
+{
+}
+;
+digit_string : DECIMAL_LITERAL
+{
+}
+;
+real_literal_constant : REAL_LITERAL
+{
+}
+;
+complex_literal_constant : '(' complex_part ',' complex_part ')'
+{
+}
+;
+sign : '+'
+{
+}
+| '-'
+{
+}
+;
+complex_part : int_literal_constant
+{
+}
+| real_literal_constant
+{
+}
+| sign int_literal_constant
+{
+}
+| sign real_literal_constant
+{
+}
+| named_constant
+{
+}
+;
+char_selector : length_selector
+{
+}
+| '(' TOK_LEN '=' type_param_value ',' TOK_KIND '=' int_constant_expr ')'
+{
+}
+| '(' type_param_value ',' TOK_KIND '=' int_constant_expr ')'
+{
+}
+| '(' type_param_value ',' int_constant_expr ')'
+{
+}
+| '(' TOK_KIND '=' int_constant_expr ',' TOK_LEN '=' type_param_value ')'
+{
+}
+| '(' TOK_KIND '=' int_constant_expr ')'
+{
+}
+;
+length_selector : '(' TOK_LEN '=' type_param_value ')'
+{
+}
+| '(' type_param_value ')'
+{
+}
+| '*' char_length ','
+{
+}
+| '*' char_length
+{
+}
+;
+char_length : '(' type_param_value ')'
+{
+}
+| int_literal_constant
+{
+}
+;
+char_literal_constant : CHAR_LITERAL
+{
+}
+;
+logical_literal_constant : TOK_TRUE
+{
+}
+| TOK_FALSE
+{
+}
+;
+derived_type_def : derived_type_stmt type_param_def_stmt_seq private_or_sequence_seq component_part type_bound_procedure_part end_type_stmt
+{
+}
+| derived_type_stmt private_or_sequence_seq component_part type_bound_procedure_part end_type_stmt
+{
+}
+| derived_type_stmt type_param_def_stmt_seq component_part type_bound_procedure_part end_type_stmt
+{
+}
+| derived_type_stmt type_param_def_stmt_seq private_or_sequence_seq type_bound_procedure_part end_type_stmt
+{
+}
+| derived_type_stmt type_param_def_stmt_seq private_or_sequence_seq component_part end_type_stmt
+{
+}
+| derived_type_stmt type_param_def_stmt_seq private_or_sequence_seq end_type_stmt
+{
+}
+| derived_type_stmt type_param_def_stmt_seq type_bound_procedure_part end_type_stmt
+{
+}
+| derived_type_stmt type_param_def_stmt_seq component_part end_type_stmt
+{
+}
+| derived_type_stmt type_param_def_stmt_seq end_type_stmt
+{
+}
+| derived_type_stmt component_part type_bound_procedure_part end_type_stmt
+{
+}
+| derived_type_stmt private_or_sequence_seq type_bound_procedure_part end_type_stmt
+{
+}
+| derived_type_stmt private_or_sequence_seq component_part end_type_stmt
+{
+}
+| derived_type_stmt private_or_sequence_seq end_type_stmt
+{
+}
+| derived_type_stmt type_bound_procedure_part end_type_stmt
+{
+}
+| derived_type_stmt component_part end_type_stmt
+{
+}
+| derived_type_stmt end_type_stmt
+{
+}
+;
+derived_type_stmt : labeldef TOK_TYPE ',' type_attr_spec_list ':' ':' name '(' type_param_name_list ')' eos
+{
+}
+| labeldef TOK_TYPE name '(' type_param_name_list ')' eos
+{
+}
+| labeldef TOK_TYPE ':' ':' name '(' type_param_name_list ')' eos
+{
+}
+| labeldef TOK_TYPE ',' type_attr_spec_list ':' ':' name eos
+{
+}
+| labeldef TOK_TYPE ':' ':' name eos
+{
+}
+| labeldef TOK_TYPE name eos
+{
+}
+;
+type_attr_spec : TOK_ABSTRACT
+{
+}
+| access_spec
+{
+}
+| TOK_BIND '(' TOK_C ')'
+{
+}
+| TOK_EXTENDS '(' name ')'
+{
+}
+;
+private_or_sequence : private_stmt
+{
+}
+| sequence_stmt
+{
+}
+;
+end_type_stmt : labeldef TOK_END TOK_TYPE name eos
+{
+}
+| labeldef TOK_END TOK_TYPE eos
+{
+}
+| labeldef TOK_ENDTYPE name eos
+{
+}
+| labeldef TOK_ENDTYPE eos
+{
+}
+;
+sequence_stmt : labeldef TOK_SEQUENCE eos
+{
+}
+;
+type_param_def_stmt : labeldef TOK_INTEGER kind_selector ',' type_param_attr_spec ':' ':' type_param_decl_list eos
+{
+}
+| labeldef TOK_INTEGER ',' type_param_attr_spec ':' ':' type_param_decl_list eos
+{
+}
+;
+type_param_decl : name '=' int_constant_expr
+{
+}
+| name
+{
+}
+;
+type_param_attr_spec : TOK_KIND
+{
+}
+| TOK_LEN
+{
+}
+;
+component_part : component_def_stmts_seq
+{
+}
+;
+component_def_stmts : data_component_def_stmt
+{
+}
+| proc_component_def_stmt
+{
+}
+;
+data_component_def_stmt : labeldef declaration_type_spec ',' component_attr_spec_list ':' ':' component_decl_list eos
+{
+}
+| labeldef declaration_type_spec component_decl_list eos
+{
+}
+| labeldef declaration_type_spec ':' ':' component_decl_list eos
+{
+}
+;
+component_attr_spec : access_spec
+{
+}
+| TOK_ALLOCATABLE
+{
+}
+| TOK_CODIMENSION lbracket coarray_spec rbracket
+{
+}
+| TOK_CONTIGUOUS
+{
+}
+| TOK_DIMENSION '(' component_array_spec ')'
+{
+}
+| TOK_POINTER
+{
+}
+;
+component_decl : name '(' component_array_spec ')' lbracket coarray_spec rbracket '*' char_length component_initialization
+{
+}
+| name lbracket coarray_spec rbracket '*' char_length component_initialization
+{
+}
+| name '(' component_array_spec ')' '*' char_length component_initialization
+{
+}
+| name '(' component_array_spec ')' lbracket coarray_spec rbracket component_initialization
+{
+}
+| name '(' component_array_spec ')' lbracket coarray_spec rbracket '*' char_length
+{
+}
+| name '(' component_array_spec ')' lbracket coarray_spec rbracket
+{
+}
+| name '(' component_array_spec ')' component_initialization
+{
+}
+| name '(' component_array_spec ')' '*' char_length
+{
+}
+| name '(' component_array_spec ')'
+{
+}
+| name '*' char_length component_initialization
+{
+}
+| name lbracket coarray_spec rbracket component_initialization
+{
+}
+| name lbracket coarray_spec rbracket '*' char_length
+{
+}
+| name lbracket coarray_spec rbracket
+{
+}
+| name component_initialization
+{
+}
+| name '*' char_length
+{
+}
+| name
+{
+}
+;
+component_array_spec : explicit_shape_spec_list
+{
+}
+| deferred_shape_spec_list
+{
+}
+;
+proc_component_def_stmt : labeldef TOK_PROCEDURE '(' proc_interface ')' ',' proc_component_attr_spec_list ':' ':' proc_decl_list eos
+{
+}
+| labeldef TOK_PROCEDURE '(' ')' ',' proc_component_attr_spec_list ':' ':' proc_decl_list eos
+{
+}
+;
+proc_component_attr_spec : TOK_POINTER
+{
+}
+| TOK_PASS '(' name ')'
+{
+}
+| TOK_PASS
+{
+}
+| TOK_NOPASS
+{
+}
+| access_spec
+{
+}
+;
+component_initialization : '=' constant_expr
+{
+}
+| TOK_POINTER_ACCESS null_init
+{
+}
+| TOK_POINTER_ACCESS initial_data_target
+{
+}
+;
+initial_data_target : data_ref
+{
+}
+;
+type_bound_procedure_part : contains_stmt private_stmt type_bound_proc_binding_seq
+{
+}
+| contains_stmt type_bound_proc_binding_seq
+{
+}
+| contains_stmt private_stmt
+{
+}
+| contains_stmt
+{
+}
+;
+private_stmt : labeldef TOK_PRIVATE eos
+{
+}
+;
+type_bound_proc_binding : type_bound_procedure_stmt
+{
+}
+| type_bound_generic_stmt
+{
+}
+| final_procedure_stmt
+{
+}
+;
+type_bound_procedure_stmt : labeldef TOK_PROCEDURE ',' binding_attr_list ':' ':' type_bound_proc_decl_list eos
+{
+}
+| labeldef TOK_PROCEDURE type_bound_proc_decl_list eos
+{
+}
+| labeldef TOK_PROCEDURE ':' ':' type_bound_proc_decl_list eos
+{
+}
+| labeldef TOK_PROCEDURE '(' name ')' ',' binding_attr_list ':' ':' binding_name_list eos
+{
+}
+;
+type_bound_proc_decl : name TOK_POINTER_ACCESS name
+{
+}
+| name
+{
+}
+;
+type_bound_generic_stmt : labeldef TOK_GENERIC ',' access_spec ':' ':' generic_spec TOK_POINTER_ACCESS binding_name_list eos
+{
+}
+| labeldef TOK_GENERIC ':' ':' generic_spec TOK_POINTER_ACCESS binding_name_list eos
+{
+}
+;
+binding_attr : TOK_PASS '(' name ')'
+{
+}
+| TOK_PASS
+{
+}
+| TOK_NOPASS
+{
+}
+| TOK_NON_OVERRIDABLE
+{
+}
+| TOK_DEFERRED
+{
+}
+| access_spec
+{
+}
+;
+final_procedure_stmt : labeldef TOK_FINAL ':' ':' final_subroutine_name_list eos
+{
+}
+| labeldef TOK_FINAL final_subroutine_name_list eos
+{
+}
+;
+derived_type_spec : name_not_keyword '(' type_param_spec_list ')'
+{
+}
+| name_not_keyword
+{
+}
+;
+type_param_spec : name '=' type_param_value
+{
+}
+| type_param_value
+{
+}
+;
+structure_constructor : derived_type_spec '(' component_spec_list ')'
+{
+}
+| derived_type_spec '(' ')'
+{
+}
+;
+component_spec : name '=' component_data_source
+{
+}
+| component_data_source
+{
+}
+;
+component_data_source : expr
+{
+}
+;
+enum_def : enum_def_stmt enumerator_def_stmt_seq end_enum_stmt
+{
+}
+;
+enum_def_stmt : labeldef TOK_ENUM ',' TOK_BIND '(' TOK_C ')' eos
+{
+}
+;
+enumerator_def_stmt : labeldef TOK_ENUMERATOR ':' ':' enumerator_list eos
+{
+}
+| labeldef TOK_ENUMERATOR enumerator_list eos
+{
+}
+;
+enumerator : named_constant '=' int_constant_expr
+{
+}
+| named_constant
+{
+}
+;
+end_enum_stmt : labeldef TOK_END TOK_ENUM eos
+{
+}
+;
+boz_literal_constant : binary_constant
+{
+}
+| octal_constant
+{
+}
+| hex_constant
+{
+}
+;
+binary_constant : BINARY_LITERAL
+{
+}
+;
+octal_constant : OCTAL_LITERAL
+{
+}
+;
+hex_constant : HEX_LITERAL
+{
+}
+;
+array_constructor : '(' '/' ac_spec '/' ')'
+{
+}
+| lbracket ac_spec rbracket
+{
+}
+;
+ac_spec : type_spec ':' ':'
+{
+}
+| type_spec ':' ':' ac_value_list
+{
+}
+| ac_value_list
+{
+}
+;
+lbracket : '['
+{
+}
+;
+rbracket : ']'
+{
+}
+;
+ac_value : expr
+{
+}
+| ac_implied_do
+{
+}
+;
+ac_implied_do : '(' ac_value_list ',' ac_implied_do_control ')'
+{
+}
+;
+ac_implied_do_control : ac_do_variable '=' int_expr ',' int_expr ',' int_expr
+{
+}
+| ac_do_variable '=' int_expr ',' int_expr
+{
+}
+;
+ac_do_variable : do_variable
+{
+}
+;
+type_declaration_stmt : labeldef declaration_type_spec ',' attr_spec_list ':' ':' entity_decl_list eos
+{
+}
+| labeldef declaration_type_spec entity_decl_list eos
+{
+}
+| labeldef declaration_type_spec ':' ':' entity_decl_list eos
+{
+}
+;
+attr_spec : access_spec
+{
+}
+| TOK_ALLOCATABLE
+{
+}
+| TOK_ASYNCHRONOUS
+{
+}
+| TOK_CODIMENSION lbracket coarray_spec rbracket
+{
+}
+| TOK_CONTIGUOUS
+{
+}
+| TOK_DIMENSION '(' array_spec ')'
+{
+}
+| TOK_EXTERNAL
+{
+}
+| TOK_INTENT '(' intent_spec ')'
+{
+}
+| TOK_INTRINSIC
+{
+}
+| language_binding_spec
+{
+}
+| TOK_OPTIONAL
+{
+}
+| TOK_PARAMETER
+{
+}
+| TOK_POINTER
+{
+}
+| TOK_PROTECTED
+{
+}
+| TOK_SAVE
+{
+}
+| TOK_TARGET
+{
+}
+| TOK_VALUE
+{
+}
+| TOK_VOLATILE
+{
+}
+;
+entity_decl : name '(' array_spec ')' lbracket coarray_spec rbracket '*' char_length initialization
+{
+}
+| name lbracket coarray_spec rbracket '*' char_length initialization
+{
+}
+| name '(' array_spec ')' '*' char_length initialization
+{
+}
+| name '(' array_spec ')' lbracket coarray_spec rbracket initialization
+{
+}
+| name '(' array_spec ')' lbracket coarray_spec rbracket '*' char_length
+{
+}
+| name '*' char_length
+{
+}
+| name
+{
+}
+| name '(' array_spec ')' lbracket coarray_spec rbracket
+{
+}
+| name '(' array_spec ')' initialization
+{
+}
+| name '(' array_spec ')' '*' char_length
+{
+}
+| name '(' array_spec ')'
+{
+}
+| name '*' char_length initialization
+{
+}
+| name lbracket coarray_spec rbracket initialization
+{
+}
+| name lbracket coarray_spec rbracket '*' char_length
+{
+}
+| name lbracket coarray_spec rbracket
+{
+}
+| name initialization
+{
+}
+;
+initialization : '=' constant_expr
+{
+}
+| TOK_POINTER_ACCESS null_init
+{
+}
+| TOK_POINTER_ACCESS initial_data_target
+{
+}
+;
+null_init : function_reference
+{
+}
+;
+access_spec : TOK_PUBLIC
+{
+}
+| TOK_PRIVATE
+{
+}
+;
+language_binding_spec : TOK_BIND '(' TOK_C ',' TOK_NAME '=' default_char_constant_expr ')'
+{
+}
+| TOK_BIND '(' TOK_C ')'
+{
+}
+;
+coarray_spec : deferred_coshape_spec_list
+{
+}
+| explicit_coshape_spec
+{
+}
+;
+deferred_coshape_spec : ':'
+{
+}
+;
+explicit_coshape_spec : cobound_pair_list lower_cobound ':' '*'
+{
+}
+| lower_cobound ':' '*'
+{
+}
+| cobound_pair_list '*'
+{
+}
+| '*'
+{
+}
+;
+cobound_pair : lower_cobound ':' upper_cobound ','
+{
+}
+| upper_cobound ','
+{
+}
+;
+lower_cobound : specification_expr
+{
+}
+;
+upper_cobound : specification_expr
+{
+}
+;
+array_spec : explicit_shape_spec_list
+{
+}
+| assumed_shape_spec_list
+{
+}
+| deferred_shape_spec_list
+{
+}
+| assumed_size_spec
+{
+}
+| implied_shape_spec_list
+{
+}
+;
+explicit_shape_spec : lower_bound ':' upper_bound
+{
+}
+| upper_bound
+{
+}
+;
+lower_bound : specification_expr
+{
+}
+;
+upper_bound : specification_expr
+{
+}
+;
+assumed_shape_spec : lower_bound ':'
+{
+}
+;
+deferred_shape_spec : ':'
+{
+}
+;
+assumed_size_spec : explicit_shape_spec_list ',' lower_bound ':' '*'
+{
+}
+| lower_bound ':' '*'
+{
+}
+| explicit_shape_spec_list ',' '*'
+{
+}
+;
+implied_shape_spec : lower_bound ':' '*'
+{
+}
+| '*'
+{
+}
+;
+intent_spec : TOK_IN
+{
+}
+| TOK_OUT
+{
+}
+| TOK_INOUT
+{
+}
+;
+access_stmt : labeldef access_spec ':' ':' access_id_list eos
+{
+}
+| labeldef access_spec eos
+{
+}
+| labeldef access_spec access_id_list eos
+{
+}
+;
+access_id : generic_spec
+{
+}
+;
+allocatable_stmt : labeldef TOK_ALLOCATABLE ':' ':' allocatable_decl_list eos
+{
+}
+| labeldef TOK_ALLOCATABLE allocatable_decl_list eos
+{
+}
+;
+allocatable_decl : name '(' array_spec ')' lbracket coarray_spec rbracket
+{
+}
+| name lbracket coarray_spec rbracket
+{
+}
+| name '(' array_spec ')'
+{
+}
+| name
+{
+}
+;
+asynchronous_stmt : labeldef TOK_ASYNCHRONOUS ':' ':' object_name_list eos
+{
+}
+| labeldef TOK_ASYNCHRONOUS object_name_list eos
+{
+}
+;
+bind_stmt : labeldef language_binding_spec ':' ':' bind_entity_list eos
+{
+}
+| labeldef language_binding_spec bind_entity_list eos
+{
+}
+;
+bind_entity : name
+{
+}
+| '/' name '/'
+{
+}
+;
+codimension_stmt : labeldef TOK_CODIMENSION ':' ':' codimension_decl_list eos
+{
+}
+| labeldef TOK_CODIMENSION codimension_decl_list eos
+{
+}
+;
+codimension_decl : name lbracket coarray_spec rbracket
+{
+}
+;
+data_stmt : labeldef TOK_DATA data_stmt_set_list eos
+{
+}
+;
+data_stmt_set : data_stmt_object_list '/' data_stmt_value_list '/'
+{
+}
+;
+data_stmt_object : variable
+{
+}
+| data_implied_do
+{
+}
+;
+data_implied_do : '(' data_i_do_object_list ',' data_i_do_variable '=' int_constant_expr ',' int_constant_expr ',' int_constant_expr ')'
+{
+}
+| '(' data_i_do_object_list ',' data_i_do_variable '=' int_constant_expr ',' int_constant_expr ')'
+{
+}
+;
+data_i_do_object : data_ref
+{
+}
+| data_implied_do
+{
+}
+;
+data_i_do_variable : do_variable
+{
+}
+;
+data_stmt_value : expr
+{
+}
+;
+dimension_stmt : labeldef TOK_DIMENSION ':' ':' array_name_dim_spec_list eos
+{
+}
+| labeldef TOK_DIMENSION array_name_dim_spec_list eos
+{
+}
+;
+array_name_dim_spec : name '(' array_spec ')'
+{
+}
+;
+intent_stmt : labeldef TOK_INTENT '(' intent_spec ')' ':' ':' dummy_arg_name_list eos
+{
+}
+| labeldef TOK_INTENT '(' intent_spec ')' dummy_arg_name_list eos
+{
+}
+;
+optional_stmt : labeldef TOK_OPTIONAL ':' ':' dummy_arg_name_list eos
+{
+}
+| labeldef TOK_OPTIONAL dummy_arg_name_list eos
+{
+}
+;
+parameter_stmt : labeldef TOK_PARAMETER '(' named_constant_def_list ')' eos
+{
+}
+;
+named_constant_def : named_constant '=' constant_expr
+{
+}
+;
+pointer_stmt : labeldef TOK_POINTER ':' ':' pointer_decl_list eos
+{
+}
+| labeldef TOK_POINTER pointer_decl_list eos
+{
+}
+;
+pointer_decl : name '(' deferred_shape_spec_list ')'
+{
+}
+| name
+{
+}
+;
+protected_stmt : labeldef TOK_PROTECTED ':' ':' entity_name_list eos
+{
+}
+| labeldef TOK_PROTECTED entity_name_list eos
+{
+}
+;
+save_stmt : labeldef TOK_SAVE ':' ':' saved_entity_list eos
+{
+}
+| labeldef TOK_SAVE eos
+{
+}
+| labeldef TOK_SAVE saved_entity_list eos
+{
+}
+;
+saved_entity : name
+{
+}
+| '/' name '/'
+{
+}
+;
+target_stmt : labeldef TOK_TARGET ':' ':' target_decl_list eos
+{
+}
+| labeldef TOK_TARGET target_decl_list eos
+{
+}
+;
+target_decl : name '(' array_spec ')' lbracket coarray_spec rbracket
+{
+}
+| name lbracket coarray_spec rbracket
+{
+}
+| name '(' array_spec ')'
+{
+}
+| name
+{
+}
+;
+value_stmt : labeldef TOK_VALUE ':' ':' dummy_arg_name_list eos
+{
+}
+| labeldef TOK_VALUE dummy_arg_name_list eos
+{
+}
+;
+volatile_stmt : labeldef TOK_VOLATILE ':' ':' object_name_list eos
+{
+}
+| labeldef TOK_VOLATILE object_name_list eos
+{
+}
+;
+implicit_stmt : labeldef TOK_IMPLICIT implicit_spec_list eos
+{
+}
+| labeldef TOK_IMPLICIT TOK_NONE eos
+{
+}
+;
+implicit_spec : declaration_type_spec '(' letter_spec_list ')'
+{
+}
+;
+letter_spec : name '-' name
+{
+}
+| name
+{
+}
+;
+namelist_stmt : labeldef TOK_NAMELIST namelist_item_list eos
+{
+}
+;
+namelist_item : '/' name '/' namelist_group_object_list
+{
+}
+;
+namelist_group_object : name
+{
+}
+;
+equivalence_stmt : labeldef TOK_EQUIVALENCE equivalence_set_list eos
+{
+}
+;
+equivalence_set : '(' equivalence_object ',' equivalence_object_list ')'
+{
+}
+;
+equivalence_object : data_ref
+{
+}
+;
+common_stmt : labeldef TOK_COMMON common_block_item_list eos
+{
+}
+;
+common_block_item_list : common_block_item
+{
+  $$ = ASTListLeaf($1);
+}
+| common_block_object_list
+{
+  $$ = ASTListLeaf($1);
+}
+| common_block_item_list ',' common_block_item
+{
+  $$ = ASTList($1, $3);
+}
+;
+common_block_item : '/' name '/' common_block_object_list
+{
+}
+| '/' '/' common_block_object_list
+{
+}
+;
+common_block_object : name '(' array_spec ')'
+{
+}
+| name
+{
+}
+;
+variable : expr
+{
+}
+;
+logical_variable : variable
+{
+}
+;
+default_char_variable : variable
+{
+}
+;
+int_variable : variable
+{
+}
+;
+data_ref : data_ref_no_array
+{
+}
+| data_ref '(' section_subscript_list ')'
+{
+}
+| data_ref '(' section_subscript_list ')' image_selector
+{
+}
+;
+data_ref_no_array : name
+{
+}
+| name image_selector
+{
+}
+| data_ref '%' name
+{
+}
+;
+subscript : int_expr
+{
+}
+;
+section_subscript : subscript
+{
+}
+| subscript_triplet
+{
+}
+;
+subscript_triplet : subscript ':' subscript ':' stride
+{
+}
+| ':' subscript ':' stride
+{
+}
+| subscript ':' ':' stride
+{
+}
+| subscript ':' subscript
+{
+}
+| subscript ':'
+{
+}
+| ':' ':' stride
+{
+}
+| ':' subscript
+{
+}
+| ':'
+{
+}
+;
+stride : int_expr
+{
+}
+;
+image_selector : lbracket cosubscript_list rbracket
+{
+}
+;
+cosubscript : int_expr
+{
+}
+;
+allocate_stmt : labeldef TOK_ALLOCATE '(' type_spec ':' ':' allocation_list ',' alloc_opt_list ')' eos
+{
+}
+| labeldef TOK_ALLOCATE '(' allocation_list ',' alloc_opt_list ')' eos
+{
+}
+| labeldef TOK_ALLOCATE '(' type_spec ':' ':' allocation_list ')' eos
+{
+}
+| labeldef TOK_ALLOCATE '(' allocation_list ')' eos
+{
+}
+;
+alloc_opt : TOK_ERRMSG '=' errmsg_variable
+{
+}
+| TOK_MOLD '=' source_expr
+{
+}
+| TOK_SOURCE '=' source_expr
+{
+}
+| TOK_STAT '=' stat_variable
+{
+}
+;
+stat_variable : int_variable
+{
+}
+;
+errmsg_variable : default_char_variable
+{
+}
+;
+source_expr : expr
+{
+}
+;
+allocation : allocate_object
+{
+}
+;
+allocate_object : allocate_object lbracket allocate_coarray_spec rbracket
+{
+}
+| data_ref
+{
+}
+;
+lower_bound_expr : int_expr
+{
+}
+;
+upper_bound_expr : int_expr
+{
+}
+;
+allocate_coarray_spec : allocate_coshape_spec_list ',' lower_bound_expr ':' '*'
+{
+}
+| lower_bound_expr ':' '*'
+{
+}
+| allocate_coshape_spec_list ',' '*'
+{
+}
+| '*'
+{
+}
+;
+allocate_coshape_spec : lower_bound_expr ':' upper_bound_expr
+{
+}
+| upper_bound_expr
+{
+}
+;
+nullify_stmt : labeldef TOK_NULLIFY '(' pointer_object_list ')' eos
+{
+}
+;
+pointer_object : data_ref
+{
+}
+;
+deallocate_stmt : labeldef TOK_DEALLOCATE '(' allocate_object_list ',' dealloc_opt_list ')' eos
+{
+}
+| labeldef TOK_DEALLOCATE '(' allocate_object_list ')' eos
+{
+}
+;
+dealloc_opt : TOK_STAT '=' stat_variable
+{
+}
+| TOK_ERRMSG '=' errmsg_variable
+{
+}
+;
+primary : unsigned_arithmetic_literal_constant
+{
+}
+| logical_literal_constant
+{
+}
+| char_literal_constant
+{
+}
+| boz_literal_constant
+{
+}
+| array_constructor 
+{
+}
+| structure_constructor %merge<ambig_fun_array_ctor>
+{
+}
+| function_reference %merge<ambig_fun_array_ctor>
+{
+}
+| data_ref %merge<ambig_fun_array_ctor>
+{
+}
+| '(' expr ')'
+{
+}
+;
+
+level_0_expr : add_op primary
+{
+}
+| primary
+{
+}
+;
+
+level_1_expr : user_defined_op level_0_expr
+{
+}
+| level_0_expr
+{
+}
+;
+user_defined_op : USER_DEFINED_OPERATOR
+{
+}
+;
+mult_operand : level_1_expr power_op mult_operand
+{
+}
+| level_1_expr
+{
+}
+;
+add_operand : add_operand mult_op mult_operand 
+{
+}
+| mult_operand 
+{
+}
+;
+level_2_expr : level_2_expr add_op add_operand
+{
+}
+| add_operand
+{
+}
+;
+power_op : TOK_RAISE
+{
+}
+;
+mult_op : '*'
+{
+}
+| '/'
+{
+}
+;
+add_op : '+'
+{
+}
+| '-'
+{
+}
+;
+level_3_expr : level_3_expr concat_op level_2_expr
+{
+}
+| level_2_expr
+{
+}
+;
+concat_op : '/' '/'
+{
+}
+;
+level_4_expr : level_3_expr rel_op level_3_expr
+{
+}
+| level_3_expr
+{
+}
+;
+rel_op : TOK_EQUAL
+{
+}
+| TOK_NOT_EQUAL
+{
+}
+| TOK_LOWER_THAN
+{
+}
+| TOK_LOWER_OR_EQUAL_THAN
+{
+}
+| TOK_GREATER_THAN
+{
+}
+| TOK_GREATER_OR_EQUAL_THAN
+{
+}
+;
+and_operand : not_op level_4_expr
+{
+}
+| level_4_expr
+{
+}
+;
+or_operand : or_operand and_op and_operand
+{
+}
+| and_operand
+{
+}
+;
+equiv_operand : equiv_operand or_op or_operand
+{
+}
+| or_operand
+{
+}
+;
+level_5_expr : level_5_expr equiv_op equiv_operand
+{
+}
+| equiv_operand
+{
+}
+;
+not_op : TOK_LOGICAL_NOT
+{
+}
+;
+and_op : TOK_LOGICAL_AND
+{
+}
+;
+or_op : TOK_LOGICAL_OR
+{
+}
+;
+equiv_op : TOK_LOGICAL_EQUIVALENT
+{
+}
+| TOK_LOGICAL_NOT_EQUIVALENT
+{
+}
+;
+expr : expr user_defined_op level_5_expr
+{
+}
+| level_5_expr
+{
+}
+;
+logical_expr : expr
+{
+}
+;
+default_char_expr : expr
+{
+}
+;
+int_expr : expr
+{
+}
+;
+numeric_expr : expr
+{
+}
+;
+specification_expr : int_expr
+{
+}
+;
+constant_expr : expr
+{
+}
+;
+default_char_constant_expr : default_char_expr
+{
+}
+;
+int_constant_expr : int_expr
+{
+}
+;
+assignment_stmt : labeldef data_ref '=' expr eos
+{
+}
+;
+pointer_assignment_stmt : labeldef proc_pointer_object TOK_POINTER_ACCESS proc_target eos
+{
+}
+;
+proc_pointer_object : data_ref
+{
+}
+;
+proc_target : expr
+{
+}
+;
+where_stmt : labeldef TOK_WHERE '(' mask_expr ')' where_assignment_stmt
+{
+}
+;
+where_construct : where_construct_stmt where_body_construct_seq mask_elsewhere_part_seq elsewhere_stmt where_body_construct_seq end_where_stmt
+{
+}
+| where_construct_stmt mask_elsewhere_part_seq elsewhere_stmt where_body_construct_seq end_where_stmt
+{
+}
+| where_construct_stmt where_body_construct_seq elsewhere_stmt where_body_construct_seq end_where_stmt
+{
+}
+| where_construct_stmt where_body_construct_seq mask_elsewhere_part_seq end_where_stmt
+{
+}
+| where_construct_stmt where_body_construct_seq mask_elsewhere_part_seq elsewhere_stmt end_where_stmt
+{
+}
+| where_construct_stmt where_body_construct_seq end_where_stmt
+{
+}
+| where_construct_stmt where_body_construct_seq elsewhere_stmt end_where_stmt
+{
+}
+| where_construct_stmt elsewhere_stmt where_body_construct_seq end_where_stmt
+{
+}
+| where_construct_stmt mask_elsewhere_part_seq end_where_stmt
+{
+}
+| where_construct_stmt mask_elsewhere_part_seq elsewhere_stmt end_where_stmt
+{
+}
+| where_construct_stmt end_where_stmt
+{
+}
+| where_construct_stmt elsewhere_stmt end_where_stmt
+{
+}
+;
+mask_elsewhere_part : masked_elsewhere_stmt where_body_construct_seq
+{
+}
+| masked_elsewhere_stmt
+{
+}
+;
+where_construct_stmt : labeldef name ':' TOK_WHERE '(' mask_expr ')' eos
+{
+}
+| labeldef TOK_WHERE '(' mask_expr ')' eos
+{
+}
+;
+where_body_construct : where_assignment_stmt
+{
+}
+| where_stmt
+{
+}
+| where_construct
+{
+}
+;
+where_assignment_stmt : assignment_stmt
+{
+}
+;
+mask_expr : logical_expr
+{
+}
+;
+masked_elsewhere_stmt : labeldef TOK_ELSEWHERE '(' mask_expr ')' name eos
+{
+}
+| labeldef TOK_ELSEWHERE '(' mask_expr ')' eos
+{
+}
+;
+elsewhere_stmt : labeldef TOK_ELSEWHERE name eos
+{
+}
+| labeldef TOK_ELSEWHERE eos
+{
+}
+;
+end_where_stmt : labeldef TOK_END TOK_WHERE name eos
+{
+}
+| labeldef TOK_END TOK_WHERE eos
+{
+}
+;
+forall_construct : forall_construct_stmt forall_body_construct_seq end_forall_stmt
+{
+}
+| forall_construct_stmt end_forall_stmt
+{
+}
+;
+forall_construct_stmt : labeldef name ':' TOK_FORALL forall_header eos
+{
+}
+| labeldef TOK_FORALL forall_header eos
+{
+}
+;
+forall_header : '(' type_spec ':' ':' forall_triplet_spec_list ',' mask_expr ')'
+{
+}
+| '(' forall_triplet_spec_list ',' mask_expr ')'
+{
+}
+| '(' type_spec ':' ':' forall_triplet_spec_list ')'
+{
+}
+| '(' forall_triplet_spec_list ')'
+{
+}
+;
+forall_triplet_spec : name '=' forall_limit ':' forall_limit ':' forall_step
+{
+}
+| name '=' forall_limit ':' forall_limit
+{
+}
+;
+forall_limit : int_expr
+{
+}
+;
+forall_step : int_expr
+{
+}
+;
+forall_body_construct : forall_assignment_stmts
+{
+}
+| where_stmt
+{
+}
+| where_construct
+{
+}
+| forall_construct
+{
+}
+| forall_stmt
+{
+}
+;
+forall_assignment_stmts : assignment_stmt
+{
+}
+| pointer_assignment_stmt
+{
+}
+;
+end_forall_stmt : labeldef TOK_END TOK_FORALL name eos
+{
+}
+| labeldef TOK_END TOK_FORALL eos
+{
+}
+;
+forall_stmt : labeldef TOK_FORALL forall_header forall_assignment_stmts 
+{
+}
+;
+block : execution_part_construct_seq
+{
+}
+| /* empty */
+{
+}
+;
+associate_construct : associate_stmt block end_associate_stmt
+{
+}
+;
+associate_stmt : labeldef name ':' TOK_ASSOCIATE '(' association_list ')' eos
+{
+}
+| labeldef TOK_ASSOCIATE '(' association_list ')' eos
+{
+}
+;
+association : name TOK_POINTER_ACCESS selector
+{
+}
+;
+selector : expr
+{
+}
+;
+end_associate_stmt : labeldef TOK_END TOK_ASSOCIATE name eos
+{
+}
+| labeldef TOK_END TOK_ASSOCIATE eos
+{
+}
+| labeldef TOK_ENDASSOCIATE name eos
+{
+}
+| labeldef TOK_ENDASSOCIATE eos
+{
+}
+;
+block_construct : block_stmt specification_part block end_block_stmt
+{
+}
+| block_stmt block end_block_stmt
+{
+}
+;
+block_stmt : labeldef name ':' TOK_BLOCK eos
+{
+}
+| labeldef TOK_BLOCK eos
+{
+}
+;
+end_block_stmt : labeldef TOK_END TOK_BLOCK name eos
+{
+}
+| labeldef TOK_END TOK_BLOCK eos
+{
+}
+;
+critical_construct : critical_stmt block end_critical_stmt
+{
+}
+;
+critical_stmt : labeldef name ':' TOK_CRITICAL eos
+{
+}
+| labeldef TOK_CRITICAL eos
+{
+}
+;
+end_critical_stmt : labeldef TOK_END TOK_CRITICAL name eos
+{
+}
+| labeldef TOK_END TOK_CRITICAL eos
+{
+}
+| labeldef TOK_ENDCRITICAL name eos
+{
+}
+| labeldef TOK_ENDCRITICAL eos
+{
+}
+;
+do_construct : label_do_stmt
+{
+}
+| nonlabel_do_stmt
+{
+}
+| end_do_stmt
+{
+}
+;
+label_do_stmt : labeldef name ':' TOK_DO label loop_control eos
+{
+}
+| labeldef TOK_DO label loop_control eos
+{
+}
+| labeldef name ':' TOK_DO label eos
+{
+}
+| labeldef TOK_DO label eos
+{
+}
+;
+nonlabel_do_stmt : labeldef name ':' TOK_DO loop_control eos
+{
+}
+| labeldef TOK_DO loop_control eos
+{
+}
+| labeldef name ':' TOK_DO eos
+{
+}
+| labeldef TOK_DO eos
+{
+}
+;
+loop_control : ',' do_variable '=' int_expr ',' int_expr ',' int_expr
+{
+}
+| do_variable '=' int_expr ',' int_expr ',' int_expr
+{
+}
+| ',' do_variable '=' int_expr ',' int_expr
+{
+}
+| ',' TOK_WHILE '(' logical_expr ')'
+{
+}
+| TOK_WHILE '(' logical_expr ')'
+{
+}
+| ',' TOK_CONCURRENT forall_header
+{
+}
+| TOK_CONCURRENT forall_header
+{
+}
+| do_variable '=' int_expr ',' int_expr
+{
+}
+;
+do_variable : name
+{
+}
+;
+end_do_stmt : labeldef TOK_END TOK_DO name eos
+{
+}
+| labeldef TOK_END TOK_DO eos
+{
+}
+| labeldef TOK_ENDDO name eos
+{
+}
+| labeldef TOK_ENDDO eos
+{
+}
+;
+cycle_stmt : labeldef TOK_CYCLE name eos
+{
+}
+| labeldef TOK_CYCLE eos
+{
+}
+;
+if_construct : if_then_stmt block else_if_part_seq else_stmt block end_if_stmt
+{
+}
+| if_then_stmt block else_stmt block end_if_stmt
+{
+}
+| if_then_stmt block else_if_part_seq end_if_stmt
+{
+}
+| if_then_stmt block end_if_stmt
+{
+}
+;
+else_if_part : else_if_stmt block
+{
+}
+;
+if_then_stmt : labeldef name ':' TOK_IF '(' logical_expr ')' TOK_THEN eos
+{
+}
+| labeldef TOK_IF '(' logical_expr ')' TOK_THEN eos
+{
+}
+;
+else_if_stmt : labeldef TOK_ELSE TOK_IF '(' logical_expr ')' TOK_THEN name eos
+{
+}
+| labeldef TOK_ELSE TOK_IF '(' logical_expr ')' TOK_THEN eos
+{
+}
+| labeldef TOK_ELSEIF '(' logical_expr ')' TOK_THEN name eos
+{
+}
+| labeldef TOK_ELSEIF '(' logical_expr ')' TOK_THEN eos
+{
+}
+;
+else_stmt : labeldef TOK_ELSE name eos
+{
+}
+| labeldef TOK_ELSE eos
+{
+}
+;
+end_if_stmt : labeldef TOK_END TOK_IF name eos
+{
+}
+| labeldef TOK_END TOK_IF eos
+{
+}
+| labeldef TOK_ENDIF name eos
+{
+}
+| labeldef TOK_ENDIF eos
+{
+}
+;
+if_stmt : labeldef TOK_IF '(' logical_expr ')' action_stmts 
+{
+}
+;
+case_construct : select_case_stmt case_part_seq end_select_stmt
+{
+}
+;
+case_part : case_stmt block
+{
+}
+;
+select_case_stmt : labeldef name ':' TOK_SELECT TOK_CASE '(' case_expr ')' eos
+{
+}
+| labeldef TOK_SELECT TOK_CASE '(' case_expr ')' eos
+{
+}
+;
+case_stmt : labeldef TOK_CASE case_selector name eos
+{
+}
+| labeldef TOK_CASE case_selector eos
+{
+}
+;
+end_select_stmt : labeldef TOK_END TOK_SELECT name eos
+{
+}
+| labeldef TOK_END TOK_SELECT eos
+{
+}
+| labeldef TOK_ENDSELECT name eos
+{
+}
+| labeldef TOK_ENDSELECT eos
+{
+}
+;
+case_expr : expr
+{
+}
+;
+case_selector : '(' case_value_range_list ')'
+{
+}
+| TOK_DEFAULT
+{
+}
+;
+case_value_range : case_value
+{
+}
+| case_value ':'
+{
+}
+| ':' case_value
+{
+}
+| case_value ':' case_value
+{
+}
+;
+case_value : constant_expr
+{
+}
+;
+select_type_construct : select_type_stmt type_guard_part_seq end_select_type_stmt
+{
+}
+| select_type_stmt end_select_type_stmt
+{
+}
+;
+type_guard_part : type_guard_stmt block
+{
+}
+;
+select_type_stmt : labeldef name ':' TOK_SELECT TOK_TYPE '(' name TOK_POINTER_ACCESS selector ')' eos
+{
+}
+| labeldef TOK_SELECT TOK_TYPE '(' name TOK_POINTER_ACCESS selector ')' eos
+{
+}
+| labeldef name ':' TOK_SELECT TOK_TYPE '(' selector ')' eos
+{
+}
+| labeldef TOK_SELECT TOK_TYPE '(' selector ')' eos
+{
+}
+;
+type_guard_stmt : labeldef TOK_TYPE TOK_IS '(' type_spec ')' name eos
+{
+}
+| labeldef TOK_TYPE TOK_IS '(' type_spec ')' eos
+{
+}
+| labeldef TOK_CLASS TOK_IS '(' derived_type_spec ')' name eos
+{
+}
+| labeldef TOK_CLASS TOK_IS '(' derived_type_spec ')' eos
+{
+}
+| labeldef TOK_CLASS TOK_DEFAULT name eos
+{
+}
+| labeldef TOK_CLASS TOK_DEFAULT eos
+{
+}
+;
+end_select_type_stmt : labeldef TOK_END TOK_SELECT name eos
+{
+}
+| labeldef TOK_END TOK_SELECT eos
+{
+}
+;
+exit_stmt : labeldef TOK_EXIT name eos
+{
+}
+| labeldef TOK_EXIT eos
+{
+}
+;
+goto_stmt : labeldef TOK_GO TOK_TO label eos
+{
+}
+| labeldef TOK_GOTO label eos
+{
+}
+;
+computed_goto_stmt : labeldef TOK_GO TOK_TO '(' label_list ')' ',' int_expr eos
+{
+}
+| labeldef TOK_GO TOK_TO '(' label_list ')' int_expr eos
+{
+}
+| labeldef TOK_GOTO '(' label_list ')' ',' int_expr eos
+{
+}
+| labeldef TOK_GOTO '(' label_list ')' int_expr eos
+{
+}
+;
+arithmetic_if_stmt : labeldef TOK_IF '(' numeric_expr ')' label ',' label ',' label eos
+{
+}
+;
+continue_stmt : labeldef TOK_CONTINUE eos
+{
+}
+;
+stop_stmt : labeldef TOK_STOP stop_code eos
+{
+}
+| labeldef TOK_STOP eos
+{
+}
+;
+allstop_stmt : labeldef TOK_ALL TOK_STOP stop_code eos
+{
+}
+| labeldef TOK_ALL TOK_STOP eos
+{
+}
+| labeldef TOK_ALLSTOP eos
+{
+}
+;
+stop_code : expr
+{
+}
+;
+sync_all_stmt : labeldef TOK_SYNC TOK_ALL '(' sync_stat_list ')' eos
+{
+}
+| labeldef TOK_SYNC TOK_ALL eos
+{
+}
+| labeldef TOK_SYNC TOK_ALL '(' ')' eos
+{
+}
+;
+sync_stat : TOK_STAT '=' stat_variable
+{
+}
+| TOK_ERRMSG '=' errmsg_variable
+{
+}
+;
+sync_images_stmt : labeldef TOK_SYNC TOK_IMAGES '(' image_set ',' sync_stat_list ')' eos
+{
+}
+| labeldef TOK_SYNC TOK_IMAGES '(' image_set ')' eos
+{
+}
+;
+image_set : int_expr
+{
+}
+| '*'
+{
+}
+;
+sync_memory_stmt : labeldef TOK_SYNC TOK_MEMORY '(' sync_stat_list ')' eos
+{
+}
+| labeldef TOK_SYNC TOK_MEMORY eos
+{
+}
+| labeldef TOK_SYNC TOK_MEMORY '(' ')' eos
+{
+}
+;
+lock_stmt : labeldef TOK_LOCK '(' lock_variable ',' lock_stat_list ')' eos
+{
+}
+| labeldef TOK_LOCK '(' lock_variable ')' eos
+{
+}
+;
+lock_stat : TOK_ACQUIRED TOK_LOCK '=' logical_variable
+{
+}
+| sync_stat
+{
+}
+;
+unlock_stmt : labeldef TOK_UNLOCK '(' lock_variable ',' sync_stat_list ')' eos
+{
+}
+| labeldef TOK_UNLOCK '(' lock_variable ')' eos
+{
+}
+;
+lock_variable : variable
+{
+}
+;
+io_unit : file_unit_number
+{
+}
+| '*'
+{
+}
+;
+file_unit_number : int_expr
+{
+}
+;
+open_stmt : labeldef TOK_OPEN '(' connect_spec_list ')' eos
+{
+}
+;
+connect_spec : TOK_UNIT '=' file_unit_number
+{
+}
+| file_unit_number
+{
+}
+| TOK_ACCESS '=' default_char_expr
+{
+}
+| TOK_ACTION '=' default_char_expr
+{
+}
+| TOK_ASYNCHRONOUS '=' default_char_expr
+{
+}
+| TOK_BLANK '=' default_char_expr
+{
+}
+| TOK_DECIMAL '=' default_char_expr
+{
+}
+| TOK_DELIM '=' default_char_expr
+{
+}
+| TOK_ENCODING '=' default_char_expr
+{
+}
+| TOK_ERR '=' label
+{
+}
+| TOK_FILE '=' file_name_expr
+{
+}
+| TOK_FORM '=' default_char_expr
+{
+}
+| TOK_IOMSG '=' iomsg_variable
+{
+}
+| TOK_IOSTAT '=' int_variable
+{
+}
+| TOK_NEWUNIT '=' int_variable
+{
+}
+| TOK_PAD '=' default_char_expr
+{
+}
+| TOK_POSITION '=' default_char_expr
+{
+}
+| TOK_RECL '=' int_expr
+{
+}
+| TOK_ROUND '=' default_char_expr
+{
+}
+| TOK_SIGN '=' default_char_expr
+{
+}
+| TOK_STATUS '=' default_char_expr
+{
+}
+;
+file_name_expr : default_char_expr
+{
+}
+;
+iomsg_variable : default_char_variable
+{
+}
+;
+close_stmt : labeldef TOK_CLOSE '(' close_spec_list ')' eos
+{
+}
+;
+close_spec : TOK_UNIT '=' file_unit_number
+{
+}
+| file_unit_number
+{
+}
+| TOK_IOSTAT '=' int_variable
+{
+}
+| TOK_IOMSG '=' iomsg_variable
+{
+}
+| TOK_ERR '=' label
+{
+}
+| TOK_STATUS '=' default_char_expr
+{
+}
+;
+read_stmt : labeldef TOK_READ '(' io_control_spec_list ')' input_output_item_list eos %dprec 2
+{
+}
+| labeldef TOK_READ '(' io_control_spec_list ')' eos %dprec 2
+{
+}
+| labeldef TOK_READ format ',' input_output_item_list eos %dprec 1
+{
+}
+| labeldef TOK_READ format eos %dprec 1
+{
+}
+;
+write_stmt : labeldef TOK_WRITE '(' io_control_spec_list ')' input_output_item_list eos
+{
+}
+| labeldef TOK_WRITE '(' io_control_spec_list ')' eos
+{
+}
+;
+print_stmt : labeldef TOK_PRINT format ',' input_output_item_list eos
+{
+}
+| labeldef TOK_PRINT format eos
+{
+}
+;
+io_control_spec : TOK_UNIT '=' io_unit
+{
+}
+| io_unit %merge<ambig_io_control_spec>
+{
+}
+| TOK_FMT '=' format
+{
+}
+| format %merge<ambig_io_control_spec>
+{
+}
+| TOK_NML '=' name
+{
+}
+| name %merge<ambig_io_control_spec>
+{
+}
+| TOK_ADVANCE '=' default_char_expr
+{
+}
+| TOK_ASYNCHRONOUS '=' default_char_constant_expr
+{
+}
+| TOK_BLANK '=' default_char_expr
+{
+}
+| TOK_DECIMAL '=' default_char_expr
+{
+}
+| TOK_DELIM '=' default_char_expr
+{
+}
+| TOK_END '=' label
+{
+}
+| TOK_EOR '=' label
+{
+}
+| TOK_ERR '=' label
+{
+}
+| TOK_ID '=' id_variable
+{
+}
+| TOK_IOMSG '=' iomsg_variable
+{
+}
+| TOK_IOSTAT '=' int_variable
+{
+}
+| TOK_PAD '=' default_char_expr
+{
+}
+| TOK_POS '=' int_expr
+{
+}
+| TOK_REC '=' int_expr
+{
+}
+| TOK_ROUND '=' default_char_expr
+{
+}
+| TOK_SIGN '=' default_char_expr
+{
+}
+| TOK_SIZE '=' int_variable
+{
+}
+;
+id_variable : int_variable
+{
+}
+;
+format : expr
+{
+}
+| '*'
+{
+}
+;
+input_output_item : expr
+{
+}
+| io_implied_do
+{
+}
+;
+io_implied_do : '(' io_implied_do_object_list ',' io_implied_do_control ')'
+{
+}
+;
+io_implied_do_object : input_output_item
+{
+}
+;
+io_implied_do_control : do_variable '=' int_expr ',' int_expr ',' int_expr
+{
+}
+| do_variable '=' int_expr ',' int_expr
+{
+}
+;
+wait_stmt : labeldef TOK_WAIT '(' wait_spec_list ')' eos
+{
+}
+;
+wait_spec : TOK_UNIT '=' file_unit_number
+{
+}
+| file_unit_number
+{
+}
+| TOK_END '=' label
+{
+}
+| TOK_EOR '=' label
+{
+}
+| TOK_ERR '=' label
+{
+}
+| TOK_ID '=' int_expr
+{
+}
+| TOK_IOMSG '=' iomsg_variable
+{
+}
+| TOK_IOSTAT '=' int_variable
+{
+}
+;
+backspace_stmt : labeldef TOK_BACKSPACE file_unit_number eos
+{
+}
+| labeldef TOK_BACKSPACE '(' position_spec_list ')' eos
+{
+}
+;
+endfile_stmt : labeldef TOK_ENDFILE file_unit_number eos
+{
+}
+| labeldef TOK_ENDFILE '(' position_spec_list ')' eos
+{
+}
+;
+rewind_stmt : labeldef TOK_REWIND file_unit_number eos
+{
+}
+| labeldef TOK_REWIND '(' position_spec_list ')' eos
+{
+}
+;
+position_spec : TOK_UNIT '=' file_unit_number
+{
+}
+| file_unit_number
+{
+}
+| TOK_IOMSG '=' iomsg_variable
+{
+}
+| TOK_IOSTAT '=' int_variable
+{
+}
+| TOK_ERR '=' label
+{
+}
+;
+flush_stmt : labeldef TOK_FLUSH file_unit_number eos %dprec 1
+{
+}
+| labeldef TOK_FLUSH '(' flush_spec_list ')' eos %dprec 2
+{
+}
+;
+flush_spec : TOK_UNIT '=' file_unit_number
+{
+}
+| file_unit_number
+{
+}
+| TOK_IOSTAT '=' int_variable
+{
+}
+| TOK_IOMSG '=' iomsg_variable
+{
+}
+| TOK_ERR '=' label
+{
+}
+;
+inquire_stmt : labeldef TOK_INQUIRE '(' inquire_spec_list ')' eos
+{
+}
+| labeldef TOK_INQUIRE '(' TOK_IOLENGTH '=' int_variable ')' input_output_item_list eos
+{
+}
+;
+inquire_spec : TOK_UNIT '=' file_unit_number
+{
+}
+| file_unit_number
+{
+}
+| TOK_FILE '=' file_name_expr
+{
+}
+| TOK_ACCESS '=' default_char_variable
+{
+}
+| TOK_ACTION '=' default_char_variable
+{
+}
+| TOK_ASYNCHRONOUS '=' default_char_variable
+{
+}
+| TOK_BLANK '=' default_char_variable
+{
+}
+| TOK_DECIMAL '=' default_char_variable
+{
+}
+| TOK_DELIM '=' default_char_variable
+{
+}
+| TOK_DIRECT '=' default_char_variable
+{
+}
+| TOK_ENCODING '=' default_char_variable
+{
+}
+| TOK_ERR '=' label
+{
+}
+| TOK_EXIST '=' logical_variable
+{
+}
+| TOK_FORM '=' default_char_variable
+{
+}
+| TOK_FORMATTED '=' default_char_variable
+{
+}
+| TOK_ID '=' int_expr
+{
+}
+| TOK_IOMSG '=' iomsg_variable
+{
+}
+| TOK_IOSTAT '=' int_variable
+{
+}
+| TOK_NAME '=' default_char_variable
+{
+}
+| TOK_NAMED '=' logical_variable
+{
+}
+| TOK_NEXTREC '=' int_variable
+{
+}
+| TOK_NUMBER '=' int_variable
+{
+}
+| TOK_OPENED '=' logical_variable
+{
+}
+| TOK_PAD '=' default_char_variable
+{
+}
+| TOK_PENDING '=' logical_variable
+{
+}
+| TOK_POS '=' int_variable
+{
+}
+| TOK_POSITION '=' default_char_variable
+{
+}
+| TOK_READ '=' default_char_variable
+{
+}
+| TOK_READWRITE '=' default_char_variable
+{
+}
+| TOK_RECL '=' int_variable
+{
+}
+| TOK_ROUND '=' default_char_variable
+{
+}
+| TOK_SEQUENTIAL '=' default_char_variable
+{
+}
+| TOK_SIGN '=' default_char_variable
+{
+}
+| TOK_SIZE '=' int_variable
+{
+}
+| TOK_STREAM '=' default_char_variable
+{
+}
+| TOK_UNFORMATTED '=' default_char_variable
+{
+}
+| TOK_WRITE '=' default_char_variable
+{
+}
+;
+format_stmt : labeldef TOK_FORMAT FORMAT_SPEC eos
+{
+}
+;
+main_program : program_stmt specification_part execution_part internal_subprogram_part end_program_stmt
+{
+}
+| specification_part execution_part internal_subprogram_part end_program_stmt
+{
+}
+| program_stmt execution_part internal_subprogram_part end_program_stmt
+{
+}
+| program_stmt specification_part internal_subprogram_part end_program_stmt
+{
+}
+| program_stmt specification_part execution_part end_program_stmt
+{
+}
+| program_stmt specification_part end_program_stmt
+{
+}
+| program_stmt internal_subprogram_part end_program_stmt
+{
+}
+| program_stmt execution_part end_program_stmt
+{
+}
+| program_stmt end_program_stmt
+{
+}
+| execution_part internal_subprogram_part end_program_stmt
+{
+}
+| specification_part internal_subprogram_part end_program_stmt
+{
+}
+| specification_part execution_part end_program_stmt
+{
+}
+| specification_part end_program_stmt
+{
+}
+| internal_subprogram_part end_program_stmt
+{
+}
+| execution_part end_program_stmt
+{
+}
+| end_program_stmt
+{
+}
+;
+program_stmt : labeldef TOK_PROGRAM name eos
+{
+}
+;
+end_program_stmt : labeldef TOK_END TOK_PROGRAM name eos
+{
+}
+| labeldef TOK_END eos
+{
+}
+| labeldef TOK_END TOK_PROGRAM eos
+{
+}
+| labeldef TOK_ENDPROGRAM name eos
+{
+}
+| labeldef TOK_ENDPROGRAM eos
+{
+}
+;
+module : module_stmt specification_part module_subprogram_part end_module_stmt
+{
+}
+| module_stmt module_subprogram_part end_module_stmt
+{
+}
+| module_stmt specification_part end_module_stmt
+{
+}
+| module_stmt end_module_stmt
+{
+}
+;
+module_stmt : labeldef TOK_MODULE name eos
+{
+}
+;
+end_module_stmt : labeldef TOK_END TOK_MODULE name eos
+{
+}
+| labeldef TOK_END eos
+{
+}
+| labeldef TOK_END TOK_MODULE eos
+{
+}
+| labeldef TOK_ENDMODULE name eos
+{
+}
+| labeldef TOK_ENDMODULE eos
+{
+}
+;
+module_subprogram_part : contains_stmt module_subprogram_seq
+{
+}
+| contains_stmt
+{
+}
+;
+module_subprogram : function_subprogram
+{
+}
+| subroutine_subprogram
+{
+}
+| separate_module_subprogram
+{
+}
+;
+use_stmt : labeldef TOK_USE ',' module_nature ':' ':' name ',' rename_list eos
+{
+}
+| labeldef TOK_USE name ',' rename_list eos
+{
+}
+| labeldef TOK_USE ':' ':' name ',' rename_list eos
+{
+}
+| labeldef TOK_USE ',' module_nature ':' ':' name eos
+{
+}
+| labeldef TOK_USE ',' module_nature ':' ':' name ',' TOK_ONLY ':' only_list eos
+{
+}
+| labeldef TOK_USE name ',' TOK_ONLY ':' only_list eos
+{
+}
+| labeldef TOK_USE ':' ':' name ',' TOK_ONLY ':' only_list eos
+{
+}
+| labeldef TOK_USE ',' module_nature ':' ':' name ',' TOK_ONLY ':' eos
+{
+}
+| labeldef TOK_USE ':' ':' name ',' TOK_ONLY ':' eos
+{
+}
+| labeldef TOK_USE name ',' TOK_ONLY ':' eos
+{
+}
+| labeldef TOK_USE ':' ':' name eos
+{
+}
+| labeldef TOK_USE name eos
+{
+}
+;
+module_nature : TOK_INTRINSIC
+{
+}
+| TOK_NON_INTRINSIC
+{
+}
+;
+rename : name TOK_POINTER_ACCESS name
+{
+}
+| TOK_OPERATOR '(' local_defined_operator ')' TOK_POINTER_ACCESS TOK_OPERATOR '(' use_defined_operator ')'
+{
+}
+;
+only : generic_spec
+{
+}
+| rename
+{
+}
+;
+local_defined_operator : user_defined_op
+{
+}
+;
+use_defined_operator : user_defined_op
+{
+}
+;
+submodule : submodule_stmt specification_part module_subprogram_part end_submodule_stmt
+{
+}
+| submodule_stmt module_subprogram_part end_submodule_stmt
+{
+}
+| submodule_stmt specification_part end_submodule_stmt
+{
+}
+| submodule_stmt end_submodule_stmt
+{
+}
+;
+submodule_stmt : labeldef TOK_SUBMODULE '(' parent_identifier ')' name eos
+{
+}
+;
+parent_identifier : name ':' name
+{
+}
+| name
+{
+}
+;
+end_submodule_stmt : labeldef TOK_END TOK_SUBMODULE name eos
+{
+}
+| labeldef TOK_END eos
+{
+}
+| labeldef TOK_END TOK_SUBMODULE eos
+{
+}
+| labeldef TOK_ENDSUBMODULE name eos
+{
+}
+| labeldef TOK_ENDSUBMODULE eos
+{
+}
+;
+block_data : block_data_stmt specification_part end_block_data_stmt
+{
+}
+| block_data_stmt end_block_data_stmt
+{
+}
+;
+block_data_stmt : labeldef TOK_BLOCK TOK_DATA name eos
+{
+}
+| labeldef TOK_BLOCK TOK_DATA eos
+{
+}
+| labeldef TOK_BLOCKDATA name eos
+{
+}
+| labeldef TOK_BLOCKDATA eos
+{
+}
+;
+end_block_data_stmt : labeldef TOK_END TOK_BLOCK TOK_DATA name eos
+{
+}
+| labeldef TOK_END eos
+{
+}
+| labeldef TOK_END TOK_BLOCK TOK_DATA eos
+{
+}
+| labeldef TOK_ENDBLOCK TOK_DATA name eos
+{
+}
+| labeldef TOK_ENDBLOCK TOK_DATA eos
+{
+}
+| labeldef TOK_END TOK_BLOCKDATA name eos
+{
+}
+| labeldef TOK_END TOK_BLOCKDATA eos
+{
+}
+| labeldef TOK_ENDBLOCKDATA name eos
+{
+}
+| labeldef TOK_ENDBLOCKDATA eos
+{
+}
+;
+interface_block : interface_stmt interface_specification_seq end_interface_stmt
+{
+}
+| interface_stmt end_interface_stmt
+{
+}
+;
+interface_specification : interface_body
+{
+}
+| procedure_stmt
+{
+}
+;
+interface_stmt : labeldef TOK_INTERFACE generic_spec eos
+{
+}
+| labeldef TOK_INTERFACE eos
+{
+}
+| labeldef TOK_ABSTRACT TOK_INTERFACE eos
+{
+}
+;
+end_interface_stmt : labeldef TOK_END TOK_INTERFACE generic_spec eos
+{
+}
+| labeldef TOK_END TOK_INTERFACE eos
+{
+}
+| labeldef TOK_ENDINTERFACE generic_spec eos
+{
+}
+| labeldef TOK_ENDINTERFACE eos
+{
+}
+;
+interface_body : function_stmt specification_part end_function_stmt
+{
+}
+| function_stmt end_function_stmt
+{
+}
+| subroutine_stmt specification_part end_subroutine_stmt
+{
+}
+| subroutine_stmt end_subroutine_stmt
+{
+}
+;
+procedure_stmt : labeldef TOK_MODULE TOK_PROCEDURE ':' ':' procedure_name_list eos
+{
+}
+| labeldef TOK_PROCEDURE ':' ':' procedure_name_list eos
+{
+}
+| labeldef TOK_MODULE TOK_PROCEDURE procedure_name_list eos
+{
+}
+| labeldef TOK_PROCEDURE procedure_name_list eos
+{
+}
+;
+generic_spec : TOK_OPERATOR '(' defined_operator ')'
+{
+}
+| TOK_ASSIGNMENT '(' '=' ')'
+{
+}
+| defined_io_generic_spec
+{
+}
+| name
+{
+}
+;
+defined_io_generic_spec : TOK_READ '(' TOK_FORMATTED ')'
+{
+}
+| TOK_READ '(' TOK_UNFORMATTED ')'
+{
+}
+| TOK_WRITE '(' TOK_FORMATTED ')'
+{
+}
+| TOK_WRITE '(' TOK_UNFORMATTED ')'
+{
+}
+;
+import_stmt : labeldef TOK_IMPORT ':' ':' import_name_list eos
+{
+}
+| labeldef TOK_IMPORT eos
+{
+}
+| labeldef TOK_IMPORT import_name_list eos
+{
+}
+;
+external_stmt : labeldef TOK_EXTERNAL ':' ':' external_name_list eos
+{
+}
+| labeldef TOK_EXTERNAL external_name_list eos
+{
+}
+;
+procedure_declaration_stmt : labeldef TOK_PROCEDURE '(' proc_interface ')' ',' proc_attr_spec_list ':' ':' proc_decl_list eos
+{
+}
+| labeldef TOK_PROCEDURE '(' ')' ',' proc_attr_spec_list ':' ':' proc_decl_list eos
+{
+}
+| labeldef TOK_PROCEDURE '(' proc_interface ')' proc_decl_list eos
+{
+}
+| labeldef TOK_PROCEDURE '(' proc_interface ')' ':' ':' proc_decl_list eos
+{
+}
+| labeldef TOK_PROCEDURE '(' ')' proc_decl_list eos
+{
+}
+| labeldef TOK_PROCEDURE '(' ')' ':' ':' proc_decl_list eos
+{
+}
+;
+proc_interface : name
+{
+}
+| declaration_type_spec
+{
+}
+;
+proc_attr_spec : access_spec
+{
+}
+| proc_language_binding_spec
+{
+}
+| TOK_INTENT '(' intent_spec ')'
+{
+}
+| TOK_OPTIONAL
+{
+}
+| TOK_POINTER
+{
+}
+| TOK_SAVE
+{
+}
+;
+proc_decl : name TOK_POINTER_ACCESS proc_pointer_init
+{
+}
+| name
+{
+}
+;
+proc_pointer_init : null_init
+{
+}
+| initial_proc_target
+{
+}
+;
+initial_proc_target : name
+{
+}
+;
+intrinsic_stmt : labeldef TOK_INTRINSIC ':' ':' intrinsic_procedure_name_list eos
+{
+}
+| labeldef TOK_INTRINSIC intrinsic_procedure_name_list eos
+{
+}
+;
+function_reference : procedure_designator '(' actual_arg_spec_list ')'
+{
+}
+| procedure_designator '(' ')'
+{
+}
+;
+call_stmt : labeldef TOK_CALL procedure_designator '(' actual_arg_spec_list ')' eos
+{
+}
+| labeldef TOK_CALL procedure_designator eos
+{
+}
+| labeldef TOK_CALL procedure_designator '(' ')' eos
+{
+}
+;
+procedure_designator : data_ref_no_array
+{
+}
+;
+actual_arg_spec : name '=' actual_arg
+{
+}
+| actual_arg
+{
+}
+;
+actual_arg : expr
+{
+}
+| alt_return_spec
+{
+}
+;
+alt_return_spec : '*' label
+{
+}
+;
+prefix : prefix_spec_seq
+{
+}
+;
+prefix_spec : declaration_type_spec
+{
+}
+| TOK_ELEMENTAL
+{
+}
+| TOK_IMPURE
+{
+}
+| TOK_MODULE
+{
+}
+| TOK_PURE
+{
+}
+| TOK_RECURSIVE
+{
+}
+;
+function_subprogram : function_stmt specification_part execution_part internal_subprogram_part end_function_stmt
+{
+}
+| function_stmt execution_part internal_subprogram_part end_function_stmt
+{
+}
+| function_stmt specification_part internal_subprogram_part end_function_stmt
+{
+}
+| function_stmt specification_part execution_part end_function_stmt
+{
+}
+| function_stmt specification_part end_function_stmt
+{
+}
+| function_stmt internal_subprogram_part end_function_stmt
+{
+}
+| function_stmt execution_part end_function_stmt
+{
+}
+| function_stmt end_function_stmt
+{
+}
+;
+function_stmt : labeldef prefix TOK_FUNCTION name '(' dummy_arg_name_list ')' suffix eos
+{
+}
+| labeldef TOK_FUNCTION name '(' dummy_arg_name_list ')' suffix eos
+{
+}
+| labeldef prefix TOK_FUNCTION name '(' ')' suffix eos
+{
+}
+| labeldef prefix TOK_FUNCTION name '(' dummy_arg_name_list ')' eos
+{
+}
+| labeldef prefix TOK_FUNCTION name '(' ')' eos
+{
+}
+| labeldef TOK_FUNCTION name '(' ')' suffix eos
+{
+}
+| labeldef TOK_FUNCTION name '(' dummy_arg_name_list ')' eos
+{
+}
+| labeldef TOK_FUNCTION name '(' ')' eos
+{
+}
+;
+proc_language_binding_spec : language_binding_spec
+{
+}
+;
+suffix : proc_language_binding_spec TOK_RESULT '(' name ')'
+{
+}
+| proc_language_binding_spec
+{
+}
+| TOK_RESULT '(' name ')' proc_language_binding_spec
+{
+}
+| TOK_RESULT '(' name ')'
+{
+}
+;
+end_function_stmt : labeldef TOK_END TOK_FUNCTION name eos
+{
+}
+| labeldef TOK_END eos
+{
+}
+| labeldef TOK_END TOK_FUNCTION eos
+{
+}
+| labeldef TOK_ENDFUNCTION name eos
+{
+}
+| labeldef TOK_ENDFUNCTION eos
+{
+}
+;
+subroutine_subprogram : subroutine_stmt specification_part execution_part internal_subprogram_part end_subroutine_stmt
+{
+}
+| subroutine_stmt execution_part internal_subprogram_part end_subroutine_stmt
+{
+}
+| subroutine_stmt specification_part internal_subprogram_part end_subroutine_stmt
+{
+}
+| subroutine_stmt specification_part execution_part end_subroutine_stmt
+{
+}
+| subroutine_stmt specification_part end_subroutine_stmt
+{
+}
+| subroutine_stmt internal_subprogram_part end_subroutine_stmt
+{
+}
+| subroutine_stmt execution_part end_subroutine_stmt
+{
+}
+| subroutine_stmt end_subroutine_stmt
+{
+}
+;
+subroutine_stmt : labeldef prefix TOK_SUBROUTINE name '(' dummy_arg_list ')' proc_language_binding_spec eos
+{
+}
+| labeldef TOK_SUBROUTINE name '(' dummy_arg_list ')' proc_language_binding_spec eos
+{
+}
+| labeldef prefix TOK_SUBROUTINE name eos
+{
+}
+| labeldef prefix TOK_SUBROUTINE name '(' ')' proc_language_binding_spec eos
+{
+}
+| labeldef prefix TOK_SUBROUTINE name '(' dummy_arg_list ')' eos
+{
+}
+| labeldef prefix TOK_SUBROUTINE name '(' ')' eos
+{
+}
+| labeldef TOK_SUBROUTINE name eos
+{
+}
+| labeldef TOK_SUBROUTINE name '(' ')' proc_language_binding_spec eos
+{
+}
+| labeldef TOK_SUBROUTINE name '(' dummy_arg_list ')' eos
+{
+}
+| labeldef TOK_SUBROUTINE name '(' ')' eos
+{
+}
+;
+dummy_arg : name
+{
+}
+| '*'
+{
+}
+;
+end_subroutine_stmt : labeldef TOK_END TOK_SUBROUTINE name eos
+{
+}
+| labeldef TOK_END eos
+{
+}
+| labeldef TOK_END TOK_SUBROUTINE eos
+{
+}
+| labeldef TOK_ENDSUBROUTINE name eos
+{
+}
+| labeldef TOK_ENDSUBROUTINE eos
+{
+}
+;
+separate_module_subprogram : mp_subprogram_stmt specification_part execution_part internal_subprogram_part end_mp_subprogram_stmt
+{
+}
+| mp_subprogram_stmt execution_part internal_subprogram_part end_mp_subprogram_stmt
+{
+}
+| mp_subprogram_stmt specification_part internal_subprogram_part end_mp_subprogram_stmt
+{
+}
+| mp_subprogram_stmt specification_part execution_part end_mp_subprogram_stmt
+{
+}
+| mp_subprogram_stmt specification_part end_mp_subprogram_stmt
+{
+}
+| mp_subprogram_stmt internal_subprogram_part end_mp_subprogram_stmt
+{
+}
+| mp_subprogram_stmt execution_part end_mp_subprogram_stmt
+{
+}
+| mp_subprogram_stmt end_mp_subprogram_stmt
+{
+}
+;
+mp_subprogram_stmt : labeldef TOK_MODULE TOK_PROCEDURE name eos
+{
+}
+;
+end_mp_subprogram_stmt : labeldef TOK_END TOK_PROCEDURE name eos
+{
+}
+| labeldef TOK_END eos
+{
+}
+| labeldef TOK_END TOK_PROCEDURE eos
+{
+}
+| labeldef TOK_ENDPROCEDURE name eos
+{
+}
+| labeldef TOK_ENDPROCEDURE eos
+{
+}
+;
+entry_stmt : labeldef TOK_ENTRY name '(' dummy_arg_list ')' suffix eos
+{
+}
+| labeldef TOK_ENTRY name eos
+{
+}
+| labeldef TOK_ENTRY name '(' ')' suffix eos
+{
+}
+| labeldef TOK_ENTRY name '(' dummy_arg_list ')' eos
+{
+}
+| labeldef TOK_ENTRY name '(' ')' eos
+{
+}
+;
+return_stmt : labeldef TOK_RETURN int_expr eos
+{
+}
+| labeldef TOK_RETURN eos
+{
+}
+;
+contains_stmt : labeldef TOK_CONTAINS eos
+{
+}
+;
+stmt_function_stmt : labeldef name '(' dummy_arg_name_list ')' '=' expr eos
+{
+}
+| labeldef name '(' ')' '=' expr eos
+{
+}
+;
+eos : EOS
+{
+}
+;
+
+// Sequence rules
+where_body_construct_seq : where_body_construct
+{
+  $$ = ASTListLeaf($1);
+}
+| where_body_construct_seq where_body_construct
+{
+  $$ = ASTList($1, $2);
+}
+;
+use_stmt_seq : use_stmt
+{
+  $$ = ASTListLeaf($1);
+}
+| use_stmt_seq use_stmt
+{
+  $$ = ASTList($1, $2);
+}
+;
+mask_elsewhere_part_seq : mask_elsewhere_part
+{
+  $$ = ASTListLeaf($1);
+}
+| mask_elsewhere_part_seq mask_elsewhere_part
+{
+  $$ = ASTList($1, $2);
+}
+;
+private_or_sequence_seq : private_or_sequence
+{
+  $$ = ASTListLeaf($1);
+}
+| private_or_sequence_seq private_or_sequence
+{
+  $$ = ASTList($1, $2);
+}
+;
+import_stmt_seq : import_stmt
+{
+  $$ = ASTListLeaf($1);
+}
+| import_stmt_seq import_stmt
+{
+  $$ = ASTList($1, $2);
+}
+;
+execution_part_construct_seq : execution_part_construct
+{
+  $$ = ASTListLeaf($1);
+}
+| execution_part_construct_seq execution_part_construct
+{
+  $$ = ASTList($1, $2);
+}
+;
+prefix_spec_seq : prefix_spec
+{
+  $$ = ASTListLeaf($1);
+}
+| prefix_spec_seq prefix_spec
+{
+  $$ = ASTList($1, $2);
+}
+;
+case_part_seq : case_part
+{
+  $$ = ASTListLeaf($1);
+}
+| case_part_seq case_part
+{
+  $$ = ASTList($1, $2);
+}
+;
+forall_body_construct_seq : forall_body_construct
+{
+  $$ = ASTListLeaf($1);
+}
+| forall_body_construct_seq forall_body_construct
+{
+  $$ = ASTList($1, $2);
+}
+;
+type_bound_proc_binding_seq : type_bound_proc_binding
+{
+  $$ = ASTListLeaf($1);
+}
+| type_bound_proc_binding_seq type_bound_proc_binding
+{
+  $$ = ASTList($1, $2);
+}
+;
+implicit_part_stmts_seq : implicit_part_stmts
+{
+  $$ = ASTListLeaf($1);
+}
+| implicit_part_stmts_seq implicit_part_stmts
+{
+  $$ = ASTList($1, $2);
+}
+;
+else_if_part_seq : else_if_part
+{
+  $$ = ASTListLeaf($1);
+}
+| else_if_part_seq else_if_part
+{
+  $$ = ASTList($1, $2);
+}
+;
+type_param_def_stmt_seq : type_param_def_stmt
+{
+  $$ = ASTListLeaf($1);
+}
+| type_param_def_stmt_seq type_param_def_stmt
+{
+  $$ = ASTList($1, $2);
+}
+;
+program_unit_seq : program_unit
+{
+  $$ = ASTListLeaf($1);
+}
+| program_unit_seq program_unit
+{
+  $$ = ASTList($1, $2);
+}
+;
+declaration_construct_seq : declaration_construct
+{
+  $$ = ASTListLeaf($1);
+}
+| declaration_construct_seq declaration_construct
+{
+  $$ = ASTList($1, $2);
+}
+;
+type_guard_part_seq : type_guard_part
+{
+  $$ = ASTListLeaf($1);
+}
+| type_guard_part_seq type_guard_part
+{
+  $$ = ASTList($1, $2);
+}
+;
+component_def_stmts_seq : component_def_stmts
+{
+  $$ = ASTListLeaf($1);
+}
+| component_def_stmts_seq component_def_stmts
+{
+  $$ = ASTList($1, $2);
+}
+;
+module_subprogram_seq : module_subprogram
+{
+  $$ = ASTListLeaf($1);
+}
+| module_subprogram_seq module_subprogram
+{
+  $$ = ASTList($1, $2);
+}
+;
+interface_specification_seq : interface_specification
+{
+  $$ = ASTListLeaf($1);
+}
+| interface_specification_seq interface_specification
+{
+  $$ = ASTList($1, $2);
+}
+;
+internal_subprogram_seq : internal_subprogram
+{
+  $$ = ASTListLeaf($1);
+}
+| internal_subprogram_seq internal_subprogram
+{
+  $$ = ASTList($1, $2);
+}
+;
+enumerator_def_stmt_seq : enumerator_def_stmt
+{
+  $$ = ASTListLeaf($1);
+}
+| enumerator_def_stmt_seq enumerator_def_stmt
+{
+  $$ = ASTList($1, $2);
+}
+;
+// List rules
+
+a_list_of_names : name
+{
+    $$ = ASTListLeaf($1);
+}
+| a_list_of_names ',' name
+{
+    $$ = ASTList($1, $3);
+}
+;
+
+type_param_name_list : a_list_of_names;
+external_name_list : a_list_of_names;
+entity_name_list : a_list_of_names;
+binding_name_list : a_list_of_names;
+object_name_list : a_list_of_names;
+final_subroutine_name_list : a_list_of_names;
+procedure_name_list : a_list_of_names;
+intrinsic_procedure_name_list : a_list_of_names;
+dummy_arg_name_list : a_list_of_names;
+import_name_list : a_list_of_names;
+
+data_stmt_set_list : data_stmt_set
+{
+  $$ = ASTListLeaf($1);
+}
+| data_stmt_set_list ',' data_stmt_set
+{
+  $$ = ASTList($1, $3);
+}
+;
+
+position_spec_list : position_spec
+{
+  $$ = ASTListLeaf($1);
+}
+| position_spec_list ',' position_spec
+{
+  $$ = ASTList($1, $3);
+}
+;
+equivalence_set_list : equivalence_set
+{
+  $$ = ASTListLeaf($1);
+}
+| equivalence_set_list ',' equivalence_set
+{
+  $$ = ASTList($1, $3);
+}
+;
+assumed_shape_spec_list : assumed_shape_spec
+{
+  $$ = ASTListLeaf($1);
+}
+| assumed_shape_spec_list ',' assumed_shape_spec
+{
+  $$ = ASTList($1, $3);
+}
+;
+implied_shape_spec_list : implied_shape_spec
+{
+  $$ = ASTListLeaf($1);
+}
+| implied_shape_spec_list ',' implied_shape_spec
+{
+  $$ = ASTList($1, $3);
+}
+;
+lock_stat_list : lock_stat
+{
+  $$ = ASTListLeaf($1);
+}
+| lock_stat_list ',' lock_stat
+{
+  $$ = ASTList($1, $3);
+}
+;
+close_spec_list : close_spec
+{
+  $$ = ASTListLeaf($1);
+}
+| close_spec_list ',' close_spec
+{
+  $$ = ASTList($1, $3);
+}
+;
+type_attr_spec_list : type_attr_spec
+{
+  $$ = ASTListLeaf($1);
+}
+| type_attr_spec_list ',' type_attr_spec
+{
+  $$ = ASTList($1, $3);
+}
+;
+io_implied_do_object_list : io_implied_do_object
+{
+  $$ = ASTListLeaf($1);
+}
+| io_implied_do_object_list ',' io_implied_do_object
+{
+  $$ = ASTList($1, $3);
+}
+;
+case_value_range_list : case_value_range
+{
+  $$ = ASTListLeaf($1);
+}
+| case_value_range_list ',' case_value_range
+{
+  $$ = ASTList($1, $3);
+}
+;
+namelist_group_object_list : namelist_group_object
+{
+  $$ = ASTListLeaf($1);
+}
+| namelist_group_object_list ',' namelist_group_object
+{
+  $$ = ASTList($1, $3);
+}
+;
+sync_stat_list : sync_stat
+{
+  $$ = ASTListLeaf($1);
+}
+| sync_stat_list ',' sync_stat
+{
+  $$ = ASTList($1, $3);
+}
+;
+implicit_spec_list : implicit_spec
+{
+  $$ = ASTListLeaf($1);
+}
+| implicit_spec_list ',' implicit_spec
+{
+  $$ = ASTList($1, $3);
+}
+;
+letter_spec_list : letter_spec
+{
+  $$ = ASTListLeaf($1);
+}
+| letter_spec_list ',' letter_spec
+{
+  $$ = ASTList($1, $3);
+}
+;
+data_stmt_object_list : data_stmt_object
+{
+  $$ = ASTListLeaf($1);
+}
+| data_stmt_object_list ',' data_stmt_object
+{
+  $$ = ASTList($1, $3);
+}
+;
+component_decl_list : component_decl
+{
+  $$ = ASTListLeaf($1);
+}
+| component_decl_list ',' component_decl
+{
+  $$ = ASTList($1, $3);
+}
+;
+label_list : label
+{
+  $$ = ASTListLeaf($1);
+}
+| label_list ',' label
+{
+  $$ = ASTList($1, $3);
+}
+;
+named_constant_def_list : named_constant_def
+{
+  $$ = ASTListLeaf($1);
+}
+| named_constant_def_list ',' named_constant_def
+{
+  $$ = ASTList($1, $3);
+}
+;
+bind_entity_list : bind_entity
+{
+  $$ = ASTListLeaf($1);
+}
+| bind_entity_list ',' bind_entity
+{
+  $$ = ASTList($1, $3);
+}
+;
+flush_spec_list : flush_spec
+{
+  $$ = ASTListLeaf($1);
+}
+| flush_spec_list ',' flush_spec
+{
+  $$ = ASTList($1, $3);
+}
+;
+io_control_spec_list : io_control_spec
+{
+  $$ = ASTListLeaf($1);
+}
+| io_control_spec_list ',' io_control_spec
+{
+  $$ = ASTList($1, $3);
+}
+;
+proc_component_attr_spec_list : proc_component_attr_spec
+{
+  $$ = ASTListLeaf($1);
+}
+| proc_component_attr_spec_list ',' proc_component_attr_spec
+{
+  $$ = ASTList($1, $3);
+}
+;
+saved_entity_list : saved_entity
+{
+  $$ = ASTListLeaf($1);
+}
+| saved_entity_list ',' saved_entity
+{
+  $$ = ASTList($1, $3);
+}
+;
+input_output_item_list : input_output_item
+{
+  $$ = ASTListLeaf($1);
+}
+| input_output_item_list ',' input_output_item
+{
+  $$ = ASTList($1, $3);
+}
+;
+common_block_object_list : common_block_object
+{
+  $$ = ASTListLeaf($1);
+}
+| common_block_object_list ',' common_block_object
+{
+  $$ = ASTList($1, $3);
+}
+;
+codimension_decl_list : codimension_decl
+{
+  $$ = ASTListLeaf($1);
+}
+| codimension_decl_list ',' codimension_decl
+{
+  $$ = ASTList($1, $3);
+}
+;
+component_spec_list : component_spec
+{
+  $$ = ASTListLeaf($1);
+}
+| component_spec_list ',' component_spec
+{
+  $$ = ASTList($1, $3);
+}
+;
+only_list : only
+{
+  $$ = ASTListLeaf($1);
+}
+| only_list ',' only
+{
+  $$ = ASTList($1, $3);
+}
+;
+binding_attr_list : binding_attr
+{
+  $$ = ASTListLeaf($1);
+}
+| binding_attr_list ',' binding_attr
+{
+  $$ = ASTList($1, $3);
+}
+;
+forall_triplet_spec_list : forall_triplet_spec
+{
+  $$ = ASTListLeaf($1);
+}
+| forall_triplet_spec_list ',' forall_triplet_spec
+{
+  $$ = ASTList($1, $3);
+}
+;
+cobound_pair_list : cobound_pair
+{
+  $$ = ASTListLeaf($1);
+}
+| cobound_pair_list ',' cobound_pair
+{
+  $$ = ASTList($1, $3);
+}
+;
+alloc_opt_list : alloc_opt
+{
+  $$ = ASTListLeaf($1);
+}
+| alloc_opt_list ',' alloc_opt
+{
+  $$ = ASTList($1, $3);
+}
+;
+pointer_object_list : pointer_object
+{
+  $$ = ASTListLeaf($1);
+}
+| pointer_object_list ',' pointer_object
+{
+  $$ = ASTList($1, $3);
+}
+;
+type_param_decl_list : type_param_decl
+{
+  $$ = ASTListLeaf($1);
+}
+| type_param_decl_list ',' type_param_decl
+{
+  $$ = ASTList($1, $3);
+}
+;
+allocate_coshape_spec_list : allocate_coshape_spec
+{
+  $$ = ASTListLeaf($1);
+}
+| allocate_coshape_spec_list ',' allocate_coshape_spec
+{
+  $$ = ASTList($1, $3);
+}
+;
+connect_spec_list : connect_spec
+{
+  $$ = ASTListLeaf($1);
+}
+| connect_spec_list ',' connect_spec
+{
+  $$ = ASTList($1, $3);
+}
+;
+section_subscript_list : section_subscript
+{
+  $$ = ASTListLeaf($1);
+}
+| section_subscript_list ',' section_subscript
+{
+  $$ = ASTList($1, $3);
+}
+;
+deferred_shape_spec_list : deferred_shape_spec
+{
+  $$ = ASTListLeaf($1);
+}
+| deferred_shape_spec_list ',' deferred_shape_spec
+{
+  $$ = ASTList($1, $3);
+}
+;
+pointer_decl_list : pointer_decl
+{
+  $$ = ASTListLeaf($1);
+}
+| pointer_decl_list ',' pointer_decl
+{
+  $$ = ASTList($1, $3);
+}
+;
+component_attr_spec_list : component_attr_spec
+{
+  $$ = ASTListLeaf($1);
+}
+| component_attr_spec_list ',' component_attr_spec
+{
+  $$ = ASTList($1, $3);
+}
+;
+enumerator_list : enumerator
+{
+  $$ = ASTListLeaf($1);
+}
+| enumerator_list ',' enumerator
+{
+  $$ = ASTList($1, $3);
+}
+;
+data_i_do_object_list : data_i_do_object
+{
+  $$ = ASTListLeaf($1);
+}
+| data_i_do_object_list ',' data_i_do_object
+{
+  $$ = ASTList($1, $3);
+}
+;
+type_bound_proc_decl_list : type_bound_proc_decl
+{
+  $$ = ASTListLeaf($1);
+}
+| type_bound_proc_decl_list ',' type_bound_proc_decl
+{
+  $$ = ASTList($1, $3);
+}
+;
+deferred_coshape_spec_list : deferred_coshape_spec
+{
+  $$ = ASTListLeaf($1);
+}
+| deferred_coshape_spec_list ',' deferred_coshape_spec
+{
+  $$ = ASTList($1, $3);
+}
+;
+wait_spec_list : wait_spec
+{
+  $$ = ASTListLeaf($1);
+}
+| wait_spec_list ',' wait_spec
+{
+  $$ = ASTList($1, $3);
+}
+;
+cosubscript_list : cosubscript
+{
+  $$ = ASTListLeaf($1);
+}
+| cosubscript_list ',' cosubscript
+{
+  $$ = ASTList($1, $3);
+}
+;
+type_param_spec_list : type_param_spec
+{
+  $$ = ASTListLeaf($1);
+}
+| type_param_spec_list ',' type_param_spec
+{
+  $$ = ASTList($1, $3);
+}
+;
+allocation_list : allocation
+{
+  $$ = ASTListLeaf($1);
+}
+| allocation_list ',' allocation
+{
+  $$ = ASTList($1, $3);
+}
+;
+allocate_object_list : allocate_object
+{
+  $$ = ASTListLeaf($1);
+}
+| allocate_object_list ',' allocate_object
+{
+  $$ = ASTList($1, $3);
+}
+;
+proc_attr_spec_list : proc_attr_spec
+{
+  $$ = ASTListLeaf($1);
+}
+| proc_attr_spec_list ',' proc_attr_spec
+{
+  $$ = ASTList($1, $3);
+}
+;
+proc_decl_list : proc_decl
+{
+  $$ = ASTListLeaf($1);
+}
+| proc_decl_list ',' proc_decl
+{
+  $$ = ASTList($1, $3);
+}
+;
+data_stmt_value_list : data_stmt_value
+{
+  $$ = ASTListLeaf($1);
+}
+| data_stmt_value_list ',' data_stmt_value
+{
+  $$ = ASTList($1, $3);
+}
+;
+ac_value_list : ac_value
+{
+  $$ = ASTListLeaf($1);
+}
+| ac_value_list ',' ac_value
+{
+  $$ = ASTList($1, $3);
+}
+;
+association_list : association
+{
+  $$ = ASTListLeaf($1);
+}
+| association_list ',' association
+{
+  $$ = ASTList($1, $3);
+}
+;
+dummy_arg_list : dummy_arg
+{
+  $$ = ASTListLeaf($1);
+}
+| dummy_arg_list ',' dummy_arg
+{
+  $$ = ASTList($1, $3);
+}
+;
+explicit_shape_spec_list : explicit_shape_spec
+{
+  $$ = ASTListLeaf($1);
+}
+| explicit_shape_spec_list ',' explicit_shape_spec
+{
+  $$ = ASTList($1, $3);
+}
+;
+equivalence_object_list : equivalence_object
+{
+  $$ = ASTListLeaf($1);
+}
+| equivalence_object_list ',' equivalence_object
+{
+  $$ = ASTList($1, $3);
+}
+;
+allocatable_decl_list : allocatable_decl
+{
+  $$ = ASTListLeaf($1);
+}
+| allocatable_decl_list ',' allocatable_decl
+{
+  $$ = ASTList($1, $3);
+}
+;
+inquire_spec_list : inquire_spec
+{
+  $$ = ASTListLeaf($1);
+}
+| inquire_spec_list ',' inquire_spec
+{
+  $$ = ASTList($1, $3);
+}
+;
+dealloc_opt_list : dealloc_opt
+{
+  $$ = ASTListLeaf($1);
+}
+| dealloc_opt_list ',' dealloc_opt
+{
+  $$ = ASTList($1, $3);
+}
+;
+actual_arg_spec_list : actual_arg_spec
+{
+  $$ = ASTListLeaf($1);
+}
+| actual_arg_spec_list ',' actual_arg_spec
+{
+  $$ = ASTList($1, $3);
+}
+;
+rename_list : rename
+{
+  $$ = ASTListLeaf($1);
+}
+| rename_list ',' rename
+{
+  $$ = ASTList($1, $3);
+}
+;
+attr_spec_list : attr_spec
+{
+  $$ = ASTListLeaf($1);
+}
+| attr_spec_list ',' attr_spec
+{
+  $$ = ASTList($1, $3);
+}
+;
+target_decl_list : target_decl
+{
+  $$ = ASTListLeaf($1);
+}
+| target_decl_list ',' target_decl
+{
+  $$ = ASTList($1, $3);
+}
+;
+access_id_list : access_id
+{
+  $$ = ASTListLeaf($1);
+}
+| access_id_list ',' access_id
+{
+  $$ = ASTList($1, $3);
+}
+;
+array_name_dim_spec_list : array_name_dim_spec
+{
+  $$ = ASTListLeaf($1);
+}
+| array_name_dim_spec_list ',' array_name_dim_spec
+{
+  $$ = ASTList($1, $3);
+}
+;
+entity_decl_list : entity_decl
+{
+  $$ = ASTListLeaf($1);
+}
+| entity_decl_list ',' entity_decl
+{
+  $$ = ASTList($1, $3);
+}
+;
+namelist_item_list : namelist_item
+{
+  $$ = ASTListLeaf($1);
+}
+| namelist_item_list ',' namelist_item
+{
+  $$ = ASTList($1, $3);
+}
+;
+// Keywords
+keyword : TOK_FORMAT
+| TOK_GENERIC
+| TOK_VOLATILE
+| TOK_EQUIVALENCE
+| TOK_EOR
+| TOK_PROTECTED
+| TOK_PAD
+| TOK_FILE
+| TOK_UNFORMATTED
+| TOK_NAMED
+| TOK_SUBROUTINE
+| TOK_OPENED
+| TOK_DELIM
+| TOK_SOURCE
+| TOK_CRITICAL
+| TOK_ACTION
+| TOK_IMPORT
+| TOK_BLOCK
+| TOK_ENUM
+| TOK_OVERRIDABLE
+| TOK_MODULE
+| TOK_SIGN
+| TOK_EXTENDS
+| TOK_PASS
+| TOK_GO
+| TOK_ENTRY
+| TOK_WHERE
+| TOK_PROCEDURE
+| TOK_NAME
+| TOK_DOUBLE
+| TOK_CONTAINS
+| TOK_LOGICAL
+| TOK_NEWUNIT
+| TOK_NULLIFY
+| TOK_DEFERRED
+| TOK_ONLY
+| TOK_EXIST
+| TOK_INTERFACE
+| TOK_SAVE
+| TOK_ADVANCE
+| TOK_STAT
+| TOK_RETURN
+| TOK_READWRITE
+| TOK_ASSIGNMENT
+| TOK_PRINT
+| TOK_IOSTAT
+| TOK_SYNC
+| TOK_COMPLEX
+| TOK_ASYNCHRONOUS
+| TOK_IMAGES
+| TOK_END
+| TOK_FINAL
+| TOK_INOUT
+| TOK_NEXTREC
+| TOK_KIND
+| TOK_COMMON
+| TOK_BLANK
+| TOK_IOLENGTH
+| TOK_INTEGER
+| TOK_DEALLOCATE
+| TOK_FUNCTION
+| TOK_C
+| TOK_ENUMERATOR
+| TOK_RECURSIVE
+| TOK_SEQUENCE
+| TOK_INQUIRE
+| TOK_FLUSH
+| TOK_ELSE
+| TOK_INTENT
+| TOK_EXTERNAL
+| TOK_OPERATOR
+| TOK_OPTIONAL
+| TOK_UNIT
+| TOK_SIZE
+| TOK_NOPASS
+| TOK_TYPE
+| TOK_MOLD
+| TOK_PRECISION
+| TOK_PENDING
+| TOK_CONTINUE
+| TOK_RESULT
+| TOK_REAL
+| TOK_THEN
+| TOK_STREAM
+| TOK_DO
+| TOK_DEFAULT
+| TOK_CONTIGUOUS
+| TOK_STOP
+| TOK_WHILE
+| TOK_PROGRAM
+| TOK_REC
+| TOK_OPEN
+| TOK_CASE
+| TOK_RECL
+| TOK_DIMENSION
+| TOK_ELEMENTAL
+| TOK_FORALL
+| TOK_POSITION
+| TOK_FMT
+| TOK_READ
+| TOK_OUT
+| TOK_LOCK
+| TOK_DECIMAL
+| TOK_SELECT
+| TOK_DIRECT
+| TOK_WRITE
+| TOK_CODIMENSION
+| TOK_CLOSE
+| TOK_ID
+| TOK_WAIT
+| TOK_ALL
+| TOK_ELSEWHERE
+| TOK_LEN
+| TOK_IMPURE
+| TOK_EXIT
+| TOK_REWIND
+| TOK_BACKSPACE
+| TOK_NML
+| TOK_INTRINSIC
+| TOK_PUBLIC
+| TOK_ERRMSG
+| TOK_NAMELIST
+| TOK_USE
+| TOK_SUBMODULE
+| TOK_ERR
+| TOK_ENCODING
+| TOK_ACQUIRED
+| TOK_ABSTRACT
+| TOK_CHARACTER
+| TOK_NUMBER
+| TOK_CONCURRENT
+| TOK_ENDFILE
+| TOK_PARAMETER
+| TOK_DATA
+| TOK_POS
+| TOK_PRIVATE
+| TOK_ROUND
+| TOK_TO
+| TOK_SEQUENTIAL
+| TOK_ALLOCATE
+| TOK_TARGET
+| TOK_CLASS
+| TOK_CYCLE
+| TOK_STATUS
+| TOK_IOMSG
+| TOK_FORM
+| TOK_IS
+| TOK_NONE
+| TOK_VALUE
+| TOK_UNLOCK
+| TOK_FORMATTED
+| TOK_IN
+| TOK_IMPLICIT
+| TOK_IF
+| TOK_ASSOCIATE
+| TOK_BIND
+| TOK_ALLOCATABLE
+| TOK_ACCESS
+| TOK_CALL
+| TOK_PURE
+| TOK_MEMORY
+| TOK_POINTER
+| TOK_ALLSTOP
+| TOK_ENDIF
+| TOK_ENDFUNCTION
+| TOK_ENDDO
+| TOK_BLOCKDATA 
+| TOK_ENDMODULE
+| TOK_DOUBLEPRECISION 
+| TOK_ENDINTERFACE
+| TOK_ELSEIF 
+| TOK_ENDPROCEDURE
+| TOK_ENDPROGRAM
+| TOK_ENDASSOCIATE
+| TOK_ENDSELECT
+| TOK_ENDBLOCK
+| TOK_ENDSUBMODULE
+| TOK_ENDBLOCKDATA
+| TOK_ENDSUBROUTINE
+| TOK_ENDCRITICAL
+| TOK_ENDTYPE
+| TOK_VECTOR
+| TOK_PIXEL
+| TOK_DOUBLECOMPLEX
+| TOK_GOTO
+;
+
+labeldef : label
+{
+}
+|  /* empty */
+{
+}
+;
+
+%%
+
+// Used in fortran-driver.c to determine the maximum size for parser memory
+unsigned long long limit_for_parse_memory = SIZE_MAX / sizeof(yyGLRStackItem);
+
+extern char* yytext;
+extern char* actual_line;
+void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c)
+{
+	fprintf(stderr, "%s:%d: error: %s\n", fortran_scanning_now->current_filename, fortran_scanning_now->line_number, c);
+}

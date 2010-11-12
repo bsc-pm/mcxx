@@ -47,6 +47,7 @@ struct scan_file_descriptor
     // Current filename due to include lines
     const char* current_filename;
     int line_number;
+    int joined_lines;
     FILE* file_descriptor;
     struct yy_buffer_state* scanning_buffer;
 };

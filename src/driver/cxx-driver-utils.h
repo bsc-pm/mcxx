@@ -94,6 +94,8 @@ double timing_elapsed(const timing_t* t);
 
 void run_gdb(void);
 
+// Copy a file
+char copy_file(const char* source, const char* dest);
 // Like rename but works accross filesystems
 char move_file(const char* source, const char* dest);
 

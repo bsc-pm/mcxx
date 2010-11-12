@@ -327,6 +327,10 @@ typedef struct compilation_configuration_tag
 
     const char* output_directory;
 
+    // Include directories
+    int num_include_dirs;
+    const char** include_dirs;
+
     int num_compiler_phases;
 	compiler_phase_loader_t** phase_loader;
 
