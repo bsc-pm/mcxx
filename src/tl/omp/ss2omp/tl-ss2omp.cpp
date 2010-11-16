@@ -245,12 +245,13 @@ namespace TL
             clauses << " inout(" << inout_clause_args << ")";
         }
 
+        Source implements;
         PragmaCustomClause device_clause = construct.get_clause("device");
         if (device_clause.is_defined())
         {
             Source device_list;
             device_line
-                << "#pragma omp target device(" << device_list << ") copy_deps\n"
+                << "#pragma omp target device(" << device_list << ") copy_deps" << implements << "\n"
                 ;
 
             ObjectList<std::string> arg_list = device_clause.get_arguments(ExpressionTokenizerTrim());
@@ -269,6 +270,11 @@ namespace TL
 
         }
 
+        PragmaCustomClause implements_clause = construct.get_clause("implements");
+        if (implements_clause.is_defined())
+        {
+            implements << " implements(" << concat_strings(implements_clause.get_arguments(), ",") << ")";
+        }
 
         AST_t pragma_decl = construct.get_declaration();
 
