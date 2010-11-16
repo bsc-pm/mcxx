@@ -107,7 +107,6 @@ static AST ambig_io_control_spec(YYSTYPE x0 UNUSED_PARAMETER, YYSTYPE x1 UNUSED_
 %type<ast> logical_literal_constant
 %type<ast> function_subprogram
 %type<ast> complex_part
-%type<ast> sign
 %type<ast> private_or_sequence
 %type<ast> case_stmt
 %type<ast> digit_string
@@ -230,7 +229,6 @@ static AST ambig_io_control_spec(YYSTYPE x0 UNUSED_PARAMETER, YYSTYPE x1 UNUSED_
 %type<ast> module_nature
 %type<ast> common_block_object
 %type<ast> and_op
-%type<ast> kind_param
 %type<ast> write_stmt
 %type<ast> parameter_stmt
 %type<ast> type_param_def_stmt
@@ -256,7 +254,6 @@ static AST ambig_io_control_spec(YYSTYPE x0 UNUSED_PARAMETER, YYSTYPE x1 UNUSED_
 %type<ast> section_subscript
 %type<ast> derived_type_stmt
 %type<ast> octal_constant
-%type<ast> lbracket
 %type<ast> type_guard_part
 %type<ast> component_def_stmts
 %type<ast> subroutine_stmt
@@ -275,7 +272,6 @@ static AST ambig_io_control_spec(YYSTYPE x0 UNUSED_PARAMETER, YYSTYPE x1 UNUSED_
 %type<ast> char_length
 %type<ast> int_literal_constant
 %type<ast> char_selector
-%type<ast> initial_proc_target
 %type<ast> external_stmt
 %type<ast> forall_triplet_spec
 %type<ast> cobound_pair
@@ -392,7 +388,6 @@ static AST ambig_io_control_spec(YYSTYPE x0 UNUSED_PARAMETER, YYSTYPE x1 UNUSED_
 %type<ast> read_stmt
 %type<ast> nullify_stmt
 %type<ast> language_binding_spec
-%type<ast> initial_data_target
 %type<ast> named_constant_def
 %type<ast> sync_memory_stmt
 %type<ast> mask_elsewhere_part
@@ -412,7 +407,6 @@ static AST ambig_io_control_spec(YYSTYPE x0 UNUSED_PARAMETER, YYSTYPE x1 UNUSED_
 %type<ast> hex_constant
 %type<ast> end_function_stmt
 %type<ast> enum_def
-%type<ast> rbracket
 %type<ast> block
 %type<ast> intent_stmt
 %type<ast> case_value
@@ -425,7 +419,6 @@ static AST ambig_io_control_spec(YYSTYPE x0 UNUSED_PARAMETER, YYSTYPE x1 UNUSED_
 %type<ast> type_declaration_stmt
 %type<ast> stat_variable
 %type<ast> type_param_decl
-%type<ast> null_init
 %type<ast> codimension_stmt
 %type<ast> int_constant_expr
 %type<ast> equivalence_set
@@ -560,6 +553,8 @@ static AST ambig_io_control_spec(YYSTYPE x0 UNUSED_PARAMETER, YYSTYPE x1 UNUSED_
 %type<ast> entity_decl_list
 %type<ast> namelist_item_list
 %type<ast> a_list_of_names
+%type<token_atrib> keyword
+%type<token_atrib> sign
 // Tokens
 %token<token_atrib> TOK_FORMAT "FORMAT"
 %token<token_atrib> TOK_GENERIC "GENERIC"
@@ -752,6 +747,8 @@ static AST ambig_io_control_spec(YYSTYPE x0 UNUSED_PARAMETER, YYSTYPE x1 UNUSED_
 %token<token_atrib> '-'
 %token<token_atrib> TOK_LOGICAL_NOT_EQUIVALENT ".NEQV."
 %token<token_atrib> '%'
+%token<token_atrib> '['
+%token<token_atrib> ']'
 %token<token_atrib> TOK_POINTER_ACCESS "=>"
 %token<token_atrib> TOK_GREATER_THAN ">"
 %token<token_atrib> ','
@@ -809,910 +806,788 @@ static AST ambig_io_control_spec(YYSTYPE x0 UNUSED_PARAMETER, YYSTYPE x1 UNUSED_
 %%
 
 program : program_unit_seq
-{
-}
 ;
 program_unit : main_program
-{
-}
 | external_subprogram
-{
-}
 | module
-{
-}
 | submodule
-{
-}
 | block_data
-{
-}
 ;
 external_subprogram : function_subprogram
-{
-}
 | subroutine_subprogram
-{
-}
 ;
 specification_part : use_stmt_seq import_stmt_seq implicit_part declaration_construct_seq
 {
+    $$ = ast_list_concat($1, $2);
+    $$ = ast_list_concat($$, $3);
+    $$ = ast_list_concat($$, $4);
 }
 | import_stmt_seq implicit_part declaration_construct_seq
 {
+    $$ = ast_list_concat($1, $2);
+    $$ = ast_list_concat($$, $3);
 }
 | use_stmt_seq implicit_part declaration_construct_seq
 {
+    $$ = ast_list_concat($1, $2);
+    $$ = ast_list_concat($$, $3);
 }
 | use_stmt_seq import_stmt_seq declaration_construct_seq
 {
+    $$ = ast_list_concat($1, $2);
+    $$ = ast_list_concat($$, $3);
 }
 | use_stmt_seq import_stmt_seq implicit_part
 {
+    $$ = ast_list_concat($1, $2);
+    $$ = ast_list_concat($$, $3);
 }
 | use_stmt_seq import_stmt_seq
 {
+    $$ = ast_list_concat($1, $2);
 }
 | use_stmt_seq declaration_construct_seq
 {
+    $$ = ast_list_concat($1, $2);
 }
 | use_stmt_seq implicit_part
 {
+    $$ = ast_list_concat($1, $2);
 }
 | use_stmt_seq
-{
-}
 | implicit_part declaration_construct_seq
 {
+    $$ = ast_list_concat($1, $2);
 }
 | import_stmt_seq declaration_construct_seq
 {
+    $$ = ast_list_concat($1, $2);
 }
 | import_stmt_seq implicit_part
 {
+    $$ = ast_list_concat($1, $2);
 }
 | import_stmt_seq
-{
-}
 | declaration_construct_seq
-{
-}
 | implicit_part
-{
-}
 ;
 implicit_part : implicit_part_stmts_seq implicit_stmt
 {
+    $$ = ASTList($1, $2);
 }
 | implicit_stmt
 {
+    $$ = ASTListLeaf($1);
 }
 ;
 implicit_part_stmts : implicit_stmt
-{
-}
 | parameter_stmt
-{
-}
 | format_stmt
-{
-}
 | entry_stmt
-{
-}
 ;
 declaration_construct : derived_type_def
-{
-}
 | entry_stmt
-{
-}
 | enum_def
-{
-}
 | format_stmt
-{
-}
 | interface_block
-{
-}
 | parameter_stmt
-{
-}
 | procedure_declaration_stmt
-{
-}
 | other_specification_stmts
-{
-}
 | type_declaration_stmt
-{
-}
 | stmt_function_stmt
-{
-}
 ;
 execution_part : executable_construct execution_part_construct_seq
 {
+    $$ = ASTList($1, $2);
 }
 | executable_construct
 {
+    $$ = ASTListLeaf($1);
 }
 ;
 execution_part_construct : executable_construct
-{
-}
 | format_stmt
-{
-}
 | entry_stmt
-{
-}
 | data_stmt
-{
-}
 ;
 internal_subprogram_part : contains_stmt internal_subprogram_seq
 {
+    $$ = $2;
 }
 | contains_stmt
 {
+    $$ = NULL;
 }
 ;
 internal_subprogram : function_subprogram
-{
-}
 | subroutine_subprogram
-{
-}
 ;
 other_specification_stmts : access_stmt
-{
-}
 | allocatable_stmt
-{
-}
 | asynchronous_stmt
-{
-}
 | bind_stmt
-{
-}
 | codimension_stmt
-{
-}
 | common_stmt
-{
-}
 | data_stmt
-{
-}
 | dimension_stmt
-{
-}
 | equivalence_stmt
-{
-}
 | external_stmt
-{
-}
 | intent_stmt
-{
-}
 | intrinsic_stmt
-{
-}
 | namelist_stmt
-{
-}
 | optional_stmt
-{
-}
 | pointer_stmt
-{
-}
 | protected_stmt
-{
-}
 | save_stmt
-{
-}
 | target_stmt
-{
-}
 | volatile_stmt
-{
-}
 | value_stmt
-{
-}
 ;
 executable_construct : action_stmts
-{
-}
 | associate_construct
-{
-}
 | block_construct
-{
-}
 | case_construct
-{
-}
 | critical_construct
-{
-}
 | do_construct
-{
-}
 | forall_construct
-{
-}
 | if_construct
-{
-}
 | select_type_construct
-{
-}
 | where_construct
-{
-}
 ;
 action_stmts : allocate_stmt
-{
-}
 | allstop_stmt
-{
-}
 | assignment_stmt
-{
-}
 | backspace_stmt
-{
-}
 | call_stmt
-{
-}
 | close_stmt
-{
-}
 | continue_stmt
-{
-}
 | cycle_stmt
-{
-}
 | deallocate_stmt
-{
-}
 | endfile_stmt
-{
-}
 | exit_stmt
-{
-}
 | flush_stmt
-{
-}
 | forall_stmt
-{
-}
 | goto_stmt
-{
-}
 | if_stmt
-{
-}
 | inquire_stmt
-{
-}
 | lock_stmt
-{
-}
 | nullify_stmt
-{
-}
 | open_stmt
-{
-}
 | pointer_assignment_stmt
-{
-}
 | print_stmt
-{
-}
 | read_stmt
-{
-}
 | return_stmt
-{
-}
 | rewind_stmt
-{
-}
 | stop_stmt
-{
-}
 | sync_all_stmt
-{
-}
 | sync_images_stmt
-{
-}
 | sync_memory_stmt
-{
-}
 | unlock_stmt
-{
-}
 | wait_stmt
-{
-}
 | where_stmt
-{
-}
 | write_stmt
-{
-}
 | arithmetic_if_stmt
-{
-}
 | computed_goto_stmt
-{
-}
 ;
 name : IDENTIFIER
 {
+    $$ = ASTLeaf(AST_SYMBOL, $1.token_file, $1.token_line, $1.token_text);
 }
 | keyword
 {
+    $$ = ASTLeaf(AST_SYMBOL, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 name_not_keyword : IDENTIFIER
 {
+    $$ = ASTLeaf(AST_SYMBOL, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 
 unsigned_arithmetic_literal_constant : int_literal_constant
-{
-}
 | real_literal_constant
-{
-}
 | complex_literal_constant
-{
-}
 ;
 named_constant : name
-{
-}
 ;
 intrinsic_operator : power_op
-{
-}
 | mult_op
-{
-}
 | add_op
-{
-}
 | concat_op
-{
-}
 | rel_op
-{
-}
 | not_op
-{
-}
 | and_op
-{
-}
 | or_op
-{
-}
 | equiv_op
-{
-}
 ;
 defined_operator : user_defined_op
-{
-}
 | extended_intrinsic_op
-{
-}
 ;
 extended_intrinsic_op : intrinsic_operator
-{
-}
 ;
 label : DECIMAL_LITERAL
 {
+    $$ = ASTLeaf(AST_SYMBOL, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 type_param_value : int_expr
-{
-}
 | '*'
 {
+    $$ = ASTLeaf(AST_SYMBOL, $1.token_file, $1.token_line, $1.token_text);
 }
 | ':'
 {
+    $$ = ASTLeaf(AST_SYMBOL, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 type_spec : intrinsic_type_spec
-{
-}
 | derived_type_spec
-{
-}
 ;
 declaration_type_spec : intrinsic_type_spec
+/* | TOK_TYPE '(' intrinsic_type_spec ')'
 {
-}
-| TOK_TYPE '(' intrinsic_type_spec ')'
-{
-}
+  $$ = ASTMake1(AST_TYPE_NAME, $3, $1.token_file, $1.token_line, NULL);
+} */
 | TOK_TYPE '(' derived_type_spec ')'
 {
+    $$ = ASTMake1(AST_TYPE_NAME, $3, $1.token_file, $1.token_line, NULL);
 }
 | TOK_CLASS '(' derived_type_spec ')'
 {
+    $$ = ASTMake1(AST_CLASS_NAME, $3, $1.token_file, $1.token_line, NULL);
 }
 | TOK_CLASS '(' '*' ')'
 {
+    $$ = ASTMake1(AST_CLASS_NAME, NULL, $1.token_file, $1.token_line, NULL);
 }
 ;
 intrinsic_type_spec : TOK_INTEGER kind_selector
 {
+    $$ = ASTMake1(AST_INT_TYPE, $2, $1.token_file, $1.token_line, NULL);
 }
 | TOK_INTEGER
 {
+    $$ = ASTMake1(AST_INT_TYPE, NULL, $1.token_file, $1.token_line, NULL);
 }
 | TOK_REAL kind_selector
 {
+    $$ = ASTMake1(AST_FLOAT_TYPE, $2, $1.token_file, $1.token_line, NULL);
 }
 | TOK_REAL
 {
+    $$ = ASTMake1(AST_FLOAT_TYPE, NULL, $1.token_file, $1.token_line, NULL);
 }
 | TOK_DOUBLE TOK_PRECISION
 {
+    $$ = ASTLeaf(AST_DOUBLE_TYPE, $1.token_file, $1.token_line, NULL);
 }
 | TOK_DOUBLEPRECISION
 {
+    $$ = ASTLeaf(AST_DOUBLE_TYPE, $1.token_file, $1.token_line, NULL);
 }
 | TOK_COMPLEX kind_selector
 {
+    AST element_type = ASTMake1(AST_FLOAT_TYPE, $2, $1.token_file, $1.token_line, NULL);
+    $$ = ASTMake(AST_COMPLEX_TYPE, element_type, $1.token_file, $1.token_line, NULL);
 }
 | TOK_COMPLEX
 {
+    $$ = ASTMake(AST_COMPLEX_TYPE, NULL, $1.token_file, $1.token_line, NULL);
 }
 | TOK_CHARACTER char_selector
 {
+    $$ = ASTMake(AST_CHARACTER_TYPE, $2, $1.token_file, $1.token_line, NULL);
 }
 | TOK_CHARACTER
 {
+    $$ = ASTMake(AST_CHARACTER_TYPE, NULL, $1.token_file, $1.token_line, NULL);
 }
 | TOK_LOGICAL kind_selector
 {
+    $$ = ASTMake(AST_BOOL_TYPE, $2, $1.token_file, $1.token_line, NULL);
 }
 | TOK_LOGICAL
 {
+    $$ = ASTMake(AST_BOOL_TYPE, NULL, $1.token_file, $1.token_line, NULL);
 }
 | TOK_DOUBLECOMPLEX
 {
+    AST element_type = ASTLeaf(AST_DOUBLE_TYPE, $1.token_file, $1.token_line, NULL);
+    $$ = ASTMake(AST_COMPLEX_TYPE, element_type, $1.token_file, $1.token_line, NULL);
 }
 | TOK_DOUBLE TOK_COMPLEX
 {
+    AST element_type = ASTLeaf(AST_DOUBLE_TYPE, $1.token_file, $1.token_line, NULL);
+    $$ = ASTMake(AST_COMPLEX_TYPE, element_type, $1.token_file, $1.token_line, NULL);
 }
 | TOK_INTEGER '*' DECIMAL_LITERAL
 {
+    $$ = ASTMake1(AST_INT_TYPE, $3, $1.token_file, $1.token_line, NULL);
 }
 | TOK_REAL '*' DECIMAL_LITERAL
 {
+    $$ = ASTMake1(AST_FLOAT_TYPE, $3, $1.token_file, $1.token_line, NULL);
 }
 | TOK_COMPLEX '*' DECIMAL_LITERAL
 {
+    internal_error("Not implemented yet", 0);
 }
 | TOK_DOUBLEPRECISION '*' DECIMAL_LITERAL
 {
+    $$ = ASTMake1(AST_FLOAT_TYPE, $3, $1.token_file, $1.token_line, NULL);
 }
 | TOK_DOUBLE TOK_PRECISION '*' DECIMAL_LITERAL
 {
+    $$ = ASTMake1(AST_INT_TYPE, $3, $1.token_file, $1.token_line, NULL);
 }
 | TOK_LOGICAL '*' DECIMAL_LITERAL
 {
+    $$ = ASTMake1(AST_INT_TYPE, $3, $1.token_file, $1.token_line, NULL);
 }
 | TOK_VECTOR '(' vectorial_type ')'
 {
+    $$ = ASTMake1(AST_VECTOR_TYPE, $3, $1.token_file, $1.token_line, NULL);
 }
 ;
 vectorial_type : TOK_PIXEL 
 {
+    $$ = ASTLeaf(AST_PIXEL_TYPE, $1.token_file, $1.token_line, NULL);
 }
 | TOK_INTEGER kind_selector
 {
+    $$ = ASTMake1(AST_INT_TYPE, $2, $1.token_file, $1.token_line, NULL);
 }
 | TOK_REAL kind_selector
 {
+    $$ = ASTMake1(AST_FLOAT_TYPE, $2, $1.token_file, $1.token_line, NULL);
 }
 | TOK_INTEGER '*' DECIMAL_LITERAL
 {
+    $$ = ASTMake1(AST_INT_TYPE, $3, $1.token_file, $1.token_line, NULL);
 }
 | TOK_REAL '*' DECIMAL_LITERAL
 {
+    $$ = ASTMake1(AST_FLOAT_TYPE, $3, $1.token_file, $1.token_line, NULL);
 }
 | TOK_INTEGER
 {
+    $$ = ASTMake1(AST_INT_TYPE, NULL, $1.token_file, $1.token_line, NULL);
 }
 | TOK_REAL
 {
+    $$ = ASTMake1(AST_FLOAT_TYPE, NULL, $1.token_file, $1.token_line, NULL);
 }
 ;
 kind_selector : '(' TOK_KIND '=' int_constant_expr ')'
 {
+    $$ = $4;
 }
 | '(' int_constant_expr ')'
 {
+    $$ = $2;
 }
 ;
-int_literal_constant : digit_string kind_param
+int_literal_constant : boz_literal_constant
+| DECIMAL_LITERAL
 {
-}
-| digit_string
-{
-}
-;
-kind_param : digit_string
-{
-}
-| name
-{
-}
-;
-digit_string : DECIMAL_LITERAL
-{
+    $$ = ASTLeaf(AST_DECIMAL_LITERAL, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 real_literal_constant : REAL_LITERAL
 {
+    $$ = ASTLeaf(AST_FLOATING_LITERAL, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 complex_literal_constant : '(' complex_part ',' complex_part ')'
 {
+    $$ = ASTMake2(AST_COMPLEX_LITERAL, $2, $3, $1.token_file, $1.token_line, NULL);
 }
 ;
 sign : '+'
-{
-}
 | '-'
-{
-}
 ;
 complex_part : int_literal_constant
-{
-}
 | real_literal_constant
-{
-}
 | sign int_literal_constant
 {
+    ast_set_text($2, strprepend($1.token_text, ast_get_text($2)));
+    $$ = $2;
 }
 | sign real_literal_constant
 {
+    ast_set_text($2, strprepend($1.token_text, ast_get_text($2)));
+    $$ = $2;
 }
 | named_constant
-{
-}
 ;
 char_selector : length_selector
 {
 }
 | '(' TOK_LEN '=' type_param_value ',' TOK_KIND '=' int_constant_expr ')'
 {
+    $$ = ASTMake2(AST_CHAR_SELECTOR, $4, $8, $1.token_file, $1.token_line, NULL);
 }
 | '(' type_param_value ',' TOK_KIND '=' int_constant_expr ')'
 {
+    $$ = ASTMake2(AST_CHAR_SELECTOR, $2, $6, $1.token_file, $1.token_line, NULL);
 }
 | '(' type_param_value ',' int_constant_expr ')'
 {
+    $$ = ASTMake2(AST_CHAR_SELECTOR, $2, $4, $1.token_file, $1.token_line, NULL);
 }
 | '(' TOK_KIND '=' int_constant_expr ',' TOK_LEN '=' type_param_value ')'
 {
+    $$ = ASTMake2(AST_CHAR_SELECTOR, $8, $4, $1.token_file, $1.token_line, NULL);
 }
 | '(' TOK_KIND '=' int_constant_expr ')'
 {
+    $$ = ASTMake2(AST_CHAR_SELECTOR, NULL, $4, $1.token_file, $1.token_line, NULL);
 }
 ;
 length_selector : '(' TOK_LEN '=' type_param_value ')'
 {
+    $$ = ASTMake2(AST_CHAR_SELECTOR, $4, NULL, $1.token_file, $1.token_line, NULL);
 }
 | '(' type_param_value ')'
 {
+    $$ = ASTMake2(AST_CHAR_SELECTOR, $2, NULL, $1.token_file, $1.token_line, NULL);
 }
 | '*' char_length ','
 {
+    $$ = ASTMake2(AST_CHAR_SELECTOR, $2, NULL, $1.token_file, $1.token_line, NULL);
 }
 | '*' char_length
 {
+    $$ = ASTMake2(AST_CHAR_SELECTOR, $2, NULL, $1.token_file, $1.token_line, NULL);
 }
 ;
 char_length : '(' type_param_value ')'
 {
+    $$ = $2;
 }
 | int_literal_constant
-{
-}
 ;
 char_literal_constant : CHAR_LITERAL
 {
+    $$ = ASTLeaf(AST_STRING_LITERAL, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 logical_literal_constant : TOK_TRUE
 {
+    $$ = ASTLeaf(AST_BOOLEAN_LITERAL, $1.token_file, $1.token_line, $1.token_text);
 }
 | TOK_FALSE
 {
+    $$ = ASTLeaf(AST_BOOLEAN_LITERAL, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
-derived_type_def : derived_type_stmt type_param_def_stmt_seq private_or_sequence_seq component_part type_bound_procedure_part end_type_stmt
+
+derived_type_def : derived_type_stmt derived_type_body end_type_stmt
 {
-}
-| derived_type_stmt private_or_sequence_seq component_part type_bound_procedure_part end_type_stmt
-{
-}
-| derived_type_stmt type_param_def_stmt_seq component_part type_bound_procedure_part end_type_stmt
-{
-}
-| derived_type_stmt type_param_def_stmt_seq private_or_sequence_seq type_bound_procedure_part end_type_stmt
-{
-}
-| derived_type_stmt type_param_def_stmt_seq private_or_sequence_seq component_part end_type_stmt
-{
-}
-| derived_type_stmt type_param_def_stmt_seq private_or_sequence_seq end_type_stmt
-{
-}
-| derived_type_stmt type_param_def_stmt_seq type_bound_procedure_part end_type_stmt
-{
-}
-| derived_type_stmt type_param_def_stmt_seq component_part end_type_stmt
-{
-}
-| derived_type_stmt type_param_def_stmt_seq end_type_stmt
-{
-}
-| derived_type_stmt component_part type_bound_procedure_part end_type_stmt
-{
-}
-| derived_type_stmt private_or_sequence_seq type_bound_procedure_part end_type_stmt
-{
-}
-| derived_type_stmt private_or_sequence_seq component_part end_type_stmt
-{
-}
-| derived_type_stmt private_or_sequence_seq end_type_stmt
-{
-}
-| derived_type_stmt type_bound_procedure_part end_type_stmt
-{
-}
-| derived_type_stmt component_part end_type_stmt
-{
-}
-| derived_type_stmt end_type_stmt
-{
+    $$ = ASTMake3(AST_DERIVED_TYPE_DEF, $1, $2, $3, NULL);
 }
 ;
+
+derived_type_def : type_param_def_stmt_seq private_or_sequence_seq component_part type_bound_procedure_part 
+{
+    $$ = ASTMake4(AST_DERIVED_TYPE_DEF_BODY, $1, $2, $3, $4, ASTFileName($1), ASTLine($1), NULL);
+}
+| private_or_sequence_seq component_part type_bound_procedure_part 
+{
+    $$ = ASTMake4(AST_DERIVED_TYPE_DEF_BODY, NULL, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
+}
+| type_param_def_stmt_seq component_part type_bound_procedure_part 
+{
+    $$ = ASTMake4(AST_DERIVED_TYPE_DEF_BODY, $1, NULL, $2, $3, ASTFileName($1), ASTLine($1), NULL);
+}
+| type_param_def_stmt_seq private_or_sequence_seq type_bound_procedure_part 
+{
+    $$ = ASTMake4(AST_DERIVED_TYPE_DEF_BODY, $1, $2, NULL, $3, ASTFileName($1), ASTLine($1), NULL);
+}
+| type_param_def_stmt_seq private_or_sequence_seq component_part 
+{
+    $$ = ASTMake4(AST_DERIVED_TYPE_DEF_BODY, $1, $2, $3, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| type_param_def_stmt_seq private_or_sequence_seq 
+{
+    $$ = ASTMake4(AST_DERIVED_TYPE_DEF_BODY, $1, $2, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| type_param_def_stmt_seq type_bound_procedure_part 
+{
+    $$ = ASTMake4(AST_DERIVED_TYPE_DEF_BODY, $1, NULL, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
+}
+| type_param_def_stmt_seq component_part 
+{
+    $$ = ASTMake4(AST_DERIVED_TYPE_DEF_BODY, $1, NULL, $2, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| type_param_def_stmt_seq 
+{
+    $$ = ASTMake4(AST_DERIVED_TYPE_DEF_BODY, $1, NULL, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| component_part type_bound_procedure_part 
+{
+    $$ = ASTMake4(AST_DERIVED_TYPE_DEF_BODY, NULL, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
+}
+| private_or_sequence_seq type_bound_procedure_part 
+{
+    $$ = ASTMake4(AST_DERIVED_TYPE_DEF_BODY, NULL, $1, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
+}
+| private_or_sequence_seq component_part 
+{
+    $$ = ASTMake4(AST_DERIVED_TYPE_DEF_BODY, NULL, $1, $2, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| private_or_sequence_seq 
+{
+    $$ = ASTMake4(AST_DERIVED_TYPE_DEF_BODY, NULL, $1, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| type_bound_procedure_part 
+{
+    $$ = ASTMake4(AST_DERIVED_TYPE_DEF_BODY, NULL, NULL, NULL, $1, ASTFileName($1), ASTLine($1), NULL);
+}
+| component_part 
+{
+    $$ = ASTMake4(AST_DERIVED_TYPE_DEF_BODY, NULL, NULL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| 
+{
+    $$ = NULL;
+}
+;
+
 derived_type_stmt : labeldef TOK_TYPE ',' type_attr_spec_list ':' ':' name '(' type_param_name_list ')' eos
 {
+    $$ = ASTMake3(AST_DERIVED_TYPE_STATEMENT, $1, $4, $9, $2.token_file, $2.token_line, $7.token_name);
 }
 | labeldef TOK_TYPE name '(' type_param_name_list ')' eos
 {
+    $$ = ASTMake3(AST_DERIVED_TYPE_STATEMENT, $1, NULL, $5, $2.token_file, $2.token_line, $3.token_name);
 }
 | labeldef TOK_TYPE ':' ':' name '(' type_param_name_list ')' eos
 {
+    $$ = ASTMake3(AST_DERIVED_TYPE_STATEMENT, $1, NULL, $7, $2.token_file, $2.token_line, $5.token_name);
 }
 | labeldef TOK_TYPE ',' type_attr_spec_list ':' ':' name eos
 {
+    $$ = ASTMake3(AST_DERIVED_TYPE_STATEMENT, $1, $4, NULL, $2.token_file, $2.token_line, $7.token_name);
 }
 | labeldef TOK_TYPE ':' ':' name eos
 {
+    $$ = ASTMake3(AST_DERIVED_TYPE_STATEMENT, $1, NULL, NULL, $2.token_file, $2.token_line, $5.token_name);
 }
 | labeldef TOK_TYPE name eos
 {
+    $$ = ASTMake3(AST_DERIVED_TYPE_STATEMENT, $1, NULL, NULL, $2.token_file, $2.token_line, $3.token_name);
 }
 ;
 type_attr_spec : TOK_ABSTRACT
 {
+    $$ = ASTLeaf(AST_ABSTRACT, $1.token_file, $1.token_line, $1.token_name);
 }
 | access_spec
-{
-}
 | TOK_BIND '(' TOK_C ')'
 {
+    $$ = ASTLeaf(AST_BIND_C, $1.token_file, $1.token_line, $3.token_name);
 }
 | TOK_EXTENDS '(' name ')'
 {
+    $$ = ASTLeaf(AST_EXTENDS, $1.token_file, $1.token_line, $2.token_name);
 }
 ;
 private_or_sequence : private_stmt
-{
-}
 | sequence_stmt
-{
-}
 ;
 end_type_stmt : labeldef TOK_END TOK_TYPE name eos
 {
+    $$ = ASTMake2(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
 }
 | labeldef TOK_END TOK_TYPE eos
 {
+    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_ENDTYPE name eos
 {
+    $$ = ASTMake2(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ENDTYPE eos
 {
+    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 sequence_stmt : labeldef TOK_SEQUENCE eos
 {
+    $$ = ASTMake1(AST_SEQUENCE_STATEMENT, $1, $2.token_file, $2.token_line, NULL);
 }
 ;
 type_param_def_stmt : labeldef TOK_INTEGER kind_selector ',' type_param_attr_spec ':' ':' type_param_decl_list eos
 {
+    $$ = ASTMake4(AST_TYPE_PARAMETER_DEF_STATEMENT, $1, $3, $5, $8, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_INTEGER ',' type_param_attr_spec ':' ':' type_param_decl_list eos
 {
+    $$ = ASTMake4(AST_TYPE_PARAMETER_DEF_STATEMENT, $1, NULL, $4, $7, $2.token_file, $2.token_line, NULL);
 }
 ;
 type_param_decl : name '=' int_constant_expr
 {
+    $$ = ASTMake2(AST_TYPE_PARAM_DECL, $1, $2, $1.token_file, $1.token_line, NULL);
 }
 | name
 {
+    $$ = ASTMake2(AST_TYPE_PARAM_DECL, $1, NULL, $1.token_file, $1.token_line, NULL);
 }
 ;
 type_param_attr_spec : TOK_KIND
 {
+    $$ = ASTLeaf(AST_KIND_SPEC, $1.token_file, $1.token_line, NULL);
 }
 | TOK_LEN
 {
+    $$ = ASTLeaf(AST_LEN_SPEC, $1.token_file, $1.token_line, NULL);
 }
 ;
 component_part : component_def_stmts_seq
-{
-}
 ;
 component_def_stmts : data_component_def_stmt
-{
-}
 | proc_component_def_stmt
-{
-}
 ;
 data_component_def_stmt : labeldef declaration_type_spec ',' component_attr_spec_list ':' ':' component_decl_list eos
 {
+    $$ = ASTMake4(AST_DATA_COMPONENT_DEF_STATEMENT, $1, $2, $4, $7, ASTFileName($2), ASTLine($2), NULL);
 }
 | labeldef declaration_type_spec component_decl_list eos
 {
+    $$ = ASTMake4(AST_DATA_COMPONENT_DEF_STATEMENT, $1, $2, NULL, $3, ASTFileName($2), ASTLine($2), NULL);
 }
 | labeldef declaration_type_spec ':' ':' component_decl_list eos
 {
+    $$ = ASTMake4(AST_DATA_COMPONENT_DEF_STATEMENT, $1, $2, NULL, $5, ASTFileName($2), ASTLine($2), NULL);
 }
 ;
 component_attr_spec : access_spec
-{
-}
 | TOK_ALLOCATABLE
 {
+    $$ = ASTLeaf(AST_ALLOCATABLE_SPEC, $1.token_file, $1.token_line, $1.token_text);
 }
-| TOK_CODIMENSION lbracket coarray_spec rbracket
+| TOK_CODIMENSION '[' coarray_spec ']'
 {
+    $$ = ASTMake1(AST_CODIMENSION_SPEC, $3, $1.token_file, $1.token_line, $1.token_text);
 }
 | TOK_CONTIGUOUS
 {
+    $$ = ASTLeaf(AST_CONTIGUOUS_SPEC, $1.token_file, $1.token_line, $1.token_text);
 }
 | TOK_DIMENSION '(' component_array_spec ')'
 {
+    $$ = ASTMake1(AST_DIMENSION_SPEC, $3, $1.token_file, $1.token_line, $1.token_text);
 }
 | TOK_POINTER
 {
+    $$ = ASTLeaf(AST_POINTER_SPEC, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
-component_decl : name '(' component_array_spec ')' lbracket coarray_spec rbracket '*' char_length component_initialization
+
+component_decl : name component_decl_specs
 {
+    $$ = ASTMake2(AST_DECLARATION, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
-| name lbracket coarray_spec rbracket '*' char_length component_initialization
+;
+
+component_decl_specs : '(' component_array_spec ')' '[' coarray_spec ']' '*' char_length component_initialization
 {
+    $$ = ASTMake4(AST_DECLARATION_SPECS, $2, $5, $8, $9, $1.token_line, $1.token_text, NULL);
 }
-| name '(' component_array_spec ')' '*' char_length component_initialization
+| '[' coarray_spec ']' '*' char_length component_initialization
 {
+    $$ = ASTMake4(AST_DECLARATION_SPECS, NULL, $2, $4, $5, $1.token_line, $1.token_text, NULL);
 }
-| name '(' component_array_spec ')' lbracket coarray_spec rbracket component_initialization
+| '(' component_array_spec ')' '*' char_length component_initialization
 {
+    $$ = ASTMake4(AST_DECLARATION_SPECS, $2, NULL, $5, $6, $1.token_line, $1.token_text, NULL);
 }
-| name '(' component_array_spec ')' lbracket coarray_spec rbracket '*' char_length
+| '(' component_array_spec ')' '[' coarray_spec ']' component_initialization
 {
+    $$ = ASTMake4(AST_DECLARATION_SPECS, $2, $5, NULL, $7, $1.token_line, $1.token_text, NULL);
 }
-| name '(' component_array_spec ')' lbracket coarray_spec rbracket
+| '(' component_array_spec ')' '[' coarray_spec ']' '*' char_length
 {
+    $$ = ASTMake4(AST_DECLARATION_SPECS, $2, $5, $8, NULL, $1.token_line, $1.token_text, NULL);
 }
-| name '(' component_array_spec ')' component_initialization
+| '(' component_array_spec ')' '[' coarray_spec ']'
 {
+    $$ = ASTMake4(AST_DECLARATION_SPECS, $2, $5, NULL, NULL, $1.token_line, $1.token_text, NULL);
 }
-| name '(' component_array_spec ')' '*' char_length
+| '(' component_array_spec ')' component_initialization
 {
+    $$ = ASTMake4(AST_DECLARATION_SPECS, $2, NULL, NULL, $4, $1.token_line, $1.token_text, NULL);
 }
-| name '(' component_array_spec ')'
+| '(' component_array_spec ')' '*' char_length
 {
+    $$ = ASTMake4(AST_DECLARATION_SPECS, $2, NULL, $4, NULL, $1.token_line, $1.token_text, NULL);
 }
-| name '*' char_length component_initialization
+| '(' component_array_spec ')'
 {
+    $$ = ASTMake4(AST_DECLARATION_SPECS, $2, NULL, NULL, NULL, $1.token_line, $1.token_text, NULL);
 }
-| name lbracket coarray_spec rbracket component_initialization
+| '*' char_length component_initialization
 {
+    $$ = ASTMake4(AST_DECLARATION_SPECS, NULL, NULL, $2, NULL, $1.token_line, $1.token_text, NULL);
 }
-| name lbracket coarray_spec rbracket '*' char_length
+| '[' coarray_spec ']' component_initialization
 {
+    $$ = ASTMake4(AST_DECLARATION_SPECS, NULL, $2, NULL, $4, $1.token_line, $1.token_text, NULL);
 }
-| name lbracket coarray_spec rbracket
+| '[' coarray_spec ']' '*' char_length
 {
+    $$ = ASTMake4(AST_DECLARATION_SPECS, NULL, $2, NULL, $4, $1.token_line, $1.token_text, NULL);
 }
-| name component_initialization
+| '[' coarray_spec ']'
 {
+    $$ = ASTMake4(AST_DECLARATION_SPECS, NULL, $2, NULL, NULL, $1.token_line, $1.token_text, NULL);
 }
-| name '*' char_length
+| component_initialization
 {
+    $$ = ASTMake4(AST_DECLARATION_SPECS, NULL, NULL, NULL, $1, ASTFileName($1), ASTLine($1), NULL);
 }
-| name
+| '*' char_length
 {
+    $$ = ASTMake4(AST_DECLARATION_SPECS, NULL, NULL, $2, NULL, $1.token_line, $1.token_text, NULL);
 }
+|
+{
+    $$ = NULL;
+}
+;
+component_initialization: initialization
 ;
 component_array_spec : explicit_shape_spec_list
-{
-}
 | deferred_shape_spec_list
-{
-}
 ;
 proc_component_def_stmt : labeldef TOK_PROCEDURE '(' proc_interface ')' ',' proc_component_attr_spec_list ':' ':' proc_decl_list eos
 {
+    $$ = ASTMake4(AST_PROC_COMPONENT_DEF_STATEMENT, $1, $4, $7, $10, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_PROCEDURE '(' ')' ',' proc_component_attr_spec_list ':' ':' proc_decl_list eos
 {
+    $$ = ASTMake4(AST_PROC_COMPONENT_DEF_STATEMENT, $1, NULL, $6, $9, $2.token_file, $2.token_line, NULL);
 }
 ;
 proc_component_attr_spec : TOK_POINTER
 {
+    $$ = ASTLeaf(AST_POINTER_SPEC, $1.token_file, $1.token_line, NULL);
 }
 | TOK_PASS '(' name ')'
 {
+    $$ = ASTMake1(AST_PASS_SPEC, $3, $1.token_file, $1.token_line, NULL);
 }
 | TOK_PASS
 {
+    $$ = ASTMake1(AST_PASS_SPEC, NULL, $1.token_file, $1.token_line, NULL);
 }
 | TOK_NOPASS
 {
+    $$ = ASTLeaf(AST_NOPASS_SPEC, $1.token_file, $1.token_line, NULL);
 }
 | access_spec
-{
-}
-;
-component_initialization : '=' constant_expr
-{
-}
-| TOK_POINTER_ACCESS null_init
-{
-}
-| TOK_POINTER_ACCESS initial_data_target
-{
-}
-;
-initial_data_target : data_ref
-{
-}
 ;
 type_bound_procedure_part : contains_stmt private_stmt type_bound_proc_binding_seq
 {
@@ -1877,7 +1752,7 @@ hex_constant : HEX_LITERAL
 array_constructor : '(' '/' ac_spec '/' ')'
 {
 }
-| lbracket ac_spec rbracket
+| '[' ac_spec ']'
 {
 }
 ;
@@ -1888,14 +1763,6 @@ ac_spec : type_spec ':' ':'
 {
 }
 | ac_value_list
-{
-}
-;
-lbracket : '['
-{
-}
-;
-rbracket : ']'
 {
 }
 ;
@@ -1940,7 +1807,7 @@ attr_spec : access_spec
 | TOK_ASYNCHRONOUS
 {
 }
-| TOK_CODIMENSION lbracket coarray_spec rbracket
+| TOK_CODIMENSION '[' coarray_spec ']'
 {
 }
 | TOK_CONTIGUOUS
@@ -1986,19 +1853,19 @@ attr_spec : access_spec
 {
 }
 ;
-entity_decl : name '(' array_spec ')' lbracket coarray_spec rbracket '*' char_length initialization
+entity_decl : name '(' array_spec ')' '[' coarray_spec ']' '*' char_length initialization
 {
 }
-| name lbracket coarray_spec rbracket '*' char_length initialization
+| name '[' coarray_spec ']' '*' char_length initialization
 {
 }
 | name '(' array_spec ')' '*' char_length initialization
 {
 }
-| name '(' array_spec ')' lbracket coarray_spec rbracket initialization
+| name '(' array_spec ')' '[' coarray_spec ']' initialization
 {
 }
-| name '(' array_spec ')' lbracket coarray_spec rbracket '*' char_length
+| name '(' array_spec ')' '[' coarray_spec ']' '*' char_length
 {
 }
 | name '*' char_length
@@ -2007,7 +1874,7 @@ entity_decl : name '(' array_spec ')' lbracket coarray_spec rbracket '*' char_le
 | name
 {
 }
-| name '(' array_spec ')' lbracket coarray_spec rbracket
+| name '(' array_spec ')' '[' coarray_spec ']'
 {
 }
 | name '(' array_spec ')' initialization
@@ -2022,13 +1889,13 @@ entity_decl : name '(' array_spec ')' lbracket coarray_spec rbracket '*' char_le
 | name '*' char_length initialization
 {
 }
-| name lbracket coarray_spec rbracket initialization
+| name '[' coarray_spec ']' initialization
 {
 }
-| name lbracket coarray_spec rbracket '*' char_length
+| name '[' coarray_spec ']' '*' char_length
 {
 }
-| name lbracket coarray_spec rbracket
+| name '[' coarray_spec ']'
 {
 }
 | name initialization
@@ -2037,15 +1904,9 @@ entity_decl : name '(' array_spec ')' lbracket coarray_spec rbracket '*' char_le
 ;
 initialization : '=' constant_expr
 {
+    $$ = $1;
 }
-| TOK_POINTER_ACCESS null_init
-{
-}
-| TOK_POINTER_ACCESS initial_data_target
-{
-}
-;
-null_init : function_reference
+| TOK_POINTER_ACCESS data_ref
 {
 }
 ;
@@ -2189,10 +2050,10 @@ allocatable_stmt : labeldef TOK_ALLOCATABLE ':' ':' allocatable_decl_list eos
 {
 }
 ;
-allocatable_decl : name '(' array_spec ')' lbracket coarray_spec rbracket
+allocatable_decl : name '(' array_spec ')' '[' coarray_spec ']'
 {
 }
-| name lbracket coarray_spec rbracket
+| name '[' coarray_spec ']'
 {
 }
 | name '(' array_spec ')'
@@ -2230,7 +2091,7 @@ codimension_stmt : labeldef TOK_CODIMENSION ':' ':' codimension_decl_list eos
 {
 }
 ;
-codimension_decl : name lbracket coarray_spec rbracket
+codimension_decl : name '[' coarray_spec ']'
 {
 }
 ;
@@ -2349,10 +2210,10 @@ target_stmt : labeldef TOK_TARGET ':' ':' target_decl_list eos
 {
 }
 ;
-target_decl : name '(' array_spec ')' lbracket coarray_spec rbracket
+target_decl : name '(' array_spec ')' '[' coarray_spec ']'
 {
 }
-| name lbracket coarray_spec rbracket
+| name '[' coarray_spec ']'
 {
 }
 | name '(' array_spec ')'
@@ -2525,7 +2386,7 @@ stride : int_expr
 {
 }
 ;
-image_selector : lbracket cosubscript_list rbracket
+image_selector : '[' cosubscript_list ']'
 {
 }
 ;
@@ -2575,7 +2436,7 @@ allocation : allocate_object
 {
 }
 ;
-allocate_object : allocate_object lbracket allocate_coarray_spec rbracket
+allocate_object : allocate_object '[' allocate_coarray_spec ']'
 {
 }
 | data_ref
@@ -2639,9 +2500,6 @@ primary : unsigned_arithmetic_literal_constant
 {
 }
 | char_literal_constant
-{
-}
-| boz_literal_constant
 {
 }
 | array_constructor 
@@ -4376,14 +4234,7 @@ proc_decl : name TOK_POINTER_ACCESS proc_pointer_init
 {
 }
 ;
-proc_pointer_init : null_init
-{
-}
-| initial_proc_target
-{
-}
-;
-initial_proc_target : name
+proc_pointer_init : data_ref
 {
 }
 ;
