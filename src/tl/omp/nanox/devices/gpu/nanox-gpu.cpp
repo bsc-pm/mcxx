@@ -334,13 +334,13 @@ void DeviceGPU::create_outline(
 		Symbol function_symbol = enclosing_function.get_function_symbol();
 
 		instrument_before
-	                << "static int nanos_funct_id_init = 0;"
-            	 	<< "static nanos_event_key_t nanos_instr_uf_name_key = 0;"
+			<< "static int nanos_funct_id_init = 0;"
+			<< "static nanos_event_key_t nanos_instr_uf_name_key = 0;"
 			<< "static nanos_event_value_t nanos_instr_uf_name_value = 0;"
 			<< "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
 			<< "static nanos_event_value_t nanos_instr_uf_location_value = 0;"
 			<< "if (nanos_funct_id_init == 0)"
-			<< "{"
+		<< "{"
 			<<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-name\", &nanos_instr_uf_name_key);"
 			<<    "if (err != NANOS_OK) nanos_handle_error(err);"
 			<<    "err = nanos_instrument_register_value ( &nanos_instr_uf_name_value, \"user-funct-name\","
@@ -354,13 +354,20 @@ void DeviceGPU::create_outline(
 			<<    "if (err != NANOS_OK) nanos_handle_error(err);"
 			<<    "nanos_funct_id_init = 1;"
 			<< "}"
-			<< "nanos_instrument_point_event(1, &nanos_instr_uf_location_key, &nanos_instr_uf_location_value);"
-			<< "nanos_instrument_enter_burst(nanos_instr_uf_name_key, nanos_instr_uf_name_value);"
+		<< "nanos_event_t events_before[2];"
+			<< "events_before[0].type = NANOS_BURST_START;"
+			<< "events_before[0].info.burst.key = nanos_instr_uf_name_key;"
+			<< "events_before[0].info.burst.value = nanos_instr_uf_name_value;"
+			<< "events_before[1].type = NANOS_BURST_START;"
+			<< "events_before[1].info.burst.key = nanos_instr_uf_location_key;"
+			<< "events_before[1].info.burst.value = nanos_instr_uf_location_value;"
+		<< "nanos_instrument_events(2, events_before);"
+			// << "nanos_instrument_point_event(1, &nanos_instr_uf_location_key, &nanos_instr_uf_location_value);"
+			// << "nanos_instrument_enter_burst(nanos_instr_uf_name_key, nanos_instr_uf_name_value);"
 			;
 
 		instrument_after
-			//<< "nanos_instrument_leave_burst(nanos_instr_uf_name_key);"
-			<< "nanos_instrument_set_user_fun_key(nanos_instr_uf_name_key);"
+			<< "nanos_instrument_close_user_fun_event();"
 			;
 
 
