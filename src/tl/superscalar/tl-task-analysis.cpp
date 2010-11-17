@@ -294,10 +294,10 @@ namespace TL
 		oss << "# " << construct.get_ast().get_line() << " \"" << construct.get_ast().get_file() << "\"" << std::endl;
 		line_annotation = oss.str();
 		
-		ObjectList<std::string> reduction_regions = construct.get_clause("reduction").get_arguments(ExpressionTokenizer());
+		ObjectList<std::string> reduction_regions = construct.get_clause("reduction").get_arguments(ExpressionTokenizerTrim());
 		
 		// Build all input regions
-		ObjectList<std::string> input_parameters = construct.get_clause("input").get_arguments(ExpressionTokenizer());
+		ObjectList<std::string> input_parameters = construct.get_clause("input").get_arguments(ExpressionTokenizerTrim());
 		for (ObjectList<std::string>::iterator it = input_parameters.begin(); it != input_parameters.end(); it++)
 		{
 			std::string const &parameter_specification = *it;
@@ -321,7 +321,7 @@ namespace TL
 		}
 		
 		// Build all output regions
-		ObjectList<std::string> output_parameters = construct.get_clause("output").get_arguments(ExpressionTokenizer());
+		ObjectList<std::string> output_parameters = construct.get_clause("output").get_arguments(ExpressionTokenizerTrim());
 		for (ObjectList<std::string>::iterator it = output_parameters.begin(); it != output_parameters.end(); it++)
 		{
 			std::string const &parameter_specification = *it;
@@ -345,7 +345,7 @@ namespace TL
 		}
 		
 		// Build all inout regions
-		ObjectList<std::string> inout_parameters = construct.get_clause("inout").get_arguments(ExpressionTokenizer());
+		ObjectList<std::string> inout_parameters = construct.get_clause("inout").get_arguments(ExpressionTokenizerTrim());
 		for (ObjectList<std::string>::iterator it = inout_parameters.begin(); it != inout_parameters.end(); it++)
 		{
 			std::string const &parameter_specification = *it;
