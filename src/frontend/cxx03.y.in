@@ -1939,13 +1939,13 @@ enumeration_definition : IDENTIFIER
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, $1.token_file, $1.token_line, $1.token_text);
 
-	$$ = ASTMake2(AST_ENUM_DEF, identifier, NULL, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_ENUMERATOR_DEF, identifier, NULL, $1.token_file, $1.token_line, NULL);
 }
 | IDENTIFIER '=' constant_expression
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, $1.token_file, $1.token_line, $1.token_text);
 
-	$$ = ASTMake2(AST_ENUM_DEF, identifier, $3, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_ENUMERATOR_DEF, identifier, $3, $1.token_file, $1.token_line, NULL);
 }
 ;
 

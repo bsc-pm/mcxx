@@ -158,7 +158,7 @@ HANDLER_PROTOTYPE(operator_function_id_handler);
 HANDLER_PROTOTYPE(asm_definition_handler);
 HANDLER_PROTOTYPE(bitfield_declarator_handler);
 HANDLER_PROTOTYPE(enum_specifier_handler);
-HANDLER_PROTOTYPE(enum_def_handler);
+HANDLER_PROTOTYPE(enumerator_def_handler);
 HANDLER_PROTOTYPE(explicit_instantiation_handler);
 HANDLER_PROTOTYPE(explicit_specialization_handler);
 HANDLER_PROTOTYPE(linkage_specification_handler);
@@ -503,7 +503,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_THREAD_SPEC, simple_parameter_handler, "__thread"),
     NODE_HANDLER(AST_BITFIELD_DECLARATOR, bitfield_declarator_handler, NULL),
     NODE_HANDLER(AST_ENUM_SPECIFIER, enum_specifier_handler, NULL),
-    NODE_HANDLER(AST_ENUM_DEF, enum_def_handler, NULL),
+    NODE_HANDLER(AST_ENUMERATOR_DEF, enumerator_def_handler, NULL),
     NODE_HANDLER(AST_EXPLICIT_INSTANTIATION, explicit_instantiation_handler, NULL),
     NODE_HANDLER(AST_EXPLICIT_SPECIALIZATION, explicit_specialization_handler, NULL),
     NODE_HANDLER(AST_LINKAGE_SPEC, linkage_specification_handler, NULL),
@@ -2003,7 +2003,7 @@ static void gcc_enum_specifier_handler(FILE* f, AST a, prettyprint_context_t* pt
     token_fprintf(f, a, pt_ctx, "}");
 }
 
-static void enum_def_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+static void enumerator_def_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     token_fprintf(f, a, pt_ctx, "\n");
     indent_at_level(f, a, pt_ctx);
