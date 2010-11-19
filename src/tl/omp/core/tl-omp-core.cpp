@@ -609,6 +609,12 @@ namespace TL
                     /* Allow extended references */ true);
             std::for_each(fp_inout_references.begin(), fp_inout_references.end(), 
                     DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_FIRSTPRIVATE));
+
+            ObjectList<DataReference> fp_reduction_references;
+            get_clause_symbols(construct.get_clause("__fp_reduction"), fp_reduction_references, 
+                    /* Allow extended references */ true);
+            std::for_each(fp_reduction_references.begin(), fp_reduction_references.end(), 
+                    DataSharingEnvironmentSetter(construct.get_ast(), data_sharing, DS_FIRSTPRIVATE));
         }
 
         DataSharingAttribute Core::get_default_data_sharing(PragmaCustomConstruct construct,

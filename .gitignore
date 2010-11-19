@@ -22,3 +22,11 @@ m4/lt~obsolete.m4
 .cproject
 .project
 config.h.in~
+*.o
+*.lo
+*.la
+*.a
+*.so
+Makefile
+.deps/
+.libs/
