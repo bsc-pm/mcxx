@@ -7837,6 +7837,13 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         int num_surrogate_functions = 0;
 
         type_t* actual_class_type = get_actual_class_type(class_type);
+        if (is_named_class_type(class_type)
+                && class_type_is_incomplete_independent(actual_class_type))
+        {
+            scope_entry_t* symbol = named_type_get_symbol(class_type);
+            instantiate_template_class(symbol, decl_context, 
+                    ASTFileName(called_expression), ASTLine(called_expression));
+        }
 
         scope_entry_list_t* conversion_list = class_type_get_all_conversions(actual_class_type, decl_context);
 
@@ -10509,6 +10516,14 @@ static void accessible_types_through_conversion(type_t* t, type_t ***result, int
     else if (is_class_type(t))
     {
         type_t* class_type = get_actual_class_type(t);
+        if (is_named_class_type(t)
+                && class_type_is_incomplete_independent(class_type))
+        {
+            scope_entry_t* symbol = named_type_get_symbol(t);
+            instantiate_template_class(symbol, decl_context, 
+                    // FIXME - Locus was lost here!
+                    0, 0);
+        }
 
         scope_entry_list_t* conversion_list = class_type_get_all_conversions(class_type, decl_context);
 
