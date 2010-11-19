@@ -351,7 +351,7 @@ cxx-parser.c : cxx03.y
 if BISON_BUILDING
 	$(BISON_verbose)$(BISON) -pmcxx --debug --defines=cxx-parser-internal.h --report=all --output=cxx-parser.c cxx03.y
 else
-	@echo "*** ERROR: file cxx03.y was modified but no suitable bison-rofi was found during configure ***"
+	@echo "*** ERROR: file cxx03.y was modified but no suitable bison was found during configure ***"
 	@exit 1
 endif
 
@@ -390,7 +390,7 @@ c99-parser.c : c99.y
 if BISON_BUILDING
 	$(BISON_verbose)$(BISON) -pmc99 --debug --defines=c99-parser-internal.h --report=all --output=c99-parser.c c99.y
 else
-	@echo "*** ERROR: file c99.y was modified but no suitable bison-rofi was found during configure ***"
+	@echo "*** ERROR: file c99.y was modified but no suitable bison was found during configure ***"
 	@exit 1
 endif
 
