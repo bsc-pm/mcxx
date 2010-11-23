@@ -3800,7 +3800,7 @@ static const char* get_unqualified_template_symbol_name(scope_entry_t* entry,
     const char* result = "";
 
     // It is not enough with the name, we have to print the arguments
-    result = strappend(result, "<");
+    result = strappend(result, "< ");
     template_argument_list_t* template_arguments = template_specialized_type_get_template_arguments(entry->type_information);
 
     int i;
