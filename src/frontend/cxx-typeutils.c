@@ -5471,12 +5471,11 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
 
                     if (parts->template_arguments != NULL)
                     {
-                        result = strappend(result, "<");
+                        result = strappend(result, "< ");
                         int i;
                         for (i = 0; i < parts->template_arguments->num_arguments; i++)
                         {
                             template_argument_t * template_arg = parts->template_arguments->argument_list[i];
-
 
                             switch (template_arg->kind)
                             {
@@ -6073,7 +6072,7 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
 static const char* get_template_arguments_list_str(template_argument_list_t* template_arguments)
 {
     const char* result = "";
-    result = strappend(result, "<");
+    result = strappend(result, "< ");
     int i;
     for (i = 0; i < template_arguments->num_arguments; i++)
     {
