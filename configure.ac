@@ -1169,6 +1169,7 @@ AC_CONFIG_FILES([Makefile
            tests/Makefile
            tests/config/Makefile
            tests/config/mercurium
+           tests/config/mercurium-libraries
            tests/config/mercurium-extensions
            tests/config/mercurium-omp
            tests/config/mercurium-nanox

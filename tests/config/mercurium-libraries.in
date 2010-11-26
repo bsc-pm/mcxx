@@ -1,0 +1,19 @@
+#!/bin/bash
+
+CACHE_LIBRARIES_LT="@abs_builddir@/libraries-libtool.cache"
+
+echo "export LD_LIBRARY_PATH="
+
+if [ ! -e ${CACHE_LIBRARIES_LT} ];
+then
+  cat /dev/null > ${CACHE_LIBRARIES_LT}
+  LIB_DIRS=$((find @abs_top_builddir@ -iname '*.la' \
+              -not '(' -path '*/.libs/*' -or -path '*/_libs/*' ')' \
+              -exec dirname {} \;) | sort -u )
+  for dir in $LIB_DIRS;
+  do
+       echo "export LD_LIBRARY_PATH=${dir}/.libs:\$LD_LIBRARY_PATH" >> ${CACHE_LIBRARIES_LT}
+  done
+fi
+
+cat ${CACHE_LIBRARIES_LT}

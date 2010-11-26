@@ -88,8 +88,6 @@ else
 # '$$ORIGIN' is a relocatable hint to GNU ld
 mcxx_LDFLAGS = \
     -Wl,-E \
-    -Wl,@RPATH_PARAMETER@,$(libdir) \
-    -Wl,@RPATH_PARAMETER@,$(pkglibdir) \
     -Wl,@RPATH_PARAMETER@,'$$ORIGIN'/../lib \
     -Wl,@RPATH_PARAMETER@,'$$ORIGIN'/../lib/mcxx \
     $(END)
