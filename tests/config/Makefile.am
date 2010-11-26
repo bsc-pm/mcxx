@@ -1,7 +1,7 @@
 EXTRA_DIST=bets.in
 
 CLEANFILES=
-CLEANFILES+=libraries-libtool
+CLEANFILES+=libraries-libtool.cache
 
 BUILT_SOURCES=bets
 
