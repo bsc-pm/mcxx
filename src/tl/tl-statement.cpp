@@ -31,8 +31,16 @@ namespace TL
     const PredicateAttr IfStatement::predicate(LANG_IS_IF_STATEMENT);
     const PredicateAttr DoWhileStatement::predicate(LANG_IS_DO_STATEMENT);
     const PredicateAttr SwitchStatement::predicate(LANG_IS_SWITCH_STATEMENT);
+    const PredicateAttr CaseStatement::predicate(LANG_IS_CASE_STATEMENT);
+    const PredicateAttr DefaultStatement::predicate(LANG_IS_DEFAULT_STATEMENT);
+    const PredicateAttr BreakStatement::predicate(LANG_IS_BREAK_STATEMENT);
+    const PredicateAttr ContinueStatement::predicate(LANG_IS_CONTINUE_STATEMENT);
+    const PredicateAttr TryStatement::predicate(LANG_IS_TRY_BLOCK);
     const PredicateAttr ReturnStatement::predicate(LANG_IS_RETURN_STATEMENT);
     const PredicateAttr GotoStatement::predicate(LANG_IS_GOTO_STATEMENT);
+    const PredicateAttr LabeledStatement::predicate(LANG_IS_LABELED_STATEMENT);
+
+	// Falta try_block
 
     bool Condition::is_expression() const
     {
@@ -95,6 +103,30 @@ namespace TL
 
         return result;
     }
+
+	bool Statement::breaks_flow()
+	{
+		if ( (TL::Bool) this->_ref.get_attribute(LANG_IS_FOR_STATEMENT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_WHILE_STATEMENT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_IF_STATEMENT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_DO_STATEMENT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_SWITCH_STATEMENT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_CASE_STATEMENT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_DEFAULT_STATEMENT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_BREAK_STATEMENT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_CONTINUE_STATEMENT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_RETURN_STATEMENT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_GOTO_STATEMENT) ||
+				(TL::Bool) this->_ref.get_attribute(LANG_IS_LABELED_STATEMENT)
+			)
+		{
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
 
     bool ForStatement::check_statement()
     {
@@ -400,24 +432,24 @@ namespace TL
         return Expression(_ref, _scope_link);
     }
 
-    bool Statement::is_labeled() const
-    {
-        TL::Bool b = _ref.get_attribute(LANG_IS_LABELED_STATEMENT);
-        return b;
-    }
-
-    std::string Statement::get_label() const
-    {
-        std::string result = "";
-
-        TL::AST_t ast = _ref.get_attribute(LANG_STATEMENT_LABEL);
-        if (ast.is_valid())
-        {
-            result = ast.prettyprint();
-        }
-
-        return result;
-    }
+//     bool Statement::is_labeled() const
+//     {
+//         TL::Bool b = _ref.get_attribute(LANG_IS_LABELED_STATEMENT);
+//         return b;
+//     }
+// 
+//     std::string Statement::get_label() const
+//     {
+//         std::string result = "";
+// 
+//         TL::AST_t ast = _ref.get_attribute(LANG_STATEMENT_LABEL);
+//         if (ast.is_valid())
+//         {
+//             result = ast.prettyprint();
+//         }
+// 
+//         return result;
+//     }
 
     bool Statement::is_in_compound_statement() const
     {
@@ -526,6 +558,12 @@ namespace TL
         return Condition(condition_tree, _scope_link);
     }
 
+    Statement SwitchStatement::get_switch_body() const
+    {
+        TL::AST_t switch_body_tree = _ref.get_attribute(LANG_SWITCH_STATEMENT_BODY);
+        return Statement(switch_body_tree, _scope_link);
+    }
+
     Expression CaseStatement::get_case_expression() const
     {
         TL::AST_t case_expression = _ref.get_attribute(LANG_CASE_EXPRESSION);
@@ -536,6 +574,12 @@ namespace TL
     {
         TL::AST_t case_statement_body = _ref.get_attribute(LANG_CASE_STATEMENT_BODY);
         return Statement(case_statement_body, _scope_link);
+    }
+
+    Statement DefaultStatement::get_statement() const
+    {
+        TL::AST_t default_statement_body = _ref.get_attribute(LANG_DEFAULT_STATEMENT_BODY);
+        return Statement(default_statement_body, _scope_link);
     }
 
     void Statement::prepend(Statement st)
@@ -594,8 +638,9 @@ namespace TL
 
     ObjectList<CaseStatement> SwitchStatement::get_cases() const
     {
-        TL::AST_t case_statement_body = _ref.get_attribute(LANG_CASE_STATEMENT_BODY);
-
+        /*TL::AST_t case_statement_body = _ref.get_attribute(LANG_CASE_STATEMENT_BODY);
+        std::cout << "CASE STATEMENT BODY '" << case_statement_body.prettyprint() << "'" << std::endl;
+        
         ObjectList<AST_t> case_tree_list = case_statement_body.depth_subtrees(
                 PredicateAttr(LANG_IS_CASE_STATEMENT), 
                 // We do not want inner case statements coming from nested switch statements
@@ -608,8 +653,43 @@ namespace TL
         {
             CaseStatement case_statement(*it, _scope_link);
             result.append(case_statement);
-        }
+        }*/
 
+        TL::AST_t switch_statement_body = _ref.get_attribute(LANG_SWITCH_STATEMENT_BODY);
+
+        ObjectList<AST_t> case_tree_list = switch_statement_body.depth_subtrees(
+                PredicateAttr(LANG_IS_CASE_STATEMENT), 
+                // We do not want inner case statements coming from nested switch statements
+                AST_t::NON_RECURSIVE);
+        ObjectList<CaseStatement> result;
+        for (ObjectList<AST_t>::iterator itc = case_tree_list.begin();
+            itc != case_tree_list.end();
+                itc++)
+        {
+            CaseStatement case_statement(*itc, _scope_link);
+            result.append(case_statement);
+        }    
+
+        return result;
+    }
+
+    ObjectList<DefaultStatement> SwitchStatement::get_defaults() const
+    {
+        TL::AST_t switch_statement_body = _ref.get_attribute(LANG_SWITCH_STATEMENT_BODY);
+        
+        ObjectList<AST_t> default_tree_list = switch_statement_body.depth_subtrees(
+                PredicateAttr(LANG_IS_DEFAULT_STATEMENT), 
+                // We do not want inner case statements coming from nested switch statements
+                AST_t::NON_RECURSIVE);
+        ObjectList<DefaultStatement> result;
+        for (ObjectList<AST_t>::iterator itd = default_tree_list.begin();
+                itd != default_tree_list.end();
+                itd++)
+        {
+            DefaultStatement default_statement(*itd, _scope_link);
+            result.append(default_statement);
+        }
+        
         return result;
     }
 
@@ -629,5 +709,17 @@ namespace TL
     {
         AST_t tree = _ref.get_attribute(LANG_GOTO_STATEMENT_LABEL);
         return tree.prettyprint();
+    }
+    
+    std::string LabeledStatement::get_label() const
+    {
+        AST_t tree = _ref.get_attribute(LANG_STATEMENT_LABEL);
+        return tree.prettyprint();
+    }
+    
+    Statement LabeledStatement::get_labeled_statement() const
+    {
+        AST_t tree = _ref.get_attribute(LANG_LABELED_STATEMENT);
+        return Statement(tree, _scope_link);
     }
 }

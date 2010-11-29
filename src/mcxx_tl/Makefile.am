@@ -61,5 +61,5 @@ libmcxxtl_la_LIBADD = \
 		$(END)
 	
 libmcxxtl_la_LDFLAGS=-avoid-version $(no_undefined) \
-    -Wl,-R,$(pkglibdir) \
+    -Wl,@RPATH_PARAMETER@,$(pkglibdir)
     $(END)

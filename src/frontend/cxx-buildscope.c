@@ -116,6 +116,7 @@ static void build_scope_linkage_specifier_declaration(AST a, AST top_linkage_dec
 static void build_scope_template_declaration(AST a, AST top_template_decl, decl_context_t decl_context);
 static void build_scope_explicit_template_specialization(AST a, decl_context_t decl_context);
 
+static void build_scope_statement_(AST a, decl_context_t decl_context);
 static void build_scope_statement_seq(AST a, decl_context_t decl_context);
 
 static void build_scope_template_parameter_list(AST a, 
@@ -8992,12 +8993,11 @@ static void build_scope_labeled_statement(AST a,
 
     AST statement = ASTSon1(a);
 
-    build_scope_statement(statement, decl_context);
+    build_scope_statement_(statement, decl_context);
 
-    // Note that we flag 'statement' and not 'a', it is
-    // more useful this way
-    ASTAttrSetValueType(statement, LANG_IS_LABELED_STATEMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(statement, LANG_STATEMENT_LABEL, tl_type_t, tl_ast(label));
+    ASTAttrSetValueType(a, LANG_IS_LABELED_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_STATEMENT_LABEL, tl_type_t, tl_ast(label));
+    ASTAttrSetValueType(a, LANG_LABELED_STATEMENT, tl_type_t, tl_ast(statement));
 }
 
 static void build_scope_default_statement(AST a, 
@@ -9008,6 +9008,7 @@ static void build_scope_default_statement(AST a,
     build_scope_statement(statement, decl_context);
 
     ASTAttrSetValueType(a, LANG_IS_DEFAULT_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_DEFAULT_STATEMENT_BODY, tl_type_t, tl_ast(statement));
 }
 
 static void build_scope_case_statement(AST a, 
@@ -9104,6 +9105,8 @@ static void build_scope_try_block(AST a,
     }
 
     ASTAttrSetValueType(a, LANG_IS_TRY_BLOCK, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_TRY_BLOCK_BODY, tl_type_t, tl_ast(protected_block));
+    ASTAttrSetValueType(a, LANG_TRY_BLOCK_HANDLER_LIST, tl_type_t, tl_ast(handler_seq));
 }
 
 static void build_scope_do_statement(AST a, 
@@ -9421,16 +9424,16 @@ void build_scope_declaration_sequence_with_scope_link(AST a, decl_context_t decl
     CURRENT_COMPILED_FILE->scope_link = old_scope_link;
 }
 
-void build_scope_statement(AST a, decl_context_t decl_context)
+static void build_scope_statement_(AST a, decl_context_t decl_context)
 {
     DEBUG_CODE()
     {
         fprintf(stderr, "==== Statement line [%s] ====\n", ast_location(a));
     }
-
+    
     stmt_scope_handler_t f = stmt_scope_handlers[ASTType(a)].handler;
     char* attr_name = stmt_scope_handlers[ASTType(a)].attr_name;
-
+    
     if (f != NULL)
     {
         f(a, decl_context, attr_name);
@@ -9438,9 +9441,14 @@ void build_scope_statement(AST a, decl_context_t decl_context)
     else
     {
         WARNING_MESSAGE("Statement node type '%s' does not have handler in %s", ast_print_node_type(ASTType(a)),
-                ast_location(a));
+                        ast_location(a));
     }
+}
 
+void build_scope_statement(AST a, decl_context_t decl_context)
+{
+    build_scope_statement_(a, decl_context);
+    
     ASTAttrSetValueType(a, LANG_IS_STATEMENT, tl_type_t, tl_bool(1));
 }
 

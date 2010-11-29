@@ -1691,14 +1691,11 @@ static type_t* decimal_literal_type(AST expr, const_value_t** val)
         *val = NULL;
     }
 
-    // Special case for zero in C++
-    CXX_LANGUAGE()
+    // Zero is a null pointer constant requiring a distinguishable 'int' type
+    if (ASTType(expr) == AST_OCTAL_LITERAL
+            && (strcmp(ASTText(expr), "0") == 0))
     {
-        if (ASTType(expr) == AST_OCTAL_LITERAL
-                && (strcmp(ASTText(expr), "0") == 0))
-        {
-            result = get_zero_type();
-        }
+        result = get_zero_type();
     }
 
     return result;
