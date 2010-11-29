@@ -123,6 +123,10 @@ namespace TL { namespace OpenMP {
         PragmaCustomClause fp_inout_clause = construct.get_clause("__fp_inout");
         get_dependences_info_clause(fp_inout_clause, data_sharing, 
                 (OpenMP::DependencyDirection)(DEP_DIR_INOUT | DEP_FIRSTPRIVATE));
+
+        PragmaCustomClause fp_reduction_clause = construct.get_clause("__fp_reduction");
+        get_dependences_info_clause(fp_reduction_clause, data_sharing, 
+                (OpenMP::DependencyDirection)(DEP_REDUCTION | DEP_FIRSTPRIVATE));
     }
 
     void Core::get_dependences_info_clause(PragmaCustomClause clause,

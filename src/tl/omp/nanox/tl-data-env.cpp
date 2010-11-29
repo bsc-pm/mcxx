@@ -780,7 +780,7 @@ namespace TL
                 template_args.append_with_separator(it2->get_name(), ",");
             }
 
-            struct_arg_type_name += "<" + std::string(template_args) + ">";
+            struct_arg_type_name += "< " + std::string(template_args) + ">";
         }
 
         Source newly_generated_code;

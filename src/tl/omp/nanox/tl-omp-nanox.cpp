@@ -22,6 +22,7 @@
 --------------------------------------------------------------------*/
 
 #include "tl-omp-nanox.hpp"
+#include "tl-nanos.hpp"
 
 using namespace TL;
 using namespace TL::Nanox;
@@ -105,6 +106,17 @@ void OMPTransform::phase_cleanup(DTO& data_flow)
 {
     _lock_names.clear();
     _converted_vlas.clear();
+}
+
+void OMPTransform::run(DTO& dto)
+{
+    if (strcmp(Nanos::Version::family.c_str(), "master") != 0 || Nanos::Version::version < 5000)
+    {
+        running_error("error: unsupported family '%s' and/or version '%d' of Nanos\n", 
+                             Nanos::Version::family.c_str(), Nanos::Version::version);
+    }
+
+    OpenMP::OpenMPPhase::run(dto);
 }
 
 EXPORT_PHASE(TL::Nanox::OMPTransform)

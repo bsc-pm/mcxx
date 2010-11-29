@@ -223,6 +223,7 @@ namespace OpenMP
             Source input_args;
             Source output_args;
             Source inout_args;
+	    Source reduction_args;
 
             for (ObjectList<FunctionTaskDependency>::iterator it2 = task_params.begin();
                     it2 != task_params.end();
@@ -246,6 +247,12 @@ namespace OpenMP
                             args = &inout_args;
                             break;
                         }
+                    case DEP_REDUCTION :
+                        {
+                            args = &reduction_args;
+                            break;
+                        }
+
                     default:
                         {
                             internal_error("Code unreachable", 0);
@@ -400,6 +407,12 @@ namespace OpenMP
             {
                 arg_clauses << " __fp_inout(" << inout_args << ")";
             }
+           if (!reduction_args.empty())
+            {
+                arg_clauses << " __fp_reduction(" << reduction_args << ")";
+            }
+
+
 
             // Add the task symbol name to the clause
             arg_clauses << " __symbol(" << sym.get_qualified_name(expr.get_scope()) << ")";

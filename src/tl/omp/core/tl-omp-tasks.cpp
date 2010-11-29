@@ -344,6 +344,13 @@ namespace TL
                 inout_arguments = inout_clause.get_arguments(ExpressionTokenizer());
             }
 
+            PragmaCustomClause reduction_clause = construct.get_clause("__shared_reduction");
+            ObjectList<std::string> reduction_arguments;
+            if (reduction_clause.is_defined())
+            {
+                reduction_arguments = reduction_clause.get_arguments(ExpressionTokenizer());
+            }
+
             // Now discover whether this is a function definition or a declaration
             DeclaredEntity decl_entity(AST_t(), construct.get_scope_link());
             if (Declaration::predicate(construct.get_declaration()))
@@ -426,6 +433,13 @@ namespace TL
 
             parameter_list.append(inout_arguments.map(
                         FunctionTaskDependencyGenerator(DEP_DIR_INOUT,
+                            param_ref_tree,
+                            construct.get_scope_link())
+                        )
+                    );
+
+            parameter_list.append(reduction_arguments.map(
+                        FunctionTaskDependencyGenerator(DEP_REDUCTION,
                             param_ref_tree,
                             construct.get_scope_link())
                         )

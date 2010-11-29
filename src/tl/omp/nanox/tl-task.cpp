@@ -25,6 +25,7 @@
 #include "tl-data-env.hpp"
 #include "tl-counters.hpp"
 #include "tl-devices.hpp"
+#include "tl-nanos.hpp"
 
 using namespace TL;
 using namespace TL::Nanox;
@@ -76,20 +77,20 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
     PragmaCustomClause function_clause = ctr.get_clause("__symbol");
     if (function_clause.is_defined())
     {
-    	ObjectList<Expression> expr_list = function_clause.get_expression_list();
+        ObjectList<Expression> expr_list = function_clause.get_expression_list();
 
-    	if (expr_list.size() != 1)
-    	{
-    		running_error("%s: internal error: clause '__symbol' requires just one argument\n",
-    				ctr.get_ast().get_locus().c_str());
-    	}
+        if (expr_list.size() != 1)
+        {
+                running_error("%s: internal error: clause '__symbol' requires just one argument\n",
+                                ctr.get_ast().get_locus().c_str());
+        }
 
-    	Expression &expr = expr_list[0];
-    	IdExpression id_expr = expr.get_id_expression();
+        Expression &expr = expr_list[0];
+        IdExpression id_expr = expr.get_id_expression();
 
-    	if (id_expr.get_computed_symbol().is_valid()) {
-    		task_symbol = id_expr.get_computed_symbol();
-    	}
+        if (id_expr.get_computed_symbol().is_valid()) {
+                task_symbol = id_expr.get_computed_symbol();
+        }
     }
 
     OutlineFlags outline_flags;
@@ -182,9 +183,9 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
             AST_t new_code = replaced_call.parse_statement(ctr.get_ast(), ctr.get_scope_link());
 
-	    std::stringstream ss;
-	    ss << "_ol_" << it->second.get_name() << "_" << outline_num;
-	    std::string implemented_outline_name = ss.str();
+            std::stringstream ss;
+            ss << "_ol_" << it->second.get_name() << "_" << outline_num;
+            std::string implemented_outline_name = ss.str();
 
             Source initial_setup, replaced_body;
 
@@ -194,8 +195,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                             initial_setup,
                             replaced_body);
 
-	    OutlineFlags implemented_outline_flags;
-	    implemented_outline_flags.task_symbol = it->second;
+            OutlineFlags implemented_outline_flags;
+            implemented_outline_flags.task_symbol = it->second;
 
             device_provider->create_outline(implemented_outline_name,
                             struct_arg_type_name,
@@ -277,21 +278,34 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             Source dependency_flags;
             dependency_flags << "{";
             OpenMP::DependencyDirection attr = it->get_kind();
-            if ((attr & OpenMP::DEP_DIR_INPUT) == OpenMP::DEP_DIR_INPUT)
+            if (!((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION))
             {
-                dependency_flags << "1,"; 
+                    if ((attr & OpenMP::DEP_DIR_INPUT) == OpenMP::DEP_DIR_INPUT)
+                    {
+                            dependency_flags << "1,"; 
+                    }
+                    else
+                    {
+                            dependency_flags << "0,"; 
+                    }
+                    if ((attr & OpenMP::DEP_DIR_OUTPUT) == OpenMP::DEP_DIR_OUTPUT)
+                    {
+                            dependency_flags << "1,"; 
+                    }
+                    else
+                    {
+                            dependency_flags << "0,"; 
+                    }
             }
-            else
+            else 
             {
-                dependency_flags << "0,"; 
-            }
-            if ((attr & OpenMP::DEP_DIR_OUTPUT) == OpenMP::DEP_DIR_OUTPUT)
-            {
-                dependency_flags << "1,"; 
-            }
-            else
-            {
-                dependency_flags << "0,"; 
+                    if (Nanos::Version::version < 5001)
+                    {
+                            printf("%s: warning: the current version of Nanos does not support reduction dependencies in Superscalar\n",
+                                   ctr.get_ast().get_locus().c_str());
+                    }
+                    // Reduction behave like an inout
+                    dependency_flags << "1, 1,"; 
             }
 
             Source dependency_field_name;
@@ -312,9 +326,18 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                         it->get_dependency_expression().prettyprint().c_str());
             }
 
-            // Can rename in this case
-            dependency_flags << "1"
-                ;
+            if ((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION)
+            {
+                // Reductions cannot be renamed
+                dependency_flags << "0"
+                    ;
+            }
+            else
+            {
+                // Can rename otherwise
+                dependency_flags << "1"
+                    ;
+            }
 
             dependency_flags << "}"
                     ;
@@ -588,7 +611,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
 
     if ( current_targets.contains( "cuda" ) )
     {
-    	creation << "props.mandatory_creation = 1;"
+        creation << "props.mandatory_creation = 1;"
             ;
     }
 

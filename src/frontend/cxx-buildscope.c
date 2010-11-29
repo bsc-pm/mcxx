@@ -4597,8 +4597,6 @@ static void set_function_parameter_clause(type_t** function_type,
         // all the indirections
         type_info = advance_over_typedefs(type_info);
 
-        type_info = get_unqualified_type(type_info);
-
         // function to pointer-to-function standard conversion
         if (is_function_type(type_info))
         {
@@ -4619,11 +4617,11 @@ static void set_function_parameter_clause(type_t** function_type,
             entry->entity_specs.parameter_position = num_parameters;
 
             // Update the type info
-            entry->type_information = original_type;
+            entry->type_information = type_info;
         }
 
         parameter_info[num_parameters].is_ellipsis = 0;
-        parameter_info[num_parameters].type_info = type_info;
+        parameter_info[num_parameters].type_info = get_unqualified_type(type_info);
         parameter_info[num_parameters].nonadjusted_type_info = original_type;
 
         {
