@@ -84,6 +84,15 @@ namespace TL
         return result_type;
     }
 
+    Type Type::get_vector_to(unsigned int vector_size)
+    {
+        type_t* work_type = this->_type_info;
+
+        type_t* result_type = get_vector_type(work_type, vector_size);
+
+        return result_type;
+    }
+
     Type Type::get_array_to(AST_t array_expr, Scope sc)
     {
         type_t* result_type = this->_type_info;

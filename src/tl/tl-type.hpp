@@ -133,6 +133,13 @@ namespace TL
 
             //! Returns a pointer to the current type
             Type get_pointer_to();
+
+            //! Returns a vector to the current type
+            /*! 
+             * \param vector_size The size of the vector in bytes.
+             */
+            Type get_vector_to(unsigned int vector_size);
+
             //! Returns an array to the current type
             /*! 
              * \param expression_array The expression of the array. Can be an invalid tree if the array is unbounded.
