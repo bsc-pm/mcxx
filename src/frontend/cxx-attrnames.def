@@ -19,6 +19,7 @@ LANG_DECLARATION_STATEMENT_DECLARATION lang.declaration_statement_declaration
 LANG_DECLARED_NAME lang.declared_name
 LANG_DECLARED_PARAMETER lang.declared_parameter
 LANG_DECLARED_SYMBOL lang.declaration_symbol
+LANG_DEFAULT_STATEMENT_BODY lang.default_statement_body
 LANG_DO_STATEMENT_BODY lang.do_statement_body
 LANG_DO_STATEMENT_EXPRESSION lang.do_statement_expression
 LANG_ENUM_SPECIFIER_SYMBOL lang.enum_specifier_symbol
@@ -160,6 +161,7 @@ LANG_IS_UNARY_OPERATION lang.is_unary_operation
 LANG_IS_UNQUALIFIED_ID lang.is_unqualified_id
 LANG_IS_WHILE_STATEMENT lang.is_while_statement
 LANG_IS_XOR_ASSIGNMENT lang.is_xor_assignment
+LANG_LABELED_STATEMENT lang.labeled_statement
 LANG_LHS_ASSIGNMENT lang.lhs_assignment
 LANG_LHS_OPERAND lang.lhs_operand
 LANG_LINKAGE_SPECIFIER_HEADER lang.linkage_specifier_header
@@ -193,6 +195,8 @@ LANG_TEMPLATE_NAME lang.template_name
 LANG_TEMPLATE_PARAMETER_NAME lang.template_parameter_name
 LANG_TEMPLATE_PARAMETER_NAME_SYMBOL lang.template_parameter_symbol
 LANG_TEMPLATE_PARAMETER_SYMBOL lang.template_parameter_symbol
+LANG_TRY_BLOCK_BODY lang.try_block_body
+LANG_TRY_BLOCK_HANDLER_LIST lang.lang_try_handler_list
 LANG_TYPE_SPECIFIER lang.type_specifier
 LANG_UNARY_OPERAND lang.unary_operand
 LANG_UNQUALIFIED_ID lang.unqualified_id
