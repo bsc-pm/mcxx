@@ -43,7 +43,8 @@ namespace TL
 {
     Region SourceBits::handle_superscalar_declarator(AST_t ref_tree, ScopeLink
             scope_link, std::string const &declarator_string, Region::Direction
-            direction, Region::Reduction reduction, Symbol &original_symbol)
+            direction, Region::Reduction reduction, AugmentedSymbol &function_symbol,
+            AugmentedSymbol &original_symbol)
 	{
 		std::string mangled_text = "@SUPERSCALAR_DECLARATOR@ " + declarator_string;
 		char* str = strdup(mangled_text.c_str());
@@ -94,16 +95,35 @@ namespace TL
 		
 		// Get the original symbol in order to get its type and to enrichen it
 		scope_entry_t* entry = entry_list_head(entry_list);
-		original_symbol = Symbol(entry);
+		original_symbol = AugmentedSymbol(entry);
+		
+		if (!original_symbol.is_parameter())
+		{
+			throw UnknownParameterException();
+		}
+		
+		Type function_type = function_symbol.get_type();
+		if (!function_type.is_function())
+		{
+			throw InvalidTypeException();
+		}
+		
+		ObjectList<Type> parameter_types = function_type.nonadjusted_parameters();
+		if (parameter_types.size() < original_symbol.get_parameter_position()+1)
+		{
+			throw SyntaxErrorException();
+		}
+		
+		Type nonadjusted_type = parameter_types[original_symbol.get_parameter_position()];
 		
 		// Create a new variable inside the "virtual" scope, with both, the old type and the declarator part
 		type_t* declared_type = NULL;
 		gather_decl_spec_t gather_info;
 		memset(&gather_info, 0, sizeof(gather_info));
-		compute_declarator_type(c_declarator_ast, &gather_info, original_symbol.get_type().get_internal_type(), &declared_type, decl_context); // This call also checks the declarator and adds the tree attributes
+		compute_declarator_type(c_declarator_ast, &gather_info, nonadjusted_type.get_internal_type(), &declared_type, decl_context); // This call also checks the declarator and adds the tree attributes
 		
 		// Fix up the type of the variable (merge the two types into a consistant type)
-		Type augmented_type = TypeUtils::fix_type(original_symbol.get_type(), Type(declared_type), scope_link);
+		Type augmented_type = TypeUtils::fix_type(nonadjusted_type, Type(declared_type), scope_link);
 		
 		// Generate the region
 		ObjectList<Expression> array_subscripts = get_array_subscript_list(augmented_type, ref_tree, scope_link);

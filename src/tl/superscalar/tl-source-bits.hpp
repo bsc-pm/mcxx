@@ -26,6 +26,7 @@
 #define TL_SOURCE_BITS_HPP
 
 
+#include "tl-augmented-symbol.hpp"
 #include "tl-symbol.hpp"
 #include "tl-source.hpp"
 
@@ -39,7 +40,7 @@ namespace TL
                     ScopeLink scope_link, 
                     std::string const &declarator_string, 
                     Region::Direction direction,
-                    Region::Reduction reduction, Symbol &original_symbol);
+                    Region::Reduction reduction, AugmentedSymbol &function_symbol, AugmentedSymbol &original_symbol);
 
 #if 0
             static ObjectList<Region> handle_superscalar_declarator_list(AST_t ref_tree, 
