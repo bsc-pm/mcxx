@@ -667,6 +667,38 @@ namespace TL
 	}
 	
 	
+	void CodeConversion::FreeHandler::preorder(Context ctx, AST_t node)
+	{
+	}
+	
+	
+	void CodeConversion::FreeHandler::postorder(Context ctx, AST_t node)
+	{
+		Expression function_call(node, ctx.scope_link);
+		
+		Expression called_expresion = function_call.get_called_expression();
+		ObjectList<Expression> arguments = function_call.get_argument_list();
+		
+		Source source;
+		
+		if (arguments.size() != 1)
+		{
+			std::cerr << function_call.get_ast().get_locus() << " Error: Invalid number of arguments in call to free." << std::endl;
+			CodeConversion::fail();
+			return;
+		}
+		
+		ObjectList<Expression>::iterator it = arguments.begin();
+		source
+			<< "css_aligned_free" << "("
+				<< it->prettyprint()
+			<< ")";
+		
+		AST_t tree = source.parse_expression(node, ctx.scope_link);
+		node.replace_with(tree);
+	}
+	
+	
 	void CodeConversion::generate_task_ids(TaskTable &task_table, AST_t translation_unit, ScopeLink scope_link)
 	{
 		for (TaskTable::iterator it = task_table.begin(); it != task_table.end(); it++)

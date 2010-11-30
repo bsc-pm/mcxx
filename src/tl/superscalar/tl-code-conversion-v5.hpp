@@ -64,6 +64,17 @@ namespace TL
 					virtual void postorder(Context ctx, AST_t node);
 			};
 			
+			class FreeHandler : public TraverseFunctor
+			{
+				public:
+					FreeHandler()
+					{
+					}
+					
+					virtual void preorder(Context ctx, AST_t node);
+					virtual void postorder(Context ctx, AST_t node);
+			};
+			
 			class TaskCallHandler : public TraverseFunctor
 			{
 				public:
@@ -91,6 +102,8 @@ namespace TL
 					MallocHandler _malloc_handler;
 					CallToNamedFunctionPredicate _calloc_call_predicate;
 					CallocHandler _calloc_handler;
+					CallToNamedFunctionPredicate _free_call_predicate;
+					FreeHandler _free_handler;
 					
 					bool _do_traverse;
 					
@@ -105,12 +118,14 @@ namespace TL
 						_task_call_handler(),
 						_malloc_call_predicate("malloc", scope_link), _malloc_handler(),
 						_calloc_call_predicate("calloc", scope_link), _calloc_handler(),
+						_free_call_predicate("free", scope_link), _free_handler(),
 						_do_traverse(generate_non_task_side)
 					{
 						if (align_memory)
 						{
 							_body_traverser.add_predicate(_malloc_call_predicate, _malloc_handler);
 							_body_traverser.add_predicate(_calloc_call_predicate, _calloc_handler);
+							_body_traverser.add_predicate(_free_call_predicate, _free_handler);
 						}
 						if (generate_non_task_side)
 						{
