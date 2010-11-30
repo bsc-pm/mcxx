@@ -2041,6 +2041,14 @@ static char check_for_declarator_rec(AST declarator, decl_context_t decl_context
                 return 1;
                 break;
             }
+	case AST_GCC_DECLARATOR :
+	    {
+		    return check_for_declarator_rec(ASTSon1(declarator), decl_context);
+	    }	
+	case AST_GCC_POINTER_DECLARATOR :
+	    {
+		    return check_for_declarator_rec(ASTSon2(declarator), decl_context);
+	    }	
         default :
             {
                 internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTType(declarator)));
