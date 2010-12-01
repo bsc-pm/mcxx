@@ -2185,6 +2185,11 @@ static template_argument_list_t* update_template_argument_list(
     int i;
     for (i = 0; i < template_arguments->num_arguments; i++)
     {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCOPE: Updating template argument %d of %d\n",
+                    i, template_arguments->num_arguments);
+        }
         template_arguments->argument_list[i] = update_template_argument(
                 template_arguments->argument_list[i],
                 template_arguments_context, 
