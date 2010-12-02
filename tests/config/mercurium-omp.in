@@ -64,16 +64,27 @@ test_CXXFLAGS_nanox_plain="--nanox"
 
 EOF
 
-cat <<EOF
-exec_versions="1thread 2thread 4thread"
+if [ ! -z "@NANOX_INSTRUMENTATION@" ];
+then
 
-test_ENV_ever_1thread="OMP_NUM_THREADS='1'"
-test_ENV_ever_2thread="OMP_NUM_THREADS='2'"
-test_ENV_ever_4thread="OMP_NUM_THREADS='4'"
+cat <<EOF
+compile_versions="\${compile_versions} nanox_instrument"
+
+test_CC_nanox_instrument="\${MCC}"
+test_CXX_nanox_instrument="\${MCXX}"
+
+test_CFLAGS_nanox_instrument="\${test_CFLAGS_nanox_plain} --instrument"
+test_CXXFLAGS_nanox_instrument="\${test_CXXFLAGS_nanox_plain} --instrument"
 EOF
 
 fi
 
-# cat <<EOF
-# test_nolink=yes
-# EOF
+cat <<EOF
+exec_versions="1thread 2thread 4thread"
+
+test_ENV_1thread="OMP_NUM_THREADS='1'"
+test_ENV_2thread="OMP_NUM_THREADS='2'"
+test_ENV_4thread="OMP_NUM_THREADS='4'"
+EOF
+
+fi

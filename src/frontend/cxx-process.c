@@ -95,7 +95,7 @@ void debug_message(const char* message, const char* kind, const char* source_fil
         length--;
     }
 
-#define LONG_MESSAGE_SIZE 512
+#define LONG_MESSAGE_SIZE 1024
     char* long_message = calloc(sizeof(char), LONG_MESSAGE_SIZE);
 
     va_start(ap, function_name);
