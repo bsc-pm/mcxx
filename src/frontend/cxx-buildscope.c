@@ -4125,20 +4125,39 @@ static void build_scope_declarator_with_parameter_context(AST a,
     {
         if (gather_info->mode_type != NULL)
         {
-            *declarator_type = get_vector_type(gather_info->mode_type, 
-                    gather_info->vector_size);
+            //Generic Vector
+            if (gather_info->vector_size == 0)
+            {
+                *declarator_type = get_generic_vector_type(gather_info->mode_type);
+            }
+            else
+            {
+                *declarator_type = get_vector_type(gather_info->mode_type, 
+                        gather_info->vector_size);
+            }
         }
         else
         {
             // We do not want a 'vector 16 to volatile float' but a 
             // 'volatile vector to 16 float'
+
             cv_qualifier_t cv_qualif = get_cv_qualifier(type_info);
             type_t* base_vector_type = get_unqualified_type(type_info);
 
-            *declarator_type = get_cv_qualified_type(
-                    get_vector_type(base_vector_type,
-                        gather_info->vector_size), 
-                    cv_qualif);
+            //Generic Vector
+            if (gather_info->vector_size == 0)
+            {
+                *declarator_type = get_cv_qualified_type(
+                        get_generic_vector_type(base_vector_type),
+                        cv_qualif);
+            }
+            else
+            {
+                *declarator_type = get_cv_qualified_type(
+                        get_vector_type(base_vector_type,
+                            gather_info->vector_size), 
+                        cv_qualif);
+            }
         }
     }
     else if (gather_info->is_overriden_type)

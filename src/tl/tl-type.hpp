@@ -140,6 +140,9 @@ namespace TL
              */
             Type get_vector_to(unsigned int vector_size);
 
+            //! Returns a generic vector to the current type
+            Type get_generic_vector_to();
+
             //! Returns an array to the current type
             /*! 
              * \param expression_array The expression of the array. Can be an invalid tree if the array is unbounded.

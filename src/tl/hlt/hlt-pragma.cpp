@@ -35,6 +35,7 @@
 #include "hlt-task-aggregation.hpp"
 #include "hlt-stripmine.hpp"
 #include "hlt-exception.hpp"
+#include "hlt-simd.hpp"
 
 #include <algorithm>
 
@@ -94,6 +95,9 @@ HLTPragmaPhase::HLTPragmaPhase()
 
     register_construct("task_aggregate");
     on_directive_post["task_aggregate"].connect(functor(&HLTPragmaPhase::task_aggregate, *this));
+
+    register_construct("simd");
+    on_directive_post["simd"].connect(functor(&HLTPragmaPhase::simdize_loop, *this));
 
     _allow_identity_str = "1";
 
@@ -867,5 +871,62 @@ void HLTPragmaPhase::task_aggregate(PragmaCustomConstruct construct)
 
     construct.get_ast().replace(tree);
 }
+
+
+static void simdize_loop_fun(TL::ForStatement for_stmt,
+			     TL::ObjectList<TL::IdExpression> simd_id_exp_list)
+{
+    TL::Source simdized_loop_src = TL::HLT::simdize_loop(for_stmt, simd_id_exp_list);/*, simdization_info.factor) 
+        .ignore_omp(simdization_info.ignore_omp)
+        .enable_omp_bundling(simdization_info.enable_omp_bundling)
+        .set_omp_bundling_factor(simdization_info.omp_bundling_factor)
+        .set_remove_tasks(simdization_info.remove_tasks)
+        .set_timing(simdization_info.timing)
+        .set_omp_aggregate_epilog(simdization_info.aggregate_epilog)
+        .allow_identity(_allow_identity);
+*/
+
+    TL::AST_t simdized_loop_tree = simdized_loop_src.parse_statement(for_stmt.get_ast(),
+            for_stmt.get_scope_link());
+
+    for_stmt.get_ast().replace(simdized_loop_tree);
+}
+
+
+void HLTPragmaPhase::simdize_loop(PragmaCustomConstruct construct)
+{
+    Statement statement = construct.get_statement();
+
+    ObjectList<IdExpression> simd_id_exp_list = construct.get_parameter_id_expressions();
+
+    if (simd_id_exp_list.size() == 0)
+    {
+        std::cerr << construct.get_ast().get_locus() << ": warning: " << std::endl;
+
+        //?????
+	//Warning/Error/Auto_Vectorization?
+	//
+        //#pragma omp simd
+	//for(i=0; i<4; i++)
+	//   int A[4], B[4], C[4];
+	//   A[i] = B[i] + C[i];
+    }
+
+    ObjectList<ForStatement> for_statement_list = get_all_sibling_for_statements(statement);
+
+    if (!_allow_identity
+            && for_statement_list.empty())
+    {
+        throw HLTException(construct, "not found any suitable construct for this pragma");
+    }
+
+    std::for_each(for_statement_list.begin(), for_statement_list.end(),
+            std::bind2nd(std::ptr_fun(simdize_loop_fun), simd_id_exp_list));
+
+    construct.get_ast().replace(statement.get_ast());
+}
+
+
+
 
 EXPORT_PHASE(TL::HLT::HLTPragmaPhase)

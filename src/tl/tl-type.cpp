@@ -93,6 +93,15 @@ namespace TL
         return result_type;
     }
 
+    Type Type::get_generic_vector_to()
+    {
+        type_t* work_type = this->_type_info;
+
+        type_t* result_type = get_generic_vector_type(work_type);
+
+        return result_type;
+    }
+
     Type Type::get_array_to(AST_t array_expr, Scope sc)
     {
         type_t* result_type = this->_type_info;

@@ -2450,6 +2450,19 @@ char is_vector_type(type_t* t)
             && t->kind == TK_VECTOR);
 }
 
+type_t* get_generic_vector_type(type_t* element_type)
+{
+    return get_vector_type(element_type, 0);
+}
+
+char is_generic_vector_type(type_t* t)
+{
+    t = advance_over_typedefs(t);
+    return (t != NULL
+            && t->kind == TK_VECTOR
+	    && t->vector->vector_size == 0);
+}
+
 int vector_type_get_vector_size(type_t* t)
 {
     ERROR_CONDITION(!is_vector_type(t), "This is not a vector type", 0);
@@ -5965,8 +5978,16 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 get_type_name_str_internal(decl_context, type_info->vector->element_type, left, right, 
                         num_parameter_names, parameter_names, is_parameter);
 
-                snprintf(c, 255, "__attribute__((vector_size(%d)))", 
-                        type_info->vector->vector_size);
+		//generic_vector
+                if (type_info->vector->vector_size == 0)
+                {
+                    snprintf(c, 255, "__attribute__((generic_vector))");
+                }
+                else
+                {
+                    snprintf(c, 255, "__attribute__((vector_size(%d)))", 
+                             type_info->vector->vector_size);
+                }
                 c[255] = '\0';
 
                 (*left) = strappend((*left), c);
