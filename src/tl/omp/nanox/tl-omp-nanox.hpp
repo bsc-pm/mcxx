@@ -82,6 +82,8 @@ namespace Nanox
             typedef ObjectList<SectionInfo> SectionInfoList;
 
             ObjectList<SectionInfoList> _section_info;
+
+	    virtual void run(TL::DTO& dto);
     };
 
     const std::string NANOX_OUTLINE_COUNTER("nanox_outline_counter");

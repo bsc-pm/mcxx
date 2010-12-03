@@ -25,6 +25,7 @@
 #include "tl-data-env.hpp"
 #include "tl-counters.hpp"
 #include "tl-devices.hpp"
+#include "tl-nanos.hpp"
 
 using namespace TL;
 using namespace TL::Nanox;
@@ -298,6 +299,11 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             }
             else 
             {
+                    if (Nanos::Version::version < 5001)
+                    {
+                            printf("%s: warning: the current version of Nanos does not support reduction dependencies in Superscalar\n",
+                                   ctr.get_ast().get_locus().c_str());
+                    }
                     // Reduction behave like an inout
                     dependency_flags << "1, 1,"; 
             }

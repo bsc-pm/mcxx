@@ -1,20 +1,6 @@
 /*
 <testinfo>
-test_generator=config/mercurium-omp
-
-test_exec_fail_nanox_plain_1thread=yes
-test_exec_faulty_nanox_plain_1thread=yes
-test_exec_fail_nanox_plain_2thread=yes
-test_exec_faulty_nanox_plain_2thread=yes
-test_exec_fail_nanox_plain_4thread=yes
-test_exec_faulty_nanox_plain_4thread=yes
-
-test_exec_fail_nanox_instrument_1thread=yes
-test_exec_faulty_nanox_instrument_1thread=yes
-test_exec_fail_nanox_instrument_2thread=yes
-test_exec_faulty_nanox_instrument_2thread=yes
-test_exec_fail_nanox_instrument_4thread=yes
-test_exec_faulty_nanox_instrument_4thread=yes
+test_generator=config/mercurium
 </testinfo>
 */
 /*--------------------------------------------------------------------
@@ -39,18 +25,22 @@ test_exec_faulty_nanox_instrument_4thread=yes
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
-
-int main(int argc, char* argv[])
+struct C
 {
-    int k = 1;
-#pragma omp parallel private(k)
-    {
-        k = 1;
-#pragma omp parallel firstprivate(k)
-        { 
-            k = 2;
-        }
-    }
+};
 
-    return 0;
+struct A : C
+{
+    operator void*();
+};
+
+struct B : A
+{
+};
+
+void foo(bool m)
+{
+    B b;
+
+    b && m;
 }

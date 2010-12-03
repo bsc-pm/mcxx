@@ -2185,6 +2185,11 @@ static template_argument_list_t* update_template_argument_list(
     int i;
     for (i = 0; i < template_arguments->num_arguments; i++)
     {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCOPE: Updating template argument %d of %d\n",
+                    i, template_arguments->num_arguments);
+        }
         template_arguments->argument_list[i] = update_template_argument(
                 template_arguments->argument_list[i],
                 template_arguments_context, 
@@ -3800,7 +3805,7 @@ static const char* get_unqualified_template_symbol_name(scope_entry_t* entry,
     const char* result = "";
 
     // It is not enough with the name, we have to print the arguments
-    result = strappend(result, "<");
+    result = strappend(result, "< ");
     template_argument_list_t* template_arguments = template_specialized_type_get_template_arguments(entry->type_information);
 
     int i;

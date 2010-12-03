@@ -1,20 +1,6 @@
 /*
 <testinfo>
-test_generator=config/mercurium-omp
-
-test_exec_fail_nanox_plain_1thread=yes
-test_exec_faulty_nanox_plain_1thread=yes
-test_exec_fail_nanox_plain_2thread=yes
-test_exec_faulty_nanox_plain_2thread=yes
-test_exec_fail_nanox_plain_4thread=yes
-test_exec_faulty_nanox_plain_4thread=yes
-
-test_exec_fail_nanox_instrument_1thread=yes
-test_exec_faulty_nanox_instrument_1thread=yes
-test_exec_fail_nanox_instrument_2thread=yes
-test_exec_faulty_nanox_instrument_2thread=yes
-test_exec_fail_nanox_instrument_4thread=yes
-test_exec_faulty_nanox_instrument_4thread=yes
+test_generator=config/mercurium-ss
 </testinfo>
 */
 /*--------------------------------------------------------------------
@@ -40,17 +26,10 @@ test_exec_faulty_nanox_instrument_4thread=yes
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-int main(int argc, char* argv[])
-{
-    int k = 1;
-#pragma omp parallel private(k)
-    {
-        k = 1;
-#pragma omp parallel firstprivate(k)
-        { 
-            k = 2;
-        }
-    }
+#pragma css task input(K, L, N, M, a{0:N}{0:M})
+void f(int K, int L, int N, int M, float a[K][L]);
 
-    return 0;
-}
+
+#pragma css task input(K, L, N, M, a{0:N}{0:M})
+void f(int K, int L, int N, int M, float a[K][L]) {}
+

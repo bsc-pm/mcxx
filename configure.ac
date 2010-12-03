@@ -225,8 +225,24 @@ then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.cuda"
 fi
 
+NANOX_INSTRUMENTATION=""
+AC_MSG_CHECKING([whether used installation of Nanos++ has instrumentation support])
+if test -e "${nanox_lib}/instrumentation" -a -d "${nanox_lib}/instrumentation";
+then
+  NANOX_INSTRUMENTATION="yes"
+  AC_MSG_RESULT([yes])
+else
+ if test -e "${nanox_lib}";
+ then
+  AC_MSG_RESULT([no])
+ else
+  AC_MSG_RESULT([no, Nanos++ library directori does not exist])
+ fi
+fi
+
 AC_SUBST([NANOX_INCLUDES])
 AC_SUBST([NANOX_LIBS])
+AC_SUBST([NANOX_INSTRUMENTATION])
 
 dnl --------------------- End of Support for OpenMP Nanox -------------------------------
 
@@ -1170,6 +1186,7 @@ AC_CONFIG_FILES([Makefile
            tests/Makefile
            tests/config/Makefile
            tests/config/mercurium
+           tests/config/mercurium-libraries
            tests/config/mercurium-extensions
            tests/config/mercurium-omp
            tests/config/mercurium-nanox
@@ -1201,6 +1218,12 @@ then
   echo "   Nanos++ includes :" $nanox_include
   echo "   Nanos++ libraries:" $nanox_lib
 fi
+
+if test ! -e "$nanox_include" -o ! -d "$nanox_include"; 
+then
+   echo " ** WARNING ** Directory '${nanox_include}' does not seem to exist, compilation is likely to fail **"
+fi
+
 echo "   GPU testing enabled:" $gpu_valid
 echo ""
 echo " * Nanos 4 OpenMP :" $is_enabled_tl_omp_nanos4

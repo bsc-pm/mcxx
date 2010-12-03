@@ -3496,8 +3496,9 @@ scope_entry_list_t* class_type_get_all_conversions(type_t* class_type, decl_cont
     for (i = 0; i < num_bases; i++)
     {
         char is_dependent = 0;
-        type_t* base_class_type = class_type_get_base_num(class_type, i, 
-                /* is_virtual = */ NULL, /* is_dependent */ &is_dependent)->type_information;
+        scope_entry_t* class_entry = class_type_get_base_num(class_type, i, 
+                /* is_virtual = */ NULL, /* is_dependent */ &is_dependent);
+        type_t* base_class_type = class_entry->type_information;
 
         if (is_dependent)
             continue;
@@ -3526,7 +3527,7 @@ scope_entry_list_t* class_type_get_all_conversions(type_t* class_type, decl_cont
 
         char found = 0;
         scope_entry_list_iterator_t* it2 = NULL;
-        for (it2 = entry_list_iterator_begin(base_result);
+        for (it2 = entry_list_iterator_begin(this_class_conversors);
                 !entry_list_iterator_end(it2) && !found;
                 entry_list_iterator_next(it2))
         {
@@ -5471,12 +5472,11 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
 
                     if (parts->template_arguments != NULL)
                     {
-                        result = strappend(result, "<");
+                        result = strappend(result, "< ");
                         int i;
                         for (i = 0; i < parts->template_arguments->num_arguments; i++)
                         {
                             template_argument_t * template_arg = parts->template_arguments->argument_list[i];
-
 
                             switch (template_arg->kind)
                             {
@@ -6073,7 +6073,7 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
 static const char* get_template_arguments_list_str(template_argument_list_t* template_arguments)
 {
     const char* result = "";
-    result = strappend(result, "<");
+    result = strappend(result, "< ");
     int i;
     for (i = 0; i < template_arguments->num_arguments; i++)
     {

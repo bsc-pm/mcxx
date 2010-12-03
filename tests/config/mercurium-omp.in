@@ -11,29 +11,11 @@ exit
 
 fi
 
-cat <<EOF
-MERCURIUM_LIBS=
-EOF
-
-CACHE_OMP_LIBRARIES_LT="@abs_builddir@/omp-libraries-libtool"
-
-if [ ! -e ${CACHE_OMP_LIBRARIES_LT} -a -e "@abs_top_builddir@/config/config.omp" ];
-then
-
-grep -o "compiler_phase[[:blank:]]*=[[:blank:]]*[^# ]*" @abs_top_builddir@/config/config.omp | sed -e 's/compiler_phase[[:blank:]]*=\(.*\).so[[:blank:]]*/\1.la/g' | sort -u | xargs -I{} find @abs_top_builddir@ -iname "{}" -not -path "*/.libs/*" | sed -e 's/^.*$/MERCURIUM_LIBS="${MERCURIUM_LIBS} -dlopen &"/g' > ${CACHE_OMP_LIBRARIES_LT}
-
-fi
-
-if [ -e ${CACHE_OMP_LIBRARIES_LT} ];
-then
-
-cat ${CACHE_OMP_LIBRARIES_LT}
-
-fi
+source @abs_builddir@/mercurium-libraries
 
 cat <<EOF
-MCC="@abs_top_builddir@/libtool --mode=execute \${MERCURIUM_LIBS} @abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=mcc --config-file=@abs_top_builddir@/config/config.omp --verbose"
-MCXX="@abs_top_builddir@/libtool --mode=execute \${MERCURIUM_LIBS} @abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=mcxx --config-file=@abs_top_builddir@/config/config.omp --verbose"
+MCC="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=mcc --config-file=@abs_top_builddir@/config/config.omp --verbose"
+MCXX="@abs_top_builddir@/src/driver/mcxx --output-dir=@abs_top_builddir@/tests --profile=mcxx --config-file=@abs_top_builddir@/config/config.omp --verbose"
 EOF
 
 if [ ! -z "@NANOS4_INCLUDES@" ];
@@ -82,16 +64,27 @@ test_CXXFLAGS_nanox_plain="--nanox"
 
 EOF
 
-cat <<EOF
-exec_versions="1thread 2thread 4thread"
+if [ ! -z "@NANOX_INSTRUMENTATION@" ];
+then
 
-test_ENV_ever_1thread="OMP_NUM_THREADS='1'"
-test_ENV_ever_2thread="OMP_NUM_THREADS='2'"
-test_ENV_ever_4thread="OMP_NUM_THREADS='4'"
+cat <<EOF
+compile_versions="\${compile_versions} nanox_instrument"
+
+test_CC_nanox_instrument="\${MCC}"
+test_CXX_nanox_instrument="\${MCXX}"
+
+test_CFLAGS_nanox_instrument="\${test_CFLAGS_nanox_plain} --instrument"
+test_CXXFLAGS_nanox_instrument="\${test_CXXFLAGS_nanox_plain} --instrument"
 EOF
 
 fi
 
-# cat <<EOF
-# test_nolink=yes
-# EOF
+cat <<EOF
+exec_versions="1thread 2thread 4thread"
+
+test_ENV_1thread="OMP_NUM_THREADS='1'"
+test_ENV_2thread="OMP_NUM_THREADS='2'"
+test_ENV_4thread="OMP_NUM_THREADS='4'"
+EOF
+
+fi
