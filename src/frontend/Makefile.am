@@ -184,6 +184,7 @@ AST_NODE_TYPE_FILES += cxx-asttype-superscalar.def
 AST_NODE_TYPE_FILES += cxx-asttype-upc.def
 AST_NODE_TYPE_FILES += cxx-asttype-omp.def
 AST_NODE_TYPE_FILES += cxx-asttype-xl.def
+AST_NODE_TYPE_FILES += cxx-asttype-fortran.def
 
 EXTRA_DIST += $(AST_NODE_TYPE_FILES)
 
