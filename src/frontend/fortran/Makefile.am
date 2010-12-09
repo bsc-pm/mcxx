@@ -31,6 +31,7 @@ BUILT_SOURCES=
 BUILT_SOURCES += fortran03-scanner.c
 BUILT_SOURCES += fortran03-parser.c
 BUILT_SOURCES += fortran03-parser-internal.h
+BUILT_SOURCES += fortran03.y
 
 # Mercurium C/C++ compiler runtime library
 libmf03_la_SOURCES = \
@@ -79,6 +80,7 @@ TPP_verbose_ = $(TPP_verbose_$(AM_DEFAULT_VERBOSITY))
 TPP_verbose_0 = @echo "  TPP   " $@;
 endif
 
+EXTRA_DIST += fortran03.y
 EXTRA_DIST += fortran03.y.in
 
 fortran03.y : $(srcdir)/fortran03.y.in $(addprefix $(srcdir)/, $(ADDITIONAL_GRAMMARS)) 
@@ -93,6 +95,8 @@ endif
 
 fortran03-parser-internal.h : fortran03-parser.c
 
+EXTRA_DIST += fortran03-parser.c
+
 fortran03-parser.c : fortran03.y
 if BISON_BUILDING
 	$(BISON_verbose)$(BISON) -pmf03 --debug --defines=fortran03-parser-internal.h --report=all --output=fortran03-parser.c fortran03.y
@@ -106,6 +110,8 @@ EXTRA_DIST += fortran03.l
 if FLEX_BUILDING
 CLEANFILES += fortran03-scanner.c
 endif
+
+EXTRA_DIST += fortran03-scanner.c
 
 fortran03-scanner.c : fortran03.l fortran03-parser-internal.h
 if FLEX_BUILDING
