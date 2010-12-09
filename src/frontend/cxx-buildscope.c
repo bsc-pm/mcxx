@@ -9607,17 +9607,14 @@ static AST advance_over_declarator_nests(AST a, decl_context_t decl_context)
     {
         case AST_INIT_DECLARATOR :
         case AST_MEMBER_DECLARATOR :
-        case AST_GCC_MEMBER_DECLARATOR :
         case AST_DECLARATOR :
         case AST_PARENTHESIZED_DECLARATOR :
             {
                 return advance_over_declarator_nests(ASTSon0(a), decl_context); 
                 break;
             }
-        case AST_GCC_DECLARATOR :
-            {
-                return advance_over_declarator_nests(ASTSon1(a), decl_context);
-            }
+	// Note: GCC declarators are not advanced as we want their attributes
+	// to be visible later
         default:
             return a;
     }
