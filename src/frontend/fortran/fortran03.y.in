@@ -896,7 +896,8 @@ declaration_construct : derived_type_def
 execution_part : executable_construct execution_part_construct_seq
 {
     // This rule is a bit strange. It basically enforces that the execution
-    // part (if any) there will have an executable construct
+    // part (if any) there will start with an executable construct which cannot
+    // appear in a declaration part
     AST list = ASTListLeaf($1);
     $$ = ast_list_concat(list, $2);
 }
@@ -1051,7 +1052,9 @@ declaration_type_spec : intrinsic_type_spec
 }
 | TOK_CLASS '(' '*' ')'
 {
-    $$ = ASTMake1(AST_CLASS_NAME, NULL, $1.token_file, $1.token_line, NULL);
+    $$ = ASTMake1(AST_CLASS_NAME, 
+            ASTLeaf(AST_SYMBOL, $3.token_file, $3.token_line, $3.token_text), 
+            $1.token_file, $1.token_line, NULL);
 }
 ;
 intrinsic_type_spec : TOK_INTEGER kind_selector
@@ -1123,7 +1126,10 @@ intrinsic_type_spec : TOK_INTEGER kind_selector
 }
 | TOK_COMPLEX '*' decimal_literal
 {
-    internal_error("Not implemented yet", 0);
+    internal_error("%s:%d: sorry: 'COMPLEX * %s' not implemented yet", 
+            $1.token_file, 
+            $1.token_line, 
+            ASTText($3));
 }
 | TOK_DOUBLEPRECISION '*' decimal_literal
 {
@@ -1392,7 +1398,7 @@ type_attr_spec : TOK_ABSTRACT
 }
 | TOK_EXTENDS '(' name ')'
 {
-    $$ = ASTLeaf(AST_EXTENDS, $1.token_file, $1.token_line, $2.token_text);
+    $$ = ASTLeaf(AST_ATTR_SPEC, $1.token_file, $1.token_line, $2.token_text);
 }
 ;
 private_or_sequence : private_stmt
@@ -1468,23 +1474,23 @@ data_component_def_stmt : labeldef declaration_type_spec ',' component_attr_spec
 component_attr_spec : access_spec
 | TOK_ALLOCATABLE
 {
-    $$ = ASTLeaf(AST_ALLOCATABLE_SPEC, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTLeaf(AST_ATTR_SPEC, $1.token_file, $1.token_line, $1.token_text);
 }
 | TOK_CODIMENSION '[' coarray_spec ']'
 {
-    $$ = ASTMake1(AST_CODIMENSION_SPEC, $3, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTMake1(AST_ATTR_SPEC, $3, $1.token_file, $1.token_line, $1.token_text);
 }
 | TOK_CONTIGUOUS
 {
-    $$ = ASTLeaf(AST_CONTIGUOUS_SPEC, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTLeaf(AST_ATTR_SPEC, $1.token_file, $1.token_line, $1.token_text);
 }
 | TOK_DIMENSION '(' array_spec ')'
 {
-    $$ = ASTMake1(AST_DIMENSION_SPEC, $3, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTMake1(AST_ATTR_SPEC, $3, $1.token_file, $1.token_line, $1.token_text);
 }
 | TOK_POINTER
 {
-    $$ = ASTLeaf(AST_POINTER_SPEC, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTLeaf(AST_ATTR_SPEC, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 
@@ -1502,29 +1508,29 @@ proc_component_def_stmt : labeldef TOK_PROCEDURE '(' proc_interface ')' ',' proc
 ;
 proc_component_attr_spec : TOK_POINTER
 {
-    $$ = ASTLeaf(AST_POINTER_SPEC, $1.token_file, $1.token_line, NULL);
+    $$ = ASTLeaf(AST_ATTR_SPEC, $1.token_file, $1.token_line, NULL);
 }
 | TOK_PASS '(' name ')'
 {
-    $$ = ASTMake1(AST_PASS_SPEC, $3, $1.token_file, $1.token_line, NULL);
+    $$ = ASTMake1(AST_ATTR_SPEC, $3, $1.token_file, $1.token_line, NULL);
 }
 | TOK_PASS
 {
-    $$ = ASTMake1(AST_PASS_SPEC, NULL, $1.token_file, $1.token_line, NULL);
+    $$ = ASTMake1(AST_ATTR_SPEC, NULL, $1.token_file, $1.token_line, NULL);
 }
 | TOK_NOPASS
 {
-    $$ = ASTLeaf(AST_NOPASS_SPEC, $1.token_file, $1.token_line, NULL);
+    $$ = ASTLeaf(AST_ATTR_SPEC, $1.token_file, $1.token_line, NULL);
 }
 | access_spec
 ;
 type_bound_procedure_part : contains_stmt private_stmt type_bound_proc_binding_seq
 {
-    $$ = ASTMake2(AST_TYPE_BOUND_PROCEDURES, $2, $3, ASTFileName($2), ASTLine($2), NULL);
+    $$ = ASTMake2(AST_TYPE_BOUND_PROCEDURE_PART, $2, $3, ASTFileName($2), ASTLine($2), NULL);
 }
 | contains_stmt type_bound_proc_binding_seq
 {
-    $$ = ASTMake2(AST_TYPE_BOUND_PROCEDURES, NULL, $2, ASTFileName($2), ASTLine($2), NULL);
+    $$ = ASTMake2(AST_TYPE_BOUND_PROCEDURE_PART, NULL, $2, ASTFileName($2), ASTLine($2), NULL);
 }
 | contains_stmt private_stmt
 {
@@ -1548,19 +1554,19 @@ type_bound_proc_binding : type_bound_procedure_stmt
 ;
 type_bound_procedure_stmt : labeldef TOK_PROCEDURE ',' binding_attr_list ':' ':' type_bound_proc_decl_list eos
 {
-    $$ = ASTMake4(AST_TYPE_BOUND_PROCEDURE, $1, NULL, $4, $7, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4(AST_TYPE_BOUND_PROCEDURE_STATEMENT, $1, NULL, $4, $7, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_PROCEDURE type_bound_proc_decl_list eos
 {
-    $$ = ASTMake4(AST_TYPE_BOUND_PROCEDURE, $1, NULL, NULL, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4(AST_TYPE_BOUND_PROCEDURE_STATEMENT, $1, NULL, NULL, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_PROCEDURE ':' ':' type_bound_proc_decl_list eos
 {
-    $$ = ASTMake4(AST_TYPE_BOUND_PROCEDURE, $1, NULL, NULL, $5, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4(AST_TYPE_BOUND_PROCEDURE_STATEMENT, $1, NULL, NULL, $5, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_PROCEDURE '(' name ')' ',' binding_attr_list ':' ':' binding_name_list eos
 {
-    $$ = ASTMake4(AST_TYPE_BOUND_PROCEDURE, $1, $4, $7, $10, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4(AST_TYPE_BOUND_PROCEDURE_STATEMENT, $1, $4, $7, $10, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 type_bound_proc_decl : name TOK_POINTER_ACCESS name
@@ -1580,23 +1586,23 @@ type_bound_generic_stmt : labeldef TOK_GENERIC ',' access_spec ':' ':' generic_s
 ;
 binding_attr : TOK_PASS '(' name ')'
 {
-    $$ = ASTMake1(AST_PASS_SPEC, $3, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTMake1(AST_ATTR_SPEC, $3, $1.token_file, $1.token_line, $1.token_text);
 }
 | TOK_PASS
 {
-    $$ = ASTMake1(AST_PASS_SPEC, NULL, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTMake1(AST_ATTR_SPEC, NULL, $1.token_file, $1.token_line, $1.token_text);
 }
 | TOK_NOPASS
 {
-    $$ = ASTLeaf(AST_NOPASS_SPEC, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTLeaf(AST_ATTR_SPEC, $1.token_file, $1.token_line, $1.token_text);
 }
 | TOK_NON_OVERRIDABLE
 {
-    $$ = ASTLeaf(AST_NON_OVERRIDEABLE_SPEC, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTLeaf(AST_ATTR_SPEC, $1.token_file, $1.token_line, $1.token_text);
 }
 | TOK_DEFERRED
 {
-    $$ = ASTLeaf(AST_DEFERRED_SPEC, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTLeaf(AST_ATTR_SPEC, $1.token_file, $1.token_line, $1.token_text);
 }
 | access_spec
 ;
@@ -1906,11 +1912,11 @@ initialization : '=' constant_expr
 ;
 access_spec : TOK_PUBLIC
 {
-    $$ = ASTLeaf(AST_PUBLIC_SPEC, $1.token_file, $1.token_line, NULL);
+    $$ = ASTLeaf(AST_ATTR_SPEC, $1.token_file, $1.token_line, NULL);
 }
 | TOK_PRIVATE
 {
-    $$ = ASTLeaf(AST_PRIVATE_SPEC, $1.token_file, $1.token_line, NULL);
+    $$ = ASTLeaf(AST_ATTR_SPEC, $1.token_file, $1.token_line, NULL);
 }
 ;
 proc_language_binding_spec: language_binding_spec
@@ -1978,15 +1984,15 @@ upper_bound : specification_expr
 ;
 intent_spec : TOK_IN
 {
-    $$ = ASTLeaf(AST_INTENT_SPEC, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTLeaf(AST_ATTR_SPEC, $1.token_file, $1.token_line, $1.token_text);
 }
 | TOK_OUT
 {
-    $$ = ASTLeaf(AST_INTENT_SPEC, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTLeaf(AST_ATTR_SPEC, $1.token_file, $1.token_line, $1.token_text);
 }
 | TOK_INOUT
 {
-    $$ = ASTLeaf(AST_INTENT_SPEC, $1.token_file, $1.token_line, $1.token_text);
+    $$ = ASTLeaf(AST_ATTR_SPEC, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 access_stmt : labeldef access_spec ':' ':' access_id_list eos
@@ -2434,11 +2440,11 @@ pointer_object : data_ref
 ;
 deallocate_stmt : labeldef TOK_DEALLOCATE '(' allocate_object_list ',' dealloc_opt_list ')' eos
 {
-    $$ = ASTMake3(AST_DEALLOCATE, $1, $4, $6, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake3(AST_DEALLOCATE_STATEMENT, $1, $4, $6, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_DEALLOCATE '(' allocate_object_list ')' eos
 {
-    $$ = ASTMake3(AST_DEALLOCATE, $1, $4, NULL, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake3(AST_DEALLOCATE_STATEMENT, $1, $4, NULL, $2.token_file, $2.token_line, NULL);
 }
 ;
 dealloc_opt : TOK_STAT '=' stat_variable
@@ -2881,11 +2887,11 @@ critical_construct : critical_stmt block end_critical_stmt
 ;
 critical_stmt : labeldef name ':' TOK_CRITICAL eos
 {
-    $$ = ASTMake2(AST_CRITICAL_CONSTRUCT, $1, $2, $4.token_file, $4.token_line, $4.token_text);
+    $$ = ASTMake2(AST_CRITICAL_STATEMENT, $1, $2, $4.token_file, $4.token_line, $4.token_text);
 }
 | labeldef TOK_CRITICAL eos
 {
-    $$ = ASTMake2(AST_CRITICAL_CONSTRUCT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2(AST_CRITICAL_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 end_critical_stmt : labeldef TOK_END TOK_CRITICAL name eos
@@ -4177,23 +4183,23 @@ submodule : submodule_stmt specification_part module_subprogram_part end_submodu
 {
     AST module_body = ASTMake3(AST_BODY_PROGRAM_UNIT, $2, NULL, $3, ASTFileName($2), ASTLine($2), NULL);
 
-    $$ = ASTMake3(AST_SUBMODULE_UNIT, $1, module_body, $4, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake3(AST_SUBMODULE_PROGRAM_UNIT, $1, module_body, $4, ASTFileName($1), ASTLine($1), NULL);
 }
 | submodule_stmt module_subprogram_part end_submodule_stmt
 {
     AST module_body = ASTMake3(AST_BODY_PROGRAM_UNIT, NULL, NULL, $2, ASTFileName($2), ASTLine($2), NULL);
 
-    $$ = ASTMake3(AST_SUBMODULE_UNIT, $1, module_body, $3, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake3(AST_SUBMODULE_PROGRAM_UNIT, $1, module_body, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 | submodule_stmt specification_part end_submodule_stmt
 {
     AST module_body = ASTMake3(AST_BODY_PROGRAM_UNIT, $2, NULL, NULL, ASTFileName($2), ASTLine($2), NULL);
 
-    $$ = ASTMake3(AST_SUBMODULE_UNIT, $1, module_body, $3, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake3(AST_SUBMODULE_PROGRAM_UNIT, $1, module_body, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 | submodule_stmt end_submodule_stmt
 {
-    $$ = ASTMake3(AST_SUBMODULE_UNIT, $1, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake3(AST_SUBMODULE_PROGRAM_UNIT, $1, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 submodule_stmt : labeldef TOK_SUBMODULE '(' parent_identifier ')' name eos
@@ -4573,7 +4579,7 @@ function_prototype : '(' dummy_arg_name_list ')' suffix
 }
 | '(' ')' 
 {
-    $$ = NULL;
+    $$ = ASTMake2(AST_FUNCTION_PROTOTYPE, NULL, NULL, $1.token_file, $1.token_line, NULL);
 }
 ;
 suffix : proc_language_binding_spec TOK_RESULT '(' name ')'
@@ -5702,10 +5708,9 @@ keyword : TOK_FORMAT
 ;
 
 labeldef : label
-{
-}
 |  /* empty */
 {
+    $$ = NULL;
 }
 ;
 

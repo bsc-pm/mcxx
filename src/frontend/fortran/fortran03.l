@@ -18,6 +18,8 @@
 static void parse_token_text(void);
 static void parse_token_text_str(const char* c);
 
+static const char* main_input_filename = NULL;
+
 /*
    Include stack. Based on an example in the GNU Flex manual
 
@@ -2149,43 +2151,38 @@ int yywrap()
 	return end_of_file();
 }
 
-void initialize_include_stack(char* filename/*, FILE* file*/)
+int mf03_open_file_for_scanning(const char* scanned_filename, const char* input_filename)
 {
-	include_stack_size = 0;
-	fortran_scanning_now = &include_stack[include_stack_size];
-	fortran_scanning_now->filename = strdup(filename);
-	fortran_scanning_now->line_number = 1;
-	fortran_scanning_now->joined_lines = 0;
-	
 	FILE* file;
 
-	file = fopen(filename, "r");
+	file = fopen(scanned_filename, "r");
 
 	if (file == NULL)
 	{
-		running_error("Cannot open file '%s' (%s)", filename, strerror(errno));
+		running_error("error: cannot open file '%s' (%s)", scanned_filename, strerror(errno));
 	}
-	
-	fortran_scanning_now->file_descriptor = file;
 
-	fortran_scanning_now->scanning_buffer = yy_create_buffer(file, YY_BUF_SIZE);
+	memset(&scanning_now, 0, sizeof(scanning_now));
+	scanning_now.filename = uniquestr(scanned_filename);
+	scanning_now.file_descriptor = file;
+	scanning_now.line_number = 1;
 
-	// Initialize include table
-	// CURRENT_COMPILED_FILE->length_include_table = 50;
-	// CURRENT_COMPILED_FILE->index_include_table = 0;
-	// CURRENT_COMPILED_FILE->include_table = (char**) calloc(CURRENT_COMPILED_FILE->length_include_table, 
-	// 		sizeof(*CURRENT_COMPILED_FILE->include_table));
-	// CURRENT_COMPILED_FILE->include_table[CURRENT_COMPILED_FILE->index_include_table] = uniquestr(filename);
-	// CURRENT_COMPILED_FILE->in_include = 0;
+	main_input_filename = uniquestr(input_filename);
+    scanning_now.current_filename = main_input_filename;
 
-	yy_switch_to_buffer(fortran_scanning_now->scanning_buffer);
+	scanning_now.scanning_buffer = yy_create_buffer(file, YY_BUF_SIZE);
+
+	// yy_flush_buffer(YY_CURRENT_BUFFER);
+	yy_switch_to_buffer(scanning_now.scanning_buffer);
+
+	return 0;
 }
 
 char* TL_SOURCE_STRING = "(tl-source-string)";
 // maybe this is not the best place to change the configuration but it must work
 compilation_configuration_t* string_scanning_configuration = 0;
 
-int prepare_string_for_scanning(const char* str)
+int mf03_prepare_string_for_scanning(const char* str)
 {
 	static int num_string = 0;
 	include_stack_size = 0;

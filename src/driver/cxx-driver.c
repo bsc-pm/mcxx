@@ -73,6 +73,12 @@
 
 #include "filename.h"
 
+#ifdef FORTRAN_SUPPORT
+#include "fortran03-parser.h"
+#include "fortran03-lexer.h"
+#include "fortran03-semantic.h"
+#endif
+
 /* ------------------------------------------------------------------ */
 #define HELP_STRING \
 "Options: \n" \
@@ -2100,6 +2106,17 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                         running_error("Could not open file '%s'", parsed_filename);
                     }
                 }
+
+#ifdef FORTRAN_SUPPORT
+                FORTRAN_LANGUAGE()
+                {
+                    if (mf03_open_file_for_scanning(parsed_filename, translation_unit->input_filename) != 0)
+                    {
+                        running_error("Could not open file '%s'", parsed_filename);
+                    }
+                }
+#endif
+
                 // 2. Parse file
                 parse_translation_unit(translation_unit, parsed_filename);
                 // 3. Close file
@@ -2250,6 +2267,13 @@ static void parse_translation_unit(translation_unit_t* translation_unit, const c
         parse_result = mc99parse(&parsed_tree);
     }
 
+#ifdef FORTRAN_SUPPORT
+    FORTRAN_LANGUAGE()
+    {
+        parse_result = mf03parse(&parsed_tree);
+    }
+#endif
+
     if (parse_result != 0)
     {
         running_error("Compilation failed for file '%s'\n", translation_unit->input_filename);
@@ -2289,7 +2313,21 @@ static void semantic_analysis(translation_unit_t* translation_unit, const char* 
     timing_t timing_semantic;
 
     timing_start(&timing_semantic);
-    build_scope_translation_unit(translation_unit);
+    if (IS_C_LANGUAGE
+            || IS_CXX_LANGUAGE)
+    {
+        build_scope_translation_unit(translation_unit);
+    }
+#ifdef FORTRAN_SUPPORT
+    else if (IS_FORTRAN_LANGUAGE)
+    {
+    }
+#endif
+    else
+    {
+        internal_error("%s: invalid language kind\n", 
+                parsed_filename);
+    }
     timing_end(&timing_semantic);
 
     if (CURRENT_CONFIGURATION->verbose)

@@ -123,6 +123,8 @@ then
     AC_DEFINE([FORTRAN_SUPPORT], 1, [Define to 1 if Fortran support is enabled in the compiler])
 fi
 
+AM_CONDITIONAL(FORTRAN_SUPPORT, test x$is_enabled_fortran = xyes)
+
 AC_SUBST([FRONTEND_EXTENSIONS])
 
 dnl ----- End of Fortran support ----

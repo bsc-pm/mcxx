@@ -47,6 +47,11 @@ mcxx_CFLAGS=-fexceptions \
 			-DPKGDATADIR=\"$(pkgdatadir)\" \
 			-Wall
 
+if FORTRAN_SUPPORT
+mcxx_CFLAGS += -I$(top_srcdir)/src/frontend/fortran
+mcxx_CFLAGS += -I$(top_builddir)/src/frontend/fortran
+endif
+
 mcxx_SOURCES = \
   cxx-configfile.h \
   cxx-configfile.c \
@@ -82,6 +87,10 @@ mcxx_LDADD = \
    $(top_builddir)/src/tl/libtl.la \
    $(top_builddir)/src/mcxx_tl/libmcxxtl.la \
    $(END)
+
+if FORTRAN_SUPPORT
+mcxx_LDADD += $(top_builddir)/src/frontend/fortran/libmf03.la
+endif
 
 if WINDOWS_BUILD
 else

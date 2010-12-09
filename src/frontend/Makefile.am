@@ -81,6 +81,7 @@ libmcxx_la_SOURCES = \
   cxx-html.c \
   cxx-prettyprint.c \
   cxx-prettyprint.h \
+  cxx-prettyprint-internal.h \
   cxx-utils.c \
   cxx-utils.h \
   cxx-scope.c \
@@ -172,6 +173,7 @@ libmcxx_la_CFLAGS = -DLIBMCXX_DLL_EXPORT \
 				    -I$(top_srcdir)/src/driver \
                     -fexceptions \
 				    -DPKGDATADIR=\"$(pkgdatadir)\"
+
 
 EXTRA_DIST += cxx-lexer.l
 

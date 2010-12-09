@@ -483,7 +483,6 @@ translation_unit : declaration_sequence
 {
 	*parsed_tree = $1;
 }
-// This is used for subparsing
 | /* empty */
 {
     *parsed_tree = NULL;
