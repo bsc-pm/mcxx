@@ -895,8 +895,8 @@ declaration_construct : derived_type_def
 ;
 execution_part : executable_construct execution_part_construct_seq
 {
-    // This rule is a bit strange
-
+    // This rule is a bit strange. It basically enforces that the execution
+    // part (if any) there will have an executable construct
     AST list = ASTListLeaf($1);
     $$ = ast_list_concat(list, $2);
 }

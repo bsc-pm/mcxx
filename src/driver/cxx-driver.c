@@ -843,9 +843,14 @@ int parse_arguments(int argc, const char* argv[],
                             CURRENT_CONFIGURATION->force_language = 1;
                             CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_CXX;
                         }
+                        else if (strcasecmp(parameter_info.argument, "FORTRAN") == 0)
+                        {
+                            CURRENT_CONFIGURATION->force_language = 1;
+                            CURRENT_CONFIGURATION->source_language = SOURCE_LANGUAGE_FORTRAN;
+                        }
                         else
                         {
-                            fprintf(stderr, "%s: invalid language specification in -x, valid options are 'C' or 'C++'. Ignoring\n",
+                            fprintf(stderr, "%s: invalid language specification in -x, valid options are 'C', 'C++' or 'FORTRAN'. Ignoring\n",
                                     compilation_process.exec_basename);
                         }
 
@@ -2006,22 +2011,30 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
         // Ensure phases are loaded for current profile
         load_compiler_phases(CURRENT_CONFIGURATION);
-        
+
         // First check the file type
         const char* extension = get_extension_filename(translation_unit->input_filename);
 
         struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
 
-    // Linker data is not processed anymore
-    if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA)
-    {
-        file_process->already_compiled = 1;
-        continue;
-    }
+        // Linker data is not processed anymore
+        if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA)
+        {
+            file_process->already_compiled = 1;
+            continue;
+        }
+
+#ifndef FORTRAN_SUPPORT
+        if (current_extension->source_language == SOURCE_LANGUAGE_FORTRAN)
+        {
+            running_error("%s: sorry: Fortran support not enabled", 
+                    translation_unit->input_filename);
+        }
+#endif
 
         if (!CURRENT_CONFIGURATION->force_language
                 && (current_extension->source_language != CURRENT_CONFIGURATION->source_language)
-                && (current_extension->source_kind != SOURCE_KIND_NOT_PARSED))
+                && (!BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PARSED)))
         {
             fprintf(stderr, "%s: %s was configured for %s language but file '%s' looks %s language (it will be compiled anyways)\n",
                     compilation_process.exec_basename,
@@ -2037,7 +2050,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
         }
 
         const char* parsed_filename = translation_unit->input_filename;
-        if (current_extension->source_kind == SOURCE_KIND_NOT_PREPROCESSED
+        if (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PREPROCESSED)
                 && !CURRENT_CONFIGURATION->pass_through)
         {
             timing_t timing_preprocessing;
@@ -2063,7 +2076,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
         if (!CURRENT_CONFIGURATION->do_not_parse)
         {
             if (!CURRENT_CONFIGURATION->pass_through
-                    && (current_extension->source_kind != SOURCE_KIND_NOT_PARSED))
+                    && (!BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PARSED)))
             {
                 // 0. Do this before open for scan since we might to internally parse some sources
                 mcxx_flex_debug = mc99_flex_debug = CURRENT_CONFIGURATION->debug_options.debug_lexer;
@@ -2125,7 +2138,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
 
             const char* prettyprinted_filename = NULL;
-            if (current_extension->source_kind != SOURCE_KIND_NOT_PARSED)
+            if (!BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PARSED))
             {
                 prettyprinted_filename
                     = prettyprint_translation_unit(translation_unit, parsed_filename);
@@ -2150,7 +2163,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 }
             }
 
-            if (current_extension->source_kind != SOURCE_KIND_NOT_PARSED)
+            if (!BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PARSED))
             {
                 native_compilation(translation_unit, prettyprinted_filename, /* remove_input */ true);
             }

@@ -23,6 +23,8 @@
 
 lib_LTLIBRARIES = libmcxx-process.la libmcxx.la
 
+SUBDIRS=. @FRONTEND_EXTENSIONS@
+
 DIST_SUBDIRS=fortran
 
 END=
