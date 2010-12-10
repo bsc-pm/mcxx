@@ -91,14 +91,12 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 %x preprocess
 %x COMMENT
 %x SEEN_FORMAT
-%x css_annotation
 %x pragma_line
 %x unknown_pragma
 %x pragma_custom_directive
 %x pragma_custom_clause_first
 %x pragma_custom_clause
 %s pragma_custom_var_list
-
 
 %%
 
@@ -633,44 +631,6 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 }
 
 }
-
-<css_annotation>{
-
-[ \t] { }
-
-start {
-	parse_token_text();
-	BEGIN(0);
-	RETURN_TOKEN(CSS_START);
-}
-
-finish {
-	parse_token_text();
-	BEGIN(0);
-	RETURN_TOKEN(CSS_FINISH);
-}
-
-wait[ ]+on {
-	parse_token_text();
-	BEGIN(0);
-	RETURN_TOKEN(CSS_WAITON);
-}
-
-
-barrier {
-	parse_token_text();
-	BEGIN(0);
-	RETURN_TOKEN(CSS_BARRIER);
-}
-
-task { //this part should be extended for fortran77 support
-	parse_token_text();
-	BEGIN(0);
-	RETURN_TOKEN(CSS_TASK);
-}
-
-}
-
 
 @PROGRAM_UNIT@ {		// CSS / mf03: SUBPARSING
 	parse_token_text();
