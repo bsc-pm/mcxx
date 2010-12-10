@@ -210,10 +210,14 @@ HANDLER_PROTOTYPE(binary_operator_handler);
 HANDLER_PROTOTYPE(unary_operator_handler);
 HANDLER_PROTOTYPE(labeldef_handler);
 HANDLER_PROTOTYPE(sequence_handler);
+HANDLER_PROTOTYPE(unary_container_handler);
+HANDLER_PROTOTYPE(ambiguity_handler);
 
-prettyprint_entry_t handlers_list[] = 
+static prettyprint_entry_t handlers_list[] = 
 {
+    NODE_HANDLER(AST_TRANSLATION_UNIT, unary_container_handler, NULL),
     NODE_HANDLER(AST_NODE_LIST, sequence_handler, NULL),
+    NODE_HANDLER(AST_AMBIGUITY, ambiguity_handler, NULL),
     NODE_HANDLER(AST_ABSTRACT, simple_text_handler, NULL),
     NODE_HANDLER(AST_ACCESS_STATEMENT, access_statement_handler, NULL),
     NODE_HANDLER(AST_ADD_OP, binary_operator_handler, "+"),
@@ -455,6 +459,18 @@ char* fortran_prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callb
 const char* fortran_prettyprint_in_buffer(AST a);
 
 char* fortran_prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callback, void *data);
+
+static void ambiguity_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    // Print the first ambiguity because all "look like" the same, no matter
+    // which one is actually printed
+    prettyprint_level(f, ast_get_ambiguity(a, 0), pt_ctx);
+}
+
+static void unary_container_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
+}
 
 static void simple_text_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx UNUSED_PARAMETER)
 {
@@ -1142,7 +1158,10 @@ static void deallocate_statement_handler(FILE* f, AST a, prettyprint_context_t* 
 static void declaration_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     prettyprint_level(f, ASTSon0(a), pt_ctx);
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
+    if (ASTSon1(a) != NULL)
+    {
+        prettyprint_level(f, ASTSon1(a), pt_ctx);
+    }
 }
 
 static void declaration_specs_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)

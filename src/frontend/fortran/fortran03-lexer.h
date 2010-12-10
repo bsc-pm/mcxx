@@ -8,5 +8,7 @@ extern struct scan_file_descriptor* fortran_scanning_now;
 extern int mf03_open_file_for_scanning(const char* scanned_filename, const char* input_filename);
 extern int mf03_prepare_string_for_scanning(const char* str);
 
+LIBMCXX_EXTERN int mf03_flex_debug;
+LIBMCXX_EXTERN int mf03debug;
 
 #endif // FORTRAN03_LEXER_H

@@ -803,6 +803,9 @@ static AST ambig_io_control_spec(YYSTYPE x0 UNUSED_PARAMETER, YYSTYPE x1 UNUSED_
 %%
 
 program : program_unit_seq
+{
+    *parsed_tree = $1;
+}
 ;
 program_unit : main_program
 | external_subprogram
@@ -1539,7 +1542,7 @@ type_bound_procedure_part : contains_stmt private_stmt type_bound_proc_binding_s
 | contains_stmt
 {
     // FIXME
-    $$ = ASTMake2(AST_TYPE_BOUND_PROCEDURE_PART, NULL, NULL, NULL, NULL, NULL);
+    $$ = ASTMake2(AST_TYPE_BOUND_PROCEDURE_PART, NULL, NULL, NULL, 0, NULL);
 }
 ;
 private_stmt : labeldef TOK_PRIVATE eos
@@ -2617,12 +2620,12 @@ int_constant_expr : int_expr
 ;
 assignment_stmt : labeldef data_ref '=' expr eos
 {
-    $$ = ASTMake3(AST_ASSIGNMENT_STATEMENT, $1, $2, $4, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake3(AST_ASSIGNMENT_STATEMENT, $1, $2, $4, ASTFileName($2), ASTLine($2), NULL);
 }
 ;
 pointer_assignment_stmt : labeldef proc_pointer_object TOK_POINTER_ACCESS proc_target eos
 {
-    $$ = ASTMake3(AST_PTR_ASSIGNMENT_STATEMENT, $1, $2, $4, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake3(AST_PTR_ASSIGNMENT_STATEMENT, $1, $2, $4, ASTFileName($2), ASTLine($2), NULL);
 }
 ;
 proc_pointer_object : data_ref

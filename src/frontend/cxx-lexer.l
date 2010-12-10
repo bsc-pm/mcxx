@@ -120,7 +120,7 @@ static int num_new_lines(const char* c)
     return result;
 }
 
-static int include_counter;
+static int include_counter = 0;
 
 // static int verbatim_buffer_size = 0;
 // static const char *verbatim_buffer = NULL;

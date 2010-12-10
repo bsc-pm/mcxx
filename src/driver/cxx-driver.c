@@ -77,6 +77,7 @@
 #include "fortran03-parser.h"
 #include "fortran03-lexer.h"
 #include "fortran03-semantic.h"
+#include "fortran03-prettyprint.h"
 #endif
 
 /* ------------------------------------------------------------------ */
@@ -2087,6 +2088,10 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 // 0. Do this before open for scan since we might to internally parse some sources
                 mcxx_flex_debug = mc99_flex_debug = CURRENT_CONFIGURATION->debug_options.debug_lexer;
                 mcxxdebug = mc99debug = CURRENT_CONFIGURATION->debug_options.debug_parser;
+#ifdef FORTRAN_SUPPORT
+                mf03_flex_debug = CURRENT_CONFIGURATION->debug_options.debug_lexer;
+                mf03debug = CURRENT_CONFIGURATION->debug_options.debug_parser;
+#endif
 
                 initialize_semantic_analysis(translation_unit, parsed_filename);
 
@@ -2305,7 +2310,20 @@ static void initialize_semantic_analysis(translation_unit_t* translation_unit,
 {
     // This one is implemented in cxx-buildscope.c
     translation_unit->parsed_tree = get_translation_unit_node();
-    initialize_translation_unit_scope(translation_unit);
+    if (IS_C_LANGUAGE
+            || IS_CXX_LANGUAGE)
+    {
+        initialize_translation_unit_scope(translation_unit);
+    }
+#ifdef FORTRAN_SUPPORT
+    else if (IS_FORTRAN_LANGUAGE)
+    {
+    }
+#endif
+    else
+    {
+        internal_error("Invalid language", 0);
+    }
 }
 
 static void semantic_analysis(translation_unit_t* translation_unit, const char* parsed_filename)
@@ -2405,7 +2423,21 @@ static const char* prettyprint_translation_unit(translation_unit_t* translation_
 
     // This will be used by a native compiler
     prettyprint_set_not_internal_output();
-    prettyprint(prettyprint_file, translation_unit->parsed_tree);
+    if (IS_C_LANGUAGE
+            || IS_CXX_LANGUAGE)
+    {
+        prettyprint(prettyprint_file, translation_unit->parsed_tree);
+    }
+#ifdef FORTRAN_SUPPORT
+    else if (IS_FORTRAN_LANGUAGE)
+    {
+        fortran_prettyprint(prettyprint_file, translation_unit->parsed_tree);
+    }
+#endif
+    else
+    {
+        internal_error("Invalid language kind", 0);
+    }
 
     timing_end(&time_print);
     if (CURRENT_CONFIGURATION->verbose)

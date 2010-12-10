@@ -18,3 +18,13 @@ compiler_name = g++
 compiler_options = 
 linker_name = g++
 linker_options = 
+
+[plainf95]
+language = Fortran
+options = 
+preprocessor_name = gfortran
+preprocessor_name = -cpp -E
+compiler_name = gfortran
+compiler_options = 
+linker_name = gfortran
+linker_options = 

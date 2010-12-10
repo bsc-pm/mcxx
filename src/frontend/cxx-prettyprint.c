@@ -228,7 +228,7 @@ HANDLER_PROTOTYPE(upc_sizeof_expr);
 HANDLER_PROTOTYPE(upc_sizeof_type);
 HANDLER_PROTOTYPE(upc_synch_statement);
 
-prettyprint_entry_t handlers_list[] =
+static prettyprint_entry_t handlers_list[] =
 {
     NODE_HANDLER(AST_TRANSLATION_UNIT, unary_container_handler, NULL),
     NODE_HANDLER(AST_AMBIGUITY, ambiguity_handler, NULL),

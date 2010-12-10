@@ -81,6 +81,10 @@ int config_set_language(struct compilation_configuration_tag* config, const char
         config->source_language = SOURCE_LANGUAGE_CXX;
         config->enable_cxx1x = 1;
     }
+    else if (strcasecmp(value, "fortran") == 0)
+    {
+        config->source_language = SOURCE_LANGUAGE_FORTRAN;
+    }
     else
     {
         fprintf(stderr, "Unknown language '%s' assuming C++\n", value);

@@ -11,6 +11,7 @@
 #include "cxx-ast.h"
 #include "cxx-driver-utils.h"
 #include "cxx-utils.h"
+#include "filename.h"
 #include "fortran03-utils.h"
 #include "fortran03-lexer.h"
 #include "fortran03-parser-internal.h"
@@ -27,6 +28,8 @@ static const char* main_input_filename = NULL;
    We have set it to 99.
  */
 #define MAX_INCLUDE_DEPTH 99
+
+static int include_counter = 0;
 
 static int include_stack_size = 0;
 static int pragma_custom_var_list_parentheses = 0;
@@ -78,7 +81,14 @@ uchar           (\\u{hexquad}|\\U{hexquad}{hexquad})
 nondigit        ([_a-zA-Z]|uchar)
 idnondigit  ({nondigit}|{uchar})
 
+ /* Minimal C stuff */
+c_octaldigit      [0-7]
+c_hexdigit        [a-fA-F0-9]
+c_escape_seq      ((\\["'?eabfnrtv\\])|(\\{c_octaldigit}{1,3})|((\\x)+{c_hexdigit}+))
+schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 
+
+%x preprocess
 %x COMMENT
 %x SEEN_FORMAT
 %x css_annotation
@@ -91,6 +101,226 @@ idnondigit  ({nondigit}|{uchar})
 
 
 %%
+
+"#" { 
+    BEGIN(preprocess); 
+}
+
+<preprocess>[ ]*line[ ]+[[:digit:]]+([ ]+\"{schar}*\")?[^\n]* {
+ const char *p = yytext;
+
+ // Jump initial blanks (if any)
+ while (*p == ' ')
+    p++;
+
+ // Jump "line" string
+ p += strlen("line");
+
+ // Jump blanks
+ while (*p == ' ')
+   p++;
+
+ // Compute line
+ int line_num = 0;
+ while (*p != ' ' 
+         && *p != '\0' // The filename location is optional
+         )
+ {
+     if (isdigit(*p))
+     {
+         line_num = line_num*10 + ((*p) - '0');
+     }
+     else
+     {
+         internal_error("Digit expected here but '%c' (%x) found", *p, *p);
+     }
+     p++;
+ }
+
+   // Update the line number, note that it is line_num - 1 
+   // because \n is not handled here, but in another rule
+ scanning_now.line_number = (line_num - 1);
+
+ // Jump blanks (if any)
+ while (*p == ' ')
+   p++;
+
+ // If there is a filename, parse it
+ if (*p == '"')
+ {
+     // Now we are on the quote "
+     p++;
+ 
+     char filename[256];
+     memset(filename, 0, 256);
+ 
+     char *f = filename;
+ 
+     while (*p != '"')
+     {
+         if (f < &(filename[255]))
+         {
+             (*f) = *p;
+             f++;
+         }
+         p++;
+     }
+
+     // Update the file 
+	scanning_now.current_filename = uniquestr(filename);
+ }
+}
+
+<preprocess>[ ]{digit}+[ ]+["][^"]+["][^\n]* {
+	char* directive = yytext;
+
+	// Jump the blank
+	directive++;
+
+	int line_num = 0;
+	while (*directive != ' ')
+	{
+		if (isdigit(*directive))
+		{
+			line_num = line_num*10 + ((*directive) - '0');
+		}
+		else
+		{
+			internal_error("Digit expected here but '%c' found", *directive);
+		}
+		directive++;
+	}
+
+	// Now directive is over the blank after the digits. Jump the blank
+	directive++;
+
+	// Now we are over the doublequote. Jump it
+	directive++;
+
+	char filename[256];
+	memset(filename, 0, 256);
+
+	char* p = filename;
+
+	while (*directive != '"')
+	{
+        if (p < &(filename[255]))
+        {
+            *p = *directive;
+            p++;
+        }
+		directive++;
+	}
+
+	// Now we have the new number line and the new file name
+
+    // Check include flags from GNU cpp and other preprocessors.
+    // We are on the the doublequote, jump it.
+    directive++;
+
+    // Advance the directive till the next nonblank
+    while (*directive == ' ')
+    {
+        directive++;
+    }
+
+    // Get the flags
+    char start_of_new_file = 0;
+    char return_of_a_file = 0;
+    char system_header_file = 0;
+    char extern_c_block = 0;
+    while (*directive == ' '
+            || isdigit(*directive))
+    {
+        int current_flag = 0;
+        while (isdigit(*directive))
+        {
+            current_flag = current_flag * 10 +  (*directive - '0');
+            directive++;
+        }
+
+        switch (current_flag)
+        {
+            case 1:
+                {
+                    start_of_new_file = 1;
+                    break;
+                }
+            case 2:
+                {
+                    return_of_a_file = 1;
+                    break;
+                }
+            case 3:
+                {
+                    system_header_file = 1;
+                    break;
+                }
+            case 4:
+                {
+                    extern_c_block = 1;
+                    break;
+                }
+            default:
+                // Ignore it
+                break;
+        }
+
+        // Advance the directive till the next nonblank
+        while (*directive == ' ')
+        {
+            directive++;
+        }
+    }
+
+    if (system_header_file)
+    {
+        char path[256];
+        strncpy(path, filename, 255);
+
+        const char *name_without_path = give_basename(path);
+        strncpy(filename, name_without_path, 255);
+    }
+
+    if (start_of_new_file 
+            || system_header_file)
+    {
+        if (include_counter == 0)
+        {
+            top_level_include_t *new_top_level_include = calloc(1, sizeof(*new_top_level_include));
+
+            new_top_level_include->included_file = uniquestr(filename);
+
+            if (system_header_file)
+            {
+                new_top_level_include->system_include = 1;
+            }
+
+            P_LIST_ADD(CURRENT_COMPILED_FILE->top_level_include_list,
+                    CURRENT_COMPILED_FILE->num_top_level_includes,
+                    new_top_level_include);
+        }
+    }
+
+    if (start_of_new_file)
+    {
+        include_counter++;
+    }
+
+    if (return_of_a_file)
+    {
+        include_counter = (include_counter > 0) ? (include_counter - 1) : 0;
+    }
+
+    // Update the line number, note that it is line_num - 1 
+    // because \n is not handled here, but in another rule
+	scanning_now.line_number = (line_num - 1);
+    // Update file
+	scanning_now.current_filename = uniquestr(filename);
+}
+
+<preprocess>.       { /* ignore line */  }
+<preprocess>\n  { scanning_now.line_number++; BEGIN(INITIAL); }
 
 <<EOF>> {
 	if (!last_eos)

@@ -90,6 +90,12 @@ AC_COMPILE_IFELSE(
 
 dnl --------------------- end check of old gcc ---
 
+TL_EXTENSIONS=""
+TL_OMP_EXTENSIONS=""
+INSTALL_CONFIG_FILES="config.plain"
+
+COMPILER_NAMES="plaincxx plaincc"
+
 dnl ----- Fortran support ----
 
 FRONTEND_EXTENSIONS=""
@@ -121,6 +127,7 @@ if test x$is_enabled_fortran = xyes;
 then
     FRONTEND_EXTENSIONS=" fortran"
     AC_DEFINE([FORTRAN_SUPPORT], 1, [Define to 1 if Fortran support is enabled in the compiler])
+    COMPILER_NAMES="${COMPILER_NAMES} plainf95"
 fi
 
 AM_CONDITIONAL(FORTRAN_SUPPORT, test x$is_enabled_fortran = xyes)
@@ -129,11 +136,6 @@ AC_SUBST([FRONTEND_EXTENSIONS])
 
 dnl ----- End of Fortran support ----
 
-TL_EXTENSIONS=""
-TL_OMP_EXTENSIONS=""
-INSTALL_CONFIG_FILES="config.plain"
-
-COMPILER_NAMES="plaincxx plaincc"
 
 dnl --------------------- Support for OMPSS ------------------------------------------
 is_enabled_openmpt="no"
