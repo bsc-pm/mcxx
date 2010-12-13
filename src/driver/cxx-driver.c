@@ -3070,7 +3070,7 @@ static void link_files(const char** file_list, int num_files,
 {
     int num_args_linker = count_null_ended_array((void**)compilation_configuration->linker_options);
 
-    int num_arguments = num_args_linker;
+    int num_arguments = num_args_linker + num_files;
     // -o output
     num_arguments += 2;
     // NULL
