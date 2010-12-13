@@ -58,12 +58,13 @@ struct line_information_tag
 	int num_line;
 	char has_label;
 	char is_comment;
+	char is_prepro_line;
 	char label[6];
 	int num_of_statements;
 	int room_for_statements;
 	struct sentence_information_tag* statement_list;
 
-	// Only for comments
+	// Only for comments or prepro lines
 	char* comment_text;
 };
 
@@ -207,7 +208,8 @@ language_level convert_line(prescanner_t* prescanner, language_level previous, c
 	// Let's make enough room
 	*line = calloc(strlen(li->label) + 1 + original_size*2, sizeof(char));
 
-	if (li->is_comment)
+	if (li->is_comment
+            || li->is_prepro_line)
 	{
 		strcat(*line, li->comment_text);
 		free(li->comment_text);
@@ -266,6 +268,14 @@ static line_information_t* get_information_from_line(prescanner_t* prescanner, c
 			return li;
 		}
 	}
+
+    // This is a line information
+    if (*t == '#')
+    {
+        li->is_prepro_line = 1;
+        li->comment_text = strdup(c);
+        return li;
+    }
 
 	// We read the label
 	char* p = c;
