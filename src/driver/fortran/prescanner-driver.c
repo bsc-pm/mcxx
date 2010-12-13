@@ -7,7 +7,7 @@
 #include "prescanner-driver.h"
 #include "prescanner-process.h"
 
-#define GETOPT_STRING "o:w:hdmapI:r:"
+#define GETOPT_STRING "o:w:hdmapI:r:q"
 
 #define HELP_STRING \
 "Usage: " PACKAGE " [options] -o file file\n" \
@@ -24,6 +24,7 @@
 "           \tfor included files\n" \
 "  -r <dir> \tRegenerates headers in directory <dir>.\n" \
 "           \tIt will be also searched for includes\n" \
+"  -q       \tQuiet mode\n" \
 "\n"
 
 static prescanner_t prescanner;
@@ -33,9 +34,12 @@ static void parse_parameters(int argc, char* argv[]);
 
 int main(int argc, char* argv[])
 {
-	fprintf(stderr, PACKAGE " Prescanner - Version " VERSION "\n");
-
 	parse_parameters(argc, argv);
+    
+    if (!prescanner.quiet)
+    {
+        fprintf(stderr, PACKAGE " Prescanner - Version " VERSION "\n");
+    }
 
 	fortran_prescanner_run(&prescanner);
 	return 0;
@@ -48,7 +52,7 @@ static void show_help(void)
 
 static void parse_parameters(int argc, char* argv[])
 {
-	char c;
+    memset(&prescanner, 0, sizeof(prescanner));
 	// By default
 	prescanner.debug = 0;
 	prescanner.width = 72;
@@ -61,6 +65,7 @@ static void parse_parameters(int argc, char* argv[])
 	prescanner.include_directories[0] = strdup(".");
 	prescanner.output_include_directory = NULL;
 
+	char c;
 	char error = 0;
 	while ((c = getopt(argc, argv, GETOPT_STRING)) != (char) -1)
 	{
@@ -136,6 +141,11 @@ static void parse_parameters(int argc, char* argv[])
 					prescanner.include_directories[prescanner.num_include_directories-1] = directory;
 					break;
 				}
+            case 'q':
+                {
+                    prescanner.quiet = 1;
+                    break;
+                }
 			case '?' :
 				{
 					error = 1;

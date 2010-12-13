@@ -18,6 +18,7 @@ struct prescanner_tag {
 	char append;
 	char pad_strings;
 	char openmp_processing;
+    char quiet;
 
 	int num_include_directories;
 	char** include_directories;
