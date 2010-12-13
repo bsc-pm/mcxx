@@ -3977,6 +3977,14 @@ main_program : program_stmt program_body end_program_stmt
 {
     $$ = ASTMake3(AST_MAIN_PROGRAM_UNIT, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
+| end_program_stmt
+{
+    $$ = ASTMake3(AST_MAIN_PROGRAM_UNIT, NULL, NULL, $1, ASTFileName($1), ASTLine($1), NULL);
+}
+| program_stmt end_program_stmt
+{
+    $$ = ASTMake3(AST_MAIN_PROGRAM_UNIT, $1, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
+}
 ;
 
 program_body : specification_part execution_part internal_subprogram_part 
