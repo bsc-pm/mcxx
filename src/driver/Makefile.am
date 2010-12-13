@@ -25,6 +25,14 @@
 # work)
 mcxxexec_PROGRAMS = mcxx mcxx-embedder
 
+SUBDIRS=. 
+
+DIST_SUBDIRS=fortran
+
+if FORTRAN_SUPPORT
+SUBDIRS += fortran
+endif
+
 if ENABLE_PKGLIB_INSTALL
 mcxxexecdir = $(pkglibdir)
 else

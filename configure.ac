@@ -1194,6 +1194,7 @@ AC_CONFIG_FILES([Makefile
            lib/Makefile
            src/Makefile 
            src/driver/Makefile 
+           src/driver/fortran/Makefile 
            src/frontend/Makefile 
            src/frontend/fortran/Makefile 
            src/mcxx_tl/Makefile 

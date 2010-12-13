@@ -324,6 +324,11 @@ typedef struct compilation_configuration_tag
     const char** preprocessor_options;
     char preprocessor_uses_stdout;
 
+#ifdef FORTRAN_SUPPORT
+    // Fortran prescanner
+    const char** prescanner_options;
+#endif
+
     const char* native_compiler_name;
     const char** native_compiler_options;
 

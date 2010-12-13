@@ -122,8 +122,9 @@
 "  --pp-stdout              Preprocessor uses stdout for output\n" \
 "  --W<flags>,<options>     Pass comma-separated <options> on to\n" \
 "                           the several programs invoked by the driver\n" \
-"                           Flag list is a sequence of 'p', 'n' or 'l'\n" \
+"                           Flags is a sequence of 'p', 'n', 's', or 'l'\n" \
 "                              p: preprocessor\n"  \
+"                              s: Fortran prescanner\n" \
 "                              n: native compiler\n" \
 "                              l: linker\n" \
 "  --Wx:<profile>:<flags>,options\n" \
@@ -292,6 +293,10 @@ static void semantic_analysis(translation_unit_t* translation_unit, const char* 
 static const char* prettyprint_translation_unit(translation_unit_t* translation_unit, const char* parsed_filename);
 static void native_compilation(translation_unit_t* translation_unit, 
         const char* prettyprinted_filename, char remove_input);
+
+#ifdef FORTRAN_SUPPORT
+static const char *fortran_prescan_file(translation_unit_t* translation_unit, const char *parsed_filename);
+#endif
 
 #if !defined(WIN32_BUILD) || defined(__CYGWIN__)
 static void terminating_signal_handler(int sig);
@@ -1588,6 +1593,7 @@ static void parse_subcommand_arguments(const char* arguments)
     char prepro_flag = 0;
     char native_flag = 0;
     char linker_flag = 0;
+    char prescanner_flag = 0;
 
     compilation_configuration_t* configuration = CURRENT_CONFIGURATION;
 
@@ -1657,8 +1663,11 @@ static void parse_subcommand_arguments(const char* arguments)
             case 'l' : 
                 linker_flag = 1;
                 break;
+            case 's':
+                prescanner_flag = 1;
+                break;
             default:
-                fprintf(stderr, "%s: invalid flag character %c for --W option only 'p', 'n' or 'l' are allowed, ignoring\n",
+                fprintf(stderr, "%s: invalid flag character %c for --W option only 'p', 'n', 's' or 'l' are allowed, ignoring\n",
                         compilation_process.exec_basename,
                         *p);
                 break;
@@ -1695,6 +1704,12 @@ static void parse_subcommand_arguments(const char* arguments)
         add_to_parameter_list(
                 &configuration->linker_options,
                 parameters, num_parameters);
+#ifdef FORTRAN_SUPPORT
+    if (prescanner_flag)
+        add_to_parameter_list(
+                &configuration->prescanner_options,
+                parameters, num_parameters);
+#endif
 }
 
 static compilation_configuration_t minimal_default_configuration;
@@ -2079,6 +2094,33 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
                 running_error("Preprocess failed for file '%s'", translation_unit->input_filename);
             }
         }
+
+#ifdef FORTRAN_SUPPORT
+        if (current_extension->source_language == SOURCE_LANGUAGE_FORTRAN
+                && BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_FIXED_FORM)
+                && !CURRENT_CONFIGURATION->pass_through)
+        {
+            timing_t timing_prescanning;
+            
+            timing_start(&timing_prescanning);
+            parsed_filename = fortran_prescan_file(translation_unit, parsed_filename);
+            timing_end(&timing_prescanning);
+
+            if (parsed_filename != NULL
+                    && CURRENT_CONFIGURATION->verbose)
+            {
+                fprintf(stderr, "File '%s' converted from fixed to free form in %.2f seconds\n",
+                        parsed_filename,
+                        timing_elapsed(&timing_prescanning));
+            }
+
+            if (parsed_filename == NULL)
+            {
+                running_error("Conversion from fixed Fortran form to free Fortran form failed for file '%s'\n",
+                        parsed_filename);
+            }
+        }
+#endif
 
         if (!CURRENT_CONFIGURATION->do_not_parse)
         {
@@ -2630,6 +2672,12 @@ static const char* preprocess_file(translation_unit_t* translation_unit,
     {
         add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, "-D_MCXX");
     }
+#ifdef FORTRAN_SUPPORT
+    FORTRAN_LANGUAGE()
+    {
+        add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, "-D_MF03");
+    }
+#endif
     add_to_parameter_list_str(&CURRENT_CONFIGURATION->preprocessor_options, "-D_MERCURIUM");
 
     int num_arguments = count_null_ended_array((void**)CURRENT_CONFIGURATION->preprocessor_options);
@@ -2640,15 +2688,20 @@ static const char* preprocess_file(translation_unit_t* translation_unit,
 
     if (!uses_stdout)
     {
-        num_parameters = num_arguments + 3 + 1;
+        // input -o output
+        num_parameters = num_arguments + 3;
     }
     else
     {
-        // '-o' 'file' are not passed
-        num_parameters = num_arguments + 1 + 1;
+        // input
+        num_parameters = num_arguments + 1;
     }
 
-    const char** preprocessor_options = calloc(num_parameters, sizeof(char*));
+    // NULL
+    num_parameters += 1;
+
+    const char* preprocessor_options[num_parameters];
+    memset(preprocessor_options, 0, sizeof(preprocessor_options));
 
     int i;
     for (i = 0; i < num_arguments; i++)
@@ -2720,6 +2773,59 @@ static const char* preprocess_file(translation_unit_t* translation_unit,
     }
 }
 
+#ifdef FORTRAN_SUPPORT
+static const char* fortran_prescan_file(translation_unit_t* translation_unit, const char *parsed_filename)
+{
+    temporal_file_t prescanned_file = new_temporal_file();
+    const char* prescanned_filename = prescanned_file->name;
+
+    int prescanner_args = count_null_ended_array((void**)CURRENT_CONFIGURATION->prescanner_options);
+
+    int num_arguments = prescanner_args;
+    // input -o output
+    num_arguments += 3;
+    // NULL
+    num_arguments += 1;
+
+    const char* mf03_prescanner = "mf03-prescanner";
+    int full_path_length = strlen(compilation_process.home_directory) + 1 + strlen(mf03_prescanner) + 1;
+    char full_path[full_path_length];
+    memset(full_path, 0, sizeof(full_path));
+
+    snprintf(full_path, sizeof(full_path), "%s/%s", 
+            compilation_process.home_directory,
+            mf03_prescanner);
+    full_path[full_path_length-1] = '\0';
+
+    const char* prescanner_options[num_arguments];
+    memset(prescanner_options, 0, sizeof(prescanner_options));
+
+    int i;
+    for (i = 0; i < prescanner_args; i++)
+    {
+        prescanner_options[i] = CURRENT_CONFIGURATION->prescanner_options[i];
+    }
+
+    prescanner_options[i] = uniquestr("-o");
+    i++;
+    prescanner_options[i] = prescanned_filename;
+    i++;
+    prescanner_options[i] = parsed_filename;
+
+    int result_prescan = execute_program(full_path, prescanner_options);
+    if (result_prescan == 0)
+    {
+        return prescanned_filename;
+    }
+    else
+    {
+        fprintf(stderr, "Conversion from fixed to free form failed. Returned code %d\n",
+                result_prescan);
+        return NULL;
+    }
+}
+#endif
+
 static void native_compilation(translation_unit_t* translation_unit, 
         const char* prettyprinted_filename, 
         char remove_input)
@@ -2757,7 +2863,14 @@ static void native_compilation(translation_unit_t* translation_unit,
 
     int num_args_compiler = count_null_ended_array((void**)CURRENT_CONFIGURATION->native_compiler_options);
 
-    const char** native_compilation_args = calloc(num_args_compiler + 4 + 1, sizeof(*native_compilation_args));
+    int num_arguments = num_args_compiler;
+    // -c -o output input
+    num_arguments += 4;
+    // NULL
+    num_arguments += 1;
+
+    const char* native_compilation_args[num_arguments];
+    memset(native_compilation_args, 0, sizeof(native_compilation_args));
 
     int i;
     for (i = 0; i < num_args_compiler; i++)
@@ -2955,9 +3068,14 @@ static void link_files(const char** file_list, int num_files,
 {
     int num_args_linker = count_null_ended_array((void**)compilation_configuration->linker_options);
 
-    const char** linker_args = calloc(num_args_linker
-            + compilation_process.num_translation_units + 2 + 1, 
-            sizeof(*linker_args));
+    int num_arguments = num_args_linker;
+    // -o output
+    num_arguments += 2;
+    // NULL
+    num_arguments += 1;
+
+    const char* linker_args[num_arguments];
+    memset(linker_args, 0, sizeof(linker_args));
 
     int i = 0;
     int j = 0;

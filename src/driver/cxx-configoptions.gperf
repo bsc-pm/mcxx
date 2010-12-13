@@ -30,6 +30,7 @@ language, config_set_language
 options, config_set_options
 preprocessor_name, config_set_preprocessor_name
 preprocessor_options, config_set_preprocessor_options
+prescanner_options, config_set_prescanner_options
 preprocessor_uses_stdout, config_set_preprocessor_uses_stdout
 compiler_name, config_set_compiler_name
 compiler_options, config_set_compiler_options

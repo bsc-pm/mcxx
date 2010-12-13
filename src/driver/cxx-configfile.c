@@ -159,6 +159,17 @@ int config_set_preprocessor_uses_stdout(struct compilation_configuration_tag * c
     return 0;
 }
 
+int config_set_prescanner_options(struct compilation_configuration_tag* config, const char* index, const char* value)
+{
+#ifdef FORTRAN_SUPPORT
+    int num;
+    const char** blank_separated_options = blank_separate_values(value, &num);
+
+    add_to_parameter_list(&config->prescanner_options, blank_separated_options, num);
+#endif
+    return 0;
+}
+
 // Set native compiler name
 int config_set_compiler_name(struct compilation_configuration_tag* config, const char* index, const char* value)
 {

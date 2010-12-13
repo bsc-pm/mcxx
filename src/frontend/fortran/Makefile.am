@@ -21,7 +21,7 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-lib_LTLIBRARIES = libmf03.la
+lib_LTLIBRARIES = libmf03.la libmf03-prescanner.la
 
 END=
 EXTRA_DIST=
@@ -32,6 +32,7 @@ BUILT_SOURCES += fortran03-scanner.c
 BUILT_SOURCES += fortran03-parser.c
 BUILT_SOURCES += fortran03-parser-internal.h
 BUILT_SOURCES += fortran03.y
+BUILT_SOURCES += prescanner-scanner.h
 
 # Mercurium C/C++ compiler runtime library
 libmf03_la_SOURCES = \
@@ -45,6 +46,7 @@ libmf03_la_SOURCES = \
                      fortran03-semantic.c \
                      fortran03-prettyprint.c \
                      fortran03-prettyprint.h \
+                     libmf03-common.h \
                      $(END)
 
 libmf03_la_LIBADD = \
@@ -65,6 +67,29 @@ libmf03_la_CFLAGS = -DLIBMF03_DLL_EXPORT \
 				    -I$(top_srcdir)/src/driver \
                     -fexceptions \
 				    -DPKGDATADIR=\"$(pkgdatadir)\"
+
+# Prescanner
+libmf03_prescanner_la_SOURCES = \
+                                prescanner-identifier.c \
+                                prescanner-identifier.h \
+                                prescanner-process.c \
+                                prescanner-process-decls.h \
+                                prescanner-process.h \
+                                libmf03-prescanner-common.h \
+                                $(END)
+
+libmf03_prescanner_la_CFLAGS = -DLIBMF03_PRESCANNER_DLL_EXPORT \
+                    -Wall \
+					-Wshadow \
+					-Wextra \
+				    -I$(top_srcdir)/lib \
+				    -I$(top_srcdir)/src/frontend \
+				    -I$(top_builddir)/src/frontend \
+				    -I$(top_srcdir)/src/driver \
+                    -fexceptions \
+				    -DPKGDATADIR=\"$(pkgdatadir)\"
+
+# Remaining stuff
 
 ADDITIONAL_GRAMMARS =
 
@@ -87,6 +112,8 @@ endif
 
 EXTRA_DIST += fortran03.y
 EXTRA_DIST += fortran03.y.in
+
+EXTRA_DIST += prescanner.l
 
 fortran03.y : $(srcdir)/fortran03.y.in $(addprefix $(srcdir)/, $(ADDITIONAL_GRAMMARS)) 
 	$(TPP_verbose)$(TPP) -o fortran03.y -D FORTRAN2003 -I$(srcdir) $(srcdir)/fortran03.y.in
@@ -125,3 +152,14 @@ else
 	@echo "*** ERROR: file fortran03.l was modified but no suitable flex was found during configure ***"
 	@exit 1
 endif
+
+CLEANFILES += prescanner-scanner.h
+
+prescanner-scanner.h : $(srcdir)/prescanner-identifier.h $(srcdir)/prescanner.l
+if FLEX_BUILDING
+	$(FLEX_verbose)$(FLEX) -d -i -oprescanner-scanner.h -8 $(srcdir)/prescanner.l
+else
+	@echo "*** ERROR: file prescanner.l was modified but no suitable flex was found during configure ***"
+	@exit 1
+endif
+
