@@ -2684,17 +2684,17 @@ static const char* preprocess_file(translation_unit_t* translation_unit,
 
     char uses_stdout = CURRENT_CONFIGURATION->preprocessor_uses_stdout;
 
-    int num_parameters;
+    int num_parameters = num_arguments;
 
     if (!uses_stdout)
     {
         // input -o output
-        num_parameters = num_arguments + 3;
+        num_parameters += 3;
     }
     else
     {
         // input
-        num_parameters = num_arguments + 1;
+        num_parameters += 1;
     }
 
     // NULL
@@ -2782,8 +2782,8 @@ static const char* fortran_prescan_file(translation_unit_t* translation_unit, co
     int prescanner_args = count_null_ended_array((void**)CURRENT_CONFIGURATION->prescanner_options);
 
     int num_arguments = prescanner_args;
-    // input -o output
-    num_arguments += 3;
+    // -q input -o output
+    num_arguments += 4;
     // NULL
     num_arguments += 1;
 
@@ -2806,6 +2806,8 @@ static const char* fortran_prescan_file(translation_unit_t* translation_unit, co
         prescanner_options[i] = CURRENT_CONFIGURATION->prescanner_options[i];
     }
 
+    prescanner_options[i] = uniquestr("-q");
+    i++;
     prescanner_options[i] = uniquestr("-o");
     i++;
     prescanner_options[i] = prescanned_filename;
