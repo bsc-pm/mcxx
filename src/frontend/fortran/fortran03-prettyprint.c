@@ -1365,14 +1365,20 @@ static void end_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
     labeldef_handler(f, ASTSon0(a), pt_ctx);
 
     const char* text = ASTText(a);
-    if (strlen(text) > 3
-            && strncasecmp(text, "end", 3) == 0)
+    if (text != NULL)
     {
-        // Disregard the 'end'
-        text += 3;
+        if (strlen(text) > 3
+                && strncasecmp(text, "end", 3) == 0)
+        {
+            // Disregard the 'end'
+            text += 3;
+        }
+        token_fprintf(f, a, pt_ctx, "END %s", strtoupper(text));
     }
-
-    token_fprintf(f, a, pt_ctx, "END %s", strtoupper(text));
+    else
+    {
+        token_fprintf(f, a, pt_ctx, "END");
+    }
     
     if (ASTSon1(a) != NULL)
     {
