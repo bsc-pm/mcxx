@@ -64,14 +64,22 @@ extern int yylex(void);
 
 %{
 
-static AST ambig_fun_array_ctor(YYSTYPE x0 UNUSED_PARAMETER, YYSTYPE x1 UNUSED_PARAMETER)
+static AST ambig_fun_array_ctor(YYSTYPE x0, YYSTYPE x1)
 {
-    return NULL;
+    return ast_make_ambiguous(x0.ast, x1.ast);
 }
 
-static AST ambig_io_control_spec(YYSTYPE x0 UNUSED_PARAMETER, YYSTYPE x1 UNUSED_PARAMETER)
+static AST ambig_assignment_statement_function(YYSTYPE x0, YYSTYPE x1)
 {
-    return NULL;
+    return ast_make_ambiguous(x0.ast, x1.ast);
+}
+
+static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
+{
+   AST result = ast_make_ambiguous(x0.ast, x1.ast);
+   ast_set_text(result, uniquestr("IO_CONTROL"));
+
+   return result;
 }
 
 %}
@@ -127,6 +135,9 @@ static AST ambig_io_control_spec(YYSTYPE x0 UNUSED_PARAMETER, YYSTYPE x1 UNUSED_
 %type<ast> data_component_def_stmt
 %type<ast> component_decl
 %type<ast> main_program
+%type<ast> program_part
+%type<ast> program_part_stmts_seq
+%type<ast> program_part_stmts
 %type<ast> program_body
 %type<ast> interface_program_body
 %type<ast> subscript_triplet
@@ -301,7 +312,6 @@ static AST ambig_io_control_spec(YYSTYPE x0 UNUSED_PARAMETER, YYSTYPE x1 UNUSED_
 %type<ast> specification_expr
 %type<ast> block_data_stmt
 %type<ast> continue_stmt
-%type<ast> execution_part
 %type<ast> else_if_stmt
 %type<ast> format
 %type<ast> end_module_stmt
@@ -896,19 +906,6 @@ declaration_construct : derived_type_def
 | type_declaration_stmt
 | stmt_function_stmt
 ;
-execution_part : executable_construct execution_part_construct_seq
-{
-    // This rule is a bit strange. It basically enforces that the execution
-    // part (if any) there will start with an executable construct which cannot
-    // appear in a declaration part
-    AST list = ASTListLeaf($1);
-    $$ = ast_list_concat(list, $2);
-}
-| executable_construct
-{
-    $$ = ASTListLeaf($1);
-}
-;
 execution_part_construct : executable_construct
 | format_stmt
 | entry_stmt
@@ -1232,8 +1229,6 @@ complex_part : int_literal_constant
 | named_constant
 ;
 char_selector : length_selector
-{
-}
 | '(' TOK_LEN '=' type_param_value ',' TOK_KIND '=' int_constant_expr ')'
 {
     $$ = ASTMake2(AST_CHAR_SELECTOR, $4, $8, $1.token_file, $1.token_line, NULL);
@@ -3502,7 +3497,7 @@ close_spec : TOK_UNIT '=' file_unit_number
 }
 | file_unit_number
 {
-    $$ = ASTMake1(AST_OPT_VALUE, $1,  ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake1(AST_OPT_VALUE, $1,  ASTFileName($1), ASTLine($1), "unit");
 }
 | TOK_IOSTAT '=' int_variable
 {
@@ -3986,34 +3981,105 @@ main_program : program_stmt program_body end_program_stmt
     $$ = ASTMake3(AST_MAIN_PROGRAM_UNIT, $1, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
-
-program_body : specification_part execution_part internal_subprogram_part 
+program_part : program_part_stmts_seq
+;
+program_part_stmts_seq : program_part_stmts
 {
-    $$ = ASTMake3(AST_BODY_PROGRAM_UNIT, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTListLeaf($1);
 }
-| execution_part internal_subprogram_part 
+| program_part_stmts_seq program_part_stmts
 {
-    $$ = ASTMake3(AST_BODY_PROGRAM_UNIT, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTList($1, $2);
 }
-| specification_part internal_subprogram_part 
+;
+// All Fortran statements should be here
+program_part_stmts : access_stmt
+| allocatable_stmt
+| allocate_stmt
+| allstop_stmt
+| arithmetic_if_stmt
+| assignment_stmt %merge<ambig_assignment_statement_function>
+| associate_construct
+| asynchronous_stmt
+| backspace_stmt
+| bind_stmt
+| block_construct
+| call_stmt
+| case_construct
+| close_stmt
+| codimension_stmt
+| common_stmt
+| computed_goto_stmt
+| continue_stmt
+| critical_construct
+| cycle_stmt
+| data_stmt
+| deallocate_stmt
+| derived_type_def
+| dimension_stmt
+| do_construct
+| endfile_stmt
+| entry_stmt
+| enum_def
+| equivalence_stmt
+| exit_stmt
+| external_stmt
+| flush_stmt
+| forall_construct
+| forall_stmt
+| format_stmt
+| goto_stmt
+| if_construct
+| if_stmt
+| implicit_stmt
+| import_stmt
+| inquire_stmt
+| intent_stmt
+| interface_block
+| intrinsic_stmt
+| lock_stmt
+| namelist_stmt
+| nullify_stmt
+| open_stmt
+| optional_stmt
+| parameter_stmt
+| pointer_assignment_stmt
+| pointer_stmt
+| print_stmt
+| procedure_declaration_stmt
+| protected_stmt
+| read_stmt
+| return_stmt
+| rewind_stmt
+| save_stmt
+| select_type_construct
+| stmt_function_stmt %merge<ambig_assignment_statement_function>
+| stop_stmt
+| sync_all_stmt
+| sync_images_stmt
+| sync_memory_stmt
+| target_stmt
+| type_declaration_stmt
+| unlock_stmt
+| use_stmt
+| value_stmt
+| volatile_stmt
+| wait_stmt
+| where_construct
+| where_stmt
+| write_stmt
+;
+program_body : program_part internal_subprogram_part 
 {
-    $$ = ASTMake3(AST_BODY_PROGRAM_UNIT, $1, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake2(AST_BODY_PROGRAM_UNIT, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
-| specification_part execution_part 
+| program_part
 {
-    $$ = ASTMake3(AST_BODY_PROGRAM_UNIT, $1, $2, NULL, ASTFileName($1), ASTLine($1), NULL);
-}
-| specification_part 
-{
-    $$ = ASTMake3(AST_BODY_PROGRAM_UNIT, $1, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake2(AST_BODY_PROGRAM_UNIT, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
 | internal_subprogram_part 
 {
-    $$ = ASTMake3(AST_BODY_PROGRAM_UNIT, NULL, NULL, $1, ASTFileName($1), ASTLine($1), NULL);
-}
-| execution_part 
-{
-    $$ = ASTMake3(AST_BODY_PROGRAM_UNIT, NULL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake2(AST_BODY_PROGRAM_UNIT, NULL, $1, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 program_stmt : labeldef TOK_PROGRAM name eos
@@ -4639,9 +4705,13 @@ subroutine_subprogram : subroutine_stmt program_body end_subroutine_stmt
     $$ = ASTMake3(AST_SUBROUTINE_PROGRAM_UNIT, $1, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
-subroutine_stmt : labeldef prefix TOK_SUBROUTINE name function_prototype
+subroutine_stmt : labeldef prefix TOK_SUBROUTINE name function_prototype eos
 {
     $$ = ASTMake4(AST_SUBROUTINE_STATEMENT, $1, $2, $4, $5, $3.token_file, $3.token_line, $3.token_text);
+}
+| labeldef TOK_SUBROUTINE name function_prototype eos
+{
+    $$ = ASTMake4(AST_SUBROUTINE_STATEMENT, $1, NULL, $3, $4, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef prefix TOK_SUBROUTINE name eos
 {

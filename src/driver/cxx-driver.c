@@ -2117,7 +2117,7 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
             if (parsed_filename == NULL)
             {
                 running_error("Conversion from fixed Fortran form to free Fortran form failed for file '%s'\n",
-                        parsed_filename);
+                        translation_unit->input_filename);
             }
         }
 #endif
@@ -2398,7 +2398,11 @@ static void semantic_analysis(translation_unit_t* translation_unit, const char* 
                 timing_elapsed(&timing_semantic));
     }
 
-    check_tree(translation_unit->parsed_tree);
+    // At the moment do not check Fortran
+    if (!IS_FORTRAN_LANGUAGE)
+    {
+        check_tree(translation_unit->parsed_tree);
+    }
 }
 
 static const char* prettyprint_translation_unit(translation_unit_t* translation_unit, 
@@ -3374,7 +3378,21 @@ static char check_tree(AST a)
         fprintf(stderr, "============================\n");
         fprintf(stderr, "  Ambiguities not resolved\n");
         fprintf(stderr, "============================\n");
-        prettyprint(stderr, ambiguous_node);
+        if (IS_C_LANGUAGE
+                || IS_CXX_LANGUAGE)
+        {
+            prettyprint(stderr, ambiguous_node);
+        }
+#ifdef FORTRAN_SUPPORT
+        else if (IS_FORTRAN_LANGUAGE)
+        {
+            fortran_prettyprint(stderr, ambiguous_node);
+        }
+#endif
+        else
+        {
+            internal_error("Invalid language kind", 0);
+        }
         fprintf(stderr, "\n============================\n");
         fprintf(stderr, " at %s\n", ast_location(ambiguous_node));
         fprintf(stderr, "============================\n");

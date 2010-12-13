@@ -19,7 +19,7 @@
 static void parse_token_text(void);
 static void parse_token_text_str(const char* c);
 
-static const char* main_input_filename = NULL;
+// static const char* main_input_filename = NULL;
 
 /*
    Include stack. Based on an example in the GNU Flex manual
@@ -137,7 +137,7 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 
    // Update the line number, note that it is line_num - 1 
    // because \n is not handled here, but in another rule
- scanning_now.line_number = (line_num - 1);
+ fortran_scanning_now->line_number = (line_num - 1);
 
  // Jump blanks (if any)
  while (*p == ' ')
@@ -165,7 +165,7 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
      }
 
      // Update the file 
-	scanning_now.current_filename = uniquestr(filename);
+	fortran_scanning_now->current_filename = uniquestr(filename);
  }
 }
 
@@ -312,13 +312,13 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 
     // Update the line number, note that it is line_num - 1 
     // because \n is not handled here, but in another rule
-	scanning_now.line_number = (line_num - 1);
+	fortran_scanning_now->line_number = (line_num - 1);
     // Update file
-	scanning_now.current_filename = uniquestr(filename);
+	fortran_scanning_now->current_filename = uniquestr(filename);
 }
 
 <preprocess>.       { /* ignore line */  }
-<preprocess>\n  { scanning_now.line_number++; BEGIN(INITIAL); }
+<preprocess>\n  { fortran_scanning_now->line_number++; BEGIN(INITIAL); }
 
 <<EOF>> {
 	if (!last_eos)
@@ -1964,15 +1964,15 @@ goto {
 
 static void parse_token_text(void)
 {
-    FLEX_LVAL.token_atrib.token_line = scanning_now.line_number;
-    FLEX_LVAL.token_atrib.token_file = uniquestr(scanning_now.current_filename);
+    FLEX_LVAL.token_atrib.token_line = fortran_scanning_now->line_number;
+    FLEX_LVAL.token_atrib.token_file = uniquestr(fortran_scanning_now->current_filename);
     FLEX_LVAL.token_atrib.token_text = uniquestr(yytext);
 }
 
 UNUSED_PARAMETER static void parse_token_text_str(const char* c)
 {
-    FLEX_LVAL.token_atrib.token_line = scanning_now.line_number;
-    FLEX_LVAL.token_atrib.token_file = uniquestr(scanning_now.current_filename);
+    FLEX_LVAL.token_atrib.token_line = fortran_scanning_now->line_number;
+    FLEX_LVAL.token_atrib.token_file = uniquestr(fortran_scanning_now->current_filename);
     FLEX_LVAL.token_atrib.token_text = uniquestr(c);
 }
 
@@ -2228,37 +2228,27 @@ static void open_included_file(char* include_name)
 				fortran_scanning_now->filename, fortran_scanning_now->line_number);
 	}	
 
-	// if (CURRENT_COMPILED_FILE->in_include == 0)
-	// {
-	// 	// Update include table
-	// 	CURRENT_COMPILED_FILE->index_include_table++;
-	// 	if (CURRENT_COMPILED_FILE->index_include_table >= CURRENT_COMPILED_FILE->length_include_table)
-	// 	{
-	// 		// Reallocate
-	// 		CURRENT_COMPILED_FILE->length_include_table *= 2;
-	// 		CURRENT_COMPILED_FILE->include_table = (char**) realloc(CURRENT_COMPILED_FILE->include_table, 
-	// 				sizeof(*CURRENT_COMPILED_FILE->include_table)*CURRENT_COMPILED_FILE->length_include_table);
-	// 	}
-	// 	CURRENT_COMPILED_FILE->include_table[CURRENT_COMPILED_FILE->index_include_table] = uniquestr(include_filename);
-	// 	CURRENT_COMPILED_FILE->in_include = 1;
-	// }
-	
 	DEBUG_CODE() DEBUG_MESSAGE("Opening included file %s at %s:%d", include_name, 
 			fortran_scanning_now->filename, fortran_scanning_now->line_number);
 	const char* include_filename = find_file_in_directories(
             CURRENT_CONFIGURATION->num_include_dirs,
-            CURRENT_CONFIGURATION->include_dirs, include_name, "r");
+            CURRENT_CONFIGURATION->include_dirs, 
+            include_name,
+            /* origin */ fortran_scanning_now->current_filename);
 	if (include_filename == NULL)
 	{
-		int error = errno;
-		running_error("Cannot open included file '%s' (%s) at %s:%d\n", 
-				include_filename, strerror(error), fortran_scanning_now->filename, fortran_scanning_now->line_number);
+		running_error("%s:%d: error: cannot open included file '%s'\n", 
+                fortran_scanning_now->current_filename, 
+                fortran_scanning_now->line_number,
+				include_name);
 	}
 
 	temporal_file_t temporal_include_filename = new_temporal_file();
 	if (!temporal_include_filename)
 	{
-		running_error("Cannot create temporal included file. %s\n", strerror(errno));
+		running_error("%s:%d: error: cannot create temporal included file",
+                fortran_scanning_now->current_filename, 
+                fortran_scanning_now->line_number);
 	}
 
 	if (copy_file(include_filename, temporal_include_filename->name) != 0)
@@ -2292,10 +2282,12 @@ static void open_included_file(char* include_name)
 
 	// Allocate
 	struct scan_file_descriptor* new_scanned_file = &include_stack[include_stack_size+1];
+    memset(new_scanned_file, 0, sizeof(*new_scanned_file));
 
 	// Initialize a new scanning element
 	new_scanned_file->filename = uniquestr(include_filename);
 	new_scanned_file->line_number = 1;
+	new_scanned_file->current_filename = uniquestr(include_filename);
 	new_scanned_file->scanning_buffer = yy_create_buffer(included_file, YY_BUF_SIZE);
 	new_scanned_file->file_descriptor = included_file;
 	new_scanned_file->joined_lines = 0;
@@ -2352,18 +2344,18 @@ int mf03_open_file_for_scanning(const char* scanned_filename, const char* input_
 		running_error("error: cannot open file '%s' (%s)", scanned_filename, strerror(errno));
 	}
 
-	memset(&scanning_now, 0, sizeof(scanning_now));
-	scanning_now.filename = uniquestr(scanned_filename);
-	scanning_now.file_descriptor = file;
-	scanning_now.line_number = 1;
+    fortran_scanning_now = &include_stack[0];
+	memset(fortran_scanning_now, 0, sizeof(*fortran_scanning_now));
+	fortran_scanning_now->filename = uniquestr(scanned_filename);
+	fortran_scanning_now->file_descriptor = file;
+	fortran_scanning_now->line_number = 1;
 
-	main_input_filename = uniquestr(input_filename);
-    scanning_now.current_filename = main_input_filename;
+    fortran_scanning_now->current_filename = uniquestr(input_filename);
 
-	scanning_now.scanning_buffer = yy_create_buffer(file, YY_BUF_SIZE);
+	fortran_scanning_now->scanning_buffer = yy_create_buffer(file, YY_BUF_SIZE);
 
 	// yy_flush_buffer(YY_CURRENT_BUFFER);
-	yy_switch_to_buffer(scanning_now.scanning_buffer);
+	yy_switch_to_buffer(fortran_scanning_now->scanning_buffer);
 
 	return 0;
 }

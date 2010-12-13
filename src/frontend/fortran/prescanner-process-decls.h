@@ -14,7 +14,6 @@ struct prescanner_tag {
 	char* output_filename;
 	char* input_filename;
 	int width;
-	char debug;
 	char append;
 	char pad_strings;
 	char openmp_processing;

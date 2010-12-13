@@ -33,16 +33,20 @@ mf03_prescanner_CFLAGS=-fexceptions \
 			-I$(top_srcdir)/src/frontend \
 			-I$(top_srcdir)/src/frontend/fortran \
 			-I$(top_srcdir)/src/mcxx_tl \
+			-I$(top_srcdir)/src/driver \
 			-I$(top_builddir)/lib \
 			-I$(top_builddir)/src/frontend \
 			-I$(top_builddir)/src/frontend/fortran \
 			-I$(top_builddir)/src/mcxx_tl \
+			-I$(top_builddir)/src/driver \
 			-DPKGDATADIR=\"$(pkgdatadir)\" \
 			-Wall
 
 mf03_prescanner_SOURCES = \
                           prescanner-driver.h \
                           prescanner-driver.c \
+                          ../cxx-driver-utils.h \
+                          ../cxx-driver-utils.c \
                           $(END)
 
 mf03_prescanner_LDADD = \

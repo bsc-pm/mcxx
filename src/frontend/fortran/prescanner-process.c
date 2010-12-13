@@ -60,12 +60,19 @@ static void convert_lines(prescanner_t*);
 static void continuate_lines(prescanner_t*);
 static void free_line_t(line_t* l);
 
+static void fortran_prescanner_process(prescanner_t* prescanner);
+
 void fortran_prescanner_run(prescanner_t* prescanner)
+{
+    open_files(prescanner);
+
+    fortran_prescanner_process(prescanner);
+}
+
+static void fortran_prescanner_process(prescanner_t* prescanner)
 {
 	file_lines = NULL;
 	last_line = file_lines;
-
-    open_files(prescanner);
 
 	// Load all the file into memory
 	read_lines(prescanner);
@@ -505,7 +512,7 @@ static void read_lines(prescanner_t* prescanner)
 		// so we must enlarge the buffer
 		while ((length_read > 0) && line_buffer[length_read-1] != '\n' && !was_eof)
 		{
-			if (prescanner->debug)
+            DEBUG_CODE()
 			{
 				fprintf(stderr, "DEBUG: Enlarging after having read @%s|\n", line_buffer);
 			}
@@ -525,7 +532,7 @@ static void read_lines(prescanner_t* prescanner)
 
 		line_t* new_line = (line_t*) calloc(1, sizeof(line_t));
 
-		if (prescanner->debug)
+        DEBUG_CODE()
 		{
 			fprintf(stderr, "DEBUG: We have read @%s|\n", line_buffer);
 		}
@@ -606,9 +613,10 @@ static void handle_include_directives(prescanner_t* prescanner)
 		{
 			if (maximum_nesting_level > 99)
 			{
-                running_error("%s:%d: error: too many levels of nesting",
+                running_error("%s:%d: error: too many levels of nesting (> %d)",
                         prescanner->input_filename,
-                        iter->line);
+                        iter->line,
+                        maximum_nesting_level);
 			}
 			maximum_nesting_level++;
 
@@ -623,6 +631,11 @@ static void handle_include_directives(prescanner_t* prescanner)
 			strcat(iter->line, fortran_literal_filename);
 			strcat(iter->line, "\"");
 
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "DEBUG: INCLUDE LINE-> Opening file '%s'\n", included_filename);
+            }
+
 			manage_included_file(prescanner, included_filename, &prescanner->input_file, &prescanner->output_file);
 
 			if (prescanner->input_file == NULL)
@@ -635,7 +648,7 @@ static void handle_include_directives(prescanner_t* prescanner)
 			}
 
 			// Now, recursive processing
-			fortran_prescanner_run(prescanner);
+			fortran_prescanner_process(prescanner);
 
 			free(included_filename);
 			free(new_included_filename);
@@ -787,7 +800,8 @@ static void free_line_t(line_t* l)
 
 static void manage_included_file(
         prescanner_t* prescanner, 
-        char* included_filename, FILE** handle_included_file, 
+        char* included_filename, 
+        FILE** handle_included_file, 
 		FILE** handle_output_file)
 {
 	*handle_included_file = NULL;

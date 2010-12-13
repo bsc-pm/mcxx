@@ -596,7 +596,7 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
 		// No problem now
 		if (statements_info[statement].is_declaration)
 		{
-			if (prescanner->debug)
+			DEBUG_CODE()
 			{
 				fprintf(stderr, "Switching to LANG_DECLARATION_PART (%s) (statement = %d)\n", li->statement_list[statement_index].statement, statement);
 			}
@@ -604,7 +604,7 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
 		}
 		else
 		{
-			if (prescanner->debug)
+			DEBUG_CODE()
 			{
 				fprintf(stderr, "Switching to LANG_INSTRUCTION_PART (%s) (statement = %d)\n", li->statement_list[statement_index].statement, statement);
 			}
@@ -637,7 +637,7 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
 			else if (statement == ST_TYPESPEC)
 			{
 				// Space is only needed for INTEGERA cases
-				if (prescanner->debug)
+				DEBUG_CODE()
 				{
 					fprintf(stderr, "'%s' We have to add spaces to this type declaration (1)\n", li->statement_list[statement_index].statement);
 				}
@@ -645,7 +645,7 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
 			}
 			else if (statement == ST_IF_STMT)
 			{
-				if (prescanner->debug)
+				DEBUG_CODE()
 				{
 					fprintf(stderr, "'%s' is an IF statement\n", li->statement_list[statement_index].statement);
 				}
@@ -657,7 +657,7 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
 			}
 			else if (statement == ST_LABELED_DO)
 			{
-				if (prescanner->debug)
+                DEBUG_CODE()
 				{
 					fprintf(stderr, "'%s' is a labeled do\n", li->statement_list[statement_index].statement);
 				}
@@ -682,7 +682,7 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
 		if (next == LANG_TOP_LEVEL || next == LANG_INSTRUCTION_PART)
 		{
 			// This is a true function
-			if (prescanner->debug)
+            DEBUG_CODE()
 			{
 				fprintf(stderr, "'%s' is a function\n", li->statement_list[statement_index].statement);
 			}
@@ -692,7 +692,7 @@ static language_level identify_and_convert_line(prescanner_t* prescanner,
 		else
 		{
 			// This is a declaration
-			if (prescanner->debug)
+            DEBUG_CODE()
 			{
 				fprintf(stderr, "'%s' We have to add spaces to this type declaration (2)\n", li->statement_list[statement_index].statement);
 			}
@@ -1023,14 +1023,14 @@ static void add_blank_if_statement(prescanner_t* prescanner, char** line, int nu
 		char* c = calloc(6 + strlen(p) + 1, sizeof(char));
 		strcat(c, "      ");
 		strcat(c, p);
-		if (prescanner->debug)
+        DEBUG_CODE()
 		{
 			fprintf(stderr, "Before converting '%s'\n", c);
 		}
 
 		convert_line(prescanner, LANG_INSTRUCTION_PART, &c, num_line);
 
-		if (prescanner->debug)
+        DEBUG_CODE()
 		{
 			fprintf(stderr, "After converting '%s'\n", c);
 		}
