@@ -64,6 +64,29 @@ extern int yylex(void);
 
 %{
 
+static AST ast_make_node_label(node_t node_type, 
+        AST ast0,
+        AST ast1,
+        AST ast2,
+        AST ast3,
+        const char* filename, 
+        int line, 
+        const char* token)
+{
+    AST stmt = ASTMake3(node_type, ast1, ast2, ast3, filename, line, token);
+    if (ast0 != NULL)
+    {
+        stmt = ASTMake1(AST_LABELED_STATEMENT, stmt, filename, line, token);
+    }
+
+    return stmt;
+}
+
+#define ASTMake1Label(n, a0, f, l, t) ast_make_node_label((n), (a0), NULL, NULL, NULL, (f), (l), (t))
+#define ASTMake2Label(n, a0, a1, f, l, t) ast_make_node_label((n), (a0), (a1), NULL, NULL, (f), (l), (t))
+#define ASTMake3Label(n, a0, a1, a2, f, l, t) ast_make_node_label((n), (a0), (a1), (a2), NULL, (f), (l), (t))
+#define ASTMake4Label(n, a0, a1, a2, a3, f, l, t) ast_make_node_label((n), (a0), (a1), (a2), (a3), (f), (l), (t))
+
 static AST ambig_fun_array_ctor(YYSTYPE x0, YYSTYPE x1)
 {
     return ast_make_ambiguous(x0.ast, x1.ast);
@@ -1362,27 +1385,27 @@ derived_type_body : type_param_def_stmt_seq private_or_sequence_seq component_pa
 
 derived_type_stmt : labeldef TOK_TYPE ',' type_attr_spec_list ':' ':' name '(' type_param_name_list ')' eos
 {
-    $$ = ASTMake4(AST_DERIVED_TYPE_STATEMENT, $1, $4, $7, $9, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake4Label(AST_DERIVED_TYPE_STATEMENT, $1, $4, $7, $9, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_TYPE name '(' type_param_name_list ')' eos
 {
-    $$ = ASTMake4(AST_DERIVED_TYPE_STATEMENT, $1, NULL, $3, $5, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake4Label(AST_DERIVED_TYPE_STATEMENT, $1, NULL, $3, $5, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_TYPE ':' ':' name '(' type_param_name_list ')' eos
 {
-    $$ = ASTMake4(AST_DERIVED_TYPE_STATEMENT, $1, NULL, $5, $7, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake4Label(AST_DERIVED_TYPE_STATEMENT, $1, NULL, $5, $7, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_TYPE ',' type_attr_spec_list ':' ':' name eos
 {
-    $$ = ASTMake4(AST_DERIVED_TYPE_STATEMENT, $1, $4, $7, NULL, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake4Label(AST_DERIVED_TYPE_STATEMENT, $1, $4, $7, NULL, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_TYPE ':' ':' name eos
 {
-    $$ = ASTMake4(AST_DERIVED_TYPE_STATEMENT, $1, NULL, $5, NULL, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake4Label(AST_DERIVED_TYPE_STATEMENT, $1, NULL, $5, NULL, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_TYPE name eos
 {
-    $$ = ASTMake4(AST_DERIVED_TYPE_STATEMENT, $1, NULL, $3, NULL, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake4Label(AST_DERIVED_TYPE_STATEMENT, $1, NULL, $3, NULL, $2.token_file, $2.token_line, NULL);
 }
 ;
 type_attr_spec : TOK_ABSTRACT
@@ -1404,33 +1427,33 @@ private_or_sequence : private_stmt
 ;
 end_type_stmt : labeldef TOK_END TOK_TYPE name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
 }
 | labeldef TOK_END TOK_TYPE eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_ENDTYPE name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ENDTYPE eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 sequence_stmt : labeldef TOK_SEQUENCE eos
 {
-    $$ = ASTMake1(AST_SEQUENCE_STATEMENT, $1, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake1Label(AST_SEQUENCE_STATEMENT, $1, $2.token_file, $2.token_line, NULL);
 }
 ;
 type_param_def_stmt : labeldef TOK_INTEGER kind_selector ',' type_param_attr_spec ':' ':' type_param_decl_list eos
 {
-    $$ = ASTMake4(AST_TYPE_PARAMETER_DEF_STATEMENT, $1, $3, $5, $8, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake4Label(AST_TYPE_PARAMETER_DEF_STATEMENT, $1, $3, $5, $8, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_INTEGER ',' type_param_attr_spec ':' ':' type_param_decl_list eos
 {
-    $$ = ASTMake4(AST_TYPE_PARAMETER_DEF_STATEMENT, $1, NULL, $4, $7, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake4Label(AST_TYPE_PARAMETER_DEF_STATEMENT, $1, NULL, $4, $7, $2.token_file, $2.token_line, NULL);
 }
 ;
 type_param_decl : name '=' int_constant_expr
@@ -1458,15 +1481,15 @@ component_def_stmts : data_component_def_stmt
 ;
 data_component_def_stmt : labeldef declaration_type_spec ',' component_attr_spec_list ':' ':' component_decl_list eos
 {
-    $$ = ASTMake4(AST_DATA_COMPONENT_DEF_STATEMENT, $1, $2, $4, $7, ASTFileName($2), ASTLine($2), NULL);
+    $$ = ASTMake4Label(AST_DATA_COMPONENT_DEF_STATEMENT, $1, $2, $4, $7, ASTFileName($2), ASTLine($2), NULL);
 }
 | labeldef declaration_type_spec component_decl_list eos
 {
-    $$ = ASTMake4(AST_DATA_COMPONENT_DEF_STATEMENT, $1, $2, NULL, $3, ASTFileName($2), ASTLine($2), NULL);
+    $$ = ASTMake4Label(AST_DATA_COMPONENT_DEF_STATEMENT, $1, $2, NULL, $3, ASTFileName($2), ASTLine($2), NULL);
 }
 | labeldef declaration_type_spec ':' ':' component_decl_list eos
 {
-    $$ = ASTMake4(AST_DATA_COMPONENT_DEF_STATEMENT, $1, $2, NULL, $5, ASTFileName($2), ASTLine($2), NULL);
+    $$ = ASTMake4Label(AST_DATA_COMPONENT_DEF_STATEMENT, $1, $2, NULL, $5, ASTFileName($2), ASTLine($2), NULL);
 }
 ;
 component_attr_spec : access_spec
@@ -1497,11 +1520,11 @@ component_decl : entity_decl
 
 proc_component_def_stmt : labeldef TOK_PROCEDURE '(' proc_interface ')' ',' proc_component_attr_spec_list ':' ':' proc_decl_list eos
 {
-    $$ = ASTMake4(AST_PROC_COMPONENT_DEF_STATEMENT, $1, $4, $7, $10, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake4Label(AST_PROC_COMPONENT_DEF_STATEMENT, $1, $4, $7, $10, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_PROCEDURE '(' ')' ',' proc_component_attr_spec_list ':' ':' proc_decl_list eos
 {
-    $$ = ASTMake4(AST_PROC_COMPONENT_DEF_STATEMENT, $1, NULL, $6, $9, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake4Label(AST_PROC_COMPONENT_DEF_STATEMENT, $1, NULL, $6, $9, $2.token_file, $2.token_line, NULL);
 }
 ;
 proc_component_attr_spec : TOK_POINTER
@@ -1542,7 +1565,7 @@ type_bound_procedure_part : contains_stmt private_stmt type_bound_proc_binding_s
 ;
 private_stmt : labeldef TOK_PRIVATE eos
 {
-    $$ = ASTMake1(AST_PRIVATE_STATEMENT, $1, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake1Label(AST_PRIVATE_STATEMENT, $1, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 type_bound_proc_binding : type_bound_procedure_stmt
@@ -1551,19 +1574,19 @@ type_bound_proc_binding : type_bound_procedure_stmt
 ;
 type_bound_procedure_stmt : labeldef TOK_PROCEDURE ',' binding_attr_list ':' ':' type_bound_proc_decl_list eos
 {
-    $$ = ASTMake4(AST_TYPE_BOUND_PROCEDURE_STATEMENT, $1, NULL, $4, $7, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_TYPE_BOUND_PROCEDURE_STATEMENT, $1, NULL, $4, $7, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_PROCEDURE type_bound_proc_decl_list eos
 {
-    $$ = ASTMake4(AST_TYPE_BOUND_PROCEDURE_STATEMENT, $1, NULL, NULL, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_TYPE_BOUND_PROCEDURE_STATEMENT, $1, NULL, NULL, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_PROCEDURE ':' ':' type_bound_proc_decl_list eos
 {
-    $$ = ASTMake4(AST_TYPE_BOUND_PROCEDURE_STATEMENT, $1, NULL, NULL, $5, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_TYPE_BOUND_PROCEDURE_STATEMENT, $1, NULL, NULL, $5, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_PROCEDURE '(' name ')' ',' binding_attr_list ':' ':' binding_name_list eos
 {
-    $$ = ASTMake4(AST_TYPE_BOUND_PROCEDURE_STATEMENT, $1, $4, $7, $10, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_TYPE_BOUND_PROCEDURE_STATEMENT, $1, $4, $7, $10, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 type_bound_proc_decl : name TOK_POINTER_ACCESS name
@@ -1574,11 +1597,11 @@ type_bound_proc_decl : name TOK_POINTER_ACCESS name
 ;
 type_bound_generic_stmt : labeldef TOK_GENERIC ',' access_spec ':' ':' generic_spec TOK_POINTER_ACCESS binding_name_list eos
 {
-    $$ = ASTMake4(AST_TYPE_BOUND_GENERIC_PROCEDURE, $1, $4, $7, $9, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_TYPE_BOUND_GENERIC_PROCEDURE, $1, $4, $7, $9, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_GENERIC ':' ':' generic_spec TOK_POINTER_ACCESS binding_name_list eos
 {
-    $$ = ASTMake4(AST_TYPE_BOUND_GENERIC_PROCEDURE, $1, NULL, $5, $7, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_TYPE_BOUND_GENERIC_PROCEDURE, $1, NULL, $5, $7, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 binding_attr : TOK_PASS '(' name ')'
@@ -1605,11 +1628,11 @@ binding_attr : TOK_PASS '(' name ')'
 ;
 final_procedure_stmt : labeldef TOK_FINAL ':' ':' final_subroutine_name_list eos
 {
-    $$ = ASTMake2(AST_FINAL_STATEMENT, $1, $5, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_FINAL_STATEMENT, $1, $5, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_FINAL final_subroutine_name_list eos
 {
-    $$ = ASTMake2(AST_FINAL_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_FINAL_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 derived_type_spec : name_not_keyword '(' type_param_spec_list ')'
@@ -1662,16 +1685,16 @@ enum_def_stmt : labeldef TOK_ENUM ',' TOK_BIND '(' TOK_C ')' eos
     snprintf(c, 99, "%s, %s(%s)", $2.token_text, $4.token_text, $6.token_text);
     c[99] = '\0';
 
-    $$ = ASTMake1(AST_ENUM_DEF_STATEMENT, $1, $2.token_file, $2.token_line, c);
+    $$ = ASTMake1Label(AST_ENUM_DEF_STATEMENT, $1, $2.token_file, $2.token_line, c);
 }
 ;
 enumerator_def_stmt : labeldef TOK_ENUMERATOR ':' ':' enumerator_list eos
 {
-    $$ = ASTMake2(AST_ENUMERATOR_DEF, $1, $5, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_ENUMERATOR_DEF, $1, $5, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ENUMERATOR enumerator_list eos
 {
-    $$ = ASTMake2(AST_ENUMERATOR_DEF, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_ENUMERATOR_DEF, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 enumerator : named_constant '=' int_constant_expr
@@ -1685,7 +1708,7 @@ enumerator : named_constant '=' int_constant_expr
 ;
 end_enum_stmt : labeldef TOK_END TOK_ENUM eos
 {
-    $$ = ASTMake1(AST_END_STATEMENT, $1, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake1Label(AST_END_STATEMENT, $1, $2.token_file, $2.token_line, $3.token_text);
 }
 ;
 boz_literal_constant : binary_constant
@@ -1750,15 +1773,15 @@ ac_do_variable : do_variable
 ;
 type_declaration_stmt : labeldef declaration_type_spec ',' attr_spec_list ':' ':' entity_decl_list eos
 {
-    $$ = ASTMake4(AST_DECLARATION_STATEMENT, $1, $2, $4, $7, ASTFileName($2), ASTLine($2), NULL);
+    $$ = ASTMake4Label(AST_DECLARATION_STATEMENT, $1, $2, $4, $7, ASTFileName($2), ASTLine($2), NULL);
 }
 | labeldef declaration_type_spec entity_decl_list eos
 {
-    $$ = ASTMake4(AST_DECLARATION_STATEMENT, $1, $2, NULL, $3, ASTFileName($2), ASTLine($2), NULL);
+    $$ = ASTMake4Label(AST_DECLARATION_STATEMENT, $1, $2, NULL, $3, ASTFileName($2), ASTLine($2), NULL);
 }
 | labeldef declaration_type_spec ':' ':' entity_decl_list eos
 {
-    $$ = ASTMake4(AST_DECLARATION_STATEMENT, $1, $2, NULL, $5, ASTFileName($2), ASTLine($2), NULL);
+    $$ = ASTMake4Label(AST_DECLARATION_STATEMENT, $1, $2, NULL, $5, ASTFileName($2), ASTLine($2), NULL);
 }
 ;
 attr_spec : access_spec
@@ -1994,22 +2017,22 @@ intent_spec : TOK_IN
 ;
 access_stmt : labeldef access_spec ':' ':' access_id_list eos
 {
-    $$ = ASTMake3(AST_ACCESS_STATEMENT, $1, $2, $5, ASTFileName($2), ASTLine($2), NULL);
+    $$ = ASTMake3Label(AST_ACCESS_STATEMENT, $1, $2, $5, ASTFileName($2), ASTLine($2), NULL);
 }
 | labeldef access_spec access_id_list eos
 {
-    $$ = ASTMake3(AST_ACCESS_STATEMENT, $1, $2, $3, ASTFileName($2), ASTLine($2), NULL);
+    $$ = ASTMake3Label(AST_ACCESS_STATEMENT, $1, $2, $3, ASTFileName($2), ASTLine($2), NULL);
 }
 ;
 access_id : generic_spec
 ;
 allocatable_stmt : labeldef TOK_ALLOCATABLE ':' ':' allocatable_decl_list eos
 {
-    $$ = ASTMake2(AST_ALLOCATABLE_STATEMENT, $1, $5, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake2Label(AST_ALLOCATABLE_STATEMENT, $1, $5, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_ALLOCATABLE allocatable_decl_list eos
 {
-    $$ = ASTMake2(AST_ALLOCATABLE_STATEMENT, $1, $3, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake2Label(AST_ALLOCATABLE_STATEMENT, $1, $3, $2.token_file, $2.token_line, NULL);
 }
 ;
 allocatable_decl : name '(' array_spec ')' '[' coarray_spec ']'
@@ -2028,20 +2051,20 @@ allocatable_decl : name '(' array_spec ')' '[' coarray_spec ']'
 ;
 asynchronous_stmt : labeldef TOK_ASYNCHRONOUS ':' ':' object_name_list eos
 {
-    $$ = ASTMake2(AST_ASYNCHRONOUS_STATEMENT, $1, $5, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake2Label(AST_ASYNCHRONOUS_STATEMENT, $1, $5, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_ASYNCHRONOUS object_name_list eos
 {
-    $$ = ASTMake2(AST_ASYNCHRONOUS_STATEMENT, $1, $3, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake2Label(AST_ASYNCHRONOUS_STATEMENT, $1, $3, $2.token_file, $2.token_line, NULL);
 }
 ;
 bind_stmt : labeldef language_binding_spec ':' ':' bind_entity_list eos
 {
-    $$ = ASTMake3(AST_BINDING_STATEMENT, $1, $2, $5, ASTFileName($2), ASTLine($2), NULL);
+    $$ = ASTMake3Label(AST_BINDING_STATEMENT, $1, $2, $5, ASTFileName($2), ASTLine($2), NULL);
 }
 | labeldef language_binding_spec bind_entity_list eos
 {
-    $$ = ASTMake3(AST_BINDING_STATEMENT, $1, $2, $3, ASTFileName($2), ASTLine($2), NULL);
+    $$ = ASTMake3Label(AST_BINDING_STATEMENT, $1, $2, $3, ASTFileName($2), ASTLine($2), NULL);
 }
 ;
 bind_entity : name
@@ -2054,11 +2077,11 @@ common_name : '/' name '/'
 ;
 codimension_stmt : labeldef TOK_CODIMENSION ':' ':' codimension_decl_list eos
 {
-    $$ = ASTMake2(AST_CODIMENSION_STATEMENT, $1, $5, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake2Label(AST_CODIMENSION_STATEMENT, $1, $5, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_CODIMENSION codimension_decl_list eos
 {
-    $$ = ASTMake2(AST_CODIMENSION_STATEMENT, $1, $3, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake2Label(AST_CODIMENSION_STATEMENT, $1, $3, $2.token_file, $2.token_line, NULL);
 }
 ;
 codimension_decl : name '[' coarray_spec ']'
@@ -2068,7 +2091,7 @@ codimension_decl : name '[' coarray_spec ']'
 ;
 data_stmt : labeldef TOK_DATA data_stmt_set_list eos
 {
-    $$ = ASTMake2(AST_DATA_STATEMENT, $1, $3, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake2Label(AST_DATA_STATEMENT, $1, $3, $2.token_file, $2.token_line, NULL);
 }
 ;
 data_stmt_set : data_stmt_object_list '/' data_stmt_value_list '/'
@@ -2101,11 +2124,11 @@ data_stmt_value : expr
 ;
 dimension_stmt : labeldef TOK_DIMENSION ':' ':' array_name_dim_spec_list eos
 {
-    $$ = ASTMake2(AST_DIMENSION_STATEMENT, $1, $5, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_DIMENSION_STATEMENT, $1, $5, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_DIMENSION array_name_dim_spec_list eos
 {
-    $$ = ASTMake2(AST_DIMENSION_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_DIMENSION_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 array_name_dim_spec : name '(' array_spec ')'
@@ -2115,25 +2138,25 @@ array_name_dim_spec : name '(' array_spec ')'
 ;
 intent_stmt : labeldef TOK_INTENT '(' intent_spec ')' ':' ':' dummy_arg_name_list eos
 {
-    $$ = ASTMake3(AST_INTENT_STATEMENT, $1, $4, $8, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_INTENT_STATEMENT, $1, $4, $8, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_INTENT '(' intent_spec ')' dummy_arg_name_list eos
 {
-    $$ = ASTMake3(AST_INTENT_STATEMENT, $1, $4, $6, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_INTENT_STATEMENT, $1, $4, $6, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 optional_stmt : labeldef TOK_OPTIONAL ':' ':' dummy_arg_name_list eos
 {
-    $$ = ASTMake2(AST_OPTIONAL_STATEMENT, $1, $5, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_OPTIONAL_STATEMENT, $1, $5, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_OPTIONAL dummy_arg_name_list eos
 {
-    $$ = ASTMake2(AST_OPTIONAL_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_OPTIONAL_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 parameter_stmt : labeldef TOK_PARAMETER '(' named_constant_def_list ')' eos
 {
-    $$ = ASTMake2(AST_PARAMETER_STATEMENT, $1, $4, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_PARAMETER_STATEMENT, $1, $4, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 named_constant_def : named_constant '=' constant_expr
@@ -2143,11 +2166,11 @@ named_constant_def : named_constant '=' constant_expr
 ;
 pointer_stmt : labeldef TOK_POINTER ':' ':' pointer_decl_list eos
 {
-    $$ = ASTMake2(AST_POINTER_STATEMENT, $1, $5, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake2Label(AST_POINTER_STATEMENT, $1, $5, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_POINTER pointer_decl_list eos
 {
-    $$ = ASTMake2(AST_POINTER_STATEMENT, $1, $3, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake2Label(AST_POINTER_STATEMENT, $1, $3, $2.token_file, $2.token_line, NULL);
 }
 ;
 pointer_decl : name '(' array_spec ')'
@@ -2158,24 +2181,24 @@ pointer_decl : name '(' array_spec ')'
 ;
 protected_stmt : labeldef TOK_PROTECTED ':' ':' entity_name_list eos
 {
-    $$ = ASTMake2(AST_PROTECTED_STATEMENT, $1, $5, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake2Label(AST_PROTECTED_STATEMENT, $1, $5, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_PROTECTED entity_name_list eos
 {
-    $$ = ASTMake2(AST_PROTECTED_STATEMENT, $1, $3, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake2Label(AST_PROTECTED_STATEMENT, $1, $3, $2.token_file, $2.token_line, NULL);
 }
 ;
 save_stmt : labeldef TOK_SAVE ':' ':' saved_entity_list eos
 {
-    $$ = ASTMake2(AST_SAVE_STATEMENT, $1, $5, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake2Label(AST_SAVE_STATEMENT, $1, $5, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_SAVE eos
 {
-    $$ = ASTMake2(AST_SAVE_STATEMENT, $1, NULL, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake2Label(AST_SAVE_STATEMENT, $1, NULL, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_SAVE saved_entity_list eos
 {
-    $$ = ASTMake2(AST_SAVE_STATEMENT, $1, $3, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake2Label(AST_SAVE_STATEMENT, $1, $3, $2.token_file, $2.token_line, NULL);
 }
 ;
 saved_entity : name
@@ -2183,11 +2206,11 @@ saved_entity : name
 ;
 target_stmt : labeldef TOK_TARGET ':' ':' target_decl_list eos
 {
-    $$ = ASTMake2(AST_TARGET_STATEMENT, $1, $5, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake2Label(AST_TARGET_STATEMENT, $1, $5, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_TARGET target_decl_list eos
 {
-    $$ = ASTMake2(AST_TARGET_STATEMENT, $1, $3, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake2Label(AST_TARGET_STATEMENT, $1, $3, $2.token_file, $2.token_line, NULL);
 }
 ;
 target_decl : name '(' array_spec ')' '[' coarray_spec ']'
@@ -2206,29 +2229,29 @@ target_decl : name '(' array_spec ')' '[' coarray_spec ']'
 ;
 value_stmt : labeldef TOK_VALUE ':' ':' dummy_arg_name_list eos
 {
-    $$ = ASTMake2(AST_VALUE_STATEMENT, $1, $5, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake2Label(AST_VALUE_STATEMENT, $1, $5, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_VALUE dummy_arg_name_list eos
 {
-    $$ = ASTMake2(AST_VALUE_STATEMENT, $1, $3, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake2Label(AST_VALUE_STATEMENT, $1, $3, $2.token_file, $2.token_line, NULL);
 }
 ;
 volatile_stmt : labeldef TOK_VOLATILE ':' ':' object_name_list eos
 {
-    $$ = ASTMake2(AST_VOLATILE_STATEMENT, $1, $5, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake2Label(AST_VOLATILE_STATEMENT, $1, $5, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_VOLATILE object_name_list eos
 {
-    $$ = ASTMake2(AST_VOLATILE_STATEMENT, $1, $3, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake2Label(AST_VOLATILE_STATEMENT, $1, $3, $2.token_file, $2.token_line, NULL);
 }
 ;
 implicit_stmt : labeldef TOK_IMPLICIT implicit_spec_list eos
 {
-    $$ = ASTMake2(AST_IMPLICIT_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_IMPLICIT_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_IMPLICIT TOK_NONE eos
 {
-    $$ = ASTMake2(AST_IMPLICIT_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_IMPLICIT_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 implicit_spec : declaration_type_spec '(' letter_spec_list ')'
@@ -2247,7 +2270,7 @@ letter_spec : name '-' name
 ;
 namelist_stmt : labeldef TOK_NAMELIST namelist_item_list eos
 {
-    $$ = ASTMake2(AST_NAMELIST_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_NAMELIST_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 namelist_item : common_name namelist_group_object_list
@@ -2259,7 +2282,7 @@ namelist_group_object : name
 ;
 equivalence_stmt : labeldef TOK_EQUIVALENCE equivalence_set_list eos
 {
-    $$ = ASTMake2(AST_EQUIVALENCE_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_EQUIVALENCE_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 equivalence_set : '(' equivalence_object ',' equivalence_object_list ')'
@@ -2271,7 +2294,7 @@ equivalence_object : data_ref
 ;
 common_stmt : labeldef TOK_COMMON common_block_item_list eos
 {
-    $$ = ASTMake2(AST_COMMON_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_COMMON_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 common_block_item_list : common_block_item
@@ -2380,19 +2403,19 @@ cosubscript : int_expr
 ;
 allocate_stmt : labeldef TOK_ALLOCATE '(' type_spec ':' ':' allocation_list ',' alloc_opt_list ')' eos
 {
-    $$ = ASTMake4(AST_ALLOCATE_STATEMENT, $1, $4, $7, $9, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake4Label(AST_ALLOCATE_STATEMENT, $1, $4, $7, $9, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_ALLOCATE '(' allocation_list ',' alloc_opt_list ')' eos
 {
-    $$ = ASTMake4(AST_ALLOCATE_STATEMENT, $1, NULL, $4, $6, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake4Label(AST_ALLOCATE_STATEMENT, $1, NULL, $4, $6, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_ALLOCATE '(' type_spec ':' ':' allocation_list ')' eos
 {
-    $$ = ASTMake4(AST_ALLOCATE_STATEMENT, $1, $4, $7, NULL, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake4Label(AST_ALLOCATE_STATEMENT, $1, $4, $7, NULL, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_ALLOCATE '(' allocation_list ')' eos
 {
-    $$ = ASTMake4(AST_ALLOCATE_STATEMENT, $1, NULL, $4, NULL, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake4Label(AST_ALLOCATE_STATEMENT, $1, NULL, $4, NULL, $2.token_file, $2.token_line, NULL);
 }
 ;
 alloc_opt : TOK_ERRMSG '=' errmsg_variable
@@ -2430,18 +2453,18 @@ allocate_coarray_spec : array_spec
 ;
 nullify_stmt : labeldef TOK_NULLIFY '(' pointer_object_list ')' eos
 {
-    $$ = ASTMake2(AST_NULLIFY_STATEMENT, $1, $4, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake2Label(AST_NULLIFY_STATEMENT, $1, $4, $2.token_file, $2.token_line, NULL);
 }
 ;
 pointer_object : data_ref
 ;
 deallocate_stmt : labeldef TOK_DEALLOCATE '(' allocate_object_list ',' dealloc_opt_list ')' eos
 {
-    $$ = ASTMake3(AST_DEALLOCATE_STATEMENT, $1, $4, $6, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake3Label(AST_DEALLOCATE_STATEMENT, $1, $4, $6, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_DEALLOCATE '(' allocate_object_list ')' eos
 {
-    $$ = ASTMake3(AST_DEALLOCATE_STATEMENT, $1, $4, NULL, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake3Label(AST_DEALLOCATE_STATEMENT, $1, $4, NULL, $2.token_file, $2.token_line, NULL);
 }
 ;
 dealloc_opt : TOK_STAT '=' stat_variable
@@ -2615,12 +2638,14 @@ int_constant_expr : int_expr
 ;
 assignment_stmt : labeldef data_ref '=' expr eos
 {
-    $$ = ASTMake3(AST_ASSIGNMENT_STATEMENT, $1, $2, $4, ASTFileName($2), ASTLine($2), NULL);
+    AST assig = ASTMake2(AST_ASSIGNMENT, $2, $4, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake1Label(AST_EXPRESSION_STATEMENT, assig, ASTFileName(assig), ASTLine(assig), NULL);
 }
 ;
 pointer_assignment_stmt : labeldef proc_pointer_object TOK_POINTER_ACCESS proc_target eos
 {
-    $$ = ASTMake3(AST_PTR_ASSIGNMENT_STATEMENT, $1, $2, $4, ASTFileName($2), ASTLine($2), NULL);
+    AST assig = ASTMake2(AST_PTR_ASSIGNMENT, $2, $4, ASTFileName($1), ASTLine($1), NULL);
+    $$ = ASTMake1Label(AST_EXPRESSION_STATEMENT, assig, ASTFileName(assig), ASTLine(assig), NULL);
 }
 ;
 proc_pointer_object : data_ref
@@ -2629,7 +2654,7 @@ proc_target : expr
 ;
 where_stmt : labeldef TOK_WHERE '(' mask_expr ')' where_assignment_stmt
 {
-    $$ = ASTMake3(AST_WHERE_STATEMENT, $1, $4, $6, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake3Label(AST_WHERE_STATEMENT, $1, $4, $6, $2.token_file, $2.token_line, NULL);
 }
 ;
 where_construct : where_construct_stmt where_construct_body end_where_stmt
@@ -2697,11 +2722,11 @@ mask_elsewhere_part : masked_elsewhere_stmt where_body_construct_seq
 ;
 where_construct_stmt : labeldef name ':' TOK_WHERE '(' mask_expr ')' eos
 {
-    $$ = ASTMake3(AST_WHERE_CONSTRUCT_STATEMENT, $1, $2, $6, ASTFileName($2), ASTLine($2), NULL);
+    $$ = ASTMake3Label(AST_WHERE_CONSTRUCT_STATEMENT, $1, $2, $6, ASTFileName($2), ASTLine($2), NULL);
 }
 | labeldef TOK_WHERE '(' mask_expr ')' eos
 {
-    $$ = ASTMake3(AST_WHERE_CONSTRUCT_STATEMENT, $1, NULL, $4, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake3Label(AST_WHERE_CONSTRUCT_STATEMENT, $1, NULL, $4, $2.token_file, $2.token_line, NULL);
 }
 ;
 where_body_construct : where_assignment_stmt
@@ -2714,29 +2739,29 @@ mask_expr : logical_expr
 ;
 masked_elsewhere_stmt : labeldef TOK_ELSEWHERE '(' mask_expr ')' name eos
 {
-    $$ = ASTMake3(AST_ELSEWHERE_STATEMENT, $1, $4, $6, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_ELSEWHERE_STATEMENT, $1, $4, $6, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ELSEWHERE '(' mask_expr ')' eos
 {
-    $$ = ASTMake3(AST_ELSEWHERE_STATEMENT, $1, $4, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_ELSEWHERE_STATEMENT, $1, $4, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 elsewhere_stmt : labeldef TOK_ELSEWHERE name eos
 {
-    $$ = ASTMake3(AST_ELSEWHERE_STATEMENT, NULL, NULL, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_ELSEWHERE_STATEMENT, NULL, NULL, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ELSEWHERE eos
 {
-    $$ = ASTMake3(AST_ELSEWHERE_STATEMENT, NULL, NULL, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_ELSEWHERE_STATEMENT, NULL, NULL, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 end_where_stmt : labeldef TOK_END TOK_WHERE name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
 }
 | labeldef TOK_END TOK_WHERE eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
 }
 ;
 forall_construct : forall_construct_stmt forall_body_construct_seq end_forall_stmt
@@ -2750,11 +2775,11 @@ forall_construct : forall_construct_stmt forall_body_construct_seq end_forall_st
 ;
 forall_construct_stmt : labeldef name ':' TOK_FORALL forall_header eos
 {
-    $$ = ASTMake3(AST_FORALL_CONSTRUCT_STATEMENT, $1, $2, $5, $3.token_file, $3.token_line, $4.token_text);
+    $$ = ASTMake3Label(AST_FORALL_CONSTRUCT_STATEMENT, $1, $2, $5, $3.token_file, $3.token_line, $4.token_text);
 }
 | labeldef TOK_FORALL forall_header eos
 {
-    $$ = ASTMake3(AST_FORALL_CONSTRUCT_STATEMENT, $1, NULL, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_FORALL_CONSTRUCT_STATEMENT, $1, NULL, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 forall_header : '(' type_spec ':' ':' forall_triplet_spec_list ',' mask_expr ')'
@@ -2798,16 +2823,16 @@ forall_assignment_stmts : assignment_stmt
 ;
 end_forall_stmt : labeldef TOK_END TOK_FORALL name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
 }
 | labeldef TOK_END TOK_FORALL eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
 }
 ;
 forall_stmt : labeldef TOK_FORALL forall_header forall_assignment_stmts 
 {
-    $$ = ASTMake3(AST_FORALL_STATEMENT, $1, $3, $4, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_FORALL_STATEMENT, $1, $3, $4, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 block : execution_part_construct_seq
@@ -2823,11 +2848,11 @@ associate_construct : associate_stmt block end_associate_stmt
 ;
 associate_stmt : labeldef name ':' TOK_ASSOCIATE '(' association_list ')' eos
 {
-    $$ = ASTMake3(AST_ASSOCIATE_STATEMENT, $1, $2, $6, $4.token_file, $4.token_line, $4.token_text);
+    $$ = ASTMake3Label(AST_ASSOCIATE_STATEMENT, $1, $2, $6, $4.token_file, $4.token_line, $4.token_text);
 }
 | labeldef TOK_ASSOCIATE '(' association_list ')' eos
 {
-    $$ = ASTMake3(AST_ASSOCIATE_STATEMENT, $1, NULL, $4, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_ASSOCIATE_STATEMENT, $1, NULL, $4, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 association : name TOK_POINTER_ACCESS selector
@@ -2839,19 +2864,19 @@ selector : expr
 ;
 end_associate_stmt : labeldef TOK_END TOK_ASSOCIATE name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
 }
 | labeldef TOK_END TOK_ASSOCIATE eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
 }
 | labeldef TOK_ENDASSOCIATE name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ENDASSOCIATE eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 block_construct : block_stmt specification_part block end_block_stmt
@@ -2861,20 +2886,20 @@ block_construct : block_stmt specification_part block end_block_stmt
 ;
 block_stmt : labeldef name ':' TOK_BLOCK eos
 {
-    $$ = ASTMake2(AST_BLOCK_STATEMENT, $1, $2, $4.token_file, $4.token_line, $4.token_text);
+    $$ = ASTMake2Label(AST_BLOCK_STATEMENT, $1, $2, $4.token_file, $4.token_line, $4.token_text);
 }
 | labeldef TOK_BLOCK eos
 {
-    $$ = ASTMake2(AST_BLOCK_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_BLOCK_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 end_block_stmt : labeldef TOK_END TOK_BLOCK name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
 }
 | labeldef TOK_END TOK_BLOCK eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
 }
 ;
 critical_construct : critical_stmt block end_critical_stmt
@@ -2884,28 +2909,28 @@ critical_construct : critical_stmt block end_critical_stmt
 ;
 critical_stmt : labeldef name ':' TOK_CRITICAL eos
 {
-    $$ = ASTMake2(AST_CRITICAL_STATEMENT, $1, $2, $4.token_file, $4.token_line, $4.token_text);
+    $$ = ASTMake2Label(AST_CRITICAL_STATEMENT, $1, $2, $4.token_file, $4.token_line, $4.token_text);
 }
 | labeldef TOK_CRITICAL eos
 {
-    $$ = ASTMake2(AST_CRITICAL_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_CRITICAL_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 end_critical_stmt : labeldef TOK_END TOK_CRITICAL name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
 }
 | labeldef TOK_END TOK_CRITICAL eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
 }
 | labeldef TOK_ENDCRITICAL name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ENDCRITICAL eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 do_construct : label_do_stmt
@@ -2914,36 +2939,36 @@ do_construct : label_do_stmt
 ;
 label_do_stmt : labeldef name ':' TOK_DO label loop_control eos
 {
-    $$ = ASTMake4(AST_DO_LOOP_STATEMENT, $1, $2, $5, $6, $4.token_file, $4.token_line, $4.token_text);
+    $$ = ASTMake4Label(AST_DO_LOOP_STATEMENT, $1, $2, $5, $6, $4.token_file, $4.token_line, $4.token_text);
 }
 | labeldef TOK_DO label loop_control eos
 {
-    $$ = ASTMake4(AST_DO_LOOP_STATEMENT, $1, NULL, $3, $4, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_DO_LOOP_STATEMENT, $1, NULL, $3, $4, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef name ':' TOK_DO label eos
 {
-    $$ = ASTMake4(AST_DO_LOOP_STATEMENT, $1, $2, $5, NULL, $4.token_file, $4.token_line, $4.token_text);
+    $$ = ASTMake4Label(AST_DO_LOOP_STATEMENT, $1, $2, $5, NULL, $4.token_file, $4.token_line, $4.token_text);
 }
 | labeldef TOK_DO label eos
 {
-    $$ = ASTMake4(AST_DO_LOOP_STATEMENT, $1, NULL, $3, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_DO_LOOP_STATEMENT, $1, NULL, $3, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 nonlabel_do_stmt : labeldef name ':' TOK_DO loop_control eos
 {
-    $$ = ASTMake4(AST_DO_LOOP_STATEMENT, $1, $2, NULL, $5, $4.token_file, $4.token_line, $4.token_text);
+    $$ = ASTMake4Label(AST_DO_LOOP_STATEMENT, $1, $2, NULL, $5, $4.token_file, $4.token_line, $4.token_text);
 }
 | labeldef TOK_DO loop_control eos
 {
-    $$ = ASTMake4(AST_DO_LOOP_STATEMENT, $1, NULL, NULL, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_DO_LOOP_STATEMENT, $1, NULL, NULL, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef name ':' TOK_DO eos
 {
-    $$ = ASTMake4(AST_DO_LOOP_STATEMENT, $1, $2, NULL, NULL, $4.token_file, $4.token_line, $4.token_text);
+    $$ = ASTMake4Label(AST_DO_LOOP_STATEMENT, $1, $2, NULL, NULL, $4.token_file, $4.token_line, $4.token_text);
 }
 | labeldef TOK_DO eos
 {
-    $$ = ASTMake4(AST_DO_LOOP_STATEMENT, $1, NULL, NULL, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_DO_LOOP_STATEMENT, $1, NULL, NULL, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 loop_control : ',' do_variable '=' int_expr ',' int_expr ',' int_expr
@@ -2983,28 +3008,28 @@ do_variable : name
 ;
 end_do_stmt : labeldef TOK_END TOK_DO name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
 }
 | labeldef TOK_END TOK_DO eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
 }
 | labeldef TOK_ENDDO name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ENDDO eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 cycle_stmt : labeldef TOK_CYCLE name eos
 {
-    $$ = ASTMake2(AST_CYCLE_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_CYCLE_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_CYCLE eos
 {
-    $$ = ASTMake2(AST_CYCLE_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_CYCLE_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 
@@ -3038,59 +3063,59 @@ else_if_part : else_if_stmt block
 ;
 if_then_stmt : labeldef name ':' TOK_IF '(' logical_expr ')' TOK_THEN eos
 {
-    $$ = ASTMake3(AST_IF_THEN_STATEMENT, $1, $2, $6, $4.token_file, $4.token_line, $4.token_text);
+    $$ = ASTMake3Label(AST_IF_THEN_STATEMENT, $1, $2, $6, $4.token_file, $4.token_line, $4.token_text);
 }
 | labeldef TOK_IF '(' logical_expr ')' TOK_THEN eos
 {
-    $$ = ASTMake3(AST_IF_THEN_STATEMENT, $1, NULL, $4, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_IF_THEN_STATEMENT, $1, NULL, $4, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 else_if_stmt : labeldef TOK_ELSE TOK_IF '(' logical_expr ')' TOK_THEN name eos
 {
-    $$ = ASTMake3(AST_ELSEIF_STATEMENT, $1, $5, $8, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_ELSEIF_STATEMENT, $1, $5, $8, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ELSE TOK_IF '(' logical_expr ')' TOK_THEN eos
 {
-    $$ = ASTMake3(AST_ELSEIF_STATEMENT, $1, $5, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_ELSEIF_STATEMENT, $1, $5, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ELSEIF '(' logical_expr ')' TOK_THEN name eos
 {
-    $$ = ASTMake3(AST_ELSEIF_STATEMENT, $1, $4, $7, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_ELSEIF_STATEMENT, $1, $4, $7, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ELSEIF '(' logical_expr ')' TOK_THEN eos
 {
-    $$ = ASTMake3(AST_ELSEIF_STATEMENT, $1, $4, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_ELSEIF_STATEMENT, $1, $4, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 else_stmt : labeldef TOK_ELSE name eos
 {
-    $$ = ASTMake2(AST_ELSE_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_ELSE_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ELSE eos
 {
-    $$ = ASTMake2(AST_ELSE_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_ELSE_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 end_if_stmt : labeldef TOK_END TOK_IF name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $4, $3.token_file, $3.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, $3.token_file, $3.token_line, $3.token_text);
 }
 | labeldef TOK_END TOK_IF eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $3.token_file, $3.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $3.token_file, $3.token_line, $3.token_text);
 }
 | labeldef TOK_ENDIF name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ENDIF eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 if_stmt : labeldef TOK_IF '(' logical_expr ')' action_stmts 
 {
-    $$ = ASTMake3(AST_IF_STATEMENT, $1, $4, $6, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_IF_STATEMENT, $1, $4, $6, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 case_construct : select_case_stmt case_part_seq end_select_stmt
@@ -3105,37 +3130,37 @@ case_part : case_stmt block
 ;
 select_case_stmt : labeldef name ':' TOK_SELECT TOK_CASE '(' case_expr ')' eos
 {
-    $$ = ASTMake3(AST_SELECT_CASE_STATEMENT, $1, $2, $7, $4.token_file, $4.token_line, $4.token_text);
+    $$ = ASTMake3Label(AST_SELECT_CASE_STATEMENT, $1, $2, $7, $4.token_file, $4.token_line, $4.token_text);
 }
 | labeldef TOK_SELECT TOK_CASE '(' case_expr ')' eos
 {
-    $$ = ASTMake3(AST_SELECT_CASE_STATEMENT, $1, NULL, $5, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_SELECT_CASE_STATEMENT, $1, NULL, $5, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 case_stmt : labeldef TOK_CASE case_selector name eos
 {
-    $$ = ASTMake3(AST_CASE_STATEMENT, $1, $3, $4, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_CASE_STATEMENT, $1, $3, $4, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_CASE case_selector eos
 {
-    $$ = ASTMake3(AST_CASE_STATEMENT, $1, $3, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_CASE_STATEMENT, $1, $3, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 end_select_stmt : labeldef TOK_END TOK_SELECT name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
 }
 | labeldef TOK_END TOK_SELECT eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
 }
 | labeldef TOK_ENDSELECT name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ENDSELECT eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 case_expr : expr
@@ -3184,141 +3209,141 @@ type_guard_part : type_guard_stmt block
 ;
 select_type_stmt : labeldef name ':' TOK_SELECT TOK_TYPE '(' name TOK_POINTER_ACCESS selector ')' eos
 {
-    $$ = ASTMake4(AST_SELECT_TYPE_STATEMENT, $1, $2, $7, $9, $4.token_file, $4.token_line, $4.token_text);
+    $$ = ASTMake4Label(AST_SELECT_TYPE_STATEMENT, $1, $2, $7, $9, $4.token_file, $4.token_line, $4.token_text);
 }
 | labeldef TOK_SELECT TOK_TYPE '(' name TOK_POINTER_ACCESS selector ')' eos
 {
-    $$ = ASTMake4(AST_SELECT_TYPE_STATEMENT, $1, NULL, $5, $7, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_SELECT_TYPE_STATEMENT, $1, NULL, $5, $7, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef name ':' TOK_SELECT TOK_TYPE '(' selector ')' eos
 {
-    $$ = ASTMake4(AST_SELECT_TYPE_STATEMENT, $1, $2, NULL, $7, $4.token_file, $4.token_line, $4.token_text);
+    $$ = ASTMake4Label(AST_SELECT_TYPE_STATEMENT, $1, $2, NULL, $7, $4.token_file, $4.token_line, $4.token_text);
 }
 | labeldef TOK_SELECT TOK_TYPE '(' selector ')' eos
 {
-    $$ = ASTMake4(AST_SELECT_TYPE_STATEMENT, $1, NULL, NULL, $5, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_SELECT_TYPE_STATEMENT, $1, NULL, NULL, $5, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 type_guard_stmt : labeldef TOK_TYPE TOK_IS '(' type_spec ')' name eos
 {
-    $$ = ASTMake3(AST_TYPE_IS_STATEMENT, $1, $5, $7, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_TYPE_IS_STATEMENT, $1, $5, $7, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_TYPE TOK_IS '(' type_spec ')' eos
 {
-    $$ = ASTMake3(AST_TYPE_IS_STATEMENT, $1, $5, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_TYPE_IS_STATEMENT, $1, $5, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_CLASS TOK_IS '(' derived_type_spec ')' name eos
 {
-    $$ = ASTMake3(AST_CLASS_IS_STATEMENT, $1, $5, $7, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_CLASS_IS_STATEMENT, $1, $5, $7, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_CLASS TOK_IS '(' derived_type_spec ')' eos
 {
-    $$ = ASTMake3(AST_CLASS_IS_STATEMENT, $1, $5, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_CLASS_IS_STATEMENT, $1, $5, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_CLASS TOK_DEFAULT name eos
 {
-    $$ = ASTMake2(AST_CLASS_DEFAULT_STATEMENT, $1, $4, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_CLASS_DEFAULT_STATEMENT, $1, $4, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_CLASS TOK_DEFAULT eos
 {
-    $$ = ASTMake2(AST_CLASS_DEFAULT_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_CLASS_DEFAULT_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 end_select_type_stmt : labeldef TOK_END TOK_SELECT name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
 }
 | labeldef TOK_END TOK_SELECT eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
 }
 ;
 exit_stmt : labeldef TOK_EXIT name eos
 {
-    $$ = ASTMake2(AST_EXIT_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_EXIT_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_EXIT eos
 {
-    $$ = ASTMake2(AST_EXIT_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_EXIT_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 goto_stmt : labeldef TOK_GO TOK_TO label eos
 {
-    $$ = ASTMake2(AST_GOTO_STATEMENT, $1, $4, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_GOTO_STATEMENT, $1, $4, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_GOTO label eos
 {
-    $$ = ASTMake2(AST_GOTO_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_GOTO_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 computed_goto_stmt : labeldef TOK_GO TOK_TO '(' label_list ')' ',' int_expr eos
 {
-    $$ = ASTMake3(AST_COMPUTED_GOTO_STATEMENT, $1, $5, $8, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_COMPUTED_GOTO_STATEMENT, $1, $5, $8, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_GO TOK_TO '(' label_list ')' int_expr eos
 {
-    $$ = ASTMake3(AST_COMPUTED_GOTO_STATEMENT, $1, $5, $7, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_COMPUTED_GOTO_STATEMENT, $1, $5, $7, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_GOTO '(' label_list ')' ',' int_expr eos
 {
-    $$ = ASTMake3(AST_COMPUTED_GOTO_STATEMENT, $1, $4, $7, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_COMPUTED_GOTO_STATEMENT, $1, $4, $7, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_GOTO '(' label_list ')' int_expr eos
 {
-    $$ = ASTMake3(AST_COMPUTED_GOTO_STATEMENT, $1, $4, $6, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_COMPUTED_GOTO_STATEMENT, $1, $4, $6, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 arithmetic_if_stmt : labeldef TOK_IF '(' numeric_expr ')' label ',' label ',' label eos
 {
-    $$ = ASTMake3(AST_ARITHMETIC_IF_STATEMENT, $1, $4, 
+    $$ = ASTMake3Label(AST_ARITHMETIC_IF_STATEMENT, $1, $4, 
             ASTMake3(AST_ARITHMETIC_IF_STATEMENT, $6, $8, $10, $2.token_file, $2.token_line, $2.token_text),
             $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 continue_stmt : labeldef TOK_CONTINUE eos
 {
-    $$ = ASTMake1(AST_CONTINUE_STATEMENT, $1, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake1Label(AST_CONTINUE_STATEMENT, $1, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 stop_stmt : labeldef TOK_STOP stop_code eos
 {
-    $$ = ASTMake2(AST_STOP_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_STOP_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_STOP eos
 {
-    $$ = ASTMake2(AST_STOP_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_STOP_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 allstop_stmt : labeldef TOK_ALL TOK_STOP stop_code eos
 {
-    $$ = ASTMake2(AST_ALL_STOP_STATEMENT, $1, $4, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_ALL_STOP_STATEMENT, $1, $4, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ALLSTOP stop_code eos
 {
-    $$ = ASTMake2(AST_ALL_STOP_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_ALL_STOP_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ALL TOK_STOP eos
 {
-    $$ = ASTMake2(AST_ALL_STOP_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_ALL_STOP_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ALLSTOP eos
 {
-    $$ = ASTMake2(AST_ALL_STOP_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_ALL_STOP_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 stop_code : expr
 ;
 sync_all_stmt : labeldef TOK_SYNC TOK_ALL '(' sync_stat_list ')' eos
 {
-    $$ = ASTMake2(AST_SYNC_ALL_STATEMENT, $1, $5, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_SYNC_ALL_STATEMENT, $1, $5, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_SYNC TOK_ALL eos
 {
-    $$ = ASTMake2(AST_SYNC_ALL_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_SYNC_ALL_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_SYNC TOK_ALL '(' ')' eos
 {
-    $$ = ASTMake2(AST_SYNC_ALL_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_SYNC_ALL_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 sync_stat : TOK_STAT '=' stat_variable
@@ -3332,11 +3357,11 @@ sync_stat : TOK_STAT '=' stat_variable
 ;
 sync_images_stmt : labeldef TOK_SYNC TOK_IMAGES '(' image_set ',' sync_stat_list ')' eos
 {
-    $$ = ASTMake3(AST_SYNC_IMAGES_STATEMENT, $1, $5, $7, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_SYNC_IMAGES_STATEMENT, $1, $5, $7, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_SYNC TOK_IMAGES '(' image_set ')' eos
 {
-    $$ = ASTMake3(AST_SYNC_IMAGES_STATEMENT, $1, $5, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_SYNC_IMAGES_STATEMENT, $1, $5, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 image_set : int_expr
@@ -3347,24 +3372,24 @@ image_set : int_expr
 ;
 sync_memory_stmt : labeldef TOK_SYNC TOK_MEMORY '(' sync_stat_list ')' eos
 {
-    $$ = ASTMake2(AST_SYNC_MEMORY_STATEMENT, $1, $5, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_SYNC_MEMORY_STATEMENT, $1, $5, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_SYNC TOK_MEMORY eos
 {
-    $$ = ASTMake2(AST_SYNC_MEMORY_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_SYNC_MEMORY_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_SYNC TOK_MEMORY '(' ')' eos
 {
-    $$ = ASTMake2(AST_SYNC_MEMORY_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_SYNC_MEMORY_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 lock_stmt : labeldef TOK_LOCK '(' lock_variable ',' lock_stat_list ')' eos
 {
-    $$ = ASTMake3(AST_LOCK_STATEMENT, $1, $4, $6, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_LOCK_STATEMENT, $1, $4, $6, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_LOCK '(' lock_variable ')' eos
 {
-    $$ = ASTMake3(AST_LOCK_STATEMENT, $1, $4, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_LOCK_STATEMENT, $1, $4, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 lock_stat : TOK_ACQUIRED TOK_LOCK '=' logical_variable
@@ -3375,11 +3400,11 @@ lock_stat : TOK_ACQUIRED TOK_LOCK '=' logical_variable
 ;
 unlock_stmt : labeldef TOK_UNLOCK '(' lock_variable ',' sync_stat_list ')' eos
 {
-    $$ = ASTMake3(AST_UNLOCK_STATEMENT, $1, $4, $6, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_UNLOCK_STATEMENT, $1, $4, $6, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_UNLOCK '(' lock_variable ')' eos
 {
-    $$ = ASTMake3(AST_UNLOCK_STATEMENT, $1, $4, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_UNLOCK_STATEMENT, $1, $4, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 lock_variable : variable
@@ -3394,7 +3419,7 @@ file_unit_number : int_expr
 ;
 open_stmt : labeldef TOK_OPEN '(' connect_spec_list ')' eos
 {
-    $$ = ASTMake2(AST_OPEN_STATEMENT, $1, $4, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_OPEN_STATEMENT, $1, $4, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 connect_spec : TOK_UNIT '=' file_unit_number
@@ -3488,7 +3513,7 @@ iomsg_variable : default_char_variable
 ;
 close_stmt : labeldef TOK_CLOSE '(' close_spec_list ')' eos
 {
-    $$ = ASTMake2(AST_CLOSE_STATEMENT, $1, $4, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_CLOSE_STATEMENT, $1, $4, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 close_spec : TOK_UNIT '=' file_unit_number
@@ -3518,41 +3543,41 @@ close_spec : TOK_UNIT '=' file_unit_number
 ;
 read_stmt : labeldef TOK_READ '(' io_control_spec_list ')' input_output_item_list eos %dprec 2
 {
-    $$ = ASTMake3(AST_READ_STATEMENT, $1, $4, $6, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_READ_STATEMENT, $1, $4, $6, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_READ '(' io_control_spec_list ')' eos %dprec 2
 {
-    $$ = ASTMake3(AST_READ_STATEMENT, $1, $4, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_READ_STATEMENT, $1, $4, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_READ format ',' input_output_item_list eos %dprec 1
 {
     AST format = ASTMake1(AST_OPT_VALUE, $3, ASTFileName($3), ASTLine($3), "fmt");
 
-    $$ = ASTMake3(AST_READ_STATEMENT, $1, ASTListLeaf(format), $5, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_READ_STATEMENT, $1, ASTListLeaf(format), $5, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_READ format eos %dprec 1
 {
     AST format = ASTMake1(AST_OPT_VALUE, $3, ASTFileName($3), ASTLine($3), "fmt");
 
-    $$ = ASTMake3(AST_READ_STATEMENT, $1, ASTListLeaf(format), NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_READ_STATEMENT, $1, ASTListLeaf(format), NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 write_stmt : labeldef TOK_WRITE '(' io_control_spec_list ')' input_output_item_list eos
 {
-    $$ = ASTMake3(AST_WRITE_STATEMENT, $1, $4, $6, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_WRITE_STATEMENT, $1, $4, $6, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_WRITE '(' io_control_spec_list ')' eos
 {
-    $$ = ASTMake3(AST_WRITE_STATEMENT, $1, $4, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_WRITE_STATEMENT, $1, $4, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 print_stmt : labeldef TOK_PRINT format ',' input_output_item_list eos
 {
-    $$ = ASTMake3(AST_PRINT_STATEMENT, $1, $3, $5, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_PRINT_STATEMENT, $1, $3, $5, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_PRINT format eos
 {
-    $$ = ASTMake3(AST_PRINT_STATEMENT, $1, $3, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_PRINT_STATEMENT, $1, $3, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 io_control_spec : TOK_UNIT '=' io_unit
@@ -3677,7 +3702,7 @@ io_implied_do_control : do_variable '=' int_expr ',' int_expr ',' int_expr
 ;
 wait_stmt : labeldef TOK_WAIT '(' wait_spec_list ')' eos
 {
-    $$ = ASTMake2(AST_WAIT_STATEMENT, $1, $4, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake2Label(AST_WAIT_STATEMENT, $1, $4, $2.token_file, $2.token_line, NULL);
 }
 ;
 wait_spec : TOK_UNIT '=' file_unit_number
@@ -3717,31 +3742,31 @@ backspace_stmt : labeldef TOK_BACKSPACE file_unit_number eos
 {
     AST file_unit = ASTMake1(AST_OPT_VALUE, $3, ASTFileName($3), ASTLine($3), "UNIT");
 
-    $$ = ASTMake2(AST_IO_STATEMENT, $1, ASTListLeaf(file_unit), $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_IO_STATEMENT, $1, ASTListLeaf(file_unit), $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_BACKSPACE '(' position_spec_list ')' eos
 {
-    $$ = ASTMake2(AST_IO_STATEMENT, $1, $4, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_IO_STATEMENT, $1, $4, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 endfile_stmt : labeldef TOK_ENDFILE file_unit_number eos
 {
     AST file_unit = ASTMake1(AST_OPT_VALUE, $3, ASTFileName($3), ASTLine($3), "UNIT");
-    $$ = ASTMake2(AST_IO_STATEMENT, $1, ASTListLeaf(file_unit), $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_IO_STATEMENT, $1, ASTListLeaf(file_unit), $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ENDFILE '(' position_spec_list ')' eos
 {
-    $$ = ASTMake2(AST_IO_STATEMENT, $1, $4, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_IO_STATEMENT, $1, $4, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 rewind_stmt : labeldef TOK_REWIND file_unit_number eos
 {
     AST file_unit = ASTMake1(AST_OPT_VALUE, $3, ASTFileName($3), ASTLine($3), "unit");
-    $$ = ASTMake2(AST_IO_STATEMENT, $1, ASTListLeaf(file_unit), $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_IO_STATEMENT, $1, ASTListLeaf(file_unit), $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_REWIND '(' position_spec_list ')' eos
 {
-    $$ = ASTMake2(AST_IO_STATEMENT, $1, $4, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_IO_STATEMENT, $1, $4, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 position_spec : TOK_UNIT '=' file_unit_number
@@ -3768,11 +3793,11 @@ position_spec : TOK_UNIT '=' file_unit_number
 flush_stmt : labeldef TOK_FLUSH file_unit_number eos %dprec 1
 {
     AST file_unit = ASTMake1(AST_OPT_VALUE, $3, ASTFileName($3), ASTLine($3), "unit");
-    $$ = ASTMake2(AST_IO_STATEMENT, $1, ASTListLeaf(file_unit), $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_IO_STATEMENT, $1, ASTListLeaf(file_unit), $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_FLUSH '(' flush_spec_list ')' eos %dprec 2
 {
-    $$ = ASTMake2(AST_IO_STATEMENT, $1, $4, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_IO_STATEMENT, $1, $4, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 flush_spec : TOK_UNIT '=' file_unit_number
@@ -3798,13 +3823,13 @@ flush_spec : TOK_UNIT '=' file_unit_number
 ;
 inquire_stmt : labeldef TOK_INQUIRE '(' inquire_spec_list ')' eos
 {
-    $$ = ASTMake3(AST_IO_STATEMENT, $1, $4, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_IO_STATEMENT, $1, $4, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_INQUIRE '(' TOK_IOLENGTH '=' int_variable ')' input_output_item_list eos
 {
     AST iolength = ASTMake1(AST_OPT_VALUE, $6, $4.token_file, $4.token_line, $4.token_text);
 
-    $$ = ASTMake3(AST_IO_STATEMENT, $1, ASTListLeaf(iolength), $8, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_IO_STATEMENT, $1, ASTListLeaf(iolength), $8, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 inquire_spec : TOK_UNIT '=' file_unit_number
@@ -3959,7 +3984,7 @@ inquire_spec : TOK_UNIT '=' file_unit_number
 // Note the use of label instead of labeldef
 format_stmt : label TOK_FORMAT FORMAT_SPEC eos
 {
-    $$ = ASTMake2(AST_FORMAT_STATEMENT, $1, 
+    $$ = ASTMake2Label(AST_FORMAT_STATEMENT, $1, 
             ASTLeaf(AST_SYMBOL, $3.token_file, $3.token_line, $3.token_text),
             $2.token_file, $2.token_line, $2.token_text);
 }
@@ -4084,28 +4109,28 @@ program_body : program_part internal_subprogram_part
 ;
 program_stmt : labeldef TOK_PROGRAM name eos
 {
-    $$ = ASTMake2(AST_PROGRAM_STATEMENT, $1, $3, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake2Label(AST_PROGRAM_STATEMENT, $1, $3, $2.token_file, $2.token_line, NULL);
 }
 ;
 end_program_stmt : labeldef TOK_END TOK_PROGRAM name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
 }
 | labeldef TOK_END eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_END TOK_PROGRAM eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
 }
 | labeldef TOK_ENDPROGRAM name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ENDPROGRAM eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 module : module_stmt specification_part module_subprogram_part end_module_stmt
@@ -4133,28 +4158,28 @@ module : module_stmt specification_part module_subprogram_part end_module_stmt
 ;
 module_stmt : labeldef TOK_MODULE name eos
 {
-    $$ = ASTMake2(AST_MODULE_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_MODULE_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 end_module_stmt : labeldef TOK_END TOK_MODULE name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
 }
 | labeldef TOK_END eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
 }
 | labeldef TOK_END TOK_MODULE eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
 }
 | labeldef TOK_ENDMODULE name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ENDMODULE eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 module_subprogram_part : contains_stmt module_subprogram_seq
@@ -4172,51 +4197,51 @@ module_subprogram : function_subprogram
 ;
 use_stmt : labeldef TOK_USE ',' module_nature ':' ':' name ',' rename_list eos
 {
-    $$ = ASTMake4(AST_USE_STATEMENT, $1, $4, $7, $9, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake4Label(AST_USE_STATEMENT, $1, $4, $7, $9, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_USE name ',' rename_list eos
 {
-    $$ = ASTMake4(AST_USE_STATEMENT, $1, NULL, $3, $5, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake4Label(AST_USE_STATEMENT, $1, NULL, $3, $5, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_USE ':' ':' name ',' rename_list eos
 {
-    $$ = ASTMake4(AST_USE_STATEMENT, $1, NULL, $5, $7, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake4Label(AST_USE_STATEMENT, $1, NULL, $5, $7, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_USE ',' module_nature ':' ':' name eos
 {
-    $$ = ASTMake4(AST_USE_STATEMENT, $1, $4, $7, NULL, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake4Label(AST_USE_STATEMENT, $1, $4, $7, NULL, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_USE ':' ':' name eos
 {
-    $$ = ASTMake4(AST_USE_STATEMENT, $1, NULL, $5, NULL, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake4Label(AST_USE_STATEMENT, $1, NULL, $5, NULL, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_USE name eos
 {
-    $$ = ASTMake4(AST_USE_STATEMENT, $1, NULL, $3, NULL, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake4Label(AST_USE_STATEMENT, $1, NULL, $3, NULL, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_USE ',' module_nature ':' ':' name ',' TOK_ONLY ':' only_list eos
 {
-    $$ = ASTMake4(AST_USE_ONLY_STATEMENT, $1, $4, $7, $11, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake4Label(AST_USE_ONLY_STATEMENT, $1, $4, $7, $11, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_USE name ',' TOK_ONLY ':' only_list eos
 {
-    $$ = ASTMake4(AST_USE_ONLY_STATEMENT, $1, NULL, $3, $7, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake4Label(AST_USE_ONLY_STATEMENT, $1, NULL, $3, $7, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_USE ':' ':' name ',' TOK_ONLY ':' only_list eos
 {
-    $$ = ASTMake4(AST_USE_ONLY_STATEMENT, $1, NULL, $5, $9, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake4Label(AST_USE_ONLY_STATEMENT, $1, NULL, $5, $9, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_USE ',' module_nature ':' ':' name ',' TOK_ONLY ':' eos
 {
-    $$ = ASTMake4(AST_USE_ONLY_STATEMENT, $1, $4, $7, NULL, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake4Label(AST_USE_ONLY_STATEMENT, $1, $4, $7, NULL, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_USE ':' ':' name ',' TOK_ONLY ':' eos
 {
-    $$ = ASTMake4(AST_USE_ONLY_STATEMENT, $1, NULL, $5, NULL, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake4Label(AST_USE_ONLY_STATEMENT, $1, NULL, $5, NULL, $2.token_file, $2.token_line, NULL);
 }
 | labeldef TOK_USE name ',' TOK_ONLY ':' eos
 {
-    $$ = ASTMake4(AST_USE_ONLY_STATEMENT, $1, NULL, $3, NULL, $2.token_file, $2.token_line, NULL);
+    $$ = ASTMake4Label(AST_USE_ONLY_STATEMENT, $1, NULL, $3, NULL, $2.token_file, $2.token_line, NULL);
 }
 ;
 module_nature : TOK_INTRINSIC
@@ -4280,7 +4305,7 @@ submodule : submodule_stmt specification_part module_subprogram_part end_submodu
 ;
 submodule_stmt : labeldef TOK_SUBMODULE '(' parent_identifier ')' name eos
 {
-    $$ = ASTMake3(AST_SUBMODULE_STATEMENT, $1, $4, $6, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_SUBMODULE_STATEMENT, $1, $4, $6, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 parent_identifier : name ':' name
@@ -4291,23 +4316,23 @@ parent_identifier : name ':' name
 ;
 end_submodule_stmt : labeldef TOK_END TOK_SUBMODULE name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
 }
 | labeldef TOK_END eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_END TOK_SUBMODULE eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
 }
 | labeldef TOK_ENDSUBMODULE name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ENDSUBMODULE eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 block_data : block_data_stmt specification_part end_block_data_stmt
@@ -4321,29 +4346,29 @@ block_data : block_data_stmt specification_part end_block_data_stmt
 ;
 block_data_stmt : labeldef TOK_BLOCK TOK_DATA name eos
 {
-    $$ = ASTMake2(AST_BLOCK_DATA_STATEMENT, $1, $4, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_BLOCK_DATA_STATEMENT, $1, $4, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_BLOCK TOK_DATA eos
 {
-    $$ = ASTMake2(AST_BLOCK_DATA_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_BLOCK_DATA_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_BLOCKDATA name eos
 {
-    $$ = ASTMake2(AST_BLOCK_DATA_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_BLOCK_DATA_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_BLOCKDATA eos
 {
-    $$ = ASTMake2(AST_BLOCK_DATA_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_BLOCK_DATA_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 
 end_block_data_stmt : labeldef end_block_data_toks name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef end_block_data_toks eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 
@@ -4371,34 +4396,34 @@ interface_specification : interface_body
 ;
 interface_stmt : labeldef TOK_INTERFACE generic_spec eos
 {
-    $$ = ASTMake3(AST_INTERFACE_STATEMENT, $1, NULL, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_INTERFACE_STATEMENT, $1, NULL, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_INTERFACE eos
 {
-    $$ = ASTMake3(AST_INTERFACE_STATEMENT, $1, NULL, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_INTERFACE_STATEMENT, $1, NULL, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ABSTRACT TOK_INTERFACE eos
 {
     AST abstract = ASTLeaf(AST_SYMBOL, $2.token_file, $2.token_line, $2.token_text);
 
-    $$ = ASTMake3(AST_INTERFACE_STATEMENT, $1, abstract, NULL, $3.token_file, $3.token_line, $3.token_text);
+    $$ = ASTMake3Label(AST_INTERFACE_STATEMENT, $1, abstract, NULL, $3.token_file, $3.token_line, $3.token_text);
 }
 ;
 end_interface_stmt : labeldef TOK_END TOK_INTERFACE generic_spec eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
 }
 | labeldef TOK_END TOK_INTERFACE eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
 }
 | labeldef TOK_ENDINTERFACE generic_spec eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ENDINTERFACE eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 
@@ -4430,22 +4455,22 @@ procedure_stmt : labeldef TOK_MODULE TOK_PROCEDURE ':' ':' procedure_name_list e
     char c[] = "module procedure";
     sprintf(c, "%s %s", $2.token_text, $3.token_text);
 
-    $$ = ASTMake2(AST_MODULE_PROCEDURE, $1, $6, $2.token_file, $2.token_line, c);
+    $$ = ASTMake2Label(AST_MODULE_PROCEDURE, $1, $6, $2.token_file, $2.token_line, c);
 }
 | labeldef TOK_PROCEDURE ':' ':' procedure_name_list eos
 {
-    $$ = ASTMake2(AST_MODULE_PROCEDURE, $1, $5, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_MODULE_PROCEDURE, $1, $5, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_MODULE TOK_PROCEDURE procedure_name_list eos
 {
     char c[] = "module procedure";
     sprintf(c, "%s %s", $2.token_text, $3.token_text);
 
-    $$ = ASTMake2(AST_MODULE_PROCEDURE, $1, $4, $2.token_file, $2.token_line, c);
+    $$ = ASTMake2Label(AST_MODULE_PROCEDURE, $1, $4, $2.token_file, $2.token_line, c);
 }
 | labeldef TOK_PROCEDURE procedure_name_list eos
 {
-    $$ = ASTMake2(AST_MODULE_PROCEDURE, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_MODULE_PROCEDURE, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 generic_spec : defined_operator_name
@@ -4476,49 +4501,49 @@ defined_io_generic_spec : TOK_READ '(' defined_io_generic_spec_fmt ')'
 ;
 import_stmt : labeldef TOK_IMPORT ':' ':' import_name_list eos
 {
-    $$ = ASTMake2(AST_IMPORT_STATEMENT, $1, $5, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_IMPORT_STATEMENT, $1, $5, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_IMPORT eos
 {
-    $$ = ASTMake2(AST_IMPORT_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_IMPORT_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_IMPORT import_name_list eos
 {
-    $$ = ASTMake2(AST_IMPORT_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_IMPORT_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 external_stmt : labeldef TOK_EXTERNAL ':' ':' external_name_list eos
 {
-    $$ = ASTMake2(AST_EXTERNAL_STATEMENT, $1, $5, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_EXTERNAL_STATEMENT, $1, $5, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_EXTERNAL external_name_list eos
 {
-    $$ = ASTMake2(AST_EXTERNAL_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_EXTERNAL_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 procedure_declaration_stmt : labeldef TOK_PROCEDURE '(' proc_interface ')' ',' proc_attr_spec_list ':' ':' proc_decl_list eos
 {
-    $$ = ASTMake4(AST_PROCEDURE_DECL_STATEMENT, $1, $4, $7, $10, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_PROCEDURE_DECL_STATEMENT, $1, $4, $7, $10, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_PROCEDURE '(' ')' ',' proc_attr_spec_list ':' ':' proc_decl_list eos
 {
-    $$ = ASTMake4(AST_PROCEDURE_DECL_STATEMENT, $1, NULL, $6, $9, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_PROCEDURE_DECL_STATEMENT, $1, NULL, $6, $9, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_PROCEDURE '(' proc_interface ')' proc_decl_list eos
 {
-    $$ = ASTMake4(AST_PROCEDURE_DECL_STATEMENT, $1, $4, NULL, $6, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_PROCEDURE_DECL_STATEMENT, $1, $4, NULL, $6, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_PROCEDURE '(' proc_interface ')' ':' ':' proc_decl_list eos
 {
-    $$ = ASTMake4(AST_PROCEDURE_DECL_STATEMENT, $1, $4, NULL, $8, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_PROCEDURE_DECL_STATEMENT, $1, $4, NULL, $8, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_PROCEDURE '(' ')' proc_decl_list eos
 {
-    $$ = ASTMake4(AST_PROCEDURE_DECL_STATEMENT, $1, NULL, NULL, $5, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_PROCEDURE_DECL_STATEMENT, $1, NULL, NULL, $5, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_PROCEDURE '(' ')' ':' ':' proc_decl_list eos
 {
-    $$ = ASTMake4(AST_PROCEDURE_DECL_STATEMENT, NULL, NULL, NULL, $7, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_PROCEDURE_DECL_STATEMENT, NULL, NULL, NULL, $7, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 proc_interface : name
@@ -4553,11 +4578,11 @@ proc_pointer_init : data_ref
 ;
 intrinsic_stmt : labeldef TOK_INTRINSIC ':' ':' intrinsic_procedure_name_list eos
 {
-    $$ = ASTMake2(AST_INTRINSIC_STATEMENT, $1, $5, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_INTRINSIC_STATEMENT, $1, $5, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_INTRINSIC intrinsic_procedure_name_list eos
 {
-    $$ = ASTMake2(AST_INTRINSIC_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_INTRINSIC_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 function_reference : procedure_designator '(' actual_arg_spec_list ')'
@@ -4571,13 +4596,13 @@ function_reference : procedure_designator '(' actual_arg_spec_list ')'
 ;
 call_stmt : labeldef TOK_CALL function_reference eos
 {
-    $$ = ASTMake2(AST_CALL_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_EXPRESSION_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_CALL procedure_designator eos
 {
     AST function_ref = ASTMake2(AST_FUNCTION_CALL, $3, NULL, ASTFileName($3), ASTLine($3), NULL);
 
-    $$ = ASTMake2(AST_CALL_STATEMENT, $1, function_ref, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_EXPRESSION_STATEMENT, $1, function_ref, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 procedure_designator : data_ref_no_array
@@ -4634,11 +4659,11 @@ function_subprogram : function_stmt program_body end_function_stmt
 ;
 function_stmt : labeldef prefix TOK_FUNCTION name function_prototype eos
 {
-    $$ = ASTMake4(AST_FUNCTION_STATEMENT, $1, $2, $4, $5, $3.token_file, $3.token_line, $3.token_text);
+    $$ = ASTMake4Label(AST_FUNCTION_STATEMENT, $1, $2, $4, $5, $3.token_file, $3.token_line, $3.token_text);
 }
 | labeldef TOK_FUNCTION name function_prototype eos
 {
-    $$ = ASTMake4(AST_FUNCTION_STATEMENT, $1, NULL, $3, $4, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_FUNCTION_STATEMENT, $1, NULL, $3, $4, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 function_prototype : '(' dummy_arg_name_list ')' suffix 
@@ -4677,23 +4702,23 @@ suffix : proc_language_binding_spec TOK_RESULT '(' name ')'
 ;
 end_function_stmt : labeldef TOK_END TOK_FUNCTION name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, $2.token_file, $2.token_line, $3.token_text);
 }
 | labeldef TOK_END eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_END TOK_FUNCTION eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
 }
 | labeldef TOK_ENDFUNCTION name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ENDFUNCTION eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 subroutine_subprogram : subroutine_stmt program_body end_subroutine_stmt
@@ -4707,19 +4732,19 @@ subroutine_subprogram : subroutine_stmt program_body end_subroutine_stmt
 ;
 subroutine_stmt : labeldef prefix TOK_SUBROUTINE name function_prototype eos
 {
-    $$ = ASTMake4(AST_SUBROUTINE_STATEMENT, $1, $2, $4, $5, $3.token_file, $3.token_line, $3.token_text);
+    $$ = ASTMake4Label(AST_SUBROUTINE_STATEMENT, $1, $2, $4, $5, $3.token_file, $3.token_line, $3.token_text);
 }
 | labeldef TOK_SUBROUTINE name function_prototype eos
 {
-    $$ = ASTMake4(AST_SUBROUTINE_STATEMENT, $1, NULL, $3, $4, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_SUBROUTINE_STATEMENT, $1, NULL, $3, $4, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef prefix TOK_SUBROUTINE name eos
 {
-    $$ = ASTMake4(AST_SUBROUTINE_STATEMENT, $1, $2, $4, NULL, $3.token_file, $3.token_line, $3.token_text);
+    $$ = ASTMake4Label(AST_SUBROUTINE_STATEMENT, $1, $2, $4, NULL, $3.token_file, $3.token_line, $3.token_text);
 }
 | labeldef TOK_SUBROUTINE name eos
 {
-    $$ = ASTMake4(AST_SUBROUTINE_STATEMENT, $1, NULL, $3, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_SUBROUTINE_STATEMENT, $1, NULL, $3, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 dummy_arg : name
@@ -4730,23 +4755,23 @@ dummy_arg : name
 ;
 end_subroutine_stmt : labeldef TOK_END TOK_SUBROUTINE name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $4, $3.token_file, $3.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, $3.token_file, $3.token_line, $3.token_text);
 }
 | labeldef TOK_END eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_END TOK_SUBROUTINE eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $3.token_file, $3.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $3.token_file, $3.token_line, $3.token_text);
 }
 | labeldef TOK_ENDSUBROUTINE name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ENDSUBROUTINE eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 separate_module_subprogram : mp_subprogram_stmt program_body end_mp_subprogram_stmt
@@ -4763,58 +4788,58 @@ mp_subprogram_stmt : labeldef TOK_MODULE TOK_PROCEDURE name eos
     char c[] = "module procedure";
     sprintf(c, "%s %s", $2.token_text, $3.token_text);
 
-    $$ = ASTMake2(AST_MODULE_PROCEDURE_STATEMENT, $1, $4, $2.token_file, $2.token_line, c);
+    $$ = ASTMake2Label(AST_MODULE_PROCEDURE_STATEMENT, $1, $4, $2.token_file, $2.token_line, c);
 }
 ;
 end_mp_subprogram_stmt : labeldef TOK_END TOK_PROCEDURE name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $4, $3.token_file, $3.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $4, $3.token_file, $3.token_line, $3.token_text);
 }
 | labeldef TOK_END eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_END TOK_PROCEDURE eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $3.token_text);
 }
 | labeldef TOK_ENDPROCEDURE name eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ENDPROCEDURE eos
 {
-    $$ = ASTMake2(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 entry_stmt : labeldef TOK_ENTRY name '(' dummy_arg_list ')' suffix eos
 {
-    $$ = ASTMake4(AST_ENTRY_STATEMENT, $1, $3, $5, $7, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_ENTRY_STATEMENT, $1, $3, $5, $7, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ENTRY name eos
 {
-    $$ = ASTMake4(AST_ENTRY_STATEMENT, $1, $3, NULL, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_ENTRY_STATEMENT, $1, $3, NULL, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ENTRY name '(' ')' suffix eos
 {
-    $$ = ASTMake4(AST_ENTRY_STATEMENT, $1, $3, NULL, $6, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_ENTRY_STATEMENT, $1, $3, NULL, $6, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ENTRY name '(' dummy_arg_list ')' eos
 {
-    $$ = ASTMake4(AST_ENTRY_STATEMENT, $1, $3, $5, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_ENTRY_STATEMENT, $1, $3, $5, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_ENTRY name '(' ')' eos
 {
-    $$ = ASTMake4(AST_ENTRY_STATEMENT, $1, $3, NULL, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_ENTRY_STATEMENT, $1, $3, NULL, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 return_stmt : labeldef TOK_RETURN int_expr eos
 {
-    $$ = ASTMake2(AST_RETURN_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_RETURN_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_RETURN eos
 {
-    $$ = ASTMake2(AST_RETURN_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_RETURN_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 contains_stmt : labeldef TOK_CONTAINS eos
@@ -4824,11 +4849,11 @@ contains_stmt : labeldef TOK_CONTAINS eos
 ;
 stmt_function_stmt : labeldef name '(' dummy_arg_name_list ')' '=' expr eos
 {
-    $$ = ASTMake4(AST_STATEMENT_FUNCTION_STATEMENT, $1, $2, $4, $7, ASTFileName($2), ASTLine($2), NULL);
+    $$ = ASTMake4Label(AST_STATEMENT_FUNCTION_STATEMENT, $1, $2, $4, $7, ASTFileName($2), ASTLine($2), NULL);
 }
 | labeldef name '(' ')' '=' expr eos
 {
-    $$ = ASTMake4(AST_STATEMENT_FUNCTION_STATEMENT, $1, $2, NULL, $6, ASTFileName($2), ASTLine($2), NULL);
+    $$ = ASTMake4Label(AST_STATEMENT_FUNCTION_STATEMENT, $1, $2, NULL, $6, ASTFileName($2), ASTLine($2), NULL);
 }
 ;
 eos : EOS
