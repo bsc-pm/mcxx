@@ -111,7 +111,7 @@ void OMPTransform::phase_cleanup(DTO& data_flow)
 void OMPTransform::run(DTO& dto)
 {
     if(Nanos::Version::_interfaces.find("master") == Nanos::Version::_interfaces.end() || 
-            Nanos::Version::_interfaces["master"] > 5000)
+            Nanos::Version::_interfaces["master"] < 5000)
     {
         std::string interface_pairs;
         for(std::map<std::string, int>::iterator it = Nanos::Version::_interfaces.begin();
