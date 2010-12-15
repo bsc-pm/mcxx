@@ -80,7 +80,8 @@ EOF
 fi
 
 cat <<EOF
-exec_versions="1thread 2thread 4thread"
+# exec_versions="1thread 2thread 4thread"
+exec_versions="1thread"
 
 test_ENV_1thread="OMP_NUM_THREADS='1'"
 test_ENV_2thread="OMP_NUM_THREADS='2'"
