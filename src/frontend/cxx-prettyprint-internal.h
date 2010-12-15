@@ -16,6 +16,9 @@ typedef struct prettyprint_context_tag
     // Angular brackets are so troublesome in C++
     char last_is_left_angle;
     char last_is_right_angle;
+
+    // Column
+    int column;
 } prettyprint_context_t;
 
 typedef
@@ -157,6 +160,16 @@ static int character_level_vfprintf(FILE* stream, prettyprint_context_t *pt_ctx,
     {
         pt_ctx->last_is_left_angle = (c[result - 1] == '<');
         pt_ctx->last_is_right_angle = (c[result - 1] == '>');
+
+        char *p = strrchr(c, '\n');
+        if (p == NULL)
+        {
+            pt_ctx->column += strlen(c);
+        }
+        else
+        {
+            pt_ctx->column = (ptrdiff_t)((&c[result-1]) - p);
+        }
     }
 
     free(c);

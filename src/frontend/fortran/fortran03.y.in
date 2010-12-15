@@ -76,7 +76,7 @@ static AST ast_make_node_label(node_t node_type,
     AST stmt = ASTMake3(node_type, ast1, ast2, ast3, filename, line, token);
     if (ast0 != NULL)
     {
-        stmt = ASTMake1(AST_LABELED_STATEMENT, stmt, filename, line, token);
+        stmt = ASTMake2(AST_LABELED_STATEMENT, ast0, stmt, filename, line, token);
     }
 
     return stmt;
@@ -2638,14 +2638,14 @@ int_constant_expr : int_expr
 ;
 assignment_stmt : labeldef data_ref '=' expr eos
 {
-    AST assig = ASTMake2(AST_ASSIGNMENT, $2, $4, ASTFileName($1), ASTLine($1), NULL);
-    $$ = ASTMake1Label(AST_EXPRESSION_STATEMENT, assig, ASTFileName(assig), ASTLine(assig), NULL);
+    AST assig = ASTMake2(AST_ASSIGNMENT, $2, $4, ASTFileName($2), ASTLine($2), NULL);
+    $$ = ASTMake2Label(AST_EXPRESSION_STATEMENT, $1, assig, ASTFileName(assig), ASTLine(assig), NULL);
 }
 ;
 pointer_assignment_stmt : labeldef proc_pointer_object TOK_POINTER_ACCESS proc_target eos
 {
-    AST assig = ASTMake2(AST_PTR_ASSIGNMENT, $2, $4, ASTFileName($1), ASTLine($1), NULL);
-    $$ = ASTMake1Label(AST_EXPRESSION_STATEMENT, assig, ASTFileName(assig), ASTLine(assig), NULL);
+    AST assig = ASTMake2(AST_PTR_ASSIGNMENT, $2, $4, ASTFileName($2), ASTLine($2), NULL);
+    $$ = ASTMake2Label(AST_EXPRESSION_STATEMENT, $1, assig, ASTFileName(assig), ASTLine(assig), NULL);
 }
 ;
 proc_pointer_object : data_ref
@@ -4601,7 +4601,6 @@ call_stmt : labeldef TOK_CALL function_reference eos
 | labeldef TOK_CALL procedure_designator eos
 {
     AST function_ref = ASTMake2(AST_FUNCTION_CALL, $3, NULL, ASTFileName($3), ASTLine($3), NULL);
-
     $$ = ASTMake2Label(AST_EXPRESSION_STATEMENT, $1, function_ref, $2.token_file, $2.token_line, $2.token_text);
 }
 ;

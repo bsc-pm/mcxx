@@ -78,6 +78,7 @@
 #include "fortran03-lexer.h"
 #include "fortran03-semantic.h"
 #include "fortran03-prettyprint.h"
+#include "fortran03-split.h"
 #endif
 
 /* ------------------------------------------------------------------ */
@@ -177,6 +178,7 @@
 "                           file.\n" \
 "  --instantiate            Instantiate explicitly templates. This is\n" \
 "                           an unsupported experimental feature\n" \
+"  --width=<width>          Fortran column width. By default 132\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -214,7 +216,7 @@ static char *_alternate_signal_stack;
 #endif
 
 // It mimics getopt
-#define SHORT_OPTIONS_STRING "vkKacho:EyI:L:l:gD:U:x:"
+#define SHORT_OPTIONS_STRING "vkKacho:EyI:L:l:gD:U:x:w:"
 // This one mimics getopt_long but with one less field (the third one is not given)
 struct command_line_long_options command_line_long_options[] =
 {
@@ -257,6 +259,7 @@ struct command_line_long_options command_line_long_options[] =
     {"hlt", CLP_NO_ARGUMENT, OPTION_ENABLE_HLT},
     {"do-not-unload-phases", CLP_NO_ARGUMENT, OPTION_DO_NOT_UNLOAD_PHASES},
     {"instantiate", CLP_NO_ARGUMENT, OPTION_INSTANTIATE_TEMPLATES},
+    {"width", CLP_REQUIRED_ARGUMENT, OPTION_COLUMN_WIDTH},
     // sentinel
     {NULL, 0, 0}
 };
@@ -267,6 +270,7 @@ char* source_language_names[] =
     [SOURCE_LANGUAGE_C] = "C",
     [SOURCE_LANGUAGE_CXX] = "C++",
     [SOURCE_LANGUAGE_CUDA] = "CUDA C/C++",
+    [SOURCE_LANGUAGE_FORTRAN] = "Fortran",
     [SOURCE_LANGUAGE_ASSEMBLER] = "assembler",
 };
 
@@ -1020,6 +1024,15 @@ int parse_arguments(int argc, const char* argv[],
                         CURRENT_CONFIGURATION->explicit_instantiation = 1;
                         break;
                     }
+                case OPTION_COLUMN_WIDTH:
+                    {
+#ifdef FORTRAN_SUPPORT
+                        CURRENT_CONFIGURATION->column_width = atoi(parameter_info.argument);
+#else
+                        running_error("Option -w is only valid when Fortran is enabled\n", 0);
+#endif
+                        break;
+                    }
                 default:
                     {
                         internal_error("Unhandled known option\n", 0);
@@ -1751,6 +1764,10 @@ static void initialize_default_values(void)
     CURRENT_CONFIGURATION->linker_name = uniquestr("c++");
     CURRENT_CONFIGURATION->linker_options = NULL;
 
+#ifdef FORTRAN_SUPPORT
+    CURRENT_CONFIGURATION->column_width = 132;
+#endif
+
     // Add openmp as an implicit flag
     struct parameter_flags_tag *new_parameter_flag = calloc(1, sizeof(*new_parameter_flag));
 
@@ -2477,7 +2494,24 @@ static const char* prettyprint_translation_unit(translation_unit_t* translation_
 #ifdef FORTRAN_SUPPORT
     else if (IS_FORTRAN_LANGUAGE)
     {
-        fortran_prettyprint(prettyprint_file, translation_unit->parsed_tree);
+        if (CURRENT_CONFIGURATION->column_width != 0)
+        {
+            temporal_file_t raw_prettyprint = new_temporal_file();
+            FILE *raw_prettyprint_file = fopen(raw_prettyprint->name, "w+");
+            if (raw_prettyprint_file == NULL)
+            {
+                running_error("Cannot create temporal file '%s' %s\n", raw_prettyprint->name, strerror(errno));
+            }
+            fortran_prettyprint(raw_prettyprint_file, translation_unit->parsed_tree);
+            rewind(raw_prettyprint_file);
+
+            fortran_split_lines(raw_prettyprint_file, prettyprint_file, CURRENT_CONFIGURATION->column_width);
+            fclose(raw_prettyprint_file);
+        }
+        else
+        {
+            fortran_prettyprint(prettyprint_file, translation_unit->parsed_tree);
+        }
     }
 #endif
     else

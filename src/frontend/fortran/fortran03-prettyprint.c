@@ -95,6 +95,7 @@ HANDLER_PROTOTYPE(enumerator_def_handler);
 HANDLER_PROTOTYPE(equivalence_set_handler);
 HANDLER_PROTOTYPE(equivalence_statement_handler);
 HANDLER_PROTOTYPE(exit_statement_handler);
+HANDLER_PROTOTYPE(expression_statement_handler);
 HANDLER_PROTOTYPE(external_statement_handler);
 HANDLER_PROTOTYPE(final_statement_handler);
 HANDLER_PROTOTYPE(float_type_handler);
@@ -299,6 +300,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_EQUIVALENCE_SET, equivalence_set_handler, NULL),
     NODE_HANDLER(AST_EQUIVALENCE_STATEMENT, equivalence_statement_handler, NULL),
     NODE_HANDLER(AST_EXIT_STATEMENT, exit_statement_handler, NULL),
+    NODE_HANDLER(AST_EXPRESSION_STATEMENT, expression_statement_handler, NULL),
     NODE_HANDLER(AST_EXTERNAL_STATEMENT, external_statement_handler, NULL),
     NODE_HANDLER(AST_FINAL_STATEMENT, final_statement_handler, NULL),
     NODE_HANDLER(AST_FLOATING_LITERAL, simple_text_handler, NULL),
@@ -503,11 +505,6 @@ static void unary_operator_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx
     prettyprint_level(f, ASTSon0(a), pt_ctx);
 }
 
-static void zero_level(prettyprint_context_t* pt_ctx)
-{
-    pt_ctx->level = 0;
-}
-
 static void increase_level(prettyprint_context_t *pt_ctx)
 {
     pt_ctx->level++;
@@ -584,16 +581,31 @@ static void sequence_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 
 static void indent_at_level(FILE* f, AST node, prettyprint_context_t* pt_ctx)
 {
-    int i;
-    for (i = 0; i < pt_ctx->level; i++)
+    int offset = pt_ctx->column;
+    int real_offset = pt_ctx->level * strlen(pt_ctx->indent_str) - offset;
+    
+    if (real_offset > 0)
     {
-        token_fprintf(f, node, pt_ctx, pt_ctx->indent_str);
+        int times = real_offset / strlen(pt_ctx->indent_str);
+        int remainder = real_offset % strlen(pt_ctx->indent_str);
+
+        int i;
+        for (i = 0; i < times; i++)
+        {
+            token_fprintf(f, node, pt_ctx, pt_ctx->indent_str);
+        }
+
+        for (i = 0; i < remainder; i++)
+        {
+            token_fprintf(f, node, pt_ctx, " ");
+        }
     }
 }
 
 static void labeled_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
-    token_fprintf(f, a, pt_ctx, "%5s", ASTText(a));
+    token_fprintf(f, a, pt_ctx, "%s ", ASTText(ASTSon0(a)));
+    prettyprint_level(f, ASTSon1(a), pt_ctx);
 }
 
 static void end_of_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
@@ -1456,6 +1468,17 @@ static void exit_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx
     end_of_statement_handler(f, a, pt_ctx);
 }
 
+static void expression_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    indent_at_level(f, a, pt_ctx);
+    if (ASTType(ASTSon0(a)) == AST_FUNCTION_CALL)
+    {
+        token_fprintf(f, a, pt_ctx, "CALL ");
+    }
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
+    end_of_statement_handler(f, a, pt_ctx);
+}
+
 static void external_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     indent_at_level(f, a, pt_ctx);
@@ -1527,8 +1550,7 @@ static void forall_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_c
 {
     token_fprintf(f, a, pt_ctx, "FORALL");
     prettyprint_level(f, ASTSon0(a), pt_ctx);
-    NEW_PT_CONTEXT(new_ctx, zero_level);
-    prettyprint_level(f, ASTSon1(a), new_ctx);
+    prettyprint_level(f, ASTSon1(a), pt_ctx);
     // We end with a statement, no need for EOS
 }
 
@@ -1636,11 +1658,11 @@ static void if_construct_body_handler(FILE* f, AST a, prettyprint_context_t* pt_
 
 static void if_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
+    indent_at_level(f, a, pt_ctx);
     token_fprintf(f, a, pt_ctx, "IF (");
     prettyprint_level(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, ")");
-    NEW_PT_CONTEXT(new_ctx, zero_level);
-    prettyprint_level(f, ASTSon1(a), new_ctx);
+    token_fprintf(f, a, pt_ctx, ") ");
+    prettyprint_level(f, ASTSon1(a), pt_ctx);
     // We end with a statement, no need for EOS
 }
 
@@ -2599,10 +2621,10 @@ static void write_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ct
     token_fprintf(f, a, pt_ctx, "WRITE (");
     list_handler(f, ASTSon0(a), pt_ctx);
     token_fprintf(f, a, pt_ctx, ")");
-    if (ASTSon0(a) != NULL)
+    if (ASTSon1(a) != NULL)
     {
         token_fprintf(f, a, pt_ctx, " ");
-        list_handler(f, ASTSon0(a), pt_ctx);
+        list_handler(f, ASTSon1(a), pt_ctx);
     }
     end_of_statement_handler(f, a, pt_ctx);
 }

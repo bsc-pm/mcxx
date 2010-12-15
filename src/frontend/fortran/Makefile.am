@@ -46,6 +46,8 @@ libmf03_la_SOURCES = \
                      fortran03-semantic.c \
                      fortran03-prettyprint.c \
                      fortran03-prettyprint.h \
+                     fortran03-split.h \
+                     fortran03-split.c \
                      libmf03-common.h \
                      $(END)
 
