@@ -1646,6 +1646,11 @@ vector {
     RETURN_TOKEN(TOK_VECTOR);
 }
 
+pause {
+    parse_token_text();
+    RETURN_TOKEN(TOK_PAUSE);
+}
+
 pixel {
     parse_token_text();
     RETURN_TOKEN(TOK_PIXEL);
@@ -1780,9 +1785,14 @@ goto {
 }
 
 
-"/" {
+[/]/[^/] {
 	parse_token_text();
 	RETURN_TOKEN('/');
+}
+
+"//" {
+	parse_token_text();
+	RETURN_TOKEN(TOK_DOUBLE_SLASH);
 }
 
 "(" {
@@ -1949,13 +1959,18 @@ goto {
 . {
 	if (isprint(yytext[0]))
 	{
-		fprintf(stderr, "Line %d. Error. Unexpected character: `%c' (0x%X)\n", fortran_scanning_now->line_number, yytext[0], yytext[0]);
+		running_error("%s:%d: error: unexpected character: `%c' (0x%X)\n", 
+                fortran_scanning_now->current_filename,
+                fortran_scanning_now->line_number, 
+                yytext[0], yytext[0]);
 	}
 	else
 	{
-		fprintf(stderr, "Line %d. Error. Unexpected character: 0x%X\n", fortran_scanning_now->line_number, yytext[0]);
+		running_error("%s:%d: error: unexpected character: 0x%X\n\n", 
+                fortran_scanning_now->current_filename,
+                fortran_scanning_now->line_number, 
+                yytext[0]);
 	}
-	exit(EXIT_FAILURE);
   }
 
 %%

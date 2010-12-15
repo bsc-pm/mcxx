@@ -150,6 +150,7 @@ HANDLER_PROTOTYPE(optional_statement_handler);
 HANDLER_PROTOTYPE(opt_value_handler);
 HANDLER_PROTOTYPE(parameter_statement_handler);
 HANDLER_PROTOTYPE(parenthesized_expression_handler);
+HANDLER_PROTOTYPE(pause_statement_handler);
 HANDLER_PROTOTYPE(pixel_type_handler);
 HANDLER_PROTOTYPE(pointer_initialization_handler);
 HANDLER_PROTOTYPE(pointer_statement_handler);
@@ -374,6 +375,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_OPT_VALUE, opt_value_handler, NULL),
     NODE_HANDLER(AST_PARAMETER_STATEMENT, parameter_statement_handler, NULL),
     NODE_HANDLER(AST_PARENTHESIZED_EXPRESSION, parenthesized_expression_handler, NULL),
+    NODE_HANDLER(AST_PAUSE_STATEMENT, pause_statement_handler, NULL),
     NODE_HANDLER(AST_PIXEL_TYPE, pixel_type_handler, NULL),
     NODE_HANDLER(AST_PLUS_OP, unary_operator_handler, "+"),
     NODE_HANDLER(AST_POINTER_INITIALIZATION, pointer_initialization_handler, NULL),
@@ -714,7 +716,7 @@ static void array_constructor_spec_handler(FILE* f, AST a, prettyprint_context_t
             token_fprintf(f, a, pt_ctx, " ");
         }
     }
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
+    list_handler(f, ASTSon1(a), pt_ctx);
 }
 
 static void array_ref_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
@@ -1226,13 +1228,21 @@ static void declaration_specs_handler(FILE* f, AST a, prettyprint_context_t* pt_
     }
     if (ASTSon2(a) != NULL)
     {
-        token_fprintf(f, a, pt_ctx, "* ");
+        token_fprintf(f, a, pt_ctx, " * (");
         prettyprint_level(f, ASTSon2(a), pt_ctx);
+        token_fprintf(f, a, pt_ctx, ")");
     }
     if (ASTSon3(a) != NULL)
     {
-        token_fprintf(f, a, pt_ctx, " ");
-        prettyprint_level(f, ASTSon3(a), pt_ctx);
+        if (ASTType(ASTSon3(a)) != AST_POINTER_INITIALIZATION)
+        {
+            token_fprintf(f, a, pt_ctx, " = ");
+            prettyprint_level(f, ASTSon3(a), pt_ctx);
+        }
+        else
+        {
+            prettyprint_level(f, ASTSon3(a), pt_ctx);
+        }
     }
 }
 
@@ -2048,6 +2058,18 @@ static void parenthesized_expression_handler(FILE* f, AST a, prettyprint_context
     token_fprintf(f, a, pt_ctx, "(");
     prettyprint_level(f, ASTSon0(a), pt_ctx);
     token_fprintf(f, a, pt_ctx, ")");
+}
+
+static void pause_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    indent_at_level(f, a, pt_ctx);
+    token_fprintf(f, a, pt_ctx, "PAUSE");
+    if (ASTSon0(a) != NULL)
+    {
+        token_fprintf(f, a, pt_ctx, " ");
+        prettyprint_level(f, ASTSon0(a), pt_ctx);
+    }
+    end_of_statement_handler(f, a, pt_ctx);
 }
 
 static void pixel_type_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
