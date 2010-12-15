@@ -2,6 +2,9 @@
 <testinfo>
 test_generator=config/mercurium-omp
 
+test_exec_fail_nanos4_plain_1thread=yes
+test_exec_faulty_nanos4_plain_1thread=yes
+
 test_exec_fail_nanox_plain_1thread=yes
 test_exec_faulty_nanox_plain_1thread=yes
 test_exec_fail_nanox_plain_2thread=yes
@@ -62,7 +65,7 @@ void g(int n, int m, int v[n + 1][m * 2])
 
 int main(int argc, char *argv[])
 {
-    int c[2+1][3*2];
+    int c[2+1][3*2] = {0};
 
     g(2, 3, c);
 
@@ -76,7 +79,7 @@ int main(int argc, char *argv[])
 
     if (c[1][2] != 4)
     {
-        fprintf(stderr, "c[1][2] != 3\n");
+        fprintf(stderr, "c[1][2] != 4\n");
         abort();
     }
 
