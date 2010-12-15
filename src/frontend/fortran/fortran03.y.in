@@ -405,7 +405,9 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %type<ast> critical_stmt
 %type<ast> inquire_stmt
 %type<ast> component_data_source
+%type<ast> label_assign_stmt
 %type<ast> computed_goto_stmt
+%type<ast> assigned_goto_stmt
 %type<ast> target_decl
 %type<ast> unlock_stmt
 %type<ast> read_stmt
@@ -585,6 +587,7 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %type<token_atrib> or_op
 %type<token_atrib> equiv_op
 %type<token_atrib> end_block_data_toks
+%type<token_atrib> goto_toks
 // Tokens
 %token<token_atrib> TOK_FORMAT "FORMAT"
 %token<token_atrib> TOK_GENERIC "GENERIC"
@@ -630,6 +633,7 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %token<token_atrib> TOK_RETURN "RETURN"
 %token<token_atrib> TOK_READWRITE "READWRITE"
 %token<token_atrib> TOK_ASSIGNMENT "ASSIGNMENT"
+%token<token_atrib> TOK_ASSIGN "ASSIGN"
 %token<token_atrib> TOK_PRINT "PRINT"
 %token<token_atrib> TOK_IOSTAT "IOSTAT"
 %token<token_atrib> TOK_SYNC "SYNC"
@@ -1012,6 +1016,8 @@ action_stmts : allocate_stmt
 | write_stmt
 | arithmetic_if_stmt
 | computed_goto_stmt
+| assigned_goto_stmt
+| label_assign_stmt
 ;
 name : IDENTIFIER
 {
@@ -1149,10 +1155,18 @@ intrinsic_type_spec : TOK_INTEGER kind_selector
 }
 | TOK_COMPLEX '*' decimal_literal
 {
-    internal_error("%s:%d: sorry: 'COMPLEX * %s' not implemented yet", 
-            $1.token_file, 
-            $1.token_line, 
-            ASTText($3));
+    // A COMPLEX * N is equivalent to COMPLEX(KIND=N/2)
+    const char* text = ASTText($3);
+    int k = atoi(text);
+    k /= 2;
+
+    char c[16] = { 0 };
+    snprintf(c, 15, "%d", k);
+    c[15] = '\0';
+
+    ast_set_text($3, c);
+
+    $$ = ASTMake1(AST_COMPLEX_TYPE, $3, $1.token_file, $1.token_line, NULL);
 }
 | TOK_DOUBLEPRECISION '*' decimal_literal
 {
@@ -2303,7 +2317,8 @@ common_block_item_list : common_block_item
 }
 | common_block_object_list
 {
-  $$ = ASTListLeaf($1);
+  AST common_block = ASTMake2(AST_COMMON_BLOCK_ITEM, NULL, $1, ASTFileName($1), ASTLine($1), NULL);
+  $$ = ASTListLeaf(common_block);
 }
 | common_block_item_list ',' common_block_item
 {
@@ -3276,21 +3291,30 @@ goto_stmt : labeldef TOK_GO TOK_TO label eos
     $$ = ASTMake2Label(AST_GOTO_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
-computed_goto_stmt : labeldef TOK_GO TOK_TO '(' label_list ')' ',' int_expr eos
+label_assign_stmt : labeldef TOK_ASSIGN int_literal_constant TOK_TO name eos
 {
-    $$ = ASTMake3Label(AST_COMPUTED_GOTO_STATEMENT, $1, $5, $8, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake3Label(AST_LABEL_ASSIGN_STATEMENT, $1, $3, $5, $2.token_file, $2.token_line, NULL);
 }
-| labeldef TOK_GO TOK_TO '(' label_list ')' int_expr eos
-{
-    $$ = ASTMake3Label(AST_COMPUTED_GOTO_STATEMENT, $1, $5, $7, $2.token_file, $2.token_line, $2.token_text);
-}
-| labeldef TOK_GOTO '(' label_list ')' ',' int_expr eos
+;
+goto_toks : TOK_GO TOK_TO
+| TOK_GOTO
+;
+computed_goto_stmt : labeldef goto_toks '(' label_list ')' ',' int_expr eos
 {
     $$ = ASTMake3Label(AST_COMPUTED_GOTO_STATEMENT, $1, $4, $7, $2.token_file, $2.token_line, $2.token_text);
 }
-| labeldef TOK_GOTO '(' label_list ')' int_expr eos
+| labeldef goto_toks '(' label_list ')' int_expr eos
 {
     $$ = ASTMake3Label(AST_COMPUTED_GOTO_STATEMENT, $1, $4, $6, $2.token_file, $2.token_line, $2.token_text);
+}
+;
+assigned_goto_stmt : labeldef goto_toks name '(' label_list ')' eos
+{
+    $$ = ASTMake3Label(AST_ASSIGNED_GOTO_STATEMENT, $1, $3, $5, $2.token_file, $2.token_line, $2.token_text);
+}
+| labeldef goto_toks name ',' '(' label_list ')' eos
+{
+    $$ = ASTMake3Label(AST_ASSIGNED_GOTO_STATEMENT, $1, $3, $6, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 arithmetic_if_stmt : labeldef TOK_IF '(' numeric_expr ')' label ',' label ',' label eos
@@ -3738,33 +3762,33 @@ wait_spec : TOK_UNIT '=' file_unit_number
     $$ = ASTMake1(AST_OPT_VALUE, $3, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
-backspace_stmt : labeldef TOK_BACKSPACE file_unit_number eos
+backspace_stmt : labeldef TOK_BACKSPACE file_unit_number eos %dprec 1
 {
     AST file_unit = ASTMake1(AST_OPT_VALUE, $3, ASTFileName($3), ASTLine($3), "UNIT");
 
     $$ = ASTMake2Label(AST_IO_STATEMENT, $1, ASTListLeaf(file_unit), $2.token_file, $2.token_line, $2.token_text);
 }
-| labeldef TOK_BACKSPACE '(' position_spec_list ')' eos
+| labeldef TOK_BACKSPACE '(' position_spec_list ')' eos %dprec 2
 {
     $$ = ASTMake2Label(AST_IO_STATEMENT, $1, $4, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
-endfile_stmt : labeldef TOK_ENDFILE file_unit_number eos
+endfile_stmt : labeldef TOK_ENDFILE file_unit_number eos %dprec 1
 {
     AST file_unit = ASTMake1(AST_OPT_VALUE, $3, ASTFileName($3), ASTLine($3), "UNIT");
     $$ = ASTMake2Label(AST_IO_STATEMENT, $1, ASTListLeaf(file_unit), $2.token_file, $2.token_line, $2.token_text);
 }
-| labeldef TOK_ENDFILE '(' position_spec_list ')' eos
+| labeldef TOK_ENDFILE '(' position_spec_list ')' eos %dprec 2
 {
     $$ = ASTMake2Label(AST_IO_STATEMENT, $1, $4, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
-rewind_stmt : labeldef TOK_REWIND file_unit_number eos
+rewind_stmt : labeldef TOK_REWIND file_unit_number eos %dprec 1
 {
     AST file_unit = ASTMake1(AST_OPT_VALUE, $3, ASTFileName($3), ASTLine($3), "unit");
     $$ = ASTMake2Label(AST_IO_STATEMENT, $1, ASTListLeaf(file_unit), $2.token_file, $2.token_line, $2.token_text);
 }
-| labeldef TOK_REWIND '(' position_spec_list ')' eos
+| labeldef TOK_REWIND '(' position_spec_list ')' eos %dprec 2
 {
     $$ = ASTMake2Label(AST_IO_STATEMENT, $1, $4, $2.token_file, $2.token_line, $2.token_text);
 }
@@ -4035,6 +4059,8 @@ program_part_stmts : access_stmt
 | codimension_stmt
 | common_stmt
 | computed_goto_stmt
+| assigned_goto_stmt
+| label_assign_stmt
 | continue_stmt
 | critical_construct
 | cycle_stmt
@@ -5667,6 +5693,7 @@ keyword : TOK_FORMAT
 | TOK_STAT
 | TOK_RETURN
 | TOK_READWRITE
+| TOK_ASSIGN
 | TOK_ASSIGNMENT
 | TOK_PRINT
 | TOK_IOSTAT

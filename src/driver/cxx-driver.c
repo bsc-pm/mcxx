@@ -120,7 +120,6 @@
 "                           compilation\n" \
 "  --cc=<name>              Another name for --cxx=<name>\n" \
 "  --ld=<name>              Linker <name> will be used for linking\n" \
-"  --pp-stdout              Preprocessor uses stdout for output\n" \
 "  --W<flags>,<options>     Pass comma-separated <options> on to\n" \
 "                           the several programs invoked by the driver\n" \
 "                           Flags is a sequence of 'p', 'n', 's', or 'l'\n" \
@@ -178,7 +177,21 @@
 "                           file.\n" \
 "  --instantiate            Instantiate explicitly templates. This is\n" \
 "                           an unsupported experimental feature\n" \
+"  --pp                     Preprocess files\n"\
+"                           This is the default for files ending with\n"\
+"                           C/C++: .c, .cc, .C, .cp, .cpp, .cxx, .c++\n"\
+"                           Fortran: .F, .F77, .F90, .F95\n"\
+"  --pp-stdout              Preprocessor uses stdout for output\n" \
 "  --width=<width>          Fortran column width. By default 132\n" \
+"  --free                   Force Fortran free form regardless of\n" \
+"                           extension.\n"\
+"                           This is the default for files ending with\n"\
+"                           .f90, .F90, .f95, .F95, .f03 or .F03\n"\
+"  --fixed                  Force Fortran fixed form regardless of\n" \
+"                           extension\n"\
+"                           This is the default for files ending with\n"\
+"                           .f, .F, .f77, .F77\n"\
+"  --fpp                    An alias for --pp\n"\
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -216,7 +229,7 @@ static char *_alternate_signal_stack;
 #endif
 
 // It mimics getopt
-#define SHORT_OPTIONS_STRING "vkKacho:EyI:L:l:gD:U:x:w:"
+#define SHORT_OPTIONS_STRING "vkKacho:EyI:L:l:gD:U:x:"
 // This one mimics getopt_long but with one less field (the third one is not given)
 struct command_line_long_options command_line_long_options[] =
 {
@@ -259,7 +272,11 @@ struct command_line_long_options command_line_long_options[] =
     {"hlt", CLP_NO_ARGUMENT, OPTION_ENABLE_HLT},
     {"do-not-unload-phases", CLP_NO_ARGUMENT, OPTION_DO_NOT_UNLOAD_PHASES},
     {"instantiate", CLP_NO_ARGUMENT, OPTION_INSTANTIATE_TEMPLATES},
-    {"width", CLP_REQUIRED_ARGUMENT, OPTION_COLUMN_WIDTH},
+    {"pp", CLP_NO_ARGUMENT, OPTION_ALWAYS_PREPROCESS},
+    {"fpp", CLP_NO_ARGUMENT, OPTION_ALWAYS_PREPROCESS},
+    {"width", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_COLUMN_WIDTH},
+    {"fixed", CLP_NO_ARGUMENT, OPTION_FORTRAN_FIXED},
+    {"free", CLP_NO_ARGUMENT, OPTION_FORTRAN_FREE},
     // sentinel
     {NULL, 0, 0}
 };
@@ -1024,12 +1041,35 @@ int parse_arguments(int argc, const char* argv[],
                         CURRENT_CONFIGURATION->explicit_instantiation = 1;
                         break;
                     }
-                case OPTION_COLUMN_WIDTH:
+                case OPTION_ALWAYS_PREPROCESS:
+                    {
+                        CURRENT_CONFIGURATION->force_source_kind |= SOURCE_KIND_NOT_PREPROCESSED;
+                        break;
+                    }
+                case OPTION_FORTRAN_COLUMN_WIDTH:
                     {
 #ifdef FORTRAN_SUPPORT
                         CURRENT_CONFIGURATION->column_width = atoi(parameter_info.argument);
 #else
-                        running_error("Option -w is only valid when Fortran is enabled\n", 0);
+                        running_error("Option --width is only valid when Fortran is enabled\n", 0);
+#endif
+                        break;
+                    }
+                case OPTION_FORTRAN_FIXED:
+                    {
+#ifdef FORTRAN_SUPPORT
+                        CURRENT_CONFIGURATION->force_source_kind |= SOURCE_KIND_FIXED_FORM;
+#else
+                        running_error("Option --fixed is only valid when Fortran is enabled\n", 0);
+#endif
+                        break;
+                    }
+                case OPTION_FORTRAN_FREE:
+                    {
+#ifdef FORTRAN_SUPPORT
+                        CURRENT_CONFIGURATION->force_source_kind |= SOURCE_KIND_FREE_FORM;
+#else
+                        running_error("Option --free is only valid when Fortran is enabled\n", 0);
 #endif
                         break;
                     }
@@ -2089,7 +2129,8 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
         }
 
         const char* parsed_filename = translation_unit->input_filename;
-        if (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PREPROCESSED)
+        if ((BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PREPROCESSED)
+                    || BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_NOT_PREPROCESSED))
                 && !CURRENT_CONFIGURATION->pass_through)
         {
             timing_t timing_preprocessing;
@@ -2114,7 +2155,8 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
 
 #ifdef FORTRAN_SUPPORT
         if (current_extension->source_language == SOURCE_LANGUAGE_FORTRAN
-                && BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_FIXED_FORM)
+                && (BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_FIXED_FORM)
+                    || BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_FIXED_FORM))
                 && !CURRENT_CONFIGURATION->pass_through)
         {
             timing_t timing_prescanning;
@@ -2454,6 +2496,24 @@ static const char* prettyprint_translation_unit(translation_unit_t* translation_
         const char* preffix = strappend(compilation_process.exec_basename, "_");
 
         const char* output_filename_basename = NULL; 
+
+#ifdef FORTRAN_SUPPORT
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            // Change the extension to be .f95 always
+            const char * ext = strrchr(input_filename_basename, '.');
+            ERROR_CONDITION(ext == NULL, "Expecting extension", 0);
+
+            char c[strlen(input_filename_basename) + 1];
+            memset(c, 0, sizeof(c));
+
+            strncpy(c, input_filename_basename, (size_t)(ext - input_filename_basename));
+            c[ext - input_filename_basename + 1] = '\0';
+
+            input_filename_basename = strappend(c, ".f95");
+        }
+#endif
+
         output_filename_basename = strappend(preffix,
                 input_filename_basename);
 

@@ -1031,6 +1031,11 @@ readwrite {
     RETURN_TOKEN(TOK_READWRITE);
 }
 
+assign {
+    parse_token_text();
+    RETURN_TOKEN(TOK_ASSIGN);
+}
+
 assignment {
     parse_token_text();
     RETURN_TOKEN(TOK_ASSIGNMENT);

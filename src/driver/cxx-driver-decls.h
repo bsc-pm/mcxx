@@ -62,7 +62,10 @@ typedef enum
     OPTION_ENABLE_HLT,
     OPTION_DO_NOT_UNLOAD_PHASES,
     OPTION_INSTANTIATE_TEMPLATES,
-    OPTION_COLUMN_WIDTH,
+    OPTION_ALWAYS_PREPROCESS,
+    OPTION_FORTRAN_COLUMN_WIDTH,
+    OPTION_FORTRAN_FIXED,
+    OPTION_FORTRAN_FREE,
     OPTION_VERBOSE
 } COMMAND_LINE_OPTIONS;
 
@@ -330,6 +333,7 @@ typedef struct compilation_configuration_tag
     const char** prescanner_options;
     int column_width;
 #endif
+    source_kind_t force_source_kind;
 
     const char* native_compiler_name;
     const char** native_compiler_options;
