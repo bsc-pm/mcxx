@@ -62,23 +62,32 @@ typedef enum
     OPTION_ENABLE_HLT,
     OPTION_DO_NOT_UNLOAD_PHASES,
     OPTION_INSTANTIATE_TEMPLATES,
+    OPTION_ALWAYS_PREPROCESS,
+    OPTION_FORTRAN_COLUMN_WIDTH,
+    OPTION_FORTRAN_FIXED,
+    OPTION_FORTRAN_FREE,
     OPTION_VERBOSE
 } COMMAND_LINE_OPTIONS;
 
 // Kind of source 
+#define BITMAP(X) (1<<X)
 typedef enum source_kind_tag
 {
     SOURCE_KIND_UNKNOWN = 0,
-    SOURCE_KIND_NOT_PREPROCESSED,
-    SOURCE_KIND_PREPROCESSED,
-    SOURCE_KIND_NOT_PARSED,
+    SOURCE_KIND_NOT_PREPROCESSED = BITMAP(0),
+    SOURCE_KIND_PREPROCESSED = BITMAP(1),
+    SOURCE_KIND_FIXED_FORM = BITMAP(2),
+    SOURCE_KIND_FREE_FORM = BITMAP(3),
+    SOURCE_KIND_NOT_PARSED = BITMAP(4),
 } source_kind_t;
+#undef BITMAP
 
 typedef enum source_language_tag
 {
     SOURCE_LANGUAGE_UNKNOWN = 0,
     SOURCE_LANGUAGE_C,
     SOURCE_LANGUAGE_CXX,
+    SOURCE_LANGUAGE_FORTRAN,
     SOURCE_LANGUAGE_CUDA,
     SOURCE_LANGUAGE_ASSEMBLER,
     SOURCE_LANGUAGE_LINKER_DATA,
@@ -319,6 +328,13 @@ typedef struct compilation_configuration_tag
     const char** preprocessor_options;
     char preprocessor_uses_stdout;
 
+#ifdef FORTRAN_SUPPORT
+    // Fortran prescanner
+    const char** prescanner_options;
+    int column_width;
+#endif
+    source_kind_t force_source_kind;
+
     const char* native_compiler_name;
     const char** native_compiler_options;
 
@@ -326,6 +342,10 @@ typedef struct compilation_configuration_tag
     const char** linker_options;
 
     const char* output_directory;
+
+    // Include directories
+    int num_include_dirs;
+    const char** include_dirs;
 
     int num_compiler_phases;
 	compiler_phase_loader_t** phase_loader;

@@ -81,6 +81,10 @@ int config_set_language(struct compilation_configuration_tag* config, const char
         config->source_language = SOURCE_LANGUAGE_CXX;
         config->enable_cxx1x = 1;
     }
+    else if (strcasecmp(value, "fortran") == 0)
+    {
+        config->source_language = SOURCE_LANGUAGE_FORTRAN;
+    }
     else
     {
         fprintf(stderr, "Unknown language '%s' assuming C++\n", value);
@@ -152,6 +156,17 @@ int config_set_preprocessor_uses_stdout(struct compilation_configuration_tag * c
         config->preprocessor_uses_stdout = bool_value;
     }
 
+    return 0;
+}
+
+int config_set_prescanner_options(struct compilation_configuration_tag* config, const char* index, const char* value)
+{
+#ifdef FORTRAN_SUPPORT
+    int num;
+    const char** blank_separated_options = blank_separate_values(value, &num);
+
+    add_to_parameter_list(&config->prescanner_options, blank_separated_options, num);
+#endif
     return 0;
 }
 

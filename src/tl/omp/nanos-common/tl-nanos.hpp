@@ -24,6 +24,7 @@
 #ifndef TL_NANOS_HPP
 #define TL_NANOS_HPP
 
+#include <map>
 #include <string>
 
 #include "tl-pragmasupport.hpp"
@@ -37,9 +38,7 @@ namespace TL
             public:
                 const static int DEFAULT_VERSION;
                 const static char* DEFAULT_FAMILY;
-
-                static int version;
-                static std::string family;
+                static std::map<std::string, int> _interfaces;
 
                 static bool is_family(const std::string &family);
                 static bool is_version(int version);
@@ -48,13 +47,17 @@ namespace TL
         
         class Interface : public PragmaCustomCompilerPhase
         {
+            private:
+                int _n_loads;
+                
             public:
                 Interface();
                 void interface_preorder(PragmaCustomConstruct);
                 void interface_postorder(PragmaCustomConstruct);
 
                 virtual void run(TL::DTO& dto);
-
+                virtual void phase_cleanup(DTO& dto);
+                
                 ~Interface() { }
         };
     }

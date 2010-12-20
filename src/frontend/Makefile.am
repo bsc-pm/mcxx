@@ -23,6 +23,10 @@
 
 lib_LTLIBRARIES = libmcxx-process.la libmcxx.la
 
+SUBDIRS=. @FRONTEND_EXTENSIONS@
+
+DIST_SUBDIRS=fortran
+
 END=
 
 EXTRA_DIST =
@@ -46,6 +50,7 @@ libmcxx_process_la_CFLAGS=-DLIBPROCESS_DLL_EXPORT \
                           -I$(top_builddir)/src/frontend \
                           -I$(top_builddir)/src/mcxx_tl \
                           $(END)
+
 libmcxx_process_la_LDFLAGS=-avoid-version $(no_undefined)
 libmcxx_process_la_LIBADD=$(top_builddir)/lib/libmcxx-utils.la
 libmcxx_process_la_SOURCES = \
@@ -76,6 +81,7 @@ libmcxx_la_SOURCES = \
   cxx-html.c \
   cxx-prettyprint.c \
   cxx-prettyprint.h \
+  cxx-prettyprint-internal.h \
   cxx-utils.c \
   cxx-utils.h \
   cxx-scope.c \
@@ -168,6 +174,7 @@ libmcxx_la_CFLAGS = -DLIBMCXX_DLL_EXPORT \
                     -fexceptions \
 				    -DPKGDATADIR=\"$(pkgdatadir)\"
 
+
 EXTRA_DIST += cxx-lexer.l
 
 # AST node types
@@ -181,6 +188,7 @@ AST_NODE_TYPE_FILES += cxx-asttype-superscalar.def
 AST_NODE_TYPE_FILES += cxx-asttype-upc.def
 AST_NODE_TYPE_FILES += cxx-asttype-omp.def
 AST_NODE_TYPE_FILES += cxx-asttype-xl.def
+AST_NODE_TYPE_FILES += cxx-asttype-fortran.def
 
 EXTRA_DIST += $(AST_NODE_TYPE_FILES)
 
@@ -229,9 +237,6 @@ BUILT_SOURCES += cxx03.y
 
 BUILT_SOURCES += cxx-parser.h
 BUILT_SOURCES += c99-parser.h
-
-# Manual targets
-cxx-ast.h : cxx-asttype.h
 
 TPP=$(top_builddir)/lib/tpp$(EXEEXT)
 

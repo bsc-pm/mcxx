@@ -74,7 +74,14 @@ static char* symbol_kind_names[] =
     [SK_GCC_BUILTIN_TYPE] = "SK_GCC_BUILTIN_TYPE",
     [SK_DEPENDENT_ENTITY] = "SK_DEPENDENT_ENTITY",
     // Artificial symbols
-    [SK_OTHER] = "SK_OTHER"
+    [SK_OTHER] = "SK_OTHER",
+#ifdef FORTRAN_SUPPORT
+    [SK_COMMON] = "SK_COMMON",
+    [SK_NAMELIST] = "SK_NAMELIST",
+    [SK_MODULE] = "SK_MODULE",
+    [SK_PROGRAM] = "SK_PROGRAM",
+    [SK_BLOCKDATA] = "SK_BLOCKDATA",
+#endif
 };
 
 // static char* scope_names[] =

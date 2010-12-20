@@ -50,6 +50,9 @@ MCXX_BEGIN_DECLS
 #define IS_C_LANGUAGE (CURRENT_CONFIGURATION->source_language == SOURCE_LANGUAGE_C)
 #define C_LANGUAGE() if (IS_C_LANGUAGE)
 
+#define IS_FORTRAN_LANGUAGE (CURRENT_CONFIGURATION->source_language == SOURCE_LANGUAGE_FORTRAN)
+#define FORTRAN_LANGUAGE() if (IS_FORTRAN_LANGUAGE)
+
 #define STATIC_ARRAY_LENGTH(_v) (sizeof(_v)/sizeof(_v[0]))
 
 // Special calloc that counts

@@ -280,32 +280,32 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             OpenMP::DependencyDirection attr = it->get_kind();
             if (!((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION))
             {
-                    if ((attr & OpenMP::DEP_DIR_INPUT) == OpenMP::DEP_DIR_INPUT)
-                    {
-                            dependency_flags << "1,"; 
-                    }
-                    else
-                    {
-                            dependency_flags << "0,"; 
-                    }
-                    if ((attr & OpenMP::DEP_DIR_OUTPUT) == OpenMP::DEP_DIR_OUTPUT)
-                    {
-                            dependency_flags << "1,"; 
-                    }
-                    else
-                    {
-                            dependency_flags << "0,"; 
-                    }
+                if ((attr & OpenMP::DEP_DIR_INPUT) == OpenMP::DEP_DIR_INPUT)
+                {
+                        dependency_flags << "1,"; 
+                }
+                else
+                {
+                        dependency_flags << "0,"; 
+                }
+                if ((attr & OpenMP::DEP_DIR_OUTPUT) == OpenMP::DEP_DIR_OUTPUT)
+                {
+                        dependency_flags << "1,"; 
+                }
+                else
+                {
+                        dependency_flags << "0,"; 
+                }
             }
             else 
             {
-                    if (Nanos::Version::version < 5001)
-                    {
-                            printf("%s: warning: the current version of Nanos does not support reduction dependencies in Superscalar\n",
-                                   ctr.get_ast().get_locus().c_str());
-                    }
-                    // Reduction behave like an inout
-                    dependency_flags << "1, 1,"; 
+                if(Nanos::Version::_interfaces["master"] < 5001)
+                {
+                        printf("%s: warning: the current version of Nanos does not support reduction dependencies in Superscalar\n",
+                                ctr.get_ast().get_locus().c_str());
+                }
+                // Reduction behave like an inout
+                dependency_flags << "1, 1,"; 
             }
 
             Source dependency_field_name;

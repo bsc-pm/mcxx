@@ -100,7 +100,7 @@ static void parse_token_text_str(const char*);
 
 struct scan_file_descriptor scanning_now;
 
-static const char* main_input_filename;
+static const char* main_input_filename = NULL;
 
 static int pragma_custom_var_list_parentheses = 0;
 
@@ -120,7 +120,7 @@ static int num_new_lines(const char* c)
     return result;
 }
 
-static int include_counter;
+static int include_counter = 0;
 
 // static int verbatim_buffer_size = 0;
 // static const char *verbatim_buffer = NULL;

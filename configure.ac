@@ -89,11 +89,53 @@ AC_COMPILE_IFELSE(
 )
 
 dnl --------------------- end check of old gcc ---
+
 TL_EXTENSIONS=""
 TL_OMP_EXTENSIONS=""
 INSTALL_CONFIG_FILES="config.plain"
 
 COMPILER_NAMES="plaincxx plaincc"
+
+dnl ----- Fortran support ----
+
+FRONTEND_EXTENSIONS=""
+
+is_enabled_fortran="no"
+AC_MSG_CHECKING([if enabled Fortran support in the compiler])
+AC_ARG_ENABLE([fortran],
+    AS_HELP_STRING([--enable-fortran], [Enables Fortran support. This is EXPERIMENTAL]),
+    [
+      if test x$enableval = xyes -o x$enableval = x;
+      then
+         is_enabled_fortran="yes"
+         AC_MSG_RESULT([yes])
+      else if test x$enableval = xno;
+           then
+              is_enabled_fortran="no"
+              AC_MSG_RESULT([no])
+           else
+              AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+           fi
+      fi
+    ],
+    [
+       AC_MSG_RESULT([no])
+    ]
+)
+
+if test x$is_enabled_fortran = xyes;
+then
+    FRONTEND_EXTENSIONS=" fortran"
+    AC_DEFINE([FORTRAN_SUPPORT], 1, [Define to 1 if Fortran support is enabled in the compiler])
+    COMPILER_NAMES="${COMPILER_NAMES} plainf95"
+fi
+
+AM_CONDITIONAL(FORTRAN_SUPPORT, test x$is_enabled_fortran = xyes)
+
+AC_SUBST([FRONTEND_EXTENSIONS])
+
+dnl ----- End of Fortran support ----
+
 
 dnl --------------------- Support for OMPSS ------------------------------------------
 is_enabled_openmpt="no"
@@ -1152,7 +1194,9 @@ AC_CONFIG_FILES([Makefile
            lib/Makefile
            src/Makefile 
            src/driver/Makefile 
+           src/driver/fortran/Makefile 
            src/frontend/Makefile 
+           src/frontend/fortran/Makefile 
            src/mcxx_tl/Makefile 
            src/tl/Makefile 
            src/tl/hlt/Makefile
@@ -1208,6 +1252,8 @@ echo "Mercurium configuration summary"
 echo "==============================="
 echo ""
 echo " * Default type environment : " $default_type_environ
+echo ""
+echo " * Fortran support (EXPERIMENTAL): " $is_enabled_fortran
 echo ""
 echo " * TL Examples will be built :" $is_enabled_tl_examples
 echo ""

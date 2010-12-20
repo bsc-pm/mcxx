@@ -908,6 +908,7 @@ namespace TL
             _openmp_info->push_current_data_sharing(data_sharing);
             common_parallel_handler(construct, data_sharing);
         }
+
         void Core::parallel_handler_post(PragmaCustomConstruct construct)
         {
             _openmp_info->pop_current_data_sharing();
@@ -927,6 +928,7 @@ namespace TL
             common_parallel_handler(construct, data_sharing);
             common_for_handler(construct, data_sharing);
         }
+
         void Core::parallel_for_handler_post(PragmaCustomConstruct construct)
         {
             _openmp_info->pop_current_data_sharing();
@@ -945,7 +947,9 @@ namespace TL
             _openmp_info->push_current_data_sharing(data_sharing);
             common_workshare_handler(construct, data_sharing);
             common_for_handler(construct, data_sharing);
+            get_dependences_info(construct, data_sharing);
         }
+
         void Core::for_handler_post(PragmaCustomConstruct construct)
         {
             _openmp_info->pop_current_data_sharing();
@@ -957,6 +961,7 @@ namespace TL
             _openmp_info->push_current_data_sharing(data_sharing);
             common_workshare_handler(construct, data_sharing);
         }
+
         void Core::single_handler_post(PragmaCustomConstruct construct)
         {
             _openmp_info->pop_current_data_sharing();

@@ -39,6 +39,10 @@ compilation_configuration_t* new_compilation_configuration(
     result->configuration_name = uniquestr(name);
     result->base_configuration = base;
 
+#ifdef FORTRAN_SUPPORT
+    result->column_width = 132;
+#endif
+
     return result;
 }
 
@@ -110,6 +114,9 @@ static void initialize_with_base_config(compilation_configuration_t* dst,
     dst->configuration_lines = configuration_lines;
 
     // Copy those fields requiring special copies
+#ifdef FORTRAN_SUPPORT
+    dst->prescanner_options = copy_null_ended_const_char_array(base->prescanner_options);
+#endif
     dst->preprocessor_options = copy_null_ended_const_char_array(base->preprocessor_options);
     dst->native_compiler_options = copy_null_ended_const_char_array(base->native_compiler_options);
     dst->linker_options = copy_null_ended_const_char_array(base->linker_options);

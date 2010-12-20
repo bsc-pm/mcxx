@@ -48,6 +48,9 @@ namespace Nanox
             void flush_postorder(PragmaCustomConstruct ctr);
             void critical_postorder(PragmaCustomConstruct ctr);
             void master_postorder(PragmaCustomConstruct ctr);
+            
+            // Functions for Reductions
+            void declare_reduction_preorder(PragmaCustomConstruct ctr);
 
             void sections_preorder(PragmaCustomConstruct ctr);
             void sections_postorder(PragmaCustomConstruct ctr);
@@ -59,7 +62,7 @@ namespace Nanox
             std::map<std::string, bool> _registered_slicer;
 
             void unimplemented_yet(PragmaCustomConstruct construct);
-
+            
             // Phase data
             bool _enable_instrumentation;
             std::string _enable_instrumentation_str;

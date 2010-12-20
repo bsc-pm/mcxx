@@ -161,7 +161,14 @@ enum cxx_symbol_kind
     SK_DEPENDENT_ENTITY, // [14]
     // Other symbols whose use is defined elsewhere
     // These symbols should not be language-accessible
-    SK_OTHER // [15]
+    SK_OTHER, // [15]
+#ifdef FORTRAN_SUPPORT
+    SK_COMMON, // [16]
+    SK_NAMELIST, // [17]
+    SK_MODULE, // [18]
+    SK_PROGRAM, // [19]
+    SK_BLOCKDATA, // [20]
+#endif
 };
 
 #define BITMAP(x) (1 << x)

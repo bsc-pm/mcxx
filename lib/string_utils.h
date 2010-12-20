@@ -43,6 +43,9 @@ LIBUTILS_EXTERN const char** comma_separate_values(const char* value, int *num_e
 // Gives a unique name for the identifier
 LIBUTILS_EXTERN const char* get_unique_name(void);
 
+LIBUTILS_EXTERN const char* strtoupper(const char*);
+LIBUTILS_EXTERN const char* strtolower(const char*);
+
 // Routine to ease adding pointers to a pointer list
 //   list is a T**
 //   size is an int

@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 const char* strappend(const char* orig, const char* appended)
 {
@@ -99,4 +100,38 @@ char is_blank_string(const char* c)
     }
 
     return result;
+}
+
+const char* strtoupper(const char* c)
+{
+    if (c != NULL)
+    {
+        int n = strlen(c);
+        char result[n + 1];
+        int i;
+        for (i = 0; i < n; i++)
+        {
+            result[i] = toupper(c[i]);
+        }
+        result[n] = '\0';
+        return uniquestr(result);
+    }
+    return NULL;
+}
+
+const char* strtolower(const char* c)
+{
+    if (c != NULL)
+    {
+        int n = strlen(c);
+        char result[n + 1];
+        int i;
+        for (i = 0; i < n; i++)
+        {
+            result[i] = tolower(c[i]);
+        }
+        result[n] = '\0';
+        return uniquestr(result);
+    }
+    return NULL;
 }
