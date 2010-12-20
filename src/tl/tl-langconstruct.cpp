@@ -42,6 +42,8 @@ namespace TL
     const PredicateAttr DeclaredEntity::predicate(LANG_IS_DECLARED_NAME);
     const PredicateAttr Declaration::predicate(LANG_IS_DECLARATION);
     const PredicateAttr GCCAttributeSpecifier::predicate(LANG_IS_GCC_ATTRIBUTE);
+    const PredicateAttr TypeSpec::predicate(LANG_IS_TYPE_SPECIFIER);
+
 
     std::string LangConstruct::prettyprint() const
     {
@@ -1151,6 +1153,12 @@ namespace TL
         return sym;
     }
 
+    Type TypeSpec::get_type() const
+    {
+        TL::Type t = _ref.get_attribute(LANG_TYPE_SPECIFIER_TYPE);
+        return t;
+    }
+
     bool DeclaredEntity::has_initializer() const
     {
         AST_t initializer = _ref.get_attribute(LANG_INITIALIZER);
@@ -1364,7 +1372,6 @@ namespace TL
     Source ReplaceSrcIdExpression::replace(AST_t a) const
     {
         Source result;
-
         char *c = prettyprint_in_buffer_callback(a.get_internal_ast(), 
                 &ReplaceSrcIdExpression::prettyprint_callback, (void*)this);
 

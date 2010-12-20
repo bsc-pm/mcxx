@@ -21,53 +21,21 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-TPP=$(top_builddir)/lib/tpp$(EXEEXT)
-CLEANFILES=
+
+include ../../../../Makefile.phases
+
 END=
 
-CONFIG_MCXX=\
-            config.mcxx \
-            $(END)
+phases_LTLIBRARIES=libtlnanox-smp_ocl.la
 
-# We need a dist hook to keep these files in sync with their .in
-# see below
-CONFIG_FILES =  \
-       config.acotes \
-       config.acotes-msf \
-       config.cuda \
-       config.ocl \
-       config.omp \
-       config.sscc \
-       config.plain \
-       config.stm_nebelung \
-       config.superscalar \
-       config.ss_valgrind \
-	   $(END)
+device_flags=$(tl_cflags) -I$(srcdir)/../.. -I$(srcdir)/../../../core
 
-INSTALL_CONFIG_FILES = @INSTALL_CONFIG_FILES@
+libtlnanox_smp_ocl_la_CFLAGS = $(device_flags)
+libtlnanox_smp_ocl_la_CXXFLAGS = $(device_flags)
 
-dist-hook:
-	for i in $(CONFIG_FILES) $(CONFIG_MCXX); \
-    do \
-       cp "$(srcdir)/$${i}.in" "$(distdir)" ; \
-    done
+libtlnanox_smp_ocl_la_LDFLAGS = $(tl_ldflags)
 
-CLEANFILES += $(CONFIG_FILES) $(CONFIG_MCXX)
-
-# Replacements are defined in this file
-include ./Makefile.replace
-
-BUILT_SOURCES=$(CONFIG_MCXX) $(CONFIG_FILES)
-
-# This is valid in parallel make since we are generating one goal file at a time
-config.% : config.%.in
-	$(AM_V_GEN)( $(config_edit) "$(srcdir)/$@.in" > "$@.tmp"; mv -f "$@.tmp" "$@" )
-
-# Where and what to install
-pkgdata_DATA = \
-		config.mcxx \
-		$(END)
-
-configdir = $(pkgdatadir)/config.d
-config_DATA = \
-        $(INSTALL_CONFIG_FILES)
+libtlnanox_smp_ocl_la_SOURCES = \
+       nanox-smp_ocl.hpp \
+       nanox-smp_ocl.cpp \
+       $(END)

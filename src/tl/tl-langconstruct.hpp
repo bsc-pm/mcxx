@@ -702,6 +702,12 @@ namespace TL
             bool is_enum_specifier() const;
             //! Returns the enym symbol defined in the enum-specifier
             Symbol get_enum_symbol() const;
+
+            //! Returns the Type of this type-specifier
+            Type get_type() const;
+
+            // Fix the predicate
+            static const PredicateAttr predicate;
     };
 
     //! This class wraps a declaration-specifier sequence

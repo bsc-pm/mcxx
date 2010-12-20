@@ -1,12 +1,17 @@
 #include "tl-devices.hpp"
-#include "nanox-smp.hpp"
+#include "nanox-smp_ocl.hpp"
+#include "tl-declarationclosure.hpp"
+#include "tl-multifile.hpp"
+#include "cxx-driver-utils.h"
+
+#include <iostream>
+#include <fstream>
+
 
 using namespace TL;
 using namespace TL::Nanox;
 
-//REPLICATED CODE (SMP_OCL) START
-
-const unsigned int _vector_width = 16;
+const unsigned char _vector_width = 16;
 
 char builtin_vl_name[] = "__builtin_vector_loop";
 char attrib_param_name[] = "generic_vector";
@@ -48,6 +53,7 @@ class Find_function : public TL::Predicate<AST_t>
     }
 };
 
+
 template <class AST, char * PARAM_NAME>
 class Find_attribute : public TL::Predicate<AST>
 {
@@ -78,7 +84,7 @@ class Find_attribute : public TL::Predicate<AST>
                 {
                     if(att_list.size() != 1)
                         internal_error("'%s' GCCAttribute does not accept more GCCAttributes\n", PARAM_NAME);
-
+    
                     return true;
                 }
             }
@@ -86,13 +92,192 @@ class Find_attribute : public TL::Predicate<AST>
     }
 };
 
+/*
+template <class AST, char * PARAM_NAME>
+class Find_decl_with_attribute : public TL::Predicate<AST>
+{
+    private:
+    ScopeLink _sl;
+
+    public:
+    Find_decl_with_attribute<AST, PARAM_NAME>(ScopeLink sl) : _sl (sl ) {};
+
+    bool do_(const AST& ast) const
+    {
+        if (!ast.is_valid())
+            return false;
+
+        if (Declaration::predicate(ast))
+        {
+            //Declaration Entities
+            ObjectList<DeclaredEntity> decl_ent_list = (Declaration(ast, _sl)).get_declared_entities();
+
+            for (ObjectList<DeclaredEntity>::iterator it = decl_ent_list.begin();
+                 it != decl_ent_list.end();
+                 it++)
+            {
+                DeclaredEntity decl_ent((DeclaredEntity)(*it));
+
+                //Initialization
+                if (decl_ent.has_initializer())
+                {
+                    if (!(decl_ent.get_initializer().get_ast().depth_subtrees(
+                          TL::TraverseASTPredicate(Find_attribute<AST_t, attrib_param_name>(_sl))).empty()))
+                        return true;
+                }
+       
+                if (!(decl_ent.get_ast().depth_subtrees(
+                      TL::TraverseASTPredicate(Find_attribute<AST_t, attrib_param_name>(_sl))).empty()))
+                    return true;
+            }
+        }
+        return false;
+    }    
+};
+*/
+
+static std::string smp_ocl_outline_name(const std::string &task_name)
+{
+    return "_smp_ocl_" + task_name;
+}
+
+static Type compute_replacement_type_for_vla(Type type, 
+        ObjectList<Source>::iterator dim_names_begin,
+        ObjectList<Source>::iterator dim_names_end)
+{
+    Type new_type(NULL);
+    if (type.is_array())
+    {
+        new_type = compute_replacement_type_for_vla(type.array_element(), dim_names_begin + 1, dim_names_end);
+
+        if (dim_names_begin == dim_names_end)
+        {
+            internal_error("Invalid dimension list", 0);
+        }
+
+        new_type = new_type.get_array_to(*dim_names_begin);
+    }
+    else if (type.is_pointer())
+    {
+        new_type = compute_replacement_type_for_vla(type.points_to(), dim_names_begin, dim_names_end);
+        new_type = new_type.get_pointer_to();
+    }
+    else
+    {
+        new_type = type;
+    }
+
+    return new_type;
+}
+
+static bool is_nonstatic_member_symbol(Symbol s)
+{
+    return s.is_member()
+        && !s.is_static();
+}
+
+/*
+class Print_vector_types : public TL::Functor<TL::AST_t::callback_result, AST_t>
+{
+    private:
+    ScopeLink _sl;
+    bool * is_generic_vector;
+
+    public:
+    Print_vector_types(ScopeLink scope_link) : _sl(scope_link)
+    { 
+        is_generic_vector = new bool(false); 
+    };
+
+    ~Print_vector_types()
+    {
+        delete(is_generic_vector);
+    }
+
+    TL::AST_t::callback_result do_(const AST_t& ast) const
+    {
+        if (!ast.is_valid())
+	    return TL::AST_t::callback_result(false, "");
+
+        if (Declaration::predicate(ast))
+        {
+            Declaration decl(Declaration(ast, _sl));
+            DeclarationSpec decl_spec = decl.get_declaration_specifiers();
+
+            //Declaration Entities
+            ObjectList<DeclaredEntity> decl_ent_list = decl.get_declared_entities();
+
+            for (ObjectList<DeclaredEntity>::iterator it = decl_ent_list.begin();
+                 it != decl_ent_list.end();
+                 it++)
+            {
+                DeclaredEntity decl_ent((DeclaredEntity)(*it));
+
+                //Left side
+                if (!decl_ent.get_ast().depth_subtrees(
+                    TL::TraverseASTPredicate(Find_attribute<AST_t, attrib_param_name>(_sl))).empty())
+                {
+                    (*is_generic_vector) = true;
+                    return TL::AST_t::callback_result(false, "");
+                }
+
+                //Right side (Initialization)
+                if (decl_ent.has_initializer())
+                {   
+                    if (!(decl_ent.get_initializer().get_ast().depth_subtrees(
+                          TL::TraverseASTPredicate(Find_attribute<AST_t, attrib_param_name>(_sl))).empty()))
+                    {
+                        (*is_generic_vector) = true;
+                        return TL::AST_t::callback_result(false, "");
+                    }
+                }
+            }
+        }
+        else if (GCCAttributeSpecifier::predicate(ast) && (*is_generic_vector))
+        {
+            return TL::AST_t::callback_result(true, "");
+        }
+        else if (TypeSpec::predicate(ast) && (*is_generic_vector))
+        {
+            Type type((TypeSpec(ast, _sl)).get_type());
+
+            std::stringstream type_num;
+            type_num << (_vector_width/type.get_size());
+
+            return TL::AST_t::callback_result(true, ast.prettyprint() 
+                + type_num.str());
+
+
+//            if (type.is_signed_int() || type.is_unsigned_int()
+//             || type.is_float())
+//                return TL::AST_t::callback_result(true, ast.prettyprint() + "4 ");
+
+//            if (type.is_signed_short_int() || type.is_unsigned_short_int())
+//                return TL::AST_t::callback_result(true, ast.prettyprint() + "8 ");
+
+//            if (type.is_char())
+//                return TL::AST_t::callback_result(true, ast.prettyprint() + "16 ");
+
+//            if (type.is_signed_long_int() || type.is_unsigned_long_int() 
+//             || type.is_signed_long_long_int() || type.is_unsigned_long_long_int()
+//             || type.is_long_double() || type.is_complex() || type.is_bool())
+//                running_error("Type not supported yet in SIMD mode", 0);
+
+//            running_error("Type not supported yet in SIMD mode", 0);
+
+        }	
+        return TL::AST_t::callback_result(false, "");
+    }
+};
+*/
+
 class ReplaceSrcIdVector : public ReplaceSrcIdExpression
 {
     private:
         bool * is_generic_vector;
     protected:
         static const char* prettyprint_callback (AST a, void* data);
-
+    
     public:
         ReplaceSrcIdVector(ScopeLink sl) : ReplaceSrcIdExpression(sl)
         {
@@ -106,6 +291,7 @@ class ReplaceSrcIdVector : public ReplaceSrcIdExpression
 
         Source replace(AST_t a) const;
 };
+
 
 const char* ReplaceSrcIdVector::prettyprint_callback (AST a, void* data)
 {
@@ -155,12 +341,19 @@ const char* ReplaceSrcIdVector::prettyprint_callback (AST a, void* data)
         }
         else if (GCCAttributeSpecifier::predicate(ast) && (*_this->is_generic_vector))
         {
-            std::stringstream output;
-            output << "__attribute__((vector_size(" << _vector_width << "))) ";
-
-            return output.str().c_str();
+            return "";
         }
+        else if (TypeSpec::predicate(ast) && (*_this->is_generic_vector))
+        {
+            Type type((TypeSpec(ast, _this->_sl)).get_type());
 
+            std::stringstream type_num;
+            type_num << (_vector_width/type.get_size());
+
+//            return ("__global " + ast.prettyprint() + type_num.str()).c_str();
+            return (ast.prettyprint() + type_num.str()).c_str();
+
+        }
         return NULL;
     }
 
@@ -187,63 +380,20 @@ Source ReplaceSrcIdVector::replace(AST_t a) const
     return result;
 }
 
-//REPLICATED CODE (SMP_OCL) END
 
-
-
-static std::string smp_outline_name(const std::string &task_name)
-{
-    return "_smp_" + task_name;
-}
-
-static Type compute_replacement_type_for_vla(Type type, 
-        ObjectList<Source>::iterator dim_names_begin,
-        ObjectList<Source>::iterator dim_names_end)
-{
-    Type new_type(NULL);
-    if (type.is_array())
-    {
-        new_type = compute_replacement_type_for_vla(type.array_element(), dim_names_begin + 1, dim_names_end);
-
-        if (dim_names_begin == dim_names_end)
-        {
-            internal_error("Invalid dimension list", 0);
-        }
-
-        new_type = new_type.get_array_to(*dim_names_begin);
-    }
-    else if (type.is_pointer())
-    {
-        new_type = compute_replacement_type_for_vla(type.points_to(), dim_names_begin, dim_names_end);
-        new_type = new_type.get_pointer_to();
-    }
-    else
-    {
-        new_type = type;
-    }
-
-    return new_type;
-}
-
-static bool is_nonstatic_member_symbol(Symbol s)
-{
-    return s.is_member()
-        && !s.is_static();
-}
-
-static void do_smp_outline_replacements(AST_t body,
+static void do_smp_ocl_outline_replacements(AST_t body,
         ScopeLink scope_link,
         const DataEnvironInfo& data_env_info,
         Source &initial_code,
         Source &replaced_outline)
-{   
+{  
     ReplaceSrcIdVector replace_src(scope_link);
     ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
 
     replace_src.add_this_replacement("_args->_this");
 
     //__builtin_vector_loop AST replacement
-    ObjectList<AST_t> builtin_ast_list =
+    ObjectList<AST_t> builtin_ast_list = 
              body.depth_subtrees(TL::TraverseASTPredicate(Find_function<AST_t, builtin_vl_name>(scope_link)));
 
     for (ObjectList<AST_t>::iterator it = builtin_ast_list.begin();
@@ -252,8 +402,8 @@ static void do_smp_outline_replacements(AST_t body,
     {
         AST_t ast((AST_t)*it) ;
         Expression expr(ast, scope_link);
-
-        ObjectList<Expression> arg_list = expr.get_argument_list();
+        
+        ObjectList<Expression> arg_list = expr.get_argument_list();  
         if (arg_list.size() != 2){
             internal_error("Wrong number of arguments in __builtin_vector_loop", 0);
         }
@@ -261,13 +411,13 @@ static void do_smp_outline_replacements(AST_t body,
         Source builtin_replacement;
         //??? unqualified_part()
 
-        builtin_replacement << "((" << arg_list.at(0).get_id_expression().get_unqualified_part()
+        builtin_replacement << "((" << arg_list.at(0).get_id_expression().get_unqualified_part() 
             << ")/(" << _vector_width << "/" << arg_list.at(1).get_id_expression().get_unqualified_part() << "))";
 
         ast.replace(builtin_replacement.parse_expression(ast, scope_link));
     }
 
-    // First set up all replacements and needed castings
+    // Set up all replacements and needed castings
     for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
             it != data_env_items.end();
             it++)
@@ -421,18 +571,421 @@ static void do_smp_outline_replacements(AST_t body,
     replaced_outline << replace_src.replace(body);
 }
 
-DeviceSMP::DeviceSMP()
+DeviceSMP_OCL::DeviceSMP_OCL()
     : DeviceProvider(/* needs_copies */ true)
 {
     DeviceHandler &device_handler(DeviceHandler::get_device_handler());
 
-    device_handler.register_device("smp", this);
+    device_handler.register_device("smp_ocl", this);
 
-    set_phase_name("Nanox SMP support");
-    set_phase_description("This phase is used by Nanox phases to implement SMP device support");
+    set_phase_name("Nanox SMP_OCL support");
+    set_phase_description("This phase is used by Nanox phases to implement SMP_OCL device support");
 }
 
-void DeviceSMP::create_outline(
+
+void DeviceSMP_OCL::create_outline(
+                const std::string& task_name,
+                const std::string& struct_typename,
+                DataEnvironInfo &data_environ,
+                const OutlineFlags& outline_flags,
+                AST_t reference_tree,
+                ScopeLink sl,
+                Source initial_setup,
+                Source outline_body)
+{
+        /***************** Write the OpenCL file *****************/
+
+        // Check if the file has already been created (and written)
+        bool new_file = false;
+
+        if (_oclFilename == "") {
+                // Set the file name
+                _oclFilename = "oclcc_";
+                _oclFilename += CompilationProcess::get_current_file().get_filename(false);
+                size_t file_extension = _oclFilename.find_last_of(".");
+                _oclFilename.erase(file_extension, _oclFilename.length());
+                _oclFilename += ".cu";
+                new_file = true;
+
+                // Remove the intermediate source file
+                mark_file_for_cleanup( _oclFilename.c_str() );
+        }
+
+        const std::string configuration_name = "ocl";
+        CompilationProcess::add_file(_oclFilename, configuration_name, new_file);
+
+        // Get all the needed symbols and OpenCL included files
+        Source included_files, forward_declaration;
+        AST_t function_tree;
+
+        // Get *.cu included files
+        ObjectList<IncludeLine> lines = CurrentFile::get_top_level_included_files();
+        std::string ocl_line (".cu\"");
+        std::size_t ocl_size = ocl_line.size();
+
+        for (ObjectList<IncludeLine>::iterator it = lines.begin(); it != lines.end(); it++)
+        {
+                std::string line = (*it).get_preprocessor_line();
+                if (line.size() > ocl_size)
+                {
+                        std::string matching = line.substr(line.size()-ocl_size,ocl_size);
+                        if (matching == ocl_line)
+                        {
+                                included_files << line << "\n";
+                        }
+                }
+        }
+
+        // Check if the task is a function, or it is inlined
+        if (outline_flags.task_symbol != NULL)
+        {
+                // Get the definition of non local symbols
+                function_tree = outline_flags.task_symbol.get_point_of_declaration();
+                LangConstruct construct (function_tree, sl);
+                ObjectList<IdExpression> extern_occurrences = construct.non_local_symbol_occurrences();
+                DeclarationClosure decl_closure (sl);
+                std::set<Symbol> extern_symbols;
+
+                for (ObjectList<IdExpression>::iterator it = extern_occurrences.begin();
+                                it != extern_occurrences.end();
+                                it++)
+                {
+                        Symbol s = (*it).get_symbol();
+                        decl_closure.add(s);
+
+                        // TODO: check the symbol is not a global variable
+                        extern_symbols.insert(s);
+                }
+
+                forward_declaration << decl_closure.closure() << "\n";
+
+                for (std::set<Symbol>::iterator it = extern_symbols.begin();
+                                it != extern_symbols.end(); it++)
+                {
+                        forward_declaration << (*it).get_point_of_declaration().prettyprint_external() << "\n";
+                }
+
+                // Check if the task symbol is actually a function definition or a declaration
+                if (FunctionDefinition::predicate(function_tree))
+                {
+                        // Check if we have already printed the function definition in the OpenCL file
+                        if (_taskSymbols.count(outline_flags.task_symbol.get_name()) == 0) {
+                                forward_declaration << function_tree.get_enclosing_function_definition().prettyprint_external();
+
+                                // Keep record of which tasks have been printed to the OpenCL file
+                                // in order to avoid repeating them
+                                _taskSymbols.insert(outline_flags.task_symbol.get_name());
+                        }
+
+                        // Remove the function definition from the original source code
+                        function_tree.remove_in_list();
+                }
+                else
+                {
+                        // Not a function definition
+                        // Create a filter to search for the definition
+                        struct FilterFunctionDef : Predicate<AST_t>
+                        {
+                                private:
+                                        Symbol _sym;
+                                        ScopeLink _sl;
+                                public:
+                                        FilterFunctionDef(Symbol sym, ScopeLink sl)
+                                        : _sym(sym), _sl(sl) { }
+
+                                        virtual bool do_(const AST_t& a) const
+                                        {
+                                                if (!FunctionDefinition::predicate(a))
+                                                        return false;
+
+                                                FunctionDefinition funct_def(a, _sl);
+
+                                                Symbol sym = funct_def.get_function_symbol();
+                                                return _sym == sym;
+                                        }
+                        };
+
+                        // Search for the function definition
+                        ObjectList<AST_t> funct_def_list =
+                                        _root.depth_subtrees(FilterFunctionDef(outline_flags.task_symbol, sl));
+
+                        if (funct_def_list.size() == 1)
+                        {
+                                // Check if we have already printed the function definition in the OpenCL file
+                                if (_taskSymbols.count(outline_flags.task_symbol.get_name()) == 0)
+                                {
+                                        forward_declaration << funct_def_list[0].get_enclosing_function_definition().prettyprint_external();
+
+                                        // Keep record of which tasks have been printed to the OpenCL file
+                                        // in order to avoid repeating them
+                                        _taskSymbols.insert(outline_flags.task_symbol.get_name());
+                                }
+
+                                // Remove the function definition from the original source code
+                                funct_def_list[0].remove_in_list();
+                        }
+                        else if (funct_def_list.size() == 0
+                                        && _taskSymbols.count(outline_flags.task_symbol.get_name()) > 0)
+                        {
+                                // We have already removed it and printed it in the OpenCL file, do nothing
+                        }
+                        else
+                        {
+                                std::stringstream msg;
+                                msg << "Could not find the task function definition of '"
+                                                << outline_flags.task_symbol.get_name()
+                                                << "'";
+                                internal_error(msg.str().c_str(), 0);
+                        }
+                }
+        }
+
+        AST_t function_def_tree = reference_tree.get_enclosing_function_definition();
+        FunctionDefinition enclosing_function(function_def_tree, sl);
+
+        Source result, arguments_struct_definition, outline_name, parameter_list, body;
+        Source instrument_before, instrument_after;
+
+        result
+                << arguments_struct_definition
+                << "void " << outline_name << "(" << parameter_list << ")"
+//                << "__kernel void " << outline_name << "(" << parameter_list << ")"
+                << "{"
+                << instrument_before
+                << body
+                << instrument_after
+                << "}"
+                ;
+
+        // Add the tracing instrumentation if needed
+        if (instrumentation_enabled())
+        {
+                Source uf_name_id, uf_name_descr;
+                Source uf_location_id, uf_location_descr;
+                Symbol function_symbol = enclosing_function.get_function_symbol();
+
+                instrument_before
+                        << "static int nanos_funct_id_init = 0;"
+                        << "static nanos_event_key_t nanos_instr_uf_name_key = 0;"
+                        << "static nanos_event_value_t nanos_instr_uf_name_value = 0;"
+                        << "static nanos_event_key_t nanos_instr_uf_location_key = 0;"
+                        << "static nanos_event_value_t nanos_instr_uf_location_value = 0;"
+                        << "if (nanos_funct_id_init == 0)"
+                << "{"
+                        <<    "nanos_err_t err = nanos_instrument_get_key(\"user-funct-name\", &nanos_instr_uf_name_key);"
+                        <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+                        <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_name_value, \"user-funct-name\","
+                        <<               uf_name_id << "," << uf_name_descr << ", 0);"
+                        <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+
+                        <<    "err = nanos_instrument_get_key(\"user-funct-location\", &nanos_instr_uf_location_key);"
+                        <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+                        <<    "err = nanos_instrument_register_value ( &nanos_instr_uf_location_value, \"user-funct-location\","
+                        <<               uf_location_id << "," << uf_location_descr << ", 0);"
+                        <<    "if (err != NANOS_OK) nanos_handle_error(err);"
+                        <<    "nanos_funct_id_init = 1;"
+                        << "}"
+                << "nanos_event_t events_before[2];"
+                        << "events_before[0].type = NANOS_BURST_START;"
+                        << "events_before[0].info.burst.key = nanos_instr_uf_name_key;"
+                        << "events_before[0].info.burst.value = nanos_instr_uf_name_value;"
+                        << "events_before[1].type = NANOS_BURST_START;"
+                        << "events_before[1].info.burst.key = nanos_instr_uf_location_key;"
+                        << "events_before[1].info.burst.value = nanos_instr_uf_location_value;"
+                << "nanos_instrument_events(2, events_before);"
+                        // << "nanos_instrument_point_event(1, &nanos_instr_uf_location_key, &nanos_instr_uf_location_value);"
+                       // << "nanos_instrument_enter_burst(nanos_instr_uf_name_key, nanos_instr_uf_name_value);"
+                        ;
+
+                instrument_after
+                        << "nanos_instrument_close_user_fun_event();"
+                        ;
+
+
+                if (outline_flags.task_symbol != NULL)
+                {
+                        uf_name_id
+                                << "\"" << outline_flags.task_symbol.get_name() << "\""
+                                ;
+                        uf_location_id
+                                << "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
+                                ;
+
+                        uf_name_descr
+                                << "\"Task '" << outline_flags.task_symbol.get_name() << "'\""
+                                ;
+                        uf_location_descr
+                                << "\"It was invoked from function '" << function_symbol.get_qualified_name() << "'"
+                                << " in construct at '" << reference_tree.get_locus() << "'\""
+                                ;
+                }
+                else
+                {
+                        uf_name_id
+                                << uf_location_id
+                                ;
+                        uf_location_id
+                                << "\"" << outline_name << ":" << reference_tree.get_locus() << "\""
+                                ;
+
+                        uf_name_descr
+                                << uf_location_descr
+                                ;
+                        uf_location_descr
+                                << "\"Outline created after construct at '"
+                                << reference_tree.get_locus()
+                                << "' found in function '" << function_symbol.get_qualified_name() << "'\""
+                                ;
+                }
+        }
+
+        // arguments_struct_definition
+        Scope sc = sl.get_scope(reference_tree);
+        Symbol struct_typename_sym = sc.get_symbol_from_name(struct_typename);
+
+        if (!struct_typename_sym.is_valid())
+        {
+                running_error("Invalid typename for struct args", 0);
+        }
+
+        arguments_struct_definition
+                << struct_typename_sym.get_point_of_declaration().prettyprint();
+
+        // outline_name
+        outline_name
+                << smp_ocl_outline_name(task_name)
+                ;
+
+        // parameter_list
+        parameter_list
+                << struct_typename << "* _args"
+                ;
+
+        // body
+        Source private_vars, final_code;
+
+        body
+                << private_vars
+                << initial_setup
+                << outline_body
+                << final_code
+                ;
+
+        // private_vars
+        ObjectList<DataEnvironItem> data_env_items = data_environ.get_items();
+
+        for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
+                        it != data_env_items.end();
+                        it++)
+        {
+                if (!it->is_private())
+                        continue;
+
+                Symbol sym = it->get_symbol();
+                Type type = sym.get_type();
+
+                private_vars
+                        << type.get_declaration(sym.get_scope(), sym.get_name()) << ";"
+                        ;
+        }
+
+        // final_code
+        if (outline_flags.barrier_at_end)
+        {
+                final_code
+                        << "nanos_team_barrier();"
+                        ;
+        }
+
+        if (outline_flags.leave_team)
+        {
+                final_code
+                        << "nanos_leave_team();"
+                        ;
+        }
+
+        // Parse it in a sibling function context
+        AST_t outline_code_tree =
+                        result.parse_declaration(enclosing_function.get_ast(), sl);
+
+        std::ofstream oclFile;
+        if (new_file)
+        {
+                oclFile.open (_oclFilename.c_str());
+                oclFile << included_files.get_source(false) << "\n";
+        }
+        else
+        {
+                oclFile.open (_oclFilename.c_str(), std::ios_base::app);
+        }
+
+        oclFile << "extern \"C\" {\n";
+        oclFile << forward_declaration.get_source(false) << "\n";
+        //oclFile << outline_code_tree.prettyprint_external() << "\n";
+        oclFile << outline_code_tree.prettyprint() << "\n";
+        oclFile << "}\n";
+        oclFile.close();
+
+        /******************* Write the C file ******************/
+
+        // Check if the task is a function, or it is inlined
+        if (outline_flags.task_symbol != NULL)
+        {
+                // We have already removed the function definition
+                // Now replace it for the outline declaration
+                Source function_decl_src;
+
+                CXX_LANGUAGE()
+                {
+                        function_decl_src
+                                << "extern \"C\" { "
+                                ;
+                }
+
+                function_decl_src
+                        << "void " << outline_name << "(" << struct_typename << "*);"
+                        ;
+
+                CXX_LANGUAGE()
+                {
+                        function_decl_src
+                                << "}"
+                                ;
+                }
+
+                AST_t function_decl_tree = function_decl_src.parse_declaration(reference_tree, sl);
+                reference_tree.prepend_sibling_function(function_decl_tree);
+        }
+        else
+        {
+                // Forward declaration of the task outline
+                Source outline_declaration_src;
+
+                CXX_LANGUAGE()
+                {
+                        outline_declaration_src
+                                << "extern \"C\" { "
+                                ;
+                }
+
+                outline_declaration_src
+                        << "void " << outline_name << "(" << parameter_list << ");"
+                        ;
+                CXX_LANGUAGE()
+                {
+                        outline_declaration_src
+                                << "}"
+                                ;
+                }
+                AST_t outline_declaration_tree = outline_declaration_src.parse_declaration(reference_tree, sl);
+                reference_tree.prepend_sibling_function(outline_declaration_tree);
+        }
+}
+
+
+
+/*
+void DeviceSMP_OCL::create_outline(
         const std::string& task_name,
         const std::string& struct_typename,
         DataEnvironInfo &data_environ,
@@ -442,6 +995,7 @@ void DeviceSMP::create_outline(
         Source initial_setup,
         Source outline_body)
 {
+
     AST_t function_def_tree = reference_tree.get_enclosing_function_definition();
     FunctionDefinition enclosing_function(function_def_tree, sl);
 
@@ -638,7 +1192,7 @@ void DeviceSMP::create_outline(
         ;
 
     outline_name
-        << smp_outline_name(task_name)
+        << smp_ocl_outline_name(task_name)
         ;
 
     full_outline_name
@@ -749,9 +1303,12 @@ void DeviceSMP::create_outline(
                     function_symbol.get_class_type().get_symbol());
         reference_tree.prepend_sibling_function(outline_code_tree);
     }
-}
 
-void DeviceSMP::get_device_descriptor(const std::string& task_name,
+}
+*/
+
+
+void DeviceSMP_OCL::get_device_descriptor(const std::string& task_name,
         DataEnvironInfo &data_environ,
         const OutlineFlags&,
         AST_t reference_tree,
@@ -761,7 +1318,7 @@ void DeviceSMP::get_device_descriptor(const std::string& task_name,
 {
     Source outline_name;
     outline_name
-        << smp_outline_name(task_name)
+        << smp_ocl_outline_name(task_name)
         ;
 
     Source template_args;
@@ -809,26 +1366,29 @@ void DeviceSMP::get_device_descriptor(const std::string& task_name,
     }
 
     ancillary_device_description
-        << comment("SMP device descriptor")
-        << "nanos_smp_args_t " << task_name << "_smp_args = { (void(*)(void*))" << additional_casting << outline_name << "};"
+        << comment("SMP_OCL device descriptor")
+        << "nanos_smp_args_t " 
+        << task_name << "_smp_ocl_args = { (void(*)(void*))" << additional_casting << outline_name << "};"
         ;
 
     device_descriptor
-        << "{ nanos_smp_factory, nanos_smp_dd_size, &" << task_name << "_smp_args },"
+        << "{ nanos_smp_factory, nanos_smp_dd_size, &" << task_name << "_smp_ocl_args },"
         ;
+
 }
 
-void DeviceSMP::do_replacements(DataEnvironInfo& data_environ,
+void DeviceSMP_OCL::do_replacements(DataEnvironInfo& data_environ,
         AST_t body,
         ScopeLink scope_link,
         Source &initial_setup,
         Source &replaced_src)
 {
-    do_smp_outline_replacements(body,
+    do_smp_ocl_outline_replacements(body,
             scope_link,
             data_environ,
             initial_setup,
             replaced_src);
+
 }
 
-EXPORT_PHASE(TL::Nanox::DeviceSMP);
+EXPORT_PHASE(TL::Nanox::DeviceSMP_OCL);

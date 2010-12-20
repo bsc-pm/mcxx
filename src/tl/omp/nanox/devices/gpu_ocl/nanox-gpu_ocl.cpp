@@ -1,199 +1,12 @@
 #include "tl-devices.hpp"
-#include "nanox-smp.hpp"
+#include "nanox-gpu_ocl.hpp"
 
 using namespace TL;
 using namespace TL::Nanox;
 
-//REPLICATED CODE (SMP_OCL) START
-
-const unsigned int _vector_width = 16;
-
-char builtin_vl_name[] = "__builtin_vector_loop";
-char attrib_param_name[] = "generic_vector";
-
-
-template <class AST_t, char * FUNC_NAME>
-class Find_function : public TL::Predicate<AST_t>
+static std::string gpu_ocl_outline_name(const std::string &task_name)
 {
-    private:
-    ScopeLink _sl;
-
-    public:
-    Find_function<AST_t, FUNC_NAME>(ScopeLink sl) : _sl (sl ) {};
-
-    bool do_(const AST_t& ast) const
-    {
-        if (!ast.is_valid())
-            return false;
-
-
-        if (Expression::predicate(ast))
-        {
-            Expression expr(ast, _sl);
-            if (expr.is_function_call())
-            {
-                expr = expr.get_called_expression();
-                if (expr.is_id_expression())
-                {
-                    IdExpression id_expr = expr.get_id_expression();
-                    if (id_expr.is_unqualified())
-                    {
-                        if (strcmp(id_expr.get_unqualified_part().c_str(), FUNC_NAME) == 0)
-                            return true;
-                    }
-                }
-            }
-        }
-        return false;
-    }
-};
-
-template <class AST, char * PARAM_NAME>
-class Find_attribute : public TL::Predicate<AST>
-{
-    private:
-    ScopeLink _sl;
-
-    public:
-    Find_attribute<AST, PARAM_NAME>(ScopeLink sl) : _sl (sl ) {};
-
-    bool do_(const AST& ast) const
-    {
-
-        ObjectList<AST_t> att_spec_ast_list =
-            ast.depth_subtrees(GCCAttributeSpecifier::predicate);
-
-        for (ObjectList<AST_t>::iterator it = att_spec_ast_list.begin();
-             it != att_spec_ast_list.end();
-             it++)
-        {
-            ObjectList<GCCAttribute> att_list =
-            (GCCAttributeSpecifier(((AST_t)(*it)), _sl)).get_gcc_attribute_list();
-
-            for (ObjectList<GCCAttribute>::iterator it = att_list.begin();
-                 it != att_list.end();
-                 it++)
-            {
-                if (strcmp(((GCCAttribute)(*it)).get_name().c_str(), PARAM_NAME) == 0)
-                {
-                    if(att_list.size() != 1)
-                        internal_error("'%s' GCCAttribute does not accept more GCCAttributes\n", PARAM_NAME);
-
-                    return true;
-                }
-            }
-        }
-    }
-};
-
-class ReplaceSrcIdVector : public ReplaceSrcIdExpression
-{
-    private:
-        bool * is_generic_vector;
-    protected:
-        static const char* prettyprint_callback (AST a, void* data);
-
-    public:
-        ReplaceSrcIdVector(ScopeLink sl) : ReplaceSrcIdExpression(sl)
-        {
-            is_generic_vector = new bool(false);
-        }
-
-        ~ReplaceSrcIdVector()
-        {
-            delete(is_generic_vector);
-        }
-
-        Source replace(AST_t a) const;
-};
-
-const char* ReplaceSrcIdVector::prettyprint_callback (AST a, void* data)
-{
-    //Standar prettyprint_callback
-    const char *c = ReplaceSrcIdExpression::prettyprint_callback(a, data);
-
-    //__attribute__((generic_vector)) replacement
-    if(c == NULL)
-    {
-        ReplaceSrcIdVector *_this = reinterpret_cast<ReplaceSrcIdVector*>(data);
-
-        AST_t ast(a);
-
-        if (Declaration::predicate(ast))
-        {
-            Declaration decl(Declaration(ast, _this->_sl));
-            DeclarationSpec decl_spec = decl.get_declaration_specifiers();
-
-            //Declaration Entities
-            ObjectList<DeclaredEntity> decl_ent_list = decl.get_declared_entities();
-
-            for (ObjectList<DeclaredEntity>::iterator it = decl_ent_list.begin();
-                 it != decl_ent_list.end();
-                 it++)
-            {
-                DeclaredEntity decl_ent((DeclaredEntity)(*it));
-
-                //Left side
-                if (!decl_ent.get_ast().depth_subtrees(
-                    TL::TraverseASTPredicate(Find_attribute<AST_t, attrib_param_name>(_this->_sl))).empty())
-                {
-                    (*_this->is_generic_vector) = true;
-                    return NULL;
-                }
-
-                //Right side (Initialization)
-                if (decl_ent.has_initializer())
-                {
-                    if (!(decl_ent.get_initializer().get_ast().depth_subtrees(
-                          TL::TraverseASTPredicate(Find_attribute<AST_t, attrib_param_name>(_this->_sl))).empty()))
-                    {
-                        (*_this->is_generic_vector) = true;
-                        return NULL;
-                    }
-                }
-            }
-        }
-        else if (GCCAttributeSpecifier::predicate(ast) && (*_this->is_generic_vector))
-        {
-            std::stringstream output;
-            output << "__attribute__((vector_size(" << _vector_width << "))) ";
-
-            return output.str().c_str();
-        }
-
-        return NULL;
-    }
-
-    return c;
-
-}
-
-Source ReplaceSrcIdVector::replace(AST_t a) const
-{
-    Source result;
-
-    char *c = prettyprint_in_buffer_callback(a.get_internal_ast(),
-            &ReplaceSrcIdVector::prettyprint_callback, (void*)this);
-
-    // Not sure whether this could happen or not
-    if (c != NULL)
-    {
-        result << std::string(c);
-    }
-
-    // The returned pointer came from C code, so 'free' it
-    free(c);
-
-    return result;
-}
-
-//REPLICATED CODE (SMP_OCL) END
-
-
-
-static std::string smp_outline_name(const std::string &task_name)
-{
-    return "_smp_" + task_name;
+    return "_gpu_ocl_" + task_name;
 }
 
 static Type compute_replacement_type_for_vla(Type type, 
@@ -231,41 +44,16 @@ static bool is_nonstatic_member_symbol(Symbol s)
         && !s.is_static();
 }
 
-static void do_smp_outline_replacements(AST_t body,
+static void do_gpu_ocl_outline_replacements(AST_t body,
         ScopeLink scope_link,
         const DataEnvironInfo& data_env_info,
         Source &initial_code,
         Source &replaced_outline)
 {   
-    ReplaceSrcIdVector replace_src(scope_link);
+    ReplaceSrcIdExpression replace_src(scope_link);
     ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
 
     replace_src.add_this_replacement("_args->_this");
-
-    //__builtin_vector_loop AST replacement
-    ObjectList<AST_t> builtin_ast_list =
-             body.depth_subtrees(TL::TraverseASTPredicate(Find_function<AST_t, builtin_vl_name>(scope_link)));
-
-    for (ObjectList<AST_t>::iterator it = builtin_ast_list.begin();
-            it != builtin_ast_list.end();
-            it++)
-    {
-        AST_t ast((AST_t)*it) ;
-        Expression expr(ast, scope_link);
-
-        ObjectList<Expression> arg_list = expr.get_argument_list();
-        if (arg_list.size() != 2){
-            internal_error("Wrong number of arguments in __builtin_vector_loop", 0);
-        }
-
-        Source builtin_replacement;
-        //??? unqualified_part()
-
-        builtin_replacement << "((" << arg_list.at(0).get_id_expression().get_unqualified_part()
-            << ")/(" << _vector_width << "/" << arg_list.at(1).get_id_expression().get_unqualified_part() << "))";
-
-        ast.replace(builtin_replacement.parse_expression(ast, scope_link));
-    }
 
     // First set up all replacements and needed castings
     for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();
@@ -421,18 +209,18 @@ static void do_smp_outline_replacements(AST_t body,
     replaced_outline << replace_src.replace(body);
 }
 
-DeviceSMP::DeviceSMP()
+DeviceGPU_OCL::DeviceGPU_OCL()
     : DeviceProvider(/* needs_copies */ true)
 {
     DeviceHandler &device_handler(DeviceHandler::get_device_handler());
 
-    device_handler.register_device("smp", this);
+    device_handler.register_device("gpu_ocl", this);
 
-    set_phase_name("Nanox SMP support");
-    set_phase_description("This phase is used by Nanox phases to implement SMP device support");
+    set_phase_name("Nanox GPU_OCL support");
+    set_phase_description("This phase is used by Nanox phases to implement GPU_OCL device support");
 }
 
-void DeviceSMP::create_outline(
+void DeviceGPU_OCL::create_outline(
         const std::string& task_name,
         const std::string& struct_typename,
         DataEnvironInfo &data_environ,
@@ -638,7 +426,7 @@ void DeviceSMP::create_outline(
         ;
 
     outline_name
-        << smp_outline_name(task_name)
+        << gpu_ocl_outline_name(task_name)
         ;
 
     full_outline_name
@@ -751,7 +539,7 @@ void DeviceSMP::create_outline(
     }
 }
 
-void DeviceSMP::get_device_descriptor(const std::string& task_name,
+void DeviceGPU_OCL::get_device_descriptor(const std::string& task_name,
         DataEnvironInfo &data_environ,
         const OutlineFlags&,
         AST_t reference_tree,
@@ -761,7 +549,7 @@ void DeviceSMP::get_device_descriptor(const std::string& task_name,
 {
     Source outline_name;
     outline_name
-        << smp_outline_name(task_name)
+        << gpu_ocl_outline_name(task_name)
         ;
 
     Source template_args;
@@ -809,26 +597,26 @@ void DeviceSMP::get_device_descriptor(const std::string& task_name,
     }
 
     ancillary_device_description
-        << comment("SMP device descriptor")
-        << "nanos_smp_args_t " << task_name << "_smp_args = { (void(*)(void*))" << additional_casting << outline_name << "};"
+        << comment("GPU_OCL device descriptor")
+        << "nanos_gpu_ocl_args_t " << task_name << "_gpu_ocl_args = { (void(*)(void*))" << additional_casting << outline_name << "};"
         ;
 
     device_descriptor
-        << "{ nanos_smp_factory, nanos_smp_dd_size, &" << task_name << "_smp_args },"
+        << "{ nanos_gpu_ocl_factory, nanos_gpu_ocl_dd_size, &" << task_name << "_gpu_ocl_args },"
         ;
 }
 
-void DeviceSMP::do_replacements(DataEnvironInfo& data_environ,
+void DeviceGPU_OCL::do_replacements(DataEnvironInfo& data_environ,
         AST_t body,
         ScopeLink scope_link,
         Source &initial_setup,
         Source &replaced_src)
 {
-    do_smp_outline_replacements(body,
+    do_gpu_ocl_outline_replacements(body,
             scope_link,
             data_environ,
             initial_setup,
             replaced_src);
 }
 
-EXPORT_PHASE(TL::Nanox::DeviceSMP);
+EXPORT_PHASE(TL::Nanox::DeviceGPU_OCL);

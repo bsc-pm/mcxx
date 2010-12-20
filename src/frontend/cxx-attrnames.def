@@ -95,6 +95,7 @@ LANG_IS_FUNCTION_CALL lang.is_function_call
 LANG_IS_FUNCTION_DEFINITION lang.is_function_definition
 LANG_IS_GCC_ATTRIBUTE lang.is_gcc_attribute
 LANG_IS_GCC_ATTRIBUTE_VALUE lang.is_gcc_attribute_value
+LANG_IS_GCC_DECLARATOR lang.is_gcc_declarator
 LANG_IS_GLOBAL_QUALIFIED lang.is_global_qualified
 LANG_IS_GOTO_STATEMENT lang.is_goto_statement
 LANG_IS_GREATER_OR_EQUAL_THAN_OP lang.is_greater_or_equal_than_op
@@ -156,6 +157,7 @@ LANG_IS_TEMPLATE_PARAMETER_NAME lang.is_template_parameter_name
 LANG_IS_TEMPLATE_TEMPLATE_PARAMETER lang.is_template_template_parameter
 LANG_IS_THIS_VARIABLE lang.is_this_variable
 LANG_IS_TRY_BLOCK lang.is_try_block
+LANG_IS_TYPE_SPECIFIER lang.is_type_specifier
 LANG_IS_TYPE_TEMPLATE_PARAMETER lang.is_type_template_parameter
 LANG_IS_UNARY_OPERATION lang.is_unary_operation
 LANG_IS_UNQUALIFIED_ID lang.is_unqualified_id
@@ -198,6 +200,7 @@ LANG_TEMPLATE_PARAMETER_SYMBOL lang.template_parameter_symbol
 LANG_TRY_BLOCK_BODY lang.try_block_body
 LANG_TRY_BLOCK_HANDLER_LIST lang.lang_try_handler_list
 LANG_TYPE_SPECIFIER lang.type_specifier
+LANG_TYPE_SPECIFIER_TYPE lang.type_specifier_type
 LANG_UNARY_OPERAND lang.unary_operand
 LANG_UNQUALIFIED_ID lang.unqualified_id
 LANG_WHILE_STATEMENT_BODY lang.while_statement_body

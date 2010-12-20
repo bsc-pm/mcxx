@@ -1560,6 +1560,8 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
         default:
             internal_error("Unknown node '%s'", ast_print_node_type(ASTType(a)));
     }
+    ASTAttrSetValueType(a, LANG_IS_TYPE_SPECIFIER, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_TYPE_SPECIFIER_TYPE, tl_type_t, tl_type(*simple_type_info));
 }
 
 static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** type_info,
@@ -4862,6 +4864,8 @@ static void build_scope_declarator_rec(AST a, type_t** declarator_type,
             // attribute declarator
         case AST_GCC_DECLARATOR :
             {
+                ASTAttrSetValueType(a, LANG_IS_GCC_DECLARATOR, tl_type_t, tl_bool(1));
+
                 build_scope_declarator_rec(ASTSon1(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context); 
                 break;
@@ -4870,6 +4874,8 @@ static void build_scope_declarator_rec(AST a, type_t** declarator_type,
             // attribute & declarator
         case AST_GCC_POINTER_DECLARATOR :
             {
+                ASTAttrSetValueType(a, LANG_IS_GCC_DECLARATOR, tl_type_t, tl_bool(1));
+
                 set_pointer_type(declarator_type, ASTSon1(a), declarator_context);
                 build_scope_declarator_rec(ASTSon2(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context);
