@@ -121,7 +121,7 @@ const char* ReplaceSrcIdVector::prettyprint_callback (AST a, void* data)
 
         if (Declaration::predicate(ast))
         {
-            Declaration decl(Declaration(ast, _this->_sl));
+            Declaration decl(ast, _this->_sl);
             DeclarationSpec decl_spec = decl.get_declaration_specifiers();
 
             //Declaration Entities
