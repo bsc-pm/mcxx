@@ -444,16 +444,15 @@ namespace OpenMP
             // Add the task symbol name to the clause
             arg_clauses << " __symbol(" << sym.get_qualified_name(expr.get_scope()) << ")";
 
+            // ObjectList<FunctionTaskInfo::implementation_pair_t> implemented_tasks = task_info.get_devices_with_implementation();
 
-            ObjectList<FunctionTaskInfo::implementation_pair_t> implemented_tasks = task_info.get_devices_with_implementation();
-
-            for (ObjectList<FunctionTaskInfo::implementation_pair_t>::iterator it2 = implemented_tasks.begin();
-                    it2 != implemented_tasks.end();
-                    it2++)
-            {
-                arg_clauses << " __implemented(" << it2->first << ", " << it2->second.get_qualified_name() << ")"
-                    ;
-            }
+            // for (ObjectList<FunctionTaskInfo::implementation_pair_t>::iterator it2 = implemented_tasks.begin();
+            //         it2 != implemented_tasks.end();
+            //         it2++)
+            // {
+            //     arg_clauses << " __implemented(" << it2->first << ", " << it2->second.get_qualified_name() << ")"
+            //         ;
+            // }
 
             FunctionTaskTargetInfo target_info = task_info.get_target_info();
 
