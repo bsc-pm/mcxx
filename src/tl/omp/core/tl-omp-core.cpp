@@ -102,14 +102,12 @@ namespace TL
 
             if (dto.get_keys().contains("openmp_core_should_run"))
             {
-                TL::Bool should_run(dto["openmp_core_should_run"]);
-                if (!should_run)
-                {
+                RefPtr<TL::Bool> should_run = RefPtr<TL::Bool>::cast_dynamic(dto["openmp_core_should_run"]);
+                if (!(*should_run))
                     return;
-                }
 
                 // Make this phase a one shot by default
-                should_run = false;
+                *should_run = false;
             }
 
 			if (dto.get_keys().contains("show_warnings"))
@@ -1098,8 +1096,8 @@ namespace TL
         void openmp_core_run_next_time(DTO& dto)
         {
             // Make openmp core run in the pipeline
-            TL::Bool openmp_core_should_run = dto["openmp_core_should_run"];
-            openmp_core_should_run = true;
+            RefPtr<TL::Bool> openmp_core_should_run = RefPtr<TL::Bool>::cast_dynamic(dto["openmp_core_should_run"]);
+            *openmp_core_should_run = true;
         }
 
     }
