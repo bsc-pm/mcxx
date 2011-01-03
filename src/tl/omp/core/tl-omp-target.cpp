@@ -116,9 +116,20 @@ namespace TL
                 // We need to check this #pragma omp target precedes a function-decl or function-def
                 DeclaredEntity decl_entity(AST_t(), ctr.get_scope_link());
                 bool valid_target = true;
-                if (Declaration::predicate(ctr.get_declaration()))
+
+                AST_t current_decl = ctr.get_declaration();
+                // Advance pragmae task or target
+                while (current_decl.is_valid()
+                        && (is_pragma_custom_construct("omp", "task", current_decl, ctr.get_scope_link())
+                            || is_pragma_custom_construct("omp", "target", current_decl, ctr.get_scope_link())))
                 {
-                    Declaration decl(ctr.get_declaration(), ctr.get_scope_link());
+                    PragmaCustomConstruct current_pragma(current_decl, ctr.get_scope_link());
+                    current_decl = current_pragma.get_declaration();
+                }
+
+                if (Declaration::predicate(current_decl))
+                {
+                    Declaration decl(current_decl, ctr.get_scope_link());
                     ObjectList<DeclaredEntity> declared_entities = decl.get_declared_entities();
 
                     if (declared_entities.size() != 1)
@@ -130,9 +141,9 @@ namespace TL
                         decl_entity = declared_entities[0];
                     }
                 }
-                else if (FunctionDefinition::predicate(ctr.get_declaration()))
+                else if (FunctionDefinition::predicate(current_decl))
                 {
-                    FunctionDefinition funct_def(ctr.get_declaration(), ctr.get_scope_link());
+                    FunctionDefinition funct_def(current_decl, ctr.get_scope_link());
                     decl_entity = funct_def.get_declared_entity();
                 }
                 else
@@ -140,7 +151,8 @@ namespace TL
                     valid_target = false;
                 }
 
-                if (!decl_entity.is_functional_declaration())
+                if (valid_target
+                        && !decl_entity.is_functional_declaration())
                 {
                     valid_target = false;
                 }
@@ -206,12 +218,12 @@ namespace TL
                 {
                     valid_target = true;
                 }
-		// FIXME - Two cases one for "declaration scope" task
+                // FIXME - Two cases one for "declaration scope" task
                 else if (is_pragma_custom_construct("omp", "task", ctr.get_declaration(), ctr.get_scope_link()))
                 {
                     valid_target = true;
                 }
-		// FIXME - and another one for statement scope task
+                // FIXME - and another one for statement scope task
                 else if (is_pragma_custom_construct("omp", "task", ctr.get_statement().get_ast(), ctr.get_scope_link()))
                 {
                     valid_target = true;
