@@ -53,7 +53,7 @@ namespace Nanox
             void flush_postorder(PragmaCustomConstruct ctr);
             void critical_postorder(PragmaCustomConstruct ctr);
             void master_postorder(PragmaCustomConstruct ctr);
-            
+
             // Functions for Reductions
             void declare_reduction_preorder(PragmaCustomConstruct ctr);
 
@@ -67,7 +67,7 @@ namespace Nanox
             std::map<std::string, bool> _registered_slicer;
 
             void unimplemented_yet(PragmaCustomConstruct construct);
-            
+
             // Phase data
             bool _enable_instrumentation;
             std::string _enable_instrumentation_str;
@@ -76,11 +76,13 @@ namespace Nanox
             std::string _compiler_alignment_str;
             void set_compiler_alignment(const std::string& str);
 
-
             // Data that does not last between files
             ObjectList<Symbol> _converted_vlas;
             std::set<std::string> _lock_names;
-            
+
+            // Support
+            Source get_single_guard(const std::string&);
+
             // Temporary data during traversal
             struct SectionInfo
             {
@@ -91,7 +93,7 @@ namespace Nanox
 
             ObjectList<SectionInfoList> _section_info;
 
-	    virtual void run(TL::DTO& dto);
+            virtual void run(TL::DTO& dto);
     };
 
     const std::string NANOX_OUTLINE_COUNTER("nanox_outline_counter");

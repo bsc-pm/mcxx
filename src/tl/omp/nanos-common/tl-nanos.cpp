@@ -43,14 +43,14 @@ namespace TL
         const char* Version::DEFAULT_FAMILY = "trunk";
         std::map<std::string, int> Version::_interfaces;
 
-        bool Version::is_family(const std::string &fam)
+        bool Version::interface_has_family(const std::string &fam)
         {
             if (Version::_interfaces.find(fam) != Version::_interfaces.end())
                 return true;
             return false;
         }
 
-        bool Version::is_version(int ver)
+        bool Version::interface_has_version(int ver)
         {
             for(std::map<std::string, int>::iterator it=_interfaces.begin();
                     it != _interfaces.end();
@@ -63,14 +63,51 @@ namespace TL
             return false;
         }
 
-        bool Version::is_interface(const std::string &fam, int ver)
+        bool Version::interface_is(const std::string &fam, int ver)
         {
             std::map<std::string, int>::iterator it;
             if ((it=Version::_interfaces.find(fam)) != Version::_interfaces.end())
-                if ((*it).second == ver)
+            {
+                if (it->second == ver)
                     return true;
+            }
 
             return false;
+        }
+
+        bool Version::interface_is_at_least(const std::string &fam, int ver)
+        {
+            std::map<std::string, int>::iterator it;
+            if ((it=Version::_interfaces.find(fam)) != Version::_interfaces.end())
+            {
+                if (it->second >= ver)
+                    return true;
+            }
+
+            return false;
+        }
+
+        bool Version::interface_is_range(const std::string &fam, int ver_lower, int ver_upper)
+        {
+            std::map<std::string, int>::iterator it;
+            if ((it=Version::_interfaces.find(fam)) != Version::_interfaces.end())
+            {
+                if ((it->second <= ver_lower)
+                        && (it->second <= ver_upper))
+                    return true;
+            }
+
+            return false;
+        }
+
+        int Version::version_of_interface(const std::string& fam)
+        {
+            std::map<std::string, int>::iterator it;
+            if ((it=Version::_interfaces.find(fam)) != Version::_interfaces.end())
+            {
+                return it->second;
+            }
+            return -1;
         }
 
         Interface::Interface()

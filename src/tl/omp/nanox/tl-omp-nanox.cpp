@@ -115,20 +115,10 @@ void OMPTransform::phase_cleanup(DTO& data_flow)
 
 void OMPTransform::run(DTO& dto)
 {
-    if(Nanos::Version::_interfaces.find("master") == Nanos::Version::_interfaces.end() || 
-            Nanos::Version::_interfaces["master"] < 5000)
+    if (!Nanos::Version::interface_is_at_least("master", 5000))
     {
-        std::string interface_pairs;
-        for(std::map<std::string, int>::iterator it = Nanos::Version::_interfaces.begin();
-                it != Nanos::Version::_interfaces.end();
-                it++)
-        {
-            std::stringstream num; num << it->second;
-            interface_pairs = "{" + it->first + " - " + num.str() + "}\n";
-        }
-        
-        running_error("error: unsupported pair of family and version of Nanos %s\n",
-                        interface_pairs.c_str());
+        running_error("error: unsupported Nanos++ 'master' interface version %d\n",
+                Nanos::Version::version_of_interface("master"));
     }
 
     OpenMP::OpenMPPhase::run(dto);

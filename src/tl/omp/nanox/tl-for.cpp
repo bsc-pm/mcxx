@@ -448,16 +448,6 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     // FIXME - Move this to a tl-workshare.cpp
     Source spawn_source;
 
-    Source bool_type;
-    C_LANGUAGE()
-    {
-        bool_type << "_Bool";
-    }
-    CXX_LANGUAGE()
-    {
-        bool_type << "bool";
-    }
-
     // FIXME - This will be meaningful with 'copy_in' and 'copy_out'
     Source num_copies1, copy_data1;    
     num_copies1 << "0";
@@ -482,40 +472,39 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         <<     priority
         <<     tiedness
         <<     copy_decl
-        << bool_type << " single_guard;"
-        << "nanos_err_t err = nanos_single_guard(&single_guard);"
-        << "if (err != NANOS_OK) nanos_handle_error(err);"
-        << "if (single_guard)"
-        << "{"
-        <<    "nanos_slicer_t " << current_slicer << " = nanos_find_slicer(\"" << current_slicer << "\");"
-        <<    "nanos_err_t err;"
-        <<    "nanos_wd_t wd = (nanos_wd_t)0;"
-        <<    device_description
-        <<    "nanos_wd_props_t props;" 
-        <<    "__builtin_memset(&props, 0, sizeof(props));"
-        <<    "props.mandatory_creation = 1;"
-        <<    "nanos_slicer_data_for_t* slicer_data_for = (nanos_slicer_data_for_t*)0;"
-        <<    "err = nanos_create_sliced_wd(&wd, "
-        <<          /* num_devices */ "1, " << device_descriptor << ", "
-        <<          "sizeof(" << struct_arg_type_name << "),"
-        <<          "(void**)&ol_args,"
-        <<          "nanos_current_wd(),"
-        <<          current_slicer << ","
-        <<          "sizeof(nanos_slicer_data_for_t),"
-        <<          "(nanos_slicer_t*) &slicer_data_for,"
-        <<          "&props," << num_copies1 << "," << copy_data1 << ");"
-        <<    "if (err != NANOS_OK) nanos_handle_error(err);"
-        <<        fill_outline_arguments
-        <<        fill_dependences_outline
-        <<        copy_setup
-        <<    "slicer_data_for->_lower = " << for_statement.get_lower_bound() << ";"
-        <<    "slicer_data_for->_upper = " << for_statement.get_upper_bound() << ";"
-        <<    "slicer_data_for->_step = " << for_statement.get_step() << ";"
-        <<    "slicer_data_for->_chunk = " << chunk_value << ";"
-        <<        "err = nanos_submit(wd, " << num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", (nanos_team_t)0);"
-        <<        "if (err != NANOS_OK) nanos_handle_error (err);"
-        << "}"
-        << final_barrier
+        <<     get_single_guard("single_guard")
+        <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+        <<     "if (single_guard)"
+        <<     "{"
+        <<        "nanos_slicer_t " << current_slicer << " = nanos_find_slicer(\"" << current_slicer << "\");"
+        <<        "nanos_err_t err;"
+        <<        "nanos_wd_t wd = (nanos_wd_t)0;"
+        <<        device_description
+        <<        "nanos_wd_props_t props;" 
+        <<        "__builtin_memset(&props, 0, sizeof(props));"
+        <<        "props.mandatory_creation = 1;"
+        <<        "nanos_slicer_data_for_t* slicer_data_for = (nanos_slicer_data_for_t*)0;"
+        <<        "err = nanos_create_sliced_wd(&wd, "
+        <<              /* num_devices */ "1, " << device_descriptor << ", "
+        <<              "sizeof(" << struct_arg_type_name << "),"
+        <<              "(void**)&ol_args,"
+        <<              "nanos_current_wd(),"
+        <<              current_slicer << ","
+        <<              "sizeof(nanos_slicer_data_for_t),"
+        <<              "(nanos_slicer_t*) &slicer_data_for,"
+        <<              "&props," << num_copies1 << "," << copy_data1 << ");"
+        <<        "if (err != NANOS_OK) nanos_handle_error(err);"
+        <<            fill_outline_arguments
+        <<            fill_dependences_outline
+        <<            copy_setup
+        <<        "slicer_data_for->_lower = " << for_statement.get_lower_bound() << ";"
+        <<        "slicer_data_for->_upper = " << for_statement.get_upper_bound() << ";"
+        <<        "slicer_data_for->_step = " << for_statement.get_step() << ";"
+        <<        "slicer_data_for->_chunk = " << chunk_value << ";"
+        <<            "err = nanos_submit(wd, " << num_dependences << ", (nanos_dependence_t*)" << dependency_array << ", (nanos_team_t)0);"
+        <<            "if (err != NANOS_OK) nanos_handle_error (err);"
+        <<     "}"
+        <<     final_barrier
         << "}"
         ;
 

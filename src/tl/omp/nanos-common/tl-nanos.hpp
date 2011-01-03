@@ -40,14 +40,22 @@ namespace TL
     {
         class Version
         {
+            private:
+                static std::map<std::string, int> _interfaces;
             public:
                 const static int DEFAULT_VERSION;
                 const static char* DEFAULT_FAMILY;
-                static std::map<std::string, int> _interfaces;
 
-                static bool is_family(const std::string &family);
-                static bool is_version(int version);
-                static bool is_interface(const std::string &family, int version);
+                static bool interface_has_family(const std::string &family);
+                static bool interface_has_version(int version);
+
+                static bool interface_is(const std::string &family, int version);
+                static bool interface_is_at_least(const std::string &family, int version);
+                static bool interface_is_range(const std::string &family, int lower, int upper);
+
+                static int version_of_interface(const std::string& family);
+
+                friend class Interface;
         };
         
         class Interface : public PragmaCustomCompilerPhase

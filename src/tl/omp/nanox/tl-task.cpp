@@ -304,12 +304,14 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             }
             else 
             {
-                if(Nanos::Version::_interfaces["master"] < 5001)
+                if (!Nanos::Version::interface_is_at_least("master", 5001))
                 {
-                        printf("%s: warning: the current version of Nanos does not support reduction dependencies in Superscalar\n",
-                                ctr.get_ast().get_locus().c_str());
+                    fprintf(stderr, 
+                            "%s: warning: the current version of Nanos does not"
+                            " support reduction dependencies in Superscalar\n",
+                            ctr.get_ast().get_locus().c_str());
                 }
-                // Reduction behave like an inout
+                // Reduction behaves like an inout
                 dependency_flags << "1, 1,"; 
             }
 
