@@ -281,10 +281,12 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 it++)
         {
             Source dependency_flags;
+            Source reduction_flag;
             dependency_flags << "{";
             OpenMP::DependencyDirection attr = it->get_kind();
             if (!((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION))
             {
+                reduction_flag << "0,";
                 if ((attr & OpenMP::DEP_DIR_INPUT) == OpenMP::DEP_DIR_INPUT)
                 {
                         dependency_flags << "1,"; 
@@ -304,15 +306,21 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             }
             else 
             {
-                if (!Nanos::Version::interface_is_at_least("master", 5001))
-                {
-                    fprintf(stderr, 
-                            "%s: warning: the current version of Nanos does not"
-                            " support reduction dependencies in Superscalar\n",
-                            ctr.get_ast().get_locus().c_str());
-                }
                 // Reduction behaves like an inout
-                dependency_flags << "1, 1,"; 
+                reduction_flag << "1,";
+                dependency_flags << "1, 1,";
+            }
+
+            if (!Nanos::Version::interface_is_at_least("master", 5001))
+            {
+                fprintf(stderr,
+                        "%s: warning: the current version of Nanos does not"
+                        " support reduction dependencies in Superscalar\n",
+                        ctr.get_ast().get_locus().c_str());
+            }
+            else
+            {
+                dependency_flags << reduction_flag;
             }
 
             Source dependency_field_name;
