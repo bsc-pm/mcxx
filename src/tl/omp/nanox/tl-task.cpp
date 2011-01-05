@@ -320,7 +320,6 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 // Reduction behaves like an inout
                 dependency_flags << "1, 1,";
             }
-            dependency_flags << reduction_flag;
 
             Source dependency_field_name;
 
@@ -352,6 +351,8 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 dependency_flags << "1"
                     ;
             }
+
+            dependency_flags << reduction_flag;
 
             dependency_flags << "}"
                     ;
