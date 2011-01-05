@@ -286,7 +286,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             OpenMP::DependencyDirection attr = it->get_kind();
             if (!((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION))
             {
-                reduction_flag << "0,";
+                reduction_flag << "0";
                 if ((attr & OpenMP::DEP_DIR_INPUT) == OpenMP::DEP_DIR_INPUT)
                 {
                         dependency_flags << "1,"; 
@@ -315,7 +315,7 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 }
                 else
                 {
-                    reduction_flag << "1,";
+                    reduction_flag << "1";
                 }
                 // Reduction behaves like an inout
                 dependency_flags << "1, 1,";
@@ -342,18 +342,17 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             if ((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION)
             {
                 // Reductions cannot be renamed
-                dependency_flags << "0"
+                dependency_flags << "0,"
                     ;
             }
             else
             {
                 // Can rename otherwise
-                dependency_flags << "1"
+                dependency_flags << "1,"
                     ;
             }
 
             dependency_flags << reduction_flag;
-
             dependency_flags << "}"
                     ;
 
