@@ -79,8 +79,7 @@ namespace TL
             ObjectList<Expression> & output_dependences =
                 task_construct.get_data<ObjectList<Expression> >("output_dependences");
 
-            if(TL::Nanos::Version::is_family("trunk") &&
-                    TL::Nanos::Version::_interfaces["trunk"] >= 4202)
+			if (TL::Nanos::Version::interface_is_at_least("trunk", 4202))
             {
                 OpenMP::DataSharingEnvironment& current_data_sharing 
                     = openmp_info->get_data_sharing(task_construct.get_ast());
@@ -653,8 +652,7 @@ namespace TL
                 ;
 
             Source cutoff_call;
-            if(TL::Nanos::Version::is_family("trunk") &&
-                    TL::Nanos::Version::_interfaces["trunk"] >= 4202)
+			if (TL::Nanos::Version::interface_is_at_least("trunk", 4202))
             {
                 cutoff_call 
                     <<    comment("_cf_n is a return value")
