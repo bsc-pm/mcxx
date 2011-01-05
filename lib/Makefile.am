@@ -96,3 +96,6 @@ libmcxx_extstruct_la_LDFLAGS=-avoid-version $(no_undefined)
 libmcxx_extstruct_la_LIBADD=libmcxx-utils.la
 
 dist-hook: tpp$(EXEEXT)
+
+noinst_LIBRARIES = libperish.a
+libperish_a_SOURCES=perish.c
