@@ -3019,14 +3019,14 @@ statement_seq : statement
 // If ambiguity
 if_statement : IF '(' condition ')' statement
 {
-	$$ = ASTMake3(AST_IF_ELSE_STATEMENT, $3, $5, NULL, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake4(AST_IF_ELSE_STATEMENT, $3, $5, NULL, NULL, $1.token_file, $1.token_line, NULL);
 }
 ;
 
 // Only if's with else within them
 if_else_statement : IF '(' condition ')' if_else_eligible_statements ELSE statement
 {
-	$$ = ASTMake3(AST_IF_ELSE_STATEMENT, $3, $5, $7, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake4(AST_IF_ELSE_STATEMENT, $3, $5, $7, NULL, $1.token_file, $1.token_line, NULL);
 }
 ;
 

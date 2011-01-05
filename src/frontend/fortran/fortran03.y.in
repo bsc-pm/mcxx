@@ -141,7 +141,6 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %type<ast> function_stmt
 %type<ast> function_prototype
 %type<ast> allocate_object
-%type<ast> specification_part
 %type<ast> critical_construct
 %type<ast> open_stmt
 %type<ast> program
@@ -150,7 +149,6 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %type<ast> flush_spec
 %type<ast> equivalence_stmt
 %type<ast> endfile_stmt
-%type<ast> implicit_part_stmts
 %type<ast> type_bound_procedure_part
 %type<ast> end_if_stmt
 %type<ast> inquire_spec
@@ -185,16 +183,15 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %type<ast> component_decl
 %type<ast> main_program
 %type<ast> program_part
-%type<ast> program_part_stmts_seq
-%type<ast> program_part_stmts
+%type<ast> program_unit_stmts_seq
+%type<ast> program_unit_stmts
 %type<ast> program_body
 %type<ast> interface_program_body
 %type<ast> subscript_triplet
 %type<ast> forall_assignment_stmts
 %type<ast> end_enum_stmt
 %type<ast> if_construct
-%type<ast> if_construct_body
-%type<ast> implicit_part
+%type<ast> elseif_seq
 %type<ast> type_bound_proc_binding
 %type<ast> interface_block
 %type<ast> print_stmt
@@ -215,7 +212,6 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %type<ast> array_constructor
 %type<ast> add_operand
 %type<ast> proc_component_attr_spec
-%type<ast> execution_part_construct
 %type<ast> derived_type_def
 %type<ast> derived_type_body
 %type<ast> equiv_operand
@@ -250,12 +246,13 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %type<ast> defined_io_generic_spec_fmt
 %type<ast> type_param_value
 %type<ast> name
+%type<ast> name_opt
+%type<ast> name_colon_opt
 %type<ast> name_not_keyword
 %type<ast> defined_operator_name 
 %type<ast> intrinsic_operator_name
 %type<ast> user_defined_operator_name
 %type<ast> generic_spec
-%type<ast> executable_construct
 %type<ast> file_name_expr
 %type<ast> binary_constant
 %type<ast> default_char_expr
@@ -299,7 +296,6 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %type<ast> expr
 %type<ast> data_ref
 %type<ast> data_ref_no_array
-%type<ast> if_then_stmt
 %type<ast> lock_variable
 %type<ast> case_expr
 %type<ast> mult_operand
@@ -324,7 +320,6 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %type<ast> declaration_type_spec
 %type<ast> vectorial_type
 %type<ast> type_bound_generic_stmt
-%type<ast> else_stmt
 %type<ast> image_selector
 %type<ast> io_implied_do_control
 %type<ast> char_length
@@ -336,7 +331,6 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %type<ast> only
 %type<ast> assignment_stmt
 %type<ast> connect_spec
-%type<ast> other_specification_stmts
 %type<ast> masked_elsewhere_stmt
 %type<ast> rewind_stmt
 %type<ast> action_stmts
@@ -354,7 +348,6 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %type<ast> close_spec
 %type<ast> select_type_construct
 %type<ast> case_selector
-%type<ast> else_if_part
 %type<ast> label
 %type<ast> end_select_stmt
 %type<ast> pointer_object
@@ -362,7 +355,6 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %type<ast> specification_expr
 %type<ast> block_data_stmt
 %type<ast> continue_stmt
-%type<ast> else_if_stmt
 %type<ast> format
 %type<ast> end_module_stmt
 %type<ast> return_stmt
@@ -448,7 +440,6 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %type<ast> proc_component_def_stmt
 %type<ast> forall_body_construct
 %type<ast> close_stmt
-%type<ast> declaration_construct
 %type<ast> end_mp_subprogram_stmt
 %type<ast> wait_spec
 %type<ast> entry_stmt
@@ -500,20 +491,14 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %type<ast> format_stmt
 %type<ast> procedure_stmt
 %type<ast> where_body_construct_seq
-%type<ast> use_stmt_seq
 %type<ast> mask_elsewhere_part_seq
 %type<ast> private_or_sequence_seq
-%type<ast> import_stmt_seq
-%type<ast> execution_part_construct_seq
 %type<ast> prefix_spec_seq
 %type<ast> case_part_seq
 %type<ast> forall_body_construct_seq
 %type<ast> type_bound_proc_binding_seq
-%type<ast> implicit_part_stmts_seq
-%type<ast> else_if_part_seq
 %type<ast> type_param_def_stmt_seq
 %type<ast> program_unit_seq
-%type<ast> declaration_construct_seq
 %type<ast> type_guard_part_seq
 %type<ast> component_def_stmts_seq
 %type<ast> module_subprogram_seq
@@ -615,6 +600,7 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %type<token_atrib> equiv_op
 %type<token_atrib> end_block_data_toks
 %type<token_atrib> goto_toks
+%type<token_atrib> elseif_toks
 // Tokens
 %token<token_atrib> TOK_FORMAT "FORMAT"
 %token<token_atrib> TOK_GENERIC "GENERIC"
@@ -882,91 +868,6 @@ program_unit : main_program
 external_subprogram : function_subprogram
 | subroutine_subprogram
 ;
-specification_part : use_stmt_seq import_stmt_seq implicit_part declaration_construct_seq
-{
-    $$ = ast_list_concat($1, $2);
-    $$ = ast_list_concat($$, $3);
-    $$ = ast_list_concat($$, $4);
-}
-| import_stmt_seq implicit_part declaration_construct_seq
-{
-    $$ = ast_list_concat($1, $2);
-    $$ = ast_list_concat($$, $3);
-}
-| use_stmt_seq implicit_part declaration_construct_seq
-{
-    $$ = ast_list_concat($1, $2);
-    $$ = ast_list_concat($$, $3);
-}
-| use_stmt_seq import_stmt_seq declaration_construct_seq
-{
-    $$ = ast_list_concat($1, $2);
-    $$ = ast_list_concat($$, $3);
-}
-| use_stmt_seq import_stmt_seq implicit_part
-{
-    $$ = ast_list_concat($1, $2);
-    $$ = ast_list_concat($$, $3);
-}
-| use_stmt_seq import_stmt_seq
-{
-    $$ = ast_list_concat($1, $2);
-}
-| use_stmt_seq declaration_construct_seq
-{
-    $$ = ast_list_concat($1, $2);
-}
-| use_stmt_seq implicit_part
-{
-    $$ = ast_list_concat($1, $2);
-}
-| use_stmt_seq
-| implicit_part declaration_construct_seq
-{
-    $$ = ast_list_concat($1, $2);
-}
-| import_stmt_seq declaration_construct_seq
-{
-    $$ = ast_list_concat($1, $2);
-}
-| import_stmt_seq implicit_part
-{
-    $$ = ast_list_concat($1, $2);
-}
-| import_stmt_seq
-| declaration_construct_seq
-| implicit_part
-;
-implicit_part : implicit_part_stmts_seq implicit_stmt
-{
-    $$ = ASTList($1, $2);
-}
-| implicit_stmt
-{
-    $$ = ASTListLeaf($1);
-}
-;
-implicit_part_stmts : implicit_stmt
-| parameter_stmt
-| format_stmt
-| entry_stmt
-;
-declaration_construct : derived_type_def
-| entry_stmt
-| enum_def
-| format_stmt
-| interface_block
-| parameter_stmt
-| procedure_declaration_stmt
-| other_specification_stmts
-| type_declaration_stmt
-| stmt_function_stmt
-;
-execution_part_construct : executable_construct
-| format_stmt
-| entry_stmt
-| data_stmt
-;
 internal_subprogram_part : contains_stmt internal_subprogram_seq
 {
     $$ = $2;
@@ -978,76 +879,6 @@ internal_subprogram_part : contains_stmt internal_subprogram_seq
 ;
 internal_subprogram : function_subprogram
 | subroutine_subprogram
-;
-other_specification_stmts : access_stmt
-| allocatable_stmt
-| asynchronous_stmt
-| bind_stmt
-| codimension_stmt
-| common_stmt
-| data_stmt
-| dimension_stmt
-| equivalence_stmt
-| external_stmt
-| intent_stmt
-| intrinsic_stmt
-| namelist_stmt
-| optional_stmt
-| pointer_stmt
-| protected_stmt
-| save_stmt
-| target_stmt
-| volatile_stmt
-| value_stmt
-;
-executable_construct : action_stmts
-| associate_construct
-| block_construct
-| case_construct
-| critical_construct
-| do_construct
-| forall_construct
-| if_construct
-| select_type_construct
-| where_construct
-;
-action_stmts : allocate_stmt
-| allstop_stmt
-| assignment_stmt
-| backspace_stmt
-| call_stmt
-| close_stmt
-| continue_stmt
-| cycle_stmt
-| deallocate_stmt
-| endfile_stmt
-| exit_stmt
-| flush_stmt
-| forall_stmt
-| goto_stmt
-| if_stmt
-| inquire_stmt
-| lock_stmt
-| nullify_stmt
-| open_stmt
-| pointer_assignment_stmt
-| print_stmt
-| read_stmt
-| return_stmt
-| rewind_stmt
-| stop_stmt
-| pause_stmt
-| sync_all_stmt
-| sync_images_stmt
-| sync_memory_stmt
-| unlock_stmt
-| wait_stmt
-| where_stmt
-| write_stmt
-| arithmetic_if_stmt
-| computed_goto_stmt
-| assigned_goto_stmt
-| label_assign_stmt
 ;
 name : IDENTIFIER
 {
@@ -2888,7 +2719,7 @@ forall_stmt : labeldef TOK_FORALL forall_header forall_assignment_stmts
     $$ = ASTMake3Label(AST_FORALL_STATEMENT, $1, $3, $4, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
-block : execution_part_construct_seq
+block : program_unit_stmts_seq
 | /* empty */
 {
     $$ = NULL;
@@ -2932,7 +2763,7 @@ end_associate_stmt : labeldef TOK_END TOK_ASSOCIATE name eos
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
-block_construct : block_stmt specification_part block end_block_stmt
+block_construct : block_stmt block end_block_stmt
 {
     $$ = ASTMake3(AST_BLOCK_CONSTRUCT, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -3085,74 +2916,81 @@ cycle_stmt : labeldef TOK_CYCLE name eos
     $$ = ASTMake2Label(AST_CYCLE_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
-
-if_construct : if_then_stmt if_construct_body end_if_stmt
+name_opt : name
+| /* empty */
 {
-    $$ = ASTMake3(AST_IF_CONSTRUCT, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
+    $$ = NULL;
 }
 ;
-
-if_construct_body : block else_if_part_seq else_stmt block 
+name_colon_opt : name ':' 
 {
-    AST loc = ($1 != NULL ? $1 : $2);
-    $$ = ASTMake4(AST_IF_CONSTRUCT_BODY, $1, $2, $3, $4, ASTFileName(loc), ASTLine(loc), NULL);
+    $$ = $1;
 }
-| block else_stmt block 
+| /* empty */
 {
-    AST loc = ($1 != NULL ? $1 : $2);
-    $$ = ASTMake4(AST_IF_CONSTRUCT_BODY, $1, NULL, $2, $3, ASTFileName(loc), ASTLine(loc), NULL);
-}
-| block else_if_part_seq 
-{
-    AST loc = ($1 != NULL ? $1 : $2);
-    $$ = ASTMake4(AST_IF_CONSTRUCT_BODY, $1, $2, NULL, NULL, ASTFileName(loc), ASTLine(loc), NULL);
-}
-| block 
-{
-    $$ = ASTMake4(AST_IF_CONSTRUCT_BODY, $1, NULL, NULL, NULL, 
-            $1 != NULL ? ASTFileName($1) : NULL, 
-            $1 != NULL ? ASTLine($1) : 0, 
-            NULL);
+    $$ = NULL;
 }
 ;
-else_if_part : else_if_stmt block
+if_construct : labeldef name_colon_opt TOK_IF '(' logical_expr ')' TOK_THEN eos block end_if_stmt
 {
-    $$ = ASTMake2(AST_ELSE_IF_PART, $1, $2, ASTFileName($1), ASTLine($1), NULL);
+    AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $5, $9, NULL, $10, $3.token_file, $3.token_line, NULL);
+    if ($1 != NULL)
+    {
+        result = ASTMake2(AST_LABELED_STATEMENT, $1, result, ASTFileName($1), ASTLine($1), NULL);
+    }
+    $$ = result;
+}
+| labeldef name_colon_opt TOK_IF '(' logical_expr ')' TOK_THEN eos block labeldef TOK_ELSE name_opt eos block end_if_stmt
+{
+    AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $5, $9, $14, $15, $3.token_file, $3.token_line, NULL);
+    if ($1 != NULL)
+    {
+        result = ASTMake2(AST_LABELED_STATEMENT, $1, result, ASTFileName($1), ASTLine($1), NULL);
+    }
+    $$ = result;
+}
+| labeldef name_colon_opt TOK_IF '(' logical_expr ')' TOK_THEN eos block elseif_seq 
+{
+    AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $5, $9, $10, NULL, $3.token_file, $3.token_line, NULL);
+    if ($1 != NULL)
+    {
+        result = ASTMake2(AST_LABELED_STATEMENT, $1, result, ASTFileName($1), ASTLine($1), NULL);
+    }
+    $$ = result;
 }
 ;
-if_then_stmt : labeldef name ':' TOK_IF '(' logical_expr ')' TOK_THEN eos
+elseif_toks : TOK_ELSE TOK_IF
 {
-    $$ = ASTMake3Label(AST_IF_THEN_STATEMENT, $1, $2, $6, $4.token_file, $4.token_line, $4.token_text);
+    $$ = $1;
 }
-| labeldef TOK_IF '(' logical_expr ')' TOK_THEN eos
-{
-    $$ = ASTMake3Label(AST_IF_THEN_STATEMENT, $1, NULL, $4, $2.token_file, $2.token_line, $2.token_text);
-}
+| TOK_ELSEIF
 ;
-else_if_stmt : labeldef TOK_ELSE TOK_IF '(' logical_expr ')' TOK_THEN name eos
+elseif_seq : labeldef elseif_toks '(' logical_expr ')' name_opt eos block elseif_seq
 {
-    $$ = ASTMake3Label(AST_ELSEIF_STATEMENT, $1, $5, $8, $2.token_file, $2.token_line, $2.token_text);
+    AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $4, $8, $9, NULL, $2.token_file, $2.token_line, NULL);
+    if ($1 != NULL)
+    {
+        result = ASTMake2(AST_LABELED_STATEMENT, $1, result, ASTFileName($1), ASTLine($1), NULL);
+    }
+    $$ = result;
 }
-| labeldef TOK_ELSE TOK_IF '(' logical_expr ')' TOK_THEN eos
+| labeldef elseif_toks '(' logical_expr ')' name_opt eos block labeldef TOK_ELSE name_opt block end_if_stmt
 {
-    $$ = ASTMake3Label(AST_ELSEIF_STATEMENT, $1, $5, NULL, $2.token_file, $2.token_line, $2.token_text);
+    AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $4, $8, $12, $13, $2.token_file, $2.token_line, NULL);
+    if ($1 != NULL)
+    {
+        result = ASTMake2(AST_LABELED_STATEMENT, $1, result, ASTFileName($1), ASTLine($1), NULL);
+    }
+    $$ = result;
 }
-| labeldef TOK_ELSEIF '(' logical_expr ')' TOK_THEN name eos
+| labeldef elseif_toks '(' logical_expr ')' name_opt eos block end_if_stmt
 {
-    $$ = ASTMake3Label(AST_ELSEIF_STATEMENT, $1, $4, $7, $2.token_file, $2.token_line, $2.token_text);
-}
-| labeldef TOK_ELSEIF '(' logical_expr ')' TOK_THEN eos
-{
-    $$ = ASTMake3Label(AST_ELSEIF_STATEMENT, $1, $4, NULL, $2.token_file, $2.token_line, $2.token_text);
-}
-;
-else_stmt : labeldef TOK_ELSE name eos
-{
-    $$ = ASTMake2Label(AST_ELSE_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
-}
-| labeldef TOK_ELSE eos
-{
-    $$ = ASTMake2Label(AST_ELSE_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $4, $8, NULL, $9, $2.token_file, $2.token_line, NULL);
+    if ($1 != NULL)
+    {
+        result = ASTMake2(AST_LABELED_STATEMENT, $1, result, ASTFileName($1), ASTLine($1), NULL);
+    }
+    $$ = result;
 }
 ;
 end_if_stmt : labeldef TOK_END TOK_IF name eos
@@ -3174,7 +3012,12 @@ end_if_stmt : labeldef TOK_END TOK_IF name eos
 ;
 if_stmt : labeldef TOK_IF '(' logical_expr ')' action_stmts 
 {
-    $$ = ASTMake3Label(AST_IF_STATEMENT, $1, $4, $6, $2.token_file, $2.token_line, $2.token_text);
+    AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $4, $6, NULL, NULL, $2.token_file, $2.token_line, NULL);
+    if ($1 != NULL)
+    {
+        $$ = ASTMake2(AST_LABELED_STATEMENT, $1, result, ASTFileName($1), ASTLine($1), NULL);
+    }
+    $$ = result;
 }
 ;
 case_construct : select_case_stmt case_part_seq end_select_stmt
@@ -4083,19 +3926,20 @@ main_program : program_stmt program_body end_program_stmt
     $$ = ASTMake3(AST_MAIN_PROGRAM_UNIT, $1, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
-program_part : program_part_stmts_seq
+program_part : program_unit_stmts_seq
 ;
-program_part_stmts_seq : program_part_stmts
+program_unit_stmts_seq : program_unit_stmts
 {
     $$ = ASTListLeaf($1);
 }
-| program_part_stmts_seq program_part_stmts
+| program_unit_stmts_seq program_unit_stmts
 {
     $$ = ASTList($1, $2);
 }
 ;
-// All Fortran statements should be here
-program_part_stmts : access_stmt
+// All Fortran statements meant to appear inside a program unit (of any kind) should be here
+action_stmts : program_unit_stmts;
+program_unit_stmts : access_stmt
 | allocatable_stmt
 | allocate_stmt
 | allstop_stmt
@@ -4213,7 +4057,7 @@ end_program_stmt : labeldef TOK_END TOK_PROGRAM name eos
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
-module : module_stmt specification_part module_subprogram_part end_module_stmt
+module : module_stmt program_unit_stmts_seq module_subprogram_part end_module_stmt
 {
     AST module_body = ASTMake3(AST_BODY_PROGRAM_UNIT, $2, NULL, $3, ASTFileName($2), ASTLine($2), NULL);
 
@@ -4225,7 +4069,7 @@ module : module_stmt specification_part module_subprogram_part end_module_stmt
 
     $$ = ASTMake3(AST_MODULE_PROGRAM_UNIT, $1, module_body, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| module_stmt specification_part end_module_stmt
+| module_stmt program_unit_stmts_seq end_module_stmt
 {
     AST module_body = ASTMake3(AST_BODY_PROGRAM_UNIT, $2, NULL, NULL, ASTFileName($2), ASTLine($2), NULL);
 
@@ -4360,7 +4204,7 @@ only : generic_spec
 ;
 local_defined_operator : user_defined_op
 ;
-submodule : submodule_stmt specification_part module_subprogram_part end_submodule_stmt
+submodule : submodule_stmt program_unit_stmts_seq module_subprogram_part end_submodule_stmt
 {
     AST module_body = ASTMake3(AST_BODY_PROGRAM_UNIT, $2, NULL, $3, ASTFileName($2), ASTLine($2), NULL);
 
@@ -4372,7 +4216,7 @@ submodule : submodule_stmt specification_part module_subprogram_part end_submodu
 
     $$ = ASTMake3(AST_SUBMODULE_PROGRAM_UNIT, $1, module_body, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| submodule_stmt specification_part end_submodule_stmt
+| submodule_stmt program_unit_stmts_seq end_submodule_stmt
 {
     AST module_body = ASTMake3(AST_BODY_PROGRAM_UNIT, $2, NULL, NULL, ASTFileName($2), ASTLine($2), NULL);
 
@@ -4415,7 +4259,7 @@ end_submodule_stmt : labeldef TOK_END TOK_SUBMODULE name eos
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
-block_data : block_data_stmt specification_part end_block_data_stmt
+block_data : block_data_stmt program_unit_stmts_seq end_block_data_stmt
 {
     $$ = ASTMake3(AST_BLOCK_DATA_PROGRAM_UNIT, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -4507,7 +4351,7 @@ end_interface_stmt : labeldef TOK_END TOK_INTERFACE generic_spec eos
 }
 ;
 
-interface_program_body : specification_part 
+interface_program_body : program_unit_stmts_seq 
 {
     $$ = ASTMake3(AST_BODY_PROGRAM_UNIT, $1, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -4950,15 +4794,6 @@ where_body_construct_seq : where_body_construct
   $$ = ASTList($1, $2);
 }
 ;
-use_stmt_seq : use_stmt
-{
-  $$ = ASTListLeaf($1);
-}
-| use_stmt_seq use_stmt
-{
-  $$ = ASTList($1, $2);
-}
-;
 mask_elsewhere_part_seq : mask_elsewhere_part
 {
   $$ = ASTListLeaf($1);
@@ -4973,24 +4808,6 @@ private_or_sequence_seq : private_or_sequence
   $$ = ASTListLeaf($1);
 }
 | private_or_sequence_seq private_or_sequence
-{
-  $$ = ASTList($1, $2);
-}
-;
-import_stmt_seq : import_stmt
-{
-  $$ = ASTListLeaf($1);
-}
-| import_stmt_seq import_stmt
-{
-  $$ = ASTList($1, $2);
-}
-;
-execution_part_construct_seq : execution_part_construct
-{
-  $$ = ASTListLeaf($1);
-}
-| execution_part_construct_seq execution_part_construct
 {
   $$ = ASTList($1, $2);
 }
@@ -5031,24 +4848,6 @@ type_bound_proc_binding_seq : type_bound_proc_binding
   $$ = ASTList($1, $2);
 }
 ;
-implicit_part_stmts_seq : implicit_part_stmts
-{
-  $$ = ASTListLeaf($1);
-}
-| implicit_part_stmts_seq implicit_part_stmts
-{
-  $$ = ASTList($1, $2);
-}
-;
-else_if_part_seq : else_if_part
-{
-  $$ = ASTListLeaf($1);
-}
-| else_if_part_seq else_if_part
-{
-  $$ = ASTList($1, $2);
-}
-;
 type_param_def_stmt_seq : type_param_def_stmt
 {
   $$ = ASTListLeaf($1);
@@ -5063,15 +4862,6 @@ program_unit_seq : program_unit
   $$ = ASTListLeaf($1);
 }
 | program_unit_seq program_unit
-{
-  $$ = ASTList($1, $2);
-}
-;
-declaration_construct_seq : declaration_construct
-{
-  $$ = ASTListLeaf($1);
-}
-| declaration_construct_seq declaration_construct
 {
   $$ = ASTList($1, $2);
 }

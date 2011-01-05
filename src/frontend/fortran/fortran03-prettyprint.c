@@ -24,7 +24,6 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-
 #ifndef FORTRAN_PRETTYPRINT_C
   #define FORTRAN_PRETTYPRINT_C
 #endif
@@ -111,9 +110,6 @@ HANDLER_PROTOTYPE(dimension_decl_handler);
 HANDLER_PROTOTYPE(dimension_statement_handler);
 HANDLER_PROTOTYPE(do_loop_statement_handler);
 HANDLER_PROTOTYPE(double_type_handler);
-HANDLER_PROTOTYPE(else_if_part_handler);
-HANDLER_PROTOTYPE(elseif_statement_handler);
-HANDLER_PROTOTYPE(else_statement_handler);
 HANDLER_PROTOTYPE(elsewhere_statement_handler);
 HANDLER_PROTOTYPE(end_statement_handler);
 HANDLER_PROTOTYPE(entry_statement_handler);
@@ -138,9 +134,6 @@ HANDLER_PROTOTYPE(function_program_unit_handler);
 HANDLER_PROTOTYPE(function_prototype_handler);
 HANDLER_PROTOTYPE(function_statement_handler);
 HANDLER_PROTOTYPE(goto_statement_handler);
-HANDLER_PROTOTYPE(if_construct_handler);
-HANDLER_PROTOTYPE(if_construct_body_handler);
-HANDLER_PROTOTYPE(if_statement_handler);
 HANDLER_PROTOTYPE(if_then_statement_handler);
 HANDLER_PROTOTYPE(image_ref_handler);
 HANDLER_PROTOTYPE(implicit_spec_handler);
@@ -319,9 +312,6 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_DIV_OP, binary_operator_handler, "/"),
     NODE_HANDLER(AST_DO_LOOP_STATEMENT, do_loop_statement_handler, NULL),
     NODE_HANDLER(AST_DOUBLE_TYPE, double_type_handler, NULL),
-    NODE_HANDLER(AST_ELSE_IF_PART, else_if_part_handler, NULL),
-    NODE_HANDLER(AST_ELSEIF_STATEMENT, elseif_statement_handler, NULL),
-    NODE_HANDLER(AST_ELSE_STATEMENT, else_statement_handler, NULL),
     NODE_HANDLER(AST_ELSEWHERE_STATEMENT, elsewhere_statement_handler, NULL),
     NODE_HANDLER(AST_END_STATEMENT, end_statement_handler, NULL),
     NODE_HANDLER(AST_ENTRY_STATEMENT, entry_statement_handler, NULL),
@@ -351,10 +341,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_GREATER_OR_EQUAL_THAN, binary_operator_handler, ">="),
     NODE_HANDLER(AST_GREATER_THAN, binary_operator_handler, ">"),
     NODE_HANDLER(AST_HEXADECIMAL_LITERAL, simple_text_handler, NULL),
-    NODE_HANDLER(AST_IF_CONSTRUCT, if_construct_handler, NULL),
-    NODE_HANDLER(AST_IF_CONSTRUCT_BODY, if_construct_body_handler, NULL),
-    NODE_HANDLER(AST_IF_STATEMENT, if_statement_handler, NULL),
-    NODE_HANDLER(AST_IF_THEN_STATEMENT, if_then_statement_handler, NULL),
+    NODE_HANDLER(AST_IF_ELSE_STATEMENT, if_then_statement_handler, NULL),
     NODE_HANDLER(AST_IMAGE_REF, image_ref_handler, NULL),
     NODE_HANDLER(AST_IMPLICIT_SPEC, implicit_spec_handler, NULL),
     NODE_HANDLER(AST_IMPLICIT_STATEMENT, implicit_statement_handler, NULL),
@@ -1401,39 +1388,6 @@ static void double_type_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
     }
 }
 
-static void else_if_part_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
-}
-
-static void elseif_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    indent_at_level(f, a, pt_ctx);
-    token_fprintf(f, a, pt_ctx, "ELSE IF(");
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, ") THEN");
-    if (ASTSon1(a) != NULL)
-    {
-        token_fprintf(f, a, pt_ctx, " ");
-        NEW_PT_CONTEXT(new_ctx, increase_level);
-        prettyprint_level(f, ASTSon1(a), new_ctx);
-    }
-    end_of_statement_handler(f, a, pt_ctx);
-}
-
-static void else_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    indent_at_level(f, a, pt_ctx);
-    token_fprintf(f, a, pt_ctx, "ELSE");
-    if (ASTSon0(a) != NULL)
-    {
-        token_fprintf(f, a, pt_ctx, " ");
-        prettyprint_level(f, ASTSon0(a), pt_ctx);
-    }
-    end_of_statement_handler(f, a, pt_ctx);
-}
-
 static void elsewhere_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     indent_at_level(f, a, pt_ctx);
@@ -1712,50 +1666,66 @@ static void goto_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx
     end_of_statement_handler(f, a, pt_ctx);
 }
 
-static void if_construct_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
-    prettyprint_level(f, ASTSon2(a), pt_ctx);
-}
-
-static void if_construct_body_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    NEW_PT_CONTEXT(new_ctx, increase_level);
-    prettyprint_level(f, ASTSon0(a), new_ctx);
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
-    }
-    if (ASTSon2(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon2(a), pt_ctx);
-        prettyprint_level(f, ASTSon3(a), new_ctx);
-    }
-}
-
-static void if_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    indent_at_level(f, a, pt_ctx);
-    token_fprintf(f, a, pt_ctx, "IF (");
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, ") ");
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
-    // We end with a statement, no need for EOS
-}
-
 static void if_then_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     indent_at_level(f, a, pt_ctx);
-    if (ASTSon0(a) != NULL)
+    if (ASTParent(a) != NULL)
     {
-        prettyprint_level(f, ASTSon0(a), pt_ctx);
-        token_fprintf(f, a, pt_ctx, ": ");
+        AST parent = ASTParent(a);
+        if (ASTType(parent) == AST_LABELED_STATEMENT)
+            parent = ASTSon1(parent);
+        if (ASTType(parent) == AST_IF_ELSE_STATEMENT)
+            token_fprintf(f, a, pt_ctx, "ELSE");
     }
     token_fprintf(f, a, pt_ctx, "IF (");
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, ") THEN");
-    end_of_statement_handler(f, a, pt_ctx);
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
+    if (ASTSon1(a) != NULL
+            && ASTType(ASTSon1(a)) != AST_NODE_LIST)
+    {
+        token_fprintf(f, a, pt_ctx, ") ");
+    }
+    else
+    {
+        token_fprintf(f, a, pt_ctx, ") THEN");
+        end_of_statement_handler(f, a, pt_ctx);
+    }
+
+    if (ASTSon1(a) != NULL)
+    {
+        if (ASTType(ASTSon1(a)) == AST_NODE_LIST)
+        {
+            NEW_PT_CONTEXT(new_ctx, increase_level);
+            prettyprint_level(f, ASTSon1(a), new_ctx);
+        }
+        else
+        {
+            // One-line if-statement
+            prettyprint_level(f, ASTSon1(a), pt_ctx);
+        }
+    }
+    if (ASTSon2(a) != NULL)
+    {
+        AST else_tree = ASTSon2(a);
+        if (ASTType(else_tree) == AST_LABELED_STATEMENT)
+            else_tree = ASTSon1(else_tree);
+
+        if (ASTType(else_tree) != AST_IF_ELSE_STATEMENT)
+        {
+            token_fprintf(f, a, pt_ctx, "ELSE");
+            end_of_statement_handler(f, a, pt_ctx);
+
+            NEW_PT_CONTEXT(new_ctx, increase_level);
+            prettyprint_level(f, ASTSon2(a), new_ctx);
+        }
+        else
+        {
+            prettyprint_level(f, ASTSon2(a), pt_ctx);
+        }
+    }
+    if (ASTSon3(a) != NULL)
+    {
+        prettyprint_level(f, ASTSon3(a), pt_ctx);
+    }
 }
 
 static void image_ref_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
