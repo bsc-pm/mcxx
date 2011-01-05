@@ -32,7 +32,7 @@ test_CXX_nanos4_plain="\${MCXX}"
 test_CFLAGS_nanos4_plain="@NANOS4_32_BIT_COMPAT@ -std=gnu99"
 test_CXXFLAGS_nanos4_plain="@NANOS4_32_BIT_COMPAT@"
 
-test_LDFLAGS_nanos4_plain="-L@abs_top_builddir@ -lperish"
+test_LDFLAGS_nanos4_plain="-L@abs_top_builddir@/lib -lperish"
 EOF
 
 if [ ! -z "@MINTAKA_INCLUDES@" ];
@@ -47,7 +47,7 @@ test_CXX_nanos4_instrument="\${test_CXX_nanos4_plain}"
 test_CFLAGS_nanos4_instrument="\${test_CFLAGS_nanos4_plain} --instrument"
 test_CXXFLAGS_nanos4_instrument="\${test_CXXFLAGS_nanos4_plain} --instrument"
 
-test_LDFLAGS_nanos4_instrument="-L@abs_top_builddir@ -lperish"
+test_LDFLAGS_nanos4_instrument="-L@abs_top_builddir@/lib -lperish"
 EOF
 
 fi
@@ -66,7 +66,7 @@ test_CXX_nanox_plain="\${MCXX}"
 test_CFLAGS_nanox_plain="--nanox -std=gnu99"
 test_CXXFLAGS_nanox_plain="--nanox"
 
-test_LDFLAGS_nanox_plain="-L@abs_top_builddir@ -lperish"
+test_LDFLAGS_nanox_plain="-L@abs_top_builddir@/lib -lperish"
 
 EOF
 
@@ -82,7 +82,7 @@ test_CXX_nanox_instrument="\${MCXX}"
 test_CFLAGS_nanox_instrument="\${test_CFLAGS_nanox_plain} --instrument"
 test_CXXFLAGS_nanox_instrument="\${test_CXXFLAGS_nanox_plain} --instrument"
 
-test_LDFLAGS_nanox_instrument="-L@abs_top_builddir@ -lperish"
+test_LDFLAGS_nanox_instrument="-L@abs_top_builddir@/lib -lperish"
 EOF
 
 fi
