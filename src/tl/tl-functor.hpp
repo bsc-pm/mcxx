@@ -43,6 +43,7 @@ namespace TL
         protected:
             virtual Ret do_(const T& t) const = 0;
             typedef const T& ArgType;
+            virtual ~FunctorBase() {}
     };
 
     template <class Ret, class T>
@@ -50,8 +51,8 @@ namespace TL
     {
         protected:
             virtual Ret do_(const T& t) const = 0;
-
             typedef const T& ArgType;
+            virtual ~FunctorBase() {}
     };
 
 
@@ -60,8 +61,8 @@ namespace TL
     {
         protected:
             virtual Ret do_(T& t) const = 0;
-
             typedef T& ArgType;
+            virtual ~FunctorBase() {}
     };
     
     //! Function representing a callable entity with only one argument
