@@ -834,24 +834,33 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %token<token_atrib> HEX_LITERAL "hexadecimal literal"
 %token<token_atrib> USER_DEFINED_OPERATOR "user-defined operator"
 
+/*!define GRAMMAR_PROLOGUE*/
+/*!include cxx-pragma.y*/
+/*!undefine GRAMMAR_PROLOGUE*/
 
-// FIXME
-%token OMP_SENTINEL
-%token PRAGMA_CUSTOM
-%token PRAGMA_CUSTOM_DIRECTIVE
-%token PRAGMA_CUSTOM_CONSTRUCT
-%token PRAGMA_CUSTOM_CLAUSE
-%token PRAGMA_CLAUSE_ARG_TEXT
 %token UNKNOWN_PRAGMA
-%token CSS_START
-%token CSS_FINISH
-%token CSS_WAITON
-%token CSS_BARRIER
-%token CSS_TASK
 %token SUBPARSE_PROGRAM_UNIT
 %token SUBPARSE_EXPRESSION
 %token SUBPARSE_STATEMENT
-%token ONERROR
+
+// // FIXME
+// %token OMP_SENTINEL
+// %token PRAGMA_CUSTOM
+// %token PRAGMA_CUSTOM_DIRECTIVE
+// %token PRAGMA_CUSTOM_CONSTRUCT
+// %token PRAGMA_CUSTOM_CLAUSE
+// %token PRAGMA_CLAUSE_ARG_TEXT
+// %token UNKNOWN_PRAGMA
+// %token CSS_START
+// %token CSS_FINISH
+// %token CSS_WAITON
+// %token CSS_BARRIER
+// %token CSS_TASK
+// %token SUBPARSE_PROGRAM_UNIT
+// %token SUBPARSE_EXPRESSION
+// %token SUBPARSE_STATEMENT
+// %token ONERROR
+
 
 %start program
 
@@ -5710,7 +5719,14 @@ labeldef : label
 }
 ;
 
+/*!define GRAMMAR_RULES*/
+/*!include cxx-pragma.y*/
+/*!undefine GRAMMAR_RULES*/
+
 %%
+
+/*!define GRAMMAR_CODE*/
+/*!undefine GRAMMAR_CODE*/
 
 // Used in fortran-driver.c to determine the maximum size for parser memory
 unsigned long long limit_for_parse_memory = SIZE_MAX / sizeof(yyGLRStackItem);

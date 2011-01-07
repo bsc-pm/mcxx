@@ -329,7 +329,7 @@ type {
 }
 
 <pragma_line>{identifier} {
-	// Unknown pragmas
+	// Custom pragmas
 	int i;
 	char found = 0;
 

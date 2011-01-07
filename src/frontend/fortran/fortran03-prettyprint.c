@@ -233,6 +233,12 @@ HANDLER_PROTOTYPE(sequence_handler);
 HANDLER_PROTOTYPE(unary_container_handler);
 HANDLER_PROTOTYPE(ambiguity_handler);
 
+// Pragma custom support
+HANDLER_PROTOTYPE(pragma_custom_directive_handler);
+HANDLER_PROTOTYPE(pragma_custom_construct_handler);
+HANDLER_PROTOTYPE(pragma_custom_clause_handler);
+HANDLER_PROTOTYPE(pragma_custom_line_handler);
+
 static prettyprint_entry_t handlers_list[] = 
 {
     NODE_HANDLER(AST_ABSTRACT, simple_text_handler, NULL),
@@ -443,6 +449,12 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_WHERE_STATEMENT, where_statement_handler, NULL),
     NODE_HANDLER(AST_WHILE_STATEMENT, do_loop_statement_handler, NULL),
     NODE_HANDLER(AST_WRITE_STATEMENT, write_statement_handler, NULL),
+    // Pragma custom
+    NODE_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE, pragma_custom_directive_handler, NULL),
+    NODE_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, pragma_custom_construct_handler, NULL),
+    NODE_HANDLER(AST_PRAGMA_CUSTOM_CLAUSE, pragma_custom_clause_handler, NULL),
+    NODE_HANDLER(AST_PRAGMA_CUSTOM_LINE, pragma_custom_line_handler, NULL),
+    NODE_HANDLER(AST_PRAGMA_CLAUSE_ARG, simple_text_handler, NULL),
 };
 
 static void prettyprint_level(FILE *f, AST a, prettyprint_context_t* pt_ctx);
@@ -582,10 +594,10 @@ static void character_separated_sequence_handler(FILE* f, AST a, prettyprint_con
 }
 
 // Unused in Fortran
-// static void spaced_sequence_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-// {
-//     character_separated_sequence_handler(f, a, pt_ctx, " ", NULL);
-// }
+static void spaced_sequence_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    character_separated_sequence_handler(f, a, pt_ctx, " ", NULL);
+}
 
 static void list_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
@@ -2690,4 +2702,62 @@ static void write_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ct
         list_handler(f, ASTSon1(a), pt_ctx);
     }
     end_of_statement_handler(f, a, pt_ctx);
+}
+
+static void pragma_custom_line_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    if (ASTText(a) != NULL)
+    {
+        token_fprintf(f, a, pt_ctx, "%s ", ASTText(a));
+    }
+    if (ASTSon1(a) != NULL)
+    {
+        token_fprintf(f, a, pt_ctx, "(");
+
+        // This is a list inside another list, it cannot be 
+        // handled normally
+        list_handler(f, ASTSon1(a), pt_ctx);
+
+        token_fprintf(f, a, pt_ctx, ") ");
+    }
+    if (ASTSon0(a) != NULL)
+    {
+        spaced_sequence_handler(f, ASTSon0(a), pt_ctx);
+    }
+    token_fprintf(f, a, pt_ctx, "\n");
+}
+
+static void pragma_custom_directive_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    token_fprintf(f, a, pt_ctx, "!$%s ", ASTText(a));
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
+    prettyprint_level(f, ASTSon1(a), pt_ctx);
+}
+
+static void pragma_custom_construct_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    token_fprintf(f, a, pt_ctx, "!$%s ", ASTText(a));
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
+    prettyprint_level(f, ASTSon1(a), pt_ctx);
+
+    // End part
+    AST end = ASTSon2(a);
+    token_fprintf(f, a, pt_ctx, "!$%s %s ", ASTText(a), ASTText(end));
+    prettyprint_level(f, ASTSon0(end), pt_ctx);
+    end_of_statement_handler(f, a, pt_ctx);
+}
+
+static void pragma_custom_clause_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    token_fprintf(f, a, pt_ctx, "%s", ASTText(a));
+    if (ASTSon0(a) != NULL)
+    {
+        token_fprintf(f, a, pt_ctx, "(");
+
+        // This is a list inside another list, it cannot be 
+        // handled normally
+        list_handler(f, ASTSon0(a), pt_ctx);
+
+        token_fprintf(f, a, pt_ctx, ")");
+    }
 }

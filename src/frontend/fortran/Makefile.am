@@ -96,7 +96,7 @@ libmf03_prescanner_la_CFLAGS = -DLIBMF03_PRESCANNER_DLL_EXPORT \
 
 # Remaining stuff
 
-ADDITIONAL_GRAMMARS =
+ADDITIONAL_GRAMMARS = ../cxx-pragma.y
 
 TPP=$(top_builddir)/lib/tpp$(EXEEXT)
 
@@ -121,7 +121,7 @@ EXTRA_DIST += fortran03.y.in
 EXTRA_DIST += prescanner.l
 
 fortran03.y : $(srcdir)/fortran03.y.in $(addprefix $(srcdir)/, $(ADDITIONAL_GRAMMARS)) 
-	$(TPP_verbose)$(TPP) -o fortran03.y -D FORTRAN2003 -I$(srcdir) $(srcdir)/fortran03.y.in
+	$(TPP_verbose)$(TPP) -I $(srcdir)/.. -o fortran03.y -D FORTRAN2003 -I$(srcdir) $(srcdir)/fortran03.y.in
 
 if BISON_BUILDING
 CLEANFILES += fortran03-parser.c

@@ -64,13 +64,14 @@ static const char *current_pragma_prefix = NULL;
 static struct scan_file_descriptor include_stack[MAX_INCLUDE_DEPTH];
 struct scan_file_descriptor* fortran_scanning_now = &include_stack[0];
 
+#define MAX_PRAGMA_CONSTRUCT_STACK 64
+static const char* pragma_construct_stack[MAX_PRAGMA_CONSTRUCT_STACK] = { 0 };
+static int pragma_construct_stack_idx = 0;
+
 static char* get_included_filename(char* linia_include, char delim);
 static void open_included_file(char* include_filename);
-static void reintroduce_continued_line(char* linia_tallada, char doble_continuador);
-#if 0
-static void reintroduce_continued_omp_line(char* continued_line, const char* sentinel);
-static void reintroduce_continued_coco_omp_line(char* continued_line);
-#endif
+static char check_continued_sentinel_line(const char* line, const char** sentinel);
+static void reintroduce_continued_line(char* split_line, char double_continuation, const char *sentinel);
 static char end_of_file(void);
 static void trim_inline_comment(char* line);
 
@@ -78,10 +79,9 @@ static int is_format_statement(char* token);
 
 static char last_eos = 1;
 
-char* actual_line = NULL;
-
 #define RETURN_TOKEN(x) do { last_eos = 0; return (x); }  while(0)
 #define RETURN_EOS { if (!last_eos) { last_eos = 1; fortran_scanning_now->joined_lines = 0; return (EOS); } }
+#define RETURN_PRAGMA_EOS { if (!last_eos) { last_eos = 1; fortran_scanning_now->joined_lines = 0; return (PRAGMA_CUSTOM_NEWLINE); } }
 
 #define DOUBLE_CONTINUATION  1
 #define SINGLE_CONTINUATION  0
@@ -106,6 +106,10 @@ digit       [0-9]
 uchar           (\\u{hexquad}|\\U{hexquad}{hexquad})
 nondigit        ([_a-zA-Z]|uchar)
 idnondigit  ({nondigit}|{uchar})
+identifier ([a-z]([a-z0-9_]*))
+
+ /* Sentinels as much as 32 letters */
+sentinel [!][$][a-zA-Z0-9_]{0,32}
 
  /* Minimal C stuff */
 c_octaldigit      [0-7]
@@ -358,18 +362,6 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 	}
 }
 
-^[^\n]*$ {
-	// Read all the line we are going to scan
-	if (actual_line != NULL) 
-	{
-		free(actual_line);
-	}
-	actual_line = strdup(yytext);
-
-	// And reject
-	REJECT;
-}
-
 ^[[:blank:]]*INCLUDE[[:blank:]]*{INCLUDE_CONSTANT_STRING_A}[[:blank:]]*([!][^\n]*)?\n {
 	char* filename;
 
@@ -396,21 +388,61 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 	free(filename);
 }
 
+^[[:blank:]]*{sentinel}[[:blank:]]+(([^\n!'"])|{FORTRAN_STRING})+&[[:blank:]]*(![^\n]*)?\n[[:blank:]]*{sentinel}[[:blank:]]*&[^\n]+\n {
+	// !$SENTINEL INT&
+	// !$SENTINEL   &EGE&
+	// !$SENTINEL &R :: A=3
+
+	const char* sentinel = NULL;
+	if (!check_continued_sentinel_line(yytext, &sentinel))
+	{
+	    reintroduce_continued_line(yytext, DOUBLE_CONTINUATION, sentinel);
+	    fortran_scanning_now->line_number++;
+	}
+	else
+	{
+	    fprintf(stderr, "%s:%d: warning: invalid continued line with nonmatching sentinels, skipping\n",
+	            fortran_scanning_now->current_filename, 
+                fortran_scanning_now->line_number);
+	    REJECT;
+	}
+}
+
 ^(([^\n!'"])|{FORTRAN_STRING})+&[[:blank:]]*(![^\n]*)?\n[[:blank:]]*&[^\n]+\n |
 ^(([^\n!'"])|{FORTRAN_STRING})*{UNENDED_STRING}&[[:blank:]]*\n[[:blank:]]*&[^\n]+\n {
 	// The first regex allows comments because all strings are closed
     // The second one does not allows them because the last string is opened
     // This recognizes double continued lines
 	//
-	// INT&     
-	//   &EGE&  
+	// INT&
+	//   &EGE&
 	// &R :: A=3
 	//
 	// CHARACTER :: C(10) = "Hennessy &&
 	//  & Patterson "
 
-	reintroduce_continued_line(yytext, DOUBLE_CONTINUATION);
+	reintroduce_continued_line(yytext, DOUBLE_CONTINUATION, NULL);
 	fortran_scanning_now->line_number++;
+}
+
+^[[:blank:]]*{sentinel}[[:blank:]]+(([^\n!'"])|{FORTRAN_STRING})+&[[:blank:]]*(![^\n]*)?\n[[:blank:]]*{sentinel}[[:blank:]]+[^&][^\n]*\n {
+	// !$SENTINEL INT&     
+	// !$SENTINEL   &EGE&  
+	// !$SENTINEL &R :: A=3
+
+	const char* sentinel = NULL;
+	if (!check_continued_sentinel_line(yytext, &sentinel))
+	{
+	    reintroduce_continued_line(yytext, SINGLE_CONTINUATION, sentinel);
+	    fortran_scanning_now->line_number++;
+	}
+	else
+	{
+	    fprintf(stderr, "%s:%d: warning: invalid continued line with nonmatching sentinels, skipping\n",
+	            fortran_scanning_now->current_filename, 
+                fortran_scanning_now->line_number);
+	    REJECT;
+	}
 }
 
 ^(([^\n!'"])|{FORTRAN_STRING})+&[[:blank:]]*(![^\n]*)?\n[[:blank:]]*[^&][^\n]*\n |
@@ -423,7 +455,7 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
     // :: A = 3
 
 	// Note that we do not handle the forbidden continuation of END statements
-	reintroduce_continued_line(yytext, SINGLE_CONTINUATION);
+	reintroduce_continued_line(yytext, SINGLE_CONTINUATION, NULL);
 
 	fortran_scanning_now->line_number++;
 
@@ -464,45 +496,43 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 	BEGIN(COMMENT);
 }
 
+^[[:blank:]]*{sentinel} {
+    // Custom pragmas
+    const char *sentinel = yytext;
 
-<pragma_line>{idnondigit}({idnondigit}|{digit})* {
-	// Unknown pragmas
-	int i;
-	char found = 0;
+    while (*sentinel == ' ' || *sentinel == '\t') 
+        sentinel++;
 
-	char matched = 0;
+    ERROR_CONDITION(*sentinel != '!', "Invalid sentinel '%s'", yytext);
+    sentinel++;
+    ERROR_CONDITION(*sentinel != '$', "Invalid sentinel '%s'", yytext);
+    sentinel++;
 
-	if (!matched)
-	{
-		for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)
-		{
-			if (strcasecmp(yytext, CURRENT_CONFIGURATION->pragma_custom_prefix[i]) == 0)
-			    {
-				found = 1;
-				break;
-			    }
-		}
+    int i;
+    char found = 0;
+    for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)
+    {
+        if (strcasecmp(sentinel, CURRENT_CONFIGURATION->pragma_custom_prefix[i]) == 0)
+        {
+            found = 1;
+            break;
+        }
+    }
 
-		if (!found)
-		{
-			fprintf(stderr, "Warning, unknown '!$%s' at line %d\n", 
-					yytext,
-//					fortran_scanning_now->current_filename,
-					fortran_scanning_now->line_number);
-			BEGIN(unknown_pragma);
-			// Ignore this prefix as an unknown pragma
-			yymore();
-			matched = 1;
-		}
-		else
-		{
-			BEGIN(pragma_custom_directive);
-			parse_token_text();
-            current_pragma_prefix = CURRENT_CONFIGURATION->pragma_custom_prefix[i];
-			//return PRAGMA_CUSTOM;
-			RETURN_TOKEN(PRAGMA_CUSTOM);
-		}
-	}
+    if (found)
+    {
+        BEGIN(pragma_custom_directive);
+        parse_token_text_str(sentinel);
+        current_pragma_prefix = CURRENT_CONFIGURATION->pragma_custom_prefix[i];
+        //return PRAGMA_CUSTOM;
+        RETURN_TOKEN(PRAGMA_CUSTOM);
+    }
+    else
+    {
+        // Ignore this sentinel
+        BEGIN(unknown_pragma);
+        yymore();
+    }
 }
 
 <unknown_pragma>{
@@ -521,12 +551,13 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 
 <pragma_custom_directive>{
 
-{idnondigit}({idnondigit}|{digit})* {
+{identifier} {
 	BEGIN(pragma_custom_clause_first);
 
-    pragma_directive_kind_t directive_kind = lookup_pragma_directive(current_pragma_prefix, yytext);
-
 	parse_token_text();
+    const char* directive = strtolower(yytext);
+
+    pragma_directive_kind_t directive_kind = lookup_pragma_directive(current_pragma_prefix, directive);
 
     int token = 0;
     switch (directive_kind)
@@ -539,23 +570,70 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
         case PDK_CONSTRUCT :
             {
                 token = PRAGMA_CUSTOM_CONSTRUCT;
+                ERROR_CONDITION(pragma_construct_stack_idx == MAX_PRAGMA_CONSTRUCT_STACK, 
+                        "Too many pragma constructs nested %d\n", MAX_PRAGMA_CONSTRUCT_STACK);
+                pragma_construct_stack[pragma_construct_stack_idx] = directive;
+                pragma_construct_stack_idx++;
                 break;
             }
         case PDK_NONE :
             {
-                running_error("Unknown directive '%s' for pragma '%s'. Maybe you forgot to register it?"
-                        " at line %d.", 
-                        yytext,
-                        current_pragma_prefix,
-//                        fortran_scanning_now->current_filename, 
-                        fortran_scanning_now->line_number);
+                running_error("%s:%d: error: unknown directive '!$%s %s'. Maybe you forgot to register it?",
+                        fortran_scanning_now->current_filename, 
+                        fortran_scanning_now->line_number,
+                        current_pragma_prefix, directive
+                        );
             }
         default:
             internal_error("Invalid pragma directive kind kind=%d", directive_kind);
     }
 
     current_pragma_prefix = NULL;
-    //return token;
+    RETURN_TOKEN(token);
+}
+
+end[[:blank:]]*{identifier} {
+	BEGIN(pragma_custom_clause_first);
+
+	parse_token_text();
+    const char* end_directive = strtolower(yytext);
+
+    // Skip 'end' part
+    const char* directive = end_directive;
+    directive += 3;
+    while (*directive == ' ' || *directive == '\t')
+        directive++;
+
+    pragma_directive_kind_t directive_kind = lookup_pragma_directive(current_pragma_prefix, directive);
+    int token = 0;
+    switch (directive_kind)
+    {
+        case PDK_CONSTRUCT :
+            {
+                if (pragma_construct_stack_idx > 0
+                        && strcasecmp(pragma_construct_stack[pragma_construct_stack_idx - 1], directive) == 0)
+                {
+                    token = PRAGMA_CUSTOM_END_CONSTRUCT;
+                    pragma_construct_stack_idx--;
+                }
+                else
+                {
+                    running_error("%s:%d: error: invalid nesting for '!$%s %s'\n", 
+                        fortran_scanning_now->current_filename, 
+                        fortran_scanning_now->line_number,
+                        current_pragma_prefix, end_directive);
+                }
+                break;
+            }
+        default:
+                running_error("%s:%d: error: unknown directive '!$%s %s'. Maybe you forgot to register it?",
+                        fortran_scanning_now->current_filename, 
+                        fortran_scanning_now->line_number,
+                        current_pragma_prefix, end_directive
+                        );
+    }
+
+    current_pragma_prefix = NULL;
     RETURN_TOKEN(token);
 }
 
@@ -571,10 +649,10 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 \n {
     fortran_scanning_now->line_number++;
 	BEGIN(INITIAL);
-	RETURN_EOS;
+	RETURN_PRAGMA_EOS;
 }
 
-{idnondigit}({idnondigit}|{digit})* {
+{identifier} {
 	// Special case for custom clauses
 	BEGIN(pragma_custom_var_list);
 	parse_token_text();
@@ -601,10 +679,10 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 \n {
     fortran_scanning_now->line_number++;
 	BEGIN(INITIAL);
-	RETURN_EOS;
+	RETURN_PRAGMA_EOS;
 }
 
-{idnondigit}({idnondigit}|{digit})* {
+{identifier} {
 	// Special case for custom clauses
 	BEGIN(pragma_custom_var_list);
 	parse_token_text();
@@ -622,9 +700,16 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 
 [(] {
 	parse_token_text();
-	pragma_custom_var_list_parentheses++;
-	//return '(';
-	RETURN_TOKEN('(');
+	if (pragma_custom_var_list_parentheses == 0)
+    {
+        pragma_custom_var_list_parentheses++;
+        RETURN_TOKEN('(');
+    }
+    else
+    {
+        pragma_custom_var_list_parentheses++;
+        RETURN_TOKEN(PRAGMA_CLAUSE_ARG_TEXT);
+    }
 }
 
 [)] {
@@ -633,26 +718,60 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 	if (pragma_custom_var_list_parentheses == 0)
 	{
 		BEGIN(pragma_custom_clause);
+        RETURN_TOKEN(')');
 	}
-	//return ')';
-	RETURN_TOKEN(')');
+    else
+    {
+        RETURN_TOKEN(PRAGMA_CLAUSE_ARG_TEXT);
+    }
 }
 
-[^,({[\]})\n ]+ {
-	parse_token_text();
-    //return PRAGMA_CLAUSE_ARG_TEXT;
-    RETURN_TOKEN(PRAGMA_CLAUSE_ARG_TEXT);
+[ \t]+ {
+    // Ignore the blank if we are not yet within any parentheses
+	if (pragma_custom_var_list_parentheses > 0)
+    {
+        parse_token_text();
+        return PRAGMA_CLAUSE_ARG_TEXT;
+    }
 }
 
-[,][ \t]* {
-	parse_token_text();
-    //return ',';
-    RETURN_TOKEN(',');
+ /* Identifier */
+[a-z]([a-z0-9_]*) {
+    if (pragma_custom_var_list_parentheses > 0)
+    {
+        parse_token_text();
+        return PRAGMA_CLAUSE_ARG_TEXT;
+    }
+    else
+    {
+        // We are in .
+        // #pragma foo bar . doe
+        // and 'doe' must be lexed as another custom clause
+        BEGIN(pragma_custom_var_list);
+        parse_token_text(); 
+        RETURN_TOKEN(PRAGMA_CUSTOM_CLAUSE);
+    }
 }
 
-[ \t] { 
-	parse_token_text();
-    //return PRAGMA_CLAUSE_ARG_TEXT;
+\n {
+    // We found a newline
+    if (pragma_custom_var_list_parentheses != 0)
+    {
+        // Well, we found the newline but parentheses were not 
+        // properly nested
+        fprintf(stderr, "%s:%d: warning: unended custom clause. Skipping.\n",
+                scanning_now.current_filename,
+                scanning_now.line_number);
+    }
+    // Head back to initial state and finish this pragma
+    scanning_now.line_number++;
+    BEGIN(INITIAL);
+    RETURN_PRAGMA_EOS;
+}
+
+  /* Catch all rule */
+[^\n] {
+    parse_token_text();
     RETURN_TOKEN(PRAGMA_CLAUSE_ARG_TEXT);
 }
 
@@ -1795,7 +1914,7 @@ goto {
 
  /* Non keyword tokens */
 
-[a-z]([a-z0-9_]*) {
+{identifier} {
 	parse_token_text();
 	RETURN_TOKEN(IDENTIFIER);
 }
@@ -2010,9 +2129,7 @@ goto {
 
 static void parse_token_text(void)
 {
-    FLEX_LVAL.token_atrib.token_line = fortran_scanning_now->line_number;
-    FLEX_LVAL.token_atrib.token_file = uniquestr(fortran_scanning_now->current_filename);
-    FLEX_LVAL.token_atrib.token_text = uniquestr(yytext);
+    parse_token_text_str(yytext);
 }
 
 UNUSED_PARAMETER static void parse_token_text_str(const char* c)
@@ -2022,200 +2139,165 @@ UNUSED_PARAMETER static void parse_token_text_str(const char* c)
     FLEX_LVAL.token_atrib.token_text = uniquestr(c);
 }
 
-static void reintroduce_continued_line(char* continued_line, char double_continuation)
+static void reintroduce_continued_line(char* continued_line, char double_continuation, const char* sentinel)
 {
-	char* temporal = strdup(continued_line);
+    char* temporal = NULL;
 
-	// Copy all the string springing over &\n&
+    if (sentinel == NULL)
+    {
+        temporal = strdup(continued_line);
+    }
+    else
+    {
+        // We need to skip the two sentinels and create a new string without them
+        temporal = calloc(strlen(continued_line) + 1, sizeof(char));
+        char *q = temporal;
+        const char *p = continued_line;
 
-	// Find the newline, there is only one, regex enforces this
-	char* newline = strchr(temporal, '\n');
-	char* limit_first_line; 
-	char* limit_second_line;
-	char second_line_is_comment = 0;
-	if (newline != 0)
-	{
-		// We will look for the rightmost & and the leftmost &
-		// so we cut here
-		*newline = '\0';
-		
-		// We remove any comment 
-		trim_inline_comment(temporal);
+        // Jump blanks
+        while (*p == ' ' || *p == '\t') p++;
 
-		// Look for rightmost "&"
-		limit_first_line = strrchr(temporal, '&'); 
+        ERROR_CONDITION(*p != '!', "Invalid continued line with sentinel '%s'\n", sentinel);
+        // Now ignore the sentinel of the first line until a blank
+        while (*p != ' ' && *p != '\t') p++;
 
-		if (double_continuation)
-		{
-			// Look for the leftmost "&"
-			limit_second_line = strchr(newline + 1, '&');
-			// We are not interested in "&"
-			limit_second_line++;
-		}
-		else
-		{
-			limit_second_line = newline+1;
+        while (*p != '\n')
+        {
+            // Copy all until the \n
+            *q = *p;
+            q++; p++;
+        }
+        // And the newline as well
+        *q = *p;
+        q++; p++;
 
-			// Advance blanks
-			while (*limit_second_line == ' ' || *limit_first_line == '\t') 
-			{
-				limit_second_line++;
-			}
+        // Jump blanks again
+        while (*p == ' ' || *p == '\t') p++;
 
-			// This is a comment !
-			if (*limit_second_line == '!')
-			{
-				second_line_is_comment = 1;
-			}
-		}
+        ERROR_CONDITION(*p != '!', "Invalid continued line with sentinel '%s'\n", sentinel);
+        // Now ignore the sentinel of the second line (until a blank or &)
+        while (*p != ' ' && *p != '\t' && *p != '&') p++;
+        while (*p != '\0')
+        {
+            // Copy all until the end of the string
+            *q = *p;
+            q++; p++;
+        }
+        // And the end of string as well
+        *q = *p;
+    }
 
-		if (limit_first_line && limit_second_line)
-		{
-			// Let's reintroduce all the whole line
-			*limit_first_line = '\0';
-			if (!second_line_is_comment)
-			{
-				DEBUG_CODE() DEBUG_MESSAGE("Let's reintroduce -%s%s-\n", temporal, limit_second_line);
-			}
-			else
-			{
-				DEBUG_CODE() DEBUG_MESSAGE("Let's reintroduce -%s%s-\n", temporal, "&\n");
-			}
-			char* last_character = limit_second_line + strlen(limit_second_line);
+    // Copy all the string springing over &\n&
 
-			// But only if the second line was something useful
-			if (!second_line_is_comment)
-			{
-				// We cannot do this in an empty string
-				if (last_character != limit_second_line) 
-				{
-					// Introducing the second line
-					last_character--; // Spring over the NULL
-					while (last_character >= limit_second_line)
-					{
-						unput(*last_character);
-						last_character--;
-					}
-				}
-			}
-			else
-			{
-				// If it was a comment we have to reintroduce "&\n"
-				// to enable "continuation magic" for the incoming line
-				unput('\n');
-				unput('&');
-			}
+    // Find the newline, there is only one, regex enforces this
+    char* newline = strchr(temporal, '\n');
 
-			// Introduce first line
-			last_character = limit_first_line;
-			last_character--; // Spring over the NULL
-			while (last_character >= temporal)
-			{
-				unput(*last_character);
-				last_character--;
-			}
-		}
-	}
+    ERROR_CONDITION(newline == NULL, "There must be a new-line\n", 0);
 
-	// This line was joined
-	fortran_scanning_now->joined_lines++;
-	DEBUG_CODE() DEBUG_MESSAGE("Incrementing joined_lines (%d)\n", fortran_scanning_now->joined_lines);
-	// Free
-	free(temporal);
+    char* limit_first_line = NULL; 
+    char* limit_second_line = NULL;
+    char second_line_is_comment = 0;
+    // We will look for the rightmost & and the leftmost &
+    // so we cut here
+    *newline = '\0';
+
+    // We remove any comment 
+    trim_inline_comment(temporal);
+
+    // Look for rightmost "&"
+    limit_first_line = strrchr(temporal, '&'); 
+
+    if (double_continuation)
+    {
+        // Look for the leftmost "&"
+        limit_second_line = strchr(newline + 1, '&');
+        // We are not interested in "&"
+        limit_second_line++;
+    }
+    else
+    {
+        limit_second_line = newline+1;
+
+        // Advance blanks
+        while (*limit_second_line == ' ' || *limit_first_line == '\t') 
+        {
+            limit_second_line++;
+        }
+
+        // This is a comment !
+        if (*limit_second_line == '!')
+        {
+            second_line_is_comment = 1;
+        }
+    }
+
+    if (limit_first_line && limit_second_line)
+    {
+        // Let's reintroduce all the whole line
+        *limit_first_line = '\0';
+        if (!second_line_is_comment)
+        {
+            DEBUG_CODE() DEBUG_MESSAGE("Let's reintroduce -%s%s-\n", temporal, limit_second_line);
+        }
+        else
+        {
+            DEBUG_CODE() DEBUG_MESSAGE("Let's reintroduce -%s%s-\n", temporal, "&\n");
+        }
+        char* last_character = limit_second_line + strlen(limit_second_line);
+
+        // But only if the second line was something useful
+        if (!second_line_is_comment)
+        {
+            // We cannot do this in an empty string
+            if (last_character != limit_second_line) 
+            {
+                // Introducing the second line
+                last_character--; // Spring over the NULL
+                while (last_character >= limit_second_line)
+                {
+                    unput(*last_character);
+                    last_character--;
+                }
+            }
+        }
+        else
+        {
+            // If it was a comment we have to reintroduce "&\n"
+            // to enable "continuation magic" for the incoming line
+            unput('\n');
+            unput('&');
+        }
+
+        // Introduce first line
+        last_character = limit_first_line;
+        last_character--; // Spring over the NULL
+        while (last_character >= temporal)
+        {
+            unput(*last_character);
+            last_character--;
+        }
+    }
+
+    if (sentinel != NULL)
+    {
+        // A separating blank
+        unput(' ');
+        // Reintroduce the original sentinel
+        const char* q = &(sentinel[strlen(sentinel) - 1]);
+
+        while (q >= sentinel)
+        {
+            unput(*q);
+            q--;
+        }
+    }
+
+    // This line was joined
+    fortran_scanning_now->joined_lines++;
+    DEBUG_CODE() DEBUG_MESSAGE("Incrementing joined_lines (%d)\n", fortran_scanning_now->joined_lines);
+    // Free
+    free(temporal);
 }
-
-#if 0
-static void reintroduce_continued_omp_line(char* continued_line, const char* sentinel)
-{
-	// The strategy here is to reuse reintroduce_continued_line
-	// removing all the !$omp (or they will be trimmed)
-	char* iter = continued_line;
-
-	while (*iter != '!') iter++;
-
-	// Jump $OMP
-	iter += 5;
-
-	char* temporal = strdup(iter);
-	
-	char* newline = strchr(temporal, '\n');
-
-	*newline = '\0';
-	newline++;
-
-	// Now look for a !
-	while (*newline != '!') newline++;
-	
-	// Jump $OMP
-	newline += 5;
-
-	// Now advance till we find something that is not blank
-	while ((*newline == ' ') || (*newline == '\t')) newline++;
-
-	char double_continuation = (*newline == '&');
-
-	// Now join the second line to the first and let reintroduce_continued_line
-	// to kindly do the job
-	strcat(temporal, "\n");
-	strcat(temporal, newline);
-
-	reintroduce_continued_line(temporal, double_continuation);
-
-	// Now reintroduce sentinel
-	int i;
-	int length = strlen(sentinel);
-	for (i = length-1; i >= 0; i--)
-	{
-		unput(sentinel[i]);
-	}
-
-	free(temporal);
-}
-
-static void reintroduce_continued_coco_omp_line(char* continued_line)
-{
-	// The strategy here is to reuse reintroduce_continued_line
-	// removing all the !$omp (or they will be trimmed)
-	char* iter = continued_line;
-
-	while (*iter != '!') iter++;
-
-	// Jump $
-	iter += 2;
-
-	char* temporal = strdup(iter);
-	
-	char* newline = strchr(temporal, '\n');
-
-	*newline = '\0';
-	newline++;
-
-	// Now look for a !
-	while (*newline != '!') newline++;
-	
-	// Jump $
-	newline += 2;
-
-	// Now advance till we find something that is not blank
-	while ((*newline == ' ') || (*newline == '\t')) newline++;
-
-	char double_continuation = (*newline == '&');
-
-	// Now join the second line to the first and let reintroduce_continued_line
-	// to kindly do the job
-	strcat(temporal, "\n");
-	strcat(temporal, newline);
-
-	reintroduce_continued_line(temporal, double_continuation);
-
-	// Now reintroduce !$
-	unput(' ');
-	unput('$');
-	unput('!');
-
-	free(temporal);
-}
-#endif
 
 static char* get_included_filename(char* include_line, char delim)
 {
@@ -2489,6 +2571,52 @@ static void trim_inline_comment(char* line)
 			}
 		}
 	}
+}
+
+static char check_continued_sentinel_line(const char* line, const char** sentinel)
+{
+    *sentinel = NULL;
+
+    // Get the first sentinel
+    char sentinel1[33] = { 0 };
+    char *q = sentinel1;
+    // Find the sentinel
+    const char* p = line;
+
+    while (*p == ' ' || *p == '\t')
+        p++;
+    ERROR_CONDITION(*p != '!', "Invalid regex\n", 0);
+
+    while (*p != ' ' && *p != '\t')
+    {
+        *q = *p;
+        p++; q++;
+    }
+
+    // Get the second sentinel
+    char sentinel2[33] = { 0 };
+    p = strchr(yytext, '\n');
+    ERROR_CONDITION(p == NULL, "Invalid regex\n", 0);
+    p++;
+    q = sentinel2;
+
+    while (*p == ' ' || *p == '\t')
+        p++;
+    ERROR_CONDITION(*p != '!', "Invalid regex\n", 0);
+
+    while (*p != ' ' && *p != '\t')
+    {
+        *q = *p;
+        p++; q++;
+    }
+
+    if (strcmp(sentinel1, sentinel2) != 0)
+    {
+        return 0;
+    }
+
+    *sentinel = uniquestr(sentinel1);
+    return 1;
 }
 
 static int is_format_statement(char* token)
