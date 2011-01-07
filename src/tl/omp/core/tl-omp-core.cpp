@@ -92,6 +92,14 @@ namespace TL
 
         void Core::run(TL::DTO& dto)
         {
+#ifdef FORTRAN_SUPPORT
+            FORTRAN_LANGUAGE()
+            {
+                // Not yet implemented
+                return;
+            }
+#endif
+
             // "openmp_info" should exist
             if (!dto.get_keys().contains("openmp_info"))
             {
