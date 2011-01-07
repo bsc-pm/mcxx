@@ -38,10 +38,10 @@ endif
 tpp_SOURCES = tpp.c
 
 tpp$(EXEEXT): tpp.o
-	$(CCHOST_verbose)$(CC_FOR_BUILD) -o $@ $+ 
+	$(CCHOST_verbose)$(CC_FOR_BUILD) -o $@ $+ $(LDFLAGS) 
 
 tpp.o : tpp.c
-	$(CCHOST_verbose)$(CC_FOR_BUILD) -c -o $@ $(srcdir)/tpp.c $(DEFAULT_INCLUDES) \
+	$(CCHOST_verbose)$(CC_FOR_BUILD) $(CFLAGS) -c -o $@ $(srcdir)/tpp.c $(DEFAULT_INCLUDES) \
 	         -DPACKAGE=\"$(PACKAGE)\" -DVERSION=\"$(PACKAGE_VERSION)\"
 #end of tpp
 
