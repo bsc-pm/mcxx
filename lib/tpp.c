@@ -418,7 +418,7 @@ static void conditional_process(char* input_filename, char* output_filename)
             else if (regexec(&ifnot_regex, buffer, 2, offsets, 0) == 0)
             {
                 block_nesting++;
-                char define_name[MAX_TEXT_LINE];
+                char define_name[MAX_TEXT_LINE] = { 0 };
 
                 int start = offsets[1].rm_so;
 
