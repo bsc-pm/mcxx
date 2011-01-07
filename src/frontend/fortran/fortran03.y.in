@@ -300,6 +300,8 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %type<ast> case_expr
 %type<ast> mult_operand
 %type<ast> loop_control
+%type<ast> while_loop_control
+%type<ast> concurrent_loop_control
 %type<ast> data_implied_do
 %type<ast> char_literal_constant
 %type<ast> associate_construct
@@ -2821,38 +2823,38 @@ do_construct : label_do_stmt
 | nonlabel_do_stmt
 | end_do_stmt
 ;
-label_do_stmt : labeldef name ':' TOK_DO label loop_control eos
+label_do_stmt : labeldef name_colon_opt TOK_DO label loop_control eos
 {
-    $$ = ASTMake4Label(AST_DO_LOOP_STATEMENT, $1, $2, $5, $6, $4.token_file, $4.token_line, $4.token_text);
+    $$ = ASTMake4Label(AST_DO_LOOP_STATEMENT, $1, $5, NULL, $4, $3.token_file, $3.token_line, "unstructured");
 }
-| labeldef TOK_DO label loop_control eos
+| labeldef name_colon_opt TOK_DO label while_loop_control eos
 {
-    $$ = ASTMake4Label(AST_DO_LOOP_STATEMENT, $1, NULL, $3, $4, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_WHILE_STATEMENT, $1, $5, NULL, $4, $3.token_file, $3.token_line, "unstructured");
 }
-| labeldef name ':' TOK_DO label eos
+| labeldef name_colon_opt TOK_DO label concurrent_loop_control eos
 {
-    $$ = ASTMake4Label(AST_DO_LOOP_STATEMENT, $1, $2, $5, NULL, $4.token_file, $4.token_line, $4.token_text);
+    running_error("%s:%d: sorry: DO CONCURRENT not supported\n", $3.token_file, $3.token_line);
 }
-| labeldef TOK_DO label eos
+| labeldef name_colon_opt TOK_DO label eos
 {
-    $$ = ASTMake4Label(AST_DO_LOOP_STATEMENT, $1, NULL, $3, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_DO_LOOP_STATEMENT, $1, NULL, NULL, $4, $3.token_file, $3.token_line, "unstructured");
 }
 ;
-nonlabel_do_stmt : labeldef name ':' TOK_DO loop_control eos
+nonlabel_do_stmt : labeldef name_colon_opt TOK_DO loop_control eos
 {
-    $$ = ASTMake4Label(AST_DO_LOOP_STATEMENT, $1, $2, NULL, $5, $4.token_file, $4.token_line, $4.token_text);
+    $$ = ASTMake4Label(AST_DO_LOOP_STATEMENT, $1, $4, NULL, NULL, $3.token_file, $3.token_line, "unstructured");
 }
-| labeldef TOK_DO loop_control eos
+| labeldef name_colon_opt TOK_DO while_loop_control eos
 {
-    $$ = ASTMake4Label(AST_DO_LOOP_STATEMENT, $1, NULL, NULL, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_WHILE_STATEMENT, $1, $4, NULL, NULL, $3.token_file, $3.token_line, "unstructured");
 }
-| labeldef name ':' TOK_DO eos
+| labeldef name_colon_opt TOK_DO label concurrent_loop_control eos
 {
-    $$ = ASTMake4Label(AST_DO_LOOP_STATEMENT, $1, $2, NULL, NULL, $4.token_file, $4.token_line, $4.token_text);
+    running_error("%s:%d: sorry: DO CONCURRENT not supported\n", $3.token_file, $3.token_line);
 }
-| labeldef TOK_DO eos
+| labeldef name_colon_opt TOK_DO eos
 {
-    $$ = ASTMake4Label(AST_DO_LOOP_STATEMENT, $1, NULL, NULL, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake4Label(AST_DO_LOOP_STATEMENT, $1, NULL, NULL, NULL, $3.token_file, $3.token_line, "unstructured");
 }
 ;
 loop_control : ',' do_variable '=' int_expr ',' int_expr ',' int_expr
@@ -2871,21 +2873,23 @@ loop_control : ',' do_variable '=' int_expr ',' int_expr ',' int_expr
 {
     $$ = ASTMake4(AST_LOOP_CONTROL, $1, $3, $5, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-| ',' TOK_WHILE '(' logical_expr ')'
+;
+while_loop_control : ',' TOK_WHILE '(' logical_expr ')'
 {
-    $$ = ASTMake1(AST_LOOP_WHILE, $4, $1.token_file, $1.token_line, $2.token_text);
+    $$ = $4;
 }
 | TOK_WHILE '(' logical_expr ')'
 {
-    $$ = ASTMake1(AST_LOOP_WHILE, $3, $1.token_file, $1.token_line, $2.token_text);
+    $$ = $3;
 }
-| ',' TOK_CONCURRENT forall_header
+;
+concurrent_loop_control : ',' TOK_CONCURRENT forall_header
 {
-    $$ = ASTMake1(AST_LOOP_CONCURRENT, $3, $1.token_file, $1.token_line, $2.token_text);
+    $$ = $3;
 }
 | TOK_CONCURRENT forall_header
 {
-    $$ = ASTMake1(AST_LOOP_CONCURRENT, $2, $1.token_file, $1.token_line, $1.token_text);
+    $$ = $2;
 }
 ;
 do_variable : name
@@ -2909,11 +2913,11 @@ end_do_stmt : labeldef TOK_END TOK_DO name eos
 ;
 cycle_stmt : labeldef TOK_CYCLE name eos
 {
-    $$ = ASTMake2Label(AST_CYCLE_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_CONTINUE_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_CYCLE eos
 {
-    $$ = ASTMake2Label(AST_CYCLE_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_CONTINUE_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 name_opt : name
@@ -3162,11 +3166,11 @@ end_select_type_stmt : labeldef TOK_END TOK_SELECT name eos
 ;
 exit_stmt : labeldef TOK_EXIT name eos
 {
-    $$ = ASTMake2Label(AST_EXIT_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_BREAK_STATEMENT, $1, $3, $2.token_file, $2.token_line, $2.token_text);
 }
 | labeldef TOK_EXIT eos
 {
-    $$ = ASTMake2Label(AST_EXIT_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake2Label(AST_BREAK_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 goto_stmt : labeldef TOK_GO TOK_TO label eos
@@ -3213,7 +3217,7 @@ arithmetic_if_stmt : labeldef TOK_IF '(' numeric_expr ')' label ',' label ',' la
 ;
 continue_stmt : labeldef TOK_CONTINUE eos
 {
-    $$ = ASTMake1Label(AST_CONTINUE_STATEMENT, $1, $2.token_file, $2.token_line, $2.token_text);
+    $$ = ASTMake1Label(AST_EMPTY_STATEMENT, $1, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
 stop_stmt : labeldef TOK_STOP stop_code eos
