@@ -150,9 +150,7 @@ HANDLER_PROTOTYPE(io_spec_handler);
 HANDLER_PROTOTYPE(io_statement_handler);
 HANDLER_PROTOTYPE(letter_spec_handler);
 HANDLER_PROTOTYPE(lock_statement_handler);
-HANDLER_PROTOTYPE(loop_concurrent_handler);
 HANDLER_PROTOTYPE(loop_control_handler);
-HANDLER_PROTOTYPE(loop_while_handler);
 HANDLER_PROTOTYPE(main_program_unit_handler);
 HANDLER_PROTOTYPE(mask_elsewhere_part_handler);
 HANDLER_PROTOTYPE(module_procedure_handler);
@@ -360,9 +358,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_LOGICAL_AND, binary_operator_handler, ".AND."),
     NODE_HANDLER(AST_LOGICAL_EQUAL, binary_operator_handler, ".EQV."),
     NODE_HANDLER(AST_LOGICAL_OR, binary_operator_handler, ".OR."),
-    NODE_HANDLER(AST_LOOP_CONCURRENT, loop_concurrent_handler, NULL),
     NODE_HANDLER(AST_LOOP_CONTROL, loop_control_handler, NULL),
-    NODE_HANDLER(AST_LOOP_WHILE, loop_while_handler, NULL),
     NODE_HANDLER(AST_LOWER_OR_EQUAL_THAN, binary_operator_handler, "<="),
     NODE_HANDLER(AST_LOWER_THAN, binary_operator_handler, "<"),
     NODE_HANDLER(AST_MAIN_PROGRAM_UNIT, main_program_unit_handler, NULL),
@@ -1912,12 +1908,6 @@ static void lock_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx
     end_of_statement_handler(f, a, pt_ctx);
 }
 
-static void loop_concurrent_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    token_fprintf(f, a, pt_ctx, "CONCURRENT ");
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-}
-
 static void loop_control_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     prettyprint_level(f, ASTSon0(a), pt_ctx);
@@ -1930,13 +1920,6 @@ static void loop_control_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
         token_fprintf(f, a, pt_ctx, ", ");
         prettyprint_level(f, ASTSon3(a), pt_ctx);
     }
-}
-
-static void loop_while_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    token_fprintf(f, a, pt_ctx, "WHILE (");
-    prettyprint_level(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, ")");
 }
 
 static void main_program_unit_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
