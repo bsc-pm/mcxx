@@ -2224,10 +2224,10 @@ static void return_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_c
 {
     indent_at_level(f, a, pt_ctx);
     token_fprintf(f, a, pt_ctx, "RETURN");
-    if (ASTSon0(a) != NULL)
+    if (ASTSon1(a) != NULL)
     {
         token_fprintf(f, a, pt_ctx, " ");
-        prettyprint_level(f, ASTSon0(a), pt_ctx);
+        prettyprint_level(f, ASTSon1(a), pt_ctx);
     }
     end_of_statement_handler(f, a, pt_ctx);
 }
