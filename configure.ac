@@ -1262,11 +1262,11 @@ if test x$is_enabled_tl_omp_nanox = xyes;
 then
   echo "   Nanos++ includes :" $nanox_include
   echo "   Nanos++ libraries:" $nanox_lib
-fi
 
-if test ! -e "$nanox_include" -o ! -d "$nanox_include"; 
-then
-   echo " ** WARNING ** Directory '${nanox_include}' does not seem to exist, compilation is likely to fail **"
+  if test ! -e "$nanox_include" -o ! -d "$nanox_include"; 
+  then
+     AC_MSG_WARN([directory '${nanox_include}' does not seem to exist, compilation is likely to fail])
+  fi
 fi
 
 echo "   GPU testing enabled:" $gpu_valid
