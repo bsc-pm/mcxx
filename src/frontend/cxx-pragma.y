@@ -29,6 +29,7 @@
 /*!if FORTRAN2003*/
 %type<ast2> pragma_custom_construct_range
 %type<ast> pragma_custom_end_construct
+%type<ast> pragma_custom_construct_program_unit
 /*!endif*/
 %type<ast> pragma_custom_clause
 %type<ast> pragma_custom_clause_seq
@@ -88,6 +89,11 @@ program_unit_stmts : pragma_custom_construct_statement
     $$ = $1;
 }
 ;
+program_unit : pragma_custom_construct_program_unit
+{
+    $$ = $1;
+}
+;
 /*!endif*/
 
 // Pragma custom
@@ -134,6 +140,12 @@ pragma_custom_construct_range : block pragma_custom_end_construct
 pragma_custom_end_construct : PRAGMA_CUSTOM PRAGMA_CUSTOM_END_CONSTRUCT pragma_custom_clause_opt_seq PRAGMA_CUSTOM_NEWLINE
 {
 	$$ = ASTMake2(AST_PRAGMA_CUSTOM_LINE, $3, NULL, $2.token_file, $2.token_line, $2.token_text);
+}
+;
+
+pragma_custom_construct_program_unit : PRAGMA_CUSTOM pragma_custom_line_construct program_unit
+{
+	$$ = ASTMake3(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 /*!endif*/

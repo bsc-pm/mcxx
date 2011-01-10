@@ -2742,9 +2742,12 @@ static void pragma_custom_construct_handler(FILE* f, AST a, prettyprint_context_
 
     // End part
     AST end = ASTSon2(a);
-    token_fprintf(f, a, pt_ctx, "!$%s %s ", ASTText(a), ASTText(end));
-    prettyprint_level(f, ASTSon0(end), pt_ctx);
-    end_of_statement_handler(f, a, pt_ctx);
+    if (end != NULL)
+    {
+        token_fprintf(f, a, pt_ctx, "!$%s %s ", ASTText(a), ASTText(end));
+        prettyprint_level(f, ASTSon0(end), pt_ctx);
+        end_of_statement_handler(f, a, pt_ctx);
+    }
 }
 
 static void pragma_custom_clause_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)

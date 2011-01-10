@@ -4044,6 +4044,10 @@ program_body : program_part internal_subprogram_part
 {
     $$ = ASTMake2(AST_BODY_PROGRAM_UNIT, NULL, $1, ASTFileName($1), ASTLine($1), NULL);
 }
+| /* empty */
+{
+    $$ = NULL;
+}
 ;
 program_stmt : labeldef TOK_PROGRAM name eos
 {
