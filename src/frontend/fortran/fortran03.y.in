@@ -91,27 +91,29 @@ extern int yylex(void);
 %{
 
 static AST ast_make_node_label(node_t node_type, 
-        AST ast0,
+        AST label,
         AST ast1,
         AST ast2,
         AST ast3,
+        AST ast4,
         const char* filename, 
         int line, 
         const char* token)
 {
-    AST stmt = ASTMake3(node_type, ast1, ast2, ast3, filename, line, token);
-    if (ast0 != NULL)
+    AST stmt = ASTMake4(node_type, ast1, ast2, ast3, ast4, filename, line, token);
+    if (label != NULL)
     {
-        stmt = ASTMake2(AST_LABELED_STATEMENT, ast0, stmt, filename, line, token);
+        stmt = ASTMake2(AST_LABELED_STATEMENT, label, stmt, filename, line, token);
     }
 
     return stmt;
 }
 
-#define ASTMake1Label(n, a0, f, l, t) ast_make_node_label((n), (a0), NULL, NULL, NULL, (f), (l), (t))
-#define ASTMake2Label(n, a0, a1, f, l, t) ast_make_node_label((n), (a0), (a1), NULL, NULL, (f), (l), (t))
-#define ASTMake3Label(n, a0, a1, a2, f, l, t) ast_make_node_label((n), (a0), (a1), (a2), NULL, (f), (l), (t))
-#define ASTMake4Label(n, a0, a1, a2, a3, f, l, t) ast_make_node_label((n), (a0), (a1), (a2), (a3), (f), (l), (t))
+#define ASTMake1Label(n, lbl, f, l, t) ast_make_node_label((n), (lbl), NULL, NULL, NULL, NULL, (f), (l), (t))
+#define ASTMake2Label(n, lbl, a1, f, l, t) ast_make_node_label((n), (lbl), (a1), NULL, NULL, NULL, (f), (l), (t))
+#define ASTMake3Label(n, lbl, a1, a2, f, l, t) ast_make_node_label((n), (lbl), (a1), (a2), NULL, NULL, (f), (l), (t))
+#define ASTMake4Label(n, lbl, a1, a2, a3, f, l, t) ast_make_node_label((n), (lbl), (a1), (a2), (a3), NULL, (f), (l), (t))
+#define ASTMake5Label(n, lbl, a1, a2, a3, a4, f, l, t) ast_make_node_label((n), (lbl), (a1), (a2), (a3), (a4), (f), (l), (t))
 
 static AST ambig_fun_array_ctor(YYSTYPE x0, YYSTYPE x1)
 {
@@ -372,6 +374,12 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %type<ast> type_spec
 %type<ast> boz_literal_constant
 %type<ast> do_construct
+%type<ast> nonblock_do_construct
+%type<ast> action_term_do_construct
+%type<ast> outer_shared_do_construct
+%type<ast> inner_shared_do_construct
+%type<ast> shared_term_do_construct
+%type<ast> do_term_action_stmt
 %type<ast> call_stmt
 %type<ast> label_do_stmt
 %type<ast> backspace_stmt
@@ -833,6 +841,7 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %token<token_atrib> CHAR_LITERAL "character literal"
 %token<token_atrib> HEX_LITERAL "hexadecimal literal"
 %token<token_atrib> USER_DEFINED_OPERATOR "user-defined operator"
+%token<token_atrib> TOK_END_NONBLOCK_DO
 
 /*!define GRAMMAR_PROLOGUE*/
 /*!include cxx-pragma.y*/
@@ -2829,25 +2838,74 @@ end_critical_stmt : labeldef TOK_END TOK_CRITICAL name eos
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
-do_construct : label_do_stmt
-| nonlabel_do_stmt
-| end_do_stmt
+do_construct : nonlabel_do_stmt block end_do_stmt
+{
+    AST do_statement = $1;
+    if (ASTType(do_statement) == AST_LABELED_STATEMENT)
+    {
+        do_statement = ASTSon1(do_statement);
+    }
+
+    ast_set_child(do_statement, 1, $2);
+    ast_set_child(do_statement, 2, $3);
+
+    $$ = do_statement;
+}
+| nonblock_do_construct
 ;
-label_do_stmt : labeldef name_colon_opt TOK_DO label loop_control eos
+nonblock_do_construct : action_term_do_construct
+| outer_shared_do_construct
+;
+action_term_do_construct : label_do_stmt block do_term_action_stmt
 {
-    $$ = ASTMake4Label(AST_DO_LOOP_STATEMENT, $1, $5, NULL, $4, $3.token_file, $3.token_line, "unstructured");
+    AST do_statement = $1;
+    if (ASTType(do_statement) == AST_LABELED_STATEMENT)
+    {
+        do_statement = ASTSon1(do_statement);
+    }
+
+    AST block = ast_list_concat($2, ASTListLeaf($3));
+    ast_set_child(do_statement, 1, block);
+
+    $$ = do_statement;
 }
-| labeldef name_colon_opt TOK_DO label while_loop_control eos
+;
+// This token is introduced artificially by the lexer to help the parser grasp
+// the structure, it does not exist anywhere else
+do_term_action_stmt : TOK_END_NONBLOCK_DO program_unit_stmts
 {
-    $$ = ASTMake4Label(AST_WHILE_STATEMENT, $1, $5, NULL, $4, $3.token_file, $3.token_line, "unstructured");
+    $$ = $2;
 }
-| labeldef name_colon_opt TOK_DO label concurrent_loop_control eos
+;
+outer_shared_do_construct : label_do_stmt block shared_term_do_construct
 {
-    running_error("%s:%d: sorry: DO CONCURRENT not supported\n", $3.token_file, $3.token_line);
+    AST do_statement = $1;
+    if (ASTType(do_statement) == AST_LABELED_STATEMENT)
+    {
+        do_statement = ASTSon1(do_statement);
+    }
+
+    AST block = ast_list_concat($2, ASTListLeaf($3));
+    ast_set_child(do_statement, 1, block);
+
+    $$ = do_statement;
 }
-| labeldef name_colon_opt TOK_DO label eos
+;
+shared_term_do_construct : outer_shared_do_construct 
+| inner_shared_do_construct
+;
+inner_shared_do_construct : label_do_stmt block do_term_action_stmt
 {
-    $$ = ASTMake4Label(AST_DO_LOOP_STATEMENT, $1, NULL, NULL, $4, $3.token_file, $3.token_line, "unstructured");
+    AST do_statement = $1;
+    if (ASTType(do_statement) == AST_LABELED_STATEMENT)
+    {
+        do_statement = ASTSon1(do_statement);
+    }
+
+    AST block = ast_list_concat($2, ASTListLeaf($3));
+    ast_set_child(do_statement, 1, block);
+
+    $$ = do_statement;
 }
 ;
 nonlabel_do_stmt : labeldef name_colon_opt TOK_DO loop_control eos
@@ -2865,6 +2923,23 @@ nonlabel_do_stmt : labeldef name_colon_opt TOK_DO loop_control eos
 | labeldef name_colon_opt TOK_DO eos
 {
     $$ = ASTMake4Label(AST_DO_LOOP_STATEMENT, $1, NULL, NULL, NULL, $3.token_file, $3.token_line, "unstructured");
+}
+;
+label_do_stmt : labeldef name_colon_opt TOK_DO label loop_control eos
+{
+    $$ = ASTMake5Label(AST_DO_LOOP_STATEMENT, $1, $5, NULL, NULL, $4, $3.token_file, $3.token_line, "unstructured");
+}
+| labeldef name_colon_opt TOK_DO label while_loop_control eos
+{
+    $$ = ASTMake5Label(AST_WHILE_STATEMENT, $1, $5, NULL, NULL, $4, $3.token_file, $3.token_line, "unstructured");
+}
+| labeldef name_colon_opt TOK_DO label concurrent_loop_control eos
+{
+    running_error("%s:%d: sorry: DO CONCURRENT not supported\n", $3.token_file, $3.token_line);
+}
+| labeldef name_colon_opt TOK_DO label eos
+{
+    $$ = ASTMake5Label(AST_DO_LOOP_STATEMENT, $1, NULL, NULL, NULL, $4, $3.token_file, $3.token_line, "unstructured");
 }
 ;
 loop_control : ',' do_variable '=' int_expr ',' int_expr ',' int_expr

@@ -68,6 +68,10 @@ struct scan_file_descriptor* fortran_scanning_now = &include_stack[0];
 static const char* pragma_construct_stack[MAX_PRAGMA_CONSTRUCT_STACK] = { 0 };
 static int pragma_construct_stack_idx = 0;
 
+#define MAX_NONBLOCK_DO_STACK 64
+static int nonblock_do_stack[MAX_NONBLOCK_DO_STACK] = { 0 };
+static int nonblock_do_stack_idx = 0;
+
 static char* get_included_filename(char* linia_include, char delim);
 static void open_included_file(char* include_filename);
 static char check_continued_sentinel_line(const char* line, const char** sentinel);
@@ -121,12 +125,13 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 %x preprocess
 %x COMMENT
 %x SEEN_FORMAT
+%x NONBLOCK_DO
 %x pragma_line
 %x unknown_pragma
 %x pragma_custom_directive
 %x pragma_custom_clause_first
 %x pragma_custom_clause
-%s pragma_custom_var_list
+%x pragma_custom_var_list
 
 %%
 
@@ -514,6 +519,8 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
         if (!CURRENT_CONFIGURATION->disable_empty_sentinels)
         {
             // Move on as if nothing happened
+            // This should look like as if this had never happened
+            last_eos = 1;
             BEGIN(INITIAL);
         }
         else
@@ -994,7 +1001,28 @@ x["][0-9a-f]+["] {
 	RETURN_TOKEN(CHAR_LITERAL);
 }
 
-[0-9]+(_([a-z][a-z0-9]{0,30}|[0-9]+))? {
+[0-9]+ {
+    // Handle here nonblock
+    if (last_eos 
+            && nonblock_do_stack_idx > 0)
+    {
+        const char * q = yytext;
+
+        int label = atoi(q);
+
+        if (nonblock_do_stack[nonblock_do_stack_idx - 1] == label)
+        {
+            nonblock_do_stack_idx--;
+            // Now unput everything again so we will get a DECIMAL_LITERAL later
+            yyless(0);
+            RETURN_TOKEN(TOK_END_NONBLOCK_DO);
+        }
+    }
+    parse_token_text();
+    RETURN_TOKEN(DECIMAL_LITERAL);
+}
+
+[0-9]+_([a-z][a-z0-9]{0,30}|[0-9]+) {
 	parse_token_text();
 	RETURN_TOKEN(DECIMAL_LITERAL);
 }
@@ -1427,6 +1455,31 @@ stream {
 do {
     parse_token_text();
     RETURN_TOKEN(TOK_DO);
+}
+
+do/[[:blank:]]+[0-9]+ {
+    parse_token_text();
+
+    BEGIN(NONBLOCK_DO);
+    RETURN_TOKEN(TOK_DO);
+}
+
+<NONBLOCK_DO>{
+    
+[:blank:]+ { 
+}
+
+[0-9]+ {
+    parse_token_text();
+    ERROR_CONDITION(nonblock_do_stack_idx == MAX_NONBLOCK_DO_STACK, 
+            "Too many non block do statements %d\n", MAX_NONBLOCK_DO_STACK);
+    nonblock_do_stack[nonblock_do_stack_idx] = atoi(yytext);
+    nonblock_do_stack_idx++;
+
+    BEGIN(INITIAL);
+    RETURN_TOKEN(DECIMAL_LITERAL);
+}
+
 }
 
 default {
@@ -2464,6 +2517,7 @@ static void open_included_file(char* include_name)
 
 	// Switch the buffer of flex
 	yy_switch_to_buffer(fortran_scanning_now->scanning_buffer);
+    last_eos = 1;
 }
 
 static char end_of_file(void)
@@ -2484,6 +2538,7 @@ static char end_of_file(void)
 		include_stack_size--;
 		fortran_scanning_now = &include_stack[include_stack_size];
 		yy_switch_to_buffer(fortran_scanning_now->scanning_buffer);
+        last_eos = 1;
 
 		// if (include_stack_size == 0)
 		// {
@@ -2522,6 +2577,7 @@ int mf03_open_file_for_scanning(const char* scanned_filename, const char* input_
 
 	// yy_flush_buffer(YY_CURRENT_BUFFER);
 	yy_switch_to_buffer(fortran_scanning_now->scanning_buffer);
+    last_eos = 1;
 
 	return 0;
 }
@@ -2562,6 +2618,8 @@ int mf03_prepare_string_for_scanning(const char* str)
 	num_string++;
 	fortran_scanning_now->scanning_buffer = yy_scan_string(str);
 	yy_switch_to_buffer(fortran_scanning_now->scanning_buffer);
+    last_eos = 1;
+
 	return 0;
 }
 
