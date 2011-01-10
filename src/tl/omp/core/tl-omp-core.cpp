@@ -1100,7 +1100,9 @@ namespace TL
         EMPTY_HANDLERS(critical)
         EMPTY_HANDLERS(flush)
         EMPTY_HANDLERS(ordered)
+#ifdef FORTRAN_SUPPORT
         EMPTY_HANDLERS(do)
+#endif
 
         void openmp_core_run_next_time(DTO& dto)
         {

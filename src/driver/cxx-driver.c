@@ -1080,7 +1080,7 @@ int parse_arguments(int argc, const char* argv[],
                     {
 #ifndef FORTRAN_SUPPORT
                         running_error("Option --sentinels is only valid when Fortran is enabled\n", 0);
-#endif
+#else
                         if (strcasecmp(parameter_info.argument, "on") == 0)
                         {
                             CURRENT_CONFIGURATION->disable_empty_sentinels = 0;
@@ -1093,6 +1093,7 @@ int parse_arguments(int argc, const char* argv[],
                         {
                             fprintf(stderr, "Option --sentinels requires a value of 'on' or 'off'. Ignoring\n");
                         }
+#endif
                         break;
                     }
                 default:
