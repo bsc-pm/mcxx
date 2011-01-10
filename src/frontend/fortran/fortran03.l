@@ -1471,10 +1471,35 @@ do/[[:blank:]]+[0-9]+ {
 
 [0-9]+ {
     parse_token_text();
-    ERROR_CONDITION(nonblock_do_stack_idx == MAX_NONBLOCK_DO_STACK, 
-            "Too many non block do statements %d\n", MAX_NONBLOCK_DO_STACK);
-    nonblock_do_stack[nonblock_do_stack_idx] = atoi(yytext);
-    nonblock_do_stack_idx++;
+    int label = atoi(yytext);
+
+    if (nonblock_do_stack_idx > 0
+            && nonblock_do_stack[nonblock_do_stack_idx - 1] == label)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "%s:%d: debug: shared do label '%d'\n", 
+                    fortran_scanning_now->current_filename,
+                    fortran_scanning_now->line_number, 
+                    label);
+        }
+        BEGIN(INITIAL);
+        RETURN_TOKEN(TOK_SHARED_LABEL);
+    }
+    else
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "%s:%d: debug: new do label '%d'\n", 
+                    fortran_scanning_now->current_filename,
+                    fortran_scanning_now->line_number, 
+                    label);
+        }
+        ERROR_CONDITION(nonblock_do_stack_idx == MAX_NONBLOCK_DO_STACK, 
+                "Too many non block do statements %d\n", MAX_NONBLOCK_DO_STACK);
+        nonblock_do_stack[nonblock_do_stack_idx] = label;
+        nonblock_do_stack_idx++;
+    }
 
     BEGIN(INITIAL);
     RETURN_TOKEN(DECIMAL_LITERAL);

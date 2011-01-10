@@ -377,11 +377,14 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %type<ast> nonblock_do_construct
 %type<ast> action_term_do_construct
 %type<ast> outer_shared_do_construct
+%type<ast> outer_shared_do_construct_2
 %type<ast> inner_shared_do_construct
 %type<ast> shared_term_do_construct
 %type<ast> do_term_action_stmt
 %type<ast> call_stmt
 %type<ast> label_do_stmt
+%type<ast> label_do_shared_stmt
+%type<ast> do_shared_label
 %type<ast> backspace_stmt
 %type<ast> allocate_stmt
 %type<ast> where_construct
@@ -841,7 +844,8 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %token<token_atrib> CHAR_LITERAL "character literal"
 %token<token_atrib> HEX_LITERAL "hexadecimal literal"
 %token<token_atrib> USER_DEFINED_OPERATOR "user-defined operator"
-%token<token_atrib> TOK_END_NONBLOCK_DO
+%token<token_atrib> TOK_END_NONBLOCK_DO "end-of-nonblock-do"
+%token<token_atrib> TOK_SHARED_LABEL "shared-do-label"
 
 /*!define GRAMMAR_PROLOGUE*/
 /*!include cxx-pragma.y*/
@@ -2891,10 +2895,24 @@ outer_shared_do_construct : label_do_stmt block shared_term_do_construct
     $$ = do_statement;
 }
 ;
-shared_term_do_construct : outer_shared_do_construct 
+outer_shared_do_construct_2 : label_do_shared_stmt block shared_term_do_construct
+{
+    AST do_statement = $1;
+    if (ASTType(do_statement) == AST_LABELED_STATEMENT)
+    {
+        do_statement = ASTSon1(do_statement);
+    }
+
+    AST block = ast_list_concat($2, ASTListLeaf($3));
+    ast_set_child(do_statement, 1, block);
+
+    $$ = do_statement;
+}
+;
+shared_term_do_construct : outer_shared_do_construct_2
 | inner_shared_do_construct
 ;
-inner_shared_do_construct : label_do_stmt block do_term_action_stmt
+inner_shared_do_construct : label_do_shared_stmt block do_term_action_stmt
 {
     AST do_statement = $1;
     if (ASTType(do_statement) == AST_LABELED_STATEMENT)
@@ -2940,6 +2958,28 @@ label_do_stmt : labeldef name_colon_opt TOK_DO label loop_control eos
 | labeldef name_colon_opt TOK_DO label eos
 {
     $$ = ASTMake5Label(AST_DO_LOOP_STATEMENT, $1, NULL, NULL, NULL, $4, $3.token_file, $3.token_line, "unstructured");
+}
+;
+label_do_shared_stmt : labeldef name_colon_opt TOK_DO do_shared_label loop_control eos
+{
+    $$ = ASTMake5Label(AST_DO_LOOP_STATEMENT, $1, $5, NULL, NULL, $4, $3.token_file, $3.token_line, "unstructured");
+}
+| labeldef name_colon_opt TOK_DO do_shared_label while_loop_control eos
+{
+    $$ = ASTMake5Label(AST_WHILE_STATEMENT, $1, $5, NULL, NULL, $4, $3.token_file, $3.token_line, "unstructured");
+}
+| labeldef name_colon_opt TOK_DO do_shared_label concurrent_loop_control eos
+{
+    running_error("%s:%d: sorry: DO CONCURRENT not supported\n", $3.token_file, $3.token_line);
+}
+| labeldef name_colon_opt TOK_DO do_shared_label eos
+{
+    $$ = ASTMake5Label(AST_DO_LOOP_STATEMENT, $1, NULL, NULL, NULL, $4, $3.token_file, $3.token_line, "unstructured");
+}
+;
+do_shared_label : TOK_SHARED_LABEL
+{
+    $$ = ASTLeaf(AST_SYMBOL, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 loop_control : ',' do_variable '=' int_expr ',' int_expr ',' int_expr
