@@ -1383,9 +1383,15 @@ static void register_new_directive_inner(pragma_directive_set_t* pragma_directiv
             kind);
 }
 
-void register_new_directive(const char* prefix, const char* directive, char is_construct)
+void register_new_directive(const char* prefix, const char* directive, char is_construct, char bound_to_single_stmt)
 {
     pragma_directive_kind_t kind = (is_construct ? PDK_CONSTRUCT : PDK_DIRECTIVE);
+
+    if (kind == PDK_CONSTRUCT 
+            && bound_to_single_stmt)
+    {
+        kind = PDK_CONSTRUCT_NOEND;
+    }
 
     int i;
     for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)

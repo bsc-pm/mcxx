@@ -477,12 +477,12 @@ namespace TL
 
     void PragmaCustomCompilerPhase::register_directive(const std::string& str)
     {
-        register_new_directive(_pragma_handled.c_str(), str.c_str(), 0);
+        register_new_directive(_pragma_handled.c_str(), str.c_str(), 0, 0);
     }
 
     void PragmaCustomCompilerPhase::register_construct(const std::string& str)
     {
-        register_new_directive(_pragma_handled.c_str(), str.c_str(), 1);
+        register_new_directive(_pragma_handled.c_str(), str.c_str(), 1, 0);
     }
 
     void PragmaCustomCompilerPhase::warning_pragma_unused_clauses(bool warning)

@@ -71,6 +71,8 @@ namespace TL
                 void _name##_handler_post(PragmaCustomConstruct);
 #define OMP_CONSTRUCT(_directive, _name) \
                 OMP_DIRECTIVE(_directive, _name)
+#define OMP_CONSTRUCT_NOEND(_directive, _name) \
+                OMP_DIRECTIVE(_directive, _name)
 #include "tl-omp-constructs.def"
 #undef OMP_CONSTRUCT
 #undef OMP_DIRECTIVE

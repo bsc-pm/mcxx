@@ -71,6 +71,7 @@ typedef enum
     OPTION_FORTRAN_COLUMN_WIDTH,
     OPTION_FORTRAN_FIXED,
     OPTION_FORTRAN_FREE,
+    OPTION_EMPTY_SENTINELS,
     OPTION_VERBOSE
 } COMMAND_LINE_OPTIONS;
 
@@ -171,7 +172,8 @@ typedef enum pragma_directive_kind_tag
 {
     PDK_NONE = 0,
     PDK_DIRECTIVE,
-    PDK_CONSTRUCT
+    PDK_CONSTRUCT,
+    PDK_CONSTRUCT_NOEND
 } pragma_directive_kind_t;
 
 typedef struct pragma_directive_set_tag
@@ -307,7 +309,6 @@ typedef struct compilation_configuration_tag
     char verbose;
     char keep_files;
     char keep_temporaries;
-    char check_dates;
     char do_not_process_files;
     char do_not_parse;
     char do_not_prettyprint;
@@ -403,6 +404,11 @@ typedef struct compilation_configuration_tag
     // Target options
     int num_target_option_maps;
     target_options_map_t** target_options_maps;
+
+#ifdef FORTRAN_SUPPORT
+    // Fortran lexing
+    char disable_empty_sentinels;
+#endif
 } compilation_configuration_t;
 
 struct compiler_phase_loader_tag

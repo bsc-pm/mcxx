@@ -1,10 +1,22 @@
 // These macros are defined in several places to automatically generate all OpenMP support
 // 
-// OMP_CONSTRUCT(pragma_directive, construct_name, class_name, construct_subclasse, attr_name, functor_name)
+// OMP_CONSTRUCT(pragma_directive, id)
 //    * pragma_directive is a string | separated for compound directive names used when registering the construct
-//    * construct_name an identifier used to build names
+//    * id an identifier used to build names
 //
-// OMP_DIRECTIVE is the same as OMP_CONSTRUCT but for directives
+// - OMP_DIRECTIVE is the same as OMP_CONSTRUCT but for directives
+// - OMP_CONSTRUCT_NOEND is the same as OMP_CONSTRUCT but *only* for Fortran constructs 
+// In Fortran every OMP_CONSTRUCT("x", x) will require the user write
+// 
+//   $!SENTINEL X <clauses-opt>
+//      <block-opt>
+//   $!SENTINEL END X <clauses-opt>
+// 
+// But sometimes it may be convenient to have something like this
+// 
+//   $!SENTINEL X <clauses-opt>
+//     only-one-statement (probably a construct)
+//   [$!SENTINEL END X <clauses-opt>]         <-- optional
 // 
 
 OMP_CONSTRUCT("parallel", parallel)
@@ -35,3 +47,7 @@ OMP_CONSTRUCT("ordered", ordered)
 OMP_DIRECTIVE("declare|reduction", declare_reduction)
 
 OMP_CONSTRUCT("target", target)
+
+#ifdef FORTRAN_SUPPORT
+OMP_CONSTRUCT_NOEND("do", do)
+#endif

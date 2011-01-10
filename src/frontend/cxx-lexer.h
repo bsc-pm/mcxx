@@ -65,7 +65,9 @@ LIBMCXX_EXTERN int mc99_open_file_for_scanning(const char* scanned_filename, con
 LIBMCXX_EXTERN int mcxx_prepare_string_for_scanning(const char* str);
 LIBMCXX_EXTERN int mc99_prepare_string_for_scanning(const char* str);
 
-LIBMCXX_EXTERN void register_new_directive(const char* prefix, const char* directive, char is_construct);
+LIBMCXX_EXTERN void register_new_directive(const char* prefix, const char* directive, char is_construct, 
+        /* This flag is only meaningful in Fortran */
+        char bound_to_single_stmt);
 
 LIBMCXX_EXTERN pragma_directive_kind_t lookup_pragma_directive(const char* prefix, const char* directive);
 

@@ -394,14 +394,14 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 	// !$SENTINEL &R :: A=3
 
 	const char* sentinel = NULL;
-	if (!check_continued_sentinel_line(yytext, &sentinel))
+	if (check_continued_sentinel_line(yytext, &sentinel))
 	{
 	    reintroduce_continued_line(yytext, DOUBLE_CONTINUATION, sentinel);
 	    fortran_scanning_now->line_number++;
 	}
 	else
 	{
-	    fprintf(stderr, "%s:%d: warning: invalid continued line with nonmatching sentinels, skipping\n",
+	    fprintf(stderr, "%s:%d: warning: invalid continued line with mismatching sentinels, moving on\n",
 	            fortran_scanning_now->current_filename, 
                 fortran_scanning_now->line_number);
 	    REJECT;
@@ -426,19 +426,18 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 }
 
 ^[[:blank:]]*{sentinel}[[:blank:]]+(([^\n!'"])|{FORTRAN_STRING})+&[[:blank:]]*(![^\n]*)?\n[[:blank:]]*{sentinel}[[:blank:]]+[^&][^\n]*\n {
-	// !$SENTINEL INT&     
-	// !$SENTINEL   &EGE&  
-	// !$SENTINEL &R :: A=3
+	// !$SENTINEL INTEGER &
+	// !$SENTINEL :: A=3
 
 	const char* sentinel = NULL;
-	if (!check_continued_sentinel_line(yytext, &sentinel))
+	if (check_continued_sentinel_line(yytext, &sentinel))
 	{
 	    reintroduce_continued_line(yytext, SINGLE_CONTINUATION, sentinel);
 	    fortran_scanning_now->line_number++;
 	}
 	else
 	{
-	    fprintf(stderr, "%s:%d: warning: invalid continued line with nonmatching sentinels, skipping\n",
+	    fprintf(stderr, "%s:%d: warning: invalid continued line with mismatching sentinels, moving on\n",
 	            fortran_scanning_now->current_filename, 
                 fortran_scanning_now->line_number);
 	    REJECT;
@@ -508,30 +507,48 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
     ERROR_CONDITION(*sentinel != '$', "Invalid sentinel '%s'", yytext);
     sentinel++;
 
-    int i;
-    char found = 0;
-    for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)
+    if (*sentinel == '\0')
     {
-        if (strcasecmp(sentinel, CURRENT_CONFIGURATION->pragma_custom_prefix[i]) == 0)
+        // !$ foo 
+        // This is a zero-length sentinel (note the blank, not to be confused to !$foo)
+        if (!CURRENT_CONFIGURATION->disable_empty_sentinels)
         {
-            found = 1;
-            break;
+            // Move on as if nothing happened
+            BEGIN(INITIAL);
         }
-    }
-
-    if (found)
-    {
-        BEGIN(pragma_custom_directive);
-        parse_token_text_str(sentinel);
-        current_pragma_prefix = CURRENT_CONFIGURATION->pragma_custom_prefix[i];
-        //return PRAGMA_CUSTOM;
-        RETURN_TOKEN(PRAGMA_CUSTOM);
+        else
+        {
+            // Handle this as a comment
+            BEGIN(COMMENT);
+        }
     }
     else
     {
-        // Ignore this sentinel
-        BEGIN(unknown_pragma);
-        yymore();
+        int i;
+        char found = 0;
+        for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)
+        {
+            if (strcasecmp(sentinel, CURRENT_CONFIGURATION->pragma_custom_prefix[i]) == 0)
+            {
+                found = 1;
+                break;
+            }
+        }
+
+        if (found)
+        {
+            BEGIN(pragma_custom_directive);
+            parse_token_text_str(sentinel);
+            current_pragma_prefix = CURRENT_CONFIGURATION->pragma_custom_prefix[i];
+            //return PRAGMA_CUSTOM;
+            RETURN_TOKEN(PRAGMA_CUSTOM);
+        }
+        else
+        {
+            // Ignore this sentinel
+            BEGIN(unknown_pragma);
+            yymore();
+        }
     }
 }
 
@@ -541,9 +558,7 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
   /* This will also catch #pragma gcc */
   // Fortran does not work with pragmas so, if it's failed matching a prefix, the whole line will be considered a comment.
 	parse_token_text();
-//	BEGIN(preprocess);
 	BEGIN(COMMENT);
-	//return UNKNOWN_PRAGMA;
 	RETURN_TOKEN(UNKNOWN_PRAGMA);
 }
 
@@ -565,6 +580,11 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
         case PDK_DIRECTIVE : 
             {
                 token = PRAGMA_CUSTOM_DIRECTIVE;
+                break;
+            }
+        case PDK_CONSTRUCT_NOEND :
+            {
+                token = PRAGMA_CUSTOM_CONSTRUCT_NOEND;
                 break;
             }
         case PDK_CONSTRUCT :
@@ -608,6 +628,11 @@ end[[:blank:]]*{identifier} {
     int token = 0;
     switch (directive_kind)
     {
+        case PDK_CONSTRUCT_NOEND :
+            {
+                token = PRAGMA_CUSTOM_END_CONSTRUCT;
+                break;
+            }
         case PDK_CONSTRUCT :
             {
                 if (pragma_construct_stack_idx > 0
@@ -618,10 +643,23 @@ end[[:blank:]]*{identifier} {
                 }
                 else
                 {
-                    running_error("%s:%d: error: invalid nesting for '!$%s %s'\n", 
-                        fortran_scanning_now->current_filename, 
-                        fortran_scanning_now->line_number,
-                        current_pragma_prefix, end_directive);
+                    if (pragma_construct_stack_idx > 0)
+                    {
+                        running_error("%s:%d: error: invalid nesting for '!$%s %s', expecting '!$%s END %s'\n", 
+                                fortran_scanning_now->current_filename, 
+                                fortran_scanning_now->line_number,
+                                strtoupper(current_pragma_prefix), 
+                                strtoupper(end_directive),
+                                strtoupper(current_pragma_prefix),
+                                strtoupper(pragma_construct_stack[pragma_construct_stack_idx - 1]));
+                    }
+                    else
+                    {
+                        running_error("%s:%d: error: bad nesting for '!$%s %s'\n",
+                                fortran_scanning_now->current_filename, 
+                                fortran_scanning_now->line_number,
+                                strtoupper(current_pragma_prefix), strtoupper(end_directive));
+                    }
                 }
                 break;
             }
@@ -2612,6 +2650,10 @@ static char check_continued_sentinel_line(const char* line, const char** sentine
 
     if (strcmp(sentinel1, sentinel2) != 0)
     {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "Sentinel mismatch: '%s' != '%s'\n", sentinel1, sentinel2);
+        }
         return 0;
     }
 

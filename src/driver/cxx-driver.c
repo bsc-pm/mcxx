@@ -112,7 +112,6 @@
 "  -k, --keep-files         Do not remove intermediate files\n" \
 "  -K, --keep-all-files     Do not remove any generated file, including\n" \
 "                           temporal files\n" \
-"  -a, --check-dates        Checks dates before regenerating files\n" \
 "  --output-dir=<dir>       Prettyprinted files will be left in\n" \
 "                           directory <dir>. Otherwise the input\n" \
 "                           file directory is used\n" \
@@ -197,6 +196,9 @@
 "                           This is the default for files ending with\n"\
 "                           .f, .F, .f77, .F77\n"\
 "  --fpp                    An alias for --pp\n"\
+"  --sentinels=on|off       Enables or disables empty sentinels\n" \
+"                           Empty sentinels are enabled by default\n" \
+"                           This flag is only meaningful for Fortran\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -282,6 +284,7 @@ struct command_line_long_options command_line_long_options[] =
     {"width", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_COLUMN_WIDTH},
     {"fixed", CLP_NO_ARGUMENT, OPTION_FORTRAN_FIXED},
     {"free", CLP_NO_ARGUMENT, OPTION_FORTRAN_FREE},
+    {"sentinels", CLP_REQUIRED_ARGUMENT, OPTION_EMPTY_SENTINELS},
     // sentinel
     {NULL, 0, 0}
 };
@@ -796,11 +799,6 @@ int parse_arguments(int argc, const char* argv[],
                         CURRENT_CONFIGURATION->do_not_link = 1;
                         break;
                     }
-                case 'a' : // --check-dates || -a
-                    {
-                        CURRENT_CONFIGURATION->check_dates = 1;
-                        break;
-                    }
                 case OPTION_CONFIG_FILE :
                 case OPTION_CONFIG_DIR:
                     {
@@ -1076,6 +1074,25 @@ int parse_arguments(int argc, const char* argv[],
 #else
                         running_error("Option --free is only valid when Fortran is enabled\n", 0);
 #endif
+                        break;
+                    }
+                case OPTION_EMPTY_SENTINELS:
+                    {
+#ifndef FORTRAN_SUPPORT
+                        running_error("Option --sentinels is only valid when Fortran is enabled\n", 0);
+#endif
+                        if (strcasecmp(parameter_info.argument, "on") == 0)
+                        {
+                            CURRENT_CONFIGURATION->disable_empty_sentinels = 0;
+                        }
+                        else if (strcasecmp(parameter_info.argument, "off") == 0)
+                        {
+                            CURRENT_CONFIGURATION->disable_empty_sentinels = 1;
+                        }
+                        else
+                        {
+                            fprintf(stderr, "Option --sentinels requires a value of 'on' or 'off'. Ignoring\n");
+                        }
                         break;
                     }
                 default:
@@ -2007,6 +2024,13 @@ static void finalize_committed_configuration(void)
     {
         config_add_preprocessor_prefix(CURRENT_CONFIGURATION, /* index */ NULL, "omp");
     }
+    else
+    {
+#ifdef FORTRAN_SUPPORT
+        // Disable empty sentinels
+        CURRENT_CONFIGURATION->disable_empty_sentinels = 1;
+#endif
+    }
 
     // UPC support involves some specific pragmae
     if (CURRENT_CONFIGURATION->enable_upc)
@@ -2052,15 +2076,15 @@ static void register_upc_pragmae(void)
     config_add_preprocessor_prefix(CURRENT_CONFIGURATION, /* index */ NULL, "upc");
     // Lexer already uses CURRENT_CONFIGURATION this is why it is not specified here
     // Register '#pragma upc relaxed'
-    register_new_directive("upc", "relaxed", /* is_construct */ 0);
+    register_new_directive("upc", "relaxed", /* is_construct */ 0, /* bound_to_single_stmt */ 0);
     // Register '#pragma upc strict'
-    register_new_directive("upc", "strict", /* is_construct */ 0);
+    register_new_directive("upc", "strict", /* is_construct */ 0, /* bound_to_single_stmt */ 0);
 
     // mfarrera's + IBM UPC extension that annoyingly it is not prefixed with
     // 'upc' (as it ought to be!)
     config_add_preprocessor_prefix(CURRENT_CONFIGURATION, /* index */ NULL, "distributed");
     // Register the empty directive since the syntax is '#pragma distributed'
-    register_new_directive("distributed", "", /* is_construct */ 0);
+    register_new_directive("distributed", "", /* is_construct */ 0, /* bound_to_single_stmt */ 0);
 }
 
 static void compile_every_translation_unit_aux_(int num_translation_units,

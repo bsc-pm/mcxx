@@ -13,6 +13,7 @@
 %token<token_atrib> PRAGMA_CUSTOM_NEWLINE "<pragma-custom-newline>"
 %token<token_atrib> PRAGMA_CUSTOM_DIRECTIVE "<pragma-custom-directive>"
 %token<token_atrib> PRAGMA_CUSTOM_CONSTRUCT "<pragma-custom-construct>"
+%token<token_atrib> PRAGMA_CUSTOM_CONSTRUCT_NOEND "<pragma-custom-construct-noend>"
 %token<token_atrib> PRAGMA_CUSTOM_END_CONSTRUCT "<pragma-custom-end-construct>"
 %token<token_atrib> PRAGMA_CUSTOM_CLAUSE "<pragma-custom-clause>"
 
@@ -28,6 +29,8 @@
 /*!endif*/
 /*!if FORTRAN2003*/
 %type<ast2> pragma_custom_construct_range
+%type<ast2> pragma_custom_noend_construct_range
+%type<ast> pragma_custom_noend_line_construct
 %type<ast> pragma_custom_end_construct
 %type<ast> pragma_custom_construct_program_unit
 /*!endif*/
@@ -128,12 +131,30 @@ pragma_custom_construct_statement : PRAGMA_CUSTOM pragma_custom_line_construct p
 {
 	$$ = ASTMake3(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3[0], $3[1], $1.token_file, $1.token_line, $1.token_text);
 }
+| PRAGMA_CUSTOM pragma_custom_noend_line_construct pragma_custom_noend_construct_range
+{
+	$$ = ASTMake3(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3[0], $3[1], $1.token_file, $1.token_line, $1.token_text);
+}
 ;
 
+// This case allows a sequence of statements but forces a end construct to appear
 pragma_custom_construct_range : block pragma_custom_end_construct
 {
     $$[0] = $1;
     $$[1] = $2;
+}
+;
+
+// These cases only allows a single statements but does not require an end construct to appear
+pragma_custom_noend_construct_range : program_unit_stmts pragma_custom_end_construct
+{
+    $$[0] = $1;
+    $$[1] = $2;
+}
+| program_unit_stmts 
+{
+    $$[0] = $1;
+    $$[1] = NULL;
 }
 ;
 
@@ -146,6 +167,16 @@ pragma_custom_end_construct : PRAGMA_CUSTOM PRAGMA_CUSTOM_END_CONSTRUCT pragma_c
 pragma_custom_construct_program_unit : PRAGMA_CUSTOM pragma_custom_line_construct program_unit
 {
 	$$ = ASTMake3(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+;
+
+pragma_custom_noend_line_construct : PRAGMA_CUSTOM_CONSTRUCT_NOEND pragma_custom_clause_opt_seq PRAGMA_CUSTOM_NEWLINE
+{
+	$$ = ASTMake2(AST_PRAGMA_CUSTOM_LINE, $2, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+| PRAGMA_CUSTOM_CONSTRUCT_NOEND '(' pragma_clause_arg_list ')' pragma_custom_clause_opt_seq PRAGMA_CUSTOM_NEWLINE
+{
+	$$ = ASTMake2(AST_PRAGMA_CUSTOM_LINE, $5, $3, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 /*!endif*/
