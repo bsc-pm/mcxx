@@ -286,7 +286,11 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             OpenMP::DependencyDirection attr = it->get_kind();
             if (!((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION))
             {
-                reduction_flag << "0";
+                if (Nanos::Version::interface_is_at_least("master", 5001))
+                {
+			reduction_flag << "0";
+                }
+
                 if ((attr & OpenMP::DEP_DIR_INPUT) == OpenMP::DEP_DIR_INPUT)
                 {
                         dependency_flags << "1,"; 
