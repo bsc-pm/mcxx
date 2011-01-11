@@ -423,7 +423,7 @@ type {
             }
         case PDK_CONSTRUCT :
             {
-                token = PRAGMA_CUSTOM_CONSTRUCT_NOEND;
+                token = PRAGMA_CUSTOM_CONSTRUCT;
                 break;
             }
         case PDK_NONE :
