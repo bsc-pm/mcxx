@@ -163,9 +163,19 @@ namespace TL
                     on_directive_pre[_directive].connect(functor(&Core::_name##_handler_pre, *this)); \
                     on_directive_post[_directive].connect(functor(&Core::_name##_handler_post, *this)); \
                 }
+#define OMP_CONSTRUCT_NOEND(_directive, _name) \
+                { \
+                    if (!_already_registered) \
+                    { \
+                      register_construct(_directive, true); \
+                    } \
+                    on_directive_pre[_directive].connect(functor(&Core::_name##_handler_pre, *this)); \
+                    on_directive_post[_directive].connect(functor(&Core::_name##_handler_post, *this)); \
+                }
 #include "tl-omp-constructs.def"
 #undef OMP_DIRECTIVE
 #undef OMP_CONSTRUCT
+#undef OMP_CONSTRUCT_NOEND
             _already_registered = true;
         }
 
@@ -1101,6 +1111,7 @@ namespace TL
         EMPTY_HANDLERS(flush)
         EMPTY_HANDLERS(ordered)
 #ifdef FORTRAN_SUPPORT
+        EMPTY_HANDLERS(parallel_do)
         EMPTY_HANDLERS(do)
 #endif
 

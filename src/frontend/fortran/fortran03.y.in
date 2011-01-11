@@ -2853,7 +2853,7 @@ do_construct : nonlabel_do_stmt block end_do_stmt
     ast_set_child(do_statement, 1, $2);
     ast_set_child(do_statement, 2, $3);
 
-    $$ = do_statement;
+    $$ = $1;
 }
 | nonblock_do_construct
 ;
@@ -2871,7 +2871,7 @@ action_term_do_construct : label_do_stmt block do_term_action_stmt
     AST block = ast_list_concat($2, ASTListLeaf($3));
     ast_set_child(do_statement, 1, block);
 
-    $$ = do_statement;
+    $$ = $1;
 }
 ;
 // This token is introduced artificially by the lexer to help the parser grasp
@@ -2892,7 +2892,7 @@ outer_shared_do_construct : label_do_stmt block shared_term_do_construct
     AST block = ast_list_concat($2, ASTListLeaf($3));
     ast_set_child(do_statement, 1, block);
 
-    $$ = do_statement;
+    $$ = $1;
 }
 ;
 outer_shared_do_construct_2 : label_do_shared_stmt block shared_term_do_construct
@@ -2906,7 +2906,7 @@ outer_shared_do_construct_2 : label_do_shared_stmt block shared_term_do_construc
     AST block = ast_list_concat($2, ASTListLeaf($3));
     ast_set_child(do_statement, 1, block);
 
-    $$ = do_statement;
+    $$ = $1;
 }
 ;
 shared_term_do_construct : outer_shared_do_construct_2
@@ -2923,7 +2923,7 @@ inner_shared_do_construct : label_do_shared_stmt block do_term_action_stmt
     AST block = ast_list_concat($2, ASTListLeaf($3));
     ast_set_child(do_statement, 1, block);
 
-    $$ = do_statement;
+    $$ = $1;
 }
 ;
 nonlabel_do_stmt : labeldef name_colon_opt TOK_DO loop_control eos
@@ -3103,9 +3103,9 @@ elseif_seq : labeldef elseif_toks '(' logical_expr ')' name_opt eos block elseif
     }
     $$ = result;
 }
-| labeldef elseif_toks '(' logical_expr ')' name_opt eos block labeldef TOK_ELSE name_opt block end_if_stmt
+| labeldef elseif_toks '(' logical_expr ')' name_opt eos block labeldef TOK_ELSE name_opt eos block end_if_stmt
 {
-    AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $4, $8, $12, $13, $2.token_file, $2.token_line, NULL);
+    AST result = ASTMake4(AST_IF_ELSE_STATEMENT, $4, $8, $13, $14, $2.token_file, $2.token_line, NULL);
     if ($1 != NULL)
     {
         result = ASTMake2(AST_LABELED_STATEMENT, $1, result, ASTFileName($1), ASTLine($1), NULL);

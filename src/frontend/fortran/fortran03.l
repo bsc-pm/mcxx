@@ -79,6 +79,11 @@ static void reintroduce_continued_line(char* split_line, char double_continuatio
 static char end_of_file(void);
 static void trim_inline_comment(char* line);
 
+static const char* return_pragma_prefix_longest_match(const char* prefix, 
+        const char* lexed_directive,
+        pragma_directive_kind_t* kind,
+        char* original_directive);
+
 static int is_format_statement(char* token);
 
 static char last_eos = 1;
@@ -573,13 +578,56 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
 
 <pragma_custom_directive>{
 
-{identifier} {
+{identifier}([ \t]+{identifier})* {
 	BEGIN(pragma_custom_clause_first);
 
-	parse_token_text();
-    const char* directive = strtolower(yytext);
+    const char* directive = yytext;
 
-    pragma_directive_kind_t directive_kind = lookup_pragma_directive(current_pragma_prefix, directive);
+    char is_end_directive = (strlen(directive) > 3
+            && strncasecmp(directive, "end", 3) == 0);
+
+    if (is_end_directive)
+    {
+        directive += 3;
+        while (*directive == ' ' || *directive == '\t')
+            directive++;
+    }
+
+    pragma_directive_kind_t directive_kind = PDK_NONE; 
+    // This call will unput appropriately what was lexed too much
+    char original_directive[strlen(yytext)];
+    memset(original_directive, 0, sizeof(original_directive));
+
+    const char* longest_match = return_pragma_prefix_longest_match(
+            current_pragma_prefix, directive, &directive_kind, original_directive);
+
+    if (!is_end_directive 
+            && directive_kind == PDK_NONE)
+    {
+        // Give a chance to the empty "directive" since some ill-designed
+        // pragmas might need this
+        directive_kind = lookup_pragma_directive(current_pragma_prefix, "");
+        parse_token_text(); 
+    }
+    else
+    {
+        if (!is_end_directive)
+        {
+            parse_token_text_str(original_directive);
+        }
+        else
+        {
+            // prepend 'end '
+            char c[64] = { 0 };
+
+            snprintf(c, 63, 
+                    "%c%c%c %s", 
+                    yytext[0], yytext[1], yytext[2],
+                    original_directive);
+            c[63] = '\0';
+            parse_token_text_str(c);
+        }
+    }
 
     int token = 0;
     switch (directive_kind)
@@ -591,16 +639,55 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
             }
         case PDK_CONSTRUCT_NOEND :
             {
-                token = PRAGMA_CUSTOM_CONSTRUCT_NOEND;
+                if (!is_end_directive)
+                {
+                    token = PRAGMA_CUSTOM_CONSTRUCT_NOEND;
+                }
+                else
+                {
+                    token = PRAGMA_CUSTOM_END_CONSTRUCT;
+                }
                 break;
             }
         case PDK_CONSTRUCT :
             {
-                token = PRAGMA_CUSTOM_CONSTRUCT;
-                ERROR_CONDITION(pragma_construct_stack_idx == MAX_PRAGMA_CONSTRUCT_STACK, 
-                        "Too many pragma constructs nested %d\n", MAX_PRAGMA_CONSTRUCT_STACK);
-                pragma_construct_stack[pragma_construct_stack_idx] = directive;
-                pragma_construct_stack_idx++;
+                if (!is_end_directive)
+                {
+                    ERROR_CONDITION(pragma_construct_stack_idx == MAX_PRAGMA_CONSTRUCT_STACK,
+                            "Too many pragmas nested %d", MAX_PRAGMA_CONSTRUCT_STACK);
+                    pragma_construct_stack[pragma_construct_stack_idx] = longest_match;
+                    pragma_construct_stack_idx++;
+                    token = PRAGMA_CUSTOM_CONSTRUCT;
+                }
+                else
+                {
+                    if (pragma_construct_stack_idx > 0)
+                    {
+                        if (strcmp(pragma_construct_stack[pragma_construct_stack_idx-1], longest_match) != 0)
+                        {
+                            running_error("%s:%d: error: invalid nesting for '!$%s %s', expecting '!$%s %s'\n", 
+                                    fortran_scanning_now->current_filename, 
+                                    fortran_scanning_now->line_number,
+                                    strtoupper(current_pragma_prefix), 
+                                    strtoupper(longest_match),
+                                    strtoupper(yytext),
+                                    strtoupper(pragma_construct_stack[pragma_construct_stack_idx - 1]));
+                        }
+                        else
+                        {
+                            pragma_construct_stack_idx--;
+                            token = PRAGMA_CUSTOM_END_CONSTRUCT;
+                        }
+                    }
+                    else
+                    {
+                        running_error("%s:%d: error: bad nesting for '!$%s %s'\n",
+                                fortran_scanning_now->current_filename, 
+                                fortran_scanning_now->line_number,
+                                strtoupper(current_pragma_prefix), 
+                                strtoupper(longest_match));
+                    }
+                }
                 break;
             }
         case PDK_NONE :
@@ -608,74 +695,12 @@ schar       ([^\\"\n]|{c_escape_seq}|(\\["]))
                 running_error("%s:%d: error: unknown directive '!$%s %s'. Maybe you forgot to register it?",
                         fortran_scanning_now->current_filename, 
                         fortran_scanning_now->line_number,
-                        current_pragma_prefix, directive
+                        current_pragma_prefix, strtoupper(yytext)
                         );
+
             }
         default:
             internal_error("Invalid pragma directive kind kind=%d", directive_kind);
-    }
-
-    current_pragma_prefix = NULL;
-    RETURN_TOKEN(token);
-}
-
-end[[:blank:]]*{identifier} {
-	BEGIN(pragma_custom_clause_first);
-
-	parse_token_text();
-    const char* end_directive = strtolower(yytext);
-
-    // Skip 'end' part
-    const char* directive = end_directive;
-    directive += 3;
-    while (*directive == ' ' || *directive == '\t')
-        directive++;
-
-    pragma_directive_kind_t directive_kind = lookup_pragma_directive(current_pragma_prefix, directive);
-    int token = 0;
-    switch (directive_kind)
-    {
-        case PDK_CONSTRUCT_NOEND :
-            {
-                token = PRAGMA_CUSTOM_END_CONSTRUCT;
-                break;
-            }
-        case PDK_CONSTRUCT :
-            {
-                if (pragma_construct_stack_idx > 0
-                        && strcasecmp(pragma_construct_stack[pragma_construct_stack_idx - 1], directive) == 0)
-                {
-                    token = PRAGMA_CUSTOM_END_CONSTRUCT;
-                    pragma_construct_stack_idx--;
-                }
-                else
-                {
-                    if (pragma_construct_stack_idx > 0)
-                    {
-                        running_error("%s:%d: error: invalid nesting for '!$%s %s', expecting '!$%s END %s'\n", 
-                                fortran_scanning_now->current_filename, 
-                                fortran_scanning_now->line_number,
-                                strtoupper(current_pragma_prefix), 
-                                strtoupper(end_directive),
-                                strtoupper(current_pragma_prefix),
-                                strtoupper(pragma_construct_stack[pragma_construct_stack_idx - 1]));
-                    }
-                    else
-                    {
-                        running_error("%s:%d: error: bad nesting for '!$%s %s'\n",
-                                fortran_scanning_now->current_filename, 
-                                fortran_scanning_now->line_number,
-                                strtoupper(current_pragma_prefix), strtoupper(end_directive));
-                    }
-                }
-                break;
-            }
-        default:
-                running_error("%s:%d: error: unknown directive '!$%s %s'. Maybe you forgot to register it?",
-                        fortran_scanning_now->current_filename, 
-                        fortran_scanning_now->line_number,
-                        current_pragma_prefix, end_directive
-                        );
     }
 
     current_pragma_prefix = NULL;
@@ -2854,4 +2879,115 @@ static int is_format_statement(char* token)
 	if (*p == ';') *p = '\n';
 
 	return 1;
+}
+
+static int compute_length_match(const char* lexed_directive,
+        const char* available_directive,
+        const char **discard_source)
+{
+    *discard_source = NULL;
+    const char *p = lexed_directive;
+    const char *q = available_directive;
+
+    while (*p != '\0'
+            && *q != '\0')
+    {
+        if (*q == '|')
+        {
+            // A '|' should match like [[:blank:]]* 
+            while (*p == ' ' || *p == '\t')
+                p++;
+            // We advanced too much
+            p--;
+        }
+        else if (*q != tolower(*p))
+        {
+            return 0;
+        }
+        q++;
+        p++;
+    }
+
+    *discard_source = p;
+    return (q - available_directive);
+}
+
+static const char* return_pragma_prefix_longest_match_inner(pragma_directive_set_t* pragma_directive_set,
+        const char* lexed_directive,
+        const char **discard_source,
+        pragma_directive_kind_t* directive_kind)
+{
+    const char* longest_match_so_far = NULL;
+    int length_match = 0;
+
+    int j;
+    for (j = 0; j < pragma_directive_set->num_directives; j++)
+    {
+        const char * current_discard_source = NULL;
+
+        int current_match = compute_length_match(lexed_directive, pragma_directive_set->directive_names[j], 
+                &current_discard_source);
+
+        if (current_match > length_match)
+        {
+            length_match = current_match;
+            longest_match_so_far = pragma_directive_set->directive_names[j];
+            *discard_source = current_discard_source;
+            *directive_kind = pragma_directive_set->directive_kinds[j];
+        }
+    }
+
+    return longest_match_so_far;
+}
+
+static const char* return_pragma_prefix_longest_match(const char* prefix, 
+        const char* lexed_directive,
+        pragma_directive_kind_t* kind,
+        char *original_directive)
+{
+    const char* longest_match = NULL;
+    const char* discard_source = NULL;
+
+    int i;
+    for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)
+    {
+        if (strcmp(CURRENT_CONFIGURATION->pragma_custom_prefix[i], prefix) == 0)
+        {
+            pragma_directive_set_t* pragma_directive_set = CURRENT_CONFIGURATION->pragma_custom_prefix_info[i];
+            longest_match = return_pragma_prefix_longest_match_inner(pragma_directive_set, 
+                    lexed_directive, &discard_source, kind);
+        }
+    }
+
+    const char *p = lexed_directive;
+    char *q = original_directive;
+
+    while (p != discard_source
+            && *p != '\0')
+    {
+        *q = *p;
+        q++;
+        p++;
+    }
+    *q = '\0';
+
+    if (discard_source != NULL
+            && strlen(discard_source) > 0)
+    {
+        // Discard the characters "too much lexed"
+        const char* end = discard_source;
+
+        while (*end != '\0')
+            end++;
+
+        end--;
+
+        while (end != discard_source)
+        {
+            unput(*end);
+            end--;
+        }
+    }
+
+    return longest_match;
 }

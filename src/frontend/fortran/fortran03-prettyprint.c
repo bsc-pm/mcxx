@@ -222,6 +222,7 @@ HANDLER_PROTOTYPE(where_construct_statement_handler);
 HANDLER_PROTOTYPE(where_statement_handler);
 HANDLER_PROTOTYPE(write_statement_handler);
 
+HANDLER_PROTOTYPE(literal_text_handler);
 HANDLER_PROTOTYPE(simple_text_handler);
 HANDLER_PROTOTYPE(prefix_with_parameter_then_son_handler);
 HANDLER_PROTOTYPE(binary_operator_handler);
@@ -454,7 +455,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, pragma_custom_construct_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CUSTOM_CLAUSE, pragma_custom_clause_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CUSTOM_LINE, pragma_custom_line_handler, NULL),
-    NODE_HANDLER(AST_PRAGMA_CLAUSE_ARG, simple_text_handler, NULL),
+    NODE_HANDLER(AST_PRAGMA_CLAUSE_ARG, literal_text_handler, NULL),
 };
 
 static void prettyprint_level(FILE *f, AST a, prettyprint_context_t* pt_ctx);
@@ -509,6 +510,11 @@ static void ambiguity_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 static void unary_container_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     prettyprint_level(f, ASTSon0(a), pt_ctx);
+}
+
+static void literal_text_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx UNUSED_PARAMETER)
+{
+    token_fprintf(f, a, pt_ctx, "%s", ASTText(a));
 }
 
 static void simple_text_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx UNUSED_PARAMETER)
@@ -1780,6 +1786,7 @@ static void if_then_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_
         if (ASTType(else_tree) == AST_LABELED_STATEMENT)
             else_tree = ASTSon1(else_tree);
 
+        indent_at_level(f, a, pt_ctx);
         if (ASTType(else_tree) != AST_IF_ELSE_STATEMENT)
         {
             token_fprintf(f, a, pt_ctx, "ELSE");
