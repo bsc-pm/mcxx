@@ -3194,11 +3194,12 @@ static void embed_files(void)
 }
 
 static void link_files(const char** file_list, int num_files,
+        const char** additional_files, int num_additional_files,
         compilation_configuration_t* compilation_configuration)
 {
     int num_args_linker = count_null_ended_array((void**)compilation_configuration->linker_options);
 
-    int num_arguments = num_args_linker + num_files;
+    int num_arguments = num_args_linker + num_files + num_additional_files;
     // -o output
     num_arguments += 2;
     // NULL
@@ -3221,6 +3222,12 @@ static void link_files(const char** file_list, int num_files,
     for (j = 0; j < num_files; j++)
     {
         linker_args[i] = file_list[j];
+        i++;
+    }
+
+    for (j = 0; j < num_additional_files; j++)
+    {
+        linker_args[i] = additional_files[j];
         i++;
     }
 
@@ -3353,6 +3360,7 @@ static void do_combining(target_options_map_t* target_map,
 }
 
 static void extract_files_and_sublink(const char** file_list, int num_files,
+        const char*** additional_files, int *num_additional_files,
         compilation_configuration_t* target_configuration)
 {
     multifile_init_dir();
@@ -3409,7 +3417,7 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
             int j;
             for (j = 0; j < multifile_num_files; j++)
             {
-                add_to_parameter_list_str(&target_configuration->linker_options, 
+                P_LIST_ADD((*additional_files), (*num_additional_files), 
                         multifile_file_list[j]);
             }
         }
@@ -3430,12 +3438,15 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
             configuration->linked_output_filename =
                 strappend(configuration->configuration_name, linked_output_suffix);
 
-            link_files(multifile_file_list, multifile_num_files, configuration);
+            link_files(multifile_file_list, multifile_num_files, 
+                    /* additional files */ NULL, /* num_additional_files */ 0,
+                    configuration);
 
             do_combining(target_map, configuration);
 
             // Now add the linked output as an additional link file
-            add_to_parameter_list_str(&target_configuration->linker_options, 
+            P_LIST_ADD((*additional_files), 
+                    (*num_additional_files), 
                     configuration->linked_output_filename);
         }
     }
@@ -3467,9 +3478,15 @@ static void link_objects(void)
         }
     }
 
-    extract_files_and_sublink(file_list, compilation_process.num_translation_units, CURRENT_CONFIGURATION);
+    int num_additional_files = 0;
+    const char** additional_files = NULL;
+    extract_files_and_sublink(file_list, compilation_process.num_translation_units, 
+            &additional_files, &num_additional_files, CURRENT_CONFIGURATION);
 
-    link_files(file_list, compilation_process.num_translation_units, CURRENT_CONFIGURATION);
+    link_files(file_list, compilation_process.num_translation_units, 
+            additional_files, 
+            num_additional_files, 
+            CURRENT_CONFIGURATION);
 }
 
 
