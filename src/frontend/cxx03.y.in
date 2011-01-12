@@ -289,6 +289,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> declarator_id
 %type<ast> decl_specifier_alone_seq
 %type<ast> decl_specifier_seq_0
+%type<ast> decl_specifier_seq_0_may_end_with_attribute
 %type<ast> decl_specifier_seq_ended_with_named_type_spec
 %type<ast> delete_expression
 %type<ast> designation
@@ -442,6 +443,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> named_simple_type_specifier
 %type<ast> type_specifier_alone
 %type<ast> type_specifier_seq_0
+%type<ast> type_specifier_seq_0_may_end_with_attribute
 %type<ast> type_specifier_seq_ended_with_named_type_spec
 %type<ast> unary_expression
 %type<ast> unknown_pragma
@@ -982,6 +984,36 @@ decl_specifier_seq_0 : nontype_specifier_seq no_named_type_specifier nontype_spe
 }
 ;
 
+decl_specifier_seq_0_may_end_with_attribute : nontype_specifier_seq no_named_type_specifier nontype_specifier_seq %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
+}
+| nontype_specifier_seq_for_named named_type_specifier nontype_specifier_seq_for_named %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
+}
+| nontype_specifier_seq no_named_type_specifier %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| no_named_type_specifier nontype_specifier_seq %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
+}
+| named_type_specifier nontype_specifier_seq_for_named %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
+}
+| no_named_type_specifier %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| nontype_specifier_seq_for_named %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+;
+
 // This one ends with a named type specifier
 decl_specifier_seq_ended_with_named_type_spec : nontype_specifier_seq_for_named named_type_specifier
 {
@@ -1230,7 +1262,7 @@ type_specifier_alone : class_specifier
 ;
 
 /*
-type_specifier_seq has been rewritten in a similar fashion to "decl_specifier_sequence"
+type_specifier_seq has been rewritten in a similar fashion to "decl_specifier_seq"
 */
 
 type_specifier_seq_0 : nontype_specifier_seq no_named_type_specifier nontype_specifier_no_end_attrib_seq %merge<ambiguityHandler>
@@ -1250,6 +1282,32 @@ type_specifier_seq_0 : nontype_specifier_seq no_named_type_specifier nontype_spe
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 | named_type_specifier nontype_specifier_no_end_attrib_seq_for_named %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
+}
+| no_named_type_specifier %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+;
+
+type_specifier_seq_0_may_end_with_attribute : nontype_specifier_seq no_named_type_specifier nontype_specifier_seq %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
+}
+| nontype_specifier_seq_for_named named_type_specifier nontype_specifier_seq_for_named %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
+}
+| nontype_specifier_seq no_named_type_specifier %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| no_named_type_specifier nontype_specifier_seq %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
+}
+| named_type_specifier nontype_specifier_seq_for_named %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -1974,7 +2032,7 @@ enumeration_definition : IDENTIFIER
 }
 ;
 
-type_id : type_specifier_seq_0
+type_id : type_specifier_seq_0_may_end_with_attribute
 {
 	$$ = ASTMake2(AST_TYPE_ID, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -2162,7 +2220,7 @@ parameter_declaration : decl_specifier_seq_0 nonabstract_declarator %merge<ambig
 	$$ = ASTMake3(AST_PARAMETER_DECL, $1, $2, $4, ASTFileName($1), ASTLine($1), NULL);
 }
 // --
-| decl_specifier_seq_0  %merge<ambiguityHandler>
+| decl_specifier_seq_0_may_end_with_attribute %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_PARAMETER_DECL, $1, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -3185,7 +3243,7 @@ conversion_function_id : OPERATOR conversion_type_id
 }
 ;
 
-conversion_type_id : type_specifier_seq_0
+conversion_type_id : type_specifier_seq_0_may_end_with_attribute
 {
 	$$ = ASTMake2(AST_CONVERSION_TYPE_ID, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -3968,7 +4026,7 @@ new_placement : '(' expression_list ')'
 }
 ;
 
-new_type_id : type_specifier_seq_0
+new_type_id : type_specifier_seq_0_may_end_with_attribute
 {
 	$$ = ASTMake2(AST_NEW_TYPE_ID, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -4972,7 +5030,7 @@ exception_declaration : type_specifier_seq_0 nonabstract_declarator
 {
 	$$ = ASTMake2(AST_EXCEPTION_DECLARATION, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
-| type_specifier_seq_0
+| type_specifier_seq_0_may_end_with_attribute
 {
 	$$ = ASTMake2(AST_EXCEPTION_DECLARATION, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
