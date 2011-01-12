@@ -218,8 +218,8 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> declarator_id
 %type<ast> functional_declarator_id
 %type<ast> final_declarator_id
-// %type<ast> decl_specifier
 %type<ast> decl_specifier_seq
+%type<ast> decl_specifier_seq_may_end_with_declarator
 %type<ast> abstract_direct_declarator
 %type<ast> direct_declarator
 %type<ast> functional_direct_declarator
@@ -631,6 +631,28 @@ decl_specifier_seq : nontype_specifier_seq type_specifier nontype_specifier_no_e
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
 | nontype_specifier_no_end_attrib_seq %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+;
+
+decl_specifier_seq_may_end_with_declarator : nontype_specifier_seq type_specifier nontype_specifier_seq %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
+}
+| nontype_specifier_seq type_specifier %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| type_specifier nontype_specifier_seq %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
+}
+| type_specifier %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| nontype_specifier_seq %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -1402,7 +1424,7 @@ parameter_declaration : decl_specifier_seq declarator %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_PARAMETER_DECL, $1, $2, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-| decl_specifier_seq %merge<ambiguityHandler>
+| decl_specifier_seq_may_end_with_declarator %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_PARAMETER_DECL, $1, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
