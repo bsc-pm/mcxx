@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,6 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #include "cxx-driver-utils.h"
 #include "cxx-process.h"
 #include "cxx-profile.h"
@@ -38,6 +43,10 @@ compilation_configuration_t* new_compilation_configuration(
 
     result->configuration_name = uniquestr(name);
     result->base_configuration = base;
+
+#ifdef FORTRAN_SUPPORT
+    result->column_width = 132;
+#endif
 
     return result;
 }
@@ -110,6 +119,9 @@ static void initialize_with_base_config(compilation_configuration_t* dst,
     dst->configuration_lines = configuration_lines;
 
     // Copy those fields requiring special copies
+#ifdef FORTRAN_SUPPORT
+    dst->prescanner_options = copy_null_ended_const_char_array(base->prescanner_options);
+#endif
     dst->preprocessor_options = copy_null_ended_const_char_array(base->preprocessor_options);
     dst->native_compiler_options = copy_null_ended_const_char_array(base->native_compiler_options);
     dst->linker_options = copy_null_ended_const_char_array(base->linker_options);

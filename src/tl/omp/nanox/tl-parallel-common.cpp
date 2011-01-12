@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #include "tl-parallel-common.hpp"
 #include "tl-devices.hpp"
@@ -187,7 +192,7 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
         <<   "{"
         //   We have to create a wd tied to a thread
         <<      struct_arg_type_name << " *ol_args = 0;"
-        <<      "props.tie_to = &_nanos_threads[_i];"
+        <<      "props.tie_to = _nanos_threads[_i];"
         <<      "nanos_wd_t wd = 0;"
         <<      "err = nanos_create_wd(&wd, " << num_devices << ","
         <<                    device_descriptor << ", "
@@ -203,13 +208,15 @@ Source TL::Nanox::common_parallel_code(const std::string& outline_name,
         <<   "props.tie_to = &_nanos_threads[0];"
         <<   immediate_decl
         <<   fill_immediate_arguments
-        <<   "nanos_create_wd_and_run(" << num_devices << ", "
+        <<   "err = nanos_create_wd_and_run(" << num_devices << ", "
         <<                              device_descriptor << ", "
         <<                              struct_size << ", " << (immediate_is_alloca ? "imm_args" : "&imm_args") << ","
         <<                              "0,"
         <<                              "(nanos_dependence_t*)0, "
         <<                              "&props, " << num_copies << "," << imm_copy_data << ");"
-        <<   "nanos_end_team(_nanos_team);"
+        <<   "if (err != NANOS_OK) nanos_handle_error(err);"
+        <<   "err = nanos_end_team(_nanos_team);"
+        <<   "if (err != NANOS_OK) nanos_handle_error(err);"
         << "}"
         ;
 

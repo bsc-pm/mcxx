@@ -1,8 +1,11 @@
 ##########################################################################
-#  (C) Copyright 2006-2009 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2011 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
+#                                                                        #
+#  See AUTHORS file in the top level directory for information           #
+#  regarding developers and contributors.                                #
 #                                                                        #
 #  This library is free software; you can redistribute it and/or         #
 #  modify it under the terms of the GNU Lesser General Public            #
@@ -25,6 +28,14 @@
 # work)
 mcxxexec_PROGRAMS = mcxx mcxx-embedder
 
+SUBDIRS=. 
+
+DIST_SUBDIRS=fortran
+
+if FORTRAN_SUPPORT
+SUBDIRS += fortran
+endif
+
 if ENABLE_PKGLIB_INSTALL
 mcxxexecdir = $(pkglibdir)
 else
@@ -46,6 +57,11 @@ mcxx_CFLAGS=-fexceptions \
 			-I$(top_builddir)/src/mcxx_tl \
 			-DPKGDATADIR=\"$(pkgdatadir)\" \
 			-Wall
+
+if FORTRAN_SUPPORT
+mcxx_CFLAGS += -I$(top_srcdir)/src/frontend/fortran
+mcxx_CFLAGS += -I$(top_builddir)/src/frontend/fortran
+endif
 
 mcxx_SOURCES = \
   cxx-configfile.h \
@@ -82,6 +98,10 @@ mcxx_LDADD = \
    $(top_builddir)/src/tl/libtl.la \
    $(top_builddir)/src/mcxx_tl/libmcxxtl.la \
    $(END)
+
+if FORTRAN_SUPPORT
+mcxx_LDADD += $(top_builddir)/src/frontend/fortran/libmf03.la
+endif
 
 if WINDOWS_BUILD
 else

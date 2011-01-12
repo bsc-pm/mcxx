@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #include "tl-omp-nanox.hpp"
 #include "tl-data-env.hpp"
@@ -276,36 +281,48 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
                 it++)
         {
             Source dependency_flags;
+            Source reduction_flag;
             dependency_flags << "{";
             OpenMP::DependencyDirection attr = it->get_kind();
             if (!((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION))
             {
-                    if ((attr & OpenMP::DEP_DIR_INPUT) == OpenMP::DEP_DIR_INPUT)
-                    {
-                            dependency_flags << "1,"; 
-                    }
-                    else
-                    {
-                            dependency_flags << "0,"; 
-                    }
-                    if ((attr & OpenMP::DEP_DIR_OUTPUT) == OpenMP::DEP_DIR_OUTPUT)
-                    {
-                            dependency_flags << "1,"; 
-                    }
-                    else
-                    {
-                            dependency_flags << "0,"; 
-                    }
+                if (Nanos::Version::interface_is_at_least("master", 5001))
+                {
+			reduction_flag << "0";
+                }
+
+                if ((attr & OpenMP::DEP_DIR_INPUT) == OpenMP::DEP_DIR_INPUT)
+                {
+                        dependency_flags << "1,"; 
+                }
+                else
+                {
+                        dependency_flags << "0,"; 
+                }
+                if ((attr & OpenMP::DEP_DIR_OUTPUT) == OpenMP::DEP_DIR_OUTPUT)
+                {
+                        dependency_flags << "1,"; 
+                }
+                else
+                {
+                        dependency_flags << "0,"; 
+                }
             }
             else 
             {
-                    if (Nanos::Version::version < 5001)
-                    {
-                            printf("%s: warning: the current version of Nanos does not support reduction dependencies in Superscalar\n",
-                                   ctr.get_ast().get_locus().c_str());
-                    }
-                    // Reduction behave like an inout
-                    dependency_flags << "1, 1,"; 
+                if (!Nanos::Version::interface_is_at_least("master", 5001))
+                {
+                    fprintf(stderr,
+                            "%s: warning: the current version of Nanos does not"
+                            " support reduction dependencies in Superscalar\n",
+                            ctr.get_ast().get_locus().c_str());
+                }
+                else
+                {
+                    reduction_flag << "1";
+                }
+                // Reduction behaves like an inout
+                dependency_flags << "1, 1,";
             }
 
             Source dependency_field_name;
@@ -329,16 +346,17 @@ void OMPTransform::task_postorder(PragmaCustomConstruct ctr)
             if ((attr & OpenMP::DEP_REDUCTION) == OpenMP::DEP_REDUCTION)
             {
                 // Reductions cannot be renamed
-                dependency_flags << "0"
+                dependency_flags << "0,"
                     ;
             }
             else
             {
                 // Can rename otherwise
-                dependency_flags << "1"
+                dependency_flags << "1,"
                     ;
             }
 
+            dependency_flags << reduction_flag;
             dependency_flags << "}"
                     ;
 

@@ -89,11 +89,53 @@ AC_COMPILE_IFELSE(
 )
 
 dnl --------------------- end check of old gcc ---
+
 TL_EXTENSIONS=""
 TL_OMP_EXTENSIONS=""
 INSTALL_CONFIG_FILES="config.plain"
 
 COMPILER_NAMES="plaincxx plaincc"
+
+dnl ----- Fortran support ----
+
+FRONTEND_EXTENSIONS=""
+
+is_enabled_fortran="no"
+AC_MSG_CHECKING([if enabled Fortran support in the compiler])
+AC_ARG_ENABLE([fortran],
+    AS_HELP_STRING([--enable-fortran], [Enables Fortran support. This is EXPERIMENTAL]),
+    [
+      if test x$enableval = xyes -o x$enableval = x;
+      then
+         is_enabled_fortran="yes"
+         AC_MSG_RESULT([yes])
+      else if test x$enableval = xno;
+           then
+              is_enabled_fortran="no"
+              AC_MSG_RESULT([no])
+           else
+              AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+           fi
+      fi
+    ],
+    [
+       AC_MSG_RESULT([no])
+    ]
+)
+
+if test x$is_enabled_fortran = xyes;
+then
+    FRONTEND_EXTENSIONS=" fortran"
+    AC_DEFINE([FORTRAN_SUPPORT], 1, [Define to 1 if Fortran support is enabled in the compiler])
+    COMPILER_NAMES="${COMPILER_NAMES} plainf95"
+fi
+
+AM_CONDITIONAL(FORTRAN_SUPPORT, test x$is_enabled_fortran = xyes)
+
+AC_SUBST([FRONTEND_EXTENSIONS])
+
+dnl ----- End of Fortran support ----
+
 
 dnl --------------------- Support for OMPSS ------------------------------------------
 is_enabled_openmpt="no"
@@ -225,8 +267,24 @@ then
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.cuda"
 fi
 
+NANOX_INSTRUMENTATION=""
+AC_MSG_CHECKING([whether used installation of Nanos++ has instrumentation support])
+if test -e "${nanox_lib}/instrumentation" -a -d "${nanox_lib}/instrumentation";
+then
+  NANOX_INSTRUMENTATION="yes"
+  AC_MSG_RESULT([yes])
+else
+ if test -e "${nanox_lib}";
+ then
+  AC_MSG_RESULT([no])
+ else
+  AC_MSG_RESULT([no, Nanos++ library directori does not exist])
+ fi
+fi
+
 AC_SUBST([NANOX_INCLUDES])
 AC_SUBST([NANOX_LIBS])
+AC_SUBST([NANOX_INSTRUMENTATION])
 
 dnl --------------------- End of Support for OpenMP Nanox -------------------------------
 
@@ -1136,7 +1194,9 @@ AC_CONFIG_FILES([Makefile
            lib/Makefile
            src/Makefile 
            src/driver/Makefile 
+           src/driver/fortran/Makefile 
            src/frontend/Makefile 
+           src/frontend/fortran/Makefile 
            src/mcxx_tl/Makefile 
            src/tl/Makefile 
            src/tl/hlt/Makefile
@@ -1195,6 +1255,8 @@ echo "==============================="
 echo ""
 echo " * Default type environment : " $default_type_environ
 echo ""
+echo " * Fortran support (EXPERIMENTAL): " $is_enabled_fortran
+echo ""
 echo " * TL Examples will be built :" $is_enabled_tl_examples
 echo ""
 echo " * Nanos++ OpenMP :" $is_enabled_tl_omp_nanox
@@ -1202,7 +1264,13 @@ if test x$is_enabled_tl_omp_nanox = xyes;
 then
   echo "   Nanos++ includes :" $nanox_include
   echo "   Nanos++ libraries:" $nanox_lib
+
+  if test ! -e "$nanox_include" -o ! -d "$nanox_include"; 
+  then
+     AC_MSG_WARN([directory '${nanox_include}' does not seem to exist, compilation is likely to fail])
+  fi
 fi
+
 echo "   GPU testing enabled:" $gpu_valid
 echo ""
 echo " * Nanos 4 OpenMP :" $is_enabled_tl_omp_nanos4

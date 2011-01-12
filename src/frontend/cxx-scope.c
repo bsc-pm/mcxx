@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -103,6 +108,11 @@ static int strcmp_vptr(const void* v1, const void *v2)
     return strcmp((const char*)v1, (const char*) v2);
 }
 
+static int strcasecmp_vptr(const void* v1, const void *v2)
+{
+    return strcasecmp((const char*)v1, (const char*) v2);
+}
+
 static void null_dtor_func(const void *v UNUSED_PARAMETER) { }
 
 // Any new scope should be created using this one
@@ -112,6 +122,16 @@ static scope_t* new_scope(void)
 
     result->hash =
         rb_tree_create(strcmp_vptr, null_dtor_func, null_dtor_func);
+
+    return result;
+}
+
+static scope_t* new_scope_case_insensitive(void)
+{
+    scope_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
+    
+    result->hash =
+        rb_tree_create(strcasecmp_vptr, null_dtor_func, null_dtor_func);
 
     return result;
 }
@@ -258,6 +278,32 @@ decl_context_t new_global_context(void)
     result.current_scope = result.namespace_scope;
 
     global_scope_namespace->namespace_decl_context = result;
+
+    return result;
+}
+
+decl_context_t new_program_unit_context(void)
+{
+    // This function is intended for Fortran only
+    decl_context_t result = new_decl_context();
+
+    result.global_scope = new_scope_case_insensitive();
+    result.global_scope->kind = BLOCK_SCOPE;
+
+    result.current_scope = result.global_scope;
+
+    return result;
+}
+
+decl_context_t new_internal_program_unit_context(decl_context_t enclosing_decl_context)
+{
+    // This function is intended for Fortran only
+    decl_context_t result = new_decl_context();
+
+    result.global_scope = new_scope_case_insensitive();
+    result.global_scope->kind = BLOCK_SCOPE;
+    result.global_scope->contained_in = enclosing_decl_context.current_scope;
+    result.current_scope = result.global_scope;
 
     return result;
 }
@@ -2185,6 +2231,11 @@ static template_argument_list_t* update_template_argument_list(
     int i;
     for (i = 0; i < template_arguments->num_arguments; i++)
     {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCOPE: Updating template argument %d of %d\n",
+                    i, template_arguments->num_arguments);
+        }
         template_arguments->argument_list[i] = update_template_argument(
                 template_arguments->argument_list[i],
                 template_arguments_context, 

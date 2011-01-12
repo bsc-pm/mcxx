@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #ifndef TL_OMP_NANOX_HPP
 #define TL_OMP_NANOX_HPP
@@ -49,6 +54,9 @@ namespace Nanox
             void critical_postorder(PragmaCustomConstruct ctr);
             void master_postorder(PragmaCustomConstruct ctr);
 
+            // Functions for Reductions
+            void declare_reduction_preorder(PragmaCustomConstruct ctr);
+
             void sections_preorder(PragmaCustomConstruct ctr);
             void sections_postorder(PragmaCustomConstruct ctr);
 
@@ -68,11 +76,13 @@ namespace Nanox
             std::string _compiler_alignment_str;
             void set_compiler_alignment(const std::string& str);
 
-
             // Data that does not last between files
             ObjectList<Symbol> _converted_vlas;
             std::set<std::string> _lock_names;
-            
+
+            // Support
+            Source get_single_guard(const std::string&);
+
             // Temporary data during traversal
             struct SectionInfo
             {
@@ -83,7 +93,7 @@ namespace Nanox
 
             ObjectList<SectionInfoList> _section_info;
 
-	    virtual void run(TL::DTO& dto);
+            virtual void run(TL::DTO& dto);
     };
 
     const std::string NANOX_OUTLINE_COUNTER("nanox_outline_counter");

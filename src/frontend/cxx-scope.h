@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -21,6 +24,8 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+
+
 #ifndef CXX_SCOPE_H
 #define CXX_SCOPE_H
 
@@ -35,6 +40,8 @@
 MCXX_BEGIN_DECLS
 
 LIBMCXX_EXTERN decl_context_t new_global_context(void);
+LIBMCXX_EXTERN decl_context_t new_program_unit_context(void); // Fortran only
+LIBMCXX_EXTERN decl_context_t new_internal_program_unit_context(decl_context_t enclosing_context); // Fortran only
 LIBMCXX_EXTERN decl_context_t new_namespace_context(decl_context_t enclosing_decl_context, scope_entry_t* namespace_symbol);
 LIBMCXX_EXTERN decl_context_t new_prototype_context(decl_context_t enclosing_decl_context);
 LIBMCXX_EXTERN decl_context_t new_block_context(decl_context_t enclosing_decl_context);

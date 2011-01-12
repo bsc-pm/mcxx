@@ -1,3 +1,29 @@
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
 %{
 /* 
    This file should be preprocessed with tpp (available in lib)
@@ -100,7 +126,7 @@ static void parse_token_text_str(const char*);
 
 struct scan_file_descriptor scanning_now;
 
-static const char* main_input_filename;
+static const char* main_input_filename = NULL;
 
 static int pragma_custom_var_list_parentheses = 0;
 
@@ -120,7 +146,7 @@ static int num_new_lines(const char* c)
     return result;
 }
 
-static int include_counter;
+static int include_counter = 0;
 
 // static int verbatim_buffer_size = 0;
 // static const char *verbatim_buffer = NULL;
@@ -128,7 +154,6 @@ static int include_counter;
 static void verbatim_buffer_append(const char* c);
 static void verbatim_buffer_free(void);
 static const char* verbatim_buffer_get(void);
-
 
 static const char* return_pragma_prefix_longest_match(const char* prefix, 
         const char* lexed_directive,
@@ -303,7 +328,7 @@ type {
 }
 
 <pragma_line>{identifier} {
-	// Unknown pragmas
+	// Custom pragmas
 	int i;
 	char found = 0;
 
@@ -370,7 +395,6 @@ type {
 	BEGIN(pragma_custom_clause_first);
 
     pragma_directive_kind_t directive_kind = PDK_NONE; 
-    // lookup_pragma_directive(current_pragma_prefix, yytext);
 
     // This call will unput appropriately what was lexed too much
     const char* longest_match = return_pragma_prefix_longest_match(
@@ -1357,9 +1381,15 @@ static void register_new_directive_inner(pragma_directive_set_t* pragma_directiv
             kind);
 }
 
-void register_new_directive(const char* prefix, const char* directive, char is_construct)
+void register_new_directive(const char* prefix, const char* directive, char is_construct, char bound_to_single_stmt)
 {
     pragma_directive_kind_t kind = (is_construct ? PDK_CONSTRUCT : PDK_DIRECTIVE);
+
+    if (kind == PDK_CONSTRUCT 
+            && bound_to_single_stmt)
+    {
+        kind = PDK_CONSTRUCT_NOEND;
+    }
 
     int i;
     for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)

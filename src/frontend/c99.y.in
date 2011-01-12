@@ -1,3 +1,29 @@
+/*--------------------------------------------------------------------
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
+                          Centro Nacional de Supercomputacion
+  
+  This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  Mercurium C/C++ source-to-source compiler is distributed in the hope
+  that it will be useful, but WITHOUT ANY WARRANTY; without even the
+  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+  PURPOSE.  See the GNU Lesser General Public License for more
+  details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with Mercurium C/C++ source-to-source compiler; if
+  not, write to the Free Software Foundation, Inc., 675 Mass Ave,
+  Cambridge, MA 02139, USA.
+--------------------------------------------------------------------*/
+
 %{
 /*
    Parser of ISO/IEC 9899:1999 - C
@@ -192,8 +218,8 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> declarator_id
 %type<ast> functional_declarator_id
 %type<ast> final_declarator_id
-// %type<ast> decl_specifier
 %type<ast> decl_specifier_seq
+%type<ast> decl_specifier_seq_may_end_with_declarator
 %type<ast> abstract_direct_declarator
 %type<ast> direct_declarator
 %type<ast> functional_direct_declarator
@@ -262,6 +288,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> type_name
 %type<ast> type_specifier
 %type<ast> type_specifier_seq
+%type<ast> type_specifier_seq_may_end_with_attribute
 %type<ast> unary_expression
 %type<ast> unqualified_id
 %type<ast> nontype_specifier_seq
@@ -609,6 +636,28 @@ decl_specifier_seq : nontype_specifier_seq type_specifier nontype_specifier_no_e
 }
 ;
 
+decl_specifier_seq_may_end_with_declarator : nontype_specifier_seq type_specifier nontype_specifier_seq %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
+}
+| nontype_specifier_seq type_specifier %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| type_specifier nontype_specifier_seq %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
+}
+| type_specifier %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| nontype_specifier_seq %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+;
+
 // This does not declare an object, maybe just types, so restrict it a bit
 // 
 // Note that, in contrast to decl_specifier_seq, we allow here to end with an attribute
@@ -781,6 +830,28 @@ type_specifier_seq : nontype_specifier_seq type_specifier nontype_specifier_no_e
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
 | nontype_specifier_no_end_attrib_seq %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+;
+
+type_specifier_seq_may_end_with_attribute : nontype_specifier_seq type_specifier nontype_specifier_seq %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
+}
+| nontype_specifier_seq type_specifier %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| type_specifier nontype_specifier_seq %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
+}
+| type_specifier %merge<ambiguityHandler>
+{
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
+}
+| nontype_specifier_seq %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -1212,17 +1283,17 @@ enumeration_definition : IDENTIFIER
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, $1.token_file, $1.token_line, $1.token_text);
 
-	$$ = ASTMake2(AST_ENUM_DEF, identifier, NULL, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_ENUMERATOR_DEF, identifier, NULL, $1.token_file, $1.token_line, NULL);
 }
 | IDENTIFIER '=' constant_expression
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, $1.token_file, $1.token_line, $1.token_text);
 
-	$$ = ASTMake2(AST_ENUM_DEF, identifier, $3, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_ENUMERATOR_DEF, identifier, $3, $1.token_file, $1.token_line, NULL);
 }
 ;
 
-type_id : type_specifier_seq
+type_id : type_specifier_seq_may_end_with_attribute
 {
 	$$ = ASTMake2(AST_TYPE_ID, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -1353,7 +1424,7 @@ parameter_declaration : decl_specifier_seq declarator %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_PARAMETER_DECL, $1, $2, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
-| decl_specifier_seq %merge<ambiguityHandler>
+| decl_specifier_seq_may_end_with_declarator %merge<ambiguityHandler>
 {
 	$$ = ASTMake3(AST_PARAMETER_DECL, $1, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -1751,14 +1822,14 @@ statement_seq : statement
 // We can generate anything here
 if_statement : IF '(' condition ')' statement
 {
-	$$ = ASTMake3(AST_IF_ELSE_STATEMENT, $3, $5, NULL, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake4(AST_IF_ELSE_STATEMENT, $3, $5, NULL, NULL, $1.token_file, $1.token_line, NULL);
 }
 ;
 
 // Here only if with an else inside
 if_else_statement : IF '(' condition ')' if_else_eligible_statements ELSE statement
 {
-	$$ = ASTMake3(AST_IF_ELSE_STATEMENT, $3, $5, $7, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake4(AST_IF_ELSE_STATEMENT, $3, $5, $7, NULL, $1.token_file, $1.token_line, NULL);
 }
 ;
 

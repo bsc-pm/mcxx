@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #ifndef TL_PRAGMASUPPORT_HPP
 #define TL_PRAGMASUPPORT_HPP
@@ -425,8 +430,20 @@ namespace TL
             //! Function to register a construct
             /*!
              * This is required for successful parsing of construct
+             *
+             * \param bound_to_statement This parameter is only meaningful in
+             * Fortran and will have no effect in C/C++.  If true, the
+             * construct is bounded to the next single statement. By default in
+             * Fortran a construct 'name' is bound to a block of statements,
+             * thus requiring a 'end name' directive to know where such block
+             * ends. By binding the construct to the next statement, such 'end
+             * name' it is not strictly needed anymore thus becoming optional.
+             * This parameter does not have any effect in C/C++ since in those
+             * languages pragma constructs are always bound to the next
+             * statement since blocks are expressed by compound-statements
+             * which are statements (recursively) containing other statements
              */
-            void register_construct(const std::string& name);
+            void register_construct(const std::string& name, bool bound_to_statement = false);
 
             //! Function to activate a flag in order to warning about all the unused clauses of a pragma
             /*!

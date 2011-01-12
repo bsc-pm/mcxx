@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #include "tl-omp-core.hpp"
 #include "tl-langconstruct.hpp"
@@ -87,6 +92,14 @@ namespace TL
 
         void Core::run(TL::DTO& dto)
         {
+#ifdef FORTRAN_SUPPORT
+            FORTRAN_LANGUAGE()
+            {
+                // Not yet implemented
+                return;
+            }
+#endif
+
             // "openmp_info" should exist
             if (!dto.get_keys().contains("openmp_info"))
             {
@@ -97,14 +110,12 @@ namespace TL
 
             if (dto.get_keys().contains("openmp_core_should_run"))
             {
-                TL::Bool should_run(dto["openmp_core_should_run"]);
-                if (!should_run)
-                {
+                RefPtr<TL::Bool> should_run = RefPtr<TL::Bool>::cast_dynamic(dto["openmp_core_should_run"]);
+                if (!(*should_run))
                     return;
-                }
 
                 // Make this phase a one shot by default
-                should_run = false;
+                *should_run = false;
             }
 
 			if (dto.get_keys().contains("show_warnings"))
@@ -152,9 +163,19 @@ namespace TL
                     on_directive_pre[_directive].connect(functor(&Core::_name##_handler_pre, *this)); \
                     on_directive_post[_directive].connect(functor(&Core::_name##_handler_post, *this)); \
                 }
+#define OMP_CONSTRUCT_NOEND(_directive, _name) \
+                { \
+                    if (!_already_registered) \
+                    { \
+                      register_construct(_directive, true); \
+                    } \
+                    on_directive_pre[_directive].connect(functor(&Core::_name##_handler_pre, *this)); \
+                    on_directive_post[_directive].connect(functor(&Core::_name##_handler_post, *this)); \
+                }
 #include "tl-omp-constructs.def"
 #undef OMP_DIRECTIVE
 #undef OMP_CONSTRUCT
+#undef OMP_CONSTRUCT_NOEND
             _already_registered = true;
         }
 
@@ -908,6 +929,7 @@ namespace TL
             _openmp_info->push_current_data_sharing(data_sharing);
             common_parallel_handler(construct, data_sharing);
         }
+
         void Core::parallel_handler_post(PragmaCustomConstruct construct)
         {
             _openmp_info->pop_current_data_sharing();
@@ -927,6 +949,7 @@ namespace TL
             common_parallel_handler(construct, data_sharing);
             common_for_handler(construct, data_sharing);
         }
+
         void Core::parallel_for_handler_post(PragmaCustomConstruct construct)
         {
             _openmp_info->pop_current_data_sharing();
@@ -945,7 +968,9 @@ namespace TL
             _openmp_info->push_current_data_sharing(data_sharing);
             common_workshare_handler(construct, data_sharing);
             common_for_handler(construct, data_sharing);
+            get_dependences_info(construct, data_sharing);
         }
+
         void Core::for_handler_post(PragmaCustomConstruct construct)
         {
             _openmp_info->pop_current_data_sharing();
@@ -957,6 +982,7 @@ namespace TL
             _openmp_info->push_current_data_sharing(data_sharing);
             common_workshare_handler(construct, data_sharing);
         }
+
         void Core::single_handler_post(PragmaCustomConstruct construct)
         {
             _openmp_info->pop_current_data_sharing();
@@ -1084,12 +1110,16 @@ namespace TL
         EMPTY_HANDLERS(critical)
         EMPTY_HANDLERS(flush)
         EMPTY_HANDLERS(ordered)
+#ifdef FORTRAN_SUPPORT
+        EMPTY_HANDLERS(parallel_do)
+        EMPTY_HANDLERS(do)
+#endif
 
         void openmp_core_run_next_time(DTO& dto)
         {
             // Make openmp core run in the pipeline
-            TL::Bool openmp_core_should_run = dto["openmp_core_should_run"];
-            openmp_core_should_run = true;
+            RefPtr<TL::Bool> openmp_core_should_run = RefPtr<TL::Bool>::cast_dynamic(dto["openmp_core_should_run"]);
+            *openmp_core_should_run = true;
         }
 
     }

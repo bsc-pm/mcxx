@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #include "tl-omp-nanox.hpp"
 #include "tl-nanos.hpp"
@@ -52,7 +57,7 @@ OMPTransform::OMPTransform() : _compiler_alignment(true)
     on_directive_post["flush"].connect(functor(&OMPTransform::flush_postorder, *this));
 
     on_directive_post["target"].connect(functor(&OMPTransform::target_postorder, *this));
-
+    
     register_parameter("instrument", 
             "Enables nanox instrumentation if set to '1'",
             _enable_instrumentation_str,
@@ -84,7 +89,7 @@ OMPTransform::OMPTransform() : _compiler_alignment(true)
 
 void OMPTransform::unimplemented_yet(PragmaCustomConstruct construct)
 {
-    running_error("%s: error: OpenMP construct/directive not implemented yet in Nanos++\n", 
+    running_error("%s: error: OpenMP construct/directive not implemented yet in Nanos++\n",
             construct.get_ast().get_locus().c_str());
 }
 
@@ -110,10 +115,10 @@ void OMPTransform::phase_cleanup(DTO& data_flow)
 
 void OMPTransform::run(DTO& dto)
 {
-    if (strcmp(Nanos::Version::family.c_str(), "master") != 0 || Nanos::Version::version < 5000)
+    if (!Nanos::Version::interface_is_at_least("master", 5000))
     {
-        running_error("error: unsupported family '%s' and/or version '%d' of Nanos\n", 
-                             Nanos::Version::family.c_str(), Nanos::Version::version);
+        running_error("error: unsupported Nanos++ 'master' interface version %d\n",
+                Nanos::Version::version_of_interface("master"));
     }
 
     OpenMP::OpenMPPhase::run(dto);

@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #ifndef CXX_LEXER_H
 #define CXX_LEXER_H
@@ -47,6 +52,7 @@ struct scan_file_descriptor
     // Current filename due to include lines
     const char* current_filename;
     int line_number;
+    int joined_lines;
     FILE* file_descriptor;
     struct yy_buffer_state* scanning_buffer;
 };
@@ -59,7 +65,9 @@ LIBMCXX_EXTERN int mc99_open_file_for_scanning(const char* scanned_filename, con
 LIBMCXX_EXTERN int mcxx_prepare_string_for_scanning(const char* str);
 LIBMCXX_EXTERN int mc99_prepare_string_for_scanning(const char* str);
 
-LIBMCXX_EXTERN void register_new_directive(const char* prefix, const char* directive, char is_construct);
+LIBMCXX_EXTERN void register_new_directive(const char* prefix, const char* directive, char is_construct, 
+        /* This flag is only meaningful in Fortran */
+        char bound_to_single_stmt);
 
 LIBMCXX_EXTERN pragma_directive_kind_t lookup_pragma_directive(const char* prefix, const char* directive);
 

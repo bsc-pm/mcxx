@@ -11,3 +11,4 @@ linker_options =
 target_options[sscc] = no_sublink no_embed
 target_options[mcc] = no_sublink no_embed
 target_options[mcxx] = no_sublink no_embed
+target_options[sscxx] = no_sublink no_embed

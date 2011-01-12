@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #ifndef CXX_DRIVER_DECLS_H
 #define CXX_DRIVER_DECLS_H
@@ -62,23 +67,33 @@ typedef enum
     OPTION_ENABLE_HLT,
     OPTION_DO_NOT_UNLOAD_PHASES,
     OPTION_INSTANTIATE_TEMPLATES,
+    OPTION_ALWAYS_PREPROCESS,
+    OPTION_FORTRAN_COLUMN_WIDTH,
+    OPTION_FORTRAN_FIXED,
+    OPTION_FORTRAN_FREE,
+    OPTION_EMPTY_SENTINELS,
     OPTION_VERBOSE
 } COMMAND_LINE_OPTIONS;
 
 // Kind of source 
+#define BITMAP(X) (1<<X)
 typedef enum source_kind_tag
 {
     SOURCE_KIND_UNKNOWN = 0,
-    SOURCE_KIND_NOT_PREPROCESSED,
-    SOURCE_KIND_PREPROCESSED,
-    SOURCE_KIND_NOT_PARSED,
+    SOURCE_KIND_NOT_PREPROCESSED = BITMAP(0),
+    SOURCE_KIND_PREPROCESSED = BITMAP(1),
+    SOURCE_KIND_FIXED_FORM = BITMAP(2),
+    SOURCE_KIND_FREE_FORM = BITMAP(3),
+    SOURCE_KIND_NOT_PARSED = BITMAP(4),
 } source_kind_t;
+#undef BITMAP
 
 typedef enum source_language_tag
 {
     SOURCE_LANGUAGE_UNKNOWN = 0,
     SOURCE_LANGUAGE_C,
     SOURCE_LANGUAGE_CXX,
+    SOURCE_LANGUAGE_FORTRAN,
     SOURCE_LANGUAGE_CUDA,
     SOURCE_LANGUAGE_ASSEMBLER,
     SOURCE_LANGUAGE_LINKER_DATA,
@@ -157,7 +172,8 @@ typedef enum pragma_directive_kind_tag
 {
     PDK_NONE = 0,
     PDK_DIRECTIVE,
-    PDK_CONSTRUCT
+    PDK_CONSTRUCT,
+    PDK_CONSTRUCT_NOEND
 } pragma_directive_kind_t;
 
 typedef struct pragma_directive_set_tag
@@ -293,7 +309,6 @@ typedef struct compilation_configuration_tag
     char verbose;
     char keep_files;
     char keep_temporaries;
-    char check_dates;
     char do_not_process_files;
     char do_not_parse;
     char do_not_prettyprint;
@@ -319,6 +334,13 @@ typedef struct compilation_configuration_tag
     const char** preprocessor_options;
     char preprocessor_uses_stdout;
 
+#ifdef FORTRAN_SUPPORT
+    // Fortran prescanner
+    const char** prescanner_options;
+    int column_width;
+#endif
+    source_kind_t force_source_kind;
+
     const char* native_compiler_name;
     const char** native_compiler_options;
 
@@ -326,6 +348,10 @@ typedef struct compilation_configuration_tag
     const char** linker_options;
 
     const char* output_directory;
+
+    // Include directories
+    int num_include_dirs;
+    const char** include_dirs;
 
     int num_compiler_phases;
 	compiler_phase_loader_t** phase_loader;
@@ -378,6 +404,11 @@ typedef struct compilation_configuration_tag
     // Target options
     int num_target_option_maps;
     target_options_map_t** target_options_maps;
+
+#ifdef FORTRAN_SUPPORT
+    // Fortran lexing
+    char disable_empty_sentinels;
+#endif
 } compilation_configuration_t;
 
 struct compiler_phase_loader_tag

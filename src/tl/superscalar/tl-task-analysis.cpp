@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 
 
@@ -131,7 +136,7 @@ namespace TL
 		return direction_name;
 	}
 	
-	Region TL::TaskAnalysis::handle_parameter(AST_t construct_ast, AST_t context_ast, ScopeLink scope_link, std::string const &parameter_specification, std::string const &line_annotation, Region::Direction direction, Region::Reduction reduction, AugmentedSymbol &parameter_symbol)
+	Region TL::TaskAnalysis::handle_parameter(AST_t construct_ast, AST_t context_ast, ScopeLink scope_link, std::string const &parameter_specification, std::string const &line_annotation, Region::Direction direction, Region::Reduction reduction, AugmentedSymbol &function_symbol, AugmentedSymbol &parameter_symbol)
 	{
 		std::string const direction_name = direction_to_name(direction);
 		
@@ -159,7 +164,7 @@ namespace TL
 		
 		try
 		{
-			Region region = SourceBits::handle_superscalar_declarator(context_ast, scope_link, line_annotation + separated_parameter_specification, direction, reduction, parameter_symbol);
+			Region region = SourceBits::handle_superscalar_declarator(context_ast, scope_link, line_annotation + separated_parameter_specification, direction, reduction, function_symbol, parameter_symbol);
 			
 			if (!parameter_symbol.is_parameter())
 			{
@@ -227,8 +232,8 @@ namespace TL
 		
 		
 		AST_t construct_ast = construct.get_ast();
-		AugmentedSymbol symbol = declared_entity.get_declared_symbol();
-		std::string function_name = symbol.get_qualified_name();
+		AugmentedSymbol function_symbol = declared_entity.get_declared_symbol();
+		std::string function_name = function_symbol.get_qualified_name();
 		
 		
 		// Check for var args
@@ -311,7 +316,7 @@ namespace TL
 				reduction_regions.erase(it);
 			}
 			
-			Region region = handle_parameter(construct_ast, context_ast, construct.get_scope_link(), parameter_specification, line_annotation, Region::INPUT_DIR, red, parameter_symbol);
+			Region region = handle_parameter(construct_ast, context_ast, construct.get_scope_link(), parameter_specification, line_annotation, Region::INPUT_DIR, red, function_symbol, parameter_symbol);
 			bool correct = parameter_region_lists[parameter_symbol].add(region);
 			if (!correct)
 			{
@@ -335,7 +340,7 @@ namespace TL
 				reduction_regions.erase(it);
 			}
 			
-			Region region = handle_parameter(construct_ast, context_ast, construct.get_scope_link(), parameter_specification, line_annotation, Region::OUTPUT_DIR, red, parameter_symbol);
+			Region region = handle_parameter(construct_ast, context_ast, construct.get_scope_link(), parameter_specification, line_annotation, Region::OUTPUT_DIR, red, function_symbol, parameter_symbol);
 			bool correct = parameter_region_lists[parameter_symbol].add(region);
 			if (!correct)
 			{
@@ -359,7 +364,7 @@ namespace TL
 				reduction_regions.erase(it);
 			}
 			
-			Region region = handle_parameter(construct_ast, context_ast, construct.get_scope_link(), parameter_specification, line_annotation, Region::INOUT_DIR, red, parameter_symbol);
+			Region region = handle_parameter(construct_ast, context_ast, construct.get_scope_link(), parameter_specification, line_annotation, Region::INOUT_DIR, red, function_symbol, parameter_symbol);
 			bool correct = parameter_region_lists[parameter_symbol].add(region);
 			if (!correct)
 			{
@@ -434,21 +439,21 @@ namespace TL
 		}
 		
 		
-		if (symbol.is_task())
+		if (function_symbol.is_task())
 		{
 			// Check that everything still matches
-			if (symbol.has_high_priority() != has_high_priority)
+			if (function_symbol.has_high_priority() != has_high_priority)
 			{
 				std::cerr << construct.get_ast().get_locus() << " Error: priority does not match with previous definition or declaration." << std::endl;
 				TaskAnalysis::fail();
 			}
-			if (symbol.is_blocking() != is_blocking)
+			if (function_symbol.is_blocking() != is_blocking)
 			{
 				std::cerr << construct.get_ast().get_locus() << " Error: blocking property does not match with previous definition or declaration." << std::endl;
 				TaskAnalysis::fail();
 			}
 			
-			RefPtr<ParameterRegionList> previous_parameter_region_lists = symbol.get_parameter_region_list();
+			RefPtr<ParameterRegionList> previous_parameter_region_lists = function_symbol.get_parameter_region_list();
 			for (std::map<Symbol, RegionList>::iterator it = parameter_region_lists.begin(); it != parameter_region_lists.end(); it++)
 			{
 				// For each parameter, get the current region list
@@ -476,13 +481,13 @@ namespace TL
 		else
 		{
 			// Mark it as a task
-			symbol.set_as_task(true);
+			function_symbol.set_as_task(true);
 			
 			// Set high priority
-			symbol.set_high_priority(has_high_priority);
+			function_symbol.set_high_priority(has_high_priority);
 			
 			// Set blocking
-			symbol.set_blocking(is_blocking);
+			function_symbol.set_blocking(is_blocking);
 			
 			// Set parameter region list
 			RefPtr<ParameterRegionList> parameter_region_list_ref(new ParameterRegionList());
@@ -504,7 +509,7 @@ namespace TL
 				(*parameter_region_list_ref.get_pointer())[index] = region_list;
 			}
 			
-			symbol.set_parameter_region_list(parameter_region_list_ref);
+			function_symbol.set_parameter_region_list(parameter_region_list_ref);
 		}
 		
 		
@@ -528,9 +533,9 @@ namespace TL
 	void TL::TaskAnalysis::process_target_on_definition(PragmaCustomConstruct construct)
 	{
 		FunctionDefinition function_definition(construct.get_declaration(), construct.get_scope_link());
-		AugmentedSymbol symbol = function_definition.get_function_name().get_symbol();
+		AugmentedSymbol function_symbol = function_definition.get_function_name().get_symbol();
 		
-		symbol.set_coherced_sides(true);
+		function_symbol.set_coherced_sides(true);
 		
 		// FIXME: These names are too Cell specific
 		PragmaCustomClause target_spu = construct.get_clause("spu");
@@ -554,8 +559,8 @@ namespace TL
 			return;
 		}
 		
-		symbol.set_as_task_side(target_spu.is_defined());
-		symbol.set_as_non_task_side(target_ppu.is_defined());
+		function_symbol.set_as_task_side(target_spu.is_defined());
+		function_symbol.set_as_non_task_side(target_ppu.is_defined());
 	}
 	
 	

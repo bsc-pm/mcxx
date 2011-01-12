@@ -27,9 +27,24 @@ compile_versions="\${compile_versions} nanox_plain"
 test_CC_nanox_plain="\${MCC}"
 test_CXX_nanox_plain="\${MCXX}"
 
-test_CFLAGS_nanox_plain="--nanox"
+test_CFLAGS_nanox_plain="--nanox -std=gnu99"
 test_CXXFLAGS_nanox_plain="--nanox"
 EOF
+
+if [ ! -z "@NANOX_INSTRUMENTATION@" ];
+then
+
+cat <<EOF
+compile_versions="\${compile_versions} nanox_instrument"
+
+test_CC_nanox_instrument="\${MCC}"
+test_CXX_nanox_instrument="\${MCXX}"
+
+test_CFLAGS_nanox_instrument="\${test_CFLAGS_nanox_plain} --instrument"
+test_CXXFLAGS_nanox_instrument="\${test_CXXFLAGS_nanox_plain} --instrument"
+EOF
+
+fi
 
 fi
 

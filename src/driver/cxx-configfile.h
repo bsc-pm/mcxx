@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #ifndef CXX_CONFIGFILE
 #define CXX_CONFIGFILE
@@ -40,6 +45,7 @@ option_function_t config_set_options;
 option_function_t config_set_preprocessor_name;
 option_function_t config_set_preprocessor_options;
 option_function_t config_set_preprocessor_uses_stdout;
+option_function_t config_set_prescanner_options;
 option_function_t config_set_compiler_name;
 option_function_t config_set_compiler_options;
 option_function_t config_set_linker_name;

@@ -1,8 +1,11 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2006-2009 Barcelona Supercomputing Center 
+  (C) Copyright 2006-2011 Barcelona Supercomputing Center 
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
+  
+  See AUTHORS file in the top level directory for information 
+  regarding developers and contributors.
   
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,6 +23,8 @@
   not, write to the Free Software Foundation, Inc., 675 Mass Ave,
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
+
+
 
 #ifdef HAVE_CONFIG_H
   #include "config.h"
@@ -693,6 +698,56 @@ void run_gdb(void)
 }
 #endif
 
+char copy_file(const char* source, const char* dest)
+{
+    // Plain old copy
+    FILE* orig_file = fopen(source, "r");
+    if (orig_file == NULL)
+        return -1;
+
+    FILE* dest_file = fopen(dest, "w");
+
+    if (dest_file == NULL)
+    {
+        fclose(orig_file);
+        return -1;
+    }
+
+    // size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
+#define BLOCK_SIZE 1024
+    char c[BLOCK_SIZE];
+    int actually_read = fread(c, sizeof(char), BLOCK_SIZE, orig_file);
+
+    while (actually_read != 0)
+    {
+        int actually_written = fwrite(c, sizeof(char), actually_read, dest_file);
+        if (actually_written < actually_read)
+        {
+            fclose(dest_file);
+            fclose(orig_file);
+            return -1;
+        }
+        actually_read = fread(c, sizeof(char), BLOCK_SIZE, orig_file);
+    }
+#undef BLOCK_SIZE
+    if (feof(orig_file))
+    {
+        // Everything is OK
+        clearerr(orig_file);
+    }
+    else if (ferror(orig_file))
+    {
+        // Something went wrong
+        fclose(dest_file);
+        fclose(orig_file);
+        return -1;
+    }
+
+    fclose(orig_file);
+    fclose(dest_file);
+    return 0;
+}
+
 char move_file(const char* source, const char* dest)
 {
     struct stat buf;
@@ -727,51 +782,8 @@ char move_file(const char* source, const char* dest)
             fprintf(stderr, "Moving file through copy '%s' -> '%s'\n", source, dest);
         }
 
-        // Plain old copy
-        FILE* orig_file = fopen(source, "r");
-        if (orig_file == NULL)
+        if (copy_file(source, dest) != 0)
             return -1;
-
-        FILE* dest_file = fopen(dest, "w");
-
-        if (dest_file == NULL)
-        {
-            fclose(orig_file);
-            return -1;
-        }
-
-        // size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
-#define BLOCK_SIZE 1024
-        char c[BLOCK_SIZE];
-        int actually_read = fread(c, sizeof(char), BLOCK_SIZE, orig_file);
-
-        while (actually_read != 0)
-        {
-            int actually_written = fwrite(c, sizeof(char), actually_read, dest_file);
-            if (actually_written < actually_read)
-            {
-                fclose(dest_file);
-                fclose(orig_file);
-                return -1;
-            }
-            actually_read = fread(c, sizeof(char), BLOCK_SIZE, orig_file);
-        }
-#undef BLOCK_SIZE
-        if (feof(orig_file))
-        {
-            // Everything is OK
-            clearerr(orig_file);
-        }
-        else if (ferror(orig_file))
-        {
-            // Something went wrong
-            fclose(dest_file);
-            fclose(orig_file);
-            return -1;
-        }
-
-        fclose(orig_file);
-        fclose(dest_file);
 
         return remove(source);
     }
