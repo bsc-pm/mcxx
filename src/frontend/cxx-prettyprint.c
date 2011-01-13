@@ -1596,32 +1596,34 @@ static void for_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
     indent_at_level(f, a, pt_ctx);
     token_fprintf(f, a, pt_ctx, "for (");
 
+    AST loop_control = ASTSon0(a);
+
     NEW_PT_CONTEXT(zero_ctx, zero_level);
 
-    if (ASTSon0(a) != NULL)
+    if (ASTSon0(loop_control) != NULL)
     {
-        prettyprint_level(f, ASTSon0(a), zero_ctx);
+        prettyprint_level(f, ASTSon0(loop_control), zero_ctx);
     }
 
     NEW_PT_CONTEXT(new_pt_ctx_0, increase_level);
-    indent_at_level(f, a, new_pt_ctx_0);
-    if (ASTSon1(a) != NULL)
+    indent_at_level(f, loop_control, new_pt_ctx_0);
+    if (ASTSon1(loop_control) != NULL)
     {
-        prettyprint_level(f, ASTSon1(a), zero_ctx);
+        prettyprint_level(f, ASTSon1(loop_control), zero_ctx);
     }
     
-    token_fprintf(f, a, pt_ctx, ";\n");
+    token_fprintf(f, loop_control, pt_ctx, ";\n");
 
-    if (ASTSon2(a) != NULL)
+    indent_at_level(f, loop_control, new_pt_ctx_0);
+    if (ASTSon2(loop_control) != NULL)
     {
-        indent_at_level(f, a, new_pt_ctx_0);
-        prettyprint_level(f, ASTSon2(a), zero_ctx);
+        prettyprint_level(f, ASTSon2(loop_control), zero_ctx);
     }
 
-    token_fprintf(f, a, pt_ctx, ")\n");
+    token_fprintf(f, loop_control, pt_ctx, ")\n");
 
-    NEW_PT_CONTEXT_ARG(new_pt_ctx_1, increase_level_if_not_compound, ASTSon3(a));
-    prettyprint_level(f, ASTSon3(a), new_pt_ctx_1);
+    NEW_PT_CONTEXT_ARG(new_pt_ctx_1, increase_level_if_not_compound, ASTSon1(a));
+    prettyprint_level(f, ASTSon1(a), new_pt_ctx_1);
 }
 
 static void return_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)

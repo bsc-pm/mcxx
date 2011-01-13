@@ -313,7 +313,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_DIMENSION_DECL, dimension_decl_handler, NULL),
     NODE_HANDLER(AST_DIMENSION_STATEMENT, dimension_statement_handler, NULL),
     NODE_HANDLER(AST_DIV_OP, binary_operator_handler, "/"),
-    NODE_HANDLER(AST_DO_LOOP_STATEMENT, do_loop_statement_handler, NULL),
+    NODE_HANDLER(AST_FOR_STATEMENT, do_loop_statement_handler, NULL),
     NODE_HANDLER(AST_DOUBLE_TYPE, double_type_handler, NULL),
     NODE_HANDLER(AST_ELSEWHERE_STATEMENT, elsewhere_statement_handler, NULL),
     NODE_HANDLER(AST_EMPTY_STATEMENT, continue_statement_handler, NULL),
@@ -1377,7 +1377,6 @@ static void do_loop_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_
     token_fprintf(f, a, pt_ctx, "DO");
 
     // Do not print the label
-    // 
     // if (ASTSon3(a) != NULL)
     // {
     //     token_fprintf(f, a, pt_ctx, " ");
@@ -1931,15 +1930,19 @@ static void lock_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx
 
 static void loop_control_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
+    // An empty loop control
+    if (ASTSon0(a) == NULL
+            && ASTSon1(a) == NULL
+            && ASTSon2(a) == NULL)
+        return;
+
     prettyprint_level(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, " = ");
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
     token_fprintf(f, a, pt_ctx, ", ");
-    prettyprint_level(f, ASTSon2(a), pt_ctx);
-    if (ASTSon3(a) != NULL)
+    prettyprint_level(f, ASTSon1(a), pt_ctx);
+    if (ASTSon2(a) != NULL)
     {
         token_fprintf(f, a, pt_ctx, ", ");
-        prettyprint_level(f, ASTSon3(a), pt_ctx);
+        prettyprint_level(f, ASTSon2(a), pt_ctx);
     }
 }
 

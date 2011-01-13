@@ -449,6 +449,7 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %type<ast> sync_memory_stmt
 %type<ast> mask_elsewhere_part
 %type<ast> int_expr
+%type<ast> int_expr_opt
 %type<ast> binding_attr
 %type<ast> proc_component_def_stmt
 %type<ast> forall_body_construct
@@ -2928,11 +2929,11 @@ inner_shared_do_construct : label_do_shared_stmt block do_term_action_stmt
 ;
 nonlabel_do_stmt : labeldef name_colon_opt TOK_DO loop_control eos
 {
-    $$ = ASTMake4Label(AST_DO_LOOP_STATEMENT, $1, $4, NULL, NULL, $3.token_file, $3.token_line, "unstructured");
+    $$ = ASTMake4Label(AST_FOR_STATEMENT, $1, $4, NULL, NULL, $3.token_file, $3.token_line, NULL);
 }
 | labeldef name_colon_opt TOK_DO while_loop_control eos
 {
-    $$ = ASTMake4Label(AST_WHILE_STATEMENT, $1, $4, NULL, NULL, $3.token_file, $3.token_line, "unstructured");
+    $$ = ASTMake4Label(AST_WHILE_STATEMENT, $1, $4, NULL, NULL, $3.token_file, $3.token_line, NULL);
 }
 | labeldef name_colon_opt TOK_DO label concurrent_loop_control eos
 {
@@ -2940,16 +2941,17 @@ nonlabel_do_stmt : labeldef name_colon_opt TOK_DO loop_control eos
 }
 | labeldef name_colon_opt TOK_DO eos
 {
-    $$ = ASTMake4Label(AST_DO_LOOP_STATEMENT, $1, NULL, NULL, NULL, $3.token_file, $3.token_line, "unstructured");
+    AST empty_loop_control = ASTMake3(AST_LOOP_CONTROL, NULL, NULL, NULL, $3.token_file, $3.token_line, NULL);
+    $$ = ASTMake4Label(AST_FOR_STATEMENT, $1, empty_loop_control, NULL, NULL, $3.token_file, $3.token_line, NULL);
 }
 ;
 label_do_stmt : labeldef name_colon_opt TOK_DO label loop_control eos
 {
-    $$ = ASTMake5Label(AST_DO_LOOP_STATEMENT, $1, $5, NULL, NULL, $4, $3.token_file, $3.token_line, "unstructured");
+    $$ = ASTMake5Label(AST_FOR_STATEMENT, $1, $5, NULL, NULL, $4, $3.token_file, $3.token_line, NULL);
 }
 | labeldef name_colon_opt TOK_DO label while_loop_control eos
 {
-    $$ = ASTMake5Label(AST_WHILE_STATEMENT, $1, $5, NULL, NULL, $4, $3.token_file, $3.token_line, "unstructured");
+    $$ = ASTMake5Label(AST_WHILE_STATEMENT, $1, $5, NULL, NULL, $4, $3.token_file, $3.token_line, NULL);
 }
 | labeldef name_colon_opt TOK_DO label concurrent_loop_control eos
 {
@@ -2957,16 +2959,16 @@ label_do_stmt : labeldef name_colon_opt TOK_DO label loop_control eos
 }
 | labeldef name_colon_opt TOK_DO label eos
 {
-    $$ = ASTMake5Label(AST_DO_LOOP_STATEMENT, $1, NULL, NULL, NULL, $4, $3.token_file, $3.token_line, "unstructured");
+    $$ = ASTMake5Label(AST_FOR_STATEMENT, $1, NULL, NULL, NULL, $4, $3.token_file, $3.token_line, NULL);
 }
 ;
 label_do_shared_stmt : labeldef name_colon_opt TOK_DO do_shared_label loop_control eos
 {
-    $$ = ASTMake5Label(AST_DO_LOOP_STATEMENT, $1, $5, NULL, NULL, $4, $3.token_file, $3.token_line, "unstructured");
+    $$ = ASTMake5Label(AST_FOR_STATEMENT, $1, $5, NULL, NULL, $4, $3.token_file, $3.token_line, NULL);
 }
 | labeldef name_colon_opt TOK_DO do_shared_label while_loop_control eos
 {
-    $$ = ASTMake5Label(AST_WHILE_STATEMENT, $1, $5, NULL, NULL, $4, $3.token_file, $3.token_line, "unstructured");
+    $$ = ASTMake5Label(AST_WHILE_STATEMENT, $1, $5, NULL, NULL, $4, $3.token_file, $3.token_line, NULL);
 }
 | labeldef name_colon_opt TOK_DO do_shared_label concurrent_loop_control eos
 {
@@ -2974,7 +2976,7 @@ label_do_shared_stmt : labeldef name_colon_opt TOK_DO do_shared_label loop_contr
 }
 | labeldef name_colon_opt TOK_DO do_shared_label eos
 {
-    $$ = ASTMake5Label(AST_DO_LOOP_STATEMENT, $1, NULL, NULL, NULL, $4, $3.token_file, $3.token_line, "unstructured");
+    $$ = ASTMake5Label(AST_FOR_STATEMENT, $1, NULL, NULL, NULL, $4, $3.token_file, $3.token_line, NULL);
 }
 ;
 do_shared_label : TOK_SHARED_LABEL
@@ -2982,21 +2984,23 @@ do_shared_label : TOK_SHARED_LABEL
     $$ = ASTLeaf(AST_SYMBOL, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
-loop_control : ',' do_variable '=' int_expr ',' int_expr ',' int_expr
+int_expr_opt : int_expr
+| /* empty */
 {
-    $$ = ASTMake4(AST_LOOP_CONTROL, $2, $4, $6, $8, $1.token_file, $1.token_line, NULL);
+    $$ = NULL;
 }
-| do_variable '=' int_expr ',' int_expr ',' int_expr
+;
+comma_opt : ','
 {
-    $$ = ASTMake4(AST_LOOP_CONTROL, $1, $3, $5, $7, ASTFileName($1), ASTLine($1), NULL);
 }
-| ',' do_variable '=' int_expr ',' int_expr
+| /* empty */
 {
-    $$ = ASTMake4(AST_LOOP_CONTROL, $2, $4, $6, NULL, $1.token_file, $1.token_line, NULL);
 }
-| do_variable '=' int_expr ',' int_expr
+;
+loop_control : comma_opt do_variable '=' int_expr ',' int_expr ',' int_expr_opt
 {
-    $$ = ASTMake4(AST_LOOP_CONTROL, $1, $3, $5, NULL, ASTFileName($1), ASTLine($1), NULL);
+    AST assig = ASTMake2(AST_ASSIGNMENT, $2, $4, ASTFileName($2), ASTLine($2), NULL);
+    $$ = ASTMake3(AST_LOOP_CONTROL, assig, $6, $8, ASTFileName($2), ASTLine($2), "fortran");
 }
 ;
 while_loop_control : ',' TOK_WHILE '(' logical_expr ')'
