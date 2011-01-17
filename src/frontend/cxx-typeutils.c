@@ -72,6 +72,7 @@ enum type_kind
     TK_ELLIPSIS,           // 10
     TK_COMPUTED,           // 11
     TK_BRACED_LIST,        // 12
+    TK_ERROR,
 };
 
 // For simple_type_t
@@ -2056,6 +2057,10 @@ type_t* get_restrict_qualified_type(type_t* t)
 
 type_t* get_pointer_type(type_t* t)
 {
+    ERROR_CONDITION(t == NULL, "Invalid NULL type", 0);
+    if (is_error_type(t))
+        return get_error_type();
+
     static rb_red_blk_tree *_pointer_types = NULL;
 
     if (_pointer_types == NULL)
@@ -2104,6 +2109,10 @@ static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
     {
         internal_error("No referenced types should be created in C", 0);
     }
+
+    ERROR_CONDITION(t == NULL, "Invalid reference type", 0);
+    if (is_error_type(t))
+        return get_error_type();
 
     if (is_lvalue_reference_type(t)
             || is_rvalue_reference_type(t))
@@ -2167,6 +2176,10 @@ type_t* get_rvalue_reference_type(type_t* t)
 
 type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
 {
+    ERROR_CONDITION(t == NULL, "Invalid NULL type", 0);
+    if (is_error_type(t))
+        return get_error_type();
+
     static rb_red_blk_tree *_class_types = NULL;
 
     if (_class_types == NULL)
@@ -2298,6 +2311,10 @@ type_t* get_array_type_str(type_t* element_type, const char* dim)
 
 type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl_context)
 {
+    ERROR_CONDITION(element_type == NULL, "Invalid element type", 0);
+    if (is_error_type(element_type))
+        return get_error_type();
+
     // This type is not efficiently managed since sometimes we cannot state
     // which is its length. On the other hand, inside type calculus this type
     // is barely needed since normally expressions cannot express array types.
@@ -2432,6 +2449,10 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
 
 type_t* get_vector_type(type_t* element_type, unsigned int vector_size)
 {
+    ERROR_CONDITION(element_type == NULL, "Invalid type", 0);
+    if (is_error_type(element_type))
+        return get_error_type();
+
     _vector_type_counter++;
     // This type is not efficiently managed
     type_t* result = new_empty_type();
@@ -2559,6 +2580,22 @@ type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int n
 
     type_trie_t* used_trie = NULL;
 
+    if (t != NULL
+            && is_error_type(t))
+        return get_error_type();
+
+    int i;
+    for (i = 0; i < num_parameters; i++)
+    {
+        if (!parameter_info[i].is_ellipsis)
+        {
+            if (is_error_type(parameter_info[i].type_info))
+            {
+                return get_error_type();
+            }
+        }
+    }
+
     if (t == NULL)
     {
         if (_no_type_functions == NULL)
@@ -2589,7 +2626,6 @@ type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int n
         fun_type_is_dependent = is_dependent_type(t);
     }
 
-    int i;
     for (i = 0; i < num_parameters; i++)
     {
         if (!parameter_info[i].is_ellipsis)
@@ -3574,7 +3610,6 @@ static type_t* advance_dependent_typename(type_t* t);
 
 char equivalent_types(type_t* t1, type_t* t2)
 {
-
     ERROR_CONDITION( (t1 == NULL || t2 == NULL), "No type can be null here", 0);
 
     cv_qualifier_t cv_qualifier_t1, cv_qualifier_t2;
@@ -3635,6 +3670,10 @@ char equivalent_types(type_t* t1, type_t* t2)
             break;
         case TK_VECTOR :
             result = equivalent_vector_type(t1, t2);
+            break;
+        case TK_ERROR:
+            // This is always true
+            result = 1;
             break;
         case TK_OVERLOAD:
             // This is always false
@@ -5556,6 +5595,10 @@ const char* get_simple_type_name_string(decl_context_t decl_context, type_t* typ
     {
         result = uniquestr("<unresolved overloaded function type>");
     }
+    else if (is_error_type(type_info))
+    {
+        result = uniquestr("<error-type>");
+    }
     else
     {
         result = get_cv_qualifier_string(type_info);
@@ -6356,6 +6399,12 @@ const char* print_declarator(type_t* printed_declarator)
                 }
                 printed_declarator = NULL;
                 break;
+            case TK_ERROR:
+                {
+                    tmp_result = strappend(tmp_result, "<error-type>");
+                    printed_declarator = NULL;
+                    break;
+                }
             case TK_OVERLOAD :
                 {
                     tmp_result = strappend(tmp_result, " <unresolved overload function type> ");
@@ -7342,7 +7391,8 @@ type_t* get_dependent_expr_type(void)
 
 char is_dependent_expr_type(type_t* t)
 {
-    return (t != NULL
+    return (_dependent_type != NULL
+            && t != NULL
             && (t->unqualified_type == _dependent_type
                 || (is_named_type(t) 
                     && (named_type_get_symbol(t)->kind == SK_TEMPLATE_PARAMETER)))
@@ -7413,11 +7463,31 @@ type_t* get_null_type(void)
     return _null_type;
 }
 
+static type_t* _error_type = NULL;
+struct type_tag* get_error_type(void)
+{
+    if (_error_type == NULL)
+    {
+        _error_type = counted_calloc(1, sizeof(*_error_type), &_bytes_due_to_type_system);
+        _error_type->kind = TK_ERROR;
+        _error_type->unqualified_type = _error_type;
+    }
+    return _error_type;
+}
+
+char is_error_type(type_t* t)
+{
+    // We do not allow a NULL type here at the moment
+    ERROR_CONDITION(t == NULL, "Invalid type", 0);
+    return (_error_type != NULL && t == _error_type);
+}
+
 char is_zero_type(type_t* t)
 {
-    return ((_zero_type != NULL)
-            && ((t == _zero_type) 
-                || (t == _null_type)));
+    return ((_zero_type != NULL
+            && t == _zero_type)
+            || (_null_type != NULL
+                && t == _null_type));
 }
 
 static int _literal_string_set_num_elements = 0;
@@ -8577,6 +8647,10 @@ const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const ch
     {
         return uniquestr("<brace-enclosed initializer list>");
     }
+    else if (is_error_type(t))
+    {
+        return uniquestr("<error-type>");
+    }
     else
     {
         return get_declaration_string_internal(t, 
@@ -8636,6 +8710,10 @@ type_t* get_foundation_type(struct type_tag* t)
     else if (is_unresolved_overloaded_type(t))
     {
         return t;
+    }
+    else if (is_error_type(t))
+    {
+        return _error_type;
     }
     internal_error("Cannot get foundation type of type '%s'", print_declarator(t));
 }

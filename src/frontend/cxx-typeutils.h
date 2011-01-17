@@ -117,6 +117,9 @@ LIBMCXX_EXTERN struct type_tag* get_zero_type(void);
 // This is for g++'s '__null'
 LIBMCXX_EXTERN struct type_tag* get_null_type(void);
 
+// Error type
+LIBMCXX_EXTERN struct type_tag* get_error_type(void);
+
 LIBMCXX_EXTERN struct type_tag* get_pseudo_destructor_call_type(void);
 
 LIBMCXX_EXTERN type_t* get_literal_string_type(int length, char is_wchar);
@@ -288,6 +291,8 @@ LIBMCXX_EXTERN char is_unresolved_overloaded_type(struct type_tag* t);
 LIBMCXX_EXTERN char is_dependent_expr_type(struct type_tag* t);
 
 LIBMCXX_EXTERN char is_zero_type(struct type_tag* t);
+
+LIBMCXX_EXTERN char is_error_type(struct type_tag* t);
 
 LIBMCXX_EXTERN char is_throw_expr_type(struct type_tag* t);
 
