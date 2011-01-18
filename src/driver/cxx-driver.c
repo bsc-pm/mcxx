@@ -181,10 +181,14 @@
 "                           file.\n" \
 "  --instantiate            Instantiate explicitly templates. This is\n" \
 "                           an unsupported experimental feature\n" \
-"  --pp                     Preprocess files\n"\
+"  --pp[=on]                Preprocess files\n"\
 "                           This is the default for files ending with\n"\
 "                           C/C++: .c, .cc, .C, .cp, .cpp, .cxx, .c++\n"\
 "                           Fortran: .F, .F77, .F90, .F95\n"\
+"  --pp=off                 Disables preprocessing\n"\
+"                           This is the default for files ending with\n"\
+"                           C/C++: .i, .ii\n"\
+"                           Fortran: .f, .f77, .f90, .f95\n"\
 "  --pp-stdout              Preprocessor uses stdout for output\n" \
 "  --width=<width>          Fortran column width. By default 132\n" \
 "  --free                   Force Fortran free form regardless of\n" \
@@ -195,7 +199,7 @@
 "                           extension\n"\
 "                           This is the default for files ending with\n"\
 "                           .f, .F, .f77, .F77\n"\
-"  --fpp                    An alias for --pp\n"\
+"  --fpp                    An alias for --pp=on\n"\
 "  --sentinels=on|off       Enables or disables empty sentinels\n" \
 "                           Empty sentinels are enabled by default\n" \
 "                           This flag is only meaningful for Fortran\n" \
@@ -279,7 +283,7 @@ struct command_line_long_options command_line_long_options[] =
     {"hlt", CLP_NO_ARGUMENT, OPTION_ENABLE_HLT},
     {"do-not-unload-phases", CLP_NO_ARGUMENT, OPTION_DO_NOT_UNLOAD_PHASES},
     {"instantiate", CLP_NO_ARGUMENT, OPTION_INSTANTIATE_TEMPLATES},
-    {"pp", CLP_NO_ARGUMENT, OPTION_ALWAYS_PREPROCESS},
+    {"pp", CLP_OPTIONAL_ARGUMENT, OPTION_ALWAYS_PREPROCESS},
     {"fpp", CLP_NO_ARGUMENT, OPTION_ALWAYS_PREPROCESS},
     {"width", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_COLUMN_WIDTH},
     {"fixed", CLP_NO_ARGUMENT, OPTION_FORTRAN_FIXED},
@@ -1046,7 +1050,21 @@ int parse_arguments(int argc, const char* argv[],
                     }
                 case OPTION_ALWAYS_PREPROCESS:
                     {
-                        CURRENT_CONFIGURATION->force_source_kind |= SOURCE_KIND_NOT_PREPROCESSED;
+                        if (parameter_info.argument == NULL
+                                || strcmp(parameter_info.argument, "on") == 0)
+                        {
+                            CURRENT_CONFIGURATION->force_source_kind &= ~SOURCE_KIND_PREPROCESSED;
+                            CURRENT_CONFIGURATION->force_source_kind |= SOURCE_KIND_NOT_PREPROCESSED;
+                        }
+                        else if (strcmp(parameter_info.argument, "off") == 0)
+                        {
+                            CURRENT_CONFIGURATION->force_source_kind &= ~SOURCE_KIND_NOT_PREPROCESSED;
+                            CURRENT_CONFIGURATION->force_source_kind |= SOURCE_KIND_PREPROCESSED;
+                        }
+                        else
+                        {
+                            fprintf(stderr, "Invalid value given for --pp option, valid values are 'on' or 'off'\n");
+                        }
                         break;
                     }
                 case OPTION_FORTRAN_COLUMN_WIDTH:
@@ -2159,8 +2177,10 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
         }
 
         const char* parsed_filename = translation_unit->input_filename;
-        if ((BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PREPROCESSED)
+        // If the file is not preprocessed or we've ben told to preprocess it
+        if (((BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PREPROCESSED)
                     || BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_NOT_PREPROCESSED))
+                    && !BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_PREPROCESSED))
                 && !CURRENT_CONFIGURATION->pass_through)
         {
             timing_t timing_preprocessing;
