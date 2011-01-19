@@ -51,6 +51,10 @@ libmf03_la_SOURCES = \
                      fortran03-prettyprint.h \
                      fortran03-split.h \
                      fortran03-split.c \
+                     fortran03-buildscope.h \
+                     fortran03-buildscope.c \
+                     fortran03-exprtype.h \
+                     fortran03-exprtype.c \
                      libmf03-common.h \
                      $(END)
 

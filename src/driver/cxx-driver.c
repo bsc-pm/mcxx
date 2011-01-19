@@ -84,6 +84,7 @@
 #include "fortran03-semantic.h"
 #include "fortran03-prettyprint.h"
 #include "fortran03-split.h"
+#include "fortran03-buildscope.h"
 #endif
 
 /* ------------------------------------------------------------------ */
@@ -2490,6 +2491,7 @@ static void semantic_analysis(translation_unit_t* translation_unit, const char* 
 #ifdef FORTRAN_SUPPORT
     else if (IS_FORTRAN_LANGUAGE)
     {
+        build_scope_fortran_program_unit_seq(translation_unit);
     }
 #endif
     else

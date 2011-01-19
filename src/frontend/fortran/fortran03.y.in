@@ -4050,14 +4050,6 @@ main_program : program_stmt program_body end_program_stmt
 {
     $$ = ASTMake3(AST_MAIN_PROGRAM_UNIT, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
-| end_program_stmt
-{
-    $$ = ASTMake3(AST_MAIN_PROGRAM_UNIT, NULL, NULL, $1, ASTFileName($1), ASTLine($1), NULL);
-}
-| program_stmt end_program_stmt
-{
-    $$ = ASTMake3(AST_MAIN_PROGRAM_UNIT, $1, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
-}
 ;
 program_part : program_unit_stmts_seq
 ;
@@ -4712,10 +4704,6 @@ function_subprogram : function_stmt program_body end_function_stmt
 {
     $$ = ASTMake3(AST_FUNCTION_PROGRAM_UNIT, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| function_stmt end_function_stmt
-{
-    $$ = ASTMake3(AST_FUNCTION_PROGRAM_UNIT, $1, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
-}
 ;
 function_stmt : labeldef prefix TOK_FUNCTION name function_prototype eos
 {
@@ -4785,10 +4773,6 @@ subroutine_subprogram : subroutine_stmt program_body end_subroutine_stmt
 {
     $$ = ASTMake3(AST_SUBROUTINE_PROGRAM_UNIT, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| subroutine_stmt end_subroutine_stmt
-{
-    $$ = ASTMake3(AST_SUBROUTINE_PROGRAM_UNIT, $1, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
-}
 ;
 subroutine_stmt : labeldef prefix TOK_SUBROUTINE name function_prototype eos
 {
@@ -4837,10 +4821,6 @@ end_subroutine_stmt : labeldef TOK_END TOK_SUBROUTINE name eos
 separate_module_subprogram : mp_subprogram_stmt program_body end_mp_subprogram_stmt
 {
     $$ = ASTMake3(AST_MODULE_PROCEDURE_PROGRAM_UNIT, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
-}
-| mp_subprogram_stmt end_mp_subprogram_stmt
-{
-    $$ = ASTMake3(AST_MODULE_PROCEDURE_PROGRAM_UNIT, $1, NULL, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 mp_subprogram_stmt : labeldef TOK_MODULE TOK_PROCEDURE name eos
