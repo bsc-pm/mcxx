@@ -2491,7 +2491,7 @@ static void semantic_analysis(translation_unit_t* translation_unit, const char* 
 #ifdef FORTRAN_SUPPORT
     else if (IS_FORTRAN_LANGUAGE)
     {
-        build_scope_fortran_program_unit_seq(translation_unit);
+        build_scope_fortran_translation_unit(translation_unit);
     }
 #endif
     else
