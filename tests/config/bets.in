@@ -1,4 +1,4 @@
-#!/bin/bash
+#!@BASH@
 
 #constants
 readonly bets_version=0.9

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!@BASH@
 
 # Ignore this test if no STM
 

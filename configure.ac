@@ -54,6 +54,15 @@ AC_PROG_SED
 dnl Check LN_S
 AC_PROG_LN_S
 
+dnl Check GNU Bash.
+AC_PATH_PROG([BASH], [bash], [not-found])
+
+if test "x$BASH" = "xnot-found"; then
+  # If GNU Bash isn't available, use the current shell and hope for
+  # the best.
+  AC_MSG_WARN([GNU Bash not found, falling back to `$SHELL'])
+  BASH="$SHELL"
+fi
 
 dnl --------------------- Basic toolchain setup -----------------
 CC_FOR_BUILD=$CC
@@ -1238,6 +1247,7 @@ AC_CONFIG_FILES([Makefile
            tests/config/mercurium-ss
            tests/config/mercurium-ss2omp
            tests/config/mercurium-stm
+           tests/config/bets
            tests/05_torture_cxx_1.dg/mercurium
            tests/05_torture_cxx_2.dg/mercurium
            tests/06_phases_hlt.dg/mercurium

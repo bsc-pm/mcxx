@@ -1,4 +1,4 @@
-#!/bin/bash
+#!@BASH@
 
 if [ -z "@NANOX_INCLUDES@" ];
 then

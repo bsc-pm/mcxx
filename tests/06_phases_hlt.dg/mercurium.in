@@ -1,4 +1,4 @@
-#!/bin/bash
+#!@BASH@
 
 source @abs_top_builddir@/tests/config/mercurium-libraries
 
