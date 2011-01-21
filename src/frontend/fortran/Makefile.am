@@ -45,12 +45,13 @@ libmf03_la_SOURCES = \
                      fortran03-parser-internal.h \
                      fortran03-utils.h \
                      fortran03-utils.c \
-                     fortran03-semantic.h \
-                     fortran03-semantic.c \
                      fortran03-prettyprint.c \
                      fortran03-prettyprint.h \
                      fortran03-split.h \
                      fortran03-split.c \
+                     fortran03-scope-decls.h \
+                     fortran03-scope.h \
+                     fortran03-scope.c \
                      fortran03-buildscope.h \
                      fortran03-buildscope.c \
                      fortran03-exprtype.h \

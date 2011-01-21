@@ -38,6 +38,10 @@
 #include "cxx-typeenviron-decls.h"
 #include "cxx-entrylist-decls.h"
 
+#ifdef FORTRAN_SUPPORT
+#include "fortran/fortran03-scope-decls.h"
+#endif 
+
 // Extensible schema
 #include "extstruct.h"
 
@@ -138,6 +142,10 @@ typedef struct decl_context_tag
 
     // Prototype scope, if any
     struct scope_tag* prototype_scope;
+
+#ifdef FORTRAN_SUPPORT
+    implicit_info_t* implicit_info;
+#endif 
 
     // Scope of the declaration,
     // should never be null
@@ -289,6 +297,18 @@ struct default_argument_info_tag
 
 LIBMCXX_EXTERN extensible_schema_t scope_entry_extensible_schema;
 
+#ifdef FORTRAN_SUPPORT
+typedef
+enum intent_kind_tag
+{
+    INTENT_INVALID = 0,
+    INTENT_IN = 1,
+    INTENT_OUT = 2,
+    INTENT_INOUT = INTENT_IN | INTENT_OUT,
+} intent_kind_t;
+
+#endif
+
 typedef struct entity_specifiers_tag
 {
     // States if this a static variable
@@ -399,6 +419,12 @@ typedef struct entity_specifiers_tag
     // And sometimes we need to distinguish whether is
     // 'struct A { }' or 'typedef struct { } A';
     char after_typedef:1;
+
+#ifdef FORTRAN_SUPPORT
+    // The symbol was created because it was mentioned elswhere
+    // and there was no IMPLICIT NONE
+    char is_implicit;
+#endif
 
     // -- End of bits, move all bits before this point
 

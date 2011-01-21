@@ -81,7 +81,6 @@
 #ifdef FORTRAN_SUPPORT
 #include "fortran03-parser.h"
 #include "fortran03-lexer.h"
-#include "fortran03-semantic.h"
 #include "fortran03-prettyprint.h"
 #include "fortran03-split.h"
 #include "fortran03-buildscope.h"
