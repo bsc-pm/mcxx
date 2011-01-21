@@ -2783,6 +2783,10 @@ type_t* compute_bin_operator_add_type(AST expr, AST lhs, AST rhs, decl_context_t
         {
             computed_type = lhs_type;
         }
+        else
+        {
+            return get_error_type();
+        }
 
         expression_set_type(expr, computed_type);
         expression_set_is_lvalue(expr, 0);
