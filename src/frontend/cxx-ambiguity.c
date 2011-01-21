@@ -2948,7 +2948,7 @@ static char check_for_function_definition_declarator(AST declarator, decl_contex
             /* previous_is_array */ 0, /* previous_is_function */ 0);
 }
 
-void build_solve_condition_ambiguity(AST a, decl_context_t decl_context)
+void solve_condition_ambiguity(AST a, decl_context_t decl_context)
 {
     ERROR_CONDITION(ASTType(a) != AST_AMBIGUITY,
             "Must be ambiguous node", 0);
@@ -2957,20 +2957,20 @@ void build_solve_condition_ambiguity(AST a, decl_context_t decl_context)
     for (i = 0; i < ast_get_num_ambiguities(a); i++)
     {
         char current_check = 0;
-        AST current = ast_get_ambiguity(a, i);
-        if (ASTSon0(current) == NULL) // Expression
+        AST current_condition = ast_get_ambiguity(a, i);
+        if (ASTSon0(current_condition) == NULL) // Expression
         {
             enter_test_expression();
-            current_check = check_for_expression(ast_get_ambiguity(current, i), decl_context);
+            current_check = check_for_expression(ASTSon2(current_condition), decl_context);
             leave_test_expression();
         }
         else
         {
             // Like a declaration
             // type_specifier_seq declarator '=' assignment_expr
-            AST type_specifier_seq = ASTSon0(current);
-            AST declarator = ASTSon1(current);
-            AST expr = ASTSon2(current);
+            AST type_specifier_seq = ASTSon0(current_condition);
+            AST declarator = ASTSon1(current_condition);
+            AST expr = ASTSon2(current_condition);
 
             if (ASTType(type_specifier_seq) == AST_AMBIGUITY)
             {
@@ -2996,7 +2996,7 @@ void build_solve_condition_ambiguity(AST a, decl_context_t decl_context)
             else
             {
                 AST first_option = ast_get_ambiguity(a, correct_choice);
-                AST second_option = current;
+                AST second_option = current_condition;
                 internal_error("More than one valid choices! '%s' vs '%s' %s", 
                         ast_print_node_type(ASTType(first_option)),
                         ast_print_node_type(ASTType(second_option)),
@@ -3010,11 +3010,14 @@ void build_solve_condition_ambiguity(AST a, decl_context_t decl_context)
         for (i = 0; i < ast_get_num_ambiguities(a); i++)
         {
             char current_check = 0;
-            AST current = ast_get_ambiguity(a, i);
-            current_check = check_for_expression(ast_get_ambiguity(current, i), decl_context);
-            running_error("%s: error: cannot continue due to serious semantic problems in '%s'",
-                    ast_location(a), prettyprint_in_buffer(a));
+            AST current_condition = ast_get_ambiguity(a, i);
+            if (ASTSon0(current_condition) == NULL)
+            {
+                current_check = check_for_expression(ASTSon2(current_condition), decl_context);
+            }
         }
+        running_error("%s: error: cannot continue due to serious semantic problems in '%s'",
+                ast_location(a), prettyprint_in_buffer(a));
     }
     else
     {

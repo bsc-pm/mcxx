@@ -205,6 +205,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> class_specifier
 %type<ast> compound_statement
 %type<ast> condition
+%type<ast> condition_opt
 %type<ast> conditional_expression
 %type<ast> constant_expression
 %type<ast> constant_initializer
@@ -236,6 +237,7 @@ void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c);
 %type<ast> equality_expression
 %type<ast> exclusive_or_expression
 %type<ast> expression
+%type<ast> expression_opt
 %type<ast> expression_list
 %type<ast> expression_statement
 %type<ast> for_init_statement
@@ -1887,23 +1889,33 @@ iteration_statement : WHILE '(' condition ')' statement
 {
 	$$ = ASTMake2(AST_DO_STATEMENT, $2, $5, $1.token_file, $1.token_line, NULL);
 }
-| FOR '(' for_init_statement ';' ')' statement
+| FOR '(' for_init_statement condition_opt ';' expression_opt ')' statement
 {
-	$$ = ASTMake4(AST_FOR_STATEMENT, $3, NULL, NULL, $6, $1.token_file, $1.token_line, NULL);
-}
-| FOR '(' for_init_statement condition ';' ')' statement 
-{
-	$$ = ASTMake4(AST_FOR_STATEMENT, $3, $4, NULL, $7, $1.token_file, $1.token_line, NULL);
-}
-| FOR '(' for_init_statement ';' expression ')' statement
-{
-	$$ = ASTMake4(AST_FOR_STATEMENT, $3, NULL, $5, $7, $1.token_file, $1.token_line, NULL);
-}
-| FOR '(' for_init_statement condition ';' expression ')' statement
-{
-	$$ = ASTMake4(AST_FOR_STATEMENT, $3, $4, $6, $8, $1.token_file, $1.token_line, NULL);
+    AST loop_control = ASTMake3(AST_LOOP_CONTROL, $3, $4, $6, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake3(AST_FOR_STATEMENT, loop_control, $8, NULL, $1.token_file, $1.token_line, NULL);
 }
 ;
+
+expression_opt : expression
+{
+    $$ = $1;
+}
+| /* empty */
+{
+    $$ = NULL;
+}
+;
+
+condition_opt : condition
+{
+    $$ = $1;
+}
+| /* empty */
+{
+    $$ = NULL;
+}
+;
+
 
 for_init_statement : expression_statement %merge<ambiguityHandler>
 {

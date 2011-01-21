@@ -113,9 +113,6 @@ namespace TL
         Interface::Interface()
             : PragmaCustomCompilerPhase("nanos")
         {
-            _n_loads = 0;
-            Version::_interfaces[Version::DEFAULT_FAMILY] = Version::DEFAULT_VERSION;
-            
             set_phase_name("Nanos Runtime Source-Compiler Versioning Interface");
             set_phase_description("This phase enables support for '#pragma nanos', the interface for versioning runtime and compiler for Nanos");
 
@@ -126,7 +123,7 @@ namespace TL
 
         void Interface::run(TL::DTO& dto)
         {
-            _n_loads++;
+            reset_version_info();
             // Run looking up for every "#pragma nanos"
             PragmaCustomCompilerPhase::run(dto);
             
@@ -183,7 +180,12 @@ namespace TL
 
         void Interface::phase_cleanup(DTO& dto)
         {
-            _n_loads = 0;
+        }
+
+        void Interface::reset_version_info()
+        {
+            Version::_interfaces.clear();
+            Version::_interfaces[Version::DEFAULT_FAMILY] = Version::DEFAULT_VERSION;
         }
 
         void Interface::interface_preorder(PragmaCustomConstruct construct)
@@ -210,10 +212,6 @@ namespace TL
                 }
                 else
                 {
-                    // If it is the first load of the phase, remove the default pair of Family/Version from the hash
-                    if (_n_loads==1)
-                        if (Version::_interfaces.find("trunk") != Version::_interfaces.end())
-                            Version::_interfaces.erase(Version::_interfaces.find("trunk"));
                     Version::_interfaces[family_clause.get_arguments(ExpressionTokenizer())[0]] 
                             = atoi(version_clause.get_arguments(ExpressionTokenizer())[0].c_str());                
                 }

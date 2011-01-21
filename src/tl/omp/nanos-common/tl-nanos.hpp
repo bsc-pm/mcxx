@@ -62,6 +62,8 @@ namespace TL
         {
             private:
                 int _n_loads;
+
+                void reset_version_info();
                 
             public:
                 Interface();
