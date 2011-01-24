@@ -759,7 +759,7 @@ struct attr_spec_tag
 
     char is_optional;
 
-    char is_parameter;
+    char is_constant;
 
     char is_pointer;
     
@@ -947,7 +947,7 @@ static void attr_spec_parameter_handler(AST a UNUSED_PARAMETER,
         decl_context_t decl_context UNUSED_PARAMETER,
         attr_spec_t* attr_spec)
 {
-    attr_spec->is_parameter = 1;
+    attr_spec->is_constant = 1;
 }
 
 static void attr_spec_pointer_handler(AST a UNUSED_PARAMETER,
@@ -1019,6 +1019,143 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
     AST it;
     for_each_element(entity_decl_list, it)
     {
+        AST declaration = ASTSon1(it);
+
+        AST name = ASTSon0(declaration);
+        AST entity_decl_specs = ASTSon1(declaration);
+
+        // Do not use implicit information
+        scope_entry_list_t* entry_list = query_unqualified_name_str(decl_context, ASTText(name));
+        scope_entry_t* entry = NULL;
+        if (entry_list != NULL)
+        {
+            entry = entry_list_head(entry_list);
+            if (!entry->entity_specs.is_implicit)
+            {
+                running_error("%s: error: redeclaration of entity '%s', first declared at '%s:%d'\n",
+                        ast_location(declaration),
+                        entry->file,
+                        entry->line);
+            }
+            else
+            {
+                // Not implicit anymore
+                entry->entity_specs.is_implicit = 0;
+            }
+        }
+        else
+        {
+            entry = new_symbol(decl_context, decl_context.current_scope, ASTText(name));
+            entry->kind = SK_VARIABLE;
+            entry->file = ASTFileName(declaration);
+            entry->line = ASTLine(declaration);
+        }
+
+        entry->type_information = basic_type;
+
+        AST char_length = NULL;
+        AST initialization = NULL;
+        if (entity_decl_specs != NULL)
+        {
+            AST array_spec = ASTSon0(entity_decl_specs);
+            AST coarray_spec = ASTSon1(entity_decl_specs);
+            char_length = ASTSon2(entity_decl_specs);
+            initialization = ASTSon3(entity_decl_specs);
+
+            if (array_spec != NULL 
+                    && attr_spec.is_dimension)
+            {
+                running_error("%s: error: DIMENSION attribute specified twice\n", ast_location(declaration));
+            }
+            else
+            {
+                attr_spec.is_dimension = 1;
+                attr_spec.array_spec = array_spec;
+            }
+
+            if (coarray_spec != NULL
+                    && attr_spec.is_codimension)
+            {
+                running_error("%s: error: CODIMENSION attribute specified twice\n", ast_location(declaration));
+            }
+            else
+            {
+                attr_spec.is_codimension = 1;
+                attr_spec.coarray_spec = coarray_spec;
+            }
+
+            if (char_length != NULL
+                    && !is_character_type(basic_type))
+            {
+                running_error("%s: error: char-length specified but type is not CHARACTER\n", ast_location(declaration));
+            }
+            else
+            {
+                // TODO - Fix the type
+            }
+        }
+
+        // Stop the madness here
+        if (attr_spec.is_codimension)
+        {
+            running_error("%s: sorry: coarrays are not supported\n", ast_location(declaration));
+        }
+
+        if (attr_spec.is_constant
+                && initialization == NULL)
+        {
+            running_error("%s: error: PARAMETER is missing an initializer\n", ast_location(declaration));
+        }
+        else
+        {
+            entry->type_information = get_const_qualified_type(entry->type_information);
+            entry->expression_value = initialization;
+        }
+
+        // FIXME - Should we do something with this attribute?
+        if (attr_spec.is_value
+                && !entry->entity_specs.is_parameter)
+        {
+            running_error("%s: error: VALUE attribute is only for dummy arguments\n",
+                    ast_location(declaration));
+        }
+
+        if (attr_spec.is_intent
+                && !entry->entity_specs.is_parameter)
+        {
+            running_error("%s: error: INTENT attribute is only for dummy arguments\n",
+                    ast_location(declaration));
+        }
+        else
+        {
+            entry->entity_specs.intent_kind = attr_spec.intent_kind;
+        }
+
+        if (attr_spec.is_optional
+                && !entry->entity_specs.is_parameter)
+        {
+            running_error("%s: error: OPTIONAL attribute is only for dummy arguments\n",
+                    ast_location(declaration));
+        }
+
+        if (attr_spec.is_allocatable
+                && !attr_spec.is_dimension)
+        {
+            running_error("%s: error: ALLOCATABLE attribute cannot be used on scalars\n", 
+                    ast_location(declaration));
+        }
+
+        if (attr_spec.is_external
+                || attr_spec.is_intrinsic)
+        {
+            entry->kind = SK_FUNCTION;
+            entry->type_information = get_nonproto_function_type(basic_type, 0);
+        }
+
+        if (attr_spec.is_save)
+        {
+            entry->entity_specs.is_static = 1;
+        }
     }
 }
 

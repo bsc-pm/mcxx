@@ -423,10 +423,14 @@ typedef struct entity_specifiers_tag
 #ifdef FORTRAN_SUPPORT
     // The symbol was created because it was mentioned elswhere
     // and there was no IMPLICIT NONE
-    char is_implicit;
+    char is_implicit:1;
 #endif
 
     // -- End of bits, move all bits before this point
+
+#ifdef FORTRAN_SUPPORT
+    intent_kind_t intent_kind;
+#endif
 
     // Accessibility: public, private, protected
     access_specifier_t access : 2;
