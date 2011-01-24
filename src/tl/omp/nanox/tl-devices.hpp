@@ -86,6 +86,7 @@ namespace Nanox
                 return _enable_instrumentation;
             }
         private:
+            const std::string _device_name;
             bool _enable_instrumentation;
             std::string _enable_instrumentation_str;
             void set_instrumentation(const std::string& str)
@@ -99,22 +100,29 @@ namespace Nanox
 
             bool _needs_copies;
         public:
-
             //! Constructor of a DeviceProvider
             /*!
+            \param needs_copies Set this parameter to true if this device requires explicit copies. 
+            DeviceProvider::needs_copies can be used to retrieve this value
+            */
+            DEPRECATED DeviceProvider(bool needs_copies)
+                    : _enable_instrumentation(false), 
+                    _enable_instrumentation_str(""),
+                    _needs_copies(needs_copies)
+            {
+                register_parameter("instrument", 
+                "Enables instrumentation of the device provider if set to '1'",
+                _enable_instrumentation_str,
+                "0").connect(functor(&DeviceProvider::set_instrumentation, *this));
+            }
+            
+            //! Constructor of a DeviceProvider
+            /*!
+              \param device_name Device's identifier name
               \param needs_copies Set this parameter to true if this device requires explicit copies. 
               DeviceProvider::needs_copies can be used to retrieve this value
              */
-            DeviceProvider(bool needs_copies)
-                : _enable_instrumentation(false), 
-                _enable_instrumentation_str(""),
-                _needs_copies(needs_copies)
-            {
-                register_parameter("instrument", 
-                        "Enables instrumentation of the device provider if set to '1'",
-                        _enable_instrumentation_str,
-                        "0").connect(functor(&DeviceProvider::set_instrumentation, *this));
-            }
+            DeviceProvider(const std::string& device_name, bool needs_copies);
 
             //! States if this device needs copies
             /*!
@@ -126,6 +134,11 @@ namespace Nanox
             bool needs_copies() const
             {
                 return _needs_copies;
+            }
+
+            std::string get_name() const
+            {
+                return _device_name;
             }
 
             virtual void run(DTO& dto) { }
@@ -191,6 +204,17 @@ namespace Nanox
                     Source &ancillary_device_description,
                     Source &device_descriptor) = 0;
 
+            /*!
+              This function return the source code for gathering an omp reduction
+              
+              \param reduction_references Reduction References in the actual environment
+             */
+            virtual Source get_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references, 
+                    ScopeLink sl)
+                    {
+                        return Source();
+                    }
+                    
             virtual ~DeviceProvider() { }
     };
 
@@ -199,6 +223,8 @@ namespace Nanox
         public:
             static DeviceHandler& get_device_handler();
 
+            void register_device(DeviceProvider* nanox_device_provider);
+            
             void register_device(const std::string& str, 
                     DeviceProvider* nanox_device_provider);
 

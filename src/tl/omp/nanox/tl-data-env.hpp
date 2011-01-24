@@ -179,6 +179,8 @@ namespace TL
                 {
                     return _alignment;
                 }
+                
+                
         };
 
         class DataEnvironInfo
@@ -186,6 +188,7 @@ namespace TL
             private:
                 ObjectList<DataEnvironItem> _data_env_items;
                 ObjectList<OpenMP::CopyItem> _copy_items;
+                ObjectList<OpenMP::ReductionSymbol> _reduction_symbols;
 
                 static bool data_env_item_has_sym(const DataEnvironItem &item)
                 {
@@ -309,6 +312,16 @@ namespace TL
                 ObjectList<OpenMP::CopyItem> get_copy_items() const
                 {
                     return _copy_items;
+                }
+                
+                ObjectList<OpenMP::ReductionSymbol> get_reduction_symbols() const
+                {
+                    return _reduction_symbols;
+                }
+                
+                void set_reduction_symbols(ObjectList<OpenMP::ReductionSymbol> reduction_symbols)
+                {
+                    _reduction_symbols.append(reduction_symbols);
                 }
         };
 

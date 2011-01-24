@@ -384,7 +384,7 @@ namespace TL
 		            OpenMP::UDRInfoItem2 udr2 = it->get_udr_2();
 
 		            private_declarations
-		                << comment("Reduction private entity : 'rdp_" + sym.get_name() + "'")
+		                << comment("Reduction private entity : '" + name + "'")
 		                << type_declaration
 		                << static_initializer << ";"
                     ;
@@ -1375,7 +1375,6 @@ namespace TL
                     team_parameter);
 
             AST_t result;
-
             result = outline_parallel.parse_declaration(function_definition.get_point_of_declaration(), 
                     function_definition.get_scope_link());
 

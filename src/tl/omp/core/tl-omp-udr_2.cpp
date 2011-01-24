@@ -161,6 +161,7 @@ namespace TL
                         ref_tree_of_clause,
                         scope_of_clause);
 
+                std::string udr_sp = builtin_operators[i].udr_specifier;
 		        // Declare a new UDR for each type
 		        for (ObjectList<UDRParsedInfo>::iterator it = parsed_info_list.begin();
 		                it != parsed_info_list.end();
@@ -173,6 +174,8 @@ namespace TL
 		            builtin_udr.set_type((*it).type);
 		            builtin_udr.set_combine_expr((*it).combine_expression);
                     builtin_udr.set_is_builtin_operator(true);
+                    
+                    builtin_udr.set_builtin_operator(udr_sp.substr(0, udr_sp.find(':')));
 		            builtin_udr.set_in_symbol((*it).in_symbol);
 		            builtin_udr.set_out_symbol((*it).out_symbol);
                     AST_t identity_expr(NULL);
@@ -748,6 +751,7 @@ namespace TL
             _in_symbol(NULL),
             _out_symbol(NULL),
             _is_builtin(false),
+            _builtin_op(""),
             _has_identity(false),
             _identity(NULL),
             _function_definition_symbol(NULL)
@@ -1036,6 +1040,16 @@ namespace TL
         void UDRInfoItem2::set_is_builtin_operator(bool is_builtin)
         {
             _is_builtin = is_builtin;
+        }
+
+        std::string UDRInfoItem2::get_builtin_operator() const
+        {
+            return _builtin_op;
+        }
+        
+        void UDRInfoItem2::set_builtin_operator(const std::string builtin_op)
+        {
+            _builtin_op = builtin_op;
         }
 
         bool UDRInfoItem2::get_is_constructor() const

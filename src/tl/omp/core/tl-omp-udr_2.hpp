@@ -48,6 +48,7 @@ namespace TL
 			    Symbol _out_symbol;
 
                 bool _is_builtin;
+                std::string _builtin_op;
 
                 bool _has_identity;
                 AST_t _identity;
@@ -100,6 +101,8 @@ namespace TL
 
                 bool is_builtin_operator() const;
                 void set_is_builtin_operator(bool is_builtin);
+                std::string get_builtin_operator() const;
+                void set_builtin_operator(const std::string builtin_op);
 
                 bool get_is_constructor() const;
                 void set_is_constructor(bool constructor);

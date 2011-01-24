@@ -30,15 +30,11 @@
 test_generator=config/mercurium-omp
 test_nolink=yes
 test_noexec=yes
-
-test_compile_fail_nanox_plain=yes
-test_compile_faulty_nanox_plain=yes
-
-test_compile_fail_nanox_instrument=yes
-test_compile_faulty_nanox_instrument=yes
 </testinfo>
 */
 
+int omp_get_num_threads(void);
+int omp_get_thread_num(void);
 
 typedef struct {
   double real;
@@ -57,7 +53,12 @@ my_complex_t vector[N];
 void f(my_complex_t x, my_complex_t y)
 {
     int i;
-#pragma omp parallel for reduction(complex_add:x) reduction(complex_mul:y)
+
+#ifdef NANOX
+    #pragma omp for reduction(complex_add:x) reduction(complex_mul:y)
+#else
+    #pragma omp parallel for reduction(complex_add:x) reduction(complex_mul:y)
+#endif
     for ( i = 0; i < N ; i++ ) 
     {
         x = complex_add(x,vector[i]);

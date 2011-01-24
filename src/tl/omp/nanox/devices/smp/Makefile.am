@@ -39,6 +39,7 @@ libtlnanox_smp_la_CXXFLAGS = $(device_flags)
 libtlnanox_smp_la_LDFLAGS = $(tl_ldflags)
 
 libtlnanox_smp_la_SOURCES = \
+       smp-reduction.cpp \
        nanox-smp.hpp \
        nanox-smp.cpp \
        $(END)
