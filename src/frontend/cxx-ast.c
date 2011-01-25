@@ -177,6 +177,11 @@ unsigned int ast_get_line(const_AST a)
     return a->line;
 }
 
+void ast_set_line(AST a, int line)
+{
+    a->line = line;
+}
+
 const char* ast_get_text(const_AST a)
 {
     return a->text;
@@ -869,7 +874,7 @@ void ast_replace(AST dest, const_AST src)
     *dest = *src;
 }
 
-static void ast_free(AST a)
+void ast_free(AST a)
 {
     if (a != NULL)
     {
