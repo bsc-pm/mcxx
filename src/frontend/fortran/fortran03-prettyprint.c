@@ -222,6 +222,7 @@ HANDLER_PROTOTYPE(where_construct_statement_handler);
 HANDLER_PROTOTYPE(where_statement_handler);
 HANDLER_PROTOTYPE(write_statement_handler);
 
+HANDLER_PROTOTYPE(literal_text_handler);
 HANDLER_PROTOTYPE(simple_text_handler);
 HANDLER_PROTOTYPE(prefix_with_parameter_then_son_handler);
 HANDLER_PROTOTYPE(binary_operator_handler);
@@ -312,7 +313,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_DIMENSION_DECL, dimension_decl_handler, NULL),
     NODE_HANDLER(AST_DIMENSION_STATEMENT, dimension_statement_handler, NULL),
     NODE_HANDLER(AST_DIV_OP, binary_operator_handler, "/"),
-    NODE_HANDLER(AST_DO_LOOP_STATEMENT, do_loop_statement_handler, NULL),
+    NODE_HANDLER(AST_FOR_STATEMENT, do_loop_statement_handler, NULL),
     NODE_HANDLER(AST_DOUBLE_TYPE, double_type_handler, NULL),
     NODE_HANDLER(AST_ELSEWHERE_STATEMENT, elsewhere_statement_handler, NULL),
     NODE_HANDLER(AST_EMPTY_STATEMENT, continue_statement_handler, NULL),
@@ -454,7 +455,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, pragma_custom_construct_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CUSTOM_CLAUSE, pragma_custom_clause_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CUSTOM_LINE, pragma_custom_line_handler, NULL),
-    NODE_HANDLER(AST_PRAGMA_CLAUSE_ARG, simple_text_handler, NULL),
+    NODE_HANDLER(AST_PRAGMA_CLAUSE_ARG, literal_text_handler, NULL),
 };
 
 static void prettyprint_level(FILE *f, AST a, prettyprint_context_t* pt_ctx);
@@ -509,6 +510,11 @@ static void ambiguity_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 static void unary_container_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     prettyprint_level(f, ASTSon0(a), pt_ctx);
+}
+
+static void literal_text_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx UNUSED_PARAMETER)
+{
+    token_fprintf(f, a, pt_ctx, "%s", ASTText(a));
 }
 
 static void simple_text_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx UNUSED_PARAMETER)
@@ -1370,11 +1376,12 @@ static void do_loop_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_
     indent_at_level(f, a, pt_ctx);
     token_fprintf(f, a, pt_ctx, "DO");
 
-    if (ASTSon3(a) != NULL)
-    {
-        token_fprintf(f, a, pt_ctx, " ");
-        prettyprint_level(f, ASTSon3(a), pt_ctx);
-    }
+    // Do not print the label
+    // if (ASTSon3(a) != NULL)
+    // {
+    //     token_fprintf(f, a, pt_ctx, " ");
+    //     prettyprint_level(f, ASTSon3(a), pt_ctx);
+    // }
 
     if (ASTSon0(a) != NULL)
     {
@@ -1401,53 +1408,13 @@ static void do_loop_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_
     {
         prettyprint_level(f, ASTSon2(a), pt_ctx);
     }
-}
-
-#if 0
-static void do_loop_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
-{
-    indent_at_level(f, a, pt_ctx);
-    token_fprintf(f, a, pt_ctx, "DO");
-
-    char already_nested = (ASTText(a) == NULL
-            || strcmp(ASTText(a), "unstructured") != 0);
-
-    // Label for nonblock loops not yet nested, otherwise ignore it
-    if (!already_nested
-            && ASTSon2(a) != NULL)
+    else
     {
-        token_fprintf(f, a, pt_ctx, " ");
-        prettyprint_level(f, ASTSon2(a), pt_ctx);
-    }
-    if (ASTSon0(a) != NULL)
-    {
-        token_fprintf(f, a, pt_ctx, " ");
-        if (ASTType(a) == AST_WHILE_STATEMENT)
-        {
-            token_fprintf(f, a, pt_ctx, "WHILE (");
-            prettyprint_level(f, ASTSon0(a), pt_ctx);
-            token_fprintf(f, a, pt_ctx, ")");
-        }
-        else
-        {
-            prettyprint_level(f, ASTSon0(a), pt_ctx);
-        }
-    }
-    end_of_statement_handler(f, a, pt_ctx);
-
-    if (already_nested)
-    {
-        if (ASTSon1(a) != NULL)
-        {
-            NEW_PT_CONTEXT(new_ctx, increase_level);
-            prettyprint_level(f, ASTSon1(a), new_ctx);
-        }
         indent_at_level(f, a, pt_ctx);
-        fprintf(stderr, "END DO");
+        token_fprintf(f, a, pt_ctx, "END DO");
         end_of_statement_handler(f, a, pt_ctx);
     }
 }
-#endif
 
 static void double_type_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
@@ -1780,6 +1747,7 @@ static void if_then_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_
         if (ASTType(else_tree) == AST_LABELED_STATEMENT)
             else_tree = ASTSon1(else_tree);
 
+        indent_at_level(f, a, pt_ctx);
         if (ASTType(else_tree) != AST_IF_ELSE_STATEMENT)
         {
             token_fprintf(f, a, pt_ctx, "ELSE");
@@ -1962,15 +1930,19 @@ static void lock_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx
 
 static void loop_control_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
+    // An empty loop control
+    if (ASTSon0(a) == NULL
+            && ASTSon1(a) == NULL
+            && ASTSon2(a) == NULL)
+        return;
+
     prettyprint_level(f, ASTSon0(a), pt_ctx);
-    token_fprintf(f, a, pt_ctx, " = ");
-    prettyprint_level(f, ASTSon1(a), pt_ctx);
     token_fprintf(f, a, pt_ctx, ", ");
-    prettyprint_level(f, ASTSon2(a), pt_ctx);
-    if (ASTSon3(a) != NULL)
+    prettyprint_level(f, ASTSon1(a), pt_ctx);
+    if (ASTSon2(a) != NULL)
     {
         token_fprintf(f, a, pt_ctx, ", ");
-        prettyprint_level(f, ASTSon3(a), pt_ctx);
+        prettyprint_level(f, ASTSon2(a), pt_ctx);
     }
 }
 

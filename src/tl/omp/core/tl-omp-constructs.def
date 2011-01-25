@@ -49,5 +49,6 @@ OMP_DIRECTIVE("declare|reduction", declare_reduction)
 OMP_CONSTRUCT("target", target)
 
 #ifdef FORTRAN_SUPPORT
+OMP_CONSTRUCT_NOEND("parallel|do", parallel_do)
 OMP_CONSTRUCT_NOEND("do", do)
 #endif

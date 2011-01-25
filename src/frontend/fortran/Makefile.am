@@ -45,12 +45,17 @@ libmf03_la_SOURCES = \
                      fortran03-parser-internal.h \
                      fortran03-utils.h \
                      fortran03-utils.c \
-                     fortran03-semantic.h \
-                     fortran03-semantic.c \
                      fortran03-prettyprint.c \
                      fortran03-prettyprint.h \
                      fortran03-split.h \
                      fortran03-split.c \
+                     fortran03-scope-decls.h \
+                     fortran03-scope.h \
+                     fortran03-scope.c \
+                     fortran03-buildscope.h \
+                     fortran03-buildscope.c \
+                     fortran03-exprtype.h \
+                     fortran03-exprtype.c \
                      libmf03-common.h \
                      $(END)
 
@@ -121,7 +126,7 @@ EXTRA_DIST += fortran03.y.in
 EXTRA_DIST += prescanner.l
 
 fortran03.y : $(srcdir)/fortran03.y.in $(addprefix $(srcdir)/, $(ADDITIONAL_GRAMMARS)) 
-	$(TPP_verbose)$(TPP) -I $(srcdir)/.. -o fortran03.y -D FORTRAN2003 -I$(srcdir) $(srcdir)/fortran03.y.in
+	$(TPP_verbose)(rm -f fortran03.y && $(TPP) -I $(srcdir)/.. -o fortran03.y -D FORTRAN2003 -I$(srcdir) $(srcdir)/fortran03.y.in && chmod -w fortran03.y)
 
 if BISON_BUILDING
 CLEANFILES += fortran03-parser.c

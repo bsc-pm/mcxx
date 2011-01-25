@@ -1,4 +1,4 @@
-#!/bin/bash
+#!@BASH@
 
 if [ -z "@NANOS4_INCLUDES@" ];
 then

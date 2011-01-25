@@ -430,8 +430,20 @@ namespace TL
             //! Function to register a construct
             /*!
              * This is required for successful parsing of construct
+             *
+             * \param bound_to_statement This parameter is only meaningful in
+             * Fortran and will have no effect in C/C++.  If true, the
+             * construct is bounded to the next single statement. By default in
+             * Fortran a construct 'name' is bound to a block of statements,
+             * thus requiring a 'end name' directive to know where such block
+             * ends. By binding the construct to the next statement, such 'end
+             * name' it is not strictly needed anymore thus becoming optional.
+             * This parameter does not have any effect in C/C++ since in those
+             * languages pragma constructs are always bound to the next
+             * statement since blocks are expressed by compound-statements
+             * which are statements (recursively) containing other statements
              */
-            void register_construct(const std::string& name);
+            void register_construct(const std::string& name, bool bound_to_statement = false);
 
             //! Function to activate a flag in order to warning about all the unused clauses of a pragma
             /*!

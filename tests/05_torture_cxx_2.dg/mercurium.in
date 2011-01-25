@@ -1,4 +1,4 @@
-#!/bin/bash
+#!@BASH@
 
 @abs_top_builddir@/tests/config/mercurium-extensions
 

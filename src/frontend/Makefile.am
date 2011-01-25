@@ -343,7 +343,7 @@ else
 endif
 
 cxx03.l : $(srcdir)/cxx-lexer.l 
-	$(TPP_verbose)$(TPP) -o cxx03.l -D CPLUSPLUS $(srcdir)/cxx-lexer.l
+	$(TPP_verbose)(rm -f cxx03.l && $(TPP) -o cxx03.l -D CPLUSPLUS $(srcdir)/cxx-lexer.l && chmod -w cxx03.l)
 
 if BISON_BUILDING
 CLEANFILES += cxx-parser.c
@@ -353,7 +353,7 @@ CLEANFILES += cxx03.y
 endif
 
 cxx03.y : $(srcdir)/cxx03.y.in $(addprefix $(srcdir)/, $(ADDITIONAL_GRAMMARS)) 
-	$(TPP_verbose)$(TPP) -o cxx03.y -D CPLUSPLUS -I$(srcdir) $(srcdir)/cxx03.y.in
+	$(TPP_verbose)(rm -f cxx03.y && $(TPP) -o cxx03.y -D CPLUSPLUS -I$(srcdir) $(srcdir)/cxx03.y.in && chmod -w cxx03.y)
 
 cxx-parser.c : cxx03.y
 if BISON_BUILDING
@@ -382,7 +382,7 @@ else
 endif
 
 c99.l : $(srcdir)/cxx-lexer.l
-	$(TPP_verbose)$(TPP) -o c99.l -D C99 $(srcdir)/cxx-lexer.l
+	$(TPP_verbose)(rm -f c99.l && $(TPP) -o c99.l -D C99 $(srcdir)/cxx-lexer.l && chmod -w c99.l)
 
 if BISON_BUILDING
 CLEANFILES += c99-parser.c
@@ -392,7 +392,7 @@ CLEANFILES += c99.y
 endif
 
 c99.y : $(srcdir)/c99.y.in $(addprefix $(srcdir)/, $(ADDITIONAL_GRAMMARS)) 
-	$(TPP_verbose)$(TPP) -o c99.y -D C99 -I$(srcdir) $(srcdir)/c99.y.in
+	$(TPP_verbose)(rm -f c99.y && $(TPP) -o c99.y -D C99 -I$(srcdir) $(srcdir)/c99.y.in)
 
 c99-parser.c : c99.y
 if BISON_BUILDING

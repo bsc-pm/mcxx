@@ -75,6 +75,7 @@ namespace TL
                 OMP_DIRECTIVE(_directive, _name)
 #include "tl-omp-constructs.def"
 #undef OMP_CONSTRUCT
+#undef OMP_CONSTRUCT_NOEND
 #undef OMP_DIRECTIVE
 
                 RefPtr<OpenMP::Info> _openmp_info;

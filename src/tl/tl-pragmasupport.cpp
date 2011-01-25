@@ -480,9 +480,16 @@ namespace TL
         register_new_directive(_pragma_handled.c_str(), str.c_str(), 0, 0);
     }
 
-    void PragmaCustomCompilerPhase::register_construct(const std::string& str)
+    void PragmaCustomCompilerPhase::register_construct(const std::string& str, bool bound_to_statement)
     {
-        register_new_directive(_pragma_handled.c_str(), str.c_str(), 1, 0);
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            register_new_directive(_pragma_handled.c_str(), str.c_str(), 1, bound_to_statement);
+        }
+        else
+        {
+            register_new_directive(_pragma_handled.c_str(), str.c_str(), 1, 0);
+        }
     }
 
     void PragmaCustomCompilerPhase::warning_pragma_unused_clauses(bool warning)

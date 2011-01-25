@@ -40,8 +40,6 @@
 MCXX_BEGIN_DECLS
 
 LIBMCXX_EXTERN decl_context_t new_global_context(void);
-LIBMCXX_EXTERN decl_context_t new_program_unit_context(void); // Fortran only
-LIBMCXX_EXTERN decl_context_t new_internal_program_unit_context(decl_context_t enclosing_context); // Fortran only
 LIBMCXX_EXTERN decl_context_t new_namespace_context(decl_context_t enclosing_decl_context, scope_entry_t* namespace_symbol);
 LIBMCXX_EXTERN decl_context_t new_prototype_context(decl_context_t enclosing_decl_context);
 LIBMCXX_EXTERN decl_context_t new_block_context(decl_context_t enclosing_decl_context);

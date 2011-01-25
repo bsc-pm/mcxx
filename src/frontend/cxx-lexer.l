@@ -155,7 +155,6 @@ static void verbatim_buffer_append(const char* c);
 static void verbatim_buffer_free(void);
 static const char* verbatim_buffer_get(void);
 
-
 static const char* return_pragma_prefix_longest_match(const char* prefix, 
         const char* lexed_directive,
         pragma_directive_kind_t* kind);
@@ -396,7 +395,6 @@ type {
 	BEGIN(pragma_custom_clause_first);
 
     pragma_directive_kind_t directive_kind = PDK_NONE; 
-    // lookup_pragma_directive(current_pragma_prefix, yytext);
 
     // This call will unput appropriately what was lexed too much
     const char* longest_match = return_pragma_prefix_longest_match(

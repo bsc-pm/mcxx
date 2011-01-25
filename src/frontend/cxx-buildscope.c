@@ -8731,7 +8731,7 @@ static void build_scope_condition(AST a, decl_context_t decl_context)
 
     if (ASTType(a) == AST_AMBIGUITY)
     {
-        build_solve_condition_ambiguity(a, decl_context);
+        solve_condition_ambiguity(a, decl_context);
     }
 
     if (ASTSon0(a) != NULL 
@@ -8893,10 +8893,13 @@ static void build_scope_for_statement(AST a,
         decl_context_t decl_context, 
         char* attr_name UNUSED_PARAMETER)
 {
-    AST for_init_statement = ASTSon0(a);
-    AST condition = ASTSon1(a);
-    AST expression = ASTSon2(a);
-    AST statement = ASTSon3(a);
+    AST loop_control = ASTSon0(a);
+
+    AST for_init_statement = ASTSon0(loop_control);
+    AST condition = ASTSon1(loop_control);
+    AST expression = ASTSon2(loop_control);
+
+    AST statement = ASTSon1(a);
 
     if (ASTType(for_init_statement) == AST_AMBIGUITY)
     {

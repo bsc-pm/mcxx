@@ -81,9 +81,9 @@
 #ifdef FORTRAN_SUPPORT
 #include "fortran03-parser.h"
 #include "fortran03-lexer.h"
-#include "fortran03-semantic.h"
 #include "fortran03-prettyprint.h"
 #include "fortran03-split.h"
+#include "fortran03-buildscope.h"
 #endif
 
 /* ------------------------------------------------------------------ */
@@ -181,10 +181,14 @@
 "                           file.\n" \
 "  --instantiate            Instantiate explicitly templates. This is\n" \
 "                           an unsupported experimental feature\n" \
-"  --pp                     Preprocess files\n"\
+"  --pp[=on]                Preprocess files\n"\
 "                           This is the default for files ending with\n"\
 "                           C/C++: .c, .cc, .C, .cp, .cpp, .cxx, .c++\n"\
 "                           Fortran: .F, .F77, .F90, .F95\n"\
+"  --pp=off                 Disables preprocessing\n"\
+"                           This is the default for files ending with\n"\
+"                           C/C++: .i, .ii\n"\
+"                           Fortran: .f, .f77, .f90, .f95\n"\
 "  --pp-stdout              Preprocessor uses stdout for output\n" \
 "  --width=<width>          Fortran column width. By default 132\n" \
 "  --free                   Force Fortran free form regardless of\n" \
@@ -195,7 +199,7 @@
 "                           extension\n"\
 "                           This is the default for files ending with\n"\
 "                           .f, .F, .f77, .F77\n"\
-"  --fpp                    An alias for --pp\n"\
+"  --fpp                    An alias for --pp=on\n"\
 "  --sentinels=on|off       Enables or disables empty sentinels\n" \
 "                           Empty sentinels are enabled by default\n" \
 "                           This flag is only meaningful for Fortran\n" \
@@ -279,7 +283,7 @@ struct command_line_long_options command_line_long_options[] =
     {"hlt", CLP_NO_ARGUMENT, OPTION_ENABLE_HLT},
     {"do-not-unload-phases", CLP_NO_ARGUMENT, OPTION_DO_NOT_UNLOAD_PHASES},
     {"instantiate", CLP_NO_ARGUMENT, OPTION_INSTANTIATE_TEMPLATES},
-    {"pp", CLP_NO_ARGUMENT, OPTION_ALWAYS_PREPROCESS},
+    {"pp", CLP_OPTIONAL_ARGUMENT, OPTION_ALWAYS_PREPROCESS},
     {"fpp", CLP_NO_ARGUMENT, OPTION_ALWAYS_PREPROCESS},
     {"width", CLP_REQUIRED_ARGUMENT, OPTION_FORTRAN_COLUMN_WIDTH},
     {"fixed", CLP_NO_ARGUMENT, OPTION_FORTRAN_FIXED},
@@ -1046,7 +1050,21 @@ int parse_arguments(int argc, const char* argv[],
                     }
                 case OPTION_ALWAYS_PREPROCESS:
                     {
-                        CURRENT_CONFIGURATION->force_source_kind |= SOURCE_KIND_NOT_PREPROCESSED;
+                        if (parameter_info.argument == NULL
+                                || strcmp(parameter_info.argument, "on") == 0)
+                        {
+                            CURRENT_CONFIGURATION->force_source_kind &= ~SOURCE_KIND_PREPROCESSED;
+                            CURRENT_CONFIGURATION->force_source_kind |= SOURCE_KIND_NOT_PREPROCESSED;
+                        }
+                        else if (strcmp(parameter_info.argument, "off") == 0)
+                        {
+                            CURRENT_CONFIGURATION->force_source_kind &= ~SOURCE_KIND_NOT_PREPROCESSED;
+                            CURRENT_CONFIGURATION->force_source_kind |= SOURCE_KIND_PREPROCESSED;
+                        }
+                        else
+                        {
+                            fprintf(stderr, "Invalid value given for --pp option, valid values are 'on' or 'off'\n");
+                        }
                         break;
                     }
                 case OPTION_FORTRAN_COLUMN_WIDTH:
@@ -2159,8 +2177,10 @@ static void compile_every_translation_unit_aux_(int num_translation_units,
         }
 
         const char* parsed_filename = translation_unit->input_filename;
-        if ((BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PREPROCESSED)
+        // If the file is not preprocessed or we've ben told to preprocess it
+        if (((BITMAP_TEST(current_extension->source_kind, SOURCE_KIND_NOT_PREPROCESSED)
                     || BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_NOT_PREPROCESSED))
+                    && !BITMAP_TEST(CURRENT_CONFIGURATION->force_source_kind, SOURCE_KIND_PREPROCESSED))
                 && !CURRENT_CONFIGURATION->pass_through)
         {
             timing_t timing_preprocessing;
@@ -2470,6 +2490,7 @@ static void semantic_analysis(translation_unit_t* translation_unit, const char* 
 #ifdef FORTRAN_SUPPORT
     else if (IS_FORTRAN_LANGUAGE)
     {
+        build_scope_fortran_translation_unit(translation_unit);
     }
 #endif
     else
@@ -3194,11 +3215,12 @@ static void embed_files(void)
 }
 
 static void link_files(const char** file_list, int num_files,
+        const char** additional_files, int num_additional_files,
         compilation_configuration_t* compilation_configuration)
 {
     int num_args_linker = count_null_ended_array((void**)compilation_configuration->linker_options);
 
-    int num_arguments = num_args_linker + num_files;
+    int num_arguments = num_args_linker + num_files + num_additional_files;
     // -o output
     num_arguments += 2;
     // NULL
@@ -3221,6 +3243,12 @@ static void link_files(const char** file_list, int num_files,
     for (j = 0; j < num_files; j++)
     {
         linker_args[i] = file_list[j];
+        i++;
+    }
+
+    for (j = 0; j < num_additional_files; j++)
+    {
+        linker_args[i] = additional_files[j];
         i++;
     }
 
@@ -3353,6 +3381,7 @@ static void do_combining(target_options_map_t* target_map,
 }
 
 static void extract_files_and_sublink(const char** file_list, int num_files,
+        const char*** additional_files, int *num_additional_files,
         compilation_configuration_t* target_configuration)
 {
     multifile_init_dir();
@@ -3409,7 +3438,7 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
             int j;
             for (j = 0; j < multifile_num_files; j++)
             {
-                add_to_parameter_list_str(&target_configuration->linker_options, 
+                P_LIST_ADD((*additional_files), (*num_additional_files), 
                         multifile_file_list[j]);
             }
         }
@@ -3430,12 +3459,15 @@ static void extract_files_and_sublink(const char** file_list, int num_files,
             configuration->linked_output_filename =
                 strappend(configuration->configuration_name, linked_output_suffix);
 
-            link_files(multifile_file_list, multifile_num_files, configuration);
+            link_files(multifile_file_list, multifile_num_files, 
+                    /* additional files */ NULL, /* num_additional_files */ 0,
+                    configuration);
 
             do_combining(target_map, configuration);
 
             // Now add the linked output as an additional link file
-            add_to_parameter_list_str(&target_configuration->linker_options, 
+            P_LIST_ADD((*additional_files), 
+                    (*num_additional_files), 
                     configuration->linked_output_filename);
         }
     }
@@ -3467,9 +3499,15 @@ static void link_objects(void)
         }
     }
 
-    extract_files_and_sublink(file_list, compilation_process.num_translation_units, CURRENT_CONFIGURATION);
+    int num_additional_files = 0;
+    const char** additional_files = NULL;
+    extract_files_and_sublink(file_list, compilation_process.num_translation_units, 
+            &additional_files, &num_additional_files, CURRENT_CONFIGURATION);
 
-    link_files(file_list, compilation_process.num_translation_units, CURRENT_CONFIGURATION);
+    link_files(file_list, compilation_process.num_translation_units, 
+            additional_files, 
+            num_additional_files, 
+            CURRENT_CONFIGURATION);
 }
 
 

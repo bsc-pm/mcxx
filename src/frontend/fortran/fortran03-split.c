@@ -34,7 +34,12 @@
 #include "cxx-driver-utils.h"
 
 static char check_for_comment(char* c);
+static char check_for_construct(char *c, char *prefix, int max_length);
+
 static void double_continuate(FILE* output, const char* c, int width, int* column);
+static void double_continuate_construct(FILE* output, 
+        const char* prefix, 
+        const char* c, int width, int* column);
 static char* read_whole_line(FILE* input);
 static void trim_right_line(char* c);
 
@@ -67,14 +72,27 @@ void fortran_split_lines(FILE* input, FILE* output, int width)
 
 		// Comments that will reach here are those created within the compiler 
 		// (e.g. TPL) because scanner always trims them
+        char prefix[33] = { 0 };
+        char is_construct = check_for_construct(line, prefix, 32);
 		char is_comment = check_for_comment(line);
 
 		length = strlen(line);
 		// Many times we will fall here by means of length <= width
-		if ((length <= width) || is_comment) 
+		if ((length <= width))
 		{
 			fputs(line, output);
 		}
+        else if (is_construct)
+        {
+            // Do not complicate ourselves, rely on a double continuation
+            int column = 1;
+            double_continuate_construct(output, prefix, line, width, &column);
+            fprintf(output, "\n");
+        }
+        else if (is_comment)
+        {
+			fputs(line, output);
+        }
 		else
 		{
 			int column, next_column;
@@ -88,8 +106,6 @@ void fortran_split_lines(FILE* input, FILE* output, int width)
 			column = 1;
 			position = line;
 
-			// See if this is an omp directive
-//#warning omp support will not be used in CellSs/SMPSs compiler but this is useful for our directives
 			// Scan
 			int token = mf03lex();
 			while (token != EOS)
@@ -179,18 +195,83 @@ static void double_continuate(FILE* output, const char* c, int width, int* colum
 	}
 }
 
+static void double_continuate_construct(FILE* output, 
+        const char* prefix, 
+        const char* c, int width, int* column)
+{
+	// This is a naive but easy-to-reason-about-it implementation
+	// It refuses to reuse the last column for other than continuation,
+	// it will put a continuation even if only one character remains
+	// this avoids having *column > width.
+    char prefix_start[64];
+    snprintf(prefix_start, 63, "!$%s&", prefix);
+	for (; *c != '\0'; c++)
+	{
+		// If we are at the last column but this is not an EOS
+		if ((*column == width) && (*c != '\n'))
+		{
+			// Double continue
+			fprintf(output, "&\n%s", prefix_start);
+			*column = 1 + strlen(prefix_start);
+			DEBUG_CODE() DEBUG_MESSAGE("Cutting at '%c'", *c);
+		}
+		DEBUG_CODE() DEBUG_MESSAGE("%d - Letter - '%c'", *column, *c);
+		fprintf(output, "%c", *c);
+		(*column)++;
+	}
+}
 
-
-/*
-   Support for OpenMP 2.5
-
-   Checks for an omp directive (since they have to be splitted nicely)
- */
 static char check_for_comment(char* c)
 {
 	char* iter = c;
 	while (*iter == ' ' || *iter == '\t') iter++;
 	return (*iter == '!');
+}
+
+static char check_for_construct(char *c, char *prefix, int max_length)
+{
+    char* iter = c;
+    while (*iter == ' ' || *iter == '\t') iter++;
+    if (*iter != '!')
+        return 0;
+    iter++;
+
+    if (*iter != '$')
+        return 0;
+    iter++;
+
+    char *q = prefix;
+    *q = '\0';
+
+    int length = 0;
+    while (*iter != ' ' 
+            && *iter != '\t' 
+            && *iter != '\0')
+    {
+        // Disregard such a long prefix
+        if (length >= max_length)
+        {
+            return 0;
+        }
+        *q = *iter;
+
+        q++;
+        iter++;
+        length++;
+    }
+
+    int i;
+    char found = 0;
+    for (i = 0; i < CURRENT_CONFIGURATION->num_pragma_custom_prefix; i++)
+    {
+        if (strcasecmp(prefix, CURRENT_CONFIGURATION->pragma_custom_prefix[i]) == 0)
+        {
+            found = 1;
+            break;
+        }
+    }
+
+    return found;
 }
 
 static char* read_whole_line(FILE* input)
