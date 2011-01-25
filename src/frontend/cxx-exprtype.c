@@ -2580,7 +2580,11 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
     }
     else if (!checking_ambiguity())
     {
-        error_message_overload_failed(decl_context, expr, candidate_set);
+        if (!checking_ambiguity())
+        {
+            error_message_overload_failed(decl_context, expr, candidate_set);
+        }
+        overloaded_type = get_error_type();
     }
     return overloaded_type;
 }
@@ -2685,9 +2689,13 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
         expression_set_type(expr, function_type_get_return_type(overloaded_type));
         expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
     }
-    else if (!checking_ambiguity())
+    else 
     {
-        error_message_overload_failed(decl_context, expr, candidate_set);
+        if (!checking_ambiguity())
+        {
+            error_message_overload_failed(decl_context, expr, candidate_set);
+        }
+        overloaded_type = get_error_type();
     }
     return overloaded_type;
 }
