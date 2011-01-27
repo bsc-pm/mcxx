@@ -1,11 +1,11 @@
-# OCL profile
+# CUDA profile
 [ocl]
 language = C
 options =
 preprocessor_name =
 preprocessor_options =
 compiler_name = nvcc
-compiler_options = -I/home/users/dcaballero/local/nanox/include/nanox -include nanos.h
+compiler_options = /home/users/dcaballero/local/nanox/include/nanox
 linker_name = 
 linker_options = 
 target_options[sscc] = no_sublink no_embed
