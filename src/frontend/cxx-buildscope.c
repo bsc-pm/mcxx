@@ -214,18 +214,23 @@ void build_scope_dynamic_initializer(void)
     register_ast_extended_attributes();
 }
 
-void initialize_translation_unit_scope(translation_unit_t* translation_unit)
+void initialize_translation_unit_scope(translation_unit_t* translation_unit, decl_context_t* decl_context)
 {
-    decl_context_t decl_context = new_global_context();
+    *decl_context = new_global_context();
 
     // The global scope is created here
-    translation_unit->global_decl_context = decl_context;
-    translation_unit->scope_link = scope_link_new(decl_context);
+    translation_unit->global_decl_context = *decl_context;
+    translation_unit->scope_link = scope_link_new(*decl_context);
 
     // Link the AST root node with the global scope
     AST a = translation_unit->parsed_tree;
-    scope_link_set(translation_unit->scope_link, a, decl_context);
+    scope_link_set(translation_unit->scope_link, a, *decl_context);
+}
 
+void c_initialize_translation_unit_scope(translation_unit_t* translation_unit)
+{
+    decl_context_t decl_context;
+    initialize_translation_unit_scope(translation_unit, &decl_context);
     initialize_builtin_symbols(decl_context);
 }
 
@@ -703,7 +708,7 @@ static void build_scope_using_directive(AST a, decl_context_t decl_context)
     // Now add this namespace to the used namespaces of this scope
     scope_t* namespace_scope = decl_context.current_scope;
 
-    ERROR_CONDITION(entry->namespace_decl_context.current_scope->kind != NAMESPACE_SCOPE,
+    ERROR_CONDITION(entry->related_decl_context.current_scope->kind != NAMESPACE_SCOPE,
             "Error, related scope is not namespace scope", 0);
 
     P_LIST_ADD_ONCE(namespace_scope->use_namespace, 
@@ -6676,7 +6681,7 @@ static void build_scope_namespace_alias(AST a, decl_context_t decl_context)
     alias_entry->file = ASTFileName(alias_ident);
     alias_entry->point_of_declaration = alias_ident;
     alias_entry->kind = SK_NAMESPACE;
-    alias_entry->namespace_decl_context = entry->namespace_decl_context;
+    alias_entry->related_decl_context = entry->related_decl_context;
 }
 
 /*
@@ -6725,7 +6730,7 @@ static void build_scope_namespace_definition(AST a, decl_context_t decl_context)
                 entry_list_head(list)->kind == SK_NAMESPACE)
         {
             entry = entry_list_head(list);
-            namespace_context = entry->namespace_decl_context;
+            namespace_context = entry->related_decl_context;
 
             if (is_inline
                     && !entry->entity_specs.is_inline)
@@ -6743,7 +6748,7 @@ static void build_scope_namespace_definition(AST a, decl_context_t decl_context)
             entry->file = ASTFileName(namespace_name);
             entry->point_of_declaration = namespace_name;
             entry->kind = SK_NAMESPACE;
-            entry->namespace_decl_context = namespace_context;
+            entry->related_decl_context = namespace_context;
 
             // Link the scope of this newly created namespace
             scope_link_set(CURRENT_COMPILED_FILE->scope_link, a, namespace_context);
@@ -6781,7 +6786,7 @@ static void build_scope_namespace_definition(AST a, decl_context_t decl_context)
 
             entry_list_free(list);
 
-            namespace_context = entry->namespace_decl_context;
+            namespace_context = entry->related_decl_context;
 
             if (is_inline
                     && !entry->entity_specs.is_inline)
@@ -6799,7 +6804,7 @@ static void build_scope_namespace_definition(AST a, decl_context_t decl_context)
             entry->file = ASTFileName(a);
             entry->point_of_declaration = a;
             entry->kind = SK_NAMESPACE;
-            entry->namespace_decl_context = namespace_context;
+            entry->related_decl_context = namespace_context;
 
             // Link the scope of this newly created namespace
             scope_link_set(CURRENT_COMPILED_FILE->scope_link, a, namespace_context);

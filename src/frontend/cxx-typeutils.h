@@ -76,6 +76,9 @@ LIBMCXX_EXTERN type_t* get_void_type(void);
 LIBMCXX_EXTERN type_t* get_double_type(void);
 LIBMCXX_EXTERN type_t* get_long_double_type(void);
 
+/* Fortran specialities */
+LIBMCXX_EXTERN type_t* get_bool_of_integer_type(type_t* t);
+
 LIBMCXX_EXTERN type_t* get_gcc_typeof_type(AST type_tree, decl_context_t decl_context);
 LIBMCXX_EXTERN type_t* get_gcc_typeof_expr_type(AST type_expr, decl_context_t decl_context);
 

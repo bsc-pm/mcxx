@@ -1,14 +1,25 @@
 #include "fortran03-buildscope.h"
 #include "fortran03-exprtype.h"
+#include "fortran03-prettyprint.h"
 #include "cxx-ast.h"
 #include "cxx-scope.h"
+#include "cxx-buildscope.h"
 #include "cxx-scopelink.h"
 #include "cxx-utils.h"
 #include "cxx-entrylist.h"
 #include "cxx-typeutils.h"
+#include "cxx-tltype.h"
+#include "cxx-attrnames.h"
 #include "cxx-exprtype.h"
 #include <string.h>
 #include <stdlib.h>
+
+void fortran_initialize_translation_unit_scope(translation_unit_t* translation_unit)
+{
+    decl_context_t decl_context;
+    initialize_translation_unit_scope(translation_unit, &decl_context);
+    // TODO: Fortran intrinsics
+}
 
 static void build_scope_program_unit_seq(AST program_unit_seq, 
         decl_context_t decl_context);
@@ -48,33 +59,32 @@ static void build_scope_block_data_program_unit(AST program_unit, decl_context_t
 static void build_scope_program_unit(AST program_unit, 
         decl_context_t decl_context)
 {
-    decl_context_t program_unit_context = new_block_context(decl_context);
 
     switch (ASTType(program_unit))
     {
         case AST_MAIN_PROGRAM_UNIT:
             {
-                build_scope_main_program_unit(program_unit, program_unit_context);
+                build_scope_main_program_unit(program_unit, decl_context);
                 break;
             }
         case AST_SUBROUTINE_PROGRAM_UNIT:
             {
-                build_scope_subroutine_program_unit(program_unit, program_unit_context);
+                build_scope_subroutine_program_unit(program_unit, decl_context);
                 break;
             }
         case AST_FUNCTION_PROGRAM_UNIT:
             {
-                build_scope_function_program_unit(program_unit, program_unit_context);
+                build_scope_function_program_unit(program_unit, decl_context);
                 break;
             }
         case AST_MODULE_PROGRAM_UNIT :
             {
-                build_scope_module_program_unit(program_unit, program_unit_context);
+                build_scope_module_program_unit(program_unit, decl_context);
                 break;
             }
         case AST_BLOCK_DATA_PROGRAM_UNIT:
             {
-                build_scope_block_data_program_unit(program_unit, program_unit_context);
+                build_scope_block_data_program_unit(program_unit, decl_context);
                 break;
             }
         default:
@@ -86,8 +96,27 @@ static void build_scope_program_unit(AST program_unit,
 
 static void build_scope_program_body(AST program_body, decl_context_t decl_context);
 
-static void build_scope_main_program_unit(AST program_unit, decl_context_t program_unit_context)
+static void build_scope_main_program_unit(AST program_unit, decl_context_t decl_context)
 {
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "==== [%s] Program unit: PROGRAM ===\n", ast_location(program_unit));
+    }
+    decl_context_t program_unit_context = new_block_context(decl_context);
+
+    AST program_stmt = ASTSon0(program_unit);
+    const char * program_name = "__MAIN__";
+    if (program_stmt != NULL)
+    {
+        AST name = ASTSon0(program_stmt);
+        program_name = ASTText(name);
+    }
+    scope_entry_t* program_sym = new_symbol(decl_context, decl_context.current_scope, program_name);
+    program_sym->kind = SK_PROGRAM;
+    program_sym->file = ASTFileName(program_unit);
+    program_sym->line = ASTLine(program_unit);
+    program_sym->related_decl_context = program_unit_context;
+
     AST program_body = ASTSon1(program_unit);
     if (program_body == NULL)
         return;
@@ -95,8 +124,14 @@ static void build_scope_main_program_unit(AST program_unit, decl_context_t progr
     build_scope_program_body(program_body, program_unit_context);
 }
 
-static void build_scope_subroutine_program_unit(AST program_unit, decl_context_t program_unit_context)
+static void build_scope_subroutine_program_unit(AST program_unit, decl_context_t decl_context)
 {
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "==== [%s] Program unit: SUBROUTINE ===\n", ast_location(program_unit));
+    }
+    decl_context_t program_unit_context = new_block_context(decl_context);
+
     AST program_body = ASTSon1(program_unit);
     if (program_body == NULL)
         return;
@@ -104,8 +139,14 @@ static void build_scope_subroutine_program_unit(AST program_unit, decl_context_t
     build_scope_program_body(program_body, program_unit_context);
 }
 
-static void build_scope_function_program_unit(AST program_unit, decl_context_t program_unit_context)
+static void build_scope_function_program_unit(AST program_unit, decl_context_t decl_context)
 {
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "==== [%s] Program unit: FUNCTION ===\n", ast_location(program_unit));
+    }
+    decl_context_t program_unit_context = new_block_context(decl_context);
+
     AST program_body = ASTSon1(program_unit);
     if (program_body == NULL)
         return;
@@ -113,16 +154,26 @@ static void build_scope_function_program_unit(AST program_unit, decl_context_t p
     build_scope_program_body(program_body, program_unit_context);
 }
 
-static void build_scope_module_program_unit(AST program_unit, decl_context_t program_unit_context UNUSED_PARAMETER)
+static void build_scope_module_program_unit(AST program_unit, decl_context_t decl_context UNUSED_PARAMETER)
 {
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "==== [%s] Program unit: MODULE ===\n", ast_location(program_unit));
+    }
+    // decl_context_t program_unit_context = new_block_context(decl_context);
     fprintf(stderr, "%s: sorry: MODULE program units not yet implemented\n", 
             ast_location(program_unit));
 }
 
-static void build_scope_block_data_program_unit(AST program_unit UNUSED_PARAMETER,
-        decl_context_t program_unit_context UNUSED_PARAMETER)
+static void build_scope_block_data_program_unit(AST program_unit,
+        decl_context_t decl_context UNUSED_PARAMETER)
 {
     // Do nothing with these
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "=== [%s] Program unit: BLOCK DATA ===\n", ast_location(program_unit));
+    }
+    // decl_context_t program_unit_context = new_block_context(decl_context);
 }
 
 static void build_scope_program_part(AST program_part, decl_context_t decl_context);
@@ -267,6 +318,10 @@ static void build_scope_program_part(AST program_part, decl_context_t decl_conte
     AST it;
     for_each_element(program_part, it)
     {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "=== [%s] Statement ===\n", ast_location(program_part));
+        }
         AST statement = ASTSon1(it);
 
         build_scope_statement_handler_t key = { .ast_kind = ASTType(statement) };
@@ -313,7 +368,30 @@ static void build_scope_arithmetic_if_stmt(AST a UNUSED_PARAMETER, decl_context_
 
 static void build_scope_expression_stmt(AST a, decl_context_t decl_context)
 {
-   check_for_expression(a, decl_context);
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "== [%s] Expression statement ==\n",
+                ast_location(a));
+    }
+    AST expr = ASTSon0(a);
+    if (!check_for_expression(expr, decl_context)
+            && CURRENT_CONFIGURATION->strict_typecheck)
+    {
+        internal_error("Could not check expression '%s' at '%s'\n",
+                fortran_prettyprint_in_buffer(ASTSon0(a)),
+                ast_location(ASTSon0(a)));
+    }
+
+    if (expression_get_type(expr) != NULL)
+    {
+        expression_set_type(a, expression_get_type(expr));
+        expression_set_is_lvalue(a, expression_is_lvalue(a));
+    }
+
+    ASTAttrSetValueType(a, LANG_IS_EXPRESSION_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_IS_EXPRESSION_COMPONENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(expr));
 }
 
 static void build_scope_associate_construct(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
@@ -552,12 +630,12 @@ static type_t* choose_type_from_kind_table(AST expr, type_t** type_table, int nu
     if ((0 < kind_size)
             && (kind_size <= num_types))
     {
-        result = type_table[kind_size-1];
+        result = type_table[kind_size];
     }
 
     if (result == NULL)
     {
-        running_error("%s: error: invalid KIND=%d\n", ast_location(expr), kind_size);
+        running_error("%s: error: KIND=%d not supported\n", ast_location(expr), kind_size);
     }
 
     return result;
@@ -565,7 +643,7 @@ static type_t* choose_type_from_kind_table(AST expr, type_t** type_table, int nu
 
 #define MAX_INT_KIND 16
 static char int_types_init = 0;
-static type_t* int_types[MAX_INT_KIND] = { 0 };
+static type_t* int_types[MAX_INT_KIND + 1] = { 0 };
 static type_t* choose_int_type_from_kind(AST expr, int kind_size)
 {
     if (!int_types_init)
@@ -581,7 +659,7 @@ static type_t* choose_int_type_from_kind(AST expr, int kind_size)
 
 #define MAX_FLOAT_KIND 16
 static char float_types_init = 0;
-static type_t* float_types[MAX_FLOAT_KIND] = { 0 };
+static type_t* float_types[MAX_FLOAT_KIND + 1] = { 0 };
 static type_t* choose_float_type_from_kind(AST expr, int kind_size)
 {
     if (!float_types_init)
@@ -597,12 +675,14 @@ static type_t* choose_float_type_from_kind(AST expr, int kind_size)
 
 #define MAX_LOGICAL_KIND 16
 static char logical_types_init = 0;
-static type_t* logical_types[MAX_LOGICAL_KIND] = { 0 };
+static type_t* logical_types[MAX_LOGICAL_KIND + 1] = { 0 };
 static type_t* choose_logical_type_from_kind(AST expr, int kind_size)
 {
     if (!logical_types_init)
     {
-        logical_types[type_get_size(get_bool_type())] = get_bool_type();
+        int_types[type_get_size(get_signed_long_long_int_type())] = get_bool_of_integer_type(get_signed_long_long_int_type());
+        int_types[type_get_size(get_signed_long_int_type())] = get_bool_of_integer_type(get_signed_long_int_type());
+        int_types[type_get_size(get_signed_int_type())] = get_bool_of_integer_type(get_signed_int_type());
         logical_types_init = 1;
     }
     return choose_type_from_kind_table(expr, logical_types, MAX_LOGICAL_KIND, kind_size);
@@ -622,7 +702,7 @@ static type_t* get_derived_type_name(AST a, decl_context_t decl_context)
     AST name = ASTSon0(a);
     if (ASTSon1(a) != NULL)
     {
-        running_error("%s: sorry: unsupported generic type-names");
+        running_error("%s: sorry: unsupported generic type-names", ast_location(ASTSon1(a)));
     }
 
     scope_entry_list_t* entry_list = query_id_expression(decl_context, name);
@@ -679,8 +759,13 @@ static type_t* gather_type_from_declaration_type_spec(AST a, decl_context_t decl
             {
                 result = get_unsigned_char_type();
                 AST char_selector = ASTSon0(a);
-                AST kind = ASTSon0(char_selector);
-                AST len = ASTSon1(char_selector);
+                AST len = NULL;
+                AST kind = NULL;
+                if (char_selector != NULL)
+                {
+                    len = ASTSon0(char_selector);
+                    kind = ASTSon1(char_selector);
+                }
 
                 // Well, we cannot default to a kind of 4 because it'd be weird, so we simply ignore the kind
                 if (kind != NULL)
@@ -690,7 +775,8 @@ static type_t* gather_type_from_declaration_type_spec(AST a, decl_context_t decl
                 }
                 if (len != NULL)
                 {
-                    result = get_array_type(result, len, decl_context);
+                    AST lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(len), ASTLine(len), "1");
+                    result = get_array_type_bounds(result, lower_bound, len, decl_context);
                 }
                 break;
             }
@@ -821,9 +907,6 @@ static char attr_spec_handler_table_init = 0;
  
 static void gather_attr_spec_item(AST attr_spec_item, decl_context_t decl_context, attr_spec_t *attr_spec)
 {
-    // void qsort(void *base, size_t nmemb, size_t size,
-    //         int(*compar)(const void *, const void *));
-
     if (!attr_spec_handler_table_init)
     {
         qsort(attr_spec_handler_table, 
@@ -1003,18 +1086,144 @@ static void gather_attr_spec_list(AST attr_spec_list, decl_context_t decl_contex
     }
 }
 
+typedef
+enum array_spec_kind_tag
+{
+    ARRAY_SPEC_KIND_NONE = 0,
+    ARRAY_SPEC_KIND_EXPLICIT_SHAPE,
+    ARRAY_SPEC_KIND_ASSUMED_SHAPE,
+    ARRAY_SPEC_KIND_DEFERRED_SHAPE,
+    ARRAY_SPEC_KIND_ASSUMED_SIZE,
+    ARRAY_SPEC_KIND_IMPLIED_SHAPE,
+    ARRAY_SPEC_KIND_ERROR,
+} array_spec_kind_t;
+
+static type_t* compute_type_from_array_spec(type_t* basic_type, 
+        AST array_spec_list, decl_context_t decl_context,
+        array_spec_kind_t* array_spec_kind)
+{
+    type_t* array_type = basic_type;
+    // explicit-shape-spec   is   [lower:]upper
+    // assumed-shape-spec    is   [lower]:
+    // deferred-shape-spec   is   :
+    // implied-shape-spec    is   [lower:]*
+
+    // As a special case an assumed-size array-spec is [explicit-shape-spec ... ,] [lower:]*
+
+    array_spec_kind_t kind = ARRAY_SPEC_KIND_NONE;
+
+    // Note that we traverse the list backwards to create a type that matches
+    // that of a C array
+    AST it = NULL;
+    for_each_element(array_spec_list, it)
+    {
+        AST array_spec_item = ASTSon1(it);
+        AST lower_bound = ASTSon0(array_spec_item);
+        AST upper_bound = ASTSon1(array_spec_item);
+
+        if (lower_bound == NULL
+                && upper_bound == NULL)
+        {
+            // (:)
+            if (kind == ARRAY_SPEC_KIND_NONE)
+            {
+                kind = ARRAY_SPEC_KIND_DEFERRED_SHAPE;
+            }
+            else if (kind != ARRAY_SPEC_KIND_DEFERRED_SHAPE
+                    && kind != ARRAY_SPEC_KIND_ASSUMED_SHAPE
+                    && kind != ARRAY_SPEC_KIND_ERROR)
+            {
+                kind = ARRAY_SPEC_KIND_ERROR;
+            }
+        }
+        else if (upper_bound != NULL
+                && ASTType(upper_bound) == AST_SYMBOL
+                && strcmp(ASTText(upper_bound), "*") == 0)
+        {
+            // (*)
+            // (L:*)
+            if (kind == ARRAY_SPEC_KIND_NONE)
+            {
+                kind = ARRAY_SPEC_KIND_IMPLIED_SHAPE;
+            }
+            else if (kind == ARRAY_SPEC_KIND_EXPLICIT_SHAPE)
+            {
+                kind = ARRAY_SPEC_KIND_ASSUMED_SIZE;
+            }
+            else if (kind != ARRAY_SPEC_KIND_ASSUMED_SIZE
+                    && kind != ARRAY_SPEC_KIND_IMPLIED_SHAPE
+                    && kind != ARRAY_SPEC_KIND_ERROR)
+            {
+                kind = ARRAY_SPEC_KIND_ERROR;
+            }
+        }
+        else if (lower_bound != NULL
+                && upper_bound == NULL)
+        {
+            // (L:)
+            if (kind == ARRAY_SPEC_KIND_NONE
+                    || kind == ARRAY_SPEC_KIND_DEFERRED_SHAPE)
+            {
+                kind = ARRAY_SPEC_KIND_ASSUMED_SHAPE;
+            }
+            else if (kind != ARRAY_SPEC_KIND_ASSUMED_SHAPE
+                    && kind != ARRAY_SPEC_KIND_ERROR)
+            {
+                kind = ARRAY_SPEC_KIND_ERROR;
+            }
+        }
+        else if (upper_bound != NULL)
+        {
+            // (U)
+            // (:U)
+            // (L:U)
+            if (kind == ARRAY_SPEC_KIND_NONE)
+            {
+                kind = ARRAY_SPEC_KIND_EXPLICIT_SHAPE;
+            }
+            else if (kind != ARRAY_SPEC_KIND_EXPLICIT_SHAPE
+                    && kind != ARRAY_SPEC_KIND_ERROR)
+            {
+                kind = ARRAY_SPEC_KIND_ERROR;
+            }
+
+            if (lower_bound == NULL)
+            {
+                lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(upper_bound), ASTLine(upper_bound), "1");
+            }
+        }
+
+        array_type = get_array_type_bounds(array_type, lower_bound, upper_bound, decl_context);
+    }
+
+    if (array_spec_kind != NULL)
+    {
+        *array_spec_kind = kind;
+    }
+
+    return array_type;
+}
+
 static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context)
 {
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "== [%s] Declaration statement ==\n", ast_location(a));
+    }
     AST declaration_type_spec = ASTSon0(a);
     AST attr_spec_list = ASTSon1(a);
     AST entity_decl_list = ASTSon2(a);
 
-    type_t* basic_type = gather_type_from_declaration_type_spec(a, decl_context);
+    type_t* basic_type = gather_type_from_declaration_type_spec(declaration_type_spec, decl_context);
+
 
     attr_spec_t attr_spec;
     memset(&attr_spec, 0, sizeof(attr_spec));
     
-    gather_attr_spec_list(attr_spec_list, decl_context, &attr_spec);
+    if (attr_spec_list != NULL)
+    {
+        gather_attr_spec_list(attr_spec_list, decl_context, &attr_spec);
+    }
 
     AST it;
     for_each_element(entity_decl_list, it)
@@ -1024,7 +1233,8 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
         AST name = ASTSon0(declaration);
         AST entity_decl_specs = ASTSon1(declaration);
 
-        // Do not use implicit information
+        // We do not use 'query_name' because we do not want to use the
+        // implicit information of the current scope
         scope_entry_list_t* entry_list = query_unqualified_name_str(decl_context, ASTText(name));
         scope_entry_t* entry = NULL;
         if (entry_list != NULL)
@@ -1062,36 +1272,35 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
             char_length = ASTSon2(entity_decl_specs);
             initialization = ASTSon3(entity_decl_specs);
 
-            if (array_spec != NULL 
-                    && attr_spec.is_dimension)
+            if (array_spec != NULL)
             {
-                running_error("%s: error: DIMENSION attribute specified twice\n", ast_location(declaration));
-            }
-            else
-            {
+                if (attr_spec.is_dimension)
+                {
+                    running_error("%s: error: DIMENSION attribute specified twice\n", ast_location(declaration));
+                }
                 attr_spec.is_dimension = 1;
                 attr_spec.array_spec = array_spec;
             }
 
-            if (coarray_spec != NULL
-                    && attr_spec.is_codimension)
+            if (coarray_spec != NULL)
             {
-                running_error("%s: error: CODIMENSION attribute specified twice\n", ast_location(declaration));
-            }
-            else
-            {
+                if (attr_spec.is_codimension)
+                {
+                    running_error("%s: error: CODIMENSION attribute specified twice\n", ast_location(declaration));
+                }
                 attr_spec.is_codimension = 1;
                 attr_spec.coarray_spec = coarray_spec;
             }
 
-            if (char_length != NULL
-                    && !is_character_type(basic_type))
+            if (char_length != NULL)
             {
-                running_error("%s: error: char-length specified but type is not CHARACTER\n", ast_location(declaration));
-            }
-            else
-            {
-                // TODO - Fix the type
+                if (!is_character_type(entry->type_information))
+                {
+                    running_error("%s: error: char-length specified but type is not CHARACTER\n", ast_location(declaration));
+                }
+
+                AST lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(char_length), ASTLine(char_length), "1");
+                entry->type_information = get_array_type_bounds(entry->type_information, lower_bound, char_length, decl_context);
             }
         }
 
@@ -1101,60 +1310,95 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
             running_error("%s: sorry: coarrays are not supported\n", ast_location(declaration));
         }
 
-        if (attr_spec.is_constant
-                && initialization == NULL)
+        if (attr_spec.is_dimension)
         {
-            running_error("%s: error: PARAMETER is missing an initializer\n", ast_location(declaration));
+            type_t* array_type = compute_type_from_array_spec(entry->type_information, 
+                    attr_spec.array_spec,
+                    decl_context,
+                    /* array_spec_kind */ NULL);
+            entry->type_information = array_type;
         }
-        else
+
+        if (attr_spec.is_constant)
         {
+            if (initialization == NULL)
+            {
+                running_error("%s: error: PARAMETER is missing an initializer\n", ast_location(declaration));
+            }
             entry->type_information = get_const_qualified_type(entry->type_information);
             entry->expression_value = initialization;
         }
 
         // FIXME - Should we do something with this attribute?
-        if (attr_spec.is_value
-                && !entry->entity_specs.is_parameter)
+        if (attr_spec.is_value)
         {
-            running_error("%s: error: VALUE attribute is only for dummy arguments\n",
-                    ast_location(declaration));
+            if (!entry->entity_specs.is_parameter)
+            {
+                running_error("%s: error: VALUE attribute is only for dummy arguments\n",
+                        ast_location(declaration));
+            }
         }
 
-        if (attr_spec.is_intent
-                && !entry->entity_specs.is_parameter)
+        if (attr_spec.is_intent)
         {
-            running_error("%s: error: INTENT attribute is only for dummy arguments\n",
-                    ast_location(declaration));
+            if (!entry->entity_specs.is_parameter)
+            {
+                running_error("%s: error: INTENT attribute is only for dummy arguments\n",
+                        ast_location(declaration));
+            }
         }
         else
         {
             entry->entity_specs.intent_kind = attr_spec.intent_kind;
         }
 
-        if (attr_spec.is_optional
-                && !entry->entity_specs.is_parameter)
+        if (attr_spec.is_optional)
         {
-            running_error("%s: error: OPTIONAL attribute is only for dummy arguments\n",
-                    ast_location(declaration));
+            if (!entry->entity_specs.is_parameter)
+            {
+                running_error("%s: error: OPTIONAL attribute is only for dummy arguments\n",
+                        ast_location(declaration));
+            }
         }
 
-        if (attr_spec.is_allocatable
-                && !attr_spec.is_dimension)
+        if (attr_spec.is_allocatable)
         {
-            running_error("%s: error: ALLOCATABLE attribute cannot be used on scalars\n", 
-                    ast_location(declaration));
+            if (!attr_spec.is_dimension)
+            {
+                running_error("%s: error: ALLOCATABLE attribute cannot be used on scalars\n", 
+                        ast_location(declaration));
+            }
         }
 
         if (attr_spec.is_external
                 || attr_spec.is_intrinsic)
         {
             entry->kind = SK_FUNCTION;
-            entry->type_information = get_nonproto_function_type(basic_type, 0);
+            entry->type_information = get_nonproto_function_type(entry->type_information, 0);
         }
 
         if (attr_spec.is_save)
         {
             entry->entity_specs.is_static = 1;
+        }
+
+        if (!attr_spec.is_constant)
+        {
+            if (initialization != NULL)
+            {
+                entry->entity_specs.is_static = 1;
+                entry->expression_value = initialization;
+            }
+        }
+
+        if (attr_spec.is_pointer)
+        {
+            entry->type_information = get_pointer_type(entry->type_information);
+        }
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "Type of symbol '%s' is '%s'\n", entry->symbol_name, print_declarator(entry->type_information));
         }
     }
 }

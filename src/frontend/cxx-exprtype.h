@@ -80,6 +80,8 @@ LIBMCXX_EXTERN char expression_is_lvalue(AST expr);
 
 LIBMCXX_EXTERN char expression_is_constant(AST expr);
 
+LIBMCXX_EXTERN void expression_set_error(AST expr);
+
 LIBMCXX_EXTERN void expression_set_non_constant(AST expr);
 
 LIBMCXX_EXTERN void expression_set_constant(AST expr, const_value_t* const_val);

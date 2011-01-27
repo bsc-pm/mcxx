@@ -1115,7 +1115,9 @@ static void complex_type_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
     }
     token_fprintf(f, a, pt_ctx, "COMPLEX");
     if (subtype != NULL
-            && ASTType(subtype) != AST_DOUBLE_TYPE)
+            && ASTType(subtype) != AST_DOUBLE_TYPE
+            && (ASTType(subtype) != AST_FLOAT_TYPE 
+                || ASTSon0(subtype) != NULL))
     {
         token_fprintf(f, a, pt_ctx, "(KIND = ");
         if (ASTType(subtype) == AST_DECIMAL_LITERAL)

@@ -28,8 +28,12 @@
 #ifndef FORTRAN03_LEXER_H
 #define FORTRAN03_LEXER_H
 
+#include "cxx-macros.h"
 #include "libmf03-common.h"
+
 #include "cxx-lexer.h"
+
+MCXX_BEGIN_DECLS
 
 LIBMF03_EXTERN struct scan_file_descriptor* fortran_scanning_now;
 
@@ -38,5 +42,7 @@ LIBMF03_EXTERN int mf03_prepare_string_for_scanning(const char* str);
 
 LIBMF03_EXTERN int mf03_flex_debug;
 LIBMF03_EXTERN int mf03debug;
+
+MCXX_END_DECLS
 
 #endif // FORTRAN03_LEXER_H

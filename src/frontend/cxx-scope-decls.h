@@ -506,9 +506,9 @@ struct scope_entry_tag
     // Type information of this symbol
     struct type_tag* type_information;
 
-    // Related decl_context of a namespace. This is the declarative region
-    // created by a namespace
-    decl_context_t namespace_decl_context;
+    // Related decl_context of this symbol. Namespaces in C++ and all program
+    // units in Fortran use this field
+    decl_context_t related_decl_context;
     
     // Initializations of several kind are saved here
     //  - initialization of const objects

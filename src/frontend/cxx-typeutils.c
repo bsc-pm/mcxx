@@ -689,6 +689,30 @@ type_t* get_bool_type(void)
     return _type;
 }
 
+type_t* get_bool_of_integer_type(type_t* t)
+{
+    ERROR_CONDITION(!is_integer_type(t), "Invalid type for bool", 0);
+
+#define MAX_BOOL_SIZE 16
+    static type_t* _bool_types[MAX_BOOL_SIZE + 1] = { 0 };
+
+    _size_t s = type_get_size(t);
+
+    ERROR_CONDITION(s > MAX_BOOL_SIZE, "Integer of size %d too big for bool", s);
+
+    if (_bool_types[s] == NULL)
+    {
+        _bool_types[s] = get_simple_type();
+        _bool_types[s]->type->kind = STK_BUILTIN_TYPE;
+        _bool_types[s]->type->builtin_type = BT_BOOL;
+        _bool_types[s]->info->size = type_get_size(t);
+        _bool_types[s]->info->alignment = type_get_alignment(t);
+        _bool_types[s]->info->valid_size = 1;
+    }
+
+    return _bool_types[s];
+}
+
 type_t* get_signed_int_type(void)
 {
     static type_t* _type = NULL;
@@ -2379,13 +2403,9 @@ static type_t* _get_array_type(type_t* element_type,
     if (is_error_type(element_type))
         return get_error_type();
 
-    ERROR_CONDITION(whole_size == NULL
-            && (lower_bound != NULL || upper_bound != NULL),
-            "Invalid definition of boundaries for array of unknown size", 0);
-
     ERROR_CONDITION(whole_size != NULL
             && (lower_bound == NULL || upper_bound == NULL),
-            "Invalid definition of boundaries for array of known size", 0);
+            "Invalid definition of boundaries for array", 0);
 
     char expression_sizes_ok = 1;
     char whole_size_is_constant = 0;
@@ -2434,6 +2454,8 @@ static type_t* _get_array_type(type_t* element_type,
         int i;
         for (i = 0; data[i].tree != NULL; i++)
         {
+            if (data[i].tree == NULL)
+                continue;
             char check_expr = check_for_expression(*(data[i].tree), decl_context);
             if (check_expr )
             {
@@ -2453,7 +2475,6 @@ static type_t* _get_array_type(type_t* element_type,
             }
         }
     }
-
 
     type_t* result = NULL;
 
@@ -2608,23 +2629,28 @@ type_t* get_array_type_bounds(type_t* element_type,
         AST upper_bound,
         decl_context_t decl_context)
 {
-    ERROR_CONDITION(lower_bound == NULL
-            || upper_bound == NULL, "None of the boundaries can be null!", 0);
-
-    AST whole_size;
+    AST whole_size = NULL;
     lower_bound = ast_copy_for_instantiation(lower_bound);
     upper_bound = ast_copy_for_instantiation(upper_bound);
 
-    whole_size = 
-        ASTMake2(AST_ADD_OP, 
-                ASTMake1(AST_PARENTHESIZED_EXPRESSION, 
-                    ASTMake2(AST_MINUS_OP, 
-                        ast_copy_for_instantiation(upper_bound), 
-                        ast_copy_for_instantiation(lower_bound), 
+    if (lower_bound != NULL
+            && upper_bound != NULL)
+    {
+        AST one_tree = ast_copy_for_instantiation(get_one_tree());
+        ast_set_filename(one_tree, ASTFileName(lower_bound));
+        ast_set_line(one_tree, ASTLine(lower_bound));
+
+        whole_size = 
+            ASTMake2(AST_ADD_OP, 
+                    ASTMake1(AST_PARENTHESIZED_EXPRESSION, 
+                        ASTMake2(AST_MINUS_OP, 
+                            ast_copy_for_instantiation(upper_bound), 
+                            ast_copy_for_instantiation(lower_bound), 
+                            ASTFileName(lower_bound), ASTLine(lower_bound), NULL),
                         ASTFileName(lower_bound), ASTLine(lower_bound), NULL),
-                    ASTFileName(lower_bound), ASTLine(lower_bound), NULL),
-                ast_copy_for_instantiation(get_one_tree()),
-                ASTFileName(lower_bound), ASTLine(lower_bound), NULL);
+                    one_tree,
+                    ASTFileName(lower_bound), ASTLine(lower_bound), NULL);
+    }
 
     return _get_array_type(element_type, whole_size, lower_bound, upper_bound, decl_context);
 }
@@ -6661,18 +6687,11 @@ const char* print_declarator(type_t* printed_declarator)
                 break;
             case TK_ARRAY :
                 tmp_result = strappend(tmp_result, "array ");
-                if (printed_declarator->array->whole_size != NULL)
-                {
-                    tmp_result = strappend(tmp_result, "[");
-                    tmp_result = strappend(tmp_result, prettyprint_in_buffer(printed_declarator->array->lower_bound));
-                    tmp_result = strappend(tmp_result, ":");
-                    tmp_result = strappend(tmp_result, prettyprint_in_buffer(printed_declarator->array->upper_bound));
-                    tmp_result = strappend(tmp_result, "] of ");
-                }
-                else
-                {
-                    tmp_result = strappend(tmp_result, "<unknown-size> of ");
-                }
+                tmp_result = strappend(tmp_result, "[");
+                tmp_result = strappend(tmp_result, prettyprint_in_buffer(printed_declarator->array->lower_bound));
+                tmp_result = strappend(tmp_result, ":");
+                tmp_result = strappend(tmp_result, prettyprint_in_buffer(printed_declarator->array->upper_bound));
+                tmp_result = strappend(tmp_result, "] of ");
                 printed_declarator = printed_declarator->array->element_type;
                 break;
             case TK_FUNCTION :

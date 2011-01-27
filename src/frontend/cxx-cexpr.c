@@ -447,6 +447,24 @@ const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
     return const_value_get(value, bytes, sign); \
 }
 
+#define BINOP_FUN_CALL(_opname, _func) \
+const_value_t* const_value_##_opname(const_value_t* v1, const_value_t* v2) \
+{ \
+    ERROR_CONDITION(v1 == NULL || v2 == NULL, "Either of the parameters is NULL", 0); \
+    int bytes = 0; char sign = 0; \
+    common_bytes(v1, v2, &bytes, &sign); \
+    uint64_t value = 0; \
+    if (sign) \
+    { \
+        *(int64_t*)&value = _func##s(*(int64_t*)&(v1->value), *(int64_t*)&(v2->value)); \
+    } \
+    else \
+    { \
+        value = _func##u(v1->value, v2->value); \
+    } \
+    return const_value_get(value, bytes, sign); \
+}
+
 BINOP_FUN(add, +)
 BINOP_FUN(sub, -)
 BINOP_FUN(mul, *)
@@ -466,6 +484,48 @@ BINOP_FUN(gte, >=)
 BINOP_FUN(eq, ==)
 BINOP_FUN(neq, !=)
 
+static uint64_t int_powu(uint64_t a, uint64_t b)
+{
+    if (b == 0)
+    {
+        return 1;
+    }
+    else if ((b & (uint64_t)1) == (uint64_t)1) // odd
+    {
+        uint64_t k = int_powu(a, (b-1) >> 1);
+        return a * k * k;
+    }
+    else // even
+    {
+        uint64_t k = int_powu(a, b >> 1);
+        return k * k;
+    }
+}
+
+static int64_t int_pows(int64_t a, int64_t b)
+{
+    if (b == 0)
+    {
+        return 1;
+    }
+    else if (b < 0)
+    {
+        return 1 / int_pows(a, -b);
+    }
+    else if ((b & (int64_t)1) == (int64_t)1) // odd
+    {
+        int64_t k = int_powu(a, (b-1) >> 1);
+        return a * k * k;
+    }
+    else // even
+    {
+        int64_t k = int_powu(a, b >> 1);
+        return k * k;
+    }
+}
+
+BINOP_FUN_CALL(pow, int_pow)
+
 #define UNOP_FUN(_opname, _unop) \
 const_value_t* const_value_##_opname(const_value_t* v1) \
 { \
@@ -478,6 +538,22 @@ const_value_t* const_value_##_opname(const_value_t* v1) \
     else \
     { \
         value = _unop v1->value; \
+    } \
+    return const_value_get(value, v1->num_bytes, v1->sign); \
+}
+
+#define UNOP_FUN_CALL(_opname, _func) \
+const_value_t* const_value_##_opname(const_value_t* v1) \
+{ \
+    ERROR_CONDITION(v1 == NULL, "Parameter cannot be NULL", 0); \
+    uint64_t value = 0; \
+    if (v1->sign) \
+    { \
+        value = _func##s((int64_t)v1->value); \
+    } \
+    else \
+    { \
+        value = _func##u(v1->value); \
     } \
     return const_value_get(value, v1->num_bytes, v1->sign); \
 }

@@ -28,7 +28,11 @@
 #ifndef PRESCANNER_IDENTIFIER_H
 #define PRESCANNER_IDENTIFIER_H
 
+#include "cxx-macros.h"
+#include "libmf03-prescanner-common.h"
 #include "prescanner-process.h"
+
+MCXX_BEGIN_DECLS
 
 enum language_level_t {
 	LANG_TOP_LEVEL = 0,
@@ -38,7 +42,7 @@ enum language_level_t {
 
 typedef enum language_level_t language_level;
 
-language_level convert_line(prescanner_t* prescanner, language_level previous, char** line, int num_line);
+LIBMF03_PRESCANNER_EXTERN language_level convert_line(prescanner_t* prescanner, language_level previous, char** line, int num_line);
 
 enum statement_type_t {
 	ST_ASSIGNMENT = 1,
@@ -111,5 +115,7 @@ enum statement_type_t {
 };
 
 typedef enum statement_type_t statement_type;
+
+MCXX_END_DECLS
 
 #endif // PRESCANNER_IDENTIFIER_H

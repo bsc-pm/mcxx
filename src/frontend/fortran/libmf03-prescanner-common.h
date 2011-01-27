@@ -25,7 +25,6 @@
 --------------------------------------------------------------------*/
 
 
-
 #ifndef LIBMF03_PRESCANNER_COMMON_H
 #define LIBMF03_PRESCANNER_COMMON_H
 

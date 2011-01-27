@@ -1004,7 +1004,8 @@ intrinsic_type_spec : TOK_INTEGER kind_selector
 }
 | TOK_COMPLEX
 {
-    $$ = ASTMake1(AST_COMPLEX_TYPE, NULL, $1.token_file, $1.token_line, NULL);
+    AST element_type = ASTMake1(AST_FLOAT_TYPE, NULL, $1.token_file, $1.token_line, NULL);
+    $$ = ASTMake1(AST_COMPLEX_TYPE, element_type, $1.token_file, $1.token_line, NULL);
 }
 | TOK_CHARACTER char_selector
 {
@@ -2509,9 +2510,13 @@ equiv_operand : equiv_operand or_op or_operand
 }
 | or_operand
 ;
-level_5_expr : level_5_expr equiv_op equiv_operand
+level_5_expr : level_5_expr TOK_LOGICAL_EQUIVALENT equiv_operand
 {
     $$ = ASTMake2(AST_LOGICAL_EQUAL, $1, $3, ASTFileName($1), ASTLine($1), NULL);
+}
+| level_5_expr TOK_LOGICAL_NOT_EQUIVALENT equiv_operand
+{
+    $$ = ASTMake2(AST_LOGICAL_DIFFERENT, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
 | equiv_operand
 ;
