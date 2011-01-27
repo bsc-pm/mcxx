@@ -252,8 +252,6 @@ static void do_smp_outline_replacements(AST_t body,
         type_declaration
             << udr2.get_type().get_declaration(scope_link.get_scope(body), red_var_name)
         ;
-        std::cout << "Type Declaration = " << type_declaration.get_source() << std::endl;
-        std::cout << "Static initializer = " << static_initializer.get_source() << std::endl;
         
         replace_src.add_replacement(red_sym, red_var_name);
         
