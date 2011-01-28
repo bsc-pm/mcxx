@@ -189,6 +189,13 @@ namespace TL
               */
             Type get_array_to(const std::string& str);
 
+            //! Returns a function to the current list of parameter types 
+            /*! 
+             * \param type_list List of parameter types of the function.
+             * \param has_ellipsis Will be set to true if the function type has ellipsis
+             */
+            Type get_function_returning(const ObjectList<Type>& type_list, bool has_ellipsis = false);
+
             //! Gets a reference (C++) to the current type
             Type get_reference_to();
 
@@ -382,6 +389,13 @@ namespace TL
 
             //! [C only] States whether current array is a VLA
             bool array_is_vla() const;
+
+            //! States whether current type is a vector-type
+            bool is_vector() const;
+            //! States whether current type is a vector-type
+            bool is_generic_vector() const;
+            //! Returns the element type of a vector-type
+            Type vector_element() const;
 
 
             //! States whether this type represents an unresolved overload type

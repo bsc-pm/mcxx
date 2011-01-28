@@ -1217,7 +1217,8 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/nanos-common/Makefile 
            src/tl/omp/nanox/Makefile 
            src/tl/omp/nanox/devices/Makefile 
-           src/tl/omp/nanox/devices/smp/Makefile 
+           src/tl/omp/nanox/devices/common/Makefile    
+           src/tl/omp/nanox/devices/smp/Makefile    
            src/tl/omp/nanox/devices/smp_numa/Makefile
            src/tl/omp/nanox/devices/smp_ocl/Makefile
            src/tl/omp/nanox/devices/gpu/Makefile 

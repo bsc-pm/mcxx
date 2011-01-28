@@ -34,23 +34,22 @@ namespace TL
 {
     namespace HLT
     {
-
         class ReplaceSimdSrc : public ReplaceSrcIdExpression
         {
             private:
-                bool * is_generic_vector;
+//                bool * is_generic_vector;
             protected:
                 static const char* prettyprint_callback (AST a, void* data);
 
             public:
                 ReplaceSimdSrc(ScopeLink sl) : ReplaceSrcIdExpression(sl)
                 {
-                    is_generic_vector = new bool(false);
+                    //is_generic_vector = new bool(false);
                 }
 
                 ~ReplaceSimdSrc()
                 {
-                    delete(is_generic_vector);
+                    //delete(is_generic_vector);
                 }
 
                 Source replace(AST_t a) const;

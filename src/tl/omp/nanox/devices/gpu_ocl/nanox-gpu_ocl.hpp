@@ -1,5 +1,5 @@
 #ifndef NANOX_GPU_OCL_HPP
-#define NANOX_GPU_OCL_CPP
+#define NANOX_GPU_OCL_HPP
 
 #include "tl-compilerphase.hpp"
 #include "tl-devices.hpp"
@@ -49,4 +49,4 @@ namespace TL
 
 }
 
-#endif // NANOX_GPU_OCL_CPP
+#endif // NANOX_GPU_OCL_HPP

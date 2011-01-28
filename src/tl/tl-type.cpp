@@ -137,6 +137,33 @@ namespace TL
         return Type(array_to);
     }
 
+    Type Type::get_function_returning(const ObjectList<Type>& type_list, bool has_ellipsis)
+    {
+        int i;
+        parameter_info_t *parameters_list;
+        int num_parameters = type_list.size();
+   
+        parameters_list = (parameter_info_t *) malloc ((num_parameters+has_ellipsis) * sizeof(parameter_info_t));
+
+        for (i=0; i<num_parameters; i++)
+        {
+            parameters_list[i].is_ellipsis = 0;
+            parameters_list[i].type_info = type_list[i]._type_info;
+            parameters_list[i].nonadjusted_type_info = NULL;
+        }
+
+        if(has_ellipsis)
+        {
+            num_parameters++;
+            parameters_list[i].is_ellipsis = 1;
+            parameters_list[i].type_info = NULL;
+            parameters_list[i].nonadjusted_type_info = NULL;
+        }
+
+        return (Type(get_new_function_type(_type_info, parameters_list, num_parameters)));
+
+    }
+
     bool Type::operator==(Type t) const
     {
         return this->_type_info == t._type_info;
@@ -166,6 +193,21 @@ namespace TL
     bool Type::is_array() const
     {
         return (is_array_type(_type_info));
+    }
+
+    bool Type::is_vector() const
+    {
+        return (is_vector_type(_type_info));
+    }
+
+    bool Type::is_generic_vector() const
+    {
+        return (is_generic_vector_type(_type_info));
+    }
+
+    Type Type::vector_element() const
+    {
+        return vector_type_get_element_type(_type_info);
     }
 
     bool Type::is_reference() const
@@ -661,6 +703,10 @@ namespace TL
         else if (this->is_reference())
         {
             return this->references_to().basic_type();
+        }
+        else if (this->is_vector())
+        {
+            return this->vector_element().basic_type();
         }
         else
         {

@@ -1,8 +1,11 @@
 ##########################################################################
-#  (C) Copyright 2006-2009 Barcelona Supercomputing Center               #
+#  (C) Copyright 2006-2011 Barcelona Supercomputing Center               #
 #                          Centro Nacional de Supercomputacion           #
 #                                                                        #
 #  This file is part of Mercurium C/C++ source-to-source compiler.       #
+#                                                                        #
+#  See AUTHORS file in the top level directory for information           #
+#  regarding developers and contributors.                                #
 #                                                                        #
 #  This library is free software; you can redistribute it and/or         #
 #  modify it under the terms of the GNU Lesser General Public            #
@@ -21,22 +24,22 @@
 #  Cambridge, MA 02139, USA.                                             #
 ##########################################################################
 
-
 include ../../../../Makefile.phases
 
 END=
 
-phases_LTLIBRARIES=libtlnanox-smp_ocl.la
+phases_LTLIBRARIES=libtlnanox-devices_common.la
 
-device_flags=$(tl_cflags) -I$(srcdir)/../.. -I$(srcdir)/../../../core -I$(srcdir)/../common
+device_flags=$(tl_cflags) -I$(srcdir)/../.. -I$(srcdir)/../../../core
 
-libtlnanox_smp_ocl_la_CFLAGS = $(device_flags)
-libtlnanox_smp_ocl_la_CXXFLAGS = $(device_flags)
+libtlnanox_devices_common_la_CFLAGS = $(device_flags)
+libtlnanox_devices_common_la_CXXFLAGS = $(device_flags)
 
-libtlnanox_smp_ocl_la_LDFLAGS = $(tl_ldflags)
-libtlnanox_smp_la_LIBADD = ../common/libtlnanox-devices_common.la
+libtlnanox_devices_common_la_LDFLAGS = $(tl_ldflags)
 
-libtlnanox_smp_ocl_la_SOURCES = \
-       nanox-smp_ocl.hpp \
-       nanox-smp_ocl.cpp \
-       $(END)
+libtlnanox_devices_common_la_SOURCES = \
+                 nanox-find_common.hpp \
+                 nanox-find_common.cpp \
+                                $(END)
+
+

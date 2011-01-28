@@ -1,5 +1,5 @@
 #ifndef NANOX_SMP_OCL_HPP
-#define NANOX_SMP_OCL_CPP
+#define NANOX_SMP_OCL_HPP
 
 #include "tl-compilerphase.hpp"
 #include "tl-devices.hpp"
@@ -50,8 +50,27 @@ namespace TL
                         Source &device_descriptor);
         };
 
+        class ReplaceSrcSMP_OCL : public ReplaceSrcIdExpression
+        {
+            private:
+                unsigned char * num_generic_vectors;
+            protected:
+                static const char* prettyprint_callback (AST a, void* data);
+            public:
+                ReplaceSrcSMP_OCL(ScopeLink sl) : ReplaceSrcIdExpression(sl)
+                {
+                    num_generic_vectors = new unsigned char(0);
+                }
+
+                ~ReplaceSrcSMP_OCL()
+                {
+                    delete(num_generic_vectors);
+                }
+
+                Source replace(AST_t a) const;
+        };
     }
 
 }
 
-#endif // NANOX_SMP_OCL_CPP
+#endif // NANOX_SMP_OCL_HPP

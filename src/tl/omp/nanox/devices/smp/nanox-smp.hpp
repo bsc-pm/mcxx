@@ -26,7 +26,7 @@
 
 
 #ifndef NANOX_SMP_HPP
-#define NANOX_SMP_CPP
+#define NANOX_SMP_HPP
 
 #include "tl-compilerphase.hpp"
 #include "tl-devices.hpp"
@@ -72,8 +72,17 @@ namespace TL
                         Source &device_descriptor);
         };
 
-    }
+        class ReplaceSrcSMP : public ReplaceSrcIdExpression
+        {
+            protected:
+                static const char* prettyprint_callback (AST a, void* data);
+                static const char* recursive_prettyprint (AST a, void* data);
 
+            public:
+                ReplaceSrcSMP(ScopeLink sl) : ReplaceSrcIdExpression(sl){};
+                Source replace(AST_t a) const;
+        };
+    }
 }
 
-#endif // NANOX_SMP_CPP
+#endif // NANOX_SMP_HPP

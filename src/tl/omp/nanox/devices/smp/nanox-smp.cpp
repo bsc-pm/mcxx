@@ -27,180 +27,143 @@
 
 #include "tl-devices.hpp"
 #include "nanox-smp.hpp"
+#include "tl-generic_vector.hpp"
+#include "nanox-find_common.hpp"
 
 using namespace TL;
 using namespace TL::Nanox;
 
-//REPLICATED CODE (SMP_OCL) START
-
 const unsigned int _vector_width = 16;
 
-char builtin_vl_name[] = "__builtin_vector_loop";
-char attrib_param_name[] = "generic_vector";
-
-
-template <class AST_t, char * FUNC_NAME>
-class Find_function : public TL::Predicate<AST_t>
+std::string scalar_op_to_vector_op(Expression exp, Type vector_type, Scope scope)
 {
-    private:
-    ScopeLink _sl;
+    std::stringstream output;
+    unsigned char num_elements, i;
 
-    public:
-    Find_function<AST_t, FUNC_NAME>(ScopeLink sl) : _sl (sl ) {};
+    output  << " (("
+            << vector_type.basic_type().get_simple_declaration(scope, "")
+            << " __attribute__((vector_size(" << _vector_width << "))) "
+            << ") "
+            << "{"
+            ;
 
-    bool do_(const AST_t& ast) const
-    {
-        if (!ast.is_valid())
-            return false;
+     num_elements = (_vector_width/vector_type.basic_type().get_size())-1;
+     for (i=0; i<num_elements; i++)
+     {
+        output << exp.prettyprint()
+               << ",";
+     }
 
+     output << exp.prettyprint()
+            << "})";
 
-        if (Expression::predicate(ast))
-        {
-            Expression expr(ast, _sl);
-            if (expr.is_function_call())
-            {
-                expr = expr.get_called_expression();
-                if (expr.is_id_expression())
-                {
-                    IdExpression id_expr = expr.get_id_expression();
-                    if (id_expr.is_unqualified())
-                    {
-                        if (strcmp(id_expr.get_unqualified_part().c_str(), FUNC_NAME) == 0)
-                            return true;
-                    }
-                }
-            }
-        }
-        return false;
-    }
-};
+     return output.str();
+}
 
-template <class AST, char * PARAM_NAME>
-class Find_attribute : public TL::Predicate<AST>
+const char* ReplaceSrcSMP::recursive_prettyprint(AST a, void* data)
 {
-    private:
-    ScopeLink _sl;
+    return prettyprint_in_buffer_callback(a,
+            &ReplaceSrcSMP::prettyprint_callback, data);
+}
 
-    public:
-    Find_attribute<AST, PARAM_NAME>(ScopeLink sl) : _sl (sl ) {};
 
-    bool do_(const AST& ast) const
-    {
-
-        ObjectList<AST_t> att_spec_ast_list =
-            ast.depth_subtrees(GCCAttributeSpecifier::predicate);
-
-        for (ObjectList<AST_t>::iterator it = att_spec_ast_list.begin();
-             it != att_spec_ast_list.end();
-             it++)
-        {
-            ObjectList<GCCAttribute> att_list =
-            (GCCAttributeSpecifier(((AST_t)(*it)), _sl)).get_gcc_attribute_list();
-
-            for (ObjectList<GCCAttribute>::iterator it = att_list.begin();
-                 it != att_list.end();
-                 it++)
-            {
-                if (strcmp(((GCCAttribute)(*it)).get_name().c_str(), PARAM_NAME) == 0)
-                {
-                    if(att_list.size() != 1)
-                        internal_error("'%s' GCCAttribute does not accept more GCCAttributes\n", PARAM_NAME);
-
-                    return true;
-                }
-            }
-        }
-    }
-};
-
-class ReplaceSrcIdVector : public ReplaceSrcIdExpression
+const char* ReplaceSrcSMP::prettyprint_callback (AST a, void* data)
 {
-    private:
-        bool * is_generic_vector;
-    protected:
-        static const char* prettyprint_callback (AST a, void* data);
+    unsigned char i, counter;
+    std::stringstream output;
 
-    public:
-        ReplaceSrcIdVector(ScopeLink sl) : ReplaceSrcIdExpression(sl)
-        {
-            is_generic_vector = new bool(false);
-        }
-
-        ~ReplaceSrcIdVector()
-        {
-            delete(is_generic_vector);
-        }
-
-        Source replace(AST_t a) const;
-};
-
-const char* ReplaceSrcIdVector::prettyprint_callback (AST a, void* data)
-{
     //Standar prettyprint_callback
     const char *c = ReplaceSrcIdExpression::prettyprint_callback(a, data);
 
     //__attribute__((generic_vector)) replacement
-    if(c == NULL)
+    if (c == NULL)
     {
-        ReplaceSrcIdVector *_this = reinterpret_cast<ReplaceSrcIdVector*>(data);
+        ReplaceSrcSMP *_this = reinterpret_cast<ReplaceSrcSMP*>(data);
 
         AST_t ast(a);
 
-        if (Declaration::predicate(ast))
+        if (DeclaredEntity::predicate(ast))
         {
-            Declaration decl(ast, _this->_sl);
-            DeclarationSpec decl_spec = decl.get_declaration_specifiers();
+            DeclaredEntity decl_ent(ast, _this->_sl);
 
-            //Declaration Entities
-            ObjectList<DeclaredEntity> decl_ent_list = decl.get_declared_entities();
-
-            for (ObjectList<DeclaredEntity>::iterator it = decl_ent_list.begin();
-                 it != decl_ent_list.end();
-                 it++)
+            if (decl_ent.has_initializer())
             {
-                DeclaredEntity decl_ent((DeclaredEntity)(*it));
+                Symbol sym (decl_ent.get_declared_symbol());
+                Type sym_type = sym.get_type();
 
-                //Left side
-                if (!decl_ent.get_ast().depth_subtrees(
-                    TL::TraverseASTPredicate(Find_attribute<AST_t, attrib_param_name>(_this->_sl))).empty())
+                if (sym_type.is_vector() &&
+                        (!decl_ent.get_initializer().get_type().is_vector()))
                 {
-                    (*_this->is_generic_vector) = true;
-                    return NULL;
+                    output
+                        << recursive_prettyprint(decl_ent.get_declarator_tree().get_internal_ast(), data)
+                        << " = "
+                        << scalar_op_to_vector_op(decl_ent.get_initializer(), sym_type, (_this->_sl).get_scope(ast));
+
+                    return uniquestr(output.str().c_str());
                 }
+            }    
+        }
+        else if (Expression::predicate(ast))
+        {
+            Expression expr(ast, _this->_sl);
 
-                //Right side (Initialization)
-                if (decl_ent.has_initializer())
+            //Don't skip ';'
+            if ((expr.original_tree() == expr.get_ast()) && expr.is_binary_operation())
+            {
+                Expression first_op(expr.get_first_operand());
+                Expression second_op(expr.get_second_operand());
+
+                Type first_type(first_op.get_type());
+                Type second_type(second_op.get_type());
+
+                if (first_type.is_vector() && 
+                        (!second_type.is_vector())) 
                 {
-                    if (!(decl_ent.get_initializer().get_ast().depth_subtrees(
-                          TL::TraverseASTPredicate(Find_attribute<AST_t, attrib_param_name>(_this->_sl))).empty()))
-                    {
-                        (*_this->is_generic_vector) = true;
-                        return NULL;
-                    }
+                    output << recursive_prettyprint(first_op.get_ast().get_internal_ast(), data)
+                        << expr.get_operator_str();
+
+                    if (expr.is_operation_assignment())
+                        output << "=";
+
+                    output << scalar_op_to_vector_op(second_op, first_type, (_this->_sl).get_scope(ast));
+
+                    return uniquestr(output.str().c_str());
+                }
+                else if ((!first_type.is_vector()) && 
+                        second_type.is_vector())
+                {
+                    output << scalar_op_to_vector_op(first_op, second_type, (_this->_sl).get_scope(ast))
+                        << expr.get_operator_str();
+
+                    if (expr.is_operation_assignment())
+                        output << "=";
+
+                    output << recursive_prettyprint(second_op.get_ast().get_internal_ast(), data);
+
+                    return uniquestr(output.str().c_str());
                 }
             }
         }
-        else if (GCCAttributeSpecifier::predicate(ast) && (*_this->is_generic_vector))
+        else if (FindAttribute(_this->_sl, ATTR_GEN_VEC_NAME).do_(ast))
         {
             std::stringstream output;
             output << "__attribute__((vector_size(" << _vector_width << "))) ";
 
-            return output.str().c_str();
+            return uniquestr(output.str().c_str());
         }
 
         return NULL;
     }
 
     return c;
-
 }
 
-Source ReplaceSrcIdVector::replace(AST_t a) const
+Source ReplaceSrcSMP::replace(AST_t a) const
 {
     Source result;
 
     char *c = prettyprint_in_buffer_callback(a.get_internal_ast(),
-            &ReplaceSrcIdVector::prettyprint_callback, (void*)this);
+            &ReplaceSrcSMP::prettyprint_callback, (void*)this);
 
     // Not sure whether this could happen or not
     if (c != NULL)
@@ -213,10 +176,6 @@ Source ReplaceSrcIdVector::replace(AST_t a) const
 
     return result;
 }
-
-//REPLICATED CODE (SMP_OCL) END
-
-
 
 static std::string smp_outline_name(const std::string &task_name)
 {
@@ -264,17 +223,19 @@ static void do_smp_outline_replacements(AST_t body,
         Source &initial_code,
         Source &replaced_outline)
 {   
-    ReplaceSrcIdVector replace_src(scope_link);
+    int i, counter;
+
+    ReplaceSrcSMP replace_src(scope_link);
     ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
 
     replace_src.add_this_replacement("_args->_this");
 
     //__builtin_vector_loop AST replacement
-    ObjectList<AST_t> builtin_ast_list =
-             body.depth_subtrees(TL::TraverseASTPredicate(Find_function<AST_t, builtin_vl_name>(scope_link)));
+    ObjectList<AST_t> builtin_vl_ast_list =
+             body.depth_subtrees(TL::TraverseASTPredicate(FindFunction(scope_link, BUILTIN_VL_NAME)));
 
-    for (ObjectList<AST_t>::iterator it = builtin_ast_list.begin();
-            it != builtin_ast_list.end();
+    for (ObjectList<AST_t>::iterator it = builtin_vl_ast_list.begin();
+            it != builtin_vl_ast_list.end();
             it++)
     {
         AST_t ast((AST_t)*it) ;
@@ -282,17 +243,55 @@ static void do_smp_outline_replacements(AST_t body,
 
         ObjectList<Expression> arg_list = expr.get_argument_list();
         if (arg_list.size() != 2){
-            internal_error("Wrong number of arguments in __builtin_vector_loop", 0);
+            internal_error("Wrong number of arguments in %s", BUILTIN_VL_NAME);
         }
 
-        Source builtin_replacement;
-        //??? unqualified_part()
+        Source builtin_vl_replacement;
 
-        builtin_replacement << "((" << arg_list.at(0).get_id_expression().get_unqualified_part()
-            << ")/(" << _vector_width << "/" << arg_list.at(1).get_id_expression().get_unqualified_part() << "))";
+        builtin_vl_replacement << "((" << arg_list[0].get_id_expression().get_unqualified_part()
+            << ")/(" << _vector_width << "/" << arg_list[1].get_id_expression().get_unqualified_part() << "))";
 
-        ast.replace(builtin_replacement.parse_expression(ast, scope_link));
+        ast.replace(builtin_vl_replacement.parse_expression(ast, scope_link));
     }
+
+    //__builtin_vector_expansion AST replacement
+/*  ObjectList<AST_t> builtin_ve_ast_list =
+             body.depth_subtrees(TL::TraverseASTPredicate(FindFunction(scope_link, BUILTIN_VE_NAME)));
+
+    for (ObjectList<AST_t>::iterator it = builtin_ve_ast_list.begin();
+            it != builtin_ve_ast_list.end();
+            it++)
+    {
+        AST_t ast((AST_t)*it) ;
+        Expression expr(ast, scope_link);
+
+        ObjectList<Expression> arg_list = expr.get_argument_list();
+        if (arg_list.size() != 1){
+            internal_error("Wrong number of arguments in %s", BUILTIN_VE_NAME);
+        }
+
+        Source builtin_ve_replacement;
+
+        Expression expand_exp = arg_list[0];
+        Type expand_exp_type = expand_exp.get_type();
+
+        builtin_ve_replacement << "(" << expand_exp_type.get_simple_declaration(scope_link.get_scope(body), "") 
+            << " __attribute__((vector_size(" << _vector_width << ")))) "
+            << "{";
+
+        counter = (_vector_width/expand_exp_type.get_size())-1;
+        for (i=0; i<counter; i++)
+        {
+            builtin_ve_replacement << expand_exp.get_id_expression().get_unqualified_part()
+                << ",";
+        }
+        
+        builtin_ve_replacement << expand_exp.get_id_expression().get_unqualified_part()
+            << "}";
+
+        ast.replace(builtin_ve_replacement.parse_expression(ast, scope_link));
+    }
+*/
 
     // First set up all replacements and needed castings
     for (ObjectList<DataEnvironItem>::iterator it = data_env_items.begin();

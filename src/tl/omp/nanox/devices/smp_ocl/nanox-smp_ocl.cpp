@@ -3,6 +3,8 @@
 #include "tl-declarationclosure.hpp"
 #include "tl-multifile.hpp"
 #include "cxx-driver-utils.h"
+#include "tl-generic_vector.hpp"
+#include "nanox-find_common.hpp"
 
 #include <iostream>
 #include <fstream>
@@ -12,129 +14,6 @@ using namespace TL;
 using namespace TL::Nanox;
 
 const unsigned char _vector_width = 16;
-
-char builtin_vl_name[] = "__builtin_vector_loop";
-char attrib_param_name[] = "generic_vector";
-
-
-template <class AST_t, char * FUNC_NAME>
-class Find_function : public TL::Predicate<AST_t>
-{
-    private:
-    ScopeLink _sl;
-
-    public:
-    Find_function<AST_t, FUNC_NAME>(ScopeLink sl) : _sl (sl ) {};
-
-    bool do_(const AST_t& ast) const
-    {
-        if (!ast.is_valid())
-            return false;
-
-
-        if (Expression::predicate(ast))
-        {
-            Expression expr(ast, _sl);
-            if (expr.is_function_call())
-            {
-                expr = expr.get_called_expression();
-                if (expr.is_id_expression())
-                {
-                    IdExpression id_expr = expr.get_id_expression();
-                    if (id_expr.is_unqualified())
-                    {
-                        if (strcmp(id_expr.get_unqualified_part().c_str(), FUNC_NAME) == 0)
-                            return true;
-                    }
-                }
-            }
-        }
-        return false;
-    }
-};
-
-
-template <class AST, char * PARAM_NAME>
-class Find_attribute : public TL::Predicate<AST>
-{
-    private:
-    ScopeLink _sl;
-
-    public:
-    Find_attribute<AST, PARAM_NAME>(ScopeLink sl) : _sl (sl ) {};
-
-    bool do_(const AST& ast) const
-    {
-
-        ObjectList<AST_t> att_spec_ast_list =
-            ast.depth_subtrees(GCCAttributeSpecifier::predicate);
-
-        for (ObjectList<AST_t>::iterator it = att_spec_ast_list.begin();
-             it != att_spec_ast_list.end();
-             it++)
-        {
-            ObjectList<GCCAttribute> att_list =
-            (GCCAttributeSpecifier(((AST_t)(*it)), _sl)).get_gcc_attribute_list();
-
-            for (ObjectList<GCCAttribute>::iterator it = att_list.begin();
-                 it != att_list.end();
-                 it++)
-            {
-                if (strcmp(((GCCAttribute)(*it)).get_name().c_str(), PARAM_NAME) == 0)
-                {
-                    if(att_list.size() != 1)
-                        internal_error("'%s' GCCAttribute does not accept more GCCAttributes\n", PARAM_NAME);
-    
-                    return true;
-                }
-            }
-        }
-    }
-};
-
-/*
-template <class AST, char * PARAM_NAME>
-class Find_decl_with_attribute : public TL::Predicate<AST>
-{
-    private:
-    ScopeLink _sl;
-
-    public:
-    Find_decl_with_attribute<AST, PARAM_NAME>(ScopeLink sl) : _sl (sl ) {};
-
-    bool do_(const AST& ast) const
-    {
-        if (!ast.is_valid())
-            return false;
-
-        if (Declaration::predicate(ast))
-        {
-            //Declaration Entities
-            ObjectList<DeclaredEntity> decl_ent_list = (Declaration(ast, _sl)).get_declared_entities();
-
-            for (ObjectList<DeclaredEntity>::iterator it = decl_ent_list.begin();
-                 it != decl_ent_list.end();
-                 it++)
-            {
-                DeclaredEntity decl_ent((DeclaredEntity)(*it));
-
-                //Initialization
-                if (decl_ent.has_initializer())
-                {
-                    if (!(decl_ent.get_initializer().get_ast().depth_subtrees(
-                          TL::TraverseASTPredicate(Find_attribute<AST_t, attrib_param_name>(_sl))).empty()))
-                        return true;
-                }
-       
-                if (!(decl_ent.get_ast().depth_subtrees(
-                      TL::TraverseASTPredicate(Find_attribute<AST_t, attrib_param_name>(_sl))).empty()))
-                    return true;
-            }
-        }
-        return false;
-    }    
-};
-*/
 
 static std::string smp_ocl_outline_name(const std::string &task_name)
 {
@@ -176,124 +55,7 @@ static bool is_nonstatic_member_symbol(Symbol s)
         && !s.is_static();
 }
 
-/*
-class Print_vector_types : public TL::Functor<TL::AST_t::callback_result, AST_t>
-{
-    private:
-    ScopeLink _sl;
-    bool * is_generic_vector;
-
-    public:
-    Print_vector_types(ScopeLink scope_link) : _sl(scope_link)
-    { 
-        is_generic_vector = new bool(false); 
-    };
-
-    ~Print_vector_types()
-    {
-        delete(is_generic_vector);
-    }
-
-    TL::AST_t::callback_result do_(const AST_t& ast) const
-    {
-        if (!ast.is_valid())
-	    return TL::AST_t::callback_result(false, "");
-
-        if (Declaration::predicate(ast))
-        {
-            Declaration decl(Declaration(ast, _sl));
-            DeclarationSpec decl_spec = decl.get_declaration_specifiers();
-
-            //Declaration Entities
-            ObjectList<DeclaredEntity> decl_ent_list = decl.get_declared_entities();
-
-            for (ObjectList<DeclaredEntity>::iterator it = decl_ent_list.begin();
-                 it != decl_ent_list.end();
-                 it++)
-            {
-                DeclaredEntity decl_ent((DeclaredEntity)(*it));
-
-                //Left side
-                if (!decl_ent.get_ast().depth_subtrees(
-                    TL::TraverseASTPredicate(Find_attribute<AST_t, attrib_param_name>(_sl))).empty())
-                {
-                    (*is_generic_vector) = true;
-                    return TL::AST_t::callback_result(false, "");
-                }
-
-                //Right side (Initialization)
-                if (decl_ent.has_initializer())
-                {   
-                    if (!(decl_ent.get_initializer().get_ast().depth_subtrees(
-                          TL::TraverseASTPredicate(Find_attribute<AST_t, attrib_param_name>(_sl))).empty()))
-                    {
-                        (*is_generic_vector) = true;
-                        return TL::AST_t::callback_result(false, "");
-                    }
-                }
-            }
-        }
-        else if (GCCAttributeSpecifier::predicate(ast) && (*is_generic_vector))
-        {
-            return TL::AST_t::callback_result(true, "");
-        }
-        else if (TypeSpec::predicate(ast) && (*is_generic_vector))
-        {
-            Type type((TypeSpec(ast, _sl)).get_type());
-
-            std::stringstream type_num;
-            type_num << (_vector_width/type.get_size());
-
-            return TL::AST_t::callback_result(true, ast.prettyprint() 
-                + type_num.str());
-
-
-//            if (type.is_signed_int() || type.is_unsigned_int()
-//             || type.is_float())
-//                return TL::AST_t::callback_result(true, ast.prettyprint() + "4 ");
-
-//            if (type.is_signed_short_int() || type.is_unsigned_short_int())
-//                return TL::AST_t::callback_result(true, ast.prettyprint() + "8 ");
-
-//            if (type.is_char())
-//                return TL::AST_t::callback_result(true, ast.prettyprint() + "16 ");
-
-//            if (type.is_signed_long_int() || type.is_unsigned_long_int() 
-//             || type.is_signed_long_long_int() || type.is_unsigned_long_long_int()
-//             || type.is_long_double() || type.is_complex() || type.is_bool())
-//                running_error("Type not supported yet in SIMD mode", 0);
-
-//            running_error("Type not supported yet in SIMD mode", 0);
-
-        }	
-        return TL::AST_t::callback_result(false, "");
-    }
-};
-*/
-
-class ReplaceSrcIdVector : public ReplaceSrcIdExpression
-{
-    private:
-        bool * is_generic_vector;
-    protected:
-        static const char* prettyprint_callback (AST a, void* data);
-    
-    public:
-        ReplaceSrcIdVector(ScopeLink sl) : ReplaceSrcIdExpression(sl)
-        {
-            is_generic_vector = new bool(false);
-        }
-
-        ~ReplaceSrcIdVector()
-        {
-            delete(is_generic_vector);
-        }
-
-        Source replace(AST_t a) const;
-};
-
-
-const char* ReplaceSrcIdVector::prettyprint_callback (AST a, void* data)
+const char* ReplaceSrcSMP_OCL::prettyprint_callback (AST a, void* data)
 {
     //Standar prettyprint_callback
     const char *c = ReplaceSrcIdExpression::prettyprint_callback(a, data);
@@ -301,7 +63,7 @@ const char* ReplaceSrcIdVector::prettyprint_callback (AST a, void* data)
     //__attribute__((generic_vector)) replacement
     if(c == NULL)
     {
-        ReplaceSrcIdVector *_this = reinterpret_cast<ReplaceSrcIdVector*>(data);
+        ReplaceSrcSMP_OCL *_this = reinterpret_cast<ReplaceSrcSMP_OCL*>(data);
 
         AST_t ast(a);
 
@@ -319,31 +81,18 @@ const char* ReplaceSrcIdVector::prettyprint_callback (AST a, void* data)
             {
                 DeclaredEntity decl_ent((DeclaredEntity)(*it));
 
-                //Left side
-                if (!decl_ent.get_ast().depth_subtrees(
-                    TL::TraverseASTPredicate(Find_attribute<AST_t, attrib_param_name>(_this->_sl))).empty())
-                {
-                    (*_this->is_generic_vector) = true;
-                    return NULL;
-                }
-
-                //Right side (Initialization)
-                if (decl_ent.has_initializer())
-                {
-                    if (!(decl_ent.get_initializer().get_ast().depth_subtrees(
-                          TL::TraverseASTPredicate(Find_attribute<AST_t, attrib_param_name>(_this->_sl))).empty()))
-                    {
-                        (*_this->is_generic_vector) = true;
-                        return NULL;
-                    }
-                }
+                (*_this->num_generic_vectors) = decl_ent.get_ast().depth_subtrees(
+                                                    TL::TraverseASTPredicate(
+                                                    FindAttribute(_this->_sl, ATTR_GEN_VEC_NAME))).size();
             }
         }
-        else if (GCCAttributeSpecifier::predicate(ast) && (*_this->is_generic_vector))
+        else if (GCCAttributeSpecifier::predicate(ast) && (*_this->num_generic_vectors))
         {
+            (*_this->num_generic_vectors)--;
+
             return "";
         }
-        else if (TypeSpec::predicate(ast) && (*_this->is_generic_vector))
+        else if (TypeSpec::predicate(ast) && (*_this->num_generic_vectors))
         {
             Type type((TypeSpec(ast, _this->_sl)).get_type());
 
@@ -361,12 +110,12 @@ const char* ReplaceSrcIdVector::prettyprint_callback (AST a, void* data)
 
 }
 
-Source ReplaceSrcIdVector::replace(AST_t a) const
+Source ReplaceSrcSMP_OCL::replace(AST_t a) const
 {
     Source result;
 
     char *c = prettyprint_in_buffer_callback(a.get_internal_ast(),
-            &ReplaceSrcIdVector::prettyprint_callback, (void*)this);
+            &ReplaceSrcSMP_OCL::prettyprint_callback, (void*)this);
 
     // Not sure whether this could happen or not
     if (c != NULL)
@@ -387,14 +136,14 @@ static void do_smp_ocl_outline_replacements(AST_t body,
         Source &initial_code,
         Source &replaced_outline)
 {  
-    ReplaceSrcIdVector replace_src(scope_link);
+    ReplaceSrcSMP_OCL replace_src(scope_link);
     ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
 
     replace_src.add_this_replacement("_args->_this");
 
     //__builtin_vector_loop AST replacement
     ObjectList<AST_t> builtin_ast_list = 
-             body.depth_subtrees(TL::TraverseASTPredicate(Find_function<AST_t, builtin_vl_name>(scope_link)));
+             body.depth_subtrees(TL::TraverseASTPredicate(FindFunction(scope_link, BUILTIN_VL_NAME)));
 
     for (ObjectList<AST_t>::iterator it = builtin_ast_list.begin();
             it != builtin_ast_list.end();

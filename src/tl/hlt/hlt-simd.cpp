@@ -22,6 +22,7 @@
 --------------------------------------------------------------------*/
 
 #include "hlt-simd.hpp"
+#include "tl-generic_vector.hpp"
 #include <sstream>
 
 using namespace TL::HLT;
@@ -33,7 +34,31 @@ const char* ReplaceSimdSrc::prettyprint_callback (AST a, void* data)
     //Standar prettyprint_callback
     const char *c = ReplaceSrcIdExpression::prettyprint_callback(a, data);
 
-    //__attribute__((generic_vector)) replacement
+    ReplaceSimdSrc *_this = reinterpret_cast<ReplaceSimdSrc*>(data);
+
+    //scalar declarations to __attribute__((generic_vector))
+    if(c == NULL)
+    {
+        ReplaceSimdSrc *_this = reinterpret_cast<ReplaceSimdSrc*>(data);
+
+        AST_t ast(a);
+
+        if (TL::TypeSpec::predicate(ast))
+        {
+            return Type((TypeSpec(ast, _this->_sl)).get_type())
+                                            .get_generic_vector_to()
+                                            .get_simple_declaration(_this->_sl.get_scope(ast), "")
+                                            .c_str();
+        }
+    }       
+
+    return c; 
+
+#if 0   
+    //builtin_vector_expansion
+    //Standar prettyprint_callback
+    const char *c = ReplaceSrcIdExpression::prettyprint_callback(a, data);
+
     if(c == NULL)
     {
         ReplaceSimdSrc *_this = reinterpret_cast<ReplaceSimdSrc*>(data);
@@ -70,13 +95,10 @@ const char* ReplaceSimdSrc::prettyprint_callback (AST a, void* data)
                 (*_this->is_generic_vector) = false;
                 std::stringstream output;
 
-                output << "(" 
-                       << " __attribute__((generic_vector)) "
-                       << expr.get_type().get_simple_declaration(_this->_sl.get_scope(ast), "")
-                       << ") " 
-                       << "{" << expr.prettyprint() << ", "  << expr.prettyprint() << ", " 
-                       << expr.prettyprint() << ", " << expr.prettyprint() << "}"
-                       ;
+                output << BUILTIN_VE_NAME << "("
+                    << expr.prettyprint() 
+                    << ")"
+                    ;
 
                 return output.str().c_str();
             }
@@ -86,9 +108,8 @@ const char* ReplaceSimdSrc::prettyprint_callback (AST a, void* data)
     }
 
     return c;
-
+#endif
 }
-
 
 TL::Source ReplaceSimdSrc::replace(AST_t a) const
 {
@@ -207,7 +228,7 @@ TL::Source LoopSimdization::do_simdization()
 
     _loop << "for(" << _for_stmt.get_iterating_init().prettyprint() 
           << it_condition.get_first_operand() << it_condition.get_operator_str()
-          << "__builtin_vector_loop(" << it_condition.get_second_operand() << "," << _smallest_type_size << ");"
+          << BUILTIN_VL_NAME << "(" << it_condition.get_second_operand() << "," << _smallest_type_size << ");"
           << _for_stmt.get_iterating_expression() << ")"
           << replaced_loop_body
           ;

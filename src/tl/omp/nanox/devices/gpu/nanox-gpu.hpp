@@ -26,7 +26,7 @@
 
 
 #ifndef NANOX_GPU_HPP
-#define NANOX_GPU_CPP
+#define NANOX_GPU_HPP
 
 #include "tl-compilerphase.hpp"
 #include "tl-devices.hpp"

@@ -424,7 +424,9 @@ namespace TL
                 //! Postdecrement a--
                 POSTDECREMENT,
                 //! Conditional expression a ? b : c
-                CONDITIONAL
+                CONDITIONAL,
+                //! Assignment operator =
+                ASSIGNMENT
             };
 
             //! Computes the type of the expression
@@ -668,6 +670,9 @@ namespace TL
             bool has_initializer() const;
             //! Returns an expression with the initializer itself
             Expression get_initializer() const;
+
+            //! Returns the tree of the declarator
+            AST_t get_declarator_tree() const;
 
             //! States whether this declaration is a functional one
             bool is_functional_declaration() const;

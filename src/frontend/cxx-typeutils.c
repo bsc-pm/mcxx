@@ -6677,14 +6677,6 @@ char pointer_types_are_similar(type_t* t_orig, type_t* t_dest)
         }
     }
 
-    // This additional comparison is just for C++
-    while (is_pointer_type(orig)
-            && is_pointer_type(dest))
-    {
-        orig = pointer_type_get_pointee_type(orig);
-        dest = pointer_type_get_pointee_type(dest);
-    }
-
     // Zero type of C++
     if ((is_zero_type(orig)
                 && is_pointer_type(dest))
@@ -6692,6 +6684,21 @@ char pointer_types_are_similar(type_t* t_orig, type_t* t_dest)
                 && is_pointer_type(orig)))
     {
         return 1;
+    }
+
+    // It turned that none was a pointer!
+    if (!is_pointer_type(orig)
+            || !is_pointer_type(dest))
+    {
+        return 0;
+    }
+
+    // This additional comparison is just for C++
+    while (is_pointer_type(orig)
+            && is_pointer_type(dest))
+    {
+        orig = pointer_type_get_pointee_type(orig);
+        dest = pointer_type_get_pointee_type(dest);
     }
 
     return equivalent_types(get_unqualified_type(orig), get_unqualified_type(dest));
@@ -6938,6 +6945,17 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         }
         (*result).conv[0] = SCI_LVALUE_TO_RVALUE;
         orig = reference_type_get_referenced_type(orig);
+    }
+
+    //Vector types
+    //scalar -->__attribute_((vector_size(X)))  
+    if(is_vector_type(no_ref(dest)) && is_scalar_type(no_ref(orig)))
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCS: Applying scalar-to-vector conversion\n");
+        }
+        dest = vector_type_get_element_type(dest);
     }
 
     // Lower complex types

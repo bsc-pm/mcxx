@@ -45,6 +45,7 @@ LANG_IF_STATEMENT_CONDITION lang.if_statement_condition
 LANG_IF_STATEMENT_ELSE_BODY lang.if_statement_else_body
 LANG_IF_STATEMENT_THEN_BODY lang.if_statement_then_body
 LANG_IMPLICIT_CALL lang.implicit_call
+LANG_DECLARATOR lang.declarator
 LANG_INITIALIZER lang.initializer
 LANG_IS_ACCESSED_MEMBER lang.is_accessed_member
 LANG_IS_ADD_ASSIGNMENT lang.is_add_assignment

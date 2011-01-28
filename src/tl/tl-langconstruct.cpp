@@ -837,6 +837,8 @@ namespace TL
                 return BITWISE_XOR;
             else if (TL::Bool(_ref.get_attribute(LANG_IS_MOD_ASSIGNMENT)))
                 return MODULUS;
+            else if (TL::Bool(_ref.get_attribute(LANG_IS_ASSIGNMENT)))
+                return ASSIGNMENT;
         }
 
         return UNKNOWN;
@@ -897,6 +899,8 @@ namespace TL
                 return "&&";
             case  LOGICAL_OR :
                 return "||";
+            case  ASSIGNMENT :
+                return "=";
             default:
                 return "??";
         }
@@ -1174,6 +1178,12 @@ namespace TL
     {
         AST_t initializer = _ref.get_attribute(LANG_INITIALIZER);
         return Expression(initializer, this->_scope_link);
+    }
+
+    AST_t DeclaredEntity::get_declarator_tree() const
+    {
+        AST_t declarator = _ref.get_attribute(LANG_DECLARATOR);
+        return declarator;
     }
 
     ObjectList<DeclaredEntity> Declaration::get_declared_entities() const

@@ -107,6 +107,7 @@ namespace TL
         {
             public:
                 HLTPragmaPhase();
+                virtual void pre_run(TL::DTO& dto);
                 virtual void run(TL::DTO& dto);
             private:
                 void unroll_loop(PragmaCustomConstruct construct);

@@ -982,8 +982,8 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
                     entry->expression_value = initializer;
 
                     {
-                        AST non_nested_declarator = advance_over_declarator_nests(declarator, decl_context);
-                        ASTAttrSetValueType(non_nested_declarator, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
+                        ASTAttrSetValueType(init_declarator, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
+                        ASTAttrSetValueType(init_declarator, LANG_DECLARATOR, tl_type_t, tl_ast(declarator));
                     }
                 }
                 // If it does not have initializer and it is not an extern entity
@@ -4234,9 +4234,16 @@ static void build_scope_declarator_with_parameter_context(AST a,
             }
 
             {
-                AST non_nested_declarator = advance_over_declarator_nests(a, decl_context);
-                ASTAttrSetValueType(non_nested_declarator, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
-                ASTAttrSetValueType(non_nested_declarator, LANG_DECLARED_NAME, tl_type_t, tl_ast(declarator_name));
+                // KLUDGE
+                // FIXME - Rework declarators to avoid this
+                AST set_declarator = a;
+                if (ASTType(ASTParent(a)) == AST_INIT_DECLARATOR
+                        || ASTType(ASTParent(a)) == AST_GCC_INIT_DECLARATOR)
+                {
+                    set_declarator = ASTParent(a);
+                }
+                ASTAttrSetValueType(set_declarator, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
+                ASTAttrSetValueType(set_declarator, LANG_DECLARED_NAME, tl_type_t, tl_ast(declarator_name));
             }
 
             scope_link_set(CURRENT_COMPILED_FILE->scope_link, a, entity_context);
@@ -4852,7 +4859,17 @@ static void build_scope_declarator_rec(AST a, type_t** declarator_type,
             }
         case AST_DECLARATOR_FUNC :
             {
-                ASTAttrSetValueType(a, LANG_IS_FUNCTIONAL_DECLARATOR, tl_type_t, tl_bool(1));
+                {
+                    // KLUDGE
+                    // FIXME - Rework declarators to avoid this
+                    AST set_declarator = a;
+                    if (ASTType(ASTParent(a)) == AST_INIT_DECLARATOR
+                            || ASTType(ASTParent(a)) == AST_GCC_INIT_DECLARATOR)
+                    {
+                        set_declarator = ASTParent(a);
+                    }
+                    ASTAttrSetValueType(a, LANG_IS_FUNCTIONAL_DECLARATOR, tl_type_t, tl_bool(1));
+                }
                 set_function_type(declarator_type, gather_info, ASTSon1(a), 
                         ASTSon2(a), ASTSon3(a), entity_context, prototype_context);
 
@@ -7386,8 +7403,8 @@ scope_entry_t* build_scope_function_definition(AST a, scope_entry_t* previous_sy
 
     ASTAttrSetValueType(a, LANG_IS_FUNCTION_DEFINITION, tl_type_t, tl_bool(1));
     {
-        AST non_nested_declarator = advance_over_declarator_nests(ASTSon1(a), decl_context);
-        ASTAttrSetValueType(a, LANG_FUNCTION_DECLARATOR, tl_type_t, tl_ast(non_nested_declarator));
+        // AST non_nested_declarator = advance_over_declarator_nests(ASTSon1(a), decl_context);
+        ASTAttrSetValueType(a, LANG_FUNCTION_DECLARATOR, tl_type_t, tl_ast(ASTSon1(a)));
     }
     ASTAttrSetValueType(a, LANG_FUNCTION_BODY, tl_type_t, tl_ast(statement));
 
@@ -8213,10 +8230,10 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         AST initializer = ASTSon1(declarator);
 
                         {
-                            AST non_nested_declarator = advance_over_declarator_nests(declarator, decl_context);
-                            ASTAttrSetValueType(non_nested_declarator, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
-                            ASTAttrSetValueType(non_nested_declarator, LANG_DECLARED_NAME, tl_type_t, tl_ast(declarator_name));
-                            ASTAttrSetValueType(non_nested_declarator, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
+                            ASTAttrSetValueType(declarator, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
+                            ASTAttrSetValueType(declarator, LANG_DECLARED_NAME, tl_type_t, tl_ast(declarator_name));
+                            ASTAttrSetValueType(declarator, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
+                            ASTAttrSetValueType(declarator, LANG_DECLARATOR, tl_type_t, tl_ast(ASTSon0(declarator)));
                         }
                         
                         // Change name of constructors
