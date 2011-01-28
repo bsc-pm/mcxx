@@ -34,7 +34,7 @@ libtlnanox_smp_ocl_la_CFLAGS = $(device_flags)
 libtlnanox_smp_ocl_la_CXXFLAGS = $(device_flags)
 
 libtlnanox_smp_ocl_la_LDFLAGS = $(tl_ldflags)
-libtlnanox_smp_la_LIBADD = ../common/libtlnanox-devices_common.la
+libtlnanox_smp_ocl_la_LIBADD = ../common/libtlnanox-devices_common.la
 
 libtlnanox_smp_ocl_la_SOURCES = \
        nanox-smp_ocl.hpp \
