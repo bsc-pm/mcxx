@@ -210,12 +210,8 @@ static void do_gpu_ocl_outline_replacements(AST_t body,
 }
 
 DeviceGPU_OCL::DeviceGPU_OCL()
-    : DeviceProvider(/* needs_copies */ true)
+    : DeviceProvider("gpu_ocl", /* needs_copies */ true)
 {
-    DeviceHandler &device_handler(DeviceHandler::get_device_handler());
-
-    device_handler.register_device("gpu_ocl", this);
-
     set_phase_name("Nanox GPU_OCL support");
     set_phase_description("This phase is used by Nanox phases to implement GPU_OCL device support");
 }

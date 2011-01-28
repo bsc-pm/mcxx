@@ -321,12 +321,8 @@ static void do_smp_ocl_outline_replacements(AST_t body,
 }
 
 DeviceSMP_OCL::DeviceSMP_OCL()
-    : DeviceProvider(/* needs_copies */ true)
+    : DeviceProvider("smp_ocl", /* needs_copies */ true)
 {
-    DeviceHandler &device_handler(DeviceHandler::get_device_handler());
-
-    device_handler.register_device("smp_ocl", this);
-
     set_phase_name("Nanox SMP_OCL support");
     set_phase_description("This phase is used by Nanox phases to implement SMP_OCL device support");
 }
