@@ -34,7 +34,7 @@
 
 MCXX_BEGIN_DECLS
 
-void fortran_split_lines(FILE* input, FILE* output, int width);
+LIBMF03_EXTERN void fortran_split_lines(FILE* input, FILE* output, int width);
 
 MCXX_END_DECLS
 

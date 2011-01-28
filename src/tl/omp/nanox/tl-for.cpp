@@ -58,7 +58,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
     std::string struct_arg_type_name;
     define_arguments_structure(ctr, struct_arg_type_name, data_environ_info, 
             ObjectList<OpenMP::DependencyItem>(), loop_info_field);
-
+            
     FunctionDefinition funct_def = ctr.get_enclosing_function();
     Symbol function_symbol = funct_def.get_function_symbol();
 
@@ -81,10 +81,11 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
 
     Source final_barrier;
 
-    if (!ctr.get_clause("nowait").is_defined() 
+    if ( (!ctr.get_clause("nowait").is_defined() 
             && !ctr.get_clause("input").is_defined() 
             && !ctr.get_clause("output").is_defined() 
-            && !ctr.get_clause("inout").is_defined())
+            && !ctr.get_clause("inout").is_defined() )
+            || !data_environ_info.get_reduction_symbols().empty())
     {
         final_barrier
             << "nanos_wg_wait_completion(nanos_current_wd());"
@@ -132,7 +133,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
                 ctr.get_scope_link(),
                 initial_setup,
                 replaced_body);
-
+                
         Source outline_body;
         outline_body
             << loop_distr_setup
@@ -142,10 +143,10 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             <<    induction_var_name << "+= _nth_step"
             << ")"
             << "{"
-            << replaced_body
+            <<    replaced_body
             << "}"
             ;
-
+            
         device_provider->create_outline(outline_name,
                 struct_arg_type_name,
                 data_environ_info,
@@ -461,6 +462,106 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             ;
     }
 
+    ObjectList<OpenMP::ReductionSymbol> reduction_symbols = data_environ_info.get_reduction_symbols();
+    
+    Source reduction_join_arr_decls;
+    if (!reduction_symbols.empty())
+        reduction_join_arr_decls 
+        << "int _nth_team = omp_get_num_threads();"
+        ;
+    if (!reduction_symbols.empty())
+        reduction_join_arr_decls << "int rs_i;" ;
+    for(ObjectList<OpenMP::ReductionSymbol>::iterator it = reduction_symbols.begin();
+            it != reduction_symbols.end(); 
+            it++)
+    {
+        Symbol rs = it->get_symbol();
+        OpenMP::UDRInfoItem2 udr2 = it->get_udr_2();
+        Source auxiliar_initializer, auxiliar_initialization;
+        
+        if (rs.get_type().is_class())
+        {
+            // When the symbol has class type, we must build an auxiliary variable initialized to the symbol's identity
+            // in order to initialize the reduction's vector
+            auxiliar_initializer  << "aux_" << rs.get_name();
+            reduction_join_arr_decls
+                << rs.get_type().get_declaration(rs.get_scope(), "") << " " << auxiliar_initializer
+                << " = "
+                << udr2.get_identity().prettyprint() << ";"
+            ;
+        }
+        else
+        {
+            auxiliar_initializer << udr2.get_identity().prettyprint();
+        }
+                  
+        reduction_join_arr_decls
+            << rs.get_type().get_declaration(rs.get_scope(), "") << " rdv_" << rs.get_name() << "[_nth_team];"
+            << "for(rs_i=0; rs_i<_nth_team; rs_i++)"
+            << "{"
+        ;
+
+        CXX_LANGUAGE()
+        {
+            if (udr2.has_identity())
+            {
+                if (udr2.get_need_equal_initializer())
+                {
+                    reduction_join_arr_decls 
+                        << "rdv_" << rs.get_name() << "[rs_i] = " << auxiliar_initializer << ";"
+                    ;
+                }
+                else
+                {
+                    if (udr2.get_is_constructor())
+                    {
+                        reduction_join_arr_decls 
+                            << "rdv_" << rs.get_name() << "[rs_i] " << auxiliar_initializer << ";"
+                        ;
+                    }
+                    else if (!rs.get_type().is_enum())
+                    {
+                        reduction_join_arr_decls 
+                            << "rdv_" << rs.get_name() << "[rs_i] (" << auxiliar_initializer << ");"
+                        ;
+                    }
+                }
+            }
+        }
+        C_LANGUAGE()
+        {
+            reduction_join_arr_decls 
+                << "rdv_" << rs.get_name() << "[rs_i] = " << auxiliar_initializer << ";"
+            ;
+        }
+        
+        reduction_join_arr_decls << "}";
+    }
+
+    Source omp_reduction_join, omp_reduction_argument;
+    // Get reduction code
+    for (ObjectList<std::string>::iterator it = current_targets.begin();
+            it != current_targets.end();
+            it++)
+    {
+        DeviceProvider* device_provider = device_handler.get_device(*it);
+        
+        if (device_provider->get_name()=="smp")
+        {
+            omp_reduction_join 
+                << device_provider->get_reduction_code(reduction_symbols, ctr.get_scope_link())
+            ;
+        }
+    }
+    // Fill outline variables
+    for (ObjectList<OpenMP::ReductionSymbol>::iterator it = reduction_symbols.begin();
+            it != reduction_symbols.end();
+            it++)
+    {
+        omp_reduction_argument
+            << "ol_args->rdv_" << it->get_symbol().get_name() << " = rdv_" << it->get_symbol().get_name() << ";";
+    }
+
     spawn_source
         << "{"
         <<     struct_arg_type_name << "* ol_args = (" << struct_arg_type_name << "*)0;"
@@ -474,6 +575,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         <<     copy_decl
         <<     get_single_guard("single_guard")
         <<     "if (err != NANOS_OK) nanos_handle_error(err);"
+        <<     reduction_join_arr_decls
         <<     "if (single_guard)"
         <<     "{"
         <<        "nanos_slicer_t " << current_slicer << " = nanos_find_slicer(\"" << current_slicer << "\");"
@@ -495,6 +597,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         <<              "&props," << num_copies1 << "," << copy_data1 << ");"
         <<        "if (err != NANOS_OK) nanos_handle_error(err);"
         <<            fill_outline_arguments
+        <<            omp_reduction_argument
         <<            fill_dependences_outline
         <<            copy_setup
         <<        "slicer_data_for->_lower = " << for_statement.get_lower_bound() << ";"
@@ -505,6 +608,7 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
         <<            "if (err != NANOS_OK) nanos_handle_error (err);"
         <<     "}"
         <<     final_barrier
+        <<     omp_reduction_join
         << "}"
         ;
 

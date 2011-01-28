@@ -57,14 +57,16 @@ fi
 if [ ! -z "@NANOX_INCLUDES@" ];
 then
 
+COMMON_NANOX_CFLAGS=-DNANOX
+
 cat <<EOF
 compile_versions="\${compile_versions} nanox_plain"
 
 test_CC_nanox_plain="\${MCC}"
 test_CXX_nanox_plain="\${MCXX}"
 
-test_CFLAGS_nanox_plain="--nanox -std=gnu99"
-test_CXXFLAGS_nanox_plain="--nanox"
+test_CFLAGS_nanox_plain="--nanox -std=gnu99 ${COMMON_NANOX_CFLAGS}"
+test_CXXFLAGS_nanox_plain="--nanox ${COMMON_NANOX_CFLAGS}"
 
 test_LDFLAGS_nanox_plain="-L@abs_top_builddir@/lib -lperish"
 

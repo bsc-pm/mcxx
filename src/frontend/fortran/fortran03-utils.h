@@ -28,6 +28,16 @@
 #ifndef FORTRAN03_UTILS_H
 #define FORTRAN03_UTILS_H
 
-const char* find_file_in_directories(int num_dirs, const char** directories, const char* filename, const char* origin_of_include);
+#include "cxx-macros.h"
+#include "libmf03-common.h"
+
+MCXX_BEGIN_DECLS
+
+LIBMF03_EXTERN const char* find_file_in_directories(int num_dirs, 
+        const char** directories, 
+        const char* filename, 
+        const char* origin_of_include);
+
+MCXX_END_DECLS
 
 #endif // FORTRAN03_UTILS_H

@@ -28,6 +28,7 @@
 #ifndef FORTRAN03_PARSER_H
 #define FORTRAN03_PARSER_H
 
+#include "cxx-macros.h"
 #include "libmf03-common.h"
 #include "cxx-ast.h"
 #include "cxx-utils.h"

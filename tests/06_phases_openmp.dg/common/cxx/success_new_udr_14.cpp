@@ -29,15 +29,21 @@
 <testinfo>
 test_generator=config/mercurium-omp
 
-# test_exec_fail_nanox_plain_1thread=yes
-# test_exec_faulty_nanox_plain_1thread=yes
+test_compile_fail_nanox_plain=yes
+test_compile_faulty_nanox_plain=yes
+
+test_compile_fail_nanox_instrument=yes
+test_compile_faulty_nanox_instrument=yes
+
+#test_exec_fail_nanox_plain_1thread=yes
+#test_exec_faulty_nanox_plain_1thread=yes
 test_exec_fail_nanox_plain_2thread=yes
 test_exec_faulty_nanox_plain_2thread=yes
 test_exec_fail_nanox_plain_4thread=yes
 test_exec_faulty_nanox_plain_4thread=yes
 
-# test_exec_fail_nanox_instrument_1thread=yes
-# test_exec_faulty_nanox_instrument_1thread=yes
+#test_exec_fail_nanox_instrument_1thread=yes
+#test_exec_faulty_nanox_instrument_1thread=yes
 test_exec_fail_nanox_instrument_2thread=yes
 test_exec_faulty_nanox_instrument_2thread=yes
 test_exec_fail_nanox_instrument_4thread=yes

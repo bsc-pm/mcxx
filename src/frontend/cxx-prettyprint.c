@@ -327,6 +327,9 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_DIV_OP, binary_operator_handler, "/"),
     NODE_HANDLER(AST_MOD_OP, binary_operator_handler, "%"),
     NODE_HANDLER(AST_MULT_OP, binary_operator_handler, "*"),
+#ifdef FORTRAN_SUPPORT
+    NODE_HANDLER(AST_POWER_OP, binary_operator_handler, "^^"),
+#endif
     NODE_HANDLER(AST_POINTER_TO_MEMBER, binary_operator_handler, ".*"),
     NODE_HANDLER(AST_POINTER_TO_POINTER_MEMBER, binary_operator_handler, "->*"),
     NODE_HANDLER(AST_CAST_EXPRESSION, cast_expression_handler, NULL),

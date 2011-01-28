@@ -277,7 +277,7 @@ decl_context_t new_global_context(void)
     // and the current one
     result.current_scope = result.namespace_scope;
 
-    global_scope_namespace->namespace_decl_context = result;
+    global_scope_namespace->related_decl_context = result;
 
     return result;
 }
@@ -1315,7 +1315,7 @@ static decl_context_t lookup_qualification_scope(
             }
 
             // Update the context
-            current_context = current_symbol->namespace_decl_context;
+            current_context = current_symbol->related_decl_context;
             current_context.decl_flags |= nested_name_context.decl_flags;
         }
         else if (current_symbol->kind == SK_CLASS
@@ -1913,7 +1913,7 @@ static scope_entry_list_t* query_in_namespace_and_associates(
 {
     ERROR_CONDITION(namespace->kind != SK_NAMESPACE, "Invalid symbol", 0);
     scope_entry_list_t* grand_result 
-        = query_name_in_scope(namespace->namespace_decl_context.current_scope, name);
+        = query_name_in_scope(namespace->related_decl_context.current_scope, name);
 
     if (grand_result != NULL)
         return grand_result;
@@ -1925,7 +1925,7 @@ static scope_entry_list_t* query_in_namespace_and_associates(
     {
         int new_num_associated_namespaces = num_associated_namespaces;
         scope_entry_t* associated_namespace = associated_namespaces[i];
-        scope_t* current_scope = associated_namespace->namespace_decl_context.current_scope;
+        scope_t* current_scope = associated_namespace->related_decl_context.current_scope;
 
         // This namespace may have additional used namespaces which we will add to the list of namespaces 
         // if and only if they are not already there
@@ -1975,7 +1975,7 @@ static scope_entry_list_t* query_in_namespace(scope_entry_t* namespace,
 {
     ERROR_CONDITION(namespace->kind != SK_NAMESPACE, "Invalid symbol", 0);
 
-    scope_t* current_scope = namespace->namespace_decl_context.current_scope;
+    scope_t* current_scope = namespace->related_decl_context.current_scope;
 
     scope_entry_t* associated_namespaces[MAX_ASSOCIATED_NAMESPACES];
 

@@ -161,7 +161,11 @@ namespace TL
         }
 
         return (Type(get_new_function_type(_type_info, parameters_list, num_parameters)));
+    }
 
+    bool Type::is_error_type() const
+    {
+        return ::is_error_type(_type_info);
     }
 
     bool Type::operator==(Type t) const

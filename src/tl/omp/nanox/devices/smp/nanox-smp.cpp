@@ -227,7 +227,8 @@ static void do_smp_outline_replacements(AST_t body,
 
     ReplaceSrcSMP replace_src(scope_link);
     ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
-
+    ObjectList<OpenMP::ReductionSymbol> reduction_symbols = data_env_info.get_reduction_symbols();
+    
     replace_src.add_this_replacement("_args->_this");
 
     //__builtin_vector_loop AST replacement
@@ -444,16 +445,62 @@ static void do_smp_outline_replacements(AST_t body,
         replace_src.add_replacement(*it, "(_args->_this->" + it->get_name() + ")");
     }
 
+    // Create local variables for reduction symbols
+    for (ObjectList<OpenMP::ReductionSymbol>::iterator it = reduction_symbols.begin();
+            it != reduction_symbols.end();
+            it++)
+    {
+        Symbol red_sym = it->get_symbol();
+        Source static_initializer, type_declaration;
+        std::string red_var_name = "rdp_" + red_sym.get_name();
+        OpenMP::UDRInfoItem2 udr2 = it->get_udr_2();
+        
+        initial_code
+            << comment("Reduction private entity : '" + red_var_name + "'")
+            << type_declaration << static_initializer << ";"
+        ;
+        
+        type_declaration
+            << udr2.get_type().get_declaration(scope_link.get_scope(body), red_var_name)
+        ;
+        
+        replace_src.add_replacement(red_sym, red_var_name);
+        
+        CXX_LANGUAGE()
+        {
+            if (udr2.has_identity())
+            {
+                if (udr2.get_need_equal_initializer())
+                {
+                    static_initializer << " = " << udr2.get_identity().prettyprint();
+                }
+                else
+                {
+                    if (udr2.get_is_constructor())
+                    {
+                        static_initializer << udr2.get_identity().prettyprint();
+                    }
+                    else if (!udr2.get_type().is_enum())
+                    {
+                        static_initializer << " (" << udr2.get_identity().prettyprint() << ")";
+                    }
+                }
+            }
+        }
+        
+        C_LANGUAGE()
+        {
+            static_initializer << " = " << udr2.get_identity().prettyprint();
+        }
+    }
+
     replaced_outline << replace_src.replace(body);
+    
 }
 
 DeviceSMP::DeviceSMP()
-    : DeviceProvider(/* needs_copies */ true)
+    : DeviceProvider(/* device_name */ "smp", /* needs_copies */ true)
 {
-    DeviceHandler &device_handler(DeviceHandler::get_device_handler());
-
-    device_handler.register_device("smp", this);
-
     set_phase_name("Nanox SMP support");
     set_phase_description("This phase is used by Nanox phases to implement SMP device support");
 }
@@ -717,6 +764,10 @@ void DeviceSMP::create_outline(
         }
     }
 
+    final_code
+        << get_reduction_update(data_environ.get_reduction_symbols(), sl);
+    ;
+    
     if (outline_flags.barrier_at_end)
     {
         final_code

@@ -81,6 +81,7 @@ BINOP_DECL(gt, >)
 BINOP_DECL(gte, >)
 BINOP_DECL(eq, ==)
 BINOP_DECL(neq, !=)
+BINOP_DECL(pow, **)
 
 #define UNOP_DECL(_opname, _unop) \
 LIBMCXX_EXTERN const_value_t* const_value_##_opname(const_value_t* v1);

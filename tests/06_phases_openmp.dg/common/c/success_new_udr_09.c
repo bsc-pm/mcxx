@@ -29,15 +29,15 @@
 <testinfo>
 test_generator=config/mercurium-omp
 
-# test_exec_fail_nanox_plain_1thread=yes
-# test_exec_faulty_nanox_plain_1thread=yes
+#test_exec_fail_nanox_plain_1thread=yes
+#test_exec_faulty_nanox_plain_1thread=yes
 test_exec_fail_nanox_plain_2thread=yes
 test_exec_faulty_nanox_plain_2thread=yes
 test_exec_fail_nanox_plain_4thread=yes
 test_exec_faulty_nanox_plain_4thread=yes
 
-# test_exec_fail_nanox_instrument_1thread=yes
-# test_exec_faulty_nanox_instrument_1thread=yes
+#test_exec_fail_nanox_instrument_1thread=yes
+#test_exec_faulty_nanox_instrument_1thread=yes
 test_exec_fail_nanox_instrument_2thread=yes
 test_exec_faulty_nanox_instrument_2thread=yes
 test_exec_fail_nanox_instrument_4thread=yes
@@ -45,6 +45,8 @@ test_exec_faulty_nanox_instrument_4thread=yes
 </testinfo>
 */
 
+int omp_get_num_threads(void);
+int omp_get_thread_num(void);
 
 enum A
 {
@@ -56,7 +58,12 @@ enum A
 int main (int argc, char* argv[])
 {
 	enum A a;
-	#pragma omp parallel reduction(foo: a)
+#ifdef NANOX
+    #pragma omp for reduction(foo: a)
+    for(int i=0; i<1; i++)
+#else
+    #pragma omp parallel reduction(foo: a)
+#endif
     {}
 
     return 0;

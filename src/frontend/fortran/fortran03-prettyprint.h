@@ -28,14 +28,17 @@
 #ifndef FORTRAN03_PRETTYPRINT_H
 #define FORTRAN03_PRETTYPRINT_H
 
+#include "cxx-macros.h"
+#include "libmf03-common.h"
 #include "cxx-prettyprint.h"
 #include "cxx-ast.h"
 
-void fortran_prettyprint(FILE* f, AST a);
+MCXX_BEGIN_DECLS
 
-const char* fortran_prettyprint_in_buffer(AST a);
+LIBMF03_EXTERN void fortran_prettyprint(FILE* f, AST a);
+LIBMF03_EXTERN const char* fortran_prettyprint_in_buffer(AST a);
+LIBMF03_EXTERN char* fortran_prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callback, void *data);
 
-char* fortran_prettyprint_in_buffer_callback(AST a, prettyprint_callback_t callback, void *data);
-
+MCXX_END_DECLS
 
 #endif // FORTRAN03_PRETTYPRINT_H

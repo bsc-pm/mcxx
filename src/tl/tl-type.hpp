@@ -86,10 +86,27 @@ namespace TL
             }
 
             //! States whether the type is valid
+            /*!
+             * This means that the wrapped type really refers a useful type.
+             *
+             * If the wrapped type is NULL this function returns true, false otherwise
+             * Invalid types appear because we expect a type to be computed
+             * somewhere but it was not computed.
+             */
             bool is_valid() const
             {
                 return (_type_info != NULL);
             }
+
+            //! States whether this type is the error type
+            /*!
+              Even if the wrapped type is valid (is_valid returns true) it
+              might be an error type. Error types appear because the frontend
+              encountered some problem when computing the type. Usually
+              semantic problems during typechecking cause the error type be
+              computed.
+              */
+            bool is_error_type() const;
 
             bool is_faulty() const
             {

@@ -459,6 +459,11 @@ namespace TL
             //         << std::endl;
             // }
         }
+        
+        // Get info about the reduction clauses
+        ObjectList<OpenMP::ReductionSymbol> reduction_symbols;
+        data_sharing.get_all_reduction_symbols(reduction_symbols);
+        data_env_info.set_reduction_symbols(reduction_symbols);
     }
 
     namespace Nanox
@@ -566,6 +571,19 @@ namespace TL
 		            alignment << " __attribute__((aligned(" << data_env_item.get_alignment().get_alignment_of() << ")))";
 		        }
             }
+        }
+        
+        // Adding omp reduction's variables
+        ObjectList<OpenMP::ReductionSymbol> reduction_symbols = data_env_info.get_reduction_symbols();
+        for (ObjectList<OpenMP::ReductionSymbol>::iterator it = reduction_symbols.begin();
+                it != reduction_symbols.end();
+                it++)
+        {
+            Symbol rs = it->get_symbol();
+            Type rs_type = rs.get_type();
+            struct_fields 
+                << rs_type.get_declaration(rs.get_scope(), "") << " *rdv_" << rs.get_name() << ";"
+            ;
         }
     }
 

@@ -33,7 +33,8 @@ using namespace TL;
 using namespace TL::Nanox;
 
 
-OMPTransform::OMPTransform() : _compiler_alignment(true)
+OMPTransform::OMPTransform() 
+        : _compiler_alignment(true)
 {
     set_phase_name("OpenMP for nanox");
     set_phase_description("This phase implements OpenMP targeting nanox runtime");

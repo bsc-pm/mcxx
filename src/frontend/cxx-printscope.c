@@ -225,7 +225,7 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
 
     if (entry->kind == SK_NAMESPACE)
     {
-        print_scope_full_context(entry->namespace_decl_context, global_indent + 1);
+        print_scope_full_context(entry->related_decl_context, global_indent + 1);
     }
 
     if (entry->type_information != NULL 
@@ -378,8 +378,20 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
                 print_declarator(entry->entity_specs.class_type));
     }
 
+    if (entry->entity_specs.is_static)
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "Is static\n");
+    }
     if (entry->entity_specs.is_conversion)
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Is conversion\n");
     }
+#ifdef FORTRAN_SUPPORT
+    if (entry->kind == SK_PROGRAM
+            || entry->kind == SK_FUNCTION
+            || entry->kind == SK_MODULE)
+    {
+        print_scope_full_context(entry->related_decl_context, global_indent + 1);
+    }
+#endif
 }

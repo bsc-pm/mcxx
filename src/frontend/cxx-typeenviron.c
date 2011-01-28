@@ -1522,9 +1522,8 @@ static type_environment_t type_environment_linux_ia32_ =
     .sizeof_bool = 1,
     .alignof_bool = 1,
 
-    // ?? Check this one with itanium abi
-    .sizeof_wchar_t = 2,
-    .alignof_wchar_t = 2,
+    .sizeof_wchar_t = 4,
+    .alignof_wchar_t = 4,
 
     .sizeof_unsigned_short = 2,
     .alignof_unsigned_short = 2,
@@ -1602,9 +1601,8 @@ static type_environment_t type_environment_linux_ia64_ =
     .sizeof_bool = 1,
     .alignof_bool = 1,
 
-    // ?? Check this one with itanium abi
-    .sizeof_wchar_t = 2,
-    .alignof_wchar_t = 2,
+    .sizeof_wchar_t = 4,
+    .alignof_wchar_t = 4,
 
     .sizeof_unsigned_short = 2,
     .alignof_unsigned_short = 2,
@@ -1680,9 +1678,8 @@ static type_environment_t type_environment_linux_ppc32_ =
     .sizeof_bool = 1,
     .alignof_bool = 1,
 
-    // ?? Check this one with itanium abi
-    .sizeof_wchar_t = 2,
-    .alignof_wchar_t = 2,
+    .sizeof_wchar_t = 4,
+    .alignof_wchar_t = 4,
 
     .sizeof_unsigned_short = 2,
     .alignof_unsigned_short = 2,
@@ -1757,9 +1754,8 @@ static type_environment_t type_environment_linux_ppc64_ =
     .sizeof_bool = 1,
     .alignof_bool = 1,
 
-    // ?? Check this one with itanium abi
-    .sizeof_wchar_t = 2,
-    .alignof_wchar_t = 2,
+    .sizeof_wchar_t = 4,
+    .alignof_wchar_t = 4,
 
     .sizeof_unsigned_short = 2,
     .alignof_unsigned_short = 2,
@@ -1835,9 +1831,8 @@ static type_environment_t type_environment_linux_amd64_ =
     .sizeof_bool = 1,
     .alignof_bool = 1,
 
-    // ?? Check this one with itanium abi
-    .sizeof_wchar_t = 2,
-    .alignof_wchar_t = 2,
+    .sizeof_wchar_t = 4,
+    .alignof_wchar_t = 4,
 
     .sizeof_unsigned_short = 2,
     .alignof_unsigned_short = 2,
@@ -1913,9 +1908,8 @@ static type_environment_t type_environment_linux_spu_ =
     .sizeof_bool = 1,
     .alignof_bool = 1,
 
-    // ?? Check this one with itanium abi
-    .sizeof_wchar_t = 2,
-    .alignof_wchar_t = 2,
+    .sizeof_wchar_t = 4,
+    .alignof_wchar_t = 4,
 
     .sizeof_unsigned_short = 2,
     .alignof_unsigned_short = 2,
@@ -1988,9 +1982,8 @@ static type_environment_t type_environment_solaris_sparcv9_ =
     .sizeof_bool = 1,
     .alignof_bool = 1,
 
-    // ?? Check this one with itanium abi
-    .sizeof_wchar_t = 2,
-    .alignof_wchar_t = 2,
+    .sizeof_wchar_t = 4,
+    .alignof_wchar_t = 4,
 
     .sizeof_unsigned_short = 2,
     .alignof_unsigned_short = 2,
@@ -2071,8 +2064,6 @@ static type_environment_t type_environment_linux_arm_ =
     .sizeof_bool = 1,
     .alignof_bool = 1,
 
-    // According to CodeSourcery info, 
-    // a wchar_t is the same as an unsigned int
     .sizeof_wchar_t = 4,
     .alignof_wchar_t = 4,
 

@@ -40,7 +40,7 @@ namespace Nanox
         public:
             OMPTransform();
             virtual void phase_cleanup(DTO& data_flow);
-
+            
         private:
             void parallel_postorder(PragmaCustomConstruct ctr);
             void task_postorder(PragmaCustomConstruct ctr);

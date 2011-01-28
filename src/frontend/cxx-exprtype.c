@@ -47,6 +47,10 @@
 #include <ctype.h>
 #include <string.h>
 
+#ifdef FORTRAN_SUPPORT
+#include "fortran/fortran03-exprtype.h"
+#endif
+
 #define MAX_ARGUMENTS (256)
 
 typedef
@@ -166,7 +170,7 @@ static void expression_set_dependent(AST expr)
     expression_set_is_value_dependent(expr, 1);
 }
 
-static void expression_set_error(AST expr)
+void expression_set_error(AST expr)
 {
     expression_set_type(expr, get_error_type());
 }
@@ -600,7 +604,10 @@ static char* binary_expression_attr[] =
     [AST_BITWISE_XOR] = LANG_IS_BITWISE_XOR_OP,
     [AST_BITWISE_OR] = LANG_IS_BITWISE_OR_OP,
     [AST_LOGICAL_AND] = LANG_IS_LOGICAL_AND_OP,
-    [AST_LOGICAL_OR] = LANG_IS_LOGICAL_OR_OP
+    [AST_LOGICAL_OR] = LANG_IS_LOGICAL_OR_OP,
+#ifdef FORTRAN_SUPPORT
+    [AST_POWER_OP] = LANG_IS_POWER_OP,
+#endif
 };
 
 // Returns if the function is ok
@@ -611,12 +618,34 @@ static char* binary_expression_attr[] =
 static void check_for_expression_impl_(AST expression, decl_context_t decl_context);
 
 #define IS_ERROR_TYPE(_ast) is_error_type(expression_get_type(_ast))
+
+static char c_check_for_expression(AST expression, decl_context_t decl_context);
+
 char check_for_expression(AST expression, decl_context_t decl_context)
+{
+#ifdef FORTRAN_SUPPORT
+    if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+    {
+#endif
+    return c_check_for_expression(expression, decl_context);
+#ifdef FORTRAN_SUPPORT
+    }
+    else if (IS_FORTRAN_LANGUAGE)
+    {
+        return fortran_check_expression(expression, decl_context);
+    }
+    else
+    {
+        internal_error("Code unreachable", 0);
+    }
+#endif
+}
+
+static char c_check_for_expression(AST expression, decl_context_t decl_context)
 {
     if (expression_get_type(expression) == NULL)
     {
         check_for_expression_impl_(expression, decl_context);
-        // This is the only point we allow returning
     }
     return !IS_ERROR_TYPE(expression);
 }
@@ -1113,6 +1142,9 @@ static void check_for_expression_impl_(AST expression, decl_context_t decl_conte
         case AST_BITWISE_OR :
         case AST_LOGICAL_AND :
         case AST_LOGICAL_OR :
+#ifdef FORTRAN_SUPPORT
+        case AST_POWER_OP:
+#endif
             {
                 const_value_t* val = NULL;
                 check_for_binary_expression(expression, decl_context, &val);
@@ -2599,7 +2631,11 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
     }
     else if (!checking_ambiguity())
     {
-        error_message_overload_failed(decl_context, expr, candidate_set);
+        if (!checking_ambiguity())
+        {
+            error_message_overload_failed(decl_context, expr, candidate_set);
+        }
+        overloaded_type = get_error_type();
     }
     return overloaded_type;
 }
@@ -2704,9 +2740,13 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
         expression_set_type(expr, function_type_get_return_type(overloaded_type));
         expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
     }
-    else if (!checking_ambiguity())
+    else 
     {
-        error_message_overload_failed(decl_context, expr, candidate_set);
+        if (!checking_ambiguity())
+        {
+            error_message_overload_failed(decl_context, expr, candidate_set);
+        }
+        overloaded_type = get_error_type();
     }
     return overloaded_type;
 }
@@ -2961,6 +3001,28 @@ type_t* compute_bin_operator_mul_type(AST expr, AST lhs, AST rhs, decl_context_t
 
     return result;
 }
+
+#ifdef FORTRAN_SUPPORT
+static
+type_t* compute_bin_operator_pow_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context, const_value_t** val)
+{
+    // No operation_tree for Fortran's **
+    AST operation_tree = NULL;
+    type_t* result = compute_bin_operator_only_arithmetic_types(expr, lhs, rhs, operation_tree, decl_context);
+
+    if (result != NULL
+            && val != NULL
+            && both_operands_are_integral(no_ref(expression_get_type(lhs)), 
+                no_ref(expression_get_type(rhs)))
+            && expression_is_constant(lhs)
+            && expression_is_constant(rhs))
+    {
+        *val = const_value_pow(expression_get_constant(lhs), expression_get_constant(rhs));
+    }
+
+    return result;
+}
+#endif
 
 static
 type_t* compute_bin_operator_div_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context, const_value_t** val)
@@ -5145,6 +5207,9 @@ static struct bin_operator_funct_type_t binary_expression_fun[] =
     [AST_BITWISE_OR]            = OPERATOR_FUNCT_INIT(compute_bin_operator_bitwise_or_type),
     [AST_LOGICAL_AND]           = OPERATOR_FUNCT_INIT(compute_bin_operator_logical_and_type),
     [AST_LOGICAL_OR]            = OPERATOR_FUNCT_INIT(compute_bin_operator_logical_or_type),
+#ifdef FORTRAN_SUPPORT
+    [AST_POWER_OP]              = OPERATOR_FUNCT_INIT(compute_bin_operator_pow_type),
+#endif
 
     [AST_ASSIGNMENT]            = OPERATOR_FUNCT_INIT(compute_bin_operator_assig_type),
     [AST_MUL_ASSIGNMENT]        = OPERATOR_FUNCT_INIT(compute_bin_operator_mul_assig_type),
@@ -9512,7 +9577,7 @@ static scope_entry_t* get_typeid_symbol(decl_context_t decl_context, AST expr)
                     prettyprint_in_buffer(expr));
         }
 
-        decl_context_t std_context = entry_list_head(entry_list)->namespace_decl_context;
+        decl_context_t std_context = entry_list_head(entry_list)->related_decl_context;
         entry_list_free(entry_list);
         entry_list = query_in_scope_str(std_context, "type_info");
 
@@ -9563,7 +9628,7 @@ scope_entry_t* get_std_initializer_list_template(decl_context_t decl_context, AS
                     prettyprint_in_buffer(expr));
         }
 
-        decl_context_t std_context = entry_list_head(entry_list)->namespace_decl_context;
+        decl_context_t std_context = entry_list_head(entry_list)->related_decl_context;
         entry_list_free(entry_list);
 
         entry_list = query_in_scope_str(std_context, "initializer_list");

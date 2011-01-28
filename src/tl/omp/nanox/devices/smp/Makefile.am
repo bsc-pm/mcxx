@@ -41,6 +41,7 @@ libtlnanox_smp_la_LIBADD = ../common/libtlnanox-devices_common.la
 
 
 libtlnanox_smp_la_SOURCES = \
+       smp-reduction.cpp \
        nanox-smp.hpp \
        nanox-smp.cpp \
        $(END)

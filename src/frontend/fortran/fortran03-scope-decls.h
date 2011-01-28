@@ -24,19 +24,15 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#ifndef FORTRAN03_SCOPE_DECLS_H
+#define FORTRAN03_SCOPE_DECLS_H
 
-#ifndef LIBMF03_PRESCANNER_COMMON_H
-#define LIBMF03_PRESCANNER_COMMON_H
+#include "cxx-macros.h"
 
-#ifdef WIN32_BUILD
-  #ifdef LIBMF03_PRESCANNER_DLL_EXPORT
-    #define LIBMF03_PRESCANNER_EXTERN extern __declspec(dllexport)
-  #else
-    #define LIBMF03_PRESCANNER_EXTERN extern __declspec(dllimport)
-  #endif
-#else
-  #define LIBMF03_PRESCANNER_EXTERN extern
-#endif
+MCXX_BEGIN_DECLS
 
-#endif
+typedef struct implicit_info_tag implicit_info_t;
 
+MCXX_END_DECLS
+
+#endif // FORTRAN03_SCOPE_DECLS_H

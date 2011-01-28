@@ -25,11 +25,19 @@
 --------------------------------------------------------------------*/
 
 
-#ifndef FORTRAN03_SEMANTIC_H
-#define FORTRAN03_SEMANTIC_H
+#ifndef FORTRAN03_SCOPE_H
+#define FORTRAN03_SCOPE_H
 
-#include "cxx-ast.h"
+#include "cxx-macros.h"
+#include "libmf03-common.h"
+#include "cxx-scope-decls.h"
+#include "fortran03-scope-decls.h"
 
-void fortran_semantic(AST program_unit_seq);
+MCXX_BEGIN_DECLS
 
-#endif // FORTRAN03_SEMANTIC_H
+LIBMF03_EXTERN decl_context_t new_program_unit_context(decl_context_t);
+LIBMF03_EXTERN scope_entry_t* query_name(decl_context_t, const char* name);
+
+MCXX_END_DECLS
+
+#endif // FORTRAN03_SCOPE_H

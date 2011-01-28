@@ -81,7 +81,6 @@
 #ifdef FORTRAN_SUPPORT
 #include "fortran03-parser.h"
 #include "fortran03-lexer.h"
-#include "fortran03-semantic.h"
 #include "fortran03-prettyprint.h"
 #include "fortran03-split.h"
 #include "fortran03-buildscope.h"
@@ -2465,11 +2464,12 @@ static void initialize_semantic_analysis(translation_unit_t* translation_unit,
     if (IS_C_LANGUAGE
             || IS_CXX_LANGUAGE)
     {
-        initialize_translation_unit_scope(translation_unit);
+        c_initialize_translation_unit_scope(translation_unit);
     }
 #ifdef FORTRAN_SUPPORT
     else if (IS_FORTRAN_LANGUAGE)
     {
+        fortran_initialize_translation_unit_scope(translation_unit);
     }
 #endif
     else

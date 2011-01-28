@@ -72,7 +72,8 @@ LIBMCXX_EXTERN void build_scope_dynamic_initializer(void);
 LIBMCXX_EXTERN void build_scope_statement(struct AST_tag* statement, decl_context_t decl_context);
 
 // Needed for phases
-LIBMCXX_EXTERN void initialize_translation_unit_scope(translation_unit_t* translation_unit);
+LIBMCXX_EXTERN void initialize_translation_unit_scope(translation_unit_t* translation_unit, decl_context_t* decl_context);
+LIBMCXX_EXTERN void c_initialize_translation_unit_scope(translation_unit_t* translation_unit);
 
 LIBMCXX_EXTERN void build_scope_translation_unit(translation_unit_t* translation_unit);
 LIBMCXX_EXTERN void build_scope_translation_unit_tree_with_global_scope(struct AST_tag* tree, scope_link_t* scope_link, decl_context_t decl_context);

@@ -28,12 +28,6 @@
 /*
 <testinfo>
 test_generator=config/mercurium-omp
-
-test_compile_fail_nanox_plain=yes
-test_compile_faulty_nanox_plain=yes
-
-test_compile_fail_nanox_instrument=yes
-test_compile_faulty_nanox_instrument=yes
 </testinfo>
 */
 
@@ -46,6 +40,9 @@ typedef int Myint;
 
 #define N 100
 
+int omp_get_num_threads(void);
+int omp_get_thread_num(void);
+
 int main (int argc, char **argv)
 {
    int i,x = N+1;
@@ -53,7 +50,11 @@ int main (int argc, char **argv)
 
    for ( i = 0; i < N ; i++ ) a[i] = i;
 
-   #pragma omp parallel for reduction(min:x)
+#ifdef NANOX
+    #pragma omp for reduction(min:x)
+#else
+    #pragma omp parallel for reduction(min:x)
+#endif
    for ( i = 0; i < N ; i++ )
    {
         x = a[i] < x ? a[i] : x;

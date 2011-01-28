@@ -38,6 +38,10 @@
 #include "cxx-typeenviron-decls.h"
 #include "cxx-entrylist-decls.h"
 
+#ifdef FORTRAN_SUPPORT
+#include "fortran/fortran03-scope-decls.h"
+#endif 
+
 // Extensible schema
 #include "extstruct.h"
 
@@ -138,6 +142,10 @@ typedef struct decl_context_tag
 
     // Prototype scope, if any
     struct scope_tag* prototype_scope;
+
+#ifdef FORTRAN_SUPPORT
+    implicit_info_t* implicit_info;
+#endif 
 
     // Scope of the declaration,
     // should never be null
@@ -289,6 +297,18 @@ struct default_argument_info_tag
 
 LIBMCXX_EXTERN extensible_schema_t scope_entry_extensible_schema;
 
+#ifdef FORTRAN_SUPPORT
+typedef
+enum intent_kind_tag
+{
+    INTENT_INVALID = 0,
+    INTENT_IN = 1,
+    INTENT_OUT = 2,
+    INTENT_INOUT = INTENT_IN | INTENT_OUT,
+} intent_kind_t;
+
+#endif
+
 typedef struct entity_specifiers_tag
 {
     // States if this a static variable
@@ -400,7 +420,17 @@ typedef struct entity_specifiers_tag
     // 'struct A { }' or 'typedef struct { } A';
     char after_typedef:1;
 
+#ifdef FORTRAN_SUPPORT
+    // The symbol was created because it was mentioned elswhere
+    // and there was no IMPLICIT NONE
+    char is_implicit:1;
+#endif
+
     // -- End of bits, move all bits before this point
+
+#ifdef FORTRAN_SUPPORT
+    intent_kind_t intent_kind;
+#endif
 
     // Accessibility: public, private, protected
     access_specifier_t access : 2;
@@ -476,9 +506,9 @@ struct scope_entry_tag
     // Type information of this symbol
     struct type_tag* type_information;
 
-    // Related decl_context of a namespace. This is the declarative region
-    // created by a namespace
-    decl_context_t namespace_decl_context;
+    // Related decl_context of this symbol. Namespaces in C++ and all program
+    // units in Fortran use this field
+    decl_context_t related_decl_context;
     
     // Initializations of several kind are saved here
     //  - initialization of const objects

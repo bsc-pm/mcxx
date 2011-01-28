@@ -46,7 +46,11 @@ int main(int argc, char* argv[])
     int i;
     int s = 0;
 
-#pragma omp parallel shared(s)
+#ifdef NANOX
+    #pragma omp shared(s)
+#else
+    #pragma omp parallel shared(s)
+#endif
     {
 #pragma omp for reduction(+:s)
         for (i = 0; i < NUM_ELEMS; i++)

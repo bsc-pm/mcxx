@@ -55,6 +55,9 @@ LIBMCXX_EXTERN AST ast_get_parent(const_AST a);
 // to point 'a')
 LIBMCXX_EXTERN void ast_set_parent(AST a, AST parent);
 
+// Updates the line
+LIBMCXX_EXTERN void ast_set_line(AST a, int line);
+
 // Returns the line of the node
 LIBMCXX_EXTERN unsigned int ast_get_line(const_AST a);
 
@@ -118,6 +121,8 @@ LIBMCXX_EXTERN extensible_struct_t* ast_get_extensible_struct(AST a);
 
 // States if this portion of the tree is properly linked
 LIBMCXX_EXTERN char ast_check(const_AST a);
+
+LIBMCXX_EXTERN void ast_free(AST a);
 
 // Gives a copy of all the tree but extended data is the same as original trees
 LIBMCXX_EXTERN AST ast_copy(const_AST a);
