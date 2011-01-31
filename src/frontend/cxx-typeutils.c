@@ -2407,6 +2407,14 @@ static type_t* _get_array_type(type_t* element_type,
             && (lower_bound == NULL || upper_bound == NULL),
             "Invalid definition of boundaries for array", 0);
 
+        // Properly set the scope links, as if the expressions belonged to decl_context
+    if (lower_bound != NULL)
+        scope_link_set(CURRENT_COMPILED_FILE->scope_link, lower_bound, decl_context);
+    if (upper_bound != NULL)
+        scope_link_set(CURRENT_COMPILED_FILE->scope_link, upper_bound, decl_context);
+    if (whole_size != NULL)
+        scope_link_set(CURRENT_COMPILED_FILE->scope_link, whole_size, decl_context);
+
     char expression_sizes_ok = 1;
     char whole_size_is_constant = 0;
     _size_t whole_size_k = 0;
