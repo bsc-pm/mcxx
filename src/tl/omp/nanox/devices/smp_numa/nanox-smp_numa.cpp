@@ -180,12 +180,8 @@ static void do_smp_numa_outline_replacements(
 }
 
 DeviceSMP_NUMA::DeviceSMP_NUMA()
-    : DeviceProvider(/* needs_copies */ true)
+    : DeviceProvider("smp_numa", /* needs_copies */ true)
 {
-    DeviceHandler &device_handler(DeviceHandler::get_device_handler());
-
-    device_handler.register_device("smp_numa", this);
-
     set_phase_name("Nanox SMP NUMA support");
     set_phase_description("This phase is used by Nanox phases to implement SMP NUMA device support");
 }
