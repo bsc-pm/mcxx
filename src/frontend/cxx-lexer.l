@@ -1100,6 +1100,7 @@ type {
  /* Special tokens for parsing superscalar related things */
 @SUPERSCALAR_DECLARATOR@ { parse_token_text(); return SUBPARSE_SUPERSCALAR_DECLARATOR; }
 @SUPERSCALAR_DECLARATOR_LIST@ { parse_token_text(); return SUBPARSE_SUPERSCALAR_DECLARATOR_LIST; }
+@SUPERSCALAR_EXPRESSION@ { parse_token_text(); return SUBPARSE_SUPERSCALAR_EXPRESSION; }
 
  /* A plain identifier */
 {identifier} {parse_token_text(); return IDENTIFIER; }

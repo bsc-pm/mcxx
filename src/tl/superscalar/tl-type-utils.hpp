@@ -241,6 +241,23 @@ namespace TL
 				return (ast.prettyprint(false).find("extern") != std::string::npos);
 			}
 			
+			static Type normalize_type(Type type, AST_t ref_ast, ScopeLink scope_link)
+			{
+				if (type.is_pointer())
+				{
+					Source maximum_source;
+					maximum_source
+						<< "~0UL";
+					AST_t maximum_ast = maximum_source.parse_expression(ref_ast, scope_link);
+					
+					return type.points_to().get_array_to(maximum_ast, scope_link.get_scope(ref_ast));
+				}
+				else
+				{
+					return type;
+				}
+			}
+			
 	};
 	
 	
