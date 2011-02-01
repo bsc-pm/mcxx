@@ -878,6 +878,12 @@ void ast_free(AST a)
 {
     if (a != NULL)
     {
+        if (CURRENT_COMPILED_FILE != NULL
+                && CURRENT_COMPILED_FILE->scope_link != NULL)
+        {
+            scope_link_unset(CURRENT_COMPILED_FILE->scope_link, a);
+        }
+
         if (ast_get_type(a) == AST_AMBIGUITY)
         {
             int i;
