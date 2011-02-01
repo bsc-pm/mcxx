@@ -82,11 +82,19 @@ void scope_link_set(scope_link_t* sl, AST a, decl_context_t decl_context)
     if (a == NULL)
         return;
 
-    scope_link_entry_t* new_entry = counted_calloc(1, sizeof(*new_entry), &_bytes_scopelink);
 
-    new_entry->decl_context = decl_context;
-
-    rb_tree_add(sl->h, a, new_entry);
+    rb_red_blk_node *node = rb_tree_query(sl->h, a);
+    if (node == NULL)
+    {
+        scope_link_entry_t* new_entry = counted_calloc(1, sizeof(*new_entry), &_bytes_scopelink);
+        new_entry->decl_context = decl_context;
+        rb_tree_add(sl->h, a, new_entry);
+    }
+    else
+    {
+        scope_link_entry_t* entry = rb_node_get_info(node);
+        entry->decl_context = decl_context;
+    }
 }
 
 void scope_link_unset(scope_link_t* sl, AST a)
