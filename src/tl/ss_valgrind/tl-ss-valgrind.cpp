@@ -70,10 +70,11 @@ namespace TL
 
             Scope sc = sl.get_scope(*it);
 
-            AugmentedSymbol symbol = function_called_expresion.get_id_expression().get_symbol();
+            AugmentedSymbol symbol = function_called_expresion.get_id_expression().get_computed_symbol();
 
             // This is a CSS task
-            if (!symbol.is_task())
+            if (!symbol.is_valid() 
+                    || !symbol.is_task())
                 continue;
 
             AST_t decl_tree = symbol.get_point_of_declaration();
