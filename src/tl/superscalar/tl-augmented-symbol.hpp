@@ -349,10 +349,14 @@ namespace TL {
 			}
 			
 			Bool is_task() const
-			{
-				RefPtr<Object> task_attribute = get_attribute(SYMBOL_SUPERSCALAR_IS_TASK);
-				return task_attribute;
-			}
+            {
+                if (!this->is_dependent_entity())
+                {
+                    RefPtr<Object> task_attribute = get_attribute(SYMBOL_SUPERSCALAR_IS_TASK);
+                    return task_attribute;
+                }
+                return false;
+            }
 			void set_as_task(bool value)
 			{
 				set_attribute(SYMBOL_SUPERSCALAR_IS_TASK, value);
