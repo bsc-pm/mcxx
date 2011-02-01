@@ -1,6 +1,8 @@
 #include "fortran03-buildscope.h"
+#include "fortran03-scope.h"
 #include "fortran03-exprtype.h"
 #include "fortran03-prettyprint.h"
+#include "fortran03-typeutils.h"
 #include "cxx-ast.h"
 #include "cxx-scope.h"
 #include "cxx-buildscope.h"
@@ -346,277 +348,28 @@ static void build_scope_program_part(AST program_part, decl_context_t decl_conte
     }
 }
 
-static void build_scope_access_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+const char* get_name_of_generic_spec(AST generic_spec)
 {
-}
-
-static void build_scope_allocatable_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_allocate_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_allstop_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_arithmetic_if_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_expression_stmt(AST a, decl_context_t decl_context)
-{
-    DEBUG_CODE()
+    switch (ASTType(generic_spec))
     {
-        fprintf(stderr, "== [%s] Expression statement ==\n",
-                ast_location(a));
+        case AST_SYMBOL:
+        case AST_OPERATOR_NAME:
+            {
+                return ASTText(generic_spec);
+            }
+        case AST_IO_SPEC:
+            {
+                running_error("%s: sorry: io-specifiers for generic-specifiers not supported\n", 0);
+            }
+        default:
+            {
+                internal_error("%s: Invalid generic spec '%s'", 
+                        ast_location(generic_spec), ast_print_node_type(ASTType(generic_spec)));
+            }
     }
-    AST expr = ASTSon0(a);
-    if (!check_for_expression(expr, decl_context)
-            && CURRENT_CONFIGURATION->strict_typecheck)
-    {
-        internal_error("Could not check expression '%s' at '%s'\n",
-                fortran_prettyprint_in_buffer(ASTSon0(a)),
-                ast_location(ASTSon0(a)));
-    }
-
-    if (expression_get_type(expr) != NULL)
-    {
-        expression_set_type(a, expression_get_type(expr));
-        expression_set_is_lvalue(a, expression_is_lvalue(a));
-    }
-
-    ASTAttrSetValueType(a, LANG_IS_EXPRESSION_STATEMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_IS_EXPRESSION_COMPONENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(expr));
+    return NULL;
 }
 
-static void build_scope_associate_construct(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_asynchronous_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_io_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_bind_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_block_construct(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_case_construct(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_close_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_codimension_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_common_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_computed_goto_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_assigned_goto_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_label_assign_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_continue_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_critical_construct(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_cycle_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_data_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_deallocate_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_derived_type_def(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_dimension_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_do_construct(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_entry_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_enum_def(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_equivalence_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_exit_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_external_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_forall_construct(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_forall_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_format_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_goto_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_if_construct(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_implicit_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_import_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_intent_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_interface_block(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_intrinsic_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_lock_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_namelist_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_nullify_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_open_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_optional_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_parameter_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_pointer_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_print_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_procedure_declaration_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_protected_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_read_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_return_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_save_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_select_type_construct(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_stmt_function_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_stop_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_pause_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_sync_all_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_sync_images_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_sync_memory_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
-
-static void build_scope_target_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
-{
-}
 
 static int compute_kind_specifier(AST kind_expr, decl_context_t decl_context UNUSED_PARAMETER)
 {
@@ -644,7 +397,7 @@ static type_t* choose_type_from_kind_table(AST expr, type_t** type_table, int nu
 #define MAX_INT_KIND 16
 static char int_types_init = 0;
 static type_t* int_types[MAX_INT_KIND + 1] = { 0 };
-static type_t* choose_int_type_from_kind(AST expr, int kind_size)
+type_t* choose_int_type_from_kind(AST expr, int kind_size)
 {
     if (!int_types_init)
     {
@@ -660,7 +413,7 @@ static type_t* choose_int_type_from_kind(AST expr, int kind_size)
 #define MAX_FLOAT_KIND 16
 static char float_types_init = 0;
 static type_t* float_types[MAX_FLOAT_KIND + 1] = { 0 };
-static type_t* choose_float_type_from_kind(AST expr, int kind_size)
+type_t* choose_float_type_from_kind(AST expr, int kind_size)
 {
     if (!float_types_init)
     {
@@ -858,6 +611,10 @@ struct attr_spec_tag
     char is_value;
 
     char is_volatile;
+
+    char is_public;
+
+    char is_private;
 } attr_spec_t;
 
 #define ATTR_SPEC_HANDLER_LIST \
@@ -876,6 +633,8 @@ ATTR_SPEC_HANDLER(protected) \
 ATTR_SPEC_HANDLER(save) \
 ATTR_SPEC_HANDLER(target) \
 ATTR_SPEC_HANDLER(value) \
+ATTR_SPEC_HANDLER(public) \
+ATTR_SPEC_HANDLER(private) \
 ATTR_SPEC_HANDLER(volatile) 
 
 // Forward declarations
@@ -1075,6 +834,20 @@ static void attr_spec_volatile_handler(AST a UNUSED_PARAMETER,
     attr_spec->is_volatile = 1;
 }
 
+static void attr_spec_public_handler(AST a UNUSED_PARAMETER,
+        decl_context_t decl_context UNUSED_PARAMETER,
+        attr_spec_t* attr_spec)
+{
+    attr_spec->is_public = 1;
+}
+
+static void attr_spec_private_handler(AST a UNUSED_PARAMETER,
+        decl_context_t decl_context UNUSED_PARAMETER,
+        attr_spec_t* attr_spec)
+{
+    attr_spec->is_public = 1;
+}
+
 static void gather_attr_spec_list(AST attr_spec_list, decl_context_t decl_context, attr_spec_t *attr_spec)
 {
     AST it;
@@ -1202,6 +975,547 @@ static type_t* compute_type_from_array_spec(type_t* basic_type,
     }
 
     return array_type;
+}
+
+static void build_scope_access_stmt(AST a, decl_context_t decl_context)
+{
+    attr_spec_t attr_spec;
+    memset(&attr_spec, 0, sizeof(attr_spec));
+
+    AST access_spec = ASTSon0(a);
+
+    gather_attr_spec_item(access_spec, decl_context, &attr_spec);
+
+    AST access_id_list = ASTSon1(a);
+    AST it;
+    for_each_element(access_id_list, it)
+    {
+        AST access_id = ASTSon1(it);
+
+        const char* name = get_name_of_generic_spec(access_id);
+
+        scope_entry_t* sym = query_name(decl_context, name);
+
+        if (sym == NULL)
+        {
+            running_error("%s: unknown entity '%s'\n", 
+                    ast_location(access_id),
+                    name);
+        }
+
+        if (sym->entity_specs.access != AS_UNKNOWN)
+        {
+            running_error("%s: access specifier already given for entity '%s'\n",
+                    ast_location(access_id),
+                    sym->symbol_name);
+        }
+        else
+        {
+            if (attr_spec.is_public)
+            {
+                sym->entity_specs.access = AS_PUBLIC;
+            }
+            else if (attr_spec.is_private)
+            {
+                sym->entity_specs.access = AS_PRIVATE;
+            }
+            else
+            {
+                internal_error("code unreachable", 0);
+            }
+        }
+    }
+}
+
+static void build_dimension_decl(AST a, decl_context_t decl_context)
+{
+    // Do nothing for plain symbols
+    if (ASTType(a) == AST_SYMBOL)
+        return;
+
+    ERROR_CONDITION(ASTType(a) != AST_DIMENSION_DECL,
+            "Invalid tree", 0);
+
+    AST name = ASTSon0(a);
+    AST array_spec = ASTSon1(a);
+    AST coarray_spec = ASTSon1(a);
+
+    if (coarray_spec != NULL)
+    {
+       running_error("%s: sorry: coarrays not supported", ast_location(a));
+    }
+
+    scope_entry_t* entry = query_name(decl_context, ASTText(name));
+
+    if (entry== NULL
+            || entry->kind != SK_VARIABLE)
+    {
+        running_error("%s: error: invalid entity '%s' in dimension declaration\n", 
+                ast_location(a),
+                name);
+    }
+    
+    if (is_array_type(entry->type_information)
+            || is_pointer_to_void_type(entry->type_information))
+    {
+        running_error("%s: error: entity '%s' already has a DIMENSION attribute\n",
+                ast_location(a),
+                entry->symbol_name);
+    }
+
+    type_t* array_type = compute_type_from_array_spec(entry->type_information, 
+            array_spec,
+            decl_context,
+            /* array_spec_kind */ NULL);
+    entry->type_information = array_type;
+}
+
+static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context)
+{
+    AST allocatable_decl_list = ASTSon0(a);
+    AST it;
+
+    for_each_element(allocatable_decl_list, it)
+    {
+        AST allocatable_decl = ASTSon1(it);
+        build_dimension_decl(allocatable_decl, decl_context);
+
+        AST name = NULL;
+        if (ASTType(allocatable_decl) == AST_SYMBOL)
+        {
+            name = allocatable_decl;
+        }
+        else if (ASTType(allocatable_decl))
+        {
+            name = ASTSon0(allocatable_decl);
+        }
+
+        scope_entry_t* entry = query_name(decl_context, ASTText(name));
+
+        if (entry == NULL
+                || entry->kind != SK_VARIABLE)
+        {
+            running_error("%s: error: invalid entity '%s' in ALLOCATABLE clause\n", 
+                    ast_location(name), ASTText(name));
+        }
+
+        if (!is_array_type(entry->type_information)
+                && !is_pointer_to_array(entry->type_information))
+        {
+            running_error("%s: error: ALLOCATABLE attribute cannot be set to scalar entity '%s'\n",
+                    ast_location(name),
+                    ASTText(name));
+        }
+
+        if (entry->entity_specs.is_allocatable)
+        {
+            running_error("%s: error: attribute ALLOCATABLE was already set for entity '%s'\n",
+                    ast_location(name),
+                    ASTText(name));
+        }
+        entry->entity_specs.is_allocatable = 1;
+    }
+}
+
+static void build_scope_allocate_stmt(AST a, decl_context_t decl_context)
+{
+    AST type_spec = ASTSon0(a);
+    AST allocation_list = ASTSon1(a);
+    // AST alloc_opt_list = ASTSon2(a);
+
+    if (type_spec != NULL)
+    {
+        running_error("%s: sorry: type-specifier not supported in ALLOCATE statement\n",
+                ast_location(a));
+    }
+
+    AST it;
+    for_each_element(allocation_list, it)
+    {
+        AST allocate_object = ASTSon1(it);
+
+        // This one is here only for coarrays
+        if (ASTType(allocate_object) == AST_DIMENSION_DECL)
+        {
+            running_error("%s: sorry: coarrays not supported\n", 
+                    ast_location(allocate_object));
+        }
+
+        AST data_ref = allocate_object;
+        fortran_check_expression(data_ref, decl_context);
+
+        if (!is_error_type(expression_get_type(data_ref)))
+        {
+            scope_entry_t* entry = expression_get_symbol(data_ref);
+
+            if (!entry->entity_specs.is_allocatable
+                    && !is_pointer_type(entry->type_information))
+            {
+                running_error("%s: error: only ALLOCATABLE or POINTER can be used in an ALLOCATE statement\n", 
+                        ast_location(a));
+            }
+        }
+    }
+}
+
+static void unsupported_statement(AST a, const char* name)
+{
+    running_error("%s: sorry: %s statement not supported\n", 
+            ast_location(a),
+            name);
+}
+
+#if 0
+static void unsupported_construct(AST a, const char* name)
+{
+    running_error("%s: sorry: %s construct not supported\n", 
+            ast_location(a),
+            name);
+}
+#endif
+
+static void build_scope_allstop_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
+{
+    unsupported_statement(a, "ALLSTOP");
+}
+
+static void build_scope_arithmetic_if_stmt(AST a, decl_context_t decl_context)
+{
+    AST numeric_expr = ASTSon0(a);
+    fprintf(stderr, "%s: warning: deprecated arithmetic-if statement\n", 
+            ast_location(a));
+    fortran_check_expression(numeric_expr, decl_context);
+}
+
+static void build_scope_expression_stmt(AST a, decl_context_t decl_context)
+{
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "== [%s] Expression statement ==\n",
+                ast_location(a));
+    }
+    AST expr = ASTSon0(a);
+    if (!check_for_expression(expr, decl_context)
+            && CURRENT_CONFIGURATION->strict_typecheck)
+    {
+        internal_error("Could not check expression '%s' at '%s'\n",
+                fortran_prettyprint_in_buffer(ASTSon0(a)),
+                ast_location(ASTSon0(a)));
+    }
+
+    if (expression_get_type(expr) != NULL)
+    {
+        expression_set_type(a, expression_get_type(expr));
+        expression_set_is_lvalue(a, expression_is_lvalue(a));
+    }
+
+    ASTAttrSetValueType(a, LANG_IS_EXPRESSION_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_IS_EXPRESSION_COMPONENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(expr));
+}
+
+static void build_scope_associate_construct(AST a, decl_context_t decl_context UNUSED_PARAMETER)
+{
+    unsupported_statement(a, "ASSOCIATE");
+}
+
+static void build_scope_asynchronous_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
+{
+    unsupported_statement(a, "ASYNCHRONOUS");
+}
+
+static void build_io_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
+{
+    running_error("%s: error: not yet implemented\n",
+            ast_location(a));
+}
+
+static void build_scope_bind_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+    // Do nothing at the moment
+}
+
+static void build_scope_block_construct(AST a, decl_context_t decl_context)
+{
+    decl_context_t new_context = new_block_context(decl_context);
+    build_scope_program_part(ASTSon1(a), new_context);
+}
+
+static void build_scope_case_construct(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+    // FIXME - Adapt tree to that of C
+}
+
+static void build_scope_close_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_codimension_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+    unsupported_statement(a, "CODIMENSION");
+}
+
+static void build_scope_common_stmt(AST a, decl_context_t decl_context)
+{
+    AST common_block_item_list = ASTSon0(a);
+
+    AST it;
+    for_each_element(common_block_item_list, it)
+    {
+        AST common_block_item = ASTSon1(it);
+
+        AST common_name = ASTSon0(common_block_item);
+        AST common_block_object_list = ASTSon1(common_block_item);
+        
+        const char *common_name_str = ".common.unnamed";
+        if (common_name != NULL)
+        {
+            common_name_str = strappend(".common.",
+                    ASTText(common_name));
+        }
+        scope_entry_t* common_sym = query_name(decl_context, common_name_str);
+        if (common_sym == NULL)
+        {
+            common_sym = new_symbol(decl_context, decl_context.current_scope, common_name_str);
+            common_sym->kind = SK_COMMON;
+            common_sym->file = ASTFileName(a);
+            common_sym->line = ASTLine(a);
+        }
+
+        AST it2;
+        for_each_element(common_block_object_list, it2)
+        {
+            AST common_block_object = ASTSon1(it2);
+
+            AST name = NULL;
+            if (ASTType(common_block_object) == AST_SYMBOL)
+            {
+                name = common_block_object;
+            }
+            else if (ASTType(common_block_item) == AST_DIMENSION_DECL)
+            {
+                name = ASTSon0(common_block_object);
+            }
+
+            scope_entry_t* sym = query_name(decl_context, ASTText(name));
+            if (sym == NULL)
+            {
+                running_error("%s: error: unknown entity '%s'\n", 
+                        ast_location(name),
+                        fortran_prettyprint_in_buffer(name));
+            }
+
+            if (sym->entity_specs.is_in_common)
+            {
+                running_error("%s: error: entity '%s' is already in a COMMON\n", 
+                        ast_location(name),
+                        sym->symbol_name);
+            }
+
+            sym->entity_specs.is_in_common = 1;
+            sym->entity_specs.in_common = common_sym;
+        }
+    }
+}
+
+static void build_scope_computed_goto_stmt(AST a, decl_context_t decl_context)
+{
+    fprintf(stderr, "%s: warning: deprecated computed-goto statement\n", 
+            ast_location(a));
+    fortran_check_expression(ASTSon1(a), decl_context);
+}
+
+static void build_scope_assigned_goto_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+    fprintf(stderr, "%s: warning: deprecated assigned-goto statement\n", 
+            ast_location(a));
+}
+
+static void build_scope_label_assign_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+    fprintf(stderr, "%s: warning: deprecated label-assignment statement\n", 
+            ast_location(a));
+}
+
+static void build_scope_continue_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+    // Do nothing for continue
+}
+
+static void build_scope_critical_construct(AST a, decl_context_t decl_context UNUSED_PARAMETER)
+{
+    unsupported_statement(a, "CRITICAL");
+}
+
+static void build_scope_cycle_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+    // Do nothing for cycle
+}
+
+static void build_scope_data_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+    // Do nothing for DATA
+}
+
+static void build_scope_deallocate_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_derived_type_def(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_dimension_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_do_construct(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_entry_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_enum_def(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_equivalence_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_exit_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_external_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_forall_construct(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_forall_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_format_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_goto_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_if_construct(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_implicit_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_import_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_intent_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_interface_block(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_intrinsic_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_lock_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_namelist_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_nullify_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_open_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_optional_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_parameter_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_pointer_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_print_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_procedure_declaration_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_protected_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_read_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_return_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_save_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_select_type_construct(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_stmt_function_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_stop_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_pause_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_sync_all_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_sync_images_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_sync_memory_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+}
+
+static void build_scope_target_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
 }
 
 static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context)
@@ -1368,6 +1682,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
                 running_error("%s: error: ALLOCATABLE attribute cannot be used on scalars\n", 
                         ast_location(declaration));
             }
+            entry->entity_specs.is_allocatable = 1;
         }
 
         if (attr_spec.is_external
@@ -1403,8 +1718,9 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
     }
 }
 
-static void build_scope_unlock_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_unlock_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
 {
+    unsupported_statement(a, "UNLOCK");
 }
 
 static void build_scope_use_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)

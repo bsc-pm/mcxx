@@ -32,10 +32,16 @@
 #include "libmf03-common.h"
 
 #include "cxx-driver-decls.h"
+#include "cxx-type-decls.h"
 
 MCXX_BEGIN_DECLS
 
+LIBMF03_EXTERN void fortran_initialize_translation_unit_scope(translation_unit_t* translation_unit);
+
 LIBMF03_EXTERN void build_scope_fortran_translation_unit(translation_unit_t* translation_unit);
+
+LIBMF03_EXTERN type_t* choose_int_type_from_kind(AST expr, int kind_size);
+LIBMF03_EXTERN type_t* choose_float_type_from_kind(AST expr, int kind_size);
 
 MCXX_END_DECLS
 

@@ -424,12 +424,19 @@ typedef struct entity_specifiers_tag
     // The symbol was created because it was mentioned elswhere
     // and there was no IMPLICIT NONE
     char is_implicit:1;
+    char is_allocatable:1;
+
+    // In common
+    char is_in_common:1;
 #endif
 
     // -- End of bits, move all bits before this point
 
 #ifdef FORTRAN_SUPPORT
     intent_kind_t intent_kind;
+
+    // --> char is_in_common:1;
+    struct scope_entry_tag* in_common;
 #endif
 
     // Accessibility: public, private, protected

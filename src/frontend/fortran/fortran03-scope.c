@@ -50,12 +50,19 @@ decl_context_t new_internal_program_unit_context(decl_context_t decl_context)
 
 static scope_entry_t* new_implicit_symbol(decl_context_t decl_context, const char* name)
 {
-    scope_entry_t* sym = new_symbol(decl_context, decl_context.current_scope, name);
-    sym->kind = SK_VARIABLE;
-    sym->entity_specs.is_implicit = 1;
-    sym->type_information = decl_context.implicit_info->implicit_set[tolower(name[0]) - 'a'];
+    // Special names for operators and other non regularly named stuff will not get here
+    if (('a' <= tolower(name[0]))
+            && (tolower(name[0]) <= 'z'))
+    {
+        scope_entry_t* sym = new_symbol(decl_context, decl_context.current_scope, name);
+        sym->kind = SK_VARIABLE;
+        sym->entity_specs.is_implicit = 1;
+        sym->type_information = decl_context.implicit_info->implicit_set[tolower(name[0]) - 'a'];
 
-    return sym;
+        return sym;
+    }
+
+    return NULL;
 }
 
 scope_entry_t* query_name(decl_context_t decl_context, const char* name)

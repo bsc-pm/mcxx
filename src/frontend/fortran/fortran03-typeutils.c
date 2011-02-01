@@ -114,3 +114,40 @@ const char* fortran_print_type_str(type_t* t)
 
     return result;
 }
+
+char is_pointer_to_array(type_t* t)
+{
+    return (is_pointer_type(t)
+            && is_array_type(pointer_type_get_pointee_type(t)));
+}
+
+int get_rank_of_type(type_t* t)
+{
+    if (!is_array_type(t)
+            && !is_pointer_to_array(t))
+        return 0;
+
+    if (is_pointer_to_array(t))
+    {
+        t = pointer_type_get_pointee_type(t);
+    }
+
+    int result = 0;
+    while (is_array_type(t))
+    {
+        result++;
+        t = array_type_get_element_type(t);
+    }
+
+    return result;
+}
+
+type_t* get_rank0_type(type_t* t)
+{
+    while (is_array_type(t))
+    {
+        t = array_type_get_element_type(t);
+    }
+    return t;
+}
+
