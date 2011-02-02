@@ -25,7 +25,7 @@
 --------------------------------------------------------------------*/
 
 
-
+#include "tl-nanos.hpp"
 #include "tl-omp-nanox.hpp"
 #include "tl-data-env.hpp"
 #include "tl-counters.hpp"
@@ -87,9 +87,14 @@ void OMPTransform::for_postorder(PragmaCustomConstruct ctr)
             && !ctr.get_clause("inout").is_defined() )
             || !data_environ_info.get_reduction_symbols().empty())
     {
-        final_barrier
-            << "nanos_wg_wait_completion(nanos_current_wd());"
-            << "nanos_team_barrier();"
+        if (Nanos::Version::interface_is_at_least("openmp", 2))
+            final_barrier
+                << "nanos_omp_barrier();"
+            ;
+        else
+            final_barrier
+                << "nanos_wg_wait_completion(nanos_current_wd());"
+                << "nanos_team_barrier();"
             ;
     }
 
