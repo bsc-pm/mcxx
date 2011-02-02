@@ -2,10 +2,10 @@
 [omp-base]
 options =
 {debug} options = -g
-{(instrument|instrumentation),!debug} options = --variable=instrument:1
+{(instrument|instrumentation)} options = --variable=instrument:1
 preprocessor_name = gcc
 preprocessor_options = -E
-{(instrument|instrumentation),!(debug|openmpt|ompss|nanox)} preprocessor_options = -I@MINTAKA_INCLUDES@ -include mintaka.h
+{(instrument|instrumentation),!(openmpt|ompss|nanox)} preprocessor_options = -I@MINTAKA_INCLUDES@ -include mintaka.h
 compiler_name = gcc
 compiler_options = 
 linker_name = gcc
@@ -25,10 +25,10 @@ linker_name = gcc
 {openmp,!(nanox|openmpt|ompss)} compiler_phase = libtlomp-nanos4.so
 # nanos++
 {openmp,(nanox|openmpt|ompss)} preprocessor_options = -I@NANOX_INCLUDES@ -D_OPENMP=200805 -include nanos.h -include nanos_omp.h
-# (a|!a) avoids a warning
 {openmp,!debug,!(instrument|instrumentation),(nanox|openmpt|ompss)} linker_options = -L@NANOX_LIBS@/performance -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/performance
-{openmp,debug,(nanox|openmpt|ompss)} linker_options = -L@NANOX_LIBS@/debug -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/debug
-{openmp,(instrument|instrumentation),(nanox|openmpt|ompss)} linker_options = -L@NANOX_LIBS@/instrumentation -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/instrumentation
+{openmp,debug,!(instrument|instrumentation),(nanox|openmpt|ompss)} linker_options = -L@NANOX_LIBS@/debug -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/debug
+{openmp,!debug,(instrument|instrumentation),(nanox|openmpt|ompss)} linker_options = -L@NANOX_LIBS@/instrumentation -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/instrumentation
+{openmp,debug,(instrument|instrumentation),(nanox|openmpt|ompss)} linker_options = -L@NANOX_LIBS@/instrumentation-debug -Wl,@RPATH_PARAMETER@,@NANOX_LIBS@/instrumentation-debug
 {openmp,nanox,!(openmpt|ompss)} linker_options = -lnanox-c -lnanox-omp
 {openmp,!nanox,(openmpt|ompss)} linker_options = -lnanox-c -lnanox-ss
 {openmp,(nanox|openmpt|ompss)} compiler_phase = libtlomp-fun-tasks.so 
