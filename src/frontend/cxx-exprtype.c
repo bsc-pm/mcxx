@@ -3971,8 +3971,8 @@ static char operator_bin_assign_arithmetic_or_pointer_pred(type_t* lhs, type_t* 
 static type_t* operator_bin_assign_arithmetic_or_pointer_result(type_t** lhs, type_t** rhs)
 {
     type_t* ref_type = reference_type_get_referenced_type(*lhs);
-    cv_qualifier_t cv_qualif = CV_NONE;
 
+    cv_qualifier_t cv_qualif = CV_NONE;
     advance_over_typedefs_with_cv_qualif(ref_type, &cv_qualif);
 
     if (both_operands_are_arithmetic(ref_type, no_ref(*rhs)))

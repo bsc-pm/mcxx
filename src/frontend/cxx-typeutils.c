@@ -2026,9 +2026,42 @@ static void init_qualification_hash(void)
     }
 }
 
+static void _get_array_type_components(type_t* array_type, 
+        AST *whole_size, AST *lower_bound, AST *upper_bound, decl_context_t* decl_context);
+
+static type_t* _get_array_type(type_t* element_type, 
+        AST whole_size, AST lower_bound, AST upper_bound, decl_context_t decl_context);
+
+static type_t* _clone_array_type(type_t* array_type, type_t* new_element_type)
+{
+        AST whole_size = NULL;
+        AST lower_bound = NULL;
+        AST upper_bound = NULL;
+        decl_context_t decl_context;
+        memset(&decl_context, 0, sizeof(decl_context));
+
+        _get_array_type_components(array_type, &whole_size, &lower_bound, &upper_bound, &decl_context);
+
+        // And now rebuild the array type
+        type_t* result = _get_array_type(new_element_type, 
+                ast_copy_for_instantiation(whole_size), 
+                ast_copy_for_instantiation(lower_bound), 
+                ast_copy_for_instantiation(upper_bound), 
+                decl_context);
+        return result;
+}
+
+
 type_t* get_unqualified_type(type_t* t)
 {
     t = advance_over_typedefs(t);
+
+    if (t->kind == TK_ARRAY)
+    {
+        type_t* element_unqualif = get_unqualified_type(t->array->element_type);
+        return _clone_array_type(t, element_unqualif);
+    }
+
     ERROR_CONDITION(t->unqualified_type == NULL, "This cannot be NULL", 0);
     return t->unqualified_type;
 }
@@ -2039,8 +2072,18 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
     // Ensure it is initialized
     init_qualification_hash();
 
+    original = advance_over_typedefs_with_cv_qualif(original, &cv_qualification);
+
     ERROR_CONDITION(original == NULL, "This cannot be NULL", 0);
     ERROR_CONDITION(original->unqualified_type == NULL, "This cannot be NULL", 0);
+
+    // The standard forces us to do some strange things here
+    if (original->kind == TK_ARRAY)
+    {
+        // Now clone the type
+        type_t* qualif_element_type = get_qualified_type(original->array->element_type, cv_qualification);
+        return _clone_array_type(original, qualif_element_type);
+    }
 
     if (cv_qualification == CV_NONE)
     {
@@ -2392,6 +2435,18 @@ type_t* get_array_type_str(type_t* element_type, const char* dim)
 {
     AST expr = ASTLeaf(AST_DIMENSION_STR, NULL, 0, dim);
     return get_array_type(element_type, expr, CURRENT_COMPILED_FILE->global_decl_context);
+}
+
+// This is used only for cloning array types
+static void _get_array_type_components(type_t* array_type, 
+        AST *whole_size, AST *lower_bound, AST *upper_bound, decl_context_t* decl_context)
+{
+    ERROR_CONDITION((array_type->kind != TK_ARRAY), "Not an array type!", 0);
+
+    *whole_size = array_type->array->whole_size;
+    *lower_bound = array_type->array->lower_bound;
+    *upper_bound = array_type->array->upper_bound;
+    *decl_context = array_type->array->array_expr_decl_context;
 }
 
 // This function owns the three trees passed to it (unless they are NULL, of
@@ -3517,8 +3572,9 @@ type_t* advance_over_typedefs_with_cv_qualif(type_t* t1, cv_qualifier_t* cv_qual
 
     if (cv_qualif != NULL)
     {
-        *cv_qualif = t1->cv_qualifier;
+        *cv_qualif |= t1->cv_qualifier;
     }
+
     // Advance over typedefs
     while (t1->kind == TK_DIRECT
             && t1->type->kind == STK_USER_DEFINED
@@ -3530,6 +3586,15 @@ type_t* advance_over_typedefs_with_cv_qualif(type_t* t1, cv_qualifier_t* cv_qual
         {
             *cv_qualif |= t1->cv_qualifier;
         }
+    }
+
+    // Arrays add the element qualification 
+    //
+    // Note: DO NOT use is_array because it uses advance_over_typedefs which
+    // ends using advance_over_typedefs_with_cv_qualif
+    if (t1->kind == TK_ARRAY)
+    {
+        advance_over_typedefs_with_cv_qualif(t1->array->element_type, cv_qualif);
     }
 
     return t1;
@@ -3828,7 +3893,7 @@ char equivalent_types(type_t* t1, type_t* t2)
 {
     ERROR_CONDITION( (t1 == NULL || t2 == NULL), "No type can be null here", 0);
 
-    cv_qualifier_t cv_qualifier_t1, cv_qualifier_t2;
+    cv_qualifier_t cv_qualifier_t1 = CV_NONE, cv_qualifier_t2 = CV_NONE;
 
     // Advance over typedefs
     t1 = advance_over_typedefs_with_cv_qualif(t1, &cv_qualifier_t1);

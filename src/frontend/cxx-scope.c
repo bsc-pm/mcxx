@@ -2707,7 +2707,6 @@ static type_t* update_type_aux_(type_t* orig_type,
             }
 
             cv_qualifier_t cv_qualif = CV_NONE;
-
             advance_over_typedefs_with_cv_qualif(orig_type, &cv_qualif);
 
             DEBUG_CODE()
