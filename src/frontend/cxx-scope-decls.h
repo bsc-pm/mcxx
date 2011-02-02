@@ -428,6 +428,18 @@ typedef struct entity_specifiers_tag
 
     // In common
     char is_in_common:1;
+
+    // In namelist
+    char is_in_namelist:1;
+
+    // Is optional dummy
+    char is_optional:1;
+
+    // Is target
+    char is_target:1;
+
+    // Is value dummy
+    char is_value:1;
 #endif
 
     // -- End of bits, move all bits before this point
@@ -437,6 +449,15 @@ typedef struct entity_specifiers_tag
 
     // --> char is_in_common:1;
     struct scope_entry_tag* in_common;
+
+    int num_common_items;
+    struct scope_entry_tag** common_items;
+
+    // --> char is_in_namelist:1
+    struct scope_entry_tag* namelist;
+
+    int num_namelist_items;
+    struct scope_entry_tag** namelist_items;
 #endif
 
     // Accessibility: public, private, protected

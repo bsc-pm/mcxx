@@ -58,6 +58,8 @@ static void build_scope_function_program_unit(AST program_unit, decl_context_t p
 static void build_scope_module_program_unit(AST program_unit, decl_context_t program_unit_context);
 static void build_scope_block_data_program_unit(AST program_unit, decl_context_t program_unit_context);
 
+static void handle_opt_value_list(AST io_stmt, AST opt_value_list, decl_context_t decl_context);
+
 static void build_scope_program_unit(AST program_unit, 
         decl_context_t decl_context)
 {
@@ -526,11 +528,12 @@ static type_t* gather_type_from_declaration_type_spec(AST a, decl_context_t decl
                     fprintf(stderr, "%s: warning: KIND of CHARACTER ignored, defaulting to 1\n",
                             ast_location(a));
                 }
-                if (len != NULL)
+                if (len == NULL)
                 {
-                    AST lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(len), ASTLine(len), "1");
-                    result = get_array_type_bounds(result, lower_bound, len, decl_context);
+                    len = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(a), ASTLine(a), "1");
                 }
+                AST lower_bound = ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(len), ASTLine(len), "1");
+                result = get_array_type_bounds(result, lower_bound, len, decl_context);
                 break;
             }
         case AST_BOOL_TYPE:
@@ -1100,7 +1103,7 @@ static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context)
         }
 
         if (!is_array_type(entry->type_information)
-                && !is_pointer_to_array(entry->type_information))
+                && !is_pointer_to_array_type(entry->type_information))
         {
             running_error("%s: error: ALLOCATABLE attribute cannot be set to scalar entity '%s'\n",
                     ast_location(name),
@@ -1165,14 +1168,12 @@ static void unsupported_statement(AST a, const char* name)
             name);
 }
 
-#if 0
 static void unsupported_construct(AST a, const char* name)
 {
     running_error("%s: sorry: %s construct not supported\n", 
             ast_location(a),
             name);
 }
-#endif
 
 static void build_scope_allstop_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
 {
@@ -1225,10 +1226,19 @@ static void build_scope_asynchronous_stmt(AST a, decl_context_t decl_context UNU
     unsupported_statement(a, "ASYNCHRONOUS");
 }
 
-static void build_io_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_input_output_item_list(AST input_output_item_list, decl_context_t decl_context);
+
+static void build_io_stmt(AST a, decl_context_t decl_context)
 {
-    running_error("%s: error: not yet implemented\n",
-            ast_location(a));
+    AST io_spec_list = ASTSon0(a);
+    handle_opt_value_list(a, io_spec_list, decl_context);
+
+    AST input_output_item_list = ASTSon1(a);
+
+    if (input_output_item_list != NULL)
+    {
+        build_scope_input_output_item_list(input_output_item_list, decl_context);
+    }
 }
 
 static void build_scope_bind_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
@@ -1244,16 +1254,51 @@ static void build_scope_block_construct(AST a, decl_context_t decl_context)
 
 static void build_scope_case_construct(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
 {
-    // FIXME - Adapt tree to that of C
+    // FIXME - Make the tree resemble that of the C switch
 }
 
 static void build_scope_close_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
 {
+    AST close_spec_list = ASTSon0(a);
+    handle_opt_value_list(a, close_spec_list, decl_context);
 }
 
 static void build_scope_codimension_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
 {
     unsupported_statement(a, "CODIMENSION");
+}
+
+static const char* get_common_name_str(const char* common_name)
+{
+    const char *common_name_str = ".common.unnamed";
+    if (common_name != NULL)
+    {
+        common_name_str = strappend(".common.", common_name);
+    }
+    return common_name_str;
+}
+
+static scope_entry_t* query_common_name(decl_context_t decl_context, const char* common_name)
+{
+    scope_entry_list_t* common_sym_list = query_unqualified_name_str(decl_context, 
+            get_common_name_str(common_name));
+
+    scope_entry_t* result = NULL;
+    if (common_sym_list != NULL)
+    {
+        result = entry_list_head(common_sym_list);
+        entry_list_free(common_sym_list);
+    }
+
+    return result;
+}
+
+static scope_entry_t* new_common(decl_context_t decl_context, const char* common_name)
+{
+    scope_entry_t* common_sym = new_symbol(decl_context, decl_context.current_scope, 
+            get_common_name_str(common_name));
+    common_sym->kind = SK_COMMON;
+    return common_sym;
 }
 
 static void build_scope_common_stmt(AST a, decl_context_t decl_context)
@@ -1267,18 +1312,17 @@ static void build_scope_common_stmt(AST a, decl_context_t decl_context)
 
         AST common_name = ASTSon0(common_block_item);
         AST common_block_object_list = ASTSon1(common_block_item);
-        
-        const char *common_name_str = ".common.unnamed";
+
+        const char* common_name_str = NULL;
         if (common_name != NULL)
         {
-            common_name_str = strappend(".common.",
-                    ASTText(common_name));
+            common_name_str = ASTText(common_name);
         }
+        
         scope_entry_t* common_sym = query_name(decl_context, common_name_str);
         if (common_sym == NULL)
         {
-            common_sym = new_symbol(decl_context, decl_context.current_scope, common_name_str);
-            common_sym->kind = SK_COMMON;
+            common_sym = new_common(decl_context, common_name_str);
             common_sym->file = ASTFileName(a);
             common_sym->line = ASTLine(a);
         }
@@ -1315,6 +1359,10 @@ static void build_scope_common_stmt(AST a, decl_context_t decl_context)
 
             sym->entity_specs.is_in_common = 1;
             sym->entity_specs.in_common = common_sym;
+
+            P_LIST_ADD(common_sym->entity_specs.common_items, 
+                    common_sym->entity_specs.num_common_items,
+                    sym);
         }
     }
 }
@@ -1380,6 +1428,7 @@ static void build_scope_entry_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_c
 
 static void build_scope_enum_def(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
 {
+    unsupported_construct(a, "ENUM");
 }
 
 static void build_scope_equivalence_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
@@ -1388,26 +1437,51 @@ static void build_scope_equivalence_stmt(AST a UNUSED_PARAMETER, decl_context_t 
 
 static void build_scope_exit_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
 {
+    // Do nothing for exit
 }
 
-static void build_scope_external_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_external_stmt(AST a, decl_context_t decl_context)
 {
+    AST name_list = ASTSon0(a);
+    AST it;
+
+    for_each_element(name_list, it)
+    {
+        AST name = ASTSon1(it);
+
+        scope_entry_t* entry = query_name(decl_context, ASTText(name));
+
+        if (entry->entity_specs.is_implicit)
+        {
+            // Convert it into a function
+            entry->kind = SK_FUNCTION;
+            entry->type_information = get_nonproto_function_type(entry->type_information, 0);
+            entry->entity_specs.is_implicit = 0;
+        }
+
+        // States it is extern
+        entry->entity_specs.is_extern = 1;
+    }
 }
 
-static void build_scope_forall_construct(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_forall_construct(AST a, decl_context_t decl_context UNUSED_PARAMETER)
 {
+    unsupported_construct(a, "FORALL");
 }
 
 static void build_scope_forall_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
 {
+    unsupported_statement(a, "FORALL");
 }
 
 static void build_scope_format_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
 {
+    // Do nothing in FORMAT
 }
 
 static void build_scope_goto_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
 {
+    // Do nothing for GOTO
 }
 
 static void build_scope_if_construct(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
@@ -1436,86 +1510,363 @@ static void build_scope_intrinsic_stmt(AST a UNUSED_PARAMETER, decl_context_t de
 
 static void build_scope_lock_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
 {
+    unsupported_statement(a, "LOCK");
 }
 
-static void build_scope_namelist_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_namelist_stmt(AST a, decl_context_t decl_context)
 {
+    AST namelist_item_list = ASTSon0(a);
+
+    AST it;
+    for_each_element(namelist_item_list, it)
+    {
+        AST namelist_item = ASTSon1(it);
+
+        AST common_name = ASTSon0(namelist_item);
+        AST namelist_group_object_list = ASTSon1(namelist_item);
+
+        AST name = ASTSon0(common_name);
+
+        scope_entry_t* new_namelist = new_symbol(decl_context, decl_context.current_scope, ASTText(name));
+
+        new_namelist->kind = SK_NAMELIST;
+        new_namelist->file = ASTFileName(a);
+        new_namelist->line = ASTLine(a);
+
+        AST it2;
+        for_each_element(namelist_group_object_list, it2)
+        {
+            AST namelist_item_name = ASTSon1(it2);
+
+            scope_entry_t* namelist_element = query_name(decl_context, ASTText(namelist_item_name));
+
+            namelist_element->entity_specs.is_in_namelist = 1;
+            namelist_element->entity_specs.namelist = new_namelist;
+
+            P_LIST_ADD(new_namelist->entity_specs.namelist_items,
+                    new_namelist->entity_specs.num_namelist_items,
+                    namelist_element);
+        }
+    }
 }
 
-static void build_scope_nullify_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_nullify_stmt(AST a, decl_context_t decl_context)
 {
+    AST pointer_object_list = ASTSon0(a);
+
+    AST it;
+    for_each_element(pointer_object_list, it)
+    {
+        AST pointer_object = ASTSon1(it);
+
+        fortran_check_expression(pointer_object, decl_context);
+
+        scope_entry_t* sym = expression_get_symbol(pointer_object);
+
+        if (!is_pointer_type(sym->type_information))
+        {
+            running_error("%s: error: '%s' does not designate not a POINTER\n",
+                    ast_location(a),
+                    fortran_prettyprint_in_buffer(pointer_object));
+        }
+    }
 }
 
-static void build_scope_open_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_open_stmt(AST a, decl_context_t decl_context)
 {
+    AST connect_spec_list = ASTSon0(a);
+    handle_opt_value_list(a, connect_spec_list, decl_context);
 }
 
-static void build_scope_optional_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_optional_stmt(AST a, decl_context_t decl_context)
 {
+    AST name_list = ASTSon0(a);
+    AST it;
+    for_each_element(name_list, it)
+    {
+        AST name = ASTSon1(it);
+        scope_entry_t* entry = query_name(decl_context, ASTText(name));
+
+        if (!entry->entity_specs.is_parameter)
+        {
+            running_error("%s: error: entity '%s' is not a dummy argument\n",
+                    ASTText(name));
+        }
+        entry->entity_specs.is_optional = 1;
+    }
 }
 
-static void build_scope_parameter_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_parameter_stmt(AST a, decl_context_t decl_context)
 {
+    AST named_constant_def_list = ASTSon0(a);
+
+    AST it;
+
+    for_each_element(named_constant_def_list, it)
+    {
+        AST named_constant_def = ASTSon1(it);
+
+        AST name = ASTSon0(named_constant_def);
+        AST constant_expr = ASTSon1(named_constant_def);
+
+        fortran_check_expression(constant_expr, decl_context);
+
+        scope_entry_t* entry = query_name(decl_context, ASTText(name));
+
+        entry->type_information = get_const_qualified_type(entry->type_information);
+        entry->expression_value = constant_expr;
+    }
 }
 
-static void build_scope_pointer_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_pointer_stmt(AST a, decl_context_t decl_context)
 {
+    AST pointer_decl_list = ASTSon0(a);
+    AST it;
+
+    for_each_element(pointer_decl_list, it)
+    {
+        AST pointer_decl = ASTSon1(it);
+
+        AST name = pointer_decl;
+        AST array_spec = NULL;
+        if (ASTType(pointer_decl) == AST_DIMENSION_DECL)
+        {
+            name = ASTSon0(pointer_decl);
+            array_spec = ASTSon1(pointer_decl);
+        }
+
+        scope_entry_t* entry = query_name(decl_context, ASTText(name));
+
+        if (is_pointer_type(entry->type_information))
+        {
+            running_error("%s: error: entity '%s' has already the POINTER attribute\n",
+                    ast_location(a),
+                    entry->symbol_name);
+        }
+
+        if (array_spec != NULL)
+        {
+            if (is_array_type(entry->type_information))
+            {
+                running_error("%s: error: entity '%s' has already the DIMENSION attribute\n",
+                        ast_location(a),
+                        entry->symbol_name);
+            }
+
+            type_t* array_type = compute_type_from_array_spec(entry->type_information, 
+                    array_spec,
+                    decl_context,
+                    /* array_spec_kind */ NULL);
+            entry->type_information = array_type;
+        }
+
+        entry->type_information = get_pointer_type(entry->type_information);
+    }
 }
 
-static void build_scope_print_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_input_output_item(AST input_output_item, decl_context_t decl_context)
 {
+    if (ASTType(input_output_item) == AST_IMPLIED_DO)
+    {
+        AST implied_do_object_list = ASTSon0(input_output_item);
+        AST implied_do_control = ASTSon1(input_output_item);
+
+        decl_context_t new_context = new_block_context(decl_context);
+
+        AST io_do_variable = ASTSon0(implied_do_control);
+        AST lower_bound = ASTSon1(implied_do_control);
+        AST upper_bound = ASTSon2(implied_do_control);
+        AST stride = ASTSon3(implied_do_control);
+
+        fortran_check_expression(lower_bound, decl_context);
+        fortran_check_expression(upper_bound, decl_context);
+        if (stride != NULL)
+            fortran_check_expression(stride, decl_context);
+
+        scope_entry_t* do_variable = new_symbol(new_context, new_context.current_scope,
+                ASTText(io_do_variable));
+
+        do_variable->kind = SK_VARIABLE;
+        do_variable->type_information 
+            = get_const_qualified_type(get_signed_int_type());
+        do_variable->file = ASTFileName(io_do_variable);
+        do_variable->line = ASTLine(io_do_variable);
+
+        build_scope_input_output_item_list(implied_do_object_list, new_context);
+    }
+    else
+    {
+        fortran_check_expression(input_output_item, decl_context);
+    }
+}
+
+static void build_scope_input_output_item_list(AST input_output_item_list, decl_context_t decl_context)
+{
+    AST it;
+
+    for_each_element(input_output_item_list, it)
+    {
+        build_scope_input_output_item(ASTSon1(it), decl_context);
+    }
+}
+
+static void build_scope_print_stmt(AST a, decl_context_t decl_context)
+{
+    AST input_output_item_list = ASTSon1(a);
+
+    build_scope_input_output_item_list(input_output_item_list, decl_context);
 }
 
 static void build_scope_procedure_declaration_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
 {
 }
 
-static void build_scope_protected_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_protected_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
 {
+    unsupported_statement(a, "PROTECTED");
 }
 
-static void build_scope_read_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_read_stmt(AST a, decl_context_t decl_context)
 {
+    AST io_control_spec_list = ASTSon0(a);
+    handle_opt_value_list(a, io_control_spec_list, decl_context);
+
+    if (ASTSon1(a) != NULL)
+    {
+        build_scope_input_output_item_list(ASTSon1(a), decl_context);
+    }
 }
 
-static void build_scope_return_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_return_stmt(AST a, decl_context_t decl_context)
 {
+    AST int_expr = ASTSon1(a);
+    if (int_expr != NULL)
+    {
+        fprintf(stderr, "%s: warning: deprecated RETURN with alternate return\n",
+                ast_location(a));
+        fortran_check_expression(a, decl_context);
+    }
 }
 
-static void build_scope_save_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_save_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
 {
+    AST saved_entity_list = ASTSon0(a);
+
+    AST it;
+
+    for_each_element(saved_entity_list, it)
+    {
+        AST saved_entity = ASTSon1(it);
+
+        scope_entry_t* entry = NULL;
+        if (ASTType(saved_entity) == AST_COMMON_NAME)
+        {
+            entry = query_common_name(decl_context, ASTText(ASTSon0(saved_entity)));
+        }
+        else
+        {
+            entry = query_name(decl_context, ASTText(saved_entity));
+        }
+
+        entry->entity_specs.is_static = 1;
+    }
 }
 
 static void build_scope_select_type_construct(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
 {
+    unsupported_statement(a, "SELECT TYPE");
 }
 
 static void build_scope_stmt_function_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
 {
 }
 
-static void build_scope_stop_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_stop_stmt(AST a, decl_context_t decl_context)
 {
+    AST stop_code = ASTSon0(a);
+    if (stop_code == NULL)
+    {
+        fortran_check_expression(stop_code, decl_context);
+    }
 }
 
-static void build_scope_pause_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_pause_stmt(AST a, decl_context_t decl_context)
 {
+    fprintf(stderr, "%s: warning: deprecated PAUSE statement\n",
+            ast_location(a));
+
+    AST int_expr = ASTSon0(a);
+    if (int_expr != NULL)
+    {
+        fortran_check_expression(int_expr, decl_context);
+    }
 }
 
 static void build_scope_sync_all_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
 {
+    unsupported_statement(a, "SYNC ALL");
 }
 
 static void build_scope_sync_images_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
 {
+    unsupported_statement(a, "SYNC IMAGES");
 }
 
 static void build_scope_sync_memory_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
 {
+    unsupported_statement(a, "SYNC MEMORY");
 }
 
-static void build_scope_target_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_target_stmt(AST a, decl_context_t decl_context)
 {
+    AST target_decl_list = ASTSon0(a);
+
+    AST it;
+    for_each_element(target_decl_list, it)
+    {
+        AST target_decl = ASTSon1(it);
+
+        AST name = target_decl;
+
+        scope_entry_t* entry = query_name(decl_context, ASTText(name));
+
+        if (ASTType(target_decl_list) == AST_DIMENSION_DECL)
+        {
+            name = ASTSon0(target_decl);
+            AST array_spec = ASTSon1(target_decl_list);
+            AST coarray_spec = ASTSon2(target_decl_list);
+
+            if (coarray_spec != NULL)
+            {
+                running_error("%s: sorry: coarrays are not supported\n", ast_location(name));
+            }
+
+            if (array_spec != NULL)
+            {
+                if (is_array_type(entry->type_information))
+                {
+                    running_error("%s: error: DIMENSION attribute specified twice for entity '%s'\n", 
+                            ast_location(a),
+                            entry->symbol_name);
+                }
+
+                type_t* array_type = compute_type_from_array_spec(entry->type_information, 
+                        array_spec,
+                        decl_context,
+                        /* array_spec_kind */ NULL);
+                entry->type_information = array_type;
+            }
+        }
+
+        if (entry->entity_specs.is_target)
+        {
+            running_error("%s: error: entity '%s' already has TARGET attribute\n", 
+                    ast_location(target_decl),
+                    entry->symbol_name);
+        }
+
+        entry->entity_specs.is_target = 1;
+    }
 }
 
 static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context)
@@ -1673,6 +2024,7 @@ static void build_scope_type_declaration_stmt(AST a, decl_context_t decl_context
                 running_error("%s: error: OPTIONAL attribute is only for dummy arguments\n",
                         ast_location(declaration));
             }
+            entry->entity_specs.is_optional = 1;
         }
 
         if (attr_spec.is_allocatable)
@@ -1723,30 +2075,523 @@ static void build_scope_unlock_stmt(AST a, decl_context_t decl_context UNUSED_PA
     unsupported_statement(a, "UNLOCK");
 }
 
-static void build_scope_use_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_use_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
 {
+    unsupported_statement(a, "USE");
 }
 
-static void build_scope_value_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_value_stmt(AST a, decl_context_t decl_context)
 {
+    AST name_list = ASTSon0(a);
+
+    AST it;
+    for_each_element(name_list, it)
+    {
+        AST name = ASTSon1(it);
+
+        scope_entry_t* entry = query_name(decl_context, ASTText(name));
+
+        if (!entry->entity_specs.is_parameter)
+        {
+            running_error("%s: error: entity '%s' is not a dummy argument\n",
+                    ast_location(name),
+                    entry->symbol_name);
+        }
+
+        entry->entity_specs.is_value = 1;
+    }
 }
 
-static void build_scope_volatile_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_volatile_stmt(AST a, decl_context_t decl_context)
 {
+    AST name_list = ASTSon0(a);
+
+    AST it;
+    for_each_element(name_list, it)
+    {
+        AST name = ASTSon1(it);
+
+        scope_entry_t* entry = query_name(decl_context, ASTText(name));
+
+        if (!entry->entity_specs.is_parameter)
+        {
+            running_error("%s: error: entity '%s' is not a dummy argument\n",
+                    ast_location(name),
+                    entry->symbol_name);
+        }
+
+        if (!is_volatile_qualified_type(entry->type_information))
+        {
+            entry->type_information = get_volatile_qualified_type(entry->type_information);
+        }
+        else
+        {
+            running_error("%s: error: entity '%s' already has VOLATILE attribute\n",
+                    ast_location(a), entry->symbol_name);
+        }
+    }
 }
 
-static void build_scope_wait_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_wait_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
 {
+    unsupported_statement(a, "WAIT");
 }
 
-static void build_scope_where_construct(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_where_construct(AST a, decl_context_t decl_context UNUSED_PARAMETER)
 {
+    unsupported_construct(a, "WHERE");
 }
 
-static void build_scope_where_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_where_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
 {
+    unsupported_statement(a, "WHERE");
 }
 
-static void build_scope_write_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_write_stmt(AST a, decl_context_t decl_context)
 {
+    handle_opt_value_list(a, ASTSon0(a), decl_context);
+
+    AST input_output_item_list = ASTSon1(a);
+    if (input_output_item_list != NULL)
+    {
+        build_scope_input_output_item_list(input_output_item_list, decl_context);
+    }
 }
+
+typedef void opt_value_fun_handler_t(AST io_stmt, AST opt_value, decl_context_t);
+
+typedef struct opt_value_map_tag
+{
+    const char* name;
+    opt_value_fun_handler_t *handler;
+} opt_value_map_t;
+
+#define OPT_VALUE_LIST \
+  OPT_VALUE(access) \
+  OPT_VALUE(acquired) \
+  OPT_VALUE(action) \
+  OPT_VALUE(advance) \
+  OPT_VALUE(asynchronous) \
+  OPT_VALUE(blank) \
+  OPT_VALUE(decimal) \
+  OPT_VALUE(delim) \
+  OPT_VALUE(encoding) \
+  OPT_VALUE(eor) \
+  OPT_VALUE(err) \
+  OPT_VALUE(errmsg) \
+  OPT_VALUE(exist) \
+  OPT_VALUE(file) \
+  OPT_VALUE(fmt) \
+  OPT_VALUE(form) \
+  OPT_VALUE(formatted) \
+  OPT_VALUE(id) \
+  OPT_VALUE(iomsg) \
+  OPT_VALUE(iostat) \
+  OPT_VALUE(mold) \
+  OPT_VALUE(named) \
+  OPT_VALUE(newunit) \
+  OPT_VALUE(nextrec) \
+  OPT_VALUE(nml) \
+  OPT_VALUE(number) \
+  OPT_VALUE(opened) \
+  OPT_VALUE(pad) \
+  OPT_VALUE(pending) \
+  OPT_VALUE(pos) \
+  OPT_VALUE(position) \
+  OPT_VALUE(read) \
+  OPT_VALUE(readwrite) \
+  OPT_VALUE(rec) \
+  OPT_VALUE(recl) \
+  OPT_VALUE(round) \
+  OPT_VALUE(sequential) \
+  OPT_VALUE(sign) \
+  OPT_VALUE(size) \
+  OPT_VALUE(source) \
+  OPT_VALUE(stat) \
+  OPT_VALUE(status) \
+  OPT_VALUE(stream) \
+  OPT_VALUE(unformatted) \
+  OPT_VALUE(unit) \
+  OPT_VALUE(write) 
+
+#define OPT_VALUE(_name) \
+     static opt_value_fun_handler_t opt_##_name##_handler;
+OPT_VALUE_LIST
+#undef OPT_VALUE
+
+opt_value_map_t opt_value_map[] =
+{
+#define OPT_VALUE(_name) \
+     { #_name, opt_##_name##_handler },
+    OPT_VALUE_LIST
+#undef OPT_VALUE
+};
+
+static char opt_value_list_init = 0;
+
+static int opt_value_map_compare(const void* v1, const void* v2)
+{
+    const opt_value_map_t* p1 = (const opt_value_map_t*) v1;
+    const opt_value_map_t* p2 = (const opt_value_map_t*) v2;
+
+    return strcasecmp(p1->name, p2->name);
+}
+
+static void handle_opt_value_list(AST io_stmt, AST opt_value_list, decl_context_t decl_context)
+{
+    if (!opt_value_list_init)
+    {
+        qsort(opt_value_map, 
+                sizeof(opt_value_map) / sizeof(opt_value_map[1]),
+                sizeof(opt_value_map[0]),
+                opt_value_map_compare);
+        opt_value_list_init = 1;
+    }
+    AST it;
+    for_each_element(opt_value_list, it)
+    {
+        AST opt_value = ASTSon1(it);
+
+        opt_value_map_t key;
+        key.name = ASTText(opt_value);
+
+        ERROR_CONDITION(key.name == NULL, "Invalid opt_value without name of opt", 0);
+
+        opt_value_map_t *elem =
+            (opt_value_map_t*)bsearch(&key, opt_value_map, 
+                    sizeof(opt_value_map) / sizeof(opt_value_map[1]),
+                    sizeof(opt_value_map[0]),
+                    opt_value_map_compare);
+
+        ERROR_CONDITION(elem == NULL, "Invalid opt-value '%s'\n", key.name);
+        ERROR_CONDITION(elem->handler == NULL, "Invalid handler for opt-value '%s'\n", key.name);
+
+        (elem->handler)(io_stmt, opt_value, decl_context);
+    }
+}
+
+static char opt_common_int_expr(AST value, decl_context_t decl_context, const char* opt_name)
+{
+    fortran_check_expression(value, decl_context);
+    if (!is_integer_type(expression_get_type(value))
+            && !(is_pointer_type(expression_get_type(value))
+                && is_integer_type(pointer_type_get_pointee_type(expression_get_type(value)))))
+    {
+        fprintf(stderr, "%s: warning: specifier %s requires a character expression\n",
+                ast_location(value),
+                opt_name);
+        return 0;
+    }
+    return 1;
+}
+
+static char opt_common_character_expr(AST value, decl_context_t decl_context, const char* opt_name)
+{
+    fortran_check_expression(value, decl_context);
+    if (!is_fortran_character_type(expression_get_type(value))
+            && !is_pointer_to_fortran_character_type(expression_get_type(value)))
+    {
+        fprintf(stderr, "%s: warning: specifier %s requires a character expression\n",
+                ast_location(value),
+                opt_name);
+        return 0;
+    }
+    return 1;
+}
+
+static char opt_common_const_character_expr(AST value, decl_context_t decl_context, const char* opt_name)
+{
+    return opt_common_character_expr(value, decl_context, opt_name);
+}
+
+static char opt_common_int_variable(AST value, decl_context_t decl_context, const char* opt_name)
+{
+    fortran_check_expression(value, decl_context);
+    if (expression_get_symbol(value) == NULL)
+    { 
+        scope_entry_t* sym = expression_get_symbol(value);
+        if (sym == NULL
+                || (!is_integer_type(sym->type_information)
+                    && !(is_pointer_type(sym->type_information)
+                        && is_integer_type(pointer_type_get_pointee_type(sym->type_information)))))
+        {
+            fprintf(stderr, "%s: warning: specifier %s requires an integer variable\n",
+                    ast_location(value),
+                    opt_name);
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static char opt_common_logical_variable(AST value, decl_context_t decl_context, const char* opt_name)
+{
+    fortran_check_expression(value, decl_context);
+    if (expression_get_symbol(value) == NULL)
+    { 
+        scope_entry_t* sym = expression_get_symbol(value);
+        if (sym == NULL
+                || (!is_bool_type(sym->type_information)
+                    && !(is_pointer_type(sym->type_information)
+                        && is_bool_type(pointer_type_get_pointee_type(sym->type_information)))))
+        {
+            fprintf(stderr, "%s: warning: specifier %s requires a logical variable\n",
+                    ast_location(value),
+                    opt_name);
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static void opt_access_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_character_expr(value, decl_context, "ACCESS");
+}
+
+static void opt_acquired_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    fortran_check_expression(value, decl_context);
+    if (expression_get_symbol(value) == NULL
+            || !is_bool_type(expression_get_symbol(value)->type_information))
+    {
+        fprintf(stderr, "%s: warning: specifier 'ACQUIRED LOCK' requires a logical variable\n",
+                ast_location(value));
+    }
+}
+
+static void opt_action_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_character_expr(value, decl_context, "ACTION");
+}
+
+static void opt_advance_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_const_character_expr(value, decl_context, "ADVANCE");
+}
+
+static void opt_asynchronous_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_character_expr(value, decl_context, "ASYNCHRONOUS");
+}
+
+static void opt_blank_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_character_expr(value, decl_context, "BLANK");
+}
+
+static void opt_decimal_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_character_expr(value, decl_context, "DECIMAL");
+}
+
+static void opt_delim_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_character_expr(value, decl_context, "DELIM");
+}
+
+static void opt_encoding_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_character_expr(value, decl_context, "ENCODING");
+}
+
+static void opt_eor_handler(AST io_stmt UNUSED_PARAMETER, 
+        AST value UNUSED_PARAMETER, 
+        decl_context_t decl_context UNUSED_PARAMETER)
+{
+    // Do nothing
+}
+
+static void opt_err_handler(AST io_stmt UNUSED_PARAMETER, 
+        AST value UNUSED_PARAMETER, 
+        decl_context_t decl_context UNUSED_PARAMETER)
+{
+    // Do nothing
+}
+
+static void opt_errmsg_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_character_expr(value, decl_context, "ERRMSG");
+}
+
+static void opt_exist_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_logical_variable(value, decl_context, "EXIST");
+}
+
+static void opt_file_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_character_expr(value, decl_context, "FILE");
+}
+
+static void opt_fmt_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    if (!(ASTType(value) == AST_SYMBOL
+            && strcmp(ASTText(value), "*") == 0))
+    {
+        opt_common_character_expr(value, decl_context, "FMT");
+    }
+}
+
+static void opt_form_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_character_expr(value, decl_context, "FORM");
+}
+
+static void opt_formatted_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_character_expr(value, decl_context, "FORMATTED");
+}
+
+static void opt_id_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_int_expr(value, decl_context, "ID");
+}
+
+static void opt_iomsg_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_character_expr(value, decl_context, "IOMSG");
+}
+
+static void opt_iostat_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_int_expr(value, decl_context, "IOSTAT");
+}
+
+static void opt_mold_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    fortran_check_expression(value, decl_context);
+}
+
+static void opt_named_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_logical_variable(value, decl_context, "NAMED");
+}
+
+static void opt_newunit_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_int_variable(value, decl_context, "NEWUNIT");
+}
+
+static void opt_nextrec_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_int_variable(value, decl_context, "NEXTREC");
+}
+
+static void opt_nml_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    scope_entry_t* entry = query_name(decl_context, ASTText(value));
+    if (entry == NULL
+            || entry->kind != SK_NAMELIST)
+    {
+        fprintf(stderr, "%s: warning: entity '%s' in NML specifier is not a namelist\n",
+                ast_location(value),
+                ASTText(value));
+    }
+}
+
+static void opt_number_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_int_variable(value, decl_context, "NUMBER");
+}
+
+static void opt_opened_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_logical_variable(value, decl_context, "OPENED");
+}
+
+static void opt_pad_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_character_expr(value, decl_context, "PAD");
+}
+
+static void opt_pending_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_logical_variable(value, decl_context, "PENDING");
+}
+
+static void opt_pos_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_int_expr(value, decl_context, "POS");
+}
+
+static void opt_position_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_character_expr(value, decl_context, "POSITION");
+}
+
+static void opt_read_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_character_expr(value, decl_context, "READ");
+}
+
+static void opt_readwrite_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_character_expr(value, decl_context, "READWRITE");
+}
+
+static void opt_rec_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_int_expr(value, decl_context, "REC");
+}
+
+static void opt_recl_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_int_expr(value, decl_context, "RECL");
+}
+
+static void opt_round_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_character_expr(value, decl_context, "ROUND");
+}
+
+static void opt_sequential_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_character_expr(value, decl_context, "SEQUENTIAL");
+}
+
+static void opt_sign_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_character_expr(value, decl_context, "SIGN");
+}
+
+static void opt_size_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_int_expr(value, decl_context, "SIGN");
+}
+
+static void opt_source_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    fortran_check_expression(value, decl_context);
+}
+
+static void opt_stat_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_int_variable(value, decl_context, "STAT");
+}
+
+static void opt_status_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_character_expr(value, decl_context, "STATUS");
+}
+
+static void opt_stream_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_character_expr(value, decl_context, "STREAM");
+}
+
+static void opt_unformatted_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_character_expr(value, decl_context, "UNFORMATTED");
+}
+
+static void opt_unit_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_int_expr(value, decl_context, "UNIT");
+}
+
+static void opt_write_handler(AST io_stmt UNUSED_PARAMETER, AST value, decl_context_t decl_context)
+{
+    opt_common_character_expr(value, decl_context, "WRITE");
+}
+

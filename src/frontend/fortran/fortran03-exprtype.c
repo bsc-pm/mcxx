@@ -241,9 +241,14 @@ static void check_ac_value_list(AST ac_value_list, decl_context_t decl_context)
 
             AST implied_do_control = ASTSon1(ac_value);
             AST ac_do_variable = ASTSon0(implied_do_control);
-            // AST lower_bound = ASTSon1(implied_do_control);
-            // AST upper_bound = ASTSon2(implied_do_control);
-            // AST stride = ASTSon3(implied_do_control);
+            AST lower_bound = ASTSon1(implied_do_control);
+            AST upper_bound = ASTSon2(implied_do_control);
+            AST stride = ASTSon3(implied_do_control);
+
+            fortran_check_expression_impl_(lower_bound, decl_context);
+            fortran_check_expression_impl_(upper_bound, decl_context);
+            if (stride != NULL)
+                fortran_check_expression_impl_(stride, decl_context);
 
             scope_entry_t* do_variable = new_symbol(new_context, new_context.current_scope,
                     ASTText(ac_do_variable));
@@ -304,7 +309,7 @@ static void check_array_ref(AST expr, decl_context_t decl_context)
     scope_entry_t* symbol = expression_get_symbol(ASTSon0(expr));
     if (symbol == NULL
             || (!is_array_type(symbol->type_information)
-                && !is_pointer_to_array(symbol->type_information)))
+                && !is_pointer_to_array_type(symbol->type_information)))
     {
         if (!checking_ambiguity())
         {
@@ -316,7 +321,7 @@ static void check_array_ref(AST expr, decl_context_t decl_context)
     }
 
     type_t* array_type = symbol->type_information;
-    if (is_pointer_to_array(symbol->type_information))
+    if (is_pointer_to_array_type(symbol->type_information))
             array_type = pointer_type_get_pointee_type(symbol->type_information);
 
     type_t* synthesized_type = get_rank0_type(array_type);
@@ -1074,14 +1079,13 @@ static type_t* second_type(type_t* t1 UNUSED_PARAMETER, type_t* t2)
     return t2;
 }
 
-static char is_character_array_type(type_t* t1)
-{
-    return is_array_type(t1)
-        && is_character_type(array_type_get_element_type(t1));
-}
-
 static type_t* combine_character_array(type_t* t1, type_t* t2)
 {
+    if (is_pointer_to_fortran_character_type(t1))
+        t1 = pointer_type_get_pointee_type(t1);
+    if (is_pointer_to_fortran_character_type(t2))
+        t1 = pointer_type_get_pointee_type(t2);
+
     AST length1 = array_type_get_array_size_expr(t1);
     AST length2 = array_type_get_array_size_expr(t2);
 
@@ -1153,10 +1157,15 @@ static operand_types_t arithmetic_binary[] =
     { is_complex_type, is_complex_type, common_kind },
 };
 
+static char is_fortran_character_type_or_pointer_to(type_t* t)
+{
+    return is_pointer_to_fortran_character_type(t)
+        || is_fortran_character_type(t);
+}
 
 static operand_types_t concat_op[] = 
 {
-    { is_character_array_type, is_character_array_type, combine_character_array },
+    { is_fortran_character_type_or_pointer_to, is_fortran_character_type_or_pointer_to, combine_character_array },
 };
 
 static operand_types_t relational_equality[] =
@@ -1170,7 +1179,7 @@ static operand_types_t relational_equality[] =
     { is_complex_type, is_integer_type, logical_type },
     { is_complex_type, is_floating_type, logical_type },
     { is_complex_type, is_complex_type, logical_type },
-    { is_character_array_type, is_character_array_type, logical_type },
+    { is_fortran_character_type, is_fortran_character_type, logical_type },
 };
 
 static operand_types_t relational_weak[] =
@@ -1179,7 +1188,7 @@ static operand_types_t relational_weak[] =
     { is_integer_type, is_floating_type,  logical_type },
     { is_floating_type, is_integer_type, logical_type },
     { is_floating_type, is_floating_type, logical_type },
-    { is_character_array_type, is_character_array_type, logical_type },
+    { is_fortran_character_type, is_fortran_character_type, logical_type },
 };
 
 static operand_types_t logical_unary[] =
