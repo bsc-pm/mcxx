@@ -729,7 +729,7 @@ then
  
    TL_EXTENSIONS="${TL_EXTENSIONS} superscalar ss_valgrind"
    INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.superscalar config.ss_valgrind"
-   COMPILER_NAMES="${COMPILER_NAMES} ssvalgrindcc"
+   COMPILER_NAMES="${COMPILER_NAMES} ssvalgrindcc ssvalgrindcxx"
 fi
      
 SUPERSCALAR_INCLUDES="${superscalar_include}"
