@@ -2072,7 +2072,7 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
     // Ensure it is initialized
     init_qualification_hash();
 
-    original = advance_over_typedefs_with_cv_qualif(original, &cv_qualification);
+    original = advance_over_typedefs_with_cv_qualif(original, NULL);
 
     ERROR_CONDITION(original == NULL, "This cannot be NULL", 0);
     ERROR_CONDITION(original->unqualified_type == NULL, "This cannot be NULL", 0);
@@ -4161,46 +4161,6 @@ static char equivalent_array_type(array_info_t* t1, array_info_t* t2)
     return 1;
 }
 
-#if 0
-/*
- * This function just checks functional types
- */
-char overloaded_function(type_t* ft1, type_t* ft2, decl_context_t decl_context)
-{
-    function_info_t* t1 = ft1->function;
-    function_info_t* t2 = ft2->function;
-
-    if (!compatible_parameters(t1, t2, decl_context))
-        return 1;
-
-    // If one has return type but the other does not this is an overload
-    // (technically this is ill-formed)
-    if (((t1->return_type == NULL)
-                && (t2->return_type != NULL))
-            || ((t2->return_type == NULL)
-                && (t1->return_type != NULL)))
-        return 1;
-
-    if (!equivalent_cv_qualification(ft1->cv_qualifier, 
-                ft2->cv_qualifier))
-        return 1;
-
-
-    // Destructors, constructors, operator functions and conversion functions
-    // will not have a full direct type
-    if (t1->return_type == NULL 
-            && t2->return_type == NULL)
-        return 0;
-
-    if (!equivalent_types(t1->return_type, t2->return_type, decl_context))
-    {
-        return 1;
-    }
-
-    return 0;
-}
-#endif
-
 static char equivalent_vector_type(type_t* t1, type_t* t2)
 {
     // This mimics gcc behaviour
@@ -5580,6 +5540,10 @@ char pointer_to_class_type_is_derived(type_t* possible_pclass_derived,
 cv_qualifier_t get_cv_qualifier(type_t* type_info)
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
+    if (is_array_type(type_info))
+    {
+        return get_cv_qualifier(array_type_get_element_type(type_info));
+    }
     return type_info->cv_qualifier;
 }
 
