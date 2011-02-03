@@ -6289,6 +6289,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 break;
             }
         case TK_OVERLOAD:
+        case TK_ERROR:
             {
                 break;
             }
