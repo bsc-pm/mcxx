@@ -3103,7 +3103,7 @@ if_else_eligible_statements : no_if_statement
 
 selection_statement : SWITCH '(' condition ')' statement
 {
-	$$ = ASTMake2(AST_SWITCH_STATEMENT, $3, $5, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake3(AST_SWITCH_STATEMENT, $3, $5, NULL, $1.token_file, $1.token_line, NULL);
 }
 ;
 

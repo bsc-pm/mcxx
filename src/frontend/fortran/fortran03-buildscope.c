@@ -214,7 +214,7 @@ typedef struct build_scope_statement_handler_tag
  STATEMENT_HANDLER(AST_IO_STATEMENT, build_io_stmt) \
  STATEMENT_HANDLER(AST_BINDING_STATEMENT, build_scope_bind_stmt) \
  STATEMENT_HANDLER(AST_BLOCK_CONSTRUCT, build_scope_block_construct) \
- STATEMENT_HANDLER(AST_SELECT_CASE_CONSTRUCT, build_scope_case_construct) \
+ STATEMENT_HANDLER(AST_SWITCH_STATEMENT, build_scope_case_construct) \
  STATEMENT_HANDLER(AST_CLOSE_STATEMENT, build_scope_close_stmt) \
  STATEMENT_HANDLER(AST_CODIMENSION_STATEMENT, build_scope_codimension_stmt) \
  STATEMENT_HANDLER(AST_COMMON_STATEMENT, build_scope_common_stmt) \
@@ -1001,7 +1001,7 @@ static void build_scope_access_stmt(AST a, decl_context_t decl_context)
 
         if (sym == NULL)
         {
-            running_error("%s: unknown entity '%s'\n", 
+            running_error("%s: unknown entity '%s' in ACCESS statement\n", 
                     ast_location(access_id),
                     name);
         }
@@ -1050,12 +1050,17 @@ static void build_dimension_decl(AST a, decl_context_t decl_context)
 
     scope_entry_t* entry = query_name(decl_context, ASTText(name));
 
-    if (entry== NULL
-            || entry->kind != SK_VARIABLE)
+    if (entry== NULL)
+    {
+        running_error("%s: error: unknown entity '%s' in dimension declaration\n", 
+                ast_location(a),
+                ASTText(name));
+    }
+    if (entry->kind != SK_VARIABLE)
     {
         running_error("%s: error: invalid entity '%s' in dimension declaration\n", 
                 ast_location(a),
-                name);
+                ASTText(name));
     }
     
     if (is_array_type(entry->type_information)
@@ -1095,11 +1100,18 @@ static void build_scope_allocatable_stmt(AST a, decl_context_t decl_context)
 
         scope_entry_t* entry = query_name(decl_context, ASTText(name));
 
-        if (entry == NULL
-                || entry->kind != SK_VARIABLE)
+        if (entry == NULL)
+        {
+            running_error("%s: error: unknown entity '%s' in ALLOCATABLE clause\n", 
+                    ast_location(name), 
+                    ASTText(name));
+        }
+
+        if (entry->kind != SK_VARIABLE)
         {
             running_error("%s: error: invalid entity '%s' in ALLOCATABLE clause\n", 
-                    ast_location(name), ASTText(name));
+                    ast_location(name), 
+                    ASTText(name));
         }
 
         if (!is_array_type(entry->type_information)
@@ -1345,9 +1357,9 @@ static void build_scope_common_stmt(AST a, decl_context_t decl_context)
             scope_entry_t* sym = query_name(decl_context, ASTText(name));
             if (sym == NULL)
             {
-                running_error("%s: error: unknown entity '%s'\n", 
+                running_error("%s: error: unknown entity '%s' in COMMON statement\n", 
                         ast_location(name),
-                        fortran_prettyprint_in_buffer(name));
+                        ASTText(name));
             }
 
             if (sym->entity_specs.is_in_common)
@@ -1451,6 +1463,13 @@ static void build_scope_external_stmt(AST a, decl_context_t decl_context)
 
         scope_entry_t* entry = query_name(decl_context, ASTText(name));
 
+        if (entry == NULL)
+        {
+            running_error("%s: error: unknown entity '%s' in EXTERNAL statement\n",
+                    ast_location(name),
+                    ASTText(name));
+        }
+
         if (entry->entity_specs.is_implicit)
         {
             // Convert it into a function
@@ -1540,6 +1559,13 @@ static void build_scope_namelist_stmt(AST a, decl_context_t decl_context)
 
             scope_entry_t* namelist_element = query_name(decl_context, ASTText(namelist_item_name));
 
+            if (namelist_element == NULL)
+            {
+                running_error("%s: error: unknown entity '%s' in NAMELIST statement\n",
+                        ast_location(namelist_item_name),
+                        ASTText(namelist_item_name));
+            }
+
             namelist_element->entity_specs.is_in_namelist = 1;
             namelist_element->entity_specs.namelist = new_namelist;
 
@@ -1587,6 +1613,13 @@ static void build_scope_optional_stmt(AST a, decl_context_t decl_context)
         AST name = ASTSon1(it);
         scope_entry_t* entry = query_name(decl_context, ASTText(name));
 
+        if (entry == NULL)
+        {
+            running_error("%s: error: unknown entity '%s' in OPTIONAL statement\n",
+                    ast_location(name),
+                    ASTText(name));
+        }
+
         if (!entry->entity_specs.is_parameter)
         {
             running_error("%s: error: entity '%s' is not a dummy argument\n",
@@ -1613,6 +1646,13 @@ static void build_scope_parameter_stmt(AST a, decl_context_t decl_context)
 
         scope_entry_t* entry = query_name(decl_context, ASTText(name));
 
+        if (entry == NULL)
+        {
+            running_error("%s: error: unknown entity '%s' for PARAMETER statement\n",
+                    ast_location(name),
+                    ASTType(name));
+        }
+
         entry->type_information = get_const_qualified_type(entry->type_information);
         entry->expression_value = constant_expr;
     }
@@ -1636,6 +1676,13 @@ static void build_scope_pointer_stmt(AST a, decl_context_t decl_context)
         }
 
         scope_entry_t* entry = query_name(decl_context, ASTText(name));
+
+        if (entry == NULL)
+        {
+            running_error("%s: error: unknown entity '%s' for POINTER statement\n", 
+                    ast_location(name),
+                    ASTText(name));
+        }
 
         if (is_pointer_type(entry->type_information))
         {
@@ -1762,11 +1809,26 @@ static void build_scope_save_stmt(AST a, decl_context_t decl_context UNUSED_PARA
         if (ASTType(saved_entity) == AST_COMMON_NAME)
         {
             entry = query_common_name(decl_context, ASTText(ASTSon0(saved_entity)));
+
+            if (entry == NULL)
+            {
+                running_error("%s: error: unknown common '%s' in SAVE statement", 
+                        ast_location(a),
+                        fortran_prettyprint_in_buffer(saved_entity));
+            }
         }
         else
         {
             entry = query_name(decl_context, ASTText(saved_entity));
+
+            if (entry == NULL)
+            {
+                running_error("%s: error: unknown entity '%s' in SAVE statement", 
+                        ast_location(a),
+                        ASTText(saved_entity));
+            }
         }
+
 
         entry->entity_specs.is_static = 1;
     }
@@ -2090,6 +2152,13 @@ static void build_scope_value_stmt(AST a, decl_context_t decl_context)
         AST name = ASTSon1(it);
 
         scope_entry_t* entry = query_name(decl_context, ASTText(name));
+
+        if (entry == NULL)
+        {
+            running_error("%s: error: unknown entity '%s' in VALUE statement\n",
+                    ast_location(name),
+                    ASTText(name));
+        }
 
         if (!entry->entity_specs.is_parameter)
         {
