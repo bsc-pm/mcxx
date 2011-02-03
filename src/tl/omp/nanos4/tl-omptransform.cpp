@@ -141,6 +141,7 @@ namespace TL
 #define OMP_CONSTRUCT(_name, _construct_name) \
               on_directive_pre[_name].connect(functor(&OpenMPTransform::_construct_name##_preorder, *this)); \
               on_directive_post[_name].connect(functor(&OpenMPTransform::_construct_name##_postorder, *this));
+#define OMP_CONSTRUCT_NOEND(_name, _construct_name) OMP_CONSTRUCT(_name, _construct_name)
 #define OMP_DIRECTIVE(_name, _construct_name) OMP_CONSTRUCT(_name, _construct_name)
 #include "tl-omp-constructs.def"
 #undef OMP_CONSTRUCT
@@ -306,6 +307,30 @@ namespace TL
         {
             OpenMPPhase::pre_run(dto);
             // ;
+        }
+
+        void OpenMPTransform::parallel_do_preorder(PragmaCustomConstruct ctr)
+        {
+            running_error("%s: error: unsupported construct\n",
+                    ctr.get_ast().get_locus().c_str());
+        }
+
+        void OpenMPTransform::parallel_do_postorder(PragmaCustomConstruct ctr)
+        {
+            running_error("%s: error: unsupported construct\n",
+                    ctr.get_ast().get_locus().c_str());
+        }
+
+        void OpenMPTransform::do_preorder(PragmaCustomConstruct ctr)
+        {
+            running_error("%s: error: unsupported construct\n",
+                    ctr.get_ast().get_locus().c_str());
+        }
+
+        void OpenMPTransform::do_postorder(PragmaCustomConstruct ctr)
+        {
+            running_error("%s: error: unsupported construct\n",
+                    ctr.get_ast().get_locus().c_str());
         }
     }
 }
