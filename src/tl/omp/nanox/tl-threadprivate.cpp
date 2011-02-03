@@ -32,8 +32,6 @@
 using namespace TL;
 using namespace TL::Nanox;
 
-extern "C" { void _enable_debug(void); }
-
 void OMPTransform::threadprivate_postorder(PragmaCustomConstruct threadprivate_directive)
 {
     // Given
@@ -69,8 +67,6 @@ void OMPTransform::threadprivate_postorder(PragmaCustomConstruct threadprivate_d
                 << ": warning: '" << expr << "' is not an id-expression, skipping" << std::endl;
         }
     }
-
-    _enable_debug();
 
     // For every symbol in the clause
     ObjectList<Symbol> sym_list = threadprivate_references.map(functor(&IdExpression::get_symbol));
