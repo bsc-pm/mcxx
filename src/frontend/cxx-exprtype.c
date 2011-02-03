@@ -5683,11 +5683,14 @@ static void check_for_array_subscript_expr(AST expr, decl_context_t decl_context
     {
         C_LANGUAGE()
         {
-            fprintf(stderr, "%s: warning: expression '%s' is invalid since '%s' has type '%s'\n",
-                    ast_location(expr),
-                    prettyprint_in_buffer(expr),
-                    prettyprint_in_buffer(subscripted_expr),
-                    print_type_str(subscripted_type, decl_context));
+            if (!checking_ambiguity())
+            {
+                fprintf(stderr, "%s: warning: expression '%s' is invalid since '%s' has type '%s'\n",
+                        ast_location(expr),
+                        prettyprint_in_buffer(expr),
+                        prettyprint_in_buffer(subscripted_expr),
+                        print_type_str(subscripted_type, decl_context));
+            }
             expression_set_error(expr);
         }
     }
