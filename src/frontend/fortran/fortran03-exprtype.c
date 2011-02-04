@@ -208,7 +208,7 @@ static void fortran_check_expression_impl_(AST expression, decl_context_t decl_c
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "%s: '%s' has type '%s'\n",
+        fprintf(stderr, "EXPRTYPE: %s: '%s' has type '%s'\n",
                 ast_location(expression),
                 fortran_prettyprint_in_buffer(expression),
                 print_declarator(expression_get_type(expression)));
