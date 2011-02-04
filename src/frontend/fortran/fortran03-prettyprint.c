@@ -89,6 +89,7 @@ HANDLER_PROTOTYPE(complex_literal_handler);
 HANDLER_PROTOTYPE(complex_type_handler);
 HANDLER_PROTOTYPE(component_ref_handler);
 HANDLER_PROTOTYPE(computed_goto_statement_handler);
+HANDLER_PROTOTYPE(compound_statement_handler);
 HANDLER_PROTOTYPE(continue_statement_handler);
 HANDLER_PROTOTYPE(critical_construct_handler);
 HANDLER_PROTOTYPE(critical_statement_handler);
@@ -290,6 +291,7 @@ static prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_COMPLEX_TYPE, complex_type_handler, NULL),
     NODE_HANDLER(AST_COMPONENT_REF, component_ref_handler, NULL),
     NODE_HANDLER(AST_COMPUTED_GOTO_STATEMENT, computed_goto_statement_handler, NULL),
+    NODE_HANDLER(AST_COMPOUND_STATEMENT, compound_statement_handler, NULL),
     NODE_HANDLER(AST_CONCAT_OP, binary_operator_handler, "//"),
     NODE_HANDLER(AST_CONTINUE_STATEMENT, cycle_statement_handler, NULL),
     NODE_HANDLER(AST_CRITICAL_CONSTRUCT, critical_construct_handler, NULL),
@@ -1151,6 +1153,11 @@ static void computed_goto_statement_handler(FILE* f, AST a, prettyprint_context_
     end_of_statement_handler(f, a, pt_ctx);
 }
 
+static void compound_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
+{
+    prettyprint_level(f, ASTSon0(a), pt_ctx);
+}
+
 static void continue_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
     indent_at_level(f, a, pt_ctx);
@@ -1722,7 +1729,7 @@ static void if_then_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_
     token_fprintf(f, a, pt_ctx, "IF (");
     prettyprint_level(f, ASTSon0(a), pt_ctx);
     if (ASTSon1(a) != NULL
-            && ASTType(ASTSon1(a)) != AST_NODE_LIST)
+            && ASTType(ASTSon1(a)) != AST_COMPOUND_STATEMENT)
     {
         token_fprintf(f, a, pt_ctx, ") ");
     }
@@ -1734,7 +1741,7 @@ static void if_then_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_
 
     if (ASTSon1(a) != NULL)
     {
-        if (ASTType(ASTSon1(a)) == AST_NODE_LIST)
+        if (ASTType(ASTSon1(a)) == AST_COMPOUND_STATEMENT)
         {
             NEW_PT_CONTEXT(new_ctx, increase_level);
             prettyprint_level(f, ASTSon1(a), new_ctx);

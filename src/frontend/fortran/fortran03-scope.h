@@ -31,12 +31,20 @@
 #include "cxx-macros.h"
 #include "libmf03-common.h"
 #include "cxx-scope-decls.h"
+#include "cxx-typeutils.h"
 #include "fortran03-scope-decls.h"
 
 MCXX_BEGIN_DECLS
 
 LIBMF03_EXTERN decl_context_t new_program_unit_context(decl_context_t);
+LIBMF03_EXTERN decl_context_t fortran_new_block_context(decl_context_t);
+
+LIBMF03_EXTERN scope_entry_t* new_fortran_symbol(decl_context_t, const char* name);
+LIBMF03_EXTERN scope_entry_t* query_name_no_implicit(decl_context_t, const char* name);
 LIBMF03_EXTERN scope_entry_t* query_name(decl_context_t, const char* name);
+
+LIBMF03_EXTERN void set_implicit_info(decl_context_t decl_context, char from_letter, char to_letter, type_t* type);
+LIBMF03_EXTERN void set_implicit_none(decl_context_t decl_context);
 
 MCXX_END_DECLS
 

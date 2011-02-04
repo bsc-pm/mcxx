@@ -184,7 +184,6 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %type<ast> data_component_def_stmt
 %type<ast> component_decl
 %type<ast> main_program
-%type<ast> program_part
 %type<ast> program_unit_stmts_seq
 %type<ast> program_unit_stmts
 %type<ast> program_body
@@ -2751,9 +2750,12 @@ forall_stmt : labeldef TOK_FORALL forall_header forall_assignment_stmts
 }
 ;
 block : program_unit_stmts_seq
+{
+    $$ = ASTMake1(AST_COMPOUND_STATEMENT, $1, ASTFileName($1), ASTLine($1), NULL);
+}
 | /* empty */
 {
-    $$ = NULL;
+    $$ = ASTLeaf(AST_EMPTY_STATEMENT, NULL, 0, NULL);
 }
 ;
 associate_construct : associate_stmt block end_associate_stmt
@@ -4133,8 +4135,6 @@ main_program : program_stmt program_body end_program_stmt
     $$ = ASTMake3(AST_MAIN_PROGRAM_UNIT, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
-program_part : program_unit_stmts_seq
-;
 program_unit_stmts_seq : program_unit_stmts
 {
     $$ = ASTListLeaf($1);
@@ -4225,21 +4225,13 @@ program_unit_stmts : access_stmt
 | where_stmt
 | write_stmt
 ;
-program_body : program_part internal_subprogram_part 
+program_body : block internal_subprogram_part 
 {
     $$ = ASTMake2(AST_BODY_PROGRAM_UNIT, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
-| program_part
+| block
 {
     $$ = ASTMake2(AST_BODY_PROGRAM_UNIT, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
-}
-| internal_subprogram_part 
-{
-    $$ = ASTMake2(AST_BODY_PROGRAM_UNIT, NULL, $1, ASTFileName($1), ASTLine($1), NULL);
-}
-| /* empty */
-{
-    $$ = NULL;
 }
 ;
 program_stmt : labeldef TOK_PROGRAM name eos
