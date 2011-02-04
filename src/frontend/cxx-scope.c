@@ -282,19 +282,6 @@ decl_context_t new_global_context(void)
     return result;
 }
 
-decl_context_t new_internal_program_unit_context(decl_context_t enclosing_decl_context)
-{
-    // This function is intended for Fortran only
-    decl_context_t result = new_decl_context();
-
-    result.global_scope = new_scope_case_insensitive();
-    result.global_scope->kind = BLOCK_SCOPE;
-    result.global_scope->contained_in = enclosing_decl_context.current_scope;
-    result.current_scope = result.global_scope;
-
-    return result;
-}
-
 decl_context_t new_namespace_context(decl_context_t enclosing_decl_context, 
         scope_entry_t* related_entry)
 {
