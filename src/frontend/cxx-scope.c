@@ -108,11 +108,6 @@ static int strcmp_vptr(const void* v1, const void *v2)
     return strcmp((const char*)v1, (const char*) v2);
 }
 
-static int strcasecmp_vptr(const void* v1, const void *v2)
-{
-    return strcasecmp((const char*)v1, (const char*) v2);
-}
-
 static void null_dtor_func(const void *v UNUSED_PARAMETER) { }
 
 // Any new scope should be created using this one
@@ -122,16 +117,6 @@ static scope_t* new_scope(void)
 
     result->hash =
         rb_tree_create(strcmp_vptr, null_dtor_func, null_dtor_func);
-
-    return result;
-}
-
-static scope_t* new_scope_case_insensitive(void)
-{
-    scope_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
-    
-    result->hash =
-        rb_tree_create(strcasecmp_vptr, null_dtor_func, null_dtor_func);
 
     return result;
 }

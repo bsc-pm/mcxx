@@ -37,6 +37,7 @@
 MCXX_BEGIN_DECLS
 
 LIBMF03_EXTERN decl_context_t new_program_unit_context(decl_context_t);
+LIBMF03_EXTERN decl_context_t new_internal_program_unit_context(decl_context_t);
 LIBMF03_EXTERN decl_context_t fortran_new_block_context(decl_context_t);
 
 LIBMF03_EXTERN scope_entry_t* new_fortran_symbol(decl_context_t, const char* name);
