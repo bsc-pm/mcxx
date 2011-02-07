@@ -33,7 +33,7 @@ using namespace TL::Nanox;
 
 void OMPTransform::barrier_postorder(PragmaCustomConstruct barrier_construct)
 {
-    std::cerr << barrier_construct.get_ast().get_locus() << ": warning: OpenMP barrier is not properly supported at the time" << std::endl;
+    std::cerr << barrier_construct.get_ast().get_locus() << ": warning: OpenMP barrier is not properly supported at this time" << std::endl;
 
     Source new_code;
 
