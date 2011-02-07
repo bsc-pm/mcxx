@@ -141,6 +141,7 @@ namespace Nanox
                 return _device_name;
             }
 
+            virtual void pre_run(DTO& dto){};
             virtual void run(DTO& dto) { }
 
             /*!

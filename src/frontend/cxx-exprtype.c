@@ -7643,6 +7643,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             if (solved_function != NULL)
             {
                 expression_set_type(called_expression, solved_function->type_information);
+                expression_set_symbol(called_expression,solved_function);
             }
             else
             {
@@ -8460,6 +8461,10 @@ static void check_for_function_call(AST expr, decl_context_t decl_context)
         }
         expression_set_is_lvalue(expr, is_lvalue_reference_type(expression_get_type(expr)));
     }
+
+    scope_entry_t *builtin_sym = expression_get_symbol(called_expression);
+    if (builtin_sym != NULL && builtin_sym->entity_specs.is_builtin && builtin_sym->entity_specs.is_mutable)
+        expression_set_is_lvalue(expr,1);
 }
 
 static void check_for_cast_expr(AST expr, AST type_id, AST casted_expression, decl_context_t decl_context)

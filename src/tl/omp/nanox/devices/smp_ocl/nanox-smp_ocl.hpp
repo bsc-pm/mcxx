@@ -18,7 +18,7 @@ namespace TL
                 std::set<std::string> _taskSymbols;
 
             public:
-
+                virtual void pre_run(DTO& dto);
                 virtual void run(DTO& dto) { }
 
                 DeviceSMP_OCL();
@@ -54,8 +54,11 @@ namespace TL
         {
             private:
                 unsigned char * num_generic_vectors;
+
             protected:
                 static const char* prettyprint_callback (AST a, void* data);
+                static const char* recursive_prettyprint(AST a, void* data);
+
             public:
                 ReplaceSrcSMP_OCL(ScopeLink sl) : ReplaceSrcIdExpression(sl)
                 {

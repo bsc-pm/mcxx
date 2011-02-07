@@ -224,6 +224,11 @@ static void do_smp_outline_replacements(AST_t body,
         Source &replaced_outline)
 {   
     int i, counter;
+    bool constant_evaluation;
+    AST_t ast;
+
+    ObjectList<AST_t> builtin_ast_list;
+    ObjectList<Expression> arg_list;
 
     ReplaceSrcSMP replace_src(scope_link);
     ObjectList<DataEnvironItem> data_env_items = data_env_info.get_items();
@@ -232,27 +237,64 @@ static void do_smp_outline_replacements(AST_t body,
     replace_src.add_this_replacement("_args->_this");
 
     //__builtin_vector_loop AST replacement
-    ObjectList<AST_t> builtin_vl_ast_list =
-             body.depth_subtrees(TL::TraverseASTPredicate(FindFunction(scope_link, BUILTIN_VL_NAME)));
+    builtin_ast_list = 
+        body.depth_subtrees(TL::TraverseASTPredicate(FindFunction(scope_link, BUILTIN_VL_NAME)));
 
-    for (ObjectList<AST_t>::iterator it = builtin_vl_ast_list.begin();
-            it != builtin_vl_ast_list.end();
+    for (ObjectList<AST_t>::iterator it = builtin_ast_list.begin();
+            it != builtin_ast_list.end();
             it++)
     {
-        AST_t ast((AST_t)*it) ;
+        ast = (AST_t)*it ;
         Expression expr(ast, scope_link);
 
-        ObjectList<Expression> arg_list = expr.get_argument_list();
-        if (arg_list.size() != 2){
+        arg_list = expr.get_argument_list();
+        if (arg_list.size() != 3){
             internal_error("Wrong number of arguments in %s", BUILTIN_VL_NAME);
         }
 
         Source builtin_vl_replacement;
 
-        builtin_vl_replacement << "((" << arg_list[0].get_id_expression().get_unqualified_part()
-            << ")/(" << _vector_width << "/" << arg_list[1].get_id_expression().get_unqualified_part() << "))";
+        builtin_vl_replacement << arg_list[0].get_id_expression()
+            << "+="
+            << (arg_list[1].evaluate_constant_int_expression(constant_evaluation) 
+            * (_vector_width / arg_list[2].evaluate_constant_int_expression(constant_evaluation)))
+            ;
+
+//        builtin_vl_replacement << "((" << arg_list[0].get_id_expression().get_unqualified_part()
+//            << ")/(" << _vector_width << "/" << arg_list[1].get_id_expression().get_unqualified_part() << "))";
 
         ast.replace(builtin_vl_replacement.parse_expression(ast, scope_link));
+    }
+
+    //__builtin_vector_reference AST replacement
+    builtin_ast_list =
+        body.depth_subtrees(TL::TraverseASTPredicate(FindFunction(scope_link, BUILTIN_VR_NAME)));
+
+    for (ObjectList<AST_t>::iterator it = builtin_ast_list.begin();
+            it != builtin_ast_list.end();
+            it++)
+    {
+        ast = (AST_t)*it;
+        Expression expr(ast, scope_link);
+
+        ObjectList<Expression> arg_list = expr.get_argument_list();
+        if (arg_list.size() != 1){
+            internal_error("Wrong number of arguments in %s", BUILTIN_VR_NAME);
+        }
+
+        Source builtin_vr_replacement;
+
+        builtin_vr_replacement << "*((" 
+            << arg_list[0].get_type()
+                .get_generic_vector_to()
+                .get_pointer_to()
+                .get_simple_declaration(scope_link.get_scope(ast),"")
+            << ") &("
+            << arg_list[0]
+            << "))"
+            ;
+
+        ast.replace(builtin_vr_replacement.parse_expression(ast, scope_link));
     }
 
     //__builtin_vector_expansion AST replacement

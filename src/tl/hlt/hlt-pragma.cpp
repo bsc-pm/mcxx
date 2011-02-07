@@ -51,7 +51,8 @@ using namespace TL::HLT;
 static bool _allow_identity = true;
 static std::string _allow_identity_str;
 
-static TL::ObjectList<TL::Symbol*> builtin_ve_list;
+//static TL::ObjectList<TL::Symbol*> builtin_ve_list;
+static TL::ObjectList<TL::Symbol*> builtin_vr_list;
 
 static void update_identity_flag(const std::string &str)
 {
@@ -61,6 +62,51 @@ static void update_identity_flag(const std::string &str)
             "Option 'disable_identity' is a boolean flag");
 }
 
+static scope_entry_t* solve_vector_ref_overload_name(scope_entry_t* overloaded_function, type_t** arguments, int num_arguments)
+{
+    char name[256];
+    int i;
+    char found_match = 0;
+    scope_entry_t* result = NULL;
+
+    if (num_arguments != 1)
+    {
+        internal_error("hlt-simd builtin '%s' only allows one parameter\n", 
+                        overloaded_function->symbol_name);
+    }
+
+    for(i=1; i<builtin_vr_list.size(); i++) 
+    {
+        if (equivalent_types(get_unqualified_type(arguments[0]),
+                             function_type_get_parameter_type_num(builtin_vr_list[i]->get_type()
+                                                                                    .get_internal_type(), 0)));
+        {
+            return builtin_vr_list[i]->_symbol;
+        }
+    }
+
+    //No Match: Add a new Symbol to the list.
+    TL::ObjectList<TL::Type> params_list;
+    params_list.append(arguments[0]);
+    
+    result = (scope_entry_t*) calloc(1, sizeof(scope_entry_t));
+    result->symbol_name = BUILTIN_VE_NAME;
+    result->kind = SK_FUNCTION;
+    result->type_information = ((TL::Type)arguments[0])
+        .get_generic_vector_to()
+        .get_function_returning(params_list)
+        .get_internal_type();
+    result->decl_context = builtin_vr_list[0]->_symbol->decl_context;
+    result->entity_specs.is_builtin = 1;
+    result->entity_specs.is_mutable = 1;
+
+    TL::Symbol *new_symbol = new TL::Symbol(result);
+    builtin_vr_list.append(new_symbol);
+
+    return result;
+}
+
+/*
 static scope_entry_t* solve_vector_exp_overload_name(scope_entry_t* overloaded_function, type_t** arguments, int num_arguments)
 {
     char name[256];
@@ -100,67 +146,8 @@ static scope_entry_t* solve_vector_exp_overload_name(scope_entry_t* overloaded_f
     builtin_ve_list.append(new_symbol);
 
     return result;
-
-/*
-
-        snprintf(name, 255, "%s_%d", overloaded_function->symbol_name, i);
-        name[255] = '\0';
-        scope_entry_list_t *entry_list = query_unqualified_name_str(overloaded_function->decl_context, name);
-
-        // Let's assume no more overloads have been defined
-        if (entry_list == NULL)
-        {
-            break;
-        }
-
-        scope_entry_t* current_entry = entry_list_head(entry_list);
-        entry_list_free(entry_list);
-
-        type_t* current_function_type = current_entry->type_information;
-
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "HTL_SIMD-BUILTIN: Checking with builtin '%s' of type '%s'\n",
-                    current_entry->symbol_name,
-                    print_declarator(current_function_type));
-        }
-
-        if (!is_function_type(current_function_type))
-        {
-            internal_error("hlt-simd builtin '%s' without function type\n", current_entry);
-        }
-
-        int j;
-        char all_arguments_matched = 1;
-        for (j = 0; (j < num_arguments) && all_arguments_matched; j++)
-        {
-            type_t* argument_type = arguments[j];
-            type_t* parameter_type = function_type_get_parameter_type_num(current_function_type, j);
-
-            all_arguments_matched = all_arguments_matched
-                // We want vector types to be identic
-                && (equivalent_types(get_unqualified_type(argument_type),
-                            parameter_type));
-        }
-
-        if (all_arguments_matched)
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "HLT_SIMD-BUILTIN: Builtin '%s' of type '%s' matched!\n",
-                        current_entry->symbol_name,
-                        print_declarator(current_function_type));
-            }
-            result = current_entry;
-            found_match = 1;
-        }
-    }
-*/
 }
-
-
-
-
+*/
 
 HLTPragmaPhase::HLTPragmaPhase()
     : PragmaCustomCompilerPhase("hlt")
@@ -239,13 +226,20 @@ void HLTPragmaPhase::pre_run(TL::DTO& dto)
     // Get the global_scope
     Scope global_scope = scope_link.get_scope(translation_unit);
 
-    //New Artificial Symbol: __builtin_vector_expansion
-    Symbol builtin_sym = global_scope.new_artificial_symbol(BUILTIN_VE_NAME);
+    //New Artificial Symbol: __builtin_vector_reference
+    
+    Symbol builtin_sym = global_scope.new_artificial_symbol(BUILTIN_VR_NAME);
     builtin_sym._symbol->kind = SK_FUNCTION;
-    builtin_sym._symbol->type_information = get_computed_function_type(solve_vector_exp_overload_name);
+    builtin_sym._symbol->entity_specs.is_builtin = 1;
+    builtin_sym._symbol->entity_specs.is_mutable = 1;
+    builtin_sym._symbol->type_information = get_computed_function_type(solve_vector_ref_overload_name);
+
+//    Symbol builtin_sym = global_scope.new_artificial_symbol(BUILTIN_VE_NAME);
+//    builtin_sym._symbol->kind = SK_FUNCTION;
+//    builtin_sym._symbol->type_information = get_computed_function_type(solve_vector_exp_overload_name);
 
     //Artificial Symbol in list[0]
-    builtin_ve_list.append(&builtin_sym);
+    builtin_vr_list.append(&builtin_sym);
 }
 
 void HLTPragmaPhase::run(TL::DTO& dto)

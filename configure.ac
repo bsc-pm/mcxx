@@ -273,7 +273,7 @@ then
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
    
-   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.cuda"
+   INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} config.cuda config.ocl"
 fi
 
 NANOX_INSTRUMENTATION=""

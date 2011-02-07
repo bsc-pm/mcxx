@@ -37,20 +37,13 @@ namespace TL
         class ReplaceSimdSrc : public ReplaceSrcIdExpression
         {
             private:
-//                bool * is_generic_vector;
+                ObjectList<IdExpression> _simd_id_exp_list;
             protected:
                 static const char* prettyprint_callback (AST a, void* data);
 
             public:
-                ReplaceSimdSrc(ScopeLink sl) : ReplaceSrcIdExpression(sl)
-                {
-                    //is_generic_vector = new bool(false);
-                }
-
-                ~ReplaceSimdSrc()
-                {
-                    //delete(is_generic_vector);
-                }
+                ReplaceSimdSrc(ScopeLink sl, ObjectList<IdExpression> simd_id_exp_list) 
+                    : ReplaceSrcIdExpression(sl), _simd_id_exp_list(simd_id_exp_list){}
 
                 Source replace(AST_t a) const;
                 Source replace(LangConstruct a) const;
@@ -79,8 +72,9 @@ namespace TL
                 ForStatement _for_stmt;
                 ObjectList<IdExpression> _simd_id_exp_list;
                 ReplaceSimdSrc _replacement;
+                bool is_simdizable;
 
-		int _smallest_type_size;
+                int _smallest_type_size;
                 bool _with_epilog;
 
                 Source _result;
