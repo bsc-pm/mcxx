@@ -1047,6 +1047,7 @@ static type_t* get_indirect_type_(scope_entry_t* entry, char indirect)
 
         type_info->type->kind = STK_INDIRECT;
         type_info->type->user_defined_type = entry;
+        type_info->type->is_indirect = indirect;
 
         if (entry->type_information != NULL)
         {
