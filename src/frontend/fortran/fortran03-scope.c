@@ -175,7 +175,7 @@ scope_entry_t* query_name(decl_context_t decl_context, const char* name)
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "SCOPE: getting implicit entity for name '%s'\n", name);
+                fprintf(stderr, "SCOPE: Getting implicit entity for name '%s'\n", name);
             }
             result = new_implicit_symbol(decl_context, name);
         }
@@ -183,7 +183,7 @@ scope_entry_t* query_name(decl_context_t decl_context, const char* name)
         {
             if (result == NULL)
             {
-                fprintf(stderr, "SCOPE: there is no implicit name for entity '%s'\n", name);
+                fprintf(stderr, "SCOPE: There is no implicit name for entity '%s'\n", name);
             }
         }
     }
@@ -196,11 +196,16 @@ decl_context_t fortran_new_block_context(decl_context_t decl_context)
     decl_context_t result = new_block_context(decl_context);
     result.implicit_info = counted_calloc(1, sizeof(*result.implicit_info), &_bytes_fortran_scope);
     *result.implicit_info = *decl_context.implicit_info;
+    result.implicit_info->shared = 1;
 
     return result;
 }
 
 scope_entry_t* new_fortran_symbol(decl_context_t decl_context, const char* name)
 {
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "SCOPE: Creating new symbol '%s'\n", strtolower(name));
+    }
     return new_symbol(decl_context, decl_context.current_scope, strtolower(name));
 }

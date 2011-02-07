@@ -400,11 +400,13 @@ static void build_scope_ambiguity_statement(AST ambig_stmt, decl_context_t decl_
 static void build_scope_program_body(AST program_body, decl_context_t decl_context)
 {
     AST program_part = ASTSon0(program_body);
+    AST program_unit_stmts = ASTSon0(program_part);
+
     AST internal_subprograms = ASTSon1(program_body);
 
     char seen_executables = 0;
     AST it;
-    for_each_element(program_part, it)
+    for_each_element(program_unit_stmts, it)
     {
         AST stmt = ASTSon1(it);
 
@@ -412,7 +414,7 @@ static void build_scope_program_body(AST program_body, decl_context_t decl_conte
         // tell whether this is an executable or non-executable statement
         if (ASTType(stmt) == AST_AMBIGUITY)
         {
-            build_scope_ambiguity_statement(it, decl_context);
+            build_scope_ambiguity_statement(stmt, decl_context);
         }
 
         if (!seen_executables 
@@ -422,10 +424,8 @@ static void build_scope_program_body(AST program_body, decl_context_t decl_conte
             seen_executables = 1;
         }
 
-        build_scope_statement(it, decl_context);
+        fortran_build_scope_statement(stmt, decl_context);
     }
-
-    fortran_build_scope_statement(program_part, decl_context);
 }
 
 typedef void (*build_scope_statement_function_t)(AST statement, decl_context_t);
@@ -2010,7 +2010,7 @@ static void build_scope_do_construct(AST a, decl_context_t decl_context)
     if (stride != NULL)
         fortran_check_expression(stride, decl_context);
 
-    build_scope_statement(block, decl_context);
+    fortran_build_scope_statement(block, decl_context);
 }
 
 static void build_scope_entry_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)

@@ -2149,8 +2149,6 @@ type_t* get_restrict_qualified_type(type_t* t)
 type_t* get_pointer_type(type_t* t)
 {
     ERROR_CONDITION(t == NULL, "Invalid NULL type", 0);
-    if (is_error_type(t))
-        return get_error_type();
 
     static rb_red_blk_tree *_pointer_types = NULL;
 
@@ -2202,8 +2200,6 @@ static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
     }
 
     ERROR_CONDITION(t == NULL, "Invalid reference type", 0);
-    if (is_error_type(t))
-        return get_error_type();
 
     if (is_lvalue_reference_type(t)
             || is_rvalue_reference_type(t))
@@ -2268,8 +2264,6 @@ type_t* get_rvalue_reference_type(type_t* t)
 type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
 {
     ERROR_CONDITION(t == NULL, "Invalid NULL type", 0);
-    if (is_error_type(t))
-        return get_error_type();
 
     static rb_red_blk_tree *_class_types = NULL;
 
@@ -2470,8 +2464,6 @@ static type_t* _get_array_type(type_t* element_type,
         AST whole_size, AST lower_bound, AST upper_bound, decl_context_t decl_context)
 {
     ERROR_CONDITION(element_type == NULL, "Invalid element type", 0);
-    if (is_error_type(element_type))
-        return get_error_type();
 
     ERROR_CONDITION(whole_size != NULL
             && (lower_bound == NULL || upper_bound == NULL),
@@ -2736,8 +2728,6 @@ type_t* get_array_type_bounds(type_t* element_type,
 type_t* get_vector_type(type_t* element_type, unsigned int vector_size)
 {
     ERROR_CONDITION(element_type == NULL, "Invalid type", 0);
-    if (is_error_type(element_type))
-        return get_error_type();
 
     _vector_type_counter++;
     // This type is not efficiently managed
@@ -2866,22 +2856,6 @@ type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int n
 
     type_trie_t* used_trie = NULL;
 
-    if (t != NULL
-            && is_error_type(t))
-        return get_error_type();
-
-    int i;
-    for (i = 0; i < num_parameters; i++)
-    {
-        if (!parameter_info[i].is_ellipsis)
-        {
-            if (is_error_type(parameter_info[i].type_info))
-            {
-                return get_error_type();
-            }
-        }
-    }
-
     if (t == NULL)
     {
         if (_no_type_functions == NULL)
@@ -2912,6 +2886,7 @@ type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int n
         fun_type_is_dependent = is_dependent_type(t);
     }
 
+    int i;
     for (i = 0; i < num_parameters; i++)
     {
         if (!parameter_info[i].is_ellipsis)
@@ -7751,6 +7726,8 @@ type_t* get_error_type(void)
         _error_type = counted_calloc(1, sizeof(*_error_type), &_bytes_due_to_type_system);
         _error_type->kind = TK_ERROR;
         _error_type->unqualified_type = _error_type;
+        _error_type->info = 
+            counted_calloc(1, sizeof(*_error_type->info), &_bytes_due_to_type_system);
     }
     return _error_type;
 }
