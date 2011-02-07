@@ -1,6 +1,7 @@
 #include "fortran03-typeutils.h"
 #include "fortran03-prettyprint.h"
 #include "cxx-utils.h"
+#include <string.h>
 
 const char* fortran_print_type_str(type_t* t)
 {
@@ -171,4 +172,20 @@ char is_pointer_to_fortran_character_type(type_t* t)
         return is_fortran_character_type(pointer_type_get_pointee_type(t));
     }
     return 0;
+}
+
+type_t* replace_return_type_of_function_type(type_t* function_type, type_t* new_return_type)
+{
+    ERROR_CONDITION(!is_function_type(function_type), "Must be a function type", 0);
+
+    int num_parameters = function_type_get_num_parameters(function_type);
+    parameter_info_t parameter_info[1 + num_parameters];
+    memset(&parameter_info, 0, sizeof(parameter_info));
+    int i;
+    for (i = 0; i < num_parameters; i++)
+    {
+        parameter_info[i].type_info = function_type_get_parameter_type_num(function_type, i);
+    }
+
+    return get_new_function_type(new_return_type, parameter_info, num_parameters);
 }

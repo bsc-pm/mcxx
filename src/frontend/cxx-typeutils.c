@@ -97,7 +97,7 @@ enum simple_type_kind_tag
     STK_COMPLEX,
     STK_CLASS, // [2] struct {identifier};
     STK_ENUM, // [3] enum {identifier}
-    STK_USER_DEFINED, // [4] A {identifier};
+    STK_INDIRECT, // [4] A type defined after the type of another symbol
     STK_TEMPLATE_TYPE, // [5] a template type
     // An unknown type
     STK_TEMPLATE_DEPENDENT_TYPE, // [6]
@@ -259,6 +259,9 @@ struct simple_type_tag {
     // (kind == STK_TYPEOF)
     unsigned char typeof_is_expr:1;
 
+    // States that the STK_INDIRECT is a not the last indirect
+    unsigned char is_indirect:1;
+
     // This type exists after another symbol, for
     // instance
     //
@@ -268,7 +271,7 @@ struct simple_type_tag {
     // A b;
     //
     // creates an 'A' symbol of type SK_CLASS
-    // and a 'b' symbol SK_VARIABLE with type STK_USER_DEFINED
+    // and a 'b' symbol SK_VARIABLE with type STK_INDIRECT
     // pointing to 'A' symbol
     struct scope_entry_tag* user_defined_type;
 
@@ -298,14 +301,14 @@ struct simple_type_tag {
 
     // For template types
     template_parameter_list_t* template_parameter_list;
-    // This is a STK_USER_DEFINED
+    // This is a STK_INDIRECT
     type_t* primary_specialization;
     // Sometimes we need the original symbol defining this template type
     scope_entry_t* related_template_symbol;
 
     // Specialized types
     int num_specialized_types;
-    // These are a STK_USER_DEFINED
+    // These are a STK_INDIRECT
     type_t** specialized_types;
 
     // Template dependent types (STK_TEMPLATE_DEPENDENT_TYPE)
@@ -1025,14 +1028,16 @@ static type_t* rb_tree_query_symbol(rb_red_blk_tree* tree, scope_entry_t* sym)
     return result;
 }
 
-type_t* get_user_defined_type(scope_entry_t* entry)
+static type_t* get_indirect_type_(scope_entry_t* entry, char indirect)
 {
-    static rb_red_blk_tree *_user_defined_types = NULL;
+    static rb_red_blk_tree *_user_defined_types_arr[2] = { NULL, NULL };
 
-    if (_user_defined_types == NULL)
+    if (_user_defined_types_arr[!!indirect] == NULL)
     {
-        _user_defined_types = rb_tree_create(integer_comp, null_dtor, null_dtor);
+        _user_defined_types_arr[!!indirect] = rb_tree_create(integer_comp, null_dtor, null_dtor);
     }
+
+    rb_red_blk_tree * _user_defined_types = _user_defined_types_arr[!!indirect];
     
     type_t* type_info = rb_tree_query_symbol(_user_defined_types, entry);
 
@@ -1040,7 +1045,7 @@ type_t* get_user_defined_type(scope_entry_t* entry)
     {
         type_info = get_simple_type();
 
-        type_info->type->kind = STK_USER_DEFINED;
+        type_info->type->kind = STK_INDIRECT;
         type_info->type->user_defined_type = entry;
 
         if (entry->type_information != NULL)
@@ -1062,6 +1067,16 @@ type_t* get_user_defined_type(scope_entry_t* entry)
     }
 
     return type_info;
+}
+
+type_t* get_user_defined_type(scope_entry_t* entry)
+{
+    return get_indirect_type_(entry, /* indirect */ entry->kind == SK_TYPEDEF);
+}
+
+type_t* get_indirect_type(scope_entry_t* entry)
+{
+    return get_indirect_type_(entry, /* indirect */ 1);
 }
 
 static dependent_name_part_t* get_dependent_nested_part(
@@ -3577,9 +3592,9 @@ type_t* advance_over_typedefs_with_cv_qualif(type_t* t1, cv_qualifier_t* cv_qual
 
     // Advance over typedefs
     while (t1->kind == TK_DIRECT
-            && t1->type->kind == STK_USER_DEFINED
+            && t1->type->kind == STK_INDIRECT
             && t1->type->user_defined_type != NULL
-            && t1->type->user_defined_type->kind == SK_TYPEDEF)
+            && t1->type->is_indirect)
     {
         t1 = t1->type->user_defined_type->type_information;
         if (cv_qualif != NULL)
@@ -4019,7 +4034,7 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2)
             // (if not, something is broken)
             result = (t1 == t2);
             break;
-        case STK_USER_DEFINED :
+        case STK_INDIRECT :
             result = equivalent_named_types(t1->user_defined_type, 
                     t2->user_defined_type);
             break;
@@ -5242,7 +5257,7 @@ char is_named_type(type_t* t)
 {
     return (t != NULL
             && t->kind == TK_DIRECT
-            && t->type->kind == STK_USER_DEFINED
+            && t->type->kind == STK_INDIRECT
             && t->type->user_defined_type != NULL);
 }
 
@@ -5438,7 +5453,7 @@ char is_named_class_type(type_t* possible_class)
     possible_class = advance_over_typedefs(possible_class);
     return (possible_class != NULL
             && possible_class->kind == TK_DIRECT
-            && possible_class->type->kind == STK_USER_DEFINED
+            && possible_class->type->kind == STK_INDIRECT
             && possible_class->type->user_defined_type != NULL
             && possible_class->type->user_defined_type->type_information != NULL
             && possible_class->type->user_defined_type->type_information->kind == TK_DIRECT
@@ -5648,7 +5663,7 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
     const char* result = "";
     switch ((int)simple_type->kind)
     {
-        case STK_USER_DEFINED :
+        case STK_INDIRECT :
             {
                 scope_entry_t* entry = simple_type->user_defined_type;
 
@@ -6516,7 +6531,7 @@ static const char* get_builtin_type_name(type_t* type_info)
                 result = strappend(result, print_declarator(simple_type_info->complex_element));
                 break;
             }
-        case STK_USER_DEFINED :
+        case STK_INDIRECT :
             result = get_named_simple_type_name(simple_type_info->user_defined_type);
             break;
         case STK_ENUM :

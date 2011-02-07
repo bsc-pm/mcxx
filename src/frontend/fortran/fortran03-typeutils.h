@@ -13,4 +13,7 @@ LIBMF03_EXTERN type_t* get_rank0_type(type_t* t);
 LIBMF03_EXTERN char is_fortran_character_type(type_t*);
 LIBMF03_EXTERN char is_pointer_to_fortran_character_type(type_t* t);
 
+LIBMF03_EXTERN type_t* replace_return_type_of_function_type(type_t* function_type, 
+        type_t* new_return_type);
+
 #endif // FORTRAN03_TYPEUTILS_H

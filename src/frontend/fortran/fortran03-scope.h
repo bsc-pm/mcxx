@@ -46,6 +46,10 @@ LIBMF03_EXTERN scope_entry_t* query_name(decl_context_t, const char* name);
 
 LIBMF03_EXTERN void set_implicit_info(decl_context_t decl_context, char from_letter, char to_letter, type_t* type);
 LIBMF03_EXTERN void set_implicit_none(decl_context_t decl_context);
+LIBMF03_EXTERN char is_implicit_none(decl_context_t decl_context);
+LIBMF03_EXTERN char implicit_has_been_set(decl_context_t decl_context);
+
+LIBMF03_EXTERN type_t* get_implicit_type_for_symbol(decl_context_t decl_context, const char* name);
 
 MCXX_END_DECLS
 

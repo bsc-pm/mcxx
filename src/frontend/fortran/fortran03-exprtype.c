@@ -965,11 +965,47 @@ static void check_symbol(AST expr, decl_context_t decl_context)
         return;
     }
 
-    if (entry->kind == SK_VARIABLE
-            || entry->kind == SK_FUNCTION)
+    if (entry->kind == SK_VARIABLE)
     {
+        // It might happen that dummy arguments/result do not have any implicit
+        // type here (because the input code is wrong)
+        if (is_error_type(entry->type_information))
+        {
+            if (!checking_ambiguity())
+            {
+                fprintf(stderr, "%s: warning: entity '%s' does not have any IMPLICIT type\n",
+                        ast_location(expr),
+                        fortran_prettyprint_in_buffer(expr));
+            }
+            expression_set_error(expr);
+            return;
+        }
+
         expression_set_symbol(expr, entry);
         expression_set_type(expr, entry->type_information);
+    }
+    else if (entry->kind == SK_FUNCTION)
+    {
+        // This function has a RESULT(X) so it cannot be used as a variable
+        if (entry->entity_specs.num_related_symbols > 0
+                && entry->entity_specs.related_symbols[entry->entity_specs.num_related_symbols - 1]->entity_specs.is_result)
+        {
+            if (!checking_ambiguity())
+            {
+                fprintf(stderr, "%s: warning: entity '%s' is not a variable\n",
+                        ast_location(expr),
+                        fortran_prettyprint_in_buffer(expr));
+            }
+            expression_set_error(expr);
+            return;
+        }
+
+        type_t* return_type = function_type_get_return_type(entry->type_information);
+        if (return_type != NULL)
+        {
+            expression_set_symbol(expr, entry);
+            expression_set_type(expr, return_type);
+        }
     }
     else
     {
@@ -1325,14 +1361,11 @@ static type_t* compute_result_of_intrinsic_operator(AST expr, type_t* lhs_type, 
         {
             if (!checking_ambiguity())
             {
-                if (!checking_ambiguity())
-                {
-                    fprintf(stderr, "%s: warning: invalid operand types %s and %s for intrinsic binary operator '%s'\n",
-                            ast_location(expr),
-                            fortran_print_type_str(lhs_type),
-                            fortran_print_type_str(rhs_type),
-                            get_operator_for_expr(expr));
-                }
+                fprintf(stderr, "%s: warning: invalid operand types %s and %s for intrinsic binary operator '%s'\n",
+                        ast_location(expr),
+                        fortran_print_type_str(lhs_type),
+                        fortran_print_type_str(rhs_type),
+                        get_operator_for_expr(expr));
             }
             return get_error_type();
         }

@@ -117,12 +117,18 @@ static AST ast_make_node_label(node_t node_type,
 
 static AST ambig_fun_array_ctor(YYSTYPE x0, YYSTYPE x1)
 {
-    return ast_make_ambiguous(x0.ast, x1.ast);
+    AST result = ast_make_ambiguous(x0.ast, x1.ast);
+    ast_set_text(result, "ARRAY_CTOR");
+
+    return result;
 }
 
 static AST ambig_assignment_statement_function(YYSTYPE x0, YYSTYPE x1)
 {
-    return ast_make_ambiguous(x0.ast, x1.ast);
+    AST result = ast_make_ambiguous(x0.ast, x1.ast);
+    ast_set_text(result, "ASSIGNMENT");
+
+    return result;
 }
 
 static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
@@ -1314,10 +1320,7 @@ type_attr_spec : TOK_ABSTRACT
     $$ = ASTLeaf(AST_ABSTRACT, $1.token_file, $1.token_line, $1.token_text);
 }
 | access_spec
-| TOK_BIND '(' TOK_C ')'
-{
-    $$ = ASTLeaf(AST_BIND_C, $1.token_file, $1.token_line, $3.token_text);
-}
+| language_binding_spec
 | TOK_EXTENDS '(' name ')'
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, $1.token_file, $1.token_line, $2.token_text);
@@ -1840,24 +1843,15 @@ access_spec : TOK_PUBLIC
     $$ = ASTLeaf(AST_ATTR_SPEC, $1.token_file, $1.token_line, NULL);
 }
 ;
-proc_language_binding_spec: language_binding_spec
+proc_language_binding_spec : language_binding_spec
 ;
 language_binding_spec : TOK_BIND '(' TOK_C ',' TOK_NAME '=' default_char_constant_expr ')'
 {
-    // Keep the case
-    char c[100];
-    snprintf(c, 99, "%s (%s, %s = ", $1.token_text, $3.token_text, $5.token_text);
-    c[99] = '\0';
-
-    $$ = ASTMake1(AST_BIND_C_SPEC, $7, $1.token_file, $1.token_line, c);
+    $$ = ASTMake1(AST_BIND_C_SPEC, $7, $1.token_file, $1.token_line, "bind");
 }
 | TOK_BIND '(' TOK_C ')'
 {
-    char c[100];
-    snprintf(c, 99, "%s (%s)", $1.token_text, $3.token_text);
-    c[99] = '\0';
-
-    $$ = ASTMake1(AST_BIND_C_SPEC, NULL, $1.token_file, $1.token_line, c);
+    $$ = ASTMake1(AST_BIND_C_SPEC, NULL, $1.token_file, $1.token_line, "bind");
 }
 ;
 coarray_spec : array_spec
@@ -1961,11 +1955,11 @@ asynchronous_stmt : labeldef TOK_ASYNCHRONOUS ':' ':' object_name_list eos
 ;
 bind_stmt : labeldef language_binding_spec ':' ':' bind_entity_list eos
 {
-    $$ = ASTMake3Label(AST_BINDING_STATEMENT, $1, $2, $5, ASTFileName($2), ASTLine($2), NULL);
+    $$ = ASTMake3Label(AST_BIND_STATEMENT, $1, $2, $5, ASTFileName($2), ASTLine($2), NULL);
 }
 | labeldef language_binding_spec bind_entity_list eos
 {
-    $$ = ASTMake3Label(AST_BINDING_STATEMENT, $1, $2, $3, ASTFileName($2), ASTLine($2), NULL);
+    $$ = ASTMake3Label(AST_BIND_STATEMENT, $1, $2, $3, ASTFileName($2), ASTLine($2), NULL);
 }
 ;
 bind_entity : name
@@ -4753,6 +4747,9 @@ alt_return_spec : '*' label
 prefix : prefix_spec_seq
 ;
 prefix_spec : declaration_type_spec
+{
+    $$ = ASTMake1(AST_ATTR_SPEC, $1, ASTFileName($1), ASTLine($1), "__declaration__");
+}
 | TOK_ELEMENTAL
 {
     $$ = ASTLeaf(AST_ATTR_SPEC, $1.token_file, $1.token_line, $1.token_text);

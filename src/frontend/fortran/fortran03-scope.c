@@ -81,6 +81,16 @@ void set_implicit_none(decl_context_t decl_context)
     decl_context.implicit_info->implicit_set_info = NULL;
 }
 
+char is_implicit_none(decl_context_t decl_context)
+{
+    return decl_context.implicit_info->implicit_set_info == NULL;
+}
+
+char implicit_has_been_set(decl_context_t decl_context)
+{
+    return !decl_context.implicit_info->shared;
+}
+
 decl_context_t new_program_unit_context(decl_context_t decl_context)
 {
     decl_context_t result = new_block_context(decl_context);
@@ -122,6 +132,22 @@ static scope_entry_t* new_implicit_symbol(decl_context_t decl_context, const cha
     }
 
     return NULL;
+}
+
+type_t* get_implicit_type_for_symbol(decl_context_t decl_context, const char* name)
+{
+    type_t* implicit_type = NULL;
+
+    if (decl_context.implicit_info->implicit_set_info != NULL)
+    {
+        implicit_type = 
+            (*(decl_context.implicit_info->implicit_set_info))[tolower(name[0]) - 'a'];
+    }
+
+    if (implicit_type == NULL)
+        implicit_type = get_error_type();
+
+    return implicit_type;
 }
 
 scope_entry_t* query_name_no_implicit(decl_context_t decl_context, const char* name)
