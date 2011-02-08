@@ -910,19 +910,20 @@ static void block_statement_handler(FILE* f, AST a, prettyprint_context_t* pt_ct
 
 static void body_program_unit_handler(FILE* f, AST a, prettyprint_context_t* pt_ctx)
 {
-    if (ASTSon2(a) != NULL)
+    if (ASTSon1(a) != NULL)
     {
-        NEW_PT_CONTEXT(new_ctx, increase_level);
-        prettyprint_level(f, ASTSon0(a), new_ctx);
-        prettyprint_level(f, ASTSon1(a), new_ctx);
+        prettyprint_level(f, ASTSon0(a), pt_ctx);
+
         indent_at_level(f, a, pt_ctx);
         token_fprintf(f, a, pt_ctx, "CONTAINS");
-        prettyprint_level(f, ASTSon2(a), new_ctx);
+        end_of_statement_handler(f, a, pt_ctx);
+
+        NEW_PT_CONTEXT(new_ctx, increase_level);
+        prettyprint_level(f, ASTSon1(a), new_ctx);
     }
     else
     {
         prettyprint_level(f, ASTSon0(a), pt_ctx);
-        prettyprint_level(f, ASTSon1(a), pt_ctx);
     }
 }
 

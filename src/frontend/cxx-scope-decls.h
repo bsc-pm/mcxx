@@ -455,6 +455,9 @@ typedef struct entity_specifiers_tag
 
     // Is a dummy of a statement function
     char is_dummy_arg_stmt_function:1;
+
+    // Is generic spec
+    char is_generic_spec:1;
 #endif
 
     // -- End of bits, move all bits before this point

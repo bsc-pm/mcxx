@@ -100,10 +100,24 @@ static char* symbol_kind_names[] =
 //     [TEMPLATE_SCOPE] = "TEMPLATE_SCOPE",
 // };
 
+#define MAX_SCOPES_DEPTH 128
+
+typedef
+struct print_context_data_tag
+{
+    int global_indent;
+    int num_scopes;
+    scope_t* scope_set[MAX_SCOPES_DEPTH];
+} print_context_data_t;
+
+static print_context_data_t print_context_data;
+
 void print_scope(decl_context_t decl_context)
 {
+    memset(&print_context_data, 0, sizeof(print_context_data));
     print_scope_full_context(decl_context, 0);
 }
+
 
 static void print_scope_full_context(decl_context_t decl_context, int global_indent)
 {
@@ -142,7 +156,23 @@ static void print_scope_full_aux(const void* key UNUSED_PARAMETER, void* info, v
 
 static void print_scope_full(scope_t* st, int global_indent)
 {
+    int i;
+    for (i = 0; i < print_context_data.num_scopes; i++)
+    {
+        if (print_context_data.scope_set[i] == st)
+        {
+            PRINT_INDENTED_LINE(stderr, global_indent, "<<Recursive scope not printed>>\n");
+            return;
+        }
+    }
+
+    print_context_data.scope_set[print_context_data.num_scopes] = st;
+    print_context_data.num_scopes++;
+
     rb_tree_walk(st->hash, print_scope_full_aux, &global_indent);
+
+    print_context_data.num_scopes--;
+    print_context_data.scope_set[print_context_data.num_scopes] = NULL;
 }
 
 static void print_scope_entry_list(scope_entry_list_t* entry_list, int global_indent)
@@ -329,7 +359,6 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
         {
             PRINT_INDENTED_LINE(stderr, global_indent+1, "Prototype: %s\n",
                     print_declarator(entry->type_information));
-            // print_scope_full(entry->related_decl_context.current_scope, global_indent+1);
             C_LANGUAGE()
             {
                 if (function_type_get_lacking_prototype(entry->type_information))

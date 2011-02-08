@@ -18,6 +18,9 @@
 #include <stdlib.h>
 #include <ctype.h>
 
+static void unsupported_construct(AST a, const char* name);
+static void unsupported_statement(AST a, const char* name);
+
 void fortran_initialize_translation_unit_scope(translation_unit_t* translation_unit)
 {
     decl_context_t decl_context;
@@ -43,27 +46,38 @@ void build_scope_fortran_translation_unit(translation_unit_t* translation_unit)
 }
 
 static void build_scope_program_unit(AST program_unit, 
-        decl_context_t decl_context);
+        decl_context_t decl_context,
+        scope_entry_t** program_unit_symbol);
+
 static void build_scope_program_unit_seq(AST program_unit_seq, 
         decl_context_t decl_context)
 {
     AST it;
     for_each_element(program_unit_seq, it)
     {
-        build_scope_program_unit(ASTSon1(it), decl_context);
+        build_scope_program_unit(ASTSon1(it), decl_context, NULL);
     }
 }
 
-static void build_scope_main_program_unit(AST program_unit, decl_context_t program_unit_context);
-static void build_scope_subroutine_program_unit(AST program_unit, decl_context_t program_unit_context);
-static void build_scope_function_program_unit(AST program_unit, decl_context_t program_unit_context);
-static void build_scope_module_program_unit(AST program_unit, decl_context_t program_unit_context);
-static void build_scope_block_data_program_unit(AST program_unit, decl_context_t program_unit_context);
+static void build_scope_main_program_unit(AST program_unit, decl_context_t
+        program_unit_context, scope_entry_t** program_unit_symbol);
+static void build_scope_subroutine_program_unit(AST program_unit,
+        decl_context_t program_unit_context, scope_entry_t**
+        program_unit_symbol);
+static void build_scope_function_program_unit(AST program_unit, decl_context_t
+        program_unit_context, scope_entry_t** program_unit_symbol);
+static void build_scope_module_program_unit(AST program_unit, decl_context_t
+        program_unit_context, scope_entry_t** program_unit_symbol);
+static void build_scope_block_data_program_unit(AST program_unit,
+        decl_context_t program_unit_context, scope_entry_t**
+        program_unit_symbol);
 
-static void handle_opt_value_list(AST io_stmt, AST opt_value_list, decl_context_t decl_context);
+static void handle_opt_value_list(AST io_stmt, AST opt_value_list,
+        decl_context_t decl_context);
 
 static void build_scope_program_unit(AST program_unit, 
-        decl_context_t decl_context)
+        decl_context_t decl_context,
+        scope_entry_t** program_unit_symbol)
 {
     decl_context_t program_unit_context = new_program_unit_context(decl_context);
 
@@ -71,27 +85,27 @@ static void build_scope_program_unit(AST program_unit,
     {
         case AST_MAIN_PROGRAM_UNIT:
             {
-                build_scope_main_program_unit(program_unit, program_unit_context);
+                build_scope_main_program_unit(program_unit, program_unit_context, program_unit_symbol);
                 break;
             }
         case AST_SUBROUTINE_PROGRAM_UNIT:
             {
-                build_scope_subroutine_program_unit(program_unit, program_unit_context);
+                build_scope_subroutine_program_unit(program_unit, program_unit_context, program_unit_symbol);
                 break;
             }
         case AST_FUNCTION_PROGRAM_UNIT:
             {
-                build_scope_function_program_unit(program_unit, program_unit_context);
+                build_scope_function_program_unit(program_unit, program_unit_context, program_unit_symbol);
                 break;
             }
         case AST_MODULE_PROGRAM_UNIT :
             {
-                build_scope_module_program_unit(program_unit, program_unit_context);
+                build_scope_module_program_unit(program_unit, program_unit_context, program_unit_symbol);
                 break;
             }
         case AST_BLOCK_DATA_PROGRAM_UNIT:
             {
-                build_scope_block_data_program_unit(program_unit, program_unit_context);
+                build_scope_block_data_program_unit(program_unit, program_unit_context, program_unit_symbol);
                 break;
             }
         default:
@@ -106,7 +120,9 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
         char is_function);
 static void build_scope_program_body(AST program_body, decl_context_t decl_context);
 
-static void build_scope_main_program_unit(AST program_unit, decl_context_t program_unit_context)
+static void build_scope_main_program_unit(AST program_unit, 
+        decl_context_t program_unit_context, 
+        scope_entry_t** program_unit_symbol)
 {
     DEBUG_CODE()
     {
@@ -125,8 +141,13 @@ static void build_scope_main_program_unit(AST program_unit, decl_context_t progr
     program_sym->file = ASTFileName(program_unit);
     program_sym->line = ASTLine(program_unit);
 
+    insert_entry(program_unit_context.current_scope->contained_in, program_sym);
+
     program_sym->related_decl_context = program_unit_context;
     program_unit_context.current_scope->related_entry = program_sym;
+
+    if (program_unit_symbol != NULL)
+        *program_unit_symbol = program_sym;
 
     AST program_body = ASTSon1(program_unit);
     if (program_body == NULL)
@@ -135,7 +156,9 @@ static void build_scope_main_program_unit(AST program_unit, decl_context_t progr
     build_scope_program_body(program_body, program_unit_context);
 }
 
-static void build_scope_function_program_unit(AST program_unit, decl_context_t program_unit_context)
+static void build_scope_function_program_unit(AST program_unit, 
+        decl_context_t program_unit_context, 
+        scope_entry_t** program_unit_symbol)
 {
     DEBUG_CODE()
     {
@@ -154,6 +177,11 @@ static void build_scope_function_program_unit(AST program_unit, decl_context_t p
             name, prefix, suffix, 
             dummy_arg_name_list, /* is_function */ 1);
 
+    insert_entry(program_unit_context.current_scope->contained_in, new_entry);
+
+    if (program_unit_symbol != NULL)
+        *program_unit_symbol = new_entry;
+
     new_entry->related_decl_context = program_unit_context;
     program_unit_context.current_scope->related_entry = new_entry;
 
@@ -164,7 +192,9 @@ static void build_scope_function_program_unit(AST program_unit, decl_context_t p
     build_scope_program_body(program_body, program_unit_context);
 }
 
-static void build_scope_subroutine_program_unit(AST program_unit, decl_context_t program_unit_context)
+static void build_scope_subroutine_program_unit(AST program_unit, 
+        decl_context_t program_unit_context, 
+        scope_entry_t** program_unit_symbol)
 {
     DEBUG_CODE()
     {
@@ -178,12 +208,23 @@ static void build_scope_subroutine_program_unit(AST program_unit, decl_context_t
 
     AST function_prototype = ASTSon2(subroutine_stmt);
 
-    AST dummy_arg_name_list = ASTSon0(function_prototype);
-    AST suffix = ASTSon1(function_prototype);
+    AST dummy_arg_name_list = NULL;
+    AST suffix = NULL;
+    
+    if (function_prototype != NULL)
+    {
+        dummy_arg_name_list = ASTSon0(function_prototype);
+        suffix = ASTSon1(function_prototype);
+    }
 
     scope_entry_t *new_entry = new_procedure_symbol(program_unit_context,
             name, prefix, suffix, 
             dummy_arg_name_list, /* is_function */ 0);
+
+    if (program_unit_symbol != NULL)
+        *program_unit_symbol = new_entry;
+
+    insert_entry(program_unit_context.current_scope->contained_in, new_entry);
 
     new_entry->related_decl_context = program_unit_context;
     program_unit_context.current_scope->related_entry = new_entry;
@@ -195,7 +236,9 @@ static void build_scope_subroutine_program_unit(AST program_unit, decl_context_t
     build_scope_program_body(program_body, program_unit_context);
 }
 
-static void build_scope_module_program_unit(AST program_unit, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_module_program_unit(AST program_unit, 
+        decl_context_t decl_context UNUSED_PARAMETER,
+        scope_entry_t** program_unit_symbol UNUSED_PARAMETER)
 {
     DEBUG_CODE()
     {
@@ -207,7 +250,8 @@ static void build_scope_module_program_unit(AST program_unit, decl_context_t dec
 }
 
 static void build_scope_block_data_program_unit(AST program_unit,
-        decl_context_t program_unit_context UNUSED_PARAMETER)
+        decl_context_t program_unit_context UNUSED_PARAMETER,
+        scope_entry_t** program_unit_symbol UNUSED_PARAMETER)
 {
     // Do nothing with these
     DEBUG_CODE()
@@ -232,7 +276,7 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
 
     type_t* return_type = NULL;
     if (is_function)
-        return_type = get_error_type();
+        return_type = get_implicit_type_for_symbol(decl_context, entry->symbol_name);
 
     if (prefix != NULL)
     {
@@ -284,7 +328,7 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
     }
 
     int num_dummy_arguments = 0;
-    if (dummy_arg_name_list)
+    if (dummy_arg_name_list != NULL)
     {
         AST it;
         for_each_element(dummy_arg_name_list, it)
@@ -298,22 +342,16 @@ static scope_entry_t* new_procedure_symbol(decl_context_t decl_context,
                 continue;
             }
 
-            scope_entry_t* dummy_arg = query_name(decl_context, ASTText(dummy_arg_name));
-            if (dummy_arg == NULL)
-            {
-                // Create a really dummy argument without type in the hope it will be properly defined later
-                dummy_arg = new_fortran_symbol(decl_context, ASTText(dummy_arg_name));
-                // This will allow a later overwrite
-                dummy_arg->entity_specs.is_implicit = 1;
-                // No type known yet
-                dummy_arg->type_information = get_error_type();
-            }
+            scope_entry_t* dummy_arg = new_fortran_symbol(decl_context, ASTText(dummy_arg_name));
 
             dummy_arg->kind = SK_VARIABLE;
+            dummy_arg->type_information = 
+                get_implicit_type_for_symbol(decl_context, ASTText(dummy_arg_name));
             dummy_arg->file = ASTFileName(dummy_arg_name);
             dummy_arg->line = ASTLine(dummy_arg_name);
             dummy_arg->entity_specs.is_parameter = 1;
             dummy_arg->entity_specs.parameter_position = num_dummy_arguments;
+            dummy_arg->entity_specs.is_implicit = 1;
 
             P_LIST_ADD(entry->entity_specs.related_symbols,
                     entry->entity_specs.num_related_symbols,
@@ -389,8 +427,7 @@ static void build_scope_internal_subprograms(AST internal_subprograms, decl_cont
     for_each_element(internal_subprograms, it)
     {
         AST internal_subprogram = ASTSon1(it);
-
-        build_scope_program_unit(internal_subprogram, decl_context);
+        build_scope_program_unit(internal_subprogram, decl_context, NULL);
     }
 }
 
@@ -404,27 +441,39 @@ static void build_scope_program_body(AST program_body, decl_context_t decl_conte
 
     AST internal_subprograms = ASTSon1(program_body);
 
-    char seen_executables = 0;
-    AST it;
-    for_each_element(program_unit_stmts, it)
+    char seen_internal_subprograms = 0;
+
+    if (program_unit_stmts != NULL)
     {
-        AST stmt = ASTSon1(it);
-
-        // Exceptionally we run this one first otherwise it is not possible to
-        // tell whether this is an executable or non-executable statement
-        if (ASTType(stmt) == AST_AMBIGUITY)
+        char seen_executables = 0;
+        AST it;
+        for_each_element(program_unit_stmts, it)
         {
-            build_scope_ambiguity_statement(stmt, decl_context);
-        }
+            AST stmt = ASTSon1(it);
 
-        if (!seen_executables 
-                && statement_is_executable(stmt))
-        {
-            build_scope_internal_subprograms(internal_subprograms, decl_context);
-            seen_executables = 1;
-        }
+            // Exceptionally we run this one first otherwise it is not possible to
+            // tell whether this is an executable or non-executable statement
+            if (ASTType(stmt) == AST_AMBIGUITY)
+            {
+                build_scope_ambiguity_statement(stmt, decl_context);
+            }
 
-        fortran_build_scope_statement(stmt, decl_context);
+            if (!seen_executables 
+                    && statement_is_executable(stmt))
+            {
+                build_scope_internal_subprograms(internal_subprograms, decl_context);
+                seen_executables = 1;
+                seen_internal_subprograms = 1;
+            }
+
+            fortran_build_scope_statement(stmt, decl_context);
+        }
+    }
+
+    if (!seen_internal_subprograms)
+    {
+        build_scope_internal_subprograms(internal_subprograms, decl_context);
+        seen_internal_subprograms = 1;
     }
 }
 
@@ -2151,8 +2200,7 @@ static void update_dummy_arguments_and_result(decl_context_t decl_context)
     {
         type_t* return_type 
             = function_type_get_return_type(related_entry->type_information);
-        if (return_type != NULL
-                && is_error_type(return_type))
+        if (return_type != NULL)
         {
             type_t* new_return_type = get_implicit_type_for_symbol(decl_context, related_entry->symbol_name);
 
@@ -2251,16 +2299,108 @@ static void build_scope_import_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_
     unsupported_statement(a, "IMPORT");
 }
 
-static void build_scope_intent_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_intent_stmt(AST a, decl_context_t decl_context)
 {
+    AST intent_spec = ASTSon0(a);
+    AST dummy_arg_name_list = ASTSon1(a);
+
+    AST it;
+    for_each_element(dummy_arg_name_list, it)
+    {
+        AST dummy_arg = ASTSon1(it);
+
+        scope_entry_t* entry = query_name(decl_context, ASTText(dummy_arg));
+
+        if (entry == NULL)
+        {
+            running_error("%s: error: unknown entity '%s' in INTENT statement\n",
+                    ast_location(dummy_arg),
+                    fortran_prettyprint_in_buffer(dummy_arg));
+        }
+
+        if (!entry->entity_specs.is_parameter)
+        {
+            running_error("%s: error: entity '%s' is not a dummy argument\n",
+                    ast_location(dummy_arg),
+                    fortran_prettyprint_in_buffer(dummy_arg));
+        }
+
+        if (entry->entity_specs.intent_kind != INTENT_INVALID)
+        {
+            running_error("%s: error: entity '%s' already has an INTENT attribute\n",
+                    ast_location(dummy_arg),
+                    fortran_prettyprint_in_buffer(dummy_arg));
+        }
+
+        attr_spec_t attr_spec;
+        memset(&attr_spec, 0, sizeof(attr_spec));
+
+        gather_attr_spec_item(intent_spec, decl_context, &attr_spec);
+
+        entry->entity_specs.intent_kind = attr_spec.intent_kind;
+    }
 }
 
-static void build_scope_interface_block(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_interface_block(AST a, decl_context_t decl_context)
 {
+    AST interface_stmt = ASTSon0(a);
+    AST interface_specification_seq = ASTSon1(a);
+
+    AST abstract = ASTSon0(interface_stmt);
+    if (abstract != NULL)
+    {
+        unsupported_construct(a, "ABSTRACT INTERFACE");
+    }
+
+    scope_entry_t* generic_spec_sym = NULL;
+    AST generic_spec = ASTSon1(interface_stmt);
+    if (generic_spec != NULL)
+    {
+        const char* name = get_name_of_generic_spec(generic_spec);
+
+        generic_spec_sym = new_fortran_symbol(decl_context, name);
+
+        generic_spec_sym->kind = SK_FUNCTION;
+        generic_spec_sym->file = ASTFileName(generic_spec);
+        generic_spec_sym->line = ASTLine(generic_spec);
+        generic_spec_sym->entity_specs.is_generic_spec = 1;
+    }
+
+    if (interface_specification_seq == NULL)
+        return;
+
+    AST it;
+    for_each_element(interface_specification_seq, it)
+    {
+        AST interface_specification = ASTSon1(it);
+
+        if (ASTType(interface_specification) == AST_MODULE_PROCEDURE)
+        {
+        }
+        else if (ASTType(interface_specification) == AST_SUBROUTINE_PROGRAM_UNIT
+                || ASTType(interface_specification) == AST_FUNCTION_PROGRAM_UNIT)
+        {
+            scope_entry_t* interface_sym = NULL;
+            build_scope_program_unit(interface_specification, decl_context, &interface_sym);
+
+            if (generic_spec != NULL)
+            {
+                P_LIST_ADD(generic_spec_sym->entity_specs.related_symbols,
+                        generic_spec_sym->entity_specs.num_related_symbols,
+                        interface_sym);
+            }
+        }
+        else
+        {
+            internal_error("Invalid tree '%s'\n", ast_print_node_type(ASTType(interface_specification)));
+        }
+    }
 }
 
-static void build_scope_intrinsic_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+static void build_scope_intrinsic_stmt(AST a, decl_context_t decl_context UNUSED_PARAMETER)
 {
+    fprintf(stderr, "%s: warning: INTRINSIC statement not yet implemented\n",
+            ast_location(a));
 }
 
 static void build_scope_lock_stmt(AST a UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)

@@ -764,7 +764,7 @@ static void check_function_call(AST expr, decl_context_t decl_context)
         AST it;
         for_each_element(actual_arg_spec_list, it)
         {
-            AST actual_arg_spec = ASTSon0(it);
+            AST actual_arg_spec = ASTSon1(it);
             AST actual_arg = ASTSon1(actual_arg_spec);
 
             if (ASTType(actual_arg) != AST_ALTERNATE_RESULT_SPEC)
@@ -774,7 +774,33 @@ static void check_function_call(AST expr, decl_context_t decl_context)
         }
     }
 
-    expression_set_type(expr, function_type_get_return_type(symbol->type_information));
+    char is_call_stmt = (ASTText(expr) != NULL
+            && (strcmp(ASTText(expr), "call") == 0));
+
+    type_t* return_type = function_type_get_return_type(symbol->type_information);
+    if (return_type == NULL)
+    {
+        if (!is_call_stmt)
+        {
+            fprintf(stderr, "%s: warning: invalid function reference to a SUBROUTINE\n",
+                    ast_location(expr));
+            expression_set_error(expr);
+            return;
+        }
+        return_type = get_void_type();
+    }
+    else
+    {
+        if (is_call_stmt)
+        {
+            fprintf(stderr, "%s: warning: invalid CALL statement to a FUNCTION\n",
+                    ast_location(expr));
+            expression_set_error(expr);
+            return;
+        }
+    }
+
+    expression_set_type(expr, return_type);
 }
 
 static void check_greater_or_equal_than(AST expr, decl_context_t decl_context)
@@ -1000,17 +1026,12 @@ static void check_symbol(AST expr, decl_context_t decl_context)
             return;
         }
 
-        type_t* return_type = function_type_get_return_type(entry->type_information);
-        if (return_type != NULL)
-        {
-            expression_set_symbol(expr, entry);
-            expression_set_type(expr, return_type);
-        }
+        expression_set_symbol(expr, entry);
+        expression_set_type(expr, entry->type_information);
     }
     else
     {
         expression_set_error(expr);
-        return;
     }
 }
 
