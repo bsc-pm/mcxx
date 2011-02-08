@@ -115,7 +115,7 @@ namespace TL
 		}
 		
 		ObjectList<Type> parameter_types = function_type.nonadjusted_parameters();
-		if (parameter_types.size() < original_symbol.get_parameter_position()+1)
+		if ((int)parameter_types.size() < original_symbol.get_parameter_position()+1)
 		{
 			throw SyntaxErrorException();
 		}
