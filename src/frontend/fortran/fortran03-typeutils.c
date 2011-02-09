@@ -30,7 +30,7 @@ const char* fortran_print_type_str(type_t* t)
         }
 
         array_spec_list[array_spec_idx].lower = array_type_get_array_lower_bound(t);
-        array_spec_list[array_spec_idx].upper = array_type_get_array_lower_bound(t);
+        array_spec_list[array_spec_idx].upper = array_type_get_array_upper_bound(t);
 
         t = array_type_get_element_type(t);
     }
@@ -103,7 +103,7 @@ const char* fortran_print_type_str(type_t* t)
             result = strappend(result, fortran_prettyprint_in_buffer(array_spec_list[array_spec_idx].lower));
             result = strappend(result, ":");
             result = strappend(result, fortran_prettyprint_in_buffer(array_spec_list[array_spec_idx].upper));
-            if ((array_spec_idx + 1) != (MAX_ARRAY_SPEC - 1))
+            if ((array_spec_idx + 1) <= (MAX_ARRAY_SPEC - 1))
             {
                 result = strappend(result, ", ");
             }
@@ -188,4 +188,21 @@ type_t* replace_return_type_of_function_type(type_t* function_type, type_t* new_
     }
 
     return get_new_function_type(new_return_type, parameter_info, num_parameters);
+}
+
+char equivalent_tkr_types(type_t* t1, type_t* t2)
+{
+    type_t* r1 = get_rank0_type(t1);
+    type_t* r2 = get_rank0_type(t2);
+
+    if (!equivalent_types(r1, r2))
+        return 0;
+
+    int rank1 = get_rank_of_type(t1);
+    int rank2 = get_rank_of_type(t2);
+
+    if (rank1 != rank2)
+        return 0;
+
+    return 1;
 }

@@ -89,9 +89,12 @@ static void copy_on_write_implicit(decl_context_t decl_context)
 
         decl_context.implicit_info->data = allocate_implicit_info_data();
 
-        memcpy(decl_context.implicit_info->data->implicit_letter_set,
-                old_implicit_info->implicit_letter_set,
-                sizeof (*old_implicit_info->implicit_letter_set));
+        if (old_implicit_info->implicit_letter_set != NULL)
+        {
+            memcpy(decl_context.implicit_info->data->implicit_letter_set,
+                    old_implicit_info->implicit_letter_set,
+                    sizeof (*old_implicit_info->implicit_letter_set));
+        }
     }
 }
 

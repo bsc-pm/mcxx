@@ -422,5 +422,17 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
     {
         print_scope_full_context(entry->related_decl_context, global_indent + 1);
     }
+    if (entry->entity_specs.is_generic_spec)
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "Is a generic specifier\n");
+
+        int i;
+        for (i = 0; i < entry->entity_specs.num_related_symbols; i++)
+        {
+            scope_entry_t* related_entry = entry->entity_specs.related_symbols[i];
+            PRINT_INDENTED_LINE(stderr, global_indent+2, "[%d] \"%s\" at %s:%d\n",
+                    i, related_entry->symbol_name, related_entry->file, related_entry->line);
+        }
+    }
 #endif
 }

@@ -47,6 +47,7 @@ void build_scope_fortran_translation_unit(translation_unit_t* translation_unit)
 
 static void build_scope_program_unit(AST program_unit, 
         decl_context_t decl_context,
+        decl_context_t (*new_context)(decl_context_t),
         scope_entry_t** program_unit_symbol);
 
 static void build_scope_program_unit_seq(AST program_unit_seq, 
@@ -55,7 +56,10 @@ static void build_scope_program_unit_seq(AST program_unit_seq,
     AST it;
     for_each_element(program_unit_seq, it)
     {
-        build_scope_program_unit(ASTSon1(it), decl_context, NULL);
+        build_scope_program_unit(ASTSon1(it), 
+                decl_context, 
+                new_program_unit_context,
+                NULL);
     }
 }
 
@@ -77,9 +81,10 @@ static void handle_opt_value_list(AST io_stmt, AST opt_value_list,
 
 static void build_scope_program_unit(AST program_unit, 
         decl_context_t decl_context,
+        decl_context_t (*new_context)(decl_context_t),
         scope_entry_t** program_unit_symbol)
 {
-    decl_context_t program_unit_context = new_program_unit_context(decl_context);
+    decl_context_t program_unit_context = new_context(decl_context);
 
     switch (ASTType(program_unit))
     {
@@ -427,7 +432,10 @@ static void build_scope_internal_subprograms(AST internal_subprograms, decl_cont
     for_each_element(internal_subprograms, it)
     {
         AST internal_subprogram = ASTSon1(it);
-        build_scope_program_unit(internal_subprogram, decl_context, NULL);
+        build_scope_program_unit(internal_subprogram, 
+                decl_context, 
+                new_internal_program_unit_context,
+                NULL);
     }
 }
 
@@ -2218,21 +2226,25 @@ static void build_scope_implicit_stmt(AST a, decl_context_t decl_context)
     AST implicit_spec_list = ASTSon0(a);
     if (implicit_spec_list == NULL)
     {
-        if (is_implicit_none(decl_context))
-        {
-            running_error("%s: error: IMPLICIT NONE specified twice\n",
-                    ast_location(a));
-        }
         if (implicit_has_been_set(decl_context))
         {
-            running_error("%s: error: IMPLICIT NONE after IMPLICIT\n",
-                    ast_location(a));
+            if (is_implicit_none(decl_context))
+            {
+                running_error("%s: error: IMPLICIT NONE specified twice\n",
+                        ast_location(a));
+            }
+            else 
+            {
+                running_error("%s: error: IMPLICIT NONE after IMPLICIT\n",
+                        ast_location(a));
+            }
         }
         set_implicit_none(decl_context);
     }
     else
     {
-        if (is_implicit_none(decl_context))
+        if (implicit_has_been_set(decl_context)
+                && is_implicit_none(decl_context))
         {
             running_error("%s: error: IMPLICIT after IMPLICIT NONE\n",
                     ast_location(a));
@@ -2364,6 +2376,7 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context)
         generic_spec_sym->file = ASTFileName(generic_spec);
         generic_spec_sym->line = ASTLine(generic_spec);
         generic_spec_sym->entity_specs.is_generic_spec = 1;
+        generic_spec_sym->type_information = get_void_type();
     }
 
     if (interface_specification_seq == NULL)
@@ -2381,7 +2394,10 @@ static void build_scope_interface_block(AST a, decl_context_t decl_context)
                 || ASTType(interface_specification) == AST_FUNCTION_PROGRAM_UNIT)
         {
             scope_entry_t* interface_sym = NULL;
-            build_scope_program_unit(interface_specification, decl_context, &interface_sym);
+            build_scope_program_unit(interface_specification, 
+                    decl_context, 
+                    new_program_unit_context, 
+                    &interface_sym);
 
             if (generic_spec != NULL)
             {
