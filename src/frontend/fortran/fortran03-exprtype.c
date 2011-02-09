@@ -169,6 +169,7 @@ static int check_expression_function_compare(const void *a, const void *b)
 
 static void fortran_check_expression_impl_(AST expression, decl_context_t decl_context)
 {
+    ERROR_CONDITION(expression == NULL, "Invalid tree for expression", 0);
     // Sort the array if needed
     if (!check_expression_function_init)
     {
@@ -724,6 +725,9 @@ static void check_floating_literal(AST expr, decl_context_t decl_context)
 
 static void check_function_call(AST expr, decl_context_t decl_context)
 {
+    char is_call_stmt = (ASTText(expr) != NULL
+            && (strcmp(ASTText(expr), "call") == 0));
+
     AST procedure_designator = ASTSon0(expr);
     AST actual_arg_spec_list = ASTSon1(expr);
 
@@ -739,11 +743,16 @@ static void check_function_call(AST expr, decl_context_t decl_context)
 
     if (symbol != NULL
             && symbol->kind == SK_VARIABLE
-            && symbol->entity_specs.is_implicit)
+            && is_void_type(symbol->type_information))
     {
         // Upgrade the symbol to a function with unknown arguments
         symbol->kind = SK_FUNCTION;
-        symbol->type_information = get_nonproto_function_type(symbol->type_information, 0);
+
+        type_t* return_type = symbol->type_information;
+        if (is_call_stmt)
+            return_type = NULL;
+
+        symbol->type_information = get_nonproto_function_type(return_type, 0);
     }
 
     if (symbol == NULL
@@ -918,37 +927,42 @@ static void check_function_call(AST expr, decl_context_t decl_context)
                     num_args = arg_position;
             }
 
-            ERROR_CONDITION(num_args != function_type_get_num_parameters(symbol->type_information), 
-                    "Mismatch between arguments and the type of the function %d != %d", 
-                    num_args,
-                    function_type_get_num_parameters(symbol->type_information));
         }
 
-        // Now check that every type matches, otherwise error
+        ERROR_CONDITION(!function_type_get_lacking_prototype(symbol->type_information) 
+                && num_args != function_type_get_num_parameters(symbol->type_information), 
+                "Mismatch between arguments and the type of the function %d != %d", 
+                num_args,
+                function_type_get_num_parameters(symbol->type_information));
+
         char argument_type_mismatch = 0;
-        for (i = 0; i < num_args; i++)
+        if (!function_type_get_lacking_prototype(symbol->type_information))
         {
-            type_t* formal_type = function_type_get_parameter_type_num(symbol->type_information, i);
-            type_t* real_type = argument_types[i];
-
-            // Note that for ELEMENTAL some more checks should be done
-            if (symbol->entity_specs.is_elemental)
+            // Now check that every type matches, otherwise error
+            for (i = 0; i < num_args; i++)
             {
-                real_type = get_rank0_type(real_type);
-            }
+                type_t* formal_type = function_type_get_parameter_type_num(symbol->type_information, i);
+                type_t* real_type = argument_types[i];
 
-            if (!equivalent_tkr_types(formal_type, real_type))
-            {
-                if (!checking_ambiguity())
+                // Note that for ELEMENTAL some more checks should be done
+                if (symbol->entity_specs.is_elemental)
                 {
-                    fprintf(stderr, "%s: warning: type mismatch in argument %d between the "
-                            "real argument %s and the dummy argument %s\n",
-                            ast_location(expr),
-                            i + 1,
-                            fortran_print_type_str(real_type),
-                            fortran_print_type_str(formal_type));
+                    real_type = get_rank0_type(real_type);
                 }
-                argument_type_mismatch = 1;
+
+                if (!equivalent_tkr_types(formal_type, real_type))
+                {
+                    if (!checking_ambiguity())
+                    {
+                        fprintf(stderr, "%s: warning: type mismatch in argument %d between the "
+                                "real argument %s and the dummy argument %s\n",
+                                ast_location(expr),
+                                i + 1,
+                                fortran_print_type_str(real_type),
+                                fortran_print_type_str(formal_type));
+                    }
+                    argument_type_mismatch = 1;
+                }
             }
         }
 
@@ -962,9 +976,6 @@ static void check_function_call(AST expr, decl_context_t decl_context)
     {
         internal_error("Invalid type for symbol in procedure reference\n", 0);
     }
-
-    char is_call_stmt = (ASTText(expr) != NULL
-            && (strcmp(ASTText(expr), "call") == 0));
 
     type_t* return_type = function_type_get_return_type(symbol->type_information);
     if (return_type == NULL)

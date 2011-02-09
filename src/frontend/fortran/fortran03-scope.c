@@ -147,7 +147,7 @@ decl_context_t new_internal_program_unit_context(decl_context_t decl_context)
     return result;
 }
 
-static scope_entry_t* new_implicit_symbol(decl_context_t decl_context, const char* name)
+static scope_entry_t* new_implicit_symbol(decl_context_t decl_context, AST locus, const char* name)
 {
     // Special names for operators and other non regularly named stuff will not get here
     if (('a' <= tolower(name[0]))
@@ -160,8 +160,14 @@ static scope_entry_t* new_implicit_symbol(decl_context_t decl_context, const cha
 
         scope_entry_t* sym = new_symbol(decl_context, decl_context.current_scope, strtolower(name));
         sym->kind = SK_VARIABLE;
-        sym->entity_specs.is_implicit = 1;
         sym->type_information = implicit_type;
+        sym->entity_specs.is_implicit_basic_type = 1;
+        
+        if (locus != NULL)
+        {
+            sym->file = ASTFileName(locus);
+            sym->line = ASTLine(locus);
+        }
 
         return sym;
     }
@@ -180,7 +186,7 @@ type_t* get_implicit_type_for_symbol(decl_context_t decl_context, const char* na
     }
 
     if (implicit_type == NULL)
-        implicit_type = get_error_type();
+        implicit_type = get_void_type();
 
     return implicit_type;
 }
@@ -200,7 +206,7 @@ scope_entry_t* query_name_no_implicit(decl_context_t decl_context, const char* n
     return result;
 }
 
-scope_entry_t* query_name(decl_context_t decl_context, const char* name)
+scope_entry_t* query_name_with_locus(decl_context_t decl_context, AST locus, const char* name)
 {
     scope_entry_t* result = query_name_no_implicit(decl_context, name);
 
@@ -212,7 +218,7 @@ scope_entry_t* query_name(decl_context_t decl_context, const char* name)
             {
                 fprintf(stderr, "SCOPE: Getting implicit entity for name '%s'\n", name);
             }
-            result = new_implicit_symbol(decl_context, name);
+            result = new_implicit_symbol(decl_context, locus, name);
         }
         DEBUG_CODE()
         {
@@ -224,6 +230,11 @@ scope_entry_t* query_name(decl_context_t decl_context, const char* name)
     }
 
     return result;
+}
+
+scope_entry_t* query_name(decl_context_t decl_context, const char* name)
+{
+    return query_name_with_locus(decl_context, NULL, name);
 }
 
 decl_context_t fortran_new_block_context(decl_context_t decl_context)

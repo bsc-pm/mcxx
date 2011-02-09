@@ -421,9 +421,9 @@ typedef struct entity_specifiers_tag
     char after_typedef:1;
 
 #ifdef FORTRAN_SUPPORT
-    // The symbol was created because it was mentioned elswhere
-    // and there was no IMPLICIT NONE
-    char is_implicit:1;
+    char is_implicit_basic_type:1;
+
+    // Is allocatable
     char is_allocatable:1;
 
     // In common

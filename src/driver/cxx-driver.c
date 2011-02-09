@@ -2509,11 +2509,7 @@ static void semantic_analysis(translation_unit_t* translation_unit, const char* 
                 timing_elapsed(&timing_semantic));
     }
 
-    // At the moment do not check Fortran
-    if (!IS_FORTRAN_LANGUAGE)
-    {
-        check_tree(translation_unit->parsed_tree);
-    }
+    check_tree(translation_unit->parsed_tree);
 }
 
 static const char* prettyprint_translation_unit(translation_unit_t* translation_unit, 

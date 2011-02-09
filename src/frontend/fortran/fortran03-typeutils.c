@@ -124,11 +124,6 @@ char is_pointer_to_array_type(type_t* t)
 
 int get_rank_of_type(type_t* t)
 {
-    // These are internally arrays for convenience
-    if (is_fortran_character_type(t)
-            || is_pointer_to_fortran_character_type(t))
-        return 0;
-
     if (!is_array_type(t)
             && !is_pointer_to_array_type(t))
         return 0;
@@ -139,7 +134,8 @@ int get_rank_of_type(type_t* t)
     }
 
     int result = 0;
-    while (is_array_type(t))
+    while (is_array_type(t)
+            && !is_fortran_character_type(t))
     {
         result++;
         t = array_type_get_element_type(t);
@@ -162,7 +158,7 @@ type_t* get_rank0_type(type_t* t)
 char is_fortran_character_type(type_t* t)
 {
     return (is_array_type(t)
-            && is_char_type(array_type_get_element_type(t)));
+            && is_character_type(array_type_get_element_type(t)));
 }
 
 char is_pointer_to_fortran_character_type(type_t* t)
@@ -205,4 +201,57 @@ char equivalent_tkr_types(type_t* t1, type_t* t2)
         return 0;
 
     return 1;
+}
+
+type_t* update_basic_type_with_type(type_t* type_info, type_t* basic_type)
+{
+    if (is_pointer_type(type_info))
+    {
+        return get_pointer_type(
+                update_basic_type_with_type(pointer_type_get_pointee_type(type_info), basic_type)
+                );
+    }
+    else if (is_array_type(type_info))
+    {
+        return get_array_type_bounds(
+                update_basic_type_with_type(array_type_get_element_type(type_info), basic_type),
+                array_type_get_array_lower_bound(type_info),
+                array_type_get_array_upper_bound(type_info),
+                array_type_get_array_size_expr_context(type_info));
+
+    }
+    else if (is_function_type(type_info))
+    {
+        return replace_return_type_of_function_type(type_info, basic_type);
+    }
+    else
+    {
+        return basic_type;
+    }
+}
+
+char basic_type_is_void(type_t* t)
+{
+    if (t == NULL)
+    {
+        return 0;
+    }
+    else if (is_void_type(t))
+    {
+        return 1;
+    }
+    else if (is_array_type(t))
+    {
+        return basic_type_is_void(array_type_get_element_type(t));
+    }
+    else if (is_function_type(t))
+    {
+        return basic_type_is_void(function_type_get_return_type(t));
+    }
+    else if (is_pointer_type(t))
+    {
+        return basic_type_is_void(pointer_type_get_pointee_type(t));
+    }
+    else
+        return 0;
 }

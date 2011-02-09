@@ -40,7 +40,7 @@
 #ifdef HAVE_STDINT_H
   #include <stdint.h>
 #else
-  // This is the most common workaround
+  // This is a common workaround
   #define SIZE_MAX ((size_t)-1)
 #endif
 
@@ -190,8 +190,10 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %type<ast> data_component_def_stmt
 %type<ast> component_decl
 %type<ast> main_program
-%type<ast> program_unit_stmts_seq
-%type<ast> program_unit_stmts
+%type<ast> top_level_program_unit_stmts_seq
+%type<ast> non_top_level_program_unit_stmts_seq
+%type<ast> top_level_program_unit_stmts
+%type<ast> non_top_level_program_unit_stmts
 %type<ast> program_body
 %type<ast> interface_program_body
 %type<ast> subscript_triplet
@@ -454,7 +456,7 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %type<ast> sync_memory_stmt
 %type<ast> mask_elsewhere_part
 %type<ast> int_expr
-%type<ast> int_expr_opt
+%type<ast> comma_int_expr_opt
 %type<ast> binding_attr
 %type<ast> proc_component_def_stmt
 %type<ast> forall_body_construct
@@ -469,6 +471,7 @@ static AST ambig_io_control_spec(YYSTYPE x0, YYSTYPE x1)
 %type<ast> end_function_stmt
 %type<ast> enum_def
 %type<ast> block
+%type<ast> top_level_block
 %type<ast> intent_stmt
 %type<ast> case_value
 %type<ast> and_operand
@@ -2743,7 +2746,16 @@ forall_stmt : labeldef TOK_FORALL forall_header forall_assignment_stmts
     $$ = ASTMake3Label(AST_FORALL_STATEMENT, $1, $3, $4, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
-block : program_unit_stmts_seq
+top_level_block : top_level_program_unit_stmts_seq
+{
+    $$ = ASTMake1(AST_COMPOUND_STATEMENT, $1, ASTFileName($1), ASTLine($1), NULL);
+}
+| /* empty */
+{
+    $$ = ASTLeaf(AST_EMPTY_STATEMENT, NULL, 0, NULL);
+}
+;
+block : non_top_level_program_unit_stmts_seq
 {
     $$ = ASTMake1(AST_COMPOUND_STATEMENT, $1, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -2878,7 +2890,7 @@ action_term_do_construct : label_do_stmt block do_term_action_stmt
 ;
 // This token is introduced artificially by the lexer to help the parser grasp
 // the structure, it does not exist anywhere else
-do_term_action_stmt : TOK_END_NONBLOCK_DO program_unit_stmts
+do_term_action_stmt : TOK_END_NONBLOCK_DO non_top_level_program_unit_stmts
 {
     $$ = $2;
 }
@@ -2985,7 +2997,10 @@ do_shared_label : TOK_SHARED_LABEL
     $$ = ASTLeaf(AST_SYMBOL, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
-int_expr_opt : int_expr
+comma_int_expr_opt : ',' int_expr
+{
+    $$ = $2;
+}
 | /* empty */
 {
     $$ = NULL;
@@ -2998,10 +3013,10 @@ comma_opt : ','
 {
 }
 ;
-loop_control : comma_opt do_variable '=' int_expr ',' int_expr ',' int_expr_opt
+loop_control : comma_opt do_variable '=' int_expr ',' int_expr comma_int_expr_opt
 {
     AST assig = ASTMake2(AST_ASSIGNMENT, $2, $4, ASTFileName($2), ASTLine($2), NULL);
-    $$ = ASTMake3(AST_LOOP_CONTROL, assig, $6, $8, ASTFileName($2), ASTLine($2), "fortran");
+    $$ = ASTMake3(AST_LOOP_CONTROL, assig, $6, $7, ASTFileName($2), ASTLine($2), "fortran");
 }
 ;
 while_loop_control : ',' TOK_WHILE '(' logical_expr ')'
@@ -4129,23 +4144,35 @@ main_program : program_stmt program_body end_program_stmt
     $$ = ASTMake3(AST_MAIN_PROGRAM_UNIT, NULL, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
-program_unit_stmts_seq : program_unit_stmts
+non_top_level_program_unit_stmts_seq : non_top_level_program_unit_stmts
 {
     $$ = ASTListLeaf($1);
 }
-| program_unit_stmts_seq program_unit_stmts
+| non_top_level_program_unit_stmts_seq non_top_level_program_unit_stmts
+{
+    $$ = ASTList($1, $2);
+}
+;
+top_level_program_unit_stmts_seq : top_level_program_unit_stmts
+{
+    $$ = ASTListLeaf($1);
+}
+| top_level_program_unit_stmts_seq top_level_program_unit_stmts
 {
     $$ = ASTList($1, $2);
 }
 ;
 // All Fortran statements meant to appear inside a program unit (of any kind) should be here
-action_stmts : program_unit_stmts;
-program_unit_stmts : access_stmt
+action_stmts : non_top_level_program_unit_stmts;
+top_level_program_unit_stmts : non_top_level_program_unit_stmts %merge<ambig_assignment_statement_function>
+| stmt_function_stmt %merge<ambig_assignment_statement_function>
+;
+non_top_level_program_unit_stmts : access_stmt
+| assignment_stmt 
 | allocatable_stmt
 | allocate_stmt
 | allstop_stmt
 | arithmetic_if_stmt
-| assignment_stmt %merge<ambig_assignment_statement_function>
 | associate_construct
 | asynchronous_stmt
 | backspace_stmt
@@ -4202,7 +4229,6 @@ program_unit_stmts : access_stmt
 | rewind_stmt
 | save_stmt
 | select_type_construct
-| stmt_function_stmt %merge<ambig_assignment_statement_function>
 | stop_stmt
 | pause_stmt
 | sync_all_stmt
@@ -4219,11 +4245,11 @@ program_unit_stmts : access_stmt
 | where_stmt
 | write_stmt
 ;
-program_body : block internal_subprogram_part 
+program_body : top_level_block internal_subprogram_part 
 {
     $$ = ASTMake2(AST_BODY_PROGRAM_UNIT, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
-| block
+| top_level_block
 {
     $$ = ASTMake2(AST_BODY_PROGRAM_UNIT, $1, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
@@ -4254,7 +4280,7 @@ end_program_stmt : labeldef TOK_END TOK_PROGRAM name eos
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
-module : module_stmt program_unit_stmts_seq module_subprogram_part end_module_stmt
+module : module_stmt block module_subprogram_part end_module_stmt
 {
     AST module_body = ASTMake3(AST_BODY_PROGRAM_UNIT, $2, NULL, $3, ASTFileName($2), ASTLine($2), NULL);
 
@@ -4266,7 +4292,7 @@ module : module_stmt program_unit_stmts_seq module_subprogram_part end_module_st
 
     $$ = ASTMake3(AST_MODULE_PROGRAM_UNIT, $1, module_body, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| module_stmt program_unit_stmts_seq end_module_stmt
+| module_stmt block end_module_stmt
 {
     AST module_body = ASTMake3(AST_BODY_PROGRAM_UNIT, $2, NULL, NULL, ASTFileName($2), ASTLine($2), NULL);
 
@@ -4401,7 +4427,7 @@ only : generic_spec
 ;
 local_defined_operator : user_defined_op
 ;
-submodule : submodule_stmt program_unit_stmts_seq module_subprogram_part end_submodule_stmt
+submodule : submodule_stmt block module_subprogram_part end_submodule_stmt
 {
     AST module_body = ASTMake3(AST_BODY_PROGRAM_UNIT, $2, NULL, $3, ASTFileName($2), ASTLine($2), NULL);
 
@@ -4413,7 +4439,7 @@ submodule : submodule_stmt program_unit_stmts_seq module_subprogram_part end_sub
 
     $$ = ASTMake3(AST_SUBMODULE_PROGRAM_UNIT, $1, module_body, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| submodule_stmt program_unit_stmts_seq end_submodule_stmt
+| submodule_stmt block end_submodule_stmt
 {
     AST module_body = ASTMake3(AST_BODY_PROGRAM_UNIT, $2, NULL, NULL, ASTFileName($2), ASTLine($2), NULL);
 
@@ -4456,7 +4482,7 @@ end_submodule_stmt : labeldef TOK_END TOK_SUBMODULE name eos
     $$ = ASTMake2Label(AST_END_STATEMENT, $1, NULL, $2.token_file, $2.token_line, $2.token_text);
 }
 ;
-block_data : block_data_stmt program_unit_stmts_seq end_block_data_stmt
+block_data : block_data_stmt block end_block_data_stmt
 {
     $$ = ASTMake3(AST_BLOCK_DATA_PROGRAM_UNIT, $1, $2, $3, ASTFileName($1), ASTLine($1), NULL);
 }
